@@ -19,6 +19,7 @@ export interface LocalContainerRefreshState {
 
 function mergeLocalContainerStates(input: {
   localContainerStates: ReadonlyArray<ContainerState>;
+  remoteContainerIdsAtLoadStart: ReadonlySet<string>;
   state: LocalContainerRefreshState;
 }): void {
   for (const localContainerState of input.localContainerStates) {
@@ -26,6 +27,18 @@ function mergeLocalContainerStates(input: {
       localContainerState.container.id,
     );
     if (existingState) {
+      // The load can start before a remote create and finish after it. Its
+      // local-only snapshot must not erase the remote identity that the create
+      // persisted in the meantime, or the pending create intent is re-queued.
+      if (
+        !input.remoteContainerIdsAtLoadStart.has(
+          localContainerState.container.id,
+        ) &&
+        existingState.record.documentId &&
+        !localContainerState.record.documentId
+      ) {
+        continue;
+      }
       existingState.container = localContainerState.container;
       existingState.doc = localContainerState.doc;
       existingState.record = localContainerState.record;
@@ -56,12 +69,21 @@ export function refreshLocalContainerStates(input: {
   }
 
   state.localContainersNeedRefresh = false;
+  const remoteContainerIdsAtLoadStart = new Set(
+    Array.from(state.containersById.values()).flatMap((containerState) =>
+      containerState.record.documentId ? [containerState.container.id] : [],
+    ),
+  );
   state.localContainerRefreshPromise = loadLocalContainerStates({
     persistence: state.persistence,
     runtime: state.runtime,
   })
     .then((localContainerStates) => {
-      mergeLocalContainerStates({ localContainerStates, state });
+      mergeLocalContainerStates({
+        localContainerStates,
+        remoteContainerIdsAtLoadStart,
+        state,
+      });
       state.documentStoresNeedPriming = true;
       host.updateSnapshot();
     })
