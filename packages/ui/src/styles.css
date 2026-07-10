@@ -37,6 +37,13 @@
   --tearleads-footer-background: var(--color-dark);
   --tearleads-footer-text: var(--color-light);
 
+  /* Window title bar. Dedicated (not the inverting --color-* primitives) so
+     Dark can render a calm raised-chrome band instead of flipping the
+     foreground role to a near-white bar. In Light these resolve to the classic
+     dark bar / light text. */
+  --tearleads-window-titlebar-background: var(--color-dark);
+  --tearleads-window-titlebar-text: var(--color-light);
+
   /* === Typography === */
   --tearleads-font-family: monospace;
   --font-size-2xs: 0.72rem;
@@ -89,7 +96,11 @@
   /* === Borders === */
   --border-width: 1px;
   --border: var(--border-width) solid currentColor;
-  --border-strong: var(--border-width) solid var(--color-dark);
+  /* Strong dividers/outlines (window & panel edges). The color is a themeable
+     hook: Light uses the foreground primitive; Dark tones it to a soft edge
+     rather than the near-white foreground, so window borders don't glare. */
+  --border-strong-color: var(--color-dark);
+  --border-strong: var(--border-width) solid var(--border-strong-color);
   --radius: 0;
 
   /* === Overlays === */
@@ -154,6 +165,15 @@
   --tearleads-header-text: #e6ece9;
   --tearleads-footer-background: #0e1113;
   --tearleads-footer-text: #e6ece9;
+
+  /* Window chrome. The title bar is a raised surface one step up the dark
+     elevation ramp (background #14181a -> body #1c2124 -> muted bars #262c2f ->
+     title bar) with off-white text, so it reads as chrome instead of an
+     inverted near-white slab. The strong-border color is a soft edge that
+     still delineates a window against the desktop without glaring. */
+  --tearleads-window-titlebar-background: #2f373b;
+  --tearleads-window-titlebar-text: #e6ece9;
+  --border-strong-color: #3a443f;
 
   --overlay-background: rgb(0 0 0 / 55%);
 }
