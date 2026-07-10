@@ -325,6 +325,8 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
   if (selectedDocument) {
     return (
       <ExplorerDocumentDetail
+        currentSigningFingerprint={params.currentSigningFingerprint}
+        currentUserId={params.currentUserId}
         documentListRevision={params.documentListRevision}
         documentQueries={params.documentQueries}
         nodes={params.nodes}
