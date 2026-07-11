@@ -69,27 +69,6 @@
   accent-color: var(--color-dark);
 }
 
-/* Persistent launcher living in the pane footer's system tray
-   (.pane-footer-tray). A square icon button sized to the standard control
-   height so it sits flush with the footer's other affordances. */
-.system-monitor-launcher {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-height);
-  height: var(--control-height);
-  padding: 0;
-  border: var(--border-strong);
-  background: var(--color-light);
-  cursor: pointer;
-}
-
-.system-monitor-launcher:hover,
-.system-monitor-launcher:focus-visible {
-  background: var(--emphasis-surface);
-  color: var(--emphasis-text);
-}
-
 /*
  * Touch sizing (routed layout). Tabs and the feature-flag switch are not
  * inside virtualized rows, so they can grow freely. The launcher and tabs are

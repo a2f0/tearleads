@@ -1,5 +1,4 @@
 import { ThemeInvertIcon } from "./ThemeInvertIcon";
-import "./ThemeToggleButton.css";
 import { useOptionalTheme } from "./ThemeProvider";
 
 // The theme control that docks in the pane footer's system tray, next to the
@@ -19,7 +18,7 @@ export function ThemeToggleButton() {
   return (
     <button
       aria-label={label}
-      className="theme-toggle-button"
+      className="tearleads-action-button tearleads-action-button--icon"
       title={label}
       type="button"
       onClick={toggleTheme}
