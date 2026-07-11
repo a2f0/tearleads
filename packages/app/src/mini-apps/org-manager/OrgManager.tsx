@@ -25,6 +25,7 @@ import {
   useOrgManagerModel,
 } from "./hooks/useOrgManagerModel";
 import { ORG_MANAGER_LABELS } from "./labels";
+import { OrgManagerMenu } from "./OrgManagerMenu";
 import { useOrgManagerRoutedChromeActions } from "./OrgManagerRoutedChrome";
 import { CreateOrganizationDialog } from "./organization/CreateOrganizationDialog";
 import { OrganizationView } from "./organization/OrganizationView";
@@ -352,12 +353,16 @@ export function OrgManager() {
             {model.error}
           </MiniAppStatus>
         )}
-        <OrgManagerContent
-          model={model}
-          organizationId={organizationId}
-          revokeGrant={revokeGrantDialog.requestRevokeGrant}
-          showDirectoryDetailDismissButton={!showRosterDetailBackAction}
-        />
+        {model.showCompactMenu ? (
+          <OrgManagerMenu setView={model.openSection} />
+        ) : (
+          <OrgManagerContent
+            model={model}
+            organizationId={organizationId}
+            revokeGrant={revokeGrantDialog.requestRevokeGrant}
+            showDirectoryDetailDismissButton={!showRosterDetailBackAction}
+          />
+        )}
       </main>
       <OrgManagerContextMenuLayer
         canCreateGroup={model.canCreateGroup}

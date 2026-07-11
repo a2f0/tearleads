@@ -17,6 +17,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useCompactRoutedMode } from "../../../navigation/useCompactRoutedMode";
 import {
   useTearleads,
   useTearleadsRuntime,
@@ -62,7 +63,14 @@ export function useOrgManagerModel() {
     setSelectedGroupId: selectGroup,
     setView,
   } = useOrgManagerRoute({ groups });
-  const view = route.view;
+  const compactRoutedMode = useCompactRoutedMode();
+  // The segment-less base route is "menu". On wide layouts the sidebar already
+  // lists the sections, so the menu collapses back to the roster; only the
+  // compact/mobile layout renders the standalone section-menu home.
+  const rawView = route.view;
+  const view: OrgManagerView =
+    !compactRoutedMode && rawView === "menu" ? "directory" : rawView;
+  const showCompactMenu = compactRoutedMode && rawView === "menu";
   const [members, setMembers] = useState<OrganizationGroupMembers | null>(null);
   const [groupContainers, setGroupContainers] =
     useState<OrganizationGroupContainers | null>(null);
@@ -441,6 +449,7 @@ export function useOrgManagerModel() {
     openCreateGroupDialog,
     openImportUserDialog,
     openRosterUser: rosterActions.openRosterUser,
+    openSection: setOrgManagerView,
     openRosterUserForEditing: rosterActions.openRosterUserForEditing,
     orgSwitcher,
     organizationId: appData.auth.organizationId,
@@ -459,6 +468,7 @@ export function useOrgManagerModel() {
     selectGroup,
     selectUser: rosterActions.selectRosterUser,
     setAddUserId,
+    showCompactMenu,
     setGroupNameDraft,
     setImportUserIdDraft,
     setSelectedProfileDisplayName,
