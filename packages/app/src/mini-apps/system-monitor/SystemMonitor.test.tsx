@@ -68,6 +68,16 @@ function renderRoutedPane() {
   );
 }
 
+function openRoutedMiniAppLink(
+  view: ReturnType<typeof renderRoutedPane>,
+  name: string,
+) {
+  // The routed nav rail defaults to collapsed, so open it before reaching the
+  // app links it hosts.
+  fireEvent.click(view.getByRole("button", { name: "Expand navigation rail" }));
+  fireEvent.click(view.getByRole("link", { name }));
+}
+
 function expectRoutedDeveloperMenuItems(
   view: ReturnType<typeof renderPane>,
   visible: boolean,
@@ -231,7 +241,7 @@ test("routed system monitor launches from nav and tabs update the path", async (
   const view = renderRoutedPane();
 
   try {
-    fireEvent.click(view.getByRole("link", { name: "System Monitor" }));
+    openRoutedMiniAppLink(view, "System Monitor");
 
     const logsTab = await view.findByRole("tab", { name: "Logs" });
     expect(logsTab.getAttribute("aria-selected")).toBe("true");
@@ -273,7 +283,7 @@ test("routed home pins the monitor only after the System Monitor pin action", as
       view.queryByRole("button", { name: "Pin to Home Screen" }),
     ).toBeNull();
 
-    fireEvent.click(view.getByRole("link", { name: "System Monitor" }));
+    openRoutedMiniAppLink(view, "System Monitor");
     expect(await view.findByRole("tab", { name: "Logs" })).toBeTruthy();
 
     fireEvent.click(
@@ -281,8 +291,12 @@ test("routed home pins the monitor only after the System Monitor pin action", as
     );
 
     await waitFor(() => {
+      // Home is the Explorer app now, so the Explorer nav link (not a separate
+      // "Home" entry) is the active one once the pin action navigates home.
       expect(
-        view.getByRole("link", { name: "Home" }).getAttribute("aria-current"),
+        view
+          .getByRole("link", { name: "Explorer" })
+          .getAttribute("aria-current"),
       ).toBe("page");
       expect(view.getByText(/SQLite Worker/i)).toBeTruthy();
       expect(view.container.querySelector(".pane-log")).not.toBeNull();
@@ -338,7 +352,7 @@ test("pin to desktop closes the window, renders inline, and persists the choice"
 test("developer mode toggles from the routed monitor menu and gates pane commands", async () => {
   const view = renderRoutedPane();
 
-  fireEvent.click(view.getByRole("link", { name: "System Monitor" }));
+  openRoutedMiniAppLink(view, "System Monitor");
   await view.findByRole("tab", { name: "Logs" });
   expectRoutedDeveloperMenuItems(view, false);
   expect(globalThis.localStorage.getItem(DEVELOPER_MODE_KEY)).toBeNull();

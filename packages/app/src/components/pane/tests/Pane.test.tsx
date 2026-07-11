@@ -28,6 +28,7 @@ afterEach(cleanupPaneTestEnvironment);
 async function openRoutedSystemMonitorStatus(
   view: ReturnType<typeof renderPane>,
 ) {
+  fireEvent.click(view.getByRole("button", { name: "Expand navigation rail" }));
   fireEvent.click(view.getByRole("link", { name: "System Monitor" }));
   fireEvent.click(await view.findByRole("tab", { name: "Status" }));
   await waitFor(() => {

@@ -375,19 +375,6 @@
   scrollbar-gutter: var(--scrollbar-gutter);
 }
 
-.routed-pane-home {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-}
-
-.routed-pane-launcher {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  padding: var(--space-md);
-}
-
 /* === Mobile menu bar === */
 
 .routed-pane-mobile-bar {
