@@ -33,24 +33,18 @@
  * The wide layout gives every column a fixed width, but the tablet detail pane
  * sits beside a persistent rail and is often narrower than their sum. Without a
  * floor, `table-layout: fixed` would shrink every column proportionally and
- * crush the lane down to one-character-per-line vertical text. `max-content`
- * floors the table at the sum of its currently visible columns' widths, so the
- * frame's `overflow: auto` scrolls horizontally instead — and the floor drops
- * automatically when the column-visibility menu hides a column, rather than
- * tracking a hardcoded total here.
+ * crush the lane down to one-character-per-line vertical text.
+ *
+ * That floor is applied inline from ExplorerSyncLaneList as the sum of the
+ * visible columns' fixed widths (so it drops automatically as columns are
+ * hidden). It is computed in JS rather than via CSS `min-width: max-content`
+ * because Firefox derives a table's `max-content` from cell *content* — not the
+ * `table-layout: fixed` column widths — which ballooned the columns and forced
+ * a huge horizontal scroll. Default to no floor here so the compact tier (lane +
+ * status, lane flexing) fits the narrow viewport; the wide tier's inline
+ * min-width overrides this.
  */
 .explorer-sync-lane-table-wrap .mini-app-table {
-  min-width: max-content;
-}
-
-/*
- * The phone tier renders only the lane and status columns (see
- * SYNC_LANE_COMPACT_COLUMN_IDS), and the lane column has no fixed width there,
- * so `max-content` would stretch the table to fit the widest lane key on one
- * line and force a horizontal scroll. Drop the floor so the two columns fit the
- * narrow viewport and the lane key wraps instead.
- */
-.routed-pane--mobile .explorer-sync-lane-table-wrap .mini-app-table {
   min-width: 0;
 }
 
