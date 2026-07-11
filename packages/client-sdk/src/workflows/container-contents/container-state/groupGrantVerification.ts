@@ -96,11 +96,16 @@ export async function containerStateHasCurrentGroupGrant(input: {
         head.keyFingerprint === currentHead.keyFingerprint,
     );
   if (isCurrent) {
-    await savePrincipalPolicyBundle(
-      input.runtime.infra.execSql,
-      bundle,
-      new Date().toISOString(),
-    );
+    try {
+      await savePrincipalPolicyBundle(
+        input.runtime.infra.execSql,
+        bundle,
+        new Date().toISOString(),
+      );
+    } catch {
+      // The cryptographically verified root grant is already safe. A local
+      // cache failure must not keep it pending or trigger duplicate re-wraps.
+    }
   }
   return isCurrent;
 }
