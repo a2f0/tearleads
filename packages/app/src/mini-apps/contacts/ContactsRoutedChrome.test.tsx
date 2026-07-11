@@ -4,10 +4,16 @@ import {
   useWindowTitleBarActions,
   WindowMenuProvider,
 } from "../../components/window/WindowMenuContext";
+import { WindowToolBar } from "../../components/window/WindowToolBar";
 import { useContactsRoutedChromeActions } from "./ContactsRoutedChrome";
 import { CONTACTS_LABELS } from "./labels";
+import type { ContactsRoute } from "./routes";
 
 afterEach(() => cleanup());
+
+// Module-scoped so a harness re-render (a context update triggers one) does not
+// hand the chrome hook fresh closures and loop the action re-registration.
+const noop = () => undefined;
 
 function ToolbarProbe() {
   const actions = useWindowTitleBarActions();
@@ -73,4 +79,33 @@ test("contacts selection route exposes new and import toolbar actions", async ()
   );
 
   expect(invoked).toEqual(["new", "import"]);
+});
+
+function ContactsToolbarHarness({ route }: { route: ContactsRoute }) {
+  useContactsRoutedChromeActions({
+    canWrite: true,
+    openImportContactRoute: noop,
+    openNewContactRoute: noop,
+    ready: true,
+    route,
+  });
+
+  return <WindowToolBar />;
+}
+
+test("reserves the toolbar row on action-less routes so the bar height stays stable", async () => {
+  const view = render(
+    <WindowMenuProvider>
+      <ContactsToolbarHarness route="new-contact" />
+    </WindowMenuProvider>,
+  );
+
+  // The new-contact route registers no toolbar actions, but the reserved row
+  // still mounts so its height matches the selection route's filled bar.
+  await waitFor(() => {
+    expect(view.container.querySelector(".window-toolbar")).not.toBeNull();
+  });
+  expect(
+    view.queryByRole("button", { name: CONTACTS_LABELS.newContactAction }),
+  ).toBeNull();
 });
