@@ -3,12 +3,19 @@ import {
   DEFAULT_ORG_MANAGER_ROUTE,
   formatOrgManagerGrantDetailRouteSegments,
   formatOrgManagerRouteSegments,
+  type OrgManagerRoute,
   parseOrgManagerRouteSegments,
   resolveOrgManagerRoute,
   resolveOrgManagerSelectedGroupId,
 } from "./routes";
 
 const groups = [{ groupId: "admins" }, { groupId: "members" }] as const;
+
+const MENU_ROUTE: OrgManagerRoute = {
+  selectedGrantRef: null,
+  selectedGroupId: null,
+  view: "menu",
+};
 
 test("org manager route preserves a valid selected group", () => {
   expect(resolveOrgManagerSelectedGroupId("members", groups)).toBe("members");
@@ -48,8 +55,21 @@ test("org manager route keeps a pending group while groups are unavailable", () 
   });
 });
 
+test("org manager base segments resolve to the section menu", () => {
+  // The segment-less base route is the compact section menu; the roster now
+  // carries an explicit "directory" segment so the two are distinguishable.
+  expect(parseOrgManagerRouteSegments([])).toEqual(MENU_ROUTE);
+  expect(parseOrgManagerRouteSegments(["nonsense"])).toEqual(MENU_ROUTE);
+  expect(parseOrgManagerRouteSegments(["directory"])).toEqual(
+    DEFAULT_ORG_MANAGER_ROUTE,
+  );
+  expect(formatOrgManagerRouteSegments(MENU_ROUTE)).toEqual([]);
+  expect(formatOrgManagerRouteSegments(DEFAULT_ORG_MANAGER_ROUTE)).toEqual([
+    "directory",
+  ]);
+});
+
 test("org manager route segments preserve view and selected group", () => {
-  expect(parseOrgManagerRouteSegments([])).toEqual(DEFAULT_ORG_MANAGER_ROUTE);
   expect(parseOrgManagerRouteSegments(["groups", "admins"])).toEqual({
     selectedGrantRef: null,
     selectedGroupId: "admins",

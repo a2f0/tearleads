@@ -9,8 +9,8 @@ import {
   useWindowSidebar,
 } from "../../components/window/WindowSidebarContext";
 import type { OrgManagerSidebarContextMenuTarget } from "./context-menu/OrgManagerContextMenu";
-import { ORG_MANAGER_LABELS } from "./labels";
 import type { OrgManagerView } from "./routes";
+import { ORG_MANAGER_SECTIONS } from "./sections";
 
 export type { OrgManagerView } from "./routes";
 
@@ -32,44 +32,22 @@ function OrgManagerSidebar({
 }) {
   return (
     <MiniAppSidebar>
-      <MiniAppRowButton
-        onClick={() => setView("directory")}
-        onContextMenu={(event) => handleContextMenu?.(event, "directory")}
-        selected={view === "directory"}
-      >
-        <MiniAppRowText>{ORG_MANAGER_LABELS.directory}</MiniAppRowText>
-      </MiniAppRowButton>
-      <MiniAppRowButton
-        onClick={() => setView("groups")}
-        onContextMenu={(event) => handleContextMenu?.(event, "groups")}
-        selected={view === "groups"}
-      >
-        <MiniAppRowText>{ORG_MANAGER_LABELS.groups}</MiniAppRowText>
-      </MiniAppRowButton>
-      <MiniAppRowButton
-        onClick={() => setView("grants")}
-        selected={view === "grants"}
-      >
-        <MiniAppRowText>{ORG_MANAGER_LABELS.grants}</MiniAppRowText>
-      </MiniAppRowButton>
-      <MiniAppRowButton
-        onClick={() => setView("organization")}
-        selected={view === "organization"}
-      >
-        <MiniAppRowText>{ORG_MANAGER_LABELS.organization}</MiniAppRowText>
-      </MiniAppRowButton>
-      <MiniAppRowButton
-        onClick={() => setView("usage")}
-        selected={view === "usage"}
-      >
-        <MiniAppRowText>{ORG_MANAGER_LABELS.usage}</MiniAppRowText>
-      </MiniAppRowButton>
-      <MiniAppRowButton
-        onClick={() => setView("billing")}
-        selected={view === "billing"}
-      >
-        <MiniAppRowText>{ORG_MANAGER_LABELS.billing}</MiniAppRowText>
-      </MiniAppRowButton>
+      {ORG_MANAGER_SECTIONS.map(
+        ({ contextMenuTarget, label, view: sectionView }) => (
+          <MiniAppRowButton
+            key={sectionView}
+            onClick={() => setView(sectionView)}
+            onContextMenu={
+              contextMenuTarget
+                ? (event) => handleContextMenu?.(event, contextMenuTarget)
+                : undefined
+            }
+            selected={view === sectionView}
+          >
+            <MiniAppRowText>{label}</MiniAppRowText>
+          </MiniAppRowButton>
+        ),
+      )}
     </MiniAppSidebar>
   );
 }

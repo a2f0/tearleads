@@ -90,6 +90,7 @@ export const ORG_MANAGER_LABELS = {
   loadingProfileDocument: "Loading profile document...",
   loadingUserDetail: "Loading user detail...",
   members: "Members",
+  menuNavLabel: "Org Manager sections",
   metadataAccessEpoch: "Metadata access epoch",
   metadataAccessStateHash: "Metadata access state hash",
   metadataDocumentId: "Metadata document ID",

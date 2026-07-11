@@ -1,4 +1,5 @@
 export type OrgManagerView =
+  | "menu"
   | "directory"
   | "groups"
   | "grants"
@@ -12,10 +13,26 @@ export interface OrgManagerRoute {
   view: OrgManagerView;
 }
 
+/**
+ * The default a non-routed (windowed) org-manager opens on: the roster, shown
+ * beside the always-visible sidebar. Compact routed layouts instead open on
+ * {@link MENU_ORG_MANAGER_ROUTE} — see {@link parseOrgManagerRouteSegments}.
+ */
 export const DEFAULT_ORG_MANAGER_ROUTE: OrgManagerRoute = {
   selectedGrantRef: null,
   selectedGroupId: null,
   view: "directory",
+};
+
+/**
+ * The base (segment-less) routed view. On a compact/mobile layout this renders
+ * the section menu home; wider layouts collapse it back to the roster since
+ * their sidebar already lists the sections (see the model's `showCompactMenu`).
+ */
+const MENU_ORG_MANAGER_ROUTE: OrgManagerRoute = {
+  selectedGrantRef: null,
+  selectedGroupId: null,
+  view: "menu",
 };
 
 export type OrgManagerGrantSubjectType = "group" | "organization" | "user";
@@ -42,6 +59,7 @@ type OrgManagerGroupRouteTarget = {
 
 function isOrgManagerView(view: string | undefined): view is OrgManagerView {
   return (
+    view === "menu" ||
     view === "directory" ||
     view === "groups" ||
     view === "grants" ||
@@ -57,11 +75,11 @@ export function parseOrgManagerRouteSegments(
   const [viewSegment, secondSegment, thirdSegment] = pathSegments;
   const fourthSegment = pathSegments[3];
   if (!viewSegment) {
-    return DEFAULT_ORG_MANAGER_ROUTE;
+    return MENU_ORG_MANAGER_ROUTE;
   }
 
   if (!isOrgManagerView(viewSegment)) {
-    return DEFAULT_ORG_MANAGER_ROUTE;
+    return MENU_ORG_MANAGER_ROUTE;
   }
 
   if (viewSegment === "groups") {
@@ -101,11 +119,7 @@ export function formatOrgManagerRouteSegments({
   selectedGroupId,
   view,
 }: OrgManagerRoute): ReadonlyArray<string> {
-  if (
-    view === DEFAULT_ORG_MANAGER_ROUTE.view &&
-    !selectedGroupId &&
-    !selectedGrantRef
-  ) {
+  if (view === "menu") {
     return [];
   }
 
