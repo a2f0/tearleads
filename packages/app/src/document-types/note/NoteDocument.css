@@ -124,6 +124,16 @@
   opacity: var(--opacity-faint);
 }
 
+/* The empty hint reads "Drag files here…", but the routed (mobile / tablet /
+   iPad touch) shell has no drag-and-drop — only the Add button attaches. Drop
+   the hint there so it never promises an interaction the surface can't offer;
+   the "No attachments yet." title and the Add control stand on their own. Keyed
+   off the navigation-mode attribute (not `@media (pointer: coarse)`) so an iPad
+   with a trackpad — routed layout, `pointer: fine` — is still covered. */
+:root[data-navigation-mode="routed"] .note-document-attachments-empty-hint {
+  display: none;
+}
+
 /* === Tile grid === */
 .note-document-attachments {
   list-style: none;
