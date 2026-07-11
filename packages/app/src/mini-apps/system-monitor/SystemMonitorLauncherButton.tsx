@@ -1,7 +1,7 @@
-import { PulseIcon } from "@phosphor-icons/react/dist/csr/Pulse";
 import { useCallback } from "react";
 import { useNetworkModeContextMenu } from "../../components/shared/NetworkModeContextMenu";
 import { useMiniAppBusActions } from "../bus";
+import { SystemMonitorIcon } from "./icon";
 import { useSystemMonitor } from "./SystemMonitorProvider";
 
 const SYSTEM_MONITOR_LABEL = "System Monitor";
@@ -31,7 +31,7 @@ export function SystemMonitorLauncherButton() {
         onClick={handleClick}
         onContextMenu={networkContextMenu.handleContextMenu}
       >
-        <PulseIcon aria-hidden focusable={false} size={20} />
+        <SystemMonitorIcon aria-hidden focusable={false} size={20} />
       </button>
       {networkContextMenu.contextMenu}
     </>
