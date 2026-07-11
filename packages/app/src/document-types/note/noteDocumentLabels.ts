@@ -8,10 +8,12 @@ export const NOTE_DOCUMENT_LABELS = {
   // because the count carries the meaning.
   attachmentsCount: (count: number) => `Attachments · ${count}`,
   attachmentsEmpty: "No attachments yet.",
-  attachmentsEmptyHint: "Drag files here or use Add to attach them.",
+  attachmentsEmptyHint: "Drag files here or use Upload to attach them.",
   attachmentSyncing: "Syncing",
-  addAttachment: "Add",
-  addAttachmentLabel: "Add attachment",
+  // Attach controls in the panel header. "Upload" opens the file picker;
+  // "Select Blob" opens the host's blob picker (hidden when no blobs exist).
+  uploadAttachment: "Upload",
+  selectBlob: "Select Blob",
   editor: "Notes editor",
   editorLoadingPlaceholder: "Loading notes...",
   editorReadyPlaceholder: "Type your notes here...",

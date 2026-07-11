@@ -15,10 +15,17 @@ import {
 } from "react";
 import { useLog } from "../../providers/logging/LogProvider";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
-import { useDocument } from "../../stores/documents/DocumentsProvider";
+import {
+  DEFAULT_DOCUMENT_ID,
+  useDocument,
+} from "../../stores/documents/DocumentsProvider";
 import { downloadBytesAsFile } from "../../utils/downloadFile";
-import { readDocumentAttachmentUpload } from "../shared/documentAttachmentUtils";
+import {
+  type DocumentAttachmentSlot,
+  readDocumentAttachmentUpload,
+} from "../shared/documentAttachmentUtils";
 import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
+import { useBlobPickAttachment } from "../shared/useBlobPickAttachment";
 
 type NoteAttachmentStatusBySlotId = Readonly<
   Record<string, DocumentAttachmentStatus>
@@ -26,6 +33,20 @@ type NoteAttachmentStatusBySlotId = Readonly<
 type NoteAttachmentImageUrlBySlotId = Readonly<Record<string, string>>;
 type NoteAttachmentStorageKeyBySlotId = Readonly<Record<string, string>>;
 type NoteDropzoneElement = HTMLFieldSetElement | HTMLLabelElement;
+
+// A note holds many free-form attachments (unlike the fixed front/back slots of
+// a structured document), so blob picking routes through a single opaque slot
+// and the chosen blob is appended as a fresh attachment rather than bound to a
+// named slot. The slot is only a routing channel for the host's blob picker;
+// the appended attachment gets its own generated slot id.
+const NOTE_BLOB_PICK_SLOT: DocumentAttachmentSlot = {
+  description: "Routes a picked blob into the note as a new attachment.",
+  label: "Attachment",
+  slotId: "note-attachment-blob-pick",
+};
+const NOTE_BLOB_PICK_SLOT_IDS: ReadonlyArray<string> = [
+  NOTE_BLOB_PICK_SLOT.slotId,
+];
 
 interface NoteEditorFieldsModel {
   attachments: ReadonlyArray<DocumentAttachment>;
@@ -41,6 +62,11 @@ interface NoteEditorFieldsModel {
   handleDragOver: (event: DragEvent<NoteDropzoneElement>) => void;
   handleDrop: (event: DragEvent<NoteDropzoneElement>) => void;
   handleRemoveAttachment: (slotId: string) => void;
+  // Opens the host's blob picker to attach an existing blob. `undefined` when no
+  // blob picker is available (no host mounted, or the container has no blobs) so
+  // the "Select Blob" control stays hidden — mirrors the structured-document
+  // "Choose Blob" affordance.
+  handleSelectBlob: (() => void) | undefined;
   handleSelectedFiles: (fileList: FileList | null) => void;
   imageUrlBySlotId: NoteAttachmentImageUrlBySlotId;
   ready: boolean;
@@ -178,12 +204,56 @@ function useNoteAttachmentActions({
   };
 }
 
+// Bridges the note to the host's blob picker so an existing blob can be
+// attached, reusing the same `useBlobPickAttachment` seam the structured
+// document slots use — which already hides the affordance when no host is
+// mounted or the container is empty. The note has no fixed slots, so the picked
+// blob is appended as a new attachment (via attachFiles) rather than bound to a
+// slot; the routing slot id is inert. Returns `undefined` when picking is
+// unavailable so the "Select Blob" button stays hidden.
+function useNoteBlobPickAttachment(params: {
+  attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
+  blobStore: BlobStore;
+  containerId: string | null;
+  localId: string;
+}): (() => void) | undefined {
+  const { attachFiles, blobStore, containerId, localId } = params;
+  const appendPickedBlob = useCallback(
+    (_slotId: string, attachment: DocumentAttachmentUpload) => {
+      attachFiles([attachment]);
+    },
+    [attachFiles],
+  );
+  const blobPicker = useBlobPickAttachment({
+    blobStore,
+    containerId,
+    errorMessage: "Failed to handle note blob attachment selection",
+    localId,
+    setAttachment: appendPickedBlob,
+    slotIds: NOTE_BLOB_PICK_SLOT_IDS,
+  });
+
+  const onRequestBlobPick = blobPicker?.onRequestBlobPick;
+  return useMemo(
+    () =>
+      onRequestBlobPick
+        ? () => onRequestBlobPick(NOTE_BLOB_PICK_SLOT)
+        : undefined,
+    [onRequestBlobPick],
+  );
+}
+
 // Shared note editor data wiring: reads the documents store and exposes the
 // editor text, attachment value maps, and drag/drop + file-input handlers that
 // the presentational NoteEditorFields renders. Both the notes mini-app model
 // and the explorer's note document renderer build on this so the editor and
-// attachment behavior stay identical across the two surfaces.
-export function useNoteEditorFields(): NoteEditorFieldsModel {
+// attachment behavior stay identical across the two surfaces. The optional
+// container/local ids let the explorer surface wire the blob picker; the
+// standalone mini-app omits them and the "Select Blob" control stays hidden.
+export function useNoteEditorFields(
+  params: { containerId?: string | null; localId?: string } = {},
+): NoteEditorFieldsModel {
+  const { containerId = null, localId = DEFAULT_DOCUMENT_ID } = params;
   const { infra } = useTearleadsRuntime();
   const { blobStore } = infra;
   const { logError } = useLog();
@@ -219,6 +289,12 @@ export function useNoteEditorFields(): NoteEditorFieldsModel {
     logError,
     removeAttachment,
   });
+  const handleSelectBlob = useNoteBlobPickAttachment({
+    attachFiles,
+    blobStore,
+    containerId,
+    localId,
+  });
 
   // `canAttach` already implies write access (the store derives it from
   // canWriteDocument), but gate the drop surface on `canWrite` explicitly too so
@@ -237,6 +313,10 @@ export function useNoteEditorFields(): NoteEditorFieldsModel {
     fileInputRef,
     handleDownloadAttachment,
     handleRemoveAttachment,
+    // A read-only note can't attach, so suppress the blob picker even if a host
+    // is mounted with pickable blobs — keeps "Select Blob" in lockstep with the
+    // upload control's interactivity gate.
+    handleSelectBlob: canAttach && canWrite ? handleSelectBlob : undefined,
     handleSelectedFiles,
     imageUrlBySlotId,
     ready,
@@ -264,6 +344,7 @@ function useNoteEditorFieldsModel(input: {
   fileInputRef: RefObject<HTMLInputElement | null>;
   handleDownloadAttachment: (slotId: string) => void;
   handleRemoveAttachment: (slotId: string) => void;
+  handleSelectBlob: (() => void) | undefined;
   handleSelectedFiles: (fileList: FileList | null) => void;
   imageUrlBySlotId: NoteAttachmentImageUrlBySlotId;
   ready: boolean;
@@ -282,6 +363,7 @@ function useNoteEditorFieldsModel(input: {
     fileInputRef,
     handleDownloadAttachment,
     handleRemoveAttachment,
+    handleSelectBlob,
     handleSelectedFiles,
     imageUrlBySlotId,
     ready,
@@ -312,6 +394,7 @@ function useNoteEditorFieldsModel(input: {
       handleDragOver,
       handleDrop,
       handleRemoveAttachment,
+      handleSelectBlob,
       handleSelectedFiles,
       imageUrlBySlotId,
       ready,
@@ -334,6 +417,7 @@ function useNoteEditorFieldsModel(input: {
       handleDragOver,
       handleDrop,
       handleRemoveAttachment,
+      handleSelectBlob,
       handleSelectedFiles,
       imageUrlBySlotId,
       ready,

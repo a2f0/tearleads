@@ -304,6 +304,48 @@ function useRemoveAttachmentConfirmation(
   };
 }
 
+// The shared hidden file input that the panel's Upload button clicks (via
+// fileInputRef). Kept multiple/unfiltered so a note can gather several files of
+// any type at once. Clearing the value after each change lets re-selecting the
+// same file fire onChange again; a read-only note just resets without attaching.
+function NoteAttachmentFileInput({
+  canAttach,
+  fileInputId,
+  fileInputRef,
+  handleSelectedFiles,
+  ready,
+  readOnly,
+}: {
+  canAttach: boolean;
+  fileInputId: string;
+  fileInputRef: RefObject<HTMLInputElement | null>;
+  handleSelectedFiles: NoteHandleSelectedFiles;
+  ready: boolean;
+  readOnly: boolean;
+}) {
+  function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
+    if (readOnly) {
+      event.currentTarget.value = "";
+      return;
+    }
+
+    handleSelectedFiles(event.currentTarget.files);
+    event.currentTarget.value = "";
+  }
+
+  return (
+    <input
+      id={fileInputId}
+      ref={fileInputRef}
+      className="note-document-file-input"
+      type="file"
+      multiple
+      disabled={!ready || !canAttach || readOnly}
+      onChange={handleInputChange}
+    />
+  );
+}
+
 // Shared note editor + attachments presentation used by both the notes
 // mini-app and the explorer's note document renderer. It is intentionally
 // unaware of how a note is stored: callers pass the editor text plus an
@@ -326,6 +368,7 @@ export function NoteEditorFields({
   handleDragOver,
   handleDrop,
   handleRemoveAttachment,
+  handleSelectBlob,
   handleSelectedFiles,
   imageUrlBySlotId,
   ready,
@@ -347,6 +390,7 @@ export function NoteEditorFields({
   handleDragOver: (event: DragEvent<NoteDropzoneElement>) => void;
   handleDrop: (event: DragEvent<NoteDropzoneElement>) => void;
   handleRemoveAttachment: (slotId: string) => void;
+  handleSelectBlob?: (() => void) | undefined;
   handleSelectedFiles: NoteHandleSelectedFiles;
   imageUrlBySlotId: NoteAttachmentImageUrlBySlotId;
   ready: boolean;
@@ -363,6 +407,13 @@ export function NoteEditorFields({
     dragActive && "note-document-dropzone--active",
     !interactive && "note-document-dropzone--disabled",
   );
+
+  // Match the structured-document slots: the Upload button opens the shared
+  // hidden file input by clicking its ref rather than a label-for, so the note
+  // and slot upload controls behave identically.
+  const handleUploadAttachment = useCallback(() => {
+    fileInputRef.current?.click();
+  }, [fileInputRef]);
 
   const previewAttachment =
     previewSlotId === null
@@ -386,16 +437,6 @@ export function NoteEditorFields({
     confirmRemoveAttachment,
   } = useRemoveAttachmentConfirmation(attachments, handleRemoveAttachment);
 
-  function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
-    if (readOnly) {
-      event.currentTarget.value = "";
-      return;
-    }
-
-    handleSelectedFiles(event.currentTarget.files);
-    event.currentTarget.value = "";
-  }
-
   return (
     <>
       {toolbar}
@@ -412,7 +453,6 @@ export function NoteEditorFields({
           attachmentStatusBySlotId={attachmentStatusBySlotId}
           canAttach={canAttach}
           dropzoneClassName={dropzoneClassName}
-          fileInputId={fileInputId}
           handleDragEnter={handleDragEnter}
           handleDragLeave={handleDragLeave}
           handleDragOver={handleDragOver}
@@ -422,16 +462,17 @@ export function NoteEditorFields({
           imageUrlBySlotId={imageUrlBySlotId}
           interactive={interactive}
           onOpenAttachment={setPreviewSlotId}
+          onSelectBlob={handleSelectBlob}
+          onUploadAttachment={handleUploadAttachment}
         />
       </div>
-      <input
-        id={fileInputId}
-        ref={fileInputRef}
-        className="note-document-file-input"
-        type="file"
-        multiple
-        disabled={!ready || !canAttach || readOnly}
-        onChange={handleInputChange}
+      <NoteAttachmentFileInput
+        canAttach={canAttach}
+        fileInputId={fileInputId}
+        fileInputRef={fileInputRef}
+        handleSelectedFiles={handleSelectedFiles}
+        ready={ready}
+        readOnly={readOnly}
       />
       {previewAttachment ? (
         <NoteAttachmentPreview

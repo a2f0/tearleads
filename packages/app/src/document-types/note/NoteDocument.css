@@ -88,22 +88,14 @@
   opacity: var(--opacity-heading);
 }
 
-.note-document-attachments-add {
-  display: inline-flex;
+/* Upload + Select Blob controls. They use the shared `.attachment-action-button`
+   chrome (see AttachmentActionButton.css); this row just keeps them together and
+   stops them from stretching as the title column flexes. */
+.note-document-attachments-actions {
+  display: flex;
   flex: 0 0 auto;
   align-items: center;
   gap: var(--space-xs);
-  min-height: var(--control-height);
-  padding: var(--space-2xs) var(--space-sm);
-  border: var(--border);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-
-.note-document-attachments-add:hover,
-.note-document-attachments-add:focus-within {
-  background: var(--emphasis-surface);
-  color: var(--emphasis-text);
 }
 
 /* === Empty state === */

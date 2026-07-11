@@ -262,13 +262,16 @@ test("closing the preview restores focus to the opening tile", () => {
   expect(document.activeElement).toBe(openButton);
 });
 
-test("read-only notes hide the add and remove affordances", () => {
+test("read-only notes hide the upload and remove affordances", () => {
   const view = renderNoteEditorFields({
     attachments: [attachment],
+    handleSelectBlob: () => undefined,
     readOnly: true,
   });
 
-  expect(view.queryByText("Add")).toBeNull();
+  expect(view.queryByRole("button", { name: "Upload" })).toBeNull();
+  // The blob picker is suppressed too, even though one was supplied.
+  expect(view.queryByRole("button", { name: "Select Blob" })).toBeNull();
   expect(
     view.queryByRole("button", { name: "Remove attachment diagram.png" }),
   ).toBeNull();
@@ -276,6 +279,44 @@ test("read-only notes hide the add and remove affordances", () => {
   expect(
     view.getByRole("button", { name: "Download diagram.png" }),
   ).toBeTruthy();
+});
+
+test("the upload button opens the shared file input", () => {
+  const fileInputRef = createRef<HTMLInputElement>();
+  const view = renderNoteEditorFields({ fileInputRef });
+
+  const input = view.container.querySelector(
+    "input[type=file]",
+  ) as HTMLInputElement;
+  let clicks = 0;
+  input.click = () => {
+    clicks += 1;
+  };
+
+  fireEvent.click(view.getByRole("button", { name: "Upload" }));
+
+  expect(clicks).toBe(1);
+});
+
+test("hides the select blob button when no blob picker is available", () => {
+  const view = renderNoteEditorFields();
+
+  expect(view.queryByRole("button", { name: "Select Blob" })).toBeNull();
+  // Upload is always available on an interactive note.
+  expect(view.getByRole("button", { name: "Upload" })).toBeTruthy();
+});
+
+test("shows the select blob button and forwards its clicks", () => {
+  let picks = 0;
+  const view = renderNoteEditorFields({
+    handleSelectBlob: () => {
+      picks += 1;
+    },
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Select Blob" }));
+
+  expect(picks).toBe(1);
 });
 
 test("selecting files forwards them to handleSelectedFiles", () => {
