@@ -20,7 +20,6 @@ import {
   MiniAppVirtualTableSpacerRow,
   useMiniAppVirtualRows,
 } from "../../../components/shared/MiniAppVirtual";
-import { useRoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import {
   getAccessLabel,
@@ -35,8 +34,6 @@ const GROUP_CONTAINER_TABLE_COLUMN_IDS: ReadonlyArray<GroupContainerTableColumnI
   ["container", "access", "updated"];
 const GROUP_CONTAINER_TOGGLEABLE_COLUMN_IDS: ReadonlyArray<GroupContainerTableColumnId> =
   ["access", "updated"];
-const EMPTY_GROUP_CONTAINER_HIDDEN_COLUMNS =
-  new Set<GroupContainerTableColumnId>();
 const GROUP_CONTAINER_COLUMN_MENU_OPTIONS: ReadonlyArray<
   MiniAppColumnMenuOption<GroupContainerTableColumnId>
 > = [
@@ -56,7 +53,6 @@ const GROUP_CONTAINER_TABLE_COLUMNS = [
     width: "7rem",
   },
   {
-    className: "org-manager-container-updated-column",
     id: "updated",
     header: ORG_MANAGER_LABELS.updated,
     width: "8rem",
@@ -88,10 +84,7 @@ function renderGroupContainerCell(
       );
     case "updated":
       return (
-        <MiniAppTableCell
-          className="org-manager-container-updated-column"
-          key="updated"
-        >
+        <MiniAppTableCell key="updated">
           <MiniAppTableText title={container.updatedAt}>
             {formatMiniAppDate(container.updatedAt)}
           </MiniAppTableText>
@@ -109,48 +102,37 @@ export function GroupContainers({
     rowHeight: MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
     rows: containers,
   });
-  const compact = useRoutedLayoutTier() === "mobile";
   const columnVisibility =
     useMiniAppColumnVisibility<GroupContainerTableColumnId>({
       storageKey: "tearleads.org-manager.group-containers:hidden-columns",
       toggleableColumnIds: GROUP_CONTAINER_TOGGLEABLE_COLUMN_IDS,
     });
-  const appliedHiddenColumns = compact
-    ? EMPTY_GROUP_CONTAINER_HIDDEN_COLUMNS
-    : columnVisibility.hiddenColumns;
   const visibleColumnIds = useMemo(
     () =>
       getVisibleMiniAppTableColumnIds(
         GROUP_CONTAINER_TABLE_COLUMN_IDS,
-        appliedHiddenColumns,
+        columnVisibility.hiddenColumns,
       ),
-    [appliedHiddenColumns],
+    [columnVisibility.hiddenColumns],
   );
   const columns = useMemo(
     () =>
       addMiniAppTableHeaderAction(
         GROUP_CONTAINER_TABLE_COLUMNS.filter(
-          (column) => !appliedHiddenColumns.has(column.id),
+          (column) => !columnVisibility.hiddenColumns.has(column.id),
         ),
-        compact ? null : (
-          <MiniAppColumnMenuButton
-            ariaLabel={ORG_MANAGER_LABELS.columns}
-            hiddenColumns={columnVisibility.hiddenColumns}
-            options={GROUP_CONTAINER_COLUMN_MENU_OPTIONS}
-            stateLabels={{
-              off: ORG_MANAGER_LABELS.columnsMenuStateOff,
-              on: ORG_MANAGER_LABELS.columnsMenuStateOn,
-            }}
-            toggleColumn={columnVisibility.toggleColumn}
-          />
-        ),
+        <MiniAppColumnMenuButton
+          ariaLabel={ORG_MANAGER_LABELS.columns}
+          hiddenColumns={columnVisibility.hiddenColumns}
+          options={GROUP_CONTAINER_COLUMN_MENU_OPTIONS}
+          stateLabels={{
+            off: ORG_MANAGER_LABELS.columnsMenuStateOff,
+            on: ORG_MANAGER_LABELS.columnsMenuStateOn,
+          }}
+          toggleColumn={columnVisibility.toggleColumn}
+        />,
       ),
-    [
-      appliedHiddenColumns,
-      columnVisibility.hiddenColumns,
-      columnVisibility.toggleColumn,
-      compact,
-    ],
+    [columnVisibility.hiddenColumns, columnVisibility.toggleColumn],
   );
 
   if (containers.length === 0) {

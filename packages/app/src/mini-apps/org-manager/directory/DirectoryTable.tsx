@@ -28,7 +28,6 @@ import {
   MiniAppVirtualTableSpacerRow,
   useMiniAppVirtualRows,
 } from "../../../components/shared/MiniAppVirtual";
-import { useRoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { compactFingerprint, isKeyboardActivationKey } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -52,7 +51,6 @@ const DIRECTORY_TOGGLEABLE_COLUMN_IDS: ReadonlyArray<DirectoryTableColumnId> = [
   "status",
   "joined",
 ];
-const EMPTY_DIRECTORY_HIDDEN_COLUMNS = new Set<DirectoryTableColumnId>();
 const DIRECTORY_COLUMN_MENU_OPTIONS: ReadonlyArray<
   MiniAppColumnMenuOption<DirectoryTableColumnId>
 > = [
@@ -72,7 +70,6 @@ const DIRECTORY_TABLE_COLUMNS = [
     width: "7rem",
   },
   {
-    className: "org-manager-directory-joined-column",
     id: "joined",
     header: ORG_MANAGER_LABELS.joined,
     width: "8rem",
@@ -132,10 +129,7 @@ function renderDirectoryUserCell(
       );
     case "joined":
       return (
-        <MiniAppTableCell
-          className="org-manager-directory-joined-column"
-          key="joined"
-        >
+        <MiniAppTableCell key="joined">
           <MiniAppTableText title={user.joinedAt}>
             {formatMiniAppDate(user.joinedAt)}
           </MiniAppTableText>
@@ -148,47 +142,36 @@ function useDirectoryTableColumns(): {
   columns: ReadonlyArray<MiniAppTableColumn>;
   visibleColumnIds: ReadonlyArray<DirectoryTableColumnId>;
 } {
-  const compact = useRoutedLayoutTier() === "mobile";
   const columnVisibility = useMiniAppColumnVisibility<DirectoryTableColumnId>({
     storageKey: "tearleads.org-manager.directory:hidden-columns",
     toggleableColumnIds: DIRECTORY_TOGGLEABLE_COLUMN_IDS,
   });
-  const appliedHiddenColumns = compact
-    ? EMPTY_DIRECTORY_HIDDEN_COLUMNS
-    : columnVisibility.hiddenColumns;
   const visibleColumnIds = useMemo(
     () =>
       getVisibleMiniAppTableColumnIds(
         DIRECTORY_TABLE_COLUMN_IDS,
-        appliedHiddenColumns,
+        columnVisibility.hiddenColumns,
       ),
-    [appliedHiddenColumns],
+    [columnVisibility.hiddenColumns],
   );
   const columns = useMemo(
     () =>
       addMiniAppTableHeaderAction(
         DIRECTORY_TABLE_COLUMNS.filter(
-          (column) => !appliedHiddenColumns.has(column.id),
+          (column) => !columnVisibility.hiddenColumns.has(column.id),
         ),
-        compact ? null : (
-          <MiniAppColumnMenuButton
-            ariaLabel={ORG_MANAGER_LABELS.columns}
-            hiddenColumns={columnVisibility.hiddenColumns}
-            options={DIRECTORY_COLUMN_MENU_OPTIONS}
-            stateLabels={{
-              off: ORG_MANAGER_LABELS.columnsMenuStateOff,
-              on: ORG_MANAGER_LABELS.columnsMenuStateOn,
-            }}
-            toggleColumn={columnVisibility.toggleColumn}
-          />
-        ),
+        <MiniAppColumnMenuButton
+          ariaLabel={ORG_MANAGER_LABELS.columns}
+          hiddenColumns={columnVisibility.hiddenColumns}
+          options={DIRECTORY_COLUMN_MENU_OPTIONS}
+          stateLabels={{
+            off: ORG_MANAGER_LABELS.columnsMenuStateOff,
+            on: ORG_MANAGER_LABELS.columnsMenuStateOn,
+          }}
+          toggleColumn={columnVisibility.toggleColumn}
+        />,
       ),
-    [
-      appliedHiddenColumns,
-      columnVisibility.hiddenColumns,
-      columnVisibility.toggleColumn,
-      compact,
-    ],
+    [columnVisibility.hiddenColumns, columnVisibility.toggleColumn],
   );
 
   return { columns, visibleColumnIds };

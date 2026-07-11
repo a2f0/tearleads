@@ -23,7 +23,6 @@ import {
   MiniAppVirtualTableSpacerRow,
   useMiniAppVirtualRows,
 } from "../../../components/shared/MiniAppVirtual";
-import { useRoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import {
   getAccessLabel,
@@ -54,7 +53,6 @@ const GRANT_TOGGLEABLE_COLUMN_IDS: ReadonlyArray<GrantTableColumnId> = [
   "access",
   "updated",
 ];
-const EMPTY_GRANT_HIDDEN_COLUMNS = new Set<GrantTableColumnId>();
 const GRANT_COLUMN_MENU_OPTIONS: ReadonlyArray<
   MiniAppColumnMenuOption<GrantTableColumnId>
 > = [
@@ -80,7 +78,6 @@ const GRANT_TABLE_COLUMNS = [
     width: "7rem",
   },
   {
-    className: "org-manager-container-updated-column",
     id: "updated",
     header: ORG_MANAGER_LABELS.updated,
     width: "8rem",
@@ -129,10 +126,7 @@ function renderGrantCell(
       );
     case "updated":
       return (
-        <MiniAppTableCell
-          className="org-manager-container-updated-column"
-          key="updated"
-        >
+        <MiniAppTableCell key="updated">
           <MiniAppTableText title={grant.updatedAt}>
             {formatMiniAppDate(grant.updatedAt)}
           </MiniAppTableText>
@@ -165,47 +159,36 @@ function useGrantTableColumns(): {
   columns: ReadonlyArray<MiniAppTableColumn>;
   visibleColumnIds: ReadonlyArray<GrantTableColumnId>;
 } {
-  const compact = useRoutedLayoutTier() === "mobile";
   const columnVisibility = useMiniAppColumnVisibility<GrantTableColumnId>({
     storageKey: "tearleads.org-manager.grants:hidden-columns",
     toggleableColumnIds: GRANT_TOGGLEABLE_COLUMN_IDS,
   });
-  const appliedHiddenColumns = compact
-    ? EMPTY_GRANT_HIDDEN_COLUMNS
-    : columnVisibility.hiddenColumns;
   const visibleColumnIds = useMemo(
     () =>
       getVisibleMiniAppTableColumnIds(
         GRANT_TABLE_COLUMN_IDS,
-        appliedHiddenColumns,
+        columnVisibility.hiddenColumns,
       ),
-    [appliedHiddenColumns],
+    [columnVisibility.hiddenColumns],
   );
   const columns = useMemo(
     () =>
       addMiniAppTableHeaderAction(
         GRANT_TABLE_COLUMNS.filter(
-          (column) => !appliedHiddenColumns.has(column.id),
+          (column) => !columnVisibility.hiddenColumns.has(column.id),
         ),
-        compact ? null : (
-          <MiniAppColumnMenuButton
-            ariaLabel={ORG_MANAGER_LABELS.columns}
-            hiddenColumns={columnVisibility.hiddenColumns}
-            options={GRANT_COLUMN_MENU_OPTIONS}
-            stateLabels={{
-              off: ORG_MANAGER_LABELS.columnsMenuStateOff,
-              on: ORG_MANAGER_LABELS.columnsMenuStateOn,
-            }}
-            toggleColumn={columnVisibility.toggleColumn}
-          />
-        ),
+        <MiniAppColumnMenuButton
+          ariaLabel={ORG_MANAGER_LABELS.columns}
+          hiddenColumns={columnVisibility.hiddenColumns}
+          options={GRANT_COLUMN_MENU_OPTIONS}
+          stateLabels={{
+            off: ORG_MANAGER_LABELS.columnsMenuStateOff,
+            on: ORG_MANAGER_LABELS.columnsMenuStateOn,
+          }}
+          toggleColumn={columnVisibility.toggleColumn}
+        />,
       ),
-    [
-      appliedHiddenColumns,
-      columnVisibility.hiddenColumns,
-      columnVisibility.toggleColumn,
-      compact,
-    ],
+    [columnVisibility.hiddenColumns, columnVisibility.toggleColumn],
   );
 
   return { columns, visibleColumnIds };
