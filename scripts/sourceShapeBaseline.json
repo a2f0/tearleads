@@ -102,8 +102,8 @@
       "bytes": 30916
     },
     "packages/api/src/routes/auth/register.test.ts": {
-      "lines": 577,
-      "bytes": 18960
+      "lines": 634,
+      "bytes": 21084
     },
     "packages/api/src/routes/containers/listContainers.test.ts": {
       "lines": 621,
@@ -154,8 +154,8 @@
       "bytes": 21637
     },
     "packages/api/src/workflows/organizations/provisionOrganization.ts": {
-      "lines": 1402,
-      "bytes": 40071
+      "lines": 1415,
+      "bytes": 40843
     },
     "packages/api/src/workflows/principals/accessLossTombstones.ts": {
       "lines": 710,
