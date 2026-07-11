@@ -41,8 +41,12 @@
   gap: var(--space-xs);
 }
 
+/* min-width: 0 lets the button shrink below its content's min size as a flex
+   item of .pane-footer, so a row of minimized windows never overflows the
+   footer; max-width still caps it and the label truncates within. */
 .pane-footer-window {
   gap: var(--space-xs);
+  min-width: 0;
   max-width: 12rem;
 }
 
