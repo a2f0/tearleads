@@ -281,12 +281,6 @@
     padding-top: var(--space-md);
   }
 
-  .org-manager-directory-joined-column,
-  .org-manager-container-updated-column,
-  .org-manager-group-created-column {
-    display: none;
-  }
-
   .org-manager-policy-change {
     grid-template-columns: 1fr;
     gap: var(--space-2xs);
