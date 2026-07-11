@@ -805,6 +805,36 @@ async function createInitialBuiltinGrants(
   });
 }
 
+/**
+ * Records the organization-metadata container's read grant to the reserved
+ * Members group as a built-in grant.
+ *
+ * Like the root -> Admins grant, this is a reserved system grant: Members must
+ * never lose it (revoking it permanently strips their ability to decrypt the org
+ * display name, with no self-heal — reshareOrganizationMetadataToMembers only
+ * re-wraps an existing grant and refuses to mint, a metadata->Members analog of
+ * the root/Admins lockout). Unlike root -> Admins it is not admin-frozen: it must
+ * still be re-wrapped on every Members-group key rotation. Recording it here lets
+ * the built-in-grant guard reject a revoke / access-level change while still
+ * permitting the same-level "read" re-wrap (assertContainerBuiltinGrantPolicyPreserved),
+ * and flips the org-manager UI's computed isBuiltin flag so the grant renders as
+ * built-in rather than revocable.
+ */
+async function createOrganizationMetadataBuiltinGrant(
+  tx: DatabaseTransaction,
+  input: OrganizationProvisioningRequest,
+  organizationId: string,
+  metadataContainerId: string,
+): Promise<void> {
+  await tx.insert(containerBuiltinGrants).values({
+    accessLevel: "read",
+    containerId: metadataContainerId,
+    organizationId,
+    subjectId: input.initialMemberGroup.groupId,
+    subjectType: "group",
+  });
+}
+
 function readDocumentCreateRequestId(request: DocumentCreateRequest): string {
   const event = request.event;
   const documentId = Reflect.get(event, "objectId");
@@ -934,11 +964,18 @@ async function createInitialOrganizationMetadataContainer(
     );
   }
 
-  return createProvisionedSystemContainer(tx, {
+  const metadataContainer = await createProvisionedSystemContainer(tx, {
     fingerprint,
     request: input.initialOrganizationMetadataContainer,
     userId: input.userId,
   });
+  await createOrganizationMetadataBuiltinGrant(
+    tx,
+    input,
+    input.organizationId,
+    metadataContainer.container.containerId,
+  );
+  return metadataContainer;
 }
 
 /**
