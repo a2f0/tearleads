@@ -85,12 +85,6 @@
   white-space: nowrap;
 }
 
-.explorer-sync-lane-list-primary code {
-  overflow-wrap: anywhere;
-  font-size: var(--font-size-xs);
-  opacity: var(--opacity-muted);
-}
-
 .explorer-sync-lane-status {
   display: inline-flex;
   align-items: center;
@@ -155,29 +149,27 @@
   opacity: 1;
 }
 
-.explorer-sync-lane-detail-grid {
-  --explorer-detail-col: 18rem;
-
-  display: grid;
-  grid-template-columns: repeat(
-      auto-fit,
-      minmax(var(--explorer-detail-col), 1fr)
-    );
-  gap: var(--space-md);
+/*
+ * The lane detail presents its sections as tabs (reusing .explorer-info-tabs /
+ * .explorer-info-tab-panel from Explorer.css). The tab panel is a single
+ * column, so the key row and any long cell values wrap within the panel width
+ * instead of forcing a horizontal scroll.
+ */
+.explorer-sync-lane-detail {
   min-width: 0;
 }
 
-.explorer-sync-lane-detail-grid td,
-.explorer-sync-lane-detail-grid code {
+.explorer-sync-lane-detail td,
+.explorer-sync-lane-detail code {
   overflow-wrap: anywhere;
 }
 
-.explorer-sync-lane-detail-grid .mini-app-info-section {
+.explorer-sync-lane-detail .mini-app-info-section {
   min-width: 0;
 }
 
-.explorer-sync-lane-detail-grid .explorer-sync-lane-progress-stack {
-  width: min(var(--explorer-detail-col), 100%);
+.explorer-sync-lane-detail .explorer-sync-lane-progress-stack {
+  width: min(18rem, 100%);
 }
 
 /* Touch: the sync-lane table is not virtualized, so give its interactive rows

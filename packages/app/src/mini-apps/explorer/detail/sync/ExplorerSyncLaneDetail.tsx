@@ -3,7 +3,9 @@ import type {
   SyncLaneSnapshot,
 } from "@tearleads/client-sdk";
 import type { ReactNode } from "react";
+import { useEffect, useId, useState } from "react";
 import {
+  MiniAppButton,
   MiniAppInfoSection,
   MiniAppStatus,
 } from "../../../../components/shared/MiniAppLayout";
@@ -229,10 +231,103 @@ function ExplorerSyncLaneCoordinatorSection(params: {
   );
 }
 
+type SyncLaneDetailTabId = "general" | "timing" | "progress" | "coordinator";
+
+function getSyncLaneDetailTabs(
+  lane: SyncLaneSnapshot,
+): ReadonlyArray<{ id: SyncLaneDetailTabId; label: string }> {
+  return [
+    { id: "general", label: EXPLORER_LABELS.syncLanesGeneralHeading },
+    { id: "timing", label: EXPLORER_LABELS.syncLanesTimingHeading },
+    // The upload-progress tab only exists for lanes carrying multipart
+    // progress, mirroring the section's former conditional render.
+    ...(lane.progress
+      ? [
+          {
+            id: "progress" as const,
+            label: EXPLORER_LABELS.syncLanesProgressHeading,
+          },
+        ]
+      : []),
+    { id: "coordinator", label: EXPLORER_LABELS.syncLanesCoordinatorHeading },
+  ];
+}
+
+function ExplorerSyncLaneDetailTabs(params: {
+  activeTab: SyncLaneDetailTabId;
+  idPrefix: string;
+  onSelect: (tab: SyncLaneDetailTabId) => void;
+  tabs: ReadonlyArray<{ id: SyncLaneDetailTabId; label: string }>;
+}) {
+  return (
+    <div
+      aria-label={EXPLORER_LABELS.syncLanesDetailTabsLabel}
+      className="explorer-info-tabs"
+      role="tablist"
+    >
+      {params.tabs.map((tab) => (
+        <MiniAppButton
+          aria-controls={`${params.idPrefix}-${tab.id}-panel`}
+          aria-selected={params.activeTab === tab.id}
+          className="explorer-info-tab"
+          id={`${params.idPrefix}-${tab.id}-tab`}
+          key={tab.id}
+          role="tab"
+          variant="ghost"
+          onClick={() => {
+            params.onSelect(tab.id);
+          }}
+        >
+          {tab.label}
+        </MiniAppButton>
+      ))}
+    </div>
+  );
+}
+
+function ExplorerSyncLaneDetailTabPanel(params: {
+  activeTab: SyncLaneDetailTabId;
+  idPrefix: string;
+  lane: SyncLaneSnapshot;
+  snapshot: DomainSyncSnapshot;
+}) {
+  const { activeTab, lane, snapshot } = params;
+
+  return (
+    <div
+      aria-labelledby={`${params.idPrefix}-${activeTab}-tab`}
+      className="explorer-info-tab-panel"
+      id={`${params.idPrefix}-${activeTab}-panel`}
+      role="tabpanel"
+    >
+      {activeTab === "general" ? (
+        <ExplorerSyncLaneGeneralSection lane={lane} />
+      ) : null}
+      {activeTab === "timing" ? (
+        <ExplorerSyncLaneTimingSection lane={lane} />
+      ) : null}
+      {activeTab === "progress" ? (
+        <ExplorerSyncLaneProgressSection progress={lane.progress} />
+      ) : null}
+      {activeTab === "coordinator" ? (
+        <ExplorerSyncLaneCoordinatorSection snapshot={snapshot} />
+      ) : null}
+    </div>
+  );
+}
+
 export function ExplorerSyncLaneDetail(params: {
   laneKey: string;
   snapshot: DomainSyncSnapshot;
 }) {
+  const [activeTab, setActiveTab] = useState<SyncLaneDetailTabId>("general");
+  const tabIdPrefix = useId();
+  // Reset to the first tab when switching lanes so the detail never opens on a
+  // tab the previous lane had but this one lacks (the progress tab).
+  useEffect(() => {
+    setActiveTab("general");
+  }, [params.laneKey]);
+
   const lane = params.snapshot.lanes.find(
     (candidate) => candidate.key === params.laneKey,
   );
@@ -245,12 +340,28 @@ export function ExplorerSyncLaneDetail(params: {
     );
   }
 
+  const tabs = getSyncLaneDetailTabs(lane);
+  // A live snapshot can drop the progress tab out from under an active
+  // selection (upload finishes); fall back to the first tab so the panel below
+  // never renders empty.
+  const resolvedTab = tabs.some((tab) => tab.id === activeTab)
+    ? activeTab
+    : "general";
+
   return (
-    <div className="explorer-sync-lane-detail-grid">
-      <ExplorerSyncLaneGeneralSection lane={lane} />
-      <ExplorerSyncLaneTimingSection lane={lane} />
-      <ExplorerSyncLaneProgressSection progress={lane.progress} />
-      <ExplorerSyncLaneCoordinatorSection snapshot={params.snapshot} />
+    <div className="explorer-info explorer-sync-lane-detail">
+      <ExplorerSyncLaneDetailTabs
+        activeTab={resolvedTab}
+        idPrefix={tabIdPrefix}
+        onSelect={setActiveTab}
+        tabs={tabs}
+      />
+      <ExplorerSyncLaneDetailTabPanel
+        activeTab={resolvedTab}
+        idPrefix={tabIdPrefix}
+        lane={lane}
+        snapshot={params.snapshot}
+      />
     </div>
   );
 }
