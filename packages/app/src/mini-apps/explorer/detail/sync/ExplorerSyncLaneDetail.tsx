@@ -267,7 +267,14 @@ function ExplorerSyncLaneDetailTabs(params: {
     >
       {params.tabs.map((tab) => (
         <MiniAppButton
-          aria-controls={`${params.idPrefix}-${tab.id}-panel`}
+          // Only the active tab's panel is rendered, so only the active tab may
+          // point at it — an inactive `aria-controls` would reference a missing
+          // element id.
+          aria-controls={
+            params.activeTab === tab.id
+              ? `${params.idPrefix}-${tab.id}-panel`
+              : undefined
+          }
           aria-selected={params.activeTab === tab.id}
           className="explorer-info-tab"
           id={`${params.idPrefix}-${tab.id}-tab`}

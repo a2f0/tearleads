@@ -175,10 +175,10 @@ function renderSyncLaneCell(params: {
             title={lane.lastError ?? undefined}
           >
             <span className="explorer-sync-lane-list-primary">
-              <MiniAppTableText
-                className="explorer-sync-lane-list-label"
-                title={compactLabel}
-              >
+              {/* No `title` here: it would shadow the cell's fuller
+                  `${lane.label}\n${lane.key}` tooltip with just the compact
+                  category name. */}
+              <MiniAppTableText className="explorer-sync-lane-list-label">
                 {compactLabel}
               </MiniAppTableText>
             </span>
