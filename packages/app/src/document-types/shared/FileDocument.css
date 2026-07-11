@@ -20,11 +20,6 @@
   align-items: start;
 }
 
-.file-document-attachments {
-  display: grid;
-  gap: var(--space-md);
-}
-
 .file-document-preview {
   display: grid;
   gap: var(--space-sm);

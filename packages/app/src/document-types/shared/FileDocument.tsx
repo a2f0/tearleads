@@ -1,4 +1,3 @@
-import type { DocumentAttachment } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   MiniAppActions,
@@ -118,55 +117,6 @@ function FileDocumentNameRow(params: {
         />
       </MiniAppRowStack>
     </MiniAppRow>
-  );
-}
-
-function FileAttachmentRow(params: { attachment: DocumentAttachment }) {
-  const { attachment } = params;
-  return (
-    <section className="structured-document-slot">
-      <div className="structured-document-slot-copy">
-        <strong>{attachment.name}</strong>
-        <span className="structured-document-slot-description">
-          {attachment.mimeType ?? "Unknown MIME type"}
-        </span>
-      </div>
-      <div className="structured-document-slot-meta">
-        <span className="structured-document-slot-detail">
-          {formatByteLength(attachment.byteLength)}
-        </span>
-      </div>
-    </section>
-  );
-}
-
-export function FileDocumentAttachments(params: {
-  attachments: ReadonlyArray<DocumentAttachment>;
-}) {
-  if (params.attachments.length === 0) {
-    return (
-      <div className="structured-document-slot">
-        <div className="structured-document-slot-copy">
-          <strong>No file attached</strong>
-          <span className="structured-document-slot-description">
-            Imported file bytes will appear here once the attachment is staged.
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="file-document-attachments">
-      <div className="structured-document-attachments">
-        {params.attachments.map((attachment) => (
-          <FileAttachmentRow
-            key={`${attachment.slotId}:${attachment.name}`}
-            attachment={attachment}
-          />
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -342,7 +292,6 @@ function useFileDocument(params: {
   );
 
   return {
-    attachments,
     canWrite,
     commitFileName,
     downloadError,
@@ -368,7 +317,6 @@ export function FileDocument(params: {
 
   return (
     <StructuredDocument
-      attachments={<FileDocumentAttachments attachments={model.attachments} />}
       fields={
         <FileDocumentFields
           canWrite={model.canWrite}

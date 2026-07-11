@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import type { DocumentAttachment } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { FileDocumentAttachments, FileDocumentFields } from "./FileDocument";
+import { FileDocumentFields } from "./FileDocument";
 import {
   isRenderableFileDocumentMediaMimeType,
   resolveFileDocumentMediaPreview,
@@ -258,13 +258,4 @@ test("omits the media preview for non-media files", () => {
   const view = renderFields();
 
   expect(view.queryByLabelText("File preview")).toBeNull();
-});
-
-test("lists the file attachment rows", () => {
-  const view = render(
-    <FileDocumentAttachments attachments={[pngAttachment]} />,
-  );
-
-  expect(view.getByText("logo.png")).toBeTruthy();
-  expect(view.getByText("1.0 KB")).toBeTruthy();
 });
