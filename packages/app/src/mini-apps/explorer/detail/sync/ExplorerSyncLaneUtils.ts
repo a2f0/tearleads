@@ -114,3 +114,27 @@ export function formatExplorerSyncLaneBoolean(value: boolean): string {
     ? EXPLORER_LABELS.syncLanesBooleanYes
     : EXPLORER_LABELS.syncLanesBooleanNo;
 }
+
+// Lane keys carry an opaque per-lane suffix (`documents:<localId>`,
+// `blob-upload:<slotId>`) that is far too long for the list column and, with
+// `overflow-wrap: anywhere`, collapses to one-character-per-line vertical text.
+// The list only needs to identify a lane by category — the full label and key
+// stay in the lane-detail view (and this cell's tooltip) — so roll the key's
+// prefix up to a short, stable name and drop the suffix entirely.
+export function getSyncLaneCompactLabel(lane: SyncLaneSnapshot): string {
+  const prefix = lane.key.split(":", 1)[0];
+  switch (prefix) {
+    case "documents":
+      return EXPLORER_LABELS.syncLanesCompactDocument;
+    case "blob-upload":
+      return EXPLORER_LABELS.syncLanesCompactBlobUpload;
+    case "reconciliation":
+      return EXPLORER_LABELS.syncLanesCompactReconciliation;
+    case "container-contents":
+      return EXPLORER_LABELS.syncLanesCompactContainerContents;
+    default:
+      // An unrecognized lane keeps its human label; the cell clamps it with an
+      // ellipsis so a stray long key still cannot widen the column.
+      return lane.label;
+  }
+}

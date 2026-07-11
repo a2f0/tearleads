@@ -184,8 +184,17 @@ test("ExplorerSyncLanesPanelView renders lane status, progress, and counts", () 
   const view = renderSyncLanesPanel({ snapshot });
 
   expect(view.getByText("Sync Lanes")).toBeTruthy();
-  expect(view.getByText("Document local-1")).toBeTruthy();
-  expect(view.getByText("Document local-2")).toBeTruthy();
+  // Both document lanes roll up to the compact "Document" category label in the
+  // lane column; the opaque local-id suffix stays out of the list entirely.
+  const laneLabels = Array.from(
+    view.container.querySelectorAll(".explorer-sync-lane-list-label"),
+  );
+  expect(laneLabels.map((node) => node.textContent)).toEqual([
+    "Document",
+    "Document",
+  ]);
+  expect(view.queryByText("Document local-1")).toBeNull();
+  expect(view.queryByText("Document local-2")).toBeNull();
   expect(view.getAllByText("Running").length).toBeGreaterThan(0);
   expect(view.getAllByText("Error").length).toBeGreaterThan(0);
   expect(view.getByText("1 request, 1 run, 0 errors")).toBeTruthy();
@@ -242,8 +251,9 @@ test("ExplorerSyncLanesPanelView trims the list to lane and status on phones", (
     "Lane",
     "Status",
   ]);
-  // The lane stays identifiable and the status still reads at a glance...
-  expect(view.getByText("Document local-1")).toBeTruthy();
+  // The lane stays identifiable by its compact category label and the status
+  // still reads at a glance...
+  expect(view.getByText("Document")).toBeTruthy();
   expect(view.getAllByText("Running").length).toBeGreaterThan(0);
   // ...while the wide-only detail columns and their column menu fall away.
   expect(view.queryByText("1 request, 1 run, 0 errors")).toBeNull();
@@ -397,18 +407,29 @@ test("ExplorerSyncLanesPanelView renders lane detail metadata", () => {
   });
 
   expect(view.getByText("Sync Lane Detail")).toBeTruthy();
-  expect(view.getByText("Lane Details")).toBeTruthy();
-  expect(view.getByText("Timing")).toBeTruthy();
-  expect(view.getByText("Coordinator")).toBeTruthy();
+  // The three sections are now tabs; each is a tab button, and the general tab
+  // is active on open so its section content renders.
+  expect(view.getByRole("tab", { name: "Lane Details" })).toBeTruthy();
+  expect(view.getByRole("tab", { name: "Timing" })).toBeTruthy();
+  expect(view.getByRole("tab", { name: "Coordinator" })).toBeTruthy();
+  // This lane has no multipart progress, so no upload-progress tab.
+  expect(view.queryByRole("tab", { name: "Upload Progress" })).toBeNull();
   expect(view.getByText("documents:local-2")).toBeTruthy();
   expect(view.getByText("4")).toBeTruthy();
+
+  // Timing content lives behind its tab.
+  fireEvent.click(view.getByRole("tab", { name: "Timing" }));
   expect(view.getByText("boom")).toBeTruthy();
+  expect(view.queryByText("documents:local-2")).toBeNull();
+
+  // Coordinator content lives behind its tab.
+  fireEvent.click(view.getByRole("tab", { name: "Coordinator" }));
   expect(view.getByText("Pending Work")).toBeTruthy();
   expect(view.getByText("Pump Active")).toBeTruthy();
 });
 
-test("ExplorerSyncLanesPanelView renders real multipart upload progress", () => {
-  const snapshot = createSnapshot([
+function createMultipartUploadSnapshot(): DomainSyncSnapshot {
+  return createSnapshot([
     createLaneSnapshot({
       key: "blob-upload:slot-1",
       label: "Upload report.pdf",
@@ -420,22 +441,39 @@ test("ExplorerSyncLanesPanelView renders real multipart upload progress", () => 
         partsCompleted: 3,
         partsTotal: 5,
       },
-      requestCount: 0,
       runCount: 1,
       running: true,
       status: "running",
     }),
   ]);
+}
 
-  const view = renderSyncLanesPanel({ snapshot });
+test("ExplorerSyncLanesPanelView renders real multipart upload progress", () => {
+  const view = renderSyncLanesPanel({
+    snapshot: createMultipartUploadSnapshot(),
+  });
 
-  expect(view.getByText("Upload report.pdf")).toBeTruthy();
+  // The list rolls the blob-upload lane up to its compact category label; the
+  // attachment name stays in the lane detail.
+  expect(view.getByText("Blob upload")).toBeTruthy();
+  expect(view.queryByText("Upload report.pdf")).toBeNull();
   expect(view.getByText("Blob")).toBeTruthy();
   // 24 MiB of 40 MiB ≈ 60%, derived from bytes rather than the status fallback.
   expect(
     view.getAllByRole("progressbar")[0]?.getAttribute("aria-valuenow"),
   ).toBe("60");
   expect(view.getByText(/3\/5 parts/)).toBeTruthy();
+});
+
+test("ExplorerSyncLanesPanelView reveals the upload-progress tab only with multipart progress", () => {
+  const view = renderSyncLanesPanel({
+    selectedLaneKey: "blob-upload:slot-1",
+    snapshot: createMultipartUploadSnapshot(),
+  });
+
+  fireEvent.click(view.getByRole("tab", { name: "Upload Progress" }));
+  expect(view.getByText("24.0 MB / 40.0 MB")).toBeTruthy();
+  expect(view.getByText("3 / 5")).toBeTruthy();
 });
 
 test("ExplorerSyncLanesPanelView renders the empty state", () => {

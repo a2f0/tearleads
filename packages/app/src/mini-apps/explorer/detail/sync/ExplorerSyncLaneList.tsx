@@ -22,7 +22,10 @@ import {
   ExplorerSyncLaneProgress,
   ExplorerSyncLaneStatusBadge,
 } from "./ExplorerSyncLaneShared";
-import { getSyncLanePhaseLabel } from "./ExplorerSyncLaneUtils";
+import {
+  getSyncLaneCompactLabel,
+  getSyncLanePhaseLabel,
+} from "./ExplorerSyncLaneUtils";
 
 type SyncLaneListColumnId =
   | "lane"
@@ -111,10 +114,10 @@ function buildSyncLaneColumn(
         // On the phone tier the lane is one of only two columns, so let it take
         // the remaining width. In the wide layout give it a concrete floor
         // (rather than a percentage that collapses when the pane is too narrow
-        // for all six columns) so the lane label and key never crush down to
-        // one-character-per-line vertical text; the table's `min-width:
-        // max-content` lets the frame scroll horizontally instead.
-        width: compact ? undefined : "14rem",
+        // for all six columns) so the compact lane label keeps its own column;
+        // the label is a short category name and is ellipsis-clamped, so this
+        // floor no longer has to fit an opaque per-lane key.
+        width: compact ? undefined : "10rem",
       };
     case "phase":
       return {
@@ -157,9 +160,14 @@ function renderSyncLaneCell(params: {
   const { columnId, lane, onOpenLaneDetail } = params;
 
   switch (columnId) {
-    case "lane":
+    case "lane": {
+      // Roll the lane up to a compact, category-style name so the opaque
+      // per-lane key suffix can never widen (or vertically stretch) this
+      // column. The full label and key stay one tap away in the lane detail,
+      // and the cell's `title` still surfaces them on hover.
+      const compactLabel = getSyncLaneCompactLabel(lane);
       return (
-        <MiniAppTableCell key="lane" title={lane.key}>
+        <MiniAppTableCell key="lane" title={`${lane.label}\n${lane.key}`}>
           <MiniAppTableActionButton
             aria-label={`${EXPLORER_LABELS.syncLanesOpenLaneAction}: ${lane.label}`}
             className="explorer-sync-lane-row-button"
@@ -167,17 +175,17 @@ function renderSyncLaneCell(params: {
             title={lane.lastError ?? undefined}
           >
             <span className="explorer-sync-lane-list-primary">
-              <MiniAppTableText
-                className="explorer-sync-lane-list-label"
-                title={lane.label}
-              >
-                {lane.label}
+              {/* No `title` here: it would shadow the cell's fuller
+                  `${lane.label}\n${lane.key}` tooltip with just the compact
+                  category name. */}
+              <MiniAppTableText className="explorer-sync-lane-list-label">
+                {compactLabel}
               </MiniAppTableText>
-              <code>{lane.key}</code>
             </span>
           </MiniAppTableActionButton>
         </MiniAppTableCell>
       );
+    }
     case "phase":
       return (
         <MiniAppTableCell key="phase">
