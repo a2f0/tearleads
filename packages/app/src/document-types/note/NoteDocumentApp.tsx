@@ -16,7 +16,7 @@ export function NoteDocumentApp({
       {...(containerId === undefined ? {} : { containerId })}
       {...(documentId === undefined ? {} : { documentId })}
     >
-      <NoteDocument />
+      <NoteDocument containerId={containerId ?? null} localId={localId} />
     </DocumentsProvider>
   );
 }

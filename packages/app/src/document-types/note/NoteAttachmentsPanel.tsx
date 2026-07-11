@@ -1,5 +1,6 @@
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
-import { FilePlusIcon } from "@phosphor-icons/react/dist/csr/FilePlus";
+import { FileArrowUpIcon } from "@phosphor-icons/react/dist/csr/FileArrowUp";
+import { StackIcon } from "@phosphor-icons/react/dist/csr/Stack";
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import type {
   DocumentAttachment,
@@ -7,6 +8,7 @@ import type {
 } from "@tearleads/client-sdk";
 import type { DragEvent } from "react";
 import { formatByteLength } from "../../utils/formatByteLength";
+import { AttachmentActionButton } from "../shared/AttachmentActionButton";
 import { getAttachmentFileType } from "../shared/attachmentFileType";
 import "./NoteDocument.css";
 import { NOTE_DOCUMENT_LABELS } from "./noteDocumentLabels";
@@ -130,16 +132,17 @@ function NoteAttachmentTile({
 }
 
 // The attachments panel below the editor: a labelled dropzone whose header
-// carries the count and an Add control, with the attachments laid out as a tile
-// grid. When empty it collapses to a single hint line that doubles as the drop
-// target. Kept as a <fieldset> so the whole region is a drag/drop surface and
-// an accessible group; the header's Add button triggers the shared file input.
+// carries the count and the attach controls, with the attachments laid out as a
+// tile grid. When empty it collapses to a single hint line that doubles as the
+// drop target. Kept as a <fieldset> so the whole region is a drag/drop surface
+// and an accessible group. The header's Upload button opens the shared file
+// input; a "Select Blob" button appears alongside it — sharing the structured
+// document button chrome — only when the host offers a blob to pick.
 export function NoteAttachmentsPanel({
   attachments,
   attachmentStatusBySlotId,
   canAttach,
   dropzoneClassName,
-  fileInputId,
   handleDragEnter,
   handleDragLeave,
   handleDragOver,
@@ -149,12 +152,13 @@ export function NoteAttachmentsPanel({
   imageUrlBySlotId,
   interactive,
   onOpenAttachment,
+  onSelectBlob,
+  onUploadAttachment,
 }: {
   attachments: ReadonlyArray<DocumentAttachment>;
   attachmentStatusBySlotId: NoteAttachmentStatusBySlotId;
   canAttach: boolean;
   dropzoneClassName: string | undefined;
-  fileInputId: string;
   handleDragEnter: (event: DragEvent<NoteDropzoneElement>) => void;
   handleDragLeave: (event: DragEvent<NoteDropzoneElement>) => void;
   handleDragOver: (event: DragEvent<NoteDropzoneElement>) => void;
@@ -164,6 +168,8 @@ export function NoteAttachmentsPanel({
   imageUrlBySlotId: NoteAttachmentImageUrlBySlotId;
   interactive: boolean;
   onOpenAttachment: (slotId: string) => void;
+  onSelectBlob: (() => void) | undefined;
+  onUploadAttachment: () => void;
 }) {
   const hasAttachments = attachments.length > 0;
 
@@ -182,13 +188,22 @@ export function NoteAttachmentsPanel({
             : NOTE_DOCUMENT_LABELS.attachments}
         </span>
         {interactive ? (
-          <label
-            className="note-document-attachments-add"
-            htmlFor={fileInputId}
-          >
-            <FilePlusIcon aria-hidden size={14} />
-            <span>{NOTE_DOCUMENT_LABELS.addAttachment}</span>
-          </label>
+          <div className="note-document-attachments-actions">
+            <AttachmentActionButton
+              label={NOTE_DOCUMENT_LABELS.uploadAttachment}
+              onClick={onUploadAttachment}
+            >
+              <FileArrowUpIcon aria-hidden size={14} />
+            </AttachmentActionButton>
+            {onSelectBlob ? (
+              <AttachmentActionButton
+                label={NOTE_DOCUMENT_LABELS.selectBlob}
+                onClick={onSelectBlob}
+              >
+                <StackIcon aria-hidden size={14} />
+              </AttachmentActionButton>
+            ) : null}
+          </div>
         ) : null}
       </div>
       {hasAttachments ? (

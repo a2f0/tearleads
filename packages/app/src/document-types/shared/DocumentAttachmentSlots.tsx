@@ -5,6 +5,7 @@ import type {
 } from "@tearleads/client-sdk";
 import { type ChangeEvent, useId, useRef } from "react";
 import { formatByteLength } from "../../utils/formatByteLength";
+import { AttachmentActionButton } from "./AttachmentActionButton";
 import { useDocumentBlobOpen } from "./DocumentBlobOpenContext";
 import {
   type DocumentAttachmentSlot,
@@ -43,33 +44,25 @@ function DocumentAttachmentSlotActions(params: {
 
   return (
     <>
-      <button
-        type="button"
-        className="structured-document-slot-button"
+      <AttachmentActionButton
+        label={storedAttachment ? "Replace Image" : "Upload Image"}
         onClick={onUploadAttachment}
-      >
-        {storedAttachment ? "Replace Image" : "Upload Image"}
-      </button>
+      />
       {blobPicker ? (
-        <button
-          className="structured-document-slot-button"
+        <AttachmentActionButton
+          label="Choose Blob"
           onClick={() => blobPicker.onRequestBlobPick(slot)}
-          type="button"
-        >
-          Choose Blob
-        </button>
+        />
       ) : null}
       {storedAttachment ? (
-        <button
-          aria-label={`Clear ${slot.label}`}
-          className="structured-document-slot-button"
+        <AttachmentActionButton
+          ariaLabel={`Clear ${slot.label}`}
+          label="Clear Image"
           onClick={() => onClearAttachment(slot.slotId)}
           title={`Clear ${slot.label}`}
-          type="button"
         >
           <TrashIcon aria-hidden size={14} />
-          Clear Image
-        </button>
+        </AttachmentActionButton>
       ) : null}
     </>
   );

@@ -6,9 +6,17 @@ import { useNoteEditorFields } from "./useNoteEditorFields";
 // mini-app's toolbar chrome, since the explorer supplies its own header and
 // actions. The shared editor data wiring and presentation are reused from
 // useNoteEditorFields / NoteEditorFields so behavior stays identical to the
-// standalone notes mini-app.
-export function NoteDocument() {
-  const model = useNoteEditorFields();
+// standalone notes mini-app. The container/local ids come from the explorer so
+// the "Select Blob" control can route to the host blob picker; the standalone
+// mini-app renders without them and that control stays hidden.
+export function NoteDocument({
+  containerId = null,
+  localId,
+}: {
+  containerId?: string | null;
+  localId?: string;
+} = {}) {
+  const model = useNoteEditorFields({ containerId, localId });
 
   return (
     <div className="note-document">
