@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
+import { MINI_APP_ICONS } from "../../../mini-apps/registry";
 import { WorkspaceSwitcher } from "../../layout/workspace/WorkspaceSwitcher";
 import type { MenuPosition } from "../../shared/Menu";
 import { PaneMenu } from "../../shared/PaneMenu";
@@ -40,17 +41,29 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
         >
           Menu
         </button>
-        {minimizedWindows.map((w) => (
-          <button
-            key={w.id}
-            type="button"
-            className="tearleads-action-button pane-footer-window"
-            title={w.title}
-            onClick={() => restore(w.id)}
-          >
-            {w.title}
-          </button>
-        ))}
+        {minimizedWindows.map((w) => {
+          const AppIcon = w.appId ? MINI_APP_ICONS[w.appId] : undefined;
+          return (
+            <button
+              key={w.id}
+              type="button"
+              className="tearleads-action-button pane-footer-window"
+              title={w.title}
+              onClick={() => restore(w.id)}
+            >
+              {AppIcon && (
+                <AppIcon
+                  aria-hidden="true"
+                  className="pane-footer-window-icon"
+                  focusable="false"
+                  size={16}
+                  weight="regular"
+                />
+              )}
+              <span className="pane-footer-window-label">{w.title}</span>
+            </button>
+          );
+        })}
         <div className="pane-footer-end">
           <WorkspaceSwitcher />
           {tray && <div className="pane-footer-tray">{tray}</div>}
