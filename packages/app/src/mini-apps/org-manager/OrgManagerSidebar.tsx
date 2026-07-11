@@ -33,7 +33,12 @@ function OrgManagerSidebar({
   return (
     <MiniAppSidebar>
       {ORG_MANAGER_SECTIONS.map(
-        ({ contextMenuTarget, label, view: sectionView }) => (
+        ({
+          contextMenuTarget,
+          icon: SectionIcon,
+          label,
+          view: sectionView,
+        }) => (
           <MiniAppRowButton
             key={sectionView}
             onClick={() => setView(sectionView)}
@@ -44,6 +49,11 @@ function OrgManagerSidebar({
             }
             selected={view === sectionView}
           >
+            <SectionIcon
+              aria-hidden
+              className="org-manager-sidebar-icon"
+              size={20}
+            />
             <MiniAppRowText>{label}</MiniAppRowText>
           </MiniAppRowButton>
         ),
