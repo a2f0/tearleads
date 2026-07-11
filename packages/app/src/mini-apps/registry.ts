@@ -3,7 +3,6 @@ import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
 import { ArchiveIcon } from "@phosphor-icons/react/dist/csr/Archive";
 import { BuildingsIcon } from "@phosphor-icons/react/dist/csr/Buildings";
 import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
-import { GaugeIcon } from "@phosphor-icons/react/dist/csr/Gauge";
 import { IdentificationCardIcon } from "@phosphor-icons/react/dist/csr/IdentificationCard";
 import { NoteIcon } from "@phosphor-icons/react/dist/csr/Note";
 import { BackupRestoreApp } from "./backup-restore/BackupRestoreApp";
@@ -12,6 +11,7 @@ import { ExplorerApp } from "./explorer/ExplorerApp";
 import { IdentityManagerApp } from "./identity-manager/IdentityManagerApp";
 import { createNotesWindowComponent } from "./notes/NotesApp";
 import { OrgManagerApp } from "./org-manager/OrgManagerApp";
+import { SystemMonitorIcon } from "./system-monitor/icon";
 import { SystemMonitorApp } from "./system-monitor/SystemMonitorApp";
 import type { MiniAppDefinition, MiniAppId } from "./types";
 
@@ -79,7 +79,7 @@ export const MINI_APP_MENU_ITEMS = [
 // routed home screen only after the user requests it.
 export const ROUTED_MINI_APP_NAV_ITEMS = [
   ...MINI_APP_MENU_ITEMS,
-  { appId: "system-monitor", icon: GaugeIcon, label: "System Monitor" },
+  { appId: "system-monitor", icon: SystemMonitorIcon, label: "System Monitor" },
 ] satisfies ReadonlyArray<{
   appId: MiniAppId;
   icon: Icon;
