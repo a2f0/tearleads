@@ -44,7 +44,6 @@ test("org manager grant detail links group grants to their group", () => {
         subjectId: grant.subjectId,
         subjectType: grant.subjectType,
       }}
-      selectGrantRef={() => undefined}
     />,
   );
 

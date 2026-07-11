@@ -43,7 +43,6 @@ export function DirectoryView({
   selectUser,
   setSelectedProfileDisplayName = () => undefined,
   setImportUserIdDraft = () => undefined,
-  showDetailDismissButton = true,
 }: {
   canImportRosterUser?: boolean | undefined;
   canUpdateSelectedRosterEntry?: boolean | undefined;
@@ -72,7 +71,6 @@ export function DirectoryView({
     | ((displayName: string | null) => void)
     | undefined;
   setImportUserIdDraft?: ((userId: string) => void) | undefined;
-  showDetailDismissButton?: boolean | undefined;
 }) {
   const importUserDialog = (
     <ImportRosterUserDialog
@@ -123,7 +121,6 @@ export function DirectoryView({
           key={selectedUserId}
           loading={loadingUserDetail}
           mutating={mutating}
-          onDismiss={() => selectUser(null)}
           onRosterProfileDisplayNameChange={setSelectedProfileDisplayName}
           openGrantRoute={openGrantRoute}
           openGroupRoute={openGroupRoute}
@@ -136,7 +133,6 @@ export function DirectoryView({
               : null
           }
           selectedUserId={selectedUserId}
-          showDismissButton={showDetailDismissButton}
         />
       </section>
       {importUserDialog}

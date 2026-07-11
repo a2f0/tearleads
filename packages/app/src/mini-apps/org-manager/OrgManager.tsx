@@ -11,11 +11,12 @@ import {
   useWindowFileMenuItem,
   useWindowRefreshMenuItem,
 } from "../../components/window/WindowMenuContext";
-import { useCompactRoutedMode } from "../../navigation/useCompactRoutedMode";
+import { useAppNavigationState } from "../../navigation/AppNavigationProvider";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import { BillingPanel } from "./billing/BillingPanel";
 import { DataUsageView } from "./billing/DataUsageView";
 import { OrgManagerContextMenuLayer } from "./context-menu/OrgManagerContextMenu";
+import { resolveOrgManagerDetailBackVisibility } from "./detailBackActions";
 import { DirectoryView } from "./directory/DirectoryView";
 import { RosterProfileEditor } from "./directory/RosterProfileEditor";
 import { GrantsView } from "./grants/GrantsView";
@@ -59,12 +60,10 @@ function OrgManagerDirectoryContent({
   model,
   renderProfileEditor,
   revokeGrant,
-  showDetailDismissButton,
 }: {
   model: OrgManagerModel;
   renderProfileEditor: ReturnType<typeof renderRosterProfileEditor>;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
-  showDetailDismissButton: boolean;
 }) {
   return (
     <DirectoryView
@@ -97,7 +96,6 @@ function OrgManagerDirectoryContent({
       selectUser={model.selectUser}
       setSelectedProfileDisplayName={model.setSelectedProfileDisplayName}
       setImportUserIdDraft={model.setImportUserIdDraft}
-      showDetailDismissButton={showDetailDismissButton}
     />
   );
 }
@@ -106,12 +104,10 @@ function OrgManagerContent({
   model,
   organizationId,
   revokeGrant,
-  showDirectoryDetailDismissButton,
 }: {
   model: OrgManagerModel;
   organizationId: string;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
-  showDirectoryDetailDismissButton: boolean;
 }) {
   const billing = useOrganizationBilling();
   const billingMatchesOrganization =
@@ -127,7 +123,6 @@ function OrgManagerContent({
         model={model}
         renderProfileEditor={renderProfileEditor}
         revokeGrant={revokeGrant}
-        showDetailDismissButton={showDirectoryDetailDismissButton}
       />
     );
   }
@@ -144,7 +139,6 @@ function OrgManagerContent({
         revokeGrant={revokeGrant}
         selectedGrant={model.selectedGrant}
         selectedGrantRef={model.selectedGrantRef}
-        selectGrantRef={model.selectGrantRef}
       />
     );
   }
@@ -316,16 +310,76 @@ function useOrgManagerWindowMenus(model: OrgManagerModel) {
   );
 }
 
-function useOrgManagerRosterDetailBackAction(model: OrgManagerModel) {
-  const { selectUser, selectedUserId, view } = model;
-  const compactRoutedMode = useCompactRoutedMode();
-  const showRosterDetailBackAction =
-    compactRoutedMode && view === "directory" && selectedUserId !== null;
+function useOrgManagerDetailBackActions(model: OrgManagerModel) {
+  const {
+    selectGrantRef,
+    selectGroup,
+    selectUser,
+    selectedGrantRef,
+    selectedGroup,
+    selectedUserId,
+    view,
+  } = model;
+  const { mode } = useAppNavigationState();
+
+  const {
+    showGrantDetailBackAction,
+    showGroupDetailBackAction,
+    showRosterDetailBackAction,
+  } = resolveOrgManagerDetailBackVisibility({
+    hasSelectedGrant: selectedGrantRef !== null,
+    hasSelectedGroup: selectedGroup !== null,
+    hasSelectedUser: selectedUserId !== null,
+    mode,
+    view,
+  });
+
   const backFromRosterDetail = useCallback(() => {
     selectUser(null);
   }, [selectUser]);
+  const backFromGroupDetail = useCallback(() => {
+    selectGroup(null);
+  }, [selectGroup]);
+  const backFromGrantDetail = useCallback(() => {
+    selectGrantRef(null);
+  }, [selectGrantRef]);
 
-  return { backFromRosterDetail, showRosterDetailBackAction };
+  return {
+    backFromGrantDetail,
+    backFromGroupDetail,
+    backFromRosterDetail,
+    showGrantDetailBackAction,
+    showGroupDetailBackAction,
+    showRosterDetailBackAction,
+  };
+}
+
+function useOrgManagerChrome(model: OrgManagerModel) {
+  const {
+    backFromGrantDetail,
+    backFromGroupDetail,
+    backFromRosterDetail,
+    showGrantDetailBackAction,
+    showGroupDetailBackAction,
+    showRosterDetailBackAction,
+  } = useOrgManagerDetailBackActions(model);
+
+  useOrgManagerRoutedChromeActions({
+    canCreateGroup: model.canCreateGroup,
+    canImportRosterUser: model.canImportRosterUser,
+    canLoadAuthenticatedOrgData: model.canLoadAuthenticatedOrgData,
+    loading: model.loading,
+    mutating: model.mutating,
+    onBackFromGrantDetail: backFromGrantDetail,
+    onBackFromGroupDetail: backFromGroupDetail,
+    onBackFromRosterDetail: backFromRosterDetail,
+    openCreateGroupDialog: model.openCreateGroupDialog,
+    openImportUserDialog: model.openImportUserDialog,
+    showGrantDetailBackAction,
+    showGroupDetailBackAction,
+    showRosterDetailBackAction,
+    view: model.view,
+  });
 }
 
 function OrgManagerAuthenticationRequired() {
@@ -340,8 +394,6 @@ function OrgManagerAuthenticationRequired() {
 
 export function OrgManager() {
   const model = useOrgManagerModel();
-  const { backFromRosterDetail, showRosterDetailBackAction } =
-    useOrgManagerRosterDetailBackAction(model);
   const revokeGrantDialog = useRevokeGrantConfirmation(model);
   const organizationId = model.organizationId;
   const contextMenuTarget =
@@ -360,18 +412,7 @@ export function OrgManager() {
     : undefined;
 
   useOrgManagerWindowMenus(model);
-  useOrgManagerRoutedChromeActions({
-    canCreateGroup: model.canCreateGroup,
-    canImportRosterUser: model.canImportRosterUser,
-    canLoadAuthenticatedOrgData: model.canLoadAuthenticatedOrgData,
-    loading: model.loading,
-    mutating: model.mutating,
-    onBackFromRosterDetail: backFromRosterDetail,
-    openCreateGroupDialog: model.openCreateGroupDialog,
-    openImportUserDialog: model.openImportUserDialog,
-    showRosterDetailBackAction,
-    view: model.view,
-  });
+  useOrgManagerChrome(model);
 
   if (!model.isAuthenticated) {
     return <OrgManagerAuthenticationRequired />;
@@ -398,7 +439,6 @@ export function OrgManager() {
             model={model}
             organizationId={organizationId}
             revokeGrant={revokeGrantDialog.requestRevokeGrant}
-            showDirectoryDetailDismissButton={!showRosterDetailBackAction}
           />
         ) : null}
       </main>

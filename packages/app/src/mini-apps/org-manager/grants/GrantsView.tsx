@@ -40,7 +40,6 @@ export function GrantsView({
   revokeGrant,
   selectedGrant,
   selectedGrantRef,
-  selectGrantRef,
 }: {
   canRevokeGrants: boolean;
   grants: OrganizationContainerGrants | null;
@@ -51,7 +50,6 @@ export function GrantsView({
   revokeGrant: (grant: OrganizationContainerGrant) => void;
   selectedGrant: OrganizationContainerGrant | null;
   selectedGrantRef: OrgManagerGrantRouteRef | null;
-  selectGrantRef: (grantRef: OrgManagerGrantRouteRef | null) => void;
 }) {
   if (selectedGrantRef) {
     return (
@@ -63,7 +61,6 @@ export function GrantsView({
         mutating={mutating}
         openGroupRoute={openGroupRoute}
         revokeGrant={revokeGrant}
-        selectGrantRef={selectGrantRef}
       />
     );
   }
@@ -138,7 +135,6 @@ function GrantDetailView({
   mutating,
   openGroupRoute,
   revokeGrant,
-  selectGrantRef,
 }: {
   canRevokeGrants: boolean;
   grant: OrganizationContainerGrant | null;
@@ -147,14 +143,11 @@ function GrantDetailView({
   mutating: boolean;
   openGroupRoute: (groupId: string) => void;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
-  selectGrantRef: (grantRef: OrgManagerGrantRouteRef | null) => void;
 }) {
-  const goBack = () => selectGrantRef(null);
-
   if (!grants) {
     return (
       <section className="org-manager-panel">
-        <GrantDetailHeader onBack={goBack} />
+        <GrantDetailHeader />
         <MiniAppStatus className="org-manager-hint">
           {loading
             ? ORG_MANAGER_LABELS.loadingGrants
@@ -167,7 +160,7 @@ function GrantDetailView({
   if (!grant) {
     return (
       <section className="org-manager-panel">
-        <GrantDetailHeader onBack={goBack} />
+        <GrantDetailHeader />
         <MiniAppStatus className="org-manager-hint">
           {ORG_MANAGER_LABELS.grantUnavailable}
         </MiniAppStatus>
@@ -181,7 +174,6 @@ function GrantDetailView({
       <GrantDetailHeader
         grant={grant}
         mutating={mutating}
-        onBack={goBack}
         onRevoke={
           canRevokeGrant
             ? () => {
@@ -292,12 +284,10 @@ function GrantDetailView({
 function GrantDetailHeader({
   grant,
   mutating = false,
-  onBack,
   onRevoke,
 }: {
   grant?: OrganizationContainerGrant | null | undefined;
   mutating?: boolean | undefined;
-  onBack: () => void;
   onRevoke?: (() => void) | undefined;
 }) {
   return (
@@ -310,16 +300,13 @@ function GrantDetailHeader({
           </span>
         ) : null}
       </MiniAppHeaderCopy>
-      <div className="org-manager-detail-actions">
-        {onRevoke ? (
+      {onRevoke ? (
+        <div className="org-manager-detail-actions">
           <MiniAppButton disabled={mutating} onClick={onRevoke}>
             {ORG_MANAGER_LABELS.revoke}
           </MiniAppButton>
-        ) : null}
-        <MiniAppButton onClick={onBack} variant="ghost">
-          {ORG_MANAGER_LABELS.back}
-        </MiniAppButton>
-      </div>
+        </div>
+      ) : null}
     </MiniAppHeader>
   );
 }

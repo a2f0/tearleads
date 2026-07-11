@@ -145,7 +145,6 @@ export function GroupsView({
         profileDisplayNamesByUserId={profileDisplayNamesByUserId}
         removeMember={removeMember}
         selectedGroup={selectedGroup}
-        selectGroup={selectGroup}
         setAddUserId={setAddUserId}
         userId={userId}
       />

@@ -25,14 +25,12 @@ import { GroupMembers } from "./GroupMembers";
 function GroupDetailHeader({
   openGroupContextMenu,
   selectedGroup,
-  selectGroup,
 }: {
   openGroupContextMenu: (
     event: MouseEvent<HTMLElement>,
     groupId: string | null,
   ) => void;
   selectedGroup: OrganizationGroupSummary;
-  selectGroup: (groupId: string | null) => void;
 }) {
   return (
     <MiniAppHeader
@@ -52,9 +50,6 @@ function GroupDetailHeader({
           ? getOrgManagerEpochLabel(selectedGroup.currentState.keyEpoch)
           : ORG_MANAGER_LABELS.noPolicy}
       </span>
-      <MiniAppButton onClick={() => selectGroup(null)} variant="ghost">
-        {ORG_MANAGER_LABELS.back}
-      </MiniAppButton>
     </MiniAppHeader>
   );
 }
@@ -77,7 +72,6 @@ export function GroupDetailSection({
   profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
   removeMember,
   selectedGroup,
-  selectGroup,
   setAddUserId,
   userId,
 }: {
@@ -101,7 +95,6 @@ export function GroupDetailSection({
   profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
   removeMember: (userId: string) => void;
   selectedGroup: OrganizationGroupSummary;
-  selectGroup: (groupId: string | null) => void;
   setAddUserId: (userId: string) => void;
   userId: string | null;
 }) {
@@ -110,7 +103,6 @@ export function GroupDetailSection({
       <GroupDetailHeader
         openGroupContextMenu={openGroupContextMenu}
         selectedGroup={selectedGroup}
-        selectGroup={selectGroup}
       />
       <MiniAppToolbar className="org-manager-form-toolbar">
         <MiniAppInput

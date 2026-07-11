@@ -144,9 +144,9 @@ function installClipboardWriteMock(): string[] {
   return writes;
 }
 
-test("org manager roster view exposes roster metadata and dismisses detail", () => {
-  const selections: Array<string | null> = [];
-
+test("org manager roster view exposes roster metadata", () => {
+  // The detail "Back" affordance lives in the shared toolbar (registered by
+  // OrgManagerRoutedChrome), not inline in DirectoryView.
   const view = render(
     <DirectoryView
       canRevokeGrants={false}
@@ -159,9 +159,7 @@ test("org manager roster view exposes roster metadata and dismisses detail", () 
       openGroupRoute={() => undefined}
       revokeGrant={() => undefined}
       selectedUserId={rosterUser.userId}
-      selectUser={(userId) => {
-        selections.push(userId);
-      }}
+      selectUser={() => undefined}
     />,
   );
 
@@ -176,9 +174,9 @@ test("org manager roster view exposes roster metadata and dismisses detail", () 
       ".org-manager-roster-row.mini-app-row--framed",
     ),
   ).toBeNull();
-
-  fireEvent.click(view.getByRole("button", { name: ORG_MANAGER_LABELS.back }));
-  expect(selections).toEqual([null]);
+  expect(
+    view.queryByRole("button", { name: ORG_MANAGER_LABELS.back }),
+  ).toBeNull();
 });
 
 test("org manager roster view copies the selected user id", () => {
