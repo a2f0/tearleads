@@ -90,13 +90,17 @@ function BlobIdentityCell(params: {
   const identity = blob.blobId ?? blob.storageKey;
 
   return (
-    <MiniAppTableCell title={identity}>
+    // Browsers don't reliably show a `title` on a disabled button, so the
+    // not-selectable hint lives on the (never-disabled) cell, which resolves the
+    // tooltip for the button it wraps.
+    <MiniAppTableCell
+      title={selectable ? identity : "Only image blobs can be attached."}
+    >
       <MiniAppTableActionButton
         aria-label={identity}
         className="explorer-blob-browser-row-button"
         disabled={!selectable}
         onClick={() => onSelectBlob(blob)}
-        title={selectable ? undefined : "Only image blobs can be attached."}
       >
         <span className="explorer-blob-browser-thumb">
           {isImage && thumbnailUrl ? (
