@@ -124,9 +124,12 @@ export function useOrgManagerRoutedChromeActions({
     [onBackFromGrantDetail, showGrantDetailBackAction],
   );
 
-  useMiniAppDetailBackAction(rosterDetailBackAction);
-  useMiniAppDetailBackAction(groupDetailBackAction);
-  useMiniAppDetailBackAction(grantDetailBackAction);
+  // The three detail surfaces are mutually exclusive (each keyed to its own view
+  // by resolveOrgManagerDetailBackVisibility), so one coalesced registration is
+  // sufficient — at most one candidate is ever non-null.
+  useMiniAppDetailBackAction(
+    rosterDetailBackAction ?? groupDetailBackAction ?? grantDetailBackAction,
+  );
   useWindowTitleBarAction(newGroupAction);
   useWindowTitleBarAction(importUserAction);
 }
