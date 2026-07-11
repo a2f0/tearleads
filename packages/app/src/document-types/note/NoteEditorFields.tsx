@@ -21,6 +21,7 @@ import {
 } from "./NoteAttachmentsPanel";
 import "./NoteDocument.css";
 import { NOTE_DOCUMENT_LABELS } from "./noteDocumentLabels";
+import { RemoveAttachmentConfirmationDialog } from "./RemoveAttachmentConfirmationDialog";
 
 type NoteHandleSelectedFiles = (fileList: FileList | null) => void;
 
@@ -254,6 +255,54 @@ function NoteEditorTextarea({
   );
 }
 
+// Gates attachment removal behind a confirm dialog: the trash buttons only
+// stage a pending slot, and the destructive store edit runs on confirm. The
+// pending attachment is derived from the live list so a remote merge that drops
+// the file also dismisses the prompt (never confirming a missing attachment).
+function useRemoveAttachmentConfirmation(
+  attachments: readonly DocumentAttachment[],
+  removeAttachment: (slotId: string) => void,
+) {
+  const [pendingRemovalSlotId, setPendingRemovalSlotId] = useState<
+    string | null
+  >(null);
+
+  const pendingRemovalAttachment =
+    pendingRemovalSlotId === null
+      ? null
+      : (attachments.find(
+          (attachment) => attachment.slotId === pendingRemovalSlotId,
+        ) ?? null);
+
+  useEffect(() => {
+    if (pendingRemovalSlotId !== null && pendingRemovalAttachment === null) {
+      setPendingRemovalSlotId(null);
+    }
+  }, [pendingRemovalSlotId, pendingRemovalAttachment]);
+
+  const requestRemoveAttachment = useCallback((slotId: string) => {
+    setPendingRemovalSlotId(slotId);
+  }, []);
+
+  const cancelRemoveAttachment = useCallback(() => {
+    setPendingRemovalSlotId(null);
+  }, []);
+
+  const confirmRemoveAttachment = useCallback(() => {
+    if (pendingRemovalSlotId !== null) {
+      removeAttachment(pendingRemovalSlotId);
+    }
+    setPendingRemovalSlotId(null);
+  }, [removeAttachment, pendingRemovalSlotId]);
+
+  return {
+    pendingRemovalAttachment,
+    requestRemoveAttachment,
+    cancelRemoveAttachment,
+    confirmRemoveAttachment,
+  };
+}
+
 // Shared note editor + attachments presentation used by both the notes
 // mini-app and the explorer's note document renderer. It is intentionally
 // unaware of how a note is stored: callers pass the editor text plus an
@@ -329,6 +378,13 @@ export function NoteEditorFields({
     }
   }, [previewSlotId, previewAttachment]);
 
+  const {
+    pendingRemovalAttachment,
+    requestRemoveAttachment,
+    cancelRemoveAttachment,
+    confirmRemoveAttachment,
+  } = useRemoveAttachmentConfirmation(attachments, handleRemoveAttachment);
+
   function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
     if (readOnly) {
       event.currentTarget.value = "";
@@ -361,7 +417,7 @@ export function NoteEditorFields({
           handleDragOver={handleDragOver}
           handleDrop={handleDrop}
           handleDownloadAttachment={handleDownloadAttachment}
-          handleRemoveAttachment={handleRemoveAttachment}
+          handleRemoveAttachment={requestRemoveAttachment}
           imageUrlBySlotId={imageUrlBySlotId}
           interactive={interactive}
           onOpenAttachment={setPreviewSlotId}
@@ -383,9 +439,14 @@ export function NoteEditorFields({
           imageUrl={imageUrlBySlotId[previewAttachment.slotId]}
           onClose={() => setPreviewSlotId(null)}
           onDownload={handleDownloadAttachment}
-          onRemove={handleRemoveAttachment}
+          onRemove={requestRemoveAttachment}
         />
       ) : null}
+      <RemoveAttachmentConfirmationDialog
+        attachment={pendingRemovalAttachment}
+        onCancel={cancelRemoveAttachment}
+        onConfirm={confirmRemoveAttachment}
+      />
     </>
   );
 }
