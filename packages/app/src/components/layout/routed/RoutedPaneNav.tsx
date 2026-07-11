@@ -50,39 +50,6 @@ function RoutedPaneNavLink({
   );
 }
 
-function RoutedPaneHomeNavLink({
-  activeAppId,
-  onNavigate,
-}: {
-  activeAppId: MiniAppId | null;
-  onNavigate: () => void;
-}) {
-  const { getHomeHref, navigateHome } = useAppNavigationActions();
-  const handleClick = useCallback(
-    (event: ReactMouseEvent<HTMLAnchorElement>) => {
-      event.preventDefault();
-      navigateHome();
-      onNavigate();
-    },
-    [navigateHome, onNavigate],
-  );
-
-  return (
-    <a
-      aria-current={activeAppId === null ? "page" : undefined}
-      className={
-        activeAppId === null
-          ? "routed-pane-nav-link routed-pane-nav-link--active"
-          : "routed-pane-nav-link"
-      }
-      href={getHomeHref()}
-      onClick={handleClick}
-    >
-      Home
-    </a>
-  );
-}
-
 /**
  * The navigation surface shared by both tiers: app links, the system ("Pane")
  * menu items, and any file/view actions.
@@ -109,10 +76,6 @@ function RoutedPaneNavPanel({
   return (
     <div className="routed-pane-nav-panel" id={id}>
       <nav aria-label="Apps" className="routed-pane-nav">
-        <RoutedPaneHomeNavLink
-          activeAppId={activeAppId}
-          onNavigate={onNavigate}
-        />
         {ROUTED_MINI_APP_NAV_ITEMS.map(({ appId }) => (
           <RoutedPaneNavLink
             key={appId}
