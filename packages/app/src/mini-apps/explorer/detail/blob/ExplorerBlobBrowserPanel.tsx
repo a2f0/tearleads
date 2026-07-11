@@ -51,6 +51,7 @@ interface ExplorerBlobBrowserPanelProps {
 // image slots, so non-image rows are shown but not selectable, and a row click
 // resolves the pick rather than opening blob detail.
 function BlobBrowserPickScreen(params: {
+  blobStore: BlobStore;
   data: BlobBrowserData;
   onCancel: () => void;
   online: boolean;
@@ -64,6 +65,7 @@ function BlobBrowserPickScreen(params: {
       <BlobPickHeader onCancel={params.onCancel} slotLabel={params.slotLabel} />
       <BlobBrowserListScreen
         blobInfo={data.blobInfo}
+        blobStore={params.blobStore}
         frameRef={data.frameRef}
         // Filtering non-image rows out of the windowed list would desync the
         // virtual-scroll padding from the total count, so disable instead.
@@ -123,6 +125,8 @@ function BlobBrowserBrowseScreen(params: {
             blob={data.selectedBlob}
             blobStore={params.blobStore}
             containerNamesById={params.containerNamesById}
+            downloadMessage={downloadMessage}
+            onDownload={downloadBlob}
             openDocumentInfoRoute={params.openDocumentInfoRoute}
             selectDocumentProjection={params.selectDocumentProjection}
           />
@@ -130,6 +134,7 @@ function BlobBrowserBrowseScreen(params: {
       ) : (
         <BlobBrowserListScreen
           blobInfo={data.blobInfo}
+          blobStore={params.blobStore}
           downloadMessage={downloadMessage}
           frameRef={data.frameRef}
           isWindowPending={data.isWindowPending}
@@ -175,6 +180,7 @@ export function ExplorerBlobBrowserPanel(
     >
       {params.pickTarget ? (
         <BlobBrowserPickScreen
+          blobStore={params.blobStore}
           data={data}
           onCancel={params.onCancelBlobPick ?? params.onBackToSelectionRoute}
           online={params.online}

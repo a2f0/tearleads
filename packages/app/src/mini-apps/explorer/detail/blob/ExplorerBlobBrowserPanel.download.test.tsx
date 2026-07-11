@@ -126,7 +126,9 @@ test("right-click download saves a blob's local bytes", async () => {
     await openRowContextMenu(view, "blob-1");
     fireEvent.click(await view.findByText("Download"));
 
-    await waitFor(() => expect(readKeys).toEqual(["storage-1"]));
+    // Image rows also read their bytes to build a thumbnail, so assert the
+    // download read is present rather than that it is the only read.
+    await waitFor(() => expect(readKeys).toContain("storage-1"));
     // A nameless blob falls back to its blob id for the download file name.
     expect(downloads).toEqual(["blob-1"]);
   } finally {
@@ -285,6 +287,85 @@ test("blob detail previews audio and video with shared playback controls", async
   expect(video.tagName).toBe("VIDEO");
   expect(video.controls).toBe(true);
   expect(video.classList.contains("media-preview--video")).toBe(true);
+});
+
+test("blob detail toolbar download saves the blob's local bytes", async () => {
+  const bytes = new Uint8Array([1, 2, 3]) as BlobBytes;
+  const readKeys: string[] = [];
+  const blobStore = createBlobStore({
+    readBytes: async (storageKey) => {
+      readKeys.push(storageKey);
+      return bytes;
+    },
+  });
+
+  const downloads: string[] = [];
+  const originalClick = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function click(this: HTMLAnchorElement) {
+    downloads.push(this.download);
+  };
+
+  try {
+    const view = renderBlobBrowserPanel({
+      blobStore,
+      rows: createBlobRows(),
+      route: { blobId: "blob-1", storageKey: null, view: "blob-browser" },
+    });
+
+    // The preview also reads the bytes, so assert on the download the button
+    // triggers (a nameless blob falls back to its blob id) rather than the read.
+    fireEvent.click(await view.findByRole("button", { name: "Download" }));
+
+    await waitFor(() => expect(downloads).toEqual(["blob-1"]));
+    expect(readKeys).toContain("storage-1");
+  } finally {
+    HTMLAnchorElement.prototype.click = originalClick;
+  }
+});
+
+test("blob detail renders the preview above the metadata", async () => {
+  const view = renderBlobBrowserPanel({
+    blobStore: createBlobStore(),
+    rows: createBlobRows(),
+    route: { blobId: "blob-1", storageKey: null, view: "blob-browser" },
+  });
+
+  const preview = await view.findByText("Preview");
+  const metadata = view.getByText("Blob Metadata");
+  // Node.DOCUMENT_POSITION_FOLLOWING (4) means metadata comes after preview.
+  expect(
+    preview.compareDocumentPosition(metadata) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+});
+
+test("image rows show a thumbnail while other rows show a file icon", async () => {
+  const bytes = new Uint8Array([1, 2, 3]) as BlobBytes;
+  const view = renderBlobBrowserPanel({
+    blobStore: createBlobStore({ readBytes: async () => bytes }),
+    rows: createBlobRows(),
+    route: { blobId: null, storageKey: null, view: "blob-browser" },
+  });
+
+  // blob-2 is image/png: its bytes load into an inline <img> thumbnail.
+  await waitFor(() =>
+    expect(
+      view.container.querySelector("img.explorer-blob-browser-thumb-image"),
+    ).not.toBeNull(),
+  );
+  // blob-1 is text/plain: no thumbnail, so a file-type icon stands in.
+  expect(
+    view.container.querySelector(".explorer-blob-browser-thumb-icon"),
+  ).not.toBeNull();
+});
+
+test("the blob id is hidden from the row but stays the button's label", async () => {
+  const view = renderBrowsePanel(createBlobStore());
+
+  // The compact id text is gone from the cell, but the row action button keeps
+  // the full id as its accessible name (and cell tooltip).
+  const button = await view.findByRole("button", { name: "blob-1" });
+  expect(button.textContent).toBe("");
 });
 
 const PICK_TARGET: ExplorerBlobPickTarget = {

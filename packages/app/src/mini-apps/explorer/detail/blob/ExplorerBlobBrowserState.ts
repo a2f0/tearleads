@@ -13,6 +13,7 @@ import {
   MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
   useMiniAppVirtualWindow,
 } from "../../../../components/shared/MiniAppVirtual";
+import { isImageDocumentAttachmentBlob } from "../../../../document-types/shared/documentAttachmentUtils";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 import type { ExplorerRoute } from "../../routes";
 
@@ -285,6 +286,55 @@ export function useBlobPreview(params: {
   }, [blob, blobStore]);
 
   return state;
+}
+
+// Read an image blob's bytes into an object URL for a compact table thumbnail.
+// Non-image blobs (and non-browser environments) return null so the caller falls
+// back to a file-type icon. The URL is revoked when the row unmounts or its blob
+// changes, mirroring useBlobPreview's lifecycle. Reads stay bounded because the
+// list is virtualized — only on-screen rows mount this hook.
+export function useBlobThumbnailUrl(params: {
+  blob: BlobInfo;
+  blobStore: BlobStore;
+}): string | null {
+  const { blobStore } = params;
+  const isImage = isImageDocumentAttachmentBlob(params.blob);
+  const { storageKey } = params.blob;
+  const mimeType = params.blob.mimeType ?? "application/octet-stream";
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isImage || !canCreateObjectUrl()) {
+      setUrl(null);
+      return;
+    }
+
+    let cancelled = false;
+    let objectUrl: string | null = null;
+
+    void (async () => {
+      try {
+        const bytes = await blobStore.readBytes(storageKey);
+        if (cancelled || !bytes) {
+          return;
+        }
+        objectUrl = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+        setUrl(objectUrl);
+      } catch {
+        // A thumbnail is best-effort; a failed read just falls back to the icon.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+      setUrl(null);
+    };
+  }, [blobStore, isImage, mimeType, storageKey]);
+
+  return url;
 }
 
 function matchesRouteTarget(blob: BlobInfo, route: BlobBrowserRoute): boolean {
