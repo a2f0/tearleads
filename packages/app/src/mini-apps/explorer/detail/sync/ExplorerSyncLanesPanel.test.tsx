@@ -259,6 +259,9 @@ test("ExplorerSyncLanesPanelView trims the list to lane and status on phones", (
   expect(view.queryByText("1 request, 1 run, 0 errors")).toBeNull();
   expect(view.queryByRole("progressbar")).toBeNull();
   expect(view.queryByRole("button", { name: "Columns" })).toBeNull();
+  // Lane + status only, with the lane column flexing, so no width floor applies.
+  const table = view.getByRole("table", { name: "Sync Lanes" }) as HTMLElement;
+  expect(table.style.minWidth).toBe("");
 });
 
 test("ExplorerSyncLanesPanelView opens lane details from the compact list", () => {
@@ -300,14 +303,20 @@ test("ExplorerSyncLanesPanelView places the column menu in the rightmost status 
   const view = renderSyncLanesPanel({ snapshot });
   const headerCells = Array.from(view.container.querySelectorAll("thead th"));
   const columnsButton = view.getByRole("button", { name: "Columns" });
+  const table = view.getByRole("table", { name: "Sync Lanes" }) as HTMLElement;
 
   expect(headerCells.at(-1)?.textContent).toContain("Status");
   expect(headerCells.at(-1)?.contains(columnsButton)).toBe(true);
+  // Inline floor = sum of visible columns' fixed rem widths (10+7+11+12+12+7).
+  // Set explicitly, not via CSS `max-content` (which Firefox sizes from cell
+  // content, blowing the columns out); hiding Progress drops its 11rem too.
+  expect(table.style.minWidth).toBe("59rem");
 
   fireEvent.click(columnsButton);
   fireEvent.click(view.getByRole("checkbox", { name: /Progress/u }));
 
   expect(view.queryByRole("progressbar")).toBeNull();
+  expect(table.style.minWidth).toBe("48rem");
 });
 
 test("ExplorerSyncLanesPanel triggers a manual sync from the toolbar action", async () => {

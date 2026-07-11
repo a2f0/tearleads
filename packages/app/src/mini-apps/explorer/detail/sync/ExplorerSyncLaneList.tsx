@@ -102,54 +102,34 @@ function getVisibleSyncLaneColumnIds(params: {
   );
 }
 
+// Wide-layout column widths, in rem. Kept as numbers (not "10rem" strings) so
+// the list can sum the visible columns into the table's horizontal-scroll floor
+// (see `tableMinWidth`) without parsing them back out.
+const SYNC_LANE_COLUMN_WIDTH_REM: Record<SyncLaneListColumnId, number> = {
+  lane: 10,
+  phase: 7,
+  progress: 11,
+  "last-action": 12,
+  counts: 12,
+  status: 7,
+};
+
 function buildSyncLaneColumn(
   id: SyncLaneListColumnId,
   compact: boolean,
 ): MiniAppTableColumn {
-  switch (id) {
-    case "lane":
-      return {
-        header: getSyncLaneListColumnLabel(id),
-        id,
-        // On the phone tier the lane is one of only two columns, so let it take
-        // the remaining width. In the wide layout give it a concrete floor
-        // (rather than a percentage that collapses when the pane is too narrow
-        // for all six columns) so the compact lane label keeps its own column;
-        // the label is a short category name and is ellipsis-clamped, so this
-        // floor no longer has to fit an opaque per-lane key.
-        width: compact ? undefined : "10rem",
-      };
-    case "phase":
-      return {
-        header: getSyncLaneListColumnLabel(id),
-        id,
-        width: "7rem",
-      };
-    case "progress":
-      return {
-        header: getSyncLaneListColumnLabel(id),
-        id,
-        width: "11rem",
-      };
-    case "last-action":
-      return {
-        header: getSyncLaneListColumnLabel(id),
-        id,
-        width: "12rem",
-      };
-    case "counts":
-      return {
-        header: getSyncLaneListColumnLabel(id),
-        id,
-        width: "12rem",
-      };
-    case "status":
-      return {
-        header: getSyncLaneListColumnLabel(id),
-        id,
-        width: "7rem",
-      };
-  }
+  return {
+    header: getSyncLaneListColumnLabel(id),
+    id,
+    // On the phone tier the lane is one of only two columns, so let it flex into
+    // the remaining width. Every other column — and the lane in the wide layout
+    // — keeps its fixed rem width; the compact lane label is ellipsis-clamped,
+    // so its 10rem column no longer has to fit an opaque per-lane key.
+    width:
+      compact && id === "lane"
+        ? undefined
+        : `${SYNC_LANE_COLUMN_WIDTH_REM[id]}rem`,
+  };
 }
 
 function renderSyncLaneCell(params: {
@@ -269,12 +249,30 @@ export function ExplorerSyncLaneList(params: {
       visibleColumnIds,
     ],
   );
+  // Floor the table at the sum of its visible columns' fixed widths so a narrow
+  // pane scrolls horizontally (within the frame) instead of crushing the
+  // columns. Computed here rather than with CSS `min-width: max-content` because
+  // Firefox derives a table's `max-content` from cell *content* — ignoring the
+  // `table-layout: fixed` column widths — which stretched the columns far past
+  // their rem widths and forced a huge horizontal scroll. The compact tier has
+  // only two columns and its lane column flexes, so it needs no floor.
+  const tableMinWidth = useMemo(
+    () =>
+      compact
+        ? undefined
+        : `${visibleColumnIds.reduce(
+            (total, id) => total + SYNC_LANE_COLUMN_WIDTH_REM[id],
+            0,
+          )}rem`,
+    [compact, visibleColumnIds],
+  );
 
   return (
     <MiniAppTableFrame className="explorer-sync-lane-table-wrap">
       <MiniAppTable
         aria-label={EXPLORER_LABELS.syncLanesTitle}
         columns={columns}
+        style={tableMinWidth ? { minWidth: tableMinWidth } : undefined}
       >
         {params.lanes.length === 0 ? (
           <MiniAppTableEmptyRow colSpan={visibleColumnIds.length}>
