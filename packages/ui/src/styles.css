@@ -42,8 +42,8 @@
   /* Header/footer action-button hover fill. A themeable inversion: Light keeps
      the crisp white-on-dark chip (foreground/background of the dark chrome
      band), while Dark swaps to the calm neutral-grey emphasis chip (see the
-     Dark block) so the button doesn't flash a near-white slab — matching the already
-     tokenized .theme-toggle-button and pane-footer hovers. */
+     Dark block) so the button doesn't flash a near-white slab — matching the
+     tokenized pane-footer hovers. */
   --tearleads-action-hover-surface: var(--tearleads-header-text);
   --tearleads-action-hover-text: var(--tearleads-header-background);
 
@@ -446,4 +446,22 @@ textarea {
 .tearleads-action-button:focus-visible {
   background: var(--tearleads-action-hover-surface);
   color: var(--tearleads-action-hover-text);
+}
+
+/* Square, control-height variant with a centered glyph. The footer's tray
+   affordances — the theme toggle, the system-monitor launcher, and the
+   workspace chips — all share this so every square tray control sizes and
+   centers identically and, crucially, inherits the base button's default
+   --border (transparent fill over the footer). That is the same edge the
+   workspace chips already drew; the theme toggle and monitor launcher used to
+   carry the heavier --border-strong window-chrome edge instead, which in Dark
+   sat invisibly against the footer while its sibling chip stayed legible. One
+   token now keeps all three consistent in both themes. */
+.tearleads-action-button--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
 }

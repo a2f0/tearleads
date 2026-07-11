@@ -2,7 +2,6 @@ import { PulseIcon } from "@phosphor-icons/react/dist/csr/Pulse";
 import { useCallback } from "react";
 import { useNetworkModeContextMenu } from "../../components/shared/NetworkModeContextMenu";
 import { useMiniAppBusActions } from "../bus";
-import "./SystemMonitor.css";
 import { useSystemMonitor } from "./SystemMonitorProvider";
 
 const SYSTEM_MONITOR_LABEL = "System Monitor";
@@ -26,7 +25,7 @@ export function SystemMonitorLauncherButton() {
     <>
       <button
         aria-label={SYSTEM_MONITOR_LABEL}
-        className="system-monitor-launcher"
+        className="tearleads-action-button tearleads-action-button--icon"
         title={SYSTEM_MONITOR_LABEL}
         type="button"
         onClick={handleClick}
