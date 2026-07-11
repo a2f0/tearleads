@@ -15,7 +15,7 @@ function isOnSyncTab(route: ExplorerModel["routeState"]["route"]): boolean {
   return route.view === "sync-lanes" || route.view === "sync-lane-detail";
 }
 
-export function useExplorerSyncSectionsToolbarAction({
+export function useExplorerHubToolbarActions({
   model,
   route,
 }: {
@@ -23,18 +23,18 @@ export function useExplorerSyncSectionsToolbarAction({
   route: ExplorerModel["routeState"]["route"];
 }) {
   const openSyncLanesRoute = model.routeState.openSyncLanesRoute;
-  // Within the hub's Sync tab the mirror "Blob Browser" action provides the
-  // tab switch, so this entry point steps aside there. It stays on every other
-  // route — including the hub's Blob Browser tab, where it switches back to Sync.
+  const openBlobBrowserRoute = model.routeState.openBlobBrowserRoute;
   const onSyncTab = isOnSyncTab(route);
+
+  // The Sync entry point opens the hub (defaulting to the Sync Lanes tab); it is
+  // a persistent action kept rightmost via the lowest priority among Explorer's
+  // actions. On the Sync tab it steps aside for its mirror below, so each tab
+  // surfaces a single one-tap switch to the other.
   const syncSectionsAction = useMemo(
     () =>
       onSyncTab
         ? null
         : {
-            // Opens the full-screen Sync Lanes / Blob Browser hub (defaulting to
-            // the Sync Lanes tab). A persistent entry point, kept rightmost in
-            // the toolbar via the lowest priority among Explorer's actions.
             icon: <StackIcon aria-hidden size={18} />,
             id: "explorer-sync-sections",
             label: EXPLORER_LABELS.syncSectionsAction,
@@ -44,21 +44,9 @@ export function useExplorerSyncSectionsToolbarAction({
     [onSyncTab, openSyncLanesRoute],
   );
 
-  useWindowTitleBarAction(syncSectionsAction);
-}
-
-export function useExplorerBlobBrowserSectionsToolbarAction({
-  model,
-  route,
-}: {
-  model: ExplorerModel;
-  route: ExplorerModel["routeState"]["route"];
-}) {
-  const openBlobBrowserRoute = model.routeState.openBlobBrowserRoute;
-  // The mirror of the Sync entry point: while on the hub's Sync tab, offer a
-  // one-tap switch to the Blob Browser tab — matching the Sync button shown on
-  // the Blob Browser tab.
-  const onSyncTab = isOnSyncTab(route);
+  // The mirror of the Sync entry point: while on the Sync tab, offer a one-tap
+  // switch to the Blob Browser tab — matching the Sync button shown on the Blob
+  // Browser tab.
   const blobBrowserSectionsAction = useMemo(
     () =>
       onSyncTab
@@ -73,5 +61,6 @@ export function useExplorerBlobBrowserSectionsToolbarAction({
     [onSyncTab, openBlobBrowserRoute],
   );
 
+  useWindowTitleBarAction(syncSectionsAction);
   useWindowTitleBarAction(blobBrowserSectionsAction);
 }

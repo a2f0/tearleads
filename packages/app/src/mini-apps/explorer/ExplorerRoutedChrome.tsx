@@ -10,10 +10,7 @@ import {
   useWindowBackAction,
   useWindowTitleBarAction,
 } from "../../components/window/WindowMenuContext";
-import {
-  useExplorerBlobBrowserSectionsToolbarAction,
-  useExplorerSyncSectionsToolbarAction,
-} from "./ExplorerHubToolbarActions";
+import { useExplorerHubToolbarActions } from "./ExplorerHubToolbarActions";
 import type { useExplorerModel } from "./hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "./labels";
 
@@ -61,8 +58,7 @@ export function useExplorerRoutedChromeActions({
     model,
     route,
   });
-  useExplorerSyncSectionsToolbarAction({ model, route });
-  useExplorerBlobBrowserSectionsToolbarAction({ model, route });
+  useExplorerHubToolbarActions({ model, route });
   useExplorerCreateFolderToolbarAction({
     activeContainerId,
     model,
