@@ -90,3 +90,19 @@ test("shared status stays visible regardless of the active tab", () => {
   fireEvent.click(view.getByRole("tab", { name: "Restore" }));
   expect(view.queryByText("Backup passwords do not match.")).toBeTruthy();
 });
+
+// "Choose Backup File" lives inside the restore <form>, so it must not act as a
+// submit button (which would fire handleRestoreBackup before a file is picked).
+// MiniAppButton defaults type="button"; this guards that it stays that way.
+test("Choose Backup File does not submit the restore form", () => {
+  const handleChooseRestoreFile = mock(() => {});
+  const handleRestoreBackup = mock(async () => {});
+  activeModel = createModel({ handleChooseRestoreFile, handleRestoreBackup });
+  const view = render(<BackupRestore />);
+
+  fireEvent.click(view.getByRole("tab", { name: "Restore" }));
+  fireEvent.click(view.getByRole("button", { name: "Choose Backup File" }));
+
+  expect(handleChooseRestoreFile).toHaveBeenCalledTimes(1);
+  expect(handleRestoreBackup).not.toHaveBeenCalled();
+});
