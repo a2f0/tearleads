@@ -1,7 +1,10 @@
 import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
 import { UserPlusIcon } from "@phosphor-icons/react/dist/csr/UserPlus";
 import { useMemo } from "react";
-import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
+import {
+  useWindowTitleBarAction,
+  useWindowToolbarReservation,
+} from "../../components/window/WindowMenuContext";
 import { CONTACTS_LABELS } from "./labels";
 import type { ContactsRoute } from "./routes";
 
@@ -18,6 +21,14 @@ export function useContactsRoutedChromeActions({
   ready: boolean;
   route: ContactsRoute;
 }) {
+  // Reserve the toolbar row on every contacts route so the bar holds a stable
+  // height instead of collapsing when a non-selection route (new-contact or
+  // import-contact, which register no toolbar actions) is shown. Matches notes
+  // and org-manager; keeps a blank bar the same height as a filled one
+  // (WindowToolBar.css). The chrome hook only runs past SystemBootstrapGate, so
+  // there is no pre-auth state to guard as org-manager has.
+  useWindowToolbarReservation();
+
   const showSelectionActions = route === "selection";
   const newContactAction = useMemo(
     () =>
