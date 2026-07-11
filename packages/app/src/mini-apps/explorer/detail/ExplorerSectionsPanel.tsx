@@ -182,7 +182,6 @@ export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
             embedded
             domainScope={params.domainScope}
             onBackToSelectionRoute={openSyncLanesRoute}
-            onBackToSyncLanesRoute={openSyncLanesRoute}
             onOpenLaneDetail={params.onOpenSyncLaneDetailRoute}
             selectedLaneKey={
               route.view === "sync-lane-detail" ? route.laneKey : null

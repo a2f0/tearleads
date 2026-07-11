@@ -34,12 +34,12 @@ function getSyncLaneDetailSubtitle(
 }
 
 export function ExplorerSyncLanesPanelView(params: {
-  // When embedded in the compact tabbed hub the tab bar owns top-level
-  // navigation, so the list-mode "Back to Explorer" button is suppressed (the
-  // lane-detail "Back to List" stays — it navigates within this panel).
+  // The lane-detail "Back to Sync Lanes" affordance lives on the window toolbar
+  // (registered by ExplorerRoutedChrome), so the panel renders no in-detail back
+  // button. In list mode the "Back to Explorer" button is suppressed when
+  // embedded, since the compact tabbed hub's tab bar owns top-level navigation.
   embedded?: boolean;
   onBackToSelectionRoute: () => void;
-  onBackToSyncLanesRoute: () => void;
   onOpenLaneDetail: (laneKey: string) => void;
   selectedLaneKey: string | null;
   snapshot: DomainSyncSnapshot;
@@ -47,7 +47,6 @@ export function ExplorerSyncLanesPanelView(params: {
   const {
     embedded = false,
     onBackToSelectionRoute,
-    onBackToSyncLanesRoute,
     onOpenLaneDetail,
     selectedLaneKey,
     snapshot,
@@ -75,11 +74,7 @@ export function ExplorerSyncLanesPanelView(params: {
           </span>
         </MiniAppHeaderCopy>
         <MiniAppActions>
-          {showingLaneDetail ? (
-            <MiniAppButton onClick={onBackToSyncLanesRoute}>
-              {EXPLORER_LABELS.syncLanesBackToListAction}
-            </MiniAppButton>
-          ) : embedded ? null : (
+          {showingLaneDetail || embedded ? null : (
             <MiniAppButton onClick={onBackToSelectionRoute}>
               {EXPLORER_LABELS.syncLanesBackAction}
             </MiniAppButton>
@@ -105,7 +100,6 @@ export function ExplorerSyncLanesPanel(params: {
   embedded?: boolean;
   domainScope: DomainScope;
   onBackToSelectionRoute: () => void;
-  onBackToSyncLanesRoute: () => void;
   onOpenLaneDetail: (laneKey: string) => void;
   selectedLaneKey: string | null;
 }) {
@@ -141,7 +135,6 @@ export function ExplorerSyncLanesPanel(params: {
     <ExplorerSyncLanesPanelView
       embedded={params.embedded ?? false}
       onBackToSelectionRoute={params.onBackToSelectionRoute}
-      onBackToSyncLanesRoute={params.onBackToSyncLanesRoute}
       onOpenLaneDetail={params.onOpenLaneDetail}
       selectedLaneKey={params.selectedLaneKey}
       snapshot={snapshot}

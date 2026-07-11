@@ -79,7 +79,6 @@ function renderSyncLanesPanel(input: {
   return render(
     createElement(ExplorerSyncLanesPanelView, {
       onBackToSelectionRoute: () => undefined,
-      onBackToSyncLanesRoute: () => undefined,
       onOpenLaneDetail: input.onOpenLaneDetail ?? (() => undefined),
       selectedLaneKey: input.selectedLaneKey ?? null,
       snapshot: input.snapshot,
@@ -118,7 +117,6 @@ function renderSyncLanesPanelContainer(input: {
         domainScope={input.domainScope}
         embedded
         onBackToSelectionRoute={() => undefined}
-        onBackToSyncLanesRoute={() => undefined}
         onOpenLaneDetail={() => undefined}
         selectedLaneKey={input.selectedLaneKey ?? null}
       />
