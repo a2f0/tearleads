@@ -23,12 +23,17 @@ export function OrgManagerMenu({
       aria-label={ORG_MANAGER_LABELS.menuNavLabel}
       className="org-manager-menu"
     >
-      {ORG_MANAGER_SECTIONS.map(({ label, view }) => (
+      {ORG_MANAGER_SECTIONS.map(({ icon: SectionIcon, label, view }) => (
         <MiniAppRowButton
           className="org-manager-menu-row"
           key={view}
           onClick={() => setView(view)}
         >
+          <SectionIcon
+            aria-hidden
+            className="org-manager-menu-icon"
+            size={20}
+          />
           <MiniAppRowText>{label}</MiniAppRowText>
           <CaretRightIcon
             aria-hidden
