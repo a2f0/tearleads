@@ -155,3 +155,48 @@ test("retains and schedules a failed prepared re-wrap", async () => {
   await scheduled[0]?.();
   expect(rewrapCalls).toBe(2);
 });
+
+test("deduplicates a background retry and a foreground re-wrap", async () => {
+  let releaseRetry: () => void = () => {};
+  let resolveRetryStarted: () => void = () => {};
+  const retryStarted = new Promise<void>((resolve) => {
+    resolveRetryStarted = resolve;
+  });
+  const retryMayFinish = new Promise<void>((resolve) => {
+    releaseRetry = resolve;
+  });
+  let rewrapCalls = 0;
+  const scheduled: Array<() => Promise<void>> = [];
+  const prepare = mock(async () => ({
+    rewrap: async () => {
+      rewrapCalls += 1;
+      if (rewrapCalls === 1) {
+        throw new Error("transient share failure");
+      }
+      resolveRetryStarted();
+      await retryMayFinish;
+    },
+  })) as unknown as PrepareOrganizationRootRewrapToAdmins;
+  const { coordinator } = createHarness({
+    prepare,
+    scheduleRetry: (retry) => scheduled.push(retry),
+  });
+  const prepared = await coordinator.prepareIfAdminsGroup({
+    mutatedGroupId: "admins-group",
+    organizationId: "org-1",
+  });
+  await expect(prepared.rewrap()).rejects.toThrow("transient share failure");
+
+  const retry = scheduled[0]?.();
+  await retryStarted;
+  const foreground = coordinator.prepareIfAdminsGroup({
+    mutatedGroupId: "admins-group",
+    organizationId: "org-1",
+  });
+  await Promise.resolve();
+
+  expect(rewrapCalls).toBe(2);
+  releaseRetry();
+  await Promise.all([retry, foreground]);
+  expect(rewrapCalls).toBe(2);
+});

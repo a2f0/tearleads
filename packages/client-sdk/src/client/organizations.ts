@@ -215,7 +215,9 @@ class OrganizationsService implements Organizations {
         return groups
           ? {
               adminGroupId:
-                groups.groups.find((group) => group.isBuiltin)?.groupId ?? null,
+                groups.groups.find(
+                  (group) => group.isBuiltin && group.name === "Admins",
+                )?.groupId ?? null,
             }
           : null;
       },

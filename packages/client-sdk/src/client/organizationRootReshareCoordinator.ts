@@ -35,6 +35,54 @@ export interface OrganizationRootReshareCoordinator {
   }): Promise<PreparedOrganizationRootRewrap>;
 }
 
+interface ActiveOrganizationRootRewrap {
+  prepared: PreparedOrganizationRootRewrap;
+  promise: Promise<void>;
+}
+
+async function applyOrganizationRootRewrap(input: {
+  activeByOrganization: Map<string, ActiveOrganizationRootRewrap>;
+  organizationId: string;
+  pendingByOrganization: Map<string, PreparedOrganizationRootRewrap>;
+  prepared: PreparedOrganizationRootRewrap;
+}): Promise<void> {
+  if (
+    input.pendingByOrganization.get(input.organizationId) !== input.prepared
+  ) {
+    return;
+  }
+
+  const active = input.activeByOrganization.get(input.organizationId);
+  if (active) {
+    await active.promise;
+    if (active.prepared === input.prepared) {
+      return;
+    }
+    return applyOrganizationRootRewrap(input);
+  }
+
+  const promise = (async () => {
+    await input.prepared.rewrap();
+    if (
+      input.pendingByOrganization.get(input.organizationId) === input.prepared
+    ) {
+      input.pendingByOrganization.delete(input.organizationId);
+    }
+  })();
+  input.activeByOrganization.set(input.organizationId, {
+    prepared: input.prepared,
+    promise,
+  });
+  try {
+    await promise;
+  } finally {
+    const current = input.activeByOrganization.get(input.organizationId);
+    if (current?.promise === promise) {
+      input.activeByOrganization.delete(input.organizationId);
+    }
+  }
+}
+
 export function createOrganizationRootReshareCoordinator(deps: {
   containerContents: ContainerContents;
   loadDirectory: LoadOrganizationDirectoryForRootReshare;
@@ -47,6 +95,10 @@ export function createOrganizationRootReshareCoordinator(deps: {
     string,
     PreparedOrganizationRootRewrap
   >();
+  const activeRewrapByOrganization = new Map<
+    string,
+    ActiveOrganizationRootRewrap
+  >();
   const scheduleRetry =
     deps.scheduleRetry ??
     ((retry: () => Promise<void>) => {
@@ -57,10 +109,12 @@ export function createOrganizationRootReshareCoordinator(deps: {
     organizationId: string,
     prepared: PreparedOrganizationRootRewrap,
   ): Promise<void> {
-    await prepared.rewrap();
-    if (pendingRewrapByOrganization.get(organizationId) === prepared) {
-      pendingRewrapByOrganization.delete(organizationId);
-    }
+    return applyOrganizationRootRewrap({
+      activeByOrganization: activeRewrapByOrganization,
+      organizationId,
+      pendingByOrganization: pendingRewrapByOrganization,
+      prepared,
+    });
   }
 
   function retryPendingRewrap(
