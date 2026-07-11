@@ -10,24 +10,20 @@ import {
 import { NOTE_DOCUMENT_LABELS } from "./noteDocumentLabels";
 
 // Confirms removal of a single note attachment before the destructive store op
-// runs. A null `attachment` means no removal is pending, so the dialog renders
-// nothing. Removing an attachment is a local CRDT edit with no async round-trip,
-// so there is no busy/pending state to guard here.
+// runs. The caller renders this only while a removal is pending, so `attachment`
+// is always present. Removing an attachment is a local CRDT edit with no async
+// round-trip, so there is no busy/pending state to guard here.
 export function RemoveAttachmentConfirmationDialog({
   attachment,
   onCancel,
   onConfirm,
 }: {
-  attachment: DocumentAttachment | null;
+  attachment: DocumentAttachment;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
   const titleId = useId();
   const messageId = useId();
-
-  if (!attachment) {
-    return null;
-  }
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

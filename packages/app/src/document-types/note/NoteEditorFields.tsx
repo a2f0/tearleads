@@ -274,11 +274,12 @@ function useRemoveAttachmentConfirmation(
           (attachment) => attachment.slotId === pendingRemovalSlotId,
         ) ?? null);
 
-  useEffect(() => {
-    if (pendingRemovalSlotId !== null && pendingRemovalAttachment === null) {
-      setPendingRemovalSlotId(null);
-    }
-  }, [pendingRemovalSlotId, pendingRemovalAttachment]);
+  // Adjust state during render (React's recommended pattern over an effect) so
+  // the prompt drops in the same commit its attachment vanishes — no extra
+  // paint, no flash of an empty dialog.
+  if (pendingRemovalSlotId !== null && pendingRemovalAttachment === null) {
+    setPendingRemovalSlotId(null);
+  }
 
   const requestRemoveAttachment = useCallback((slotId: string) => {
     setPendingRemovalSlotId(slotId);
@@ -442,11 +443,13 @@ export function NoteEditorFields({
           onRemove={requestRemoveAttachment}
         />
       ) : null}
-      <RemoveAttachmentConfirmationDialog
-        attachment={pendingRemovalAttachment}
-        onCancel={cancelRemoveAttachment}
-        onConfirm={confirmRemoveAttachment}
-      />
+      {pendingRemovalAttachment ? (
+        <RemoveAttachmentConfirmationDialog
+          attachment={pendingRemovalAttachment}
+          onCancel={cancelRemoveAttachment}
+          onConfirm={confirmRemoveAttachment}
+        />
+      ) : null}
     </>
   );
 }
