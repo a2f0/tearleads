@@ -71,9 +71,11 @@ function UsageMetric({
 }
 
 export function DataUsageView({
+  canSync,
   dataUsage,
   loading,
 }: {
+  canSync: boolean | null;
   dataUsage: OrganizationDataUsage | null;
   loading: boolean;
 }) {
@@ -97,6 +99,14 @@ export function DataUsageView({
         <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.organizationDataUsage}
         </MiniAppSectionHeading>
+        <MiniAppStatus className="org-manager-hint">
+          {ORG_MANAGER_LABELS.usageDefinition}
+        </MiniAppStatus>
+        {canSync === false && (
+          <MiniAppStatus className="org-manager-hint">
+            {ORG_MANAGER_LABELS.usageSyncOff}
+          </MiniAppStatus>
+        )}
         <UsageMetric
           byteLength={dataUsage.documents.byteLength}
           detail={getDocumentUsageDetail(

@@ -24,15 +24,21 @@ import {
 } from "../../../providers/sdk/TearleadsProvider";
 import { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { useMiniAppBusActions } from "../../bus";
+import { useOrgManagerDataUsageRefresh } from "../billing/useOrgManagerDataUsageRefresh";
 import { useOrgManagerContextMenu } from "../context-menu/OrgManagerContextMenu";
-import { ORG_MANAGER_LABELS } from "../labels";
+import { deriveOrgManagerState } from "../deriveOrgManagerState";
 import { useOrgManagerSidebarPanel } from "../OrgManagerSidebar";
-import { canCurrentUserMutateSelectedGroup } from "../permissions";
 import type { OrgManagerView } from "../routes";
+import {
+  getOrgManagerStateScopeKey,
+  scopeOrganizationDirectory,
+  scopeOrganizationList,
+} from "./orgManagerStateScope";
 import { useEnsureRosterProfileDocument } from "./useEnsureRosterProfileDocument";
 import { useOrgManagerMutations } from "./useOrgManagerMutations";
 import { useOrgManagerProfileDisplayNames } from "./useOrgManagerProfileDisplayNames";
 import { useOrgManagerRefreshers } from "./useOrgManagerRefreshers";
+import { useOrgManagerRequestGuard } from "./useOrgManagerRequestGuard";
 import { useOrgManagerRosterActions } from "./useOrgManagerRosterActions";
 import { useOrgManagerRoute } from "./useOrgManagerRoute";
 import { useOrgManagerRouteMessages } from "./useOrgManagerRouteMessages";
@@ -51,6 +57,16 @@ export function useOrgManagerModel() {
   const [groups, setGroups] = useState<ReadonlyArray<OrganizationGroupSummary>>(
     [],
   );
+  const organizationId = appData.auth.organizationId;
+  const activeDirectory = scopeOrganizationDirectory(
+    directory,
+    organizationId,
+    appData.auth.userId,
+  );
+  const activeGroups = useMemo(
+    () => scopeOrganizationList(groups, organizationId),
+    [groups, organizationId],
+  );
   const [memberGroupId, setMemberGroupId] = useState<string | null>(null);
   const {
     openGrantRoute,
@@ -62,15 +78,11 @@ export function useOrgManagerModel() {
     setSelectedGrantRef: selectGrantRef,
     setSelectedGroupId: selectGroup,
     setView,
-  } = useOrgManagerRoute({ groups });
+  } = useOrgManagerRoute({ groups: activeGroups });
   const compactRoutedMode = useCompactRoutedMode();
-  // The segment-less base route is "menu". On wide layouts the sidebar already
-  // lists the sections, so the menu collapses back to the roster; only the
-  // compact/mobile layout renders the standalone section-menu home.
-  const rawView = route.view;
   const view: OrgManagerView =
-    !compactRoutedMode && rawView === "menu" ? "directory" : rawView;
-  const showCompactMenu = compactRoutedMode && rawView === "menu";
+    !compactRoutedMode && route.view === "menu" ? "directory" : route.view;
+  const showCompactMenu = compactRoutedMode && route.view === "menu";
   const [members, setMembers] = useState<OrganizationGroupMembers | null>(null);
   const [groupContainers, setGroupContainers] =
     useState<OrganizationGroupContainers | null>(null);
@@ -103,9 +115,56 @@ export function useOrgManagerModel() {
     groupId: string | null;
   } | null>(null);
   const selectedUserIdRef = useRef<string | null>(null);
+  const orgManagerScopeKey = getOrgManagerStateScopeKey(appData);
+  const previousScopeKeyRef = useRef(orgManagerScopeKey);
+  const beginRequest = useOrgManagerRequestGuard(orgManagerScopeKey);
   const canLoadAuthenticatedOrgData = Boolean(
-    appData.auth.organizationId && appData.auth.isAuthenticated,
+    organizationId && appData.auth.isAuthenticated,
   );
+  const {
+    activeDataUsage,
+    activeGrants,
+    activeGroupContainers,
+    activeGroupPolicyHistory,
+    activeMemberGroupId,
+    activeMembers,
+    activeOrganizationPolicyHistory,
+    activeUserDetail,
+    addableUsers,
+    canCreateGroup,
+    canDisableRosterUsers,
+    canImportRosterUser,
+    canMutateSelectedGroup,
+    canRevokeGrants,
+    memberUserIds,
+    selectedGrant,
+    selectedGroup,
+    selectedGroupIsMembersGroup,
+    selectedRosterUser,
+  } = deriveOrgManagerState({
+    activeDirectory,
+    activeGroups,
+    canLoadAuthenticatedOrgData,
+    crypto: {
+      hasEncapsulationKeyPair: Boolean(appData.crypto.encapsulationKeyPair),
+      hasSigningFingerprint: Boolean(appData.crypto.signingFingerprint),
+      hasSigningKeyPair: Boolean(appData.crypto.signingKeyPair),
+    },
+    dataUsage,
+    databaseReady: appData.infra.dbStatus === "ready",
+    grants,
+    groupContainers,
+    groupPolicyHistory,
+    memberGroupId,
+    members,
+    organizationId,
+    organizationPolicyHistory,
+    selectedGrantRef,
+    selectedGroupId,
+    selectedUserId,
+    userDetail,
+    userId: appData.auth.userId,
+  });
   const {
     profileDisplayNamesByUserId,
     setProfileDisplayNamesByUserId,
@@ -113,87 +172,16 @@ export function useOrgManagerModel() {
   } = useOrgManagerProfileDisplayNames({
     appData,
     canLoadAuthenticatedOrgData,
-    directory,
+    directory: activeDirectory,
     orgManagerActions,
     selectedUserIdRef,
     tearleads,
   });
-
   useOrgManagerRouteMessages(openGroupRoute, openGrantRoute);
-
-  const selectedGroup =
-    groups.find((group) => group.groupId === selectedGroupId) ?? null;
-  const selectedGrant = useMemo(() => {
-    if (!selectedGrantRef) {
-      return null;
-    }
-
-    return (
-      (grants?.grants ?? []).find(
-        (grant) =>
-          grant.containerId === selectedGrantRef.containerId &&
-          grant.subjectId === selectedGrantRef.subjectId &&
-          grant.subjectType === selectedGrantRef.subjectType,
-      ) ?? null
-    );
-  }, [grants?.grants, selectedGrantRef]);
-  const selectedGroupIsMembersGroup =
-    selectedGroup?.name === ORG_MANAGER_LABELS.members;
-  const canCreateGroup = directory?.currentUser.isOrgAdmin ?? false;
-  const canImportRosterUser = Boolean(
-    canLoadAuthenticatedOrgData &&
-      directory?.currentUser.isOrgAdmin &&
-      memberGroupId &&
-      appData.auth.userId &&
-      appData.crypto.signingFingerprint &&
-      appData.crypto.signingKeyPair &&
-      appData.crypto.encapsulationKeyPair,
-  );
-  const canDisableRosterUsers = Boolean(
-    canLoadAuthenticatedOrgData &&
-      directory?.currentUser.isOrgAdmin &&
-      memberGroupId &&
-      appData.auth.userId &&
-      appData.crypto.signingFingerprint &&
-      appData.crypto.signingKeyPair &&
-      appData.infra.dbStatus === "ready",
-  );
-  const canMutateSelectedGroup = canCurrentUserMutateSelectedGroup({
-    directory,
-    members,
-    userId: appData.auth.userId,
-  });
-  const selectedRosterUser = useMemo(
-    () =>
-      userDetail?.user ??
-      directory?.users.find((user) => user.userId === selectedUserId) ??
-      null,
-    [directory?.users, selectedUserId, userDetail?.user],
-  );
-  const memberUserIds = useMemo(
-    () =>
-      new Set(
-        members?.members
-          .filter((member) => member.memberPrincipalType === "user")
-          .map((member) => member.memberPrincipalId) ?? [],
-      ),
-    [members],
-  );
-  const addableUsers = useMemo(
-    () =>
-      directory?.users.filter(
-        (user) =>
-          (user.status === "active" || selectedGroupIsMembersGroup) &&
-          !memberUserIds.has(user.userId),
-      ) ?? [],
-    [directory, memberUserIds, selectedGroupIsMembersGroup],
-  );
-  const canRevokeGrants = directory?.currentUser.isOrgAdmin ?? false;
   const canDeleteGroup = useCallback(
     (group: OrganizationGroupSummary) => canCreateGroup && !group.isBuiltin,
     [canCreateGroup],
   );
-
   const openCreateGroupDialog = useCallback(() => {
     if (!canCreateGroup) {
       return;
@@ -205,7 +193,6 @@ export function useOrgManagerModel() {
     setView("groups");
     setIsCreateGroupDialogOpen(true);
   }, [canCreateGroup, selectGroup, setView]);
-
   const closeCreateGroupDialog = useCallback(() => {
     if (mutating) {
       return;
@@ -261,7 +248,7 @@ export function useOrgManagerModel() {
     authUserId: appData.auth.userId,
     canDisableRosterUsers,
     contextMenu: contextMenuState.contextMenu,
-    directory,
+    directory: activeDirectory,
     openMiniApp,
     selectUser,
     selectedRosterUser,
@@ -273,12 +260,15 @@ export function useOrgManagerModel() {
   }, [rosterActions.clearRosterProfileEditRequest, selectUser]);
 
   const {
+    refreshDataUsage,
     refreshDirectoryAndGroups,
     refreshOrgManager,
     refreshSelectedGroupDetails,
     refreshSelectedUserDetail,
+    resetDirectoryState,
   } = useOrgManagerRefreshers({
     appData,
+    beginRequest,
     canLoadAuthenticatedOrgData,
     orgManagerActions,
     resetSelectedRosterUser,
@@ -303,10 +293,33 @@ export function useOrgManagerModel() {
     setIsImportUserDialogOpen,
     setUserDetail,
   });
+  useOrgManagerDataUsageRefresh({
+    enabled: canLoadAuthenticatedOrgData,
+    refreshDataUsage,
+    visible: view === "usage",
+  });
+
+  useEffect(() => {
+    if (previousScopeKeyRef.current === orgManagerScopeKey) {
+      return;
+    }
+    previousScopeKeyRef.current = orgManagerScopeKey;
+    resetDirectoryState();
+    setOrganizationPolicyHistory(null);
+    setGrants(null);
+    setDataUsage(null);
+    setError(null);
+    setMutating(false);
+    contextMenuState.closeContextMenu();
+  }, [
+    contextMenuState.closeContextMenu,
+    orgManagerScopeKey,
+    resetDirectoryState,
+  ]);
 
   useEffect(() => {
     void refreshOrgManager();
-  }, [refreshOrgManager]);
+  }, [orgManagerScopeKey, refreshOrgManager]);
 
   useEffect(() => {
     const skippedGroupDetailsEffect = skippedGroupDetailsEffectRef.current;
@@ -320,13 +333,13 @@ export function useOrgManagerModel() {
 
   useEffect(() => {
     if (
-      directory &&
+      activeDirectory &&
       selectedUserId &&
-      !directory.users.some((user) => user.userId === selectedUserId)
+      !activeDirectory.users.some((user) => user.userId === selectedUserId)
     ) {
       selectUser(null);
     }
-  }, [directory, selectedUserId, selectUser]);
+  }, [activeDirectory, selectedUserId, selectUser]);
 
   useEffect(() => {
     void refreshSelectedUserDetail(selectedUserId);
@@ -336,7 +349,9 @@ export function useOrgManagerModel() {
     appData,
     canLoadAuthenticatedOrgData,
     canUpdateSelectedRosterEntry: rosterActions.canUpdateSelectedRosterEntry,
+    domainScope: appData.state.domainScope,
     orgManagerActions,
+    scopeKey: orgManagerScopeKey,
     selectedRosterUser,
     selectedUserIdRef,
     setDirectory,
@@ -359,12 +374,12 @@ export function useOrgManagerModel() {
     canDeleteGroup,
     canDisableRosterUsers,
     canImportRosterUser,
-    directory,
+    directory: activeDirectory,
     groupNameDraft,
-    groups,
+    groups: activeGroups,
     importUserIdDraft,
-    memberGroupId,
-    members,
+    memberGroupId: activeMemberGroupId,
+    members: activeMembers,
     openGroupRoute,
     orgManagerActions,
     refreshDirectoryAndGroups,
@@ -391,8 +406,13 @@ export function useOrgManagerModel() {
     setUserDetail,
   });
   const orgSwitcher = useOrgSwitcher({
+    activeContainerId: appData.state.containerId,
     activeOrganizationId: appData.auth.organizationId,
+    databaseReady: appData.infra.dbStatus === "ready",
     enabled: Boolean(appData.auth.isAuthenticated),
+    interactionDisabled: loading || mutating,
+    operationScopeKey: orgManagerScopeKey,
+    scopeKey: appData.state.domainScope,
   });
   useOrgManagerSidebarPanel({
     enabled: Boolean(
@@ -402,7 +422,6 @@ export function useOrgManagerModel() {
     setView: setOrgManagerView,
     view,
   });
-
   return {
     addUser,
     addUserId,
@@ -422,26 +441,26 @@ export function useOrgManagerModel() {
     closeImportUserDialog,
     contextMenuState,
     createGroup,
-    dataUsage,
+    dataUsage: activeDataUsage,
     deleteGroup,
     disableRosterUser,
-    directory,
+    directory: activeDirectory,
     error,
-    grants,
-    groupContainers,
+    grants: activeGrants,
+    groupContainers: activeGroupContainers,
     groupNameDraft,
-    groupPolicyHistory,
-    groups,
+    groupPolicyHistory: activeGroupPolicyHistory,
+    groups: activeGroups,
     importRosterUserIntoContacts: rosterActions.importRosterUserIntoContacts,
     importRosterUser,
     importUserIdDraft,
     isCreateGroupDialogOpen,
     isImportUserDialogOpen,
     isAuthenticated: appData.auth.isAuthenticated,
-    isOrgAdmin: directory?.currentUser.isOrgAdmin ?? false,
+    isOrgAdmin: activeDirectory?.currentUser.isOrgAdmin ?? false,
     loading,
     loadingUserDetail,
-    members,
+    members: activeMembers,
     memberUserIds,
     mutating,
     openGrantRoute,
@@ -452,8 +471,8 @@ export function useOrgManagerModel() {
     openSection: setOrgManagerView,
     openRosterUserForEditing: rosterActions.openRosterUserForEditing,
     orgSwitcher,
-    organizationId: appData.auth.organizationId,
-    organizationPolicyHistory,
+    organizationId,
+    organizationPolicyHistory: activeOrganizationPolicyHistory,
     profileDisplayNamesByUserId,
     refreshOrgManager,
     removeMember,
@@ -472,7 +491,7 @@ export function useOrgManagerModel() {
     setGroupNameDraft,
     setImportUserIdDraft,
     setSelectedProfileDisplayName,
-    userDetail,
+    userDetail: activeUserDetail,
     userId: appData.auth.userId,
     view,
   };

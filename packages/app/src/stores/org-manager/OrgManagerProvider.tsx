@@ -27,12 +27,19 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
 } from "react";
 import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
+import {
+  captureOrgManagerOperationScope,
+  isOrgManagerOperationScopeActive,
+  type OrgManagerOperationScope,
+} from "./orgManagerOperationScope";
 import {
   createOrganizationProfileDocument,
   createRosterProfileDocument,
@@ -45,6 +52,7 @@ interface OrgManagerContextValue {
     currentUsers: ReadonlyArray<OrganizationUserRecipient>,
     canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
+  captureOperationScope: () => OrgManagerOperationScope | null;
   createGroup: (name: string) => Promise<OrganizationGroupSummary>;
   deleteGroup: (
     groupId: string,
@@ -58,6 +66,7 @@ interface OrgManagerContextValue {
   ) => Promise<string | null>;
   ensureRosterProfileContainer: () => Promise<ContainerNode | null>;
   importUserById: (userId: string) => Promise<OrganizationUserRecipient | null>;
+  isOperationScopeActive: (scope: OrgManagerOperationScope) => boolean;
   loadDataUsage: () => Promise<OrganizationDataUsage | null>;
   loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
   loadGroupDetails: (groupId: string) => Promise<OrganizationGroupDetails>;
@@ -92,6 +101,35 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const { documents, organizations } = tearleads;
   const runtime = useTearleadsRuntime();
+  const scopeGeneration = useMemo(
+    () => ({}),
+    [
+      runtime.auth.isAuthenticated,
+      runtime.auth.organizationId,
+      runtime.auth.userId,
+      runtime.crypto.signingFingerprint,
+      runtime.infra.dbStatus,
+      runtime.state.containerId,
+      runtime.state.domainScope,
+    ],
+  );
+  const committedScopeGenerationRef = useRef(scopeGeneration);
+  useLayoutEffect(() => {
+    committedScopeGenerationRef.current = scopeGeneration;
+    return () => {
+      if (committedScopeGenerationRef.current === scopeGeneration) {
+        committedScopeGenerationRef.current = {};
+      }
+    };
+  }, [scopeGeneration]);
+  const captureOperationScope = useCallback(
+    () =>
+      captureOrgManagerOperationScope(
+        tearleads.runtime.input(),
+        scopeGeneration,
+      ),
+    [scopeGeneration, tearleads],
+  );
   const containerContentsRuntime = useMemo(
     () => tearleads.containerContents.workflowRuntime(),
     [runtime, tearleads],
@@ -107,6 +145,15 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
   // container exists, so it must not touch the store before then.
   const hasRootContainerId = Boolean(
     containerContentsRuntime.state.containerId,
+  );
+  const isOperationScopeActive = useCallback(
+    (scope: OrgManagerOperationScope) =>
+      isOrgManagerOperationScopeActive(
+        scope,
+        tearleads.runtime.input(),
+        committedScopeGenerationRef.current,
+      ),
+    [tearleads],
   );
 
   useEffect(() => {
@@ -232,15 +279,19 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
   );
 
   const ensureRosterProfileContainer = useCallback(async () => {
-    if (!runtime.auth.organizationId || !runtime.auth.isAuthenticated) {
+    const operationScope = captureOperationScope();
+    if (!operationScope || !isOperationScopeActive(operationScope)) {
       return null;
     }
 
     const systemSlot = await deriveOrganizationRosterProfileContainerSystemSlot(
       {
-        organizationId: runtime.auth.organizationId,
+        organizationId: operationScope.organizationId,
       },
     );
+    if (!isOperationScopeActive(operationScope)) {
+      return null;
+    }
     const existingContainer = containerContentsStore
       .getSnapshot()
       .nodes.find((node) => node.systemSlot === systemSlot);
@@ -252,23 +303,20 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
         ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
       )
     );
-  }, [
-    containerContentsStore,
-    runtime.auth.isAuthenticated,
-    runtime.auth.organizationId,
-  ]);
+  }, [captureOperationScope, containerContentsStore, isOperationScopeActive]);
 
   const ensureRosterProfileDocument = useCallback(
     async (user: OrganizationDirectoryUser, nickname?: string) => {
       if (user.profileDocumentId) {
         return user;
       }
-      if (!runtime.auth.organizationId || !runtime.auth.isAuthenticated) {
+      const operationScope = captureOperationScope();
+      if (!operationScope || !isOperationScopeActive(operationScope)) {
         return null;
       }
 
       const ensuredContainer = await ensureRosterProfileContainer();
-      if (!ensuredContainer?.id) {
+      if (!ensuredContainer?.id || !isOperationScopeActive(operationScope)) {
         return null;
       }
 
@@ -276,21 +324,21 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
         containerId: ensuredContainer.id,
         documents,
         nickname,
-        organizationId: runtime.auth.organizationId,
+        organizationId: operationScope.organizationId,
         user,
       });
-      if (!profileDocumentId) {
+      if (!profileDocumentId || !isOperationScopeActive(operationScope)) {
         return null;
       }
 
       return organizations.updateRosterEntry(user.userId, profileDocumentId);
     },
     [
+      captureOperationScope,
       documents,
       ensureRosterProfileContainer,
+      isOperationScopeActive,
       organizations,
-      runtime.auth.isAuthenticated,
-      runtime.auth.organizationId,
     ],
   );
 
@@ -299,21 +347,22 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       if (profileDocumentId) {
         return profileDocumentId;
       }
-      if (!runtime.auth.organizationId || !runtime.auth.isAuthenticated) {
+      const operationScope = captureOperationScope();
+      if (!operationScope || !isOperationScopeActive(operationScope)) {
         return null;
       }
 
       const ensuredContainer = await ensureRosterProfileContainer();
-      if (!ensuredContainer?.id) {
+      if (!ensuredContainer?.id || !isOperationScopeActive(operationScope)) {
         return null;
       }
 
       const nextProfileDocumentId = await createOrganizationProfileDocument({
         containerId: ensuredContainer.id,
         documents,
-        organizationId: runtime.auth.organizationId,
+        organizationId: operationScope.organizationId,
       });
-      if (!nextProfileDocumentId) {
+      if (!nextProfileDocumentId || !isOperationScopeActive(operationScope)) {
         return null;
       }
 
@@ -321,23 +370,25 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       return updated?.profileDocumentId ?? null;
     },
     [
+      captureOperationScope,
       documents,
       ensureRosterProfileContainer,
+      isOperationScopeActive,
       organizations,
-      runtime.auth.isAuthenticated,
-      runtime.auth.organizationId,
     ],
   );
 
   const value = useMemo(
     () => ({
       addUserToGroup,
+      captureOperationScope,
       createGroup,
       deleteGroup,
       ensureOrganizationProfileDocument,
       ensureRosterProfileContainer,
       ensureRosterProfileDocument,
       importUserById,
+      isOperationScopeActive,
       loadDataUsage,
       loadDirectoryAndGroups,
       loadGroupDetails,
@@ -351,12 +402,14 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     }),
     [
       addUserToGroup,
+      captureOperationScope,
       createGroup,
       deleteGroup,
       ensureOrganizationProfileDocument,
       ensureRosterProfileContainer,
       ensureRosterProfileDocument,
       importUserById,
+      isOperationScopeActive,
       loadDataUsage,
       loadDirectoryAndGroups,
       loadGroupDetails,

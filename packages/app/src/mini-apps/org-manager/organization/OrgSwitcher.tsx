@@ -2,6 +2,7 @@ import { BuildingsIcon } from "@phosphor-icons/react/dist/csr/Buildings";
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { useMemo } from "react";
 import { MiniAppSelectMenu } from "../../../components/mini-app/controls/MiniAppSelectMenu";
+import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
 import type { OrgSwitcherState } from "../hooks/useOrgSwitcher";
 import { ORG_MANAGER_LABELS } from "../labels";
 
@@ -31,7 +32,7 @@ export function OrgSwitcher({ switcher }: { switcher: OrgSwitcherState }) {
         footer={({ close }) => (
           <button
             className="mini-app-select-menu-option"
-            disabled={switcher.creating}
+            disabled={switcher.creating || switcher.interactionDisabled}
             onClick={() => {
               switcher.openCreateOrganizationDialog();
               close();
@@ -56,7 +57,15 @@ export function OrgSwitcher({ switcher }: { switcher: OrgSwitcherState }) {
         options={options}
         placeholder={ORG_MANAGER_LABELS.organizations}
         value={switcher.activeOrganizationId ?? ""}
+        disabled={switcher.interactionDisabled}
       />
+      {switcher.organizationsLoading ? (
+        <MiniAppStatus>{ORG_MANAGER_LABELS.loadingOrganizations}</MiniAppStatus>
+      ) : switcher.organizationsError ? (
+        <MiniAppStatus tone="error">
+          {switcher.organizationsError}
+        </MiniAppStatus>
+      ) : null}
     </div>
   );
 }

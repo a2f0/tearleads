@@ -1,5 +1,4 @@
 import type {
-  OrganizationContainerGrant,
   OrganizationContainerGrants,
   OrganizationDirectory,
   OrganizationGroupContainers,
@@ -9,23 +8,21 @@ import type {
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
+import { currentGroupUserRecipients } from "../grants/recipients";
 import {
-  removeRevokedGrantFromGrantState,
-  removeRevokedGrantFromGroupContainers,
-  removeRevokedGrantFromUserDetail,
-} from "../grants/grantState";
-import {
-  currentGroupUserRecipients,
-  userRecipient,
-} from "../grants/recipients";
+  addRosterUserToGroup,
+  prepareRosterImport,
+  refreshAfterGroupMutation,
+} from "../groups/orgManagerMutationOperations";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { setUnknownError } from "../refresh";
 import type { OrgManagerView } from "../routes";
 import { useOrgManagerDisableRosterUser } from "./useOrgManagerDisableRosterUser";
 import type { useOrgManagerRefreshers } from "./useOrgManagerRefreshers";
+import { useOrgManagerRevokeGrant } from "./useOrgManagerRevokeGrant";
 
 type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
 
@@ -110,6 +107,16 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     setOrgManagerView,
     setUserDetail,
   } = params;
+  const operationScope = useMemo(
+    () => orgManagerActions.captureOperationScope(),
+    [orgManagerActions.captureOperationScope],
+  );
+  const isOperationActive = useCallback(
+    (organizationId: string) =>
+      operationScope?.organizationId === organizationId &&
+      orgManagerActions.isOperationScopeActive(operationScope),
+    [operationScope, orgManagerActions],
+  );
 
   const createGroup = useCallback(async () => {
     if (
@@ -122,20 +129,34 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     ) {
       return;
     }
+    const operationOrganizationId = appData.auth.organizationId;
+    if (!isOperationActive(operationOrganizationId)) {
+      return;
+    }
     setMutating(true);
     setError(null);
     try {
       const createdGroup = await orgManagerActions.createGroup(
         groupNameDraft.trim(),
       );
+      if (!isOperationActive(operationOrganizationId)) {
+        return;
+      }
       setGroupNameDraft("");
       setIsCreateGroupDialogOpen(false);
       await refreshDirectoryAndGroups();
+      if (!isOperationActive(operationOrganizationId)) {
+        return;
+      }
       openGroupRoute(createdGroup.groupId);
     } catch (nextError) {
-      setUnknownError(setError, nextError);
+      if (isOperationActive(operationOrganizationId)) {
+        setUnknownError(setError, nextError);
+      }
     } finally {
-      setMutating(false);
+      if (isOperationActive(operationOrganizationId)) {
+        setMutating(false);
+      }
     }
   }, [
     appData.auth.organizationId,
@@ -144,6 +165,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     appData.crypto.signingFingerprint,
     appData.crypto.signingKeyPair,
     groupNameDraft,
+    isOperationActive,
     openGroupRoute,
     orgManagerActions,
     refreshDirectoryAndGroups,
@@ -160,6 +182,10 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
       if (!targetGroup || !canDeleteGroup(targetGroup)) {
         return;
       }
+      const operationOrganizationId = targetGroup.organizationId;
+      if (!isOperationActive(operationOrganizationId)) {
+        return;
+      }
 
       setMutating(true);
       setError(null);
@@ -173,19 +199,30 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
         }
 
         await orgManagerActions.deleteGroup(groupId);
+        if (!isOperationActive(operationOrganizationId)) {
+          return;
+        }
         await refreshDirectoryAndGroups({
           skipNextGroupDetailsEffect: true,
         });
+        if (!isOperationActive(operationOrganizationId)) {
+          return;
+        }
         await refreshSelectedUserDetail(selectedUserIdRef.current);
       } catch (nextError) {
-        setUnknownError(setError, nextError);
+        if (isOperationActive(operationOrganizationId)) {
+          setUnknownError(setError, nextError);
+        }
       } finally {
-        setMutating(false);
+        if (isOperationActive(operationOrganizationId)) {
+          setMutating(false);
+        }
       }
     },
     [
       canDeleteGroup,
       groups,
+      isOperationActive,
       orgManagerActions,
       refreshDirectoryAndGroups,
       refreshSelectedUserDetail,
@@ -214,42 +251,25 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     ) {
       return;
     }
+    const operationOrganizationId = directory.organizationId;
+    if (!isOperationActive(operationOrganizationId)) {
+      return;
+    }
 
     setMutating(true);
     setError(null);
     try {
-      const directoryUser =
-        directory.users.find((user) => user.userId === targetUserId) ?? null;
-      const [targetUser, memberGroupDetails] = await Promise.all([
-        directoryUser
-          ? Promise.resolve(userRecipient(directoryUser))
-          : orgManagerActions.importUserById(targetUserId),
-        orgManagerActions.loadGroupDetails(memberGroupId),
-      ]);
+      const targetUser = await prepareRosterImport({
+        directory,
+        isOperationActive,
+        memberGroupId,
+        operationOrganizationId,
+        orgManagerActions,
+        setError,
+        targetUserId,
+      });
       if (!targetUser) {
-        setError(ORG_MANAGER_LABELS.userNotFound);
         return;
-      }
-      if (!memberGroupDetails.members) {
-        setError(ORG_MANAGER_LABELS.failedLoadGroupMembers);
-        return;
-      }
-
-      const memberGroupUserIds = new Set(
-        memberGroupDetails.members.members
-          .filter((member) => member.memberPrincipalType === "user")
-          .map((member) => member.memberPrincipalId),
-      );
-      if (!memberGroupUserIds.has(targetUser.userId)) {
-        await orgManagerActions.addUserToGroup(
-          memberGroupId,
-          targetUser,
-          currentGroupUserRecipients({
-            directory,
-            members: memberGroupDetails.members,
-          }),
-          directory.currentUser.isOrgAdmin,
-        );
       }
 
       setImportUserIdDraft("");
@@ -257,13 +277,20 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
       await refreshDirectoryAndGroups({
         skipNextGroupDetailsEffect: true,
       });
+      if (!isOperationActive(operationOrganizationId)) {
+        return;
+      }
       setOrgManagerView("directory");
       selectUser(targetUser.userId);
       await refreshSelectedUserDetail(targetUser.userId);
     } catch (nextError) {
-      setUnknownError(setError, nextError);
+      if (isOperationActive(operationOrganizationId)) {
+        setUnknownError(setError, nextError);
+      }
     } finally {
-      setMutating(false);
+      if (isOperationActive(operationOrganizationId)) {
+        setMutating(false);
+      }
     }
   }, [
     appData.auth.userId,
@@ -273,6 +300,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     canImportRosterUser,
     directory,
     importUserIdDraft,
+    isOperationActive,
     memberGroupId,
     orgManagerActions,
     refreshDirectoryAndGroups,
@@ -302,6 +330,10 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     ) {
       return;
     }
+    const operationOrganizationId = directory.organizationId;
+    if (!isOperationActive(operationOrganizationId)) {
+      return;
+    }
     if (directoryUser?.status === "disabled" && !selectedGroupIsMembersGroup) {
       setError(ORG_MANAGER_LABELS.userNotFound);
       return;
@@ -310,32 +342,37 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     setMutating(true);
     setError(null);
     try {
-      const targetUser = directoryUser
-        ? userRecipient(directoryUser)
-        : await orgManagerActions.importUserById(targetUserId);
-      if (!targetUser) {
-        setError(ORG_MANAGER_LABELS.userNotFound);
+      const didAdd = await addRosterUserToGroup({
+        directory,
+        directoryUser,
+        groupId: selectedGroupId,
+        isOperationActive,
+        members,
+        operationOrganizationId,
+        orgManagerActions,
+        setError,
+        targetUserId,
+      });
+      if (!didAdd) {
         return;
       }
-
-      await orgManagerActions.addUserToGroup(
-        selectedGroupId,
-        targetUser,
-        currentGroupUserRecipients({ directory, members }),
-        directory.currentUser.isOrgAdmin,
-      );
       setAddUserId("");
-      const refreshedDirectory = await refreshDirectoryAndGroups({
-        skipNextGroupDetailsEffect: true,
+      await refreshAfterGroupMutation({
+        isOperationActive,
+        operationOrganizationId,
+        refreshDirectoryAndGroups,
+        refreshSelectedGroupDetails,
+        refreshSelectedUserDetail,
+        selectedUserIdRef,
       });
-      if (refreshedDirectory.didLoad) {
-        await refreshSelectedGroupDetails(refreshedDirectory.groupId);
-      }
-      await refreshSelectedUserDetail(selectedUserIdRef.current);
     } catch (nextError) {
-      setUnknownError(setError, nextError);
+      if (isOperationActive(operationOrganizationId)) {
+        setUnknownError(setError, nextError);
+      }
     } finally {
-      setMutating(false);
+      if (isOperationActive(operationOrganizationId)) {
+        setMutating(false);
+      }
     }
   }, [
     addUserId,
@@ -344,6 +381,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     appData.crypto.signingFingerprint,
     appData.crypto.signingKeyPair,
     directory,
+    isOperationActive,
     members,
     orgManagerActions,
     refreshDirectoryAndGroups,
@@ -368,6 +406,10 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
       ) {
         return;
       }
+      const operationOrganizationId = directory.organizationId;
+      if (!isOperationActive(operationOrganizationId)) {
+        return;
+      }
       setMutating(true);
       setError(null);
       try {
@@ -379,17 +421,25 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
           ),
           directory.currentUser.isOrgAdmin,
         );
-        const refreshedDirectory = await refreshDirectoryAndGroups({
-          skipNextGroupDetailsEffect: true,
-        });
-        if (refreshedDirectory.didLoad) {
-          await refreshSelectedGroupDetails(refreshedDirectory.groupId);
+        if (!isOperationActive(operationOrganizationId)) {
+          return;
         }
-        await refreshSelectedUserDetail(selectedUserIdRef.current);
+        await refreshAfterGroupMutation({
+          isOperationActive,
+          operationOrganizationId,
+          refreshDirectoryAndGroups,
+          refreshSelectedGroupDetails,
+          refreshSelectedUserDetail,
+          selectedUserIdRef,
+        });
       } catch (nextError) {
-        setUnknownError(setError, nextError);
+        if (isOperationActive(operationOrganizationId)) {
+          setUnknownError(setError, nextError);
+        }
       } finally {
-        setMutating(false);
+        if (isOperationActive(operationOrganizationId)) {
+          setMutating(false);
+        }
       }
     },
     [
@@ -397,6 +447,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
       appData.crypto.signingFingerprint,
       appData.crypto.signingKeyPair,
       directory,
+      isOperationActive,
       members,
       orgManagerActions,
       refreshDirectoryAndGroups,
@@ -422,42 +473,18 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     selectedUserIdRef,
     setError,
     setMutating,
+    isOperationActive,
   });
-
-  const revokeGrant = useCallback(
-    async (grant: OrganizationContainerGrant) => {
-      if (grant.isBuiltin) {
-        return;
-      }
-
-      setMutating(true);
-      setError(null);
-      try {
-        await orgManagerActions.revokeGrant(grant);
-        setGrants((currentGrants) =>
-          removeRevokedGrantFromGrantState(currentGrants, grant),
-        );
-        setGroupContainers((currentGroupContainers) =>
-          removeRevokedGrantFromGroupContainers(currentGroupContainers, grant),
-        );
-        setUserDetail((currentUserDetail) =>
-          removeRevokedGrantFromUserDetail(currentUserDetail, grant),
-        );
-      } catch (nextError) {
-        setUnknownError(setError, nextError);
-      } finally {
-        setMutating(false);
-      }
-    },
-    [
-      orgManagerActions,
-      setError,
-      setGrants,
-      setGroupContainers,
-      setMutating,
-      setUserDetail,
-    ],
-  );
+  const revokeGrant = useOrgManagerRevokeGrant({
+    isOperationActive,
+    organizationId: appData.auth.organizationId,
+    orgManagerActions,
+    setError,
+    setGrants,
+    setGroupContainers,
+    setMutating,
+    setUserDetail,
+  });
 
   return {
     addUser,

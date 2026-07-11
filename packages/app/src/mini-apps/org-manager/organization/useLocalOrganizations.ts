@@ -1,0 +1,391 @@
+import type {
+  DomainScope,
+  LocalOrganizationSummary,
+} from "@tearleads/client-sdk";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { ORG_MANAGER_LABELS } from "../labels";
+import type { LocalOrganizationsState } from "./orgSwitcherTypes";
+
+const ACTIVE_ORGANIZATION_RETRY_DELAY_MS = 500;
+const ACTIVE_ORGANIZATION_RETRY_LIMIT = 40;
+
+type OrganizationsSetter = Dispatch<
+  SetStateAction<readonly LocalOrganizationSummary[]>
+>;
+
+function retainOrganizationSummary(
+  organizations: readonly LocalOrganizationSummary[],
+  organization: LocalOrganizationSummary,
+): readonly LocalOrganizationSummary[] {
+  const existingIndex = organizations.findIndex(
+    (candidate) => candidate.organizationId === organization.organizationId,
+  );
+  if (existingIndex === -1) {
+    return [...organizations, organization];
+  }
+  const existing = organizations[existingIndex];
+  const nextOrganization =
+    organization.name === null && existing?.name !== null
+      ? { ...organization, name: existing?.name ?? null }
+      : organization;
+  if (
+    existing?.name === nextOrganization.name &&
+    existing?.rootContainerId === nextOrganization.rootContainerId
+  ) {
+    return organizations;
+  }
+
+  return organizations.map((candidate, index) =>
+    index === existingIndex ? nextOrganization : candidate,
+  );
+}
+
+function reconcileRetainedOrganizations(
+  nextOrganizations: readonly LocalOrganizationSummary[],
+  retainedOrganizations: Map<string, LocalOrganizationSummary>,
+): readonly LocalOrganizationSummary[] {
+  let reconciledOrganizations = nextOrganizations;
+  for (const [organizationId, retained] of retainedOrganizations) {
+    const persisted = nextOrganizations.find(
+      (organization) => organization.organizationId === organizationId,
+    );
+    if (!persisted) {
+      reconciledOrganizations = retainOrganizationSummary(
+        reconciledOrganizations,
+        retained,
+      );
+      continue;
+    }
+
+    retainedOrganizations.delete(organizationId);
+    if (persisted.name === null && retained.name !== null) {
+      reconciledOrganizations = reconciledOrganizations.map((organization) =>
+        organization.organizationId === organizationId
+          ? { ...organization, name: retained.name }
+          : organization,
+      );
+    }
+  }
+  return reconciledOrganizations;
+}
+
+interface OrganizationReloadOptions {
+  databaseReady: boolean;
+  enabled: boolean;
+  latestRequestIdRef: { current: number };
+  listLocalOrganizations: () => Promise<LocalOrganizationSummary[]>;
+  mountedRef: { current: boolean };
+  retainedOrganizationsRef: {
+    current: Map<string, LocalOrganizationSummary>;
+  };
+  scopeKey: DomainScope;
+  setOrganizations: OrganizationsSetter;
+  setOrganizationsError: Dispatch<SetStateAction<string | null>>;
+  setOrganizationsLoading: Dispatch<SetStateAction<boolean>>;
+}
+
+function useOrganizationReload(input: OrganizationReloadOptions) {
+  const {
+    databaseReady,
+    enabled,
+    latestRequestIdRef,
+    listLocalOrganizations,
+    mountedRef,
+    retainedOrganizationsRef,
+    scopeKey,
+    setOrganizations,
+    setOrganizationsError,
+    setOrganizationsLoading,
+  } = input;
+  return useCallback(async (): Promise<boolean> => {
+    if (!enabled || !databaseReady) {
+      return false;
+    }
+
+    const requestId = latestRequestIdRef.current + 1;
+    latestRequestIdRef.current = requestId;
+    setOrganizationsLoading(true);
+    setOrganizationsError(null);
+
+    try {
+      const nextOrganizations = await listLocalOrganizations();
+      if (!mountedRef.current || latestRequestIdRef.current !== requestId) {
+        return false;
+      }
+      setOrganizations(
+        reconcileRetainedOrganizations(
+          nextOrganizations,
+          retainedOrganizationsRef.current,
+        ),
+      );
+      return true;
+    } catch {
+      if (mountedRef.current && latestRequestIdRef.current === requestId) {
+        // Preserve the last usable list, including an optimistic created entry.
+        setOrganizationsError(ORG_MANAGER_LABELS.failedLoadOrganizations);
+      }
+      return false;
+    } finally {
+      if (mountedRef.current && latestRequestIdRef.current === requestId) {
+        setOrganizationsLoading(false);
+      }
+    }
+  }, [
+    databaseReady,
+    enabled,
+    latestRequestIdRef,
+    listLocalOrganizations,
+    mountedRef,
+    retainedOrganizationsRef,
+    scopeKey,
+    setOrganizations,
+    setOrganizationsError,
+    setOrganizationsLoading,
+  ]);
+}
+
+interface OrganizationListLifecycleOptions {
+  databaseReady: boolean;
+  enabled: boolean;
+  latestRequestIdRef: { current: number };
+  mountedRef: { current: boolean };
+  reload: () => Promise<boolean>;
+  retainedOrganizationsRef: {
+    current: Map<string, LocalOrganizationSummary>;
+  };
+  scopeKey: DomainScope;
+  setOrganizations: OrganizationsSetter;
+  setOrganizationsError: Dispatch<SetStateAction<string | null>>;
+  setOrganizationsLoading: Dispatch<SetStateAction<boolean>>;
+}
+
+function useOrganizationListLifecycle(input: OrganizationListLifecycleOptions) {
+  const {
+    databaseReady,
+    enabled,
+    latestRequestIdRef,
+    mountedRef,
+    reload,
+    retainedOrganizationsRef,
+    scopeKey,
+    setOrganizations,
+    setOrganizationsError,
+    setOrganizationsLoading,
+  } = input;
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      latestRequestIdRef.current += 1;
+    };
+  }, [latestRequestIdRef, mountedRef]);
+
+  useEffect(() => {
+    if (!enabled) {
+      latestRequestIdRef.current += 1;
+      retainedOrganizationsRef.current.clear();
+      setOrganizations([]);
+      setOrganizationsError(null);
+      setOrganizationsLoading(false);
+      return;
+    }
+
+    if (!databaseReady) {
+      // SQLite unavailability is not evidence that there are zero local
+      // organizations. Keep the last list and retry when readiness returns.
+      latestRequestIdRef.current += 1;
+      setOrganizationsError(null);
+      setOrganizationsLoading(true);
+      return;
+    }
+
+    void reload();
+  }, [
+    databaseReady,
+    enabled,
+    latestRequestIdRef,
+    reload,
+    retainedOrganizationsRef,
+    scopeKey,
+    setOrganizations,
+    setOrganizationsError,
+    setOrganizationsLoading,
+  ]);
+}
+
+function useActiveOrganizationIndexRetry(input: {
+  activeOrganization: LocalOrganizationSummary | null;
+  databaseReady: boolean;
+  enabled: boolean;
+  reload: () => Promise<boolean>;
+  retainedOrganizationsRef: {
+    current: Map<string, LocalOrganizationSummary>;
+  };
+  setOrganizationsError: Dispatch<SetStateAction<string | null>>;
+}) {
+  const activeOrganizationId = input.activeOrganization?.organizationId;
+  useEffect(() => {
+    if (!input.enabled || !input.databaseReady || !activeOrganizationId) {
+      return;
+    }
+
+    let attempts = 0;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      timer = setTimeout(() => {
+        if (
+          cancelled ||
+          !input.retainedOrganizationsRef.current.has(activeOrganizationId)
+        ) {
+          return;
+        }
+        if (attempts >= ACTIVE_ORGANIZATION_RETRY_LIMIT) {
+          input.setOrganizationsError(
+            ORG_MANAGER_LABELS.failedLoadOrganizations,
+          );
+          return;
+        }
+        attempts += 1;
+        void input.reload().finally(() => {
+          if (!cancelled) {
+            schedule();
+          }
+        });
+      }, ACTIVE_ORGANIZATION_RETRY_DELAY_MS);
+    };
+    schedule();
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
+    };
+  }, [
+    activeOrganizationId,
+    input.databaseReady,
+    input.enabled,
+    input.reload,
+    input.retainedOrganizationsRef,
+    input.setOrganizationsError,
+  ]);
+}
+
+function useRetainOrganization(
+  retainedOrganizationsRef: {
+    current: Map<string, LocalOrganizationSummary>;
+  },
+  setOrganizations: OrganizationsSetter,
+) {
+  return useCallback((organization: LocalOrganizationSummary) => {
+    const retained = retainedOrganizationsRef.current.get(
+      organization.organizationId,
+    );
+    const nextOrganization =
+      organization.name === null && retained?.name !== null
+        ? { ...organization, name: retained?.name ?? null }
+        : organization;
+    retainedOrganizationsRef.current.set(
+      organization.organizationId,
+      nextOrganization,
+    );
+    setOrganizations((current) =>
+      retainOrganizationSummary(current, nextOrganization),
+    );
+  }, []);
+}
+
+export function useLocalOrganizations(input: {
+  activeOrganization: LocalOrganizationSummary | null;
+  databaseReady: boolean;
+  enabled: boolean;
+  listLocalOrganizations: () => Promise<LocalOrganizationSummary[]>;
+  scopeKey: DomainScope;
+}): LocalOrganizationsState {
+  const [organizations, setOrganizations] = useState<
+    readonly LocalOrganizationSummary[]
+  >([]);
+  const [organizationsError, setOrganizationsError] = useState<string | null>(
+    null,
+  );
+  const [organizationsLoading, setOrganizationsLoading] = useState(
+    input.enabled,
+  );
+  const latestRequestIdRef = useRef(0);
+  const mountedRef = useRef(true);
+  const retainedOrganizationsRef = useRef<
+    Map<string, LocalOrganizationSummary>
+  >(new Map());
+  const committedScopeKeyRef = useRef(input.scopeKey);
+  useLayoutEffect(() => {
+    if (committedScopeKeyRef.current === input.scopeKey) {
+      return;
+    }
+    committedScopeKeyRef.current = input.scopeKey;
+    latestRequestIdRef.current += 1;
+    retainedOrganizationsRef.current.clear();
+    setOrganizations([]);
+    setOrganizationsError(null);
+    setOrganizationsLoading(input.enabled);
+  }, [input.enabled, input.scopeKey]);
+  const reload = useOrganizationReload({
+    ...input,
+    latestRequestIdRef,
+    mountedRef,
+    retainedOrganizationsRef,
+    setOrganizations,
+    setOrganizationsError,
+    setOrganizationsLoading,
+  });
+  useOrganizationListLifecycle({
+    databaseReady: input.databaseReady,
+    enabled: input.enabled,
+    latestRequestIdRef,
+    mountedRef,
+    reload,
+    retainedOrganizationsRef,
+    scopeKey: input.scopeKey,
+    setOrganizations,
+    setOrganizationsError,
+    setOrganizationsLoading,
+  });
+
+  const retainOrganization = useRetainOrganization(
+    retainedOrganizationsRef,
+    setOrganizations,
+  );
+  useEffect(() => {
+    if (input.enabled && input.activeOrganization) {
+      retainOrganization(input.activeOrganization);
+    }
+  }, [
+    input.activeOrganization,
+    input.enabled,
+    input.scopeKey,
+    retainOrganization,
+  ]);
+  useActiveOrganizationIndexRetry({
+    activeOrganization: input.activeOrganization,
+    databaseReady: input.databaseReady,
+    enabled: input.enabled,
+    reload,
+    retainedOrganizationsRef,
+    setOrganizationsError,
+  });
+
+  return {
+    organizations,
+    organizationsError,
+    organizationsLoading,
+    reload,
+    retainOrganization,
+  };
+}

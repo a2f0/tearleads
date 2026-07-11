@@ -6,10 +6,13 @@ import {
 } from "@tearleads/client-sdk";
 import {
   createContext,
+  type Dispatch,
   type PropsWithChildren,
+  type SetStateAction,
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -36,10 +39,201 @@ interface BillingClient {
   };
 }
 
+interface ScopedBillingState {
+  readonly organizationId: string | null;
+  readonly billing: OrganizationBilling | null;
+  readonly loading: boolean;
+  readonly error: string | null;
+}
+
+function emptyBillingState(organizationId: string | null): ScopedBillingState {
+  return {
+    organizationId,
+    billing: null,
+    loading: organizationId !== null,
+    error: null,
+  };
+}
+
+interface BillingRequestGuard {
+  readonly activeOrganizationIdRef: {
+    readonly current: string | null;
+  };
+  readonly billingMutationVersionRef: {
+    current: number;
+  };
+  readonly readRequestIdRef: {
+    current: number;
+  };
+  readonly scopeGenerationRef: {
+    current: number;
+  };
+  readonly trialRequestIdRef: {
+    current: number;
+  };
+}
+
+interface BillingReadRequest {
+  readonly billingMutationVersion: number;
+  readonly organizationId: string;
+  readonly requestId: number;
+  readonly scopeGeneration: number;
+}
+
+function organizationScopeIsCurrent(
+  guard: BillingRequestGuard,
+  organizationId: string,
+  scopeGeneration: number,
+): boolean {
+  return (
+    guard.activeOrganizationIdRef.current === organizationId &&
+    guard.scopeGenerationRef.current === scopeGeneration
+  );
+}
+
+function readRequestIsCurrent(
+  guard: BillingRequestGuard,
+  request: BillingReadRequest,
+): boolean {
+  return (
+    organizationScopeIsCurrent(
+      guard,
+      request.organizationId,
+      request.scopeGeneration,
+    ) &&
+    guard.readRequestIdRef.current === request.requestId &&
+    guard.billingMutationVersionRef.current === request.billingMutationVersion
+  );
+}
+
+function useBillingRefresh(
+  client: BillingClient,
+  organizationId: string | null,
+  guard: BillingRequestGuard,
+  setState: Dispatch<SetStateAction<ScopedBillingState>>,
+): () => Promise<void> {
+  return useCallback(async () => {
+    if (guard.activeOrganizationIdRef.current !== organizationId) {
+      return;
+    }
+    if (!organizationId) {
+      setState(emptyBillingState(null));
+      return;
+    }
+    const request: BillingReadRequest = {
+      billingMutationVersion: guard.billingMutationVersionRef.current,
+      organizationId,
+      requestId: ++guard.readRequestIdRef.current,
+      scopeGeneration: guard.scopeGenerationRef.current,
+    };
+    setState((current) => ({
+      organizationId,
+      billing:
+        current.organizationId === organizationId ? current.billing : null,
+      loading: true,
+      error: null,
+    }));
+    try {
+      const next = await client.organizations.loadBilling();
+      if (!readRequestIsCurrent(guard, request)) {
+        return;
+      }
+      const validBilling =
+        next?.organizationId === organizationId ? next : null;
+      setState({
+        organizationId,
+        billing: validBilling,
+        loading: false,
+        error: validBilling ? null : BILLING_LABELS.failedLoadBilling,
+      });
+    } catch (loadError) {
+      if (!readRequestIsCurrent(guard, request)) {
+        return;
+      }
+      console.error("Failed to load organization billing:", loadError);
+      setState({
+        organizationId,
+        billing: null,
+        loading: false,
+        error: BILLING_LABELS.failedLoadBilling,
+      });
+    }
+  }, [client, guard, organizationId, setState]);
+}
+
+function useStartBillingTrial(
+  client: BillingClient,
+  organizationId: string | null,
+  guard: BillingRequestGuard,
+  setState: Dispatch<SetStateAction<ScopedBillingState>>,
+): () => Promise<boolean> {
+  return useCallback(async (): Promise<boolean> => {
+    if (
+      !organizationId ||
+      guard.activeOrganizationIdRef.current !== organizationId
+    ) {
+      return false;
+    }
+    const scopeGeneration = guard.scopeGenerationRef.current;
+    const trialRequestId = ++guard.trialRequestIdRef.current;
+    guard.billingMutationVersionRef.current++;
+    setState((current) => ({
+      organizationId,
+      billing:
+        current.organizationId === organizationId ? current.billing : null,
+      loading: false,
+      error: null,
+    }));
+    try {
+      const next = await client.organizations.startTrial();
+      if (
+        !organizationScopeIsCurrent(guard, organizationId, scopeGeneration) ||
+        guard.trialRequestIdRef.current !== trialRequestId
+      ) {
+        return false;
+      }
+      guard.billingMutationVersionRef.current++;
+      if (next?.organizationId === organizationId) {
+        setState({
+          organizationId,
+          billing: next,
+          loading: false,
+          error: null,
+        });
+        return true;
+      }
+      setState((current) => ({
+        organizationId,
+        billing:
+          current.organizationId === organizationId ? current.billing : null,
+        loading: false,
+        error: BILLING_LABELS.failedStartTrial,
+      }));
+    } catch (trialError) {
+      if (
+        !organizationScopeIsCurrent(guard, organizationId, scopeGeneration) ||
+        guard.trialRequestIdRef.current !== trialRequestId
+      ) {
+        return false;
+      }
+      guard.billingMutationVersionRef.current++;
+      console.error("Failed to start the free trial:", trialError);
+      setState((current) => ({
+        organizationId,
+        billing:
+          current.organizationId === organizationId ? current.billing : null,
+        loading: false,
+        error: BILLING_LABELS.failedStartTrial,
+      }));
+    }
+    return false;
+  }, [client, guard, organizationId, setState]);
+}
+
 /**
  * Dependency-injected core of the billing provider. Billing methods on the SDK
- * facade operate on the active organization, so `organizationId` is used only to
- * re-fetch when the active org changes. The returned value is memoized so this
+ * facade operate on the active organization, so every result is scoped back to
+ * the organization that initiated it. The returned value is memoized so this
  * root-level context reference stays stable across unrelated re-renders — only a
  * real billing/loading/error change churns it. Exported for direct hook testing
  * without the full SDK/session provider stack.
@@ -48,75 +242,57 @@ export function useOrganizationBillingState(
   client: BillingClient,
   organizationId: string | null,
 ): OrganizationBillingContextValue {
-  const [billing, setBilling] = useState<OrganizationBilling | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  // Monotonic request token: only the latest in-flight fetch may commit state,
-  // so an older response resolving late cannot clobber newer billing data.
-  const requestIdRef = useRef(0);
+  const [state, setState] = useState<ScopedBillingState>(() =>
+    emptyBillingState(organizationId),
+  );
+  const activeOrganizationIdRef = useRef(organizationId);
+  const billingMutationVersionRef = useRef(0);
+  const readRequestIdRef = useRef(0);
+  const scopeGenerationRef = useRef(0);
+  const trialRequestIdRef = useRef(0);
+  const guard = useMemo<BillingRequestGuard>(
+    () => ({
+      activeOrganizationIdRef,
+      billingMutationVersionRef,
+      readRequestIdRef,
+      scopeGenerationRef,
+      trialRequestIdRef,
+    }),
+    [],
+  );
+  const refresh = useBillingRefresh(client, organizationId, guard, setState);
+  const startTrial = useStartBillingTrial(
+    client,
+    organizationId,
+    guard,
+    setState,
+  );
 
-  const refresh = useCallback(async () => {
-    const requestId = ++requestIdRef.current;
-    if (!organizationId) {
-      setBilling(null);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const next = await client.organizations.loadBilling();
-      if (requestId !== requestIdRef.current) {
-        return;
-      }
-      setBilling(next);
-      if (!next) {
-        setError(BILLING_LABELS.failedLoadBilling);
-      }
-    } catch (loadError) {
-      console.error("Failed to load organization billing:", loadError);
-      if (requestId === requestIdRef.current) {
-        setError(BILLING_LABELS.failedLoadBilling);
-      }
-    } finally {
-      if (requestId === requestIdRef.current) {
-        setLoading(false);
-      }
-    }
-  }, [organizationId, client]);
+  useLayoutEffect(() => {
+    activeOrganizationIdRef.current = organizationId;
+    billingMutationVersionRef.current++;
+    readRequestIdRef.current++;
+    scopeGenerationRef.current++;
+    trialRequestIdRef.current++;
+    return () => {
+      billingMutationVersionRef.current++;
+      readRequestIdRef.current++;
+      scopeGenerationRef.current++;
+      trialRequestIdRef.current++;
+    };
+  }, [organizationId]);
 
   useEffect(() => {
     void refresh();
-    // Invalidate any in-flight request on unmount / active-org change so a late
-    // response cannot commit state after this effect has torn down.
-    return () => {
-      requestIdRef.current++;
-    };
   }, [refresh]);
 
-  const startTrial = useCallback(async (): Promise<boolean> => {
-    const requestId = ++requestIdRef.current;
-    setError(null);
-    try {
-      const next = await client.organizations.startTrial();
-      if (requestId !== requestIdRef.current) {
-        return false;
-      }
-      if (next) {
-        setBilling(next);
-        return true;
-      }
-      setError(BILLING_LABELS.failedStartTrial);
-      return false;
-    } catch (trialError) {
-      console.error("Failed to start the free trial:", trialError);
-      if (requestId === requestIdRef.current) {
-        setError(BILLING_LABELS.failedStartTrial);
-      }
-      return false;
-    }
-  }, [client]);
+  const stateMatchesActiveOrganization =
+    state.organizationId === organizationId;
+  const billing = stateMatchesActiveOrganization ? state.billing : null;
+  const loading = stateMatchesActiveOrganization
+    ? state.loading
+    : organizationId !== null;
+  const error = stateMatchesActiveOrganization ? state.error : null;
 
   return useMemo(
     () => ({ billing, loading, error, refresh, startTrial }),
@@ -126,6 +302,23 @@ export function useOrganizationBillingState(
 
 const OrganizationBillingContext =
   createContext<OrganizationBillingContextValue | null>(null);
+
+interface SyncBillingBlock {
+  readonly blockedOrganizationId: string | null;
+  readonly isBlocked: boolean;
+}
+
+/** Whether a payment block can be safely cleared in the active org's scope. */
+export function syncBillingBlockAppliesToOrganization(
+  block: SyncBillingBlock,
+  organizationId: string,
+): boolean {
+  return (
+    block.isBlocked &&
+    (block.blockedOrganizationId === null ||
+      block.blockedOrganizationId === organizationId)
+  );
+}
 
 /**
  * Shares one billing snapshot for the active organization across the app: the
@@ -161,18 +354,21 @@ export function BillingProvider({ children }: PropsWithChildren) {
   // later lapse re-signals instead of being coalesced against the stale value.
   // Keyed on `billing` (not a derived `canSync`) so any refetch that shows the
   // org syncable clears a stale block, even when `canSync` never toggled — e.g.
-  // a transient 402 whose refetch still reports the org as active.
+  // a transient 402 whose refetch still reports the org as active. A block
+  // naming another org remains intact until that organization is active again.
   useEffect(() => {
-    const view = billing
-      ? resolveOrganizationBillingView(billing, Date.now())
-      : null;
-    if (!view?.canSync) {
+    if (!billing) {
+      return;
+    }
+    const view = resolveOrganizationBillingView(billing, Date.now());
+    if (!view.canSync) {
       return;
     }
     const gate = tearleads.syncBillingGate;
-    if (gate.isBlocked) {
-      requestAllDomainSyncLanes(tearleads.domainScope);
+    if (!syncBillingBlockAppliesToOrganization(gate, billing.organizationId)) {
+      return;
     }
+    requestAllDomainSyncLanes(tearleads.domainScope);
     gate.clearBlock();
   }, [billing, tearleads]);
 
