@@ -84,8 +84,9 @@
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  overflow: auto;
-  scrollbar-gutter: var(--scrollbar-gutter);
+  /* Scrolling belongs to the note's own `.note-document-scroll`; clip here so a
+     tall note never produces a second scrollbar on this wrapper. */
+  overflow: hidden;
   border-top: var(--border);
   padding-top: var(--space-sm);
 }
