@@ -95,10 +95,8 @@ export function UserDetailView({
   canRevokeGrants,
   detail,
   loading,
-  onDismiss,
   onRosterProfileDisplayNameChange,
   rosterProfileEditRequestKey,
-  showDismissButton = true,
   openGrantRoute,
   openGroupRoute,
   profileDisplayName,
@@ -111,10 +109,8 @@ export function UserDetailView({
   canRevokeGrants: boolean;
   detail: OrganizationUserDetail | null;
   loading: boolean;
-  onDismiss: () => void;
   onRosterProfileDisplayNameChange: (displayName: string | null) => void;
   rosterProfileEditRequestKey?: number | null | undefined;
-  showDismissButton?: boolean | undefined;
   mutating: boolean;
   openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
   openGroupRoute: (groupId: string) => void;
@@ -160,11 +156,6 @@ export function UserDetailView({
                 : ORG_MANAGER_LABELS.userDetailUnavailable}
             </strong>
           </MiniAppHeaderCopy>
-          {showDismissButton && (
-            <MiniAppButton onClick={onDismiss} variant="ghost">
-              {ORG_MANAGER_LABELS.back}
-            </MiniAppButton>
-          )}
         </MiniAppHeader>
         <MiniAppStatus className="org-manager-hint">
           {loading
@@ -209,11 +200,6 @@ export function UserDetailView({
               {isRosterProfileEditing
                 ? ORG_MANAGER_LABELS.done
                 : ORG_MANAGER_LABELS.edit}
-            </MiniAppButton>
-          )}
-          {showDismissButton && (
-            <MiniAppButton onClick={onDismiss} variant="ghost">
-              {ORG_MANAGER_LABELS.back}
             </MiniAppButton>
           )}
         </MiniAppActions>

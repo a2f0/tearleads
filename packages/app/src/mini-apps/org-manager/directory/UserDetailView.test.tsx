@@ -42,7 +42,6 @@ function renderUserDetailView(
       detail={detail}
       loading={false}
       mutating={false}
-      onDismiss={() => undefined}
       onRosterProfileDisplayNameChange={() => undefined}
       openGrantRoute={() => undefined}
       openGroupRoute={() => undefined}
@@ -53,8 +52,10 @@ function renderUserDetailView(
   );
 }
 
-test("org manager roster detail can hide its local dismiss button", () => {
-  const view = renderUserDetailView({ showDismissButton: false });
+test("org manager roster detail renders no inline back button", () => {
+  // The detail "Back" affordance lives in the shared toolbar (registered by
+  // OrgManagerRoutedChrome), not inline in the pane.
+  const view = renderUserDetailView();
 
   expect(
     view.queryByRole("button", { name: ORG_MANAGER_LABELS.back }),

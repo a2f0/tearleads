@@ -20,9 +20,13 @@ function OrgManagerRoutedChromeHarness({
   canLoadAuthenticatedOrgData = true,
   loading = false,
   mutating = false,
+  onBackFromGrantDetail = noop,
+  onBackFromGroupDetail = noop,
   onBackFromRosterDetail = noop,
   onImportUser = noop,
   onNewGroup = noop,
+  showGrantDetailBackAction = false,
+  showGroupDetailBackAction = false,
   showRosterDetailBackAction = false,
   view,
 }: {
@@ -31,9 +35,13 @@ function OrgManagerRoutedChromeHarness({
   canLoadAuthenticatedOrgData?: boolean;
   loading?: boolean;
   mutating?: boolean;
+  onBackFromGrantDetail?: () => void;
+  onBackFromGroupDetail?: () => void;
   onBackFromRosterDetail?: () => void;
   onImportUser?: () => void;
   onNewGroup?: () => void;
+  showGrantDetailBackAction?: boolean;
+  showGroupDetailBackAction?: boolean;
   showRosterDetailBackAction?: boolean;
   view: OrgManagerView;
 }) {
@@ -43,9 +51,13 @@ function OrgManagerRoutedChromeHarness({
     canLoadAuthenticatedOrgData,
     loading,
     mutating,
+    onBackFromGrantDetail,
+    onBackFromGroupDetail,
     onBackFromRosterDetail,
     openCreateGroupDialog: onNewGroup,
     openImportUserDialog: onImportUser,
+    showGrantDetailBackAction,
+    showGroupDetailBackAction,
     showRosterDetailBackAction,
     view,
   });
@@ -107,13 +119,53 @@ test("directory route exposes the Import User toolbar action only", async () => 
   expect(invoked).toEqual(["import"]);
 });
 
-test("compact roster detail exposes a Back chrome action", async () => {
+test("roster detail exposes a Back chrome action", async () => {
   const invoked: string[] = [];
   const view = renderChrome(
     <OrgManagerRoutedChromeHarness
       onBackFromRosterDetail={() => invoked.push("back")}
       showRosterDetailBackAction
       view="directory"
+    />,
+  );
+
+  await waitFor(() => {
+    expect(
+      view.getByRole("button", { name: ORG_MANAGER_LABELS.back }),
+    ).toBeTruthy();
+  });
+
+  fireEvent.click(view.getByRole("button", { name: ORG_MANAGER_LABELS.back }));
+  expect(invoked).toEqual(["back"]);
+});
+
+test("group detail exposes a Back chrome action", async () => {
+  const invoked: string[] = [];
+  const view = renderChrome(
+    <OrgManagerRoutedChromeHarness
+      onBackFromGroupDetail={() => invoked.push("back")}
+      showGroupDetailBackAction
+      view="groups"
+    />,
+  );
+
+  await waitFor(() => {
+    expect(
+      view.getByRole("button", { name: ORG_MANAGER_LABELS.back }),
+    ).toBeTruthy();
+  });
+
+  fireEvent.click(view.getByRole("button", { name: ORG_MANAGER_LABELS.back }));
+  expect(invoked).toEqual(["back"]);
+});
+
+test("grant detail exposes a Back chrome action", async () => {
+  const invoked: string[] = [];
+  const view = renderChrome(
+    <OrgManagerRoutedChromeHarness
+      onBackFromGrantDetail={() => invoked.push("back")}
+      showGrantDetailBackAction
+      view="grants"
     />,
   );
 

@@ -11,10 +11,8 @@ import {
   MiniAppPanel,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
-import {
-  useWindowBackAction,
-  useWindowTitleBarAction,
-} from "../../../components/window/WindowMenuContext";
+import { useMiniAppDetailBackAction } from "../../../components/window/useMiniAppDetailBackAction";
+import { useWindowTitleBarAction } from "../../../components/window/WindowMenuContext";
 import { ContactFields } from "../../../document-types/contact/ContactFields";
 import type {
   ContactFieldKey,
@@ -307,14 +305,13 @@ export function ContactsDetailPanel(params: {
       route !== "selection"
         ? {
             label: CONTACTS_LABELS.backToContactsAction,
-            onClick: onBackToSelectionRoute,
-            priority: 100,
+            onBack: onBackToSelectionRoute,
           }
         : null,
     [onBackToSelectionRoute, route],
   );
 
-  useWindowBackAction(backAction);
+  useMiniAppDetailBackAction(backAction);
 
   if (route === "new-contact") {
     return (

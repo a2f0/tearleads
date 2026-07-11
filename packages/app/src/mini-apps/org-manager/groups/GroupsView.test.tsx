@@ -193,19 +193,19 @@ test("org manager group policy history uses roster display names", () => {
   ).toBeTruthy();
 });
 
-test("org manager groups view can dismiss group detail", () => {
-  const selections: Array<string | null> = [];
+test("org manager groups view renders group detail without an inline back button", () => {
+  // The detail "Back" affordance lives in the shared toolbar (registered by
+  // OrgManagerRoutedChrome), not inline in GroupDetailSection.
   const view = renderGroupsView({
     selectedGroup: group,
     selectedGroupId: group.groupId,
-    selectGroup: (groupId) => selections.push(groupId),
   });
 
   expect(view.getByText(ORG_MANAGER_LABELS.members)).toBeTruthy();
   expect(view.queryByLabelText(ORG_MANAGER_LABELS.groupName)).toBeNull();
-
-  fireEvent.click(view.getByRole("button", { name: ORG_MANAGER_LABELS.back }));
-  expect(selections).toEqual([null]);
+  expect(
+    view.queryByRole("button", { name: ORG_MANAGER_LABELS.back }),
+  ).toBeNull();
 });
 
 test("org manager groups view submits the new group dialog", () => {

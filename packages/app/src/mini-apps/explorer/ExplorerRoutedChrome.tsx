@@ -6,10 +6,8 @@ import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
 import { LinkSimpleIcon } from "@phosphor-icons/react/dist/csr/LinkSimple";
 import { UploadSimpleIcon } from "@phosphor-icons/react/dist/csr/UploadSimple";
 import { useMemo } from "react";
-import {
-  useWindowBackAction,
-  useWindowTitleBarAction,
-} from "../../components/window/WindowMenuContext";
+import { useMiniAppDetailBackAction } from "../../components/window/useMiniAppDetailBackAction";
+import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
 import { useExplorerHubToolbarActions } from "./ExplorerHubToolbarActions";
 import type { useExplorerModel } from "./hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "./labels";
@@ -152,26 +150,23 @@ function useExplorerRoutedBackAction({
     if (route.view === "document-info") {
       return {
         label: EXPLORER_LABELS.documentInfoBackAction,
-        onClick: () => {
+        onBack: () => {
           model.selectDocumentProjection(route.localId, route.containerId);
         },
-        priority: 100,
       };
     }
 
     if (route.view === "sync-lane-detail") {
       return {
         label: EXPLORER_LABELS.syncLanesBackToListAction,
-        onClick: model.routeState.openSyncLanesRoute,
-        priority: 100,
+        onBack: model.routeState.openSyncLanesRoute,
       };
     }
 
     if (route.view === "sync-lanes") {
       return {
         label: EXPLORER_LABELS.syncLanesBackAction,
-        onClick: model.routeState.showSelectionRoute,
-        priority: 100,
+        onBack: model.routeState.showSelectionRoute,
       };
     }
 
@@ -186,7 +181,7 @@ function useExplorerRoutedBackAction({
     route,
   ]);
 
-  useWindowBackAction(backAction);
+  useMiniAppDetailBackAction(backAction);
 }
 
 function useExplorerCreateFolderToolbarAction({
