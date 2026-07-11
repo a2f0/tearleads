@@ -142,7 +142,7 @@ interface ExplorerDetailPanelProps {
   onBackToSelectionRoute: () => void;
   onInitialEditingSelectedDocumentConsumed: (localId: string) => void;
   onOpenSyncLaneDetailRoute: (laneKey: string) => void;
-  onBackToSyncLanesRoute: () => void;
+  openSyncLanesRoute: () => void;
   onOpenGrant: (
     grant: {
       containerId: string;
@@ -267,7 +267,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         online={params.online}
         openBlobBrowserRoute={params.openBlobBrowserRoute}
         openDocumentInfoRoute={params.openDocumentInfoRoute}
-        openSyncLanesRoute={params.onBackToSyncLanesRoute}
+        openSyncLanesRoute={params.openSyncLanesRoute}
         route={route}
         selectDocumentProjection={params.selectDocumentProjection}
       />
