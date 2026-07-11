@@ -1,0 +1,22 @@
+/* Blob identity cell: a compact thumbnail (image blobs) or file-type icon
+   (everything else) sized to sit within the fixed compact row height. */
+.explorer-blob-browser-thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 auto;
+}
+
+.explorer-blob-browser-thumb-image {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: var(--border);
+}
+
+.explorer-blob-browser-thumb-icon {
+  opacity: var(--opacity-icon);
+}

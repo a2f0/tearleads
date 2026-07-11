@@ -2,6 +2,7 @@ import {
   type BlobInfo,
   type BlobInfoSort,
   type BlobInfoSortKey,
+  type BlobStore,
   type ContainerDocumentObjectSyncState,
   createContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
@@ -22,6 +23,7 @@ import {
   getMiniAppVirtualFrameStyle,
   MiniAppVirtualTableSpacerRow,
 } from "../../../../components/shared/MiniAppVirtual";
+import { getAttachmentFileType } from "../../../../document-types/shared/attachmentFileType";
 import { formatByteLength } from "../../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
@@ -29,7 +31,6 @@ import {
   EXPLORER_LABELS,
   getExplorerBlobBrowserReferenceCountLabel,
 } from "../../labels";
-import { compactId } from "../compactId";
 import {
   BLOB_INFO_COLUMN_MENU_OPTIONS,
   BLOB_INFO_TOGGLEABLE_COLUMN_IDS,
@@ -40,7 +41,9 @@ import {
 import {
   BLOB_BROWSER_ROW_HEIGHT,
   getBlobChangedAt,
+  useBlobThumbnailUrl,
 } from "./ExplorerBlobBrowserState";
+import "./ExplorerBlobInfoTable.css";
 
 const BLOB_INFO_COLUMN_STORAGE_KEY =
   "tearleads.explorer.blob-browser:hidden-columns";
@@ -69,28 +72,73 @@ function getBlobInfoSyncState(
   });
 }
 
+// The identity cell hides the blob id and shows a thumbnail instead: an image
+// blob renders its bytes inline, everything else falls back to a file-type icon.
+// The id stays reachable via the button's accessible name and the cell tooltip.
+function BlobIdentityCell(params: {
+  blob: BlobInfo;
+  blobStore: BlobStore;
+  onSelectBlob: (blob: BlobInfo) => void;
+  selectable: boolean;
+}) {
+  const { blob, blobStore, onSelectBlob, selectable } = params;
+  const thumbnailUrl = useBlobThumbnailUrl({ blob, blobStore });
+  const { Icon, isImage } = getAttachmentFileType({
+    mimeType: blob.mimeType,
+    name: blob.name,
+  });
+  const identity = blob.blobId ?? blob.storageKey;
+
+  return (
+    <MiniAppTableCell title={identity}>
+      <MiniAppTableActionButton
+        aria-label={identity}
+        className="explorer-blob-browser-row-button"
+        disabled={!selectable}
+        onClick={() => onSelectBlob(blob)}
+        title={selectable ? undefined : "Only image blobs can be attached."}
+      >
+        <span className="explorer-blob-browser-thumb">
+          {isImage && thumbnailUrl ? (
+            <img
+              alt=""
+              className="explorer-blob-browser-thumb-image"
+              src={thumbnailUrl}
+            />
+          ) : (
+            <Icon
+              aria-hidden
+              className="explorer-blob-browser-thumb-icon"
+              size={20}
+            />
+          )}
+        </span>
+      </MiniAppTableActionButton>
+    </MiniAppTableCell>
+  );
+}
+
 function renderBlobInfoCell(params: {
   blob: BlobInfo;
+  blobStore: BlobStore;
   columnId: BlobInfoColumnId;
   online: boolean;
   onSelectBlob: (blob: BlobInfo) => void;
   selectable: boolean;
 }) {
-  const { blob, columnId, online, onSelectBlob, selectable } = params;
+  const { blob, blobStore, columnId, online, onSelectBlob, selectable } =
+    params;
 
   switch (columnId) {
     case "blob":
       return (
-        <MiniAppTableCell key="blob" title={blob.blobId ?? blob.storageKey}>
-          <MiniAppTableActionButton
-            className="explorer-blob-browser-row-button"
-            disabled={!selectable}
-            onClick={() => onSelectBlob(blob)}
-            title={selectable ? undefined : "Only image blobs can be attached."}
-          >
-            {compactId(blob.blobId ?? blob.storageKey)}
-          </MiniAppTableActionButton>
-        </MiniAppTableCell>
+        <BlobIdentityCell
+          blob={blob}
+          blobStore={blobStore}
+          key="blob"
+          onSelectBlob={onSelectBlob}
+          selectable={selectable}
+        />
       );
     case "mime":
       return (
@@ -137,6 +185,7 @@ function renderBlobInfoCell(params: {
 
 function BlobInfoTableContent(params: {
   activeBlob: BlobInfo | null;
+  blobStore: BlobStore;
   error: string | null;
   isRowSelectable?: ((blob: BlobInfo) => boolean) | undefined;
   isLoading: boolean;
@@ -183,6 +232,7 @@ function BlobInfoTableContent(params: {
               {params.visibleColumnIds.map((columnId) =>
                 renderBlobInfoCell({
                   blob,
+                  blobStore: params.blobStore,
                   columnId,
                   online: params.online,
                   onSelectBlob: params.onSelectBlob,
@@ -217,6 +267,7 @@ function BlobInfoTableContent(params: {
 
 export function BlobInfoTable(params: {
   activeBlob: BlobInfo | null;
+  blobStore: BlobStore;
   error: string | null;
   frameRef: (frame: HTMLDivElement | null) => void;
   // When provided, rows that fail the predicate are shown but not selectable
@@ -278,6 +329,7 @@ export function BlobInfoTable(params: {
       >
         <BlobInfoTableContent
           activeBlob={params.activeBlob}
+          blobStore={params.blobStore}
           error={params.error}
           isLoading={params.isLoading}
           isRowSelectable={params.isRowSelectable}

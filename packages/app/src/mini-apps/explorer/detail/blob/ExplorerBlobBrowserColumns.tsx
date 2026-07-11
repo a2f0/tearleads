@@ -114,17 +114,20 @@ function buildBlobInfoColumn(
 
   switch (id) {
     case "blob":
+      // Thumbnail-only column: keep it tight and let mime absorb the slack.
       return {
         header: getBlobInfoColumnLabel(id),
         id,
-        width: "34%",
+        width: "4rem",
       };
     case "mime":
       return {
         ariaSort: getBlobSortAria(sort, "mimeType"),
         header: sortableHeader("mimeType", getBlobInfoColumnLabel(id)),
         id,
-        width: "11rem",
+        // No fixed width: this is the flexible column that soaks up leftover
+        // space now that the identity column is a narrow thumbnail.
+        width: undefined,
       };
     case "size":
       return {

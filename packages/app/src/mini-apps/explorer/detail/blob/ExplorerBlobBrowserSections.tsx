@@ -156,25 +156,10 @@ function BlobPreviewSection(params: {
   blob: BlobInfo;
   preview: BlobPreviewState;
 }) {
-  const { preview } = params;
-  const canOpen = preview.status === "ready" && Boolean(preview.url);
-
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.blobBrowserPreviewHeading}>
-      <MiniAppActions className="explorer-blob-browser-preview-actions">
-        <MiniAppButton
-          disabled={!canOpen}
-          onClick={() => {
-            if (preview.status === "ready" && preview.url) {
-              window.open(preview.url, "_blank", "noopener,noreferrer");
-            }
-          }}
-        >
-          {EXPLORER_LABELS.blobBrowserOpenBlobAction}
-        </MiniAppButton>
-      </MiniAppActions>
       <div className="explorer-blob-preview-frame">
-        <BlobPreviewContent blob={params.blob} preview={preview} />
+        <BlobPreviewContent blob={params.blob} preview={params.preview} />
       </div>
     </MiniAppInfoSection>
   );
@@ -184,6 +169,8 @@ export function BlobDetail(params: {
   blob: BlobInfo | null;
   blobStore: BlobStore;
   containerNamesById: ReadonlyMap<string, string>;
+  downloadMessage: string | null;
+  onDownload: (blob: BlobInfo) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
 }) {
@@ -200,17 +187,40 @@ export function BlobDetail(params: {
     );
   }
 
+  const blob = params.blob;
+  const canOpen = preview.status === "ready" && Boolean(preview.url);
+
   return (
-    <MiniAppPanel className="explorer-blob-browser-detail">
-      <BlobMetadataSection blob={params.blob} preview={preview} />
-      <BlobPreviewSection blob={params.blob} preview={preview} />
-      <BlobReferencesSection
-        blob={params.blob}
-        containerNamesById={params.containerNamesById}
-        openDocumentInfoRoute={params.openDocumentInfoRoute}
-        selectDocumentProjection={params.selectDocumentProjection}
-      />
-    </MiniAppPanel>
+    <>
+      <MiniAppToolbar>
+        <MiniAppButton
+          disabled={!canOpen}
+          onClick={() => {
+            if (preview.status === "ready" && preview.url) {
+              window.open(preview.url, "_blank", "noopener,noreferrer");
+            }
+          }}
+        >
+          {EXPLORER_LABELS.blobBrowserOpenBlobAction}
+        </MiniAppButton>
+        <MiniAppButton onClick={() => params.onDownload(blob)}>
+          {EXPLORER_LABELS.blobBrowserDownloadAction}
+        </MiniAppButton>
+      </MiniAppToolbar>
+      {params.downloadMessage ? (
+        <MiniAppStatus tone="error">{params.downloadMessage}</MiniAppStatus>
+      ) : null}
+      <MiniAppPanel className="explorer-blob-browser-detail">
+        <BlobPreviewSection blob={blob} preview={preview} />
+        <BlobMetadataSection blob={blob} preview={preview} />
+        <BlobReferencesSection
+          blob={blob}
+          containerNamesById={params.containerNamesById}
+          openDocumentInfoRoute={params.openDocumentInfoRoute}
+          selectDocumentProjection={params.selectDocumentProjection}
+        />
+      </MiniAppPanel>
+    </>
   );
 }
 
@@ -271,6 +281,7 @@ export function BlobPickHeader(params: {
 
 export function BlobBrowserListScreen(params: {
   blobInfo: BlobInfoListState;
+  blobStore: BlobStore;
   downloadMessage?: string | null | undefined;
   frameRef: (frame: HTMLDivElement | null) => void;
   isRowSelectable?: ((blob: BlobInfo) => boolean) | undefined;
@@ -303,6 +314,7 @@ export function BlobBrowserListScreen(params: {
       <div className="explorer-blob-browser-screen">
         <BlobInfoTable
           activeBlob={null}
+          blobStore={params.blobStore}
           error={params.blobInfo.error}
           frameRef={params.frameRef}
           isLoading={params.blobInfo.isLoading || params.isWindowPending}
