@@ -155,14 +155,14 @@ test("tablet routed shell starts with the navigation rail collapsed", () => {
   try {
     view = renderRoutedPane();
 
-    // The rail now defaults to collapsed, so its nav panel (and the Home link)
+    // The rail now defaults to collapsed, so its nav panel (and the app links)
     // stays hidden behind the toggle until the user expands it.
     expect(
       view.container
         .querySelector(".routed-pane-rail")
         ?.getAttribute("data-state"),
     ).toBe("closed");
-    expect(view.queryByRole("link", { name: "Home" })).toBeNull();
+    expect(view.queryByRole("link", { name: "Contacts" })).toBeNull();
     expect(
       view
         .getByRole("button", { name: "Expand navigation rail" })
@@ -178,7 +178,7 @@ test("tablet routed shell starts with the navigation rail collapsed", () => {
         .querySelector(".routed-pane-rail")
         ?.getAttribute("data-state"),
     ).toBe("open");
-    expect(view.getByRole("link", { name: "Home" })).toBeTruthy();
+    expect(view.getByRole("link", { name: "Contacts" })).toBeTruthy();
 
     fireEvent.click(
       view.getByRole("button", { name: "Collapse navigation rail" }),
@@ -189,7 +189,7 @@ test("tablet routed shell starts with the navigation rail collapsed", () => {
         .querySelector(".routed-pane-rail")
         ?.getAttribute("data-state"),
     ).toBe("closed");
-    expect(view.queryByRole("link", { name: "Home" })).toBeNull();
+    expect(view.queryByRole("link", { name: "Contacts" })).toBeNull();
   } finally {
     view?.unmount();
     restoreMatchMedia();
