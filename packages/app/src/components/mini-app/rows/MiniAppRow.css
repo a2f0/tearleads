@@ -30,7 +30,10 @@
 }
 
 .mini-app-row--framed {
-  border-color: currentColor;
+  /* Use the themeable border color (currentColor in Light, a muted grey in
+     Dark) rather than a raw currentColor, so the frame doesn't glare as a
+     near-white line in Dark. Matches .mini-app-panel--framed's var(--border). */
+  border-color: var(--border-color);
   background: var(--color-light);
 }
 
