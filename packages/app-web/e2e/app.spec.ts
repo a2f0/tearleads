@@ -80,6 +80,9 @@ async function killWorker(page: Page, pane: Locator): Promise<void> {
   await navigationModeToggle.click();
   await navigationModeToggle.click();
   await expect(page.locator(".routed-pane")).toBeVisible();
+  // The routed nav rail defaults to collapsed; open it to reach the developer
+  // "Kill Worker" action that lives in its system menu.
+  await page.getByRole("button", { name: "Expand navigation rail" }).click();
   await page.getByRole("button", { name: "Kill Worker" }).click();
 }
 

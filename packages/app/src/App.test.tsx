@@ -124,7 +124,7 @@ test("renders App", async () => {
   }
 });
 
-test("routed App home can generate a pane key pair from shell chrome", async () => {
+test("routed App boots from the Explorer home gate and navigates via the rail", async () => {
   const originalWebSocket = globalThis.WebSocket;
 
   class SilentWebSocket extends EventTarget {
@@ -151,31 +151,49 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
     // "Pane" popover, so there is no "Pane" or "Menu" button.
     expect(view.queryByRole("button", { name: "Pane" })).toBeNull();
     expect(view.queryByRole("button", { name: "Menu" })).toBeNull();
-    expect(
-      view.queryByText(/Generate a key pair to boot this pane\./),
-    ).toBeNull();
     expect(view.queryByText(/SQLite Worker/i)).toBeNull();
-    expect(
-      view.getByRole("link", { name: "Home" }).getAttribute("aria-current"),
-    ).toBe("page");
 
-    // System actions live directly in the rail — no popover to open first.
+    // The navigation rail now defaults to collapsed, so its links stay hidden
+    // behind the expand toggle until the user opens it.
+    expect(view.queryByRole("link", { name: "Home" })).toBeNull();
     expect(
-      view.queryByRole("button", { name: "Restore Key Package" }),
-    ).toBeNull();
-    const generateKeyPairButton = view.getAllByRole("button", {
+      view.getByRole("button", { name: "Expand navigation rail" }),
+    ).toBeTruthy();
+
+    // Home is the Explorer app itself (like the mobile compact view), so with
+    // no key yet it shows Explorer's setup gate, whose "Generate Key Pair"
+    // action boots the pane once the persisted-identity restore settles.
+    await waitFor(() => {
+      expect(
+        view.getAllByRole("button", { name: "Generate Key Pair" }).length,
+      ).toBeGreaterThan(0);
+    });
+    const generateButtons = view.getAllByRole("button", {
       name: "Generate Key Pair",
-    })[1];
+    });
+    const generateKeyPairButton = generateButtons[generateButtons.length - 1];
     if (!generateKeyPairButton) {
-      throw new Error("Expected routed rail generate action.");
+      throw new Error("Expected Explorer's generate-key gate.");
     }
     fireEvent.click(generateKeyPairButton);
 
+    // Once the key exists the gate clears and no generate action remains.
     await waitFor(() => {
-      expect(view.getByRole("button", { name: "Contacts" })).toBeTruthy();
       expect(
-        view.queryByRole("button", { name: "Destroy Key Pair" }),
+        view.queryByRole("button", { name: "Generate Key Pair" }),
       ).toBeNull();
+    });
+
+    // Expand the rail to reach the app links; Explorer is the active home app.
+    fireEvent.click(
+      view.getByRole("button", { name: "Expand navigation rail" }),
+    );
+    await waitFor(() => {
+      expect(
+        view
+          .getByRole("link", { name: "Explorer" })
+          .getAttribute("aria-current"),
+      ).toBe("page");
     });
 
     fireEvent.click(view.getByRole("link", { name: "Contacts" }));
@@ -208,16 +226,6 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
 
     fireEvent.click(view.getByRole("button", { name: "Show Sidebar" }));
     expect(view.container.querySelector("#routed-pane-sidebar")).toBeTruthy();
-
-    const homeLink = view.getByRole("link", { name: "Home" });
-    fireEvent.click(homeLink);
-
-    await waitFor(() => {
-      expect(
-        view.getByRole("link", { name: "Home" }).getAttribute("aria-current"),
-      ).toBe("page");
-      expect(view.queryByRole("button", { name: "Hide Sidebar" })).toBeNull();
-    });
 
     // Developer-only key destruction stays hidden from normal users.
     expect(view.queryByRole("button", { name: "Destroy Key Pair" })).toBeNull();
@@ -268,6 +276,13 @@ test("switching navigation mode reuses the booted pane database instead of reboo
     // boot the single visible pane's database from the routed rail.
     toggleNavigationMode();
     toggleNavigationMode();
+    // In routed mode the generate action lives in Explorer's home gate, which
+    // only offers it once the persisted-identity restore settles.
+    await waitFor(() => {
+      expect(
+        view.getAllByRole("button", { name: "Generate Key Pair" }).length,
+      ).toBeGreaterThan(0);
+    });
     const generateButtons = view.getAllByRole("button", {
       name: "Generate Key Pair",
     });

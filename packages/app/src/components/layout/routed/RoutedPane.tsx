@@ -7,16 +7,11 @@ import {
   useState,
 } from "react";
 import { LocalKeyringUnlockWindow } from "../../../mini-apps/LocalKeyringUnlockGate";
-import {
-  MINI_APPS,
-  ROUTED_MINI_APP_NAV_ITEMS,
-} from "../../../mini-apps/registry";
+import { MINI_APPS } from "../../../mini-apps/registry";
+import { SystemMonitorPinned } from "../../../mini-apps/system-monitor/SystemMonitorPinned";
 import { useSystemMonitor } from "../../../mini-apps/system-monitor/SystemMonitorProvider";
 import type { MiniAppId } from "../../../mini-apps/types";
-import {
-  useAppNavigationActions,
-  useAppNavigationState,
-} from "../../../navigation/AppNavigationProvider";
+import { useAppNavigationState } from "../../../navigation/AppNavigationProvider";
 import {
   type RoutedLayoutTier,
   useRoutedLayoutTier,
@@ -25,13 +20,9 @@ import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvide
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
 import { useRegisterUserId } from "../../pane/dual-pane";
-import { useBootPaneLogEntries } from "../../pane/log/useBootPaneLogEntries";
-import { PaneLog } from "../../pane/PaneLog";
-import { PaneStatus } from "../../pane/PaneStatus";
 import { DestroyKeyPackageConfirmationDialog } from "../../shared/DestroyKeyPackageConfirmationDialog";
 import { LogoutConfirmationDialog } from "../../shared/LogoutConfirmationDialog";
 import type { MenuPosition } from "../../shared/Menu";
-import { MiniAppButton } from "../../shared/MiniAppLayout";
 import { useDestroyKeyPackageConfirmation } from "../../shared/useDestroyKeyPackageConfirmation";
 import { useConfirmedLogoutDialog } from "../../shared/useLogoutConfirmation";
 import {
@@ -48,8 +39,7 @@ import { RoutedPaneAppBar } from "./RoutedPaneAppBar";
 import { RoutedPaneNav } from "./RoutedPaneNav";
 import { RoutedPaneSidebar } from "./RoutedPaneSidebar";
 
-const BOOT_PANE_LOG_MESSAGE = "Generate a key pair to boot this pane.";
-const MOBILE_ROOT_MINI_APP_ID: MiniAppId = "explorer";
+const ROUTED_ROOT_MINI_APP_ID: MiniAppId = "explorer";
 
 function invertBoolean(value: boolean): boolean {
   return !value;
@@ -77,52 +67,13 @@ export function initialRoutedSidebarExpanded(
 }
 
 export function resolveRoutedActiveMiniAppId(
-  tier: RoutedLayoutTier,
   routeAppId: MiniAppId | null,
-): MiniAppId | null {
-  const routeAppRegistered =
-    routeAppId !== null && Object.hasOwn(MINI_APPS, routeAppId);
-
-  if (routeAppRegistered) {
+): MiniAppId {
+  if (routeAppId !== null && Object.hasOwn(MINI_APPS, routeAppId)) {
     return routeAppId;
   }
 
-  return tier === "mobile" ? MOBILE_ROOT_MINI_APP_ID : null;
-}
-
-function RoutedPaneHome() {
-  const { openMiniApp } = useAppNavigationActions();
-  const { generateKey, signingKeyPair } = useIdentity();
-  const { isPinned } = useSystemMonitor();
-  const localKeyringLock = useLocalKeyringLock();
-  const paneLocked = localKeyringLock.isLocked && !signingKeyPair;
-  const trailingLogEntries = useBootPaneLogEntries({
-    bootMessage: BOOT_PANE_LOG_MESSAGE,
-    hasSigningKeyPair: signingKeyPair !== null,
-    paneLocked,
-  });
-
-  return (
-    <div className="routed-pane-home">
-      {isPinned && <PaneStatus />}
-      {paneLocked ? (
-        <LocalKeyringUnlockWindow />
-      ) : signingKeyPair ? (
-        <div className="routed-pane-launcher">
-          {ROUTED_MINI_APP_NAV_ITEMS.map(({ appId, label }) => (
-            <MiniAppButton key={appId} onClick={() => openMiniApp({ appId })}>
-              {label}
-            </MiniAppButton>
-          ))}
-        </div>
-      ) : (
-        <div className="routed-pane-launcher">
-          <MiniAppButton onClick={generateKey}>Generate Key Pair</MiniAppButton>
-        </div>
-      )}
-      {isPinned && <PaneLog trailingEntries={trailingLogEntries} />}
-    </div>
-  );
+  return ROUTED_ROOT_MINI_APP_ID;
 }
 
 export function menuPositionBelow(anchor: HTMLElement): MenuPosition {
@@ -180,8 +131,8 @@ function useCollapseOverlaysOnTierChange({
 }
 
 interface RoutedPaneSurfaceProps {
-  activeAppId: MiniAppId | null;
-  ActiveMiniApp: ComponentType | null;
+  activeAppId: MiniAppId;
+  ActiveMiniApp: ComponentType;
   showUnlockPanel: boolean;
   navigationRailExpanded: boolean;
   onOpenUnlock: () => void;
@@ -291,13 +242,11 @@ function RoutedPaneSurface({
         </RoutedPaneSidebar>
       )}
       <main className="routed-pane-main">
-        {showUnlockPanel ? (
-          <LocalKeyringUnlockWindow />
-        ) : ActiveMiniApp ? (
-          <ActiveMiniApp />
-        ) : (
-          <RoutedPaneHome />
-        )}
+        {/* When the developer pins the System Monitor it rides above the active
+            app in both routed tiers, replacing the pinned-monitor slot the old
+            home launcher used to host. Renders nothing unless pinned. */}
+        <SystemMonitorPinned />
+        {showUnlockPanel ? <LocalKeyringUnlockWindow /> : <ActiveMiniApp />}
       </main>
       {tier === "mobile" && (
         <RoutedPaneMobileBar
@@ -320,8 +269,8 @@ function RoutedPaneWithRegistries({
   onToggleNavigationRail,
   tier,
 }: {
-  activeAppId: MiniAppId | null;
-  ActiveMiniApp: ComponentType | null;
+  activeAppId: MiniAppId;
+  ActiveMiniApp: ComponentType;
   navigationRailExpanded: boolean;
   onToggleNavigationRail: () => void;
   tier: RoutedLayoutTier;
@@ -356,14 +305,14 @@ function RoutedPaneWithRegistries({
 export function RoutedPane() {
   const { userId } = useCryptoSession();
   const tier = useRoutedLayoutTier();
-  const [navigationRailExpanded, setNavigationRailExpanded] = useState(true);
+  const [navigationRailExpanded, setNavigationRailExpanded] = useState(false);
   const {
     route: { appId },
   } = useAppNavigationState();
   useRegisterUserId(userId);
-  const activeAppId = resolveRoutedActiveMiniAppId(tier, appId);
+  const activeAppId = resolveRoutedActiveMiniAppId(appId);
   const ActiveMiniApp = useMemo(
-    () => (activeAppId ? MINI_APPS[activeAppId].createComponent() : null),
+    () => MINI_APPS[activeAppId].createComponent(),
     [activeAppId],
   );
   const toggleNavigationRail = useCallback(
@@ -373,7 +322,7 @@ export function RoutedPane() {
 
   return (
     <RoutedPaneWithRegistries
-      key={activeAppId ?? "home"}
+      key={activeAppId}
       activeAppId={activeAppId}
       ActiveMiniApp={ActiveMiniApp}
       navigationRailExpanded={navigationRailExpanded}

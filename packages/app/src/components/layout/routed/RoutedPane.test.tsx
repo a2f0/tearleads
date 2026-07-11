@@ -96,23 +96,18 @@ test("tablet honours each mini-app's configured sidebar default", () => {
   expect(initialRoutedSidebarExpanded("tablet", null)).toBe(true);
 });
 
-test("mobile root route opens explorer as the compact home screen", () => {
-  expect(resolveRoutedActiveMiniAppId("mobile", null)).toBe("explorer");
-  expect(resolveRoutedActiveMiniAppId("mobile", "contacts")).toBe("contacts");
+test("the root route opens explorer as the routed home screen", () => {
+  // Both routed tiers (mobile drawer and tablet rail) now land on Explorer as
+  // the compact home instead of a launcher screen, so the root route always
+  // resolves to it.
+  expect(resolveRoutedActiveMiniAppId(null)).toBe("explorer");
+  expect(resolveRoutedActiveMiniAppId("contacts")).toBe("contacts");
 });
 
-test("tablet root route keeps the routed home launcher", () => {
-  expect(resolveRoutedActiveMiniAppId("tablet", null)).toBeNull();
-  expect(resolveRoutedActiveMiniAppId("tablet", "contacts")).toBe("contacts");
-});
-
-test("invalid route app ids fall back without indexing missing mini-apps", () => {
+test("invalid route app ids fall back to explorer without indexing missing mini-apps", () => {
   const legacyRouteAppId = "legacy-app" as MiniAppId;
 
-  expect(resolveRoutedActiveMiniAppId("mobile", legacyRouteAppId)).toBe(
-    "explorer",
-  );
-  expect(resolveRoutedActiveMiniAppId("tablet", legacyRouteAppId)).toBeNull();
+  expect(resolveRoutedActiveMiniAppId(legacyRouteAppId)).toBe("explorer");
 });
 
 test("mobile routed shell opens the nav sheet from the bottom menu bar", () => {
@@ -153,24 +148,15 @@ test("mobile routed shell opens the nav sheet from the bottom menu bar", () => {
   }
 });
 
-test("tablet routed shell collapses and expands the navigation rail", () => {
+test("tablet routed shell starts with the navigation rail collapsed", () => {
   const restoreMatchMedia = forceTabletRoutedTier();
   let view: ReturnType<typeof renderRoutedPane> | undefined;
 
   try {
     view = renderRoutedPane();
 
-    expect(
-      view.container
-        .querySelector(".routed-pane-rail")
-        ?.getAttribute("data-state"),
-    ).toBe("open");
-    expect(view.getByRole("link", { name: "Home" })).toBeTruthy();
-
-    fireEvent.click(
-      view.getByRole("button", { name: "Collapse navigation rail" }),
-    );
-
+    // The rail now defaults to collapsed, so its nav panel (and the Home link)
+    // stays hidden behind the toggle until the user expands it.
     expect(
       view.container
         .querySelector(".routed-pane-rail")
@@ -193,6 +179,17 @@ test("tablet routed shell collapses and expands the navigation rail", () => {
         ?.getAttribute("data-state"),
     ).toBe("open");
     expect(view.getByRole("link", { name: "Home" })).toBeTruthy();
+
+    fireEvent.click(
+      view.getByRole("button", { name: "Collapse navigation rail" }),
+    );
+
+    expect(
+      view.container
+        .querySelector(".routed-pane-rail")
+        ?.getAttribute("data-state"),
+    ).toBe("closed");
+    expect(view.queryByRole("link", { name: "Home" })).toBeNull();
   } finally {
     view?.unmount();
     restoreMatchMedia();
