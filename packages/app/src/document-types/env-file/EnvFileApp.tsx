@@ -11,10 +11,12 @@ export function EnvFileDocumentApp({
   documentId,
   initialEditing,
   localId = DEFAULT_DOCUMENT_ID,
+  readOnly,
 }: DocumentTypeAppProps) {
   return (
     <DocumentsProvider
       localId={localId}
+      readOnly={readOnly}
       {...(containerId === undefined ? {} : { containerId })}
       {...(documentId === undefined ? {} : { documentId })}
       initialDocumentKind={ENV_FILE_DOCUMENT_KIND}

@@ -11,10 +11,12 @@ export function JsonFileDocumentApp({
   documentId,
   initialEditing,
   localId = DEFAULT_DOCUMENT_ID,
+  readOnly,
 }: DocumentTypeAppProps) {
   return (
     <DocumentsProvider
       localId={localId}
+      readOnly={readOnly}
       {...(containerId === undefined ? {} : { containerId })}
       {...(documentId === undefined ? {} : { documentId })}
       initialDocumentKind={JSON_FILE_DOCUMENT_KIND}

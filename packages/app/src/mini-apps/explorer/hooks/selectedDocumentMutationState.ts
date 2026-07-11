@@ -1,6 +1,7 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import { isExplorerContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
+import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import {
   canDeleteDocumentByRules,
   canPurgeDocumentByRules,
@@ -24,6 +25,7 @@ export function getSelectedDocumentMutationState(params: {
   selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
   selectedDocumentMoveTargetOptions: ReadonlyArray<MoveTargetOption>;
   trashContainerId: string | null;
+  trashSystemSlot: ContainerSystemSlot | null;
 }) {
   const {
     appData,
@@ -35,6 +37,7 @@ export function getSelectedDocumentMutationState(params: {
     selectedDocumentLinkedContainerIds,
     selectedDocumentMoveTargetOptions,
     trashContainerId,
+    trashSystemSlot,
   } = params;
   const canActivateSelectedDocument =
     appData.infra.dbStatus === "ready" && !!selectedDocument?.documentId;
@@ -83,11 +86,13 @@ export function getSelectedDocumentMutationState(params: {
       canPurgeDocumentByRules(rulesContext, selectedDocument) &&
       // Purge applies anywhere under trash, not only at the trash root: a
       // document parked in a user-created subfolder of trash is still trashed.
-      isExplorerContainerUnderTrash(
-        nodes,
-        selectedDocument.containerId,
-        trashContainerId,
-      ),
+      // Rules-based (org-aware) so it matches the read-only-when-trashed gate —
+      // a document in a peer's shared Trash is purgeable (if writable) too, not
+      // only one in the viewer's own Trash.
+      isContainerUnderTrash(nodes, selectedDocument.containerId, {
+        currentOrganizationId: rulesContext.currentOrganizationId,
+        trashSystemSlot,
+      }),
     canUnlinkSelectedDocument:
       canMutateSelectedDocument &&
       selectedDocumentLinkedContainerIds.length > 1,

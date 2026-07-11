@@ -13,8 +13,10 @@ import type {
   DomainScope,
   StoredDocumentKind,
 } from "@tearleads/client-sdk";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { MouseEvent } from "react";
 import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
+import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import type { ExplorerBlobPickTarget } from "../blob-pick/ExplorerBlobPickProvider";
 import {
@@ -174,6 +176,12 @@ interface ExplorerDetailPanelProps {
   ) => Promise<ContainerNode | null>;
   setSelectedId: (id: string | null) => void;
   showLinkedDocumentActivationControls: boolean;
+  // The viewer's derived Trash system slot, used with currentOrganizationId to
+  // detect whether the selected object is trashed and should render read-only (no
+  // edit button, no editing, no blob attach/detach). Rules-based detection also
+  // catches a peer's shared Trash under a foreign org's root. UI-only; the API
+  // does not enforce this.
+  trashSystemSlot: ContainerSystemSlot | null;
   shareWithGroup: (
     containerId: string,
     groupId: string,
@@ -329,6 +337,16 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
   }
 
   if (selectedDocument) {
+    // A document living anywhere under Trash renders read-only: no edit button,
+    // no note edit mode, no blob attach/detach. Enforced in the UI only.
+    const selectedDocumentReadOnly = isContainerUnderTrash(
+      params.nodes,
+      selectedDocument.containerId,
+      {
+        currentOrganizationId: params.currentOrganizationId,
+        trashSystemSlot: params.trashSystemSlot,
+      },
+    );
     return (
       <ExplorerDocumentDetail
         currentSigningFingerprint={params.currentSigningFingerprint}
@@ -341,6 +359,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         onInitialEditingConsumed={
           params.onInitialEditingSelectedDocumentConsumed
         }
+        readOnly={selectedDocumentReadOnly}
         refreshError={params.refreshError}
         selectedDocument={selectedDocument}
       />

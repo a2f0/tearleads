@@ -102,6 +102,7 @@ function getMutationState(
     selectedDocumentLinkTargetOptions: [],
     selectedDocumentMoveTargetOptions: [],
     trashContainerId: null,
+    trashSystemSlot: "trash-slot",
     ...overrides,
   });
 }

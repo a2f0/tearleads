@@ -8,11 +8,17 @@ import {
   deriveUserSystemContainers,
   EXPLORER_TRASH_CONTAINER_NAME,
   findUserSystemContainer,
+  isTrashSystemContainerNode,
   isUnderForeignSharedRoot,
   SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES,
   USER_SYSTEM_CONTAINER_DEFINITIONS,
   type UserSystemContainer,
 } from "../systemContainers";
+
+type TrashLookupNode = Pick<
+  ContainerNode,
+  "id" | "name" | "organizationId" | "parentId" | "systemSlot"
+>;
 
 const USER_SYSTEM_CONTAINER_NAMES = new Set(
   USER_SYSTEM_CONTAINER_DEFINITIONS.map((definition) => definition.name),
@@ -321,6 +327,47 @@ export function isExplorerContainerUnderTrash(
     }
     visited.add(currentId);
     currentId = nodesById.get(currentId)?.parentId ?? null;
+  }
+
+  return false;
+}
+
+// Whether `containerId` is a Trash system folder or lives anywhere beneath one,
+// classifying each ancestor by its rules rather than by a single resolved Trash
+// id. This is the org-aware sibling of isExplorerContainerUnderTrash: because it
+// asks isTrashSystemContainerNode per node, it catches the viewer's OWN Trash
+// (matched by slot) AND a peer's shared Trash under a foreign org's root (matched
+// by name), whereas the id-based walk only knows the viewer's own Trash. Walks
+// parentId up to the root, guarding a cyclic chain; an unknown container or a
+// null containerId is treated as not trashed.
+export function isContainerUnderTrash(
+  nodes: ReadonlyArray<TrashLookupNode> | null | undefined,
+  containerId: string | null | undefined,
+  input: {
+    currentOrganizationId: string | null | undefined;
+    trashSystemSlot: ContainerSystemSlot | null;
+  },
+): boolean {
+  if (!containerId || !nodes) {
+    return false;
+  }
+
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  const visited = new Set<string>();
+  let currentId: string | null = containerId;
+  while (currentId !== null) {
+    if (visited.has(currentId)) {
+      return false;
+    }
+    visited.add(currentId);
+    const node = nodesById.get(currentId);
+    if (!node) {
+      return false;
+    }
+    if (isTrashSystemContainerNode(node, input)) {
+      return true;
+    }
+    currentId = node.parentId ?? null;
   }
 
   return false;

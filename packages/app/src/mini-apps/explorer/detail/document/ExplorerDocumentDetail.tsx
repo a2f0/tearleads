@@ -96,6 +96,7 @@ export function ExplorerDocumentDetail(params: {
   nodes: ReadonlyArray<ContainerNode>;
   onInitialEditingConsumed: (localId: string) => void;
   online: boolean;
+  readOnly: boolean;
   refreshError: string | null;
   selectedDocument: DocumentSummary;
 }) {
@@ -164,8 +165,9 @@ export function ExplorerDocumentDetail(params: {
       ) : null}
       <div className="explorer-inline-note">
         <SelectedDocumentApp
-          initialEditing={params.initialEditing}
+          initialEditing={params.readOnly ? false : params.initialEditing}
           localId={params.selectedDocument.id}
+          readOnly={params.readOnly}
           {...(params.selectedDocument.containerId === null
             ? {}
             : { containerId: params.selectedDocument.containerId })}

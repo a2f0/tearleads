@@ -13,6 +13,7 @@ import {
   MiniAppRowStack,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
+import { useDocumentReadOnly } from "../../stores/documents/DocumentsProvider";
 import "./StructuredDocument.css";
 
 interface StructuredDocumentReadFieldDescriptor {
@@ -95,6 +96,13 @@ export function StructuredDocumentEditActions(params: {
   isEditing: boolean;
   onToggleEditing: () => void;
 }) {
+  // A host-forced read-only document (e.g. in the Trash) hides the edit control
+  // entirely rather than showing it disabled — the whole document is read-only.
+  const readOnly = useDocumentReadOnly();
+  if (readOnly) {
+    return null;
+  }
+
   return (
     <MiniAppActions>
       <MiniAppButton

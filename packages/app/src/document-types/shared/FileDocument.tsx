@@ -11,7 +11,10 @@ import {
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
-import { useDocument } from "../../stores/documents/DocumentsProvider";
+import {
+  useDocument,
+  useDocumentReadOnly,
+} from "../../stores/documents/DocumentsProvider";
 import { formatByteLength } from "../../utils/formatByteLength";
 import "./FileDocument.css";
 import {
@@ -126,6 +129,9 @@ export function FileDocumentFields(params: {
   downloadError: string | null;
   editDisabled: boolean;
   fileName: string;
+  // Removes the Edit control entirely (host-forced read-only, e.g. Trash). The
+  // Download control stays available since it is a read action.
+  hideEdit?: boolean | undefined;
   isEditing: boolean;
   mediaPreview?: FileDocumentMediaPreview | null | undefined;
   onCommitFileName: (value: string) => void;
@@ -141,12 +147,14 @@ export function FileDocumentFields(params: {
         <FileDocumentMediaPreviewPanel preview={params.mediaPreview} />
       ) : null}
       <MiniAppActions>
-        <MiniAppButton
-          disabled={params.editDisabled}
-          onClick={params.onToggleEditing}
-        >
-          {params.isEditing ? "Done" : "Edit"}
-        </MiniAppButton>
+        {params.hideEdit ? null : (
+          <MiniAppButton
+            disabled={params.editDisabled}
+            onClick={params.onToggleEditing}
+          >
+            {params.isEditing ? "Done" : "Edit"}
+          </MiniAppButton>
+        )}
         <MiniAppButton
           disabled={params.downloadDisabled}
           onClick={params.onDownload}
@@ -314,6 +322,7 @@ export function FileDocument(params: {
 }) {
   const { extraFieldLabels = {}, initialEditing, title } = params;
   const model = useFileDocument({ extraFieldLabels, initialEditing, title });
+  const readOnly = useDocumentReadOnly();
 
   return (
     <StructuredDocument
@@ -324,6 +333,7 @@ export function FileDocument(params: {
           downloadError={model.downloadError}
           editDisabled={!model.ready || !model.canWrite}
           fileName={model.fileName}
+          hideEdit={readOnly}
           isEditing={model.isEditing}
           mediaPreview={model.mediaPreview}
           onCommitFileName={model.commitFileName}

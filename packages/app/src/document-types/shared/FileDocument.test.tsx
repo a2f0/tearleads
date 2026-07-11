@@ -71,6 +71,15 @@ test("view mode renders metadata as text with no editable inputs", () => {
   expect(view.getByText("—")).toBeTruthy();
 });
 
+test("read-only (trashed) files hide the edit button but keep download", () => {
+  const view = renderFields({ hideEdit: true });
+
+  // The edit affordance is removed entirely for a trashed document, not merely
+  // disabled; downloading (a read action) stays available.
+  expect(view.queryByRole("button", { name: "Edit" })).toBeNull();
+  expect(view.getByRole("button", { name: "Download" })).toBeTruthy();
+});
+
 test("edit mode exposes only the file name as an editable input", () => {
   const view = renderFields({ isEditing: true });
 
