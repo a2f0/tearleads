@@ -1,4 +1,7 @@
-import type { ContainerAccessLevel } from "@tearleads/crypto";
+import type {
+  ContainerAccessLevel,
+  ReferencedPrincipalHead,
+} from "@tearleads/crypto";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
@@ -98,7 +101,14 @@ export interface ContainerContentsStore {
     groupId: string,
     accessLevel: ContainerContentsShareAccessLevel,
     options?: { requireExistingGrant?: boolean } | undefined,
-  ) => Promise<{ rewrap(): Promise<boolean> } | null>;
+  ) => Promise<{
+    isCurrent(
+      expectedGroupHead: ReferencedPrincipalHead,
+      expectedContainerId: string,
+      expectedOrganizationId: string,
+    ): Promise<boolean>;
+    rewrap(): Promise<boolean>;
+  } | null>;
   refresh: () => Promise<boolean>;
   refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
   // Re-read root-lane containers from local SQLite into the snapshot with NO

@@ -28,6 +28,7 @@ import {
 } from "./organizationMetadataReshareCoordinator";
 import {
   prepareOrganizationRootRewrapToAdmins,
+  recoverOrganizationRootRewrapAfterMutationFailure,
   reshareOrganizationRootToAdmins,
 } from "./organizationRootReshare";
 import {
@@ -221,6 +222,8 @@ class OrganizationsService implements Organizations {
             }
           : null;
       },
+      logError: (message, cause) =>
+        this.runtimeService.workflowInput().util.logError(message, cause),
       prepare: prepareOrganizationRootRewrapToAdmins,
       reshare: reshareOrganizationRootToAdmins,
     });
@@ -235,21 +238,22 @@ class OrganizationsService implements Organizations {
         mutatedGroupId: input.groupId,
         organizationId: signingContext.organizationId,
       });
-
-    const bundle = await addOrganizationGroupUser({
-      afterPolicyCommitBeforeCache: () => preparedRootRewrap.rewrap(),
-      apiClient: runtime.apiClient,
-      canAdministerOrganization: input.canAdministerOrganization,
-      currentUserSecretKey,
-      currentUsers: input.currentUsers,
-      execSql: runtime.infra.execSql,
-      groupId: input.groupId,
-      targetUser: input.targetUser,
-      ...signingContext,
+    const bundle = await recoverOrganizationRootRewrapAfterMutationFailure({
+      logError: runtime.util.logError,
+      mutation: addOrganizationGroupUser({
+        afterPolicyCommitBeforeCache: () => preparedRootRewrap.rewrap(),
+        apiClient: runtime.apiClient,
+        beforePolicyCommit: preparedRootRewrap.setExpectedGroupPolicyHead,
+        canAdministerOrganization: input.canAdministerOrganization,
+        currentUserSecretKey,
+        currentUsers: input.currentUsers,
+        execSql: runtime.infra.execSql,
+        groupId: input.groupId,
+        targetUser: input.targetUser,
+        ...signingContext,
+      }),
+      prepared: preparedRootRewrap,
     });
-    // Fire-and-forget: the group mutation is already committed and the re-share
-    // is best-effort (it never rejects), so do not make the caller wait on the
-    // directory lookup / container hydration it may perform.
     void this.metadataReshareCoordinator.reshareAfterGroupChange({
       mutatedGroupId: input.groupId,
       organizationId: signingContext.organizationId,
@@ -438,20 +442,21 @@ class OrganizationsService implements Organizations {
         mutatedGroupId: input.groupId,
         organizationId: signingContext.organizationId,
       });
-
-    const bundle = await removeOrganizationGroupUser({
-      afterPolicyCommitBeforeCache: () => preparedRootRewrap.rewrap(),
-      apiClient: runtime.apiClient,
-      canAdministerOrganization: input.canAdministerOrganization,
-      execSql: runtime.infra.execSql,
-      groupId: input.groupId,
-      remainingUsers: input.remainingUsers,
-      removedUserId: input.removedUserId,
-      ...signingContext,
+    const bundle = await recoverOrganizationRootRewrapAfterMutationFailure({
+      logError: runtime.util.logError,
+      mutation: removeOrganizationGroupUser({
+        afterPolicyCommitBeforeCache: () => preparedRootRewrap.rewrap(),
+        apiClient: runtime.apiClient,
+        beforePolicyCommit: preparedRootRewrap.setExpectedGroupPolicyHead,
+        canAdministerOrganization: input.canAdministerOrganization,
+        execSql: runtime.infra.execSql,
+        groupId: input.groupId,
+        remainingUsers: input.remainingUsers,
+        removedUserId: input.removedUserId,
+        ...signingContext,
+      }),
+      prepared: preparedRootRewrap,
     });
-    // Fire-and-forget: the group mutation is already committed and the re-share
-    // is best-effort (it never rejects), so do not make the caller wait on the
-    // directory lookup / container hydration it may perform.
     void this.metadataReshareCoordinator.reshareAfterGroupChange({
       mutatedGroupId: input.groupId,
       organizationId: signingContext.organizationId,

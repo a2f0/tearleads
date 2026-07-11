@@ -1,4 +1,5 @@
 import { expect, mock, test } from "bun:test";
+import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import type { ContainerContents } from "./containerContents";
 import {
   createOrganizationRootReshareCoordinator,
@@ -8,12 +9,21 @@ import {
 } from "./organizationRootReshareCoordinator";
 
 const CONTAINER_CONTENTS = {} as ContainerContents;
+const EXPECTED_GROUP_HEAD = {
+  principalType: "group" as const,
+  principalId: "admins-group",
+  version: 2,
+  keyEpoch: 2,
+  stateHash: "expected-admins-state-hash",
+  keyFingerprint: "expected-admins-key-fingerprint",
+};
 
 function createHarness(input?: {
   directory?: LoadOrganizationDirectoryForRootReshare;
+  logError?: (message: string | Error, cause?: unknown) => void;
   prepare?: PrepareOrganizationRootRewrapToAdmins;
   reshare?: ReshareOrganizationRootToAdmins;
-  scheduleRetry?: (retry: () => Promise<void>) => void;
+  scheduleRetry?: (retry: () => Promise<void>, delayMs: number) => void;
 }) {
   const loadDirectory =
     input?.directory ??
@@ -24,29 +34,48 @@ function createHarness(input?: {
     input?.reshare ??
     (mock(async () => undefined) as unknown as ReshareOrganizationRootToAdmins);
   const rewrap = mock(async () => undefined);
+  let hasExpectedGroupPolicyHead = false;
+  const setExpectedGroupPolicyHead = mock(
+    (_head: ReferencedPrincipalHead) => undefined,
+  );
   const prepare =
     input?.prepare ??
     (mock(async () => ({
+      hasExpectedGroupPolicyHead: () => hasExpectedGroupPolicyHead,
       rewrap,
+      setExpectedGroupPolicyHead: (head: ReferencedPrincipalHead) => {
+        hasExpectedGroupPolicyHead = true;
+        setExpectedGroupPolicyHead(head);
+      },
     })) as unknown as PrepareOrganizationRootRewrapToAdmins);
   const coordinator = createOrganizationRootReshareCoordinator({
     containerContents: CONTAINER_CONTENTS,
     loadDirectory,
+    logError: input?.logError,
     prepare,
     reshare,
     scheduleRetry: input?.scheduleRetry,
   });
 
-  return { coordinator, loadDirectory, prepare, reshare, rewrap };
+  return {
+    coordinator,
+    loadDirectory,
+    prepare,
+    reshare,
+    rewrap,
+    setExpectedGroupPolicyHead,
+  };
 }
 
 test("repairs and prepares root when the Admins group changed", async () => {
-  const { coordinator, prepare, reshare, rewrap } = createHarness();
+  const { coordinator, prepare, reshare, rewrap, setExpectedGroupPolicyHead } =
+    createHarness();
 
   const prepared = await coordinator.prepareIfAdminsGroup({
     mutatedGroupId: "admins-group",
     organizationId: "org-1",
   });
+  prepared.setExpectedGroupPolicyHead(EXPECTED_GROUP_HEAD);
   await prepared.rewrap();
 
   expect(reshare).toHaveBeenCalledWith({
@@ -60,6 +89,7 @@ test("repairs and prepares root when the Admins group changed", async () => {
     organizationId: "org-1",
   });
   expect(rewrap).toHaveBeenCalledTimes(1);
+  expect(setExpectedGroupPolicyHead).toHaveBeenCalledWith(EXPECTED_GROUP_HEAD);
 });
 
 test("returns a no-op when another group changed", async () => {
@@ -73,6 +103,40 @@ test("returns a no-op when another group changed", async () => {
 
   expect(reshare).not.toHaveBeenCalled();
   expect(prepare).not.toHaveBeenCalled();
+});
+
+test("does not flush a captured key before its post-commit callback", async () => {
+  const { coordinator, rewrap } = createHarness();
+  const prepared = await coordinator.prepareIfAdminsGroup({
+    mutatedGroupId: "admins-group",
+    organizationId: "org-1",
+  });
+
+  const unrelated = await coordinator.prepareIfAdminsGroup({
+    mutatedGroupId: "members-group",
+    organizationId: "org-1",
+  });
+  await unrelated.rewrap();
+
+  expect(rewrap).not.toHaveBeenCalled();
+  await prepared.rewrap();
+  expect(rewrap).toHaveBeenCalledTimes(1);
+});
+
+test("applies overlapping Admins callbacks instead of overwriting either token", async () => {
+  const { coordinator, rewrap } = createHarness();
+  const first = await coordinator.prepareIfAdminsGroup({
+    mutatedGroupId: "admins-group",
+    organizationId: "org-1",
+  });
+  const second = await coordinator.prepareIfAdminsGroup({
+    mutatedGroupId: "admins-group",
+    organizationId: "org-1",
+  });
+
+  expect(rewrap).not.toHaveBeenCalled();
+  await Promise.all([first.rewrap(), second.rewrap()]);
+  expect(rewrap).toHaveBeenCalledTimes(2);
 });
 
 test("caches a resolved Admins group id", async () => {
@@ -154,6 +218,119 @@ test("retains and schedules a failed prepared re-wrap", async () => {
 
   await scheduled[0]?.();
   expect(rewrapCalls).toBe(2);
+});
+
+test("does not let a pending re-wrap block an unrelated group mutation", async () => {
+  const scheduled: Array<() => Promise<void>> = [];
+  const logError = mock(() => {
+    throw new Error("logger failed");
+  });
+  const rewrap = mock(async () => {
+    throw new Error("persistent share failure");
+  });
+  const prepare = mock(async () => ({
+    hasExpectedGroupPolicyHead: () => true,
+    rewrap,
+    setExpectedGroupPolicyHead: () => undefined,
+  }));
+  const { coordinator, reshare } = createHarness({
+    logError,
+    prepare,
+    scheduleRetry: (retry) => scheduled.push(retry),
+  });
+  const adminsRewrap = await coordinator.prepareIfAdminsGroup({
+    mutatedGroupId: "admins-group",
+    organizationId: "org-1",
+  });
+  await expect(adminsRewrap.rewrap()).rejects.toThrow(
+    "persistent share failure",
+  );
+
+  const unrelatedRewrap = await coordinator.prepareIfAdminsGroup({
+    mutatedGroupId: "members-group",
+    organizationId: "org-1",
+  });
+  await unrelatedRewrap.rewrap();
+
+  expect(rewrap).toHaveBeenCalledTimes(2);
+  expect(prepare).toHaveBeenCalledTimes(1);
+  expect(reshare).toHaveBeenCalledTimes(1);
+  expect(scheduled).toHaveLength(1);
+  expect(logError).toHaveBeenCalledWith(
+    "Failed to re-wrap organization root for org-1; allowing unrelated group mutation",
+    expect.any(Error),
+  );
+});
+
+test("rejects an Admins mutation while a pending re-wrap is failing", async () => {
+  const scheduled: Array<() => Promise<void>> = [];
+  const rewrap = mock(async () => {
+    throw new Error("persistent share failure");
+  });
+  const prepare = mock(async () => ({
+    hasExpectedGroupPolicyHead: () => true,
+    rewrap,
+    setExpectedGroupPolicyHead: () => undefined,
+  }));
+  const { coordinator, reshare } = createHarness({
+    prepare,
+    scheduleRetry: (retry) => scheduled.push(retry),
+  });
+  const first = await coordinator.prepareIfAdminsGroup({
+    mutatedGroupId: "admins-group",
+    organizationId: "org-1",
+  });
+  await expect(first.rewrap()).rejects.toThrow("persistent share failure");
+
+  await expect(
+    coordinator.prepareIfAdminsGroup({
+      mutatedGroupId: "admins-group",
+      organizationId: "org-1",
+    }),
+  ).rejects.toThrow("persistent share failure");
+
+  expect(rewrap).toHaveBeenCalledTimes(2);
+  expect(prepare).toHaveBeenCalledTimes(1);
+  expect(reshare).toHaveBeenCalledTimes(1);
+  expect(scheduled).toHaveLength(1);
+});
+
+test("logs and reschedules background failures with capped backoff", async () => {
+  const scheduled: Array<{
+    delayMs: number;
+    retry: () => Promise<void>;
+  }> = [];
+  const logError = mock(() => {
+    throw new Error("logger failed");
+  });
+  const prepare = mock(async () => ({
+    rewrap: async () => {
+      throw new Error("persistent share failure");
+    },
+  })) as unknown as PrepareOrganizationRootRewrapToAdmins;
+  const { coordinator } = createHarness({
+    logError,
+    prepare,
+    scheduleRetry: (retry, delayMs) => scheduled.push({ delayMs, retry }),
+  });
+  const prepared = await coordinator.prepareIfAdminsGroup({
+    mutatedGroupId: "admins-group",
+    organizationId: "org-1",
+  });
+  await expect(prepared.rewrap()).rejects.toThrow("persistent share failure");
+
+  for (let index = 0; index < 7; index += 1) {
+    await scheduled[index]?.retry();
+  }
+
+  expect(scheduled.map(({ delayMs }) => delayMs)).toEqual([
+    1_000, 2_000, 4_000, 8_000, 16_000, 32_000, 60_000, 60_000,
+  ]);
+  expect(logError).toHaveBeenCalledTimes(7);
+  expect(logError).toHaveBeenLastCalledWith(
+    "Failed to re-wrap organization root for org-1; retrying",
+    expect.any(Error),
+  );
 });
 
 test("deduplicates a background retry and a foreground re-wrap", async () => {

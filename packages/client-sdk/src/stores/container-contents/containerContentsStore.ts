@@ -4,7 +4,10 @@ import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
-import { prepareContainerGroupRewrap } from "./groupRewrapOperation";
+import {
+  prepareContainerGroupRewrap,
+  verifyContainerGroupRewrapCurrent,
+} from "./groupRewrapOperation";
 import {
   createChildContainer,
   deleteContainer,
@@ -157,6 +160,22 @@ function createContainerWriteMethods(
       );
       return knownContainerKeks
         ? {
+            isCurrent: (
+              expectedGroupHead,
+              expectedContainerId,
+              expectedOrganizationId,
+            ) =>
+              chainContainerTask(state, () =>
+                verifyContainerGroupRewrapCurrent(
+                  state,
+                  containerId,
+                  groupId,
+                  accessLevel,
+                  expectedGroupHead,
+                  expectedContainerId,
+                  expectedOrganizationId,
+                ),
+              ),
             rewrap: () =>
               chainNodePresenceWrite(state, () =>
                 shareContainerWithGroup(

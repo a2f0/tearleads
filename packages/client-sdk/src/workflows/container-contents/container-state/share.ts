@@ -72,9 +72,9 @@ async function resolveCurrentGroupKeyEpoch(input: {
 // keypair), that wrap goes stale: members holding only the new epoch secret can
 // no longer unwrap it. A re-share to the same group at the same access level is
 // therefore NOT redundant when the pinned epoch trails the group's current head,
-// so it must not be deduped away. A null currentKeyEpoch means we could not
-// resolve the head, so we preserve the idempotent (skip) behavior rather than
-// churn out a re-wrap we cannot justify.
+// so it must not be deduped away. A null currentKeyEpoch preserves the ordinary
+// best-effort idempotent behavior. Prepared mandatory re-wraps bypass this probe
+// entirely because the raw response has not been cryptographically verified.
 function groupGrantIsStale(input: {
   currentKeyEpoch: number | null;
   referencedPrincipalHeads: ReadonlyArray<ReferencedPrincipalStateResponse>;
@@ -96,6 +96,7 @@ function groupGrantIsStale(input: {
 async function loadRemoteContainerShareContext(input: {
   accessLevel: ContainerShareAccessLevel;
   containerState: ContainerState;
+  forceExistingGrantRewrap?: boolean | undefined;
   requireExistingGrant?: boolean | undefined;
   runtime: ContainerWorkflowRuntime;
   subjectId: string;
@@ -127,6 +128,20 @@ async function loadRemoteContainerShareContext(input: {
       );
       return null;
     }
+    return { matchingGrant: null, projection };
+  }
+
+  if (
+    input.subjectType === "group" &&
+    input.requireExistingGrant &&
+    input.forceExistingGrantRewrap
+  ) {
+    // The cheap epoch probe below reads an unverified response and cannot prove
+    // that a security-critical re-wrap is current. Force the verified policy
+    // load and a real same-level mutation; failures must reach the retry owner.
+    input.runtime.util.log(
+      `Container contents: re-sharing container ${input.containerState.container.id} with group ${input.subjectId} because an existing grant re-wrap is required`,
+    );
     return { matchingGrant: null, projection };
   }
 
@@ -346,8 +361,9 @@ export async function shareContainerStateWithGroup(input: {
   persistence: ContainerContentsPersistence;
   recipientGroupId: string;
   // When set, a re-share only re-wraps an already-granted group and never mints
-  // a new grant. Used by the org-metadata rotation-refresh so a server cannot
-  // redirect the re-share onto a container the group is not entitled to.
+  // a new grant. Used by organization access repair so a server cannot redirect
+  // the operation onto a container the group is not entitled to. A prepared
+  // re-wrap also supplies captured KEKs and must submit a real mutation.
   requireExistingGrant?: boolean | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
@@ -355,6 +371,8 @@ export async function shareContainerStateWithGroup(input: {
   const shareContext = await loadRemoteContainerShareContext({
     accessLevel: input.accessLevel,
     containerState: input.containerState,
+    forceExistingGrantRewrap:
+      input.requireExistingGrant && input.knownContainerKeks !== undefined,
     requireExistingGrant: input.requireExistingGrant,
     runtime: input.runtime,
     subjectId: input.recipientGroupId,

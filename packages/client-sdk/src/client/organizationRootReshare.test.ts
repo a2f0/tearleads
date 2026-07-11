@@ -7,6 +7,14 @@ import {
 
 const ADMIN_GROUP_ID = "admins-group-1";
 const ORGANIZATION_ID = "org-1";
+const EXPECTED_GROUP_HEAD = {
+  principalType: "group" as const,
+  principalId: ADMIN_GROUP_ID,
+  version: 2,
+  keyEpoch: 2,
+  stateHash: "expected-admins-state-hash",
+  keyFingerprint: "expected-admins-key-fingerprint",
+};
 
 interface FakeNode {
   id: string;
@@ -26,9 +34,10 @@ type PrepareCall = ShareCall;
 function createFakeContainerContents(input: {
   initialNodes: FakeNode[];
   nodesAfterRefresh?: FakeNode[];
-  prepareGroupRewrap?: (
-    call: PrepareCall,
-  ) => Promise<{ rewrap(): Promise<boolean> } | null>;
+  prepareGroupRewrap?: (call: PrepareCall) => Promise<{
+    isCurrent(): Promise<boolean>;
+    rewrap(): Promise<boolean>;
+  } | null>;
   shareWithGroup?: (call: ShareCall) => Promise<boolean>;
 }): {
   containerContents: ContainerContents;
@@ -59,7 +68,7 @@ function createFakeContainerContents(input: {
       prepareCalls.push(call);
       return input.prepareGroupRewrap
         ? input.prepareGroupRewrap(call)
-        : { rewrap: async () => true };
+        : { isCurrent: async () => false, rewrap: async () => true };
     },
     shareWithGroup: async (
       containerId: string,
@@ -130,6 +139,7 @@ test("prepares root key material before applying the Admins re-wrap", async () =
         },
       ],
       prepareGroupRewrap: async () => ({
+        isCurrent: async () => rewrapCalls > 0,
         rewrap: async () => {
           rewrapCalls += 1;
           return true;
@@ -154,6 +164,7 @@ test("prepares root key material before applying the Admins re-wrap", async () =
   expect(rewrapCalls).toBe(0);
   expect(shareCalls).toEqual([]);
 
+  prepared.setExpectedGroupPolicyHead(EXPECTED_GROUP_HEAD);
   await prepared.rewrap();
   expect(rewrapCalls).toBe(1);
   expect(refreshCount()).toBe(0);
@@ -170,6 +181,7 @@ test("refreshes and retries a prepared re-wrap once", async () => {
       },
     ],
     prepareGroupRewrap: async () => ({
+      isCurrent: async () => rewrapCalls === 2,
       rewrap: async () => {
         rewrapCalls += 1;
         return rewrapCalls === 2;
@@ -182,10 +194,119 @@ test("refreshes and retries a prepared re-wrap once", async () => {
     organizationId: ORGANIZATION_ID,
   });
 
+  prepared.setExpectedGroupPolicyHead(EXPECTED_GROUP_HEAD);
   await prepared.rewrap();
 
   expect(rewrapCalls).toBe(2);
   expect(refreshCount()).toBe(1);
+});
+
+test("rejects a re-wrap whose current Admins grant cannot be verified", async () => {
+  let rewrapCalls = 0;
+  let currentChecks = 0;
+  const { containerContents, refreshCount } = createFakeContainerContents({
+    initialNodes: [
+      {
+        id: "matching-root",
+        organizationId: ORGANIZATION_ID,
+        parentId: null,
+      },
+    ],
+    prepareGroupRewrap: async () => ({
+      isCurrent: async () => {
+        currentChecks += 1;
+        return false;
+      },
+      rewrap: async () => {
+        rewrapCalls += 1;
+        return true;
+      },
+    }),
+  });
+  const prepared = await prepareOrganizationRootRewrapToAdmins({
+    adminGroupId: ADMIN_GROUP_ID,
+    containerContents,
+    organizationId: ORGANIZATION_ID,
+  });
+
+  prepared.setExpectedGroupPolicyHead(EXPECTED_GROUP_HEAD);
+  await expect(prepared.rewrap()).rejects.toThrow(
+    "Organization root re-share to Admins did not apply",
+  );
+
+  expect(rewrapCalls).toBe(2);
+  expect(currentChecks).toBe(4);
+  expect(refreshCount()).toBe(1);
+});
+
+test("accepts a cryptographically verified re-wrap after response loss", async () => {
+  let rewrapCalls = 0;
+  let currentChecks = 0;
+  const { containerContents, refreshCount } = createFakeContainerContents({
+    initialNodes: [
+      {
+        id: "matching-root",
+        organizationId: ORGANIZATION_ID,
+        parentId: null,
+      },
+    ],
+    prepareGroupRewrap: async () => ({
+      isCurrent: async () => {
+        currentChecks += 1;
+        return currentChecks > 1;
+      },
+      rewrap: async () => {
+        rewrapCalls += 1;
+        throw new Error("response lost after commit");
+      },
+    }),
+  });
+  const prepared = await prepareOrganizationRootRewrapToAdmins({
+    adminGroupId: ADMIN_GROUP_ID,
+    containerContents,
+    organizationId: ORGANIZATION_ID,
+  });
+
+  prepared.setExpectedGroupPolicyHead(EXPECTED_GROUP_HEAD);
+  await prepared.rewrap();
+
+  expect(rewrapCalls).toBe(1);
+  expect(currentChecks).toBe(2);
+  expect(refreshCount()).toBe(1);
+});
+
+test("rechecks a completed re-wrap when the Admins policy advances again", async () => {
+  let rootIsCurrent = false;
+  let rewrapCalls = 0;
+  const { containerContents } = createFakeContainerContents({
+    initialNodes: [
+      {
+        id: "matching-root",
+        organizationId: ORGANIZATION_ID,
+        parentId: null,
+      },
+    ],
+    prepareGroupRewrap: async () => ({
+      isCurrent: async () => rootIsCurrent,
+      rewrap: async () => {
+        rewrapCalls += 1;
+        rootIsCurrent = true;
+        return true;
+      },
+    }),
+  });
+  const prepared = await prepareOrganizationRootRewrapToAdmins({
+    adminGroupId: ADMIN_GROUP_ID,
+    containerContents,
+    organizationId: ORGANIZATION_ID,
+  });
+
+  prepared.setExpectedGroupPolicyHead(EXPECTED_GROUP_HEAD);
+  await prepared.rewrap();
+  rootIsCurrent = false;
+  await prepared.rewrap();
+
+  expect(rewrapCalls).toBe(2);
 });
 
 test("rejects when root key material cannot be prepared", async () => {

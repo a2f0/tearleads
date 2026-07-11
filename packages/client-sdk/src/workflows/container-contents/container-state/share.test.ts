@@ -470,6 +470,7 @@ async function runGroupShareScenario(input: {
   currentPolicyError?: boolean;
   grantedGroupId?: string;
   pinnedKeyEpoch: number;
+  preparedRewrap?: boolean;
   remoteAccessStateHash: string;
   requireExistingGrant?: boolean;
   testLabel: string;
@@ -552,6 +553,9 @@ async function runGroupShareScenario(input: {
         initialUpdate,
         organizationId: author.organizationId,
       }),
+      knownContainerKeks: input.preparedRewrap
+        ? new Map([["captured-root-epoch", new Uint8Array(32)]])
+        : undefined,
       persistence: defaultContainerContentsPersistence,
       recipientGroupId: groupId,
       requireExistingGrant: input.requireExistingGrant,
@@ -605,7 +609,7 @@ test("shareContainerStateWithGroup re-shares when the group key epoch advanced p
   expect(shareCallCount).toBe(0);
 });
 
-test("shareContainerStateWithGroup treats a current-epoch group grant as an idempotent no-op", async () => {
+test("a prepared existing-grant re-wrap always attempts a real mutation", async () => {
   const {
     containerId,
     currentPolicyCalls,
@@ -615,34 +619,36 @@ test("shareContainerStateWithGroup treats a current-epoch group grant as an idem
     shared,
   } = await runGroupShareScenario({
     currentGroupKeyEpoch: 2,
+    currentPolicyError: true,
     pinnedKeyEpoch: 2,
+    preparedRewrap: true,
     remoteAccessStateHash: "remote-access-state-hash-current",
+    requireExistingGrant: true,
     testLabel: "containerContents-share-group-current",
   });
 
-  expect(currentPolicyCalls).toEqual([
-    { principalId: groupId, principalType: "group" },
-  ]);
+  expect(currentPolicyCalls).toEqual([]);
   expect(logs).toContain(
-    `Container contents: skipped duplicate share for container ${containerId} with group ${groupId}`,
+    `Container contents: re-sharing container ${containerId} with group ${groupId} because an existing grant re-wrap is required`,
   );
   expect(logs).not.toContain(
-    `Container contents: re-sharing container ${containerId} with group ${groupId} because its key epoch advanced past the pinned grant`,
+    `Container contents: skipped duplicate share for container ${containerId} with group ${groupId}`,
+  );
+  expect(logs).toContain(
+    "Container contents: skipped container group share because the writer context is unavailable.",
   );
   expect(shareCallCount).toBe(0);
-  expect(shared?.record.accessEpoch).toBe(2);
-  expect(shared?.record.accessStateHash).toBe(
-    "remote-access-state-hash-current",
-  );
+  expect(shared).toBeNull();
 });
 
-test("shareContainerStateWithGroup falls back to an idempotent no-op when the current group head cannot be resolved", async () => {
+test("a non-prepared existing-grant share dedups when the current head cannot be resolved", async () => {
   const { containerId, groupId, logs, shareCallCount, shared } =
     await runGroupShareScenario({
       currentGroupKeyEpoch: 2,
       currentPolicyError: true,
       pinnedKeyEpoch: 1,
       remoteAccessStateHash: "remote-access-state-hash-unresolved",
+      requireExistingGrant: true,
       testLabel: "containerContents-share-group-unresolved",
     });
 
@@ -689,7 +695,7 @@ test("shareContainerStateWithGroup with requireExistingGrant refuses to mint a n
 });
 
 test("shareContainerStateWithGroup with requireExistingGrant still re-wraps a stale existing grant", async () => {
-  const { containerId, groupId, logs, shareCallCount } =
+  const { containerId, currentPolicyCalls, groupId, logs, shareCallCount } =
     await runGroupShareScenario({
       currentGroupKeyEpoch: 2,
       pinnedKeyEpoch: 1,
@@ -710,4 +716,7 @@ test("shareContainerStateWithGroup with requireExistingGrant still re-wraps a st
     "Container contents: skipped container group share because the writer context is unavailable.",
   );
   expect(shareCallCount).toBe(0);
+  expect(currentPolicyCalls).toEqual([
+    { principalId: groupId, principalType: "group" },
+  ]);
 });
