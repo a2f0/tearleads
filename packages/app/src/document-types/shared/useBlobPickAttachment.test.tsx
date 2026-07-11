@@ -1,6 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
 import type { BlobBytes, BlobInfo, BlobStore } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+} from "@testing-library/react";
 import { LogProvider } from "../../providers/logging/LogProvider";
 import {
   DocumentBlobPickProvider,
@@ -38,6 +44,7 @@ const IMAGE_BLOB: BlobInfo = {
 };
 
 function Harness(params: {
+  blobCount?: number;
   containerId: string | null;
   onRequest: (request: DocumentBlobPickRequest) => void;
   picked: BlobInfo | null;
@@ -53,6 +60,7 @@ function Harness(params: {
       consumed = true;
       return params.picked;
     },
+    loadPickableBlobCount: async () => params.blobCount ?? 1,
     requestBlobPick: params.onRequest,
   };
 
@@ -121,8 +129,13 @@ test("requests a pick with the slot and applies a returned blob to it", async ()
   expect(applied?.name).toBe("front.png");
   expect(applied?.mimeType).toBe("image/png");
 
-  // "Choose Blob" forwards the full slot to the host picker.
-  fireEvent.click(view.getByRole("button", { name: "Choose Blob" }));
+  // "Choose Blob" forwards the full slot to the host picker once the container's
+  // positive blob count has resolved and revealed it.
+  const button = view.getByRole("button", { name: "Choose Blob" });
+  await waitFor(() => {
+    expect((button as HTMLButtonElement).disabled).toBe(false);
+  });
+  fireEvent.click(button);
   expect(requests).toEqual([
     {
       containerId: "container-1",
@@ -150,4 +163,28 @@ test("hides the picker when the document has no container", () => {
     (view.getByRole("button", { name: "Choose Blob" }) as HTMLButtonElement)
       .disabled,
   ).toBe(true);
+});
+
+test("hides the picker when the container has no blobs to pick", async () => {
+  const view = render(
+    <Harness
+      blobCount={0}
+      containerId="container-1"
+      onRequest={() => undefined}
+      picked={null}
+      setAttachment={() => undefined}
+    />,
+  );
+
+  const button = view.getByRole("button", {
+    name: "Choose Blob",
+  }) as HTMLButtonElement;
+
+  // Flush the async count query and its state update so we assert the settled
+  // state, not just the initial disabled render: a zero count must leave the
+  // button disabled rather than reveal it.
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  expect(button.disabled).toBe(true);
 });

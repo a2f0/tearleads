@@ -1,5 +1,5 @@
 import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { DocumentAttachmentBlobPickerConfig } from "./DocumentAttachmentSlots";
 import { useDocumentBlobPick } from "./DocumentBlobPickContext";
 import type { DocumentAttachmentSlot } from "./documentAttachmentUtils";
@@ -8,8 +8,9 @@ import { useDocumentBlobAttachmentSelection } from "./useDocumentAttachmentSelec
 // Bridges a structured document's attachment slots to the host's blob picker
 // (the Explorer's blob-browser panel): "Choose Blob" routes to it for the slot,
 // and the blob it returns is applied to the slot here. Returns `undefined` for
-// the blobPicker config when no pick provider is mounted (e.g. a document
-// rendered standalone), so the "Choose Blob" button is simply hidden.
+// the blobPicker config — so the "Choose Blob" button is simply hidden — when no
+// pick provider is mounted (e.g. a document rendered standalone) or when the
+// container holds no blobs to pick (the picker would open empty).
 export function useBlobPickAttachment(params: {
   blobStore: BlobStore;
   containerId: string | null;
@@ -37,6 +38,7 @@ export function useBlobPickAttachment(params: {
 
   const consumeBlobPick = blobPick?.consumeBlobPick;
   const requestBlobPick = blobPick?.requestBlobPick;
+  const loadPickableBlobCount = blobPick?.loadPickableBlobCount;
 
   // Apply any blob the picker routed back for one of this document's slots.
   // Returning from the picker re-mounts the document (the document-selection
@@ -61,6 +63,36 @@ export function useBlobPickAttachment(params: {
     }
   }, [consumeBlobPick, handleSelectedBlobAttachment, localId, slotIds]);
 
+  // Hide "Choose Blob" until we confirm the container has at least one blob to
+  // pick, so it never routes to an empty picker. Start hidden and reveal once a
+  // positive count resolves — biased toward never showing it on an empty
+  // container. Re-checks when the document's container changes (its remount on
+  // return from the picker also re-runs this).
+  const [hasPickableBlobs, setHasPickableBlobs] = useState(false);
+  useEffect(() => {
+    if (!loadPickableBlobCount || containerId === null) {
+      setHasPickableBlobs(false);
+      return;
+    }
+
+    let active = true;
+    void loadPickableBlobCount()
+      .then((count) => {
+        if (active) {
+          setHasPickableBlobs(count > 0);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setHasPickableBlobs(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [loadPickableBlobCount, containerId]);
+
   const onRequestBlobPick = useCallback(
     (slot: DocumentAttachmentSlot) => {
       if (!requestBlobPick || containerId === null) {
@@ -71,7 +103,7 @@ export function useBlobPickAttachment(params: {
     [containerId, localId, requestBlobPick],
   );
 
-  if (!blobPick || containerId === null) {
+  if (!blobPick || containerId === null || !hasPickableBlobs) {
     return undefined;
   }
 

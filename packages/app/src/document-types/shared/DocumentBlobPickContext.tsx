@@ -19,6 +19,10 @@ interface DocumentBlobPickContextValue {
   // Reads and clears any blob the host picked for the given document slot.
   // Returns null when nothing was picked for it.
   consumeBlobPick: (localId: string, slotId: string) => BlobInfo | null;
+  // Resolves how many blobs exist in the container the picker would browse (the
+  // pool it can offer). Lets a document hide "Choose Blob" when there is nothing
+  // to pick, so the affordance never routes to an empty picker.
+  loadPickableBlobCount: () => Promise<number>;
 }
 
 const DocumentBlobPickContext =
