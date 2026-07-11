@@ -101,10 +101,9 @@ test("reserves the toolbar row on action-less routes so the bar height stays sta
   );
 
   // The new-contact route registers no toolbar actions, but the reserved row
-  // still mounts so its height matches the selection route's filled bar.
-  await waitFor(() => {
-    expect(view.container.querySelector(".window-toolbar")).not.toBeNull();
-  });
+  // (WindowToolBar's role="toolbar") still mounts so its height matches the
+  // selection route's filled bar.
+  await view.findByRole("toolbar");
   expect(
     view.queryByRole("button", { name: CONTACTS_LABELS.newContactAction }),
   ).toBeNull();
