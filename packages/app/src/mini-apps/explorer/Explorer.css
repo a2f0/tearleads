@@ -75,10 +75,18 @@
  */
 
 .explorer-inline-note {
+  /* Flex column (not a plain block) so the note document — itself `flex: 1` —
+     stretches to fill this pane. Without it the note collapses to its content
+     height and the attachments panel's auto block-start margin has no free
+     space to absorb, leaving the panel floating mid-pane instead of pinned to
+     the foot (see `.note-document-dropzone`). */
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-height: 0;
-  overflow: auto;
-  scrollbar-gutter: var(--scrollbar-gutter);
+  /* Scrolling belongs to the note's own `.note-document-scroll`; clip here so a
+     tall note never produces a second scrollbar on this wrapper. */
+  overflow: hidden;
   border-top: var(--border);
   padding-top: var(--space-sm);
 }

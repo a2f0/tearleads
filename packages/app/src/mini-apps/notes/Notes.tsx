@@ -3,7 +3,6 @@ import { MiniAppRoot } from "../../components/shared/MiniAppLayout";
 import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
 import { NoteEditorFields } from "../../document-types/note/NoteEditorFields";
 import { useNotesModel } from "./hooks/useNotesModel";
-import { NotesToolbar } from "./NotesToolbar";
 import "./Notes.css";
 
 export function Notes({
@@ -48,15 +47,6 @@ export function Notes({
         setText={model.setText}
         syncing={model.syncing}
         text={model.text}
-        toolbar={
-          <NotesToolbar
-            canAttach={model.canAttach}
-            fileInputRef={model.fileInputRef}
-            isAuthenticated={model.isAuthenticated}
-            online={model.online}
-            ready={model.ready}
-          />
-        }
       />
     </MiniAppRoot>
   );

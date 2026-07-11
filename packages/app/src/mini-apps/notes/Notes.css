@@ -11,7 +11,3 @@
   min-height: 0;
   padding: var(--space-md);
 }
-
-.notes-toolbar {
-  padding: var(--space-sm) var(--space-md);
-}
