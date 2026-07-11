@@ -332,6 +332,11 @@ export function isExplorerContainerUnderTrash(
   return false;
 }
 
+interface TrashLookupInput {
+  currentOrganizationId: string | null | undefined;
+  trashSystemSlot: ContainerSystemSlot | null;
+}
+
 // Whether `containerId` is a Trash system folder or lives anywhere beneath one,
 // classifying each ancestor by its rules rather than by a single resolved Trash
 // id. This is the org-aware sibling of isExplorerContainerUnderTrash: because it
@@ -343,16 +348,31 @@ export function isExplorerContainerUnderTrash(
 export function isContainerUnderTrash(
   nodes: ReadonlyArray<TrashLookupNode> | null | undefined,
   containerId: string | null | undefined,
-  input: {
-    currentOrganizationId: string | null | undefined;
-    trashSystemSlot: ContainerSystemSlot | null;
-  },
+  input: TrashLookupInput,
 ): boolean {
-  if (!containerId || !nodes) {
+  if (!nodes) {
     return false;
   }
 
-  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  return isContainerUnderTrashByLookup(
+    new Map(nodes.map((node) => [node.id, node])),
+    containerId,
+    input,
+  );
+}
+
+// Map-taking variant of isContainerUnderTrash: a hot caller (e.g. the notes app,
+// which checks on every render) memoizes the id→node lookup once and passes it in
+// rather than rebuilding it on each call.
+export function isContainerUnderTrashByLookup(
+  nodesById: ReadonlyMap<string, TrashLookupNode> | null | undefined,
+  containerId: string | null | undefined,
+  input: TrashLookupInput,
+): boolean {
+  if (!containerId || !nodesById) {
+    return false;
+  }
+
   const visited = new Set<string>();
   let currentId: string | null = containerId;
   while (currentId !== null) {

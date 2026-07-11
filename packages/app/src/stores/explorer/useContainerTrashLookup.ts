@@ -6,7 +6,7 @@ import {
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import {
   findTrashSystemContainerSlot,
-  isContainerUnderTrash,
+  isContainerUnderTrashByLookup,
   useExplorerSystemContainerSlots,
 } from "./ExplorerSystemContainers";
 
@@ -56,15 +56,21 @@ export function useContainerTrashLookup(): ContainerTrashLookup {
   });
   const trashSystemSlot = findTrashSystemContainerSlot(systemContainers);
 
-  const nodes = snapshot.nodes;
+  // Build the id→node lookup once per tree snapshot: isContainerTrashed runs on
+  // every render of a consuming component (e.g. the notes app), so rebuilding the
+  // map inside isContainerUnderTrash on each call would be wasted work.
+  const nodesById = useMemo(
+    () => new Map(snapshot.nodes.map((node) => [node.id, node])),
+    [snapshot.nodes],
+  );
   const currentOrganizationId = appData.auth.organizationId;
   const isContainerTrashed = useCallback(
     (containerId: string | null | undefined) =>
-      isContainerUnderTrash(nodes, containerId, {
+      isContainerUnderTrashByLookup(nodesById, containerId, {
         currentOrganizationId,
         trashSystemSlot,
       }),
-    [currentOrganizationId, nodes, trashSystemSlot],
+    [currentOrganizationId, nodesById, trashSystemSlot],
   );
 
   return { isContainerTrashed, ready: snapshot.ready };
