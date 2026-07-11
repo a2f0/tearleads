@@ -152,6 +152,14 @@ testApiClient(
               byteLength: 96,
             },
             documents: {
+              breakdown: [
+                {
+                  category: "user",
+                  byteLength: 32,
+                  documentCount: 1,
+                  updateCount: 2,
+                },
+              ],
               byteLength: 32,
               documentCount: 1,
               updateCount: 2,

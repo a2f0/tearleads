@@ -128,7 +128,21 @@ export interface OrganizationContainerGrantsResponse {
   grants: OrganizationContainerGrantResponse[];
 }
 
+export type OrganizationDocumentUsageCategory =
+  | "containerMetadata"
+  | "rosterProfiles"
+  | "organizationMetadata"
+  | "user";
+
+export interface OrganizationDocumentUsageCategoryBreakdown {
+  byteLength: number;
+  category: OrganizationDocumentUsageCategory;
+  documentCount: number;
+  updateCount: number;
+}
+
 export interface OrganizationDocumentDataUsageResponse {
+  breakdown: OrganizationDocumentUsageCategoryBreakdown[];
   byteLength: number;
   documentCount: number;
   updateCount: number;
@@ -393,11 +407,43 @@ function isNonNegativeIntegerProperty(
   );
 }
 
+const ORGANIZATION_DOCUMENT_USAGE_CATEGORIES: readonly OrganizationDocumentUsageCategory[] =
+  ["containerMetadata", "rosterProfiles", "organizationMetadata", "user"];
+
+function isOrganizationDocumentUsageCategory(
+  value: unknown,
+): value is OrganizationDocumentUsageCategory {
+  return (
+    typeof value === "string" &&
+    ORGANIZATION_DOCUMENT_USAGE_CATEGORIES.some(
+      (category) => category === value,
+    )
+  );
+}
+
+function isOrganizationDocumentUsageCategoryBreakdown(
+  value: unknown,
+): value is OrganizationDocumentUsageCategoryBreakdown {
+  return (
+    isPlainObject(value) &&
+    isOrganizationDocumentUsageCategory(Reflect.get(value, "category")) &&
+    isNonNegativeIntegerProperty(value, "byteLength") &&
+    isNonNegativeIntegerProperty(value, "documentCount") &&
+    isNonNegativeIntegerProperty(value, "updateCount")
+  );
+}
+
 function isOrganizationDocumentDataUsageResponse(
   value: unknown,
 ): value is OrganizationDocumentDataUsageResponse {
+  const breakdown = isPlainObject(value)
+    ? Reflect.get(value, "breakdown")
+    : undefined;
+
   return (
     isPlainObject(value) &&
+    Array.isArray(breakdown) &&
+    breakdown.every(isOrganizationDocumentUsageCategoryBreakdown) &&
     isNonNegativeIntegerProperty(value, "byteLength") &&
     isNonNegativeIntegerProperty(value, "documentCount") &&
     isNonNegativeIntegerProperty(value, "updateCount")

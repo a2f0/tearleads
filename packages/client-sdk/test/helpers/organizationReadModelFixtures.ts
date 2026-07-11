@@ -1,6 +1,7 @@
 import type {
   ListOrganizationGroupsResponse,
   OrganizationContainerGrantsResponse,
+  OrganizationDataUsageResponse,
   OrganizationDirectoryResponse,
   OrganizationGroupContainersResponse,
   OrganizationGroupMembersResponse,
@@ -223,13 +224,34 @@ export const grants: OrganizationContainerGrantsResponse = {
   ],
 };
 
-export const dataUsage = {
+export const dataUsage: OrganizationDataUsageResponse = {
   organizationId,
   blobs: {
     blobCount: 2,
     byteLength: 96,
   },
   documents: {
+    breakdown: [
+      {
+        category: "containerMetadata",
+        byteLength: 0,
+        documentCount: 0,
+        updateCount: 0,
+      },
+      {
+        category: "rosterProfiles",
+        byteLength: 0,
+        documentCount: 0,
+        updateCount: 0,
+      },
+      {
+        category: "organizationMetadata",
+        byteLength: 0,
+        documentCount: 0,
+        updateCount: 0,
+      },
+      { category: "user", byteLength: 32, documentCount: 1, updateCount: 2 },
+    ],
     byteLength: 32,
     documentCount: 1,
     updateCount: 2,

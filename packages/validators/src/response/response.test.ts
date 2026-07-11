@@ -585,6 +585,14 @@ test("organization manager responses", () => {
         byteLength: 96,
       },
       documents: {
+        breakdown: [
+          {
+            category: "user",
+            byteLength: 32,
+            documentCount: 1,
+            updateCount: 2,
+          },
+        ],
         byteLength: 32,
         documentCount: 1,
         updateCount: 2,
@@ -600,6 +608,30 @@ test("organization manager responses", () => {
         byteLength: 96,
       },
       documents: {
+        breakdown: [],
+        byteLength: 32,
+        documentCount: 1,
+        updateCount: 2,
+      },
+      totalByteLength: 128,
+    }),
+  ).toBe(false);
+  expect(
+    isOrganizationDataUsageResponse({
+      organizationId: "org-1",
+      blobs: {
+        blobCount: 2,
+        byteLength: 96,
+      },
+      documents: {
+        breakdown: [
+          {
+            category: "not-a-category",
+            byteLength: 0,
+            documentCount: 0,
+            updateCount: 0,
+          },
+        ],
         byteLength: 32,
         documentCount: 1,
         updateCount: 2,

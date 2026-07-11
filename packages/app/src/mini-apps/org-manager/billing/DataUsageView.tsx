@@ -1,4 +1,5 @@
 import type { OrganizationDataUsage } from "@tearleads/client-sdk";
+import type { OrganizationDocumentUsageCategory } from "@tearleads/validators/response";
 import {
   MiniAppSection,
   MiniAppSectionHeading,
@@ -12,12 +13,37 @@ import {
 import { formatByteLength } from "../../../utils/formatByteLength";
 import { ORG_MANAGER_LABELS } from "../labels";
 
+const DOCUMENT_CATEGORY_LABELS: Record<
+  OrganizationDocumentUsageCategory,
+  string
+> = {
+  containerMetadata: ORG_MANAGER_LABELS.usageCategoryContainerMetadata,
+  organizationMetadata: ORG_MANAGER_LABELS.usageCategoryOrganizationMetadata,
+  rosterProfiles: ORG_MANAGER_LABELS.usageCategoryRosterProfiles,
+  user: ORG_MANAGER_LABELS.usageCategoryUser,
+};
+
 function getUsageCountLabel(
   count: number,
   singular: string,
   plural: string,
 ): string {
   return `${count.toLocaleString()} ${count === 1 ? singular : plural}`;
+}
+
+function getDocumentUsageDetail(
+  documentCount: number,
+  updateCount: number,
+): string {
+  return `${getUsageCountLabel(
+    documentCount,
+    ORG_MANAGER_LABELS.usageDocument,
+    ORG_MANAGER_LABELS.usageDocumentsUnit,
+  )}, ${getUsageCountLabel(
+    updateCount,
+    ORG_MANAGER_LABELS.usageUpdate,
+    ORG_MANAGER_LABELS.usageUpdatesUnit,
+  )}`;
 }
 
 function UsageMetric({
@@ -61,6 +87,10 @@ export function DataUsageView({
     );
   }
 
+  const documentBreakdown = dataUsage.documents.breakdown.filter(
+    (entry) => entry.documentCount > 0 || entry.updateCount > 0,
+  );
+
   return (
     <div>
       <MiniAppSection>
@@ -69,17 +99,41 @@ export function DataUsageView({
         </MiniAppSectionHeading>
         <UsageMetric
           byteLength={dataUsage.documents.byteLength}
-          detail={`${getUsageCountLabel(
+          detail={getDocumentUsageDetail(
             dataUsage.documents.documentCount,
-            ORG_MANAGER_LABELS.usageDocument,
-            ORG_MANAGER_LABELS.usageDocumentsUnit,
-          )}, ${getUsageCountLabel(
             dataUsage.documents.updateCount,
-            ORG_MANAGER_LABELS.usageUpdate,
-            ORG_MANAGER_LABELS.usageUpdatesUnit,
-          )}`}
+          )}
           label={ORG_MANAGER_LABELS.usageDocuments}
         />
+        {documentBreakdown.length > 0 && (
+          <div className="org-manager-usage-breakdown">
+            {documentBreakdown.map((entry) => (
+              <MiniAppRow
+                className="org-manager-usage-subrow"
+                density="compact"
+                key={entry.category}
+              >
+                <MiniAppRowStack>
+                  <MiniAppRowText>
+                    {DOCUMENT_CATEGORY_LABELS[entry.category]}
+                  </MiniAppRowText>
+                  <MiniAppRowText muted>
+                    {getDocumentUsageDetail(
+                      entry.documentCount,
+                      entry.updateCount,
+                    )}
+                  </MiniAppRowText>
+                </MiniAppRowStack>
+                <MiniAppRowText
+                  muted
+                  title={`${entry.byteLength.toLocaleString()} ${ORG_MANAGER_LABELS.usageBytesUnit}`}
+                >
+                  {formatByteLength(entry.byteLength)}
+                </MiniAppRowText>
+              </MiniAppRow>
+            ))}
+          </div>
+        )}
         <UsageMetric
           byteLength={dataUsage.blobs.byteLength}
           detail={getUsageCountLabel(

@@ -129,6 +129,8 @@ export {
   type OrganizationDirectoryResponse,
   type OrganizationDirectoryUserResponse,
   type OrganizationDocumentDataUsageResponse,
+  type OrganizationDocumentUsageCategory,
+  type OrganizationDocumentUsageCategoryBreakdown,
   type OrganizationGroupContainerAccessLevel,
   type OrganizationGroupContainerResponse,
   type OrganizationGroupContainersResponse,

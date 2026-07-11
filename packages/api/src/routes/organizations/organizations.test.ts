@@ -4,6 +4,7 @@ import {
   accessManifestHeads,
   blobContentWriteHeaders,
   blobs,
+  containerMetadataDocuments,
   containers,
   documentContentWriteHeaders,
   documents,
@@ -35,6 +36,7 @@ import {
   isOrganizationGroupSummaryResponse,
   isOrganizationProfileResponse,
   isOrganizationUserDetailResponse,
+  type OrganizationDataUsageResponse,
 } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
@@ -219,55 +221,41 @@ function createUsageWriteHeader(input: {
   };
 }
 
-async function seedOrganizationDataUsage(input: {
+async function seedUsageDocument(input: {
   actor: TestUser;
   organizationId: string;
+  documentId: string;
+  updates: ReadonlyArray<{ id: string; byteLength: number }>;
 }) {
-  const documentId = crypto.randomUUID();
-  const firstUpdateId = crypto.randomUUID();
-  const secondUpdateId = crypto.randomUUID();
-  const blobId = crypto.randomUUID();
-
   await db.insert(documents).values({
-    id: documentId,
+    id: input.documentId,
     createdByFingerprint: input.actor.fingerprint,
   });
-  await db.insert(documentUpdates).values([
-    {
-      id: firstUpdateId,
-      documentId,
+  await db.insert(documentUpdates).values(
+    input.updates.map((update, index) => ({
+      id: update.id,
+      documentId: input.documentId,
       accessEpoch: 1,
       authorFingerprint: input.actor.fingerprint,
-      encryptedData: "encrypted-document-update-one",
-      byteLength: 11,
-      partialStartVersionVector: "doc-start-1",
-      partialEndVersionVector: "doc-end-1",
-    },
-    {
-      id: secondUpdateId,
-      documentId,
-      accessEpoch: 1,
-      authorFingerprint: input.actor.fingerprint,
-      encryptedData: "encrypted-document-update-two",
-      byteLength: 13,
-      partialStartVersionVector: "doc-start-2",
-      partialEndVersionVector: "doc-end-2",
-    },
-  ]);
+      encryptedData: `encrypted-${input.documentId}-update-${index}`,
+      byteLength: update.byteLength,
+      partialStartVersionVector: `${input.documentId}-start-${index}`,
+      partialEndVersionVector: `${input.documentId}-end-${index}`,
+    })),
+  );
   await db.insert(documentContentWriteHeaders).values(
-    [firstUpdateId, secondUpdateId].map((updateId, index) => {
-      const contentRecordId = `${updateId}:record`;
+    input.updates.map((update, index) => {
       const header = createUsageWriteHeader({
-        contentRecordId,
-        objectId: documentId,
+        contentRecordId: `${update.id}:record`,
+        objectId: input.documentId,
         objectKind: "document",
         organizationId: input.organizationId,
         writerUserId: input.actor.userId,
       });
 
       return {
-        updateId,
-        documentId,
+        updateId: update.id,
+        documentId: input.documentId,
         organizationId: input.organizationId,
         contentKeyEpoch: 1,
         accessManifestHash: header.accessManifestHash,
@@ -275,11 +263,42 @@ async function seedOrganizationDataUsage(input: {
         encryptionSuite: header.encryptionSuite,
         contentRecordId: header.contentRecordId,
         nonceDomainHash: header.nonceDomainHash,
-        headerHash: `${updateId}:header:${index}`,
+        headerHash: `${update.id}:header:${index}`,
         header,
       };
     }),
   );
+}
+
+async function seedOrganizationDataUsage(input: {
+  actor: TestUser;
+  organizationId: string;
+}) {
+  const blobId = crypto.randomUUID();
+
+  await seedUsageDocument({
+    actor: input.actor,
+    organizationId: input.organizationId,
+    documentId: crypto.randomUUID(),
+    updates: [
+      { id: crypto.randomUUID(), byteLength: 11 },
+      { id: crypto.randomUUID(), byteLength: 13 },
+    ],
+  });
+
+  // A container metadata document is a built-in/system document: it must be
+  // classified under `containerMetadata`, not `user`.
+  const metadataDocumentId = crypto.randomUUID();
+  await seedUsageDocument({
+    actor: input.actor,
+    organizationId: input.organizationId,
+    documentId: metadataDocumentId,
+    updates: [{ id: crypto.randomUUID(), byteLength: 7 }],
+  });
+  await db.insert(containerMetadataDocuments).values({
+    containerId: crypto.randomUUID(),
+    documentId: metadataDocumentId,
+  });
 
   await db.insert(blobs).values({
     id: blobId,
@@ -317,9 +336,34 @@ async function seedOrganizationDataUsage(input: {
 
   return {
     blobs: { blobCount: 1, byteLength: 17 },
-    documents: { byteLength: 24, documentCount: 1, updateCount: 2 },
-    totalByteLength: 41,
-  };
+    documents: {
+      breakdown: [
+        {
+          category: "containerMetadata",
+          byteLength: 7,
+          documentCount: 1,
+          updateCount: 1,
+        },
+        {
+          category: "rosterProfiles",
+          byteLength: 0,
+          documentCount: 0,
+          updateCount: 0,
+        },
+        {
+          category: "organizationMetadata",
+          byteLength: 0,
+          documentCount: 0,
+          updateCount: 0,
+        },
+        { category: "user", byteLength: 24, documentCount: 1, updateCount: 2 },
+      ],
+      byteLength: 31,
+      documentCount: 2,
+      updateCount: 3,
+    },
+    totalByteLength: 48,
+  } satisfies Omit<OrganizationDataUsageResponse, "organizationId">;
 }
 
 test("org manager routes list the current org directory", async () => {
