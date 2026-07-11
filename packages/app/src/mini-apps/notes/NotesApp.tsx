@@ -4,6 +4,7 @@ import {
   DEFAULT_DOCUMENT_ID,
   DocumentsProvider,
 } from "../../stores/documents/DocumentsProvider";
+import { useContainerTrashLookup } from "../../stores/explorer/useContainerTrashLookup";
 import { LocalKeyringUnlockGate } from "../LocalKeyringUnlockGate";
 import { SystemBootstrapGate } from "../SystemBootstrapGate";
 import { NotesContextMenuLayer } from "./context-menu/NotesContextMenu";
@@ -47,6 +48,12 @@ function NotesApp(props: NotesAppProps) {
 function NotesAppContent(props: NotesAppProps) {
   const { setSidebar } = useWindowSidebar();
   const model = useNotesAppModel(props, setSidebar);
+  // Notes are listed app-wide by kind, so a note trashed via the Explorer still
+  // appears here — render it read-only rather than letting it be edited.
+  const { isContainerTrashed } = useContainerTrashLookup();
+  const activeNoteTrashed = isContainerTrashed(
+    model.activeSelection?.containerId,
+  );
   useWindowFileMenuItem({
     disabled: !model.ready,
     id: "notes-new-note",
@@ -64,6 +71,7 @@ function NotesAppContent(props: NotesAppProps) {
       {model.activeSelection ? (
         <DocumentsProvider
           localId={model.activeSelection.noteId}
+          readOnly={activeNoteTrashed}
           {...(model.activeSelection.containerId === undefined
             ? {}
             : { containerId: model.activeSelection.containerId })}

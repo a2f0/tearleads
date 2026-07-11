@@ -23,12 +23,21 @@ export { DEFAULT_DOCUMENT_ID };
 
 const DocumentContext = createContext<DocumentStore | null>(null);
 
+// A host-forced read-only flag, kept out of the SDK document snapshot because it
+// is a UI concern (e.g. the document lives in the Trash) rather than an
+// access-plane permission. It folds into canWrite/canAttach in useDocument so
+// every editor goes read-only, and is exposed via useDocumentReadOnly so chrome
+// (edit buttons) can be hidden rather than merely disabled. Defaults to false,
+// so consumers that never pass `readOnly` are unaffected.
+const DocumentReadOnlyContext = createContext<boolean>(false);
+
 interface DocumentsProviderProps extends PropsWithChildren {
   localId?: string;
   containerId?: string | null;
   documentId?: string | null;
   initialDocumentKind?: StoredDocumentKind;
   initialText?: string;
+  readOnly?: boolean | undefined;
 }
 
 export function DocumentsProvider({
@@ -38,6 +47,7 @@ export function DocumentsProvider({
   documentId = null,
   initialDocumentKind = DEFAULT_DOCUMENT_KIND,
   initialText = "",
+  readOnly = false,
 }: DocumentsProviderProps) {
   const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
@@ -90,9 +100,19 @@ export function DocumentsProvider({
 
   return (
     <DocumentContext.Provider value={store}>
-      {children}
+      <DocumentReadOnlyContext.Provider value={readOnly}>
+        {children}
+      </DocumentReadOnlyContext.Provider>
     </DocumentContext.Provider>
   );
+}
+
+// Whether the host has forced this document read-only (e.g. it is in the Trash),
+// independent of access-plane write permission. Components use this to hide edit
+// chrome entirely; the read-only rendering itself is already handled by the
+// canWrite/canAttach fold in useDocument.
+export function useDocumentReadOnly(): boolean {
+  return useContext(DocumentReadOnlyContext);
 }
 
 export function useDocument(): DocumentContextValue {
@@ -102,6 +122,7 @@ export function useDocument(): DocumentContextValue {
   }
 
   const snapshot = useTearleadsExternalStoreSnapshot(store);
+  const readOnly = useContext(DocumentReadOnlyContext);
 
   return useMemo(
     () => ({
@@ -109,8 +130,11 @@ export function useDocument(): DocumentContextValue {
       attachmentStatusBySlotId: snapshot.attachmentStatusBySlotId,
       attachmentStorageKeyBySlotId: snapshot.attachmentStorageKeyBySlotId,
       attachFiles: store.attachFiles,
-      canAttach: snapshot.canAttach,
-      canWrite: snapshot.canWrite,
+      // Fold the host read-only flag into both write gates so every editor and
+      // attachment control (which all derive from these two booleans) goes
+      // read-only for a trashed document even though the viewer still owns it.
+      canAttach: snapshot.canAttach && !readOnly,
+      canWrite: snapshot.canWrite && !readOnly,
       documentId: snapshot.documentId,
       documentKind: snapshot.documentKind,
       effectiveAccessLevel: snapshot.effectiveAccessLevel,
@@ -128,6 +152,6 @@ export function useDocument(): DocumentContextValue {
       syncing: snapshot.syncing,
       setText: store.setText,
     }),
-    [snapshot, store],
+    [snapshot, store, readOnly],
   );
 }

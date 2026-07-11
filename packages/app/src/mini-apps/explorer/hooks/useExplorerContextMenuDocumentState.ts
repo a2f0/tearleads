@@ -1,4 +1,5 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { useMemo } from "react";
 import { isFileBackedDocumentKind } from "../../../document-types/registry";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
@@ -92,6 +93,7 @@ export function useExplorerContextMenuDocumentState(params: {
   nodes: ReadonlyArray<ContainerNode>;
   rulesContext: ExplorerContainerRulesContext;
   trashContainerId: string | null;
+  trashSystemSlot: ContainerSystemSlot | null;
 }): ExplorerContextMenuDocumentState {
   const {
     appData,
@@ -102,6 +104,7 @@ export function useExplorerContextMenuDocumentState(params: {
     nodes,
     rulesContext,
     trashContainerId,
+    trashSystemSlot,
   } = params;
   const targetLocalId =
     contextMenu?.id.kind === "document" ? contextMenu.id.localId : null;
@@ -132,6 +135,7 @@ export function useExplorerContextMenuDocumentState(params: {
         selectedDocumentLinkedContainerIds: linkedContainerIds,
         selectedDocumentMoveTargetOptions: moveTargetOptions,
         trashContainerId,
+        trashSystemSlot,
       }),
     [
       appData,
@@ -143,6 +147,7 @@ export function useExplorerContextMenuDocumentState(params: {
       rulesContext,
       targetDocument,
       trashContainerId,
+      trashSystemSlot,
     ],
   );
 

@@ -6,6 +6,11 @@ export interface DocumentTypeAppProps {
   documentId?: string | null;
   initialEditing?: boolean | undefined;
   localId?: string;
+  // Forces the rendered document read-only regardless of write access — set by a
+  // host that opened a trashed object. Forwarded to DocumentsProvider, which
+  // folds it into canWrite/canAttach so every editor and edit affordance is
+  // read-only or hidden.
+  readOnly?: boolean | undefined;
 }
 
 export interface AppDocumentProjectorDefinition

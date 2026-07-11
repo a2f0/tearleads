@@ -11,10 +11,12 @@ export function PdfDocumentApp({
   documentId,
   initialEditing,
   localId = DEFAULT_DOCUMENT_ID,
+  readOnly,
 }: DocumentTypeAppProps) {
   return (
     <DocumentsProvider
       localId={localId}
+      readOnly={readOnly}
       {...(containerId === undefined ? {} : { containerId })}
       {...(documentId === undefined ? {} : { documentId })}
       initialDocumentKind={PDF_DOCUMENT_KIND}

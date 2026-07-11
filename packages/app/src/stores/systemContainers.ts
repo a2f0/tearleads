@@ -1,4 +1,5 @@
 import type {
+  ContainerNode,
   ContainerSystemSlotDefinition,
   ProvisionedSystemContainerSpec,
   StoredDocumentKind,
@@ -257,5 +258,41 @@ export function isUnderForeignSharedRoot(input: {
     input.currentOrganizationId != null &&
     input.organizationId !== "" &&
     input.organizationId !== input.currentOrganizationId
+  );
+}
+
+// Whether a container node is the Trash system folder, by the same rules the
+// Explorer applies to gate uploads/moves/child creation: the viewer's OWN Trash
+// is matched by its derived system slot; a peer's shared Trash under a foreign
+// org's root carries an opaque owner-derived slot the viewer cannot match, so it
+// is matched by name instead (name→rules is only trusted under a foreign shared
+// root, which stops a same-org sibling from spoofing the "Trash" name). This is
+// the single per-node Trash classifier shared by both the container-rules gates
+// and the read-only-when-trashed detection.
+export function isTrashSystemContainerNode(
+  node: Pick<ContainerNode, "name" | "organizationId" | "systemSlot">,
+  input: {
+    currentOrganizationId: string | null | undefined;
+    trashSystemSlot: ContainerSystemSlot | null;
+  },
+): boolean {
+  const trashRules = getUserSystemContainerRulesByKind("trash");
+  if (!trashRules) {
+    return false;
+  }
+
+  if (
+    node.systemSlot != null &&
+    input.trashSystemSlot != null &&
+    node.systemSlot === input.trashSystemSlot
+  ) {
+    return true;
+  }
+
+  return (
+    isUnderForeignSharedRoot({
+      currentOrganizationId: input.currentOrganizationId,
+      organizationId: node.organizationId,
+    }) && getSharedSystemContainerRulesByName(node.name) === trashRules
   );
 }

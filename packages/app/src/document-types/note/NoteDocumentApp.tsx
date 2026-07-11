@@ -9,10 +9,12 @@ export function NoteDocumentApp({
   containerId,
   documentId,
   localId = DEFAULT_DOCUMENT_ID,
+  readOnly,
 }: DocumentTypeAppProps) {
   return (
     <DocumentsProvider
       localId={localId}
+      readOnly={readOnly}
       {...(containerId === undefined ? {} : { containerId })}
       {...(documentId === undefined ? {} : { documentId })}
     >

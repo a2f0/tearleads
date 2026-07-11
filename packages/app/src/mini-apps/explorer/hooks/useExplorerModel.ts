@@ -208,6 +208,7 @@ export function useExplorerModel(
     selectedDocumentLinkedContainerIds,
     selectedDocumentMoveTargetOptions,
     trashContainerId: explorer.trashContainerId,
+    trashSystemSlot: explorer.trashSystemSlot,
   });
   const contextMenuDocumentState = useExplorerContextMenuDocumentState({
     appData,
@@ -218,6 +219,7 @@ export function useExplorerModel(
     nodes: explorer.nodes,
     rulesContext,
     trashContainerId: explorer.trashContainerId,
+    trashSystemSlot: explorer.trashSystemSlot,
   });
   const activeContainerNode = useMemo(
     () =>

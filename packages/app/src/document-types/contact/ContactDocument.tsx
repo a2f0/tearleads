@@ -2,7 +2,10 @@ import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import { useMemo } from "react";
 import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
-import { useDocument } from "../../stores/documents/DocumentsProvider";
+import {
+  useDocument,
+  useDocumentReadOnly,
+} from "../../stores/documents/DocumentsProvider";
 import {
   StructuredDocument,
   useStructuredDocumentEditing,
@@ -46,6 +49,9 @@ export function ContactDocumentFields({
   setStructuredFields: ContactStructuredFieldSetter;
   values: ContactFieldValues;
 }) {
+  // When the contact is host-forced read-only (e.g. in the Trash) the edit
+  // affordance is removed entirely, not just disabled.
+  const readOnly = useDocumentReadOnly();
   const editAction = useMemo(
     () => ({
       disabled: !ready || !canWrite,
@@ -64,7 +70,7 @@ export function ContactDocumentFields({
     [canWrite, isEditing, ready, setEditing],
   );
 
-  useWindowTitleBarAction(editAction);
+  useWindowTitleBarAction(readOnly ? null : editAction);
 
   return (
     <div className="contact-document-fields">
