@@ -29,8 +29,8 @@ export function AttachmentActionButton({
       className="attachment-action-button"
       disabled={disabled}
       onClick={onClick}
-      {...(ariaLabel === undefined ? {} : { "aria-label": ariaLabel })}
-      {...(title === undefined ? {} : { title })}
+      aria-label={ariaLabel}
+      title={title}
     >
       {children}
       <span>{label}</span>

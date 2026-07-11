@@ -251,7 +251,7 @@ function useNoteBlobPickAttachment(params: {
 // container/local ids let the explorer surface wire the blob picker; the
 // standalone mini-app omits them and the "Select Blob" control stays hidden.
 export function useNoteEditorFields(
-  params: { containerId?: string | null; localId?: string } = {},
+  params: { containerId?: string | null; localId?: string | undefined } = {},
 ): NoteEditorFieldsModel {
   const { containerId = null, localId = DEFAULT_DOCUMENT_ID } = params;
   const { infra } = useTearleadsRuntime();

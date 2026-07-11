@@ -9,14 +9,14 @@ import { useNoteEditorFields } from "./useNoteEditorFields";
 // standalone notes mini-app. The container/local ids come from the explorer so
 // the "Select Blob" control can route to the host blob picker; the standalone
 // mini-app renders without them and that control stays hidden.
-export function NoteDocument(params: {
+export function NoteDocument({
+  containerId = null,
+  localId,
+}: {
   containerId?: string | null;
   localId?: string;
-}) {
-  const model = useNoteEditorFields({
-    containerId: params.containerId ?? null,
-    ...(params.localId === undefined ? {} : { localId: params.localId }),
-  });
+} = {}) {
+  const model = useNoteEditorFields({ containerId, localId });
 
   return (
     <div className="note-document">
