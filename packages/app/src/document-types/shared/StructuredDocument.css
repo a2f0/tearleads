@@ -1,6 +1,14 @@
 .structured-document {
   display: grid;
   gap: var(--space-md);
+  /* The host pane (`.explorer-inline-note`) clips its overflow and delegates
+     scrolling to the document, mirroring the note's `.note-document-scroll`.
+     Own that scroll region here so a tall media preview never hides the
+     metadata below it. Inert outside a height-bounded flex host. */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: var(--scrollbar-gutter);
 }
 
 .structured-document-header {
