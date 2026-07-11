@@ -4,6 +4,7 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   type PrincipalPolicySignerPublicKey,
+  type ReferencedPrincipalHead,
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -19,6 +20,7 @@ import {
   savePrincipalPolicyBundle,
 } from "../../data/persistence/principalPolicyPersistence";
 import {
+  addOrganizationGroupUser,
   buildAddGroupUserPolicyRequest,
   buildInitialGroupPolicyRequest,
   removeOrganizationGroupUser,
@@ -134,6 +136,8 @@ test("remove group user bridges committed policy writes before caching the rotat
   const calls: string[] = [];
   let policyReadCount = 0;
   let pendingState: PutPrincipalStateRequest | null = null;
+  let policyBeforePendingState: PrincipalPolicyBundleResponse | null = null;
+  let boundHead: ReferencedPrincipalHead | null = null;
   let currentPolicy = previousPolicy;
   const apiClient: Parameters<
     typeof removeOrganizationGroupUser
@@ -161,6 +165,7 @@ test("remove group user bridges committed policy writes before caching the rotat
       expect(principalType).toBe("group");
       expect(principalId).toBe(groupId);
       calls.push("put-state");
+      policyBeforePendingState = currentPolicy;
       pendingState = input;
       return {
         ...input.state,
@@ -172,7 +177,7 @@ test("remove group user bridges committed policy writes before caching the rotat
       expect(principalType).toBe("group");
       expect(principalId).toBe(groupId);
       calls.push("put-envelopes");
-      if (!pendingState) {
+      if (!pendingState || !policyBeforePendingState) {
         throw new Error("Expected committed principal state");
       }
       currentPolicy = await policyBundleAfterMutation({
@@ -180,7 +185,7 @@ test("remove group user bridges committed policy writes before caching the rotat
           state: pendingState,
           memberEnvelopes: input.envelopes,
         },
-        previous: previousPolicy,
+        previous: policyBeforePendingState,
       });
       expect(input.stateHash).toBe(currentPolicy.currentState.stateHash);
       return currentPolicy.currentMemberEnvelopes;
@@ -199,11 +204,20 @@ test("remove group user bridges committed policy writes before caching the rotat
         calls.push("bridge");
         expect(calls).toEqual([
           "read-previous",
+          "bind-head",
           "put-state",
           "put-envelopes",
           "bridge",
         ]);
         expect(currentPolicy.currentState.keyEpoch).toBe(2);
+        expect(boundHead).toEqual({
+          principalType: "group",
+          principalId: groupId,
+          version: currentPolicy.currentState.version,
+          keyEpoch: currentPolicy.currentState.keyEpoch,
+          stateHash: currentPolicy.currentState.stateHash,
+          keyFingerprint: currentPolicy.currentState.keyFingerprint,
+        });
         const cachedDuringBridge = await loadPrincipalPolicyBundle(
           execSql,
           "group",
@@ -215,6 +229,18 @@ test("remove group user bridges committed policy writes before caching the rotat
         expect(cachedDuringBridge?.currentState.keyEpoch).toBe(1);
       },
       apiClient,
+      beforePolicyCommit: (head) => {
+        calls.push("bind-head");
+        boundHead = head;
+        expect(head).toEqual({
+          principalType: "group",
+          principalId: groupId,
+          version: currentPolicy.currentState.version + 1,
+          keyEpoch: currentPolicy.currentState.keyEpoch + 1,
+          stateHash: expect.any(String),
+          keyFingerprint: expect.any(String),
+        });
+      },
       canAdministerOrganization: false,
       execSql,
       groupId,
@@ -235,6 +261,7 @@ test("remove group user bridges committed policy writes before caching the rotat
 
     expect(calls).toEqual([
       "read-previous",
+      "bind-head",
       "put-state",
       "put-envelopes",
       "bridge",
@@ -252,6 +279,87 @@ test("remove group user bridges committed policy writes before caching the rotat
       currentPolicy.currentState.stateHash,
     );
     expect(cachedAfterBridge?.currentState.keyEpoch).toBe(2);
+
+    const concurrentUserId = crypto.randomUUID();
+    const concurrentUserKem = generateKemSeedAndKeyPair();
+    const expectedAddHead: { current: ReferencedPrincipalHead | null } = {
+      current: null,
+    };
+    await expect(
+      addOrganizationGroupUser({
+        afterPolicyCommitBeforeCache: async () => {
+          await savePrincipalPolicyBundle(
+            execSql,
+            currentPolicy,
+            "2026-07-11T12:01:00.000Z",
+          );
+          const concurrentMutation = await buildAddGroupUserPolicyRequest({
+            canAdministerOrganization: false,
+            currentPolicy,
+            currentPolicySignerPublicKeys: signerPublicKeys({
+              signerUserId,
+              signingFingerprint,
+              signingKeyPair,
+            }),
+            currentUsers: [],
+            currentUserSecretKey: remainingUserKem.secretKey,
+            localPolicyCheckpoint: null,
+            signerUserId,
+            signingFingerprint,
+            signingKeyPair,
+            targetUser: {
+              userId: concurrentUserId,
+              encapsulationPublicKey: bytesToBase64(
+                concurrentUserKem.publicKey,
+              ),
+              encapsulationKeyFingerprint: await toFingerprint(
+                concurrentUserKem.publicKey,
+              ),
+            },
+          });
+          currentPolicy = await policyBundleAfterMutation({
+            mutation: concurrentMutation,
+            previous: currentPolicy,
+          });
+        },
+        apiClient,
+        beforePolicyCommit: (head) => {
+          expectedAddHead.current = head;
+        },
+        canAdministerOrganization: false,
+        currentUsers: [],
+        currentUserSecretKey: remainingUserKem.secretKey,
+        execSql,
+        groupId,
+        signerUserId,
+        signingFingerprint,
+        signingKeyPair,
+        targetUser: {
+          userId: removedUserId,
+          encapsulationPublicKey: bytesToBase64(removedUserKem.publicKey),
+          encapsulationKeyFingerprint: await toFingerprint(
+            removedUserKem.publicKey,
+          ),
+        },
+      }),
+    ).rejects.toThrow("Updated group policy advanced during root re-wrap");
+
+    const cachedAfterConcurrentAdvance = await loadPrincipalPolicyBundle(
+      execSql,
+      "group",
+      groupId,
+    );
+    const boundAddHead = expectedAddHead.current;
+    expect(boundAddHead).not.toBeNull();
+    if (!boundAddHead) {
+      throw new Error("Expected the added policy head to be bound");
+    }
+    expect(cachedAfterConcurrentAdvance?.currentState.stateHash).toBe(
+      boundAddHead.stateHash,
+    );
+    expect(cachedAfterConcurrentAdvance?.currentState.stateHash).not.toBe(
+      currentPolicy.currentState.stateHash,
+    );
   } finally {
     close();
   }

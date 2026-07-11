@@ -33,7 +33,7 @@ export interface ContainerManagedPrincipalShareApi extends ContainerShareApi {
   ) => Promise<EncapsulationKeyResponse | null>;
 }
 
-interface VerifiedSharePrincipalPolicy {
+export interface VerifiedSharePrincipalPolicy {
   readonly bundle: PrincipalPolicyBundleResponse;
   readonly policy: VerifiedPrincipalPolicy;
 }

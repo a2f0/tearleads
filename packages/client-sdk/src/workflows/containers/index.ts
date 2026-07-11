@@ -15,6 +15,10 @@ export {
   shareRemoteContainerWithGroup,
 } from "./child/share";
 export {
+  loadVerifiedGroupSharePrincipalPolicy,
+  type VerifiedSharePrincipalPolicy,
+} from "./child/sharePrincipalPolicy";
+export {
   readContainerMutationMetadataDocumentId,
   referencedPrincipalHeadsFromContainerMutationResponse,
 } from "./mutationResponse";

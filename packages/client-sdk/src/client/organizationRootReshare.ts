@@ -1,9 +1,44 @@
+import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import type { ContainerContents } from "./containerContents";
+import { logErrorSafely } from "./logger";
 
 type ContainerTree = ReturnType<ContainerContents["openTree"]>;
 
 export interface PreparedOrganizationRootRewrap {
+  hasExpectedGroupPolicyHead(): boolean;
   rewrap(): Promise<void>;
+  setExpectedGroupPolicyHead(head: ReferencedPrincipalHead): void;
+}
+
+/**
+ * A group mutation can commit one or both server writes before its client
+ * promise rejects. Reconcile with the captured root key before propagating the
+ * original error so an ambiguous response cannot strand a completed rotation.
+ */
+export async function recoverOrganizationRootRewrapAfterMutationFailure<
+  T,
+>(input: {
+  logError: (message: string | Error, cause?: unknown) => void;
+  mutation: Promise<T>;
+  prepared: PreparedOrganizationRootRewrap;
+}): Promise<T> {
+  try {
+    return await input.mutation;
+  } catch (error) {
+    if (!input.prepared.hasExpectedGroupPolicyHead()) {
+      throw error;
+    }
+    try {
+      await input.prepared.rewrap();
+    } catch (rewrapError) {
+      logErrorSafely(
+        input.logError,
+        "Organization root re-wrap reconciliation failed after a group mutation error",
+        rewrapError,
+      );
+    }
+    throw error;
+  }
 }
 
 async function resolveOrganizationRoot(
@@ -79,20 +114,73 @@ export async function prepareOrganizationRootRewrapToAdmins(input: {
     );
   }
 
+  let expectedGroupHead: ReferencedPrincipalHead | null = null;
+
   return {
+    hasExpectedGroupPolicyHead: () => expectedGroupHead !== null,
     async rewrap() {
+      if (!expectedGroupHead) {
+        throw new Error(
+          `Organization root re-wrap has no committed Admins policy head for organization ${input.organizationId}`,
+        );
+      }
       try {
-        if (await prepared.rewrap()) {
+        if (
+          await prepared.isCurrent(
+            expectedGroupHead,
+            root.id,
+            input.organizationId,
+          )
+        ) {
+          return;
+        }
+      } catch {}
+      try {
+        if (
+          (await prepared.rewrap()) &&
+          (await prepared.isCurrent(
+            expectedGroupHead,
+            root.id,
+            input.organizationId,
+          ))
+        ) {
           return;
         }
       } catch {}
 
       await tree.refresh();
-      if (!(await prepared.rewrap())) {
+      try {
+        if (
+          await prepared.isCurrent(
+            expectedGroupHead,
+            root.id,
+            input.organizationId,
+          )
+        ) {
+          return;
+        }
+      } catch {}
+      if (
+        !(await prepared.rewrap()) ||
+        !(await prepared.isCurrent(
+          expectedGroupHead,
+          root.id,
+          input.organizationId,
+        ))
+      ) {
         throw new Error(
           `Organization root re-share to Admins did not apply for organization ${input.organizationId}`,
         );
       }
+    },
+    setExpectedGroupPolicyHead(head) {
+      if (
+        head.principalType !== "group" ||
+        head.principalId !== input.adminGroupId
+      ) {
+        throw new Error("Organization root re-wrap Admins policy mismatch");
+      }
+      expectedGroupHead = head;
     },
   };
 }

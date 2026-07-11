@@ -242,8 +242,8 @@
       "bytes": 16293
     },
     "packages/client-sdk/src/workflows/container-contents/container-state/share.test.ts": {
-      "lines": 713,
-      "bytes": 23629
+      "lines": 722,
+      "bytes": 23942
     },
     "packages/client-sdk/src/workflows/container-contents/documentDiscovery.test.ts": {
       "lines": 1017,
@@ -279,7 +279,7 @@
     },
     "packages/client-sdk/src/workflows/organizations/principalPolicy.ts": {
       "lines": 992,
-      "bytes": 32011
+      "bytes": 32402
     },
     "packages/client-sdk/src/workflows/registration/registerIdentity.ts": {
       "lines": 1105,

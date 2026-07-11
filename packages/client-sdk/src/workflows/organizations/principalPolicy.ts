@@ -5,6 +5,7 @@ import {
   normalizePrincipalProjectionMembers,
   type PrincipalPolicyCheckpoint,
   type PrincipalPolicySignerPublicKey,
+  type ReferencedPrincipalHead,
   type SigningKeyPair,
   signPrincipalState,
   toFingerprint,
@@ -36,6 +37,14 @@ import {
   type PrincipalPolicySignerPublicKeyLoadErrorCode,
   principalPolicyCheckpoint,
 } from "../principals/policyVerification";
+import {
+  assertPrincipalPolicyCurrentStateMatchesHead,
+  groupPolicyMutationHead,
+} from "./groupPolicyMutationHead";
+import {
+  ensureNoNestedGroupMembers,
+  hasAdmin,
+} from "./principalPolicyProjection";
 import {
   loadOrganizationGroupRecipients,
   type OrganizationGroupRecipient,
@@ -333,23 +342,6 @@ function isDirectGroupAdmin(
   );
 }
 
-function ensureNoNestedGroupMembers(
-  projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
-): void {
-  if (projection.some((member) => member.memberPrincipalType === "group")) {
-    throw new Error(
-      "Nested group membership is not supported in this version of organization administration",
-    );
-  }
-}
-
-function hasAdmin(projection: ReadonlyArray<PrincipalProjectionMemberRequest>) {
-  return projection.some(
-    (member) =>
-      member.memberPrincipalType === "user" && member.role === "admin",
-  );
-}
-
 async function signedGroupStateRequest(input: {
   readonly currentPolicy?: PrincipalPolicyBundleResponse;
   readonly encapsulationPublicKey: string;
@@ -400,6 +392,7 @@ async function cacheGroupPolicy(input: {
   readonly apiClient: OrganizationPrincipalPolicyApi;
   readonly canAdministerOrganization?: boolean;
   readonly execSql: ExecSql;
+  readonly expectedCurrentHead?: ReferencedPrincipalHead | undefined;
   readonly groupId: string;
   readonly localPolicyCheckpoint?: PrincipalPolicyCheckpoint | null;
   readonly signerUserId: string;
@@ -432,7 +425,12 @@ async function cacheGroupPolicy(input: {
     localPolicyCheckpoint: input.localPolicyCheckpoint ?? null,
     signerPublicKeys,
   });
-
+  if (input.expectedCurrentHead) {
+    assertPrincipalPolicyCurrentStateMatchesHead(
+      bundle.currentState,
+      input.expectedCurrentHead,
+    );
+  }
   await savePrincipalPolicyBundle(
     input.execSql,
     bundle,
@@ -888,6 +886,7 @@ export async function addOrganizationGroupUser(input: {
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
   readonly targetUser: OrganizationUserRecipient;
+  readonly beforePolicyCommit: (head: ReferencedPrincipalHead) => void;
 }): Promise<PrincipalPolicyBundleResponse> {
   const policyContext = await loadGroupPolicyMutationContext({
     apiClient: input.apiClient,
@@ -904,21 +903,22 @@ export async function addOrganizationGroupUser(input: {
     currentUsers: input.currentUsers,
     targetUser: input.targetUser,
   });
+  const expectedHead = await groupPolicyMutationHead(request.state);
+  input.beforePolicyCommit(expectedHead);
   await commitGroupPolicyMutation({
     apiClient: input.apiClient,
     groupId: input.groupId,
     request,
   });
   await input.afterPolicyCommitBeforeCache();
-
+  const checkpoint = principalPolicyCheckpoint(policyContext.currentPolicy);
   return cacheGroupPolicy({
     apiClient: input.apiClient,
     canAdministerOrganization: input.canAdministerOrganization,
     execSql: input.execSql,
+    expectedCurrentHead: expectedHead,
     groupId: input.groupId,
-    localPolicyCheckpoint: principalPolicyCheckpoint(
-      policyContext.currentPolicy,
-    ),
+    localPolicyCheckpoint: checkpoint,
     signerUserId: input.signerUserId,
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
@@ -936,6 +936,7 @@ export async function removeOrganizationGroupUser(input: {
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
+  readonly beforePolicyCommit: (head: ReferencedPrincipalHead) => void;
 }): Promise<PrincipalPolicyBundleResponse> {
   const policyContext = await loadGroupPolicyMutationContext({
     apiClient: input.apiClient,
@@ -958,7 +959,6 @@ export async function removeOrganizationGroupUser(input: {
   ) {
     throw new Error("User is not a group member");
   }
-
   const gs = await loadOrganizationGroupRecipients({
     apiClient: input.apiClient,
     groupIds: remainingGroupMemberIds(projection),
@@ -969,21 +969,22 @@ export async function removeOrganizationGroupUser(input: {
     remainingUsers: input.remainingUsers,
     removedUserId: input.removedUserId,
   });
+  const expectedHead = await groupPolicyMutationHead(request.state);
+  input.beforePolicyCommit(expectedHead);
   await commitGroupPolicyMutation({
     apiClient: input.apiClient,
     groupId: input.groupId,
     request,
   });
   await input.afterPolicyCommitBeforeCache();
-
+  const checkpoint = principalPolicyCheckpoint(policyContext.currentPolicy);
   return cacheGroupPolicy({
     apiClient: input.apiClient,
     canAdministerOrganization: input.canAdministerOrganization,
     execSql: input.execSql,
+    expectedCurrentHead: expectedHead,
     groupId: input.groupId,
-    localPolicyCheckpoint: principalPolicyCheckpoint(
-      policyContext.currentPolicy,
-    ),
+    localPolicyCheckpoint: checkpoint,
     signerUserId: input.signerUserId,
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
