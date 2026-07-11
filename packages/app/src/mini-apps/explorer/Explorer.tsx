@@ -415,6 +415,7 @@ function ExplorerContent() {
       )}
       {toolbarUpload.input}
       <ExplorerBlobPickProvider
+        loadBlobInfo={model.loadBlobInfo}
         openBlobBrowserRoute={model.routeState.openBlobBrowserRoute}
         returnToDocumentRoute={model.routeState.selectExplorerDocument}
       >

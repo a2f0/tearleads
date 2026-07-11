@@ -1,4 +1,8 @@
-import type { BlobInfo } from "@tearleads/client-sdk";
+import type {
+  BlobInfo,
+  BlobInfoInput,
+  BlobInfoList,
+} from "@tearleads/client-sdk";
 import {
   createContext,
   type PropsWithChildren,
@@ -49,13 +53,21 @@ const ExplorerBlobPickContext =
 
 export function ExplorerBlobPickProvider(
   params: PropsWithChildren<{
+    // Lists blobs in the active container; used to hide "Choose Blob" when the
+    // container has none so the picker never opens empty.
+    loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
     // Navigates the Explorer detail panel to the blob-browser route. Called
     // when a pick starts; clearing the target on resolve/cancel routes back.
     openBlobBrowserRoute: (input?: DocumentBlobOpenRequest | undefined) => void;
     returnToDocumentRoute: (localId: string, containerId: string) => void;
   }>,
 ) {
-  const { children, openBlobBrowserRoute, returnToDocumentRoute } = params;
+  const {
+    children,
+    loadBlobInfo,
+    openBlobBrowserRoute,
+    returnToDocumentRoute,
+  } = params;
   const [pickTarget, setPickTarget] = useState<ExplorerBlobPickTarget | null>(
     null,
   );
@@ -121,13 +133,19 @@ export function ExplorerBlobPickProvider(
     [],
   );
 
+  // Only the total is needed, so cap the page at one row.
+  const loadPickableBlobCount = useCallback(
+    async () => (await loadBlobInfo({ limit: 1 })).totalCount,
+    [loadBlobInfo],
+  );
+
   const explorerValue = useMemo<ExplorerBlobPickContextValue>(
     () => ({ cancelBlobPick, pickTarget, resolveBlobPick }),
     [cancelBlobPick, pickTarget, resolveBlobPick],
   );
   const documentValue = useMemo(
-    () => ({ consumeBlobPick, requestBlobPick }),
-    [consumeBlobPick, requestBlobPick],
+    () => ({ consumeBlobPick, loadPickableBlobCount, requestBlobPick }),
+    [consumeBlobPick, loadPickableBlobCount, requestBlobPick],
   );
   const documentOpenValue = useMemo(() => ({ openBlob }), [openBlob]);
 

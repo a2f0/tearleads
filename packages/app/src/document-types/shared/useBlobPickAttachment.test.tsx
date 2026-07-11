@@ -38,6 +38,7 @@ const IMAGE_BLOB: BlobInfo = {
 };
 
 function Harness(params: {
+  blobCount?: number;
   containerId: string | null;
   onRequest: (request: DocumentBlobPickRequest) => void;
   picked: BlobInfo | null;
@@ -53,6 +54,7 @@ function Harness(params: {
       consumed = true;
       return params.picked;
     },
+    loadPickableBlobCount: async () => params.blobCount ?? 1,
     requestBlobPick: params.onRequest,
   };
 
@@ -121,8 +123,13 @@ test("requests a pick with the slot and applies a returned blob to it", async ()
   expect(applied?.name).toBe("front.png");
   expect(applied?.mimeType).toBe("image/png");
 
-  // "Choose Blob" forwards the full slot to the host picker.
-  fireEvent.click(view.getByRole("button", { name: "Choose Blob" }));
+  // "Choose Blob" forwards the full slot to the host picker once the container's
+  // positive blob count has resolved and revealed it.
+  const button = view.getByRole("button", { name: "Choose Blob" });
+  await waitFor(() => {
+    expect((button as HTMLButtonElement).disabled).toBe(false);
+  });
+  fireEvent.click(button);
   expect(requests).toEqual([
     {
       containerId: "container-1",
@@ -150,4 +157,28 @@ test("hides the picker when the document has no container", () => {
     (view.getByRole("button", { name: "Choose Blob" }) as HTMLButtonElement)
       .disabled,
   ).toBe(true);
+});
+
+test("hides the picker when the container has no blobs to pick", async () => {
+  const requests: DocumentBlobPickRequest[] = [];
+  const view = render(
+    <Harness
+      blobCount={0}
+      containerId="container-1"
+      onRequest={(request) => requests.push(request)}
+      picked={null}
+      setAttachment={() => undefined}
+    />,
+  );
+
+  const button = view.getByRole("button", {
+    name: "Choose Blob",
+  }) as HTMLButtonElement;
+
+  // Starts hidden and stays hidden: the zero count never reveals it.
+  await waitFor(() => {
+    expect(button.disabled).toBe(true);
+  });
+  fireEvent.click(button);
+  expect(requests).toEqual([]);
 });
