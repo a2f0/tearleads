@@ -4,13 +4,16 @@ import { FilePlusIcon } from "@phosphor-icons/react/dist/csr/FilePlus";
 import { FolderPlusIcon } from "@phosphor-icons/react/dist/csr/FolderPlus";
 import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
 import { LinkSimpleIcon } from "@phosphor-icons/react/dist/csr/LinkSimple";
-import { StackIcon } from "@phosphor-icons/react/dist/csr/Stack";
 import { UploadSimpleIcon } from "@phosphor-icons/react/dist/csr/UploadSimple";
 import { useMemo } from "react";
 import {
   useWindowBackAction,
   useWindowTitleBarAction,
 } from "../../components/window/WindowMenuContext";
+import {
+  useExplorerBlobBrowserSectionsToolbarAction,
+  useExplorerSyncSectionsToolbarAction,
+} from "./ExplorerHubToolbarActions";
 import type { useExplorerModel } from "./hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "./labels";
 
@@ -58,7 +61,8 @@ export function useExplorerRoutedChromeActions({
     model,
     route,
   });
-  useExplorerSyncSectionsToolbarAction({ model });
+  useExplorerSyncSectionsToolbarAction({ model, route });
+  useExplorerBlobBrowserSectionsToolbarAction({ model, route });
   useExplorerCreateFolderToolbarAction({
     activeContainerId,
     model,
@@ -101,29 +105,6 @@ export function useExplorerRoutedChromeActions({
     model,
     show: showDocumentToolbar,
   });
-}
-
-function useExplorerSyncSectionsToolbarAction({
-  model,
-}: {
-  model: ExplorerModel;
-}) {
-  const openSyncLanesRoute = model.routeState.openSyncLanesRoute;
-  const syncSectionsAction = useMemo(
-    () => ({
-      // Opens the full-screen Sync Lanes / Blob Browser hub (defaulting to the
-      // Sync Lanes tab). A persistent entry point on every route, kept rightmost
-      // in the toolbar via the lowest priority among Explorer's actions.
-      icon: <StackIcon aria-hidden size={18} />,
-      id: "explorer-sync-sections",
-      label: EXPLORER_LABELS.syncSectionsAction,
-      onClick: openSyncLanesRoute,
-      priority: 50,
-    }),
-    [openSyncLanesRoute],
-  );
-
-  useWindowTitleBarAction(syncSectionsAction);
 }
 
 function useExplorerNewContactToolbarAction({

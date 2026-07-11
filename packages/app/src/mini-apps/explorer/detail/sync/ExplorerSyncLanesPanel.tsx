@@ -1,9 +1,10 @@
+import { ArrowsClockwiseIcon } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
 import {
   type DomainScope,
   type DomainSyncSnapshot,
   requestAllDomainSyncLanes,
 } from "@tearleads/client-sdk";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -11,6 +12,7 @@ import {
   MiniAppHeaderCopy,
   MiniAppPanel,
 } from "../../../../components/shared/MiniAppLayout";
+import { useWindowTitleBarAction } from "../../../../components/window/WindowMenuContext";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerSyncLaneDetail } from "./ExplorerSyncLaneDetail";
@@ -39,7 +41,6 @@ export function ExplorerSyncLanesPanelView(params: {
   onBackToSelectionRoute: () => void;
   onBackToSyncLanesRoute: () => void;
   onOpenLaneDetail: (laneKey: string) => void;
-  onSyncNow: () => void;
   selectedLaneKey: string | null;
   snapshot: DomainSyncSnapshot;
 }) {
@@ -48,7 +49,6 @@ export function ExplorerSyncLanesPanelView(params: {
     onBackToSelectionRoute,
     onBackToSyncLanesRoute,
     onOpenLaneDetail,
-    onSyncNow,
     selectedLaneKey,
     snapshot,
   } = params;
@@ -75,16 +75,6 @@ export function ExplorerSyncLanesPanelView(params: {
           </span>
         </MiniAppHeaderCopy>
         <MiniAppActions>
-          {showingLaneDetail ? null : (
-            // Disabled while a sync is already in flight: re-requesting then is
-            // redundant, and the disabled state signals work is in progress.
-            <MiniAppButton
-              disabled={snapshot.hasPendingWork}
-              onClick={onSyncNow}
-            >
-              {EXPLORER_LABELS.syncLanesSyncNowAction}
-            </MiniAppButton>
-          )}
           {showingLaneDetail ? (
             <MiniAppButton onClick={onBackToSyncLanesRoute}>
               {EXPLORER_LABELS.syncLanesBackToListAction}
@@ -120,11 +110,32 @@ export function ExplorerSyncLanesPanel(params: {
   selectedLaneKey: string | null;
 }) {
   const snapshot = useDomainSyncSnapshot(params.domainScope);
-  const { domainScope } = params;
+  const { domainScope, selectedLaneKey } = params;
   const handleSyncNow = useCallback(
     () => requestAllDomainSyncLanes(domainScope),
     [domainScope],
   );
+
+  // The manual "Sync now" trigger lives on the window toolbar, registered here
+  // beside the snapshot it needs. It stays disabled while a sync is already in
+  // flight (re-requesting then is redundant) and is dropped in lane detail —
+  // the same rules the former in-panel button followed.
+  const hasPendingWork = snapshot.hasPendingWork;
+  const syncNowAction = useMemo(
+    () =>
+      selectedLaneKey !== null
+        ? null
+        : {
+            disabled: hasPendingWork,
+            icon: <ArrowsClockwiseIcon aria-hidden size={18} />,
+            id: "explorer-sync-now",
+            label: EXPLORER_LABELS.syncLanesSyncNowAction,
+            onClick: handleSyncNow,
+            priority: 150,
+          },
+    [handleSyncNow, hasPendingWork, selectedLaneKey],
+  );
+  useWindowTitleBarAction(syncNowAction);
 
   return (
     <ExplorerSyncLanesPanelView
@@ -132,7 +143,6 @@ export function ExplorerSyncLanesPanel(params: {
       onBackToSelectionRoute={params.onBackToSelectionRoute}
       onBackToSyncLanesRoute={params.onBackToSyncLanesRoute}
       onOpenLaneDetail={params.onOpenLaneDetail}
-      onSyncNow={handleSyncNow}
       selectedLaneKey={params.selectedLaneKey}
       snapshot={snapshot}
     />

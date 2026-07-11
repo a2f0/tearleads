@@ -420,8 +420,9 @@ test("the Sync toolbar action opens the Sync Lanes / Blob Browser hub", async ()
     </WindowMenuProvider>,
   );
 
-  // The Sync action is a persistent entry point: it registers on every route,
-  // independent of any container/document selection.
+  // The Sync action is a persistent entry point: it registers on every route
+  // outside the hub's own Sync tab, independent of any container/document
+  // selection.
   const syncButton = await view.findByRole("button", {
     name: EXPLORER_LABELS.syncSectionsAction,
   });
@@ -429,4 +430,36 @@ test("the Sync toolbar action opens the Sync Lanes / Blob Browser hub", async ()
   fireEvent.click(syncButton);
 
   expect(openedSyncLanes).toEqual([1]);
+});
+
+test("the Sync tab swaps the Sync entry point for a Blob Browser switch", async () => {
+  const openedBlobBrowser: number[] = [];
+  const baseModel = createExplorerModel();
+  const view = render(
+    <WindowMenuProvider>
+      <ExplorerRoutedChromeHarness
+        model={createExplorerModel({
+          routeState: {
+            ...baseModel.routeState,
+            openBlobBrowserRoute: () => openedBlobBrowser.push(1),
+            route: { view: "sync-lanes" },
+          },
+        })}
+      />
+    </WindowMenuProvider>,
+  );
+
+  // On the Sync tab the mirror action appears...
+  const blobBrowserButton = await view.findByRole("button", {
+    name: EXPLORER_LABELS.blobBrowserAction,
+  });
+  // ...and the persistent Sync entry point steps aside (the tab bar is already
+  // there), so it is not duplicated in the toolbar.
+  expect(
+    view.queryByRole("button", { name: EXPLORER_LABELS.syncSectionsAction }),
+  ).toBeNull();
+
+  fireEvent.click(blobBrowserButton);
+
+  expect(openedBlobBrowser).toEqual([1]);
 });
