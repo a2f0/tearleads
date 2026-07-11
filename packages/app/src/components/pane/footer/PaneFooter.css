@@ -41,13 +41,23 @@
   gap: var(--space-xs);
 }
 
+/* min-width: 0 lets the button shrink below its content's min size as a flex
+   item of .pane-footer, so a row of minimized windows never overflows the
+   footer; max-width still caps it and the label truncates within. */
 .pane-footer-window {
-  display: inline-block;
+  gap: var(--space-xs);
   min-width: 0;
   max-width: 12rem;
+}
+
+/* Keep the app glyph at full size; only the label truncates. */
+.pane-footer-window-icon {
+  flex-shrink: 0;
+}
+
+.pane-footer-window-label {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-align: center;
   white-space: nowrap;
-  line-height: var(--control-height);
 }

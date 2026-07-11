@@ -85,3 +85,16 @@ export const ROUTED_MINI_APP_NAV_ITEMS = [
   icon: Icon;
   label: string;
 }>;
+
+// appId -> icon lookup used by consumers such as the footer taskbar to badge a
+// window with its app's glyph. Declared as an exhaustive Record so adding a new
+// mini app is a compile error here until its icon is supplied.
+export const MINI_APP_ICONS: Readonly<Record<MiniAppId, Icon>> = {
+  "backup-restore": ArchiveIcon,
+  contacts: AddressBookIcon,
+  explorer: FolderIcon,
+  "identity-manager": IdentificationCardIcon,
+  notes: NoteIcon,
+  "org-manager": BuildingsIcon,
+  "system-monitor": SystemMonitorIcon,
+};
