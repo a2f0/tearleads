@@ -6,6 +6,7 @@ import {
   getTargetContainerContext,
   readContainerState,
 } from "../../../data/containers/shared/projection";
+import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerMetadataPatch } from "../metadata";
@@ -255,6 +256,37 @@ async function persistDuplicateContainerShare(input: {
   };
 }
 
+export async function prepareContainerStateGroupRewrap(input: {
+  containerState: ContainerState;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  runtime: ContainerWorkflowRuntime;
+}): Promise<ReadonlyMap<string, Uint8Array> | null> {
+  const targetSecretKey =
+    input.runtime.crypto.encapsulationKeyPair?.secretKey ?? null;
+  if (!targetSecretKey) {
+    return null;
+  }
+  const projection = await loadContainerWriterProjectionForState({
+    containerState: input.containerState,
+    runtime: input.runtime,
+  });
+  if (!projection) {
+    return null;
+  }
+
+  const target = getTargetContainerContext(projection);
+  const keksByEpochId = await unwrapContainerKekPath({
+    execSql: input.runtime.infra.execSql,
+    projection,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    secretKey: targetSecretKey,
+  });
+  const targetKek = keksByEpochId.get(target.kek.containerKeyEpochId);
+  return targetKek
+    ? new Map([[target.kek.containerKeyEpochId, targetKek]])
+    : null;
+}
+
 export async function shareContainerState(input: {
   accessLevel: ContainerShareAccessLevel;
   containerState: ContainerState;
@@ -310,6 +342,7 @@ export async function shareContainerState(input: {
 export async function shareContainerStateWithGroup(input: {
   accessLevel: ContainerShareAccessLevel;
   containerState: ContainerState;
+  knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
   persistence: ContainerContentsPersistence;
   recipientGroupId: string;
   // When set, a re-share only re-wraps an already-granted group and never mints
@@ -346,6 +379,7 @@ export async function shareContainerStateWithGroup(input: {
   const shared = await shareRemoteContainerWithGroup({
     accessLevel: input.accessLevel,
     containerId: input.containerState.container.id,
+    knownContainerKeks: input.knownContainerKeks,
     previousProjection: shareContext.projection,
     recipientGroupId: input.recipientGroupId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,

@@ -317,13 +317,15 @@ export const accessManifestContainerGrantProjection = pgTable(
 );
 
 /**
- * Organization-defined container grants that product workflows treat as
- * built-in.
+ * Organization-defined container grants whose subject and access level are
+ * fixed product policy.
  *
  * The signed access manifest remains the source of authority for whether the
- * grant is active. This table records immutable product policy for grants that
- * should not be modified or revoked through normal container mutation flows.
- * Registration seeds the bootstrap Admins -> root container admin grant here.
+ * grant is active. A built-in grant cannot be revoked or assigned a different
+ * access level through normal container mutation flows, but its cryptographic
+ * wrap and referenced principal head may be refreshed at the same level after
+ * a recipient key rotation. Registration seeds the bootstrap Admins -> root
+ * container admin grant here.
  */
 export const containerBuiltinGrants = pgTable(
   "container_builtin_grants",

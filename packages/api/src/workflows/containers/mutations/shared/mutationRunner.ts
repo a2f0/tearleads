@@ -8,7 +8,7 @@ import type {
   ContainerMutationContext,
   MutateContainerWithExecutorInput,
 } from "../types";
-import { assertContainerBuiltinGrantNotMutated } from "./builtinGrants";
+import { assertContainerBuiltinGrantPolicyPreserved } from "./builtinGrants";
 import { verifyContainerKekFromRequest } from "./containerKek";
 import {
   assertAccessEventDependenciesMatchRequest,
@@ -77,6 +77,15 @@ async function loadPreviousContainerManifest(
   );
 }
 
+async function assertPreviousManifestHeadCurrent(
+  context: ContainerMutationContext,
+  manifest: VerifiedContainerAccessManifest | null,
+): Promise<void> {
+  if (manifest) {
+    await assertManifestHeadCurrent(context, manifest, "previousManifest");
+  }
+}
+
 export async function mutateContainerWithExecutor(
   input: MutateContainerWithExecutorInput,
 ): Promise<ContainerMutationResponse> {
@@ -107,14 +116,7 @@ export async function mutateContainerWithExecutor(
   const previousManifest = await loadPreviousContainerManifest(
     input.request.previousManifest,
   );
-
-  if (previousManifest) {
-    await assertManifestHeadCurrent(
-      context,
-      previousManifest,
-      "previousManifest",
-    );
-  }
+  await assertPreviousManifestHeadCurrent(context, previousManifest);
   const principalPolicies = await readCurrentPrincipalPolicies({
     executor: context.executor,
     request: input.request,
@@ -140,9 +142,10 @@ export async function mutateContainerWithExecutor(
       principalPolicies,
     },
   );
-  await assertContainerBuiltinGrantNotMutated({
+  await assertContainerBuiltinGrantPolicyPreserved({
     executor: context.executor,
     manifest,
+    previousManifest,
   });
   await assertMutationHeadCanAdvance(context, manifest);
   const kekState = await verifyContainerKekFromRequest(

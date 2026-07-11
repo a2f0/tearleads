@@ -877,6 +877,7 @@ export async function createOrganizationGroup(input: {
 }
 
 export async function addOrganizationGroupUser(input: {
+  readonly afterPolicyCommitBeforeCache: () => Promise<void>;
   readonly apiClient: OrganizationPrincipalPolicyApi;
   readonly canAdministerOrganization: boolean;
   readonly currentUserSecretKey: Uint8Array;
@@ -908,6 +909,7 @@ export async function addOrganizationGroupUser(input: {
     groupId: input.groupId,
     request,
   });
+  await input.afterPolicyCommitBeforeCache();
 
   return cacheGroupPolicy({
     apiClient: input.apiClient,
@@ -924,6 +926,7 @@ export async function addOrganizationGroupUser(input: {
 }
 
 export async function removeOrganizationGroupUser(input: {
+  readonly afterPolicyCommitBeforeCache: () => Promise<void>;
   readonly apiClient: OrganizationPrincipalPolicyApi;
   readonly canAdministerOrganization: boolean;
   readonly execSql: ExecSql;
@@ -971,6 +974,7 @@ export async function removeOrganizationGroupUser(input: {
     groupId: input.groupId,
     request,
   });
+  await input.afterPolicyCommitBeforeCache();
 
   return cacheGroupPolicy({
     apiClient: input.apiClient,

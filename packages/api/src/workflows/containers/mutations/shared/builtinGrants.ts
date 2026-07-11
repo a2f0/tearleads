@@ -14,6 +14,15 @@ type ContainerMutationSubject = Pick<
   "subjectId" | "subjectType"
 >;
 
+type ContainerBuiltinGrantMutation =
+  | (ContainerMutationSubject & {
+      readonly accessLevel: ContainerDirectGrant["accessLevel"];
+      readonly eventType: "container.grant";
+    })
+  | (ContainerMutationSubject & {
+      readonly eventType: "container.revoke";
+    });
+
 function isCanonicalRecord(
   value: KeyingCanonicalJson,
 ): value is { readonly [key: string]: KeyingCanonicalJson } {
@@ -24,6 +33,12 @@ function isContainerGrantSubjectType(
   value: unknown,
 ): value is ContainerGrantSubjectType {
   return value === "group" || value === "organization" || value === "user";
+}
+
+function isContainerAccessLevel(
+  value: unknown,
+): value is ContainerDirectGrant["accessLevel"] {
+  return value === "admin" || value === "read" || value === "write";
 }
 
 function isContainerMutationSubject(
@@ -40,9 +55,9 @@ function isContainerMutationSubject(
   );
 }
 
-function readMutationSubject(
+function readBuiltinGrantMutation(
   manifest: VerifiedContainerAccessManifest,
-): ContainerMutationSubject | null {
+): ContainerBuiltinGrantMutation | null {
   const { body } = manifest.event;
 
   if (!isCanonicalRecord(body)) {
@@ -54,8 +69,17 @@ function readMutationSubject(
     if (!isContainerMutationSubject(grant)) {
       return null;
     }
+    const accessLevel = Reflect.get(grant, "accessLevel");
+    if (!isContainerAccessLevel(accessLevel)) {
+      return null;
+    }
 
-    return { subjectId: grant.subjectId, subjectType: grant.subjectType };
+    return {
+      accessLevel,
+      eventType: "container.grant",
+      subjectId: grant.subjectId,
+      subjectType: grant.subjectType,
+    };
   }
 
   if (manifest.event.event.eventType === "container.revoke") {
@@ -64,6 +88,7 @@ function readMutationSubject(
     }
 
     return {
+      eventType: "container.revoke",
       subjectId: body.subjectId,
       subjectType: body.subjectType,
     };
@@ -72,17 +97,18 @@ function readMutationSubject(
   return null;
 }
 
-export async function assertContainerBuiltinGrantNotMutated(input: {
+export async function assertContainerBuiltinGrantPolicyPreserved(input: {
   readonly executor: DatabaseTransaction;
   readonly manifest: VerifiedContainerAccessManifest;
+  readonly previousManifest: VerifiedContainerAccessManifest | null;
 }): Promise<void> {
-  const subject = readMutationSubject(input.manifest);
-  if (!subject) {
+  const mutation = readBuiltinGrantMutation(input.manifest);
+  if (!mutation) {
     return;
   }
 
   const [builtinGrant] = await input.executor
-    .select({ id: containerBuiltinGrants.id })
+    .select({ accessLevel: containerBuiltinGrants.accessLevel })
     .from(containerBuiltinGrants)
     .where(
       and(
@@ -94,16 +120,31 @@ export async function assertContainerBuiltinGrantNotMutated(input: {
           containerBuiltinGrants.containerId,
           input.manifest.state.containerId,
         ),
-        eq(containerBuiltinGrants.subjectType, subject.subjectType),
-        eq(containerBuiltinGrants.subjectId, subject.subjectId),
+        eq(containerBuiltinGrants.subjectType, mutation.subjectType),
+        eq(containerBuiltinGrants.subjectId, mutation.subjectId),
       ),
     )
     .limit(1);
 
-  if (builtinGrant) {
-    throw new ContainerMutationError(
-      "Built-in container grant cannot be modified",
-      403,
-    );
+  if (!builtinGrant) {
+    return;
   }
+
+  if (
+    mutation.eventType === "container.grant" &&
+    mutation.accessLevel === builtinGrant.accessLevel &&
+    input.previousManifest?.state.directGrants.some(
+      (grant) =>
+        grant.subjectType === mutation.subjectType &&
+        grant.subjectId === mutation.subjectId &&
+        grant.accessLevel === builtinGrant.accessLevel,
+    )
+  ) {
+    return;
+  }
+
+  throw new ContainerMutationError(
+    "Built-in container grant cannot be revoked or change access level",
+    403,
+  );
 }

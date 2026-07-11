@@ -26,6 +26,14 @@ import {
   createOrganizationMetadataReshareCoordinator,
   type OrganizationMetadataReshareCoordinator,
 } from "./organizationMetadataReshareCoordinator";
+import {
+  prepareOrganizationRootRewrapToAdmins,
+  reshareOrganizationRootToAdmins,
+} from "./organizationRootReshare";
+import {
+  createOrganizationRootReshareCoordinator,
+  type OrganizationRootReshareCoordinator,
+} from "./organizationRootReshareCoordinator";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
@@ -173,15 +181,11 @@ export function createOrganizations(
 }
 
 class OrganizationsService implements Organizations {
-  // Owns the memoized Members-group lookup + best-effort re-share; created once
-  // so its cache survives across group mutations. See the coordinator module for
-  // the gate/memoize/best-effort behavior.
   private readonly metadataReshareCoordinator: OrganizationMetadataReshareCoordinator;
+  private readonly rootReshareCoordinator: OrganizationRootReshareCoordinator;
 
   constructor(
     private readonly runtimeService: InternalRuntime,
-    // Consumed only to construct the re-share coordinator below, so it stays a
-    // plain constructor argument rather than a retained field.
     containerContents: ContainerContents,
   ) {
     this.metadataReshareCoordinator =
@@ -202,14 +206,36 @@ class OrganizationsService implements Organizations {
         log: (message) => this.runtimeService.workflowInput().util.log(message),
         reshare: reshareOrganizationMetadataToMembers,
       });
+    this.rootReshareCoordinator = createOrganizationRootReshareCoordinator({
+      containerContents,
+      loadDirectory: async (organizationId) => {
+        const groups = await this.runtimeService
+          .workflowInput()
+          .apiClient.listOrganizationGroups(organizationId);
+        return groups
+          ? {
+              adminGroupId:
+                groups.groups.find((group) => group.isBuiltin)?.groupId ?? null,
+            }
+          : null;
+      },
+      prepare: prepareOrganizationRootRewrapToAdmins,
+      reshare: reshareOrganizationRootToAdmins,
+    });
   }
 
   async addUserToGroup(input: AddOrganizationGroupUserInput) {
     const runtime = this.runtimeService.workflowInput();
     const signingContext = requireSigningContext(runtime);
     const currentUserSecretKey = requireEncapsulationKeyPair(runtime).secretKey;
+    const preparedRootRewrap =
+      await this.rootReshareCoordinator.prepareIfAdminsGroup({
+        mutatedGroupId: input.groupId,
+        organizationId: signingContext.organizationId,
+      });
 
     const bundle = await addOrganizationGroupUser({
+      afterPolicyCommitBeforeCache: () => preparedRootRewrap.rewrap(),
       apiClient: runtime.apiClient,
       canAdministerOrganization: input.canAdministerOrganization,
       currentUserSecretKey,
@@ -405,8 +431,14 @@ class OrganizationsService implements Organizations {
   async removeUserFromGroup(input: RemoveOrganizationGroupUserInput) {
     const runtime = this.runtimeService.workflowInput();
     const signingContext = requireSigningContext(runtime);
+    const preparedRootRewrap =
+      await this.rootReshareCoordinator.prepareIfAdminsGroup({
+        mutatedGroupId: input.groupId,
+        organizationId: signingContext.organizationId,
+      });
 
     const bundle = await removeOrganizationGroupUser({
+      afterPolicyCommitBeforeCache: () => preparedRootRewrap.rewrap(),
       apiClient: runtime.apiClient,
       canAdministerOrganization: input.canAdministerOrganization,
       execSql: runtime.infra.execSql,

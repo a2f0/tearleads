@@ -396,7 +396,10 @@ export async function shareContainerWithGroup(
   containerId: string,
   groupId: string,
   accessLevel: ContainerContentsShareAccessLevel,
-  options: { requireExistingGrant?: boolean } = {},
+  options: {
+    knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
+    requireExistingGrant?: boolean | undefined;
+  } = {},
 ) {
   if (
     state.runtime.infra.dbStatus !== "ready" ||
@@ -420,6 +423,7 @@ export async function shareContainerWithGroup(
   const shared = await shareContainerStateWithGroup({
     accessLevel,
     containerState: existingState,
+    knownContainerKeks: options.knownContainerKeks,
     persistence: state.persistence,
     recipientGroupId: groupId,
     requireExistingGrant: options.requireExistingGrant,

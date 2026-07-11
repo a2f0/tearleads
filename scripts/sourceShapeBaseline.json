@@ -110,8 +110,8 @@
       "bytes": 18631
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3601,
-      "bytes": 117580
+      "lines": 3728,
+      "bytes": 122245
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1289,
@@ -275,7 +275,7 @@
     },
     "packages/client-sdk/src/workflows/organizations/principalPolicy.ts": {
       "lines": 992,
-      "bytes": 31765
+      "bytes": 32011
     },
     "packages/client-sdk/src/workflows/registration/registerIdentity.ts": {
       "lines": 1105,
@@ -326,8 +326,8 @@
       "bytes": 33792
     },
     "scripts/subsystems.ts": {
-      "lines": 709,
-      "bytes": 25423
+      "lines": 710,
+      "bytes": 25512
     },
     "packages/client-sdk/src/workflows/containers/child/create.ts": {
       "lines": 531,

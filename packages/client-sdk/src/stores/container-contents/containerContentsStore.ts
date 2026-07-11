@@ -4,6 +4,7 @@ import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
+import { prepareContainerGroupRewrap } from "./groupRewrapOperation";
 import {
   createChildContainer,
   deleteContainer,
@@ -97,6 +98,15 @@ function chainNodePresenceWrite(
   return chainContainerWrite(state, work).then((node) => node !== null);
 }
 
+function chainContainerTask<T>(
+  state: ContainerContentsStoreState,
+  work: () => Promise<T>,
+): Promise<T> {
+  const task = state.writeChain.catch(() => null).then(work);
+  state.writeChain = task.then(() => null);
+  return task;
+}
+
 function chainPurgeWrite(
   state: ContainerContentsStoreState,
   work: () => Promise<boolean>,
@@ -112,6 +122,7 @@ type ContainerWriteMethods = Pick<
   | "deleteContainer"
   | "ensureSystemContainer"
   | "moveContainer"
+  | "prepareGroupRewrap"
   | "purgeContainer"
   | "renameContainer"
   | "setContainerIcon"
@@ -140,6 +151,26 @@ function createContainerWriteMethods(
       chainContainerWrite(state, () =>
         moveContainer(state, syncAgent, containerId, parentId),
       ),
+    prepareGroupRewrap: async (containerId, groupId, accessLevel, options) => {
+      const knownContainerKeks = await chainContainerTask(state, () =>
+        prepareContainerGroupRewrap(state, containerId),
+      );
+      return knownContainerKeks
+        ? {
+            rewrap: () =>
+              chainNodePresenceWrite(state, () =>
+                shareContainerWithGroup(
+                  state,
+                  syncAgent,
+                  containerId,
+                  groupId,
+                  accessLevel,
+                  { ...options, knownContainerKeks },
+                ),
+              ),
+          }
+        : null;
+    },
     renameContainer: (containerId, name) =>
       chainContainerWrite(state, () =>
         renameContainer(state, syncAgent, containerId, name),
@@ -189,6 +220,7 @@ function createContainerContentsStoreEntry(
       purgeContainer: writeMethods.purgeContainer,
       ensureSystemContainer: writeMethods.ensureSystemContainer,
       moveContainer: writeMethods.moveContainer,
+      prepareGroupRewrap: writeMethods.prepareGroupRewrap,
       refresh: () => syncAgent.refresh(),
       refreshRootLane: (options) => syncAgent.refreshRootLane(options),
       // Force an on-demand local SQLite re-read (see the interface doc): arm the
