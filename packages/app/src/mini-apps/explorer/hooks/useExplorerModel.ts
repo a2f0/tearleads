@@ -66,6 +66,7 @@ interface ExplorerModel {
   loadDocumentInfo: ExplorerPanelState["loadDocumentInfo"];
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
+  markDocumentStartsInEditMode: ExplorerPanelState["markDocumentStartsInEditMode"];
   modalState: ExplorerPanelState["modalState"];
   openInlineDocument: ExplorerPanelState["openInlineDocument"];
   peerUserId: string | null;
@@ -164,6 +165,7 @@ export function useExplorerModel(
     loadBlobInfo,
     loadContainerInfo,
     loadDocumentInfo,
+    markDocumentStartsInEditMode,
     modalState,
     openInlineDocument,
     purgeDocument,
@@ -312,6 +314,7 @@ export function useExplorerModel(
     loadDocumentInfo,
     loadDocumentSummary,
     linkedContainerIdsByDocumentId,
+    markDocumentStartsInEditMode,
     modalState,
     openInlineDocument,
     peerUserId,

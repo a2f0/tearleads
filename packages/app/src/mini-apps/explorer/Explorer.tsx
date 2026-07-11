@@ -278,6 +278,20 @@ function ExplorerContent() {
   const openSyncLanes = useCallback(() => {
     model.routeState.openSyncLanesRoute();
   }, [model.routeState.openSyncLanesRoute]);
+  const returnToDocumentFromBlobPick = useCallback(
+    (localId: string, containerId: string) => {
+      // The blob picker navigates away and remounts the document, discarding its
+      // local edit-mode state. "Choose Blob" is only reachable from edit mode, so
+      // re-arm edit mode for the returning document — otherwise attaching a blob
+      // silently drops the user back to read mode mid-attach.
+      model.markDocumentStartsInEditMode(localId);
+      model.routeState.selectExplorerDocument(localId, containerId);
+    },
+    [
+      model.markDocumentStartsInEditMode,
+      model.routeState.selectExplorerDocument,
+    ],
+  );
   const toolbarUpload = useExplorerToolbarUpload(model.importDroppedFiles);
   useExplorerRoutedChromeActions({
     model,
@@ -366,7 +380,7 @@ function ExplorerContent() {
       <ExplorerBlobPickProvider
         loadBlobInfo={model.loadBlobInfo}
         openBlobBrowserRoute={model.routeState.openBlobBrowserRoute}
-        returnToDocumentRoute={model.routeState.selectExplorerDocument}
+        returnToDocumentRoute={returnToDocumentFromBlobPick}
       >
         <ExplorerDetailPanelWithBlobPick
           appData={appData}
