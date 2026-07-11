@@ -136,7 +136,7 @@ test("auto-sizes the editor to its content height", () => {
   expect(editor.style.height).toBe("240px");
 });
 
-test("removing an attachment forwards its slot id", () => {
+test("removing an attachment forwards its slot id after confirmation", () => {
   const removedSlots: string[] = [];
   const view = renderNoteEditorFields({
     attachments: [attachment],
@@ -149,7 +149,31 @@ test("removing an attachment forwards its slot id", () => {
     view.getByRole("button", { name: "Remove attachment diagram.png" }),
   );
 
+  // The trash button only opens the confirm dialog; nothing is removed yet.
+  expect(removedSlots).toEqual([]);
+
+  fireEvent.click(view.getByRole("button", { name: "Remove" }));
+
   expect(removedSlots).toEqual(["slot-1"]);
+});
+
+test("cancelling the remove confirmation keeps the attachment", () => {
+  const removedSlots: string[] = [];
+  const view = renderNoteEditorFields({
+    attachments: [attachment],
+    handleRemoveAttachment: (slotId) => {
+      removedSlots.push(slotId);
+    },
+  });
+
+  fireEvent.click(
+    view.getByRole("button", { name: "Remove attachment diagram.png" }),
+  );
+  fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+
+  expect(removedSlots).toEqual([]);
+  // The dialog closes, so its confirm button is gone from the tree.
+  expect(view.queryByRole("button", { name: "Remove" })).toBeNull();
 });
 
 test("surfaces a syncing attachment status", () => {

@@ -20,6 +20,12 @@ export const NOTE_DOCUMENT_LABELS = {
   downloadAttachment: (name: string) => `Download ${name}`,
   openAttachment: (name: string) => `Open ${name}`,
   removeAttachment: (name: string) => `Remove attachment ${name}`,
+  // Remove-attachment confirmation dialog copy.
+  removeAttachmentConfirmTitle: "Remove attachment",
+  removeAttachmentConfirmMessage: (name: string) =>
+    `Remove “${name}”? This can’t be undone.`,
+  removeAttachmentConfirmCancel: "Cancel",
+  removeAttachmentConfirmConfirm: "Remove",
   // Attachment preview overlay copy.
   previewLabel: (name: string) => `Preview of ${name}`,
   previewClose: "Close preview",
