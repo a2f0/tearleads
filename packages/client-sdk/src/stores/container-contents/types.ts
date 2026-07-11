@@ -93,6 +93,12 @@ export interface ContainerContentsStore {
     parentId: string,
   ) => Promise<ContainerNode | null>;
   purgeContainer: (containerId: string) => Promise<boolean>;
+  prepareGroupRewrap: (
+    containerId: string,
+    groupId: string,
+    accessLevel: ContainerContentsShareAccessLevel,
+    options?: { requireExistingGrant?: boolean } | undefined,
+  ) => Promise<{ rewrap(): Promise<boolean> } | null>;
   refresh: () => Promise<boolean>;
   refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
   // Re-read root-lane containers from local SQLite into the snapshot with NO

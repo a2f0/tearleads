@@ -23,8 +23,6 @@ import type {
   ContainerKekResponse,
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
-  EncapsulationKeyResponse,
-  PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { signContainerMutationEvent } from "../../../data/containers/shared/events";
 import {
@@ -65,31 +63,12 @@ import {
   type ProjectionUserKeyResolver,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
-import {
-  loadPrincipalPolicyBundle,
-  savePrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicyPersistence";
-import {
-  principalPolicyReferenceFromBundle,
-  verifyOrganizationAdminSignerUserIds,
-  verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
-} from "../../../data/principalPolicyAdminSigners";
+import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
-  collectPrincipalPolicySignerPublicKeys,
-  type PrincipalPolicySignerPublicKeyLoadErrorCode,
-  principalPolicyCheckpoint,
-} from "../../principals/policyVerification";
-
-interface ContainerManagedPrincipalShareApi extends ContainerShareApi {
-  getCurrentPrincipalPolicy: (
-    principalType: ManagedPrincipalKind,
-    principalId: string,
-  ) => Promise<PrincipalPolicyBundleResponse | null>;
-  getEncapsulationKey: (
-    userId: string,
-  ) => Promise<EncapsulationKeyResponse | null>;
-}
+  type ContainerManagedPrincipalShareApi,
+  loadVerifiedGroupSharePrincipalPolicy,
+} from "./sharePrincipalPolicy";
 
 type ContainerShareRecipient =
   | {
@@ -351,140 +330,6 @@ function collectShareUserRecipientKeys(input: {
   );
 }
 
-function principalPolicySignerPublicKeyLoadErrorMessage(
-  code: PrincipalPolicySignerPublicKeyLoadErrorCode,
-): string {
-  switch (code) {
-    case "fingerprint-invalid":
-      return "principal policy signer key fingerprint is invalid";
-    case "fingerprint-mismatch":
-      return "principal policy signer key fingerprint mismatch";
-    case "not-found":
-      return "principal policy signer key could not be loaded";
-    case "user-mismatch":
-      return "principal policy signer key user mismatch";
-  }
-}
-
-async function loadVerifiedSharePrincipalPolicy(input: {
-  apiClient: ContainerManagedPrincipalShareApi;
-  execSql?: ExecSql | undefined;
-  loadExternalAdminSignerUserIds?:
-    | (() => Promise<readonly string[]>)
-    | undefined;
-  principalId: string;
-  principalType: ManagedPrincipalKind;
-}): Promise<VerifiedPrincipalPolicy> {
-  const bundle = await input.apiClient.getCurrentPrincipalPolicy(
-    input.principalType,
-    input.principalId,
-  );
-  if (!bundle) {
-    throw new Error("Container share principal policy could not be loaded");
-  }
-  if (
-    bundle.currentState.principalType !== input.principalType ||
-    bundle.currentState.principalId !== input.principalId
-  ) {
-    throw new Error("Container share principal policy target mismatch");
-  }
-
-  const cachedBundle = input.execSql
-    ? await loadPrincipalPolicyBundle(
-        input.execSql,
-        input.principalType,
-        input.principalId,
-      )
-    : null;
-  const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
-    bundle,
-    getEncapsulationKey: (userId) =>
-      input.apiClient.getEncapsulationKey(userId),
-  });
-  if ("error" in signerPublicKeys) {
-    throw new Error(
-      principalPolicySignerPublicKeyLoadErrorMessage(signerPublicKeys.error),
-    );
-  }
-
-  const verified =
-    await verifyPrincipalPolicyBundleWithExternalOrganizationAdmins({
-      bundle,
-      expectedReference: principalPolicyReferenceFromBundle(bundle),
-      loadExternalAdminSignerUserIds:
-        input.loadExternalAdminSignerUserIds ?? (() => Promise.resolve([])),
-      localCheckpoint: principalPolicyCheckpoint(cachedBundle),
-      signerPublicKeys: signerPublicKeys.signerPublicKeys,
-    });
-  if (!verified.ok) {
-    throw new Error(
-      `Container share principal policy verification failed: ${verified.error.message}`,
-    );
-  }
-
-  if (input.execSql) {
-    await savePrincipalPolicyBundle(
-      input.execSql,
-      bundle,
-      new Date().toISOString(),
-    );
-  }
-
-  return verified.value;
-}
-
-async function loadShareOrganizationAdminSignerUserIds(input: {
-  apiClient: ContainerManagedPrincipalShareApi;
-  execSql?: ExecSql | undefined;
-  organizationId: string;
-}): Promise<string[]> {
-  try {
-    const bundle = await input.apiClient.getCurrentPrincipalPolicy(
-      "organization",
-      input.organizationId,
-    );
-    if (!bundle) {
-      return [];
-    }
-
-    const cachedBundle = input.execSql
-      ? await loadPrincipalPolicyBundle(
-          input.execSql,
-          "organization",
-          input.organizationId,
-        )
-      : null;
-    const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
-      bundle,
-      getEncapsulationKey: (userId) =>
-        input.apiClient.getEncapsulationKey(userId),
-    });
-    if ("error" in signerPublicKeys) {
-      return [];
-    }
-
-    const externalAdminSignerUserIds =
-      await verifyOrganizationAdminSignerUserIds({
-        bundle,
-        localCheckpoint: principalPolicyCheckpoint(cachedBundle),
-        organizationId: input.organizationId,
-        signerPublicKeys: signerPublicKeys.signerPublicKeys,
-      });
-
-    if (externalAdminSignerUserIds.length > 0 && input.execSql) {
-      await savePrincipalPolicyBundle(
-        input.execSql,
-        bundle,
-        new Date().toISOString(),
-      );
-    }
-
-    return externalAdminSignerUserIds;
-  } catch {
-    return [];
-  }
-}
-
 async function collectContainerSharePrincipalPolicies(input: {
   execSql?: ExecSql | undefined;
   previousProjection: ContainerWriterProjectionResponse;
@@ -498,10 +343,18 @@ async function collectContainerSharePrincipalPolicies(input: {
         resolveUserKey: input.resolveUserKey,
       })
     : [];
+  const recipientPolicy = input.recipientPolicy;
+  const retainedPreviousPolicies = recipientPolicy
+    ? previousPolicies.filter(
+        (policy) =>
+          policy.principalType !== recipientPolicy.principalType ||
+          policy.principalId !== recipientPolicy.principalId,
+      )
+    : previousPolicies;
 
   return uniquePrincipalPolicies([
-    ...previousPolicies,
-    ...(input.recipientPolicy ? [input.recipientPolicy] : []),
+    ...retainedPreviousPolicies,
+    ...(recipientPolicy ? [recipientPolicy] : []),
   ]);
 }
 
@@ -512,6 +365,7 @@ async function buildMaterializedContainerSharePlan(
     author: ContainerMutationAuthor;
     eventId?: string | undefined;
     execSql?: ExecSql | undefined;
+    knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
     previousProjection: ContainerWriterProjectionResponse;
     recipient: ContainerShareRecipient;
     signedAt?: string | undefined;
@@ -520,6 +374,7 @@ async function buildMaterializedContainerSharePlan(
 ): Promise<MaterializedContainerSharePlan> {
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
+    knownContainerKeks: input.knownContainerKeks,
     projection: input.previousProjection,
     secretKey: input.targetSecretKey,
     ...projectionVerificationOptions(input),
@@ -702,6 +557,7 @@ export async function shareRemoteContainerWithGroup(input: {
   containerId: string;
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
+  knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
   previousProjection?: ContainerWriterProjectionResponse | undefined;
   recipientGroupId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -722,17 +578,11 @@ export async function shareRemoteContainerWithGroup(input: {
   if (!previousProjection) {
     return null;
   }
-  const principalPolicy = await loadVerifiedSharePrincipalPolicy({
+  const verifiedPrincipalPolicy = await loadVerifiedGroupSharePrincipalPolicy({
     apiClient: input.apiClient,
     execSql: input.execSql,
-    loadExternalAdminSignerUserIds: () =>
-      loadShareOrganizationAdminSignerUserIds({
-        apiClient: input.apiClient,
-        execSql: input.execSql,
-        organizationId: input.author.organizationId,
-      }),
-    principalId: input.recipientGroupId,
-    principalType: "group",
+    groupId: input.recipientGroupId,
+    organizationId: input.author.organizationId,
   });
 
   const materializedPlan = await buildMaterializedContainerSharePlan({
@@ -740,9 +590,10 @@ export async function shareRemoteContainerWithGroup(input: {
     author: input.author,
     eventId: input.eventId,
     execSql: input.execSql,
+    knownContainerKeks: input.knownContainerKeks,
     previousProjection,
     recipient: {
-      principalPolicy,
+      principalPolicy: verifiedPrincipalPolicy.policy,
       subjectId: input.recipientGroupId,
       subjectType: "group",
     },
@@ -756,6 +607,18 @@ export async function shareRemoteContainerWithGroup(input: {
   );
   if (!response) {
     return null;
+  }
+
+  // Keep the previously cached group epoch available until the old container
+  // wrap has been unwrapped and the replacement has committed. Root has no
+  // parent fallback, so caching the rotated policy any earlier destroys the
+  // only local path to the KEK that must be re-wrapped.
+  if (input.execSql) {
+    await savePrincipalPolicyBundle(
+      input.execSql,
+      verifiedPrincipalPolicy.bundle,
+      new Date().toISOString(),
+    );
   }
 
   return {

@@ -876,16 +876,32 @@ async function buildGroupGrantRequest(input: {
       epoch: previous.state.epoch + 1,
       previousManifestHash: input.previous.manifestHash,
       eventHash: event.eventHash,
-      directGrants: [...previous.state.directGrants, grant],
+      directGrants: [
+        ...previous.state.directGrants.filter(
+          (existingGrant) =>
+            existingGrant.subjectType !== grant.subjectType ||
+            existingGrant.subjectId !== grant.subjectId,
+        ),
+        grant,
+      ],
       referencedPrincipalHeads: [
-        ...previous.state.referencedPrincipalHeads,
+        ...previous.state.referencedPrincipalHeads.filter(
+          (existingHead) =>
+            existingHead.principalType !==
+              input.principalReference.principalType ||
+            existingHead.principalId !== input.principalReference.principalId,
+        ),
         input.principalReference,
       ],
     },
     event,
   );
   const wraps = [
-    ...(input.previousKekState.wraps as readonly ContainerKeyWrap[]),
+    ...(input.previousKekState.wraps as readonly ContainerKeyWrap[]).filter(
+      (existingWrap) =>
+        existingWrap.recipientKind !== "group" ||
+        existingWrap.recipientId !== input.principalReference.principalId,
+    ),
     createContainerKeyWrap({
       containerKeyEpochId: input.previousKekState.containerKeyEpochId,
       recipientKind: "group",
@@ -2241,6 +2257,118 @@ test("POST /containers/:containerId/revoke advances the KEK epoch", async () => 
   ]);
 });
 
+test("POST /containers/:containerId/share re-wraps a built-in grant without changing its access level", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const rootManifest = asVerifiedContainerManifest(root.bundle);
+  const adminGrant = rootManifest.state.directGrants.find(
+    (grant) => grant.subjectType === "group" && grant.accessLevel === "admin",
+  );
+  invariant(adminGrant, "expected root admin group grant");
+  const adminPolicy = root.principalPolicies?.find(
+    (policy) =>
+      policy.principalType === adminGrant.subjectType &&
+      policy.principalId === adminGrant.subjectId,
+  );
+  invariant(adminPolicy, "expected root admin group policy");
+  const rotatedAdminGroup = await putGroupPrincipalPolicy({
+    actor: owner,
+    keyEpoch: adminPolicy.keyEpoch + 1,
+    prevStateHash: adminPolicy.stateHash,
+    principalId: adminPolicy.principalId,
+    principalKem: generateKemSeedAndKeyPair(),
+    signedAt: "2026-04-30T00:00:30.000Z",
+    version: adminPolicy.version + 1,
+  });
+  const request = await buildGroupGrantRequest({
+    accessLevel: "admin",
+    parentKekState: null,
+    previous: root.bundle,
+    previousContainerPath: [root.bundle],
+    previousKekState: root.kekState,
+    principalPolicy: rotatedAdminGroup.policy,
+    principalReference: rotatedAdminGroup.reference,
+    signer: owner,
+  });
+
+  const reshared = await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${rootManifest.state.containerId}/share`,
+      request,
+      token: owner.token,
+    }),
+  );
+  const resharedManifest = asVerifiedContainerManifest(
+    accessManifestFromResponse(reshared),
+  );
+
+  expect(resharedManifest.state.directGrants).toContainEqual(adminGrant);
+  expect(resharedManifest.state.referencedPrincipalHeads).toEqual([
+    rotatedAdminGroup.reference,
+  ]);
+  expect(reshared.containerKek.containerKeyEpochId).toBe(
+    root.kekState.containerKeyEpochId,
+  );
+  expect(reshared.containerKek.recipientTargets).toEqual([
+    {
+      recipientKind: "group",
+      recipientId: adminGrant.subjectId,
+      recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(
+        rotatedAdminGroup.reference,
+      ),
+      recipientKeyFingerprint: rotatedAdminGroup.reference.keyFingerprint,
+    },
+  ]);
+});
+
+for (const accessLevel of ["read", "write"] as const) {
+  test(`POST /containers/:containerId/share rejects changing a built-in admin grant to ${accessLevel}`, async () => {
+    const owner = createTestUser();
+    await registerAndAuthenticate(owner);
+    const root = await bootstrapRoot(owner);
+    const rootManifest = asVerifiedContainerManifest(root.bundle);
+    const adminGrant = rootManifest.state.directGrants.find(
+      (grant) => grant.subjectType === "group" && grant.accessLevel === "admin",
+    );
+    invariant(adminGrant, "expected root admin group grant");
+    const adminReference = rootManifest.state.referencedPrincipalHeads.find(
+      (reference) =>
+        reference.principalType === adminGrant.subjectType &&
+        reference.principalId === adminGrant.subjectId,
+    );
+    invariant(adminReference, "expected root admin group reference");
+    const adminPolicy = root.principalPolicies?.find(
+      (policy) =>
+        policy.principalType === adminGrant.subjectType &&
+        policy.principalId === adminGrant.subjectId,
+    );
+    invariant(adminPolicy, "expected root admin group policy");
+    const request = await buildGroupGrantRequest({
+      accessLevel,
+      parentKekState: null,
+      previous: root.bundle,
+      previousContainerPath: [root.bundle],
+      previousKekState: root.kekState,
+      principalPolicy: adminPolicy,
+      principalReference: adminReference,
+      signer: owner,
+    });
+
+    const response = await postMutation({
+      path: `/containers/${rootManifest.state.containerId}/share`,
+      request,
+      token: owner.token,
+    });
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      error:
+        "Built-in container grant cannot be revoked or change access level",
+    });
+  });
+}
+
 test("POST /containers/:containerId/revoke rejects built-in grants", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
@@ -2270,7 +2398,7 @@ test("POST /containers/:containerId/revoke rejects built-in grants", async () =>
 
   expect(response.status).toBe(403);
   expect(await response.json()).toEqual({
-    error: "Built-in container grant cannot be modified",
+    error: "Built-in container grant cannot be revoked or change access level",
   });
 });
 
