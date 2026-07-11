@@ -28,9 +28,14 @@ import {
   setUnknownError,
 } from "../refresh";
 import { resolveOrgManagerSelectedGroupId } from "../routes";
+import type { useOrgManagerRequestGuard } from "./useOrgManagerRequestGuard";
+import { useOrgManagerUserDetailRefresher } from "./useOrgManagerUserDetailRefresher";
+
+type BeginRequest = ReturnType<typeof useOrgManagerRequestGuard>;
 
 interface OrgManagerRefreshersParams {
   appData: ReturnType<typeof useTearleadsRuntime>;
+  beginRequest: BeginRequest;
   canLoadAuthenticatedOrgData: boolean;
   orgManagerActions: ReturnType<typeof useOrgManagerActions>;
   resetSelectedRosterUser: () => void;
@@ -68,6 +73,7 @@ interface OrgManagerRefreshersParams {
 export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
   const {
     appData,
+    beginRequest,
     canLoadAuthenticatedOrgData,
     orgManagerActions,
     resetSelectedRosterUser,
@@ -100,9 +106,6 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setMembers(null);
     setGroupContainers(null);
     setGroupPolicyHistory(null);
-    setOrganizationPolicyHistory(null);
-    setGrants(null);
-    setDataUsage(null);
     setProfileDisplayNamesByUserId(new Map());
     setIsCreateGroupDialogOpen(false);
     setIsImportUserDialogOpen(false);
@@ -111,9 +114,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
   }, [
     resetSelectedRosterUser,
     selectGroup,
-    setDataUsage,
     setDirectory,
-    setGrants,
     setGroupContainers,
     setGroupPolicyHistory,
     setGroups,
@@ -121,21 +122,26 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setIsImportUserDialogOpen,
     setMemberGroupId,
     setMembers,
-    setOrganizationPolicyHistory,
     setProfileDisplayNamesByUserId,
   ]);
 
   const loadDirectoryAndGroups = useCallback(
     async (
+      isCurrentRequest: () => boolean,
       options: Pick<DirectoryRefreshOptions, "skipNextGroupDetailsEffect"> = {},
     ): Promise<DirectoryRefreshResult> => {
       if (!appData.auth.organizationId || !appData.auth.isAuthenticated) {
-        resetDirectoryState();
+        if (isCurrentRequest()) {
+          resetDirectoryState();
+        }
         return { didLoad: false, groupId: null };
       }
 
       const nextDirectoryState =
         await orgManagerActions.loadDirectoryAndGroups();
+      if (!isCurrentRequest()) {
+        return { didLoad: false, groupId: null };
+      }
 
       if (nextDirectoryState === null) {
         resetDirectoryState();
@@ -179,21 +185,35 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     async (
       options: DirectoryRefreshOptions = {},
     ): Promise<DirectoryRefreshResult> => {
+      const isCurrentRequest = beginRequest("directory");
       const { shouldClearError, shouldManageLoading } =
         getRefreshBehavior(options);
       setLoadingIfManaged(shouldManageLoading, setLoading, true);
       clearErrorIfRequested(shouldClearError, setError);
 
       try {
-        return await loadDirectoryAndGroups(directoryLoadOptions(options));
+        return await loadDirectoryAndGroups(
+          isCurrentRequest,
+          directoryLoadOptions(options),
+        );
       } catch (nextError) {
-        setUnknownError(setError, nextError);
+        if (isCurrentRequest()) {
+          setUnknownError(setError, nextError);
+        }
         return { didLoad: false, groupId: selectedGroupIdRef.current };
       } finally {
-        setLoadingIfManaged(shouldManageLoading, setLoading, false);
+        if (isCurrentRequest()) {
+          setLoadingIfManaged(shouldManageLoading, setLoading, false);
+        }
       }
     },
-    [loadDirectoryAndGroups, selectedGroupIdRef, setError, setLoading],
+    [
+      beginRequest,
+      loadDirectoryAndGroups,
+      selectedGroupIdRef,
+      setError,
+      setLoading,
+    ],
   );
 
   const refreshSelectedGroupDetails = useCallback(
@@ -201,15 +221,18 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
       groupId: string | null,
       options: GroupDetailsRefreshOptions = {},
     ) => {
+      const isCurrentRequest = beginRequest("groupDetails");
       const shouldClearError = options.clearError ?? true;
       if (
         !appData.auth.organizationId ||
         !groupId ||
         !appData.auth.isAuthenticated
       ) {
-        setMembers(null);
-        setGroupContainers(null);
-        setGroupPolicyHistory(null);
+        if (isCurrentRequest()) {
+          setMembers(null);
+          setGroupContainers(null);
+          setGroupPolicyHistory(null);
+        }
         return;
       }
 
@@ -217,11 +240,15 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
         setError(null);
       }
       try {
+        const nextDetails = await orgManagerActions.loadGroupDetails(groupId);
+        if (!isCurrentRequest()) {
+          return;
+        }
         const {
           containers: nextContainers,
           members: nextMembers,
           policyHistory: nextPolicyHistory,
-        } = await orgManagerActions.loadGroupDetails(groupId);
+        } = nextDetails;
         const errors: string[] = [];
 
         if (nextMembers === null) {
@@ -244,15 +271,18 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
           setError(errors.join(" "));
         }
       } catch (nextError) {
-        setMembers(null);
-        setGroupContainers(null);
-        setGroupPolicyHistory(null);
-        setUnknownError(setError, nextError);
+        if (isCurrentRequest()) {
+          setMembers(null);
+          setGroupContainers(null);
+          setGroupPolicyHistory(null);
+          setUnknownError(setError, nextError);
+        }
       }
     },
     [
       appData.auth.isAuthenticated,
       appData.auth.organizationId,
+      beginRequest,
       orgManagerActions,
       setError,
       setGroupContainers,
@@ -263,6 +293,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
 
   const refreshGrants = useCallback(
     async (options: GrantsRefreshOptions = {}) => {
+      const isCurrentRequest = beginRequest("grants");
       const { shouldClearError, shouldManageLoading } =
         getRefreshBehavior(options);
       if (!canLoadAuthenticatedOrgData) {
@@ -275,6 +306,9 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
 
       try {
         const nextGrants = await orgManagerActions.loadGrants();
+        if (!isCurrentRequest()) {
+          return;
+        }
         if (nextGrants === null) {
           setGrants(null);
           setError(ORG_MANAGER_LABELS.failedLoadGrants);
@@ -283,14 +317,19 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
 
         setGrants(nextGrants);
       } catch (nextError) {
-        setGrants(null);
-        setUnknownError(setError, nextError);
+        if (isCurrentRequest()) {
+          setGrants(null);
+          setUnknownError(setError, nextError);
+        }
       } finally {
-        setLoadingIfManaged(shouldManageLoading, setLoading, false);
+        if (isCurrentRequest()) {
+          setLoadingIfManaged(shouldManageLoading, setLoading, false);
+        }
       }
     },
     [
       canLoadAuthenticatedOrgData,
+      beginRequest,
       orgManagerActions,
       setError,
       setGrants,
@@ -300,6 +339,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
 
   const refreshDataUsage = useCallback(
     async (options: DataUsageRefreshOptions = {}) => {
+      const isCurrentRequest = beginRequest("dataUsage");
       const { shouldClearError, shouldManageLoading } =
         getRefreshBehavior(options);
       if (!canLoadAuthenticatedOrgData) {
@@ -312,6 +352,9 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
 
       try {
         const nextUsage = await orgManagerActions.loadDataUsage();
+        if (!isCurrentRequest()) {
+          return;
+        }
         if (nextUsage === null) {
           setDataUsage(null);
           setError(ORG_MANAGER_LABELS.failedLoadDataUsage);
@@ -320,14 +363,19 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
 
         setDataUsage(nextUsage);
       } catch (nextError) {
-        setDataUsage(null);
-        setUnknownError(setError, nextError);
+        if (isCurrentRequest()) {
+          setDataUsage(null);
+          setUnknownError(setError, nextError);
+        }
       } finally {
-        setLoadingIfManaged(shouldManageLoading, setLoading, false);
+        if (isCurrentRequest()) {
+          setLoadingIfManaged(shouldManageLoading, setLoading, false);
+        }
       }
     },
     [
       canLoadAuthenticatedOrgData,
+      beginRequest,
       orgManagerActions,
       setDataUsage,
       setError,
@@ -337,6 +385,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
 
   const refreshOrganizationPolicyHistory = useCallback(
     async (options: RefreshBehaviorOptions = {}) => {
+      const isCurrentRequest = beginRequest("organizationPolicy");
       const { shouldClearError, shouldManageLoading } =
         getRefreshBehavior(options);
       if (!canLoadAuthenticatedOrgData) {
@@ -348,18 +397,24 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
       clearErrorIfRequested(shouldClearError, setError);
 
       try {
-        setOrganizationPolicyHistory(
-          await orgManagerActions.loadPolicyHistory(),
-        );
+        const nextPolicyHistory = await orgManagerActions.loadPolicyHistory();
+        if (isCurrentRequest()) {
+          setOrganizationPolicyHistory(nextPolicyHistory);
+        }
       } catch (nextError) {
-        setOrganizationPolicyHistory(null);
-        setUnknownError(setError, nextError);
+        if (isCurrentRequest()) {
+          setOrganizationPolicyHistory(null);
+          setUnknownError(setError, nextError);
+        }
       } finally {
-        setLoadingIfManaged(shouldManageLoading, setLoading, false);
+        if (isCurrentRequest()) {
+          setLoadingIfManaged(shouldManageLoading, setLoading, false);
+        }
       }
     },
     [
       canLoadAuthenticatedOrgData,
+      beginRequest,
       orgManagerActions,
       setError,
       setLoading,
@@ -367,45 +422,17 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     ],
   );
 
-  const refreshSelectedUserDetail = useCallback(
-    async (userId: string | null, options: GroupDetailsRefreshOptions = {}) => {
-      const shouldClearError = options.clearError ?? true;
-      if (!canLoadAuthenticatedOrgData || !userId) {
-        setUserDetail(null);
-        setLoadingUserDetail(false);
-        return;
-      }
-
-      setLoadingUserDetail(true);
-      if (shouldClearError) {
-        setError(null);
-      }
-      try {
-        const nextDetail = await orgManagerActions.loadUserDetail(userId);
-        if (nextDetail === null) {
-          setUserDetail(null);
-          setError(ORG_MANAGER_LABELS.failedLoadUserDetail);
-          return;
-        }
-
-        setUserDetail(nextDetail);
-      } catch (nextError) {
-        setUserDetail(null);
-        setUnknownError(setError, nextError);
-      } finally {
-        setLoadingUserDetail(false);
-      }
-    },
-    [
-      canLoadAuthenticatedOrgData,
-      orgManagerActions,
-      setError,
-      setLoadingUserDetail,
-      setUserDetail,
-    ],
-  );
+  const refreshSelectedUserDetail = useOrgManagerUserDetailRefresher({
+    beginRequest,
+    canLoadAuthenticatedOrgData,
+    orgManagerActions,
+    setError,
+    setLoadingUserDetail,
+    setUserDetail,
+  });
 
   const refreshOrgManager = useCallback(async () => {
+    const isCurrentRequest = beginRequest("refresh");
     setLoading(true);
     setError(null);
     try {
@@ -428,6 +455,9 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
           manageLoading: false,
         }),
       ]);
+      if (!isCurrentRequest()) {
+        return;
+      }
       if (refreshedDirectory.didLoad) {
         await refreshSelectedGroupDetails(refreshedDirectory.groupId, {
           clearError: false,
@@ -437,9 +467,12 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
         clearError: false,
       });
     } finally {
-      setLoading(false);
+      if (isCurrentRequest()) {
+        setLoading(false);
+      }
     }
   }, [
+    beginRequest,
     refreshDataUsage,
     refreshDirectoryAndGroups,
     refreshGrants,
@@ -452,7 +485,6 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
   ]);
 
   return {
-    loadDirectoryAndGroups,
     refreshDataUsage,
     refreshDirectoryAndGroups,
     refreshGrants,

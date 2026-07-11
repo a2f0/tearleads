@@ -8,6 +8,7 @@ import { useCallback } from "react";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { currentGroupUserRecipients } from "../grants/recipients";
+import { refreshAfterGroupMutation } from "../groups/orgManagerMutationOperations";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { setUnknownError } from "../refresh";
 import type { useOrgManagerRefreshers } from "./useOrgManagerRefreshers";
@@ -19,6 +20,7 @@ interface UseOrgManagerDisableRosterUserParams {
   canDisableRosterUsers: boolean;
   directory: OrganizationDirectory | null;
   groups: ReadonlyArray<OrganizationGroupSummary>;
+  isOperationActive: (organizationId: string) => boolean;
   memberGroupId: string | null;
   orgManagerActions: ReturnType<typeof useOrgManagerActions>;
   refreshDirectoryAndGroups: Refreshers["refreshDirectoryAndGroups"];
@@ -110,7 +112,9 @@ function collectRosterDisableMembershipTargets(input: {
 async function loadRosterDisableMembershipTargets(input: {
   adminGroupId: string | null;
   disabledUserId: string;
+  isOperationActive: (organizationId: string) => boolean;
   memberGroupId: string;
+  organizationId: string;
   orgManagerActions: ReturnType<typeof useOrgManagerActions>;
   setError: Dispatch<SetStateAction<string | null>>;
 }): Promise<Array<{
@@ -123,6 +127,9 @@ async function loadRosterDisableMembershipTargets(input: {
       ? input.orgManagerActions.loadGroupDetails(input.adminGroupId)
       : Promise.resolve(null),
   ]);
+  if (!input.isOperationActive(input.organizationId)) {
+    return null;
+  }
   if (
     !memberGroupDetails?.members ||
     (input.adminGroupId && !adminGroupDetails?.members)
@@ -149,13 +156,18 @@ async function loadRosterDisableMembershipTargets(input: {
 async function removeRosterDisableMembershipTargets(input: {
   directory: OrganizationDirectory;
   disabledUserId: string;
+  isOperationActive: (organizationId: string) => boolean;
+  organizationId: string;
   orgManagerActions: ReturnType<typeof useOrgManagerActions>;
   targets: ReadonlyArray<{
     groupId: string;
     members: OrganizationGroupMembers;
   }>;
-}): Promise<void> {
+}): Promise<boolean> {
   for (const target of input.targets) {
+    if (!input.isOperationActive(input.organizationId)) {
+      return false;
+    }
     await input.orgManagerActions.removeUserFromGroup(
       target.groupId,
       input.disabledUserId,
@@ -167,6 +179,80 @@ async function removeRosterDisableMembershipTargets(input: {
       input.directory.currentUser.isOrgAdmin,
     );
   }
+  return input.isOperationActive(input.organizationId);
+}
+
+async function disableRosterUser(
+  input: UseOrgManagerDisableRosterUserParams & { disabledUserId: string },
+): Promise<void> {
+  const targetUser =
+    input.directory?.users.find(
+      (user) => user.userId === input.disabledUserId,
+    ) ?? null;
+  const adminGroupId = findBuiltinAdminGroupId(input.groups);
+  if (
+    !canDisableRosterUserRequest({
+      authUserId: input.appData.auth.userId,
+      canDisableRosterUsers: input.canDisableRosterUsers,
+      directory: input.directory,
+      memberGroupId: input.memberGroupId,
+      targetUser,
+    }) ||
+    !input.directory ||
+    !input.memberGroupId
+  ) {
+    return;
+  }
+  const operationOrganizationId = input.directory.organizationId;
+  if (!input.isOperationActive(operationOrganizationId)) {
+    return;
+  }
+
+  input.setMutating(true);
+  input.setError(null);
+  try {
+    const mutationTargets = await loadRosterDisableMembershipTargets({
+      adminGroupId,
+      disabledUserId: input.disabledUserId,
+      isOperationActive: input.isOperationActive,
+      memberGroupId: input.memberGroupId,
+      organizationId: operationOrganizationId,
+      orgManagerActions: input.orgManagerActions,
+      setError: input.setError,
+    });
+    if (!mutationTargets) {
+      return;
+    }
+
+    const removed = await removeRosterDisableMembershipTargets({
+      directory: input.directory,
+      disabledUserId: input.disabledUserId,
+      isOperationActive: input.isOperationActive,
+      organizationId: operationOrganizationId,
+      orgManagerActions: input.orgManagerActions,
+      targets: mutationTargets,
+    });
+    if (!removed) {
+      return;
+    }
+
+    await refreshAfterGroupMutation({
+      isOperationActive: input.isOperationActive,
+      operationOrganizationId,
+      refreshDirectoryAndGroups: input.refreshDirectoryAndGroups,
+      refreshSelectedGroupDetails: input.refreshSelectedGroupDetails,
+      refreshSelectedUserDetail: input.refreshSelectedUserDetail,
+      selectedUserIdRef: input.selectedUserIdRef,
+    });
+  } catch (error) {
+    if (input.isOperationActive(operationOrganizationId)) {
+      setUnknownError(input.setError, error);
+    }
+  } finally {
+    if (input.isOperationActive(operationOrganizationId)) {
+      input.setMutating(false);
+    }
+  }
 }
 
 export function useOrgManagerDisableRosterUser(
@@ -177,6 +263,7 @@ export function useOrgManagerDisableRosterUser(
     canDisableRosterUsers,
     directory,
     groups,
+    isOperationActive,
     memberGroupId,
     orgManagerActions,
     refreshDirectoryAndGroups,
@@ -188,66 +275,29 @@ export function useOrgManagerDisableRosterUser(
   } = params;
 
   return useCallback(
-    async (disabledUserId: string) => {
-      const targetUser =
-        directory?.users.find((user) => user.userId === disabledUserId) ?? null;
-      const adminGroupId = findBuiltinAdminGroupId(groups);
-      if (
-        !canDisableRosterUserRequest({
-          authUserId: appData.auth.userId,
-          canDisableRosterUsers,
-          directory,
-          memberGroupId,
-          targetUser,
-        })
-      ) {
-        return;
-      }
-      const disableDirectory = directory;
-      const disableMemberGroupId = memberGroupId;
-      if (!disableDirectory || !disableMemberGroupId) {
-        return;
-      }
-
-      setMutating(true);
-      setError(null);
-      try {
-        const mutationTargets = await loadRosterDisableMembershipTargets({
-          adminGroupId,
-          disabledUserId,
-          memberGroupId: disableMemberGroupId,
-          orgManagerActions,
-          setError,
-        });
-        if (!mutationTargets) {
-          return;
-        }
-
-        await removeRosterDisableMembershipTargets({
-          directory: disableDirectory,
-          disabledUserId,
-          orgManagerActions,
-          targets: mutationTargets,
-        });
-
-        const refreshedDirectory = await refreshDirectoryAndGroups({
-          skipNextGroupDetailsEffect: true,
-        });
-        if (refreshedDirectory.didLoad) {
-          await refreshSelectedGroupDetails(refreshedDirectory.groupId);
-        }
-        await refreshSelectedUserDetail(selectedUserIdRef.current);
-      } catch (nextError) {
-        setUnknownError(setError, nextError);
-      } finally {
-        setMutating(false);
-      }
-    },
+    (disabledUserId: string) =>
+      disableRosterUser({
+        appData,
+        canDisableRosterUsers,
+        directory,
+        disabledUserId,
+        groups,
+        isOperationActive,
+        memberGroupId,
+        orgManagerActions,
+        refreshDirectoryAndGroups,
+        refreshSelectedGroupDetails,
+        refreshSelectedUserDetail,
+        selectedUserIdRef,
+        setError,
+        setMutating,
+      }),
     [
       appData.auth.userId,
       canDisableRosterUsers,
       directory,
       groups,
+      isOperationActive,
       memberGroupId,
       orgManagerActions,
       refreshDirectoryAndGroups,

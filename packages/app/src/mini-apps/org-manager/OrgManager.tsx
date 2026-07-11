@@ -12,6 +12,7 @@ import {
   useWindowRefreshMenuItem,
 } from "../../components/window/WindowMenuContext";
 import { useCompactRoutedMode } from "../../navigation/useCompactRoutedMode";
+import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import { BillingPanel } from "./billing/BillingPanel";
 import { DataUsageView } from "./billing/DataUsageView";
 import { OrgManagerContextMenuLayer } from "./context-menu/OrgManagerContextMenu";
@@ -112,6 +113,9 @@ function OrgManagerContent({
   revokeGrant: (grant: OrganizationContainerGrant) => void;
   showDirectoryDetailDismissButton: boolean;
 }) {
+  const billing = useOrganizationBilling();
+  const billingMatchesOrganization =
+    billing.billing?.organizationId === organizationId;
   const renderProfileEditor = useMemo(
     () => renderRosterProfileEditor(organizationId),
     [organizationId],
@@ -159,7 +163,13 @@ function OrgManagerContent({
 
   if (model.view === "usage") {
     return (
-      <DataUsageView dataUsage={model.dataUsage} loading={model.loading} />
+      <DataUsageView
+        canSync={
+          billingMatchesOrganization ? (billing.view?.canSync ?? null) : null
+        }
+        dataUsage={model.dataUsage}
+        loading={model.loading}
+      />
     );
   }
 
@@ -214,34 +224,53 @@ function OrgManagerGroupsContent({ model }: { model: OrgManagerModel }) {
 }
 
 function useRevokeGrantConfirmation(model: OrgManagerModel) {
-  const [grantPendingRevoke, setGrantPendingRevoke] =
-    useState<OrganizationContainerGrant | null>(null);
+  const [pendingRevoke, setPendingRevoke] = useState<{
+    grant: OrganizationContainerGrant;
+    organizationId: string;
+  } | null>(null);
+  const grantPendingRevoke =
+    pendingRevoke?.organizationId === model.organizationId
+      ? pendingRevoke.grant
+      : null;
   const requestRevokeGrant = useCallback(
     (grant: OrganizationContainerGrant) => {
-      if (!model.canRevokeGrants || model.mutating || grant.isBuiltin) {
+      if (
+        !model.organizationId ||
+        !model.canRevokeGrants ||
+        model.mutating ||
+        grant.isBuiltin
+      ) {
         return;
       }
 
-      setGrantPendingRevoke(grant);
+      setPendingRevoke({ grant, organizationId: model.organizationId });
     },
-    [model.canRevokeGrants, model.mutating],
+    [model.canRevokeGrants, model.mutating, model.organizationId],
   );
   const closeRevokeGrantDialog = useCallback(() => {
-    setGrantPendingRevoke(null);
+    setPendingRevoke(null);
   }, []);
   const confirmRevokeGrant = useCallback(() => {
-    if (!grantPendingRevoke || !model.canRevokeGrants || model.mutating) {
+    if (
+      !pendingRevoke ||
+      !grantPendingRevoke ||
+      !model.canRevokeGrants ||
+      model.mutating
+    ) {
       return;
     }
 
     void model.revokeGrant(grantPendingRevoke).finally(() => {
-      setGrantPendingRevoke(null);
+      setPendingRevoke((current) =>
+        current === pendingRevoke ? null : current,
+      );
     });
   }, [
     grantPendingRevoke,
     model.canRevokeGrants,
     model.mutating,
     model.revokeGrant,
+    pendingRevoke,
   ]);
 
   return {
@@ -299,6 +328,16 @@ function useOrgManagerRosterDetailBackAction(model: OrgManagerModel) {
   return { backFromRosterDetail, showRosterDetailBackAction };
 }
 
+function OrgManagerAuthenticationRequired() {
+  return (
+    <MiniAppRoot centered>
+      <MiniAppStatus className="org-manager-hint">
+        {ORG_MANAGER_LABELS.authenticate}
+      </MiniAppStatus>
+    </MiniAppRoot>
+  );
+}
+
 export function OrgManager() {
   const model = useOrgManagerModel();
   const { backFromRosterDetail, showRosterDetailBackAction } =
@@ -334,35 +373,34 @@ export function OrgManager() {
     view: model.view,
   });
 
-  if (!organizationId || !model.isAuthenticated) {
-    return (
-      <MiniAppRoot centered>
-        <MiniAppStatus className="org-manager-hint">
-          {ORG_MANAGER_LABELS.authenticate}
-        </MiniAppStatus>
-      </MiniAppRoot>
-    );
+  if (!model.isAuthenticated) {
+    return <OrgManagerAuthenticationRequired />;
   }
 
   return (
     <MiniAppRoot>
       <OrgSwitcher switcher={model.orgSwitcher} />
       <main className="org-manager-main" onContextMenu={handleMainContextMenu}>
+        {!organizationId && (
+          <MiniAppStatus className="org-manager-hint">
+            {ORG_MANAGER_LABELS.selectOrganization}
+          </MiniAppStatus>
+        )}
         {model.error && (
           <MiniAppStatus className="org-manager-error" tone="error">
             {model.error}
           </MiniAppStatus>
         )}
-        {model.showCompactMenu ? (
+        {organizationId && model.showCompactMenu ? (
           <OrgManagerMenu setView={model.openSection} />
-        ) : (
+        ) : organizationId ? (
           <OrgManagerContent
             model={model}
             organizationId={organizationId}
             revokeGrant={revokeGrantDialog.requestRevokeGrant}
             showDirectoryDetailDismissButton={!showRosterDetailBackAction}
           />
-        )}
+        ) : null}
       </main>
       <OrgManagerContextMenuLayer
         canCreateGroup={model.canCreateGroup}

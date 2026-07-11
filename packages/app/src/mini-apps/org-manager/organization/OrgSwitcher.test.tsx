@@ -20,12 +20,15 @@ function createSwitcher(
     },
     createOrganizationError: null,
     creating: false,
+    interactionDisabled: false,
     isCreateOrganizationDialogOpen: false,
     openCreateOrganizationDialog: () => {},
     organizations: [
       { name: "Acme", organizationId: "org-a", rootContainerId: "c-a" },
       { name: null, organizationId: "org-b", rootContainerId: "c-b" },
     ],
+    organizationsError: null,
+    organizationsLoading: false,
     selectOrganization: () => {},
     ...overrides,
   };
@@ -140,4 +143,33 @@ test("org switcher opens the create-organization dialog from the footer", () => 
   fireEvent.click(view.getByText(ORG_MANAGER_LABELS.newOrganizationAction));
 
   expect(opened).toBe(1);
+});
+
+test("org switcher exposes list loading and disables interaction", () => {
+  const view = render(
+    <OrgSwitcher
+      switcher={createSwitcher({
+        interactionDisabled: true,
+        organizations: [],
+        organizationsLoading: true,
+      })}
+    />,
+  );
+
+  expect((getTrigger(view) as HTMLButtonElement).disabled).toBe(true);
+  expect(view.getByText(ORG_MANAGER_LABELS.loadingOrganizations)).toBeTruthy();
+});
+
+test("org switcher exposes organization-list failures", () => {
+  const view = render(
+    <OrgSwitcher
+      switcher={createSwitcher({
+        organizationsError: ORG_MANAGER_LABELS.failedLoadOrganizations,
+      })}
+    />,
+  );
+
+  expect(
+    view.getByText(ORG_MANAGER_LABELS.failedLoadOrganizations),
+  ).toBeTruthy();
 });
