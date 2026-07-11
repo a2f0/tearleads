@@ -1,6 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
 import type { BlobBytes, BlobInfo, BlobStore } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+} from "@testing-library/react";
 import { LogProvider } from "../../providers/logging/LogProvider";
 import {
   DocumentBlobPickProvider,
@@ -160,12 +166,11 @@ test("hides the picker when the document has no container", () => {
 });
 
 test("hides the picker when the container has no blobs to pick", async () => {
-  const requests: DocumentBlobPickRequest[] = [];
   const view = render(
     <Harness
       blobCount={0}
       containerId="container-1"
-      onRequest={(request) => requests.push(request)}
+      onRequest={() => undefined}
       picked={null}
       setAttachment={() => undefined}
     />,
@@ -175,10 +180,11 @@ test("hides the picker when the container has no blobs to pick", async () => {
     name: "Choose Blob",
   }) as HTMLButtonElement;
 
-  // Starts hidden and stays hidden: the zero count never reveals it.
-  await waitFor(() => {
-    expect(button.disabled).toBe(true);
+  // Flush the async count query and its state update so we assert the settled
+  // state, not just the initial disabled render: a zero count must leave the
+  // button disabled rather than reveal it.
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  fireEvent.click(button);
-  expect(requests).toEqual([]);
+  expect(button.disabled).toBe(true);
 });
