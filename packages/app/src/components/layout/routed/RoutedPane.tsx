@@ -69,10 +69,11 @@ export function initialRoutedSidebarExpanded(
 export function resolveRoutedActiveMiniAppId(
   routeAppId: MiniAppId | null,
 ): MiniAppId {
-  const routeAppRegistered =
-    routeAppId !== null && Object.hasOwn(MINI_APPS, routeAppId);
+  if (routeAppId !== null && Object.hasOwn(MINI_APPS, routeAppId)) {
+    return routeAppId;
+  }
 
-  return routeAppRegistered ? routeAppId : ROUTED_ROOT_MINI_APP_ID;
+  return ROUTED_ROOT_MINI_APP_ID;
 }
 
 export function menuPositionBelow(anchor: HTMLElement): MenuPosition {

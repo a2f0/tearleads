@@ -72,9 +72,14 @@ function openRoutedMiniAppLink(
   view: ReturnType<typeof renderRoutedPane>,
   name: string,
 ) {
-  // The routed nav rail defaults to collapsed, so open it before reaching the
-  // app links it hosts.
-  fireEvent.click(view.getByRole("button", { name: "Expand navigation rail" }));
+  // The routed nav rail defaults to collapsed, so open it (when it isn't
+  // already) before reaching the app links it hosts.
+  const expandRail = view.queryByRole("button", {
+    name: "Expand navigation rail",
+  });
+  if (expandRail) {
+    fireEvent.click(expandRail);
+  }
   fireEvent.click(view.getByRole("link", { name }));
 }
 
