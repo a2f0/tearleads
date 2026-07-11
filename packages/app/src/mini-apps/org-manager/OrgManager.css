@@ -116,6 +116,26 @@
   flex: 0 0 auto;
 }
 
+.org-manager-usage-breakdown {
+  display: flex;
+  flex-direction: column;
+  padding-left: 1rem;
+}
+
+.org-manager-usage-subrow {
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.org-manager-usage-subrow .mini-app-row-stack {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.org-manager-usage-subrow .mini-app-row-text:last-child {
+  flex: 0 0 auto;
+}
+
 .org-manager-member-row {
   justify-content: space-between;
 }

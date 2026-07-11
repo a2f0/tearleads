@@ -5,21 +5,39 @@ import type {
 import {
   blobContentWriteHeaders,
   blobs,
+  containerMetadataDocuments,
   documentContentWriteHeaders,
   documentUpdates,
+  organizationRosterEntries,
+  organizations,
 } from "@tearleads/api-shared/schema";
-import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
+import type {
+  OrganizationDataUsageResponse,
+  OrganizationDocumentUsageCategory,
+  OrganizationDocumentUsageCategoryBreakdown,
+} from "@tearleads/validators/response";
 import { sql } from "drizzle-orm";
 import { uuidValue } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "./access";
 
-interface OrganizationDataUsageRow {
+// Fixed render order for the document breakdown. Built-in/system artifacts the
+// app generates on the user's behalf (container metadata, per-member roster
+// profiles, the org's public metadata document) come first; everything else is
+// a genuine user document. Contacts and Trash contents are deliberately counted
+// as user data — those live in per-user system containers but hold user content.
+const DOCUMENT_USAGE_CATEGORY_ORDER: readonly OrganizationDocumentUsageCategory[] =
+  ["containerMetadata", "rosterProfiles", "organizationMetadata", "user"];
+
+interface OrganizationBlobUsageRow {
   blobByteLength: unknown;
   blobCount: unknown;
-  documentByteLength: unknown;
+}
+
+interface OrganizationDocumentCategoryRow {
+  byteLength: unknown;
+  category: unknown;
   documentCount: unknown;
   documentUpdateCount: unknown;
-  totalByteLength: unknown;
 }
 
 function toNonNegativeSafeInteger(value: unknown, label: string): number {
@@ -42,10 +60,25 @@ function toNonNegativeSafeInteger(value: unknown, label: string): number {
   return Number(bigintValue);
 }
 
-function isOrganizationDataUsageRow(
+function isOrganizationBlobUsageRow(
   value: unknown,
-): value is OrganizationDataUsageRow {
+): value is OrganizationBlobUsageRow {
   return typeof value === "object" && value !== null;
+}
+
+function isOrganizationDocumentCategoryRow(
+  value: unknown,
+): value is OrganizationDocumentCategoryRow {
+  return typeof value === "object" && value !== null;
+}
+
+function isDocumentUsageCategory(
+  value: unknown,
+): value is OrganizationDocumentUsageCategory {
+  return (
+    typeof value === "string" &&
+    DOCUMENT_USAGE_CATEGORY_ORDER.some((category) => category === value)
+  );
 }
 
 async function loadOrganizationDataUsageInTransaction(input: {
@@ -58,7 +91,14 @@ async function loadOrganizationDataUsageInTransaction(input: {
     organizationId: input.organizationId,
     userId: input.sessionUserId,
   });
-  const result = await input.executor.execute(sql`
+
+  // Classify each of the org's documents into exactly one category. The three
+  // system categories are recognized by direct joins: container metadata
+  // documents (one per container), per-member roster profile documents, and the
+  // organization's own public profile document. Anything left over is a user
+  // document. Categories partition the document set, so summing them reproduces
+  // the org-wide totals.
+  const categoryResult = await input.executor.execute(sql`
     with document_rows as (
       select
         ${documentUpdates.id} as "updateId",
@@ -73,14 +113,48 @@ async function loadOrganizationDataUsageInTransaction(input: {
         ${documentUpdates.documentId},
         ${documentUpdates.byteLength}
     ),
-    document_usage as (
-      select
-        coalesce(sum("byteLength"), 0) as "documentByteLength",
-        count(distinct "documentId") as "documentCount",
-        count("updateId") as "documentUpdateCount"
-      from document_rows
+    distinct_documents as (
+      select distinct "documentId" from document_rows
     ),
-    blob_rows as (
+    document_categories as (
+      select
+        distinct_documents."documentId" as "documentId",
+        case
+          when ${containerMetadataDocuments.documentId} is not null
+            then 'containerMetadata'
+          when roster_profiles."profileDocumentId" is not null
+            then 'rosterProfiles'
+          when ${organizations.profileDocumentId} is not null
+            then 'organizationMetadata'
+          else 'user'
+        end as "category"
+      from distinct_documents
+      left join ${containerMetadataDocuments}
+        on ${containerMetadataDocuments.documentId} = distinct_documents."documentId"
+      left join (
+        select distinct ${organizationRosterEntries.profileDocumentId} as "profileDocumentId"
+        from ${organizationRosterEntries}
+        where ${organizationRosterEntries.organizationId} = ${uuidValue(input.organizationId)}
+          and ${organizationRosterEntries.profileDocumentId} is not null
+      ) as roster_profiles
+        on roster_profiles."profileDocumentId" = distinct_documents."documentId"
+      left join ${organizations}
+        on ${organizations.id} = ${uuidValue(input.organizationId)}
+        and ${organizations.profileDocumentId} = distinct_documents."documentId"
+    )
+    select
+      document_categories."category" as "category",
+      coalesce(sum(document_rows."byteLength"), 0) as "byteLength",
+      count(distinct document_rows."documentId") as "documentCount",
+      count(document_rows."updateId") as "documentUpdateCount"
+    from document_rows
+    inner join document_categories
+      on document_categories."documentId" = document_rows."documentId"
+    group by document_categories."category"
+  `);
+
+  const blobResult = await input.executor.execute(sql`
+    with blob_rows as (
       select distinct
         ${blobs.id} as "blobId",
         ${blobs.byteLength} as "byteLength"
@@ -88,42 +162,30 @@ async function loadOrganizationDataUsageInTransaction(input: {
       inner join ${blobContentWriteHeaders}
         on ${blobContentWriteHeaders.blobId} = ${blobs.id}
       where ${blobContentWriteHeaders.organizationId} = ${uuidValue(input.organizationId)}
-    ),
-    blob_usage as (
-      select
-        coalesce(sum("byteLength"), 0) as "blobByteLength",
-        count("blobId") as "blobCount"
-      from blob_rows
     )
     select
-      document_usage."documentByteLength",
-      document_usage."documentCount",
-      document_usage."documentUpdateCount",
-      blob_usage."blobByteLength",
-      blob_usage."blobCount",
-      (
-        document_usage."documentByteLength" +
-        blob_usage."blobByteLength"
-      ) as "totalByteLength"
-    from document_usage, blob_usage
+      coalesce(sum("byteLength"), 0) as "blobByteLength",
+      count("blobId") as "blobCount"
+    from blob_rows
   `);
-  const row = result.rows[0];
-  if (!isOrganizationDataUsageRow(row)) {
-    throw new Error("Missing organization data usage row");
-  }
 
-  return {
-    organizationId: input.organizationId,
-    blobs: {
-      blobCount: toNonNegativeSafeInteger(row.blobCount, "blobCount"),
+  const usageByCategory = new Map<
+    OrganizationDocumentUsageCategory,
+    { byteLength: number; documentCount: number; updateCount: number }
+  >();
+  for (const row of categoryResult.rows) {
+    if (!isOrganizationDocumentCategoryRow(row)) {
+      throw new Error("Missing organization data usage row");
+    }
+    const category = row.category;
+    if (!isDocumentUsageCategory(category)) {
+      throw new Error(
+        `Unexpected organization document usage category: ${String(category)}`,
+      );
+    }
+    usageByCategory.set(category, {
       byteLength: toNonNegativeSafeInteger(
-        row.blobByteLength,
-        "blobByteLength",
-      ),
-    },
-    documents: {
-      byteLength: toNonNegativeSafeInteger(
-        row.documentByteLength,
+        row.byteLength,
         "documentByteLength",
       ),
       documentCount: toNonNegativeSafeInteger(
@@ -134,11 +196,54 @@ async function loadOrganizationDataUsageInTransaction(input: {
         row.documentUpdateCount,
         "documentUpdateCount",
       ),
+    });
+  }
+
+  const breakdown: OrganizationDocumentUsageCategoryBreakdown[] =
+    DOCUMENT_USAGE_CATEGORY_ORDER.map((category) => {
+      const usage = usageByCategory.get(category) ?? {
+        byteLength: 0,
+        documentCount: 0,
+        updateCount: 0,
+      };
+      return { category, ...usage };
+    });
+
+  const documentByteLength = breakdown.reduce(
+    (total, entry) => total + entry.byteLength,
+    0,
+  );
+  const documentCount = breakdown.reduce(
+    (total, entry) => total + entry.documentCount,
+    0,
+  );
+  const documentUpdateCount = breakdown.reduce(
+    (total, entry) => total + entry.updateCount,
+    0,
+  );
+
+  const blobRow = blobResult.rows[0];
+  if (!isOrganizationBlobUsageRow(blobRow)) {
+    throw new Error("Missing organization data usage row");
+  }
+  const blobByteLength = toNonNegativeSafeInteger(
+    blobRow.blobByteLength,
+    "blobByteLength",
+  );
+
+  return {
+    organizationId: input.organizationId,
+    blobs: {
+      blobCount: toNonNegativeSafeInteger(blobRow.blobCount, "blobCount"),
+      byteLength: blobByteLength,
     },
-    totalByteLength: toNonNegativeSafeInteger(
-      row.totalByteLength,
-      "totalByteLength",
-    ),
+    documents: {
+      breakdown,
+      byteLength: documentByteLength,
+      documentCount,
+      updateCount: documentUpdateCount,
+    },
+    totalByteLength: documentByteLength + blobByteLength,
   };
 }
 
