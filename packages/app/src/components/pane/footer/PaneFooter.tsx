@@ -1,3 +1,4 @@
+import { TearleadsLogo } from "@tearleads/ui";
 import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
 import { MINI_APP_ICONS } from "../../../mini-apps/registry";
@@ -35,11 +36,12 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
         <button
           type="button"
           className="tearleads-action-button pane-footer-menu-button"
+          aria-label="Menu"
           aria-haspopup="menu"
           aria-expanded={menu !== null}
           onClick={handleClick}
         >
-          Menu
+          <TearleadsLogo className="pane-footer-menu-logo" />
         </button>
         {minimizedWindows.map((w) => {
           const AppIcon = w.appId ? MINI_APP_ICONS[w.appId] : undefined;
