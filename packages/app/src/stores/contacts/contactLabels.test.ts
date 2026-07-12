@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { getViewerRelativeContactDocumentLabel } from "./contactLabels";
+import type { ContactEntry } from "../../document-types/contact/contactDocumentModel";
+import {
+  findCurrentSelfContactLocalId,
+  getViewerRelativeContactDocumentLabel,
+} from "./contactLabels";
 import { getSelfContactLocalId } from "./selfContact";
 
 const FINGERPRINT = "fp-123";
@@ -20,7 +24,7 @@ test("resolves the unnamed self-contact to You when matched by fingerprint", () 
   ).toBe("You");
 });
 
-test("resolves the unnamed self-contact to You when matched by userId localId", () => {
+test("does not infer self identity from a userId-shaped local id", () => {
   expect(
     getViewerRelativeContactDocumentLabel({
       currentSigningFingerprint: null,
@@ -29,7 +33,34 @@ test("resolves the unnamed self-contact to You when matched by userId localId", 
       fallbackLabel: "Untitled contact",
       localId: USER_ID,
     }),
+  ).toBe("Untitled contact");
+});
+
+test("resolves a recovered self-contact whose local id is the remote document id", () => {
+  const recoveredLocalId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  expect(
+    getViewerRelativeContactDocumentLabel({
+      currentSigningFingerprint: FINGERPRINT,
+      currentSelfContactLocalId: recoveredLocalId,
+      currentUserId: USER_ID,
+      documentKind: "contact",
+      fallbackLabel: USER_ID,
+      localId: recoveredLocalId,
+    }),
   ).toBe("You");
+});
+
+test("does not infer self identity from a contact named as the current user id", () => {
+  expect(
+    getViewerRelativeContactDocumentLabel({
+      currentSigningFingerprint: FINGERPRINT,
+      currentSelfContactLocalId: "recovered-self-contact",
+      currentUserId: USER_ID,
+      documentKind: "contact",
+      fallbackLabel: USER_ID,
+      localId: "another-contact",
+    }),
+  ).toBe(USER_ID);
 });
 
 test("resolves an empty self-contact fallback to You", () => {
@@ -78,4 +109,36 @@ test("does not relabel non-contact documents even at the self local id", () => {
       localId: SELF_LOCAL_ID,
     }),
   ).toBe(USER_ID);
+});
+
+function contactEntry(
+  overrides: Partial<ContactEntry> & Pick<ContactEntry, "id">,
+): ContactEntry {
+  return {
+    canWrite: true,
+    encapsulationPublicKey: null,
+    firstName: "",
+    isSelf: false,
+    lastName: "",
+    nickname: "",
+    userId: null,
+    ...overrides,
+  };
+}
+
+test("selects only the writable projected self contact for the current user", () => {
+  const entries = [
+    contactEntry({
+      id: "read-only-self",
+      isSelf: true,
+      userId: USER_ID,
+      canWrite: false,
+    }),
+    contactEntry({ id: "other-user-self", isSelf: true, userId: "other-user" }),
+    contactEntry({ id: "same-user-not-self", userId: USER_ID }),
+    contactEntry({ id: "current-self", isSelf: true, userId: USER_ID }),
+  ];
+
+  expect(findCurrentSelfContactLocalId(entries, USER_ID)).toBe("current-self");
+  expect(findCurrentSelfContactLocalId(entries, null)).toBeNull();
 });

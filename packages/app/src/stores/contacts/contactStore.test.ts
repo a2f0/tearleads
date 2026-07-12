@@ -338,65 +338,6 @@ test("contacts store ensures self contact from deterministic local identity", as
   }
 });
 
-test("contacts store replaces an empty legacy self contact", async () => {
-  const runtime = await createContactsRuntime();
-  const selfKey: UserKey = {
-    encapsulationPublicKey: "self-encapsulation-public-key",
-    signingKeyFingerprint: "self-signing-fingerprint",
-    signingPublicKey: "self-signing-public-key",
-    userId: "self-user",
-  };
-  const store = createContactsStore(runtime, {
-    fetchUserKey: async () => {
-      throw new Error("unexpected remote self key fetch");
-    },
-    logError: (message, cause) => {
-      throw new Error(String(message), { cause });
-    },
-  });
-
-  try {
-    store.updateRuntime(runtime);
-    await waitForCondition(
-      () => store.getSnapshot().ready,
-      "Contacts store did not initialize.",
-    );
-
-    const legacyContactId = await store.createContact({
-      encapsulationPublicKey: selfKey.encapsulationPublicKey,
-      isSelf: true,
-      userId: selfKey.userId,
-    });
-    expect(legacyContactId).not.toBeNull();
-    await waitForCondition(
-      () =>
-        store
-          .getSnapshot()
-          .entries.some(
-            (entry) => entry.id === legacyContactId && entry.isSelf,
-          ),
-      "Legacy self contact did not appear.",
-    );
-
-    const selfContactId = getSelfContactLocalId(selfKey.signingKeyFingerprint);
-    const contactId = await store.ensureSelfContact({
-      encapsulationPublicKey: selfKey.encapsulationPublicKey,
-      localId: selfContactId,
-      userId: selfKey.userId,
-    });
-    expect(contactId).toBe(selfContactId);
-
-    await waitForCondition(
-      () =>
-        store.getSnapshot().entries.filter((entry) => entry.isSelf).length ===
-          1 && store.getSnapshot().entries[0]?.id === selfContactId,
-      "Legacy self contact was not replaced.",
-    );
-  } finally {
-    runtime.close();
-  }
-});
-
 test("contacts store does not reseed a You nickname for existing self contacts", async () => {
   const runtime = await createContactsRuntime();
   const selfKey: UserKey = {

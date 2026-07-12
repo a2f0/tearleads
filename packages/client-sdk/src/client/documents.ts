@@ -16,6 +16,7 @@ import {
   type PersistedDocumentListener,
   subscribeToPersistedDocuments,
 } from "../stores/documents";
+import { emitPersistedDocumentDeletion } from "../stores/documents/registry";
 import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
@@ -104,6 +105,7 @@ class DocumentsService implements Documents {
       localId,
       persistence: defaultDocumentsPersistence,
     });
+    emitPersistedDocumentDeletion(runtime.state.domainScope, localId);
     return true;
   }
 

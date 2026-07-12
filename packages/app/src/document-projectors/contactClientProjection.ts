@@ -3,14 +3,8 @@ import {
   defineSqlTableSchema,
   getSQLitePersistenceRuntime,
 } from "@tearleads/client-sdk/sqlite";
-import { eq, sql } from "drizzle-orm";
-import {
-  index,
-  integer,
-  sqliteTable,
-  text,
-  uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+import { eq } from "drizzle-orm";
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { readContactFieldsFromRecord } from "../document-types/contact/contactDocumentDefinition";
 import {
   isTruthyStructuredField,
@@ -31,15 +25,7 @@ export const contactProjection = sqliteTable(
     isSelf: integer("is_self").notNull().default(0),
     updatedAt: text("updated_at").notNull(),
   },
-  (table) => [
-    uniqueIndex("contact_projection_container_self_idx")
-      .on(table.containerId, table.isSelf)
-      .where(sql`${table.isSelf} = 1`),
-    uniqueIndex("contact_projection_container_user_idx")
-      .on(table.containerId, table.userId)
-      .where(sql`${table.userId} IS NOT NULL`),
-    index("contact_projection_container_idx").on(table.containerId),
-  ],
+  (table) => [index("contact_projection_container_idx").on(table.containerId)],
 );
 
 const CONTACT_PROJECTION_TABLE = defineSqlTableSchema(contactProjection);

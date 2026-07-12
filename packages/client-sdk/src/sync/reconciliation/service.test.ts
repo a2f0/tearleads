@@ -23,6 +23,7 @@ function createHost(
   };
 
   return {
+    canDiscoverContainerDocuments: () => true,
     domainScope: {} as DomainScope,
     getRuntimeStatus: () => status,
     listKnownContainerIds: () => overrides.knownContainerIds ?? [],

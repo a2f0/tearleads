@@ -71,6 +71,37 @@ export function applyContainerSummaries(
   return changed;
 }
 
+/** Remove a locally deleted document from every hydrated container view. */
+export function removeDocumentSummary(
+  cache: SummaryCache,
+  localId: string,
+): boolean {
+  const removedDocumentIds = new Set<string>();
+  let changed = false;
+
+  for (const [containerId, summaries] of cache.summariesByContainerId) {
+    const remaining = summaries.filter((summary) => {
+      if (summary.id !== localId) {
+        return true;
+      }
+      if (summary.documentId) {
+        removedDocumentIds.add(summary.documentId);
+      }
+      return false;
+    });
+    if (remaining.length !== summaries.length) {
+      cache.summariesByContainerId.set(containerId, remaining);
+      changed = true;
+    }
+  }
+
+  for (const documentId of removedDocumentIds) {
+    changed =
+      cache.linkedContainerIdsByDocumentId.delete(documentId) || changed;
+  }
+  return changed;
+}
+
 function areSummaryListsEqual(
   left: ReadonlyArray<DocumentSummary>,
   right: ReadonlyArray<DocumentSummary>,

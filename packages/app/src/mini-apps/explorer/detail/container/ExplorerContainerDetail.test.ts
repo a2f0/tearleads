@@ -100,7 +100,7 @@ const currentSelfContactRow: ContainerItemRow = {
   documentId: "current-self-contact-doc",
   documentKind: "contact",
   itemKind: "document",
-  localId: "self_contact_v1_current-fingerprint",
+  localId: "recovered-current-self-contact",
   name: "current-user-id",
   syncState: syncedContainerDocumentObjectSyncState,
   updatedAt: null,
@@ -141,6 +141,7 @@ function renderContainerItemTable(
     createElement(ExplorerContainerItemTable, {
       contextTarget: null,
       currentSigningFingerprint: null,
+      currentSelfContactLocalId: null,
       currentUserId: null,
       dragActive: false,
       error: null,
@@ -399,6 +400,7 @@ test("container item table highlights no row when the context menu is closed", (
 test("container item table labels only the current self contact as You", () => {
   const view = renderContainerItemTable({
     currentSigningFingerprint: "current-fingerprint",
+    currentSelfContactLocalId: currentSelfContactRow.localId,
     currentUserId: "current-user-id",
     rows: [
       currentSelfContactRow,

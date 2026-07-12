@@ -112,6 +112,7 @@ interface ExplorerDetailPanelProps {
   databaseError: boolean;
   currentOrganizationId: string | null | undefined;
   currentSigningFingerprint: string | null | undefined;
+  currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
@@ -350,6 +351,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
     return (
       <ExplorerDocumentDetail
         currentSigningFingerprint={params.currentSigningFingerprint}
+        currentSelfContactLocalId={params.currentSelfContactLocalId}
         currentUserId={params.currentUserId}
         documentListRevision={params.documentListRevision}
         documentQueries={params.documentQueries}
@@ -373,6 +375,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         contextTarget={params.contextTarget}
         currentOrganizationId={params.currentOrganizationId}
         currentSigningFingerprint={params.currentSigningFingerprint}
+        currentSelfContactLocalId={params.currentSelfContactLocalId}
         currentUserId={params.currentUserId}
         documentListRevision={params.documentListRevision}
         documentQueries={params.documentQueries}

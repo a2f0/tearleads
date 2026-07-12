@@ -156,6 +156,7 @@ function getExplorerContainerItemTypeLabel(row: ContainerItemRow): string {
 
 export interface ExplorerItemCellContext {
   currentSigningFingerprint: string | null | undefined;
+  currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
   online: boolean;
   row: ContainerItemRow;
@@ -175,6 +176,7 @@ function getExplorerContainerItemName(ctx: ExplorerItemCellContext): string {
 
   return getViewerRelativeContactDocumentLabel({
     currentSigningFingerprint: ctx.currentSigningFingerprint,
+    currentSelfContactLocalId: ctx.currentSelfContactLocalId,
     currentUserId: ctx.currentUserId,
     documentKind: row.documentKind,
     fallbackLabel: row.name,
@@ -229,6 +231,9 @@ function ExplorerItemNameCell(ctx: ExplorerItemCellContext): ReactNode {
     <MiniAppTableCell key="name">
       <button
         className="explorer-item-row-button"
+        data-document-local-id={
+          row.itemKind === "document" ? row.localId : undefined
+        }
         onClick={openItem}
         type="button"
       >

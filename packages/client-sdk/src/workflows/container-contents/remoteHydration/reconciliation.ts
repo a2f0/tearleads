@@ -234,27 +234,70 @@ export async function reconcileLocalOnlyRootContainers(input: {
     });
   }
 
+  // A remote system child can be applied before its remote root (for example,
+  // from an earlier page/pass). Its local twin does not match while it is still
+  // parented to the pre-auth root. Root reconciliation fixes the parent and
+  // organization, so retry every already-known remote system sibling now. The
+  // normal root-first ordering still reconciles when the remote system arrives.
+  for (const knownRemoteSystemState of Array.from(
+    state.containersById.values(),
+  )) {
+    if (
+      (knownRemoteSystemState.container.systemSlot ?? null) !== null &&
+      hasRemoteContainerMetadataState(knownRemoteSystemState)
+    ) {
+      await reconcileLocalOnlySystemContainers({
+        childIdsByParentId,
+        remoteSystemState: knownRemoteSystemState,
+        state,
+      });
+    }
+  }
+
   return localRootStates.length;
 }
 
 function isLocalOnlySystemContainerState(input: {
   containerState: ContainerState;
   remoteSystemState: ContainerState;
+  state: RemoteContainerHydrationState;
 }): boolean {
-  const localSystemSlot = input.containerState.container.systemSlot ?? null;
-  const remoteSystemSlot = input.remoteSystemState.container.systemSlot ?? null;
+  const { containerState, remoteSystemState, state } = input;
+  const localSystemSlot = containerState.container.systemSlot ?? null;
+  const remoteSystemSlot = remoteSystemState.container.systemSlot ?? null;
 
-  return (
-    remoteSystemSlot !== null &&
-    localSystemSlot === remoteSystemSlot &&
-    input.containerState.container.organizationId ===
-      input.remoteSystemState.container.organizationId &&
-    input.containerState.container.parentId ===
-      input.remoteSystemState.container.parentId &&
-    input.containerState.container.id !==
-      input.remoteSystemState.container.id &&
-    !hasRemoteContainerMetadataState(input.containerState)
-  );
+  if (
+    remoteSystemSlot === null ||
+    localSystemSlot !== remoteSystemSlot ||
+    containerState.container.id === remoteSystemState.container.id ||
+    hasRemoteContainerMetadataState(containerState)
+  ) {
+    return false;
+  }
+
+  const sharesRemoteLocation =
+    containerState.container.organizationId ===
+      remoteSystemState.container.organizationId &&
+    containerState.container.parentId === remoteSystemState.container.parentId;
+  if (sharesRemoteLocation) {
+    return true;
+  }
+
+  const homeOrganizationId = state.runtime.auth.organizationId;
+  if (
+    !homeOrganizationId ||
+    remoteSystemState.container.organizationId !== homeOrganizationId ||
+    containerState.container.organizationId !== ""
+  ) {
+    return false;
+  }
+
+  const localParentId = containerState.container.parentId;
+  const localParentState = localParentId
+    ? state.containersById.get(localParentId)
+    : null;
+
+  return !localParentState || isLocalOnlyRootContainerState(localParentState);
 }
 
 function findLocalOnlySystemContainerStates(input: {
@@ -270,6 +313,7 @@ function findLocalOnlySystemContainerStates(input: {
     isLocalOnlySystemContainerState({
       containerState,
       remoteSystemState,
+      state,
     }),
   );
 }

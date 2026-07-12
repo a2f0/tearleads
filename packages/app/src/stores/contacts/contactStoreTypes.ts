@@ -27,6 +27,7 @@ export interface ContactsRuntime {
   openDocumentStore: (
     input: OpenDocumentInput & { readonly localId: string },
   ) => DocumentStore;
+  purgeDocument?: ((document: DocumentSummary) => Promise<boolean>) | undefined;
   subscribeToPersistedDocuments?:
     | ((listener: (document: DocumentSummary) => void) => () => void)
     | undefined;
@@ -65,6 +66,7 @@ export interface ContactsStoreState {
   initializePromise: Promise<void> | null;
   initialized: boolean;
   listeners: Set<() => void>;
+  onContactEntry: (entry: ContactEntry) => void;
   pendingSnapshotFlush: boolean;
   persistedDocumentsUnsubscribe: (() => void) | null;
   runtime: ContactsRuntime;

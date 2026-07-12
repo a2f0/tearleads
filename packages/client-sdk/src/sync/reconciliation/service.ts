@@ -26,6 +26,8 @@ export interface ReconciliationRuntimeStatus {
 export interface ReconciliationHost {
   domainScope: DomainScope;
   getRuntimeStatus: () => ReconciliationRuntimeStatus;
+  /** Whether this id currently has a remotely listable container lane. */
+  canDiscoverContainerDocuments: (containerId: string) => boolean;
   /** Known container ids, used for idle backfill and event mapping. */
   listKnownContainerIds: () => ReadonlyArray<string>;
   /** Known ids eligible after an automatic root-lane discovery hint. */
@@ -114,7 +116,14 @@ async function reconcileOneContainer(
   host: ReconciliationHost,
   containerId: string,
   options: { forceDocumentContentPull?: boolean } = {},
-): Promise<void> {
+): Promise<boolean> {
+  // Structural hydration can replace a queued local root/system id before the
+  // document phase runs. Re-check current state at dequeue/sweep time so that
+  // stale, never-remote ids do not leak into /containers/:id/documents.
+  if (!host.canDiscoverContainerDocuments(containerId)) {
+    return false;
+  }
+
   try {
     await host.discoverContainerDocuments(containerId);
     const delta = await host.loadContainerDelta(containerId);
@@ -128,9 +137,10 @@ async function reconcileOneContainer(
       delta.documentSummaries,
       options.forceDocumentContentPull ?? false,
     );
+    return true;
   } catch (error) {
     if (host.isIgnorableError(error)) {
-      return;
+      return true;
     }
     throw error;
   }
@@ -152,9 +162,12 @@ async function sweepKnownContainers(
   let firstError: unknown;
   for (const containerId of knownIds) {
     try {
-      await reconcileOneContainer(host, containerId, {
+      const reconciled = await reconcileOneContainer(host, containerId, {
         forceDocumentContentPull: true,
       });
+      if (!reconciled) {
+        state.discoveredContainerIds.delete(containerId);
+      }
     } catch (error) {
       if (!host.isIgnorableError(error) && firstError === undefined) {
         firstError = error;
@@ -188,7 +201,10 @@ async function runReconcileLane(
   if (shouldForce || !state.discoveredContainerIds.has(containerId)) {
     state.discoveredContainerIds.add(containerId);
     try {
-      await reconcileOneContainer(host, containerId);
+      const reconciled = await reconcileOneContainer(host, containerId);
+      if (!reconciled) {
+        state.discoveredContainerIds.delete(containerId);
+      }
     } catch (error) {
       state.discoveredContainerIds.delete(containerId);
       throw error;
@@ -303,7 +319,11 @@ function listFullRefreshContainerIds(
 ): ReadonlyArray<string> {
   const knownIds = host.listKnownContainerIds();
   const activeContainerId = state.activeContainerId;
-  if (!activeContainerId || knownIds.includes(activeContainerId)) {
+  if (
+    !activeContainerId ||
+    knownIds.includes(activeContainerId) ||
+    !host.canDiscoverContainerDocuments(activeContainerId)
+  ) {
     return knownIds;
   }
 
@@ -361,12 +381,13 @@ export function createReconciliationService(
 
   const enqueueIdleBackfill = () => {
     for (const containerId of host.listKnownContainerIds()) {
-      if (
-        containerId === state.activeContainerId ||
-        state.discoveredContainerIds.has(containerId)
-      ) {
+      if (state.discoveredContainerIds.has(containerId)) {
         continue;
       }
+      // Queue dedupe already collapses an active+idle enqueue of the same id.
+      // Do not skip the active id here: a local-first active container may have
+      // been dropped as ineligible, then become remote-backed under the same id
+      // and rely on a remote-containers-added backfill to re-arm it.
       state.queue.enqueue(containerId, "idle");
     }
     scheduleDrain();

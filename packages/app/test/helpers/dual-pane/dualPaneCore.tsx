@@ -50,7 +50,7 @@ function clickOpenPaneMenuItem(name: string) {
   fireEvent.click(within(menu).getByRole("button", { name }));
 }
 
-async function openIdentityManagerForPane(
+export async function openIdentityManagerForPane(
   pane: HTMLElement,
 ): Promise<HTMLElement> {
   const existing = pane.querySelector<HTMLElement>(".identity-manager");
@@ -126,7 +126,13 @@ const DUAL_PANE_TEST_PROFILE = {
   },
 };
 
-export function renderDualPane(): ReturnType<typeof render> {
+export function renderDualPane({
+  autoProvisionLeft = true,
+  autoProvisionRight = true,
+}: {
+  autoProvisionLeft?: boolean;
+  autoProvisionRight?: boolean;
+} = {}): ReturnType<typeof render> {
   const hostConfig = createTestHostConfig({ profile: DUAL_PANE_TEST_PROFILE });
   saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
   saveSystemMonitorMode(systemMonitorModeStorageKey("right"), "pinned");
@@ -136,14 +142,14 @@ export function renderDualPane(): ReturnType<typeof render> {
       <PaneSideProvider side="left">
         <PaneProvider hostConfig={hostConfig}>
           <AppTestRuntimeScopeProbe />
-          <PaneAutoProvisioner />
+          {autoProvisionLeft && <PaneAutoProvisioner />}
           <Pane className="pane pane-left" />
         </PaneProvider>
       </PaneSideProvider>
       <PaneSideProvider side="right">
         <PaneProvider hostConfig={hostConfig}>
           <AppTestRuntimeScopeProbe />
-          <PaneAutoProvisioner />
+          {autoProvisionRight && <PaneAutoProvisioner />}
           <Pane className="pane pane-right" />
         </PaneProvider>
       </PaneSideProvider>
@@ -329,7 +335,7 @@ export async function waitForDualPaneProvisioning(
   );
 }
 
-export async function provisionPaneFromMenu(pane: HTMLElement) {
+export async function generatePaneKeyPairFromMenu(pane: HTMLElement) {
   await interact(() => {
     fireEvent.click(within(pane).getByText("Menu"));
   });
@@ -342,6 +348,10 @@ export async function provisionPaneFromMenu(pane: HTMLElement) {
       /(?:sqlite worker|SQLite Worker):\s*ready/,
     );
   });
+}
+
+export async function provisionPaneFromMenu(pane: HTMLElement) {
+  await generatePaneKeyPairFromMenu(pane);
 
   const identityManager = await openIdentityManagerForPane(pane);
   await interact(() => {

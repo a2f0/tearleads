@@ -82,6 +82,7 @@ function SidebarContextMenuHarness(params: {
     activeContainerId: rootNode.id,
     collapsedIds,
     currentSigningFingerprint: null,
+    currentSelfContactLocalId: null,
     currentUserId: null,
     databaseError: false,
     onRetryDatabase,

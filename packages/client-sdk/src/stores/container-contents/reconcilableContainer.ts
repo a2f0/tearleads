@@ -24,11 +24,10 @@ export function isRemoteBackedContainerNode(
 /**
  * Whether generic document reconciliation may safely list this container.
  *
- * User containers retain their existing device-first behavior. System
- * containers join generic reconciliation only after remote creation has given
- * them a metadata document id; this lets another device rematerialize Contacts,
- * Trash, and other system data without racing a just-created local slot's first
- * server round-trip.
+ * Every container joins generic reconciliation only after remote creation has
+ * given it a metadata document id. This keeps local-first roots and children
+ * out of an HTTP lane that cannot exist yet, while still letting another device
+ * rematerialize Contacts, Trash, and other system data.
  */
 export function isReconcilableContainerNode(
   node: Pick<
@@ -40,12 +39,19 @@ export function isReconcilableContainerNode(
   >,
   homeOrganizationId: string | null,
 ): boolean {
+  // Document discovery is an HTTP read against the remote container id. A
+  // local-first container has no such lane until its metadata create has
+  // committed; attempting to list it can only produce a 404. This applies to
+  // the pre-auth local root just as much as to a local system container.
+  if (!isRemoteBackedContainerNode(node)) {
+    return false;
+  }
+
   if (!isSystemContainerNode(node)) {
     return true;
   }
 
   return (
-    isRemoteBackedContainerNode(node) &&
     homeOrganizationId !== null &&
     (node.organizationId === homeOrganizationId ||
       isForeignSystemContainerNode(node, homeOrganizationId))
@@ -56,22 +62,26 @@ export function isReconcilableContainerNode(
  * Whether a root-lane discovery hint should re-list this container's documents.
  *
  * The server's root discovery lane can return directly granted non-root
- * containers, so every regular container remains eligible regardless of its
- * parent. Membership-visible foreign system containers remain eligible for
- * catch-up. Own system children are excluded here because
+ * containers, so every remote-backed regular container remains eligible
+ * regardless of its parent. Membership-visible foreign system containers
+ * remain eligible for catch-up. Own system children are excluded here because
  * cold/auth backfill and explicit full refresh already reconcile them; sweeping
  * them on every Explorer-open or shared-root hint creates redundant work.
  */
 export function isAutomaticRootCatchupContainerNode(
   node: Pick<
     ContainerNode,
-    "effectiveAccessLevel" | "organizationId" | "systemSlot"
+    | "effectiveAccessLevel"
+    | "metadataDocumentId"
+    | "organizationId"
+    | "systemSlot"
   >,
   homeOrganizationId: string | null,
 ): boolean {
   return (
-    !isSystemContainerNode(node) ||
-    isForeignSystemContainerNode(node, homeOrganizationId)
+    isRemoteBackedContainerNode(node) &&
+    (!isSystemContainerNode(node) ||
+      isForeignSystemContainerNode(node, homeOrganizationId))
   );
 }
 

@@ -1,9 +1,14 @@
 import type { DomainScope } from "@tearleads/client-sdk";
 import {
+  type ContactEntry,
   type ContactEntryPatch,
   contactEntryToStructuredFieldPatch,
 } from "../../document-types/contact/contactDocumentModel";
 import { loadContactDocumentSummary } from "./contactDocumentSummary";
+import {
+  type ContactStoreOperationGuard,
+  removeDuplicateSelfContacts,
+} from "./contactStoreDuplicateSelfCleanup";
 import {
   ensureContactDocumentStore,
   ensureContactsInitialized,
@@ -11,6 +16,10 @@ import {
   resetContactsStore,
   waitForContactsInitialization,
 } from "./contactStoreInitialization";
+import {
+  createLateSelfContactReconciliation,
+  hydrateLateSelfContactFallback,
+} from "./contactStoreLateSelfReconciliation";
 import {
   contactEntryFromDocumentStore,
   findContactByUserId,
@@ -36,7 +45,6 @@ import {
   normalizeEnsureSelfContactInput,
   type ResolvedSelfContactIdentity,
   resolveSelfContactId,
-  shouldRemoveDuplicateSelfContact,
   toResolvedSelfContactIdentity,
 } from "./selfContact";
 
@@ -44,13 +52,21 @@ export type { ContactsRuntime, ContactsStore, EnsureSelfContactInput };
 export { getSelfContactLocalId };
 
 const contactsStoresByScope = new WeakMap<DomainScope, ContactsStore>();
+const allowContactStoreOperation = () => true;
 
 async function writeContactPatch(
   state: ContactsStoreState,
   contactId: string,
   patch: ContactEntryPatch,
-  options: { readonly deferRemoteSync?: boolean | undefined } = {},
+  options: {
+    readonly deferRemoteSync?: boolean | undefined;
+    readonly guard?: ContactStoreOperationGuard | undefined;
+  } = {},
 ): Promise<void> {
+  const guard = options.guard ?? allowContactStoreOperation;
+  if (!guard()) {
+    return;
+  }
   const store = ensureContactDocumentStore(state, contactId, options);
   const snapshot = store.getSnapshot();
   if (snapshot.ready && !snapshot.canWrite) {
@@ -62,6 +78,9 @@ async function writeContactPatch(
     contactEntryToStructuredFieldPatch(patch),
     { deferRemoteSync: options.deferRemoteSync },
   );
+  if (!guard()) {
+    return;
+  }
   const entry = contactEntryFromDocumentStore(contactId, store);
   if (entry) {
     upsertContactEntry(state, entry);
@@ -125,30 +144,14 @@ async function resolveSelfContactIdentity(
   return toResolvedSelfContactIdentity(normalizedInput);
 }
 
-async function removeDuplicateSelfContacts(
-  state: ContactsStoreState,
-  primaryContactId: string,
-  identity: ResolvedSelfContactIdentity,
-): Promise<void> {
-  for (const entry of state.entriesById.values()) {
-    if (!shouldRemoveDuplicateSelfContact(entry, primaryContactId, identity)) {
-      continue;
-    }
-
-    const trackedStore = state.contactDocumentStoresById.get(entry.id);
-    trackedStore?.unsubscribe();
-    state.contactDocumentStoresById.delete(entry.id);
-    await state.runtime.deleteDocument(entry.id);
-    removeContactEntry(state, entry.id);
-  }
-}
-
 async function ensureSelfContactFromRuntime(
   state: ContactsStoreState,
   input: string | EnsureSelfContactInput,
+  guard: ContactStoreOperationGuard = allowContactStoreOperation,
 ): Promise<string | null> {
   await waitForContactsInitialization(state);
   if (
+    !guard() ||
     state.runtime.documents.infra.dbStatus !== "ready" ||
     !hasContactsContainerRuntime(state)
   ) {
@@ -156,7 +159,7 @@ async function ensureSelfContactFromRuntime(
   }
 
   const identity = await resolveSelfContactIdentity(state, input);
-  if (!identity) {
+  if (!guard() || !identity) {
     return null;
   }
 
@@ -168,12 +171,21 @@ async function ensureSelfContactFromRuntime(
   const current = isSelfContactCurrent(existingContact, identity);
   const deferRemoteSync =
     typeof input !== "string" && input.deferRemoteSync === true;
+  if (!guard()) {
+    return null;
+  }
 
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => {
+      if (!guard()) {
+        return;
+      }
       if (!current || !deferRemoteSync) {
-        await removeDuplicateSelfContacts(state, contactId, identity);
+        await removeDuplicateSelfContacts(state, contactId, identity, guard);
+        if (!guard()) {
+          return;
+        }
         await writeContactPatch(
           state,
           contactId,
@@ -184,11 +196,12 @@ async function ensureSelfContactFromRuntime(
           },
           {
             deferRemoteSync,
+            guard,
           },
         );
         return;
       }
-      await removeDuplicateSelfContacts(state, contactId, identity);
+      await removeDuplicateSelfContacts(state, contactId, identity, guard);
     })
     .catch((error: unknown) => {
       state.dependencies.logError(
@@ -198,6 +211,23 @@ async function ensureSelfContactFromRuntime(
     });
   await state.writeChain;
   return contactId;
+}
+
+async function reconcileLatePersistedSelfContact(
+  state: ContactsStoreState,
+  entry: ContactEntry,
+): Promise<void> {
+  const reconciliation = createLateSelfContactReconciliation(state, entry);
+  if (!reconciliation) {
+    return;
+  }
+  await hydrateLateSelfContactFallback(state, reconciliation);
+
+  await ensureSelfContactFromRuntime(
+    state,
+    reconciliation.input,
+    reconciliation.canApply,
+  );
 }
 
 async function updateContactFromRuntime(
@@ -258,7 +288,12 @@ async function importKeyFromRuntime(
         userId: userKey.userId,
       });
       if (isSelf && identity) {
-        await removeDuplicateSelfContacts(state, contactId, identity);
+        await removeDuplicateSelfContacts(
+          state,
+          contactId,
+          identity,
+          allowContactStoreOperation,
+        );
       }
     })
     .catch((error: unknown) => {
@@ -333,6 +368,16 @@ export function createContactsStore(
     initialized: false,
     initializePromise: null,
     listeners: new Set(),
+    onContactEntry: (entry) => {
+      void reconcileLatePersistedSelfContact(state, entry).catch(
+        (error: unknown) => {
+          state.dependencies.logError(
+            "Contacts: failed to reconcile a hydrated self contact.",
+            error,
+          );
+        },
+      );
+    },
     pendingSnapshotFlush: false,
     persistedDocumentsUnsubscribe: null,
     runtime: initialRuntime,

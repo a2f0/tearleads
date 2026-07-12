@@ -91,6 +91,7 @@ function isExplorerContainerItemContextTarget(
 function ExplorerContainerItemTableRow(params: {
   columnIds: ReadonlyArray<ExplorerItemColumnId>;
   currentSigningFingerprint: string | null | undefined;
+  currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
   online: boolean;
   row: ContainerItemRow;
@@ -105,6 +106,7 @@ function ExplorerContainerItemTableRow(params: {
   const {
     columnIds,
     currentSigningFingerprint,
+    currentSelfContactLocalId,
     currentUserId,
     online,
     onItemContextMenu,
@@ -115,6 +117,7 @@ function ExplorerContainerItemTableRow(params: {
   } = params;
   const cellContext: ExplorerItemCellContext = {
     currentSigningFingerprint,
+    currentSelfContactLocalId,
     currentUserId,
     online,
     onItemContextMenu,
@@ -152,6 +155,7 @@ function ExplorerContainerItemTableBody(params: {
   columnIds: ReadonlyArray<ExplorerItemColumnId>;
   contextTarget: ExplorerContextMenuTarget | null;
   currentSigningFingerprint: string | null | undefined;
+  currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
   error: string | null;
   isLoading: boolean;
@@ -170,6 +174,7 @@ function ExplorerContainerItemTableBody(params: {
     columnIds,
     contextTarget,
     currentSigningFingerprint,
+    currentSelfContactLocalId,
     currentUserId,
     error,
     isLoading,
@@ -200,6 +205,7 @@ function ExplorerContainerItemTableBody(params: {
             key={getExplorerContainerItemRowKey(row)}
             columnIds={columnIds}
             currentSigningFingerprint={currentSigningFingerprint}
+            currentSelfContactLocalId={currentSelfContactLocalId}
             currentUserId={currentUserId}
             online={online}
             onItemContextMenu={onItemContextMenu}
@@ -235,6 +241,7 @@ function ExplorerContainerItemTableBody(params: {
 interface ItemTableProps {
   contextTarget: ExplorerContextMenuTarget | null;
   currentSigningFingerprint: string | null | undefined;
+  currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
   dragActive: boolean;
   error: string | null;
@@ -304,6 +311,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
   const {
     contextTarget,
     currentSigningFingerprint,
+    currentSelfContactLocalId,
     currentUserId,
     dragActive,
     error,
@@ -365,6 +373,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
           columnIds={columnIds}
           contextTarget={contextTarget}
           currentSigningFingerprint={currentSigningFingerprint}
+          currentSelfContactLocalId={currentSelfContactLocalId}
           currentUserId={currentUserId}
           error={error}
           isLoading={isLoading}

@@ -22,6 +22,7 @@ export interface ExplorerContainerRulesContext {
   contactsContainerId: string | null;
   contactsSystemSlot: ContainerSystemSlot | null;
   currentOrganizationId: string | null;
+  currentSelfContactLocalId: string | null;
   currentSigningFingerprint: string | null;
   rulesBySystemSlot: ReadonlyMap<ContainerSystemSlot, UserSystemContainerRules>;
 }
@@ -30,6 +31,7 @@ interface ExplorerContainerRulesInput {
   contactsContainerId: string | null;
   contactsSystemSlot: ContainerSystemSlot | null;
   currentOrganizationId: string | null;
+  currentSelfContactLocalId?: string | null | undefined;
   currentSigningFingerprint: string | null;
   trashSystemSlot: ContainerSystemSlot | null;
 }
@@ -57,6 +59,7 @@ export function createExplorerContainerRulesContext(
     contactsContainerId: input.contactsContainerId,
     contactsSystemSlot: input.contactsSystemSlot,
     currentOrganizationId: input.currentOrganizationId,
+    currentSelfContactLocalId: input.currentSelfContactLocalId ?? null,
     currentSigningFingerprint: input.currentSigningFingerprint,
     rulesBySystemSlot,
   };
@@ -217,17 +220,20 @@ export function canUploadToContainerIdByRules(
   );
 }
 
-// A document is the viewer's own "You" contact when its local id matches the
-// self-contact id derived from the viewer's own signing fingerprint. Matching
-// the exact id — not merely the shared self-contact prefix — means a peer's
-// self contact surfaced in a shared container is never mistaken for the
-// viewer's own, and the match holds wherever the contact is viewed from.
+// A document is the viewer's own "You" contact when its local id matches either
+// the fingerprint-derived local bootstrap id or the writable recovered self
+// projection. Matching an exact resolved id — not merely the shared
+// self-contact prefix — keeps a peer's self contact from being mistaken for the
+// viewer's own wherever that contact is viewed.
 export function isSelfContactDocument(
   document: Pick<DocumentSummary, "id"> | undefined,
   signingFingerprint: string | null | undefined,
+  projectedSelfContactLocalId?: string | null | undefined,
 ): boolean {
   return document
-    ? isCurrentSelfContactLocalId(document.id, signingFingerprint)
+    ? isCurrentSelfContactLocalId(document.id, signingFingerprint) ||
+        (Boolean(projectedSelfContactLocalId) &&
+          document.id === projectedSelfContactLocalId)
     : false;
 }
 
@@ -357,7 +363,13 @@ function isPinnedSelfContact(
   context: ExplorerContainerRulesContext,
   document: Pick<DocumentSummary, "id"> | undefined,
 ): boolean {
-  if (!isSelfContactDocument(document, context.currentSigningFingerprint)) {
+  if (
+    !isSelfContactDocument(
+      document,
+      context.currentSigningFingerprint,
+      context.currentSelfContactLocalId,
+    )
+  ) {
     return false;
   }
   const contactsRules = context.contactsSystemSlot

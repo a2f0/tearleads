@@ -27,11 +27,13 @@ const CONTACTS_CONTAINER_ID = "contacts-container";
 // The viewer's self-contact id is derived from this fingerprint, so the id
 // "self_contact_v1_abc" is the viewer's own "You" contact.
 const SELF_SIGNING_FINGERPRINT = "abc";
+const RECOVERED_SELF_CONTACT_ID = "remote-self-document-id";
 
 const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: CONTACTS_CONTAINER_ID,
   contactsSystemSlot: CONTACTS_SLOT,
   currentOrganizationId: null,
+  currentSelfContactLocalId: RECOVERED_SELF_CONTACT_ID,
   currentSigningFingerprint: SELF_SIGNING_FINGERPRINT,
   trashSystemSlot: TRASH_SLOT,
 });
@@ -316,17 +318,17 @@ test("a peer's self contact is not protected from the viewer's deletion", () => 
   ).toBe(true);
 });
 
-test("the self contact cannot be moved or purged, from any container", () => {
+test("the self contact cannot be deleted, moved, or purged from any container", () => {
   // Move and purge share the delete guard's identity check: "delete" is a move
   // to Trash and a trashed doc can be purged, so all three must be blocked for
   // the self contact wherever it is viewed.
-  for (const containerId of [CONTACTS_CONTAINER_ID, "user-container"]) {
-    const selfContact = documentSummary({
-      id: "self_contact_v1_abc",
-      containerId,
-    });
-    expect(canMoveDocumentByRules(rulesContext, selfContact)).toBe(false);
-    expect(canPurgeDocumentByRules(rulesContext, selfContact)).toBe(false);
+  for (const id of ["self_contact_v1_abc", RECOVERED_SELF_CONTACT_ID]) {
+    for (const containerId of [CONTACTS_CONTAINER_ID, "user-container"]) {
+      const selfContact = documentSummary({ id, containerId });
+      expect(canDeleteDocumentByRules(rulesContext, selfContact)).toBe(false);
+      expect(canMoveDocumentByRules(rulesContext, selfContact)).toBe(false);
+      expect(canPurgeDocumentByRules(rulesContext, selfContact)).toBe(false);
+    }
   }
 });
 

@@ -4,7 +4,10 @@ import type {
 } from "@tearleads/client-sdk";
 import { type ReactNode, useEffect, useMemo } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
+import { findCurrentSelfContactLocalId } from "../../../stores/contacts/contactLabels";
 import { getContactsContainerId } from "../../../stores/contacts/contactsSystemSlot";
+import { useContactsStoreForContainer } from "../../../stores/contacts/useContactsStoreForContainer";
 import { useExplorerDocumentQueries } from "../../../stores/explorer/documentQueries";
 import { EXPLORER_TRASH_CONTAINER_ICON } from "../../../stores/systemContainers";
 import {
@@ -70,6 +73,7 @@ interface ExplorerModel {
   modalState: ExplorerPanelState["modalState"];
   openInlineDocument: ExplorerPanelState["openInlineDocument"];
   peerUserId: string | null;
+  currentSelfContactLocalId: string | null;
   refreshError: string | null;
   routeState: ExplorerPanelState["routeState"];
   selectDocumentProjection: ExplorerPanelState["selectDocumentProjection"];
@@ -130,12 +134,26 @@ export function useExplorerModel(
       explorer.nodes,
     ],
   );
+  const contactsStore = useContactsStoreForContainer(
+    contactsContainerId,
+    explorer.trashContainerId,
+  );
+  const contactsSnapshot = useTearleadsExternalStoreSnapshot(contactsStore);
+  const currentSelfContactLocalId = useMemo(
+    () =>
+      findCurrentSelfContactLocalId(
+        contactsSnapshot.entries,
+        appData.auth.userId,
+      ),
+    [appData.auth.userId, contactsSnapshot.entries],
+  );
   const rulesContext = useMemo(
     () =>
       createExplorerContainerRulesContext({
         contactsContainerId,
         contactsSystemSlot: explorer.contactsSystemSlot,
         currentOrganizationId: appData.auth.organizationId ?? null,
+        currentSelfContactLocalId,
         currentSigningFingerprint: appData.crypto.signingFingerprint,
         trashSystemSlot: explorer.trashSystemSlot,
       }),
@@ -143,6 +161,7 @@ export function useExplorerModel(
       appData.auth.organizationId,
       appData.crypto.signingFingerprint,
       contactsContainerId,
+      currentSelfContactLocalId,
       explorer.contactsSystemSlot,
       explorer.trashSystemSlot,
     ],
@@ -188,6 +207,7 @@ export function useExplorerModel(
     mergeDocumentSummary,
     documentSummaries,
     documentListRevision,
+    currentSelfContactLocalId,
     onDocumentLinksChanged: handleDocumentLinksChanged,
     onRetryDatabase,
     canShareWithPeer,
@@ -305,6 +325,7 @@ export function useExplorerModel(
     documentListRevision,
     documentQueries,
     documentSummaries,
+    currentSelfContactLocalId,
     explorer,
     handleOpenCatchup,
     handleRefresh,

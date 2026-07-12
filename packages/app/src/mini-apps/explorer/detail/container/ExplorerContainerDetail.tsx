@@ -55,6 +55,7 @@ interface ExplorerContainerDetailProps {
   contextTarget: ExplorerContextMenuTarget | null;
   currentOrganizationId: string | null | undefined;
   currentSigningFingerprint: string | null | undefined;
+  currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
@@ -121,6 +122,7 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
   const {
     contextTarget,
     currentSigningFingerprint,
+    currentSelfContactLocalId,
     currentUserId,
     importDroppedFiles,
     online,
@@ -164,6 +166,7 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
       <ExplorerContainerItemTable
         contextTarget={contextTarget}
         currentSigningFingerprint={currentSigningFingerprint}
+        currentSelfContactLocalId={currentSelfContactLocalId}
         currentUserId={currentUserId}
         dragActive={fileDropTarget.dragActive}
         error={itemWindow.error}

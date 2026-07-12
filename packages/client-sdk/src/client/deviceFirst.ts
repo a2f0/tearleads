@@ -7,8 +7,12 @@ import {
   type ContainerContentsStoreOptions,
   isAutomaticRootCatchupContainerNode,
   isReconcilableContainerNode,
+  isRemoteBackedContainerNode,
 } from "../stores/container-contents";
-import { requestRegisteredDocumentRemoteSync } from "../stores/documents/registry";
+import {
+  requestRegisteredDocumentRemoteSync,
+  subscribeToPersistedDocumentDeletions,
+} from "../stores/documents/registry";
 import {
   getOrCreateLocalProjectionStore,
   type LocalProjectionReconciledDelta,
@@ -56,8 +60,10 @@ export function createDeviceFirst(
 }
 
 interface DeviceFirstScopeEntry {
+  disconnectReconciliationTriggers: () => void;
   service: ReconciliationService;
   store: LocalProjectionStore;
+  unsubscribePersistedDocumentDeletions: () => void;
   view: LocalProjectionView;
 }
 
@@ -94,6 +100,8 @@ class DeviceFirstService implements DeviceFirst {
     // lane) alongside stopping the service.
     for (const [domainScope, entry] of this.entriesByScope) {
       entry.service.stop();
+      entry.disconnectReconciliationTriggers();
+      entry.unsubscribePersistedDocumentDeletions();
       disposeDomainSyncCoordinator(domainScope);
     }
     this.entriesByScope.clear();
@@ -126,7 +134,14 @@ class DeviceFirstService implements DeviceFirst {
     const service = createReconciliationService(
       this.createReconciliationHost(store, domainScope),
     );
-    connectReconciliationTriggers({ service, store });
+    const disconnectReconciliationTriggers = connectReconciliationTriggers({
+      service,
+      store,
+    });
+    const unsubscribePersistedDocumentDeletions =
+      subscribeToPersistedDocumentDeletions(domainScope, (localId) => {
+        store.removePersistedDocument(localId);
+      });
     service.start();
 
     const view: LocalProjectionView = {
@@ -137,7 +152,13 @@ class DeviceFirstService implements DeviceFirst {
       updateRuntime: (nextRuntime) => store.updateRuntime(nextRuntime),
     };
 
-    const entry: DeviceFirstScopeEntry = { service, store, view };
+    const entry: DeviceFirstScopeEntry = {
+      disconnectReconciliationTriggers,
+      service,
+      store,
+      unsubscribePersistedDocumentDeletions,
+      view,
+    };
     this.entriesByScope.set(domainScope, entry);
     return entry;
   }
@@ -158,11 +179,17 @@ class DeviceFirstService implements DeviceFirst {
       requestRegisteredDocumentRemoteSync: (localId, documentId) =>
         requestRegisteredDocumentRemoteSync(domainScope, localId, documentId),
     });
+    const canDiscoverContainerDocuments = (containerId: string) => {
+      const container = store
+        .getSnapshot()
+        .containers.find((node) => node.id === containerId);
+      return container ? isRemoteBackedContainerNode(container) : false;
+    };
     const listKnownContainerIds = () => {
-      // A local-only system slot is not listable yet and may still be racing
-      // its create request. Once remote-backed, it must participate just like
-      // a user container: the current device may be rematerializing an
-      // existing identity and therefore may not have authored its contents.
+      // A local-first id is not listable yet and may still be racing its create
+      // request. Once remote-backed, it participates normally; system contents
+      // are especially important during rematerialization because this device
+      // may not have authored them.
       const homeOrganizationId =
         runtimeService.workflowInput().auth.organizationId;
       return store
@@ -186,6 +213,7 @@ class DeviceFirstService implements DeviceFirst {
     };
     return {
       domainScope,
+      canDiscoverContainerDocuments,
       getRuntimeStatus: () => {
         const input = runtimeService.workflowInput();
         return {

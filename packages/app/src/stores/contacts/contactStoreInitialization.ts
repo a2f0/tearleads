@@ -37,6 +37,7 @@ export function ensureContactDocumentStore(
     const entry = contactEntryFromDocumentStore(contactId, store);
     if (entry) {
       upsertContactEntry(state, entry);
+      state.onContactEntry(entry);
     }
   });
   state.contactDocumentStoresById.set(contactId, { store, unsubscribe });
@@ -89,6 +90,7 @@ async function initializeContactsStore(
   });
   for (const entry of entries) {
     ensureContactDocumentStore(state, entry.id);
+    state.onContactEntry(entry);
   }
   state.initialized = true;
 }
