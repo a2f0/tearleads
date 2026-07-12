@@ -425,6 +425,48 @@ and SHA-256 digest headers. The app combines the attachment listing's blob
 content-key bundle with verified document/container access material to unwrap
 the blob content key and decrypt the committed bytes.
 
+## Delete And Purge Semantics
+
+Removal is terminal and structural. Link, unlink, share, revoke, rekey, and
+move are signed access-event mutations that rewrite manifests; container delete
+and document purge instead remove rows outright and are authenticated
+operations rather than signed access events.
+
+`DELETE /documents/:documentId` purges a document and every per-document row it
+owns. The API requires that the caller holds write access through the
+document's linked container, that the document is linked to exactly one
+container — a document still linked to more than one container must be unlinked
+down to a single link first — and that the target is not a container metadata
+document, which is withheld from purge and torn down only when its container is
+deleted. An unknown document id returns not found. Blobs the purge orphans —
+referenced only by the purged document once its rows are gone — are
+soft-deleted: `dereferencedAt` is stamped while the encrypted bytes, stored
+objects, and key material are retained for a later garbage-collection sweep. A
+blob still referenced by another document, or by a detached binding, is left
+untouched, and re-stamping an already-dereferenced blob preserves its original
+timestamp. The response returns `purgedAt`.
+
+`DELETE /containers/:containerId` is an admin-only structural delete for empty,
+non-system, non-root leaf containers. A root or system-slot container cannot be
+deleted, a container with child containers is a conflict, and a container with
+any linked user document is a conflict — but the container's own metadata
+document is excluded from that guard, because every container links its
+metadata document to itself, so the guard would otherwise make every folder
+undeletable. An unknown container id returns not found. A successful delete
+runs in one transaction: it writes a per-recipient `deleted` sync tombstone —
+the peer discovery signal for the removal — removes the container row, then
+tears down the container's own metadata document, deleting the
+`containerMetadataDocuments` binding and, when the composite create path
+materialized document rows, those rows and any blobs they orphan (dereferenced
+at the same deletion timestamp). No purge tombstone is written for the metadata
+document, which is withheld from client discovery; the container tombstone is
+the sole peer signal. Any guard failure aborts and rolls the whole transaction
+back.
+
+Trash is itself a system-slot container and so cannot be deleted or purged.
+Sending an item to Trash is a signed relocation and stays reversible; purge and
+container delete are the terminal removal that actually drops rows.
+
 ## Failure Semantics
 
 The protocol is fail-closed:
