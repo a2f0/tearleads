@@ -2,7 +2,6 @@ import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import {
   canCreateChildContainerByRules,
-  canDeleteContainerByRules,
   canRenameContainerByRules,
   canWriteContainerNode,
   type ExplorerContainerRulesContext,
@@ -355,48 +354,6 @@ function useExplorerRenameModalOpener(
   );
 }
 
-function useExplorerDeleteModalOpener(
-  params: ExplorerContainerModalOpenerParams,
-) {
-  const {
-    rulesContext,
-    setDraftName,
-    setDraftTargetContainerId,
-    setModalError,
-    setModalState,
-    targetLookups,
-  } = params;
-
-  return useCallback(
-    (containerId: string) => {
-      if (
-        !canDeleteContainerByRules(
-          rulesContext,
-          targetLookups.nodesById.get(containerId),
-        )
-      ) {
-        return;
-      }
-
-      openExplorerSimpleModal({
-        nextModalState: { mode: "delete", nodeId: containerId },
-        setDraftName,
-        setDraftTargetContainerId,
-        setModalError,
-        setModalState,
-      });
-    },
-    [
-      rulesContext,
-      setDraftName,
-      setDraftTargetContainerId,
-      setModalError,
-      setModalState,
-      targetLookups,
-    ],
-  );
-}
-
 function useExplorerPurgeModalOpener(
   params: ExplorerContainerModalOpenerParams,
 ) {
@@ -476,14 +433,12 @@ export function useExplorerModalOpeners(params: ExplorerModalOpenersParams) {
   const targetOpeners = useExplorerTargetModalOpeners(params);
   const openCreateChildModal = useExplorerCreateChildModalOpener(params);
   const openRenameModal = useExplorerRenameModalOpener(params);
-  const openDeleteModal = useExplorerDeleteModalOpener(params);
   const openPurgeModal = useExplorerPurgeModalOpener(params);
   const openSharePeerModal = useExplorerSharePeerModalOpener(params);
 
   return {
     ...targetOpeners,
     openCreateChildModal,
-    openDeleteModal,
     openPurgeModal,
     openRenameModal,
     openSharePeerModal,

@@ -12,7 +12,6 @@ export interface ExplorerModelExplorer {
     parentId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
-  deleteContainer: (containerId: string) => Promise<boolean>;
   ensureTrashContainer: () => Promise<ContainerNode | null>;
   ensureSystemContainer: (
     systemSlot: NonNullable<ContainerNode["systemSlot"]>,

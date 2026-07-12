@@ -37,6 +37,7 @@ function ExplorerContextMenuLayerHarness(params: {
   canCreateStructuredDocumentContextMenuNode?: boolean;
   canDeleteSelectedDocument?: boolean;
   canDownloadSelectedDocument?: boolean;
+  canMoveToTrashContextMenuNode?: boolean;
   canPurgeContextMenuNode?: boolean;
   canPurgeSelectedDocument?: boolean;
   canUploadToContextMenuNode?: boolean;
@@ -45,6 +46,7 @@ function ExplorerContextMenuLayerHarness(params: {
   deleteDocument?: (localId: string, containerId: string) => Promise<unknown>;
   downloadDocument?: (localId: string) => void;
   importDroppedFiles: ImportExplorerDroppedFiles;
+  moveContainerToTrash?: (containerId: string) => Promise<unknown>;
   openContainerInfoRoute?: (containerId: string) => void;
   openNewContactDocument?: (containerId: string) => void;
   openNewStructuredDocumentRoute?: (containerId: string) => void;
@@ -71,7 +73,9 @@ function ExplorerContextMenuLayerHarness(params: {
       containerContextMenuVariant={
         params.containerContextMenuVariant ?? "default"
       }
-      canDeleteContextMenuNode={false}
+      canMoveToTrashContextMenuNode={
+        params.canMoveToTrashContextMenuNode ?? false
+      }
       canDeleteSelectedDocument={params.canDeleteSelectedDocument ?? false}
       canDownloadSelectedDocument={params.canDownloadSelectedDocument ?? false}
       canLinkSelectedDocument={false}
@@ -86,9 +90,9 @@ function ExplorerContextMenuLayerHarness(params: {
       deleteDocument={params.deleteDocument ?? (async () => null)}
       downloadDocument={params.downloadDocument ?? (() => {})}
       importDroppedFiles={params.importDroppedFiles}
+      moveContainerToTrash={params.moveContainerToTrash ?? (async () => null)}
       openContainerInfoRoute={params.openContainerInfoRoute ?? (() => {})}
       openCreateChildModal={() => {}}
-      openDeleteModal={() => {}}
       openDocumentInfoRoute={() => {}}
       openLinkDocumentModal={() => {}}
       openMoveDocumentModal={() => {}}
@@ -267,6 +271,49 @@ test("container context menu purges a folder under trash via Delete Forever", ()
   expect(purgedContainerIds).toEqual([rootNode.id]);
   expect(
     view.queryByRole("button", { name: EXPLORER_LABELS.documentPurgeAction }),
+  ).toBeNull();
+});
+
+test("container context menu moves a folder to trash via Move to Trash", async () => {
+  const trashedContainerIds: string[] = [];
+  const view = render(
+    <ExplorerContextMenuLayerHarness
+      canMoveToTrashContextMenuNode
+      importDroppedFiles={noopImportDroppedFiles}
+      moveContainerToTrash={async (containerId) => {
+        trashedContainerIds.push(containerId);
+        return null;
+      }}
+    />,
+  );
+
+  fireEvent.click(
+    view.getByRole("button", {
+      name: EXPLORER_LABELS.containerMoveToTrashAction,
+    }),
+  );
+
+  await waitFor(() => {
+    expect(trashedContainerIds).toEqual([rootNode.id]);
+  });
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.containerMoveToTrashAction,
+    }),
+  ).toBeNull();
+});
+
+test("container context menu hides Move to Trash for non-trashable folders", () => {
+  const view = render(
+    <ExplorerContextMenuLayerHarness
+      importDroppedFiles={noopImportDroppedFiles}
+    />,
+  );
+
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.containerMoveToTrashAction,
+    }),
   ).toBeNull();
 });
 

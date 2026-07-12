@@ -29,7 +29,6 @@ function createSubmitParams(
   return {
     clearModal: () => undefined,
     createChild: async () => null,
-    deleteContainer: async () => false,
     draftName: "",
     draftTargetContainerId: "",
     expandNode: () => undefined,
@@ -39,6 +38,7 @@ function createSubmitParams(
     moveContainer: async () => null,
     moveDocument: async () => null,
     nodes: [containerNode],
+    online: true,
     peerUserId: null,
     purgeContainer: async () => false,
     renameContainer: async () => null,
@@ -115,32 +115,6 @@ test("document move modal clears before the network mutation resolves", async ()
   expect(calls).toEqual(["select:note-1", "clear"]);
 });
 
-test("delete modal clears before the container delete resolves", async () => {
-  const deleteDeferred = createDeferred<boolean>();
-  const calls: string[] = [];
-
-  await submitExplorerModalAction(
-    createSubmitParams({
-      clearModal: () => {
-        calls.push("clear");
-      },
-      deleteContainer: () => deleteDeferred.promise,
-      modalState: { mode: "delete", nodeId: "container-1" },
-      setSelectedId: (id) => {
-        calls.push(`select:${id}`);
-      },
-    }),
-  );
-
-  expect(calls).toEqual(["select:root-container", "clear"]);
-
-  deleteDeferred.resolve(true);
-  await deleteDeferred.promise;
-  await Promise.resolve();
-
-  expect(calls).toEqual(["select:root-container", "clear"]);
-});
-
 test("purge modal clears before the container purge resolves and navigates to the parent", async () => {
   const purgeDeferred = createDeferred<boolean>();
   const calls: string[] = [];
@@ -197,32 +171,28 @@ test("purge modal surfaces a background failure after closing", async () => {
   }
 });
 
-test("background modal failures are surfaced after the modal closes", async () => {
-  const deleteDeferred = createDeferred<boolean>();
+test("purge modal refuses to permanently delete while offline", async () => {
   const backgroundErrors: Array<string | null> = [];
-  const previousConsoleError = console.error;
-  console.error = () => undefined;
+  let purgeAttempts = 0;
 
-  try {
-    await submitExplorerModalAction(
-      createSubmitParams({
-        clearModal: () => undefined,
-        deleteContainer: () => deleteDeferred.promise,
-        modalState: { mode: "delete", nodeId: "container-1" },
-        setBackgroundActionError: (error) => {
-          backgroundErrors.push(error);
-        },
-      }),
-    );
+  await submitExplorerModalAction(
+    createSubmitParams({
+      modalState: { mode: "purge", nodeId: "container-1" },
+      online: false,
+      purgeContainer: async () => {
+        purgeAttempts += 1;
+        return true;
+      },
+      setBackgroundActionError: (error) => {
+        backgroundErrors.push(error);
+      },
+    }),
+  );
 
-    expect(backgroundErrors).toEqual([]);
-
-    deleteDeferred.resolve(false);
-    await deleteDeferred.promise;
-    await Promise.resolve();
-
-    expect(backgroundErrors).toEqual(["Failed to delete container."]);
-  } finally {
-    console.error = previousConsoleError;
-  }
+  // Offline permanent-delete short-circuits with a clear message and never
+  // attempts the remote-first purge (there is no offline delete outbox).
+  expect(purgeAttempts).toBe(0);
+  expect(backgroundErrors).toEqual([
+    "You must be online to permanently delete this folder.",
+  ]);
 });

@@ -71,6 +71,7 @@ interface ExplorerModel {
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   markDocumentStartsInEditMode: ExplorerPanelState["markDocumentStartsInEditMode"];
   modalState: ExplorerPanelState["modalState"];
+  moveContainerToTrash: ExplorerPanelState["moveContainerToTrash"];
   openInlineDocument: ExplorerPanelState["openInlineDocument"];
   peerUserId: string | null;
   currentSelfContactLocalId: string | null;
@@ -186,6 +187,7 @@ export function useExplorerModel(
     loadDocumentInfo,
     markDocumentStartsInEditMode,
     modalState,
+    moveContainerToTrash,
     openInlineDocument,
     purgeDocument,
     routeState,
@@ -339,6 +341,7 @@ export function useExplorerModel(
     linkedContainerIdsByDocumentId,
     markDocumentStartsInEditMode,
     modalState,
+    moveContainerToTrash,
     openInlineDocument,
     peerUserId,
     refreshError,

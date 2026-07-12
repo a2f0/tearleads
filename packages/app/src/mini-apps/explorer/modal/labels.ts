@@ -9,8 +9,6 @@ export function getExplorerModalError(
       return "Failed to create child container.";
     case "rename":
       return "Failed to rename container.";
-    case "delete":
-      return "Failed to delete container.";
     case "link-document":
       return "Failed to link document.";
     case "move":
@@ -30,8 +28,6 @@ export function getExplorerModalLog(mode: ExplorerModalState["mode"]): string {
       return "Failed to create child container:";
     case "rename":
       return "Failed to rename container:";
-    case "delete":
-      return "Failed to delete container:";
     case "link-document":
       return "Failed to link document:";
     case "move":
@@ -47,8 +43,6 @@ export function getExplorerModalLog(mode: ExplorerModalState["mode"]): string {
 
 export function getExplorerModalTitle(modalState: ExplorerModalState): string {
   switch (modalState.mode) {
-    case "delete":
-      return "Delete Container";
     case "link-document":
       return "Link Document";
     case "move":
@@ -72,8 +66,6 @@ export function getExplorerModalSubmitLabel(
 ): string {
   if (!isSubmittingModal) {
     switch (modalState.mode) {
-      case "delete":
-        return "Delete";
       case "link-document":
         return "Link";
       case "move":
@@ -92,8 +84,6 @@ export function getExplorerModalSubmitLabel(
   }
 
   switch (modalState.mode) {
-    case "delete":
-      return "Deleting...";
     case "link-document":
       return "Linking...";
     case "move":

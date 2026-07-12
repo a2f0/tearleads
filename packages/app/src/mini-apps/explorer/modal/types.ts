@@ -5,7 +5,6 @@ import type { MoveTargetOption } from "../targetOptions";
 
 export type ExplorerModalState =
   | { mode: "create-child"; nodeId: string }
-  | { mode: "delete"; nodeId: string }
   | { mode: "link-document"; documentLocalId: string }
   | { mode: "move"; nodeId: string }
   | { mode: "move-document"; documentLocalId: string }
@@ -18,7 +17,6 @@ export interface ExplorerModalControllerParams {
     parentId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
-  deleteContainer: (containerId: string) => Promise<boolean>;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
   linkDocument: (
@@ -35,6 +33,10 @@ export interface ExplorerModalControllerParams {
   ) => Promise<DocumentSummary | null>;
   canShareWithPeer: boolean;
   nodes: ReadonlyArray<ContainerNode>;
+  // Whether the client currently has connectivity. Permanent deletion (purge) is
+  // online-only — it has no offline outbox — so the purge submit uses this to
+  // surface a clear "must be online" message instead of a generic failure.
+  online: boolean;
   peerUserId: string | null;
   purgeContainer: (containerId: string) => Promise<boolean>;
   renameContainer: (
@@ -62,7 +64,6 @@ export interface ExplorerModalController {
   moveTargetOptions: ReadonlyArray<MoveTargetOption>;
   nameInputRef: RefObject<HTMLInputElement | null>;
   openCreateChildModal: (nodeId: string) => void;
-  openDeleteModal: (nodeId: string) => void;
   openLinkDocumentModal: (documentLocalId: string) => void;
   openMoveDocumentModal: (documentLocalId: string) => void;
   openMoveModal: (nodeId: string) => void;
