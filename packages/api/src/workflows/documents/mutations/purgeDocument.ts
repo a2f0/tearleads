@@ -491,10 +491,13 @@ export async function runPurgeDocumentWorkflow(
  * plain /containers path carries only the binding and a manifest pointer, with
  * no document rows. Tear the document down only when it exists.
  *
- * Runs inside the caller's transaction.
+ * Runs inside the caller's transaction. `dereferencedAt` is the container
+ * deletion's timestamp, threaded through so any dereferenced blob is stamped at
+ * the same logical time as the container tombstone (one clock read per delete).
  */
 export async function teardownContainerMetadataDocument(input: {
   readonly containerId: string;
+  readonly dereferencedAt: Date;
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
 }): Promise<void> {
@@ -516,7 +519,7 @@ export async function teardownContainerMetadataDocument(input: {
     executor: input.executor,
   });
   await deleteDocumentRows({
-    dereferencedAt: new Date(),
+    dereferencedAt: input.dereferencedAt,
     documentId: input.documentId,
     executor: input.executor,
     orphanedBlobIds,
