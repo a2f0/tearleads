@@ -44,6 +44,8 @@ export function ensureContactDocumentStore(
 }
 
 export function resetContactsStore(state: ContactsStoreState): void {
+  state.persistedDocumentsUnsubscribe?.();
+  state.persistedDocumentsUnsubscribe = null;
   for (const trackedStore of state.contactDocumentStoresById.values()) {
     trackedStore.unsubscribe();
   }

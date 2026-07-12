@@ -334,6 +334,7 @@ export function createContactsStore(
     initializePromise: null,
     listeners: new Set(),
     pendingSnapshotFlush: false,
+    persistedDocumentsUnsubscribe: null,
     runtime: initialRuntime,
     snapshot: { entries: [], ready: false },
     writeChain: Promise.resolve(),
@@ -356,14 +357,28 @@ export function createContactsStore(
       updateContactFromRuntime(state, contactId, patch),
     updateRuntime(runtime) {
       const previousContainerId = state.runtime.documents.state.containerId;
+      const previousDbStatus = state.runtime.documents.infra.dbStatus;
+      const previousDomainScope = state.runtime.documents.state.domainScope;
       const previousExecSql = state.runtime.documents.infra.execSql;
+      // The listener registry is domain-scoped. Its wrapper function is rebuilt
+      // with normal runtime snapshots, so function identity is not a stable
+      // subscription target; domain + availability are.
+      const previousCanSubscribe =
+        state.runtime.subscribeToPersistedDocuments !== undefined;
       const nextContainerId = runtime.documents.state.containerId;
+      const subscriptionAvailabilityChanged =
+        previousCanSubscribe !==
+        (runtime.subscribeToPersistedDocuments !== undefined);
       state.runtime = runtime;
+      let didReset = false;
       if (
         previousContainerId !== nextContainerId ||
+        previousDbStatus !== runtime.documents.infra.dbStatus ||
+        previousDomainScope !== runtime.documents.state.domainScope ||
         previousExecSql !== runtime.documents.infra.execSql
       ) {
         resetContactsStore(state);
+        didReset = true;
       }
       for (const trackedStore of state.contactDocumentStoresById.values()) {
         trackedStore.store.updateRuntime(runtime.documents);
@@ -383,6 +398,13 @@ export function createContactsStore(
         return;
       }
 
+      if (
+        didReset ||
+        subscriptionAvailabilityChanged ||
+        !state.persistedDocumentsUnsubscribe
+      ) {
+        connectContactsStoreToPersistedDocuments(state);
+      }
       ensureContactsInitialized(state);
     },
   };

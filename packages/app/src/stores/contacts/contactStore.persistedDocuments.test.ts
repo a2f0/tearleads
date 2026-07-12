@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   createDocumentsWorkflowRuntime,
+  type DocumentSummary,
   defaultDocumentsPersistence,
   deletePersistedDocument,
   openDocumentStore,
@@ -156,6 +157,113 @@ test("contacts store observes a contact persisted after initialization", async (
       "Late-persisted contact did not enter the Contacts snapshot.",
     );
   } finally {
+    runtime.close();
+  }
+});
+
+test("runtime resets replace and release the persisted-document subscription", async () => {
+  const runtime = await createPersistedContactsRuntime();
+  let activeSubscriptions = 0;
+  let subscriptionCount = 0;
+  let unsubscribeCount = 0;
+  const persistedDocumentListeners: Array<(document: DocumentSummary) => void> =
+    [];
+  const lifecycleCounts = () => ({
+    activeSubscriptions,
+    subscriptionCount,
+    unsubscribeCount,
+  });
+  const trackedRuntime: ContactsRuntime = {
+    ...runtime,
+    subscribeToPersistedDocuments: (listener) => {
+      activeSubscriptions += 1;
+      subscriptionCount += 1;
+      persistedDocumentListeners.push(listener);
+      let active = true;
+      return () => {
+        if (!active) {
+          throw new Error("Persisted-document subscription disposed twice.");
+        }
+        active = false;
+        activeSubscriptions -= 1;
+        unsubscribeCount += 1;
+      };
+    },
+  };
+  const store = createContactsStore(trackedRuntime, {
+    fetchUserKey: async () => null,
+    logError: (message, cause) => {
+      throw new Error(String(message), { cause });
+    },
+  });
+  const nextRuntime = withContactsContainer(
+    trackedRuntime,
+    "replacement-contacts-container",
+  );
+  await persistContact(nextRuntime, "replacement-contact", "Replacement");
+  const idleRuntime: ContactsRuntime = {
+    ...nextRuntime,
+    documents: {
+      ...nextRuntime.documents,
+      infra: { ...nextRuntime.documents.infra, dbStatus: "idle" },
+    },
+  };
+
+  try {
+    expect(lifecycleCounts()).toEqual({
+      activeSubscriptions: 1,
+      subscriptionCount: 1,
+      unsubscribeCount: 0,
+    });
+
+    const staleListener = persistedDocumentListeners[0];
+    if (!staleListener) {
+      throw new Error("Initial persisted-document listener was not captured.");
+    }
+    staleListener({
+      containerId: CONTACTS_CONTAINER_ID,
+      documentKind: "contact",
+      documentId: null,
+      id: "replacement-contact",
+      title: "Replacement",
+      updatedAt: "2026-07-12T00:00:00.000Z",
+    });
+
+    store.updateRuntime(nextRuntime);
+    expect(lifecycleCounts()).toEqual({
+      activeSubscriptions: 1,
+      subscriptionCount: 2,
+      unsubscribeCount: 1,
+    });
+    await waitForCondition(
+      () =>
+        store
+          .getSnapshot()
+          .entries.some((entry) => entry.id === "replacement-contact"),
+      "Replacement Contacts container did not initialize.",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(
+      store
+        .getSnapshot()
+        .entries.some((entry) => entry.id === "replacement-contact"),
+    ).toBe(true);
+
+    store.updateRuntime(nextRuntime);
+    expect(lifecycleCounts()).toEqual({
+      activeSubscriptions: 1,
+      subscriptionCount: 2,
+      unsubscribeCount: 1,
+    });
+
+    store.updateRuntime(idleRuntime);
+    expect(lifecycleCounts()).toEqual({
+      activeSubscriptions: 0,
+      subscriptionCount: 2,
+      unsubscribeCount: 2,
+    });
+  } finally {
+    store.updateRuntime(idleRuntime);
     runtime.close();
   }
 });

@@ -66,6 +66,7 @@ export interface ContactsStoreState {
   initialized: boolean;
   listeners: Set<() => void>;
   pendingSnapshotFlush: boolean;
+  persistedDocumentsUnsubscribe: (() => void) | null;
   runtime: ContactsRuntime;
   snapshot: ContactsSnapshot;
   writeChain: Promise<void>;
