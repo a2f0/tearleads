@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
+import { createDocument } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   applyContainerDocumentTombstones,
   sqlDocumentsPersistence,
 } from "../../data/persistence/documents/documentsPersistence";
+import { persistDocumentState } from "../documents/persistence";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { createContainerDocumentQueriesFromRuntime } from "./documentQueries";
 import {
@@ -488,6 +490,100 @@ test("listContainerItemWindow drops every duplicate projection when a document i
       rootWindow.rows.filter((row) => row.itemKind === "document"),
     ).toEqual([]);
     expect(rootWindow.totalCount).toBe(0);
+  } finally {
+    close();
+  }
+});
+
+test("a container-unmanaged persist cannot resurrect a document in a container it was moved out of", async () => {
+  // On a recovery peer the contacts view keeps a living document store whose
+  // cached record still points at the source folder the contact was created in.
+  // After the contact is moved to Trash (the source-unlink tombstone converges
+  // document_projection off the source folder), a background document sync ships
+  // content-key/manifest metadata with no container. That persist must NOT
+  // re-assert the stale cached source folder onto document_projection, or the
+  // contact reappears in the folder it was moved out of.
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-stale-store-container-resurrection",
+  );
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const runtime = { infra: { execSql } };
+    const readModel = createContainerDocumentQueriesFromRuntime(runtime);
+
+    await saveTestContainer({
+      execSql,
+      id: "root",
+      name: "Root",
+      parentId: null,
+      timestamp: "2026-05-01T00:00:00.000Z",
+    });
+    await saveTestContainer({
+      execSql,
+      id: "trash",
+      name: "Trash",
+      parentId: "root",
+      timestamp: "2026-05-01T00:00:00.000Z",
+    });
+
+    // Post-move converged SQLite state: the contact lives in Trash only.
+    await saveTestDocument({
+      execSql,
+      id: "contact-local",
+      documentId: "contact-1",
+      containerId: "trash",
+      title: "Ada Lovelace",
+      updatedAt: "2026-05-03T00:00:00.000Z",
+    });
+    await readModel.replaceDocumentLinksBatch([
+      { documentId: "contact-1", containerIds: ["trash"] },
+    ]);
+
+    // The living store still caches the pre-move container (root).
+    const persistedRecord = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      "contact-local",
+    );
+    if (!persistedRecord) {
+      throw new Error("expected a persisted contact record");
+    }
+    const staleStoreRecord = { ...persistedRecord, containerId: "root" };
+
+    // A background sync persist: runtime + cached record both stale-root, and the
+    // patch carries no container (only content-metadata bookkeeping).
+    await persistDocumentState({
+      containerId: "root",
+      currentDoc: await createDocument("contact-1"),
+      currentRecord: staleStoreRecord,
+      documentProjectors: [],
+      execSql,
+      localId: "contact-local",
+      patch: { lastCommitLsn: "5" },
+      persistence: sqlDocumentsPersistence,
+    });
+
+    const rootWindow = await readModel.listContainerItemWindow({
+      containerId: "root",
+      limit: 10,
+      offset: 0,
+      sort: { direction: "asc", key: "name" },
+    });
+    expect(
+      rootWindow.rows.filter((row) => row.itemKind === "document"),
+    ).toEqual([]);
+
+    const trashWindow = await readModel.listContainerItemWindow({
+      containerId: "trash",
+      limit: 10,
+      offset: 0,
+      sort: { direction: "asc", key: "name" },
+    });
+    expect(
+      trashWindow.rows
+        .filter((row) => row.itemKind === "document")
+        .map((row) => row.localId),
+    ).toEqual(["contact-local"]);
   } finally {
     close();
   }

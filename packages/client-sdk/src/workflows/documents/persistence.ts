@@ -110,6 +110,39 @@ function resolveNullableDocumentRuntimeField(
   return resetWhenUnpatched ? null : (currentValue ?? null);
 }
 
+function patchSpecifiesContainer(patch: Partial<StoredDocumentRecord>): boolean {
+  // A patch "specifies" a container when it carries the key with a concrete
+  // value: a string, or an explicit null meaning "unlinked from every container".
+  // `exactOptionalPropertyTypes` is enabled repo-wide, so an owned containerId key
+  // is always concrete — a patch may omit the key but cannot set it to `undefined`
+  // (that is a compile error). Key presence therefore reliably distinguishes a
+  // write that specifies a container from one that defers to the authoritative
+  // projection; no explicit `!== undefined` guard is needed.
+  return Object.hasOwn(patch, "containerId");
+}
+
+function resolveStoredDocumentContainerId(input: {
+  containerId?: string | null | undefined;
+  currentRecord: StoredDocumentRecord | null;
+  patch: Partial<StoredDocumentRecord>;
+}): string | null {
+  // Container placement is owned by the link/tombstone/discovery layer, not by
+  // this content-metadata persist. An explicitly-supplied container is
+  // authoritative — whether it comes from a create/relink patch or from the
+  // authoritative document_projection value persistDocumentState injects for a
+  // sync that does not manage a container. Honoring a specified container (even
+  // an explicit null, a document unlinked from every container) keeps a write
+  // from falling through to a stale cached container and resurrecting the
+  // document in a folder the reconcile layer already moved it out of. Only a
+  // write that specifies no container, and for which no projection row exists
+  // yet, falls back to the in-memory record and then the runtime container.
+  if (patchSpecifiesContainer(input.patch)) {
+    return input.patch.containerId ?? null;
+  }
+
+  return input.currentRecord?.containerId ?? input.containerId ?? null;
+}
+
 function buildStoredDocumentRecord(input: {
   containerId?: string | null | undefined;
   currentDoc: DocumentContentState;
@@ -141,11 +174,11 @@ function buildStoredDocumentRecord(input: {
         currentRecord?.accessStateHash,
         securityContextChanged,
       ),
-      containerId:
-        patch.containerId ??
-        currentRecord?.containerId ??
-        input.containerId ??
-        null,
+      containerId: resolveStoredDocumentContainerId({
+        containerId: input.containerId,
+        currentRecord,
+        patch,
+      }),
       contentKeyBundle: resolveNullableDocumentRuntimeField(
         patch,
         "contentKeyBundle",
@@ -259,6 +292,22 @@ export async function persistDocumentState(input: {
     input.documentProjectors,
   );
   const patch = input.patch ?? {};
+  // A persist that does not manage container placement (a background document
+  // sync ships content-key/manifest metadata with no container) must not let the
+  // store's in-memory record re-assert a container. That record goes stale the
+  // moment the reconcile/tombstone layer moves the document in SQLite behind the
+  // living store's back — the exact path by which a contact moved to Trash on one
+  // peer resurfaced in its source folder on a recovery peer. Pin such a write to
+  // the authoritative document_projection container so it can only echo the
+  // current placement, never resurrect a stale one; create/relink patches carry
+  // an explicit container and are left untouched.
+  const authoritativeContainer = patchSpecifiesContainer(patch)
+    ? undefined
+    : await persistence.loadDocumentContainer(execSql, localId);
+  const resolvedPatch =
+    authoritativeContainer === undefined
+      ? patch
+      : { ...patch, containerId: authoritativeContainer.containerId };
   const acceptedPendingUpdateIds = input.acceptedPendingUpdateIds ?? [];
   const { documentState, record } = buildStoredDocumentRecord({
     containerId: input.containerId,
@@ -266,7 +315,7 @@ export async function persistDocumentState(input: {
     currentRecord,
     documentProjectors,
     localId,
-    patch,
+    patch: resolvedPatch,
   });
 
   await ensureDocumentClientProjectionTables({ documentProjectors, execSql });

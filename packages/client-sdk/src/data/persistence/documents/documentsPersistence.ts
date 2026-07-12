@@ -501,6 +501,24 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       title: getProjectionTitle(projectionRows[0]),
     };
   },
+  async loadDocumentContainer(execSql, localId) {
+    const { db } = getClientSQLitePersistenceRuntime(execSql);
+    // Select the row itself, not just its container, so an existing row with a
+    // null container is reported as `{ containerId: null }` while a missing row
+    // is reported as `undefined` — the caller relies on that distinction to know
+    // whether the projection has authoritative placement to defer to.
+    const projectionRows = await db
+      .select({ containerId: documentProjection.containerId })
+      .from(documentProjection)
+      .where(eq(documentProjection.localId, localId))
+      .limit(1);
+    const projectionRow = projectionRows[0];
+    if (!projectionRow) {
+      return undefined;
+    }
+
+    return { containerId: projectionRow.containerId };
+  },
   async saveDocument(execSql, document, options) {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
       getClientSQLitePersistenceRuntime(lockedExecSql).transaction(

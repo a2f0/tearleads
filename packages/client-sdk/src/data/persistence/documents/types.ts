@@ -114,6 +114,17 @@ export interface DocumentsPersistence {
     execSql: ExecSql,
     localId: string,
   ) => Promise<StoredDocumentRecord | null>;
+  // Read the authoritative container placement for a locally persisted document
+  // straight from its projection row. Returns `undefined` when no projection row
+  // exists yet (a first create/discovery persist), so a caller can distinguish
+  // that from a row that legitimately carries a null container (a document
+  // unlinked from every container). Container placement is owned by the
+  // link/tombstone/discovery layer, so a content-metadata persist reads this to
+  // avoid republishing a stale in-memory container.
+  loadDocumentContainer: (
+    execSql: ExecSql,
+    localId: string,
+  ) => Promise<{ containerId: string | null } | undefined>;
   saveDocument: (
     execSql: ExecSql,
     document: StoredDocumentRecord,
