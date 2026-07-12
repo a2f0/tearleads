@@ -8,9 +8,10 @@ import {
   documentContainerLinks,
 } from "@tearleads/api-shared/schema";
 import type { ContainerDeleteResponse } from "@tearleads/validators/response";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { uuidValue } from "../../utils/sqlDialect";
 import { assertOrganizationCanSync } from "../billing/organizationBilling";
+import { teardownContainerMetadataDocument } from "../documents/mutations/purgeDocument";
 import { userIdsByContainerPath } from "./containerPathUsers";
 import {
   ContainerWriterProjectionError,
@@ -118,7 +119,13 @@ async function persistDeletedContainerTombstones(input: {
 async function deleteLeafContainerRow(input: {
   readonly containerId: string;
   readonly executor: DatabaseTransaction;
+  readonly metadataDocumentId: string;
 }): Promise<void> {
+  // A container's OWN metadata document is always linked to it, so it must be
+  // excluded from the "no linked documents" guard — otherwise no folder could
+  // ever be deleted. The guard still blocks deletion when any OTHER (user)
+  // document is linked, or the container has children. The metadata document is
+  // torn down separately once the container row is gone.
   const [deleted] = await input.executor
     .delete(containers)
     .where(
@@ -133,6 +140,7 @@ async function deleteLeafContainerRow(input: {
           select 1
           from ${documentContainerLinks} link
           where link.container_id = ${uuidValue(input.containerId)}
+            and link.document_id <> ${uuidValue(input.metadataDocumentId)}
         )`,
       ),
     )
@@ -155,7 +163,12 @@ async function deleteLeafContainerRow(input: {
   const [linkedDocument] = await input.executor
     .select({ documentId: documentContainerLinks.documentId })
     .from(documentContainerLinks)
-    .where(eq(documentContainerLinks.containerId, input.containerId))
+    .where(
+      and(
+        eq(documentContainerLinks.containerId, input.containerId),
+        ne(documentContainerLinks.documentId, input.metadataDocumentId),
+      ),
+    )
     .limit(1);
 
   if (linkedDocument) {
@@ -214,7 +227,21 @@ async function deleteContainerWithExecutor(input: {
     updatedAt,
     userIds: [...visibleUserIds.allUserIds, input.userId],
   });
-  await deleteLeafContainerRow(input);
+  // deleteLeafContainerRow throws on a non-empty container (child or other
+  // linked document), so the teardown below only runs once the container is
+  // genuinely gone; the whole delete is one transaction, so a thrown 409 rolls
+  // back cleanly. There is no FK from the metadata document's rows to the
+  // container, so deleting the container row first is referentially safe.
+  await deleteLeafContainerRow({
+    containerId: input.containerId,
+    executor: input.executor,
+    metadataDocumentId: targetManifest.state.metadataDocumentId,
+  });
+  await teardownContainerMetadataDocument({
+    containerId: input.containerId,
+    documentId: targetManifest.state.metadataDocumentId,
+    executor: input.executor,
+  });
 
   return {
     containerId: input.containerId,
