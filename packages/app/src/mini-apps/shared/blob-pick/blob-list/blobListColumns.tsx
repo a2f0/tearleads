@@ -8,7 +8,7 @@ import {
   type MiniAppColumnMenuOption,
   type MiniAppTableColumn,
 } from "../../../../components/shared/MiniAppTable";
-import { EXPLORER_LABELS } from "../../labels";
+import { BLOB_LIST_LABELS } from "./blobListLabels";
 
 export type BlobInfoColumnId =
   | "blob"
@@ -29,6 +29,16 @@ const BLOB_INFO_COLUMN_IDS: ReadonlyArray<BlobInfoColumnId> = [
 
 export const BLOB_INFO_TOGGLEABLE_COLUMN_IDS: ReadonlyArray<BlobInfoColumnId> =
   ["mime", "size", "references", "updated", "sync"];
+
+// A host that renders no sync cell (e.g. the Notes pick surface) drops the sync
+// column entirely rather than showing an empty one.
+function getBlobInfoColumnIds(
+  includeSync: boolean,
+): ReadonlyArray<BlobInfoColumnId> {
+  return includeSync
+    ? BLOB_INFO_COLUMN_IDS
+    : BLOB_INFO_COLUMN_IDS.filter((id) => id !== "sync");
+}
 
 function getBlobSortAria(
   sort: BlobInfoSort,
@@ -69,31 +79,39 @@ function BlobSortableTableHeader(params: {
 function getBlobInfoColumnLabel(id: BlobInfoColumnId): string {
   switch (id) {
     case "blob":
-      return EXPLORER_LABELS.blobBrowserBlobColumn;
+      return BLOB_LIST_LABELS.blobColumn;
     case "mime":
-      return EXPLORER_LABELS.blobBrowserMimeTypeColumn;
+      return BLOB_LIST_LABELS.mimeTypeColumn;
     case "size":
-      return EXPLORER_LABELS.blobBrowserSizeColumn;
+      return BLOB_LIST_LABELS.sizeColumn;
     case "references":
-      return EXPLORER_LABELS.blobBrowserReferenceColumn;
+      return BLOB_LIST_LABELS.referenceColumn;
     case "updated":
-      return EXPLORER_LABELS.blobBrowserUpdatedColumn;
+      return BLOB_LIST_LABELS.updatedColumn;
     case "sync":
-      return EXPLORER_LABELS.itemSyncColumn;
+      return BLOB_LIST_LABELS.syncColumn;
   }
 }
 
-export const BLOB_INFO_COLUMN_MENU_OPTIONS: ReadonlyArray<
-  MiniAppColumnMenuOption<BlobInfoColumnId>
-> = BLOB_INFO_TOGGLEABLE_COLUMN_IDS.map((id) => ({
-  id,
-  label: getBlobInfoColumnLabel(id),
-}));
+export function getBlobInfoColumnMenuOptions(
+  includeSync: boolean,
+): ReadonlyArray<MiniAppColumnMenuOption<BlobInfoColumnId>> {
+  return BLOB_INFO_TOGGLEABLE_COLUMN_IDS.filter(
+    (id) => includeSync || id !== "sync",
+  ).map((id) => ({
+    id,
+    label: getBlobInfoColumnLabel(id),
+  }));
+}
 
 export function getVisibleBlobInfoColumnIds(
   hiddenColumns: ReadonlySet<BlobInfoColumnId>,
+  includeSync: boolean,
 ): ReadonlyArray<BlobInfoColumnId> {
-  return getVisibleMiniAppTableColumnIds(BLOB_INFO_COLUMN_IDS, hiddenColumns);
+  return getVisibleMiniAppTableColumnIds(
+    getBlobInfoColumnIds(includeSync),
+    hiddenColumns,
+  );
 }
 
 function buildBlobInfoColumn(
@@ -160,35 +178,12 @@ function buildBlobInfoColumn(
 
 export function getBlobInfoColumns(params: {
   hiddenColumns: ReadonlySet<BlobInfoColumnId>;
+  includeSync: boolean;
   onSort: (key: BlobInfoSortKey) => void;
   sort: BlobInfoSort;
 }): ReadonlyArray<MiniAppTableColumn> {
-  return getVisibleBlobInfoColumnIds(params.hiddenColumns).map((id) =>
-    buildBlobInfoColumn(id, params),
-  );
-}
-
-export function getBlobReferenceColumns(): ReadonlyArray<MiniAppTableColumn> {
-  return [
-    {
-      header: EXPLORER_LABELS.blobBrowserDocumentColumn,
-      id: "document",
-      width: "46%",
-    },
-    {
-      header: EXPLORER_LABELS.documentInfoContainerColumn,
-      id: "container",
-      width: "28%",
-    },
-    {
-      header: EXPLORER_LABELS.blobBrowserStateColumn,
-      id: "state",
-      width: "6rem",
-    },
-    {
-      header: EXPLORER_LABELS.blobBrowserSlotColumn,
-      id: "slot",
-      width: "8rem",
-    },
-  ];
+  return getVisibleBlobInfoColumnIds(
+    params.hiddenColumns,
+    params.includeSync,
+  ).map((id) => buildBlobInfoColumn(id, params));
 }

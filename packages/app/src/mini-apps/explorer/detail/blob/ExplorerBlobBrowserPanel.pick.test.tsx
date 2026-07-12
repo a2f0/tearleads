@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
 import { createDomainScope } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import type { ExplorerBlobPickTarget } from "../../blob-pick/ExplorerBlobPickProvider";
+import type { BlobPickTarget } from "../../../shared/blob-pick/BlobPickProvider";
 import { ExplorerBlobBrowserPanel } from "./ExplorerBlobBrowserPanel";
 
 afterEach(cleanup);
@@ -35,7 +35,7 @@ function createBlobStore(): BlobStore {
   };
 }
 
-const PICK_TARGET: ExplorerBlobPickTarget = {
+const PICK_TARGET: BlobPickTarget = {
   containerId: "container-1",
   localId: "local-document-1",
   slotId: "front-image",
@@ -59,7 +59,7 @@ function renderPickPanel(overrides: {
       onPickBlob={overrides.onPickBlob ?? (() => undefined)}
       openDocumentInfoRoute={() => undefined}
       pickTarget={PICK_TARGET}
-      route={{ blobId: null, storageKey: null, view: "blob-browser" }}
+      route={{ blobId: null, storageKey: null }}
       selectDocumentProjection={() => undefined}
     />,
   );

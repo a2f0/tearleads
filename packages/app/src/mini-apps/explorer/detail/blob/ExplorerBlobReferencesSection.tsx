@@ -11,6 +11,7 @@ import {
   MiniAppTable,
   MiniAppTableActionButton,
   MiniAppTableCell,
+  type MiniAppTableColumn,
   MiniAppTableFrame,
   MiniAppTableRow,
   MiniAppTableText,
@@ -24,7 +25,31 @@ import {
   getExplorerDocumentInfoAttachmentKindLabel,
 } from "../../labels";
 import { compactId } from "../compactId";
-import { getBlobReferenceColumns } from "./ExplorerBlobBrowserColumns";
+
+function getBlobReferenceColumns(): ReadonlyArray<MiniAppTableColumn> {
+  return [
+    {
+      header: EXPLORER_LABELS.blobBrowserDocumentColumn,
+      id: "document",
+      width: "46%",
+    },
+    {
+      header: EXPLORER_LABELS.documentInfoContainerColumn,
+      id: "container",
+      width: "28%",
+    },
+    {
+      header: EXPLORER_LABELS.blobBrowserStateColumn,
+      id: "state",
+      width: "6rem",
+    },
+    {
+      header: EXPLORER_LABELS.blobBrowserSlotColumn,
+      id: "slot",
+      width: "8rem",
+    },
+  ];
+}
 
 type BlobReferenceContextTarget = {
   attachmentKind: BlobInfoDocumentReference["attachmentKind"];

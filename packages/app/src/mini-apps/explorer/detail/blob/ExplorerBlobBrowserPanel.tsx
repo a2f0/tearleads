@@ -3,28 +3,46 @@ import type {
   BlobInfoInput,
   BlobInfoList,
   BlobStore,
+  ContainerDocumentObjectSyncState,
   ContainerNode,
   DomainScope,
 } from "@tearleads/client-sdk";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { MiniAppPanel } from "../../../../components/shared/MiniAppLayout";
-import { isImageDocumentAttachmentBlob } from "../../../../document-types/shared/documentAttachmentUtils";
-import type { ExplorerBlobPickTarget } from "../../blob-pick/ExplorerBlobPickProvider";
+import type { BlobPickTarget } from "../../../shared/blob-pick/BlobPickProvider";
 import {
-  BlobBrowserHeader,
-  BlobBrowserListScreen,
-  BlobBrowserRowContextMenu,
-  BlobDetail,
-  BlobPickHeader,
-} from "./ExplorerBlobBrowserSections";
+  BlobListScreen,
+  BlobPickSurface,
+} from "../../../shared/blob-pick/blob-list/BlobListScreen";
 import {
   type BlobBrowserRoute,
   getContainerNameById,
   useBlobBrowserData,
-} from "./ExplorerBlobBrowserState";
+} from "../../../shared/blob-pick/blob-list/blobListState";
+import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
+import {
+  BlobBrowserHeader,
+  BlobBrowserRowContextMenu,
+  BlobDetail,
+} from "./ExplorerBlobBrowserSections";
 import { useBlobBrowserContextMenu } from "./useBlobBrowserContextMenu";
 
 type BlobBrowserData = ReturnType<typeof useBlobBrowserData>;
+
+// The Explorer shows a per-blob sync badge in the list's sync column; the shared
+// table computes the sync state and defers this host-specific rendering.
+function renderExplorerSyncCell(
+  syncState: ContainerDocumentObjectSyncState,
+  isOnline: boolean,
+) {
+  return (
+    <ExplorerSyncStateBadge
+      online={isOnline}
+      showSynced
+      syncState={syncState}
+    />
+  );
+}
 
 interface ExplorerBlobBrowserPanelProps {
   blobStore: BlobStore;
@@ -40,48 +58,11 @@ interface ExplorerBlobBrowserPanelProps {
   online: boolean;
   // When set, the panel runs in pick mode: rows resolve the pick (instead of
   // opening blob detail) and the list is filtered to image blobs.
-  pickTarget?: ExplorerBlobPickTarget | null | undefined;
+  pickTarget?: BlobPickTarget | null | undefined;
   onCancelBlobPick?: (() => void) | undefined;
   onPickBlob?: ((blob: BlobInfo) => void) | undefined;
   route: BlobBrowserRoute;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
-}
-
-// Pick mode: choose an image blob for a document slot. Only image blobs bind to
-// image slots, so non-image rows are shown but not selectable, and a row click
-// resolves the pick rather than opening blob detail.
-function BlobBrowserPickScreen(params: {
-  blobStore: BlobStore;
-  data: BlobBrowserData;
-  onCancel: () => void;
-  online: boolean;
-  onPickBlob: ((blob: BlobInfo) => void) | undefined;
-  slotLabel: string;
-}) {
-  const { data } = params;
-
-  return (
-    <>
-      <BlobPickHeader onCancel={params.onCancel} slotLabel={params.slotLabel} />
-      <BlobBrowserListScreen
-        blobInfo={data.blobInfo}
-        blobStore={params.blobStore}
-        frameRef={data.frameRef}
-        // Filtering non-image rows out of the windowed list would desync the
-        // virtual-scroll padding from the total count, so disable instead.
-        isRowSelectable={isImageDocumentAttachmentBlob}
-        isWindowPending={data.isWindowPending}
-        onQueryChange={data.handleQueryChange}
-        onSelectBlob={params.onPickBlob ?? data.handleSelectBlob}
-        onSort={data.handleSort}
-        online={params.online}
-        query={data.query}
-        rowOffset={data.rowOffset}
-        rows={data.rows}
-        sort={data.sort}
-      />
-    </>
-  );
 }
 
 // Browse mode: view blob metadata/preview, and right-click (or long-press) a row
@@ -132,7 +113,7 @@ function BlobBrowserBrowseScreen(params: {
           />
         </div>
       ) : (
-        <BlobBrowserListScreen
+        <BlobListScreen
           blobInfo={data.blobInfo}
           blobStore={params.blobStore}
           downloadMessage={downloadMessage}
@@ -144,6 +125,7 @@ function BlobBrowserBrowseScreen(params: {
           onSort={data.handleSort}
           online={params.online}
           query={data.query}
+          renderSyncCell={renderExplorerSyncCell}
           rowOffset={data.rowOffset}
           rows={data.rows}
           sort={data.sort}
@@ -172,19 +154,25 @@ export function ExplorerBlobBrowserPanel(
     () => getContainerNameById(params.nodes),
     [params.nodes],
   );
+  const pickBlob = params.onPickBlob;
+  const onCancel = useCallback(
+    () => (params.onCancelBlobPick ?? params.onBackToSelectionRoute)(),
+    [params.onCancelBlobPick, params.onBackToSelectionRoute],
+  );
 
   return (
     <MiniAppPanel
       className="explorer-detail explorer-detail--blob-browser"
       key={`${params.route.blobId ?? ""}:${params.route.storageKey ?? ""}`}
     >
-      {params.pickTarget ? (
-        <BlobBrowserPickScreen
+      {params.pickTarget && pickBlob ? (
+        <BlobPickSurface
           blobStore={params.blobStore}
-          data={data}
-          onCancel={params.onCancelBlobPick ?? params.onBackToSelectionRoute}
+          loadBlobInfo={params.loadBlobInfo}
+          onCancel={onCancel}
           online={params.online}
-          onPickBlob={params.onPickBlob}
+          onPickBlob={pickBlob}
+          renderSyncCell={renderExplorerSyncCell}
           slotLabel={params.pickTarget.slotLabel}
         />
       ) : (

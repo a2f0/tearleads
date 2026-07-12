@@ -6,11 +6,18 @@ import { useNotesModel } from "./hooks/useNotesModel";
 import "./Notes.css";
 
 export function Notes({
+  containerId = null,
+  localId,
   registerRefreshMenuItem = false,
 }: {
+  containerId?: string | null;
+  localId?: string | undefined;
   registerRefreshMenuItem?: boolean;
 }) {
-  const model = useNotesModel();
+  const model = useNotesModel({
+    containerId,
+    ...(localId === undefined ? {} : { localId }),
+  });
   const handleRefresh = useCallback(() => {
     model.requestSync();
   }, [model.requestSync]);

@@ -303,10 +303,6 @@ export function getExplorerDocumentSubtitle(input: {
     : input.documentTypeLabel;
 }
 
-export function getExplorerBlobPickSubtitle(slotLabel: string): string {
-  return `${EXPLORER_LABELS.blobPickSubtitlePrefix} ${slotLabel}.`;
-}
-
 export function getExplorerItemTableLabel(containerName: string): string {
   return `Items in ${containerName}`;
 }

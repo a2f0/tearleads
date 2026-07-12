@@ -15,13 +15,20 @@ import {
 } from "../../../../components/shared/MiniAppVirtual";
 import { isImageDocumentAttachmentBlob } from "../../../../document-types/shared/documentAttachmentUtils";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
-import type { ExplorerRoute } from "../../routes";
 
 export const BLOB_BROWSER_ROW_HEIGHT =
   MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT;
 const BLOB_TEXT_PREVIEW_LIMIT = 64 * 1024;
 
-export type BlobBrowserRoute = Extract<ExplorerRoute, { view: "blob-browser" }>;
+// The subset of a host route the blob list reads: the deep-link target (blob id
+// or storage key) that seeds the initial search/selection. Standalone so the
+// shared surface stays decoupled from any mini-app's route union; hosts pass a
+// structurally-compatible object (e.g. the Explorer's blob-browser route, or an
+// empty target in pick mode).
+export interface BlobBrowserRoute {
+  blobId: string | null;
+  storageKey: string | null;
+}
 
 export type BlobPreviewState =
   | { status: "idle"; text: null; truncated: false; url: null }

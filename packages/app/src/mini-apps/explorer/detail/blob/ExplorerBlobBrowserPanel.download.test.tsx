@@ -8,7 +8,7 @@ import {
   render,
   waitFor,
 } from "@testing-library/react";
-import type { ExplorerBlobPickTarget } from "../../blob-pick/ExplorerBlobPickProvider";
+import type { BlobPickTarget } from "../../../shared/blob-pick/BlobPickProvider";
 import { ExplorerBlobBrowserPanel } from "./ExplorerBlobBrowserPanel";
 
 afterEach(cleanup);
@@ -223,7 +223,7 @@ test("right-click opens the menu without bubbling to the pane menu", async () =>
         online={true}
         onBackToSelectionRoute={() => undefined}
         openDocumentInfoRoute={() => undefined}
-        route={{ blobId: null, storageKey: null, view: "blob-browser" }}
+        route={{ blobId: null, storageKey: null }}
         selectDocumentProjection={() => undefined}
       />
     </section>,
@@ -368,7 +368,7 @@ test("the blob id is hidden from the row but stays the button's label", async ()
   expect(button.textContent).toBe("");
 });
 
-const PICK_TARGET: ExplorerBlobPickTarget = {
+const PICK_TARGET: BlobPickTarget = {
   containerId: "container-1",
   localId: "local-document-1",
   slotId: "front-image",
@@ -389,7 +389,7 @@ test("pick mode does not offer a row download context menu", async () => {
       onPickBlob={() => undefined}
       openDocumentInfoRoute={() => undefined}
       pickTarget={PICK_TARGET}
-      route={{ blobId: null, storageKey: null, view: "blob-browser" }}
+      route={{ blobId: null, storageKey: null }}
       selectDocumentProjection={() => undefined}
     />,
   );

@@ -98,7 +98,7 @@ test("blob browser navigates between the list and detail screens", async () => {
       online={true}
       onBackToSelectionRoute={() => undefined}
       openDocumentInfoRoute={() => undefined}
-      route={{ blobId: null, storageKey: null, view: "blob-browser" }}
+      route={{ blobId: null, storageKey: null }}
       selectDocumentProjection={() => undefined}
     />,
   );
@@ -181,7 +181,7 @@ test("blob browser document links open documents and expose get info from the ro
       openDocumentInfoRoute={(localId, containerId) => {
         openedInfoRoutes.push([localId, containerId]);
       }}
-      route={{ blobId: "blob-1", storageKey: null, view: "blob-browser" }}
+      route={{ blobId: "blob-1", storageKey: null }}
       selectDocumentProjection={(localId, containerId) => {
         selectedDocuments.push([localId, containerId]);
       }}
@@ -240,7 +240,7 @@ test("blob browser returns to the list from a deep-linked detail screen", async 
       online={true}
       onBackToSelectionRoute={() => undefined}
       openDocumentInfoRoute={() => undefined}
-      route={{ blobId: "blob-2", storageKey: null, view: "blob-browser" }}
+      route={{ blobId: "blob-2", storageKey: null }}
       selectDocumentProjection={() => undefined}
     />,
   );
@@ -284,7 +284,7 @@ test("blob browser requests a new blob window when the table scrolls", async () 
       online={true}
       onBackToSelectionRoute={() => undefined}
       openDocumentInfoRoute={() => undefined}
-      route={{ blobId: null, storageKey: null, view: "blob-browser" }}
+      route={{ blobId: null, storageKey: null }}
       selectDocumentProjection={() => undefined}
     />,
   );
@@ -354,7 +354,7 @@ test("blob browser keeps current rows visible while the next scroll window loads
       online={true}
       onBackToSelectionRoute={() => undefined}
       openDocumentInfoRoute={() => undefined}
-      route={{ blobId: null, storageKey: null, view: "blob-browser" }}
+      route={{ blobId: null, storageKey: null }}
       selectDocumentProjection={() => undefined}
     />,
   );
@@ -420,7 +420,7 @@ test("blob browser resets the blob window when sorting changes", async () => {
       online={true}
       onBackToSelectionRoute={() => undefined}
       openDocumentInfoRoute={() => undefined}
-      route={{ blobId: null, storageKey: null, view: "blob-browser" }}
+      route={{ blobId: null, storageKey: null }}
       selectDocumentProjection={() => undefined}
     />,
   );
@@ -486,7 +486,7 @@ test("blob browser renders row sync badges in the rightmost column", async () =>
       online={true}
       onBackToSelectionRoute={() => undefined}
       openDocumentInfoRoute={() => undefined}
-      route={{ blobId: null, storageKey: null, view: "blob-browser" }}
+      route={{ blobId: null, storageKey: null }}
       selectDocumentProjection={() => undefined}
     />,
   );
