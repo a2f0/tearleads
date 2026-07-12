@@ -231,6 +231,46 @@ test("routes container events by container, parent, and previous parent", () => 
   expect(parentWatcher.sent).toEqual([event]);
 });
 
+test("delivers an origin-tagged container create to the author's other session, not the author", () => {
+  const router = new WsEventRouter();
+  const authorTab = fakeSocket("alice", "alice-a");
+  const recoveredPeer = fakeSocket("alice", "alice-b");
+  router.open(authorTab);
+  router.open(recoveredPeer);
+  // Both sessions of the same identity already know the parent (root) container.
+  for (const ws of [authorTab, recoveredPeer]) {
+    router.handleClientMessage(
+      ws,
+      JSON.stringify({ type: "known_containers", containerIds: [PARENT] }),
+    );
+  }
+
+  router.routeServerEvent(
+    JSON.stringify({
+      type: "container_mutation_created",
+      containerId: CHILD,
+      eventType: "container.create",
+      parentId: PARENT,
+      updatedAt: "2026-06-22T00:00:00.000Z",
+      origin: { sessionId: "alice-a", userId: "alice" },
+    }),
+  );
+
+  // The authoring tab does not receive its own create echoed back...
+  expect(authorTab.sent).toEqual([]);
+  // ...but the same identity's other peer does (origin stripped), so it re-lists
+  // the parent and surfaces the new folder — the cross-peer folder-sync path.
+  expect(recoveredPeer.sent).toEqual([
+    JSON.stringify({
+      type: "container_mutation_created",
+      containerId: CHILD,
+      eventType: "container.create",
+      parentId: PARENT,
+      updatedAt: "2026-06-22T00:00:00.000Z",
+    }),
+  ]);
+});
+
 test("routes scopeless user events to that user's sockets only", () => {
   const router = new WsEventRouter();
   const aliceA = fakeSocket("alice", "alice-a");
