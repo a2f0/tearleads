@@ -91,39 +91,53 @@ async function deleteContainerDocumentTombstoneRows(
   }
 }
 
-async function updateSelectedContainerForDocumentTombstones(input: {
+async function updateSelectedContainersForDocumentTombstones(input: {
   documentId: string;
   removedContainerIds: ReadonlySet<string>;
   tombstoneUpdatedAt: string | undefined;
   tx: ClientSQLiteTransaction;
-}): Promise<string | null> {
+}): Promise<string[]> {
   const { documentId, removedContainerIds, tombstoneUpdatedAt, tx } = input;
-  const documentRows = await tx
-    .select({ localId: documents.localId })
-    .from(documents)
-    .where(
-      and(
-        eq(documents.appKind, DOCUMENTS_APP_KIND),
-        eq(documents.documentId, documentId),
-      ),
-    )
-    .limit(1);
-  const localId = documentRows[0]?.localId;
-  if (!localId) {
-    return null;
+  // A server document can own more than one local projection row: identity
+  // recovery legitimately rematerializes a second projection for the same
+  // documentId before semantic convergence completes. The link delete above is
+  // keyed by (documentId, containerId) and the container item view surfaces a
+  // document by its primary container_id, so EVERY projection row still pointing
+  // at a removed container must be repaired here — resolving a single localId
+  // left a duplicate row stranded at the source, keeping a moved document
+  // visible in the container it was unlinked from.
+  const localIds = (
+    await tx
+      .select({ localId: documents.localId })
+      .from(documents)
+      .where(
+        and(
+          eq(documents.appKind, DOCUMENTS_APP_KIND),
+          eq(documents.documentId, documentId),
+        ),
+      )
+  ).map((row) => row.localId);
+  if (localIds.length === 0) {
+    return [];
   }
 
   const projectionRows = await tx
     .select({
+      localId: documentProjection.localId,
       containerId: documentProjection.containerId,
       updatedAt: documentProjection.updatedAt,
     })
     .from(documentProjection)
-    .where(eq(documentProjection.localId, localId))
-    .limit(1);
-  const selectedContainerId = projectionRows[0]?.containerId;
-  if (!selectedContainerId || !removedContainerIds.has(selectedContainerId)) {
-    return null;
+    .where(inArray(documentProjection.localId, localIds));
+  const rowsAtRemovedContainer = projectionRows.flatMap((row) =>
+    row.localId !== null &&
+    row.containerId !== null &&
+    removedContainerIds.has(row.containerId)
+      ? [{ localId: row.localId, updatedAt: row.updatedAt ?? undefined }]
+      : [],
+  );
+  if (rowsAtRemovedContainer.length === 0) {
+    return [];
   }
 
   const remainingLinkRows = await tx
@@ -133,19 +147,20 @@ async function updateSelectedContainerForDocumentTombstones(input: {
     .orderBy(asc(documentContainerProjection.containerId));
   const nextContainerId = remainingLinkRows[0]?.containerId ?? null;
 
-  await tx
-    .update(documentProjection)
-    .set({
-      containerId: nextContainerId,
-      updatedAt: getLatestTimestamp(
-        projectionRows[0]?.updatedAt,
-        tombstoneUpdatedAt,
-      ),
-    })
-    .where(eq(documentProjection.localId, localId))
-    .run();
+  const changedLocalIds: string[] = [];
+  for (const row of rowsAtRemovedContainer) {
+    await tx
+      .update(documentProjection)
+      .set({
+        containerId: nextContainerId,
+        updatedAt: getLatestTimestamp(row.updatedAt, tombstoneUpdatedAt),
+      })
+      .where(eq(documentProjection.localId, row.localId))
+      .run();
+    changedLocalIds.push(row.localId);
+  }
 
-  return localId;
+  return changedLocalIds;
 }
 
 export async function applyContainerDocumentTombstonesWithExec(
@@ -169,17 +184,14 @@ export async function applyContainerDocumentTombstonesWithExec(
       documentId,
       removedContainerIds,
     ] of removedContainerIdsByDocumentId) {
-      const changedLocalId = await updateSelectedContainerForDocumentTombstones(
-        {
+      changedLocalIds.push(
+        ...(await updateSelectedContainersForDocumentTombstones({
           documentId,
           removedContainerIds,
           tombstoneUpdatedAt: tombstoneUpdatedAtByDocumentId.get(documentId),
           tx,
-        },
+        })),
       );
-      if (changedLocalId) {
-        changedLocalIds.push(changedLocalId);
-      }
     }
 
     if (changedLocalIds.length === 0) {
