@@ -136,7 +136,12 @@ test("selects only the writable projected self contact for the current user", ()
     }),
     contactEntry({ id: "other-user-self", isSelf: true, userId: "other-user" }),
     contactEntry({ id: "same-user-not-self", userId: USER_ID }),
-    contactEntry({ id: "current-self", isSelf: true, userId: USER_ID }),
+    contactEntry({
+      id: "current-self",
+      isSelf: true,
+      userId: USER_ID,
+      canWrite: undefined,
+    }),
   ];
 
   expect(findCurrentSelfContactLocalId(entries, USER_ID)).toBe("current-self");

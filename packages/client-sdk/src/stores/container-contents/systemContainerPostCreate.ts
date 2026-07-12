@@ -15,6 +15,7 @@ function isRemoteBackedContainerState(state: ContainerState): boolean {
   return (
     typeof state.container.metadataDocumentId === "string" &&
     state.container.metadataDocumentId.length > 0 &&
+    Boolean(state.record) &&
     typeof state.record.documentId === "string" &&
     state.record.documentId.length > 0 &&
     typeof state.record.accessStateHash === "string" &&

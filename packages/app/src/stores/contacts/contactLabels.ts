@@ -20,7 +20,7 @@ export function findCurrentSelfContactLocalId(
       (entry) =>
         entry.isSelf &&
         entry.userId === currentUserId &&
-        entry.canWrite === true,
+        entry.canWrite !== false,
     )?.id ?? null
   );
 }
