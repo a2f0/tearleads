@@ -588,6 +588,23 @@ const appRules = [
       path: `${sourceRoot.app}mini-apps/`,
     },
   },
+  {
+    name: "app-mini-apps-do-not-cross-import",
+    severity: "error",
+    comment:
+      "A mini-app must not reach into another mini-app's internals. Lift the shared building block into mini-apps/shared/ or hand data across the mini-app bus. The `$1` back-reference allows same-app and mini-apps/shared/ imports; shared/ may only import shared/, never a product mini-app.",
+    from: {
+      path: `${sourceRoot.app}mini-apps/([^/]+)/`,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: `${sourceRoot.app}mini-apps/[^/]+/`,
+      pathNot: [
+        `${sourceRoot.app}mini-apps/$1/`,
+        `${sourceRoot.app}mini-apps/shared/`,
+      ],
+    },
+  },
 ] satisfies ForbiddenRules;
 
 const dependencyCruiserConfig = {

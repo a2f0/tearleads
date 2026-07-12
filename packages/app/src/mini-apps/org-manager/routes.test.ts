@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import {
   DEFAULT_ORG_MANAGER_ROUTE,
-  formatOrgManagerGrantDetailRouteSegments,
   formatOrgManagerRouteSegments,
   type OrgManagerRoute,
   parseOrgManagerRouteSegments,
@@ -121,13 +120,6 @@ test("org manager route segments preserve view and selected group", () => {
       },
       selectedGroupId: null,
       view: "grants",
-    }),
-  ).toEqual(["grants", "detail", "group", "admins", "container-1"]);
-  expect(
-    formatOrgManagerGrantDetailRouteSegments({
-      containerId: "container-1",
-      subjectId: "admins",
-      subjectType: "group",
     }),
   ).toEqual(["grants", "detail", "group", "admins", "container-1"]);
 });
