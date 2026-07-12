@@ -75,7 +75,10 @@ function NotesEditorOrBlobPicker(params: {
 }) {
   const { cancelBlobPick, pickTarget, resolveBlobPick } = useBlobPick();
 
-  if (pickTarget) {
+  // Scope the picker to the note that opened it: the blob-pick provider outlives
+  // note switches, so a pick left in flight while the user selects another note
+  // must not surface its picker on (or resolve into) the newly active note.
+  if (pickTarget && pickTarget.localId === params.localId) {
     return (
       <MiniAppRoot padding="none">
         <BlobPickSurface
