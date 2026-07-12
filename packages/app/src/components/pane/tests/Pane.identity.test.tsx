@@ -226,7 +226,7 @@ test(
 
     await delayedLocalKeyring.waitForLoadSession();
     await act(async () => {
-      fireEvent.click(reloadedView.getByText("Menu"));
+      fireEvent.click(reloadedView.getByRole("button", { name: "Menu" }));
     });
     await act(async () => {
       fireEvent.click(reloadedView.getByText("Generate Key Pair"));
@@ -270,7 +270,7 @@ test(
       expect(getPaneStatusText(view)).toContain(`userId: ${userId}`);
     });
 
-    fireEvent.click(view.getByText("Menu"));
+    fireEvent.click(view.getByRole("button", { name: "Menu" }));
     expect(view.queryByText("Register")).toBeNull();
     expect(view.queryByText("Login")).toBeNull();
 
@@ -292,7 +292,7 @@ test(
       expect(getPaneStatusText(view)).not.toMatch(/session:\s*none/);
     });
 
-    fireEvent.click(view.getByText("Menu"));
+    fireEvent.click(view.getByRole("button", { name: "Menu" }));
     expect(view.queryByRole("button", { name: "Logout" })).toBeNull();
     expect(view.queryByRole("button", { name: "Destroy Key Pair" })).toBeNull();
     expect(view.getByRole("button", { name: "Explorer" })).toBeTruthy();

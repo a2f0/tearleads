@@ -94,7 +94,7 @@ test("locked browser-managed pane menu offers unlock instead of key generation",
       ).toBeTruthy();
     });
 
-    fireEvent.click(view.getByText("Menu"));
+    fireEvent.click(view.getByRole("button", { name: "Menu" }));
 
     const unlockDatabaseItem = view.getByRole("button", {
       name: "Unlock Database",
@@ -170,7 +170,7 @@ test("unlock database floating window closes after successful unlock", async () 
       ).toBeTruthy();
     });
 
-    fireEvent.click(view.getByText("Menu"));
+    fireEvent.click(view.getByRole("button", { name: "Menu" }));
     fireEvent.click(
       view.getByRole("button", {
         name: "Unlock Database",

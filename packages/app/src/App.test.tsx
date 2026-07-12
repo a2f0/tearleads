@@ -113,7 +113,7 @@ test("renders App", async () => {
       ).length,
     ).toBeGreaterThanOrEqual(1);
 
-    const firstMenuButton = view.getAllByText("Menu")[0];
+    const firstMenuButton = view.getAllByRole("button", { name: "Menu" })[0];
     if (!firstMenuButton) {
       throw new Error("Expected a pane menu button.");
     }

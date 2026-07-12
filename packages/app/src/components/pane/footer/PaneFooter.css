@@ -14,7 +14,6 @@
   color: var(--emphasis-text);
 }
 
-.pane-footer-menu-button,
 .pane-footer-window {
   display: inline-flex;
   align-items: center;
@@ -23,6 +22,51 @@
   padding: 0 var(--space-md);
   font-weight: 400;
   line-height: 1;
+}
+
+/* Icon-only "Start"-style button: the Tearleads mark replaces the text label,
+   matching the app's mobile drawer button (a square, borderless glyph over the
+   footer) rather than the bordered text chips. */
+.pane-footer-menu-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
+  border: 0;
+  /* Resting logo tones, theme-adaptive — mirror the mobile menu button so the
+     mark stays legible on the muted footer surface in both themes. */
+  --tearleads-logo-secondary: var(--color-dark);
+  --tearleads-logo-primary: color-mix(
+    in srgb,
+    var(--color-dark) 62%,
+    var(--color-muted)
+  );
+}
+
+/* Keep the button lit while its menu is open, matching the hover/focus emphasis
+   the shared footer rule already applies on interaction. */
+.pane-footer-menu-button[aria-expanded="true"] {
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
+}
+
+.pane-footer .pane-footer-menu-button:hover,
+.pane-footer .pane-footer-menu-button:focus-visible,
+.pane-footer-menu-button[aria-expanded="true"] {
+  --tearleads-logo-primary: color-mix(
+    in srgb,
+    var(--emphasis-text) 62%,
+    var(--emphasis-surface)
+  );
+  --tearleads-logo-secondary: var(--emphasis-text);
+}
+
+.pane-footer-menu-logo {
+  display: block;
+  width: 20px;
+  height: 20px;
 }
 
 /* Trailing cluster: anchored to the trailing edge of the footer, opposite the

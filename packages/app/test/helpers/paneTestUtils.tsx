@@ -490,7 +490,7 @@ export async function generateIdentityAndWaitForDb(
   view: ReturnType<typeof renderPane>,
 ) {
   await act(async () => {
-    fireEvent.click(view.getByText("Menu"));
+    fireEvent.click(view.getByRole("button", { name: "Menu" }));
   });
   await act(async () => {
     const menu = view.baseElement.querySelector<HTMLElement>(".menu");

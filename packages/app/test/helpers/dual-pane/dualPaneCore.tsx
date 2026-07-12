@@ -59,7 +59,7 @@ export async function openIdentityManagerForPane(
   }
 
   await interact(() => {
-    fireEvent.click(within(pane).getByText("Menu"));
+    fireEvent.click(within(pane).getByRole("button", { name: "Menu" }));
   });
   await interact(() => {
     clickOpenPaneMenuItem("Identity Manager");
@@ -337,7 +337,7 @@ export async function waitForDualPaneProvisioning(
 
 export async function generatePaneKeyPairFromMenu(pane: HTMLElement) {
   await interact(() => {
-    fireEvent.click(within(pane).getByText("Menu"));
+    fireEvent.click(within(pane).getByRole("button", { name: "Menu" }));
   });
   await interact(() => {
     clickOpenPaneMenuItem("Generate Key Pair");

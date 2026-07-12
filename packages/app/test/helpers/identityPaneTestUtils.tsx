@@ -16,7 +16,7 @@ export async function openIdentityManagerFromPane(
 ): Promise<HTMLDivElement> {
   const existingWindowCount =
     view.container.querySelectorAll<HTMLDivElement>("div.window").length;
-  fireEvent.click(view.getByText("Menu"));
+  fireEvent.click(view.getByRole("button", { name: "Menu" }));
   clickPaneAppMenuItem(view, "Identity Manager");
 
   await waitFor(() => {
