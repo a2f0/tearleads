@@ -12,10 +12,13 @@ import {
 import type { ContainerContentsStoreState } from "./types";
 
 function isRemoteBackedContainerState(state: ContainerState): boolean {
+  if (!state.record) {
+    return false;
+  }
+
   return (
     typeof state.container.metadataDocumentId === "string" &&
     state.container.metadataDocumentId.length > 0 &&
-    Boolean(state.record) &&
     typeof state.record.documentId === "string" &&
     state.record.documentId.length > 0 &&
     typeof state.record.accessStateHash === "string" &&
