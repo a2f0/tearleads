@@ -20,7 +20,6 @@ import {
 } from "../../providers/sdk/TearleadsProvider";
 import { useExplorer } from "../../stores/explorer/ExplorerProvider";
 import { useMiniAppBusActions } from "../bus";
-import { formatOrgManagerGrantDetailRouteSegments } from "../org-manager/routes";
 import { SystemBootstrapGate } from "../SystemBootstrapGate";
 import {
   BlobPickProvider,
@@ -70,7 +69,10 @@ function useOpenGrantInOrgManager() {
           subjectType: grant.subjectType,
           type: "open-grant",
         },
-        pathSegments: formatOrgManagerGrantDetailRouteSegments(grant),
+        // org-manager derives (and URL-syncs) the grant detail route from this
+        // message via openGrantRoute, so we deliberately send no pathSegments —
+        // that keeps Explorer from importing org-manager's route formatter and
+        // reaching across the mini-app boundary.
         ...(position ? { position } : {}),
       });
     },
