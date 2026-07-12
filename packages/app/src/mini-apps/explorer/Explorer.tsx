@@ -129,6 +129,7 @@ function renderExplorerDetailPanelWithBlobPick(
       contextTarget={model.contextMenuState.contextMenu?.id ?? null}
       currentOrganizationId={appData.auth.organizationId}
       currentSigningFingerprint={appData.crypto.signingFingerprint}
+      currentSelfContactLocalId={model.currentSelfContactLocalId}
       currentUserId={appData.auth.userId}
       documentListRevision={model.documentListRevision}
       documentQueries={model.documentQueries}

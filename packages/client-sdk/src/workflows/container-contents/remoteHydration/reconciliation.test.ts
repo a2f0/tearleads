@@ -1,0 +1,256 @@
+import { expect, test } from "bun:test";
+import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type { ContainerContentsPersistence } from "../containerPersistence";
+import {
+  reconcileLocalOnlyRootContainers,
+  reconcileLocalOnlySystemContainers,
+} from "./reconciliation";
+import type { ContainerState, RemoteContainerHydrationState } from "./types";
+
+const ORGANIZATION_ID = "remote-organization";
+const SYSTEM_SLOT = "sys_v1_recovered_contacts";
+
+async function containerState(input: {
+  id: string;
+  organizationId: string;
+  parentId: string | null;
+  remote: boolean;
+  systemSlot?: string | null | undefined;
+}): Promise<ContainerState> {
+  const doc = await createContainerMetadataDocument(input.id);
+  const metadataDocumentId = input.remote ? `${input.id}-metadata` : null;
+  return {
+    container: {
+      effectiveAccessLevel: "admin",
+      icon: null,
+      id: input.id,
+      metadataDocumentId,
+      name: input.parentId === null ? "/" : "Contacts",
+      organizationId: input.organizationId,
+      parentId: input.parentId,
+      systemSlot: input.systemSlot ?? null,
+    },
+    doc,
+    record: {
+      accessEpoch: 1,
+      accessStateHash: input.remote ? `${input.id}-access-state` : null,
+      contentKeyBundle: null,
+      documentId: metadataDocumentId,
+      documentKekTargets: null,
+      documentManifestBundle: null,
+      id: input.id,
+      lastCommitLsn: null,
+      loroSnapshot: "",
+    },
+  };
+}
+
+async function reconciliationFixture() {
+  const rootReconciliations: Array<
+    Parameters<ContainerContentsPersistence["reconcileLocalRootContainer"]>[1]
+  > = [];
+  const systemReconciliations: Array<
+    Parameters<ContainerContentsPersistence["reconcileLocalSystemContainer"]>[1]
+  > = [];
+  const persistence = {
+    reconcileLocalRootContainer: async (
+      _execSql: ExecSql,
+      input: (typeof rootReconciliations)[number],
+    ) => {
+      rootReconciliations.push(input);
+    },
+    reconcileLocalSystemContainer: async (
+      _execSql: ExecSql,
+      input: (typeof systemReconciliations)[number],
+    ) => {
+      systemReconciliations.push(input);
+    },
+  } as unknown as ContainerContentsPersistence;
+  const state = {
+    containersById: new Map<string, ContainerState>(),
+    persistence,
+    runtime: {
+      auth: { organizationId: ORGANIZATION_ID },
+      infra: { execSql: (() => Promise.resolve([])) as ExecSql },
+      util: { log: () => undefined },
+    },
+  } as unknown as RemoteContainerHydrationState;
+
+  const localRoot = await containerState({
+    id: "local-root",
+    organizationId: "",
+    parentId: null,
+    remote: false,
+  });
+  const localSystem = await containerState({
+    id: "local-contacts",
+    organizationId: "",
+    parentId: localRoot.container.id,
+    remote: false,
+    systemSlot: SYSTEM_SLOT,
+  });
+  const remoteRoot = await containerState({
+    id: "remote-root",
+    organizationId: ORGANIZATION_ID,
+    parentId: null,
+    remote: true,
+  });
+  const remoteSystem = await containerState({
+    id: "remote-contacts",
+    organizationId: ORGANIZATION_ID,
+    parentId: remoteRoot.container.id,
+    remote: true,
+    systemSlot: SYSTEM_SLOT,
+  });
+  for (const container of [localRoot, localSystem, remoteRoot]) {
+    state.containersById.set(container.container.id, container);
+  }
+
+  return {
+    localRoot,
+    localSystem,
+    remoteRoot,
+    remoteSystem,
+    rootReconciliations,
+    state,
+    systemReconciliations,
+  };
+}
+
+test("local system reconciliation converges regardless of remote page ordering", async () => {
+  for (const remoteSystemFirst of [true, false]) {
+    const fixture = await reconciliationFixture();
+    if (remoteSystemFirst) {
+      fixture.state.containersById.set(
+        fixture.remoteSystem.container.id,
+        fixture.remoteSystem,
+      );
+    }
+
+    await reconcileLocalOnlyRootContainers({
+      remoteRootState: fixture.remoteRoot,
+      state: fixture.state,
+    });
+
+    if (!remoteSystemFirst) {
+      fixture.state.containersById.set(
+        fixture.remoteSystem.container.id,
+        fixture.remoteSystem,
+      );
+      await reconcileLocalOnlySystemContainers({
+        remoteSystemState: fixture.remoteSystem,
+        state: fixture.state,
+      });
+    }
+
+    expect(
+      fixture.state.containersById.has(fixture.localRoot.container.id),
+    ).toBe(false);
+    expect(
+      fixture.state.containersById.has(fixture.localSystem.container.id),
+    ).toBe(false);
+    expect(Array.from(fixture.state.containersById.keys()).sort()).toEqual([
+      "remote-contacts",
+      "remote-root",
+    ]);
+    expect(fixture.rootReconciliations).toHaveLength(1);
+    expect(fixture.systemReconciliations).toHaveLength(1);
+    expect(fixture.rootReconciliations[0]).toMatchObject({
+      descendantReparents: [
+        {
+          containerId: "local-contacts",
+          parentContainerId: "remote-root",
+          updateCreateIntent: true,
+        },
+      ],
+      localRootContainerId: "local-root",
+      remoteRootContainerId: "remote-root",
+    });
+    expect(fixture.systemReconciliations[0]).toMatchObject({
+      localContainerId: "local-contacts",
+      remoteContainerId: "remote-contacts",
+      remoteOrganizationId: ORGANIZATION_ID,
+    });
+  }
+});
+
+test("home system reconciliation heals pre-auth candidates with stale parents", async () => {
+  for (const parentState of ["missing", "local-root"] as const) {
+    const fixture = await reconciliationFixture();
+    fixture.state.containersById.clear();
+    const staleParentId =
+      parentState === "local-root"
+        ? fixture.localRoot.container.id
+        : "deleted-local-root";
+    fixture.localSystem.container = {
+      ...fixture.localSystem.container,
+      parentId: staleParentId,
+    };
+    if (parentState === "local-root") {
+      fixture.state.containersById.set(
+        fixture.localRoot.container.id,
+        fixture.localRoot,
+      );
+    }
+    fixture.state.containersById.set(
+      fixture.localSystem.container.id,
+      fixture.localSystem,
+    );
+    fixture.state.containersById.set(
+      fixture.remoteSystem.container.id,
+      fixture.remoteSystem,
+    );
+
+    await reconcileLocalOnlySystemContainers({
+      remoteSystemState: fixture.remoteSystem,
+      state: fixture.state,
+    });
+
+    expect(
+      fixture.state.containersById.has(fixture.localSystem.container.id),
+    ).toBe(false);
+    expect(fixture.systemReconciliations).toHaveLength(1);
+    expect(fixture.systemReconciliations[0]).toMatchObject({
+      localContainerId: fixture.localSystem.container.id,
+      remoteContainerId: fixture.remoteSystem.container.id,
+      remoteOrganizationId: ORGANIZATION_ID,
+    });
+  }
+});
+
+test("orphan healing never adopts a foreign candidate or remote target", async () => {
+  const foreignOrganizationId = "foreign-organization";
+  for (const foreignSide of ["candidate", "target"] as const) {
+    const fixture = await reconciliationFixture();
+    fixture.state.containersById.clear();
+    fixture.localSystem.container = {
+      ...fixture.localSystem.container,
+      organizationId: foreignSide === "candidate" ? foreignOrganizationId : "",
+      parentId: "deleted-local-root",
+    };
+    fixture.remoteSystem.container = {
+      ...fixture.remoteSystem.container,
+      organizationId:
+        foreignSide === "target" ? foreignOrganizationId : ORGANIZATION_ID,
+    };
+    fixture.state.containersById.set(
+      fixture.localSystem.container.id,
+      fixture.localSystem,
+    );
+    fixture.state.containersById.set(
+      fixture.remoteSystem.container.id,
+      fixture.remoteSystem,
+    );
+
+    await reconcileLocalOnlySystemContainers({
+      remoteSystemState: fixture.remoteSystem,
+      state: fixture.state,
+    });
+
+    expect(
+      fixture.state.containersById.has(fixture.localSystem.container.id),
+    ).toBe(true);
+    expect(fixture.systemReconciliations).toHaveLength(0);
+  }
+});

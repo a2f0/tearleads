@@ -97,6 +97,7 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
           <ExplorerSidebarVirtualTree
             activeContainerId={props.activeContainerId}
             currentSigningFingerprint={props.currentSigningFingerprint}
+            currentSelfContactLocalId={props.currentSelfContactLocalId}
             currentUserId={props.currentUserId}
             depth={0}
             documentWindowsByContainerId={props.documentWindowsByContainerId}
@@ -127,6 +128,7 @@ interface ExplorerSidebarPanelParams {
   activeContainerId: string | null;
   collapsedIds: ReadonlySet<string>;
   currentSigningFingerprint: string | null | undefined;
+  currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
   // Surfaces a failed SQLite boot (with Retry) in the sidebar tree's gate.
   databaseError: boolean;
@@ -191,6 +193,7 @@ function ExplorerSidebar(props: ExplorerSidebarPanelParams) {
       activeContainerId={props.activeContainerId}
       blankContextMenuContainerId={blankContextMenuContainerId}
       currentSigningFingerprint={props.currentSigningFingerprint}
+      currentSelfContactLocalId={props.currentSelfContactLocalId}
       currentUserId={props.currentUserId}
       databaseError={props.databaseError}
       depth={0}
@@ -221,6 +224,7 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
       params.activeContainerId,
       params.collapsedIds,
       params.currentSigningFingerprint,
+      params.currentSelfContactLocalId,
       params.currentUserId,
       params.databaseError,
       params.documentLinkProjectionVersion,

@@ -143,6 +143,7 @@ export function createContactsRuntimeForContainer(
   loadDocumentSummary: ContactsRuntime["loadDocumentSummary"] = (localId) =>
     tearleads.containerContents.documentQueries().loadDocumentSummary(localId),
 ): ContactsRuntime {
+  const documentLinks = tearleads.containerContents.documentLinks();
   return {
     deleteDocument: (localId) => tearleads.documents.delete(localId),
     documents: documentsRuntime,
@@ -152,6 +153,8 @@ export function createContactsRuntimeForContainer(
       tearleads.documents.open(input, {
         workflowRuntime: documentsRuntime,
       }),
+    purgeDocument: async (document) =>
+      (await documentLinks.purgeDocument({ note: document })) !== null,
     subscribeToPersistedDocuments: (listener) =>
       tearleads.documents.subscribe(listener, {
         containerId: documentsRuntime.state.containerId,

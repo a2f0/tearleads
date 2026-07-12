@@ -23,6 +23,7 @@ import {
 export interface ExplorerSidebarRowProps {
   activeContainerId: string | null;
   currentSigningFingerprint: string | null | undefined;
+  currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
   depth: number;
   documentWindowsByContainerId: ReadonlyMap<
@@ -61,6 +62,7 @@ function ExplorerTreeDocumentRow(
   const { row } = props;
   const title = getViewerRelativeContactDocumentLabel({
     currentSigningFingerprint: props.currentSigningFingerprint,
+    currentSelfContactLocalId: props.currentSelfContactLocalId,
     currentUserId: props.currentUserId,
     documentKind: row.documentKind,
     fallbackLabel: row.title,

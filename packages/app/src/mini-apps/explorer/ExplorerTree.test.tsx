@@ -158,6 +158,7 @@ function ExplorerSidebarHarness(params: {
     activeContainerId: "root-container",
     collapsedIds,
     currentSigningFingerprint: null,
+    currentSelfContactLocalId: null,
     currentUserId: null,
     databaseError: false,
     onRetryDatabase,

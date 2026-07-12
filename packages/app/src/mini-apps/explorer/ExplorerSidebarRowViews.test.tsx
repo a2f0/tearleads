@@ -24,6 +24,7 @@ function renderSidebarIcon(icon: string | undefined) {
     <ExplorerSidebarVirtualTree
       activeContainerId={null}
       currentSigningFingerprint={null}
+      currentSelfContactLocalId={null}
       currentUserId={null}
       depth={0}
       documentWindowsByContainerId={new Map()}

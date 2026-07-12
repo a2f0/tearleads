@@ -138,6 +138,7 @@ export function useExplorerPanelState(params: {
   documentLinkProjectionVersionByContainerId: ReadonlyMap<string, number>;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
+  currentSelfContactLocalId: string | null;
   explorer: ExplorerModelExplorer;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   bumpDocumentListRevision: () => void;
@@ -164,6 +165,7 @@ export function useExplorerPanelState(params: {
     documentLinkProjectionVersionByContainerId,
     documentListRevision,
     documentQueries,
+    currentSelfContactLocalId,
     explorer,
     linkedContainerIdsByDocumentId,
     bumpDocumentListRevision,
@@ -248,6 +250,7 @@ export function useExplorerPanelState(params: {
     activeContainerId: selection.activeContainerId,
     collapsedIds: selection.collapsedIds,
     currentSigningFingerprint: appData.crypto.signingFingerprint,
+    currentSelfContactLocalId,
     currentUserId: appData.auth.userId,
     // Derived from the same worker status as Explorer's detail gate so both show
     // the boot error together; the retry callback is threaded from Explorer.

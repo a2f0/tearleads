@@ -368,9 +368,20 @@ test("remote container growth re-arms backfill after initial hydration only", as
       isAuthenticated: true,
       online: true,
     });
-    let nodes: ReadonlyArray<ContainerNode> = [
-      remoteContainerNode("cached-root"),
-    ];
+    const cachedRoot = remoteContainerNode("cached-root");
+    const localFirstChild: ContainerNode = {
+      ...remoteContainerNode("promoting-child"),
+      metadataDocumentId: null,
+      parentId: cachedRoot.id,
+      syncState: {
+        lastError: null,
+        pendingAttachmentBytes: 0,
+        pendingAttachmentCount: 0,
+        pendingUpdateCount: 1,
+        status: "pending",
+      },
+    };
+    let nodes: ReadonlyArray<ContainerNode> = [cachedRoot, localFirstChild];
     let emitContainerStore = () => {};
     const containerStore = {
       getSnapshot: () => ({ nodes, ready: true }),
@@ -391,18 +402,36 @@ test("remote container growth re-arms backfill after initial hydration only", as
     store.updateRuntime(runtime);
     expect(signals).toEqual(["hydrated"]);
 
-    // A remote child arriving after that initial edge is the cold-recovery race:
-    // signal one trailing backfill, then suppress object-only snapshot churn.
-    nodes = [
-      remoteContainerNode("cached-root"),
-      remoteContainerNode("remote-contacts"),
-    ];
+    // A newly discovered remote child re-arms the cold-recovery backfill.
+    nodes = [...nodes, remoteContainerNode("remote-contacts")];
     emitContainerStore();
     expect(signals).toEqual(["hydrated", "remote-containers-added"]);
 
+    // A local-first child becoming remotely listable under the same id must
+    // signal one trailing backfill. This is the active-container promotion
+    // race: its earlier local-only queue item was deliberately discarded.
+    nodes = [
+      cachedRoot,
+      {
+        ...localFirstChild,
+        metadataDocumentId: "promoting-child-metadata",
+        syncState: {
+          ...localFirstChild.syncState,
+          pendingUpdateCount: 0,
+          status: "synced",
+        },
+      },
+    ];
+    emitContainerStore();
+    expect(signals).toEqual([
+      "hydrated",
+      "remote-containers-added",
+      "remote-containers-added",
+    ]);
+
     nodes = [...nodes];
     emitContainerStore();
-    expect(signals).toEqual(["hydrated", "remote-containers-added"]);
+    expect(signals).toHaveLength(3);
   } finally {
     close();
   }

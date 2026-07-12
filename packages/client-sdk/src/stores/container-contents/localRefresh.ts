@@ -1,6 +1,7 @@
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { loadLocalContainerStates } from "../../workflows/container-contents/localState";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
+import { reconcileLocalOnlyRootContainers } from "../../workflows/container-contents/remoteHydration/reconciliation";
 import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
 
 interface LocalContainerRefreshHost {
@@ -51,6 +52,29 @@ function mergeLocalContainerStates(input: {
   }
 }
 
+function isRemoteBackedRootState(containerState: ContainerState): boolean {
+  return (
+    containerState.container.parentId === null &&
+    typeof containerState.container.metadataDocumentId === "string" &&
+    containerState.container.metadataDocumentId.length > 0 &&
+    typeof containerState.record.documentId === "string" &&
+    containerState.record.documentId.length > 0 &&
+    typeof containerState.record.accessStateHash === "string" &&
+    containerState.record.accessStateHash.length > 0
+  );
+}
+
+async function reconcileLocalsLoadedAfterRemoteState(
+  state: LocalContainerRefreshState,
+): Promise<void> {
+  const remoteRootStates = Array.from(state.containersById.values()).filter(
+    isRemoteBackedRootState,
+  );
+  for (const remoteRootState of remoteRootStates) {
+    await reconcileLocalOnlyRootContainers({ remoteRootState, state });
+  }
+}
+
 export function refreshLocalContainerStates(input: {
   host: LocalContainerRefreshHost;
   state: LocalContainerRefreshState;
@@ -79,12 +103,17 @@ export function refreshLocalContainerStates(input: {
     persistence: state.persistence,
     runtime: state.runtime,
   })
-    .then((localContainerStates) => {
+    .then(async (localContainerStates) => {
       mergeLocalContainerStates({
         localContainerStates,
         remoteContainerIdsAtLoadStart,
         state,
       });
+      // Remote hydration can win the startup race and ingest the server root
+      // before this local read returns. Re-run root/system convergence after
+      // merging so that the late local bootstrap rows cannot reintroduce a
+      // stale root and same-slot system children into the live tree.
+      await reconcileLocalsLoadedAfterRemoteState(state);
       state.documentStoresNeedPriming = true;
       host.updateSnapshot();
     })

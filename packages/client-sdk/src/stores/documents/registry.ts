@@ -21,6 +21,11 @@ const persistedDocumentListenersByScope = new WeakMap<
   DomainScope,
   Set<PersistedDocumentListener>
 >();
+type PersistedDocumentDeletionListener = (localId: string) => void;
+const persistedDocumentDeletionListenersByScope = new WeakMap<
+  DomainScope,
+  Set<PersistedDocumentDeletionListener>
+>();
 
 export function getOrCreateDocumentStoreRegistry(
   domainScope: DomainScope,
@@ -212,6 +217,38 @@ export function subscribeToPersistedDocuments(
     listeners.delete(listener);
     if (listeners.size === 0) {
       persistedDocumentListenersByScope.delete(domainScope);
+    }
+  };
+}
+
+export function emitPersistedDocumentDeletion(
+  domainScope: DomainScope,
+  localId: string,
+): void {
+  const listeners = persistedDocumentDeletionListenersByScope.get(domainScope);
+  if (!listeners) {
+    return;
+  }
+
+  for (const listener of listeners) {
+    listener(localId);
+  }
+}
+
+export function subscribeToPersistedDocumentDeletions(
+  domainScope: DomainScope,
+  listener: PersistedDocumentDeletionListener,
+): () => void {
+  const listeners =
+    persistedDocumentDeletionListenersByScope.get(domainScope) ??
+    new Set<PersistedDocumentDeletionListener>();
+  listeners.add(listener);
+  persistedDocumentDeletionListenersByScope.set(domainScope, listeners);
+
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) {
+      persistedDocumentDeletionListenersByScope.delete(domainScope);
     }
   };
 }

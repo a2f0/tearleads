@@ -25,6 +25,7 @@ describe("isAutomaticRootCatchupContainerNode", () => {
       isAutomaticRootCatchupContainerNode(
         {
           effectiveAccessLevel: "admin",
+          metadataDocumentId: "contacts-metadata",
           organizationId: "org-home",
           systemSlot: "sys_v1_contacts",
         },
@@ -38,6 +39,7 @@ describe("isAutomaticRootCatchupContainerNode", () => {
       isAutomaticRootCatchupContainerNode(
         {
           effectiveAccessLevel: "read",
+          metadataDocumentId: "regular-metadata",
           organizationId: "org-foreign",
           systemSlot: null,
         },
@@ -48,12 +50,27 @@ describe("isAutomaticRootCatchupContainerNode", () => {
       isAutomaticRootCatchupContainerNode(
         {
           effectiveAccessLevel: "read",
+          metadataDocumentId: "foreign-metadata",
           organizationId: "org-foreign",
           systemSlot: "sys_v1_metadata",
         },
         "org-home",
       ),
     ).toBe(true);
+  });
+
+  test("excludes a local-first regular container", () => {
+    expect(
+      isAutomaticRootCatchupContainerNode(
+        {
+          effectiveAccessLevel: "admin",
+          metadataDocumentId: null,
+          organizationId: "",
+          systemSlot: null,
+        },
+        "org-home",
+      ),
+    ).toBe(false);
   });
 });
 
@@ -114,7 +131,7 @@ describe("remote-backed reconciliation", () => {
     ).toBe(false);
   });
 
-  test("keeps local-first user containers reconcilable", () => {
+  test("includes remote-backed user containers but not local-first ids", () => {
     expect(
       isReconcilableContainerNode(
         {
@@ -124,6 +141,17 @@ describe("remote-backed reconciliation", () => {
           systemSlot: null,
         },
         null,
+      ),
+    ).toBe(false);
+    expect(
+      isReconcilableContainerNode(
+        {
+          effectiveAccessLevel: "admin",
+          metadataDocumentId: "remote-metadata",
+          organizationId: "org-home",
+          systemSlot: null,
+        },
+        "org-home",
       ),
     ).toBe(true);
   });

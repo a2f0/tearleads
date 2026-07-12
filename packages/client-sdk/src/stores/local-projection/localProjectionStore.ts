@@ -1,13 +1,11 @@
 import { loadLocalContainerProjectionDocumentsFromRuntime } from "../../workflows/container-contents/projectionView";
-import {
-  isReconcilableContainerNode,
-  isRemoteBackedContainerNode,
-} from "../container-contents/reconcilableContainer";
+import { isReconcilableContainerNode } from "../container-contents/reconcilableContainer";
 import type { ContainerContentsStoreRuntime } from "../container-contents/syncAgent";
 import type { ContainerContentsStore } from "../container-contents/types";
 import {
   applyContainerSummaries,
   createSummaryCache,
+  removeDocumentSummary,
   resetSummaryCache,
   type SummaryCache,
   snapshotLinkedContainerIdsByDocumentId,
@@ -41,6 +39,7 @@ export interface LocalProjectionStore {
   setActiveContainer: (containerId: string | null) => void;
   getActiveContainerId: () => string | null;
   applyReconciled: (delta: LocalProjectionReconciledDelta) => void;
+  removePersistedDocument: (localId: string) => void;
   updateRuntime: (runtime: ContainerContentsStoreRuntime) => void;
   /** Registered by the reconciler; returns an unsubscribe handle. */
   onReconcileSignal: (listener: LocalProjectionReconcileListener) => () => void;
@@ -176,9 +175,7 @@ function hasRemoteBackedContainerMembershipGrowth(
 ): boolean {
   const isRemoteReconcilable = (
     container: LocalProjectionSnapshot["containers"][number],
-  ) =>
-    isRemoteBackedContainerNode(container) &&
-    isReconcilableContainerNode(container, homeOrganizationId);
+  ) => isReconcilableContainerNode(container, homeOrganizationId);
   const previousIds = new Set(
     previous.flatMap((container) =>
       isRemoteReconcilable(container) ? [container.id] : [],
@@ -188,6 +185,15 @@ function hasRemoteBackedContainerMembershipGrowth(
     (container) =>
       isRemoteReconcilable(container) && !previousIds.has(container.id),
   );
+}
+
+function removePersistedDocumentFromCache(
+  state: LocalProjectionStoreState,
+  localId: string,
+): void {
+  if (removeDocumentSummary(state.cache, localId)) {
+    emit(state);
+  }
 }
 
 export function createLocalProjectionStore(input: {
@@ -265,6 +271,8 @@ export function createLocalProjectionStore(input: {
         emit(state);
       }
     },
+    removePersistedDocument: (localId) =>
+      removePersistedDocumentFromCache(state, localId),
     updateRuntime: (runtime) => {
       const previousRuntime = state.runtime;
       state.runtime = runtime;

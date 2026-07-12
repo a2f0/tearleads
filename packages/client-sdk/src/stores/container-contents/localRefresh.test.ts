@@ -1,4 +1,5 @@
 import { expect, mock, test } from "bun:test";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
@@ -11,6 +12,8 @@ function createRefreshState(input: {
   containersById?: Map<string, ContainerState>;
   loadContainers: ContainerContentsPersistence["loadContainers"];
   log?: (message: string) => void;
+  reconcileLocalRootContainer?: ContainerContentsPersistence["reconcileLocalRootContainer"];
+  reconcileLocalSystemContainer?: ContainerContentsPersistence["reconcileLocalSystemContainer"];
 }): LocalContainerRefreshState {
   const saveContainer: ContainerContentsPersistence["saveContainer"] = async (
     _execSql,
@@ -27,9 +30,14 @@ function createRefreshState(input: {
       enqueuePendingUpdate: async () => {},
       ensureSchema: async () => {},
       loadContainers: input.loadContainers,
+      reconcileLocalRootContainer:
+        input.reconcileLocalRootContainer ?? (async () => {}),
+      reconcileLocalSystemContainer:
+        input.reconcileLocalSystemContainer ?? (async () => {}),
       saveContainer,
     } as unknown as ContainerContentsPersistence,
     runtime: {
+      auth: { organizationId: "organization-id" },
       infra: {
         dbStatus: "ready",
         execSql: {} as ContainerContentsWorkflowRuntime["infra"]["execSql"],
@@ -38,6 +46,38 @@ function createRefreshState(input: {
         log: input.log ?? (() => {}),
       },
     } as ContainerContentsWorkflowRuntime,
+  };
+}
+
+function createTreeContainerState(input: {
+  id: string;
+  parentId: string | null;
+  remote: boolean;
+  systemSlot?: ContainerSystemSlot | null | undefined;
+}): ContainerState {
+  const documentId = input.remote ? `${input.id}-metadata` : null;
+  return {
+    container: {
+      icon: null,
+      id: input.id,
+      metadataDocumentId: documentId,
+      name: input.parentId === null ? "/" : "Contacts",
+      organizationId: input.remote ? "organization-id" : "",
+      parentId: input.parentId,
+      systemSlot: input.systemSlot ?? null,
+    },
+    doc: {} as ContainerState["doc"],
+    record: {
+      accessEpoch: 1,
+      accessStateHash: input.remote ? `${input.id}-access-state` : null,
+      contentKeyBundle: null,
+      documentId,
+      documentKekTargets: null,
+      documentManifestBundle: null,
+      id: input.id,
+      lastCommitLsn: null,
+      loroSnapshot: "",
+    },
   };
 }
 
@@ -172,4 +212,57 @@ test("local container refresh applies an intentional remote reset", async () => 
 
   expect(currentState.container.metadataDocumentId).toBeNull();
   expect(currentState.record.documentId).toBeNull();
+});
+
+test("local refresh reconciles roots and system children loaded after remote state", async () => {
+  const systemSlot =
+    "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" as ContainerSystemSlot;
+  const remoteRoot = createTreeContainerState({
+    id: "remote-root",
+    parentId: null,
+    remote: true,
+  });
+  const remoteSystem = createTreeContainerState({
+    id: "remote-contacts",
+    parentId: remoteRoot.container.id,
+    remote: true,
+    systemSlot,
+  });
+  const localRoot = createTreeContainerState({
+    id: "local-root",
+    parentId: null,
+    remote: false,
+  });
+  const localSystem = createTreeContainerState({
+    id: "local-contacts",
+    parentId: localRoot.container.id,
+    remote: false,
+    systemSlot,
+  });
+  const rootReconciliations = mock(async () => {});
+  const systemReconciliations = mock(async () => {});
+  const state = createRefreshState({
+    containersById: new Map([
+      [remoteRoot.container.id, remoteRoot],
+      [remoteSystem.container.id, remoteSystem],
+    ]),
+    loadContainers: async () => [
+      { container: localRoot.container, record: null },
+      { container: localSystem.container, record: null },
+    ],
+    reconcileLocalRootContainer: rootReconciliations,
+    reconcileLocalSystemContainer: systemReconciliations,
+  });
+
+  await refreshLocalContainerStates({
+    host: { updateSnapshot: () => {} },
+    state,
+  });
+
+  expect(Array.from(state.containersById.keys()).sort()).toEqual([
+    "remote-contacts",
+    "remote-root",
+  ]);
+  expect(rootReconciliations).toHaveBeenCalledTimes(1);
+  expect(systemReconciliations).toHaveBeenCalledTimes(1);
 });

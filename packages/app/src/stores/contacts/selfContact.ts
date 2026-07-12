@@ -45,6 +45,24 @@ export function findPrimarySelfContact(
   entriesById: ReadonlyMap<string, ContactEntry>,
   identity: ResolvedSelfContactIdentity,
 ): ContactEntry | null {
+  // A writable self entry with this userId under a non-deterministic id is the
+  // recovered cross-device identity. It outranks the creation fallback even if
+  // that fallback was already promoted with the same userId while remote
+  // hydration was in flight. Unrelated and read-only entries cannot displace a
+  // self contact that this device can maintain.
+  if (identity.userId) {
+    for (const entry of entriesById.values()) {
+      if (
+        entry.userId === identity.userId &&
+        entry.isSelf &&
+        entry.canWrite !== false &&
+        (!identity.localId || entry.id !== identity.localId)
+      ) {
+        return entry;
+      }
+    }
+  }
+
   if (identity.localId) {
     const localContact = entriesById.get(identity.localId) ?? null;
     if (localContact) {
@@ -52,15 +70,11 @@ export function findPrimarySelfContact(
     }
   }
 
+  // Preserve the existing promotion behavior when no deterministic fallback
+  // exists, but never select a shared/read-only contact for a write operation.
   if (identity.userId) {
     for (const entry of entriesById.values()) {
-      if (entry.userId === identity.userId) {
-        if (
-          identity.localId &&
-          shouldRemoveDuplicateSelfContact(entry, identity.localId, identity)
-        ) {
-          continue;
-        }
+      if (entry.userId === identity.userId && entry.canWrite !== false) {
         return entry;
       }
     }

@@ -155,12 +155,18 @@ Scheduling policy (active-first, then idle backfill):
    always re-list both the previous and current container lanes, even when the
    document body is already known locally.
 
-Remote-backed system containers participate in reconciliation once their
-metadata document exists. Own system containers and foreign organization
-metadata visible through `read`/`admin` membership are included; local-only
-slots and write-only foreign system shares are excluded from automatic sweeps.
-If the user explicitly opens a write-shared system folder, a full Refresh still
-includes that active container so its registered document stores can retry.
+Remote document discovery requires a current metadata document for every
+container. Local-first roots, regular folders, and system slots are never sent
+to `/containers/:id/documents` before their remote create commits; the document
+lane rechecks this after structural hydration because a queued pre-auth root may
+have been replaced in the meantime. When the same local id becomes
+remote-backed, tree growth re-arms it even if it is still the active container.
+
+Own remote-backed system containers and foreign organization metadata visible
+through `read`/`admin` membership are included in automatic sweeps; local-only
+slots and write-only foreign system shares are excluded. If the user explicitly
+opens a write-shared system folder, a full Refresh still includes that active
+container so its registered document stores can retry.
 Discovered system document bodies are pulled eagerly once per remote version
 because Contacts and organization-profile projections may have no document
 window that would open them lazily. An explicit Refresh can retry the same

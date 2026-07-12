@@ -245,6 +245,11 @@ test("reconciliation routing includes remote-backed own and readable foreign sys
     containers: [
       containerNode({
         id: "regular",
+        metadataDocumentId: "regular-metadata",
+        organizationId: "org-home",
+      }),
+      containerNode({
+        id: "local-regular",
         organizationId: "org-home",
       }),
       containerNode({
@@ -279,6 +284,7 @@ test("reconciliation routing includes remote-backed own and readable foreign sys
 
   expect(routing.knownContainerIds).toEqual([
     "regular",
+    "local-regular",
     "foreign-metadata",
     "own-remote-system",
   ]);

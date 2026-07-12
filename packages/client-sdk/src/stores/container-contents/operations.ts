@@ -18,7 +18,11 @@ import type {
 } from "./syncAgent";
 import { probeExistingSystemContainer } from "./systemContainerHydration";
 import { applySystemContainerIcon } from "./systemContainerIcon";
-import { findSystemContainerStateForRoot } from "./systemContainerLookup";
+import {
+  findRootContainerState,
+  findSystemContainerStateForRoot,
+} from "./systemContainerLookup";
+import { finalizeCreatedSystemContainer } from "./systemContainerPostCreate";
 import {
   hasAdvancedManagedPrincipalReference,
   promoteExistingLocalSystemContainerSync,
@@ -90,9 +94,7 @@ export async function createChildContainer(
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
   });
-  if (!created) {
-    return null;
-  }
+  if (!created) return null;
 
   state.containersById.set(
     created.containerState.container.id,
@@ -106,26 +108,6 @@ export async function createChildContainer(
     `${getContainerContentsStoreLogLabel(state)}: created container "${trimmedName}"`,
   );
   return toContainerNode(created.containerState);
-}
-
-function findRootContainerState(
-  state: ContainerContentsStoreState,
-): ContainerState | null {
-  const defaultContainerId = state.runtime.state.containerId;
-  if (defaultContainerId) {
-    const defaultRootState = state.containersById.get(defaultContainerId);
-    if (defaultRootState?.container.parentId === null) {
-      return defaultRootState;
-    }
-  }
-
-  for (const containerState of state.containersById.values()) {
-    if (containerState.container.parentId === null) {
-      return containerState;
-    }
-  }
-
-  return null;
 }
 
 async function updateExistingSystemContainer(
@@ -155,6 +137,15 @@ async function updateExistingSystemContainer(
   });
 }
 
+function canEnsureSystemContainer(
+  state: ContainerContentsStoreState,
+  name: string,
+): boolean {
+  return (
+    state.runtime.infra.dbStatus === "ready" && state.snapshot.ready && !!name
+  );
+}
+
 export async function ensureSystemContainer(
   state: ContainerContentsStoreState,
   syncAgent: ContainerContentsStoreSyncAgent,
@@ -163,11 +154,7 @@ export async function ensureSystemContainer(
   options: EnsureSystemContainerOptions = {},
 ) {
   const trimmedName = name.trim();
-  if (
-    state.runtime.infra.dbStatus !== "ready" ||
-    !state.snapshot.ready ||
-    !trimmedName
-  ) {
+  if (!canEnsureSystemContainer(state, trimmedName)) {
     return null;
   }
 
@@ -234,22 +221,24 @@ export async function ensureSystemContainer(
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
   });
-  if (!created) {
-    return null;
-  }
+  if (!created) return null;
 
-  state.containersById.set(
-    created.containerState.container.id,
-    created.containerState,
-  );
-  updateContainerContentsSnapshot(state);
-  if (created.shouldRequestSync) {
-    syncAgent.scheduleSync();
+  const finalized = await finalizeCreatedSystemContainer({
+    created,
+    logLabel: getContainerContentsStoreLogLabel(state),
+    state,
+    syncAgent,
+    systemSlot,
+  });
+  if (finalized.adopted) {
+    await updateExistingSystemContainer(
+      state,
+      syncAgent,
+      finalized.containerState,
+      options,
+    );
   }
-  state.runtime.util.log(
-    `${getContainerContentsStoreLogLabel(state)}: ensured system container "${systemSlot}"`,
-  );
-  return toContainerNode(created.containerState);
+  return toContainerNode(finalized.containerState);
 }
 
 export async function deleteContainer(

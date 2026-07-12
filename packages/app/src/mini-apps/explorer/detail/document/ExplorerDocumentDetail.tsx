@@ -89,6 +89,7 @@ function useSelectedDocumentSyncState(params: {
 
 export function ExplorerDocumentDetail(params: {
   currentSigningFingerprint: string | null | undefined;
+  currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
@@ -105,6 +106,7 @@ export function ExplorerDocumentDetail(params: {
   // container item table; without this the detail header shows the raw UUID.
   const selectedDocumentTitle = getViewerRelativeContactDocumentLabel({
     currentSigningFingerprint: params.currentSigningFingerprint,
+    currentSelfContactLocalId: params.currentSelfContactLocalId,
     currentUserId: params.currentUserId,
     documentKind: selectedDocumentKind,
     fallbackLabel: params.selectedDocument.title,
