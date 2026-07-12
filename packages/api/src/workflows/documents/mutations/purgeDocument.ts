@@ -475,3 +475,50 @@ export async function runPurgeDocumentWorkflow(
     }),
   );
 }
+
+/**
+ * Tear down a container's OWN metadata document as part of deleting the
+ * container. This deliberately bypasses the purge workflow: assertDocumentIsPurgeable
+ * hard-rejects metadata documents, but the container itself is being deleted so
+ * its metadata document must go with it. It also removes the
+ * containerMetadataDocuments binding that the normal document teardown never
+ * touches. No purge tombstone is written — metadata documents are withheld from
+ * client document discovery, so the per-user container tombstone that
+ * deleteContainer already writes is the peer signal.
+ *
+ * The metadata DOCUMENT rows only exist when the container was created via the
+ * composite /containers/with-metadata-document path; a container created via the
+ * plain /containers path carries only the binding and a manifest pointer, with
+ * no document rows. Tear the document down only when it exists.
+ *
+ * Runs inside the caller's transaction.
+ */
+export async function teardownContainerMetadataDocument(input: {
+  readonly containerId: string;
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+}): Promise<void> {
+  await input.executor
+    .delete(containerMetadataDocuments)
+    .where(eq(containerMetadataDocuments.containerId, input.containerId));
+
+  const [metadataDocument] = await input.executor
+    .select({ id: documents.id })
+    .from(documents)
+    .where(eq(documents.id, input.documentId))
+    .limit(1);
+  if (!metadataDocument) {
+    return;
+  }
+
+  const orphanedBlobIds = await resolveOrphanedBlobIds({
+    documentId: input.documentId,
+    executor: input.executor,
+  });
+  await deleteDocumentRows({
+    dereferencedAt: new Date(),
+    documentId: input.documentId,
+    executor: input.executor,
+    orphanedBlobIds,
+  });
+}

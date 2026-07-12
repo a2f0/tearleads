@@ -1662,6 +1662,123 @@ test("POST /containers/with-metadata-document creates container and metadata doc
   });
 });
 
+test("DELETE /containers/:id deletes an empty metadata folder and tears down its metadata document", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const containerId = crypto.randomUUID();
+  const containerRequest = await buildCreateRequest({
+    containerId,
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const metadataDocumentRequest = await buildMetadataDocumentCreateRequest({
+    containerId,
+    containerRequest,
+    parent: root.bundle,
+    signer: owner,
+  });
+  // A plain user folder (no systemSlot): system containers cannot be deleted.
+  const created = await postJson({
+    path: "/containers/with-metadata-document",
+    request: {
+      container: containerRequest,
+      metadataDocument: metadataDocumentRequest,
+    },
+    token: owner.token,
+  });
+  expect(created.status).toBe(200);
+  const metadataDocumentId = (
+    containerRequest.body as { readonly metadataDocumentId: string }
+  ).metadataDocumentId;
+
+  // The folder's OWN metadata document must not block deletion of the
+  // otherwise-empty folder. Regression: this returned 409 "Container has linked
+  // documents" because the metadata-document link was counted as user content.
+  const deleteResponse = await deleteContainerForUser({
+    containerId,
+    token: owner.token,
+  });
+  expect(deleteResponse.status).toBe(200);
+  expect(isContainerDeleteResponse(await deleteResponse.json())).toBe(true);
+
+  // The container and every trace of its metadata document are gone (no orphan).
+  expect(
+    await db
+      .select({ id: containers.id })
+      .from(containers)
+      .where(eq(containers.id, containerId)),
+  ).toEqual([]);
+  expect(
+    await db
+      .select({ documentId: containerMetadataDocuments.documentId })
+      .from(containerMetadataDocuments)
+      .where(eq(containerMetadataDocuments.containerId, containerId)),
+  ).toEqual([]);
+  expect(
+    await db
+      .select({ documentId: documentContainerLinks.documentId })
+      .from(documentContainerLinks)
+      .where(eq(documentContainerLinks.documentId, metadataDocumentId)),
+  ).toEqual([]);
+  expect(
+    await db
+      .select({ id: documents.id })
+      .from(documents)
+      .where(eq(documents.id, metadataDocumentId)),
+  ).toEqual([]);
+});
+
+test("DELETE /containers/:id still rejects a metadata folder holding a user document", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const containerId = crypto.randomUUID();
+  const containerRequest = await buildCreateRequest({
+    containerId,
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const metadataDocumentRequest = await buildMetadataDocumentCreateRequest({
+    containerId,
+    containerRequest,
+    parent: root.bundle,
+    signer: owner,
+  });
+  const created = await postJson({
+    path: "/containers/with-metadata-document",
+    request: {
+      container: containerRequest,
+      metadataDocument: metadataDocumentRequest,
+    },
+    token: owner.token,
+  });
+  expect(created.status).toBe(200);
+
+  // A real user document linked into the folder must still block deletion — the
+  // metadata-document exclusion must not weaken the guard for actual content.
+  const userDocumentId = crypto.randomUUID();
+  await db.insert(documents).values({
+    id: userDocumentId,
+    createdByFingerprint: owner.fingerprint,
+  });
+  await db.insert(documentContainerLinks).values({
+    containerId,
+    documentId: userDocumentId,
+  });
+
+  const blocked = await deleteContainerForUser({
+    containerId,
+    token: owner.token,
+  });
+  expect(blocked.status).toBe(409);
+  await expect(blocked.json()).resolves.toEqual({
+    error: "Container has linked documents",
+  });
+});
+
 test("POST /containers rejects metadata document id reuse", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
