@@ -72,10 +72,6 @@ function readNullableString(value: unknown): string | null | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-function readNonEmptyString(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
 function isAccessEventType(value: unknown): value is AccessEventType {
   return (
     value === "attachment.bind" ||
@@ -101,14 +97,6 @@ function readContainerMutationBodyEventType(
   return isAccessEventType(eventType) ? eventType : null;
 }
 
-function readSignerKeyFingerprintFromEvent(event: unknown): string | undefined {
-  if (!isPlainObject(event)) {
-    return undefined;
-  }
-
-  return readNonEmptyString(readRecordValue(event, "signerKeyFingerprint"));
-}
-
 function readPreviousParentIdFromManifest(
   previousManifest: unknown,
 ): string | null | undefined {
@@ -124,12 +112,6 @@ function readPreviousParentIdFromManifest(
   return readNullableString(
     readRecordValue(previousState, "parentContainerId"),
   );
-}
-
-function readContainerMutationSignerKeyFingerprint(
-  request: ContainerMutationRequest,
-): string | undefined {
-  return readSignerKeyFingerprintFromEvent(request.event);
 }
 
 function readContainerMutationPreviousParentId(
@@ -165,14 +147,12 @@ function readGrantUserRecipientId(
 
 async function publishContainerMutationCreated(input: {
   readonly expectedEventType: AccessEventType;
+  readonly origin: { readonly sessionId: string; readonly userId: string };
   readonly publish: ContainerMutationsRouteDeps["publish"];
   readonly request: ContainerMutationRequest;
   readonly response: ContainerMutationResponse;
 }) {
   const previousParentId = readContainerMutationPreviousParentId(input.request);
-  const signerKeyFingerprint = readContainerMutationSignerKeyFingerprint(
-    input.request,
-  );
   const eventType =
     readContainerMutationBodyEventType(input.request) ??
     input.expectedEventType;
@@ -181,9 +161,17 @@ async function publishContainerMutationCreated(input: {
     type: "container_mutation_created",
     containerId: input.response.containerId,
     eventType,
+    // Tag the event with the authoring session so the ws router skips echoing it
+    // back over this exact socket, while still delivering to every OTHER session
+    // of the same identity (e.g. a recovered peer) so they re-list the affected
+    // parent lane and surface the new/moved container. This mirrors the document
+    // mutation path; the router strips `origin` before forwarding to clients.
+    // Excluding by identity signing fingerprint instead — as the client used to
+    // — wrongly suppressed a sibling peer's create, since both peers derive the
+    // same signing key from the shared seed phrase.
+    origin: input.origin,
     parentId: input.response.parentId,
     ...(previousParentId === undefined ? {} : { previousParentId }),
-    ...(signerKeyFingerprint === undefined ? {} : { signerKeyFingerprint }),
     updatedAt: input.response.updatedAt,
   });
 
@@ -275,6 +263,7 @@ function addContainerMutationRoute({
         });
         await publishContainerMutationCreated({
           expectedEventType,
+          origin: { sessionId: session.id, userId: session.userId },
           publish,
           request,
           response,
@@ -297,6 +286,7 @@ async function createContainerWithMetadataDocumentResponse(input: {
   readonly publish: ContainerMutationsRouteDeps["publish"];
   readonly request: ContainerCreateWithMetadataDocumentRequest;
   readonly runtime: ApiServiceRuntime;
+  readonly sessionId: string;
   readonly userId: string;
 }): Promise<ContainerCreateWithMetadataDocumentResponse> {
   const response = await createContainerWithMetadataDocument(input.runtime, {
@@ -306,6 +296,7 @@ async function createContainerWithMetadataDocumentResponse(input: {
   });
   await publishContainerMutationCreated({
     expectedEventType: "container.create",
+    origin: { sessionId: input.sessionId, userId: input.userId },
     publish: input.publish,
     request: input.request.container,
     response: response.container,
@@ -337,6 +328,7 @@ export function createContainerMutationsRoute({
             publish,
             request,
             runtime,
+            sessionId: session.id,
             userId: session.userId,
           }),
         );

@@ -445,9 +445,6 @@ export function createContainerContentsStoreSyncAgent(input: {
       let addedContainerParentHydrationLane = false;
       for (const parentId of listContainerParentIdsForEventHydration(
         nextEvents,
-        {
-          ignoredSignerKeyFingerprint: state.runtime.crypto.signingFingerprint,
-        },
       )) {
         if (!state.containerParentIdsNeedingHydration.has(parentId)) {
           addedContainerParentHydrationLane = true;

@@ -34,21 +34,24 @@ test("container move events mark previous parent hydration lanes", () => {
   ).toEqual([null, "new-parent", "container-1", "old-parent"]);
 });
 
-test("container mutation hydration ignores same-signer events", () => {
+test("container mutation hydration reconciles a same-identity create", () => {
+  // A sibling peer of the same identity signs container mutations with the same
+  // seed-derived key, so the event carries this client's own signing
+  // fingerprint. It must STILL produce hydration lanes: the authoring session is
+  // excluded server-side via the event's `origin`, and every other same-identity
+  // peer only discovers the new folder by re-listing the parent here. Suppressing
+  // by signer fingerprint dropped sibling creates and left new folders invisible.
   expect(
-    listContainerParentIdsForEventHydration(
-      [
-        {
-          type: "container_mutation_created",
-          containerId: "container-1",
-          eventType: "container.grant",
-          parentId: null,
-          signerKeyFingerprint: "local-signer",
-        },
-      ],
-      { ignoredSignerKeyFingerprint: "local-signer" },
-    ),
-  ).toEqual([]);
+    listContainerParentIdsForEventHydration([
+      {
+        type: "container_mutation_created",
+        containerId: "container-1",
+        eventType: "container.create",
+        parentId: "parent-1",
+        signerKeyFingerprint: "local-signer",
+      },
+    ]),
+  ).toEqual(["parent-1", "container-1"]);
 });
 
 test("container mutation hydration ignores malformed events", () => {
