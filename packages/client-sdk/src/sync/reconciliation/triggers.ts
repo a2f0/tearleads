@@ -1,8 +1,23 @@
-import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
+import {
+  isDocumentMutationCreatedEvent,
+  isDocumentUpdateCreatedEvent,
+} from "../../data/documentSync";
 import type { DomainScope } from "../../data/domainScope";
 import type { LocalProjectionStore } from "../../stores/local-projection";
 import { consumeOriginatedDocument } from "./originatedDocuments";
 import type { ReconciliationService } from "./service";
+
+function enqueueKnownEventContainers(input: {
+  readonly containerIds: ReadonlyArray<string>;
+  readonly knownContainerIds: ReadonlySet<string>;
+  readonly service: ReconciliationService;
+}): void {
+  for (const containerId of input.containerIds) {
+    if (input.knownContainerIds.has(containerId)) {
+      input.service.enqueueContainer(containerId, "active", true);
+    }
+  }
+}
 
 /**
  * Wire the local projection store's reconcile signals into the background
@@ -25,6 +40,12 @@ export function connectReconciliationTriggers(input: {
           service.enqueueContainer(signal.activeContainerId, "active");
         }
         break;
+      case "remote-containers-added":
+        // A cold-cache tree crawl can finish after the auth-edge backfill was
+        // queued. Pick up the newly materialized ids without resetting the
+        // discovered suppression set for containers already reconciled.
+        service.enqueueIdleBackfill();
+        break;
       case "prerequisites-regained":
         // Auth/connectivity was just regained (relogin or reconnect). Forget the
         // per-session discovered set first: containers visited before the gap
@@ -44,8 +65,9 @@ export function connectReconciliationTriggers(input: {
 
 /**
  * Translate a batch of server events into reconciler work. Containers named by
- * a `document_update_created` event are reconciled at active priority; an
- * unscoped update triggers an idle backfill across known containers.
+ * document content or structural mutation events are reconciled at active
+ * priority; an unscoped content update triggers an idle backfill across known
+ * containers.
  *
  * `domainScope`, when provided, suppresses self-echoes: a `document_update_created`
  * whose documentId this client just originated (created/uploaded) is dropped
@@ -59,9 +81,22 @@ export function enqueueReconciliationForEvents(input: {
   service: ReconciliationService;
 }): void {
   const { domainScope, events, knownContainerIds, service } = input;
+  const knownContainerIdSet = new Set(knownContainerIds);
   let needsIdleBackfill = false;
 
   for (const event of events) {
+    if (isDocumentMutationCreatedEvent(event)) {
+      // A link-set mutation changes membership even when the document is
+      // already present locally. Never apply content-origination self-echo
+      // suppression here: the server excludes only the exact authoring session,
+      // while another session for the same identity must reconcile both sides.
+      enqueueKnownEventContainers({
+        containerIds: event.containerIds,
+        knownContainerIds: knownContainerIdSet,
+        service,
+      });
+      continue;
+    }
     if (!isDocumentUpdateCreatedEvent(event)) {
       continue;
     }
@@ -78,13 +113,13 @@ export function enqueueReconciliationForEvents(input: {
       needsIdleBackfill = true;
       continue;
     }
-    for (const containerId of event.containerIds) {
-      if (knownContainerIds.includes(containerId)) {
-        // Events signal fresh remote data, so force re-discovery even if this
-        // container was already reconciled this session.
-        service.enqueueContainer(containerId, "active", true);
-      }
-    }
+    // Events signal fresh remote data, so force re-discovery even if this
+    // container was already reconciled this session.
+    enqueueKnownEventContainers({
+      containerIds: event.containerIds,
+      knownContainerIds: knownContainerIdSet,
+      service,
+    });
   }
 
   if (needsIdleBackfill) {

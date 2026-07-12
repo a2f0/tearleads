@@ -1,20 +1,25 @@
-import type { DocumentStore, DomainScope } from "@tearleads/client-sdk";
+import type { DomainScope } from "@tearleads/client-sdk";
 import {
   type ContactEntryPatch,
   contactEntryToStructuredFieldPatch,
 } from "../../document-types/contact/contactDocumentModel";
 import { loadContactDocumentSummary } from "./contactDocumentSummary";
-import { loadProjectedContacts } from "./contactProjection";
-import { sortContactEntries } from "./contactSnapshot";
+import {
+  ensureContactDocumentStore,
+  ensureContactsInitialized,
+  hasContactsContainerRuntime,
+  resetContactsStore,
+  waitForContactsInitialization,
+} from "./contactStoreInitialization";
 import {
   contactEntryFromDocumentStore,
   findContactByUserId,
   findSelfContact,
   getUserKeyForSelfContact,
 } from "./contactStoreLookup";
+import { connectContactsStoreToPersistedDocuments } from "./contactStorePersistedDocuments";
 import {
   removeContactEntry,
-  setContactsSnapshot,
   upsertContactEntry,
 } from "./contactStoreSnapshotMutations";
 import type {
@@ -39,106 +44,6 @@ export type { ContactsRuntime, ContactsStore, EnsureSelfContactInput };
 export { getSelfContactLocalId };
 
 const contactsStoresByScope = new WeakMap<DomainScope, ContactsStore>();
-
-function hasContactsContainerRuntime(state: ContactsStoreState): boolean {
-  const containerId = state.runtime.documents.state.containerId;
-  return typeof containerId === "string" && containerId.length > 0;
-}
-
-function ensureContactDocumentStore(
-  state: ContactsStoreState,
-  contactId: string,
-  options: { readonly deferRemoteSync?: boolean | undefined } = {},
-): DocumentStore {
-  const existing = state.contactDocumentStoresById.get(contactId);
-  if (existing) {
-    existing.store.updateRuntime(state.runtime.documents);
-    return existing.store;
-  }
-
-  const store = state.runtime.openDocumentStore({
-    containerId: state.runtime.documents.state.containerId,
-    documentId: null,
-    initialText: "",
-    localId: contactId,
-    ...(options.deferRemoteSync ? {} : { initialDocumentKind: "contact" }),
-  });
-  const unsubscribe = store.subscribe(() => {
-    const entry = contactEntryFromDocumentStore(contactId, store);
-    if (entry) {
-      upsertContactEntry(state, entry);
-    }
-  });
-  state.contactDocumentStoresById.set(contactId, { store, unsubscribe });
-  return store;
-}
-
-function resetContactsStore(state: ContactsStoreState): void {
-  for (const trackedStore of state.contactDocumentStoresById.values()) {
-    trackedStore.unsubscribe();
-  }
-  state.contactDocumentStoresById.clear();
-  state.entriesById.clear();
-  state.initialized = false;
-  state.initializePromise = null;
-  state.pendingSnapshotFlush = false;
-  state.writeChain = Promise.resolve();
-  setContactsSnapshot(state, { entries: [], ready: false });
-}
-
-async function initializeContactsStore(
-  state: ContactsStoreState,
-): Promise<void> {
-  if (state.runtime.documents.infra.dbStatus !== "ready") {
-    return;
-  }
-  const containerId = state.runtime.documents.state.containerId;
-  if (!containerId) {
-    return;
-  }
-
-  const entries = await loadProjectedContacts(
-    state.runtime.documents.infra.execSql,
-    containerId,
-  );
-  state.entriesById = new Map(entries.map((entry) => [entry.id, entry]));
-  setContactsSnapshot(state, {
-    entries: sortContactEntries([...state.entriesById.values()]),
-    ready: true,
-  });
-  for (const entry of entries) {
-    ensureContactDocumentStore(state, entry.id);
-  }
-  state.initialized = true;
-  state.initializePromise = null;
-}
-
-function ensureContactsInitialized(state: ContactsStoreState): void {
-  if (
-    state.initialized ||
-    state.initializePromise ||
-    state.runtime.documents.infra.dbStatus !== "ready" ||
-    !hasContactsContainerRuntime(state)
-  ) {
-    return;
-  }
-
-  state.initializePromise = initializeContactsStore(state).catch(
-    (error: unknown) => {
-      state.initializePromise = null;
-      state.dependencies.logError("Contacts: failed to load contacts.", error);
-    },
-  );
-}
-
-async function waitForContactsInitialization(
-  state: ContactsStoreState,
-): Promise<void> {
-  ensureContactsInitialized(state);
-  if (state.initializePromise) {
-    await state.initializePromise;
-  }
-}
 
 async function writeContactPatch(
   state: ContactsStoreState,
@@ -424,14 +329,17 @@ export function createContactsStore(
     contactDocumentStoresById: new Map(),
     dependencies,
     entriesById: new Map(),
+    initializationGeneration: 0,
     initialized: false,
     initializePromise: null,
     listeners: new Set(),
     pendingSnapshotFlush: false,
+    persistedDocumentsUnsubscribe: null,
     runtime: initialRuntime,
     snapshot: { entries: [], ready: false },
     writeChain: Promise.resolve(),
   };
+  connectContactsStoreToPersistedDocuments(state);
 
   return {
     createContact: (patch) => createContactFromRuntime(state, patch),
@@ -449,10 +357,28 @@ export function createContactsStore(
       updateContactFromRuntime(state, contactId, patch),
     updateRuntime(runtime) {
       const previousContainerId = state.runtime.documents.state.containerId;
+      const previousDbStatus = state.runtime.documents.infra.dbStatus;
+      const previousDomainScope = state.runtime.documents.state.domainScope;
+      const previousExecSql = state.runtime.documents.infra.execSql;
+      // The listener registry is domain-scoped. Its wrapper function is rebuilt
+      // with normal runtime snapshots, so function identity is not a stable
+      // subscription target; domain + availability are.
+      const previousCanSubscribe =
+        state.runtime.subscribeToPersistedDocuments !== undefined;
       const nextContainerId = runtime.documents.state.containerId;
+      const subscriptionAvailabilityChanged =
+        previousCanSubscribe !==
+        (runtime.subscribeToPersistedDocuments !== undefined);
       state.runtime = runtime;
-      if (previousContainerId !== nextContainerId) {
+      let didReset = false;
+      if (
+        previousContainerId !== nextContainerId ||
+        previousDbStatus !== runtime.documents.infra.dbStatus ||
+        previousDomainScope !== runtime.documents.state.domainScope ||
+        previousExecSql !== runtime.documents.infra.execSql
+      ) {
         resetContactsStore(state);
+        didReset = true;
       }
       for (const trackedStore of state.contactDocumentStoresById.values()) {
         trackedStore.store.updateRuntime(runtime.documents);
@@ -462,12 +388,23 @@ export function createContactsStore(
         runtime.documents.infra.dbStatus !== "ready" ||
         !hasContactsContainerRuntime(state)
       ) {
-        if (state.snapshot.ready || state.initialized) {
+        if (
+          state.snapshot.ready ||
+          state.initialized ||
+          state.initializePromise
+        ) {
           resetContactsStore(state);
         }
         return;
       }
 
+      if (
+        didReset ||
+        subscriptionAvailabilityChanged ||
+        !state.persistedDocumentsUnsubscribe
+      ) {
+        connectContactsStoreToPersistedDocuments(state);
+      }
       ensureContactsInitialized(state);
     },
   };

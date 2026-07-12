@@ -28,6 +28,8 @@ export interface ReconciliationHost {
   getRuntimeStatus: () => ReconciliationRuntimeStatus;
   /** Known container ids, used for idle backfill and event mapping. */
   listKnownContainerIds: () => ReadonlyArray<string>;
+  /** Known ids eligible after an automatic root-lane discovery hint. */
+  listAutomaticRootCatchupContainerIds: () => ReadonlyArray<string>;
   /** Discover + persist a container's documents from the server. */
   discoverContainerDocuments: (containerId: string) => Promise<unknown>;
   /** Read a container's freshly-persisted summaries+links from SQLite. */
@@ -38,11 +40,13 @@ export interface ReconciliationHost {
   applyReconciled: (delta: LocalProjectionReconciledDelta) => void;
   /**
    * Sync document bodies for a reconciled container. `force` (an explicit
-   * refresh) re-pulls every document; otherwise only unopened system documents
-   * are synced, so a background pass still publishes/pulls the org profile
-   * without re-pulling every open document on every reconcile.
+   * refresh) revalidates registered ordinary documents and retries system
+   * documents; otherwise only unopened system documents are synced, so a
+   * background pass can materialize projection-owned content without eagerly
+   * opening every ordinary document.
    */
   requestDocumentContentPull?: (
+    containerId: string,
     documents: ReadonlyArray<DocumentSummary>,
     force: boolean,
   ) => void;
@@ -116,12 +120,11 @@ async function reconcileOneContainer(
     const delta = await host.loadContainerDelta(containerId);
     host.applyReconciled(delta);
     // Always offer the delta for content sync. A forced pull (explicit refresh)
-    // re-pulls every document's body; an unforced pass only syncs unopened
-    // system documents — the org profile in particular, which no mini-app opens
-    // and nothing else pushes or pulls, so it must ride every reconcile (e.g. the
-    // event-driven pass that first surfaces a freshly-shared metadata container),
-    // not just a manual refresh.
+    // revalidates registered ordinary documents and retries system documents;
+    // an unforced pass only opens system documents, whose local projections may
+    // have no document window that would otherwise materialize them.
     host.requestDocumentContentPull?.(
+      containerId,
       delta.documentSummaries,
       options.forceDocumentContentPull ?? false,
     );
@@ -136,8 +139,8 @@ async function reconcileOneContainer(
 async function sweepKnownContainers(
   host: ReconciliationHost,
   state: ReconciliationState,
+  knownIds: ReadonlyArray<string>,
 ): Promise<void> {
-  const knownIds = host.listKnownContainerIds();
   // Mark known containers discovered so the background lane will not also fetch
   // them while this refresh sweeps. Each is still fetched directly below —
   // discovery is watermark-based, so this is a cheap delta check.
@@ -200,10 +203,11 @@ async function runReconcileLane(
 
 async function reconcileKnownContainersAfterRefresh(input: {
   host: ReconciliationHost;
+  listContainerIds: () => ReadonlyArray<string>;
   refreshTree: () => Promise<void>;
   state: ReconciliationState;
 }): Promise<void> {
-  const { host, refreshTree, state } = input;
+  const { host, listContainerIds, refreshTree, state } = input;
   if (!canReconcile(host.getRuntimeStatus())) {
     return;
   }
@@ -212,7 +216,7 @@ async function reconcileKnownContainersAfterRefresh(input: {
   state.forcedContainerIds.clear();
   try {
     await refreshTree();
-    await sweepKnownContainers(host, state);
+    await sweepKnownContainers(host, state, listContainerIds());
   } catch (error) {
     if (!host.isIgnorableError(error)) {
       throw error;
@@ -230,6 +234,7 @@ function reconcileKnownContainersSingleFlight(
   host: ReconciliationHost,
   state: ReconciliationState,
   refreshTree: () => Promise<void>,
+  listContainerIds: () => ReadonlyArray<string>,
   type: "root" | "full",
 ): Promise<void> {
   const startSweep = (previous?: Promise<void>): Promise<void> => {
@@ -238,7 +243,12 @@ function reconcileKnownContainersSingleFlight(
       // try/catch in reconcileKnownContainersAfterRefresh handles its errors.
       .catch(() => undefined)
       .then(() =>
-        reconcileKnownContainersAfterRefresh({ host, refreshTree, state }),
+        reconcileKnownContainersAfterRefresh({
+          host,
+          listContainerIds,
+          refreshTree,
+          state,
+        }),
       )
       .finally(() => {
         if (state.refreshPromise === refreshPromise) {
@@ -285,6 +295,23 @@ function startReconciliationLane(
       shouldIgnoreError: host.isIgnorableError,
     },
   );
+}
+
+function listFullRefreshContainerIds(
+  host: ReconciliationHost,
+  state: ReconciliationState,
+): ReadonlyArray<string> {
+  const knownIds = host.listKnownContainerIds();
+  const activeContainerId = state.activeContainerId;
+  if (!activeContainerId || knownIds.includes(activeContainerId)) {
+    return knownIds;
+  }
+
+  // The generic known set intentionally excludes write-only foreign system
+  // containers. A user can still explicitly open one (for example a directly
+  // shared Contacts folder), and Refresh must retry that active surface even
+  // though background sweeps remain security-filtered.
+  return [...knownIds, activeContainerId];
 }
 
 export function createReconciliationService(
@@ -369,6 +396,7 @@ export function createReconciliationService(
         host,
         state,
         host.refreshRootTree,
+        host.listAutomaticRootCatchupContainerIds,
         "root",
       ),
     reconcileNow: () =>
@@ -376,6 +404,7 @@ export function createReconciliationService(
         host,
         state,
         host.refreshTree,
+        () => listFullRefreshContainerIds(host, state),
         "full",
       ),
     stop: () => {

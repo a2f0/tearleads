@@ -54,8 +54,8 @@ projection it reads is authoritative for first paint.
   │     - work queue over DomainSyncCoordinator lanes           │
   │     - priority: active container → idle backfill            │
   │     - writes results into LocalProjectionStore              │
-  │     - triggers: hydrated, auth/online regained, WS events,  │
-  │       explicit refresh                                      │
+  │     - triggers: hydrated, auth/online regained, remote tree │
+  │       growth, WS events, explicit refresh                   │
   └──────────────────────────────────────────────────────────────┘
                          │ reuses
                          ▼
@@ -119,8 +119,11 @@ tree reconciles before document discovery without a new phase.
 interface ReconciliationService {
   start(): void;                         // idempotent; wires coordinator + triggers
   setActiveContainer(containerId: string | null): void;  // re-prioritize
+  enqueueContainer(containerId, priority, force?): void; // event/active work
+  enqueueIdleBackfill(): void;            // known-container catch-up
+  resetDiscovered(): void;                // re-arm after reconnect/relogin
+  reconcileRootContainersNow(): Promise<void>; // root-lane catch-up
   reconcileNow(): Promise<void>;         // explicit user "Refresh"
-  onRemoteEvents(events: ReadonlyArray<unknown>): void;   // WS frontier
   stop(): void;
 }
 ```
@@ -136,15 +139,32 @@ Work items (each maps to an existing function, lane-scheduled here):
 
 Scheduling policy (active-first, then idle backfill):
 
-1. On `hydrated` / auth-gain / online-regain: enqueue the active container at
-   high priority; enqueue all other known containers at idle priority.
+1. On local hydration, enqueue the active container at high priority. On
+   auth-gain / online-regain, also reset the session suppression set and enqueue
+   all other known containers at idle priority.
 2. The active container reconciles first (background, post-paint). Its results
    `applyReconciled` into Layer A, patching the list in place with no re-blank.
 3. Idle priority drains as the coordinator goes quiet
    (`coordinator.waitForIdle` boundary), so a freshly-registered user sees the
    active view freshen first and siblings catch up without a thundering herd.
-4. WS `document_update_created` enqueues the affected container at high
-   priority.
+4. A cold recovery can finish remote tree hydration after its first backfill
+   was scheduled. Newly remote-backed container ids re-arm idle backfill so
+   recovered Contacts/Trash and organization metadata are not skipped.
+5. WS `document_update_created` and `document_mutation_created` hints enqueue
+   their affected containers at high priority. Structural link/unlink hints
+   always re-list both the previous and current container lanes, even when the
+   document body is already known locally.
+
+Remote-backed system containers participate in reconciliation once their
+metadata document exists. Own system containers and foreign organization
+metadata visible through `read`/`admin` membership are included; local-only
+slots and write-only foreign system shares are excluded from automatic sweeps.
+If the user explicitly opens a write-shared system folder, a full Refresh still
+includes that active container so its registered document stores can retry.
+Discovered system document bodies are pulled eagerly once per remote version
+because Contacts and organization-profile projections may have no document
+window that would open them lazily. An explicit Refresh can retry the same
+version after a failed pull.
 
 All results flow into Layer A, never back to React directly. The service has no
 React imports (enforced by the lane rules + dependency-cruiser).
@@ -205,6 +225,14 @@ never call `setActiveContainer`. Setting the pointer only re-prioritizes the
 reconcile queue — idle backfill + event enqueues still cover every known
 container — so concurrent pointers cause priority churn but no data loss.
 
+Contacts additionally subscribes to persisted-document notifications. This is
+the bridge from a late recovery pull into an already-initialized Contacts store:
+once the encrypted contact body is persisted and projected, the contact enters
+the visible snapshot without closing/reopening the mini-app. Organization
+switching similarly watches root-set changes and organization-profile
+persistence so a user-scoped root-discovery hint updates an already-open
+switcher.
+
 ## Why first paint is device-first (trace)
 
 Already-registered user opens Explorer:
@@ -230,6 +258,7 @@ container happens in the background.
 - The instant document list relies on summaries being persisted on discovery
   (`upsertDiscoveredDocuments` writes `document_projection`); new local-only
   docs land there via the documents store, so the cache is authoritative.
-- Per-document Loro content is out of scope here: this covers container tree +
-  document summaries/links reconciliation. Document content keeps its existing
-  `documents` sync lane, triggered by Layer B priming.
+- Ordinary per-document Loro content remains lazy in the existing `documents`
+  sync lane. Layer B only primes content that cannot rely on a document window
+  opening it (remote system-container projections), while it reconciles the
+  container tree plus document summaries/links for every known lane.

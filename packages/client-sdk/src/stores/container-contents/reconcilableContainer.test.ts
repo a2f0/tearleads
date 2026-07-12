@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
+  isAutomaticRootCatchupContainerNode,
   isForeignSystemContainerNode,
+  isReconcilableContainerNode,
+  isRemoteBackedContainerNode,
   isSystemContainerNode,
 } from "./reconcilableContainer";
 
@@ -13,6 +16,116 @@ describe("isSystemContainerNode", () => {
 
   test("is false for a user-facing container (no system slot)", () => {
     expect(isSystemContainerNode({ systemSlot: null })).toBe(false);
+  });
+});
+
+describe("isAutomaticRootCatchupContainerNode", () => {
+  test("excludes own system containers from automatic root catch-up", () => {
+    expect(
+      isAutomaticRootCatchupContainerNode(
+        {
+          effectiveAccessLevel: "admin",
+          organizationId: "org-home",
+          systemSlot: "sys_v1_contacts",
+        },
+        "org-home",
+      ),
+    ).toBe(false);
+  });
+
+  test("retains regular direct shares and membership-visible foreign systems", () => {
+    expect(
+      isAutomaticRootCatchupContainerNode(
+        {
+          effectiveAccessLevel: "read",
+          organizationId: "org-foreign",
+          systemSlot: null,
+        },
+        "org-home",
+      ),
+    ).toBe(true);
+    expect(
+      isAutomaticRootCatchupContainerNode(
+        {
+          effectiveAccessLevel: "read",
+          organizationId: "org-foreign",
+          systemSlot: "sys_v1_metadata",
+        },
+        "org-home",
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("remote-backed reconciliation", () => {
+  test("recognizes a container with remote metadata", () => {
+    expect(
+      isRemoteBackedContainerNode({
+        metadataDocumentId: "metadata-document-1",
+      }),
+    ).toBe(true);
+    expect(isRemoteBackedContainerNode({ metadataDocumentId: null })).toBe(
+      false,
+    );
+  });
+
+  test("includes remote-backed system containers but not local-only slots", () => {
+    expect(
+      isReconcilableContainerNode(
+        {
+          effectiveAccessLevel: "admin",
+          metadataDocumentId: "contacts-metadata-document",
+          organizationId: "org-home",
+          systemSlot: "sys_v1_contacts",
+        },
+        "org-home",
+      ),
+    ).toBe(true);
+    expect(
+      isReconcilableContainerNode(
+        {
+          effectiveAccessLevel: "admin",
+          metadataDocumentId: null,
+          organizationId: "org-home",
+          systemSlot: "sys_v1_contacts",
+        },
+        "org-home",
+      ),
+    ).toBe(false);
+  });
+
+  test("includes membership-visible foreign systems but excludes write shares", () => {
+    const foreignSystem = {
+      metadataDocumentId: "foreign-metadata-document",
+      organizationId: "org-foreign",
+      systemSlot: "sys_v1_foreign",
+    };
+    expect(
+      isReconcilableContainerNode(
+        { ...foreignSystem, effectiveAccessLevel: "read" },
+        "org-home",
+      ),
+    ).toBe(true);
+    expect(
+      isReconcilableContainerNode(
+        { ...foreignSystem, effectiveAccessLevel: "write" },
+        "org-home",
+      ),
+    ).toBe(false);
+  });
+
+  test("keeps local-first user containers reconcilable", () => {
+    expect(
+      isReconcilableContainerNode(
+        {
+          effectiveAccessLevel: "admin",
+          metadataDocumentId: null,
+          organizationId: "",
+          systemSlot: null,
+        },
+        null,
+      ),
+    ).toBe(true);
   });
 });
 

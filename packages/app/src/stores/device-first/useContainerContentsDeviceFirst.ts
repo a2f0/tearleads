@@ -10,17 +10,52 @@ import { useEffect, useMemo, useRef } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 
-function isDocumentUpdateEvent(event: unknown): event is {
+interface DocumentReconciliationEvent {
   readonly containerIds?: unknown;
   readonly documentId?: unknown;
+  readonly eventType?: unknown;
   readonly id?: unknown;
-  readonly type: "document_update_created";
+  readonly type: "document_mutation_created" | "document_update_created";
+}
+
+function isDocumentMutationEvent(
+  event: unknown,
+): event is DocumentReconciliationEvent & {
+  readonly containerIds: string[];
+  readonly documentId: string;
+  readonly eventType: "document.link" | "document.unlink";
+  readonly type: "document_mutation_created";
 } {
   return (
     typeof event === "object" &&
     event !== null &&
     "type" in event &&
-    event.type === "document_update_created"
+    event.type === "document_mutation_created" &&
+    "documentId" in event &&
+    typeof event.documentId === "string" &&
+    event.documentId.length > 0 &&
+    "eventType" in event &&
+    (event.eventType === "document.link" ||
+      event.eventType === "document.unlink") &&
+    "containerIds" in event &&
+    Array.isArray(event.containerIds) &&
+    event.containerIds.length > 0 &&
+    event.containerIds.every(
+      (containerId) =>
+        typeof containerId === "string" && containerId.length > 0,
+    )
+  );
+}
+
+function isDocumentReconciliationEvent(
+  event: unknown,
+): event is DocumentReconciliationEvent {
+  return (
+    isDocumentMutationEvent(event) ||
+    (typeof event === "object" &&
+      event !== null &&
+      "type" in event &&
+      event.type === "document_update_created")
   );
 }
 
@@ -54,6 +89,22 @@ function isForeignSystemContainerNode(
   );
 }
 
+function isRemoteBackedOwnSystemContainerNode(
+  node: Pick<
+    ContainerNode,
+    "metadataDocumentId" | "organizationId" | "systemSlot"
+  >,
+  homeOrganizationId: string | null,
+): boolean {
+  return (
+    !!node.systemSlot &&
+    homeOrganizationId !== null &&
+    node.organizationId === homeOrganizationId &&
+    typeof node.metadataDocumentId === "string" &&
+    node.metadataDocumentId.length > 0
+  );
+}
+
 type ReconciliationContainerRouting = {
   forceKnownDocumentContainerIds: ReadonlySet<string>;
   knownContainerIds: ReadonlyArray<string>;
@@ -78,7 +129,13 @@ function collectReconciliationContainerRoutingEntries(input: {
       node,
       input.homeOrganizationId,
     );
-    if (node.systemSlot && !isForeignSystemContainer) {
+    const isRemoteBackedOwnSystemContainer =
+      isRemoteBackedOwnSystemContainerNode(node, input.homeOrganizationId);
+    if (
+      node.systemSlot &&
+      !isForeignSystemContainer &&
+      !isRemoteBackedOwnSystemContainer
+    ) {
       continue;
     }
 
@@ -148,9 +205,10 @@ function buildReconciliationContainerRoutingFromKey(
 
 /**
  * Dedupe a batch of server events down to the ones a mini-app has not yet
- * routed into the reconciler. Events are matched per known container, and
- * skipped when their document is already present in that container's cached
- * summaries, so reopening or re-rendering never re-enqueues the same work.
+ * routed into the reconciler. Content events are skipped when their document
+ * is already present in that container's cached summaries. Structural mutation
+ * events always pass that check because an existing document may have just
+ * entered or left the container.
  *
  * `linkedContainerIdsByDocumentId` is the local projection's reverse index of
  * which containers each remote document is already linked to. It suppresses
@@ -199,10 +257,11 @@ export function takePendingReconciliationEvents(input: {
   const pendingEvents: unknown[] = [];
 
   input.events.forEach((event, index) => {
-    if (!isDocumentUpdateEvent(event)) {
+    if (!isDocumentReconciliationEvent(event)) {
       return;
     }
 
+    const isMutationEvent = isDocumentMutationEvent(event);
     const eventKey = reconciliationEventKey(event, index);
     if (event.containerIds === undefined) {
       const unscopedKey = `${eventKey}:*`;
@@ -229,7 +288,10 @@ export function takePendingReconciliationEvents(input: {
           if (input.processedEventKeys.has(`${eventKey}:${containerId}`)) {
             return false;
           }
-          if (input.forceKnownDocumentContainerIds?.has(containerId) === true) {
+          if (
+            isMutationEvent ||
+            input.forceKnownDocumentContainerIds?.has(containerId) === true
+          ) {
             return true;
           }
           return !(
@@ -288,7 +350,9 @@ export function useContainerContentsDeviceFirst(input: {
   const viewSnapshot = useTearleadsExternalStoreSnapshot(view);
   // Stabilise routing by content: container snapshots can churn for sync-state
   // changes, but event routing only needs to re-run when the routed ids or their
-  // forced-content flag change.
+  // forced-content flag change. Remote-backed own system containers participate
+  // normally so another session's Contacts/Trash mutations reconcile here;
+  // local-only system containers have no remote lane to pull yet.
   const reconciliationRoutingKey = buildReconciliationContainerRoutingKey({
     containers: viewSnapshot.containers,
     homeOrganizationId: runtime.auth.organizationId,

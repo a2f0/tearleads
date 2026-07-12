@@ -23,6 +23,7 @@ function summary(input: {
 function containerNode(input: {
   access?: ContainerNode["effectiveAccessLevel"];
   id: string;
+  metadataDocumentId?: string | null;
   name?: string;
   organizationId: string;
   systemSlot?: string | null;
@@ -31,6 +32,9 @@ function containerNode(input: {
     effectiveAccessLevel: input.access,
     id: input.id,
     kind: "container",
+    ...(input.metadataDocumentId === undefined
+      ? {}
+      : { metadataDocumentId: input.metadataDocumentId }),
     name: input.name ?? input.id,
     organizationId: input.organizationId,
     parentId: null,
@@ -177,6 +181,33 @@ test("reconciliation events still process a known document linked into a new con
   ).toEqual([{ ...event, containerIds: ["c-2"] }]);
 });
 
+test("document mutation events reconcile known documents in both containers", () => {
+  const processedEventKeys = new Set<string>();
+  const event = {
+    type: "document_mutation_created",
+    containerIds: ["root", "trash"],
+    documentId: "doc-1",
+    eventType: "document.unlink",
+    id: "event-1",
+  };
+
+  expect(
+    takePendingReconciliationEvents({
+      documentSummariesByContainerId: new Map([
+        ["root", [summary({ containerId: "root", documentId: "doc-1" })]],
+        ["trash", [summary({ containerId: "trash", documentId: "doc-1" })]],
+      ]),
+      events: [event],
+      knownContainerIds: ["root", "trash"],
+      linkedContainerIdsByDocumentId: new Map([["doc-1", ["root", "trash"]]]),
+      processedEventKeys,
+    }),
+  ).toEqual([event]);
+  expect(processedEventKeys).toEqual(
+    new Set(["event-1:root", "event-1:trash"]),
+  );
+});
+
 test("reconciliation events only inspect summaries for touched containers", () => {
   const processedEventKeys = new Set<string>();
   const event = {
@@ -209,7 +240,7 @@ test("reconciliation events only inspect summaries for touched containers", () =
   expect(requestedContainerIds).toEqual(["c-1"]);
 });
 
-test("reconciliation routing includes user containers and foreign system containers", () => {
+test("reconciliation routing includes remote-backed own and readable foreign system containers", () => {
   const routing = buildReconciliationContainerRouting({
     containers: [
       containerNode({
@@ -224,13 +255,21 @@ test("reconciliation routing includes user containers and foreign system contain
       }),
       containerNode({
         access: "read",
-        id: "own-metadata",
+        id: "own-remote-system",
+        metadataDocumentId: "own-system-metadata",
         organizationId: "org-home",
         systemSlot: "sys_v1_own_metadata",
       }),
       containerNode({
+        access: "read",
+        id: "own-local-system",
+        organizationId: "org-home",
+        systemSlot: "sys_v1_own_local",
+      }),
+      containerNode({
         access: "write",
         id: "write-shared-system",
+        metadataDocumentId: "write-shared-system-metadata",
         organizationId: "org-foreign",
         systemSlot: "sys_v1_write_shared",
       }),
@@ -238,7 +277,11 @@ test("reconciliation routing includes user containers and foreign system contain
     homeOrganizationId: "org-home",
   });
 
-  expect(routing.knownContainerIds).toEqual(["regular", "foreign-metadata"]);
+  expect(routing.knownContainerIds).toEqual([
+    "regular",
+    "foreign-metadata",
+    "own-remote-system",
+  ]);
   expect([...routing.forceKnownDocumentContainerIds]).toEqual([
     "foreign-metadata",
   ]);
@@ -271,4 +314,31 @@ test("reconciliation routing key ignores non-routing container churn", () => {
   });
 
   expect(second).toBe(first);
+});
+
+test("reconciliation routing key changes when an own system container becomes remote-backed", () => {
+  const localOnly = buildReconciliationContainerRoutingKey({
+    containers: [
+      containerNode({
+        id: "own-system",
+        organizationId: "org-home",
+        systemSlot: "sys_v1_own_system",
+      }),
+    ],
+    homeOrganizationId: "org-home",
+  });
+  const remoteBacked = buildReconciliationContainerRoutingKey({
+    containers: [
+      containerNode({
+        id: "own-system",
+        metadataDocumentId: "own-system-metadata",
+        organizationId: "org-home",
+        systemSlot: "sys_v1_own_system",
+      }),
+    ],
+    homeOrganizationId: "org-home",
+  });
+
+  expect(localOnly).toBe("");
+  expect(remoteBacked).toBe("0:own-system");
 });

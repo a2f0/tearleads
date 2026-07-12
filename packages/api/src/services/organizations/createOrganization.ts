@@ -21,6 +21,7 @@ export { OrganizationProvisioningError };
 export async function createOrganization(
   runtime: ApiServiceRuntime,
   authenticatedUserId: string,
+  authenticatedSessionId: string,
   input: CreateOrganizationRequest,
 ): Promise<CreateOrganizationResponse> {
   if (input.userId !== authenticatedUserId) {
@@ -30,5 +31,29 @@ export async function createOrganization(
     );
   }
   const provisioned = await runCreateOrganizationWorkflow(runtime.db, input);
+
+  // The transaction has committed a brand-new root that this user's other
+  // sessions do not know to list yet. Reuse the same user-scoped discovery hint
+  // as a newly shared root; the authoring session is excluded because it owns
+  // the provisioning response and persists that state locally itself.
+  try {
+    await runtime.eventPublisher.publish({
+      type: "shared_with_you",
+      userId: authenticatedUserId,
+      origin: {
+        sessionId: authenticatedSessionId,
+        userId: authenticatedUserId,
+      },
+    });
+  } catch (error) {
+    // Provisioning is already committed. A lossy realtime hint must not turn a
+    // successful organization create into an apparent failure for the caller;
+    // other sessions retain the normal manual/reconnect recovery path.
+    console.error(
+      "Failed to publish organization root discovery notification:",
+      error,
+    );
+  }
+
   return toOrganizationProvisioningResponse(authenticatedUserId, provisioned);
 }

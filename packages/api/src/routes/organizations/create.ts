@@ -26,11 +26,13 @@ export function createOrganizationCreateRoute({
       return value;
     }),
     async (c) => {
+      const session = c.get("session");
       try {
         return c.json<CreateOrganizationResponse>(
           await createOrganization(
             runtime,
-            c.get("session").userId,
+            session.userId,
+            session.id,
             c.req.valid("json"),
           ),
         );

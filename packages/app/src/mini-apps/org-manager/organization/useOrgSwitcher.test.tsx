@@ -70,6 +70,7 @@ function renderSwitcher(input: {
         enabled: true,
         interactionDisabled: props.interactionDisabled,
         listLocalOrganizations: input.listLocalOrganizations,
+        organizationIndexRefreshKey: "organization-index-a",
         operationScopeKey: "session-a",
         provisionOrganization,
         scopeKey: props.scopeKey,
