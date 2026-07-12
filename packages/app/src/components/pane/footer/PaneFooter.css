@@ -52,8 +52,8 @@
   color: var(--emphasis-text);
 }
 
-.pane-footer .pane-footer-menu-button:hover,
-.pane-footer .pane-footer-menu-button:focus-visible,
+.pane-footer-menu-button:hover,
+.pane-footer-menu-button:focus-visible,
 .pane-footer-menu-button[aria-expanded="true"] {
   --tearleads-logo-primary: color-mix(
     in srgb,
