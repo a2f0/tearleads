@@ -114,6 +114,7 @@ export function useOrgSwitcherController(
     databaseReady: input.databaseReady,
     enabled: input.enabled,
     listLocalOrganizations: input.listLocalOrganizations,
+    refreshKey: input.organizationIndexRefreshKey,
     scopeKey: input.scopeKey,
   });
   const createScope = useCreateScopeGeneration(input);

@@ -37,6 +37,10 @@ interface JsonValidationContext {
 
 type DocumentRouteContext = Context<SessionEnv>;
 type DocumentLinkSetEventType = "document.link" | "document.unlink";
+type DocumentMutationOrigin = {
+  readonly sessionId: string;
+  readonly userId: string;
+};
 
 function listDocumentKekTargetContainerIds(
   documentKekTargets: DocumentSyncResponse["documentKekTargets"],
@@ -49,6 +53,53 @@ function listDocumentKekTargetContainerIds(
     const containerId = Reflect.get(target, "containerId");
     return typeof containerId === "string" ? [containerId] : [];
   });
+}
+
+/**
+ * Build the lossy realtime hint for a committed document link-set mutation.
+ * Each endpoint changes exactly one target container. The response carries the
+ * complete current link set, so adding that mutation target yields the exact
+ * union of the previous and current sets for both link and unlink.
+ */
+export function createDocumentMutationCreatedEvent(input: {
+  readonly documentId: string;
+  readonly eventType: DocumentLinkSetEventType;
+  readonly origin: DocumentMutationOrigin;
+  readonly request: DocumentLinkSetMutationRequest;
+  readonly response: DocumentLinkSetMutationResponse;
+}): Record<string, unknown> {
+  const mutationTargetContainerId =
+    input.request.targetContainerPathRefs.at(-1)?.containerId;
+  const containerIds = [
+    ...listDocumentKekTargetContainerIds(input.response.documentKekTargets),
+    ...(mutationTargetContainerId ? [mutationTargetContainerId] : []),
+  ];
+
+  return {
+    type: "document_mutation_created",
+    containerIds: [...new Set(containerIds)].sort(),
+    documentId: input.documentId,
+    eventType: input.eventType,
+    origin: input.origin,
+  };
+}
+
+export async function publishDocumentMutationCreatedEvent(input: {
+  readonly documentId: string;
+  readonly eventType: DocumentLinkSetEventType;
+  readonly origin: DocumentMutationOrigin;
+  readonly publish: DocumentMutationsRouteDeps["publish"];
+  readonly request: DocumentLinkSetMutationRequest;
+  readonly response: DocumentLinkSetMutationResponse;
+}): Promise<void> {
+  try {
+    await input.publish(createDocumentMutationCreatedEvent(input));
+  } catch (error) {
+    // The link-set transaction already committed. Realtime is a lossy hint;
+    // HTTP reconciliation remains authoritative, so a broker outage must not
+    // turn a successful mutation into a misleading 500/retry.
+    console.error("Failed to publish document mutation event:", error);
+  }
 }
 
 function validateDocumentCreateRequest(
@@ -112,23 +163,33 @@ async function respondWithDocumentCreate(
 
 async function respondWithDocumentLinkSetMutation(
   c: DocumentRouteContext,
-  runtime: ApiServiceRuntime,
-  eventType: DocumentLinkSetEventType,
-  request: DocumentLinkSetMutationRequest,
+  input: {
+    readonly eventType: DocumentLinkSetEventType;
+    readonly publish: DocumentMutationsRouteDeps["publish"];
+    readonly request: DocumentLinkSetMutationRequest;
+    readonly runtime: ApiServiceRuntime;
+  },
 ) {
   const documentId = c.req.param("documentId");
   const session = c.get("session");
 
   try {
-    return c.json<DocumentLinkSetMutationResponse>(
-      await mutateDocumentLinkSet(runtime, {
-        documentId,
-        eventType,
-        fingerprint: session.fingerprint,
-        request,
-        userId: session.userId,
-      }),
-    );
+    const response = await mutateDocumentLinkSet(input.runtime, {
+      documentId,
+      eventType: input.eventType,
+      fingerprint: session.fingerprint,
+      request: input.request,
+      userId: session.userId,
+    });
+    await publishDocumentMutationCreatedEvent({
+      documentId,
+      eventType: input.eventType,
+      origin: { sessionId: session.id, userId: session.userId },
+      publish: input.publish,
+      request: input.request,
+      response,
+    });
+    return c.json<DocumentLinkSetMutationResponse>(response);
   } catch (error) {
     const result = handleDocumentMutationError(error);
     return c.json({ error: result.error }, result.status);
@@ -223,12 +284,12 @@ export function createDocumentMutationsRoute({
     requireAuth,
     validator("json", validateDocumentLinkSetMutationRequest),
     (c) =>
-      respondWithDocumentLinkSetMutation(
-        c,
+      respondWithDocumentLinkSetMutation(c, {
+        eventType: "document.link",
+        publish,
+        request: c.req.valid("json"),
         runtime,
-        "document.link",
-        c.req.valid("json"),
-      ),
+      }),
   );
 
   route.post(
@@ -236,12 +297,12 @@ export function createDocumentMutationsRoute({
     requireAuth,
     validator("json", validateDocumentLinkSetMutationRequest),
     (c) =>
-      respondWithDocumentLinkSetMutation(
-        c,
+      respondWithDocumentLinkSetMutation(c, {
+        eventType: "document.unlink",
+        publish,
+        request: c.req.valid("json"),
         runtime,
-        "document.unlink",
-        c.req.valid("json"),
-      ),
+      }),
   );
 
   route.post(

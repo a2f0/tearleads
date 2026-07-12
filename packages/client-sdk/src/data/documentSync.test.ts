@@ -5,7 +5,37 @@ import {
   exportAllUpdates,
   exportUpdatesSince,
 } from "@tearleads/loro";
-import { createPendingUpdateFields } from "./documentSync";
+import {
+  createPendingUpdateFields,
+  isDocumentMutationCreatedEvent,
+} from "./documentSync";
+
+test("isDocumentMutationCreatedEvent validates scoped link-set hints", () => {
+  expect(
+    isDocumentMutationCreatedEvent({
+      type: "document_mutation_created",
+      containerIds: ["root", "trash"],
+      documentId: "document-1",
+      eventType: "document.unlink",
+    }),
+  ).toBe(true);
+  expect(
+    isDocumentMutationCreatedEvent({
+      type: "document_mutation_created",
+      containerIds: [],
+      documentId: "document-1",
+      eventType: "document.unlink",
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentMutationCreatedEvent({
+      type: "document_mutation_created",
+      containerIds: ["root"],
+      documentId: "document-1",
+      eventType: "document.rename",
+    }),
+  ).toBe(false);
+});
 
 test("createPendingUpdateFields drops a no-op (zero-span) delta", async () => {
   const doc = await createDocument("documentsync-test-seed");

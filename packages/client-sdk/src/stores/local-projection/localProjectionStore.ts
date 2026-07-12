@@ -1,4 +1,8 @@
 import { loadLocalContainerProjectionDocumentsFromRuntime } from "../../workflows/container-contents/projectionView";
+import {
+  isReconcilableContainerNode,
+  isRemoteBackedContainerNode,
+} from "../container-contents/reconcilableContainer";
 import type { ContainerContentsStoreRuntime } from "../container-contents/syncAgent";
 import type { ContainerContentsStore } from "../container-contents/types";
 import {
@@ -19,7 +23,11 @@ import type {
  * (Layer B) knows what to sync. The store never performs remote I/O itself.
  */
 export interface LocalProjectionReconcileSignal {
-  reason: "hydrated" | "active-changed" | "prerequisites-regained";
+  reason:
+    | "hydrated"
+    | "active-changed"
+    | "prerequisites-regained"
+    | "remote-containers-added";
   activeContainerId: string | null;
 }
 
@@ -161,6 +169,27 @@ function markHydratedIfReady(state: LocalProjectionStoreState): boolean {
   return true;
 }
 
+function hasRemoteBackedContainerMembershipGrowth(
+  previous: LocalProjectionSnapshot["containers"],
+  next: LocalProjectionSnapshot["containers"],
+  homeOrganizationId: string | null,
+): boolean {
+  const isRemoteReconcilable = (
+    container: LocalProjectionSnapshot["containers"][number],
+  ) =>
+    isRemoteBackedContainerNode(container) &&
+    isReconcilableContainerNode(container, homeOrganizationId);
+  const previousIds = new Set(
+    previous.flatMap((container) =>
+      isRemoteReconcilable(container) ? [container.id] : [],
+    ),
+  );
+  return next.some(
+    (container) =>
+      isRemoteReconcilable(container) && !previousIds.has(container.id),
+  );
+}
+
 export function createLocalProjectionStore(input: {
   containerStore: ContainerContentsStore;
   runtime: ContainerContentsStoreRuntime;
@@ -181,8 +210,27 @@ export function createLocalProjectionStore(input: {
   // Re-emit whenever the underlying container tree changes (mutations, remote
   // hydration). This keeps the merged snapshot in step with the tree store.
   input.containerStore.subscribe(() => {
-    markHydratedIfReady(state);
+    const previousContainers = state.snapshot.containers;
+    const didMarkHydrated = markHydratedIfReady(state);
     emit(state);
+    // Authentication can schedule the initial idle backfill before the
+    // asynchronous remote tree crawl discovers this identity's real root and
+    // system children. Re-arm backfill after those remotely-listable ids become
+    // visible. Compare membership, not node objects, so metadata/sync-state
+    // churn cannot create a reconciliation loop.
+    if (
+      !didMarkHydrated &&
+      hasRemoteBackedContainerMembershipGrowth(
+        previousContainers,
+        state.snapshot.containers,
+        state.runtime.auth.organizationId,
+      )
+    ) {
+      notifyReconcile(state, {
+        reason: "remote-containers-added",
+        activeContainerId: state.activeContainerId,
+      });
+    }
   });
 
   return {

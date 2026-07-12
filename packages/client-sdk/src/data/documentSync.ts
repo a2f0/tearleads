@@ -10,6 +10,13 @@ interface DocumentUpdateCreatedEvent {
   updateIds?: string[];
 }
 
+interface DocumentMutationCreatedEvent {
+  type: "document_mutation_created";
+  containerIds: string[];
+  documentId: string;
+  eventType: "document.link" | "document.unlink";
+}
+
 interface DocumentUpdateCreatedEventCandidate {
   readonly containerIds?: unknown;
   readonly documentId?: unknown;
@@ -72,5 +79,30 @@ export function isDocumentUpdateCreatedEvent(
     (updateIds === undefined ||
       (Array.isArray(updateIds) &&
         updateIds.every((updateId) => typeof updateId === "string")))
+  );
+}
+
+export function isDocumentMutationCreatedEvent(
+  event: unknown,
+): event is DocumentMutationCreatedEvent {
+  if (!isPlainObject(event)) {
+    return false;
+  }
+
+  const containerIds = Reflect.get(event, "containerIds");
+  const documentId = Reflect.get(event, "documentId");
+  const eventType = Reflect.get(event, "eventType");
+
+  return (
+    Reflect.get(event, "type") === "document_mutation_created" &&
+    typeof documentId === "string" &&
+    documentId.length > 0 &&
+    (eventType === "document.link" || eventType === "document.unlink") &&
+    Array.isArray(containerIds) &&
+    containerIds.length > 0 &&
+    containerIds.every(
+      (containerId) =>
+        typeof containerId === "string" && containerId.length > 0,
+    )
   );
 }

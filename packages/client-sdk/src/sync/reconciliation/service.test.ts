@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import type { DomainScope } from "../../data/domainScope";
 import type { LocalProjectionReconciledDelta } from "../../stores/local-projection";
-import { createReconcileQueue } from "./queue";
 import {
   createReconciliationService,
   type ReconciliationHost,
@@ -13,6 +12,7 @@ function createHost(
     status?: ReconciliationRuntimeStatus;
     discovered?: string[];
     knownContainerIds?: ReadonlyArray<string>;
+    automaticRootCatchupContainerIds?: ReadonlyArray<string>;
   } = {},
 ): ReconciliationHost {
   const discovered = overrides.discovered ?? [];
@@ -26,6 +26,10 @@ function createHost(
     domainScope: {} as DomainScope,
     getRuntimeStatus: () => status,
     listKnownContainerIds: () => overrides.knownContainerIds ?? [],
+    listAutomaticRootCatchupContainerIds: () =>
+      overrides.automaticRootCatchupContainerIds ??
+      overrides.knownContainerIds ??
+      [],
     discoverContainerDocuments: async (containerId) => {
       discovered.push(containerId);
     },
@@ -87,29 +91,6 @@ function silenceExpectedTransientDiscoveryError(): () => void {
     expect(expectedErrorCount).toBe(1);
   };
 }
-
-test("reconcile queue serves active priority before idle", () => {
-  const queue = createReconcileQueue();
-  queue.enqueue("idle-1", "idle");
-  queue.enqueue("active-1", "active");
-  queue.enqueue("idle-2", "idle");
-
-  expect(queue.dequeue()).toBe("active-1");
-  expect(queue.dequeue()).toBe("idle-1");
-  expect(queue.dequeue()).toBe("idle-2");
-  expect(queue.dequeue()).toBeNull();
-});
-
-test("reconcile queue upgrades an idle container to active without duplicating", () => {
-  const queue = createReconcileQueue();
-  queue.enqueue("c-1", "idle");
-  queue.enqueue("c-2", "idle");
-  queue.enqueue("c-1", "active");
-
-  expect(queue.size).toBe(2);
-  expect(queue.dequeue()).toBe("c-1");
-  expect(queue.dequeue()).toBe("c-2");
-});
 
 test("service reconciles the active container before idle backfill", async () => {
   const discovered: string[] = [];
@@ -279,10 +260,11 @@ test("service retries a container that failed during explicit refresh", async ()
   );
 });
 
-test("root refresh reconciles known containers without a full tree refresh", async () => {
+test("root refresh retains a directly granted non-root container in catch-up", async () => {
   const calls: string[] = [];
   const host = createHost({
-    knownContainerIds: ["c-1"],
+    knownContainerIds: ["root", "directly-granted-child", "own-system"],
+    automaticRootCatchupContainerIds: ["root", "directly-granted-child"],
     discoverContainerDocuments: async (containerId) => {
       calls.push(`discover:${containerId}`);
     },
@@ -298,7 +280,31 @@ test("root refresh reconciles known containers without a full tree refresh", asy
 
   await service.reconcileRootContainersNow();
 
-  expect(calls).toEqual(["refresh-root", "discover:c-1"]);
+  expect(calls).toEqual([
+    "refresh-root",
+    "discover:root",
+    "discover:directly-granted-child",
+  ]);
+});
+
+test("explicit full refresh retries an active container outside the background set", async () => {
+  const discovered: string[] = [];
+  const host = createHost({
+    discovered,
+    knownContainerIds: ["known-regular"],
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  service.setActiveContainer("foreign-write-system");
+  await waitFor(
+    () => discovered.includes("foreign-write-system"),
+    "Expected the active container's initial reconciliation",
+  );
+  discovered.length = 0;
+
+  await service.reconcileNow();
+
+  expect(discovered).toEqual(["known-regular", "foreign-write-system"]);
 });
 
 /** A promise plus its resolver, for gating a mock host call open by hand. */
@@ -429,7 +435,7 @@ test("stop clears the discovered set so a restarted lane refetches", async () =>
 });
 
 test("background reconcile requests a non-forced document content sync", async () => {
-  const pulls: boolean[] = [];
+  const pulls: Array<{ containerId: string; force: boolean }> = [];
   const host = createHost({
     knownContainerIds: ["c-1"],
     loadContainerDelta: async (containerId) => ({
@@ -444,8 +450,8 @@ test("background reconcile requests a non-forced document content sync", async (
         },
       ],
     }),
-    requestDocumentContentPull: (_documents, force) => {
-      pulls.push(force);
+    requestDocumentContentPull: (containerId, _documents, force) => {
+      pulls.push({ containerId, force });
     },
   });
   const service = createReconciliationService(host);
@@ -456,11 +462,11 @@ test("background reconcile requests a non-forced document content sync", async (
     () => pulls.length === 1,
     "Expected the background reconcile to request a content sync",
   );
-  expect(pulls).toEqual([false]);
+  expect(pulls).toEqual([{ containerId: "c-1", force: false }]);
 });
 
 test("explicit refresh requests a forced document content sync", async () => {
-  const pulls: boolean[] = [];
+  const pulls: Array<{ containerId: string; force: boolean }> = [];
   const host = createHost({
     knownContainerIds: ["c-1"],
     loadContainerDelta: async (containerId) => ({
@@ -475,13 +481,13 @@ test("explicit refresh requests a forced document content sync", async () => {
         },
       ],
     }),
-    requestDocumentContentPull: (_documents, force) => {
-      pulls.push(force);
+    requestDocumentContentPull: (containerId, _documents, force) => {
+      pulls.push({ containerId, force });
     },
   });
   const service = createReconciliationService(host);
   service.start();
   await service.reconcileNow();
 
-  expect(pulls).toEqual([true]);
+  expect(pulls).toEqual([{ containerId: "c-1", force: true }]);
 });

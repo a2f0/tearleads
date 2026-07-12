@@ -252,6 +252,30 @@ test("routes scopeless user events to that user's sockets only", () => {
   expect(bob.sent).toEqual([]);
 });
 
+test("routes a user-scoped discovery hint to the author's other session", () => {
+  const router = new WsEventRouter();
+  const author = fakeSocket("alice", "alice-a");
+  const otherSession = fakeSocket("alice", "alice-b");
+  const bob = fakeSocket("bob");
+  router.open(author);
+  router.open(otherSession);
+  router.open(bob);
+
+  router.routeServerEvent(
+    JSON.stringify({
+      type: "shared_with_you",
+      userId: "alice",
+      origin: { sessionId: "alice-a", userId: "alice" },
+    }),
+  );
+
+  expect(author.sent).toEqual([]);
+  expect(otherSession.sent).toEqual([
+    JSON.stringify({ type: "shared_with_you", userId: "alice" }),
+  ]);
+  expect(bob.sent).toEqual([]);
+});
+
 test("applies interest add/remove deltas", () => {
   const router = new WsEventRouter();
   const alice = fakeSocket("alice");

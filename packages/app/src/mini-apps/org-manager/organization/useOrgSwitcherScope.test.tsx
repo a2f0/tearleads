@@ -42,6 +42,7 @@ test("ignores organization creation after its session scope is invalidated", asy
         databaseReady: props.databaseReady,
         enabled: true,
         listLocalOrganizations,
+        organizationIndexRefreshKey: "organization-index-a",
         operationScopeKey: props.operationScopeKey,
         provisionOrganization,
         scopeKey,

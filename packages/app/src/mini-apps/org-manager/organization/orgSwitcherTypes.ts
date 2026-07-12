@@ -38,6 +38,7 @@ export interface OrgSwitcherControllerInput {
   enabled: boolean;
   interactionDisabled?: boolean | undefined;
   listLocalOrganizations: () => Promise<LocalOrganizationSummary[]>;
+  organizationIndexRefreshKey: string;
   operationScopeKey: string;
   provisionOrganization: (
     organizationProfileName: string,

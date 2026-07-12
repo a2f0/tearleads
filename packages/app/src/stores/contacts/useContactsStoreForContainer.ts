@@ -152,6 +152,10 @@ export function createContactsRuntimeForContainer(
       tearleads.documents.open(input, {
         workflowRuntime: documentsRuntime,
       }),
+    subscribeToPersistedDocuments: (listener) =>
+      tearleads.documents.subscribe(listener, {
+        containerId: documentsRuntime.state.containerId,
+      }),
     trashContainerId,
   };
 }

@@ -158,6 +158,7 @@ interface OrganizationListLifecycleOptions {
   latestRequestIdRef: { current: number };
   mountedRef: { current: boolean };
   reload: () => Promise<boolean>;
+  refreshKey: string;
   retainedOrganizationsRef: {
     current: Map<string, LocalOrganizationSummary>;
   };
@@ -174,6 +175,7 @@ function useOrganizationListLifecycle(input: OrganizationListLifecycleOptions) {
     latestRequestIdRef,
     mountedRef,
     reload,
+    refreshKey,
     retainedOrganizationsRef,
     scopeKey,
     setOrganizations,
@@ -213,6 +215,7 @@ function useOrganizationListLifecycle(input: OrganizationListLifecycleOptions) {
     enabled,
     latestRequestIdRef,
     reload,
+    refreshKey,
     retainedOrganizationsRef,
     scopeKey,
     setOrganizations,
@@ -308,6 +311,7 @@ export function useLocalOrganizations(input: {
   databaseReady: boolean;
   enabled: boolean;
   listLocalOrganizations: () => Promise<LocalOrganizationSummary[]>;
+  refreshKey: string;
   scopeKey: DomainScope;
 }): LocalOrganizationsState {
   const [organizations, setOrganizations] = useState<
@@ -351,6 +355,7 @@ export function useLocalOrganizations(input: {
     latestRequestIdRef,
     mountedRef,
     reload,
+    refreshKey: input.refreshKey,
     retainedOrganizationsRef,
     scopeKey: input.scopeKey,
     setOrganizations,

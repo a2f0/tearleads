@@ -16,6 +16,10 @@ import {
   createContainerContentsWorkflowRuntime,
 } from "../../workflows/container-contents/runtime";
 import { createContainerContentsStore } from "../container-contents/containerContentsStore";
+import type {
+  ContainerContentsStore,
+  ContainerNode,
+} from "../container-contents/types";
 import { createLocalProjectionStore } from "./localProjectionStore";
 
 function createThrowingApiClient(): ReturnType<typeof createMockApiClient> {
@@ -81,6 +85,26 @@ async function waitFor(
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error(message);
+}
+
+function remoteContainerNode(id: string): ContainerNode {
+  return {
+    effectiveAccessLevel: "admin",
+    id,
+    kind: "container",
+    metadataDocumentId: `${id}-metadata`,
+    name: id,
+    organizationId: "org-1",
+    parentId: null,
+    syncState: {
+      lastError: null,
+      pendingAttachmentBytes: 0,
+      pendingAttachmentCount: 0,
+      pendingUpdateCount: 0,
+      status: "synced",
+    },
+    systemSlot: null,
+  };
 }
 
 async function seedContainerWithDocument(
@@ -325,6 +349,60 @@ test("local projection store raises hydrated when local tree initialization fini
       "Local projection store did not raise hydrated after local tree initialization.",
     );
     expect(store.getSnapshot().ready).toBe(true);
+  } finally {
+    close();
+  }
+});
+
+test("remote container growth re-arms backfill after initial hydration only", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-projection-remote-container-growth-signal-test",
+  );
+  const domainScope = {} as DomainScope;
+
+  try {
+    const runtime = createRuntime({
+      apiClient: createThrowingApiClient(),
+      domainScope,
+      execSql,
+      isAuthenticated: true,
+      online: true,
+    });
+    let nodes: ReadonlyArray<ContainerNode> = [
+      remoteContainerNode("cached-root"),
+    ];
+    let emitContainerStore = () => {};
+    const containerStore = {
+      getSnapshot: () => ({ nodes, ready: true }),
+      subscribe: (listener: () => void) => {
+        emitContainerStore = listener;
+        return () => {
+          emitContainerStore = () => {};
+        };
+      },
+      updateRuntime: () => {},
+    } as unknown as ContainerContentsStore;
+    const store = createLocalProjectionStore({ containerStore, runtime });
+    const signals: string[] = [];
+    store.onReconcileSignal((signal) => signals.push(signal.reason));
+
+    // A warm cached tree becoming ready emits only the normal hydration signal;
+    // it must not turn every startup into a full document backfill.
+    store.updateRuntime(runtime);
+    expect(signals).toEqual(["hydrated"]);
+
+    // A remote child arriving after that initial edge is the cold-recovery race:
+    // signal one trailing backfill, then suppress object-only snapshot churn.
+    nodes = [
+      remoteContainerNode("cached-root"),
+      remoteContainerNode("remote-contacts"),
+    ];
+    emitContainerStore();
+    expect(signals).toEqual(["hydrated", "remote-containers-added"]);
+
+    nodes = [...nodes];
+    emitContainerStore();
+    expect(signals).toEqual(["hydrated", "remote-containers-added"]);
   } finally {
     close();
   }

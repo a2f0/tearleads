@@ -48,8 +48,15 @@ import {
 } from "../../../../test/helpers/proxiedApiRequestBudget";
 
 const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  // Observed ~111 (was ~100 before the org-public metadata container; earlier
-  // ~120, see issue #1281 for the full profile). The ~11-request rise is the
+  // Observed 116 after recovery rematerialization began reconciling remote-backed
+  // system containers (was ~111, and ~100 before the org-public metadata
+  // container; earlier ~120, see issue #1281 for the full profile). The first
+  // authenticated backfill now lists each pane's system-container documents
+  // once so Contacts and other headless projections converge on a fresh device.
+  // Explorer/shared-root catch-up retains regular/directly granted containers
+  // but excludes own system children, so those children are not re-fetched on
+  // every discovery hint.
+  // The earlier ~11-request rise was the
   // per-org "Organization Metadata" container that every registration now mints
   // and read-grants to the Members group so any active roster member can
   // decrypt org-wide public fields: each pane's provisioning and the share
@@ -67,7 +74,7 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // sweep force-pull, which are convergence-core and deferred (they risk
   // revocation/staleness bugs). Small headroom absorbs race timing; a real
   // re-sync loop would blow far past this.
-  total: 116,
+  total: 122,
   byRequest: {
     // ~18-19 observed. Each container metadata document's writer projection is
     // primed from its create response (like plain document creates), so the
@@ -86,13 +93,16 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     // updates from re-pinging. Per-doc counts stay small (<=5), confirming
     // convergence not amplification — a re-sync loop would blow far past this.
     "POST /documents/:documentId/sync": 26,
-    // ~8-9 observed. Device-first reconciliation re-checks the active container
-    // on open and refresh, forced server-event reconciliation rechecks each
-    // event-scoped container once, and the system-container promotion pass lists
-    // each promoted (Contacts/Trash) container's documents once. One quiet 404 +
-    // retry can occur when bootstrap races a shared child before it is remotely
-    // visible. Small headroom over the observed count.
-    "GET /containers/:containerId/documents": 11,
+    // 18 observed. Device-first reconciliation re-checks active/event-scoped
+    // containers, while the first authenticated backfill now also lists every
+    // remote-backed system child once. That one-time sweep is required for
+    // recovery-key rematerialization: a fresh device has not authored or opened
+    // Contacts/organization-profile documents, so their bodies otherwise never
+    // enter local projections. Automatic root catch-up retains regular/direct
+    // shares but excludes own system children, keeping later Explorer opens and
+    // shared-root hints from repeating the system sweep. Small headroom catches
+    // amplification.
+    "GET /containers/:containerId/documents": 20,
     // The test WebSocket harness mirrors production routing: an access_changed
     // event evicts interested sockets, then each still-authorized pane rechecks
     // the tree before re-declaring interest. ~30 observed for ~4 root

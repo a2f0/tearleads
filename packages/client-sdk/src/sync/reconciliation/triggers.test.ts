@@ -95,6 +95,39 @@ test("hydrated trigger reconciles only the active container", () => {
   expect(idleBackfills).toBe(0);
 });
 
+test("remote container growth queues one idle backfill", () => {
+  const reconcileListeners: LocalProjectionReconcileListener[] = [];
+  const store = {
+    onReconcileSignal: (listener: LocalProjectionReconcileListener) => {
+      reconcileListeners.push(listener);
+      return () => {};
+    },
+  } as LocalProjectionStore;
+  let idleBackfills = 0;
+  const service = {
+    enqueueIdleBackfill: () => {
+      idleBackfills += 1;
+    },
+    setActiveContainer: () => {},
+  } as unknown as Parameters<
+    typeof connectReconciliationTriggers
+  >[0]["service"];
+
+  connectReconciliationTriggers({ service, store });
+  const reconcileListener = reconcileListeners[0];
+  if (!reconcileListener) {
+    throw new Error(
+      "Expected reconciliation trigger listener to be connected.",
+    );
+  }
+  reconcileListener({
+    activeContainerId: null,
+    reason: "remote-containers-added",
+  });
+
+  expect(idleBackfills).toBe(1);
+});
+
 test("event triggers enqueue the named container at active priority", () => {
   const enqueued: Array<{
     containerId: string;
@@ -136,6 +169,88 @@ test("event triggers enqueue the named container at active priority", () => {
   expect(enqueued).toEqual([
     { containerId: "c-1", force: true, priority: "active" },
   ]);
+});
+
+test("document mutation events force both prior and current containers", () => {
+  const enqueued: Array<{
+    containerId: string;
+    force: boolean | undefined;
+    priority: string;
+  }> = [];
+  const service = {
+    enqueueContainer: (
+      containerId: string,
+      priority: string,
+      force: boolean | undefined,
+    ) => {
+      enqueued.push({ containerId, force, priority });
+    },
+    enqueueIdleBackfill: () => {},
+  } as unknown as Parameters<
+    typeof enqueueReconciliationForEvents
+  >[0]["service"];
+
+  enqueueReconciliationForEvents({
+    events: [
+      {
+        type: "document_mutation_created",
+        containerIds: ["root", "trash", "unknown"],
+        documentId: "d-1",
+        eventType: "document.unlink",
+      },
+    ],
+    knownContainerIds: ["root", "trash"],
+    service,
+  });
+
+  expect(enqueued).toEqual([
+    { containerId: "root", force: true, priority: "active" },
+    { containerId: "trash", force: true, priority: "active" },
+  ]);
+});
+
+test("document mutation events do not consume content self-echo suppression", () => {
+  const enqueued: string[] = [];
+  const service = {
+    enqueueContainer: (containerId: string) => {
+      enqueued.push(containerId);
+    },
+    enqueueIdleBackfill: () => {},
+  } as unknown as Parameters<
+    typeof enqueueReconciliationForEvents
+  >[0]["service"];
+  const domainScope = createDomainScope();
+  markOriginatedDocuments(domainScope, ["d-1"]);
+
+  enqueueReconciliationForEvents({
+    domainScope,
+    events: [
+      {
+        type: "document_mutation_created",
+        containerIds: ["root", "trash"],
+        documentId: "d-1",
+        eventType: "document.unlink",
+      },
+    ],
+    knownContainerIds: ["root", "trash"],
+    service,
+  });
+  enqueueReconciliationForEvents({
+    domainScope,
+    events: [
+      {
+        type: "document_update_created",
+        containerIds: ["root"],
+        documentId: "d-1",
+      },
+    ],
+    knownContainerIds: ["root", "trash"],
+    service,
+  });
+
+  // The structural event always reconciles. The following content self-echo is
+  // still suppressed, proving the structural path did not consume its marker.
+  expect(enqueued).toEqual(["root", "trash"]);
 });
 
 test("event triggers skip self-echoes of originated documents", () => {

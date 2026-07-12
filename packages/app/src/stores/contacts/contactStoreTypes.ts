@@ -27,6 +27,9 @@ export interface ContactsRuntime {
   openDocumentStore: (
     input: OpenDocumentInput & { readonly localId: string },
   ) => DocumentStore;
+  subscribeToPersistedDocuments?:
+    | ((listener: (document: DocumentSummary) => void) => () => void)
+    | undefined;
   trashContainerId: string | null;
 }
 
@@ -58,6 +61,7 @@ export interface ContactsStoreState {
   contactDocumentStoresById: Map<string, TrackedContactDocumentStore>;
   dependencies: ContactsStoreDependencies;
   entriesById: Map<string, ContactEntry>;
+  initializationGeneration: number;
   initializePromise: Promise<void> | null;
   initialized: boolean;
   listeners: Set<() => void>;
