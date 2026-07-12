@@ -21,11 +21,14 @@ import {
   type DocumentBlobPickRequest,
 } from "../../../document-types/shared/DocumentBlobPickContext";
 
-// A "pick" routes a document's "Choose Blob" action over to the Explorer's
-// blob-browser panel (pick mode) and carries the chosen blob back to the
-// document. The target lives in React state rather than the URL: picking a blob
-// for a slot is an in-session interaction, not a deep-linkable destination.
-export interface ExplorerBlobPickTarget {
+// Shared mini-app host for the document-types blob-pick seam. A "pick" routes a
+// document's "Choose Blob" action over to the host mini-app's blob-browser panel
+// (pick mode) and carries the chosen blob back to the document. The target lives
+// in React state rather than the URL: picking a blob for a slot is an in-session
+// interaction, not a deep-linkable destination. Any mini-app that renders a
+// blob-browser surface can mount this provider (currently the Explorer) so it
+// need not be imported across mini-app boundaries.
+export interface BlobPickTarget {
   containerId: string;
   // localId of the document the pick returns to once a blob is chosen.
   localId: string;
@@ -33,33 +36,39 @@ export interface ExplorerBlobPickTarget {
   slotLabel: string;
 }
 
-interface ExplorerBlobPickResult {
+interface BlobPickResult {
   blob: BlobInfo;
   localId: string;
   slotId: string;
 }
 
-// Explorer-facing handles: the detail panel reads pickTarget to render pick
-// mode, and resolves/cancels the active pick. Document types never see these —
-// they use the document-types-owned DocumentBlobPickContext instead.
-interface ExplorerBlobPickContextValue {
+// Host-facing handles: the mini-app's blob-browser panel reads pickTarget to
+// render pick mode, and resolves/cancels the active pick. Document types never
+// see these — they use the document-types-owned DocumentBlobPickContext instead.
+interface BlobPickContextValue {
   cancelBlobPick: () => void;
-  pickTarget: ExplorerBlobPickTarget | null;
+  pickTarget: BlobPickTarget | null;
   resolveBlobPick: (blob: BlobInfo) => void;
 }
 
-const ExplorerBlobPickContext =
-  createContext<ExplorerBlobPickContextValue | null>(null);
+const BlobPickContext = createContext<BlobPickContextValue | null>(null);
 
-export function ExplorerBlobPickProvider(
+export function BlobPickProvider(
   params: PropsWithChildren<{
     // Lists blobs in the active container; used to hide "Choose Blob" when the
     // container has none so the picker never opens empty.
     loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
-    // Navigates the Explorer detail panel to the blob-browser route. Called
-    // when a pick starts; clearing the target on resolve/cancel routes back.
-    openBlobBrowserRoute: (input?: DocumentBlobOpenRequest | undefined) => void;
-    returnToDocumentRoute: (localId: string, containerId: string) => void;
+    // Navigates the host's detail surface to the blob-browser route. Called when
+    // a pick starts; clearing the target on resolve/cancel routes back. Optional:
+    // a host that derives the picker's visibility directly from `pickTarget`
+    // (e.g. the Notes mini-app, which swaps the editor for the picker) needs no
+    // routing and can omit both callbacks.
+    openBlobBrowserRoute?:
+      | ((input?: DocumentBlobOpenRequest | undefined) => void)
+      | undefined;
+    returnToDocumentRoute?:
+      | ((localId: string, containerId: string) => void)
+      | undefined;
   }>,
 ) {
   const {
@@ -68,12 +77,10 @@ export function ExplorerBlobPickProvider(
     openBlobBrowserRoute,
     returnToDocumentRoute,
   } = params;
-  const [pickTarget, setPickTarget] = useState<ExplorerBlobPickTarget | null>(
-    null,
-  );
+  const [pickTarget, setPickTarget] = useState<BlobPickTarget | null>(null);
   // The picked result is one-shot and read on the next render of the document,
   // so a ref avoids an extra state update / re-render race with the route swap.
-  const resultRef = useRef<ExplorerBlobPickResult | null>(null);
+  const resultRef = useRef<BlobPickResult | null>(null);
 
   const requestBlobPick = useCallback(
     (request: DocumentBlobPickRequest) => {
@@ -84,13 +91,13 @@ export function ExplorerBlobPickProvider(
         slotId: request.slot.slotId,
         slotLabel: request.slot.label,
       });
-      openBlobBrowserRoute();
+      openBlobBrowserRoute?.();
     },
     [openBlobBrowserRoute],
   );
   const openBlob = useCallback(
     (request: DocumentBlobOpenRequest) => {
-      openBlobBrowserRoute(request);
+      openBlobBrowserRoute?.(request);
     },
     [openBlobBrowserRoute],
   );
@@ -104,7 +111,7 @@ export function ExplorerBlobPickProvider(
             localId: target.localId,
             slotId: target.slotId,
           };
-          returnToDocumentRoute(target.localId, target.containerId);
+          returnToDocumentRoute?.(target.localId, target.containerId);
         }
         return null;
       });
@@ -115,7 +122,7 @@ export function ExplorerBlobPickProvider(
   const cancelBlobPick = useCallback(() => {
     setPickTarget((target) => {
       if (target) {
-        returnToDocumentRoute(target.localId, target.containerId);
+        returnToDocumentRoute?.(target.localId, target.containerId);
       }
       return null;
     });
@@ -139,7 +146,7 @@ export function ExplorerBlobPickProvider(
     [loadBlobInfo],
   );
 
-  const explorerValue = useMemo<ExplorerBlobPickContextValue>(
+  const hostValue = useMemo<BlobPickContextValue>(
     () => ({ cancelBlobPick, pickTarget, resolveBlobPick }),
     [cancelBlobPick, pickTarget, resolveBlobPick],
   );
@@ -150,20 +157,20 @@ export function ExplorerBlobPickProvider(
   const documentOpenValue = useMemo(() => ({ openBlob }), [openBlob]);
 
   return (
-    <ExplorerBlobPickContext.Provider value={explorerValue}>
+    <BlobPickContext.Provider value={hostValue}>
       <DocumentBlobOpenProvider value={documentOpenValue}>
         <DocumentBlobPickProvider value={documentValue}>
           {children}
         </DocumentBlobPickProvider>
       </DocumentBlobOpenProvider>
-    </ExplorerBlobPickContext.Provider>
+    </BlobPickContext.Provider>
   );
 }
 
-export function useExplorerBlobPick(): ExplorerBlobPickContextValue {
-  const context = useContext(ExplorerBlobPickContext);
+export function useBlobPick(): BlobPickContextValue {
+  const context = useContext(BlobPickContext);
   if (!context) {
-    throw new Error("useExplorerBlobPick requires ExplorerBlobPickProvider");
+    throw new Error("useBlobPick requires BlobPickProvider");
   }
   return context;
 }

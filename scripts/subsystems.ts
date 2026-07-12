@@ -457,13 +457,14 @@ export const subsystems: readonly Subsystem[] = [
     name: "Mini-App Platform",
     package: "app",
     responsibility:
-      "The window/mini-app host: app windows, the SDK-independent message bus, the mini-app registry, and the bootstrap/unlock gates.",
-    seam: "mini-apps/registry; mini-apps/bus",
+      "The window/mini-app host: app windows, the SDK-independent message bus, the mini-app registry, the bootstrap/unlock gates, and shared cross-mini-app building blocks (e.g. the blob-pick host).",
+    seam: "mini-apps/registry; mini-apps/bus; mini-apps/shared",
     paths: [
       `${app}/mini-apps/AppWindow.tsx`,
       `${app}/mini-apps/bus.tsx`,
       `${app}/mini-apps/LocalKeyringUnlockGate.tsx`,
       `${app}/mini-apps/registry.ts`,
+      `${app}/mini-apps/shared/`,
       `${app}/mini-apps/SystemBootstrapGate.tsx`,
       `${app}/mini-apps/types.ts`,
     ],

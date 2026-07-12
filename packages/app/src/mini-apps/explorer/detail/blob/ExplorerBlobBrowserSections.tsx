@@ -1,11 +1,5 @@
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
-import type {
-  BlobInfo,
-  BlobInfoSort,
-  BlobInfoSortKey,
-  BlobStore,
-} from "@tearleads/client-sdk";
-import type { MouseEvent } from "react";
+import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
 import { Menu, type MenuPosition } from "../../../../components/shared/Menu";
 import { MenuItem } from "../../../../components/shared/MenuItem";
 import {
@@ -14,7 +8,6 @@ import {
   MiniAppHeader,
   MiniAppHeaderCopy,
   MiniAppInfoSection,
-  MiniAppInput,
   MiniAppPanel,
   MiniAppStatus,
   MiniAppToolbar,
@@ -27,19 +20,16 @@ import {
 import { formatByteLength } from "../../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import {
-  EXPLORER_LABELS,
-  getExplorerBlobBrowserDocumentCountLabel,
-  getExplorerBlobBrowserReferenceCountLabel,
-  getExplorerBlobPickSubtitle,
-} from "../../labels";
-import { compactId } from "../compactId";
-import {
-  type BlobInfoListState,
   type BlobPreviewState,
   getBlobChangedAt,
   useBlobPreview,
-} from "./ExplorerBlobBrowserState";
-import { BlobInfoTable } from "./ExplorerBlobInfoTable";
+} from "../../../shared/blob-pick/blob-list/blobListState";
+import {
+  EXPLORER_LABELS,
+  getExplorerBlobBrowserDocumentCountLabel,
+  getExplorerBlobBrowserReferenceCountLabel,
+} from "../../labels";
+import { compactId } from "../compactId";
 import { BlobReferencesSection } from "./ExplorerBlobReferencesSection";
 
 function BlobMetadataSection(params: {
@@ -255,81 +245,6 @@ export function BlobBrowserHeader(params: {
         </MiniAppActions>
       ) : null}
     </MiniAppHeader>
-  );
-}
-
-export function BlobPickHeader(params: {
-  onCancel: () => void;
-  slotLabel: string;
-}) {
-  const { onCancel, slotLabel } = params;
-
-  return (
-    <MiniAppHeader>
-      <MiniAppHeaderCopy>
-        <strong>{EXPLORER_LABELS.blobPickTitle}</strong>
-        <span>{getExplorerBlobPickSubtitle(slotLabel)}</span>
-      </MiniAppHeaderCopy>
-      <MiniAppActions>
-        <MiniAppButton onClick={onCancel}>
-          {EXPLORER_LABELS.blobPickCancelAction}
-        </MiniAppButton>
-      </MiniAppActions>
-    </MiniAppHeader>
-  );
-}
-
-export function BlobBrowserListScreen(params: {
-  blobInfo: BlobInfoListState;
-  blobStore: BlobStore;
-  downloadMessage?: string | null | undefined;
-  frameRef: (frame: HTMLDivElement | null) => void;
-  isRowSelectable?: ((blob: BlobInfo) => boolean) | undefined;
-  isWindowPending: boolean;
-  onQueryChange: (value: string) => void;
-  onRowContextMenu?:
-    | ((event: MouseEvent<HTMLElement>, blob: BlobInfo) => void)
-    | undefined;
-  onSelectBlob: (blob: BlobInfo) => void;
-  onSort: (key: BlobInfoSortKey) => void;
-  online: boolean;
-  query: string;
-  rowOffset: number;
-  rows: ReadonlyArray<BlobInfo>;
-  sort: BlobInfoSort;
-}) {
-  return (
-    <>
-      <MiniAppToolbar>
-        <MiniAppInput
-          aria-label={EXPLORER_LABELS.blobBrowserSearchPlaceholder}
-          onChange={(event) => params.onQueryChange(event.currentTarget.value)}
-          placeholder={EXPLORER_LABELS.blobBrowserSearchPlaceholder}
-          value={params.query}
-        />
-      </MiniAppToolbar>
-      {params.downloadMessage ? (
-        <MiniAppStatus tone="error">{params.downloadMessage}</MiniAppStatus>
-      ) : null}
-      <div className="explorer-blob-browser-screen">
-        <BlobInfoTable
-          activeBlob={null}
-          blobStore={params.blobStore}
-          error={params.blobInfo.error}
-          frameRef={params.frameRef}
-          isLoading={params.blobInfo.isLoading || params.isWindowPending}
-          isRowSelectable={params.isRowSelectable}
-          online={params.online}
-          onRowContextMenu={params.onRowContextMenu}
-          onSelectBlob={params.onSelectBlob}
-          onSort={params.onSort}
-          rowOffset={params.rowOffset}
-          rows={params.rows}
-          sort={params.sort}
-          totalCount={params.blobInfo.totalCount}
-        />
-      </div>
-    </>
   );
 }
 

@@ -18,7 +18,7 @@ import type { MouseEvent } from "react";
 import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
-import type { ExplorerBlobPickTarget } from "../blob-pick/ExplorerBlobPickProvider";
+import type { BlobPickTarget } from "../../shared/blob-pick/BlobPickProvider";
 import {
   canAdminContainerNode,
   canWriteContainerNode,
@@ -128,7 +128,7 @@ interface ExplorerDetailPanelProps {
   online: boolean;
   // Pick mode for the blob-browser route: set when "Choose Blob" on a document
   // routed here. onPickBlob resolves the pick; onCancelBlobPick abandons it.
-  blobPickTarget: ExplorerBlobPickTarget | null;
+  blobPickTarget: BlobPickTarget | null;
   onCancelBlobPick: () => void;
   onPickBlob: (blob: BlobInfo) => void;
   onContainerContextMenu: (

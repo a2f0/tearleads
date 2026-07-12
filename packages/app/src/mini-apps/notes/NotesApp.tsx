@@ -1,5 +1,16 @@
+import type {
+  BlobInfoInput,
+  BlobInfoList,
+  BlobStore,
+} from "@tearleads/client-sdk";
+import { useCallback } from "react";
+import { MiniAppRoot } from "../../components/shared/MiniAppLayout";
 import { useWindowFileMenuItem } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
+import {
+  useTearleads,
+  useTearleadsRuntime,
+} from "../../providers/sdk/TearleadsProvider";
 import {
   DEFAULT_DOCUMENT_ID,
   DocumentsProvider,
@@ -7,6 +18,11 @@ import {
 import { useContainerTrashLookup } from "../../stores/explorer/useContainerTrashLookup";
 import { LocalKeyringUnlockGate } from "../LocalKeyringUnlockGate";
 import { SystemBootstrapGate } from "../SystemBootstrapGate";
+import {
+  BlobPickProvider,
+  useBlobPick,
+} from "../shared/blob-pick/BlobPickProvider";
+import { BlobPickSurface } from "../shared/blob-pick/blob-list/BlobListScreen";
 import { NotesContextMenuLayer } from "./context-menu/NotesContextMenu";
 import { useNotesAppModel } from "./hooks/useNotesAppModel";
 import { NOTES_LABELS } from "./labels";
@@ -45,9 +61,57 @@ function NotesApp(props: NotesAppProps) {
   );
 }
 
+// Inside a note's DocumentsProvider and the blob-pick provider: swaps the editor
+// out for the blob picker while a pick is in flight. Swapping (rather than
+// overlaying) unmounts the editor, so it re-mounts on return and applies the
+// picked blob via its consume-on-mount effect — mirroring how the Explorer's
+// route swap drives the same flow.
+function NotesEditorOrBlobPicker(params: {
+  blobStore: BlobStore;
+  containerId: string | null;
+  loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
+  localId: string;
+  online: boolean;
+}) {
+  const { cancelBlobPick, pickTarget, resolveBlobPick } = useBlobPick();
+
+  // Scope the picker to the note that opened it: the blob-pick provider outlives
+  // note switches, so a pick left in flight while the user selects another note
+  // must not surface its picker on (or resolve into) the newly active note.
+  if (pickTarget && pickTarget.localId === params.localId) {
+    return (
+      <MiniAppRoot padding="none">
+        <BlobPickSurface
+          blobStore={params.blobStore}
+          loadBlobInfo={params.loadBlobInfo}
+          onCancel={cancelBlobPick}
+          online={params.online}
+          onPickBlob={resolveBlobPick}
+          slotLabel={pickTarget.slotLabel}
+        />
+      </MiniAppRoot>
+    );
+  }
+
+  return (
+    <Notes
+      containerId={params.containerId}
+      localId={params.localId}
+      registerRefreshMenuItem
+    />
+  );
+}
+
 function NotesAppContent(props: NotesAppProps) {
   const { setSidebar } = useWindowSidebar();
   const model = useNotesAppModel(props, setSidebar);
+  const appData = useTearleadsRuntime();
+  const { containerContents } = useTearleads();
+  const loadBlobInfo = useCallback(
+    (query?: BlobInfoInput | undefined) =>
+      containerContents.listBlobInfo(query),
+    [containerContents],
+  );
   // Notes are listed app-wide by kind, so a note trashed via the Explorer still
   // appears here — render it read-only rather than letting it be edited.
   const { isContainerTrashed } = useContainerTrashLookup();
@@ -67,7 +131,7 @@ function NotesAppContent(props: NotesAppProps) {
   });
 
   return (
-    <>
+    <BlobPickProvider loadBlobInfo={loadBlobInfo}>
       {model.activeSelection ? (
         <DocumentsProvider
           localId={model.activeSelection.noteId}
@@ -79,7 +143,13 @@ function NotesAppContent(props: NotesAppProps) {
             ? {}
             : { documentId: model.activeSelection.documentId })}
         >
-          <Notes registerRefreshMenuItem />
+          <NotesEditorOrBlobPicker
+            blobStore={appData.infra.blobStore}
+            containerId={model.activeSelection.containerId ?? null}
+            loadBlobInfo={loadBlobInfo}
+            localId={model.activeSelection.noteId}
+            online={appData.state.online}
+          />
         </DocumentsProvider>
       ) : model.showCompactListHome ? (
         <NotesListHome
@@ -100,6 +170,6 @@ function NotesAppContent(props: NotesAppProps) {
         deleteContextMenuNote={model.contextMenu.deleteContextMenuNote}
         ready={model.ready}
       />
-    </>
+    </BlobPickProvider>
   );
 }

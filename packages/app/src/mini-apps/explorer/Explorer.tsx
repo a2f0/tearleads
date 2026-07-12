@@ -23,9 +23,9 @@ import { useMiniAppBusActions } from "../bus";
 import { formatOrgManagerGrantDetailRouteSegments } from "../org-manager/routes";
 import { SystemBootstrapGate } from "../SystemBootstrapGate";
 import {
-  ExplorerBlobPickProvider,
-  useExplorerBlobPick,
-} from "./blob-pick/ExplorerBlobPickProvider";
+  BlobPickProvider,
+  useBlobPick,
+} from "../shared/blob-pick/BlobPickProvider";
 import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenuLayer";
 import type { ExplorerAttributionUserLabelResolver } from "./detail/attributionDisplay";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
@@ -79,7 +79,7 @@ function useOpenGrantInOrgManager() {
 }
 
 type ExplorerModel = ReturnType<typeof useExplorerModel>;
-type ExplorerBlobPickState = ReturnType<typeof useExplorerBlobPick>;
+type ExplorerBlobPickState = ReturnType<typeof useBlobPick>;
 
 interface BlobPickPanelProps {
   appData: RuntimeSnapshot;
@@ -176,11 +176,11 @@ function renderExplorerDetailPanelWithBlobPick(
   );
 }
 
-// Reads the blob-pick context (so it lives below ExplorerBlobPickProvider) and
-// renders the detail panel with the pick target + resolve/cancel handlers. The
-// document rendered inside the panel reads the same context to request a pick.
+// Reads the blob-pick context (so it lives below BlobPickProvider) and renders
+// the detail panel with the pick target + resolve/cancel handlers. The document
+// rendered inside the panel reads the same context to request a pick.
 function ExplorerDetailPanelWithBlobPick(params: BlobPickPanelProps) {
-  const blobPick = useExplorerBlobPick();
+  const blobPick = useBlobPick();
   const { linkedDocumentActivationControlsEnabled } = useAppFeatureFlags();
 
   return renderExplorerDetailPanelWithBlobPick({
@@ -378,7 +378,7 @@ function ExplorerContent() {
         </MiniAppStatus>
       )}
       {toolbarUpload.input}
-      <ExplorerBlobPickProvider
+      <BlobPickProvider
         loadBlobInfo={model.loadBlobInfo}
         openBlobBrowserRoute={model.routeState.openBlobBrowserRoute}
         returnToDocumentRoute={returnToDocumentFromBlobPick}
@@ -391,7 +391,7 @@ function ExplorerContent() {
           onOpenGrant={openGrantInOrgManager}
           onRetryDatabase={retryDatabaseBoot}
         />
-      </ExplorerBlobPickProvider>
+      </BlobPickProvider>
       <ExplorerContextMenuLayer
         canCreateChildContextMenuNode={
           model.contextMenuState.canCreateChildContextMenuNode

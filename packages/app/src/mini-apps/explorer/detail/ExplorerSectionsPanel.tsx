@@ -12,7 +12,7 @@ import {
   useId,
 } from "react";
 import { MiniAppButton } from "../../../components/shared/MiniAppLayout";
-import type { ExplorerBlobPickTarget } from "../blob-pick/ExplorerBlobPickProvider";
+import type { BlobPickTarget } from "../../shared/blob-pick/BlobPickProvider";
 import { EXPLORER_LABELS } from "../labels";
 import type { ExplorerRoute } from "../routes";
 import { ExplorerBlobBrowserPanel } from "./blob/ExplorerBlobBrowserPanel";
@@ -118,7 +118,7 @@ interface ExplorerSectionsPanelProps {
   }) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
-  blobPickTarget: ExplorerBlobPickTarget | null;
+  blobPickTarget: BlobPickTarget | null;
   onCancelBlobPick: () => void;
   onPickBlob: (blob: BlobInfo) => void;
 }
