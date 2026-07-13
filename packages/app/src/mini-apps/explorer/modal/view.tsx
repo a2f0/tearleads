@@ -45,10 +45,6 @@ function ExplorerModalBody(params: {
     targetSelectRef,
   } = params;
 
-  if (modalState.mode === "delete") {
-    return <MiniAppStatus>Delete this container?</MiniAppStatus>;
-  }
-
   if (modalState.mode === "purge") {
     return (
       <MiniAppStatus>

@@ -3462,6 +3462,94 @@ test("POST /containers/:containerId/move validates destination manifest heads", 
   expect(movedSourceUpdatedAt).not.toBe(preMoveUpdatedAt.toISOString());
 });
 
+test("POST /containers/:containerId/move relocates a folder into a system (Trash) container and back out", async () => {
+  // The client "Move to Trash" folder action is a container move whose
+  // destination is the Trash system container. The move workflow only guards the
+  // MOVED container's system slot (a system container itself cannot be moved); it
+  // deliberately does NOT guard the destination's slot, so a normal folder can be
+  // re-parented under Trash. This locks that in — a destination-slot guard would
+  // silently break folder trashing — and confirms the round trip (restore) works.
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+
+  const root = await bootstrapRoot(owner);
+  const trash = await createChild({
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  // Stamp the destination as a system container. The slot is a server-opaque
+  // column, not part of the signed manifest, so the move request built against
+  // trash's manifest stays valid.
+  const trashSystemSlot = "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  await db
+    .update(containers)
+    .set({ systemSlot: trashSystemSlot })
+    .where(eq(containers.id, trash.containerId));
+  const folder = await createChild({
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  const restoreTarget = await createChild({
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+
+  const trashBundle = accessManifestFromResponse(trash);
+  const trashKekState = kekStateFromResponse(trash);
+
+  const moveIntoTrash = await buildMoveRequest({
+    destinationParent: trashBundle,
+    destinationParentKekState: trashKekState,
+    destinationParentPath: [root.bundle, trashBundle],
+    previous: accessManifestFromResponse(folder),
+    previousContainerPath: [root.bundle, accessManifestFromResponse(folder)],
+    previousKekState: kekStateFromResponse(folder),
+    signer: owner,
+  });
+  const trashed = await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${folder.containerId}/move`,
+      request: moveIntoTrash,
+      token: owner.token,
+    }),
+  );
+  expect(trashed.parentId).toBe(trash.containerId);
+
+  const [trashedRow] = await db
+    .select({ depth: containers.depth, parentId: containers.parentId })
+    .from(containers)
+    .where(eq(containers.id, folder.containerId));
+  expect(trashedRow).toMatchObject({ depth: 2, parentId: trash.containerId });
+
+  // Restore: move the trashed folder back out to a normal folder. Content under a
+  // system container is not pinned there, so the same move endpoint pulls it back.
+  const restoreTargetBundle = accessManifestFromResponse(restoreTarget);
+  const restoreOut = await buildMoveRequest({
+    destinationParent: restoreTargetBundle,
+    destinationParentKekState: kekStateFromResponse(restoreTarget),
+    destinationParentPath: [root.bundle, restoreTargetBundle],
+    previous: accessManifestFromResponse(trashed),
+    previousContainerPath: [
+      root.bundle,
+      trashBundle,
+      accessManifestFromResponse(trashed),
+    ],
+    previousKekState: kekStateFromResponse(trashed),
+    signer: owner,
+  });
+  const restored = await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${folder.containerId}/move`,
+      request: restoreOut,
+      token: owner.token,
+    }),
+  );
+  expect(restored.parentId).toBe(restoreTarget.containerId);
+});
+
 test("POST /containers/:containerId/move emits tombstones when inherited access is lost", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);

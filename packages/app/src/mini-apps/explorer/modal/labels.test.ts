@@ -33,14 +33,6 @@ const modalFixtures: ReadonlyArray<{
     title: "Rename Container",
   },
   {
-    error: "Failed to delete container.",
-    log: "Failed to delete container:",
-    state: { mode: "delete", nodeId: "container-1" },
-    submitLabel: "Delete",
-    submittingLabel: "Deleting...",
-    title: "Delete Container",
-  },
-  {
     error: "Failed to link document.",
     log: "Failed to link document:",
     state: { mode: "link-document", documentLocalId: "note-1" },
@@ -124,7 +116,7 @@ test("submit disabled state enforces mode-specific requirements", () => {
       draftName: "",
       draftTargetContainerId: "",
       isSubmittingModal: false,
-      modalState: { mode: "delete", nodeId: "container-1" },
+      modalState: { mode: "purge", nodeId: "container-1" },
       peerUserId: null,
     }),
   ).toBe(false);

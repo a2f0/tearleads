@@ -57,7 +57,6 @@ function renderController(documentSummaries: ReadonlyArray<DocumentSummary>) {
   return renderHook(() =>
     useExplorerModalController({
       createChild: async () => null,
-      deleteContainer: async () => false,
       documentSummaries,
       expandNode: () => undefined,
       linkDocument: async () => null,
@@ -66,6 +65,7 @@ function renderController(documentSummaries: ReadonlyArray<DocumentSummary>) {
       moveContainer: async () => null,
       moveDocument: async () => null,
       nodes,
+      online: true,
       peerUserId: null,
       purgeContainer: async () => false,
       renameContainer: async () => null,

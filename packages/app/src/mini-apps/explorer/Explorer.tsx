@@ -410,8 +410,8 @@ function ExplorerContent() {
         }
         canDeleteSelectedDocument={model.canDeleteContextMenuDocument}
         canLinkSelectedDocument={model.canLinkContextMenuDocument}
-        canDeleteContextMenuNode={
-          model.contextMenuState.canDeleteContextMenuNode
+        canMoveToTrashContextMenuNode={
+          model.contextMenuState.canMoveToTrashContextMenuNode
         }
         canMoveContextMenuNode={model.contextMenuState.canMoveContextMenuNode}
         canPurgeContextMenuNode={model.contextMenuState.canPurgeContextMenuNode}
@@ -429,10 +429,10 @@ function ExplorerContent() {
         deleteDocument={model.deleteDocument}
         downloadDocument={downloadDocument}
         importDroppedFiles={model.importDroppedFiles}
+        moveContainerToTrash={model.moveContainerToTrash}
         openDocumentInfoRoute={model.routeState.openDocumentInfoRoute}
         openContainerInfoRoute={model.routeState.openContainerInfoRoute}
         openCreateChildModal={model.modalState.openCreateChildModal}
-        openDeleteModal={model.modalState.openDeleteModal}
         openLinkDocumentModal={model.modalState.openLinkDocumentModal}
         openMoveModal={model.modalState.openMoveModal}
         openMoveDocumentModal={model.modalState.openMoveDocumentModal}

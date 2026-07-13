@@ -8,7 +8,6 @@ export interface ExplorerModalSubmitParams {
     parentId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
-  deleteContainer: (containerId: string) => Promise<boolean>;
   draftName: string;
   draftTargetContainerId: string;
   expandNode: (nodeId: string) => void;
@@ -27,6 +26,7 @@ export interface ExplorerModalSubmitParams {
   ) => Promise<DocumentSummary | null>;
   canShareWithPeer: boolean;
   nodes: ReadonlyArray<ContainerNode>;
+  online: boolean;
   peerUserId: string | null;
   purgeContainer: (containerId: string) => Promise<boolean>;
   renameContainer: (
@@ -39,45 +39,11 @@ export interface ExplorerModalSubmitParams {
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
 }
 
-function submitExplorerDeleteModal(params: {
-  clearModal: () => void;
-  deleteContainer: (containerId: string) => Promise<boolean>;
-  modalState: { mode: "delete"; nodeId: string };
-  nodes: ReadonlyArray<ContainerNode>;
-  setBackgroundActionError: (error: string | null) => void;
-  setSelectedId: (id: string | null) => void;
-}) {
-  const {
-    clearModal,
-    deleteContainer,
-    modalState,
-    nodes,
-    setBackgroundActionError,
-    setSelectedId,
-  } = params;
-  const deletingNode = nodes.find((node) => node.id === modalState.nodeId);
-  setSelectedId(deletingNode?.parentId ?? null);
-  void deleteContainer(modalState.nodeId)
-    .then((deleted) => {
-      if (deleted) {
-        return;
-      }
-
-      const message = getExplorerModalError(modalState.mode);
-      setBackgroundActionError(message);
-      console.error(message);
-    })
-    .catch((error: unknown) => {
-      setBackgroundActionError(getExplorerModalError(modalState.mode));
-      console.error(getExplorerModalLog(modalState.mode), error);
-    });
-  clearModal();
-}
-
 function submitExplorerPurgeModal(params: {
   clearModal: () => void;
   modalState: { mode: "purge"; nodeId: string };
   nodes: ReadonlyArray<ContainerNode>;
+  online: boolean;
   purgeContainer: (containerId: string) => Promise<boolean>;
   setBackgroundActionError: (error: string | null) => void;
   setSelectedId: (id: string | null) => void;
@@ -86,10 +52,22 @@ function submitExplorerPurgeModal(params: {
     clearModal,
     modalState,
     nodes,
+    online,
     purgeContainer,
     setBackgroundActionError,
     setSelectedId,
   } = params;
+  // Permanent deletion is online-only (there is no offline delete outbox — moves
+  // to Trash are the reversible, offline-capable path). Fail fast with a clear
+  // message rather than attempting a remote-first purge that would surface a
+  // generic failure and leave the folder parked in Trash.
+  if (!online) {
+    setBackgroundActionError(
+      "You must be online to permanently delete this folder.",
+    );
+    clearModal();
+    return;
+  }
   const purgingNode = nodes.find((node) => node.id === modalState.nodeId);
   setSelectedId(purgingNode?.parentId ?? null);
   void purgeContainer(modalState.nodeId)
@@ -285,14 +263,12 @@ function submitExplorerMoveDocumentModal(params: {
 
 async function submitExplorerNonNameModal(params: {
   clearModal: () => void;
-  deleteContainer: (containerId: string) => Promise<boolean>;
   draftTargetContainerId: string;
   linkDocument: (
     documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   modalState:
-    | { mode: "delete"; nodeId: string }
     | { mode: "link-document"; documentLocalId: string }
     | { mode: "move"; nodeId: string }
     | { mode: "move-document"; documentLocalId: string }
@@ -308,6 +284,7 @@ async function submitExplorerNonNameModal(params: {
   ) => Promise<DocumentSummary | null>;
   canShareWithPeer: boolean;
   nodes: ReadonlyArray<ContainerNode>;
+  online: boolean;
   peerUserId: string | null;
   purgeContainer: (containerId: string) => Promise<boolean>;
   setBackgroundActionError: (error: string | null) => void;
@@ -316,21 +293,12 @@ async function submitExplorerNonNameModal(params: {
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
 }) {
   switch (params.modalState.mode) {
-    case "delete":
-      submitExplorerDeleteModal({
-        clearModal: params.clearModal,
-        deleteContainer: params.deleteContainer,
-        modalState: params.modalState,
-        nodes: params.nodes,
-        setBackgroundActionError: params.setBackgroundActionError,
-        setSelectedId: params.setSelectedId,
-      });
-      return;
     case "purge":
       submitExplorerPurgeModal({
         clearModal: params.clearModal,
         modalState: params.modalState,
         nodes: params.nodes,
+        online: params.online,
         purgeContainer: params.purgeContainer,
         setBackgroundActionError: params.setBackgroundActionError,
         setSelectedId: params.setSelectedId,
@@ -398,7 +366,6 @@ export async function submitExplorerModalAction(
 
   await submitExplorerNonNameModal({
     clearModal: params.clearModal,
-    deleteContainer: params.deleteContainer,
     draftTargetContainerId: params.draftTargetContainerId,
     linkDocument: params.linkDocument,
     modalState: params.modalState,
@@ -406,6 +373,7 @@ export async function submitExplorerModalAction(
     moveDocument: params.moveDocument,
     canShareWithPeer: params.canShareWithPeer,
     nodes: params.nodes,
+    online: params.online,
     peerUserId: params.peerUserId,
     purgeContainer: params.purgeContainer,
     setBackgroundActionError: params.setBackgroundActionError,

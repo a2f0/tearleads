@@ -56,6 +56,15 @@ const trashChildNode: ContainerNode = {
   parentId: trashNode.id,
 };
 
+// A normal user folder under root: the one node that IS a move-to-trash
+// candidate (writable, non-system, not already under Trash).
+const userFolderNode: ContainerNode = {
+  ...rootNode,
+  id: "user-folder",
+  name: "User Folder",
+  parentId: rootNode.id,
+};
+
 const systemRulesContext = createExplorerContainerRulesContext({
   contactsContainerId: contactsNode.id,
   contactsSystemSlot: "contacts-slot",
@@ -118,11 +127,12 @@ function ItemContextMenuHarness(params: {
 
 function ContainerContextMenuVariantHarness(params: { nodeId: string }) {
   const {
+    canMoveToTrashContextMenuNode,
     canPurgeContextMenuNode,
     containerContextMenuVariant,
     handleContainerContextMenu,
   } = useExplorerContextMenu(
-    [rootNode, contactsNode, trashNode, trashChildNode],
+    [rootNode, contactsNode, trashNode, trashChildNode, userFolderNode],
     () => {},
     () => {},
     systemRulesContext,
@@ -144,6 +154,9 @@ function ContainerContextMenuVariantHarness(params: { nodeId: string }) {
       </output>
       <output aria-label="Can purge context menu node">
         {String(canPurgeContextMenuNode)}
+      </output>
+      <output aria-label="Can move to trash context menu node">
+        {String(canMoveToTrashContextMenuNode)}
       </output>
     </>
   );
@@ -206,6 +219,30 @@ test("container purge gate offers Delete Forever only for a user folder under tr
   expect(
     contactsView.getByLabelText("Can purge context menu node").textContent,
   ).toBe("false");
+});
+
+test("container move-to-trash gate offers Move to Trash only for a normal folder outside trash", () => {
+  const expectations: Array<{ label: string; nodeId: string; can: string }> = [
+    // A writable, non-system folder under root is the one trashable case.
+    { label: "user folder", nodeId: userFolderNode.id, can: "true" },
+    // Already under Trash — it is purged, not re-trashed.
+    { label: "trashed folder", nodeId: trashChildNode.id, can: "false" },
+    // The Trash bin itself is a protected system container.
+    { label: "trash bin", nodeId: trashNode.id, can: "false" },
+    // Contacts is a protected system container.
+    { label: "contacts", nodeId: contactsNode.id, can: "false" },
+    // Root cannot be trashed.
+    { label: "root", nodeId: rootNode.id, can: "false" },
+  ];
+
+  for (const { nodeId, can } of expectations) {
+    const view = render(<ContainerContextMenuVariantHarness nodeId={nodeId} />);
+    fireEvent.contextMenu(view.getByRole("button", { name: "open" }));
+    expect(
+      view.getByLabelText("Can move to trash context menu node").textContent,
+    ).toBe(can);
+    cleanup();
+  }
 });
 
 test("right-clicking a detail-pane row opens its menu without navigating", () => {

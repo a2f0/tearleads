@@ -8,7 +8,7 @@ import { isExplorerContainerUnderTrash } from "../../../stores/explorer/Explorer
 import {
   canCreateChildContainerByRules,
   canCreateStructuredDocumentInContainerByRules,
-  canDeleteContainerByRules,
+  canMoveContainerByRules,
   canRenameContainerByRules,
   canUploadToContainerByRules,
   canWriteContainerNode,
@@ -31,7 +31,6 @@ export type ExplorerContainerContextMenuVariant =
 
 function getExplorerContextMenuNodeCapabilities(params: {
   contextMenuNode: ContainerNode | undefined;
-  contextMenuNodeHasChildren: boolean;
   contextMenuNodeMoveTargets: ReadonlyArray<unknown>;
   nodes: ReadonlyArray<ContainerNode>;
   rulesContext: ExplorerContainerRulesContext;
@@ -39,7 +38,6 @@ function getExplorerContextMenuNodeCapabilities(params: {
 }) {
   const {
     contextMenuNode,
-    contextMenuNodeHasChildren,
     contextMenuNodeMoveTargets,
     nodes,
     rulesContext,
@@ -57,11 +55,25 @@ function getExplorerContextMenuNodeCapabilities(params: {
         contextMenuNode,
       ),
     canCreateContactContextMenuNode: canWriteContainerNode(contextMenuNode),
-    canDeleteContextMenuNode:
+    // "Move to Trash" relocates a user folder (and its whole subtree) into the
+    // Trash system container — the folder equivalent of deleting a document.
+    // Offered for a writable, movable, non-root, non-system folder that is not
+    // already under Trash (an already-trashed folder is purged, not re-trashed)
+    // and only when a Trash target for its org actually exists. No has-children
+    // gate: trashing carries the subtree along. Unlike the old leaf hard-delete,
+    // this is reversible (restore by moving it back out).
+    canMoveToTrashContextMenuNode:
       contextMenuNode !== undefined &&
       contextMenuNode.parentId !== null &&
-      !contextMenuNodeHasChildren &&
-      canDeleteContainerByRules(rulesContext, contextMenuNode),
+      (contextMenuNode.systemSlot ?? null) === null &&
+      canMoveContainerByRules(rulesContext, contextMenuNode) &&
+      trashContainerId !== null &&
+      contextMenuNode.id !== trashContainerId &&
+      !isExplorerContainerUnderTrash(
+        nodes,
+        contextMenuNode.id,
+        trashContainerId,
+      ),
     canMoveContextMenuNode: contextMenuNodeMoveTargets.length > 0,
     // "Delete Forever" is offered for a user folder that has been moved into
     // trash (the root or a subfolder of it). The trash folder itself is a system
@@ -171,9 +183,6 @@ export function useExplorerContextMenu(
       ? nodesById.get(contextMenu.id.containerId)
       : undefined
     : undefined;
-  const contextMenuNodeHasChildren =
-    contextMenuNode !== undefined &&
-    nodes.some((node) => node.parentId === contextMenuNode.id);
   const contextMenuNodeMoveTargets = useMemo(
     () =>
       contextMenuNode === undefined
@@ -188,7 +197,6 @@ export function useExplorerContextMenu(
   );
   const contextMenuNodeCapabilities = getExplorerContextMenuNodeCapabilities({
     contextMenuNode,
-    contextMenuNodeHasChildren,
     contextMenuNodeMoveTargets,
     nodes,
     rulesContext,

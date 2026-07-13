@@ -21,7 +21,6 @@ export interface ExplorerDocumentModalState {
   moveTargetOptions: ReadonlyArray<MoveTargetOption>;
   nameInputRef: RefObject<HTMLInputElement | null>;
   openCreateChildModal: (nodeId: string) => void;
-  openDeleteModal: (nodeId: string) => void;
   openLinkDocumentModal: (documentLocalId: string) => void;
   openMoveDocumentModal: (documentLocalId: string) => void;
   openMoveModal: (nodeId: string) => void;
@@ -41,6 +40,7 @@ export function useExplorerDocumentModalState(params: {
   canShareWithPeer: boolean;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
+  online: boolean;
   peerUserId: string | null;
   rulesContext: ExplorerContainerRulesContext;
   setSelectedId: (id: string | null) => void;
@@ -54,6 +54,7 @@ export function useExplorerDocumentModalState(params: {
     canShareWithPeer,
     documentSummaries,
     linkedContainerIdsByDocumentId,
+    online,
     peerUserId,
     rulesContext,
     setSelectedId,
@@ -63,7 +64,6 @@ export function useExplorerDocumentModalState(params: {
 
   return useExplorerModalController({
     createChild: explorer.createChild,
-    deleteContainer: explorer.deleteContainer,
     expandNode: selectionExpandNode,
     linkDocument,
     moveContainer: explorer.moveContainer,
@@ -72,6 +72,7 @@ export function useExplorerDocumentModalState(params: {
     documentSummaries,
     linkedContainerIdsByDocumentId,
     canShareWithPeer,
+    online,
     peerUserId,
     purgeContainer: explorer.purgeContainer,
     renameContainer: explorer.renameContainer,

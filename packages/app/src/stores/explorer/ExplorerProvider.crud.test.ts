@@ -130,6 +130,69 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
   }
 });
 
+test("explorer store moves a folder into a system-slot (Trash) container", async () => {
+  const runtime = await createSqlRuntime();
+
+  try {
+    await ensureContainerTables(runtime.infra.execSql);
+    await ensureDocumentTables(runtime.infra.execSql);
+    await saveContainer(runtime.infra.execSql, {
+      id: "root-container",
+      effectiveAccessLevel: "admin",
+      organizationId: "org-1",
+      parentId: null,
+      metadataDocumentId: null,
+      name: "/",
+      icon: null,
+    });
+    await saveContainer(runtime.infra.execSql, {
+      id: "trash-container",
+      effectiveAccessLevel: "admin",
+      organizationId: "org-1",
+      parentId: "root-container",
+      metadataDocumentId: null,
+      name: "Trash",
+      icon: "trash",
+      systemSlot: "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    });
+    await saveContainer(runtime.infra.execSql, {
+      id: "user-folder",
+      effectiveAccessLevel: "admin",
+      organizationId: "org-1",
+      parentId: "root-container",
+      metadataDocumentId: null,
+      name: "Folder",
+      icon: null,
+    });
+
+    const store = createExplorerStore(runtime);
+    store.updateRuntime(runtime);
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Explorer store did not become ready.",
+    );
+
+    // A normal folder can be re-parented under the Trash system container — this
+    // is what backs the "Move to Trash" folder action. The move op guards only
+    // the MOVED container's system slot, not the destination's.
+    const moved = await store.moveContainer("user-folder", "trash-container");
+    expect(moved?.parentId).toBe("trash-container");
+    expect(
+      store.getSnapshot().nodes.find((node) => node.id === "user-folder")
+        ?.parentId,
+    ).toBe("trash-container");
+
+    // The Trash system container itself cannot be moved (systemSlot guard).
+    const movedSystem = await store.moveContainer(
+      "trash-container",
+      "user-folder",
+    );
+    expect(movedSystem).toBeNull();
+  } finally {
+    runtime.close();
+  }
+});
+
 test("explorer store deletes remote leaf containers through the API", async () => {
   let runtime = await createSqlRuntime();
   const deletedContainerIds: string[] = [];
