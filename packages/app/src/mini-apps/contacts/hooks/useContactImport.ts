@@ -90,7 +90,13 @@ export function useImportContactMessage(input: {
   const [pendingImportUserIds, setPendingImportUserIds] = useState<string[]>(
     [],
   );
-  const inFlightUserIdRef = useRef<string | null>(null);
+  // The queue snapshot we last dispatched from. Comparing by reference is the
+  // guard against dispatching the same head twice: a re-run of this effect on
+  // the same commit (StrictMode's double invoke, a concurrent render) sees the
+  // same array, while every genuine re-render carries a fresh array from the
+  // dequeue below and so proceeds. This needs no async reset, so nothing can
+  // stall the queue by racing a microtask — including consecutive duplicate ids.
+  const dispatchedQueueRef = useRef<readonly string[] | null>(null);
 
   useMiniAppMessage(
     "contacts",
@@ -107,23 +113,14 @@ export function useImportContactMessage(input: {
       userIdToImport === undefined ||
       !isImportReady ||
       isSubmitting ||
-      inFlightUserIdRef.current === userIdToImport
+      dispatchedQueueRef.current === pendingImportUserIds
     ) {
       return;
     }
 
-    // Latch the specific in-flight id synchronously before dequeuing so a
-    // re-run of this effect on the same commit (StrictMode's double invoke, a
-    // concurrent render) cannot dispatch or drop the same head twice;
-    // `isSubmitting` only flips on the next commit, so it can't guard this
-    // window alone. Tracking the id rather than a boolean keeps the queue from
-    // stalling if the ref resets on a microtask that races the dequeue's
-    // re-render — a stale id never blocks a different head.
-    inFlightUserIdRef.current = userIdToImport;
+    dispatchedQueueRef.current = pendingImportUserIds;
     setPendingImportUserIds((previous) => previous.slice(1));
-    void importContactByUserId(userIdToImport).finally(() => {
-      inFlightUserIdRef.current = null;
-    });
+    void importContactByUserId(userIdToImport);
   }, [
     importContactByUserId,
     isImportReady,

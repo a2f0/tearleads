@@ -228,3 +228,32 @@ test("a message waits while a manual import holds the shared submit flag", async
   fireEvent.click(view.getByRole("button", { name: "End manual import" }));
   await waitFor(() => expect(importedUserIds).toEqual(["user-1"]));
 });
+
+test("consecutive duplicate user ids both import", async () => {
+  const view = render(
+    <WindowStateProvider>
+      <AppNavigationProvider
+        mode="windowed"
+        miniApps={createMiniApps(ContactsProbe)}
+      >
+        <MiniAppBusProvider>
+          <ImportButtons />
+          <WindowLayer />
+        </MiniAppBusProvider>
+      </AppNavigationProvider>
+    </WindowStateProvider>,
+  );
+
+  // Import the same user twice: the first runs, the second queues behind it and
+  // must still run once the first completes — the queue must not stall on a
+  // repeated id.
+  fireEvent.click(view.getByRole("button", { name: "Import user-1" }));
+  await waitFor(() => expect(importedUserIds).toEqual(["user-1"]));
+  fireEvent.click(view.getByRole("button", { name: "Import user-1" }));
+  expect(importedUserIds).toEqual(["user-1"]);
+
+  await act(async () => {
+    importResolvers[0]?.("contact-1");
+  });
+  await waitFor(() => expect(importedUserIds).toEqual(["user-1", "user-1"]));
+});
