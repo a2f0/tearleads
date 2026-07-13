@@ -7,6 +7,7 @@ import {
 } from "../../../../components/shared/MiniAppLayout";
 import { MiniAppRow } from "../../../../components/shared/MiniAppRow";
 import { canWriteContainerNode } from "../../containerRules";
+import { ExplorerContainerIcon } from "../../ExplorerContainerIcon";
 import {
   EXPLORER_LABELS,
   getExplorerActivateLinkedContainerError,
@@ -18,6 +19,7 @@ import {
 
 interface LinkedContainerDetail {
   canWrite: boolean;
+  icon: string | null;
   id: string;
   isActive: boolean;
   label: string;
@@ -41,6 +43,7 @@ export function getLinkedContainerDetails(
     return {
       id: linkedContainerId,
       canWrite: canWriteContainerNode(linkedContainer),
+      icon: linkedContainer?.icon ?? null,
       isActive: linkedContainerId === activeContainerId,
       label: linkedContainer?.name ?? linkedContainerId,
     };
@@ -184,7 +187,13 @@ function ExplorerLinkedContainerRow(params: ExplorerLinkedContainerRowParams) {
           setSelectedId(linkedContainer.id);
         }}
       >
-        {linkedContainer.label}
+        <span className="explorer-item-name">
+          <ExplorerContainerIcon
+            className="explorer-folder-icon"
+            icon={linkedContainer.icon}
+          />
+          {linkedContainer.label}
+        </span>
       </MiniAppButton>
       <div className="explorer-linked-container-actions">
         {showActivationControls ? (

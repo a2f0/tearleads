@@ -1,9 +1,10 @@
-import type { DocumentInfo } from "@tearleads/client-sdk";
+import type { ContainerNode, DocumentInfo } from "@tearleads/client-sdk";
 import {
   MiniAppInfoSection,
   MiniAppStatus,
 } from "../../../../components/shared/MiniAppLayout";
 import { MiniAppInfoTable } from "../../../../components/shared/MiniAppTable";
+import { ExplorerContainerIcon } from "../../ExplorerContainerIcon";
 import {
   EXPLORER_LABELS,
   getExplorerDocumentInfoEpochLabel,
@@ -12,7 +13,7 @@ import {
 import { compactId } from "../compactId";
 
 export function ExplorerDocumentInfoAuthorizingContainersSection(params: {
-  containerNamesById: ReadonlyMap<string, string>;
+  containersById: ReadonlyMap<string, ContainerNode>;
   documentInfo: DocumentInfo;
 }) {
   const remoteInfo = params.documentInfo.remoteInfo;
@@ -36,27 +37,37 @@ export function ExplorerDocumentInfoAuthorizingContainersSection(params: {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={`${row.containerId}:${row.leafManifestHash ?? ""}`}>
-                <td title={row.containerId}>
-                  {params.containerNamesById.get(row.containerId) ??
-                    compactId(row.containerId)}
-                </td>
-                <td>
-                  {getExplorerDocumentInfoPathLengthLabel(row.pathLength)}
-                </td>
-                <td>
-                  <div title={row.leafManifestHash ?? undefined}>
-                    {compactId(row.leafManifestHash)}
-                  </div>
-                  <code title={row.containerKeyEpochId ?? undefined}>
-                    {row.containerKeyEpoch != null
-                      ? getExplorerDocumentInfoEpochLabel(row.containerKeyEpoch)
-                      : "-"}
-                  </code>
-                </td>
-              </tr>
-            ))}
+            {rows.map((row) => {
+              const container = params.containersById.get(row.containerId);
+              return (
+                <tr key={`${row.containerId}:${row.leafManifestHash ?? ""}`}>
+                  <td title={row.containerId}>
+                    <span className="explorer-item-name">
+                      <ExplorerContainerIcon
+                        className="explorer-folder-icon"
+                        icon={container?.icon}
+                      />
+                      {container?.name ?? compactId(row.containerId)}
+                    </span>
+                  </td>
+                  <td>
+                    {getExplorerDocumentInfoPathLengthLabel(row.pathLength)}
+                  </td>
+                  <td>
+                    <div title={row.leafManifestHash ?? undefined}>
+                      {compactId(row.leafManifestHash)}
+                    </div>
+                    <code title={row.containerKeyEpochId ?? undefined}>
+                      {row.containerKeyEpoch != null
+                        ? getExplorerDocumentInfoEpochLabel(
+                            row.containerKeyEpoch,
+                          )
+                        : "-"}
+                    </code>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </MiniAppInfoTable>
       )}
