@@ -166,24 +166,30 @@ test("picking a personal-org blob copies and re-encrypts it for the target organ
 
   const personalBind = personal.attachmentBinds[0];
   const customBind = custom.attachmentBinds[0];
-  expect(personalBind?.request.event).toMatchObject({
+  expect(personalBind).toBeDefined();
+  expect(customBind).toBeDefined();
+  if (!personalBind || !customBind) {
+    throw new Error("Expected attachment binds for both organizations.");
+  }
+
+  expect(personalBind.request.event).toMatchObject({
     objectId: personalAttachment.blobId,
     organizationId: personalOrganizationId,
   });
-  expect(customBind?.request.event).toMatchObject({
+  expect(customBind.request.event).toMatchObject({
     objectId: customAttachment.blobId,
     organizationId: customOrganizationId,
   });
-  expect(customBind?.request.stagedBlob?.writeHeader).toMatchObject({
+  expect(customBind.request.stagedBlob?.writeHeader).toMatchObject({
     objectId: customAttachment.blobId,
     organizationId: customOrganizationId,
   });
   expect(
-    customBind?.request.contentKeyBundle.targets.map(
+    customBind.request.contentKeyBundle.targets.map(
       (target) => target.containerId,
     ),
   ).toEqual([customContainerId]);
-  expect(JSON.stringify(customBind?.request)).not.toContain(
+  expect(JSON.stringify(customBind.request)).not.toContain(
     personalAttachment.blobId,
   );
 
