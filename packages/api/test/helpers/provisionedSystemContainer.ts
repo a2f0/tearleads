@@ -85,12 +85,45 @@ export async function createProvisionedTrashFixture(input: {
   signingPrivateKey: Uint8Array;
   userId: string;
 }): Promise<ProvisionedSystemContainerRequest> {
-  const metadataDocument = await createProvisionedDocumentFixture({
+  return createProvisionedMetadataContainerFixture({
+    container: input.container,
     containerProjection: input.containerProjection,
-    document: input.metadataDocument,
+    initialName: "Trash",
+    metadataDocument: input.metadataDocument,
     documentId: input.metadataDocumentId,
     fixtureLabel: "trash-metadata",
-    initialName: "Trash",
+    organizationId: input.organizationId,
+    signerDeviceId: input.signerDeviceId,
+    signerKeyFingerprint: input.signerKeyFingerprint,
+    signingPrivateKey: input.signingPrivateKey,
+    systemSlot: await deriveOrganizationSystemSlot(
+      "tearleads.trash",
+      input.organizationId,
+    ),
+    userId: input.userId,
+  });
+}
+
+export async function createProvisionedMetadataContainerFixture(input: {
+  container: ContainerMutationRequest;
+  containerProjection: ContainerWriterProjectionResponse;
+  documentId: string;
+  fixtureLabel: string;
+  initialName: string;
+  metadataDocument: DocumentCreateRequest;
+  organizationId: string;
+  signerDeviceId: string;
+  signerKeyFingerprint: string;
+  signingPrivateKey: Uint8Array;
+  systemSlot: string;
+  userId: string;
+}): Promise<ProvisionedSystemContainerRequest> {
+  const provisionedDocument = await createProvisionedDocumentFixture({
+    containerProjection: input.containerProjection,
+    document: input.metadataDocument,
+    documentId: input.documentId,
+    fixtureLabel: input.fixtureLabel,
+    initialName: input.initialName,
     organizationId: input.organizationId,
     signerDeviceId: input.signerDeviceId,
     signerKeyFingerprint: input.signerKeyFingerprint,
@@ -99,17 +132,14 @@ export async function createProvisionedTrashFixture(input: {
   });
 
   return {
-    systemSlot: await deriveOrganizationSystemSlot(
-      "tearleads.trash",
-      input.organizationId,
-    ),
     container: input.container,
     metadataDocument: input.metadataDocument,
-    initialMetadataSync: metadataDocument.initialSync,
+    initialMetadataSync: provisionedDocument.initialSync,
+    systemSlot: input.systemSlot,
   };
 }
 
-async function createProvisionedDocumentFixture(input: {
+export async function createProvisionedDocumentFixture(input: {
   containerProjection: ContainerWriterProjectionResponse;
   document: DocumentCreateRequest;
   documentId: string;

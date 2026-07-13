@@ -471,8 +471,7 @@ export class ApiClient {
   }): RequestFailure {
     const reportErrors = input.options.reportErrors ?? true;
     if (input.response.status === 402) {
-      // A sync call was rejected because its target org cannot sync; surface
-      // the billing block so the app can prompt the user (org id from the body).
+      // Surface the target organization's billing block for rejected syncs.
       this.onPaymentRequired?.(
         input.errorDescription.paymentRequiredOrganizationId ?? null,
       );
@@ -664,7 +663,7 @@ export class ApiClient {
     initialMemberGroup: RegistrationRequest["initialMemberGroup"],
     initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
     initialRootContainer: RegistrationRequest["initialRootContainer"],
-    initialRootMetadataDocument: DocumentCreateRequest,
+    initialRootMetadataDocument: RegistrationRequest["initialRootMetadataDocument"],
     initialRosterProfileContainer?: RegistrationRequest["initialRosterProfileContainer"],
     initialRosterProfileDocument?: RegistrationRequest["initialRosterProfileDocument"],
     initialOrganizationMetadataContainer?: RegistrationRequest["initialOrganizationMetadataContainer"],

@@ -39,6 +39,14 @@ export interface OrganizationProvisioningResponse {
   organizationProfileDocument?: DocumentCreateResponse | undefined;
   organizationProfileDocumentId?: string | undefined;
   /**
+   * Update ids for the root, roster-container, and organization-container
+   * metadata seeds that the server committed in the provisioning transaction.
+   * Optional for compatibility with servers predating atomic core metadata;
+   * current servers always return the array, including an empty array for
+   * legacy requests.
+   */
+  committedCoreMetadataUpdateIds?: string[] | undefined;
+  /**
    * Update ids for roster/organization profile seeds that the server committed
    * in the provisioning transaction. Optional for compatibility with servers
    * predating atomic profile seeds; current servers always return the array,
@@ -60,7 +68,7 @@ function isOptionalSystemContainersResponse(value: unknown): boolean {
   );
 }
 
-function isOptionalCommittedProfileUpdateIds(value: unknown): boolean {
+function isOptionalCommittedUpdateIds(value: unknown): boolean {
   return (
     value === undefined ||
     (Array.isArray(value) &&
@@ -106,7 +114,10 @@ export function isOrganizationProvisioningResponse(
       )) &&
     (Reflect.get(value, "organizationProfileDocumentId") === undefined ||
       hasStringProperty(value, "organizationProfileDocumentId")) &&
-    isOptionalCommittedProfileUpdateIds(
+    isOptionalCommittedUpdateIds(
+      Reflect.get(value, "committedCoreMetadataUpdateIds"),
+    ) &&
+    isOptionalCommittedUpdateIds(
       Reflect.get(value, "committedProfileUpdateIds"),
     ) &&
     isOptionalSystemContainersResponse(Reflect.get(value, "systemContainers"))

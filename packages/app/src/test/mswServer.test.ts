@@ -1,24 +1,15 @@
 import { afterEach, expect, test } from "bun:test";
-import {
-  buildInitialGroupPolicyRequest,
-  buildInitialMemberGroupPolicyRequest,
-  buildMaterializedDocumentCreatePlan,
-  buildRootContainerCreatePlan,
-  createDocumentSignerDeviceId,
-  rootContainerWriterProjectionFromCreatePlan,
-} from "@tearleads/client-sdk";
+import { registerIdentity as registerClientIdentity } from "@tearleads/client-sdk";
 import {
   authChallengeSigningBytes,
-  buildPrincipalStateSigningInput,
-  computePrincipalStatePayloadCiphertextHash,
+  type EncapsulationKeyPair,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
+  type SigningKeyPair,
   sign,
-  signPrincipalState,
   toFingerprint,
-  wrapDekForRecipients,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { isRegistrationResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import {
   getProxiedApiNetworkActivitySnapshot,
@@ -51,152 +42,65 @@ async function waitForActiveProxiedApiRequest(): Promise<void> {
 }
 
 async function registerIdentity(
-  signingPublicKey: Uint8Array,
-  signingPrivateKey: Uint8Array,
-  encapsulationPublicKey: Uint8Array,
-  encapsulationSecretKey: Uint8Array,
+  signingKeyPair: SigningKeyPair,
+  encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<{ userId: string }> {
-  const userId = crypto.randomUUID();
-  const organizationId = crypto.randomUUID();
-  const rootContainerId = crypto.randomUUID();
-  const rootMetadataDocumentId = crypto.randomUUID();
-  const signingFingerprint = await toFingerprint(signingPublicKey);
-  const initialAdminGroup = await buildInitialGroupPolicyRequest({
-    creatorEncapsulationKeyPair: {
-      publicKey: encapsulationPublicKey,
-      secretKey: encapsulationSecretKey,
-    },
-    groupId: crypto.randomUUID(),
-    name: "Admins",
-    signerUserId: userId,
-    signingFingerprint,
-    signingKeyPair: {
-      signingPrivateKey,
-      signingPublicKey,
-    },
-  });
-  const initialMemberGroup = await buildInitialMemberGroupPolicyRequest({
-    adminGroup: initialAdminGroup,
-    creatorEncapsulationKeyPair: {
-      publicKey: encapsulationPublicKey,
-      secretKey: encapsulationSecretKey,
-    },
-    groupId: crypto.randomUUID(),
-    signerUserId: userId,
-    signingFingerprint,
-    signingKeyPair: {
-      signingPrivateKey,
-      signingPublicKey,
-    },
-  });
-  const organizationKem = generateKemSeedAndKeyPair();
-  const projection = [
-    {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: userId,
-      role: "admin" as const,
-    },
-  ];
-  const payloadCiphertext = bytesToBase64(
-    new TextEncoder().encode(JSON.stringify({ members: projection })),
-  );
-  const [organizationMemberEnvelope] = await wrapDekForRecipients(
-    organizationKem.secretKey,
-    [encapsulationPublicKey],
-  );
-  invariant(
-    organizationMemberEnvelope,
-    "Expected organization member envelope.",
-  );
-  const author = {
-    organizationId,
-    signerDeviceId: createDocumentSignerDeviceId(signingFingerprint),
-    signerKeyFingerprint: signingFingerprint,
-    signerPrivateKey: signingPrivateKey,
-    signerUserId: userId,
-  };
-  const rootContainer = await buildRootContainerCreatePlan({
-    adminGroup: initialAdminGroup,
-    author: author,
-    containerId: rootContainerId,
-    metadataDocumentId: rootMetadataDocumentId,
-    recipientEncapsulationPublicKey: encapsulationPublicKey,
-    signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
-  });
-  const rootMetadataDocument = await buildMaterializedDocumentCreatePlan({
-    author: author,
-    containerProjection: rootContainerWriterProjectionFromCreatePlan(
-      rootContainer.plan,
-    ),
-    documentId: rootMetadataDocumentId,
-    knownContainerKeks: new Map([
-      [rootContainer.plan.containerKeyEpochId, rootContainer.containerKey],
-    ]),
-    signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
-    targetSecretKey: encapsulationSecretKey,
-    trustedLocalProjection: true,
-  });
-
-  const response = await fetch(`${apiBaseUrl}/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      userId,
-      organizationId,
-      rootContainerId,
-      signingPublicKey: Array.from(signingPublicKey),
-      encapsulationPublicKey: Array.from(encapsulationPublicKey),
-      initialAdminGroup,
-      initialMemberGroup,
-      initialOrganizationPolicy: {
-        state: await signPrincipalState(
-          await buildPrincipalStateSigningInput({
-            principalType: "organization",
-            principalId: organizationId,
-            version: 1,
-            prevStateHash: null,
-            keyEpoch: 1,
-            encapsulationPublicKey: bytesToBase64(organizationKem.publicKey),
-            keyFingerprint: await toFingerprint(organizationKem.publicKey),
-            members: [{ principalType: "user", principalId: userId }],
-            projection,
-            payloadCiphertext,
-            signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
-            signerUserId: userId,
-            signerUserKeyFingerprint: signingFingerprint,
+  const registration = await registerClientIdentity({
+    apiClient: {
+      async registerUser(
+        userId,
+        organizationId,
+        rootContainerId,
+        signingPublicKey,
+        encapsulationPublicKey,
+        initialAdminGroup,
+        initialMemberGroup,
+        initialOrganizationPolicy,
+        initialRootContainer,
+        initialRootMetadataDocument,
+        initialRosterProfileContainer,
+        initialRosterProfileDocument,
+        initialOrganizationMetadataContainer,
+        initialOrganizationProfileDocument,
+        initialSystemContainers,
+      ) {
+        const response = await fetch(`${apiBaseUrl}/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId,
+            organizationId,
+            rootContainerId,
+            signingPublicKey: Array.from(signingPublicKey),
+            encapsulationPublicKey: Array.from(encapsulationPublicKey),
+            initialAdminGroup,
+            initialMemberGroup,
+            initialOrganizationPolicy,
+            initialRootContainer,
+            initialRootMetadataDocument,
+            initialRosterProfileContainer,
+            initialRosterProfileDocument,
+            initialOrganizationMetadataContainer,
+            initialOrganizationProfileDocument,
+            initialSystemContainers,
           }),
-          signingPrivateKey,
-        ),
-        encryptedPayload: {
-          cipherSuite: "aes-256-gcm",
-          ciphertext: payloadCiphertext,
-          ciphertextHash:
-            await computePrincipalStatePayloadCiphertextHash(payloadCiphertext),
-        },
-        projection,
-        memberEnvelopes: [
-          {
-            memberPrincipalType: "user",
-            memberPrincipalId: userId,
-            memberKeyFingerprint: await toFingerprint(encapsulationPublicKey),
-            kemCipherText: bytesToBase64(
-              organizationMemberEnvelope.kemCipherText,
-            ),
-            wrappedKey: bytesToBase64(organizationMemberEnvelope.wrappedKey),
-          },
-        ],
-      },
-      initialRootContainer: rootContainer.plan.request,
-      initialRootMetadataDocument: rootMetadataDocument.plan.request,
-    }),
-  });
+        });
+        if (!response.ok) {
+          return null;
+        }
 
-  expect(response.status).toBe(200);
-  const body = await response.json();
-  invariant(typeof body.userId === "string", "Expected register userId.");
+        const body: unknown = await response.json();
+        return isRegistrationResponse(body) ? body : null;
+      },
+    },
+    containerId: crypto.randomUUID(),
+    encapsulationKeyPair,
+    signingKeyPair,
+  });
+  invariant(registration, "Expected registration response.");
 
   return {
-    userId: body.userId,
+    userId: registration.userId,
   };
 }
 
@@ -239,12 +143,7 @@ test("resetMockServer recreates isolated auth state for the proxied test API app
   const signingKeys = generateSigningSeedAndKeyPair();
   const kemKeys = generateKemSeedAndKeyPair();
   const fingerprint = await toFingerprint(signingKeys.signingPublicKey);
-  const { userId } = await registerIdentity(
-    signingKeys.signingPublicKey,
-    signingKeys.signingPrivateKey,
-    kemKeys.publicKey,
-    kemKeys.secretKey,
-  );
+  const { userId } = await registerIdentity(signingKeys, kemKeys);
 
   const challengeResponse = await requestChallenge(fingerprint);
   expect(challengeResponse.status).toBe(200);

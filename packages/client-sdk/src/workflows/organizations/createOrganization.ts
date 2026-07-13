@@ -78,7 +78,7 @@ export async function createOrganization(
     initialMemberGroup: artifacts.initialMemberGroup,
     initialOrganizationPolicy: artifacts.initialOrganizationPolicy,
     initialRootContainer: artifacts.initialRootContainer,
-    initialRootMetadataDocument: artifacts.rootMetadataDocument.plan.request,
+    initialRootMetadataDocument: artifacts.rootMetadataDocumentRequest,
     initialRosterProfileContainer:
       artifacts.rosterProfileBootstrap.containerRequest,
     initialRosterProfileDocument:
@@ -111,6 +111,7 @@ export async function createOrganization(
     organizationMetadataBootstrap: artifacts.organizationMetadataBootstrap,
     response,
     rootMetadataDocument: artifacts.rootMetadataDocument,
+    rootMetadataDocumentRequest: artifacts.rootMetadataDocumentRequest,
     rosterProfileBootstrap: artifacts.rosterProfileBootstrap,
     systemContainerBootstraps: artifacts.systemContainerBootstraps,
   });

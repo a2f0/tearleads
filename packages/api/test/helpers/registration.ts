@@ -35,7 +35,6 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type {
-  ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
@@ -45,6 +44,8 @@ import type {
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createOptionalProvisionedDocumentFixture,
+  createProvisionedDocumentFixture,
+  createProvisionedMetadataContainerFixture,
   createProvisionedTrashFixture,
   deriveOrganizationMetadataContainerSystemSlot,
   deriveRosterProfileContainerSystemSlot,
@@ -69,16 +70,14 @@ interface RegistrationBootstrapInput {
 }
 
 interface RegistrationBootstrap {
-  initialRosterProfileContainer?:
-    | ContainerCreateWithMetadataDocumentRequest
-    | undefined;
+  initialRosterProfileContainer?: ProvisionedSystemContainerRequest | undefined;
   initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined;
   initialOrganizationMetadataContainer?:
-    | ContainerCreateWithMetadataDocumentRequest
+    | ProvisionedSystemContainerRequest
     | undefined;
   initialOrganizationProfileDocument?: ProvisionedDocumentRequest | undefined;
   initialRootContainer: ContainerMutationRequest;
-  initialRootMetadataDocument: DocumentCreateRequest;
+  initialRootMetadataDocument: ProvisionedDocumentRequest;
   initialSystemContainers?: ProvisionedSystemContainerRequest[] | undefined;
   rootMetadataDocumentId: string;
 }
@@ -956,6 +955,13 @@ export async function createRegistrationBootstrap(
   const rootMetadataDocumentId = crypto.randomUUID();
   const signerKeyFingerprint = await toFingerprint(input.signingPublicKey);
   const signerDeviceId = createSignerDeviceId(signerKeyFingerprint);
+  const documentAuthor = {
+    organizationId: input.organizationId,
+    signerDeviceId,
+    signerKeyFingerprint,
+    signingPrivateKey: input.signingPrivateKey,
+    userId: input.userId,
+  };
   const rootContainer = await createRootContainerArtifacts({
     adminGroup: input.adminGroup,
     encapsulationPublicKey: input.encapsulationPublicKey,
@@ -967,18 +973,22 @@ export async function createRegistrationBootstrap(
     signingPrivateKey: input.signingPrivateKey,
     userId: input.userId,
   });
-  const initialRootMetadataDocument = await createRootMetadataDocumentRequest({
-    containerKey: rootContainer.containerKey,
-    containerProjection: rootContainerProjectionFromArtifacts(rootContainer),
-    organizationId: input.organizationId,
-    rootMetadataDocumentId,
-    signerDeviceId,
-    signerKeyFingerprint,
-    signingPrivateKey: input.signingPrivateKey,
-    userId: input.userId,
-  });
   const rootContainerProjection =
     rootContainerProjectionFromArtifacts(rootContainer);
+  const rootMetadataDocument = await createRootMetadataDocumentRequest({
+    ...documentAuthor,
+    containerKey: rootContainer.containerKey,
+    containerProjection: rootContainerProjection,
+    rootMetadataDocumentId,
+  });
+  const initialRootMetadataDocument = await createProvisionedDocumentFixture({
+    ...documentAuthor,
+    containerProjection: rootContainerProjection,
+    document: rootMetadataDocument,
+    documentId: rootMetadataDocumentId,
+    fixtureLabel: "root-metadata",
+    initialName: "/",
+  });
   const trashContainer = input.includeTrashSystemContainer
     ? await createChildContainerArtifacts({
         metadataDocumentId: crypto.randomUUID(),
@@ -999,28 +1009,20 @@ export async function createRegistrationBootstrap(
   const trashMetadataDocument =
     trashContainer && trashContainerProjection
       ? await createRootMetadataDocumentRequest({
+          ...documentAuthor,
           containerKey: trashContainer.containerKey,
           containerProjection: trashContainerProjection,
-          organizationId: input.organizationId,
           rootMetadataDocumentId: trashContainer.metadataDocumentId,
-          signerDeviceId,
-          signerKeyFingerprint,
-          signingPrivateKey: input.signingPrivateKey,
-          userId: input.userId,
         })
       : undefined;
   const trashSystemContainer =
     trashContainer && trashContainerProjection && trashMetadataDocument
       ? await createProvisionedTrashFixture({
+          ...documentAuthor,
           container: trashContainer.request,
           containerProjection: trashContainerProjection,
           metadataDocument: trashMetadataDocument,
           metadataDocumentId: trashContainer.metadataDocumentId,
-          organizationId: input.organizationId,
-          signerDeviceId,
-          signerKeyFingerprint,
-          signingPrivateKey: input.signingPrivateKey,
-          userId: input.userId,
         })
       : undefined;
   const rosterProfileContainer = input.rosterProfileDocumentId
@@ -1040,54 +1042,52 @@ export async function createRegistrationBootstrap(
         parentProjection: rootContainerProjection,
       })
     : undefined;
-  const initialRosterProfileContainer =
+  const rosterProfileContainerMetadataDocument =
     rosterProfileContainer && rosterProfileContainerProjection
-      ? {
+      ? await createRootMetadataDocumentRequest({
+          ...documentAuthor,
+          containerKey: rosterProfileContainer.containerKey,
+          containerProjection: rosterProfileContainerProjection,
+          rootMetadataDocumentId: rosterProfileContainer.metadataDocumentId,
+        })
+      : undefined;
+  const initialRosterProfileContainer =
+    rosterProfileContainer &&
+    rosterProfileContainerProjection &&
+    rosterProfileContainerMetadataDocument
+      ? await createProvisionedMetadataContainerFixture({
+          ...documentAuthor,
+          container: rosterProfileContainer.request,
+          containerProjection: rosterProfileContainerProjection,
+          metadataDocument: rosterProfileContainerMetadataDocument,
+          documentId: rosterProfileContainer.metadataDocumentId,
+          fixtureLabel: "roster-profile-container-metadata",
+          initialName: "Roster Profiles",
           systemSlot: await deriveRosterProfileContainerSystemSlot(
             input.organizationId,
           ),
-          container: rosterProfileContainer.request,
-          metadataDocument: await createRootMetadataDocumentRequest({
-            containerKey: rosterProfileContainer.containerKey,
-            containerProjection: rosterProfileContainerProjection,
-            organizationId: input.organizationId,
-            rootMetadataDocumentId: rosterProfileContainer.metadataDocumentId,
-            signerDeviceId,
-            signerKeyFingerprint,
-            signingPrivateKey: input.signingPrivateKey,
-            userId: input.userId,
-          }),
-        }
+        })
       : undefined;
   const rosterProfileDocument =
     input.rosterProfileDocumentId &&
     rosterProfileContainer &&
     rosterProfileContainerProjection
       ? await createRootMetadataDocumentRequest({
+          ...documentAuthor,
           containerKey: rosterProfileContainer.containerKey,
           containerProjection: rosterProfileContainerProjection,
-          organizationId: input.organizationId,
           rootMetadataDocumentId: input.rosterProfileDocumentId,
-          signerDeviceId,
-          signerKeyFingerprint,
-          signingPrivateKey: input.signingPrivateKey,
-          userId: input.userId,
         })
       : undefined;
   const initialRosterProfileDocument =
     await createOptionalProvisionedDocumentFixture({
+      ...documentAuthor,
       containerProjection: rosterProfileContainerProjection,
       document: rosterProfileDocument,
       documentId: input.rosterProfileDocumentId,
       fixtureLabel: "roster-profile",
       initialName: "You",
-      organizationId: input.organizationId,
-      signerDeviceId,
-      signerKeyFingerprint,
-      signingPrivateKey: input.signingPrivateKey,
-      userId: input.userId,
     });
-  // Keep the public org profile separate from the Admins-scoped roster profile.
   const organizationMetadataContainer = input.organizationProfileDocumentId
     ? await createChildContainerArtifacts({
         metadataDocumentId: crypto.randomUUID(),
@@ -1108,53 +1108,52 @@ export async function createRegistrationBootstrap(
         parentProjection: rootContainerProjection,
       })
     : undefined;
-  const initialOrganizationMetadataContainer =
+  const organizationMetadataContainerDocument =
     organizationMetadataContainer && organizationMetadataContainerProjection
-      ? {
+      ? await createRootMetadataDocumentRequest({
+          ...documentAuthor,
+          containerKey: organizationMetadataContainer.containerKey,
+          containerProjection: organizationMetadataContainerProjection,
+          rootMetadataDocumentId:
+            organizationMetadataContainer.metadataDocumentId,
+        })
+      : undefined;
+  const initialOrganizationMetadataContainer =
+    organizationMetadataContainer &&
+    organizationMetadataContainerProjection &&
+    organizationMetadataContainerDocument
+      ? await createProvisionedMetadataContainerFixture({
+          ...documentAuthor,
+          container: organizationMetadataContainer.request,
+          containerProjection: organizationMetadataContainerProjection,
+          metadataDocument: organizationMetadataContainerDocument,
+          documentId: organizationMetadataContainer.metadataDocumentId,
+          fixtureLabel: "organization-metadata-container",
+          initialName: "Organization Metadata",
           systemSlot: await deriveOrganizationMetadataContainerSystemSlot(
             input.organizationId,
           ),
-          container: organizationMetadataContainer.request,
-          metadataDocument: await createRootMetadataDocumentRequest({
-            containerKey: organizationMetadataContainer.containerKey,
-            containerProjection: organizationMetadataContainerProjection,
-            organizationId: input.organizationId,
-            rootMetadataDocumentId:
-              organizationMetadataContainer.metadataDocumentId,
-            signerDeviceId,
-            signerKeyFingerprint,
-            signingPrivateKey: input.signingPrivateKey,
-            userId: input.userId,
-          }),
-        }
+        })
       : undefined;
   const organizationProfileDocument =
     input.organizationProfileDocumentId &&
     organizationMetadataContainer &&
     organizationMetadataContainerProjection
       ? await createRootMetadataDocumentRequest({
+          ...documentAuthor,
           containerKey: organizationMetadataContainer.containerKey,
           containerProjection: organizationMetadataContainerProjection,
-          organizationId: input.organizationId,
           rootMetadataDocumentId: input.organizationProfileDocumentId,
-          signerDeviceId,
-          signerKeyFingerprint,
-          signingPrivateKey: input.signingPrivateKey,
-          userId: input.userId,
         })
       : undefined;
   const initialOrganizationProfileDocument =
     await createOptionalProvisionedDocumentFixture({
+      ...documentAuthor,
       containerProjection: organizationMetadataContainerProjection,
       document: organizationProfileDocument,
       documentId: input.organizationProfileDocumentId,
       fixtureLabel: "organization-profile",
       initialName: "Personal Org",
-      organizationId: input.organizationId,
-      signerDeviceId,
-      signerKeyFingerprint,
-      signingPrivateKey: input.signingPrivateKey,
-      userId: input.userId,
     });
 
   return {

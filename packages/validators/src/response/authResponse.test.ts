@@ -59,6 +59,22 @@ test("isRegistrationResponse", () => {
   expect(
     isRegistrationResponse({
       ...response,
+      committedCoreMetadataUpdateIds: [
+        "550e8400-e29b-41d4-a716-446655440007",
+        "550e8400-e29b-41d4-a716-446655440008",
+        "550e8400-e29b-41d4-a716-446655440009",
+      ],
+    }),
+  ).toBe(true);
+  expect(
+    isRegistrationResponse({
+      ...response,
+      committedCoreMetadataUpdateIds: ["not-an-update-id"],
+    }),
+  ).toBe(false);
+  expect(
+    isRegistrationResponse({
+      ...response,
       committedProfileUpdateIds: [
         "550e8400-e29b-41d4-a716-446655440010",
         "550e8400-e29b-41d4-a716-446655440011",

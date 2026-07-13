@@ -287,7 +287,7 @@ async function seedOrganizationDataUsage(input: {
     ],
   });
 
-  // A container metadata document is a built-in/system document: it must be
+  // Container metadata is a built-in/system document: it must be
   // classified under `containerMetadata`, not `user`.
   const metadataDocumentId = crypto.randomUUID();
   await seedUsageDocument({
@@ -341,9 +341,9 @@ async function seedOrganizationDataUsage(input: {
       breakdown: [
         {
           category: "containerMetadata",
-          byteLength: 7,
-          documentCount: 1,
-          updateCount: 1,
+          byteLength: 67,
+          documentCount: 2,
+          updateCount: 2,
         },
         {
           category: "rosterProfiles",
@@ -359,11 +359,11 @@ async function seedOrganizationDataUsage(input: {
         },
         { category: "user", byteLength: 24, documentCount: 1, updateCount: 2 },
       ],
-      byteLength: 31,
-      documentCount: 2,
-      updateCount: 3,
+      byteLength: 91,
+      documentCount: 3,
+      updateCount: 4,
     },
-    totalByteLength: 48,
+    totalByteLength: 108,
   } satisfies Omit<OrganizationDataUsageResponse, "organizationId">;
 }
 
