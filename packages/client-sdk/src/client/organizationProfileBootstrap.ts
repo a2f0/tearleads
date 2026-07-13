@@ -237,8 +237,7 @@ class OrganizationProfileBootstrapCoordinatorService
           billing,
           containerContents: this.input.containerContents,
           isRuntimeContextCurrent,
-          log: (message) =>
-            this.input.runtimeService.workflowInput().util.log(message),
+          log: (message) => runtime.util.log(message),
         });
         if (scheduled) {
           this.syncRequestedFingerprintByOrganizationId.set(
@@ -250,11 +249,9 @@ class OrganizationProfileBootstrapCoordinatorService
       .catch((error: unknown) => {
         // Billing already changed on the server. Never turn this best-effort
         // post-commit work into an apparent activation failure for the caller.
-        this.input.runtimeService
-          .workflowInput()
-          .util.log(
-            `Organizations: best-effort profile bootstrap sync failed for org ${organizationId}: ${error instanceof Error ? error.message : String(error)}`,
-          );
+        runtime.util.log(
+          `Organizations: best-effort profile bootstrap sync failed for org ${organizationId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
       })
       .finally(() => {
         this.syncCheckInFlight.delete(organizationId);
