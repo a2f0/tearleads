@@ -78,3 +78,27 @@ test("org manager directory table opens the row context menu from the touch keba
 
   expect(contextMenuUserIds).toEqual([rosterUser.userId]);
 });
+
+test("org manager directory kebab keeps keyboard activation off the row", () => {
+  // Enter/Space on the focused kebab must not bubble to the row's onKeyDown and
+  // navigate into the user detail instead of opening the kebab menu.
+  document.documentElement.setAttribute("data-navigation-mode", "routed");
+  const selectedUserIds: string[] = [];
+  const view = render(
+    <DirectoryTable
+      directory={directory}
+      loading={false}
+      openRosterUserContextMenu={() => undefined}
+      selectedUserId={null}
+      selectUser={(userId) => selectedUserIds.push(userId)}
+    />,
+  );
+  const actionsButton = view.getByRole("button", {
+    name: `${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${compactFingerprint(rosterUser.userId)}`,
+  });
+
+  fireEvent.keyDown(actionsButton, { key: "Enter" });
+  fireEvent.keyDown(actionsButton, { key: " " });
+
+  expect(selectedUserIds).toEqual([]);
+});

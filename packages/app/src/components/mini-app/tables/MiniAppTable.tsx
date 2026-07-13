@@ -2,6 +2,7 @@ import {
   type ButtonHTMLAttributes,
   forwardRef,
   type HTMLAttributes,
+  type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
   type TableHTMLAttributes,
@@ -322,12 +323,22 @@ export function MiniAppRowActionsCell({
     onOpen(event);
   };
 
+  // Keyboard-activate the button without the Enter/Space keydown bubbling to the
+  // row's own onKeyDown handler, which would `preventDefault()` the button's
+  // native click and navigate the row instead of opening the menu.
+  const stopRowActivationKeys = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.stopPropagation();
+    }
+  };
+
   return (
     <MiniAppTableCell className="mini-app-row-actions-cell" key="actions">
       <MiniAppRowActionsButton
         aria-label={label}
         onClick={openFromEvent}
         onContextMenu={openFromEvent}
+        onKeyDown={stopRowActivationKeys}
         title={label}
       />
     </MiniAppTableCell>
