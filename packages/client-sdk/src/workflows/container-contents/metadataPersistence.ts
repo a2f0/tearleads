@@ -130,7 +130,8 @@ function resolveMetadataSecurityContext(
   patch: Partial<ContainerMetadataPatch>,
 ) {
   const currentDocumentId = metadataState.record.documentId ?? null;
-  const documentId = patch.documentId ?? currentDocumentId;
+  const documentId =
+    patch.documentId !== undefined ? patch.documentId : currentDocumentId;
   const accessEpoch = patch.accessEpoch ?? metadataState.record.accessEpoch;
   const documentIdChanged = documentId !== currentDocumentId;
 

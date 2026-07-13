@@ -129,6 +129,10 @@ test.each([
     label: "metadata document identity changes",
     patch: { documentId: "metadata-document-2" },
   },
+  {
+    label: "metadata document identity is cleared",
+    patch: { documentId: null },
+  },
 ] satisfies Array<{
   label: string;
   patch: Partial<ContainerMetadataPatch>;
