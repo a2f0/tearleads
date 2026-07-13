@@ -116,6 +116,34 @@ export function hasCurrentContainerMetadataReadState(
   );
 }
 
+function invalidateMetadataWriterProjection(
+  metadataState: ContainerMetadataState,
+  securityContextChanged: boolean,
+): void {
+  if (securityContextChanged) {
+    metadataState.metadataWriterProjection = null;
+  }
+}
+
+function resolveMetadataSecurityContext(
+  metadataState: ContainerMetadataState,
+  patch: Partial<ContainerMetadataPatch>,
+) {
+  const currentDocumentId = metadataState.record.documentId ?? null;
+  const documentId =
+    patch.documentId !== undefined ? patch.documentId : currentDocumentId;
+  const accessEpoch = patch.accessEpoch ?? metadataState.record.accessEpoch;
+  const documentIdChanged = documentId !== currentDocumentId;
+
+  return {
+    accessEpoch,
+    changed:
+      documentIdChanged || accessEpoch !== metadataState.record.accessEpoch,
+    documentId,
+    documentIdChanged,
+  };
+}
+
 async function persistContainerMetadataState(input: {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
   execSql: ExecSql;
@@ -132,12 +160,7 @@ async function persistContainerMetadataState(input: {
     saveOptions,
   } = input;
   const patch = input.patch ?? {};
-  const currentDocumentId = metadataState.record.documentId ?? null;
-  const nextDocumentId = patch.documentId ?? currentDocumentId;
-  const documentIdChanged = nextDocumentId !== currentDocumentId;
-  const nextAccessEpoch = patch.accessEpoch ?? metadataState.record.accessEpoch;
-  const securityContextChanged =
-    documentIdChanged || nextAccessEpoch !== metadataState.record.accessEpoch;
+  const securityContext = resolveMetadataSecurityContext(metadataState, patch);
   const metadata = readContainerMetadataValue(
     metadataState.doc,
     getDefaultContainerName(metadataState.container.parentId),
@@ -160,39 +183,39 @@ async function persistContainerMetadataState(input: {
   };
   const nextRecord: DocumentRecord = {
     id: metadataState.container.id,
-    documentId: nextDocumentId,
+    documentId: securityContext.documentId,
     loroSnapshot:
       patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(metadataState.doc)),
-    accessEpoch: nextAccessEpoch,
+    accessEpoch: securityContext.accessEpoch,
     accessStateHash: resolveNullableContainerMetadataDocumentField(
       patch,
       "accessStateHash",
       metadataState.record.accessStateHash,
-      securityContextChanged,
+      securityContext.changed,
     ),
     lastCommitLsn: resolveNullableContainerMetadataDocumentField(
       patch,
       "lastCommitLsn",
       metadataState.record.lastCommitLsn,
-      documentIdChanged,
+      securityContext.documentIdChanged,
     ),
     contentKeyBundle: resolveNullableContainerMetadataDocumentField(
       patch,
       "contentKeyBundle",
       metadataState.record.contentKeyBundle,
-      securityContextChanged,
+      securityContext.changed,
     ),
     documentKekTargets: resolveNullableContainerMetadataDocumentField(
       patch,
       "documentKekTargets",
       metadataState.record.documentKekTargets,
-      securityContextChanged,
+      securityContext.changed,
     ),
     documentManifestBundle: resolveNullableContainerMetadataDocumentField(
       patch,
       "documentManifestBundle",
       metadataState.record.documentManifestBundle,
-      securityContextChanged,
+      securityContext.changed,
     ),
   };
 
@@ -205,6 +228,7 @@ async function persistContainerMetadataState(input: {
     saveOptions,
   });
 
+  invalidateMetadataWriterProjection(metadataState, securityContext.changed);
   return {
     container: persistedContainer,
     record: nextRecord,
