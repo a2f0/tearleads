@@ -13,7 +13,6 @@ import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvide
 import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import { useContacts } from "../../../stores/contacts/ContactsProvider";
-import { useMiniAppMessage } from "../../bus";
 import { useContactsSidebarPanel } from "../ContactsSidebar";
 import {
   type ContactsContextMenuModel,
@@ -28,6 +27,10 @@ import {
   parseContactsRouteSegments,
 } from "../routes";
 import type { ContactEntries } from "../types";
+import {
+  useImportContactByUserId,
+  useImportContactMessage,
+} from "./useContactImport";
 
 interface ContactsModel {
   canCreate: boolean;
@@ -274,58 +277,6 @@ function useCreateDraftContact(input: {
   ]);
 }
 
-function useImportDraftContact(input: {
-  canImport: boolean;
-  draftUserId: string;
-  importKey: ReturnType<typeof useContacts>["importKey"];
-  isSubmittingRef: { current: boolean };
-  logError: ReturnType<typeof useLog>["logError"];
-  setDraftUserId: Dispatch<SetStateAction<string>>;
-  setIsSubmitting: Dispatch<SetStateAction<boolean>>;
-  setSelectedContactId: (contactId: string) => void;
-}) {
-  const {
-    canImport,
-    draftUserId,
-    importKey,
-    isSubmittingRef,
-    logError,
-    setDraftUserId,
-    setIsSubmitting,
-    setSelectedContactId,
-  } = input;
-
-  return useCallback(async () => {
-    if (!canImport || isSubmittingRef.current) {
-      return;
-    }
-
-    isSubmittingRef.current = true;
-    setIsSubmitting(true);
-    try {
-      const contactId = await importKey(draftUserId.trim());
-      if (contactId) {
-        setSelectedContactId(contactId);
-        setDraftUserId("");
-      }
-    } catch (error: unknown) {
-      logError("Contacts: failed to import contact.", error);
-    } finally {
-      isSubmittingRef.current = false;
-      setIsSubmitting(false);
-    }
-  }, [
-    canImport,
-    draftUserId,
-    importKey,
-    isSubmittingRef,
-    logError,
-    setDraftUserId,
-    setIsSubmitting,
-    setSelectedContactId,
-  ]);
-}
-
 function useContactDrafts(input: {
   canWrite: boolean;
   createContact: ReturnType<typeof useContacts>["createContact"];
@@ -359,12 +310,9 @@ function useContactDrafts(input: {
       lastName: draftLastName,
       nickname: draftNickname,
     });
+  const isImportReady = canWrite && ready && isAuthenticated;
   const canImport =
-    !isSubmitting &&
-    canWrite &&
-    ready &&
-    isAuthenticated &&
-    draftUserId.trim().length > 0;
+    !isSubmitting && isImportReady && draftUserId.trim().length > 0;
 
   const createDraftContact = useCreateDraftContact({
     canCreate,
@@ -380,16 +328,20 @@ function useContactDrafts(input: {
     setIsSubmitting,
     setSelectedContactId,
   });
-  const importDraftContact = useImportDraftContact({
-    canImport,
-    draftUserId,
+  const importContactByUserId = useImportContactByUserId({
     importKey,
+    isImportReady,
     isSubmittingRef,
     logError,
-    setDraftUserId,
     setIsSubmitting,
     setSelectedContactId,
   });
+  const importDraftContact = useCallback(async () => {
+    const contactId = await importContactByUserId(draftUserId);
+    if (contactId) {
+      setDraftUserId("");
+    }
+  }, [draftUserId, importContactByUserId, setDraftUserId]);
 
   return {
     canCreate,
@@ -399,7 +351,10 @@ function useContactDrafts(input: {
     draftLastName,
     draftNickname,
     draftUserId,
+    importContactByUserId,
     importDraftContact,
+    isImportReady,
+    isSubmitting,
     setDraftFirstName,
     setDraftLastName,
     setDraftNickname,
@@ -451,18 +406,11 @@ export function useContactsModel(
     selectedContactId: selectionState.selectedContactId,
     setSelectedContactId: selectionState.setSelectedContactId,
   });
-  useMiniAppMessage(
-    "contacts",
-    useCallback(
-      (message) => {
-        if (message.type === "import-contact") {
-          routeState.openImportContactRoute();
-          drafts.setDraftUserId(message.userId);
-        }
-      },
-      [drafts.setDraftUserId, routeState.openImportContactRoute],
-    ),
-  );
+  useImportContactMessage({
+    importContactByUserId: drafts.importContactByUserId,
+    isImportReady: drafts.isImportReady,
+    isSubmitting: drafts.isSubmitting,
+  });
 
   useContactsSidebarPanel({
     currentSigningFingerprint: appData.crypto.signingFingerprint,
