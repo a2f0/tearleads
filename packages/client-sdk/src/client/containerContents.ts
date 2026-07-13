@@ -44,6 +44,7 @@ import {
 } from "../workflows/container-contents/runtime";
 import { createContainerDocumentObjectSyncState } from "../workflows/container-contents/syncState";
 import type { DocumentsWorkflowRuntime } from "../workflows/documents";
+import { createRuntimePrincipalPolicyWarmer } from "../workflows/principals/runtimePolicyWarmer";
 import type {
   ContainerContents,
   ContainerDocumentLinks,
@@ -275,12 +276,22 @@ class ContainerContentsService implements ContainerContents {
     if (!runtime) {
       return Promise.resolve(null);
     }
+    const containerOrganizationId = this.openTree()
+      .getSnapshot()
+      .nodes.find((node) => node.id === containerId)?.organizationId;
+    const warmReferencedPrincipalPolicies =
+      createRuntimePrincipalPolicyWarmer(runtime);
 
     return discoverContainerDocumentsFromApi({
       ...createContainerDocumentDiscoveryPersistence(runtime),
       apiClient: runtime.apiClient,
-      cacheReferencedPrincipalPolicies:
-        runtime.util.cacheReferencedPrincipalPolicies,
+      cacheReferencedPrincipalPolicies: (references) =>
+        containerOrganizationId
+          ? (warmReferencedPrincipalPolicies?.({
+              organizationId: containerOrganizationId,
+              references,
+            }) ?? Promise.resolve())
+          : Promise.resolve(),
       containerId,
     });
   }

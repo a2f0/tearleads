@@ -13,6 +13,7 @@ import {
 } from "../../../data/keyingProjectionVerification/principalPolicyCache";
 import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
 import { loadVerifiedGroupSharePrincipalPolicy } from "../../containers";
+import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerState } from "../remoteHydration";
 import { loadContainerWriterProjectionForState } from "./projectionCache";
 import type { ContainerWorkflowRuntime } from "./types";
@@ -72,6 +73,9 @@ export async function containerStateHasCurrentGroupGrant(input: {
     ]),
     projection,
     resolveUserKey: input.resolveProjectionUserKey,
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      input.runtime,
+    ),
   });
 
   const state = readContainerState(

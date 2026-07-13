@@ -56,6 +56,7 @@ import {
 import {
   collectContainerWriterProjectionPrincipalPolicies,
   type ProjectionUserKeyResolver,
+  type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -227,12 +228,14 @@ async function collectContainerRevokePrincipalPolicies(input: {
   execSql?: ExecSql | undefined;
   previousProjection: ContainerWriterProjectionResponse;
   resolveUserKey: ProjectionUserKeyResolver;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
   return uniquePrincipalPolicies(
     await collectContainerWriterProjectionPrincipalPolicies({
       execSql: input.execSql,
       projection: input.previousProjection,
       resolveUserKey: input.resolveUserKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     }),
   );
 }
@@ -370,6 +373,7 @@ export async function buildMaterializedContainerRevokePlan(
     execSql: input.execSql,
     previousProjection: input.previousProjection,
     resolveUserKey: resolveProjectionUserKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const { userRecipientKeys, wraps } = await buildRevocationWraps({
     containerKey,
@@ -412,6 +416,7 @@ export async function revokeRemoteContainer(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<{
   containerKey: Uint8Array;
   plan: ContainerRevokePlan;
@@ -437,6 +442,7 @@ export async function revokeRemoteContainer(input: {
     resolveProjectionUserKey,
     signedAt: input.signedAt,
     targetSecretKey: input.targetSecretKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const response = await input.apiClient.revokeContainer(
     input.containerId,

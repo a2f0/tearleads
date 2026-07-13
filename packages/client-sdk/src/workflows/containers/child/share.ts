@@ -61,6 +61,7 @@ import {
 import {
   collectContainerWriterProjectionPrincipalPolicies,
   type ProjectionUserKeyResolver,
+  type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
@@ -335,12 +336,14 @@ async function collectContainerSharePrincipalPolicies(input: {
   previousProjection: ContainerWriterProjectionResponse;
   recipientPolicy?: VerifiedPrincipalPolicy | undefined;
   resolveUserKey?: ProjectionUserKeyResolver | undefined;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
   const previousPolicies = input.resolveUserKey
     ? await collectContainerWriterProjectionPrincipalPolicies({
         execSql: input.execSql,
         projection: input.previousProjection,
         resolveUserKey: input.resolveUserKey,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       })
     : [];
   const recipientPolicy = input.recipientPolicy;
@@ -469,6 +472,7 @@ async function buildMaterializedContainerSharePlan(
       ? {}
       : { recipientPolicy: input.recipient.principalPolicy }),
     resolveUserKey: input.resolveProjectionUserKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
 
   return buildContainerSharePlanResult({
@@ -504,6 +508,7 @@ export async function shareRemoteContainer(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<{
   containerKey: Uint8Array;
   plan: ContainerSharePlan;
@@ -534,6 +539,7 @@ export async function shareRemoteContainer(input: {
     resolveProjectionUserKey,
     signedAt: input.signedAt,
     targetSecretKey: input.targetSecretKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const response = await input.apiClient.shareContainer(
     input.containerId,
@@ -563,6 +569,7 @@ export async function shareRemoteContainerWithGroup(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<{
   containerKey: Uint8Array;
   plan: ContainerSharePlan;
@@ -600,6 +607,7 @@ export async function shareRemoteContainerWithGroup(input: {
     resolveProjectionUserKey,
     signedAt: input.signedAt,
     targetSecretKey: input.targetSecretKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const response = await input.apiClient.shareContainer(
     input.containerId,

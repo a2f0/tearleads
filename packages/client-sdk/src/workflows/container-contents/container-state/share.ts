@@ -8,6 +8,7 @@ import {
 } from "../../../data/containers/shared/projection";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
+import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerMetadataPatch } from "../metadata";
 import { persistContainerMetadataStateFromRuntime } from "../metadata";
@@ -181,9 +182,10 @@ async function persistSharedContainerState(input: {
   runtime: ContainerWorkflowRuntime;
   shared: SharedRemoteContainerState;
 }): Promise<SharedContainerState> {
-  await input.runtime.util.cacheReferencedPrincipalPolicies(
-    input.shared.referencedPrincipalHeads,
-  );
+  await createRuntimePrincipalPolicyWarmer(input.runtime)?.({
+    organizationId: input.shared.writerProjection.organizationId,
+    references: input.shared.referencedPrincipalHeads,
+  });
   input.containerState.container = {
     ...input.containerState.container,
     createdAt: input.shared.createdAt,
@@ -222,9 +224,10 @@ async function persistDuplicateContainerShare(input: {
   projection: ContainerWriterProjectionResponse;
   runtime: ContainerWorkflowRuntime;
 }): Promise<SharedContainerState> {
-  await input.runtime.util.cacheReferencedPrincipalPolicies([
-    ...input.grant.referencedPrincipalHeads,
-  ]);
+  await createRuntimePrincipalPolicyWarmer(input.runtime)?.({
+    organizationId: input.projection.organizationId,
+    references: input.grant.referencedPrincipalHeads,
+  });
   input.containerState.container = {
     ...input.containerState.container,
     ...(input.grant.createdAt
@@ -295,6 +298,9 @@ export async function prepareContainerStateGroupRewrap(input: {
     projection,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     secretKey: targetSecretKey,
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      input.runtime,
+    ),
   });
   const targetKek = keksByEpochId.get(target.kek.containerKeyEpochId);
   return targetKek

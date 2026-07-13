@@ -52,6 +52,7 @@ import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
 import {
   type PrincipalPolicyCache,
   type ProjectionUserKeyResolver,
+  type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
   verifyContainerWriterProjection,
 } from "../../data/keyingProjectionVerification";
@@ -186,6 +187,7 @@ async function verifyDocumentLinkSetTargetContainerProjection(
       principalPolicyCache: input.principalPolicyCache,
       projection: input.targetContainerProjection,
       resolveUserKey: resolveProjectionUserKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
   } catch (error) {
     throw new Error(
@@ -395,6 +397,7 @@ export async function relinkRemoteDocument(input: {
   signedAt?: string | undefined;
   targetContainerId: string;
   targetSecretKey: Uint8Array;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<RelinkRemoteDocumentResult | null> {
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
@@ -418,6 +421,7 @@ export async function relinkRemoteDocument(input: {
     signedAt: input.signedAt,
     targetContainerProjection,
     targetSecretKey: input.targetSecretKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     writerProjection,
   });
   const response =

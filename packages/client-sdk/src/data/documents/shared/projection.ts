@@ -109,6 +109,7 @@ export async function assertDocumentWriterProjectionConsistent(
       projection: writerProjection,
       resolveUserKey: resolveProjectionUserKey,
       verifiedByHash: input.verifiedByHash,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
   }
 

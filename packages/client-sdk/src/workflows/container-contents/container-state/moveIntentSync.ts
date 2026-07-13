@@ -1,3 +1,4 @@
+import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerState, RemoteContainer } from "../remoteHydration";
 import { moveRemoteContainer } from "./remote";
 import type {
@@ -83,9 +84,10 @@ async function persistAcceptedMoveIntent(input: {
     return;
   }
 
-  await state.runtime.util.cacheReferencedPrincipalPolicies(
-    moved.metadataReferencedPrincipals ?? [],
-  );
+  await createRuntimePrincipalPolicyWarmer(state.runtime)?.({
+    organizationId: moved.organizationId,
+    references: moved.metadataReferencedPrincipals ?? [],
+  });
   const localUpdatedAt = await resolveMoveIntentLocalUpdatedAt({
     containerId: intent.containerId,
     remoteUpdatedAt: moved.updatedAt,

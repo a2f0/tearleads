@@ -26,7 +26,10 @@ import type {
   ProjectionVerificationOptions,
 } from "../../data/documents/shared/types";
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
-import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import type {
+  ProjectionUserKeyResolver,
+  ReferencedPrincipalPolicyWarmer,
+} from "../../data/keyingProjectionVerification";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { isDocumentManifestAlreadyExistsConflict } from "./syncFailures";
@@ -116,6 +119,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<{
   readonly containerProjection: ContainerWriterProjectionResponse;
   readonly materializedPlan: MaterializedDocumentCreatePlan;
@@ -135,6 +139,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
       resolveProjectionUserKey: input.resolveProjectionUserKey,
       signedAt: input.signedAt,
       targetSecretKey: input.targetSecretKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     }),
   });
 
@@ -175,6 +180,7 @@ export async function createRemoteDocument(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<CreateRemoteDocumentResult | null> {
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
@@ -193,6 +199,7 @@ export async function createRemoteDocument(input: {
       resolveProjectionUserKey,
       signedAt: input.signedAt,
       targetSecretKey: input.targetSecretKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
   if (!createPlan) {
     return null;
@@ -242,6 +249,7 @@ export async function createRemoteDocument(input: {
       execSql: input.execSql,
       resolveProjectionUserKey,
       targetSecretKey: input.targetSecretKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     if (adopted) {
       return adopted;

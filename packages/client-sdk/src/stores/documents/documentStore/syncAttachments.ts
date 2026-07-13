@@ -12,6 +12,7 @@ import {
   type PendingAttachmentUploadIdentity,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
+import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import {
   beginDomainSyncUploadLane,
   type UploadSyncLane,
@@ -37,15 +38,8 @@ interface AttachmentUploadLaneReporter {
   onMultipartProgress: MultipartUploadProgressListener;
 }
 
-// Result of attempting one pending attachment upload:
-// - "uploaded": bytes landed on the server; settle the slot.
-// - "retry": a transient failure (network, missing writer context, upload
-//   error); keep the row and stop the pass so it is retried next time.
-// - "dropped": the local bytes are gone, so the upload can NEVER succeed; the
-//   row is removed so it stops blocking the document. A pending attachment whose
-//   bytes were evicted/rolled-away would otherwise wedge the whole document's
-//   sync forever (runDocumentSyncPass bails while pendingAttachments is
-//   non-empty), with no way to clear it.
+// Preserve transient failures for retry. Drop irrecoverable missing bytes so a
+// pending attachment cannot wedge the document sync lane across restarts.
 type PendingAttachmentUploadOutcome = "uploaded" | "retry" | "dropped";
 
 export async function syncPendingAttachments(
@@ -331,12 +325,10 @@ async function syncPendingAttachmentUpload(input: {
     pendingAttachment,
     state,
   });
-
   const writerProjection =
     state.writerProjection?.documentId === input.remoteDocumentId
       ? state.writerProjection
       : null;
-
   const resume = await resolveAttachmentUploadResume(state, pendingAttachment);
 
   const baseUploadInput = {
@@ -358,6 +350,9 @@ async function syncPendingAttachmentUpload(input: {
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     slotId: pendingAttachment.slotId,
     targetSecretKey: input.encapsulationKeyPair.secretKey,
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      state.runtime,
+    ),
   };
   const uploadAttempt = await uploadAttachmentWithWriterProjectionRetry({
     baseUploadInput,

@@ -22,7 +22,10 @@ import type {
   UploadMultipartBlobPartResponse,
 } from "@tearleads/validators/response";
 import type { BlobBytes } from "../../../blobContracts";
-import type { ProjectionUserKeyResolver } from "../../../keyingProjectionVerification";
+import type {
+  ProjectionUserKeyResolver,
+  ReferencedPrincipalPolicyWarmer,
+} from "../../../keyingProjectionVerification";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import type { DocumentCreateAuthor } from "../../shared/types";
 
@@ -183,6 +186,7 @@ export interface UploadDocumentAttachmentInput {
   signedAt?: string | undefined;
   slotId: string;
   targetSecretKey: Uint8Array;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }
 

@@ -65,6 +65,7 @@ import { projectionVerificationOptions } from "../../data/documents/shared/types
 import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
 import {
   type ProjectionUserKeyResolver,
+  type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
@@ -349,6 +350,7 @@ async function syncRemoteDocumentResultFromResponse(input: {
   materializedPlan: MaterializedDocumentSyncPlan;
   recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
   response: DocumentSyncResponse;
   targetSecretKey: Uint8Array;
@@ -371,6 +373,7 @@ async function syncRemoteDocumentResultFromResponse(input: {
     response: input.response,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     targetSecretKey: input.targetSecretKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     writerProjection: input.writerProjection,
   });
   const decryptedUpdates = await decryptDocumentSyncUpdatesByEpoch({
@@ -406,6 +409,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(input: {
   response: DocumentSyncResponse;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection: DocumentWriterProjectionResponse;
   writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
 }): Promise<SyncRemoteDocumentResult> {
@@ -418,6 +422,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(input: {
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     signedAt: input.signedAt,
     targetSecretKey: input.targetSecretKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     writerProjection: input.writerProjection,
   });
 
@@ -429,6 +434,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(input: {
     resolveWriterPublicKey: input.resolveWriterPublicKey,
     response: input.response,
     targetSecretKey: input.targetSecretKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     writerProjection: input.writerProjection,
     writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
   });
@@ -543,6 +549,7 @@ interface ReadOnlyDocumentSyncCompletionInput {
   response: DocumentSyncResponse;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
   writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
 }
@@ -613,6 +620,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
   writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
 }): Promise<PersistedReadOnlyDocumentSyncResult> {
@@ -853,6 +861,7 @@ interface SyncRemoteDocumentInput {
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
   writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
 }
@@ -878,6 +887,7 @@ async function tryPersistedReadOnlyDocumentSync(
     resolveWriterPublicKey: input.resolveWriterPublicKey,
     signedAt: input.signedAt,
     targetSecretKey: input.targetSecretKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     writerProjection: input.writerProjection,
     writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
   });
@@ -951,6 +961,26 @@ export async function buildDocumentSyncPlan(
   };
 }
 
+function buildRemoteDocumentSyncPlan(input: {
+  pendingUpdates: readonly PendingUpdateRecord[];
+  projection: DocumentWriterProjectionResponse;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  sync: SyncRemoteDocumentInput;
+}) {
+  return buildMaterializedDocumentSyncPlan({
+    author: input.sync.author,
+    execSql: input.sync.execSql,
+    localVersionVector: input.sync.localVersionVector,
+    minLsn: input.sync.minLsn,
+    pendingUpdates: input.pendingUpdates,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    signedAt: input.sync.signedAt,
+    targetSecretKey: input.sync.targetSecretKey,
+    warmReferencedPrincipalPolicies: input.sync.warmReferencedPrincipalPolicies,
+    writerProjection: input.projection,
+  });
+}
+
 export async function syncRemoteDocument(
   input: SyncRemoteDocumentInput,
 ): Promise<SyncRemoteDocumentResult | null> {
@@ -958,8 +988,7 @@ export async function syncRemoteDocument(
     input.resolveProjectionUserKey,
     "Remote document sync",
   );
-  // syncDocumentResult is the canonical proxy for retry-capable API clients
-
+  // syncDocumentResult is the canonical proxy for retry-capable API clients.
   const maxAttempts = input.apiClient.syncDocumentResult ? 3 : 1;
   let pendingUpdates = input.pendingUpdates ?? [];
   let recoveryPendingUpdatesById = new Map<string, PendingUpdateRecord>();
@@ -990,16 +1019,11 @@ export async function syncRemoteDocument(
     const planned = await retrySyncPlan({
       apiClient: input.apiClient,
       buildWithProjection: (projection) =>
-        buildMaterializedDocumentSyncPlan({
-          author: input.author,
-          execSql: input.execSql,
-          localVersionVector: input.localVersionVector,
-          minLsn: input.minLsn,
+        buildRemoteDocumentSyncPlan({
           pendingUpdates,
+          projection,
           resolveProjectionUserKey,
-          signedAt: input.signedAt,
-          targetSecretKey: input.targetSecretKey,
-          writerProjection: projection,
+          sync: input,
         }),
       documentId: input.documentId,
       onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
@@ -1047,6 +1071,7 @@ export async function syncRemoteDocument(
       resolveWriterPublicKey: input.resolveWriterPublicKey,
       response: submitted.response,
       targetSecretKey: input.targetSecretKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       writerProjection: plannedWriterProjection,
       writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
     });

@@ -2,7 +2,9 @@ import type {
   ContainerSummary,
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
+  EncapsulationKeyResponse,
   ListContainersResponse,
+  PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
@@ -61,6 +63,11 @@ export interface ContainerState {
 }
 
 interface RemoteContainerHydrationApi {
+  getCurrentPrincipalPolicy?(
+    principalType: "group" | "organization",
+    principalId: string,
+  ): Promise<PrincipalPolicyBundleResponse | null>;
+  getEncapsulationKey(userId: string): Promise<EncapsulationKeyResponse | null>;
   listContainers(options?: {
     limit?: number;
     parentId?: string | null;

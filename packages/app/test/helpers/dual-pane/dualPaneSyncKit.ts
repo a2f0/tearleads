@@ -1,6 +1,11 @@
 import { expect } from "bun:test";
 import { act } from "@testing-library/react";
-import { waitForAppTestRuntimeToSettle } from "../appRuntimeIdle";
+import {
+  type AppTestSyncLaneErrorBaseline,
+  captureAppTestSyncLaneErrorBaseline,
+  listAppTestSyncLaneErrorsSince,
+  waitForAppTestRuntimeToSettle,
+} from "../appRuntimeIdle";
 import {
   type ProxiedApiRequest,
   requestPath,
@@ -20,6 +25,18 @@ const RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES = [
   "Document content-key bundle is stale",
   "Document write authorization manifest does not match sync request",
 ] as const;
+
+interface PostShareSyncBaseline {
+  readonly requestStartIndex: number;
+  readonly syncLaneErrors: AppTestSyncLaneErrorBaseline;
+}
+
+export function capturePostShareSyncBaseline(): PostShareSyncBaseline {
+  return {
+    requestStartIndex: listProxiedApiRequests().length,
+    syncLaneErrors: captureAppTestSyncLaneErrorBaseline(),
+  };
+}
 
 interface BlobAttachmentBindingJson {
   bindingId?: unknown;
@@ -148,9 +165,10 @@ export function listPaneErrorLines(panes: readonly HTMLElement[]): string[] {
 
 export async function waitForNoPostShareSyncFailures(
   panes: readonly HTMLElement[],
-  requestStartIndex: number,
+  baseline: PostShareSyncBaseline,
 ) {
   const startedAt = Date.now();
+  let runtimeSettled = false;
   let unresolvedFailures: readonly ProxiedApiRequest[] = [];
   while (Date.now() - startedAt < POST_SHARE_SYNC_SETTLE_TIMEOUT_MS) {
     const remainingTimeoutMs = Math.max(
@@ -158,7 +176,6 @@ export async function waitForNoPostShareSyncFailures(
       POST_SHARE_SYNC_SETTLE_TIMEOUT_MS - (Date.now() - startedAt),
     );
 
-    let runtimeSettled = false;
     await act(async () => {
       runtimeSettled = await waitForAppTestRuntimeToSettle({
         apiQuietMs: POST_SHARE_NETWORK_IDLE_QUIET_MS,
@@ -166,8 +183,13 @@ export async function waitForNoPostShareSyncFailures(
       });
     });
 
-    const postShareRequests = listProxiedApiRequests().slice(requestStartIndex);
+    const postShareRequests = listProxiedApiRequests().slice(
+      baseline.requestStartIndex,
+    );
     const paneErrors = listPaneErrorLines(panes);
+    const syncLaneErrors = listAppTestSyncLaneErrorsSince(
+      baseline.syncLaneErrors,
+    );
     unresolvedFailures = listUnresolvedPostShareFailures(postShareRequests);
 
     expect(
@@ -180,8 +202,12 @@ export async function waitForNoPostShareSyncFailures(
       paneErrors,
       `Unexpected post-share pane errors.\nrequests=\n${summarizeProxiedApiRequests(postShareRequests)}`,
     ).toEqual([]);
+    expect(
+      syncLaneErrors,
+      `Unexpected post-share sync lane errors.\nrequests=\n${summarizeProxiedApiRequests(postShareRequests)}`,
+    ).toEqual([]);
 
-    if (unresolvedFailures.length === 0) {
+    if (runtimeSettled && unresolvedFailures.length === 0) {
       return;
     }
     if (!runtimeSettled) {
@@ -190,7 +216,11 @@ export async function waitForNoPostShareSyncFailures(
   }
 
   expect(
+    runtimeSettled,
+    `Post-share sync runtime did not settle.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(baseline.requestStartIndex))}`,
+  ).toBe(true);
+  expect(
     unresolvedFailures,
-    `Unresolved post-share sync failures.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}`,
+    `Unresolved post-share sync failures.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(baseline.requestStartIndex))}`,
   ).toEqual([]);
 }

@@ -14,9 +14,11 @@ import {
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
 import { importPeerIntoRoster } from "../../../../test/helpers/dual-pane/dualPaneRosterKit";
 import { addPeerToAdminsGroup } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
-import { waitForNoPostShareSyncFailures } from "../../../../test/helpers/dual-pane/dualPaneSyncKit";
 import {
-  listProxiedApiRequests,
+  capturePostShareSyncBaseline,
+  waitForNoPostShareSyncFailures,
+} from "../../../../test/helpers/dual-pane/dualPaneSyncKit";
+import {
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
@@ -64,7 +66,7 @@ test(
     //      the org metadata container to the new epoch so the peer can DECRYPT the
     //      organization_profile document that holds the org display name.
     await addPeerToAdminsGroup(founderPane, getPaneUserId(peerPane));
-    const postImportStartIndex = listProxiedApiRequests().length;
+    const postImportBaseline = capturePostShareSyncBaseline();
     await importPeerIntoRoster(founderPane, getPaneUserId(peerPane));
 
     await openExplorer(peerPane);
@@ -101,7 +103,7 @@ test(
 
     await waitForNoPostShareSyncFailures(
       [founderPane, peerPane],
-      postImportStartIndex,
+      postImportBaseline,
     );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,

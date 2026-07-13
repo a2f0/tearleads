@@ -15,6 +15,7 @@ import {
   openExplorer,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
 import {
+  capturePostShareSyncBaseline,
   isDocumentWriterProjectionStaleContentBundleFailure,
   waitForNoPostShareSyncFailures,
 } from "../../../../test/helpers/dual-pane/dualPaneSyncKit";
@@ -78,17 +79,17 @@ test(
     await createChildContainer(leftPane, "Moved");
     await createNoteInContainer(leftPane, "Moved", MOVED_NOTE_TITLE);
 
-    const requestStartIndex = listProxiedApiRequests().length;
+    const syncBaseline = capturePostShareSyncBaseline();
     await moveContainer(leftPane, "Moved", "Target");
-    await waitForNoPostShareSyncFailures([leftPane], requestStartIndex);
+    await waitForNoPostShareSyncFailures([leftPane], syncBaseline);
 
     const staleWriterProjectionRequests = listProxiedApiRequests()
-      .slice(requestStartIndex)
+      .slice(syncBaseline.requestStartIndex)
       .filter(isDocumentWriterProjectionStaleContentBundleFailure);
 
     expect(
       staleWriterProjectionRequests,
-      `Container move should not leave document content-key bundles stale.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}`,
+      `Container move should not leave document content-key bundles stale.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(syncBaseline.requestStartIndex))}`,
     ).toEqual([]);
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
