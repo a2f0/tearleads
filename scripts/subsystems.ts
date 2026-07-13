@@ -535,12 +535,13 @@ export const subsystems: readonly Subsystem[] = [
     name: "App Document & Device State",
     package: "app",
     responsibility:
-      "App-side domain state machines for documents and device-first projection, plus the system-containers store.",
+      "App-side domain state machines for documents and device-first projection, plus the system-containers store and its org-aware Trash resolver.",
     seam: "stores/documents; stores/device-first",
     paths: [
       `${app}/stores/documents/`,
       `${app}/stores/device-first/`,
       `${app}/stores/systemContainers.ts`,
+      `${app}/stores/systemContainerTrash.ts`,
     ],
   },
   {

@@ -1,8 +1,5 @@
 import { expect, test } from "bun:test";
-import {
-  getContactsContainerId,
-  getContactsTrashContainerId,
-} from "./contactsSystemSlot";
+import { getContactsContainerId } from "./contactsSystemSlot";
 
 test("contacts container lookup uses the active root while org metadata converges", () => {
   const contactsSystemSlot =
@@ -77,56 +74,4 @@ test("contacts container lookup prefers the active root over an earlier organiza
       "active-root",
     ),
   ).toBe("active-work-contacts");
-});
-
-test("contacts trash lookup uses the active custom organization root", () => {
-  const trashSystemSlot = "sys_v1_ccccccccccccccccccccccccccccccccccccccccccc";
-
-  expect(
-    getContactsTrashContainerId(
-      [
-        {
-          id: "personal-trash",
-          organizationId: "personal-org",
-          parentId: "personal-root",
-          systemSlot: trashSystemSlot,
-        },
-        {
-          id: "custom-trash",
-          organizationId: "custom-org",
-          parentId: "custom-root",
-          systemSlot: trashSystemSlot,
-        },
-      ],
-      trashSystemSlot,
-      "custom-org",
-      "custom-root",
-    ),
-  ).toBe("custom-trash");
-});
-
-test("contacts trash lookup falls back by organization while root metadata converges", () => {
-  const trashSystemSlot = "sys_v1_ccccccccccccccccccccccccccccccccccccccccccc";
-
-  expect(
-    getContactsTrashContainerId(
-      [
-        {
-          id: "personal-trash",
-          organizationId: "personal-org",
-          parentId: "personal-root",
-          systemSlot: trashSystemSlot,
-        },
-        {
-          id: "custom-trash",
-          organizationId: "custom-org",
-          parentId: "stale-custom-root",
-          systemSlot: trashSystemSlot,
-        },
-      ],
-      trashSystemSlot,
-      "custom-org",
-      "active-custom-root",
-    ),
-  ).toBe("custom-trash");
 });

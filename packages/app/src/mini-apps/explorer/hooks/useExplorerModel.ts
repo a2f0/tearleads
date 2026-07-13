@@ -119,18 +119,16 @@ export function useExplorerModel(
     () => buildExplorerTree(explorer.nodes),
     [explorer.nodes],
   );
-  const { contactsContainerId, primaryOrganizationId, trashContainerId } =
+  const { contactsContainerId, primaryOrganizationId } =
     useExplorerPrimarySystemContainers({
       appData,
       contactsSystemSlot: explorer.contactsSystemSlot,
       nodes: explorer.nodes,
       ready: explorer.ready,
-      trashSystemSlot: explorer.trashSystemSlot,
     });
-  const contactsStore = useContactsStoreForContainer(
-    contactsContainerId,
-    trashContainerId,
-  );
+  // The Explorer embeds this Contacts store read-only (self-contact lookup); it
+  // never removes contacts, so it needs no Trash resolver.
+  const contactsStore = useContactsStoreForContainer(contactsContainerId);
   const contactsSnapshot = useTearleadsExternalStoreSnapshot(contactsStore);
   const currentSelfContactLocalId = useMemo(
     () =>

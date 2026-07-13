@@ -63,7 +63,7 @@ async function createContactsRuntime(): Promise<
         input.initialText,
         input.initialDocumentKind,
       ),
-    trashContainerId: TRASH_CONTAINER_ID,
+    resolveTrashContainerForDocument: async () => TRASH_CONTAINER_ID,
   };
 }
 
@@ -281,6 +281,47 @@ test("contacts store moves removed synced contacts to trash without direct delet
         documentKind: "contact",
       }),
     );
+  } finally {
+    runtime.close();
+  }
+});
+
+test("contacts store leaves a contact in place when no Trash can be resolved", async () => {
+  const runtime = await createContactsRuntime();
+  runtime.resolveTrashContainerForDocument = async () => null;
+  let moveCount = 0;
+  runtime.moveDocumentToTrash = async () => {
+    moveCount += 1;
+    return null;
+  };
+  const store = createStore(runtime);
+
+  try {
+    store.updateRuntime(runtime);
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Contacts store did not initialize.",
+    );
+
+    const contactId = await createContact(store, {
+      firstName: "Ada",
+      lastName: "Lovelace",
+    });
+
+    await store.removeContact(contactId);
+
+    // No Trash resolved -> removal is a no-op (matching the Explorer): the contact
+    // is neither moved nor dropped, and its document keeps its container.
+    expect(moveCount).toBe(0);
+    expect(
+      store.getSnapshot().entries.some((entry) => entry.id === contactId),
+    ).toBe(true);
+    expect(
+      await defaultDocumentsPersistence.loadDocument(
+        runtime.documents.infra.execSql,
+        contactId,
+      ),
+    ).toEqual(expect.objectContaining({ containerId: CONTACTS_CONTAINER_ID }));
   } finally {
     runtime.close();
   }

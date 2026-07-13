@@ -15,7 +15,6 @@ import {
   DEFAULT_DOCUMENT_ID,
   DocumentsProvider,
 } from "../../stores/documents/DocumentsProvider";
-import { useContainerTrashLookup } from "../../stores/explorer/useContainerTrashLookup";
 import { LocalKeyringUnlockGate } from "../LocalKeyringUnlockGate";
 import { SystemBootstrapGate } from "../SystemBootstrapGate";
 import {
@@ -124,10 +123,9 @@ function NotesAppContent(props: NotesAppProps) {
     ready: appData.infra.dbStatus === "ready",
     scope: appData.state.domainScope,
   });
-  // Notes are listed app-wide by kind, so a note trashed via the Explorer still
-  // appears here — render it read-only rather than letting it be edited.
-  const { isContainerTrashed } = useContainerTrashLookup();
-  const activeNoteTrashed = isContainerTrashed(
+  // A note that lives under Trash (moved here or via the Explorer) is opened
+  // read-only rather than editable.
+  const activeNoteTrashed = model.isContainerTrashed(
     model.activeSelection?.containerId,
   );
   useWindowFileMenuItem({

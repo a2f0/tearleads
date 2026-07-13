@@ -320,7 +320,6 @@ async function removeContactFromRuntime(
   if (
     state.runtime.documents.infra.dbStatus !== "ready" ||
     !hasContactsContainerRuntime(state) ||
-    !state.runtime.trashContainerId ||
     !canWriteContactEntry(state, contactId)
   ) {
     return;
@@ -339,13 +338,22 @@ async function removeContactFromRuntime(
         );
         return;
       }
-      if (!state.runtime.trashContainerId) {
+
+      // Resolve the Trash for the contact's OWN container (org-aware), lazily
+      // provisioning the viewer's Trash when needed. A null result means there is
+      // nowhere to move it, so leave the contact in place — a no-op, not a purge.
+      const resolveTrashContainer =
+        state.runtime.resolveTrashContainerForDocument;
+      const trashContainerId = resolveTrashContainer
+        ? await resolveTrashContainer(contactDocument)
+        : null;
+      if (!trashContainerId) {
         return;
       }
 
       const movedContact = await state.runtime.moveDocumentToTrash(
         contactDocument,
-        state.runtime.trashContainerId,
+        trashContainerId,
       );
       if (!movedContact) {
         return;

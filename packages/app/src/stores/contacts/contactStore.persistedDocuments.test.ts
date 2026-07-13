@@ -74,7 +74,6 @@ async function createPersistedContactsRuntime(): Promise<
       ),
     subscribeToPersistedDocuments: (listener) =>
       subscribeToPersistedDocuments(documents.state.domainScope, listener),
-    trashContainerId: null,
   };
 }
 

@@ -17,7 +17,6 @@ function contactsRuntime(documents: DocumentsRuntime): ContactsRuntime {
     openDocumentStore: () => {
       throw new Error("Unexpected document open in registry test");
     },
-    trashContainerId: null,
   };
 }
 

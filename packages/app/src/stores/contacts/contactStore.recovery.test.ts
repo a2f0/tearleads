@@ -78,7 +78,6 @@ async function createRecoveryContactsRuntime(input: {
       ),
     subscribeToPersistedDocuments: (listener) =>
       subscribeToPersistedDocuments(documents.state.domainScope, listener),
-    trashContainerId: null,
   };
 }
 
