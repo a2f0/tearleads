@@ -6,7 +6,14 @@ import {
   render,
   waitFor,
 } from "@testing-library/react";
-import type { ComponentType } from "react";
+import {
+  type ComponentType,
+  createContext,
+  type PropsWithChildren,
+  useCallback,
+  useContext,
+  useState,
+} from "react";
 import { Window } from "../../../components/window/Window";
 import {
   useWindowStateData,
@@ -33,8 +40,44 @@ function EmptyMiniApp() {
   return null;
 }
 
+// Lets a test hold the shared submit flag as if a manual dialog import were in
+// flight, independent of any background import.
+const ManualSubmittingContext = createContext(false);
+
+function ManualSubmittingHarness({ children }: PropsWithChildren) {
+  const [manualSubmitting, setManualSubmitting] = useState(false);
+  return (
+    <ManualSubmittingContext.Provider value={manualSubmitting}>
+      <button onClick={() => setManualSubmitting(true)} type="button">
+        Begin manual import
+      </button>
+      <button onClick={() => setManualSubmitting(false)} type="button">
+        End manual import
+      </button>
+      {children}
+    </ManualSubmittingContext.Provider>
+  );
+}
+
+// Mirror the real import core, which flips the store's shared isSubmitting flag
+// for the duration of each import. The hook gates the queue on that flag, which
+// here is the background import OR a simulated manual import.
 function ContactsProbe() {
-  useImportContactMessage({ importContactByUserId, isImportReady: true });
+  const manualSubmitting = useContext(ManualSubmittingContext);
+  const [backgroundSubmitting, setBackgroundSubmitting] = useState(false);
+  const importAndTrackSubmitting = useCallback(async (userId: string) => {
+    setBackgroundSubmitting(true);
+    try {
+      return await importContactByUserId(userId);
+    } finally {
+      setBackgroundSubmitting(false);
+    }
+  }, []);
+  useImportContactMessage({
+    importContactByUserId: importAndTrackSubmitting,
+    isImportReady: true,
+    isSubmitting: backgroundSubmitting || manualSubmitting,
+  });
   return <div>Contacts Ready</div>;
 }
 
@@ -153,4 +196,35 @@ test("multiple messages queued during an import are all processed in order", asy
   await waitFor(() =>
     expect(importedUserIds).toEqual(["user-1", "user-2", "user-3"]),
   );
+});
+
+test("a message waits while a manual import holds the shared submit flag", async () => {
+  const view = render(
+    <ManualSubmittingHarness>
+      <WindowStateProvider>
+        <AppNavigationProvider
+          mode="windowed"
+          miniApps={createMiniApps(ContactsProbe)}
+        >
+          <MiniAppBusProvider>
+            <ImportButtons />
+            <WindowLayer />
+          </MiniAppBusProvider>
+        </AppNavigationProvider>
+      </WindowStateProvider>
+    </ManualSubmittingHarness>,
+  );
+
+  // Simulate a manual dialog import already in flight, then a background message
+  // arrives. The queued import must not run while the shared flag is held.
+  fireEvent.click(view.getByRole("button", { name: "Begin manual import" }));
+  fireEvent.click(view.getByRole("button", { name: "Import user-1" }));
+  await waitFor(() => expect(view.getByText("Contacts Ready")).toBeTruthy());
+  // Flush effects so a missing gate would have imported user-1 by now.
+  await act(async () => {});
+  expect(importedUserIds).toEqual([]);
+
+  // Releasing the manual import lets the queued message drain.
+  fireEvent.click(view.getByRole("button", { name: "End manual import" }));
+  await waitFor(() => expect(importedUserIds).toEqual(["user-1"]));
 });

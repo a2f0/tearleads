@@ -354,6 +354,7 @@ function useContactDrafts(input: {
     importContactByUserId,
     importDraftContact,
     isImportReady,
+    isSubmitting,
     setDraftFirstName,
     setDraftLastName,
     setDraftNickname,
@@ -408,6 +409,7 @@ export function useContactsModel(
   useImportContactMessage({
     importContactByUserId: drafts.importContactByUserId,
     isImportReady: drafts.isImportReady,
+    isSubmitting: drafts.isSubmitting,
   });
 
   useContactsSidebarPanel({

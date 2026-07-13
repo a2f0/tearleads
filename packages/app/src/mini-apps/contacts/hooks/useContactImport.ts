@@ -3,6 +3,7 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import type { useLog } from "../../../providers/logging/LogProvider";
@@ -75,15 +76,21 @@ export function useImportContactByUserId(input: {
 // the user ids and drain them once the store is ready to write. A queue (rather
 // than a single slot) preserves every request when several arrive in quick
 // succession — before the store is ready, or while an import is in flight.
+//
+// `isSubmitting` is the store's shared in-flight flag (any create or import,
+// manual or message-driven). Gating on it means a background import never runs
+// while a manual dialog import holds the shared submit latch — which would make
+// the import core no-op and silently drop the queued request.
 export function useImportContactMessage(input: {
   importContactByUserId: (userId: string) => Promise<string | null>;
   isImportReady: boolean;
+  isSubmitting: boolean;
 }) {
-  const { importContactByUserId, isImportReady } = input;
+  const { importContactByUserId, isImportReady, isSubmitting } = input;
   const [pendingImportUserIds, setPendingImportUserIds] = useState<string[]>(
     [],
   );
-  const [importInFlight, setImportInFlight] = useState(false);
+  const drainingRef = useRef(false);
 
   useMiniAppMessage(
     "contacts",
@@ -96,21 +103,28 @@ export function useImportContactMessage(input: {
 
   useEffect(() => {
     const userIdToImport = pendingImportUserIds[0];
-    if (userIdToImport === undefined || !isImportReady || importInFlight) {
+    if (
+      userIdToImport === undefined ||
+      !isImportReady ||
+      isSubmitting ||
+      drainingRef.current
+    ) {
       return;
     }
 
-    // Dequeue the head before awaiting so messages that arrive mid-import are
-    // preserved and processed sequentially instead of overwriting each other.
-    setImportInFlight(true);
+    // Latch synchronously before dequeuing so a re-run of this effect on the
+    // same commit (StrictMode's double invoke, a concurrent render) cannot
+    // dispatch or drop the same head twice; `isSubmitting` only flips to true
+    // on the next commit, so it can't guard this window on its own.
+    drainingRef.current = true;
     setPendingImportUserIds((previous) => previous.slice(1));
     void importContactByUserId(userIdToImport).finally(() => {
-      setImportInFlight(false);
+      drainingRef.current = false;
     });
   }, [
     importContactByUserId,
-    importInFlight,
     isImportReady,
+    isSubmitting,
     pendingImportUserIds,
   ]);
 }
