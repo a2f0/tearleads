@@ -12,6 +12,7 @@ import type {
   DocumentContentKeyTargetEnvelopeResponse,
   EncapsulationKeyResponse,
   ListSessionsResponse,
+  OrganizationBillingResponse,
   RegistrationResponse,
   VerifyResponse,
 } from "@tearleads/validators/response";
@@ -478,6 +479,22 @@ const server = setupServer(
   http.post("http://localhost:3001/auth/ws-ticket", () => {
     return HttpResponse.json({ ticket: randomHex(32) });
   }),
+  http.get<{ organizationId: string }>(
+    "http://localhost:3001/organizations/:organizationId/billing",
+    ({ params }) => {
+      return HttpResponse.json<OrganizationBillingResponse>({
+        organizationId: params.organizationId,
+        status: "trialing",
+        trialEndsAt: "2099-01-01T00:00:00.000Z",
+        provider: null,
+        currentPeriodStartsAt: null,
+        currentPeriodEndsAt: null,
+        seatCount: 1,
+        disabledAt: null,
+        purgeAfter: null,
+      });
+    },
+  ),
   http.get("http://localhost:3001/containers", emptyListResponse),
   http.get(
     "http://localhost:3001/containers/:containerId/documents",

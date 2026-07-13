@@ -1,7 +1,16 @@
-import { afterEach, expect, mock, test } from "bun:test";
+import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import type { OrganizationBilling } from "@tearleads/client-sdk";
-import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import {
+  act,
+  cleanup,
+  render,
+  renderHook,
+  waitFor,
+} from "@testing-library/react";
+import * as CryptoSessionProvider from "../crypto/CryptoSessionProvider";
+import * as TearleadsProvider from "../sdk/TearleadsProvider";
+import {
+  BillingProvider,
   syncBillingBlockAppliesToOrganization,
   useOrganizationBillingState,
 } from "./BillingProvider";
@@ -87,6 +96,65 @@ test("clears billing and resets loading/error when there is no active org", asyn
   expect(result.current.billing).toBe(null);
   expect(result.current.error).toBe(null);
   expect(loadBilling).not.toHaveBeenCalled();
+});
+
+test("loads billing when authentication completes for the unchanged org", async () => {
+  const snapshot = billing();
+  const loadBilling = mock(() => Promise.resolve(snapshot));
+  let billingBlockListener: (organizationId: string | null) => void = () => {};
+  const subscribe = mock(
+    (listener: (organizationId: string | null) => void) => {
+      billingBlockListener = listener;
+      return () => {};
+    },
+  );
+  let isAuthenticated = false;
+  const tearleads = {
+    organizations: makeClient(loadBilling).organizations,
+    syncBillingGate: {
+      blockedOrganizationId: null,
+      isBlocked: false,
+      subscribe,
+    },
+  } as unknown as ReturnType<typeof TearleadsProvider.useTearleads>;
+  const cryptoSessionSpy = spyOn(
+    CryptoSessionProvider,
+    "useCryptoSession",
+  ).mockImplementation(
+    () =>
+      ({
+        isAuthenticated,
+        organizationId: "org-1",
+      }) as ReturnType<typeof CryptoSessionProvider.useCryptoSession>,
+  );
+  const tearleadsSpy = spyOn(
+    TearleadsProvider,
+    "useTearleads",
+  ).mockImplementation(() => tearleads);
+
+  try {
+    const view = render(<BillingProvider>child</BillingProvider>);
+    await act(async () => Promise.resolve());
+    expect(loadBilling).not.toHaveBeenCalled();
+
+    await act(async () => {
+      billingBlockListener(null);
+      await Promise.resolve();
+    });
+    expect(loadBilling).not.toHaveBeenCalled();
+
+    isAuthenticated = true;
+    view.rerender(<BillingProvider>child</BillingProvider>);
+
+    await waitFor(() => expect(loadBilling).toHaveBeenCalledTimes(1));
+
+    await act(async () => billingBlockListener(null));
+    await waitFor(() => expect(loadBilling).toHaveBeenCalledTimes(2));
+  } finally {
+    cleanup();
+    cryptoSessionSpy.mockRestore();
+    tearleadsSpy.mockRestore();
+  }
 });
 
 test("sets an error when the load returns null", async () => {

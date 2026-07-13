@@ -253,7 +253,7 @@ test(
 
     // This is the org-manager-plus-system-bootstrap baseline. Usage counts
     // synced document update rows, not every document shell created by
-    // registration. Seven documents / eight updates decompose as:
+    // registration. Eight documents / nine updates decompose as:
     //   1. root "/"                     (2 updates: one early bootstrap
     //                                     metadata update, then the root sync)
     //   2. "Roster Profiles" container metadata document          (1 update)
@@ -262,6 +262,7 @@ test(
     //   5. Contacts system container metadata document            (1 update)
     //   6. Trash system container metadata document               (1 update)
     //   7. self-contact document inside Contacts                  (1 update)
+    //   8. organization profile document ("Personal Org")         (1 update)
     // Document 4 is the org-public metadata container minted at
     // registration and read-granted to the Members group so any active
     // roster member can decrypt org-wide public fields; its own metadata
@@ -269,12 +270,11 @@ test(
     // registration transaction. Documents 5 and 7 come from the post-auth
     // promotion pass: Contacts starts device-first LOCAL-ONLY, then promotion
     // also re-runs the self-contact bootstrap with the remote identity so both
-    // become synced. The organization profile document
-    // (linked into the org metadata container) is still created or synced by
-    // its own view, so it is intentionally outside this baseline.
+    // become synced. The auth-aware billing bootstrap flushes the organization
+    // profile linked into the org metadata container once the trial is loaded.
     await waitForCondition(
       () => {
-        if (pane.textContent?.includes("7 documents, 8 updates")) {
+        if (pane.textContent?.includes("8 documents, 9 updates")) {
           return true;
         }
 
