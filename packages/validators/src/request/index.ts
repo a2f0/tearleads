@@ -59,7 +59,9 @@ export {
   type CreateOrganizationRequest,
   isCreateOrganizationRequest,
   isOrganizationProvisioningRequest,
+  isProvisionedDocumentRequest,
   type OrganizationProvisioningRequest,
+  type ProvisionedDocumentRequest,
   type ProvisionedSystemContainerRequest,
 } from "./organizationProvisioning";
 export {

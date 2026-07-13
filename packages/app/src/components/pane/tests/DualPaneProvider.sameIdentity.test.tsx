@@ -1,5 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
+import { DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME } from "@tearleads/client-sdk";
 import {
+  act,
   cleanup,
   fireEvent,
   screen,
@@ -7,18 +9,24 @@ import {
   within,
 } from "@testing-library/react";
 import invariant from "invariant";
+import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
 import {
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
-  downloadPaneKeyPackageBackup,
+  generatePaneKeyPairFromMenu,
   getExplorerSidebarItemsByName,
   getPaneRoot,
   getPaneUserId,
   interact,
   renderDualPane,
-  restorePaneKeyPackageBackup,
-  waitForDualPaneProvisioning,
+  selectContainerAndWaitForItemTable,
+  waitForSinglePaneProvisioning,
 } from "../../../../test/helpers/dual-pane/dualPaneCore";
 import { openExplorer } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
+import {
+  downloadPaneRecoveryKey,
+  readPaneExplorerDocumentIdentity,
+  restorePaneRecoveryKey,
+} from "../../../../test/helpers/dual-pane/dualPaneRecoveryKit";
 import { openOrgManager } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import {
   resetMockServer,
@@ -87,6 +95,58 @@ function ensureOrganizationOptionsOpen(pane: HTMLElement): boolean {
   return false;
 }
 
+async function expectAppRuntimeSettled() {
+  let settled = false;
+  await act(async () => {
+    settled = await waitForAppTestRuntimeToSettle({ timeoutMs: 6_000 });
+  });
+  expect(settled).toBe(true);
+}
+
+async function expectSingleYouContact(input: {
+  expectedLocalId?: string | undefined;
+  pane: HTMLElement;
+  userId: string;
+}) {
+  if (!input.pane.querySelector(".explorer-sidebar")) {
+    await openExplorer(input.pane);
+  }
+  await waitForCondition(
+    () => getExplorerSidebarItemsByName(input.pane, "Contacts").length > 0,
+    "Explorer did not materialize the personal Contacts container.",
+    20_000,
+  );
+  await selectContainerAndWaitForItemTable(input.pane, "Contacts");
+  await waitForCondition(
+    () => {
+      const table = within(input.pane).queryByRole("table", {
+        name: "Items in Contacts",
+      });
+      if (!table) {
+        return false;
+      }
+      const selfButtons = within(table).queryAllByRole("button", {
+        name: "You",
+      });
+      return (
+        selfButtons.length === 1 &&
+        (input.expectedLocalId === undefined ||
+          selfButtons[0]?.getAttribute("data-document-local-id") ===
+            input.expectedLocalId)
+      );
+    },
+    "Explorer did not preserve the current identity's You contact.",
+    20_000,
+  );
+
+  const table = within(input.pane).getByRole("table", {
+    name: "Items in Contacts",
+  });
+  expect(
+    within(table).queryByRole("button", { name: input.userId }),
+  ).toBeNull();
+}
+
 afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();
@@ -94,175 +154,140 @@ afterEach(async () => {
 });
 
 test(
-  "an entitled organization profile name appears in another session without Refresh",
+  "a recovered peer shares a newly created local organization name and preserves the You label",
   async () => {
     useTestApiAppHandlers();
-    const view = renderDualPane();
+    const view = renderDualPane({ autoProvisionRight: false });
     const primaryPane = getPaneRoot(view, "left");
     const secondaryPane = getPaneRoot(view, "right");
 
-    await waitForDualPaneProvisioning(primaryPane, secondaryPane);
+    await waitForSinglePaneProvisioning(primaryPane);
     const primaryUserId = getPaneUserId(primaryPane);
-    expect(getPaneUserId(secondaryPane)).not.toBe(primaryUserId);
+    await expectSingleYouContact({ pane: primaryPane, userId: primaryUserId });
+    await expectAppRuntimeSettled();
+    const primarySelfIdentity = await readPaneExplorerDocumentIdentity(
+      primaryPane,
+      "You",
+    );
+    const primarySelfDocumentId = primarySelfIdentity.documentId;
+    invariant(
+      primarySelfDocumentId,
+      "Primary self contact did not acquire a remote identity.",
+    );
 
-    const primarySession = getPaneStatusValue(primaryPane, "Session");
-    const backupJson = await downloadPaneKeyPackageBackup(primaryPane);
-    await restorePaneKeyPackageBackup(secondaryPane, backupJson);
-
+    const recoveryKey = await downloadPaneRecoveryKey(primaryPane);
+    await generatePaneKeyPairFromMenu(secondaryPane);
+    await restorePaneRecoveryKey(secondaryPane, recoveryKey);
     await waitForCondition(
       () => getPaneUserId(secondaryPane) === primaryUserId,
-      "Secondary pane did not switch to the primary identity.",
-      20_000,
-    );
-    await waitForCondition(
-      () => {
-        const secondarySession = getPaneStatusValue(secondaryPane, "Session");
-        return (
-          secondarySession !== "none" && secondarySession !== primarySession
-        );
-      },
-      "Secondary pane did not establish a distinct session.",
+      "Secondary pane did not restore the primary identity.",
       20_000,
     );
     await waitForCondition(
       () => getPaneStatusValue(secondaryPane, "Web Socket") === "connected",
-      "Secondary pane websocket did not reconnect after identity restore.",
+      "Secondary pane websocket did not reconnect after identity recovery.",
       20_000,
     );
+    await expectSingleYouContact({
+      expectedLocalId: primarySelfDocumentId,
+      pane: secondaryPane,
+      userId: primaryUserId,
+    });
 
     await openOrgManager(primaryPane);
     await openOrgManager(secondaryPane);
+    await waitForCondition(
+      () =>
+        [primaryPane, secondaryPane].every(
+          (pane) =>
+            within(pane)
+              .queryByRole("combobox", { name: "Organizations" })
+              ?.textContent?.includes(
+                DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
+              ) === true,
+        ),
+      "Both sessions did not resolve the personal organization name.",
+      20_000,
+    );
 
-    let secondaryOrganizationCountBefore = 0;
-    let secondaryUntitledCountBefore = 0;
+    let primaryOrganizationCountBefore = 0;
+    let primaryUntitledCountBefore = 0;
     await waitForCondition(
       () => {
-        if (!ensureOrganizationOptionsOpen(secondaryPane)) {
+        if (!ensureOrganizationOptionsOpen(primaryPane)) {
           return false;
         }
-        secondaryOrganizationCountBefore =
-          within(secondaryPane).queryAllByRole("option").length;
-        secondaryUntitledCountBefore = within(secondaryPane).queryAllByRole(
+        primaryOrganizationCountBefore =
+          within(primaryPane).queryAllByRole("option").length;
+        primaryUntitledCountBefore = within(primaryPane).queryAllByRole(
           "option",
           { name: "Untitled organization" },
         ).length;
-        return secondaryOrganizationCountBefore > 0;
+        return primaryOrganizationCountBefore > 0;
       },
-      "Secondary session did not load its initial organizations.",
+      "Primary session did not load its initial organizations.",
       20_000,
     );
     await interact(() => {
       fireEvent.click(
-        within(secondaryPane).getByRole("combobox", {
+        within(primaryPane).getByRole("combobox", {
           name: "Organizations",
         }),
       );
     });
 
-    await createOrganization(primaryPane, REALTIME_ORGANIZATION_NAME);
-
+    await createOrganization(secondaryPane, REALTIME_ORGANIZATION_NAME);
     await waitForCondition(
       () =>
-        within(primaryPane)
-          .getByRole("combobox", { name: "Organizations" })
-          .textContent?.includes(REALTIME_ORGANIZATION_NAME) === true,
-      "New organization did not become active in the primary session.",
+        within(secondaryPane)
+          .queryByRole("combobox", { name: "Organizations" })
+          ?.textContent?.includes(REALTIME_ORGANIZATION_NAME) === true,
+      "New organization did not become active in the recovered session.",
       20_000,
     );
 
-    // Additional organizations begin local-only, so their encrypted profile
-    // name must remain device-local. Option growth proves the new root was
-    // discovered, while the exact name must still be unavailable remotely.
+    let primaryOrganizationCountAfter = 0;
+    let primaryUntitledCountAfter = 0;
     await waitForCondition(
       () => {
-        if (!ensureOrganizationOptionsOpen(secondaryPane)) {
+        if (!ensureOrganizationOptionsOpen(primaryPane)) {
           return false;
         }
-        const options = within(secondaryPane).queryAllByRole("option");
-        return options.length > secondaryOrganizationCountBefore;
-      },
-      "Secondary session did not discover the new organization in realtime.",
-      20_000,
-    );
-    expect(
-      within(secondaryPane).queryByRole("option", {
-        name: REALTIME_ORGANIZATION_NAME,
-      }),
-      "A local-only organization must not upload its seeded encrypted name.",
-    ).toBeNull();
-    expect(
-      within(secondaryPane).getAllByRole("option", {
-        name: "Untitled organization",
-      }).length,
-    ).toBeGreaterThan(secondaryUntitledCountBefore);
-    const newRemoteOrganizationOption = within(secondaryPane)
-      .getAllByRole("option", { name: "Untitled organization" })
-      .at(-1);
-    invariant(
-      newRemoteOrganizationOption,
-      "Expected the newly discovered organization option.",
-    );
-    await interact(() => {
-      fireEvent.click(newRemoteOrganizationOption);
-    });
-
-    // The organization profile intentionally remains local-only until the
-    // trial starts, but Trash is part of the server-side provisioning
-    // transaction. A recovered session can therefore read its initialized
-    // metadata immediately even though ordinary writes are still disabled.
-    await openExplorer(secondaryPane);
-    await waitForCondition(
-      () => getExplorerSidebarItemsByName(secondaryPane, "Trash").length > 0,
-      "Secondary session did not materialize provisioned Trash metadata.",
-      20_000,
-    );
-
-    await interact(() => {
-      fireEvent.click(
-        within(primaryPane).getByRole("button", { name: "Billing" }),
-      );
-    });
-    const startTrialButton = await within(primaryPane).findByRole("button", {
-      name: "Start free trial",
-    });
-    invariant(
-      startTrialButton instanceof HTMLButtonElement,
-      "Expected Start free trial button.",
-    );
-    await waitFor(() => {
-      expect(startTrialButton.disabled).toBe(false);
-    });
-    await interact(() => {
-      fireEvent.click(startTrialButton);
-    });
-    await waitForCondition(
-      () => within(primaryPane).queryByText("Free trial") !== null,
-      "Primary organization did not enter the free trial.",
-      20_000,
-    );
-
-    // Trial entitlement activates sync, which uploads the already-seeded
-    // profile document. The secondary's open Org Manager must consume the
-    // realtime hint and replace the placeholder without Refresh or reopening.
-    await waitForCondition(
-      () => {
-        if (!ensureOrganizationOptionsOpen(secondaryPane)) {
-          return false;
-        }
+        const options = within(primaryPane).queryAllByRole("option");
+        primaryOrganizationCountAfter = options.length;
+        primaryUntitledCountAfter = within(primaryPane).queryAllByRole(
+          "option",
+          { name: "Untitled organization" },
+        ).length;
         return (
-          within(secondaryPane).queryByRole("option", {
+          options.length > primaryOrganizationCountBefore &&
+          within(primaryPane).queryByRole("option", {
             name: REALTIME_ORGANIZATION_NAME,
           }) !== null
         );
       },
-      "Secondary session did not materialize the entitled organization profile name.",
+      "Primary session did not materialize the new organization profile name.",
       20_000,
     );
-    expect(
-      within(secondaryPane).queryAllByRole("option", {
-        name: "Untitled organization",
-      }),
-    ).toHaveLength(secondaryUntitledCountBefore);
+    expect(primaryOrganizationCountAfter).toBeGreaterThan(
+      primaryOrganizationCountBefore,
+    );
+    expect(primaryUntitledCountAfter).toBe(primaryUntitledCountBefore);
+    await interact(() => {
+      fireEvent.click(
+        within(primaryPane).getByRole("combobox", {
+          name: "Organizations",
+        }),
+      );
+    });
+
+    await expectAppRuntimeSettled();
+    await expectSingleYouContact({ pane: primaryPane, userId: primaryUserId });
+    await expectSingleYouContact({
+      expectedLocalId: primarySelfDocumentId,
+      pane: secondaryPane,
+      userId: primaryUserId,
+    });
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );

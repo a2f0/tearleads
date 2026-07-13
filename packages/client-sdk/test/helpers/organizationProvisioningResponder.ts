@@ -1,4 +1,7 @@
-import type { OrganizationProvisioningRequest } from "@tearleads/validators/request";
+import {
+  isProvisionedDocumentRequest,
+  type OrganizationProvisioningRequest,
+} from "@tearleads/validators/request";
 import type { OrganizationProvisioningResponse } from "@tearleads/validators/response";
 import { createMutationResponseFromRequest } from "./containerFixtures";
 import { createResponseFromRequest } from "./documentFixtures";
@@ -73,6 +76,14 @@ export async function respondToOrganizationProvisioning(
       return { container, metadataDocument };
     }),
   );
+  const committedProfileUpdateIds = [
+    request.initialRosterProfileDocument,
+    request.initialOrganizationProfileDocument,
+  ].flatMap((profile) =>
+    isProvisionedDocumentRequest(profile)
+      ? profile.initialSync.outgoingUpdates.map((update) => update.id)
+      : [],
+  );
 
   return {
     userId: request.userId,
@@ -83,6 +94,7 @@ export async function respondToOrganizationProvisioning(
     rootMetadataAccessStateHash:
       rootMetadataDocument.accessManifest.manifestHash,
     rootMetadataDocument,
+    committedProfileUpdateIds,
     rosterProfileContainer: {
       container: rosterProfileContainerResponse,
       metadataDocument: rosterProfileMetadataDocument,

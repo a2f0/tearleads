@@ -178,19 +178,17 @@ do not accumulate for its lifetime. An explicit Refresh can retry the same
 version after a failed pull.
 
 An additional organization deliberately starts with local-only billing. Its
-encrypted organization-profile manifest is provisioned remotely, but its seeded
-name remains a pending local document update and is not uploaded while billing
-is local. For every syncable billing snapshot (trial activation or a normal
-billing refresh after purchase/restore), the active creating runtime checks the
-deterministic local profile alias for pending updates and schedules it only when
-that durable state exists. This survives reloads and delayed purchase webhooks;
-another peer has no provisioner alias/pending row and therefore cannot upload
-anything. One pending update set is handed to the registered document lane once,
-which owns retries until SQLite clears the pending rows. Scheduling is a
-best-effort post-activation side effect; failure cannot turn the committed
-billing change into an apparent failure. Once the profile update commits, the
-ordinary document hint wakes other entitled sessions, which eagerly materialize
-the system-document body without a manual Refresh.
+initial roster and organization-profile bodies are committed atomically with
+their manifests during provisioning, so another authorized session can recover
+the complete seed history and display the organization name immediately. Later
+profile edits still follow normal billing eligibility. Databases created by
+older clients, or by a newer client before the server acknowledges an atomic
+seed, retain the profile update as pending. Every syncable billing snapshot lets
+the creating runtime schedule that legacy row; the registered document lane
+owns its retries until SQLite clears it.
+That upgrade repair is best-effort and cannot turn a committed billing change
+into an apparent failure. Ordinary document hints wake other entitled sessions,
+which eagerly materialize system-document bodies without a manual Refresh.
 
 All results flow into Layer A, never back to React directly. The service has no
 React imports (enforced by the lane rules + dependency-cruiser).

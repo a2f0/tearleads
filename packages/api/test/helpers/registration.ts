@@ -39,10 +39,16 @@ import type {
   ContainerMutationRequest,
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
+  ProvisionedDocumentRequest,
   ProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { createProvisionedTrashFixture } from "./provisionedSystemContainer";
+import {
+  createOptionalProvisionedDocumentFixture,
+  createProvisionedTrashFixture,
+  deriveOrganizationMetadataContainerSystemSlot,
+  deriveRosterProfileContainerSystemSlot,
+} from "./provisionedSystemContainer";
 import { toWireJson, toWireRecord, toWireRecords } from "./registrationWire";
 
 const REGISTER_SIGNED_AT = "2026-04-07T00:00:00.000Z";
@@ -66,11 +72,11 @@ interface RegistrationBootstrap {
   initialRosterProfileContainer?:
     | ContainerCreateWithMetadataDocumentRequest
     | undefined;
-  initialRosterProfileDocument?: DocumentCreateRequest | undefined;
+  initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined;
   initialOrganizationMetadataContainer?:
     | ContainerCreateWithMetadataDocumentRequest
     | undefined;
-  initialOrganizationProfileDocument?: DocumentCreateRequest | undefined;
+  initialOrganizationProfileDocument?: ProvisionedDocumentRequest | undefined;
   initialRootContainer: ContainerMutationRequest;
   initialRootMetadataDocument: DocumentCreateRequest;
   initialSystemContainers?: ProvisionedSystemContainerRequest[] | undefined;
@@ -131,47 +137,6 @@ interface ChildContainerCreateArtifacts {
 
 function createSignerDeviceId(signingFingerprint: string): string {
   return `signing-key:${signingFingerprint}`;
-}
-
-function toBase64Url(bytes: Uint8Array): string {
-  return bytesToBase64(bytes)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
-}
-
-async function deriveRosterProfileContainerSystemSlot(input: {
-  organizationId: string;
-}): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(
-      JSON.stringify({
-        namespace: "tearleads.organization-roster-profiles",
-        organizationId: input.organizationId,
-        version: 1,
-      }),
-    ),
-  );
-
-  return `sys_v1_${toBase64Url(new Uint8Array(digest))}`;
-}
-
-async function deriveOrganizationMetadataContainerSystemSlot(input: {
-  organizationId: string;
-}): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(
-      JSON.stringify({
-        namespace: "tearleads.organization-metadata",
-        organizationId: input.organizationId,
-        version: 1,
-      }),
-    ),
-  );
-
-  return `sys_v1_${toBase64Url(new Uint8Array(digest))}`;
 }
 
 function groupProjectionMember(userId: string) {
@@ -1078,9 +1043,9 @@ export async function createRegistrationBootstrap(
   const initialRosterProfileContainer =
     rosterProfileContainer && rosterProfileContainerProjection
       ? {
-          systemSlot: await deriveRosterProfileContainerSystemSlot({
-            organizationId: input.organizationId,
-          }),
+          systemSlot: await deriveRosterProfileContainerSystemSlot(
+            input.organizationId,
+          ),
           container: rosterProfileContainer.request,
           metadataDocument: await createRootMetadataDocumentRequest({
             containerKey: rosterProfileContainer.containerKey,
@@ -1094,7 +1059,7 @@ export async function createRegistrationBootstrap(
           }),
         }
       : undefined;
-  const initialRosterProfileDocument =
+  const rosterProfileDocument =
     input.rosterProfileDocumentId &&
     rosterProfileContainer &&
     rosterProfileContainerProjection
@@ -1109,6 +1074,19 @@ export async function createRegistrationBootstrap(
           userId: input.userId,
         })
       : undefined;
+  const initialRosterProfileDocument =
+    await createOptionalProvisionedDocumentFixture({
+      containerProjection: rosterProfileContainerProjection,
+      document: rosterProfileDocument,
+      documentId: input.rosterProfileDocumentId,
+      fixtureLabel: "roster-profile",
+      initialName: "You",
+      organizationId: input.organizationId,
+      signerDeviceId,
+      signerKeyFingerprint,
+      signingPrivateKey: input.signingPrivateKey,
+      userId: input.userId,
+    });
   // Keep the public org profile separate from the Admins-scoped roster profile.
   const organizationMetadataContainer = input.organizationProfileDocumentId
     ? await createChildContainerArtifacts({
@@ -1133,9 +1111,9 @@ export async function createRegistrationBootstrap(
   const initialOrganizationMetadataContainer =
     organizationMetadataContainer && organizationMetadataContainerProjection
       ? {
-          systemSlot: await deriveOrganizationMetadataContainerSystemSlot({
-            organizationId: input.organizationId,
-          }),
+          systemSlot: await deriveOrganizationMetadataContainerSystemSlot(
+            input.organizationId,
+          ),
           container: organizationMetadataContainer.request,
           metadataDocument: await createRootMetadataDocumentRequest({
             containerKey: organizationMetadataContainer.containerKey,
@@ -1150,7 +1128,7 @@ export async function createRegistrationBootstrap(
           }),
         }
       : undefined;
-  const initialOrganizationProfileDocument =
+  const organizationProfileDocument =
     input.organizationProfileDocumentId &&
     organizationMetadataContainer &&
     organizationMetadataContainerProjection
@@ -1165,6 +1143,19 @@ export async function createRegistrationBootstrap(
           userId: input.userId,
         })
       : undefined;
+  const initialOrganizationProfileDocument =
+    await createOptionalProvisionedDocumentFixture({
+      containerProjection: organizationMetadataContainerProjection,
+      document: organizationProfileDocument,
+      documentId: input.organizationProfileDocumentId,
+      fixtureLabel: "organization-profile",
+      initialName: "Personal Org",
+      organizationId: input.organizationId,
+      signerDeviceId,
+      signerKeyFingerprint,
+      signingPrivateKey: input.signingPrivateKey,
+      userId: input.userId,
+    });
 
   return {
     ...(initialRosterProfileContainer ? { initialRosterProfileContainer } : {}),

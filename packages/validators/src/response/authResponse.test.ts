@@ -45,18 +45,32 @@ function createDocumentCreateResponse() {
 }
 
 test("isRegistrationResponse", () => {
+  const response = {
+    userId: "abc-123",
+    organizationId: "org-456",
+    rootContainerId: "ctr-789",
+    rootMetadataDocumentId: "doc-root",
+    rootMetadataAccessEpoch: 1,
+    rootMetadataAccessStateHash: "root-access-state-hash",
+    rootMetadataDocument: createDocumentCreateResponse(),
+    challenge: VALID_CHALLENGE,
+  };
+  expect(isRegistrationResponse(response)).toBe(true);
   expect(
     isRegistrationResponse({
-      userId: "abc-123",
-      organizationId: "org-456",
-      rootContainerId: "ctr-789",
-      rootMetadataDocumentId: "doc-root",
-      rootMetadataAccessEpoch: 1,
-      rootMetadataAccessStateHash: "root-access-state-hash",
-      rootMetadataDocument: createDocumentCreateResponse(),
-      challenge: VALID_CHALLENGE,
+      ...response,
+      committedProfileUpdateIds: [
+        "550e8400-e29b-41d4-a716-446655440010",
+        "550e8400-e29b-41d4-a716-446655440011",
+      ],
     }),
   ).toBe(true);
+  expect(
+    isRegistrationResponse({
+      ...response,
+      committedProfileUpdateIds: ["not-an-update-id"],
+    }),
+  ).toBe(false);
   expect(
     isRegistrationResponse({
       userId: "abc-123",

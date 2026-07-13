@@ -665,14 +665,10 @@ export class ApiClient {
     initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
     initialRootContainer: RegistrationRequest["initialRootContainer"],
     initialRootMetadataDocument: DocumentCreateRequest,
-    initialRosterProfileContainer?:
-      | ContainerCreateWithMetadataDocumentRequest
-      | undefined,
-    initialRosterProfileDocument?: DocumentCreateRequest | undefined,
-    initialOrganizationMetadataContainer?:
-      | ContainerCreateWithMetadataDocumentRequest
-      | undefined,
-    initialOrganizationProfileDocument?: DocumentCreateRequest | undefined,
+    initialRosterProfileContainer?: RegistrationRequest["initialRosterProfileContainer"],
+    initialRosterProfileDocument?: RegistrationRequest["initialRosterProfileDocument"],
+    initialOrganizationMetadataContainer?: RegistrationRequest["initialOrganizationMetadataContainer"],
+    initialOrganizationProfileDocument?: RegistrationRequest["initialOrganizationProfileDocument"],
     initialSystemContainers?: RegistrationRequest["initialSystemContainers"],
   ) {
     return this.request(

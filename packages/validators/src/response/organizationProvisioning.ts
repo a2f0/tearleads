@@ -1,5 +1,5 @@
 import { isPlainObject } from "../isPlainObject";
-import { hasNumberProperty, hasStringProperty } from "../util";
+import { hasNumberProperty, hasStringProperty, isUuidV4String } from "../util";
 import {
   type ContainerCreateWithMetadataDocumentResponse,
   isContainerCreateWithMetadataDocumentResponse,
@@ -39,6 +39,13 @@ export interface OrganizationProvisioningResponse {
   organizationProfileDocument?: DocumentCreateResponse | undefined;
   organizationProfileDocumentId?: string | undefined;
   /**
+   * Update ids for roster/organization profile seeds that the server committed
+   * in the provisioning transaction. Optional for compatibility with servers
+   * predating atomic profile seeds; current servers always return the array,
+   * including an empty array for legacy requests.
+   */
+  committedProfileUpdateIds?: string[] | undefined;
+  /**
    * Server-created responses for the additional system containers requested via
    * `initialSystemContainers` (e.g. a trash bin), in request order.
    */
@@ -50,6 +57,17 @@ function isOptionalSystemContainersResponse(value: unknown): boolean {
     value === undefined ||
     (Array.isArray(value) &&
       value.every(isContainerCreateWithMetadataDocumentResponse))
+  );
+}
+
+function isOptionalCommittedProfileUpdateIds(value: unknown): boolean {
+  return (
+    value === undefined ||
+    (Array.isArray(value) &&
+      new Set(value).size === value.length &&
+      value.every(
+        (updateId) => typeof updateId === "string" && isUuidV4String(updateId),
+      ))
   );
 }
 
@@ -88,6 +106,9 @@ export function isOrganizationProvisioningResponse(
       )) &&
     (Reflect.get(value, "organizationProfileDocumentId") === undefined ||
       hasStringProperty(value, "organizationProfileDocumentId")) &&
+    isOptionalCommittedProfileUpdateIds(
+      Reflect.get(value, "committedProfileUpdateIds"),
+    ) &&
     isOptionalSystemContainersResponse(Reflect.get(value, "systemContainers"))
   );
 }

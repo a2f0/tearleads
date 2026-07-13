@@ -43,6 +43,40 @@ export interface ProvisionedSystemContainerRequest
   initialMetadataSync: DocumentSyncRequest;
 }
 
+/**
+ * A document whose encrypted initial body is committed with its manifest in the
+ * organization-provisioning transaction.
+ */
+export interface ProvisionedDocumentRequest extends DocumentCreateRequest {
+  initialSync: DocumentSyncRequest;
+}
+
+export function isProvisionedDocumentRequest(
+  value: unknown,
+): value is ProvisionedDocumentRequest {
+  const initialSync = isPlainObject(value)
+    ? Reflect.get(value, "initialSync")
+    : undefined;
+
+  return (
+    isDocumentCreateRequest(value) &&
+    isDocumentSyncRequest(initialSync) &&
+    initialSync.outgoingUpdates.length === 1 &&
+    (initialSync.containerRekeys?.length ?? 0) === 0
+  );
+}
+
+function isProfileDocumentProvisioningRequest(
+  value: unknown,
+): value is DocumentCreateRequest | ProvisionedDocumentRequest {
+  if (!isDocumentCreateRequest(value)) {
+    return false;
+  }
+
+  const initialSync = Reflect.get(value, "initialSync");
+  return initialSync === undefined || isProvisionedDocumentRequest(value);
+}
+
 function isProvisionedSystemContainerRequest(
   value: unknown,
 ): value is ProvisionedSystemContainerRequest {
@@ -86,7 +120,10 @@ export interface OrganizationProvisioningRequest {
   initialRosterProfileContainer?:
     | ContainerCreateWithMetadataDocumentRequest
     | undefined;
-  initialRosterProfileDocument?: DocumentCreateRequest | undefined;
+  initialRosterProfileDocument?:
+    | DocumentCreateRequest
+    | ProvisionedDocumentRequest
+    | undefined;
   /**
    * Dedicated container for org-wide public metadata, born with a read grant to
    * the reserved Members group so every active roster member can decrypt it.
@@ -97,7 +134,10 @@ export interface OrganizationProvisioningRequest {
   initialOrganizationMetadataContainer?:
     | ContainerCreateWithMetadataDocumentRequest
     | undefined;
-  initialOrganizationProfileDocument?: DocumentCreateRequest | undefined;
+  initialOrganizationProfileDocument?:
+    | DocumentCreateRequest
+    | ProvisionedDocumentRequest
+    | undefined;
   /**
    * Additional app-owned system containers to provision atomically with the
    * organization (e.g. a trash bin). Each is a child of the root
@@ -167,13 +207,15 @@ export function isOrganizationProvisioningRequest(
         initialRosterProfileContainer,
       )) &&
     (initialRosterProfileDocument === undefined ||
-      isDocumentCreateRequest(initialRosterProfileDocument)) &&
+      isProfileDocumentProvisioningRequest(initialRosterProfileDocument)) &&
     (initialOrganizationMetadataContainer === undefined ||
       isContainerCreateWithMetadataDocumentRequest(
         initialOrganizationMetadataContainer,
       )) &&
     (initialOrganizationProfileDocument === undefined ||
-      isDocumentCreateRequest(initialOrganizationProfileDocument)) &&
+      isProfileDocumentProvisioningRequest(
+        initialOrganizationProfileDocument,
+      )) &&
     (initialSystemContainers === undefined ||
       (Array.isArray(initialSystemContainers) &&
         initialSystemContainers.every(isProvisionedSystemContainerRequest)))

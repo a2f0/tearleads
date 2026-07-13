@@ -22,8 +22,8 @@ After registration, every user has:
 - a root container for that organization
 - a signed root container manifest and container KEK wrap
 - an initialized root metadata document with content-key targets
-- a reserved roster-profile container, optional encrypted profile document, and
-  persisted local container metadata in SQLite
+- reserved roster and organization-profile containers, encrypted initial profile
+  documents, and persisted local container metadata in SQLite
 
 The server never sees plaintext container KEKs or document/blob content keys.
 
@@ -59,8 +59,8 @@ This avoids a circular foreign key between organizations and containers.
  organization policy is cryptographic principal state, not the org-manager
  product role source.
 5. Create the initial root metadata Loro update locally.
-6. Create the initial roster-profile container metadata and profile document
- material.
+6. Create the initial roster and organization-profile container metadata and
+ encrypted profile document material.
 7. Build and sign the root container create request, including the initial
  container KEK epoch and wrap for the registering user.
 8. Build and sign the root metadata document create request, wrapping its
@@ -82,8 +82,8 @@ transaction:
 6. Verify and store the root container manifest and KEK state.
 7. Verify and store the root metadata document manifest, content-key
  targets, and initial encrypted update.
-8. Verify and store the optional roster-profile container, its metadata
- document, and the initial profile document.
+8. Verify and store the roster and organization-profile containers, their
+ metadata documents, and the encrypted initial profile updates.
 
 If the user's fingerprint already exists, the transaction rolls back and the
 endpoint returns 409.
@@ -96,9 +96,8 @@ The response includes `userId`, `organizationId`, `rootContainerId`,
 `challenge`.
 
 1. Set `userId`, `organizationId`, and `rootContainerId` in session state.
-2. Persist the root container, roster-profile container, root metadata document
- state, roster-profile metadata state, and initial principal policy bundles to
- local SQLite.
+2. Persist the root and profile containers, their initialized document states,
+ and the initial principal policy bundles to local SQLite.
 3. Authenticate using the challenge.
 
 The root metadata content key is recovered through the document content-key

@@ -10,11 +10,17 @@ export function useExplorerPrimaryOrganizationId(input: {
   readonly tearleads: Tearleads;
 }): string | null {
   const primaryLocalOrganization = usePrimaryLocalOrganization({
-    enabled: input.appData.auth.isAuthenticated && input.ready,
+    // Explorer snapshots can transiently become unready during reconciliation.
+    // Keep the personal-org lookup alive while SQLite remains available so an
+    // active custom org cannot briefly replace the self-contact projection.
+    enabled:
+      input.appData.auth.isAuthenticated &&
+      input.appData.infra.dbStatus === "ready",
     refreshKey: [
       input.appData.auth.organizationId ?? "",
       input.appData.state.containerId ?? "",
       String(input.nodes.length),
+      String(input.ready),
     ].join(":"),
     tearleads: input.tearleads,
   });

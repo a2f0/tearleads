@@ -1,0 +1,83 @@
+import type {
+  BlobInfoInput,
+  BlobInfoList,
+  ContainerInfo,
+  ContainerItemRow,
+  DocumentInfo,
+} from "@tearleads/client-sdk";
+import type { MouseEvent } from "react";
+import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
+import type {
+  ExplorerContainerContextMenuVariant,
+  ExplorerContextMenuState,
+} from "../context-menu/ExplorerContextMenu";
+import type { MoveTargetOption } from "../targetOptions";
+import type { ExplorerDocumentMutationAction } from "./explorerModelTypes";
+import type { ExplorerDocumentModalState } from "./useExplorerDocumentModalState";
+import type { ExplorerRouteState } from "./useExplorerRoute";
+import type { OpenInlineDocument } from "./useInlineDocumentAction";
+
+export interface ExplorerContextMenuModel {
+  canCreateChildContextMenuNode: boolean;
+  canCreateContactContextMenuNode: boolean;
+  canCreateStructuredDocumentContextMenuNode: boolean;
+  canMoveToTrashContextMenuNode: boolean;
+  canMoveContextMenuNode: boolean;
+  canPurgeContextMenuNode: boolean;
+  canRenameContextMenuNode: boolean;
+  canUploadToContextMenuNode: boolean;
+  closeContextMenu: () => void;
+  containerContextMenuVariant: ExplorerContainerContextMenuVariant;
+  contextMenu: ExplorerContextMenuState | null;
+  handleContainerContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    nodeId: string,
+  ) => void;
+  handleItemContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    row: ContainerItemRow,
+  ) => void;
+  handleSidebarDocumentContextMenu: (
+    event: MouseEvent<HTMLButtonElement>,
+    localId: string,
+    containerId: string,
+  ) => void;
+  handleSidebarContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    nodeId: string,
+  ) => void;
+}
+
+export interface ExplorerPanelState {
+  activateLinkedContainer: ExplorerDocumentMutationAction;
+  canMutateDocumentLinks: boolean;
+  contextMenuState: ExplorerContextMenuModel;
+  deleteDocument: ExplorerDocumentMutationAction;
+  importDroppedFiles: ImportExplorerDroppedFiles;
+  loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
+  loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
+  loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
+  modalState: ExplorerDocumentModalState;
+  // Move a folder (and its whole subtree) into the Trash system container. The
+  // folder counterpart to deleteDocument: a reversible relocation, not a hard
+  // delete. Permanent removal is a separate step (purge) offered only once the
+  // folder is already under Trash.
+  moveContainerToTrash: (containerId: string) => Promise<unknown>;
+  openInlineDocument: OpenInlineDocument;
+  consumeInitialDocumentEditing: (localId: string) => void;
+  // Marks a document to re-enter edit mode on its next mount. Used to keep a
+  // structured document in edit mode across the blob-picker round-trip, which
+  // navigates away and remounts it.
+  markDocumentStartsInEditMode: (localId: string) => void;
+  purgeDocument: (
+    documentId: string,
+    currentContainerId: string,
+  ) => Promise<unknown>;
+  routeState: ExplorerRouteState;
+  selectDocumentProjection: (documentId: string, containerId: string) => void;
+  selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
+  selectedDocumentStartsInEditMode: boolean;
+  selectedDocumentLinkTargetOptions: ReadonlyArray<MoveTargetOption>;
+  selectedDocumentMoveTargetOptions: ReadonlyArray<MoveTargetOption>;
+  unlinkDocument: ExplorerDocumentMutationAction;
+}

@@ -53,9 +53,8 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // container; earlier ~120, see issue #1281 for the full profile). The first
   // authenticated backfill now lists each pane's system-container documents
   // once so Contacts and other headless projections converge on a fresh device.
-  // The auth-aware billing bootstrap also adds one billing read per pane and
-  // flushes each pending organization profile after registration completes;
-  // the resulting flow has been observed at 124-126 requests.
+  // The auth-aware billing bootstrap also adds one billing read per pane; the
+  // resulting flow has been observed at 124-126 requests.
   // Explorer/shared-root catch-up retains regular/directly granted containers
   // but excludes own system children, so those children are not re-fetched on
   // every discovery hint.
@@ -88,8 +87,7 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     // created device-first — is not locally primed, so its metadata projection
     // is read cold once when it syncs in.
     "GET /documents/:documentId/writer-projection": 20,
-    // ~22 observed before the auth-aware organization-profile bootstrap and
-    // 26-27 with it. A remote update arriving mid-pass is retained (per-document
+    // ~26-27 observed. A remote update arriving mid-pass is retained (per-document
     // signal sequencing) and re-synced rather than dropped, so each document
     // that sees a concurrent peer update during the share does its extra correct
     // passes. Self-echo suppression (metadata lane + server-side broadcast gated
@@ -109,8 +107,8 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /containers/:containerId/documents": 20,
     // The test WebSocket harness mirrors production routing: an access_changed
     // event evicts interested sockets, then each still-authorized pane rechecks
-    // the tree before re-declaring interest. ~30 observed before the auth-aware
-    // profile flush and 33 with it for ~4 root containers per pane — every
+    // the tree before re-declaring interest. ~33 observed for ~4 root containers
+    // per pane — every
     // reconcile and server event re-lists the whole root
     // because events are hints, not deltas (#1281, phase A). The org metadata
     // container adds one more event-scoped reconcile per pane. Small headroom.
@@ -129,8 +127,7 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     // The owner and peer panes can each load attachment metadata once while
     // settling the shared root view; keep the ceiling tight to catch loops.
     "GET /documents/:documentId/attachments": 2,
-    // Registration loads billing exactly once per authenticated pane. This is
-    // also the trigger that flushes a pending seeded organization profile.
+    // Registration loads billing exactly once per authenticated pane.
     "GET /organizations/:organizationId/billing": 2,
     "GET /organizations/:organizationId/groups": 1,
     "POST /containers/with-metadata-document": 5,

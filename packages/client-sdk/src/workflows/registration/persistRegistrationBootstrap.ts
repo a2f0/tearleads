@@ -26,7 +26,7 @@ import {
   ROSTER_PROFILE_DOCUMENT_KIND,
 } from "../organizations/rosterProfileContainer";
 
-interface RegistrationBootstrapInput {
+export interface RegistrationBootstrapInput {
   containerId: string;
   initialAdminGroupPolicy: PrincipalPolicyBundleResponse;
   initialMemberGroupPolicy: PrincipalPolicyBundleResponse;
@@ -91,6 +91,7 @@ interface RegistrationBootstrapInput {
       | "documentManifestBundle"
     >;
     initialUpdate: Uint8Array;
+    initialUpdateCommitted: boolean;
     localId: string;
     snapshot: string;
   };
@@ -107,6 +108,7 @@ interface RegistrationBootstrapInput {
       | "documentManifestBundle"
     >;
     initialUpdate: Uint8Array;
+    initialUpdateCommitted: boolean;
     localId: string;
   };
   // Additional app-owned system containers provisioned with the organization
@@ -344,9 +346,6 @@ async function persistOrganizationProfileDocumentBootstrap(
     return;
   }
 
-  const initialUpdate = createPendingUpdateFields(
-    organizationProfileDocument.initialUpdate,
-  );
   const documentState = organizationProfileDocument.documentState;
   const document: StoredDocumentRecord = {
     accessEpoch: organizationProfileDocument.accessEpoch,
@@ -365,11 +364,16 @@ async function persistOrganizationProfileDocumentBootstrap(
   };
 
   await sqlDocumentsPersistence.saveDocument(execSql, document);
-  if (initialUpdate) {
-    await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
-      localId: organizationProfileDocument.localId,
-      ...initialUpdate,
-    });
+  if (!organizationProfileDocument.initialUpdateCommitted) {
+    const initialUpdate = createPendingUpdateFields(
+      organizationProfileDocument.initialUpdate,
+    );
+    if (initialUpdate) {
+      await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
+        localId: organizationProfileDocument.localId,
+        ...initialUpdate,
+      });
+    }
   }
 }
 
@@ -387,6 +391,7 @@ async function persistInitialDocumentBootstrap(
       "contentKeyBundle" | "documentKekTargets" | "documentManifestBundle"
     >;
     initialUpdate: Uint8Array;
+    initialUpdateCommitted: boolean;
     localId: string;
   },
 ): Promise<void> {
@@ -413,12 +418,14 @@ async function persistInitialDocumentBootstrap(
     persistence: sqlDocumentsPersistence,
   });
 
-  const initialUpdate = createPendingUpdateFields(input.initialUpdate);
-  if (initialUpdate) {
-    await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
-      localId: input.localId,
-      ...initialUpdate,
-    });
+  if (!input.initialUpdateCommitted) {
+    const initialUpdate = createPendingUpdateFields(input.initialUpdate);
+    if (initialUpdate) {
+      await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
+        localId: input.localId,
+        ...initialUpdate,
+      });
+    }
   }
 }
 
@@ -440,6 +447,7 @@ async function persistRosterProfileDocumentBootstrap(
     documentProjectors: input.documentProjectors,
     documentState: rosterProfileDocument.documentState,
     initialUpdate: rosterProfileDocument.initialUpdate,
+    initialUpdateCommitted: rosterProfileDocument.initialUpdateCommitted,
     localId: rosterProfileDocument.localId,
   });
 }

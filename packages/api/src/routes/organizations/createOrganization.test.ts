@@ -9,10 +9,12 @@ import {
   users,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
-import type {
-  CreateOrganizationRequest,
-  DocumentSyncRequest,
-  ProvisionedSystemContainerRequest,
+import {
+  type CreateOrganizationRequest,
+  type DocumentSyncRequest,
+  isProvisionedDocumentRequest,
+  type ProvisionedDocumentRequest,
+  type ProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
 import {
   isCreateOrganizationResponse,
@@ -60,6 +62,75 @@ function provisionedDocumentId(
   );
   invariant(typeof documentId === "string", "expected metadata document id");
   return documentId;
+}
+
+function provisionedProfileDocumentId(
+  request: ProvisionedDocumentRequest,
+): string {
+  const documentId = Reflect.get(request.event, "objectId");
+  invariant(typeof documentId === "string", "expected profile document id");
+  return documentId;
+}
+
+async function expectProvisionedProfileReadable(input: {
+  request: ProvisionedDocumentRequest;
+  user: TestUser;
+}) {
+  const initialUpdate = input.request.initialSync.outgoingUpdates[0];
+  invariant(initialUpdate, "expected initial profile update");
+  const readRequest = {
+    contentKeyEpoch: input.request.initialSync.contentKeyEpoch,
+    expectedLinkSetManifestHash:
+      input.request.initialSync.expectedLinkSetManifestHash,
+    expectedTargetHash: input.request.initialSync.expectedTargetHash,
+    localVersionVector: null,
+    outgoingUpdates: [],
+  } satisfies DocumentSyncRequest;
+  const response = await routeApp.request(
+    `/documents/${provisionedProfileDocumentId(input.request)}/sync`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.user.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(readRequest),
+    },
+  );
+  expect(response.status).toBe(200);
+  const sync = await response.json();
+  invariant(isDocumentSyncResponse(sync), "expected document sync response");
+  expect(sync.updates).toHaveLength(1);
+  expect(sync.updates[0]?.id).toBe(initialUpdate.id);
+  expect(sync.updates[0]?.encryptedData).toBe(initialUpdate.encryptedData);
+  expect(sync.updates[0]?.partialStartVersionVector).toBe(
+    initialUpdate.partialStartVersionVector,
+  );
+  expect(sync.updates[0]?.partialEndVersionVector).toBe(
+    initialUpdate.partialEndVersionVector,
+  );
+
+  const caughtUpResponse = await routeApp.request(
+    `/documents/${provisionedProfileDocumentId(input.request)}/sync`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.user.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...readRequest,
+        localVersionVector: input.request.initialSync.localVersionVector,
+      }),
+    },
+  );
+  expect(caughtUpResponse.status).toBe(200);
+  const caughtUpSync = await caughtUpResponse.json();
+  invariant(
+    isDocumentSyncResponse(caughtUpSync),
+    "expected caught-up document sync response",
+  );
+  expect(caughtUpSync.updates).toHaveLength(0);
 }
 
 test("POST /organizations provisions an additional organization for the caller", async () => {
@@ -163,6 +234,88 @@ test("POST /organizations starts the new organization on local billing", async (
     .where(eq(organizationBilling.organizationId, body.organizationId));
   invariant(billing, "expected a billing row for the new organization");
   expect(billing.status).toBe("local");
+});
+
+test("POST /organizations atomically stores profile bodies readable on local billing", async () => {
+  const { user } = await registeredActor();
+  const body = await createOrganizationRequestBody(user, {
+    includeOrganizationProfileDocument: true,
+    includeRosterProfileDocument: true,
+  });
+  const rosterProfile = body.initialRosterProfileDocument;
+  const organizationProfile = body.initialOrganizationProfileDocument;
+  invariant(
+    isProvisionedDocumentRequest(rosterProfile),
+    "expected initial roster profile",
+  );
+  invariant(
+    isProvisionedDocumentRequest(organizationProfile),
+    "expected initial organization profile",
+  );
+  const rosterProfileUpdate = rosterProfile.initialSync.outgoingUpdates[0];
+  const organizationProfileUpdate =
+    organizationProfile.initialSync.outgoingUpdates[0];
+  invariant(rosterProfileUpdate, "expected initial roster profile update");
+  invariant(
+    organizationProfileUpdate,
+    "expected initial organization profile update",
+  );
+
+  const createResponse = await submitCreateOrganization(user, body);
+  expect(createResponse.status).toBe(200);
+  const createResponseBody = await createResponse.json();
+  invariant(
+    isCreateOrganizationResponse(createResponseBody),
+    "expected provisioning body",
+  );
+  expect(createResponseBody.committedProfileUpdateIds).toEqual([
+    rosterProfileUpdate.id,
+    organizationProfileUpdate.id,
+  ]);
+
+  const [billing] = await db
+    .select({ status: organizationBilling.status })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, body.organizationId));
+  expect(billing?.status).toBe("local");
+
+  await expectProvisionedProfileReadable({ request: rosterProfile, user });
+  await expectProvisionedProfileReadable({
+    request: organizationProfile,
+    user,
+  });
+});
+
+test("POST /organizations rolls back when an initial profile body is tampered", async () => {
+  const { user } = await registeredActor();
+  const body = await createOrganizationRequestBody(user, {
+    includeOrganizationProfileDocument: true,
+    includeRosterProfileDocument: true,
+  });
+  const profile = body.initialOrganizationProfileDocument;
+  invariant(
+    isProvisionedDocumentRequest(profile),
+    "expected initial organization profile",
+  );
+  const initialUpdate = profile.initialSync.outgoingUpdates[0];
+  invariant(initialUpdate, "expected initial organization profile update");
+  initialUpdate.encryptedData = `${initialUpdate.encryptedData}:tampered`;
+
+  const response = await submitCreateOrganization(user, body);
+  expect(response.status).toBe(400);
+
+  const [organizationRows, documentRows] = await Promise.all([
+    db
+      .select({ id: organizations.id })
+      .from(organizations)
+      .where(eq(organizations.id, body.organizationId)),
+    db
+      .select({ id: documents.id })
+      .from(documents)
+      .where(eq(documents.id, provisionedProfileDocumentId(profile))),
+  ]);
+  expect(organizationRows).toHaveLength(0);
+  expect(documentRows).toHaveLength(0);
 });
 
 test("POST /organizations atomically stores provisioned Trash metadata readable on local billing", async () => {

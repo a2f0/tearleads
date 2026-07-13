@@ -1,9 +1,5 @@
 import { expect, test } from "bun:test";
-import {
-  ML_DSA87_PUBLIC_KEY_BYTES,
-  ML_DSA87_SIGNATURE_BYTES,
-  ML_KEM1024_PUBLIC_KEY_BYTES,
-} from "../util";
+import { ML_DSA87_SIGNATURE_BYTES } from "../util";
 import {
   isChallengeRequest,
   isCompleteMultipartBlobStageRequest,
@@ -11,176 +7,18 @@ import {
   isInitiateMultipartBlobStageRequest,
   isPutPrincipalMemberEnvelopesRequest,
   isPutPrincipalStateRequest,
-  isRegistrationRequest,
   isStageBlobRequest,
   isUpdateOrganizationProfileRequest,
   isUpdateOrganizationRosterEntryRequest,
   isUploadMultipartBlobPartRequest,
   isVerifyRequest,
 } from "./index";
-import { createDocumentContentKeyBundle } from "./requestTestFixtures";
 
 const VALID_FINGERPRINT = "a".repeat(64);
-const VALID_SIGNING_PUBLIC_KEY = Array.from(
-  { length: ML_DSA87_PUBLIC_KEY_BYTES },
-  (_, index) => index % 256,
-);
-const VALID_ENCAPSULATION_PUBLIC_KEY = Array.from(
-  { length: ML_KEM1024_PUBLIC_KEY_BYTES },
-  (_, index) => index % 256,
-);
 const VALID_SIGNATURE = Array.from(
   { length: ML_DSA87_SIGNATURE_BYTES },
   (_, index) => index % 256,
 );
-
-test("isRegistrationRequest", () => {
-  const userId = "550e8400-e29b-41d4-a716-446655440001";
-  const organizationId = "550e8400-e29b-41d4-a716-446655440002";
-  const adminGroupId = "550e8400-e29b-41d4-a716-446655440003";
-  const memberGroupId = "550e8400-e29b-41d4-a716-446655440004";
-  const validInitialOrganizationPolicy = {
-    state: {
-      principalType: "organization" as const,
-      principalId: organizationId,
-      version: 1,
-      prevStateHash: null,
-      keyEpoch: 1,
-      encapsulationPublicKey: "public-key",
-      keyFingerprint: "key-fingerprint",
-      membershipMode: "projection" as const,
-      membershipRoot: "membership-root",
-      projectionRoot: "projection-root",
-      payloadCiphertextHash: "ciphertext-hash",
-      memberCount: 1,
-      signedAt: new Date().toISOString(),
-      signerUserId: userId,
-      signerUserKeyFingerprint: "signing-fingerprint",
-      signature: "signature",
-    },
-    encryptedPayload: {
-      cipherSuite: "aes-256-gcm" as const,
-      ciphertext: "ciphertext",
-      ciphertextHash: "ciphertext-hash",
-    },
-    projection: [
-      {
-        memberPrincipalType: "user" as const,
-        memberPrincipalId: userId,
-        role: "admin" as const,
-      },
-    ],
-    memberEnvelopes: [
-      {
-        memberPrincipalType: "user" as const,
-        memberPrincipalId: userId,
-        memberKeyFingerprint: "member-key-fingerprint",
-        kemCipherText: "kem-ciphertext",
-        wrappedKey: "wrapped-key",
-      },
-    ],
-  };
-  const validInitialAdminGroup = {
-    groupId: adminGroupId,
-    name: "Admins",
-    initialGroupPolicy: {
-      state: {
-        ...validInitialOrganizationPolicy.state,
-        principalType: "group" as const,
-        principalId: adminGroupId,
-      },
-      encryptedPayload: validInitialOrganizationPolicy.encryptedPayload,
-      projection: validInitialOrganizationPolicy.projection,
-      memberEnvelopes: validInitialOrganizationPolicy.memberEnvelopes,
-    },
-  };
-  const validInitialMemberGroup = {
-    groupId: memberGroupId,
-    name: "Members",
-    initialGroupPolicy: {
-      state: {
-        ...validInitialOrganizationPolicy.state,
-        principalType: "group" as const,
-        principalId: memberGroupId,
-      },
-      encryptedPayload: validInitialOrganizationPolicy.encryptedPayload,
-      projection: validInitialOrganizationPolicy.projection,
-      memberEnvelopes: validInitialOrganizationPolicy.memberEnvelopes,
-    },
-  };
-  const createValidRequest = (overrides: Record<string, unknown> = {}) => ({
-    userId,
-    organizationId,
-    rootContainerId: "550e8400-e29b-41d4-a716-446655440000",
-    signingPublicKey: VALID_SIGNING_PUBLIC_KEY,
-    encapsulationPublicKey: VALID_ENCAPSULATION_PUBLIC_KEY,
-    initialAdminGroup: validInitialAdminGroup,
-    initialMemberGroup: validInitialMemberGroup,
-    initialOrganizationPolicy: validInitialOrganizationPolicy,
-    initialRootContainer: {
-      event: { eventType: "container.create" },
-      body: { eventType: "container.create" },
-      expectedManifestHash: "container-manifest-hash",
-      manifest: { objectKind: "container" },
-      previousManifest: null,
-      parentContainerPath: [],
-      keyEpoch: { id: "container-key-epoch-id" },
-      wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
-      userRecipientKeys: [{ userId }],
-    },
-    initialRootMetadataDocument: {
-      event: { eventType: "document.link" },
-      body: { eventType: "document.link" },
-      expectedManifestHash: "document-manifest-hash",
-      manifest: { objectKind: "document" },
-      previousManifest: null,
-      targetContainerPathRefs: [
-        { containerId: "container-1", manifestHash: "container-manifest-hash" },
-      ],
-      contentKeyBundle: createDocumentContentKeyBundle(),
-    },
-    ...overrides,
-  });
-
-  expect(isRegistrationRequest(createValidRequest())).toBe(true);
-  expect(
-    isRegistrationRequest(
-      createValidRequest({
-        rootContainerId: "not-a-uuid",
-      }),
-    ),
-  ).toBe(false);
-  expect(
-    isRegistrationRequest(
-      createValidRequest({
-        signingPublicKey: [],
-        encapsulationPublicKey: [],
-      }),
-    ),
-  ).toBe(false);
-  expect(
-    isRegistrationRequest({
-      signingPublicKey: VALID_SIGNING_PUBLIC_KEY,
-      encapsulationPublicKey: VALID_ENCAPSULATION_PUBLIC_KEY,
-    }),
-  ).toBe(false);
-  expect(
-    isRegistrationRequest({
-      signingPublicKey: "not-array",
-      encapsulationPublicKey: [1],
-    }),
-  ).toBe(false);
-  expect(
-    isRegistrationRequest({
-      signingPublicKey: [1],
-      encapsulationPublicKey: ["a"],
-    }),
-  ).toBe(false);
-  expect(isRegistrationRequest({ signingPublicKey: [1] })).toBe(false);
-  expect(isRegistrationRequest({ encapsulationPublicKey: [1] })).toBe(false);
-  expect(isRegistrationRequest({})).toBe(false);
-  expect(isRegistrationRequest(null)).toBe(false);
-});
 
 test("isUpdateOrganizationRosterEntryRequest", () => {
   expect(

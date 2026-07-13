@@ -340,10 +340,6 @@
     "packages/client-sdk/src/workflows/containers/child/create.ts": {
       "lines": 531,
       "bytes": 18022
-    },
-    "packages/client-sdk/src/workflows/registration/registerIdentity.test.ts": {
-      "lines": 521,
-      "bytes": 18921
     }
   },
   "categories": {
