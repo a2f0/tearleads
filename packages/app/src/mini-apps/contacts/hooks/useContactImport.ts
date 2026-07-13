@@ -3,7 +3,6 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
-  useRef,
   useState,
 } from "react";
 import type { useLog } from "../../../providers/logging/LogProvider";
@@ -82,7 +81,7 @@ export function useImportContactMessage(input: {
   const [pendingImportUserId, setPendingImportUserId] = useState<string | null>(
     null,
   );
-  const importInFlightRef = useRef(false);
+  const [importInFlight, setImportInFlight] = useState(false);
 
   useMiniAppMessage(
     "contacts",
@@ -94,18 +93,23 @@ export function useImportContactMessage(input: {
   );
 
   useEffect(() => {
-    if (
-      pendingImportUserId === null ||
-      !isImportReady ||
-      importInFlightRef.current
-    ) {
+    if (pendingImportUserId === null || !isImportReady || importInFlight) {
       return;
     }
 
-    importInFlightRef.current = true;
-    void importContactByUserId(pendingImportUserId).finally(() => {
-      importInFlightRef.current = false;
-      setPendingImportUserId(null);
+    // Claim the pending user id before awaiting so a message that arrives
+    // mid-import is preserved (and processed next) instead of being discarded
+    // by the completion handler.
+    setImportInFlight(true);
+    const userIdToImport = pendingImportUserId;
+    setPendingImportUserId(null);
+    void importContactByUserId(userIdToImport).finally(() => {
+      setImportInFlight(false);
     });
-  }, [importContactByUserId, isImportReady, pendingImportUserId]);
+  }, [
+    importContactByUserId,
+    importInFlight,
+    isImportReady,
+    pendingImportUserId,
+  ]);
 }
