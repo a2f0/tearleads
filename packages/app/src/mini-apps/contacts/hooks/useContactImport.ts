@@ -71,15 +71,17 @@ export function useImportContactByUserId(input: {
 
 // The org-manager "Import Into Contacts" action imports immediately: create the
 // contact and select it rather than opening the import dialog. Contacts may
-// still be initializing when the message lands (it was just opened), so stash
-// the user id and run the import once the store is ready to write.
+// still be initializing when the message lands (it was just opened), so queue
+// the user ids and drain them once the store is ready to write. A queue (rather
+// than a single slot) preserves every request when several arrive in quick
+// succession — before the store is ready, or while an import is in flight.
 export function useImportContactMessage(input: {
   importContactByUserId: (userId: string) => Promise<string | null>;
   isImportReady: boolean;
 }) {
   const { importContactByUserId, isImportReady } = input;
-  const [pendingImportUserId, setPendingImportUserId] = useState<string | null>(
-    null,
+  const [pendingImportUserIds, setPendingImportUserIds] = useState<string[]>(
+    [],
   );
   const [importInFlight, setImportInFlight] = useState(false);
 
@@ -87,22 +89,21 @@ export function useImportContactMessage(input: {
     "contacts",
     useCallback((message) => {
       if (message.type === "import-contact") {
-        setPendingImportUserId(message.userId);
+        setPendingImportUserIds((previous) => [...previous, message.userId]);
       }
     }, []),
   );
 
   useEffect(() => {
-    if (pendingImportUserId === null || !isImportReady || importInFlight) {
+    const userIdToImport = pendingImportUserIds[0];
+    if (userIdToImport === undefined || !isImportReady || importInFlight) {
       return;
     }
 
-    // Claim the pending user id before awaiting so a message that arrives
-    // mid-import is preserved (and processed next) instead of being discarded
-    // by the completion handler.
+    // Dequeue the head before awaiting so messages that arrive mid-import are
+    // preserved and processed sequentially instead of overwriting each other.
     setImportInFlight(true);
-    const userIdToImport = pendingImportUserId;
-    setPendingImportUserId(null);
+    setPendingImportUserIds((previous) => previous.slice(1));
     void importContactByUserId(userIdToImport).finally(() => {
       setImportInFlight(false);
     });
@@ -110,6 +111,6 @@ export function useImportContactMessage(input: {
     importContactByUserId,
     importInFlight,
     isImportReady,
-    pendingImportUserId,
+    pendingImportUserIds,
   ]);
 }

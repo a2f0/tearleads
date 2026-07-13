@@ -62,12 +62,11 @@ function ImportButtons() {
     });
   return (
     <>
-      <button onClick={() => importUser("user-1")} type="button">
-        Import user 1
-      </button>
-      <button onClick={() => importUser("user-2")} type="button">
-        Import user 2
-      </button>
+      {["user-1", "user-2", "user-3"].map((userId) => (
+        <button key={userId} onClick={() => importUser(userId)} type="button">
+          Import {userId}
+        </button>
+      ))}
     </>
   );
 }
@@ -106,12 +105,12 @@ test("a message arriving mid-import is processed once the import completes", asy
   );
 
   // First import starts and is left in flight.
-  fireEvent.click(view.getByRole("button", { name: "Import user 1" }));
+  fireEvent.click(view.getByRole("button", { name: "Import user-1" }));
   await waitFor(() => expect(importedUserIds).toEqual(["user-1"]));
 
   // Second message arrives while the first import is still pending. It must be
   // queued, not started, and not lost.
-  fireEvent.click(view.getByRole("button", { name: "Import user 2" }));
+  fireEvent.click(view.getByRole("button", { name: "Import user-2" }));
   expect(importedUserIds).toEqual(["user-1"]);
 
   // Completing the first import releases the queued message.
@@ -119,4 +118,39 @@ test("a message arriving mid-import is processed once the import completes", asy
     importResolvers[0]?.("contact-1");
   });
   await waitFor(() => expect(importedUserIds).toEqual(["user-1", "user-2"]));
+});
+
+test("multiple messages queued during an import are all processed in order", async () => {
+  const view = render(
+    <WindowStateProvider>
+      <AppNavigationProvider
+        mode="windowed"
+        miniApps={createMiniApps(ContactsProbe)}
+      >
+        <MiniAppBusProvider>
+          <ImportButtons />
+          <WindowLayer />
+        </MiniAppBusProvider>
+      </AppNavigationProvider>
+    </WindowStateProvider>,
+  );
+
+  // First import starts; two more messages arrive while it is in flight.
+  fireEvent.click(view.getByRole("button", { name: "Import user-1" }));
+  await waitFor(() => expect(importedUserIds).toEqual(["user-1"]));
+  fireEvent.click(view.getByRole("button", { name: "Import user-2" }));
+  fireEvent.click(view.getByRole("button", { name: "Import user-3" }));
+  expect(importedUserIds).toEqual(["user-1"]);
+
+  // Draining the queue processes both queued messages, in arrival order.
+  await act(async () => {
+    importResolvers[0]?.("contact-1");
+  });
+  await waitFor(() => expect(importedUserIds).toEqual(["user-1", "user-2"]));
+  await act(async () => {
+    importResolvers[1]?.("contact-2");
+  });
+  await waitFor(() =>
+    expect(importedUserIds).toEqual(["user-1", "user-2", "user-3"]),
+  );
 });
