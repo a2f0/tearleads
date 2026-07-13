@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME } from "@tearleads/client-sdk";
 import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
 import {
@@ -23,6 +24,7 @@ import {
   readPaneExplorerDocumentIdentity,
   restorePaneRecoveryKey,
 } from "../../../../test/helpers/dual-pane/dualPaneRecoveryKit";
+import { openOrgManager } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import {
   requestPath,
   summarizeProxiedApiRequests,
@@ -55,7 +57,7 @@ async function expectAppRuntimeSettled() {
 }
 
 test(
-  "a fresh pane rematerializes custom data and the built-in self contact from a recovery key",
+  "a fresh pane rematerializes its personal org, custom data, and built-in self contact from a recovery key",
   async () => {
     useTestApiAppHandlers();
     const view = renderDualPane({ autoProvisionRight: false });
@@ -115,6 +117,17 @@ test(
     await waitForCondition(
       () => getPaneUserId(secondaryPane) === primaryUserId,
       "Secondary pane did not restore the primary identity.",
+      20_000,
+    );
+
+    await openOrgManager(secondaryPane);
+    await waitForCondition(
+      () =>
+        within(secondaryPane)
+          .getByRole("combobox", { name: "Organizations" })
+          .textContent?.includes(DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME) ===
+        true,
+      "Recovered Org Manager did not resolve the personal organization name.",
       20_000,
     );
 

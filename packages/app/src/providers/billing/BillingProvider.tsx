@@ -327,8 +327,9 @@ export function syncBillingBlockAppliesToOrganization(
  */
 export function BillingProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
-  const { organizationId } = useCryptoSession();
-  const value = useOrganizationBillingState(tearleads, organizationId);
+  const { isAuthenticated, organizationId } = useCryptoSession();
+  const activeOrganizationId = isAuthenticated ? organizationId : null;
+  const value = useOrganizationBillingState(tearleads, activeOrganizationId);
   const { billing, refresh } = value;
 
   // When a sync write is rejected for payment (HTTP 402), refetch billing so the
@@ -340,12 +341,12 @@ export function BillingProvider({ children }: PropsWithChildren) {
       tearleads.syncBillingGate.subscribe((blockedOrganizationId) => {
         if (
           blockedOrganizationId === null ||
-          blockedOrganizationId === organizationId
+          blockedOrganizationId === activeOrganizationId
         ) {
           void refresh();
         }
       }),
-    [organizationId, refresh, tearleads],
+    [activeOrganizationId, refresh, tearleads],
   );
 
   // On re-activation (billing recovered to a syncable state after a block): a

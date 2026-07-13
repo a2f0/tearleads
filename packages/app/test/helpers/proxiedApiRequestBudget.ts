@@ -27,6 +27,10 @@ function normalizeRequestPath(path: string): string {
       "/organizations/:organizationId/groups",
     )
     .replace(
+      /^\/organizations\/[^/]+\/billing$/u,
+      "/organizations/:organizationId/billing",
+    )
+    .replace(
       /^\/principals\/group\/[^/]+\/policy$/u,
       "/principals/group/:groupId/policy",
     )
