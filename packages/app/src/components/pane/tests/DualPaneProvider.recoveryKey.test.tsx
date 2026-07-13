@@ -124,9 +124,10 @@ test(
     await waitForCondition(
       () =>
         within(secondaryPane)
-          .getByRole("combobox", { name: "Organizations" })
-          .textContent?.includes(DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME) ===
-        true,
+          .queryByRole("combobox", { name: "Organizations" })
+          ?.textContent?.includes(
+            DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
+          ) === true,
       "Recovered Org Manager did not resolve the personal organization name.",
       20_000,
     );

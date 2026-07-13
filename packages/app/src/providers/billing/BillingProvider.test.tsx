@@ -101,7 +101,13 @@ test("clears billing and resets loading/error when there is no active org", asyn
 test("loads billing when authentication completes for the unchanged org", async () => {
   const snapshot = billing();
   const loadBilling = mock(() => Promise.resolve(snapshot));
-  const subscribe = mock(() => () => {});
+  let billingBlockListener: (organizationId: string | null) => void = () => {};
+  const subscribe = mock(
+    (listener: (organizationId: string | null) => void) => {
+      billingBlockListener = listener;
+      return () => {};
+    },
+  );
   let isAuthenticated = false;
   const tearleads = {
     organizations: makeClient(loadBilling).organizations,
@@ -131,10 +137,19 @@ test("loads billing when authentication completes for the unchanged org", async 
     await act(async () => Promise.resolve());
     expect(loadBilling).not.toHaveBeenCalled();
 
+    await act(async () => {
+      billingBlockListener(null);
+      await Promise.resolve();
+    });
+    expect(loadBilling).not.toHaveBeenCalled();
+
     isAuthenticated = true;
     view.rerender(<BillingProvider>child</BillingProvider>);
 
     await waitFor(() => expect(loadBilling).toHaveBeenCalledTimes(1));
+
+    await act(async () => billingBlockListener(null));
+    await waitFor(() => expect(loadBilling).toHaveBeenCalledTimes(2));
   } finally {
     cleanup();
     cryptoSessionSpy.mockRestore();

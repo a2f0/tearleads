@@ -340,8 +340,9 @@ export function BillingProvider({ children }: PropsWithChildren) {
     () =>
       tearleads.syncBillingGate.subscribe((blockedOrganizationId) => {
         if (
-          blockedOrganizationId === null ||
-          blockedOrganizationId === activeOrganizationId
+          activeOrganizationId !== null &&
+          (blockedOrganizationId === null ||
+            blockedOrganizationId === activeOrganizationId)
         ) {
           void refresh();
         }
