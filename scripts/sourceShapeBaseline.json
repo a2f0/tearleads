@@ -326,8 +326,8 @@
       "bytes": 32251
     },
     "packages/validators/src/response/organization.ts": {
-      "lines": 524,
-      "bytes": 16154
+      "lines": 526,
+      "bytes": 16220
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1159,

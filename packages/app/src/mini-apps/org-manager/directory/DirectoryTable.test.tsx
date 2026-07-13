@@ -26,6 +26,7 @@ const rosterUser: OrganizationDirectoryUser = {
   signingKeyFingerprint: "signing-fingerprint",
   signingPublicKey: "signing-public-key",
   status: "active",
+  updatedAt: "2026-05-20T12:00:00.000Z",
   userId: "550e8400-e29b-41d4-a716-446655440000",
 };
 
