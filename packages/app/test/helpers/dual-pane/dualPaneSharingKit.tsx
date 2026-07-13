@@ -298,9 +298,11 @@ export async function createGroupAndAddPeer(
   await interact(() => {
     fireEvent.click(fileMenu);
   });
-  const newGroupItem = within(pane).getByRole("menuitem", {
-    name: "New Group",
-  });
+  const newGroupItem = await within(pane).findByRole(
+    "menuitem",
+    { name: "New Group" },
+    { timeout: ORG_MANAGER_ADD_USER_TIMEOUT_MS },
+  );
   invariant(
     newGroupItem instanceof HTMLButtonElement,
     "Expected new group menu item.",

@@ -1,10 +1,14 @@
 import type { ReferencedPrincipalPolicyWarmer } from "../../../data/keyingProjectionVerification";
+import { referencedPrincipalPolicyKey } from "../../../data/keyingProjectionVerification/principalPolicyCache";
 import type { RemoteContainer } from "./types";
 
 type RemoteContainerPrincipalReferences = Pick<
   RemoteContainer,
   "metadataReferencedPrincipals" | "organizationId"
 >;
+type PrincipalReference = NonNullable<
+  RemoteContainer["metadataReferencedPrincipals"]
+>[number];
 
 export async function cacheRemoteContainerPrincipalPolicies(input: {
   readonly cacheReferencedPrincipalPolicies?:
@@ -20,27 +24,33 @@ export async function cacheRemoteContainerPrincipalPolicies(input: {
 
   const referencesByOrganizationId = new Map<
     string,
-    NonNullable<RemoteContainer["metadataReferencedPrincipals"]>[number][]
+    Map<string, PrincipalReference>
   >();
 
   for (const remoteContainer of input.remoteContainers) {
     const references = remoteContainer.metadataReferencedPrincipals ?? [];
-    if (references.length === 0) {
+    const { organizationId } = remoteContainer;
+    if (references.length === 0 || !organizationId) {
       continue;
     }
 
     const organizationReferences =
-      referencesByOrganizationId.get(remoteContainer.organizationId) ?? [];
-    organizationReferences.push(...references);
-    referencesByOrganizationId.set(
-      remoteContainer.organizationId,
-      organizationReferences,
-    );
+      referencesByOrganizationId.get(organizationId) ?? new Map();
+    for (const reference of references) {
+      organizationReferences.set(
+        referencedPrincipalPolicyKey(reference),
+        reference,
+      );
+    }
+    referencesByOrganizationId.set(organizationId, organizationReferences);
   }
 
   await Promise.all(
-    [...referencesByOrganizationId].map(([organizationId, references]) =>
-      cacheReferencedPrincipalPolicies({ organizationId, references }),
+    [...referencesByOrganizationId].map(([organizationId, referencesByKey]) =>
+      cacheReferencedPrincipalPolicies({
+        organizationId,
+        references: [...referencesByKey.values()],
+      }),
     ),
   );
 }

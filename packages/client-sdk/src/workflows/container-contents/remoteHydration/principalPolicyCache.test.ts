@@ -36,10 +36,14 @@ test("remote hydration warms principal policies against each container owner", a
         organizationId: "owner-b",
       },
       {
-        metadataReferencedPrincipals: [ownerASecondReference],
+        metadataReferencedPrincipals: [ownerAReference, ownerASecondReference],
         organizationId: "owner-a",
       },
       { organizationId: "owner-without-references" },
+      {
+        metadataReferencedPrincipals: [reference("group-without-owner")],
+        organizationId: "",
+      },
     ],
   });
 
