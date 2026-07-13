@@ -5,10 +5,14 @@ import {
   BLOB_CONTENT_KEY_WRAP_SUITE,
   computeBlobAccessManifestHash,
   computeWriteHeaderHash,
+  type ReferencedPrincipalHead,
+  toFingerprint,
   type WriteHeader,
 } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
+  createContainerManifestFixture,
   createParentProjection,
   createParentProjectionUserKeyResolver,
   substituteFirstProjectionUserWrapMaterial,
@@ -18,6 +22,7 @@ import {
   createResponse,
 } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobContracts";
+import { ensurePrincipalPolicyTables } from "../../data/persistence/principalPolicyPersistence";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
 
 test("uploadDocumentAttachment wraps blob keys with the blob content-key suite", async () => {
@@ -287,6 +292,109 @@ test("uploadDocumentAttachment can stage encrypted bytes with multipart uploads"
       }))
       .sort((left, right) => left.partNumber - right.partNumber),
   );
+});
+
+test("uploadDocumentAttachment warms managed policies for the projection owner before staging", async () => {
+  const {
+    author,
+    projection,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  const projectionKek = projection.containerKeks[0];
+  if (!projectionKek) {
+    throw new Error("Expected projection KEK fixture");
+  }
+  const groupHead: ReferencedPrincipalHead = {
+    keyEpoch: 1,
+    keyFingerprint: await toFingerprint(
+      new TextEncoder().encode("attachment-upload-group-key"),
+    ),
+    principalId: "attachment-upload-group",
+    principalType: "group",
+    stateHash: await toFingerprint(
+      new TextEncoder().encode("attachment-upload-group-state"),
+    ),
+    version: 1,
+  };
+  const managedManifest = await createContainerManifestFixture({
+    author,
+    containerId: projection.containerId,
+    containerKeyEpochId: projectionKek.containerKeyEpochId,
+    directGrants: [
+      {
+        accessLevel: "admin",
+        subjectId: author.signerUserId,
+        subjectType: "user",
+      },
+      {
+        accessLevel: "write",
+        subjectId: groupHead.principalId,
+        subjectType: "group",
+      },
+    ],
+    eventId: "event-attachment-upload-managed-policy",
+    metadataDocumentId: "metadata-attachment-upload-managed-policy",
+    organizationId: projection.organizationId,
+    referencedPrincipalHeads: [groupHead],
+    signingPublicKey,
+  });
+  const managedWriterProjection: DocumentWriterProjectionResponse = {
+    ...writerProjection,
+    authorizingContainerPaths: [
+      {
+        ...projection,
+        path: [managedManifest as unknown as (typeof projection.path)[number]],
+      },
+    ],
+  };
+  const requests: Array<{
+    organizationId: string;
+    references: readonly ReferencedPrincipalHead[];
+  }> = [];
+  const { close, execSql } = await createTestExecSql(
+    "attachment-upload-policy-warmer",
+  );
+  try {
+    await ensurePrincipalPolicyTables(execSql);
+    await expect(
+      uploadDocumentAttachment({
+        apiClient: {
+          bindBlobAttachment: async () => {
+            throw new Error("Unexpected bind");
+          },
+          getDocumentWriterProjection: async () => managedWriterProjection,
+          stageBlob: async () => {
+            throw new Error("Unexpected stage");
+          },
+        },
+        author,
+        blobId: "550e8400-e29b-41d4-a716-446655440567",
+        bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
+        documentId: writerProjection.documentId,
+        execSql,
+        expectedBindingId: null,
+        resolveProjectionUserKey,
+        slotId: "preview",
+        targetSecretKey: secretKey,
+        warmReferencedPrincipalPolicies: async (request) => {
+          requests.push(request);
+          throw new Error("Attachment upload policy warmer reached");
+        },
+        writerProjection: managedWriterProjection,
+      }),
+    ).rejects.toThrow("Attachment upload policy warmer reached");
+    expect(requests).toEqual([
+      {
+        organizationId: projection.organizationId,
+        references: [groupHead],
+      },
+    ]);
+  } finally {
+    close();
+  }
 });
 
 test("uploadDocumentAttachment rejects document writer projections with bad signatures before staging", async () => {

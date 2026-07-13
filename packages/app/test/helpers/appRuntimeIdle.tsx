@@ -1,5 +1,6 @@
 import {
   type DomainScope,
+  getDomainSyncCoordinatorSnapshot,
   hasDomainSyncCoordinatorPendingWork,
   waitForDomainSyncCoordinatorToSettle,
 } from "@tearleads/client-sdk";
@@ -20,6 +21,68 @@ const DEFAULT_APP_TEST_RUNTIME_SYNC_QUIET_MS = 0;
 const DEFAULT_APP_TEST_RUNTIME_TIMEOUT_MS = 500;
 
 const activeDomainScopeMountCounts = new Map<DomainScope, number>();
+
+export interface AppTestSyncLaneErrorBaseline {
+  readonly errorCountsByScope: ReadonlyMap<
+    DomainScope,
+    ReadonlyMap<string, number>
+  >;
+}
+
+interface AppTestSyncLaneError {
+  readonly errorCount: number;
+  readonly errorCountIncrease: number;
+  readonly key: string;
+  readonly label: string;
+  readonly lastError: string | null;
+  readonly lastFailedAt: string | null;
+}
+
+export function captureAppTestSyncLaneErrorBaseline(): AppTestSyncLaneErrorBaseline {
+  const errorCountsByScope = new Map<
+    DomainScope,
+    ReadonlyMap<string, number>
+  >();
+  for (const domainScope of activeDomainScopeMountCounts.keys()) {
+    errorCountsByScope.set(
+      domainScope,
+      new Map(
+        getDomainSyncCoordinatorSnapshot(domainScope).lanes.map((lane) => [
+          lane.key,
+          lane.errorCount,
+        ]),
+      ),
+    );
+  }
+
+  return { errorCountsByScope };
+}
+
+export function listAppTestSyncLaneErrorsSince(
+  baseline: AppTestSyncLaneErrorBaseline,
+): AppTestSyncLaneError[] {
+  const errors: AppTestSyncLaneError[] = [];
+  for (const domainScope of activeDomainScopeMountCounts.keys()) {
+    const baselineCounts = baseline.errorCountsByScope.get(domainScope);
+    for (const lane of getDomainSyncCoordinatorSnapshot(domainScope).lanes) {
+      const baselineErrorCount = baselineCounts?.get(lane.key) ?? 0;
+      if (lane.errorCount <= baselineErrorCount) {
+        continue;
+      }
+
+      errors.push({
+        errorCount: lane.errorCount,
+        errorCountIncrease: lane.errorCount - baselineErrorCount,
+        key: lane.key,
+        label: lane.label,
+        lastError: lane.lastError,
+        lastFailedAt: lane.lastFailedAt,
+      });
+    }
+  }
+
+  return errors;
+}
 
 function remainingTimeoutMs(deadline: number): number {
   return Math.max(0, deadline - Date.now());

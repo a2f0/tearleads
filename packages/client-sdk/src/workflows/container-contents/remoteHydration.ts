@@ -8,6 +8,7 @@ import {
   createContainerMetadataDocument,
   getDefaultContainerName,
 } from "../../data/containers/containerMetadataDocument";
+import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
 import {
   type ContainerRecord,
   createContainerParentSyncLane,
@@ -21,6 +22,7 @@ import {
 } from "./remoteHydration/childIndex";
 import { markContainerParentLaneFetched } from "./remoteHydration/laneFetchMarkers";
 import { createContainerParentHydrationQueue } from "./remoteHydration/parentLaneQueue";
+import { cacheRemoteContainerPrincipalPolicies } from "./remoteHydration/principalPolicyCache";
 import {
   reconcileLocalOnlyRootContainers,
   reconcileLocalOnlySystemContainers,
@@ -344,19 +346,6 @@ function isCurrentQueuedRemoteContainer(
   return queue.get(remoteContainer.id) === remoteContainer;
 }
 
-async function cacheQueuedRemoteContainerPrincipals(input: {
-  queuedRemoteContainers: ReadonlyArray<RemoteContainer>;
-  state: RemoteContainerHydrationState;
-}) {
-  const { queuedRemoteContainers, state } = input;
-  await state.runtime.util.cacheReferencedPrincipalPolicies(
-    queuedRemoteContainers.flatMap(
-      (queuedRemoteContainer) =>
-        queuedRemoteContainer.metadataReferencedPrincipals ?? [],
-    ),
-  );
-}
-
 async function upsertQueuedRemoteContainer(input: {
   containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
   containerIdsWithPendingStructuralIntents: ReadonlySet<string>;
@@ -401,9 +390,11 @@ async function drainRemoteContainerIngestQueue(input: {
   try {
     while (queue.size > 0) {
       const queuedRemoteContainers = Array.from(queue.values());
-      await cacheQueuedRemoteContainerPrincipals({
-        queuedRemoteContainers,
-        state,
+      await cacheRemoteContainerPrincipalPolicies({
+        cacheReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+          state.runtime,
+        ),
+        remoteContainers: queuedRemoteContainers,
       });
       const [
         containerIdsWithPendingMetadataUpdates,
@@ -495,11 +486,12 @@ async function applyRemoteContainerPage(input: {
   } = input;
   let hydratedCount = 0;
 
-  await state.runtime.util.cacheReferencedPrincipalPolicies(
-    items.flatMap(
-      (remoteContainer) => remoteContainer.metadataReferencedPrincipals ?? [],
+  await cacheRemoteContainerPrincipalPolicies({
+    cacheReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      state.runtime,
     ),
-  );
+    remoteContainers: items,
+  });
   const [
     containerIdsWithPendingMetadataUpdates,
     containerIdsWithPendingStructuralIntents,

@@ -55,6 +55,7 @@ import {
 import {
   collectContainerWriterProjectionPrincipalPolicies,
   type ProjectionUserKeyResolver,
+  type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -200,17 +201,20 @@ async function collectContainerMovePrincipalPolicies(input: {
   execSql?: ExecSql | undefined;
   previousProjection: ContainerWriterProjectionResponse;
   resolveUserKey: ProjectionUserKeyResolver;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
   const [sourcePolicies, destinationParentPolicies] = await Promise.all([
     collectContainerWriterProjectionPrincipalPolicies({
       execSql: input.execSql,
       projection: input.previousProjection,
       resolveUserKey: input.resolveUserKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     }),
     collectContainerWriterProjectionPrincipalPolicies({
       execSql: input.execSql,
       projection: input.destinationParentProjection,
       resolveUserKey: input.resolveUserKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     }),
   ]);
 
@@ -224,9 +228,10 @@ async function collectOptionalContainerMovePrincipalPolicies(input: {
   destinationParentProjection: ContainerWriterProjectionResponse;
   execSql?: ExecSql | undefined;
   previousProjection: ContainerWriterProjectionResponse;
-  resolveUserKey?: ProjectionUserKeyResolver | undefined;
+  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
-  if (!input.resolveUserKey) {
+  if (!input.resolveProjectionUserKey) {
     return [];
   }
 
@@ -234,7 +239,8 @@ async function collectOptionalContainerMovePrincipalPolicies(input: {
     destinationParentProjection: input.destinationParentProjection,
     execSql: input.execSql,
     previousProjection: input.previousProjection,
-    resolveUserKey: input.resolveUserKey,
+    resolveUserKey: input.resolveProjectionUserKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
 }
 
@@ -351,14 +357,8 @@ async function buildMaterializedContainerMovePlan(
       parentKekMaterial: destinationParentKey,
     }),
   ];
-  const principalPolicies = await collectOptionalContainerMovePrincipalPolicies(
-    {
-      destinationParentProjection: input.destinationParentProjection,
-      execSql: input.execSql,
-      previousProjection: input.previousProjection,
-      resolveUserKey: input.resolveProjectionUserKey,
-    },
-  );
+  const principalPolicies =
+    await collectOptionalContainerMovePrincipalPolicies(input);
 
   return buildContainerMovePlanResult({
     body,
@@ -390,6 +390,7 @@ export async function moveRemoteContainer(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<{
   containerKey: Uint8Array;
   plan: ContainerMovePlan;
@@ -418,6 +419,7 @@ export async function moveRemoteContainer(input: {
     resolveProjectionUserKey,
     signedAt: input.signedAt,
     targetSecretKey: input.targetSecretKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const response = await input.apiClient.moveContainer(
     input.containerId,

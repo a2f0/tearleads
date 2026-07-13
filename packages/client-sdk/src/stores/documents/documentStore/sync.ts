@@ -15,6 +15,7 @@ import {
   isDestroyedDatabaseClientError,
   sequenceUnchanged,
 } from "../../../workflows/documents/syncLane";
+import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { requestDocumentStoreSync } from "../registry";
 import { awaitInitializationForSync } from "./initialization";
 import {
@@ -111,6 +112,9 @@ async function requestRemoteDocumentSync(input: {
       writerKeyLabel: "writer key",
     }),
     targetSecretKey: encapsulationKeyPair.secretKey,
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      state.runtime,
+    ),
     writerProjection:
       state.writerProjection?.documentId === currentRecord.documentId
         ? state.writerProjection
@@ -279,12 +283,7 @@ function resolveSyncedDocumentWriterProjection(
  * A moved sequence means a newer remote event arrived mid-pass and must survive
  * for the coalesced re-run to avoid the convergence-stall race.
  */
-export function canClearRemoteUpdateSignalAfterSync(
-  currentSignalSeq: number,
-  consumedSignalSeq: number,
-): boolean {
-  return sequenceUnchanged(currentSignalSeq, consumedSignalSeq);
-}
+export const canClearRemoteUpdateSignalAfterSync = sequenceUnchanged;
 
 async function finalizeDocumentSync(
   state: DocumentStoreState,

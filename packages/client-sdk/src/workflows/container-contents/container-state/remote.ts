@@ -17,6 +17,7 @@ import {
   createRemoteDocument,
   resolveDocumentCreateAuthor,
 } from "../../documents";
+import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import { createRemoteContainerWithMetadataDocument } from "./createWithMetadata";
 import type {
   ContainerWorkflowRuntime,
@@ -54,6 +55,9 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
     parentProjection: input.parentProjection,
     parentSecretKey,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      input.runtime,
+    ),
   });
   if (!createdContainer) {
     return null;
@@ -67,6 +71,9 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
     execSql,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     targetSecretKey: parentSecretKey,
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      input.runtime,
+    ),
   });
   if (!createdMetadataDocument) {
     return null;
@@ -164,6 +171,9 @@ export async function shareRemoteContainer(input: {
     recipientUserId: input.recipientUserId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     targetSecretKey,
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      input.runtime,
+    ),
   });
   if (!shared) {
     return null;
@@ -219,6 +229,9 @@ export async function shareRemoteContainerWithGroup(input: {
     recipientGroupId: input.recipientGroupId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     targetSecretKey,
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      input.runtime,
+    ),
   });
   if (!shared) {
     return null;
@@ -268,6 +281,9 @@ export async function moveRemoteContainer(input: {
     execSql,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     targetSecretKey,
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      input.runtime,
+    ),
   });
   if (!moved) {
     return null;

@@ -18,6 +18,7 @@ import {
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "../workflows/organizations";
+import { createRuntimePrincipalPolicyWarmer } from "../workflows/principals/runtimePolicyWarmer";
 import type { ContainerContents } from "./containerContents";
 import { reshareOrganizationMetadataToMembers } from "./organizationMetadataReshare";
 import {
@@ -480,6 +481,8 @@ class OrganizationsService implements Organizations {
         subjectId: grant.subjectId,
         subjectType: grant.subjectType,
       },
+      warmReferencedPrincipalPolicies:
+        createRuntimePrincipalPolicyWarmer(runtime),
       ...signingContext,
     });
   }

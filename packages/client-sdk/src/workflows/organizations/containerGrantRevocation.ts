@@ -1,5 +1,6 @@
 import type { ContainerDirectGrant } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
+import type { ReferencedPrincipalPolicyWarmer } from "../../data/keyingProjectionVerification";
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { revokeRemoteContainer } from "../containers";
@@ -34,6 +35,9 @@ export async function revokeOrganizationContainerGrant(input: {
     readonly signingPrivateKey: Uint8Array;
     readonly signingPublicKey: Uint8Array;
   };
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
 }): Promise<ContainerMutationResponse> {
   const author = resolveDocumentCreateAuthor({
     auth: {
@@ -66,6 +70,7 @@ export async function revokeOrganizationContainerGrant(input: {
       "Org Manager",
     ),
     targetSecretKey: input.encapsulationKeyPair.secretKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   if (!revoked) {
     throw new Error("Container grant could not be revoked");

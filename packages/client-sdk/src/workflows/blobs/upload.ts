@@ -319,6 +319,7 @@ export async function uploadDocumentAttachment({
   signedAt = new Date().toISOString(),
   slotId,
   targetSecretKey,
+  warmReferencedPrincipalPolicies,
   writerProjection,
 }: UploadDocumentAttachmentInput): Promise<UploadDocumentAttachmentResult | null> {
   if (contentKey.byteLength !== 32) {
@@ -344,6 +345,7 @@ export async function uploadDocumentAttachment({
       iv,
       resolveProjectionUserKey: resolveProjectionUserKeyForUpload,
       targetSecretKey,
+      warmReferencedPrincipalPolicies,
       writerProjection: freshWriterProjection,
     });
   let material: BlobAttachmentMaterial | null;

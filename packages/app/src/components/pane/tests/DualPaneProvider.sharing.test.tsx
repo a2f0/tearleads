@@ -34,7 +34,10 @@ import {
   clickShareWithPeer,
   shareContainerWithPeer,
 } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
-import { waitForNoPostShareSyncFailures } from "../../../../test/helpers/dual-pane/dualPaneSyncKit";
+import {
+  capturePostShareSyncBaseline,
+  waitForNoPostShareSyncFailures,
+} from "../../../../test/helpers/dual-pane/dualPaneSyncKit";
 import { summarizeProxiedApiRequests } from "../../../../test/helpers/dualPaneRequestSummary";
 import {
   listProxiedApiRequests,
@@ -202,11 +205,11 @@ test(
       });
     });
 
-    const postShareRequestStartIndex = listProxiedApiRequests().length;
+    const postShareBaseline = capturePostShareSyncBaseline();
     await shareContainerWithPeer(leftPane, "Contacts");
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
-      postShareRequestStartIndex,
+      postShareBaseline,
     );
 
     await clickExplorerRefresh(rightPane);
@@ -254,6 +257,10 @@ test(
         name: ownerUserId,
       }),
     ).toBeTruthy();
+    await waitForNoPostShareSyncFailures(
+      [leftPane, rightPane],
+      postShareBaseline,
+    );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
@@ -273,22 +280,19 @@ test(
     await createChildContainer(leftPane, "Shared");
     await shareContainerWithPeer(leftPane, "Shared");
 
-    const duplicateShareRequestStartIndex = listProxiedApiRequests().length;
+    const duplicateShareBaseline = capturePostShareSyncBaseline();
     await clickShareWithPeer(leftPane);
-    await waitForNoPostShareSyncFailures(
-      [leftPane],
-      duplicateShareRequestStartIndex,
-    );
+    await waitForNoPostShareSyncFailures([leftPane], duplicateShareBaseline);
 
     const duplicateShareRequests = listProxiedApiRequests()
-      .slice(duplicateShareRequestStartIndex)
+      .slice(duplicateShareBaseline.requestStartIndex)
       .filter(
         (request) =>
           request.method === "POST" && request.url.endsWith("/share"),
       );
     expect(
       duplicateShareRequests,
-      `Duplicate peer share should not create another share mutation.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(duplicateShareRequestStartIndex))}`,
+      `Duplicate peer share should not create another share mutation.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(duplicateShareBaseline.requestStartIndex))}`,
     ).toEqual([]);
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
@@ -327,11 +331,11 @@ test(
     );
     requestPhaseStartIndex = listProxiedApiRequests().length;
 
-    const postShareRequestStartIndex = listProxiedApiRequests().length;
+    const postShareBaseline = capturePostShareSyncBaseline();
     await shareContainerWithPeer(leftPane, "/");
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
-      postShareRequestStartIndex,
+      postShareBaseline,
     );
     profileProxiedApiRequests(
       "share root + post-share settle",
@@ -339,14 +343,14 @@ test(
     );
     requestPhaseStartIndex = listProxiedApiRequests().length;
 
-    const postDiscoveryRequestStartIndex = listProxiedApiRequests().length;
+    const postDiscoveryBaseline = capturePostShareSyncBaseline();
     // The recipient pane re-lists its root containers automatically when the
     // share arrives (serverEventsBinding handles the "shared_with_you" event),
     // so the shared note surfaces without a manual refresh.
     await waitForSharedNoteVisible(rightPane);
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
-      postDiscoveryRequestStartIndex,
+      postDiscoveryBaseline,
     );
     profileProxiedApiRequests(
       "auto-discover shared note settle",

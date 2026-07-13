@@ -2,8 +2,6 @@ import {
   type ContainerUserRecipientKey,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
-  type PrincipalPolicySignerPublicKey,
-  type ReferencedPrincipalHead,
   serializeKeyingCanonicalJson,
   toFingerprint,
   type VerifiedContainerAccessManifest,
@@ -19,15 +17,10 @@ import type {
   AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
-  PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { readCanonicalJson, readCanonicalRecord } from "./keyingCanonicalJson";
 import { enforceAccessManifestCheckpoints } from "./keyingProjectionVerification/accessManifestCheckpointEnforcement";
-import {
-  filterUncachedPrincipalPolicyReferences,
-  principalPolicyBundleStates,
-  referencedPrincipalPolicyKey,
-} from "./keyingProjectionVerification/principalPolicyCache";
+import { collectReferencedPrincipalPolicies } from "./keyingProjectionVerification/principalPolicyVerification";
 import {
   readAccessEvent,
   readAccessManifest,
@@ -39,26 +32,20 @@ import {
   readRecordString,
   readRecordValue,
 } from "./keyingProjectionVerification/readers";
-import {
-  loadPrincipalPolicyCheckpoint,
-  savePrincipalPolicyCheckpoint,
-} from "./persistence/keyingCheckpointPersistence";
-import { loadPrincipalPolicyBundle } from "./persistence/principalPolicyPersistence";
-import {
-  verifyOrganizationAdminSignerUserIds,
-  verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
-} from "./principalPolicyAdminSigners";
+import type {
+  PrincipalPolicyCache,
+  ProjectionUserKeyResolver,
+  ReferencedPrincipalPolicyWarmer,
+} from "./keyingProjectionVerification/types";
 import type { ExecSql } from "./sqlite/sqlSchema";
 
-export interface ProjectionUserKey {
-  readonly encapsulationPublicKey: Uint8Array;
-  readonly signingPublicKey: Uint8Array;
-  readonly userId: string;
-}
-
-export type ProjectionUserKeyResolver = (
-  userId: string,
-) => Promise<ProjectionUserKey | null>;
+export type {
+  PrincipalPolicyCache,
+  ProjectionUserKey,
+  ProjectionUserKeyResolver,
+  ReferencedPrincipalPolicyWarmer,
+  ReferencedPrincipalPolicyWarmRequest,
+} from "./keyingProjectionVerification/types";
 
 export function requireProjectionUserKeyResolver(
   resolveProjectionUserKey: ProjectionUserKeyResolver | null | undefined,
@@ -69,223 +56,6 @@ export function requireProjectionUserKeyResolver(
   }
 
   return resolveProjectionUserKey;
-}
-
-export type PrincipalPolicyCache = Map<string, VerifiedPrincipalPolicy>;
-
-function principalPolicyReferenceLabel(
-  reference: ReferencedPrincipalHead,
-): string {
-  return `${reference.principalType}:${reference.principalId}@${reference.version}`;
-}
-
-async function collectPrincipalPolicySignerPublicKeys(input: {
-  bundle: PrincipalPolicyBundleResponse;
-  label: string;
-  resolveUserKey: ProjectionUserKeyResolver;
-}): Promise<PrincipalPolicySignerPublicKey[]> {
-  const signerPublicKeysByKey = new Map<
-    string,
-    PrincipalPolicySignerPublicKey
-  >();
-
-  for (const state of principalPolicyBundleStates(input.bundle)) {
-    const cacheKey = `${state.signerUserId}:${state.signerUserKeyFingerprint}`;
-    if (signerPublicKeysByKey.has(cacheKey)) {
-      continue;
-    }
-
-    const signerKey = await input.resolveUserKey(state.signerUserId);
-    if (!signerKey) {
-      throw new Error(
-        `${input.label} signer key could not be resolved for ${state.signerUserId}`,
-      );
-    }
-
-    const signingKeyFingerprint = await toFingerprint(
-      signerKey.signingPublicKey,
-    );
-    if (signingKeyFingerprint !== state.signerUserKeyFingerprint) {
-      throw new Error(`${input.label} signer key fingerprint mismatch`);
-    }
-
-    signerPublicKeysByKey.set(cacheKey, {
-      userId: state.signerUserId,
-      signingKeyFingerprint,
-      signingPublicKey: signerKey.signingPublicKey,
-    });
-  }
-
-  return [...signerPublicKeysByKey.values()];
-}
-
-async function loadOrganizationExternalAdminSignerUserIds(input: {
-  execSql?: ExecSql | undefined;
-  organizationId: string;
-  resolveUserKey: ProjectionUserKeyResolver;
-}): Promise<string[]> {
-  if (!input.execSql) {
-    return [];
-  }
-
-  const bundle = await loadPrincipalPolicyBundle(
-    input.execSql,
-    "organization",
-    input.organizationId,
-  );
-  if (!bundle) {
-    return [];
-  }
-
-  try {
-    const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
-      bundle,
-      label: `Organization policy ${input.organizationId}`,
-      resolveUserKey: input.resolveUserKey,
-    });
-
-    return verifyOrganizationAdminSignerUserIds({
-      bundle,
-      organizationId: input.organizationId,
-      signerPublicKeys,
-    });
-  } catch {
-    return [];
-  }
-}
-
-// Fetches and verifies referenced principal policies from the server into the
-// local cache. Supplied by the create/link paths so a member writing under
-// another org's shared container can obtain that org's group policy on demand
-// instead of hard-failing when it was never warmed by hydration. Returns true
-// when at least one reference was newly cached.
-export type ReferencedPrincipalPolicyWarmer = (
-  references: readonly ReferencedPrincipalHead[],
-) => Promise<void>;
-
-async function verifyReferencedPrincipalPolicy(input: {
-  execSql?: ExecSql | undefined;
-  organizationId: string;
-  principalPolicyCache: PrincipalPolicyCache;
-  reference: ReferencedPrincipalHead;
-  resolveUserKey: ProjectionUserKeyResolver;
-  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<VerifiedPrincipalPolicy> {
-  const cacheKey = referencedPrincipalPolicyKey(input.reference);
-  const cachedPolicy = input.principalPolicyCache.get(cacheKey);
-  if (cachedPolicy) {
-    return cachedPolicy;
-  }
-
-  const referenceLabel = principalPolicyReferenceLabel(input.reference);
-  if (!input.execSql) {
-    throw new Error(
-      `Principal policy ${referenceLabel} requires a verified local cache`,
-    );
-  }
-
-  let bundle = await loadPrincipalPolicyBundle(
-    input.execSql,
-    input.reference.principalType,
-    input.reference.principalId,
-  );
-  if (!bundle && input.warmReferencedPrincipalPolicies) {
-    // The reference is not cached locally — the common case for a member who
-    // gained access via another org's group grant and never hydrated that
-    // group's policy. Fetch+verify+persist it, then re-read from the cache.
-    await input.warmReferencedPrincipalPolicies([input.reference]);
-    bundle = await loadPrincipalPolicyBundle(
-      input.execSql,
-      input.reference.principalType,
-      input.reference.principalId,
-    );
-  }
-  if (!bundle) {
-    throw new Error(`Principal policy ${referenceLabel} is not cached`);
-  }
-
-  const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
-    bundle,
-    label: `Principal policy ${referenceLabel}`,
-    resolveUserKey: input.resolveUserKey,
-  });
-  const localCheckpoint = await loadPrincipalPolicyCheckpoint(
-    input.execSql,
-    input.reference.principalType,
-    input.reference.principalId,
-  );
-  const verified =
-    await verifyPrincipalPolicyBundleWithExternalOrganizationAdmins({
-      bundle,
-      expectedReference: input.reference,
-      loadExternalAdminSignerUserIds: () =>
-        loadOrganizationExternalAdminSignerUserIds({
-          execSql: input.execSql,
-          organizationId: input.organizationId,
-          resolveUserKey: input.resolveUserKey,
-        }),
-      localCheckpoint,
-      signerPublicKeys,
-    });
-  if (!verified.ok) {
-    throw new Error(
-      `Principal policy ${referenceLabel} verification failed: ${verified.error.message}`,
-    );
-  }
-
-  // Advance the anti-rollback pin only after the bundle verifies cleanly. The
-  // bundle carries its own state chain, so the crypto layer has already
-  // confirmed it extends `localCheckpoint` (or hard-failed on rollback /
-  // equivocation / stale predecessor).
-  await savePrincipalPolicyCheckpoint(
-    input.execSql,
-    verified.value.checkpoint,
-    new Date().toISOString(),
-  );
-  input.principalPolicyCache.set(cacheKey, verified.value);
-  return verified.value;
-}
-
-async function collectReferencedPrincipalPolicies(input: {
-  execSql?: ExecSql | undefined;
-  organizationId: string;
-  principalPolicyCache: PrincipalPolicyCache;
-  references: readonly ReferencedPrincipalHead[];
-  resolveUserKey: ProjectionUserKeyResolver;
-  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<VerifiedPrincipalPolicy[]> {
-  const uniqueReferences = new Map<string, ReferencedPrincipalHead>();
-  for (const reference of input.references) {
-    uniqueReferences.set(referencedPrincipalPolicyKey(reference), reference);
-  }
-
-  const references = [...uniqueReferences.values()];
-  // Warm every missing reference in one batched fetch before verifying, so a
-  // path that references several uncached policies makes a single round of
-  // requests rather than one per reference.
-  if (input.warmReferencedPrincipalPolicies && input.execSql) {
-    const uncached = await filterUncachedPrincipalPolicyReferences({
-      execSql: input.execSql,
-      principalPolicyCache: input.principalPolicyCache,
-      references,
-    });
-    if (uncached.length > 0) {
-      await input.warmReferencedPrincipalPolicies(uncached);
-    }
-  }
-
-  return Promise.all(
-    references.map((reference) =>
-      verifyReferencedPrincipalPolicy({
-        execSql: input.execSql,
-        organizationId: input.organizationId,
-        principalPolicyCache: input.principalPolicyCache,
-        reference,
-        resolveUserKey: input.resolveUserKey,
-        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-      }),
-    ),
-  );
 }
 
 function canonicalString(value: unknown, label: string): string {
@@ -379,6 +149,9 @@ async function verifyContainerManifestBundle(input: {
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
 }): Promise<VerifiedContainerAccessManifest> {
   const parentPath =
     await resolveContainerManifestVerificationParentPath(input);
@@ -418,6 +191,7 @@ async function verifyContainerManifestBundle(input: {
     principalPolicyCache: input.principalPolicyCache,
     references: referencedPrincipalHeads,
     resolveUserKey: input.resolveUserKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
 
   const verified = await verifyContainerAccessManifest({
@@ -494,6 +268,9 @@ async function resolveContainerManifestVerificationParentPath(input: {
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
 }): Promise<readonly VerifiedContainerAccessManifest[]> {
   // Descendants keep the parent manifest hash they were created or moved under;
   // a later parent share/rekey must not require rewriting descendant manifests.
@@ -546,6 +323,9 @@ async function verifyPreviousContainerManifest(input: {
   readonly previousManifestHash: string;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
 }): Promise<VerifiedContainerAccessManifest> {
   const previousBundle = input.bundlesByHash.get(input.previousManifestHash);
   if (!previousBundle) {
@@ -567,6 +347,7 @@ async function verifyPreviousContainerManifest(input: {
     principalPolicyCache: input.principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
     verifiedByHash: input.verifiedByHash,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
 }
 
@@ -630,6 +411,9 @@ async function verifyContainerKekProjection(input: {
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedManifest: VerifiedContainerAccessManifest;
   readonly verifiedManifestHistory: readonly VerifiedContainerAccessManifest[];
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
 }): Promise<VerifiedContainerKekState> {
   if (input.verifiedManifest.state.parentContainerId && !input.parentKekState) {
     throw new Error(`${input.label} requires verified parent KEK state`);
@@ -661,6 +445,7 @@ async function verifyContainerKekProjection(input: {
       ...input.verifiedManifest.state.referencedPrincipalHeads,
     ],
     resolveUserKey: input.resolveUserKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const verified = await verifyContainerKekState({
     containerManifest: input.verifiedManifest,
@@ -714,6 +499,9 @@ async function verifyContainerManifestPath(input: {
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedByHash: Map<string, VerifiedContainerAccessManifest>;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
 }): Promise<VerifiedContainerAccessManifest[]> {
   const verifiedPath: VerifiedContainerAccessManifest[] = [];
   for (const [index, bundle] of input.path.entries()) {
@@ -727,6 +515,7 @@ async function verifyContainerManifestPath(input: {
         principalPolicyCache: input.principalPolicyCache,
         resolveUserKey: input.resolveUserKey,
         verifiedByHash: input.verifiedByHash,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       }),
     );
   }
@@ -741,6 +530,9 @@ export async function verifyContainerWriterProjection(input: {
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedByHash?:
     | Map<string, VerifiedContainerAccessManifest>
+    | undefined;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
     | undefined;
 }): Promise<VerifiedContainerAccessManifest[]> {
   if (input.projection.path.length !== input.projection.containerKeks.length) {
@@ -781,6 +573,7 @@ export async function verifyContainerWriterProjection(input: {
     principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
     verifiedByHash,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
 
   const verifiedKekStates: VerifiedContainerKekState[] = [];
@@ -803,6 +596,8 @@ export async function verifyContainerWriterProjection(input: {
           principalPolicyCache,
           resolveUserKey: input.resolveUserKey,
           verifiedByHash,
+          warmReferencedPrincipalPolicies:
+            input.warmReferencedPrincipalPolicies,
         }),
       );
     }
@@ -816,6 +611,7 @@ export async function verifyContainerWriterProjection(input: {
       resolveUserKey: input.resolveUserKey,
       verifiedManifest,
       verifiedManifestHistory,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     verifiedKekStates.push(verifiedKekState);
   }
@@ -847,6 +643,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
     principalPolicyCache,
     projection: input.projection,
     resolveUserKey: input.resolveUserKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
 
   return collectPrincipalPoliciesForContainerPaths({
@@ -897,6 +694,9 @@ async function verifyProjectionContainerPaths(input: {
   readonly verifiedByHash?:
     | Map<string, VerifiedContainerAccessManifest>
     | undefined;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
 }): Promise<Map<string, VerifiedContainerAccessManifest[]>> {
   const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
   for (const [
@@ -945,6 +745,7 @@ async function verifyProjectionContainerPaths(input: {
       projection,
       resolveUserKey: input.resolveUserKey,
       verifiedByHash,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     const leaf = path.at(-1);
     if (leaf) {
@@ -965,6 +766,7 @@ async function verifyProjectionContainerPaths(input: {
       principalPolicyCache: input.principalPolicyCache,
       resolveUserKey: input.resolveUserKey,
       verifiedByHash,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     const leaf = verifiedPath.at(-1);
     if (leaf) {
@@ -1029,6 +831,9 @@ async function verifyDocumentManifestBundle(input: {
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly resolveUserKey: ProjectionUserKeyResolver;
   readonly verifiedByHash: Map<string, VerifiedDocumentLinkSetManifest>;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
   if (cached) {
@@ -1066,6 +871,7 @@ async function verifyDocumentManifestBundle(input: {
     paths: [...dependencyContainerPaths, targetContainerPath],
     principalPolicyCache: input.principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const verified = await verifyDocumentLinkSetManifest({
     authorizingContainerPaths: dependencyContainerPaths,
@@ -1098,6 +904,9 @@ export async function verifyDocumentWriterProjection(input: {
   readonly verifiedByHash?:
     | Map<string, VerifiedContainerAccessManifest>
     | undefined;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const principalPolicyCache =
     input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
@@ -1107,6 +916,7 @@ export async function verifyDocumentWriterProjection(input: {
     projection: input.projection,
     resolveUserKey: input.resolveUserKey,
     verifiedByHash: input.verifiedByHash,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
   const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
   addBundleByHash(
@@ -1140,6 +950,7 @@ export async function verifyDocumentWriterProjection(input: {
       principalPolicyCache,
       resolveUserKey: input.resolveUserKey,
       verifiedByHash,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
   }
 
@@ -1152,6 +963,7 @@ export async function verifyDocumentWriterProjection(input: {
     principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
     verifiedByHash,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
 
   // Enforce + advance the pin for the document only. The authorizing container

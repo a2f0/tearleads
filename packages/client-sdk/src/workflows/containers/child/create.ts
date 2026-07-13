@@ -58,7 +58,7 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { cachePrincipalPolicyBundles } from "../../principals/policyCache";
+import { cacheRemoteContainerCreatePolicyRepair } from "./policyRepair";
 
 function assertContainerCreatePlanInput(input: {
   containerKey: Uint8Array;
@@ -417,37 +417,6 @@ async function submitRemoteContainerCreate(input: {
   return response ? { ok: true, response } : null;
 }
 
-async function cacheRemoteContainerCreatePolicyRepair(input: {
-  readonly apiClient: ContainerCreateApi;
-  readonly execSql: ExecSql | undefined;
-  readonly failure: ContainerMutationSubmitFailure;
-  readonly organizationId: string;
-}): Promise<boolean> {
-  const bundles = input.failure.stalePrincipalPolicies;
-  const getCurrentPrincipalPolicy = input.apiClient.getCurrentPrincipalPolicy;
-  const getEncapsulationKey = input.apiClient.getEncapsulationKey;
-  if (
-    !input.execSql ||
-    !bundles ||
-    bundles.length === 0 ||
-    !getCurrentPrincipalPolicy ||
-    !getEncapsulationKey
-  ) {
-    return false;
-  }
-
-  // The server supplied fresh signed policy bundles with the 409. Verify and
-  // cache them locally before rebuilding the signed create request.
-  await cachePrincipalPolicyBundles({
-    bundles,
-    execSql: input.execSql,
-    getCurrentPrincipalPolicy,
-    getEncapsulationKey,
-    organizationId: input.organizationId,
-  });
-  return true;
-}
-
 export async function createRemoteContainer(input: {
   apiClient: ContainerCreateApi;
   author: ContainerMutationAuthor;
@@ -462,6 +431,7 @@ export async function createRemoteContainer(input: {
   parentSecretKey: Uint8Array;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<CreateRemoteContainerResult | null> {
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
@@ -490,6 +460,7 @@ export async function createRemoteContainer(input: {
       parentSecretKey: input.parentSecretKey,
       resolveProjectionUserKey,
       signedAt: input.signedAt,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
     const submitted = await submitRemoteContainerCreate({
       apiClient: input.apiClient,
@@ -506,7 +477,7 @@ export async function createRemoteContainer(input: {
           apiClient: input.apiClient,
           execSql: input.execSql,
           failure: submitted,
-          organizationId: input.author.organizationId,
+          organizationId: parentProjection.organizationId,
         }))
       ) {
         // Rebuild after caching the current signed policy bundle; the rejected

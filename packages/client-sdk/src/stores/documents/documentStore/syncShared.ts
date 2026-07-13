@@ -4,6 +4,7 @@ import {
   type DocumentRecord,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
+import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { persistDocument } from "./persistence";
 import type {
   DocumentState,
@@ -47,6 +48,9 @@ export async function ensureRemoteDocument(
     execSql: state.runtime.infra.execSql,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      state.runtime,
+    ),
   });
   if (!created) {
     return nextRecord;

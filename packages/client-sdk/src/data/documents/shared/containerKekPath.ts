@@ -208,6 +208,7 @@ export async function unwrapContainerKekPath(
       projection: input.projection,
       resolveUserKey: resolveProjectionUserKey,
       verifiedByHash: input.verifiedByHash,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
   }
 

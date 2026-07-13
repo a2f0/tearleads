@@ -40,7 +40,10 @@ import {
   openContainerInfoSharingTab,
   shareContainerWithGroup,
 } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
-import { waitForNoPostShareSyncFailures } from "../../../../test/helpers/dual-pane/dualPaneSyncKit";
+import {
+  capturePostShareSyncBaseline,
+  waitForNoPostShareSyncFailures,
+} from "../../../../test/helpers/dual-pane/dualPaneSyncKit";
 import {
   requestPath,
   summarizeProxiedApiRequests,
@@ -71,12 +74,12 @@ test(
     await waitForDualPaneProvisioning(leftPane, rightPane);
 
     await addPeerToAdminsGroup(leftPane, getPaneUserId(rightPane));
-    const postAdminAddRequestStartIndex = listProxiedApiRequests().length;
+    const postAdminAddBaseline = capturePostShareSyncBaseline();
     await openExplorer(leftPane);
 
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
-      postAdminAddRequestStartIndex,
+      postAdminAddBaseline,
     );
 
     await openExplorer(rightPane);
@@ -84,6 +87,10 @@ test(
       rightPane,
       () => listExplorerContainerItems(rightPane).length > 1,
       "Peer did not discover the Admins-granted root container.",
+    );
+    await waitForNoPostShareSyncFailures(
+      [leftPane, rightPane],
+      postAdminAddBaseline,
     );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
@@ -100,7 +107,7 @@ test(
     await waitForDualPaneProvisioning(leftPane, rightPane);
 
     await addPeerToAdminsGroup(leftPane, getPaneUserId(rightPane));
-    const postAdminAddRequestStartIndex = listProxiedApiRequests().length;
+    const postAdminAddBaseline = capturePostShareSyncBaseline();
 
     await openExplorer(rightPane);
     await refreshUntil(
@@ -110,7 +117,7 @@ test(
     );
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
-      postAdminAddRequestStartIndex,
+      postAdminAddBaseline,
     );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
@@ -144,7 +151,7 @@ test(
     // the owner's Admins-granted root out of this list until the peer joins.
     const baselineRootCount = listExplorerContainerItems(rightPane).length;
 
-    const postAdminAddRequestStartIndex = listProxiedApiRequests().length;
+    const postAdminAddBaseline = capturePostShareSyncBaseline();
     await addPeerToAdminsGroup(leftPane, getPaneUserId(rightPane));
 
     // No clickExplorerRefresh / refreshUntil here: the member-envelopes write
@@ -158,7 +165,7 @@ test(
     );
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
-      postAdminAddRequestStartIndex,
+      postAdminAddBaseline,
     );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
@@ -194,12 +201,12 @@ test(
       "Peer note editor did not open the Admins-granted note.",
     );
 
-    const peerEditRequestStartIndex = listProxiedApiRequests().length;
+    const peerEditBaseline = capturePostShareSyncBaseline();
     await editSelectedNoteText(rightPane, editedNoteText);
     await waitForCondition(
       () =>
         listProxiedApiRequests()
-          .slice(peerEditRequestStartIndex)
+          .slice(peerEditBaseline.requestStartIndex)
           .some(
             (request) =>
               request.method === "POST" &&
@@ -207,7 +214,7 @@ test(
               /^\/documents\/[^/]+\/sync$/u.test(requestPath(request.url)),
           ),
       `Peer edit did not complete a successful document sync.\nrequests=\n${summarizeProxiedApiRequests(
-        listProxiedApiRequests().slice(peerEditRequestStartIndex),
+        listProxiedApiRequests().slice(peerEditBaseline.requestStartIndex),
       )}`,
       15_000,
     );
@@ -220,7 +227,7 @@ test(
     );
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
-      peerEditRequestStartIndex,
+      peerEditBaseline,
     );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
@@ -262,12 +269,12 @@ test(
     const droppedDocumentUpdates = dropNextMswServerEventWhere(
       (event) => Reflect.get(event, "type") === "document_update_created",
     );
-    const peerEditRequestStartIndex = listProxiedApiRequests().length;
+    const peerEditBaseline = capturePostShareSyncBaseline();
     await editSelectedNoteText(rightPane, editedNoteText);
     await waitForCondition(
       () =>
         listProxiedApiRequests()
-          .slice(peerEditRequestStartIndex)
+          .slice(peerEditBaseline.requestStartIndex)
           .some(
             (request) =>
               request.method === "POST" &&
@@ -275,7 +282,7 @@ test(
               /^\/documents\/[^/]+\/sync$/u.test(requestPath(request.url)),
           ),
       `Peer edit did not complete a successful document sync.\nrequests=\n${summarizeProxiedApiRequests(
-        listProxiedApiRequests().slice(peerEditRequestStartIndex),
+        listProxiedApiRequests().slice(peerEditBaseline.requestStartIndex),
       )}`,
       15_000,
     );
@@ -292,25 +299,31 @@ test(
       "Owner manual refresh did not pull the peer edit after the websocket event was missed.",
       12_000,
     );
+    await waitForNoPostShareSyncFailures(
+      [leftPane, rightPane],
+      peerEditBaseline,
+    );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
 
 test(
-  "dual pane explorer discovers a root container shared to a newly created group",
+  "peer opens note content shared through a newly created group",
   async () => {
     useTestApiAppHandlers();
     const view = renderDualPane();
     const leftPane = getPaneRoot(view, "left");
     const rightPane = getPaneRoot(view, "right");
     const groupName = "Pane 2 Readers";
+    const noteText = "Exact note content shared through a custom group";
 
     await waitForDualPaneProvisioning(leftPane, rightPane);
 
     await createGroupAndAddPeer(leftPane, groupName, getPaneUserId(rightPane));
-    await openExplorer(rightPane);
     await openExplorer(leftPane);
-    const postShareRequestStartIndex = listProxiedApiRequests().length;
+    await createNoteInContainer(leftPane, "/", noteText);
+    await openExplorer(rightPane);
+    const postShareBaseline = capturePostShareSyncBaseline();
     await shareContainerWithGroup(leftPane, "/", groupName, "read");
 
     await clickExplorerRefresh(rightPane);
@@ -328,7 +341,18 @@ test(
     );
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
-      postShareRequestStartIndex,
+      postShareBaseline,
+    );
+    await waitForExplorerNoteVisible(rightPane, noteText);
+    await selectExplorerNoteByName(rightPane, noteText);
+    await waitForSelectedNoteText(
+      rightPane,
+      noteText,
+      "Peer did not decrypt the exact note content shared through the new group.",
+    );
+    await waitForNoPostShareSyncFailures(
+      [leftPane, rightPane],
+      postShareBaseline,
     );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
@@ -359,7 +383,7 @@ test(
     await openExplorer(rightPane);
     await openExplorer(leftPane);
 
-    const postShareRequestStartIndex = listProxiedApiRequests().length;
+    const postShareBaseline = capturePostShareSyncBaseline();
     await shareContainerWithGroup(leftPane, "/", groupName, "read");
 
     await clickExplorerRefresh(rightPane);
@@ -397,7 +421,7 @@ test(
     ).toEqual([]);
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
-      postShareRequestStartIndex,
+      postShareBaseline,
     );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
@@ -425,7 +449,7 @@ test(
     });
 
     await openExplorer(leftPane);
-    const postShareRequestStartIndex = listProxiedApiRequests().length;
+    const postShareBaseline = capturePostShareSyncBaseline();
     const sharedGroupId = await shareContainerWithGroup(
       leftPane,
       "/",
@@ -457,10 +481,7 @@ test(
         within(leftPane).getByText(ORG_MANAGER_LABELS.grantDetail),
       ).toBeTruthy();
     });
-    await waitForNoPostShareSyncFailures(
-      [leftPane],
-      postShareRequestStartIndex,
-    );
+    await waitForNoPostShareSyncFailures([leftPane], postShareBaseline);
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );

@@ -142,6 +142,7 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
     cacheReferencedPrincipalPolicies: async (principals) => {
       cachedPrincipalBatches.push(principals?.length ?? 0);
     },
+    organizationId: "org-1",
   });
 
   try {
@@ -267,6 +268,7 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
         throw new Error("principal cache unavailable");
       }
     },
+    organizationId: "org-1",
   });
 
   try {

@@ -13,6 +13,7 @@ import {
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
 } from "../documents";
+import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
 import {
   createReadOnlyMetadataSyncSaveOptions,
   hasCurrentContainerMetadataReadState,
@@ -220,6 +221,8 @@ async function syncRemoteContainerMetadata(input: {
       writerKeyLabel: "metadata writer key",
     }),
     targetSecretKey,
+    warmReferencedPrincipalPolicies:
+      createRuntimePrincipalPolicyWarmer(runtime),
     writerProjection,
   }).catch((error: unknown) => {
     if (isStaleContainerMetadataSecurityStateError(error)) {

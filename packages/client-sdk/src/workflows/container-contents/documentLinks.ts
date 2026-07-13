@@ -10,6 +10,7 @@ import {
   relinkRemoteDocument,
   resolveDocumentCreateAuthor,
 } from "../documents";
+import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
 import type { ContainerContentsWorkflowRuntime } from "./runtime";
 
 type ContainerDocumentLinkApi = Parameters<
@@ -33,7 +34,13 @@ interface ContainerDocumentLinkRuntime
     ContainerContentsWorkflowRuntime,
     "auth" | "crypto" | "infra" | "state" | "util"
   > {
-  apiClient: ContainerDocumentLinkApi;
+  apiClient: ContainerDocumentLinkApi &
+    Partial<
+      Pick<
+        ContainerContentsWorkflowRuntime["apiClient"],
+        "getCurrentPrincipalPolicy" | "getEncapsulationKey"
+      >
+    >;
 }
 
 type MoveRemoteContainerDocumentStatus = "complete" | "partial";
@@ -176,6 +183,8 @@ export async function relinkRemoteContainerDocument(input: {
       resolveProjectionUserKey,
       targetContainerId,
       targetSecretKey,
+      warmReferencedPrincipalPolicies:
+        createRuntimePrincipalPolicyWarmer(runtime),
     });
     if (!result) {
       runtime.util.log(

@@ -22,7 +22,10 @@ import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import type { ProjectionUserKeyResolver } from "../../keyingProjectionVerification";
+import type {
+  ProjectionUserKeyResolver,
+  ReferencedPrincipalPolicyWarmer,
+} from "../../keyingProjectionVerification";
 import { requireProjectionUserKeyResolver } from "../../keyingProjectionVerification";
 import type { DocumentRecord } from "../../sqlite/documentPersistence";
 
@@ -47,15 +50,26 @@ export const DOCUMENT_ENCRYPTED_UPDATE_KEYS = new Set([
 ]);
 export const TEXT_ENCODER = new TextEncoder();
 
+interface ProjectionPrincipalPolicyWarmOptions {
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
+}
+
 export type ProjectionVerificationOptions =
-  | {
-      readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
-      readonly trustedLocalProjection?: boolean | undefined;
-    }
-  | {
-      readonly resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
-      readonly trustedLocalProjection: true;
-    };
+  ProjectionPrincipalPolicyWarmOptions &
+    (
+      | {
+          readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
+          readonly trustedLocalProjection?: boolean | undefined;
+        }
+      | {
+          readonly resolveProjectionUserKey?:
+            | ProjectionUserKeyResolver
+            | undefined;
+          readonly trustedLocalProjection: true;
+        }
+    );
 
 export function resolveProjectionVerifier(
   input: ProjectionVerificationOptions,
@@ -79,11 +93,19 @@ export function resolveProjectionVerifier(
 export function projectionVerificationOptions(
   input: ProjectionVerificationOptions,
 ): ProjectionVerificationOptions {
+  const policyWarmer = input.warmReferencedPrincipalPolicies
+    ? {
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      }
+    : {};
   if (input.resolveProjectionUserKey) {
-    return { resolveProjectionUserKey: input.resolveProjectionUserKey };
+    return {
+      ...policyWarmer,
+      resolveProjectionUserKey: input.resolveProjectionUserKey,
+    };
   }
   if (input.trustedLocalProjection === true) {
-    return { trustedLocalProjection: true };
+    return { ...policyWarmer, trustedLocalProjection: true };
   }
 
   throw new Error(
