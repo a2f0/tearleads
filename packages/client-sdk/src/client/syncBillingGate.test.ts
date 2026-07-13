@@ -42,6 +42,46 @@ test("coalesces repeated 402s for the same org into a single notify", () => {
   expect(seen).toEqual(["org-1"]);
 });
 
+test("isolates an identified payment block to its organization", () => {
+  const gate = new SyncBillingGate();
+
+  gate.notifyPaymentRequired("custom-org");
+
+  expect(gate.isBlockedForOrganization("custom-org")).toBe(true);
+  expect(gate.isBlockedForOrganization("personal-org")).toBe(false);
+  expect(gate.isBlockedForOrganization(null)).toBe(false);
+});
+
+test("retains simultaneous blocks for separate organizations", () => {
+  const gate = new SyncBillingGate();
+
+  gate.notifyPaymentRequired("custom-org-a");
+  gate.notifyPaymentRequired("custom-org-b");
+
+  expect(gate.isBlockedForOrganization("custom-org-a")).toBe(true);
+  expect(gate.isBlockedForOrganization("custom-org-b")).toBe(true);
+  expect(gate.isBlockedForOrganization("personal-org")).toBe(false);
+  expect(gate.blockedOrganizationId).toBe("custom-org-b");
+});
+
+test("clears only the recovered organization block", () => {
+  const gate = new SyncBillingGate();
+  const seen: (string | null)[] = [];
+  gate.subscribe((organizationId) => seen.push(organizationId));
+  gate.notifyPaymentRequired("custom-org-a");
+  gate.notifyPaymentRequired("custom-org-b");
+
+  gate.clearBlock("custom-org-a");
+
+  expect(gate.isBlockedForOrganization("custom-org-a")).toBe(false);
+  expect(gate.isBlockedForOrganization("custom-org-b")).toBe(true);
+  expect(gate.isBlocked).toBe(true);
+  expect(seen).toEqual(["custom-org-a", "custom-org-b"]);
+
+  gate.notifyPaymentRequired("custom-org-a");
+  expect(seen).toEqual(["custom-org-a", "custom-org-b", "custom-org-a"]);
+});
+
 test("re-notifies for the same org after clearBlock (re-activation)", () => {
   const gate = new SyncBillingGate();
   const seen: (string | null)[] = [];
@@ -84,6 +124,35 @@ test("isBlocked is true after a block with an unknown (null) org", () => {
 
   expect(gate.isBlocked).toBe(true);
   expect(gate.blockedOrganizationId).toBe(null);
+  expect(gate.isBlockedForOrganization("org-1")).toBe(true);
+  expect(gate.isBlockedForOrganization("org-2")).toBe(true);
+});
+
+test("a named recovery only exempts that organization from an unknown block", () => {
+  const gate = new SyncBillingGate();
+  gate.notifyPaymentRequired("org-1");
+  gate.notifyPaymentRequired(null);
+
+  gate.clearBlock("org-2");
+
+  expect(gate.isBlockedForOrganization("org-1")).toBe(true);
+  expect(gate.isBlockedForOrganization("org-2")).toBe(false);
+  expect(gate.isBlockedForOrganization("org-3")).toBe(true);
+  expect(gate.blockedOrganizationId).toBe(null);
+});
+
+test("a new unknown block revokes earlier organization exemptions", () => {
+  const gate = new SyncBillingGate();
+  const seen: (string | null)[] = [];
+  gate.subscribe((organizationId) => seen.push(organizationId));
+  gate.notifyPaymentRequired(null);
+  gate.clearBlock("org-1");
+  expect(gate.isBlockedForOrganization("org-1")).toBe(false);
+
+  gate.notifyPaymentRequired(null);
+
+  expect(gate.isBlockedForOrganization("org-1")).toBe(true);
+  expect(seen).toEqual([null, null]);
 });
 
 test("notifies again when the blocked org changes", () => {

@@ -139,6 +139,7 @@ async function persistMovedDocumentReplay<TRuntime>(input: {
 
 async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
   host: DocumentMoveIntentSyncHost<TRuntime>;
+  isRemoteSyncBlocked: (organizationId: string) => boolean;
   intent: DocumentMoveIntentRecord;
   state: DocumentMoveIntentSyncState;
 }): Promise<DocumentMoveIntentReplayResult> {
@@ -167,6 +168,9 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
         "Document move intent references a missing destination container",
       state,
     });
+    return "blocked";
+  }
+  if (input.isRemoteSyncBlocked(targetState.container.organizationId)) {
     return "blocked";
   }
   if (!hasRemoteContainerMetadataState(targetState)) {
@@ -242,6 +246,7 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
 
 export async function syncPendingDocumentMoveIntents<TRuntime>(input: {
   host: DocumentMoveIntentSyncHost<TRuntime>;
+  isRemoteSyncBlocked: (organizationId: string) => boolean;
   state: DocumentMoveIntentSyncState;
 }): Promise<number> {
   const pendingIntents =
@@ -253,6 +258,7 @@ export async function syncPendingDocumentMoveIntents<TRuntime>(input: {
   for (const intent of pendingIntents) {
     const result = await trySyncPendingDocumentMoveIntent({
       host: input.host,
+      isRemoteSyncBlocked: input.isRemoteSyncBlocked,
       intent,
       state: input.state,
     });

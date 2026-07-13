@@ -176,6 +176,7 @@ export interface UploadDocumentAttachmentInput {
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
   expectedBindingId: string | null;
+  isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
   // A persisted IV so a resumed upload re-encrypts to byte-identical bytes (and
   // therefore the same sha256 the stage was opened with). Defaults to fresh.
   iv?: Uint8Array | undefined;
@@ -220,6 +221,7 @@ export interface DetachDocumentAttachmentInput {
   documentId: string;
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
+  isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   slotId: string;

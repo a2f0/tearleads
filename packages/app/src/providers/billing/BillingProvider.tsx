@@ -3,6 +3,7 @@ import {
   type OrganizationBillingView,
   requestAllDomainSyncLanes,
   resolveOrganizationBillingView,
+  type SyncBillingGate,
 } from "@tearleads/client-sdk";
 import {
   createContext,
@@ -303,21 +304,14 @@ export function useOrganizationBillingState(
 const OrganizationBillingContext =
   createContext<OrganizationBillingContextValue | null>(null);
 
-interface SyncBillingBlock {
-  readonly blockedOrganizationId: string | null;
-  readonly isBlocked: boolean;
-}
+type SyncBillingBlock = Pick<SyncBillingGate, "isBlockedForOrganization">;
 
 /** Whether a payment block can be safely cleared in the active org's scope. */
 export function syncBillingBlockAppliesToOrganization(
   block: SyncBillingBlock,
   organizationId: string,
 ): boolean {
-  return (
-    block.isBlocked &&
-    (block.blockedOrganizationId === null ||
-      block.blockedOrganizationId === organizationId)
-  );
+  return block.isBlockedForOrganization(organizationId);
 }
 
 /**
@@ -352,7 +346,7 @@ export function BillingProvider({ children }: PropsWithChildren) {
 
   // On re-activation (billing recovered to a syncable state after a block): a
   // rejected 402 write leaves its sync lane idle with no auto-resume, so
-  // re-drive every lane to flush the stranded writes, then reset the gate so a
+  // re-drive every lane to flush the stranded writes, then clear this org so a
   // later lapse re-signals instead of being coalesced against the stale value.
   // Keyed on `billing` (not a derived `canSync`) so any refetch that shows the
   // org syncable clears a stale block, even when `canSync` never toggled — e.g.
@@ -371,7 +365,7 @@ export function BillingProvider({ children }: PropsWithChildren) {
       return;
     }
     requestAllDomainSyncLanes(tearleads.domainScope);
-    gate.clearBlock();
+    gate.clearBlock(billing.organizationId);
   }, [billing, tearleads]);
 
   return (

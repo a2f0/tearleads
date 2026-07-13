@@ -65,6 +65,7 @@ export async function detachDocumentAttachment({
   documentId,
   eventId = crypto.randomUUID(),
   execSql,
+  isRemoteSyncBlocked,
   resolveProjectionUserKey,
   signedAt = new Date().toISOString(),
   slotId,
@@ -91,6 +92,9 @@ export async function detachDocumentAttachment({
     throw new Error(
       "Blob attachment detach writer projection targets wrong document",
     );
+  }
+  if (isRemoteSyncBlocked?.(manifestIdentity.organizationId)) {
+    return null;
   }
 
   const targets = deriveBlobTargetsFromDocumentProjection({

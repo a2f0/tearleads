@@ -47,25 +47,31 @@ function makeClient(
 test("only recovers a sync billing block in its organization scope", () => {
   expect(
     syncBillingBlockAppliesToOrganization(
-      { isBlocked: true, blockedOrganizationId: "org-a" },
+      {
+        isBlockedForOrganization: (organizationId) =>
+          organizationId === "org-a",
+      },
       "org-a",
     ),
   ).toBe(true);
   expect(
     syncBillingBlockAppliesToOrganization(
-      { isBlocked: true, blockedOrganizationId: "org-a" },
+      {
+        isBlockedForOrganization: (organizationId) =>
+          organizationId === "org-a",
+      },
       "org-b",
     ),
   ).toBe(false);
   expect(
     syncBillingBlockAppliesToOrganization(
-      { isBlocked: true, blockedOrganizationId: null },
+      { isBlockedForOrganization: () => true },
       "org-b",
     ),
   ).toBe(true);
   expect(
     syncBillingBlockAppliesToOrganization(
-      { isBlocked: false, blockedOrganizationId: null },
+      { isBlockedForOrganization: () => false },
       "org-b",
     ),
   ).toBe(false);
@@ -113,7 +119,9 @@ test("loads billing when authentication completes for the unchanged org", async 
     organizations: makeClient(loadBilling).organizations,
     syncBillingGate: {
       blockedOrganizationId: null,
+      clearBlock: () => undefined,
       isBlocked: false,
+      isBlockedForOrganization: () => false,
       subscribe,
     },
   } as unknown as ReturnType<typeof TearleadsProvider.useTearleads>;

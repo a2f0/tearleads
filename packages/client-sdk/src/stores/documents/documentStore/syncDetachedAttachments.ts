@@ -124,6 +124,7 @@ async function syncDetachedAttachmentBinding(input: {
     state.writerProjection?.documentId === input.remoteDocumentId
       ? state.writerProjection
       : null;
+  let remoteSyncBlocked = false;
   const baseDetachInput = {
     apiClient: state.runtime.apiClient,
     author,
@@ -131,6 +132,11 @@ async function syncDetachedAttachmentBinding(input: {
     blobId: binding.blobId,
     documentId: input.remoteDocumentId,
     execSql: state.runtime.infra.execSql,
+    isRemoteSyncBlocked: (organizationId: string) => {
+      remoteSyncBlocked =
+        state.runtime.util.isRemoteSyncBlocked?.(organizationId) ?? false;
+      return remoteSyncBlocked;
+    },
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     slotId: binding.slotId,
   };
@@ -138,7 +144,7 @@ async function syncDetachedAttachmentBinding(input: {
     ...baseDetachInput,
     writerProjection: writerProjection ?? undefined,
   });
-  if (!detached && writerProjection) {
+  if (!detached && writerProjection && !remoteSyncBlocked) {
     state.writerProjection = null;
     detached = await detachDocumentAttachment(baseDetachInput);
   }

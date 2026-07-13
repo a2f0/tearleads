@@ -42,7 +42,6 @@ function canRunScheduledSync(state: DocumentStoreState): boolean {
     state.doc !== null &&
     state.snapshot.ready &&
     state.runtime.state.online &&
-    state.runtime.util.isRemoteSyncBlocked?.() !== true &&
     state.runtime.auth.isAuthenticated &&
     state.runtime.crypto.encapsulationKeyPair !== null &&
     resolveDocumentCreateAuthor(state.runtime) !== null
@@ -100,6 +99,7 @@ async function requestRemoteDocumentSync(input: {
     author,
     documentId: currentRecord.documentId,
     execSql: state.runtime.infra.execSql,
+    isRemoteSyncBlocked: state.runtime.util.isRemoteSyncBlocked,
     localVersionVector: encodeVersionVector(currentDoc),
     minLsn: currentRecord.lastCommitLsn ?? undefined,
     onRemoteDocumentDeleted: () => deleteUpstreamDeletedDocument(state),
@@ -439,9 +439,6 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
     encapsulationKeyPair,
   );
   nextRecord = attachmentResult.nextRecord;
-  if (state.runtime.util.isRemoteSyncBlocked?.()) {
-    return;
-  }
   if (state.pendingAttachments.length > 0) {
     return;
   }
@@ -460,7 +457,6 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
   if (
     !state.doc ||
     !state.record ||
-    state.runtime.util.isRemoteSyncBlocked?.() ||
     (await listPendingUpdates(state)).length > 0
   ) {
     return;

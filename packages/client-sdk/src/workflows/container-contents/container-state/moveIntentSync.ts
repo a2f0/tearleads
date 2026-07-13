@@ -159,6 +159,9 @@ async function trySyncPendingContainerMoveIntent(
     });
     return "failed";
   }
+  if (input.isRemoteSyncBlocked(containerState.container.organizationId)) {
+    return "blocked";
+  }
   if (!hasRemoteContainerMetadataState(containerState)) {
     // Source not synced yet is TRANSIENT, exactly like the destination case
     // below: the source's own create intent syncs first (createIntentSync runs
@@ -222,6 +225,7 @@ async function trySyncPendingContainerMoveIntent(
 
 export async function syncPendingContainerMoveIntents(input: {
   host: ContainerMoveIntentSyncHost;
+  isRemoteSyncBlocked: (organizationId: string) => boolean;
   state: ContainerMoveIntentSyncState;
 }): Promise<number> {
   const { host, state } = input;
@@ -233,6 +237,7 @@ export async function syncPendingContainerMoveIntents(input: {
   for (const intent of pendingIntents) {
     const result = await trySyncPendingContainerMoveIntent({
       host,
+      isRemoteSyncBlocked: input.isRemoteSyncBlocked,
       intent,
       state,
     });

@@ -2,24 +2,19 @@ export type SyncBillingGateListener = (organizationId: string | null) => void;
 
 /**
  * Signals that a sync write was rejected because its target organization cannot
- * sync (HTTP 402). Mirrors {@link Network}: it holds the last blocked org and
- * notifies subscribers only when that value changes, so a burst of 402s for the
- * same org does not fan out into a refresh storm. The app subscribes to refetch
- * billing and surface the block.
- *
- * Note: the gate is not reset on recovery, so a same-session block → subscribe →
- * re-lapse for the same org does not re-notify; the app's other refresh triggers
- * (mount, active-org change, manual refresh) cover that case.
+ * sync (HTTP 402). Identified blocks are retained independently per org; a 402
+ * without an org id is a conservative wildcard. Repeated signals for an already
+ * blocked org are coalesced so they do not fan out into a refresh storm.
  */
 export class SyncBillingGate {
+  private readonly blockedOrganizationIds = new Set<string>();
   private readonly listeners = new Set<SyncBillingGateListener>();
-  // `undefined` is the "never signalled" sentinel, distinct from a `null` org
-  // id (a 402 whose body omitted the org) — so the first `null` notification is
-  // still a change and reaches subscribers instead of being coalesced away.
-  private blockedOrganizationIdValue: string | null | undefined;
+  private readonly unknownBlockExemptOrganizationIds = new Set<string>();
+  private hasUnknownOrganizationBlock = false;
+  private lastBlockedOrganizationIdValue: string | null | undefined;
 
   get blockedOrganizationId(): string | null {
-    return this.blockedOrganizationIdValue ?? null;
+    return this.lastBlockedOrganizationIdValue ?? null;
   }
 
   /**
@@ -28,29 +23,89 @@ export class SyncBillingGate {
    * from the never-signalled state.
    */
   get isBlocked(): boolean {
-    return this.blockedOrganizationIdValue !== undefined;
-  }
-
-  notifyPaymentRequired(organizationId: string | null): void {
-    if (this.blockedOrganizationIdValue === organizationId) {
-      return;
-    }
-    this.blockedOrganizationIdValue = organizationId;
-    this.notifyListeners();
+    return (
+      this.hasUnknownOrganizationBlock || this.blockedOrganizationIds.size > 0
+    );
   }
 
   /**
-   * Reset the gate after billing recovers (the org can sync again), so a later
-   * block re-signals instead of being coalesced against the stale value. Does
-   * not notify subscribers: recovery is already reflected by the billing
-   * refetch that observed it, and notifying would trigger a redundant refetch.
+   * Whether remote sync is blocked for a specific organization. A legacy 402
+   * without an organization id is treated conservatively as applying to every
+   * organization, while an identified block remains isolated to its target.
    */
-  clearBlock(): void {
-    this.blockedOrganizationIdValue = undefined;
+  isBlockedForOrganization(organizationId: string | null): boolean {
+    if (organizationId === null) {
+      return this.hasUnknownOrganizationBlock;
+    }
+
+    return (
+      this.blockedOrganizationIds.has(organizationId) ||
+      (this.hasUnknownOrganizationBlock &&
+        !this.unknownBlockExemptOrganizationIds.has(organizationId))
+    );
   }
 
-  private notifyListeners(): void {
-    const organizationId = this.blockedOrganizationIdValue ?? null;
+  notifyPaymentRequired(organizationId: string | null): void {
+    if (organizationId === null) {
+      if (
+        this.hasUnknownOrganizationBlock &&
+        this.unknownBlockExemptOrganizationIds.size === 0
+      ) {
+        return;
+      }
+      this.hasUnknownOrganizationBlock = true;
+      this.unknownBlockExemptOrganizationIds.clear();
+    } else {
+      if (this.blockedOrganizationIds.has(organizationId)) {
+        return;
+      }
+      this.blockedOrganizationIds.add(organizationId);
+      this.unknownBlockExemptOrganizationIds.delete(organizationId);
+    }
+    this.lastBlockedOrganizationIdValue = organizationId;
+    this.notifyListeners(organizationId);
+  }
+
+  /**
+   * Clear one recovered organization without disturbing other org blocks. A
+   * named recovery exempts only that org from a legacy unknown-org wildcard;
+   * unrelated orgs remain conservatively blocked. Omitting the argument retains
+   * the public clear-all behavior. Recovery does not notify subscribers because
+   * the billing refetch that observed it already represents the state change.
+   */
+  clearBlock(organizationId?: string | null): void {
+    if (organizationId === undefined) {
+      this.blockedOrganizationIds.clear();
+      this.hasUnknownOrganizationBlock = false;
+      this.unknownBlockExemptOrganizationIds.clear();
+      this.lastBlockedOrganizationIdValue = undefined;
+      return;
+    }
+
+    if (organizationId === null) {
+      this.hasUnknownOrganizationBlock = false;
+      this.unknownBlockExemptOrganizationIds.clear();
+    } else {
+      this.blockedOrganizationIds.delete(organizationId);
+      if (this.hasUnknownOrganizationBlock) {
+        this.unknownBlockExemptOrganizationIds.add(organizationId);
+      }
+    }
+    this.refreshLastBlockedOrganizationId();
+  }
+
+  private refreshLastBlockedOrganizationId(): void {
+    if (this.hasUnknownOrganizationBlock) {
+      this.lastBlockedOrganizationIdValue = null;
+      return;
+    }
+
+    this.lastBlockedOrganizationIdValue = Array.from(
+      this.blockedOrganizationIds,
+    ).at(-1);
+  }
+
+  private notifyListeners(organizationId: string | null): void {
     for (const listener of this.listeners) {
       try {
         listener(organizationId);

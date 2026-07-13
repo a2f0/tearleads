@@ -311,6 +311,7 @@ export async function uploadDocumentAttachment({
   eventId = crypto.randomUUID(),
   execSql,
   expectedBindingId,
+  isRemoteSyncBlocked,
   iv,
   multipart,
   onMultipartProgress,
@@ -365,6 +366,9 @@ export async function uploadDocumentAttachment({
     material = await buildMaterial(undefined);
   }
   if (!material) {
+    return null;
+  }
+  if (isRemoteSyncBlocked?.(material.manifestIdentity.organizationId)) {
     return null;
   }
 

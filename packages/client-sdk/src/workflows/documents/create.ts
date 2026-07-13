@@ -177,6 +177,7 @@ export async function createRemoteDocument(input: {
   documentId?: string | undefined;
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
+  isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
@@ -202,6 +203,11 @@ export async function createRemoteDocument(input: {
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
   if (!createPlan) {
+    return null;
+  }
+  if (
+    input.isRemoteSyncBlocked?.(createPlan.containerProjection.organizationId)
+  ) {
     return null;
   }
 

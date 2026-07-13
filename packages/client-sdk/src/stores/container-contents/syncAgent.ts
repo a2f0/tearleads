@@ -130,8 +130,11 @@ function requestContainerContentsStoreSync(
   state.syncLane?.requestSync();
 }
 
-function isRemoteSyncBlocked(state: ContainerContentsStoreSyncState): boolean {
-  return state.runtime.util.isRemoteSyncBlocked?.() ?? false;
+function isRemoteSyncBlocked(
+  state: ContainerContentsStoreSyncState,
+  organizationId: string,
+): boolean {
+  return state.runtime.util.isRemoteSyncBlocked?.(organizationId) ?? false;
 }
 
 function createContainerContentsStoreDocumentPrimeHost(
@@ -225,7 +228,6 @@ async function initializeContainerContentsStore(input: {
     requestHydration: () =>
       requestContainerContentsRemoteHydration({
         host,
-        isRemoteSyncBlocked: () => isRemoteSyncBlocked(state),
         scheduleSync,
         state,
       }),
@@ -240,7 +242,6 @@ async function initializeContainerContentsStore(input: {
 
   if (
     state.containersById.size > 0 &&
-    !isRemoteSyncBlocked(state) &&
     (await hasStartupContainerSyncWork(state))
   ) {
     scheduleSync();
@@ -341,15 +342,17 @@ async function runContainerContentsStoreSyncIteration(input: {
     state.runtime.infra.dbStatus !== "ready" ||
     !state.snapshot.ready ||
     !state.runtime.state.online ||
-    isRemoteSyncBlocked(state) ||
     !state.runtime.auth.isAuthenticated ||
     !encapsulationKeyPair
   ) {
     return;
   }
+  const isOrganizationBlocked = (organizationId: string) =>
+    isRemoteSyncBlocked(state, organizationId);
 
   const createdContainerCount = await syncPendingContainerCreateIntents({
     host,
+    isRemoteSyncBlocked: isOrganizationBlocked,
     state,
   });
   if (createdContainerCount > 0) {
@@ -359,6 +362,7 @@ async function runContainerContentsStoreSyncIteration(input: {
 
   const movedContainerCount = await syncPendingContainerMoveIntents({
     host,
+    isRemoteSyncBlocked: isOrganizationBlocked,
     state,
   });
   if (movedContainerCount > 0) {
@@ -373,6 +377,7 @@ async function runContainerContentsStoreSyncIteration(input: {
   // here lets container create/move intents settle before document lanes sync.
   const movedDocumentCount = await syncPendingDocumentMoveIntents({
     host: createContainerContentsStoreDocumentMoveHost(state),
+    isRemoteSyncBlocked: isOrganizationBlocked,
     state,
   });
   if (movedDocumentCount > 0) {
@@ -406,7 +411,6 @@ export function createContainerContentsStoreSyncAgent(input: {
     run: () => runContainerContentsStoreSyncIteration({ host, state }),
   });
   const scheduleSync = () => requestContainerContentsStoreSync(state);
-  const isCurrentRemoteSyncBlocked = () => isRemoteSyncBlocked(state);
   const ingestRemoteContainer = createRemoteContainerIngestor({
     host,
     state,
@@ -417,7 +421,6 @@ export function createContainerContentsStoreSyncAgent(input: {
       requestContainerContentsRemoteHydration({
         followDiscoveredParentLanes: options.followDiscoveredParentLanes,
         host,
-        isRemoteSyncBlocked: isCurrentRemoteSyncBlocked,
         parentIds: options.parentIds,
         scheduleSync,
         state,
@@ -431,7 +434,6 @@ export function createContainerContentsStoreSyncAgent(input: {
     requestContainerContentsRemoteHydration({
       ...options,
       host,
-      isRemoteSyncBlocked: isCurrentRemoteSyncBlocked,
       scheduleSync,
       state,
     });

@@ -231,6 +231,7 @@ test("pending document move intents replay signed link-set mutations and clear a
           updateRuntime: () => undefined,
         }),
       },
+      isRemoteSyncBlocked: () => false,
       state: {
         containersById: new Map([
           [

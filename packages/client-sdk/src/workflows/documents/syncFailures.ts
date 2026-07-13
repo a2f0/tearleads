@@ -171,7 +171,7 @@ async function resolveFailedDocumentSyncAction(input: {
   return "stop";
 }
 
-export async function submitDocumentSyncAttempt(input: {
+async function submitDocumentSyncAttempt(input: {
   apiClient: DocumentSyncApi;
   attempt: number;
   documentId: string;
@@ -202,6 +202,22 @@ export async function submitDocumentSyncAttempt(input: {
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
     pendingUpdates: input.pendingUpdates,
   });
+}
+
+export async function submitDocumentSyncAttemptIfAllowed(
+  input: Parameters<typeof submitDocumentSyncAttempt>[0] & {
+    isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
+  },
+): Promise<DocumentSyncAttemptSubmission> {
+  const { isRemoteSyncBlocked, ...submissionInput } = input;
+  const hasRemoteWrites =
+    input.plan.request.outgoingUpdates.length > 0 ||
+    (input.plan.request.containerRekeys?.length ?? 0) > 0;
+  if (hasRemoteWrites && isRemoteSyncBlocked?.(input.plan.organizationId)) {
+    return "stop";
+  }
+
+  return submitDocumentSyncAttempt(submissionInput);
 }
 
 export async function resolveDocumentSyncWriterProjection(input: {
