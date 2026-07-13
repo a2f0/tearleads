@@ -6,6 +6,6 @@ set -e
 # Extra args are forwarded to Playwright, e.g. `--project=mobile`.
 
 SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
-cd "$SCRIPT_DIR/../packages/app-web"
+cd "$SCRIPT_DIR/../packages/app-web" || exit 1
 
 bun run screenshots "$@"
