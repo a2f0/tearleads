@@ -105,8 +105,13 @@ async function disableAnimations(page: Page): Promise<void> {
 
 async function captureRouted(page: Page, outputDir: string): Promise<void> {
   for (const screen of ROUTED_SCREENS) {
-    await page.goto(screen.route);
-    await waitForBooted(page);
+    // The caller already navigated to "/" and booted (to detect the layout), so
+    // skip the redundant reload + boot wait for whichever route we are already
+    // on rather than reloading it a second time.
+    if (new URL(page.url()).pathname !== screen.route) {
+      await page.goto(screen.route);
+      await waitForBooted(page);
+    }
     await disableAnimations(page);
     await page.screenshot({
       path: path.join(outputDir, `${screen.name}.png`),
@@ -125,16 +130,17 @@ async function captureOpenWindow(
   const pane = visiblePane(page);
   const window = pane.locator(".window").first();
   await window.waitFor({ state: "visible", timeout: 20_000 });
+  // Disable animations before maximizing so the transition is instant and the
+  // window is already at its final size before we wait on content.
+  await disableAnimations(page);
   await window.locator(".window-maximize").click();
   // Let the freshly-mounted app's data queries resolve so content is not
-  // captured mid-"Loading…". Best-effort, then a short settle for first paint.
+  // captured mid-"Loading…". Best-effort; resolves immediately if absent.
   await window
     .getByText("Loading...")
     .first()
     .waitFor({ state: "hidden", timeout: 10_000 })
     .catch(() => {});
-  await page.waitForTimeout(1_000);
-  await disableAnimations(page);
   await window.screenshot({ path: path.join(outputDir, `${name}.png`) });
   await window.locator(".window-close").click();
   await expect(pane.locator(".window")).toHaveCount(0);
