@@ -4,9 +4,13 @@ import {
   type ContainerNode,
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { type MouseEvent, useRef } from "react";
-import { createExplorerContainerRulesContext } from "../containerRules";
+import {
+  createExplorerContainerRulesContext,
+  type ExplorerContainerRulesContext,
+} from "../containerRules";
 import {
   type ExplorerContextMenuState,
   useExplorerContextMenu,
@@ -107,6 +111,7 @@ function ItemContextMenuHarness(params: {
     (localId, containerId) => navigations.push(`${containerId}/${localId}`),
     emptyRulesContext,
     null,
+    null,
   );
 
   if (contextMenu && !openedTargets.includes(contextMenu.id)) {
@@ -125,18 +130,35 @@ function ItemContextMenuHarness(params: {
   );
 }
 
-function ContainerContextMenuVariantHarness(params: { nodeId: string }) {
+function ContainerContextMenuVariantHarness(params: {
+  nodeId: string;
+  nodes?: ReadonlyArray<ContainerNode>;
+  rulesContext?: ExplorerContainerRulesContext;
+  trashContainerId?: string | null;
+  trashSystemSlot?: ContainerSystemSlot | null;
+}) {
   const {
     canMoveToTrashContextMenuNode,
     canPurgeContextMenuNode,
     containerContextMenuVariant,
     handleContainerContextMenu,
   } = useExplorerContextMenu(
-    [rootNode, contactsNode, trashNode, trashChildNode, userFolderNode],
+    params.nodes ?? [
+      rootNode,
+      contactsNode,
+      trashNode,
+      trashChildNode,
+      userFolderNode,
+    ],
     () => {},
     () => {},
-    systemRulesContext,
-    trashNode.id,
+    params.rulesContext ?? systemRulesContext,
+    params.trashContainerId === undefined
+      ? trashNode.id
+      : params.trashContainerId,
+    params.trashSystemSlot === undefined
+      ? "trash-slot"
+      : params.trashSystemSlot,
   );
 
   return (
@@ -243,6 +265,94 @@ test("container move-to-trash gate offers Move to Trash only for a normal folder
     ).toBe(can);
     cleanup();
   }
+});
+
+test("move-to-trash gate hides for a folder under a DUPLICATE Trash node the resolved id misses", () => {
+  // A device-first local-only Trash and its synced twin can briefly coexist for
+  // the same org+slot. The folder is moved under the synced twin (trashB), but
+  // the resolved trashContainerId (from the raw node list) can point at the
+  // other twin (trashA). An id-based under-trash walk from the folder never
+  // reaches trashA, so it used to wrongly re-offer "Move to Trash" and hide
+  // "Delete Forever"; the slot-based classifier recognizes trashB as Trash.
+  const trashA: ContainerNode = {
+    ...rootNode,
+    id: "trash-a",
+    name: "Trash",
+    parentId: rootNode.id,
+    systemSlot: "trash-slot",
+  };
+  const trashB: ContainerNode = { ...trashA, id: "trash-b" };
+  const trashedFolder: ContainerNode = {
+    ...rootNode,
+    id: "dup-trashed-folder",
+    name: "Trashed Under Twin",
+    parentId: trashB.id,
+  };
+
+  const view = render(
+    <ContainerContextMenuVariantHarness
+      nodeId={trashedFolder.id}
+      nodes={[rootNode, trashA, trashB, trashedFolder]}
+      trashContainerId={trashA.id}
+    />,
+  );
+  fireEvent.contextMenu(view.getByRole("button", { name: "open" }));
+  expect(
+    view.getByLabelText("Can move to trash context menu node").textContent,
+  ).toBe("false");
+  expect(view.getByLabelText("Can purge context menu node").textContent).toBe(
+    "true",
+  );
+});
+
+test("move-to-trash gate hides for a folder under a foreign org's shared Trash", () => {
+  // A folder trashed into ANOTHER org's shared Trash carries that org's opaque
+  // slot, which never matches the viewer's derived trash slot. The viewer's own
+  // trashContainerId therefore can't recognize it via an id walk; the classifier
+  // matches the foreign "Trash" by name under a foreign shared root.
+  const foreignRulesContext = createExplorerContainerRulesContext({
+    contactsContainerId: null,
+    contactsSystemSlot: null,
+    currentOrganizationId: "org-1",
+    currentSigningFingerprint: null,
+    trashSystemSlot: "trash-slot",
+  });
+  const foreignRoot: ContainerNode = {
+    ...rootNode,
+    id: "foreign-root",
+    name: "/",
+    organizationId: "org-2",
+    parentId: null,
+  };
+  const foreignTrash: ContainerNode = {
+    ...foreignRoot,
+    id: "foreign-trash",
+    name: "Trash",
+    parentId: foreignRoot.id,
+    systemSlot: "foreign-opaque-trash-slot",
+  };
+  const foreignFolder: ContainerNode = {
+    ...foreignRoot,
+    id: "foreign-folder",
+    name: "Peer Folder",
+    parentId: foreignTrash.id,
+  };
+
+  const view = render(
+    <ContainerContextMenuVariantHarness
+      nodeId={foreignFolder.id}
+      nodes={[rootNode, trashNode, foreignRoot, foreignTrash, foreignFolder]}
+      rulesContext={foreignRulesContext}
+      trashContainerId={trashNode.id}
+    />,
+  );
+  fireEvent.contextMenu(view.getByRole("button", { name: "open" }));
+  expect(
+    view.getByLabelText("Can move to trash context menu node").textContent,
+  ).toBe("false");
+  expect(view.getByLabelText("Can purge context menu node").textContent).toBe(
+    "true",
+  );
 });
 
 test("right-clicking a detail-pane row opens its menu without navigating", () => {

@@ -7,6 +7,8 @@ export function getExplorerModalError(
   switch (mode) {
     case "create-child":
       return "Failed to create child container.";
+    case "empty-trash":
+      return "Failed to empty the Trash.";
     case "rename":
       return "Failed to rename container.";
     case "link-document":
@@ -26,6 +28,8 @@ export function getExplorerModalLog(mode: ExplorerModalState["mode"]): string {
   switch (mode) {
     case "create-child":
       return "Failed to create child container:";
+    case "empty-trash":
+      return "Failed to empty the Trash:";
     case "rename":
       return "Failed to rename container:";
     case "link-document":
@@ -43,6 +47,8 @@ export function getExplorerModalLog(mode: ExplorerModalState["mode"]): string {
 
 export function getExplorerModalTitle(modalState: ExplorerModalState): string {
   switch (modalState.mode) {
+    case "empty-trash":
+      return "Empty Trash";
     case "link-document":
       return "Link Document";
     case "move":
@@ -66,6 +72,8 @@ export function getExplorerModalSubmitLabel(
 ): string {
   if (!isSubmittingModal) {
     switch (modalState.mode) {
+      case "empty-trash":
+        return EXPLORER_LABELS.containerEmptyTrashAction;
       case "link-document":
         return "Link";
       case "move":
@@ -84,6 +92,8 @@ export function getExplorerModalSubmitLabel(
   }
 
   switch (modalState.mode) {
+    case "empty-trash":
+      return "Emptying...";
     case "link-document":
       return "Linking...";
     case "move":

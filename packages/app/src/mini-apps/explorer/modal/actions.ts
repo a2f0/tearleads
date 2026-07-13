@@ -28,7 +28,8 @@ export interface ExplorerModalSubmitParams {
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
   peerUserId: string | null;
-  purgeContainer: (containerId: string) => Promise<boolean>;
+  startContainerPurge: (containerId: string) => void;
+  startEmptyTrash: (trashContainerId: string) => void;
   renameContainer: (
     containerId: string,
     name: string,
@@ -44,23 +45,22 @@ function submitExplorerPurgeModal(params: {
   modalState: { mode: "purge"; nodeId: string };
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
-  purgeContainer: (containerId: string) => Promise<boolean>;
   setBackgroundActionError: (error: string | null) => void;
   setSelectedId: (id: string | null) => void;
+  startContainerPurge: (containerId: string) => void;
 }) {
   const {
     clearModal,
     modalState,
     nodes,
     online,
-    purgeContainer,
     setBackgroundActionError,
     setSelectedId,
+    startContainerPurge,
   } = params;
   // Permanent deletion is online-only (there is no offline delete outbox — moves
   // to Trash are the reversible, offline-capable path). Fail fast with a clear
-  // message rather than attempting a remote-first purge that would surface a
-  // generic failure and leave the folder parked in Trash.
+  // message rather than opening the progress modal only to have it fail.
   if (!online) {
     setBackgroundActionError(
       "You must be online to permanently delete this folder.",
@@ -68,22 +68,35 @@ function submitExplorerPurgeModal(params: {
     clearModal();
     return;
   }
+  // Re-select the folder's parent so the detail pane doesn't linger on the
+  // subtree being torn down, then hand off to the long-running purge run (which
+  // owns the progress + cancel modal) and close this confirm modal.
   const purgingNode = nodes.find((node) => node.id === modalState.nodeId);
   setSelectedId(purgingNode?.parentId ?? null);
-  void purgeContainer(modalState.nodeId)
-    .then((purged) => {
-      if (purged) {
-        return;
-      }
+  startContainerPurge(modalState.nodeId);
+  clearModal();
+}
 
-      const message = getExplorerModalError(modalState.mode);
-      setBackgroundActionError(message);
-      console.error(message);
-    })
-    .catch((error: unknown) => {
-      setBackgroundActionError(getExplorerModalError(modalState.mode));
-      console.error(getExplorerModalLog(modalState.mode), error);
-    });
+function submitExplorerEmptyTrashModal(params: {
+  clearModal: () => void;
+  modalState: { mode: "empty-trash"; nodeId: string };
+  online: boolean;
+  setBackgroundActionError: (error: string | null) => void;
+  startEmptyTrash: (trashContainerId: string) => void;
+}) {
+  const {
+    clearModal,
+    modalState,
+    online,
+    setBackgroundActionError,
+    startEmptyTrash,
+  } = params;
+  if (!online) {
+    setBackgroundActionError("You must be online to empty the Trash.");
+    clearModal();
+    return;
+  }
+  startEmptyTrash(modalState.nodeId);
   clearModal();
 }
 
@@ -269,6 +282,7 @@ async function submitExplorerNonNameModal(params: {
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   modalState:
+    | { mode: "empty-trash"; nodeId: string }
     | { mode: "link-document"; documentLocalId: string }
     | { mode: "move"; nodeId: string }
     | { mode: "move-document"; documentLocalId: string }
@@ -286,7 +300,8 @@ async function submitExplorerNonNameModal(params: {
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
   peerUserId: string | null;
-  purgeContainer: (containerId: string) => Promise<boolean>;
+  startContainerPurge: (containerId: string) => void;
+  startEmptyTrash: (trashContainerId: string) => void;
   setBackgroundActionError: (error: string | null) => void;
   setModalError: (error: string | null) => void;
   setSelectedId: (id: string | null) => void;
@@ -299,9 +314,18 @@ async function submitExplorerNonNameModal(params: {
         modalState: params.modalState,
         nodes: params.nodes,
         online: params.online,
-        purgeContainer: params.purgeContainer,
         setBackgroundActionError: params.setBackgroundActionError,
         setSelectedId: params.setSelectedId,
+        startContainerPurge: params.startContainerPurge,
+      });
+      return;
+    case "empty-trash":
+      submitExplorerEmptyTrashModal({
+        clearModal: params.clearModal,
+        modalState: params.modalState,
+        online: params.online,
+        setBackgroundActionError: params.setBackgroundActionError,
+        startEmptyTrash: params.startEmptyTrash,
       });
       return;
     case "move":
@@ -375,7 +399,8 @@ export async function submitExplorerModalAction(
     nodes: params.nodes,
     online: params.online,
     peerUserId: params.peerUserId,
-    purgeContainer: params.purgeContainer,
+    startContainerPurge: params.startContainerPurge,
+    startEmptyTrash: params.startEmptyTrash,
     setBackgroundActionError: params.setBackgroundActionError,
     setModalError: params.setModalError,
     setSelectedId: params.setSelectedId,

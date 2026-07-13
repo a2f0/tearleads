@@ -4,6 +4,7 @@ import type {
 } from "@tearleads/crypto";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import type { PurgeOptions } from "../../workflows/container-contents/container-state/purgeProgress";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";
 import type {
@@ -52,7 +53,16 @@ export interface ContainerContentsContextValue {
     containerId: string,
     parentId: string,
   ) => Promise<ContainerNode | null>;
-  purgeContainer: (containerId: string) => Promise<boolean>;
+  purgeContainer: (
+    containerId: string,
+    options?: PurgeOptions,
+  ) => Promise<boolean>;
+  // Permanently destroy everything under the Trash bin while leaving the bin
+  // itself in place. Reports progress and honors cancellation via options.
+  emptyTrash: (
+    trashContainerId: string,
+    options?: PurgeOptions,
+  ) => Promise<boolean>;
   refresh: () => Promise<boolean>;
   refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
   requestSync: () => void;
@@ -95,7 +105,14 @@ export interface ContainerContentsStore {
     containerId: string,
     parentId: string,
   ) => Promise<ContainerNode | null>;
-  purgeContainer: (containerId: string) => Promise<boolean>;
+  purgeContainer: (
+    containerId: string,
+    options?: PurgeOptions,
+  ) => Promise<boolean>;
+  emptyTrash: (
+    trashContainerId: string,
+    options?: PurgeOptions,
+  ) => Promise<boolean>;
   prepareGroupRewrap: (
     containerId: string,
     groupId: string,

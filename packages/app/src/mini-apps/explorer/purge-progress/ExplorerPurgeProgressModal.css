@@ -1,0 +1,15 @@
+.explorer-purge-progress {
+  display: block;
+  width: 100%;
+  height: 0.55rem;
+  border: var(--border);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.explorer-purge-progress > span {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  transition: width 0.15s ease-out;
+}

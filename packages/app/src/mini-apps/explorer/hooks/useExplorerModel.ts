@@ -70,6 +70,7 @@ interface ExplorerModel {
   markDocumentStartsInEditMode: ExplorerPanelState["markDocumentStartsInEditMode"];
   modalState: ExplorerPanelState["modalState"];
   moveContainerToTrash: ExplorerPanelState["moveContainerToTrash"];
+  purgeRun: ExplorerPanelState["purgeRun"];
   organizationNamesById: ExplorerPanelState["organizationNamesById"];
   openInlineDocument: ExplorerPanelState["openInlineDocument"];
   peerUserId: string | null;
@@ -178,6 +179,7 @@ export function useExplorerModel(
     markDocumentStartsInEditMode,
     modalState,
     moveContainerToTrash,
+    purgeRun,
     organizationNamesById,
     openInlineDocument,
     purgeDocument,
@@ -334,6 +336,7 @@ export function useExplorerModel(
     markDocumentStartsInEditMode,
     modalState,
     moveContainerToTrash,
+    purgeRun,
     organizationNamesById,
     openInlineDocument,
     peerUserId,

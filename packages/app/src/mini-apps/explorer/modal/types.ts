@@ -5,6 +5,7 @@ import type { MoveTargetOption } from "../targetOptions";
 
 export type ExplorerModalState =
   | { mode: "create-child"; nodeId: string }
+  | { mode: "empty-trash"; nodeId: string }
   | { mode: "link-document"; documentLocalId: string }
   | { mode: "move"; nodeId: string }
   | { mode: "move-document"; documentLocalId: string }
@@ -38,7 +39,11 @@ export interface ExplorerModalControllerParams {
   // surface a clear "must be online" message instead of a generic failure.
   online: boolean;
   peerUserId: string | null;
-  purgeContainer: (containerId: string) => Promise<boolean>;
+  // Kick off the long-running "Delete Forever" purge run (which owns the progress
+  // + cancel modal). Fire-and-forget from the confirm modal's perspective — the
+  // run reports its own progress; the confirm modal just closes.
+  startContainerPurge: (containerId: string) => void;
+  startEmptyTrash: (trashContainerId: string) => void;
   renameContainer: (
     containerId: string,
     name: string,
@@ -64,6 +69,7 @@ export interface ExplorerModalController {
   moveTargetOptions: ReadonlyArray<MoveTargetOption>;
   nameInputRef: RefObject<HTMLInputElement | null>;
   openCreateChildModal: (nodeId: string) => void;
+  openEmptyTrashModal: (nodeId: string) => void;
   openLinkDocumentModal: (documentLocalId: string) => void;
   openMoveDocumentModal: (documentLocalId: string) => void;
   openMoveModal: (nodeId: string) => void;

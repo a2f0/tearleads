@@ -1,3 +1,4 @@
+import type { PurgeOptions } from "../../workflows/container-contents/container-state/purgeProgress";
 import { purgeContainerTree } from "../../workflows/container-contents/container-state/purgeTree";
 import { updateContainerContentsSnapshot } from "./state";
 import type { ContainerContentsStoreState } from "./types";
@@ -18,6 +19,7 @@ function getContainerContentsStoreLogLabel(
 export async function purgeContainer(
   state: ContainerContentsStoreState,
   containerId: string,
+  options?: PurgeOptions,
 ): Promise<boolean> {
   if (state.runtime.infra.dbStatus !== "ready" || !state.snapshot.ready) {
     return false;
@@ -45,10 +47,12 @@ export async function purgeContainer(
 
   const result = await purgeContainerTree({
     containersById: state.containersById,
+    onProgress: options?.onProgress,
     persistence: state.persistence,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     rootContainerId: containerId,
     runtime: state.runtime,
+    signal: options?.signal,
   });
   if (!result) {
     return false;
@@ -57,9 +61,13 @@ export async function purgeContainer(
   for (const purgedContainerId of result.purgedContainerIds) {
     state.containersById.delete(purgedContainerId);
   }
-  updateContainerContentsSnapshot(state);
+  // Only re-render when something actually left the tree; a fully-failed or
+  // immediately-cancelled run changed nothing.
+  if (result.purgedContainerIds.length > 0) {
+    updateContainerContentsSnapshot(state);
+  }
   state.runtime.util.log(
-    `${getContainerContentsStoreLogLabel(state)}: purged container "${existingState.container.name}" (${result.purgedContainerIds.length} container(s))`,
+    `${getContainerContentsStoreLogLabel(state)}: purged container "${existingState.container.name}" (${result.purgedContainerIds.length} container(s) removed, ${result.failedCount} failed)`,
   );
   return result.purgedContainerIds.includes(containerId);
 }

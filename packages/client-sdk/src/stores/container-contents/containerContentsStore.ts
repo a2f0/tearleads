@@ -4,6 +4,7 @@ import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
+import { emptyTrash } from "./emptyTrashOperation";
 import {
   prepareContainerGroupRewrap,
   verifyContainerGroupRewrapCurrent,
@@ -123,6 +124,7 @@ type ContainerWriteMethods = Pick<
   ContainerContentsStore,
   | "createChild"
   | "deleteContainer"
+  | "emptyTrash"
   | "ensureSystemContainer"
   | "moveContainer"
   | "prepareGroupRewrap"
@@ -132,6 +134,51 @@ type ContainerWriteMethods = Pick<
   | "shareWithGroup"
   | "shareWithUser"
 >;
+
+// The group-rewrap builder: it first loads the container's known KEKs (a chained
+// read), then returns a check/rewrap pair — extracted so createContainerWriteMethods
+// stays a flat, readable binding table.
+function createPrepareGroupRewrapMethod(
+  state: ContainerContentsStoreState,
+  syncAgent: ReturnType<typeof createContainerContentsStoreSyncAgent>,
+): ContainerContentsStore["prepareGroupRewrap"] {
+  return async (containerId, groupId, accessLevel, options) => {
+    const knownContainerKeks = await chainContainerTask(state, () =>
+      prepareContainerGroupRewrap(state, containerId),
+    );
+    return knownContainerKeks
+      ? {
+          isCurrent: (
+            expectedGroupHead,
+            expectedContainerId,
+            expectedOrganizationId,
+          ) =>
+            chainContainerTask(state, () =>
+              verifyContainerGroupRewrapCurrent(
+                state,
+                containerId,
+                groupId,
+                accessLevel,
+                expectedGroupHead,
+                expectedContainerId,
+                expectedOrganizationId,
+              ),
+            ),
+          rewrap: () =>
+            chainNodePresenceWrite(state, () =>
+              shareContainerWithGroup(
+                state,
+                syncAgent,
+                containerId,
+                groupId,
+                accessLevel,
+                { ...options, knownContainerKeks },
+              ),
+            ),
+        }
+      : null;
+  };
+}
 
 function createContainerWriteMethods(
   state: ContainerContentsStoreState,
@@ -144,8 +191,12 @@ function createContainerWriteMethods(
       ),
     deleteContainer: (containerId) =>
       chainNodePresenceWrite(state, () => deleteContainer(state, containerId)),
-    purgeContainer: (containerId) =>
-      chainPurgeWrite(state, () => purgeContainer(state, containerId)),
+    purgeContainer: (containerId, options) =>
+      chainPurgeWrite(state, () => purgeContainer(state, containerId, options)),
+    emptyTrash: (trashContainerId, options) =>
+      chainPurgeWrite(state, () =>
+        emptyTrash(state, trashContainerId, options),
+      ),
     ensureSystemContainer: (systemSlot, name, options) =>
       chainContainerWrite(state, () =>
         ensureSystemContainer(state, syncAgent, systemSlot, name, options),
@@ -154,42 +205,7 @@ function createContainerWriteMethods(
       chainContainerWrite(state, () =>
         moveContainer(state, syncAgent, containerId, parentId),
       ),
-    prepareGroupRewrap: async (containerId, groupId, accessLevel, options) => {
-      const knownContainerKeks = await chainContainerTask(state, () =>
-        prepareContainerGroupRewrap(state, containerId),
-      );
-      return knownContainerKeks
-        ? {
-            isCurrent: (
-              expectedGroupHead,
-              expectedContainerId,
-              expectedOrganizationId,
-            ) =>
-              chainContainerTask(state, () =>
-                verifyContainerGroupRewrapCurrent(
-                  state,
-                  containerId,
-                  groupId,
-                  accessLevel,
-                  expectedGroupHead,
-                  expectedContainerId,
-                  expectedOrganizationId,
-                ),
-              ),
-            rewrap: () =>
-              chainNodePresenceWrite(state, () =>
-                shareContainerWithGroup(
-                  state,
-                  syncAgent,
-                  containerId,
-                  groupId,
-                  accessLevel,
-                  { ...options, knownContainerKeks },
-                ),
-              ),
-          }
-        : null;
-    },
+    prepareGroupRewrap: createPrepareGroupRewrapMethod(state, syncAgent),
     renameContainer: (containerId, name) =>
       chainContainerWrite(state, () =>
         renameContainer(state, syncAgent, containerId, name),
@@ -236,6 +252,7 @@ function createContainerContentsStoreEntry(
     store: {
       createChild: writeMethods.createChild,
       deleteContainer: writeMethods.deleteContainer,
+      emptyTrash: writeMethods.emptyTrash,
       purgeContainer: writeMethods.purgeContainer,
       ensureSystemContainer: writeMethods.ensureSystemContainer,
       moveContainer: writeMethods.moveContainer,

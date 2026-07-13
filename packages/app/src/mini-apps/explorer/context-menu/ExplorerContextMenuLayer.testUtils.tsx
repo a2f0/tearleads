@@ -1,0 +1,109 @@
+import {
+  type ContainerNode,
+  syncedContainerDocumentObjectSyncState,
+} from "@tearleads/client-sdk";
+import { useState } from "react";
+import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
+import type {
+  ExplorerContainerContextMenuVariant,
+  ExplorerContextMenuState,
+} from "./ExplorerContextMenu";
+import { ExplorerContextMenuLayer } from "./ExplorerContextMenuLayer";
+
+export const rootNode: ContainerNode = {
+  id: "root-container",
+  kind: "container",
+  name: "/",
+  organizationId: "org-1",
+  parentId: null,
+  syncState: syncedContainerDocumentObjectSyncState,
+};
+
+export const noopImportDroppedFiles: ImportExplorerDroppedFiles = async () => ({
+  completedCount: 0,
+  failedCount: 0,
+  importedCount: 0,
+  importedDocuments: [],
+  totalCount: 0,
+});
+
+export function ExplorerContextMenuLayerHarness(params: {
+  canCreateChildContextMenuNode?: boolean;
+  canCreateStructuredDocumentContextMenuNode?: boolean;
+  canDeleteSelectedDocument?: boolean;
+  canDownloadSelectedDocument?: boolean;
+  canEmptyTrashContextMenuNode?: boolean;
+  canMoveToTrashContextMenuNode?: boolean;
+  canPurgeContextMenuNode?: boolean;
+  canPurgeSelectedDocument?: boolean;
+  canUploadToContextMenuNode?: boolean;
+  containerContextMenuVariant?: ExplorerContainerContextMenuVariant;
+  contextMenu?: ExplorerContextMenuState | null;
+  deleteDocument?: (localId: string, containerId: string) => Promise<unknown>;
+  downloadDocument?: (localId: string) => void;
+  importDroppedFiles: ImportExplorerDroppedFiles;
+  moveContainerToTrash?: (containerId: string) => Promise<unknown>;
+  openContainerInfoRoute?: (containerId: string) => void;
+  openNewContactDocument?: (containerId: string) => void;
+  openNewStructuredDocumentRoute?: (containerId: string) => void;
+  openPurgeModal?: (containerId: string) => void;
+  purgeDocument?: (localId: string, containerId: string) => Promise<unknown>;
+}) {
+  const [contextMenu, setContextMenu] =
+    useState<ExplorerContextMenuState | null>(
+      params.contextMenu ?? {
+        id: { kind: "container", containerId: rootNode.id },
+        position: { x: 12, y: 34 },
+      },
+    );
+
+  return (
+    <ExplorerContextMenuLayer
+      canCreateChildContextMenuNode={
+        params.canCreateChildContextMenuNode ?? true
+      }
+      canCreateContactContextMenuNode={true}
+      canCreateStructuredDocumentContextMenuNode={
+        params.canCreateStructuredDocumentContextMenuNode ?? true
+      }
+      canEmptyTrashContextMenuNode={
+        params.canEmptyTrashContextMenuNode ?? false
+      }
+      containerContextMenuVariant={
+        params.containerContextMenuVariant ?? "default"
+      }
+      canMoveToTrashContextMenuNode={
+        params.canMoveToTrashContextMenuNode ?? false
+      }
+      canDeleteSelectedDocument={params.canDeleteSelectedDocument ?? false}
+      canDownloadSelectedDocument={params.canDownloadSelectedDocument ?? false}
+      canLinkSelectedDocument={false}
+      canMoveContextMenuNode={false}
+      canPurgeContextMenuNode={params.canPurgeContextMenuNode ?? false}
+      canRenameContextMenuNode={false}
+      canUploadToContextMenuNode={params.canUploadToContextMenuNode ?? true}
+      canMoveSelectedDocument={false}
+      canPurgeSelectedDocument={params.canPurgeSelectedDocument ?? false}
+      closeContextMenu={() => setContextMenu(null)}
+      contextMenu={contextMenu}
+      deleteDocument={params.deleteDocument ?? (async () => null)}
+      downloadDocument={params.downloadDocument ?? (() => {})}
+      importDroppedFiles={params.importDroppedFiles}
+      moveContainerToTrash={params.moveContainerToTrash ?? (async () => null)}
+      openContainerInfoRoute={params.openContainerInfoRoute ?? (() => {})}
+      openCreateChildModal={() => {}}
+      openDocumentInfoRoute={() => {}}
+      openEmptyTrashModal={() => {}}
+      openLinkDocumentModal={() => {}}
+      openMoveDocumentModal={() => {}}
+      openMoveModal={() => {}}
+      openNewContactDocument={params.openNewContactDocument ?? (() => {})}
+      openNewStructuredDocumentRoute={
+        params.openNewStructuredDocumentRoute ?? (() => {})
+      }
+      openPurgeModal={params.openPurgeModal ?? (() => {})}
+      openRenameModal={() => {}}
+      purgeDocument={params.purgeDocument ?? (async () => null)}
+    />
+  );
+}

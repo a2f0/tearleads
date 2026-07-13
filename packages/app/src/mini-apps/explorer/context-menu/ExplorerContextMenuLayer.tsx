@@ -142,6 +142,7 @@ interface ExplorerContainerContextMenuProps {
   canCreateChildContextMenuNode: boolean;
   canCreateContactContextMenuNode: boolean;
   canCreateStructuredDocumentContextMenuNode: boolean;
+  canEmptyTrashContextMenuNode: boolean;
   canMoveToTrashContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
   canPurgeContextMenuNode: boolean;
@@ -151,6 +152,7 @@ interface ExplorerContainerContextMenuProps {
   contextMenu: ExplorerContainerContextMenuState;
   containerContextMenuVariant: ExplorerContainerContextMenuVariant;
   moveContainerToTrash: (containerId: string) => Promise<unknown>;
+  openEmptyTrashModal: (containerId: string) => void;
   openNewContactDocument: (containerId: string) => void;
   triggerUpload: (containerId: string) => void;
   openCreateChildModal: (containerId: string) => void;
@@ -233,37 +235,32 @@ function ExplorerOptionalMenuItem(params: {
   );
 }
 
-function ExplorerStandardContainerContextMenu(
+// The non-destructive container actions (create/upload/rename/move/info). Kept as
+// a fragment so ExplorerStandardContainerContextMenu stays a thin Menu wrapper;
+// Menu renders its children directly, so the split is DOM-identical.
+function ExplorerContainerEditMenuItems(
   params: ExplorerContainerContextMenuProps,
 ) {
   const {
     canCreateChildContextMenuNode,
     canCreateStructuredDocumentContextMenuNode,
-    canMoveToTrashContextMenuNode,
     canMoveContextMenuNode,
-    canPurgeContextMenuNode,
     canRenameContextMenuNode,
     canUploadToContextMenuNode,
     closeContextMenu,
     contextMenu,
     triggerUpload,
-    moveContainerToTrash,
     openCreateChildModal,
     openContainerInfoRoute,
     openMoveModal,
     openNewStructuredDocumentRoute,
-    openPurgeModal,
     openRenameModal,
   } = params;
   const containerId = contextMenu.id.containerId;
   const optionalActionProps = { closeContextMenu };
 
   return (
-    <Menu
-      position={contextMenu.position}
-      onClose={closeContextMenu}
-      direction="down"
-    >
+    <>
       <ExplorerOptionalMenuItem
         {...optionalActionProps}
         icon={FilePlusIcon}
@@ -307,6 +304,37 @@ function ExplorerStandardContainerContextMenu(
           openContainerInfoRoute(containerId);
         }}
       />
+    </>
+  );
+}
+
+// The destructive container actions (empty-trash/move-to-trash/purge), gated
+// independently by the capability flags the panel state resolves.
+function ExplorerContainerDestructiveMenuItems(
+  params: ExplorerContainerContextMenuProps,
+) {
+  const {
+    canEmptyTrashContextMenuNode,
+    canMoveToTrashContextMenuNode,
+    canPurgeContextMenuNode,
+    closeContextMenu,
+    contextMenu,
+    moveContainerToTrash,
+    openEmptyTrashModal,
+    openPurgeModal,
+  } = params;
+  const containerId = contextMenu.id.containerId;
+  const optionalActionProps = { closeContextMenu };
+
+  return (
+    <>
+      <ExplorerOptionalMenuItem
+        {...optionalActionProps}
+        icon={TrashIcon}
+        label={EXPLORER_LABELS.containerEmptyTrashAction}
+        disabled={!canEmptyTrashContextMenuNode}
+        onSelect={() => openEmptyTrashModal(containerId)}
+      />
       <ExplorerOptionalMenuItem
         {...optionalActionProps}
         icon={TrashIcon}
@@ -315,12 +343,27 @@ function ExplorerStandardContainerContextMenu(
         onSelect={() => void moveContainerToTrash(containerId)}
       />
       <ExplorerOptionalMenuItem
-        closeContextMenu={closeContextMenu}
+        {...optionalActionProps}
         icon={WarningCircleIcon}
         label={EXPLORER_LABELS.documentPurgeAction}
         disabled={!canPurgeContextMenuNode}
         onSelect={() => openPurgeModal(containerId)}
       />
+    </>
+  );
+}
+
+function ExplorerStandardContainerContextMenu(
+  params: ExplorerContainerContextMenuProps,
+) {
+  return (
+    <Menu
+      position={params.contextMenu.position}
+      onClose={params.closeContextMenu}
+      direction="down"
+    >
+      <ExplorerContainerEditMenuItems {...params} />
+      <ExplorerContainerDestructiveMenuItems {...params} />
     </Menu>
   );
 }
@@ -347,6 +390,7 @@ export function ExplorerContextMenuLayer(params: {
   canCreateChildContextMenuNode: boolean;
   canCreateContactContextMenuNode: boolean;
   canCreateStructuredDocumentContextMenuNode: boolean;
+  canEmptyTrashContextMenuNode: boolean;
   containerContextMenuVariant: ExplorerContainerContextMenuVariant;
   canDeleteSelectedDocument: boolean;
   canDownloadSelectedDocument: boolean;
@@ -364,6 +408,7 @@ export function ExplorerContextMenuLayer(params: {
   downloadDocument: (localId: string) => void;
   importDroppedFiles: ImportExplorerDroppedFiles;
   moveContainerToTrash: (containerId: string) => Promise<unknown>;
+  openEmptyTrashModal: (containerId: string) => void;
   openCreateChildModal: (containerId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openLinkDocumentModal: (localId: string) => void;
