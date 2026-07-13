@@ -21,6 +21,7 @@ interface NotesAppModel {
   activeSelection: ActiveNoteSelection | null;
   contextMenu: NotesContextMenuModel;
   createNote: () => void;
+  isContainerTrashed: (containerId: string | null | undefined) => boolean;
   notes: ReadonlyArray<DocumentSummary>;
   ready: boolean;
   selectedNoteId: string | null;
@@ -56,12 +57,19 @@ export function useNotesAppModel(
 ): NotesAppModel {
   const compactRoutedMode = useCompactRoutedMode();
   const { explicitSelection, selectNoteRoute } = useNotesRouteState(props);
-  const { createNote, deleteNote, notes, ready, selectedNoteId, selectNote } =
-    useNotesDirectory({
-      autoSelectInitialNote: !compactRoutedMode || explicitSelection !== null,
-      explicitSelection,
-      selectNoteRoute,
-    });
+  const {
+    createNote,
+    deleteNote,
+    isContainerTrashed,
+    notes,
+    ready,
+    selectedNoteId,
+    selectNote,
+  } = useNotesDirectory({
+    autoSelectInitialNote: !compactRoutedMode || explicitSelection !== null,
+    explicitSelection,
+    selectNoteRoute,
+  });
   const activeSelection = useActiveNoteSelection({
     explicitSelection,
     notes,
@@ -83,6 +91,7 @@ export function useNotesAppModel(
     activeSelection,
     contextMenu,
     createNote,
+    isContainerTrashed,
     notes,
     ready,
     selectedNoteId,

@@ -45,9 +45,12 @@ async function getLocalUserKey(input: {
 
 export function useContactsStoreForContainer(
   contactsContainerId: string | null,
-  trashContainerId: string | null,
+  resolveTrashContainerForDocument?: ContactsRuntime["resolveTrashContainerForDocument"],
 ): ContactsStore {
-  const runtime = useContactsRuntime(contactsContainerId, trashContainerId);
+  const runtime = useContactsRuntime(
+    contactsContainerId,
+    resolveTrashContainerForDocument,
+  );
   const store = useContactsStore(runtime);
 
   useEffect(() => {
@@ -59,7 +62,7 @@ export function useContactsStoreForContainer(
 
 function useContactsRuntime(
   contactsContainerId: string | null,
-  trashContainerId: string | null,
+  resolveTrashContainerForDocument: ContactsRuntime["resolveTrashContainerForDocument"],
 ): ContactsRuntime {
   const tearleads = useTearleads();
   const appData = useTearleadsRuntime();
@@ -80,7 +83,7 @@ function useContactsRuntime(
       createContactsRuntimeForContainer(
         tearleads,
         documentsRuntime,
-        trashContainerId,
+        resolveTrashContainerForDocument,
         (note, targetContainerId) =>
           documentLinks
             .moveDocumentToContainer({
@@ -99,8 +102,8 @@ function useContactsRuntime(
       documentLinks,
       documentQueries,
       documentsRuntime,
+      resolveTrashContainerForDocument,
       tearleads,
-      trashContainerId,
     ],
   );
 }
@@ -137,7 +140,7 @@ function createContactsStore(
 export function createContactsRuntimeForContainer(
   tearleads: Tearleads,
   documentsRuntime: ContactsRuntime["documents"],
-  trashContainerId: string | null = null,
+  resolveTrashContainerForDocument: ContactsRuntime["resolveTrashContainerForDocument"] = undefined,
   moveDocumentToTrash: ContactsRuntime["moveDocumentToTrash"] = () =>
     Promise.resolve(null),
   loadDocumentSummary: ContactsRuntime["loadDocumentSummary"] = (localId) =>
@@ -155,11 +158,11 @@ export function createContactsRuntimeForContainer(
       }),
     purgeDocument: async (document) =>
       (await documentLinks.purgeDocument({ note: document })) !== null,
+    resolveTrashContainerForDocument,
     subscribeToPersistedDocuments: (listener) =>
       tearleads.documents.subscribe(listener, {
         containerId: documentsRuntime.state.containerId,
       }),
-    trashContainerId,
   };
 }
 

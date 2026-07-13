@@ -28,10 +28,16 @@ export interface ContactsRuntime {
     input: OpenDocumentInput & { readonly localId: string },
   ) => DocumentStore;
   purgeDocument?: ((document: DocumentSummary) => Promise<boolean>) | undefined;
+  // Resolve the Trash a specific contact document should move into, org-awarely
+  // and lazily provisioning the viewer's own Trash. Returning null makes removal a
+  // no-op (nothing to move into) — matching the Explorer. Absent on bootstrap-only
+  // runtimes that never remove contacts.
+  resolveTrashContainerForDocument?:
+    | ((document: DocumentSummary) => Promise<string | null>)
+    | undefined;
   subscribeToPersistedDocuments?:
     | ((listener: (document: DocumentSummary) => void) => () => void)
     | undefined;
-  trashContainerId: string | null;
 }
 
 export interface ContactsStore {

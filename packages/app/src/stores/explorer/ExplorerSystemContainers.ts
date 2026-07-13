@@ -135,17 +135,25 @@ export function getVisibleExplorerNodes(
   return visibleNodes;
 }
 
-export function findExplorerSystemNode(
-  nodes: ReadonlyArray<ContainerNode> | null | undefined,
+// The minimal node shape this slot lookup reads. Generic over it so the narrow
+// Contacts lookup nodes (a Pick) can reuse the same resolver while Explorer
+// callers, passing full ContainerNodes, keep the full-node return.
+type SystemContainerLookupNode = Pick<
+  ContainerNode,
+  "id" | "organizationId" | "parentId" | "systemSlot"
+>;
+
+export function findExplorerSystemNode<T extends SystemContainerLookupNode>(
+  nodes: ReadonlyArray<T> | null | undefined,
   systemSlot: ContainerSystemSlot | null,
   organizationId?: string | null | undefined,
   rootContainerId?: string | null | undefined,
-): ContainerNode | null {
+): T | null {
   if (!systemSlot || !nodes) {
     return null;
   }
 
-  let fallback: ContainerNode | null = null;
+  let fallback: T | null = null;
   for (const node of nodes) {
     if (node.systemSlot !== systemSlot) {
       continue;
@@ -165,8 +173,10 @@ export function findExplorerSystemNode(
   return fallback;
 }
 
-export function getExplorerSystemContainerId(
-  nodes: ReadonlyArray<ContainerNode> | null | undefined,
+export function getExplorerSystemContainerId<
+  T extends SystemContainerLookupNode,
+>(
+  nodes: ReadonlyArray<T> | null | undefined,
   systemSlot: ContainerSystemSlot | null,
   organizationId?: string | null | undefined,
   rootContainerId?: string | null | undefined,

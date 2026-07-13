@@ -1,6 +1,7 @@
 import type { ContainerNode } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { useEffect, useState } from "react";
+import { getExplorerSystemContainerId } from "../explorer/ExplorerSystemContainers";
 import {
   deriveUserSystemContainers,
   findUserSystemContainer,
@@ -11,59 +12,18 @@ type ContactsContainerLookupNode = Pick<
   "id" | "organizationId" | "parentId" | "systemSlot"
 >;
 
-function getSystemContainerId(
-  nodes: ReadonlyArray<ContactsContainerLookupNode> | null,
-  systemSlot: ContainerSystemSlot | null,
-  organizationId?: string | null | undefined,
-  rootContainerId?: string | null | undefined,
-): string | null {
-  if (!systemSlot) {
-    return null;
-  }
-
-  let fallback: ContactsContainerLookupNode | null = null;
-  for (const node of nodes ?? []) {
-    if (node.systemSlot !== systemSlot) {
-      continue;
-    }
-    if (rootContainerId != null && node.parentId === rootContainerId) {
-      return node.id;
-    }
-    if (
-      rootContainerId != null
-        ? organizationId != null && node.organizationId === organizationId
-        : organizationId == null || node.organizationId === organizationId
-    ) {
-      fallback ??= node;
-    }
-  }
-
-  return fallback?.id ?? null;
-}
-
+// The Contacts container projection resolves the same way as any other system
+// container, so delegate to the shared Explorer resolver rather than duplicating
+// it. Trash resolution now lives in stores/systemContainerTrash.
 export function getContactsContainerId(
   nodes: ReadonlyArray<ContactsContainerLookupNode> | null,
   contactsSystemSlot: ContainerSystemSlot | null,
   organizationId?: string | null | undefined,
   rootContainerId?: string | null | undefined,
 ): string | null {
-  return getSystemContainerId(
+  return getExplorerSystemContainerId(
     nodes,
     contactsSystemSlot,
-    organizationId,
-    rootContainerId,
-  );
-}
-
-export function getContactsTrashContainerId(
-  nodes: ReadonlyArray<ContactsContainerLookupNode> | null,
-  trashSystemSlot: ContainerSystemSlot | null,
-  organizationId?: string | null | undefined,
-  rootContainerId?: string | null | undefined,
-): string | null {
-  return getSystemContainerId(
-    nodes,
-    trashSystemSlot,
     organizationId,
     rootContainerId,
   );

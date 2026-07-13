@@ -1,7 +1,14 @@
-import type { ContainerNode, Tearleads } from "@tearleads/client-sdk";
+import type {
+  ContainerContentsStore,
+  ContainerNode,
+  DocumentSummary,
+  Tearleads,
+} from "@tearleads/client-sdk";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
   createContext,
   type PropsWithChildren,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -17,10 +24,13 @@ import {
 } from "../../providers/sdk/usePrimaryLocalOrganization";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import { CONTACTS_CONTAINER_NAME } from "../systemContainers";
+import {
+  ensureTrashSystemContainer,
+  resolveDeleteToTrashTarget,
+} from "../systemContainerTrash";
 import type { ContactsStore } from "./contactStore";
 import {
   getContactsContainerId,
-  getContactsTrashContainerId,
   useContactsSystemSlots,
 } from "./contactsSystemSlot";
 import type { ContactsContextValue } from "./types";
@@ -116,23 +126,43 @@ function useContactsSystemContainerResolution(input: {
       nodes,
     ],
   );
-  const trashContainerId = useMemo(
-    () =>
-      getContactsTrashContainerId(
-        nodes,
+
+  return { contactsContainer, contactsSystemSlot, trashSystemSlot };
+}
+
+// Builds the per-contact Trash resolver the store uses on removal: it resolves the
+// Trash from the contact document's OWN container (org-aware) and lazily provisions
+// the viewer's Trash — matching the Explorer, so removal still lands in a
+// not-yet-synced / payment-lapsed organization. Nodes are read at call time (not
+// closed over) so the callback identity stays stable across tree updates and a
+// just-created Trash is visible.
+function useContactsTrashResolver(input: {
+  containerContentsStore: ContainerContentsStore;
+  currentOrganizationId: string | null;
+  trashSystemSlot: ContainerSystemSlot | null;
+}): (document: DocumentSummary) => Promise<string | null> {
+  const { containerContentsStore, currentOrganizationId, trashSystemSlot } =
+    input;
+  const ensureOwnTrashContainer = useCallback(
+    () => ensureTrashSystemContainer(containerContentsStore, trashSystemSlot),
+    [containerContentsStore, trashSystemSlot],
+  );
+  return useCallback(
+    (document: DocumentSummary) =>
+      resolveDeleteToTrashTarget({
+        containerId: document.containerId,
+        currentOrganizationId,
+        ensureOwnTrashContainer,
+        nodes: containerContentsStore.getSnapshot().nodes,
         trashSystemSlot,
-        appData.auth.organizationId,
-        appData.state.containerId,
-      ),
+      }),
     [
-      appData.auth.organizationId,
-      appData.state.containerId,
-      nodes,
+      containerContentsStore,
+      currentOrganizationId,
+      ensureOwnTrashContainer,
       trashSystemSlot,
     ],
   );
-
-  return { contactsContainer, contactsSystemSlot, trashContainerId };
 }
 
 export function ContactsProvider({ children }: PropsWithChildren) {
@@ -152,7 +182,7 @@ export function ContactsProvider({ children }: PropsWithChildren) {
   const containerContentsSnapshot = useTearleadsExternalStoreSnapshot(
     containerContentsStore,
   );
-  const { contactsContainer, contactsSystemSlot, trashContainerId } =
+  const { contactsContainer, contactsSystemSlot, trashSystemSlot } =
     useContactsSystemContainerResolution({
       appData,
       logError: tearleads.logError,
@@ -166,9 +196,14 @@ export function ContactsProvider({ children }: PropsWithChildren) {
     nodeCount: containerContentsSnapshot.nodes.length,
     tearleads,
   });
+  const resolveTrashContainerForDocument = useContactsTrashResolver({
+    containerContentsStore,
+    currentOrganizationId: appData.auth.organizationId,
+    trashSystemSlot,
+  });
   const store = useContactsStoreForContainer(
     contactsContainer.id,
-    trashContainerId,
+    resolveTrashContainerForDocument,
   );
   const contextValue = useMemo<ContactsProviderContextValue>(
     () => ({ canWrite: contactsContainer.canWrite, store }),

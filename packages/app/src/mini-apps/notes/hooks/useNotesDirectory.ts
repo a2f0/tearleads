@@ -3,10 +3,11 @@ import {
   type DocumentSummary,
   getUntitledDocumentTitle,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import { DEFAULT_DOCUMENT_ID } from "../../../stores/documents/DocumentsProvider";
 import { useDocumentSummaries } from "../../../stores/documents/useDocumentSummaries";
+import { useDocumentTrash } from "../../shared/trash/useDocumentTrash";
 import type { ActiveNoteSelection } from "../types";
 
 type SelectNoteRoute = (
@@ -128,7 +129,6 @@ export function useNotesDirectory({
   const appData = useTearleadsRuntime();
   const explicitNoteId = explicitSelection?.noteId ?? null;
   const {
-    deleteSummary: deleteNoteSummary,
     mergeSummary: mergeNoteSummary,
     ready,
     summaries: notes,
@@ -137,10 +137,18 @@ export function useNotesDirectory({
     loadErrorMessage: "Notes: failed to load notes.",
     sortSummaries: compareNoteSummaries,
   });
+  const { isContainerTrashed, moveToTrash } = useDocumentTrash();
+  // Notes are listed app-wide by kind, so a note moved to Trash (here or via the
+  // Explorer) still comes back from documents.list. Hide trashed notes so
+  // "Move to Trash" removes the note from the directory, matching the Explorer.
+  const visibleNotes = useMemo(
+    () => notes.filter((note) => !isContainerTrashed(note.containerId)),
+    [isContainerTrashed, notes],
+  );
   const { selectedNoteId, setSelectedNoteId } = useSyncSelectedNote({
     autoSelectInitialNote,
     explicitNoteId,
-    notes,
+    notes: visibleNotes,
     ready,
     selectNoteRoute,
   });
@@ -173,25 +181,49 @@ export function useNotesDirectory({
 
   const deleteNote = useCallback(
     async (noteId: string) => {
-      const deleted = await deleteNoteSummary(noteId);
-      if (!deleted || selectedNoteId !== noteId) {
+      const note = notes.find((entry) => entry.id === noteId);
+      if (!note) {
         return;
       }
 
-      // The deleted note was selected; fall back to the next note in the list,
-      // or the default blank note when nothing else remains.
+      // Move the note into its organization's Trash (org-aware, lazily creating
+      // the Trash when needed) instead of hard-deleting it — matching Explorer.
+      const movedNote = await moveToTrash(note);
+      if (!movedNote) {
+        return;
+      }
+
+      // Reflect the move locally so the note leaves the visible list immediately,
+      // before the persisted-document subscription re-emits it under Trash.
+      mergeNoteSummary(movedNote);
+      if (selectedNoteId !== noteId) {
+        return;
+      }
+
+      // The trashed note was selected; fall back to the next visible note, or the
+      // default blank note when nothing else remains.
       const nextNoteId =
-        notes.find((note) => note.id !== noteId)?.id ?? DEFAULT_DOCUMENT_ID;
+        visibleNotes.find((entry) => entry.id !== noteId)?.id ??
+        DEFAULT_DOCUMENT_ID;
       setSelectedNoteId(nextNoteId);
       selectNoteRoute({ noteId: nextNoteId }, { replace: true });
     },
-    [deleteNoteSummary, notes, selectedNoteId, selectNoteRoute],
+    [
+      mergeNoteSummary,
+      moveToTrash,
+      notes,
+      selectNoteRoute,
+      selectedNoteId,
+      setSelectedNoteId,
+      visibleNotes,
+    ],
   );
 
   return {
     createNote,
     deleteNote,
-    notes,
+    isContainerTrashed,
+    notes: visibleNotes,
     ready,
     selectedNoteId,
     selectNote,

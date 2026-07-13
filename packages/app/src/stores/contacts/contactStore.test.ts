@@ -74,7 +74,6 @@ async function createContactsRuntime(): Promise<
         input.initialText,
         input.initialDocumentKind,
       ),
-    trashContainerId: null,
   };
 }
 

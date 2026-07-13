@@ -23,7 +23,7 @@ function node(input: {
   };
 }
 
-test("resolves Contacts and Trash from the primary org after an active-org switch", () => {
+test("resolves Contacts from the primary org after an active-org switch", () => {
   const nodes = [
     node({
       id: "personal-root",
@@ -60,11 +60,9 @@ test("resolves Contacts and Trash from the primary org after an active-org switc
       contactsSystemSlot: CONTACTS_SLOT,
       nodes,
       primaryOrganizationId: "personal-org",
-      trashSystemSlot: TRASH_SLOT,
     }),
   ).toEqual({
     contactsContainerId: "personal-contacts",
-    trashContainerId: "personal-trash",
   });
 });
 
@@ -81,7 +79,6 @@ test("does not select another org's system containers without a primary org", ()
         }),
       ],
       primaryOrganizationId: null,
-      trashSystemSlot: TRASH_SLOT,
     }),
-  ).toEqual({ contactsContainerId: null, trashContainerId: null });
+  ).toEqual({ contactsContainerId: null });
 });
