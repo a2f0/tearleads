@@ -4,7 +4,7 @@ import {
   organizationRosterEntries,
 } from "@tearleads/api-shared/schema";
 import type { OrganizationDirectoryUserResponse } from "@tearleads/validators/response";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { listUsersReachableFromCurrentGroup } from "./principalReachability";
 import type { UserKeyRow } from "./users";
 
@@ -111,6 +111,15 @@ export async function upsertActiveOrganizationRosterEntries(input: {
         disabledByUserId: null,
         updatedAt: now,
       },
+      // Only write (and bump updatedAt) when the member is actually
+      // transitioning back to active. This reconcile runs opportunistically on
+      // every directory read, so without this guard updatedAt would be
+      // rewritten to now() for every active member on every read, making it
+      // track read time rather than change time and rendering it useless as a
+      // sync cursor. `status` is the authoritative signal: disabledAt /
+      // disabledByUserId are only ever set together with status="disabled" (see
+      // disableOrganizationRosterEntries), so an already-active row is clean.
+      setWhere: ne(organizationRosterEntries.status, "active"),
     });
 }
 

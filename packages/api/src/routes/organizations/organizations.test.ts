@@ -52,6 +52,7 @@ import {
 } from "../../access/read/principalStateStore";
 import { storeVerifiedPrincipalState } from "../../access/write/principalStateStore";
 import { routeApp } from "../../routeApp";
+import { upsertActiveOrganizationRosterEntries } from "../../workflows/organizations/roster";
 
 async function registerAndAuthenticate(user: TestUser): Promise<string> {
   await registerUser(user);
@@ -393,6 +394,85 @@ test("org manager routes list the current org directory", async () => {
   expect(body.users[0]?.status).toBe("active");
   expect(body.users[0]?.profileDocumentId).toBeNull();
   expect(body.users[0]?.disabledAt).toBeNull();
+});
+
+test("roster reconcile does not churn updatedAt for unchanged active members", async () => {
+  const actor = createTestUser();
+  const organizationId = await registerAndAuthenticate(actor);
+
+  const rosterEntryWhere = and(
+    eq(organizationRosterEntries.organizationId, organizationId),
+    eq(organizationRosterEntries.userId, actor.userId),
+  );
+
+  // Ensure an active roster row exists, then pin it to a fixed past updatedAt.
+  await upsertActiveOrganizationRosterEntries({
+    executor: db,
+    organizationId,
+    userIds: [actor.userId],
+  });
+  // A safely-past date so the re-activation assertion below (updatedAt bumped
+  // to new Date()) holds regardless of the runner's system clock.
+  const pinnedUpdatedAt = new Date("2020-01-01T00:00:00.000Z");
+  await db
+    .update(organizationRosterEntries)
+    .set({
+      status: "active",
+      disabledAt: null,
+      disabledByUserId: null,
+      updatedAt: pinnedUpdatedAt,
+    })
+    .where(rosterEntryWhere);
+
+  // Re-asserting an already-active member is a no-op and must NOT bump updatedAt
+  // (otherwise the timestamp tracks read time, not change time).
+  await upsertActiveOrganizationRosterEntries({
+    executor: db,
+    organizationId,
+    userIds: [actor.userId],
+  });
+
+  const [afterNoop] = await db
+    .select({
+      status: organizationRosterEntries.status,
+      updatedAt: organizationRosterEntries.updatedAt,
+    })
+    .from(organizationRosterEntries)
+    .where(rosterEntryWhere);
+  expect(afterNoop?.status).toBe("active");
+  expect(afterNoop?.updatedAt.toISOString()).toBe(
+    pinnedUpdatedAt.toISOString(),
+  );
+
+  // A genuine re-activation of a disabled member DOES bump updatedAt.
+  await db
+    .update(organizationRosterEntries)
+    .set({
+      status: "disabled",
+      disabledAt: new Date("2020-02-01T00:00:00.000Z"),
+      disabledByUserId: actor.userId,
+      updatedAt: pinnedUpdatedAt,
+    })
+    .where(rosterEntryWhere);
+  await upsertActiveOrganizationRosterEntries({
+    executor: db,
+    organizationId,
+    userIds: [actor.userId],
+  });
+
+  const [afterReactivate] = await db
+    .select({
+      status: organizationRosterEntries.status,
+      disabledAt: organizationRosterEntries.disabledAt,
+      updatedAt: organizationRosterEntries.updatedAt,
+    })
+    .from(organizationRosterEntries)
+    .where(rosterEntryWhere);
+  expect(afterReactivate?.status).toBe("active");
+  expect(afterReactivate?.disabledAt).toBeNull();
+  expect(afterReactivate?.updatedAt.getTime()).toBeGreaterThan(
+    pinnedUpdatedAt.getTime(),
+  );
 });
 
 test("org manager routes keep disabled roster entries visible outside access groups", async () => {
