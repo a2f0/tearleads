@@ -23,6 +23,8 @@ afterEach(() => {
     return;
   }
 
+  document.documentElement.removeAttribute("data-navigation-mode");
+
   if (originalMatchMediaDescriptor) {
     Object.defineProperty(window, "matchMedia", originalMatchMediaDescriptor);
     return;
@@ -33,6 +35,11 @@ afterEach(() => {
     value: undefined,
   });
 });
+
+// The touch (routed) layout drives the kebab; the tier only trims columns.
+function mockRoutedLayoutActive() {
+  document.documentElement.setAttribute("data-navigation-mode", "routed");
+}
 
 function mockRoutedLayoutTier(tier: "mobile" | "tablet") {
   if (typeof window === "undefined") {
@@ -351,6 +358,46 @@ test("mobile container item table opens the per-item context menu from the actio
 
   expect(rows).toEqual([archiveRow]);
   expect(selectedIds).toEqual([]);
+});
+
+test("tablet container item table shows the actions kebab on the wide layout", () => {
+  mockRoutedLayoutTier("tablet");
+  mockRoutedLayoutActive();
+  const rows: ContainerItemRow[] = [];
+  const view = renderContainerItemTable({
+    onItemContextMenu: (event, row) => {
+      event.preventDefault();
+      event.stopPropagation();
+      rows.push(row);
+    },
+    rows: [archiveRow],
+    totalCount: 1,
+  });
+  // The wide layout keeps its extra columns AND gains the kebab.
+  expect(
+    view.queryByRole("columnheader", { name: EXPLORER_LABELS.itemSyncColumn }),
+  ).not.toBeNull();
+  const actionsButton = view.getByRole("button", {
+    name: `${EXPLORER_LABELS.itemActionsButtonPrefix} ${archiveRow.name}`,
+  });
+
+  fireEvent.click(actionsButton);
+
+  expect(rows).toEqual([archiveRow]);
+});
+
+test("desktop container item table hides the actions kebab", () => {
+  mockRoutedLayoutTier("tablet");
+  const view = renderContainerItemTable({
+    rows: [archiveRow],
+    totalCount: 1,
+  });
+
+  expect(
+    view.queryByRole("button", {
+      name: `${EXPLORER_LABELS.itemActionsButtonPrefix} ${archiveRow.name}`,
+    }),
+  ).toBeNull();
 });
 
 test("container item table highlights the row matching the open context menu", () => {

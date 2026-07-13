@@ -6,6 +6,7 @@ import {
   MiniAppSection,
   MiniAppSectionHeading,
 } from "../../../components/shared/MiniAppLayout";
+import { useGrantContextMenu } from "../grants/GrantContextMenu";
 import { GrantTable } from "../grants/GrantTable";
 import { ORG_MANAGER_LABELS } from "../labels";
 import type { OrgManagerGrantRouteRef } from "../routes";
@@ -23,6 +24,13 @@ export function UserGrantSections({
   openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
+  const { grantContextMenu, openGrantContextMenu } = useGrantContextMenu({
+    canRevokeGrants,
+    mutating,
+    openGrantRoute,
+    revokeGrant,
+  });
+
   return (
     <>
       <MiniAppSection>
@@ -35,6 +43,7 @@ export function UserGrantSections({
           grants={grants.directGrants}
           label={ORG_MANAGER_LABELS.userContainerLinks}
           mutating={mutating}
+          openGrantContextMenu={openGrantContextMenu}
           openGrantRoute={openGrantRoute}
           revokeGrant={revokeGrant}
         />
@@ -49,6 +58,7 @@ export function UserGrantSections({
           grants={grants.groupGrants}
           label={ORG_MANAGER_LABELS.groupContainerLinks}
           mutating={mutating}
+          openGrantContextMenu={openGrantContextMenu}
           openGrantRoute={openGrantRoute}
           revokeGrant={revokeGrant}
         />
@@ -63,10 +73,12 @@ export function UserGrantSections({
           grants={grants.organizationGrants}
           label={ORG_MANAGER_LABELS.organizationContainerLinks}
           mutating={mutating}
+          openGrantContextMenu={openGrantContextMenu}
           openGrantRoute={openGrantRoute}
           revokeGrant={revokeGrant}
         />
       </MiniAppSection>
+      {grantContextMenu}
     </>
   );
 }

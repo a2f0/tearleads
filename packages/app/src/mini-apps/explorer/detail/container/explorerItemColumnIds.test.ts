@@ -31,6 +31,25 @@ test("wide layout drops hidden columns but keeps order and the Name column", () 
   ).toEqual(["name", "created", "modified"]);
 });
 
+test("wide touch layout appends the actions column after the data columns", () => {
+  expect(
+    getVisibleExplorerItemColumnIds({
+      compact: false,
+      hiddenColumns: new Set(),
+      showActions: true,
+    }),
+  ).toEqual(["name", "type", "created", "modified", "sync", "actions"]);
+
+  // Hidden data columns still drop out; the kebab stays last.
+  expect(
+    getVisibleExplorerItemColumnIds({
+      compact: false,
+      hiddenColumns: new Set(["created", "sync"]),
+      showActions: true,
+    }),
+  ).toEqual(["name", "type", "modified", "actions"]);
+});
+
 test("compact layout uses a fixed trimmed set and ignores hidden preferences", () => {
   expect(
     getVisibleExplorerItemColumnIds({

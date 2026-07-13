@@ -38,13 +38,19 @@ export const TOGGLEABLE_COLUMN_IDS: ReadonlyArray<ExplorerItemColumnId> = [
 export function getVisibleExplorerItemColumnIds(params: {
   compact: boolean;
   hiddenColumns: ReadonlySet<ExplorerItemColumnId>;
+  // Append the trailing actions ("kebab") column on the wide layout. The phone
+  // tier already carries `actions` in its fixed set, so this only matters for
+  // the tablet/iPad touch layout, where the wide columns stay but the kebab is
+  // the touch stand-in for right-click. Desktop leaves it off.
+  showActions?: boolean | undefined;
 }): ReadonlyArray<ExplorerItemColumnId> {
-  const { compact, hiddenColumns } = params;
+  const { compact, hiddenColumns, showActions = false } = params;
   if (compact) {
     return COMPACT_COLUMN_ORDER;
   }
 
-  return WIDE_COLUMN_ORDER.filter(
+  const wide = WIDE_COLUMN_ORDER.filter(
     (id) => id === "name" || !hiddenColumns.has(id),
   );
+  return showActions ? [...wide, "actions"] : wide;
 }

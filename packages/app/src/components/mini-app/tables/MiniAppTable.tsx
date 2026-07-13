@@ -2,6 +2,7 @@ import {
   type ButtonHTMLAttributes,
   forwardRef,
   type HTMLAttributes,
+  type MouseEvent,
   type ReactNode,
   type TableHTMLAttributes,
   type TdHTMLAttributes,
@@ -9,6 +10,7 @@ import {
 } from "react";
 import { classNames } from "../../shared/classNames";
 import { useLongPress } from "../../shared/useLongPress";
+import { MiniAppRowActionsButton } from "./MiniAppRowActionsButton";
 import "./MiniAppTable.css";
 
 export interface MiniAppTableColumn {
@@ -281,3 +283,53 @@ export const MiniAppTableActionButton = forwardRef<
     />
   );
 });
+
+/**
+ * The shared trailing "actions" (kebab) column definition — a narrow,
+ * right-aligned column whose header carries only a visually-hidden label. Pair
+ * with {@link MiniAppRowActionsCell} in each body row. Append it *after*
+ * {@link addMiniAppTableHeaderAction} so a column-menu trigger stays on the last
+ * data column instead of this narrow one.
+ */
+export function miniAppRowActionsColumn(
+  headingLabel: string,
+): MiniAppTableColumn {
+  return {
+    className: "mini-app-row-actions-column",
+    header: (
+      <span className="mini-app-row-actions-heading">{headingLabel}</span>
+    ),
+    id: "actions",
+    width: "var(--mini-app-row-actions-column-width, 2.25rem)",
+  };
+}
+
+/**
+ * The body cell for the {@link miniAppRowActionsColumn} column: a kebab button
+ * that opens the row's actions. `onOpen` receives the click/contextmenu event
+ * (already `stopPropagation`-ed so it never triggers the row's own click) and
+ * should open the same context menu a right-click / long-press would.
+ */
+export function MiniAppRowActionsCell({
+  label,
+  onOpen,
+}: {
+  label: string;
+  onOpen: (event: MouseEvent<HTMLElement>) => void;
+}) {
+  const openFromEvent = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    onOpen(event);
+  };
+
+  return (
+    <MiniAppTableCell className="mini-app-row-actions-cell" key="actions">
+      <MiniAppRowActionsButton
+        aria-label={label}
+        onClick={openFromEvent}
+        onContextMenu={openFromEvent}
+        title={label}
+      />
+    </MiniAppTableCell>
+  );
+}

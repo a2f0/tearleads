@@ -15,6 +15,7 @@ export {
   MiniAppInfoRow,
   MiniAppInfoTable,
   MiniAppInfoTableRow,
+  MiniAppRowActionsCell,
   MiniAppTable,
   MiniAppTableActionButton,
   MiniAppTableCell,
@@ -23,4 +24,5 @@ export {
   MiniAppTableFrame,
   MiniAppTableRow,
   MiniAppTableText,
+  miniAppRowActionsColumn,
 } from "../mini-app/tables/MiniAppTable";
