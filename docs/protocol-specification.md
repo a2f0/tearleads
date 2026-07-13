@@ -464,8 +464,16 @@ the sole peer signal. Any guard failure aborts and rolls the whole transaction
 back.
 
 Trash is itself a system-slot container and so cannot be deleted or purged.
-Sending an item to Trash is a signed relocation and stays reversible; purge and
-container delete are the terminal removal that actually drops rows.
+Sending an item to Trash is an ordinary signed relocation — never a delete — and
+stays reversible. A document is relocated by replacing its link set (link Trash,
+unlink its source containers); a container is relocated by re-parenting it under
+Trash with `container.move`. The move workflow guards only the moved container's
+own system slot, not the destination's, so a normal folder and its whole subtree
+may be moved into Trash, and moved back out again to restore it. Terminal
+removal is the separate, structural step: `DELETE /documents/:documentId` for a
+document and `DELETE /containers/:containerId` for a folder — a non-empty folder
+is torn down by a client-orchestrated cascade of those two primitives applied
+leaf-first.
 
 ## Failure Semantics
 
