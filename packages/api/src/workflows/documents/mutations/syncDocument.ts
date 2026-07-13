@@ -783,6 +783,8 @@ export async function appendProvisionedDocumentInitialUpdate(input: {
   const documentId = input.created.metadataDocument.id;
   const syncRequest = input.request.initialMetadataSync;
   if (
+    !syncRequest ||
+    !Array.isArray(syncRequest.outgoingUpdates) ||
     syncRequest.outgoingUpdates.length !== 1 ||
     (syncRequest.containerRekeys?.length ?? 0) > 0
   ) {
