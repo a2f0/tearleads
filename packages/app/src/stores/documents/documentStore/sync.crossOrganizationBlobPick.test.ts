@@ -78,8 +78,9 @@ function createPersonalOrganizationBlob(input: {
   attachment: Awaited<ReturnType<typeof waitForUploadedAttachment>>;
   containerId: string;
   documentId: string;
+  organizationId: string;
 }): BlobInfo {
-  const { attachment, containerId, documentId } = input;
+  const { attachment, containerId, documentId, organizationId } = input;
   return {
     blobId: attachment.blobId,
     byteLength: attachment.byteLength,
@@ -88,6 +89,7 @@ function createPersonalOrganizationBlob(input: {
     key: `blob:${attachment.blobId}`,
     mimeType: attachment.mimeType,
     name: null,
+    organizationId,
     referenceCount: 1,
     references: [
       {
@@ -141,6 +143,7 @@ test("picking a personal-org blob copies and re-encrypts it for the target organ
     attachment: personalAttachment,
     containerId: personalContainerId,
     documentId: personalDocumentId,
+    organizationId: personalOrganizationId,
   });
 
   const custom = await createOrganizationDocument({
