@@ -30,7 +30,7 @@ export function buildOrganizationProfileBootstrapInput(
 ): RegistrationBootstrapInput["organizationProfileDocument"] {
   const document = input.response.organizationProfileDocument;
   if (!document) {
-    return;
+    return undefined;
   }
   return {
     accessEpoch: 1,
@@ -55,7 +55,7 @@ export function buildRosterProfileBootstrapInput(
 ): RegistrationBootstrapInput["rosterProfileDocument"] {
   const document = input.response.rosterProfileDocument;
   if (!document) {
-    return;
+    return undefined;
   }
   return {
     accessEpoch: 1,

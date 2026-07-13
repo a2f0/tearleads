@@ -20,7 +20,6 @@ export function useExplorerPrimaryOrganizationId(input: {
       input.appData.auth.organizationId ?? "",
       input.appData.state.containerId ?? "",
       String(input.nodes.length),
-      String(input.ready),
     ].join(":"),
     tearleads: input.tearleads,
   });

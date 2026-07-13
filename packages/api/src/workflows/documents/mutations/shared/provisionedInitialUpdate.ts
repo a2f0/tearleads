@@ -1,4 +1,8 @@
-import { decodeVersionVector, versionVectorsEqual } from "@tearleads/loro";
+import {
+  emptyVersionVector,
+  satisfiesVersionVector,
+  versionVectorsEqual,
+} from "@tearleads/loro";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import { DocumentMutationError } from "../errors";
 
@@ -24,11 +28,10 @@ export function assertProvisionedDocumentInitialUpdate(
   let startsFromEmpty: boolean;
   let localVersionMatchesEnd: boolean;
   try {
-    startsFromEmpty = Array.from(
-      decodeVersionVector(initialUpdate.partialStartVersionVector)
-        .toJSON()
-        .values(),
-    ).every((counter) => counter === 0);
+    startsFromEmpty = satisfiesVersionVector(
+      emptyVersionVector(),
+      initialUpdate.partialStartVersionVector,
+    );
     localVersionMatchesEnd = versionVectorsEqual(
       request.localVersionVector,
       initialUpdate.partialEndVersionVector,

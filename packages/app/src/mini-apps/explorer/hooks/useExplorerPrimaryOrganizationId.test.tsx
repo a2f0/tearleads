@@ -55,5 +55,5 @@ test("retains the personal organization through a transient unready snapshot", a
   await waitFor(() => expect(view.result.current).toBe("personal-org"));
   view.rerender({ ready: false });
   await waitFor(() => expect(view.result.current).toBe("personal-org"));
-  expect(listLocalOrganizations).toHaveBeenCalledTimes(2);
+  expect(listLocalOrganizations).toHaveBeenCalledTimes(1);
 });
