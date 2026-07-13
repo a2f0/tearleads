@@ -22,6 +22,7 @@ export interface OrganizationDirectoryUserResponse {
   status: OrganizationRosterStatus;
   profileDocumentId: string | null;
   joinedAt: string;
+  updatedAt: string;
   disabledAt: string | null;
   disabledByUserId: string | null;
 }
@@ -215,6 +216,7 @@ export function isOrganizationDirectoryUserResponse(
     isOrganizationRosterStatus(value.status) &&
     hasNullableStringProperty(value, "profileDocumentId") &&
     hasStringProperty(value, "joinedAt") &&
+    hasStringProperty(value, "updatedAt") &&
     hasNullableStringProperty(value, "disabledAt") &&
     hasNullableStringProperty(value, "disabledByUserId")
   );

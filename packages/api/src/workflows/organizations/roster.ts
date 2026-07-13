@@ -27,6 +27,7 @@ export function toOrganizationDirectoryUser(input: {
     status: input.rosterEntry.status,
     profileDocumentId: input.rosterEntry.profileDocumentId,
     joinedAt: input.rosterEntry.joinedAt.toISOString(),
+    updatedAt: input.rosterEntry.updatedAt.toISOString(),
     disabledAt: input.rosterEntry.disabledAt?.toISOString() ?? null,
     disabledByUserId: input.rosterEntry.disabledByUserId,
   };
