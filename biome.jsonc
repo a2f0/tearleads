@@ -81,6 +81,8 @@
       "includes": [
         "**/*.test.ts",
         "**/*.test.tsx",
+        "**/*.testUtils.ts",
+        "**/*.testUtils.tsx",
         "packages/api/test/**/*.ts",
         "packages/client-sdk/test/helpers/**/*.ts",
         "packages/app/test/helpers/**/*.ts",

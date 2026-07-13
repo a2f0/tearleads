@@ -389,6 +389,41 @@ function useExplorerPurgeModalOpener(
   );
 }
 
+function useExplorerEmptyTrashModalOpener(
+  params: ExplorerContainerModalOpenerParams,
+) {
+  const {
+    setDraftName,
+    setDraftTargetContainerId,
+    setModalError,
+    setModalState,
+    targetLookups,
+  } = params;
+
+  return useCallback(
+    (containerId: string) => {
+      if (!canWriteContainerNode(targetLookups.nodesById.get(containerId))) {
+        return;
+      }
+
+      openExplorerSimpleModal({
+        nextModalState: { mode: "empty-trash", nodeId: containerId },
+        setDraftName,
+        setDraftTargetContainerId,
+        setModalError,
+        setModalState,
+      });
+    },
+    [
+      setDraftName,
+      setDraftTargetContainerId,
+      setModalError,
+      setModalState,
+      targetLookups,
+    ],
+  );
+}
+
 function useExplorerSharePeerModalOpener(
   params: ExplorerContainerModalOpenerParams & { canShareWithPeer: boolean },
 ) {
@@ -432,6 +467,7 @@ function useExplorerSharePeerModalOpener(
 export function useExplorerModalOpeners(params: ExplorerModalOpenersParams) {
   const targetOpeners = useExplorerTargetModalOpeners(params);
   const openCreateChildModal = useExplorerCreateChildModalOpener(params);
+  const openEmptyTrashModal = useExplorerEmptyTrashModalOpener(params);
   const openRenameModal = useExplorerRenameModalOpener(params);
   const openPurgeModal = useExplorerPurgeModalOpener(params);
   const openSharePeerModal = useExplorerSharePeerModalOpener(params);
@@ -439,6 +475,7 @@ export function useExplorerModalOpeners(params: ExplorerModalOpenersParams) {
   return {
     ...targetOpeners,
     openCreateChildModal,
+    openEmptyTrashModal,
     openPurgeModal,
     openRenameModal,
     openSharePeerModal,

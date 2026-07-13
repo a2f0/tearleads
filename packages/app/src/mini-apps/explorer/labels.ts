@@ -326,6 +326,22 @@ export function getExplorerFileImportingStatus(input: {
   return `Importing ${input.completedCount}/${input.totalCount} files...`;
 }
 
+// The live "Deleting N of M…" line under a purge/empty-trash progress bar.
+// Counts finished items (destroyed + skipped) against the total known up front.
+export function getExplorerPurgeProgressStatus(input: {
+  completedCount: number;
+  failedCount: number;
+  totalCount: number;
+}): string {
+  const done = input.completedCount + input.failedCount;
+  return `Deleting ${done} of ${input.totalCount}…`;
+}
+
+// The title of the "Delete Forever" progress modal for a single folder.
+export function getExplorerPurgeContainerTitle(name: string): string {
+  return `Deleting “${name}”`;
+}
+
 export function getExplorerFileImportCompletedStatus(
   importedCount: number,
 ): string {

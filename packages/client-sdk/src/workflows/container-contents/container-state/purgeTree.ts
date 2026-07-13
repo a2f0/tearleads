@@ -11,6 +11,7 @@ import {
 import type { ContainerState } from "../remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 import { deleteContainerState } from "./delete";
+import type { PurgeProgress } from "./purgeProgress";
 
 // The cascade hands its runtime straight to the per-document purge/unlink
 // workflows. The container store's workflow runtime already satisfies every
@@ -20,14 +21,27 @@ type PurgeContainerTreeRuntime = ContainerContentsWorkflowRuntime;
 
 interface PurgeContainerTreeInput {
   readonly containersById: ReadonlyMap<string, ContainerState>;
+  // When true, tear down everything UNDER the root (its documents plus every
+  // descendant container) but never delete the root container itself. This is
+  // how "Empty Trash" reuses the same engine: the Trash bin is a protected system
+  // container that must survive while its whole contents are destroyed.
+  readonly keepRootContainer?: boolean;
+  readonly onProgress?: ((progress: PurgeProgress) => void) | undefined;
   readonly persistence: ContainerContentsPersistence;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
   readonly rootContainerId: string;
   readonly runtime: PurgeContainerTreeRuntime;
+  // Checked at each unit boundary (between whole documents / whole containers),
+  // never mid-remote-call, so a cancelled run stops on a consistent prefix.
+  readonly signal?: AbortSignal | undefined;
 }
 
 interface PurgeContainerTreeResult {
+  readonly aborted: boolean;
+  readonly completedCount: number;
+  readonly failedCount: number;
   readonly purgedContainerIds: readonly string[];
+  readonly totalCount: number;
 }
 
 // The folder being purged plus every descendant container, in deepest-first
@@ -196,32 +210,48 @@ async function unlinkSubtreeDocument(input: {
   return true;
 }
 
-// Destroy every document the subtree owns. Multi-folder documents are unlinked
-// first (so their external folders survive and the container delete won't trip
-// the server's "container has linked documents" guard); sole-owned documents are
-// purged; never-synced documents are torn down locally. Returns false if any
-// step fails so the caller can abort before deleting containers.
+interface SubtreeTeardownResult {
+  readonly aborted: boolean;
+}
+
+// Destroy every document the subtree owns, reporting one progress step per
+// document. Multi-folder documents are unlinked first (so their external folders
+// survive and the container delete won't trip the server's "container has linked
+// documents" guard); sole-owned documents are purged; never-synced documents are
+// torn down locally. Unlike the old all-or-nothing teardown, a single failed
+// document no longer aborts the whole operation — it is counted as a failed step
+// and skipped, so "Empty Trash" still clears every OTHER item (a failed document
+// merely leaves its own container undeletable, which the container phase then
+// skips). Cancellation is honored between documents, so the last completed
+// document finished both its remote and local halves.
 async function teardownSubtreeDocuments(input: {
   readonly plan: SubtreeDocumentPlan;
+  readonly reportStep: (ok: boolean) => void;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
   readonly runtime: PurgeContainerTreeRuntime;
-}): Promise<boolean> {
+  readonly signal?: AbortSignal | undefined;
+}): Promise<SubtreeTeardownResult> {
   for (const {
     document,
     containerIds,
   } of input.plan.unlinkByDocument.values()) {
+    if (input.signal?.aborted) {
+      return { aborted: true };
+    }
     const unlinked = await unlinkSubtreeDocument({
       containerIds,
       document,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
       runtime: input.runtime,
     });
-    if (!unlinked) {
-      return false;
-    }
+    input.reportStep(unlinked);
   }
   for (const document of input.plan.purge) {
+    if (input.signal?.aborted) {
+      return { aborted: true };
+    }
     if (!document.documentId) {
+      input.reportStep(true);
       continue;
     }
     const purged = await purgeRemoteContainerDocument({
@@ -229,59 +259,91 @@ async function teardownSubtreeDocuments(input: {
       noteId: document.id,
       runtime: input.runtime,
     });
-    if (purged === null) {
-      return false;
-    }
+    input.reportStep(purged !== null);
   }
   for (const document of input.plan.purgeLocal) {
+    if (input.signal?.aborted) {
+      return { aborted: true };
+    }
     const purged = await purgeLocalContainerDocument({
       noteId: document.id,
       runtime: input.runtime,
     });
-    if (purged === null) {
-      return false;
-    }
+    input.reportStep(purged !== null);
   }
-  return true;
+  return { aborted: false };
+}
+
+interface SubtreeContainerDeletionResult {
+  readonly aborted: boolean;
+  readonly purgedContainerIds: string[];
 }
 
 // Delete each subtree container in the given leaf-first order, returning the ids
-// that were actually removed. Aborts on the first container that won't delete so
-// the caller can prune exactly those snapshot entries; the leaf-first order means
-// a partial result is still a consistent prefix (no parent removed before a
-// surviving child).
+// that were actually removed. A container that still holds surviving content — a
+// document that failed to tear down, or a child that was not deleted — cannot be
+// deleted leaf-only, so it is skipped and its parent is marked blocked. A blocked
+// container is never even attempted (that would be a guaranteed-to-fail
+// round-trip) and it blocks its own parent in turn, so an entire chain of
+// ancestors above a survivor stays intact. Cancellation stops at a container
+// boundary. The result is always a consistent prefix: no parent is removed before
+// a surviving child.
 async function deleteSubtreeContainers(input: {
   readonly persistence: PurgeContainerTreeInput["persistence"];
+  readonly reportStep: (ok: boolean) => void;
   readonly runtime: PurgeContainerTreeRuntime;
+  readonly signal?: AbortSignal | undefined;
   readonly subtreeStates: readonly ContainerState[];
-}): Promise<string[]> {
+}): Promise<SubtreeContainerDeletionResult> {
   const purgedContainerIds: string[] = [];
+  const blockedParentIds = new Set<string>();
   for (const containerState of input.subtreeStates) {
+    if (input.signal?.aborted) {
+      return { aborted: true, purgedContainerIds };
+    }
+    const containerId = containerState.container.id;
+    const parentId = containerState.container.parentId;
+    if (blockedParentIds.has(containerId)) {
+      if (parentId !== null) {
+        blockedParentIds.add(parentId);
+      }
+      input.reportStep(false);
+      continue;
+    }
     const deleted = await deleteContainerState({
       containerState,
       persistence: input.persistence,
       runtime: input.runtime,
     });
-    if (!deleted) {
-      break;
+    if (deleted) {
+      purgedContainerIds.push(containerId);
+      input.reportStep(true);
+    } else {
+      if (parentId !== null) {
+        blockedParentIds.add(parentId);
+      }
+      input.reportStep(false);
     }
-    purgedContainerIds.push(containerState.container.id);
   }
-  return purgedContainerIds;
+  return { aborted: false, purgedContainerIds };
 }
 
 // Permanently destroy a folder that lives inside Trash, including everything
-// under it. Documents are destroyed only when the subtree holds their last
-// link; multi-folder documents are unlinked from the subtree and preserved.
-// Containers are deleted leaf-first so each delete obeys the leaf-only
-// constraint the store and server enforce. Every step is remote-first then local
-// (the per-document and per-container workflows handle that internally), so a
-// remote failure aborts before the matching local row is removed and leaves a
-// retryable state.
+// under it (or, with keepRootContainer, everything under the Trash bin while
+// leaving the bin in place — this is "Empty Trash"). Documents are destroyed only
+// when the subtree holds their last link; multi-folder documents are unlinked
+// from the subtree and preserved. Containers are deleted leaf-first so each
+// delete obeys the leaf-only constraint the store and server enforce. Every step
+// is remote-first then local (the per-document and per-container workflows handle
+// that internally), so a cancel between steps leaves local state reflecting
+// exactly the completed remote work.
 //
-// Returns null when any document teardown fails — the caller leaves the subtree
-// in place rather than half-deleting it. Container ids that were successfully
-// deleted are reported so the store can drop their snapshot entries.
+// Progress is determinate: the plan (a pure read) completes before any
+// destructive step, so onProgress reports completed/failed against a total known
+// up front. A failed item is skipped rather than aborting the run, so the result
+// reports whatever prefix was actually destroyed alongside completed/failed
+// counts and whether a cancellation cut it short. Returns null only when the
+// target container is absent from the snapshot.
 export async function purgeContainerTree(
   input: PurgeContainerTreeInput,
 ): Promise<PurgeContainerTreeResult | null> {
@@ -300,19 +362,71 @@ export async function purgeContainerTree(
     execSql: input.runtime.infra.execSql,
     subtreeContainerIds,
   });
-  const documentsTornDown = await teardownSubtreeDocuments({
+
+  // Empty Trash keeps the Trash bin itself: tear down everything it holds, but
+  // exclude the root from the container deletions (deleting a system container
+  // would be rejected anyway).
+  const containerStatesToDelete = input.keepRootContainer
+    ? subtreeStates.filter(
+        (containerState) =>
+          containerState.container.id !== input.rootContainerId,
+      )
+    : subtreeStates;
+
+  // The total is fully known here — planning is a pure read that completes before
+  // any destructive step. Unlink work is counted per document (not per container
+  // link) so completed can never exceed total even when a document has several
+  // in-subtree links.
+  const totalCount =
+    plan.unlinkByDocument.size +
+    plan.purge.length +
+    plan.purgeLocal.length +
+    containerStatesToDelete.length;
+
+  let completedCount = 0;
+  let failedCount = 0;
+  const emitProgress = () => {
+    input.onProgress?.({ completedCount, failedCount, totalCount });
+  };
+  const reportStep = (ok: boolean) => {
+    if (ok) {
+      completedCount += 1;
+    } else {
+      failedCount += 1;
+    }
+    emitProgress();
+  };
+  // Emit the initial 0/total so a determinate bar renders immediately, before the
+  // first (potentially slow) remote call.
+  emitProgress();
+
+  const teardown = await teardownSubtreeDocuments({
     plan,
+    reportStep,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     runtime: input.runtime,
+    signal: input.signal,
   });
-  if (!documentsTornDown) {
-    return null;
+
+  let purgedContainerIds: readonly string[] = [];
+  let aborted = teardown.aborted;
+  if (!teardown.aborted) {
+    const deletion = await deleteSubtreeContainers({
+      persistence: input.persistence,
+      reportStep,
+      runtime: input.runtime,
+      signal: input.signal,
+      subtreeStates: containerStatesToDelete,
+    });
+    purgedContainerIds = deletion.purgedContainerIds;
+    aborted = deletion.aborted;
   }
 
-  const purgedContainerIds = await deleteSubtreeContainers({
-    persistence: input.persistence,
-    runtime: input.runtime,
-    subtreeStates,
-  });
-  return purgedContainerIds.length > 0 ? { purgedContainerIds } : null;
+  return {
+    aborted,
+    completedCount,
+    failedCount,
+    purgedContainerIds,
+    totalCount,
+  };
 }

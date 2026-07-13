@@ -21,6 +21,7 @@ export interface ExplorerDocumentModalState {
   moveTargetOptions: ReadonlyArray<MoveTargetOption>;
   nameInputRef: RefObject<HTMLInputElement | null>;
   openCreateChildModal: (nodeId: string) => void;
+  openEmptyTrashModal: (nodeId: string) => void;
   openLinkDocumentModal: (documentLocalId: string) => void;
   openMoveDocumentModal: (documentLocalId: string) => void;
   openMoveModal: (nodeId: string) => void;
@@ -46,6 +47,8 @@ export function useExplorerDocumentModalState(params: {
   setSelectedId: (id: string | null) => void;
   selectionExpandNode: (nodeId: string) => void;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
+  startContainerPurge: (containerId: string) => void;
+  startEmptyTrash: (trashContainerId: string) => void;
 }): ExplorerDocumentModalState {
   const {
     explorer,
@@ -60,6 +63,8 @@ export function useExplorerDocumentModalState(params: {
     setSelectedId,
     selectionExpandNode,
     shareWithUser,
+    startContainerPurge,
+    startEmptyTrash,
   } = params;
 
   return useExplorerModalController({
@@ -74,7 +79,8 @@ export function useExplorerDocumentModalState(params: {
     canShareWithPeer,
     online,
     peerUserId,
-    purgeContainer: explorer.purgeContainer,
+    startContainerPurge,
+    startEmptyTrash,
     renameContainer: explorer.renameContainer,
     rulesContext,
     setSelectedId,

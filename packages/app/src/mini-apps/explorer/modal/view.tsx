@@ -9,6 +9,7 @@ import {
   MiniAppModalPanel,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
+import { EXPLORER_LABELS } from "../labels";
 import type { MoveTargetOption } from "../targetOptions";
 import { ExplorerTargetSelect } from "./ExplorerTargetSelect";
 import {
@@ -52,6 +53,12 @@ function ExplorerModalBody(params: {
         kept in another folder are removed from here but preserved there. This
         cannot be undone.
       </MiniAppStatus>
+    );
+  }
+
+  if (modalState.mode === "empty-trash") {
+    return (
+      <MiniAppStatus>{EXPLORER_LABELS.emptyTrashConfirmBody}</MiniAppStatus>
     );
   }
 

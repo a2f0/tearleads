@@ -40,7 +40,8 @@ function createSubmitParams(
     nodes: [containerNode],
     online: true,
     peerUserId: null,
-    purgeContainer: async () => false,
+    startContainerPurge: () => undefined,
+    startEmptyTrash: () => undefined,
     renameContainer: async () => null,
     setBackgroundActionError: () => undefined,
     setModalError: () => undefined,
@@ -115,8 +116,7 @@ test("document move modal clears before the network mutation resolves", async ()
   expect(calls).toEqual(["select:note-1", "clear"]);
 });
 
-test("purge modal clears before the container purge resolves and navigates to the parent", async () => {
-  const purgeDeferred = createDeferred<boolean>();
+test("purge modal navigates to the parent, hands off to the purge run, and closes", async () => {
   const calls: string[] = [];
 
   await submitExplorerModalAction(
@@ -125,74 +125,85 @@ test("purge modal clears before the container purge resolves and navigates to th
         calls.push("clear");
       },
       modalState: { mode: "purge", nodeId: "container-1" },
-      purgeContainer: () => purgeDeferred.promise,
       setSelectedId: (id) => {
         calls.push(`select:${id}`);
+      },
+      startContainerPurge: (containerId) => {
+        calls.push(`purge:${containerId}`);
       },
     }),
   );
 
-  expect(calls).toEqual(["select:root-container", "clear"]);
-
-  purgeDeferred.resolve(true);
-  await purgeDeferred.promise;
-  await Promise.resolve();
-
-  expect(calls).toEqual(["select:root-container", "clear"]);
-});
-
-test("purge modal surfaces a background failure after closing", async () => {
-  const purgeDeferred = createDeferred<boolean>();
-  const backgroundErrors: Array<string | null> = [];
-  const previousConsoleError = console.error;
-  console.error = () => undefined;
-
-  try {
-    await submitExplorerModalAction(
-      createSubmitParams({
-        clearModal: () => undefined,
-        modalState: { mode: "purge", nodeId: "container-1" },
-        purgeContainer: () => purgeDeferred.promise,
-        setBackgroundActionError: (error) => {
-          backgroundErrors.push(error);
-        },
-      }),
-    );
-
-    expect(backgroundErrors).toEqual([]);
-
-    purgeDeferred.resolve(false);
-    await purgeDeferred.promise;
-    await Promise.resolve();
-
-    expect(backgroundErrors).toEqual(["Failed to delete container forever."]);
-  } finally {
-    console.error = previousConsoleError;
-  }
+  // The confirm modal re-selects the parent, kicks off the long-running purge
+  // run (which owns the progress + cancel modal), then closes — it no longer
+  // awaits the purge itself.
+  expect(calls).toEqual([
+    "select:root-container",
+    "purge:container-1",
+    "clear",
+  ]);
 });
 
 test("purge modal refuses to permanently delete while offline", async () => {
   const backgroundErrors: Array<string | null> = [];
-  let purgeAttempts = 0;
+  let purgeStarts = 0;
 
   await submitExplorerModalAction(
     createSubmitParams({
       modalState: { mode: "purge", nodeId: "container-1" },
       online: false,
-      purgeContainer: async () => {
-        purgeAttempts += 1;
-        return true;
-      },
       setBackgroundActionError: (error) => {
         backgroundErrors.push(error);
+      },
+      startContainerPurge: () => {
+        purgeStarts += 1;
       },
     }),
   );
 
   // Offline permanent-delete short-circuits with a clear message and never
-  // attempts the remote-first purge (there is no offline delete outbox).
-  expect(purgeAttempts).toBe(0);
+  // starts the purge run (there is no offline delete outbox).
+  expect(purgeStarts).toBe(0);
   expect(backgroundErrors).toEqual([
     "You must be online to permanently delete this folder.",
   ]);
+});
+
+test("empty-trash modal hands off to the empty-trash run and closes", async () => {
+  const calls: string[] = [];
+
+  await submitExplorerModalAction(
+    createSubmitParams({
+      clearModal: () => {
+        calls.push("clear");
+      },
+      modalState: { mode: "empty-trash", nodeId: "trash-container" },
+      startEmptyTrash: (trashContainerId) => {
+        calls.push(`empty:${trashContainerId}`);
+      },
+    }),
+  );
+
+  expect(calls).toEqual(["empty:trash-container", "clear"]);
+});
+
+test("empty-trash modal refuses while offline", async () => {
+  const backgroundErrors: Array<string | null> = [];
+  let emptyStarts = 0;
+
+  await submitExplorerModalAction(
+    createSubmitParams({
+      modalState: { mode: "empty-trash", nodeId: "trash-container" },
+      online: false,
+      setBackgroundActionError: (error) => {
+        backgroundErrors.push(error);
+      },
+      startEmptyTrash: () => {
+        emptyStarts += 1;
+      },
+    }),
+  );
+
+  expect(emptyStarts).toBe(0);
+  expect(backgroundErrors).toEqual(["You must be online to empty the Trash."]);
 });

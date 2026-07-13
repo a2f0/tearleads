@@ -33,6 +33,7 @@ import { useExplorerAttributionUserLabels } from "./hooks/useExplorerAttribution
 import { useExplorerModel } from "./hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "./labels";
 import { ExplorerModalLayer } from "./modal/view";
+import { ExplorerPurgeProgressModal } from "./purge-progress/ExplorerPurgeProgressModal";
 import type { MiniAppWindowPosition } from "./types";
 import { useExplorerToolbarUpload } from "./useExplorerToolbarUpload";
 import "./Explorer.css";
@@ -406,6 +407,9 @@ function ExplorerContent() {
         canCreateStructuredDocumentContextMenuNode={
           model.contextMenuState.canCreateStructuredDocumentContextMenuNode
         }
+        canEmptyTrashContextMenuNode={
+          model.contextMenuState.canEmptyTrashContextMenuNode
+        }
         containerContextMenuVariant={
           model.contextMenuState.containerContextMenuVariant
         }
@@ -441,6 +445,7 @@ function ExplorerContent() {
           model.routeState.openNewStructuredDocumentRoute
         }
         openNewContactDocument={openNewContactDocument}
+        openEmptyTrashModal={model.modalState.openEmptyTrashModal}
         openPurgeModal={model.modalState.openPurgeModal}
         openRenameModal={model.modalState.openRenameModal}
         purgeDocument={model.purgeDocument}
@@ -460,6 +465,11 @@ function ExplorerContent() {
         setModalError={model.modalState.setModalError}
         setDraftTargetContainerId={model.modalState.setDraftTargetContainerId}
         targetSelectRef={model.modalState.targetSelectRef}
+      />
+      <ExplorerPurgeProgressModal
+        run={model.purgeRun.run}
+        onCancel={model.purgeRun.cancel}
+        onClose={model.purgeRun.dismiss}
       />
     </MiniAppRoot>
   );

@@ -2,6 +2,7 @@ import type {
   ContainerNode,
   DocumentSummary,
   LocalProjectionView,
+  PurgeOptions,
   ReconciliationService,
 } from "@tearleads/client-sdk";
 
@@ -26,7 +27,14 @@ export interface ExplorerModelExplorer {
     containerId: string,
     parentId: string,
   ) => Promise<ContainerNode | null>;
-  purgeContainer: (containerId: string) => Promise<boolean>;
+  purgeContainer: (
+    containerId: string,
+    options?: PurgeOptions,
+  ) => Promise<boolean>;
+  emptyTrash: (
+    trashContainerId: string,
+    options?: PurgeOptions,
+  ) => Promise<boolean>;
   refresh: () => Promise<boolean>;
   renameContainer: (
     containerId: string,

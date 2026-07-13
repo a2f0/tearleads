@@ -11,6 +11,7 @@ import type {
   ExplorerContainerContextMenuVariant,
   ExplorerContextMenuState,
 } from "../context-menu/ExplorerContextMenu";
+import type { ExplorerPurgeRun } from "../purge-progress/useExplorerPurgeRun";
 import type { MoveTargetOption } from "../targetOptions";
 import type { ExplorerDocumentMutationAction } from "./explorerModelTypes";
 import type { ExplorerDocumentModalState } from "./useExplorerDocumentModalState";
@@ -21,6 +22,7 @@ export interface ExplorerContextMenuModel {
   canCreateChildContextMenuNode: boolean;
   canCreateContactContextMenuNode: boolean;
   canCreateStructuredDocumentContextMenuNode: boolean;
+  canEmptyTrashContextMenuNode: boolean;
   canMoveToTrashContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
   canPurgeContextMenuNode: boolean;
@@ -63,6 +65,7 @@ export interface ExplorerPanelState {
   // delete. Permanent removal is a separate step (purge) offered only once the
   // folder is already under Trash.
   moveContainerToTrash: (containerId: string) => Promise<unknown>;
+  purgeRun: ExplorerPurgeRun;
   organizationNamesById: ReadonlyMap<string, string>;
   openInlineDocument: OpenInlineDocument;
   consumeInitialDocumentEditing: (localId: string) => void;

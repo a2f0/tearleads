@@ -1,10 +1,11 @@
 import type { ContainerItemRow, ContainerNode } from "@tearleads/client-sdk";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { type MouseEvent, useCallback, useMemo } from "react";
 import {
   type ContextMenuState,
   useContextMenuState,
 } from "../../../components/shared/useContextMenuState";
-import { isExplorerContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
+import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import {
   canCreateChildContainerByRules,
   canCreateStructuredDocumentInContainerByRules,
@@ -35,6 +36,7 @@ function getExplorerContextMenuNodeCapabilities(params: {
   nodes: ReadonlyArray<ContainerNode>;
   rulesContext: ExplorerContainerRulesContext;
   trashContainerId: string | null;
+  trashSystemSlot: ContainerSystemSlot | null;
 }) {
   const {
     contextMenuNode,
@@ -42,7 +44,22 @@ function getExplorerContextMenuNodeCapabilities(params: {
     nodes,
     rulesContext,
     trashContainerId,
+    trashSystemSlot,
   } = params;
+  // Whether the right-clicked folder is the Trash bin or lives anywhere under
+  // it, classified per-ancestor by Trash system slot (or a foreign org's shared
+  // "Trash" by name) rather than a single resolved trash id. This matches the
+  // document-side gate and, crucially, is immune to a transient duplicate Trash
+  // node: the id-based walk could miss when the resolved trashContainerId (from
+  // the raw node list) differs from the deduped Trash the folder actually sits
+  // under, which is exactly how an already-trashed folder used to keep offering
+  // "Move to Trash".
+  const contextMenuNodeUnderTrash =
+    contextMenuNode !== undefined &&
+    isContainerUnderTrash(nodes, contextMenuNode.id, {
+      currentOrganizationId: rulesContext.currentOrganizationId,
+      trashSystemSlot,
+    });
 
   return {
     canCreateChildContextMenuNode:
@@ -55,6 +72,19 @@ function getExplorerContextMenuNodeCapabilities(params: {
         contextMenuNode,
       ),
     canCreateContactContextMenuNode: canWriteContainerNode(contextMenuNode),
+    // "Empty Trash" is offered on the viewer's OWN Trash bin (the node whose
+    // system slot IS the trash slot) when it is writable. There is no
+    // has-children gate: the bin can hold trashed folders AND documents deleted
+    // straight into it, and the context menu only sees container nodes — so
+    // gating on visible child folders would wrongly hide the action for a Trash
+    // that holds only deleted documents. An already-empty Trash simply completes
+    // instantly. Foreign-org shared Trash is out of scope for v1 (its opaque slot
+    // never matches this one).
+    canEmptyTrashContextMenuNode:
+      contextMenuNode !== undefined &&
+      trashSystemSlot !== null &&
+      (contextMenuNode.systemSlot ?? null) === trashSystemSlot &&
+      canWriteContainerNode(contextMenuNode),
     // "Move to Trash" relocates a user folder (and its whole subtree) into the
     // Trash system container — the folder equivalent of deleting a document.
     // Offered for a writable, movable, non-root, non-system folder that is not
@@ -69,11 +99,7 @@ function getExplorerContextMenuNodeCapabilities(params: {
       canMoveContainerByRules(rulesContext, contextMenuNode) &&
       trashContainerId !== null &&
       contextMenuNode.id !== trashContainerId &&
-      !isExplorerContainerUnderTrash(
-        nodes,
-        contextMenuNode.id,
-        trashContainerId,
-      ),
+      !contextMenuNodeUnderTrash,
     canMoveContextMenuNode: contextMenuNodeMoveTargets.length > 0,
     // "Delete Forever" is offered for a user folder that has been moved into
     // trash (the root or a subfolder of it). The trash folder itself is a system
@@ -86,11 +112,7 @@ function getExplorerContextMenuNodeCapabilities(params: {
       contextMenuNode.parentId !== null &&
       (contextMenuNode.systemSlot ?? null) === null &&
       canWriteContainerNode(contextMenuNode) &&
-      isExplorerContainerUnderTrash(
-        nodes,
-        contextMenuNode.id,
-        trashContainerId,
-      ),
+      contextMenuNodeUnderTrash,
     canRenameContextMenuNode:
       contextMenuNode !== undefined &&
       canRenameContainerByRules(rulesContext, contextMenuNode),
@@ -127,6 +149,7 @@ export function useExplorerContextMenu(
   selectDocumentProjection: (localId: string, containerId: string) => void,
   rulesContext: ExplorerContainerRulesContext,
   trashContainerId: string | null,
+  trashSystemSlot: ContainerSystemSlot | null,
 ) {
   const { closeContextMenu, contextMenu, openContextMenu } =
     useContextMenuState<ExplorerContextMenuTarget>();
@@ -201,6 +224,7 @@ export function useExplorerContextMenu(
     nodes,
     rulesContext,
     trashContainerId,
+    trashSystemSlot,
   });
 
   return {

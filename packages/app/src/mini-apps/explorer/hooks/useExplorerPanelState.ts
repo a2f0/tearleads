@@ -36,6 +36,7 @@ import {
 } from "../labels";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
 import type { ExplorerPanelState } from "./explorerPanelStateTypes";
+import { useExplorerContainerTrashActions } from "./useExplorerContainerTrashActions";
 import { useExplorerDocumentModalState } from "./useExplorerDocumentModalState";
 import { useExplorerOrganizationNames } from "./useExplorerOrganizationNames";
 import { useExplorerRoute } from "./useExplorerRoute";
@@ -173,6 +174,7 @@ export function useExplorerPanelState(params: {
     selectDocumentProjection,
     rulesContext,
     explorer.trashContainerId,
+    explorer.trashSystemSlot,
   );
   useExplorerSidebarPanel({
     activeContainerId: selection.activeContainerId,
@@ -202,6 +204,15 @@ export function useExplorerPanelState(params: {
     toggleCollapsed: selection.toggleCollapsed,
     treeEntries,
   });
+  // The container trash lifecycle: move-to-trash plus the long-running "Delete
+  // Forever" / "Empty Trash" purge run (its own progress + cancel modal).
+  const { moveContainerToTrash, purgeRun, startContainerPurge } =
+    useExplorerContainerTrashActions({
+      appData,
+      explorer,
+      onSettled: bumpDocumentListRevision,
+      selectExplorerItem: routeState.selectExplorerItem,
+    });
   const modalState = useExplorerDocumentModalState({
     explorer,
     linkDocument: selectedNoteStructuralState.linkDocument,
@@ -215,6 +226,8 @@ export function useExplorerPanelState(params: {
     setSelectedId: routeState.selectExplorerItem,
     selectionExpandNode: selection.expandNode,
     shareWithUser: explorer.shareWithUser,
+    startContainerPurge,
+    startEmptyTrash: purgeRun.startEmptyTrash,
   });
   const initialDocumentEditing = useInitialDocumentEditing();
   const selectedDocumentStartsInEditMode =
@@ -374,86 +387,6 @@ export function useExplorerPanelState(params: {
       selectedNoteStructuralState.purgeDocument,
     ],
   );
-  const moveContainerToTrash = useCallback(
-    async (containerId: string) => {
-      try {
-        const containerNode = explorer.nodes.find(
-          (node) => node.id === containerId,
-        );
-        // Guard: an unknown, root, or system container (Trash/Contacts itself)
-        // can never be trashed. The context menu already gates the action —
-        // including write access and protectFromMove via
-        // canMoveToTrashContextMenuNode — so this re-check just defends the
-        // id-based invariants against a stale/raced invocation; write access is
-        // ultimately enforced by the move outbox and the server.
-        if (
-          !containerNode ||
-          containerNode.parentId === null ||
-          (containerNode.systemSlot ?? null) !== null
-        ) {
-          return null;
-        }
-
-        // Resolve the Trash for the folder's OWN organization (mirrors the
-        // document delete path), lazily creating only the viewer's own Trash. A
-        // folder under a foreign shared root lands in that org's Trash, never the
-        // viewer's personal one.
-        const trashResolution = resolveExplorerDeleteTrashTarget({
-          containerId: containerNode.parentId,
-          currentOrganizationId: appData.auth.organizationId,
-          nodes: explorer.nodes,
-          trashSystemSlot: explorer.trashSystemSlot,
-        });
-        const trashContainerId =
-          trashResolution.trashContainerId ??
-          (trashResolution.canFallBackToOwnTrash
-            ? (await explorer.ensureTrashContainer())?.id
-            : undefined);
-        // No-op when the folder IS the resolved Trash or already lives anywhere
-        // under it: an already-trashed folder is purged (Delete Forever), never
-        // re-trashed, and moving Trash into itself is meaningless.
-        if (
-          !trashContainerId ||
-          containerId === trashContainerId ||
-          isExplorerContainerUnderTrash(
-            explorer.nodes,
-            containerId,
-            trashContainerId,
-          )
-        ) {
-          return null;
-        }
-
-        const movedContainer = await explorer.moveContainer(
-          containerId,
-          trashContainerId,
-        );
-        if (movedContainer) {
-          // Re-select the folder's original parent so the detail pane does not
-          // linger on the now-trashed subtree.
-          routeState.selectExplorerItem(containerNode.parentId);
-        }
-
-        return movedContainer;
-      } catch (error) {
-        appData.util.logError(
-          "Failed to move explorer container to trash",
-          error,
-        );
-        return null;
-      }
-    },
-    [
-      appData.auth.organizationId,
-      appData.util.logError,
-      explorer.ensureTrashContainer,
-      explorer.moveContainer,
-      explorer.nodes,
-      explorer.trashSystemSlot,
-      routeState.selectExplorerItem,
-    ],
-  );
-
   return {
     activateLinkedContainer: selectedNoteStructuralState.activateLinkedDocument,
     canMutateDocumentLinks: explorerDocumentLinks.canMutateDocumentLinks,
@@ -465,6 +398,7 @@ export function useExplorerPanelState(params: {
     loadDocumentInfo,
     modalState,
     moveContainerToTrash,
+    purgeRun,
     openInlineDocument,
     consumeInitialDocumentEditing:
       initialDocumentEditing.consumeInitialDocumentEditing,

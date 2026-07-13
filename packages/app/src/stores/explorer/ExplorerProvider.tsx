@@ -215,6 +215,7 @@ export function useExplorer(): ExplorerContextValue {
       ensureSystemContainer: store.ensureSystemContainer,
       moveContainer: store.moveContainer,
       purgeContainer: store.purgeContainer,
+      emptyTrash: store.emptyTrash,
       reconciler,
       refresh: store.refresh,
       refreshRootLane: store.refreshRootLane,
