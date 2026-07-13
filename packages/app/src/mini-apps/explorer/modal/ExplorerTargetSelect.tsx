@@ -1,6 +1,6 @@
 import { type RefObject, useMemo } from "react";
 import { MiniAppSelectMenu } from "../../../components/mini-app/controls/MiniAppSelectMenu";
-import { getExplorerContainerIcon } from "../explorerContainerIcons";
+import { ExplorerContainerIcon } from "../ExplorerContainerIcon";
 import type { MoveTargetOption } from "../targetOptions";
 
 interface ExplorerTargetSelectProps {
@@ -12,35 +12,12 @@ interface ExplorerTargetSelectProps {
   value: string;
 }
 
-function ExplorerTargetOptionIcon(params: {
-  className: string;
-  icon: string | null | undefined;
-}) {
-  const icon = getExplorerContainerIcon({
-    icon: params.icon,
-    isOpen: false,
-  });
-  const Icon = icon.Component;
-
-  return (
-    <Icon
-      aria-hidden="true"
-      className={params.className}
-      data-container-icon={icon.containerIcon}
-      data-icon={icon.name}
-      focusable="false"
-      size={16}
-      weight="regular"
-    />
-  );
-}
-
 export function ExplorerTargetSelect(props: ExplorerTargetSelectProps) {
   const options = useMemo(
     () =>
       props.options.map((option) => ({
         icon: (
-          <ExplorerTargetOptionIcon
+          <ExplorerContainerIcon
             className="mini-app-select-menu-icon"
             icon={option.icon}
           />

@@ -248,6 +248,7 @@ function ExplorerDocumentInfoTabPanel(params: {
   ) => Promise<DocumentSummary | null>;
   canActivateLinkedContainer: boolean;
   canUnlinkLinkedContainer: boolean;
+  containerIconsById: ReadonlyMap<string, string | null>;
   containerName: string | null;
   containerNamesById: ReadonlyMap<string, string>;
   documentInfo: DocumentInfo | null;
@@ -325,6 +326,7 @@ function ExplorerDocumentInfoTabPanel(params: {
           />
           {params.documentInfo ? (
             <ExplorerDocumentInfoAuthorizingContainersSection
+              containerIconsById={params.containerIconsById}
               containerNamesById={params.containerNamesById}
               documentInfo={params.documentInfo}
             />
@@ -371,6 +373,10 @@ function useExplorerDocumentInfoPanelState(params: Props) {
     () => new Map(params.nodes.map((node) => [node.id, node.name])),
     [params.nodes],
   );
+  const containerIconsById = useMemo(
+    () => new Map(params.nodes.map((node) => [node.id, node.icon ?? null])),
+    [params.nodes],
+  );
   const containerName =
     containerNamesById.get(
       documentInfo?.local.containerId ?? params.containerId,
@@ -405,6 +411,7 @@ function useExplorerDocumentInfoPanelState(params: Props) {
     activeContainerId,
     canActivateDocumentLink,
     canUnlinkDocumentLink,
+    containerIconsById,
     containerName,
     containerNamesById,
     documentInfo,
@@ -453,6 +460,7 @@ export function ExplorerDocumentInfoPanel(params: Props) {
           activateLinkedContainer={params.activateLinkedContainer}
           canActivateLinkedContainer={model.canActivateDocumentLink}
           canUnlinkLinkedContainer={model.canUnlinkDocumentLink}
+          containerIconsById={model.containerIconsById}
           containerName={model.containerName}
           containerNamesById={model.containerNamesById}
           documentInfo={model.documentInfo}

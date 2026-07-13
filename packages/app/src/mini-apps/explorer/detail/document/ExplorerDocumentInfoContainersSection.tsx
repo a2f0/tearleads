@@ -4,6 +4,7 @@ import {
   MiniAppStatus,
 } from "../../../../components/shared/MiniAppLayout";
 import { MiniAppInfoTable } from "../../../../components/shared/MiniAppTable";
+import { ExplorerContainerIcon } from "../../ExplorerContainerIcon";
 import {
   EXPLORER_LABELS,
   getExplorerDocumentInfoEpochLabel,
@@ -12,6 +13,7 @@ import {
 import { compactId } from "../compactId";
 
 export function ExplorerDocumentInfoAuthorizingContainersSection(params: {
+  containerIconsById: ReadonlyMap<string, string | null>;
   containerNamesById: ReadonlyMap<string, string>;
   documentInfo: DocumentInfo;
 }) {
@@ -39,8 +41,14 @@ export function ExplorerDocumentInfoAuthorizingContainersSection(params: {
             {rows.map((row) => (
               <tr key={`${row.containerId}:${row.leafManifestHash ?? ""}`}>
                 <td title={row.containerId}>
-                  {params.containerNamesById.get(row.containerId) ??
-                    compactId(row.containerId)}
+                  <span className="explorer-item-name">
+                    <ExplorerContainerIcon
+                      className="explorer-folder-icon"
+                      icon={params.containerIconsById.get(row.containerId)}
+                    />
+                    {params.containerNamesById.get(row.containerId) ??
+                      compactId(row.containerId)}
+                  </span>
                 </td>
                 <td>
                   {getExplorerDocumentInfoPathLengthLabel(row.pathLength)}
