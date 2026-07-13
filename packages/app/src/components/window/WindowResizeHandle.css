@@ -1,29 +1,54 @@
+/*
+ * Corner resize affordance. Each handle is an invisible hit target pinned to a
+ * window corner; on hover it paints an L-shaped bracket that hugs that corner —
+ * only the two outward-facing edges — so the corner itself lights up (not just
+ * the cursor), signalling it can be dragged.
+ * The bracket is drawn in --color-dark, the theme's foreground primitive, so it
+ * reads as the window's own edge lit up and stays crisp in both themes (a
+ * charcoal bracket on the light surface, a near-white one on the dark surface).
+ * Corners are kept square (no radius) to match the app's hard-edged window
+ * chrome (--radius: 0).
+ */
 .window-resize {
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
+  border: 0 solid transparent;
+  transition: border-color var(--transition);
+}
+
+.window-resize:hover {
+  border-color: var(--color-dark);
 }
 
 .window-resize--se {
   right: 0;
   bottom: 0;
   cursor: se-resize;
+  border-right-width: 2px;
+  border-bottom-width: 2px;
 }
 
 .window-resize--sw {
   bottom: 0;
   left: 0;
   cursor: sw-resize;
+  border-bottom-width: 2px;
+  border-left-width: 2px;
 }
 
 .window-resize--ne {
   top: 0;
   right: 0;
   cursor: ne-resize;
+  border-top-width: 2px;
+  border-right-width: 2px;
 }
 
 .window-resize--nw {
   top: 0;
   left: 0;
   cursor: nw-resize;
+  border-top-width: 2px;
+  border-left-width: 2px;
 }
