@@ -1,5 +1,5 @@
 import type { PurgeOptions, PurgeProgress } from "@tearleads/client-sdk";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { EXPLORER_LABELS, getExplorerPurgeContainerTitle } from "../labels";
 
 export type ExplorerPurgeRunKind = "container" | "empty-trash";
@@ -81,6 +81,12 @@ function settledPurgeRun(
   };
 }
 
+interface PurgeRunStartInput {
+  invoke: (options: PurgeOptions) => Promise<boolean>;
+  kind: ExplorerPurgeRunKind;
+  title: string;
+}
+
 // Owns the lifecycle of a long-running "Delete Forever" / "Empty Trash" purge:
 // the live progress, the AbortController for cancellation, and the terminal
 // status the progress modal renders. Kept separate from the confirm-modal state
@@ -93,13 +99,11 @@ export function useExplorerPurgeRun(
   const [run, setRun] = useState<ExplorerPurgeRunState | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const runningRef = useRef(false);
+  // Abort any in-flight purge on unmount so it can't run orphaned with no UI.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const start = useCallback(
-    (input: {
-      kind: ExplorerPurgeRunKind;
-      title: string;
-      invoke: (options: PurgeOptions) => Promise<boolean>;
-    }) => {
+    (input: PurgeRunStartInput) => {
       // One purge at a time: the store already serializes writes, but the modal
       // is single-slot, so a second start while one runs is ignored.
       if (runningRef.current) {
@@ -146,9 +150,16 @@ export function useExplorerPurgeRun(
           );
         })
         .catch((error: unknown) => {
-          logError("Explorer purge run failed", error);
+          // A user-initiated Stop can surface as an AbortError rejection rather
+          // than a clean resolve (aborted fetches / DB transactions reject).
+          // Classify that as cancelled, not failed, and skip the error log so a
+          // normal cancel isn't reported as a failure.
+          const aborted = controller.signal.aborted;
+          if (!aborted) {
+            logError("Explorer purge run failed", error);
+          }
           setRun((current) =>
-            settledPurgeRun(current, { aborted: false, succeeded: false }),
+            settledPurgeRun(current, { aborted, succeeded: false }),
           );
         })
         .finally(() => {
