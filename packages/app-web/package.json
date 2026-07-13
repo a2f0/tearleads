@@ -10,6 +10,8 @@
     "test:e2e": "bun run e2e",
     "predev": "bun run build:client-sdk",
     "dev": "bun --hot src/servers/devServer.ts",
+    "prescreenshots": "bun run build:client-sdk",
+    "screenshots": "env -u NO_COLOR -u FORCE_COLOR playwright test --config=playwright.screenshots.config.ts",
     "prebuild": "bun run build:client-sdk",
     "build": "export NODE_ENV=production && rm -rf dist && bun build ./src/index.html --outdir=dist --sourcemap --target=browser --minify --env='BUN_PUBLIC_*' --public-path=/ && bun scripts/buildStaticAssets.ts && sh scripts/buildWebImages.sh && bun scripts/buildServiceWorker.ts",
     "prestart": "bun run build:client-sdk",

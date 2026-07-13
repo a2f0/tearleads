@@ -58,11 +58,21 @@ const baseConfig = {
       includeEntryExports: true,
     },
     "packages/app-web": {
-      entry: ["src/index.tsx", "src/servers/e2eServer.ts", "e2e/**/*.spec.ts"],
-      project: ["src/**/*.{ts,tsx}", "scripts/**/*.ts", "e2e/**/*.ts"],
+      entry: [
+        "src/index.tsx",
+        "src/servers/e2eServer.ts",
+        "e2e/**/*.spec.ts",
+        "screenshots/**/*.spec.ts",
+      ],
+      project: [
+        "src/**/*.{ts,tsx}",
+        "scripts/**/*.ts",
+        "e2e/**/*.ts",
+        "screenshots/**/*.ts",
+      ],
       playwright: {
-        config: ["playwright.config.ts"],
-        entry: ["e2e/**/*.spec.ts"],
+        config: ["playwright.config.ts", "playwright.screenshots.config.ts"],
+        entry: ["e2e/**/*.spec.ts", "screenshots/**/*.spec.ts"],
       },
     },
     "packages/app-capacitor": {
