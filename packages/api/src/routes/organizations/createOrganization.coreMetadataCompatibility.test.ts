@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
+  containerMetadataDocuments,
   documentUpdates,
   organizationBilling,
 } from "@tearleads/api-shared/schema";
@@ -137,6 +138,20 @@ test("POST /organizations atomically stores core metadata bodies readable on loc
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, body.organizationId));
   expect(billing?.status).toBe("local");
+  const coreMetadataDocumentIds = [
+    documentCreateRequestId(rootMetadata),
+    documentCreateRequestId(rosterContainer.metadataDocument),
+    documentCreateRequestId(organizationContainer.metadataDocument),
+  ];
+  const metadataBindings = await db
+    .select({ documentId: containerMetadataDocuments.documentId })
+    .from(containerMetadataDocuments)
+    .where(
+      inArray(containerMetadataDocuments.documentId, coreMetadataDocumentIds),
+    );
+  expect(metadataBindings.map(({ documentId }) => documentId).sort()).toEqual(
+    [...coreMetadataDocumentIds].sort(),
+  );
 
   await expectProvisionedDocumentReadable({
     documentId: documentCreateRequestId(rootMetadata),

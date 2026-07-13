@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
+  containerMetadataDocuments,
   containers,
   documents,
   organizationBilling,
@@ -346,6 +347,11 @@ test("POST /organizations atomically stores provisioned Trash metadata readable 
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, body.organizationId));
   expect(billing?.status).toBe("local");
+  const [metadataBinding] = await db
+    .select({ documentId: containerMetadataDocuments.documentId })
+    .from(containerMetadataDocuments)
+    .where(eq(containerMetadataDocuments.documentId, documentId));
+  expect(metadataBinding?.documentId).toBe(documentId);
 
   const readRequest = {
     contentKeyEpoch: trash.initialMetadataSync.contentKeyEpoch,
