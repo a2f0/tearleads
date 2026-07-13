@@ -17,5 +17,6 @@ export {
 export type {
   CreateDocumentInput,
   MutateDocumentLinkSetInput,
+  PurgeDocumentWorkflowResult,
   SyncDocumentInput,
 } from "./types";

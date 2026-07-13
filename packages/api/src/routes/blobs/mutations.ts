@@ -94,6 +94,7 @@ export function createBlobMutationsRoute({
             blobId,
             fingerprint: session.fingerprint,
             request: c.req.valid("json"),
+            sessionId: session.id,
             userId: session.userId,
           }),
         );

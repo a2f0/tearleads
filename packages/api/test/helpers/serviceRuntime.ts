@@ -58,6 +58,21 @@ export function createServiceTestRuntime(
   };
 }
 
+export function createFailingRuntime(
+  onPublish?: (event: Record<string, unknown>) => void,
+  db: ApiServiceRuntime["db"] = defaultDb,
+): ApiServiceRuntime {
+  return {
+    ...createServiceTestRuntime(db),
+    eventPublisher: {
+      publish: async (event) => {
+        onPublish?.(event);
+        throw new Error("broker unavailable");
+      },
+    },
+  };
+}
+
 export async function createRegistrationRequest(
   user: TestUser,
 ): Promise<RegistrationRequest> {

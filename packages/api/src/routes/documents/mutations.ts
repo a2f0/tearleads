@@ -102,6 +102,35 @@ export async function publishDocumentMutationCreatedEvent(input: {
   }
 }
 
+export function createDocumentPurgeEvent(input: {
+  readonly containerIds: readonly string[];
+  readonly documentId: string;
+  readonly origin: DocumentMutationOrigin;
+}): Record<string, unknown> {
+  return {
+    type: "document_mutation_created",
+    containerIds: [...new Set(input.containerIds)].sort(),
+    documentId: input.documentId,
+    eventType: "document.purge",
+    origin: input.origin,
+  };
+}
+
+export async function publishDocumentPurgeEvent(input: {
+  readonly containerIds: readonly string[];
+  readonly documentId: string;
+  readonly origin: DocumentMutationOrigin;
+  readonly publish: DocumentMutationsRouteDeps["publish"];
+}): Promise<void> {
+  try {
+    await input.publish(createDocumentPurgeEvent(input));
+  } catch (error) {
+    // The purge and its tombstone already committed. Realtime only wakes peers
+    // to consume that tombstone, so publication must not change the HTTP result.
+    console.error("Failed to publish document purge event:", error);
+  }
+}
+
 function validateDocumentCreateRequest(
   value: unknown,
   c: JsonValidationContext,
@@ -247,18 +276,26 @@ async function respondWithDocumentSync(
 
 async function respondWithDocumentPurge(
   c: DocumentRouteContext,
-  runtime: ApiServiceRuntime,
+  input: {
+    readonly publish: DocumentMutationsRouteDeps["publish"];
+    readonly runtime: ApiServiceRuntime;
+  },
 ) {
   const documentId = c.req.param("documentId");
   const session = c.get("session");
 
   try {
-    return c.json<DocumentPurgeResponse>(
-      await purgeDocument(runtime, {
-        documentId,
-        userId: session.userId,
-      }),
-    );
+    const { containerIds, response } = await purgeDocument(input.runtime, {
+      documentId,
+      userId: session.userId,
+    });
+    await publishDocumentPurgeEvent({
+      containerIds,
+      documentId,
+      origin: { sessionId: session.id, userId: session.userId },
+      publish: input.publish,
+    });
+    return c.json<DocumentPurgeResponse>(response);
   } catch (error) {
     const result = handleDocumentMutationError(error);
     return c.json({ error: result.error }, result.status);
@@ -318,7 +355,7 @@ export function createDocumentMutationsRoute({
   );
 
   route.delete("/documents/:documentId", requireAuth, (c) =>
-    respondWithDocumentPurge(c, runtime),
+    respondWithDocumentPurge(c, { publish, runtime }),
   );
 
   return route;

@@ -10,8 +10,15 @@ import {
   selectContainerAndWaitForItemTable,
   waitForSinglePaneProvisioning,
 } from "../../../../test/helpers/dual-pane/dualPaneCore";
-import { openExplorer } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
 import {
+  createChildContainer,
+  createNoteInContainer,
+  createNoteWithAttachment,
+  openExplorer,
+  selectExplorerNoteByName,
+} from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
+import {
+  createPaneCustomContact,
   downloadPaneRecoveryKey,
   readPaneExplorerDocumentIdentity,
   restorePaneRecoveryKey,
@@ -26,6 +33,12 @@ import {
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
+
+const CUSTOM_CONTACT_NICKNAME = "Recovery Friend";
+const NESTED_CONTAINER_NAME = "Recovery Nested Folder";
+const NESTED_NOTE_TITLE = "Recovery nested note";
+const NESTED_ATTACHMENT_NAME = "recovery-nested.png";
+const ROOT_NOTE_TITLE = "Recovery root note";
 
 afterEach(async () => {
   cleanup();
@@ -42,7 +55,7 @@ async function expectAppRuntimeSettled() {
 }
 
 test(
-  "a fresh pane rematerializes the built-in self contact from a recovery key",
+  "a fresh pane rematerializes custom data and the built-in self contact from a recovery key",
   async () => {
     useTestApiAppHandlers();
     const view = renderDualPane({ autoProvisionRight: false });
@@ -77,6 +90,21 @@ test(
       );
     }
 
+    await createPaneCustomContact(primaryPane, {
+      firstName: "Recovery",
+      lastName: "Friend",
+      nickname: CUSTOM_CONTACT_NICKNAME,
+    });
+    await createChildContainer(primaryPane, NESTED_CONTAINER_NAME);
+    await createNoteWithAttachment(primaryPane, {
+      attachmentContents: "recovery attachment contents",
+      attachmentName: NESTED_ATTACHMENT_NAME,
+      containerName: NESTED_CONTAINER_NAME,
+      title: NESTED_NOTE_TITLE,
+    });
+    await createNoteInContainer(primaryPane, "/", ROOT_NOTE_TITLE);
+    await expectAppRuntimeSettled();
+
     const recoveryKey = await downloadPaneRecoveryKey(primaryPane);
 
     // A pristine pane must initialize its local keychain before Identity Manager
@@ -110,10 +138,71 @@ test(
         return (
           contactsItemsTable !== null &&
           within(contactsItemsTable).queryAllByRole("button", { name: "You" })
-            .length === 1
+            .length === 1 &&
+          within(contactsItemsTable).queryByRole("button", {
+            name: CUSTOM_CONTACT_NICKNAME,
+          }) !== null
         );
       },
-      "Recovered self contact did not appear exactly once with the You label.",
+      "Recovered self contact and custom contact did not rematerialize.",
+      20_000,
+    );
+
+    await waitForCondition(
+      () =>
+        Array.from(
+          secondaryPane.querySelectorAll<HTMLButtonElement>(
+            "button.explorer-sidebar-item",
+          ),
+        ).some(
+          (button) => button.textContent?.trim() === NESTED_CONTAINER_NAME,
+        ),
+      "Recovered nested container did not rematerialize.",
+      20_000,
+    );
+    const nestedItemsTable = await selectContainerAndWaitForItemTable(
+      secondaryPane,
+      NESTED_CONTAINER_NAME,
+    );
+    await waitForCondition(
+      () =>
+        within(nestedItemsTable).queryByRole("button", {
+          name: NESTED_NOTE_TITLE,
+        }) !== null,
+      "Recovered nested note did not rematerialize.",
+      20_000,
+    );
+    await selectExplorerNoteByName(secondaryPane, NESTED_NOTE_TITLE);
+    await waitForCondition(
+      () => within(secondaryPane).queryByText(NESTED_ATTACHMENT_NAME) !== null,
+      "Recovered nested note attachment did not rematerialize.",
+      20_000,
+    );
+
+    const rootItemsTable = await selectContainerAndWaitForItemTable(
+      secondaryPane,
+      "/",
+    );
+    await waitForCondition(
+      () =>
+        within(rootItemsTable).queryByRole("button", {
+          name: ROOT_NOTE_TITLE,
+        }) !== null,
+      "Recovered root note did not rematerialize.",
+      20_000,
+    );
+    await selectExplorerNoteByName(secondaryPane, ROOT_NOTE_TITLE);
+    await waitForCondition(
+      () => {
+        const editor = within(secondaryPane).queryByRole("textbox", {
+          name: /Notes editor/u,
+        });
+        return (
+          editor instanceof HTMLTextAreaElement &&
+          editor.value === ROOT_NOTE_TITLE
+        );
+      },
+      "Recovered root note body did not rematerialize.",
       20_000,
     );
 
@@ -176,7 +265,12 @@ test(
     ).toHaveLength(1);
     expect(
       contactsItemsTable.querySelectorAll("tr.explorer-item-table-row"),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
+    expect(
+      within(contactsItemsTable).getByRole("button", {
+        name: CUSTOM_CONTACT_NICKNAME,
+      }),
+    ).toBeTruthy();
     expect(
       within(contactsItemsTable).queryByRole("button", {
         name: primaryUserId,

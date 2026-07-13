@@ -92,7 +92,7 @@ afterEach(async () => {
 });
 
 test(
-  "a new organization appears in another session for the same identity",
+  "an entitled organization profile name appears in another session without Refresh",
   async () => {
     useTestApiAppHandlers();
     const view = renderDualPane();
@@ -132,6 +132,7 @@ test(
     await openOrgManager(secondaryPane);
 
     let secondaryOrganizationCountBefore = 0;
+    let secondaryUntitledCountBefore = 0;
     await waitForCondition(
       () => {
         if (!ensureOrganizationOptionsOpen(secondaryPane)) {
@@ -139,6 +140,10 @@ test(
         }
         secondaryOrganizationCountBefore =
           within(secondaryPane).queryAllByRole("option").length;
+        secondaryUntitledCountBefore = within(secondaryPane).queryAllByRole(
+          "option",
+          { name: "Untitled organization" },
+        ).length;
         return secondaryOrganizationCountBefore > 0;
       },
       "Secondary session did not load its initial organizations.",
@@ -154,22 +159,94 @@ test(
 
     await createOrganization(primaryPane, REALTIME_ORGANIZATION_NAME);
 
+    await waitForCondition(
+      () =>
+        within(primaryPane)
+          .getByRole("combobox", { name: "Organizations" })
+          .textContent?.includes(REALTIME_ORGANIZATION_NAME) === true,
+      "New organization did not become active in the primary session.",
+      20_000,
+    );
+
     // Additional organizations begin local-only, so their encrypted profile
-    // name is not remotely available yet. Option growth specifically proves the
-    // new root was discovered; the menu footer is not an `option`.
+    // name must remain device-local. Option growth proves the new root was
+    // discovered, while the exact name must still be unavailable remotely.
+    await waitForCondition(
+      () => {
+        if (!ensureOrganizationOptionsOpen(secondaryPane)) {
+          return false;
+        }
+        const options = within(secondaryPane).queryAllByRole("option");
+        return options.length > secondaryOrganizationCountBefore;
+      },
+      "Secondary session did not discover the new organization in realtime.",
+      20_000,
+    );
+    expect(
+      within(secondaryPane).queryByRole("option", {
+        name: REALTIME_ORGANIZATION_NAME,
+      }),
+      "A local-only organization must not upload its seeded encrypted name.",
+    ).toBeNull();
+    expect(
+      within(secondaryPane).getAllByRole("option", {
+        name: "Untitled organization",
+      }).length,
+    ).toBeGreaterThan(secondaryUntitledCountBefore);
+    await interact(() => {
+      fireEvent.click(
+        within(secondaryPane).getByRole("combobox", {
+          name: "Organizations",
+        }),
+      );
+    });
+
+    await interact(() => {
+      fireEvent.click(
+        within(primaryPane).getByRole("button", { name: "Billing" }),
+      );
+    });
+    const startTrialButton = await within(primaryPane).findByRole("button", {
+      name: "Start free trial",
+    });
+    invariant(
+      startTrialButton instanceof HTMLButtonElement,
+      "Expected Start free trial button.",
+    );
+    await waitFor(() => {
+      expect(startTrialButton.disabled).toBe(false);
+    });
+    await interact(() => {
+      fireEvent.click(startTrialButton);
+    });
+    await waitForCondition(
+      () => within(primaryPane).queryByText("Free trial") !== null,
+      "Primary organization did not enter the free trial.",
+      20_000,
+    );
+
+    // Trial entitlement activates sync, which uploads the already-seeded
+    // profile document. The secondary's open Org Manager must consume the
+    // realtime hint and replace the placeholder without Refresh or reopening.
     await waitForCondition(
       () => {
         if (!ensureOrganizationOptionsOpen(secondaryPane)) {
           return false;
         }
         return (
-          within(secondaryPane).queryAllByRole("option").length >
-          secondaryOrganizationCountBefore
+          within(secondaryPane).queryByRole("option", {
+            name: REALTIME_ORGANIZATION_NAME,
+          }) !== null
         );
       },
-      "Secondary session did not discover the new organization in realtime.",
+      "Secondary session did not materialize the entitled organization profile name.",
       20_000,
     );
+    expect(
+      within(secondaryPane).queryAllByRole("option", {
+        name: "Untitled organization",
+      }),
+    ).toHaveLength(secondaryUntitledCountBefore);
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );

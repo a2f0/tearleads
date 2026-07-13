@@ -99,17 +99,21 @@ export async function createChildContainer(pane: HTMLElement, name: string) {
   );
 }
 
-export async function createNoteWithAttachment(pane: HTMLElement) {
-  await interact(() => {
-    fireEvent.click(getExplorerSidebarItem(pane, "/"));
-  });
-  await waitFor(() => {
-    expect(
-      getExplorerSidebarItem(pane, "/").classList.contains(
-        "mini-app-row--selected",
-      ),
-    ).toBe(true);
-  });
+export async function createNoteWithAttachment(
+  pane: HTMLElement,
+  {
+    attachmentContents = "peer one attachment",
+    attachmentName = "peer-one.png",
+    containerName = "/",
+    title = SHARED_NOTE_TITLE,
+  }: {
+    attachmentContents?: string;
+    attachmentName?: string;
+    containerName?: string;
+    title?: string;
+  } = {},
+) {
+  await selectContainerAndWaitForItemTable(pane, containerName);
   await openExplorerNewStructuredDocumentRoute(pane);
   const newNoteButton = await within(pane).findByRole("button", {
     name: "Note",
@@ -134,7 +138,7 @@ export async function createNoteWithAttachment(pane: HTMLElement) {
   });
   await interact(() => {
     fireEvent.change(editor, {
-      target: { value: SHARED_NOTE_TITLE },
+      target: { value: title },
     });
   });
 
@@ -142,7 +146,7 @@ export async function createNoteWithAttachment(pane: HTMLElement) {
     "input.note-document-file-input",
   );
   invariant(fileInput, "Expected notes file input.");
-  const attachment = new File(["peer one attachment"], "peer-one.png", {
+  const attachment = new File([attachmentContents], attachmentName, {
     type: "image/png",
   });
   await interact(() => {
@@ -152,18 +156,13 @@ export async function createNoteWithAttachment(pane: HTMLElement) {
   });
 
   await waitFor(() => {
-    expect(within(pane).getByText("peer-one.png")).toBeTruthy();
+    expect(within(pane).getByText(attachmentName)).toBeTruthy();
   });
   await waitForRemoteAttachmentBlob();
 
   // Return to the container view by re-selecting it in the sidebar (the in-document
   // "Back to Container" toolbar button was removed).
-  await interact(() => {
-    fireEvent.click(getExplorerSidebarItem(pane, "/"));
-  });
-  await waitFor(() => {
-    expect(queryExplorerItemTable(pane)).toBeTruthy();
-  });
+  await selectContainerAndWaitForItemTable(pane, containerName);
 }
 
 export async function createNoteInContainer(

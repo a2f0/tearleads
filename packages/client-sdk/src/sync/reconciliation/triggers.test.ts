@@ -209,6 +209,33 @@ test("document mutation events force both prior and current containers", () => {
   ]);
 });
 
+test("document purge events force every prior container", () => {
+  const enqueued: string[] = [];
+  const service = {
+    enqueueContainer: (containerId: string) => {
+      enqueued.push(containerId);
+    },
+    enqueueIdleBackfill: () => {},
+  } as unknown as Parameters<
+    typeof enqueueReconciliationForEvents
+  >[0]["service"];
+
+  enqueueReconciliationForEvents({
+    events: [
+      {
+        type: "document_mutation_created",
+        containerIds: ["root", "archive", "unknown"],
+        documentId: "d-1",
+        eventType: "document.purge",
+      },
+    ],
+    knownContainerIds: ["root", "archive"],
+    service,
+  });
+
+  expect(enqueued).toEqual(["root", "archive"]);
+});
+
 test("document mutation events do not consume content self-echo suppression", () => {
   const enqueued: string[] = [];
   const service = {

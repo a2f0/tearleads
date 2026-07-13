@@ -139,6 +139,11 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
     async loadDocument() {
       return document;
     },
+    async loadDocumentContainer(_execSql, localId) {
+      return document?.id === localId
+        ? { containerId: document.containerId }
+        : undefined;
+    },
     async saveDocument(_execSql, nextDocument) {
       document = nextDocument;
       return "2026-04-06T00:00:00.000Z";

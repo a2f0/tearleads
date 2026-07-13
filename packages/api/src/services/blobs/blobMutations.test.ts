@@ -51,7 +51,10 @@ import {
 } from "../../../test/helpers/containerRekey";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
+import {
+  createFailingRuntime,
+  createServiceTestRuntime,
+} from "../../../test/helpers/serviceRuntime";
 import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
 import {
   getCurrentContainerKeyEpoch,
@@ -664,14 +667,17 @@ async function setDocumentAndContainerUpdatedAt(input: {
   ]);
 }
 
-test("bindBlobAttachment attaches, replaces, and detaches signed bindings", async () => {
+test("bind and detach succeed when event publication fails", async () => {
   const owner = createTestUser();
+  const publishedEvents: Array<Record<string, unknown>> = [];
+  const failureRuntime = createFailingRuntime((event) =>
+    publishedEvents.push(event),
+  );
   await registerOnly(owner);
   const container = await bootstrapRoot(owner);
   const document = await createDocumentFixture({ container, owner });
   const documentId = document.bundle.state.documentId;
   const containerId = container.bundle.state.containerId;
-
   const firstBlobId = crypto.randomUUID();
   const firstStage = await stageEncryptedBlob({
     encryptedBytes: "first-encrypted-bytes",
@@ -692,7 +698,7 @@ test("bindBlobAttachment attaches, replaces, and detaches signed bindings", asyn
     documentId,
     updatedAt: preBindUpdatedAt,
   });
-  const firstResponse = await bindBlobAttachment(runtime, {
+  const firstResponse = await bindBlobAttachment(failureRuntime, {
     blobId: firstBlobId,
     fingerprint: owner.fingerprint,
     request: firstBind.request,
@@ -714,7 +720,6 @@ test("bindBlobAttachment attaches, replaces, and detaches signed bindings", asyn
   expect(afterBindTimestamps.containerUpdatedAt.toISOString()).toBe(
     afterBindTimestamps.documentUpdatedAt.toISOString(),
   );
-
   const replacementBlobId = crypto.randomUUID();
   const replacementStage = await stageEncryptedBlob({
     encryptedBytes: "replacement-encrypted-bytes",
@@ -747,7 +752,6 @@ test("bindBlobAttachment attaches, replaces, and detaches signed bindings", asyn
     (await loadAttachmentBinding(replacementBind.verifiedBinding.bindingId))
       ?.detachedAt,
   ).toBeNull();
-
   const preDetachUpdatedAt = new Date("2026-05-05T00:05:00.000Z");
   await setDocumentAndContainerUpdatedAt({
     containerId,
@@ -760,11 +764,12 @@ test("bindBlobAttachment attaches, replaces, and detaches signed bindings", asyn
     document,
     owner,
   });
-  const detachResponse = await detachBlobAttachment(runtime, {
+  const detachResponse = await detachBlobAttachment(failureRuntime, {
     bindingId: replacementBind.verifiedBinding.bindingId,
     blobId: replacementBlobId,
     fingerprint: owner.fingerprint,
     request: detachRequest,
+    sessionId: "test-session",
     userId: owner.userId,
   });
   expect(detachResponse.bindingId).toBe(
@@ -784,7 +789,7 @@ test("bindBlobAttachment attaches, replaces, and detaches signed bindings", asyn
   expect(afterDetachTimestamps.containerUpdatedAt.toISOString()).toBe(
     afterDetachTimestamps.documentUpdatedAt.toISOString(),
   );
-
+  expect(publishedEvents).toHaveLength(2);
   const attachmentAuditEvents = await db
     .select({
       action: documentAttachmentAuditEvents.action,
@@ -837,7 +842,6 @@ test("bindBlobAttachment attaches, replaces, and detaches signed bindings", asyn
   expect(new Set(auditedBlobs.map((blob) => blob.blobId))).toEqual(
     new Set([firstBlobId, replacementBlobId]),
   );
-
   const auditHistory = await verifyDocumentAuditHistory(db, {
     documentId: document.bundle.state.documentId,
   });
@@ -897,8 +901,6 @@ test("bindBlobAttachment applies optional container rekeys before target validat
   );
 });
 
-// Bind a staged blob, then assert the permanent row holds an external object
-// pointer (not inline bytes) and that getBlob round-trips through the store.
 async function expectStagePromotesToExternalPointer(input: {
   readonly encryptedBytes: string;
   readonly owner: TestUser;
@@ -972,8 +974,6 @@ test("bindBlobAttachment promotes single-shot s3 stages to an external pointer",
   const owner = createTestUser();
   await registerOnly(owner);
   const encryptedBytes = "single-shot-s3-bind-bytes";
-  // An s3-kind runtime backed by an in-memory object store: stageBlob offloads
-  // the bytes and bind/get must round-trip through the same object store.
   const s3Runtime = createServiceTestRuntime(db, {
     blobObjectStore: createMemoryBlobObjectStore(),
     blobObjectStoreKind: "s3",

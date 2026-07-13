@@ -22,6 +22,14 @@ test("isDocumentMutationCreatedEvent validates scoped link-set hints", () => {
   expect(
     isDocumentMutationCreatedEvent({
       type: "document_mutation_created",
+      containerIds: ["root", "trash"],
+      documentId: "document-1",
+      eventType: "document.purge",
+    }),
+  ).toBe(true);
+  expect(
+    isDocumentMutationCreatedEvent({
+      type: "document_mutation_created",
       containerIds: [],
       documentId: "document-1",
       eventType: "document.unlink",

@@ -10,6 +10,7 @@ import type {
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
+import type { DocumentPurgeResponse } from "@tearleads/validators/response";
 
 export interface CreateDocumentInput {
   readonly fingerprint: string;
@@ -30,6 +31,11 @@ export interface MutateDocumentLinkSetInput {
   readonly fingerprint: string;
   readonly request: DocumentLinkSetMutationRequest;
   readonly userId: string;
+}
+
+export interface PurgeDocumentWorkflowResult {
+  readonly containerIds: readonly string[];
+  readonly response: DocumentPurgeResponse;
 }
 
 export interface AppendDocumentUpdatesInput {
