@@ -90,7 +90,7 @@ export function useImportContactMessage(input: {
   const [pendingImportUserIds, setPendingImportUserIds] = useState<string[]>(
     [],
   );
-  const drainingRef = useRef(false);
+  const inFlightUserIdRef = useRef<string | null>(null);
 
   useMiniAppMessage(
     "contacts",
@@ -107,19 +107,22 @@ export function useImportContactMessage(input: {
       userIdToImport === undefined ||
       !isImportReady ||
       isSubmitting ||
-      drainingRef.current
+      inFlightUserIdRef.current === userIdToImport
     ) {
       return;
     }
 
-    // Latch synchronously before dequeuing so a re-run of this effect on the
-    // same commit (StrictMode's double invoke, a concurrent render) cannot
-    // dispatch or drop the same head twice; `isSubmitting` only flips to true
-    // on the next commit, so it can't guard this window on its own.
-    drainingRef.current = true;
+    // Latch the specific in-flight id synchronously before dequeuing so a
+    // re-run of this effect on the same commit (StrictMode's double invoke, a
+    // concurrent render) cannot dispatch or drop the same head twice;
+    // `isSubmitting` only flips on the next commit, so it can't guard this
+    // window alone. Tracking the id rather than a boolean keeps the queue from
+    // stalling if the ref resets on a microtask that races the dequeue's
+    // re-render — a stale id never blocks a different head.
+    inFlightUserIdRef.current = userIdToImport;
     setPendingImportUserIds((previous) => previous.slice(1));
     void importContactByUserId(userIdToImport).finally(() => {
-      drainingRef.current = false;
+      inFlightUserIdRef.current = null;
     });
   }, [
     importContactByUserId,
