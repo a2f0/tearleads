@@ -122,8 +122,8 @@
       "bytes": 69913
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
-      "lines": 1167,
-      "bytes": 35983
+      "lines": 1169,
+      "bytes": 36129
     },
     "packages/api/src/routes/principals/policy.test.ts": {
       "lines": 874,

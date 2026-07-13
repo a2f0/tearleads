@@ -411,7 +411,9 @@ test("roster reconcile does not churn updatedAt for unchanged active members", a
     organizationId,
     userIds: [actor.userId],
   });
-  const pinnedUpdatedAt = new Date("2026-01-01T00:00:00.000Z");
+  // A safely-past date so the re-activation assertion below (updatedAt bumped
+  // to new Date()) holds regardless of the runner's system clock.
+  const pinnedUpdatedAt = new Date("2020-01-01T00:00:00.000Z");
   await db
     .update(organizationRosterEntries)
     .set({
@@ -447,7 +449,7 @@ test("roster reconcile does not churn updatedAt for unchanged active members", a
     .update(organizationRosterEntries)
     .set({
       status: "disabled",
-      disabledAt: new Date("2026-02-01T00:00:00.000Z"),
+      disabledAt: new Date("2020-02-01T00:00:00.000Z"),
       disabledByUserId: actor.userId,
       updatedAt: pinnedUpdatedAt,
     })
