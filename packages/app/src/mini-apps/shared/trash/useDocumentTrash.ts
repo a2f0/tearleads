@@ -26,7 +26,7 @@ interface DocumentTrash {
   // in, lazily provisioning the viewer's own Trash when needed (so a not-yet-synced
   // org still works). Returns the moved summary, or null when the move was a no-op
   // (already trashed, no Trash resolvable/creatable, or a read-only source).
-  moveToTrash: (note: DocumentSummary) => Promise<DocumentSummary | null>;
+  moveToTrash: (document: DocumentSummary) => Promise<DocumentSummary | null>;
 }
 
 // Org-aware move-to-trash for mini-apps that are NOT the Explorer (Notes today).
@@ -81,7 +81,7 @@ export function useDocumentTrash(): DocumentTrash {
   );
 
   const moveToTrash = useCallback(
-    async (note: DocumentSummary): Promise<DocumentSummary | null> => {
+    async (document: DocumentSummary): Promise<DocumentSummary | null> => {
       if (!snapshot.ready) {
         return null;
       }
@@ -89,17 +89,17 @@ export function useDocumentTrash(): DocumentTrash {
       // Read the tree at call time (not a closed-over snapshot) so the lazily
       // created Trash and any concurrent tree updates are visible.
       const nodes = store.getSnapshot().nodes;
-      // Never move a note out of a container the viewer can only read: that would
-      // enqueue a move-intent that can never converge. Own orgs (including a
-      // payment-lapsed one) retain write access, so this only blocks foreign
+      // Never move a document out of a container the viewer can only read: that
+      // would enqueue a move-intent that can never converge. Own orgs (including
+      // a payment-lapsed one) retain write access, so this only blocks foreign
       // read-only shared containers.
-      const sourceNode = nodes.find((node) => node.id === note.containerId);
+      const sourceNode = nodes.find((node) => node.id === document.containerId);
       if (sourceNode?.effectiveAccessLevel === "read") {
         return null;
       }
 
       const targetContainerId = await resolveDeleteToTrashTarget({
-        containerId: note.containerId,
+        containerId: document.containerId,
         currentOrganizationId,
         nodes,
         trashSystemSlot,
@@ -114,10 +114,10 @@ export function useDocumentTrash(): DocumentTrash {
       const result = await documentLinks.moveDocumentToContainer({
         expandNode: () => undefined,
         mergeDocumentSummary: () => undefined,
-        note,
+        note: document,
         replaceLinkedContainers: true,
         setLinkedContainerIdsForDocument: () => undefined,
-        sourceContainerId: note.containerId,
+        sourceContainerId: document.containerId,
         targetContainerId,
       });
       return result.note;
