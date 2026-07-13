@@ -10,7 +10,7 @@ import { useDocumentBlobAttachmentSelection } from "./useDocumentAttachmentSelec
 // and the blob it returns is applied to the slot here. Returns `undefined` for
 // the blobPicker config — so the "Choose Blob" button is simply hidden — when no
 // pick provider is mounted (e.g. a document rendered standalone) or when the
-// container holds no blobs to pick (the picker would open empty).
+// identity-local projection holds no blobs to pick (the picker would open empty).
 export function useBlobPickAttachment(params: {
   blobStore: BlobStore;
   containerId: string | null;
@@ -63,11 +63,10 @@ export function useBlobPickAttachment(params: {
     }
   }, [consumeBlobPick, handleSelectedBlobAttachment, localId, slotIds]);
 
-  // Hide "Choose Blob" until we confirm the container has at least one blob to
-  // pick, so it never routes to an empty picker. Start hidden and reveal once a
-  // positive count resolves — biased toward never showing it on an empty
-  // container. Re-checks when the document's container changes (its remount on
-  // return from the picker also re-runs this).
+  // Hide "Choose Blob" until we confirm the identity-local projection has at
+  // least one blob to pick, so it never routes to an empty global picker. Start
+  // hidden and reveal once a positive count resolves. Re-check when the target
+  // document's container changes because it is part of the pick return route.
   const [hasPickableBlobs, setHasPickableBlobs] = useState(false);
   useEffect(() => {
     if (!loadPickableBlobCount || containerId === null) {

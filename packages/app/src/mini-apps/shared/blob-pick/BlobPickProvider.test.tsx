@@ -119,7 +119,7 @@ test("consumeBlobPick returns the blob only once", () => {
   expect(screen.getByTestId("consumed").textContent).toBe("miss");
 });
 
-test("loadPickableBlobCount surfaces the container's blob total", async () => {
+test("loadPickableBlobCount surfaces the identity-local blob total", async () => {
   const screen = render(
     <BlobPickProvider loadBlobInfo={makeLoadBlobInfo(7)}>
       <Probe />

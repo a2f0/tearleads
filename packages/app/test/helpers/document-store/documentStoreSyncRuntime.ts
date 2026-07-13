@@ -60,10 +60,12 @@ export async function documentWorkflowRuntimePatch(input: {
   commitLsnForSyncCount?: (syncCount: number) => string;
   documentWriterProjectionCalls?: string[];
   listDocumentAttachmentsCalls?: string[];
+  organizationId?: string;
   onSyncDocumentRequest?: (request: DocumentSyncRequest) => void;
   syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
 }): Promise<DocumentRuntimePatch> {
   const containerId = input.containerId ?? "root-container";
+  const organizationId = input.organizationId ?? "organization-1";
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const signingFingerprint = await toFingerprint(
     signingKeyPair.signingPublicKey,
@@ -91,6 +93,7 @@ export async function documentWorkflowRuntimePatch(input: {
     projectionPromise ??= createDocumentContainerProjection({
       containerId,
       encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+      organizationId,
       signerKeyFingerprint: signingFingerprint,
       signerPrivateKey: signingKeyPair.signingPrivateKey,
       userId: "user-1",
@@ -191,7 +194,12 @@ export async function documentWorkflowRuntimePatch(input: {
           input.mapDocumentWriterProjectionResponse?.(projection) ?? projection
         );
       },
-      listContainers: async () => createListedContainers(containerId),
+      listContainers: async () =>
+        createListedContainers(
+          containerId,
+          `${containerId}-access-state-hash-1`,
+          organizationId,
+        ),
       listDocumentAttachments: async (documentId) => {
         input.listDocumentAttachmentsCalls?.push(documentId);
         return attachments;
@@ -224,7 +232,7 @@ export async function documentWorkflowRuntimePatch(input: {
         });
       },
     }),
-    organizationId: "organization-1",
+    organizationId,
     signingFingerprint,
     signingKeyPair,
     userId: "user-1",
@@ -244,30 +252,36 @@ export function createRuntime(
   );
 }
 
+interface SyncRuntimeOptions {
+  attachmentBinds?: Array<{
+    blobId: string;
+    request: BlobAttachmentBindRequest;
+  }>;
+  commitLsnForSyncCount?: (syncCount: number) => string;
+  documentWriterProjectionCalls?: string[];
+  onBindBlobAttachment?: (
+    blobId: string,
+    request: BlobAttachmentBindRequest,
+  ) => Promise<void> | void;
+  onSyncDocumentRequest?: (request: DocumentSyncRequest) => void;
+  listDocumentAttachmentsCalls?: string[];
+  organizationId?: string;
+  syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
+}
+
 async function createSyncRuntimeInput(
   encapsulationKeyPair: NonNullable<
     DocumentsRuntimeInput["crypto"]["encapsulationKeyPair"]
   >,
   containerId = "root-container",
-  options: {
-    attachmentBinds?: Array<{
-      blobId: string;
-      request: BlobAttachmentBindRequest;
-    }>;
-    commitLsnForSyncCount?: (syncCount: number) => string;
-    documentWriterProjectionCalls?: string[];
-    onBindBlobAttachment?: (
-      blobId: string,
-      request: BlobAttachmentBindRequest,
-    ) => Promise<void> | void;
-    onSyncDocumentRequest?: (request: DocumentSyncRequest) => void;
-    listDocumentAttachmentsCalls?: string[];
-    syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
-  } = {},
+  options: SyncRuntimeOptions = {},
 ): Promise<DocumentsRuntimeInput> {
   const patch = await documentWorkflowRuntimePatch({
     containerId,
     encapsulationKeyPair,
+    ...(options.organizationId
+      ? { organizationId: options.organizationId }
+      : {}),
     ...(options.attachmentBinds
       ? { attachmentBinds: options.attachmentBinds }
       : {}),
@@ -324,21 +338,7 @@ export async function createSyncRuntime(
     DocumentsRuntimeInput["crypto"]["encapsulationKeyPair"]
   >,
   containerId = "root-container",
-  options: {
-    attachmentBinds?: Array<{
-      blobId: string;
-      request: BlobAttachmentBindRequest;
-    }>;
-    commitLsnForSyncCount?: (syncCount: number) => string;
-    documentWriterProjectionCalls?: string[];
-    onBindBlobAttachment?: (
-      blobId: string,
-      request: BlobAttachmentBindRequest,
-    ) => Promise<void> | void;
-    onSyncDocumentRequest?: (request: DocumentSyncRequest) => void;
-    listDocumentAttachmentsCalls?: string[];
-    syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
-  } = {},
+  options: SyncRuntimeOptions = {},
 ): Promise<DocumentsTestRuntime> {
   return createDocumentsTestRuntime(
     await createSyncRuntimeInput(encapsulationKeyPair, containerId, options),
