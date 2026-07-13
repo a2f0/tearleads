@@ -55,8 +55,8 @@ const BlobPickContext = createContext<BlobPickContextValue | null>(null);
 
 export function BlobPickProvider(
   params: PropsWithChildren<{
-    // Lists blobs in the active container; used to hide "Choose Blob" when the
-    // container has none so the picker never opens empty.
+    // Lists every blob in the identity-local projection, across organizations;
+    // used to hide "Choose Blob" only when that global picker would be empty.
     loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
     // Navigates the host's detail surface to the blob-browser route. Called when
     // a pick starts; clearing the target on resolve/cancel routes back. Optional:

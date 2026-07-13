@@ -77,6 +77,7 @@ export interface ProjectionLengthRow {
 export function createListedContainers(
   containerId: string,
   metadataAccessStateHash = `${containerId}-access-state-hash-1`,
+  organizationId = "org-1",
 ): ListContainersResponse {
   const updatedAt = "2026-05-05T00:00:00.000Z";
   return {
@@ -90,7 +91,7 @@ export function createListedContainers(
         metadataAccessEpoch: 1,
         metadataAccessStateHash,
         metadataDocumentId: `metadata-${containerId}`,
-        organizationId: "org-1",
+        organizationId,
         parentId: null,
         updatedAt,
       },
@@ -206,6 +207,7 @@ export async function createPersistedDocumentSnapshot(
 export async function createDocumentContainerProjection(input: {
   containerId: string;
   encapsulationPublicKey: Uint8Array;
+  organizationId?: string;
   signerKeyFingerprint: string;
   signerPrivateKey: Uint8Array;
   userId: string;
@@ -213,7 +215,7 @@ export async function createDocumentContainerProjection(input: {
   return createContainerWriterProjectionFixture({
     containerId: input.containerId,
     encapsulationPublicKey: input.encapsulationPublicKey,
-    organizationId: "organization-1",
+    organizationId: input.organizationId ?? "organization-1",
     signerKeyFingerprint: input.signerKeyFingerprint,
     signerPrivateKey: input.signerPrivateKey,
     userId: input.userId,
