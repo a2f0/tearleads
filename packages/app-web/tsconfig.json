@@ -5,6 +5,13 @@
     "lib": ["ESNext", "DOM"],
     "jsx": "react-jsx"
   },
-  "include": ["src", "scripts", "playwright.config.ts", "e2e"],
+  "include": [
+    "src",
+    "scripts",
+    "playwright.config.ts",
+    "playwright.screenshots.config.ts",
+    "e2e",
+    "screenshots"
+  ],
   "exclude": ["dist"]
 }
