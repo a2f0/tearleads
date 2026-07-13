@@ -248,9 +248,8 @@ function ExplorerDocumentInfoTabPanel(params: {
   ) => Promise<DocumentSummary | null>;
   canActivateLinkedContainer: boolean;
   canUnlinkLinkedContainer: boolean;
-  containerIconsById: ReadonlyMap<string, string | null>;
   containerName: string | null;
-  containerNamesById: ReadonlyMap<string, string>;
+  containersById: ReadonlyMap<string, ContainerNode>;
   documentInfo: DocumentInfo | null;
   documentSummaryError: string | null;
   idPrefix: string;
@@ -326,8 +325,7 @@ function ExplorerDocumentInfoTabPanel(params: {
           />
           {params.documentInfo ? (
             <ExplorerDocumentInfoAuthorizingContainersSection
-              containerIconsById={params.containerIconsById}
-              containerNamesById={params.containerNamesById}
+              containersById={params.containersById}
               documentInfo={params.documentInfo}
             />
           ) : null}
@@ -369,18 +367,19 @@ function useExplorerDocumentInfoPanelState(params: Props) {
       loadDocumentSummary: params.loadDocumentSummary,
       localId: params.localId,
     });
-  const containerNamesById = useMemo(
-    () => new Map(params.nodes.map((node) => [node.id, node.name])),
-    [params.nodes],
-  );
-  const containerIconsById = useMemo(
-    () => new Map(params.nodes.map((node) => [node.id, node.icon ?? null])),
-    [params.nodes],
-  );
+  // First occurrence wins on duplicate ids, matching getLinkedContainerDetails.
+  const containersById = useMemo(() => {
+    const byId = new Map<string, ContainerNode>();
+    for (const node of params.nodes) {
+      if (!byId.has(node.id)) {
+        byId.set(node.id, node);
+      }
+    }
+    return byId;
+  }, [params.nodes]);
   const containerName =
-    containerNamesById.get(
-      documentInfo?.local.containerId ?? params.containerId,
-    ) ?? null;
+    containersById.get(documentInfo?.local.containerId ?? params.containerId)
+      ?.name ?? null;
   const title =
     params.documentTitle ??
     documentInfo?.local.title ??
@@ -411,9 +410,8 @@ function useExplorerDocumentInfoPanelState(params: Props) {
     activeContainerId,
     canActivateDocumentLink,
     canUnlinkDocumentLink,
-    containerIconsById,
     containerName,
-    containerNamesById,
+    containersById,
     documentInfo,
     documentInfoError,
     documentSummaryError,
@@ -460,9 +458,8 @@ export function ExplorerDocumentInfoPanel(params: Props) {
           activateLinkedContainer={params.activateLinkedContainer}
           canActivateLinkedContainer={model.canActivateDocumentLink}
           canUnlinkLinkedContainer={model.canUnlinkDocumentLink}
-          containerIconsById={model.containerIconsById}
           containerName={model.containerName}
-          containerNamesById={model.containerNamesById}
+          containersById={model.containersById}
           documentInfo={model.documentInfo}
           documentSummaryError={model.documentSummaryError}
           idPrefix={model.tabIdPrefix}
