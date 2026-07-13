@@ -17,6 +17,7 @@ import type {
   ContainerCreateWithMetadataDocumentRequest,
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
+  ProvisionedSystemContainerRequest,
   RegistrationRequest,
 } from "@tearleads/validators/request";
 import type {
@@ -42,6 +43,7 @@ import {
 } from "../containers/root/create";
 import { resolveDocumentCreateAuthor } from "../documents/author";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
+import { buildInitialDocumentSyncRequest } from "../documents/initialSync";
 import {
   createInitializedOrganizationProfileDocument,
   DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
@@ -83,9 +85,7 @@ export interface RegistrationApi {
       | ContainerCreateWithMetadataDocumentRequest
       | undefined,
     initialOrganizationProfileDocument?: DocumentCreateRequest | undefined,
-    initialSystemContainers?:
-      | ContainerCreateWithMetadataDocumentRequest[]
-      | undefined,
+    initialSystemContainers?: ProvisionedSystemContainerRequest[] | undefined,
   ): Promise<RegistrationResponse | null>;
 }
 
@@ -150,7 +150,7 @@ interface InitialSystemContainerBootstrap {
   >;
   containerMetadataInitialUpdate: Uint8Array;
   containerPlan: InitialSystemContainerCreatePlan;
-  containerRequest: ContainerCreateWithMetadataDocumentRequest;
+  containerRequest: ProvisionedSystemContainerRequest;
   icon: string | null;
   name: string;
   systemSlot: ContainerSystemSlot;
@@ -522,7 +522,6 @@ function buildSystemContainersBootstrapInput(
       createdAt: response.container.createdAt,
       icon: bootstrap.icon,
       metadataDocumentId: response.metadataDocument.id,
-      metadataInitialUpdate: bootstrap.containerMetadataInitialUpdate,
       metadataSnapshot: bytesToBase64(bootstrap.containerMetadataInitialUpdate),
       metadataState: persistedDocumentCreateStateFromResponse(
         bootstrap.containerMetadataDocument.plan,
@@ -826,15 +825,6 @@ async function buildInitialRosterProfileBootstrap(input: {
   };
 }
 
-/**
- * Builds one additional app-owned system container (e.g. a trash bin) as a
- * signed Admins-scoped child of root carrying only its metadata
- * document — the same shape as the roster profile container minus the profile
- * document. Its system slot is derived from the founder's signing key, so it
- * matches the slot the app derives client-side, letting the lazy
- * `ensureSystemContainer` bootstrap find this provisioned container instead of
- * creating a duplicate.
- */
 async function buildInitialSystemContainerBootstrap(input: {
   author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
   initialAdminGroup: CreateOrganizationGroupRequest;
@@ -888,6 +878,12 @@ async function buildInitialSystemContainerBootstrap(input: {
     targetSecretKey: input.targetSecretKey,
     trustedLocalProjection: true,
   });
+  const initialMetadataSync = await buildInitialDocumentSyncRequest({
+    author: input.author,
+    containerProjection,
+    initialUpdate,
+    materializedDocument: containerMetadataDocument,
+  });
   return {
     containerId,
     containerMetadataDocument,
@@ -896,6 +892,7 @@ async function buildInitialSystemContainerBootstrap(input: {
     containerRequest: {
       systemSlot,
       container: containerPlan.plan.request,
+      initialMetadataSync,
       metadataDocument: containerMetadataDocument.plan.request,
     },
     icon: input.spec.icon,

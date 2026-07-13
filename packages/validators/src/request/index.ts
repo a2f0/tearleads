@@ -60,6 +60,7 @@ export {
   isCreateOrganizationRequest,
   isOrganizationProvisioningRequest,
   type OrganizationProvisioningRequest,
+  type ProvisionedSystemContainerRequest,
 } from "./organizationProvisioning";
 export {
   isPutPrincipalMemberEnvelopesRequest,

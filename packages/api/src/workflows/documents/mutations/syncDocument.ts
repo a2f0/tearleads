@@ -15,8 +15,12 @@ import {
 import type {
   DocumentOutgoingUpdate,
   DocumentSyncRequest,
+  ProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
-import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import type {
+  ContainerCreateWithMetadataDocumentResponse,
+  DocumentSyncResponse,
+} from "@tearleads/validators/response";
 import { inArray } from "drizzle-orm";
 import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
 import {
@@ -41,12 +45,6 @@ import { uniqueSortedStrings } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { assertOrganizationCanSync } from "../../billing/organizationBilling";
 import { applyContainerRekeys } from "../../containers/mutations";
-import {
-  ContainerWriterProjectionError,
-  createContainerWriterProjectionContext,
-  resolveContainerReaderProjection,
-  resolveContainerWriterProjection,
-} from "../../containers/writerProjection";
 import { DocumentMutationError, toMutationError } from "./errors";
 import {
   ensureDocumentExists,
@@ -64,6 +62,7 @@ import {
   loadSignerPublicKey,
   verifySyncWriteAuthorizationProof,
 } from "./shared/verification";
+import { ensureSyncDocumentAccess } from "./syncAccess";
 import type {
   AppendDocumentUpdatesInput,
   DocumentWriteAuthorizationProof,
@@ -72,72 +71,6 @@ import type {
 
 function documentUpdateByteLength(update: DocumentOutgoingUpdate): number {
   return Buffer.byteLength(update.encryptedData, "utf8");
-}
-
-type ContainerProjectionResolver = typeof resolveContainerWriterProjection;
-
-async function ensureDocumentAccess(
-  input: {
-    readonly currentTargets: Awaited<
-      ReturnType<typeof resolveCurrentDocumentKekTargets>
-    >;
-    readonly executor: DatabaseTransaction;
-    readonly userId: string;
-  },
-  resolver: ContainerProjectionResolver,
-): Promise<void> {
-  const containerProjectionContext = createContainerWriterProjectionContext(
-    input.executor,
-  );
-
-  for (const containerId of new Set(
-    input.currentTargets.targets.map((target) => target.containerId),
-  )) {
-    try {
-      await resolver({
-        containerId,
-        context: containerProjectionContext,
-        executor: input.executor,
-        userId: input.userId,
-      });
-      return;
-    } catch (error) {
-      if (
-        error instanceof ContainerWriterProjectionError &&
-        error.status === 403
-      ) {
-        continue;
-      }
-
-      throw error;
-    }
-  }
-
-  throw new DocumentMutationError("Forbidden", 403);
-}
-
-async function ensureSyncDocumentAccess(input: {
-  readonly currentTargets: Awaited<
-    ReturnType<typeof resolveCurrentDocumentKekTargets>
-  >;
-  readonly executor: DatabaseTransaction;
-  readonly request: DocumentSyncRequest;
-  readonly userId: string;
-}): Promise<void> {
-  // Empty sync requests only pull missing updates, so read access is enough.
-  const resolver =
-    input.request.outgoingUpdates.length > 0
-      ? resolveContainerWriterProjection
-      : resolveContainerReaderProjection;
-
-  await ensureDocumentAccess(
-    {
-      currentTargets: input.currentTargets,
-      executor: input.executor,
-      userId: input.userId,
-    },
-    resolver,
-  );
 }
 
 async function verifyOutgoingWriteHeader(input: {
@@ -718,6 +651,7 @@ async function listMissingSyncUpdatesWithBundles(input: {
 
 async function syncDocumentTransaction(input: {
   readonly documentId: string;
+  readonly enforceSyncEligibility: boolean;
   readonly fingerprint: string;
   readonly request: DocumentSyncRequest;
   readonly signingPublicKey: Uint8Array;
@@ -750,7 +684,10 @@ async function syncDocumentTransaction(input: {
   });
   const hasOutgoingUpdates = input.request.outgoingUpdates.length > 0;
   const hasContainerRekeys = (input.request.containerRekeys?.length ?? 0) > 0;
-  if (hasOutgoingUpdates || hasContainerRekeys) {
+  if (
+    input.enforceSyncEligibility &&
+    (hasOutgoingUpdates || hasContainerRekeys)
+  ) {
     await assertOrganizationCanSync(input.tx, currentTargets.organizationId);
   }
   if (hasOutgoingUpdates) {
@@ -829,6 +766,53 @@ export interface DocumentSyncWorkflowResult {
   readonly response: DocumentSyncResponse;
 }
 
+/**
+ * Commits the one encrypted metadata update born with a system container.
+ * This stays out of the document-mutations facade: bypassing billing is valid
+ * only for the freshly-created artifact in an organization-provisioning
+ * transaction.
+ */
+export async function appendProvisionedDocumentInitialUpdate(input: {
+  readonly created: ContainerCreateWithMetadataDocumentResponse;
+  readonly executor: DatabaseTransaction;
+  readonly fingerprint: string;
+  readonly request: ProvisionedSystemContainerRequest;
+  readonly signingPublicKey: Uint8Array;
+  readonly userId: string;
+}): Promise<void> {
+  const documentId = input.created.metadataDocument.id;
+  const syncRequest = input.request.initialMetadataSync;
+  if (
+    !syncRequest ||
+    !Array.isArray(syncRequest.outgoingUpdates) ||
+    syncRequest.outgoingUpdates.length !== 1 ||
+    (syncRequest.containerRekeys?.length ?? 0) > 0
+  ) {
+    throw new DocumentMutationError(
+      "Provisioned document metadata requires exactly one initial update and no container rekeys",
+      400,
+    );
+  }
+
+  try {
+    await syncDocumentTransaction({
+      documentId,
+      enforceSyncEligibility: false,
+      fingerprint: input.fingerprint,
+      request: syncRequest,
+      signingPublicKey: input.signingPublicKey,
+      tx: input.executor,
+      userId: input.userId,
+    });
+  } catch (error) {
+    const mutationError = toMutationError(error);
+    if (mutationError) {
+      throw mutationError;
+    }
+    throw error;
+  }
+}
+
 export async function runDocumentSyncWorkflow(
   db: ApiDatabase,
   input: SyncDocumentInput,
@@ -838,6 +822,7 @@ export async function runDocumentSyncWorkflow(
     const transactionResult = await db.transaction((tx) =>
       syncDocumentTransaction({
         documentId: input.documentId,
+        enforceSyncEligibility: true,
         fingerprint: input.fingerprint,
         request: input.request,
         signingPublicKey,

@@ -52,6 +52,7 @@ import {
   createDocumentWithExecutor,
   DocumentMutationError,
 } from "../documents/mutations";
+import { appendProvisionedDocumentInitialUpdate } from "../documents/mutations/syncDocument";
 import { toPrincipalPolicyError } from "../principals/shared";
 import {
   createInitialOrganizationBillingRow,
@@ -978,28 +979,27 @@ async function createInitialOrganizationMetadataContainer(
   return metadataContainer;
 }
 
-/**
- * Provisions the additional app-owned system containers (e.g. a trash bin)
- * declared on the request, in order, inside the same transaction.
- * Each is created exactly like the roster/organization-metadata containers via
- * {@link createProvisionedSystemContainer}: a signed Admins-scoped child of root
- * carrying only its metadata document.
- */
 async function createProvisionedSystemContainers(
   tx: DatabaseTransaction,
   input: OrganizationProvisioningRequest,
-  fingerprint: string,
+  signer: OrganizationProvisioningSigner,
 ): Promise<ContainerCreateWithMetadataDocumentResponse[]> {
-  const requests = input.initialSystemContainers ?? [];
   const created: ContainerCreateWithMetadataDocumentResponse[] = [];
-  for (const request of requests) {
-    created.push(
-      await createProvisionedSystemContainer(tx, {
-        fingerprint,
-        request,
-        userId: input.userId,
-      }),
-    );
+  for (const request of input.initialSystemContainers ?? []) {
+    const provisioned = await createProvisionedSystemContainer(tx, {
+      fingerprint: signer.fingerprint,
+      request,
+      userId: input.userId,
+    });
+    await appendProvisionedDocumentInitialUpdate({
+      created: provisioned,
+      executor: tx,
+      fingerprint: signer.fingerprint,
+      request,
+      signingPublicKey: signer.signingPublicKey,
+      userId: input.userId,
+    });
+    created.push(provisioned);
   }
   return created;
 }
@@ -1314,7 +1314,7 @@ export async function provisionOrganizationInTransaction(
   const systemContainers = await createProvisionedSystemContainers(
     tx,
     input,
-    signer.fingerprint,
+    signer,
   );
   return {
     organizationId: org.id,

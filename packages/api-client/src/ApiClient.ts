@@ -673,9 +673,7 @@ export class ApiClient {
       | ContainerCreateWithMetadataDocumentRequest
       | undefined,
     initialOrganizationProfileDocument?: DocumentCreateRequest | undefined,
-    initialSystemContainers?:
-      | ContainerCreateWithMetadataDocumentRequest[]
-      | undefined,
+    initialSystemContainers?: RegistrationRequest["initialSystemContainers"],
   ) {
     return this.request(
       "/auth/register",

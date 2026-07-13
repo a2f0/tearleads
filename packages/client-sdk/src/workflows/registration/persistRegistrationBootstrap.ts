@@ -120,7 +120,6 @@ interface RegistrationBootstrapInput {
     createdAt: string;
     icon: string | null;
     metadataDocumentId: string;
-    metadataInitialUpdate: Uint8Array;
     metadataSnapshot: string;
     metadataState: Pick<
       DocumentRecord,
@@ -330,10 +329,9 @@ async function persistSystemContainersBootstrap(
         },
       },
     );
-    await enqueueInitialContainerMetadataUpdate(execSql, {
-      containerId: systemContainer.containerId,
-      initialUpdate: systemContainer.metadataInitialUpdate,
-    });
+    // Provisioned system-container metadata is already committed remotely in
+    // the organization transaction. Persist the initialized snapshot locally,
+    // but do not queue a duplicate write with a second update id.
   }
 }
 
