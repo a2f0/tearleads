@@ -1,11 +1,83 @@
 import { expect } from "bun:test";
 import { fireEvent, waitFor, within } from "@testing-library/react";
+import invariant from "invariant";
 import { flattenPaneStatusText } from "../paneTestUtils";
 import {
   interact,
   openIdentityManagerForPane,
   waitForSinglePaneProvisioning,
 } from "./dualPaneCore";
+
+export async function createPaneCustomContact(
+  pane: HTMLElement,
+  input: {
+    firstName: string;
+    lastName: string;
+    nickname: string;
+  },
+) {
+  await interact(() => {
+    fireEvent.contextMenu(pane, { clientX: 140, clientY: 140 });
+  });
+  const paneMenu = document.querySelector<HTMLElement>(".menu");
+  invariant(paneMenu, "Expected pane menu for Contacts.");
+  await interact(() => {
+    fireEvent.click(within(paneMenu).getByRole("button", { name: "Contacts" }));
+  });
+
+  const contactsWindow = await waitFor(() => {
+    const contacts = pane.querySelector<HTMLElement>(".contacts");
+    const window = contacts?.closest<HTMLElement>(".window");
+    expect(window).toBeTruthy();
+    return window;
+  });
+  invariant(contactsWindow, "Expected Contacts window.");
+
+  const newContactButton = await within(contactsWindow).findByRole("button", {
+    name: "New Contact",
+  });
+  invariant(
+    newContactButton instanceof HTMLButtonElement,
+    "Expected New Contact button.",
+  );
+  await waitFor(() => {
+    expect(newContactButton.disabled).toBe(false);
+  });
+  await interact(() => {
+    fireEvent.click(newContactButton);
+  });
+
+  await interact(() => {
+    fireEvent.change(within(contactsWindow).getByLabelText("Nickname"), {
+      target: { value: input.nickname },
+    });
+    fireEvent.change(within(contactsWindow).getByLabelText("First name"), {
+      target: { value: input.firstName },
+    });
+    fireEvent.change(within(contactsWindow).getByLabelText("Last name"), {
+      target: { value: input.lastName },
+    });
+  });
+
+  const createButton = within(contactsWindow).getByRole("button", {
+    name: "Create",
+  });
+  invariant(
+    createButton instanceof HTMLButtonElement,
+    "Expected Create button.",
+  );
+  await waitFor(() => {
+    expect(createButton.disabled).toBe(false);
+  });
+  await interact(() => {
+    fireEvent.click(createButton);
+  });
+  await waitFor(() => {
+    expect(
+      within(contactsWindow).getAllByText(input.nickname).length,
+    ).toBeGreaterThan(0);
+  });
+}
 
 export async function downloadPaneRecoveryKey(
   pane: HTMLElement,

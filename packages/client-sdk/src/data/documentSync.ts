@@ -14,7 +14,7 @@ interface DocumentMutationCreatedEvent {
   type: "document_mutation_created";
   containerIds: string[];
   documentId: string;
-  eventType: "document.link" | "document.unlink";
+  eventType: "document.link" | "document.purge" | "document.unlink";
 }
 
 interface DocumentUpdateCreatedEventCandidate {
@@ -97,7 +97,9 @@ export function isDocumentMutationCreatedEvent(
     Reflect.get(event, "type") === "document_mutation_created" &&
     typeof documentId === "string" &&
     documentId.length > 0 &&
-    (eventType === "document.link" || eventType === "document.unlink") &&
+    (eventType === "document.link" ||
+      eventType === "document.purge" ||
+      eventType === "document.unlink") &&
     Array.isArray(containerIds) &&
     containerIds.length > 0 &&
     containerIds.every(

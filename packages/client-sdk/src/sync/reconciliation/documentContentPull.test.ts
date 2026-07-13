@@ -105,6 +105,41 @@ test("retries a system document version after pull scheduling throws", () => {
   expect(attempts).toBe(2);
 });
 
+test("forgets a superseded system document version", () => {
+  const pulledVersions: string[] = [];
+  const pull = createReconciledDocumentContentPuller({
+    getContainer: () =>
+      container({ id: "contacts", systemSlot: "sys_contacts" }),
+    pullDocumentContent: () => {
+      pulledVersions.push(currentVersion);
+    },
+    requestRegisteredDocumentRemoteSync: () => true,
+  });
+  let currentVersion = "2026-07-11T12:00:00.000Z";
+  const reconcile = () => {
+    pull(
+      "contacts",
+      [summary({ documentId: "contact-1", updatedAt: currentVersion })],
+      false,
+    );
+  };
+
+  reconcile();
+  currentVersion = "2026-07-11T12:00:01.000Z";
+  reconcile();
+  currentVersion = "2026-07-11T12:00:00.000Z";
+  reconcile();
+
+  // Re-observing a superseded value schedules it again. That is the observable
+  // proof that the cache retains one version per container/document instead of
+  // every historical updatedAt value.
+  expect(pulledVersions).toEqual([
+    "2026-07-11T12:00:00.000Z",
+    "2026-07-11T12:00:01.000Z",
+    "2026-07-11T12:00:00.000Z",
+  ]);
+});
+
 test("keeps ordinary document content lazy except on forced refresh", () => {
   const containers = new Map([["root", container({ id: "root" })]]);
   const eagerPulls: string[] = [];

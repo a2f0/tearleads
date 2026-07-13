@@ -1,12 +1,12 @@
 import type {
   DocumentCreateResponse,
   DocumentLinkSetMutationResponse,
-  DocumentPurgeResponse,
 } from "@tearleads/validators/response";
 import {
   type CreateDocumentInput,
   type DocumentSyncWorkflowResult,
   type MutateDocumentLinkSetInput,
+  type PurgeDocumentWorkflowResult,
   runCreateDocumentWorkflow,
   runDocumentLinkSetMutationWorkflow,
   runDocumentSyncWorkflow,
@@ -44,8 +44,8 @@ export async function purgeDocument(
     readonly documentId: string;
     readonly userId: string;
   },
-): Promise<DocumentPurgeResponse> {
-  const response = await runPurgeDocumentWorkflow(runtime.db, input);
+): Promise<PurgeDocumentWorkflowResult> {
+  const result = await runPurgeDocumentWorkflow(runtime.db, input);
 
   // The workflow committed the row deletions and returned the object-store keys
   // for blobs that became fully orphaned. Delete those bytes after commit (in
@@ -53,7 +53,7 @@ export async function purgeDocument(
   // references, and a storage failure here only leaks reclaimable bytes rather
   // than failing the purge.
   await Promise.all(
-    response.reclaimedBlobStorageKeys.map(async (storageKey) => {
+    result.response.reclaimedBlobStorageKeys.map(async (storageKey) => {
       try {
         await runtime.blobObjectStore.deleteObject(storageKey);
       } catch {
@@ -63,5 +63,5 @@ export async function purgeDocument(
     }),
   );
 
-  return response;
+  return result;
 }

@@ -71,6 +71,7 @@ function createDocumentReadPersistence(
   | "listDocuments"
   | "listDocumentsByContainerIdsOrDocumentIds"
   | "loadDocument"
+  | "loadDocumentContainer"
 > {
   return {
     async ensureSchema() {},
@@ -111,6 +112,11 @@ function createDocumentReadPersistence(
     },
     async loadDocument(_execSql, localId) {
       return state.document?.id === localId ? state.document : null;
+    },
+    async loadDocumentContainer(_execSql, localId) {
+      return state.document?.id === localId
+        ? { containerId: state.document.containerId }
+        : undefined;
     },
   };
 }

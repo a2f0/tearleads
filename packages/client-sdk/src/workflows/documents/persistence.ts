@@ -110,7 +110,9 @@ function resolveNullableDocumentRuntimeField(
   return resetWhenUnpatched ? null : (currentValue ?? null);
 }
 
-function patchSpecifiesContainer(patch: Partial<StoredDocumentRecord>): boolean {
+function patchSpecifiesContainer(
+  patch: Partial<StoredDocumentRecord>,
+): boolean {
   // A patch "specifies" a container when it carries the key with a concrete
   // value: a string, or an explicit null meaning "unlinked from every container".
   // `exactOptionalPropertyTypes` is enabled repo-wide, so an owned containerId key

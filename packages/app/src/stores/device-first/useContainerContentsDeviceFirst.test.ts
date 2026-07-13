@@ -208,6 +208,33 @@ test("document mutation events reconcile known documents in both containers", ()
   );
 });
 
+test("document purge events reconcile known documents in every prior container", () => {
+  const processedEventKeys = new Set<string>();
+  const event = {
+    type: "document_mutation_created",
+    containerIds: ["root", "archive"],
+    documentId: "doc-1",
+    eventType: "document.purge",
+    id: "purge-event",
+  };
+
+  expect(
+    takePendingReconciliationEvents({
+      documentSummariesByContainerId: new Map([
+        ["root", [summary({ containerId: "root", documentId: "doc-1" })]],
+        ["archive", [summary({ containerId: "archive", documentId: "doc-1" })]],
+      ]),
+      events: [event],
+      knownContainerIds: ["root", "archive"],
+      linkedContainerIdsByDocumentId: new Map([["doc-1", ["root", "archive"]]]),
+      processedEventKeys,
+    }),
+  ).toEqual([event]);
+  expect(processedEventKeys).toEqual(
+    new Set(["purge-event:root", "purge-event:archive"]),
+  );
+});
+
 test("reconciliation events only inspect summaries for touched containers", () => {
   const processedEventKeys = new Set<string>();
   const event = {

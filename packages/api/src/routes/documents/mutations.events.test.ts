@@ -3,7 +3,9 @@ import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/reque
 import type { DocumentLinkSetMutationResponse } from "@tearleads/validators/response";
 import {
   createDocumentMutationCreatedEvent,
+  createDocumentPurgeEvent,
   publishDocumentMutationCreatedEvent,
+  publishDocumentPurgeEvent,
 } from "./mutations";
 
 const ORIGIN = { sessionId: "session-1", userId: "user-1" };
@@ -82,6 +84,47 @@ test("document mutations remain successful when realtime publication fails", asy
     expect(publish).toHaveBeenCalledTimes(1);
     expect(errorSpy).toHaveBeenCalledWith(
       "Failed to publish document mutation event:",
+      expect.any(Error),
+    );
+  } finally {
+    errorSpy.mockRestore();
+  }
+});
+
+test("document purge events carry every tombstone container and origin", () => {
+  expect(
+    createDocumentPurgeEvent({
+      containerIds: ["trash-b", "trash-a", "trash-b"],
+      documentId: "document-1",
+      origin: ORIGIN,
+    }),
+  ).toEqual({
+    type: "document_mutation_created",
+    containerIds: ["trash-a", "trash-b"],
+    documentId: "document-1",
+    eventType: "document.purge",
+    origin: ORIGIN,
+  });
+});
+
+test("document purge remains successful when realtime publication fails", async () => {
+  const publish = mock(async () => {
+    throw new Error("broker unavailable");
+  });
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+
+  try {
+    await expect(
+      publishDocumentPurgeEvent({
+        containerIds: ["trash"],
+        documentId: "document-1",
+        origin: ORIGIN,
+        publish,
+      }),
+    ).resolves.toBeUndefined();
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Failed to publish document purge event:",
       expect.any(Error),
     );
   } finally {

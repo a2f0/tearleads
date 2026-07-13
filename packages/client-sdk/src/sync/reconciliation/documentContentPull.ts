@@ -30,7 +30,10 @@ export function createReconciledDocumentContentPuller(
   documents: ReadonlyArray<DocumentSummary>,
   force: boolean,
 ) => void {
-  const pulledSystemDocumentVersions = new Set<string>();
+  // Retain only the last observed version for each system-container document.
+  // Keeping the version in the key would grow this cache for every historical
+  // updatedAt value over the reconciler's lifetime.
+  const pulledSystemDocumentVersions = new Map<string, string>();
 
   return (containerId, documents, force) => {
     const systemContainer = isSystemContainerNode(
@@ -43,14 +46,19 @@ export function createReconciledDocumentContentPuller(
       }
 
       if (systemContainer) {
-        const versionKey = `${containerId}:${document.documentId}:${document.updatedAt}`;
-        if (!pulledSystemDocumentVersions.has(versionKey)) {
+        // Container scope is significant: the same document can be linked into
+        // multiple system containers whose keys establish different decryption
+        // contexts for the transient store.
+        const documentKey = `${containerId}:${document.documentId}`;
+        if (
+          pulledSystemDocumentVersions.get(documentKey) !== document.updatedAt
+        ) {
           host.pullDocumentContent({
             containerId,
             documentId: document.documentId,
             localId: document.id,
           });
-          pulledSystemDocumentVersions.add(versionKey);
+          pulledSystemDocumentVersions.set(documentKey, document.updatedAt);
         } else if (force) {
           // The first eager pull registers a document store before scheduling
           // its async sync. If that sync failed, a later explicit Refresh must

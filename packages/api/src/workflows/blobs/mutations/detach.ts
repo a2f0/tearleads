@@ -1,6 +1,5 @@
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import { verifyAttachmentDetachEvent } from "@tearleads/crypto";
-import type { BlobAttachmentDetachResponse } from "@tearleads/validators/response";
 import { storeVerifiedAttachmentDetachInTransaction } from "../../../access/write/attachmentBindingStore";
 import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
 import { loadSignerPublicKey } from "../../documents/mutations";
@@ -16,12 +15,16 @@ import {
   appendAttachmentDetachAuditEvent,
   loadActiveAttachmentBindingById,
 } from "./persistence";
-import { BlobMutationError, type DetachBlobAttachmentInput } from "./types";
+import {
+  BlobMutationError,
+  type DetachBlobAttachmentInput,
+  type DetachBlobAttachmentWorkflowResult,
+} from "./types";
 
 export async function runDetachBlobAttachmentWorkflow(
   db: ApiDatabase,
   input: DetachBlobAttachmentInput,
-): Promise<BlobAttachmentDetachResponse> {
+): Promise<DetachBlobAttachmentWorkflowResult> {
   try {
     return await db.transaction(async (tx) => {
       const { detachBody, event } = readDetachRequestSession(input);
@@ -85,10 +88,13 @@ export async function runDetachBlobAttachmentWorkflow(
       });
 
       return {
-        bindingId: verifiedDetach.value.bindingId,
-        blobId: verifiedDetach.value.blobId,
-        documentId: verifiedDetach.value.documentId,
-        slotId: verifiedDetach.value.slotId,
+        linkedContainerIds: proof.documentManifest.state.linkedContainerIds,
+        response: {
+          bindingId: verifiedDetach.value.bindingId,
+          blobId: verifiedDetach.value.blobId,
+          documentId: verifiedDetach.value.documentId,
+          slotId: verifiedDetach.value.slotId,
+        },
       };
     });
   } catch (error) {

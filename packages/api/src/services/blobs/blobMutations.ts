@@ -18,6 +18,11 @@ import type { ApiServiceRuntime } from "../runtime";
 
 export { BlobMutationError } from "../../workflows/blobs/mutations";
 
+type AttachmentMutationOrigin = {
+  readonly sessionId: string;
+  readonly userId: string;
+};
+
 function listBlobKekTargetContainerIds(
   blobKekTargets: BlobAttachmentBindResponse["blobKekTargets"],
 ): string[] {
@@ -37,7 +42,7 @@ function listBlobKekTargetContainerIds(
 
 export function createAttachmentBindDocumentEvent(
   response: Pick<BlobAttachmentBindResponse, "blobKekTargets" | "documentId">,
-  origin: { readonly sessionId: string; readonly userId: string },
+  origin: AttachmentMutationOrigin,
 ): Record<string, unknown> {
   return {
     type: "document_update_created",
@@ -52,14 +57,30 @@ export function createAttachmentBindDocumentEvent(
   };
 }
 
-async function publishAttachmentBindDocumentEvent(
-  runtime: ApiServiceRuntime,
-  response: BlobAttachmentBindResponse,
-  origin: { readonly sessionId: string; readonly userId: string },
-): Promise<void> {
-  await runtime.eventPublisher.publish(
-    createAttachmentBindDocumentEvent(response, origin),
-  );
+export function createAttachmentDetachDocumentEvent(input: {
+  readonly containerIds: readonly string[];
+  readonly origin: AttachmentMutationOrigin;
+  readonly response: Pick<BlobAttachmentDetachResponse, "documentId">;
+}): Record<string, unknown> {
+  return {
+    type: "document_update_created",
+    containerIds: [...new Set(input.containerIds)].sort(),
+    documentId: input.response.documentId,
+    origin: input.origin,
+  };
+}
+
+export async function publishAttachmentDocumentEvent(input: {
+  readonly event: Record<string, unknown>;
+  readonly publish: ApiServiceRuntime["eventPublisher"]["publish"];
+}): Promise<void> {
+  try {
+    await input.publish(input.event);
+  } catch (error) {
+    // The attachment transaction already committed. Realtime is only a lossy
+    // reconciliation hint, so a broker failure must not change its HTTP result.
+    console.error("Failed to publish attachment document event:", error);
+  }
 }
 
 async function prevalidateMultipartBlobStage(
@@ -140,9 +161,12 @@ export async function bindBlobAttachment(
     ...input,
     prevalidatedMultipartStage,
   });
-  await publishAttachmentBindDocumentEvent(runtime, response, {
-    sessionId: input.sessionId,
-    userId: input.userId,
+  await publishAttachmentDocumentEvent({
+    event: createAttachmentBindDocumentEvent(response, {
+      sessionId: input.sessionId,
+      userId: input.userId,
+    }),
+    publish: runtime.eventPublisher.publish,
   });
   return response;
 }
@@ -151,5 +175,14 @@ export async function detachBlobAttachment(
   runtime: ApiServiceRuntime,
   input: DetachBlobAttachmentInput,
 ): Promise<BlobAttachmentDetachResponse> {
-  return runDetachBlobAttachmentWorkflow(runtime.db, input);
+  const result = await runDetachBlobAttachmentWorkflow(runtime.db, input);
+  await publishAttachmentDocumentEvent({
+    event: createAttachmentDetachDocumentEvent({
+      containerIds: result.linkedContainerIds,
+      origin: { sessionId: input.sessionId, userId: input.userId },
+      response: result.response,
+    }),
+    publish: runtime.eventPublisher.publish,
+  });
+  return result.response;
 }

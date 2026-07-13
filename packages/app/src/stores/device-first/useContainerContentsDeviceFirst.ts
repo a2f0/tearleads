@@ -23,7 +23,7 @@ function isDocumentMutationEvent(
 ): event is DocumentReconciliationEvent & {
   readonly containerIds: string[];
   readonly documentId: string;
-  readonly eventType: "document.link" | "document.unlink";
+  readonly eventType: "document.link" | "document.purge" | "document.unlink";
   readonly type: "document_mutation_created";
 } {
   return (
@@ -36,6 +36,7 @@ function isDocumentMutationEvent(
     event.documentId.length > 0 &&
     "eventType" in event &&
     (event.eventType === "document.link" ||
+      event.eventType === "document.purge" ||
       event.eventType === "document.unlink") &&
     "containerIds" in event &&
     Array.isArray(event.containerIds) &&

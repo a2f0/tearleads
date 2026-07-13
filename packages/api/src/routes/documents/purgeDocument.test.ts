@@ -66,21 +66,15 @@ import { authenticate } from "../../../test/helpers/authenticate";
 import { readBlobObjectText } from "../../../test/helpers/blobObjectStore";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { createFailingRuntime } from "../../../test/helpers/serviceRuntime";
 import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
 import {
   getCurrentContainerKeyEpoch,
   listContainerKeyWraps,
 } from "../../access/read/containerKekStore";
-import { routeApp } from "../../routeApp";
+import { createRouteApp, routeApp } from "../../routeApp";
 import { getDefaultApiServiceRuntime } from "../../services/runtime";
 import { encodeExternalBlobBytesRef } from "../../utils/blobStageRecords";
-
-// ---------------------------------------------------------------------------
-// Fixture helpers. These mirror the canonical integration harness in
-// src/routes/keyingWriterProjection.test.ts: they bootstrap the registered
-// root container, then build/link documents through the real signed HTTP
-// routes so purge runs against authentic per-document state.
-// ---------------------------------------------------------------------------
 
 interface RootContainerFixture {
   readonly adminGroupId: string;
@@ -651,10 +645,11 @@ async function linkDocumentToSecondContainer(input: {
 }
 
 async function purgeDocumentViaRoute(input: {
+  readonly app?: Pick<typeof routeApp, "request">;
   readonly documentId: string;
   readonly token: string;
 }): Promise<Response> {
-  return routeApp.request(`/documents/${input.documentId}`, {
+  return (input.app ?? routeApp).request(`/documents/${input.documentId}`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${input.token}`,
@@ -862,12 +857,12 @@ async function countTombstones(input: {
   return rows.length;
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-test("DELETE /documents/:documentId purges a single-container document and all per-document rows", async () => {
+test("document purge succeeds when event publication fails", async () => {
   const owner = createTestUser();
+  const publishedEvents: Array<Record<string, unknown>> = [];
+  const app = createRouteApp({
+    runtime: createFailingRuntime((event) => publishedEvents.push(event)),
+  });
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
   const created = await createDocument({ owner, root });
@@ -882,6 +877,7 @@ test("DELETE /documents/:documentId purges a single-container document and all p
   expect(before.accessManifestDocumentLinkProjection).toBeGreaterThan(0);
 
   const response = await purgeDocumentViaRoute({
+    app,
     documentId: created.id,
     token: owner.token,
   });
@@ -893,6 +889,7 @@ test("DELETE /documents/:documentId purges a single-container document and all p
   expect(typeof purged.purgedAt).toBe("string");
   expect(new Date(purged.purgedAt).toISOString()).toBe(purged.purgedAt);
   expect(purged.reclaimedBlobStorageKeys).toEqual([]);
+  expect(publishedEvents).toHaveLength(1);
 
   const after = await countDocumentRows(created.id);
   expect(after).toEqual({

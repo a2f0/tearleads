@@ -2,6 +2,7 @@ import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
 } from "@tearleads/validators/request";
+import type { BlobAttachmentDetachResponse } from "@tearleads/validators/response";
 
 export type BlobMutationStatus = 400 | 403 | 404 | 409 | 503;
 
@@ -40,5 +41,12 @@ export interface DetachBlobAttachmentInput {
   readonly blobId: string;
   readonly fingerprint: string;
   readonly request: BlobAttachmentDetachRequest;
+  /** Used to suppress the committed detach hint on the authoring session. */
+  readonly sessionId: string;
   readonly userId: string;
+}
+
+export interface DetachBlobAttachmentWorkflowResult {
+  readonly linkedContainerIds: readonly string[];
+  readonly response: BlobAttachmentDetachResponse;
 }

@@ -152,8 +152,11 @@ Scheduling policy (active-first, then idle backfill):
    recovered Contacts/Trash and organization metadata are not skipped.
 5. WS `document_update_created` and `document_mutation_created` hints enqueue
    their affected containers at high priority. Structural link/unlink hints
-   always re-list both the previous and current container lanes, even when the
-   document body is already known locally.
+   always re-list both the previous and current container lanes, while purge
+   hints re-list every lane that owns the committed tombstone. Attachment
+   bind/detach hints revalidate every currently linked lane. These publications
+   are best-effort after commit: a broker failure never changes the successful
+   HTTP mutation result, and later HTTP reconciliation remains authoritative.
 
 Remote document discovery requires a current metadata document for every
 container. Local-first roots, regular folders, and system slots are never sent
@@ -169,8 +172,25 @@ opens a write-shared system folder, a full Refresh still includes that active
 container so its registered document stores can retry.
 Discovered system document bodies are pulled eagerly once per remote version
 because Contacts and organization-profile projections may have no document
-window that would open them lazily. An explicit Refresh can retry the same
+window that would open them lazily. The reconciler retains only the latest
+observed version per container/document pair, so historical `updatedAt` values
+do not accumulate for its lifetime. An explicit Refresh can retry the same
 version after a failed pull.
+
+An additional organization deliberately starts with local-only billing. Its
+encrypted organization-profile manifest is provisioned remotely, but its seeded
+name remains a pending local document update and is not uploaded while billing
+is local. For every syncable billing snapshot (trial activation or a normal
+billing refresh after purchase/restore), the active creating runtime checks the
+deterministic local profile alias for pending updates and schedules it only when
+that durable state exists. This survives reloads and delayed purchase webhooks;
+another peer has no provisioner alias/pending row and therefore cannot upload
+anything. One pending update set is handed to the registered document lane once,
+which owns retries until SQLite clears the pending rows. Scheduling is a
+best-effort post-activation side effect; failure cannot turn the committed
+billing change into an apparent failure. Once the profile update commits, the
+ordinary document hint wakes other entitled sessions, which eagerly materialize
+the system-document body without a manual Refresh.
 
 All results flow into Layer A, never back to React directly. The service has no
 React imports (enforced by the lane rules + dependency-cruiser).
