@@ -19,6 +19,7 @@ function createBlobRows(): BlobInfo[] {
       key: `blob:blob-${rowNumber}`,
       mimeType: rowNumber % 2 === 0 ? "image/png" : "text/plain",
       name: null,
+      organizationId: null,
       referenceCount: 0,
       references: [],
       storageKey: `storage-${rowNumber}`,

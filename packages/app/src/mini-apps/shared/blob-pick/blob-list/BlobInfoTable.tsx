@@ -6,7 +6,7 @@ import {
   type ContainerDocumentObjectSyncState,
   createContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
-import { type MouseEvent, type ReactNode, useMemo } from "react";
+import { type MouseEvent, type ReactNode, useMemo, useState } from "react";
 import { MiniAppStatus } from "../../../../components/shared/MiniAppLayout";
 import {
   addMiniAppTableHeaderAction,
@@ -52,11 +52,50 @@ export type RenderBlobSyncCell = (
   online: boolean,
 ) => ReactNode;
 
-const BLOB_INFO_COLUMN_STORAGE_KEY =
+const LEGACY_BLOB_INFO_COLUMN_STORAGE_KEY =
   "tearleads.explorer.blob-browser:hidden-columns";
+const BLOB_INFO_COLUMN_STORAGE_KEY = "tearleads.blob-browser:hidden-columns:v2";
+const EMPTY_ORGANIZATION_NAMES = new Map<string, string>();
+
+function migrateBlobInfoColumnVisibility(): void {
+  try {
+    const storage = globalThis.localStorage;
+    if (storage.getItem(BLOB_INFO_COLUMN_STORAGE_KEY) !== null) {
+      return;
+    }
+    const legacyValue = storage.getItem(LEGACY_BLOB_INFO_COLUMN_STORAGE_KEY);
+    if (legacyValue === null) {
+      return;
+    }
+    const parsed: unknown = JSON.parse(legacyValue);
+    if (!Array.isArray(parsed)) {
+      return;
+    }
+    const hiddenColumns = new Set<BlobInfoColumnId>(
+      parsed.filter(
+        (value): value is BlobInfoColumnId =>
+          typeof value === "string" &&
+          BLOB_INFO_TOGGLEABLE_COLUMN_IDS.some((id) => id === value),
+      ),
+    );
+    // Organization did not exist when the legacy preference was saved, so keep
+    // the new dimension hidden until the user explicitly enables it.
+    hiddenColumns.add("organization");
+    storage.setItem(
+      BLOB_INFO_COLUMN_STORAGE_KEY,
+      JSON.stringify([...hiddenColumns]),
+    );
+  } catch {
+    // Column visibility is a display preference; disabled storage is harmless.
+  }
+}
 
 function useBlobInfoColumnVisibility() {
+  // The lazy initializer runs before the generic visibility hook reads the v2
+  // key. The migration is idempotent, including under React Strict Mode.
+  useState(() => migrateBlobInfoColumnVisibility());
   return useMiniAppColumnVisibility<BlobInfoColumnId>({
+    defaultHiddenColumnIds: ["organization"],
     storageKey: BLOB_INFO_COLUMN_STORAGE_KEY,
     toggleableColumnIds: BLOB_INFO_TOGGLEABLE_COLUMN_IDS,
   });
@@ -135,6 +174,7 @@ function renderBlobInfoCell(params: {
   columnId: BlobInfoColumnId;
   online: boolean;
   onSelectBlob: (blob: BlobInfo) => void;
+  organizationNamesById: ReadonlyMap<string, string>;
   renderSyncCell: RenderBlobSyncCell | undefined;
   selectable: boolean;
 }) {
@@ -144,6 +184,7 @@ function renderBlobInfoCell(params: {
     columnId,
     online,
     onSelectBlob,
+    organizationNamesById,
     renderSyncCell,
     selectable,
   } = params;
@@ -159,6 +200,20 @@ function renderBlobInfoCell(params: {
           selectable={selectable}
         />
       );
+    case "organization": {
+      const organizationId = blob.organizationId;
+      const label = organizationId
+        ? (organizationNamesById.get(organizationId) ?? organizationId)
+        : "-";
+      return (
+        <MiniAppTableCell
+          key="organization"
+          title={organizationId ?? undefined}
+        >
+          {label}
+        </MiniAppTableCell>
+      );
+    }
     case "mime":
       return (
         <MiniAppTableCell key="mime">{blob.mimeType ?? "-"}</MiniAppTableCell>
@@ -209,6 +264,7 @@ function BlobInfoTableContent(params: {
     | ((event: MouseEvent<HTMLElement>, blob: BlobInfo) => void)
     | undefined;
   onSelectBlob: (blob: BlobInfo) => void;
+  organizationNamesById: ReadonlyMap<string, string>;
   renderSyncCell: RenderBlobSyncCell | undefined;
   rowOffset: number;
   rows: ReadonlyArray<BlobInfo>;
@@ -252,6 +308,7 @@ function BlobInfoTableContent(params: {
                   columnId,
                   online: params.online,
                   onSelectBlob: params.onSelectBlob,
+                  organizationNamesById: params.organizationNamesById,
                   renderSyncCell: params.renderSyncCell,
                   selectable,
                 }),
@@ -297,6 +354,7 @@ export function BlobInfoTable(params: {
     | undefined;
   onSelectBlob: (blob: BlobInfo) => void;
   onSort: (key: BlobInfoSortKey) => void;
+  organizationNamesById?: ReadonlyMap<string, string> | undefined;
   // Omit to drop the sync column (e.g. the Notes pick surface).
   renderSyncCell?: RenderBlobSyncCell | undefined;
   rowOffset: number;
@@ -305,6 +363,8 @@ export function BlobInfoTable(params: {
   totalCount: number;
 }) {
   const includeSync = params.renderSyncCell !== undefined;
+  const organizationNamesById =
+    params.organizationNamesById ?? EMPTY_ORGANIZATION_NAMES;
   const columnVisibility = useBlobInfoColumnVisibility();
   const visibleColumnIds = useMemo(
     () =>
@@ -356,6 +416,7 @@ export function BlobInfoTable(params: {
           online={params.online}
           onRowContextMenu={params.onRowContextMenu}
           onSelectBlob={params.onSelectBlob}
+          organizationNamesById={organizationNamesById}
           renderSyncCell={params.renderSyncCell}
           rowOffset={params.rowOffset}
           rows={params.rows}

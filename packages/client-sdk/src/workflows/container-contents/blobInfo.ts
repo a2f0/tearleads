@@ -9,8 +9,10 @@ import {
   sql,
 } from "drizzle-orm";
 import { unionAll } from "drizzle-orm/sqlite-core";
+import { ensureContainerTables } from "../../data/persistence/containers/containerPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import {
+  containers,
   documentAttachmentBlobProjection,
   documentPendingAttachments,
   documentProjection,
@@ -114,6 +116,7 @@ function createPendingBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
       localId: documentPendingAttachments.localId,
       mimeType: documentPendingAttachments.mimeType,
       name: sql<string | null>`${documentPendingAttachments.name}`.as("name"),
+      organizationId: containers.organizationId,
       searchText: sql<string>`LOWER(
         COALESCE(${documentPendingAttachments.storageKey}, '')
         || CHAR(0) || COALESCE(${documentPendingAttachments.mimeType}, '')
@@ -122,6 +125,7 @@ function createPendingBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
         || CHAR(0) || COALESCE(${documentProjection.documentId}, '')
         || CHAR(0) || COALESCE(${documentProjection.title}, '')
         || CHAR(0) || COALESCE(${documentProjection.containerId}, '')
+        || CHAR(0) || COALESCE(${containers.organizationId}, '')
         || CHAR(0) || COALESCE(${documentPendingAttachments.slotId}, '')
       )`.as("search_text"),
       slotId: documentPendingAttachments.slotId,
@@ -132,7 +136,8 @@ function createPendingBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
     .leftJoin(
       documentProjection,
       eq(documentProjection.localId, documentPendingAttachments.localId),
-    );
+    )
+    .leftJoin(containers, eq(containers.id, documentProjection.containerId));
 }
 
 function createLocalBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
@@ -161,6 +166,7 @@ function createLocalBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
       localId: documentAttachmentBlobProjection.localId,
       mimeType: documentAttachmentBlobProjection.mimeType,
       name: sql<string | null>`NULL`.as("name"),
+      organizationId: containers.organizationId,
       searchText: sql<string>`LOWER(
         COALESCE(${documentAttachmentBlobProjection.blobId}, '')
         || CHAR(0) || COALESCE(${documentAttachmentBlobProjection.storageKey}, '')
@@ -169,6 +175,7 @@ function createLocalBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
         || CHAR(0) || COALESCE(${documentProjection.documentId}, '')
         || CHAR(0) || COALESCE(${documentProjection.title}, '')
         || CHAR(0) || COALESCE(${documentProjection.containerId}, '')
+        || CHAR(0) || COALESCE(${containers.organizationId}, '')
         || CHAR(0) || COALESCE(${documentAttachmentBlobProjection.slotId}, '')
       )`.as("search_text"),
       slotId: documentAttachmentBlobProjection.slotId,
@@ -181,7 +188,8 @@ function createLocalBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
     .leftJoin(
       documentProjection,
       eq(documentProjection.localId, documentAttachmentBlobProjection.localId),
-    );
+    )
+    .leftJoin(containers, eq(containers.id, documentProjection.containerId));
 }
 
 function createBlobInfoReferencesCte(db: ClientSQLiteDatabase) {
@@ -224,6 +232,12 @@ function createGroupedBlobInfoCtes(input: {
     name: sql<string | null>`MIN(NULLIF(${blobInfoReferences.name}, ''))`.as(
       "name",
     ),
+    organizationId: sql<string | null>`CASE
+      WHEN COUNT(NULLIF(${blobInfoReferences.organizationId}, '')) = COUNT(*)
+        AND COUNT(DISTINCT NULLIF(${blobInfoReferences.organizationId}, '')) = 1
+        THEN MIN(NULLIF(${blobInfoReferences.organizationId}, ''))
+      ELSE NULL
+    END`.as("organization_id"),
     referenceCount: count().as("reference_count"),
     storageKey: sql<string>`MIN(${blobInfoReferences.storageKey})`.as(
       "storage_key",
@@ -341,6 +355,7 @@ async function listBlobInfoRows(input: {
     documentCount: groupedBlobInfo.documentCount,
     mimeType: groupedBlobInfo.mimeType,
     name: groupedBlobInfo.name,
+    organizationId: groupedBlobInfo.organizationId,
     referenceCount: groupedBlobInfo.referenceCount,
     storageKey: groupedBlobInfo.storageKey,
     updatedAt: groupedBlobInfo.updatedAt,
@@ -420,6 +435,7 @@ export async function listBlobInfo(input: {
   const offset = normalizeBlobInfoWindowValue(input.offset);
   const sort = normalizeBlobInfoSort(input.sort);
   await sqlDocumentsPersistence.ensureSchema(input.execSql);
+  await ensureContainerTables(input.execSql);
   const { db } = getClientSQLitePersistenceRuntime(input.execSql);
 
   const totalCount = await countBlobInfoRows({

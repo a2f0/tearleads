@@ -39,6 +39,7 @@ function createBlobRows(count: number): BlobInfo[] {
       key: `blob:blob-${rowNumber}`,
       mimeType: rowNumber % 2 === 0 ? "image/png" : "text/plain",
       name: null,
+      organizationId: null,
       referenceCount: 0,
       references: [],
       storageKey: `storage-${rowNumber}`,
@@ -111,8 +112,7 @@ test("blob browser navigates between the list and detail screens", async () => {
   });
   expect(view.queryByText("Blob Metadata")).toBeNull();
 
-  // The row button stretches across the row so clicking any visible blob row
-  // area opens detail.
+  // Clicking the row button opens detail.
   const blobButton = view.getByRole("button", { name: "blob-1" });
   expect(
     blobButton.classList.contains("explorer-blob-browser-row-button"),

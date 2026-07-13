@@ -23,6 +23,7 @@ import {
   useBlobPick,
 } from "../shared/blob-pick/BlobPickProvider";
 import { BlobPickSurface } from "../shared/blob-pick/blob-list/BlobListScreen";
+import { useBlobOrganizationNames } from "../shared/blob-pick/blob-list/useBlobOrganizationNames";
 import { NotesContextMenuLayer } from "./context-menu/NotesContextMenu";
 import { useNotesAppModel } from "./hooks/useNotesAppModel";
 import { NOTES_LABELS } from "./labels";
@@ -72,6 +73,7 @@ function NotesEditorOrBlobPicker(params: {
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   localId: string;
   online: boolean;
+  organizationNamesById: ReadonlyMap<string, string>;
 }) {
   const { cancelBlobPick, pickTarget, resolveBlobPick } = useBlobPick();
 
@@ -87,6 +89,7 @@ function NotesEditorOrBlobPicker(params: {
           onCancel={cancelBlobPick}
           online={params.online}
           onPickBlob={resolveBlobPick}
+          organizationNamesById={params.organizationNamesById}
           slotLabel={pickTarget.slotLabel}
         />
       </MiniAppRoot>
@@ -106,12 +109,21 @@ function NotesAppContent(props: NotesAppProps) {
   const { setSidebar } = useWindowSidebar();
   const model = useNotesAppModel(props, setSidebar);
   const appData = useTearleadsRuntime();
-  const { containerContents } = useTearleads();
+  const { containerContents, organizations } = useTearleads();
   const loadBlobInfo = useCallback(
     (query?: BlobInfoInput | undefined) =>
       containerContents.listBlobInfo(query),
     [containerContents],
   );
+  const listLocalOrganizations = useCallback(
+    () => organizations.listLocalOrganizations(),
+    [organizations],
+  );
+  const organizationNamesById = useBlobOrganizationNames({
+    listLocalOrganizations,
+    ready: appData.infra.dbStatus === "ready",
+    scope: appData.state.domainScope,
+  });
   // Notes are listed app-wide by kind, so a note trashed via the Explorer still
   // appears here — render it read-only rather than letting it be edited.
   const { isContainerTrashed } = useContainerTrashLookup();
@@ -149,6 +161,7 @@ function NotesAppContent(props: NotesAppProps) {
             loadBlobInfo={loadBlobInfo}
             localId={model.activeSelection.noteId}
             online={appData.state.online}
+            organizationNamesById={organizationNamesById}
           />
         </DocumentsProvider>
       ) : model.showCompactListHome ? (

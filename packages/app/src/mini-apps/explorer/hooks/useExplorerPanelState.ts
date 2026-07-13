@@ -3,7 +3,7 @@ import type {
   DocumentSummary,
 } from "@tearleads/client-sdk";
 import type { ReactNode } from "react";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import {
   type RuntimeSnapshot,
   useTearleads,
@@ -21,6 +21,7 @@ import {
   type ImportExplorerDroppedFiles,
   useExplorerDroppedFileImport,
 } from "../../../stores/explorer/useExplorerDroppedFileImport";
+import { useBlobOrganizationNames } from "../../shared/blob-pick/blob-list/useBlobOrganizationNames";
 import {
   canUploadToContainerIdByRules,
   type ExplorerContainerRulesContext,
@@ -125,12 +126,22 @@ export function useExplorerPanelState(params: {
     () => tearleads.organizations.listLocalOrganizations(),
     [tearleads],
   );
-  const organizationNamesById = useExplorerOrganizationNames({
+  const sidebarOrganizationNamesById = useExplorerOrganizationNames({
     listLocalOrganizations,
     nodes: explorer.nodes,
     primaryOrganizationId,
     ready: explorer.ready,
   });
+  const localOrganizationNamesById = useBlobOrganizationNames({
+    listLocalOrganizations,
+    ready: explorer.ready,
+    scope: appData.state.domainScope,
+  });
+  const organizationNamesById = useMemo(
+    () =>
+      new Map([...localOrganizationNamesById, ...sidebarOrganizationNamesById]),
+    [localOrganizationNamesById, sidebarOrganizationNamesById],
+  );
   const selectedNoteStructuralState = useSelectedDocumentStructuralState({
     appData: explorerDocumentLinks,
     expandNode: selection.expandNode,
@@ -181,7 +192,7 @@ export function useExplorerPanelState(params: {
     handleSidebarContextMenu: contextMenuState.handleSidebarContextMenu,
     nodes: explorer.nodes,
     onRetryDatabase,
-    organizationNamesById,
+    organizationNamesById: sidebarOrganizationNamesById,
     primaryOrganizationId,
     ready: explorer.ready,
     selectedId: selection.selectedId,
@@ -460,6 +471,7 @@ export function useExplorerPanelState(params: {
     markDocumentStartsInEditMode:
       initialDocumentEditing.markDocumentStartsInEditMode,
     purgeDocument,
+    organizationNamesById,
     routeState,
     selectDocumentProjection,
     selectedDocumentLinkedContainerIds:

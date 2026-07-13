@@ -11,6 +11,7 @@ export const BLOB_LIST_LABELS = {
   empty: "No blobs.",
   loading: "Loading...",
   mimeTypeColumn: "MIME",
+  organizationColumn: "Organization",
   pickCancelAction: "Cancel",
   pickTitle: "Choose Blob",
   referenceColumn: "References",

@@ -37,6 +37,7 @@ const IMAGE_BLOB: BlobInfo = {
   key: "blob:blob-1",
   mimeType: "image/png",
   name: "front.png",
+  organizationId: null,
   referenceCount: 0,
   references: [],
   storageKey: "storage-1",

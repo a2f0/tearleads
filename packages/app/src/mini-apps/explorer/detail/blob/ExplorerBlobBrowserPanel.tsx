@@ -56,6 +56,7 @@ interface ExplorerBlobBrowserPanelProps {
   onBackToSelectionRoute: () => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   online: boolean;
+  organizationNamesById?: ReadonlyMap<string, string> | undefined;
   // When set, the panel runs in pick mode: rows resolve the pick (instead of
   // opening blob detail) and the list is filtered to image blobs.
   pickTarget?: BlobPickTarget | null | undefined;
@@ -74,6 +75,7 @@ function BlobBrowserBrowseScreen(params: {
   embedded: boolean;
   onBackToSelectionRoute: () => void;
   online: boolean;
+  organizationNamesById?: ReadonlyMap<string, string> | undefined;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
 }) {
@@ -124,6 +126,7 @@ function BlobBrowserBrowseScreen(params: {
           onSelectBlob={data.handleSelectBlob}
           onSort={data.handleSort}
           online={params.online}
+          organizationNamesById={params.organizationNamesById}
           query={data.query}
           renderSyncCell={renderExplorerSyncCell}
           rowOffset={data.rowOffset}
@@ -172,6 +175,7 @@ export function ExplorerBlobBrowserPanel(
           onCancel={onCancel}
           online={params.online}
           onPickBlob={pickBlob}
+          organizationNamesById={params.organizationNamesById}
           renderSyncCell={renderExplorerSyncCell}
           slotLabel={params.pickTarget.slotLabel}
         />
@@ -184,6 +188,7 @@ export function ExplorerBlobBrowserPanel(
           onBackToSelectionRoute={params.onBackToSelectionRoute}
           online={params.online}
           openDocumentInfoRoute={params.openDocumentInfoRoute}
+          organizationNamesById={params.organizationNamesById}
           selectDocumentProjection={params.selectDocumentProjection}
         />
       )}
