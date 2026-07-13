@@ -15,6 +15,7 @@ import {
 import type {
   ContainerMutationRequest,
   DocumentCreateRequest,
+  ProvisionedDocumentRequest,
   ProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
@@ -27,18 +28,50 @@ function toBase64Url(bytes: Uint8Array): string {
     .replace(/=+$/g, "");
 }
 
-async function deriveTrashSystemSlot(organizationId: string): Promise<string> {
+function readHeaderString(
+  header: Record<string, unknown>,
+  key: string,
+): string {
+  const value = Reflect.get(header, key);
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`Expected write header ${key}`);
+  }
+  return value;
+}
+
+async function deriveOrganizationSystemSlot(
+  namespace: string,
+  organizationId: string,
+): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(
       JSON.stringify({
-        namespace: "tearleads.trash",
+        namespace,
         organizationId,
         version: 1,
       }),
     ),
   );
   return `sys_v1_${toBase64Url(new Uint8Array(digest))}`;
+}
+
+export function deriveRosterProfileContainerSystemSlot(
+  organizationId: string,
+): Promise<string> {
+  return deriveOrganizationSystemSlot(
+    "tearleads.organization-roster-profiles",
+    organizationId,
+  );
+}
+
+export function deriveOrganizationMetadataContainerSystemSlot(
+  organizationId: string,
+): Promise<string> {
+  return deriveOrganizationSystemSlot(
+    "tearleads.organization-metadata",
+    organizationId,
+  );
 }
 
 export async function createProvisionedTrashFixture(input: {
@@ -52,20 +85,58 @@ export async function createProvisionedTrashFixture(input: {
   signingPrivateKey: Uint8Array;
   userId: string;
 }): Promise<ProvisionedSystemContainerRequest> {
+  const metadataDocument = await createProvisionedDocumentFixture({
+    containerProjection: input.containerProjection,
+    document: input.metadataDocument,
+    documentId: input.metadataDocumentId,
+    fixtureLabel: "trash-metadata",
+    initialName: "Trash",
+    organizationId: input.organizationId,
+    signerDeviceId: input.signerDeviceId,
+    signerKeyFingerprint: input.signerKeyFingerprint,
+    signingPrivateKey: input.signingPrivateKey,
+    userId: input.userId,
+  });
+
+  return {
+    systemSlot: await deriveOrganizationSystemSlot(
+      "tearleads.trash",
+      input.organizationId,
+    ),
+    container: input.container,
+    metadataDocument: input.metadataDocument,
+    initialMetadataSync: metadataDocument.initialSync,
+  };
+}
+
+async function createProvisionedDocumentFixture(input: {
+  containerProjection: ContainerWriterProjectionResponse;
+  document: DocumentCreateRequest;
+  documentId: string;
+  fixtureLabel: string;
+  initialName: string;
+  organizationId: string;
+  signerDeviceId: string;
+  signerKeyFingerprint: string;
+  signingPrivateKey: Uint8Array;
+  userId: string;
+}): Promise<ProvisionedDocumentRequest> {
   const updateId = crypto.randomUUID();
-  const document = await createLoroDocument(`trash-metadata-${updateId}`);
+  const document = await createLoroDocument(
+    `${input.fixtureLabel}-${updateId}`,
+  );
   const partialStartVersionVector = encodeVersionVector(document);
-  document.getText("name").update("Trash");
+  document.getText("name").update(input.initialName);
   const vectors = getUpdateVersionVectors(
     exportUpdatesSince(document, partialStartVersionVector),
   );
-  const encryptedData = `encrypted-trash-metadata:${updateId}`;
-  const bundle = input.metadataDocument.contentKeyBundle;
+  const encryptedData = `encrypted-${input.fixtureLabel}:${updateId}`;
+  const bundle = input.document.contentKeyBundle;
   const nonceDomain = {
     version: 1 as const,
     organizationId: input.organizationId,
     objectKind: "document" as const,
-    objectId: input.metadataDocumentId,
+    objectId: input.documentId,
     contentKeyEpoch: bundle.contentKeyEpoch,
     encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
     contentRecordId: updateId,
@@ -77,7 +148,7 @@ export async function createProvisionedTrashFixture(input: {
       targetHash: bundle.targetHash,
       nonceDomainHash: await computeContentRecordNonceDomainHash(nonceDomain),
       metadataHash: await computeDocumentContentRecordMetadataHash({
-        documentId: input.metadataDocumentId,
+        documentId: input.documentId,
         partialEndVersionVector: vectors.partialEndVersionVector,
         partialStartVersionVector: vectors.partialStartVersionVector,
         updateId,
@@ -93,10 +164,8 @@ export async function createProvisionedTrashFixture(input: {
   );
 
   return {
-    systemSlot: await deriveTrashSystemSlot(input.organizationId),
-    container: input.container,
-    metadataDocument: input.metadataDocument,
-    initialMetadataSync: {
+    ...input.document,
+    initialSync: {
       authorizingContainerPathRefs: [
         input.containerProjection.path.map((entry) => ({
           containerId: String(Reflect.get(entry.state, "containerId")),
@@ -114,9 +183,98 @@ export async function createProvisionedTrashFixture(input: {
           id: updateId,
           partialStartVersionVector: vectors.partialStartVersionVector,
           partialEndVersionVector: vectors.partialEndVersionVector,
-          writeHeader: toWireRecord(writeHeader, "initial metadata header"),
+          writeHeader: toWireRecord(
+            writeHeader,
+            `${input.fixtureLabel} initial header`,
+          ),
         },
       ],
     },
+  };
+}
+
+export async function createOptionalProvisionedDocumentFixture(input: {
+  containerProjection: ContainerWriterProjectionResponse | undefined;
+  document: DocumentCreateRequest | undefined;
+  documentId: string | undefined;
+  fixtureLabel: string;
+  initialName: string;
+  organizationId: string;
+  signerDeviceId: string;
+  signerKeyFingerprint: string;
+  signingPrivateKey: Uint8Array;
+  userId: string;
+}): Promise<ProvisionedDocumentRequest | undefined> {
+  if (!input.containerProjection || !input.document || !input.documentId) {
+    return undefined;
+  }
+  return createProvisionedDocumentFixture({
+    ...input,
+    containerProjection: input.containerProjection,
+    document: input.document,
+    documentId: input.documentId,
+  });
+}
+
+/**
+ * Re-signs a fixture seed as a dependency-bearing delta. The server cannot
+ * inspect encrypted Loro bytes, so the signed non-empty start vector exercises
+ * the provisioning-only genesis invariant rather than a signature mismatch.
+ */
+export async function makeProvisionedDocumentSeedDependencyBearing(
+  request: ProvisionedDocumentRequest,
+  signingPrivateKey: Uint8Array,
+): Promise<void> {
+  const update = request.initialSync.outgoingUpdates[0];
+  if (!update) {
+    throw new Error("Expected provisioned document update");
+  }
+
+  const document = await createLoroDocument(`dependent-seed-${update.id}`);
+  document.getText("dependency").update("not included in seed");
+  const partialStartVersionVector = encodeVersionVector(document);
+  document.getText("name").update("dependency-bearing seed");
+  const vectors = getUpdateVersionVectors(
+    exportUpdatesSince(document, partialStartVersionVector),
+  );
+  const header = update.writeHeader;
+  const nonceDomain = {
+    version: 1 as const,
+    organizationId: readHeaderString(header, "organizationId"),
+    objectKind: "document" as const,
+    objectId: readHeaderString(header, "objectId"),
+    contentKeyEpoch: request.initialSync.contentKeyEpoch,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
+    contentRecordId: readHeaderString(header, "contentRecordId"),
+  };
+  const writeHeader = await signWriteHeader(
+    {
+      ...nonceDomain,
+      accessManifestHash: request.initialSync.expectedLinkSetManifestHash,
+      targetHash: request.initialSync.expectedTargetHash,
+      nonceDomainHash: await computeContentRecordNonceDomainHash(nonceDomain),
+      metadataHash: await computeDocumentContentRecordMetadataHash({
+        documentId: nonceDomain.objectId,
+        partialEndVersionVector: vectors.partialEndVersionVector,
+        partialStartVersionVector: vectors.partialStartVersionVector,
+        updateId: update.id,
+      }),
+      ciphertextHash: await computeDocumentContentRecordCiphertextHash(
+        update.encryptedData,
+      ),
+      writerUserId: readHeaderString(header, "writerUserId"),
+      writerDeviceId: readHeaderString(header, "writerDeviceId"),
+      writerKeyFingerprint: readHeaderString(header, "writerKeyFingerprint"),
+      signedAt: readHeaderString(header, "signedAt"),
+    },
+    signingPrivateKey,
+  );
+
+  request.initialSync.localVersionVector = vectors.partialEndVersionVector;
+  request.initialSync.outgoingUpdates[0] = {
+    ...update,
+    partialStartVersionVector: vectors.partialStartVersionVector,
+    partialEndVersionVector: vectors.partialEndVersionVector,
+    writeHeader: toWireRecord(writeHeader, "dependency-bearing seed header"),
   };
 }

@@ -5,24 +5,20 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
-import { createDocument, importUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   ContainerCreateWithMetadataDocumentRequest,
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
+  ProvisionedDocumentRequest,
   RegistrationRequest,
 } from "@tearleads/validators/request";
 import type { RegistrationResponse } from "@tearleads/validators/response";
 import { createMutationResponseFromRequest } from "../../../test/helpers/containerFixtures";
 import { createResponseFromRequest } from "../../../test/helpers/documentFixtures";
-import { readStoredDocumentState } from "../../data/documents/documentKinds";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
-import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
-import { getRosterProfileDocumentLocalId } from "../organizations/rosterProfileContainer";
 import {
   buildInitialOrganizationPolicyRequest,
   registerIdentity,
@@ -40,9 +36,9 @@ interface CapturedRegistrationRequest {
   initialRootContainer: RegistrationRequest["initialRootContainer"];
   initialRootMetadataDocument: DocumentCreateRequest;
   initialRosterProfileContainer: ContainerCreateWithMetadataDocumentRequest;
-  initialRosterProfileDocument: DocumentCreateRequest;
+  initialRosterProfileDocument: ProvisionedDocumentRequest;
   initialOrganizationMetadataContainer: ContainerCreateWithMetadataDocumentRequest;
-  initialOrganizationProfileDocument: DocumentCreateRequest;
+  initialOrganizationProfileDocument: ProvisionedDocumentRequest;
 }
 
 function createClient(execSql: ExecSql): ExecSqlClientLike {
@@ -131,11 +127,13 @@ test("registerIdentity submits the registration request and persists the local b
       initialRosterProfileContainer?:
         | ContainerCreateWithMetadataDocumentRequest
         | undefined,
-      initialRosterProfileDocument?: DocumentCreateRequest | undefined,
+      initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined,
       initialOrganizationMetadataContainer?:
         | ContainerCreateWithMetadataDocumentRequest
         | undefined,
-      initialOrganizationProfileDocument?: DocumentCreateRequest | undefined,
+      initialOrganizationProfileDocument?:
+        | ProvisionedDocumentRequest
+        | undefined,
     ): Promise<RegistrationResponse> => {
       if (!initialRosterProfileContainer) {
         throw new Error("Expected initial roster profile container request");
@@ -306,7 +304,6 @@ test("registerIdentity submits the registration request and persists the local b
     ).not.toBe(
       Reflect.get(request.initialRosterProfileDocument.event, "objectId"),
     );
-
     const adminPolicy = await loadPrincipalPolicyBundle(
       execSql,
       "group",
@@ -382,62 +379,6 @@ test("registerIdentity submits the registration request and persists the local b
         systemSlot: request.initialOrganizationMetadataContainer.systemSlot,
       }),
     );
-    const organizationProfileDocument =
-      await sqlDocumentsPersistence.loadDocument(
-        execSql,
-        `org-profile:${request.organizationId}`,
-      );
-    expect(organizationProfileDocument).toEqual(
-      expect.objectContaining({
-        containerId: organizationMetadataContainerState?.container.id,
-        documentId: response?.organizationProfileDocumentId,
-        documentKind: "organization_profile",
-      }),
-    );
-    expect(organizationProfileDocument?.loroSnapshot.length).toBeGreaterThan(0);
-    expect(
-      await sqlDocumentsPersistence.listPendingUpdates(
-        execSql,
-        `org-profile:${request.organizationId}`,
-      ),
-    ).toHaveLength(1);
-    const rosterProfileLocalId = getRosterProfileDocumentLocalId({
-      organizationId: request.organizationId,
-      userId: request.userId,
-    });
-    const rosterProfileDocument = await sqlDocumentsPersistence.loadDocument(
-      execSql,
-      rosterProfileLocalId,
-    );
-    expect(rosterProfileDocument).toEqual(
-      expect.objectContaining({
-        containerId: rosterProfileContainerState?.container.id,
-        documentId: response?.rosterProfileDocumentId,
-        documentKind: "contact",
-      }),
-    );
-    if (!rosterProfileDocument) {
-      throw new Error("Expected persisted roster profile document.");
-    }
-    expect(rosterProfileDocument?.loroSnapshot.length).toBeGreaterThan(0);
-    const rosterProfileDoc = await createDocument(
-      "registration-roster-profile-test",
-    );
-    importUpdates(rosterProfileDoc, [
-      base64ToBytes(rosterProfileDocument.loroSnapshot),
-    ]);
-    expect(readStoredDocumentState(rosterProfileDoc)).toMatchObject({
-      structuredFields: {
-        nickname: "You",
-      },
-    });
-    expect(
-      await sqlDocumentsPersistence.listPendingUpdates(
-        execSql,
-        rosterProfileLocalId,
-      ),
-    ).toHaveLength(1);
-
     expect(logs).toEqual([
       "Registering identity...",
       `Key registered (${request.userId})`,
@@ -471,11 +412,13 @@ test("registerIdentity propagates local bootstrap persistence failures", async (
       _initialRosterProfileContainer?:
         | ContainerCreateWithMetadataDocumentRequest
         | undefined,
-      _initialRosterProfileDocument?: DocumentCreateRequest | undefined,
+      _initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined,
       _initialOrganizationMetadataContainer?:
         | ContainerCreateWithMetadataDocumentRequest
         | undefined,
-      _initialOrganizationProfileDocument?: DocumentCreateRequest | undefined,
+      _initialOrganizationProfileDocument?:
+        | ProvisionedDocumentRequest
+        | undefined,
     ): Promise<RegistrationResponse> => {
       registrationSubmitted = true;
       const rootMetadataDocument = await createResponseFromRequest(

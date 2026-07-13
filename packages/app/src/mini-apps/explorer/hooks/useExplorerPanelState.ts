@@ -1,13 +1,8 @@
 import type {
-  BlobInfoInput,
-  BlobInfoList,
   ContainerDocumentQueries,
-  ContainerInfo,
-  ContainerItemRow,
-  DocumentInfo,
   DocumentSummary,
 } from "@tearleads/client-sdk";
-import type { MouseEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useCallback } from "react";
 import {
   type RuntimeSnapshot,
@@ -30,11 +25,7 @@ import {
   canUploadToContainerIdByRules,
   type ExplorerContainerRulesContext,
 } from "../containerRules";
-import {
-  type ExplorerContainerContextMenuVariant,
-  type ExplorerContextMenuState,
-  useExplorerContextMenu,
-} from "../context-menu/ExplorerContextMenu";
+import { useExplorerContextMenu } from "../context-menu/ExplorerContextMenu";
 import { useExplorerSidebarPanel } from "../ExplorerTree";
 import type { ExplorerTreeEntry } from "../explorerTreeModel";
 import {
@@ -42,99 +33,24 @@ import {
   getExplorerDroppedFileImportFailureLog,
   getExplorerDroppedFileTooLargeError,
 } from "../labels";
-import type { MoveTargetOption } from "../targetOptions";
-import type {
-  ExplorerDocumentMutationAction,
-  ExplorerModelExplorer,
-} from "./explorerModelTypes";
-import {
-  type ExplorerDocumentModalState,
-  useExplorerDocumentModalState,
-} from "./useExplorerDocumentModalState";
+import type { ExplorerModelExplorer } from "./explorerModelTypes";
+import type { ExplorerPanelState } from "./explorerPanelStateTypes";
+import { useExplorerDocumentModalState } from "./useExplorerDocumentModalState";
 import { useExplorerOrganizationNames } from "./useExplorerOrganizationNames";
-import { useExplorerPrimaryOrganizationId } from "./useExplorerPrimaryOrganizationId";
-import { type ExplorerRouteState, useExplorerRoute } from "./useExplorerRoute";
+import { useExplorerRoute } from "./useExplorerRoute";
 import type { ExplorerSelectionState } from "./useExplorerSelection";
 import { useInitialDocumentEditing } from "./useInitialDocumentEditing";
-import {
-  type OpenInlineDocument,
-  useInlineDocumentAction,
-} from "./useInlineDocumentAction";
+import { useInlineDocumentAction } from "./useInlineDocumentAction";
 import {
   useSelectDocumentProjection,
   useSelectedDocumentStructuralState,
 } from "./useSelectedDocumentStructuralState";
-
-interface ExplorerContextMenuModel {
-  canCreateChildContextMenuNode: boolean;
-  canCreateContactContextMenuNode: boolean;
-  canCreateStructuredDocumentContextMenuNode: boolean;
-  canMoveToTrashContextMenuNode: boolean;
-  canMoveContextMenuNode: boolean;
-  canPurgeContextMenuNode: boolean;
-  canRenameContextMenuNode: boolean;
-  canUploadToContextMenuNode: boolean;
-  closeContextMenu: () => void;
-  containerContextMenuVariant: ExplorerContainerContextMenuVariant;
-  contextMenu: ExplorerContextMenuState | null;
-  handleContainerContextMenu: (
-    event: MouseEvent<HTMLElement>,
-    nodeId: string,
-  ) => void;
-  handleItemContextMenu: (
-    event: MouseEvent<HTMLElement>,
-    row: ContainerItemRow,
-  ) => void;
-  handleSidebarDocumentContextMenu: (
-    event: MouseEvent<HTMLButtonElement>,
-    localId: string,
-    containerId: string,
-  ) => void;
-  handleSidebarContextMenu: (
-    event: MouseEvent<HTMLElement>,
-    nodeId: string,
-  ) => void;
-}
 
 const explorerDroppedFileImportLabels: ExplorerDroppedFileImportLabels = {
   fileImportStoreNotReady: EXPLORER_LABELS.fileImportStoreNotReady,
   getFileImportFailureLog: getExplorerDroppedFileImportFailureLog,
   getFileTooLargeError: getExplorerDroppedFileTooLargeError,
 };
-
-export interface ExplorerPanelState {
-  activateLinkedContainer: ExplorerDocumentMutationAction;
-  canMutateDocumentLinks: boolean;
-  contextMenuState: ExplorerContextMenuModel;
-  deleteDocument: ExplorerDocumentMutationAction;
-  importDroppedFiles: ImportExplorerDroppedFiles;
-  loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
-  loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
-  loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
-  modalState: ExplorerDocumentModalState;
-  // Move a folder (and its whole subtree) into the Trash system container. The
-  // folder counterpart to deleteDocument: a reversible relocation, not a hard
-  // delete. Permanent removal is a separate step (purge) offered only once the
-  // folder is already under Trash.
-  moveContainerToTrash: (containerId: string) => Promise<unknown>;
-  openInlineDocument: OpenInlineDocument;
-  consumeInitialDocumentEditing: (localId: string) => void;
-  // Marks a document to re-enter edit mode on its next mount. Used to keep a
-  // structured document in edit mode across the blob-picker round-trip, which
-  // navigates away and remounts it.
-  markDocumentStartsInEditMode: (localId: string) => void;
-  purgeDocument: (
-    documentId: string,
-    currentContainerId: string,
-  ) => Promise<unknown>;
-  routeState: ExplorerRouteState;
-  selectDocumentProjection: (documentId: string, containerId: string) => void;
-  selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
-  selectedDocumentStartsInEditMode: boolean;
-  selectedDocumentLinkTargetOptions: ReadonlyArray<MoveTargetOption>;
-  selectedDocumentMoveTargetOptions: ReadonlyArray<MoveTargetOption>;
-  unlinkDocument: ExplorerDocumentMutationAction;
-}
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The panel hook coordinates sidebar, document, modal, and context-menu state.
 export function useExplorerPanelState(params: {
@@ -155,6 +71,7 @@ export function useExplorerPanelState(params: {
   onRetryDatabase: () => void;
   canShareWithPeer: boolean;
   peerUserId: string | null;
+  primaryOrganizationId: string | null;
   rulesContext: ExplorerContainerRulesContext;
   selection: ExplorerSelectionState;
   setLinkedContainerIdsForDocument: (
@@ -181,6 +98,7 @@ export function useExplorerPanelState(params: {
     onRetryDatabase,
     canShareWithPeer,
     peerUserId,
+    primaryOrganizationId,
     rulesContext,
     selection,
     setLinkedContainerIdsForDocument,
@@ -201,12 +119,6 @@ export function useExplorerPanelState(params: {
     setSelectedId: selection.setSelectedId,
   });
   const tearleads = useTearleads();
-  const primaryOrganizationId = useExplorerPrimaryOrganizationId({
-    appData,
-    nodes: explorer.nodes,
-    ready: explorer.ready,
-    tearleads,
-  });
   // Bind + memoize the loader so the resolver hook can depend on a stable
   // reference (a fresh inline closure each render would re-fire its effect).
   const listLocalOrganizations = useCallback(

@@ -17,6 +17,7 @@ import type {
   ContainerCreateWithMetadataDocumentRequest,
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
+  ProvisionedDocumentRequest,
   ProvisionedSystemContainerRequest,
   RegistrationRequest,
 } from "@tearleads/validators/request";
@@ -45,24 +46,24 @@ import { resolveDocumentCreateAuthor } from "../documents/author";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
 import { buildInitialDocumentSyncRequest } from "../documents/initialSync";
 import {
-  createInitializedOrganizationProfileDocument,
-  DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
-  getOrganizationProfileDocumentLocalId,
-} from "../organizations/organizationProfile";
-import {
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,
 } from "../organizations/principalPolicy";
 import {
-  createInitializedRosterProfileDocument,
-  DEFAULT_ROSTER_PROFILE_SELF_NICKNAME,
   deriveOrganizationMetadataContainerSystemSlot,
   deriveOrganizationRosterProfileContainerSystemSlot,
-  getRosterProfileDocumentLocalId,
   ORGANIZATION_METADATA_CONTAINER_NAME,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
 } from "../organizations/rosterProfileContainer";
 import { persistRegistrationBootstrap } from "./persistRegistrationBootstrap";
+import {
+  buildOrganizationProfileBootstrapInput,
+  buildRosterProfileBootstrapInput,
+} from "./profileBootstrapPersistence";
+import {
+  buildProvisionedOrganizationProfile,
+  buildProvisionedRosterProfile,
+} from "./provisionedProfileDocument";
 import { createInitialRootMetadataBootstrap } from "./rootMetadataBootstrap";
 
 export interface RegistrationApi {
@@ -80,11 +81,11 @@ export interface RegistrationApi {
     initialRosterProfileContainer?:
       | ContainerCreateWithMetadataDocumentRequest
       | undefined,
-    initialRosterProfileDocument?: DocumentCreateRequest | undefined,
+    initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined,
     initialOrganizationMetadataContainer?:
       | ContainerCreateWithMetadataDocumentRequest
       | undefined,
-    initialOrganizationProfileDocument?: DocumentCreateRequest | undefined,
+    initialOrganizationProfileDocument?: ProvisionedDocumentRequest | undefined,
     initialSystemContainers?: ProvisionedSystemContainerRequest[] | undefined,
   ): Promise<RegistrationResponse | null>;
 }
@@ -123,7 +124,7 @@ interface InitialRosterProfileBootstrap {
     ReturnType<typeof buildMaterializedDocumentCreatePlan>
   >;
   profileDocumentInitialUpdate: Uint8Array;
-  profileDocumentRequest: DocumentCreateRequest;
+  profileDocumentRequest: ProvisionedDocumentRequest;
   systemSlot: ContainerSystemSlot;
 }
 
@@ -167,9 +168,19 @@ interface InitialOrganizationMetadataBootstrap {
   organizationProfileDocument: Awaited<
     ReturnType<typeof buildMaterializedDocumentCreatePlan>
   >;
-  organizationProfileInitialUpdate: Uint8Array;
+  organizationProfileDocumentRequest: ProvisionedDocumentRequest;
   organizationProfileSnapshot: string;
   systemSlot: ContainerSystemSlot;
+}
+
+interface InitialOrganizationMetadataBootstrapInput {
+  author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
+  initialAdminGroup: CreateOrganizationGroupRequest;
+  initialMemberGroup: CreateOrganizationGroupRequest;
+  organizationProfileName?: string | undefined;
+  rootContainer: InitialRootContainerCreatePlan;
+  rootContainerProjection: InitialRootContainerProjection;
+  targetSecretKey: Uint8Array;
 }
 
 export interface RegisterIdentityInput {
@@ -181,8 +192,7 @@ export interface RegisterIdentityInput {
   log?: ((message: string) => void) | undefined;
   logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
   /**
-   * Overrides the seeded personal-org profile name; defaults to {@link
-   * DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME} (demo: "Peer 1's Org").
+   * Overrides the seeded personal-org profile name; defaults to "Personal Org".
    */
   organizationProfileName?: string | undefined;
   /**
@@ -193,9 +203,8 @@ export interface RegisterIdentityInput {
     | ReadonlyArray<ProvisionedSystemContainerSpec>
     | undefined;
   /**
-   * Overrides the seeded self roster-profile nickname; defaults to {@link
-   * DEFAULT_ROSTER_PROFILE_SELF_NICKNAME} ("You"). The demo host passes each
-   * pane's peer-labeled self name ("Peer 1 (You)").
+   * Overrides the seeded self roster-profile nickname; defaults to "You". The
+   * demo host passes each pane's peer-labeled self name ("Peer 1 (You)").
    */
   rosterProfileNickname?: string | undefined;
   signingKeyPair: SigningKeyPair;
@@ -383,64 +392,6 @@ async function verifiedPrincipalPolicyFromInitialGroupRequest(
   });
 }
 
-function buildOrganizationProfileRegistrationBootstrapInput(
-  input: PersistOrganizationProvisioningStateInput,
-):
-  | Parameters<
-      typeof persistRegistrationBootstrap
-    >[1]["organizationProfileDocument"]
-  | undefined {
-  const organizationProfileDocument =
-    input.response.organizationProfileDocument;
-  if (!organizationProfileDocument) {
-    return;
-  }
-
-  return {
-    accessEpoch: 1,
-    accessStateHash: organizationProfileDocument.accessManifest.manifestHash,
-    containerId: input.organizationMetadataBootstrap.containerId,
-    documentId: organizationProfileDocument.id,
-    documentState: persistedDocumentCreateStateFromResponse(
-      input.organizationMetadataBootstrap.organizationProfileDocument.plan,
-      organizationProfileDocument,
-    ),
-    initialUpdate:
-      input.organizationMetadataBootstrap.organizationProfileInitialUpdate,
-    localId: getOrganizationProfileDocumentLocalId({
-      organizationId: input.response.organizationId,
-    }),
-    snapshot: input.organizationMetadataBootstrap.organizationProfileSnapshot,
-  };
-}
-
-function buildRosterProfileRegistrationBootstrapInput(
-  input: PersistOrganizationProvisioningStateInput,
-):
-  | Parameters<typeof persistRegistrationBootstrap>[1]["rosterProfileDocument"]
-  | undefined {
-  const rosterProfileDocument = input.response.rosterProfileDocument;
-  if (!rosterProfileDocument) {
-    return;
-  }
-
-  return {
-    accessEpoch: 1,
-    accessStateHash: rosterProfileDocument.accessManifest.manifestHash,
-    containerId: input.rosterProfileBootstrap.containerId,
-    documentId: rosterProfileDocument.id,
-    documentState: persistedDocumentCreateStateFromResponse(
-      input.rosterProfileBootstrap.profileDocument.plan,
-      rosterProfileDocument,
-    ),
-    initialUpdate: input.rosterProfileBootstrap.profileDocumentInitialUpdate,
-    localId: getRosterProfileDocumentLocalId({
-      organizationId: input.response.organizationId,
-      userId: input.response.userId,
-    }),
-  };
-}
-
 type PersistBootstrapInput = Parameters<typeof persistRegistrationBootstrap>[1];
 
 function buildRosterProfileContainerBootstrapInput(
@@ -549,10 +500,22 @@ export async function persistOrganizationProvisioningState(
   }
 
   try {
-    const organizationProfileDocument =
-      buildOrganizationProfileRegistrationBootstrapInput(input);
-    const rosterProfileDocument =
-      buildRosterProfileRegistrationBootstrapInput(input);
+    const organizationProfileDocument = buildOrganizationProfileBootstrapInput({
+      containerId: input.organizationMetadataBootstrap.containerId,
+      materializedDocument:
+        input.organizationMetadataBootstrap.organizationProfileDocument,
+      request:
+        input.organizationMetadataBootstrap.organizationProfileDocumentRequest,
+      response: input.response,
+      snapshot: input.organizationMetadataBootstrap.organizationProfileSnapshot,
+    });
+    const rosterProfileDocument = buildRosterProfileBootstrapInput({
+      containerId: input.rosterProfileBootstrap.containerId,
+      initialUpdate: input.rosterProfileBootstrap.profileDocumentInitialUpdate,
+      materializedDocument: input.rosterProfileBootstrap.profileDocument,
+      request: input.rosterProfileBootstrap.profileDocumentRequest,
+      response: input.response,
+    });
     const rosterProfileContainer =
       buildRosterProfileContainerBootstrapInput(input);
     const organizationMetadataContainer =
@@ -801,12 +764,12 @@ async function buildInitialRosterProfileBootstrap(input: {
     targetSecretKey: input.targetSecretKey,
     trustedLocalProjection: true,
   });
-  const rosterProfile = await createInitializedRosterProfileDocument({
-    encapsulationPublicKey: bytesToBase64(input.encapsulationPublicKey),
-    isSelf: true,
-    nickname:
-      input.rosterProfileNickname ?? DEFAULT_ROSTER_PROFILE_SELF_NICKNAME,
-    userId: input.author.signerUserId,
+  const rosterProfile = await buildProvisionedRosterProfile({
+    author: input.author,
+    containerProjection,
+    encapsulationPublicKey: input.encapsulationPublicKey,
+    materializedDocument: rosterProfileDocument,
+    nickname: input.rosterProfileNickname,
   });
   return {
     containerId,
@@ -820,7 +783,7 @@ async function buildInitialRosterProfileBootstrap(input: {
     },
     profileDocument: rosterProfileDocument,
     profileDocumentInitialUpdate: rosterProfile.initialUpdate,
-    profileDocumentRequest: rosterProfileDocument.plan.request,
+    profileDocumentRequest: rosterProfile.request,
     systemSlot,
   };
 }
@@ -922,15 +885,9 @@ async function referencedPrincipalHeadFromInitialGroupRequest(
  * the Admins-scoped roster profile container's private PII. The founder can also
  * read it by inheriting root through the Admins group.
  */
-async function buildInitialOrganizationMetadataBootstrap(input: {
-  author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
-  initialAdminGroup: CreateOrganizationGroupRequest;
-  initialMemberGroup: CreateOrganizationGroupRequest;
-  organizationProfileName?: string | undefined;
-  rootContainer: InitialRootContainerCreatePlan;
-  rootContainerProjection: InitialRootContainerProjection;
-  targetSecretKey: Uint8Array;
-}): Promise<InitialOrganizationMetadataBootstrap> {
+async function buildInitialOrganizationMetadataBootstrap(
+  input: InitialOrganizationMetadataBootstrapInput,
+): Promise<InitialOrganizationMetadataBootstrap> {
   const containerId = crypto.randomUUID();
   const systemSlot = await deriveOrganizationMetadataContainerSystemSlot({
     organizationId: input.author.organizationId,
@@ -997,10 +954,11 @@ async function buildInitialOrganizationMetadataBootstrap(input: {
       trustedLocalProjection: true,
     },
   );
-  const orgProfile = await createInitializedOrganizationProfileDocument({
-    name:
-      input.organizationProfileName ??
-      DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
+  const orgProfile = await buildProvisionedOrganizationProfile({
+    author: input.author,
+    containerProjection,
+    materializedDocument: organizationProfileDocument,
+    name: input.organizationProfileName,
   });
   return {
     containerId,
@@ -1013,7 +971,7 @@ async function buildInitialOrganizationMetadataBootstrap(input: {
       metadataDocument: containerMetadataDocument.plan.request,
     },
     organizationProfileDocument,
-    organizationProfileInitialUpdate: orgProfile.initialUpdate,
+    organizationProfileDocumentRequest: orgProfile.request,
     organizationProfileSnapshot: orgProfile.snapshot,
     systemSlot,
   };
@@ -1071,8 +1029,7 @@ export async function registerIdentity(
     artifacts.rosterProfileBootstrap.containerRequest,
     artifacts.rosterProfileBootstrap.profileDocumentRequest,
     artifacts.organizationMetadataBootstrap.containerRequest,
-    artifacts.organizationMetadataBootstrap.organizationProfileDocument.plan
-      .request,
+    artifacts.organizationMetadataBootstrap.organizationProfileDocumentRequest,
     artifacts.systemContainerBootstraps.map(
       (systemContainer) => systemContainer.containerRequest,
     ),

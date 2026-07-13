@@ -51,7 +51,13 @@ import {
 export type { ContactsRuntime, ContactsStore, EnsureSelfContactInput };
 export { getSelfContactLocalId };
 
-const contactsStoresByScope = new WeakMap<DomainScope, ContactsStore>();
+// Multiple mini-apps can stay mounted while Org Manager switches the active
+// organization. Isolate their mutable runtimes so a missing foreign Contacts
+// container cannot reset the personal organization's projected contacts.
+const contactsStoresByScope = new WeakMap<
+  DomainScope,
+  Map<string | null, ContactsStore>
+>();
 const allowContactStoreOperation = () => true;
 
 async function writeContactPatch(
@@ -460,12 +466,18 @@ export function getOrCreateContactsStore(
   runtime: ContactsRuntime,
   dependencies: ContactsStoreDependencies,
 ): ContactsStore {
-  const existingStore = contactsStoresByScope.get(domainScope);
+  let storesByContainerId = contactsStoresByScope.get(domainScope);
+  if (!storesByContainerId) {
+    storesByContainerId = new Map();
+    contactsStoresByScope.set(domainScope, storesByContainerId);
+  }
+  const containerId = runtime.documents.state.containerId ?? null;
+  const existingStore = storesByContainerId.get(containerId);
   if (existingStore) {
     return existingStore;
   }
 
   const store = createContactsStore(runtime, dependencies);
-  contactsStoresByScope.set(domainScope, store);
+  storesByContainerId.set(containerId, store);
   return store;
 }

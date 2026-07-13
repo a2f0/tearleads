@@ -86,8 +86,8 @@ export async function createOrganization(
     initialOrganizationMetadataContainer:
       artifacts.organizationMetadataBootstrap.containerRequest,
     initialOrganizationProfileDocument:
-      artifacts.organizationMetadataBootstrap.organizationProfileDocument.plan
-        .request,
+      artifacts.organizationMetadataBootstrap
+        .organizationProfileDocumentRequest,
     initialSystemContainers: artifacts.systemContainerBootstraps.map(
       (systemContainer) => systemContainer.containerRequest,
     ),

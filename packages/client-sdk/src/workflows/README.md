@@ -14,7 +14,7 @@ coordination, but they must stay React-free and product-UI-free.
 | `container-contents` | Platform query and runtime | Container tree projections, container metadata documents, document discovery, document links, diagnostics, and sync-state helpers. Product UI routes, panels, menus, and selection state belong in `packages/app`. |
 | `organizations` | Platform organization administration | Organization directory, groups, grants, usage, user-detail read models, principal-policy mutation helpers, and organization-scoped system-container slot helpers. Org Manager screens and labels belong in `packages/app`. |
 | `principals` | Platform runtime | Principal-policy cache and verification support. |
-| `registration` | Platform runtime | Local registration and root-container bootstrap helpers. |
+| `registration` | Platform runtime | Local registration and atomic organization bootstrap helpers, including the initial encrypted roster and organization-profile bodies. |
 | `sync` | Platform runtime | Shared sync coordinator helpers. |
 
 The `sync` facade exposes read-only coordinator snapshots through

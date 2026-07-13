@@ -4,12 +4,13 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
-import { createDocument, importUpdates } from "@tearleads/loro";
+import { createDocument, importSnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   ContainerCreateWithMetadataDocumentRequest,
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
+  ProvisionedDocumentRequest,
   RegistrationRequest,
 } from "@tearleads/validators/request";
 import type { RegistrationResponse } from "@tearleads/validators/response";
@@ -50,11 +51,11 @@ const registrationApi = {
     initialRosterProfileContainer?:
       | ContainerCreateWithMetadataDocumentRequest
       | undefined,
-    initialRosterProfileDocument?: DocumentCreateRequest | undefined,
+    initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined,
     initialOrganizationMetadataContainer?:
       | ContainerCreateWithMetadataDocumentRequest
       | undefined,
-    initialOrganizationProfileDocument?: DocumentCreateRequest | undefined,
+    initialOrganizationProfileDocument?: ProvisionedDocumentRequest | undefined,
   ): Promise<RegistrationResponse> => {
     if (
       !initialRosterProfileContainer ||
@@ -147,9 +148,10 @@ async function registerAndReadOrganizationName(
       throw new Error("Expected persisted organization profile document");
     }
     const doc = await createDocument(label);
-    importUpdates(doc, [
+    importSnapshot(
+      doc,
       base64ToBytes(organizationProfileDocument.loroSnapshot),
-    ]);
+    );
     return readOrganizationProfileName(
       readStoredDocumentState(doc).structuredFields,
     );
@@ -201,7 +203,7 @@ async function registerAndReadRosterNickname(
       throw new Error("Expected persisted roster profile document");
     }
     const doc = await createDocument(label);
-    importUpdates(doc, [base64ToBytes(rosterProfileDocument.loroSnapshot)]);
+    importSnapshot(doc, base64ToBytes(rosterProfileDocument.loroSnapshot));
     const { nickname } = readStoredDocumentState(doc).structuredFields;
     return typeof nickname === "string" ? nickname : null;
   } finally {

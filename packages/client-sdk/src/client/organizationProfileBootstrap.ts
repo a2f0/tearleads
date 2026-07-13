@@ -13,10 +13,10 @@ import type { ContainerContents } from "./containerContents";
 import type { InternalRuntime } from "./workflowRuntime";
 
 /**
- * Schedule the locally-seeded organization profile body once billing permits
- * remote sync. Provisioning deliberately commits only the encrypted document
- * manifest to the server; the body remains a pending local update while the
- * additional organization is local-only.
+ * Schedules a legacy locally-seeded organization profile body once billing
+ * permits remote sync. Current provisioning commits the encrypted initial body
+ * atomically with the document manifest, but databases created by older clients
+ * can still carry this pending update across an upgrade.
  */
 interface OrganizationProfileSyncInput {
   readonly billing: OrganizationBillingResponse;
@@ -119,9 +119,10 @@ export interface OrganizationProfileBootstrapCoordinator {
 }
 
 /**
- * Observes the active organization's billing seam and flushes its locally
+ * Observes the active organization's billing seam and flushes a legacy locally
  * seeded profile whenever billing is syncable and its deterministic local
- * alias still has pending updates. The persisted predicate survives reloads
+ * alias still has pending updates. New provisioning has no pending profile
+ * update; the persisted predicate keeps upgrade recovery working across reloads
  * and delayed purchase/restore activation.
  */
 export function createOrganizationProfileBootstrapCoordinator(input: {

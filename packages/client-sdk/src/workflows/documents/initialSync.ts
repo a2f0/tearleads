@@ -14,10 +14,8 @@ import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence"
 import { signDocumentOutgoingUpdate } from "./sync";
 
 /**
- * Builds the one encrypted metadata write that is born with a provisioned
- * system container. The server commits this request through its internal
- * provisioning path, in the same transaction as the organization, container,
- * and metadata-document manifest.
+ * Builds the single encrypted initial write for a provisioned document. The
+ * server commits it with the organization and document manifest transaction.
  */
 export async function buildInitialDocumentSyncRequest(input: {
   readonly author: DocumentCreateAuthor;

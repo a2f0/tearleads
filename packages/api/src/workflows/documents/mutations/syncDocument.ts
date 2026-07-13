@@ -15,12 +15,8 @@ import {
 import type {
   DocumentOutgoingUpdate,
   DocumentSyncRequest,
-  ProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
-import type {
-  ContainerCreateWithMetadataDocumentResponse,
-  DocumentSyncResponse,
-} from "@tearleads/validators/response";
+import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { inArray } from "drizzle-orm";
 import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
 import {
@@ -50,6 +46,7 @@ import {
   ensureDocumentExists,
   touchDocumentAndLinkedContainers,
 } from "./shared/documentRows";
+import { assertProvisionedDocumentInitialUpdate } from "./shared/provisionedInitialUpdate";
 import {
   assertSyncContentKeyBundleMatchesRequest,
   readWriteHeader,
@@ -767,39 +764,27 @@ export interface DocumentSyncWorkflowResult {
 }
 
 /**
- * Commits the one encrypted metadata update born with a system container.
+ * Commits the one encrypted update born with a provisioned document.
  * This stays out of the document-mutations facade: bypassing billing is valid
  * only for the freshly-created artifact in an organization-provisioning
  * transaction.
  */
 export async function appendProvisionedDocumentInitialUpdate(input: {
-  readonly created: ContainerCreateWithMetadataDocumentResponse;
+  readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
-  readonly request: ProvisionedSystemContainerRequest;
+  readonly request: DocumentSyncRequest;
   readonly signingPublicKey: Uint8Array;
   readonly userId: string;
 }): Promise<void> {
-  const documentId = input.created.metadataDocument.id;
-  const syncRequest = input.request.initialMetadataSync;
-  if (
-    !syncRequest ||
-    !Array.isArray(syncRequest.outgoingUpdates) ||
-    syncRequest.outgoingUpdates.length !== 1 ||
-    (syncRequest.containerRekeys?.length ?? 0) > 0
-  ) {
-    throw new DocumentMutationError(
-      "Provisioned document metadata requires exactly one initial update and no container rekeys",
-      400,
-    );
-  }
+  assertProvisionedDocumentInitialUpdate(input.request);
 
   try {
     await syncDocumentTransaction({
-      documentId,
+      documentId: input.documentId,
       enforceSyncEligibility: false,
       fingerprint: input.fingerprint,
-      request: syncRequest,
+      request: input.request,
       signingPublicKey: input.signingPublicKey,
       tx: input.executor,
       userId: input.userId,

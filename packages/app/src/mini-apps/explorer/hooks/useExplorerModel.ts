@@ -6,7 +6,6 @@ import { type ReactNode, useEffect, useMemo } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
 import { findCurrentSelfContactLocalId } from "../../../stores/contacts/contactLabels";
-import { getContactsContainerId } from "../../../stores/contacts/contactsSystemSlot";
 import { useContactsStoreForContainer } from "../../../stores/contacts/useContactsStoreForContainer";
 import { useExplorerDocumentQueries } from "../../../stores/explorer/documentQueries";
 import { EXPLORER_TRASH_CONTAINER_ICON } from "../../../stores/systemContainers";
@@ -22,15 +21,14 @@ import type {
   ExplorerDocumentMutationAction,
   ExplorerModelExplorer,
 } from "./explorerModelTypes";
+import type { ExplorerPanelState } from "./explorerPanelStateTypes";
 import { getSelectedDocumentMutationState } from "./selectedDocumentMutationState";
 import { useDocumentLinkProjectionVersion } from "./useDocumentLinkProjectionVersion";
 import { useExplorerContextMenuDocumentState } from "./useExplorerContextMenuDocumentState";
 import { useExplorerDocumentViewModel } from "./useExplorerDocumentViewModel";
 import { useExplorerInteractionState } from "./useExplorerInteractionState";
-import {
-  type ExplorerPanelState,
-  useExplorerPanelState,
-} from "./useExplorerPanelState";
+import { useExplorerPanelState } from "./useExplorerPanelState";
+import { useExplorerPrimarySystemContainers } from "./useExplorerPrimarySystemContainers";
 import type { ExplorerSelectionState } from "./useExplorerSelection";
 
 interface ExplorerModel {
@@ -120,24 +118,17 @@ export function useExplorerModel(
     () => buildExplorerTree(explorer.nodes),
     [explorer.nodes],
   );
-  const contactsContainerId = useMemo(
-    () =>
-      getContactsContainerId(
-        explorer.nodes,
-        explorer.contactsSystemSlot,
-        appData.auth.organizationId,
-        appData.state.containerId,
-      ),
-    [
-      appData.auth.organizationId,
-      appData.state.containerId,
-      explorer.contactsSystemSlot,
-      explorer.nodes,
-    ],
-  );
+  const { contactsContainerId, primaryOrganizationId, trashContainerId } =
+    useExplorerPrimarySystemContainers({
+      appData,
+      contactsSystemSlot: explorer.contactsSystemSlot,
+      nodes: explorer.nodes,
+      ready: explorer.ready,
+      trashSystemSlot: explorer.trashSystemSlot,
+    });
   const contactsStore = useContactsStoreForContainer(
     contactsContainerId,
-    explorer.trashContainerId,
+    trashContainerId,
   );
   const contactsSnapshot = useTearleadsExternalStoreSnapshot(contactsStore);
   const currentSelfContactLocalId = useMemo(
@@ -214,6 +205,7 @@ export function useExplorerModel(
     onRetryDatabase,
     canShareWithPeer,
     peerUserId,
+    primaryOrganizationId,
     rulesContext,
     selection,
     setLinkedContainerIdsForDocument,

@@ -8,6 +8,7 @@ import {
   type CreateOrganizationRequest,
   isCreateOrganizationRequest,
   isDocumentSyncRequest,
+  isProvisionedDocumentRequest,
 } from "@tearleads/validators/request";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
@@ -16,7 +17,10 @@ import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolic
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import { deriveContainerSystemSlot } from "../container-contents/systemSlot";
 import { createOrganization } from "./createOrganization";
-import { deriveOrganizationMetadataContainerSystemSlot } from "./rosterProfileContainer";
+import {
+  deriveOrganizationMetadataContainerSystemSlot,
+  getRosterProfileDocumentLocalId,
+} from "./rosterProfileContainer";
 
 function createClient(execSql: ExecSql): ExecSqlClientLike {
   return {
@@ -79,6 +83,27 @@ test("createOrganization provisions a new org for the existing user and persists
     expect(request.initialOrganizationPolicy.projection).toEqual([
       { memberPrincipalType: "user", memberPrincipalId: userId, role: "admin" },
     ]);
+    const provisionedProfiles = [
+      request.initialRosterProfileDocument,
+      request.initialOrganizationProfileDocument,
+    ];
+    expect(provisionedProfiles.every(Boolean)).toBe(true);
+    for (const provisionedProfile of provisionedProfiles) {
+      if (!isProvisionedDocumentRequest(provisionedProfile)) {
+        throw new Error("Expected provisioned profile document request");
+      }
+      expect(isDocumentSyncRequest(provisionedProfile.initialSync)).toBe(true);
+      expect(provisionedProfile.initialSync.outgoingUpdates).toHaveLength(1);
+      expect(provisionedProfile.initialSync.expectedLinkSetManifestHash).toBe(
+        provisionedProfile.expectedManifestHash,
+      );
+      expect(
+        Reflect.get(
+          provisionedProfile.initialSync.outgoingUpdates[0]?.writeHeader ?? {},
+          "objectId",
+        ),
+      ).toBe(Reflect.get(provisionedProfile.event, "objectId"));
+    }
 
     // Group policies persisted locally.
     const adminPolicy = await loadPrincipalPolicyBundle(
@@ -136,6 +161,21 @@ test("createOrganization provisions a new org for the existing user and persists
         documentKind: "organization_profile",
       }),
     );
+    expect(
+      await sqlDocumentsPersistence.listPendingUpdates(
+        execSql,
+        `org-profile:${request.organizationId}`,
+      ),
+    ).toHaveLength(0);
+    expect(
+      await sqlDocumentsPersistence.listPendingUpdates(
+        execSql,
+        getRosterProfileDocumentLocalId({
+          organizationId: request.organizationId,
+          userId,
+        }),
+      ),
+    ).toHaveLength(0);
 
     expect(logs).toEqual([
       "Creating organization...",
