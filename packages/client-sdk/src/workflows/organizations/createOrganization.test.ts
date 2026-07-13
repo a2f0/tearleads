@@ -4,7 +4,11 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { CreateOrganizationRequest } from "@tearleads/validators/request";
+import {
+  type CreateOrganizationRequest,
+  isCreateOrganizationRequest,
+  isDocumentSyncRequest,
+} from "@tearleads/validators/request";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
@@ -181,6 +185,7 @@ test("createOrganization provisions configured system containers (Trash) atomica
 
     expect(response).not.toBeNull();
     const request = expectCapturedRequest(captured);
+    expect(isCreateOrganizationRequest(request)).toBe(true);
 
     // The Trash container rides along in the single provisioning request, tagged
     // with the per-user system slot the app derives client-side.
@@ -189,7 +194,26 @@ test("createOrganization provisions configured system containers (Trash) atomica
       secretKey: signingKeyPair.signingPrivateKey,
     });
     expect(request.initialSystemContainers).toHaveLength(1);
-    expect(request.initialSystemContainers?.[0]?.systemSlot).toBe(trashSlot);
+    const provisionedTrash = request.initialSystemContainers?.[0];
+    expect(provisionedTrash?.systemSlot).toBe(trashSlot);
+    expect(isDocumentSyncRequest(provisionedTrash?.initialMetadataSync)).toBe(
+      true,
+    );
+    expect(provisionedTrash?.initialMetadataSync.outgoingUpdates).toHaveLength(
+      1,
+    );
+    expect(
+      provisionedTrash?.initialMetadataSync.expectedLinkSetManifestHash,
+    ).toBe(provisionedTrash?.metadataDocument.expectedManifestHash);
+    expect(
+      Reflect.get(
+        provisionedTrash?.initialMetadataSync.outgoingUpdates[0]?.writeHeader ??
+          {},
+        "objectId",
+      ),
+    ).toBe(
+      Reflect.get(provisionedTrash?.metadataDocument.event ?? {}, "objectId"),
+    );
 
     // It is persisted locally as a fourth container: an Admins-scoped child of
     // root carrying the Trash name and its system slot, so the lazy
@@ -207,6 +231,12 @@ test("createOrganization provisions configured system containers (Trash) atomica
         name: "Trash",
       }),
     );
+    expect(
+      await sqlContainerContentsPersistence.listPendingUpdates(
+        execSql,
+        trashContainerState?.container.id ?? "",
+      ),
+    ).toHaveLength(0);
   } finally {
     close();
   }

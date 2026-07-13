@@ -10,6 +10,7 @@ import invariant from "invariant";
 import {
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
   downloadPaneKeyPackageBackup,
+  getExplorerSidebarItemsByName,
   getPaneRoot,
   getPaneUserId,
   interact,
@@ -17,6 +18,7 @@ import {
   restorePaneKeyPackageBackup,
   waitForDualPaneProvisioning,
 } from "../../../../test/helpers/dual-pane/dualPaneCore";
+import { openExplorer } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
 import { openOrgManager } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import {
   resetMockServer,
@@ -193,13 +195,27 @@ test(
         name: "Untitled organization",
       }).length,
     ).toBeGreaterThan(secondaryUntitledCountBefore);
+    const newRemoteOrganizationOption = within(secondaryPane)
+      .getAllByRole("option", { name: "Untitled organization" })
+      .at(-1);
+    invariant(
+      newRemoteOrganizationOption,
+      "Expected the newly discovered organization option.",
+    );
     await interact(() => {
-      fireEvent.click(
-        within(secondaryPane).getByRole("combobox", {
-          name: "Organizations",
-        }),
-      );
+      fireEvent.click(newRemoteOrganizationOption);
     });
+
+    // The organization profile intentionally remains local-only until the
+    // trial starts, but Trash is part of the server-side provisioning
+    // transaction. A recovered session can therefore read its initialized
+    // metadata immediately even though ordinary writes are still disabled.
+    await openExplorer(secondaryPane);
+    await waitForCondition(
+      () => getExplorerSidebarItemsByName(secondaryPane, "Trash").length > 0,
+      "Secondary session did not materialize provisioned Trash metadata.",
+      20_000,
+    );
 
     await interact(() => {
       fireEvent.click(

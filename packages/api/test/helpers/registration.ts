@@ -26,7 +26,6 @@ import {
   derivePrincipalRecipientKeyEpochId,
   encryptWithDek,
   generateKemSeedAndKeyPair,
-  type KeyingCanonicalJson,
   type ReferencedPrincipalHead,
   signAccessEvent,
   signPrincipalState,
@@ -35,23 +34,24 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type {
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
+  ProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { createProvisionedTrashFixture } from "./provisionedSystemContainer";
+import { toWireJson, toWireRecord, toWireRecords } from "./registrationWire";
 
 const REGISTER_SIGNED_AT = "2026-04-07T00:00:00.000Z";
 
 interface RegistrationBootstrapInput {
   adminGroup?: CreateOrganizationGroupRequest | undefined;
   encapsulationPublicKey: Uint8Array;
-  // Supplying the member group makes the org metadata container born with a read
-  // grant to it — matching production and exercising the server's verification
-  // of a child container carrying a group directGrant + group KEK wrap.
+  includeTrashSystemContainer?: boolean | undefined;
+  // Gives org metadata a production-matching Members read grant.
   memberGroup?: CreateOrganizationGroupRequest | undefined;
   organizationId: string;
   organizationProfileDocumentId?: string | undefined;
@@ -73,6 +73,7 @@ interface RegistrationBootstrap {
   initialOrganizationProfileDocument?: DocumentCreateRequest | undefined;
   initialRootContainer: ContainerMutationRequest;
   initialRootMetadataDocument: DocumentCreateRequest;
+  initialSystemContainers?: ProvisionedSystemContainerRequest[] | undefined;
   rootMetadataDocumentId: string;
 }
 
@@ -126,76 +127,6 @@ interface ChildContainerCreateArtifacts {
   request: ContainerMutationRequest;
   state: ContainerAccessManifestState;
   wraps: ContainerKeyWrap[];
-}
-
-function isCanonicalJson(value: unknown): value is KeyingCanonicalJson {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "boolean"
-  ) {
-    return true;
-  }
-
-  if (typeof value === "number") {
-    return Number.isFinite(value);
-  }
-
-  if (Array.isArray(value)) {
-    // Array.prototype.every skips holes; fixture wire records must reject
-    // sparse arrays before JSON serialization can coerce holes to null.
-    for (let index = 0; index < value.length; index += 1) {
-      if (!Object.hasOwn(value, index) || !isCanonicalJson(value[index])) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  if (!isPlainObject(value)) {
-    return false;
-  }
-
-  return Object.values(value).every(
-    (item) => item !== undefined && isCanonicalJson(item),
-  );
-}
-
-function toWireJson(value: unknown, label: string): KeyingCanonicalJson {
-  if (!isCanonicalJson(value)) {
-    throw new Error(`${label} fixture is not canonical JSON`);
-  }
-
-  const serialized = JSON.stringify(value);
-  if (typeof serialized !== "string") {
-    throw new Error(`${label} fixture cannot be serialized to JSON`);
-  }
-
-  const parsed: unknown = JSON.parse(serialized);
-  if (!isCanonicalJson(parsed)) {
-    throw new Error(`${label} fixture did not round-trip as canonical JSON`);
-  }
-
-  return parsed;
-}
-
-function toWireRecord(value: unknown, label: string): Record<string, unknown> {
-  const parsed = toWireJson(value, label);
-  if (!isPlainObject(parsed)) {
-    throw new Error(`${label} fixture must serialize to a JSON object`);
-  }
-
-  return parsed;
-}
-
-function toWireRecords(
-  values: readonly unknown[],
-  label: string,
-): Record<string, unknown>[] {
-  return values.map((value, index) =>
-    toWireRecord(value, `${label}[${index}]`),
-  );
 }
 
 function createSignerDeviceId(signingFingerprint: string): string {
@@ -1083,6 +1014,50 @@ export async function createRegistrationBootstrap(
   });
   const rootContainerProjection =
     rootContainerProjectionFromArtifacts(rootContainer);
+  const trashContainer = input.includeTrashSystemContainer
+    ? await createChildContainerArtifacts({
+        metadataDocumentId: crypto.randomUUID(),
+        parent: rootContainer,
+        parentProjection: rootContainerProjection,
+        signerDeviceId,
+        signerKeyFingerprint,
+        signingPrivateKey: input.signingPrivateKey,
+        userId: input.userId,
+      })
+    : undefined;
+  const trashContainerProjection = trashContainer
+    ? childContainerProjectionFromArtifacts({
+        child: trashContainer,
+        parentProjection: rootContainerProjection,
+      })
+    : undefined;
+  const trashMetadataDocument =
+    trashContainer && trashContainerProjection
+      ? await createRootMetadataDocumentRequest({
+          containerKey: trashContainer.containerKey,
+          containerProjection: trashContainerProjection,
+          organizationId: input.organizationId,
+          rootMetadataDocumentId: trashContainer.metadataDocumentId,
+          signerDeviceId,
+          signerKeyFingerprint,
+          signingPrivateKey: input.signingPrivateKey,
+          userId: input.userId,
+        })
+      : undefined;
+  const trashSystemContainer =
+    trashContainer && trashContainerProjection && trashMetadataDocument
+      ? await createProvisionedTrashFixture({
+          container: trashContainer.request,
+          containerProjection: trashContainerProjection,
+          metadataDocument: trashMetadataDocument,
+          metadataDocumentId: trashContainer.metadataDocumentId,
+          organizationId: input.organizationId,
+          signerDeviceId,
+          signerKeyFingerprint,
+          signingPrivateKey: input.signingPrivateKey,
+          userId: input.userId,
+        })
+      : undefined;
   const rosterProfileContainer = input.rosterProfileDocumentId
     ? await createChildContainerArtifacts({
         metadataDocumentId: crypto.randomUUID(),
@@ -1134,11 +1109,7 @@ export async function createRegistrationBootstrap(
           userId: input.userId,
         })
       : undefined;
-  // The organization profile document (the display name) lives in its own
-  // container, distinct from the Admins-scoped roster profile container. When
-  // the member group is supplied it is born with a Members-group read grant,
-  // exercising the server's verification of a child container carrying a group
-  // directGrant + group KEK wrap (the production shape).
+  // Keep the public org profile separate from the Admins-scoped roster profile.
   const organizationMetadataContainer = input.organizationProfileDocumentId
     ? await createChildContainerArtifacts({
         metadataDocumentId: crypto.randomUUID(),
@@ -1206,6 +1177,9 @@ export async function createRegistrationBootstrap(
       : {}),
     initialRootContainer: rootContainer.request,
     initialRootMetadataDocument,
+    ...(trashSystemContainer
+      ? { initialSystemContainers: [trashSystemContainer] }
+      : {}),
     rootMetadataDocumentId,
   };
 }

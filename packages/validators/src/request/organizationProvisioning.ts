@@ -15,7 +15,9 @@ import {
 } from "./containerMetadata";
 import {
   type DocumentCreateRequest,
+  type DocumentSyncRequest,
   isDocumentCreateRequest,
+  isDocumentSyncRequest,
 } from "./document";
 import {
   type CreateOrganizationGroupRequest,
@@ -31,6 +33,30 @@ import {
   type PrincipalStateEncryptedPayloadRequest,
   type PrincipalStateRequest,
 } from "./principal";
+
+/**
+ * An app-owned system container whose encrypted initial metadata body is
+ * committed in the same transaction as the organization and document shell.
+ */
+export interface ProvisionedSystemContainerRequest
+  extends ContainerCreateWithMetadataDocumentRequest {
+  initialMetadataSync: DocumentSyncRequest;
+}
+
+function isProvisionedSystemContainerRequest(
+  value: unknown,
+): value is ProvisionedSystemContainerRequest {
+  const initialMetadataSync = isPlainObject(value)
+    ? Reflect.get(value, "initialMetadataSync")
+    : undefined;
+
+  return (
+    isContainerCreateWithMetadataDocumentRequest(value) &&
+    isDocumentSyncRequest(initialMetadataSync) &&
+    initialMetadataSync.outgoingUpdates.length === 1 &&
+    (initialMetadataSync.containerRekeys?.length ?? 0) === 0
+  );
+}
 
 /**
  * The client-signed artifacts required to bootstrap a fresh organization: the
@@ -79,9 +105,7 @@ export interface OrganizationProvisioningRequest {
    * profile document. Their system slots are derived from the founder's signing
    * key, so they are opaque to the server and unique per organization.
    */
-  initialSystemContainers?:
-    | ContainerCreateWithMetadataDocumentRequest[]
-    | undefined;
+  initialSystemContainers?: ProvisionedSystemContainerRequest[] | undefined;
 }
 
 export function isOrganizationProvisioningRequest(
@@ -152,9 +176,7 @@ export function isOrganizationProvisioningRequest(
       isDocumentCreateRequest(initialOrganizationProfileDocument)) &&
     (initialSystemContainers === undefined ||
       (Array.isArray(initialSystemContainers) &&
-        initialSystemContainers.every(
-          isContainerCreateWithMetadataDocumentRequest,
-        )))
+        initialSystemContainers.every(isProvisionedSystemContainerRequest)))
   );
 }
 

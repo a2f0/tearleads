@@ -108,6 +108,7 @@ export async function createRegistrationRequestBody(
     userId?: string | undefined;
     includeOrganizationProfileDocument?: boolean | undefined;
     includeRosterProfileDocument?: boolean | undefined;
+    includeTrashSystemContainer?: boolean | undefined;
   } = {},
 ): Promise<RegistrationRequest> {
   const userId = options.userId ?? crypto.randomUUID();
@@ -131,6 +132,7 @@ export async function createRegistrationRequestBody(
     encapsulationPublicKey,
     memberGroup: initialMemberGroup,
     organizationId,
+    includeTrashSystemContainer: options.includeTrashSystemContainer,
     ...(options.includeRosterProfileDocument
       ? { rosterProfileDocumentId: crypto.randomUUID() }
       : {}),
@@ -160,6 +162,9 @@ export async function createRegistrationRequestBody(
     }),
     initialRootContainer: rootBootstrap.initialRootContainer,
     initialRootMetadataDocument: rootBootstrap.initialRootMetadataDocument,
+    ...(rootBootstrap.initialSystemContainers
+      ? { initialSystemContainers: rootBootstrap.initialSystemContainers }
+      : {}),
     ...(rootBootstrap.initialRosterProfileContainer
       ? {
           initialRosterProfileContainer:

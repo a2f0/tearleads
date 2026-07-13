@@ -265,13 +265,11 @@ test(
     // Document 4 is the org-public metadata container minted at
     // registration and read-granted to the Members group so any active
     // roster member can decrypt org-wide public fields; its own metadata
-    // document syncs during bootstrap. Documents 5-7 are contributed by the
-    // post-auth promotion pass: the built-in Contacts/Trash system containers
-    // are created device-first LOCAL-ONLY, and once the runtime is
-    // authenticated they are promoted to remote sync so a peer granted the
-    // root can see them. Promoting Contacts to remote also re-runs the
-    // self-contact bootstrap with the remote identity, so the self contact
-    // leaves local-only and syncs too. The organization profile document
+    // document syncs during bootstrap. Trash metadata is committed in the
+    // registration transaction. Documents 5 and 7 come from the post-auth
+    // promotion pass: Contacts starts device-first LOCAL-ONLY, then promotion
+    // also re-runs the self-contact bootstrap with the remote identity so both
+    // become synced. The organization profile document
     // (linked into the org metadata container) is still created or synced by
     // its own view, so it is intentionally outside this baseline.
     await waitForCondition(

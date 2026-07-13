@@ -765,7 +765,7 @@ function normalizeAuthorizingContainerPathRefs(
   });
 }
 
-async function signDocumentOutgoingUpdate(input: {
+export async function signDocumentOutgoingUpdate(input: {
   author: DocumentCreateAuthor;
   contentKeyEpoch: number;
   documentId: string;
