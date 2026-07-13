@@ -45,6 +45,7 @@ export function BlobListScreen(params: {
   onSelectBlob: (blob: BlobInfo) => void;
   onSort: (key: BlobInfoSortKey) => void;
   online: boolean;
+  organizationNamesById?: ReadonlyMap<string, string> | undefined;
   query: string;
   renderSyncCell?: RenderBlobSyncCell | undefined;
   rowOffset: number;
@@ -76,6 +77,7 @@ export function BlobListScreen(params: {
           onRowContextMenu={params.onRowContextMenu}
           onSelectBlob={params.onSelectBlob}
           onSort={params.onSort}
+          organizationNamesById={params.organizationNamesById}
           renderSyncCell={params.renderSyncCell}
           rowOffset={params.rowOffset}
           rows={params.rows}
@@ -115,6 +117,7 @@ export function BlobPickSurface(params: {
   onCancel: () => void;
   online: boolean;
   onPickBlob: (blob: BlobInfo) => void;
+  organizationNamesById?: ReadonlyMap<string, string> | undefined;
   renderSyncCell?: RenderBlobSyncCell | undefined;
   slotLabel: string;
 }) {
@@ -138,6 +141,7 @@ export function BlobPickSurface(params: {
         onSelectBlob={params.onPickBlob}
         onSort={data.handleSort}
         online={params.online}
+        organizationNamesById={params.organizationNamesById}
         query={data.query}
         renderSyncCell={params.renderSyncCell}
         rowOffset={data.rowOffset}

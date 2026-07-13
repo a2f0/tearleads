@@ -127,6 +127,7 @@ interface ExplorerDetailPanelProps {
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
+  organizationNamesById: ReadonlyMap<string, string>;
   // Pick mode for the blob-browser route: set when "Choose Blob" on a document
   // routed here. onPickBlob resolves the pick; onCancelBlobPick abandons it.
   blobPickTarget: BlobPickTarget | null;
@@ -236,6 +237,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         loadBlobInfo={params.loadBlobInfo}
         nodes={params.nodes}
         online={params.online}
+        organizationNamesById={params.organizationNamesById}
         onBackToSelectionRoute={params.onBackToSelectionRoute}
         onCancelBlobPick={params.onCancelBlobPick}
         onPickBlob={params.onPickBlob}
@@ -266,6 +268,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         onOpenSyncLaneDetailRoute={params.onOpenSyncLaneDetailRoute}
         onPickBlob={params.onPickBlob}
         online={params.online}
+        organizationNamesById={params.organizationNamesById}
         openBlobBrowserRoute={params.openBlobBrowserRoute}
         openDocumentInfoRoute={params.openDocumentInfoRoute}
         openSyncLanesRoute={params.openSyncLanesRoute}

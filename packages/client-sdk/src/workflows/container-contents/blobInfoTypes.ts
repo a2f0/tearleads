@@ -34,6 +34,9 @@ export interface BlobInfo {
   readonly key: string;
   readonly mimeType: string | null;
   readonly name: string | null;
+  // Identity-wide display attribution from referenced document containers;
+  // null when missing or inconsistent rather than guessing across a boundary.
+  readonly organizationId: string | null;
   readonly referenceCount: number;
   readonly references: ReadonlyArray<BlobInfoDocumentReference>;
   readonly storageKey: string;

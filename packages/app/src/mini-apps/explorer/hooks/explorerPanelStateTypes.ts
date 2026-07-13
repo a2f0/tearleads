@@ -63,6 +63,7 @@ export interface ExplorerPanelState {
   // delete. Permanent removal is a separate step (purge) offered only once the
   // folder is already under Trash.
   moveContainerToTrash: (containerId: string) => Promise<unknown>;
+  organizationNamesById: ReadonlyMap<string, string>;
   openInlineDocument: OpenInlineDocument;
   consumeInitialDocumentEditing: (localId: string) => void;
   // Marks a document to re-enter edit mode on its next mount. Used to keep a

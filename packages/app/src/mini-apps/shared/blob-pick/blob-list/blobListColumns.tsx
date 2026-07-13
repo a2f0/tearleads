@@ -12,6 +12,7 @@ import { BLOB_LIST_LABELS } from "./blobListLabels";
 
 export type BlobInfoColumnId =
   | "blob"
+  | "organization"
   | "mime"
   | "size"
   | "references"
@@ -20,6 +21,7 @@ export type BlobInfoColumnId =
 
 const BLOB_INFO_COLUMN_IDS: ReadonlyArray<BlobInfoColumnId> = [
   "blob",
+  "organization",
   "mime",
   "size",
   "references",
@@ -28,7 +30,7 @@ const BLOB_INFO_COLUMN_IDS: ReadonlyArray<BlobInfoColumnId> = [
 ];
 
 export const BLOB_INFO_TOGGLEABLE_COLUMN_IDS: ReadonlyArray<BlobInfoColumnId> =
-  ["mime", "size", "references", "updated", "sync"];
+  ["organization", "mime", "size", "references", "updated", "sync"];
 
 // A host that renders no sync cell (e.g. the Notes pick surface) drops the sync
 // column entirely rather than showing an empty one.
@@ -80,6 +82,8 @@ function getBlobInfoColumnLabel(id: BlobInfoColumnId): string {
   switch (id) {
     case "blob":
       return BLOB_LIST_LABELS.blobColumn;
+    case "organization":
+      return BLOB_LIST_LABELS.organizationColumn;
     case "mime":
       return BLOB_LIST_LABELS.mimeTypeColumn;
     case "size":
@@ -137,6 +141,12 @@ function buildBlobInfoColumn(
         header: getBlobInfoColumnLabel(id),
         id,
         width: "4rem",
+      };
+    case "organization":
+      return {
+        header: getBlobInfoColumnLabel(id),
+        id,
+        width: "12rem",
       };
     case "mime":
       return {

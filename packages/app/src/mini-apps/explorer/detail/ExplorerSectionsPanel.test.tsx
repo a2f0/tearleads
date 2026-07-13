@@ -37,6 +37,7 @@ function renderSectionsPanel(
       }
       onPickBlob={() => undefined}
       online={true}
+      organizationNamesById={new Map()}
       openBlobBrowserRoute={overrides.openBlobBrowserRoute ?? (() => undefined)}
       openDocumentInfoRoute={() => undefined}
       openSyncLanesRoute={overrides.openSyncLanesRoute ?? (() => undefined)}

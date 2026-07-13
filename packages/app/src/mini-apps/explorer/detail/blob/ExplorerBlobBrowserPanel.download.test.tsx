@@ -29,6 +29,7 @@ function createBlobRow(input: {
     key: `blob:${input.blobId}`,
     mimeType: input.mimeType,
     name: input.name ?? null,
+    organizationId: null,
     referenceCount: 0,
     references: [],
     storageKey: input.storageKey,

@@ -144,6 +144,7 @@ function renderExplorerDetailPanelWithBlobPick(
       loadDocumentSummary={model.loadDocumentSummary}
       nodes={model.explorer.nodes}
       online={appData.state.online}
+      organizationNamesById={model.organizationNamesById}
       onCancelBlobPick={cancelBlobPick}
       onContainerContextMenu={model.contextMenuState.handleContainerContextMenu}
       onItemContextMenu={model.contextMenuState.handleItemContextMenu}

@@ -112,6 +112,7 @@ interface ExplorerSectionsPanelProps {
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
+  organizationNamesById: ReadonlyMap<string, string>;
   openBlobBrowserRoute: (input?: {
     blobId?: string | null | undefined;
     storageKey?: string | null | undefined;
@@ -173,6 +174,7 @@ export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
             onCancelBlobPick={params.onCancelBlobPick}
             onPickBlob={params.onPickBlob}
             openDocumentInfoRoute={params.openDocumentInfoRoute}
+            organizationNamesById={params.organizationNamesById}
             pickTarget={params.blobPickTarget}
             route={route}
             selectDocumentProjection={params.selectDocumentProjection}

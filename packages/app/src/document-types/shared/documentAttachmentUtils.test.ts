@@ -17,6 +17,7 @@ function createBlobInfo(patch: Partial<BlobInfo> = {}): BlobInfo {
     key: "blob:blob-1",
     mimeType: "image/png",
     name: null,
+    organizationId: null,
     referenceCount: 1,
     references: [],
     storageKey: "storage-1",

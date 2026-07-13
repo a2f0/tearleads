@@ -29,6 +29,7 @@ interface GroupedBlobInfoRow {
   readonly documentCount: number;
   readonly mimeType: string | null;
   readonly name: string | null;
+  readonly organizationId: string | null;
   readonly referenceCount: number;
   readonly storageKey: string;
   readonly updatedAt: string | null;
@@ -93,6 +94,7 @@ export function mapBlobInfoRow(
     key: readRequiredString(row.blobKey, "blob_key"),
     mimeType: readNullableString(row.mimeType),
     name: readNullableString(row.name),
+    organizationId: readNullableString(row.organizationId),
     referenceCount: readRequiredNumber(row.referenceCount, "reference_count"),
     storageKey: readRequiredString(row.storageKey, "storage_key"),
     updatedAt: readNullableString(row.updatedAt),
