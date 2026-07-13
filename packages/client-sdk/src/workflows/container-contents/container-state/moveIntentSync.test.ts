@@ -15,6 +15,7 @@ type MoveIntentError = Parameters<
 
 function remoteContainerState(input: {
   id: string;
+  organizationId?: string;
   parentId: string | null;
 }): ContainerState {
   return {
@@ -24,7 +25,7 @@ function remoteContainerState(input: {
       icon: null,
       metadataDocumentId: `metadata-${input.id}`,
       name: input.id,
-      organizationId: "organization",
+      organizationId: input.organizationId ?? "organization",
       parentId: input.parentId,
       systemSlot: null,
     },
@@ -165,6 +166,7 @@ test("pending container move sync records per-intent failures and continues", as
       },
       updateSnapshot: () => {},
     },
+    isRemoteSyncBlocked: () => false,
     state: createMoveIntentSyncState({ containersById, persistence }),
   });
 
@@ -177,6 +179,85 @@ test("pending container move sync records per-intent failures and continues", as
     "Failed to sync container move: projection unavailable",
     "Failed to sync container move: projection unavailable",
   ]);
+});
+
+test("a blocked organization does not prevent another organization's move from syncing", async () => {
+  const errors: MoveIntentError[] = [];
+  const containersById = new Map([
+    [
+      "custom-child",
+      remoteContainerState({
+        id: "custom-child",
+        organizationId: "custom-organization",
+        parentId: "custom-root",
+      }),
+    ],
+    [
+      "custom-parent",
+      remoteContainerState({
+        id: "custom-parent",
+        organizationId: "custom-organization",
+        parentId: "custom-root",
+      }),
+    ],
+    [
+      "personal-child",
+      remoteContainerState({
+        id: "personal-child",
+        organizationId: "personal-organization",
+        parentId: "personal-root",
+      }),
+    ],
+    [
+      "personal-parent",
+      remoteContainerState({
+        id: "personal-parent",
+        organizationId: "personal-organization",
+        parentId: "personal-root",
+      }),
+    ],
+  ]);
+  const persistence: ContainerMoveIntentSyncState["persistence"] = {
+    ...defaultContainerContentsPersistence,
+    listPendingMoveIntents: async () => [
+      moveIntentRecord({
+        containerId: "custom-child",
+        parentContainerId: "custom-parent",
+      }),
+      moveIntentRecord({
+        containerId: "personal-child",
+        parentContainerId: "personal-parent",
+      }),
+    ],
+    recordMoveIntentError: async (_execSql, error) => {
+      errors.push(error);
+    },
+  };
+  const checkedOrganizations: string[] = [];
+
+  const movedCount = await syncPendingContainerMoveIntents({
+    host: {
+      persistContainerState: async () => {
+        throw new Error("unexpected persist");
+      },
+      updateSnapshot: () => {},
+    },
+    isRemoteSyncBlocked: (organizationId) => {
+      checkedOrganizations.push(organizationId);
+      return organizationId === "custom-organization";
+    },
+    state: createMoveIntentSyncState({ containersById, persistence }),
+  });
+
+  expect(movedCount).toBe(0);
+  expect(checkedOrganizations).toEqual([
+    "custom-organization",
+    "personal-organization",
+  ]);
+  expect(errors.map((error) => error.containerId)).toEqual(["personal-child"]);
+  expect(errors[0]?.message).toBe(
+    "Failed to sync container move: projection unavailable",
+  );
 });
 
 test("a move whose source is not synced yet stays pending and retryable", async () => {
@@ -208,6 +289,7 @@ test("a move whose source is not synced yet stays pending and retryable", async 
       },
       updateSnapshot: () => {},
     },
+    isRemoteSyncBlocked: () => false,
     state: createMoveIntentSyncState({ containersById, persistence }),
   });
 

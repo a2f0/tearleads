@@ -46,6 +46,7 @@ export async function ensureRemoteDocument(
     // document instead of creating a duplicate.
     documentId: await deriveStableDocumentId(state.localId),
     execSql: state.runtime.infra.execSql,
+    isRemoteSyncBlocked: state.runtime.util.isRemoteSyncBlocked,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(

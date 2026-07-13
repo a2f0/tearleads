@@ -180,8 +180,10 @@ function createRuntimeInputFactory(
       util = {
         cacheReferencedPrincipalPolicies:
           createCacheReferencedPrincipalPolicies(dependencies, execSql),
-        isRemoteSyncBlocked: () =>
-          dependencies.syncBillingGate?.isBlocked ?? false,
+        isRemoteSyncBlocked: (organizationId) =>
+          dependencies.syncBillingGate?.isBlockedForOrganization(
+            organizationId,
+          ) ?? false,
         log: dependencies.log,
         logError: dependencies.logError,
       };

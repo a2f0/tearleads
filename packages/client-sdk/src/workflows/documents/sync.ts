@@ -76,7 +76,7 @@ import {
   type RemoteDocumentDeletionHandler,
   resolveDocumentSyncWriterProjection,
   retrySyncPlan,
-  submitDocumentSyncAttempt,
+  submitDocumentSyncAttemptIfAllowed,
 } from "./syncFailures";
 
 export function hasDocumentUpdateEvent(
@@ -852,6 +852,7 @@ interface SyncRemoteDocumentInput {
   author: DocumentCreateAuthor;
   documentId: string;
   execSql?: ExecSql | undefined;
+  isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
@@ -1034,10 +1035,11 @@ export async function syncRemoteDocument(
     }
     const [materializedPlan, plannedWriterProjection] = planned;
     const plan = materializedPlan.plan;
-    const submitted = await submitDocumentSyncAttempt({
+    const submitted = await submitDocumentSyncAttemptIfAllowed({
       apiClient: input.apiClient,
       attempt,
       documentId: input.documentId,
+      isRemoteSyncBlocked: input.isRemoteSyncBlocked,
       maxAttempts,
       onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
       pendingUpdates,

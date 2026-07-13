@@ -21,7 +21,6 @@ type RemoteHydrationRequestState = RemoteContainerHydrationState &
 export function requestContainerContentsRemoteHydration(input: {
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
-  isRemoteSyncBlocked: () => boolean;
   parentIds?: ReadonlyArray<string | null> | undefined;
   resetRootLaneWatermark?: boolean | undefined;
   scheduleSyncAfterHydration?: boolean | undefined;
@@ -84,8 +83,7 @@ export function requestContainerContentsRemoteHydration(input: {
         (appliedRemoteContainerChange || input.scheduleSyncAfterHydration) &&
         state.snapshot.ready &&
         state.runtime.auth.isAuthenticated &&
-        state.runtime.state.online &&
-        !input.isRemoteSyncBlocked()
+        state.runtime.state.online
       ) {
         scheduleSync();
       }

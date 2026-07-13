@@ -209,6 +209,7 @@ async function syncRemoteContainerMetadata(input: {
     author,
     documentId,
     execSql,
+    isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
     localVersionVector,
     minLsn: lastCommitLsn ?? undefined,
     pendingUpdates,

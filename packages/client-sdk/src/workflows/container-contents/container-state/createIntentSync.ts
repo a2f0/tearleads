@@ -123,6 +123,10 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
     return "created";
   }
 
+  if (input.isRemoteSyncBlocked(parentState.container.organizationId)) {
+    return "blocked";
+  }
+
   if (!hasRemoteContainerMetadataState(parentState)) {
     return "blocked";
   }
@@ -201,6 +205,7 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
 
 export async function syncPendingContainerCreateIntents(input: {
   host: ContainerCreateIntentSyncHost;
+  isRemoteSyncBlocked: (organizationId: string) => boolean;
   state: ContainerCreateIntentSyncState;
 }): Promise<number> {
   const { host, state } = input;
@@ -224,6 +229,7 @@ export async function syncPendingContainerCreateIntents(input: {
       const result = await trySyncPendingContainerContentsContainerCreateIntent(
         {
           host,
+          isRemoteSyncBlocked: input.isRemoteSyncBlocked,
           intent,
           state,
         },

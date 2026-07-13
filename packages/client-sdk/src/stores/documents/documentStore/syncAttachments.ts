@@ -1,9 +1,9 @@
 import { createAesGcmIv } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { markOriginatedDocuments } from "../../../sync/reconciliation/originatedDocuments";
-import {
-  type MultipartStageResolvedListener,
-  type MultipartUploadProgressListener,
+import type {
+  MultipartStageResolvedListener,
+  MultipartUploadProgressListener,
   uploadDocumentAttachment,
 } from "../../../workflows/blobs";
 import {
@@ -17,6 +17,7 @@ import {
   beginDomainSyncUploadLane,
   type UploadSyncLane,
 } from "../../../workflows/sync";
+import { uploadAttachmentWithWriterProjectionRetry } from "./attachmentUploadAttempt";
 import {
   deletePendingAttachment,
   saveLocalAttachmentRecord,
@@ -359,8 +360,11 @@ async function syncPendingAttachmentUpload(input: {
     state,
     writerProjection,
   });
-  const { error: uploadError, uploaded } = uploadAttempt;
+  const { error: uploadError, remoteSyncBlocked, uploaded } = uploadAttempt;
   if (!uploaded) {
+    if (remoteSyncBlocked) {
+      return "retry";
+    }
     reportAttachmentUploadFailure({
       error: uploadError,
       pendingAttachment,
@@ -381,38 +385,6 @@ async function syncPendingAttachmentUpload(input: {
   return "uploaded";
 }
 
-async function uploadAttachmentWithWriterProjectionRetry(input: {
-  baseUploadInput: Parameters<typeof uploadDocumentAttachment>[0];
-  state: DocumentStoreState;
-  writerProjection: DocumentStoreState["writerProjection"];
-}): Promise<{
-  error: unknown;
-  uploaded: Awaited<ReturnType<typeof uploadDocumentAttachment>>;
-}> {
-  let uploadError: unknown;
-  let uploaded = await tryUploadDocumentAttachment({
-    input: {
-      ...input.baseUploadInput,
-      writerProjection: input.writerProjection ?? undefined,
-    },
-    onError: (error) => {
-      uploadError = error;
-    },
-  });
-  if (!uploaded && input.writerProjection) {
-    // The stale writer projection was rejected; retry once without it.
-    input.state.writerProjection = null;
-    uploaded = await tryUploadDocumentAttachment({
-      input: input.baseUploadInput,
-      onError: (error) => {
-        uploadError = error;
-      },
-    });
-  }
-
-  return { error: uploadError, uploaded };
-}
-
 function reportAttachmentUploadFailure(input: {
   error: unknown;
   pendingAttachment: PendingAttachmentRecord;
@@ -425,18 +397,6 @@ function reportAttachmentUploadFailure(input: {
   );
   input.uploadLane.fail(error);
   input.state.runtime.util.log(`Documents: ${error.message}`);
-}
-
-async function tryUploadDocumentAttachment(input: {
-  input: Parameters<typeof uploadDocumentAttachment>[0];
-  onError: (error: unknown) => void;
-}): ReturnType<typeof uploadDocumentAttachment> {
-  try {
-    return await uploadDocumentAttachment(input.input);
-  } catch (error) {
-    input.onError(error);
-    return null;
-  }
 }
 
 function getAttachmentUploadLaneLabel(name: string | null | undefined): string {
