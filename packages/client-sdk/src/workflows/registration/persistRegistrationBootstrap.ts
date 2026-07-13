@@ -34,6 +34,7 @@ export interface RegistrationBootstrapInput {
   rootMetadataAccessStateHash: string;
   rootMetadataDocumentId: string;
   rootMetadataInitialUpdate: Uint8Array;
+  rootMetadataInitialUpdateCommitted?: boolean | undefined;
   rootMetadataSnapshot: string;
   rootMetadataState: Pick<
     DocumentRecord,
@@ -49,6 +50,7 @@ export interface RegistrationBootstrapInput {
     createdAt: string;
     metadataDocumentId: string;
     metadataInitialUpdate: Uint8Array;
+    metadataInitialUpdateCommitted?: boolean | undefined;
     metadataSnapshot: string;
     metadataState: Pick<
       DocumentRecord,
@@ -67,6 +69,7 @@ export interface RegistrationBootstrapInput {
     createdAt: string;
     metadataDocumentId: string;
     metadataInitialUpdate: Uint8Array;
+    metadataInitialUpdateCommitted?: boolean | undefined;
     metadataSnapshot: string;
     metadataState: Pick<
       DocumentRecord,
@@ -138,21 +141,21 @@ export interface RegistrationBootstrapInput {
   organizationId: string;
   userId: string;
 }
-
 async function enqueueInitialContainerMetadataUpdate(
   execSql: ExecSql,
-  input: {
-    containerId: string;
-    initialUpdate: Uint8Array;
-  },
+  containerId: string,
+  initialUpdate: Uint8Array,
+  initialUpdateCommitted: boolean | undefined,
 ): Promise<void> {
-  const initialMetadataUpdate = createPendingUpdateFields(input.initialUpdate);
+  if (initialUpdateCommitted === true) {
+    return;
+  }
+  const initialMetadataUpdate = createPendingUpdateFields(initialUpdate);
   if (!initialMetadataUpdate) {
     return;
   }
-
   await sqlContainerContentsPersistence.enqueuePendingUpdate(execSql, {
-    containerId: input.containerId,
+    containerId,
     ...initialMetadataUpdate,
   });
 }
@@ -186,10 +189,12 @@ async function persistRootContainerBootstrap(
     },
     rootRecord,
   );
-  await enqueueInitialContainerMetadataUpdate(execSql, {
-    containerId: input.containerId,
-    initialUpdate: input.rootMetadataInitialUpdate,
-  });
+  await enqueueInitialContainerMetadataUpdate(
+    execSql,
+    input.containerId,
+    input.rootMetadataInitialUpdate,
+    input.rootMetadataInitialUpdateCommitted,
+  );
 }
 
 async function persistRosterProfileContainerBootstrap(
@@ -233,10 +238,12 @@ async function persistRosterProfileContainerBootstrap(
       },
     },
   );
-  await enqueueInitialContainerMetadataUpdate(execSql, {
-    containerId: rosterProfileContainer.containerId,
-    initialUpdate: rosterProfileContainer.metadataInitialUpdate,
-  });
+  await enqueueInitialContainerMetadataUpdate(
+    execSql,
+    rosterProfileContainer.containerId,
+    rosterProfileContainer.metadataInitialUpdate,
+    rosterProfileContainer.metadataInitialUpdateCommitted,
+  );
 }
 
 async function persistOrganizationMetadataContainerBootstrap(
@@ -283,10 +290,12 @@ async function persistOrganizationMetadataContainerBootstrap(
       },
     },
   );
-  await enqueueInitialContainerMetadataUpdate(execSql, {
-    containerId: organizationMetadataContainer.containerId,
-    initialUpdate: organizationMetadataContainer.metadataInitialUpdate,
-  });
+  await enqueueInitialContainerMetadataUpdate(
+    execSql,
+    organizationMetadataContainer.containerId,
+    organizationMetadataContainer.metadataInitialUpdate,
+    organizationMetadataContainer.metadataInitialUpdateCommitted,
+  );
 }
 
 async function persistSystemContainersBootstrap(

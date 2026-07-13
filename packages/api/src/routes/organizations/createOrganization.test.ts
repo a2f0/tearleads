@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
+  containerMetadataDocuments,
   containers,
   documents,
   organizationBilling,
@@ -11,6 +12,7 @@ import {
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
   type CreateOrganizationRequest,
+  type DocumentCreateRequest,
   type DocumentSyncRequest,
   isProvisionedDocumentRequest,
   type ProvisionedDocumentRequest,
@@ -67,27 +69,31 @@ function provisionedDocumentId(
 function provisionedProfileDocumentId(
   request: ProvisionedDocumentRequest,
 ): string {
+  return documentCreateRequestId(request);
+}
+
+function documentCreateRequestId(request: DocumentCreateRequest): string {
   const documentId = Reflect.get(request.event, "objectId");
-  invariant(typeof documentId === "string", "expected profile document id");
+  invariant(typeof documentId === "string", "expected document id");
   return documentId;
 }
 
-async function expectProvisionedProfileReadable(input: {
-  request: ProvisionedDocumentRequest;
+async function expectProvisionedDocumentReadable(input: {
+  documentId: string;
+  initialSync: DocumentSyncRequest;
   user: TestUser;
 }) {
-  const initialUpdate = input.request.initialSync.outgoingUpdates[0];
-  invariant(initialUpdate, "expected initial profile update");
+  const initialUpdate = input.initialSync.outgoingUpdates[0];
+  invariant(initialUpdate, "expected initial document update");
   const readRequest = {
-    contentKeyEpoch: input.request.initialSync.contentKeyEpoch,
-    expectedLinkSetManifestHash:
-      input.request.initialSync.expectedLinkSetManifestHash,
-    expectedTargetHash: input.request.initialSync.expectedTargetHash,
+    contentKeyEpoch: input.initialSync.contentKeyEpoch,
+    expectedLinkSetManifestHash: input.initialSync.expectedLinkSetManifestHash,
+    expectedTargetHash: input.initialSync.expectedTargetHash,
     localVersionVector: null,
     outgoingUpdates: [],
   } satisfies DocumentSyncRequest;
   const response = await routeApp.request(
-    `/documents/${provisionedProfileDocumentId(input.request)}/sync`,
+    `/documents/${input.documentId}/sync`,
     {
       method: "POST",
       headers: {
@@ -111,7 +117,7 @@ async function expectProvisionedProfileReadable(input: {
   );
 
   const caughtUpResponse = await routeApp.request(
-    `/documents/${provisionedProfileDocumentId(input.request)}/sync`,
+    `/documents/${input.documentId}/sync`,
     {
       method: "POST",
       headers: {
@@ -120,7 +126,7 @@ async function expectProvisionedProfileReadable(input: {
       },
       body: JSON.stringify({
         ...readRequest,
-        localVersionVector: input.request.initialSync.localVersionVector,
+        localVersionVector: input.initialSync.localVersionVector,
       }),
     },
   );
@@ -279,9 +285,14 @@ test("POST /organizations atomically stores profile bodies readable on local bil
     .where(eq(organizationBilling.organizationId, body.organizationId));
   expect(billing?.status).toBe("local");
 
-  await expectProvisionedProfileReadable({ request: rosterProfile, user });
-  await expectProvisionedProfileReadable({
-    request: organizationProfile,
+  await expectProvisionedDocumentReadable({
+    documentId: provisionedProfileDocumentId(rosterProfile),
+    initialSync: rosterProfile.initialSync,
+    user,
+  });
+  await expectProvisionedDocumentReadable({
+    documentId: provisionedProfileDocumentId(organizationProfile),
+    initialSync: organizationProfile.initialSync,
     user,
   });
 });
@@ -336,6 +347,11 @@ test("POST /organizations atomically stores provisioned Trash metadata readable 
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, body.organizationId));
   expect(billing?.status).toBe("local");
+  const [metadataBinding] = await db
+    .select({ documentId: containerMetadataDocuments.documentId })
+    .from(containerMetadataDocuments)
+    .where(eq(containerMetadataDocuments.documentId, documentId));
+  expect(metadataBinding?.documentId).toBe(documentId);
 
   const readRequest = {
     contentKeyEpoch: trash.initialMetadataSync.contentKeyEpoch,

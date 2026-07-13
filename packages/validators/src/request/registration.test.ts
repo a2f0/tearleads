@@ -89,6 +89,28 @@ test("isRegistrationRequest", () => {
       memberEnvelopes: validInitialOrganizationPolicy.memberEnvelopes,
     },
   };
+  const initialUpdate = {
+    id: "550e8400-e29b-41d4-a716-446655440111",
+    encryptedData: "ciphertext",
+    partialStartVersionVector: "{}",
+    partialEndVersionVector: '{"actor":1}',
+    writeHeader: { updateId: "550e8400-e29b-41d4-a716-446655440111" },
+  };
+  const createInitialSync = () => ({
+    authorizingContainerPathRefs: [
+      [
+        {
+          containerId: "container-1",
+          manifestHash: "container-manifest-hash",
+        },
+      ],
+    ],
+    contentKeyEpoch: 1,
+    expectedLinkSetManifestHash: "document-link-set-hash",
+    expectedTargetHash: "target-hash",
+    localVersionVector: '{"actor":1}',
+    outgoingUpdates: [initialUpdate],
+  });
   const createValidRequest = (overrides: Record<string, unknown> = {}) => ({
     userId,
     organizationId,
@@ -119,36 +141,21 @@ test("isRegistrationRequest", () => {
         { containerId: "container-1", manifestHash: "container-manifest-hash" },
       ],
       contentKeyBundle: createDocumentContentKeyBundle(),
+      initialSync: createInitialSync(),
     },
     ...overrides,
   });
-  const profileUpdate = {
-    id: "550e8400-e29b-41d4-a716-446655440111",
-    encryptedData: "ciphertext",
-    partialStartVersionVector: "{}",
-    partialEndVersionVector: '{"actor":1}',
-    writeHeader: { updateId: "550e8400-e29b-41d4-a716-446655440111" },
-  };
   const initialProfileDocument = {
     ...createValidRequest().initialRootMetadataDocument,
-    initialSync: {
-      authorizingContainerPathRefs: [
-        [
-          {
-            containerId: "container-1",
-            manifestHash: "container-manifest-hash",
-          },
-        ],
-      ],
-      contentKeyEpoch: 1,
-      expectedLinkSetManifestHash: "document-link-set-hash",
-      expectedTargetHash: "target-hash",
-      localVersionVector: '{"actor":1}',
-      outgoingUpdates: [profileUpdate],
-    },
+    initialSync: createInitialSync(),
   };
-  const legacyInitialProfileDocument =
+  const { initialSync: _initialSync, ...legacyInitialProfileDocument } =
     createValidRequest().initialRootMetadataDocument;
+  const initialMetadataContainer = {
+    container: createValidRequest().initialRootContainer,
+    initialMetadataSync: createInitialSync(),
+    metadataDocument: legacyInitialProfileDocument,
+  };
 
   expect(isRegistrationRequest(createValidRequest())).toBe(true);
   expect(
@@ -175,6 +182,61 @@ test("isRegistrationRequest", () => {
           initialSync: {
             ...initialProfileDocument.initialSync,
             outgoingUpdates: [],
+          },
+        },
+      }),
+    ),
+  ).toBe(false);
+  expect(
+    isRegistrationRequest(
+      createValidRequest({
+        initialRootMetadataDocument: legacyInitialProfileDocument,
+      }),
+    ),
+  ).toBe(true);
+  expect(
+    isRegistrationRequest(
+      createValidRequest({
+        initialRootMetadataDocument: {
+          ...initialProfileDocument,
+          initialSync: {
+            ...initialProfileDocument.initialSync,
+            outgoingUpdates: [],
+          },
+        },
+      }),
+    ),
+  ).toBe(false);
+  expect(
+    isRegistrationRequest(
+      createValidRequest({
+        initialOrganizationMetadataContainer: initialMetadataContainer,
+        initialRosterProfileContainer: initialMetadataContainer,
+      }),
+    ),
+  ).toBe(true);
+  expect(
+    isRegistrationRequest(
+      createValidRequest({
+        initialOrganizationMetadataContainer: {
+          container: initialMetadataContainer.container,
+          metadataDocument: initialMetadataContainer.metadataDocument,
+        },
+        initialRosterProfileContainer: {
+          container: initialMetadataContainer.container,
+          metadataDocument: initialMetadataContainer.metadataDocument,
+        },
+      }),
+    ),
+  ).toBe(true);
+  expect(
+    isRegistrationRequest(
+      createValidRequest({
+        initialOrganizationMetadataContainer: {
+          ...initialMetadataContainer,
+          initialMetadataSync: {
+            ...initialMetadataContainer.initialMetadataSync,
+            containerRekeys: [createValidRequest().initialRootContainer],
           },
         },
       }),

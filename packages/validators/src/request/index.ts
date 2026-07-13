@@ -60,6 +60,7 @@ export {
   isCreateOrganizationRequest,
   isOrganizationProvisioningRequest,
   isProvisionedDocumentRequest,
+  isProvisionedSystemContainerRequest,
   type OrganizationProvisioningRequest,
   type ProvisionedDocumentRequest,
   type ProvisionedSystemContainerRequest,

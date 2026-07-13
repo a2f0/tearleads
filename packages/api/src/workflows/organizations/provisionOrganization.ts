@@ -18,7 +18,9 @@ import {
 import {
   type ContainerCreateWithMetadataDocumentRequest,
   isProvisionedDocumentRequest,
+  isProvisionedSystemContainerRequest,
   type OrganizationProvisioningRequest,
+  type ProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
 import type {
   ContainerCreateWithMetadataDocumentResponse,
@@ -842,7 +844,7 @@ function readInitialRootMetadataDocumentId(
 async function createInitialRootMetadataDocument(
   tx: DatabaseTransaction,
   input: OrganizationProvisioningRequest,
-  fingerprint: string,
+  signer: OrganizationProvisioningSigner,
   rootMetadata: {
     metadataDocumentId: string;
   },
@@ -857,7 +859,7 @@ async function createInitialRootMetadataDocument(
 
   const created = await createDocumentWithExecutor({
     executor: tx,
-    fingerprint,
+    fingerprint: signer.fingerprint,
     request: input.initialRootMetadataDocument,
     userId: input.userId,
   });
@@ -872,6 +874,16 @@ async function createInitialRootMetadataDocument(
     containerId: input.rootContainerId,
     documentId: created.id,
   });
+  if (isProvisionedDocumentRequest(input.initialRootMetadataDocument)) {
+    await appendProvisionedDocumentInitialUpdate({
+      documentId: created.id,
+      executor: tx,
+      fingerprint: signer.fingerprint,
+      request: input.initialRootMetadataDocument.initialSync,
+      signingPublicKey: signer.signingPublicKey,
+      userId: input.userId,
+    });
+  }
 
   return created;
 }
@@ -879,14 +891,16 @@ async function createInitialRootMetadataDocument(
 async function createProvisionedSystemContainer(
   tx: DatabaseTransaction,
   input: {
-    fingerprint: string;
-    request: ContainerCreateWithMetadataDocumentRequest;
+    request:
+      | ContainerCreateWithMetadataDocumentRequest
+      | ProvisionedSystemContainerRequest;
+    signer: OrganizationProvisioningSigner;
     userId: string;
   },
 ): Promise<ContainerCreateWithMetadataDocumentResponse> {
   const container = await createContainer({
     executor: tx,
-    fingerprint: input.fingerprint,
+    fingerprint: input.signer.fingerprint,
     request: input.request.container,
     userId: input.userId,
   });
@@ -894,7 +908,7 @@ async function createProvisionedSystemContainer(
 
   const metadataDocument = await createDocumentWithExecutor({
     executor: tx,
-    fingerprint: input.fingerprint,
+    fingerprint: input.signer.fingerprint,
     request: input.request.metadataDocument,
     userId: input.userId,
   });
@@ -903,6 +917,16 @@ async function createProvisionedSystemContainer(
       "Provisioned system container metadata document mismatch",
       400,
     );
+  }
+  if (isProvisionedSystemContainerRequest(input.request)) {
+    await appendProvisionedDocumentInitialUpdate({
+      documentId: metadataDocument.id,
+      executor: tx,
+      fingerprint: input.signer.fingerprint,
+      request: input.request.initialMetadataSync,
+      signingPublicKey: input.signer.signingPublicKey,
+      userId: input.userId,
+    });
   }
 
   const systemSlot = input.request.systemSlot ?? null;
@@ -919,7 +943,7 @@ async function createProvisionedSystemContainer(
 async function createInitialRosterProfileContainer(
   tx: DatabaseTransaction,
   input: OrganizationProvisioningRequest,
-  fingerprint: string,
+  signer: OrganizationProvisioningSigner,
 ): Promise<ContainerCreateWithMetadataDocumentResponse | null> {
   if (!input.initialRosterProfileContainer) {
     return null;
@@ -932,8 +956,8 @@ async function createInitialRosterProfileContainer(
   }
 
   return createProvisionedSystemContainer(tx, {
-    fingerprint,
     request: input.initialRosterProfileContainer,
+    signer,
     userId: input.userId,
   });
 }
@@ -941,7 +965,7 @@ async function createInitialRosterProfileContainer(
 async function createInitialOrganizationMetadataContainer(
   tx: DatabaseTransaction,
   input: OrganizationProvisioningRequest,
-  fingerprint: string,
+  signer: OrganizationProvisioningSigner,
 ): Promise<ContainerCreateWithMetadataDocumentResponse | null> {
   if (!input.initialOrganizationMetadataContainer) {
     return null;
@@ -954,8 +978,8 @@ async function createInitialOrganizationMetadataContainer(
   }
 
   const metadataContainer = await createProvisionedSystemContainer(tx, {
-    fingerprint,
     request: input.initialOrganizationMetadataContainer,
+    signer,
     userId: input.userId,
   });
   await createOrganizationMetadataBuiltinGrant(
@@ -975,16 +999,8 @@ async function createProvisionedSystemContainers(
   const created: ContainerCreateWithMetadataDocumentResponse[] = [];
   for (const request of input.initialSystemContainers ?? []) {
     const provisioned = await createProvisionedSystemContainer(tx, {
-      fingerprint: signer.fingerprint,
       request,
-      userId: input.userId,
-    });
-    await appendProvisionedDocumentInitialUpdate({
-      documentId: provisioned.metadataDocument.id,
-      executor: tx,
-      fingerprint: signer.fingerprint,
-      request: request.initialMetadataSync,
-      signingPublicKey: signer.signingPublicKey,
+      signer,
       userId: input.userId,
     });
     created.push(provisioned);
@@ -1002,6 +1018,26 @@ function listCommittedProfileUpdateIds(
     isProvisionedDocumentRequest(request)
       ? request.initialSync.outgoingUpdates.map((update) => update.id)
       : [],
+  );
+}
+
+function listCommittedCoreMetadataUpdateIds(
+  input: OrganizationProvisioningRequest,
+): string[] {
+  return [
+    isProvisionedDocumentRequest(input.initialRootMetadataDocument)
+      ? input.initialRootMetadataDocument.initialSync
+      : null,
+    isProvisionedSystemContainerRequest(input.initialRosterProfileContainer)
+      ? input.initialRosterProfileContainer.initialMetadataSync
+      : null,
+    isProvisionedSystemContainerRequest(
+      input.initialOrganizationMetadataContainer,
+    )
+      ? input.initialOrganizationMetadataContainer.initialMetadataSync
+      : null,
+  ].flatMap((initialSync) =>
+    initialSync ? initialSync.outgoingUpdates.map((update) => update.id) : [],
   );
 }
 
@@ -1048,6 +1084,7 @@ export interface ProvisionedOrganization {
   systemContainers: Awaited<
     ReturnType<typeof createProvisionedSystemContainers>
   >;
+  committedCoreMetadataUpdateIds: string[];
   committedProfileUpdateIds: string[];
 }
 
@@ -1126,13 +1163,13 @@ export async function provisionOrganizationInTransaction(
   const rootMetadataDocument = await createInitialRootMetadataDocument(
     tx,
     input,
-    signer.fingerprint,
+    signer,
     rootMetadata,
   );
   const rosterProfileContainer = await createInitialRosterProfileContainer(
     tx,
     input,
-    signer.fingerprint,
+    signer,
   );
   const rosterProfileDocument = await createInitialRosterProfileDocument(
     tx,
@@ -1141,11 +1178,7 @@ export async function provisionOrganizationInTransaction(
     rosterProfileContainer?.container ?? null,
   );
   const organizationMetadataContainer =
-    await createInitialOrganizationMetadataContainer(
-      tx,
-      input,
-      signer.fingerprint,
-    );
+    await createInitialOrganizationMetadataContainer(tx, input, signer);
   const organizationProfileDocument =
     await createInitialOrganizationProfileDocument(
       tx,
@@ -1170,6 +1203,7 @@ export async function provisionOrganizationInTransaction(
     organizationMetadataContainer,
     organizationProfileDocument,
     systemContainers,
+    committedCoreMetadataUpdateIds: listCommittedCoreMetadataUpdateIds(input),
     committedProfileUpdateIds: listCommittedProfileUpdateIds(input),
   };
 }
@@ -1223,6 +1257,7 @@ export function toOrganizationProvisioningResponse(
     rootMetadataAccessEpoch: provisioned.rootMetadataAccessEpoch,
     rootMetadataAccessStateHash: provisioned.rootMetadataAccessStateHash,
     rootMetadataDocument: provisioned.rootMetadataDocument,
+    committedCoreMetadataUpdateIds: provisioned.committedCoreMetadataUpdateIds,
     committedProfileUpdateIds: provisioned.committedProfileUpdateIds,
     ...(provisioned.rosterProfileContainer
       ? {

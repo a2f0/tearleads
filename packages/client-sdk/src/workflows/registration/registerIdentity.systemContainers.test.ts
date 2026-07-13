@@ -3,22 +3,26 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
-import {
-  isDocumentSyncRequest,
-  type RegistrationRequest,
-} from "@tearleads/validators/request";
+import { isDocumentSyncRequest } from "@tearleads/validators/request";
 import { type RegistrationApi, registerIdentity } from "./registerIdentity";
 
-test("registration includes system metadata in the personal-org transaction", async () => {
+test("registration includes initial metadata in the personal-org transaction", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  let initialSystemContainers: RegistrationRequest["initialSystemContainers"];
+  type RegisterUserParameters = Parameters<RegistrationApi["registerUser"]>;
+  let initialRootMetadataDocument: RegisterUserParameters[9] | undefined;
+  let initialRosterProfileContainer: RegisterUserParameters[10];
+  let initialOrganizationMetadataContainer: RegisterUserParameters[12];
+  let initialSystemContainers: RegisterUserParameters[14];
 
   const response = await registerIdentity({
     apiClient: {
       registerUser: async (
         ...args: Parameters<RegistrationApi["registerUser"]>
       ) => {
+        initialRootMetadataDocument = args[9];
+        initialRosterProfileContainer = args[10];
+        initialOrganizationMetadataContainer = args[12];
         initialSystemContainers = args[14];
         return null;
       },
@@ -41,6 +45,15 @@ test("registration includes system metadata in the personal-org transaction", as
   });
 
   expect(response).toBeNull();
+  const initialMetadataSyncs = [
+    initialRootMetadataDocument?.initialSync,
+    initialRosterProfileContainer?.initialMetadataSync,
+    initialOrganizationMetadataContainer?.initialMetadataSync,
+  ];
+  for (const initialMetadataSync of initialMetadataSyncs) {
+    expect(isDocumentSyncRequest(initialMetadataSync)).toBe(true);
+    expect(initialMetadataSync?.outgoingUpdates).toHaveLength(1);
+  }
   expect(initialSystemContainers).toHaveLength(1);
   const provisionedTrash = initialSystemContainers?.[0];
   expect(provisionedTrash?.systemSlot).toMatch(/^sys_v1_[A-Za-z0-9_-]{43}$/);

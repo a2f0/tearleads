@@ -35,8 +35,9 @@ import {
 } from "./principal";
 
 /**
- * An app-owned system container whose encrypted initial metadata body is
- * committed in the same transaction as the organization and document shell.
+ * A built-in or app-owned system container whose encrypted initial metadata
+ * body is committed in the same transaction as the organization and document
+ * shell.
  */
 export interface ProvisionedSystemContainerRequest
   extends ContainerCreateWithMetadataDocumentRequest {
@@ -66,7 +67,7 @@ export function isProvisionedDocumentRequest(
   );
 }
 
-function isProfileDocumentProvisioningRequest(
+function isDocumentProvisioningRequest(
   value: unknown,
 ): value is DocumentCreateRequest | ProvisionedDocumentRequest {
   if (!isDocumentCreateRequest(value)) {
@@ -77,7 +78,7 @@ function isProfileDocumentProvisioningRequest(
   return initialSync === undefined || isProvisionedDocumentRequest(value);
 }
 
-function isProvisionedSystemContainerRequest(
+export function isProvisionedSystemContainerRequest(
   value: unknown,
 ): value is ProvisionedSystemContainerRequest {
   const initialMetadataSync = isPlainObject(value)
@@ -89,6 +90,22 @@ function isProvisionedSystemContainerRequest(
     isDocumentSyncRequest(initialMetadataSync) &&
     initialMetadataSync.outgoingUpdates.length === 1 &&
     (initialMetadataSync.containerRekeys?.length ?? 0) === 0
+  );
+}
+
+function isSystemContainerProvisioningRequest(
+  value: unknown,
+): value is
+  | ContainerCreateWithMetadataDocumentRequest
+  | ProvisionedSystemContainerRequest {
+  if (!isContainerCreateWithMetadataDocumentRequest(value)) {
+    return false;
+  }
+
+  const initialMetadataSync = Reflect.get(value, "initialMetadataSync");
+  return (
+    initialMetadataSync === undefined ||
+    isProvisionedSystemContainerRequest(value)
   );
 }
 
@@ -116,9 +133,12 @@ export interface OrganizationProvisioningRequest {
     memberEnvelopes: PrincipalMemberEnvelopeRequest[];
   };
   initialRootContainer: ContainerMutationRequest;
-  initialRootMetadataDocument: DocumentCreateRequest;
+  initialRootMetadataDocument:
+    | DocumentCreateRequest
+    | ProvisionedDocumentRequest;
   initialRosterProfileContainer?:
     | ContainerCreateWithMetadataDocumentRequest
+    | ProvisionedSystemContainerRequest
     | undefined;
   initialRosterProfileDocument?:
     | DocumentCreateRequest
@@ -133,6 +153,7 @@ export interface OrganizationProvisioningRequest {
    */
   initialOrganizationMetadataContainer?:
     | ContainerCreateWithMetadataDocumentRequest
+    | ProvisionedSystemContainerRequest
     | undefined;
   initialOrganizationProfileDocument?:
     | DocumentCreateRequest
@@ -140,10 +161,10 @@ export interface OrganizationProvisioningRequest {
     | undefined;
   /**
    * Additional app-owned system containers to provision atomically with the
-   * organization (e.g. a trash bin). Each is a child of the root
-   * born Admins-scoped and carries only its metadata document — no separate
-   * profile document. Their system slots are derived from the founder's signing
-   * key, so they are opaque to the server and unique per organization.
+   * organization (e.g. a trash bin). Each is a child of the root born
+   * Admins-scoped and carries only its metadata document — no separate profile
+   * document. Their system slots are derived from the founder's signing key, so
+   * they are opaque to the server and unique per organization.
    */
   initialSystemContainers?: ProvisionedSystemContainerRequest[] | undefined;
 }
@@ -201,21 +222,17 @@ export function isOrganizationProvisioningRequest(
       isPrincipalMemberEnvelopeRequest,
     ) &&
     isContainerMutationRequest(initialRootContainer) &&
-    isDocumentCreateRequest(initialRootMetadataDocument) &&
+    isDocumentProvisioningRequest(initialRootMetadataDocument) &&
     (initialRosterProfileContainer === undefined ||
-      isContainerCreateWithMetadataDocumentRequest(
-        initialRosterProfileContainer,
-      )) &&
+      isSystemContainerProvisioningRequest(initialRosterProfileContainer)) &&
     (initialRosterProfileDocument === undefined ||
-      isProfileDocumentProvisioningRequest(initialRosterProfileDocument)) &&
+      isDocumentProvisioningRequest(initialRosterProfileDocument)) &&
     (initialOrganizationMetadataContainer === undefined ||
-      isContainerCreateWithMetadataDocumentRequest(
+      isSystemContainerProvisioningRequest(
         initialOrganizationMetadataContainer,
       )) &&
     (initialOrganizationProfileDocument === undefined ||
-      isProfileDocumentProvisioningRequest(
-        initialOrganizationProfileDocument,
-      )) &&
+      isDocumentProvisioningRequest(initialOrganizationProfileDocument)) &&
     (initialSystemContainers === undefined ||
       (Array.isArray(initialSystemContainers) &&
         initialSystemContainers.every(isProvisionedSystemContainerRequest)))

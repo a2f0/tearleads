@@ -14,9 +14,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
-  ContainerCreateWithMetadataDocumentRequest,
   CreateOrganizationGroupRequest,
-  DocumentCreateRequest,
   ProvisionedDocumentRequest,
   ProvisionedSystemContainerRequest,
   RegistrationRequest,
@@ -77,14 +75,10 @@ export interface RegistrationApi {
     initialMemberGroup: RegistrationRequest["initialMemberGroup"],
     initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
     initialRootContainer: RegistrationRequest["initialRootContainer"],
-    initialRootMetadataDocument: DocumentCreateRequest,
-    initialRosterProfileContainer?:
-      | ContainerCreateWithMetadataDocumentRequest
-      | undefined,
+    initialRootMetadataDocument: ProvisionedDocumentRequest,
+    initialRosterProfileContainer?: ProvisionedSystemContainerRequest,
     initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined,
-    initialOrganizationMetadataContainer?:
-      | ContainerCreateWithMetadataDocumentRequest
-      | undefined,
+    initialOrganizationMetadataContainer?: ProvisionedSystemContainerRequest,
     initialOrganizationProfileDocument?: ProvisionedDocumentRequest | undefined,
     initialSystemContainers?: ProvisionedSystemContainerRequest[] | undefined,
   ): Promise<RegistrationResponse | null>;
@@ -119,7 +113,7 @@ interface InitialRosterProfileBootstrap {
   >;
   containerMetadataInitialUpdate: Uint8Array;
   containerPlan: InitialSystemContainerCreatePlan;
-  containerRequest: ContainerCreateWithMetadataDocumentRequest;
+  containerRequest: ProvisionedSystemContainerRequest;
   profileDocument: Awaited<
     ReturnType<typeof buildMaterializedDocumentCreatePlan>
   >;
@@ -164,7 +158,7 @@ interface InitialOrganizationMetadataBootstrap {
   >;
   containerMetadataInitialUpdate: Uint8Array;
   containerPlan: InitialSystemContainerCreatePlan;
-  containerRequest: ContainerCreateWithMetadataDocumentRequest;
+  containerRequest: ProvisionedSystemContainerRequest;
   organizationProfileDocument: Awaited<
     ReturnType<typeof buildMaterializedDocumentCreatePlan>
   >;
@@ -226,6 +220,7 @@ export interface OrganizationProvisioningArtifacts {
   organizationId: string;
   organizationMetadataBootstrap: InitialOrganizationMetadataBootstrap;
   rootMetadataDocument: InitialRootMetadataDocument;
+  rootMetadataDocumentRequest: ProvisionedDocumentRequest;
   rosterProfileBootstrap: InitialRosterProfileBootstrap;
   systemContainerBootstraps: InitialSystemContainerBootstrap[];
 }
@@ -259,6 +254,7 @@ interface PersistOrganizationProvisioningStateInput {
   organizationMetadataBootstrap: InitialOrganizationMetadataBootstrap;
   response: OrganizationProvisioningResponse;
   rootMetadataDocument: InitialRootMetadataDocument;
+  rootMetadataDocumentRequest: ProvisionedDocumentRequest;
   rosterProfileBootstrap: InitialRosterProfileBootstrap;
   systemContainerBootstraps: InitialSystemContainerBootstrap[];
 }
@@ -394,6 +390,16 @@ async function verifiedPrincipalPolicyFromInitialGroupRequest(
 
 type PersistBootstrapInput = Parameters<typeof persistRegistrationBootstrap>[1];
 
+function coreMetadataInitialUpdateCommitted(
+  response: OrganizationProvisioningResponse,
+  updateId?: string,
+): boolean {
+  return (
+    updateId !== undefined &&
+    response.committedCoreMetadataUpdateIds?.includes(updateId) === true
+  );
+}
+
 function buildRosterProfileContainerBootstrapInput(
   input: PersistOrganizationProvisioningStateInput,
 ): PersistBootstrapInput["rosterProfileContainer"] {
@@ -410,6 +416,11 @@ function buildRosterProfileContainerBootstrapInput(
     metadataDocumentId: container.metadataDocument.id,
     metadataInitialUpdate:
       input.rosterProfileBootstrap.containerMetadataInitialUpdate,
+    metadataInitialUpdateCommitted: coreMetadataInitialUpdateCommitted(
+      input.response,
+      input.rosterProfileBootstrap.containerRequest.initialMetadataSync
+        .outgoingUpdates[0]?.id,
+    ),
     metadataSnapshot: bytesToBase64(
       input.rosterProfileBootstrap.containerMetadataInitialUpdate,
     ),
@@ -438,6 +449,11 @@ function buildOrganizationMetadataContainerBootstrapInput(
     metadataDocumentId: container.metadataDocument.id,
     metadataInitialUpdate:
       input.organizationMetadataBootstrap.containerMetadataInitialUpdate,
+    metadataInitialUpdateCommitted: coreMetadataInitialUpdateCommitted(
+      input.response,
+      input.organizationMetadataBootstrap.containerRequest.initialMetadataSync
+        .outgoingUpdates[0]?.id,
+    ),
     metadataSnapshot: bytesToBase64(
       input.organizationMetadataBootstrap.containerMetadataInitialUpdate,
     ),
@@ -538,6 +554,10 @@ export async function persistOrganizationProvisioningState(
       rootMetadataAccessStateHash: input.response.rootMetadataAccessStateHash,
       rootMetadataDocumentId: input.response.rootMetadataDocumentId,
       rootMetadataInitialUpdate: input.bootstrap.initialUpdate,
+      rootMetadataInitialUpdateCommitted: coreMetadataInitialUpdateCommitted(
+        input.response,
+        input.rootMetadataDocumentRequest.initialSync.outgoingUpdates[0]?.id,
+      ),
       rootMetadataSnapshot: bytesToBase64(input.bootstrap.initialUpdate),
       rootMetadataState: persistedDocumentCreateStateFromResponse(
         input.rootMetadataDocument.plan,
@@ -607,13 +627,7 @@ async function createOrganizationPrincipalPolicies(input: {
   };
 }
 
-/**
- * Builds every client-signed artifact needed to provision an organization for
- * `userId`: the admin/member group policies, the organization policy, the root
- * container and its metadata document, and the roster/organization profile
- * bootstrap. The organization id is freshly generated here. Shared verbatim by
- * {@link registerIdentity} and the additional-organization workflow.
- */
+/** Builds the signed artifacts shared by registration and org creation. */
 export async function buildOrganizationProvisioningArtifacts(
   input: OrganizationProvisioningArtifactsInput,
 ): Promise<OrganizationProvisioningArtifacts> {
@@ -641,21 +655,17 @@ export async function buildOrganizationProvisioningArtifacts(
     );
   }
 
-  const rootContainer = await buildRootContainerCreatePlan({
-    adminGroup: initialAdminGroup,
-    author,
-    containerId: input.rootContainerId,
-    metadataDocumentId: bootstrap.metadataDocumentId,
-    recipientEncapsulationPublicKey: input.encapsulationKeyPair.publicKey,
-  });
-  const rootContainerProjection = rootContainerWriterProjectionFromCreatePlan(
-    rootContainer.plan,
-  );
-  const rootMetadataDocument = await buildInitialRootMetadataDocument({
-    author,
-    bootstrap,
+  const {
     rootContainer,
     rootContainerProjection,
+    rootMetadataDocument,
+    rootMetadataDocumentRequest,
+  } = await buildInitialRootProvisioning({
+    adminGroup: initialAdminGroup,
+    author,
+    bootstrap,
+    recipientEncapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+    rootContainerId: input.rootContainerId,
     targetSecretKey: input.encapsulationKeyPair.secretKey,
   });
   const rosterProfileBootstrap = await buildInitialRosterProfileBootstrap({
@@ -700,6 +710,7 @@ export async function buildOrganizationProvisioningArtifacts(
     organizationId,
     organizationMetadataBootstrap,
     rootMetadataDocument,
+    rootMetadataDocumentRequest,
     rosterProfileBootstrap,
     systemContainerBootstraps,
   };
@@ -757,6 +768,12 @@ async function buildInitialRosterProfileBootstrap(input: {
     targetSecretKey: input.targetSecretKey,
     trustedLocalProjection: true,
   });
+  const initialMetadataSync = await buildInitialDocumentSyncRequest({
+    author: input.author,
+    containerProjection,
+    initialUpdate,
+    materializedDocument: containerMetadataDocument,
+  });
   const rosterProfileDocument = await buildMaterializedDocumentCreatePlan({
     author: input.author,
     containerProjection,
@@ -779,6 +796,7 @@ async function buildInitialRosterProfileBootstrap(input: {
     containerRequest: {
       systemSlot,
       container: containerPlan.plan.request,
+      initialMetadataSync,
       metadataDocument: containerMetadataDocument.plan.request,
     },
     profileDocument: rosterProfileDocument,
@@ -900,9 +918,6 @@ async function buildInitialOrganizationMetadataBootstrap(
     },
   );
   const containerKey = crypto.getRandomValues(new Uint8Array(32));
-  const membersHead = await referencedPrincipalHeadFromInitialGroupRequest(
-    input.initialMemberGroup,
-  );
   const containerPlan: InitialSystemContainerCreatePlan = {
     containerKey,
     plan: await buildContainerCreatePlan({
@@ -914,14 +929,14 @@ async function buildInitialOrganizationMetadataBootstrap(
         principalEncapsulationPublicKey:
           input.initialMemberGroup.initialGroupPolicy.state
             .encapsulationPublicKey,
-        principalHead: membersHead,
+        principalHead: await referencedPrincipalHeadFromInitialGroupRequest(
+          input.initialMemberGroup,
+        ),
       },
       metadataDocumentId: containerId,
       parentKekMaterial: input.rootContainer.containerKey,
       parentProjection: input.rootContainerProjection,
-      // The Admins policy justifies writing under the root parent; the Members
-      // policy justifies the read grant's KEK recipient target. The two
-      // verifications are independent, so run them in parallel.
+      // Admins justify the parent write; Members justify the read grant.
       principalPolicies: await Promise.all([
         verifiedPrincipalPolicyFromInitialGroupRequest(input.initialAdminGroup),
         verifiedPrincipalPolicyFromInitialGroupRequest(
@@ -968,6 +983,12 @@ async function buildInitialOrganizationMetadataBootstrap(
     containerRequest: {
       systemSlot,
       container: containerPlan.plan.request,
+      initialMetadataSync: await buildInitialDocumentSyncRequest({
+        author: input.author,
+        containerProjection,
+        initialUpdate,
+        materializedDocument: containerMetadataDocument,
+      }),
       metadataDocument: containerMetadataDocument.plan.request,
     },
     organizationProfileDocument,
@@ -977,26 +998,48 @@ async function buildInitialOrganizationMetadataBootstrap(
   };
 }
 
-function buildInitialRootMetadataDocument(input: {
+async function buildInitialRootProvisioning(input: {
+  adminGroup: CreateOrganizationGroupRequest;
   author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
   bootstrap: Awaited<ReturnType<typeof createInitialRootMetadataBootstrap>>;
-  rootContainer: InitialRootContainerCreatePlan;
-  rootContainerProjection: InitialRootContainerProjection;
+  recipientEncapsulationPublicKey: Uint8Array;
+  rootContainerId: string;
   targetSecretKey: Uint8Array;
-}): Promise<InitialRootMetadataDocument> {
-  return buildMaterializedDocumentCreatePlan({
+}) {
+  const rootContainer = await buildRootContainerCreatePlan({
+    adminGroup: input.adminGroup,
     author: input.author,
-    containerProjection: input.rootContainerProjection,
+    containerId: input.rootContainerId,
+    metadataDocumentId: input.bootstrap.metadataDocumentId,
+    recipientEncapsulationPublicKey: input.recipientEncapsulationPublicKey,
+  });
+  const rootContainerProjection = rootContainerWriterProjectionFromCreatePlan(
+    rootContainer.plan,
+  );
+  const rootMetadataDocument = await buildMaterializedDocumentCreatePlan({
+    author: input.author,
+    containerProjection: rootContainerProjection,
     documentId: input.bootstrap.metadataDocumentId,
     knownContainerKeks: new Map([
-      [
-        input.rootContainer.plan.containerKeyEpochId,
-        input.rootContainer.containerKey,
-      ],
+      [rootContainer.plan.containerKeyEpochId, rootContainer.containerKey],
     ]),
     targetSecretKey: input.targetSecretKey,
     trustedLocalProjection: true,
   });
+  return {
+    rootContainer,
+    rootContainerProjection,
+    rootMetadataDocument,
+    rootMetadataDocumentRequest: {
+      ...rootMetadataDocument.plan.request,
+      initialSync: await buildInitialDocumentSyncRequest({
+        author: input.author,
+        containerProjection: rootContainerProjection,
+        initialUpdate: input.bootstrap.initialUpdate,
+        materializedDocument: rootMetadataDocument,
+      }),
+    },
+  };
 }
 
 export async function registerIdentity(
@@ -1025,7 +1068,7 @@ export async function registerIdentity(
     artifacts.initialMemberGroup,
     artifacts.initialOrganizationPolicy,
     artifacts.initialRootContainer,
-    artifacts.rootMetadataDocument.plan.request,
+    artifacts.rootMetadataDocumentRequest,
     artifacts.rosterProfileBootstrap.containerRequest,
     artifacts.rosterProfileBootstrap.profileDocumentRequest,
     artifacts.organizationMetadataBootstrap.containerRequest,
@@ -1051,6 +1094,7 @@ export async function registerIdentity(
     organizationMetadataBootstrap: artifacts.organizationMetadataBootstrap,
     response,
     rootMetadataDocument: artifacts.rootMetadataDocument,
+    rootMetadataDocumentRequest: artifacts.rootMetadataDocumentRequest,
     rosterProfileBootstrap: artifacts.rosterProfileBootstrap,
     systemContainerBootstraps: artifacts.systemContainerBootstraps,
   });

@@ -9,6 +9,7 @@ import {
   isCreateOrganizationRequest,
   isDocumentSyncRequest,
   isProvisionedDocumentRequest,
+  isProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
@@ -83,6 +84,54 @@ test("createOrganization provisions a new org for the existing user and persists
     expect(request.initialOrganizationPolicy.projection).toEqual([
       { memberPrincipalType: "user", memberPrincipalId: userId, role: "admin" },
     ]);
+
+    // The three core container-metadata bodies are committed atomically with
+    // their document shells, so the successful response leaves no deferred
+    // bootstrap writes for the sync engine to replay.
+    expect(
+      isProvisionedDocumentRequest(request.initialRootMetadataDocument),
+    ).toBe(true);
+    if (!isProvisionedDocumentRequest(request.initialRootMetadataDocument)) {
+      throw new Error("Expected provisioned root metadata document request");
+    }
+    expect(
+      request.initialRootMetadataDocument.initialSync.outgoingUpdates,
+    ).toHaveLength(1);
+    expect(
+      request.initialRootMetadataDocument.initialSync
+        .expectedLinkSetManifestHash,
+    ).toBe(request.initialRootMetadataDocument.expectedManifestHash);
+    const rootMetadataUpdateId =
+      request.initialRootMetadataDocument.initialSync.outgoingUpdates[0]?.id;
+    if (!rootMetadataUpdateId) {
+      throw new Error("Expected initial root metadata update id");
+    }
+    const committedCoreMetadataUpdateIds = [rootMetadataUpdateId];
+
+    const provisionedCoreContainers = [
+      request.initialRosterProfileContainer,
+      request.initialOrganizationMetadataContainer,
+    ];
+    for (const provisionedContainer of provisionedCoreContainers) {
+      if (!isProvisionedSystemContainerRequest(provisionedContainer)) {
+        throw new Error("Expected provisioned core metadata container");
+      }
+      const initialMetadataSync = provisionedContainer.initialMetadataSync;
+      expect(isDocumentSyncRequest(initialMetadataSync)).toBe(true);
+      expect(initialMetadataSync.outgoingUpdates).toHaveLength(1);
+      expect(initialMetadataSync.expectedLinkSetManifestHash).toBe(
+        provisionedContainer?.metadataDocument.expectedManifestHash,
+      );
+      const updateId = initialMetadataSync.outgoingUpdates[0]?.id;
+      if (!updateId) {
+        throw new Error("Expected initial container metadata update id");
+      }
+      committedCoreMetadataUpdateIds.push(updateId);
+    }
+    expect(response?.committedCoreMetadataUpdateIds).toEqual(
+      committedCoreMetadataUpdateIds,
+    );
+
     const provisionedProfiles = [
       request.initialRosterProfileDocument,
       request.initialOrganizationProfileDocument,
@@ -148,6 +197,14 @@ test("createOrganization provisions a new org for the existing user and persists
         parentId: request.rootContainerId,
       }),
     );
+    for (const { container } of containers) {
+      expect(
+        await sqlContainerContentsPersistence.listPendingUpdates(
+          execSql,
+          container.id,
+        ),
+      ).toHaveLength(0);
+    }
 
     // Organization profile document persisted under the org-scoped local id.
     const organizationProfileDocument =
@@ -182,6 +239,57 @@ test("createOrganization provisions a new org for the existing user and persists
       `Organization created (${request.organizationId})`,
       "Local organization bootstrap persisted",
     ]);
+  } finally {
+    close();
+  }
+});
+
+test("createOrganization retains core metadata updates when the response omits acknowledgements", async () => {
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const { close, execSql } = await createTestExecSql(
+    "organizations-create-organization-legacy-core-metadata-test",
+  );
+  let captured: CreateOrganizationRequest | null = null;
+
+  try {
+    const response = await createOrganization({
+      apiClient: {
+        createOrganization: async (request) => {
+          captured = request;
+          const currentResponse =
+            await respondToOrganizationProvisioning(request);
+          const {
+            committedCoreMetadataUpdateIds: _ignored,
+            ...legacyResponse
+          } = currentResponse;
+          return legacyResponse;
+        },
+      },
+      dbClient: createClient(execSql),
+      encapsulationKeyPair,
+      signingKeyPair,
+      userId: crypto.randomUUID(),
+    });
+
+    expect(response).not.toBeNull();
+    expectCapturedRequest(captured);
+    const containers =
+      await sqlContainerContentsPersistence.loadContainers(execSql);
+    expect(containers).toHaveLength(3);
+    expect(
+      await Promise.all(
+        containers.map(
+          async ({ container }) =>
+            (
+              await sqlContainerContentsPersistence.listPendingUpdates(
+                execSql,
+                container.id,
+              )
+            ).length,
+        ),
+      ),
+    ).toEqual([1, 1, 1]);
   } finally {
     close();
   }
@@ -271,12 +379,14 @@ test("createOrganization provisions configured system containers (Trash) atomica
         name: "Trash",
       }),
     );
-    expect(
-      await sqlContainerContentsPersistence.listPendingUpdates(
-        execSql,
-        trashContainerState?.container.id ?? "",
-      ),
-    ).toHaveLength(0);
+    for (const { container } of containers) {
+      expect(
+        await sqlContainerContentsPersistence.listPendingUpdates(
+          execSql,
+          container.id,
+        ),
+      ).toHaveLength(0);
+    }
   } finally {
     close();
   }
