@@ -1,5 +1,10 @@
 import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
-import { type KeyboardEvent, type ReactNode, useMemo } from "react";
+import {
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+  useMemo,
+} from "react";
 import {
   MiniAppButton,
   MiniAppStatus,
@@ -9,12 +14,14 @@ import {
   getVisibleMiniAppTableColumnIds,
   MiniAppColumnMenuButton,
   type MiniAppColumnMenuOption,
+  MiniAppRowActionsCell,
   MiniAppTable,
   MiniAppTableCell,
   type MiniAppTableColumn,
   MiniAppTableFrame,
   MiniAppTableRow,
   MiniAppTableText,
+  miniAppRowActionsColumn,
   useMiniAppColumnVisibility,
 } from "../../../components/shared/MiniAppTable";
 import {
@@ -23,6 +30,7 @@ import {
   MiniAppVirtualTableSpacerRow,
   useMiniAppVirtualRows,
 } from "../../../components/shared/MiniAppVirtual";
+import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import {
   getAccessLabel,
@@ -40,6 +48,8 @@ type GrantTableColumnId =
   | "access"
   | "updated"
   | "action";
+// On touch the inline "action" (Revoke) column is swapped for the kebab column.
+type GrantVisibleColumnId = GrantTableColumnId | "actions";
 
 const GRANT_TABLE_COLUMN_IDS: ReadonlyArray<GrantTableColumnId> = [
   "principal",
@@ -47,6 +57,14 @@ const GRANT_TABLE_COLUMN_IDS: ReadonlyArray<GrantTableColumnId> = [
   "access",
   "updated",
   "action",
+];
+// The data columns without the trailing inline "action" (Revoke) column, used
+// when the touch kebab replaces it.
+const GRANT_DATA_COLUMN_IDS: ReadonlyArray<GrantTableColumnId> = [
+  "principal",
+  "container",
+  "access",
+  "updated",
 ];
 const GRANT_TOGGLEABLE_COLUMN_IDS: ReadonlyArray<GrantTableColumnId> = [
   "container",
@@ -88,6 +106,10 @@ const GRANT_TABLE_COLUMNS = [
     width: "6rem",
   },
 ] satisfies ReadonlyArray<MiniAppTableColumn & { id: GrantTableColumnId }>;
+
+const GRANT_DATA_TABLE_COLUMNS = GRANT_TABLE_COLUMNS.filter(
+  (column) => column.id !== "action",
+);
 
 function renderGrantCell(
   columnId: GrantTableColumnId,
@@ -155,41 +177,65 @@ function renderGrantCell(
   }
 }
 
-function useGrantTableColumns(): {
+function useGrantTableColumns(showActions: boolean): {
   columns: ReadonlyArray<MiniAppTableColumn>;
-  visibleColumnIds: ReadonlyArray<GrantTableColumnId>;
+  visibleColumnIds: ReadonlyArray<GrantVisibleColumnId>;
 } {
   const columnVisibility = useMiniAppColumnVisibility<GrantTableColumnId>({
     storageKey: "tearleads.org-manager.grants:hidden-columns",
     toggleableColumnIds: GRANT_TOGGLEABLE_COLUMN_IDS,
   });
-  const visibleColumnIds = useMemo(
-    () =>
-      getVisibleMiniAppTableColumnIds(
-        GRANT_TABLE_COLUMN_IDS,
+  const visibleColumnIds = useMemo<ReadonlyArray<GrantVisibleColumnId>>(() => {
+    if (showActions) {
+      const dataColumnIds = getVisibleMiniAppTableColumnIds(
+        GRANT_DATA_COLUMN_IDS,
         columnVisibility.hiddenColumns,
-      ),
-    [columnVisibility.hiddenColumns],
-  );
-  const columns = useMemo(
-    () =>
-      addMiniAppTableHeaderAction(
-        GRANT_TABLE_COLUMNS.filter(
+      );
+      return [...dataColumnIds, "actions"];
+    }
+    return getVisibleMiniAppTableColumnIds(
+      GRANT_TABLE_COLUMN_IDS,
+      columnVisibility.hiddenColumns,
+    );
+  }, [columnVisibility.hiddenColumns, showActions]);
+  const columns = useMemo(() => {
+    const columnMenu = (
+      <MiniAppColumnMenuButton
+        ariaLabel={ORG_MANAGER_LABELS.columns}
+        hiddenColumns={columnVisibility.hiddenColumns}
+        options={GRANT_COLUMN_MENU_OPTIONS}
+        stateLabels={{
+          off: ORG_MANAGER_LABELS.columnsMenuStateOff,
+          on: ORG_MANAGER_LABELS.columnsMenuStateOn,
+        }}
+        toggleColumn={columnVisibility.toggleColumn}
+      />
+    );
+    if (showActions) {
+      // Keep the column-menu trigger on the last data column and append the
+      // kebab column, which stands in for the inline Revoke button on touch.
+      const dataColumns = addMiniAppTableHeaderAction(
+        GRANT_DATA_TABLE_COLUMNS.filter(
           (column) => !columnVisibility.hiddenColumns.has(column.id),
         ),
-        <MiniAppColumnMenuButton
-          ariaLabel={ORG_MANAGER_LABELS.columns}
-          hiddenColumns={columnVisibility.hiddenColumns}
-          options={GRANT_COLUMN_MENU_OPTIONS}
-          stateLabels={{
-            off: ORG_MANAGER_LABELS.columnsMenuStateOff,
-            on: ORG_MANAGER_LABELS.columnsMenuStateOn,
-          }}
-          toggleColumn={columnVisibility.toggleColumn}
-        />,
+        columnMenu,
+      );
+      return [
+        ...dataColumns,
+        miniAppRowActionsColumn(ORG_MANAGER_LABELS.rowActionsColumn),
+      ];
+    }
+    return addMiniAppTableHeaderAction(
+      GRANT_TABLE_COLUMNS.filter(
+        (column) => !columnVisibility.hiddenColumns.has(column.id),
       ),
-    [columnVisibility.hiddenColumns, columnVisibility.toggleColumn],
-  );
+      columnMenu,
+    );
+  }, [
+    columnVisibility.hiddenColumns,
+    columnVisibility.toggleColumn,
+    showActions,
+  ]);
 
   return { columns, visibleColumnIds };
 }
@@ -200,6 +246,7 @@ export function GrantTable({
   grants,
   label,
   mutating,
+  openGrantContextMenu,
   openGrantRoute,
   revokeGrant,
 }: {
@@ -208,6 +255,12 @@ export function GrantTable({
   grants: ReadonlyArray<OrganizationContainerGrant>;
   label: string;
   mutating: boolean;
+  openGrantContextMenu?:
+    | ((
+        event: MouseEvent<HTMLElement>,
+        grant: OrganizationContainerGrant,
+      ) => void)
+    | undefined;
   openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
@@ -215,7 +268,10 @@ export function GrantTable({
     rowHeight: MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
     rows: grants,
   });
-  const { columns, visibleColumnIds } = useGrantTableColumns();
+  // Touch layouts have no right-click; the kebab replaces the inline Revoke
+  // button and opens the same Open / Revoke menu right-click / long-press does.
+  const showActions = useRoutedLayoutActive() && Boolean(openGrantContextMenu);
+  const { columns, visibleColumnIds } = useGrantTableColumns(showActions);
 
   if (grants.length === 0) {
     return (
@@ -259,17 +315,30 @@ export function GrantTable({
               interactive
               key={`${grant.subjectType}:${grant.subjectId}:${grant.containerId}:${grant.accessLevel}`}
               onClick={openGrantDetailRoute}
+              onContextMenu={
+                openGrantContextMenu
+                  ? (event) => openGrantContextMenu(event, grant)
+                  : undefined
+              }
               onKeyDown={handleGrantRowKeyDown}
               role="button"
               tabIndex={0}
             >
               {visibleColumnIds.map((columnId) =>
-                renderGrantCell(columnId, {
-                  canRevokeGrant,
-                  grant,
-                  mutating,
-                  revokeGrant,
-                }),
+                columnId === "actions" ? (
+                  <MiniAppRowActionsCell
+                    key="actions"
+                    label={`${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${getGrantPrincipalLabel(grant)}`}
+                    onOpen={(event) => openGrantContextMenu?.(event, grant)}
+                  />
+                ) : (
+                  renderGrantCell(columnId, {
+                    canRevokeGrant,
+                    grant,
+                    mutating,
+                    revokeGrant,
+                  })
+                ),
               )}
             </MiniAppTableRow>
           );

@@ -10,7 +10,10 @@ import { compactFingerprint } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { GroupsView } from "./GroupsView";
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  document.documentElement.removeAttribute("data-navigation-mode");
+});
 
 const group: OrganizationGroupSummary = {
   createdAt: "2026-05-20T12:00:00.000Z",
@@ -367,6 +370,30 @@ test("org manager groups view exposes new group from group row context menus", (
   );
 
   expect(openCreateGroupDialogCount).toBe(1);
+});
+
+test("org manager groups view shows a touch kebab that opens the group menu", () => {
+  document.documentElement.setAttribute("data-navigation-mode", "routed");
+  const deletedGroupIds: string[] = [];
+  const view = renderGroupsView({
+    deleteGroup: (groupId) => deletedGroupIds.push(groupId),
+    groups: [customGroup],
+    selectedGroup: null,
+    selectedGroupId: null,
+  });
+
+  fireEvent.click(
+    view.getByRole("button", {
+      name: `${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${customGroup.name}`,
+    }),
+  );
+  fireEvent.click(
+    view.getByRole("button", {
+      name: ORG_MANAGER_LABELS.deleteGroupAction,
+    }),
+  );
+
+  expect(deletedGroupIds).toEqual([customGroup.groupId]);
 });
 
 test("org manager groups view opens roster detail from a group member", () => {

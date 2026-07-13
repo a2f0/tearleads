@@ -24,6 +24,7 @@ import {
   useMiniAppVirtualRows,
 } from "../../components/shared/MiniAppVirtual";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
+import { useRoutedLayoutActive } from "../../navigation/useRoutedLayoutActive";
 import { formatMiniAppDateTime } from "../../utils/formatMiniAppDate";
 import { NOTES_LABELS } from "./labels";
 import type { NotesSetSidebar } from "./types";
@@ -189,7 +190,7 @@ export function NotesListHome(props: NotesSidebarProps) {
   );
 }
 
-function NotesSidebar(props: NotesSidebarProps) {
+function NotesSidebar(props: NotesSidebarProps & { showActions: boolean }) {
   return (
     <MiniAppSidebar
       className="mini-app-sidebar--virtual"
@@ -223,6 +224,9 @@ export function useNotesSidebarPanel(
     selectedNoteId,
     setSidebar,
   } = params;
+  // Touch layouts (phone + tablet) have no right-click, so surface the row
+  // kebab in the sidebar rail too. The mobile list-home shows its own kebab.
+  const showActions = useRoutedLayoutActive();
   const sidebar = useMemo(
     () => (
       <NotesSidebar
@@ -232,6 +236,7 @@ export function useNotesSidebarPanel(
         ready={ready}
         selectNote={selectNote}
         selectedNoteId={selectedNoteId}
+        showActions={showActions}
       />
     ),
     [
@@ -241,6 +246,7 @@ export function useNotesSidebarPanel(
       ready,
       selectNote,
       selectedNoteId,
+      showActions,
     ],
   );
 

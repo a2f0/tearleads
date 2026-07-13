@@ -14,12 +14,14 @@ import {
   getVisibleMiniAppTableColumnIds,
   MiniAppColumnMenuButton,
   type MiniAppColumnMenuOption,
+  MiniAppRowActionsCell,
   MiniAppTable,
   MiniAppTableCell,
   type MiniAppTableColumn,
   MiniAppTableFrame,
   MiniAppTableRow,
   MiniAppTableText,
+  miniAppRowActionsColumn,
   useMiniAppColumnVisibility,
 } from "../../../components/shared/MiniAppTable";
 import {
@@ -28,6 +30,7 @@ import {
   MiniAppVirtualTableSpacerRow,
   useMiniAppVirtualRows,
 } from "../../../components/shared/MiniAppVirtual";
+import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { compactFingerprint, isKeyboardActivationKey } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -41,6 +44,8 @@ export type RosterUserContextMenuHandler = (
 ) => void;
 
 type DirectoryTableColumnId = "user" | "status" | "joined";
+// Adds the trailing touch-only kebab column to the toggleable data columns.
+type DirectoryVisibleColumnId = DirectoryTableColumnId | "actions";
 
 const DIRECTORY_TABLE_COLUMN_IDS: ReadonlyArray<DirectoryTableColumnId> = [
   "user",
@@ -138,41 +143,52 @@ function renderDirectoryUserCell(
   }
 }
 
-function useDirectoryTableColumns(): {
+function useDirectoryTableColumns(showActions: boolean): {
   columns: ReadonlyArray<MiniAppTableColumn>;
-  visibleColumnIds: ReadonlyArray<DirectoryTableColumnId>;
+  visibleColumnIds: ReadonlyArray<DirectoryVisibleColumnId>;
 } {
   const columnVisibility = useMiniAppColumnVisibility<DirectoryTableColumnId>({
     storageKey: "tearleads.org-manager.directory:hidden-columns",
     toggleableColumnIds: DIRECTORY_TOGGLEABLE_COLUMN_IDS,
   });
-  const visibleColumnIds = useMemo(
-    () =>
-      getVisibleMiniAppTableColumnIds(
-        DIRECTORY_TABLE_COLUMN_IDS,
-        columnVisibility.hiddenColumns,
+  const visibleColumnIds = useMemo<
+    ReadonlyArray<DirectoryVisibleColumnId>
+  >(() => {
+    const dataColumnIds = getVisibleMiniAppTableColumnIds(
+      DIRECTORY_TABLE_COLUMN_IDS,
+      columnVisibility.hiddenColumns,
+    );
+    return showActions ? [...dataColumnIds, "actions"] : dataColumnIds;
+  }, [columnVisibility.hiddenColumns, showActions]);
+  const columns = useMemo(() => {
+    // Keep the column-menu trigger on the last data column; the kebab column is
+    // appended after so the menu never lands in the narrow actions header.
+    const dataColumns = addMiniAppTableHeaderAction(
+      DIRECTORY_TABLE_COLUMNS.filter(
+        (column) => !columnVisibility.hiddenColumns.has(column.id),
       ),
-    [columnVisibility.hiddenColumns],
-  );
-  const columns = useMemo(
-    () =>
-      addMiniAppTableHeaderAction(
-        DIRECTORY_TABLE_COLUMNS.filter(
-          (column) => !columnVisibility.hiddenColumns.has(column.id),
-        ),
-        <MiniAppColumnMenuButton
-          ariaLabel={ORG_MANAGER_LABELS.columns}
-          hiddenColumns={columnVisibility.hiddenColumns}
-          options={DIRECTORY_COLUMN_MENU_OPTIONS}
-          stateLabels={{
-            off: ORG_MANAGER_LABELS.columnsMenuStateOff,
-            on: ORG_MANAGER_LABELS.columnsMenuStateOn,
-          }}
-          toggleColumn={columnVisibility.toggleColumn}
-        />,
-      ),
-    [columnVisibility.hiddenColumns, columnVisibility.toggleColumn],
-  );
+      <MiniAppColumnMenuButton
+        ariaLabel={ORG_MANAGER_LABELS.columns}
+        hiddenColumns={columnVisibility.hiddenColumns}
+        options={DIRECTORY_COLUMN_MENU_OPTIONS}
+        stateLabels={{
+          off: ORG_MANAGER_LABELS.columnsMenuStateOff,
+          on: ORG_MANAGER_LABELS.columnsMenuStateOn,
+        }}
+        toggleColumn={columnVisibility.toggleColumn}
+      />,
+    );
+    return showActions
+      ? [
+          ...dataColumns,
+          miniAppRowActionsColumn(ORG_MANAGER_LABELS.rowActionsColumn),
+        ]
+      : dataColumns;
+  }, [
+    columnVisibility.hiddenColumns,
+    columnVisibility.toggleColumn,
+    showActions,
+  ]);
 
   return { columns, visibleColumnIds };
 }
@@ -197,7 +213,11 @@ export function DirectoryTable({
     rowHeight: MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
     rows: users,
   });
-  const { columns, visibleColumnIds } = useDirectoryTableColumns();
+  // Touch layouts have no right-click; add the kebab wherever the row context
+  // menu is wired.
+  const showActions =
+    useRoutedLayoutActive() && Boolean(openRosterUserContextMenu);
+  const { columns, visibleColumnIds } = useDirectoryTableColumns(showActions);
 
   if (!directory) {
     return (
@@ -260,10 +280,23 @@ export function DirectoryTable({
               tabIndex={selectUser ? 0 : undefined}
             >
               {visibleColumnIds.map((columnId) =>
-                renderDirectoryUserCell(columnId, {
-                  profileDisplayNamesByUserId,
-                  user,
-                }),
+                columnId === "actions" ? (
+                  <MiniAppRowActionsCell
+                    key="actions"
+                    label={`${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${getDirectoryUserDisplayName(
+                      user,
+                      profileDisplayNamesByUserId,
+                    )}`}
+                    onOpen={(event) =>
+                      openRosterUserContextMenu?.(event, user.userId)
+                    }
+                  />
+                ) : (
+                  renderDirectoryUserCell(columnId, {
+                    profileDisplayNamesByUserId,
+                    user,
+                  })
+                ),
               )}
             </MiniAppTableRow>
           );

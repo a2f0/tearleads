@@ -20,10 +20,7 @@ import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
 import { getExplorerContainerIcon } from "../../explorerContainerIcons";
 import { EXPLORER_LABELS } from "../../labels";
-import {
-  type ExplorerItemColumnId,
-  getVisibleExplorerItemColumnIds,
-} from "./explorerItemColumnIds";
+import type { ExplorerItemColumnId } from "./explorerItemColumnIds";
 
 function getSortAria(
   sort: ContainerItemSort,
@@ -132,13 +129,13 @@ function buildExplorerItemColumn(
 }
 
 export function getExplorerItemTableColumns(params: {
+  columnIds: ReadonlyArray<ExplorerItemColumnId>;
   compact: boolean;
-  hiddenColumns: ReadonlySet<ExplorerItemColumnId>;
   onSort: (key: ContainerItemSortKey) => void;
   sort: ContainerItemSort;
 }): ReadonlyArray<MiniAppTableColumn> {
-  const { compact, hiddenColumns, onSort, sort } = params;
-  return getVisibleExplorerItemColumnIds({ compact, hiddenColumns }).map((id) =>
+  const { columnIds, compact, onSort, sort } = params;
+  return columnIds.map((id) =>
     buildExplorerItemColumn(id, { compact, onSort, sort }),
   );
 }

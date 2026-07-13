@@ -1,12 +1,14 @@
 import { afterEach, expect, test } from "bun:test";
 import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
+import { getGrantPrincipalLabel } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
 import type { OrgManagerGrantRouteRef } from "../routes";
 import { GrantTable } from "./GrantTable";
 
 afterEach(() => {
   cleanup();
+  document.documentElement.removeAttribute("data-navigation-mode");
   globalThis.localStorage.clear();
 });
 
@@ -87,6 +89,39 @@ test("org manager grant table toggles optional columns", () => {
 
   expect(headerText).not.toContain(ORG_MANAGER_LABELS.updated);
   expect(table.textContent).toContain(ORG_MANAGER_LABELS.builtIn);
+});
+
+test("org manager grant table swaps the inline revoke for a touch kebab", () => {
+  document.documentElement.setAttribute("data-navigation-mode", "routed");
+  const customGrant = {
+    ...grant,
+    isBuiltin: false,
+  } satisfies OrganizationContainerGrant;
+  const opened: OrganizationContainerGrant[] = [];
+  const view = render(
+    <GrantTable
+      canRevokeGrants
+      emptyLabel={ORG_MANAGER_LABELS.noDirectContainerLinks}
+      grants={[customGrant]}
+      label={ORG_MANAGER_LABELS.grants}
+      mutating={false}
+      openGrantContextMenu={(_event, grantArg) => opened.push(grantArg)}
+      openGrantRoute={() => undefined}
+      revokeGrant={() => undefined}
+    />,
+  );
+
+  // The inline Revoke button is replaced by the kebab on touch.
+  expect(
+    view.queryByRole("button", { name: ORG_MANAGER_LABELS.revoke }),
+  ).toBeNull();
+  const actionsButton = view.getByRole("button", {
+    name: `${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${getGrantPrincipalLabel(customGrant)}`,
+  });
+
+  fireEvent.click(actionsButton);
+
+  expect(opened).toEqual([customGrant]);
 });
 
 test("org manager grant table opens grant detail routes from rows", () => {

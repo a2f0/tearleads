@@ -20,6 +20,7 @@ import {
 } from "../../components/shared/MiniAppVirtual";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { getContactDisplayName } from "../../document-types/contact/contactDocumentModel";
+import { useRoutedLayoutActive } from "../../navigation/useRoutedLayoutActive";
 import { getViewerRelativeContactLabel } from "../../stores/contacts/contactLabels";
 import { CONTACTS_LABELS } from "./labels";
 import type { ContactEntries } from "./types";
@@ -247,6 +248,9 @@ export function useContactsSidebarPanel(params: {
     setSelectedContactId,
     setSidebar,
   } = params;
+  // Touch layouts (phone + tablet) have no right-click, so surface the row
+  // kebab in the sidebar rail too. The mobile list-home shows its own kebab.
+  const showActions = useRoutedLayoutActive();
 
   const sidebar = useMemo(
     () => (
@@ -271,6 +275,7 @@ export function useContactsSidebarPanel(params: {
           ready={ready}
           selectedContactId={selectedContactId}
           setSelectedContactId={setSelectedContactId}
+          showActions={showActions}
         />
       </MiniAppSidebar>
     ),
@@ -283,6 +288,7 @@ export function useContactsSidebarPanel(params: {
       ready,
       selectedContactId,
       setSelectedContactId,
+      showActions,
     ],
   );
 

@@ -21,6 +21,7 @@ import {
 } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
 import type { OrgManagerGrantRouteRef } from "../routes";
+import { useGrantContextMenu } from "./GrantContextMenu";
 import { GrantTable } from "./GrantTable";
 
 function grantsBySubjectType(
@@ -51,6 +52,13 @@ export function GrantsView({
   selectedGrant: OrganizationContainerGrant | null;
   selectedGrantRef: OrgManagerGrantRouteRef | null;
 }) {
+  const { grantContextMenu, openGrantContextMenu } = useGrantContextMenu({
+    canRevokeGrants,
+    mutating,
+    openGrantRoute,
+    revokeGrant,
+  });
+
   if (selectedGrantRef) {
     return (
       <GrantDetailView
@@ -91,6 +99,7 @@ export function GrantsView({
           grants={groupGrants}
           label={ORG_MANAGER_LABELS.groupContainerLinks}
           mutating={mutating}
+          openGrantContextMenu={openGrantContextMenu}
           openGrantRoute={openGrantRoute}
           revokeGrant={revokeGrant}
         />
@@ -105,6 +114,7 @@ export function GrantsView({
           grants={userGrants}
           label={ORG_MANAGER_LABELS.userContainerLinks}
           mutating={mutating}
+          openGrantContextMenu={openGrantContextMenu}
           openGrantRoute={openGrantRoute}
           revokeGrant={revokeGrant}
         />
@@ -119,10 +129,12 @@ export function GrantsView({
           grants={organizationGrants}
           label={ORG_MANAGER_LABELS.organizationContainerLinks}
           mutating={mutating}
+          openGrantContextMenu={openGrantContextMenu}
           openGrantRoute={openGrantRoute}
           revokeGrant={revokeGrant}
         />
       </MiniAppSection>
+      {grantContextMenu}
     </div>
   );
 }

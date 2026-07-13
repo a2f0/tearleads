@@ -19,6 +19,7 @@ import {
   getMiniAppVirtualFrameStyle,
   MiniAppVirtualTableSpacerRow,
 } from "../../../../components/shared/MiniAppVirtual";
+import { useRoutedLayoutActive } from "../../../../navigation/useRoutedLayoutActive";
 import { useRoutedLayoutTier } from "../../../../navigation/useRoutedLayoutTier";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../../labels";
@@ -279,30 +280,53 @@ function useExplorerContainerItemTableColumns({
   sort,
   toggleColumn,
 }: Pick<ItemTableProps, "hiddenColumns" | "onSort" | "sort" | "toggleColumn">) {
+  // The phone tier trims the columns; the touch (routed) layout — phone AND
+  // tablet/iPad — adds the trailing kebab, the stand-in for right-click.
   const compact = useRoutedLayoutTier() === "mobile";
+  const showActions = useRoutedLayoutActive();
   const columnIds = useMemo(
-    () => getVisibleExplorerItemColumnIds({ compact, hiddenColumns }),
-    [compact, hiddenColumns],
-  );
-  const columns = useMemo(
     () =>
-      addMiniAppTableHeaderAction(
-        getExplorerItemTableColumns({ compact, hiddenColumns, onSort, sort }),
-        compact ? null : (
-          <MiniAppColumnMenuButton
-            ariaLabel={EXPLORER_LABELS.columnsMenuButton}
-            hiddenColumns={hiddenColumns}
-            options={EXPLORER_COLUMN_MENU_OPTIONS}
-            stateLabels={{
-              off: EXPLORER_LABELS.columnsMenuStateOff,
-              on: EXPLORER_LABELS.columnsMenuStateOn,
-            }}
-            toggleColumn={toggleColumn}
-          />
-        ),
-      ),
-    [compact, hiddenColumns, onSort, sort, toggleColumn],
+      getVisibleExplorerItemColumnIds({ compact, hiddenColumns, showActions }),
+    [compact, hiddenColumns, showActions],
   );
+  const columns = useMemo(() => {
+    // Keep the column-menu button on the last DATA column and append the kebab
+    // column after it, so the menu never lands in the narrow actions header.
+    const dataColumnIds = columnIds.filter((id) => id !== "actions");
+    const dataColumns = addMiniAppTableHeaderAction(
+      getExplorerItemTableColumns({
+        columnIds: dataColumnIds,
+        compact,
+        onSort,
+        sort,
+      }),
+      compact ? null : (
+        <MiniAppColumnMenuButton
+          ariaLabel={EXPLORER_LABELS.columnsMenuButton}
+          hiddenColumns={hiddenColumns}
+          options={EXPLORER_COLUMN_MENU_OPTIONS}
+          stateLabels={{
+            off: EXPLORER_LABELS.columnsMenuStateOff,
+            on: EXPLORER_LABELS.columnsMenuStateOn,
+          }}
+          toggleColumn={toggleColumn}
+        />
+      ),
+    );
+    if (dataColumnIds.length === columnIds.length) {
+      return dataColumns;
+    }
+
+    return [
+      ...dataColumns,
+      ...getExplorerItemTableColumns({
+        columnIds: ["actions"],
+        compact,
+        onSort,
+        sort,
+      }),
+    ];
+  }, [compact, columnIds, hiddenColumns, onSort, sort, toggleColumn]);
 
   return { columnIds, columns };
 }
