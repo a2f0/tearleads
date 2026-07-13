@@ -169,6 +169,9 @@ export function useOrgManagerRosterActions(
 
   const importRosterUserIntoContacts = useCallback(
     (userId: string) => {
+      // Import immediately rather than opening the import dialog: switch to
+      // Contacts (landing on its default route) and let it create + select the
+      // contact from the message below.
       openMiniApp({
         appId: "contacts",
         message: {
@@ -176,7 +179,6 @@ export function useOrgManagerRosterActions(
           type: "import-contact",
           userId,
         },
-        pathSegments: ["import"],
       });
     },
     [openMiniApp],
