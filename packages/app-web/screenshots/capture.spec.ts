@@ -170,11 +170,14 @@ async function captureRouted(page: Page, outputDir: string): Promise<void> {
 }
 
 // Screenshots the currently-open window (maximized for a large, uniform capture)
-// and then closes it so the desktop is empty for the next app.
+// and then closes it so the desktop is empty for the next app. When `onOpen` is
+// given it runs after the window has settled and before the shot — used to click
+// into a detail view.
 async function captureOpenWindow(
   page: Page,
   outputDir: string,
   name: string,
+  onOpen?: (window: Locator) => Promise<void>,
 ): Promise<void> {
   const pane = visiblePane(page);
   const window = pane.locator(".window").first();
@@ -190,6 +193,9 @@ async function captureOpenWindow(
     .first()
     .waitFor({ state: "hidden", timeout: 10_000 })
     .catch(() => {});
+  if (onOpen) {
+    await onOpen(window);
+  }
   await window.screenshot({ path: path.join(outputDir, `${name}.png`) });
   await window.locator(".window-close").click();
   await expect(pane.locator(".window")).toHaveCount(0);
@@ -256,7 +262,10 @@ const openDriversLicenseDetail: OpenDetail = async (scope) => {
   // blank/half-loaded image.
   const images = scope.locator("img.structured-document-slot-preview-image");
   await expect(images).toHaveCount(2, { timeout: 20_000 });
-  for (const image of await images.all()) {
+  // Query each image via nth() rather than a captured all() snapshot, so a
+  // re-render between assertions can't leave us holding a detached element.
+  for (let i = 0; i < 2; i++) {
+    const image = images.nth(i);
     await expect(image).toHaveJSProperty("complete", true);
     await expect(image).not.toHaveJSProperty("naturalWidth", 0);
   }
@@ -321,22 +330,7 @@ async function captureWindowedDetails(
 ): Promise<void> {
   for (const screen of DETAIL_SCREENS) {
     await openWindowedApp(page, screen.menuLabel);
-    const pane = visiblePane(page);
-    const window = pane.locator(".window").first();
-    await window.waitFor({ state: "visible", timeout: 20_000 });
-    await disableAnimations(page);
-    await window.locator(".window-maximize").click();
-    await window
-      .getByText("Loading...")
-      .first()
-      .waitFor({ state: "hidden", timeout: 10_000 })
-      .catch(() => {});
-    await screen.open(window);
-    await window.screenshot({
-      path: path.join(outputDir, `${screen.name}.png`),
-    });
-    await window.locator(".window-close").click();
-    await expect(pane.locator(".window")).toHaveCount(0);
+    await captureOpenWindow(page, outputDir, screen.name, screen.open);
   }
 }
 
