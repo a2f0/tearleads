@@ -16,6 +16,14 @@ const LOADING_PRIMARY: PrimaryLocalOrganizationState = {
   ready: false,
 };
 
+// Auth and the container tree can settle before a concurrent local-org read
+// observes registration persistence. Keep bootstrap waiting through that short
+// index-convergence window instead of permanently classifying the org as custom.
+// Back off after the startup window, but keep checking for late persistence.
+const PRIMARY_ORGANIZATION_FAST_RETRY_DELAY_MS = 500;
+const PRIMARY_ORGANIZATION_SLOW_RETRY_DELAY_MS = 5_000;
+const PRIMARY_ORGANIZATION_FAST_RETRY_LIMIT = 40;
+
 export function usePrimaryLocalOrganization(input: {
   readonly enabled: boolean;
   readonly refreshKey: string;
@@ -32,27 +40,55 @@ export function usePrimaryLocalOrganization(input: {
     }
 
     let cancelled = false;
-    setState((previous) =>
-      previous.ready && previous.organizationId ? previous : LOADING_PRIMARY,
-    );
-    void input.tearleads.organizations
-      .listLocalOrganizations()
-      .then((organizations) => {
-        if (!cancelled) {
-          setState({
-            organizationId: organizations[0]?.organizationId ?? null,
-            ready: true,
-          });
+    let retryCount = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    setState(LOADING_PRIMARY);
+
+    function scheduleRetry(): void {
+      const retryDelay =
+        retryCount < PRIMARY_ORGANIZATION_FAST_RETRY_LIMIT
+          ? PRIMARY_ORGANIZATION_FAST_RETRY_DELAY_MS
+          : PRIMARY_ORGANIZATION_SLOW_RETRY_DELAY_MS;
+      retryCount += 1;
+      retryTimer = setTimeout(() => {
+        void loadPrimaryOrganization();
+      }, retryDelay);
+    }
+
+    async function loadPrimaryOrganization(): Promise<void> {
+      try {
+        const organizations =
+          await input.tearleads.organizations.listLocalOrganizations();
+        if (cancelled) {
+          return;
         }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setState(READY_WITHOUT_PRIMARY);
+
+        const primaryOrganization = organizations[0];
+        if (!primaryOrganization) {
+          setState(LOADING_PRIMARY);
+          scheduleRetry();
+          return;
         }
-      });
+
+        setState({
+          organizationId: primaryOrganization.organizationId,
+          ready: true,
+        });
+      } catch {
+        if (!cancelled) {
+          setState(LOADING_PRIMARY);
+          scheduleRetry();
+        }
+      }
+    }
+
+    void loadPrimaryOrganization();
 
     return () => {
       cancelled = true;
+      if (retryTimer !== undefined) {
+        clearTimeout(retryTimer);
+      }
     };
   }, [input.enabled, input.refreshKey, input.tearleads]);
 
