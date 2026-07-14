@@ -210,6 +210,14 @@ function fetchPrView(): PrView {
   };
 }
 
+/** Current GitHub state of a PR (e.g. "OPEN", "MERGED", "CLOSED"). */
+export function prState(prNumber: string, repo: string): string {
+  return stringField(
+    run("gh", ["pr", "view", prNumber, "--json", "state", "-R", repo]),
+    "state",
+  );
+}
+
 /** Identity of the open PR for the current branch (no base-ref resolution). */
 export function resolvePr(): PrIdentity {
   const view = fetchPrView();

@@ -43,19 +43,29 @@ If `$BRANCH` is `main`, report the error and stop.
 2. **Run the squash merge**:
 
    ```bash
-   bun "$AGENT_TOOL" squashMerge "<subject>"
+   bun "$AGENT_TOOL" squashMerge 'feat(app): add widget'
    # or, to default to the PR title:
    bun "$AGENT_TOOL" squashMerge
    ```
 
+   **Quote the subject in single quotes** so the shell does not expand
+   `$(...)`, backticks, or `$VAR` before the tool sees it — the subject must
+   reach `commitlint`/`gh` only as a literal argv value. If the subject itself
+   contains a single quote, escape it (`'\''`) or omit the argument to use the
+   PR title.
+
    The tool:
    - Resolves the open PR for the current branch.
+   - Rejects a subject that spans multiple lines (upholds the subject-only
+     guarantee).
    - Validates the subject with the repo's commitlint setup (the same
      `@commitlint/cli` binary and `commitlint.config.mts` the commit-msg hook
      uses) — conventional-commit syntax and the 50-character header limit are
      enforced identically. If validation fails it prints commitlint's report and
      exits non-zero **without merging**.
-   - Runs `gh pr merge --squash --subject "<subject>" --body ""`.
+   - Runs `gh pr merge --squash --subject <subject> --body ""`, then confirms
+     the PR reached the `MERGED` state (a merge queue can otherwise exit 0 while
+     only queuing the PR).
 
 3. **On a validation failure**: relay commitlint's output, propose a corrected
    subject that satisfies the rules (valid type, ≤50 chars), and re-run with the
@@ -66,6 +76,10 @@ If `$BRANCH` is `main`, report the error and stop.
 
 ## Notes
 
-- The commit message is the subject only; no `--body` content is added.
+- The commit message is the subject only; no `--body` content is added, and
+  multi-line subjects are rejected.
 - Validation runs before the merge, so an invalid subject never reaches GitHub.
+- Always single-quote the subject argument to avoid shell expansion.
+- A non-zero exit after `gh pr merge` means the PR did not actually merge (e.g.
+  it was queued or blocked); do not report success in that case.
 - The tool does not delete the branch; delete it separately if desired.
