@@ -1,28 +1,36 @@
 ---
 name: open-pr
-description: Open a PR for the current branch with a title that conforms to the repo's commitlint rules (e.g. fix(app): whatever)
+description: "Prepare a branch from the updated default branch when needed, then open a PR with a title that conforms to the repo's commitlint rules (e.g. fix(app): whatever)"
 ---
 
 # Open PR
 
-Open a pull request for the current branch. The PR **title must conform to the
-repository's commitlint rules** (conventional-commit syntax and the 50-char
-header limit, e.g. `fix(app): whatever`); it is validated before the PR is
-created.
+Prepare a pull-request branch and open its PR. When invoked on the repository's
+default branch, first preserve the intended work, fast-forward the default
+branch from `origin`, create a feature branch, and restore the work there. The
+PR **title must conform to the repository's commitlint rules**
+(conventional-commit syntax and the 50-char header limit, e.g.
+`fix(app): whatever`); it is validated before the PR is created.
 
 ## Arguments
 
-- First argument (optional): the PR title. When omitted, the branch's latest
-  commit subject is used. Pass it as a single quoted argument.
+- First argument (optional): the PR title. When omitted on an existing feature
+  branch, the branch's latest commit subject is used. When starting with
+  uncommitted work on the default branch, compose it from the task and reuse it
+  for the primary commit and PR. Pass it as a single quoted argument.
+- Branch name (optional): when starting on the default branch, use a supplied
+  name or derive a concise `<type>/<kebab-slug>` name from the task or PR title.
 - The PR body is read from stdin (empty when none is piped).
 
 ## Prerequisites
 
-- `git` and `gh` (authenticated) on `PATH`.
+- `git`, `gh` (authenticated), and POSIX `awk` on `PATH`.
 - The `@tearleads/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - `node_modules` installed (`bun install`) so the commitlint CLI is available.
-- The current branch is **pushed to the remote** and has commits ahead of the
-  base branch.
+- The working tree contains only changes intended for this PR. Stop and ask
+  before carrying unrelated changes onto a new branch or committing them.
+- Before `openPr` runs, the feature branch must be pushed and have commits ahead
+  of the base branch. The workflow below prepares this when necessary.
 - No open PR already exists for the branch.
 
 ## Setup
@@ -30,20 +38,108 @@ created.
 ```bash
 ROOT_DIR=$(git rev-parse --show-toplevel)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
+DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
 AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
 [ -f "$AGENT_TOOL" ] || { echo "Error: agent-tool not found at $AGENT_TOOL" >&2; exit 1; }
+[ -n "$DEFAULT_BRANCH" ] || { echo "Error: repository default branch is unavailable" >&2; exit 1; }
 ```
-
-If `$BRANCH` is the repository's default branch (e.g. `main` or `master`),
-report the error and stop.
 
 ## Workflow
 
 1. **Compose the title**: Write a conventional-commit title
-   (`type(scope): description`, ≤50 chars). If the user gave a title, use it;
-   otherwise the tool defaults to the branch's latest commit subject.
+   (`type(scope): description`, ≤50 chars). If the user supplied a title, use
+   it. Otherwise, use the feature branch's latest commit subject when it
+   describes the task; for uncommitted default-branch work, compose a title from
+   the task before committing.
 
-2. **Open the PR** (title single-quoted; body via a quoted heredoc):
+2. **Move default-branch work safely**: Skip this step when `$BRANCH` is already
+   a feature branch. When `$BRANCH` equals `$DEFAULT_BRANCH`:
+
+   - Derive or use a concise `<type>/<kebab-slug>` branch name, such as
+     `fix/contacts-custom-org-loading`. Validate it before mutating Git state:
+
+     ```bash
+     git check-ref-format --branch "$NEW_BRANCH"
+     bun run lint:branch-name "$NEW_BRANCH"
+     ```
+
+   - Inspect `git status --short` and the diff. Continue only when every local
+     change belongs in the requested PR.
+   - Fetch first, verify that local default has no unique/diverged commits, and
+     ensure the new branch name does not already exist locally or on `origin`:
+
+     ```bash
+     git fetch origin "$DEFAULT_BRANCH"
+     if ! git merge-base --is-ancestor HEAD "origin/$DEFAULT_BRANCH"; then
+       echo "Error: local $DEFAULT_BRANCH has unique or diverged commits" >&2
+       exit 1
+     fi
+     if git show-ref --verify --quiet "refs/heads/$NEW_BRANCH" ||
+       git ls-remote --exit-code --heads origin "$NEW_BRANCH" >/dev/null; then
+       echo "Error: branch already exists: $NEW_BRANCH" >&2
+       exit 1
+     fi
+     ```
+
+     If the ancestry check fails, stop rather than rebasing or resetting local
+     default-branch commits.
+   - If the tree is dirty, stash tracked, staged, and untracked work with a
+     unique message, then record the exact stash OID. Ignored files are not
+     carried:
+
+     ```bash
+     git stash push --include-untracked -m "open-pr: move work to $NEW_BRANCH"
+     STASH_OID=$(git rev-parse "stash@{0}")
+     ```
+
+   - Fast-forward the local default branch and create the new branch:
+
+     ```bash
+     git merge --ff-only "origin/$DEFAULT_BRANCH"
+     git switch -c "$NEW_BRANCH"
+     BRANCH=$(git branch --show-current)
+     ```
+
+     If work was stashed, restore its saved index/worktree state:
+
+     ```bash
+     git stash apply --index "$STASH_OID"
+     ```
+
+     After a successful apply, resolve the recorded OID back to its current
+     stash reference before dropping it (`git stash drop` does not accept a raw
+     OID):
+
+     ```bash
+     STASH_REF=$(
+       git stash list --format='%gd %H' |
+         awk -v stash_oid="$STASH_OID" '$2 == stash_oid { print $1; exit }'
+     )
+     [ -n "$STASH_REF" ] || {
+       echo "Error: restored stash OID is no longer in the stash list" >&2
+       exit 1
+     }
+     git stash drop "$STASH_REF"
+     ```
+
+     Drop only the resolved entry, and only after a successful apply. If apply
+     conflicts or fails, leave the stash intact, report the new branch plus
+     `git status`, and stop for resolution. If the merge or branch creation
+     fails after stashing, reapply that OID on the current branch and use the
+     same OID-to-reference lookup before dropping it. Never use a hard reset,
+     clean, forced branch creation, automatic rebase, or force push.
+
+3. **Commit and push**: Run the repository's relevant preflight, review the
+   final diff, stage only intended paths, and commit any uncommitted work with a
+   valid conventional subject. Use separate commits for distinct changes when
+   useful. Confirm the branch has commits ahead of `origin/$DEFAULT_BRANCH`,
+   then push without force:
+
+   ```bash
+   git push -u origin "$BRANCH"
+   ```
+
+4. **Open the PR** (title single-quoted; body via a quoted heredoc):
 
    ```bash
    bun "$AGENT_TOOL" openPr 'feat(app): add widget' <<'EOF'
@@ -73,15 +169,16 @@ report the error and stop.
    - Runs `gh pr create --title <title> --body <stdin> --head <branch>` (base
      defaults to the repository's default branch) and prints the PR URL.
 
-3. **On a validation failure**: relay commitlint's output, propose a corrected
+5. **On a validation failure**: relay commitlint's output, propose a corrected
    title (valid type, ≤50 chars), and re-run once confirmed.
 
-4. **Report results**: output the created PR URL and the final title.
+6. **Report results**: output the created PR URL and the final title.
 
 ## Notes
 
 - The title obeys the same commitlint rules as commits, so it can later be
   reused verbatim as the squash-merge subject.
 - Always single-quote the title and use a quoted heredoc for the body.
-- The branch must already be pushed to the remote; this skill does not push.
+- Default-branch preparation carries untracked files but not ignored files.
+- Never commit unrelated user changes or discard a stash after a failed restore.
 - Base defaults to the repository's default branch.

@@ -6,6 +6,8 @@ const VIEWER_ORG = "viewer-org";
 const VIEWER_ROOT = "viewer-root";
 const OWNER_ORG = "owner-org";
 const OWNER_ROOT = "owner-root";
+const CUSTOM_ORG = "custom-org";
+const CUSTOM_ROOT = "custom-root";
 const VIEWER_TRASH_SLOT = "sys_v1_ccccccccccccccccccccccccccccccccccccccccccc";
 
 // Viewer's own org tree (root, Trash, a folder) plus a foreign shared root owned
@@ -55,6 +57,27 @@ const baseNodes = [
   },
 ];
 
+const nodesWithCollidingCustomTrash = [
+  {
+    id: CUSTOM_ROOT,
+    kind: "container" as const,
+    name: "/",
+    organizationId: CUSTOM_ORG,
+    parentId: null,
+    syncState: syncedContainerDocumentObjectSyncState,
+  },
+  {
+    id: "custom-trash",
+    kind: "container" as const,
+    name: "Trash",
+    organizationId: CUSTOM_ORG,
+    parentId: CUSTOM_ROOT,
+    syncState: syncedContainerDocumentObjectSyncState,
+    systemSlot: VIEWER_TRASH_SLOT,
+  },
+  ...baseNodes,
+];
+
 function ensureSpy(result: { id: string } | null) {
   let calls = 0;
   return {
@@ -98,6 +121,39 @@ test("lazily creates the viewer's own Trash when none is resolved", async () => 
       ensureOwnTrashContainer: spy.ensure,
     }),
   ).toBe("lazily-created-viewer-trash");
+  expect(spy.calls).toBe(1);
+});
+
+test("uses the logical current org when the source is missing and Trash slots collide", async () => {
+  const spy = ensureSpy({ id: "should-not-be-used" });
+
+  expect(
+    await resolveDeleteToTrashTarget({
+      containerId: "missing-source-container",
+      currentOrganizationId: VIEWER_ORG,
+      nodes: nodesWithCollidingCustomTrash,
+      trashSystemSlot: VIEWER_TRASH_SLOT,
+      ensureOwnTrashContainer: spy.ensure,
+    }),
+  ).toBe("viewer-trash");
+  expect(spy.calls).toBe(0);
+});
+
+test("does not select another org's Trash when the source and own Trash are missing", async () => {
+  const spy = ensureSpy(null);
+  const nodesWithoutViewerTrash = nodesWithCollidingCustomTrash.filter(
+    (node) => node.id !== "viewer-trash",
+  );
+
+  expect(
+    await resolveDeleteToTrashTarget({
+      containerId: "missing-source-container",
+      currentOrganizationId: VIEWER_ORG,
+      nodes: nodesWithoutViewerTrash,
+      trashSystemSlot: VIEWER_TRASH_SLOT,
+      ensureOwnTrashContainer: spy.ensure,
+    }),
+  ).toBeNull();
   expect(spy.calls).toBe(1);
 });
 

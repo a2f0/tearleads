@@ -31,6 +31,8 @@ import {
 import type { ContactsStore } from "./contactStore";
 import {
   getContactsContainerId,
+  resolveContactsProjectionOrganizationId,
+  resolveContactsProjectionRootContainerId,
   useContactsSystemSlots,
 } from "./contactsSystemSlot";
 import type { ContactsContextValue } from "./types";
@@ -59,7 +61,12 @@ function resolveContactsContainer(input: {
   organizationId: string | null | undefined;
   rootContainerId: string | null | undefined;
   systemSlot: Parameters<typeof getContactsContainerId>[1];
-}): { canWrite: boolean; id: string | null } {
+}): {
+  canWrite: boolean;
+  id: string | null;
+  organizationId: string | null;
+  rootContainerId: string | null;
+} {
   const id = getContactsContainerId(
     input.nodes,
     input.systemSlot,
@@ -72,14 +79,16 @@ function resolveContactsContainer(input: {
   return {
     canWrite: Boolean(container && container.effectiveAccessLevel !== "read"),
     id,
+    organizationId: input.organizationId ?? null,
+    rootContainerId: input.rootContainerId ?? null,
   };
 }
 
-function useCanBootstrapContactsContainer(input: {
+function useContactsOrganizationPolicy(input: {
   appData: RuntimeSnapshot;
   nodeCount: number;
   tearleads: Tearleads;
-}): boolean {
+}) {
   const primaryLocalOrganization = usePrimaryLocalOrganization({
     defaultOrganizationId: input.appData.auth.defaultOrganizationId,
     enabled:
@@ -92,78 +101,184 @@ function useCanBootstrapContactsContainer(input: {
     ].join(":"),
     tearleads: input.tearleads,
   });
-  return (
+  const canBootstrap =
     resolveContactsBootstrapPolicy({
       currentOrganizationId: input.appData.auth.organizationId,
       isAuthenticated: input.appData.auth.isAuthenticated,
       primaryLocalOrganization,
-    }) === true
-  );
+    }) === true;
+
+  return { canBootstrap, primaryLocalOrganization };
 }
 
 function useContactsSystemContainerResolution(input: {
   appData: RuntimeSnapshot;
   logError: (message: string | Error, cause?: unknown) => void;
   nodes: Parameters<typeof resolveContactsContainer>[0]["nodes"];
+  primaryLocalOrganization: {
+    readonly organizationId: string | null;
+  };
   signingPrivateKey: Uint8Array | null;
 }) {
-  const { appData, logError, nodes, signingPrivateKey } = input;
+  const {
+    appData,
+    logError,
+    nodes,
+    primaryLocalOrganization,
+    signingPrivateKey,
+  } = input;
   const { contactsSystemSlot, trashSystemSlot } = useContactsSystemSlots({
     logError,
     signingPrivateKey,
   });
-  const contactsContainer = useMemo(
-    () =>
-      resolveContactsContainer({
-        nodes,
-        organizationId: appData.auth.organizationId,
-        rootContainerId: appData.state.containerId,
-        systemSlot: contactsSystemSlot,
-      }),
-    [
-      appData.auth.organizationId,
-      appData.state.containerId,
-      contactsSystemSlot,
+  const contactsContainer = useMemo(() => {
+    // Contacts is a personal system container. Activating a custom org changes
+    // the tree runtime, but the Contacts projection must stay on the default org.
+    const organizationId = appData.auth.isAuthenticated
+      ? resolveContactsProjectionOrganizationId({
+          contactsSystemSlot,
+          defaultOrganizationId: appData.auth.defaultOrganizationId,
+          legacyPrimaryOrganizationId: primaryLocalOrganization.organizationId,
+          nodes,
+        })
+      : appData.auth.organizationId;
+    if (appData.auth.isAuthenticated && !organizationId) {
+      return {
+        canWrite: false,
+        id: null,
+        organizationId: null,
+        rootContainerId: null,
+      };
+    }
+
+    const rootContainerId = appData.auth.isAuthenticated
+      ? resolveContactsProjectionRootContainerId({
+          activeOrganizationId: appData.auth.organizationId,
+          activeRootContainerId: appData.state.containerId,
+          nodes,
+          projectionOrganizationId: organizationId,
+        })
+      : appData.state.containerId;
+
+    return resolveContactsContainer({
       nodes,
-    ],
-  );
+      organizationId,
+      rootContainerId,
+      systemSlot: contactsSystemSlot,
+    });
+  }, [
+    appData.auth.isAuthenticated,
+    appData.auth.defaultOrganizationId,
+    appData.auth.organizationId,
+    appData.state.containerId,
+    contactsSystemSlot,
+    nodes,
+    primaryLocalOrganization.organizationId,
+  ]);
 
   return { contactsContainer, contactsSystemSlot, trashSystemSlot };
 }
 
-// Builds the per-contact Trash resolver the store uses on removal: it resolves the
-// Trash from the contact document's OWN container (org-aware) and lazily provisions
-// the viewer's Trash — matching the Explorer, so removal still lands in a
-// not-yet-synced / payment-lapsed organization. Nodes are read at call time (not
-// closed over) so the callback identity stays stable across tree updates and a
-// just-created Trash is visible.
+// Builds the per-contact Trash resolver the store uses on removal. Contacts stays
+// projected onto the personal org when a custom org is active, so Trash resolution
+// must use that same logical org. Lazy creation is safe only when the personal root
+// is also the active runtime root: ensureSystemContainer is active-root scoped.
+// Nodes are read at call time so a just-created Trash is visible.
 function useContactsTrashResolver(input: {
+  activeRootContainerId: string | null;
   containerContentsStore: ContainerContentsStore;
-  currentOrganizationId: string | null;
+  contactsOrganizationId: string | null;
+  contactsRootContainerId: string | null;
   trashSystemSlot: ContainerSystemSlot | null;
 }): (document: DocumentSummary) => Promise<string | null> {
-  const { containerContentsStore, currentOrganizationId, trashSystemSlot } =
-    input;
-  const ensureOwnTrashContainer = useCallback(
-    () => ensureTrashSystemContainer(containerContentsStore, trashSystemSlot),
-    [containerContentsStore, trashSystemSlot],
-  );
+  const {
+    activeRootContainerId,
+    containerContentsStore,
+    contactsOrganizationId,
+    contactsRootContainerId,
+    trashSystemSlot,
+  } = input;
+  const ensureOwnTrashContainer = useCallback(() => {
+    if (
+      !contactsRootContainerId ||
+      activeRootContainerId !== contactsRootContainerId
+    ) {
+      // ensureSystemContainer would target the active custom root. Fail closed
+      // until personal Trash is visible or the personal root becomes active.
+      return Promise.resolve(null);
+    }
+
+    return ensureTrashSystemContainer(containerContentsStore, trashSystemSlot);
+  }, [
+    activeRootContainerId,
+    contactsRootContainerId,
+    containerContentsStore,
+    trashSystemSlot,
+  ]);
   return useCallback(
     (document: DocumentSummary) =>
       resolveDeleteToTrashTarget({
         containerId: document.containerId,
-        currentOrganizationId,
+        currentOrganizationId: contactsOrganizationId,
         ensureOwnTrashContainer,
         nodes: containerContentsStore.getSnapshot().nodes,
         trashSystemSlot,
       }),
     [
       containerContentsStore,
-      currentOrganizationId,
+      contactsOrganizationId,
       ensureOwnTrashContainer,
       trashSystemSlot,
     ],
   );
+}
+
+function useContactsSystemContainerBootstrap(input: {
+  canBootstrap: boolean;
+  contactsSystemSlot: ContainerSystemSlot | null;
+  hasRootContainerId: boolean;
+  isAuthenticated: boolean;
+  logError: (message: string | Error, cause?: unknown) => void;
+  ready: boolean;
+  store: ContainerContentsStore;
+}) {
+  const {
+    canBootstrap,
+    contactsSystemSlot,
+    hasRootContainerId,
+    isAuthenticated,
+    logError,
+    ready,
+    store,
+  } = input;
+  useEffect(() => {
+    if (
+      !hasRootContainerId ||
+      !isAuthenticated ||
+      !canBootstrap ||
+      !ready ||
+      !contactsSystemSlot
+    ) {
+      return;
+    }
+
+    void store
+      .ensureSystemContainer(contactsSystemSlot, CONTACTS_CONTAINER_NAME, {
+        deferRemoteBootstrap: true,
+        skipAdvancedManagedRoot: true,
+      })
+      .catch((error: unknown) => {
+        logError("Failed to queue contacts system container", error);
+      });
+  }, [
+    canBootstrap,
+    contactsSystemSlot,
+    hasRootContainerId,
+    isAuthenticated,
+    logError,
+    ready,
+    store,
+  ]);
 }
 
 export function ContactsProvider({ children }: PropsWithChildren) {
@@ -183,23 +298,36 @@ export function ContactsProvider({ children }: PropsWithChildren) {
   const containerContentsSnapshot = useTearleadsExternalStoreSnapshot(
     containerContentsStore,
   );
+  const {
+    canBootstrap: canBootstrapContactsContainer,
+    primaryLocalOrganization,
+  } = useContactsOrganizationPolicy({
+    appData,
+    nodeCount: containerContentsSnapshot.nodes.length,
+    tearleads,
+  });
   const { contactsContainer, contactsSystemSlot, trashSystemSlot } =
     useContactsSystemContainerResolution({
       appData,
       logError: tearleads.logError,
       nodes: containerContentsSnapshot.nodes,
+      primaryLocalOrganization,
       signingPrivateKey:
         containerContentsRuntime.crypto.signingKeyPair?.signingPrivateKey ??
         null,
     });
-  const canBootstrapContactsContainer = useCanBootstrapContactsContainer({
-    appData,
-    nodeCount: containerContentsSnapshot.nodes.length,
-    tearleads,
-  });
+  // The org equality is significant for legacy sessions: an ambiguous local
+  // index must never bootstrap another Contacts folder under the custom root.
+  const canBootstrapActiveContactsContainer = Boolean(
+    canBootstrapContactsContainer &&
+      (!appData.auth.isAuthenticated ||
+        contactsContainer.organizationId === appData.auth.organizationId),
+  );
   const resolveTrashContainerForDocument = useContactsTrashResolver({
+    activeRootContainerId: containerContentsRuntime.state.containerId,
     containerContentsStore,
-    currentOrganizationId: appData.auth.organizationId,
+    contactsOrganizationId: contactsContainer.organizationId,
+    contactsRootContainerId: contactsContainer.rootContainerId,
     trashSystemSlot,
   });
   const store = useContactsStoreForContainer(
@@ -218,35 +346,15 @@ export function ContactsProvider({ children }: PropsWithChildren) {
 
     containerContentsStore.updateRuntime(containerContentsRuntime);
   }, [containerContentsRuntime, containerContentsStore, hasRootContainerId]);
-
-  useEffect(() => {
-    if (
-      !hasRootContainerId ||
-      !containerContentsRuntime.auth.isAuthenticated ||
-      !canBootstrapContactsContainer ||
-      !containerContentsSnapshot.ready ||
-      !contactsSystemSlot
-    ) {
-      return;
-    }
-
-    void containerContentsStore
-      .ensureSystemContainer(contactsSystemSlot, CONTACTS_CONTAINER_NAME, {
-        deferRemoteBootstrap: true,
-        skipAdvancedManagedRoot: true,
-      })
-      .catch((error: unknown) => {
-        tearleads.logError("Failed to queue contacts system container", error);
-      });
-  }, [
-    canBootstrapContactsContainer,
+  useContactsSystemContainerBootstrap({
+    canBootstrap: canBootstrapActiveContactsContainer,
     contactsSystemSlot,
-    containerContentsRuntime.auth.isAuthenticated,
-    containerContentsSnapshot.ready,
-    containerContentsStore,
     hasRootContainerId,
-    tearleads.logError,
-  ]);
+    isAuthenticated: containerContentsRuntime.auth.isAuthenticated,
+    logError: tearleads.logError,
+    ready: containerContentsSnapshot.ready,
+    store: containerContentsStore,
+  });
 
   return (
     <ContactsContext.Provider value={contextValue}>
