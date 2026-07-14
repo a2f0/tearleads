@@ -17,6 +17,10 @@ that `gh pr merge --subject` otherwise suppresses.
 - First argument (optional): the squash commit subject. When omitted, the PR
   title is used. Pass it as a single quoted argument, e.g.
   `"feat(app): add widget"`.
+- Second argument (optional): the expected PR head SHA. When given, the merge
+  adds `--match-head-commit <sha>` so GitHub **atomically refuses** the merge if
+  the PR head has moved off that commit. `ship-pr` uses this to guarantee only
+  the reviewed commit is merged.
 
 ## Prerequisites
 
@@ -49,6 +53,8 @@ If `$BRANCH` is `main`, report the error and stop.
    bun "$AGENT_TOOL" squashMerge 'feat(app): add widget'
    # or, to default to the PR title:
    bun "$AGENT_TOOL" squashMerge
+   # or, bind the merge to a specific reviewed head commit:
+   bun "$AGENT_TOOL" squashMerge 'feat(app): add widget' "$REVIEWED_SHA"
    ```
 
    **Quote the subject in single quotes** so the shell does not expand
@@ -71,7 +77,8 @@ If `$BRANCH` is `main`, report the error and stop.
    - Appends the PR reference so the subject ends with ` (#<pr>)`, replacing any
      existing trailing `(#<n>)` (idempotent on re-runs), and asserts the suffix
      is present before merging.
-   - Runs `gh pr merge --squash --subject <subject-with-#pr> --body ""`, then
+   - Runs `gh pr merge --squash --subject <subject-with-#pr> --body ""` (adding
+     `--match-head-commit <sha>` when the head SHA argument is given), then
      confirms the PR reached the `MERGED` state (a merge queue can otherwise exit
      0 while only queuing the PR).
 
