@@ -57,9 +57,9 @@ test("authenticates checkpoint metadata before adding it to a sync response", as
   ).resolves.toEqual(fixture.checkpoint);
 });
 
-test("downgrades a legacy unauthenticated checkpoint to an ordinary update", async () => {
+test("fails closed when signed metadata omits checkpoint fields", async () => {
   const fixture = await checkpointFixture();
-  const legacyMetadataHash = await computeDocumentContentRecordMetadataHash({
+  const ordinaryMetadataHash = await computeDocumentContentRecordMetadataHash({
     documentId: fixture.documentId,
     partialEndVersionVector: fixture.partialEndVersionVector,
     partialStartVersionVector: fixture.partialStartVersionVector,
@@ -69,9 +69,12 @@ test("downgrades a legacy unauthenticated checkpoint to an ordinary update", asy
   await expect(
     authenticateSyncCheckpointForResponse({
       ...fixture,
-      metadataHash: legacyMetadataHash,
+      metadataHash: ordinaryMetadataHash,
     }),
-  ).resolves.toBeUndefined();
+  ).rejects.toMatchObject({
+    message: "Document rotation checkpoint failed integrity validation",
+    status: 409,
+  });
 });
 
 test("fails closed when checkpoint metadata matches neither supported format", async () => {
