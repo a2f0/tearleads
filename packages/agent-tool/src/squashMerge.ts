@@ -1,28 +1,19 @@
 import { spawnSync } from "node:child_process";
 
 import { prState, resolvePr, spawnExitCode } from "./prContext";
+import { singleLineSubject } from "./subjectLine";
 import { validateCommitSubject } from "./validateCommitSubject";
 
 /**
  * Resolve the squash subject from the CLI argument, falling back to the PR
  * title. Rejects an empty subject and any embedded line break so the squash
- * commit stays a single subject line (commitlint would otherwise accept later
- * lines as a body and let them through as part of `--subject`).
+ * commit stays a single subject line.
  */
 export function resolveSubject(
   subjectArg: string | undefined,
   prTitle: string,
 ): string {
-  const subject = (subjectArg ?? "").trim() || prTitle;
-  if (subject.length === 0) {
-    throw new Error(
-      "No squash subject provided and the PR has no title to fall back to.",
-    );
-  }
-  if (/[\r\n]/.test(subject)) {
-    throw new Error("Squash subject must be a single line (no line breaks).");
-  }
-  return subject;
+  return singleLineSubject(subjectArg, prTitle, "squash subject");
 }
 
 /**
