@@ -1,8 +1,8 @@
 import { expect, type Page } from "@playwright/test";
 
 // Drives the shipping backup-restore mini-app (packages/app/src/mini-apps/
-// backup-restore) to load the committed seed artifact into the live context.
-// Assumes the backup-restore app is already open/visible.
+// backup-restore) to load the seed artifact into the live context. Assumes the
+// backup-restore app is already open/visible.
 //
 // Two behaviours of the panel are load-bearing here:
 //   - the restore password field + submit button only mount on the "Restore"

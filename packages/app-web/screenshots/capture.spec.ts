@@ -22,16 +22,14 @@ const REPO_ROOT = path.resolve(
   "..",
 );
 
-// The seed fixture drives both the committed artifact and this run. Regenerate
-// the artifact with `bun run screenshots:seed` after editing the fixture.
+// The seed fixture (spec) is committed; the artifact it produces is not — it is
+// gitignored and regenerated at the repo root by the `prescreenshots` step (and
+// on demand via `bun run screenshots:seed`).
 const SEED_FIXTURES_DIR = path.join(
   REPO_ROOT,
   "packages/app/test/screenshot-seed/fixtures",
 );
-const SEED_ARTIFACT_PATH = path.join(
-  SEED_FIXTURES_DIR,
-  "tearleads-seed.tlbackup.json",
-);
+const SEED_ARTIFACT_PATH = path.join(REPO_ROOT, "tearleads-seed.tlbackup.json");
 // Password + identity phrase come from the fixture so they never drift from the
 // artifact they were authored with.
 const SEED_SPEC = JSON.parse(
@@ -349,7 +347,7 @@ test("capture screenshots", async ({ page }, testInfo) => {
   // Seed the DB in three steps:
   //  1. Import the artifact's fixed identity so restore writes into ITS database
   //     and its signing key re-derives the seeded Contacts container's slot.
-  //  2. Restore the committed backup through the shipping backup-restore mini-app.
+  //  2. Restore the seed backup through the shipping backup-restore mini-app.
   //  3. Clear the stale session/caches so the reload adopts the restored root,
   //     then reload so the populated DB is reopened under the imported identity.
   await importSeedIdentity(page, routed, SEED_IDENTITY_PHRASE);

@@ -1,20 +1,27 @@
+import { resolve } from "node:path";
 import { createMemoryBlobStore } from "@tearleads/client-sdk";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { buildSeedArtifact } from "./buildSeedArtifact";
 import type { SeedSpec } from "./seedTypes";
 
-// CLI that regenerates the committed screenshot seed artifact:
+// CLI that regenerates the screenshot seed artifact:
 //   bun run screenshots:seed
 //
 // Reads fixtures/seed.json + its referenced attachment files, drives the client
 // -sdk write path headlessly into an in-memory chacha20 SQLite + memory blob
-// store, and writes fixtures/tearleads-seed.tlbackup.json — the artifact the
-// Playwright screenshot run restores through the backup-restore mini-app.
+// store, and writes tearleads-seed.tlbackup.json at the repo root — the artifact
+// the Playwright screenshot run restores through the backup-restore mini-app.
+// The artifact is gitignored (its bytes are non-deterministic) and regenerated
+// on demand, so it lives at the root where it is easy to find for a manual
+// restore rather than buried in the fixtures directory.
 
+// This file is packages/app/test/screenshot-seed/buildScreenshotSeed.ts, so the
+// repo root is four levels up.
+const REPO_ROOT = resolve(import.meta.dir, "../../../..");
 const FIXTURES_DIR = `${import.meta.dir}/fixtures`;
 const SPEC_PATH = `${FIXTURES_DIR}/seed.json`;
-const ARTIFACT_PATH = `${FIXTURES_DIR}/tearleads-seed.tlbackup.json`;
+const ARTIFACT_PATH = `${REPO_ROOT}/tearleads-seed.tlbackup.json`;
 
 async function main(): Promise<void> {
   const spec = (await Bun.file(SPEC_PATH).json()) as SeedSpec;
