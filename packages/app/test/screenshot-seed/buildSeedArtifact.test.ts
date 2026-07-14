@@ -5,10 +5,18 @@ import {
   Tearleads,
 } from "@tearleads/client-sdk";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
+import {
+  createIdentitySeedPhraseFromEntropy,
+  generateIdentityKeyPairsFromSeedPhrase,
+} from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
 import { restoreBackupPayload } from "../../src/providers/db/localBackupData";
 import { decodeBackupFile } from "../../src/providers/db/localBackupFormat";
+import {
+  deriveUserSystemContainers,
+  findUserSystemContainer,
+} from "../../src/stores/systemContainers";
 import { buildSeedArtifact } from "./buildSeedArtifact";
 import type { SeedSpec } from "./seedTypes";
 
@@ -22,6 +30,27 @@ const quietLogger: Required<Logger> = {
 };
 
 const PASSWORD = "screenshot-seed-test";
+
+// A fixed, valid BIP39 phrase (deterministic from stable entropy). The Contacts
+// system slot is HMAC(definition, signingPrivateKey), so importing the same
+// phrase reproduces the slot — this is what lets the Contacts mini-app resolve
+// the seeded container after restore.
+const TEST_SEED_PHRASE = createIdentitySeedPhraseFromEntropy(
+  new Uint8Array(32).fill(0xab),
+);
+
+// The Contacts system slot the app derives for the given seed phrase.
+async function contactsSystemSlot(seedPhrase: string): Promise<string> {
+  const { signingKeyPair } = generateIdentityKeyPairsFromSeedPhrase(seedPhrase);
+  const containers = await deriveUserSystemContainers(
+    signingKeyPair.signingPrivateKey,
+  );
+  const contacts = findUserSystemContainer(containers, "contacts");
+  if (!contacts) {
+    throw new Error("Contacts system container definition is missing.");
+  }
+  return contacts.systemSlot;
+}
 
 // A valid 1x1 transparent PNG so attachments carry real, decodable bytes.
 const PNG_1X1 = Uint8Array.from([
@@ -50,6 +79,7 @@ const SPEC: SeedSpec = {
       kind: "image",
     },
   ],
+  identitySeedPhrase: TEST_SEED_PHRASE,
   notes: [{ text: "Launch checklist\n- Draft copy\n- Ship screenshots" }],
   password: PASSWORD,
 };
@@ -102,6 +132,23 @@ test("buildSeedArtifact produces a restorable backup with contacts, notes, and a
     // The restored DB is what a fresh Playwright context would read.
     expect(await countRows(targetExecSql, "contact_projection")).toBe(1);
     expect(await targetBlobStore.readBytes(firstKey)).toEqual(PNG_1X1);
+
+    // The seeded contact lives in the identity-scoped Contacts container, and a
+    // same-seed-phrase identity re-derives that exact slot — this is what lets
+    // the Contacts mini-app resolve the container (and its contacts) after a
+    // restore, rather than only Explorer surfacing them as loose documents.
+    const contactsSlot = await contactsSystemSlot(TEST_SEED_PHRASE);
+    const contactsContainers = (await targetExecSql(
+      "SELECT id FROM containers WHERE system_slot = ?",
+      [contactsSlot],
+    )) as Array<{ id: string }>;
+    expect(contactsContainers.length).toBe(1);
+    const contactsContainerId = contactsContainers[0]?.id as string;
+    const contactsInContainer = (await targetExecSql(
+      "SELECT COUNT(*) AS n FROM document_projection WHERE document_kind = 'contact' AND container_id = ?",
+      [contactsContainerId],
+    )) as Array<{ n: number }>;
+    expect(Number(contactsInContainer[0]?.n ?? 0)).toBe(1);
 
     const restoredSdk = new Tearleads({
       database: { execSql: targetExecSql, id: "restored-db" },

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +10,7 @@ import {
   visiblePane,
   waitForBooted,
 } from "./appShell";
+import { importSeedIdentity } from "./seedIdentity";
 import { restoreSeedBackup } from "./seedRestore";
 
 // This file lives at packages/app-web/screenshots/, so the repo root is three
@@ -20,14 +22,23 @@ const REPO_ROOT = path.resolve(
   "..",
 );
 
-// The committed seed artifact + the password it was encrypted with (see
-// packages/app/test/screenshot-seed/fixtures/seed.json). Regenerate the artifact
-// with `bun run screenshots:seed`.
-const SEED_ARTIFACT_PATH = path.join(
+// The seed fixture drives both the committed artifact and this run. Regenerate
+// the artifact with `bun run screenshots:seed` after editing the fixture.
+const SEED_FIXTURES_DIR = path.join(
   REPO_ROOT,
-  "packages/app/test/screenshot-seed/fixtures/tearleads-seed.tlbackup.json",
+  "packages/app/test/screenshot-seed/fixtures",
 );
-const SEED_PASSWORD = "screenshot-seed";
+const SEED_ARTIFACT_PATH = path.join(
+  SEED_FIXTURES_DIR,
+  "tearleads-seed.tlbackup.json",
+);
+// Password + identity phrase come from the fixture so they never drift from the
+// artifact they were authored with.
+const SEED_SPEC = JSON.parse(
+  readFileSync(path.join(SEED_FIXTURES_DIR, "seed.json"), "utf8"),
+) as { password: string; identitySeedPhrase: string };
+const SEED_PASSWORD = SEED_SPEC.password;
+const SEED_IDENTITY_PHRASE = SEED_SPEC.identitySeedPhrase;
 
 // The app self-provisions an identity on boot via IdentityAutopilot (the default
 // "app" host profile sets autoGenerateIdentity) and the local keychain is
@@ -89,9 +100,14 @@ async function openBackupRestore(page: Page, routed: boolean): Promise<void> {
 }
 
 // Fails loudly if the restore + reload did not actually surface seeded data
-// (wrong password, tab race, schema drift), so we never emit blank screenshots
-// that look "successful". Explorer lists everything in the restored root, so the
-// seeded driver's-license document is a reliable, layout-independent signal.
+// (wrong password/identity, tab race, schema drift), so we never emit blank
+// screenshots that look "successful". Checks two independent read paths:
+//  - Explorer lists the restored root, so the seeded driver's-license document is
+//    a layout-independent signal the backup restored.
+//  - Contacts reads the identity-scoped Contacts system container, so a seeded
+//    contact there proves the imported identity re-derived that container's slot.
+const SEEDED_CONTACT_NAME = "Alan Turing";
+
 async function assertSeededDataVisible(
   page: Page,
   routed: boolean,
@@ -102,15 +118,35 @@ async function assertSeededDataVisible(
     await expect(page.getByText(/Driver's License/).first()).toBeVisible({
       timeout: 20_000,
     });
+    await page.goto("/app/contacts");
+    await waitForBooted(page);
+    await expect(page.getByText(SEEDED_CONTACT_NAME).first()).toBeVisible({
+      timeout: 20_000,
+    });
     return;
   }
+
   await openWindowedApp(page, "Explorer");
-  const pane = visiblePane(page);
-  await expect(pane.getByText(/Driver's License/).first()).toBeVisible({
+  const explorerPane = visiblePane(page);
+  const explorerWindow = explorerPane.locator(".window").first();
+  await expect(
+    explorerWindow.getByText(/Driver's License/).first(),
+  ).toBeVisible({
     timeout: 20_000,
   });
-  await pane.locator(".window-close").click();
-  await expect(pane.locator(".window")).toHaveCount(0);
+  await explorerWindow.locator(".window-close").click();
+  await expect(explorerPane.locator(".window")).toHaveCount(0);
+
+  await openWindowedApp(page, "Contacts");
+  const contactsPane = visiblePane(page);
+  const contactsWindow = contactsPane.locator(".window").first();
+  await expect(
+    contactsWindow.getByText(SEEDED_CONTACT_NAME).first(),
+  ).toBeVisible({
+    timeout: 20_000,
+  });
+  await contactsWindow.locator(".window-close").click();
+  await expect(contactsPane.locator(".window")).toHaveCount(0);
 }
 
 async function captureRouted(page: Page, outputDir: string): Promise<void> {
@@ -184,9 +220,13 @@ test("capture screenshots", async ({ page }, testInfo) => {
   await disableAnimations(page);
   const routed = (await page.locator(".routed-pane").count()) > 0;
 
-  // Seed the DB: restore the committed backup artifact through the shipping
-  // backup-restore mini-app, clear the stale session/caches so the reload adopts
-  // the restored root container, then reload so the populated DB is reopened.
+  // Seed the DB in three steps:
+  //  1. Import the artifact's fixed identity so restore writes into ITS database
+  //     and its signing key re-derives the seeded Contacts container's slot.
+  //  2. Restore the committed backup through the shipping backup-restore mini-app.
+  //  3. Clear the stale session/caches so the reload adopts the restored root,
+  //     then reload so the populated DB is reopened under the imported identity.
+  await importSeedIdentity(page, routed, SEED_IDENTITY_PHRASE);
   await openBackupRestore(page, routed);
   await restoreSeedBackup(page, {
     artifactPath: SEED_ARTIFACT_PATH,
