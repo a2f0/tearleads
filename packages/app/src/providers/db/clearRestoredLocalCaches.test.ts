@@ -61,3 +61,7 @@ test("is a no-op when there are no stale caches", () => {
     "tearleads.app.local-identity-registry": "keep-me",
   });
 });
+
+test("does not throw when no storage is available", () => {
+  expect(() => clearRestoredLocalCaches(undefined)).not.toThrow();
+});

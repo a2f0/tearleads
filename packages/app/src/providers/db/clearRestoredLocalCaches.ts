@@ -25,8 +25,16 @@ const STALE_RESTORE_CACHE_PREFIXES = [
 type ClearableStorage = Pick<Storage, "key" | "length" | "removeItem">;
 
 export function clearRestoredLocalCaches(
-  storage: ClearableStorage = window.localStorage,
+  // Guard window so importing/calling this outside a browser (SSR, some test
+  // runners) can't throw a ReferenceError; there is nothing to clear there.
+  storage: ClearableStorage | undefined = typeof window === "undefined"
+    ? undefined
+    : window.localStorage,
 ): void {
+  if (!storage) {
+    return;
+  }
+
   // Collect first, then remove: removing during the index walk would shift the
   // remaining keys and skip entries.
   const staleKeys: string[] = [];
