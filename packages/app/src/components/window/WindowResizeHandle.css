@@ -17,8 +17,14 @@
   transition: border-color var(--transition);
 }
 
-.window-resize:hover {
-  border-color: var(--color-dark);
+/* Gate the highlight behind a true-hover pointer. On coarse (touch) pointers a
+   tap triggers :hover and it stays stuck until the next tap elsewhere; scoping
+   the rule to fine pointers means it simply never applies there. Corner-drag
+   resize is a pointer affordance anyway, so touch loses nothing. */
+@media (hover: hover) {
+  .window-resize:hover {
+    border-color: var(--color-dark);
+  }
 }
 
 .window-resize--se {
