@@ -1,0 +1,43 @@
+import { expect, type Page } from "@playwright/test";
+import { openWindowedApp, visiblePane, waitForBooted } from "./appShell";
+
+// Imports the fixed recovery-key passphrase the seed artifact was authored under,
+// via the shipping identity-manager mini-app ("Restore from Passphrase").
+//
+// This MUST run before restoring the backup. Restore writes into the ACTIVE
+// identity's database, and only this identity's signing key re-derives the
+// Contacts system slot the seeded Contacts container carries — so importing it
+// first is what lets the Contacts mini-app resolve that container after reload.
+// (Notes/Explorer surface their documents by kind and would work without it; the
+// Contacts app would not.)
+export async function importSeedIdentity(
+  page: Page,
+  routed: boolean,
+  passphrase: string,
+): Promise<void> {
+  if (routed) {
+    await page.goto("/app/identity-manager");
+    await waitForBooted(page);
+  } else {
+    await openWindowedApp(page, "Identity Manager");
+  }
+
+  // The section renders two textareas with the same class (the read-only current
+  // recovery key + this restore input); target the restore one by its label.
+  await page
+    .getByRole("textbox", { name: "Restore passphrase" })
+    .fill(passphrase);
+  await page.getByRole("button", { name: "Restore from Passphrase" }).click();
+  await expect(page.getByText("Recovery key restored.")).toBeVisible({
+    timeout: 30_000,
+  });
+
+  if (!routed) {
+    // Close the identity-manager window so the later backup-restore window is the
+    // only one on the desktop; page-global locators (the Restore tab, file input,
+    // password field) would otherwise be ambiguous across two open windows.
+    const pane = visiblePane(page);
+    await pane.locator(".window-close").first().click();
+    await expect(pane.locator(".window")).toHaveCount(0);
+  }
+}
