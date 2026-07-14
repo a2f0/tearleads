@@ -6,6 +6,7 @@ import {
   ensureChanges,
   type PrContext,
   resolvePrContext,
+  reviewExitCode,
   run,
 } from "./prContext";
 
@@ -67,5 +68,5 @@ export function solicitClaudeCodeReview(rootDir: string): number {
     stdio: ["pipe", "inherit", "inherit"],
     input: prompt,
   });
-  return result.status ?? 0;
+  return reviewExitCode("claude", result);
 }

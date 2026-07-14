@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 
-import { ensureChanges, resolvePrContext } from "./prContext";
+import { ensureChanges, resolvePrContext, reviewExitCode } from "./prContext";
 
 /**
  * Ask the local `codex` CLI to review the current PR diff. Codex derives the
@@ -21,5 +21,5 @@ export function solicitCodexReview(): number {
     ],
     { stdio: "inherit" },
   );
-  return result.status ?? 0;
+  return reviewExitCode("codex", result);
 }
