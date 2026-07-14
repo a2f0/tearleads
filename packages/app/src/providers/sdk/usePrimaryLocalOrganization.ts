@@ -123,7 +123,11 @@ export function usePrimaryLocalOrganization(input: {
   if (!input.enabled) {
     return READY_WITHOUT_PRIMARY;
   }
-  return explicitPrimary ?? state;
+  const activeState =
+    state === READY_WITHOUT_PRIMARY && !explicitPrimary
+      ? LOADING_PRIMARY
+      : state;
+  return explicitPrimary ?? activeState;
 }
 
 export function resolveContactsBootstrapPolicy(input: {
