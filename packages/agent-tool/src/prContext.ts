@@ -152,15 +152,14 @@ export function spawnExitCode(command: string, result: SpawnResult): number {
 }
 
 /**
- * Resolve the open PR for the current branch from git + GitHub. Throws with an
- * actionable message when there is nothing reviewable (on main, no PR, gh not
- * authenticated).
+ * Resolve the current git branch and GitHub repo. Throws when on main or when
+ * the repo can't be determined (gh not authenticated).
  */
-function fetchPrView(): PrView {
+export function resolveRepoContext(): { branch: string; repo: string } {
   const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
   if (branch === "main") {
     throw new Error(
-      "Cannot operate on main branch. Checkout a PR branch first.",
+      "Cannot run this on the main branch. Checkout a feature branch first.",
     );
   }
 
@@ -172,7 +171,12 @@ function fetchPrView(): PrView {
     );
   }
 
-  const prNumber = firstPrNumber(
+  return { branch, repo };
+}
+
+/** Number of the open PR for `branch`, or "" when there is none. */
+export function findOpenPrNumber(branch: string, repo: string): string {
+  return firstPrNumber(
     tryRun("gh", [
       "pr",
       "list",
@@ -186,6 +190,17 @@ function fetchPrView(): PrView {
       repo,
     ]),
   );
+}
+
+/**
+ * Resolve the open PR for the current branch from git + GitHub. Throws with an
+ * actionable message when there is nothing reviewable (on main, no PR, gh not
+ * authenticated).
+ */
+function fetchPrView(): PrView {
+  const { branch, repo } = resolveRepoContext();
+
+  const prNumber = findOpenPrNumber(branch, repo);
   if (prNumber.length === 0) {
     throw new Error(`No PR found for branch '${branch}'. Create a PR first.`);
   }

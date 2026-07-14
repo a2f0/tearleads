@@ -1,21 +1,24 @@
 #!/usr/bin/env bun
 /**
- * agent-tool - minimal CLI for cross-agent code review and PR squash-merge.
+ * agent-tool - minimal CLI for cross-agent code review and PR workflows.
  *
  * Usage: bun packages/agent-tool/src/index.ts <action> [args]
  *   solicitClaudeCodeReview     Review the current PR with the local `claude` CLI
  *   solicitCodexReview          Review the current PR with the local `codex` CLI
+ *   openPr [title]              Open a PR for the current branch with a
+ *                               commitlint-valid title (body from stdin)
  *   squashMerge [subject]       Squash-merge the current PR with a subject-only
  *                               commit (defaults to the PR title)
  */
 import { execFileSync } from "node:child_process";
 
+import { openPr } from "./openPr";
 import { solicitClaudeCodeReview } from "./solicitClaudeCodeReview";
 import { solicitCodexReview } from "./solicitCodexReview";
 import { squashMerge } from "./squashMerge";
 
 const USAGE =
-  "Usage: agent-tool <solicitClaudeCodeReview|solicitCodexReview|squashMerge> [args]\n";
+  "Usage: agent-tool <solicitClaudeCodeReview|solicitCodexReview|openPr|squashMerge> [args]\n";
 
 function repoRoot(): string {
   return execFileSync("git", ["rev-parse", "--show-toplevel"], {
@@ -33,6 +36,8 @@ function main(): number {
       return solicitClaudeCodeReview(rootDir);
     case "solicitCodexReview":
       return solicitCodexReview();
+    case "openPr":
+      return openPr(rootDir, process.argv[3]);
     case "squashMerge":
       return squashMerge(rootDir, process.argv[3]);
     default:
