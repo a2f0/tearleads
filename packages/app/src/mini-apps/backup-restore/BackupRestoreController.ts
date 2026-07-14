@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { clearRestoredLocalCaches } from "../../providers/db/clearRestoredLocalCaches";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
 import {
   type BackupProgress,
@@ -369,7 +370,12 @@ export function useBackupRestore() {
     state.restoreFileInputRef.current?.click();
   }, [state.restoreFileInputRef]);
 
+  // Shown only after a successful restore (BackupRestore.tsx gates it on
+  // restoreComplete). Clear the stale pre-restore caches before reloading so the
+  // reopened app re-derives the root container + read models from the restored
+  // database instead of re-bootstrapping an empty root.
   const handleReload = useCallback(() => {
+    clearRestoredLocalCaches();
     window.location.reload();
   }, []);
 
