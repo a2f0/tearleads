@@ -32,6 +32,7 @@ import type { ContactsStore } from "./contactStore";
 import {
   getContactsContainerId,
   resolveContactsProjectionOrganizationId,
+  resolveContactsProjectionRootContainerId,
   useContactsSystemSlots,
 } from "./contactsSystemSlot";
 import type { ContactsContextValue } from "./types";
@@ -151,10 +152,12 @@ function useContactsSystemContainerResolution(input: {
     }
 
     const rootContainerId = appData.auth.isAuthenticated
-      ? (nodes.find(
-          (node) =>
-            node.parentId === null && node.organizationId === organizationId,
-        )?.id ?? null)
+      ? resolveContactsProjectionRootContainerId({
+          activeOrganizationId: appData.auth.organizationId,
+          activeRootContainerId: appData.state.containerId,
+          nodes,
+          projectionOrganizationId: organizationId,
+        })
       : appData.state.containerId;
 
     return resolveContactsContainer({
@@ -200,6 +203,8 @@ function useContactsTrashResolver(input: {
       !contactsRootContainerId ||
       activeRootContainerId !== contactsRootContainerId
     ) {
+      // ensureSystemContainer would target the active custom root. Fail closed
+      // until personal Trash is visible or the personal root becomes active.
       return Promise.resolve(null);
     }
 
@@ -311,6 +316,8 @@ export function ContactsProvider({ children }: PropsWithChildren) {
         containerContentsRuntime.crypto.signingKeyPair?.signingPrivateKey ??
         null,
     });
+  // The org equality is significant for legacy sessions: an ambiguous local
+  // index must never bootstrap another Contacts folder under the custom root.
   const canBootstrapActiveContactsContainer = Boolean(
     canBootstrapContactsContainer &&
       (!appData.auth.isAuthenticated ||
