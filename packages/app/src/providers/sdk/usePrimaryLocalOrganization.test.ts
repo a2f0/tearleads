@@ -99,6 +99,51 @@ test("retries a transient primary organization lookup failure", async () => {
   );
 });
 
+test("clears a resolved organization when the lookup scope changes", async () => {
+  let attempt = 0;
+  let resolveNextLookup:
+    | ((organizations: (typeof PERSONAL_ORGANIZATION)[]) => void)
+    | undefined;
+  const listLocalOrganizations = mock(async () => {
+    attempt += 1;
+    if (attempt === 1) {
+      return [PERSONAL_ORGANIZATION];
+    }
+    return new Promise<(typeof PERSONAL_ORGANIZATION)[]>((resolve) => {
+      resolveNextLookup = resolve;
+    });
+  });
+  const tearleads = {
+    organizations: { listLocalOrganizations },
+  } as unknown as Tearleads;
+  const view = renderHook(
+    ({ refreshKey }) =>
+      usePrimaryLocalOrganization({ enabled: true, refreshKey, tearleads }),
+    { initialProps: { refreshKey: "scope-one" } },
+  );
+
+  await waitFor(() =>
+    expect(view.result.current).toEqual({
+      organizationId: PERSONAL_ORGANIZATION.organizationId,
+      ready: true,
+    }),
+  );
+
+  view.rerender({ refreshKey: "scope-two" });
+  await waitFor(() => {
+    expect(listLocalOrganizations).toHaveBeenCalledTimes(2);
+    expect(view.result.current).toEqual({
+      organizationId: null,
+      ready: false,
+    });
+  });
+
+  await act(async () => {
+    resolveNextLookup?.([PERSONAL_ORGANIZATION]);
+  });
+  await waitFor(() => expect(view.result.current.ready).toBe(true));
+});
+
 test("cancels a pending retry when the lookup scope changes", async () => {
   let attempt = 0;
   const listLocalOrganizations = mock(async () => {

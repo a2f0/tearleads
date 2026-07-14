@@ -42,9 +42,7 @@ export function usePrimaryLocalOrganization(input: {
     let cancelled = false;
     let retryCount = 0;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
-    setState((previous) =>
-      previous.ready && previous.organizationId ? previous : LOADING_PRIMARY,
-    );
+    setState(LOADING_PRIMARY);
 
     function scheduleRetry(): void {
       const retryDelay =
@@ -67,9 +65,7 @@ export function usePrimaryLocalOrganization(input: {
 
         const primaryOrganization = organizations[0];
         if (!primaryOrganization) {
-          setState((previous) =>
-            previous.organizationId ? previous : LOADING_PRIMARY,
-          );
+          setState(LOADING_PRIMARY);
           scheduleRetry();
           return;
         }
@@ -80,9 +76,7 @@ export function usePrimaryLocalOrganization(input: {
         });
       } catch {
         if (!cancelled) {
-          setState((previous) =>
-            previous.organizationId ? previous : LOADING_PRIMARY,
-          );
+          setState(LOADING_PRIMARY);
           scheduleRetry();
         }
       }
