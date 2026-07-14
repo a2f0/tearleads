@@ -8,8 +8,8 @@ import { expect, type Page } from "@playwright/test";
 //   - the restore password field + submit button only mount on the "Restore"
 //     tab (default is "Backup"), so the tab must be selected first;
 //   - the chosen file's body is read via an async file.text(), and the submit
-//     no-ops with an error until that read resolves — so we retry the submit
-//     until the success status confirms it.
+//     no-ops with a "Choose a backup file." error until that read resolves — so
+//     the submit is retried until the success status confirms it.
 export async function restoreSeedBackup(
   page: Page,
   options: { artifactPath: string; password: string },
@@ -21,10 +21,16 @@ export async function restoreSeedBackup(
   await page.locator('input[type="password"]').fill(options.password);
 
   const restoreButton = page.getByRole("button", { name: "Restore Backup" });
+  const restored = page.getByText(/Backup restored:/);
+
+  // Retry the submit ONLY while the success line is absent. A concurrent restore
+  // is not possible (the handler bails unless both file text + password are
+  // present, and clears both on success), but re-clicking AFTER success resets
+  // the panel and would clear the success line — so once it shows, stop clicking.
   await expect(async () => {
-    await restoreButton.click();
-    await expect(page.getByText(/Backup restored:/)).toBeVisible({
-      timeout: 3_000,
-    });
+    if (!(await restored.isVisible())) {
+      await restoreButton.click();
+    }
+    await expect(restored).toBeVisible({ timeout: 5_000 });
   }).toPass({ timeout: 30_000 });
 }

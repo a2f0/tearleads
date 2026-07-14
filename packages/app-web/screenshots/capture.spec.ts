@@ -188,6 +188,9 @@ test("capture screenshots", async ({ page }, testInfo) => {
   await clearStaleLocalState(page);
   await page.reload();
   await waitForBooted(page);
+  // Disable animations before asserting so a still-animating window/pane can't
+  // flake the visibility check (capture phases re-inject after their navigations).
+  await disableAnimations(page);
   await assertSeededDataVisible(page, routed);
 
   if (routed) {

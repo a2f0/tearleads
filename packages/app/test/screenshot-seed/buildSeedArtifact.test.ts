@@ -54,18 +54,6 @@ const SPEC: SeedSpec = {
   password: PASSWORD,
 };
 
-function bytesEqual(a: Uint8Array | null, b: Uint8Array): boolean {
-  if (!a || a.byteLength !== b.byteLength) {
-    return false;
-  }
-  for (let i = 0; i < b.byteLength; i += 1) {
-    if (a[i] !== b[i]) {
-      return false;
-    }
-  }
-  return true;
-}
-
 async function countRows(execSql: ExecSql, table: string): Promise<number> {
   const rows = (await execSql(`SELECT COUNT(*) AS n FROM ${table}`)) as Array<{
     n: number;
@@ -98,9 +86,7 @@ test("buildSeedArtifact produces a restorable backup with contacts, notes, and a
     )) as Array<{ storage_key: string }>;
     expect(attachmentRows.length).toBe(3);
     const firstKey = attachmentRows[0]?.storage_key as string;
-    expect(bytesEqual(await sourceBlobStore.readBytes(firstKey), PNG_1X1)).toBe(
-      true,
-    );
+    expect(await sourceBlobStore.readBytes(firstKey)).toEqual(PNG_1X1);
 
     // Restore the encrypted artifact into a SEPARATE fresh database + blob store.
     const decoded = await decodeBackupFile({
@@ -115,9 +101,7 @@ test("buildSeedArtifact produces a restorable backup with contacts, notes, and a
 
     // The restored DB is what a fresh Playwright context would read.
     expect(await countRows(targetExecSql, "contact_projection")).toBe(1);
-    expect(bytesEqual(await targetBlobStore.readBytes(firstKey), PNG_1X1)).toBe(
-      true,
-    );
+    expect(await targetBlobStore.readBytes(firstKey)).toEqual(PNG_1X1);
 
     const restoredSdk = new Tearleads({
       database: { execSql: targetExecSql, id: "restored-db" },
