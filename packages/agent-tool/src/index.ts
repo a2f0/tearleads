@@ -8,7 +8,8 @@
  *   openPr [title]              Open a PR for the current branch with a
  *                               commitlint-valid title (body from stdin)
  *   squashMerge [subject]       Squash-merge the current PR with a subject-only
- *                               commit (defaults to the PR title)
+ *                               commit (defaults to the PR title), appending the
+ *                               `(#<pr>)` reference to the subject
  */
 import { execFileSync } from "node:child_process";
 
