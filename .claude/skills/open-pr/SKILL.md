@@ -70,7 +70,10 @@ AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
 
      ```bash
      git fetch origin "$DEFAULT_BRANCH"
-     git merge-base --is-ancestor HEAD "origin/$DEFAULT_BRANCH"
+     if ! git merge-base --is-ancestor HEAD "origin/$DEFAULT_BRANCH"; then
+       echo "Error: local $DEFAULT_BRANCH has unique or diverged commits" >&2
+       exit 1
+     fi
      if git show-ref --verify --quiet "refs/heads/$NEW_BRANCH" ||
        git ls-remote --exit-code --heads origin "$NEW_BRANCH" >/dev/null; then
        echo "Error: branch already exists: $NEW_BRANCH" >&2
