@@ -37,7 +37,7 @@ export async function importSeedIdentity(
     // only one on the desktop; page-global locators (the Restore tab, file input,
     // password field) would otherwise be ambiguous across two open windows.
     const pane = visiblePane(page);
-    await pane.locator(".window-close").first().click();
+    await pane.locator(".window").first().locator(".window-close").click();
     await expect(pane.locator(".window")).toHaveCount(0);
   }
 }

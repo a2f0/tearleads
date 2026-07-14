@@ -128,20 +128,24 @@ async function assertSeededDataVisible(
 
   await openWindowedApp(page, "Explorer");
   const explorerPane = visiblePane(page);
-  await expect(explorerPane.getByText(/Driver's License/).first()).toBeVisible({
+  const explorerWindow = explorerPane.locator(".window").first();
+  await expect(
+    explorerWindow.getByText(/Driver's License/).first(),
+  ).toBeVisible({
     timeout: 20_000,
   });
-  await explorerPane.locator(".window-close").click();
+  await explorerWindow.locator(".window-close").click();
   await expect(explorerPane.locator(".window")).toHaveCount(0);
 
   await openWindowedApp(page, "Contacts");
   const contactsPane = visiblePane(page);
-  await expect(contactsPane.getByText(SEEDED_CONTACT_NAME).first()).toBeVisible(
-    {
-      timeout: 20_000,
-    },
-  );
-  await contactsPane.locator(".window-close").click();
+  const contactsWindow = contactsPane.locator(".window").first();
+  await expect(
+    contactsWindow.getByText(SEEDED_CONTACT_NAME).first(),
+  ).toBeVisible({
+    timeout: 20_000,
+  });
+  await contactsWindow.locator(".window-close").click();
   await expect(contactsPane.locator(".window")).toHaveCount(0);
 }
 
