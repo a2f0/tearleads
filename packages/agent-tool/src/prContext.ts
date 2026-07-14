@@ -112,6 +112,9 @@ export function ensureChanges(baseRef: string): void {
   const result = spawnSync("git", ["diff", "--quiet", `${baseRef}...HEAD`], {
     stdio: "ignore",
   });
+  if (result.error) {
+    throw result.error;
+  }
   // `git diff --quiet` exits 0 (no changes), 1 (changes), or >1 on error.
   if (result.status === 0) {
     throw new Error(`No changes found between ${baseRef} and current branch.`);
