@@ -12,7 +12,7 @@ set -e
 # so this leaves the committed artifact modified in git even when the seed data
 # is unchanged; revert it with `git checkout` if you only wanted the path.
 
-SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
+SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)" || exit 1
 cd "$SCRIPT_DIR/.." || exit 1
 
 bun run screenshots:seed
