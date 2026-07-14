@@ -165,11 +165,24 @@ export const EXPLORER_LABELS = {
   documentInfoContentKeyHashRow: "Content Key Target Hash",
   documentInfoContentTargetCountOne: "content target",
   documentInfoContentTargetCountOther: "content targets",
-  documentInfoContributorEditPlural: "edits",
-  documentInfoContributorEditSingular: "edit",
+  documentInfoContributorOpPlural: "ops",
+  documentInfoContributorOpSingular: "op",
   documentInfoContributorReasserted: "(re-asserted)",
   documentInfoContributorsHeading: "Contributors",
+  documentInfoAttributionUnavailable:
+    "Edit attribution could not be loaded. Try again after the next refresh.",
+  documentInfoAttributionTruncated:
+    "Edit attribution is too large for a complete summary. Load Edit Ranges in pages below.",
   documentInfoEditRangesHeading: "Edit Ranges",
+  documentInfoEditRangesDocumentChanged:
+    "The edit-range response belonged to a different document. Try again.",
+  documentInfoEditRangesEmpty: "No edit ranges.",
+  documentInfoEditRangesHide: "Hide edit ranges",
+  documentInfoEditRangesLoading: "Loading edit ranges...",
+  documentInfoEditRangesLoadMore: "Load more",
+  documentInfoEditRangesRevisionChanged:
+    "Edit attribution changed while loading. Try again.",
+  documentInfoEditRangesShow: "Show edit ranges",
   documentInfoEditRangeWriterColumn: "Writer",
   documentInfoEditRangePeerColumn: "Peer",
   documentInfoEditRangeRangeColumn: "Range",

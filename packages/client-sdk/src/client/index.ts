@@ -35,6 +35,8 @@ export type {
   ContainerItemSortKey,
   ContainerNode,
   ContainerShareAccessLevel,
+  DocumentAttributionRangesInput,
+  DocumentAttributionRangesPage,
   DocumentInfo,
   DocumentInfoInput,
   LinkDocumentToContainerInput,

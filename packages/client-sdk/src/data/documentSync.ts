@@ -1,5 +1,5 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import { getUpdateVersionVectors, versionVectorsEqual } from "@tearleads/loro";
+import { getImportBlobMetadata, versionVectorsEqual } from "@tearleads/loro";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type { PendingUpdateFields } from "./sqlite/documentPersistence";
 
@@ -38,8 +38,8 @@ export function createPendingUpdateFields(
     return null;
   }
 
-  const { partialEndVersionVector, partialStartVersionVector } =
-    getUpdateVersionVectors(update);
+  const { mode, partialEndVersionVector, partialStartVersionVector } =
+    getImportBlobMetadata(update);
 
   // A Loro delta that encodes no ops still serializes to a small non-empty blob
   // (~22 bytes) with start == end version vectors, so the byteLength guard above
@@ -48,6 +48,17 @@ export function createPendingUpdateFields(
   // on every sync forever. Drop it: a zero-span update carries nothing.
   if (versionVectorsEqual(partialStartVersionVector, partialEndVersionVector)) {
     return null;
+  }
+
+  if (sourceVersionVector != null) {
+    if (mode !== "snapshot") {
+      throw new Error("Rotation baseline must be a full-history Loro snapshot");
+    }
+    if (!versionVectorsEqual(sourceVersionVector, partialEndVersionVector)) {
+      throw new Error(
+        "Rotation baseline source must equal its decoded end version vector",
+      );
+    }
   }
 
   return {

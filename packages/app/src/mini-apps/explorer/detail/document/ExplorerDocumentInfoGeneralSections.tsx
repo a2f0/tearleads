@@ -26,10 +26,6 @@ import {
 import { compactId } from "../compactId";
 import "./ExplorerDocumentInfoBlame.css";
 
-type DocumentInfoAttributionSegment = NonNullable<
-  DocumentInfo["remoteInfo"]
->["attributionSegments"][number];
-
 interface ExplorerAttributionLabelParams {
   attributionUserLabelResolver?:
     | ExplorerAttributionUserLabelResolver
@@ -102,14 +98,14 @@ export function ExplorerDocumentInfoGeneralSection(params: {
   );
 }
 
-function formatContributorEdits(contributor: {
+function formatContributorOps(contributor: {
   opCount: number;
   hasDirectAuthority: boolean;
 }): string {
   const edits = `${contributor.opCount} ${
     contributor.opCount === 1
-      ? EXPLORER_LABELS.documentInfoContributorEditSingular
-      : EXPLORER_LABELS.documentInfoContributorEditPlural
+      ? EXPLORER_LABELS.documentInfoContributorOpSingular
+      : EXPLORER_LABELS.documentInfoContributorOpPlural
   }`;
   // A contributor credited only via a rotate_baseline re-assertion is the first
   // signed uploader of those ops, not a proven author — flag that distinction.
@@ -127,6 +123,28 @@ export function ExplorerDocumentInfoContributorsSection(
   if (!remoteInfo) {
     return null;
   }
+  if (remoteInfo.attributionStatus === "unavailable") {
+    return (
+      <MiniAppInfoSection
+        heading={EXPLORER_LABELS.documentInfoContributorsHeading}
+      >
+        <MiniAppStatus tone="error">
+          {EXPLORER_LABELS.documentInfoAttributionUnavailable}
+        </MiniAppStatus>
+      </MiniAppInfoSection>
+    );
+  }
+  if (remoteInfo.attributionStatus === "truncated") {
+    return (
+      <MiniAppInfoSection
+        heading={EXPLORER_LABELS.documentInfoContributorsHeading}
+      >
+        <MiniAppStatus>
+          {EXPLORER_LABELS.documentInfoAttributionTruncated}
+        </MiniAppStatus>
+      </MiniAppInfoSection>
+    );
+  }
   const contributors = remoteInfo.contributors;
   return (
     <MiniAppInfoSection
@@ -141,7 +159,7 @@ export function ExplorerDocumentInfoContributorsSection(
           <tbody>
             {contributors.map((contributor) => (
               <MiniAppInfoRow
-                key={contributor.writerKeyFingerprint}
+                key={`${contributor.writerUserId}:${contributor.writerKeyFingerprint}`}
                 label={getExplorerAttributionWriterLabel(
                   contributor,
                   params.attributionUserLabelResolver,
@@ -151,7 +169,7 @@ export function ExplorerDocumentInfoContributorsSection(
                   params.attributionUserLabelResolver,
                 )}
               >
-                {formatContributorEdits(contributor)}
+                {formatContributorOps(contributor)}
               </MiniAppInfoRow>
             ))}
           </tbody>
@@ -206,7 +224,7 @@ export function ExplorerDocumentInfoCharacterBlameSection(
         <tbody>
           {blame.writers.map((writer) => (
             <MiniAppInfoRow
-              key={writer.writerKeyFingerprint}
+              key={`${writer.writerUserId}:${writer.writerKeyFingerprint}`}
               label={getExplorerAttributionWriterLabel(
                 writer,
                 params.attributionUserLabelResolver,
@@ -350,7 +368,7 @@ export function ExplorerDocumentInfoBlameSection(
         {legend.map((writer) => (
           <li
             className="explorer-blame-legend-item"
-            key={writer.writerKeyFingerprint}
+            key={`${writer.writerUserId}:${writer.writerKeyFingerprint}`}
             title={getExplorerAttributionWriterTitle(
               writer,
               params.attributionUserLabelResolver,
@@ -428,69 +446,6 @@ export function ExplorerDocumentInfoFieldBlameSection(
                   )
                 : EXPLORER_LABELS.documentInfoCharacterBlameUnattributed}
             </MiniAppInfoRow>
-          ))}
-        </tbody>
-      </MiniAppInfoTable>
-    </MiniAppInfoSection>
-  );
-}
-
-function getEditRangeAuthorityLabel(
-  authorityKind: DocumentInfoAttributionSegment["authorityKind"],
-): string {
-  return authorityKind === "direct"
-    ? EXPLORER_LABELS.documentInfoEditRangeAuthorityDirect
-    : EXPLORER_LABELS.documentInfoEditRangeAuthorityReasserted;
-}
-
-export function ExplorerDocumentInfoEditRangesSection(
-  params: ExplorerAttributionLabelParams & {
-    documentInfo: DocumentInfo | null;
-  },
-) {
-  const remoteInfo = params.documentInfo?.remoteInfo;
-  const segments = remoteInfo?.attributionSegments ?? [];
-  // Granular drill-down behind the Contributors rollup. Hidden whenever there is
-  // nothing to drill into (local-only/unsynced doc, or no attributed ranges) —
-  // the Contributors section already carries the canonical empty state.
-  if (!remoteInfo || segments.length === 0) {
-    return null;
-  }
-  return (
-    <MiniAppInfoSection heading={EXPLORER_LABELS.documentInfoEditRangesHeading}>
-      <MiniAppInfoTable>
-        <thead>
-          <tr>
-            <th>{EXPLORER_LABELS.documentInfoEditRangeWriterColumn}</th>
-            <th>{EXPLORER_LABELS.documentInfoEditRangePeerColumn}</th>
-            <th>{EXPLORER_LABELS.documentInfoEditRangeRangeColumn}</th>
-            <th>{EXPLORER_LABELS.documentInfoEditRangeOpsColumn}</th>
-            <th>{EXPLORER_LABELS.documentInfoEditRangeUploadColumn}</th>
-            <th>{EXPLORER_LABELS.documentInfoEditRangeAuthorityColumn}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {segments.map((segment) => (
-            <tr
-              key={`${segment.peerId}:${segment.startCounter}:${segment.endCounter}`}
-            >
-              <td
-                title={getExplorerAttributionWriterTitle(
-                  segment,
-                  params.attributionUserLabelResolver,
-                )}
-              >
-                {getExplorerAttributionWriterLabel(
-                  segment,
-                  params.attributionUserLabelResolver,
-                )}
-              </td>
-              <td title={segment.peerId}>{compactId(segment.peerId)}</td>
-              <td>{`${segment.startCounter}–${segment.endCounter}`}</td>
-              <td>{String(segment.opCount)}</td>
-              <td title={segment.updateId}>{`#${segment.updateSequence}`}</td>
-              <td>{getEditRangeAuthorityLabel(segment.authorityKind)}</td>
-            </tr>
           ))}
         </tbody>
       </MiniAppInfoTable>

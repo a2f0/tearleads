@@ -150,6 +150,14 @@ host stores that need the lower-level container contents runtime. Most product
 code should use `openTree()`, `documentQueries()`, `documentLinks()`, discovery,
 refresh helpers, and diagnostic loaders.
 
+Document diagnostics keep the default read bounded: `loadDocumentInfo(...)`
+uses at most 2,000 compact effective attribution intervals for contributor and
+local blame derivation. An explicitly `truncated` result disables partial blame.
+Per-upload provenance is lazy through `loadDocumentAttributionRanges(...)`;
+follow `nextCursor` only while Edit Ranges is visible. Cursors bind the document
+incarnation and attribution revision, so stale pages fail instead of mixing
+histories.
+
 ### Device-first reads and background reconciliation
 
 `tearleads.deviceFirst` renders container/document state instantly from the

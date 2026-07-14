@@ -64,6 +64,7 @@ interface ExplorerModel {
   loadBlobInfo: ExplorerPanelState["loadBlobInfo"];
   isRefreshing: boolean;
   loadContainerInfo: ExplorerPanelState["loadContainerInfo"];
+  loadDocumentAttributionRanges: ExplorerPanelState["loadDocumentAttributionRanges"];
   loadDocumentInfo: ExplorerPanelState["loadDocumentInfo"];
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
@@ -175,6 +176,7 @@ export function useExplorerModel(
     importDroppedFiles,
     loadBlobInfo,
     loadContainerInfo,
+    loadDocumentAttributionRanges,
     loadDocumentInfo,
     markDocumentStartsInEditMode,
     modalState,
@@ -330,6 +332,7 @@ export function useExplorerModel(
     loadBlobInfo,
     isRefreshing,
     loadContainerInfo,
+    loadDocumentAttributionRanges,
     loadDocumentInfo,
     loadDocumentSummary,
     linkedContainerIdsByDocumentId,

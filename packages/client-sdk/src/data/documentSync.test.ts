@@ -3,7 +3,10 @@ import {
   createDocument,
   encodeVersionVector,
   exportAllUpdates,
+  exportFullHistorySnapshot,
+  exportShallowSnapshot,
   exportUpdatesSince,
+  importSnapshot,
 } from "@tearleads/loro";
 import {
   createPendingUpdateFields,
@@ -74,11 +77,25 @@ test("createPendingUpdateFields keeps a real edit delta", async () => {
   );
 });
 
-test("createPendingUpdateFields keeps a full baseline export", async () => {
+test("createPendingUpdateFields keeps a full-history baseline", async () => {
   const doc = await createDocument("documentsync-test-seed-3");
   doc.getText("text").update("baseline content");
-  const baseline = exportAllUpdates(doc);
+  const baseline = exportFullHistorySnapshot(doc);
 
   const fields = createPendingUpdateFields(baseline, encodeVersionVector(doc));
   expect(fields).not.toBeNull();
+});
+
+test("createPendingUpdateFields rejects a dependency-bearing rotation baseline", async () => {
+  const doc = await createDocument("documentsync-test-seed-4");
+  doc.getText("text").update("baseline content");
+  const restarted = await createDocument("documentsync-test-seed-4");
+  importSnapshot(restarted, exportShallowSnapshot(doc));
+
+  expect(() =>
+    createPendingUpdateFields(
+      exportAllUpdates(restarted),
+      encodeVersionVector(restarted),
+    ),
+  ).toThrow("full-history Loro snapshot");
 });

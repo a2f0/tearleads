@@ -7,6 +7,7 @@ import type {
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedDocumentLinkSetManifest,
+  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
@@ -325,12 +326,18 @@ export async function verifyDocumentManifestFromRequest(input: {
   return result.value;
 }
 
-export async function verifyDocumentLinkSetMutationManifestFromRequest(input: {
+interface VerifiedDocumentLinkSetMutationAuthorization {
+  readonly authorizingContainerPaths: readonly (readonly VerifiedContainerAccessManifest[])[];
+  readonly manifest: VerifiedDocumentLinkSetManifest;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+}
+
+export async function verifyDocumentLinkSetMutationAuthorizationFromRequest(input: {
   readonly event: VerifiedAccessEvent;
   readonly executor: DatabaseTransaction;
   readonly previousManifest: VerifiedDocumentLinkSetManifest;
   readonly request: DocumentLinkSetMutationRequest;
-}): Promise<VerifiedDocumentLinkSetManifest> {
+}): Promise<VerifiedDocumentLinkSetMutationAuthorization> {
   // Run sequentially: this verification runs inside a transaction, so both
   // reads share one pinned connection. Concurrent issue only trips pg's
   // already-executing-query deprecation without buying any parallelism.
@@ -371,7 +378,11 @@ export async function verifyDocumentLinkSetMutationManifestFromRequest(input: {
     throw result.error;
   }
 
-  return result.value;
+  return {
+    authorizingContainerPaths: authorizingContainerPaths ?? [],
+    manifest: result.value,
+    principalPolicies,
+  };
 }
 
 /**

@@ -143,6 +143,15 @@ export function documentContentRecordMetadata(
     updateId: input.updateId,
     partialStartVersionVector: input.partialStartVersionVector,
     partialEndVersionVector: input.partialEndVersionVector,
+    ...(input.checkpointKind === undefined
+      ? {}
+      : { checkpointKind: input.checkpointKind }),
+    ...(input.checkpointPayloadKind === undefined
+      ? {}
+      : { checkpointPayloadKind: input.checkpointPayloadKind }),
+    ...(input.sourceVersionVector === undefined
+      ? {}
+      : { sourceVersionVector: input.sourceVersionVector }),
   };
 }
 

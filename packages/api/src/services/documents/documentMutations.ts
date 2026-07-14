@@ -1,9 +1,7 @@
-import type {
-  DocumentCreateResponse,
-  DocumentLinkSetMutationResponse,
-} from "@tearleads/validators/response";
+import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import {
   type CreateDocumentInput,
+  type DocumentLinkSetMutationWorkflowResult,
   type DocumentSyncWorkflowResult,
   type MutateDocumentLinkSetInput,
   type PurgeDocumentWorkflowResult,
@@ -27,7 +25,7 @@ export async function createDocument(
 export async function mutateDocumentLinkSet(
   runtime: ApiServiceRuntime,
   input: MutateDocumentLinkSetInput,
-): Promise<DocumentLinkSetMutationResponse> {
+): Promise<DocumentLinkSetMutationWorkflowResult> {
   return runDocumentLinkSetMutationWorkflow(runtime.db, input);
 }
 

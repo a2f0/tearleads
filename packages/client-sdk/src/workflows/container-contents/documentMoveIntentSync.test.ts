@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
 import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
@@ -89,6 +90,10 @@ test("pending document move intents replay signed link-set mutations and clear a
       targetSecretKey: keyPair.secretKey,
     });
     const createdResponse = createResponse(created.plan);
+    const rotationDocument = await createDocument("queued-move-rotation");
+    rotationDocument.getText("text").update("queued move state");
+    rotationDocument.commit();
+    const rotationSnapshot = exportFullHistorySnapshot(rotationDocument);
     let writerProjection: DocumentWriterProjectionResponse = {
       authorizingContainerPaths: [rootProjection],
       contentKeyBundle: createdResponse.contentKeyBundle,
@@ -216,6 +221,10 @@ test("pending document move intents replay signed link-set mutations and clear a
       host: {
         documentWorkflowRuntime: (containerId) => `runtime:${containerId}`,
         openDocumentStore: () => ({
+          assertCanRotateContentKey: async () => {
+            submittedOperations.push("preflight");
+            return rotationSnapshot;
+          },
           ensureInitialized: async () => true,
           relink: async (input) => {
             relinkInputs.push(input);
@@ -248,13 +257,12 @@ test("pending document move intents replay signed link-set mutations and clear a
     });
 
     expect(syncedCount).toBe(1);
-    expect(submittedOperations).toEqual(["link", "unlink"]);
+    expect(submittedOperations).toEqual(["preflight", "link", "unlink"]);
     expect(relinkInputs).toHaveLength(1);
     expect(relinkInputs[0]).toMatchObject({
       containerId: trashProjection.containerId,
       documentId: writerProjection.documentId,
       localId: "queued-move-local",
-      queueBaselineAfterRelink: true,
     });
     await expect(
       sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(

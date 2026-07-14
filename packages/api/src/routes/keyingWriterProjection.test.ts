@@ -25,21 +25,11 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
-  CONTENT_RECORD_ENCRYPTION_SUITE,
   computeAccessManifestHash,
-  computeContentRecordNonceDomainHash,
   computeDocumentContentKeyTargetHash,
-  computeDocumentContentRecordCiphertextHash,
-  computeDocumentContentRecordMetadataHash,
   deriveDocumentLinkSetManifest,
-  signWriteHeader,
 } from "@tearleads/crypto";
-import {
-  createDocument as createLoroDocument,
-  encodeVersionVector,
-  exportUpdatesSince,
-  getUpdateVersionVectors,
-} from "@tearleads/loro";
+import { emptyVersionVector } from "@tearleads/loro";
 import type {
   AccessManifestBundleWire,
   ContainerManifestRef,
@@ -49,7 +39,6 @@ import type {
 } from "@tearleads/validators/request";
 import {
   type ContainerMutationResponse,
-  type DocumentCreateResponse,
   type DocumentLinkSetMutationResponse,
   type DocumentWriterProjectionResponse,
   isContainerMutationResponse,
@@ -66,6 +55,11 @@ import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
 } from "../../test/helpers/containerRekey";
+import {
+  createSignedAtomicRotationBaseline,
+  createSignedDocumentSyncRequest,
+  expectStaleAtomicUnlinkRollsBack,
+} from "../../test/helpers/documentUpdateRequests";
 import {
   accessManifestFromContainerResponse,
   asVerifiedContainerManifest,
@@ -297,91 +291,6 @@ async function moveContainer(input: {
   return moved as ContainerMutationResponse;
 }
 
-async function createSignedDocumentSyncRequest(input: {
-  readonly created: DocumentCreateResponse;
-  readonly owner: TestUser;
-  readonly root: StoredRootFixture;
-}): Promise<{
-  readonly request: DocumentSyncRequest;
-  readonly updateId: string;
-}> {
-  const updateId = crypto.randomUUID();
-  const document = await createLoroDocument(`sync-audit-${updateId}`);
-  const partialStartVersionVector = encodeVersionVector(document);
-  document.getText("text").update(`sync audit update ${updateId}`);
-  const updateBytes = exportUpdatesSince(document, partialStartVersionVector);
-  const vectors = getUpdateVersionVectors(updateBytes);
-  const encryptedData = `encrypted-sync-audit-update:${updateId}`;
-  const organizationId = String(
-    Reflect.get(input.created.accessManifest.state, "organizationId"),
-  );
-  const writeHeader = await signWriteHeader(
-    {
-      version: 1,
-      organizationId,
-      objectKind: "document",
-      objectId: input.created.id,
-      accessManifestHash: input.created.contentKeyBundle.linkSetManifestHash,
-      contentKeyEpoch: input.created.contentKeyBundle.contentKeyEpoch,
-      targetHash: input.created.contentKeyBundle.targetHash,
-      encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
-      contentRecordId: updateId,
-      nonceDomainHash: await computeContentRecordNonceDomainHash({
-        version: 1,
-        organizationId,
-        objectKind: "document",
-        objectId: input.created.id,
-        contentKeyEpoch: input.created.contentKeyBundle.contentKeyEpoch,
-        encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
-        contentRecordId: updateId,
-      }),
-      metadataHash: await computeDocumentContentRecordMetadataHash({
-        documentId: input.created.id,
-        partialEndVersionVector: vectors.partialEndVersionVector,
-        partialStartVersionVector: vectors.partialStartVersionVector,
-        updateId,
-      }),
-      ciphertextHash:
-        await computeDocumentContentRecordCiphertextHash(encryptedData),
-      writerUserId: input.owner.userId,
-      writerDeviceId: "test-device",
-      writerKeyFingerprint: input.owner.fingerprint,
-      signedAt: "2026-04-27T12:00:00.000Z",
-    },
-    input.owner.signing.signingPrivateKey,
-  );
-
-  return {
-    updateId,
-    request: {
-      contentKeyEpoch: input.created.contentKeyBundle.contentKeyEpoch,
-      expectedLinkSetManifestHash:
-        input.created.contentKeyBundle.linkSetManifestHash,
-      expectedTargetHash: input.created.contentKeyBundle.targetHash,
-      authorizingContainerPathRefs: [
-        [
-          {
-            containerId: input.root.kekState.containerId,
-            manifestHash: input.root.bundle.manifestHash,
-          },
-        ],
-      ],
-      localVersionVector: null,
-      outgoingUpdates: [
-        {
-          checkpointKind: "rotate_baseline",
-          encryptedData,
-          id: updateId,
-          partialStartVersionVector: vectors.partialStartVersionVector,
-          partialEndVersionVector: vectors.partialEndVersionVector,
-          sourceVersionVector: partialStartVersionVector,
-          writeHeader: writeHeader as unknown as Record<string, unknown>,
-        },
-      ],
-    },
-  };
-}
-
 async function countDocumentAuditRows(documentId: string, updateId: string) {
   const [auditEntries, updateEvents, checkpoints] = await Promise.all([
     db
@@ -603,6 +512,7 @@ async function buildDocumentUnlinkRequest(input: {
   readonly child: ContainerMutationResponse;
   readonly linkedDocument: DocumentLinkSetMutationResponse;
   readonly owner: TestUser;
+  readonly rotationBaselineSourceVersionVector?: string;
   readonly root: StoredRootFixture;
 }): Promise<DocumentLinkSetMutationRequest> {
   const childBundle = accessManifestFromContainerResponse(input.child);
@@ -650,6 +560,21 @@ async function buildDocumentUnlinkRequest(input: {
   const targetHash = await computeDocumentContentKeyTargetHash([
     remainingTarget,
   ]);
+  const contentKeyEpoch =
+    input.linkedDocument.contentKeyBundle.contentKeyEpoch + 1;
+  const rotationBaseline = await createSignedAtomicRotationBaseline({
+    accessManifestHash: manifestHash,
+    contentKeyEpoch,
+    documentId,
+    organizationId: state.organizationId,
+    owner: input.owner,
+    ...(input.rotationBaselineSourceVersionVector === undefined
+      ? {}
+      : {
+          sourceVersionVector: input.rotationBaselineSourceVersionVector,
+        }),
+    targetHash,
+  });
 
   return {
     event: event.event as unknown as Record<string, unknown>,
@@ -675,8 +600,7 @@ async function buildDocumentUnlinkRequest(input: {
       ],
     ],
     contentKeyBundle: {
-      contentKeyEpoch:
-        input.linkedDocument.contentKeyBundle.contentKeyEpoch + 1,
+      contentKeyEpoch,
       linkSetManifestHash: manifestHash,
       targetHash,
       targets: [
@@ -687,6 +611,7 @@ async function buildDocumentUnlinkRequest(input: {
         },
       ],
     },
+    rotationBaseline,
   };
 }
 
@@ -1157,6 +1082,7 @@ test("POST /documents/:documentId/sync writes audit rows for accepted live updat
   const root = await bootstrapRoot(owner);
   const created = await createDocument({ owner, root });
   const { request, updateId } = await createSignedDocumentSyncRequest({
+    checkpoint: true,
     created,
     owner,
     root,
@@ -1389,7 +1315,7 @@ test("POST /documents/:documentId/sync rejects a stale expectedLinkSetManifestHa
   expect(response.status).toBe(409);
 });
 
-test("POST /documents/:documentId/sync returns content-key bundles for historical updates", async () => {
+test("POST /documents/:documentId/sync redirects historical updates to the atomic rotation baseline", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -1473,17 +1399,17 @@ test("POST /documents/:documentId/sync returns content-key bundles for historica
   expect(syncResponse.status).toBe(200);
   const synced = await syncResponse.json();
   expect(isDocumentSyncResponse(synced)).toBe(true);
-  expect(synced.updates.map((update: { id: string }) => update.id)).toContain(
-    updateId,
-  );
+  expect(synced.updates.map((update: { id: string }) => update.id)).toEqual([
+    unlinkRequest.rotationBaseline?.id,
+  ]);
+  expect(
+    synced.updates.map((update: { id: string }) => update.id),
+  ).not.toContain(updateId);
   expect(
     synced.contentKeyBundles
       .map((bundle: { contentKeyEpoch: number }) => bundle.contentKeyEpoch)
       .sort((left: number, right: number) => left - right),
-  ).toEqual([
-    created.contentKeyBundle.contentKeyEpoch,
-    unlinkedDocument.contentKeyBundle.contentKeyEpoch,
-  ]);
+  ).toEqual([unlinkedDocument.contentKeyBundle.contentKeyEpoch]);
 });
 
 test("POST /documents/:documentId/sync rolls back optional rekeys when write validation fails", async () => {
@@ -1950,6 +1876,15 @@ test("POST /documents/:documentId/unlink advances a signed link-set manifest", a
   const root = await bootstrapRoot(owner);
   const child = await createChildContainer({ parent: root, signer: owner });
   const createdDocument = await createDocument({ owner, root });
+  const preRotationSync = await createSignedDocumentSyncRequest({
+    created: createdDocument,
+    owner,
+    root,
+  });
+  expect(
+    (await postDocumentSync(createdDocument.id, owner, preRotationSync.request))
+      .status,
+  ).toBe(200);
   const linkRequest = await buildDocumentLinkRequest({
     child,
     createdDocument,
@@ -1981,6 +1916,42 @@ test("POST /documents/:documentId/unlink advances a signed link-set manifest", a
     .where(
       inArray(containers.id, [root.kekState.containerId, child.containerId]),
     );
+
+  const missingBaselineRequest = await buildDocumentUnlinkRequest({
+    child,
+    linkedDocument,
+    owner,
+    root,
+  });
+  delete missingBaselineRequest.rotationBaseline;
+  const missingBaselineResponse = await routeApp.request(
+    `/documents/${createdDocument.id}/unlink`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(missingBaselineRequest),
+    },
+  );
+  expect(missingBaselineResponse.status).toBe(400);
+  expect(await missingBaselineResponse.json()).toEqual({
+    error: "Document unlink requires a rotation baseline",
+  });
+
+  await expectStaleAtomicUnlinkRollsBack({
+    buildRequest: () =>
+      buildDocumentUnlinkRequest({
+        child,
+        linkedDocument,
+        owner,
+        root,
+        rotationBaselineSourceVersionVector: emptyVersionVector(),
+      }),
+    documentId: createdDocument.id,
+    token: owner.token,
+  });
 
   const unlinkRequest = await buildDocumentUnlinkRequest({
     child,

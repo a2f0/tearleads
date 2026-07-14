@@ -56,6 +56,8 @@ test("on success the marker advances so the next delta stays incremental", async
   // The second delta is genuinely incremental: applied alone to a fresh peer it
   // cannot converge, because it omits the causally-prior "first" ops.
   const freshPeer = await createDocument("durability-peer-3");
-  importUpdates(freshPeer, [secondDelta]);
+  expect(() => importUpdates(freshPeer, [secondDelta])).toThrow(
+    "unresolved pending dependencies",
+  );
   expect(freshPeer.getText("text").toString()).toBe("");
 });

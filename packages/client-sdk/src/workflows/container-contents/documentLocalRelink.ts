@@ -12,7 +12,6 @@ export async function relinkContainerDocumentLocally<TRuntime>(params: {
   currentDocumentStore: DocumentStructuralMutationLocalStore<TRuntime>;
   host: DocumentStructuralMutationHost<TRuntime>;
   note: DocumentSummary;
-  queueBaselineAfterRelink?: boolean | undefined;
   remoteState?: RemoteDocumentPersistedState | undefined;
   requestSync: boolean;
   runtime: DocumentStructuralMutationRuntime;
@@ -24,7 +23,6 @@ export async function relinkContainerDocumentLocally<TRuntime>(params: {
     currentDocumentStore,
     host,
     note,
-    queueBaselineAfterRelink,
     remoteState,
     requestSync,
     runtime,
@@ -38,7 +36,6 @@ export async function relinkContainerDocumentLocally<TRuntime>(params: {
     ...remoteState,
     documentId: note.documentId,
     localId: note.id,
-    queueBaselineAfterRelink,
   });
   if (!relinkedNote) {
     runtime.util.log(

@@ -5,6 +5,7 @@ import {
   documentUpdates,
 } from "@tearleads/api-shared/schema";
 import { and, eq, inArray, ne } from "drizzle-orm";
+import { isAuthenticatedReplayableBaseline } from "../../../documents/documentReplayableBaseline";
 import {
   type PruneBaseline,
   type PruneCandidate,
@@ -34,9 +35,14 @@ async function loadRotateBaselines(
   const scoped = documentIds !== undefined && documentIds.length > 0;
   const rows = await db
     .select({
+      checkpointKind: documentAuditCheckpoints.checkpointKind,
       documentId: documentAuditCheckpoints.documentId,
+      header: documentContentWriteHeaders.header,
+      partialEndVersionVector: documentUpdates.partialEndVersionVector,
+      partialStartVersionVector: documentUpdates.partialStartVersionVector,
       sourceVersionVector: documentAuditCheckpoints.sourceVersionVector,
       baselineEpoch: documentContentWriteHeaders.contentKeyEpoch,
+      updateId: documentAuditCheckpoints.baselineUpdateId,
     })
     .from(documentAuditCheckpoints)
     .innerJoin(
@@ -45,6 +51,10 @@ async function loadRotateBaselines(
         documentContentWriteHeaders.updateId,
         documentAuditCheckpoints.baselineUpdateId,
       ),
+    )
+    .innerJoin(
+      documentUpdates,
+      eq(documentUpdates.id, documentAuditCheckpoints.baselineUpdateId),
     )
     .where(
       scoped
@@ -57,7 +67,17 @@ async function loadRotateBaselines(
 
   const baselines: PruneBaseline[] = [];
   for (const row of rows) {
-    if (row.sourceVersionVector === null) {
+    if (
+      !(await isAuthenticatedReplayableBaseline({
+        checkpointKind: row.checkpointKind,
+        documentId: row.documentId,
+        metadataHash: row.header.metadataHash,
+        partialEndVersionVector: row.partialEndVersionVector,
+        partialStartVersionVector: row.partialStartVersionVector,
+        sourceVersionVector: row.sourceVersionVector,
+        updateId: row.updateId,
+      }))
+    ) {
       continue;
     }
     baselines.push({

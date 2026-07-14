@@ -19,10 +19,10 @@ export interface DocumentStructuralMutationRelinkInput
   contentKeyBundle?: string | null | undefined;
   documentKekTargets?: string | null | undefined;
   documentManifestBundle?: string | null | undefined;
-  queueBaselineAfterRelink?: boolean | undefined;
 }
 
 export interface DocumentStructuralMutationLocalStore<TRuntime> {
+  assertCanRotateContentKey: () => Promise<Uint8Array>;
   ensureInitialized: () => Promise<boolean>;
   relink: (
     input: DocumentStructuralMutationRelinkInput,

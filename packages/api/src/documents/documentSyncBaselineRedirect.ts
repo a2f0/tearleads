@@ -2,9 +2,11 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   documentAuditCheckpoints,
   documentContentWriteHeaders,
+  documentUpdates,
 } from "@tearleads/api-shared/schema";
 import { satisfiesVersionVector } from "@tearleads/loro";
 import { and, desc, eq } from "drizzle-orm";
+import { isAuthenticatedReplayableBaseline } from "./documentReplayableBaseline";
 
 /**
  * Coverage-gated baseline redirect for document sync pulls.
@@ -84,9 +86,15 @@ export async function loadLatestReadableBaselineCoverage(
   executor: DatabaseSession,
   input: { readonly documentId: string; readonly contentKeyEpoch: number },
 ): Promise<string | null> {
-  const [row] = await executor
+  const rows = await executor
     .select({
+      checkpointKind: documentAuditCheckpoints.checkpointKind,
+      documentId: documentAuditCheckpoints.documentId,
+      header: documentContentWriteHeaders.header,
+      partialEndVersionVector: documentUpdates.partialEndVersionVector,
+      partialStartVersionVector: documentUpdates.partialStartVersionVector,
       sourceVersionVector: documentAuditCheckpoints.sourceVersionVector,
+      updateId: documentAuditCheckpoints.baselineUpdateId,
     })
     .from(documentAuditCheckpoints)
     .innerJoin(
@@ -96,6 +104,10 @@ export async function loadLatestReadableBaselineCoverage(
         documentAuditCheckpoints.baselineUpdateId,
       ),
     )
+    .innerJoin(
+      documentUpdates,
+      eq(documentUpdates.id, documentAuditCheckpoints.baselineUpdateId),
+    )
     .where(
       and(
         eq(documentAuditCheckpoints.documentId, input.documentId),
@@ -103,10 +115,24 @@ export async function loadLatestReadableBaselineCoverage(
         eq(documentContentWriteHeaders.contentKeyEpoch, input.contentKeyEpoch),
       ),
     )
-    .orderBy(desc(documentAuditCheckpoints.sequence))
-    .limit(1);
+    .orderBy(desc(documentAuditCheckpoints.sequence));
 
-  return row?.sourceVersionVector ?? null;
+  for (const row of rows) {
+    if (
+      await isAuthenticatedReplayableBaseline({
+        checkpointKind: row.checkpointKind,
+        documentId: row.documentId,
+        metadataHash: row.header.metadataHash,
+        partialEndVersionVector: row.partialEndVersionVector,
+        partialStartVersionVector: row.partialStartVersionVector,
+        sourceVersionVector: row.sourceVersionVector,
+        updateId: row.updateId,
+      })
+    ) {
+      return row.sourceVersionVector;
+    }
+  }
+  return null;
 }
 
 /**

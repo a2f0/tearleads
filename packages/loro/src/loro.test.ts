@@ -4,6 +4,7 @@ import {
   derivePeerId,
   encodeVersionVector,
   exportAllUpdates,
+  exportFullHistorySnapshot,
   exportShallowSnapshot,
   exportUpdatesSince,
   getTextValue,
@@ -107,6 +108,52 @@ test("a peer delta applies on top of a reloaded shallow snapshot", async () => {
   author.commit();
   importUpdates(reader, [exportUpdatesSince(author, since)]);
   expect(getTextValue(reader)).toBe("base+more");
+});
+
+test("a full-history rotation checkpoint merges concurrent edits into a behind document", async () => {
+  const author = await createDocument("rotation-author");
+  const empty = encodeVersionVector(author);
+  author.getText("text").update("base");
+  author.commit();
+
+  const behind = await createDocument("rotation-behind");
+  importUpdates(behind, [exportUpdatesSince(author, empty)]);
+  behind.getText("text").insert(4, " local");
+  behind.commit();
+
+  author.getText("text").insert(4, " remote");
+  author.commit();
+  importSnapshot(behind, exportFullHistorySnapshot(author));
+
+  expect(getTextValue(behind)).toContain(" local");
+  expect(getTextValue(behind)).toContain(" remote");
+});
+
+test("full-history rotation export fails closed after a shallow restart", async () => {
+  const author = await createDocument("shallow-rotation-author");
+  author.getText("text").update("hello before rotation");
+  author.commit();
+  const restarted = await createDocument("shallow-rotation-author");
+  importSnapshot(restarted, exportShallowSnapshot(author));
+
+  expect(() => exportFullHistorySnapshot(restarted)).toThrow(
+    "shallow-restored state must be reconstructed before key rotation",
+  );
+});
+
+test("importUpdates rejects a dependency-bearing update", async () => {
+  const author = await createDocument("pending-author");
+  author.getText("text").update("hello");
+  author.commit();
+
+  const restarted = await createDocument("pending-author");
+  importSnapshot(restarted, exportShallowSnapshot(author));
+  const dependencyBearingUpdate = exportAllUpdates(restarted);
+  const newcomer = await createDocument("pending-newcomer");
+
+  expect(() => importUpdates(newcomer, [dependencyBearingUpdate])).toThrow(
+    "unresolved pending dependencies",
+  );
 });
 
 test("listTextCharOpIds maps each character to its inserting op id", async () => {

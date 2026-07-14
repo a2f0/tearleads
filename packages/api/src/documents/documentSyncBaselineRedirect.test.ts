@@ -4,16 +4,28 @@ import { db } from "@tearleads/api-shared/postgres";
 import {
   documentAuditCheckpoints,
   documentContentWriteHeaders,
+  documentUpdates,
 } from "@tearleads/api-shared/schema";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
+  computeDocumentContentRecordMetadataHash,
   type WriteHeader,
 } from "@tearleads/crypto";
-import { createDocument, encodeVersionVector } from "@tearleads/loro";
+import {
+  createDocument,
+  emptyVersionVector,
+  encodeVersionVector,
+  exportAllUpdates,
+  exportFullHistorySnapshot,
+  getTextValue,
+  getUpdateVersionVectors,
+  importUpdates,
+} from "@tearleads/loro";
 import {
   loadLatestReadableBaselineCoverage,
   selectServedSyncUpdates,
 } from "./documentSyncBaselineRedirect";
+import { planDominatedUpdatePrune } from "./documentUpdatePrune";
 
 function entry(contentKeyEpoch: number, partialEndVersionVector: string) {
   return {
@@ -80,12 +92,100 @@ test("falls back to serving everything when the baseline does not dominate an ol
   expect(served).toHaveLength(2);
 });
 
+test("a full-history rotation snapshot converges a fresh reader before and after old payload pruning", async () => {
+  const author = await createDocument("rotation-regression-author");
+  author.getText("text").update("state before rotation");
+  author.commit();
+  const oldEpochUpdate = exportAllUpdates(author);
+  const oldEpochVectors = getUpdateVersionVectors(oldEpochUpdate);
+
+  const baseline = exportFullHistorySnapshot(author);
+  const baselineVectors = getUpdateVersionVectors(baseline);
+  const coverage = encodeVersionVector(author);
+  const baselineEntry = {
+    bytes: baseline,
+    update: {
+      partialEndVersionVector: baselineVectors.partialEndVersionVector,
+    },
+    writeHeader: { contentKeyEpoch: 2 },
+  };
+
+  const served = selectServedSyncUpdates({
+    entries: [
+      {
+        bytes: oldEpochUpdate,
+        update: {
+          partialEndVersionVector: oldEpochVectors.partialEndVersionVector,
+        },
+        writeHeader: { contentKeyEpoch: 1 },
+      },
+      baselineEntry,
+    ],
+    currentContentKeyEpoch: 2,
+    baselineCoverage: coverage,
+  });
+  expect(served).toEqual([baselineEntry]);
+
+  const newcomerBeforePrune = await createDocument("newcomer-before-prune");
+  importUpdates(
+    newcomerBeforePrune,
+    served.map((item) => item.bytes),
+  );
+  expect(getTextValue(newcomerBeforePrune)).toBe("state before rotation");
+
+  expect(
+    planDominatedUpdatePrune({
+      baselines: [
+        {
+          baselineEpoch: 2,
+          documentId: "document-1",
+          sourceVersionVector: coverage,
+        },
+      ],
+      candidates: [
+        {
+          byteLength: oldEpochUpdate.byteLength,
+          contentKeyEpoch: 1,
+          documentId: "document-1",
+          id: "old-update",
+          partialEndVersionVector: oldEpochVectors.partialEndVersionVector,
+        },
+      ],
+      limit: 1,
+    }).updateIds,
+  ).toEqual(["old-update"]);
+
+  const newcomerAfterPrune = await createDocument("newcomer-after-prune");
+  importUpdates(newcomerAfterPrune, [baseline]);
+  expect(getTextValue(newcomerAfterPrune)).toBe("state before rotation");
+});
+
 async function insertBaselineCheckpoint(input: {
   baselineUpdateId: string;
   contentKeyEpoch: number;
   documentId: string;
   sourceVersionVector: string;
 }): Promise<void> {
+  const partialStartVersionVector = emptyVersionVector();
+  const metadataHash = await computeDocumentContentRecordMetadataHash({
+    checkpointKind: "rotate_baseline",
+    checkpointPayloadKind: "full_history_snapshot",
+    documentId: input.documentId,
+    partialEndVersionVector: input.sourceVersionVector,
+    partialStartVersionVector,
+    sourceVersionVector: input.sourceVersionVector,
+    updateId: input.baselineUpdateId,
+  });
+  await db.insert(documentUpdates).values({
+    id: input.baselineUpdateId,
+    documentId: input.documentId,
+    accessEpoch: 1,
+    authorFingerprint: "baseline-redirect-test",
+    encryptedData: "encrypted-baseline",
+    byteLength: 18,
+    partialStartVersionVector,
+    partialEndVersionVector: input.sourceVersionVector,
+  });
   await db.insert(documentContentWriteHeaders).values({
     updateId: input.baselineUpdateId,
     documentId: input.documentId,
@@ -97,7 +197,7 @@ async function insertBaselineCheckpoint(input: {
     contentRecordId: input.baselineUpdateId,
     nonceDomainHash: `nonce-${input.baselineUpdateId}`,
     headerHash: `header-${input.baselineUpdateId}`,
-    header: {} as unknown as WriteHeader,
+    header: { metadataHash } as unknown as WriteHeader,
   });
   await db.insert(documentAuditCheckpoints).values({
     documentId: input.documentId,
@@ -114,25 +214,26 @@ async function insertBaselineCheckpoint(input: {
 
 test("loadLatestReadableBaselineCoverage returns the latest baseline under the readable epoch", async () => {
   const documentId = randomUUID();
+  const { vv1, vv2, vv3 } = await versionVectorTimeline();
   // A pre-rotation baseline under epoch 1 must be ignored for an epoch-2 reader.
   await insertBaselineCheckpoint({
     baselineUpdateId: randomUUID(),
     contentKeyEpoch: 1,
     documentId,
-    sourceVersionVector: "old-epoch-coverage",
+    sourceVersionVector: vv1,
   });
   // Two current-epoch (epoch 2) baselines; the later sequence must win.
   await insertBaselineCheckpoint({
     baselineUpdateId: randomUUID(),
     contentKeyEpoch: 2,
     documentId,
-    sourceVersionVector: "earlier-current-coverage",
+    sourceVersionVector: vv2,
   });
   await insertBaselineCheckpoint({
     baselineUpdateId: randomUUID(),
     contentKeyEpoch: 2,
     documentId,
-    sourceVersionVector: "latest-current-coverage",
+    sourceVersionVector: vv3,
   });
 
   expect(
@@ -140,7 +241,7 @@ test("loadLatestReadableBaselineCoverage returns the latest baseline under the r
       documentId,
       contentKeyEpoch: 2,
     }),
-  ).toBe("latest-current-coverage");
+  ).toBe(vv3);
   expect(
     await loadLatestReadableBaselineCoverage(db, {
       documentId,

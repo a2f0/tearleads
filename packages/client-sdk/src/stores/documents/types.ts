@@ -78,6 +78,8 @@ export interface DocumentSnapshot {
 }
 
 export interface DocumentStore {
+  /** Fail unless this store can produce a mergeable full-history checkpoint. */
+  assertCanRotateContentKey: () => Promise<Uint8Array>;
   attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
   ensureInitialized: () => Promise<boolean>;
   getSnapshot: () => DocumentSnapshot;
@@ -105,7 +107,6 @@ export interface DocumentStoreFacade extends DocumentStore {
 export type PersistedDocumentListener = (document: DocumentSummary) => void;
 
 export interface DocumentStoreRelinkInput extends RelinkPersistedDocumentInput {
-  queueBaselineAfterRelink?: boolean | undefined;
   contentKeyBundle?: string | null | undefined;
   documentKekTargets?: string | null | undefined;
   documentManifestBundle?: string | null | undefined;

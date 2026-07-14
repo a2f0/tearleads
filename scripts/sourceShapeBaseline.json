@@ -38,8 +38,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 475,
-      "bytes": 20643
+      "lines": 479,
+      "bytes": 21124
     },
     "docs/glossary.md": {
       "lines": 506,
@@ -54,8 +54,8 @@
       "bytes": 22215
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1581,
-      "bytes": 46267
+      "lines": 1598,
+      "bytes": 47373
     },
     "packages/api-client/src/ApiClient.core.test.ts": {
       "lines": 541,
@@ -244,10 +244,6 @@
     "packages/client-sdk/src/workflows/container-contents/documentInfo.test.ts": {
       "lines": 599,
       "bytes": 18343
-    },
-    "packages/client-sdk/src/workflows/container-contents/documentInfo.ts": {
-      "lines": 517,
-      "bytes": 16410
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueries.ts": {
       "lines": 670,

@@ -80,16 +80,34 @@ export interface DocumentEditAttributionSegmentResponse {
   peerId: string;
   startCounter: number;
   endCounter: number;
-  updateId: string;
-  updateSequence: number;
   writerUserId: string;
   writerKeyFingerprint: string;
   authorityKind: "direct" | "baseline";
 }
 
+export interface DocumentEditAttributionRangeResponse
+  extends DocumentEditAttributionSegmentResponse {
+  updateId: string;
+}
+
 export interface DocumentEditAttributionResponse {
+  attributionRevision: number;
   documentId: string;
   segments: DocumentEditAttributionSegmentResponse[];
+  /** True when the compact interval list hit the API response safety limit. */
+  truncated?: boolean;
+}
+
+export interface ListDocumentEditAttributionRangesResponse {
+  attributionRevision: number;
+  documentId: string;
+  hasMore: boolean;
+  items: DocumentEditAttributionRangeResponse[];
+  nextCursor: string | null;
+}
+
+function isNonnegativeSafeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
 function isDocumentEditAttributionSegmentResponse(
@@ -98,28 +116,83 @@ function isDocumentEditAttributionSegmentResponse(
   const authorityKind = isPlainObject(value)
     ? Reflect.get(value, "authorityKind")
     : undefined;
+  const startCounter = isPlainObject(value)
+    ? Reflect.get(value, "startCounter")
+    : undefined;
+  const endCounter = isPlainObject(value)
+    ? Reflect.get(value, "endCounter")
+    : undefined;
 
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "peerId") &&
-    hasNumberProperty(value, "startCounter") &&
-    hasNumberProperty(value, "endCounter") &&
-    hasStringProperty(value, "updateId") &&
-    hasNumberProperty(value, "updateSequence") &&
+    value.peerId.length > 0 &&
+    isNonnegativeSafeInteger(startCounter) &&
+    isNonnegativeSafeInteger(endCounter) &&
+    startCounter < endCounter &&
     hasStringProperty(value, "writerUserId") &&
+    value.writerUserId.length > 0 &&
     hasStringProperty(value, "writerKeyFingerprint") &&
+    value.writerKeyFingerprint.length > 0 &&
     (authorityKind === "direct" || authorityKind === "baseline")
+  );
+}
+
+function isDocumentEditAttributionRangeResponse(
+  value: unknown,
+): value is DocumentEditAttributionRangeResponse {
+  const updateId = isPlainObject(value)
+    ? Reflect.get(value, "updateId")
+    : undefined;
+  return (
+    isDocumentEditAttributionSegmentResponse(value) &&
+    typeof updateId === "string" &&
+    updateId.length > 0
   );
 }
 
 export function isDocumentEditAttributionResponse(
   value: unknown,
 ): value is DocumentEditAttributionResponse {
+  const truncated = isPlainObject(value)
+    ? Reflect.get(value, "truncated")
+    : undefined;
   return (
     isPlainObject(value) &&
+    isNonnegativeSafeInteger(Reflect.get(value, "attributionRevision")) &&
     hasStringProperty(value, "documentId") &&
+    value.documentId.length > 0 &&
     hasArrayProperty(value, "segments") &&
-    value.segments.every(isDocumentEditAttributionSegmentResponse)
+    value.segments.every(isDocumentEditAttributionSegmentResponse) &&
+    (truncated === undefined || typeof truncated === "boolean")
+  );
+}
+
+export function isListDocumentEditAttributionRangesResponse(
+  value: unknown,
+): value is ListDocumentEditAttributionRangesResponse {
+  const attributionRevision = isPlainObject(value)
+    ? Reflect.get(value, "attributionRevision")
+    : undefined;
+  const nextCursor = isPlainObject(value)
+    ? Reflect.get(value, "nextCursor")
+    : undefined;
+  const hasMore = isPlainObject(value)
+    ? Reflect.get(value, "hasMore")
+    : undefined;
+
+  return (
+    isPlainObject(value) &&
+    isNonnegativeSafeInteger(attributionRevision) &&
+    hasStringProperty(value, "documentId") &&
+    value.documentId.length > 0 &&
+    typeof hasMore === "boolean" &&
+    hasArrayProperty(value, "items") &&
+    value.items.length <= 500 &&
+    value.items.every(isDocumentEditAttributionRangeResponse) &&
+    (hasMore
+      ? typeof nextCursor === "string" && nextCursor.length > 0
+      : nextCursor === null)
   );
 }
 

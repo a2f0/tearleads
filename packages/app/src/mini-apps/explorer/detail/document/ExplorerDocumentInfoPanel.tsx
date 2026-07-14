@@ -11,6 +11,7 @@ import {
   MiniAppPanel,
   MiniAppStatus,
 } from "../../../../components/shared/MiniAppLayout";
+import type { ExplorerDocumentAttributionRangesLoader } from "../../../../stores/explorer/documentInfo";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 import { canWriteDocumentSummary } from "../../containerRules";
 import { EXPLORER_LABELS } from "../../labels";
@@ -22,11 +23,11 @@ import {
   type OpenBlobBrowserRoute,
 } from "./ExplorerDocumentInfoAttachmentsSection";
 import { ExplorerDocumentInfoAuthorizingContainersSection } from "./ExplorerDocumentInfoContainersSection";
+import { ExplorerDocumentInfoEditRangesSection } from "./ExplorerDocumentInfoEditRangesSection";
 import {
   ExplorerDocumentInfoBlameSection,
   ExplorerDocumentInfoCharacterBlameSection,
   ExplorerDocumentInfoContributorsSection,
-  ExplorerDocumentInfoEditRangesSection,
   ExplorerDocumentInfoFieldBlameSection,
   ExplorerDocumentInfoGeneralSection,
 } from "./ExplorerDocumentInfoGeneralSections";
@@ -35,6 +36,7 @@ import {
   ExplorerDocumentInfoRemoteSecuritySection,
 } from "./ExplorerDocumentInfoSecuritySections";
 import { ExplorerLinkedContainerSection } from "./ExplorerLinkedContainers";
+import { useExplorerDocumentInfo } from "./useExplorerDocumentInfo";
 
 type DocumentInfoTabId = "general" | "links" | "blobs" | "security";
 
@@ -62,6 +64,7 @@ interface Props {
     | undefined;
   fallbackDocumentSummary: DocumentSummary | null;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
+  loadDocumentAttributionRanges: ExplorerDocumentAttributionRangesLoader;
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   localId: string;
@@ -73,51 +76,6 @@ interface Props {
     documentId: string,
     removedContainerId: string,
   ) => Promise<DocumentSummary | null>;
-}
-
-function useExplorerDocumentInfo(params: {
-  loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
-  localId: string;
-}) {
-  const { loadDocumentInfo, localId } = params;
-  const requestIdRef = useRef(0);
-  const [documentInfo, setDocumentInfo] = useState<DocumentInfo | null>(null);
-  const [documentInfoError, setDocumentInfoError] = useState<string | null>(
-    null,
-  );
-  const [isLoadingDocumentInfo, setIsLoadingDocumentInfo] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
-    setIsLoadingDocumentInfo(true);
-    setDocumentInfoError(null);
-    setDocumentInfo(null);
-
-    void loadDocumentInfo(localId)
-      .then((info) => {
-        if (!cancelled && requestIdRef.current === requestId) {
-          setDocumentInfo(info);
-        }
-      })
-      .catch((error: unknown) => {
-        if (!cancelled && requestIdRef.current === requestId) {
-          setDocumentInfoError(unknownErrorMessage(error));
-        }
-      })
-      .finally(() => {
-        if (!cancelled && requestIdRef.current === requestId) {
-          setIsLoadingDocumentInfo(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [loadDocumentInfo, localId]);
-
-  return { documentInfo, documentInfoError, isLoadingDocumentInfo };
 }
 
 function useExplorerDocumentSummary(params: {
@@ -255,6 +213,7 @@ function ExplorerDocumentInfoTabPanel(params: {
   idPrefix: string;
   isLoadingDocumentSummary: boolean;
   linkedContainerIds: ReadonlyArray<string>;
+  loadDocumentAttributionRanges: ExplorerDocumentAttributionRangesLoader;
   localId: string;
   nodes: ReadonlyArray<ContainerNode>;
   openBlobBrowserRoute: OpenBlobBrowserRoute;
@@ -286,6 +245,7 @@ function ExplorerDocumentInfoTabPanel(params: {
           <ExplorerDocumentInfoEditRangesSection
             attributionUserLabelResolver={params.attributionUserLabelResolver}
             documentInfo={params.documentInfo}
+            loadDocumentAttributionRanges={params.loadDocumentAttributionRanges}
           />
           <ExplorerDocumentInfoCharacterBlameSection
             attributionUserLabelResolver={params.attributionUserLabelResolver}
@@ -358,7 +318,7 @@ function useExplorerDocumentInfoPanelState(params: Props) {
   const [activeTab, setActiveTab] = useState<DocumentInfoTabId>("general");
   const { documentInfo, documentInfoError, isLoadingDocumentInfo } =
     useExplorerDocumentInfo({
-      loadDocumentInfo: params.loadDocumentInfo,
+      load: params.loadDocumentInfo,
       localId: params.localId,
     });
   const { documentSummary, documentSummaryError, isLoadingDocumentSummary } =
@@ -465,6 +425,7 @@ export function ExplorerDocumentInfoPanel(params: Props) {
           idPrefix={model.tabIdPrefix}
           isLoadingDocumentSummary={model.isLoadingDocumentSummary}
           linkedContainerIds={model.linkedContainerIds}
+          loadDocumentAttributionRanges={params.loadDocumentAttributionRanges}
           localId={params.localId}
           nodes={params.nodes}
           openBlobBrowserRoute={params.openBlobBrowserRoute}

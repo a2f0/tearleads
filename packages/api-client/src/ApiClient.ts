@@ -48,7 +48,6 @@ import {
   isDeleteOrganizationGroupResponse,
   isDestroySessionResponse,
   isDocumentCreateResponse,
-  isDocumentEditAttributionResponse,
   isDocumentLinkSetMutationResponse,
   isDocumentPurgeResponse,
   isDocumentSyncResponse,
@@ -113,11 +112,13 @@ import {
   appendQuery,
   containerDocsPath,
 } from "./routes/containers/queryParams";
+import { DocumentAttributionRequests } from "./routes/documents/attributionRequests";
 import { pathSegment } from "./routes/path";
 import type {
   HttpMethod,
   ListContainerDocumentsOptions,
   ListContainersOptions,
+  ListDocumentEditAttributionRangesOptions,
   RequestBody,
   RequestFailure,
   RequestFailureKind,
@@ -163,6 +164,8 @@ export class ApiClient {
     new BoundedCache<Promise<DocumentWriterProjectionResponse | null>>();
   private readonly documentAttachmentListRequestsByDocumentId =
     new BoundedCache<Promise<ListDocumentAttachmentsResponse | null>>();
+  private readonly documentAttributionRequests =
+    new DocumentAttributionRequests((...args) => this.request(...args));
   private readonly encapsulationKeyRequestsByUserId = new BoundedCache<
     Promise<EncapsulationKeyResponse | null>
   >();
@@ -186,10 +189,15 @@ export class ApiClient {
     this.containerDocumentListRequestsByKey.clear();
     this.containerListRequestsByKey.clear();
     this.documentAttachmentListRequestsByDocumentId.clear();
+    this.documentAttributionRequests.clear();
     this.containerWriterProjectionRequestsByContainerId.clear();
     this.documentWriterProjectionRequestsByDocumentId.clear();
     this.encapsulationKeyRequestsByUserId.clear();
     this.organizationGroupRequestsByOrganizationId.clear();
+  }
+
+  private invalidateDocumentAttribution(documentId: string): void {
+    this.documentAttributionRequests.invalidate(documentId);
   }
 
   clearWriterProjectionCaches(): void {
@@ -1150,12 +1158,15 @@ export class ApiClient {
     );
   }
 
-  getDocumentEditAttribution(documentId: string) {
-    return this.request(
-      `/documents/${pathSegment(documentId)}/attribution`,
-      isDocumentEditAttributionResponse,
-      "GET",
-    );
+  getDocumentEditAttribution(documentId: string, requestKey = "") {
+    return this.documentAttributionRequests.get(documentId, requestKey);
+  }
+
+  listDocumentEditAttributionRanges(
+    documentId: string,
+    options: ListDocumentEditAttributionRangesOptions = {},
+  ) {
+    return this.documentAttributionRequests.listRanges(documentId, options);
   }
 
   async getDocumentWriterProjectionResult(
@@ -1263,12 +1274,14 @@ export class ApiClient {
   }
 
   linkDocument(documentId: string, input: DocumentLinkSetMutationRequest) {
+    this.invalidateDocumentAttribution(documentId);
     return this.request(
       `/documents/${pathSegment(documentId)}/link`,
       isDocumentLinkSetMutationResponse,
       "POST",
       JSON.stringify(input),
     ).finally(() => {
+      this.invalidateDocumentAttribution(documentId);
       this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
     });
   }
@@ -1327,28 +1340,33 @@ export class ApiClient {
   }
 
   unlinkDocument(documentId: string, input: DocumentLinkSetMutationRequest) {
+    this.invalidateDocumentAttribution(documentId);
     return this.request(
       `/documents/${pathSegment(documentId)}/unlink`,
       isDocumentLinkSetMutationResponse,
       "POST",
       JSON.stringify(input),
     ).finally(() => {
+      this.invalidateDocumentAttribution(documentId);
       this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
     });
   }
 
   purgeDocument(documentId: string) {
+    this.invalidateDocumentAttribution(documentId);
     return this.request(
       `/documents/${pathSegment(documentId)}`,
       isDocumentPurgeResponse,
       "DELETE",
     ).finally(() => {
+      this.invalidateDocumentAttribution(documentId);
       this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
       this.documentAttachmentListRequestsByDocumentId.delete(documentId);
     });
   }
 
   syncDocument(documentId: string, input: DocumentSyncRequest) {
+    this.invalidateDocumentAttribution(documentId);
     const cachedBefore =
       this.documentWriterProjectionRequestsByDocumentId.get(documentId);
     return this.request(
@@ -1388,6 +1406,9 @@ export class ApiClient {
           this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
         }
         throw error;
+      })
+      .finally(() => {
+        this.invalidateDocumentAttribution(documentId);
       });
   }
 
@@ -1396,33 +1417,36 @@ export class ApiClient {
     input: DocumentSyncRequest,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<DocumentSyncResponse>> {
+    this.invalidateDocumentAttribution(documentId);
     const cachedBefore =
       this.documentWriterProjectionRequestsByDocumentId.get(documentId);
-    const result = await this.makeRequestResult(
-      `/documents/${pathSegment(documentId)}/sync`,
-      isDocumentSyncResponse,
-      "POST",
-      JSON.stringify(input),
-      options,
-    );
-    if (result.ok) {
-      if (result.data.updates.length > 0) {
-        this.documentAttachmentListRequestsByDocumentId.delete(documentId);
-      }
-      await evictWriterProjectionIfSyncChanged(
-        this.documentWriterProjectionRequestsByDocumentId,
-        documentId,
-        result.data,
+    try {
+      const result = await this.makeRequestResult(
+        `/documents/${pathSegment(documentId)}/sync`,
+        isDocumentSyncResponse,
+        "POST",
+        JSON.stringify(input),
+        options,
       );
-    } else {
-      if (
+      if (result.ok) {
+        if (result.data.updates.length > 0) {
+          this.documentAttachmentListRequestsByDocumentId.delete(documentId);
+        }
+        await evictWriterProjectionIfSyncChanged(
+          this.documentWriterProjectionRequestsByDocumentId,
+          documentId,
+          result.data,
+        );
+      } else if (
         this.documentWriterProjectionRequestsByDocumentId.get(documentId) ===
         cachedBefore
       ) {
         this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
       }
+      return result;
+    } finally {
+      this.invalidateDocumentAttribution(documentId);
     }
-    return result;
   }
 
   stageBlob(input: StageBlobRequest) {

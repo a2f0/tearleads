@@ -5,6 +5,7 @@ export type {
 } from "./routes/blobs/get";
 export type {
   HttpMethod,
+  ListDocumentEditAttributionRangesOptions,
   RequestFailure,
   RequestFailureKind,
   RequestFn,

@@ -75,11 +75,14 @@ export {
 export {
   type ContainerDocumentSummary,
   type ContainerDocumentSyncTombstone,
+  type DocumentEditAttributionRangeResponse,
   type DocumentEditAttributionResponse,
   type DocumentEditAttributionSegmentResponse,
   isDocumentEditAttributionResponse,
   isListContainerDocumentsResponse,
+  isListDocumentEditAttributionRangesResponse,
   type ListContainerDocumentsResponse,
+  type ListDocumentEditAttributionRangesResponse,
 } from "./document";
 export {
   type DocumentContentKeyBundleResponse,

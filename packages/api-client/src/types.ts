@@ -17,6 +17,12 @@ export interface ListContainerDocumentsOptions {
   watermark?: SyncWatermark | null;
 }
 
+export interface ListDocumentEditAttributionRangesOptions {
+  cursor?: string | null;
+  expectedRevision?: number;
+  limit?: number;
+}
+
 export interface RequestResultOptions {
   readonly headers?: Record<string, string> | undefined;
   readonly reportErrors?: boolean | undefined;

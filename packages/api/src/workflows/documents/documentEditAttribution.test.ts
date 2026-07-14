@@ -11,9 +11,17 @@ import type {
   ContentRecordEncryptionSuite,
   WriteHeader,
 } from "@tearleads/crypto";
-import { createDocument, encodeVersionVector } from "@tearleads/loro";
+import { computeDocumentContentRecordMetadataHash } from "@tearleads/crypto";
+import {
+  createDocument,
+  emptyVersionVector,
+  encodeVersionVector,
+} from "@tearleads/loro";
 import { eq } from "drizzle-orm";
-import { computeDocumentEditAttribution } from "./documentEditAttribution";
+import {
+  computeDocumentEditAttribution,
+  runPreparedDocumentEditAttributionDataWorkflow,
+} from "./documentEditAttribution";
 import { runPruneDominatedUpdatesWorkflow } from "./gc/pruneDominatedUpdates";
 
 // `early` ⊂ `late` on the same peer: the baseline's frontier (`late`) provably
@@ -39,10 +47,27 @@ async function insertUpdate(input: {
   contentKeyEpoch: number;
   encryptedData: string;
   partialEndVersionVector: string;
+  checkpointSourceVersionVector?: string;
   writerUserId: string;
   writerKeyFingerprint: string;
 }): Promise<string> {
   const id = crypto.randomUUID();
+  const partialStartVersionVector = input.checkpointSourceVersionVector
+    ? emptyVersionVector()
+    : "start";
+  const metadataHash = await computeDocumentContentRecordMetadataHash({
+    ...(input.checkpointSourceVersionVector
+      ? {
+          checkpointKind: "rotate_baseline" as const,
+          checkpointPayloadKind: "full_history_snapshot" as const,
+          sourceVersionVector: input.checkpointSourceVersionVector,
+        }
+      : {}),
+    documentId: input.documentId,
+    partialEndVersionVector: input.partialEndVersionVector,
+    partialStartVersionVector,
+    updateId: id,
+  });
   await db.insert(documentUpdates).values({
     accessEpoch: 1,
     authorFingerprint: input.writerKeyFingerprint,
@@ -51,7 +76,7 @@ async function insertUpdate(input: {
     encryptedData: input.encryptedData,
     id,
     partialEndVersionVector: input.partialEndVersionVector,
-    partialStartVersionVector: "start",
+    partialStartVersionVector,
   });
   await db.insert(documentContentWriteHeaders).values({
     accessManifestHash: "manifest",
@@ -61,6 +86,7 @@ async function insertUpdate(input: {
     encryptionSuite: "suite" as ContentRecordEncryptionSuite,
     // Attribution reads only these two fields off the header JSON.
     header: {
+      metadataHash,
       writerUserId: input.writerUserId,
       writerKeyFingerprint: input.writerKeyFingerprint,
     } as WriteHeader,
@@ -136,6 +162,7 @@ test("attribution survives a rotate_baseline payload prune", async () => {
   // bob rotates the key (new epoch) and uploads a rotate_baseline that
   // re-asserts the whole peer [0,10) at a later server sequence.
   const baselineUpdateId = await insertUpdate({
+    checkpointSourceVersionVector: late,
     contentKeyEpoch: 2,
     documentId,
     encryptedData: "bob-baseline-payload",
@@ -210,4 +237,93 @@ test("attribution survives a rotate_baseline payload prune", async () => {
   const after = await computeDocumentEditAttribution(documentId, db);
   expect(attributionShape(after)).toEqual(expected);
   expect(after).toEqual(before);
+});
+
+test("rejects attribution spans whose write-header identity is missing", async () => {
+  const [document] = await db
+    .insert(documents)
+    .values({ createdByFingerprint: "attribution-integrity-test" })
+    .returning({ id: documents.id });
+  if (!document) {
+    throw new Error("Failed to create document");
+  }
+
+  const updateId = crypto.randomUUID();
+  await db.insert(documentUpdates).values({
+    accessEpoch: 1,
+    authorFingerprint: "missing-header",
+    byteLength: 7,
+    documentId: document.id,
+    encryptedData: "payload",
+    id: updateId,
+    partialEndVersionVector: "end",
+    partialStartVersionVector: "start",
+  });
+  await insertSpan({
+    documentId: document.id,
+    endCounter: 1,
+    peerId: "1",
+    startCounter: 0,
+    updateId,
+  });
+
+  await expect(computeDocumentEditAttribution(document.id, db)).rejects.toThrow(
+    `Attribution update ${updateId} has no valid writerUserId in its write header.`,
+  );
+});
+
+test("returns the current attribution revision for a document with no spans", async () => {
+  const [document] = await db
+    .insert(documents)
+    .values({ createdByFingerprint: "empty-attribution-test" })
+    .returning({
+      attributionIncarnation: documents.attributionIncarnation,
+      id: documents.id,
+    });
+  if (!document) {
+    throw new Error("Failed to create document");
+  }
+
+  await expect(
+    computeDocumentEditAttribution(document.id, db),
+  ).resolves.toEqual({
+    attributionScope: "",
+    attributionRevision: 0,
+    documentId: document.id,
+    documentIncarnation: document.attributionIncarnation,
+    segments: [],
+  });
+
+  await db
+    .update(documents)
+    .set({ attributionRevision: 9 })
+    .where(eq(documents.id, document.id));
+  await expect(
+    computeDocumentEditAttribution(document.id, db),
+  ).resolves.toEqual({
+    attributionScope: "",
+    attributionRevision: 9,
+    documentId: document.id,
+    documentIncarnation: document.attributionIncarnation,
+    segments: [],
+  });
+});
+
+test("rejects attribution data from a recreated document incarnation", async () => {
+  const [document] = await db
+    .insert(documents)
+    .values({ createdByFingerprint: "incarnation-test" })
+    .returning({ id: documents.id });
+  if (!document) {
+    throw new Error("Failed to create document");
+  }
+
+  await expect(
+    runPreparedDocumentEditAttributionDataWorkflow(db, {
+      attributionScope: "old-incarnation:old-access-state",
+      attributionRevision: 0,
+      documentId: document.id,
+      documentIncarnation: "old-incarnation",
+    }),
+  ).rejects.toThrow("Document attribution incarnation changed while loading");
 });

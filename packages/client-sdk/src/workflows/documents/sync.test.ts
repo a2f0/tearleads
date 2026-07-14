@@ -7,6 +7,13 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import {
+  createDocument,
+  exportAllUpdates,
+  getTextValue,
+  getUpdateVersionVectors,
+  importUpdates,
+} from "@tearleads/loro";
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import {
   type DocumentSyncRequest,
@@ -57,6 +64,30 @@ function persistedStateFromWriterProjection(
     documentKekTargets: JSON.stringify(writerProjection.documentKekTargets),
     documentManifestBundle: JSON.stringify(writerProjection.documentManifest),
   };
+}
+
+async function createLoroPendingUpdate(text: string, id?: string) {
+  const doc = await createDocument(`sync-fixture:${text}`);
+  doc.getText("text").update(text);
+  doc.commit();
+  const update = exportAllUpdates(doc);
+  const vectors = getUpdateVersionVectors(update);
+  return createPendingUpdateRecord({
+    ...(id === undefined ? {} : { id }),
+    updateData: bytesToBase64(update),
+    ...vectors,
+  });
+}
+
+async function decryptedUpdateText(
+  update: Uint8Array | null | undefined,
+): Promise<string> {
+  if (!update) {
+    throw new Error("Expected a decrypted Loro update");
+  }
+  const reader = await createDocument("sync-test-reader");
+  importUpdates(reader, [update]);
+  return getTextValue(reader);
 }
 
 test("hasDocumentUpdateEvent detects matching document update events", () => {
@@ -291,52 +322,6 @@ test("buildDocumentSyncPlan rejects duplicate content record domains before sign
       ],
     }),
   ).rejects.toThrow("content record id is duplicated");
-});
-
-test("buildMaterializedDocumentSyncPlan unwraps the content key and encrypts pending updates", async () => {
-  const { author, contentKey, secretKey, signingPublicKey, writerProjection } =
-    await createMaterializedSyncFixture();
-  const plan = await buildMaterializedDocumentSyncPlan({
-    author,
-    localVersionVector: null,
-    pendingUpdates: [
-      createPendingUpdateRecord({
-        sourceVersionVector: "rotate-frontier",
-      }),
-    ],
-    signedAt: "2026-04-27T00:00:00.000Z",
-    targetSecretKey: secretKey,
-    trustedLocalProjection: true,
-    writerProjection,
-  });
-
-  expect(Array.from(plan.contentKey)).toEqual(Array.from(contentKey));
-  expect(isDocumentSyncRequest(plan.plan.request)).toBe(true);
-  const update = plan.plan.request.outgoingUpdates[0];
-  if (!update) {
-    throw new Error("Expected materialized outgoing update");
-  }
-  expect(update.checkpointKind).toBe("rotate_baseline");
-  expect(update.sourceVersionVector).toBe("rotate-frontier");
-  expect(update.encryptedData).toContain("tearleads.document.loro-update");
-  expect(update.encryptedData).not.toContain("materialized update");
-
-  const writeHeader = update.writeHeader as unknown as WriteHeader;
-  expect(writeHeader.contentRecordId).toBe(update.id);
-  expect(writeHeader.ciphertextHash).toHaveLength(64);
-  expect(writeHeader.metadataHash).toHaveLength(64);
-  const verified = await verifyWriteHeader({
-    expectedAccessManifestHash: writerProjection.documentManifest.manifestHash,
-    expectedObject: {
-      objectKind: "document",
-      objectId: writerProjection.documentId,
-      organizationId: author.organizationId,
-    },
-    expectedTargetHash: writerProjection.contentKeyBundle.targetHash,
-    header: writeHeader,
-    writerPublicKey: signingPublicKey,
-  });
-  expect(verified.ok).toBe(true);
 });
 
 test("buildMaterializedDocumentSyncPlan rejects document writer projections with bad signatures", async () => {
@@ -721,7 +706,7 @@ test("syncRemoteDocument submits a signed sync request and persists the verified
     "550e8400-e29b-41d4-a716-446655440444",
   ]);
   expect(
-    new TextDecoder().decode(synced?.decryptedUpdates[0]?.updateData),
+    await decryptedUpdateText(synced?.decryptedUpdates[0]?.updateData),
   ).toBe("materialized update");
 });
 
@@ -848,7 +833,7 @@ test("syncRemoteDocument reuses a writer projection to process persisted read-on
   expect(projectionRequestCount).toBe(0);
   expect(submittedRequests).toHaveLength(1);
   expect(
-    new TextDecoder().decode(synced?.decryptedUpdates[0]?.updateData),
+    await decryptedUpdateText(synced?.decryptedUpdates[0]?.updateData),
   ).toBe("materialized update");
 });
 
@@ -931,13 +916,7 @@ test("syncRemoteDocument decrypts returned updates with historical content-key b
   const historicalMaterialized = await buildMaterializedDocumentSyncPlan({
     author,
     localVersionVector: null,
-    pendingUpdates: [
-      createPendingUpdateRecord({
-        updateData: bytesToBase64(
-          new TextEncoder().encode("historical update"),
-        ),
-      }),
-    ],
+    pendingUpdates: [await createLoroPendingUpdate("historical update")],
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
@@ -1001,7 +980,7 @@ test("syncRemoteDocument decrypts returned updates with historical content-key b
   });
 
   expect(
-    new TextDecoder().decode(synced?.decryptedUpdates[0]?.updateData),
+    await decryptedUpdateText(synced?.decryptedUpdates[0]?.updateData),
   ).toBe("historical update");
 });
 
@@ -1013,9 +992,7 @@ test("syncRemoteDocument recovers pending write id conflicts with a read-only sy
     signingPublicKey,
     writerProjection,
   } = await createMaterializedSyncFixture();
-  const pendingUpdate = createPendingUpdateRecord({
-    updateData: bytesToBase64(new TextEncoder().encode("settled update")),
-  });
+  const pendingUpdate = await createLoroPendingUpdate("settled update");
   const historicalMaterialized = await buildMaterializedDocumentSyncPlan({
     author,
     localVersionVector: null,
@@ -1104,7 +1081,7 @@ test("syncRemoteDocument recovers pending write id conflicts with a read-only sy
   expect(synced?.response.acceptedOutgoingUpdateIds).toEqual([]);
   expect(synced?.settledPendingUpdateIds).toEqual([pendingUpdate.id]);
   expect(
-    new TextDecoder().decode(synced?.decryptedUpdates[0]?.updateData),
+    await decryptedUpdateText(synced?.decryptedUpdates[0]?.updateData),
   ).toBe("settled update");
 });
 
@@ -1116,13 +1093,11 @@ test("syncRemoteDocument does not settle recovered pending conflicts with differ
     signingPublicKey,
     writerProjection,
   } = await createMaterializedSyncFixture();
-  const pendingUpdate = createPendingUpdateRecord({
-    updateData: bytesToBase64(new TextEncoder().encode("local update")),
-  });
-  const remoteUpdate = {
-    ...pendingUpdate,
-    updateData: bytesToBase64(new TextEncoder().encode("remote update")),
-  };
+  const pendingUpdate = await createLoroPendingUpdate("local update");
+  const remoteUpdate = await createLoroPendingUpdate(
+    "remote update",
+    pendingUpdate.id,
+  );
   const historicalMaterialized = await buildMaterializedDocumentSyncPlan({
     author,
     localVersionVector: null,
@@ -1203,7 +1178,7 @@ test("syncRemoteDocument does not settle recovered pending conflicts with differ
 
   expect(synced?.settledPendingUpdateIds).toEqual([]);
   expect(
-    new TextDecoder().decode(synced?.decryptedUpdates[0]?.updateData),
+    await decryptedUpdateText(synced?.decryptedUpdates[0]?.updateData),
   ).toBe("remote update");
 });
 

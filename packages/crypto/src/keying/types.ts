@@ -5,11 +5,8 @@ import type {
 } from "../principalState";
 
 /**
- * Keying verifier contracts are the executable security boundary.
- *
- * API responses are untrusted JSON until they pass these pure verifiers. Route
- * code and app code should derive encryption targets only from branded verified
- * values, never directly from server-authored projection rows.
+ * Keying verifier contracts are executable security boundaries: API JSON is
+ * untrusted until verified and encryption targets must use branded outputs.
  */
 type CanonicalJsonPrimitive = boolean | number | string | null;
 
@@ -337,9 +334,12 @@ export interface WriteHeader extends UnsignedWriteHeader {
 }
 
 export interface DocumentContentRecordMetadataInput {
+  checkpointKind?: "rotate_baseline";
+  checkpointPayloadKind?: "full_history_snapshot";
   documentId: string;
   partialEndVersionVector: string;
   partialStartVersionVector: string;
+  sourceVersionVector?: string;
   updateId: string;
 }
 

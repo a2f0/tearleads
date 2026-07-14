@@ -6,11 +6,16 @@ import {
   documents,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
-import type {
-  ContentRecordEncryptionSuite,
-  WriteHeader,
+import {
+  CONTENT_RECORD_ENCRYPTION_SUITE,
+  computeDocumentContentRecordMetadataHash,
+  type WriteHeader,
 } from "@tearleads/crypto";
-import { createDocument, encodeVersionVector } from "@tearleads/loro";
+import {
+  createDocument,
+  emptyVersionVector,
+  encodeVersionVector,
+} from "@tearleads/loro";
 import { eq } from "drizzle-orm";
 import { runPruneDominatedUpdatesWorkflow } from "./pruneDominatedUpdates";
 
@@ -39,8 +44,21 @@ async function insertUpdate(input: {
   partialEndVersionVector: string;
   contentKeyEpoch: number;
   encryptedData: string;
+  sourceVersionVector?: string;
 }): Promise<string> {
   const id = crypto.randomUUID();
+  const partialStartVersionVector = emptyVersionVector();
+  const metadataHash = input.sourceVersionVector
+    ? await computeDocumentContentRecordMetadataHash({
+        checkpointKind: "rotate_baseline",
+        checkpointPayloadKind: "full_history_snapshot",
+        documentId: input.documentId,
+        partialEndVersionVector: input.partialEndVersionVector,
+        partialStartVersionVector,
+        sourceVersionVector: input.sourceVersionVector,
+        updateId: id,
+      })
+    : "ordinary-update-metadata-hash";
   await db.insert(documentUpdates).values({
     accessEpoch: 1,
     authorFingerprint: "prune-author",
@@ -49,15 +67,15 @@ async function insertUpdate(input: {
     encryptedData: input.encryptedData,
     id,
     partialEndVersionVector: input.partialEndVersionVector,
-    partialStartVersionVector: "start",
+    partialStartVersionVector,
   });
   await db.insert(documentContentWriteHeaders).values({
     accessManifestHash: "manifest",
     contentKeyEpoch: input.contentKeyEpoch,
     contentRecordId: `record-${id}`,
     documentId: input.documentId,
-    encryptionSuite: "suite" as ContentRecordEncryptionSuite,
-    header: {} as WriteHeader,
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
+    header: { metadataHash } as WriteHeader,
     headerHash: `header-hash-${id}`,
     nonceDomainHash: `nonce-${id}`,
     organizationId: crypto.randomUUID(),
@@ -95,6 +113,7 @@ test("prune clears dominated pre-rotation payloads and keeps the rest", async ()
     documentId,
     encryptedData: "baseline-payload",
     partialEndVersionVector: late,
+    sourceVersionVector: late,
   });
   await db.insert(documentAuditCheckpoints).values({
     accessEpoch: 1,

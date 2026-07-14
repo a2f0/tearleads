@@ -116,9 +116,18 @@ async function assertDocumentSyncResponseUpdateHashes(input: {
     throw new Error("Document sync response ciphertext hash mismatch");
   }
   const metadataHash = await computeDocumentContentRecordMetadataHash({
+    ...(update.checkpointKind === undefined
+      ? {}
+      : { checkpointKind: update.checkpointKind }),
+    ...(update.checkpointPayloadKind === undefined
+      ? {}
+      : { checkpointPayloadKind: update.checkpointPayloadKind }),
     documentId: update.documentId,
     partialEndVersionVector: update.partialEndVersionVector,
     partialStartVersionVector: update.partialStartVersionVector,
+    ...(update.sourceVersionVector === undefined
+      ? {}
+      : { sourceVersionVector: update.sourceVersionVector }),
     updateId: update.id,
   });
   if (

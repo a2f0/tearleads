@@ -214,6 +214,16 @@ test("isContainerCreateWithMetadataDocumentRequest", () => {
 });
 
 test("isDocumentLinkSetMutationRequest", () => {
+  const rotationBaseline = {
+    checkpointKind: "rotate_baseline" as const,
+    checkpointPayloadKind: "full_history_snapshot" as const,
+    id: "550e8400-e29b-41d4-a716-446655440111",
+    encryptedData: "ciphertext",
+    partialStartVersionVector: "{}",
+    partialEndVersionVector: '{"actor":1}',
+    sourceVersionVector: '{"actor":1}',
+    writeHeader: { updateId: "550e8400-e29b-41d4-a716-446655440111" },
+  };
   const validRequest = {
     event: { eventType: "document.link" },
     body: { documentId: "550e8400-e29b-41d4-a716-446655440001" },
@@ -230,6 +240,15 @@ test("isDocumentLinkSetMutationRequest", () => {
   };
 
   expect(isDocumentLinkSetMutationRequest(validRequest)).toBe(true);
+  expect(
+    isDocumentLinkSetMutationRequest({ ...validRequest, rotationBaseline }),
+  ).toBe(true);
+  expect(
+    isDocumentLinkSetMutationRequest({
+      ...validRequest,
+      rotationBaseline: { ...rotationBaseline, sourceVersionVector: undefined },
+    }),
+  ).toBe(false);
   expect(
     isDocumentLinkSetMutationRequest({
       ...validRequest,
@@ -256,11 +275,12 @@ test("isDocumentLinkSetMutationRequest", () => {
 test("isDocumentSyncRequest", () => {
   const validOutgoingUpdate = {
     checkpointKind: "rotate_baseline" as const,
+    checkpointPayloadKind: "full_history_snapshot" as const,
     id: "550e8400-e29b-41d4-a716-446655440111",
     encryptedData: "ciphertext",
     partialStartVersionVector: "{}",
     partialEndVersionVector: '{"actor":1}',
-    sourceVersionVector: "{}",
+    sourceVersionVector: '{"actor":1}',
     writeHeader: { updateId: "550e8400-e29b-41d4-a716-446655440111" },
   };
   const validRequest = {

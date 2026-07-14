@@ -14,6 +14,11 @@ import {
   type ContainerInfo,
   loadContainerInfo,
 } from "../workflows/container-contents/containerInfo";
+import {
+  type DocumentAttributionRangesInput,
+  type DocumentAttributionRangesPage,
+  loadDocumentAttributionRanges,
+} from "../workflows/container-contents/documentAttributionRanges";
 import { discoverContainerDocumentsFromApi } from "../workflows/container-contents/documentDiscovery";
 import {
   type DocumentInfo,
@@ -79,6 +84,10 @@ export type {
   ContainerInfo,
   ContainerShareAccessLevel,
 } from "../workflows/container-contents/containerInfo";
+export type {
+  DocumentAttributionRangesInput,
+  DocumentAttributionRangesPage,
+} from "../workflows/container-contents/documentAttributionRanges";
 export type { DocumentInfo } from "../workflows/container-contents/documentInfo";
 export type {
   ContainerDocumentQueries,
@@ -333,6 +342,15 @@ class ContainerContentsService implements ContainerContents {
       apiClient: runtime.apiClient,
       execSql:
         runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
+    });
+  }
+
+  loadDocumentAttributionRanges(
+    input: DocumentAttributionRangesInput,
+  ): Promise<DocumentAttributionRangesPage> {
+    return loadDocumentAttributionRanges({
+      apiClient: this.runtimeService.workflowInput().apiClient,
+      query: input,
     });
   }
 

@@ -178,6 +178,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "listDocumentLinkedContainerIds",
   "loadContainerInfo",
   "loadContainerSyncWatermark",
+  "loadDocumentAttributionRanges",
   "loadDocumentInfo",
   "loadOrganizationBilling",
   "loadOrganizationContainerGrants",

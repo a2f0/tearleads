@@ -50,7 +50,6 @@ interface MoveRemoteContainerDocumentResult {
   accessStateHash: string | null;
   linkedContainerIds: readonly string[];
   nextContainerId: string;
-  queueBaselineAfterRelink: boolean;
   remoteState: RemoteDocumentPersistedState | null;
   status: MoveRemoteContainerDocumentStatus;
 }
@@ -99,7 +98,6 @@ export function resolveActiveDocumentContainerId(
 function containerDocumentMoveResult(input: {
   document: RelinkRemoteDocumentResult;
   nextContainerId: string;
-  queueBaselineAfterRelink?: boolean;
   status: MoveRemoteContainerDocumentStatus;
 }): MoveRemoteContainerDocumentResult {
   return {
@@ -107,8 +105,6 @@ function containerDocumentMoveResult(input: {
     accessStateHash: input.document.response.accessManifest.manifestHash,
     linkedContainerIds: input.document.linkedContainerIds,
     nextContainerId: input.nextContainerId,
-    queueBaselineAfterRelink:
-      input.queueBaselineAfterRelink ?? input.document.contentKeyRotated,
     remoteState: input.document.persistedState,
     status: input.status,
   };
@@ -124,7 +120,6 @@ function containerDocumentAlreadyMovedResult(input: {
     accessStateHash: null,
     linkedContainerIds: input.linkedContainerIds,
     nextContainerId: input.nextContainerId,
-    queueBaselineAfterRelink: false,
     remoteState: null,
     status: input.status,
   };
@@ -152,6 +147,7 @@ export async function relinkRemoteContainerDocument(input: {
   noteId: string;
   operation: ContainerDocumentLinkOperation;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
+  rotationSnapshot?: Uint8Array | undefined;
   runtime: ContainerDocumentLinkRuntime;
   targetContainerId: string;
 }): Promise<RelinkRemoteDocumentResult | null> {
@@ -181,6 +177,7 @@ export async function relinkRemoteContainerDocument(input: {
       execSql,
       operation,
       resolveProjectionUserKey,
+      rotationSnapshot: input.rotationSnapshot,
       targetContainerId,
       targetSecretKey,
       warmReferencedPrincipalPolicies:
@@ -309,6 +306,7 @@ export async function unlinkRemoteContainerDocument(input: {
   documentId: string;
   noteId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
+  rotationSnapshot: Uint8Array;
   runtime: ContainerDocumentLinkRuntime;
   targetContainerId: string;
 }): Promise<RelinkRemoteDocumentResult | null> {
@@ -324,6 +322,7 @@ export async function moveRemoteContainerDocument(input: {
   noteId: string;
   replaceLinkedContainers?: boolean | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
+  rotationSnapshot: Uint8Array;
   runtime: ContainerDocumentLinkRuntime;
   targetContainerId: string;
 }): Promise<MoveRemoteContainerDocumentResult | null> {
@@ -333,6 +332,7 @@ export async function moveRemoteContainerDocument(input: {
     noteId,
     replaceLinkedContainers,
     resolveProjectionUserKey,
+    rotationSnapshot,
     runtime,
     targetContainerId,
   } = input;
@@ -346,7 +346,6 @@ export async function moveRemoteContainerDocument(input: {
 
   let latestLinkedContainerIds: readonly string[] = initialLinkedContainerIds;
   let latestDocument: RelinkRemoteDocumentResult | null = null;
-  let queueBaselineAfterRelink = false;
   if (!initialLinkedContainerIds.includes(targetContainerId)) {
     const linkedDocument = await linkRemoteContainerDocument({
       documentId,
@@ -361,7 +360,6 @@ export async function moveRemoteContainerDocument(input: {
 
     latestDocument = linkedDocument;
     latestLinkedContainerIds = linkedDocument.linkedContainerIds;
-    queueBaselineAfterRelink = linkedDocument.contentKeyRotated;
   }
 
   const unlinkContainerIds = resolveContainerDocumentMoveUnlinkIds({
@@ -377,6 +375,7 @@ export async function moveRemoteContainerDocument(input: {
       documentId,
       noteId,
       resolveProjectionUserKey,
+      rotationSnapshot,
       runtime,
       targetContainerId: unlinkContainerId,
     });
@@ -390,8 +389,6 @@ export async function moveRemoteContainerDocument(input: {
 
     latestDocument = unlinkedDocument;
     latestLinkedContainerIds = unlinkedDocument.linkedContainerIds;
-    queueBaselineAfterRelink =
-      queueBaselineAfterRelink || unlinkedDocument.contentKeyRotated;
   }
 
   const nextContainerId = resolveActiveDocumentContainerId(
@@ -407,7 +404,6 @@ export async function moveRemoteContainerDocument(input: {
     ? containerDocumentMoveResult({
         document: latestDocument,
         nextContainerId,
-        queueBaselineAfterRelink,
         status,
       })
     : containerDocumentAlreadyMovedResult({
