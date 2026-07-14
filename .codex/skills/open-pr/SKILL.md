@@ -24,7 +24,7 @@ PR **title must conform to the repository's commitlint rules**
 
 ## Prerequisites
 
-- `git` and `gh` (authenticated) on `PATH`.
+- `git`, `gh` (authenticated), and POSIX `awk` on `PATH`.
 - The `@tearleads/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - `node_modules` installed (`bun install`) so the commitlint CLI is available.
 - The working tree contains only changes intended for this PR. Stop and ask
@@ -106,12 +106,28 @@ AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
      git stash apply --index "$STASH_OID"
      ```
 
-     Drop only the stash entry whose OID was recorded, and only after a
-     successful apply. If apply conflicts or fails, leave the stash intact,
-     report the new branch plus `git status`, and stop for resolution. If the
-     merge or branch creation fails after stashing, reapply that OID on the
-     current branch and drop it only after a successful restore. Never use a
-     hard reset, clean, forced branch creation, automatic rebase, or force push.
+     After a successful apply, resolve the recorded OID back to its current
+     stash reference before dropping it (`git stash drop` does not accept a raw
+     OID):
+
+     ```bash
+     STASH_REF=$(
+       git stash list --format='%gd %H' |
+         awk -v stash_oid="$STASH_OID" '$2 == stash_oid { print $1; exit }'
+     )
+     [ -n "$STASH_REF" ] || {
+       echo "Error: restored stash OID is no longer in the stash list" >&2
+       exit 1
+     }
+     git stash drop "$STASH_REF"
+     ```
+
+     Drop only the resolved entry, and only after a successful apply. If apply
+     conflicts or fails, leave the stash intact, report the new branch plus
+     `git status`, and stop for resolution. If the merge or branch creation
+     fails after stashing, reapply that OID on the current branch and use the
+     same OID-to-reference lookup before dropping it. Never use a hard reset,
+     clean, forced branch creation, automatic rebase, or force push.
 
 3. **Commit and push**: Run the repository's relevant preflight, review the
    final diff, stage only intended paths, and commit any uncommitted work with a
