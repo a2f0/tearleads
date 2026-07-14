@@ -1,5 +1,129 @@
-import { expect, test } from "bun:test";
-import { resolveContactsBootstrapPolicy } from "./usePrimaryLocalOrganization";
+import { afterEach, expect, mock, test } from "bun:test";
+import type { Tearleads } from "@tearleads/client-sdk";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import {
+  resolveContactsBootstrapPolicy,
+  usePrimaryLocalOrganization,
+} from "./usePrimaryLocalOrganization";
+
+afterEach(cleanup);
+
+const PERSONAL_ORGANIZATION = {
+  name: "Personal Org",
+  organizationId: "personal-org",
+  rootContainerId: "personal-root",
+};
+
+test("retries while the primary organization index catches up", async () => {
+  let attempt = 0;
+  const listLocalOrganizations = mock(async () => {
+    attempt += 1;
+    return attempt === 1 ? [] : [PERSONAL_ORGANIZATION];
+  });
+  const tearleads = {
+    organizations: { listLocalOrganizations },
+  } as unknown as Tearleads;
+  const view = renderHook(
+    ({ enabled }) =>
+      usePrimaryLocalOrganization({
+        enabled,
+        refreshKey: enabled ? "personal-org:personal-root:stable" : "",
+        tearleads,
+      }),
+    { initialProps: { enabled: false } },
+  );
+
+  view.rerender({ enabled: true });
+
+  await waitFor(() => expect(listLocalOrganizations).toHaveBeenCalledTimes(1));
+  expect(view.result.current).toEqual({
+    organizationId: null,
+    ready: false,
+  });
+  expect(
+    resolveContactsBootstrapPolicy({
+      currentOrganizationId: PERSONAL_ORGANIZATION.organizationId,
+      isAuthenticated: true,
+      primaryLocalOrganization: view.result.current,
+    }),
+  ).toBeNull();
+
+  await waitFor(
+    () => {
+      expect(listLocalOrganizations).toHaveBeenCalledTimes(2);
+      expect(view.result.current).toEqual({
+        organizationId: PERSONAL_ORGANIZATION.organizationId,
+        ready: true,
+      });
+      expect(
+        resolveContactsBootstrapPolicy({
+          currentOrganizationId: PERSONAL_ORGANIZATION.organizationId,
+          isAuthenticated: true,
+          primaryLocalOrganization: view.result.current,
+        }),
+      ).toBe(true);
+    },
+    { timeout: 1_500 },
+  );
+});
+
+test("retries a transient primary organization lookup failure", async () => {
+  let attempt = 0;
+  const listLocalOrganizations = mock(async () => {
+    attempt += 1;
+    if (attempt === 1) {
+      throw new Error("organization index is temporarily unavailable");
+    }
+    return [PERSONAL_ORGANIZATION];
+  });
+  const tearleads = {
+    organizations: { listLocalOrganizations },
+  } as unknown as Tearleads;
+  const view = renderHook(() =>
+    usePrimaryLocalOrganization({
+      enabled: true,
+      refreshKey: "personal-org:personal-root:stable",
+      tearleads,
+    }),
+  );
+
+  await waitFor(
+    () => {
+      expect(listLocalOrganizations).toHaveBeenCalledTimes(2);
+      expect(view.result.current).toEqual({
+        organizationId: PERSONAL_ORGANIZATION.organizationId,
+        ready: true,
+      });
+    },
+    { timeout: 1_500 },
+  );
+});
+
+test("cancels a pending retry when the lookup scope changes", async () => {
+  let attempt = 0;
+  const listLocalOrganizations = mock(async () => {
+    attempt += 1;
+    return attempt === 1 ? [] : [PERSONAL_ORGANIZATION];
+  });
+  const tearleads = {
+    organizations: { listLocalOrganizations },
+  } as unknown as Tearleads;
+  const view = renderHook(
+    ({ refreshKey }) =>
+      usePrimaryLocalOrganization({ enabled: true, refreshKey, tearleads }),
+    { initialProps: { refreshKey: "scope-one" } },
+  );
+
+  await waitFor(() => expect(listLocalOrganizations).toHaveBeenCalledTimes(1));
+  view.rerender({ refreshKey: "scope-two" });
+  await waitFor(() => expect(listLocalOrganizations).toHaveBeenCalledTimes(2));
+  await act(() => new Promise((resolve) => setTimeout(resolve, 600)));
+
+  expect(listLocalOrganizations).toHaveBeenCalledTimes(2);
+  expect(view.result.current.organizationId).toBe(
+    PERSONAL_ORGANIZATION.organizationId,
+  );
+});
 
 test("contacts bootstrap policy allows unauthenticated local bootstrap", () => {
   expect(
