@@ -22,6 +22,14 @@
 .window-titlebar-buttons {
   display: flex;
   gap: var(--space-xs);
+  /* Sit above the corner resize handles, which are absolutely positioned and
+     rendered after the titlebar, so they otherwise paint over this group and
+     the top-right (--ne) handle's hit target swallows clicks on the close
+     button. The handles stay transparent, so their hover bracket still shows
+     through; only the pointer priority in the button overlap goes to the
+     buttons. */
+  position: relative;
+  z-index: 1;
 }
 
 .window-close,
