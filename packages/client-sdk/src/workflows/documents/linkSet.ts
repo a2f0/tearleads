@@ -401,6 +401,11 @@ export async function relinkRemoteDocument(input: {
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<RelinkRemoteDocumentResult | null> {
+  if (input.operation === "unlink" && !input.rotationSnapshot) {
+    throw new Error(
+      "Document unlink requires a proven full-history rotation snapshot",
+    );
+  }
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
     "Remote document link-set mutation",
@@ -427,11 +432,6 @@ export async function relinkRemoteDocument(input: {
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     writerProjection,
   });
-  if (input.operation === "unlink" && !input.rotationSnapshot) {
-    throw new Error(
-      "Document unlink requires a proven full-history rotation snapshot",
-    );
-  }
   const request =
     input.operation === "unlink" && input.rotationSnapshot
       ? {

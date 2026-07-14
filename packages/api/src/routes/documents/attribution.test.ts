@@ -226,3 +226,25 @@ test("the detailed ranges route forwards its opaque cursor and limit", async () 
     userId: "user-1",
   });
 });
+
+test.each([
+  ["limit", "Document attribution range limit is invalid"],
+  ["expectedRevision", "Document attribution expected revision is invalid"],
+] as const)("the detailed ranges route rejects a non-numeric %s", async (parameter, message) => {
+  const listAttributionRanges = mock(async () => {
+    throw new Error("Attribution service should not be called");
+  });
+  const app = createDocumentAttributionRoute({
+    listAttributionRanges,
+    requireAuth: authenticated(),
+    runtime: createServiceTestRuntime(),
+  });
+
+  const response = await app.request(
+    `/documents/document-1/attribution/ranges?${parameter}=not-a-number`,
+  );
+
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({ error: message });
+  expect(listAttributionRanges).not.toHaveBeenCalled();
+});

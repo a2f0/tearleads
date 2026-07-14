@@ -24,18 +24,28 @@ interface DocumentAttributionRouteDeps {
   readonly runtime: ApiServiceRuntime;
 }
 
-function parseOptionalRangeLimit(
+function parseOptionalNonNegativeInteger(
+  field: "expected revision" | "range limit",
   value: string | undefined,
 ): number | undefined {
   if (value === undefined) {
     return undefined;
   }
   if (!/^\d+$/u.test(value)) {
-    return Number.NaN;
+    throw new DocumentEditAttributionError(
+      `Document attribution ${field} is invalid`,
+      400,
+    );
   }
 
   const parsed = Number(value);
-  return Number.isSafeInteger(parsed) ? parsed : Number.NaN;
+  if (!Number.isSafeInteger(parsed)) {
+    throw new DocumentEditAttributionError(
+      `Document attribution ${field} is invalid`,
+      400,
+    );
+  }
+  return parsed;
 }
 
 export function createDocumentAttributionEtag(
@@ -122,13 +132,17 @@ export function createDocumentAttributionRoute({
     async (c) => {
       const documentId = c.req.param("documentId");
       const session = c.get("session");
-      const cursor = c.req.query("cursor");
-      const expectedRevision = parseOptionalRangeLimit(
-        c.req.query("expectedRevision"),
-      );
-      const limit = parseOptionalRangeLimit(c.req.query("limit"));
 
       try {
+        const cursor = c.req.query("cursor");
+        const expectedRevision = parseOptionalNonNegativeInteger(
+          "expected revision",
+          c.req.query("expectedRevision"),
+        );
+        const limit = parseOptionalNonNegativeInteger(
+          "range limit",
+          c.req.query("limit"),
+        );
         const response = await listAttributionRanges(runtime, {
           ...(cursor === undefined ? {} : { cursor }),
           documentId,

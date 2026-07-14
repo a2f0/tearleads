@@ -26,24 +26,30 @@ interface SyncCheckpointAuthenticationInput {
   readonly updateId: string;
 }
 
+async function matchesOrdinaryUpdateMetadata(
+  input: SyncCheckpointAuthenticationInput,
+): Promise<boolean> {
+  const metadataHash = await computeDocumentContentRecordMetadataHash({
+    documentId: input.documentId,
+    partialEndVersionVector: input.partialEndVersionVector,
+    partialStartVersionVector: input.partialStartVersionVector,
+    updateId: input.updateId,
+  });
+  return input.metadataHash === metadataHash;
+}
+
 /**
- * A persisted checkpoint row is an integrity assertion, never an optional
- * response decoration. If its signed metadata no longer authenticates, fail
- * the pull instead of downgrading its snapshot payload to an ordinary update.
+ * Only checkpoint metadata authenticated by the signed content record may be
+ * emitted as a replayable baseline. Checkpoints written before that metadata
+ * binding was introduced retain an ordinary-update hash; those payloads remain
+ * readable as ordinary updates, but never gain baseline redirect or pruning
+ * authority from their unauthenticated checkpoint row.
  */
 export async function authenticateSyncCheckpointForResponse(
   input: SyncCheckpointAuthenticationInput,
 ): Promise<SyncCheckpointMetadata | undefined> {
   if (input.checkpoint === undefined) {
-    const ordinaryMetadataHash = await computeDocumentContentRecordMetadataHash(
-      {
-        documentId: input.documentId,
-        partialEndVersionVector: input.partialEndVersionVector,
-        partialStartVersionVector: input.partialStartVersionVector,
-        updateId: input.updateId,
-      },
-    );
-    if (input.metadataHash !== ordinaryMetadataHash) {
+    if (!(await matchesOrdinaryUpdateMetadata(input))) {
       throw new DocumentMutationError(
         "Document update metadata failed integrity validation",
         409,
@@ -62,6 +68,9 @@ export async function authenticateSyncCheckpointForResponse(
     updateId: input.updateId,
   });
   if (!authenticated) {
+    if (await matchesOrdinaryUpdateMetadata(input)) {
+      return undefined;
+    }
     throw new DocumentMutationError(
       "Document rotation checkpoint failed integrity validation",
       409,
