@@ -20,6 +20,7 @@ export function usePaneLockMenuAction(onClose: () => void) {
     tearleads.session.setContext({
       authToken: null,
       containerId: null,
+      defaultOrganizationId: null,
       isAuthenticated: false,
       organizationId: null,
       userId: null,

@@ -14,6 +14,79 @@ const PERSONAL_ORGANIZATION = {
   rootContainerId: "personal-root",
 };
 
+const FOREIGN_ORGANIZATION = {
+  name: "Foreign Org",
+  organizationId: "foreign-org",
+  rootContainerId: "foreign-root",
+};
+
+test("explicit default organization wins over a foreign-first local index", () => {
+  const listLocalOrganizations = mock(async () => [
+    FOREIGN_ORGANIZATION,
+    PERSONAL_ORGANIZATION,
+  ]);
+  const tearleads = {
+    organizations: { listLocalOrganizations },
+  } as unknown as Tearleads;
+  const view = renderHook(() =>
+    usePrimaryLocalOrganization({
+      defaultOrganizationId: PERSONAL_ORGANIZATION.organizationId,
+      enabled: true,
+      refreshKey: "foreign-root:personal-root",
+      tearleads,
+    }),
+  );
+
+  expect(view.result.current).toEqual({
+    organizationId: PERSONAL_ORGANIZATION.organizationId,
+    ready: true,
+  });
+  expect(listLocalOrganizations).toHaveBeenCalledTimes(0);
+});
+
+test("legacy lookup is loading on the first render after it is enabled", async () => {
+  let resolveLookup:
+    | ((organizations: (typeof PERSONAL_ORGANIZATION)[]) => void)
+    | undefined;
+  const listLocalOrganizations = mock(
+    () =>
+      new Promise<(typeof PERSONAL_ORGANIZATION)[]>((resolve) => {
+        resolveLookup = resolve;
+      }),
+  );
+  const tearleads = {
+    organizations: { listLocalOrganizations },
+  } as unknown as Tearleads;
+  const renders: Array<{
+    organizationId: string | null;
+    ready: boolean;
+  }> = [];
+  const view = renderHook(
+    ({ enabled }) => {
+      const state = usePrimaryLocalOrganization({
+        defaultOrganizationId: null,
+        enabled,
+        refreshKey: "legacy-personal-root",
+        tearleads,
+      });
+      renders.push(state);
+      return state;
+    },
+    { initialProps: { enabled: false } },
+  );
+
+  renders.length = 0;
+  view.rerender({ enabled: true });
+
+  expect(renders[0]).toEqual({ organizationId: null, ready: false });
+  expect(view.result.current).toEqual({ organizationId: null, ready: false });
+  expect(listLocalOrganizations).toHaveBeenCalledTimes(1);
+
+  await act(async () => {
+    resolveLookup?.([PERSONAL_ORGANIZATION]);
+  });
+});
+
 test("retries while the primary organization index catches up", async () => {
   let attempt = 0;
   const listLocalOrganizations = mock(async () => {
@@ -26,6 +99,7 @@ test("retries while the primary organization index catches up", async () => {
   const view = renderHook(
     ({ enabled }) =>
       usePrimaryLocalOrganization({
+        defaultOrganizationId: null,
         enabled,
         refreshKey: enabled ? "personal-org:personal-root:stable" : "",
         tearleads,

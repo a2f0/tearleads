@@ -167,6 +167,7 @@ describe("session", () => {
         userId: expect.any(String),
       });
       expect(session.containerId).toBe(containerId);
+      expect(session.defaultOrganizationId).toBe(result.organizationId);
       expect(session.organizationId).toBe(result.organizationId);
       expect(session.userId).toBe(result.userId);
     } finally {
@@ -219,6 +220,7 @@ describe("session", () => {
     const identityBContext = {
       authToken: "identity-b-token",
       containerId: "identity-b-container",
+      defaultOrganizationId: "identity-b-default-organization",
       isAuthenticated: true,
       organizationId: "identity-b-organization",
       userId: "identity-b-user",
@@ -302,6 +304,7 @@ describe("session", () => {
     expect(authenticateCalls).toBe(1);
     expect(session.authToken).toBe("test-token");
     expect(api.getAuthToken()).toBe("test-token");
+    expect(session.defaultOrganizationId).toBe("org-1");
     expect(session.isAuthenticated).toBe(true);
     expect(session.organizationId).toBe("org-1");
     expect(session.userId).toBe("user-1");
@@ -324,6 +327,7 @@ describe("session", () => {
     const identityBContext = {
       authToken: "identity-b-token",
       containerId: "identity-b-container",
+      defaultOrganizationId: "identity-b-default-organization",
       isAuthenticated: true,
       organizationId: "identity-b-organization",
       userId: "identity-b-user",

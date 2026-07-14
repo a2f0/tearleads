@@ -81,6 +81,7 @@ function useCanBootstrapContactsContainer(input: {
   tearleads: Tearleads;
 }): boolean {
   const primaryLocalOrganization = usePrimaryLocalOrganization({
+    defaultOrganizationId: input.appData.auth.defaultOrganizationId,
     enabled:
       input.appData.auth.isAuthenticated &&
       input.appData.infra.dbStatus === "ready",

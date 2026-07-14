@@ -83,6 +83,7 @@ describe("session expiry", () => {
       await setGeneratedIdentity(sdk);
       sdk.session.setContext({
         authToken: "stale-token",
+        defaultOrganizationId: "org-1",
         isAuthenticated: true,
         organizationId: "org-1",
         userId: "user-1",
@@ -93,6 +94,7 @@ describe("session expiry", () => {
       expect(sdk.session.snapshot).toEqual({
         authToken: "fresh-token",
         containerId: null,
+        defaultOrganizationId: "org-2",
         isAuthenticated: true,
         organizationId: "org-2",
         userId: "user-2",

@@ -20,7 +20,7 @@ import type { Database } from "./database";
 import type { Events } from "./events";
 import type { Identity } from "./identity";
 import type { Network } from "./network";
-import type { Session } from "./session";
+import type { Session } from "./sessionTypes";
 import type { SyncBillingGate } from "./syncBillingGate";
 
 export interface WorkflowRuntimeInput extends WorkflowRuntimeGroups {}
@@ -144,6 +144,7 @@ function createRuntimeInputFactory(
         : containerId) ?? null;
 
     auth = reuseWorkflowRuntimeAuth(auth, {
+      defaultOrganizationId: dependencies.session.defaultOrganizationId,
       isAuthenticated: dependencies.session.isAuthenticated,
       organizationId: dependencies.session.organizationId,
       userId: dependencies.session.userId,
@@ -270,6 +271,7 @@ function reuseWorkflowRuntimeAuth(
   next: WorkflowRuntimeAuthInput,
 ): WorkflowRuntimeAuthInput {
   return current &&
+    current.defaultOrganizationId === next.defaultOrganizationId &&
     current.isAuthenticated === next.isAuthenticated &&
     current.organizationId === next.organizationId &&
     current.userId === next.userId

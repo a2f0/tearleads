@@ -7,6 +7,7 @@ test("identity transition clears the full session and prior server events", () =
   tearleads.session.setContext({
     authToken: "token-a",
     containerId: "container-a",
+    defaultOrganizationId: "default-org-a",
     isAuthenticated: true,
     organizationId: "org-a",
     userId: "user-a",
@@ -18,6 +19,7 @@ test("identity transition clears the full session and prior server events", () =
   expect(tearleads.session.snapshot).toEqual({
     authToken: null,
     containerId: null,
+    defaultOrganizationId: null,
     isAuthenticated: false,
     organizationId: null,
     userId: null,

@@ -299,6 +299,7 @@ export function SystemBootstrapProvider({
     signingPrivateKey: appData.crypto.signingKeyPair?.signingPrivateKey ?? null,
   });
   const primaryLocalOrganization = usePrimaryLocalOrganization({
+    defaultOrganizationId: appData.auth.defaultOrganizationId,
     enabled:
       enabled &&
       appData.auth.isAuthenticated &&

@@ -34,6 +34,7 @@ test("failed identity creation returns to the previous identity", async () => {
   const identityASession = {
     authToken: "token-a",
     containerId: "container-a",
+    defaultOrganizationId: "default-organization-a",
     isAuthenticated: true,
     organizationId: "organization-a",
     userId: "user-a",
@@ -77,6 +78,7 @@ test("failed target startup rolls back the live identity, session, and active se
   tearleads.session.setContext({
     authToken: "token-a",
     containerId: "container-a",
+    defaultOrganizationId: "default-organization-a",
     isAuthenticated: true,
     organizationId: "organization-a",
     userId: "user-a",
@@ -132,6 +134,7 @@ test("failed target startup rolls back the live identity, session, and active se
   expect(tearleads.session.snapshot).toEqual({
     authToken: "token-a",
     containerId: "container-a",
+    defaultOrganizationId: "default-organization-a",
     isAuthenticated: true,
     organizationId: "organization-a",
     userId: "user-a",
@@ -158,6 +161,7 @@ test("failed key-package import startup leaves the restored identity uncommitted
   const identityASession = {
     authToken: "token-a",
     containerId: "container-a",
+    defaultOrganizationId: "default-organization-a",
     isAuthenticated: true,
     organizationId: "organization-a",
     userId: "user-a",

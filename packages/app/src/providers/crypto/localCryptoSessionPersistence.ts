@@ -29,6 +29,7 @@ type LocalCryptoSessionStorage = Pick<
 interface PersistedCryptoSessionContext {
   readonly authToken: string | null;
   readonly containerId: string | null;
+  readonly defaultOrganizationId: string | null;
   readonly isAuthenticated: boolean;
   readonly organizationId: string | null;
   readonly userId: string | null;
@@ -89,6 +90,13 @@ function readNullableString(
     : undefined;
 }
 
+function readDefaultOrganizationId(value: object): string | null | undefined {
+  if (!Reflect.has(value, "defaultOrganizationId")) {
+    return null;
+  }
+  return readNullableString(value, "defaultOrganizationId");
+}
+
 function parsePersistedCryptoSession(
   value: unknown,
 ): PersistedCryptoSessionEnvelope | null {
@@ -112,10 +120,12 @@ function parsePersistedCryptoSession(
   const authToken = readNullableString(value, "authToken");
   const containerId = readNullableString(value, "containerId");
   const organizationId = readNullableString(value, "organizationId");
+  const defaultOrganizationId = readDefaultOrganizationId(value);
   const userId = readNullableString(value, "userId");
   if (
     authToken === undefined ||
     containerId === undefined ||
+    defaultOrganizationId === undefined ||
     organizationId === undefined ||
     userId === undefined
   ) {
@@ -125,6 +135,7 @@ function parsePersistedCryptoSession(
   return {
     authToken,
     containerId,
+    defaultOrganizationId,
     format: LOCAL_CRYPTO_SESSION_FORMAT,
     isAuthenticated,
     organizationId,
@@ -231,6 +242,7 @@ export async function restorePersistedCryptoSession(input: {
     return {
       authToken: persistedSession.authToken,
       containerId: persistedSession.containerId,
+      defaultOrganizationId: persistedSession.defaultOrganizationId,
       isAuthenticated:
         persistedSession.isAuthenticated && persistedSession.authToken !== null,
       organizationId: persistedSession.organizationId,

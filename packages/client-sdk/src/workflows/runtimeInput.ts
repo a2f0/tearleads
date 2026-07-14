@@ -12,6 +12,8 @@ export type WorkflowRuntimeDatabaseStatus =
   | "terminated";
 
 export interface WorkflowRuntimeAuthInput {
+  /** Server-backed personal organization; independent of organizationId. */
+  readonly defaultOrganizationId?: string | null;
   readonly isAuthenticated: boolean;
   readonly organizationId: string | null;
   readonly userId: string | null;
