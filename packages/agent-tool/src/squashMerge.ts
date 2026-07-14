@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 
 import { prState, resolvePr, spawnExitCode } from "./prContext";
+import { appendPrNumberSuffix, stripPrNumberSuffix } from "./prNumberSuffix";
 import { singleLineSubject } from "./subjectLine";
 import { validateCommitSubject } from "./validateCommitSubject";
 
@@ -29,7 +30,14 @@ export function squashMerge(
   const pr = resolvePr();
   const subject = resolveSubject(subjectArg, pr.title);
 
-  validateCommitSubject(rootDir, subject);
+  // Validate the human-authored subject without the PR-number suffix: GitHub's
+  // native squash appends `(#<n>)` server-side, past the commit-msg hook, so the
+  // repo's existing history carries suffixes over the 50-char header limit. Keep
+  // the suffix "free" here too by validating the base, then append it ourselves —
+  // `gh pr merge --subject` otherwise drops GitHub's automatic reference.
+  const baseSubject = stripPrNumberSuffix(subject);
+  validateCommitSubject(rootDir, baseSubject);
+  const finalSubject = appendPrNumberSuffix(baseSubject, pr.prNumber);
 
   const result = spawnSync(
     "gh",
@@ -39,7 +47,7 @@ export function squashMerge(
       pr.prNumber,
       "--squash",
       "--subject",
-      subject,
+      finalSubject,
       // Empty body keeps the squash commit to the subject line only.
       "--body",
       "",
