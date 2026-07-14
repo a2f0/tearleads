@@ -12,6 +12,26 @@ type ContactsContainerLookupNode = Pick<
   "id" | "organizationId" | "parentId" | "systemSlot"
 >;
 
+export function resolveContactsProjectionOrganizationId(input: {
+  contactsSystemSlot: ContainerSystemSlot | null;
+  defaultOrganizationId: string | null | undefined;
+  legacyPrimaryOrganizationId: string | null | undefined;
+  nodes: ReadonlyArray<ContactsContainerLookupNode> | null;
+}): string | null {
+  if (input.defaultOrganizationId) {
+    return input.defaultOrganizationId;
+  }
+
+  const projectedContactsOrganizationId =
+    input.contactsSystemSlot &&
+    input.nodes?.find((node) => node.systemSlot === input.contactsSystemSlot)
+      ?.organizationId;
+
+  return (
+    projectedContactsOrganizationId || input.legacyPrimaryOrganizationId || null
+  );
+}
+
 // The Contacts container projection resolves the same way as any other system
 // container, so delegate to the shared Explorer resolver rather than duplicating
 // it. Trash resolution now lives in stores/systemContainerTrash.

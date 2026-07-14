@@ -144,6 +144,30 @@ test(
       { timeout: 10_000 },
     );
 
+    const personalOrganizationId = tearleads.session.defaultOrganizationId;
+    invariant(personalOrganizationId, "Personal organization was not set");
+    const containerTree = tearleads.containerContents.openTree({
+      logLabel: "Contacts custom-org regression",
+    });
+    let personalTrashId: string | null = null;
+    await waitFor(() => {
+      const nodes = containerTree.getSnapshot().nodes;
+      const personalRoot = nodes.find(
+        (node) =>
+          node.organizationId === personalOrganizationId &&
+          node.parentId === null,
+      );
+      const personalTrash = nodes.find(
+        (node) =>
+          node.organizationId === personalOrganizationId &&
+          node.name === "Trash" &&
+          node.parentId === personalRoot?.id,
+      );
+      expect(personalTrash).toBeTruthy();
+      personalTrashId = personalTrash?.id ?? null;
+    });
+    invariant(personalTrashId, "Personal Trash was not provisioned");
+
     const additionalOrganization = await act(() =>
       tearleads.session.createOrganization({
         organizationProfileName: "Custom Org",
@@ -169,8 +193,7 @@ test(
     await waitFor(
       () => {
         expect(
-          within(contactsWindow).queryByText(CONTACTS_LABELS.loadingState)
-            ?.textContent ?? null,
+          within(contactsWindow).queryByText(CONTACTS_LABELS.loadingState),
         ).toBeNull();
         expect(
           within(contactsWindow).getByRole("button", { name: "You" }),
@@ -178,6 +201,86 @@ test(
       },
       { timeout: 5_000 },
     );
+
+    fireEvent.click(
+      within(contactsWindow).getByRole("menuitem", { name: "File" }),
+    );
+    const newContactMenuItem = await within(contactsWindow).findByRole(
+      "menuitem",
+      { name: CONTACTS_LABELS.newContactAction },
+    );
+    invariant(
+      newContactMenuItem instanceof HTMLButtonElement,
+      "New Contact menu item was not a button",
+    );
+    expect(newContactMenuItem.disabled).toBe(false);
+    fireEvent.click(newContactMenuItem);
+
+    fireEvent.change(
+      await within(contactsWindow).findByLabelText(
+        CONTACTS_LABELS.firstNameField,
+      ),
+      { target: { value: "Ada" } },
+    );
+    fireEvent.change(
+      within(contactsWindow).getByLabelText(CONTACTS_LABELS.lastNameField),
+      { target: { value: "Lovelace" } },
+    );
+    const createContactButton = within(contactsWindow).getByRole("button", {
+      name: CONTACTS_LABELS.createContactAction,
+    });
+    invariant(
+      createContactButton instanceof HTMLButtonElement,
+      "Create Contact action was not a button",
+    );
+    await waitFor(() => expect(createContactButton.disabled).toBe(false));
+    fireEvent.click(createContactButton);
+
+    const createdContactButton = await within(contactsWindow).findByRole(
+      "button",
+      { name: "Ada Lovelace" },
+    );
+    let createdContactId: string | null = null;
+    await waitFor(async () => {
+      const contacts = await tearleads.documents.list({
+        documentKind: "contact",
+      });
+      createdContactId =
+        contacts?.rows.find((contact) => contact.title === "Ada Lovelace")
+          ?.id ?? null;
+      expect(createdContactId).not.toBeNull();
+    });
+    invariant(createdContactId, "Created contact was not persisted");
+    const persistedContactId = createdContactId;
+
+    fireEvent.contextMenu(createdContactButton, {
+      clientX: 200,
+      clientY: 200,
+    });
+    const contextMenu = await waitFor(() => {
+      const menu = view.baseElement.querySelector<HTMLElement>(".menu");
+      invariant(menu, "Contacts context menu was not rendered");
+      return menu;
+    });
+    fireEvent.click(
+      within(contextMenu).getByRole("button", {
+        name: CONTACTS_LABELS.removeContactAction,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        within(contactsWindow).queryByRole("button", {
+          name: "Ada Lovelace",
+        }),
+      ).toBeNull();
+    });
+    await waitFor(async () => {
+      const movedContact = await tearleads.containerContents
+        .documentQueries()
+        .loadDocumentSummary(persistedContactId);
+      expect(movedContact?.containerId).toBe(personalTrashId);
+    });
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 );
