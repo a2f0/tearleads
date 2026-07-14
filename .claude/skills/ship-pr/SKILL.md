@@ -13,7 +13,7 @@ gate on the merge. It does **not** re-implement the wrapped skills — it invoke
 each one and lets it enforce its own rules.
 
 The review gates the merge: this flow does not squash-merge over a review that
-raised blocking issues, and it only merges the exact commit that was reviewed.
+raised blocking issues, and it merges only the exact commit that was reviewed.
 
 ## Arguments
 
@@ -64,21 +64,29 @@ subject-only squash with its `(#<pr>)` reference, and the `MERGED`-state check).
    branch), **stop and report** — there is nothing to review or merge. On
    success, capture the PR number as `PR_NUMBER` and the URL.
 
-2. **Cross-agent review** — invoke the `cross-agent-review` skill, passing the
-   review-agent argument when given. Relay its findings, including which agent
-   ran and whether it fell back.
-
-   **Pin the reviewed head** — the review helpers inspect the local `HEAD` diff,
-   so record the exact commit that was reviewed and confirm it is the pushed PR
-   head:
+2. **Cross-agent review** — first **snapshot the commit that will be reviewed**,
+   before invoking the reviewer, and confirm it is the pushed PR head (the review
+   helpers diff the local `HEAD`, so the reviewed commit must be what would
+   merge):
 
    ```bash
    REVIEWED_SHA=$(git rev-parse HEAD)
    test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
    ```
 
-   Carry `REVIEWED_SHA` into step 3. (If the local and remote heads differ, push
-   first so the reviewed commit is the one that would merge.)
+   (If local and remote heads differ, push first so the reviewed commit is the
+   one that would merge.) Then invoke the `cross-agent-review` skill, passing the
+   review-agent argument when given. Relay its findings, including which agent ran
+   and whether it fell back.
+
+   After the review returns, confirm the branch did not move while it ran:
+
+   ```bash
+   test "$REVIEWED_SHA" = "$(git rev-parse HEAD)"
+   ```
+
+   If it changed, a commit landed mid-review — re-snapshot and re-review before
+   continuing. Carry `REVIEWED_SHA` into step 3.
 
    **Review gate** — read the findings and decide before merging. Reviewers use
    different severity vocabularies: the in-session fallback uses **Blocker /
@@ -95,20 +103,17 @@ subject-only squash with its `(#<pr>)` reference, and the `MERGED`-state check).
      **stop** rather than merge unreviewed — unless the user explicitly asked to
      merge regardless.
 
-3. **Squash-merge** — first confirm the branch has not moved since the review, so
-   only the reviewed commit merges:
-
-   ```bash
-   test "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)" = "$REVIEWED_SHA"
-   ```
-
-   If the head changed (a commit landed after the review), **do not merge** —
-   return to step 2 and re-review the new head. Otherwise invoke the
-   `squash-merge` skill. With no subject argument it defaults to the PR title
+3. **Squash-merge (bound to the reviewed head)** — invoke the `squash-merge`
+   skill, passing `REVIEWED_SHA` as its **second argument** so the merge runs
+   with `--match-head-commit` and GitHub **atomically** refuses to merge anything
+   but the reviewed commit. This closes the window between the gate decision and
+   the merge — the guard is enforced by GitHub at merge time, not by a racy
+   preflight check. With no subject argument the merge defaults to the PR title
    from step 1 and appends the `(#<pr>)` reference; it validates the subject with
    commitlint and confirms the PR reached `MERGED` before returning. A non-zero
-   result means the PR did not actually merge (e.g. queued or blocked) — do not
-   report success in that case.
+   result means the PR did not actually merge (queued, blocked, or the head moved
+   off `REVIEWED_SHA`) — do not report success in that case; re-review the new
+   head instead.
 
 4. **Report results**: the PR URL, the review agent and outcome (plus any
    findings that gated the merge or were waived), and the final squash subject
@@ -122,9 +127,11 @@ subject-only squash with its `(#<pr>)` reference, and the `MERGED`-state check).
 - **The review gates the merge** — this flow never silently merges over a review
   that found blocking issues, across either severity vocabulary (Blocker/Major or
   [P0]/[P1]).
-- **The merged head is the reviewed head** — the reviewed PR head SHA is pinned
-  in step 2 and re-checked in step 3, so a commit pushed after the review forces
-  a re-review instead of merging unreviewed.
+- **The merged head is the reviewed head** — `REVIEWED_SHA` is snapshotted
+  *before* the review, verified unchanged *after* it, and passed to
+  `squash-merge`, which binds the merge with `--match-head-commit`. GitHub then
+  rejects the merge outright if any commit landed after the review, so an
+  unreviewed commit can never be merged.
 - **Title and subject stay in sync automatically**: `squash-merge` defaults to
   the PR title that `open-pr` set, so a single title argument (or none) suffices
   for both.

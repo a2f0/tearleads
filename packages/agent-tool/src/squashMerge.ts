@@ -18,14 +18,47 @@ export function resolveSubject(
 }
 
 /**
+ * Build the `gh pr merge` argv for a subject-only squash. When
+ * `expectedHeadSha` is provided, `--match-head-commit` makes GitHub reject the
+ * merge unless the PR head is exactly that commit — closing the window where a
+ * commit pushed after a review could be merged unreviewed (used by `ship-pr`).
+ */
+export function buildSquashMergeArgs(
+  pr: { prNumber: string; repo: string },
+  finalSubject: string,
+  expectedHeadSha?: string,
+): string[] {
+  const args = [
+    "pr",
+    "merge",
+    pr.prNumber,
+    "--squash",
+    "--subject",
+    finalSubject,
+    // Empty body keeps the squash commit to the subject line only.
+    "--body",
+    "",
+    "-R",
+    pr.repo,
+  ];
+  if (expectedHeadSha !== undefined && expectedHeadSha.length > 0) {
+    // GitHub atomically refuses the merge if the PR head has moved off this SHA.
+    args.push("--match-head-commit", expectedHeadSha);
+  }
+  return args;
+}
+
+/**
  * Squash-merge the open PR for the current branch with a subject-only commit
  * message — no auto-generated body or extended message. The subject defaults to
  * the PR title when one is not supplied, and is validated against the repo's
- * commitlint rules before the merge runs.
+ * commitlint rules before the merge runs. When `expectedHeadSha` is supplied the
+ * merge is bound to that commit via `--match-head-commit`.
  */
 export function squashMerge(
   rootDir: string,
   subjectArg: string | undefined,
+  expectedHeadSha?: string,
 ): number {
   const pr = resolvePr();
   const subject = resolveSubject(subjectArg, pr.title);
@@ -41,19 +74,7 @@ export function squashMerge(
 
   const result = spawnSync(
     "gh",
-    [
-      "pr",
-      "merge",
-      pr.prNumber,
-      "--squash",
-      "--subject",
-      finalSubject,
-      // Empty body keeps the squash commit to the subject line only.
-      "--body",
-      "",
-      "-R",
-      pr.repo,
-    ],
+    buildSquashMergeArgs(pr, finalSubject, expectedHeadSha),
     { stdio: "inherit" },
   );
   const exitCode = spawnExitCode("gh pr merge", result);

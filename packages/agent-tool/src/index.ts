@@ -7,9 +7,11 @@
  *   solicitCodexReview          Review the current PR with the local `codex` CLI
  *   openPr [title]              Open a PR for the current branch with a
  *                               commitlint-valid title (body from stdin)
- *   squashMerge [subject]       Squash-merge the current PR with a subject-only
+ *   squashMerge [subject] [sha] Squash-merge the current PR with a subject-only
  *                               commit (defaults to the PR title), appending the
- *                               `(#<pr>)` reference to the subject
+ *                               `(#<pr>)` reference to the subject. Optional
+ *                               [sha] binds the merge to that head commit via
+ *                               `--match-head-commit`.
  */
 import { execFileSync } from "node:child_process";
 
@@ -40,7 +42,7 @@ function main(): number {
     case "openPr":
       return openPr(rootDir, process.argv[3]);
     case "squashMerge":
-      return squashMerge(rootDir, process.argv[3]);
+      return squashMerge(rootDir, process.argv[3], process.argv[4]);
     default:
       process.stderr.write(`Unknown action: ${action ?? "(none)"}\n${USAGE}`);
       return 1;
