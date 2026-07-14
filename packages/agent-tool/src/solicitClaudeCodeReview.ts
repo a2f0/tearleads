@@ -6,8 +6,8 @@ import {
   ensureChanges,
   type PrContext,
   resolvePrContext,
-  reviewExitCode,
   run,
+  spawnExitCode,
 } from "./prContext";
 
 const REVIEW_INSTRUCTION_FILES = ["REVIEW.md", "AGENTS.md"];
@@ -68,5 +68,5 @@ export function solicitClaudeCodeReview(rootDir: string): number {
     stdio: ["pipe", "inherit", "inherit"],
     input: prompt,
   });
-  return reviewExitCode("claude", result);
+  return spawnExitCode("claude", result);
 }
