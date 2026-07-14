@@ -75,11 +75,11 @@ function resolveContactsContainer(input: {
   };
 }
 
-function useCanBootstrapContactsContainer(input: {
+function useContactsOrganizationPolicy(input: {
   appData: RuntimeSnapshot;
   nodeCount: number;
   tearleads: Tearleads;
-}): boolean {
+}) {
   const primaryLocalOrganization = usePrimaryLocalOrganization({
     defaultOrganizationId: input.appData.auth.defaultOrganizationId,
     enabled:
@@ -92,41 +92,73 @@ function useCanBootstrapContactsContainer(input: {
     ].join(":"),
     tearleads: input.tearleads,
   });
-  return (
+  const canBootstrap =
     resolveContactsBootstrapPolicy({
       currentOrganizationId: input.appData.auth.organizationId,
       isAuthenticated: input.appData.auth.isAuthenticated,
       primaryLocalOrganization,
-    }) === true
-  );
+    }) === true;
+
+  return { canBootstrap, primaryLocalOrganization };
 }
 
 function useContactsSystemContainerResolution(input: {
   appData: RuntimeSnapshot;
   logError: (message: string | Error, cause?: unknown) => void;
   nodes: Parameters<typeof resolveContactsContainer>[0]["nodes"];
+  primaryLocalOrganization: {
+    readonly organizationId: string | null;
+    readonly ready: boolean;
+  };
   signingPrivateKey: Uint8Array | null;
 }) {
-  const { appData, logError, nodes, signingPrivateKey } = input;
+  const {
+    appData,
+    logError,
+    nodes,
+    primaryLocalOrganization,
+    signingPrivateKey,
+  } = input;
   const { contactsSystemSlot, trashSystemSlot } = useContactsSystemSlots({
     logError,
     signingPrivateKey,
   });
-  const contactsContainer = useMemo(
-    () =>
-      resolveContactsContainer({
-        nodes,
-        organizationId: appData.auth.organizationId,
-        rootContainerId: appData.state.containerId,
-        systemSlot: contactsSystemSlot,
-      }),
-    [
-      appData.auth.organizationId,
-      appData.state.containerId,
-      contactsSystemSlot,
+  const contactsContainer = useMemo(() => {
+    // Contacts is a personal system container. Activating a custom org changes
+    // the tree runtime, but the Contacts projection must stay on the default org.
+    if (
+      appData.auth.isAuthenticated &&
+      (!primaryLocalOrganization.ready ||
+        !primaryLocalOrganization.organizationId)
+    ) {
+      return { canWrite: false, id: null };
+    }
+
+    const organizationId = appData.auth.isAuthenticated
+      ? primaryLocalOrganization.organizationId
+      : appData.auth.organizationId;
+    const rootContainerId = appData.auth.isAuthenticated
+      ? (nodes.find(
+          (node) =>
+            node.parentId === null && node.organizationId === organizationId,
+        )?.id ?? null)
+      : appData.state.containerId;
+
+    return resolveContactsContainer({
       nodes,
-    ],
-  );
+      organizationId,
+      rootContainerId,
+      systemSlot: contactsSystemSlot,
+    });
+  }, [
+    appData.auth.isAuthenticated,
+    appData.auth.organizationId,
+    appData.state.containerId,
+    contactsSystemSlot,
+    nodes,
+    primaryLocalOrganization.organizationId,
+    primaryLocalOrganization.ready,
+  ]);
 
   return { contactsContainer, contactsSystemSlot, trashSystemSlot };
 }
@@ -183,20 +215,24 @@ export function ContactsProvider({ children }: PropsWithChildren) {
   const containerContentsSnapshot = useTearleadsExternalStoreSnapshot(
     containerContentsStore,
   );
+  const {
+    canBootstrap: canBootstrapContactsContainer,
+    primaryLocalOrganization,
+  } = useContactsOrganizationPolicy({
+    appData,
+    nodeCount: containerContentsSnapshot.nodes.length,
+    tearleads,
+  });
   const { contactsContainer, contactsSystemSlot, trashSystemSlot } =
     useContactsSystemContainerResolution({
       appData,
       logError: tearleads.logError,
       nodes: containerContentsSnapshot.nodes,
+      primaryLocalOrganization,
       signingPrivateKey:
         containerContentsRuntime.crypto.signingKeyPair?.signingPrivateKey ??
         null,
     });
-  const canBootstrapContactsContainer = useCanBootstrapContactsContainer({
-    appData,
-    nodeCount: containerContentsSnapshot.nodes.length,
-    tearleads,
-  });
   const resolveTrashContainerForDocument = useContactsTrashResolver({
     containerContentsStore,
     currentOrganizationId: appData.auth.organizationId,
