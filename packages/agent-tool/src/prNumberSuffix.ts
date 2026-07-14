@@ -1,22 +1,22 @@
 // Matches a trailing GitHub reference like " (#1531)" at the very end of a
-// subject line. Anchored to the end so a mid-subject reference is left intact.
+// subject line. Anchored to the end so a mid-subject reference is left intact,
+// and un-globbed so only the final reference is removed per call.
 const PR_NUMBER_SUFFIX = /\s*\(#\d+\)$/;
 
-/** Strip a trailing `(#<n>)` reference from a subject, if one is present. */
+/** Strip the single trailing `(#<n>)` reference from a subject, if present. */
 export function stripPrNumberSuffix(subject: string): string {
   return subject.replace(PR_NUMBER_SUFFIX, "");
 }
 
 /**
- * Append the `(#<prNumber>)` reference to a squash subject so the commit ends
- * with the same GitHub-style PR reference the platform adds for web/default
- * squash merges. `gh pr merge --subject` suppresses that automatic suffix, so we
- * add it explicitly. Any existing trailing `(#<n>)` is replaced with the
- * authoritative PR number, keeping this idempotent across re-runs. Throws when
- * `prNumber` is not a positive integer.
+ * Append ` (#<prNumber>)` to a subject that has already had its trailing
+ * reference removed (see `stripPrNumberSuffix`). Deliberately strip-free: the
+ * caller strips exactly once, so the validated base and the merged subject stay
+ * in sync and an earlier `(#<n>)` reference is never silently discarded. Throws
+ * when `prNumber` is not a positive integer.
  */
 export function appendPrNumberSuffix(
-  subject: string,
+  baseSubject: string,
   prNumber: string,
 ): string {
   if (!/^\d+$/.test(prNumber)) {
@@ -24,7 +24,7 @@ export function appendPrNumberSuffix(
       `Invalid PR number '${prNumber}' for the squash subject suffix.`,
     );
   }
-  const result = `${stripPrNumberSuffix(subject)} (#${prNumber})`;
+  const result = `${baseSubject} (#${prNumber})`;
   assertPrNumberSuffix(result, prNumber);
   return result;
 }

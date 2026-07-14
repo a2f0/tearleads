@@ -13,6 +13,12 @@ describe("stripPrNumberSuffix", () => {
     );
   });
 
+  test("removes only the last of consecutive trailing references", () => {
+    expect(stripPrNumberSuffix("fix: backport regression (#12) (#9999)")).toBe(
+      "fix: backport regression (#12)",
+    );
+  });
+
   test("leaves a subject without a trailing reference unchanged", () => {
     expect(stripPrNumberSuffix("feat(app): add widget")).toBe(
       "feat(app): add widget",
@@ -27,20 +33,8 @@ describe("stripPrNumberSuffix", () => {
 });
 
 describe("appendPrNumberSuffix", () => {
-  test("appends the reference when absent", () => {
+  test("appends the reference to a base subject", () => {
     expect(appendPrNumberSuffix("feat(app): add widget", "1531")).toBe(
-      "feat(app): add widget (#1531)",
-    );
-  });
-
-  test("is idempotent when the correct reference is already present", () => {
-    expect(appendPrNumberSuffix("feat(app): add widget (#1531)", "1531")).toBe(
-      "feat(app): add widget (#1531)",
-    );
-  });
-
-  test("replaces a different trailing reference with the authoritative one", () => {
-    expect(appendPrNumberSuffix("feat(app): add widget (#9999)", "1531")).toBe(
       "feat(app): add widget (#1531)",
     );
   });
@@ -51,6 +45,38 @@ describe("appendPrNumberSuffix", () => {
     );
     expect(() => appendPrNumberSuffix("feat(app): add widget", "1a")).toThrow(
       /Invalid PR number/,
+    );
+  });
+});
+
+// The squash-merge flow strips exactly once and then appends, so verify the
+// composition behaves like GitHub's native suffix: idempotent on re-runs,
+// self-correcting on a wrong number, and non-destructive to earlier references.
+describe("strip + append (squash-merge pipeline)", () => {
+  const pipeline = (subject: string, prNumber: string): string =>
+    appendPrNumberSuffix(stripPrNumberSuffix(subject), prNumber);
+
+  test("adds the reference when absent", () => {
+    expect(pipeline("feat(app): add widget", "1531")).toBe(
+      "feat(app): add widget (#1531)",
+    );
+  });
+
+  test("is idempotent when the correct reference is already present", () => {
+    expect(pipeline("feat(app): add widget (#1531)", "1531")).toBe(
+      "feat(app): add widget (#1531)",
+    );
+  });
+
+  test("replaces a different trailing reference with the authoritative one", () => {
+    expect(pipeline("feat(app): add widget (#9999)", "1531")).toBe(
+      "feat(app): add widget (#1531)",
+    );
+  });
+
+  test("preserves an earlier reference before the trailing one", () => {
+    expect(pipeline("fix: backport regression (#12) (#9999)", "1531")).toBe(
+      "fix: backport regression (#12) (#1531)",
     );
   });
 });
