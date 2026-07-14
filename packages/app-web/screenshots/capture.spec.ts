@@ -251,9 +251,15 @@ const openDriversLicenseDetail: OpenDetail = async (scope) => {
     })
     .first()
     .click();
-  await expect(
-    scope.locator("img.structured-document-slot-preview-image"),
-  ).toHaveCount(2, { timeout: 20_000 });
+  // The blob-backed previews resolve asynchronously; presence in the DOM is not
+  // enough — wait until both have actually decoded so the shot never catches a
+  // blank/half-loaded image.
+  const images = scope.locator("img.structured-document-slot-preview-image");
+  await expect(images).toHaveCount(2, { timeout: 20_000 });
+  for (const image of await images.all()) {
+    await expect(image).toHaveJSProperty("complete", true);
+    await expect(image).not.toHaveJSProperty("naturalWidth", 0);
+  }
 };
 
 interface DetailScreen {
@@ -295,8 +301,11 @@ async function captureRoutedDetails(
   for (const screen of DETAIL_SCREENS) {
     await page.goto(screen.route);
     await waitForBooted(page);
-    await screen.open(page);
+    // Disable animations before opening so the list->detail transition is
+    // instantaneous; page.goto resets injected styles, so this must run per
+    // iteration and before the interaction.
     await disableAnimations(page);
+    await screen.open(page);
     await page.screenshot({
       path: path.join(outputDir, `${screen.name}.png`),
       fullPage: false,
