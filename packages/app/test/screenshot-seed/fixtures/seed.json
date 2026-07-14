@@ -1,0 +1,48 @@
+{
+  "password": "screenshot-seed",
+  "contacts": [
+    {
+      "fields": {
+        "firstName": "Ada",
+        "lastName": "Lovelace",
+        "nickname": "Ada"
+      }
+    },
+    { "fields": { "firstName": "Alan", "lastName": "Turing" } },
+    { "fields": { "firstName": "Grace", "lastName": "Hopper" } },
+    { "fields": { "firstName": "Katherine", "lastName": "Johnson" } }
+  ],
+  "notes": [
+    {
+      "text": "Launch checklist\n- Draft the release notes\n- Capture fresh screenshots\n- Ship the announcement"
+    },
+    {
+      "text": "Meeting notes\nSync on the sync layer: durable deltas, projection inlining, fewer round trips."
+    },
+    {
+      "text": "Ideas\nCRDT-backed notes merge cleanly across devices — great demo material."
+    }
+  ],
+  "files": [
+    {
+      "kind": "drivers_license",
+      "title": "Driver's License",
+      "fields": {
+        "licenseId": "S123-4567-8901",
+        "expirationDate": "2031-04-30"
+      },
+      "attachments": [
+        {
+          "file": "drivers-license-front.svg",
+          "mimeType": "image/svg+xml",
+          "slot": "front"
+        },
+        {
+          "file": "drivers-license-back.svg",
+          "mimeType": "image/svg+xml",
+          "slot": "back"
+        }
+      ]
+    }
+  ]
+}
