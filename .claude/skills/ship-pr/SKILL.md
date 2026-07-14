@@ -18,13 +18,20 @@ raised blocking issues, and it merges only the exact commit that was reviewed.
 ## Arguments
 
 - First argument (optional): the conventional-commit title (`type(scope): …`,
-  ≤50 chars). It is used as the PR title **and**, because the squash subject
-  defaults to the PR title, as the squash commit subject. When omitted, `open-pr`
-  falls back to the branch's latest commit subject and `squash-merge` falls back
-  to the PR title, so the two stay in sync either way. Pass it single-quoted.
+  ≤50 chars), single-quoted. It is used as the PR title **and**, because the
+  squash subject defaults to the PR title, as the squash commit subject. When
+  omitted it defaults to the branch's latest commit subject. **To supply a later
+  positional argument while defaulting the title, pass an empty string `''` as
+  the first argument** rather than dropping it — an empty title falls back to the
+  latest commit subject (and, downstream, the PR title).
 - Second argument (optional): the review agent to pass to `cross-agent-review`
   (`claude` or `codex`). When omitted, that skill picks its own default — the
   *other* agent from whichever one is running this flow.
+- `--merge-anyway` (optional flag, position-independent): override the review
+  gate. By default the flow stops when the review raises blocking findings or
+  cannot run at all (step 2); with this flag it surfaces exactly what it is
+  overriding and then proceeds. The reviewed-head guard still applies, so even an
+  overridden review merges only the reviewed commit.
 - The PR body is read from stdin (empty when none is piped) and passed to
   `open-pr`.
 
@@ -96,24 +103,37 @@ subject-only squash with its `(#<pr>)` reference, and the `MERGED`-state check).
    as blocking**:
    - If the review raises a **blocking** finding (**Blocker/Major** or
      **[P0]/[P1]**), **stop before step 3** and surface it so it can be fixed
-     first. Do not squash-merge over unresolved blocking findings.
+     first. Do not squash-merge over unresolved blocking findings unless
+     `--merge-anyway` was given.
    - If the review is clean or raises only non-blocking nits (**Minor/Suggestion**
      or **[P2]/[P3]**), proceed.
    - If the review could not run at all (every agent and fallback failed),
-     **stop** rather than merge unreviewed — unless the user explicitly asked to
-     merge regardless.
+     **stop** rather than merge unreviewed unless `--merge-anyway` was given.
+
+   When `--merge-anyway` is set and the gate would otherwise stop, surface the
+   blocking or unavailable findings, state plainly that the gate is being
+   overridden, and proceed to step 3.
 
 3. **Squash-merge (bound to the reviewed head)** — invoke the `squash-merge`
-   skill, passing `REVIEWED_SHA` as its **second argument** so the merge runs
-   with `--match-head-commit` and GitHub **atomically** refuses to merge anything
-   but the reviewed commit. This closes the window between the gate decision and
-   the merge — the guard is enforced by GitHub at merge time, not by a racy
-   preflight check. With no subject argument the merge defaults to the PR title
-   from step 1 and appends the `(#<pr>)` reference; it validates the subject with
-   commitlint and confirms the PR reached `MERGED` before returning. A non-zero
-   result means the PR did not actually merge (queued, blocked, or the head moved
-   off `REVIEWED_SHA`) — do not report success in that case; re-review the new
-   head instead.
+   skill, passing `REVIEWED_SHA` as its **second (head-SHA) argument** so the
+   merge runs with `--match-head-commit` and GitHub **atomically** refuses to
+   merge anything but the reviewed commit. This closes the window between the gate
+   decision and the merge — the guard is enforced by GitHub at merge time, not by
+   a racy preflight check.
+
+   Because the head SHA is the **second** positional argument, pass an empty
+   first argument to default the subject to the PR title:
+
+   ```bash
+   bun "$AGENT_TOOL" squashMerge '' "$REVIEWED_SHA"
+   ```
+
+   The empty subject falls back to the PR title from step 1, to which the tool
+   appends the `(#<pr>)` reference; it validates the subject with commitlint and
+   confirms the PR reached `MERGED` before returning. A non-zero result means the
+   PR did not actually merge (queued, blocked, or the head moved off
+   `REVIEWED_SHA`) — do not report success in that case; re-review the new head
+   instead.
 
 4. **Report results**: the PR URL, the review agent and outcome (plus any
    findings that gated the merge or were waived), and the final squash subject
