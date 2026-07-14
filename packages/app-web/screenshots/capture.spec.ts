@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import {
   clearStaleLocalState,
   disableAnimations,
@@ -208,6 +208,129 @@ async function captureWindowed(page: Page, outputDir: string): Promise<void> {
   await captureOpenWindow(page, outputDir, "system-monitor");
 }
 
+// A detail screen is reached by clicking into a seeded item. Each `open` selects
+// the item (scoped to the given page or window) and then waits for a signal that
+// is present ONLY in the detail view, so a mis-click can never emit a list
+// screenshot mislabeled as a detail. The same `open` drives both layouts, since
+// Page and Locator share getByText/getByRole/locator.
+type OpenDetail = (scope: Page | Locator) => Promise<void>;
+
+// Notes: click a note row; the editor textarea then holds the note body.
+const openNoteDetail: OpenDetail = async (scope) => {
+  await scope
+    .locator(".mini-app-row--button", { hasText: "Meeting notes" })
+    .first()
+    .click();
+  const editor = scope.locator("textarea.note-document-editor");
+  await expect(editor).toBeVisible({ timeout: 20_000 });
+  await expect(editor).toHaveValue(/Sync on the sync layer:/, {
+    timeout: 20_000,
+  });
+};
+
+// Contacts: click a contact row; the read detail shows the "Public key" field,
+// which appears only in the detail (not the list or the new/import forms).
+const openContactDetail: OpenDetail = async (scope) => {
+  await scope
+    .locator(".mini-app-row--button", { hasText: "Alan Turing" })
+    .first()
+    .click();
+  await expect(scope.getByText("Public key").first()).toBeVisible({
+    timeout: 20_000,
+  });
+};
+
+// Driver's license: click its row in the Explorer folder-contents table (the
+// `.explorer-item-row-button` name cell, present in both the routed and windowed
+// layouts — the sidebar tree is windowed-only). The document detail renders the
+// two license images (front + back) from blob URLs, which resolve async.
+const openDriversLicenseDetail: OpenDetail = async (scope) => {
+  await scope
+    .locator(".explorer-item-row-button", {
+      hasText: "Driver's License S123-4567-8901",
+    })
+    .first()
+    .click();
+  await expect(
+    scope.locator("img.structured-document-slot-preview-image"),
+  ).toHaveCount(2, { timeout: 20_000 });
+};
+
+interface DetailScreen {
+  /** Output file stem (`<name>.png`). */
+  name: string;
+  /** Routed URL of the mini-app whose detail is opened. */
+  route: string;
+  /** Footer-launcher label for the windowed shell. */
+  menuLabel: string;
+  open: OpenDetail;
+}
+
+const DETAIL_SCREENS: readonly DetailScreen[] = [
+  {
+    name: "note-detail",
+    route: "/app/notes",
+    menuLabel: "Notes",
+    open: openNoteDetail,
+  },
+  {
+    name: "contact-detail",
+    route: "/app/contacts",
+    menuLabel: "Contacts",
+    open: openContactDetail,
+  },
+  {
+    name: "drivers-license-detail",
+    route: "/app/explorer",
+    menuLabel: "Explorer",
+    open: openDriversLicenseDetail,
+  },
+];
+
+// Routed: navigate to the list, click into the detail, screenshot the viewport.
+async function captureRoutedDetails(
+  page: Page,
+  outputDir: string,
+): Promise<void> {
+  for (const screen of DETAIL_SCREENS) {
+    await page.goto(screen.route);
+    await waitForBooted(page);
+    await screen.open(page);
+    await disableAnimations(page);
+    await page.screenshot({
+      path: path.join(outputDir, `${screen.name}.png`),
+      fullPage: false,
+    });
+  }
+}
+
+// Windowed: open the app window, maximize, click into the detail, screenshot the
+// window, then close it so the desktop is clear for the next one.
+async function captureWindowedDetails(
+  page: Page,
+  outputDir: string,
+): Promise<void> {
+  for (const screen of DETAIL_SCREENS) {
+    await openWindowedApp(page, screen.menuLabel);
+    const pane = visiblePane(page);
+    const window = pane.locator(".window").first();
+    await window.waitFor({ state: "visible", timeout: 20_000 });
+    await disableAnimations(page);
+    await window.locator(".window-maximize").click();
+    await window
+      .getByText("Loading...")
+      .first()
+      .waitFor({ state: "hidden", timeout: 10_000 })
+      .catch(() => {});
+    await screen.open(window);
+    await window.screenshot({
+      path: path.join(outputDir, `${screen.name}.png`),
+    });
+    await window.locator(".window-close").click();
+    await expect(pane.locator(".window")).toHaveCount(0);
+  }
+}
+
 test("capture screenshots", async ({ page }, testInfo) => {
   const project = testInfo.project.name;
   const outputDir = path.join(REPO_ROOT, ".screenshots", project);
@@ -242,7 +365,9 @@ test("capture screenshots", async ({ page }, testInfo) => {
 
   if (routed) {
     await captureRouted(page, outputDir);
+    await captureRoutedDetails(page, outputDir);
   } else {
     await captureWindowed(page, outputDir);
+    await captureWindowedDetails(page, outputDir);
   }
 });
