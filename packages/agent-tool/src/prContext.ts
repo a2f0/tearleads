@@ -1,13 +1,22 @@
 import { execFileSync, spawnSync } from "node:child_process";
 
-export interface PrContext {
+export interface PrIdentity {
   readonly branch: string;
   readonly repo: string;
   readonly prNumber: string;
+  readonly title: string;
+}
+
+export interface PrContext extends PrIdentity {
   readonly baseRef: string;
 }
 
-interface ReviewProcessResult {
+interface PrView extends PrIdentity {
+  readonly baseRefName: string;
+  readonly baseRefOid: string;
+}
+
+interface SpawnResult {
   readonly status: number | null;
   readonly signal: string | null;
   readonly error?: Error;
@@ -47,10 +56,7 @@ function fieldOf(value: unknown, key: string): unknown {
     : undefined;
 }
 
-function stringField(source: string | null, key: string): string {
-  if (source === null) {
-    return "";
-  }
+function stringField(source: string, key: string): string {
   const value = fieldOf(safeParse(source), key);
   return typeof value === "string" ? value : "";
 }
@@ -131,12 +137,9 @@ export function ensureChanges(baseRef: string): void {
 /**
  * Map a spawnSync result to a process exit code. A failure to launch (missing
  * binary) or a signal termination leaves `status` null; treat those as a
- * nonzero exit so callers can fall back to another reviewer.
+ * nonzero exit so callers can detect the failure and fall back.
  */
-export function reviewExitCode(
-  command: string,
-  result: ReviewProcessResult,
-): number {
+export function spawnExitCode(command: string, result: SpawnResult): number {
   if (result.error) {
     process.stderr.write(`Failed to run ${command}: ${result.error.message}\n`);
     return 1;
@@ -153,16 +156,16 @@ export function reviewExitCode(
  * actionable message when there is nothing reviewable (on main, no PR, gh not
  * authenticated).
  */
-export function resolvePrContext(): PrContext {
+function fetchPrView(): PrView {
   const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
   if (branch === "main") {
-    throw new Error("Cannot review main branch. Checkout a PR branch first.");
+    throw new Error(
+      "Cannot operate on main branch. Checkout a PR branch first.",
+    );
   }
 
-  const repo = stringField(
-    tryRun("gh", ["repo", "view", "--json", "nameWithOwner"]),
-    "nameWithOwner",
-  );
+  const repoRaw = tryRun("gh", ["repo", "view", "--json", "nameWithOwner"]);
+  const repo = repoRaw === null ? "" : stringField(repoRaw, "nameWithOwner");
   if (repo.length === 0) {
     throw new Error(
       "Could not determine repository. Ensure gh is authenticated.",
@@ -187,23 +190,48 @@ export function resolvePrContext(): PrContext {
     throw new Error(`No PR found for branch '${branch}'. Create a PR first.`);
   }
 
-  const baseInfo = run("gh", [
+  const viewRaw = run("gh", [
     "pr",
     "view",
     prNumber,
     "--json",
-    "baseRefName,baseRefOid",
+    "title,baseRefName,baseRefOid",
     "-R",
     repo,
   ]);
-  const baseRefName = stringField(baseInfo, "baseRefName");
-  if (baseRefName.length === 0) {
+
+  return {
+    branch,
+    repo,
+    prNumber,
+    title: stringField(viewRaw, "title"),
+    baseRefName: stringField(viewRaw, "baseRefName"),
+    baseRefOid: stringField(viewRaw, "baseRefOid"),
+  };
+}
+
+/** Identity of the open PR for the current branch (no base-ref resolution). */
+export function resolvePr(): PrIdentity {
+  const view = fetchPrView();
+  return {
+    branch: view.branch,
+    repo: view.repo,
+    prNumber: view.prNumber,
+    title: view.title,
+  };
+}
+
+/** PR identity plus a base ref that `git diff` can resolve locally. */
+export function resolvePrContext(): PrContext {
+  const view = fetchPrView();
+  if (view.baseRefName.length === 0) {
     throw new Error("Could not determine base branch from GitHub.");
   }
-  const baseRef = resolveBaseRef(
-    baseRefName,
-    stringField(baseInfo, "baseRefOid"),
-  );
-
-  return { branch, repo, prNumber, baseRef };
+  return {
+    branch: view.branch,
+    repo: view.repo,
+    prNumber: view.prNumber,
+    title: view.title,
+    baseRef: resolveBaseRef(view.baseRefName, view.baseRefOid),
+  };
 }
