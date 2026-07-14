@@ -8,8 +8,10 @@ Solicits a review of the current PR from a local coding-agent CLI (`claude` or
 `codex`), so one agent can request a second opinion from another.
 
 ```bash
-bun packages/agent-tool/src/index.ts solicitClaudeCodeReview
-bun packages/agent-tool/src/index.ts solicitCodexReview
+bun packages/agent-tool/src/index.ts solicitClaudeCodeReview        # effort: xhigh
+bun packages/agent-tool/src/index.ts solicitCodexReview             # effort: high
+# Override the reasoning effort (low | medium | high | xhigh | max):
+bun packages/agent-tool/src/index.ts solicitCodexReview xhigh
 ```
 
 Both actions:
@@ -17,6 +19,12 @@ Both actions:
 1. Resolve the open PR for the current branch from git + `gh`.
 2. Verify there are changes against the PR base branch.
 3. Hand the diff to the target agent's CLI and stream its review to stdout.
+
+The optional effort argument sets the reviewer's reasoning effort, defaulting to
+**`xhigh` for Claude** and **`high` for Codex**. It is passed as
+`claude --effort <level>` and `codex -c model_reasoning_effort="<level>"`, always
+explicitly — so a Codex review never silently inherits `~/.codex/config.toml`.
+An unknown level throws before the reviewer CLI is launched.
 
 The exit code is the reviewing CLI's exit code, so callers can fall back to
 another reviewer on failure. Backs the `cross-agent-review` skill in

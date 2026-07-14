@@ -1,26 +1,34 @@
 ---
 name: cross-agent-review
-description: Request a code review of the current PR from another AI agent (Claude Code by default, or a fresh Codex self-review)
+description: Request a code review of the current PR from another AI agent (Codex by default, or a fresh Claude Code self-review)
 ---
 
 # Cross-Agent Review
 
 Request a code review of the current PR from another AI agent. Invoked from
-Codex, this solicits a review from Claude Code by default, or a fresh Codex
-self-review. Falls back to an in-session review when no external agent is
+Claude Code, this solicits a review from Codex by default, or a fresh Claude
+Code self-review. Falls back to an in-session review when no external agent is
 available.
 
 ## Arguments
 
-- First argument (optional): `claude` or `codex`. Defaults to `claude` (the
-  other agent when invoked from Codex).
+- First argument (optional): `claude` or `codex`. Defaults to `codex` (the
+  other agent when invoked from Claude Code).
+- Second argument (optional): the reviewer's reasoning **effort level** — one of
+  `low`, `medium`, `high`, `xhigh`, `max`. When omitted it defaults **per agent**:
+  **`xhigh` for Claude**, **`high` for Codex**. An unknown level fails fast
+  before the reviewer CLI is launched.
+
+  The level is passed as `claude --effort <level>` and, for Codex, as
+  `-c model_reasoning_effort="<level>"` — an explicit override, so a Codex review
+  never silently inherits whatever `~/.codex/config.toml` sets.
 
 ## Prerequisites
 
 - `git` and `gh` (authenticated) on `PATH`.
 - The `@tearleads/agent-tool` package: `packages/agent-tool/src/index.ts`.
-- For Claude Code reviews: `claude` CLI authenticated.
 - For Codex reviews: `codex` CLI configured (`OPENAI_API_KEY`).
+- For Claude Code reviews: `claude` CLI authenticated.
 - An open PR on the current branch.
 
 ## Setup
@@ -41,36 +49,40 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 ## Workflow
 
 1. **Determine agent**: Parse the argument:
-   - `codex` → Codex (self-review)
-   - otherwise → Claude Code (default for Codex invoking this skill)
+   - `claude` → Claude Code (self-review)
+   - otherwise → Codex (default for Claude Code invoking this skill)
 
-2. **Run the review**: Execute the matching action.
-
-   **For Claude Code review:**
-
-   ```bash
-   bun "$AGENT_TOOL" solicitClaudeCodeReview
-   ```
+2. **Run the review**: Execute the matching action. Omit the effort argument to
+   take the per-agent default (`xhigh` for Claude, `high` for Codex); pass a
+   level to override it.
 
    **For Codex review:**
 
    ```bash
-   bun "$AGENT_TOOL" solicitCodexReview
+   bun "$AGENT_TOOL" solicitCodexReview            # effort: high (default)
+   bun "$AGENT_TOOL" solicitCodexReview xhigh      # explicit override
+   ```
+
+   **For Claude Code review:**
+
+   ```bash
+   bun "$AGENT_TOOL" solicitClaudeCodeReview       # effort: xhigh (default)
+   bun "$AGENT_TOOL" solicitClaudeCodeReview high  # explicit override
    ```
 
    **Fallback behavior (required):**
 
-   - If the Claude Code review fails for **any** reason (credit/quota errors,
-     non-zero exit, signal termination), immediately fall back to a Codex
+   - If the Codex review fails for **any** reason (credit/quota errors,
+     non-zero exit, signal termination), immediately fall back to a Claude Code
      self-review:
 
      ```bash
-     bun "$AGENT_TOOL" solicitCodexReview
+     bun "$AGENT_TOOL" solicitClaudeCodeReview
      ```
 
-   - If the Codex review also fails (or was selected first and fails due to
-     credits/quota/auth or prompt-size limits), perform an **in-session
-     file-by-file review** (step 3).
+   - If the Claude Code review also fails (or was selected first and fails due
+     to nested-session restrictions, credits/quota/auth, or prompt-size limits),
+     perform an **in-session file-by-file review** (step 3).
 
    - Only stop immediately for non-recoverable operational errors (missing PR,
      missing tool script, malformed args) where fallback would also fail.
@@ -93,11 +105,11 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
       git diff <baseRefName>...HEAD -- <file-path>
       ```
 
-   c. For added or modified files, read the file with native file-reading tools
-      for full context. Deleted files do not need to be read.
+   c. For added or modified files, read the file with the Read tool for full
+      context. Deleted files do not need to be read.
 
    d. Review each file against the project's guidelines (`REVIEW.md` if present,
-      otherwise `AGENTS.md`):
+      otherwise `AGENTS.md` and `CLAUDE.md`):
       - Flag security issues, type safety violations, and missing tests as high
         priority.
       - Use severity levels: Blocker, Major, Minor, Suggestion.
@@ -112,6 +124,9 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 
 ## Notes
 
+- Effort defaults are per agent — `xhigh` for Claude, `high` for Codex — and are
+  always passed explicitly, so neither reviewer inherits an ambient config value.
+  Fallback reviews use the fallback agent's own default unless a level is given.
 - The review scripts are non-interactive and stream output to stdout.
 - Reviews are based on the diff between the PR's base branch and HEAD.
 - The Claude review streams the prompt/diff via stdin (not argv) to avoid

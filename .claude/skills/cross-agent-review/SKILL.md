@@ -14,6 +14,14 @@ available.
 
 - First argument (optional): `claude` or `codex`. Defaults to `codex` (the
   other agent when invoked from Claude Code).
+- Second argument (optional): the reviewer's reasoning **effort level** — one of
+  `low`, `medium`, `high`, `xhigh`, `max`. When omitted it defaults **per agent**:
+  **`xhigh` for Claude**, **`high` for Codex**. An unknown level fails fast
+  before the reviewer CLI is launched.
+
+  The level is passed as `claude --effort <level>` and, for Codex, as
+  `-c model_reasoning_effort="<level>"` — an explicit override, so a Codex review
+  never silently inherits whatever `~/.codex/config.toml` sets.
 
 ## Prerequisites
 
@@ -44,18 +52,22 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
    - `claude` → Claude Code (self-review)
    - otherwise → Codex (default for Claude Code invoking this skill)
 
-2. **Run the review**: Execute the matching action.
+2. **Run the review**: Execute the matching action. Omit the effort argument to
+   take the per-agent default (`xhigh` for Claude, `high` for Codex); pass a
+   level to override it.
 
    **For Codex review:**
 
    ```bash
-   bun "$AGENT_TOOL" solicitCodexReview
+   bun "$AGENT_TOOL" solicitCodexReview            # effort: high (default)
+   bun "$AGENT_TOOL" solicitCodexReview xhigh      # explicit override
    ```
 
    **For Claude Code review:**
 
    ```bash
-   bun "$AGENT_TOOL" solicitClaudeCodeReview
+   bun "$AGENT_TOOL" solicitClaudeCodeReview       # effort: xhigh (default)
+   bun "$AGENT_TOOL" solicitClaudeCodeReview high  # explicit override
    ```
 
    **Fallback behavior (required):**
@@ -112,6 +124,9 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 
 ## Notes
 
+- Effort defaults are per agent — `xhigh` for Claude, `high` for Codex — and are
+  always passed explicitly, so neither reviewer inherits an ambient config value.
+  Fallback reviews use the fallback agent's own default unless a level is given.
 - The review scripts are non-interactive and stream output to stdout.
 - Reviews are based on the diff between the PR's base branch and HEAD.
 - The Claude review streams the prompt/diff via stdin (not argv) to avoid

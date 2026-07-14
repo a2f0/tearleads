@@ -9,8 +9,21 @@ import {
   run,
   spawnExitCode,
 } from "./prContext";
+import {
+  DEFAULT_CLAUDE_EFFORT,
+  type ReviewEffort,
+  resolveReviewEffort,
+} from "./reviewEffort";
 
 const REVIEW_INSTRUCTION_FILES = ["REVIEW.md", "AGENTS.md"];
+
+/**
+ * Build the `claude` argv for a non-interactive review at the given effort
+ * level. The prompt itself goes over stdin, not argv.
+ */
+export function buildClaudeReviewArgs(effort: ReviewEffort): string[] {
+  return ["--effort", effort, "--print"];
+}
 
 export function buildReviewPrompt(params: {
   context: PrContext;
@@ -51,9 +64,14 @@ function readReviewInstructions(rootDir: string): string {
 /**
  * Ask the local `claude` CLI to review the current PR diff. Branch/PR/base are
  * derived from git + GitHub and the prompt is streamed via stdin (not argv) to
- * avoid "Argument list too long" failures on large PRs.
+ * avoid "Argument list too long" failures on large PRs. The effort level
+ * defaults to `xhigh` for Claude.
  */
-export function solicitClaudeCodeReview(rootDir: string): number {
+export function solicitClaudeCodeReview(
+  rootDir: string,
+  effortArg?: string,
+): number {
+  const effort = resolveReviewEffort(effortArg, DEFAULT_CLAUDE_EFFORT);
   const context = resolvePrContext();
   ensureChanges(context.baseRef);
 
@@ -64,7 +82,7 @@ export function solicitClaudeCodeReview(rootDir: string): number {
     reviewInstructions: readReviewInstructions(rootDir),
   });
 
-  const result = spawnSync("claude", ["--print"], {
+  const result = spawnSync("claude", buildClaudeReviewArgs(effort), {
     stdio: ["pipe", "inherit", "inherit"],
     input: prompt,
   });
