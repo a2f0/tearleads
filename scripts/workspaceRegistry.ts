@@ -16,6 +16,12 @@ interface WorkspaceDefinition {
 
 export const workspaceRegistry = [
   {
+    directory: "agent-tool",
+    key: "agentTool",
+    packageName: "@tearleads/agent-tool",
+    role: "tooling",
+  },
+  {
     directory: "api",
     key: "api",
     packageName: "@tearleads/api",

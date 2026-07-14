@@ -64,6 +64,7 @@
     "knip": "bun run lint:knip:all"
   },
   "workspaces": [
+    "packages/agent-tool",
     "packages/api",
     "packages/api-client",
     "packages/api-cli",
