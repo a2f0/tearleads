@@ -22,15 +22,19 @@ export async function restoreSeedBackup(
 
   const restoreButton = page.getByRole("button", { name: "Restore Backup" });
   const restored = page.getByText(/Backup restored:/);
+  const needsFile = page.getByText("Choose a backup file.");
 
-  // Retry the submit ONLY while the success line is absent. A concurrent restore
-  // is not possible (the handler bails unless both file text + password are
-  // present, and clears both on success), but re-clicking AFTER success resets
-  // the panel and would clear the success line — so once it shows, stop clicking.
+  // Submit once, then retry ONLY when the panel shows "Choose a backup file." —
+  // positive evidence the previous submit no-op'd because the async file.text()
+  // read had not resolved yet (it has by the next attempt). This never re-clicks
+  // while a restore is in flight (the button is disabled then) or after it
+  // succeeds (the success line, not the error, is shown), so a stray click can't
+  // reset the panel and clear the success line.
+  await restoreButton.click();
   await expect(async () => {
-    if (!(await restored.isVisible())) {
+    if (await needsFile.isVisible()) {
       await restoreButton.click();
     }
-    await expect(restored).toBeVisible({ timeout: 5_000 });
+    await expect(restored).toBeVisible({ timeout: 3_000 });
   }).toPass({ timeout: 30_000 });
 }

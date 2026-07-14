@@ -116,8 +116,12 @@ async function assertSeededDataVisible(
 async function captureRouted(page: Page, outputDir: string): Promise<void> {
   for (const screen of ROUTED_SCREENS) {
     // The caller already navigated + booted for the assertion, so skip the
-    // redundant reload for whichever route we are already on.
-    if (new URL(page.url()).pathname !== screen.route) {
+    // redundant reload for whichever route we are already on. Normalize trailing
+    // slashes so a router redirect (e.g. "/app/explorer/") is not treated as a
+    // different route and re-navigated needlessly.
+    const currentPath = new URL(page.url()).pathname.replace(/\/$/, "") || "/";
+    const targetPath = screen.route.replace(/\/$/, "") || "/";
+    if (currentPath !== targetPath) {
       await page.goto(screen.route);
       await waitForBooted(page);
     }
@@ -175,6 +179,9 @@ test("capture screenshots", async ({ page }, testInfo) => {
 
   await page.goto("/");
   await waitForBooted(page);
+  // Disable animations up front so the restore flow (tab switch, inputs) runs
+  // instantly; the later reload resets injected styles, so it is re-applied then.
+  await disableAnimations(page);
   const routed = (await page.locator(".routed-pane").count()) > 0;
 
   // Seed the DB: restore the committed backup artifact through the shipping
