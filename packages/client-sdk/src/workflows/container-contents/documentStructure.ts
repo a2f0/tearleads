@@ -242,7 +242,6 @@ export async function addDocumentLink<TRuntime>(params: {
     currentDocumentStore,
     host,
     note,
-    queueBaselineAfterRelink: linkedDocument.contentKeyRotated,
     runtime,
     targetContainerId: note.containerId,
     remoteState: linkedDocument.persistedState,
@@ -285,10 +284,17 @@ export async function removeDocumentLink<TRuntime>(params: {
     return null;
   }
 
+  // Unlink rotates the document content key. Prove locally that a mergeable
+  // full-history checkpoint can be emitted before publishing the new epoch;
+  // shallow-restored documents fail here while the remote state is untouched.
+  const rotationSnapshot =
+    await currentDocumentStore.assertCanRotateContentKey();
+
   const unlinkedDocument = await unlinkRemoteContainerDocument({
     documentId: note.documentId,
     noteId: note.id,
     resolveProjectionUserKey: runtime.resolveProjectionUserKey,
+    rotationSnapshot,
     runtime,
     targetContainerId: removedContainerId,
   });
@@ -317,7 +323,6 @@ export async function removeDocumentLink<TRuntime>(params: {
     currentDocumentStore,
     host,
     note,
-    queueBaselineAfterRelink: unlinkedDocument.contentKeyRotated,
     runtime,
     targetContainerId: nextContainerId,
     remoteState: unlinkedDocument.persistedState,

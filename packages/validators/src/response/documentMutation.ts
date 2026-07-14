@@ -64,12 +64,15 @@ export interface DocumentPurgeResponse {
 
 export interface DocumentSyncUpdateResponse {
   accessEpoch: number;
+  checkpointKind?: "rotate_baseline";
+  checkpointPayloadKind?: "full_history_snapshot";
   id: string;
   documentId: string;
   authorFingerprint: string;
   encryptedData: string;
   partialStartVersionVector: string;
   partialEndVersionVector: string;
+  sourceVersionVector?: string;
   createdAt: string;
   writeHeader: Record<string, unknown>;
 }
@@ -157,6 +160,15 @@ export function isDocumentContentKeyBundleResponse(
 function isDocumentSyncUpdateResponse(
   value: unknown,
 ): value is DocumentSyncUpdateResponse {
+  const checkpointKind = isPlainObject(value)
+    ? Reflect.get(value, "checkpointKind")
+    : undefined;
+  const checkpointPayloadKind = isPlainObject(value)
+    ? Reflect.get(value, "checkpointPayloadKind")
+    : undefined;
+  const sourceVersionVector = isPlainObject(value)
+    ? Reflect.get(value, "sourceVersionVector")
+    : undefined;
   const writeHeader = isPlainObject(value)
     ? Reflect.get(value, "writeHeader")
     : undefined;
@@ -170,6 +182,13 @@ function isDocumentSyncUpdateResponse(
     hasStringProperty(value, "encryptedData") &&
     hasStringProperty(value, "partialStartVersionVector") &&
     hasStringProperty(value, "partialEndVersionVector") &&
+    ((checkpointKind === undefined &&
+      checkpointPayloadKind === undefined &&
+      sourceVersionVector === undefined) ||
+      (checkpointKind === "rotate_baseline" &&
+        checkpointPayloadKind === "full_history_snapshot" &&
+        hasStringProperty(value, "sourceVersionVector") &&
+        value.sourceVersionVector.length > 0)) &&
     hasStringProperty(value, "createdAt") &&
     isPlainObject(writeHeader)
   );

@@ -2,166 +2,383 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   documentAuditCheckpoints,
   documentContentWriteHeaders,
+  documents,
   documentUpdateSpans,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
-import { and, eq } from "drizzle-orm";
+import type {
+  DocumentEditAttributionResponse,
+  DocumentEditAttributionSegmentResponse,
+} from "@tearleads/validators/response";
+import { and, eq, sql } from "drizzle-orm";
 import {
   type AttributionSpanInput,
   type DocumentEditAttributionSegment,
   resolveEditAttribution,
 } from "../../documents/documentEditAttribution";
+import { booleanExpression, jsonTextProperty } from "../../utils/sqlDialect";
 import {
   KeyingReadAccessError,
   resolveReadableDocumentAccess,
 } from "../keyingReadAccess";
+import { DocumentEditAttributionError } from "./documentEditAttributionPagination";
+
+export {
+  createDocumentEditAttributionRangesPage,
+  DocumentEditAttributionError,
+  validateDocumentEditAttributionRangesRequest,
+} from "./documentEditAttributionPagination";
 
 interface DocumentEditAttributionWorkflowInput {
   readonly documentId: string;
   readonly userId: string;
 }
 
-interface DocumentEditAttributionResult {
+export interface ComputedDocumentEditAttribution {
+  readonly attributionScope: string;
+  readonly attributionRevision: number;
   readonly documentId: string;
+  readonly documentIncarnation: string;
   readonly segments: DocumentEditAttributionSegment[];
 }
 
-export class DocumentEditAttributionError extends Error {
-  constructor(
-    message: string,
-    readonly status: 400 | 403 | 404 | 409,
-  ) {
-    super(message);
-    this.name = "DocumentEditAttributionError";
+export interface PreparedDocumentEditAttribution {
+  readonly attributionScope: string;
+  readonly attributionRevision: number;
+  readonly documentId: string;
+  readonly documentIncarnation: string;
+}
+
+export const MAX_COMPACT_ATTRIBUTION_SEGMENTS = 2_000;
+
+function requireAttributionText(
+  value: string | null,
+  property: string,
+  updateId: string,
+): string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(
+      `Attribution update ${updateId} has no valid ${property} in its write header.`,
+    );
   }
+  return value;
 }
 
-interface UpdateAttributionMeta {
-  readonly sequence: number;
-  readonly writerUserId: string;
-  readonly writerKeyFingerprint: string;
-  readonly isBaseline: boolean;
-}
-
-async function loadUpdateAttributionMeta(
+async function loadDocumentAttributionRows(
   documentId: string,
   executor: DatabaseSession,
-): Promise<Map<string, UpdateAttributionMeta>> {
-  // One query: the DB inner-joins each update to its (unique) write header and
-  // left-joins the rotate_baseline checkpoint that re-asserted it, if any. Both
-  // documentContentWriteHeaders.updateId and documentAuditCheckpoints
-  // .baselineUpdateId are unique, so this yields exactly one row per update — no
-  // fan-out — and offloads the join to the database instead of memory.
-  const rows = await executor
+) {
+  return executor
     .select({
-      id: documentUpdates.id,
+      attributionIncarnation: documents.attributionIncarnation,
+      attributionRevision: documents.attributionRevision,
+      updateId: documentUpdateSpans.updateId,
+      peerId: documentUpdateSpans.peerId,
+      startCounter: documentUpdateSpans.startCounter,
+      endCounter: documentUpdateSpans.endCounter,
       sequence: documentUpdates.sequence,
-      header: documentContentWriteHeaders.header,
-      baselineUpdateId: documentAuditCheckpoints.baselineUpdateId,
+      writerUserId: sql<
+        string | null
+      >`${jsonTextProperty(sql`${documentContentWriteHeaders.header}`, "writerUserId")}`,
+      writerKeyFingerprint: sql<
+        string | null
+      >`${jsonTextProperty(sql`${documentContentWriteHeaders.header}`, "writerKeyFingerprint")}`,
+      isBaseline: booleanExpression(
+        sql`${documentAuditCheckpoints.baselineUpdateId} is not null`,
+      ),
     })
-    .from(documentUpdates)
-    .innerJoin(
+    .from(documents)
+    .leftJoin(
+      documentUpdateSpans,
+      eq(documentUpdateSpans.documentId, documents.id),
+    )
+    .leftJoin(
+      documentUpdates,
+      and(
+        eq(documentUpdates.id, documentUpdateSpans.updateId),
+        eq(documentUpdates.documentId, documentUpdateSpans.documentId),
+      ),
+    )
+    .leftJoin(
       documentContentWriteHeaders,
-      eq(documentContentWriteHeaders.updateId, documentUpdates.id),
+      and(
+        eq(documentContentWriteHeaders.updateId, documentUpdateSpans.updateId),
+        eq(
+          documentContentWriteHeaders.documentId,
+          documentUpdateSpans.documentId,
+        ),
+      ),
     )
     .leftJoin(
       documentAuditCheckpoints,
       and(
-        eq(documentAuditCheckpoints.baselineUpdateId, documentUpdates.id),
-        eq(documentAuditCheckpoints.documentId, documentId),
+        eq(
+          documentAuditCheckpoints.baselineUpdateId,
+          documentUpdateSpans.updateId,
+        ),
+        eq(documentAuditCheckpoints.documentId, documentUpdateSpans.documentId),
         eq(documentAuditCheckpoints.checkpointKind, "rotate_baseline"),
       ),
     )
-    .where(eq(documentUpdates.documentId, documentId));
+    .where(eq(documents.id, documentId));
+}
 
-  const meta = new Map<string, UpdateAttributionMeta>();
-  for (const row of rows) {
-    meta.set(row.id, {
-      sequence: row.sequence,
-      writerUserId: row.header.writerUserId,
-      writerKeyFingerprint: row.header.writerKeyFingerprint,
-      isBaseline: row.baselineUpdateId !== null,
-    });
+type DocumentAttributionRow = Awaited<
+  ReturnType<typeof loadDocumentAttributionRows>
+>[number];
+
+function attributionSpanFromRow(
+  span: DocumentAttributionRow,
+): AttributionSpanInput | null {
+  if (span.updateId === null) {
+    return null;
+  }
+  if (span.sequence === null) {
+    throw new Error(
+      `Attribution span references missing update ${span.updateId}.`,
+    );
+  }
+  if (
+    span.peerId === null ||
+    span.startCounter === null ||
+    span.endCounter === null
+  ) {
+    throw new Error(
+      `Attribution update ${span.updateId} has an incomplete span.`,
+    );
   }
 
-  return meta;
+  return {
+    peerId: span.peerId,
+    startCounter: span.startCounter,
+    endCounter: span.endCounter,
+    updateId: span.updateId,
+    sequence: span.sequence,
+    writerUserId: requireAttributionText(
+      span.writerUserId,
+      "writerUserId",
+      span.updateId,
+    ),
+    writerKeyFingerprint: requireAttributionText(
+      span.writerKeyFingerprint,
+      "writerKeyFingerprint",
+      span.updateId,
+    ),
+    isBaseline: span.isBaseline,
+  };
 }
 
 /**
- * Load a document's attribution spans and their signing write headers from the
- * DB and resolve them into segments — the read-access-independent core of
- * {@link runDocumentEditAttributionWorkflow}, which authorizes the caller and
- * then delegates here. Kept a separate export so the DB → segment mapping (and
- * that it survives a rotate_baseline payload prune, which clears
- * `encryptedData` but leaves the spans and write header intact) can be
- * exercised without standing up the keying/access-manifest stack the
- * authorization gate requires.
+ * Load the attribution revision, spans, and signing identities in one database
+ * snapshot. The documents-first left join deliberately returns a revision row
+ * for documents that do not have any spans yet.
  */
 export async function computeDocumentEditAttribution(
   documentId: string,
   executor: DatabaseSession,
-): Promise<DocumentEditAttributionResult> {
-  // The write-header meta and the span rows are independent reads — load them in
-  // one round-trip's worth of wall time instead of two sequential ones.
-  const [metaByUpdateId, spanRows] = await Promise.all([
-    loadUpdateAttributionMeta(documentId, executor),
-    executor
-      .select({
-        updateId: documentUpdateSpans.updateId,
-        peerId: documentUpdateSpans.peerId,
-        startCounter: documentUpdateSpans.startCounter,
-        endCounter: documentUpdateSpans.endCounter,
-      })
-      .from(documentUpdateSpans)
-      .where(eq(documentUpdateSpans.documentId, documentId)),
-  ]);
+  attributionScope = "",
+): Promise<ComputedDocumentEditAttribution> {
+  const spanRows = await loadDocumentAttributionRows(documentId, executor);
 
-  const attributionSpans: AttributionSpanInput[] = [];
-  for (const span of spanRows) {
-    const meta = metaByUpdateId.get(span.updateId);
-    if (!meta) {
-      // Spans are written in the same transaction as their update and that
-      // update's write header (syncDocument.ts), and loadUpdateAttributionMeta
-      // inner-joins that header — so a span whose update has no meta is a
-      // database-integrity violation, never a tolerable state.
-      throw new Error(
-        `Attribution span references update ${span.updateId} with no write header.`,
-      );
-    }
-    attributionSpans.push({
-      peerId: span.peerId,
-      startCounter: span.startCounter,
-      endCounter: span.endCounter,
-      updateId: span.updateId,
-      sequence: meta.sequence,
-      writerUserId: meta.writerUserId,
-      writerKeyFingerprint: meta.writerKeyFingerprint,
-      isBaseline: meta.isBaseline,
-    });
+  const firstRow = spanRows[0];
+  if (!firstRow) {
+    throw new DocumentEditAttributionError("Document not found", 404);
   }
 
+  const attributionSpans = spanRows.flatMap((span) => {
+    const attributionSpan = attributionSpanFromRow(span);
+    return attributionSpan ? [attributionSpan] : [];
+  });
+
   return {
+    attributionScope,
+    attributionRevision: firstRow.attributionRevision,
     documentId,
+    documentIncarnation: firstRow.attributionIncarnation,
     segments: resolveEditAttribution(attributionSpans),
   };
 }
 
-export async function runDocumentEditAttributionWorkflow(
+function sameCompactAuthority(
+  left: DocumentEditAttributionSegmentResponse,
+  right: DocumentEditAttributionSegmentResponse,
+): boolean {
+  return (
+    left.peerId === right.peerId &&
+    left.writerUserId === right.writerUserId &&
+    left.writerKeyFingerprint === right.writerKeyFingerprint &&
+    left.authorityKind === right.authorityKind
+  );
+}
+
+function compactDocumentEditAttributionSegmentsUpTo(
+  segments: readonly DocumentEditAttributionSegment[],
+  limit: number,
+): {
+  readonly segments: DocumentEditAttributionSegmentResponse[];
+  readonly truncated: boolean;
+} {
+  const compact: DocumentEditAttributionSegmentResponse[] = [];
+  for (const segment of segments) {
+    const next: DocumentEditAttributionSegmentResponse = {
+      authorityKind: segment.authorityKind,
+      endCounter: segment.endCounter,
+      peerId: segment.peerId,
+      startCounter: segment.startCounter,
+      writerKeyFingerprint: segment.writerKeyFingerprint,
+      writerUserId: segment.writerUserId,
+    };
+    const previous = compact.at(-1);
+    if (
+      previous &&
+      previous.endCounter === next.startCounter &&
+      sameCompactAuthority(previous, next)
+    ) {
+      previous.endCounter = next.endCounter;
+    } else {
+      if (compact.length >= limit) {
+        return { segments: compact, truncated: true };
+      }
+      compact.push(next);
+    }
+  }
+  return { segments: compact, truncated: false };
+}
+
+export function compactDocumentEditAttributionSegments(
+  segments: readonly DocumentEditAttributionSegment[],
+): DocumentEditAttributionSegmentResponse[] {
+  return compactDocumentEditAttributionSegmentsUpTo(
+    segments,
+    Number.POSITIVE_INFINITY,
+  ).segments;
+}
+
+function boundedCompactDocumentEditAttributionSegments(
+  segments: readonly DocumentEditAttributionSegment[],
+): {
+  readonly segments: DocumentEditAttributionSegmentResponse[];
+  readonly truncated: boolean;
+} {
+  return compactDocumentEditAttributionSegmentsUpTo(
+    segments,
+    MAX_COMPACT_ATTRIBUTION_SEGMENTS,
+  );
+}
+
+async function requireReadableAttributionDocument(
   executor: DatabaseSession,
   input: DocumentEditAttributionWorkflowInput,
-): Promise<DocumentEditAttributionResult> {
+): Promise<string> {
   try {
-    await resolveReadableDocumentAccess({
+    const access = await resolveReadableDocumentAccess({
       documentId: input.documentId,
       executor,
       userId: input.userId,
     });
+    return access.currentAccessStateHash;
   } catch (error) {
     if (error instanceof KeyingReadAccessError) {
       throw new DocumentEditAttributionError(error.message, error.status);
     }
     throw error;
   }
+}
 
-  return computeDocumentEditAttribution(input.documentId, executor);
+interface DocumentAttributionIdentity {
+  readonly attributionRevision: number;
+  readonly documentIncarnation: string;
+}
+
+async function loadDocumentAttributionIdentity(
+  executor: DatabaseSession,
+  documentId: string,
+): Promise<DocumentAttributionIdentity | undefined> {
+  const [document] = await executor
+    .select({
+      attributionIncarnation: documents.attributionIncarnation,
+      attributionRevision: documents.attributionRevision,
+    })
+    .from(documents)
+    .where(eq(documents.id, documentId))
+    .limit(1);
+
+  return document
+    ? {
+        attributionRevision: document.attributionRevision,
+        documentIncarnation: document.attributionIncarnation,
+      }
+    : undefined;
+}
+
+type RequireReadableAttributionDocument =
+  typeof requireReadableAttributionDocument;
+
+export async function runPrepareDocumentEditAttributionWorkflow(
+  executor: DatabaseSession,
+  input: DocumentEditAttributionWorkflowInput,
+  authorizeDocument: RequireReadableAttributionDocument = requireReadableAttributionDocument,
+): Promise<PreparedDocumentEditAttribution> {
+  const identityBeforeAuthorization = await loadDocumentAttributionIdentity(
+    executor,
+    input.documentId,
+  );
+  if (!identityBeforeAuthorization) {
+    throw new DocumentEditAttributionError("Document not found", 404);
+  }
+
+  const accessStateHash = await authorizeDocument(executor, input);
+  const identityAfterAuthorization = await loadDocumentAttributionIdentity(
+    executor,
+    input.documentId,
+  );
+  if (
+    !identityAfterAuthorization ||
+    identityAfterAuthorization.documentIncarnation !==
+      identityBeforeAuthorization.documentIncarnation
+  ) {
+    throw new DocumentEditAttributionError(
+      "Document attribution incarnation changed while authorizing",
+      409,
+    );
+  }
+
+  return {
+    attributionScope: `${identityAfterAuthorization.documentIncarnation}:${accessStateHash}`,
+    attributionRevision: identityAfterAuthorization.attributionRevision,
+    documentId: input.documentId,
+    documentIncarnation: identityAfterAuthorization.documentIncarnation,
+  };
+}
+
+export function createDocumentEditAttributionResponse(
+  attribution: ComputedDocumentEditAttribution,
+): DocumentEditAttributionResponse {
+  const compact = boundedCompactDocumentEditAttributionSegments(
+    attribution.segments,
+  );
+  return {
+    attributionRevision: attribution.attributionRevision,
+    documentId: attribution.documentId,
+    segments: compact.segments,
+    truncated: compact.truncated,
+  };
+}
+
+export async function runPreparedDocumentEditAttributionDataWorkflow(
+  executor: DatabaseSession,
+  prepared: PreparedDocumentEditAttribution,
+): Promise<ComputedDocumentEditAttribution> {
+  const attribution = await computeDocumentEditAttribution(
+    prepared.documentId,
+    executor,
+    prepared.attributionScope,
+  );
+  if (attribution.documentIncarnation !== prepared.documentIncarnation) {
+    throw new DocumentEditAttributionError(
+      "Document attribution incarnation changed while loading",
+      409,
+    );
+  }
+  return attribution;
 }

@@ -13,6 +13,10 @@ export const documents = pgTable(
   "documents",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    attributionRevision: integer("attribution_revision").default(0).notNull(),
+    attributionIncarnation: uuid("attribution_incarnation")
+      .defaultRandom()
+      .notNull(),
     createdByFingerprint: text("created_by_fingerprint").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),

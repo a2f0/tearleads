@@ -7,7 +7,7 @@ import {
   documents,
 } from "@tearleads/api-shared/schema";
 import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
 import { DocumentMutationError } from "../errors";
 
@@ -111,6 +111,7 @@ export async function assertDocumentCanRelink(input: {
 export async function replaceDocumentContainerLinks(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
+  readonly incrementAttributionRevision?: boolean;
   readonly linkedContainerIds: readonly string[];
 }): Promise<void> {
   const previousRows = await input.executor
@@ -158,6 +159,9 @@ export async function replaceDocumentContainerLinks(input: {
 
   await touchDocumentAndLinkedContainers(input.executor, {
     documentId: input.documentId,
+    ...(input.incrementAttributionRevision
+      ? { incrementAttributionRevision: true }
+      : {}),
     linkedContainerIds: [...previousContainerIds, ...nextContainerIds],
     updatedAt,
   });
@@ -197,6 +201,7 @@ export async function touchDocumentAndLinkedContainers(
   executor: DatabaseTransaction,
   input: {
     readonly documentId: string;
+    readonly incrementAttributionRevision?: boolean;
     readonly linkedContainerIds: readonly string[];
     readonly updatedAt?: Date;
   },
@@ -204,7 +209,14 @@ export async function touchDocumentAndLinkedContainers(
   const updatedAt = input.updatedAt ?? new Date();
   await executor
     .update(documents)
-    .set({ updatedAt })
+    .set({
+      ...(input.incrementAttributionRevision
+        ? {
+            attributionRevision: sql`${documents.attributionRevision} + 1`,
+          }
+        : {}),
+      updatedAt,
+    })
     .where(eq(documents.id, input.documentId));
   await touchContainers(executor, input.linkedContainerIds, updatedAt);
 }

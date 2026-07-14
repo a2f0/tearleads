@@ -23,6 +23,7 @@ import {
   setDocumentStructuredFields,
   setDocumentText,
 } from "./documentStore/mutations";
+import { assertDocumentStoreCanRotateContentKey } from "./documentStore/rotation";
 import {
   createDocumentStoreState,
   type DocumentStoreState,
@@ -133,6 +134,17 @@ function createBackingDocumentStore(
   const scheduleSync = () => requestDocumentStoreSync(state);
 
   return {
+    assertCanRotateContentKey: async () => {
+      if (
+        !(await ensureDocumentStoreReady(state, scheduleSync)) ||
+        !state.doc
+      ) {
+        throw new Error(
+          "Document must finish loading before its content key can rotate",
+        );
+      }
+      return assertDocumentStoreCanRotateContentKey(state);
+    },
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
       attachFilesToDocumentStore(state, scheduleSync, files),
     ensureInitialized: () => ensureDocumentStoreReady(state, scheduleSync),

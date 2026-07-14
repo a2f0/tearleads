@@ -3,7 +3,10 @@ export {
   runCreateDocumentWorkflow,
 } from "./createDocument";
 export { DocumentMutationError } from "./errors";
-export { runDocumentLinkSetMutationWorkflow } from "./mutateDocumentLinkSet";
+export {
+  type DocumentLinkSetMutationWorkflowResult,
+  runDocumentLinkSetMutationWorkflow,
+} from "./mutateDocumentLinkSet";
 export { runPurgeDocumentWorkflow } from "./purgeDocument";
 export {
   assertCurrentContainerPathRefGroups,

@@ -3,6 +3,8 @@ import { loroServerSchemaDialect } from "./columns";
 const postgresLoroSql = `
   CREATE TABLE IF NOT EXISTS documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    attribution_revision INTEGER NOT NULL DEFAULT 0,
+    attribution_incarnation UUID NOT NULL DEFAULT gen_random_uuid(),
     created_by_fingerprint TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now(),
     updated_at TIMESTAMP NOT NULL DEFAULT now()
@@ -39,6 +41,8 @@ const sqliteNow = "cast((julianday('now') - 2440587.5)*86400000 as integer)";
 const sqliteLoroSql = `
   CREATE TABLE IF NOT EXISTS documents (
     id TEXT PRIMARY KEY,
+    attribution_revision INTEGER NOT NULL DEFAULT 0,
+    attribution_incarnation TEXT NOT NULL DEFAULT (lower(hex(randomblob(16)))),
     created_by_fingerprint TEXT NOT NULL,
     created_at INTEGER NOT NULL DEFAULT (${sqliteNow}),
     updated_at INTEGER NOT NULL DEFAULT (${sqliteNow})

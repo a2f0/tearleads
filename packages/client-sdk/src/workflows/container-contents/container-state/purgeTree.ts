@@ -28,6 +28,9 @@ interface PurgeContainerTreeInput {
   readonly keepRootContainer?: boolean;
   readonly onProgress?: ((progress: PurgeProgress) => void) | undefined;
   readonly persistence: ContainerContentsPersistence;
+  readonly prepareDocumentRotationSnapshot: (
+    document: DocumentSummary,
+  ) => Promise<Uint8Array | null>;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
   readonly rootContainerId: string;
   readonly runtime: PurgeContainerTreeRuntime;
@@ -188,6 +191,7 @@ async function planSubtreeDocuments(input: {
 async function unlinkSubtreeDocument(input: {
   readonly containerIds: readonly string[];
   readonly document: DocumentSummary;
+  readonly prepareDocumentRotationSnapshot: PurgeContainerTreeInput["prepareDocumentRotationSnapshot"];
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
   readonly runtime: PurgeContainerTreeRuntime;
 }): Promise<boolean> {
@@ -195,11 +199,23 @@ async function unlinkSubtreeDocument(input: {
   if (!documentId) {
     return true;
   }
+  let rotationSnapshot: Uint8Array | null;
+  try {
+    rotationSnapshot = await input.prepareDocumentRotationSnapshot(
+      input.document,
+    );
+  } catch {
+    return false;
+  }
+  if (!rotationSnapshot) {
+    return false;
+  }
   for (const containerId of input.containerIds) {
     const result = await unlinkRemoteContainerDocument({
       documentId,
       noteId: input.document.id,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
+      rotationSnapshot,
       runtime: input.runtime,
       targetContainerId: containerId,
     });
@@ -226,6 +242,7 @@ interface SubtreeTeardownResult {
 // document finished both its remote and local halves.
 async function teardownSubtreeDocuments(input: {
   readonly plan: SubtreeDocumentPlan;
+  readonly prepareDocumentRotationSnapshot: PurgeContainerTreeInput["prepareDocumentRotationSnapshot"];
   readonly reportStep: (ok: boolean) => void;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
   readonly runtime: PurgeContainerTreeRuntime;
@@ -241,6 +258,7 @@ async function teardownSubtreeDocuments(input: {
     const unlinked = await unlinkSubtreeDocument({
       containerIds,
       document,
+      prepareDocumentRotationSnapshot: input.prepareDocumentRotationSnapshot,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
       runtime: input.runtime,
     });
@@ -402,6 +420,7 @@ export async function purgeContainerTree(
 
   const teardown = await teardownSubtreeDocuments({
     plan,
+    prepareDocumentRotationSnapshot: input.prepareDocumentRotationSnapshot,
     reportStep,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     runtime: input.runtime,

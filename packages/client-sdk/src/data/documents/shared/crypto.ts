@@ -9,9 +9,11 @@ import {
   serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { versionVectorsEqual } from "@tearleads/loro";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import type { PendingUpdateRecord } from "../../sqlite/documentPersistence";
+import { assertDecryptedDocumentUpdateMetadata } from "./documentUpdateIntegrity";
 import {
   assertOnlyRecordKeys,
   asWebCryptoBytes,
@@ -137,6 +139,13 @@ export async function encryptDocumentPendingUpdate(input: {
     contentRecordId,
   });
   const metadataHash = await computeDocumentContentRecordMetadataHash({
+    ...(input.update.sourceVersionVector
+      ? {
+          checkpointKind: "rotate_baseline" as const,
+          checkpointPayloadKind: "full_history_snapshot" as const,
+          sourceVersionVector: input.update.sourceVersionVector,
+        }
+      : {}),
     documentId: input.documentId,
     partialEndVersionVector: input.update.partialEndVersionVector,
     partialStartVersionVector: input.update.partialStartVersionVector,
@@ -272,6 +281,22 @@ async function assertDocumentEncryptedUpdateMatchesHeader(input: {
   update: DocumentSyncResponse["updates"][number];
 }): Promise<void> {
   const { encrypted, update } = input;
+  const hasCheckpointMetadata =
+    update.checkpointKind !== undefined ||
+    update.checkpointPayloadKind !== undefined ||
+    update.sourceVersionVector !== undefined;
+  if (
+    hasCheckpointMetadata &&
+    (update.checkpointKind !== "rotate_baseline" ||
+      update.checkpointPayloadKind !== "full_history_snapshot" ||
+      !update.sourceVersionVector ||
+      !versionVectorsEqual(
+        update.sourceVersionVector,
+        update.partialEndVersionVector,
+      ))
+  ) {
+    throw new Error("Document rotation checkpoint metadata mismatch");
+  }
   if (encrypted.contentKeyEpoch !== input.contentKeyEpoch) {
     throw new Error("Document encrypted update content-key epoch mismatch");
   }
@@ -289,9 +314,18 @@ async function assertDocumentEncryptedUpdateMatchesHeader(input: {
 
   // Keep this helper fail-closed even when it is used outside syncRemoteDocument.
   const metadataHash = await computeDocumentContentRecordMetadataHash({
+    ...(update.checkpointKind === undefined
+      ? {}
+      : { checkpointKind: update.checkpointKind }),
+    ...(update.checkpointPayloadKind === undefined
+      ? {}
+      : { checkpointPayloadKind: update.checkpointPayloadKind }),
     documentId: input.documentId,
     partialEndVersionVector: update.partialEndVersionVector,
     partialStartVersionVector: update.partialStartVersionVector,
+    ...(update.sourceVersionVector === undefined
+      ? {}
+      : { sourceVersionVector: update.sourceVersionVector }),
     updateId: update.id,
   });
   if (
@@ -373,10 +407,21 @@ async function decryptDocumentSyncUpdate(input: {
     ),
   );
 
+  assertDecryptedDocumentUpdateMetadata(updateData, input.update);
+
   return {
+    ...(input.update.checkpointKind === undefined
+      ? {}
+      : { checkpointKind: input.update.checkpointKind }),
+    ...(input.update.checkpointPayloadKind === undefined
+      ? {}
+      : { checkpointPayloadKind: input.update.checkpointPayloadKind }),
     id: input.update.id,
     partialEndVersionVector: input.update.partialEndVersionVector,
     partialStartVersionVector: input.update.partialStartVersionVector,
+    ...(input.update.sourceVersionVector === undefined
+      ? {}
+      : { sourceVersionVector: input.update.sourceVersionVector }),
     updateData,
   };
 }

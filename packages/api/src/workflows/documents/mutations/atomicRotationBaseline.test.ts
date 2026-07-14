@@ -1,0 +1,133 @@
+import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import { documents, documentUpdates } from "@tearleads/api-shared/schema";
+import {
+  CONTENT_RECORD_ENCRYPTION_SUITE,
+  computeDocumentContentRecordMetadataHash,
+  type WriteHeader,
+} from "@tearleads/crypto";
+import {
+  createDocument,
+  emptyVersionVector,
+  encodeVersionVector,
+} from "@tearleads/loro";
+import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
+import { assertAtomicRotationBaselineCoversCommittedFrontier } from "./atomicRotationBaseline";
+
+async function rotationBaseline(input: {
+  documentId: string;
+  sourceVersionVector: string;
+}): Promise<DocumentOutgoingUpdate> {
+  const id = crypto.randomUUID();
+  const partialStartVersionVector = emptyVersionVector();
+  const metadataHash = await computeDocumentContentRecordMetadataHash({
+    checkpointKind: "rotate_baseline",
+    checkpointPayloadKind: "full_history_snapshot",
+    documentId: input.documentId,
+    partialEndVersionVector: input.sourceVersionVector,
+    partialStartVersionVector,
+    sourceVersionVector: input.sourceVersionVector,
+    updateId: id,
+  });
+  const header: WriteHeader = {
+    version: 1,
+    organizationId: crypto.randomUUID(),
+    objectKind: "document",
+    objectId: input.documentId,
+    accessManifestHash: "rotation-manifest",
+    contentKeyEpoch: 2,
+    targetHash: "rotation-target",
+    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
+    contentRecordId: id,
+    nonceDomainHash: "rotation-nonce-domain",
+    metadataHash,
+    ciphertextHash: "rotation-ciphertext-hash",
+    writerUserId: crypto.randomUUID(),
+    writerDeviceId: crypto.randomUUID(),
+    writerKeyFingerprint: "rotation-writer-fingerprint",
+    signedAt: new Date().toISOString(),
+    signature: "rotation-signature",
+  };
+  return {
+    checkpointKind: "rotate_baseline",
+    checkpointPayloadKind: "full_history_snapshot",
+    id,
+    encryptedData: "encrypted-rotation-baseline",
+    partialStartVersionVector,
+    partialEndVersionVector: input.sourceVersionVector,
+    sourceVersionVector: input.sourceVersionVector,
+    writeHeader: { ...header },
+  };
+}
+
+test("atomic rotation baseline must cover the complete committed frontier", async () => {
+  const documentId = crypto.randomUUID();
+  await db.insert(documents).values({
+    id: documentId,
+    createdByFingerprint: "atomic-rotation-frontier-test",
+  });
+
+  const document = await createDocument("atomic-rotation-frontier-peer");
+  document.getText("text").update("first");
+  document.commit();
+  const staleFrontier = encodeVersionVector(document);
+  document.getText("text").update("first second");
+  document.commit();
+  const committedFrontier = encodeVersionVector(document);
+  await db.insert(documentUpdates).values({
+    id: crypto.randomUUID(),
+    documentId,
+    accessEpoch: 1,
+    authorFingerprint: "pre-rotation-writer",
+    encryptedData: "encrypted-pre-rotation-update",
+    byteLength: 29,
+    partialStartVersionVector: emptyVersionVector(),
+    partialEndVersionVector: committedFrontier,
+  });
+
+  await expect(
+    assertAtomicRotationBaselineCoversCommittedFrontier(db, {
+      baseline: await rotationBaseline({
+        documentId,
+        sourceVersionVector: staleFrontier,
+      }),
+      documentId,
+    }),
+  ).rejects.toMatchObject({
+    message: "Document unlink rotation baseline is stale",
+    status: 409,
+  });
+
+  await expect(
+    assertAtomicRotationBaselineCoversCommittedFrontier(db, {
+      baseline: await rotationBaseline({
+        documentId,
+        sourceVersionVector: committedFrontier,
+      }),
+      documentId,
+    }),
+  ).resolves.toBeUndefined();
+});
+
+test("atomic rotation baseline rejects unauthenticated checkpoint metadata", async () => {
+  const documentId = crypto.randomUUID();
+  await db.insert(documents).values({
+    id: documentId,
+    createdByFingerprint: "atomic-rotation-auth-test",
+  });
+  const baseline = await rotationBaseline({
+    documentId,
+    sourceVersionVector: emptyVersionVector(),
+  });
+  baseline.writeHeader = { ...baseline.writeHeader, metadataHash: "tampered" };
+
+  await expect(
+    assertAtomicRotationBaselineCoversCommittedFrontier(db, {
+      baseline,
+      documentId,
+    }),
+  ).rejects.toMatchObject({
+    message: "Document unlink rotation baseline is not replayable",
+    status: 400,
+  });
+});

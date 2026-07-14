@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
 import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
@@ -15,6 +16,13 @@ import { sqlDocumentContainerProjectionPersistence } from "../../data/persistenc
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "../documents/linkSet";
 import { moveRemoteContainerDocument } from "./documentLinks";
+
+async function createRotationSnapshot() {
+  const document = await createDocument("replace-links-rotation");
+  document.getText("text").update("rotation state");
+  document.commit();
+  return exportFullHistorySnapshot(document);
+}
 
 test("moveRemoteContainerDocument can replace every existing link with the target", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -114,6 +122,7 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
       noteId: "containerContents-note-1",
       replaceLinkedContainers: true,
       resolveProjectionUserKey,
+      rotationSnapshot: await createRotationSnapshot(),
       runtime: {
         apiClient: {
           getContainerWriterProjection: async (containerId) =>

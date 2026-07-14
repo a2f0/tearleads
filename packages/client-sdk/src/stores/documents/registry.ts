@@ -162,6 +162,7 @@ export function createDocumentStoreFacade(
   };
 
   return {
+    assertCanRotateContentKey: () => targetStore.assertCanRotateContentKey(),
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
       targetStore.attachFiles(files),
     ensureInitialized: () => targetStore.ensureInitialized(),

@@ -1,19 +1,13 @@
-import type {
-  DocumentEditAttributionResponse,
-  ListDocumentAttachmentsResponse,
-} from "@tearleads/validators/response";
+import type { ListDocumentAttachmentsResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
-import {
-  DocumentEditAttributionError,
-  documentEditAttribution,
-} from "../../services/documents/documentEditAttribution";
 import {
   ListDocumentAttachmentsError,
   listDocumentAttachments,
 } from "../../services/documents/listDocumentAttachments";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { createDocumentAttributionRoute } from "./attribution";
 import { createDocumentMutationsRoute } from "./mutations";
 import { createDocumentWriterProjectionRoute } from "./writerProjection";
 
@@ -53,30 +47,6 @@ function addDocumentReadRoutes(
       }
     },
   );
-
-  documentsRouter.get(
-    "/documents/:documentId/attribution",
-    requireAuth,
-    async (c) => {
-      const documentId = c.req.param("documentId");
-      const session = c.get("session");
-
-      try {
-        return c.json<DocumentEditAttributionResponse>(
-          await documentEditAttribution(runtime, {
-            documentId,
-            userId: session.userId,
-          }),
-        );
-      } catch (error) {
-        if (error instanceof DocumentEditAttributionError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
-      }
-    },
-  );
 }
 
 export function createDocumentsRouter({
@@ -87,6 +57,10 @@ export function createDocumentsRouter({
   const documentsRouter = new Hono<SessionEnv>();
 
   addDocumentReadRoutes(documentsRouter, requireAuth, runtime);
+  documentsRouter.route(
+    "/",
+    createDocumentAttributionRoute({ requireAuth, runtime }),
+  );
   documentsRouter.route(
     "/",
     createDocumentMutationsRoute({ publish, requireAuth, runtime }),

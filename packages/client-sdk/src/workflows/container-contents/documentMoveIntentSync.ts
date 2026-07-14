@@ -125,7 +125,6 @@ async function persistMovedDocumentReplay<TRuntime>(input: {
     containerId: moved.nextContainerId,
     documentId: intent.documentId,
     localId: intent.localId,
-    queueBaselineAfterRelink: moved.queueBaselineAfterRelink,
     ...(moved.remoteState ?? {}),
   };
 
@@ -134,6 +133,47 @@ async function persistMovedDocumentReplay<TRuntime>(input: {
     intent,
     relinkInput,
     targetContainerId: moved.nextContainerId,
+  });
+}
+
+async function assertMoveIntentRotationPreflight<TRuntime>(input: {
+  existingContainerId: string | null | undefined;
+  host: DocumentMoveIntentSyncHost<TRuntime>;
+  intent: DocumentMoveIntentRecord;
+}): Promise<Uint8Array> {
+  const preflightStore = input.host.openDocumentStore({
+    containerId:
+      input.intent.sourceContainerId ??
+      input.existingContainerId ??
+      input.intent.targetContainerId,
+    documentId: input.intent.documentId,
+    localId: input.intent.localId,
+  });
+  if (!(await preflightStore.ensureInitialized())) {
+    throw new Error("Document rotation preflight could not load the document");
+  }
+  return preflightStore.assertCanRotateContentKey();
+}
+
+async function movePendingDocumentIntent<TRuntime>(input: {
+  existingContainerId: string | null | undefined;
+  host: DocumentMoveIntentSyncHost<TRuntime>;
+  intent: DocumentMoveIntentRecord;
+  state: DocumentMoveIntentSyncState;
+}) {
+  const rotationSnapshot = await assertMoveIntentRotationPreflight(input);
+  return moveRemoteContainerDocument({
+    currentContainerId:
+      input.intent.sourceContainerId ??
+      input.existingContainerId ??
+      input.intent.targetContainerId,
+    documentId: input.intent.documentId,
+    noteId: input.intent.localId,
+    replaceLinkedContainers: input.intent.replaceLinkedContainers,
+    resolveProjectionUserKey: input.state.resolveProjectionUserKey,
+    rotationSnapshot,
+    runtime: input.state.runtime,
+    targetContainerId: input.intent.targetContainerId,
   });
 }
 
@@ -183,20 +223,11 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
   }
 
   try {
-    // Rebuild the remote link/unlink requests from fresh writer projections on
-    // every retry. The local intent stores only the desired placement so a
-    // crash after "link target" but before "unlink source" can resume cleanly.
-    const moved = await moveRemoteContainerDocument({
-      currentContainerId:
-        intent.sourceContainerId ??
-        existingDocument.containerId ??
-        intent.targetContainerId,
-      documentId: intent.documentId,
-      noteId: intent.localId,
-      replaceLinkedContainers: intent.replaceLinkedContainers,
-      resolveProjectionUserKey: state.resolveProjectionUserKey,
-      runtime: state.runtime,
-      targetContainerId: intent.targetContainerId,
+    const moved = await movePendingDocumentIntent({
+      existingContainerId: existingDocument.containerId,
+      host,
+      intent,
+      state,
     });
     if (!moved) {
       await recordPendingDocumentMoveIntentError({

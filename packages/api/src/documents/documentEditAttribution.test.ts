@@ -242,3 +242,108 @@ test("a baseline that introduces a peer the server never saw narrowly is marked 
     },
   ]);
 });
+
+test("later overlap boundaries do not fragment an earlier winning upload", () => {
+  const segments = resolveEditAttribution([
+    span({
+      peerId: "1",
+      startCounter: 0,
+      endCounter: 10,
+      sequence: 1,
+      writerUserId: "alice",
+    }),
+    span({
+      peerId: "1",
+      startCounter: 2,
+      endCounter: 3,
+      sequence: 2,
+      writerUserId: "bob",
+    }),
+    span({
+      peerId: "1",
+      startCounter: 6,
+      endCounter: 8,
+      sequence: 3,
+      writerUserId: "carol",
+    }),
+  ]);
+
+  expect(segments).toEqual([
+    {
+      peerId: "1",
+      startCounter: 0,
+      endCounter: 10,
+      updateId: "u-1",
+      updateSequence: 1,
+      writerUserId: "alice",
+      writerKeyFingerprint: "fp-alice",
+      authorityKind: "direct",
+    },
+  ]);
+});
+
+test("one later upload keeps separate remainders around earlier winners", () => {
+  const segments = resolveEditAttribution([
+    span({
+      peerId: "1",
+      startCounter: 2,
+      endCounter: 5,
+      sequence: 1,
+      writerUserId: "alice",
+    }),
+    span({
+      peerId: "1",
+      startCounter: 4,
+      endCounter: 9,
+      sequence: 2,
+      writerUserId: "bob",
+    }),
+    span({
+      peerId: "1",
+      startCounter: 0,
+      endCounter: 12,
+      sequence: 3,
+      writerUserId: "carol",
+    }),
+  ]);
+
+  expect(
+    segments.map(({ startCounter, endCounter, writerUserId }) => ({
+      startCounter,
+      endCounter,
+      writerUserId,
+    })),
+  ).toEqual([
+    { startCounter: 0, endCounter: 2, writerUserId: "carol" },
+    { startCounter: 2, endCounter: 5, writerUserId: "alice" },
+    { startCounter: 5, endCounter: 9, writerUserId: "bob" },
+    { startCounter: 9, endCounter: 12, writerUserId: "carol" },
+  ]);
+});
+
+test("resolves a large same-peer history without changing upload granularity", () => {
+  const spanCount = 50_000;
+  const spans = Array.from({ length: spanCount }, (_, index) =>
+    span({
+      peerId: "persistent-device-peer",
+      startCounter: index * 2,
+      endCounter: index * 2 + 1,
+      sequence: index + 1,
+      writerUserId: "alice",
+    }),
+  );
+
+  const segments = resolveEditAttribution(spans);
+
+  expect(segments).toHaveLength(spanCount);
+  expect(segments[0]).toMatchObject({
+    startCounter: 0,
+    endCounter: 1,
+    updateId: "u-1",
+  });
+  expect(segments.at(-1)).toMatchObject({
+    startCounter: (spanCount - 1) * 2,
+    endCounter: (spanCount - 1) * 2 + 1,
+    updateId: `u-${spanCount}`,
+  });
+});

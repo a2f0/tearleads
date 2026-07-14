@@ -14,6 +14,10 @@ import type {
   ContainerInfoRemoteMode,
 } from "../workflows/container-contents/containerInfo";
 import type {
+  DocumentAttributionRangesInput,
+  DocumentAttributionRangesPage,
+} from "../workflows/container-contents/documentAttributionRanges";
+import type {
   DocumentInfo,
   DocumentInfoRemoteMode,
 } from "../workflows/container-contents/documentInfo";
@@ -50,10 +54,13 @@ export interface ContainerInfoInput {
  * rows, and optional remote writer projection details.
  *
  * Fields:
+ * - `attributionRequestKey`: Optional freshness generation used to coalesce
+ *   duplicate attribution reads without joining requests across invalidation.
  * - `localId`: Local document id stored in the client database.
  * - `remoteInfoMode`: Controls whether remote projection details are fetched.
  */
 export interface DocumentInfoInput {
+  attributionRequestKey?: string | undefined;
   localId: string;
   remoteInfoMode?: DocumentInfoRemoteMode | undefined;
 }
@@ -220,6 +227,11 @@ export interface ContainerContents {
    * default is `"if-synced"`.
    */
   loadDocumentInfo(input: DocumentInfoInput): Promise<DocumentInfo>;
+
+  /** Load one revision-bound page of detailed per-upload edit attribution. */
+  loadDocumentAttributionRanges(
+    input: DocumentAttributionRangesInput,
+  ): Promise<DocumentAttributionRangesPage>;
 
   /**
    * List local blob projections and pending attachment bytes grouped by blob.

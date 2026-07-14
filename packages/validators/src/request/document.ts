@@ -58,10 +58,12 @@ export interface DocumentLinkSetMutationRequest {
   authorizingContainerPathRefs: ContainerManifestRef[][];
   containerRekeys?: ContainerMutationRequest[];
   contentKeyBundle: DocumentContentKeyBundleRequest;
+  rotationBaseline?: DocumentOutgoingUpdate;
 }
 
 export interface DocumentOutgoingUpdate {
   checkpointKind?: "rotate_baseline";
+  checkpointPayloadKind?: "full_history_snapshot";
   id: string;
   encryptedData: string;
   partialStartVersionVector: string;
@@ -177,6 +179,9 @@ function isDocumentOutgoingUpdate(
   const checkpointKind = isPlainObject(value)
     ? Reflect.get(value, "checkpointKind")
     : undefined;
+  const checkpointPayloadKind = isPlainObject(value)
+    ? Reflect.get(value, "checkpointPayloadKind")
+    : undefined;
   const sourceVersionVector = isPlainObject(value)
     ? Reflect.get(value, "sourceVersionVector")
     : undefined;
@@ -194,9 +199,13 @@ function isDocumentOutgoingUpdate(
     value.partialStartVersionVector.length > 0 &&
     hasStringProperty(value, "partialEndVersionVector") &&
     value.partialEndVersionVector.length > 0 &&
-    (checkpointKind === undefined || checkpointKind === "rotate_baseline") &&
-    (sourceVersionVector === undefined ||
-      hasStringProperty(value, "sourceVersionVector")) &&
+    ((checkpointKind === undefined &&
+      checkpointPayloadKind === undefined &&
+      sourceVersionVector === undefined) ||
+      (checkpointKind === "rotate_baseline" &&
+        checkpointPayloadKind === "full_history_snapshot" &&
+        hasStringProperty(value, "sourceVersionVector") &&
+        value.sourceVersionVector.length > 0)) &&
     isPlainObject(writeHeader)
   );
 }
@@ -265,6 +274,9 @@ export function isDocumentLinkSetMutationRequest(
   const containerRekeys = isPlainObject(value)
     ? Reflect.get(value, "containerRekeys")
     : undefined;
+  const rotationBaseline = isPlainObject(value)
+    ? Reflect.get(value, "rotationBaseline")
+    : undefined;
 
   return (
     isPlainObject(value) &&
@@ -277,7 +289,9 @@ export function isDocumentLinkSetMutationRequest(
     isContainerManifestRefArray(targetContainerPathRefs) &&
     isContainerManifestRefArrayArray(authorizingContainerPathRefs) &&
     isOptionalContainerMutationRequestArray(containerRekeys) &&
-    isDocumentContentKeyBundleRequest(contentKeyBundle)
+    isDocumentContentKeyBundleRequest(contentKeyBundle) &&
+    (rotationBaseline === undefined ||
+      isDocumentOutgoingUpdate(rotationBaseline))
   );
 }
 

@@ -6,6 +6,7 @@ import type {
   DocumentInfo,
 } from "@tearleads/client-sdk";
 import type { MouseEvent } from "react";
+import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import type {
   ExplorerContainerContextMenuVariant,
@@ -58,6 +59,7 @@ export interface ExplorerPanelState {
   importDroppedFiles: ImportExplorerDroppedFiles;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
+  loadDocumentAttributionRanges: ExplorerDocumentAttributionRangesLoader;
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
   modalState: ExplorerDocumentModalState;
   // Move a folder (and its whole subtree) into the Trash system container. The
