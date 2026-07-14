@@ -120,6 +120,7 @@ export function useExplorerPanelState(params: {
     appData,
     documentContainerId: selection.selectedDocument?.containerId,
     documentId: selection.selectedDocument?.documentId,
+    documentKind: selection.selectedDocument?.documentKind,
     documentLocalId: selection.selectedDocument?.id,
     documentUpdatedAt: selection.selectedDocument?.updatedAt,
   });

@@ -3,6 +3,7 @@ import type {
   DocumentAttributionRangesInput,
   DocumentAttributionRangesPage,
   DocumentInfo,
+  StoredDocumentKind,
 } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -72,6 +73,7 @@ function useDocumentSyncCompletionRevision(input: {
   containerContents: ContainerContents;
   documentContainerId: string | null | undefined;
   documentId: string | null | undefined;
+  documentKind: StoredDocumentKind | undefined;
   documentLocalId: string | null | undefined;
 }): number {
   const [revision, setRevision] = useState(0);
@@ -82,12 +84,14 @@ function useDocumentSyncCompletionRevision(input: {
     return input.containerContents.documentLinks().openDocument({
       containerId: input.documentContainerId,
       documentId: input.documentId,
+      initialDocumentKind: input.documentKind,
       localId: input.documentLocalId,
     });
   }, [
     input.containerContents,
     input.documentContainerId,
     input.documentId,
+    input.documentKind,
     input.documentLocalId,
   ]);
 
@@ -106,6 +110,7 @@ export function useExplorerDocumentInfoLoader(input: {
   readonly appData: Pick<RuntimeSnapshot, "auth" | "state">;
   readonly documentContainerId?: string | null | undefined;
   readonly documentId?: string | null | undefined;
+  readonly documentKind?: StoredDocumentKind | undefined;
   readonly documentLocalId?: string | null | undefined;
   readonly documentUpdatedAt?: string | null | undefined;
 }): (localId: string) => Promise<DocumentInfo> {
@@ -113,6 +118,7 @@ export function useExplorerDocumentInfoLoader(input: {
     appData,
     documentContainerId,
     documentId,
+    documentKind,
     documentLocalId,
     documentUpdatedAt,
   } = input;
@@ -123,6 +129,7 @@ export function useExplorerDocumentInfoLoader(input: {
     containerContents,
     documentContainerId,
     documentId,
+    documentKind,
     documentLocalId,
   });
   const refreshKey = documentInfoRefreshKey(
