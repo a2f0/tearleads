@@ -22,6 +22,27 @@ The exit code is the reviewing CLI's exit code, so callers can fall back to
 another reviewer on failure. Backs the `cross-agent-review` skill in
 `.claude/skills/` and `.codex/skills/`.
 
+## Open a PR
+
+Opens a pull request for the current branch with a **commitlint-conforming
+title**.
+
+```bash
+# Explicit title, body piped via stdin:
+bun packages/agent-tool/src/index.ts openPr 'feat(app): add widget' <<'EOF'
+## Summary
+What changed and why.
+EOF
+# Or omit the title to default to the branch's latest commit subject:
+bun packages/agent-tool/src/index.ts openPr </dev/null
+```
+
+The title is validated with the repository's commitlint setup (see below) before
+the PR is created, so conventional-commit syntax and the 50-char header limit
+apply. The body is read from stdin (empty when none is piped), the head is the
+current branch, and the base defaults to the repository's default branch. Errors
+if an open PR already exists for the branch. Backs the `open-pr` skill.
+
 ## Squash merge
 
 Squash-merges the current PR with a **subject-only** commit message — no

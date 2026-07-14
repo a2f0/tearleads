@@ -151,28 +151,50 @@ export function spawnExitCode(command: string, result: SpawnResult): number {
   return result.status ?? 1;
 }
 
-/**
- * Resolve the open PR for the current branch from git + GitHub. Throws with an
- * actionable message when there is nothing reviewable (on main, no PR, gh not
- * authenticated).
- */
-function fetchPrView(): PrView {
-  const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
-  if (branch === "main") {
-    throw new Error(
-      "Cannot operate on main branch. Checkout a PR branch first.",
-    );
-  }
+function defaultBranchName(source: string): string {
+  const ref = fieldOf(safeParse(source), "defaultBranchRef");
+  const name = fieldOf(ref, "name");
+  return typeof name === "string" ? name : "";
+}
 
-  const repoRaw = tryRun("gh", ["repo", "view", "--json", "nameWithOwner"]);
-  const repo = repoRaw === null ? "" : stringField(repoRaw, "nameWithOwner");
+/**
+ * Resolve the current git branch, GitHub repo, and the repo's default branch.
+ * Throws when on the default branch (or a conventional `main`/`master`) or when
+ * the repo can't be determined (gh not authenticated).
+ */
+export function resolveRepoContext(): {
+  branch: string;
+  repo: string;
+  defaultBranch: string;
+} {
+  const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
+
+  const infoRaw = tryRun("gh", [
+    "repo",
+    "view",
+    "--json",
+    "nameWithOwner,defaultBranchRef",
+  ]);
+  const repo = infoRaw === null ? "" : stringField(infoRaw, "nameWithOwner");
   if (repo.length === 0) {
     throw new Error(
       "Could not determine repository. Ensure gh is authenticated.",
     );
   }
+  const defaultBranch = infoRaw === null ? "" : defaultBranchName(infoRaw);
 
-  const prNumber = firstPrNumber(
+  if (branch === defaultBranch || branch === "main" || branch === "master") {
+    throw new Error(
+      `Cannot run this on the default branch ('${branch}'). Checkout a feature branch first.`,
+    );
+  }
+
+  return { branch, repo, defaultBranch };
+}
+
+/** Number of the open PR for `branch`, or "" when there is none. */
+export function findOpenPrNumber(branch: string, repo: string): string {
+  return firstPrNumber(
     tryRun("gh", [
       "pr",
       "list",
@@ -186,6 +208,17 @@ function fetchPrView(): PrView {
       repo,
     ]),
   );
+}
+
+/**
+ * Resolve the open PR for the current branch from git + GitHub. Throws with an
+ * actionable message when there is nothing reviewable (on main, no PR, gh not
+ * authenticated).
+ */
+function fetchPrView(): PrView {
+  const { branch, repo } = resolveRepoContext();
+
+  const prNumber = findOpenPrNumber(branch, repo);
   if (prNumber.length === 0) {
     throw new Error(`No PR found for branch '${branch}'. Create a PR first.`);
   }

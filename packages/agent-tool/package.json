@@ -6,6 +6,7 @@
   "scripts": {
     "review:claude": "bun src/index.ts solicitClaudeCodeReview",
     "review:codex": "bun src/index.ts solicitCodexReview",
+    "pr:open": "bun src/index.ts openPr",
     "merge:squash": "bun src/index.ts squashMerge",
     "test": "bun test src"
   },
