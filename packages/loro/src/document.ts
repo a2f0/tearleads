@@ -75,6 +75,31 @@ export function exportAllUpdates(doc: LoroDoc): Uint8Array {
 }
 
 /**
+ * Export a mergeable, full-history checkpoint for key rotation.
+ *
+ * Loro silently preserves a shallow boundary when a document was restored from
+ * a shallow snapshot, even when `mode: "snapshot"` is requested. Such a blob is
+ * only useful for an empty reader and cannot safely merge concurrent frontiers,
+ * so reject it rather than publishing a destructive-compaction checkpoint.
+ */
+export function exportFullHistorySnapshot(doc: LoroDoc): Uint8Array {
+  const snapshot = doc.export({ mode: "snapshot" });
+  const metadata = getImportBlobMetadata(snapshot);
+  if (
+    metadata.mode !== "snapshot" ||
+    !versionVectorsEqual(
+      metadata.partialStartVersionVector,
+      emptyVersionVector(),
+    )
+  ) {
+    throw new Error(
+      "Rotation requires a full-history document; shallow-restored state must be reconstructed before key rotation",
+    );
+  }
+  return snapshot;
+}
+
+/**
  * Export a state-only shallow snapshot at the current frontier: history before
  * "now" is trimmed, so the blob is bounded by document STATE rather than by the
  * full op history. Use this for the LOCAL persisted snapshot (it stays an order
@@ -131,9 +156,30 @@ export function getUpdateVersionVectors(update: Uint8Array): {
   partialStartVersionVector: string;
   partialEndVersionVector: string;
 } {
+  const metadata = getImportBlobMetadata(update);
+
+  return {
+    partialStartVersionVector: metadata.partialStartVersionVector,
+    partialEndVersionVector: metadata.partialEndVersionVector,
+  };
+}
+
+export type ImportBlobMode =
+  | "outdated-update"
+  | "snapshot"
+  | "shallow-snapshot"
+  | "update"
+  | "outdated-snapshot";
+
+export function getImportBlobMetadata(update: Uint8Array): {
+  mode: ImportBlobMode;
+  partialStartVersionVector: string;
+  partialEndVersionVector: string;
+} {
   const metadata = decodeImportBlobMeta(update, true);
 
   return {
+    mode: metadata.mode,
     partialStartVersionVector: encodeEncodedVersionVector(
       metadata.partialStartVersionVector,
     ),
@@ -230,15 +276,22 @@ export function versionVectorsEqual(
 }
 
 export function importUpdates(doc: LoroDoc, updates: Uint8Array[]): void {
-  doc.importBatch(updates);
+  const status = doc.importBatch(updates);
+  if (status.pending != null && status.pending.size > 0) {
+    throw new Error(
+      "importUpdates received updates with unresolved pending dependencies",
+    );
+  }
 }
 
 /**
  * Load a (possibly shallow) snapshot blob into a document. Snapshots MUST go
- * through a single `import()`, never `importBatch()`: importBatch silently drops
- * a shallow snapshot when the target already holds state, whereas import()
- * merges it correctly. A non-empty `pending` means the blob referenced ops we
- * never received, so we fail loudly instead of silently loading a short document.
+ * through a single `import()`, never `importBatch()`. A shallow snapshot is
+ * independently replayable into an empty document, but cannot fill a non-empty
+ * document that is behind its trimmed frontier. Callers handling a behind peer
+ * must rebuild into an empty document and reapply uncovered local deltas. A
+ * non-empty `pending` means the import target is incompatible or dependencies
+ * are missing, so fail loudly instead of silently loading a short document.
  */
 export function importSnapshot(doc: LoroDoc, snapshot: Uint8Array): void {
   const status = doc.import(snapshot);

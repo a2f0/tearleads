@@ -27,6 +27,7 @@ const READY_SNAPSHOT: DocumentSnapshot = {
 
 function createStore(onRemoteSync: () => void): DocumentStore {
   return {
+    assertCanRotateContentKey: async () => new Uint8Array(),
     attachFiles: () => undefined,
     ensureInitialized: async () => true,
     getSnapshot: () => READY_SNAPSHOT,

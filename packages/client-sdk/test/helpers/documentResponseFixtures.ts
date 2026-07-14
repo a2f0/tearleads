@@ -9,7 +9,6 @@ import {
   signWriteHeader,
   type WriteHeader,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import type {
   ContainerManifestRef,
@@ -285,6 +284,7 @@ export async function createMaterializedSyncFixture() {
     contentKey,
     createResponse: response,
     projection,
+    publicKey: keyPair.publicKey,
     resolveProjectionUserKey,
     secretKey: keyPair.secretKey,
     signingPublicKey,
@@ -295,6 +295,7 @@ export async function createMaterializedSyncFixture() {
 export async function createPreparedUpdate(
   overrides: {
     checkpointKind?: "rotate_baseline" | undefined;
+    checkpointPayloadKind?: "full_history_snapshot" | undefined;
     ciphertextHash?: string | undefined;
     contentRecordId?: string | undefined;
     encryptedData?: string | undefined;
@@ -306,28 +307,45 @@ export async function createPreparedUpdate(
     sourceVersionVector?: string | undefined;
   } = {},
 ) {
+  const partialEndVersionVector =
+    overrides.partialEndVersionVector ?? '{"actor":1}';
   return {
     id: overrides.id ?? "550e8400-e29b-41d4-a716-446655440111",
     encryptedData: overrides.encryptedData ?? "encrypted-update",
     partialStartVersionVector: overrides.partialStartVersionVector ?? "{}",
-    partialEndVersionVector: overrides.partialEndVersionVector ?? '{"actor":1}',
+    partialEndVersionVector,
     metadataHash: overrides.metadataHash ?? (await fixtureHash("metadata")),
     ciphertextHash:
       overrides.ciphertextHash ?? (await fixtureHash("ciphertext")),
     ...(overrides.checkpointKind === undefined
       ? {}
       : { checkpointKind: overrides.checkpointKind }),
+    ...(overrides.checkpointKind === undefined
+      ? {}
+      : {
+          checkpointPayloadKind:
+            overrides.checkpointPayloadKind ?? "full_history_snapshot",
+        }),
     ...(overrides.contentRecordId === undefined
       ? {}
       : { contentRecordId: overrides.contentRecordId }),
     ...(overrides.signedAt === undefined
       ? {}
       : { signedAt: overrides.signedAt }),
-    ...(overrides.sourceVersionVector === undefined
+    ...(overrides.checkpointKind === undefined &&
+    overrides.sourceVersionVector === undefined
       ? {}
-      : { sourceVersionVector: overrides.sourceVersionVector }),
+      : {
+          sourceVersionVector:
+            overrides.sourceVersionVector ?? partialEndVersionVector,
+        }),
   };
 }
+
+const FIXTURE_LORO_UPDATE_DATA =
+  "bG9ybwAAAAAAAAAAAAAAACbFJ0EABE8AEwATARABk9Mh/fGnS/0BAQAAAAAABQEAAAEABgEEAQIAAAUEdGV4dAAOAQQCAQACAQACAQUCARMAFBNtYXRlcmlhbGl6ZWQgdXBkYXRl";
+const FIXTURE_LORO_UPDATE_START_VERSION_VECTOR = "AZOnh+mf/uml/QEA";
+const FIXTURE_LORO_UPDATE_END_VERSION_VECTOR = "AZOnh+mf/uml/QEm";
 
 export function createPendingUpdateRecord(
   overrides: {
@@ -340,11 +358,13 @@ export function createPendingUpdateRecord(
 ) {
   return {
     id: overrides.id ?? "550e8400-e29b-41d4-a716-446655440444",
-    updateData:
-      overrides.updateData ??
-      bytesToBase64(new TextEncoder().encode("materialized update")),
-    partialStartVersionVector: overrides.partialStartVersionVector ?? "{}",
-    partialEndVersionVector: overrides.partialEndVersionVector ?? '{"actor":2}',
+    updateData: overrides.updateData ?? FIXTURE_LORO_UPDATE_DATA,
+    partialStartVersionVector:
+      overrides.partialStartVersionVector ??
+      FIXTURE_LORO_UPDATE_START_VERSION_VECTOR,
+    partialEndVersionVector:
+      overrides.partialEndVersionVector ??
+      FIXTURE_LORO_UPDATE_END_VERSION_VECTOR,
     sourceVersionVector: overrides.sourceVersionVector ?? null,
   };
 }
@@ -369,12 +389,21 @@ export async function createSyncResponse(
       const writeHeader = update.writeHeader as unknown as WriteHeader;
       return {
         accessEpoch: 1,
+        ...(update.checkpointKind === undefined
+          ? {}
+          : { checkpointKind: update.checkpointKind }),
+        ...(update.checkpointPayloadKind === undefined
+          ? {}
+          : { checkpointPayloadKind: update.checkpointPayloadKind }),
         id: update.id,
         documentId: plan.documentId,
         authorFingerprint: writeHeader.writerKeyFingerprint,
         encryptedData: update.encryptedData,
         partialStartVersionVector: update.partialStartVersionVector,
         partialEndVersionVector: update.partialEndVersionVector,
+        ...(update.sourceVersionVector === undefined
+          ? {}
+          : { sourceVersionVector: update.sourceVersionVector }),
         createdAt: "2026-04-27T00:00:00.000Z",
         writeHeader: update.writeHeader,
       };

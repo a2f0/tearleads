@@ -141,6 +141,7 @@ function renderExplorerDetailPanelWithBlobPick(
       linkedContainerIdsByDocumentId={model.linkedContainerIdsByDocumentId}
       loadBlobInfo={model.loadBlobInfo}
       loadContainerInfo={model.loadContainerInfo}
+      loadDocumentAttributionRanges={model.loadDocumentAttributionRanges}
       loadDocumentInfo={model.loadDocumentInfo}
       loadDocumentSummary={model.loadDocumentSummary}
       nodes={model.explorer.nodes}

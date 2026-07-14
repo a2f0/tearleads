@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { type AccessEvent, generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
@@ -14,6 +15,42 @@ import {
   buildMaterializedDocumentLinkSetMutationPlan,
   relinkRemoteDocument,
 } from "./linkSet";
+
+test("relinkRemoteDocument rejects unlink without reading projections when its rotation snapshot is missing", async () => {
+  const { author } = await createAuthor();
+  let projectionReads = 0;
+
+  await expect(
+    relinkRemoteDocument({
+      apiClient: {
+        getContainerWriterProjection: async () => {
+          projectionReads += 1;
+          throw new Error("Unexpected container projection read");
+        },
+        getDocumentWriterProjection: async () => {
+          projectionReads += 1;
+          throw new Error("Unexpected document projection read");
+        },
+        primeDocumentWriterProjection: () => {},
+        linkDocument: async () => {
+          throw new Error("Unexpected link call");
+        },
+        unlinkDocument: async () => {
+          throw new Error("Unexpected unlink call");
+        },
+      },
+      author,
+      documentId: "document-without-rotation-snapshot",
+      operation: "unlink",
+      resolveProjectionUserKey: async () => null,
+      targetContainerId: "target-container",
+      targetSecretKey: crypto.getRandomValues(new Uint8Array(32)),
+    }),
+  ).rejects.toThrow(
+    "Document unlink requires a proven full-history rotation snapshot",
+  );
+  expect(projectionReads).toBe(0);
+});
 
 test("relinkRemoteDocument submits a verified signed link-set mutation", async () => {
   const { author, signingPublicKey } = await createAuthor();
@@ -222,6 +259,9 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
   signedEvent.signature = `${signature.slice(0, -1)}${
     signature.endsWith("A") ? "B" : "A"
   }`;
+  const rotationDocument = await createDocument("remote-unlink-rotation");
+  rotationDocument.getText("text").update("rotation state");
+  rotationDocument.commit();
   let unlinkCalled = false;
 
   await expect(
@@ -248,6 +288,7 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
       documentId: linkedWriterProjection.documentId,
       operation: "unlink",
       resolveProjectionUserKey,
+      rotationSnapshot: exportFullHistorySnapshot(rotationDocument),
       targetContainerId: projection.containerId,
       targetSecretKey: keyPair.secretKey,
     }),

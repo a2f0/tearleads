@@ -194,14 +194,13 @@ test("loadDocumentInfo reads local runtime, attachment, blob, and remote securit
           ];
         },
         getDocumentEditAttribution: async () => ({
+          attributionRevision: 1,
           documentId: "document-1",
           segments: [
             {
               peerId: "1",
               startCounter: 0,
               endCounter: 5,
-              updateId: "update-1",
-              updateSequence: 7,
               writerUserId: "writer-1",
               writerKeyFingerprint: "fp-1",
               authorityKind: "direct",
@@ -254,24 +253,24 @@ test("loadDocumentInfo reads local runtime, attachment, blob, and remote securit
         writerUserId: "writer-1",
         writerKeyFingerprint: "fp-1",
         opCount: 5,
+        directOpCount: 5,
+        baselineOpCount: 0,
         hasDirectAuthority: true,
         hasBaselineAuthority: false,
       },
     ]);
+    expect(info.remoteInfo?.attributionRevision).toBe(1);
+    expect(info.remoteInfo?.attributionStatus).toBe("available");
     expect(info.remoteInfo?.attributionSegments).toEqual([
       {
         peerId: "1",
         startCounter: 0,
         endCounter: 5,
-        opCount: 5,
-        updateId: "update-1",
-        updateSequence: 7,
         writerUserId: "writer-1",
         writerKeyFingerprint: "fp-1",
         authorityKind: "direct",
       },
     ]);
-    // No local Loro snapshot was persisted, so blame can't be computed.
     expect(info.remoteInfo?.characterBlame).toBeNull();
     expect(info.remoteInfo?.blameRanges).toBeNull();
     expect(info.remoteInfo?.fieldBlame).toBeNull();
@@ -347,10 +346,6 @@ test("loadDocumentInfo blames live characters using the persisted snapshot", asy
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
 
-    // Persist a real shallow snapshot of "hello" (5 code points, counters 0..4
-    // from one peer), then attribute its counters across two writers via the
-    // remote segments — so the rebuilt op ids must blame 3 chars to writer-1 and
-    // 2 (baseline) to writer-2.
     const doc = await createDocument("writer-seed");
     const peerId = await derivePeerId("writer-seed");
     doc.getText("text").update("hello");
@@ -384,14 +379,13 @@ test("loadDocumentInfo blames live characters using the persisted snapshot", asy
           createDocumentWriterProjection(),
         listDocumentAttachments: async () => [],
         getDocumentEditAttribution: async () => ({
+          attributionRevision: 1,
           documentId: "document-1",
           segments: [
             {
               peerId,
               startCounter: 0,
               endCounter: 3,
-              updateId: "update-1",
-              updateSequence: 1,
               writerUserId: "writer-1",
               writerKeyFingerprint: "fp-1",
               authorityKind: "direct",
@@ -400,8 +394,6 @@ test("loadDocumentInfo blames live characters using the persisted snapshot", asy
               peerId,
               startCounter: 3,
               endCounter: 5,
-              updateId: "update-2",
-              updateSequence: 2,
               writerUserId: "writer-2",
               writerKeyFingerprint: "fp-2",
               authorityKind: "baseline",
@@ -420,6 +412,8 @@ test("loadDocumentInfo blames live characters using the persisted snapshot", asy
           writerUserId: "writer-1",
           writerKeyFingerprint: "fp-1",
           characterCount: 3,
+          directCharacterCount: 3,
+          baselineCharacterCount: 0,
           hasDirectAuthority: true,
           hasBaselineAuthority: false,
         },
@@ -427,6 +421,8 @@ test("loadDocumentInfo blames live characters using the persisted snapshot", asy
           writerUserId: "writer-2",
           writerKeyFingerprint: "fp-2",
           characterCount: 2,
+          directCharacterCount: 0,
+          baselineCharacterCount: 2,
           hasDirectAuthority: false,
           hasBaselineAuthority: true,
         },
@@ -434,8 +430,6 @@ test("loadDocumentInfo blames live characters using the persisted snapshot", asy
       totalCharacterCount: 5,
       unattributedCharacterCount: 0,
     });
-    // The same single reconstruction also yields the coalesced per-writer runs of
-    // the prose ("hel" by writer-1, "lo" re-asserted to writer-2).
     expect(info.remoteInfo?.blameRanges).toEqual([
       {
         startIndex: 0,
@@ -467,8 +461,6 @@ test("loadDocumentInfo blames structured-document fields using the snapshot", as
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
 
-    // A structured document keeps its fields in a LoroMap; blame resolves each
-    // field's last-editor peer to a writer (no prose, so character blame is empty).
     const doc = await createDocument("writer-seed");
     const peerId = await derivePeerId("writer-seed");
     doc.getMap("fields").set("firstName", "Ada");
@@ -503,14 +495,13 @@ test("loadDocumentInfo blames structured-document fields using the snapshot", as
           createDocumentWriterProjection(),
         listDocumentAttachments: async () => [],
         getDocumentEditAttribution: async () => ({
+          attributionRevision: 1,
           documentId: "document-1",
           segments: [
             {
               peerId,
               startCounter: 0,
               endCounter: 10,
-              updateId: "update-1",
-              updateSequence: 1,
               writerUserId: "writer-1",
               writerKeyFingerprint: "fp-1",
               authorityKind: "direct",
@@ -535,7 +526,6 @@ test("loadDocumentInfo blames structured-document fields using the snapshot", as
         writerKeyFingerprint: "fp-1",
       },
     ]);
-    // No prose, so the character/range blame is empty rather than null.
     expect(info.remoteInfo?.blameRanges).toEqual([]);
   } finally {
     close();
@@ -579,6 +569,7 @@ test("loadDocumentInfo degrades to null blame for an unreadable snapshot", async
           createDocumentWriterProjection(),
         listDocumentAttachments: async () => [],
         getDocumentEditAttribution: async () => ({
+          attributionRevision: 1,
           documentId: "document-1",
           segments: [],
         }),

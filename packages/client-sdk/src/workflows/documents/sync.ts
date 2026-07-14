@@ -129,6 +129,7 @@ async function prepareDocumentOutgoingUpdates(input: {
         ...(update.sourceVersionVector
           ? {
               checkpointKind: "rotate_baseline" as const,
+              checkpointPayloadKind: "full_history_snapshot" as const,
               sourceVersionVector: update.sourceVersionVector,
             }
           : {}),
@@ -814,6 +815,9 @@ export async function signDocumentOutgoingUpdate(input: {
     ...(input.update.checkpointKind === undefined
       ? {}
       : { checkpointKind: input.update.checkpointKind }),
+    ...(input.update.checkpointPayloadKind === undefined
+      ? {}
+      : { checkpointPayloadKind: input.update.checkpointPayloadKind }),
     id: input.update.id,
     encryptedData: input.update.encryptedData,
     partialStartVersionVector: input.update.partialStartVersionVector,
@@ -989,7 +993,6 @@ export async function syncRemoteDocument(
     input.resolveProjectionUserKey,
     "Remote document sync",
   );
-  // syncDocumentResult is the canonical proxy for retry-capable API clients.
   const maxAttempts = input.apiClient.syncDocumentResult ? 3 : 1;
   let pendingUpdates = input.pendingUpdates ?? [];
   let recoveryPendingUpdatesById = new Map<string, PendingUpdateRecord>();

@@ -1,5 +1,6 @@
 import type { PurgeOptions } from "../../workflows/container-contents/container-state/purgeProgress";
 import { purgeContainerTree } from "../../workflows/container-contents/container-state/purgeTree";
+import { prepareContainerDocumentRotationSnapshot } from "./documentRotation";
 import { updateContainerContentsSnapshot } from "./state";
 import type { ContainerContentsStoreState } from "./types";
 
@@ -44,6 +45,8 @@ export async function emptyTrash(
     keepRootContainer: true,
     onProgress: options?.onProgress,
     persistence: state.persistence,
+    prepareDocumentRotationSnapshot: (document) =>
+      prepareContainerDocumentRotationSnapshot(state.runtime, document),
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     rootContainerId: trashContainerId,
     runtime: state.runtime,

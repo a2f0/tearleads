@@ -7,14 +7,11 @@ import type {
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
-import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 import {
-  type DocumentAttributionSegment,
   type DocumentBlameRange,
   type DocumentCharacterBlameSummary,
   type DocumentContributor,
   type DocumentFieldBlame,
-  listDocumentAttributionSegments,
   summarizeDocumentContributors,
 } from "../../data/documents/editAttribution";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
@@ -27,104 +24,30 @@ import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersi
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { computeDocumentBlame } from "./documentCharacterBlame";
 import { computeFieldBlame } from "./documentFieldBlame";
+import type {
+  DocumentInfo,
+  DocumentInfoAttachment,
+  DocumentInfoAuthorizingContainerPath,
+  DocumentInfoLocalDetails,
+  DocumentInfoRemoteAttachmentBinding,
+  DocumentInfoRemoteDetails,
+  DocumentInfoRemoteMode,
+} from "./documentInfoTypes";
 
-export type DocumentInfoRemoteMode = "if-synced" | "never";
-
-export interface DocumentInfoLocalDetails {
-  accessEpoch: number | null;
-  accessStateHash: string | null;
-  containerId: string | null;
-  documentId: string | null;
-  documentKind: StoredDocumentKind | null;
-  hasContentKeyBundle: boolean;
-  hasDocumentKekTargets: boolean;
-  hasDocumentManifestBundle: boolean;
-  lastCommitLsn: string | null;
-  localDocumentManifestHash: string | null;
-  localId: string;
-  pendingAttachmentByteLength: number;
-  pendingAttachmentCount: number;
-  pendingUpdateCount: number;
-  title: string | null;
-  updatedAt: string | null;
-}
-
-export interface DocumentInfoAttachment {
-  attachmentKind: "local" | "pending";
-  blobId: string | null;
-  byteLength: number;
-  createdAt: string | null;
-  localId: string;
-  mimeType: string | null;
-  name: string | null;
-  slotId: string;
-  storageKey: string;
-  updatedAt: string | null;
-}
-
-export interface DocumentInfoRemoteAttachmentBinding {
-  bindingId: string;
-  blobId: string;
-  slotId: string;
-}
-
-export interface DocumentInfoAuthorizingContainerPath {
-  containerId: string;
-  containerKeyEpoch: number | null;
-  containerKeyEpochId: string | null;
-  leafManifestHash: string | null;
-  organizationId: string;
-  pathLength: number;
-}
-
-export interface DocumentInfoRemoteDetails {
-  activeAttachmentBindings: DocumentInfoRemoteAttachmentBinding[];
-  attributionSegments: DocumentAttributionSegment[];
-  authorizingContainerPaths: DocumentInfoAuthorizingContainerPath[];
-  /**
-   * Contiguous per-writer runs of the current prose — the read-only "blame"
-   * view that tints each phrase by who wrote it. Shares its `null` conditions
-   * (and its single snapshot reconstruction) with {@link characterBlame}.
-   */
-  blameRanges: DocumentBlameRange[] | null;
-  /**
-   * Per-writer live-character blame, or `null` when it could not be computed —
-   * the document has no local snapshot, the snapshot is too large to extract
-   * op ids from cheaply, or the snapshot was unreadable.
-   */
-  characterBlame: DocumentCharacterBlameSummary | null;
-  /**
-   * Per-field blame for a structured document (who last set each field), or
-   * `null` when it could not be computed. A note yields `[]` (no fields).
-   */
-  fieldBlame: DocumentFieldBlame[] | null;
-  contentKeyEpoch: number;
-  contentKeyTargetCount: number;
-  contentKeyTargetHash: string;
-  contributors: DocumentContributor[];
-  currentManifestHash: string;
-  documentContainerManifestHistoryCount: number;
-  documentKekTargetCount: number;
-  documentKeyTargetHash: string;
-  documentManifestContainerPathCount: number;
-  documentManifestHistoryCount: number;
-  linkedContainerKeyEpochCount: number;
-  linkedContainerManifestCount: number;
-  linkSetManifestHash: string;
-  manifestEpoch: number | null;
-  previousManifestHash: string | null;
-  referencedPrincipalCount: number | null;
-}
-
-export interface DocumentInfo {
-  attachments: DocumentInfoAttachment[];
-  local: DocumentInfoLocalDetails;
-  remoteInfo: DocumentInfoRemoteDetails | null;
-}
+export type {
+  DocumentInfo,
+  DocumentInfoAttachment,
+  DocumentInfoAuthorizingContainerPath,
+  DocumentInfoLocalDetails,
+  DocumentInfoRemoteAttachmentBinding,
+  DocumentInfoRemoteDetails,
+  DocumentInfoRemoteMode,
+} from "./documentInfoTypes";
 
 interface DocumentInfoApi {
   getDocumentEditAttribution: (
     documentId: string,
+    requestKey?: string,
   ) => Promise<DocumentEditAttributionResponse | null>;
   getDocumentWriterProjection: (
     documentId: string,
@@ -404,7 +327,7 @@ function mapAuthorizingContainerPath(
 
 function getDocumentInfoRemoteDetails(input: {
   attachmentBindings: ReadonlyArray<BlobAttachmentSummary>;
-  attributionSegments: DocumentAttributionSegment[];
+  attribution: DocumentEditAttributionResponse | null;
   blameRanges: DocumentBlameRange[] | null;
   characterBlame: DocumentCharacterBlameSummary | null;
   contributors: DocumentContributor[];
@@ -413,7 +336,7 @@ function getDocumentInfoRemoteDetails(input: {
 }): DocumentInfoRemoteDetails {
   const {
     attachmentBindings,
-    attributionSegments,
+    attribution,
     blameRanges,
     characterBlame,
     contributors,
@@ -425,7 +348,13 @@ function getDocumentInfoRemoteDetails(input: {
 
   return {
     activeAttachmentBindings: attachmentBindings.map(mapAttachmentBinding),
-    attributionSegments,
+    attributionRevision: attribution?.attributionRevision ?? null,
+    attributionStatus: attribution
+      ? attribution.truncated
+        ? "truncated"
+        : "available"
+      : "unavailable",
+    attributionSegments: attribution?.segments ?? [],
     authorizingContainerPaths: projection.authorizingContainerPaths.map(
       mapAuthorizingContainerPath,
     ),
@@ -464,6 +393,7 @@ function getDocumentInfoRemoteDetails(input: {
 
 export async function loadDocumentInfo(input: {
   apiClient: DocumentInfoApi;
+  attributionRequestKey?: string | undefined;
   execSql?: ExecSql | null;
   localId: string;
   remoteInfoMode?: DocumentInfoRemoteMode | undefined;
@@ -489,7 +419,7 @@ export async function loadDocumentInfo(input: {
     // Attribution is supplementary: a rejection (network/server) must not block
     // the rest of the document-info load, so swallow it to null (no contributors).
     input.apiClient
-      .getDocumentEditAttribution(local.documentId)
+      .getDocumentEditAttribution(local.documentId, input.attributionRequestKey)
       .catch(() => null),
   ]);
 
@@ -499,18 +429,25 @@ export async function loadDocumentInfo(input: {
     );
   }
 
+  const attributionComplete = attribution && !attribution.truncated;
   const attributionSegments = attribution?.segments ?? [];
-  const blame = computeDocumentBlame(loroSnapshot, attributionSegments);
+  const blame = attributionComplete
+    ? computeDocumentBlame(loroSnapshot, attributionSegments)
+    : null;
   return {
     attachments,
     local,
     remoteInfo: getDocumentInfoRemoteDetails({
       attachmentBindings: attachmentBindings ?? [],
-      attributionSegments: listDocumentAttributionSegments(attributionSegments),
+      attribution,
       blameRanges: blame?.blameRanges ?? null,
       characterBlame: blame?.characterBlame ?? null,
-      contributors: summarizeDocumentContributors(attributionSegments),
-      fieldBlame: computeFieldBlame(loroSnapshot, attributionSegments),
+      contributors: attributionComplete
+        ? summarizeDocumentContributors(attributionSegments)
+        : [],
+      fieldBlame: attributionComplete
+        ? computeFieldBlame(loroSnapshot, attributionSegments)
+        : null,
       projection,
     }),
   };

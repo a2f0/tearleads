@@ -11,7 +11,7 @@ coordination, but they must stay React-free and product-UI-free.
 | `blobs` | Platform runtime | Encrypted blob upload, hydration, decryption, and local byte-store helpers. |
 | `containers` | Platform runtime | Container mutation planning and remote container operations. |
 | `documents` | Platform runtime | Document creation, persistence, sync, projection keys, and document link-set helpers. |
-| `container-contents` | Platform query and runtime | Container tree projections, container metadata documents, document discovery, document links, diagnostics, and sync-state helpers. Product UI routes, panels, menus, and selection state belong in `packages/app`. |
+| `container-contents` | Platform query and runtime | Container tree projections, container metadata documents, document discovery, document links, compact attribution diagnostics, lazy paginated attribution ranges, and sync-state helpers. Product UI routes, panels, menus, and selection state belong in `packages/app`. |
 | `organizations` | Platform organization administration | Organization directory, groups, grants, usage, user-detail read models, principal-policy mutation helpers, and organization-scoped system-container slot helpers. Org Manager screens and labels belong in `packages/app`. |
 | `principals` | Platform runtime | Principal-policy cache and verification support. |
 | `registration` | Platform runtime | Local registration and atomic organization bootstrap helpers, including the initial encrypted roster and organization-profile bodies. |

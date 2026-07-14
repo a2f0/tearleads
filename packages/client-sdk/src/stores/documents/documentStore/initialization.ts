@@ -1,7 +1,6 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
-  encodeVersionVector,
   exportAllUpdates,
   exportShallowSnapshot,
   importSnapshot,
@@ -30,7 +29,6 @@ import {
   isDestroyedDatabaseClientError,
   loadPersistedDocumentStoreState,
 } from "../../../workflows/documents";
-import { requestDocumentStoreSync } from "../registry";
 import type { DocumentStoreRelinkInput } from "../types";
 import {
   advancePendingBaseVersion,
@@ -39,9 +37,15 @@ import {
   persistDocument,
   saveDocumentRecord,
 } from "./persistence";
-import { type DocumentStoreState, setReadySnapshot } from "./state";
+import {
+  type DocumentState,
+  type DocumentStoreState,
+  setReadySnapshot,
+} from "./state";
 
-async function createStoredDocument(state: DocumentStoreState) {
+export async function createStoredDocument(
+  state: DocumentStoreState,
+): Promise<DocumentState> {
   // Scope the peer seed per pane so two panes editing the same document derive
   // distinct Loro peer ids (sharing one would corrupt the CRDT). A null
   // peerScope (single-pane) keeps the bare scope, so the device-stable peer is
@@ -287,7 +291,6 @@ export async function relinkDocumentStore(
   if (!(await ensureDocumentStoreReady(state, scheduleSync)) || !state.doc) {
     return null;
   }
-
   const currentAccessEpoch =
     state.record?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH;
   const patch: Partial<DocumentRecord> = {
@@ -320,15 +323,6 @@ export async function relinkDocumentStore(
     patch,
     { preserveSnapshotStructuredFields: true, preserveSnapshotText: true },
   );
-  if (input.queueBaselineAfterRelink) {
-    await enqueuePendingUpdate(
-      state,
-      exportAllUpdates(state.doc),
-      encodeVersionVector(state.doc),
-    );
-    advancePendingBaseVersion(state, state.doc);
-    requestDocumentStoreSync(state);
-  }
   return {
     accessStateHash: nextRecord.accessStateHash ?? null,
     effectiveAccessLevel: normalizeEffectiveAccessLevel(

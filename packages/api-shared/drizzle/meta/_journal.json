@@ -78,6 +78,13 @@
       "when": 1783617350669,
       "tag": "0010_sticky_alex_wilder",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784054866827,
+      "tag": "0011_chubby_quentin_quire",
+      "breakpoints": true
     }
   ]
 }

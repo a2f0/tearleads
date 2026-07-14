@@ -12,13 +12,17 @@ import {
   computeWriteHeaderHash,
   verifyWriteHeader,
 } from "@tearleads/crypto";
+import {
+  emptyVersionVector,
+  listVersionVectorSpans,
+  versionVectorsEqual,
+} from "@tearleads/loro";
 import type {
   DocumentOutgoingUpdate,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { inArray } from "drizzle-orm";
-import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
 import {
   getDocumentContentKeyBundle,
   listDocumentContentWriteHeaders,
@@ -36,7 +40,6 @@ import { maybeWriteDocumentAuditCheckpoint } from "../../../documents/documentAu
 import { appendDocumentUpdateAuditEntries } from "../../../documents/documentAuditEntries";
 import { selectServedSyncUpdateEntries } from "../../../documents/documentSyncBaselineRedirect";
 import { insertDocumentUpdateSpans } from "../../../documents/documentUpdateSpans";
-import { listMissingDocumentUpdates } from "../../../documents/documentUpdateStore";
 import { uniqueSortedStrings } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { assertOrganizationCanSync } from "../../billing/organizationBilling";
@@ -53,13 +56,14 @@ import {
   toContentKeyBundleResponse,
   toDocumentKekTargetsResponse,
   toStoredContentKeyBundleInput,
-  writeHeaderRecord,
 } from "./shared/records";
 import {
   loadSignerPublicKey,
   verifySyncWriteAuthorizationProof,
 } from "./shared/verification";
 import { ensureSyncDocumentAccess } from "./syncAccess";
+import { listMissingSyncUpdateEntries } from "./syncResponseUpdates";
+import { lockSyncDocumentWriteFrontier } from "./syncWriteFrontier";
 import type {
   AppendDocumentUpdatesInput,
   DocumentWriteAuthorizationProof,
@@ -127,10 +131,20 @@ async function assertOutgoingUpdatePayloadMatchesHeader(input: {
   readonly header: WriteHeader;
   readonly update: DocumentOutgoingUpdate;
 }): Promise<void> {
+  assertOutgoingCheckpointConsistency(input.update);
   const metadataHash = await computeDocumentContentRecordMetadataHash({
+    ...(input.update.checkpointKind === undefined
+      ? {}
+      : { checkpointKind: input.update.checkpointKind }),
+    ...(input.update.checkpointPayloadKind === undefined
+      ? {}
+      : { checkpointPayloadKind: input.update.checkpointPayloadKind }),
     documentId: input.documentId,
     partialEndVersionVector: input.update.partialEndVersionVector,
     partialStartVersionVector: input.update.partialStartVersionVector,
+    ...(input.update.sourceVersionVector === undefined
+      ? {}
+      : { sourceVersionVector: input.update.sourceVersionVector }),
     updateId: input.update.id,
   });
   if (metadataHash !== input.header.metadataHash) {
@@ -151,6 +165,52 @@ async function assertOutgoingUpdatePayloadMatchesHeader(input: {
   }
 }
 
+function assertOutgoingCheckpointConsistency(
+  update: DocumentOutgoingUpdate,
+): void {
+  const isCheckpoint =
+    update.checkpointKind !== undefined ||
+    update.checkpointPayloadKind !== undefined ||
+    update.sourceVersionVector !== undefined;
+  if (!isCheckpoint) {
+    return;
+  }
+  if (
+    update.checkpointKind !== "rotate_baseline" ||
+    update.checkpointPayloadKind !== "full_history_snapshot" ||
+    !update.sourceVersionVector
+  ) {
+    throw new DocumentMutationError(
+      "Document rotation checkpoint metadata is incomplete",
+      400,
+    );
+  }
+
+  try {
+    listVersionVectorSpans({
+      partialStartVersionVector: update.partialStartVersionVector,
+      partialEndVersionVector: update.partialEndVersionVector,
+    });
+  } catch {
+    throw new DocumentMutationError(
+      "Document rotation checkpoint version vectors are invalid",
+      400,
+    );
+  }
+  if (
+    !versionVectorsEqual(
+      update.sourceVersionVector,
+      update.partialEndVersionVector,
+    ) ||
+    !versionVectorsEqual(update.partialStartVersionVector, emptyVersionVector())
+  ) {
+    throw new DocumentMutationError(
+      "Document rotation checkpoint must start empty and end at its source vector",
+      400,
+    );
+  }
+}
+
 async function assertRetryWriteHeaderMatches(input: {
   readonly expectedHeaderHash: string;
   readonly update: DocumentOutgoingUpdate;
@@ -165,6 +225,7 @@ async function assertRetryWriteHeaderMatches(input: {
 
 async function assertRetryUpdateMatchesAcceptedContent(input: {
   readonly acceptedHeaderHash: string | undefined;
+  readonly documentId: string;
   readonly existingRow:
     | {
         readonly encryptedData: string;
@@ -191,6 +252,11 @@ async function assertRetryUpdateMatchesAcceptedContent(input: {
     expectedHeaderHash: input.acceptedHeaderHash,
     update: input.update,
   });
+  await assertOutgoingUpdatePayloadMatchesHeader({
+    documentId: input.documentId,
+    header: readWriteHeader(input.update.writeHeader, "Document write header"),
+    update: input.update,
+  });
 }
 
 function acceptedOutgoingUpdateIds(
@@ -213,6 +279,8 @@ function assertDuplicateOutgoingUpdateMatches(
     (first.sourceVersionVector ?? null) ===
       (next.sourceVersionVector ?? null) &&
     (first.checkpointKind ?? null) === (next.checkpointKind ?? null) &&
+    (first.checkpointPayloadKind ?? null) ===
+      (next.checkpointPayloadKind ?? null) &&
     canonicalJsonEquals(first.writeHeader, next.writeHeader)
   ) {
     return;
@@ -354,7 +422,7 @@ interface AppendDocumentUpdatesResult {
   readonly insertedUpdateIds: ReadonlySet<string>;
 }
 
-async function appendDocumentUpdates(
+export async function appendDocumentUpdates(
   input: AppendDocumentUpdatesInput,
 ): Promise<AppendDocumentUpdatesResult> {
   if (input.request.outgoingUpdates.length === 0) {
@@ -386,6 +454,7 @@ async function appendDocumentUpdates(
     if (acceptedUpdateIds.has(update.id)) {
       await assertRetryUpdateMatchesAcceptedContent({
         acceptedHeaderHash,
+        documentId: input.documentId,
         existingRow: existingRowsById.get(update.id),
         update,
       });
@@ -447,65 +516,6 @@ async function appendDocumentUpdates(
     ),
     insertedUpdateIds,
   };
-}
-
-async function listMissingUpdates(input: {
-  readonly documentId: string;
-  readonly executor: DatabaseSession;
-  readonly localVersionVector: string | null;
-  readonly minLsn?: string | undefined;
-}) {
-  return listMissingDocumentUpdates(input.executor, {
-    documentId: input.documentId,
-    localVersionVector: input.localVersionVector,
-    minLsn: input.minLsn,
-  });
-}
-
-function toSyncUpdate(
-  update: Awaited<ReturnType<typeof listMissingUpdates>>[number],
-  writeHeader: { readonly header: WriteHeader; readonly headerHash: string },
-) {
-  return {
-    accessEpoch: update.accessEpoch,
-    id: update.id,
-    documentId: update.documentId,
-    authorFingerprint: update.authorFingerprint,
-    encryptedData: update.encryptedData,
-    partialStartVersionVector: update.partialStartVersionVector,
-    partialEndVersionVector: update.partialEndVersionVector,
-    createdAt: update.createdAt.toISOString(),
-    writeHeader: writeHeaderRecord(writeHeader.header),
-  };
-}
-
-function toSyncUpdateWithWriteHeader(
-  update: Awaited<ReturnType<typeof listMissingUpdates>>[number],
-  writeHeader: { readonly header: WriteHeader; readonly headerHash: string },
-) {
-  return {
-    update: toSyncUpdate(update, writeHeader),
-    writeHeader: writeHeader.header,
-  };
-}
-
-async function attachWriteHeadersToUpdates(input: {
-  readonly executor: DatabaseSession;
-  readonly updates: Awaited<ReturnType<typeof listMissingUpdates>>;
-}) {
-  const writeHeadersByUpdateId = await listDocumentContentWriteHeaders(
-    input.updates.map((update) => update.id),
-    input.executor,
-  );
-
-  return input.updates.map((update) => {
-    const writeHeader = writeHeadersByUpdateId.get(update.id);
-    if (!writeHeader) {
-      throw new DocumentMutationError("Document write header missing", 409);
-    }
-
-    return toSyncUpdateWithWriteHeader(update, writeHeader);
-  });
 }
 
 function uniqueContentKeyEpochs(contentKeyEpochs: Iterable<number>): number[] {
@@ -599,6 +609,7 @@ async function touchAcceptedSyncTargets(input: {
 
   await touchDocumentAndLinkedContainers(input.executor, {
     documentId: input.documentId,
+    incrementAttributionRevision: true,
     linkedContainerIds: input.currentTargets.targets.map(
       (target) => target.containerId,
     ),
@@ -611,15 +622,11 @@ async function listMissingSyncUpdatesWithBundles(input: {
   readonly executor: DatabaseSession;
   readonly request: DocumentSyncRequest;
 }) {
-  const missingUpdateRecords = await listMissingUpdates({
+  const missingUpdateEntries = await listMissingSyncUpdateEntries({
     documentId: input.documentId,
     executor: input.executor,
     localVersionVector: input.request.localVersionVector,
     minLsn: input.request.minLsn,
-  });
-  const missingUpdateEntries = await attachWriteHeadersToUpdates({
-    executor: input.executor,
-    updates: missingUpdateRecords,
   });
   // Redirect readers who are behind a content-key rotation to the current-epoch
   // baseline instead of shipping pre-rotation updates they cannot decrypt (which
@@ -669,33 +676,33 @@ async function syncDocumentTransaction(input: {
     requests: input.request.containerRekeys,
     userId: input.userId,
   });
-  const currentTargets = await resolveCurrentDocumentKekTargets(
+  let currentTargets = await resolveCurrentDocumentKekTargets(
     input.documentId,
     input.tx,
   );
+  const hasOutgoingUpdates = input.request.outgoingUpdates.length > 0;
+  const hasContainerRekeys = (input.request.containerRekeys?.length ?? 0) > 0;
+  if (hasOutgoingUpdates) {
+    // Serialize accepted content against concurrent container.rekey writes so a
+    // stale target set cannot land under a superseded container key epoch.
+    // Empty read-only syncs write no content and take no lock.
+    currentTargets = await lockSyncDocumentWriteFrontier({
+      currentTargets,
+      documentId: input.documentId,
+      tx: input.tx,
+    });
+  }
   await ensureSyncDocumentAccess({
     currentTargets,
     executor: input.tx,
     request: input.request,
     userId: input.userId,
   });
-  const hasOutgoingUpdates = input.request.outgoingUpdates.length > 0;
-  const hasContainerRekeys = (input.request.containerRekeys?.length ?? 0) > 0;
   if (
     input.enforceSyncEligibility &&
     (hasOutgoingUpdates || hasContainerRekeys)
   ) {
     await assertOrganizationCanSync(input.tx, currentTargets.organizationId);
-  }
-  if (hasOutgoingUpdates) {
-    // Serialize accepted content against concurrent container.rekey writes so a
-    // stale target set cannot land under a superseded container key epoch.
-    // Empty read-only syncs write no content and take no lock.
-    await lockAccessManifestHeadsForShare(
-      "container",
-      currentTargets.targets.map((target) => target.containerId),
-      input.tx,
-    );
   }
   const writeAuthorization = await verifySyncWriteAuthorizationProof({
     currentTargets,

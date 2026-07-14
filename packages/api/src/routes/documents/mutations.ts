@@ -102,6 +102,35 @@ export async function publishDocumentMutationCreatedEvent(input: {
   }
 }
 
+export function createDocumentUpdateCreatedEvent(input: {
+  readonly documentId: string;
+  readonly documentKekTargets: DocumentSyncResponse["documentKekTargets"];
+  readonly origin: DocumentMutationOrigin;
+  readonly updateIds: readonly string[];
+}): Record<string, unknown> {
+  return {
+    type: "document_update_created",
+    containerIds: listDocumentKekTargetContainerIds(input.documentKekTargets),
+    documentId: input.documentId,
+    updateIds: [...input.updateIds],
+    origin: input.origin,
+  };
+}
+
+export async function publishDocumentUpdateCreatedEvent(input: {
+  readonly documentId: string;
+  readonly documentKekTargets: DocumentSyncResponse["documentKekTargets"];
+  readonly origin: DocumentMutationOrigin;
+  readonly publish: DocumentMutationsRouteDeps["publish"];
+  readonly updateIds: readonly string[];
+}): Promise<void> {
+  try {
+    await input.publish(createDocumentUpdateCreatedEvent(input));
+  } catch (error) {
+    console.error("Failed to publish document update event:", error);
+  }
+}
+
 export function createDocumentPurgeEvent(input: {
   readonly containerIds: readonly string[];
   readonly documentId: string;
@@ -203,21 +232,34 @@ async function respondWithDocumentLinkSetMutation(
   const session = c.get("session");
 
   try {
-    const response = await mutateDocumentLinkSet(input.runtime, {
-      documentId,
-      eventType: input.eventType,
-      fingerprint: session.fingerprint,
-      request: input.request,
-      userId: session.userId,
-    });
+    const { insertedUpdateIds, response } = await mutateDocumentLinkSet(
+      input.runtime,
+      {
+        documentId,
+        eventType: input.eventType,
+        fingerprint: session.fingerprint,
+        request: input.request,
+        userId: session.userId,
+      },
+    );
+    const origin = { sessionId: session.id, userId: session.userId };
     await publishDocumentMutationCreatedEvent({
       documentId,
       eventType: input.eventType,
-      origin: { sessionId: session.id, userId: session.userId },
+      origin,
       publish: input.publish,
       request: input.request,
       response,
     });
+    if (insertedUpdateIds.length > 0) {
+      await publishDocumentUpdateCreatedEvent({
+        documentId,
+        documentKekTargets: response.documentKekTargets,
+        origin,
+        publish: input.publish,
+        updateIds: insertedUpdateIds,
+      });
+    }
     return c.json<DocumentLinkSetMutationResponse>(response);
   } catch (error) {
     const result = handleDocumentMutationError(error);
@@ -251,19 +293,12 @@ async function respondWithDocumentSync(
     // updates were already broadcast when first inserted; a peer that missed
     // that hint recovers on its next reconcile, per the lossy-hint contract.
     if (insertedUpdateIds.length > 0) {
-      await input.publish({
-        type: "document_update_created",
-        containerIds: listDocumentKekTargetContainerIds(
-          response.documentKekTargets,
-        ),
+      await publishDocumentUpdateCreatedEvent({
         documentId,
-        updateIds: insertedUpdateIds,
-        // Tag the event with the session that authored these updates so the ws
-        // router can skip echoing them back over this session's own socket.
-        // session.id is the same value the ws ticket is minted from, so it
-        // matches that connection's identity. The router strips `origin` before
-        // forwarding, so it never reaches any client.
+        documentKekTargets: response.documentKekTargets,
         origin: { sessionId: session.id, userId: session.userId },
+        publish: input.publish,
+        updateIds: insertedUpdateIds,
       });
     }
 

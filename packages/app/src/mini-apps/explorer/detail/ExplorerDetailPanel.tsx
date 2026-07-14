@@ -16,6 +16,7 @@ import type {
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { MouseEvent } from "react";
 import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
+import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import type { BlobPickTarget } from "../../shared/blob-pick/BlobPickProvider";
@@ -123,6 +124,7 @@ interface ExplorerDetailPanelProps {
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
+  loadDocumentAttributionRanges: ExplorerDocumentAttributionRangesLoader;
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   nodes: ReadonlyArray<ContainerNode>;
@@ -322,6 +324,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         documentTitle={fallbackDocumentSummary?.title}
         fallbackDocumentSummary={fallbackDocumentSummary}
         linkedContainerIdsByDocumentId={params.linkedContainerIdsByDocumentId}
+        loadDocumentAttributionRanges={params.loadDocumentAttributionRanges}
         loadDocumentInfo={params.loadDocumentInfo}
         loadDocumentSummary={params.loadDocumentSummary}
         localId={route.localId}

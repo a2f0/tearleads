@@ -39,6 +39,11 @@ export {
   saveContainerSyncWatermark,
 } from "./containerPersistence";
 export {
+  type DocumentAttributionRangesInput,
+  type DocumentAttributionRangesPage,
+  loadDocumentAttributionRanges,
+} from "./documentAttributionRanges";
+export {
   discoverContainerDocumentsFromApi,
   hasUndiscoveredDocumentUpdateEvent,
   type RefreshAllContainerDocumentsFromApiOptions,

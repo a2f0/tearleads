@@ -58,6 +58,7 @@ import {
 } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { seedLinkSetWriterProjection } from "./linkSetProjectionSeed";
+import { buildDocumentRotationBaseline } from "./rotationBaseline";
 
 function deriveDocumentLinkSetTargetState(input: {
   operation: DocumentLinkSetMutationOperation;
@@ -394,11 +395,17 @@ export async function relinkRemoteDocument(input: {
   execSql?: ExecSql | undefined;
   operation: DocumentLinkSetMutationOperation;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
+  rotationSnapshot?: Uint8Array | undefined;
   signedAt?: string | undefined;
   targetContainerId: string;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<RelinkRemoteDocumentResult | null> {
+  if (input.operation === "unlink" && !input.rotationSnapshot) {
+    throw new Error(
+      "Document unlink requires a proven full-history rotation snapshot",
+    );
+  }
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
     "Remote document link-set mutation",
@@ -411,6 +418,7 @@ export async function relinkRemoteDocument(input: {
     return null;
   }
 
+  const signedAt = input.signedAt ?? new Date().toISOString();
   const materializedPlan = await buildMaterializedDocumentLinkSetMutationPlan({
     author: input.author,
     contentKey: input.contentKey,
@@ -418,27 +426,45 @@ export async function relinkRemoteDocument(input: {
     execSql: input.execSql,
     operation: input.operation,
     resolveProjectionUserKey,
-    signedAt: input.signedAt,
+    signedAt,
     targetContainerProjection,
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     writerProjection,
   });
+  const request =
+    input.operation === "unlink" && input.rotationSnapshot
+      ? {
+          ...materializedPlan.plan.request,
+          rotationBaseline: await buildDocumentRotationBaseline({
+            author: input.author,
+            contentKey: materializedPlan.contentKey,
+            contentKeyEpoch: materializedPlan.plan.contentKeyEpoch,
+            documentId: materializedPlan.plan.documentId,
+            expectedLinkSetManifestHash: materializedPlan.plan.manifestHash,
+            expectedTargetHash: materializedPlan.plan.targetHash,
+            organizationId: materializedPlan.plan.state.organizationId,
+            signedAt,
+            snapshot: input.rotationSnapshot,
+          }),
+        }
+      : materializedPlan.plan.request;
+  const completedPlan = { ...materializedPlan.plan, request };
   const response =
     input.operation === "link"
       ? await input.apiClient.linkDocument(
-          materializedPlan.plan.documentId,
-          materializedPlan.plan.request,
+          completedPlan.documentId,
+          completedPlan.request,
         )
       : await input.apiClient.unlinkDocument(
-          materializedPlan.plan.documentId,
-          materializedPlan.plan.request,
+          completedPlan.documentId,
+          completedPlan.request,
         );
   if (!response) {
     return null;
   }
   const persistedState = persistedDocumentLinkSetMutationStateFromResponse(
-    materializedPlan.plan,
+    completedPlan,
     response,
   );
 
@@ -458,7 +484,7 @@ export async function relinkRemoteDocument(input: {
     documentId: response.id,
     linkedContainerIds: [...materializedPlan.plan.state.linkedContainerIds],
     persistedState,
-    plan: materializedPlan.plan,
+    plan: completedPlan,
     response,
   };
 }

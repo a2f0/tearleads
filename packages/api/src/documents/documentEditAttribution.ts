@@ -56,6 +56,11 @@ interface ClaimedInterval {
   readonly span: AttributionSpanInput;
 }
 
+interface OrderedSpan {
+  readonly inputOrder: number;
+  readonly span: AttributionSpanInput;
+}
+
 function authorityKindFor(
   span: AttributionSpanInput,
 ): EditAttributionAuthorityKind {
@@ -64,54 +69,142 @@ function authorityKindFor(
 
 function groupSpansByPeer(
   spans: readonly AttributionSpanInput[],
-): Map<string, AttributionSpanInput[]> {
-  const spansByPeer = new Map<string, AttributionSpanInput[]>();
-  for (const span of spans) {
+): Map<string, OrderedSpan[]> {
+  const spansByPeer = new Map<string, OrderedSpan[]>();
+  for (const [inputOrder, span] of spans.entries()) {
     if (span.endCounter <= span.startCounter) {
       continue;
     }
     const peerSpans = spansByPeer.get(span.peerId) ?? [];
-    peerSpans.push(span);
+    peerSpans.push({ inputOrder, span });
     spansByPeer.set(span.peerId, peerSpans);
   }
   return spansByPeer;
 }
 
-// Claim the counters in `span` that no EARLIER-sequence span has claimed yet;
-// those remainders are the ones `span` first delivered to the server.
-function claimSpanRemainder(
-  span: AttributionSpanInput,
-  claimed: ClaimedInterval[],
-): void {
-  const overlapping = claimed
-    .filter(
-      (interval) =>
-        interval.start < span.endCounter && interval.end > span.startCounter,
-    )
-    .sort((left, right) => left.start - right.start);
+function readInt32(
+  values: Int32Array,
+  index: number,
+  errorMessage: string,
+): number {
+  const value = values[index];
+  if (value === undefined) {
+    throw new Error(errorMessage);
+  }
+  return value;
+}
 
-  let cursor = span.startCounter;
-  for (const interval of overlapping) {
-    if (interval.start > cursor) {
-      claimed.push({ start: cursor, end: interval.start, span });
-    }
-    cursor = Math.max(cursor, interval.end);
+function findFirstUnclaimed(parent: Int32Array, index: number): number {
+  let root = index;
+  let rootParent = readInt32(
+    parent,
+    root,
+    "Attribution interval index was out of bounds.",
+  );
+  while (rootParent !== root) {
+    root = rootParent;
+    rootParent = readInt32(
+      parent,
+      root,
+      "Attribution interval parent was out of bounds.",
+    );
   }
-  if (cursor < span.endCounter) {
-    claimed.push({ start: cursor, end: span.endCounter, span });
+
+  let current = index;
+  let currentParent = readInt32(
+    parent,
+    current,
+    "Attribution interval index was out of bounds.",
+  );
+  while (currentParent !== current) {
+    const next = currentParent;
+    parent[current] = root;
+    current = next;
+    currentParent = readInt32(
+      parent,
+      current,
+      "Attribution interval parent was out of bounds.",
+    );
   }
+
+  return root;
 }
 
 function claimedIntervalsForPeer(
-  peerSpans: readonly AttributionSpanInput[],
+  peerSpans: readonly OrderedSpan[],
 ): ClaimedInterval[] {
-  const claimed: ClaimedInterval[] = [];
-  for (const span of [...peerSpans].sort(
-    (left, right) => left.sequence - right.sequence,
-  )) {
-    claimSpanRemainder(span, claimed);
+  const counterSet = new Set<number>();
+  for (const { span } of peerSpans) {
+    counterSet.add(span.startCounter);
+    counterSet.add(span.endCounter);
   }
-  return claimed.sort((left, right) => left.start - right.start);
+  const counters = [...counterSet].sort((left, right) => left - right);
+  const counterIndexes = new Map(
+    counters.map((counter, index) => [counter, index] as const),
+  );
+
+  // Each slot represents [counters[index], counters[index + 1]). Processing
+  // spans by receive order and assigning only unclaimed slots makes the first
+  // covering upload win. The disjoint-set successor skips every slot after its
+  // first assignment, so interval subtraction is O(n log n) overall instead
+  // of rescanning all prior claimed intervals for every span.
+  const firstUnclaimed = new Int32Array(counters.length);
+  for (let index = 0; index < firstUnclaimed.length; index += 1) {
+    firstUnclaimed[index] = index;
+  }
+  const ownerBySlot = new Int32Array(Math.max(0, counters.length - 1));
+  ownerBySlot.fill(-1);
+
+  const spansByPriority = [...peerSpans].sort(
+    (left, right) =>
+      left.span.sequence - right.span.sequence ||
+      left.inputOrder - right.inputOrder,
+  );
+  for (const [owner, { span }] of spansByPriority.entries()) {
+    const startIndex = counterIndexes.get(span.startCounter);
+    const endIndex = counterIndexes.get(span.endCounter);
+    if (startIndex === undefined || endIndex === undefined) {
+      throw new Error("Attribution span boundary was not indexed.");
+    }
+
+    let slot = findFirstUnclaimed(firstUnclaimed, startIndex);
+    while (slot < endIndex) {
+      ownerBySlot[slot] = owner;
+      firstUnclaimed[slot] = findFirstUnclaimed(firstUnclaimed, slot + 1);
+      slot = readInt32(
+        firstUnclaimed,
+        slot,
+        "Attribution interval successor was out of bounds.",
+      );
+    }
+  }
+
+  const claimed: ClaimedInterval[] = [];
+  for (let slot = 0; slot < ownerBySlot.length; slot += 1) {
+    const owner = readInt32(
+      ownerBySlot,
+      slot,
+      "Attribution interval owner was out of bounds.",
+    );
+    if (owner < 0) {
+      continue;
+    }
+    const orderedSpan = spansByPriority[owner];
+    const start = counters[slot];
+    const end = counters[slot + 1];
+    if (!orderedSpan || start === undefined || end === undefined) {
+      throw new Error("Attribution interval owner was not indexed.");
+    }
+
+    const previous = claimed.at(-1);
+    if (previous?.span === orderedSpan.span && previous.end === start) {
+      previous.end = end;
+    } else {
+      claimed.push({ start, end, span: orderedSpan.span });
+    }
+  }
+
+  return claimed;
 }
 
 // One segment per claimed interval — never coalesced. Adjacent same-peer

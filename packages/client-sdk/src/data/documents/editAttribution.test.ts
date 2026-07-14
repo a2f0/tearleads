@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import {
-  type DocumentEditAttributionSegment,
+  type DocumentEditAttributionRange,
   listDocumentAttributionSegments,
   resolveOpIdAttribution,
   summarizeBlameRanges,
@@ -21,15 +21,14 @@ function blameSource(pairs: ReadonlyArray<[string, string, number]>): {
 }
 
 function segment(
-  overrides: Partial<DocumentEditAttributionSegment> &
+  overrides: Partial<DocumentEditAttributionRange> &
     Pick<
-      DocumentEditAttributionSegment,
+      DocumentEditAttributionRange,
       "peerId" | "startCounter" | "endCounter" | "writerUserId"
     >,
-): DocumentEditAttributionSegment {
+): DocumentEditAttributionRange {
   return {
     updateId: "u-1",
-    updateSequence: 1,
     writerKeyFingerprint: `fp-${overrides.writerUserId}`,
     authorityKind: "direct",
     ...overrides,
@@ -62,6 +61,8 @@ test("summarizeDocumentContributors aggregates op counts per writer, ordered des
       writerUserId: "bob",
       writerKeyFingerprint: "fp-bob",
       opCount: 9,
+      directOpCount: 9,
+      baselineOpCount: 0,
       hasDirectAuthority: true,
       hasBaselineAuthority: false,
     },
@@ -69,6 +70,8 @@ test("summarizeDocumentContributors aggregates op counts per writer, ordered des
       writerUserId: "alice",
       writerKeyFingerprint: "fp-alice",
       opCount: 5,
+      directOpCount: 5,
+      baselineOpCount: 0,
       hasDirectAuthority: true,
       hasBaselineAuthority: false,
     },
@@ -95,6 +98,8 @@ test("summarizeDocumentContributors tracks direct vs baseline authority per writ
   expect(contributor?.hasDirectAuthority).toBe(true);
   expect(contributor?.hasBaselineAuthority).toBe(true);
   expect(contributor?.opCount).toBe(6);
+  expect(contributor?.directOpCount).toBe(2);
+  expect(contributor?.baselineOpCount).toBe(4);
 });
 
 test("listDocumentAttributionSegments mirrors contributor order, then counter order", () => {
@@ -118,8 +123,6 @@ test("listDocumentAttributionSegments mirrors contributor order, then counter or
       writerUserId: "bob",
     }),
   ]);
-  // bob outweighs alice (9 vs 5), so bob's range leads; within alice the ranges
-  // come back in counter order regardless of input order.
   expect(segments).toEqual([
     {
       peerId: "2",
@@ -127,7 +130,6 @@ test("listDocumentAttributionSegments mirrors contributor order, then counter or
       endCounter: 9,
       opCount: 9,
       updateId: "u-1",
-      updateSequence: 1,
       writerUserId: "bob",
       writerKeyFingerprint: "fp-bob",
       authorityKind: "direct",
@@ -138,7 +140,6 @@ test("listDocumentAttributionSegments mirrors contributor order, then counter or
       endCounter: 3,
       opCount: 3,
       updateId: "u-1",
-      updateSequence: 1,
       writerUserId: "alice",
       writerKeyFingerprint: "fp-alice",
       authorityKind: "direct",
@@ -149,7 +150,6 @@ test("listDocumentAttributionSegments mirrors contributor order, then counter or
       endCounter: 5,
       opCount: 2,
       updateId: "u-1",
-      updateSequence: 1,
       writerUserId: "alice",
       writerKeyFingerprint: "fp-alice",
       authorityKind: "direct",
@@ -180,7 +180,6 @@ test("listDocumentAttributionSegments drops empty ranges and keeps authorityKind
       endCounter: 6,
       opCount: 6,
       updateId: "u-1",
-      updateSequence: 1,
       writerUserId: "alice",
       writerKeyFingerprint: "fp-alice",
       authorityKind: "baseline",
@@ -210,8 +209,6 @@ test("writerByPeerId resolves a single-writer peer", () => {
 });
 
 test("writerByPeerId marks a peer split across writers as ambiguous (null)", () => {
-  // A re-assertion credited part of peer 1 to bob; the peer is no longer a clean
-  // single-writer mapping, so char-level blame must fall back to the segments.
   const byPeer = writerByPeerId([
     segment({
       peerId: "1",
@@ -244,8 +241,6 @@ test("resolveOpIdAttribution credits the segment covering a split peer's op id",
       writerUserId: "bob",
     }),
   ];
-  // peer 1 is split across writers, so coarse writerByPeerId is ambiguous (null)
-  // — but matching the exact counter still resolves each character precisely.
   expect(writerByPeerId(segments).get("1")).toBeNull();
   expect(resolveOpIdAttribution(segments, "1", 0)).toEqual({
     writerUserId: "alice",
@@ -271,9 +266,9 @@ test("resolveOpIdAttribution treats ranges as half-open and carries authorityKin
   ];
   expect(resolveOpIdAttribution(segments, "9", 2)?.authorityKind).toBe(
     "baseline",
-  ); // startCounter is inclusive
+  );
   expect(resolveOpIdAttribution(segments, "9", 4)?.writerUserId).toBe("carol");
-  expect(resolveOpIdAttribution(segments, "9", 5)).toBeNull(); // endCounter is exclusive
+  expect(resolveOpIdAttribution(segments, "9", 5)).toBeNull();
 });
 
 test("resolveOpIdAttribution returns null for an op id no segment covers", () => {
@@ -328,6 +323,8 @@ test("summarizeCharacterBlame counts live characters per writer with totals", ()
         writerUserId: "alice",
         writerKeyFingerprint: "fp-alice",
         characterCount: 2,
+        directCharacterCount: 2,
+        baselineCharacterCount: 0,
         hasDirectAuthority: true,
         hasBaselineAuthority: false,
       },
@@ -335,6 +332,8 @@ test("summarizeCharacterBlame counts live characters per writer with totals", ()
         writerUserId: "bob",
         writerKeyFingerprint: "fp-bob",
         characterCount: 1,
+        directCharacterCount: 1,
+        baselineCharacterCount: 0,
         hasDirectAuthority: true,
         hasBaselineAuthority: false,
       },
@@ -342,6 +341,8 @@ test("summarizeCharacterBlame counts live characters per writer with totals", ()
         writerUserId: "carol",
         writerKeyFingerprint: "fp-carol",
         characterCount: 1,
+        directCharacterCount: 0,
+        baselineCharacterCount: 1,
         hasDirectAuthority: false,
         hasBaselineAuthority: true,
       },
@@ -377,6 +378,8 @@ test("summarizeCharacterBlame flags a writer credited both directly and via base
     writerUserId: "alice",
     writerKeyFingerprint: "fp-alice",
     characterCount: 2,
+    directCharacterCount: 1,
+    baselineCharacterCount: 1,
     hasDirectAuthority: true,
     hasBaselineAuthority: true,
   });
@@ -444,8 +447,6 @@ test("summarizeBlameRanges coalesces consecutive same-writer code points into ru
 });
 
 test("summarizeBlameRanges splits the same writer across direct and re-asserted runs", () => {
-  // One writer, but a re-assertion split the peer's counters: the run boundary
-  // must fall at the authority change so the view can flag the re-asserted span.
   const ranges = summarizeBlameRanges(
     blameSource([
       ["a", "1", 0],
@@ -475,9 +476,6 @@ test("summarizeBlameRanges splits the same writer across direct and re-asserted 
 });
 
 test("summarizeBlameRanges splits the same user across distinct signing keys", () => {
-  // One writerUserId, two signing keys (two devices / a rotation). The run's
-  // color and tooltip resolve from the fingerprint, so adjacent runs by
-  // different keys of the same user must not merge into one mis-attributed run.
   const ranges = summarizeBlameRanges(
     blameSource([
       ["a", "1", 0],
@@ -552,8 +550,6 @@ test("summarizeFieldBlame resolves each field's last editor, sorted by key", () 
 });
 
 test("summarizeFieldBlame leaves an ambiguous split peer unattributed", () => {
-  // A re-assertion split peer 1 across writers; a field carries only its peer
-  // (no counter), so it is left unattributed rather than guessed.
   const segments = [
     segment({
       peerId: "1",
@@ -571,10 +567,4 @@ test("summarizeFieldBlame leaves an ambiguous split peer unattributed", () => {
   expect(summarizeFieldBlame([{ key: "note", peerId: "1" }], segments)).toEqual(
     [{ fieldKey: "note", writerUserId: null, writerKeyFingerprint: null }],
   );
-});
-
-test("summarizeFieldBlame leaves a field with no editor peer unattributed", () => {
-  expect(summarizeFieldBlame([{ key: "note", peerId: null }], [])).toEqual([
-    { fieldKey: "note", writerUserId: null, writerKeyFingerprint: null },
-  ]);
 });

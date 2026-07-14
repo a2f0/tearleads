@@ -1,6 +1,14 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
+  createDocument,
+  encodeVersionVector,
+  exportFullHistorySnapshot,
+  getTextValue,
+  getUpdateVersionVectors,
+  importUpdates,
+} from "@tearleads/loro";
+import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
   createSignedSyncResponseUpdate,
@@ -38,6 +46,11 @@ import { decryptDocumentSyncUpdatesByEpoch } from "./crypto";
 test("a post-rotation reader is stranded: one undecryptable epoch fails the whole batch", async () => {
   const { author, contentKey, secretKey, writerProjection } =
     await createMaterializedSyncFixture();
+  const baselineDocument = await createDocument("post-rotation-baseline");
+  baselineDocument.getText("text").update("post-rotation baseline state");
+  baselineDocument.commit();
+  const baselineBytes = exportFullHistorySnapshot(baselineDocument);
+  const baselineVectors = getUpdateVersionVectors(baselineBytes);
 
   // The post-rotation rotate_baseline: full state re-encrypted under the new
   // content-key epoch, which the newcomer holds the key for.
@@ -46,9 +59,10 @@ test("a post-rotation reader is stranded: one undecryptable epoch fails the whol
     localVersionVector: null,
     pendingUpdates: [
       createPendingUpdateRecord({
-        updateData: bytesToBase64(
-          new TextEncoder().encode("post-rotation baseline state"),
-        ),
+        updateData: bytesToBase64(baselineBytes),
+        partialEndVersionVector: baselineVectors.partialEndVersionVector,
+        partialStartVersionVector: baselineVectors.partialStartVersionVector,
+        sourceVersionVector: encodeVersionVector(baselineDocument),
       }),
     ],
     signedAt: "2026-04-27T00:00:00.000Z",
@@ -86,9 +100,13 @@ test("a post-rotation reader is stranded: one undecryptable epoch fails the whol
     updates: [baselineUpdate],
   });
   expect(baselineOnly).toHaveLength(1);
-  expect(new TextDecoder().decode(baselineOnly[0]?.updateData)).toBe(
-    "post-rotation baseline state",
-  );
+  const baselineUpdateData = baselineOnly[0]?.updateData;
+  if (!baselineUpdateData) {
+    throw new Error("Expected decrypted baseline update data");
+  }
+  const newcomer = await createDocument("post-rotation-newcomer");
+  importUpdates(newcomer, [baselineUpdateData]);
+  expect(getTextValue(newcomer)).toBe("post-rotation baseline state");
 
   // But the batch the server actually returns (pre-rotation update + baseline)
   // throws on the undecryptable sibling and yields NOTHING — the newcomer cannot

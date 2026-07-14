@@ -9,7 +9,12 @@ import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
 import { assertOrganizationCanSync } from "../../billing/organizationBilling";
 import { applyContainerRekeys } from "../../containers/mutations";
-import { toMutationError } from "./errors";
+import {
+  appendAtomicRotationBaseline,
+  assertAtomicRotationBaselineCoversCommittedFrontier,
+} from "./atomicRotationBaseline";
+import { DocumentMutationError, toMutationError } from "./errors";
+import { lockDocumentLinkSetMutationHeads } from "./linkSetMutationLocks";
 import {
   assertDocumentCanRelink,
   assertDocumentLinkSetCanAdvance,
@@ -20,13 +25,120 @@ import {
   toContentKeyBundleResponse,
   toDocumentKekTargetsResponse,
   toStoredContentKeyBundleInput,
+  verifiedDocumentKekTargetsFromResolved,
 } from "./shared/records";
 import {
   loadCurrentDocumentManifest,
   verifyDocumentEvent,
-  verifyDocumentLinkSetMutationManifestFromRequest,
+  verifyDocumentLinkSetMutationAuthorizationFromRequest,
 } from "./shared/verification";
 import type { MutateDocumentLinkSetInput } from "./types";
+
+export interface DocumentLinkSetMutationWorkflowResult {
+  readonly insertedUpdateIds: readonly string[];
+  readonly response: DocumentLinkSetMutationResponse;
+}
+
+function requireMutationRotationBaseline(input: {
+  readonly eventType: "document.link" | "document.unlink";
+  readonly request: DocumentLinkSetMutationRequest;
+}) {
+  const baseline = input.request.rotationBaseline;
+  if (input.eventType === "document.link") {
+    if (baseline) {
+      throw new DocumentMutationError(
+        "Document link must not include a rotation baseline",
+        400,
+      );
+    }
+    return null;
+  }
+  if (!baseline) {
+    throw new DocumentMutationError(
+      "Document unlink requires a rotation baseline",
+      400,
+    );
+  }
+  return baseline;
+}
+
+function toDocumentLinkSetMutationResult(input: {
+  readonly contentKeyBundle: Awaited<
+    ReturnType<typeof storeDocumentContentKeyBundleInTransaction>
+  >;
+  readonly documentId: string;
+  readonly insertedUpdateIds: readonly string[];
+  readonly manifest: Parameters<typeof documentManifestBundleRecord>[0];
+}): DocumentLinkSetMutationWorkflowResult {
+  return {
+    insertedUpdateIds: input.insertedUpdateIds,
+    response: {
+      id: input.documentId,
+      accessManifest: documentManifestBundleRecord(input.manifest),
+      contentKeyBundle: toContentKeyBundleResponse(input.contentKeyBundle),
+      documentKekTargets: toDocumentKekTargetsResponse(
+        input.contentKeyBundle.currentTargets,
+      ),
+    },
+  };
+}
+
+async function advanceDocumentLinkSet(input: {
+  readonly baseline: DocumentLinkSetMutationRequest["rotationBaseline"];
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+  readonly manifest: Parameters<typeof documentManifestBundleRecord>[0];
+  readonly previousManifest: Parameters<typeof documentManifestBundleRecord>[0];
+  readonly request: DocumentLinkSetMutationRequest;
+}) {
+  await assertDocumentLinkSetCanAdvance(input);
+  await storeVerifiedAccessManifestInTransaction(
+    { verifiedManifest: input.manifest },
+    input.executor,
+  );
+  if (input.baseline) {
+    await assertAtomicRotationBaselineCoversCommittedFrontier(input.executor, {
+      baseline: input.baseline,
+      documentId: input.documentId,
+    });
+  }
+  await replaceDocumentContainerLinks({
+    documentId: input.documentId,
+    executor: input.executor,
+    incrementAttributionRevision: input.baseline !== undefined,
+    linkedContainerIds: input.manifest.state.linkedContainerIds,
+  });
+  return storeDocumentContentKeyBundleInTransaction(
+    toStoredContentKeyBundleInput(
+      input.documentId,
+      input.request.contentKeyBundle,
+    ),
+    input.executor,
+  );
+}
+
+async function lockDocumentLinkSetMutationFrontier(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+  readonly request: DocumentLinkSetMutationRequest;
+}) {
+  const observed = await loadCurrentDocumentManifest(
+    input.documentId,
+    input.executor,
+  );
+  await lockDocumentLinkSetMutationHeads({
+    ...input,
+    previousLinkedContainerIds: observed.state.linkedContainerIds,
+  });
+  const locked = await loadCurrentDocumentManifest(
+    input.documentId,
+    input.executor,
+  );
+  if (locked.manifestHash !== observed.manifestHash) {
+    throw new DocumentMutationError("Document manifest is stale", 409);
+  }
+  return locked;
+}
 
 async function mutateDocumentLinkSetWithExecutor(input: {
   readonly documentId: string;
@@ -35,7 +147,7 @@ async function mutateDocumentLinkSetWithExecutor(input: {
   readonly fingerprint: string;
   readonly request: DocumentLinkSetMutationRequest;
   readonly userId: string;
-}): Promise<DocumentLinkSetMutationResponse> {
+}): Promise<DocumentLinkSetMutationWorkflowResult> {
   try {
     await assertDocumentCanRelink({
       documentId: input.documentId,
@@ -50,57 +162,62 @@ async function mutateDocumentLinkSetWithExecutor(input: {
       fingerprint: input.fingerprint,
       userId: input.userId,
     });
-    // See createDocumentWithExecutor: rekeys must land before current path
-    // validation so callers can recover from stale KEK material in one write.
     await applyContainerRekeys({
       executor: input.executor,
       fingerprint: input.fingerprint,
       requests: input.request.containerRekeys,
       userId: input.userId,
     });
-    const previousManifest = await loadCurrentDocumentManifest(
-      input.documentId,
-      input.executor,
-    );
-    const manifest = await verifyDocumentLinkSetMutationManifestFromRequest({
-      event,
+    const previousManifest = await lockDocumentLinkSetMutationFrontier({
+      documentId: input.documentId,
       executor: input.executor,
-      previousManifest,
       request: input.request,
     });
-
-    await assertDocumentLinkSetCanAdvance({
+    const authorization =
+      await verifyDocumentLinkSetMutationAuthorizationFromRequest({
+        event,
+        executor: input.executor,
+        previousManifest,
+        request: input.request,
+      });
+    const { manifest } = authorization;
+    const rotationBaseline = requireMutationRotationBaseline(input);
+    const contentKeyBundle = await advanceDocumentLinkSet({
+      baseline: rotationBaseline ?? undefined,
       documentId: input.documentId,
       executor: input.executor,
       manifest,
       previousManifest,
+      request: input.request,
     });
-    await storeVerifiedAccessManifestInTransaction(
-      { verifiedManifest: manifest },
-      input.executor,
-    );
-    await replaceDocumentContainerLinks({
+
+    let insertedUpdateIds: readonly string[] = [];
+    if (rotationBaseline) {
+      insertedUpdateIds = await appendAtomicRotationBaseline({
+        baseline: rotationBaseline,
+        documentId: input.documentId,
+        executor: input.executor,
+        fingerprint: input.fingerprint,
+        manifest,
+        request: input.request,
+        userId: input.userId,
+        writeAuthorization: {
+          authorizingContainerPaths: authorization.authorizingContainerPaths,
+          documentKekTargets: verifiedDocumentKekTargetsFromResolved(
+            contentKeyBundle.currentTargets,
+          ),
+          documentManifest: manifest,
+          principalPolicies: authorization.principalPolicies,
+        },
+      });
+    }
+
+    return toDocumentLinkSetMutationResult({
+      contentKeyBundle,
       documentId: input.documentId,
-      executor: input.executor,
-      linkedContainerIds: manifest.state.linkedContainerIds,
+      insertedUpdateIds,
+      manifest,
     });
-
-    const contentKeyBundle = await storeDocumentContentKeyBundleInTransaction(
-      toStoredContentKeyBundleInput(
-        input.documentId,
-        input.request.contentKeyBundle,
-      ),
-      input.executor,
-    );
-
-    return {
-      id: input.documentId,
-      accessManifest: documentManifestBundleRecord(manifest),
-      contentKeyBundle: toContentKeyBundleResponse(contentKeyBundle),
-      documentKekTargets: toDocumentKekTargetsResponse(
-        contentKeyBundle.currentTargets,
-      ),
-    };
   } catch (error) {
     const mutationError = toMutationError(error);
     if (mutationError) {
@@ -113,7 +230,7 @@ async function mutateDocumentLinkSetWithExecutor(input: {
 export async function runDocumentLinkSetMutationWorkflow(
   db: ApiDatabase,
   input: MutateDocumentLinkSetInput,
-): Promise<DocumentLinkSetMutationResponse> {
+): Promise<DocumentLinkSetMutationWorkflowResult> {
   try {
     return await db.transaction(async (tx) => {
       const result = await mutateDocumentLinkSetWithExecutor({

@@ -283,6 +283,9 @@ export interface RelinkRemoteDocumentResult {
 
 export interface DocumentSyncPreparedUpdate {
   checkpointKind?: DocumentOutgoingUpdate["checkpointKind"] | undefined;
+  checkpointPayloadKind?:
+    | DocumentOutgoingUpdate["checkpointPayloadKind"]
+    | undefined;
   ciphertextHash: string;
   contentRecordId?: string | undefined;
   encryptedData: string;
@@ -311,9 +314,12 @@ export interface ParsedDocumentEncryptedUpdate {
 }
 
 export interface DecryptedDocumentSyncUpdate {
+  checkpointKind?: "rotate_baseline";
+  checkpointPayloadKind?: "full_history_snapshot";
   id: string;
   partialEndVersionVector: string;
   partialStartVersionVector: string;
+  sourceVersionVector?: string;
   updateData: Uint8Array;
 }
 

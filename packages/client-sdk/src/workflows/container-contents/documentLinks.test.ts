@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
 import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
@@ -21,6 +22,13 @@ import {
   purgeLocalContainerDocument,
   relinkRemoteContainerDocument,
 } from "./documentLinks";
+
+async function createRotationSnapshot(seed: string) {
+  const document = await createDocument(seed);
+  document.getText("text").update("rotation state");
+  document.commit();
+  return exportFullHistorySnapshot(document);
+}
 
 test("relinkRemoteContainerDocument persists linked container projections after a successful remote mutation", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -205,6 +213,7 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
       [rootProjection.containerId],
     );
     const submittedRequests: Array<{
+      hasRotationBaseline: boolean;
       operation: "link" | "unlink";
       targetContainerId: string;
     }> = [];
@@ -214,6 +223,7 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
       documentId: writerProjection.documentId,
       noteId: "containerContents-note-1",
       resolveProjectionUserKey,
+      rotationSnapshot: await createRotationSnapshot("move-rotation"),
       runtime: {
         apiClient: {
           getContainerWriterProjection: async (containerId) => {
@@ -232,6 +242,7 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
           primeDocumentWriterProjection: () => {},
           linkDocument: async (documentId, request) => {
             submittedRequests.push({
+              hasRotationBaseline: request.rotationBaseline !== undefined,
               operation: "link",
               targetContainerId: String(
                 Reflect.get(
@@ -256,6 +267,7 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
           },
           unlinkDocument: async (documentId, request) => {
             submittedRequests.push({
+              hasRotationBaseline: request.rotationBaseline !== undefined,
               operation: "unlink",
               targetContainerId: String(
                 Reflect.get(
@@ -313,10 +325,12 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
 
     expect(submittedRequests).toEqual([
       {
+        hasRotationBaseline: false,
         operation: "link",
         targetContainerId: siblingProjection.containerId,
       },
       {
+        hasRotationBaseline: true,
         operation: "unlink",
         targetContainerId: rootProjection.containerId,
       },

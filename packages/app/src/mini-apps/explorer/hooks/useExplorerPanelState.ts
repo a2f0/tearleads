@@ -10,7 +10,10 @@ import {
 } from "../../../providers/sdk/TearleadsProvider";
 import { useExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import { useExplorerContainerInfoLoader } from "../../../stores/explorer/containerInfo";
-import { useExplorerDocumentInfoLoader } from "../../../stores/explorer/documentInfo";
+import {
+  useExplorerDocumentAttributionRangesLoader,
+  useExplorerDocumentInfoLoader,
+} from "../../../stores/explorer/documentInfo";
 import { useExplorerDocumentLinks } from "../../../stores/explorer/documentRuntime";
 import {
   isExplorerContainerUnderTrash,
@@ -113,7 +116,15 @@ export function useExplorerPanelState(params: {
     nodes: explorer.nodes,
   });
   const loadBlobInfo = useExplorerBlobInfoLoader({ appData });
-  const loadDocumentInfo = useExplorerDocumentInfoLoader({ appData });
+  const loadDocumentInfo = useExplorerDocumentInfoLoader({
+    appData,
+    documentContainerId: selection.selectedDocument?.containerId,
+    documentId: selection.selectedDocument?.documentId,
+    documentLocalId: selection.selectedDocument?.id,
+    documentUpdatedAt: selection.selectedDocument?.updatedAt,
+  });
+  const loadDocumentAttributionRanges =
+    useExplorerDocumentAttributionRangesLoader();
   const routeState = useExplorerRoute({
     loadDocumentSummary,
     nodes: explorer.nodes,
@@ -395,6 +406,7 @@ export function useExplorerPanelState(params: {
     importDroppedFiles,
     loadBlobInfo,
     loadContainerInfo,
+    loadDocumentAttributionRanges,
     loadDocumentInfo,
     modalState,
     moveContainerToTrash,

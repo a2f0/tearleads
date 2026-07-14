@@ -1,0 +1,257 @@
+import { base64ToBytes } from "@tearleads/encoding";
+import {
+  encodeVersionVector,
+  exportFullHistorySnapshot,
+  importSnapshot,
+  importUpdates,
+  versionVectorsEqual,
+} from "@tearleads/loro";
+import {
+  createDocumentWriterPublicKeyResolver,
+  resolveDocumentCreateAuthor,
+  syncRemoteDocument,
+} from "../../../workflows/documents";
+import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
+import { createStoredDocument } from "./initialization";
+import {
+  advancePendingBaseVersion,
+  enqueuePendingUpdate,
+  listPendingUpdates,
+  pendingDeltaSinceBase,
+  persistDocument,
+} from "./persistence";
+import type { DocumentState, DocumentStoreState } from "./state";
+import { importSyncedDocumentUpdates } from "./syncUpdateImport";
+
+function importPendingUpdates(
+  document: DocumentState,
+  pendingUpdates: Awaited<ReturnType<typeof listPendingUpdates>>,
+): void {
+  for (const pendingUpdate of pendingUpdates) {
+    if (
+      pendingUpdate.sourceVersionVector !== null &&
+      pendingUpdate.sourceVersionVector !== undefined
+    ) {
+      importSnapshot(document, base64ToBytes(pendingUpdate.updateData));
+    }
+  }
+  const ordinaryUpdates = pendingUpdates
+    .filter(
+      (pendingUpdate) =>
+        pendingUpdate.sourceVersionVector === null ||
+        pendingUpdate.sourceVersionVector === undefined,
+    )
+    .map((pendingUpdate) => base64ToBytes(pendingUpdate.updateData));
+  if (ordinaryUpdates.length > 0) {
+    importUpdates(document, ordinaryUpdates);
+  }
+}
+
+function assertRotationRecoveryPrerequisites(state: DocumentStoreState) {
+  const author = resolveDocumentCreateAuthor(state.runtime);
+  const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
+  const documentId = state.record?.documentId;
+  if (
+    !author ||
+    !encapsulationKeyPair ||
+    !documentId ||
+    !state.runtime.auth.isAuthenticated ||
+    !state.runtime.state.online
+  ) {
+    throw new Error(
+      "Rotation requires verified full-history recovery, but remote sync prerequisites are unavailable",
+    );
+  }
+  return { author, documentId, encapsulationKeyPair };
+}
+
+function reconcileSentUpdateIds(
+  state: DocumentStoreState,
+  sentUpdateIds: readonly string[],
+  acceptedUpdateIds: ReadonlySet<string>,
+): void {
+  for (const updateId of sentUpdateIds) {
+    if (!acceptedUpdateIds.has(updateId)) {
+      state.locallyAcceptedUpdateIds.delete(updateId);
+    }
+  }
+}
+
+async function pullVerifiedHistoryForRotation(input: {
+  currentRecord: NonNullable<DocumentStoreState["record"]>;
+  localVersionVector: string | null;
+  pendingUpdates: Awaited<ReturnType<typeof listPendingUpdates>>;
+  state: DocumentStoreState;
+}) {
+  const { author, documentId, encapsulationKeyPair } =
+    assertRotationRecoveryPrerequisites(input.state);
+  const sentUpdateIds = input.pendingUpdates.map((update) => update.id);
+  for (const updateId of sentUpdateIds) {
+    input.state.locallyAcceptedUpdateIds.add(updateId);
+  }
+
+  let synced: Awaited<ReturnType<typeof syncRemoteDocument>>;
+  try {
+    synced = await syncRemoteDocument({
+      apiClient: input.state.runtime.apiClient,
+      author,
+      documentId,
+      execSql: input.state.runtime.infra.execSql,
+      isRemoteSyncBlocked: input.state.runtime.util.isRemoteSyncBlocked,
+      localVersionVector: input.localVersionVector,
+      minLsn: input.currentRecord.lastCommitLsn ?? undefined,
+      pendingUpdates: input.pendingUpdates,
+      persistedState: input.currentRecord,
+      resolveProjectionUserKey: input.state.resolveProjectionUserKey,
+      resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
+        logPrefix: "Documents",
+        runtime: input.state.runtime,
+        writerKeyLabel: "writer key",
+      }),
+      targetSecretKey: encapsulationKeyPair.secretKey,
+      warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+        input.state.runtime,
+      ),
+      writerProjection:
+        input.state.writerProjection?.documentId === documentId
+          ? input.state.writerProjection
+          : undefined,
+    });
+  } catch (error) {
+    reconcileSentUpdateIds(input.state, sentUpdateIds, new Set());
+    throw error;
+  }
+  if (!synced) {
+    reconcileSentUpdateIds(input.state, sentUpdateIds, new Set());
+    throw new Error(
+      "Rotation full-history recovery could not complete; key rotation was not started",
+    );
+  }
+  reconcileSentUpdateIds(
+    input.state,
+    sentUpdateIds,
+    new Set(synced.response.acceptedOutgoingUpdateIds),
+  );
+  return synced;
+}
+
+async function installRebuiltDocument(input: {
+  currentRecord: NonNullable<DocumentStoreState["record"]>;
+  rebuiltDoc: DocumentState;
+  state: DocumentStoreState;
+  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>;
+}): Promise<Uint8Array> {
+  exportFullHistorySnapshot(input.rebuiltDoc);
+  const previousPendingBaseVersion = input.state.pendingBaseVersion;
+  advancePendingBaseVersion(input.state, input.rebuiltDoc);
+  try {
+    await persistDocument(
+      input.state,
+      input.rebuiltDoc,
+      {
+        ...input.synced.persistedState,
+        lastCommitLsn:
+          input.synced.response.commitLsn ??
+          input.currentRecord.lastCommitLsn ??
+          null,
+      },
+      {
+        acceptedPendingUpdateIds: input.synced.settledPendingUpdateIds,
+        preserveSnapshotStructuredFields: input.state.pendingLocalWrites > 0,
+        preserveSnapshotText: input.state.pendingLocalWrites > 0,
+      },
+    );
+  } catch (error) {
+    input.state.pendingBaseVersion = previousPendingBaseVersion;
+    throw error;
+  }
+  input.state.doc = input.rebuiltDoc;
+  input.state.writerProjection =
+    input.synced.writerProjection ?? input.state.writerProjection;
+  return exportFullHistorySnapshot(input.state.doc);
+}
+
+async function recoverFullHistoryForRotation(
+  state: DocumentStoreState,
+): Promise<Uint8Array> {
+  const currentDoc = state.doc;
+  const currentRecord = state.record;
+  if (!currentDoc || !currentRecord) {
+    throw new Error(
+      "Document must finish loading before its content key can rotate",
+    );
+  }
+
+  const capturedVersion = encodeVersionVector(currentDoc);
+  const uncoveredLocalDelta = pendingDeltaSinceBase(state, currentDoc);
+  const pendingUpdates = await listPendingUpdates(state);
+  let localFullHistorySnapshot: Uint8Array | null = null;
+  try {
+    localFullHistorySnapshot = exportFullHistorySnapshot(currentDoc);
+  } catch {
+    // A shallow-restored document cannot seed a replayable baseline. Pull all
+    // remote history below and rebuild into a brand-new empty document.
+  }
+
+  // Always perform a verified pull. Another writer may have advanced the
+  // remote frontier since our last sync; submitting the clean but stale local
+  // snapshot would otherwise fail the atomic coverage check on every retry.
+  // Full-history locals can request only their missing tail; shallow locals
+  // pull from the empty frontier because they cannot seed a replayable rebuild.
+  const synced = await pullVerifiedHistoryForRotation({
+    currentRecord,
+    localVersionVector:
+      localFullHistorySnapshot === null ? null : capturedVersion,
+    pendingUpdates,
+    state,
+  });
+
+  // Do not replace or persist over a document that changed while the verified
+  // pull was in flight. A retry can recover the newer frontier safely.
+  if (
+    state.doc !== currentDoc ||
+    !versionVectorsEqual(encodeVersionVector(currentDoc), capturedVersion)
+  ) {
+    throw new Error(
+      "Document changed during rotation recovery; retry key rotation",
+    );
+  }
+
+  const rebuiltDoc = await createStoredDocument(state);
+  if (localFullHistorySnapshot !== null) {
+    importSnapshot(rebuiltDoc, localFullHistorySnapshot);
+  }
+  importSyncedDocumentUpdates(rebuiltDoc, synced.decryptedUpdates);
+  // A successful write pull normally echoes accepted local updates, but merge
+  // the durable queue too so recovery does not depend on that response detail.
+  importPendingUpdates(rebuiltDoc, pendingUpdates);
+  if (uncoveredLocalDelta.byteLength > 0) {
+    importUpdates(rebuiltDoc, [uncoveredLocalDelta]);
+    // `pendingBaseVersion` can intentionally lag a deferred or interrupted
+    // local write. Make that uncovered delta durable before advancing it.
+    await enqueuePendingUpdate(state, uncoveredLocalDelta);
+  }
+
+  return installRebuiltDocument({ currentRecord, rebuiltDoc, state, synced });
+}
+
+/**
+ * Serialize rotation recovery behind local writes. New writes enqueue behind
+ * this promise, so the reconstructed document is installed before they mutate
+ * it. This is a preflight, not an atomic link-set/rotation transaction.
+ */
+export function assertDocumentStoreCanRotateContentKey(
+  state: DocumentStoreState,
+): Promise<Uint8Array> {
+  const recovery = state.writeChain
+    .catch(() => undefined)
+    .then(() => recoverFullHistoryForRotation(state));
+  // The returned promise reports the preflight failure to its caller. Keep the
+  // internal serialization tail fulfilled so the same rejection is not also
+  // emitted as an unhandled promise and later writes/rotation retries can run.
+  state.writeChain = recovery.then(
+    () => undefined,
+    () => undefined,
+  );
+  return recovery;
+}

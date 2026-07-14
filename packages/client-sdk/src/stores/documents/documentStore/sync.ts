@@ -1,4 +1,4 @@
-import { encodeVersionVector, importUpdates } from "@tearleads/loro";
+import { encodeVersionVector } from "@tearleads/loro";
 import { isDocumentUpdateCreatedEvent } from "../../../data/documentSync";
 import {
   createDocumentWriterPublicKeyResolver,
@@ -36,6 +36,7 @@ import {
 import { syncPendingAttachments } from "./syncAttachments";
 import { syncDetachedAttachmentBindings } from "./syncDetachedAttachments";
 import { ensureRemoteDocument } from "./syncShared";
+import { importSyncedDocumentUpdates } from "./syncUpdateImport";
 
 function canRunScheduledSync(state: DocumentStoreState): boolean {
   return (
@@ -212,36 +213,36 @@ async function applyIncomingSyncedUpdates(
   state: DocumentStoreState,
   currentDoc: DocumentState,
   syncAttempt: DocumentSyncAttempt,
-) {
+): Promise<DocumentState> {
   if (syncAttempt.synced.decryptedUpdates.length === 0) {
-    return;
+    return currentDoc;
   }
 
-  importUpdates(
+  const mergedDoc = importSyncedDocumentUpdates(
     currentDoc,
-    syncAttempt.synced.decryptedUpdates.map((update) => update.updateData),
+    syncAttempt.synced.decryptedUpdates,
   );
   // Remote ops are now in the doc and already on the server, so fold them into
   // the durable marker; a later local edit must not re-export them as outgoing.
-  advancePendingBaseVersion(state, currentDoc);
+  advancePendingBaseVersion(state, mergedDoc);
 
   // Surface the merged text/fields only when the user is not mid-edit. While
   // local writes are in flight the doc can lag the latest keystroke, so reading
   // it here would regress the controlled editor and jump the caret; preserve the
-  // optimistic snapshot instead. The merged remote text still surfaces on the
-  // trailing coalesced pass once typing drains (pendingLocalWrites back to 0).
+  // optimistic snapshot; merged remote text surfaces once typing drains.
   if (state.pendingLocalWrites > 0) {
     setReadySnapshot(
       state,
-      currentDoc,
+      mergedDoc,
       true,
       state.snapshot.text,
       state.snapshot.structuredFields,
     );
-    return;
+    return mergedDoc;
   }
 
-  setReadySnapshot(state, currentDoc, true);
+  setReadySnapshot(state, mergedDoc, true);
+  return mergedDoc;
 }
 
 function documentWriterProjectionMatchesSyncResponse(
@@ -295,7 +296,11 @@ async function finalizeDocumentSync(
 ): Promise<DocumentRecord> {
   const { synced } = syncAttempt;
 
-  await applyIncomingSyncedUpdates(state, currentDoc, syncAttempt);
+  const mergedDoc = await applyIncomingSyncedUpdates(
+    state,
+    currentDoc,
+    syncAttempt,
+  );
   // The sent IDs were pre-registered as self-authored before the network call so
   // the redis echo can never beat us. Reconcile against what the server actually
   // accepted: an ID we sent but the server did not accept will never be echoed,
@@ -311,7 +316,7 @@ async function finalizeDocumentSync(
 
   const { record: nextRecord } = await persistDocument(
     state,
-    currentDoc,
+    mergedDoc,
     {
       ...synced.persistedState,
       lastCommitLsn:
@@ -353,7 +358,7 @@ async function finalizeDocumentSync(
     requestDocumentStoreSync(state);
   }
 
-  await hydrateAttachmentBlobs(state, currentDoc, nextRecord);
+  await hydrateAttachmentBlobs(state, mergedDoc, nextRecord);
   return nextRecord;
 }
 

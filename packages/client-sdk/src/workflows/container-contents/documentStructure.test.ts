@@ -15,14 +15,16 @@ import {
   type DocumentStructuralMutationRelinkInput,
   type DocumentStructuralMutationRuntime,
   moveDocumentLink,
+  removeDocumentLink,
 } from "./documentStructure";
 
 function createRuntime(
   logs: string[] = [],
   execSql: ExecSql = async () => [],
+  apiClient: DocumentStructuralMutationRuntime["apiClient"] = {} as DocumentStructuralMutationRuntime["apiClient"],
 ): DocumentStructuralMutationRuntime {
   return {
-    apiClient: {} as DocumentStructuralMutationRuntime["apiClient"],
+    apiClient,
     auth: {
       isAuthenticated: true,
       organizationId: null,
@@ -119,6 +121,7 @@ test("moveDocumentLink relinks local-only documents without remote mutation", as
     openDocumentStore: (input) => {
       primeInputs.push(input);
       return {
+        assertCanRotateContentKey: async () => new Uint8Array(),
         ensureInitialized: async () => true,
         relink: async (relinkInput) => {
           relinkInputs.push(relinkInput);
@@ -179,7 +182,6 @@ test("moveDocumentLink relinks local-only documents without remote mutation", as
       containerId: "trash-container",
       documentId: null,
       localId: "note-1",
-      queueBaselineAfterRelink: undefined,
     },
   ]);
   expect(mergedDocuments).toEqual([moved.note]);
@@ -209,6 +211,7 @@ test("moveDocumentLink queues synced document moves and applies the local projec
         mergedDocuments.push(document);
       },
       openDocumentStore: () => ({
+        assertCanRotateContentKey: async () => new Uint8Array(),
         ensureInitialized: async () => true,
         relink: async (input) => {
           relinkInputs.push(input);
@@ -275,7 +278,6 @@ test("moveDocumentLink queues synced document moves and applies the local projec
         containerId: "trash-container",
         documentId: "document-1",
         localId: "note-1",
-        queueBaselineAfterRelink: undefined,
       },
     ]);
     expect(mergedDocuments).toEqual([moved.note]);
@@ -321,6 +323,7 @@ test("activateDocumentLink relinks the local document without requesting remote 
       mergedDocuments.push(document);
     },
     openDocumentStore: () => ({
+      assertCanRotateContentKey: async () => new Uint8Array(),
       ensureInitialized: async () => true,
       relink: async (input) => {
         relinkInputs.push(input);
@@ -364,7 +367,6 @@ test("activateDocumentLink relinks the local document without requesting remote 
       containerId: "container-2",
       documentId: "document-1",
       localId: "note-1",
-      queueBaselineAfterRelink: undefined,
     },
   ]);
   expect(mergedDocuments).toEqual([activated]);
@@ -383,6 +385,7 @@ test("activateDocumentLink skips documents that are not locally ready", async ()
       throw new Error("mergeDocumentSummary should not be called.");
     },
     openDocumentStore: () => ({
+      assertCanRotateContentKey: async () => new Uint8Array(),
       ensureInitialized: async () => false,
       relink: async () => {
         throw new Error("relink should not be called.");
@@ -407,4 +410,40 @@ test("activateDocumentLink skips documents that are not locally ready", async ()
   expect(logs).toEqual([
     "Container contents: note note-1 is not ready to mutate locally",
   ]);
+});
+
+test("removeDocumentLink fails rotation preflight before any remote request", async () => {
+  let remoteRequestCount = 0;
+  const runtime = createRuntime([], async () => [], {
+    getDocumentWriterProjection: async () => {
+      remoteRequestCount += 1;
+      return null;
+    },
+  } as unknown as DocumentStructuralMutationRuntime["apiClient"]);
+  const host: DocumentStructuralMutationHost<string> = {
+    documentWorkflowRuntime: (containerId) => `runtime:${containerId}`,
+    mergeDocumentSummary: () => undefined,
+    openDocumentStore: () => ({
+      assertCanRotateContentKey: async () => {
+        throw new Error(
+          "Rotation requires a full-history document; shallow-restored state must be reconstructed before key rotation",
+        );
+      },
+      ensureInitialized: async () => true,
+      relink: async () => null,
+      requestSync: () => undefined,
+      updateRuntime: () => undefined,
+    }),
+  };
+
+  await expect(
+    removeDocumentLink({
+      host,
+      note: createNote(),
+      removedContainerId: "container-2",
+      runtime,
+      setLinkedContainerIdsForDocument: () => undefined,
+    }),
+  ).rejects.toThrow("shallow-restored state must be reconstructed");
+  expect(remoteRequestCount).toBe(0);
 });

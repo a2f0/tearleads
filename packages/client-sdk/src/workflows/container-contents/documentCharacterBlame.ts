@@ -4,8 +4,7 @@ import type { DocumentEditAttributionResponse } from "@tearleads/validators/resp
 import {
   type DocumentBlameRange,
   type DocumentCharacterBlameSummary,
-  summarizeBlameRanges,
-  summarizeCharacterBlame,
+  summarizeDocumentBlame,
 } from "../../data/documents/editAttribution";
 
 // Op-id extraction is linear (~1.8µs/char — ~90ms for a 50k snapshot, flat per
@@ -44,10 +43,7 @@ export function computeDocumentBlame(
     if (source === null) {
       return null;
     }
-    return {
-      characterBlame: summarizeCharacterBlame(source.opIds, segments),
-      blameRanges: summarizeBlameRanges(source, segments),
-    };
+    return summarizeDocumentBlame(source, segments);
   } catch {
     return null;
   }

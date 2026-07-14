@@ -21,7 +21,9 @@ function createDocumentInfo(
     local: {} as DocumentInfo["local"],
     remoteInfo: {
       activeAttachmentBindings: [],
+      attributionRevision: 1,
       attributionSegments: [],
+      attributionStatus: "available",
       authorizingContainerPaths: [],
       blameRanges: [],
       characterBlame: {
