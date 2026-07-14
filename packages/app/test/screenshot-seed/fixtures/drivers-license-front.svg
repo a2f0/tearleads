@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400" role="img" aria-label="Sample driver license front">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e8f0fe"/>
+      <stop offset="1" stop-color="#c9dcff"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="640" height="400" rx="24" fill="url(#bg)" stroke="#3a5ba0" stroke-width="4"/>
+  <rect x="0" y="0" width="640" height="64" rx="24" fill="#3a5ba0"/>
+  <text x="24" y="42" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#ffffff">SAMPLE STATE · DRIVER LICENSE</text>
+  <rect x="24" y="96" width="150" height="180" rx="8" fill="#ffffff" stroke="#9bb4e0" stroke-width="2"/>
+  <circle cx="99" cy="160" r="42" fill="#c9dcff"/>
+  <rect x="57" y="212" width="84" height="48" rx="8" fill="#c9dcff"/>
+  <g font-family="Arial, sans-serif" fill="#1f3050">
+    <text x="200" y="120" font-size="18" fill="#5a6b8a">DL</text>
+    <text x="200" y="146" font-size="24" font-weight="700">S123-4567-8901</text>
+    <text x="200" y="188" font-size="18" fill="#5a6b8a">NAME</text>
+    <text x="200" y="214" font-size="24" font-weight="700">LOVELACE, ADA</text>
+    <text x="200" y="256" font-size="18" fill="#5a6b8a">EXP</text>
+    <text x="200" y="282" font-size="22" font-weight="700">2031-04-30</text>
+  </g>
+  <text x="320" y="360" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" font-weight="800" fill="#3a5ba0" opacity="0.28">SPECIMEN — NOT A REAL DOCUMENT</text>
+</svg>

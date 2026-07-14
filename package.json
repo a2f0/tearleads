@@ -51,6 +51,7 @@
     "report:dependencies:mermaid": "bun scripts/reportDependencyGraph.ts --format mermaid",
     "report:lines": "bun scripts/countLines.ts",
     "screenshots": "bun run --filter=app-web screenshots",
+    "screenshots:seed": "bun packages/app/test/screenshot-seed/buildScreenshotSeed.ts",
     "test:bun": "bun run --filter='@tearleads/sqlite-instance' build && bun run --filter='@tearleads/client-sdk' build && bun run --filter='*' --sequential test",
     "test:architecture": "bun scripts/testArchitecture.ts",
     "test:turbo": "bun run test:turbo:bun && bun run test:turbo:e2e",

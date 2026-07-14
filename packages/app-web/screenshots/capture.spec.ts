@@ -1,7 +1,15 @@
 import { mkdir } from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+import {
+  clearStaleLocalState,
+  disableAnimations,
+  openWindowedApp,
+  visiblePane,
+  waitForBooted,
+} from "./appShell";
+import { restoreSeedBackup } from "./seedRestore";
 
 // This file lives at packages/app-web/screenshots/, so the repo root is three
 // levels up. Screenshots are written to `<repoRoot>/.screenshots/<project>/`.
@@ -12,10 +20,20 @@ const REPO_ROOT = path.resolve(
   "..",
 );
 
+// The committed seed artifact + the password it was encrypted with (see
+// packages/app/test/screenshot-seed/fixtures/seed.json). Regenerate the artifact
+// with `bun run screenshots:seed`.
+const SEED_ARTIFACT_PATH = path.join(
+  REPO_ROOT,
+  "packages/app/test/screenshot-seed/fixtures/tearleads-seed.tlbackup.json",
+);
+const SEED_PASSWORD = "screenshot-seed";
+
 // The app self-provisions an identity on boot via IdentityAutopilot (the default
 // "app" host profile sets autoGenerateIdentity) and the local keychain is
-// unlocked on a fresh context, so no manual "Generate Key Pair" step is needed.
-// Both layouts are captured from one spec, branching on the rendered shell:
+// unlocked on a fresh context. We then restore the seed artifact through the
+// backup-restore mini-app and reload so the app reopens the populated DB under
+// the same persisted identity. Both layouts are captured from one spec:
 //
 //   mobile -> routed layout: one mini-app per URL; screenshot the viewport.
 //   web    -> windowed desktop: open each mini-app as a floating window from the
@@ -60,55 +78,50 @@ const WINDOWED_MENU_APPS: readonly WindowedApp[] = [
   { name: "backup-restore", menuLabel: "Backup / Restore" },
 ];
 
-const DISABLE_ANIMATIONS_CSS = `
-  *, *::before, *::after {
-    animation-duration: 0s !important;
-    animation-delay: 0s !important;
-    transition-duration: 0s !important;
-    transition-delay: 0s !important;
-    caret-color: transparent !important;
+// Opens the backup-restore mini-app for whichever shell is rendered.
+async function openBackupRestore(page: Page, routed: boolean): Promise<void> {
+  if (routed) {
+    await page.goto("/app/backup-restore");
+    await waitForBooted(page);
+    return;
   }
-`;
-
-function visiblePane(page: Page): Locator {
-  return page.locator(".pane:not(.pane-hidden)").first();
+  await openWindowedApp(page, "Backup / Restore");
 }
 
-async function waitForBooted(page: Page): Promise<void> {
-  // Windowed shell mounts `.pane`; the routed (mobile) shell mounts
-  // `.routed-pane`. Either means the app tree has rendered.
-  await page
-    .locator(".pane:not(.pane-hidden), .routed-pane")
-    .first()
-    .waitFor({ state: "visible", timeout: 60_000 });
-
-  // Best-effort: let the auto-registration attempt (which targets the dev API and
-  // may be refused) and initial asset loads settle. Never block on it.
-  await page.waitForLoadState("networkidle").catch(() => {});
-
-  // Autopilot clears the first-run "Generate Key Pair" affordance once it has
-  // derived the identity. If it never appears this resolves immediately.
-  await page
-    .getByText("Generate Key Pair")
-    .first()
-    .waitFor({ state: "hidden", timeout: 20_000 })
-    .catch(() => {});
-
-  // Small settle for the SQLite worker boot + first paint of mini-app content.
-  await page.waitForTimeout(1_500);
-}
-
-async function disableAnimations(page: Page): Promise<void> {
-  // Re-inject after each navigation; a full load resets injected styles.
-  await page.addStyleTag({ content: DISABLE_ANIMATIONS_CSS });
+// Fails loudly if the restore + reload did not actually surface seeded data
+// (wrong password, tab race, schema drift), so we never emit blank screenshots
+// that look "successful". Explorer lists everything in the restored root, so the
+// seeded driver's-license document is a reliable, layout-independent signal.
+async function assertSeededDataVisible(
+  page: Page,
+  routed: boolean,
+): Promise<void> {
+  if (routed) {
+    await page.goto("/app/explorer");
+    await waitForBooted(page);
+    await expect(page.getByText(/Driver's License/).first()).toBeVisible({
+      timeout: 20_000,
+    });
+    return;
+  }
+  await openWindowedApp(page, "Explorer");
+  const pane = visiblePane(page);
+  await expect(pane.getByText(/Driver's License/).first()).toBeVisible({
+    timeout: 20_000,
+  });
+  await pane.locator(".window-close").click();
+  await expect(pane.locator(".window")).toHaveCount(0);
 }
 
 async function captureRouted(page: Page, outputDir: string): Promise<void> {
   for (const screen of ROUTED_SCREENS) {
-    // The caller already navigated to "/" and booted (to detect the layout), so
-    // skip the redundant reload + boot wait for whichever route we are already
-    // on rather than reloading it a second time.
-    if (new URL(page.url()).pathname !== screen.route) {
+    // The caller already navigated + booted for the assertion, so skip the
+    // redundant reload for whichever route we are already on. Normalize trailing
+    // slashes so a router redirect (e.g. "/app/explorer/") is not treated as a
+    // different route and re-navigated needlessly.
+    const currentPath = new URL(page.url()).pathname.replace(/\/$/, "") || "/";
+    const targetPath = screen.route.replace(/\/$/, "") || "/";
+    if (currentPath !== targetPath) {
       await page.goto(screen.route);
       await waitForBooted(page);
     }
@@ -148,11 +161,7 @@ async function captureOpenWindow(
 
 async function captureWindowed(page: Page, outputDir: string): Promise<void> {
   for (const app of WINDOWED_MENU_APPS) {
-    await visiblePane(page).locator(".pane-footer-menu-button").click();
-    await page
-      .locator(".menu")
-      .getByRole("button", { name: app.menuLabel, exact: true })
-      .click();
+    await openWindowedApp(page, app.menuLabel);
     await captureOpenWindow(page, outputDir, app.name);
   }
 
@@ -170,8 +179,27 @@ test("capture screenshots", async ({ page }, testInfo) => {
 
   await page.goto("/");
   await waitForBooted(page);
-
+  // Disable animations up front so the restore flow (tab switch, inputs) runs
+  // instantly; the later reload resets injected styles, so it is re-applied then.
+  await disableAnimations(page);
   const routed = (await page.locator(".routed-pane").count()) > 0;
+
+  // Seed the DB: restore the committed backup artifact through the shipping
+  // backup-restore mini-app, clear the stale session/caches so the reload adopts
+  // the restored root container, then reload so the populated DB is reopened.
+  await openBackupRestore(page, routed);
+  await restoreSeedBackup(page, {
+    artifactPath: SEED_ARTIFACT_PATH,
+    password: SEED_PASSWORD,
+  });
+  await clearStaleLocalState(page);
+  await page.reload();
+  await waitForBooted(page);
+  // Disable animations before asserting so a still-animating window/pane can't
+  // flake the visibility check (capture phases re-inject after their navigations).
+  await disableAnimations(page);
+  await assertSeededDataVisible(page, routed);
+
   if (routed) {
     await captureRouted(page, outputDir);
   } else {
