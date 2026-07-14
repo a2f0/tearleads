@@ -63,7 +63,6 @@ const scanExtensions = new Set([
 const ignoredPathPatterns = [
   /^bun\.lock$/,
   /^\.codex\//,
-  /^\.gemini\//,
   /^\.serena\//,
   /^\.turbo\//,
   /^dist\//,
