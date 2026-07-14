@@ -6,14 +6,7 @@ export function resolveExplorerPrimaryOrganizationId(input: {
   nodes: ReadonlyArray<ContainerNode>;
   personalRootContainerId: string | null | undefined;
 }): string | null {
-  if (
-    input.primaryLocalOrganizationId &&
-    input.nodes.some(
-      (node) =>
-        node.parentId === null &&
-        node.organizationId === input.primaryLocalOrganizationId,
-    )
-  ) {
+  if (input.primaryLocalOrganizationId) {
     return input.primaryLocalOrganizationId;
   }
 

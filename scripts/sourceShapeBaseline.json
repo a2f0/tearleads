@@ -39,7 +39,7 @@
     },
     "docs/developer/client-sdk.md": {
       "lines": 475,
-      "bytes": 20537
+      "bytes": 20643
     },
     "docs/glossary.md": {
       "lines": 506,
@@ -201,10 +201,6 @@
       "lines": 530,
       "bytes": 17807
     },
-    "packages/client-sdk/src/client/session.ts": {
-      "lines": 529,
-      "bytes": 15852
-    },
     "packages/client-sdk/src/client/localKeyring.ts": {
       "lines": 1575,
       "bytes": 50400
@@ -330,8 +326,8 @@
       "bytes": 33792
     },
     "scripts/subsystems.ts": {
-      "lines": 713,
-      "bytes": 25764
+      "lines": 714,
+      "bytes": 25803
     },
     "packages/client-sdk/src/workflows/containers/child/create.ts": {
       "lines": 531,

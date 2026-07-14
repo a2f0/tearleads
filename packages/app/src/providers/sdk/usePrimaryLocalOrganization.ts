@@ -16,26 +16,49 @@ const LOADING_PRIMARY: PrimaryLocalOrganizationState = {
   ready: false,
 };
 
-// Auth and the container tree can settle before a concurrent local-org read
-// observes registration persistence. Keep bootstrap waiting through that short
-// index-convergence window instead of permanently classifying the org as custom.
+function explicitPrimaryOrganizationState(
+  defaultOrganizationId: string | null | undefined,
+): PrimaryLocalOrganizationState | null {
+  return defaultOrganizationId
+    ? { organizationId: defaultOrganizationId, ready: true }
+    : null;
+}
+
+// Legacy sessions do not carry an explicit default organization. Auth and the
+// container tree can settle before their fallback local-org read observes
+// registration persistence, so keep bootstrap waiting through that short
+// convergence window instead of permanently classifying the org as custom.
 // Back off after the startup window, but keep checking for late persistence.
 const PRIMARY_ORGANIZATION_FAST_RETRY_DELAY_MS = 500;
 const PRIMARY_ORGANIZATION_SLOW_RETRY_DELAY_MS = 5_000;
 const PRIMARY_ORGANIZATION_FAST_RETRY_LIMIT = 40;
 
 export function usePrimaryLocalOrganization(input: {
+  readonly defaultOrganizationId?: string | null | undefined;
   readonly enabled: boolean;
   readonly refreshKey: string;
   readonly tearleads: Tearleads;
 }): PrimaryLocalOrganizationState {
+  const explicitPrimary = explicitPrimaryOrganizationState(
+    input.defaultOrganizationId,
+  );
   const [state, setState] = useState<PrimaryLocalOrganizationState>(
-    input.enabled ? LOADING_PRIMARY : READY_WITHOUT_PRIMARY,
+    input.enabled && !explicitPrimary ? LOADING_PRIMARY : READY_WITHOUT_PRIMARY,
   );
 
   useEffect(() => {
     if (!input.enabled) {
       setState(READY_WITHOUT_PRIMARY);
+      return;
+    }
+
+    if (input.defaultOrganizationId) {
+      // The authenticated identity's default organization is the authoritative
+      // personal organization. Do not let incidental local-root ordering (for
+      // example, an older foreign root discovered through a share) replace it.
+      // Reset the dormant fallback so removing the explicit value cannot expose
+      // a stale result while a new legacy lookup starts.
+      setState(LOADING_PRIMARY);
       return;
     }
 
@@ -90,9 +113,17 @@ export function usePrimaryLocalOrganization(input: {
         clearTimeout(retryTimer);
       }
     };
-  }, [input.enabled, input.refreshKey, input.tearleads]);
+  }, [
+    input.defaultOrganizationId,
+    input.enabled,
+    input.refreshKey,
+    input.tearleads,
+  ]);
 
-  return state;
+  if (!input.enabled) {
+    return READY_WITHOUT_PRIMARY;
+  }
+  return explicitPrimary ?? state;
 }
 
 export function resolveContactsBootstrapPolicy(input: {

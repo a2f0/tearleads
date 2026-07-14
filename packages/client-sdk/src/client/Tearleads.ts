@@ -29,7 +29,8 @@ import {
 import { type Logger, logErrorToConsole } from "./logger";
 import { Network } from "./network";
 import { createOrganizations, type Organizations } from "./organizations";
-import { createSession, type Session } from "./session";
+import { createSession } from "./session";
+import type { Session } from "./sessionTypes";
 import { SyncBillingGate } from "./syncBillingGate";
 import { createUserKeys, type UserKeys } from "./userKeys";
 import { createRuntime, type Runtime } from "./workflowRuntime";

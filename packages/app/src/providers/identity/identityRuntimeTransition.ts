@@ -6,6 +6,7 @@ function clearSessionForIdentityTransition(tearleads: Tearleads): void {
   tearleads.session.setContext({
     authToken: null,
     containerId: null,
+    defaultOrganizationId: null,
     isAuthenticated: false,
     organizationId: null,
     userId: null,

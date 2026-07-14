@@ -36,6 +36,7 @@ test("remote logout does not clear a session for a changed identity", async () =
   const identityBContext = {
     authToken: "identity-b-token",
     containerId: "identity-b-container",
+    defaultOrganizationId: "identity-b-default-organization",
     isAuthenticated: true,
     organizationId: "identity-b-organization",
     userId: "identity-b-user",

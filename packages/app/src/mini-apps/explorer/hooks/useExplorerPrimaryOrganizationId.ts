@@ -16,6 +16,7 @@ export function useExplorerPrimaryOrganizationId(input: {
     enabled:
       input.appData.auth.isAuthenticated &&
       input.appData.infra.dbStatus === "ready",
+    defaultOrganizationId: input.appData.auth.defaultOrganizationId,
     refreshKey: [
       input.appData.auth.organizationId ?? "",
       input.appData.state.containerId ?? "",

@@ -90,7 +90,7 @@ Client capabilities:
 | `tearleads.database` | SQLite client and `ExecSql` executor |
 | `tearleads.identity` | signing and encapsulation key pairs, seed phrase state |
 | `tearleads.blobs` | local blob byte storage |
-| `tearleads.session` | registration, auth token, and user/org/container context |
+| `tearleads.session` | registration, auth token, personal-org identity, and active context |
 | `tearleads.keyPackageBackups` | encrypted backups |
 | `tearleads.network` | online/offline state passed into sync workflows |
 | `tearleads.events` | remote event list passed into sync workflows |
@@ -134,12 +134,13 @@ Runtime input snapshots are grouped by capability:
 
 | Group | Fields |
 | --- | --- |
-| `auth` | `userId`, `organizationId`, `isAuthenticated` |
+| `auth` | `userId`, `defaultOrganizationId`, `organizationId`, `isAuthenticated` |
 | `crypto` | `signingKeyPair`, `signingFingerprint`, `encapsulationKeyPair` |
 | `infra` | `dbStatus`, `execSql`, `blobStore`, `documentProjectors` |
 | `state` | `containerId`, `domainScope`, `events`, `online` |
 | `util` | `log`, `logError`, `cacheReferencedPrincipalPolicies` |
 
+`auth.defaultOrganizationId` identifies the personal org across active switches.
 Host and workflow integration code should use these grouped fields so a
 consumer's dependency boundary is visible. Runtime snapshots expose grouped
 capabilities only.

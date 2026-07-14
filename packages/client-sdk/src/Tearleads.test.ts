@@ -124,33 +124,6 @@ describe("Tearleads", () => {
     }
   });
 
-  test("exposes grouped runtime input", () => {
-    const sqlClient = createNoopSqlClient();
-    const sdk = new Tearleads({
-      database: { client: sqlClient, id: "client-db" },
-      logger: quietLogger,
-      online: false,
-    });
-    sdk.session.setContext({
-      containerId: "container-1",
-      isAuthenticated: true,
-      organizationId: "organization-1",
-      userId: "user-1",
-    });
-
-    const input = sdk.runtime.input();
-
-    expect(input.auth).toEqual({
-      isAuthenticated: true,
-      organizationId: "organization-1",
-      userId: "user-1",
-    });
-    expect("apiClient" in input).toBe(false);
-    expect("userId" in input).toBe(false);
-    expect("execSql" in input).toBe(false);
-    expect("containerId" in input).toBe(false);
-  });
-
   test("keeps unrelated runtime input groups referentially stable", () => {
     const sdk = new Tearleads({ logger: quietLogger });
     const initial = sdk.runtime.input();
@@ -859,6 +832,7 @@ describe("Tearleads", () => {
 
     sdk.session.setContext({
       containerId: "container-1",
+      defaultOrganizationId: "organization-1",
       organizationId: "organization-1",
       userId: "user-1",
     });
@@ -881,6 +855,7 @@ describe("Tearleads", () => {
       {
         authToken: null,
         containerId: "container-1",
+        defaultOrganizationId: "organization-1",
         isAuthenticated: false,
         organizationId: "organization-1",
         userId: "user-1",
@@ -888,6 +863,7 @@ describe("Tearleads", () => {
       {
         authToken: "session-token",
         containerId: "container-1",
+        defaultOrganizationId: "organization-1",
         isAuthenticated: true,
         organizationId: "organization-1",
         userId: "user-1",

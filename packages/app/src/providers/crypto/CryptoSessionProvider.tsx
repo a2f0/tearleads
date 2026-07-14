@@ -139,6 +139,7 @@ function useCryptoAuthActions(tearleads: ReturnType<typeof useTearleads>) {
 interface CryptoSessionPersistenceState {
   readonly authToken: string | null;
   readonly containerId: string | null;
+  readonly defaultOrganizationId: string | null;
   readonly isAuthenticated: boolean;
   readonly organizationId: string | null;
   readonly userId: string | null;
@@ -253,6 +254,7 @@ function usePersistCryptoSession(input: {
     sessionState: {
       authToken,
       containerId,
+      defaultOrganizationId,
       isAuthenticated,
       organizationId,
       userId,
@@ -271,7 +273,13 @@ function usePersistCryptoSession(input: {
     // A full empty context is used while locking or switching identities. Keep
     // the prior per-identity record intact so returning to that identity can
     // restore its session rather than treating the transition as a logout.
-    if (!authToken && !containerId && !organizationId && !userId) {
+    if (
+      !authToken &&
+      !containerId &&
+      !defaultOrganizationId &&
+      !organizationId &&
+      !userId
+    ) {
       return;
     }
 
@@ -279,6 +287,7 @@ function usePersistCryptoSession(input: {
       context: {
         authToken,
         containerId,
+        defaultOrganizationId,
         isAuthenticated,
         organizationId,
         userId,
@@ -292,6 +301,7 @@ function usePersistCryptoSession(input: {
     authToken,
     checkedFingerprint,
     containerId,
+    defaultOrganizationId,
     isAuthenticated,
     localPersistence,
     logError,
@@ -327,6 +337,7 @@ function useSdkBackedCryptoSessionState(
     tearleads.session.setContext({
       authToken: null,
       containerId: null,
+      defaultOrganizationId: null,
       isAuthenticated: false,
       organizationId: null,
       userId: null,
@@ -336,6 +347,7 @@ function useSdkBackedCryptoSessionState(
   return {
     authToken: snapshot.authToken,
     containerId: snapshot.containerId,
+    defaultOrganizationId: snapshot.defaultOrganizationId,
     isAuthenticated: snapshot.isAuthenticated,
     organizationId: snapshot.organizationId,
     resetSession,

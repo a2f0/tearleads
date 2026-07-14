@@ -71,7 +71,7 @@ test("explorer primary organization falls back to the active organization before
   ).toBe("org-work");
 });
 
-test("explorer primary organization waits for the summarized root to hydrate", () => {
+test("explorer primary organization remains authoritative before its root hydrates", () => {
   expect(
     resolveExplorerPrimaryOrganizationId({
       currentOrganizationId: "org-work",
@@ -85,7 +85,7 @@ test("explorer primary organization waits for the summarized root to hydrate", (
       personalRootContainerId: "work-root",
       primaryLocalOrganizationId: "org-personal",
     }),
-  ).toBe("org-work");
+  ).toBe("org-personal");
 });
 
 test("explorer primary organization does not fall back after personal root hydration", () => {

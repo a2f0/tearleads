@@ -57,3 +57,45 @@ test("retains the personal organization through a transient unready snapshot", a
   await waitFor(() => expect(view.result.current).toBe("personal-org"));
   expect(listLocalOrganizations).toHaveBeenCalledTimes(1);
 });
+
+test("keeps the explicit default organization primary when the local index lists a foreign org first", () => {
+  const listLocalOrganizations = mock(async () => [
+    {
+      name: "Foreign Org",
+      organizationId: "custom-org",
+      rootContainerId: "custom-root",
+    },
+    {
+      name: "Personal Org",
+      organizationId: "personal-org",
+      rootContainerId: "personal-root",
+    },
+  ]);
+  const tearleads = {
+    organizations: { listLocalOrganizations },
+  } as unknown as Tearleads;
+  const appData = {
+    auth: {
+      defaultOrganizationId: "personal-org",
+      isAuthenticated: true,
+      organizationId: "custom-org",
+    },
+    infra: { dbStatus: "ready" },
+    state: { containerId: "custom-root" },
+  } as RuntimeSnapshot;
+  const nodes = [
+    rootNode("custom-root", "custom-org"),
+    rootNode("personal-root", "personal-org"),
+  ];
+  const view = renderHook(() =>
+    useExplorerPrimaryOrganizationId({
+      appData,
+      nodes,
+      ready: true,
+      tearleads,
+    }),
+  );
+
+  expect(view.result.current).toBe("personal-org");
+  expect(listLocalOrganizations).toHaveBeenCalledTimes(0);
+});

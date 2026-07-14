@@ -45,6 +45,7 @@ test("crypto sessions are persisted independently for each identity", async () =
     context: {
       authToken: "token-a",
       containerId: "container-a",
+      defaultOrganizationId: "default-org-a",
       isAuthenticated: true,
       organizationId: "org-a",
       userId: "user-a",
@@ -56,6 +57,7 @@ test("crypto sessions are persisted independently for each identity", async () =
     context: {
       authToken: "token-b",
       containerId: "container-b",
+      defaultOrganizationId: "default-org-b",
       isAuthenticated: true,
       organizationId: "org-b",
       userId: "user-b",
@@ -73,6 +75,7 @@ test("crypto sessions are persisted independently for each identity", async () =
   ).toEqual({
     authToken: "token-a",
     containerId: "container-a",
+    defaultOrganizationId: "default-org-a",
     isAuthenticated: true,
     organizationId: "org-a",
     userId: "user-a",
@@ -85,9 +88,51 @@ test("crypto sessions are persisted independently for each identity", async () =
   ).toEqual({
     authToken: "token-b",
     containerId: "container-b",
+    defaultOrganizationId: "default-org-b",
     isAuthenticated: true,
     organizationId: "org-b",
     userId: "user-b",
+  });
+});
+
+test("legacy crypto sessions restore without an inferred default org", async () => {
+  const namespace = `session-legacy-${crypto.randomUUID()}`;
+  const signingFingerprint = "c".repeat(64);
+  const keyring = createSharedMemoryLocalKeyringFactory()();
+  const scope = localIdentityScope(namespace);
+  (await keyring.getOrCreateSession(scope)).dispose();
+  const storage = createMemoryStorage();
+  const localPersistence: LocalCryptoSessionPersistence = {
+    keyring,
+    scope,
+    storage,
+    storageKey: localCryptoSessionStorageKey(namespace, signingFingerprint),
+  };
+
+  await persistCryptoSession({
+    context: {
+      authToken: "legacy-token",
+      containerId: "legacy-container",
+      isAuthenticated: true,
+      organizationId: "legacy-active-org",
+      userId: "legacy-user",
+    } as Parameters<typeof persistCryptoSession>[0]["context"],
+    localPersistence,
+    signingFingerprint,
+  });
+
+  expect(
+    await restorePersistedCryptoSession({
+      localPersistence,
+      signingFingerprint,
+    }),
+  ).toEqual({
+    authToken: "legacy-token",
+    containerId: "legacy-container",
+    defaultOrganizationId: null,
+    isAuthenticated: true,
+    organizationId: "legacy-active-org",
+    userId: "legacy-user",
   });
 });
 
@@ -121,6 +166,7 @@ test("clearing an identity session wins over an older in-flight write", async ()
     context: {
       authToken: "stale-token",
       containerId: "stale-container",
+      defaultOrganizationId: "stale-default-organization",
       isAuthenticated: true,
       organizationId: "stale-organization",
       userId: "stale-user",

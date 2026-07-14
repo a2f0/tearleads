@@ -10,7 +10,6 @@ import {
   createTestHostConfig,
   generateIdentityAndWaitForDb,
   openContacts,
-  PANE_ASYNC_TEST_TIMEOUT_MS,
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 } from "../../../../test/helpers/paneTestUtils";
 import { CONTACTS_LABELS } from "../../../mini-apps/contacts/labels";
@@ -36,7 +35,7 @@ function TearleadsProbe({
 }
 
 test(
-  "fresh Contacts recovers when the personal organization index catches up",
+  "fresh Contacts uses the authenticated personal org before its index catches up",
   async () => {
     useTestApiAppHandlers();
     saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
@@ -63,14 +62,7 @@ test(
     const tearleads = tearleadsRef.current;
     invariant(tearleads, "Tearleads runtime was not captured");
     const organizations = tearleads.organizations;
-    const listPersistedOrganizations =
-      organizations.listLocalOrganizations.bind(organizations);
-    let organizationIndexVisible = false;
-    let organizationLookupCount = 0;
-    organizations.listLocalOrganizations = async () => {
-      organizationLookupCount += 1;
-      return organizationIndexVisible ? listPersistedOrganizations() : [];
-    };
+    organizations.listLocalOrganizations = async () => [];
 
     await generateIdentityAndWaitForDb(view);
     await registerAndWaitForUserId(view);
@@ -78,24 +70,12 @@ test(
 
     await waitFor(() => {
       expect(
-        within(contactsWindow).getByText(CONTACTS_LABELS.loadingState),
+        within(contactsWindow).getByText(CONTACTS_LABELS.emptyState),
       ).toBeTruthy();
-      expect(organizationLookupCount).toBeGreaterThan(0);
+      expect(
+        within(contactsWindow).queryByText(CONTACTS_LABELS.loadingState),
+      ).toBeNull();
     });
-
-    organizationIndexVisible = true;
-    await waitFor(
-      () => {
-        expect(
-          within(contactsWindow).getByText(CONTACTS_LABELS.emptyState),
-        ).toBeTruthy();
-        expect(
-          within(contactsWindow).queryByText(CONTACTS_LABELS.loadingState),
-        ).toBeNull();
-      },
-      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
-    );
-    expect(organizationLookupCount).toBeGreaterThan(1);
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 );

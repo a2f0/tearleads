@@ -326,6 +326,7 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/client/identityKeyPackage.ts`,
       `${sdk}/client/keyPackageBackups.ts`,
       `${sdk}/client/session.ts`,
+      `${sdk}/client/sessionTypes.ts`,
       `${sdk}/client/userKeys.ts`,
     ],
   },

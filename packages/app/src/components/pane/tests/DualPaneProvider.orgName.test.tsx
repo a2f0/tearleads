@@ -3,12 +3,16 @@ import { DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME } from "@tearleads/client-sd
 import { cleanup, within } from "@testing-library/react";
 import {
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
+  getExplorerSidebarItemsByName,
   getPaneRoot,
   getPaneUserId,
+  provisionPaneFromMenu,
   renderDualPane,
   waitForDualPaneProvisioning,
+  waitForSinglePaneProvisioning,
 } from "../../../../test/helpers/dual-pane/dualPaneCore";
 import {
+  createChildContainer,
   openExplorer,
   refreshUntil,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
@@ -22,6 +26,8 @@ import {
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
+
+const PEER_PERSONAL_MARKER = "Peer Personal Marker";
 
 afterEach(async () => {
   cleanup();
@@ -49,27 +55,37 @@ function explorerSectionHeadings(pane: HTMLElement): string[] {
 // fallback resolving it, and useExplorerOrganizationNames re-resolving once the
 // body lands to surface it as a per-org heading.
 test(
-  "a new roster member decrypts the founder org name and sees it as an explorer heading",
+  "a new roster member keeps its personal org primary above the decrypted founder org",
   async () => {
     useTestApiAppHandlers();
-    const view = renderDualPane();
+    // Provision serially to reproduce the real two-browser sequence: the
+    // founder's server root predates the peer's local personal root. The old
+    // first-created-root heuristic therefore promoted the newly shared founder
+    // org on the peer even though it was only discovered after both bootstraps.
+    const view = renderDualPane({ autoProvisionRight: false });
     const founderPane = getPaneRoot(view, "left");
     const peerPane = getPaneRoot(view, "right");
 
+    await waitForSinglePaneProvisioning(founderPane);
+    await provisionPaneFromMenu(peerPane);
     await waitForDualPaneProvisioning(founderPane, peerPane);
 
+    // Give the peer's own tree an unambiguous marker. Both root rows are named
+    // "/" and both organizations use the default profile name, so the prior
+    // heading-only assertion could pass with the two orgs transposed.
+    await openExplorer(peerPane);
+    await createChildContainer(peerPane, PEER_PERSONAL_MARKER);
+
     // Two-step membership, mirroring the real flow:
-    //   1. Admins group  -> the peer can read/sync the founder org's containers
-    //      (its roots surface under a generic "Shared with me" heading).
-    //   2. Roster import -> the peer joins the reserved Members group. That add
+    //   1. Roster import -> the peer joins the reserved Members group. That add
     //      rotates the Members key epoch, which fires the best-effort re-share of
     //      the org metadata container to the new epoch so the peer can DECRYPT the
     //      organization_profile document that holds the org display name.
-    await addPeerToAdminsGroup(founderPane, getPaneUserId(peerPane));
-    const postImportBaseline = capturePostShareSyncBaseline();
+    //   2. Admins group  -> the peer can read/sync the founder org's containers
+    //      (its roots surface under the decrypted organization heading).
     await importPeerIntoRoster(founderPane, getPaneUserId(peerPane));
-
-    await openExplorer(peerPane);
+    const postAdminGrantBaseline = capturePostShareSyncBaseline();
+    await addPeerToAdminsGroup(founderPane, getPaneUserId(peerPane));
 
     // A full-crawl refresh pulls the newly Members-granted metadata container and
     // its organization_profile document; `useExplorerOrganizationNames` then fills
@@ -101,9 +117,22 @@ test(
       }),
     ).toBeTruthy();
 
+    const personalMarker = getExplorerSidebarItemsByName(
+      peerPane,
+      PEER_PERSONAL_MARKER,
+    )[0];
+    const founderHeading = within(peerPane).getByRole("heading", {
+      level: 2,
+      name: DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
+    });
+    expect(personalMarker).toBeTruthy();
+    expect(personalMarker?.compareDocumentPosition(founderHeading) ?? 0).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+
     await waitForNoPostShareSyncFailures(
       [founderPane, peerPane],
-      postImportBaseline,
+      postAdminGrantBaseline,
     );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,

@@ -231,9 +231,16 @@ export async function addPeerToAdminsGroup(
   pane: HTMLElement,
   peerUserId: string,
 ) {
-  await openOrgManager(pane);
+  // Roster-first flows already have Org Manager open on the imported user.
+  // Reopening it would stack a second window and make its navigation ambiguous.
+  if (within(pane).queryAllByRole("button", { name: "Groups" }).length === 0) {
+    await openOrgManager(pane);
+  }
 
-  const groupsButton = within(pane).getByRole("button", { name: "Groups" });
+  const groupsButton = within(pane).getAllByRole("button", {
+    name: "Groups",
+  })[0];
+  invariant(groupsButton, "Expected org manager Groups button.");
   await interact(() => {
     fireEvent.click(groupsButton);
   });

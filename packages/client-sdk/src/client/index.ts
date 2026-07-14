@@ -197,7 +197,7 @@ export type {
   SessionRegistrationResult,
   SessionSnapshot,
   UserSession,
-} from "./session";
+} from "./sessionTypes";
 export {
   SyncBillingGate,
   type SyncBillingGateListener,
