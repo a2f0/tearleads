@@ -1,0 +1,14 @@
+{
+  "name": "@tearleads/agent-tool",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "review:claude": "bun src/index.ts solicitClaudeCodeReview",
+    "review:codex": "bun src/index.ts solicitCodexReview",
+    "test": "bun test src"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  }
+}

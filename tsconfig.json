@@ -1,6 +1,7 @@
 {
   "files": [],
   "references": [
+    { "path": "packages/agent-tool" },
     { "path": "packages/api" },
     { "path": "packages/api-client" },
     { "path": "packages/api-cli" },

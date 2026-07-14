@@ -26,6 +26,11 @@ const baseConfig = {
   ...strictConfigDefaults,
   workspaces: {
     ".": rootToolingWorkspace,
+    "packages/agent-tool": {
+      // `src/index.ts` is discovered as an entry via the package.json scripts.
+      entry: ["src/**/*.test.ts"],
+      project: ["src/**/*.ts"],
+    },
     "packages/api": {
       // The package test script launches Bun from `scripts/testAllDatabases.ts`;
       // `test/preload.ts` is loaded by Bun from `bunfig.toml`. `scripts/blobGc.ts`
@@ -165,6 +170,10 @@ const productionConfig = {
   // The default config above stays narrower for dead-file and export checks.
   workspaces: {
     ".": rootToolingWorkspace,
+    "packages/agent-tool": {
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
+      project: [],
+    },
     "packages/api": {
       entry: ["src/**/*.ts!", "!src/**/*.test.ts", "!src/appTestRuntime.ts"],
       project: [],
