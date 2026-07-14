@@ -13,7 +13,7 @@ gate on the merge. It does **not** re-implement the wrapped skills — it invoke
 each one and lets it enforce its own rules.
 
 The review gates the merge: this flow does not squash-merge over a review that
-raised blocking issues.
+raised blocking issues, and it only merges the exact commit that was reviewed.
 
 ## Arguments
 
@@ -62,26 +62,53 @@ subject-only squash with its `(#<pr>)` reference, and the `MERGED`-state check).
    to default to the latest commit subject), piping the body via stdin. If it
    fails (invalid title, branch not pushed, or a PR already exists for the
    branch), **stop and report** — there is nothing to review or merge. On
-   success, capture the PR number and URL.
+   success, capture the PR number as `PR_NUMBER` and the URL.
 
 2. **Cross-agent review** — invoke the `cross-agent-review` skill, passing the
    review-agent argument when given. Relay its findings, including which agent
    ran and whether it fell back.
 
-   **Review gate** — read the findings and decide before merging:
-   - If the review raises **Blocker** or **Major** issues, **stop before step 3**
-     and surface them so they can be fixed first. Do not squash-merge over
-     unresolved blocking findings.
-   - If the review is clean or raises only **Minor/Suggestion** nits, proceed.
+   **Pin the reviewed head** — the review helpers inspect the local `HEAD` diff,
+   so record the exact commit that was reviewed and confirm it is the pushed PR
+   head:
+
+   ```bash
+   REVIEWED_SHA=$(git rev-parse HEAD)
+   test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
+   ```
+
+   Carry `REVIEWED_SHA` into step 3. (If the local and remote heads differ, push
+   first so the reviewed commit is the one that would merge.)
+
+   **Review gate** — read the findings and decide before merging. Reviewers use
+   different severity vocabularies: the in-session fallback uses **Blocker /
+   Major / Minor / Suggestion**, while Codex's native `codex review` uses
+   **[P0]–[P3]**. Treat them as one scale — **Blocker ≡ [P0]**, **Major ≡ [P1]**,
+   **Minor ≡ [P2]**, **Suggestion ≡ [P3]** — where **Blocker/Major (P0/P1) count
+   as blocking**:
+   - If the review raises a **blocking** finding (**Blocker/Major** or
+     **[P0]/[P1]**), **stop before step 3** and surface it so it can be fixed
+     first. Do not squash-merge over unresolved blocking findings.
+   - If the review is clean or raises only non-blocking nits (**Minor/Suggestion**
+     or **[P2]/[P3]**), proceed.
    - If the review could not run at all (every agent and fallback failed),
      **stop** rather than merge unreviewed — unless the user explicitly asked to
      merge regardless.
 
-3. **Squash-merge** — invoke the `squash-merge` skill. With no subject argument it
-   defaults to the PR title from step 1 and appends the `(#<pr>)` reference; it
-   validates the subject with commitlint and confirms the PR reached `MERGED`
-   before returning. A non-zero result means the PR did not actually merge (e.g.
-   queued or blocked) — do not report success in that case.
+3. **Squash-merge** — first confirm the branch has not moved since the review, so
+   only the reviewed commit merges:
+
+   ```bash
+   test "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)" = "$REVIEWED_SHA"
+   ```
+
+   If the head changed (a commit landed after the review), **do not merge** —
+   return to step 2 and re-review the new head. Otherwise invoke the
+   `squash-merge` skill. With no subject argument it defaults to the PR title
+   from step 1 and appends the `(#<pr>)` reference; it validates the subject with
+   commitlint and confirms the PR reached `MERGED` before returning. A non-zero
+   result means the PR did not actually merge (e.g. queued or blocked) — do not
+   report success in that case.
 
 4. **Report results**: the PR URL, the review agent and outcome (plus any
    findings that gated the merge or were waived), and the final squash subject
@@ -93,7 +120,11 @@ subject-only squash with its `(#<pr>)` reference, and the `MERGED`-state check).
   prevents the later ones; the PR is left in a safe intermediate state (e.g. open
   but unmerged) and reported.
 - **The review gates the merge** — this flow never silently merges over a review
-  that found blocking issues.
+  that found blocking issues, across either severity vocabulary (Blocker/Major or
+  [P0]/[P1]).
+- **The merged head is the reviewed head** — the reviewed PR head SHA is pinned
+  in step 2 and re-checked in step 3, so a commit pushed after the review forces
+  a re-review instead of merging unreviewed.
 - **Title and subject stay in sync automatically**: `squash-merge` defaults to
   the PR title that `open-pr` set, so a single title argument (or none) suffices
   for both.
