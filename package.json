@@ -22,8 +22,9 @@
     }
   },
   "scripts": {
-    "check": "bun tsc --build --pretty false && bun run check:fast && bun run test:turbo",
-    "check:affected": "bun tsc --build --pretty false && bun run check:fast && bun run test:turbo:affected",
+    "build:packages": "bun run --filter='@tearleads/sqlite-instance' build && bun run --filter='@tearleads/client-sdk' build",
+    "check": "bun run build:packages && bun tsc --build --pretty false && bun run check:fast && bun run test:turbo",
+    "check:affected": "bun run build:packages && bun tsc --build --pretty false && bun run check:fast && bun run test:turbo:affected",
     "check:fast": "bun run lint:biome && bun run lint:package-assertions && bun run lint:knip:all && bun run lint:knip:production && bun run lint:architecture && bun run lint:files && bun run lint:source-shape && bun run lint:binary-files && bun run lint:ruby",
     "clean:local-caches": "bun scripts/cleanLocalCaches.ts",
     "clean:local-caches:deps": "bun scripts/cleanLocalCaches.ts --include-node-modules",
@@ -52,7 +53,7 @@
     "report:lines": "bun scripts/countLines.ts",
     "screenshots": "bun run --filter=app-web screenshots",
     "screenshots:seed": "bun packages/app/test/screenshot-seed/buildScreenshotSeed.ts",
-    "test:bun": "bun run --filter='@tearleads/sqlite-instance' build && bun run --filter='@tearleads/client-sdk' build && bun run --filter='*' --sequential test",
+    "test:bun": "bun run build:packages && bun run --filter='*' --sequential test",
     "test:architecture": "bun scripts/testArchitecture.ts",
     "test:turbo": "bun run test:turbo:bun && bun run test:turbo:e2e",
     "test:turbo:affected": "bun run test:turbo:bun:affected && bun run test:turbo:e2e:affected",
