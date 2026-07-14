@@ -151,27 +151,45 @@ export function spawnExitCode(command: string, result: SpawnResult): number {
   return result.status ?? 1;
 }
 
+function defaultBranchName(source: string): string {
+  const ref = fieldOf(safeParse(source), "defaultBranchRef");
+  const name = fieldOf(ref, "name");
+  return typeof name === "string" ? name : "";
+}
+
 /**
- * Resolve the current git branch and GitHub repo. Throws when on main or when
+ * Resolve the current git branch, GitHub repo, and the repo's default branch.
+ * Throws when on the default branch (or a conventional `main`/`master`) or when
  * the repo can't be determined (gh not authenticated).
  */
-export function resolveRepoContext(): { branch: string; repo: string } {
+export function resolveRepoContext(): {
+  branch: string;
+  repo: string;
+  defaultBranch: string;
+} {
   const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
-  if (branch === "main") {
-    throw new Error(
-      "Cannot run this on the main branch. Checkout a feature branch first.",
-    );
-  }
 
-  const repoRaw = tryRun("gh", ["repo", "view", "--json", "nameWithOwner"]);
-  const repo = repoRaw === null ? "" : stringField(repoRaw, "nameWithOwner");
+  const infoRaw = tryRun("gh", [
+    "repo",
+    "view",
+    "--json",
+    "nameWithOwner,defaultBranchRef",
+  ]);
+  const repo = infoRaw === null ? "" : stringField(infoRaw, "nameWithOwner");
   if (repo.length === 0) {
     throw new Error(
       "Could not determine repository. Ensure gh is authenticated.",
     );
   }
+  const defaultBranch = infoRaw === null ? "" : defaultBranchName(infoRaw);
 
-  return { branch, repo };
+  if (branch === defaultBranch || branch === "main" || branch === "master") {
+    throw new Error(
+      `Cannot run this on the default branch ('${branch}'). Checkout a feature branch first.`,
+    );
+  }
+
+  return { branch, repo, defaultBranch };
 }
 
 /** Number of the open PR for `branch`, or "" when there is none. */

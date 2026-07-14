@@ -34,7 +34,8 @@ AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
 [ -f "$AGENT_TOOL" ] || { echo "Error: agent-tool not found at $AGENT_TOOL" >&2; exit 1; }
 ```
 
-If `$BRANCH` is `main`, report the error and stop.
+If `$BRANCH` is the repository's default branch (e.g. `main` or `master`),
+report the error and stop.
 
 ## Workflow
 

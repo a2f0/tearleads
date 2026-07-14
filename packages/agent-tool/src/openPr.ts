@@ -10,8 +10,12 @@ import {
 import { singleLineSubject } from "./subjectLine";
 import { validateCommitSubject } from "./validateCommitSubject";
 
-/** Read the PR body from stdin, or "" when stdin is empty/unavailable. */
+/** Read the PR body from stdin, or "" when stdin is a terminal/empty. */
 function readBody(): string {
+  // With no pipe/redirect, fd 0 is an open TTY and a blocking read would hang.
+  if (process.stdin.isTTY) {
+    return "";
+  }
   try {
     return readFileSync(0, "utf8");
   } catch {
@@ -27,7 +31,7 @@ function readBody(): string {
  * stdin. The base defaults to the repository's default branch.
  */
 export function openPr(rootDir: string, titleArg: string | undefined): number {
-  const { branch, repo } = resolveRepoContext();
+  const { branch, repo, defaultBranch } = resolveRepoContext();
 
   const existing = findOpenPrNumber(branch, repo);
   if (existing.length > 0) {
@@ -38,6 +42,9 @@ export function openPr(rootDir: string, titleArg: string | undefined): number {
   const title = singleLineSubject(titleArg, tipSubject, "PR title");
   validateCommitSubject(rootDir, title);
 
+  // Pin the base to the repo default branch; without --base, gh honors a
+  // branch.<name>.gh-merge-base git config that could target another branch.
+  const baseArgs = defaultBranch.length > 0 ? ["--base", defaultBranch] : [];
   const result = spawnSync(
     "gh",
     [
@@ -49,6 +56,7 @@ export function openPr(rootDir: string, titleArg: string | undefined): number {
       readBody(),
       "--head",
       branch,
+      ...baseArgs,
       "-R",
       repo,
     ],
