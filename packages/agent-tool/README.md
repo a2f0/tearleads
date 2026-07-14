@@ -61,6 +61,14 @@ so conventional-commit syntax and the 50-char header limit are enforced
 identically. On success it runs `gh pr merge --squash --subject <subject>
 --body ""`. Backs the `squash-merge` skill.
 
+## Ship (open → review → merge)
+
+The `ship-pr` skill composes the three actions above into one ordered flow —
+open a PR, run a cross-agent review, then squash-merge — with the review gating
+the merge. It adds no new CLI action; it invokes the `open-pr`,
+`cross-agent-review`, and `squash-merge` skills in sequence. See
+`.claude/skills/ship-pr/` and `.codex/skills/ship-pr/`.
+
 ## Prerequisites
 
 - `git` and `gh` (authenticated) on `PATH`.
