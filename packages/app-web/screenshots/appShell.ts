@@ -65,6 +65,12 @@ export async function openWindowedApp(
 // Clearing them makes the next reload re-derive the root container + read models
 // from the restored DB. (localStorage only; the identity registry is preserved
 // so the same per-identity DB file is reopened.)
+//
+// The shipping backup-restore mini-app does the same clear before its post-restore
+// reload via clearRestoredLocalCaches (packages/app/src/providers/db/
+// clearRestoredLocalCaches.ts); keep the two prefix lists in sync. This helper
+// runs in the browser page context (page.evaluate), so it cannot import that
+// module and keeps its own copy of the prefixes.
 export async function clearStaleLocalState(page: Page): Promise<void> {
   await page.evaluate(() => {
     for (const key of Object.keys(localStorage)) {
