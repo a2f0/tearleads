@@ -29,8 +29,20 @@ async function main(): Promise<void> {
         ),
     });
     await Bun.write(ARTIFACT_PATH, artifact.text);
+    // Print everything a manual restore needs — the file path plus the two
+    // credentials the encrypted backup is bound to — so the artifact can be
+    // restored by hand (outside the Playwright run) without opening seed.json.
     console.log(
-      `Wrote ${ARTIFACT_PATH} — ${artifact.summary.rowCount} rows, ${artifact.summary.blobCount} blobs.`,
+      [
+        `Wrote seed backup: ${ARTIFACT_PATH}`,
+        `  ${artifact.summary.rowCount} rows, ${artifact.summary.blobCount} blobs`,
+        "",
+        "Restore it manually in the app:",
+        "  1. Identity Manager -> Restore from Passphrase:",
+        `       ${spec.identitySeedPhrase}`,
+        "  2. Backup / Restore -> Restore -> choose the file above, password:",
+        `       ${spec.password}`,
+      ].join("\n"),
     );
   } finally {
     database.close();
