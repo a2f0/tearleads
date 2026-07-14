@@ -21,7 +21,7 @@ import type { SeedSpec } from "./seedTypes";
 const REPO_ROOT = resolve(import.meta.dir, "../../../..");
 const FIXTURES_DIR = `${import.meta.dir}/fixtures`;
 const SPEC_PATH = `${FIXTURES_DIR}/seed.json`;
-const ARTIFACT_PATH = `${REPO_ROOT}/tearleads-seed.tlbackup.json`;
+const ARTIFACT_PATH = resolve(REPO_ROOT, "tearleads-seed.tlbackup.json");
 
 async function main(): Promise<void> {
   const spec = (await Bun.file(SPEC_PATH).json()) as SeedSpec;
