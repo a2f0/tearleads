@@ -7,6 +7,7 @@ describe("buildReviewPrompt", () => {
     branch: "feat/example",
     repo: "owner/repo",
     prNumber: "42",
+    title: "feat: example change",
     baseRef: "main",
   };
 
