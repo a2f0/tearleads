@@ -370,6 +370,10 @@
 
 .routed-pane-main {
   grid-area: main;
+  /* Main-content controls use local z-indices for row hit areas, sticky
+     headers, and menus. Keep those layers below the routed shell's scrim,
+     drawer, and sheet instead of letting equal z-indices paint through them. */
+  isolation: isolate;
   min-height: 0;
   overflow: auto;
   scrollbar-gutter: var(--scrollbar-gutter);
