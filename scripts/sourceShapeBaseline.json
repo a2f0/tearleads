@@ -49,6 +49,10 @@
       "lines": 885,
       "bytes": 37936
     },
+    "docs/protocol-specification.md": {
+      "lines": 492,
+      "bytes": 21104
+    },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 541,
       "bytes": 22215
@@ -110,8 +114,8 @@
       "bytes": 18631
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3728,
-      "bytes": 122245
+      "lines": 3933,
+      "bytes": 129555
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1289,
@@ -140,6 +144,10 @@
     "packages/api/src/services/blobs/multipartStage.ts": {
       "lines": 505,
       "bytes": 14749
+    },
+    "packages/api/src/wsRouting.test.ts": {
+      "lines": 530,
+      "bytes": 16424
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
       "lines": 644,
@@ -222,8 +230,8 @@
       "bytes": 40503
     },
     "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
-      "lines": 793,
-      "bytes": 25193
+      "lines": 811,
+      "bytes": 25986
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 743,
@@ -244,6 +252,10 @@
     "packages/client-sdk/src/workflows/container-contents/documentInfo.test.ts": {
       "lines": 599,
       "bytes": 18343
+    },
+    "packages/client-sdk/src/workflows/container-contents/documentQueries.test.ts": {
+      "lines": 590,
+      "bytes": 17839
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueries.ts": {
       "lines": 670,
