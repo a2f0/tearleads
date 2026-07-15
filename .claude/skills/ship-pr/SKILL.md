@@ -161,11 +161,19 @@ review fallback chain, subject-only squash, and `MERGED`-state verification.
    not re-implement the cleanup here; it is gated on the merge actually landing,
    so it must stay with the step that performs the merge.
 
-   Because the head SHA is the **second** positional argument, pass an empty
-   first argument to default the subject to the PR title:
+   **Invoke the `squash-merge` skill — do not call the tool directly from here.**
+   The tool merges and returns; the cleanup and `--keep-branch` live in the skill
+   *around* that call, and the tool knows neither. Reaching past the skill to
+   `bun "$AGENT_TOOL" squashMerge …` merges the PR and silently skips the cleanup,
+   leaving the feature branch checked out and undeleted.
 
-   ```bash
-   bun "$AGENT_TOOL" squashMerge '' "$REVIEWED_SHA"
+   Because the head SHA is the **second** positional argument, pass an empty
+   first argument to default the subject to the PR title — the skill takes the
+   same arguments this flow forwards:
+
+   ```text
+   squash-merge '' "$REVIEWED_SHA"            # subject defaults to the PR title
+   squash-merge '' "$REVIEWED_SHA" --keep-branch   # only when the caller gave it
    ```
 
    The empty subject falls back to the PR title from step 1, to which the tool
@@ -208,5 +216,10 @@ review fallback chain, subject-only squash, and `MERGED`-state verification.
   `MERGED`, and skipped on a dirty worktree so in-progress work is never carried
   onto the default branch or stranded. Either way the branch survives and the
   reason is reported.
+- **Invoke the wrapped skills, not the tools they call.** `squash-merge` is the
+  clearest case: its cleanup and `--keep-branch` wrap the tool call rather than
+  living inside the tool, so calling `squashMerge` directly still merges — it just
+  skips the cleanup, and does so silently. The same holds for the review fallback
+  chain in `cross-agent-review`.
 - Single-quote the title argument and use a quoted heredoc for the body (per
   `open-pr`) so the shell does not expand `$(...)`, backticks, or `$VAR`.
