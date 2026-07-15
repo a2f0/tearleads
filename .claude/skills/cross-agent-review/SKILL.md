@@ -1,14 +1,20 @@
 ---
 name: cross-agent-review
-description: Request a code review of the current PR from another AI agent (Codex by default, or a fresh Claude Code self-review)
+description: Review the current PR with another AI agent (Codex by default, or a fresh Claude Code self-review) and repair blocking findings in bounded rounds
 ---
 
 # Cross-Agent Review
 
-Request a code review of the current PR from another AI agent. Invoked from
-Claude Code, this solicits a review from Codex by default, or a fresh Claude
-Code self-review. Falls back to an in-session review when no external agent is
-available.
+Review the current PR with another AI agent, then repair the blocking findings it
+raises. Invoked from Claude Code, this solicits a review from Codex by default,
+or a fresh Claude Code self-review. Falls back to an in-session review when no
+external agent is available.
+
+This skill owns the full **review → repair → re-review** loop and the severity
+gate that drives it. Repairs are bounded by `--repair-rounds` (default `2`); each
+round changes the branch once and is followed by a fresh review of the new head,
+so the reported head is always a head that was itself reviewed. Pass
+`--repair-rounds 0` for a report-only review that changes nothing.
 
 ## Arguments
 
@@ -23,10 +29,17 @@ available.
   `-c model_reasoning_effort="<level>"` — an explicit override, so a Codex review
   never silently inherits whatever `~/.codex/config.toml` sets.
 - `--passes <n>` (optional flag, position-independent): how many review passes to
-  run over the current diff. **Defaults to `1`** — a single pass. This skill never
-  re-reviews on its own; extra passes are opt-in. A flag rather than a third
+  run over **one unchanged head**. **Defaults to `1`**. Passes buy discovery
+  depth on a single diff; they never fix anything. A flag rather than a third
   positional argument, so it can be given without also supplying the agent and
   effort.
+- `--repair-rounds <n>` (optional flag, position-independent): maximum
+  blocking-finding repair rounds. **Defaults to `2`**. Each round may change the
+  branch once and therefore requires a fresh review of the new head. **Use `0`
+  for a report-only review** — findings are surfaced and nothing is touched.
+
+`--passes` and `--repair-rounds` are different axes: passes re-read the same
+commit, repair rounds produce new commits to read.
 
 ## Prerequisites
 
@@ -34,7 +47,10 @@ available.
 - The `@tearleads/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - For Codex reviews: `codex` CLI configured (`OPENAI_API_KEY`).
 - For Claude Code reviews: `claude` CLI authenticated.
-- An open PR on the current branch.
+- An open PR on the current branch, with local `HEAD` equal to the pushed PR
+  head.
+- Unless `--repair-rounds 0` is given: the worktree contains only changes
+  intended for this PR, since repair rounds stage and commit from it.
 
 ## Setup
 
@@ -57,17 +73,24 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
    - `claude` → Claude Code (self-review)
    - otherwise → Codex (default for Claude Code invoking this skill)
 
-2. **Run the review**: Execute the matching action **once** — one pass is the
-   default. Omit the effort argument to take the per-agent default (`xhigh` for
-   Claude, `high` for Codex); pass a level to override it.
+2. **Snapshot the candidate head**: set `REPAIR_ROUND=0`, then for each head
+   entering review, snapshot it and confirm it is the pushed PR head:
 
-   **Review passes:** with `--passes <n>` and `n > 1`, repeat the review over the
-   *same, unchanged* diff, reporting only findings the earlier passes did not
-   surface, and stop early as soon as a pass adds nothing new. Passes buy
-   discovery depth on one diff — they never fix anything, and this skill does not
-   review code that changed underneath it. Once findings are addressed the diff is
-   different, so reviewing it again is a **new invocation the caller decides to
-   make**, not something this skill does on its own.
+   ```bash
+   REVIEWED_SHA=$(git rev-parse HEAD)
+   test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
+   ```
+
+   Reviewing a head that is not pushed reviews a diff no one else can see, and
+   the resulting SHA cannot be handed to a merge. Stop if it does not match.
+
+3. **Run the review**: Execute the matching action over the snapshot head. Omit
+   the effort argument to take the per-agent default (`xhigh` for Claude, `high`
+   for Codex); pass a level to override it.
+
+   With `--passes <n>` and `n > 1`, repeat the review over the *same, unchanged*
+   head, reporting only findings the earlier passes did not surface, and stop
+   early as soon as a pass adds nothing new.
 
    **For Codex review:**
 
@@ -96,14 +119,17 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 
    - If the Claude Code review also fails (or was selected first and fails due
      to nested-session restrictions, credits/quota/auth, or prompt-size limits),
-     perform an **in-session file-by-file review** (step 3).
+     perform an **in-session file-by-file review** (step 4).
 
    - Only stop immediately for non-recoverable operational errors (missing PR,
      missing tool script, malformed args) where fallback would also fail.
 
+   - If every agent and fallback fails, report that the review **could not run**
+     and stop. Never repair against a review that does not exist.
+
    **What counts as a usable review:** a reviewer CLI can exit **0** having
    produced only an intent sentence — "I'll review this PR diff..." — which is not
-   a review. Never relay one as if it were.
+   a review. Never relay one as if it were, and never repair from one.
 
    **The two directions are not guarded the same way, and the difference matters
    here.** Codex is this file's primary reviewer, and *nothing checks its output
@@ -117,7 +143,19 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
    `MINOR`, or `CLEAN`), and `solicitClaudeCodeReview` exits nonzero when it is
    missing.
 
-3. **In-session file-by-file review** (when external agents are unavailable):
+   After review, confirm the head is still the snapshot:
+
+   ```bash
+   test "$REVIEWED_SHA" = "$(git rev-parse HEAD)"
+   test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
+   ```
+
+   If either changed, something landed underneath the review. Discard the stale
+   result, reconcile safely, and return to step 2 with the new pushed head. This
+   check runs *before* any repair of this round, so it detects foreign pushes
+   rather than the skill's own.
+
+4. **In-session file-by-file review** (when external agents are unavailable):
 
    **CRITICAL: Never compute the full PR diff in a single pass.** Large diffs
    exceed prompt limits and cause partial/failed reviews. Interrogate GitHub and
@@ -147,17 +185,69 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 
    e. Aggregate findings across all files into the final review output.
 
-4. **Report results**: Output the review including:
+5. **Review gate and bounded repair**: read the findings and classify them.
+   Reviewers use different severity vocabularies: the in-session fallback uses
+   **Blocker / Major / Minor / Suggestion**, while Codex's native `codex review`
+   uses **[P0]–[P3]**. Treat them as one scale — **Blocker ≡ [P0]**,
+   **Major ≡ [P1]**, **Minor ≡ [P2]**, **Suggestion ≡ [P3]** — where
+   **Blocker/Major (P0/P1) count as blocking**.
+
+   - If the review is **clean or raises only non-blocking nits**
+     (**Minor/Suggestion** or **[P2]/[P3]**), the loop is done. `REVIEWED_SHA` is
+     the final reviewed head.
+   - If the review raises a **blocking** finding, surface it. Then:
+     - If `--repair-rounds 0` was given, **stop and report** the findings without
+       touching the branch. This is the report-only mode.
+     - If `REPAIR_ROUND` has reached `--repair-rounds`, **stop and report** the
+       unresolved findings along with the rounds already performed.
+     - Otherwise repair:
+       1. Confirm each fix is actionable, in scope, and requires no new authority
+          or material user choice. Stop and ask for direction when that is false.
+       2. Implement all blocking fixes. Also address directly adjacent
+          non-blocking findings when doing so is low-risk and avoids dead code or
+          vacuous tests; do not expand the PR into unrelated cleanup.
+       3. Run validation proportionate to the changes, including the repository's
+          staged source-shape check before committing.
+       4. Stage only the repair paths, commit with a valid conventional subject,
+          and push without force. Stop if unrelated changes are mixed into the
+          worktree.
+       5. Increment `REPAIR_ROUND` and return to step 2, so the new head is
+          snapshotted and the **complete** PR diff is reviewed again.
+
+   **Never report a head as reviewed after fixing it.** Every repair round ends by
+   re-entering the loop; the reported `REVIEWED_SHA` is always a head that a
+   review actually read.
+
+6. **Report results**: Output
    - Which agent performed the review (and whether fallback was used, and why)
    - The PR number and branch
-   - The review findings
+   - The review findings from the final review
+   - **The final reviewed SHA** (`REVIEWED_SHA`)
+   - **The final verdict** — clean, non-blocking nits only, unresolved blocking
+     findings, or review-could-not-run
+   - **Repair rounds performed**, and what was fixed in them
+
+   Callers gate on the last three. `ship-pr` binds its merge to the reported SHA
+   and refuses to merge on an unresolved-blocking or could-not-run verdict.
 
 ## Notes
 
-- **One pass by default.** The skill reviews the current diff once and reports;
-  it does not loop. Re-reviewing after fixes is always the caller's explicit
-  decision (a fresh invocation), which keeps a review → fix → re-review cycle from
-  running away and surfacing ever-narrower findings.
+- **Repairs are bounded** — at most two branch-changing repair rounds by default.
+  The bound is what keeps a review → fix → re-review cycle from running away and
+  surfacing ever-narrower findings; it is the reason this loop can be safe to own
+  here at all. `--repair-rounds 0` disables repair entirely and restores the
+  report-only review.
+- **`--passes` and `--repair-rounds` are orthogonal.** `--passes` controls
+  discovery depth on one unchanged head and never mutates anything;
+  `--repair-rounds` bounds how many times the branch may change and be
+  re-reviewed. Raising passes makes each look deeper; raising repair rounds makes
+  the loop longer.
+- **The reported head is a reviewed head.** `REVIEWED_SHA` is snapshotted before
+  the review, verified unchanged after it, and re-snapshotted after every repair
+  round. A caller that merges the reported SHA merges a commit that was reviewed.
+- **A failed review is not a clean review.** If every agent and fallback fails,
+  the verdict is *could-not-run* and no repair happens — repairing against absent
+  findings would be inventing work.
 - Effort defaults are per agent — `xhigh` for Claude, `high` for Codex — and are
   always passed explicitly, so neither reviewer inherits an ambient config value.
   Fallback reviews use the fallback agent's own default unless a level is given.
@@ -173,6 +263,8 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
   diff — an unchanged branch further up the file, a source-shape baseline, the
   callers a signature change breaks. `Bash` is withheld because a review needs no
   shell, and the session's context is a PR diff — attacker-influenceable text.
+  The repair rounds run in *this* session, not the reviewer's; the reviewer stays
+  read-only no matter how many rounds run.
 - **Why a review can come back empty is not known.** The one observed failure —
   Claude exiting 0 after ~5s having emitted only "I'll review this PR diff..." —
   was never reproduced and looks stochastic. The verdict check is what makes it
