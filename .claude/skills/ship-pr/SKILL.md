@@ -98,13 +98,14 @@ loop, subject-only squash, and `MERGED`-state verification.
    That skill owns the review, the severity gate, and the bounded repair loop: it
    snapshots each candidate head, asserts it is the pushed PR head, reviews it,
    repairs blocking findings, and re-reviews every head it changes. It reports
-   back a **final reviewed SHA**, a **verdict**, and the **repair rounds** it
-   performed.
+   back a **head SHA**, a **verdict**, and the **repair rounds** it performed. The
+   SHA is a reviewed head on every verdict except **review-could-not-run**, where
+   it is the unreviewed candidate head — only reachable here via `--merge-anyway`.
 
    Relay its output — which agent ran, whether it fell back, the findings, and
    what was repaired.
 
-   Take its reported final SHA as `REVIEWED_SHA` and confirm it is still both the
+   Take its reported head SHA as `REVIEWED_SHA` and confirm it is still both the
    local and the pushed head:
 
    ```bash
@@ -124,7 +125,10 @@ loop, subject-only squash, and `MERGED`-state verification.
      `--repair-rounds 0` was given, or the loop stopped to ask for direction —
      **stop** and report them, unless `--merge-anyway` was given.
    - **Review could not run** (every agent and fallback failed) — **stop** rather
-     than merge unreviewed, unless `--merge-anyway` was given.
+     than merge unreviewed, unless `--merge-anyway` was given. In that override
+     the reported SHA is the **unreviewed candidate** head; the head checks above
+     and the `--match-head-commit` bind still apply to it, so the merge is still
+     pinned to a known commit — it simply is not a reviewed one. Say so.
 
    When `--merge-anyway` is set and the gate would otherwise stop, surface the
    blocking or unavailable findings, state plainly that the gate is being
@@ -192,7 +196,10 @@ loop, subject-only squash, and `MERGED`-state verification.
   actually reviewed; this skill re-verifies it against the local and pushed heads
   and passes it to `squash-merge`, which binds the merge with
   `--match-head-commit`. GitHub then rejects the merge outright if any commit
-  landed after the review, so an unreviewed commit can never be merged.
+  landed after the review, so an unreviewed commit can never be merged. The lone
+  exception is an explicit `--merge-anyway` over a could-not-run verdict, where
+  the bound head is a candidate that no review read — the merge is still pinned,
+  but the reviewed-head guarantee is the thing the caller chose to waive.
 - **Title and subject stay in sync automatically**: `squash-merge` defaults to
   the PR title that `open-pr` set, so a single title argument (or none) suffices
   for both.

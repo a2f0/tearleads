@@ -224,13 +224,18 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
    - Which agent performed the review (and whether fallback was used, and why)
    - The PR number and branch
    - The review findings from the final review
-   - **The final reviewed SHA** (`REVIEWED_SHA`)
+   - **The head SHA** — normally `REVIEWED_SHA`, a head a review actually read.
+     On a **review-could-not-run** verdict nothing was reviewed, so report the
+     **candidate** head snapshotted in step 2 and label it plainly as
+     *unreviewed*. Always report a SHA: a caller overriding the gate still needs
+     a head to bind its merge to, and inventing one later would defeat the bind.
    - **The final verdict** — clean, non-blocking nits only, unresolved blocking
      findings, or review-could-not-run
    - **Repair rounds performed**, and what was fixed in them
 
    Callers gate on the last three. `ship-pr` binds its merge to the reported SHA
-   and refuses to merge on an unresolved-blocking or could-not-run verdict.
+   and refuses to merge on an unresolved-blocking or could-not-run verdict unless
+   it was told to override.
 
 ## Notes
 
