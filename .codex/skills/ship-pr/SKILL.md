@@ -1,6 +1,6 @@
 ---
 name: ship-pr
-description: Ship the current branch end-to-end — open or resume a PR, cross-agent review it, repair blocking findings in bounded rounds, re-review each changed head, squash-merge the exact reviewed commit, then return to the default branch and delete the merged branch
+description: Ship the current branch end-to-end — open or resume a PR, cross-agent review it, repair blocking findings in bounded rounds, re-review each changed head, squash-merge the exact reviewed commit, then return to the base branch and delete the merged branch
 ---
 
 # Ship PR
@@ -16,9 +16,10 @@ The review gates the merge. By default, address actionable blocking findings,
 push the fixes, and review the new head before merging. Never merge a commit
 that was not itself reviewed.
 
-A successful flow ends back on the default branch, fast-forwarded, with the
-merged branch deleted. That cleanup belongs to `squash-merge`, which runs it only
-after GitHub confirms the PR is `MERGED`.
+A successful flow ends back on the PR's base branch — the default branch for a PR
+`open-pr` created — fast-forwarded, with the merged branch deleted. That cleanup
+belongs to `squash-merge`, which runs it only after GitHub confirms the PR is
+`MERGED` and that the base branch actually contains the merge commit.
 
 ## Arguments
 
@@ -156,10 +157,11 @@ review fallback chain, subject-only squash, and `MERGED`-state verification.
    GitHub at merge time, not by a racy preflight check.
 
    That skill also owns the post-merge cleanup: once GitHub confirms `MERGED`, it
-   returns to the default branch, fast-forwards it, and deletes the merged branch
-   locally and remotely. Forward `--keep-branch` when it was given to opt out. Do
-   not re-implement the cleanup here; it is gated on the merge actually landing,
-   so it must stay with the step that performs the merge.
+   returns to the PR's base branch, fast-forwards it, verifies it contains the
+   merge commit, and deletes the merged branch locally and remotely. Forward
+   `--keep-branch` when it was given to opt out. Do not re-implement the cleanup
+   here; it is gated on the merge actually landing, so it must stay with the step
+   that performs the merge.
 
    **Invoke the `squash-merge` skill — do not call the tool directly from here.**
    The tool merges and returns; the cleanup and `--keep-branch` live in the skill
@@ -213,9 +215,10 @@ review fallback chain, subject-only squash, and `MERGED`-state verification.
   their validation and external operations — including the post-merge cleanup,
   which lives in `squash-merge` because it must be gated on the merge landing.
 - **Cleanup never runs on an unmerged branch** — it is gated on GitHub reporting
-  `MERGED`, and skipped on a dirty worktree so in-progress work is never carried
-  onto the default branch or stranded. Either way the branch survives and the
-  reason is reported.
+  `MERGED` *and* on the base branch verifiably containing the merge commit, and it
+  is skipped on a dirty worktree so in-progress work is never carried onto the
+  base branch or stranded. In every case the branch survives and the reason is
+  reported.
 - **Invoke the wrapped skills, not the tools they call.** `squash-merge` is the
   clearest case: its cleanup and `--keep-branch` wrap the tool call rather than
   living inside the tool, so calling `squashMerge` directly still merges — it just

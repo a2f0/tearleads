@@ -1,6 +1,6 @@
 ---
 name: squash-merge
-description: Squash-merge the current PR with a subject-only commit message validated against the repo's commitlint rules, then return to the default branch, fast-forward it, and delete the merged branch
+description: Squash-merge the current PR with a subject-only commit message validated against the repo's commitlint rules, then return to the PR's base branch, fast-forward it, and delete the merged branch
 ---
 
 # Squash Merge
@@ -12,8 +12,8 @@ merge runs, and the tool appends the PR reference `(#<pr>)` so the squash
 commit ends with it — the same reference GitHub adds for web/default merges but
 that `gh pr merge --subject` otherwise suppresses.
 
-Once the PR is confirmed `MERGED`, return to the default branch, fast-forward it,
-and delete the merged branch, so a shipped PR leaves no local leftovers.
+Once the PR is confirmed `MERGED`, return to the PR's base branch, fast-forward
+it, and delete the merged branch, so a shipped PR leaves no local leftovers.
 
 ## Arguments
 
@@ -29,10 +29,13 @@ and delete the merged branch, so a shipped PR leaves no local leftovers.
   needed locally (e.g. to build a follow-up PR on top of it).
 
   **This flag is consumed by this skill and must never reach the tool.** The tool
-  takes only the two positionals above — `squashMerge <subject> <sha>` — so a
-  forwarded `--keep-branch` would be parsed as the *subject* and rejected by
-  commitlint. Strip it from the arguments, let it gate step 4, and call the tool
-  with the subject and SHA only.
+  takes only the two positionals above — `squashMerge <subject> <sha>` — and how a
+  forwarded `--keep-branch` fails depends on where it lands: first, it is read as
+  the *subject* and rejected by commitlint; after the positionals (the position
+  `ship-pr` forwards), it is **silently ignored**. The silent case is the
+  dangerous one — the merge succeeds, the caller believes cleanup was skipped, and
+  it ran anyway. Strip the flag from the arguments, let it gate step 4, and call
+  the tool with the subject and SHA only.
 
 ## Prerequisites
 
@@ -51,21 +54,40 @@ number **before** merging — afterwards the PR is no longer open, so
 ```bash
 ROOT_DIR=$(git rev-parse --show-toplevel)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
 AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
 [ -f "$AGENT_TOOL" ] || { echo "Error: agent-tool not found at $AGENT_TOOL" >&2; exit 1; }
+
+# One gh call for both values, split on the space neither a repo slug nor a
+# branch name may contain. Guard each: an unauthenticated gh leaves them empty,
+# and an empty REPO turns every later lookup into a confusing error.
+REPO_INFO=$(gh repo view --json nameWithOwner,defaultBranchRef -q '.nameWithOwner + " " + .defaultBranchRef.name') || { echo "Error: gh repo view failed (authenticated?)" >&2; exit 1; }
+REPO=${REPO_INFO%% *}
+DEFAULT_BRANCH=${REPO_INFO##* }
+[ -n "$REPO" ] || { echo "Error: could not resolve repository" >&2; exit 1; }
 [ -n "$DEFAULT_BRANCH" ] || { echo "Error: repository default branch is unavailable" >&2; exit 1; }
 [ "$BRANCH" != "$DEFAULT_BRANCH" ] || { echo "Error: on default branch $DEFAULT_BRANCH" >&2; exit 1; }
 
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' -R "$REPO")
 [ -n "$PR_NUMBER" ] || { echo "Error: no open PR for branch $BRANCH" >&2; exit 1; }
+
+# The branch to return to is the PR's base — NOT necessarily the default branch.
+BASE_BRANCH=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+[ -n "$BASE_BRANCH" ] || { echo "Error: could not resolve base branch for PR #$PR_NUMBER" >&2; exit 1; }
 ```
 
 Pass `-R "$REPO"` to every `gh` call here, as the tool does internally. On a fork
 or multi-remote checkout, an unqualified `gh` can resolve to a different repo than
-the one the tool merges into — and in this skill that lookup gates a branch
+the one the tool merges into — and in this skill those lookups gate a branch
 deletion.
+
+**Return to the PR's base branch, not the repository default.** They coincide for
+a PR opened by `open-pr` (which bases on the default), but a stacked PR or a
+release-branch PR merges somewhere else. Switching to the default there would
+fast-forward a branch that never received the commits and then delete the feature
+branch on the strength of a merge that landed elsewhere. The `MERGED` gate does
+not catch this — it confirms the PR merged, not that *this* branch contains it.
+The `$BRANCH` != `$DEFAULT_BRANCH` preflight above is a separate guard and stays
+as-is.
 
 ## Workflow
 
@@ -113,8 +135,8 @@ deletion.
    subject that satisfies the rules (valid type, ≤50 chars), and re-run with the
    corrected subject once confirmed.
 
-4. **Return to the default branch and delete the merged branch**: skip this
-   entire step when `--keep-branch` was given, or when the merge did not succeed.
+4. **Return to the base branch and delete the merged branch**: skip this entire
+   step when `--keep-branch` was given, or when the merge did not succeed.
 
    **Confirm the merge from GitHub first — this is the safety gate.** Never
    delete a branch on the strength of a zero exit code alone:
@@ -129,7 +151,7 @@ deletion.
    and report that instead.
 
    **Refuse to switch away from a dirty worktree**, so unrelated in-progress work
-   is never carried onto the default branch or stranded:
+   is never carried onto the base branch or stranded:
 
    ```bash
    [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "Error: worktree has uncommitted changes; skipping cleanup" >&2; git status --short; exit 1; }
@@ -140,39 +162,55 @@ deletion.
    follow a `git switch` harmlessly, and the guarded `git pull` below still stops
    if one would be overwritten.
 
-   Then switch, fast-forward, and clean up — in this order, and **guard every
-   step**, so a failure stops the sequence instead of falling through to the
-   delete:
+   Then switch, fast-forward, **verify the merge actually arrived**, and only then
+   delete — in this order, and **guard every step**, so a failure stops the
+   sequence instead of falling through to the delete:
 
    ```bash
    MERGED_BRANCH="$BRANCH"
-   git switch "$DEFAULT_BRANCH" || { echo "Error: could not switch to $DEFAULT_BRANCH" >&2; exit 1; }
-   git pull --ff-only origin "$DEFAULT_BRANCH" || { echo "Error: $DEFAULT_BRANCH could not fast-forward; skipping delete" >&2; exit 1; }
-   git fetch origin --prune || { echo "Error: prune failed; skipping delete" >&2; exit 1; }
-   if git ls-remote --exit-code --heads origin "$MERGED_BRANCH" >/dev/null 2>&1; then
-     git push origin --delete "$MERGED_BRANCH" || { echo "Error: could not delete remote $MERGED_BRANCH" >&2; exit 1; }
+   MERGE_COMMIT=$(gh pr view "$PR_NUMBER" --json mergeCommit -q .mergeCommit.oid -R "$REPO")
+   # Pull from the remote the base branch actually tracks; on a fork, `origin` is
+   # the fork and the merge landed upstream, so a hardcoded `origin` pulls a stale
+   # branch and reports success.
+   REMOTE=$(git config "branch.$BASE_BRANCH.remote" 2>/dev/null || echo origin)
+
+   git switch "$BASE_BRANCH" || { echo "Error: could not switch to $BASE_BRANCH" >&2; exit 1; }
+   git pull --ff-only "$REMOTE" "$BASE_BRANCH" || { echo "Error: $BASE_BRANCH could not fast-forward; skipping delete" >&2; exit 1; }
+   git fetch "$REMOTE" --prune || { echo "Error: prune failed; skipping delete" >&2; exit 1; }
+
+   # The real gate on the delete: prove this branch now contains the squash commit.
+   [ -n "$MERGE_COMMIT" ] || { echo "Error: could not resolve merge commit; skipping delete" >&2; exit 1; }
+   git merge-base --is-ancestor "$MERGE_COMMIT" HEAD || { echo "Error: $BASE_BRANCH does not contain merge commit $MERGE_COMMIT; skipping delete" >&2; exit 1; }
+
+   if git ls-remote --exit-code --heads "$REMOTE" "$MERGED_BRANCH" >/dev/null 2>&1; then
+     git push "$REMOTE" --delete "$MERGED_BRANCH" || { echo "Error: could not delete remote $MERGED_BRANCH" >&2; exit 1; }
    fi
    git branch -D "$MERGED_BRANCH" || { echo "Error: could not delete local $MERGED_BRANCH" >&2; exit 1; }
    ```
 
    - **Switch before deleting** — git refuses to delete the branch that is
      checked out.
-   - **`--ff-only`** — the default branch must never acquire a merge commit here.
-     A non-fast-forward means local default has diverged; stop and report rather
+   - **`--ff-only`** — the base branch must never acquire a merge commit here.
+     A non-fast-forward means it has diverged locally; stop and report rather
      than reconciling. The guard is what makes that happen: without it the
      sequence would continue and delete the branch anyway.
+   - **Verify the merge commit is an ancestor of `HEAD`** before deleting
+     anything. This is what makes the delete safe in practice: it proves the
+     branch you just pulled genuinely contains the squashed work, catching a pull
+     from the wrong remote, a stale fork, or a base that never received the merge
+     — none of which the `MERGED` state alone can detect.
    - **`--prune`** drops the remote-tracking ref for a branch GitHub already
      deleted on merge. The `ls-remote` guard covers repos where that auto-delete
      is off, and skips the push when the branch is already gone rather than
      failing on it — so both settings work without asserting which is in force.
-   - **`-D`, not `-d`, is required here** — see the note below. The `MERGED`
-     check above is what makes the force safe.
+   - **`-D`, not `-d`, is required here** — see the note below. The `MERGED` check
+     plus the ancestry check above are what make the force safe.
 
 5. **Report results**: state the merged PR number, the final squash subject
-   (including the ` (#<pr>)` reference), and confirm the merge succeeded. Note
-   the branch returned to, that it was fast-forwarded, and that the merged branch
-   was deleted (locally, and remotely when it still existed) — or why cleanup was
-   skipped.
+   (including the ` (#<pr>)` reference), and confirm the merge succeeded. Name the
+   base branch returned to, that it was fast-forwarded and verified to contain the
+   merge commit, and that the merged branch was deleted (locally, and remotely when
+   it still existed) — or why cleanup was skipped.
 
 ## Notes
 
@@ -186,8 +224,8 @@ deletion.
   it was queued or blocked); do not report success in that case, and do not clean
   up the branch.
 - **A squash merge always requires `git branch -D`.** Squashing creates a *new*
-  commit on the default branch, so the feature branch's tip is never an ancestor
-  of it and `git branch -d` reports the branch as "not fully merged" and refuses.
+  commit on the base branch, so the feature branch's tip is never an ancestor of
+  it and `git branch -d` reports the branch as "not fully merged" and refuses.
   `-d` may appear to work if the branch's remote-tracking ref still exists and
   matches — git then treats it as merged to its upstream and deletes it with a
   warning — but that is incidental, and it stops working the moment `--prune`
