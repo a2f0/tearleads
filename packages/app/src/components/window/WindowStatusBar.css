@@ -1,3 +1,15 @@
+/*
+ * The live-region wrapper is always mounted (see WindowStatusBar.tsx) so it must
+ * add no height of its own, leaving the window flush when there is no message.
+ * Avoid `display: contents` here: it drops the element from the box tree, which
+ * some screen readers extend to the accessibility tree, silencing the very
+ * announcements the always-mounted region exists to preserve.
+ */
+.window-statusbar-live {
+  display: block;
+  line-height: 0;
+}
+
 .window-statusbar {
   display: block;
   min-height: var(--window-bar-height);
