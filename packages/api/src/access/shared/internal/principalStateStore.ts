@@ -638,6 +638,9 @@ export async function storeVerifiedPrincipalStateInTransaction(
     stateHash,
     executor,
   );
+  // Chain validation accepts an equal version only for the identical state
+  // hash. Such a replay cannot change authority and remains valid after signer
+  // removal; only a new successor requires current-admin authorization.
   const isExactReplay = currentState?.version === normalizedInput.state.version;
   const previousProjection = isExactReplay
     ? null

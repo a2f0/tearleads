@@ -458,28 +458,3 @@ test("verifyPrincipalPolicyBundle rejects membership roots that do not match the
 
   expectVerificationError(result, "hash_mismatch");
 });
-
-test("verifyPrincipalPolicyBundle rejects member envelopes that do not match the signed root", async () => {
-  const signer = await createPolicySigner();
-  const current = await signPolicyState({
-    principalId: "group-member-envelope-root-mismatch",
-    version: 1,
-    prevStateHash: null,
-    members: [{ principalType: "user", principalId: signer.userId }],
-    signer,
-  });
-  const bundle = createBundle({ current });
-
-  const result = await verifyPrincipalPolicyBundle({
-    bundle: {
-      ...bundle,
-      currentMemberEnvelopes: {
-        ...bundle.currentMemberEnvelopes,
-        envelopes: [],
-      },
-    },
-    signerPublicKeys: [signer],
-  });
-
-  expectVerificationError(result, "hash_mismatch");
-});

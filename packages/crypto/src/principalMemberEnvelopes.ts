@@ -19,10 +19,20 @@ function compareEnvelopes(
   left: PrincipalStateMemberEnvelope,
   right: PrincipalStateMemberEnvelope,
 ): number {
-  return (
-    left.memberPrincipalType.localeCompare(right.memberPrincipalType) ||
-    left.memberPrincipalId.localeCompare(right.memberPrincipalId)
-  );
+  const principalTypeOrder =
+    left.memberPrincipalType < right.memberPrincipalType
+      ? -1
+      : left.memberPrincipalType > right.memberPrincipalType
+        ? 1
+        : 0;
+  if (principalTypeOrder !== 0) {
+    return principalTypeOrder;
+  }
+  return left.memberPrincipalId < right.memberPrincipalId
+    ? -1
+    : left.memberPrincipalId > right.memberPrincipalId
+      ? 1
+      : 0;
 }
 
 function requireCanonicalBase64(value: string, label: string): Uint8Array {

@@ -23,11 +23,10 @@ interface PrincipalPolicyRouteDeps {
 }
 
 // A policy write atomically commits signed state and the wrapped group key for
-// every current
-// member, so each user member can now derive the group key and reach every
-// container granted to that group. Those containers are not in the member's
-// local tree yet — membership (not a direct container grant) made them
-// reachable — so, exactly as PR #1184 does for a direct "Share With Peer",
+// every current member. Each user member can then derive the group key and
+// reach every container granted to that group. Those containers are not in
+// the member's local tree yet — membership (not a direct container grant) made
+// them reachable — so, exactly as PR #1184 does for a direct "Share With Peer",
 // publish a scopeless, user-scoped `shared_with_you` per user member.
 // recipientsForEvent (no container scope) routes it to that user's own sockets,
 // whose client re-lists root containers and surfaces the new shares without a
