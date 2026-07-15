@@ -102,7 +102,12 @@ function NotesList({
         </MiniAppStatus>
       ) : (
         <MiniAppVirtualListFrame
-          className={bleed ? "mini-app-virtual-list-frame--bleed" : undefined}
+          className={classNames(
+            bleed && "mini-app-virtual-list-frame--bleed",
+            // The list home fills its route, so it also bleeds its bottom edge
+            // to sit flush against the mobile task bar.
+            bleed && "mini-app-virtual-list-frame--bleed-block-end",
+          )}
           ref={virtualNotes.frameRef}
           rowHeight={rowHeight}
         >

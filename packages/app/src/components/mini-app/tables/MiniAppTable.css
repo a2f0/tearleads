@@ -210,6 +210,23 @@
   );
 }
 
+/*
+ * Block-end companion (opt-in): pull the frame's bottom edge through the same
+ * `--space-md` padding so the list meets the shell's bottom chrome directly.
+ * Without it the padding leaves a strip of the pane background between the
+ * shaded frame surface and the equally-shaded mobile task bar, which reads as a
+ * dead empty bar rather than breathing room. The frame is a flex child, so the
+ * negative margin frees the space its `flex: 1` then grows into.
+ *
+ * Opt-in rather than folded into `--bleed`: a bled table is not always the last
+ * thing on the route. The explorer item list fills its route and takes this;
+ * identity-manager's sessions table bleeds mid-panel under a section heading and
+ * must keep its inset, or it would ride up over the content below it.
+ */
+.routed-pane--mobile .mini-app-table-frame--bleed-block-end {
+  margin-block-end: calc(-1 * var(--space-md));
+}
+
 .routed-pane--mobile .mini-app-table-frame--bleed .mini-app-table {
   background: var(--color-light);
 }

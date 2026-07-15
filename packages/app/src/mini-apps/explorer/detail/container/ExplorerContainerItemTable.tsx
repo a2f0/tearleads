@@ -375,6 +375,9 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
         "mini-app-table-frame--virtual",
         "mini-app-table-frame--compact",
         "mini-app-table-frame--bleed",
+        // The item list fills its route, so it also bleeds its bottom edge to
+        // sit flush against the mobile task bar.
+        "mini-app-table-frame--bleed-block-end",
         dragActive && "explorer-item-table-wrap--drop-active",
       )}
       onDragEnter={handleDragEnter}

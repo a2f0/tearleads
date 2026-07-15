@@ -53,11 +53,29 @@
  * mini-app root's `--space-md` inline padding so the rows — and their divider
  * lines — reach the screen edges, matching the explorer item list. Row content
  * keeps its own inline padding, so text (and any trailing kebab) stays clear of
- * the edge. Horizontal only: vertical inset is left to the list-home wrapper.
+ * the edge. Horizontal only: the block-end edge is opt-in via the companion
+ * modifier below, and the block-start inset is left to the list-home wrapper.
  */
 .routed-pane--mobile .mini-app-virtual-list-frame--bleed {
   margin-inline: calc(-1 * var(--space-md));
   background: var(--mini-app-list-frame-background);
+}
+
+/*
+ * Block-end companion (opt-in): pull the frame's bottom edge through the same
+ * `--space-md` padding so the list meets the shell's bottom chrome directly.
+ * Without it the padding leaves a strip of the pane background between the
+ * shaded frame surface and the equally-shaded mobile task bar, which reads as a
+ * dead empty bar rather than breathing room. The frame is a flex child, so the
+ * negative margin frees the space its `flex: 1` then grows into.
+ *
+ * Kept separate from `--bleed` because bleeding inline does not imply the frame
+ * is the last thing before the task bar — see the same split on
+ * `mini-app-table-frame--bleed` in ../tables/MiniAppTable.css, where the
+ * identity-manager sessions table bleeds mid-panel under a heading.
+ */
+.routed-pane--mobile .mini-app-virtual-list-frame--bleed-block-end {
+  margin-block-end: calc(-1 * var(--space-md));
 }
 
 /*
