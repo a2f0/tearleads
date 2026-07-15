@@ -1,20 +1,21 @@
 ---
 name: ship-pr
-description: Ship the current branch end-to-end — open or resume a PR, cross-agent review it, repair blocking findings in bounded rounds, re-review each changed head, squash-merge the exact reviewed commit, then return to the base branch and delete the merged branch
+description: Ship the current branch end-to-end — open or resume a PR, cross-agent review and repair it, squash-merge the exact reviewed commit, then return to the base branch and delete the merged branch
 ---
 
 # Ship PR
 
 Run the full ship flow for the current branch: **open or resume a PR**, get a
-**cross-agent review**, repair blocking findings in bounded rounds, then
-**squash-merge** and clean up. Delegate PR creation, each review, and the final
-merge to the `open-pr`, `cross-agent-review`, and `squash-merge` skills. This
-skill owns the orchestration, repair loop, ordering, and merge gate; it does not
-re-implement the wrapped skills.
+**cross-agent review** that repairs its own blocking findings, then
+**squash-merge** and clean up. Delegate PR creation, the review-and-repair loop,
+and the final merge to the `open-pr`, `cross-agent-review`, and `squash-merge`
+skills. This skill owns the ordering and the merge gate; it does not re-implement
+the wrapped skills.
 
-The review gates the merge. By default, address actionable blocking findings,
-push the fixes, and review the new head before merging. Never merge a commit
-that was not itself reviewed.
+The review gates the merge. `cross-agent-review` addresses actionable blocking
+findings and re-reviews every head it changes, then reports the final reviewed
+SHA and verdict. This skill merges that exact SHA, and only on a non-blocking
+verdict. Never merge a commit that was not itself reviewed.
 
 A successful flow ends back on the PR's base branch — the default branch for a PR
 `open-pr` created — fast-forwarded, with the merged branch deleted. That cleanup
@@ -32,17 +33,16 @@ belongs to `squash-merge`, which runs it only after GitHub confirms the PR is
   (`claude` or `codex`). When omitted, that skill picks its own default — the
   *other* agent from whichever one is running this flow.
 - `--passes <n>` (optional flag, position-independent): forwarded verbatim to
-  each `cross-agent-review` invocation. **Defaults to `1`**. Passes inspect the
-  same head; they are distinct from repair rounds.
-- `--repair-rounds <n>` (optional flag, position-independent): maximum blocking-
-  finding repair rounds. **Defaults to `2`**. Each round may change the branch
-  once and therefore requires a fresh review of the new head. Use `0` to retain
-  stop-and-report behavior.
-- `--merge-anyway` (optional flag, position-independent): override the review
-  gate instead of repairing. By default the flow repairs blocking findings up
-  to the configured limit and stops if they remain or review cannot run; with
-  this flag it surfaces exactly what it is overriding and proceeds. The
-  reviewed-head guard still applies.
+  `cross-agent-review`. **Defaults to `1`** there. Passes inspect one unchanged
+  head; they are distinct from repair rounds.
+- `--repair-rounds <n>` (optional flag, position-independent): forwarded verbatim
+  to `cross-agent-review`, which owns the repair loop and bounds it. **Defaults
+  to `2`** there. Use `0` to retain stop-and-report behavior — the review runs and
+  reports, and this flow stops on any blocking finding.
+- `--merge-anyway` (optional flag, position-independent): override the merge gate.
+  By default the flow stops when `cross-agent-review` reports unresolved blocking
+  findings or could not review at all; with this flag it surfaces exactly what it
+  is overriding and proceeds. The reviewed-head guard still applies.
 - `--keep-branch` (optional flag, position-independent): forwarded verbatim to
   `squash-merge`, which then skips the post-merge cleanup and stays on the
   feature branch. Use when the branch is still needed locally.
@@ -75,79 +75,68 @@ report the error and stop.
 
 ## Workflow
 
-Run the wrapped skills in order. Stop on operational failures, unsafe or
-ambiguous repairs, exhausted repair rounds, or an overridden-head mismatch.
-Let each wrapped skill own its mechanics: quoting, commitlint validation, the
-review fallback chain, subject-only squash, and `MERGED`-state verification.
+Run the wrapped skills in order. Stop on operational failures, an unresolved
+blocking verdict, or an overridden-head mismatch. Let each wrapped skill own its
+mechanics: quoting, commitlint validation, the review fallback chain and repair
+loop, subject-only squash, and `MERGED`-state verification.
 
 1. **Open or resume the PR** — look up an open PR for the current branch.
 
    - If none exists, invoke `open-pr` with the title argument (or none), piping
      the body via stdin. Capture its PR number and URL. Stop if creation fails.
    - If one exists, reuse its number, URL, and title instead of invoking
-     `open-pr`. Confirm it targets the expected branch. If intended repair
-     changes are already present locally, run the relevant preflight, stage only
-     those paths, commit with a valid conventional subject, and push without
-     force. Stop if unrelated changes are mixed into the worktree.
-   - Before review, require local `HEAD` to equal the pushed PR head.
+     `open-pr`. Confirm it targets the expected branch. If intended changes are
+     already present locally, run the relevant preflight, stage only those paths,
+     commit with a valid conventional subject, and push without force. Stop if
+     unrelated changes are mixed into the worktree.
+   - `cross-agent-review` asserts that local `HEAD` equals the pushed PR head
+     before it reviews, so anything committed here must be pushed first.
 
-2. **Review and bounded repair loop** — set `REPAIR_ROUND=0`. For each candidate
-   head, first snapshot the commit and confirm it is the pushed PR head:
+2. **Review and repair** — invoke `cross-agent-review`, forwarding the
+   review-agent argument, and `--passes <n>` / `--repair-rounds <n>` when given.
+
+   That skill owns the review, the severity gate, and the bounded repair loop: it
+   snapshots each candidate head, asserts it is the pushed PR head, reviews it,
+   repairs blocking findings, and re-reviews every head it changes. It reports
+   back a **head SHA**, a **verdict**, and the **repair rounds** it performed. The
+   SHA is a reviewed head on every verdict except **review-could-not-run**, where
+   it is the unreviewed candidate head — only reachable here via `--merge-anyway`.
+
+   Relay its output — which agent ran, whether it fell back, the findings, and
+   what was repaired.
+
+   Take its reported head SHA as `REVIEWED_SHA` and confirm it is still both the
+   local and the pushed head:
 
    ```bash
-   REVIEWED_SHA=$(git rev-parse HEAD)
-   test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
-   ```
-
-   Then invoke `cross-agent-review`, passing the review-agent argument and
-   `--passes <n>` when given. Relay its findings, including which agent ran and
-   whether it fell back.
-
-   After review, confirm both local and pushed heads are still the snapshot:
-
-   ```bash
+   REVIEWED_SHA=<final reviewed SHA reported by cross-agent-review>
    test "$REVIEWED_SHA" = "$(git rev-parse HEAD)"
    test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
    ```
 
-   If either changed, discard the stale result, reconcile safely, and review the
-   new pushed head. Never carry a stale SHA into the merge step.
+   If either differs, a commit landed after the loop finished. Discard the result,
+   reconcile safely, and re-run `cross-agent-review` on the new pushed head. Never
+   carry a stale SHA into the merge step.
 
-   **Review gate** — read the findings and decide before merging. Reviewers use
-   different severity vocabularies: the in-session fallback uses **Blocker /
-   Major / Minor / Suggestion**, while Codex's native `codex review` uses
-   **[P0]–[P3]**. Treat them as one scale — **Blocker ≡ [P0]**, **Major ≡ [P1]**,
-   **Minor ≡ [P2]**, **Suggestion ≡ [P3]** — where **Blocker/Major (P0/P1) count
-   as blocking**:
-   - If the review raises a **blocking** finding (**Blocker/Major** or
-     **[P0]/[P1]**), surface it. With `--merge-anyway`, state that repair is
-     being skipped and carry the current reviewed SHA into step 3. Otherwise,
-     repair it by default. If `REPAIR_ROUND` has reached `--repair-rounds`, stop
-     and report the unresolved findings. Otherwise:
-     1. Confirm each fix is actionable, in scope, and requires no new authority
-        or material user choice. Stop and ask for direction when that is false.
-     2. Implement all blocking fixes. Also address directly adjacent
-        non-blocking findings when doing so is low-risk and avoids dead code or
-        vacuous tests; do not expand the PR into unrelated cleanup.
-     3. Run validation proportionate to the changes, including the repository's
-        staged source-shape check before committing.
-     4. Stage only the repair paths, commit with a valid conventional subject,
-        and push without force.
-     5. Increment `REPAIR_ROUND`, snapshot the new pushed head, and repeat step 2
-        so the complete PR diff is reviewed again.
-   - If the review is clean or raises only non-blocking nits (**Minor/Suggestion**
-     or **[P2]/[P3]**), carry that exact `REVIEWED_SHA` into step 3.
-   - If the review could not run at all (every agent and fallback failed),
-     **stop** rather than merge unreviewed unless `--merge-anyway` was given.
+   **Merge gate** — decide on the reported verdict:
+   - **Clean, or non-blocking nits only** — carry that exact `REVIEWED_SHA` into
+     step 3.
+   - **Unresolved blocking findings** — because the repair rounds were exhausted,
+     `--repair-rounds 0` was given, or the loop stopped to ask for direction —
+     **stop** and report them, unless `--merge-anyway` was given.
+   - **Review could not run** (every agent and fallback failed) — **stop** rather
+     than merge unreviewed, unless `--merge-anyway` was given. In that override
+     the reported SHA is the **unreviewed candidate** head; the head checks above
+     and the `--match-head-commit` bind still apply to it, so the merge is still
+     pinned to a known commit — it simply is not a reviewed one. Say so.
 
    When `--merge-anyway` is set and the gate would otherwise stop, surface the
    blocking or unavailable findings, state plainly that the gate is being
    overridden, and proceed to step 3.
 
-   **Bounded repairs only.** `--passes` controls discovery depth on one unchanged
-   head; `--repair-rounds` bounds how many times this skill may change and
-   re-review the branch. Never fix after the final accepted review, and never
-   merge a repaired head using an earlier review.
+   **Never repair here.** Fixing a finding in this step would produce a head that
+   `cross-agent-review` never read, and `REVIEWED_SHA` would no longer describe
+   the commit being merged. Raise `--repair-rounds` instead.
 
 3. **Squash-merge and clean up (bound to the reviewed head)** — invoke the
    `squash-merge` skill, passing `REVIEWED_SHA` as its **second (head-SHA)
@@ -194,26 +183,30 @@ review fallback chain, subject-only squash, and `MERGED`-state verification.
 
 ## Notes
 
-- **Order is enforced**: open/resume → review → bounded fix/re-review →
-  merge → cleanup. A failure leaves the PR in a safe, open state and is reported.
-- **The review gates the merge** — this flow never silently merges over a review
-  that found blocking issues, across either severity vocabulary (Blocker/Major or
-  [P0]/[P1]).
-- **Repairs are bounded** — default to at most two branch-changing repair rounds.
-  Every changed head receives a fresh review; `--repair-rounds 0` disables
-  automatic repair.
-- **The merged head is the reviewed head** — `REVIEWED_SHA` is snapshotted
-  *before* the review, verified unchanged *after* it, and passed to
-  `squash-merge`, which binds the merge with `--match-head-commit`. GitHub then
-  rejects the merge outright if any commit landed after the review, so an
-  unreviewed commit can never be merged.
+- **Order is enforced**: open/resume → review-and-repair → merge → cleanup. A
+  failure leaves the PR in a safe, open state and is reported.
+- **The review gates the merge** — this flow never silently merges over a verdict
+  that reports unresolved blocking findings, and never merges an unreviewed head.
+- **Repair belongs to `cross-agent-review`** — including the severity vocabulary
+  (Blocker/Major ≡ [P0]/[P1] are blocking), the round budget, and the re-review of
+  every changed head. This skill only reads the verdict it reports and decides
+  whether to merge. `--repair-rounds` and `--passes` are forwarded, not
+  interpreted.
+- **The merged head is the reviewed head** — `cross-agent-review` reports a SHA it
+  actually reviewed; this skill re-verifies it against the local and pushed heads
+  and passes it to `squash-merge`, which binds the merge with
+  `--match-head-commit`. GitHub then rejects the merge outright if any commit
+  landed after the review, so an unreviewed commit can never be merged. The lone
+  exception is an explicit `--merge-anyway` over a could-not-run verdict, where
+  the bound head is a candidate that no review read — the merge is still pinned,
+  but the reviewed-head guarantee is the thing the caller chose to waive.
 - **Title and subject stay in sync automatically**: `squash-merge` defaults to
   the PR title that `open-pr` set, so a single title argument (or none) suffices
   for both.
-- **Wrapped mechanics stay authoritative**: this skill coordinates remediation,
-  while `open-pr`, `cross-agent-review`, and `squash-merge` retain ownership of
-  their validation and external operations — including the post-merge cleanup,
-  which lives in `squash-merge` because it must be gated on the merge landing.
+- **Wrapped mechanics stay authoritative**: this skill coordinates, while
+  `open-pr`, `cross-agent-review`, and `squash-merge` retain ownership of their
+  validation and external operations — including the post-merge cleanup, which
+  lives in `squash-merge` because it must be gated on the merge landing.
 - **Cleanup never runs on an unmerged branch** — it is gated on GitHub reporting
   `MERGED` *and* on the base branch verifiably containing the merge commit, and it
   is skipped on a dirty worktree so in-progress work is never carried onto the
@@ -223,6 +216,6 @@ review fallback chain, subject-only squash, and `MERGED`-state verification.
   clearest case: its cleanup and `--keep-branch` wrap the tool call rather than
   living inside the tool, so calling `squashMerge` directly still merges — it just
   skips the cleanup, and does so silently. The same holds for the review fallback
-  chain in `cross-agent-review`.
+  chain and repair loop in `cross-agent-review`.
 - Single-quote the title argument and use a quoted heredoc for the body (per
   `open-pr`) so the shell does not expand `$(...)`, backticks, or `$VAR`.
