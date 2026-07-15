@@ -69,12 +69,17 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 
 ## Workflow
 
-1. **Determine agent**: Parse the argument:
+1. **Determine agent and initialize the loop**: Parse the argument:
    - `codex` → Codex (self-review)
    - otherwise → Claude Code (default for Codex invoking this skill)
 
-2. **Snapshot the candidate head**: set `REPAIR_ROUND=0`, then for each head
-   entering review, snapshot it and confirm it is the pushed PR head:
+   Then set `REPAIR_ROUND=0`. **This happens once, here — never inside the loop.**
+   Steps 2–5 form a loop that re-enters at step 2, so a counter initialized there
+   would reset on every repair, the `--repair-rounds` bound would never advance,
+   and the loop could commit and push without limit.
+
+2. **Snapshot the candidate head**: For each head entering review, snapshot it
+   and confirm it is the pushed PR head:
 
    ```bash
    REVIEWED_SHA=$(git rev-parse HEAD)
@@ -207,8 +212,9 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
        4. Stage only the repair paths, commit with a valid conventional subject,
           and push without force. Stop if unrelated changes are mixed into the
           worktree.
-       5. Increment `REPAIR_ROUND` and return to step 2, so the new head is
-          snapshotted and the **complete** PR diff is reviewed again.
+       5. Increment `REPAIR_ROUND` — never reset it — and return to **step 2**,
+          not step 1, so the new head is snapshotted and the **complete** PR diff
+          is reviewed again while the round count survives.
 
    **Never report a head as reviewed after fixing it.** Every repair round ends by
    re-entering the loop; the reported `REVIEWED_SHA` is always a head that a
