@@ -418,6 +418,7 @@ export function useBlobBrowserData(params: {
   const selectedBlob = isDetailDismissed
     ? null
     : getSelectedBlob({ activeBlob, route: params.route, rows });
+  const isListDetail = activeBlob !== null && selectedBlob !== null;
   const handleSort = useCallback((key: BlobInfoSortKey) => {
     setActiveBlob(null);
     setSort((currentSort) => getNextBlobInfoSort(currentSort, key));
@@ -458,6 +459,7 @@ export function useBlobBrowserData(params: {
     handleQueryChange,
     handleSelectBlob,
     handleSort,
+    isListDetail,
     isWindowPending,
     query,
     rowOffset,

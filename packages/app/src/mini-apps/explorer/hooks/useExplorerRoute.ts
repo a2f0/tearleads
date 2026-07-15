@@ -1,5 +1,5 @@
 import type { ContainerNode } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
 import type { MiniAppId } from "../../types";
 import {
@@ -13,6 +13,7 @@ import {
 
 export interface ExplorerRouteState {
   route: ExplorerRoute;
+  navigateBackFromBlobBrowser: () => void;
   openBlobBrowserRoute: (input?: {
     blobId?: string | null | undefined;
     storageKey?: string | null | undefined;
@@ -128,13 +129,89 @@ function useAvailableExplorerRoute(params: {
   }, [nodes, route, setRoute]);
 }
 
+function useExplorerBlobBrowserRouteActions(params: {
+  routeSnapshot: ExplorerRouteSnapshot;
+  setRoute: ExplorerRouteSetter;
+}) {
+  const { routeSnapshot, setRoute } = params;
+  const routeSnapshotRef = useRef(routeSnapshot);
+  const blobBrowserOriginRef = useRef<ExplorerRouteSnapshot | null>(null);
+
+  useEffect(() => {
+    routeSnapshotRef.current = routeSnapshot;
+    // Leaving through the sidebar, a document reference, or an externally
+    // supplied window route abandons the current blob visit. Do not let its
+    // remembered origin leak into a later direct blob deep link.
+    if (routeSnapshot.route.view !== "blob-browser") {
+      blobBrowserOriginRef.current = null;
+    }
+  }, [routeSnapshot]);
+
+  const openBlobBrowserRoute = useCallback(
+    (
+      input: {
+        blobId?: string | null | undefined;
+        storageKey?: string | null | undefined;
+      } = {},
+    ) => {
+      const currentRouteSnapshot = routeSnapshotRef.current;
+      if (currentRouteSnapshot.route.view !== "blob-browser") {
+        blobBrowserOriginRef.current = currentRouteSnapshot;
+      }
+
+      setRoute(
+        {
+          blobId: input.blobId ?? null,
+          storageKey: input.storageKey ?? null,
+          view: "blob-browser",
+        },
+        undefined,
+      );
+    },
+    [setRoute],
+  );
+
+  const navigateBackFromBlobBrowser = useCallback(() => {
+    const origin = blobBrowserOriginRef.current;
+    blobBrowserOriginRef.current = null;
+    if (origin) {
+      setRoute(origin.route, origin.selectedId);
+      return;
+    }
+
+    const currentRoute = routeSnapshotRef.current.route;
+    if (
+      currentRoute.view === "blob-browser" &&
+      (currentRoute.blobId !== null || currentRoute.storageKey !== null)
+    ) {
+      setRoute(
+        { blobId: null, storageKey: null, view: "blob-browser" },
+        undefined,
+        { replace: true },
+      );
+      return;
+    }
+
+    setRoute(DEFAULT_EXPLORER_ROUTE, null, { replace: true });
+  }, [setRoute]);
+
+  return { navigateBackFromBlobBrowser, openBlobBrowserRoute };
+}
+
 function useExplorerRouteActions(params: {
+  routeSnapshot: ExplorerRouteSnapshot;
   route: ExplorerRoute;
   selectDocument: (id: string, containerId: string) => void;
   setRoute: ExplorerRouteSetter;
   setSelectedId: (id: string | null) => void;
 }) {
-  const { route, selectDocument, setRoute, setSelectedId } = params;
+  const { route, routeSnapshot, selectDocument, setRoute, setSelectedId } =
+    params;
+  const blobBrowserActions = useExplorerBlobBrowserRouteActions({
+    routeSnapshot,
+    setRoute,
+  });
+
   const showSelectionRoute = useCallback(() => {
     setRoute(DEFAULT_EXPLORER_ROUTE);
   }, [setRoute]);
@@ -160,25 +237,6 @@ function useExplorerRouteActions(params: {
       );
     },
     [selectDocument, setRoute],
-  );
-
-  const openBlobBrowserRoute = useCallback(
-    (
-      input: {
-        blobId?: string | null | undefined;
-        storageKey?: string | null | undefined;
-      } = {},
-    ) => {
-      setRoute(
-        {
-          blobId: input.blobId ?? null,
-          storageKey: input.storageKey ?? null,
-          view: "blob-browser",
-        },
-        undefined,
-      );
-    },
-    [setRoute],
   );
 
   const openSyncLanesRoute = useCallback(() => {
@@ -216,7 +274,7 @@ function useExplorerRouteActions(params: {
   );
 
   return {
-    openBlobBrowserRoute,
+    ...blobBrowserActions,
     openContainerInfoRoute,
     openDocumentInfoRoute,
     openNewStructuredDocumentRoute,
@@ -248,6 +306,7 @@ export function useExplorerRoute(params: {
   useAvailableExplorerRoute({ nodes, route, setRoute });
   const actions = useExplorerRouteActions({
     route,
+    routeSnapshot: parsedAppRoute ?? { route },
     selectDocument,
     setRoute,
     setSelectedId,

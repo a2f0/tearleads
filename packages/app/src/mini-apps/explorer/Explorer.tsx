@@ -11,6 +11,7 @@ import {
 } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { downloadResolvedAttachment } from "../../document-types/shared/fileDownload";
+import { useAppNavigationState } from "../../navigation/AppNavigationProvider";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
 import { useAppFeatureFlags } from "../../providers/feature-flags/AppFeatureFlagsProvider";
 import { useAppHostConfig } from "../../providers/host/AppHostConfigProvider";
@@ -208,6 +209,7 @@ export function Explorer() {
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Explorer composes the mini-app shell from model state.
 function ExplorerContent() {
   const appData = useTearleadsRuntime();
+  const { history, mode: navigationMode } = useAppNavigationState();
   const hostConfig = useAppHostConfig();
   const explorer = useExplorer();
   const { setSidebar } = useWindowSidebar();
@@ -301,7 +303,9 @@ function ExplorerContent() {
   );
   const toolbarUpload = useExplorerToolbarUpload(model.importDroppedFiles);
   useExplorerRoutedChromeActions({
+    historyCanGoBack: history.canGoBack,
     model,
+    navigationMode,
     openStructuredDocumentGrid,
     triggerUpload: toolbarUpload.triggerUpload,
   });
