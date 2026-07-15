@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobContracts";
 import { detachDocumentAttachment } from "./detach";
@@ -10,6 +11,7 @@ test("uploadDocumentAttachment gates writes by the verified manifest organizatio
   const checkedOrganizationIds: string[] = [];
   let bindCount = 0;
   let stageCount = 0;
+  const { close, execSql } = await createTestExecSql("blocked-blob-upload");
 
   const uploaded = await uploadDocumentAttachment({
     apiClient: {
@@ -26,6 +28,7 @@ test("uploadDocumentAttachment gates writes by the verified manifest organizatio
     author,
     bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
     documentId: writerProjection.documentId,
+    execSql,
     expectedBindingId: null,
     isRemoteSyncBlocked: (organizationId) => {
       checkedOrganizationIds.push(organizationId);
@@ -36,6 +39,7 @@ test("uploadDocumentAttachment gates writes by the verified manifest organizatio
     targetSecretKey: secretKey,
     writerProjection,
   });
+  close();
 
   expect(checkedOrganizationIds).toEqual([author.organizationId]);
   expect(stageCount).toBe(0);
@@ -48,6 +52,7 @@ test("detachDocumentAttachment gates writes by the verified manifest organizatio
     await createMaterializedSyncFixture();
   const checkedOrganizationIds: string[] = [];
   let submissionCount = 0;
+  const { close, execSql } = await createTestExecSql("blocked-blob-detach");
 
   const detached = await detachDocumentAttachment({
     apiClient: {
@@ -61,6 +66,7 @@ test("detachDocumentAttachment gates writes by the verified manifest organizatio
     bindingId: "550e8400-e29b-41d4-a716-446655440656",
     blobId: "550e8400-e29b-41d4-a716-446655440657",
     documentId: writerProjection.documentId,
+    execSql,
     isRemoteSyncBlocked: (organizationId) => {
       checkedOrganizationIds.push(organizationId);
       return true;
@@ -69,6 +75,7 @@ test("detachDocumentAttachment gates writes by the verified manifest organizatio
     slotId: "blocked-detach",
     writerProjection,
   });
+  close();
 
   expect(checkedOrganizationIds).toEqual([author.organizationId]);
   expect(submissionCount).toBe(0);

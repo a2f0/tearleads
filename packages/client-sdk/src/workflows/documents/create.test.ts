@@ -4,7 +4,10 @@ import {
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   generateKemSeedAndKeyPair,
 } from "@tearleads/crypto";
-import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
+import {
+  createContainerWriterProjectionFixture,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import {
   type DocumentCreateRequest,
   isDocumentCreateRequest,
@@ -21,6 +24,7 @@ import {
   createResponseFromRequest,
   createWrappedProjection,
 } from "../../../test/helpers/documentFixtures";
+import { loadAccessManifestCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import {
   buildMaterializedDocumentCreatePlan,
   createRemoteDocument,
@@ -90,6 +94,7 @@ test("createRemoteDocument submits the materialized request and persists the ver
     documentId: string;
     projection: DocumentWriterProjectionResponse;
   }> = [];
+  const { close, execSql } = await createTestExecSql("remote-document-create");
   const created = await createRemoteDocument({
     apiClient: {
       createDocument: async (request) => {
@@ -106,6 +111,7 @@ test("createRemoteDocument submits the materialized request and persists the ver
     containerId: projection.containerId,
     documentId: "document-remote",
     eventId: "event-remote",
+    execSql,
     resolveProjectionUserKey: async (userId) =>
       userId === author.signerUserId
         ? {
@@ -126,6 +132,9 @@ test("createRemoteDocument submits the materialized request and persists the ver
   if (!response) {
     throw new Error("Expected create response on a fresh create result");
   }
+  if (!created.plan) {
+    throw new Error("Expected create plan on a fresh create result");
+  }
   expect(submittedRequests).toHaveLength(1);
   expect(created.persistedState).toEqual({
     documentId: "document-remote",
@@ -145,6 +154,90 @@ test("createRemoteDocument submits the materialized request and persists the ver
   expect(primedProjections).toEqual([
     { documentId: "document-remote", projection: created.writerProjection },
   ]);
+  await expect(
+    loadAccessManifestCheckpoint(
+      execSql,
+      "document",
+      created.plan.manifest.organizationId,
+      created.plan.documentId,
+    ),
+  ).resolves.toEqual({
+    objectKind: "document",
+    objectId: created.plan.documentId,
+    organizationId: created.plan.manifest.organizationId,
+    epoch: created.plan.manifest.epoch,
+    manifestHash: created.plan.manifestHash,
+  });
+  close();
+});
+
+test("createRemoteDocument rejects a mismatched event body without pinning it", async () => {
+  const { author, signingPublicKey } = await createAuthor();
+  const keyPair = generateKemSeedAndKeyPair();
+  const documentId = "document-tampered-ack";
+  const projection = await createContainerWriterProjectionFixture({
+    containerId: "tampered-ack-container",
+    encapsulationPublicKey: keyPair.publicKey,
+    organizationId: author.organizationId,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
+  });
+  const { close, execSql } = await createTestExecSql(
+    "remote-document-tampered-ack",
+  );
+  try {
+    await expect(
+      createRemoteDocument({
+        apiClient: {
+          createDocument: async (request) => {
+            const response = await createResponseFromRequest(request);
+            return {
+              ...response,
+              accessManifest: {
+                ...response.accessManifest,
+                event: {
+                  ...response.accessManifest.event,
+                  body: {
+                    ...(response.accessManifest.event.body as Record<
+                      string,
+                      unknown
+                    >),
+                    containerId: "substituted-container",
+                  },
+                },
+              },
+            };
+          },
+          getContainerWriterProjection: async () => projection,
+          primeDocumentWriterProjection: () => undefined,
+        },
+        author,
+        containerId: projection.containerId,
+        documentId,
+        execSql,
+        resolveProjectionUserKey: async (userId) =>
+          userId === author.signerUserId
+            ? {
+                encapsulationPublicKey: keyPair.publicKey,
+                signingPublicKey,
+                userId,
+              }
+            : null,
+        targetSecretKey: keyPair.secretKey,
+      }),
+    ).rejects.toThrow("Document create response event body mismatch");
+    await expect(
+      loadAccessManifestCheckpoint(
+        execSql,
+        "document",
+        projection.organizationId,
+        documentId,
+      ),
+    ).resolves.toBeNull();
+  } finally {
+    close();
+  }
 });
 
 test("createRemoteDocument adopts an existing remote document when a retry with a stable id conflicts", async () => {
@@ -220,6 +313,7 @@ test("createRemoteDocument adopts an existing remote document when a retry with 
       primedProjections.push({ documentId, projection: primed });
     },
   };
+  const { close, execSql } = await createTestExecSql("adopt-remote-document");
 
   const knownContentKey = crypto.getRandomValues(new Uint8Array(32));
   // First attempt: commits server-side, but the response is lost, so the caller
@@ -230,6 +324,7 @@ test("createRemoteDocument adopts an existing remote document when a retry with 
     containerId: projection.containerId,
     contentKey: knownContentKey,
     documentId: "document-stable",
+    execSql,
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: keyPair.secretKey,
@@ -247,6 +342,7 @@ test("createRemoteDocument adopts an existing remote document when a retry with 
     author,
     containerId: projection.containerId,
     documentId: "document-stable",
+    execSql,
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: keyPair.secretKey,
@@ -268,6 +364,7 @@ test("createRemoteDocument adopts an existing remote document when a retry with 
     documentId: "document-stable",
     projection: committedProjection,
   });
+  close();
 });
 
 test("createRemoteDocument does not report a conflict when adoption fails transiently", async () => {
@@ -282,6 +379,9 @@ test("createRemoteDocument does not report a conflict when adoption fails transi
     userId: author.signerUserId,
   });
   let reported = false;
+  const { close, execSql } = await createTestExecSql(
+    "transient-document-adoption",
+  );
   const adopted = await createRemoteDocument({
     apiClient: {
       createDocument: async () => null,
@@ -304,6 +404,7 @@ test("createRemoteDocument does not report a conflict when adoption fails transi
     author,
     containerId: projection.containerId,
     documentId: "document-stable",
+    execSql,
     resolveProjectionUserKey: async (userId: string) =>
       userId === author.signerUserId
         ? {
@@ -320,6 +421,7 @@ test("createRemoteDocument does not report a conflict when adoption fails transi
   // must not surface as a UI error — the sync engine retries on a later tick.
   expect(adopted).toBeNull();
   expect(reported).toBe(false);
+  close();
 });
 
 test("createRemoteDocument rejects substituted KEK material before submitting", async () => {
@@ -330,6 +432,9 @@ test("createRemoteDocument rejects substituted KEK material before submitting", 
     userId: parent.userId,
   });
   let createCalled = false;
+  const { close, execSql } = await createTestExecSql(
+    "document-substituted-kek",
+  );
 
   await expect(
     createRemoteDocument({
@@ -347,11 +452,13 @@ test("createRemoteDocument rejects substituted KEK material before submitting", 
       author: parent.author,
       containerId: tamperedProjection.containerId,
       documentId: "document-substituted-kek",
+      execSql,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       targetSecretKey: parent.secretKey,
     }),
   ).rejects.toThrow("KEK material does not match committed epoch id");
   expect(createCalled).toBe(false);
+  close();
 });
 
 test("createRemoteDocument rejects bad container projection signatures before submitting", async () => {
@@ -360,6 +467,9 @@ test("createRemoteDocument rejects bad container projection signatures before su
     parent.projection,
   );
   let createCalled = false;
+  const { close, execSql } = await createTestExecSql(
+    "document-bad-container-signature",
+  );
 
   await expect(
     createRemoteDocument({
@@ -377,6 +487,7 @@ test("createRemoteDocument rejects bad container projection signatures before su
       author: parent.author,
       containerId: tamperedProjection.containerId,
       documentId: "document-bad-container-signature",
+      execSql,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       targetSecretKey: parent.secretKey,
     }),
@@ -384,4 +495,5 @@ test("createRemoteDocument rejects bad container projection signatures before su
     "Container writer projection path[0] signature verification failed",
   );
   expect(createCalled).toBe(false);
+  close();
 });

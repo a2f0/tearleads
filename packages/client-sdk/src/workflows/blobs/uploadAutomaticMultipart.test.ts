@@ -4,6 +4,7 @@ import {
   computeWriteHeaderHash,
   type WriteHeader,
 } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobContracts";
 import type { MultipartUploadProgress } from "../../data/documents/blob/shared/types";
@@ -19,6 +20,7 @@ test("uploadDocumentAttachment automatically uses multipart for large durable bl
   const progressEvents: MultipartUploadProgress[] = [];
   let capabilityRequests = 0;
   let legacyStageCalled = false;
+  const { close, execSql } = await createTestExecSql("automatic-multipart");
 
   const uploaded = await uploadDocumentAttachment({
     apiClient: {
@@ -128,6 +130,7 @@ test("uploadDocumentAttachment automatically uses multipart for large durable bl
     blobId,
     bytes: new Uint8Array(8 * 1024 * 1024) as BlobBytes,
     documentId: writerProjection.documentId,
+    execSql,
     expectedBindingId: null,
     onMultipartProgress: (progress) => progressEvents.push(progress),
     resolveProjectionUserKey,
@@ -135,6 +138,7 @@ test("uploadDocumentAttachment automatically uses multipart for large durable bl
     slotId,
     targetSecretKey: secretKey,
   });
+  close();
 
   expect(uploaded?.request.stagedBlob?.stageId).toBe(
     "stage-auto-multipart-upload",

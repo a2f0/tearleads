@@ -183,7 +183,7 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
       epochOnePolicy,
       "2026-04-28T12:00:30.000Z",
     );
-    const preparedKeks = await unwrapContainerKekPath({
+    await unwrapContainerKekPath({
       execSql,
       projection: initialProjection,
       resolveProjectionUserKey: async (userId) =>
@@ -196,27 +196,6 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
           : null,
       secretKey: memberKem.secretKey,
     });
-    await savePrincipalPolicyBundle(
-      execSql,
-      epochTwoPolicy,
-      "2026-04-28T12:01:30.000Z",
-    );
-    await expect(
-      unwrapContainerKekPath({
-        execSql,
-        projection: initialProjection,
-        resolveProjectionUserKey: async (userId) =>
-          userId === USER_ID
-            ? {
-                encapsulationPublicKey: memberKem.publicKey,
-                signingPublicKey,
-                userId,
-              }
-            : null,
-        secretKey: memberKem.secretKey,
-      }),
-    ).rejects.toThrow("could not be unwrapped");
-
     const shared = await shareRemoteContainerWithGroup({
       accessLevel: "admin",
       apiClient: {
@@ -243,7 +222,6 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
       author,
       containerId: ROOT_CONTAINER_ID,
       execSql,
-      knownContainerKeks: preparedKeks,
       previousProjection: initialProjection,
       recipientGroupId: ADMIN_GROUP_ID,
       resolveProjectionUserKey: async (userId) =>
@@ -317,6 +295,21 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
     expect(cachedPolicy?.currentState.keyFingerprint).toBe(
       epochTwoPolicy.currentState.keyFingerprint,
     );
+    await expect(
+      unwrapContainerKekPath({
+        execSql,
+        projection: initialProjection,
+        resolveProjectionUserKey: async (userId) =>
+          userId === USER_ID
+            ? {
+                encapsulationPublicKey: memberKem.publicKey,
+                signingPublicKey,
+                userId,
+              }
+            : null,
+        secretKey: memberKem.secretKey,
+      }),
+    ).rejects.toMatchObject({ code: "rollback" });
     const coldKeks = await unwrapContainerKekPath({
       execSql,
       projection: rotatedProjection,

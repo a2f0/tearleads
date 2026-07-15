@@ -1,0 +1,305 @@
+import { expect, test } from "bun:test";
+import { KeyingVerificationError } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  createMaterializedSyncFixture,
+  createPendingUpdateRecord,
+  createSyncResponse,
+} from "../../../test/helpers/documentFixtures";
+import {
+  buildDocumentSyncPlan,
+  buildMaterializedDocumentSyncPlan,
+  syncRemoteDocument,
+} from "./sync";
+
+function persistedStateFromProjection(
+  projection: DocumentWriterProjectionResponse,
+) {
+  return {
+    contentKeyBundle: JSON.stringify(projection.contentKeyBundle),
+    documentId: projection.documentId,
+    documentKekTargets: JSON.stringify(projection.documentKekTargets),
+    documentManifestBundle: JSON.stringify(projection.documentManifest),
+  };
+}
+
+async function createReadOnlyResponseFixture() {
+  const fixture = await createMaterializedSyncFixture();
+  const materialized = await buildMaterializedDocumentSyncPlan({
+    author: fixture.author,
+    localVersionVector: null,
+    pendingUpdates: [createPendingUpdateRecord()],
+    targetSecretKey: fixture.secretKey,
+    trustedLocalProjection: true,
+    writerProjection: fixture.writerProjection,
+  });
+  const response = await createSyncResponse(materialized.plan);
+  const update = response.updates[0];
+  if (!update) {
+    throw new Error("Expected persisted read-only update fixture");
+  }
+
+  return { ...fixture, update };
+}
+
+function readOnlySyncApi(input: {
+  corruptUpdate?: boolean | undefined;
+  fixture: Awaited<ReturnType<typeof createReadOnlyResponseFixture>>;
+  onProjectionEviction?: ((documentId: string) => void) | undefined;
+  onProjectionFetch: () => void;
+}) {
+  return {
+    evictDocumentWriterProjection: (documentId: string) => {
+      input.onProjectionEviction?.(documentId);
+    },
+    getDocumentWriterProjection: async (documentId: string) => {
+      input.onProjectionFetch();
+      return documentId === input.fixture.writerProjection.documentId
+        ? input.fixture.writerProjection
+        : null;
+    },
+    syncDocument: async (
+      documentId: string,
+      request: { localVersionVector: string | null },
+    ) => {
+      const plan = await buildDocumentSyncPlan({
+        author: input.fixture.author,
+        contentKeyBundle: input.fixture.writerProjection.contentKeyBundle,
+        documentId,
+        documentKekTargets: input.fixture.writerProjection.documentKekTargets,
+        documentManifest: input.fixture.writerProjection.documentManifest,
+        localVersionVector: request.localVersionVector,
+      });
+      return createSyncResponse(
+        { ...plan, documentId, request: request as typeof plan.request },
+        {
+          updates: [
+            {
+              ...input.fixture.update,
+              ...(input.corruptUpdate
+                ? { encryptedData: "invalid-if-decryption-is-reached" }
+                : {}),
+            },
+          ],
+        },
+      );
+    },
+  };
+}
+
+test("persisted read-only sync refetches once after a cached rollback", async () => {
+  const fixture = await createReadOnlyResponseFixture();
+  const { close, execSql } = await createTestExecSql(
+    "persisted-read-only-cached-rollback",
+  );
+  let projectionFetches = 0;
+  let projectionEvictions = 0;
+  let injectRollback = true;
+
+  try {
+    const synced = await syncRemoteDocument({
+      apiClient: readOnlySyncApi({
+        fixture,
+        onProjectionEviction: (documentId) => {
+          expect(documentId).toBe(fixture.writerProjection.documentId);
+          projectionEvictions += 1;
+        },
+        onProjectionFetch: () => {
+          projectionFetches += 1;
+        },
+      }),
+      author: fixture.author,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      localVersionVector: null,
+      persistedState: persistedStateFromProjection(fixture.writerProjection),
+      resolveProjectionUserKey: async (userId) => {
+        if (injectRollback) {
+          injectRollback = false;
+          throw new KeyingVerificationError(
+            "rollback",
+            "cached projection is behind the local checkpoint",
+          );
+        }
+        return fixture.resolveProjectionUserKey(userId);
+      },
+      targetSecretKey: fixture.secretKey,
+      writerProjection: fixture.writerProjection,
+      writerPublicKeysByFingerprint: new Map([
+        [fixture.author.signerKeyFingerprint, fixture.signingPublicKey],
+      ]),
+    });
+
+    expect(projectionFetches).toBe(1);
+    expect(projectionEvictions).toBe(1);
+    expect(synced?.writerProjection).toBe(fixture.writerProjection);
+  } finally {
+    close();
+  }
+});
+
+test("persisted read-only sync retries a getter-origin rollback after eviction", async () => {
+  const fixture = await createReadOnlyResponseFixture();
+  const { close, execSql } = await createTestExecSql(
+    "persisted-read-only-getter-rollback",
+  );
+  let projectionFetches = 0;
+  let projectionEvictions = 0;
+  let injectRollback = true;
+
+  try {
+    const synced = await syncRemoteDocument({
+      apiClient: readOnlySyncApi({
+        fixture,
+        onProjectionEviction: (documentId) => {
+          expect(documentId).toBe(fixture.writerProjection.documentId);
+          projectionEvictions += 1;
+        },
+        onProjectionFetch: () => {
+          projectionFetches += 1;
+        },
+      }),
+      author: fixture.author,
+      documentId: fixture.writerProjection.documentId,
+      execSql,
+      localVersionVector: null,
+      persistedState: persistedStateFromProjection(fixture.writerProjection),
+      resolveProjectionUserKey: async (userId) => {
+        if (injectRollback) {
+          injectRollback = false;
+          throw new KeyingVerificationError(
+            "rollback",
+            "fetched projection lost a race with a local checkpoint",
+          );
+        }
+        return fixture.resolveProjectionUserKey(userId);
+      },
+      targetSecretKey: fixture.secretKey,
+      writerPublicKeysByFingerprint: new Map([
+        [fixture.author.signerKeyFingerprint, fixture.signingPublicKey],
+      ]),
+    });
+
+    expect(projectionFetches).toBe(2);
+    expect(projectionEvictions).toBe(1);
+    expect(synced?.writerProjection).toBe(fixture.writerProjection);
+  } finally {
+    close();
+  }
+});
+
+test("persisted read-only sync propagates rollback after the evicted refetch", async () => {
+  const fixture = await createReadOnlyResponseFixture();
+  const { close, execSql } = await createTestExecSql(
+    "persisted-read-only-repeated-rollback",
+  );
+  let projectionFetches = 0;
+  let projectionEvictions = 0;
+
+  try {
+    await expect(
+      syncRemoteDocument({
+        apiClient: readOnlySyncApi({
+          corruptUpdate: true,
+          fixture,
+          onProjectionEviction: () => {
+            projectionEvictions += 1;
+          },
+          onProjectionFetch: () => {
+            projectionFetches += 1;
+          },
+        }),
+        author: fixture.author,
+        documentId: fixture.writerProjection.documentId,
+        execSql,
+        localVersionVector: null,
+        persistedState: persistedStateFromProjection(fixture.writerProjection),
+        resolveProjectionUserKey: async () => {
+          throw new KeyingVerificationError(
+            "rollback",
+            "post-eviction projection is still behind the checkpoint",
+          );
+        },
+        targetSecretKey: fixture.secretKey,
+        writerPublicKeysByFingerprint: new Map([
+          [fixture.author.signerKeyFingerprint, fixture.signingPublicKey],
+        ]),
+      }),
+    ).rejects.toMatchObject({ code: "rollback" });
+    expect(projectionFetches).toBe(2);
+    expect(projectionEvictions).toBe(1);
+  } finally {
+    close();
+  }
+});
+
+test.each([
+  "equivocation",
+  "stale_predecessor",
+] as const)("persisted read-only sync propagates %s from a fresh projection", async (code) => {
+  const fixture = await createReadOnlyResponseFixture();
+  const { close, execSql } = await createTestExecSql(
+    `persisted-read-only-fresh-${code}`,
+  );
+  let projectionFetches = 0;
+
+  try {
+    await expect(
+      syncRemoteDocument({
+        apiClient: readOnlySyncApi({
+          corruptUpdate: true,
+          fixture,
+          onProjectionFetch: () => {
+            projectionFetches += 1;
+          },
+        }),
+        author: fixture.author,
+        documentId: fixture.writerProjection.documentId,
+        execSql,
+        localVersionVector: null,
+        persistedState: persistedStateFromProjection(fixture.writerProjection),
+        resolveProjectionUserKey: async () => {
+          throw new KeyingVerificationError(
+            code,
+            `fresh projection failed with ${code}`,
+          );
+        },
+        targetSecretKey: fixture.secretKey,
+        writerPublicKeysByFingerprint: new Map([
+          [fixture.author.signerKeyFingerprint, fixture.signingPublicKey],
+        ]),
+      }),
+    ).rejects.toMatchObject({ code });
+    expect(projectionFetches).toBe(1);
+  } finally {
+    close();
+  }
+});
+
+test("remote sync rejects resolver-backed local trust before submission", async () => {
+  const fixture = await createMaterializedSyncFixture();
+  let submissions = 0;
+  const input = {
+    apiClient: {
+      getDocumentWriterProjection: async () => fixture.writerProjection,
+      syncDocument: async () => {
+        submissions += 1;
+        return null;
+      },
+    },
+    author: fixture.author,
+    documentId: fixture.writerProjection.documentId,
+    localVersionVector: null,
+    pendingUpdates: [createPendingUpdateRecord()],
+    resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+    targetSecretKey: fixture.secretKey,
+    trustedLocalProjection: true,
+    writerProjection: fixture.writerProjection,
+  } as unknown as Parameters<typeof syncRemoteDocument>[0];
+
+  await expect(syncRemoteDocument(input)).rejects.toThrow(
+    "Projection use cannot combine key verification with local projection trust",
+  );
+  expect(submissions).toBe(0);
+});

@@ -1,0 +1,393 @@
+import {
+  type AnyVerifiedAccessManifest,
+  KeyingVerificationError,
+  type VerifiedPrincipalPolicy,
+  verifyAccessManifestLocalCheckpoint,
+  verifyPrincipalPolicyCheckpoint,
+} from "@tearleads/crypto";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { and, eq } from "drizzle-orm";
+import {
+  accessManifestCheckpoints,
+  keyingCheckpointTables,
+  principalPolicyCheckpoints,
+  principalPolicyTables,
+} from "../sqlite/schema";
+import {
+  type ClientSQLiteTransaction,
+  getClientSQLitePersistenceRuntime,
+} from "../sqlite/sqlitePersistenceRuntime";
+import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
+import {
+  assertPrincipalPolicyBundleStoredInTransaction,
+  writePrincipalPolicyBundleInTransaction,
+} from "./principalPolicyPersistence";
+import { assertBundleMatchesVerifiedPolicy } from "./verifiedPrincipalPolicyBundle";
+
+export interface AccessManifestCheckpointAdvance {
+  readonly head: AnyVerifiedAccessManifest;
+  readonly predecessors: readonly AnyVerifiedAccessManifest[];
+}
+
+interface VerifiedPrincipalPolicyBundleEntry {
+  readonly bundle: PrincipalPolicyBundleResponse;
+  readonly policy: VerifiedPrincipalPolicy;
+}
+
+interface PendingAccessCheckpoint {
+  readonly checkpoint: AnyVerifiedAccessManifest["checkpoint"];
+}
+
+function accessObjectKey(
+  checkpoint: AnyVerifiedAccessManifest["checkpoint"],
+): string {
+  return JSON.stringify([
+    checkpoint.objectKind,
+    checkpoint.organizationId,
+    checkpoint.objectId,
+  ]);
+}
+
+function principalKey(policy: VerifiedPrincipalPolicy): string {
+  return JSON.stringify([policy.principalType, policy.principalId]);
+}
+
+async function loadAccessCheckpoint(
+  tx: ClientSQLiteTransaction,
+  head: AnyVerifiedAccessManifest,
+) {
+  const { objectKind, organizationId, objectId } = head.checkpoint;
+  const rows = await tx
+    .select({
+      epoch: accessManifestCheckpoints.epoch,
+      manifestHash: accessManifestCheckpoints.manifestHash,
+    })
+    .from(accessManifestCheckpoints)
+    .where(
+      and(
+        eq(accessManifestCheckpoints.objectKind, objectKind),
+        eq(accessManifestCheckpoints.organizationId, organizationId),
+        eq(accessManifestCheckpoints.objectId, objectId),
+      ),
+    )
+    .limit(1);
+  const row = rows[0];
+
+  return row ? { ...head.checkpoint, ...row } : null;
+}
+
+async function loadPolicyCheckpoint(
+  tx: ClientSQLiteTransaction,
+  policy: VerifiedPrincipalPolicy,
+) {
+  const rows = await tx
+    .select({
+      version: principalPolicyCheckpoints.version,
+      stateHash: principalPolicyCheckpoints.stateHash,
+    })
+    .from(principalPolicyCheckpoints)
+    .where(
+      and(
+        eq(principalPolicyCheckpoints.principalType, policy.principalType),
+        eq(principalPolicyCheckpoints.principalId, policy.principalId),
+      ),
+    )
+    .limit(1);
+  const row = rows[0];
+
+  return row
+    ? {
+        principalType: policy.principalType,
+        principalId: policy.principalId,
+        ...row,
+      }
+    : null;
+}
+
+function validateAccessAdvance(
+  advance: AccessManifestCheckpointAdvance,
+  localCheckpoint: Awaited<ReturnType<typeof loadAccessCheckpoint>>,
+): PendingAccessCheckpoint {
+  const current = {
+    ...advance.head.checkpoint,
+    previousManifestHash: advance.head.manifest.previousManifestHash,
+  };
+  const predecessors = [...advance.predecessors].sort(
+    (left, right) => left.checkpoint.epoch - right.checkpoint.epoch,
+  );
+
+  if (localCheckpoint && current.epoch <= localCheckpoint.epoch) {
+    verifyAccessManifestLocalCheckpoint({
+      current,
+      localCheckpoint,
+      checkpointPredecessors: undefined,
+    });
+  }
+
+  const hashByEpoch = new Map<number, string>();
+  for (const predecessor of predecessors) {
+    if (accessObjectKey(predecessor.checkpoint) !== accessObjectKey(current)) {
+      throw new KeyingVerificationError(
+        "object_mismatch",
+        "access manifest checkpoint evidence belongs to another object",
+      );
+    }
+    const previousHash = hashByEpoch.get(predecessor.checkpoint.epoch);
+    if (previousHash && previousHash !== predecessor.manifestHash) {
+      throw new KeyingVerificationError(
+        "equivocation",
+        `access manifest checkpoint evidence conflicts at epoch ${predecessor.checkpoint.epoch}`,
+      );
+    }
+    hashByEpoch.set(predecessor.checkpoint.epoch, predecessor.manifestHash);
+    if (
+      predecessor.checkpoint.epoch === current.epoch &&
+      predecessor.manifestHash !== current.manifestHash
+    ) {
+      throw new KeyingVerificationError(
+        "equivocation",
+        "access manifest checkpoint evidence conflicts with the declared head",
+      );
+    }
+    if (
+      localCheckpoint &&
+      predecessor.checkpoint.epoch === localCheckpoint.epoch &&
+      predecessor.manifestHash !== localCheckpoint.manifestHash
+    ) {
+      throw new KeyingVerificationError(
+        "equivocation",
+        "access manifest checkpoint evidence conflicts with the local checkpoint",
+      );
+    }
+    if (predecessor.checkpoint.epoch > current.epoch) {
+      throw new KeyingVerificationError(
+        "stale_predecessor",
+        "access manifest checkpoint evidence is newer than the declared head",
+      );
+    }
+  }
+
+  verifyAccessManifestLocalCheckpoint({
+    current,
+    localCheckpoint,
+    checkpointPredecessors: predecessors.filter(
+      (manifest) =>
+        localCheckpoint !== null &&
+        manifest.checkpoint.epoch > localCheckpoint.epoch &&
+        manifest.checkpoint.epoch < current.epoch,
+    ),
+  });
+
+  return {
+    checkpoint: advance.head.checkpoint,
+  };
+}
+
+async function validateAccessAdvances(
+  tx: ClientSQLiteTransaction,
+  advances: readonly AccessManifestCheckpointAdvance[],
+): Promise<Map<string, PendingAccessCheckpoint>> {
+  const pending = new Map<string, PendingAccessCheckpoint>();
+
+  for (const advance of advances) {
+    const key = accessObjectKey(advance.head.checkpoint);
+    if (pending.has(key)) {
+      throw new KeyingVerificationError(
+        "equivocation",
+        `projection declares multiple access checkpoint heads for ${key}`,
+      );
+    }
+    const localCheckpoint = await loadAccessCheckpoint(tx, advance.head);
+    pending.set(key, validateAccessAdvance(advance, localCheckpoint));
+  }
+
+  return pending;
+}
+
+async function validatePolicyAdvances(
+  tx: ClientSQLiteTransaction,
+  policies: readonly VerifiedPrincipalPolicy[],
+): Promise<Map<string, VerifiedPrincipalPolicy>> {
+  const policiesByPrincipal = new Map<string, VerifiedPrincipalPolicy[]>();
+  for (const policy of policies) {
+    const key = principalKey(policy);
+    const candidates = policiesByPrincipal.get(key) ?? [];
+    candidates.push(policy);
+    policiesByPrincipal.set(key, candidates);
+  }
+
+  const pending = new Map<string, VerifiedPrincipalPolicy>();
+  for (const key of [...policiesByPrincipal.keys()].sort()) {
+    const candidates = policiesByPrincipal.get(key) ?? [];
+    const maxVersion = Math.max(...candidates.map((policy) => policy.version));
+    const heads = candidates.filter((policy) => policy.version === maxVersion);
+    const head = heads[0];
+    if (!head) {
+      continue;
+    }
+    if (heads.some((candidate) => candidate.stateHash !== head.stateHash)) {
+      throw new KeyingVerificationError(
+        "equivocation",
+        `principal policy declares conflicting heads for ${key}`,
+      );
+    }
+    for (const candidate of candidates) {
+      if (candidate.version === head.version) {
+        continue;
+      }
+      const extendsCandidate = head.history?.some(
+        (entry) =>
+          entry.state.principalType === candidate.principalType &&
+          entry.state.principalId === candidate.principalId &&
+          entry.state.version === candidate.version &&
+          entry.state.stateHash === candidate.stateHash,
+      );
+      if (!extendsCandidate) {
+        throw new KeyingVerificationError(
+          "stale_predecessor",
+          `principal policy head does not extend observed state for ${key}`,
+        );
+      }
+    }
+
+    const localCheckpoint = await loadPolicyCheckpoint(tx, head);
+    verifyPrincipalPolicyCheckpoint({
+      chain: head.history ?? [],
+      currentState: head.state,
+      localCheckpoint,
+    });
+    pending.set(key, head);
+  }
+
+  return pending;
+}
+
+async function writeAccessCheckpoints(
+  tx: ClientSQLiteTransaction,
+  pending: ReadonlyMap<string, PendingAccessCheckpoint>,
+  updatedAt: string,
+): Promise<void> {
+  for (const { checkpoint } of pending.values()) {
+    const row = { ...checkpoint, updatedAt };
+    await tx
+      .insert(accessManifestCheckpoints)
+      .values(row)
+      .onConflictDoUpdate({
+        target: [
+          accessManifestCheckpoints.objectKind,
+          accessManifestCheckpoints.organizationId,
+          accessManifestCheckpoints.objectId,
+        ],
+        set: row,
+      })
+      .run();
+  }
+}
+
+async function writePolicyCheckpoints(
+  tx: ClientSQLiteTransaction,
+  pending: ReadonlyMap<string, VerifiedPrincipalPolicy>,
+  updatedAt: string,
+): Promise<void> {
+  for (const policy of pending.values()) {
+    const row = { ...policy.checkpoint, updatedAt };
+    await tx
+      .insert(principalPolicyCheckpoints)
+      .values(row)
+      .onConflictDoUpdate({
+        target: [
+          principalPolicyCheckpoints.principalType,
+          principalPolicyCheckpoints.principalId,
+        ],
+        set: row,
+      })
+      .run();
+  }
+}
+
+/**
+ * Re-check every verified projection candidate against the latest durable pins
+ * and advance the complete batch atomically. Signature verification and remote
+ * fetching happen before this short transaction; only checkpoint comparison
+ * and persistence are serialized here.
+ */
+export async function advanceKeyingCheckpointsAtomically(input: {
+  readonly access: readonly AccessManifestCheckpointAdvance[];
+  readonly execSql: ExecSql;
+  readonly policies: readonly VerifiedPrincipalPolicy[];
+}): Promise<void> {
+  await ensureSqlTables(input.execSql, keyingCheckpointTables);
+  const updatedAt = new Date().toISOString();
+
+  await getClientSQLitePersistenceRuntime(input.execSql).transaction(
+    async (tx) => {
+      const access = await validateAccessAdvances(tx, input.access);
+      const policies = await validatePolicyAdvances(tx, input.policies);
+
+      await writeAccessCheckpoints(tx, access, updatedAt);
+      await writePolicyCheckpoints(tx, policies, updatedAt);
+    },
+    { behavior: "immediate" },
+  );
+}
+
+/**
+ * Persists each verified full policy bundle together with its durable head.
+ * This prevents a crash or bundle-write failure from leaving a checkpoint
+ * without the exact same-head payload and member-envelope evidence.
+ */
+export async function persistVerifiedPrincipalPolicyBundlesAtomically(input: {
+  readonly entries: readonly VerifiedPrincipalPolicyBundleEntry[];
+  readonly execSql: ExecSql;
+  readonly updatedAt: string;
+}): Promise<void> {
+  const seen = new Set<string>();
+  for (const entry of input.entries) {
+    const key = principalKey(entry.policy);
+    if (seen.has(key)) {
+      throw new KeyingVerificationError(
+        "duplicate_entry",
+        `verified policy bundle batch repeats ${key}`,
+      );
+    }
+    seen.add(key);
+  }
+  await Promise.all(
+    input.entries.map((entry) => assertBundleMatchesVerifiedPolicy(entry)),
+  );
+  await ensureSqlTables(input.execSql, [
+    ...principalPolicyTables,
+    ...keyingCheckpointTables,
+  ]);
+
+  await getClientSQLitePersistenceRuntime(input.execSql).transaction(
+    async (tx) => {
+      const policies = await validatePolicyAdvances(
+        tx,
+        input.entries.map((entry) => entry.policy),
+      );
+      for (const entry of input.entries) {
+        await writePrincipalPolicyBundleInTransaction(
+          tx,
+          entry.bundle,
+          input.updatedAt,
+        );
+        await assertPrincipalPolicyBundleStoredInTransaction(tx, entry.bundle);
+      }
+      await writePolicyCheckpoints(tx, policies, input.updatedAt);
+      for (const policy of policies.values()) {
+        const checkpoint = await loadPolicyCheckpoint(tx, policy);
+        if (
+          !checkpoint ||
+          checkpoint.version !== policy.version ||
+          checkpoint.stateHash !== policy.stateHash
+        ) {
+          throw new Error(
+            "Verified principal policy checkpoint was not persisted",
+          );
+        }
+      }
+    },
+    { behavior: "immediate" },
+  );
+}

@@ -10,7 +10,6 @@ import {
   signPrincipalState,
   toFingerprint,
   unwrapDek,
-  verifyPrincipalPolicyBundle,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
@@ -22,25 +21,38 @@ import type {
   PutPrincipalStateRequest,
 } from "@tearleads/validators/request";
 import type {
+  CurrentPrincipalMemberEnvelopesResponse,
   EncapsulationKeyResponse,
   OrganizationGroupSummaryResponse,
   PrincipalMemberEnvelopeResponse,
   PrincipalPolicyBundleResponse,
+  PrincipalStateResponse,
 } from "@tearleads/validators/response";
+import { advanceKeyingCheckpointsAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
 import {
-  loadPrincipalPolicyBundle,
+  persistLocallyAcknowledgedPrincipalPolicyBundle,
+  retainLocallyAcknowledgedPrincipalPolicyBundle,
+} from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
+import {
+  retainVerifiedPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "../../data/persistence/principalPolicyPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
-  collectPrincipalPolicySignerPublicKeys,
-  type PrincipalPolicySignerPublicKeyLoadErrorCode,
-  principalPolicyCheckpoint,
-} from "../principals/policyVerification";
+  acknowledgeGroupPolicyState,
+  acknowledgeInitialGroupPolicy,
+  assertGroupPolicyEnvelopesMatchAcknowledgement,
+  groupPolicyBundleFromAcknowledgement,
+} from "./groupPolicyMutationAcknowledgement";
 import {
   assertPrincipalPolicyCurrentStateMatchesHead,
   groupPolicyMutationHead,
 } from "./groupPolicyMutationHead";
+import {
+  collectGroupPolicySignerPublicKeys,
+  prepareGroupPolicyVerification,
+  verifyGroupPolicy,
+} from "./groupPolicyVerification";
 import {
   ensureNoNestedGroupMembers,
   hasAdmin,
@@ -74,12 +86,12 @@ interface OrganizationPrincipalPolicyApi {
     principalType: "group" | "organization",
     principalId: string,
     input: PutPrincipalMemberEnvelopesRequest,
-  ) => Promise<unknown>;
+  ) => Promise<CurrentPrincipalMemberEnvelopesResponse | null>;
   putPrincipalState: (
     principalType: "group" | "organization",
     principalId: string,
     input: PutPrincipalStateRequest,
-  ) => Promise<unknown>;
+  ) => Promise<PrincipalStateResponse | null>;
 }
 
 export async function importOrganizationUserRecipient(input: {
@@ -198,118 +210,6 @@ function toRecipientEntries(
   }));
 }
 
-function expectedGroupPolicyReference(bundle: PrincipalPolicyBundleResponse) {
-  return {
-    principalType: "group" as const,
-    principalId: bundle.currentState.principalId,
-    version: bundle.currentState.version,
-    keyEpoch: bundle.currentState.keyEpoch,
-    stateHash: bundle.currentState.stateHash,
-    keyFingerprint: bundle.currentState.keyFingerprint,
-  };
-}
-
-function groupPolicySignerPublicKeyLoadErrorMessage(
-  code: PrincipalPolicySignerPublicKeyLoadErrorCode,
-): string {
-  switch (code) {
-    case "fingerprint-invalid":
-      return "Group policy signer key fingerprint is invalid";
-    case "fingerprint-mismatch":
-      return "Group policy signer key fingerprint mismatch";
-    case "not-found":
-      return "Group policy signer key could not be loaded";
-    case "user-mismatch":
-      return "Group policy signer key user mismatch";
-  }
-}
-
-async function collectGroupPolicySignerPublicKeys(input: {
-  readonly apiClient: OrganizationPrincipalPolicyApi;
-  readonly bundle: PrincipalPolicyBundleResponse;
-  readonly currentUserSigningKey: {
-    readonly signerUserId: string;
-    readonly signingFingerprint: string;
-    readonly signingKeyPair: SigningKeyPair;
-  };
-}): Promise<PrincipalPolicySignerPublicKey[]> {
-  const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
-    bundle: input.bundle,
-    getEncapsulationKey: (userId) =>
-      input.apiClient.getEncapsulationKey(userId),
-    trustedSignerPublicKeys: [
-      {
-        signerUserId: input.currentUserSigningKey.signerUserId,
-        signingFingerprint: input.currentUserSigningKey.signingFingerprint,
-        signingPublicKey:
-          input.currentUserSigningKey.signingKeyPair.signingPublicKey,
-      },
-    ],
-  });
-
-  if ("error" in signerPublicKeys) {
-    throw new Error(
-      groupPolicySignerPublicKeyLoadErrorMessage(signerPublicKeys.error),
-    );
-  }
-
-  return signerPublicKeys.signerPublicKeys;
-}
-
-async function verifyGroupPolicy(input: {
-  readonly externalAdminSignerUserIds?: readonly string[];
-  readonly currentPolicy: PrincipalPolicyBundleResponse;
-  readonly localPolicyCheckpoint: PrincipalPolicyCheckpoint | null;
-  readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
-}): Promise<void> {
-  const verified = await verifyPrincipalPolicyBundle({
-    bundle: input.currentPolicy,
-    ...(input.externalAdminSignerUserIds
-      ? { externalAdminSignerUserIds: input.externalAdminSignerUserIds }
-      : {}),
-    expectedReference: expectedGroupPolicyReference(input.currentPolicy),
-    localCheckpoint: input.localPolicyCheckpoint,
-    signerPublicKeys: input.signerPublicKeys,
-  });
-
-  if (!verified.ok) {
-    throw new Error(
-      `Group policy verification failed: ${verified.error.message}`,
-    );
-  }
-}
-
-async function prepareGroupPolicyVerification(input: {
-  readonly apiClient: OrganizationPrincipalPolicyApi;
-  readonly currentPolicy: PrincipalPolicyBundleResponse;
-  readonly execSql: ExecSql;
-  readonly signerUserId: string;
-  readonly signingFingerprint: string;
-  readonly signingKeyPair: SigningKeyPair;
-}): Promise<{
-  readonly currentPolicySignerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
-  readonly localPolicyCheckpoint: PrincipalPolicyCheckpoint | null;
-}> {
-  const cachedPolicy = await loadPrincipalPolicyBundle(
-    input.execSql,
-    "group",
-    input.currentPolicy.currentState.principalId,
-  );
-
-  return {
-    currentPolicySignerPublicKeys: await collectGroupPolicySignerPublicKeys({
-      apiClient: input.apiClient,
-      bundle: input.currentPolicy,
-      currentUserSigningKey: {
-        signerUserId: input.signerUserId,
-        signingFingerprint: input.signingFingerprint,
-        signingKeyPair: input.signingKeyPair,
-      },
-    }),
-    localPolicyCheckpoint: principalPolicyCheckpoint(cachedPolicy),
-  };
-}
-
 function requireSignerCanManageGroup(
   currentPolicy: PrincipalPolicyBundleResponse,
   canAdministerOrganization: boolean,
@@ -389,6 +289,9 @@ async function signedGroupStateRequest(input: {
 }
 
 async function cacheGroupPolicy(input: {
+  readonly acknowledgedMemberEnvelopes?:
+    | CurrentPrincipalMemberEnvelopesResponse
+    | undefined;
   readonly apiClient: OrganizationPrincipalPolicyApi;
   readonly canAdministerOrganization?: boolean;
   readonly execSql: ExecSql;
@@ -417,7 +320,7 @@ async function cacheGroupPolicy(input: {
       signingKeyPair: input.signingKeyPair,
     },
   });
-  await verifyGroupPolicy({
+  const verified = await verifyGroupPolicy({
     currentPolicy: bundle,
     externalAdminSignerUserIds: input.canAdministerOrganization
       ? [input.signerUserId]
@@ -431,6 +334,17 @@ async function cacheGroupPolicy(input: {
       input.expectedCurrentHead,
     );
   }
+  if (input.acknowledgedMemberEnvelopes) {
+    assertGroupPolicyEnvelopesMatchAcknowledgement(
+      input.acknowledgedMemberEnvelopes,
+      bundle.currentMemberEnvelopes,
+    );
+  }
+  await advanceKeyingCheckpointsAtomically({
+    access: [],
+    execSql: input.execSql,
+    policies: [verified],
+  });
   await savePrincipalPolicyBundle(
     input.execSql,
     bundle,
@@ -465,11 +379,31 @@ async function loadGroupPolicyMutationContext(input: {
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
   });
+  const verified = await verifyGroupPolicy({
+    currentPolicy,
+    externalAdminSignerUserIds: input.canAdministerOrganization
+      ? [input.signerUserId]
+      : [],
+    localPolicyCheckpoint: verification.localPolicyCheckpoint,
+    signerPublicKeys: verification.currentPolicySignerPublicKeys,
+  });
+  await retainVerifiedPrincipalPolicyBundle({
+    bundle: currentPolicy,
+    execSql: input.execSql,
+    policy: verified,
+    updatedAt: new Date().toISOString(),
+  });
+  await advanceKeyingCheckpointsAtomically({
+    access: [],
+    execSql: input.execSql,
+    policies: [verified],
+  });
 
   return {
     canAdministerOrganization: input.canAdministerOrganization,
     currentPolicy,
     ...verification,
+    localPolicyCheckpoint: verified.checkpoint,
     signerUserId: input.signerUserId,
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
@@ -478,29 +412,33 @@ async function loadGroupPolicyMutationContext(input: {
 
 async function commitGroupPolicyMutation(input: {
   readonly apiClient: OrganizationPrincipalPolicyApi;
+  readonly currentPolicy: PrincipalPolicyBundleResponse;
+  readonly execSql: ExecSql;
+  readonly expectedHead: ReferencedPrincipalHead;
   readonly groupId: string;
   readonly request: GroupPolicyMutationRequest;
-}): Promise<void> {
+}): Promise<PrincipalPolicyBundleResponse> {
   const storedState = await input.apiClient.putPrincipalState(
     "group",
     input.groupId,
     input.request.state,
   );
 
-  if (!storedState || typeof storedState !== "object") {
+  if (!storedState) {
     throw new Error("Group policy update failed");
   }
-
-  const stateHash = Reflect.get(storedState, "stateHash");
-  if (typeof stateHash !== "string" || stateHash.length === 0) {
-    throw new Error("Group policy update did not return a state hash");
-  }
+  const acknowledgedPolicy = await acknowledgeGroupPolicyState({
+    currentPolicy: input.currentPolicy,
+    expectedHead: input.expectedHead,
+    request: input.request.state,
+    response: storedState,
+  });
 
   const storedEnvelopes = await input.apiClient.putPrincipalMemberEnvelopes(
     "group",
     input.groupId,
     {
-      stateHash,
+      stateHash: input.expectedHead.stateHash,
       envelopes: [...input.request.memberEnvelopes],
     },
   );
@@ -508,6 +446,21 @@ async function commitGroupPolicyMutation(input: {
   if (!storedEnvelopes) {
     throw new Error("Group member envelopes update failed");
   }
+  const bundle = groupPolicyBundleFromAcknowledgement({
+    currentPolicy: input.currentPolicy,
+    envelopes: storedEnvelopes,
+    expectedHead: input.expectedHead,
+    memberEnvelopes: input.request.memberEnvelopes,
+    state: storedState,
+    stateRequest: input.request.state,
+  });
+  await retainLocallyAcknowledgedPrincipalPolicyBundle({
+    bundle,
+    execSql: input.execSql,
+    policy: acknowledgedPolicy,
+    updatedAt: new Date().toISOString(),
+  });
+  return bundle;
 }
 
 export async function buildInitialGroupPolicyRequest(
@@ -860,13 +813,30 @@ export async function createOrganizationGroup(input: {
   if (!group) {
     throw new Error("Group could not be created");
   }
+  const expectedHead = await groupPolicyMutationHead(
+    request.initialGroupPolicy,
+  );
+  const acknowledged = await acknowledgeInitialGroupPolicy({
+    organizationId: input.organizationId,
+    request,
+    response: group,
+    stateHash: expectedHead.stateHash,
+  });
+  await persistLocallyAcknowledgedPrincipalPolicyBundle({
+    bundle: acknowledged.bundle,
+    execSql: input.execSql,
+    policy: acknowledged.policy,
+    updatedAt: new Date().toISOString(),
+  });
 
   await cacheGroupPolicy({
+    acknowledgedMemberEnvelopes: acknowledged.bundle.currentMemberEnvelopes,
     apiClient: input.apiClient,
     canAdministerOrganization: true,
     execSql: input.execSql,
+    expectedCurrentHead: expectedHead,
     groupId: group.groupId,
-    localPolicyCheckpoint: null,
+    localPolicyCheckpoint: acknowledged.policy.checkpoint,
     signerUserId: input.signerUserId,
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
@@ -905,20 +875,28 @@ export async function addOrganizationGroupUser(input: {
   });
   const expectedHead = await groupPolicyMutationHead(request.state);
   input.beforePolicyCommit(expectedHead);
-  await commitGroupPolicyMutation({
+  const acknowledgedBundle = await commitGroupPolicyMutation({
     apiClient: input.apiClient,
+    currentPolicy: policyContext.currentPolicy,
+    execSql: input.execSql,
+    expectedHead,
     groupId: input.groupId,
     request,
   });
   await input.afterPolicyCommitBeforeCache();
-  const checkpoint = principalPolicyCheckpoint(policyContext.currentPolicy);
   return cacheGroupPolicy({
+    acknowledgedMemberEnvelopes: acknowledgedBundle.currentMemberEnvelopes,
     apiClient: input.apiClient,
     canAdministerOrganization: input.canAdministerOrganization,
     execSql: input.execSql,
     expectedCurrentHead: expectedHead,
     groupId: input.groupId,
-    localPolicyCheckpoint: checkpoint,
+    localPolicyCheckpoint: {
+      principalId: expectedHead.principalId,
+      principalType: expectedHead.principalType,
+      stateHash: expectedHead.stateHash,
+      version: expectedHead.version,
+    },
     signerUserId: input.signerUserId,
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
@@ -971,20 +949,28 @@ export async function removeOrganizationGroupUser(input: {
   });
   const expectedHead = await groupPolicyMutationHead(request.state);
   input.beforePolicyCommit(expectedHead);
-  await commitGroupPolicyMutation({
+  const acknowledgedBundle = await commitGroupPolicyMutation({
     apiClient: input.apiClient,
+    currentPolicy: policyContext.currentPolicy,
+    execSql: input.execSql,
+    expectedHead,
     groupId: input.groupId,
     request,
   });
   await input.afterPolicyCommitBeforeCache();
-  const checkpoint = principalPolicyCheckpoint(policyContext.currentPolicy);
   return cacheGroupPolicy({
+    acknowledgedMemberEnvelopes: acknowledgedBundle.currentMemberEnvelopes,
     apiClient: input.apiClient,
     canAdministerOrganization: input.canAdministerOrganization,
     execSql: input.execSql,
     expectedCurrentHead: expectedHead,
     groupId: input.groupId,
-    localPolicyCheckpoint: checkpoint,
+    localPolicyCheckpoint: {
+      principalId: expectedHead.principalId,
+      principalType: expectedHead.principalType,
+      stateHash: expectedHead.stateHash,
+      version: expectedHead.version,
+    },
     signerUserId: input.signerUserId,
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,

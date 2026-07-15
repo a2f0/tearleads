@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type { BlobAttachmentDetachRequest } from "@tearleads/validators/request";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import { detachDocumentAttachment } from "./detach";
@@ -10,6 +11,7 @@ test("detachDocumentAttachment submits a signed detach event", async () => {
   const blobId = "550e8400-e29b-41d4-a716-446655440657";
   const slotId = "preview";
   const submittedRequests: BlobAttachmentDetachRequest[] = [];
+  const { close, execSql } = await createTestExecSql("attachment-detach");
 
   const detached = await detachDocumentAttachment({
     apiClient: {
@@ -33,10 +35,12 @@ test("detachDocumentAttachment submits a signed detach event", async () => {
     blobId,
     documentId: writerProjection.documentId,
     eventId: "550e8400-e29b-41d4-a716-446655440658",
+    execSql,
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     slotId,
   });
+  close();
 
   expect(detached?.response).toEqual({
     bindingId,

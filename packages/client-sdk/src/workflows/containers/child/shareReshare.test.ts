@@ -5,6 +5,7 @@ import {
   generateKemSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
   createAuthor,
@@ -36,6 +37,7 @@ test("shareRemoteContainer replaces stale wraps when re-sharing a user", async (
   }
   const projectionWithExistingShare = parent.projection;
   const submittedRequests: ContainerMutationRequest[] = [];
+  const database = await createTestExecSql("container-reshare-user");
 
   const shared = await shareRemoteContainer({
     accessLevel: "write",
@@ -48,6 +50,7 @@ test("shareRemoteContainer replaces stale wraps when re-sharing a user", async (
     },
     author,
     containerId: parent.projection.containerId,
+    execSql: database.execSql,
     recipientEncapsulationPublicKey: newRecipientKeyPair.publicKey,
     recipientUserId: existingUserId,
     resolveProjectionUserKey: async (userId) => {
@@ -71,6 +74,7 @@ test("shareRemoteContainer replaces stale wraps when re-sharing a user", async (
     signedAt: SIGNED_AT,
     targetSecretKey: parent.secretKey,
   });
+  database.close();
 
   expect(shared).not.toBeNull();
   const submittedRequest = submittedRequests[0];

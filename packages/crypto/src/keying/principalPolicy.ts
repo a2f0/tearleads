@@ -410,7 +410,7 @@ function verifyPrincipalPolicyMemberEnvelopes(input: {
   }
 }
 
-function verifyPrincipalPolicyCheckpoint(input: {
+export function verifyPrincipalPolicyCheckpoint(input: {
   readonly chain: readonly NormalizedPrincipalPolicyStateChainEntry[];
   readonly currentState: PrincipalPolicySignedState;
   readonly localCheckpoint: PrincipalPolicyCheckpoint | null | undefined;

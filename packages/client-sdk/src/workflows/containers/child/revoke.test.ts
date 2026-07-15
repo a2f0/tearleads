@@ -1,13 +1,9 @@
 import { expect, test } from "bun:test";
 import { revokeRemoteContainer } from "@tearleads/client-sdk";
 import {
-  type AccessEvent,
-  type ContainerKeyEpoch,
   type ContainerKeyWrap,
   type ContainerRevokeAccessEventBody,
   type ContainerUserRecipientKey,
-  computeAccessEventHash,
-  computeContainerKeyEpochHash,
   generateKemSeedAndKeyPair,
   type KeyingCanonicalJson,
   toFingerprint,
@@ -16,9 +12,11 @@ import {
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
   createAuthor,
+  createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
   SIGNED_AT,
@@ -41,53 +39,19 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
     userId: parent.userId,
   });
   const submittedRequests: ContainerMutationRequest[] = [];
+  const database = await createTestExecSql("remote-container-revoke");
 
   const revoked = await revokeRemoteContainer({
     apiClient: {
       getContainerWriterProjection: async () => parent.projection,
       revokeContainer: async (_containerId, request) => {
         submittedRequests.push(request);
-        const event = request.event as unknown as AccessEvent;
-        const keyEpoch = request.keyEpoch as unknown as ContainerKeyEpoch;
-
-        return {
-          containerId: parent.projection.containerId,
-          createdAt: "2026-05-05T00:00:00.000Z",
-          organizationId: parent.projection.organizationId,
-          parentId: null,
-          updatedAt: "2026-05-05T00:00:00.000Z",
-          manifestHead: {
-            epoch: 2,
-            manifestHash: request.expectedManifestHash,
-          },
-          accessManifest: {
-            event: {
-              event: request.event,
-              body: request.body as Record<string, unknown>,
-              eventHash: await computeAccessEventHash(event),
-            },
-            manifest: request.manifest,
-            manifestHash: request.expectedManifestHash,
-            state: {},
-          },
-          containerKek: {
-            containerId: parent.projection.containerId,
-            accessManifestHash: request.expectedManifestHash,
-            containerKeyEpochId: keyEpoch.id,
-            containerKeyEpoch: keyEpoch.keyEpoch,
-            keyEpoch: request.keyEpoch,
-            keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
-            keyTargetHash: "test-key-target-hash",
-            parentContainerKeyEpochId: null,
-            recipientTargets: [],
-            wraps: request.wraps,
-          },
-          referencedPrincipalHeads: [],
-        };
+        return createMutationResponseFromRequest(request);
       },
     },
     author,
     containerId: parent.projection.containerId,
+    execSql: database.execSql,
     revokedSubject: {
       subjectId: revokedUserId,
       subjectType: "user",
@@ -190,4 +154,5 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
         remainingUserRecipientKey.recipientKeyFingerprint,
     },
   ]);
+  database.close();
 });

@@ -72,6 +72,7 @@ import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence"
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   handleUpstreamDeletedDocumentSyncFailure,
+  projectionIntegrityErrorCode,
   REMOTE_DOCUMENT_DELETED,
   type RemoteDocumentDeletionHandler,
   resolveDocumentSyncWriterProjection,
@@ -225,13 +226,8 @@ export async function buildMaterializedDocumentSyncPlan(
     writerProjection: DocumentWriterProjectionResponse;
   } & ProjectionVerificationOptions,
 ): Promise<MaterializedDocumentSyncPlan> {
-  // Share one verification cache across both passes of this plan build. The
-  // consistency pass and the content-key unwrap pass walk the SAME authorizing
-  // container paths; without a shared cache each manifest's Ed25519 chain and
-  // principal policies would be signature-verified twice. The unwrap pass still
-  // binds key material independently (assertProjectionKekMatchesPath +
-  // computeContainerKekMaterialId), so reusing verified-manifest results does
-  // not weaken any check.
+  // Reuse verification across consistency and unwrap passes; unwrap still
+  // binds the key material independently.
   const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
   const principalPolicyCache = new Map<string, VerifiedPrincipalPolicy>();
   await assertDocumentWriterProjectionConsistent(input.writerProjection, {
@@ -372,10 +368,9 @@ async function syncRemoteDocumentResultFromResponse(input: {
     currentContentKeyEpoch: plan.contentKeyEpoch,
     execSql: input.execSql,
     response: input.response,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
     targetSecretKey: input.targetSecretKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     writerProjection: input.writerProjection,
+    ...projectionVerificationOptions(input),
   });
   const decryptedUpdates = await decryptDocumentSyncUpdatesByEpoch({
     contentKeysByEpoch,
@@ -420,24 +415,23 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(input: {
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
     pendingUpdates: [],
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
     signedAt: input.signedAt,
     targetSecretKey: input.targetSecretKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     writerProjection: input.writerProjection,
+    ...projectionVerificationOptions(input),
   });
 
   return syncRemoteDocumentResultFromResponse({
     execSql: input.execSql,
     materializedPlan,
     recoveryPendingUpdatesById: new Map(),
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
     resolveWriterPublicKey: input.resolveWriterPublicKey,
     response: input.response,
     targetSecretKey: input.targetSecretKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     writerProjection: input.writerProjection,
     writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
+    ...projectionVerificationOptions(input),
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
   });
 }
 
@@ -564,7 +558,10 @@ async function tryCompleteReadOnlyRemoteDocumentSyncWithProjection(input: {
       ...input.completion,
       writerProjection: input.writerProjection,
     });
-  } catch {
+  } catch (error) {
+    if (projectionIntegrityErrorCode(error)) {
+      throw error;
+    }
     return null;
   }
 }
@@ -583,14 +580,28 @@ async function completeReadOnlyRemoteDocumentSyncWithUpdates(
     return { kind: "completed", result: null };
   }
 
-  const result = await tryCompleteReadOnlyRemoteDocumentSyncWithProjection({
-    completion: input,
-    writerProjection,
-  });
-  if (result || !reusableWriterProjection) {
+  let result: SyncRemoteDocumentResult | null = null;
+  let retryAfterRollback = false;
+  try {
+    result = await tryCompleteReadOnlyRemoteDocumentSyncWithProjection({
+      completion: input,
+      writerProjection,
+    });
+  } catch (error) {
+    if (projectionIntegrityErrorCode(error) !== "rollback") {
+      throw error;
+    }
+    retryAfterRollback = true;
+  }
+  if (result || (!retryAfterRollback && !reusableWriterProjection)) {
     return { kind: "completed", result };
   }
 
+  if (input.apiClient.evictDocumentWriterProjection) {
+    input.apiClient.evictDocumentWriterProjection(input.documentId);
+  } else {
+    input.apiClient.clearWriterProjectionCaches?.();
+  }
   const freshWriterProjection =
     await input.apiClient.getDocumentWriterProjection(input.documentId);
   if (!freshWriterProjection) {
@@ -969,7 +980,6 @@ export async function buildDocumentSyncPlan(
 function buildRemoteDocumentSyncPlan(input: {
   pendingUpdates: readonly PendingUpdateRecord[];
   projection: DocumentWriterProjectionResponse;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
   sync: SyncRemoteDocumentInput;
 }) {
   return buildMaterializedDocumentSyncPlan({
@@ -978,11 +988,10 @@ function buildRemoteDocumentSyncPlan(input: {
     localVersionVector: input.sync.localVersionVector,
     minLsn: input.sync.minLsn,
     pendingUpdates: input.pendingUpdates,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
     signedAt: input.sync.signedAt,
     targetSecretKey: input.sync.targetSecretKey,
-    warmReferencedPrincipalPolicies: input.sync.warmReferencedPrincipalPolicies,
     writerProjection: input.projection,
+    ...projectionVerificationOptions(input.sync),
   });
 }
 
@@ -1026,7 +1035,6 @@ export async function syncRemoteDocument(
         buildRemoteDocumentSyncPlan({
           pendingUpdates,
           projection,
-          resolveProjectionUserKey,
           sync: input,
         }),
       documentId: input.documentId,
@@ -1072,13 +1080,13 @@ export async function syncRemoteDocument(
       execSql: input.execSql,
       materializedPlan,
       recoveryPendingUpdatesById,
-      resolveProjectionUserKey,
       resolveWriterPublicKey: input.resolveWriterPublicKey,
       response: submitted.response,
       targetSecretKey: input.targetSecretKey,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       writerProjection: plannedWriterProjection,
       writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
+      ...projectionVerificationOptions(input),
+      resolveProjectionUserKey,
     });
   }
 

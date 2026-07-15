@@ -25,6 +25,7 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { signContainerMutationEvent } from "../../../data/containers/shared/events";
+import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
 import {
   principalPolicyRequestRecord,
   uniquePrincipalPolicies,
@@ -60,10 +61,13 @@ import {
 } from "../../../data/keyingCanonicalJson";
 import {
   collectContainerWriterProjectionPrincipalPolicies,
+  type PrincipalPolicyCache,
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
+import { principalPolicyCacheForVerifiedPolicies } from "../../../data/keyingProjectionVerification/principalPolicyCache";
+import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
 import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
@@ -168,6 +172,7 @@ async function deriveContainerShareManifest(input: {
 
 function buildContainerShareRequest(input: {
   body: ContainerGrantAccessEventBody;
+  containerManifestHistory: readonly AccessManifestBundleWire[];
   event: AccessEvent;
   keyEpoch: ContainerKeyEpoch;
   manifest: AccessManifest;
@@ -188,7 +193,7 @@ function buildContainerShareRequest(input: {
     previousContainerPath: input.previousProjection.path.map(
       asContainerManifestBundle,
     ),
-    containerManifestHistory: [input.previousManifest],
+    containerManifestHistory: [...input.containerManifestHistory],
     principalPolicies: readCanonicalRecords(
       input.principalPolicies.map((policy) =>
         principalPolicyRequestRecord(policy),
@@ -227,8 +232,29 @@ function replaceContainerWrap(
   ];
 }
 
+function shareManifestHistory(input: {
+  readonly containerId: string;
+  readonly targetKek: ContainerKekResponse;
+  readonly targetManifest: ContainerWriterProjectionResponse["path"][number];
+}): AccessManifestBundleWire[] {
+  const byHash = new Map<string, AccessManifestBundleWire>();
+  for (const bundle of [
+    input.targetManifest,
+    ...(input.targetKek.containerManifestHistory ?? []),
+  ]) {
+    if (
+      readContainerState(bundle).containerId === input.containerId &&
+      !byHash.has(bundle.manifestHash)
+    ) {
+      byHash.set(bundle.manifestHash, asContainerManifestBundle(bundle));
+    }
+  }
+  return [...byHash.values()];
+}
+
 function buildContainerSharePlanResult(input: {
   body: ContainerGrantAccessEventBody;
+  containerManifestHistory: readonly AccessManifestBundleWire[];
   containerId: string;
   containerKey: Uint8Array;
   event: AccessEvent;
@@ -262,6 +288,7 @@ function buildContainerSharePlanResult(input: {
     recipientTarget: input.recipientTarget,
     request: buildContainerShareRequest({
       body: input.body,
+      containerManifestHistory: input.containerManifestHistory,
       event: input.event,
       keyEpoch,
       manifest: input.manifest,
@@ -333,6 +360,7 @@ function collectShareUserRecipientKeys(input: {
 
 async function collectContainerSharePrincipalPolicies(input: {
   execSql?: ExecSql | undefined;
+  principalPolicyCache?: PrincipalPolicyCache | undefined;
   previousProjection: ContainerWriterProjectionResponse;
   recipientPolicy?: VerifiedPrincipalPolicy | undefined;
   resolveUserKey?: ProjectionUserKeyResolver | undefined;
@@ -341,6 +369,7 @@ async function collectContainerSharePrincipalPolicies(input: {
   const previousPolicies = input.resolveUserKey
     ? await collectContainerWriterProjectionPrincipalPolicies({
         execSql: input.execSql,
+        principalPolicyCache: input.principalPolicyCache,
         projection: input.previousProjection,
         resolveUserKey: input.resolveUserKey,
         warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
@@ -369,6 +398,7 @@ async function buildMaterializedContainerSharePlan(
     eventId?: string | undefined;
     execSql?: ExecSql | undefined;
     knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
+    principalPolicyCache?: PrincipalPolicyCache | undefined;
     previousProjection: ContainerWriterProjectionResponse;
     recipient: ContainerShareRecipient;
     signedAt?: string | undefined;
@@ -378,6 +408,7 @@ async function buildMaterializedContainerSharePlan(
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     knownContainerKeks: input.knownContainerKeks,
+    principalPolicyCache: input.principalPolicyCache,
     projection: input.previousProjection,
     secretKey: input.targetSecretKey,
     ...projectionVerificationOptions(input),
@@ -467,6 +498,7 @@ async function buildMaterializedContainerSharePlan(
   );
   const principalPolicies = await collectContainerSharePrincipalPolicies({
     execSql: input.execSql,
+    principalPolicyCache: input.principalPolicyCache,
     previousProjection: input.previousProjection,
     ...(input.recipient.subjectType === "user"
       ? {}
@@ -477,6 +509,11 @@ async function buildMaterializedContainerSharePlan(
 
   return buildContainerSharePlanResult({
     body,
+    containerManifestHistory: shareManifestHistory({
+      containerId: previousState.containerId,
+      targetKek: target.kek,
+      targetManifest: target.manifest,
+    }),
     containerKey,
     containerId: previousState.containerId,
     event,
@@ -501,7 +538,7 @@ export async function shareRemoteContainer(input: {
   author: ContainerMutationAuthor;
   containerId: string;
   eventId?: string | undefined;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   previousProjection?: ContainerWriterProjectionResponse | undefined;
   recipientEncapsulationPublicKey: Uint8Array;
   recipientUserId: string;
@@ -549,6 +586,12 @@ export async function shareRemoteContainer(input: {
     return null;
   }
 
+  await acknowledgeContainerMutation({
+    execSql: input.execSql,
+    plan: materializedPlan.plan,
+    response,
+  });
+
   return {
     containerKey: materializedPlan.containerKey,
     plan: materializedPlan.plan,
@@ -562,7 +605,7 @@ export async function shareRemoteContainerWithGroup(input: {
   author: ContainerMutationAuthor;
   containerId: string;
   eventId?: string | undefined;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
   previousProjection?: ContainerWriterProjectionResponse | undefined;
   recipientGroupId: string;
@@ -587,10 +630,23 @@ export async function shareRemoteContainerWithGroup(input: {
   }
   const verifiedPrincipalPolicy = await loadVerifiedGroupSharePrincipalPolicy({
     apiClient: input.apiClient,
+    deferCheckpointAdvance: true,
     execSql: input.execSql,
     groupId: input.recipientGroupId,
     organizationId: input.author.organizationId,
   });
+  await advanceKeyingCheckpointsAtomically({
+    access: [],
+    execSql: input.execSql,
+    policies: verifiedPrincipalPolicy.checkpointPolicies,
+  });
+  for (const dependencyBundle of verifiedPrincipalPolicy.dependencyBundles) {
+    await savePrincipalPolicyBundle(
+      input.execSql,
+      dependencyBundle,
+      new Date().toISOString(),
+    );
+  }
 
   const materializedPlan = await buildMaterializedContainerSharePlan({
     accessLevel: input.accessLevel,
@@ -598,6 +654,9 @@ export async function shareRemoteContainerWithGroup(input: {
     eventId: input.eventId,
     execSql: input.execSql,
     knownContainerKeks: input.knownContainerKeks,
+    principalPolicyCache: principalPolicyCacheForVerifiedPolicies(
+      verifiedPrincipalPolicy.checkpointPolicies,
+    ),
     previousProjection,
     recipient: {
       principalPolicy: verifiedPrincipalPolicy.policy,
@@ -617,17 +676,21 @@ export async function shareRemoteContainerWithGroup(input: {
     return null;
   }
 
+  await acknowledgeContainerMutation({
+    execSql: input.execSql,
+    plan: materializedPlan.plan,
+    response,
+  });
+
   // Keep the previously cached group epoch available until the old container
   // wrap has been unwrapped and the replacement has committed. Root has no
   // parent fallback, so caching the rotated policy any earlier destroys the
   // only local path to the KEK that must be re-wrapped.
-  if (input.execSql) {
-    await savePrincipalPolicyBundle(
-      input.execSql,
-      verifiedPrincipalPolicy.bundle,
-      new Date().toISOString(),
-    );
-  }
+  await savePrincipalPolicyBundle(
+    input.execSql,
+    verifiedPrincipalPolicy.bundle,
+    new Date().toISOString(),
+  );
 
   return {
     containerKey: materializedPlan.containerKey,

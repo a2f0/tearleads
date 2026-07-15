@@ -4,13 +4,11 @@ import {
   defaultContainerContentsPersistence as defaultExplorerPersistence,
 } from "@tearleads/client-sdk";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
+import { computeAccessEventHash } from "@tearleads/crypto";
 import {
-  type ContainerKekRecipientTarget,
-  computeAccessEventHash,
-  computeContainerKekRecipientTargetHash,
-  computeContainerKeyEpochHash,
-} from "@tearleads/crypto";
-import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
+  createContainerMutationResponseFromRequest,
+  createContainerWriterProjectionFixture,
+} from "@tearleads/test-utils";
 import type {
   ContainerMutationRequest,
   DocumentCreateRequest,
@@ -26,11 +24,7 @@ import type {
   ListContainersResponse,
 } from "@tearleads/validators/response";
 import { isAccessManifestBundleWireResponse } from "@tearleads/validators/util";
-import {
-  assertAccessEvent,
-  assertContainerKeyEpoch,
-  assertWriteHeader,
-} from "../keyingAssertions";
+import { assertAccessEvent, assertWriteHeader } from "../keyingAssertions";
 
 export type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
 export type TestRuntime = ExplorerRuntime & { close: () => void };
@@ -276,53 +270,9 @@ export function readRequestString(
 
 export async function createExplorerContainerMutationResponse(
   request: ContainerMutationRequest,
+  previousProjection?: ContainerWriterProjectionResponse | undefined,
 ): Promise<ContainerMutationResponse> {
-  const body = request.body as Record<string, unknown>;
-  const manifest = request.manifest as Record<string, unknown>;
-  const keyEpoch = assertContainerKeyEpoch(
-    request.keyEpoch,
-    "container mutation key epoch",
-  );
-  const event = assertAccessEvent(request.event, "container mutation event");
-  const eventHash = await computeAccessEventHash(event);
-  const previousState = request.previousManifest?.state ?? null;
-  const containerId = readRequestString(manifest, "objectId");
-  const organizationId = readRequestString(manifest, "organizationId");
-  const parentIdValue = Reflect.get(body, "parentContainerId");
-  const parentId =
-    typeof parentIdValue === "string"
-      ? parentIdValue
-      : previousState &&
-          typeof Reflect.get(previousState, "parentContainerId") === "string"
-        ? (Reflect.get(previousState, "parentContainerId") as string)
-        : null;
-  const metadataDocumentIdValue = Reflect.get(body, "metadataDocumentId");
-  const metadataDocumentId =
-    typeof metadataDocumentIdValue === "string"
-      ? metadataDocumentIdValue
-      : previousState &&
-          typeof Reflect.get(previousState, "metadataDocumentId") === "string"
-        ? (Reflect.get(previousState, "metadataDocumentId") as string)
-        : `${containerId}-metadata-document`;
-  const containerKeyEpochId = readRequestString(body, "containerKeyEpochId");
-  const previousDirectGrants = previousState
-    ? Reflect.get(previousState, "directGrants")
-    : undefined;
-  const directGrants = Array.isArray(previousDirectGrants)
-    ? [...previousDirectGrants]
-    : [];
-  const eventType = Reflect.get(body, "eventType");
-  if (eventType === "container.grant") {
-    directGrants.push(Reflect.get(body, "grant"));
-  }
-  const recipientTargets: ContainerKekRecipientTarget[] = request.wraps.map(
-    (wrap) => ({
-      recipientKind: Reflect.get(wrap, "recipientKind"),
-      recipientId: Reflect.get(wrap, "recipientId"),
-      recipientKeyEpochId: Reflect.get(wrap, "recipientKeyEpochId"),
-      recipientKeyFingerprint: Reflect.get(wrap, "recipientKeyFingerprint"),
-    }),
-  ) as ContainerKekRecipientTarget[];
+  const response = await createContainerMutationResponseFromRequest(request);
   const previousManifest =
     request.previousManifest &&
     typeof request.previousManifest === "object" &&
@@ -332,61 +282,32 @@ export async function createExplorerContainerMutationResponse(
   const previousManifestResponse = previousManifest
     ? requireAccessManifestBundleWireResponse(previousManifest)
     : null;
-
-  return {
-    containerId,
-    createdAt: "2026-05-05T00:00:00.000Z",
-    organizationId,
-    parentId,
-    updatedAt: "2026-05-05T00:00:01.000Z",
-    manifestHead: {
-      epoch: Number(Reflect.get(manifest, "epoch")),
-      manifestHash: request.expectedManifestHash,
-    },
-    accessManifest: {
-      event: { event: { ...event }, body, eventHash },
-      manifest,
-      manifestHash: request.expectedManifestHash,
-      state: {
-        version: 1,
-        containerId,
-        organizationId,
-        epoch: Number(Reflect.get(manifest, "epoch")),
-        previousManifestHash: Reflect.get(manifest, "previousManifestHash"),
-        eventHash,
-        parentContainerId: parentId,
-        parentManifestHash:
-          Reflect.get(body, "parentManifestHash") ??
-          (previousState
-            ? Reflect.get(previousState, "parentManifestHash")
-            : null),
-        metadataDocumentId,
-        containerKeyEpochId,
-        directGrants,
-        referencedPrincipalHeads: [],
-      },
-    },
-    containerKek: {
-      containerId,
-      accessManifestHash: request.expectedManifestHash,
-      containerKeyEpochId,
-      containerKeyEpoch: keyEpoch.keyEpoch,
-      keyEpoch: request.keyEpoch,
-      keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
-      keyTargetHash:
-        await computeContainerKekRecipientTargetHash(recipientTargets),
-      parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
-      ...(previousManifestResponse
-        ? { containerManifestHistory: [previousManifestResponse] }
-        : {}),
-      recipientTargets: recipientTargets as unknown as Record<
-        string,
-        unknown
-      >[],
-      wraps: request.wraps,
-    },
-    referencedPrincipalHeads: [],
-  };
+  const previousKek = previousProjection?.containerKeks.at(-1);
+  const historyByHash = new Map<string, AccessManifestBundleWireResponse>();
+  for (const bundle of [
+    ...(previousManifestResponse ? [previousManifestResponse] : []),
+    ...(previousKek?.containerManifestHistory ?? []),
+    ...(request.containerManifestHistory ?? []).map(
+      requireAccessManifestBundleWireResponse,
+    ),
+  ]) {
+    if (
+      Reflect.get(bundle.state, "containerId") === response.containerId &&
+      !historyByHash.has(bundle.manifestHash)
+    ) {
+      historyByHash.set(bundle.manifestHash, bundle);
+    }
+  }
+  const containerManifestHistory = [...historyByHash.values()];
+  return containerManifestHistory.length > 0
+    ? {
+        ...response,
+        containerKek: {
+          ...response.containerKek,
+          containerManifestHistory,
+        },
+      }
+    : response;
 }
 
 function requireAccessManifestBundleWireResponse(

@@ -1,5 +1,4 @@
 import {
-  type PrincipalPolicyCheckpoint,
   type PrincipalPolicySignerPublicKey,
   toFingerprint,
 } from "@tearleads/crypto";
@@ -28,19 +27,6 @@ export function principalPolicyStates(
     ...bundle.previousStates.map((entry) => entry.state),
     bundle.currentState,
   ];
-}
-
-export function principalPolicyCheckpoint(
-  bundle: PrincipalPolicyBundleResponse | null,
-): PrincipalPolicyCheckpoint | null {
-  return bundle
-    ? {
-        principalType: bundle.currentState.principalType,
-        principalId: bundle.currentState.principalId,
-        version: bundle.currentState.version,
-        stateHash: bundle.currentState.stateHash,
-      }
-    : null;
 }
 
 function signerCacheKey(input: {

@@ -86,6 +86,7 @@ test("pending document move intents replay signed link-set mutations and clear a
       author,
       containerProjection: rootProjection,
       documentId: "queued-move-document",
+      execSql,
       resolveProjectionUserKey,
       targetSecretKey: keyPair.secretKey,
     });

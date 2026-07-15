@@ -1,154 +1,150 @@
 import { expect, test } from "bun:test";
-import type {
-  AccessManifestCheckpoint,
-  PrincipalPolicyCheckpoint,
+import {
+  type AnyVerifiedAccessManifest,
+  KeyingVerificationError,
+  type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { advanceKeyingCheckpointsAtomically } from "./keyingCheckpointAdvancePersistence";
 import {
   loadAccessManifestCheckpoint,
   loadPrincipalPolicyCheckpoint,
-  saveAccessManifestCheckpoint,
-  savePrincipalPolicyCheckpoint,
 } from "./keyingCheckpointPersistence";
 
-const updatedAt = "2026-04-08T00:00:00.000Z";
+function hash(seed: string): string {
+  return seed.padEnd(64, "0").slice(0, 64);
+}
 
-test("access manifest checkpoint persistence stores and reloads a pin", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "keying-checkpoint-persistence-test",
-  );
-
-  try {
-    const checkpoint: AccessManifestCheckpoint = {
+function manifestDouble(input: {
+  epoch: number;
+  hash: string;
+  objectId?: string;
+  prev: string | null;
+}): AnyVerifiedAccessManifest {
+  const manifestHash = hash(input.hash);
+  return {
+    checkpoint: {
+      epoch: input.epoch,
+      manifestHash,
+      objectId: input.objectId ?? "container-1",
       objectKind: "container",
-      objectId: "container-1",
       organizationId: "org-1",
-      epoch: 3,
-      manifestHash: "manifest-hash-3",
-    };
+    },
+    manifest: {
+      previousManifestHash: input.prev === null ? null : hash(input.prev),
+    },
+    manifestHash,
+  } as unknown as AnyVerifiedAccessManifest;
+}
 
-    await saveAccessManifestCheckpoint(execSql, checkpoint, updatedAt);
-
-    await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
-        "container",
-        "org-1",
-        "container-1",
-      ),
-    ).resolves.toEqual(checkpoint);
-  } finally {
-    close();
-  }
-});
-
-test("access manifest checkpoint persistence advances a pin in place", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "keying-checkpoint-persistence-test",
-  );
-
-  try {
-    await saveAccessManifestCheckpoint(
-      execSql,
-      {
-        objectKind: "container",
-        objectId: "container-1",
-        organizationId: "org-1",
-        epoch: 3,
-        manifestHash: "manifest-hash-3",
-      },
-      updatedAt,
-    );
-    const advanced: AccessManifestCheckpoint = {
-      objectKind: "container",
-      objectId: "container-1",
-      organizationId: "org-1",
-      epoch: 4,
-      manifestHash: "manifest-hash-4",
-    };
-    await saveAccessManifestCheckpoint(execSql, advanced, updatedAt);
-
-    await expect(
-      loadAccessManifestCheckpoint(
-        execSql,
-        "container",
-        "org-1",
-        "container-1",
-      ),
-    ).resolves.toEqual(advanced);
-  } finally {
-    close();
-  }
-});
-
-test("access manifest checkpoint persistence reads null before any pin", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "keying-checkpoint-persistence-test",
-  );
-
-  try {
-    await expect(
-      loadAccessManifestCheckpoint(execSql, "container", "org-1", "missing"),
-    ).resolves.toBeNull();
-  } finally {
-    close();
-  }
-});
-
-test("principal policy checkpoint persistence stores and reloads a pin", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "keying-checkpoint-persistence-test",
-  );
-
-  try {
-    const checkpoint: PrincipalPolicyCheckpoint = {
+function policyDouble(input: {
+  principalId?: string;
+  stateHashes: readonly string[];
+}): VerifiedPrincipalPolicy {
+  const version = input.stateHashes.length;
+  const stateHash = hash(input.stateHashes.at(-1) ?? "missing");
+  const principalId = input.principalId ?? "group-1";
+  const history = input.stateHashes.map((value, index) => ({
+    state: {
+      principalId,
+      principalType: "group" as const,
+      stateHash: hash(value),
+      version: index + 1,
+    },
+  }));
+  return {
+    checkpoint: {
+      principalId,
       principalType: "group",
-      principalId: "group-1",
-      version: 2,
-      stateHash: "state-hash-2",
-    };
+      stateHash,
+      version,
+    },
+    history,
+    principalId,
+    principalType: "group",
+    state: history.at(-1)?.state,
+    stateHash,
+    version,
+  } as unknown as VerifiedPrincipalPolicy;
+}
 
-    await savePrincipalPolicyCheckpoint(execSql, checkpoint, updatedAt);
+test("atomic advance stores and reloads access and policy pins", async () => {
+  const { close, execSql } = await createTestExecSql("checkpoint-persistence");
+  try {
+    const manifest = manifestDouble({ epoch: 1, hash: "a1", prev: null });
+    const policy = policyDouble({ stateHashes: ["p1"] });
+    await advanceKeyingCheckpointsAtomically({
+      access: [{ head: manifest, predecessors: [] }],
+      execSql,
+      policies: [policy],
+    });
 
+    await expect(
+      loadAccessManifestCheckpoint(
+        execSql,
+        "container",
+        "org-1",
+        "container-1",
+      ),
+    ).resolves.toEqual(manifest.checkpoint);
     await expect(
       loadPrincipalPolicyCheckpoint(execSql, "group", "group-1"),
-    ).resolves.toEqual(checkpoint);
-    await expect(
-      loadPrincipalPolicyCheckpoint(execSql, "organization", "group-1"),
-    ).resolves.toBeNull();
+    ).resolves.toEqual(policy.checkpoint);
   } finally {
     close();
   }
 });
 
-test("access manifest checkpoint persistence never regresses to an older epoch", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "keying-checkpoint-persistence-test",
-  );
-
+test("concurrent divergent policy pins yield exactly one success", async () => {
+  const { close, execSql } = await createTestExecSql("checkpoint-persistence");
   try {
-    const head: AccessManifestCheckpoint = {
-      objectKind: "container",
-      objectId: "container-1",
-      organizationId: "org-1",
-      epoch: 4,
-      manifestHash: "manifest-hash-4",
-    };
-    await saveAccessManifestCheckpoint(execSql, head, updatedAt);
-
-    // A slower / out-of-order verification tries to write an older epoch.
-    await saveAccessManifestCheckpoint(
-      execSql,
-      {
-        objectKind: "container",
-        objectId: "container-1",
-        organizationId: "org-1",
-        epoch: 3,
-        manifestHash: "manifest-hash-3",
-      },
-      updatedAt,
+    const first = policyDouble({ stateHashes: ["first"] });
+    const second = policyDouble({ stateHashes: ["second"] });
+    const results = await Promise.allSettled(
+      [first, second].map((policy) =>
+        advanceKeyingCheckpointsAtomically({
+          access: [],
+          execSql,
+          policies: [policy],
+        }),
+      ),
     );
 
+    expect(
+      results.filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
+    const rejected = results.find((result) => result.status === "rejected");
+    if (rejected?.status !== "rejected") {
+      throw new Error("Expected one rejected policy checkpoint advance");
+    }
+    expect(rejected.reason).toBeInstanceOf(KeyingVerificationError);
+    expect((rejected.reason as KeyingVerificationError).code).toBe(
+      "equivocation",
+    );
+  } finally {
+    close();
+  }
+});
+
+test("a policy rollback prevents access pins in the same batch", async () => {
+  const { close, execSql } = await createTestExecSql("checkpoint-persistence");
+  try {
+    const policy2 = policyDouble({ stateHashes: ["p1", "p2"] });
+    await advanceKeyingCheckpointsAtomically({
+      access: [],
+      execSql,
+      policies: [policy2],
+    });
+    const access = manifestDouble({ epoch: 1, hash: "a1", prev: null });
+    const policy1 = policyDouble({ stateHashes: ["p1"] });
+
+    await expect(
+      advanceKeyingCheckpointsAtomically({
+        access: [{ head: access, predecessors: [] }],
+        execSql,
+        policies: [policy1],
+      }),
+    ).rejects.toMatchObject({ code: "rollback" });
     await expect(
       loadAccessManifestCheckpoint(
         execSql,
@@ -156,40 +152,36 @@ test("access manifest checkpoint persistence never regresses to an older epoch",
         "org-1",
         "container-1",
       ),
-    ).resolves.toEqual(head);
+    ).resolves.toBeNull();
+    await expect(
+      loadPrincipalPolicyCheckpoint(execSql, "group", "group-1"),
+    ).resolves.toEqual(policy2.checkpoint);
   } finally {
     close();
   }
 });
 
-test("principal policy checkpoint persistence never regresses to an older version", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "keying-checkpoint-persistence-test",
-  );
-
+test("an observed predecessor does not reject a batch whose declared policy head matches the durable pin", async () => {
+  const { close, execSql } = await createTestExecSql("checkpoint-persistence");
   try {
-    const head: PrincipalPolicyCheckpoint = {
-      principalType: "group",
-      principalId: "group-1",
-      version: 5,
-      stateHash: "state-hash-5",
-    };
-    await savePrincipalPolicyCheckpoint(execSql, head, updatedAt);
-
-    await savePrincipalPolicyCheckpoint(
+    const policy1 = policyDouble({ stateHashes: ["p1"] });
+    const policy2 = policyDouble({ stateHashes: ["p1", "p2"] });
+    await advanceKeyingCheckpointsAtomically({
+      access: [],
       execSql,
-      {
-        principalType: "group",
-        principalId: "group-1",
-        version: 3,
-        stateHash: "state-hash-3",
-      },
-      updatedAt,
-    );
+      policies: [policy2],
+    });
 
     await expect(
+      advanceKeyingCheckpointsAtomically({
+        access: [],
+        execSql,
+        policies: [policy1, policy2],
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
       loadPrincipalPolicyCheckpoint(execSql, "group", "group-1"),
-    ).resolves.toEqual(head);
+    ).resolves.toEqual(policy2.checkpoint);
   } finally {
     close();
   }

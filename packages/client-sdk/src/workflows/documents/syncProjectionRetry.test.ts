@@ -1,18 +1,13 @@
 import { expect, test } from "bun:test";
-import {
-  generateKemSeedAndKeyPair,
-  KeyingVerificationError,
-} from "@tearleads/crypto";
-import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
+import { KeyingVerificationError } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
-  createResponse,
   createSyncResponse,
 } from "../../../test/helpers/documentFixtures";
-import { buildMaterializedDocumentCreatePlan } from "./create";
 import { buildMaterializedDocumentSyncPlan, syncRemoteDocument } from "./sync";
 import { retrySyncPlan } from "./syncFailures";
 
@@ -25,56 +20,19 @@ test("syncRemoteDocument refetches writer projection after a stale container KEK
     signingPublicKey,
     writerProjection,
   } = await createMaterializedSyncFixture();
-  const staleKeyPair = generateKemSeedAndKeyPair();
-  const staleProjection = await createContainerWriterProjectionFixture({
-    containerId: projection.containerId,
-    encapsulationPublicKey: staleKeyPair.publicKey,
-    organizationId: author.organizationId,
-    signerKeyFingerprint: author.signerKeyFingerprint,
-    signerPrivateKey: author.signerPrivateKey,
-    userId: author.signerUserId,
-  });
-  let useFreshProjectionKey = false;
-  const resolveProjectionUserKeyWithStaleUser = async (userId: string) => {
-    const resolved = await resolveProjectionUserKey(userId);
-    if (!resolved || userId !== author.signerUserId) {
-      return resolved;
-    }
-    if (!useFreshProjectionKey) {
-      return {
-        ...resolved,
-        encapsulationPublicKey: staleKeyPair.publicKey,
-      };
-    }
-
-    return resolved;
-  };
-  const staleCreate = await buildMaterializedDocumentCreatePlan({
-    author,
-    containerProjection: staleProjection,
-    documentId: writerProjection.documentId,
-    eventId: "event-stale-sync-projection",
-    resolveProjectionUserKey: resolveProjectionUserKeyWithStaleUser,
-    targetSecretKey: staleKeyPair.secretKey,
-  });
-  const staleResponse = createResponse(staleCreate.plan);
-  const staleWriterProjection: DocumentWriterProjectionResponse = {
-    contentKeyBundle: staleResponse.contentKeyBundle,
-    documentId: staleResponse.id,
-    documentKekTargets: staleResponse.documentKekTargets,
-    documentManifest: staleResponse.accessManifest,
-    authorizingContainerPaths: [staleProjection],
-  };
+  const validSecretKey = secretKey.slice();
+  crypto.getRandomValues(secretKey);
   const pendingUpdates = [createPendingUpdateRecord()];
   const submittedRequests: DocumentSyncRequest[] = [];
   const evictedDocumentIds: string[] = [];
   let projectionRequestCount = 0;
+  const { close, execSql } = await createTestExecSql("sync-projection-retry");
 
   const synced = await syncRemoteDocument({
     apiClient: {
       evictDocumentWriterProjection: (documentId) => {
         evictedDocumentIds.push(documentId);
-        useFreshProjectionKey = true;
+        secretKey.set(validSecretKey);
       },
       getDocumentWriterProjection: async (documentId) => {
         if (documentId !== writerProjection.documentId) {
@@ -82,9 +40,7 @@ test("syncRemoteDocument refetches writer projection after a stale container KEK
         }
 
         projectionRequestCount += 1;
-        return projectionRequestCount === 1
-          ? staleWriterProjection
-          : writerProjection;
+        return writerProjection;
       },
       syncDocument: async () => {
         throw new Error("Expected syncDocumentResult to handle sync");
@@ -93,9 +49,10 @@ test("syncRemoteDocument refetches writer projection after a stale container KEK
         submittedRequests.push(request);
         const materialized = await buildMaterializedDocumentSyncPlan({
           author,
+          execSql,
           localVersionVector: null,
           pendingUpdates,
-          resolveProjectionUserKey: resolveProjectionUserKeyWithStaleUser,
+          resolveProjectionUserKey,
           targetSecretKey: secretKey,
           writerProjection,
         });
@@ -111,14 +68,16 @@ test("syncRemoteDocument refetches writer projection after a stale container KEK
     },
     author,
     documentId: writerProjection.documentId,
+    execSql,
     localVersionVector: null,
     pendingUpdates,
-    resolveProjectionUserKey: resolveProjectionUserKeyWithStaleUser,
+    resolveProjectionUserKey,
     targetSecretKey: secretKey,
     writerPublicKeysByFingerprint: new Map([
       [author.signerKeyFingerprint, signingPublicKey],
     ]),
   });
+  close();
 
   expect(synced?.persistedState.documentId).toBe(writerProjection.documentId);
   expect(evictedDocumentIds).toEqual([writerProjection.documentId]);
@@ -140,6 +99,7 @@ test("retrySyncPlan refetches a fresh projection after a rollback verification e
   const pendingUpdates = [createPendingUpdateRecord()];
   const evictedDocumentIds: string[] = [];
   let buildCount = 0;
+  const { close, execSql } = await createTestExecSql("sync-rollback-retry");
 
   const planned = await retrySyncPlan({
     apiClient: {
@@ -163,6 +123,7 @@ test("retrySyncPlan refetches a fresh projection after a rollback verification e
 
       return buildMaterializedDocumentSyncPlan({
         author,
+        execSql,
         localVersionVector: null,
         pendingUpdates,
         resolveProjectionUserKey,
@@ -173,6 +134,7 @@ test("retrySyncPlan refetches a fresh projection after a rollback verification e
     documentId: writerProjection.documentId,
     writerProjection: staleProjection,
   });
+  close();
 
   // The rollback drops the stale projection, refetches the current one, and
   // rebuilds with it — converging instead of surfacing a hard failure.

@@ -10,6 +10,7 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   type ContainerMutationRequest,
   isContainerMutationRequest,
@@ -24,6 +25,7 @@ import {
   SIGNED_AT,
   tamperFirstProjectionEventSignature,
 } from "../../../../test/helpers/containerFixtures";
+import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import {
   buildContainerCreatePlan,
   buildMaterializedContainerCreatePlan,
@@ -273,36 +275,106 @@ test("createRemoteContainer fetches the parent projection and submits the materi
     userId: parent.userId,
   });
   const submittedRequests: ContainerMutationRequest[] = [];
-  const result = await createRemoteContainer({
-    apiClient: {
-      getContainerWriterProjection: async (containerId) =>
-        containerId === parent.projection.containerId
-          ? parent.projection
-          : null,
-      createContainer: async (request) => {
-        submittedRequests.push(request);
-        return createMutationResponseFromRequest(request);
+  const { close, execSql } = await createTestExecSql("remote-child-create");
+  try {
+    const result = await createRemoteContainer({
+      apiClient: {
+        getContainerWriterProjection: async (containerId) =>
+          containerId === parent.projection.containerId
+            ? parent.projection
+            : null,
+        createContainer: async (request) => {
+          submittedRequests.push(request);
+          return createMutationResponseFromRequest(request);
+        },
       },
-    },
-    author,
-    containerId: "remote-child-container",
-    containerKeyEpochId: "remote-child-container-key-epoch-1",
-    metadataDocumentId: "remote-child-container-metadata-document",
-    parentContainerId: parent.projection.containerId,
-    parentSecretKey: parent.secretKey,
-    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-    signedAt: SIGNED_AT,
-  });
+      author,
+      containerId: "remote-child-container",
+      containerKeyEpochId: "remote-child-container-key-epoch-1",
+      execSql,
+      metadataDocumentId: "remote-child-container-metadata-document",
+      parentContainerId: parent.projection.containerId,
+      parentSecretKey: parent.secretKey,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      signedAt: SIGNED_AT,
+    });
 
-  expect(result?.containerId).toBe("remote-child-container");
-  expect(result?.metadataDocumentId).toBe(
-    "remote-child-container-metadata-document",
+    expect(result?.containerId).toBe("remote-child-container");
+    expect(result?.metadataDocumentId).toBe(
+      "remote-child-container-metadata-document",
+    );
+    expect(submittedRequests).toHaveLength(1);
+    expect(submittedRequests[0]?.expectedManifestHash).toBe(
+      result?.plan.manifestHash,
+    );
+    expect(isContainerMutationRequest(result?.plan.request)).toBe(true);
+    if (!result) {
+      throw new Error("Expected remote container create result");
+    }
+    await expect(
+      loadAccessManifestCheckpoint(
+        execSql,
+        "container",
+        result.plan.manifest.organizationId,
+        result.plan.containerId,
+      ),
+    ).resolves.toEqual({
+      objectKind: "container",
+      objectId: result.plan.containerId,
+      organizationId: result.plan.manifest.organizationId,
+      epoch: result.plan.manifest.epoch,
+      manifestHash: result.plan.manifestHash,
+    });
+  } finally {
+    close();
+  }
+});
+
+test("createRemoteContainer rejects a mismatched acknowledgement without pinning it", async () => {
+  const parent = await createParentProjection();
+  const { author } = await createAuthor({
+    organizationId: parent.projection.organizationId,
+    userId: parent.userId,
+  });
+  const containerId = "remote-child-tampered-ack";
+  const { close, execSql } = await createTestExecSql(
+    "remote-child-tampered-ack",
   );
-  expect(submittedRequests).toHaveLength(1);
-  expect(submittedRequests[0]?.expectedManifestHash).toBe(
-    result?.plan.manifestHash,
-  );
-  expect(isContainerMutationRequest(result?.plan.request)).toBe(true);
+  try {
+    await expect(
+      createRemoteContainer({
+        apiClient: {
+          createContainer: async (request) => {
+            const response = await createMutationResponseFromRequest(request);
+            return {
+              ...response,
+              containerKek: {
+                ...response.containerKek,
+                keyTargetHash: "f".repeat(64),
+              },
+            };
+          },
+          getContainerWriterProjection: async () => parent.projection,
+        },
+        author,
+        containerId,
+        execSql,
+        parentContainerId: parent.projection.containerId,
+        parentSecretKey: parent.secretKey,
+        resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      }),
+    ).rejects.toThrow("Container mutation response KEK commitment mismatch");
+    await expect(
+      loadAccessManifestCheckpoint(
+        execSql,
+        "container",
+        parent.projection.organizationId,
+        containerId,
+      ),
+    ).resolves.toBeNull();
+  } finally {
+    close();
+  }
 });
 
 test("createRemoteContainer rejects bad parent projection signatures before sending", async () => {
@@ -315,24 +387,32 @@ test("createRemoteContainer rejects bad parent projection signatures before send
     parent.projection,
   );
   let createCalled = false;
-
-  await expect(
-    createRemoteContainer({
-      apiClient: {
-        getContainerWriterProjection: async () => tamperedProjection,
-        createContainer: async () => {
-          createCalled = true;
-          throw new Error("Unexpected create call");
-        },
-      },
-      author,
-      containerId: "bad-parent-signature-child",
-      parentContainerId: parent.projection.containerId,
-      parentSecretKey: parent.secretKey,
-      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-    }),
-  ).rejects.toThrow(
-    "Container writer projection path[0] signature verification failed",
+  const { close, execSql } = await createTestExecSql(
+    "remote-child-create-bad-parent",
   );
-  expect(createCalled).toBe(false);
+
+  try {
+    await expect(
+      createRemoteContainer({
+        apiClient: {
+          getContainerWriterProjection: async () => tamperedProjection,
+          createContainer: async () => {
+            createCalled = true;
+            throw new Error("Unexpected create call");
+          },
+        },
+        author,
+        containerId: "bad-parent-signature-child",
+        execSql,
+        parentContainerId: parent.projection.containerId,
+        parentSecretKey: parent.secretKey,
+        resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      }),
+    ).rejects.toThrow(
+      "Container writer projection path[0] signature verification failed",
+    );
+    expect(createCalled).toBe(false);
+  } finally {
+    close();
+  }
 });

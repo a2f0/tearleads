@@ -3,7 +3,6 @@ import {
   type AccessEventType,
   type AccessObjectKind,
   CONTENT_RECORD_ENCRYPTION_SUITE,
-  type ContainerKeyEpoch,
   type ContentObjectKind,
   type WriteHeader,
 } from "@tearleads/crypto";
@@ -82,19 +81,6 @@ function isAccessEvent(value: unknown): value is AccessEvent {
   );
 }
 
-function isContainerKeyEpoch(value: unknown): value is ContainerKeyEpoch {
-  return (
-    isPlainObject(value) &&
-    hasNonEmptyString(value, "id") &&
-    hasNonEmptyString(value, "containerId") &&
-    hasPositiveInteger(value, "keyEpoch") &&
-    hasNonEmptyString(value, "accessManifestHash") &&
-    hasNullableString(value, "parentContainerKeyEpochId") &&
-    hasNonEmptyString(value, "createdByEventHash") &&
-    hasNonEmptyString(value, "createdByManifestHash")
-  );
-}
-
 function isWriteHeader(value: unknown): value is WriteHeader {
   return (
     isPlainObject(value) &&
@@ -121,17 +107,6 @@ function isWriteHeader(value: unknown): value is WriteHeader {
 export function assertAccessEvent(value: unknown, label: string): AccessEvent {
   if (!isAccessEvent(value)) {
     throw new Error(`Expected ${label} to be an AccessEvent.`);
-  }
-
-  return value;
-}
-
-export function assertContainerKeyEpoch(
-  value: unknown,
-  label: string,
-): ContainerKeyEpoch {
-  if (!isContainerKeyEpoch(value)) {
-    throw new Error(`Expected ${label} to be a ContainerKeyEpoch.`);
   }
 
   return value;

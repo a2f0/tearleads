@@ -18,6 +18,7 @@ import { assertBlobContentKeyBundleTargetHash } from "../../data/documents/blob/
 import type { DecryptDocumentAttachmentBlobInput } from "../../data/documents/blob/shared/types";
 import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
 import { asWebCryptoBytes } from "../../data/documents/shared/readers";
+import { projectionVerificationOptions } from "../../data/documents/shared/types";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 
 export async function decryptDocumentAttachmentBlob({
@@ -34,6 +35,9 @@ export async function decryptDocumentAttachmentBlob({
     resolveProjectionUserKey,
     "Document attachment blob decrypt",
   );
+  const verificationOptions = projectionVerificationOptions({
+    resolveProjectionUserKey: requiredResolveProjectionUserKey,
+  });
   const encrypted = parseBlobEncryptedBytes(encryptedBytes);
   if (
     encrypted.blobId !== expectedBlobId ||
@@ -51,7 +55,7 @@ export async function decryptDocumentAttachmentBlob({
 
   await assertDocumentWriterProjectionConsistent(writerProjection, {
     execSql,
-    resolveProjectionUserKey: requiredResolveProjectionUserKey,
+    ...verificationOptions,
   });
   const { documentId, organizationId } =
     readDocumentManifestIdentity(writerProjection);
@@ -82,8 +86,8 @@ export async function decryptDocumentAttachmentBlob({
     encrypted,
     execSql,
     expectedBindingId,
-    resolveProjectionUserKey: requiredResolveProjectionUserKey,
     secretKey: targetSecretKey,
+    ...verificationOptions,
     writerProjection,
   });
   const contentKeyMaterial = await importBlobContentKeyMaterial(contentKey);

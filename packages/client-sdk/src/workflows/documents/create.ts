@@ -9,6 +9,7 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { buildDocumentCreatePlan } from "../../data/documents/shared/events";
+import { acknowledgeDocumentMutation } from "../../data/documents/shared/mutationAcknowledgement";
 import {
   assertDocumentWriterProjectionConsistent,
   unwrapDocumentContentKeyFromWriterProjection,
@@ -32,7 +33,10 @@ import type {
 } from "../../data/keyingProjectionVerification";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { isDocumentManifestAlreadyExistsConflict } from "./syncFailures";
+import {
+  isDocumentManifestAlreadyExistsConflict,
+  projectionIntegrityErrorCode,
+} from "./syncFailures";
 
 export async function buildMaterializedDocumentCreatePlan(
   input: {
@@ -102,9 +106,19 @@ export function documentWriterProjectionFromCreateResponse(input: {
 }
 
 function shouldRetryWithFreshContainerProjection(error: unknown): boolean {
+  const integrityErrorCode = projectionIntegrityErrorCode(error);
+  if (integrityErrorCode) {
+    return integrityErrorCode === "rollback";
+  }
+
   return (
     error instanceof Error && error.message.includes("could not be unwrapped")
   );
+}
+
+interface MaterializedDocumentCreatePlanWithProjection {
+  readonly containerProjection: ContainerWriterProjectionResponse;
+  readonly materializedPlan: MaterializedDocumentCreatePlan;
 }
 
 async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
@@ -120,10 +134,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<{
-  readonly containerProjection: ContainerWriterProjectionResponse;
-  readonly materializedPlan: MaterializedDocumentCreatePlan;
-} | null> {
+}): Promise<MaterializedDocumentCreatePlanWithProjection | null> {
   const buildWithProjection = async (
     containerProjection: ContainerWriterProjectionResponse,
   ) => ({
@@ -168,7 +179,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
   return refreshedProjection ? buildWithProjection(refreshedProjection) : null;
 }
 
-export async function createRemoteDocument(input: {
+interface RemoteDocumentCreateInput {
   apiClient: DocumentCreateApi;
   author: DocumentCreateAuthor;
   containerId: string;
@@ -176,19 +187,23 @@ export async function createRemoteDocument(input: {
   contentKeyEpoch?: number | undefined;
   documentId?: string | undefined;
   eventId?: string | undefined;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<CreateRemoteDocumentResult | null> {
-  const resolveProjectionUserKey = requireProjectionUserKeyResolver(
-    input.resolveProjectionUserKey,
-    "Remote document create",
-  );
-  const createPlan =
-    await buildMaterializedDocumentCreatePlanWithFreshProjection({
+}
+
+async function submitPlannedDocumentCreate(
+  input: RemoteDocumentCreateInput,
+  resolveProjectionUserKey: ProjectionUserKeyResolver,
+): Promise<{
+  readonly createPlan: MaterializedDocumentCreatePlanWithProjection;
+  readonly submission: DocumentCreateSubmission;
+} | null> {
+  let createPlan = await buildMaterializedDocumentCreatePlanWithFreshProjection(
+    {
       apiClient: input.apiClient,
       author: input.author,
       containerId: input.containerId,
@@ -201,7 +216,8 @@ export async function createRemoteDocument(input: {
       signedAt: input.signedAt,
       targetSecretKey: input.targetSecretKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    });
+    },
+  );
   if (!createPlan) {
     return null;
   }
@@ -211,16 +227,77 @@ export async function createRemoteDocument(input: {
     return null;
   }
 
-  const submission = await submitDocumentCreate(
+  let submission = await submitDocumentCreate(
     input.apiClient,
     createPlan.materializedPlan.plan.request,
   );
+  if (
+    isStaleDocumentCreateTargetConflict(submission) &&
+    input.apiClient.evictContainerWriterProjection
+  ) {
+    input.apiClient.evictContainerWriterProjection(input.containerId);
+    const firstPlan = createPlan.materializedPlan;
+    const refreshedPlan =
+      await buildMaterializedDocumentCreatePlanWithFreshProjection({
+        apiClient: input.apiClient,
+        author: input.author,
+        containerId: input.containerId,
+        contentKey: firstPlan.contentKey,
+        contentKeyEpoch:
+          firstPlan.plan.request.contentKeyBundle.contentKeyEpoch,
+        documentId: firstPlan.plan.documentId,
+        eventId: firstPlan.plan.event.eventId,
+        execSql: input.execSql,
+        resolveProjectionUserKey,
+        signedAt: firstPlan.plan.event.signedAt,
+        targetSecretKey: input.targetSecretKey,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      });
+    if (!refreshedPlan) {
+      return null;
+    }
+    if (
+      input.isRemoteSyncBlocked?.(
+        refreshedPlan.containerProjection.organizationId,
+      )
+    ) {
+      return null;
+    }
+    createPlan = refreshedPlan;
+    submission = await submitDocumentCreate(
+      input.apiClient,
+      createPlan.materializedPlan.plan.request,
+    );
+  }
+
+  return { createPlan, submission };
+}
+
+export async function createRemoteDocument(
+  input: RemoteDocumentCreateInput,
+): Promise<CreateRemoteDocumentResult | null> {
+  const resolveProjectionUserKey = requireProjectionUserKeyResolver(
+    input.resolveProjectionUserKey,
+    "Remote document create",
+  );
+  const plannedSubmission = await submitPlannedDocumentCreate(
+    input,
+    resolveProjectionUserKey,
+  );
+  if (!plannedSubmission) {
+    return null;
+  }
+  const { createPlan, submission } = plannedSubmission;
   if (submission.ok) {
     const response = submission.data;
     const persistedState = persistedDocumentCreateStateFromResponse(
       createPlan.materializedPlan.plan,
       response,
     );
+    await acknowledgeDocumentMutation({
+      execSql: input.execSql,
+      plan: createPlan.materializedPlan.plan,
+    });
     const writerProjection = documentWriterProjectionFromCreateResponse({
       containerProjection: createPlan.containerProjection,
       response,
@@ -282,6 +359,17 @@ type DocumentCreateSubmission =
       readonly report?: (() => void) | undefined;
       readonly status: number | null;
     };
+
+function isStaleDocumentCreateTargetConflict(
+  submission: DocumentCreateSubmission,
+): boolean {
+  return (
+    !submission.ok &&
+    submission.status === 409 &&
+    submission.message.includes("targetContainerPathRefs") &&
+    submission.message.includes("is stale")
+  );
+}
 
 async function submitDocumentCreate(
   apiClient: DocumentCreateApi,

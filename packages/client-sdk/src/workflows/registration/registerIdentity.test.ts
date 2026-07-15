@@ -16,6 +16,7 @@ import type {
 import type { RegistrationResponse } from "@tearleads/validators/response";
 import { createMutationResponseFromRequest } from "../../../test/helpers/containerFixtures";
 import { createResponseFromRequest } from "../../../test/helpers/documentFixtures";
+import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
@@ -202,8 +203,7 @@ test("registerIdentity submits the registration request and persists the local b
         rootContainerId,
         rootMetadataDocumentId: rootMetadataDocument.id,
         rootMetadataAccessEpoch: 1,
-        rootMetadataAccessStateHash:
-          rootMetadataDocument.accessManifest.manifestHash,
+        rootMetadataAccessStateHash: initialRootContainer.expectedManifestHash,
         rootMetadataDocument,
         rosterProfileContainer: {
           container: rosterProfileContainerResponse,
@@ -404,36 +404,39 @@ test("registerIdentity propagates local bootstrap persistence failures", async (
       rootContainerId: string,
       _signingPublicKey: Uint8Array,
       _encapsulationPublicKey: Uint8Array,
-      _initialAdminGroup: CreateOrganizationGroupRequest,
-      _initialMemberGroup: CreateOrganizationGroupRequest,
-      _initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
-      _initialRootContainer: RegistrationRequest["initialRootContainer"],
+      initialAdminGroup: CreateOrganizationGroupRequest,
+      initialMemberGroup: CreateOrganizationGroupRequest,
+      initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
+      initialRootContainer: RegistrationRequest["initialRootContainer"],
       initialRootMetadataDocument: DocumentCreateRequest,
-      _initialRosterProfileContainer?:
+      initialRosterProfileContainer?:
         | ContainerCreateWithMetadataDocumentRequest
         | undefined,
-      _initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined,
-      _initialOrganizationMetadataContainer?:
+      initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined,
+      initialOrganizationMetadataContainer?:
         | ContainerCreateWithMetadataDocumentRequest
         | undefined,
-      _initialOrganizationProfileDocument?:
+      initialOrganizationProfileDocument?:
         | ProvisionedDocumentRequest
         | undefined,
     ): Promise<RegistrationResponse> => {
       registrationSubmitted = true;
-      const rootMetadataDocument = await createResponseFromRequest(
+      const response = await respondToOrganizationProvisioning({
+        initialAdminGroup,
+        initialMemberGroup,
+        initialOrganizationMetadataContainer,
+        initialOrganizationPolicy,
+        initialOrganizationProfileDocument,
+        initialRootContainer,
         initialRootMetadataDocument,
-      );
-
-      return {
-        userId,
+        initialRosterProfileContainer,
+        initialRosterProfileDocument,
         organizationId,
         rootContainerId,
-        rootMetadataDocumentId: rootMetadataDocument.id,
-        rootMetadataAccessEpoch: 1,
-        rootMetadataAccessStateHash:
-          rootMetadataDocument.accessManifest.manifestHash,
-        rootMetadataDocument,
+        userId,
+      });
+      return {
+        ...response,
         challenge: "a".repeat(64),
       };
     },

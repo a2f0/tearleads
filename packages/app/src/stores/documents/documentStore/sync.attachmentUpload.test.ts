@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import {
   type BlobBytes,
   createDocumentProjectionUserKeyResolver,
@@ -10,6 +10,7 @@ import {
 } from "@tearleads/client-sdk";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import {
@@ -24,6 +25,20 @@ import {
   documentWorkflowRuntimePatch,
 } from "../../../../test/helpers/document-store/documentStoreSyncRuntime";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
+
+const sqlClosers: Array<() => void> = [];
+
+afterEach(() => {
+  for (const close of sqlClosers.splice(0)) {
+    close();
+  }
+});
+
+async function createAttachmentTestExecSql(key: string) {
+  const { close, execSql } = await createTestExecSql(key);
+  sqlClosers.push(close);
+  return execSql;
+}
 
 test("document store attaches files locally without authentication or network", async () => {
   const persistence = createDocumentsPersistence();
@@ -251,6 +266,9 @@ test("document store uploads attachment bytes with signed bindings", async () =>
 }, 10_000);
 
 test("uploadDocumentAttachment rejects bind responses with tampered target material", async () => {
+  const execSql = await createAttachmentTestExecSql(
+    "app-attachment-tampered-bind-response",
+  );
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const runtimePatch = await documentWorkflowRuntimePatch({
     encapsulationKeyPair,
@@ -284,6 +302,7 @@ test("uploadDocumentAttachment rejects bind responses with tampered target mater
     author,
     containerId: "root-container",
     documentId: "document-attachment-response-verification",
+    execSql,
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: encapsulationKeyPair.secretKey,
@@ -298,6 +317,7 @@ test("uploadDocumentAttachment rejects bind responses with tampered target mater
       author,
       bytes: new TextEncoder().encode("tampered response bytes") as BlobBytes,
       documentId: created.documentId,
+      execSql,
       expectedBindingId: null,
       resolveProjectionUserKey,
       signedAt: "2026-04-27T00:00:01.000Z",
@@ -308,6 +328,9 @@ test("uploadDocumentAttachment rejects bind responses with tampered target mater
 });
 
 test("uploadDocumentAttachment rejects document writer projections with bad signatures", async () => {
+  const execSql = await createAttachmentTestExecSql(
+    "app-attachment-bad-projection-signature",
+  );
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const runtimePatch = await documentWorkflowRuntimePatch({
     encapsulationKeyPair,
@@ -348,6 +371,7 @@ test("uploadDocumentAttachment rejects document writer projections with bad sign
     author,
     containerId: "root-container",
     documentId: "document-attachment-bad-projection-signature",
+    execSql,
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: encapsulationKeyPair.secretKey,
@@ -362,6 +386,7 @@ test("uploadDocumentAttachment rejects document writer projections with bad sign
       author,
       bytes: new TextEncoder().encode("bad projection bytes") as BlobBytes,
       documentId: created.documentId,
+      execSql,
       expectedBindingId: null,
       resolveProjectionUserKey,
       signedAt: "2026-04-27T00:00:01.000Z",
@@ -372,6 +397,7 @@ test("uploadDocumentAttachment rejects document writer projections with bad sign
 });
 
 test("uploadDocumentAttachment uses a fresh IV for same-domain blob re-encryption", async () => {
+  const execSql = await createAttachmentTestExecSql("app-attachment-fresh-iv");
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const runtimePatch = await documentWorkflowRuntimePatch({
     encapsulationKeyPair,
@@ -391,6 +417,7 @@ test("uploadDocumentAttachment uses a fresh IV for same-domain blob re-encryptio
     author,
     containerId: "root-container",
     documentId: "document-attachment-fresh-iv",
+    execSql,
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: encapsulationKeyPair.secretKey,
@@ -410,6 +437,7 @@ test("uploadDocumentAttachment uses a fresh IV for same-domain blob re-encryptio
     bytes: new TextEncoder().encode("first blob payload") as BlobBytes,
     contentKey,
     documentId: created.documentId,
+    execSql,
     expectedBindingId: null,
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:01.000Z",
@@ -424,6 +452,7 @@ test("uploadDocumentAttachment uses a fresh IV for same-domain blob re-encryptio
     bytes: new TextEncoder().encode("second blob payload") as BlobBytes,
     contentKey,
     documentId: created.documentId,
+    execSql,
     expectedBindingId: null,
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:02.000Z",

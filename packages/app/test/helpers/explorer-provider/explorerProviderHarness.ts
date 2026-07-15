@@ -223,11 +223,14 @@ export function createExplorerContainerApiHarness(
         containerId: string,
         request: ContainerMutationRequest,
       ) => {
-        const response = await createExplorerContainerMutationResponse(request);
         const previousProjection = projections.get(containerId);
         if (!previousProjection) {
           return null;
         }
+        const response = await createExplorerContainerMutationResponse(
+          request,
+          previousProjection,
+        );
 
         projections.set(containerId, {
           containerId,
@@ -257,7 +260,14 @@ export function createExplorerContainerApiHarness(
         containerId: string,
         request: ContainerMutationRequest,
       ) => {
-        const response = await createExplorerContainerMutationResponse(request);
+        const previousProjection = projections.get(containerId);
+        if (!previousProjection) {
+          return null;
+        }
+        const response = await createExplorerContainerMutationResponse(
+          request,
+          previousProjection,
+        );
         const destinationProjection = response.parentId
           ? projections.get(response.parentId)
           : null;

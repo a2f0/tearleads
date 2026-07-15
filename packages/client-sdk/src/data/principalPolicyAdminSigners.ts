@@ -1,4 +1,5 @@
 import {
+  KeyingVerificationError,
   type KeyingVerificationResult,
   type PrincipalPolicyCheckpoint,
   type PrincipalPolicySignerPublicKey,
@@ -21,7 +22,7 @@ export function principalPolicyReferenceFromBundle(
   };
 }
 
-function organizationAdminSignerUserIds(
+export function organizationAdminSignerUserIds(
   policy: VerifiedPrincipalPolicy,
 ): string[] {
   return [
@@ -36,27 +37,31 @@ function organizationAdminSignerUserIds(
   ].sort();
 }
 
-export async function verifyOrganizationAdminSignerUserIds(input: {
+export async function verifyOrganizationAdminPolicy(input: {
   readonly bundle: PrincipalPolicyBundleResponse;
   readonly localCheckpoint?: PrincipalPolicyCheckpoint | null | undefined;
   readonly organizationId: string;
   readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
-}): Promise<string[]> {
+}): Promise<KeyingVerificationResult<VerifiedPrincipalPolicy>> {
   if (
     input.bundle.currentState.principalType !== "organization" ||
     input.bundle.currentState.principalId !== input.organizationId
   ) {
-    return [];
+    return {
+      ok: false,
+      error: new KeyingVerificationError(
+        "object_mismatch",
+        "organization policy does not match the expected organization",
+      ),
+    };
   }
 
-  const verified = await verifyPrincipalPolicyBundle({
+  return verifyPrincipalPolicyBundle({
     bundle: input.bundle,
     expectedReference: principalPolicyReferenceFromBundle(input.bundle),
     localCheckpoint: input.localCheckpoint ?? null,
     signerPublicKeys: input.signerPublicKeys,
   });
-
-  return verified.ok ? organizationAdminSignerUserIds(verified.value) : [];
 }
 
 export async function verifyPrincipalPolicyBundleWithExternalOrganizationAdmins(input: {
@@ -90,5 +95,5 @@ export async function verifyPrincipalPolicyBundleWithExternalOrganizationAdmins(
     signerPublicKeys: input.signerPublicKeys,
   });
 
-  return verifiedWithExternalAdmins.ok ? verifiedWithExternalAdmins : verified;
+  return verifiedWithExternalAdmins;
 }

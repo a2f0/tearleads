@@ -5,7 +5,7 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createResponseFromRequest } from "../../test/helpers/documentFixtures";
+import { respondToRegistration } from "../../test/helpers/organizationProvisioningResponder";
 import type { ExecSql, ExecSqlClientLike } from "../sqlite";
 import { Database } from "./database";
 import { createIdentity, type Identity } from "./identity";
@@ -109,37 +109,9 @@ describe("session", () => {
     const containerId = crypto.randomUUID();
     let registerUserCalls = 0;
     const api = createApi({
-      registerUser: async (
-        userId,
-        organizationId,
-        rootContainerId,
-        _signingPublicKey,
-        _encapsulationPublicKey,
-        _initialAdminGroup,
-        _initialMemberGroup,
-        _initialOrganizationPolicy,
-        _initialRootContainer,
-        initialRootMetadataDocument,
-        _initialRosterProfileContainer,
-        _initialRosterProfileDocument,
-        _initialOrganizationProfileDocument,
-      ) => {
+      registerUser: async (...args) => {
         registerUserCalls += 1;
-        const rootMetadataDocument = await createResponseFromRequest(
-          initialRootMetadataDocument,
-        );
-
-        return {
-          challenge: "a".repeat(64),
-          organizationId,
-          rootContainerId,
-          rootMetadataAccessEpoch: 1,
-          rootMetadataAccessStateHash:
-            rootMetadataDocument.accessManifest.manifestHash,
-          rootMetadataDocument,
-          rootMetadataDocumentId: rootMetadataDocument.id,
-          userId,
-        };
+        return respondToRegistration(args);
       },
     });
     const { identity, session } = createSessionHarness({
@@ -181,33 +153,10 @@ describe("session", () => {
     );
     let switchIdentity = async () => undefined;
     const api = createApi({
-      registerUser: async (
-        userId,
-        organizationId,
-        rootContainerId,
-        _signingPublicKey,
-        _encapsulationPublicKey,
-        _initialAdminGroup,
-        _initialMemberGroup,
-        _initialOrganizationPolicy,
-        _initialRootContainer,
-        initialRootMetadataDocument,
-      ) => {
-        const rootMetadataDocument = await createResponseFromRequest(
-          initialRootMetadataDocument,
-        );
+      registerUser: async (...args) => {
+        const response = await respondToRegistration(args);
         await switchIdentity();
-        return {
-          challenge: "a".repeat(64),
-          organizationId,
-          rootContainerId,
-          rootMetadataAccessEpoch: 1,
-          rootMetadataAccessStateHash:
-            rootMetadataDocument.accessManifest.manifestHash,
-          rootMetadataDocument,
-          rootMetadataDocumentId: rootMetadataDocument.id,
-          userId,
-        };
+        return response;
       },
     });
     const { identity, session } = createSessionHarness({

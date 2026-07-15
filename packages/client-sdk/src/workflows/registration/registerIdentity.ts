@@ -3,30 +3,22 @@ import {
   computePrincipalStateHash,
   type EncapsulationKeyPair,
   generateKemSeedAndKeyPair,
-  makeVerifiedPrincipalPolicy,
   type ReferencedPrincipalHead,
   type SigningKeyPair,
   signPrincipalState,
   toFingerprint,
-  type VerifiedPrincipalPolicy,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
   CreateOrganizationGroupRequest,
   ProvisionedDocumentRequest,
   ProvisionedSystemContainerRequest,
   RegistrationRequest,
 } from "@tearleads/validators/request";
-import type {
-  OrganizationProvisioningResponse,
-  PrincipalPolicyBundleResponse,
-  RegistrationResponse,
-} from "@tearleads/validators/response";
+import type { RegistrationResponse } from "@tearleads/validators/response";
 import { createInitializedContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
-import { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
 import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import {
   type ContainerSystemSlotDefinition,
@@ -53,16 +45,24 @@ import {
   ORGANIZATION_METADATA_CONTAINER_NAME,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
 } from "../organizations/rosterProfileContainer";
-import { persistRegistrationBootstrap } from "./persistRegistrationBootstrap";
-import {
-  buildOrganizationProfileBootstrapInput,
-  buildRosterProfileBootstrapInput,
-} from "./profileBootstrapPersistence";
+import type {
+  InitialOrganizationMetadataBootstrap,
+  InitialRootContainerCreatePlan,
+  InitialRosterProfileBootstrap,
+  InitialSystemContainerBootstrap,
+  InitialSystemContainerCreatePlan,
+  OrganizationProvisioningArtifacts,
+} from "./organizationProvisioningArtifacts";
+import { persistOrganizationProvisioningState } from "./organizationProvisioningPersistence";
 import {
   buildProvisionedOrganizationProfile,
   buildProvisionedRosterProfile,
 } from "./provisionedProfileDocument";
+import { verifiedPrincipalPolicyFromInitialGroupRequest } from "./registrationPrincipalPolicyPersistence";
 import { createInitialRootMetadataBootstrap } from "./rootMetadataBootstrap";
+
+export type { OrganizationProvisioningArtifacts } from "./organizationProvisioningArtifacts";
+export { persistOrganizationProvisioningState };
 
 export interface RegistrationApi {
   registerUser(
@@ -92,35 +92,9 @@ interface OrganizationProvisioningPrincipalPolicies {
   signingFingerprint: string;
 }
 
-type InitialRootMetadataDocument = Awaited<
-  ReturnType<typeof buildMaterializedDocumentCreatePlan>
->;
-type InitialRootContainerCreatePlan = Awaited<
-  ReturnType<typeof buildRootContainerCreatePlan>
->;
 type InitialRootContainerProjection = ReturnType<
   typeof rootContainerWriterProjectionFromCreatePlan
 >;
-type InitialSystemContainerCreatePlan = {
-  containerKey: Uint8Array;
-  plan: Awaited<ReturnType<typeof buildContainerCreatePlan>>;
-};
-
-interface InitialRosterProfileBootstrap {
-  containerId: string;
-  containerMetadataDocument: Awaited<
-    ReturnType<typeof buildMaterializedDocumentCreatePlan>
-  >;
-  containerMetadataInitialUpdate: Uint8Array;
-  containerPlan: InitialSystemContainerCreatePlan;
-  containerRequest: ProvisionedSystemContainerRequest;
-  profileDocument: Awaited<
-    ReturnType<typeof buildMaterializedDocumentCreatePlan>
-  >;
-  profileDocumentInitialUpdate: Uint8Array;
-  profileDocumentRequest: ProvisionedDocumentRequest;
-  systemSlot: ContainerSystemSlot;
-}
 
 /**
  * An app-owned system container to provision atomically with a new organization
@@ -138,35 +112,6 @@ export interface ProvisionedSystemContainerSpec {
   readonly icon: string | null;
 }
 
-interface InitialSystemContainerBootstrap {
-  containerId: string;
-  containerMetadataDocument: Awaited<
-    ReturnType<typeof buildMaterializedDocumentCreatePlan>
-  >;
-  containerMetadataInitialUpdate: Uint8Array;
-  containerPlan: InitialSystemContainerCreatePlan;
-  containerRequest: ProvisionedSystemContainerRequest;
-  icon: string | null;
-  name: string;
-  systemSlot: ContainerSystemSlot;
-}
-
-interface InitialOrganizationMetadataBootstrap {
-  containerId: string;
-  containerMetadataDocument: Awaited<
-    ReturnType<typeof buildMaterializedDocumentCreatePlan>
-  >;
-  containerMetadataInitialUpdate: Uint8Array;
-  containerPlan: InitialSystemContainerCreatePlan;
-  containerRequest: ProvisionedSystemContainerRequest;
-  organizationProfileDocument: Awaited<
-    ReturnType<typeof buildMaterializedDocumentCreatePlan>
-  >;
-  organizationProfileDocumentRequest: ProvisionedDocumentRequest;
-  organizationProfileSnapshot: string;
-  systemSlot: ContainerSystemSlot;
-}
-
 interface InitialOrganizationMetadataBootstrapInput {
   author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
   initialAdminGroup: CreateOrganizationGroupRequest;
@@ -180,7 +125,7 @@ interface InitialOrganizationMetadataBootstrapInput {
 export interface RegisterIdentityInput {
   apiClient: RegistrationApi;
   containerId: string;
-  dbClient?: ExecSqlClientLike | null | undefined;
+  dbClient: ExecSqlClientLike;
   documentProjectors?: DocumentProjectorRegistryInput | undefined;
   encapsulationKeyPair: EncapsulationKeyPair;
   log?: ((message: string) => void) | undefined;
@@ -211,20 +156,6 @@ export interface RegisterIdentityInput {
  * one. Everything here is derived purely from the caller's key material, so it
  * is identical for both flows.
  */
-export interface OrganizationProvisioningArtifacts {
-  bootstrap: Awaited<ReturnType<typeof createInitialRootMetadataBootstrap>>;
-  initialAdminGroup: CreateOrganizationGroupRequest;
-  initialMemberGroup: CreateOrganizationGroupRequest;
-  initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"];
-  initialRootContainer: RegistrationRequest["initialRootContainer"];
-  organizationId: string;
-  organizationMetadataBootstrap: InitialOrganizationMetadataBootstrap;
-  rootMetadataDocument: InitialRootMetadataDocument;
-  rootMetadataDocumentRequest: ProvisionedDocumentRequest;
-  rosterProfileBootstrap: InitialRosterProfileBootstrap;
-  systemContainerBootstraps: InitialSystemContainerBootstrap[];
-}
-
 export interface OrganizationProvisioningArtifactsInput {
   encapsulationKeyPair: EncapsulationKeyPair;
   organizationProfileName?: string | undefined;
@@ -240,23 +171,6 @@ export interface OrganizationProvisioningArtifactsInput {
   rosterProfileNickname?: string | undefined;
   signingKeyPair: SigningKeyPair;
   userId: string;
-}
-
-interface PersistOrganizationProvisioningStateInput {
-  bootstrap: Awaited<ReturnType<typeof createInitialRootMetadataBootstrap>>;
-  containerId: string;
-  dbClient?: ExecSqlClientLike | null | undefined;
-  documentProjectors?: DocumentProjectorRegistryInput | undefined;
-  initialAdminGroup: CreateOrganizationGroupRequest;
-  initialMemberGroup: CreateOrganizationGroupRequest;
-  log?: ((message: string) => void) | undefined;
-  logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
-  organizationMetadataBootstrap: InitialOrganizationMetadataBootstrap;
-  response: OrganizationProvisioningResponse;
-  rootMetadataDocument: InitialRootMetadataDocument;
-  rootMetadataDocumentRequest: ProvisionedDocumentRequest;
-  rosterProfileBootstrap: InitialRosterProfileBootstrap;
-  systemContainerBootstraps: InitialSystemContainerBootstrap[];
 }
 
 export async function buildInitialOrganizationPolicyRequest(input: {
@@ -331,257 +245,6 @@ export async function buildInitialOrganizationPolicyRequest(input: {
       },
     ],
   };
-}
-
-export async function principalPolicyBundleFromInitialGroupRequest(
-  input: CreateOrganizationGroupRequest,
-): Promise<PrincipalPolicyBundleResponse> {
-  const createdAt = new Date().toISOString();
-  const stateHash = await computePrincipalStateHash(
-    input.initialGroupPolicy.state,
-  );
-
-  return {
-    currentState: {
-      ...input.initialGroupPolicy.state,
-      stateHash,
-      createdAt,
-    },
-    currentPayload: {
-      principalType: "group",
-      principalId: input.groupId,
-      stateHash,
-      ...input.initialGroupPolicy.encryptedPayload,
-      createdAt,
-    },
-    currentProjection: input.initialGroupPolicy.projection,
-    currentMemberEnvelopes: {
-      principalType: "group",
-      principalId: input.groupId,
-      stateHash,
-      epoch: input.initialGroupPolicy.state.keyEpoch,
-      envelopes: input.initialGroupPolicy.memberEnvelopes,
-    },
-    previousStates: [],
-  };
-}
-
-async function verifiedPrincipalPolicyFromInitialGroupRequest(
-  input: CreateOrganizationGroupRequest,
-): Promise<VerifiedPrincipalPolicy> {
-  const bundle = await principalPolicyBundleFromInitialGroupRequest(input);
-
-  return makeVerifiedPrincipalPolicy({
-    principalType: "group",
-    principalId: input.groupId,
-    version: bundle.currentState.version,
-    keyEpoch: bundle.currentState.keyEpoch,
-    stateHash: bundle.currentState.stateHash,
-    state: bundle.currentState,
-    projection: bundle.currentProjection,
-    checkpoint: {
-      principalType: "group",
-      principalId: input.groupId,
-      version: bundle.currentState.version,
-      stateHash: bundle.currentState.stateHash,
-    },
-  });
-}
-
-type PersistBootstrapInput = Parameters<typeof persistRegistrationBootstrap>[1];
-
-function coreMetadataInitialUpdateCommitted(
-  response: OrganizationProvisioningResponse,
-  updateId?: string,
-): boolean {
-  return (
-    updateId !== undefined &&
-    response.committedCoreMetadataUpdateIds?.includes(updateId) === true
-  );
-}
-
-function buildRosterProfileContainerBootstrapInput(
-  input: PersistOrganizationProvisioningStateInput,
-): PersistBootstrapInput["rosterProfileContainer"] {
-  const container = input.response.rosterProfileContainer;
-  if (!container) {
-    return;
-  }
-
-  return {
-    accessEpoch: container.container.manifestHead.epoch,
-    accessStateHash: container.container.manifestHead.manifestHash,
-    containerId: input.rosterProfileBootstrap.containerId,
-    createdAt: container.container.createdAt,
-    metadataDocumentId: container.metadataDocument.id,
-    metadataInitialUpdate:
-      input.rosterProfileBootstrap.containerMetadataInitialUpdate,
-    metadataInitialUpdateCommitted: coreMetadataInitialUpdateCommitted(
-      input.response,
-      input.rosterProfileBootstrap.containerRequest.initialMetadataSync
-        .outgoingUpdates[0]?.id,
-    ),
-    metadataSnapshot: bytesToBase64(
-      input.rosterProfileBootstrap.containerMetadataInitialUpdate,
-    ),
-    metadataState: persistedDocumentCreateStateFromResponse(
-      input.rosterProfileBootstrap.containerMetadataDocument.plan,
-      container.metadataDocument,
-    ),
-    systemSlot: input.rosterProfileBootstrap.systemSlot,
-    updatedAt: container.container.updatedAt,
-  };
-}
-
-function buildOrganizationMetadataContainerBootstrapInput(
-  input: PersistOrganizationProvisioningStateInput,
-): PersistBootstrapInput["organizationMetadataContainer"] {
-  const container = input.response.organizationMetadataContainer;
-  if (!container) {
-    return;
-  }
-
-  return {
-    accessEpoch: container.container.manifestHead.epoch,
-    accessStateHash: container.container.manifestHead.manifestHash,
-    containerId: input.organizationMetadataBootstrap.containerId,
-    createdAt: container.container.createdAt,
-    metadataDocumentId: container.metadataDocument.id,
-    metadataInitialUpdate:
-      input.organizationMetadataBootstrap.containerMetadataInitialUpdate,
-    metadataInitialUpdateCommitted: coreMetadataInitialUpdateCommitted(
-      input.response,
-      input.organizationMetadataBootstrap.containerRequest.initialMetadataSync
-        .outgoingUpdates[0]?.id,
-    ),
-    metadataSnapshot: bytesToBase64(
-      input.organizationMetadataBootstrap.containerMetadataInitialUpdate,
-    ),
-    metadataState: persistedDocumentCreateStateFromResponse(
-      input.organizationMetadataBootstrap.containerMetadataDocument.plan,
-      container.metadataDocument,
-    ),
-    systemSlot: input.organizationMetadataBootstrap.systemSlot,
-    updatedAt: container.container.updatedAt,
-  };
-}
-
-function buildSystemContainersBootstrapInput(
-  input: PersistOrganizationProvisioningStateInput,
-): PersistBootstrapInput["systemContainers"] {
-  const responses = input.response.systemContainers ?? [];
-  if (responses.length === 0) {
-    return;
-  }
-  const responseByContainerId = new Map(
-    responses.map((response) => [response.container.containerId, response]),
-  );
-  const entries: NonNullable<PersistBootstrapInput["systemContainers"]> = [];
-  for (const bootstrap of input.systemContainerBootstraps) {
-    const response = responseByContainerId.get(bootstrap.containerId);
-    if (!response) {
-      continue;
-    }
-    entries.push({
-      accessEpoch: response.container.manifestHead.epoch,
-      accessStateHash: response.container.manifestHead.manifestHash,
-      containerId: bootstrap.containerId,
-      createdAt: response.container.createdAt,
-      icon: bootstrap.icon,
-      metadataDocumentId: response.metadataDocument.id,
-      metadataSnapshot: bytesToBase64(bootstrap.containerMetadataInitialUpdate),
-      metadataState: persistedDocumentCreateStateFromResponse(
-        bootstrap.containerMetadataDocument.plan,
-        response.metadataDocument,
-      ),
-      name: bootstrap.name,
-      systemSlot: bootstrap.systemSlot,
-      updatedAt: response.container.updatedAt,
-    });
-  }
-  return entries.length > 0 ? entries : undefined;
-}
-
-/**
- * Persists the local SQLite bootstrap (group policies, root container, roster
- * and organization profile documents) for a freshly provisioned organization.
- * Shared by registration and additional-organization creation — it reads only
- * fields common to both responses ({@link OrganizationProvisioningResponse}).
- */
-export async function persistOrganizationProvisioningState(
-  input: PersistOrganizationProvisioningStateInput,
-): Promise<void> {
-  if (!input.dbClient) {
-    return;
-  }
-
-  try {
-    const organizationProfileDocument = buildOrganizationProfileBootstrapInput({
-      containerId: input.organizationMetadataBootstrap.containerId,
-      materializedDocument:
-        input.organizationMetadataBootstrap.organizationProfileDocument,
-      request:
-        input.organizationMetadataBootstrap.organizationProfileDocumentRequest,
-      response: input.response,
-      snapshot: input.organizationMetadataBootstrap.organizationProfileSnapshot,
-    });
-    const rosterProfileDocument = buildRosterProfileBootstrapInput({
-      containerId: input.rosterProfileBootstrap.containerId,
-      initialUpdate: input.rosterProfileBootstrap.profileDocumentInitialUpdate,
-      materializedDocument: input.rosterProfileBootstrap.profileDocument,
-      request: input.rosterProfileBootstrap.profileDocumentRequest,
-      response: input.response,
-    });
-    const rosterProfileContainer =
-      buildRosterProfileContainerBootstrapInput(input);
-    const organizationMetadataContainer =
-      buildOrganizationMetadataContainerBootstrapInput(input);
-    const systemContainers = buildSystemContainersBootstrapInput(input);
-
-    await persistRegistrationBootstrap(input.dbClient, {
-      containerId: input.containerId,
-      documentProjectors: input.documentProjectors,
-      initialAdminGroupPolicy:
-        await principalPolicyBundleFromInitialGroupRequest(
-          input.initialAdminGroup,
-        ),
-      initialMemberGroupPolicy:
-        await principalPolicyBundleFromInitialGroupRequest(
-          input.initialMemberGroup,
-        ),
-      organizationId: input.response.organizationId,
-      rootMetadataAccessEpoch: input.response.rootMetadataAccessEpoch,
-      rootMetadataAccessStateHash: input.response.rootMetadataAccessStateHash,
-      rootMetadataDocumentId: input.response.rootMetadataDocumentId,
-      rootMetadataInitialUpdate: input.bootstrap.initialUpdate,
-      rootMetadataInitialUpdateCommitted: coreMetadataInitialUpdateCommitted(
-        input.response,
-        input.rootMetadataDocumentRequest.initialSync.outgoingUpdates[0]?.id,
-      ),
-      rootMetadataSnapshot: bytesToBase64(input.bootstrap.initialUpdate),
-      rootMetadataState: persistedDocumentCreateStateFromResponse(
-        input.rootMetadataDocument.plan,
-        input.response.rootMetadataDocument,
-      ),
-      ...(rosterProfileContainer ? { rosterProfileContainer } : {}),
-      ...(organizationMetadataContainer
-        ? { organizationMetadataContainer }
-        : {}),
-      ...(organizationProfileDocument ? { organizationProfileDocument } : {}),
-      ...(rosterProfileDocument ? { rosterProfileDocument } : {}),
-      ...(systemContainers ? { systemContainers } : {}),
-      userId: input.response.userId,
-    });
-    input.log?.("Local organization bootstrap persisted");
-  } catch (error: unknown) {
-    if (input.logError) {
-      input.logError("Failed to persist registration data", error);
-    } else {
-      console.error("Failed to persist registration data:", error);
-    }
-
-    throw error;
-  }
 }
 
 async function createOrganizationPrincipalPolicies(input: {
@@ -709,6 +372,7 @@ export async function buildOrganizationProvisioningArtifacts(
     initialRootContainer: rootContainer.plan.request,
     organizationId,
     organizationMetadataBootstrap,
+    rootContainer,
     rootMetadataDocument,
     rootMetadataDocumentRequest,
     rosterProfileBootstrap,
@@ -1089,10 +753,12 @@ export async function registerIdentity(
     documentProjectors: input.documentProjectors,
     initialAdminGroup: artifacts.initialAdminGroup,
     initialMemberGroup: artifacts.initialMemberGroup,
+    initialOrganizationPolicy: artifacts.initialOrganizationPolicy,
     log: input.log,
     logError: input.logError,
     organizationMetadataBootstrap: artifacts.organizationMetadataBootstrap,
     response,
+    rootContainer: artifacts.rootContainer,
     rootMetadataDocument: artifacts.rootMetadataDocument,
     rootMetadataDocumentRequest: artifacts.rootMetadataDocumentRequest,
     rosterProfileBootstrap: artifacts.rosterProfileBootstrap,

@@ -13,13 +13,14 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import type { PrincipalPolicyCache } from "../../keyingProjectionVerification";
+import { throwKeyingVerificationErrorWithContext } from "../../keyingProjectionVerification/error";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { unwrapContainerKekPath } from "./containerKekPath";
 import {
   deriveDocumentCreateTargets,
   describeProjectionTargetKek,
 } from "./projectionTargets";
-import { assertEqualBytes, errorMessage } from "./readers";
+import { assertEqualBytes } from "./readers";
 import type { ProjectionVerificationOptions } from "./types";
 import { projectionVerificationOptions } from "./types";
 
@@ -117,8 +118,9 @@ export async function collectContainerKeksForDocumentSync(
         ...projectionVerificationOptions(input),
       });
     } catch (error) {
-      throw new Error(
-        `Document authorizing container KEK path could not be unwrapped for ${describeProjectionTargetKek(projection)}: ${errorMessage(error)}`,
+      throwKeyingVerificationErrorWithContext(
+        error,
+        `Document authorizing container KEK path could not be unwrapped for ${describeProjectionTargetKek(projection)}`,
       );
     }
     for (const [containerKeyEpochId, keyMaterial] of projectionKeks) {

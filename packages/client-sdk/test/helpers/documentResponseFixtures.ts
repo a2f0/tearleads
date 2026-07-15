@@ -266,9 +266,9 @@ export async function createMaterializedSyncFixture() {
     contentKey,
     documentId: "550e8400-e29b-41d4-a716-446655440010",
     eventId: "event-materialized-sync",
-    resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: keyPair.secretKey,
+    trustedLocalProjection: true,
   });
   const response = createResponse(materializedCreate.plan);
   const writerProjection: DocumentWriterProjectionResponse = {

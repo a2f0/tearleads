@@ -159,7 +159,7 @@ export function listPaneErrorLines(panes: readonly HTMLElement[]): string[] {
     return text
       .split(/(?=\[\d{1,2}:\d{2}:\d{2})/u)
       .filter((line) => line.includes("ERROR:"))
-      .map(truncateText);
+      .map((line) => truncateText(line));
   });
 }
 
@@ -200,7 +200,7 @@ export async function waitForNoPostShareSyncFailures(
     ).toEqual([]);
     expect(
       paneErrors,
-      `Unexpected post-share pane errors.\nrequests=\n${summarizeProxiedApiRequests(postShareRequests)}`,
+      `Unexpected post-share pane errors.\npaneErrors=\n${paneErrors.join("\n")}\nrequests=\n${summarizeProxiedApiRequests(postShareRequests)}`,
     ).toEqual([]);
     expect(
       syncLaneErrors,

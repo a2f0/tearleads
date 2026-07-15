@@ -28,6 +28,11 @@ test("registration includes initial metadata in the personal-org transaction", a
       },
     },
     containerId: crypto.randomUUID(),
+    dbClient: {
+      exec: async () => {
+        throw new Error("Unexpected database access for a rejected request");
+      },
+    },
     encapsulationKeyPair,
     provisionedSystemContainers: [
       {

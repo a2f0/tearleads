@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
-import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
+import {
+  createContainerWriterProjectionFixture,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import {
   createAuthor,
   createMaterializedSyncFixture,
@@ -24,6 +27,9 @@ test("createRemoteDocument gates writes by the resolved container organization",
   });
   const checkedOrganizationIds: string[] = [];
   let submissionCount = 0;
+  const { close, execSql } = await createTestExecSql(
+    "blocked-remote-document-create",
+  );
 
   const created = await createRemoteDocument({
     apiClient: {
@@ -37,6 +43,7 @@ test("createRemoteDocument gates writes by the resolved container organization",
     author,
     containerId: projection.containerId,
     documentId: "blocked-custom-document",
+    execSql,
     isRemoteSyncBlocked: (organizationId) => {
       checkedOrganizationIds.push(organizationId);
       return organizationId === customOrganizationId;
@@ -56,11 +63,13 @@ test("createRemoteDocument gates writes by the resolved container organization",
   expect(checkedOrganizationIds).toEqual([customOrganizationId]);
   expect(submissionCount).toBe(0);
   expect(created).toBeNull();
+  close();
 });
 
 test("syncRemoteDocument gates outgoing writes by the verified document plan organization", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
     await createMaterializedSyncFixture();
+  const { close, execSql } = await createTestExecSql("blocked-document-sync");
   const checkedOrganizationIds: string[] = [];
   let submissionCount = 0;
 
@@ -74,6 +83,7 @@ test("syncRemoteDocument gates outgoing writes by the verified document plan org
     },
     author,
     documentId: writerProjection.documentId,
+    execSql,
     isRemoteSyncBlocked: (organizationId) => {
       checkedOrganizationIds.push(organizationId);
       return true;
@@ -84,6 +94,7 @@ test("syncRemoteDocument gates outgoing writes by the verified document plan org
     targetSecretKey: secretKey,
     writerProjection,
   });
+  close();
 
   expect(checkedOrganizationIds).toEqual([author.organizationId]);
   expect(submissionCount).toBe(0);

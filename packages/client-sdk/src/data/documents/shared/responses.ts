@@ -23,7 +23,7 @@ export {
 } from "./syncResponses";
 
 // 1. assertCreateResponseMatchesPlan (internal) + persistedDocumentCreateStateFromResponse (EXPORT)
-function assertCreateResponseMatchesPlan(
+export function assertDocumentCreateResponseMatchesPlan(
   plan: DocumentCreatePlan,
   response: DocumentCreateResponse,
 ): void {
@@ -55,6 +55,12 @@ function assertCreateResponseMatchesPlan(
     serializeCanonical(plan.event, "event")
   ) {
     throw new Error("Document create response event mismatch");
+  }
+  if (
+    serializeCanonical(Reflect.get(responseEvent, "body"), "event body") !==
+    serializeCanonical(plan.body, "event body")
+  ) {
+    throw new Error("Document create response event body mismatch");
   }
 
   const responseState = response.accessManifest.state;
@@ -122,7 +128,7 @@ export function persistedDocumentCreateStateFromResponse(
   plan: DocumentCreatePlan,
   response: DocumentCreateResponse,
 ): PersistedDocumentCreateState {
-  assertCreateResponseMatchesPlan(plan, response);
+  assertDocumentCreateResponseMatchesPlan(plan, response);
 
   return {
     documentId: response.id,
@@ -151,7 +157,7 @@ export function persistedDocumentCreateStateFromWriterProjection(
 }
 
 // 2. assertLinkSetMutationResponseMatchesPlan (internal) + persistedDocumentLinkSetMutationStateFromResponse (EXPORT)
-function assertLinkSetMutationResponseMatchesPlan(
+function assertDocumentLinkSetMutationResponseMatchesPlan(
   plan: DocumentLinkSetMutationPlan,
   response: DocumentLinkSetMutationResponse,
 ): void {
@@ -183,6 +189,12 @@ function assertLinkSetMutationResponseMatchesPlan(
     serializeCanonical(plan.event, "event")
   ) {
     throw new Error("Document link-set response event mismatch");
+  }
+  if (
+    serializeCanonical(Reflect.get(responseEvent, "body"), "event body") !==
+    serializeCanonical(plan.body, "event body")
+  ) {
+    throw new Error("Document link-set response event body mismatch");
   }
   if (
     serializeCanonical(response.accessManifest.state, "state") !==
@@ -229,7 +241,7 @@ export function persistedDocumentLinkSetMutationStateFromResponse(
   plan: DocumentLinkSetMutationPlan,
   response: DocumentLinkSetMutationResponse,
 ): PersistedDocumentCreateState {
-  assertLinkSetMutationResponseMatchesPlan(plan, response);
+  assertDocumentLinkSetMutationResponseMatchesPlan(plan, response);
 
   return {
     documentId: response.id,

@@ -18,6 +18,9 @@ export type ClientSQLiteDatabase = SqliteRemoteDatabase<ClientSQLiteSchema>;
 export type ClientSQLiteTransaction = Parameters<
   Parameters<ClientSQLiteDatabase["transaction"]>[0]
 >[0];
+export type ClientSQLiteTransactionConfig = NonNullable<
+  Parameters<ClientSQLiteDatabase["transaction"]>[1]
+>;
 
 export interface ClientSQLitePersistenceRuntime {
   db: ClientSQLiteDatabase;
@@ -27,6 +30,7 @@ export interface ClientSQLitePersistenceRuntime {
   ): Promise<T>;
   transaction<T>(
     operation: (tx: ClientSQLiteTransaction) => Promise<T>,
+    config?: ClientSQLiteTransactionConfig,
   ): Promise<T>;
 }
 
@@ -115,9 +119,11 @@ function createRuntimeForExecSql(
         withActiveExecSql(lockedExecSql, () => operation(db)),
       );
     },
-    transaction(operation) {
+    transaction(operation, config) {
       return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
-        withActiveExecSql(lockedExecSql, () => db.transaction(operation)),
+        withActiveExecSql(lockedExecSql, () =>
+          db.transaction(operation, config),
+        ),
       );
     },
   };

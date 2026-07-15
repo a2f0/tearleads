@@ -1,12 +1,24 @@
+import type { VerifiedPrincipalPolicy } from "@tearleads/crypto";
 import type {
   PrincipalPolicyBundleResponse,
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { and, asc, eq } from "drizzle-orm";
-import { principalPolicies, principalPolicyTables } from "../sqlite/schema";
-import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
+import {
+  keyingCheckpointTables,
+  principalPolicies,
+  principalPolicyBundleHistory,
+  principalPolicyCheckpoints,
+  principalPolicyTables,
+} from "../sqlite/schema";
+import {
+  type ClientSQLiteTransaction,
+  getClientSQLitePersistenceRuntime,
+} from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
+import { assertSameHeadPrincipalPolicyBundle } from "./principalPolicyBundleIntegrity";
+import { assertBundleMatchesVerifiedPolicy } from "./verifiedPrincipalPolicyBundle";
 
 interface PrincipalPolicyRow {
   principalType: "group" | "organization";
@@ -17,6 +29,7 @@ interface PrincipalPolicyRow {
   currentProjectionJson: string;
   currentMemberEnvelopesJson: string;
   previousStatesJson: string;
+  updatedAt: string;
 }
 
 interface SelectedPrincipalPolicyRow {
@@ -28,6 +41,12 @@ interface SelectedPrincipalPolicyRow {
   currentProjectionJson: string;
   currentMemberEnvelopesJson: string;
   previousStatesJson: string;
+  updatedAt: string;
+}
+
+interface StoredPrincipalPolicyHead {
+  readonly stateHash: string;
+  readonly version: number;
 }
 
 function isManagedPrincipalType(
@@ -52,7 +71,26 @@ function parsePrincipalPolicyRow(
     currentProjectionJson: row.currentProjectionJson,
     currentMemberEnvelopesJson: row.currentMemberEnvelopesJson,
     previousStatesJson: row.previousStatesJson,
+    updatedAt: row.updatedAt,
   };
+}
+
+function parseStoredPrincipalPolicyHead(
+  currentStateJson: string,
+): StoredPrincipalPolicyHead | null {
+  try {
+    const value: unknown = JSON.parse(currentStateJson);
+    if (!value || typeof value !== "object") {
+      return null;
+    }
+    const stateHash = Reflect.get(value, "stateHash");
+    const version = Reflect.get(value, "version");
+    return typeof stateHash === "string" && typeof version === "number"
+      ? { stateHash, version }
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 function parsePrincipalPolicyBundle(
@@ -93,6 +131,20 @@ const principalPolicyBundleSelection = {
   currentProjectionJson: principalPolicies.currentProjectionJson,
   currentMemberEnvelopesJson: principalPolicies.currentMemberEnvelopesJson,
   previousStatesJson: principalPolicies.previousStatesJson,
+  updatedAt: principalPolicies.updatedAt,
+};
+
+const principalPolicyBundleHistorySelection = {
+  principalType: principalPolicyBundleHistory.principalType,
+  principalId: principalPolicyBundleHistory.principalId,
+  stateHash: principalPolicyBundleHistory.stateHash,
+  currentStateJson: principalPolicyBundleHistory.currentStateJson,
+  currentPayloadJson: principalPolicyBundleHistory.currentPayloadJson,
+  currentProjectionJson: principalPolicyBundleHistory.currentProjectionJson,
+  currentMemberEnvelopesJson:
+    principalPolicyBundleHistory.currentMemberEnvelopesJson,
+  previousStatesJson: principalPolicyBundleHistory.previousStatesJson,
+  updatedAt: principalPolicyBundleHistory.updatedAt,
 };
 
 export async function loadPrincipalPolicyBundle(
@@ -129,10 +181,18 @@ export async function loadAllPrincipalPolicyBundles(
       asc(principalPolicies.principalType),
       asc(principalPolicies.principalId),
     );
+  const historyRows = await db
+    .select(principalPolicyBundleHistorySelection)
+    .from(principalPolicyBundleHistory)
+    .orderBy(
+      asc(principalPolicyBundleHistory.principalType),
+      asc(principalPolicyBundleHistory.principalId),
+      asc(principalPolicyBundleHistory.stateHash),
+    );
 
   const bundles: PrincipalPolicyBundleResponse[] = [];
 
-  for (const rawRow of rows) {
+  for (const rawRow of [...rows, ...historyRows]) {
     const row = parsePrincipalPolicyRow(rawRow);
 
     if (!row) {
@@ -166,14 +226,11 @@ export async function loadPrincipalPolicyStateHash(
   return rows[0]?.stateHash ?? null;
 }
 
-export async function savePrincipalPolicyBundle(
-  execSql: ExecSql,
+function policyBundleRow(
   bundle: PrincipalPolicyBundleResponse,
   updatedAt: string,
-): Promise<void> {
-  await ensurePrincipalPolicyTables(execSql);
-
-  const nextRow = {
+): PrincipalPolicyRow {
+  return {
     principalType: bundle.currentState.principalType,
     principalId: bundle.currentState.principalId,
     stateHash: bundle.currentState.stateHash,
@@ -184,18 +241,236 @@ export async function savePrincipalPolicyBundle(
     previousStatesJson: JSON.stringify(bundle.previousStates),
     updatedAt,
   };
+}
 
-  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    await db
-      .insert(principalPolicies)
-      .values(nextRow)
-      .onConflictDoUpdate({
-        target: [
-          principalPolicies.principalType,
-          principalPolicies.principalId,
-        ],
-        set: nextRow,
-      })
+function headWouldRegress(
+  incoming: StoredPrincipalPolicyHead,
+  checkpoint: StoredPrincipalPolicyHead | null,
+): boolean {
+  return Boolean(
+    checkpoint &&
+      (incoming.version < checkpoint.version ||
+        (incoming.version === checkpoint.version &&
+          incoming.stateHash !== checkpoint.stateHash)),
+  );
+}
+
+async function archiveOlderPolicyBundle(
+  tx: ClientSQLiteTransaction,
+  storedPolicy: SelectedPrincipalPolicyRow | undefined,
+  storedHead: StoredPrincipalPolicyHead | null,
+  incomingHead: StoredPrincipalPolicyHead,
+): Promise<void> {
+  if (
+    !storedPolicy ||
+    !storedHead ||
+    storedHead.version >= incomingHead.version
+  ) {
+    return;
+  }
+  const archiveRow = parsePrincipalPolicyRow(storedPolicy);
+  if (!archiveRow) {
+    return;
+  }
+  try {
+    parsePrincipalPolicyBundle(archiveRow);
+    await tx
+      .insert(principalPolicyBundleHistory)
+      .values(archiveRow)
+      .onConflictDoNothing()
       .run();
-  });
+  } catch {
+    // A corrupt cache row is replaced, never retained as key material.
+  }
+}
+
+async function writePrincipalPolicyBundle(
+  tx: ClientSQLiteTransaction,
+  nextRow: PrincipalPolicyRow,
+  incomingHead: StoredPrincipalPolicyHead,
+): Promise<void> {
+  const wherePrincipal = and(
+    eq(principalPolicies.principalType, nextRow.principalType),
+    eq(principalPolicies.principalId, nextRow.principalId),
+  );
+  const [storedPolicy] = await tx
+    .select(principalPolicyBundleSelection)
+    .from(principalPolicies)
+    .where(wherePrincipal)
+    .limit(1);
+  const [durableCheckpoint] = await tx
+    .select({
+      stateHash: principalPolicyCheckpoints.stateHash,
+      version: principalPolicyCheckpoints.version,
+    })
+    .from(principalPolicyCheckpoints)
+    .where(
+      and(
+        eq(principalPolicyCheckpoints.principalType, nextRow.principalType),
+        eq(principalPolicyCheckpoints.principalId, nextRow.principalId),
+      ),
+    )
+    .limit(1);
+  const storedHead = storedPolicy
+    ? parseStoredPrincipalPolicyHead(storedPolicy.currentStateJson)
+    : null;
+  if (
+    storedPolicy &&
+    storedHead?.version === incomingHead.version &&
+    storedHead.stateHash === incomingHead.stateHash
+  ) {
+    assertSameHeadPrincipalPolicyBundle(storedPolicy, nextRow);
+    return;
+  }
+  const [retainedPolicy] = await tx
+    .select(principalPolicyBundleHistorySelection)
+    .from(principalPolicyBundleHistory)
+    .where(
+      and(
+        eq(principalPolicyBundleHistory.principalType, nextRow.principalType),
+        eq(principalPolicyBundleHistory.principalId, nextRow.principalId),
+        eq(principalPolicyBundleHistory.stateHash, nextRow.stateHash),
+      ),
+    )
+    .limit(1);
+  if (retainedPolicy) {
+    assertSameHeadPrincipalPolicyBundle(retainedPolicy, nextRow);
+  }
+  const effectiveHead =
+    durableCheckpoint &&
+    (!storedHead || durableCheckpoint.version >= storedHead.version)
+      ? durableCheckpoint
+      : storedHead;
+  if (headWouldRegress(incomingHead, effectiveHead)) {
+    return;
+  }
+
+  await archiveOlderPolicyBundle(tx, storedPolicy, storedHead, incomingHead);
+  await tx
+    .insert(principalPolicies)
+    .values(nextRow)
+    .onConflictDoUpdate({
+      target: [principalPolicies.principalType, principalPolicies.principalId],
+      set: nextRow,
+    })
+    .run();
+  await tx
+    .delete(principalPolicyBundleHistory)
+    .where(
+      and(
+        eq(principalPolicyBundleHistory.principalType, nextRow.principalType),
+        eq(principalPolicyBundleHistory.principalId, nextRow.principalId),
+        eq(principalPolicyBundleHistory.stateHash, nextRow.stateHash),
+      ),
+    )
+    .run();
+}
+
+export function writePrincipalPolicyBundleInTransaction(
+  tx: ClientSQLiteTransaction,
+  bundle: PrincipalPolicyBundleResponse,
+  updatedAt: string,
+): Promise<void> {
+  return writePrincipalPolicyBundle(
+    tx,
+    policyBundleRow(bundle, updatedAt),
+    bundle.currentState,
+  );
+}
+
+export async function assertPrincipalPolicyBundleStoredInTransaction(
+  tx: ClientSQLiteTransaction,
+  bundle: PrincipalPolicyBundleResponse,
+): Promise<void> {
+  const expected = policyBundleRow(bundle, bundle.currentState.createdAt);
+  const [stored] = await tx
+    .select(principalPolicyBundleSelection)
+    .from(principalPolicies)
+    .where(
+      and(
+        eq(principalPolicies.principalType, expected.principalType),
+        eq(principalPolicies.principalId, expected.principalId),
+      ),
+    )
+    .limit(1);
+  if (!stored) {
+    throw new Error("Verified principal policy bundle was not persisted");
+  }
+  assertSameHeadPrincipalPolicyBundle(stored, expected);
+}
+
+export async function retainPrincipalPolicyBundleInTransaction(
+  tx: ClientSQLiteTransaction,
+  bundle: PrincipalPolicyBundleResponse,
+  updatedAt: string,
+): Promise<void> {
+  const row = policyBundleRow(bundle, updatedAt);
+  const [current] = await tx
+    .select(principalPolicyBundleSelection)
+    .from(principalPolicies)
+    .where(
+      and(
+        eq(principalPolicies.principalType, row.principalType),
+        eq(principalPolicies.principalId, row.principalId),
+      ),
+    )
+    .limit(1);
+  if (current?.stateHash === row.stateHash) {
+    assertSameHeadPrincipalPolicyBundle(current, row);
+    return;
+  }
+  const [retained] = await tx
+    .select(principalPolicyBundleHistorySelection)
+    .from(principalPolicyBundleHistory)
+    .where(
+      and(
+        eq(principalPolicyBundleHistory.principalType, row.principalType),
+        eq(principalPolicyBundleHistory.principalId, row.principalId),
+        eq(principalPolicyBundleHistory.stateHash, row.stateHash),
+      ),
+    )
+    .limit(1);
+  if (retained) {
+    assertSameHeadPrincipalPolicyBundle(retained, row);
+    return;
+  }
+  await tx.insert(principalPolicyBundleHistory).values(row).run();
+}
+
+/** Retains a just-verified epoch without promoting it to the mutable head. */
+export async function retainVerifiedPrincipalPolicyBundle(input: {
+  readonly bundle: PrincipalPolicyBundleResponse;
+  readonly execSql: ExecSql;
+  readonly policy: VerifiedPrincipalPolicy;
+  readonly updatedAt: string;
+}): Promise<void> {
+  await assertBundleMatchesVerifiedPolicy(input);
+  await ensurePrincipalPolicyTables(input.execSql);
+  await getClientSQLitePersistenceRuntime(input.execSql).transaction(
+    (tx) =>
+      retainPrincipalPolicyBundleInTransaction(
+        tx,
+        input.bundle,
+        input.updatedAt,
+      ),
+    { behavior: "immediate" },
+  );
+}
+
+export async function savePrincipalPolicyBundle(
+  execSql: ExecSql,
+  bundle: PrincipalPolicyBundleResponse,
+  updatedAt: string,
+): Promise<void> {
+  await ensureSqlTables(execSql, [
+    ...principalPolicyTables,
+    ...keyingCheckpointTables,
+  ]);
+
+  const nextRow = policyBundleRow(bundle, updatedAt);
+
+  await getClientSQLitePersistenceRuntime(execSql).transaction(
+    (tx) => writePrincipalPolicyBundle(tx, nextRow, bundle.currentState),
+    { behavior: "immediate" },
+  );
 }

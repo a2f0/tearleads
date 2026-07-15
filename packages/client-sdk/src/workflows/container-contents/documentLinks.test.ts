@@ -67,6 +67,7 @@ test("relinkRemoteContainerDocument persists linked container projections after 
       author,
       containerProjection: rootProjection,
       documentId: "containerContents-linked-document",
+      execSql,
       resolveProjectionUserKey,
       targetSecretKey: keyPair.secretKey,
     });
@@ -196,6 +197,7 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
       author,
       containerProjection: rootProjection,
       documentId: "containerContents-moved-document",
+      execSql,
       resolveProjectionUserKey,
       targetSecretKey: keyPair.secretKey,
     });

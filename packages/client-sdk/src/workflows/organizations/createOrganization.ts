@@ -19,7 +19,7 @@ export interface CreateOrganizationApi {
 
 export interface CreateOrganizationInput {
   apiClient: CreateOrganizationApi;
-  dbClient?: ExecSqlClientLike | null | undefined;
+  dbClient: ExecSqlClientLike;
   documentProjectors?: DocumentProjectorRegistryInput | undefined;
   encapsulationKeyPair: EncapsulationKeyPair;
   log?: ((message: string) => void) | undefined;
@@ -106,10 +106,12 @@ export async function createOrganization(
     documentProjectors: input.documentProjectors,
     initialAdminGroup: artifacts.initialAdminGroup,
     initialMemberGroup: artifacts.initialMemberGroup,
+    initialOrganizationPolicy: artifacts.initialOrganizationPolicy,
     log: input.log,
     logError: input.logError,
     organizationMetadataBootstrap: artifacts.organizationMetadataBootstrap,
     response,
+    rootContainer: artifacts.rootContainer,
     rootMetadataDocument: artifacts.rootMetadataDocument,
     rootMetadataDocumentRequest: artifacts.rootMetadataDocumentRequest,
     rosterProfileBootstrap: artifacts.rosterProfileBootstrap,

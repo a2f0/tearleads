@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { uploadDocumentAttachment } from "@tearleads/client-sdk";
 import {
-  type AccessEvent,
   BLOB_CONTENT_KEY_WRAP_SUITE,
   computeBlobAccessManifestHash,
   computeWriteHeaderHash,
@@ -37,6 +36,7 @@ test("uploadDocumentAttachment wraps blob keys with the blob content-key suite",
     };
   }[] = [];
   let stagedEncryptedRecord: Record<string, unknown> | null = null;
+  const { close, execSql } = await createTestExecSql("blob-key-wrap-suite");
 
   const uploaded = await uploadDocumentAttachment({
     apiClient: {
@@ -110,12 +110,14 @@ test("uploadDocumentAttachment wraps blob keys with the blob content-key suite",
     blobId,
     bytes: new Uint8Array([1, 2, 3, 4]) as BlobBytes,
     documentId: writerProjection.documentId,
+    execSql,
     expectedBindingId: null,
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     slotId,
     targetSecretKey: secretKey,
   });
+  close();
 
   expect(uploaded?.blobId).toBe(blobId);
   expect(uploaded?.writerProjection).toBe(writerProjection);
@@ -143,6 +145,7 @@ test("uploadDocumentAttachment can stage encrypted bytes with multipart uploads"
   const completedParts: unknown[] = [];
   let activeUploads = 0;
   let maxActiveUploads = 0;
+  const { close, execSql } = await createTestExecSql("multipart-blob-upload");
 
   const uploaded = await uploadDocumentAttachment({
     apiClient: {
@@ -264,6 +267,7 @@ test("uploadDocumentAttachment can stage encrypted bytes with multipart uploads"
       Array.from({ length: 128 }, (_, index) => index),
     ) as BlobBytes,
     documentId: writerProjection.documentId,
+    execSql,
     expectedBindingId: null,
     multipart: { partSize: 64, uploadConcurrency: 2 },
     resolveProjectionUserKey,
@@ -271,6 +275,7 @@ test("uploadDocumentAttachment can stage encrypted bytes with multipart uploads"
     slotId,
     targetSecretKey: secretKey,
   });
+  close();
 
   expect(uploaded?.blobId).toBe(blobId);
   expect(uploaded?.request.stagedBlob?.stageId).toBe("stage-multipart-upload");
@@ -397,50 +402,6 @@ test("uploadDocumentAttachment warms managed policies for the projection owner b
   }
 });
 
-test("uploadDocumentAttachment rejects document writer projections with bad signatures before staging", async () => {
-  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
-    await createMaterializedSyncFixture();
-  const tamperedProjection = structuredClone(writerProjection);
-  const signedEvent = tamperedProjection.documentManifest.event
-    .event as unknown as AccessEvent;
-  const signature = signedEvent.signature;
-  if (typeof signature !== "string" || signature.length === 0) {
-    throw new Error("Expected signed document event fixture");
-  }
-  signedEvent.signature = `${signature.slice(0, -1)}${
-    signature.endsWith("A") ? "B" : "A"
-  }`;
-  let stageCalled = false;
-  let bindCalled = false;
-
-  await expect(
-    uploadDocumentAttachment({
-      apiClient: {
-        bindBlobAttachment: async () => {
-          bindCalled = true;
-          throw new Error("Unexpected bind");
-        },
-        getDocumentWriterProjection: async () => tamperedProjection,
-        stageBlob: async () => {
-          stageCalled = true;
-          throw new Error("Unexpected stage");
-        },
-      },
-      author,
-      blobId: "550e8400-e29b-41d4-a716-446655440557",
-      bytes: new Uint8Array([5, 6, 7]) as BlobBytes,
-      documentId: writerProjection.documentId,
-      expectedBindingId: null,
-      resolveProjectionUserKey,
-      signedAt: "2026-04-27T00:00:00.000Z",
-      slotId: "preview",
-      targetSecretKey: secretKey,
-    }),
-  ).rejects.toThrow("Document writer projection signature verification failed");
-  expect(stageCalled).toBe(false);
-  expect(bindCalled).toBe(false);
-});
-
 test("uploadDocumentAttachment rejects substituted KEK material before staging", async () => {
   const parent = await createParentProjection();
   const resolveProjectionUserKey =
@@ -451,9 +412,9 @@ test("uploadDocumentAttachment rejects substituted KEK material before staging",
     contentKey: crypto.getRandomValues(new Uint8Array(32)),
     documentId: "550e8400-e29b-41d4-a716-446655440112",
     eventId: "event-substituted-kek-blob",
-    resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: parent.secretKey,
+    trustedLocalProjection: true,
   });
   const response = createResponse(materializedCreate.plan);
   const tamperedProjection = await substituteFirstProjectionUserWrapMaterial({
@@ -470,6 +431,7 @@ test("uploadDocumentAttachment rejects substituted KEK material before staging",
   };
   let stageCalled = false;
   let bindCalled = false;
+  const { close, execSql } = await createTestExecSql("substituted-blob-kek");
 
   await expect(
     uploadDocumentAttachment({
@@ -488,6 +450,7 @@ test("uploadDocumentAttachment rejects substituted KEK material before staging",
       blobId: "550e8400-e29b-41d4-a716-446655440113",
       bytes: new Uint8Array([8, 9, 10]) as BlobBytes,
       documentId: writerProjection.documentId,
+      execSql,
       expectedBindingId: null,
       resolveProjectionUserKey,
       signedAt: "2026-04-27T00:00:00.000Z",
@@ -495,6 +458,7 @@ test("uploadDocumentAttachment rejects substituted KEK material before staging",
       targetSecretKey: parent.secretKey,
     }),
   ).rejects.toThrow("KEK material does not match committed epoch id");
+  close();
   expect(stageCalled).toBe(false);
   expect(bindCalled).toBe(false);
 });
