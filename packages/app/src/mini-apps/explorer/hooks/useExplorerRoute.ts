@@ -1,5 +1,5 @@
 import type { ContainerNode } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
 import type { MiniAppId } from "../../types";
 import {
@@ -40,10 +40,15 @@ function useExplorerRouteBinding() {
   const [localRoute, setLocalRoute] = useState<ExplorerRoute>(
     DEFAULT_EXPLORER_ROUTE,
   );
-  const parsedAppRoute = isRouted
-    ? parseExplorerRouteSegments(pathSegments)
-    : null;
+  const parsedAppRoute = useMemo(
+    () => (isRouted ? parseExplorerRouteSegments(pathSegments) : null),
+    [isRouted, pathSegments],
+  );
   const route = parsedAppRoute?.route ?? localRoute;
+  const routeSnapshot = useMemo<ExplorerRouteSnapshot>(
+    () => parsedAppRoute ?? { route },
+    [parsedAppRoute, route],
+  );
   const setRoute = useCallback<ExplorerRouteSetter>(
     (nextRoute, selectedId, options = {}) => {
       if (isRouted) {
@@ -59,7 +64,7 @@ function useExplorerRouteBinding() {
     [isRouted, setPathSegments],
   );
 
-  return { appRoute, parsedAppRoute, route, setRoute };
+  return { appRoute, parsedAppRoute, route, routeSnapshot, setRoute };
 }
 
 function useExplorerRouteSelectionEffect(params: {
@@ -294,7 +299,7 @@ export function useExplorerRoute(params: {
   setSelectedId: (id: string | null) => void;
 }): ExplorerRouteState {
   const { loadDocumentSummary, nodes, selectDocument, setSelectedId } = params;
-  const { appRoute, parsedAppRoute, route, setRoute } =
+  const { appRoute, parsedAppRoute, route, routeSnapshot, setRoute } =
     useExplorerRouteBinding();
   useExplorerRouteSelectionEffect({
     appRouteIsRouted: appRoute.isRouted,
@@ -306,7 +311,7 @@ export function useExplorerRoute(params: {
   useAvailableExplorerRoute({ nodes, route, setRoute });
   const actions = useExplorerRouteActions({
     route,
-    routeSnapshot: parsedAppRoute ?? { route },
+    routeSnapshot,
     selectDocument,
     setRoute,
     setSelectedId,

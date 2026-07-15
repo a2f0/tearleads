@@ -71,7 +71,6 @@ function renderPickPanel(overrides: {
         loadBlobInfo={async () => ({ rows, totalCount: rows.length })}
         nodes={[]}
         online={true}
-        onBackToSelectionRoute={() => undefined}
         onCancelBlobPick={overrides.onCancelBlobPick ?? (() => undefined)}
         onPickBlob={overrides.onPickBlob ?? (() => undefined)}
         openDocumentInfoRoute={() => undefined}

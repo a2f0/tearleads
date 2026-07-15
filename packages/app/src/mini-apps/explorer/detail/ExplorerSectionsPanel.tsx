@@ -169,7 +169,6 @@ export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
             loadBlobInfo={params.loadBlobInfo}
             nodes={params.nodes}
             online={params.online}
-            onBackToSelectionRoute={openSyncLanesRoute}
             onCancelBlobPick={params.onCancelBlobPick}
             onPickBlob={params.onPickBlob}
             openDocumentInfoRoute={params.openDocumentInfoRoute}

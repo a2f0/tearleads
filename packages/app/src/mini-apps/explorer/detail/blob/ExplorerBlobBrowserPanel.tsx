@@ -7,7 +7,7 @@ import type {
   ContainerNode,
   DomainScope,
 } from "@tearleads/client-sdk";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { MiniAppPanel } from "../../../../components/shared/MiniAppLayout";
 import { useMiniAppDetailBackAction } from "../../../../components/window/useMiniAppDetailBackAction";
 import type { BlobPickTarget } from "../../../shared/blob-pick/BlobPickProvider";
@@ -51,14 +51,13 @@ interface ExplorerBlobBrowserPanelProps {
   domainScope: DomainScope;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   nodes: ReadonlyArray<ContainerNode>;
-  onBackToSelectionRoute: () => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   online: boolean;
   organizationNamesById?: ReadonlyMap<string, string> | undefined;
   // When set, the panel runs in pick mode: rows resolve the pick (instead of
   // opening blob detail) and the list is filtered to image blobs.
   pickTarget?: BlobPickTarget | null | undefined;
-  onCancelBlobPick?: (() => void) | undefined;
+  onCancelBlobPick: () => void;
   onPickBlob?: ((blob: BlobInfo) => void) | undefined;
   route: BlobBrowserRoute;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
@@ -165,10 +164,7 @@ export function ExplorerBlobBrowserPanel(
     [params.nodes],
   );
   const pickBlob = params.onPickBlob;
-  const onCancel = useCallback(
-    () => (params.onCancelBlobPick ?? params.onBackToSelectionRoute)(),
-    [params.onCancelBlobPick, params.onBackToSelectionRoute],
-  );
+  const onCancel = params.onCancelBlobPick;
   const pickBackAction = useMemo(
     () =>
       params.pickTarget && pickBlob

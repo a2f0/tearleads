@@ -1,10 +1,14 @@
 import { afterEach, expect, test } from "bun:test";
+import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
+import { createDomainScope } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import {
   useWindowBackActionValue,
   WindowMenuProvider,
 } from "../../components/window/WindowMenuContext";
 import type { AppNavigationMode } from "../../navigation/AppNavigationMode";
+import { ExplorerBlobBrowserPanel } from "./detail/blob/ExplorerBlobBrowserPanel";
 import { useExplorerRoutedChromeActions } from "./ExplorerRoutedChrome";
 import type { useExplorerModel } from "./hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "./labels";
@@ -12,7 +16,30 @@ import type { ExplorerRoute } from "./routes";
 
 type ExplorerModel = ReturnType<typeof useExplorerModel>;
 
+const BLOB: BlobInfo = {
+  blobId: "blob-1",
+  byteLength: 1,
+  createdAt: null,
+  documentCount: 1,
+  key: "blob:blob-1",
+  mimeType: "image/png",
+  name: "front.png",
+  organizationId: null,
+  referenceCount: 0,
+  references: [],
+  storageKey: "front-storage-key",
+  updatedAt: "2026-05-17T00:00:00.000Z",
+};
+
 afterEach(cleanup);
+
+function createBlobStore(): BlobStore {
+  return {
+    deleteBytes: async () => undefined,
+    readBytes: async () => null,
+    writeBytes: async () => undefined,
+  };
+}
 
 function createBlobRouteModel(
   route: ExplorerRoute,
@@ -58,10 +85,12 @@ function BackProbe() {
 }
 
 function BlobBackHarness({
+  children,
   historyCanGoBack = false,
   mode,
   model,
 }: {
+  children?: ReactNode;
   historyCanGoBack?: boolean;
   mode: AppNavigationMode;
   model: ExplorerModel;
@@ -73,7 +102,12 @@ function BlobBackHarness({
     openStructuredDocumentGrid: () => undefined,
     triggerUpload: () => undefined,
   });
-  return <BackProbe />;
+  return (
+    <>
+      {children}
+      <BackProbe />
+    </>
+  );
 }
 
 test("windowed blob browser Back returns to its navigation origin", async () => {
@@ -94,6 +128,61 @@ test("windowed blob browser Back returns to its navigation origin", async () => 
 
   fireEvent.click(
     await view.findByRole("button", {
+      name: EXPLORER_LABELS.blobBrowserBackAction,
+    }),
+  );
+  expect(navigatedBack).toEqual([1]);
+});
+
+test("windowed list drill-in returns to the list before its navigation origin", async () => {
+  const navigatedBack: number[] = [];
+  const model = createBlobRouteModel(
+    {
+      blobId: null,
+      storageKey: null,
+      view: "blob-browser",
+    },
+    () => navigatedBack.push(1),
+  );
+  const view = render(
+    <WindowMenuProvider>
+      <BlobBackHarness mode="windowed" model={model}>
+        <ExplorerBlobBrowserPanel
+          blobStore={createBlobStore()}
+          domainScope={createDomainScope()}
+          loadBlobInfo={async () => ({ rows: [BLOB], totalCount: 1 })}
+          nodes={[]}
+          onCancelBlobPick={() => undefined}
+          online={true}
+          openDocumentInfoRoute={() => undefined}
+          route={{ blobId: null, storageKey: null }}
+          selectDocumentProjection={() => undefined}
+        />
+      </BlobBackHarness>
+    </WindowMenuProvider>,
+  );
+
+  fireEvent.click(await view.findByRole("button", { name: "blob-1" }));
+  await waitFor(() => {
+    expect(view.getByText("Blob Metadata")).toBeTruthy();
+  });
+
+  fireEvent.click(
+    view.getByRole("button", {
+      name: EXPLORER_LABELS.blobBrowserBackAction,
+    }),
+  );
+
+  await waitFor(() => {
+    expect(
+      view.container.querySelector(".explorer-blob-browser-table-wrap"),
+    ).toBeTruthy();
+  });
+  expect(view.queryByText("Blob Metadata")).toBeNull();
+  expect(navigatedBack).toEqual([]);
+
+  fireEvent.click(
+    view.getByRole("button", {
       name: EXPLORER_LABELS.blobBrowserBackAction,
     }),
   );

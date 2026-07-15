@@ -240,7 +240,6 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         nodes={params.nodes}
         online={params.online}
         organizationNamesById={params.organizationNamesById}
-        onBackToSelectionRoute={params.onBackToSelectionRoute}
         onCancelBlobPick={params.onCancelBlobPick}
         onPickBlob={params.onPickBlob}
         openDocumentInfoRoute={params.openDocumentInfoRoute}

@@ -67,7 +67,7 @@ function renderBlobBrowser(route: {
         loadBlobInfo={async () => ({ rows: [BLOB], totalCount: 1 })}
         nodes={[]}
         online={true}
-        onBackToSelectionRoute={() => undefined}
+        onCancelBlobPick={() => undefined}
         openDocumentInfoRoute={() => undefined}
         route={route}
         selectDocumentProjection={() => undefined}

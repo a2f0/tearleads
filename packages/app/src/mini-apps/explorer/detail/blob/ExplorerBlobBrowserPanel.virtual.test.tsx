@@ -97,7 +97,7 @@ test("blob browser opens list rows in the detail screen", async () => {
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
       online={true}
-      onBackToSelectionRoute={() => undefined}
+      onCancelBlobPick={() => undefined}
       openDocumentInfoRoute={() => undefined}
       route={{ blobId: null, storageKey: null }}
       selectDocumentProjection={() => undefined}
@@ -167,7 +167,7 @@ test("blob browser document links open documents and expose get info from the ro
         },
       ]}
       online={true}
-      onBackToSelectionRoute={() => undefined}
+      onCancelBlobPick={() => undefined}
       openDocumentInfoRoute={(localId, containerId) => {
         openedInfoRoutes.push([localId, containerId]);
       }}
@@ -230,7 +230,7 @@ test("blob browser requests a new blob window when the table scrolls", async () 
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
       online={true}
-      onBackToSelectionRoute={() => undefined}
+      onCancelBlobPick={() => undefined}
       openDocumentInfoRoute={() => undefined}
       route={{ blobId: null, storageKey: null }}
       selectDocumentProjection={() => undefined}
@@ -300,7 +300,7 @@ test("blob browser keeps current rows visible while the next scroll window loads
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
       online={true}
-      onBackToSelectionRoute={() => undefined}
+      onCancelBlobPick={() => undefined}
       openDocumentInfoRoute={() => undefined}
       route={{ blobId: null, storageKey: null }}
       selectDocumentProjection={() => undefined}
@@ -366,7 +366,7 @@ test("blob browser resets the blob window when sorting changes", async () => {
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
       online={true}
-      onBackToSelectionRoute={() => undefined}
+      onCancelBlobPick={() => undefined}
       openDocumentInfoRoute={() => undefined}
       route={{ blobId: null, storageKey: null }}
       selectDocumentProjection={() => undefined}
@@ -432,7 +432,7 @@ test("blob browser renders row sync badges in the rightmost column", async () =>
       loadBlobInfo={async () => ({ rows, totalCount: rows.length })}
       nodes={[]}
       online={true}
-      onBackToSelectionRoute={() => undefined}
+      onCancelBlobPick={() => undefined}
       openDocumentInfoRoute={() => undefined}
       route={{ blobId: null, storageKey: null }}
       selectDocumentProjection={() => undefined}

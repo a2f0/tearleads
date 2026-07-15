@@ -121,20 +121,3 @@ test("the embedded Sync Lanes panel drops the back-to-Explorer action", () => {
     view.queryByRole("button", { name: EXPLORER_LABELS.syncLanesBackAction }),
   ).toBeNull();
 });
-
-test("the embedded Blob Browser panel drops the back-to-Explorer action", async () => {
-  const view = renderSectionsPanel({
-    blobId: null,
-    storageKey: null,
-    view: "blob-browser",
-  });
-
-  await waitFor(() => {
-    expect(
-      view.getByRole("tab", { name: EXPLORER_LABELS.blobBrowserAction }),
-    ).toBeTruthy();
-  });
-  expect(
-    view.queryByRole("button", { name: EXPLORER_LABELS.blobBrowserBackAction }),
-  ).toBeNull();
-});
