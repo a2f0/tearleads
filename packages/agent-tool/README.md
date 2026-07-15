@@ -30,6 +30,10 @@ The exit code is the reviewing CLI's exit code, so callers can fall back to
 another reviewer on failure. Backs the `cross-agent-review` skill in
 `.claude/skills/` and `.codex/skills/`.
 
+These actions **only review**. The fallback chain, the severity gate, and the
+bounded repair loop live in the `cross-agent-review` skill *around* these calls —
+invoking the actions directly gets you one raw review and no repair.
+
 ## Open a PR
 
 Opens a pull request for the current branch with a **commitlint-conforming
@@ -76,11 +80,16 @@ tool directly merges without any of that cleanup.
 
 ## Ship (open/resume → review → repair → merge)
 
-The `ship-pr` skill opens or resumes a PR, reviews its exact pushed head, repairs
-blocking findings in up to two rounds by default, re-reviews every changed head,
-then squash-merges only the accepted reviewed commit. It adds no new CLI action;
-it orchestrates the `open-pr`, `cross-agent-review`, and `squash-merge` skills.
-See `.claude/skills/ship-pr/` and `.codex/skills/ship-pr/`.
+The `ship-pr` skill opens or resumes a PR, hands it to `cross-agent-review` —
+which reviews the exact pushed head, repairs blocking findings in up to two
+rounds by default, and re-reviews every head it changes — then squash-merges only
+the reviewed commit that review reports back. It adds no new CLI action; it
+orchestrates the `open-pr`, `cross-agent-review`, and `squash-merge` skills. See
+`.claude/skills/ship-pr/` and `.codex/skills/ship-pr/`.
+
+Review and repair are one unit, owned by `cross-agent-review`; `ship-pr` keeps
+only the merge gate (and `--merge-anyway` to override it). For a review that
+changes nothing, invoke `cross-agent-review` with `--repair-rounds 0`.
 
 ## Prerequisites
 
