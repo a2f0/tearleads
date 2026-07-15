@@ -48,7 +48,6 @@ interface AppNavigationActions {
   ) => string;
   goBack: () => void;
   goForward: () => void;
-  getHomeHref: () => string;
   navigateMiniAppRoute: (input: {
     appId: MiniAppId;
     pathSegments?: ReadonlyArray<string> | undefined;
@@ -333,11 +332,9 @@ function useAppNavigationActionValue(
     },
     [navigateMiniAppRoute],
   );
-  const getHomeHref = useCallback(() => APP_HOME_PATH, []);
   const getMiniAppHref = useCallback(buildMiniAppPath, []);
   return useMemo<AppNavigationActions>(
     () => ({
-      getHomeHref,
       getMiniAppHref,
       goBack,
       goForward,
@@ -346,7 +343,6 @@ function useAppNavigationActionValue(
       openMiniApp,
     }),
     [
-      getHomeHref,
       getMiniAppHref,
       goBack,
       goForward,

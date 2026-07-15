@@ -85,7 +85,6 @@ test("mobile starts every mini-app with the sidebar collapsed", () => {
   expect(initialRoutedSidebarExpanded("mobile", "explorer")).toBe(false);
   expect(initialRoutedSidebarExpanded("mobile", "contacts")).toBe(false);
   expect(initialRoutedSidebarExpanded("mobile", "system-monitor")).toBe(false);
-  expect(initialRoutedSidebarExpanded("mobile", null)).toBe(false);
 });
 
 test("tablet honours each mini-app's configured sidebar default", () => {
@@ -93,7 +92,6 @@ test("tablet honours each mini-app's configured sidebar default", () => {
   expect(initialRoutedSidebarExpanded("tablet", "explorer")).toBe(true);
   // system-monitor opts out of the default-shown rail.
   expect(initialRoutedSidebarExpanded("tablet", "system-monitor")).toBe(false);
-  expect(initialRoutedSidebarExpanded("tablet", null)).toBe(true);
 });
 
 test("the root route opens explorer as the routed home screen", () => {
@@ -128,7 +126,7 @@ test("mobile routed shell opens the nav sheet from the bottom menu bar", () => {
     // system section ride along.
     expect(sheet?.querySelector(".routed-pane-nav-panel")).toBeNull();
     expect(sheet?.querySelectorAll(".routed-pane-sheet-tile").length ?? 0).toBe(
-      ROUTED_MINI_APP_NAV_ITEMS.length + 1,
+      ROUTED_MINI_APP_NAV_ITEMS.length,
     );
 
     const menuButton = view.getByRole("button", { name: "Menu" });
@@ -139,8 +137,10 @@ test("mobile routed shell opens the nav sheet from the bottom menu bar", () => {
     expect(menuButton.getAttribute("aria-expanded")).toBe("true");
     expect(sheet?.getAttribute("data-open")).toBe("true");
 
-    // Once revealed, Home and every routed mini-app are reachable as tiles.
-    expect(view.getByRole("link", { name: "Home" })).toBeTruthy();
+    // Once revealed, every routed mini-app is reachable as a tile. Home is not
+    // among them: the root route resolves to Explorer, so a Home tile would
+    // just be a second way to reach the Explorer tile's destination.
+    expect(view.queryByRole("link", { name: "Home" })).toBeNull();
     expect(view.getByRole("link", { name: "Contacts" })).toBeTruthy();
   } finally {
     view?.unmount();

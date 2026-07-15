@@ -37,7 +37,7 @@ afterEach(() => {
 });
 
 function HomeNavigationProbe() {
-  const { getHomeHref, navigateHome, openMiniApp } = useAppNavigationActions();
+  const { navigateHome, openMiniApp } = useAppNavigationActions();
   const {
     route: { appId, pathSegments },
   } = useAppNavigationState();
@@ -60,7 +60,6 @@ function HomeNavigationProbe() {
       </button>
       <div data-testid="active-app">{appId ?? "none"}</div>
       <div data-testid="active-path">{pathSegments.join("/")}</div>
-      <div data-testid="home-href">{getHomeHref()}</div>
     </>
   );
 }
@@ -96,7 +95,6 @@ test("routed navigation can return to home through app history", async () => {
   const view = renderHomeNavigationProbe("routed");
 
   try {
-    expect(view.getByTestId("home-href").textContent).toBe("/");
     fireEvent.click(view.getByRole("button", { name: "Open Contacts at Ada" }));
 
     await waitFor(() => {

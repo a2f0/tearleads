@@ -1,5 +1,4 @@
 import type { Icon } from "@phosphor-icons/react";
-import { HouseIcon } from "@phosphor-icons/react/dist/csr/House";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/dist/csr/SidebarSimple";
 import { type MouseEvent as ReactMouseEvent, useCallback } from "react";
 import {
@@ -21,7 +20,7 @@ function RoutedPaneNavLink({
   onNavigate,
 }: {
   appId: MiniAppId;
-  activeAppId: MiniAppId | null;
+  activeAppId: MiniAppId;
   onNavigate: () => void;
 }) {
   const { getMiniAppHref, openMiniApp } = useAppNavigationActions();
@@ -64,7 +63,7 @@ function RoutedPaneNavPanel({
   onRequestLogout,
   showDeveloperControls,
 }: {
-  activeAppId: MiniAppId | null;
+  activeAppId: MiniAppId;
   id?: string | undefined;
   menuItems: ReadonlyArray<WindowMenuItem>;
   onNavigate: () => void;
@@ -188,33 +187,22 @@ function RoutedPaneMobileNavTile({
 }
 
 /**
- * The mobile bottom-sheet navigation: Home plus every routed mini-app as a grid
- * of square icon-and-label tiles (styled after Explorer's New Document screen).
- * Unlike the tablet rail it carries no system or per-app contextual actions —
- * the sheet is a pure launcher. Selecting a tile navigates and dismisses.
+ * The mobile bottom-sheet navigation: every routed mini-app as a grid of square
+ * icon-and-label tiles (styled after Explorer's New Document screen). Unlike the
+ * tablet rail it carries no system or per-app contextual actions — the sheet is
+ * a pure launcher. Selecting a tile navigates and dismisses.
  */
 function RoutedPaneMobileNav({
   activeAppId,
   onNavigate,
 }: {
-  activeAppId: MiniAppId | null;
+  activeAppId: MiniAppId;
   onNavigate: () => void;
 }) {
-  const { getHomeHref, getMiniAppHref, navigateHome, openMiniApp } =
-    useAppNavigationActions();
+  const { getMiniAppHref, openMiniApp } = useAppNavigationActions();
 
   return (
     <nav aria-label="Apps" className="routed-pane-sheet-grid">
-      <RoutedPaneMobileNavTile
-        active={activeAppId === null}
-        href={getHomeHref()}
-        icon={HouseIcon}
-        label="Home"
-        onSelect={() => {
-          navigateHome();
-          onNavigate();
-        }}
-      />
       {ROUTED_MINI_APP_NAV_ITEMS.map(({ appId, icon, label }) => (
         <RoutedPaneMobileNavTile
           key={appId}
@@ -250,7 +238,7 @@ export function RoutedPaneNav({
   showDeveloperControls,
   tier,
 }: {
-  activeAppId: MiniAppId | null;
+  activeAppId: MiniAppId;
   drawerOpen: boolean;
   menuItems: ReadonlyArray<WindowMenuItem>;
   onCloseDrawer: () => void;
