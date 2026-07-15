@@ -14,6 +14,7 @@ import { type PropsWithChildren, useEffect } from "react";
 import { withManualIdentity } from "../../../test/helpers/manualIdentityProfile";
 import { MockWorker } from "../../../test/helpers/mockWorker";
 import "../../../test/helpers/mswServer";
+import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sharedMemoryLocalKeyring";
 import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../components/shared/DestroyKeyPackageConfirmationDialog";
 import { APP_HOST_PROFILES, AppHostConfig } from "../../host/AppHostConfig";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
@@ -55,7 +56,10 @@ class TestWebSocket extends EventTarget {
 
 // These tests drive the manual identity flow (Generate Key Pair / Register), so
 // disable the boot-time autopilot that would otherwise provision first.
-const TEST_HOST_CONFIG = new AppHostConfig(
+// A host keyring marks the keychain host-managed, which disables PIN locking
+// (canManagePinCode, LocalKeyringLockProvider.tsx) — so the PIN test uses this
+// config as-is and installs indexedDB to get the browser-managed keychain.
+const BROWSER_KEYRING_HOST_CONFIG = new AppHostConfig(
   "http://localhost:3001",
   "ws://events.example.test",
   () =>
@@ -63,6 +67,13 @@ const TEST_HOST_CONFIG = new AppHostConfig(
       workerConstructor: MockWorker,
     }),
 ).withOverrides({ profile: withManualIdentity(APP_HOST_PROFILES.app) });
+
+// Every other test needs a keyring: without one the cipher-key resolver refuses
+// to boot (by design — no development-key fallback), leaving the database in
+// "error" and the assertions running against a degraded app.
+const TEST_HOST_CONFIG = BROWSER_KEYRING_HOST_CONFIG.withOverrides({
+  createLocalKeyring: createSharedMemoryLocalKeyringFactory(),
+});
 
 function TearleadsProbe({
   onReady,
@@ -80,13 +91,14 @@ function TearleadsProbe({
 
 function IdentityManagerTestRuntime({
   children,
+  hostConfig = TEST_HOST_CONFIG,
   onTearleadsReady,
-}: PropsWithChildren<{ onTearleadsReady: (tearleads: Tearleads) => void }>) {
+}: PropsWithChildren<{
+  hostConfig?: AppHostConfig;
+  onTearleadsReady: (tearleads: Tearleads) => void;
+}>) {
   return (
-    <AppRuntimeProvider
-      autoProvisionEnabled={false}
-      hostConfig={TEST_HOST_CONFIG}
-    >
+    <AppRuntimeProvider autoProvisionEnabled={false} hostConfig={hostConfig}>
       <TearleadsProbe onReady={onTearleadsReady} />
       {children}
     </AppRuntimeProvider>
@@ -577,6 +589,7 @@ test("PIN lock setup waits for a generated local key pair", async () => {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const view = render(
       <IdentityManagerTestRuntime
+        hostConfig={BROWSER_KEYRING_HOST_CONFIG}
         onTearleadsReady={(sdk) => {
           tearleadsRef.current = sdk;
         }}
