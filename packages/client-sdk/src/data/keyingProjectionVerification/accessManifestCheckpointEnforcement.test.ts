@@ -6,14 +6,12 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { loadAccessManifestCheckpoint } from "../persistence/keyingCheckpointPersistence";
+import type { ExecSql } from "../sqlite/sqlSchema";
 import { enforceAccessManifestCheckpoints } from "./accessManifestCheckpointEnforcement";
 
 const ORG = "org-1";
 const OBJECT = "container-1";
 
-// Manifest hashes are SHA-256 in production; the crypto checkpoint verifier
-// rejects anything that is not a 64-character lowercase hex string. Derive a
-// deterministic hex hash per seed label so chained predecessors line up.
 function hex(seed: string): string {
   const chars = "0123456789abcdef";
   let out = "";
@@ -26,8 +24,8 @@ function hex(seed: string): string {
 function manifestDouble(input: {
   epoch: number;
   hash: string;
-  prev: string | null;
   objectId?: string;
+  prev: string | null;
 }): AnyVerifiedAccessManifest {
   const objectId = input.objectId ?? OBJECT;
   const manifestHash = hex(input.hash);
@@ -46,6 +44,18 @@ function manifestDouble(input: {
   } as unknown as AnyVerifiedAccessManifest;
 }
 
+async function enforce(input: {
+  evidence: readonly AnyVerifiedAccessManifest[];
+  execSql: ExecSql;
+  heads: readonly AnyVerifiedAccessManifest[];
+}): Promise<void> {
+  await enforceAccessManifestCheckpoints({
+    execSql: input.execSql,
+    verifiedHeads: input.heads,
+    verifiedManifests: input.evidence,
+  });
+}
+
 async function expectCheckpointCode(
   run: () => Promise<unknown>,
   code: KeyingVerificationCode,
@@ -60,68 +70,44 @@ async function expectCheckpointCode(
   expect((thrown as KeyingVerificationError).code).toBe(code);
 }
 
-test("first sight pins the head epoch with no checkpoint to compare against", async () => {
+test("first sight pins only explicitly declared heads", async () => {
   const { close, execSql } = await createTestExecSql("checkpoint-enforce-test");
   try {
-    await enforceAccessManifestCheckpoints({
+    const head = manifestDouble({ epoch: 1, hash: "a1", prev: null });
+    const evidenceOnly = manifestDouble({
+      epoch: 7,
+      hash: "b7",
+      objectId: "former-parent",
+      prev: "b6",
+    });
+    await enforce({
+      evidence: [head, evidenceOnly],
       execSql,
-      verifiedManifests: [manifestDouble({ epoch: 1, hash: "h1", prev: null })],
+      heads: [head],
     });
 
     await expect(
       loadAccessManifestCheckpoint(execSql, "container", ORG, OBJECT),
-    ).resolves.toEqual({
-      objectKind: "container",
-      objectId: OBJECT,
-      organizationId: ORG,
-      epoch: 1,
-      manifestHash: hex("h1"),
-    });
+    ).resolves.toMatchObject({ epoch: 1, manifestHash: hex("a1") });
+    await expect(
+      loadAccessManifestCheckpoint(execSql, "container", ORG, "former-parent"),
+    ).resolves.toBeNull();
   } finally {
     close();
   }
 });
 
-test("re-serving the pinned head is accepted (same epoch, same hash)", async () => {
+test("hidden future history cannot satisfy a rolled-back declared head", async () => {
   const { close, execSql } = await createTestExecSql("checkpoint-enforce-test");
   try {
-    const head = manifestDouble({ epoch: 2, hash: "h2", prev: "h1" });
-    await enforceAccessManifestCheckpoints({
-      execSql,
-      verifiedManifests: [head],
-    });
-    await enforceAccessManifestCheckpoints({
-      execSql,
-      verifiedManifests: [head],
-    });
-
-    await expect(
-      loadAccessManifestCheckpoint(execSql, "container", ORG, OBJECT),
-    ).resolves.toMatchObject({ epoch: 2, manifestHash: hex("h2") });
-  } finally {
-    close();
-  }
-});
-
-test("rollback to an older epoch hard-fails and leaves the pin untouched", async () => {
-  const { close, execSql } = await createTestExecSql("checkpoint-enforce-test");
-  try {
-    await enforceAccessManifestCheckpoints({
-      execSql,
-      verifiedManifests: [manifestDouble({ epoch: 2, hash: "h2", prev: "h1" })],
-    });
+    const epoch2 = manifestDouble({ epoch: 2, hash: "h2", prev: "h1" });
+    await enforce({ evidence: [epoch2], execSql, heads: [epoch2] });
+    const epoch1 = manifestDouble({ epoch: 1, hash: "h1", prev: null });
 
     await expectCheckpointCode(
-      () =>
-        enforceAccessManifestCheckpoints({
-          execSql,
-          verifiedManifests: [
-            manifestDouble({ epoch: 1, hash: "h1", prev: null }),
-          ],
-        }),
+      () => enforce({ evidence: [epoch1, epoch2], execSql, heads: [epoch1] }),
       "rollback",
     );
-
     await expect(
       loadAccessManifestCheckpoint(execSql, "container", ORG, OBJECT),
     ).resolves.toMatchObject({ epoch: 2, manifestHash: hex("h2") });
@@ -130,46 +116,37 @@ test("rollback to an older epoch hard-fails and leaves the pin untouched", async
   }
 });
 
-test("a conflicting hash at the pinned epoch hard-fails as equivocation", async () => {
+test("future history is rejected on first sight instead of becoming the pin", async () => {
   const { close, execSql } = await createTestExecSql("checkpoint-enforce-test");
   try {
-    await enforceAccessManifestCheckpoints({
-      execSql,
-      verifiedManifests: [manifestDouble({ epoch: 2, hash: "h2", prev: "h1" })],
-    });
-
+    const epoch1 = manifestDouble({ epoch: 1, hash: "h1", prev: null });
+    const epoch2 = manifestDouble({ epoch: 2, hash: "h2", prev: "h1" });
     await expectCheckpointCode(
-      () =>
-        enforceAccessManifestCheckpoints({
-          execSql,
-          verifiedManifests: [
-            manifestDouble({ epoch: 2, hash: "h2-alt", prev: "h1" }),
-          ],
-        }),
-      "equivocation",
+      () => enforce({ evidence: [epoch1, epoch2], execSql, heads: [epoch1] }),
+      "stale_predecessor",
     );
+    await expect(
+      loadAccessManifestCheckpoint(execSql, "container", ORG, OBJECT),
+    ).resolves.toBeNull();
   } finally {
     close();
   }
 });
 
-test("gap extension with a contiguous predecessor chain is accepted and re-pins the head", async () => {
+test("gap extension requires a contiguous predecessor chain", async () => {
   const { close, execSql } = await createTestExecSql("checkpoint-enforce-test");
   try {
-    await enforceAccessManifestCheckpoints({
-      execSql,
-      verifiedManifests: [manifestDouble({ epoch: 1, hash: "h1", prev: null })],
-    });
+    const epoch1 = manifestDouble({ epoch: 1, hash: "h1", prev: null });
+    await enforce({ evidence: [epoch1], execSql, heads: [epoch1] });
+    const epoch2 = manifestDouble({ epoch: 2, hash: "h2", prev: "h1" });
+    const epoch3 = manifestDouble({ epoch: 3, hash: "h3", prev: "h2" });
+    const epoch4 = manifestDouble({ epoch: 4, hash: "h4", prev: "h3" });
 
-    await enforceAccessManifestCheckpoints({
+    await enforce({
+      evidence: [epoch4, epoch2, epoch3],
       execSql,
-      verifiedManifests: [
-        manifestDouble({ epoch: 4, hash: "h4", prev: "h3" }),
-        manifestDouble({ epoch: 2, hash: "h2", prev: "h1" }),
-        manifestDouble({ epoch: 3, hash: "h3", prev: "h2" }),
-      ],
+      heads: [epoch4],
     });
-
     await expect(
       loadAccessManifestCheckpoint(execSql, "container", ORG, OBJECT),
     ).resolves.toMatchObject({ epoch: 4, manifestHash: hex("h4") });
@@ -178,24 +155,16 @@ test("gap extension with a contiguous predecessor chain is accepted and re-pins 
   }
 });
 
-test("gap extension with a missing predecessor hard-fails as stale_predecessor", async () => {
+test("a missing checkpoint predecessor hard-fails", async () => {
   const { close, execSql } = await createTestExecSql("checkpoint-enforce-test");
   try {
-    await enforceAccessManifestCheckpoints({
-      execSql,
-      verifiedManifests: [manifestDouble({ epoch: 1, hash: "h1", prev: null })],
-    });
+    const epoch1 = manifestDouble({ epoch: 1, hash: "h1", prev: null });
+    await enforce({ evidence: [epoch1], execSql, heads: [epoch1] });
+    const epoch2 = manifestDouble({ epoch: 2, hash: "h2", prev: "h1" });
+    const epoch4 = manifestDouble({ epoch: 4, hash: "h4", prev: "h3" });
 
     await expectCheckpointCode(
-      () =>
-        enforceAccessManifestCheckpoints({
-          execSql,
-          verifiedManifests: [
-            // epoch 3 is missing, so the head cannot chain back to the pin.
-            manifestDouble({ epoch: 4, hash: "h4", prev: "h3" }),
-            manifestDouble({ epoch: 2, hash: "h2", prev: "h1" }),
-          ],
-        }),
+      () => enforce({ evidence: [epoch2, epoch4], execSql, heads: [epoch4] }),
       "stale_predecessor",
     );
   } finally {
@@ -203,81 +172,83 @@ test("gap extension with a missing predecessor hard-fails as stale_predecessor",
   }
 });
 
-test("two distinct manifests at the head epoch are rejected as in-projection equivocation", async () => {
+test("conflicting explicit heads hard-fail as equivocation", async () => {
   const { close, execSql } = await createTestExecSql("checkpoint-enforce-test");
   try {
-    await expect(
-      enforceAccessManifestCheckpoints({
-        execSql,
-        verifiedManifests: [
-          manifestDouble({ epoch: 2, hash: "h2", prev: "h1" }),
-          manifestDouble({ epoch: 2, hash: "h2-alt", prev: "h1" }),
-        ],
-      }),
-    ).rejects.toThrow(/equivocates at epoch 2/);
+    const first = manifestDouble({ epoch: 2, hash: "h2", prev: "h1" });
+    const second = manifestDouble({
+      epoch: 2,
+      hash: "h2-alt",
+      prev: "h1",
+    });
+    await expectCheckpointCode(
+      () =>
+        enforce({ evidence: [first, second], execSql, heads: [first, second] }),
+      "equivocation",
+    );
   } finally {
     close();
   }
 });
 
-test("a fork at a historical (non-head) epoch is rejected even on first sight", async () => {
+test("concurrent divergent first heads yield exactly one success", async () => {
   const { close, execSql } = await createTestExecSql("checkpoint-enforce-test");
   try {
-    // No pin yet, so the crypto checkpoint verifier is a no-op; the conflict at
-    // epoch 2 (below the head) must still be caught.
-    await expect(
-      enforceAccessManifestCheckpoints({
-        execSql,
-        verifiedManifests: [
-          manifestDouble({ epoch: 4, hash: "h4", prev: "h3" }),
-          manifestDouble({ epoch: 2, hash: "h2", prev: "h1" }),
-          manifestDouble({ epoch: 2, hash: "h2-alt", prev: "h1" }),
-          manifestDouble({ epoch: 3, hash: "h3", prev: "h2" }),
-        ],
-      }),
-    ).rejects.toThrow(/equivocates at epoch 2/);
+    const first = manifestDouble({ epoch: 1, hash: "h1-a", prev: null });
+    const second = manifestDouble({ epoch: 1, hash: "h1-b", prev: null });
+    const results = await Promise.allSettled([
+      enforce({ evidence: [first], execSql, heads: [first] }),
+      enforce({ evidence: [second], execSql, heads: [second] }),
+    ]);
+
+    expect(
+      results.filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
+    const rejected = results.find((result) => result.status === "rejected");
+    expect(rejected?.status).toBe("rejected");
+    if (rejected?.status === "rejected") {
+      expect(rejected.reason).toBeInstanceOf(KeyingVerificationError);
+      expect((rejected.reason as KeyingVerificationError).code).toBe(
+        "equivocation",
+      );
+    }
   } finally {
     close();
   }
 });
 
-test("each object is pinned independently within one projection", async () => {
+test("a failing batch leaves every candidate unchanged", async () => {
   const { close, execSql } = await createTestExecSql("checkpoint-enforce-test");
   try {
-    await enforceAccessManifestCheckpoints({
-      execSql,
-      verifiedManifests: [
-        manifestDouble({
-          epoch: 5,
-          hash: "a5",
-          prev: "a4",
-          objectId: "container-a",
-        }),
-        manifestDouble({
-          epoch: 2,
-          hash: "b2",
-          prev: "b1",
-          objectId: "container-b",
-        }),
-      ],
+    const pinnedB = manifestDouble({
+      epoch: 2,
+      hash: "b2",
+      objectId: "container-b",
+      prev: "b1",
+    });
+    await enforce({ evidence: [pinnedB], execSql, heads: [pinnedB] });
+    const newA = manifestDouble({
+      epoch: 1,
+      hash: "a1",
+      objectId: "container-a",
+      prev: null,
+    });
+    const staleB = manifestDouble({
+      epoch: 1,
+      hash: "b1",
+      objectId: "container-b",
+      prev: null,
     });
 
+    await expectCheckpointCode(
+      () =>
+        enforce({ evidence: [newA, staleB], execSql, heads: [newA, staleB] }),
+      "rollback",
+    );
     await expect(
       loadAccessManifestCheckpoint(execSql, "container", ORG, "container-a"),
-    ).resolves.toMatchObject({ epoch: 5, manifestHash: hex("a5") });
-    await expect(
-      loadAccessManifestCheckpoint(execSql, "container", ORG, "container-b"),
-    ).resolves.toMatchObject({ epoch: 2, manifestHash: hex("b2") });
+    ).resolves.toBeNull();
   } finally {
     close();
   }
-});
-
-test("without a database handle enforcement is a no-op", async () => {
-  await expect(
-    enforceAccessManifestCheckpoints({
-      execSql: undefined,
-      verifiedManifests: [manifestDouble({ epoch: 1, hash: "h1", prev: null })],
-    }),
-  ).resolves.toBeUndefined();
 });

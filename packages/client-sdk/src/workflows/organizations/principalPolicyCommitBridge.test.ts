@@ -15,7 +15,9 @@ import type {
 } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
+import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import {
+  loadAllPrincipalPolicyBundles,
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "../../data/persistence/principalPolicyPersistence";
@@ -227,6 +229,27 @@ test("remove group user bridges committed policy writes before caching the rotat
           previousPolicy.currentState.stateHash,
         );
         expect(cachedDuringBridge?.currentState.keyEpoch).toBe(1);
+        const checkpointDuringBridge = await loadPrincipalPolicyCheckpoint(
+          execSql,
+          "group",
+          groupId,
+        );
+        expect(checkpointDuringBridge).toEqual({
+          principalType: "group",
+          principalId: groupId,
+          version: currentPolicy.currentState.version,
+          stateHash: currentPolicy.currentState.stateHash,
+        });
+        expect(
+          (await loadAllPrincipalPolicyBundles(execSql)).map(
+            (bundle) => bundle.currentState.stateHash,
+          ),
+        ).toEqual(
+          expect.arrayContaining([
+            previousPolicy.currentState.stateHash,
+            currentPolicy.currentState.stateHash,
+          ]),
+        );
       },
       apiClient,
       beforePolicyCommit: (head) => {

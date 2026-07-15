@@ -1,0 +1,210 @@
+import { expect, test } from "bun:test";
+import {
+  computeContainerKekMaterialId,
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+  KeyingVerificationError,
+  toFingerprint,
+  type VerifiedContainerAccessManifest,
+} from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
+import {
+  createContainerRevokeManifestFixture,
+  createParentProjection,
+  createParentProjectionUserKeyResolver,
+} from "../../../../test/helpers/containerFixtures";
+import { unwrapContainerKekPath } from "../../documents/shared/containerKekPath";
+import { verifyContainerWriterProjection } from "../../keyingProjectionVerification";
+import { enforceAccessManifestCheckpoints } from "../../keyingProjectionVerification/accessManifestCheckpointEnforcement";
+import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpointPersistence";
+
+test("hidden future history cannot bypass a persisted projection head", async () => {
+  const secondUserId = "user-2";
+  const secondUserKem = generateKemSeedAndKeyPair();
+  const secondUserSigning = generateSigningSeedAndKeyPair();
+  const secondUserFingerprint = await toFingerprint(secondUserKem.publicKey);
+  const parent = await createParentProjection({
+    existingUserRecipient: {
+      accessLevel: "write",
+      publicKey: secondUserKem.publicKey,
+      recipientKeyEpochId: `user:${secondUserId}:encapsulation:${secondUserFingerprint}`,
+      userId: secondUserId,
+    },
+  });
+  const epoch1 = parent.projection.path[0];
+  if (!epoch1) {
+    throw new Error("Expected epoch-1 projection manifest");
+  }
+  const epoch2 = await createContainerRevokeManifestFixture({
+    author: parent.author,
+    containerId: parent.parentKekState.containerId,
+    containerKeyEpochId: await computeContainerKekMaterialId({
+      containerId: parent.parentKekState.containerId,
+      keyEpoch: parent.parentKekState.containerKeyEpoch + 1,
+      keyMaterial: crypto.getRandomValues(new Uint8Array(32)),
+    }),
+    eventId: "parent-container-revoke-event-2",
+    organizationId: parent.projection.organizationId,
+    previousManifest: epoch1 as unknown as VerifiedContainerAccessManifest,
+    subjectId: secondUserId,
+    subjectType: "user",
+    signingPublicKey: parent.signingPublicKey,
+  });
+  const { close, execSql } = await createTestExecSql(
+    "projection-hidden-history-checkpoint",
+  );
+
+  try {
+    await enforceAccessManifestCheckpoints({
+      execSql,
+      verifiedHeads: [epoch2],
+      verifiedManifests: [epoch2],
+    });
+    const staleProjection = structuredClone(parent.projection);
+    const staleKek = staleProjection.containerKeks[0];
+    if (!staleKek) {
+      throw new Error("Expected stale projection KEK");
+    }
+    staleKek.containerManifestHistory = [
+      epoch2 as unknown as AccessManifestBundleWireResponse,
+    ];
+
+    let thrown: unknown;
+    try {
+      await unwrapContainerKekPath({
+        execSql,
+        projection: staleProjection,
+        resolveProjectionUserKey: async (userId) => {
+          if (userId === parent.userId) {
+            return {
+              encapsulationPublicKey: parent.encapsulationPublicKey,
+              signingPublicKey: parent.signingPublicKey,
+              userId,
+            };
+          }
+          if (userId === secondUserId) {
+            return {
+              encapsulationPublicKey: secondUserKem.publicKey,
+              signingPublicKey: secondUserSigning.signingPublicKey,
+              userId,
+            };
+          }
+          return null;
+        },
+        secretKey: parent.secretKey,
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(KeyingVerificationError);
+    expect((thrown as KeyingVerificationError).code).toBe("rollback");
+    await expect(
+      loadAccessManifestCheckpoint(
+        execSql,
+        "container",
+        parent.projection.organizationId,
+        parent.projection.containerId,
+      ),
+    ).resolves.toMatchObject({ epoch: 2, manifestHash: epoch2.manifestHash });
+  } finally {
+    close();
+  }
+});
+
+test("a valid same-epoch projection fork hard-fails before unwrap", async () => {
+  const first = await createParentProjection();
+  const fork = await createParentProjection();
+  const firstManifest = first.projection.path[0];
+  if (!firstManifest) {
+    throw new Error("Expected the first projection manifest");
+  }
+  const { close, execSql } = await createTestExecSql(
+    "projection-same-epoch-fork",
+  );
+
+  try {
+    await unwrapContainerKekPath({
+      execSql,
+      projection: first.projection,
+      resolveProjectionUserKey: async (userId) =>
+        userId === first.userId
+          ? {
+              encapsulationPublicKey: first.encapsulationPublicKey,
+              signingPublicKey: first.signingPublicKey,
+              userId,
+            }
+          : null,
+      secretKey: first.secretKey,
+    });
+    await expect(
+      unwrapContainerKekPath({
+        execSql,
+        projection: fork.projection,
+        resolveProjectionUserKey: async (userId) =>
+          userId === fork.userId
+            ? {
+                encapsulationPublicKey: fork.encapsulationPublicKey,
+                signingPublicKey: fork.signingPublicKey,
+                userId,
+              }
+            : null,
+        secretKey: fork.secretKey,
+      }),
+    ).rejects.toMatchObject({ code: "equivocation" });
+    await expect(
+      loadAccessManifestCheckpoint(
+        execSql,
+        "container",
+        first.projection.organizationId,
+        first.projection.containerId,
+      ),
+    ).resolves.toMatchObject({
+      epoch: 1,
+      manifestHash: firstManifest.manifestHash,
+    });
+  } finally {
+    close();
+  }
+});
+
+test("remote projection verification requires durable storage unless local trust is explicit", async () => {
+  const parent = await createParentProjection();
+
+  await expect(
+    unwrapContainerKekPath({
+      projection: parent.projection,
+      resolveProjectionUserKey: async (userId) =>
+        userId === parent.userId
+          ? {
+              encapsulationPublicKey: parent.encapsulationPublicKey,
+              signingPublicKey: parent.signingPublicKey,
+              userId,
+            }
+          : null,
+      secretKey: parent.secretKey,
+    }),
+  ).rejects.toMatchObject({ code: "missing_dependency" });
+
+  await expect(
+    unwrapContainerKekPath({
+      projection: parent.projection,
+      secretKey: parent.secretKey,
+      trustedLocalProjection: true,
+    }),
+  ).resolves.toBeInstanceOf(Map);
+});
+
+test("the low-level remote verifier cannot use the local trust escape hatch", async () => {
+  const parent = await createParentProjection();
+  const bypassAttempt = {
+    projection: parent.projection,
+    resolveUserKey: createParentProjectionUserKeyResolver(parent),
+    trustedLocalProjection: true,
+  } as unknown as Parameters<typeof verifyContainerWriterProjection>[0];
+
+  await expect(
+    verifyContainerWriterProjection(bypassAttempt),
+  ).rejects.toMatchObject({ code: "missing_dependency" });
+});

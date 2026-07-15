@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import {
   decryptDocumentAttachmentBlob,
   hydrateDocumentAttachmentBlobs,
@@ -10,11 +10,19 @@ import {
   computeWriteHeaderHash,
   type WriteHeader,
 } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobContracts";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
 
 const TEXT_ENCODER = new TextEncoder();
+const closeTestDatabases: Array<() => void> = [];
+
+afterEach(() => {
+  closeTestDatabases.splice(0).forEach((close) => {
+    close();
+  });
+});
 
 function createBlobBytesResponse(input: {
   readonly blobId: string;
@@ -60,6 +68,8 @@ async function createUploadedAttachmentFixture() {
   const bytes = new TextEncoder().encode(
     "remote attachment payload",
   ) as BlobBytes;
+  const { close, execSql } = await createTestExecSql("attachment-hydration");
+  closeTestDatabases.push(close);
   const stageCapture: {
     stagedBlob?: {
       encryptedBytes: string;
@@ -135,6 +145,7 @@ async function createUploadedAttachmentFixture() {
     blobId,
     bytes,
     documentId: writerProjection.documentId,
+    execSql,
     expectedBindingId: null,
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
@@ -158,6 +169,7 @@ async function createUploadedAttachmentFixture() {
     blobId,
     bindingId,
     bytes,
+    execSql,
     resolveProjectionUserKey,
     secretKey,
     stagedBlob,
@@ -210,6 +222,7 @@ test("hydrateDocumentAttachmentBlobs downloads and decrypts remote attachment by
     ),
     attachments: [fixture.attachment],
     documentId: fixture.writerProjection.documentId,
+    execSql: fixture.execSql,
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
     targetSecretKey: fixture.secretKey,
   });
@@ -240,6 +253,7 @@ test("hydrateDocumentAttachmentBlobs skips locally current attachment bytes", as
     }),
     attachments: [fixture.attachment],
     documentId: fixture.writerProjection.documentId,
+    execSql: fixture.execSql,
     localBlobIdBySlotId: {
       [fixture.attachment.slotId]: fixture.blobId,
     },
@@ -296,6 +310,7 @@ test("hydrateDocumentAttachmentBlobs refreshes unknown same-slot blob bytes", as
     ),
     attachments: [fixture.attachment],
     documentId: fixture.writerProjection.documentId,
+    execSql: fixture.execSql,
     localStorageKeyBySlotId: {
       [fixture.attachment.slotId]: "blob-unknown",
     },
@@ -326,6 +341,7 @@ test("hydrateDocumentAttachmentBlobs refreshes stale same-slot blob bytes", asyn
     ),
     attachments: [fixture.attachment],
     documentId: fixture.writerProjection.documentId,
+    execSql: fixture.execSql,
     localBlobIdBySlotId: {
       [fixture.attachment.slotId]: "stale-blob-id",
     },
@@ -364,6 +380,7 @@ test("decryptDocumentAttachmentBlob rejects bad writer projection signatures", a
       encryptedBytes: fixture.stagedBlob.encryptedBytes,
       expectedBindingId: fixture.bindingId,
       expectedBlobId: fixture.blobId,
+      execSql: fixture.execSql,
       resolveProjectionUserKey: fixture.resolveProjectionUserKey,
       targetSecretKey: fixture.secretKey,
       writerProjection: tamperedProjection,
@@ -411,6 +428,7 @@ test("hydrateDocumentAttachmentBlobs reuses one writer projection for matched at
     },
     attachments: [fixture.attachment, secondAttachment],
     documentId: fixture.writerProjection.documentId,
+    execSql: fixture.execSql,
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
     targetSecretKey: fixture.secretKey,
   });

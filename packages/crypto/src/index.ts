@@ -143,6 +143,7 @@ export type {
   WriteHeader,
 } from "./keying";
 export {
+  accessManifestCheckpointFromManifest,
   accessManifestTransparencyLeaf,
   BLOB_CONTENT_KEY_WRAP_SUITE,
   CONTAINER_KEK_MATERIAL_ID_PREFIX,
@@ -211,6 +212,7 @@ export {
   verifyDocumentLinkSetManifest,
   verifyIdentityStateCheckpoint,
   verifyPrincipalPolicyBundle,
+  verifyPrincipalPolicyCheckpoint,
   verifySignedAccessEvent,
   verifySignedTransparencyTreeHead,
   verifyTransparencyProof,

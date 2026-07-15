@@ -3,6 +3,8 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
+import { principalPolicyHeadMeetsCheckpoint } from "../persistence/principalPolicyCheckpointSelection";
 import { loadPrincipalPolicyBundle } from "../persistence/principalPolicyPersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 
@@ -16,6 +18,31 @@ export function referencedPrincipalPolicyKey(
   reference: ReferencedPrincipalHead,
 ): string {
   return `${reference.principalType}:${reference.principalId}:${reference.version}:${reference.stateHash}`;
+}
+
+export function principalPolicyCacheForVerifiedPolicies(
+  policies: readonly VerifiedPrincipalPolicy[],
+): Map<string, VerifiedPrincipalPolicy> {
+  const cache = new Map<string, VerifiedPrincipalPolicy>();
+  for (const policy of policies) {
+    const states = policy.history?.map((entry) => entry.state) ?? [
+      policy.state,
+    ];
+    for (const state of states) {
+      cache.set(
+        referencedPrincipalPolicyKey({
+          principalType: state.principalType,
+          principalId: state.principalId,
+          version: state.version,
+          keyEpoch: state.keyEpoch,
+          stateHash: state.stateHash,
+          keyFingerprint: state.keyFingerprint,
+        }),
+        policy,
+      );
+    }
+  }
+  return cache;
 }
 
 /** Flatten a bundle's previous + current states into one chain for matching. */
@@ -52,8 +79,17 @@ export async function filterUncachedPrincipalPolicyReferences(input: {
 }): Promise<ReferencedPrincipalHead[]> {
   const results = await Promise.all(
     input.references.map(async (reference) => {
+      const checkpoint = await loadPrincipalPolicyCheckpoint(
+        input.execSql,
+        reference.principalType,
+        reference.principalId,
+      );
+      const cachedPolicy = input.principalPolicyCache.get(
+        referencedPrincipalPolicyKey(reference),
+      );
       if (
-        input.principalPolicyCache.has(referencedPrincipalPolicyKey(reference))
+        cachedPolicy &&
+        principalPolicyHeadMeetsCheckpoint(cachedPolicy, checkpoint)
       ) {
         return null;
       }
@@ -62,7 +98,9 @@ export async function filterUncachedPrincipalPolicyReferences(input: {
         reference.principalType,
         reference.principalId,
       );
-      return bundle && principalPolicyBundleContainsReference(bundle, reference)
+      return bundle &&
+        principalPolicyHeadMeetsCheckpoint(bundle.currentState, checkpoint) &&
+        principalPolicyBundleContainsReference(bundle, reference)
         ? null
         : reference;
     }),

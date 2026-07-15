@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { moveRemoteContainer } from "@tearleads/client-sdk";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createAuthor,
   createParentProjection,
@@ -17,6 +18,7 @@ test("moveRemoteContainer rejects bad source projection signatures before sendin
     parent.projection,
   );
   let moveCalled = false;
+  const database = await createTestExecSql("move-bad-source-signature");
 
   await expect(
     moveRemoteContainer({
@@ -33,6 +35,7 @@ test("moveRemoteContainer rejects bad source projection signatures before sendin
       author,
       containerId: parent.projection.containerId,
       destinationParentContainerId: "destination-parent",
+      execSql: database.execSql,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       targetSecretKey: parent.secretKey,
     }),
@@ -40,6 +43,7 @@ test("moveRemoteContainer rejects bad source projection signatures before sendin
     "Container writer projection path[0] signature verification failed",
   );
   expect(moveCalled).toBe(false);
+  database.close();
 });
 
 test("moveRemoteContainer rejects bad destination projection signatures before sending", async () => {
@@ -52,6 +56,7 @@ test("moveRemoteContainer rejects bad destination projection signatures before s
     parent.projection,
   );
   let moveCalled = false;
+  const database = await createTestExecSql("move-bad-destination-signature");
 
   await expect(
     moveRemoteContainer({
@@ -68,6 +73,7 @@ test("moveRemoteContainer rejects bad destination projection signatures before s
       author,
       containerId: parent.projection.containerId,
       destinationParentContainerId: "tampered-destination-parent",
+      execSql: database.execSql,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       targetSecretKey: parent.secretKey,
     }),
@@ -75,4 +81,5 @@ test("moveRemoteContainer rejects bad destination projection signatures before s
     "Container writer projection path[0] signature verification failed",
   );
   expect(moveCalled).toBe(false);
+  database.close();
 });

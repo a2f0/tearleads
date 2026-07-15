@@ -6,6 +6,18 @@ import {
   sqliteTable,
   text,
 } from "drizzle-orm/sqlite-core";
+import {
+  principalPolicies,
+  principalPolicyBundleHistory,
+  principalPolicyCheckpoints,
+} from "./principalPolicySchema";
+
+export {
+  principalPolicies,
+  principalPolicyBundleHistory,
+  principalPolicyCheckpoints,
+} from "./principalPolicySchema";
+
 import { defineSqlTableSchema, type SqlTableSchema } from "./sqlTableSchema";
 
 const accessLevelColumn = "effective_access_level";
@@ -117,49 +129,6 @@ export const documentPendingUpdates = sqliteTable(
 );
 
 /**
- * Local cache of managed-principal policy bundles.
- *
- * Principal policy bundles are fetched from the API after verification and kept
- * locally so access decisions and projection verification can run offline. The
- * JSON columns intentionally mirror the wire bundle shape rather than
- * normalizing membership rows in the client database.
- *
- * Columns:
- * - `principalType`: Managed principal kind, currently `organization` or
- *   `group`.
- * - `principalId`: Stable id of the organization/group principal.
- * - `stateHash`: Current signed principal-state hash.
- * - `currentStateJson`: Serialized current principal state header.
- * - `currentPayloadJson`: Serialized encrypted/current policy payload.
- * - `currentProjectionJson`: Serialized current membership projection.
- * - `currentMemberEnvelopesJson`: Serialized member key-envelope records.
- * - `previousStatesJson`: Serialized historical states included with the
- *   bundle.
- * - `updatedAt`: Local timestamp for the cached bundle.
- *
- * Indexes:
- * - `(principalType, principalId)` is the primary key and gives one current
- *   bundle per managed principal.
- */
-export const principalPolicies = sqliteTable(
-  "principal_policies",
-  {
-    principalType: text("principal_type").notNull(),
-    principalId: text("principal_id").notNull(),
-    stateHash: text("state_hash").notNull(),
-    currentStateJson: text("current_state_json").notNull(),
-    currentPayloadJson: text("current_payload_json").notNull(),
-    currentProjectionJson: text("current_projection_json").notNull(),
-    currentMemberEnvelopesJson: text("current_member_envelopes_json").notNull(),
-    previousStatesJson: text("previous_states_json").notNull(),
-    updatedAt: text("updated_at").notNull(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.principalType, table.principalId] }),
-  ],
-);
-
-/**
  * Anti-rollback pin for verified access manifests.
  *
  * Records the highest access-manifest epoch this client has verified for each
@@ -193,39 +162,6 @@ export const accessManifestCheckpoints = sqliteTable(
     primaryKey({
       columns: [table.objectKind, table.organizationId, table.objectId],
     }),
-  ],
-);
-
-/**
- * Anti-rollback pin for verified principal policies.
- *
- * Records the highest principal-policy state version this client has verified
- * for each managed principal, so a later bundle that regresses (rollback) or
- * conflicts at the same version (equivocation) is detected before its grants
- * are trusted. Updated monotonically after a projection verifies cleanly.
- *
- * Columns:
- * - `principalType`: Managed principal kind (`group`, `organization`).
- * - `principalId`: Stable principal id.
- * - `version`: Highest verified state version.
- * - `stateHash`: State hash pinned at that version.
- * - `updatedAt`: Local timestamp for the pin.
- *
- * Indexes:
- * - `(principalType, principalId)` is the primary key and gives one pin per
- *   managed principal.
- */
-export const principalPolicyCheckpoints = sqliteTable(
-  "principal_policy_checkpoints",
-  {
-    principalType: text("principal_type").notNull(),
-    principalId: text("principal_id").notNull(),
-    version: integer("version").notNull(),
-    stateHash: text("state_hash").notNull(),
-    updatedAt: text("updated_at").notNull(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.principalType, table.principalId] }),
   ],
 );
 
@@ -672,6 +608,7 @@ export const documentTables: ReadonlyArray<SqlTableSchema> = [
 
 export const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(principalPolicies),
+  defineSqlTableSchema(principalPolicyBundleHistory),
 ];
 
 export const keyingCheckpointTables: ReadonlyArray<SqlTableSchema> = [
@@ -727,6 +664,7 @@ export const clientSQLiteSchema = {
   documents,
   documentPendingUpdates,
   principalPolicies,
+  principalPolicyBundleHistory,
   accessManifestCheckpoints,
   principalPolicyCheckpoints,
   containers,

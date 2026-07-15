@@ -42,14 +42,38 @@ type DocumentSyncAttemptSubmission =
     }
   | FailedDocumentSyncAction;
 
+type ProjectionIntegrityErrorCode =
+  | "equivocation"
+  | "rollback"
+  | "stale_predecessor";
+
+export function projectionIntegrityErrorCode(
+  error: unknown,
+): ProjectionIntegrityErrorCode | null {
+  if (
+    !(error instanceof KeyingVerificationError) &&
+    !(error instanceof Error && error.name === "KeyingVerificationError")
+  ) {
+    return null;
+  }
+
+  const code = Reflect.get(error, "code");
+  return code === "rollback" ||
+    code === "equivocation" ||
+    code === "stale_predecessor"
+    ? code
+    : null;
+}
+
 function shouldRetrySyncWithFreshWriterProjection(error: unknown): boolean {
   // A cached writer projection older than a checkpoint we already recorded
   // ("rollback") — typical right after a peer shared/rotated a linked
   // container — is resolved by refetching the current projection. The refetch
   // is safe: it cannot bypass the anti-rollback check, because a genuinely
   // rolled-back server response re-throws on the rebuilt plan.
-  if (error instanceof KeyingVerificationError && error.code === "rollback") {
-    return true;
+  const integrityErrorCode = projectionIntegrityErrorCode(error);
+  if (integrityErrorCode) {
+    return integrityErrorCode === "rollback";
   }
 
   return (

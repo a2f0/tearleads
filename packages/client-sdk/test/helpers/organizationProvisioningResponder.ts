@@ -1,3 +1,4 @@
+import type { ApiClient } from "@tearleads/api-client";
 import {
   isProvisionedDocumentRequest,
   isProvisionedSystemContainerRequest,
@@ -108,7 +109,7 @@ export async function respondToOrganizationProvisioning(
     rootMetadataDocumentId: rootMetadataDocument.id,
     rootMetadataAccessEpoch: 1,
     rootMetadataAccessStateHash:
-      rootMetadataDocument.accessManifest.manifestHash,
+      request.initialRootContainer.expectedManifestHash,
     rootMetadataDocument,
     committedCoreMetadataUpdateIds,
     committedProfileUpdateIds,
@@ -133,5 +134,46 @@ export async function respondToOrganizationProvisioning(
         }
       : {}),
     ...(systemContainers.length > 0 ? { systemContainers } : {}),
+  };
+}
+
+export async function respondToRegistration(
+  args: Parameters<ApiClient["registerUser"]>,
+) {
+  const [
+    userId,
+    organizationId,
+    rootContainerId,
+    ,
+    ,
+    initialAdminGroup,
+    initialMemberGroup,
+    initialOrganizationPolicy,
+    initialRootContainer,
+    initialRootMetadataDocument,
+    initialRosterProfileContainer,
+    initialRosterProfileDocument,
+    initialOrganizationMetadataContainer,
+    initialOrganizationProfileDocument,
+    initialSystemContainers,
+  ] = args;
+
+  return {
+    ...(await respondToOrganizationProvisioning({
+      userId,
+      organizationId,
+      rootContainerId,
+      initialAdminGroup,
+      initialMemberGroup,
+      initialOrganizationPolicy,
+      initialRootContainer,
+      initialRootMetadataDocument,
+      initialRosterProfileContainer,
+      initialRosterProfileDocument,
+      initialOrganizationMetadataContainer,
+      initialOrganizationProfileDocument,
+      initialSystemContainers,
+    })),
+    challenge: "a".repeat(64),
   };
 }

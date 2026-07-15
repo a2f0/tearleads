@@ -29,12 +29,10 @@ import {
 import {
   assertDocumentManifestBundleConsistent,
   describeDocumentTargetKek,
-  errorMessage,
   sortDocumentTargets,
   targetKey,
   uniqueSortedStrings,
 } from "../../data/documents/shared/readers";
-import { persistedDocumentLinkSetMutationStateFromResponse } from "../../data/documents/shared/responses";
 import {
   type BuildDocumentLinkSetMutationPlanInput,
   type DocumentCreateAuthor,
@@ -56,7 +54,9 @@ import {
   requireProjectionUserKeyResolver,
   verifyContainerWriterProjection,
 } from "../../data/keyingProjectionVerification";
+import { throwKeyingVerificationErrorWithContext } from "../../data/keyingProjectionVerification/error";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { persistAcknowledgedLinkSetState } from "./linkSetAcknowledgement";
 import { seedLinkSetWriterProjection } from "./linkSetProjectionSeed";
 import { buildDocumentRotationBaseline } from "./rotationBaseline";
 
@@ -191,8 +191,9 @@ async function verifyDocumentLinkSetTargetContainerProjection(
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
   } catch (error) {
-    throw new Error(
-      `Document link-set target container projection verification failed: ${errorMessage(error)}`,
+    throwKeyingVerificationErrorWithContext(
+      error,
+      "Document link-set target container projection verification failed",
     );
   }
 }
@@ -392,7 +393,7 @@ export async function relinkRemoteDocument(input: {
   contentKey?: Uint8Array | undefined;
   documentId: string;
   eventId?: string | undefined;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   operation: DocumentLinkSetMutationOperation;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   rotationSnapshot?: Uint8Array | undefined;
@@ -463,10 +464,11 @@ export async function relinkRemoteDocument(input: {
   if (!response) {
     return null;
   }
-  const persistedState = persistedDocumentLinkSetMutationStateFromResponse(
-    completedPlan,
+  const persistedState = await persistAcknowledgedLinkSetState({
+    execSql: input.execSql,
+    plan: completedPlan,
     response,
-  );
+  });
 
   await seedLinkSetWriterProjection({
     apiClient: input.apiClient,

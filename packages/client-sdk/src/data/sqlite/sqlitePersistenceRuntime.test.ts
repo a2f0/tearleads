@@ -202,3 +202,22 @@ test("client SQLite persistence runtime serializes Drizzle transactions", async 
     "commit",
   ]);
 });
+
+test("client SQLite persistence runtime supports immediate transactions", async () => {
+  const statements: string[] = [];
+  const runtime = createClientSQLitePersistenceRuntime({
+    exec: async ({ sql: statement }) => {
+      statements.push(statement);
+      return { rows: [] };
+    },
+  });
+
+  await runtime.transaction(
+    async (tx) => {
+      await tx.run(sql`select 1`);
+    },
+    { behavior: "immediate" },
+  );
+
+  expect(statements).toEqual(["begin immediate", "select 1", "commit"]);
+});

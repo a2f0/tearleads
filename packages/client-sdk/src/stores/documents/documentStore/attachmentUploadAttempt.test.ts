@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../../data/blobContracts";
 import { uploadAttachmentWithWriterProjectionRetry } from "./attachmentUploadAttempt";
@@ -10,6 +11,7 @@ test("classifies a first upload 402 as a billing pause without a cached projecti
   let remoteSyncBlocked = false;
   let blockCheckCount = 0;
   let stageCount = 0;
+  const { close, execSql } = await createTestExecSql("attachment-upload-402");
   const state = {
     runtime: {
       util: {
@@ -37,6 +39,7 @@ test("classifies a first upload 402 as a billing pause without a cached projecti
       author,
       bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
       documentId: writerProjection.documentId,
+      execSql,
       expectedBindingId: null,
       resolveProjectionUserKey,
       slotId: "first-upload-402",
@@ -45,6 +48,7 @@ test("classifies a first upload 402 as a billing pause without a cached projecti
     state,
     writerProjection: null,
   });
+  close();
 
   expect(stageCount).toBe(1);
   expect(blockCheckCount).toBe(2);
@@ -58,6 +62,9 @@ test("preserves a billing pause observed before recovery races the postflight ch
     await createMaterializedSyncFixture();
   let blockCheckCount = 0;
   let stageCount = 0;
+  const { close, execSql } = await createTestExecSql(
+    "attachment-upload-preflight-402",
+  );
   const state = {
     runtime: {
       util: {
@@ -83,6 +90,7 @@ test("preserves a billing pause observed before recovery races the postflight ch
       author,
       bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
       documentId: writerProjection.documentId,
+      execSql,
       expectedBindingId: null,
       resolveProjectionUserKey,
       slotId: "preflight-402",
@@ -91,6 +99,7 @@ test("preserves a billing pause observed before recovery races the postflight ch
     state,
     writerProjection: null,
   });
+  close();
 
   expect(stageCount).toBe(0);
   expect(blockCheckCount).toBe(1);

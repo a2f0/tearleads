@@ -9,6 +9,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import {
   buildAddGroupUserPolicyRequest,
@@ -228,6 +229,17 @@ test("createOrganizationGroup caches the created group policy in a fresh local d
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", createdGroup.groupId),
     ).resolves.toEqual(createdPolicyBundle);
+    if (!createdGroup.currentState) {
+      throw new Error("Expected created group policy head");
+    }
+    await expect(
+      loadPrincipalPolicyCheckpoint(execSql, "group", createdGroup.groupId),
+    ).resolves.toEqual({
+      principalType: "group",
+      principalId: createdGroup.groupId,
+      version: createdGroup.currentState.version,
+      stateHash: createdGroup.currentState.stateHash,
+    });
   } finally {
     close();
   }

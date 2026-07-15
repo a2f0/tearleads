@@ -68,59 +68,6 @@ export async function loadAccessManifestCheckpoint(
   };
 }
 
-export async function saveAccessManifestCheckpoint(
-  execSql: ExecSql,
-  checkpoint: AccessManifestCheckpoint,
-  updatedAt: string,
-): Promise<void> {
-  await ensureKeyingCheckpointTables(execSql);
-
-  const nextRow = {
-    objectKind: checkpoint.objectKind,
-    organizationId: checkpoint.organizationId,
-    objectId: checkpoint.objectId,
-    epoch: checkpoint.epoch,
-    manifestHash: checkpoint.manifestHash,
-    updatedAt,
-  };
-
-  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    // Never regress the pin. Concurrent or out-of-order projection
-    // verifications must not lower a previously recorded epoch, which would
-    // silently weaken rollback detection. The read and write run inside the
-    // serialized mutation, so they are atomic against other writers.
-    const existing = await db
-      .select({ epoch: accessManifestCheckpoints.epoch })
-      .from(accessManifestCheckpoints)
-      .where(
-        and(
-          eq(accessManifestCheckpoints.objectKind, checkpoint.objectKind),
-          eq(
-            accessManifestCheckpoints.organizationId,
-            checkpoint.organizationId,
-          ),
-          eq(accessManifestCheckpoints.objectId, checkpoint.objectId),
-        ),
-      )
-      .limit(1);
-    if (existing[0] && existing[0].epoch >= checkpoint.epoch) {
-      return;
-    }
-    await db
-      .insert(accessManifestCheckpoints)
-      .values(nextRow)
-      .onConflictDoUpdate({
-        target: [
-          accessManifestCheckpoints.objectKind,
-          accessManifestCheckpoints.organizationId,
-          accessManifestCheckpoints.objectId,
-        ],
-        set: nextRow,
-      })
-      .run();
-  });
-}
-
 export async function loadPrincipalPolicyCheckpoint(
   execSql: ExecSql,
   principalType: ManagedPrincipalKind,
@@ -155,52 +102,4 @@ export async function loadPrincipalPolicyCheckpoint(
     version: row.version,
     stateHash: row.stateHash,
   };
-}
-
-export async function savePrincipalPolicyCheckpoint(
-  execSql: ExecSql,
-  checkpoint: PrincipalPolicyCheckpoint,
-  updatedAt: string,
-): Promise<void> {
-  await ensureKeyingCheckpointTables(execSql);
-
-  const nextRow = {
-    principalType: checkpoint.principalType,
-    principalId: checkpoint.principalId,
-    version: checkpoint.version,
-    stateHash: checkpoint.stateHash,
-    updatedAt,
-  };
-
-  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    // Never regress the pin (see saveAccessManifestCheckpoint): a slower or
-    // out-of-order verification must not lower a previously recorded version.
-    const existing = await db
-      .select({ version: principalPolicyCheckpoints.version })
-      .from(principalPolicyCheckpoints)
-      .where(
-        and(
-          eq(
-            principalPolicyCheckpoints.principalType,
-            checkpoint.principalType,
-          ),
-          eq(principalPolicyCheckpoints.principalId, checkpoint.principalId),
-        ),
-      )
-      .limit(1);
-    if (existing[0] && existing[0].version >= checkpoint.version) {
-      return;
-    }
-    await db
-      .insert(principalPolicyCheckpoints)
-      .values(nextRow)
-      .onConflictDoUpdate({
-        target: [
-          principalPolicyCheckpoints.principalType,
-          principalPolicyCheckpoints.principalId,
-        ],
-        set: nextRow,
-      })
-      .run();
-  });
 }

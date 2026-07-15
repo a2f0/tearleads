@@ -46,7 +46,7 @@ const registrationApi = {
     _initialAdminGroup: CreateOrganizationGroupRequest,
     _initialMemberGroup: CreateOrganizationGroupRequest,
     _initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
-    _initialRootContainer: RegistrationRequest["initialRootContainer"],
+    initialRootContainer: RegistrationRequest["initialRootContainer"],
     initialRootMetadataDocument: DocumentCreateRequest,
     initialRosterProfileContainer?:
       | ContainerCreateWithMetadataDocumentRequest
@@ -99,8 +99,7 @@ const registrationApi = {
       rootContainerId,
       rootMetadataDocumentId: rootMetadataDocument.id,
       rootMetadataAccessEpoch: 1,
-      rootMetadataAccessStateHash:
-        rootMetadataDocument.accessManifest.manifestHash,
+      rootMetadataAccessStateHash: initialRootContainer.expectedManifestHash,
       rootMetadataDocument,
       rosterProfileContainer: {
         container: rosterProfileContainerResponse,

@@ -2,6 +2,7 @@ import {
   type ContainerUserRecipientKey,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
+  KeyingVerificationError,
   serializeKeyingCanonicalJson,
   toFingerprint,
   type VerifiedContainerAccessManifest,
@@ -19,7 +20,16 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { readCanonicalJson, readCanonicalRecord } from "./keyingCanonicalJson";
-import { enforceAccessManifestCheckpoints } from "./keyingProjectionVerification/accessManifestCheckpointEnforcement";
+import {
+  commitProjectionCheckpoints,
+  createProjectionCheckpointContext,
+  observeAccessManifestCheckpoints,
+  type ProjectionCheckpointContext,
+} from "./keyingProjectionVerification/checkpointContext";
+import {
+  loadManifestCheckpointVerification,
+  verifyCachedManifestCheckpoint,
+} from "./keyingProjectionVerification/manifestCheckpointVerification";
 import { collectReferencedPrincipalPolicies } from "./keyingProjectionVerification/principalPolicyVerification";
 import {
   readAccessEvent,
@@ -143,7 +153,8 @@ async function verifyAccessEventBundle(input: {
 async function verifyContainerManifestBundle(input: {
   readonly bundle: AccessManifestBundleWireResponse;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
-  readonly execSql?: ExecSql | undefined;
+  readonly checkpointContext: ProjectionCheckpointContext;
+  readonly enforceLocalCheckpoint: boolean;
   readonly label: string;
   readonly parentPath: readonly VerifiedContainerAccessManifest[];
   readonly principalPolicyCache: PrincipalPolicyCache;
@@ -162,6 +173,13 @@ async function verifyContainerManifestBundle(input: {
       parentPath,
       verifiedManifest: cached,
     });
+    if (input.enforceLocalCheckpoint) {
+      await verifyCachedManifestCheckpoint({
+        current: cached,
+        execSql: input.checkpointContext.execSql,
+        verifiedManifests: input.verifiedByHash,
+      });
+    }
     return cached;
   }
 
@@ -186,13 +204,20 @@ async function verifyContainerManifestBundle(input: {
     ...manifest.referencedPrincipalHeads,
   ];
   const principalPolicies = await collectReferencedPrincipalPolicies({
-    execSql: input.execSql,
+    checkpointContext: input.checkpointContext,
     organizationId: event.event.organizationId,
     principalPolicyCache: input.principalPolicyCache,
     references: referencedPrincipalHeads,
     resolveUserKey: input.resolveUserKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
+  const checkpointVerification = input.enforceLocalCheckpoint
+    ? await loadManifestCheckpointVerification({
+        current: manifest,
+        execSql: input.checkpointContext.execSql,
+        verifiedManifests: input.verifiedByHash,
+      })
+    : null;
 
   const verified = await verifyContainerAccessManifest({
     destinationParentContainerPath: parentPath,
@@ -201,6 +226,7 @@ async function verifyContainerManifestBundle(input: {
     manifest,
     parentContainerPath: parentPath,
     principalPolicies,
+    ...(checkpointVerification ?? {}),
     ...(previousManifest
       ? {
           previousContainerPath: [...parentPath, previousManifest],
@@ -209,7 +235,10 @@ async function verifyContainerManifestBundle(input: {
       : { previousManifest: null }),
   });
   if (!verified.ok) {
-    throw new Error(`${input.label} manifest verification failed`);
+    throw new KeyingVerificationError(
+      verified.error.code,
+      `${input.label} manifest verification failed: ${verified.error.message}`,
+    );
   }
 
   assertCanonicalEqual({
@@ -262,7 +291,7 @@ function readContainerManifestParentReference(
 async function resolveContainerManifestVerificationParentPath(input: {
   readonly bundle: AccessManifestBundleWireResponse;
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
-  readonly execSql?: ExecSql | undefined;
+  readonly checkpointContext: ProjectionCheckpointContext;
   readonly label: string;
   readonly parentPath: readonly VerifiedContainerAccessManifest[];
   readonly principalPolicyCache: PrincipalPolicyCache;
@@ -304,6 +333,7 @@ async function resolveContainerManifestVerificationParentPath(input: {
   const verifiedParent = await verifyContainerManifestBundle({
     ...input,
     bundle: parentBundle,
+    enforceLocalCheckpoint: false,
     label: `${input.label} parent manifest`,
     parentPath: parentParentPath,
   });
@@ -316,7 +346,7 @@ async function resolveContainerManifestVerificationParentPath(input: {
 
 async function verifyPreviousContainerManifest(input: {
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
-  readonly execSql?: ExecSql | undefined;
+  readonly checkpointContext: ProjectionCheckpointContext;
   readonly label: string;
   readonly parentPath: readonly VerifiedContainerAccessManifest[];
   readonly principalPolicyCache: PrincipalPolicyCache;
@@ -341,7 +371,8 @@ async function verifyPreviousContainerManifest(input: {
   return verifyContainerManifestBundle({
     bundle: previousBundle,
     bundlesByHash: input.bundlesByHash,
-    execSql: input.execSql,
+    checkpointContext: input.checkpointContext,
+    enforceLocalCheckpoint: false,
     label: `${input.label} previous manifest`,
     parentPath,
     principalPolicyCache: input.principalPolicyCache,
@@ -403,7 +434,7 @@ function containerKekManifestHistory(input: {
 }
 
 async function verifyContainerKekProjection(input: {
-  readonly execSql?: ExecSql | undefined;
+  readonly checkpointContext: ProjectionCheckpointContext;
   readonly kek: ContainerWriterProjectionResponse["containerKeks"][number];
   readonly label: string;
   readonly parentKekState: VerifiedContainerKekState | null;
@@ -435,7 +466,7 @@ async function verifyContainerKekProjection(input: {
     verifiedManifest: input.verifiedManifest,
   });
   const principalPolicies = await collectReferencedPrincipalPolicies({
-    execSql: input.execSql,
+    checkpointContext: input.checkpointContext,
     organizationId: input.verifiedManifest.state.organizationId,
     principalPolicyCache: input.principalPolicyCache,
     references: [
@@ -493,7 +524,8 @@ async function verifyContainerKekProjection(input: {
 
 async function verifyContainerManifestPath(input: {
   readonly bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>;
-  readonly execSql?: ExecSql | undefined;
+  readonly checkpointContext: ProjectionCheckpointContext;
+  readonly enforceLocalCheckpoints: boolean;
   readonly label: string;
   readonly path: readonly AccessManifestBundleWireResponse[];
   readonly principalPolicyCache: PrincipalPolicyCache;
@@ -509,7 +541,8 @@ async function verifyContainerManifestPath(input: {
       await verifyContainerManifestBundle({
         bundle,
         bundlesByHash: input.bundlesByHash,
-        execSql: input.execSql,
+        checkpointContext: input.checkpointContext,
+        enforceLocalCheckpoint: input.enforceLocalCheckpoints,
         label: `${input.label}[${index}]`,
         parentPath: verifiedPath,
         principalPolicyCache: input.principalPolicyCache,
@@ -523,7 +556,7 @@ async function verifyContainerManifestPath(input: {
   return verifiedPath;
 }
 
-export async function verifyContainerWriterProjection(input: {
+interface ContainerWriterProjectionVerificationInput {
   readonly execSql?: ExecSql | undefined;
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: ContainerWriterProjectionResponse;
@@ -534,7 +567,22 @@ export async function verifyContainerWriterProjection(input: {
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
-}): Promise<VerifiedContainerAccessManifest[]> {
+}
+
+function verifiedContainerManifestsForBundles(
+  bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>,
+  verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>,
+): VerifiedContainerAccessManifest[] {
+  return [...bundlesByHash.keys()].flatMap((manifestHash) => {
+    const verified = verifiedByHash.get(manifestHash);
+    return verified ? [verified] : [];
+  });
+}
+
+async function verifyContainerWriterProjectionWithContext(
+  input: Omit<ContainerWriterProjectionVerificationInput, "execSql">,
+  checkpointContext: ProjectionCheckpointContext,
+): Promise<VerifiedContainerAccessManifest[]> {
   if (input.projection.path.length !== input.projection.containerKeks.length) {
     throw new Error(
       "Container writer projection path and KEKs are inconsistent",
@@ -567,7 +615,8 @@ export async function verifyContainerWriterProjection(input: {
     input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
   const verifiedPath = await verifyContainerManifestPath({
     bundlesByHash,
-    execSql: input.execSql,
+    checkpointContext,
+    enforceLocalCheckpoints: true,
     label: "Container writer projection path",
     path: input.projection.path,
     principalPolicyCache,
@@ -590,7 +639,8 @@ export async function verifyContainerWriterProjection(input: {
         await verifyContainerManifestBundle({
           bundle,
           bundlesByHash,
-          execSql: input.execSql,
+          checkpointContext,
+          enforceLocalCheckpoint: false,
           label: `Container writer projection KEK[${index}] history[${historyIndex}]`,
           parentPath: verifiedPath.slice(0, index),
           principalPolicyCache,
@@ -603,7 +653,7 @@ export async function verifyContainerWriterProjection(input: {
     }
 
     const verifiedKekState = await verifyContainerKekProjection({
-      execSql: input.execSql,
+      checkpointContext,
       kek,
       label: `Container writer projection KEK[${index}]`,
       parentKekState: index > 0 ? (verifiedKekStates[index - 1] ?? null) : null,
@@ -616,14 +666,29 @@ export async function verifyContainerWriterProjection(input: {
     verifiedKekStates.push(verifiedKekState);
   }
 
-  // Every path element is its container's head epoch; KEK histories are older
-  // epochs that serve as predecessors. Enforce + advance the anti-rollback
-  // pins before returning so a rolled-back/equivocal path refuses key unwrap.
-  await enforceAccessManifestCheckpoints({
-    execSql: input.execSql,
-    verifiedManifests: [...verifiedByHash.values()],
+  observeAccessManifestCheckpoints(checkpointContext, {
+    verifiedHeads: verifiedPath,
+    verifiedManifests: verifiedContainerManifestsForBundles(
+      bundlesByHash,
+      verifiedByHash,
+    ),
   });
 
+  return verifiedPath;
+}
+
+export async function verifyContainerWriterProjection(
+  input: ContainerWriterProjectionVerificationInput,
+): Promise<VerifiedContainerAccessManifest[]> {
+  const checkpointContext = createProjectionCheckpointContext({
+    execSql: input.execSql,
+    label: "Container writer projection verification",
+  });
+  const verifiedPath = await verifyContainerWriterProjectionWithContext(
+    input,
+    checkpointContext,
+  );
+  await commitProjectionCheckpoints(checkpointContext);
   return verifiedPath;
 }
 
@@ -638,22 +703,30 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
 }): Promise<VerifiedPrincipalPolicy[]> {
   const principalPolicyCache =
     input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
-  const verifiedPath = await verifyContainerWriterProjection({
+  const checkpointContext = createProjectionCheckpointContext({
     execSql: input.execSql,
-    principalPolicyCache,
-    projection: input.projection,
-    resolveUserKey: input.resolveUserKey,
-    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+    label: "Container writer projection policy collection",
   });
+  const verifiedPath = await verifyContainerWriterProjectionWithContext(
+    {
+      principalPolicyCache,
+      projection: input.projection,
+      resolveUserKey: input.resolveUserKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+    },
+    checkpointContext,
+  );
 
-  return collectPrincipalPoliciesForContainerPaths({
-    execSql: input.execSql,
+  const policies = await collectPrincipalPoliciesForContainerPaths({
+    checkpointContext,
     organizationId: input.projection.organizationId,
     paths: [verifiedPath],
     principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
+  await commitProjectionCheckpoints(checkpointContext);
+  return policies;
 }
 
 function addContainerWriterProjectionBundles(
@@ -687,7 +760,7 @@ function readDocumentProjectionContainerPaths(
 }
 
 async function verifyProjectionContainerPaths(input: {
-  readonly execSql?: ExecSql | undefined;
+  readonly checkpointContext: ProjectionCheckpointContext;
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly projection: DocumentWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
@@ -739,14 +812,16 @@ async function verifyProjectionContainerPaths(input: {
   const verifiedByHash =
     input.verifiedByHash ?? new Map<string, VerifiedContainerAccessManifest>();
   for (const projection of input.projection.authorizingContainerPaths) {
-    const path = await verifyContainerWriterProjection({
-      execSql: input.execSql,
-      principalPolicyCache: input.principalPolicyCache,
-      projection,
-      resolveUserKey: input.resolveUserKey,
-      verifiedByHash,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    });
+    const path = await verifyContainerWriterProjectionWithContext(
+      {
+        principalPolicyCache: input.principalPolicyCache,
+        projection,
+        resolveUserKey: input.resolveUserKey,
+        verifiedByHash,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+      },
+      input.checkpointContext,
+    );
     const leaf = path.at(-1);
     if (leaf) {
       containerPathByManifestHash.set(leaf.manifestHash, path);
@@ -760,7 +835,8 @@ async function verifyProjectionContainerPaths(input: {
   ).entries()) {
     const verifiedPath = await verifyContainerManifestPath({
       bundlesByHash,
-      execSql: input.execSql,
+      checkpointContext: input.checkpointContext,
+      enforceLocalCheckpoints: false,
       label: `Document writer projection dependency path[${index}]`,
       path,
       principalPolicyCache: input.principalPolicyCache,
@@ -773,6 +849,14 @@ async function verifyProjectionContainerPaths(input: {
       containerPathByManifestHash.set(leaf.manifestHash, verifiedPath);
     }
   }
+
+  observeAccessManifestCheckpoints(input.checkpointContext, {
+    verifiedHeads: [],
+    verifiedManifests: verifiedContainerManifestsForBundles(
+      bundlesByHash,
+      verifiedByHash,
+    ),
+  });
 
   return containerPathByManifestHash;
 }
@@ -798,7 +882,7 @@ function previousDocumentManifestFromCache(input: {
 }
 
 async function collectPrincipalPoliciesForContainerPaths(input: {
-  execSql?: ExecSql | undefined;
+  checkpointContext: ProjectionCheckpointContext;
   organizationId: string;
   paths: readonly (readonly VerifiedContainerAccessManifest[] | undefined)[];
   principalPolicyCache: PrincipalPolicyCache;
@@ -810,7 +894,7 @@ async function collectPrincipalPoliciesForContainerPaths(input: {
   );
 
   return collectReferencedPrincipalPolicies({
-    execSql: input.execSql,
+    checkpointContext: input.checkpointContext,
     organizationId: input.organizationId,
     principalPolicyCache: input.principalPolicyCache,
     references: referencedPrincipalHeads,
@@ -826,7 +910,8 @@ async function verifyDocumentManifestBundle(input: {
     string,
     readonly VerifiedContainerAccessManifest[]
   >;
-  readonly execSql?: ExecSql | undefined;
+  readonly checkpointContext: ProjectionCheckpointContext;
+  readonly enforceLocalCheckpoint: boolean;
   readonly label: string;
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly resolveUserKey: ProjectionUserKeyResolver;
@@ -837,6 +922,13 @@ async function verifyDocumentManifestBundle(input: {
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const cached = input.verifiedByHash.get(input.bundle.manifestHash);
   if (cached) {
+    if (input.enforceLocalCheckpoint) {
+      await verifyCachedManifestCheckpoint({
+        current: cached,
+        execSql: input.checkpointContext.execSql,
+        verifiedManifests: input.verifiedByHash,
+      });
+    }
     return cached;
   }
 
@@ -866,13 +958,20 @@ async function verifyDocumentManifestBundle(input: {
     body.containerManifestHash,
   );
   const principalPolicies = await collectPrincipalPoliciesForContainerPaths({
-    execSql: input.execSql,
+    checkpointContext: input.checkpointContext,
     organizationId: event.event.organizationId,
     paths: [...dependencyContainerPaths, targetContainerPath],
     principalPolicyCache: input.principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
+  const checkpointVerification = input.enforceLocalCheckpoint
+    ? await loadManifestCheckpointVerification({
+        current: manifest,
+        execSql: input.checkpointContext.execSql,
+        verifiedManifests: input.verifiedByHash,
+      })
+    : null;
   const verified = await verifyDocumentLinkSetManifest({
     authorizingContainerPaths: dependencyContainerPaths,
     event,
@@ -880,10 +979,14 @@ async function verifyDocumentManifestBundle(input: {
     manifest,
     previousManifest,
     principalPolicies,
+    ...(checkpointVerification ?? {}),
     ...(targetContainerPath ? { targetContainerPath } : {}),
   });
   if (!verified.ok) {
-    throw new Error(`${input.label} manifest verification failed`);
+    throw new KeyingVerificationError(
+      verified.error.code,
+      `${input.label} manifest verification failed: ${verified.error.message}`,
+    );
   }
 
   assertCanonicalEqual({
@@ -896,7 +999,7 @@ async function verifyDocumentManifestBundle(input: {
   return verified.value;
 }
 
-export async function verifyDocumentWriterProjection(input: {
+interface DocumentWriterProjectionVerificationInput {
   readonly execSql?: ExecSql | undefined;
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: DocumentWriterProjectionResponse;
@@ -907,11 +1010,16 @@ export async function verifyDocumentWriterProjection(input: {
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
-}): Promise<VerifiedDocumentLinkSetManifest> {
+}
+
+async function verifyDocumentWriterProjectionWithContext(
+  input: Omit<DocumentWriterProjectionVerificationInput, "execSql">,
+  checkpointContext: ProjectionCheckpointContext,
+): Promise<VerifiedDocumentLinkSetManifest> {
   const principalPolicyCache =
     input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
   const containerPathByManifestHash = await verifyProjectionContainerPaths({
-    execSql: input.execSql,
+    checkpointContext,
     principalPolicyCache,
     projection: input.projection,
     resolveUserKey: input.resolveUserKey,
@@ -944,8 +1052,9 @@ export async function verifyDocumentWriterProjection(input: {
     await verifyDocumentManifestBundle({
       bundle,
       bundlesByHash,
+      checkpointContext,
       containerPathByManifestHash,
-      execSql: input.execSql,
+      enforceLocalCheckpoint: false,
       label: `Document writer projection manifest history[${index}]`,
       principalPolicyCache,
       resolveUserKey: input.resolveUserKey,
@@ -957,8 +1066,9 @@ export async function verifyDocumentWriterProjection(input: {
   const headManifest = await verifyDocumentManifestBundle({
     bundle: input.projection.documentManifest,
     bundlesByHash,
+    checkpointContext,
     containerPathByManifestHash,
-    execSql: input.execSql,
+    enforceLocalCheckpoint: true,
     label: "Document writer projection",
     principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
@@ -966,13 +1076,25 @@ export async function verifyDocumentWriterProjection(input: {
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
 
-  // Enforce + advance the pin for the document only. The authorizing container
-  // paths are referenced at the epoch the document was bound to, which is not
-  // necessarily the container's head, so they are not checkpointed here.
-  await enforceAccessManifestCheckpoints({
-    execSql: input.execSql,
+  observeAccessManifestCheckpoints(checkpointContext, {
+    verifiedHeads: [headManifest],
     verifiedManifests: [...verifiedByHash.values()],
   });
 
   return headManifest;
+}
+
+export async function verifyDocumentWriterProjection(
+  input: DocumentWriterProjectionVerificationInput,
+): Promise<VerifiedDocumentLinkSetManifest> {
+  const checkpointContext = createProjectionCheckpointContext({
+    execSql: input.execSql,
+    label: "Document writer projection verification",
+  });
+  const verified = await verifyDocumentWriterProjectionWithContext(
+    input,
+    checkpointContext,
+  );
+  await commitProjectionCheckpoints(checkpointContext);
+  return verified;
 }

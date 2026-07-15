@@ -23,6 +23,7 @@ import {
   resolveContainerKekEpochId,
   signContainerCreateEvent,
 } from "../../../data/containers/shared/events";
+import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
 import { principalPolicyRequestRecord } from "../../../data/containers/shared/principalPolicies";
 import {
   asContainerManifestBundle,
@@ -424,7 +425,7 @@ export async function createRemoteContainer(input: {
   containerKey?: Uint8Array | undefined;
   containerKeyEpochId?: string | undefined;
   eventId?: string | undefined;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   metadataDocumentId?: string | undefined;
   parentContainerId: string;
   parentProjection?: ContainerWriterProjectionResponse | undefined;
@@ -488,6 +489,12 @@ export async function createRemoteContainer(input: {
       submitted.report();
       return null;
     }
+
+    await acknowledgeContainerMutation({
+      execSql: input.execSql,
+      plan: materializedPlan.plan,
+      response: submitted.response,
+    });
 
     return {
       containerKey: materializedPlan.containerKey,

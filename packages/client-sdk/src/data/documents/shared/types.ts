@@ -61,12 +61,10 @@ export type ProjectionVerificationOptions =
     (
       | {
           readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
-          readonly trustedLocalProjection?: boolean | undefined;
+          readonly trustedLocalProjection?: undefined;
         }
       | {
-          readonly resolveProjectionUserKey?:
-            | ProjectionUserKeyResolver
-            | undefined;
+          readonly resolveProjectionUserKey?: undefined;
           readonly trustedLocalProjection: true;
         }
     );
@@ -76,6 +74,11 @@ export function resolveProjectionVerifier(
   label: string,
 ): ProjectionUserKeyResolver | null {
   if (input.resolveProjectionUserKey) {
+    if (input.trustedLocalProjection === true) {
+      throw new Error(
+        `${label} cannot combine projection key verification with local projection trust`,
+      );
+    }
     return requireProjectionUserKeyResolver(
       input.resolveProjectionUserKey,
       label,
@@ -99,6 +102,11 @@ export function projectionVerificationOptions(
       }
     : {};
   if (input.resolveProjectionUserKey) {
+    if (input.trustedLocalProjection === true) {
+      throw new Error(
+        "Projection use cannot combine key verification with local projection trust",
+      );
+    }
     return {
       ...policyWarmer,
       resolveProjectionUserKey: input.resolveProjectionUserKey,

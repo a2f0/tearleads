@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { type AccessEvent, generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
-import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
+import {
+  createContainerWriterProjectionFixture,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
@@ -19,6 +22,7 @@ import {
 test("relinkRemoteDocument rejects unlink without reading projections when its rotation snapshot is missing", async () => {
   const { author } = await createAuthor();
   let projectionReads = 0;
+  const { close, execSql } = await createTestExecSql("missing-unlink-rotation");
 
   await expect(
     relinkRemoteDocument({
@@ -41,6 +45,7 @@ test("relinkRemoteDocument rejects unlink without reading projections when its r
       },
       author,
       documentId: "document-without-rotation-snapshot",
+      execSql,
       operation: "unlink",
       resolveProjectionUserKey: async () => null,
       targetContainerId: "target-container",
@@ -50,6 +55,7 @@ test("relinkRemoteDocument rejects unlink without reading projections when its r
     "Document unlink requires a proven full-history rotation snapshot",
   );
   expect(projectionReads).toBe(0);
+  close();
 });
 
 test("relinkRemoteDocument submits a verified signed link-set mutation", async () => {
@@ -84,8 +90,8 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
     author,
     containerProjection: projection,
     documentId: "document-remote-link",
-    resolveProjectionUserKey,
     targetSecretKey: keyPair.secretKey,
+    trustedLocalProjection: true,
   });
   const createdResponse = createResponse(created.plan);
   const writerProjection: DocumentWriterProjectionResponse = {
@@ -100,6 +106,7 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
     documentId: string;
     projection: DocumentWriterProjectionResponse;
   }> = [];
+  const { close, execSql } = await createTestExecSql("remote-document-link");
 
   const linked = await relinkRemoteDocument({
     apiClient: {
@@ -122,6 +129,7 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
     },
     author,
     documentId: writerProjection.documentId,
+    execSql,
     operation: "link",
     resolveProjectionUserKey,
     targetContainerId: siblingProjection.containerId,
@@ -184,6 +192,7 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
       (bundle) => bundle.manifestHash,
     ),
   ).toEqual([rootManifestHash, siblingManifestHash]);
+  close();
 });
 
 test("relinkRemoteDocument rejects bad unlink target container signatures before sending", async () => {
@@ -218,8 +227,8 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
     author,
     containerProjection: projection,
     documentId: "document-remote-unlink",
-    resolveProjectionUserKey,
     targetSecretKey: keyPair.secretKey,
+    trustedLocalProjection: true,
   });
   const createdResponse = createResponse(created.plan);
   const initialWriterProjection: DocumentWriterProjectionResponse = {
@@ -232,9 +241,9 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
   const linked = await buildMaterializedDocumentLinkSetMutationPlan({
     author,
     operation: "link",
-    resolveProjectionUserKey,
     targetContainerProjection: siblingProjection,
     targetSecretKey: keyPair.secretKey,
+    trustedLocalProjection: true,
     writerProjection: initialWriterProjection,
   });
   const linkResponse = await createLinkSetResponseFromRequest(
@@ -263,6 +272,9 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
   rotationDocument.getText("text").update("rotation state");
   rotationDocument.commit();
   let unlinkCalled = false;
+  const { close, execSql } = await createTestExecSql(
+    "bad-unlink-target-signature",
+  );
 
   await expect(
     relinkRemoteDocument({
@@ -286,6 +298,7 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
       },
       author,
       documentId: linkedWriterProjection.documentId,
+      execSql,
       operation: "unlink",
       resolveProjectionUserKey,
       rotationSnapshot: exportFullHistorySnapshot(rotationDocument),
@@ -296,4 +309,5 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
     "Document link-set target container projection verification failed",
   );
   expect(unlinkCalled).toBe(false);
+  close();
 });

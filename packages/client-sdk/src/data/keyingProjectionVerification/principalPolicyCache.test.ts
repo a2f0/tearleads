@@ -10,6 +10,7 @@ import {
   referencedPrincipalStateFromBundle,
   referencedPrincipalStateFromPolicyState,
 } from "../../../test/helpers/policyCacheFixtures";
+import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
@@ -139,6 +140,46 @@ test("filterUncachedPrincipalPolicyReferences treats an in-memory cache hit as c
     });
 
     expect(uncached).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+test("filterUncachedPrincipalPolicyReferences re-warms a cache behind the durable pin", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-cache-behind-pin",
+  );
+  try {
+    const { bundle: olderBundle } = await createPrincipalPolicyBundle();
+    const { bundle: newerBundle } =
+      await createSuccessorPrincipalPolicyBundle();
+    const reference = referencedPrincipalStateFromBundle(olderBundle);
+    await savePrincipalPolicyBundle(
+      execSql,
+      olderBundle,
+      "2026-04-08T00:00:00.000Z",
+    );
+    await loadPrincipalPolicyCheckpoint(execSql, "group", "group-1");
+    await execSql(
+      `INSERT INTO principal_policy_checkpoints
+         (principal_type, principal_id, version, state_hash, updated_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        "group",
+        "group-1",
+        newerBundle.currentState.version,
+        newerBundle.currentState.stateHash,
+        "2026-04-08T00:01:00.000Z",
+      ],
+    );
+
+    await expect(
+      filterUncachedPrincipalPolicyReferences({
+        execSql,
+        principalPolicyCache: EMPTY_CACHE,
+        references: [reference],
+      }),
+    ).resolves.toEqual([reference]);
   } finally {
     close();
   }

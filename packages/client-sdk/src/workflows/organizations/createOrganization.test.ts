@@ -400,6 +400,11 @@ test("createOrganization returns null when the server rejects the request", asyn
     apiClient: {
       createOrganization: async () => null,
     },
+    dbClient: {
+      exec: async () => {
+        throw new Error("Unexpected database access for a rejected request");
+      },
+    },
     encapsulationKeyPair,
     signingKeyPair,
     userId: crypto.randomUUID(),

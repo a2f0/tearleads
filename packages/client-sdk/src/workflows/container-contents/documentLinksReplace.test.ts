@@ -75,6 +75,7 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
       author,
       containerProjection: contactsProjection,
       documentId: "containerContents-replaced-document",
+      execSql,
       resolveProjectionUserKey,
       targetSecretKey: keyPair.secretKey,
     });
@@ -88,6 +89,7 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
     };
     const extraLink = await buildMaterializedDocumentLinkSetMutationPlan({
       author,
+      execSql,
       operation: "link",
       resolveProjectionUserKey,
       targetContainerProjection: extraProjection,

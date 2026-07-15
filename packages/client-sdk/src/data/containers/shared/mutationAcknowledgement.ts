@@ -1,0 +1,197 @@
+import {
+  type AccessEvent,
+  type AccessManifest,
+  accessManifestCheckpointFromManifest,
+  type ContainerAccessManifestState,
+  type ContainerKekRecipientTarget,
+  type ContainerKeyEpoch,
+  type ContainerKeyWrap,
+  computeContainerKekRecipientTargetHash,
+  computeContainerKeyEpochHash,
+  serializeKeyingCanonicalJson,
+} from "@tearleads/crypto";
+import type { ContainerMutationResponse } from "@tearleads/validators/response";
+import { readCanonicalJson } from "../../keyingCanonicalJson";
+import {
+  advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
+  type LocallyAcknowledgedAccessManifestHead,
+} from "../../persistence/locallyAcknowledgedCheckpointPersistence";
+import type { ExecSql } from "../../sqlite/sqlSchema";
+
+interface AuthoredContainerMutationHead {
+  readonly body: object;
+  readonly containerId: string;
+  readonly event: AccessEvent;
+  readonly eventHash: string;
+  readonly keyEpoch: ContainerKeyEpoch;
+  readonly manifest: AccessManifest;
+  readonly manifestHash: string;
+  readonly state: ContainerAccessManifestState;
+  readonly wraps: readonly ContainerKeyWrap[];
+}
+
+function canonical(value: unknown, label: string): string {
+  return serializeKeyingCanonicalJson(readCanonicalJson(value, label));
+}
+
+function assertCanonicalMatch(input: {
+  readonly actual: unknown;
+  readonly expected: unknown;
+  readonly label: string;
+}): void {
+  if (
+    canonical(input.actual, `${input.label} response`) !==
+    canonical(input.expected, `${input.label} plan`)
+  ) {
+    throw new Error(`Container mutation response ${input.label} mismatch`);
+  }
+}
+
+function expectedRecipientTargets(
+  wraps: readonly ContainerKeyWrap[],
+): ContainerKekRecipientTarget[] {
+  return wraps
+    .map((wrap) => ({
+      recipientId: wrap.recipientId,
+      recipientKeyEpochId: wrap.recipientKeyEpochId,
+      recipientKeyFingerprint: wrap.recipientKeyFingerprint,
+      recipientKind: wrap.recipientKind,
+    }))
+    .sort((left, right) =>
+      canonical(left, "recipient target").localeCompare(
+        canonical(right, "recipient target"),
+      ),
+    );
+}
+
+function sortedCanonicalValues<T>(values: readonly T[], label: string): T[] {
+  return [...values].sort((left, right) =>
+    canonical(left, label).localeCompare(canonical(right, label)),
+  );
+}
+
+function assertResponseIdentity(
+  plan: AuthoredContainerMutationHead,
+  response: ContainerMutationResponse,
+): void {
+  if (
+    response.containerId !== plan.containerId ||
+    response.organizationId !== plan.state.organizationId ||
+    response.parentId !== plan.state.parentContainerId
+  ) {
+    throw new Error("Container mutation response object identity mismatch");
+  }
+  if (
+    response.manifestHead.epoch !== plan.state.epoch ||
+    response.manifestHead.manifestHash !== plan.manifestHash ||
+    response.accessManifest.manifestHash !== plan.manifestHash
+  ) {
+    throw new Error("Container mutation response manifest head mismatch");
+  }
+  if (
+    response.containerKek.containerId !== plan.containerId ||
+    response.containerKek.accessManifestHash !== plan.manifestHash ||
+    response.containerKek.containerKeyEpochId !== plan.keyEpoch.id ||
+    response.containerKek.containerKeyEpoch !== plan.keyEpoch.keyEpoch
+  ) {
+    throw new Error("Container mutation response KEK identity mismatch");
+  }
+}
+
+async function assertResponseContent(
+  plan: AuthoredContainerMutationHead,
+  response: ContainerMutationResponse,
+): Promise<void> {
+  assertCanonicalMatch({
+    actual: response.accessManifest.event.event,
+    expected: plan.event,
+    label: "event",
+  });
+  assertCanonicalMatch({
+    actual: response.accessManifest.event.body,
+    expected: plan.body,
+    label: "event body",
+  });
+  if (response.accessManifest.event.eventHash !== plan.eventHash) {
+    throw new Error("Container mutation response event hash mismatch");
+  }
+  assertCanonicalMatch({
+    actual: response.accessManifest.manifest,
+    expected: plan.manifest,
+    label: "manifest",
+  });
+  assertCanonicalMatch({
+    actual: response.accessManifest.state,
+    expected: plan.state,
+    label: "state",
+  });
+  assertCanonicalMatch({
+    actual: response.containerKek.keyEpoch,
+    expected: plan.keyEpoch,
+    label: "key epoch",
+  });
+  assertCanonicalMatch({
+    actual: sortedCanonicalValues(response.containerKek.wraps, "response wrap"),
+    expected: sortedCanonicalValues(plan.wraps, "planned wrap"),
+    label: "wraps",
+  });
+  const recipientTargets = expectedRecipientTargets(plan.wraps);
+  const responseTargets = [...response.containerKek.recipientTargets].sort(
+    (left, right) =>
+      canonical(left, "response recipient target").localeCompare(
+        canonical(right, "response recipient target"),
+      ),
+  );
+  assertCanonicalMatch({
+    actual: responseTargets,
+    expected: recipientTargets,
+    label: "recipient targets",
+  });
+  if (
+    response.containerKek.keyEpochHash !==
+      (await computeContainerKeyEpochHash(plan.keyEpoch)) ||
+    response.containerKek.keyTargetHash !==
+      (await computeContainerKekRecipientTargetHash(recipientTargets)) ||
+    response.containerKek.parentContainerKeyEpochId !==
+      plan.keyEpoch.parentContainerKeyEpochId
+  ) {
+    throw new Error("Container mutation response KEK commitment mismatch");
+  }
+  assertCanonicalMatch({
+    actual: response.referencedPrincipalHeads,
+    expected: plan.manifest.referencedPrincipalHeads,
+    label: "referenced principal heads",
+  });
+}
+
+export async function locallyAcknowledgedContainerMutationHead(input: {
+  readonly plan: AuthoredContainerMutationHead;
+  readonly response: ContainerMutationResponse;
+}): Promise<LocallyAcknowledgedAccessManifestHead> {
+  assertResponseIdentity(input.plan, input.response);
+  await assertResponseContent(input.plan, input.response);
+  return {
+    checkpoint: accessManifestCheckpointFromManifest({
+      manifest: input.plan.manifest,
+      manifestHash: input.plan.manifestHash,
+    }),
+    previousManifestHash: input.plan.manifest.previousManifestHash,
+  };
+}
+
+/** Correlates an API acknowledgement to the locally signed plan before pinning. */
+export async function acknowledgeContainerMutation(input: {
+  readonly execSql: ExecSql;
+  readonly plan: AuthoredContainerMutationHead;
+  readonly response: ContainerMutationResponse;
+}): Promise<void> {
+  await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+    execSql: input.execSql,
+    heads: [
+      await locallyAcknowledgedContainerMutationHead({
+        plan: input.plan,
+        response: input.response,
+      }),
+    ],
+  });
+}

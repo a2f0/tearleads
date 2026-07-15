@@ -4,13 +4,9 @@ import {
   shareRemoteContainerWithGroup,
 } from "@tearleads/client-sdk";
 import {
-  type AccessEvent,
   type ContainerGrantAccessEventBody,
-  type ContainerKeyEpoch,
   type ContainerKeyWrap,
   type ContainerUserRecipientKey,
-  computeAccessEventHash,
-  computeContainerKeyEpochHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   type KeyingCanonicalJson,
@@ -21,6 +17,7 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
   createAuthor,
@@ -37,6 +34,20 @@ import {
 import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 
+async function withTestExecSql<T>(
+  name: string,
+  operation: (
+    execSql: Awaited<ReturnType<typeof createTestExecSql>>["execSql"],
+  ) => Promise<T>,
+): Promise<T> {
+  const { close, execSql } = await createTestExecSql(name);
+  try {
+    return await operation(execSql);
+  } finally {
+    close();
+  }
+}
+
 test("shareRemoteContainer rejects tampered projected container state before sending", async () => {
   const parent = await createParentProjection();
   const { author } = await createAuthor({
@@ -44,6 +55,7 @@ test("shareRemoteContainer rejects tampered projected container state before sen
     userId: parent.userId,
   });
   const recipientKeyPair = generateKemSeedAndKeyPair();
+  const database = await createTestExecSql("container-share-tampered-state");
   let shareCalled = false;
 
   await expect(
@@ -67,12 +79,14 @@ test("shareRemoteContainer rejects tampered projected container state before sen
       },
       author,
       containerId: parent.projection.containerId,
+      execSql: database.execSql,
       recipientEncapsulationPublicKey: recipientKeyPair.publicKey,
       recipientUserId: "user-2",
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
       targetSecretKey: parent.secretKey,
     }),
   ).rejects.toThrow("Container writer projection path[0] state mismatch");
+  database.close();
   expect(shareCalled).toBe(false);
 });
 
@@ -85,6 +99,9 @@ test("shareRemoteContainer rejects bad previous projection signatures before sen
   const recipientKeyPair = generateKemSeedAndKeyPair();
   const tamperedProjection = tamperFirstProjectionEventSignature(
     parent.projection,
+  );
+  const database = await createTestExecSql(
+    "container-share-tampered-signature",
   );
   let shareCalled = false;
 
@@ -100,6 +117,7 @@ test("shareRemoteContainer rejects bad previous projection signatures before sen
       },
       author,
       containerId: parent.projection.containerId,
+      execSql: database.execSql,
       recipientEncapsulationPublicKey: recipientKeyPair.publicKey,
       recipientUserId: "user-2",
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
@@ -108,6 +126,7 @@ test("shareRemoteContainer rejects bad previous projection signatures before sen
   ).rejects.toThrow(
     "Container writer projection path[0] signature verification failed",
   );
+  database.close();
   expect(shareCalled).toBe(false);
 });
 
@@ -118,6 +137,7 @@ test("shareRemoteContainer includes existing direct user recipient keys", async 
     userId: parent.userId,
   });
   const recipientKeyPair = generateKemSeedAndKeyPair();
+  const database = await createTestExecSql("container-share-user");
   const submittedRequests: ContainerMutationRequest[] = [];
 
   const shared = await shareRemoteContainer({
@@ -126,52 +146,28 @@ test("shareRemoteContainer includes existing direct user recipient keys", async 
       getContainerWriterProjection: async () => parent.projection,
       shareContainer: async (_containerId, request) => {
         submittedRequests.push(request);
-        const event = request.event as unknown as AccessEvent;
-        const keyEpoch = request.keyEpoch as unknown as ContainerKeyEpoch;
-        const previousKek = parent.projection.containerKeks[0];
-        if (!previousKek) {
-          throw new Error("Expected parent projection KEK");
-        }
-
+        const response = await createMutationResponseFromRequest(request);
         return {
-          containerId: parent.projection.containerId,
-          createdAt: "2026-05-05T00:00:00.000Z",
-          organizationId: parent.projection.organizationId,
-          parentId: null,
-          updatedAt: "2026-05-05T00:00:00.000Z",
-          manifestHead: {
-            epoch: 2,
-            manifestHash: request.expectedManifestHash,
-          },
-          accessManifest: {
-            event: {
-              event: request.event,
-              body: request.body,
-              eventHash: await computeAccessEventHash(event),
-            },
-            manifest: request.manifest,
-            manifestHash: request.expectedManifestHash,
-            state: {},
-          },
+          ...response,
           containerKek: {
-            ...previousKek,
-            accessManifestHash: request.expectedManifestHash,
-            keyEpoch: request.keyEpoch,
-            keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
-            wraps: request.wraps,
+            ...response.containerKek,
+            // Postgres returns wraps in recipient-key order, which need not
+            // match the sender's semantically equivalent request order.
+            wraps: [...response.containerKek.wraps].reverse(),
           },
-          referencedPrincipalHeads: [],
         };
       },
     },
     author,
     containerId: parent.projection.containerId,
+    execSql: database.execSql,
     recipientEncapsulationPublicKey: recipientKeyPair.publicKey,
     recipientUserId: "user-2",
     resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
     signedAt: SIGNED_AT,
     targetSecretKey: parent.secretKey,
   });
+  database.close();
 
   expect(shared).not.toBeNull();
   if (!shared) {
@@ -268,38 +264,43 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
   const groupPolicy = await policyBundleFromInitialRequest(groupPolicyRequest);
   const submittedRequests: ContainerMutationRequest[] = [];
 
-  const shared = await shareRemoteContainerWithGroup({
-    accessLevel: "read",
-    apiClient: {
-      getContainerWriterProjection: async () => parent.projection,
-      getCurrentPrincipalPolicy: async (principalType, principalId) => {
-        expect(principalType).toBe("group");
-        expect(principalId).toBe(groupId);
-        return groupPolicy;
+  const shared = await withTestExecSql("container-group-share", (execSql) =>
+    shareRemoteContainerWithGroup({
+      accessLevel: "read",
+      apiClient: {
+        getContainerWriterProjection: async () => parent.projection,
+        getCurrentPrincipalPolicy: async (principalType, principalId) => {
+          expect(principalType).toBe("group");
+          expect(principalId).toBe(groupId);
+          return groupPolicy;
+        },
+        getEncapsulationKey: async (userId) => {
+          expect(userId).toBe(groupSignerUserId);
+          return {
+            userId: groupSignerUserId,
+            signingPublicKey: bytesToBase64(
+              groupSigningKeyPair.signingPublicKey,
+            ),
+            signingKeyFingerprint: groupSigningFingerprint,
+            encapsulationPublicKey: bytesToBase64(
+              groupEncapsulationKeyPair.publicKey,
+            ),
+          };
+        },
+        shareContainer: async (_containerId, request) => {
+          submittedRequests.push(request);
+          return createMutationResponseFromRequest(request);
+        },
       },
-      getEncapsulationKey: async (userId) => {
-        expect(userId).toBe(groupSignerUserId);
-        return {
-          userId: groupSignerUserId,
-          signingPublicKey: bytesToBase64(groupSigningKeyPair.signingPublicKey),
-          signingKeyFingerprint: groupSigningFingerprint,
-          encapsulationPublicKey: bytesToBase64(
-            groupEncapsulationKeyPair.publicKey,
-          ),
-        };
-      },
-      shareContainer: async (_containerId, request) => {
-        submittedRequests.push(request);
-        return createMutationResponseFromRequest(request);
-      },
-    },
-    author,
-    containerId: parent.projection.containerId,
-    recipientGroupId: groupId,
-    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-    signedAt: SIGNED_AT,
-    targetSecretKey: parent.secretKey,
-  });
+      author,
+      containerId: parent.projection.containerId,
+      execSql,
+      recipientGroupId: groupId,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      signedAt: SIGNED_AT,
+      targetSecretKey: parent.secretKey,
+    }),
+  );
 
   expect(shared).not.toBeNull();
   const submittedRequest = submittedRequests[0];
@@ -376,42 +377,49 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
   const groupPolicy = await policyBundleFromInitialRequest(groupPolicyRequest);
   const submittedRequests: ContainerMutationRequest[] = [];
 
-  const shared = await shareRemoteContainerWithGroup({
-    accessLevel: "read",
-    apiClient: {
-      getContainerWriterProjection: async () => parent.projection,
-      getCurrentPrincipalPolicy: async (principalType, principalId) => {
-        if (principalType === "organization") {
-          expect(principalId).toBe(parent.projection.organizationId);
-          return organizationPolicy;
-        }
+  const shared = await withTestExecSql(
+    "container-empty-group-share",
+    (execSql) =>
+      shareRemoteContainerWithGroup({
+        accessLevel: "read",
+        apiClient: {
+          getContainerWriterProjection: async () => parent.projection,
+          getCurrentPrincipalPolicy: async (principalType, principalId) => {
+            if (principalType === "organization") {
+              expect(principalId).toBe(parent.projection.organizationId);
+              return organizationPolicy;
+            }
 
-        expect(principalId).toBe(groupId);
-        return groupPolicy;
-      },
-      getEncapsulationKey: async (userId) => {
-        expect(userId).toBe(groupSignerUserId);
-        return {
-          userId: groupSignerUserId,
-          signingPublicKey: bytesToBase64(groupSigningKeyPair.signingPublicKey),
-          signingKeyFingerprint: groupSigningFingerprint,
-          encapsulationPublicKey: bytesToBase64(
-            groupEncapsulationKeyPair.publicKey,
-          ),
-        };
-      },
-      shareContainer: async (_containerId, request) => {
-        submittedRequests.push(request);
-        return createMutationResponseFromRequest(request);
-      },
-    },
-    author,
-    containerId: parent.projection.containerId,
-    recipientGroupId: groupId,
-    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-    signedAt: SIGNED_AT,
-    targetSecretKey: parent.secretKey,
-  });
+            expect(principalId).toBe(groupId);
+            return groupPolicy;
+          },
+          getEncapsulationKey: async (userId) => {
+            expect(userId).toBe(groupSignerUserId);
+            return {
+              userId: groupSignerUserId,
+              signingPublicKey: bytesToBase64(
+                groupSigningKeyPair.signingPublicKey,
+              ),
+              signingKeyFingerprint: groupSigningFingerprint,
+              encapsulationPublicKey: bytesToBase64(
+                groupEncapsulationKeyPair.publicKey,
+              ),
+            };
+          },
+          shareContainer: async (_containerId, request) => {
+            submittedRequests.push(request);
+            return createMutationResponseFromRequest(request);
+          },
+        },
+        author,
+        containerId: parent.projection.containerId,
+        execSql,
+        recipientGroupId: groupId,
+        resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+        signedAt: SIGNED_AT,
+        targetSecretKey: parent.secretKey,
+      }),
+  );
 
   expect(shared).not.toBeNull();
   expect(groupPolicy.currentProjection).toEqual([]);

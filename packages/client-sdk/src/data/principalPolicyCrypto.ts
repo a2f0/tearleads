@@ -13,7 +13,6 @@ interface PrincipalPolicyResolutionContext {
     string,
     ReadonlyArray<PrincipalPolicyBundleResponse>
   >;
-  bundlesByPrincipalKey: ReadonlyMap<string, PrincipalPolicyBundleResponse>;
   resolvedPrincipalSecretKeys: Map<string, Uint8Array>;
 }
 
@@ -50,19 +49,12 @@ async function createPrincipalPolicyResolutionContext(
   execSql: ExecSql,
 ): Promise<PrincipalPolicyResolutionContext> {
   const bundles = await loadAllPrincipalPolicyBundles(execSql);
-  const bundlesByPrincipalKey = new Map<
-    string,
-    PrincipalPolicyBundleResponse
-  >();
   const bundlesByKeyFingerprint = new Map<
     string,
     PrincipalPolicyBundleResponse[]
   >();
 
   for (const bundle of bundles) {
-    const principalKey = principalBundleKey(bundle.currentState);
-    bundlesByPrincipalKey.set(principalKey, bundle);
-
     const matchingBundles =
       bundlesByKeyFingerprint.get(bundle.currentState.keyFingerprint) ?? [];
     matchingBundles.push(bundle);
@@ -74,9 +66,54 @@ async function createPrincipalPolicyResolutionContext(
 
   return {
     bundlesByKeyFingerprint,
-    bundlesByPrincipalKey,
     resolvedPrincipalSecretKeys: new Map(),
   };
+}
+
+async function unwrapThroughNestedGroup(input: {
+  context: PrincipalPolicyResolutionContext;
+  memberEnvelopeEntries: RecipientEntry[];
+  memberEnvelopes: ReadonlyArray<PrincipalMemberEnvelopeResponse>;
+  nextVisitingPrincipalKeys: Set<string>;
+  policyEpochKey: string;
+  secretKey: Uint8Array;
+}): Promise<Uint8Array | null> {
+  for (const memberEnvelope of input.memberEnvelopes) {
+    if (memberEnvelope.memberPrincipalType !== "group") {
+      continue;
+    }
+    const nestedBundles =
+      input.context.bundlesByKeyFingerprint.get(
+        memberEnvelope.memberKeyFingerprint,
+      ) ?? [];
+    for (const nestedBundle of nestedBundles) {
+      if (
+        nestedBundle.currentState.principalType !== "group" ||
+        nestedBundle.currentState.principalId !==
+          memberEnvelope.memberPrincipalId
+      ) {
+        continue;
+      }
+      try {
+        const nestedSecretKey = await unwrapPrincipalSecretKey(
+          nestedBundle,
+          input.secretKey,
+          input.context,
+          input.nextVisitingPrincipalKeys,
+        );
+        const resolvedSecretKey = await unwrapDek(
+          input.memberEnvelopeEntries,
+          nestedSecretKey,
+        );
+        input.context.resolvedPrincipalSecretKeys.set(
+          input.policyEpochKey,
+          resolvedSecretKey,
+        );
+        return resolvedSecretKey;
+      } catch {}
+    }
+  }
+  return null;
 }
 
 async function unwrapPrincipalSecretKey(
@@ -86,59 +123,39 @@ async function unwrapPrincipalSecretKey(
   visitingPrincipalKeys: Set<string>,
 ): Promise<Uint8Array> {
   const principalKey = principalBundleKey(bundle.currentState);
+  const policyEpochKey = `${principalKey}:${bundle.currentState.stateHash}`;
   const cachedSecretKey =
-    context.resolvedPrincipalSecretKeys.get(principalKey) ?? null;
+    context.resolvedPrincipalSecretKeys.get(policyEpochKey) ?? null;
 
   if (cachedSecretKey) {
     return cachedSecretKey;
   }
 
-  if (visitingPrincipalKeys.has(principalKey)) {
+  if (visitingPrincipalKeys.has(policyEpochKey)) {
     throw new Error(`Principal policy cycle detected for ${principalKey}`);
   }
 
   const nextVisitingPrincipalKeys = new Set(visitingPrincipalKeys);
-  nextVisitingPrincipalKeys.add(principalKey);
+  nextVisitingPrincipalKeys.add(policyEpochKey);
   const memberEnvelopeEntries = toMemberEnvelopeEntries(
     bundle.currentMemberEnvelopes.envelopes,
   );
 
   try {
     const resolvedSecretKey = await unwrapDek(memberEnvelopeEntries, secretKey);
-    context.resolvedPrincipalSecretKeys.set(principalKey, resolvedSecretKey);
+    context.resolvedPrincipalSecretKeys.set(policyEpochKey, resolvedSecretKey);
     return resolvedSecretKey;
   } catch {
-    for (const memberEnvelope of bundle.currentMemberEnvelopes.envelopes) {
-      if (memberEnvelope.memberPrincipalType !== "group") {
-        continue;
-      }
-
-      const nestedBundle = context.bundlesByPrincipalKey.get(
-        `group:${memberEnvelope.memberPrincipalId}`,
-      );
-
-      if (!nestedBundle) {
-        continue;
-      }
-
-      try {
-        const nestedSecretKey = await unwrapPrincipalSecretKey(
-          nestedBundle,
-          secretKey,
-          context,
-          nextVisitingPrincipalKeys,
-        );
-        const resolvedSecretKey = await unwrapDek(
-          memberEnvelopeEntries,
-          nestedSecretKey,
-        );
-
-        context.resolvedPrincipalSecretKeys.set(
-          principalKey,
-          resolvedSecretKey,
-        );
-        return resolvedSecretKey;
-      } catch {}
+    const nestedSecretKey = await unwrapThroughNestedGroup({
+      context,
+      memberEnvelopeEntries,
+      memberEnvelopes: bundle.currentMemberEnvelopes.envelopes,
+      nextVisitingPrincipalKeys,
+      policyEpochKey,
+      secretKey,
+    });
+    if (nestedSecretKey) {
+      return nestedSecretKey;
     }
   }
 

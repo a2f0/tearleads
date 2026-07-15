@@ -25,6 +25,7 @@ import {
   resolveContainerKekEpochId,
   signContainerMutationEvent,
 } from "../../../data/containers/shared/events";
+import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
 import {
   principalPolicyRequestRecord,
   uniquePrincipalPolicies,
@@ -386,7 +387,7 @@ export async function moveRemoteContainer(input: {
   containerId: string;
   destinationParentContainerId: string;
   eventId?: string | undefined;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
@@ -428,6 +429,12 @@ export async function moveRemoteContainer(input: {
   if (!response) {
     return null;
   }
+
+  await acknowledgeContainerMutation({
+    execSql: input.execSql,
+    plan: materializedPlan.plan,
+    response,
+  });
 
   return {
     containerKey: materializedPlan.containerKey,

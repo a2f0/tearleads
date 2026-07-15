@@ -1,19 +1,16 @@
 import { afterAll } from "bun:test";
 import {
-  type AccessEvent,
-  computeAccessEventHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { isRegistrationRequest } from "@tearleads/validators/request";
 import type {
   DestroySessionResponse,
-  DocumentContentKeyTargetEnvelopeResponse,
   EncapsulationKeyResponse,
   ListSessionsResponse,
   OrganizationBillingResponse,
-  RegistrationResponse,
   VerifyResponse,
 } from "@tearleads/validators/response";
 import { sql } from "drizzle-orm";
@@ -155,249 +152,12 @@ function getMockEncapsulationKeyResponse(
   return response;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0;
-}
-
-function isHashString(value: unknown): value is string {
-  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
-}
-
-function isPositiveInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value > 0;
-}
-
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function remainingTimeoutMs(deadline: number): number {
   return Math.max(0, deadline - Date.now());
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every(isNonEmptyString);
-}
-
-function isAccessEventType(value: unknown): value is AccessEvent["eventType"] {
-  return (
-    value === "attachment.bind" ||
-    value === "attachment.detach" ||
-    value === "container.create" ||
-    value === "container.grant" ||
-    value === "container.move" ||
-    value === "container.rekey" ||
-    value === "container.revoke" ||
-    value === "document.link" ||
-    value === "document.unlink"
-  );
-}
-
-function isAccessObjectKind(
-  value: unknown,
-): value is AccessEvent["objectKind"] {
-  return value === "blob" || value === "container" || value === "document";
-}
-
-function isAccessEvent(value: unknown): value is AccessEvent {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  const dependencyManifestHashes = Reflect.get(
-    value,
-    "dependencyManifestHashes",
-  );
-  const previousManifestHash = Reflect.get(value, "previousManifestHash");
-
-  return (
-    Reflect.get(value, "version") === 1 &&
-    isNonEmptyString(Reflect.get(value, "eventId")) &&
-    isAccessEventType(Reflect.get(value, "eventType")) &&
-    isAccessObjectKind(Reflect.get(value, "objectKind")) &&
-    isNonEmptyString(Reflect.get(value, "objectId")) &&
-    isNonEmptyString(Reflect.get(value, "organizationId")) &&
-    (previousManifestHash === null || isHashString(previousManifestHash)) &&
-    isStringArray(dependencyManifestHashes) &&
-    dependencyManifestHashes.every(isHashString) &&
-    isHashString(Reflect.get(value, "bodyHash")) &&
-    isNonEmptyString(Reflect.get(value, "signerUserId")) &&
-    isNonEmptyString(Reflect.get(value, "signerDeviceId")) &&
-    isHashString(Reflect.get(value, "signerKeyFingerprint")) &&
-    isNonEmptyString(Reflect.get(value, "signedAt")) &&
-    isNonEmptyString(Reflect.get(value, "signature"))
-  );
-}
-
-function isDocumentContentKeyTargetEnvelopeResponse(
-  value: unknown,
-): value is DocumentContentKeyTargetEnvelopeResponse {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  const wrappingMetadata = Reflect.get(value, "wrappingMetadata");
-
-  return (
-    isNonEmptyString(Reflect.get(value, "containerId")) &&
-    isHashString(Reflect.get(value, "containerManifestHash")) &&
-    isNonEmptyString(Reflect.get(value, "containerKeyEpochId")) &&
-    isPositiveInteger(Reflect.get(value, "containerKeyEpoch")) &&
-    isNonEmptyString(Reflect.get(value, "wrappedKey")) &&
-    isRecord(wrappingMetadata)
-  );
-}
-
-function createSyntheticRootMetadataDocumentResponse(
-  rootMetadataDocumentId: string,
-): RegistrationResponse["rootMetadataDocument"] {
-  const rootContainerId = crypto.randomUUID();
-  const manifestHash = randomHex(32);
-  const targetHash = randomHex(32);
-  const containerKeyEpochId = crypto.randomUUID();
-
-  return {
-    id: rootMetadataDocumentId,
-    createdAt: new Date().toISOString(),
-    accessManifest: {
-      event: {
-        event: { eventType: "document.link" },
-        body: { eventType: "document.link" },
-        eventHash: randomHex(32),
-      },
-      manifest: { objectKind: "document" },
-      manifestHash,
-      state: { documentId: rootMetadataDocumentId },
-    },
-    contentKeyBundle: {
-      documentId: rootMetadataDocumentId,
-      contentKeyEpoch: 1,
-      linkSetManifestHash: manifestHash,
-      targetHash,
-      targets: [
-        {
-          containerId: rootContainerId,
-          containerManifestHash: randomHex(32),
-          containerKeyEpochId,
-          containerKeyEpoch: 1,
-          wrappedKey: randomHex(32),
-          wrappingMetadata: { suite: "test" },
-        },
-      ],
-    },
-    documentKekTargets: {
-      documentId: rootMetadataDocumentId,
-      linkSetManifestHash: manifestHash,
-      linkedContainerManifestHashes: [randomHex(32)],
-      linkedContainerKeyEpochIds: [containerKeyEpochId],
-      targets: [{ containerId: rootContainerId }],
-      documentKeyTargetHash: targetHash,
-    },
-  };
-}
-
-async function createRootMetadataDocumentResponse(
-  requestBody: unknown,
-): Promise<RegistrationResponse["rootMetadataDocument"]> {
-  if (!isRecord(requestBody)) {
-    return createSyntheticRootMetadataDocumentResponse(crypto.randomUUID());
-  }
-
-  const documentRequest = Reflect.get(
-    requestBody,
-    "initialRootMetadataDocument",
-  );
-  if (!isRecord(documentRequest)) {
-    return createSyntheticRootMetadataDocumentResponse(crypto.randomUUID());
-  }
-
-  const event = Reflect.get(documentRequest, "event");
-  const body = Reflect.get(documentRequest, "body");
-  const manifest = Reflect.get(documentRequest, "manifest");
-  const contentKeyBundle = Reflect.get(documentRequest, "contentKeyBundle");
-  if (
-    !isRecord(event) ||
-    !isRecord(body) ||
-    !isRecord(manifest) ||
-    !isRecord(contentKeyBundle)
-  ) {
-    return createSyntheticRootMetadataDocumentResponse(crypto.randomUUID());
-  }
-
-  const containerId = Reflect.get(body, "containerId");
-  const manifestHash = Reflect.get(documentRequest, "expectedManifestHash");
-  const targetHash = Reflect.get(contentKeyBundle, "targetHash");
-  const contentKeyEpoch = Reflect.get(contentKeyBundle, "contentKeyEpoch");
-  const rawTargets = Reflect.get(contentKeyBundle, "targets");
-  const targets = Array.isArray(rawTargets)
-    ? rawTargets.filter(isDocumentContentKeyTargetEnvelopeResponse)
-    : [];
-  if (
-    !isAccessEvent(event) ||
-    typeof containerId !== "string" ||
-    typeof manifestHash !== "string" ||
-    typeof targetHash !== "string" ||
-    typeof contentKeyEpoch !== "number" ||
-    targets.length === 0
-  ) {
-    return createSyntheticRootMetadataDocumentResponse(crypto.randomUUID());
-  }
-
-  const documentId = event.objectId;
-  const organizationId = event.organizationId;
-  const eventHash = await computeAccessEventHash(event);
-  const kekTargets = targets.map((target) => ({
-    containerId: target.containerId,
-    containerManifestHash: target.containerManifestHash,
-    containerKeyEpochId: target.containerKeyEpochId,
-    containerKeyEpoch: target.containerKeyEpoch,
-  }));
-
-  return {
-    id: documentId,
-    createdAt: new Date().toISOString(),
-    accessManifest: {
-      event: {
-        event,
-        body,
-        eventHash,
-      },
-      manifest,
-      manifestHash,
-      state: {
-        version: 1,
-        documentId,
-        organizationId,
-        epoch: 1,
-        previousManifestHash: null,
-        eventHash,
-        linkedContainerIds: [containerId],
-      },
-    },
-    contentKeyBundle: {
-      documentId,
-      contentKeyEpoch,
-      linkSetManifestHash: manifestHash,
-      targetHash,
-      targets,
-    },
-    documentKekTargets: {
-      documentId,
-      linkSetManifestHash: manifestHash,
-      linkedContainerManifestHashes: kekTargets.map((target) =>
-        String(target.containerManifestHash),
-      ),
-      linkedContainerKeyEpochIds: kekTargets.map((target) =>
-        String(target.containerKeyEpochId),
-      ),
-      targets: kekTargets,
-      documentKeyTargetHash: targetHash,
-    },
-  };
 }
 
 const emptyListResponse = () =>
@@ -413,31 +173,18 @@ const server = setupServer(
     eventRouter.handleConnection(client as MswSocketClient);
   }),
   http.post("http://localhost:3001/auth/register", async ({ request }) => {
-    const requestBody = await request.json().catch(() => null);
-    const rootMetadataDocument =
-      await createRootMetadataDocumentResponse(requestBody);
-    const rootMetadataDocumentId = rootMetadataDocument.id;
-    const rootContainerId = isRecord(requestBody)
-      ? Reflect.get(requestBody, "rootContainerId")
-      : null;
-    const context = {
-      organizationId: crypto.randomUUID(),
-      userId: crypto.randomUUID(),
-    };
-    mockAuthContext = context;
-    return HttpResponse.json<RegistrationResponse>({
-      userId: context.userId,
-      organizationId: context.organizationId,
-      rootContainerId:
-        typeof rootContainerId === "string"
-          ? rootContainerId
-          : crypto.randomUUID(),
-      rootMetadataDocumentId,
-      rootMetadataAccessEpoch: 1,
-      rootMetadataAccessStateHash: randomHex(32),
-      rootMetadataDocument,
-      challenge: randomHex(32),
-    });
+    const requestBody = await request
+      .clone()
+      .json()
+      .catch(() => null);
+    const response = await proxyRequestToApiApp(request);
+    if (response.ok && isRegistrationRequest(requestBody)) {
+      mockAuthContext = {
+        organizationId: requestBody.organizationId,
+        userId: requestBody.userId,
+      };
+    }
+    return response;
   }),
   http.post("http://localhost:3001/auth/challenge", () =>
     HttpResponse.json({ challenge: randomHex(32) }),

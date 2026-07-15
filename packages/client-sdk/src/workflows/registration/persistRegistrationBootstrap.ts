@@ -10,7 +10,10 @@ import {
   type StoredDocumentRecord,
   sqlDocumentsPersistence,
 } from "../../data/persistence/documents/documentsPersistence";
-import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
+import {
+  advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
+  type LocallyAcknowledgedAccessManifestHead,
+} from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import {
   createExecSql,
@@ -25,11 +28,15 @@ import {
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
   ROSTER_PROFILE_DOCUMENT_KIND,
 } from "../organizations/rosterProfileContainer";
+import { enqueueInitialContainerMetadataUpdate } from "./registrationBootstrapPendingUpdates";
+import { persistRegistrationPrincipalPolicies } from "./registrationPrincipalPolicyPersistence";
 
 export interface RegistrationBootstrapInput {
+  acknowledgedAccessHeads: readonly LocallyAcknowledgedAccessManifestHead[];
   containerId: string;
   initialAdminGroupPolicy: PrincipalPolicyBundleResponse;
   initialMemberGroupPolicy: PrincipalPolicyBundleResponse;
+  initialOrganizationPolicy: PrincipalPolicyBundleResponse;
   rootMetadataAccessEpoch: number;
   rootMetadataAccessStateHash: string;
   rootMetadataDocumentId: string;
@@ -141,25 +148,6 @@ export interface RegistrationBootstrapInput {
   organizationId: string;
   userId: string;
 }
-async function enqueueInitialContainerMetadataUpdate(
-  execSql: ExecSql,
-  containerId: string,
-  initialUpdate: Uint8Array,
-  initialUpdateCommitted: boolean | undefined,
-): Promise<void> {
-  if (initialUpdateCommitted === true) {
-    return;
-  }
-  const initialMetadataUpdate = createPendingUpdateFields(initialUpdate);
-  if (!initialMetadataUpdate) {
-    return;
-  }
-  await sqlContainerContentsPersistence.enqueuePendingUpdate(execSql, {
-    containerId,
-    ...initialMetadataUpdate,
-  });
-}
-
 async function persistRootContainerBootstrap(
   execSql: ExecSql,
   input: RegistrationBootstrapInput,
@@ -472,17 +460,16 @@ async function persistRegistrationBootstrapFromExecSql(
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await sqlContainerContentsPersistence.ensureSchema(lockedExecSql);
     await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
-    const updatedAt = new Date().toISOString();
-    await savePrincipalPolicyBundle(
-      lockedExecSql,
-      input.initialAdminGroupPolicy,
-      updatedAt,
-    );
-    await savePrincipalPolicyBundle(
-      lockedExecSql,
-      input.initialMemberGroupPolicy,
-      updatedAt,
-    );
+    await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+      execSql: lockedExecSql,
+      heads: input.acknowledgedAccessHeads,
+    });
+    await persistRegistrationPrincipalPolicies({
+      adminGroup: input.initialAdminGroupPolicy,
+      execSql: lockedExecSql,
+      memberGroup: input.initialMemberGroupPolicy,
+      organization: input.initialOrganizationPolicy,
+    });
     await persistRootContainerBootstrap(lockedExecSql, input);
     await persistRosterProfileContainerBootstrap(lockedExecSql, input);
     await persistRosterProfileDocumentBootstrap(lockedExecSql, input);

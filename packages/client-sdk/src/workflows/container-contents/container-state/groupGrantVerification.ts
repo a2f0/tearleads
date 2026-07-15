@@ -9,8 +9,9 @@ import {
 } from "../../../data/keyingProjectionVerification";
 import {
   principalPolicyBundleContainsReference,
-  referencedPrincipalPolicyKey,
+  principalPolicyCacheForVerifiedPolicies,
 } from "../../../data/keyingProjectionVerification/principalPolicyCache";
+import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
 import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
 import { loadVerifiedGroupSharePrincipalPolicy } from "../../containers";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
@@ -19,6 +20,49 @@ import { loadContainerWriterProjectionForState } from "./projectionCache";
 import type { ContainerWorkflowRuntime } from "./types";
 
 type GroupGrantAccessLevel = "read" | "write" | "admin";
+
+function projectionHasCurrentGroupGrant(input: {
+  accessLevel: GroupGrantAccessLevel;
+  expectedContainerId: string;
+  expectedOrganizationId: string;
+  groupId: string;
+  currentHead: ReferencedPrincipalHead;
+  projection: NonNullable<
+    Awaited<ReturnType<typeof loadContainerWriterProjectionForState>>
+  >;
+}): boolean {
+  const state = readContainerState(
+    getTargetContainerContext(input.projection).manifest,
+  );
+  return (
+    state.containerId === input.expectedContainerId &&
+    state.organizationId === input.expectedOrganizationId &&
+    state.directGrants.some(
+      (grant) =>
+        grant.subjectType === "group" &&
+        grant.subjectId === input.groupId &&
+        grant.accessLevel === input.accessLevel,
+    ) &&
+    state.referencedPrincipalHeads.some(
+      (head) =>
+        head.principalType === input.currentHead.principalType &&
+        head.principalId === input.currentHead.principalId &&
+        head.version === input.currentHead.version &&
+        head.keyEpoch === input.currentHead.keyEpoch &&
+        head.stateHash === input.currentHead.stateHash &&
+        head.keyFingerprint === input.currentHead.keyFingerprint,
+    )
+  );
+}
+
+async function saveDependencyBundles(
+  execSql: ContainerWorkflowRuntime["infra"]["execSql"],
+  bundles: readonly Parameters<typeof savePrincipalPolicyBundle>[1][],
+): Promise<void> {
+  for (const bundle of bundles) {
+    await savePrincipalPolicyBundle(execSql, bundle, new Date().toISOString());
+  }
+}
 
 export async function containerStateHasCurrentGroupGrant(input: {
   accessLevel: GroupGrantAccessLevel;
@@ -47,12 +91,14 @@ export async function containerStateHasCurrentGroupGrant(input: {
     return false;
   }
 
-  const { bundle, policy } = await loadVerifiedGroupSharePrincipalPolicy({
-    apiClient: input.runtime.apiClient,
-    execSql: input.runtime.infra.execSql,
-    groupId: input.groupId,
-    organizationId: input.expectedOrganizationId,
-  });
+  const { bundle, checkpointPolicies, dependencyBundles, policy } =
+    await loadVerifiedGroupSharePrincipalPolicy({
+      apiClient: input.runtime.apiClient,
+      deferCheckpointAdvance: true,
+      execSql: input.runtime.infra.execSql,
+      groupId: input.groupId,
+      organizationId: input.expectedOrganizationId,
+    });
   if (
     !principalPolicyBundleContainsReference(bundle, input.expectedGroupHead)
   ) {
@@ -66,39 +112,30 @@ export async function containerStateHasCurrentGroupGrant(input: {
     stateHash: policy.stateHash,
     keyFingerprint: policy.state.keyFingerprint,
   } satisfies ReferencedPrincipalHead;
+  await advanceKeyingCheckpointsAtomically({
+    access: [],
+    execSql: input.runtime.infra.execSql,
+    policies: checkpointPolicies,
+  });
+  await saveDependencyBundles(input.runtime.infra.execSql, dependencyBundles);
   await verifyContainerWriterProjection({
     execSql: input.runtime.infra.execSql,
-    principalPolicyCache: new Map([
-      [referencedPrincipalPolicyKey(currentHead), policy],
-    ]),
+    principalPolicyCache:
+      principalPolicyCacheForVerifiedPolicies(checkpointPolicies),
     projection,
     resolveUserKey: input.resolveProjectionUserKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
     ),
   });
-
-  const state = readContainerState(
-    getTargetContainerContext(projection).manifest,
-  );
-  const isCurrent =
-    state.containerId === input.expectedContainerId &&
-    state.organizationId === input.expectedOrganizationId &&
-    state.directGrants.some(
-      (grant) =>
-        grant.subjectType === "group" &&
-        grant.subjectId === input.groupId &&
-        grant.accessLevel === input.accessLevel,
-    ) &&
-    state.referencedPrincipalHeads.some(
-      (head) =>
-        head.principalType === currentHead.principalType &&
-        head.principalId === currentHead.principalId &&
-        head.version === currentHead.version &&
-        head.keyEpoch === currentHead.keyEpoch &&
-        head.stateHash === currentHead.stateHash &&
-        head.keyFingerprint === currentHead.keyFingerprint,
-    );
+  const isCurrent = projectionHasCurrentGroupGrant({
+    accessLevel: input.accessLevel,
+    currentHead,
+    expectedContainerId: input.expectedContainerId,
+    expectedOrganizationId: input.expectedOrganizationId,
+    groupId: input.groupId,
+    projection,
+  });
   if (isCurrent) {
     try {
       await savePrincipalPolicyBundle(

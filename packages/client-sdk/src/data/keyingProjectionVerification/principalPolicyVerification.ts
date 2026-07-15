@@ -1,20 +1,24 @@
 import {
+  KeyingVerificationError,
   type PrincipalPolicySignerPublicKey,
   type ReferencedPrincipalHead,
   toFingerprint,
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import {
-  loadPrincipalPolicyCheckpoint,
-  savePrincipalPolicyCheckpoint,
-} from "../persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
+import { principalPolicyHeadMeetsCheckpoint } from "../persistence/principalPolicyCheckpointSelection";
 import { loadPrincipalPolicyBundle } from "../persistence/principalPolicyPersistence";
 import {
-  verifyOrganizationAdminSignerUserIds,
+  organizationAdminSignerUserIds,
+  principalPolicyReferenceFromBundle,
+  verifyOrganizationAdminPolicy,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
 } from "../principalPolicyAdminSigners";
-import type { ExecSql } from "../sqlite/sqlSchema";
+import {
+  observePrincipalPolicy,
+  type ProjectionCheckpointContext,
+} from "./checkpointContext";
 import {
   filterUncachedPrincipalPolicyReferences,
   principalPolicyBundleStates,
@@ -73,21 +77,50 @@ async function collectPrincipalPolicySignerPublicKeys(input: {
 }
 
 async function loadOrganizationExternalAdminSignerUserIds(input: {
-  execSql?: ExecSql | undefined;
+  checkpointContext: ProjectionCheckpointContext;
   organizationId: string;
   resolveUserKey: ProjectionUserKeyResolver;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<string[]> {
-  if (!input.execSql) {
+  const execSql = input.checkpointContext.execSql;
+  if (!execSql) {
     return [];
   }
 
-  const bundle = await loadPrincipalPolicyBundle(
-    input.execSql,
+  let bundle = await loadPrincipalPolicyBundle(
+    execSql,
     "organization",
     input.organizationId,
   );
   if (!bundle) {
     return [];
+  }
+  let localCheckpoint = await loadPrincipalPolicyCheckpoint(
+    execSql,
+    "organization",
+    input.organizationId,
+  );
+  if (
+    !principalPolicyHeadMeetsCheckpoint(bundle.currentState, localCheckpoint) &&
+    input.warmReferencedPrincipalPolicies
+  ) {
+    await input.warmReferencedPrincipalPolicies({
+      organizationId: input.organizationId,
+      references: [principalPolicyReferenceFromBundle(bundle)],
+    });
+    bundle = await loadPrincipalPolicyBundle(
+      execSql,
+      "organization",
+      input.organizationId,
+    );
+    localCheckpoint = await loadPrincipalPolicyCheckpoint(
+      execSql,
+      "organization",
+      input.organizationId,
+    );
+    if (!bundle) {
+      return [];
+    }
   }
 
   try {
@@ -96,19 +129,27 @@ async function loadOrganizationExternalAdminSignerUserIds(input: {
       label: `Organization policy ${input.organizationId}`,
       resolveUserKey: input.resolveUserKey,
     });
-
-    return verifyOrganizationAdminSignerUserIds({
+    const verified = await verifyOrganizationAdminPolicy({
       bundle,
+      localCheckpoint,
       organizationId: input.organizationId,
       signerPublicKeys,
     });
-  } catch {
+    if (!verified.ok) {
+      throw verified.error;
+    }
+    observePrincipalPolicy(input.checkpointContext, verified.value);
+    return organizationAdminSignerUserIds(verified.value);
+  } catch (error) {
+    if (error instanceof KeyingVerificationError) {
+      throw error;
+    }
     return [];
   }
 }
 
 async function verifyReferencedPrincipalPolicy(input: {
-  execSql?: ExecSql | undefined;
+  checkpointContext: ProjectionCheckpointContext;
   organizationId: string;
   principalPolicyCache: PrincipalPolicyCache;
   reference: ReferencedPrincipalHead;
@@ -117,19 +158,31 @@ async function verifyReferencedPrincipalPolicy(input: {
 }): Promise<VerifiedPrincipalPolicy> {
   const cacheKey = referencedPrincipalPolicyKey(input.reference);
   const cachedPolicy = input.principalPolicyCache.get(cacheKey);
-  if (cachedPolicy) {
+  const execSql = input.checkpointContext.execSql;
+  const localCheckpoint = execSql
+    ? await loadPrincipalPolicyCheckpoint(
+        execSql,
+        input.reference.principalType,
+        input.reference.principalId,
+      )
+    : null;
+  if (
+    cachedPolicy &&
+    principalPolicyHeadMeetsCheckpoint(cachedPolicy, localCheckpoint)
+  ) {
+    observePrincipalPolicy(input.checkpointContext, cachedPolicy);
     return cachedPolicy;
   }
 
   const referenceLabel = principalPolicyReferenceLabel(input.reference);
-  if (!input.execSql) {
+  if (!execSql) {
     throw new Error(
       `Principal policy ${referenceLabel} requires a verified local cache`,
     );
   }
 
   let bundle = await loadPrincipalPolicyBundle(
-    input.execSql,
+    execSql,
     input.reference.principalType,
     input.reference.principalId,
   );
@@ -142,7 +195,7 @@ async function verifyReferencedPrincipalPolicy(input: {
       references: [input.reference],
     });
     bundle = await loadPrincipalPolicyBundle(
-      input.execSql,
+      execSql,
       input.reference.principalType,
       input.reference.principalId,
     );
@@ -156,45 +209,32 @@ async function verifyReferencedPrincipalPolicy(input: {
     label: `Principal policy ${referenceLabel}`,
     resolveUserKey: input.resolveUserKey,
   });
-  const localCheckpoint = await loadPrincipalPolicyCheckpoint(
-    input.execSql,
-    input.reference.principalType,
-    input.reference.principalId,
-  );
   const verified =
     await verifyPrincipalPolicyBundleWithExternalOrganizationAdmins({
       bundle,
       expectedReference: input.reference,
       loadExternalAdminSignerUserIds: () =>
         loadOrganizationExternalAdminSignerUserIds({
-          execSql: input.execSql,
+          checkpointContext: input.checkpointContext,
           organizationId: input.organizationId,
           resolveUserKey: input.resolveUserKey,
+          warmReferencedPrincipalPolicies:
+            input.warmReferencedPrincipalPolicies,
         }),
       localCheckpoint,
       signerPublicKeys,
     });
   if (!verified.ok) {
-    throw new Error(
-      `Principal policy ${referenceLabel} verification failed: ${verified.error.message}`,
-    );
+    throw verified.error;
   }
 
-  // Advance the anti-rollback pin only after the bundle verifies cleanly. The
-  // bundle carries its own state chain, so the crypto layer has already
-  // confirmed it extends `localCheckpoint` (or hard-failed on rollback /
-  // equivocation / stale predecessor).
-  await savePrincipalPolicyCheckpoint(
-    input.execSql,
-    verified.value.checkpoint,
-    new Date().toISOString(),
-  );
+  observePrincipalPolicy(input.checkpointContext, verified.value);
   input.principalPolicyCache.set(cacheKey, verified.value);
   return verified.value;
 }
 
 export async function collectReferencedPrincipalPolicies(input: {
-  execSql?: ExecSql | undefined;
+  checkpointContext: ProjectionCheckpointContext;
   organizationId: string;
   principalPolicyCache: PrincipalPolicyCache;
   references: readonly ReferencedPrincipalHead[];
@@ -210,9 +250,12 @@ export async function collectReferencedPrincipalPolicies(input: {
   // Warm every missing reference in one batched fetch before verifying, so a
   // path that references several uncached policies makes a single round of
   // requests rather than one per reference.
-  if (input.warmReferencedPrincipalPolicies && input.execSql) {
+  if (
+    input.warmReferencedPrincipalPolicies &&
+    input.checkpointContext.execSql
+  ) {
     const uncached = await filterUncachedPrincipalPolicyReferences({
-      execSql: input.execSql,
+      execSql: input.checkpointContext.execSql,
       principalPolicyCache: input.principalPolicyCache,
       references,
     });
@@ -227,7 +270,7 @@ export async function collectReferencedPrincipalPolicies(input: {
   return Promise.all(
     references.map((reference) =>
       verifyReferencedPrincipalPolicy({
-        execSql: input.execSql,
+        checkpointContext: input.checkpointContext,
         organizationId: input.organizationId,
         principalPolicyCache: input.principalPolicyCache,
         reference,

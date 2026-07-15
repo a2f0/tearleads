@@ -3,11 +3,11 @@ export { persistRegistrationBootstrap } from "./persistRegistrationBootstrap";
 export {
   buildInitialOrganizationPolicyRequest,
   type ProvisionedSystemContainerSpec,
-  principalPolicyBundleFromInitialGroupRequest,
   type RegisterIdentityInput,
   type RegistrationApi,
   registerIdentity,
 } from "./registerIdentity";
+export { principalPolicyBundleFromInitialGroupRequest } from "./registrationPrincipalPolicyPersistence";
 export {
   createInitialRootMetadataBootstrap,
   type InitialRootMetadataBootstrap,

@@ -60,8 +60,8 @@ async function createRemoteHistoryFixture() {
         ...vectors,
       }),
     ],
-    resolveProjectionUserKey: materialized.resolveProjectionUserKey,
     targetSecretKey: materialized.secretKey,
+    trustedLocalProjection: true,
     writerProjection: materialized.writerProjection,
   });
   const response = await createSyncResponse(remotePlan.plan, {

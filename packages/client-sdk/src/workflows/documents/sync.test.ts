@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import {
   type AccessEvent,
   CONTENT_RECORD_ENCRYPTION_SUITE,
@@ -14,7 +14,10 @@ import {
   getUpdateVersionVectors,
   importUpdates,
 } from "@tearleads/loro";
-import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
+import {
+  createContainerWriterProjectionFixture,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import {
   type DocumentSyncRequest,
   isDocumentSyncRequest,
@@ -37,6 +40,7 @@ import {
   createSyncResponse,
   projectionPathRefs,
 } from "../../../test/helpers/documentFixtures";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   buildMaterializedDocumentCreatePlan,
   buildMaterializedDocumentLinkSetMutationPlan,
@@ -47,6 +51,15 @@ import {
   hasDocumentUpdateEvent,
   syncRemoteDocument,
 } from "./sync";
+
+let execSql: ExecSql;
+let closeExecSql: () => void;
+
+beforeEach(async () => {
+  ({ close: closeExecSql, execSql } = await createTestExecSql("document-sync"));
+});
+
+afterEach(() => closeExecSql());
 
 interface ContentRecordFields {
   ciphertext?: unknown;
@@ -341,6 +354,7 @@ test("buildMaterializedDocumentSyncPlan rejects document writer projections with
     contentKey: crypto.getRandomValues(new Uint8Array(32)),
     documentId: "550e8400-e29b-41d4-a716-446655440099",
     eventId: "event-bad-document-signature",
+    execSql,
     resolveProjectionUserKey: async (userId) =>
       userId === author.signerUserId
         ? {
@@ -370,6 +384,7 @@ test("buildMaterializedDocumentSyncPlan rejects document writer projections with
   await expect(
     buildMaterializedDocumentSyncPlan({
       author,
+      execSql,
       localVersionVector: null,
       pendingUpdates: [createPendingUpdateRecord()],
       resolveProjectionUserKey: async (userId) =>
@@ -410,6 +425,7 @@ test("buildMaterializedDocumentSyncPlan rejects substituted KEK material before 
     contentKey: crypto.getRandomValues(new Uint8Array(32)),
     documentId: "550e8400-e29b-41d4-a716-446655440111",
     eventId: "event-substituted-kek-sync",
+    execSql,
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: parent.secretKey,
@@ -431,6 +447,7 @@ test("buildMaterializedDocumentSyncPlan rejects substituted KEK material before 
   await expect(
     buildMaterializedDocumentSyncPlan({
       author: parent.author,
+      execSql,
       localVersionVector: null,
       pendingUpdates: [createPendingUpdateRecord()],
       resolveProjectionUserKey,
@@ -440,14 +457,8 @@ test("buildMaterializedDocumentSyncPlan rejects substituted KEK material before 
   ).rejects.toThrow("KEK material does not match committed epoch id");
 });
 
-// Regression for the double-verification optimization (issue #1040 / scrub
-// finding #5): a single plan build verifies the authorizing container paths in
-// two passes — the projection-consistency check and the content-key unwrap.
-// They walk the SAME manifests, so without a shared verification cache each
-// manifest's signer key is resolved (and its Ed25519 chain + principal policies
-// re-verified) twice. A shared cache means the unwrap pass reuses the
-// consistency pass's verified manifests, so the signer key is resolved exactly
-// once per distinct signer across the whole build.
+// Regression for sharing manifest verification across the consistency and
+// content-key unwrap passes (issue #1040 / scrub finding #5).
 test("buildMaterializedDocumentSyncPlan verifies each authorizing path once across both passes", async () => {
   const parent = await createParentProjection();
   const baseResolver = createParentProjectionUserKeyResolver(parent);
@@ -463,6 +474,7 @@ test("buildMaterializedDocumentSyncPlan verifies each authorizing path once acro
     contentKey: crypto.getRandomValues(new Uint8Array(32)),
     documentId: "550e8400-e29b-41d4-a716-446655440122",
     eventId: "event-single-verify-sync",
+    execSql,
     resolveProjectionUserKey: countingResolver,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: parent.secretKey,
@@ -479,6 +491,7 @@ test("buildMaterializedDocumentSyncPlan verifies each authorizing path once acro
   signerKeyResolutions = 0;
   await buildMaterializedDocumentSyncPlan({
     author: parent.author,
+    execSql,
     localVersionVector: null,
     pendingUpdates: [createPendingUpdateRecord()],
     resolveProjectionUserKey: countingResolver,
@@ -557,6 +570,7 @@ test("buildMaterializedDocumentSyncPlan verifies linked document manifest histor
   await expect(
     buildMaterializedDocumentSyncPlan({
       author,
+      execSql,
       localVersionVector: null,
       pendingUpdates: [createPendingUpdateRecord()],
       resolveProjectionUserKey,
@@ -581,6 +595,7 @@ test("buildMaterializedDocumentSyncPlan verifies linked document manifest histor
 
   const syncPlan = await buildMaterializedDocumentSyncPlan({
     author,
+    execSql,
     localVersionVector: null,
     pendingUpdates: [createPendingUpdateRecord()],
     resolveProjectionUserKey,
@@ -671,6 +686,7 @@ test("syncRemoteDocument submits a signed sync request and persists the verified
         submittedRequests.push(request);
         const materialized = await buildMaterializedDocumentSyncPlan({
           author,
+          execSql,
           localVersionVector: null,
           pendingUpdates: [],
           resolveProjectionUserKey,
@@ -686,6 +702,7 @@ test("syncRemoteDocument submits a signed sync request and persists the verified
     },
     author,
     documentId: writerProjection.documentId,
+    execSql,
     localVersionVector: null,
     pendingUpdates: [createPendingUpdateRecord()],
     resolveProjectionUserKey,
@@ -743,6 +760,7 @@ test("syncRemoteDocument uses persisted state for clean read-only sync probes", 
     },
     author,
     documentId: writerProjection.documentId,
+    execSql,
     localVersionVector: null,
     pendingUpdates: [],
     persistedState: persistedStateFromWriterProjection(writerProjection),
@@ -768,6 +786,7 @@ test("syncRemoteDocument reuses a writer projection to process persisted read-on
   } = await createMaterializedSyncFixture();
   const remoteMaterialized = await buildMaterializedDocumentSyncPlan({
     author,
+    execSql,
     localVersionVector: null,
     pendingUpdates: [createPendingUpdateRecord()],
     resolveProjectionUserKey,
@@ -819,6 +838,7 @@ test("syncRemoteDocument reuses a writer projection to process persisted read-on
     },
     author,
     documentId: writerProjection.documentId,
+    execSql,
     localVersionVector: null,
     pendingUpdates: [],
     persistedState: persistedStateFromWriterProjection(writerProjection),
@@ -874,6 +894,7 @@ test("syncRemoteDocument falls back to writer projection when persisted read-onl
 
         const materialized = await buildMaterializedDocumentSyncPlan({
           author,
+          execSql,
           localVersionVector: null,
           pendingUpdates: [],
           resolveProjectionUserKey,
@@ -892,6 +913,7 @@ test("syncRemoteDocument falls back to writer projection when persisted read-onl
     },
     author,
     documentId: writerProjection.documentId,
+    execSql,
     localVersionVector: null,
     pendingUpdates: [],
     persistedState: persistedStateFromWriterProjection(writerProjection),
@@ -915,6 +937,7 @@ test("syncRemoteDocument decrypts returned updates with historical content-key b
   } = await createMaterializedSyncFixture();
   const historicalMaterialized = await buildMaterializedDocumentSyncPlan({
     author,
+    execSql,
     localVersionVector: null,
     pendingUpdates: [await createLoroPendingUpdate("historical update")],
     resolveProjectionUserKey,
@@ -945,6 +968,7 @@ test("syncRemoteDocument decrypts returned updates with historical content-key b
       syncDocument: async (documentId, request) => {
         const currentMaterialized = await buildMaterializedDocumentSyncPlan({
           author,
+          execSql,
           localVersionVector: null,
           pendingUpdates: [],
           resolveProjectionUserKey,
@@ -969,6 +993,7 @@ test("syncRemoteDocument decrypts returned updates with historical content-key b
     },
     author,
     documentId: currentWriterProjection.documentId,
+    execSql,
     localVersionVector: null,
     pendingUpdates: [],
     resolveProjectionUserKey,
@@ -995,6 +1020,7 @@ test("syncRemoteDocument recovers pending write id conflicts with a read-only sy
   const pendingUpdate = await createLoroPendingUpdate("settled update");
   const historicalMaterialized = await buildMaterializedDocumentSyncPlan({
     author,
+    execSql,
     localVersionVector: null,
     pendingUpdates: [pendingUpdate],
     resolveProjectionUserKey,
@@ -1040,6 +1066,7 @@ test("syncRemoteDocument recovers pending write id conflicts with a read-only sy
 
         const currentMaterialized = await buildMaterializedDocumentSyncPlan({
           author,
+          execSql,
           localVersionVector: null,
           pendingUpdates: [],
           resolveProjectionUserKey,
@@ -1067,6 +1094,7 @@ test("syncRemoteDocument recovers pending write id conflicts with a read-only sy
     },
     author,
     documentId: currentWriterProjection.documentId,
+    execSql,
     localVersionVector: null,
     pendingUpdates: [pendingUpdate],
     resolveProjectionUserKey,
@@ -1100,6 +1128,7 @@ test("syncRemoteDocument does not settle recovered pending conflicts with differ
   );
   const historicalMaterialized = await buildMaterializedDocumentSyncPlan({
     author,
+    execSql,
     localVersionVector: null,
     pendingUpdates: [remoteUpdate],
     resolveProjectionUserKey,
@@ -1139,6 +1168,7 @@ test("syncRemoteDocument does not settle recovered pending conflicts with differ
 
         const currentMaterialized = await buildMaterializedDocumentSyncPlan({
           author,
+          execSql,
           localVersionVector: null,
           pendingUpdates: [],
           resolveProjectionUserKey,
@@ -1166,6 +1196,7 @@ test("syncRemoteDocument does not settle recovered pending conflicts with differ
     },
     author,
     documentId: currentWriterProjection.documentId,
+    execSql,
     localVersionVector: null,
     pendingUpdates: [pendingUpdate],
     resolveProjectionUserKey,
@@ -1225,6 +1256,7 @@ test("syncRemoteDocument replans once after a stale document sync conflict", asy
 
         const materialized = await buildMaterializedDocumentSyncPlan({
           author,
+          execSql,
           localVersionVector: null,
           pendingUpdates: [createPendingUpdateRecord()],
           resolveProjectionUserKey,
@@ -1243,6 +1275,7 @@ test("syncRemoteDocument replans once after a stale document sync conflict", asy
     },
     author,
     documentId: writerProjection.documentId,
+    execSql,
     localVersionVector: null,
     pendingUpdates: [createPendingUpdateRecord()],
     resolveProjectionUserKey,

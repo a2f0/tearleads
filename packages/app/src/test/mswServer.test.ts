@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { registerIdentity as registerClientIdentity } from "@tearleads/client-sdk";
+import type { ExecSql, ExecSqlClientLike } from "@tearleads/client-sdk/sqlite";
 import {
   authChallengeSigningBytes,
   type EncapsulationKeyPair,
@@ -9,6 +10,7 @@ import {
   sign,
   toFingerprint,
 } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { isRegistrationResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import {
@@ -25,6 +27,16 @@ afterEach(async () => {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function createDbClient(execSql: ExecSql): ExecSqlClientLike {
+  return {
+    async exec({ bind, rowMode, sql }) {
+      return {
+        rows: await execSql(sql, bind, rowMode ? { rowMode } : undefined),
+      };
+    },
+  };
 }
 
 async function waitForActiveProxiedApiRequest(): Promise<void> {
@@ -45,63 +57,69 @@ async function registerIdentity(
   signingKeyPair: SigningKeyPair,
   encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<{ userId: string }> {
-  const registration = await registerClientIdentity({
-    apiClient: {
-      async registerUser(
-        userId,
-        organizationId,
-        rootContainerId,
-        signingPublicKey,
-        encapsulationPublicKey,
-        initialAdminGroup,
-        initialMemberGroup,
-        initialOrganizationPolicy,
-        initialRootContainer,
-        initialRootMetadataDocument,
-        initialRosterProfileContainer,
-        initialRosterProfileDocument,
-        initialOrganizationMetadataContainer,
-        initialOrganizationProfileDocument,
-        initialSystemContainers,
-      ) {
-        const response = await fetch(`${apiBaseUrl}/auth/register`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId,
-            organizationId,
-            rootContainerId,
-            signingPublicKey: Array.from(signingPublicKey),
-            encapsulationPublicKey: Array.from(encapsulationPublicKey),
-            initialAdminGroup,
-            initialMemberGroup,
-            initialOrganizationPolicy,
-            initialRootContainer,
-            initialRootMetadataDocument,
-            initialRosterProfileContainer,
-            initialRosterProfileDocument,
-            initialOrganizationMetadataContainer,
-            initialOrganizationProfileDocument,
-            initialSystemContainers,
-          }),
-        });
-        if (!response.ok) {
-          return null;
-        }
+  const { close, execSql } = await createTestExecSql("app-msw-registration");
+  try {
+    const registration = await registerClientIdentity({
+      apiClient: {
+        async registerUser(
+          userId,
+          organizationId,
+          rootContainerId,
+          signingPublicKey,
+          encapsulationPublicKey,
+          initialAdminGroup,
+          initialMemberGroup,
+          initialOrganizationPolicy,
+          initialRootContainer,
+          initialRootMetadataDocument,
+          initialRosterProfileContainer,
+          initialRosterProfileDocument,
+          initialOrganizationMetadataContainer,
+          initialOrganizationProfileDocument,
+          initialSystemContainers,
+        ) {
+          const response = await fetch(`${apiBaseUrl}/auth/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId,
+              organizationId,
+              rootContainerId,
+              signingPublicKey: Array.from(signingPublicKey),
+              encapsulationPublicKey: Array.from(encapsulationPublicKey),
+              initialAdminGroup,
+              initialMemberGroup,
+              initialOrganizationPolicy,
+              initialRootContainer,
+              initialRootMetadataDocument,
+              initialRosterProfileContainer,
+              initialRosterProfileDocument,
+              initialOrganizationMetadataContainer,
+              initialOrganizationProfileDocument,
+              initialSystemContainers,
+            }),
+          });
+          if (!response.ok) {
+            return null;
+          }
 
-        const body: unknown = await response.json();
-        return isRegistrationResponse(body) ? body : null;
+          const body: unknown = await response.json();
+          return isRegistrationResponse(body) ? body : null;
+        },
       },
-    },
-    containerId: crypto.randomUUID(),
-    encapsulationKeyPair,
-    signingKeyPair,
-  });
-  invariant(registration, "Expected registration response.");
+      containerId: crypto.randomUUID(),
+      dbClient: createDbClient(execSql),
+      encapsulationKeyPair,
+      signingKeyPair,
+    });
+    invariant(registration, "Expected registration response.");
 
-  return {
-    userId: registration.userId,
-  };
+    return {
+      userId: registration.userId,
+    };
+  } finally {
+    close();
+  }
 }
 
 async function requestChallenge(fingerprint: string): Promise<Response> {

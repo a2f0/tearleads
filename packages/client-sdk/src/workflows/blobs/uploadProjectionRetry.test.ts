@@ -3,71 +3,24 @@ import { uploadDocumentAttachment } from "@tearleads/client-sdk";
 import {
   computeBlobAccessManifestHash,
   computeWriteHeaderHash,
-  generateKemSeedAndKeyPair,
   type WriteHeader,
 } from "@tearleads/crypto";
-import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import {
-  createMaterializedSyncFixture,
-  createResponse,
-} from "../../../test/helpers/documentFixtures";
+import { createTestExecSql } from "@tearleads/test-utils";
+import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobContracts";
-import { buildMaterializedDocumentCreatePlan } from "../documents/create";
 
 test("uploadDocumentAttachment refetches writer projection after a stale container KEK unwrap", async () => {
-  const {
-    author,
-    projection,
-    resolveProjectionUserKey,
-    secretKey,
-    writerProjection,
-  } = await createMaterializedSyncFixture();
-  const staleKeyPair = generateKemSeedAndKeyPair();
-  const staleProjection = await createContainerWriterProjectionFixture({
-    containerId: projection.containerId,
-    encapsulationPublicKey: staleKeyPair.publicKey,
-    organizationId: author.organizationId,
-    signerKeyFingerprint: author.signerKeyFingerprint,
-    signerPrivateKey: author.signerPrivateKey,
-    userId: author.signerUserId,
-  });
-  let useFreshProjectionKey = false;
-  const resolveProjectionUserKeyWithStaleUser = async (userId: string) => {
-    const resolved = await resolveProjectionUserKey(userId);
-    if (!resolved || userId !== author.signerUserId) {
-      return resolved;
-    }
-
-    return useFreshProjectionKey
-      ? resolved
-      : {
-          ...resolved,
-          encapsulationPublicKey: staleKeyPair.publicKey,
-        };
-  };
-  const staleCreate = await buildMaterializedDocumentCreatePlan({
-    author,
-    containerProjection: staleProjection,
-    documentId: writerProjection.documentId,
-    eventId: "event-stale-blob-upload",
-    resolveProjectionUserKey: resolveProjectionUserKeyWithStaleUser,
-    targetSecretKey: staleKeyPair.secretKey,
-  });
-  const staleResponse = createResponse(staleCreate.plan);
-  const staleWriterProjection: DocumentWriterProjectionResponse = {
-    authorizingContainerPaths: [staleProjection],
-    contentKeyBundle: staleResponse.contentKeyBundle,
-    documentId: staleResponse.id,
-    documentKekTargets: staleResponse.documentKekTargets,
-    documentManifest: staleResponse.accessManifest,
-  };
+  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const validSecretKey = secretKey.slice();
+  crypto.getRandomValues(secretKey);
   const blobId = "550e8400-e29b-41d4-a716-446655440565";
   const bindingId = "550e8400-e29b-41d4-a716-446655440566";
   const slotId = "preview";
   const evictedDocumentIds: string[] = [];
   let projectionRequestCount = 0;
   let stageCount = 0;
+  const { close, execSql } = await createTestExecSql("blob-projection-retry");
 
   const uploaded = await uploadDocumentAttachment({
     apiClient: {
@@ -124,7 +77,7 @@ test("uploadDocumentAttachment refetches writer projection after a stale contain
       },
       evictDocumentWriterProjection: (documentId) => {
         evictedDocumentIds.push(documentId);
-        useFreshProjectionKey = true;
+        secretKey.set(validSecretKey);
       },
       getDocumentWriterProjection: async (documentId) => {
         if (documentId !== writerProjection.documentId) {
@@ -132,9 +85,7 @@ test("uploadDocumentAttachment refetches writer projection after a stale contain
         }
 
         projectionRequestCount += 1;
-        return projectionRequestCount === 1
-          ? staleWriterProjection
-          : writerProjection;
+        return writerProjection;
       },
       stageBlob: async () => {
         stageCount += 1;
@@ -149,11 +100,13 @@ test("uploadDocumentAttachment refetches writer projection after a stale contain
     blobId,
     bytes: new Uint8Array([1, 2, 3, 4]) as BlobBytes,
     documentId: writerProjection.documentId,
+    execSql,
     expectedBindingId: null,
-    resolveProjectionUserKey: resolveProjectionUserKeyWithStaleUser,
+    resolveProjectionUserKey,
     slotId,
     targetSecretKey: secretKey,
   });
+  close();
 
   expect(uploaded?.writerProjection).toBe(writerProjection);
   expect(evictedDocumentIds).toEqual([writerProjection.documentId]);

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createMaterializedSyncFixture,
   createPendingUpdateRecord,
@@ -11,6 +12,7 @@ test("syncRemoteDocument notifies when submit returns document 404", async () =>
   const deletedDocumentIds: string[] = [];
   const reportedErrors: string[] = [];
   const message = "Document not found";
+  const { close, execSql } = await createTestExecSql("deleted-document-sync");
 
   const synced = await syncRemoteDocument({
     apiClient: {
@@ -31,6 +33,7 @@ test("syncRemoteDocument notifies when submit returns document 404", async () =>
     },
     author,
     documentId: writerProjection.documentId,
+    execSql,
     localVersionVector: null,
     onRemoteDocumentDeleted: ({ documentId }) => {
       deletedDocumentIds.push(documentId);
@@ -40,6 +43,7 @@ test("syncRemoteDocument notifies when submit returns document 404", async () =>
     targetSecretKey: secretKey,
     writerProjection,
   });
+  close();
 
   expect(synced).toBeNull();
   expect(deletedDocumentIds).toEqual([writerProjection.documentId]);

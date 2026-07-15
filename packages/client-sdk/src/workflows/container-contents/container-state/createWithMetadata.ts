@@ -4,9 +4,12 @@ import type {
   ContainerCreateWithMetadataDocumentResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { locallyAcknowledgedContainerMutationHead } from "../../../data/containers/shared/mutationAcknowledgement";
 import type { ContainerMutationSubmitFailure } from "../../../data/containers/shared/types";
+import { locallyAcknowledgedDocumentMutationHead } from "../../../data/documents/shared/mutationAcknowledgement";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
+import { advanceLocallyAcknowledgedAccessManifestHeadsAtomically } from "../../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   buildMaterializedContainerCreatePlan,
@@ -112,6 +115,34 @@ async function seedMetadataDocumentWriterProjection(input: {
     input.response.metadataDocument.id,
     projection,
   );
+}
+
+async function acknowledgeContainerWithMetadata(input: {
+  containerPlan: Parameters<
+    typeof locallyAcknowledgedContainerMutationHead
+  >[0]["plan"];
+  execSql: ExecSql;
+  metadataDocumentPlan: Parameters<
+    typeof persistedDocumentCreateStateFromResponse
+  >[0];
+  response: ContainerCreateWithMetadataDocumentResponse;
+}) {
+  const persistedState = persistedDocumentCreateStateFromResponse(
+    input.metadataDocumentPlan,
+    input.response.metadataDocument,
+  );
+  const containerHead = await locallyAcknowledgedContainerMutationHead({
+    plan: input.containerPlan,
+    response: input.response.container,
+  });
+  await advanceLocallyAcknowledgedAccessManifestHeadsAtomically({
+    execSql: input.execSql,
+    heads: [
+      containerHead,
+      locallyAcknowledgedDocumentMutationHead(input.metadataDocumentPlan),
+    ],
+  });
+  return persistedState;
 }
 
 /**
@@ -222,6 +253,12 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
   ) {
     throw new Error("Container metadata create response document mismatch");
   }
+  const persistedMetadataState = await acknowledgeContainerWithMetadata({
+    containerPlan: containerPlan.plan,
+    execSql,
+    metadataDocumentPlan: metadataDocumentPlan.plan,
+    response,
+  });
 
   await seedMetadataDocumentWriterProjection({
     childProjection,
@@ -245,10 +282,7 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
       metadataDocumentId,
       organizationId: response.container.organizationId,
       parentId: response.container.parentId,
-      persistedMetadataState: persistedDocumentCreateStateFromResponse(
-        metadataDocumentPlan.plan,
-        response.metadataDocument,
-      ),
+      persistedMetadataState,
       updatedAt: response.container.updatedAt,
     },
   };
