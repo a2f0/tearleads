@@ -1,4 +1,5 @@
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { isDestroyedDatabaseClientError } from "../../workflows/container-contents/syncLane";
 import type {
   ContainerContentsStoreSyncAgent,
@@ -24,6 +25,7 @@ export async function probeExistingSystemContainer(input: {
         : [null],
     });
   } catch (error) {
+    rethrowKeyingVerificationError(error);
     if (!isDestroyedDatabaseClientError(error)) {
       const reason = error instanceof Error ? error.message : String(error);
       input.state.runtime.util.log(

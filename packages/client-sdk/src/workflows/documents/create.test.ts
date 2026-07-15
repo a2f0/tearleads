@@ -24,6 +24,7 @@ import {
   createResponseFromRequest,
   createWrappedProjection,
 } from "../../../test/helpers/documentFixtures";
+import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import { loadAccessManifestCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import {
   buildMaterializedDocumentCreatePlan,
@@ -112,14 +113,12 @@ test("createRemoteDocument submits the materialized request and persists the ver
     documentId: "document-remote",
     eventId: "event-remote",
     execSql,
-    resolveProjectionUserKey: async (userId) =>
-      userId === author.signerUserId
-        ? {
-            encapsulationPublicKey: keyPair.publicKey,
-            signingPublicKey,
-            userId,
-          }
-        : null,
+    resolveProjectionUserKey: createTestTrustedUserIdentityResolver({
+      encapsulationPublicKey: keyPair.publicKey,
+      signingKeyFingerprint: author.signerKeyFingerprint,
+      signingPublicKey,
+      userId: author.signerUserId,
+    }),
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: keyPair.secretKey,
   });
@@ -216,14 +215,12 @@ test("createRemoteDocument rejects a mismatched event body without pinning it", 
         containerId: projection.containerId,
         documentId,
         execSql,
-        resolveProjectionUserKey: async (userId) =>
-          userId === author.signerUserId
-            ? {
-                encapsulationPublicKey: keyPair.publicKey,
-                signingPublicKey,
-                userId,
-              }
-            : null,
+        resolveProjectionUserKey: createTestTrustedUserIdentityResolver({
+          encapsulationPublicKey: keyPair.publicKey,
+          signingKeyFingerprint: author.signerKeyFingerprint,
+          signingPublicKey,
+          userId: author.signerUserId,
+        }),
         targetSecretKey: keyPair.secretKey,
       }),
     ).rejects.toThrow("Document create response event body mismatch");
@@ -251,14 +248,12 @@ test("createRemoteDocument adopts an existing remote document when a retry with 
     signerPrivateKey: author.signerPrivateKey,
     userId: author.signerUserId,
   });
-  const resolveProjectionUserKey = async (userId: string) =>
-    userId === author.signerUserId
-      ? {
-          encapsulationPublicKey: keyPair.publicKey,
-          signingPublicKey,
-          userId,
-        }
-      : null;
+  const resolveProjectionUserKey = createTestTrustedUserIdentityResolver({
+    encapsulationPublicKey: keyPair.publicKey,
+    signingKeyFingerprint: author.signerKeyFingerprint,
+    signingPublicKey,
+    userId: author.signerUserId,
+  });
 
   // Simulates a server that already committed the create (from a first attempt
   // whose response was lost): the first submit returns a network failure but
@@ -405,14 +400,12 @@ test("createRemoteDocument does not report a conflict when adoption fails transi
     containerId: projection.containerId,
     documentId: "document-stable",
     execSql,
-    resolveProjectionUserKey: async (userId: string) =>
-      userId === author.signerUserId
-        ? {
-            encapsulationPublicKey: keyPair.publicKey,
-            signingPublicKey,
-            userId,
-          }
-        : null,
+    resolveProjectionUserKey: createTestTrustedUserIdentityResolver({
+      encapsulationPublicKey: keyPair.publicKey,
+      signingKeyFingerprint: author.signerKeyFingerprint,
+      signingPublicKey,
+      userId: author.signerUserId,
+    }),
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: keyPair.secretKey,
   });

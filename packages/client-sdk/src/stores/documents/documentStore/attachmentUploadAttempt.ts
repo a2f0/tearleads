@@ -1,3 +1,4 @@
+import { rethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import { uploadDocumentAttachment } from "../../../workflows/blobs";
 import type { DocumentStoreState } from "./state";
 
@@ -68,6 +69,7 @@ async function tryUploadDocumentAttachment(input: {
   try {
     return await uploadDocumentAttachment(input.input);
   } catch (error) {
+    rethrowKeyingVerificationError(error);
     input.onError(error);
     return null;
   }

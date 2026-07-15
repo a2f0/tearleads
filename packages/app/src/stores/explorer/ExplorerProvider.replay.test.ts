@@ -151,6 +151,9 @@ test("explorer sync replays moved local containers from disk after restart and l
         ...runtime.apiClient,
         ...harness.apiClient,
         getEncapsulationKey: async (requestedUserId: string) => ({
+          encapsulationKeyFingerprint: await toFingerprint(
+            localKeyPair.publicKey,
+          ),
           encapsulationPublicKey: bytesToBase64(localKeyPair.publicKey),
           signingKeyFingerprint: signingFingerprint,
           signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
@@ -329,6 +332,9 @@ test("explorer sync creates queued local containers parent before child", async 
         ...runtime.apiClient,
         ...harness.apiClient,
         getEncapsulationKey: async (requestedUserId: string) => ({
+          encapsulationKeyFingerprint: await toFingerprint(
+            localKeyPair.publicKey,
+          ),
           encapsulationPublicKey: bytesToBase64(localKeyPair.publicKey),
           signingKeyFingerprint: signingFingerprint,
           signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),

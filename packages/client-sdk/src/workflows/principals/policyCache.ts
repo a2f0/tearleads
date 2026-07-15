@@ -1,9 +1,9 @@
-import type {
-  PrincipalPolicyCheckpoint,
-  VerifiedPrincipalPolicy,
+import {
+  KeyingVerificationError,
+  type PrincipalPolicyCheckpoint,
+  type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
-  EncapsulationKeyResponse,
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
@@ -18,6 +18,7 @@ import {
 } from "../../data/persistence/principalPolicyPersistence";
 import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../../data/principalPolicyAdminSigners";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import {
   loadOrganizationExternalAdminPolicy,
   type VerifiedExternalAdminPolicy,
@@ -35,12 +36,10 @@ export interface CacheReferencedPrincipalPoliciesOptions {
     principalType: "group" | "organization",
     principalId: string,
   ) => Promise<PrincipalPolicyBundleResponse | null>;
-  getEncapsulationKey: (
-    userId: string,
-  ) => Promise<EncapsulationKeyResponse | null>;
   log?: (message: string) => void;
   organizationId?: string | null | undefined;
   references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined;
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
 export interface CachePrincipalPolicyBundlesOptions
@@ -184,21 +183,23 @@ function signerPublicKeyLoadErrorMessage(
   code: PrincipalPolicySignerPublicKeyLoadErrorCode,
 ): string {
   switch (code) {
-    case "fingerprint-invalid":
-      return "computed signer key fingerprint does not match state signer";
     case "fingerprint-mismatch":
       return "signer key fingerprint does not match state signer";
     case "not-found":
       return "failed to fetch signer key";
-    case "user-mismatch":
-      return "signer key user does not match state signer";
+  }
+}
+
+function rethrowKeyingVerificationError(error: unknown): void {
+  if (error instanceof KeyingVerificationError) {
+    throw error;
   }
 }
 
 async function validatePrincipalPolicyBundle(
   reference: ReferencedPrincipalStateResponse,
   bundle: PrincipalPolicyBundleResponse,
-  getEncapsulationKey: CacheReferencedPrincipalPoliciesOptions["getEncapsulationKey"],
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver,
   localCheckpoint: PrincipalPolicyCheckpoint | null,
   loadExternalAdminPolicy: () => Promise<VerifiedExternalAdminPolicy | null>,
 ): Promise<
@@ -223,7 +224,7 @@ async function validatePrincipalPolicyBundle(
 
   const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
     bundle,
-    getEncapsulationKey,
+    resolveTrustedUserIdentity,
   });
   if ("error" in signerPublicKeys) {
     return {
@@ -259,8 +260,8 @@ async function validatePrincipalPolicyBundle(
 async function cacheReferencedPrincipalPolicy(
   execSql: ExecSql,
   getCurrentPrincipalPolicy: CacheReferencedPrincipalPoliciesOptions["getCurrentPrincipalPolicy"],
-  getEncapsulationKey: CacheReferencedPrincipalPoliciesOptions["getEncapsulationKey"],
   reference: ReferencedPrincipalStateResponse,
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver,
   log: ((message: string) => void) | undefined,
   loadExternalAdminPolicy: () => Promise<VerifiedExternalAdminPolicy | null>,
 ): Promise<void> {
@@ -298,7 +299,7 @@ async function cacheReferencedPrincipalPolicy(
   const validation = await validatePrincipalPolicyBundle(
     reference,
     bundle,
-    getEncapsulationKey,
+    resolveTrustedUserIdentity,
     localCheckpoint,
     loadExternalAdminPolicy,
   );
@@ -329,9 +330,9 @@ async function cacheReferencedPrincipalPolicy(
 async function cachePrincipalPolicyBundle(input: {
   readonly bundle: PrincipalPolicyBundleResponse;
   readonly execSql: ExecSql;
-  readonly getEncapsulationKey: CachePrincipalPolicyBundlesOptions["getEncapsulationKey"];
   readonly loadExternalAdminPolicy: () => Promise<VerifiedExternalAdminPolicy | null>;
   readonly log: ((message: string) => void) | undefined;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<void> {
   const reference = referenceFromPrincipalPolicyBundle(input.bundle);
   const cachedBundle = await loadPrincipalPolicyBundle(
@@ -350,7 +351,7 @@ async function cachePrincipalPolicyBundle(input: {
   const validation = await validatePrincipalPolicyBundle(
     reference,
     input.bundle,
-    input.getEncapsulationKey,
+    input.resolveTrustedUserIdentity,
     localCheckpoint,
     input.loadExternalAdminPolicy,
   );
@@ -380,11 +381,11 @@ async function cachePrincipalPolicyBundle(input: {
 
 export async function cacheReferencedPrincipalPolicies({
   execSql,
-  getEncapsulationKey,
   getCurrentPrincipalPolicy,
   log,
   organizationId,
   references,
+  resolveTrustedUserIdentity,
 }: CacheReferencedPrincipalPoliciesOptions): Promise<void> {
   if (!references || references.length === 0) {
     return;
@@ -399,8 +400,8 @@ export async function cacheReferencedPrincipalPolicies({
       externalAdminPolicy ??= loadOrganizationExternalAdminPolicy({
         execSql,
         getCurrentPrincipalPolicy,
-        getEncapsulationKey,
         organizationId,
+        resolveTrustedUserIdentity,
       });
       return externalAdminPolicy;
     };
@@ -411,12 +412,13 @@ export async function cacheReferencedPrincipalPolicies({
           await cacheReferencedPrincipalPolicy(
             execSql,
             getCurrentPrincipalPolicy,
-            getEncapsulationKey,
             reference,
+            resolveTrustedUserIdentity,
             log,
             loadExternalAdminPolicy,
           );
         } catch (error) {
+          rethrowKeyingVerificationError(error);
           const message =
             error instanceof Error ? error.message : String(error);
           log?.(
@@ -426,6 +428,7 @@ export async function cacheReferencedPrincipalPolicies({
       }),
     );
   } catch (error) {
+    rethrowKeyingVerificationError(error);
     const message = error instanceof Error ? error.message : String(error);
     log?.(`Principal policy cache: failed to initialize cache: ${message}`);
   }
@@ -434,10 +437,10 @@ export async function cacheReferencedPrincipalPolicies({
 export async function cachePrincipalPolicyBundles({
   bundles,
   execSql,
-  getEncapsulationKey,
   getCurrentPrincipalPolicy,
   log,
   organizationId,
+  resolveTrustedUserIdentity,
 }: CachePrincipalPolicyBundlesOptions): Promise<void> {
   if (!bundles || bundles.length === 0) {
     return;
@@ -452,8 +455,8 @@ export async function cachePrincipalPolicyBundles({
       externalAdminPolicy ??= loadOrganizationExternalAdminPolicy({
         execSql,
         getCurrentPrincipalPolicy,
-        getEncapsulationKey,
         organizationId,
+        resolveTrustedUserIdentity,
       });
       return externalAdminPolicy;
     };
@@ -464,11 +467,12 @@ export async function cachePrincipalPolicyBundles({
           await cachePrincipalPolicyBundle({
             bundle,
             execSql,
-            getEncapsulationKey,
             loadExternalAdminPolicy,
             log,
+            resolveTrustedUserIdentity,
           });
         } catch (error) {
+          rethrowKeyingVerificationError(error);
           const message =
             error instanceof Error ? error.message : String(error);
           log?.(
@@ -478,6 +482,7 @@ export async function cachePrincipalPolicyBundles({
       }),
     );
   } catch (error) {
+    rethrowKeyingVerificationError(error);
     const message = error instanceof Error ? error.message : String(error);
     log?.(`Principal policy cache: failed to initialize cache: ${message}`);
   }

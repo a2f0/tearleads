@@ -14,6 +14,7 @@ import {
   isDocumentLinkSetMutationResponse,
   isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
+  isEncapsulationKeyResponse,
   isHealthResponse,
   isInitiateMultipartBlobStageResponse,
   isListContainerDocumentsResponse,
@@ -58,6 +59,30 @@ test("isChallengeErrorResponse", () => {
   expect(isChallengeErrorResponse({ error: 123 })).toBe(false);
   expect(isChallengeErrorResponse({})).toBe(false);
   expect(isChallengeErrorResponse(null)).toBe(false);
+});
+
+test("isEncapsulationKeyResponse", () => {
+  const response = {
+    encapsulationKeyFingerprint: "b".repeat(64),
+    encapsulationPublicKey: "encapsulation-key",
+    signingKeyFingerprint: "a".repeat(64),
+    signingPublicKey: "signing-key",
+    userId: "user-1",
+  };
+
+  expect(isEncapsulationKeyResponse(response)).toBe(true);
+  expect(
+    isEncapsulationKeyResponse({
+      ...response,
+      encapsulationKeyFingerprint: "not-a-fingerprint",
+    }),
+  ).toBe(false);
+  expect(
+    isEncapsulationKeyResponse({
+      ...response,
+      encapsulationKeyFingerprint: undefined,
+    }),
+  ).toBe(false);
 });
 
 test("session responses", () => {

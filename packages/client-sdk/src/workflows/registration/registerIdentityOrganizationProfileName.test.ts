@@ -133,6 +133,7 @@ async function registerAndReadOrganizationName(
       dbClient: createDbClient(execSql),
       encapsulationKeyPair: generateKemSeedAndKeyPair(),
       ...(organizationProfileName ? { organizationProfileName } : {}),
+      pinLocalUserIdentity: async () => undefined,
       signingKeyPair: generateSigningSeedAndKeyPair(),
     });
     if (!response) {
@@ -186,6 +187,7 @@ async function registerAndReadRosterNickname(
       dbClient: createDbClient(execSql),
       encapsulationKeyPair: generateKemSeedAndKeyPair(),
       ...(rosterProfileNickname ? { rosterProfileNickname } : {}),
+      pinLocalUserIdentity: async () => undefined,
       signingKeyPair: generateSigningSeedAndKeyPair(),
     });
     if (!response) {

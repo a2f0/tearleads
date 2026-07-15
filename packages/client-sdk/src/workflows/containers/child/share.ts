@@ -71,6 +71,10 @@ import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/ke
 import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
+  requireTrustedUserIdentityResolver,
+  type TrustedUserIdentityResolver,
+} from "../../../data/trustedUserIdentity";
+import {
   type ContainerManagedPrincipalShareApi,
   loadVerifiedGroupSharePrincipalPolicy,
 } from "./sharePrincipalPolicy";
@@ -540,9 +544,9 @@ export async function shareRemoteContainer(input: {
   eventId?: string | undefined;
   execSql: ExecSql;
   previousProjection?: ContainerWriterProjectionResponse | undefined;
-  recipientEncapsulationPublicKey: Uint8Array;
   recipientUserId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
@@ -555,6 +559,15 @@ export async function shareRemoteContainer(input: {
     input.resolveProjectionUserKey,
     "Remote container share",
   );
+  const resolveTrustedUserIdentity = requireTrustedUserIdentityResolver(
+    input.resolveTrustedUserIdentity,
+  );
+  const recipientIdentity = await resolveTrustedUserIdentity(
+    input.recipientUserId,
+  );
+  if (!recipientIdentity) {
+    return null;
+  }
   const previousProjection =
     input.previousProjection ??
     (await input.apiClient.getContainerWriterProjection(input.containerId));
@@ -569,7 +582,7 @@ export async function shareRemoteContainer(input: {
     execSql: input.execSql,
     previousProjection,
     recipient: {
-      recipientEncapsulationPublicKey: input.recipientEncapsulationPublicKey,
+      recipientEncapsulationPublicKey: recipientIdentity.encapsulationPublicKey,
       subjectId: input.recipientUserId,
       subjectType: "user",
     },
@@ -610,6 +623,7 @@ export async function shareRemoteContainerWithGroup(input: {
   previousProjection?: ContainerWriterProjectionResponse | undefined;
   recipientGroupId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
@@ -634,6 +648,7 @@ export async function shareRemoteContainerWithGroup(input: {
     execSql: input.execSql,
     groupId: input.recipientGroupId,
     organizationId: input.author.organizationId,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   await advanceKeyingCheckpointsAtomically({
     access: [],

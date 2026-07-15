@@ -83,6 +83,7 @@ async function createRecoveryContactsRuntime(input: {
 
 test("named recovered self contact remains under its remote local id", async () => {
   const selfKey: UserKey = {
+    encapsulationKeyFingerprint: "self-encapsulation-fingerprint",
     encapsulationPublicKey: "self-encapsulation-public-key",
     signingKeyFingerprint: "self-signing-fingerprint",
     signingPublicKey: "self-signing-public-key",
@@ -305,6 +306,7 @@ test("late recovered self contact purges a remotely synced fallback", async () =
 
 test("late self reconciliation stops after an identity lookup crosses runtimes", async () => {
   const staleKey: UserKey = {
+    encapsulationKeyFingerprint: "stale-encapsulation-fingerprint",
     encapsulationPublicKey: "stale-encapsulation-key",
     signingKeyFingerprint: "stale-signing-fingerprint",
     signingPublicKey: "stale-signing-key",
@@ -376,6 +378,7 @@ test("late self reconciliation stops after an identity lookup crosses runtimes",
 
 test("late self reconciliation rechecks its runtime inside the write chain", async () => {
   const staleKey: UserKey = {
+    encapsulationKeyFingerprint: "queued-stale-encapsulation-fingerprint",
     encapsulationPublicKey: "queued-stale-encapsulation-key",
     signingKeyFingerprint: "queued-stale-signing-fingerprint",
     signingPublicKey: "queued-stale-signing-key",

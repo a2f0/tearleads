@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../../data/blobContracts";
@@ -106,4 +107,61 @@ test("preserves a billing pause observed before recovery races the postflight ch
   expect(result.remoteSyncBlocked).toBe(true);
   expect(result.uploaded).toBeNull();
   expect(result.error).toBeUndefined();
+});
+
+test("attachment upload propagates identity failures without a projection retry", async () => {
+  const { author, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const integrityError = new KeyingVerificationError(
+    "equivocation",
+    "trusted identity changed",
+  );
+  const { close, execSql } = await createTestExecSql(
+    "attachment-upload-identity-failure",
+  );
+  let projectionRequests = 0;
+  let stageRequests = 0;
+  const state = {
+    runtime: {
+      util: { isRemoteSyncBlocked: () => false },
+    },
+    writerProjection,
+  } as unknown as DocumentStoreState;
+
+  try {
+    await expect(
+      uploadAttachmentWithWriterProjectionRetry({
+        baseUploadInput: {
+          apiClient: {
+            bindBlobAttachment: async () => null,
+            getDocumentWriterProjection: async () => {
+              projectionRequests += 1;
+              return writerProjection;
+            },
+            stageBlob: async () => {
+              stageRequests += 1;
+              return null;
+            },
+          },
+          author,
+          bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
+          documentId: writerProjection.documentId,
+          execSql,
+          expectedBindingId: null,
+          resolveProjectionUserKey: async () => {
+            throw integrityError;
+          },
+          slotId: "identity-failure",
+          targetSecretKey: secretKey,
+        },
+        state,
+        writerProjection,
+      }),
+    ).rejects.toBe(integrityError);
+    expect(state.writerProjection).toBe(writerProjection);
+    expect(projectionRequests).toBe(0);
+    expect(stageRequests).toBe(0);
+  } finally {
+    close();
+  }
 });

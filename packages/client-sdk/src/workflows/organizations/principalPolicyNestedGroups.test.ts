@@ -6,8 +6,8 @@ import {
   type PrincipalPolicySignerPublicKey,
   toFingerprint,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import {
   buildAddGroupUserPolicyRequest,
   buildInitialGroupPolicyRequest,
@@ -102,22 +102,26 @@ test("group remove policy builder rekeys remaining nested group members", async 
     currentPolicy: initialMemberPolicy,
     currentPolicySignerPublicKeys,
     currentUsers: [
-      {
+      createTestTrustedUserIdentity({
         userId: signerUserId,
-        encapsulationPublicKey: bytesToBase64(creatorKem.publicKey),
+        encapsulationPublicKey: creatorKem.publicKey,
         encapsulationKeyFingerprint: await toFingerprint(creatorKem.publicKey),
-      },
+        signingKeyFingerprint: signingFingerprint,
+        signingPublicKey: signingKeyPair.signingPublicKey,
+      }),
     ],
     currentUserSecretKey: creatorKem.secretKey,
     localPolicyCheckpoint: null,
     signerUserId,
     signingFingerprint,
     signingKeyPair,
-    targetUser: {
+    targetUser: createTestTrustedUserIdentity({
       userId: targetUserId,
-      encapsulationPublicKey: bytesToBase64(targetKem.publicKey),
+      encapsulationPublicKey: targetKem.publicKey,
       encapsulationKeyFingerprint: await toFingerprint(targetKem.publicKey),
-    },
+      signingKeyFingerprint: signingFingerprint,
+      signingPublicKey: signingKeyPair.signingPublicKey,
+    }),
   });
   const addStateHash = await computePrincipalStateHash(addRequest.state.state);
   const addedPolicy: PrincipalPolicyBundleResponse = {
@@ -165,11 +169,13 @@ test("group remove policy builder rekeys remaining nested group members", async 
       },
     ],
     remainingUsers: [
-      {
+      createTestTrustedUserIdentity({
         userId: signerUserId,
-        encapsulationPublicKey: bytesToBase64(creatorKem.publicKey),
+        encapsulationPublicKey: creatorKem.publicKey,
         encapsulationKeyFingerprint: await toFingerprint(creatorKem.publicKey),
-      },
+        signingKeyFingerprint: signingFingerprint,
+        signingPublicKey: signingKeyPair.signingPublicKey,
+      }),
     ],
     removedUserId: targetUserId,
     signerUserId,

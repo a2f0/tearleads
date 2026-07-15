@@ -1,5 +1,8 @@
 import { expect, mock, test } from "bun:test";
-import type { ReferencedPrincipalHead } from "@tearleads/crypto";
+import {
+  KeyingVerificationError,
+  type ReferencedPrincipalHead,
+} from "@tearleads/crypto";
 import type { ContainerContents } from "./containerContents";
 import {
   createOrganizationRootReshareCoordinator,
@@ -376,4 +379,96 @@ test("deduplicates a background retry and a foreground re-wrap", async () => {
   releaseRetry();
   await Promise.all([retry, foreground]);
   expect(rewrapCalls).toBe(2);
+});
+
+test("does not schedule a prepared re-wrap integrity failure", async () => {
+  const integrityError = new KeyingVerificationError(
+    "equivocation",
+    "trusted Admins identity changed",
+  );
+  const rewrap = mock(async () => {
+    throw integrityError;
+  });
+  const scheduleRetry = mock(() => undefined);
+  const logError = mock(() => undefined);
+  const prepare = mock(async () => ({
+    hasExpectedGroupPolicyHead: () => true,
+    rewrap,
+    setExpectedGroupPolicyHead: () => undefined,
+  }));
+  const { coordinator } = createHarness({
+    logError,
+    prepare,
+    scheduleRetry,
+  });
+  const prepared = await coordinator.prepareIfAdminsGroup({
+    mutatedGroupId: "admins-group",
+    organizationId: "org-1",
+  });
+  prepared.setExpectedGroupPolicyHead(EXPECTED_GROUP_HEAD);
+
+  await expect(prepared.rewrap()).rejects.toBe(integrityError);
+  await expect(
+    coordinator.prepareIfAdminsGroup({
+      mutatedGroupId: "members-group",
+      organizationId: "org-1",
+    }),
+  ).rejects.toBe(integrityError);
+  expect(rewrap).toHaveBeenCalledTimes(1);
+  expect(scheduleRetry).not.toHaveBeenCalled();
+  expect(logError).not.toHaveBeenCalled();
+});
+
+test("a retry integrity failure is logged as terminal without rescheduling", async () => {
+  const transientError = new Error("transient root re-wrap failure");
+  const integrityError = new KeyingVerificationError(
+    "signature_mismatch",
+    "trusted root signer changed",
+  );
+  let rewrapCalls = 0;
+  const rewrap = mock(async () => {
+    rewrapCalls += 1;
+    throw rewrapCalls === 1 ? transientError : integrityError;
+  });
+  const scheduled: Array<() => Promise<void>> = [];
+  const logError = mock(() => undefined);
+  const prepare = mock(async () => ({
+    hasExpectedGroupPolicyHead: () => true,
+    rewrap,
+    setExpectedGroupPolicyHead: () => undefined,
+  }));
+  const { coordinator } = createHarness({
+    logError,
+    prepare,
+    scheduleRetry: (retry) => scheduled.push(retry),
+  });
+  const prepared = await coordinator.prepareIfAdminsGroup({
+    mutatedGroupId: "admins-group",
+    organizationId: "org-1",
+  });
+  prepared.setExpectedGroupPolicyHead(EXPECTED_GROUP_HEAD);
+
+  await expect(prepared.rewrap()).rejects.toBe(transientError);
+  expect(scheduled).toHaveLength(1);
+  const retry = scheduled[0];
+  if (!retry) {
+    throw new Error("Expected scheduled root re-wrap retry.");
+  }
+  await expect(retry()).resolves.toBeUndefined();
+
+  expect(rewrap).toHaveBeenCalledTimes(2);
+  expect(scheduled).toHaveLength(1);
+  expect(logError).toHaveBeenCalledTimes(1);
+  expect(logError).toHaveBeenCalledWith(
+    "Stopped organization root re-wrap retries for org-1 after an identity verification failure",
+    integrityError,
+  );
+  await expect(
+    coordinator.prepareIfAdminsGroup({
+      mutatedGroupId: "admins-group",
+      organizationId: "org-1",
+    }),
+  ).rejects.toBe(integrityError);
+  expect(rewrap).toHaveBeenCalledTimes(2);
+  expect(scheduled).toHaveLength(1);
 });

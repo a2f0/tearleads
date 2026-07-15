@@ -7,10 +7,8 @@ import {
 } from "./dependencySourceRoots";
 
 /**
- * A subsystem is a DESCRIPTIVE proper noun for a vertical slice (or a horizontal
- * platform concern) that a developer reasons about as one unit. The registry is
- * a navigation/ownership index over paths that already exist; it is NOT a new
- * dependency-direction boundary. Import direction stays enforced by
+ * A subsystem names a vertical slice or platform concern and indexes its paths.
+ * It is not a dependency boundary. Import direction stays enforced by
  * `dependency-cruiser.config.ts` (lanes, layers, planes). A subsystem may span
  * several layers (e.g. Containers spans routes/, services/, and orchestration
  * workflows), which is exactly the scatter the registry makes greppable.
@@ -319,15 +317,17 @@ export const subsystems: readonly Subsystem[] = [
     name: "Identity & Session",
     package: "client-sdk",
     responsibility:
-      "Identity keypairs, auth context, remote encrypted backups, and user signing-key lookup.",
-    seam: "tearleads.identity/session/keyPackageBackups facades",
+      "Identity keys, sessions, backups, and TOFU-pinned user identities.",
+    seam: "identity/session/keyPackageBackups/userKeys; TOFU gateway",
     paths: [
       `${sdk}/client/identity.ts`,
       `${sdk}/client/identityKeyPackage.ts`,
       `${sdk}/client/keyPackageBackups.ts`,
       `${sdk}/client/session.ts`,
+      `${sdk}/client/sessionIdentityTrust.ts`,
       `${sdk}/client/sessionTypes.ts`,
       `${sdk}/client/userKeys.ts`,
+      `${sdk}/data/trustedUserIdentity/`,
     ],
   },
   {

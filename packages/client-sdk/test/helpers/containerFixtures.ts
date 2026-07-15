@@ -31,6 +31,7 @@ import {
 import { createContainerManifestFixture as createCryptoContainerManifestFixture } from "@tearleads/crypto/test-fixtures";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
 export { createMutationResponseFromRequest } from "./containerMutationResponseFixtures";
 
@@ -414,11 +415,12 @@ export function createParentProjectionUserKeyResolver(
 ) {
   return async (userId: string) =>
     userId === parent.userId
-      ? {
+      ? createTestTrustedUserIdentity({
           encapsulationPublicKey: parent.encapsulationPublicKey,
+          signingKeyFingerprint: parent.author.signerKeyFingerprint,
           signingPublicKey: parent.signingPublicKey,
           userId,
-        }
+        })
       : null;
 }
 

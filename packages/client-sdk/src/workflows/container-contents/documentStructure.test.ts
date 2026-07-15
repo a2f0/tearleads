@@ -35,7 +35,6 @@ function createRuntime(
       signingFingerprint: null,
       signingKeyPair: null,
     },
-    getEncapsulationKey: async () => null,
     infra: {
       blobStore: null as never,
       dbStatus: "ready",
@@ -55,6 +54,7 @@ function createRuntime(
       },
     },
     resolveProjectionUserKey: async () => null,
+    resolveTrustedUserIdentity: async () => null,
   };
 }
 

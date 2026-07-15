@@ -1,11 +1,5 @@
 import { expect, test } from "bun:test";
 import {
-  buildMaterializedDocumentCreatePlan,
-  unwrapContainerKekPath,
-  unwrapDocumentContentKeyTarget,
-  uploadDocumentAttachment,
-} from "@tearleads/client-sdk";
-import {
   BLOB_CONTENT_KEY_WRAP_SUITE,
   buildPrincipalStateSigningInput,
   type ContainerKekRecipientTarget,
@@ -46,7 +40,12 @@ import {
   createChildContainerProjection,
   moveContainerProjection,
 } from "../../../../test/helpers/projectionHierarchy";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { uploadDocumentAttachment } from "../../../workflows/blobs/upload";
+import { buildMaterializedDocumentCreatePlan } from "../../../workflows/documents/create";
 import type { BlobBytes } from "../../blobContracts";
+import { unwrapContainerKekPath } from "../../documents/shared/containerKekPath";
+import { unwrapDocumentContentKeyTarget } from "../../documents/shared/projectionContentKeys";
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
@@ -356,18 +355,20 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
   });
   const resolveProjectionUserKey = async (userId: string) => {
     if (userId === parent.userId) {
-      return {
+      return createTestTrustedUserIdentity({
         encapsulationPublicKey: parent.encapsulationPublicKey,
+        signingKeyFingerprint: parent.author.signerKeyFingerprint,
         signingPublicKey: parent.signingPublicKey,
         userId,
-      };
+      });
     }
     if (userId === revokedUserId) {
-      return {
+      return createTestTrustedUserIdentity({
         encapsulationPublicKey: revokedKeyPair.publicKey,
+        signingKeyFingerprint: "revoked-user-signing-fingerprint",
         signingPublicKey: revokedSigning.signingPublicKey,
         userId,
-      };
+      });
     }
 
     return null;
@@ -831,11 +832,12 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
   };
   const resolveProjectionUserKey = async (userId: string) =>
     userId === parent.userId
-      ? {
+      ? createTestTrustedUserIdentity({
           encapsulationPublicKey: parent.encapsulationPublicKey,
+          signingKeyFingerprint: parent.author.signerKeyFingerprint,
           signingPublicKey: parent.signingPublicKey,
           userId,
-        }
+        })
       : null;
   const { close, execSql } = await createTestExecSql(
     "managed-principal-projection-verification",

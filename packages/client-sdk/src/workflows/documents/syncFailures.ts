@@ -14,6 +14,7 @@ import type {
   DocumentSyncSubmitFailure,
   MaterializedDocumentSyncPlan,
 } from "../../data/documents/shared/types";
+import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 
 export const REMOTE_DOCUMENT_DELETED = Symbol("remoteDocumentDeleted");
@@ -74,6 +75,9 @@ function shouldRetrySyncWithFreshWriterProjection(error: unknown): boolean {
   const integrityErrorCode = projectionIntegrityErrorCode(error);
   if (integrityErrorCode) {
     return integrityErrorCode === "rollback";
+  }
+  if (isKeyingVerificationError(error)) {
+    return false;
   }
 
   return (

@@ -166,6 +166,42 @@ export const accessManifestCheckpoints = sqliteTable(
 );
 
 /**
+ * Durable trust-on-first-use pins for remote user identity bundles.
+ *
+ * The first validated identity observed for a user in a configured API trust
+ * domain is inserted once. Later observations must match every suite, public
+ * key, and fingerprint exactly; the persistence adapter never updates these
+ * rows. `firstSeenAt` records when the local trust decision was made and is
+ * likewise immutable.
+ *
+ * Indexes:
+ * - `(identityTrustDomain, userId)` is the primary key and scopes a user pin to
+ *   the host-configured API authority that supplied it.
+ */
+export const trustedUserIdentityPins = sqliteTable(
+  "trusted_user_identity_pins",
+  {
+    identityTrustDomain: text("identity_trust_domain").notNull(),
+    userId: text("user_id").notNull(),
+    formatVersion: integer("format_version").notNull(),
+    signingSuite: text("signing_suite").notNull(),
+    signingPublicKey: text("signing_public_key").notNull(),
+    signingKeyFingerprint: text("signing_key_fingerprint").notNull(),
+    encapsulationSuite: text("encapsulation_suite").notNull(),
+    encapsulationPublicKey: text("encapsulation_public_key").notNull(),
+    encapsulationKeyFingerprint: text(
+      "encapsulation_key_fingerprint",
+    ).notNull(),
+    firstSeenAt: text("first_seen_at").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.identityTrustDomain, table.userId],
+    }),
+  ],
+);
+
+/**
  * Materialized local container tree.
  *
  * Container rows describe the tree and its encrypted metadata document. Display
@@ -616,6 +652,10 @@ export const keyingCheckpointTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(principalPolicyCheckpoints),
 ];
 
+export const trustedUserIdentityPinTables: ReadonlyArray<SqlTableSchema> = [
+  defineSqlTableSchema(trustedUserIdentityPins),
+];
+
 export const containerTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(containers),
   defineSqlTableSchema(containerProjection),
@@ -651,6 +691,7 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...documentTables,
   ...principalPolicyTables,
   ...keyingCheckpointTables,
+  ...trustedUserIdentityPinTables,
   ...containerTables,
   ...documentContainerProjectionTables,
   ...documentMoveIntentTables,
@@ -667,6 +708,7 @@ export const clientSQLiteSchema = {
   principalPolicyBundleHistory,
   accessManifestCheckpoints,
   principalPolicyCheckpoints,
+  trustedUserIdentityPins,
   containers,
   containerProjection,
   documentContainerProjection,

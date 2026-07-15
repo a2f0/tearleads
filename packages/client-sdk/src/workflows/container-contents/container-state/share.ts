@@ -8,6 +8,7 @@ import {
 } from "../../../data/containers/shared/projection";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
+import { rethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerMetadataPatch } from "../metadata";
@@ -57,6 +58,7 @@ async function resolveCurrentGroupKeyEpoch(input: {
     );
     return bundle?.currentState?.keyEpoch ?? null;
   } catch (error) {
+    rethrowKeyingVerificationError(error);
     // Best-effort: if the current head cannot be resolved we fall back to the
     // idempotent (skip) path rather than turning a redundant re-share into a
     // hard failure. A genuinely stale grant is retried on the next share pass.

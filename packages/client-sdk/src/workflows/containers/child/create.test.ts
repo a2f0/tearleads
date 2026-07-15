@@ -296,6 +296,7 @@ test("createRemoteContainer fetches the parent projection and submits the materi
       parentContainerId: parent.projection.containerId,
       parentSecretKey: parent.secretKey,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      resolveTrustedUserIdentity: createParentProjectionUserKeyResolver(parent),
       signedAt: SIGNED_AT,
     });
 
@@ -362,6 +363,8 @@ test("createRemoteContainer rejects a mismatched acknowledgement without pinning
         parentContainerId: parent.projection.containerId,
         parentSecretKey: parent.secretKey,
         resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+        resolveTrustedUserIdentity:
+          createParentProjectionUserKeyResolver(parent),
       }),
     ).rejects.toThrow("Container mutation response KEK commitment mismatch");
     await expect(
@@ -407,6 +410,8 @@ test("createRemoteContainer rejects bad parent projection signatures before send
         parentContainerId: parent.projection.containerId,
         parentSecretKey: parent.secretKey,
         resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+        resolveTrustedUserIdentity:
+          createParentProjectionUserKeyResolver(parent),
       }),
     ).rejects.toThrow(
       "Container writer projection path[0] signature verification failed",

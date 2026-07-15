@@ -1,4 +1,5 @@
 import { expect, mock, test } from "bun:test";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import type { ContainerContents } from "./containerContents";
 import {
   createOrganizationMetadataReshareCoordinator,
@@ -160,4 +161,29 @@ test("swallows and logs a directory-lookup failure", async () => {
   expect(reshare).toHaveBeenCalledTimes(0);
   expect(logs).toHaveLength(1);
   expect(logs[0]).toContain("directory unavailable");
+});
+
+test("identity failures terminally stop metadata re-share without rejecting or retrying", async () => {
+  const integrityError = new KeyingVerificationError(
+    "equivocation",
+    "trusted identity changed",
+  );
+  const reshare = mock(async () => {
+    throw integrityError;
+  }) as unknown as ReshareOrganizationMetadataToMembers;
+  const { coordinator, logs } = createHarness({ reshare });
+
+  await coordinator.reshareAfterGroupChange({
+    mutatedGroupId: "members-group",
+    organizationId: "org-1",
+  });
+  await coordinator.reshareAfterGroupChange({
+    mutatedGroupId: "members-group",
+    organizationId: "org-1",
+  });
+
+  expect(reshare).toHaveBeenCalledTimes(1);
+  expect(logs).toHaveLength(1);
+  expect(logs[0]).toContain("stopped org metadata re-share");
+  expect(logs[0]).toContain("identity integrity failure");
 });

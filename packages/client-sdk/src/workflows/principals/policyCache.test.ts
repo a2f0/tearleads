@@ -149,7 +149,11 @@ test("principal policy sync authorizes empty group bundles from verified organiz
     const signingKeyFingerprint = await toFingerprint(
       signingKeyPair.signingPublicKey,
     );
+    const encapsulationKeyFingerprint = await toFingerprint(
+      encapsulationKeyPair.publicKey,
+    );
     const signerKeyResponse = {
+      encapsulationKeyFingerprint,
       userId: signerUserId,
       signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
       signingKeyFingerprint,

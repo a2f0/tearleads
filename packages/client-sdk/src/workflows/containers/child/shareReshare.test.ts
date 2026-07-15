@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { shareRemoteContainer } from "@tearleads/client-sdk";
 import {
   type ContainerKeyWrap,
   generateKemSeedAndKeyPair,
@@ -13,6 +12,8 @@ import {
   createParentProjection,
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { shareRemoteContainer } from "./share";
 
 test("shareRemoteContainer replaces stale wraps when re-sharing a user", async () => {
   const existingUserId = "user-2";
@@ -51,26 +52,34 @@ test("shareRemoteContainer replaces stale wraps when re-sharing a user", async (
     author,
     containerId: parent.projection.containerId,
     execSql: database.execSql,
-    recipientEncapsulationPublicKey: newRecipientKeyPair.publicKey,
     recipientUserId: existingUserId,
     resolveProjectionUserKey: async (userId) => {
       if (userId === parent.userId) {
-        return {
+        return createTestTrustedUserIdentity({
           encapsulationPublicKey: parent.encapsulationPublicKey,
+          signingKeyFingerprint: parent.author.signerKeyFingerprint,
           signingPublicKey: parent.signingPublicKey,
           userId,
-        };
+        });
       }
       if (userId === existingUserId) {
-        return {
+        return createTestTrustedUserIdentity({
           encapsulationPublicKey: oldRecipientKeyPair.publicKey,
+          signingKeyFingerprint: parent.author.signerKeyFingerprint,
           signingPublicKey: parent.signingPublicKey,
           userId,
-        };
+        });
       }
 
       return null;
     },
+    resolveTrustedUserIdentity: async (userId) =>
+      createTestTrustedUserIdentity({
+        encapsulationPublicKey: newRecipientKeyPair.publicKey,
+        signingKeyFingerprint: parent.author.signerKeyFingerprint,
+        signingPublicKey: parent.signingPublicKey,
+        userId,
+      }),
     signedAt: SIGNED_AT,
     targetSecretKey: parent.secretKey,
   });

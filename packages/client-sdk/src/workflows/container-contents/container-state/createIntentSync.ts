@@ -1,3 +1,4 @@
+import { rethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import type { ContainerState } from "../remoteHydration";
 import { createRemoteContainer, deleteRemoteContainer } from "./remote";
 import type {
@@ -141,6 +142,7 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
       runtime: state.runtime,
     });
   } catch (error) {
+    rethrowKeyingVerificationError(error);
     // Plan construction (e.g. an uncached principal policy or a key-unwrap
     // failure) can throw. Record the error for this one intent and keep it
     // pending so the next pass retries it, rather than aborting the whole sweep

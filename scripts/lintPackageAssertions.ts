@@ -124,6 +124,84 @@ function collectViolations(
   return violations;
 }
 
+const trustedIdentityRawAdapter =
+  "packages/client-sdk/src/data/trustedUserIdentity/apiAdapter.ts";
+const trustedIdentityServiceGateway =
+  "packages/client-sdk/src/data/trustedUserIdentity/service.ts";
+const trustedIdentityTypesGateway =
+  "packages/client-sdk/src/data/trustedUserIdentity/types.ts";
+const trustedIdentityTestFixtures =
+  "packages/client-sdk/src/data/trustedUserIdentity/testFixtures.ts";
+
+function collectTrustedIdentityBoundaryViolations(
+  filePath: string,
+  sourceText: string,
+): readonly Violation[] {
+  const normalizedPath = toPosixPath(filePath);
+  const isClientSdk = normalizedPath.includes("packages/client-sdk/src/");
+  const isTestSource = /\.test\.[cm]?[jt]sx?$/u.test(normalizedPath);
+  const isTrustedIdentityTestFixtures = normalizedPath.endsWith(
+    trustedIdentityTestFixtures,
+  );
+  const isProductIdentityConsumer =
+    isClientSdk || normalizedPath.includes("packages/app/src/");
+  if (!isProductIdentityConsumer) {
+    return [];
+  }
+
+  const sourceFile = ts.createSourceFile(
+    filePath,
+    sourceText,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const violations: Violation[] = [];
+  const forbiddenIdentifiers = new Set([
+    ...(isClientSdk &&
+    !normalizedPath.endsWith(trustedIdentityRawAdapter) &&
+    !isTrustedIdentityTestFixtures
+      ? [
+          "EncapsulationKeyResponse",
+          "OrganizationUserRecipient",
+          "getEncapsulationKey",
+        ]
+      : isClientSdk
+        ? []
+        : ["OrganizationUserRecipient"]),
+    ...(normalizedPath.endsWith(trustedIdentityServiceGateway) ||
+    normalizedPath.endsWith(trustedIdentityTypesGateway) ||
+    isTrustedIdentityTestFixtures
+      ? []
+      : ["brandTrustedUserIdentity"]),
+    ...(!isTestSource && !isTrustedIdentityTestFixtures
+      ? [
+          "createMockApiTrustedUserIdentityResolver",
+          "createTestTrustedUserIdentity",
+          "createTestTrustedUserIdentityResolver",
+          "trustedUserIdentityFromResponse",
+        ]
+      : []),
+  ]);
+
+  function visit(node: ts.Node): void {
+    if (ts.isIdentifier(node) && forbiddenIdentifiers.has(node.text)) {
+      const { character, line } = sourceFile.getLineAndCharacterOfPosition(
+        node.getStart(sourceFile),
+      );
+      violations.push({
+        column: character + 1,
+        filePath,
+        line: line + 1,
+        text: node.text,
+      });
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return violations;
+}
+
 const sourceRoots = await listPackageSourceRoots();
 const sourceFiles = (
   await Promise.all(
@@ -134,6 +212,16 @@ const violations = (
   await Promise.all(
     sourceFiles.map(async (filePath) =>
       collectViolations(filePath, await readFile(filePath, "utf8")),
+    ),
+  )
+).flat();
+const trustedIdentityBoundaryViolations = (
+  await Promise.all(
+    sourceFiles.map(async (filePath) =>
+      collectTrustedIdentityBoundaryViolations(
+        filePath,
+        await readFile(filePath, "utf8"),
+      ),
     ),
   )
 ).flat();
@@ -148,5 +236,20 @@ if (violations.length > 0) {
       `  ${relativePath}:${violation.line}:${violation.column} ${violation.text}`,
     );
   }
+}
+
+if (trustedIdentityBoundaryViolations.length > 0) {
+  console.error(
+    "error package-trusted-identity-boundary: raw remote identity contracts and the nominal trust-brand constructor are restricted to the trusted identity gateway (apart from its explicit test fixture); production source must not use test identity factories, and crypto mutation inputs must not expose OrganizationUserRecipient.",
+  );
+  for (const violation of trustedIdentityBoundaryViolations) {
+    const relativePath = relativePosixPath(process.cwd(), violation.filePath);
+    console.error(
+      `  ${relativePath}:${violation.line}:${violation.column} ${violation.text}`,
+    );
+  }
+}
+
+if (violations.length > 0 || trustedIdentityBoundaryViolations.length > 0) {
   process.exit(1);
 }

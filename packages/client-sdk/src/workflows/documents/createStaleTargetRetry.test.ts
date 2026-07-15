@@ -10,6 +10,7 @@ import {
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
 import { createAuthor } from "../../../test/helpers/documentFixturePrimitives";
 import { createResponseFromRequest } from "../../../test/helpers/documentResponseFixtures";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { createRemoteDocument } from "./create";
 
 test("createRemoteDocument replans once when the target container head advances", async () => {
@@ -73,11 +74,12 @@ test("createRemoteDocument replans once when the target container head advances"
       execSql,
       resolveProjectionUserKey: async (userId) =>
         userId === author.signerUserId
-          ? {
+          ? createTestTrustedUserIdentity({
               encapsulationPublicKey: keyPair.publicKey,
+              signingKeyFingerprint: author.signerKeyFingerprint,
               signingPublicKey,
               userId,
-            }
+            })
           : null,
       signedAt: "2026-07-14T00:00:00.000Z",
       targetSecretKey: keyPair.secretKey,
@@ -153,11 +155,12 @@ test("createRemoteDocument refetches after a container projection rollback", asy
           );
         }
         return userId === author.signerUserId
-          ? {
+          ? createTestTrustedUserIdentity({
               encapsulationPublicKey: keyPair.publicKey,
+              signingKeyFingerprint: author.signerKeyFingerprint,
               signingPublicKey,
               userId,
-            }
+            })
           : null;
       },
       signedAt: "2026-07-14T00:00:00.000Z",
@@ -233,6 +236,7 @@ test("createRemoteDocument propagates rollback from the refetched projection", a
 
 test.each([
   "equivocation",
+  "object_mismatch",
   "stale_predecessor",
 ] as const)("createRemoteDocument does not retry integrity failure %s", async (code) => {
   const { author } = await createAuthor();

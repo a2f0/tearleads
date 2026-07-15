@@ -1,10 +1,4 @@
 import {
-  type buildInitialGroupPolicyRequest,
-  type buildInitialOrganizationPolicyRequest,
-  type CacheReferencedPrincipalPoliciesOptions,
-  cacheReferencedPrincipalPolicies,
-} from "@tearleads/client-sdk";
-import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
   generateKemSeedAndKeyPair,
@@ -18,11 +12,34 @@ import type {
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
+import type { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
+import {
+  type CacheReferencedPrincipalPoliciesOptions,
+  cacheReferencedPrincipalPolicies,
+} from "../../src/workflows/principals/policyCache";
+import type { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
+import { trustedUserIdentityFromResponse } from "./trustedUserIdentity";
+
+type CacheReferencedPoliciesOptions = Omit<
+  CacheReferencedPrincipalPoliciesOptions,
+  "resolveTrustedUserIdentity"
+> & {
+  readonly getEncapsulationKey: (
+    userId: string,
+  ) => Promise<EncapsulationKeyResponse | null>;
+};
 
 export function cacheReferencedPolicies(
-  options: CacheReferencedPrincipalPoliciesOptions,
+  options: CacheReferencedPoliciesOptions,
 ): Promise<void> {
-  return cacheReferencedPrincipalPolicies(options);
+  const { getEncapsulationKey, ...cacheOptions } = options;
+  return cacheReferencedPrincipalPolicies({
+    ...cacheOptions,
+    resolveTrustedUserIdentity: async (userId) => {
+      const response = await getEncapsulationKey(userId);
+      return response ? trustedUserIdentityFromResponse(response) : null;
+    },
+  });
 }
 
 type InitialPrincipalPolicy =
@@ -71,6 +88,7 @@ export async function createPrincipalPolicyBundle(): Promise<{
     signingPublicKey: string;
     signingKeyFingerprint: string;
     encapsulationPublicKey: string;
+    encapsulationKeyFingerprint: string;
   };
 }> {
   const principalKem = generateKemSeedAndKeyPair();
@@ -157,6 +175,7 @@ export async function createPrincipalPolicyBundle(): Promise<{
       signingPublicKey: bytesToBase64(signerPublicKey),
       signingKeyFingerprint: signerUserKeyFingerprint,
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+      encapsulationKeyFingerprint: principalKeyFingerprint,
     },
   };
 }
@@ -170,6 +189,7 @@ export async function createSuccessorPrincipalPolicyBundle(
     signingPublicKey: string;
     signingKeyFingerprint: string;
     encapsulationPublicKey: string;
+    encapsulationKeyFingerprint: string;
   };
 }> {
   const principalKem = generateKemSeedAndKeyPair();
@@ -298,6 +318,7 @@ export async function createSuccessorPrincipalPolicyBundle(
       signingPublicKey: bytesToBase64(signerPublicKey),
       signingKeyFingerprint: signerUserKeyFingerprint,
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+      encapsulationKeyFingerprint: principalKeyFingerprint,
     },
   };
 }
@@ -426,6 +447,7 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promis
           signingPublicKey: bytesToBase64(adminSigningPublicKey),
           signingKeyFingerprint: adminSigningKeyFingerprint,
           encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+          encapsulationKeyFingerprint: principalKeyFingerprint,
         },
       ],
       [
@@ -435,6 +457,7 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promis
           signingPublicKey: bytesToBase64(outsiderSigningPublicKey),
           signingKeyFingerprint: outsiderSigningKeyFingerprint,
           encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+          encapsulationKeyFingerprint: principalKeyFingerprint,
         },
       ],
     ]),

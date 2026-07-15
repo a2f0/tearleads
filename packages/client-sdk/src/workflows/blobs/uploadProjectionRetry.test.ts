@@ -1,13 +1,14 @@
 import { expect, test } from "bun:test";
-import { uploadDocumentAttachment } from "@tearleads/client-sdk";
 import {
   computeBlobAccessManifestHash,
   computeWriteHeaderHash,
+  KeyingVerificationError,
   type WriteHeader,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobContracts";
+import { uploadDocumentAttachment } from "./upload";
 
 test("uploadDocumentAttachment refetches writer projection after a stale container KEK unwrap", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
@@ -113,4 +114,55 @@ test("uploadDocumentAttachment refetches writer projection after a stale contain
   expect(projectionRequestCount).toBe(2);
   expect(stageCount).toBe(1);
   expect(uploaded?.bindingId).toBe(bindingId);
+});
+
+test("uploadDocumentAttachment does not retry identity failures that resemble stale unwraps", async () => {
+  const { author, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const integrityError = new KeyingVerificationError(
+    "object_mismatch",
+    "Container writer projection KEK identity could not be unwrapped",
+  );
+  const { close, execSql } = await createTestExecSql(
+    "blob-projection-identity-failure",
+  );
+  let evictions = 0;
+  let projectionRequests = 0;
+  let stageRequests = 0;
+
+  try {
+    await expect(
+      uploadDocumentAttachment({
+        apiClient: {
+          bindBlobAttachment: async () => null,
+          evictDocumentWriterProjection: () => {
+            evictions += 1;
+          },
+          getDocumentWriterProjection: async () => {
+            projectionRequests += 1;
+            return writerProjection;
+          },
+          stageBlob: async () => {
+            stageRequests += 1;
+            return null;
+          },
+        },
+        author,
+        bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
+        documentId: writerProjection.documentId,
+        execSql,
+        expectedBindingId: null,
+        resolveProjectionUserKey: async () => {
+          throw integrityError;
+        },
+        slotId: "identity-failure",
+        targetSecretKey: secretKey,
+      }),
+    ).rejects.toBe(integrityError);
+    expect(evictions).toBe(0);
+    expect(projectionRequests).toBe(1);
+    expect(stageRequests).toBe(0);
+  } finally {
+    close();
+  }
 });

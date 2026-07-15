@@ -32,6 +32,7 @@ import type {
   ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   isDocumentManifestAlreadyExistsConflict,
@@ -109,6 +110,9 @@ function shouldRetryWithFreshContainerProjection(error: unknown): boolean {
   const integrityErrorCode = projectionIntegrityErrorCode(error);
   if (integrityErrorCode) {
     return integrityErrorCode === "rollback";
+  }
+  if (isKeyingVerificationError(error)) {
+    return false;
   }
 
   return (

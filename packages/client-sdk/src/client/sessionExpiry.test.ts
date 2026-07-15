@@ -3,6 +3,7 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type { Logger } from "./logger";
 import { Tearleads } from "./Tearleads";
 
@@ -27,6 +28,9 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
 
 describe("session expiry", () => {
   test("renews a restored stale auth token after session expiry", async () => {
+    const { close, execSql } = await createTestExecSql(
+      "session-expiry-identity-trust",
+    );
     const previousFetch = globalThis.fetch;
     const requests: Array<{
       authorization: string | null;
@@ -61,7 +65,7 @@ describe("session expiry", () => {
           authenticated: true,
           organizationId: "org-2",
           token: "fresh-token",
-          userId: "user-2",
+          userId: "22222222-2222-4222-8222-222222222222",
         });
       }
 
@@ -78,6 +82,7 @@ describe("session expiry", () => {
     try {
       const sdk = new Tearleads({
         apiBaseUrl: "https://api.example.test",
+        database: { execSql, id: "session-expiry-identity-trust" },
         logger: quietLogger,
       });
       await setGeneratedIdentity(sdk);
@@ -97,7 +102,7 @@ describe("session expiry", () => {
         defaultOrganizationId: "org-2",
         isAuthenticated: true,
         organizationId: "org-2",
-        userId: "user-2",
+        userId: "22222222-2222-4222-8222-222222222222",
       });
       expect(requests).toEqual([
         {
@@ -123,6 +128,7 @@ describe("session expiry", () => {
       ]);
     } finally {
       globalThis.fetch = previousFetch;
+      close();
     }
   });
 });

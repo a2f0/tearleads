@@ -2,6 +2,7 @@ import type {
   BlobAttachmentApi,
   UploadDocumentAttachmentInput,
 } from "../../data/documents/blob/shared/types";
+import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 
 export type MultipartBlobAttachmentApi = BlobAttachmentApi &
   Required<
@@ -69,7 +70,8 @@ export async function resolveMultipartUploadOptions(input: {
   >;
   try {
     capabilities = await input.apiClient.getBlobUploadCapabilities();
-  } catch {
+  } catch (error) {
+    rethrowKeyingVerificationError(error);
     return undefined;
   }
 

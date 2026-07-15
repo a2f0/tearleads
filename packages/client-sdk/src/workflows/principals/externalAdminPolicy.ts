@@ -2,10 +2,7 @@ import {
   KeyingVerificationError,
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import type {
-  EncapsulationKeyResponse,
-  PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { loadPrincipalPolicyVerificationCheckpoint } from "../../data/persistence/principalPolicyCheckpointSelection";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import {
@@ -13,6 +10,7 @@ import {
   verifyOrganizationAdminPolicy,
 } from "../../data/principalPolicyAdminSigners";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { collectPrincipalPolicySignerPublicKeys } from "./policyVerification";
 
 export interface VerifiedExternalAdminPolicy {
@@ -27,10 +25,8 @@ export async function loadOrganizationExternalAdminPolicy(input: {
     principalType: "group" | "organization",
     principalId: string,
   ) => Promise<PrincipalPolicyBundleResponse | null>;
-  readonly getEncapsulationKey: (
-    userId: string,
-  ) => Promise<EncapsulationKeyResponse | null>;
   readonly organizationId: string | null | undefined;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<VerifiedExternalAdminPolicy | null> {
   if (!input.organizationId) {
     return null;
@@ -56,7 +52,7 @@ export async function loadOrganizationExternalAdminPolicy(input: {
     });
     const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
       bundle,
-      getEncapsulationKey: input.getEncapsulationKey,
+      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     });
     if ("error" in signerPublicKeys) {
       return null;

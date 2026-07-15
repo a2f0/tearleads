@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  generateKemSeedAndKeyPair,
+  KeyingVerificationError,
+} from "@tearleads/crypto";
 import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
 import {
   createContainerWriterProjectionFixture,
@@ -12,6 +15,7 @@ import {
   createLinkSetResponseFromRequest,
   createResponse,
 } from "../../../test/helpers/documentFixtures";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -57,11 +61,12 @@ test("relinkRemoteContainerDocument persists linked container projections after 
     });
     const resolveProjectionUserKey = async (userId: string) =>
       userId === author.signerUserId
-        ? {
+        ? createTestTrustedUserIdentity({
             encapsulationPublicKey: keyPair.publicKey,
+            signingKeyFingerprint: author.signerKeyFingerprint,
             signingPublicKey,
             userId,
-          }
+          })
         : null;
     const created = await buildMaterializedDocumentCreatePlan({
       author,
@@ -123,6 +128,7 @@ test("relinkRemoteContainerDocument persists linked container projections after 
             signingPublicKey,
           },
         },
+        resolveTrustedUserIdentity: resolveProjectionUserKey,
         infra: {
           blobStore: null as never,
           dbStatus: "ready",
@@ -187,11 +193,12 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
     });
     const resolveProjectionUserKey = async (userId: string) =>
       userId === author.signerUserId
-        ? {
+        ? createTestTrustedUserIdentity({
             encapsulationPublicKey: keyPair.publicKey,
+            signingKeyFingerprint: author.signerKeyFingerprint,
             signingPublicKey,
             userId,
-          }
+          })
         : null;
     const created = await buildMaterializedDocumentCreatePlan({
       author,
@@ -305,6 +312,7 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
             signingPublicKey,
           },
         },
+        resolveTrustedUserIdentity: resolveProjectionUserKey,
         infra: {
           blobStore: null as never,
           dbStatus: "ready",
@@ -381,4 +389,75 @@ test("purgeLocalContainerDocument tears down local state and returns a result", 
   expect(deletedLocalIds).toEqual(["purge-local-note"]);
   expect(purged?.documentId).toBe("purge-local-note");
   expect(purged?.reclaimedBlobStorageKeys).toEqual([]);
+});
+
+test("relinkRemoteContainerDocument propagates identity failures without soft-failing", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-document-link-identity-failure",
+  );
+  const { author, signingPublicKey } = await createAuthor();
+  const keyPair = generateKemSeedAndKeyPair();
+  const integrityError = new KeyingVerificationError(
+    "equivocation",
+    "trusted identity changed",
+  );
+  const logs: string[] = [];
+  let projectionRequests = 0;
+
+  try {
+    await expect(
+      relinkRemoteContainerDocument({
+        documentId: "document",
+        noteId: "note",
+        operation: "link",
+        resolveProjectionUserKey: async () => null,
+        runtime: {
+          apiClient: {
+            getContainerWriterProjection: async () => null,
+            getDocumentWriterProjection: async () => {
+              projectionRequests += 1;
+              throw integrityError;
+            },
+          },
+          auth: {
+            isAuthenticated: true,
+            organizationId: author.organizationId,
+            userId: author.signerUserId,
+          },
+          crypto: {
+            encapsulationKeyPair: keyPair,
+            signingFingerprint: author.signerKeyFingerprint,
+            signingKeyPair: {
+              signingPrivateKey: author.signerPrivateKey,
+              signingPublicKey,
+            },
+          },
+          infra: {
+            blobStore: null as never,
+            dbStatus: "ready",
+            documentProjectors: defaultDocumentProjectorRegistry,
+            execSql,
+          },
+          resolveTrustedUserIdentity: async () => null,
+          state: {
+            containerId: null,
+            domainScope: null as never,
+            events: [],
+            online: true,
+          },
+          util: {
+            cacheReferencedPrincipalPolicies: async () => undefined,
+            log: (message: string) => logs.push(message),
+          },
+        } as unknown as Parameters<
+          typeof relinkRemoteContainerDocument
+        >[0]["runtime"],
+        targetContainerId: "target",
+      }),
+    ).rejects.toBe(integrityError);
+    expect(projectionRequests).toBe(1);
+    expect(logs).toEqual([]);
+  } finally {
+    close();
+  }
 });

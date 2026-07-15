@@ -6,6 +6,7 @@ export interface EncapsulationKeyResponse {
   signingPublicKey: string;
   signingKeyFingerprint: string;
   encapsulationPublicKey: string;
+  encapsulationKeyFingerprint: string;
 }
 
 export function isEncapsulationKeyResponse(
@@ -17,6 +18,8 @@ export function isEncapsulationKeyResponse(
     hasStringProperty(value, "signingPublicKey") &&
     hasStringProperty(value, "signingKeyFingerprint") &&
     isSha256HexString(value.signingKeyFingerprint) &&
-    hasStringProperty(value, "encapsulationPublicKey")
+    hasStringProperty(value, "encapsulationPublicKey") &&
+    hasStringProperty(value, "encapsulationKeyFingerprint") &&
+    isSha256HexString(value.encapsulationKeyFingerprint)
   );
 }

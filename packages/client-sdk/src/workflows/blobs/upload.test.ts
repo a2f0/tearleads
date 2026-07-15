@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { uploadDocumentAttachment } from "@tearleads/client-sdk";
 import {
   BLOB_CONTENT_KEY_WRAP_SUITE,
   computeBlobAccessManifestHash,
@@ -23,6 +22,7 @@ import {
 import type { BlobBytes } from "../../data/blobContracts";
 import { ensurePrincipalPolicyTables } from "../../data/persistence/principalPolicyPersistence";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
+import { uploadDocumentAttachment } from "./upload";
 
 test("uploadDocumentAttachment wraps blob keys with the blob content-key suite", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =

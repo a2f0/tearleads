@@ -110,6 +110,7 @@ async function registerIdentity(
       containerId: crypto.randomUUID(),
       dbClient: createDbClient(execSql),
       encapsulationKeyPair,
+      pinLocalUserIdentity: async () => undefined,
       signingKeyPair,
     });
     invariant(registration, "Expected registration response.");

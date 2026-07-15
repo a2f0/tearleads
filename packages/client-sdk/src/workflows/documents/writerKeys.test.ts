@@ -1,10 +1,11 @@
 import { expect, test } from "bun:test";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
+  KeyingVerificationError,
   toFingerprint,
   type WriteHeader,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { createDocumentWriterPublicKeyResolver } from "./writerKeys";
 
 function createWriteHeader(input: {
@@ -32,29 +33,27 @@ function createWriteHeader(input: {
   };
 }
 
-test("createDocumentWriterPublicKeyResolver uses the local signing key when allowed", async () => {
+function trustedIdentity(input: {
+  signingKeyFingerprint: string;
+  signingPublicKey: Uint8Array;
+  userId: string;
+}) {
+  return createTestTrustedUserIdentity(input);
+}
+
+test("createDocumentWriterPublicKeyResolver uses a trusted signing identity", async () => {
   const signingPublicKey = Uint8Array.from([1, 2, 3, 4]);
   const signingFingerprint = await toFingerprint(signingPublicKey);
-  let remoteFetchCount = 0;
   const resolver = createDocumentWriterPublicKeyResolver({
     logPrefix: "Documents",
     runtime: {
-      apiClient: {
-        getEncapsulationKey: async () => {
-          remoteFetchCount += 1;
-          return null;
-        },
-      },
-      auth: {
-        userId: "user-1",
-      },
-      crypto: {
-        signingFingerprint,
-        signingKeyPair: { signingPublicKey },
-      },
-      util: {
-        log: () => {},
-      },
+      resolveTrustedUserIdentity: async (userId) =>
+        trustedIdentity({
+          signingKeyFingerprint: signingFingerprint,
+          signingPublicKey,
+          userId,
+        }),
+      util: { log: () => {} },
     },
     writerKeyLabel: "writer key",
   });
@@ -69,38 +68,24 @@ test("createDocumentWriterPublicKeyResolver uses the local signing key when allo
   });
 
   expect(resolved).toBe(signingPublicKey);
-  expect(remoteFetchCount).toBe(0);
 });
 
-test("createDocumentWriterPublicKeyResolver caches remote writer keys", async () => {
+test("createDocumentWriterPublicKeyResolver caches trusted writer keys", async () => {
   const signingPublicKey = Uint8Array.from([5, 6, 7, 8]);
   const signingFingerprint = await toFingerprint(signingPublicKey);
-  let remoteFetchCount = 0;
+  let resolveCount = 0;
   const resolver = createDocumentWriterPublicKeyResolver({
-    includeLocalSigningKey: false,
     logPrefix: "Container documents",
     runtime: {
-      apiClient: {
-        getEncapsulationKey: async (userId) => {
-          remoteFetchCount += 1;
-          return {
-            userId,
-            encapsulationPublicKey: "encapsulation-public-key",
-            signingKeyFingerprint: signingFingerprint,
-            signingPublicKey: bytesToBase64(signingPublicKey),
-          };
-        },
+      resolveTrustedUserIdentity: async (userId) => {
+        resolveCount += 1;
+        return trustedIdentity({
+          signingKeyFingerprint: signingFingerprint,
+          signingPublicKey,
+          userId,
+        });
       },
-      auth: {
-        userId: "user-1",
-      },
-      crypto: {
-        signingFingerprint,
-        signingKeyPair: { signingPublicKey },
-      },
-      util: {
-        log: () => {},
-      },
+      util: { log: () => {} },
     },
     writerKeyLabel: "metadata writer key",
   });
@@ -124,10 +109,10 @@ test("createDocumentWriterPublicKeyResolver caches remote writer keys", async ()
   expect(Array.from(secondResolved ?? [])).toEqual(
     Array.from(signingPublicKey),
   );
-  expect(remoteFetchCount).toBe(1);
+  expect(resolveCount).toBe(1);
 });
 
-test("createDocumentWriterPublicKeyResolver logs mismatched remote writer keys", async () => {
+test("createDocumentWriterPublicKeyResolver logs a writer fingerprint mismatch", async () => {
   const responsePublicKey = Uint8Array.from([9, 10, 11, 12]);
   const responseFingerprint = await toFingerprint(responsePublicKey);
   const authorFingerprint = await toFingerprint(Uint8Array.from([13, 14]));
@@ -135,19 +120,13 @@ test("createDocumentWriterPublicKeyResolver logs mismatched remote writer keys",
   const resolver = createDocumentWriterPublicKeyResolver({
     logPrefix: "Documents",
     runtime: {
-      apiClient: {
-        getEncapsulationKey: async (userId) => ({
-          userId,
-          encapsulationPublicKey: "encapsulation-public-key",
+      resolveTrustedUserIdentity: async (userId) =>
+        trustedIdentity({
           signingKeyFingerprint: responseFingerprint,
-          signingPublicKey: bytesToBase64(responsePublicKey),
+          signingPublicKey: responsePublicKey,
+          userId,
         }),
-      },
-      auth: {},
-      crypto: {},
-      util: {
-        log: (message) => logs.push(message),
-      },
+      util: { log: (message) => logs.push(message) },
     },
     writerKeyLabel: "writer key",
   });
@@ -163,6 +142,34 @@ test("createDocumentWriterPublicKeyResolver logs mismatched remote writer keys",
 
   expect(resolved).toBeNull();
   expect(logs).toEqual([
-    "Documents: skipped writer key for user-2 because the signing fingerprint does not match the public key.",
+    "Documents: skipped writer key for user-2 because the signing fingerprint does not match the writer.",
   ]);
+});
+
+test("createDocumentWriterPublicKeyResolver preserves identity integrity errors", async () => {
+  const integrityError = new KeyingVerificationError(
+    "equivocation",
+    "identity changed",
+  );
+  const resolver = createDocumentWriterPublicKeyResolver({
+    logPrefix: "Documents",
+    runtime: {
+      resolveTrustedUserIdentity: async () => {
+        throw integrityError;
+      },
+      util: { log: () => {} },
+    },
+    writerKeyLabel: "writer key",
+  });
+
+  await expect(
+    resolver({
+      authorFingerprint: "fingerprint",
+      header: createWriteHeader({
+        authorFingerprint: "fingerprint",
+        writerUserId: "user-2",
+      }),
+      update: {} as never,
+    }),
+  ).rejects.toBe(integrityError);
 });

@@ -22,6 +22,7 @@ import {
   createPendingUpdateRecord,
   createSyncResponse,
 } from "../../../../test/helpers/documentFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
@@ -139,6 +140,15 @@ function createRuntime(input: {
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql: input.execSql,
     },
+    resolveTrustedUserIdentity: async (userId) =>
+      userId === author.signerUserId
+        ? createTestTrustedUserIdentity({
+            encapsulationPublicKey: publicKey,
+            signingKeyFingerprint: author.signerKeyFingerprint,
+            signingPublicKey: signingPublicKey,
+            userId,
+          })
+        : null,
     state: {
       containerId: "source-container",
       domainScope: createDomainScope(),

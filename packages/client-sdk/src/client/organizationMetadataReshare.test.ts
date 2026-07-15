@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { getOrganizationProfileDocumentLocalId } from "../workflows/organizations/organizationProfile";
 import { deriveOrganizationMetadataContainerSystemSlot } from "../workflows/organizations/rosterProfileContainer";
 import type { ContainerContents } from "./containerContents";
@@ -211,4 +212,33 @@ test("swallows errors so a re-share failure never surfaces to the caller", async
       message.includes("best-effort org metadata re-share failed"),
     ),
   ).toBe(true);
+});
+
+test("propagates identity failures to the coordinator without logging them as availability failures", async () => {
+  const slot = await deriveOrganizationMetadataContainerSystemSlot({
+    organizationId: ORGANIZATION_ID,
+  });
+  const integrityError = new KeyingVerificationError(
+    "equivocation",
+    "trusted identity changed",
+  );
+  const { containerContents, pullCalls } = createFakeContainerContents({
+    initialNodes: [{ id: "metadata-container", systemSlot: slot }],
+    shareWithGroup: async () => {
+      throw integrityError;
+    },
+  });
+  const logs: string[] = [];
+
+  await expect(
+    reshareOrganizationMetadataToMembers({
+      containerContents,
+      log: (message) => logs.push(message),
+      memberGroupId: MEMBER_GROUP_ID,
+      mutatedGroupId: MEMBER_GROUP_ID,
+      organizationId: ORGANIZATION_ID,
+    }),
+  ).rejects.toBe(integrityError);
+  expect(pullCalls).toEqual([]);
+  expect(logs).toEqual([]);
 });

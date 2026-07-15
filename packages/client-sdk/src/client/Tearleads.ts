@@ -7,6 +7,7 @@ import {
 } from "../data/documents/documentKinds";
 import { createDomainScope, type DomainScope } from "../data/domainScope";
 import { disposeDomainSyncCoordinator } from "../data/sync/syncCoordinator";
+import { resolveIdentityTrustDomain } from "../data/trustedUserIdentity";
 import type { ProvisionedSystemContainerSpec } from "../workflows/registration";
 import { type BlobStoreFactory, Blobs } from "./blobs";
 import {
@@ -33,7 +34,11 @@ import { createSession } from "./session";
 import type { Session } from "./sessionTypes";
 import { SyncBillingGate } from "./syncBillingGate";
 import { createUserKeys, type UserKeys } from "./userKeys";
-import { createRuntime, type Runtime } from "./workflowRuntime";
+import {
+  createRuntime,
+  type InternalRuntime,
+  type Runtime,
+} from "./workflowRuntime";
 
 export type ClientDatabaseOptions = Omit<DatabaseOptions, "status">;
 
@@ -45,6 +50,11 @@ export interface ClientOptions {
   documentProjectors?: DocumentProjectorRegistryInput | undefined;
   events?: ReadonlyArray<unknown> | undefined;
   identity?: IdentityOptions | undefined;
+  /**
+   * Absolute, host-controlled API namespace for durable user-identity pins.
+   * Required only when apiBaseUrl is relative and no browser origin exists.
+   */
+  identityTrustDomain?: string | undefined;
   identityProvisioning?: "auto" | "manual" | undefined;
   logger?: Logger | undefined;
   online?: boolean | undefined;
@@ -96,7 +106,8 @@ export class Tearleads {
   private expiredSessionLoginPromise: Promise<boolean> | null = null;
 
   constructor(options: ClientOptions = {}) {
-    this.apiClient = new ApiClient(options.apiBaseUrl ?? "");
+    const apiBaseUrl = options.apiBaseUrl ?? "";
+    this.apiClient = new ApiClient(apiBaseUrl);
     this.blobs = new Blobs(options.blobStore, options.blobStoreFactory);
     this.database = new Database(options.database);
     this.documentProjectors = resolveDocumentProjectorRegistry(
@@ -133,6 +144,10 @@ export class Tearleads {
       },
     );
     this.keyPackageBackups = createKeyPackageBackups(this.apiClient);
+    let pinLocalUserIdentity: InternalRuntime["pinLocalUserIdentity"] =
+      async () => {
+        throw new Error("Trusted user identity runtime is not initialized");
+      };
     session = createSession({
       api: this.apiClient,
       database: this.database,
@@ -140,24 +155,15 @@ export class Tearleads {
       identity: this.identity,
       log: this.log,
       logError: this.logError,
+      onUserIdentityAvailable: (userId, candidate) =>
+        pinLocalUserIdentity(userId, candidate),
       provisionedSystemContainers: options.provisionedSystemContainers,
     });
     this.session = session;
-    const runtime = createRuntime({
-      api: this.apiClient,
-      blobs: this.blobs,
-      database: this.database,
-      documentProjectors: this.documentProjectors,
-      events: this.events,
-      getDomainScope: () => this.domainScope,
-      identity: this.identity,
-      log: this.log,
-      logError: this.logError,
-      network: this.network,
-      peerScope: options.peerScope ?? null,
-      session: this.session,
-      syncBillingGate: this.syncBillingGate,
-    });
+    const runtime = this.createWorkflowRuntime(apiBaseUrl, options);
+    pinLocalUserIdentity = async (userId, candidate) => {
+      await runtime.pinLocalUserIdentity(userId, candidate);
+    };
     this.runtime = runtime.publicRuntime;
     this.documents = createDocuments({
       getDefaultContainerId: () => this.session.containerId,
@@ -167,8 +173,9 @@ export class Tearleads {
     this.deviceFirst = createDeviceFirst(runtime, this.containerContents);
     this.organizations = createOrganizations(runtime, this.containerContents);
     this.userKeys = createUserKeys({
-      apiClient: this.apiClient,
       log: this.log,
+      resolveTrustedUserIdentity: (userId) =>
+        runtime.workflowInput().resolveTrustedUserIdentity(userId),
     });
 
     this.apiClient.setOnError((message) => this.logError(message));
@@ -182,6 +189,31 @@ export class Tearleads {
     if (options.identityProvisioning === "auto") {
       this.startAutomaticIdentityProvisioning();
     }
+  }
+
+  private createWorkflowRuntime(
+    apiBaseUrl: string,
+    options: ClientOptions,
+  ): InternalRuntime {
+    return createRuntime({
+      api: this.apiClient,
+      blobs: this.blobs,
+      database: this.database,
+      documentProjectors: this.documentProjectors,
+      events: this.events,
+      getDomainScope: () => this.domainScope,
+      identity: this.identity,
+      identityTrustDomain: resolveIdentityTrustDomain({
+        apiBaseUrl,
+        identityTrustDomain: options.identityTrustDomain,
+      }),
+      log: this.log,
+      logError: this.logError,
+      network: this.network,
+      peerScope: options.peerScope ?? null,
+      session: this.session,
+      syncBillingGate: this.syncBillingGate,
+    });
   }
 
   log = (message: string): void => {

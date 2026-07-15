@@ -22,7 +22,6 @@ import type {
 } from "@tearleads/validators/request";
 import type {
   CurrentPrincipalMemberEnvelopesResponse,
-  EncapsulationKeyResponse,
   OrganizationGroupSummaryResponse,
   PrincipalMemberEnvelopeResponse,
   PrincipalPolicyBundleResponse,
@@ -38,6 +37,10 @@ import {
   savePrincipalPolicyBundle,
 } from "../../data/persistence/principalPolicyPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import type {
+  TrustedUserIdentity,
+  TrustedUserIdentityResolver,
+} from "../../data/trustedUserIdentity";
 import {
   acknowledgeGroupPolicyState,
   acknowledgeInitialGroupPolicy,
@@ -63,21 +66,16 @@ import {
   remainingGroupMemberIds,
   rewrapProjectionMemberEnvelopes,
 } from "./principalPolicyRecipients";
-
-export interface OrganizationUserRecipient {
-  readonly userId: string;
-  readonly encapsulationPublicKey: string;
-  readonly encapsulationKeyFingerprint: string;
-}
+import {
+  projectionUserIds,
+  resolveRequiredUserIdentities,
+} from "./trustedOrganizationUsers";
 
 interface OrganizationPrincipalPolicyApi {
   createOrganizationGroup: (
     organizationId: string,
     input: CreateOrganizationGroupRequest,
   ) => Promise<OrganizationGroupSummaryResponse | null>;
-  getEncapsulationKey: (
-    userId: string,
-  ) => Promise<EncapsulationKeyResponse | null>;
   getCurrentPrincipalPolicy: (
     principalType: "group" | "organization",
     principalId: string,
@@ -92,32 +90,6 @@ interface OrganizationPrincipalPolicyApi {
     principalId: string,
     input: PutPrincipalStateRequest,
   ) => Promise<PrincipalStateResponse | null>;
-}
-
-export async function importOrganizationUserRecipient(input: {
-  readonly apiClient: Pick<
-    OrganizationPrincipalPolicyApi,
-    "getEncapsulationKey"
-  >;
-  readonly userId: string;
-}): Promise<OrganizationUserRecipient | null> {
-  const userId = input.userId.trim();
-  if (userId.length === 0) {
-    return null;
-  }
-
-  const response = await input.apiClient.getEncapsulationKey(userId);
-  if (!response) {
-    return null;
-  }
-
-  return {
-    userId: response.userId,
-    encapsulationPublicKey: response.encapsulationPublicKey,
-    encapsulationKeyFingerprint: await toFingerprint(
-      base64ToBytes(response.encapsulationPublicKey),
-    ),
-  };
 }
 
 interface BuildInitialGroupPolicyInput {
@@ -146,9 +118,9 @@ type GroupPolicyMutationRequest = {
 };
 
 type BuildAddGroupUserPolicyInput = BuildGroupMembershipMutationInput & {
-  readonly currentUsers: ReadonlyArray<OrganizationUserRecipient>;
+  readonly currentUsers: ReadonlyArray<TrustedUserIdentity>;
   readonly currentUserSecretKey: Uint8Array;
-  readonly targetUser: OrganizationUserRecipient;
+  readonly targetUser: TrustedUserIdentity;
 };
 
 function projectionMemberKey(member: {
@@ -298,6 +270,7 @@ async function cacheGroupPolicy(input: {
   readonly expectedCurrentHead?: ReferencedPrincipalHead | undefined;
   readonly groupId: string;
   readonly localPolicyCheckpoint?: PrincipalPolicyCheckpoint | null;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
@@ -312,13 +285,8 @@ async function cacheGroupPolicy(input: {
   }
 
   const signerPublicKeys = await collectGroupPolicySignerPublicKeys({
-    apiClient: input.apiClient,
     bundle,
-    currentUserSigningKey: {
-      signerUserId: input.signerUserId,
-      signingFingerprint: input.signingFingerprint,
-      signingKeyPair: input.signingKeyPair,
-    },
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   const verified = await verifyGroupPolicy({
     currentPolicy: bundle,
@@ -358,6 +326,7 @@ async function loadGroupPolicyMutationContext(input: {
   readonly canAdministerOrganization: boolean;
   readonly execSql: ExecSql;
   readonly groupId: string;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
@@ -372,12 +341,9 @@ async function loadGroupPolicyMutationContext(input: {
   }
 
   const verification = await prepareGroupPolicyVerification({
-    apiClient: input.apiClient,
     currentPolicy,
     execSql: input.execSql,
-    signerUserId: input.signerUserId,
-    signingFingerprint: input.signingFingerprint,
-    signingKeyPair: input.signingKeyPair,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   const verified = await verifyGroupPolicy({
     currentPolicy,
@@ -608,7 +574,7 @@ async function buildOrgAdminAddGroupUserPolicyRequest(
   });
   const wrappedRecipients = await wrapDekForRecipients(
     groupKem.secretKey,
-    recipientUsers.map((user) => base64ToBytes(user.encapsulationPublicKey)),
+    recipientUsers.map((user) => user.encapsulationPublicKey),
   );
   const state = await signedGroupStateRequest({
     currentPolicy: input.currentPolicy,
@@ -645,7 +611,7 @@ async function buildDirectAdminAddGroupUserPolicyRequest(
     input.currentUserSecretKey,
   );
   const [targetEnvelope] = await wrapDekForRecipients(groupSecretKey, [
-    base64ToBytes(input.targetUser.encapsulationPublicKey),
+    input.targetUser.encapsulationPublicKey,
   ]);
 
   if (!targetEnvelope) {
@@ -726,7 +692,7 @@ export async function buildAddGroupUserPolicyRequest(
 export async function buildRemoveGroupUserPolicyRequest(
   input: BuildGroupMembershipMutationInput & {
     readonly remainingGroups?: ReadonlyArray<OrganizationGroupRecipient>;
-    readonly remainingUsers: ReadonlyArray<OrganizationUserRecipient>;
+    readonly remainingUsers: ReadonlyArray<TrustedUserIdentity>;
     readonly removedUserId: string;
   },
 ): Promise<GroupPolicyMutationRequest> {
@@ -792,6 +758,7 @@ export async function createOrganizationGroup(input: {
   readonly execSql: ExecSql;
   readonly name: string;
   readonly organizationId: string;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
@@ -837,6 +804,7 @@ export async function createOrganizationGroup(input: {
     expectedCurrentHead: expectedHead,
     groupId: group.groupId,
     localPolicyCheckpoint: acknowledged.policy.checkpoint,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     signerUserId: input.signerUserId,
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
@@ -849,13 +817,13 @@ export async function addOrganizationGroupUser(input: {
   readonly apiClient: OrganizationPrincipalPolicyApi;
   readonly canAdministerOrganization: boolean;
   readonly currentUserSecretKey: Uint8Array;
-  readonly currentUsers: ReadonlyArray<OrganizationUserRecipient>;
   readonly execSql: ExecSql;
   readonly groupId: string;
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
-  readonly targetUser: OrganizationUserRecipient;
+  readonly targetUserId: string;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly beforePolicyCommit: (head: ReferencedPrincipalHead) => void;
 }): Promise<PrincipalPolicyBundleResponse> {
   const policyContext = await loadGroupPolicyMutationContext({
@@ -863,15 +831,33 @@ export async function addOrganizationGroupUser(input: {
     canAdministerOrganization: input.canAdministerOrganization,
     execSql: input.execSql,
     groupId: input.groupId,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     signerUserId: input.signerUserId,
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
   });
+  const identities = await resolveRequiredUserIdentities({
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    userIds: [
+      ...projectionUserIds(policyContext.currentPolicy.currentProjection),
+      input.targetUserId,
+    ],
+  });
+  const targetUser = identities.find(
+    (identity) => identity.userId === input.targetUserId,
+  );
+  if (!targetUser) {
+    throw new Error(
+      `User identity could not be loaded for ${input.targetUserId}`,
+    );
+  }
   const request = await buildAddGroupUserPolicyRequest({
     ...policyContext,
     currentUserSecretKey: input.currentUserSecretKey,
-    currentUsers: input.currentUsers,
-    targetUser: input.targetUser,
+    currentUsers: identities.filter(
+      (identity) => identity.userId !== input.targetUserId,
+    ),
+    targetUser,
   });
   const expectedHead = await groupPolicyMutationHead(request.state);
   input.beforePolicyCommit(expectedHead);
@@ -897,6 +883,7 @@ export async function addOrganizationGroupUser(input: {
       stateHash: expectedHead.stateHash,
       version: expectedHead.version,
     },
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     signerUserId: input.signerUserId,
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
@@ -909,8 +896,8 @@ export async function removeOrganizationGroupUser(input: {
   readonly canAdministerOrganization: boolean;
   readonly execSql: ExecSql;
   readonly groupId: string;
-  readonly remainingUsers: ReadonlyArray<OrganizationUserRecipient>;
   readonly removedUserId: string;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
@@ -921,6 +908,7 @@ export async function removeOrganizationGroupUser(input: {
     canAdministerOrganization: input.canAdministerOrganization,
     execSql: input.execSql,
     groupId: input.groupId,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     signerUserId: input.signerUserId,
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
@@ -941,10 +929,14 @@ export async function removeOrganizationGroupUser(input: {
     apiClient: input.apiClient,
     groupIds: remainingGroupMemberIds(projection),
   });
+  const remainingUsers = await resolveRequiredUserIdentities({
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    userIds: projectionUserIds(projection),
+  });
   const request = await buildRemoveGroupUserPolicyRequest({
     ...policyContext,
     remainingGroups: gs,
-    remainingUsers: input.remainingUsers,
+    remainingUsers,
     removedUserId: input.removedUserId,
   });
   const expectedHead = await groupPolicyMutationHead(request.state);
@@ -971,6 +963,7 @@ export async function removeOrganizationGroupUser(input: {
       stateHash: expectedHead.stateHash,
       version: expectedHead.version,
     },
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     signerUserId: input.signerUserId,
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,

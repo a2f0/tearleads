@@ -6,17 +6,17 @@ import {
   type PrincipalPolicySignerPublicKey,
   toFingerprint,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
+import { importOrganizationUser } from "./organizationUserImport";
 import {
   buildAddGroupUserPolicyRequest,
   buildInitialGroupPolicyRequest,
   buildRemoveGroupUserPolicyRequest,
   createOrganizationGroup,
-  importOrganizationUserRecipient,
 } from "./principalPolicy";
 
 function policySignerPublicKeys(input: {
@@ -130,32 +130,29 @@ test("buildInitialGroupPolicyRequest can create an externally-administered empty
   expect(request.initialGroupPolicy.memberEnvelopes).toEqual([]);
 });
 
-test("importOrganizationUserRecipient loads a user key by id", async () => {
+test("importOrganizationUser resolves a trusted identity by id", async () => {
   const userId = crypto.randomUUID();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const encapsulationPublicKey = bytesToBase64(encapsulationKeyPair.publicKey);
-  const recipient = await importOrganizationUserRecipient({
-    apiClient: {
-      getEncapsulationKey: async (requestedUserId) =>
-        requestedUserId === userId
-          ? {
-              userId,
-              signingPublicKey: "signing-public-key",
-              signingKeyFingerprint: "0".repeat(64),
-              encapsulationPublicKey,
-            }
-          : null,
-    },
-    userId: ` ${userId} `,
-  });
-
-  expect(recipient).toEqual({
-    userId,
-    encapsulationPublicKey,
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const signingKeyFingerprint = await toFingerprint(
+    signingKeyPair.signingPublicKey,
+  );
+  const identity = createTestTrustedUserIdentity({
     encapsulationKeyFingerprint: await toFingerprint(
       encapsulationKeyPair.publicKey,
     ),
+    encapsulationPublicKey: encapsulationKeyPair.publicKey,
+    signingKeyFingerprint,
+    signingPublicKey: signingKeyPair.signingPublicKey,
+    userId,
   });
+  const imported = await importOrganizationUser({
+    resolveTrustedUserIdentity: async (requestedUserId) =>
+      requestedUserId === userId ? identity : null,
+    userId: ` ${userId} `,
+  });
+
+  expect(imported).toEqual({ userId });
 });
 
 test("createOrganizationGroup caches the created group policy in a fresh local database", async () => {
@@ -202,9 +199,6 @@ test("createOrganizationGroup caches the created group policy in a fresh local d
         expect(principalId).toBe(createdPolicyBundle.currentState.principalId);
         return createdPolicyBundle;
       },
-      getEncapsulationKey: async () => {
-        throw new Error("unexpected signer key load");
-      },
       putPrincipalMemberEnvelopes: async () => {
         throw new Error("unexpected member envelope mutation");
       },
@@ -220,6 +214,18 @@ test("createOrganizationGroup caches the created group policy in a fresh local d
       execSql,
       name: " Operators ",
       organizationId,
+      resolveTrustedUserIdentity: async (userId) =>
+        userId === signerUserId
+          ? createTestTrustedUserIdentity({
+              encapsulationKeyFingerprint: await toFingerprint(
+                creatorKem.publicKey,
+              ),
+              encapsulationPublicKey: creatorKem.publicKey,
+              signingKeyFingerprint: signingFingerprint,
+              signingPublicKey: signingKeyPair.signingPublicKey,
+              userId: signerUserId,
+            })
+          : null,
       signerUserId,
       signingFingerprint,
       signingKeyPair,
@@ -279,11 +285,13 @@ test("group add and remove policy builders preserve additive epochs and rotate s
     signerUserId,
     signingFingerprint,
     signingKeyPair,
-    targetUser: {
+    targetUser: createTestTrustedUserIdentity({
       userId: targetUserId,
-      encapsulationPublicKey: bytesToBase64(targetKem.publicKey),
+      encapsulationPublicKey: targetKem.publicKey,
       encapsulationKeyFingerprint: await toFingerprint(targetKem.publicKey),
-    },
+      signingKeyFingerprint: signingFingerprint,
+      signingPublicKey: signingKeyPair.signingPublicKey,
+    }),
   });
 
   expect(addRequest.state.state.keyEpoch).toBe(1);
@@ -336,11 +344,13 @@ test("group add and remove policy builders preserve additive epochs and rotate s
       stateHash: initialPolicy.currentState.stateHash,
     },
     remainingUsers: [
-      {
+      createTestTrustedUserIdentity({
         userId: signerUserId,
-        encapsulationPublicKey: bytesToBase64(creatorKem.publicKey),
+        encapsulationPublicKey: creatorKem.publicKey,
         encapsulationKeyFingerprint: await toFingerprint(creatorKem.publicKey),
-      },
+        signingKeyFingerprint: signingFingerprint,
+        signingPublicKey: signingKeyPair.signingPublicKey,
+      }),
     ],
     removedUserId: targetUserId,
     signerUserId,
@@ -405,11 +415,13 @@ test("group mutation builders reject tampered server policy projections", async 
       signerUserId,
       signingFingerprint,
       signingKeyPair,
-      targetUser: {
+      targetUser: createTestTrustedUserIdentity({
         userId: targetUserId,
-        encapsulationPublicKey: bytesToBase64(targetKem.publicKey),
+        encapsulationPublicKey: targetKem.publicKey,
         encapsulationKeyFingerprint: await toFingerprint(targetKem.publicKey),
-      },
+        signingKeyFingerprint: signingFingerprint,
+        signingPublicKey: signingKeyPair.signingPublicKey,
+      }),
     }),
   ).rejects.toThrow("Group policy verification failed");
 });

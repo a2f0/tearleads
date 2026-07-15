@@ -1,12 +1,10 @@
-import type {
-  EncapsulationKeyResponse,
-  PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type {
   ReferencedPrincipalPolicyWarmer,
   ReferencedPrincipalPolicyWarmRequest,
 } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { cacheReferencedPrincipalPolicies } from "./policyCache";
 
 interface PrincipalPolicyWarmRuntime {
@@ -18,9 +16,6 @@ interface PrincipalPolicyWarmRuntime {
           principalId: string,
         ) => Promise<PrincipalPolicyBundleResponse | null>)
       | undefined;
-    getEncapsulationKey?:
-      | ((userId: string) => Promise<EncapsulationKeyResponse | null>)
-      | undefined;
   };
   readonly infra: { readonly execSql: ExecSql };
   readonly util: {
@@ -29,19 +24,19 @@ interface PrincipalPolicyWarmRuntime {
     ) => Promise<void>;
     readonly log: (message: string) => void;
   };
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
 export function createRuntimePrincipalPolicyWarmer(
   runtime: PrincipalPolicyWarmRuntime,
 ): ReferencedPrincipalPolicyWarmer {
   const getCurrentPrincipalPolicy = runtime.apiClient.getCurrentPrincipalPolicy;
-  const getEncapsulationKey = runtime.apiClient.getEncapsulationKey;
   return async ({ organizationId, references }) => {
     if (organizationId === runtime.auth.organizationId) {
       await runtime.util.cacheReferencedPrincipalPolicies(references);
       return;
     }
-    if (!getCurrentPrincipalPolicy || !getEncapsulationKey) {
+    if (!getCurrentPrincipalPolicy) {
       return;
     }
 
@@ -53,11 +48,10 @@ export function createRuntimePrincipalPolicyWarmer(
           principalType,
           principalId,
         ),
-      getEncapsulationKey: (userId) =>
-        getEncapsulationKey.call(runtime.apiClient, userId),
       log: runtime.util.log,
       organizationId,
       references,
+      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
     });
   };
 }

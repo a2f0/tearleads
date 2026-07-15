@@ -1,3 +1,4 @@
+import { isKeyingVerificationError } from "../data/keyingProjectionVerification/error";
 import type { ContainerContents } from "./containerContents";
 
 // Minimal shape the coordinator needs from an org directory lookup. Kept
@@ -47,7 +48,8 @@ export interface OrganizationMetadataReshareCoordinator {
  *      registration, so a successful lookup is cached (a failed one is not,
  *      leaving a later attempt free to retry).
  *   3. Best-effort — the triggering mutation has already committed, so nothing
- *      here may throw into the caller; failures are swallowed and logged.
+ *      here may throw into the caller. Availability failures are logged;
+ *      identity integrity failures stop later attempts for this coordinator.
  *
  * `log` is invoked (not captured) per call so it always reflects the current
  * runtime's logger, mirroring the original inline implementation.
@@ -58,6 +60,7 @@ export function createOrganizationMetadataReshareCoordinator(deps: {
   log: (message: string) => void;
   reshare: ReshareOrganizationMetadataToMembers;
 }): OrganizationMetadataReshareCoordinator {
+  const integrityFailedOrganizations = new Set<string>();
   const memberGroupIdByOrganization = new Map<string, string>();
 
   async function resolveMemberGroupId(
@@ -77,6 +80,9 @@ export function createOrganizationMetadataReshareCoordinator(deps: {
 
   return {
     async reshareAfterGroupChange({ mutatedGroupId, organizationId }) {
+      if (integrityFailedOrganizations.has(organizationId)) {
+        return;
+      }
       try {
         const memberGroupId = await resolveMemberGroupId(organizationId);
         if (!memberGroupId || mutatedGroupId !== memberGroupId) {
@@ -90,6 +96,13 @@ export function createOrganizationMetadataReshareCoordinator(deps: {
           organizationId,
         });
       } catch (error) {
+        if (isKeyingVerificationError(error)) {
+          integrityFailedOrganizations.add(organizationId);
+          deps.log(
+            `Organizations: stopped org metadata re-share for org ${organizationId} after an identity integrity failure: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return;
+        }
         deps.log(
           `Organizations: best-effort org metadata re-share skipped for org ${organizationId}: ${error instanceof Error ? error.message : String(error)}`,
         );

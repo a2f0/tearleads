@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { uploadDocumentAttachment } from "@tearleads/client-sdk";
 import type { AccessEvent } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobContracts";
+import { uploadDocumentAttachment } from "./upload";
 
 test("uploadDocumentAttachment rejects document writer projections with bad signatures before staging", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =

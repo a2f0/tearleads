@@ -85,6 +85,7 @@ test("contacts store promotes a deferred self contact on later ensure", async ()
     },
   };
   const selfKey: UserKey = {
+    encapsulationKeyFingerprint: "self-encapsulation-fingerprint",
     encapsulationPublicKey: "self-encapsulation-public-key",
     signingKeyFingerprint: "self-signing-fingerprint",
     signingPublicKey: "self-signing-public-key",

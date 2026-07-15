@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { toFingerprint } from "@tearleads/crypto";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
 import {
   createDocumentProjectionUserKeyResolver,
   type DocumentProjectionKeyRuntime,
@@ -10,111 +11,49 @@ function createRuntime(
   patch: Partial<DocumentProjectionKeyRuntime> = {},
 ): DocumentProjectionKeyRuntime {
   return {
-    apiClient: {
-      getEncapsulationKey: async () => null,
-    },
-    auth: {
-      userId: null,
-      ...patch.auth,
-    },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-      ...patch.crypto,
-    },
-    util: {
-      ...patch.util,
-    },
+    resolveTrustedUserIdentity: async () => null,
+    util: { ...patch.util },
     ...patch,
   };
 }
 
-test("createDocumentProjectionUserKeyResolver resolves the local user key", async () => {
+test("createDocumentProjectionUserKeyResolver maps a trusted identity", async () => {
   const encapsulationPublicKey = Uint8Array.from([1, 2, 3]);
   const signingPublicKey = Uint8Array.from([4, 5, 6]);
-  const signingFingerprint = await toFingerprint(signingPublicKey);
-  let remoteFetchCount = 0;
   const resolver = createDocumentProjectionUserKeyResolver(
     createRuntime({
-      apiClient: {
-        getEncapsulationKey: async () => {
-          remoteFetchCount += 1;
-          return null;
-        },
-      },
-      auth: {
-        userId: "user-1",
-      },
-      crypto: {
-        encapsulationKeyPair: {
-          publicKey: encapsulationPublicKey,
-        },
-        signingFingerprint,
-        signingKeyPair: {
+      resolveTrustedUserIdentity: async (userId) =>
+        createTestTrustedUserIdentity({
+          encapsulationPublicKey,
+          signingKeyFingerprint: "signing-fingerprint",
           signingPublicKey,
-        },
-      },
+          userId,
+        }) as unknown as TrustedUserIdentity,
     }),
   );
 
-  const resolved = await resolver("user-1");
-
-  expect(resolved).toEqual({
+  await expect(resolver("user-1")).resolves.toMatchObject({
     encapsulationPublicKey,
     signingPublicKey,
     userId: "user-1",
   });
-  expect(remoteFetchCount).toBe(0);
 });
 
-test("didDocumentProjectionKeyRuntimeChange tracks resolver dependencies", () => {
-  const apiClient = {
-    getEncapsulationKey: async () => null,
-  };
-  const encapsulationKeyPair = {
-    publicKey: Uint8Array.from([1]),
-  };
-  const signingKeyPair = {
-    signingPublicKey: Uint8Array.from([2]),
-  };
-  const runtime = createRuntime({
-    apiClient,
-    auth: {
-      userId: "user-1",
-    },
-    crypto: {
-      encapsulationKeyPair,
-      signingFingerprint: "fingerprint-1",
-      signingKeyPair,
-    },
-  });
+test("didDocumentProjectionKeyRuntimeChange tracks the trusted resolver", () => {
+  const resolveTrustedUserIdentity = async () => null;
+  const runtime = createRuntime({ resolveTrustedUserIdentity });
 
   expect(didDocumentProjectionKeyRuntimeChange(runtime, runtime)).toBe(false);
   expect(
     didDocumentProjectionKeyRuntimeChange(runtime, {
       ...runtime,
-      auth: {
-        ...runtime.auth,
-        userId: "user-2",
-      },
+      resolveTrustedUserIdentity: async () => null,
     }),
   ).toBe(true);
   expect(
     didDocumentProjectionKeyRuntimeChange(runtime, {
       ...runtime,
-      crypto: {
-        ...runtime.crypto,
-        signingFingerprint: "fingerprint-2",
-      },
-    }),
-  ).toBe(true);
-  expect(
-    didDocumentProjectionKeyRuntimeChange(runtime, {
-      ...runtime,
-      util: {
-        log: () => {},
-      },
+      util: { log: () => {} },
     }),
   ).toBe(false);
 });

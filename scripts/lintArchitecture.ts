@@ -113,6 +113,7 @@ const isClientSdkDataImport = clientSdkSubpathImport("data");
 const isClientSdkDocumentsImport = clientSdkSubpathImport("documents");
 const isClientSdkWorkflowImport = clientSdkSubpathImport("workflows");
 const isClientSdkStoreImport = clientSdkSubpathImport("stores");
+const isClientSdkTestingImport = clientSdkSubpathImport("testing");
 
 function isClientSdkStoreOrWorkflowImport(specifier: string): boolean {
   return (
@@ -202,6 +203,13 @@ const architectureChecks: ArchitectureCheck[] = [
     message:
       "App production code should import client SDK contracts from @tearleads/client-sdk or @tearleads/client-sdk/sqlite instead of @tearleads/client-sdk/data/* internals.",
     name: "app-production-uses-sdk-root-or-facades",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: appProductionSourceEntryPoints,
+    matches: isClientSdkTestingImport,
+    message:
+      "App production code must not import nominal client SDK test fixtures.",
+    name: "app-production-does-not-import-sdk-testing",
   }),
   createModuleSpecifierCheck({
     entryPoints: appProductionSourceEntryPoints,
@@ -320,7 +328,7 @@ const architectureChecks: ArchitectureCheck[] = [
     formatItem: (violation) =>
       `${clientSdkPackageJsonPath}: ${violation.exportPath} ${violation.detail}`,
     message:
-      "Client SDK package exports should exactly match the documented root and SQLite entry points with explicit dist types and default targets.",
+      "Client SDK package exports should exactly match the documented root, SQLite, and testing entry points with explicit dist types and default targets.",
     name: "client-sdk-package-exports-match-supported-entry-points",
   }),
   createListCheck({

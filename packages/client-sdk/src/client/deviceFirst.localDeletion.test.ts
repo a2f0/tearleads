@@ -86,6 +86,7 @@ test("local deletion evicts a cached device-first summary until disposal", async
   const apiClient = createMockApiClient();
   const workflowInput = {
     apiClient,
+    resolveTrustedUserIdentity: async () => null,
     auth: {
       isAuthenticated: false,
       organizationId: null,
@@ -116,6 +117,7 @@ test("local deletion evicts a cached device-first summary until disposal", async
   } satisfies InternalWorkflowRuntimeInput;
   const runtime = createContainerContentsWorkflowRuntime(workflowInput);
   const runtimeService = {
+    pinLocalUserIdentity: async () => {},
     publicRuntime: {
       version: 0,
       input: () => workflowInput,

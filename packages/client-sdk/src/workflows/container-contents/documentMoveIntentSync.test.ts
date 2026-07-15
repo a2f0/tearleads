@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  generateKemSeedAndKeyPair,
+  KeyingVerificationError,
+} from "@tearleads/crypto";
 import { createDocument, exportFullHistorySnapshot } from "@tearleads/loro";
 import {
   createContainerWriterProjectionFixture,
@@ -12,6 +15,7 @@ import {
   createLinkSetResponseFromRequest,
   createResponse,
 } from "../../../test/helpers/documentFixtures";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
@@ -76,11 +80,12 @@ test("pending document move intents replay signed link-set mutations and clear a
     });
     const resolveProjectionUserKey = async (userId: string) =>
       userId === author.signerUserId
-        ? {
+        ? createTestTrustedUserIdentity({
             encapsulationPublicKey: keyPair.publicKey,
+            signingKeyFingerprint: author.signerKeyFingerprint,
             signingPublicKey,
             userId,
-          }
+          })
         : null;
     const created = await buildMaterializedDocumentCreatePlan({
       author,
@@ -199,13 +204,13 @@ test("pending document move intents replay signed link-set mutations and clear a
           signingPublicKey,
         },
       },
-      getEncapsulationKey: async () => null,
       infra: {
         blobStore: null as never,
         dbStatus: "ready",
         documentProjectors: defaultDocumentProjectorRegistry,
         execSql,
       },
+      resolveTrustedUserIdentity: resolveProjectionUserKey,
       state: {
         containerId: null,
         domainScope: createDomainScope(),
@@ -274,6 +279,79 @@ test("pending document move intents replay signed link-set mutations and clear a
     await expect(
       sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql),
     ).resolves.toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+test("document move sync propagates identity failures without recording a retry", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-document-move-identity-failure",
+  );
+  const integrityError = new KeyingVerificationError(
+    "equivocation",
+    "trusted identity changed",
+  );
+
+  try {
+    await defaultDocumentsPersistence.ensureSchema(execSql);
+    await defaultDocumentsPersistence.saveDocument(execSql, {
+      accessEpoch: 1,
+      accessStateHash: "access-document",
+      containerId: "source",
+      contentKeyBundle: null,
+      documentId: "document",
+      documentKekTargets: null,
+      documentKind: "note",
+      documentManifestBundle: null,
+      id: "local-document",
+      lastCommitLsn: null,
+      loroSnapshot: "",
+      text: "",
+      title: "Document",
+    });
+    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+      documentId: "document",
+      localId: "local-document",
+      sourceContainerId: "source",
+      targetContainerId: "target",
+    });
+
+    await expect(
+      syncPendingDocumentMoveIntents({
+        host: {
+          documentWorkflowRuntime: () => null,
+          openDocumentStore: () => ({
+            assertCanRotateContentKey: async () => {
+              throw integrityError;
+            },
+            ensureInitialized: async () => true,
+            relink: async () => null,
+            requestSync: () => undefined,
+            updateRuntime: () => undefined,
+          }),
+        },
+        isRemoteSyncBlocked: () => false,
+        state: {
+          containersById: new Map([
+            [
+              "target",
+              remoteContainerState({ id: "target", parentId: "root" }),
+            ],
+          ]),
+          resolveProjectionUserKey: async () => null,
+          runtime: {
+            infra: { execSql },
+            util: { log: () => undefined },
+          } as unknown as ContainerContentsWorkflowRuntime,
+        },
+      }),
+    ).rejects.toBe(integrityError);
+
+    const pending =
+      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
+    expect(pending).toHaveLength(1);
+    expect(pending[0]?.lastError).toBeNull();
   } finally {
     close();
   }

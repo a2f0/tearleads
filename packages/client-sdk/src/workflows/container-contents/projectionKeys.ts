@@ -8,15 +8,7 @@ type ProjectionKeyRuntime = Parameters<
 >[0];
 
 export interface ContainerContentsProjectionKeyRuntime {
-  readonly apiClient: ProjectionKeyRuntime["apiClient"];
-  readonly auth: {
-    readonly userId?: string | null | undefined;
-  };
-  readonly crypto: {
-    readonly encapsulationKeyPair?: ProjectionKeyRuntime["encapsulationKeyPair"];
-    readonly signingFingerprint?: ProjectionKeyRuntime["signingFingerprint"];
-    readonly signingKeyPair?: ProjectionKeyRuntime["signingKeyPair"];
-  };
+  readonly resolveTrustedUserIdentity: ProjectionKeyRuntime["resolveTrustedUserIdentity"];
   readonly util?: {
     readonly log?: ProjectionKeyRuntime["log"];
   };
@@ -30,11 +22,7 @@ function containerContentsProjectionRuntime(
   runtime: ContainerContentsProjectionKeyRuntime,
 ): ContainerContentsProjectionRuntime {
   const projectionRuntime: ContainerContentsProjectionRuntime = {
-    apiClient: runtime.apiClient,
-    encapsulationKeyPair: runtime.crypto.encapsulationKeyPair ?? null,
-    signingFingerprint: runtime.crypto.signingFingerprint ?? null,
-    signingKeyPair: runtime.crypto.signingKeyPair ?? null,
-    userId: runtime.auth.userId ?? null,
+    resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
   };
 
   return runtime.util?.log
@@ -65,13 +53,7 @@ export function didContainerContentsProjectionKeyRuntimeChange(
   nextRuntime: ContainerContentsProjectionKeyRuntime,
 ): boolean {
   return (
-    previousRuntime.apiClient !== nextRuntime.apiClient ||
-    previousRuntime.crypto.encapsulationKeyPair !==
-      nextRuntime.crypto.encapsulationKeyPair ||
-    previousRuntime.crypto.signingFingerprint !==
-      nextRuntime.crypto.signingFingerprint ||
-    previousRuntime.crypto.signingKeyPair !==
-      nextRuntime.crypto.signingKeyPair ||
-    previousRuntime.auth.userId !== nextRuntime.auth.userId
+    previousRuntime.resolveTrustedUserIdentity !==
+    nextRuntime.resolveTrustedUserIdentity
   );
 }

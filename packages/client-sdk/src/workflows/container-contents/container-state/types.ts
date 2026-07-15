@@ -1,7 +1,6 @@
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
   ContainerWriterProjectionResponse,
-  EncapsulationKeyResponse,
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
@@ -49,9 +48,6 @@ export type ContainerWorkflowApi = Parameters<
       containerId: string,
       projection: ContainerWriterProjectionResponse,
     ): void;
-    getEncapsulationKey(
-      userId: string,
-    ): Promise<EncapsulationKeyResponse | null>;
     getCurrentPrincipalPolicy?(
       principalType: "group" | "organization",
       principalId: string,
@@ -61,7 +57,12 @@ export type ContainerWorkflowApi = Parameters<
 export interface ContainerWorkflowRuntime
   extends Pick<
     ContainerContentsWorkflowRuntime,
-    "auth" | "crypto" | "getEncapsulationKey" | "infra" | "state" | "util"
+    | "auth"
+    | "crypto"
+    | "infra"
+    | "resolveTrustedUserIdentity"
+    | "state"
+    | "util"
   > {
   readonly apiClient: ContainerWorkflowApi;
 }

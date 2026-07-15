@@ -153,8 +153,8 @@ test("routed system menu manually controls the app network mode", async () => {
 });
 
 test("contacts windows in the same pane share live contact document state", async () => {
+  const peerUserId = "11111111-1111-4111-8111-111111111111";
   const view = renderPane();
-
   await generateIdentityAndWaitForDb(view);
   await registerAndWaitForUserId(view);
 
@@ -204,11 +204,11 @@ test("contacts windows in the same pane share live contact document state", asyn
   invariant(firstInput, "contact input not found");
 
   fireEvent.change(firstInput, {
-    target: { value: "peer-user-1" },
+    target: { value: peerUserId },
   });
 
   const updatedFirstContactsApp = view
-    .getByDisplayValue("peer-user-1")
+    .getByDisplayValue(peerUserId)
     .closest(".contacts");
   invariant(
     updatedFirstContactsApp instanceof HTMLDivElement,
@@ -248,7 +248,7 @@ test("contacts windows in the same pane share live contact document state", asyn
   fireEvent.click(firstImportButton);
 
   await waitFor(() => {
-    expect(view.getAllByText("peer")).toHaveLength(2);
+    expect(view.getAllByText("11111111")).toHaveLength(2);
   });
 
   view.unmount();

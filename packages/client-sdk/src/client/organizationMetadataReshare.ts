@@ -1,3 +1,4 @@
+import { rethrowKeyingVerificationError } from "../data/keyingProjectionVerification/error";
 import { getOrganizationProfileDocumentLocalId } from "../workflows/organizations/organizationProfile";
 import { deriveOrganizationMetadataContainerSystemSlot } from "../workflows/organizations/rosterProfileContainer";
 import type { ContainerContents } from "./containerContents";
@@ -20,8 +21,10 @@ import type { ContainerContents } from "./containerContents";
  * `requireExistingGrant` makes the re-share re-wrap only a container that already
  * grants the Members group — refusing to create one — so a redirected slot can
  * never leak a foreign container. It also never creates the container itself:
- * resolution is snapshot lookup plus a non-creating refresh. Any failure is
- * swallowed so it cannot surface into the group mutation that already committed.
+ * resolution is snapshot lookup plus a non-creating refresh. Availability
+ * failures are swallowed so they cannot surface into the group mutation that
+ * already committed. Identity integrity failures propagate to the coordinator,
+ * which records a terminal stop without creating an unhandled rejection.
  */
 export async function reshareOrganizationMetadataToMembers(input: {
   containerContents: ContainerContents;
@@ -89,6 +92,7 @@ export async function reshareOrganizationMetadataToMembers(input: {
       }),
     });
   } catch (error) {
+    rethrowKeyingVerificationError(error);
     input.log(
       `Organizations: best-effort org metadata re-share failed for org ${input.organizationId}: ${error instanceof Error ? error.message : String(error)}`,
     );

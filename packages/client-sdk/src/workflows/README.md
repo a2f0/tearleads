@@ -12,8 +12,8 @@ coordination, but they must stay React-free and product-UI-free.
 | `containers` | Platform runtime | Container mutation planning and remote container operations. |
 | `documents` | Platform runtime | Document creation, persistence, sync, projection keys, and document link-set helpers. |
 | `container-contents` | Platform query and runtime | Container tree projections, container metadata documents, document discovery, document links, compact attribution diagnostics, lazy paginated attribution ranges, and sync-state helpers. Product UI routes, panels, menus, and selection state belong in `packages/app`. |
-| `organizations` | Platform organization administration | Organization directory, groups, grants, usage, user-detail read models, principal-policy mutation helpers, and organization-scoped system-container slot helpers. Org Manager screens and labels belong in `packages/app`. |
-| `principals` | Platform runtime | Principal-policy cache and verification support. |
+| `organizations` | Platform organization administration | Organization directory, groups, grants, usage, user-detail read models, ID-only user membership mutations, principal-policy mutation helpers, and organization-scoped system-container slot helpers. Org Manager screens and labels belong in `packages/app`. |
+| `principals` | Platform runtime | Principal-policy cache and verification support routed through the durable trusted-user-identity gateway. |
 | `registration` | Platform runtime | Local registration and atomic organization bootstrap helpers, including the initial encrypted roster and organization-profile bodies. |
 | `sync` | Platform runtime | Shared sync coordinator helpers. |
 
@@ -51,6 +51,13 @@ UX belong in host/app code.
 Seed phrase generation/import lives on the `tearleads.identity` client facade.
 The phrase derives identity key pairs only; product backup/restore UX and any
 session/container recovery metadata stay in host/app code.
+
+Remote user key material is a data-layer trust boundary shared by workflows,
+not an ad hoc workflow fetch. Workflow inputs accept the opaque trusted bundle
+or a user id resolved by the injected gateway; raw identity endpoint and
+organization response objects must not reach signature or encryption helpers.
+Lower-level integration tests may use `@tearleads/client-sdk/testing` to
+construct the nominal test values; production source must not import it.
 
 Name SDK facades after the platform state they expose. Product names can stay
 in app providers and components that adapt those platform facades into a UI.

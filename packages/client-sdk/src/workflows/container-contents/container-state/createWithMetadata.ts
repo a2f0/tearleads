@@ -77,9 +77,9 @@ async function cacheStalePrincipalPolicyBundles(input: {
     bundles,
     execSql: input.runtime.infra.execSql,
     getCurrentPrincipalPolicy,
-    getEncapsulationKey: input.runtime.getEncapsulationKey,
     log: input.runtime.util.log,
     organizationId: input.organizationId,
+    resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
   });
   return true;
 }

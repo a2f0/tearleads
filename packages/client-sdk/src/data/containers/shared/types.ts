@@ -24,7 +24,6 @@ import type {
   ContainerKekResponse,
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
-  EncapsulationKeyResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import type { ExecSql } from "../../sqlite/sqlSchema";
@@ -142,9 +141,6 @@ export interface ContainerCreateApi {
     principalType: "group" | "organization",
     principalId: string,
   ): Promise<PrincipalPolicyBundleResponse | null>;
-  getEncapsulationKey?(
-    userId: string,
-  ): Promise<EncapsulationKeyResponse | null>;
 }
 
 export interface ContainerShareApi {

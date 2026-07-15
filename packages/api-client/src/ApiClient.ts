@@ -95,8 +95,6 @@ import {
   errorMessage,
   evictWriterProjectionIfSyncChanged,
   hasHeader,
-  isRefreshableSessionError,
-  isReplayableRequestBody,
   listContainerDocumentsRequestKey,
   listContainersRequestKey,
   normalizeApiBaseUrl,
@@ -114,6 +112,7 @@ import {
 } from "./routes/containers/queryParams";
 import { DocumentAttributionRequests } from "./routes/documents/attributionRequests";
 import { pathSegment } from "./routes/path";
+import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
 import type {
   HttpMethod,
   ListContainerDocumentsOptions,
@@ -203,6 +202,10 @@ export class ApiClient {
   clearWriterProjectionCaches(): void {
     this.containerWriterProjectionRequestsByContainerId.clear();
     this.documentWriterProjectionRequestsByDocumentId.clear();
+  }
+
+  evictEncapsulationKey(userId: string): void {
+    this.encapsulationKeyRequestsByUserId.delete(userId);
   }
 
   /**
@@ -371,12 +374,15 @@ export class ApiClient {
 
     const errorDescription = responseResult.errorDescription;
     if (
-      await this.shouldRetryAfterSessionExpired({
+      await shouldRetryAfterSessionExpired({
         authToken,
         body,
         error: errorDescription.error,
+        getCurrentAuthToken: () => this.authToken,
         options,
-        response,
+        refreshSession: () => this.onSessionExpired?.() ?? false,
+        reportError: (message) => this.onError?.(message),
+        responseStatus: response.status,
       })
     ) {
       const retryResult = await this.fetchResponseRequest(
@@ -494,39 +500,6 @@ export class ApiClient {
       status: input.response.status,
       statusText: input.response.statusText,
     });
-  }
-
-  private async shouldRetryAfterSessionExpired(input: {
-    readonly authToken: string | null;
-    readonly body: RequestBody | undefined;
-    readonly error: string | null;
-    readonly options: RequestResultOptions;
-    readonly response: Response;
-  }): Promise<boolean> {
-    if (
-      input.options.retryOnSessionExpired === false ||
-      !input.authToken ||
-      !isReplayableRequestBody(input.body) ||
-      !isRefreshableSessionError(input.response.status, input.error)
-    ) {
-      return false;
-    }
-
-    if (this.authToken && this.authToken !== input.authToken) {
-      return true;
-    }
-
-    let refreshed = false;
-    try {
-      refreshed = (await this.onSessionExpired?.()) ?? false;
-    } catch (error: unknown) {
-      if (input.options.reportErrors ?? true) {
-        this.onError?.(`Session refresh failed: ${errorMessage(error)}`);
-      }
-    }
-    return Boolean(
-      refreshed && this.authToken && this.authToken !== input.authToken,
-    );
   }
 
   private reportResponseRequestFailure(
@@ -756,6 +729,13 @@ export class ApiClient {
         "GET",
       ),
     );
+  }
+
+  getEncapsulationKeyRequestFailure(userId: string) {
+    return this.getRequestFailure({
+      method: "GET",
+      path: `/auth/encapsulation-key/${pathSegment(userId)}`,
+    });
   }
 
   putKeyPackageBackup(input: PutKeyPackageBackupRequest) {

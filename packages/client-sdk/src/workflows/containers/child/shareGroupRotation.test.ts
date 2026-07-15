@@ -1,12 +1,5 @@
 import { expect, test } from "bun:test";
 import {
-  buildInitialGroupPolicyRequest,
-  buildRootContainerCreatePlan,
-  rootContainerWriterProjectionFromCreatePlan,
-  shareRemoteContainerWithGroup,
-  unwrapContainerKekPath,
-} from "@tearleads/client-sdk";
-import {
   buildPrincipalStateSigningInput,
   computeContainerKekRecipientTargetHash,
   computePrincipalStateHash,
@@ -28,11 +21,19 @@ import {
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
 import { policyBundleFromInitialRequest } from "../../../../test/helpers/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKekPath";
 import {
   ensurePrincipalPolicyTables,
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "../../../data/persistence/principalPolicyPersistence";
+import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
+import {
+  buildRootContainerCreatePlan,
+  rootContainerWriterProjectionFromCreatePlan,
+} from "../root/create";
+import { shareRemoteContainerWithGroup } from "./share";
 
 const ADMIN_GROUP_ID = "admins-group";
 const ORGANIZATION_ID = "organization-1";
@@ -171,6 +172,15 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
   const initialProjection = rootContainerWriterProjectionFromCreatePlan(
     root.plan,
   );
+  const resolveUserIdentity = async (userId: string) =>
+    userId === USER_ID
+      ? createTestTrustedUserIdentity({
+          encapsulationPublicKey: memberKem.publicKey,
+          signingKeyFingerprint: author.signerKeyFingerprint,
+          signingPublicKey,
+          userId,
+        })
+      : null;
   const submittedRequests: ContainerMutationRequest[] = [];
   const { close, execSql } = await createTestExecSql(
     "container-share-admin-group-rotation",
@@ -186,14 +196,7 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
     await unwrapContainerKekPath({
       execSql,
       projection: initialProjection,
-      resolveProjectionUserKey: async (userId) =>
-        userId === USER_ID
-          ? {
-              encapsulationPublicKey: memberKem.publicKey,
-              signingPublicKey,
-              userId,
-            }
-          : null,
+      resolveProjectionUserKey: resolveUserIdentity,
       secretKey: memberKem.secretKey,
     });
     const shared = await shareRemoteContainerWithGroup({
@@ -205,15 +208,6 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
           expect(principalId).toBe(ADMIN_GROUP_ID);
           return epochTwoPolicy;
         },
-        getEncapsulationKey: async (userId) => {
-          expect(userId).toBe(USER_ID);
-          return {
-            userId,
-            signingPublicKey: bytesToBase64(signingPublicKey),
-            signingKeyFingerprint: author.signerKeyFingerprint,
-            encapsulationPublicKey: bytesToBase64(memberKem.publicKey),
-          };
-        },
         shareContainer: async (_containerId, request) => {
           submittedRequests.push(request);
           return createMutationResponseFromRequest(request);
@@ -224,14 +218,8 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
       execSql,
       previousProjection: initialProjection,
       recipientGroupId: ADMIN_GROUP_ID,
-      resolveProjectionUserKey: async (userId) =>
-        userId === USER_ID
-          ? {
-              encapsulationPublicKey: memberKem.publicKey,
-              signingPublicKey,
-              userId,
-            }
-          : null,
+      resolveProjectionUserKey: resolveUserIdentity,
+      resolveTrustedUserIdentity: resolveUserIdentity,
       signedAt: "2026-04-28T12:02:00.000Z",
       targetSecretKey: memberKem.secretKey,
     });
@@ -299,28 +287,14 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
       unwrapContainerKekPath({
         execSql,
         projection: initialProjection,
-        resolveProjectionUserKey: async (userId) =>
-          userId === USER_ID
-            ? {
-                encapsulationPublicKey: memberKem.publicKey,
-                signingPublicKey,
-                userId,
-              }
-            : null,
+        resolveProjectionUserKey: resolveUserIdentity,
         secretKey: memberKem.secretKey,
       }),
     ).rejects.toMatchObject({ code: "rollback" });
     const coldKeks = await unwrapContainerKekPath({
       execSql,
       projection: rotatedProjection,
-      resolveProjectionUserKey: async (userId) =>
-        userId === USER_ID
-          ? {
-              encapsulationPublicKey: memberKem.publicKey,
-              signingPublicKey,
-              userId,
-            }
-          : null,
+      resolveProjectionUserKey: resolveUserIdentity,
       secretKey: memberKem.secretKey,
     });
 

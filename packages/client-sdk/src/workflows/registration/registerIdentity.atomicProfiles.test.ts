@@ -225,6 +225,7 @@ test("registerIdentity settles acknowledged profiles and retains legacy fallback
       containerId: crypto.randomUUID(),
       dbClient: createClient(execSql),
       encapsulationKeyPair,
+      pinLocalUserIdentity: async () => undefined,
       signingKeyPair,
     });
     const request = requireCapturedRequest(captured);
@@ -285,6 +286,7 @@ test("registerIdentity settles acknowledged profiles and retains legacy fallback
       containerId: crypto.randomUUID(),
       dbClient: createClient(execSql),
       encapsulationKeyPair,
+      pinLocalUserIdentity: async () => undefined,
       signingKeyPair,
     });
     const legacyRequest = requireCapturedRequest(captured);

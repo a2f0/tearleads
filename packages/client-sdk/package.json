@@ -1,7 +1,7 @@
 {
   "name": "@tearleads/client-sdk",
   "version": "0.1.0",
-  "description": "React-free Tearleads client runtime, domain service facades, and attribution diagnostics.",
+  "description": "React-free Tearleads client runtime, durable identity trust, domain service facades, and attribution diagnostics.",
   "private": true,
   "sideEffects": false,
   "type": "module",
@@ -18,6 +18,10 @@
     "./sqlite": {
       "types": "./dist/sqlite.d.ts",
       "default": "./dist/sqlite.js"
+    },
+    "./testing": {
+      "types": "./dist/data/trustedUserIdentity/testFixtures.d.ts",
+      "default": "./dist/data/trustedUserIdentity/testFixtures.js"
     }
   },
   "scripts": {

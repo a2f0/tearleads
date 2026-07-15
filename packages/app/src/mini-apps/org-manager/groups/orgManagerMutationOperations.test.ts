@@ -3,7 +3,6 @@ import type {
   OrganizationDirectory,
   OrganizationGroupDetails,
   OrganizationGroupMembers,
-  OrganizationUserRecipient,
 } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import {
@@ -15,11 +14,7 @@ type OrgManagerActions = Parameters<
   typeof prepareRosterImport
 >[0]["orgManagerActions"];
 
-const TARGET_USER: OrganizationUserRecipient = {
-  encapsulationKeyFingerprint: "target-encapsulation-fingerprint",
-  encapsulationPublicKey: "target-encapsulation-public-key",
-  userId: "target-user",
-};
+const TARGET_USER = { userId: "target-user" };
 
 const DIRECTORY: OrganizationDirectory = {
   currentUser: { isOrgAdmin: true },
@@ -90,7 +85,7 @@ function createErrorSetter() {
 test("roster import does not write after its organization changes during lookup", async () => {
   let active = true;
   const isOperationActive = () => active;
-  const imported = deferred<OrganizationUserRecipient | null>();
+  const imported = deferred<{ userId: string } | null>();
   const addUserToGroup = mock(async () => undefined as never);
   const actions = createActions({
     addUserToGroup,
@@ -140,13 +135,18 @@ test("roster import reports no result when the organization changes during its m
   });
 
   expect(addUserToGroup).toHaveBeenCalledTimes(1);
+  expect(addUserToGroup).toHaveBeenCalledWith(
+    MEMBERS.groupId,
+    TARGET_USER.userId,
+    true,
+  );
   expect(result).toBeNull();
 });
 
 test("adding a roster user stops before the write when an import resolves in a stale organization", async () => {
   let active = true;
   const isOperationActive = () => active;
-  const imported = deferred<OrganizationUserRecipient | null>();
+  const imported = deferred<{ userId: string } | null>();
   const addUserToGroup = mock(async () => undefined as never);
   const actions = createActions({
     addUserToGroup,
@@ -158,7 +158,6 @@ test("adding a roster user stops before the write when an import resolves in a s
     directoryUser: undefined,
     groupId: "custom-group",
     isOperationActive,
-    members: MEMBERS,
     operationOrganizationId: DIRECTORY.organizationId,
     orgManagerActions: actions,
     setError: createErrorSetter().setError,
@@ -188,7 +187,6 @@ test("adding a roster user reports a stale result when the organization changes 
     directoryUser: undefined,
     groupId: "custom-group",
     isOperationActive,
-    members: MEMBERS,
     operationOrganizationId: DIRECTORY.organizationId,
     orgManagerActions: actions,
     setError: createErrorSetter().setError,
@@ -196,5 +194,10 @@ test("adding a roster user reports a stale result when the organization changes 
   });
 
   expect(addUserToGroup).toHaveBeenCalledTimes(1);
+  expect(addUserToGroup).toHaveBeenCalledWith(
+    "custom-group",
+    TARGET_USER.userId,
+    true,
+  );
   expect(result).toBe(false);
 });

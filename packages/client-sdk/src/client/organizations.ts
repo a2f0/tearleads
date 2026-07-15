@@ -3,7 +3,7 @@ import type { DeleteOrganizationGroupResponse } from "@tearleads/validators/resp
 import {
   addOrganizationGroupUser,
   createOrganizationGroup,
-  importOrganizationUserRecipient,
+  importOrganizationUser,
   type LocalOrganizationSummary,
   listLocalOrganizations,
   loadOrganizationContainerGrants,
@@ -12,7 +12,6 @@ import {
   loadOrganizationGroupDetails,
   loadOrganizationPolicyHistory,
   loadOrganizationUserDetail,
-  type OrganizationUserRecipient,
   removeOrganizationGroupUser,
   revokeOrganizationContainerGrant,
   updateOrganizationProfile,
@@ -44,6 +43,7 @@ import type {
 } from "./workflowRuntime";
 
 export type {
+  ImportedOrganizationUser,
   LocalOrganizationSummary,
   OrganizationBilling,
   OrganizationBillingView,
@@ -63,7 +63,6 @@ export type {
   OrganizationPolicyHistory,
   OrganizationProfile,
   OrganizationUserDetail,
-  OrganizationUserRecipient,
 } from "../workflows/organizations";
 
 interface OrganizationSigningContext {
@@ -88,13 +87,11 @@ export interface OrganizationGroupUserMutationInput {
 
 export interface AddOrganizationGroupUserInput
   extends OrganizationGroupUserMutationInput {
-  currentUsers: ReadonlyArray<OrganizationUserRecipient>;
-  targetUser: OrganizationUserRecipient;
+  targetUserId: string;
 }
 
 export interface RemoveOrganizationGroupUserInput
   extends OrganizationGroupUserMutationInput {
-  remainingUsers: ReadonlyArray<OrganizationUserRecipient>;
   removedUserId: string;
 }
 
@@ -106,9 +103,7 @@ export interface Organizations {
   deleteGroup: (
     groupId: string,
   ) => Promise<DeleteOrganizationGroupResponse | null>;
-  importUserById: (
-    userId: string,
-  ) => ReturnType<typeof importOrganizationUserRecipient>;
+  importUserById: (userId: string) => ReturnType<typeof importOrganizationUser>;
   loadBilling: OrganizationProfileBootstrapCoordinator["loadBilling"];
   loadDataUsage: () => ReturnType<typeof loadOrganizationDataUsage>;
   loadDirectoryAndGroups: () => ReturnType<
@@ -255,10 +250,10 @@ class OrganizationsService implements Organizations {
         beforePolicyCommit: preparedRootRewrap.setExpectedGroupPolicyHead,
         canAdministerOrganization: input.canAdministerOrganization,
         currentUserSecretKey,
-        currentUsers: input.currentUsers,
         execSql: runtime.infra.execSql,
         groupId: input.groupId,
-        targetUser: input.targetUser,
+        resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
+        targetUserId: input.targetUserId,
         ...signingContext,
       }),
       prepared: preparedRootRewrap,
@@ -280,6 +275,7 @@ class OrganizationsService implements Organizations {
       creatorEncapsulationKeyPair,
       execSql: runtime.infra.execSql,
       name,
+      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
       ...signingContext,
     });
   }
@@ -296,8 +292,8 @@ class OrganizationsService implements Organizations {
 
   importUserById(userId: string) {
     const runtime = this.runtimeService.workflowInput();
-    return importOrganizationUserRecipient({
-      apiClient: runtime.apiClient,
+    return importOrganizationUser({
+      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
       userId,
     });
   }
@@ -451,8 +447,8 @@ class OrganizationsService implements Organizations {
         canAdministerOrganization: input.canAdministerOrganization,
         execSql: runtime.infra.execSql,
         groupId: input.groupId,
-        remainingUsers: input.remainingUsers,
         removedUserId: input.removedUserId,
+        resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
         ...signingContext,
       }),
       prepared: preparedRootRewrap,
@@ -481,6 +477,7 @@ class OrganizationsService implements Organizations {
         subjectId: grant.subjectId,
         subjectType: grant.subjectType,
       },
+      resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
       warmReferencedPrincipalPolicies:
         createRuntimePrincipalPolicyWarmer(runtime),
       ...signingContext,

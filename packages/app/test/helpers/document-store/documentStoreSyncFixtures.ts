@@ -37,6 +37,7 @@ import {
   assertOptionalWriteHeader,
   assertWriteHeader,
 } from "../keyingAssertions";
+import { createTestRuntimeTrustedUserIdentityResolver } from "../trustedUserIdentity";
 
 export interface StoredDocumentsState {
   document: DocumentRecord | null;
@@ -58,13 +59,6 @@ type DocumentsRuntimeInputOverrides = {
   state?: Partial<DocumentsRuntimeInput["state"]>;
   util?: Partial<DocumentsRuntimeInput["util"]>;
 };
-
-export interface ContentRecordFields {
-  ciphertext?: unknown;
-  contentRecordId?: unknown;
-  iv?: unknown;
-  nonceDomainHash?: unknown;
-}
 
 export interface PendingUpdateLengthRow {
   update_data_length: number | string | null;
@@ -162,7 +156,20 @@ export function createDocumentsRuntimeInput(
 export function createDocumentsTestRuntime(
   input: DocumentsRuntimeInput,
 ): DocumentsTestRuntime {
-  return createDocumentsWorkflowRuntime(input);
+  return createDocumentsWorkflowRuntime({
+    ...input,
+    resolveTrustedUserIdentity:
+      input.resolveTrustedUserIdentity ??
+      createTestRuntimeTrustedUserIdentityResolver({
+        encapsulationPublicKey:
+          input.crypto.encapsulationKeyPair?.publicKey ?? null,
+        loadRemoteIdentity: (userId) =>
+          input.apiClient.getEncapsulationKey(userId),
+        localUserId: input.auth.userId,
+        signingKeyFingerprint: input.crypto.signingFingerprint,
+        signingPublicKey: input.crypto.signingKeyPair?.signingPublicKey ?? null,
+      }),
+  });
 }
 
 export function cloneDocumentsTestRuntime(
@@ -400,23 +407,4 @@ export interface DocumentRuntimePatch {
     DocumentsRuntimeInput["crypto"]["signingKeyPair"]
   >;
   userId: string;
-}
-
-export function documentProjectionRuntimeFromPatch(
-  patch: DocumentRuntimePatch,
-  encapsulationKeyPair: NonNullable<
-    DocumentsRuntimeInput["crypto"]["encapsulationKeyPair"]
-  >,
-) {
-  return {
-    apiClient: patch.apiClient,
-    auth: {
-      userId: patch.userId,
-    },
-    crypto: {
-      encapsulationKeyPair,
-      signingFingerprint: patch.signingFingerprint,
-      signingKeyPair: patch.signingKeyPair,
-    },
-  };
 }

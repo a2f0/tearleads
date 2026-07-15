@@ -439,6 +439,7 @@ export function createEncapsulationKeyResponse(
   userId: string,
 ): EncapsulationKeyResponse {
   return {
+    encapsulationKeyFingerprint: "b".repeat(64),
     encapsulationPublicKey: "encapsulation-key",
     signingKeyFingerprint: "a".repeat(64),
     signingPublicKey: "signing-key",

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { createDomainScope } from "../../../data/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
@@ -58,6 +59,7 @@ function localOnlyContainerState(input: {
 function createMoveIntentSyncState(input: {
   containersById: Map<string, ContainerState>;
   persistence: ContainerMoveIntentSyncState["persistence"];
+  projectionError?: unknown;
 }): ContainerMoveIntentSyncState {
   const execSql: ExecSql = async () => [];
   return {
@@ -67,6 +69,9 @@ function createMoveIntentSyncState(input: {
     runtime: {
       apiClient: {
         getContainerWriterProjection: () => {
+          if (input.projectionError !== undefined) {
+            throw input.projectionError;
+          }
           throw new Error("projection unavailable");
         },
       } as unknown as ContainerMoveIntentSyncState["runtime"]["apiClient"],
@@ -84,7 +89,6 @@ function createMoveIntentSyncState(input: {
           signingPrivateKey: new Uint8Array(32),
         } as ContainerMoveIntentSyncState["runtime"]["crypto"]["signingKeyPair"],
       },
-      getEncapsulationKey: async () => null,
       infra: {
         blobStore:
           {} as ContainerMoveIntentSyncState["runtime"]["infra"]["blobStore"],
@@ -93,6 +97,7 @@ function createMoveIntentSyncState(input: {
           {} as ContainerMoveIntentSyncState["runtime"]["infra"]["documentProjectors"],
         execSql,
       },
+      resolveTrustedUserIdentity: async () => null,
       state: {
         containerId: "root",
         domainScope: createDomainScope(),
@@ -179,6 +184,45 @@ test("pending container move sync records per-intent failures and continues", as
     "Failed to sync container move: projection unavailable",
     "Failed to sync container move: projection unavailable",
   ]);
+});
+
+test("container move sync propagates identity failures without recording a retry", async () => {
+  const integrityError = new KeyingVerificationError(
+    "equivocation",
+    "trusted identity changed",
+  );
+  const errors: MoveIntentError[] = [];
+  const containersById = new Map([
+    ["child", remoteContainerState({ id: "child", parentId: "root" })],
+    ["parent", remoteContainerState({ id: "parent", parentId: "root" })],
+  ]);
+  const persistence: ContainerMoveIntentSyncState["persistence"] = {
+    ...defaultContainerContentsPersistence,
+    listPendingMoveIntents: async () => [
+      moveIntentRecord({ containerId: "child" }),
+    ],
+    recordMoveIntentError: async (_execSql, error) => {
+      errors.push(error);
+    },
+  };
+
+  await expect(
+    syncPendingContainerMoveIntents({
+      host: {
+        persistContainerState: async () => {
+          throw new Error("unexpected persist");
+        },
+        updateSnapshot: () => {},
+      },
+      isRemoteSyncBlocked: () => false,
+      state: createMoveIntentSyncState({
+        containersById,
+        persistence,
+        projectionError: integrityError,
+      }),
+    }),
+  ).rejects.toBe(integrityError);
+  expect(errors).toEqual([]);
 });
 
 test("a blocked organization does not prevent another organization's move from syncing", async () => {

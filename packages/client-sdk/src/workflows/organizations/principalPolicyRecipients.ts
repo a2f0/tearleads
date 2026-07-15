@@ -5,14 +5,10 @@ import type {
   PrincipalProjectionMemberRequest,
 } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
 
 export interface OrganizationGroupRecipient {
   readonly groupId: string;
-  readonly encapsulationPublicKey: string;
-}
-
-interface OrganizationUserRecipientLike {
-  readonly userId: string;
   readonly encapsulationPublicKey: string;
 }
 
@@ -24,7 +20,7 @@ interface OrganizationPrincipalPolicyReader {
 }
 
 type PrincipalRekeyRecipient = {
-  readonly encapsulationPublicKey: string;
+  readonly encapsulationPublicKey: Uint8Array;
   readonly memberPrincipalId: string;
   readonly memberPrincipalType: "user" | "group";
 };
@@ -50,7 +46,7 @@ function toPrincipalMemberEnvelopeRequest(input: {
 function toRekeyRecipientEntries(input: {
   readonly groups?: ReadonlyArray<OrganizationGroupRecipient> | undefined;
   readonly projection: ReadonlyArray<PrincipalProjectionMemberRequest>;
-  readonly users: ReadonlyArray<OrganizationUserRecipientLike>;
+  readonly users: ReadonlyArray<TrustedUserIdentity>;
 }): PrincipalRekeyRecipient[] {
   const usersById = new Map(input.users.map((user) => [user.userId, user]));
   const groupsById = new Map(
@@ -81,7 +77,7 @@ function toRekeyRecipientEntries(input: {
     }
 
     return {
-      encapsulationPublicKey: group.encapsulationPublicKey,
+      encapsulationPublicKey: base64ToBytes(group.encapsulationPublicKey),
       memberPrincipalId: group.groupId,
       memberPrincipalType: "group",
     };
@@ -125,14 +121,12 @@ export async function rewrapProjectionMemberEnvelopes(input: {
   readonly groups?: ReadonlyArray<OrganizationGroupRecipient> | undefined;
   readonly projection: ReadonlyArray<PrincipalProjectionMemberRequest>;
   readonly secretKey: Uint8Array;
-  readonly users: ReadonlyArray<OrganizationUserRecipientLike>;
+  readonly users: ReadonlyArray<TrustedUserIdentity>;
 }): Promise<PrincipalMemberEnvelopeRequest[]> {
   const recipients = toRekeyRecipientEntries(input);
   const wrappedRecipients = await wrapDekForRecipients(
     input.secretKey,
-    recipients.map((recipient) =>
-      base64ToBytes(recipient.encapsulationPublicKey),
-    ),
+    recipients.map((recipient) => recipient.encapsulationPublicKey),
   );
 
   return wrappedRecipients.map((envelope, index) =>

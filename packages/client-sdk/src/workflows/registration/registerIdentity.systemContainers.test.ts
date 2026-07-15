@@ -34,6 +34,7 @@ test("registration includes initial metadata in the personal-org transaction", a
       },
     },
     encapsulationKeyPair,
+    pinLocalUserIdentity: async () => undefined,
     provisionedSystemContainers: [
       {
         icon: "trash",

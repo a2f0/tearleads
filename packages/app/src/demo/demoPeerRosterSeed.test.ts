@@ -5,13 +5,13 @@ import type {
   OrganizationDirectoryUser,
   OrganizationGroupMember,
   OrganizationGroupMembers,
-  OrganizationUserRecipient,
 } from "@tearleads/client-sdk";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import {
+  attemptPeerRosterSeed,
   type DemoRosterSeedActions,
   isPeerInMemberGroup,
   isPeerOnRoster,
-  memberGroupRecipients,
   planDemoPeerRosterSeed,
   seedPeerRosterEntry,
   shouldAttemptRosterSeed,
@@ -147,57 +147,6 @@ test("isPeerInMemberGroup matches only a user member with the peer's id", () => 
   expect(isPeerInMemberGroup(null, "peer")).toBe(false);
 });
 
-test("memberGroupRecipients dedupes directory and member users by id", () => {
-  const self = directoryUser({
-    userId: "self",
-    encapsulationPublicKey: "self-pub",
-    encapsulationKeyFingerprint: "self-fp",
-  });
-  const memberOnly = member({
-    memberPrincipalId: "member-only",
-    encapsulationPublicKey: "member-pub",
-    encapsulationKeyFingerprint: "member-fp",
-  });
-  const overlap = member({
-    memberPrincipalId: "self",
-    encapsulationPublicKey: "stale-pub",
-    encapsulationKeyFingerprint: "stale-fp",
-  });
-
-  const recipients = memberGroupRecipients({
-    directory: directory({ users: [self] }),
-    members: members([memberOnly, overlap]),
-  });
-
-  expect(recipients).toHaveLength(2);
-  expect(recipients).toContainEqual({
-    userId: "self",
-    encapsulationPublicKey: "self-pub",
-    encapsulationKeyFingerprint: "self-fp",
-  });
-  expect(recipients).toContainEqual({
-    userId: "member-only",
-    encapsulationPublicKey: "member-pub",
-    encapsulationKeyFingerprint: "member-fp",
-  });
-});
-
-test("memberGroupRecipients skips non-user or keyless members", () => {
-  const recipients = memberGroupRecipients({
-    directory: directory({ users: [] }),
-    members: members([
-      member({ memberPrincipalType: "group", memberPrincipalId: "grp" }),
-      member({
-        memberPrincipalId: "no-keys",
-        encapsulationPublicKey: null,
-        encapsulationKeyFingerprint: null,
-      }),
-    ]),
-  });
-
-  expect(recipients).toEqual([]);
-});
-
 test("planDemoPeerRosterSeed is idle until directory and member group load", () => {
   expect(
     planDemoPeerRosterSeed({
@@ -262,20 +211,13 @@ test("planDemoPeerRosterSeed plans an import-and-add when the peer is unknown", 
   expect(plan).toEqual({
     kind: "add-to-member-group",
     canAdministerOrganization: true,
-    currentUsers: [
-      {
-        userId: "self",
-        encapsulationPublicKey: "self-pub",
-        encapsulationKeyFingerprint: "self-fp",
-      },
-    ],
-    existingRecipient: null,
     memberGroupId: "member-group",
     peerUserId: "peer",
+    requiresImport: true,
   });
 });
 
-test("planDemoPeerRosterSeed reuses a directory recipient for a known-but-unseeded peer", () => {
+test("planDemoPeerRosterSeed skips import for a known-but-unseeded peer", () => {
   const self = directoryUser({ userId: "self", isSelf: true });
   const peer = directoryUser({
     userId: "peer",
@@ -292,11 +234,7 @@ test("planDemoPeerRosterSeed reuses a directory recipient for a known-but-unseed
 
   expect(plan.kind).toBe("add-to-member-group");
   if (plan.kind === "add-to-member-group") {
-    expect(plan.existingRecipient).toEqual({
-      userId: "peer",
-      encapsulationPublicKey: "peer-pub",
-      encapsulationKeyFingerprint: "peer-fp",
-    });
+    expect(plan.requiresImport).toBe(false);
   }
 });
 
@@ -329,16 +267,12 @@ function directoryAndGroups(input: {
   };
 }
 
-const peerRecipient: OrganizationUserRecipient = {
-  userId: "peer",
-  encapsulationPublicKey: "peer-pub",
-  encapsulationKeyFingerprint: "peer-fp",
-};
+const importedPeer = { userId: "peer" };
 
 function fakeRosterSeedActions(overrides: {
   directoryAndGroups?: OrganizationDirectoryAndGroups | null;
   members?: OrganizationGroupMembers | null;
-  importedUser?: OrganizationUserRecipient | null;
+  importedUser?: { readonly userId: string } | null;
   ensuredUser?: OrganizationDirectoryUser | null;
 }) {
   const calls = {
@@ -348,6 +282,11 @@ function fakeRosterSeedActions(overrides: {
   };
   let ensureArgs: { userId: string; nickname: string | undefined } | null =
     null;
+  let addArgs: {
+    canAdministerOrganization: boolean;
+    groupId: string;
+    targetUserId: string;
+  } | null = null;
   const actions: DemoRosterSeedActions = {
     loadDirectoryAndGroups: () =>
       Promise.resolve(overrides.directoryAndGroups ?? null),
@@ -357,8 +296,9 @@ function fakeRosterSeedActions(overrides: {
       calls.importUserById += 1;
       return Promise.resolve(overrides.importedUser ?? null);
     },
-    addUserToGroup: () => {
+    addUserToGroup: (groupId, targetUserId, canAdministerOrganization) => {
       calls.addUserToGroup += 1;
+      addArgs = { canAdministerOrganization, groupId, targetUserId };
       return Promise.resolve({});
     },
     ensureRosterProfileDocument: (user, nickname) => {
@@ -367,18 +307,23 @@ function fakeRosterSeedActions(overrides: {
       return Promise.resolve(overrides.ensuredUser ?? null);
     },
   };
-  return { actions, calls, getEnsureArgs: () => ensureArgs };
+  return {
+    actions,
+    calls,
+    getAddArgs: () => addArgs,
+    getEnsureArgs: () => ensureArgs,
+  };
 }
 
 test("seedPeerRosterEntry adds the peer to the member group, then retries", async () => {
   const self = directoryUser({ userId: "self", isSelf: true });
-  const { actions, calls } = fakeRosterSeedActions({
+  const { actions, calls, getAddArgs } = fakeRosterSeedActions({
     directoryAndGroups: directoryAndGroups({
       users: [self],
       memberGroupId: "mg",
     }),
     members: members([member({ memberPrincipalId: "self" })]),
-    importedUser: peerRecipient,
+    importedUser: importedPeer,
   });
 
   // Phase 1 issues the membership write but does not settle: the roster entry
@@ -386,6 +331,11 @@ test("seedPeerRosterEntry adds the peer to the member group, then retries", asyn
   expect(await seedPeerRosterEntry(actions, "peer", "Peer 2")).toBe(false);
   expect(calls.importUserById).toBe(1);
   expect(calls.addUserToGroup).toBe(1);
+  expect(getAddArgs()).toEqual({
+    canAdministerOrganization: true,
+    groupId: "mg",
+    targetUserId: "peer",
+  });
   expect(calls.ensureRosterProfileDocument).toBe(0);
 });
 
@@ -455,7 +405,7 @@ test("seedPeerRosterEntry is settled once the peer has a profile document", asyn
   expect(calls.ensureRosterProfileDocument).toBe(0);
 });
 
-test("seedPeerRosterEntry waits when directory, member group, or peer key is unavailable", async () => {
+test("seedPeerRosterEntry waits when directory, member group, or peer import is unavailable", async () => {
   const self = directoryUser({ userId: "self", isSelf: true });
   const noDirectory = fakeRosterSeedActions({ directoryAndGroups: null });
   expect(await seedPeerRosterEntry(noDirectory.actions, "peer", "Peer 2")).toBe(
@@ -497,4 +447,45 @@ test("seedPeerRosterEntry waits when directory, member group, or peer key is una
   ).toBe(false);
   expect(unimportablePeer.calls.addUserToGroup).toBe(0);
   expect(unimportablePeer.calls.importUserById).toBe(1);
+});
+
+test("attemptPeerRosterSeed retries ordinary failures but preserves integrity failures", async () => {
+  const fixture = fakeRosterSeedActions({ directoryAndGroups: null });
+  const transient = new Error("directory is not ready");
+  const integrity = new KeyingVerificationError(
+    "equivocation",
+    "peer identity changed",
+  );
+  const logged: unknown[] = [];
+  const logError = (_message: string, error: unknown) => logged.push(error);
+
+  await expect(
+    attemptPeerRosterSeed(
+      {
+        ...fixture.actions,
+        loadDirectoryAndGroups: async () => {
+          throw transient;
+        },
+      },
+      "peer",
+      "Peer 2",
+      logError,
+    ),
+  ).resolves.toBe(false);
+  expect(logged).toEqual([transient]);
+
+  await expect(
+    attemptPeerRosterSeed(
+      {
+        ...fixture.actions,
+        loadDirectoryAndGroups: async () => {
+          throw integrity;
+        },
+      },
+      "peer",
+      "Peer 2",
+      logError,
+    ),
+  ).rejects.toBe(integrity);
+  expect(logged).toEqual([transient]);
 });
