@@ -86,8 +86,8 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
    **Fallback behavior (required):**
 
    - If the Claude Code review fails for **any** reason (credit/quota errors,
-     non-zero exit, signal termination), immediately fall back to a Codex
-     self-review:
+     non-zero exit, signal termination, or **no usable review** — see below),
+     immediately fall back to a Codex self-review:
 
      ```bash
      bun "$AGENT_TOOL" solicitCodexReview
@@ -99,6 +99,19 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 
    - Only stop immediately for non-recoverable operational errors (missing PR,
      missing tool script, malformed args) where fallback would also fail.
+
+   **What counts as a usable review:** a reviewer CLI can exit **0** having
+   produced only an intent sentence — "I'll review this PR diff..." — which is not
+   a review. Never relay one as if it were.
+
+   Every **Claude** review ends with a `VERDICT:` line (`BLOCKER`, `MAJOR`,
+   `MINOR`, or `CLEAN`), because this repo writes that prompt.
+   `solicitClaudeCodeReview` checks for it and exits nonzero when it is absent, so
+   the fallback above fires on its own.
+
+   **Codex reviews carry no verdict line** — `codex review` builds its own prompt
+   and this repo has no seam to add one, so absence of a verdict says nothing
+   there. Judge a Codex review by reading it.
 
 3. **In-session file-by-file review** (when external agents are unavailable):
 
@@ -151,4 +164,13 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 - Reviews are based on the diff between the PR's base branch and HEAD.
 - The Claude review streams the prompt/diff via stdin (not argv) to avoid
   "Argument list too long" failures on large PRs.
+- The Claude reviewer runs with read-only tools (`--tools "Read,Grep,Glob"`) and
+  no `Bash`. It needs to read: the best findings come from the code *around* the
+  diff — an unchanged branch further up the file, a source-shape baseline, the
+  callers a signature change breaks. `Bash` is withheld because a review needs no
+  shell, and the session's context is a PR diff — attacker-influenceable text.
+- **Why a review can come back empty is not known.** The one observed failure —
+  Claude exiting 0 after ~5s having emitted only "I'll review this PR diff..." —
+  was never reproduced and looks stochastic. The verdict check is what makes it
+  survivable; it detects the failure rather than preventing it.
 - Error output should be relayed verbatim when fallback is impossible.

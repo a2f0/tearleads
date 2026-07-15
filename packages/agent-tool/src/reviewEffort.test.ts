@@ -49,7 +49,19 @@ describe("buildClaudeReviewArgs", () => {
       "--effort",
       "xhigh",
       "--print",
+      "--tools",
+      "Read,Grep,Glob",
     ]);
+  });
+
+  test("grants the read-only tools a finding may depend on", () => {
+    const tools = buildClaudeReviewArgs("high").at(-1) ?? "";
+
+    expect(tools.split(",")).toEqual(["Read", "Grep", "Glob"]);
+  });
+
+  test("withholds Bash: a review needs no shell, and the diff is untrusted", () => {
+    expect(buildClaudeReviewArgs("high").at(-1)).not.toContain("Bash");
   });
 });
 

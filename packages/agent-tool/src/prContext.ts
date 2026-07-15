@@ -24,7 +24,7 @@ interface SpawnResult {
 
 // Large diffs blow past execFileSync's default 1 MiB maxBuffer and throw
 // ENOBUFS before we can hand the diff to a reviewer, so capture generously.
-const MAX_BUFFER_BYTES = 512 * 1024 * 1024;
+export const MAX_BUFFER_BYTES = 512 * 1024 * 1024;
 
 export function run(command: string, args: string[]): string {
   return execFileSync(command, args, {

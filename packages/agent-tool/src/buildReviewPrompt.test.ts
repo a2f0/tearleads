@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { REVIEW_VERDICTS } from "./reviewOutput";
 import { buildReviewPrompt } from "./solicitClaudeCodeReview";
 
 describe("buildReviewPrompt", () => {
@@ -23,6 +24,32 @@ describe("buildReviewPrompt", () => {
     expect(prompt).toContain("Base: main");
     expect(prompt).toContain("PROJECT GUIDELINES");
     expect(prompt).toContain("diff --git a/x.ts b/x.ts");
+  });
+
+  test("demands a verdict line naming every allowed severity", () => {
+    const prompt = buildReviewPrompt({
+      context,
+      diff: "diff",
+      reviewInstructions: "",
+    });
+
+    expect(prompt).toContain("VERDICT: X");
+    for (const verdict of REVIEW_VERDICTS) {
+      expect(prompt).toContain(verdict);
+    }
+  });
+
+  test("invites reading beyond the diff, but not running commands", () => {
+    const prompt = buildReviewPrompt({
+      context,
+      diff: "diff",
+      reviewInstructions: "",
+    });
+
+    expect(prompt).toContain("Read the surrounding files");
+    expect(prompt).toContain(
+      "do not plan to build, typecheck, or execute tests",
+    );
   });
 
   test("tolerates missing review instructions", () => {
