@@ -1,20 +1,25 @@
 ---
 name: ship-pr
-description: Ship the current branch end-to-end — open or resume a PR, cross-agent review it, repair blocking findings in bounded rounds, re-review each changed head, then squash-merge the exact reviewed commit
+description: Ship the current branch end-to-end — open or resume a PR, cross-agent review it, repair blocking findings in bounded rounds, re-review each changed head, squash-merge the exact reviewed commit, then return to the base branch and delete the merged branch
 ---
 
 # Ship PR
 
 Run the full ship flow for the current branch: **open or resume a PR**, get a
 **cross-agent review**, repair blocking findings in bounded rounds, then
-**squash-merge**. Delegate PR creation, each review, and the final merge to the
-`open-pr`, `cross-agent-review`, and `squash-merge` skills. This skill owns the
-orchestration, repair loop, ordering, and merge gate; it does not re-implement
-the wrapped skills.
+**squash-merge** and clean up. Delegate PR creation, each review, and the final
+merge to the `open-pr`, `cross-agent-review`, and `squash-merge` skills. This
+skill owns the orchestration, repair loop, ordering, and merge gate; it does not
+re-implement the wrapped skills.
 
 The review gates the merge. By default, address actionable blocking findings,
 push the fixes, and review the new head before merging. Never merge a commit
 that was not itself reviewed.
+
+A successful flow ends back on the PR's base branch — the default branch for a PR
+`open-pr` created — fast-forwarded, with the merged branch deleted. That cleanup
+belongs to `squash-merge`, which runs it only after GitHub confirms the PR is
+`MERGED` and that the base branch actually contains the merge commit.
 
 ## Arguments
 
@@ -38,6 +43,9 @@ that was not itself reviewed.
   to the configured limit and stops if they remain or review cannot run; with
   this flag it surfaces exactly what it is overriding and proceeds. The
   reviewed-head guard still applies.
+- `--keep-branch` (optional flag, position-independent): forwarded verbatim to
+  `squash-merge`, which then skips the post-merge cleanup and stays on the
+  feature branch. Use when the branch is still needed locally.
 - The PR body is read from stdin (empty when none is piped) and passed to
   `open-pr`.
 
@@ -141,18 +149,33 @@ review fallback chain, subject-only squash, and `MERGED`-state verification.
    re-review the branch. Never fix after the final accepted review, and never
    merge a repaired head using an earlier review.
 
-3. **Squash-merge (bound to the reviewed head)** — invoke the `squash-merge`
-   skill, passing `REVIEWED_SHA` as its **second (head-SHA) argument** so the
-   merge runs with `--match-head-commit` and GitHub **atomically** refuses to
-   merge anything but the reviewed commit. This closes the window between the gate
-   decision and the merge — the guard is enforced by GitHub at merge time, not by
-   a racy preflight check.
+3. **Squash-merge and clean up (bound to the reviewed head)** — invoke the
+   `squash-merge` skill, passing `REVIEWED_SHA` as its **second (head-SHA)
+   argument** so the merge runs with `--match-head-commit` and GitHub
+   **atomically** refuses to merge anything but the reviewed commit. This closes
+   the window between the gate decision and the merge — the guard is enforced by
+   GitHub at merge time, not by a racy preflight check.
+
+   That skill also owns the post-merge cleanup: once GitHub confirms `MERGED`, it
+   returns to the PR's base branch, fast-forwards it, verifies it contains the
+   merge commit, and deletes the merged branch locally and remotely. Forward
+   `--keep-branch` when it was given to opt out. Do not re-implement the cleanup
+   here; it is gated on the merge actually landing, so it must stay with the step
+   that performs the merge.
+
+   **Invoke the `squash-merge` skill — do not call the tool directly from here.**
+   The tool merges and returns; the cleanup and `--keep-branch` live in the skill
+   *around* that call, and the tool knows neither. Reaching past the skill to
+   `bun "$AGENT_TOOL" squashMerge …` merges the PR and silently skips the cleanup,
+   leaving the feature branch checked out and undeleted.
 
    Because the head SHA is the **second** positional argument, pass an empty
-   first argument to default the subject to the PR title:
+   first argument to default the subject to the PR title — the skill takes the
+   same arguments this flow forwards:
 
-   ```bash
-   bun "$AGENT_TOOL" squashMerge '' "$REVIEWED_SHA"
+   ```text
+   squash-merge '' "$REVIEWED_SHA"            # subject defaults to the PR title
+   squash-merge '' "$REVIEWED_SHA" --keep-branch   # only when the caller gave it
    ```
 
    The empty subject falls back to the PR title from step 1, to which the tool
@@ -164,12 +187,15 @@ review fallback chain, subject-only squash, and `MERGED`-state verification.
 
 4. **Report results**: the PR URL, review agent and fallback status, repair rounds
    performed, findings fixed or waived, and the final squash subject including
-   its ` (#<pr>)` reference. Confirm the merge reached `MERGED`.
+   its ` (#<pr>)` reference. Confirm the merge reached `MERGED`, and state the
+   branch returned to and that the merged branch was deleted — or, when cleanup
+   was skipped (`--keep-branch`, a dirty worktree, a merge that did not land),
+   say so and what was left behind.
 
 ## Notes
 
 - **Order is enforced**: open/resume → review → bounded fix/re-review →
-  merge. A failure leaves the PR in a safe, open state and is reported.
+  merge → cleanup. A failure leaves the PR in a safe, open state and is reported.
 - **The review gates the merge** — this flow never silently merges over a review
   that found blocking issues, across either severity vocabulary (Blocker/Major or
   [P0]/[P1]).
@@ -186,6 +212,17 @@ review fallback chain, subject-only squash, and `MERGED`-state verification.
   for both.
 - **Wrapped mechanics stay authoritative**: this skill coordinates remediation,
   while `open-pr`, `cross-agent-review`, and `squash-merge` retain ownership of
-  their validation and external operations.
+  their validation and external operations — including the post-merge cleanup,
+  which lives in `squash-merge` because it must be gated on the merge landing.
+- **Cleanup never runs on an unmerged branch** — it is gated on GitHub reporting
+  `MERGED` *and* on the base branch verifiably containing the merge commit, and it
+  is skipped on a dirty worktree so in-progress work is never carried onto the
+  base branch or stranded. In every case the branch survives and the reason is
+  reported.
+- **Invoke the wrapped skills, not the tools they call.** `squash-merge` is the
+  clearest case: its cleanup and `--keep-branch` wrap the tool call rather than
+  living inside the tool, so calling `squashMerge` directly still merges — it just
+  skips the cleanup, and does so silently. The same holds for the review fallback
+  chain in `cross-agent-review`.
 - Single-quote the title argument and use a quoted heredoc for the body (per
   `open-pr`) so the shell does not expand `$(...)`, backticks, or `$VAR`.
