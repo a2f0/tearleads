@@ -192,7 +192,7 @@ test("mobile sidebar covers Explorer row actions", async ({ page }) => {
   expect(actionCenter.y).toBeLessThan(sidebarBox.y + sidebarBox.height);
   const sidebarCoversAction = await page.evaluate(
     ({ x, y }) =>
-      document.elementFromPoint(x, y)?.closest("#routed-pane-sidebar") !== null,
+      Boolean(document.elementFromPoint(x, y)?.closest("#routed-pane-sidebar")),
     actionCenter,
   );
 
