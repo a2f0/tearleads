@@ -10,7 +10,7 @@ export type {
 export { shouldReArmAfterOutgoingSettlement } from "../../data/sync/outgoingUpdateSettlement";
 export {
   didRegainSyncPrerequisites,
-  isDestroyedDatabaseClientError,
+  isDatabaseUnavailableError,
 } from "../../data/sync/syncCoordinator";
 export { resolveDocumentCreateAuthor } from "./author";
 export {

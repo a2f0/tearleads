@@ -7,7 +7,7 @@ export {
 } from "../../data/containers/containerMetadataDocument";
 export {
   didRegainSyncPrerequisites,
-  isDestroyedDatabaseClientError,
+  isDatabaseUnavailableError,
 } from "../../data/sync/syncCoordinator";
 export {
   type BlobInfo,

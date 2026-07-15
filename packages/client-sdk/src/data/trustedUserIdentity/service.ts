@@ -1,5 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { DatabaseUnavailableError } from "../databaseUnavailable";
 import {
   compareOrInsertTrustedUserIdentityPin,
   TrustedUserIdentityPinCorruptError,
@@ -30,16 +31,20 @@ function requireTrustStore(
   >;
   readonly identityTrustDomain: string;
 } {
+  // A missing trust domain is a static misconfiguration and must stay loud.
   if (!dependencies.identityTrustDomain) {
     throw new KeyingVerificationError(
       "missing_dependency",
       "Trusted user identity resolution requires a stable API trust domain",
     );
   }
+  // An absent trust store is not: getExecSql() returns null exactly while the
+  // database is not ready, which happens routinely when the runtime is swapped
+  // under in-flight sync work. Callers that tolerate a vanishing database
+  // discriminate on the error type, so this must not share the code above.
   const execSql = dependencies.getExecSql();
   if (!execSql) {
-    throw new KeyingVerificationError(
-      "missing_dependency",
+    throw new DatabaseUnavailableError(
       "Trusted user identity resolution requires a ready SQLite trust store",
     );
   }

@@ -7,6 +7,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { DatabaseUnavailableError } from "../databaseUnavailable";
 import { loadTrustedUserIdentityPin } from "../persistence/trustedUserIdentityPinPersistence";
 import { createTrustedUserIdentityService } from "./service";
 import type {
@@ -267,9 +268,11 @@ test("missing trust store fails closed before remote loading", async () => {
     }),
   );
 
-  await expect(service.resolve(USER_ID)).rejects.toMatchObject({
-    code: "missing_dependency",
-  });
+  // A transient condition, so it carries its own type rather than a keying code
+  // — but it must still fail closed: no remote load without a trust store.
+  await expect(service.resolve(USER_ID)).rejects.toBeInstanceOf(
+    DatabaseUnavailableError,
+  );
   expect(remoteLoads).toEqual([]);
 });
 

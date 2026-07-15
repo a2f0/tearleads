@@ -18,6 +18,10 @@ import {
 import type { UploadSyncLane, UploadSyncLaneOptions } from "./uploadLane";
 import { beginUploadLane } from "./uploadLane";
 
+// Re-exported here because lanes reach it as a shouldIgnoreError alongside the
+// rest of the coordinator surface; it lives in data/databaseUnavailable with the
+// error type it discriminates on.
+export { isDatabaseUnavailableError } from "../databaseUnavailable";
 export type { SyncLane, SyncLaneConfig } from "./syncLaneConfig";
 export type {
   DomainSyncSnapshot,
@@ -69,11 +73,6 @@ const coordinatorsByScope = new WeakMap<DomainScope, DomainSyncCoordinator>();
 const DEFAULT_SYNC_IDLE_INTERVAL_MS = 10;
 const DEFAULT_SYNC_IDLE_QUIET_MS = 0;
 const DEFAULT_SYNC_IDLE_TIMEOUT_MS = 500;
-const DESTROYED_DATABASE_CLIENT_MESSAGES = [
-  "Database client is unavailable.",
-  "Database worker client has been destroyed.",
-  "DB has been closed.",
-] as const;
 // Backoff applied only when a failed pass left its own lane re-requested, to
 // keep a persistently-failing self-re-arming lane from tight-looping the pump
 // and starving the event loop. A transient failure that did not re-arm waits 0.
@@ -475,23 +474,4 @@ export function didRegainSyncPrerequisites<TRuntime extends SyncRuntimeStatus>(
     (!previousRuntime.crypto.encapsulationKeyPair &&
       !!nextRuntime.crypto.encapsulationKeyPair)
   );
-}
-
-export function isDestroyedDatabaseClientError(error: unknown): boolean {
-  let current = error;
-
-  while (current instanceof Error) {
-    const errorMessage = current.message;
-    if (
-      DESTROYED_DATABASE_CLIENT_MESSAGES.some((message) =>
-        errorMessage.includes(message),
-      )
-    ) {
-      return true;
-    }
-
-    current = current.cause;
-  }
-
-  return false;
 }

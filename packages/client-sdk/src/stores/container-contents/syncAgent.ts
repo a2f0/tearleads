@@ -29,7 +29,7 @@ import {
 } from "../../workflows/container-contents/runtime";
 import {
   type ContainerContentsSyncLane,
-  isDestroyedDatabaseClientError,
+  isDatabaseUnavailableError,
   registerContainerContentsSyncLane,
 } from "../../workflows/container-contents/syncLane";
 import { openDocumentStore, requestDomainDocumentSync } from "../documents";
@@ -269,7 +269,7 @@ function ensureContainerContentsStoreInitialized(input: {
   }).catch((error: unknown) => {
     state.initializePromise = null;
 
-    if (isDestroyedDatabaseClientError(error)) {
+    if (isDatabaseUnavailableError(error)) {
       return;
     }
 

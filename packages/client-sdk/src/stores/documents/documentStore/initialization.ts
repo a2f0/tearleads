@@ -26,7 +26,7 @@ import {
 import {
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
-  isDestroyedDatabaseClientError,
+  isDatabaseUnavailableError,
   loadPersistedDocumentStoreState,
 } from "../../../workflows/documents";
 import type { DocumentStoreRelinkInput } from "../types";
@@ -238,7 +238,7 @@ export function ensureDocumentStoreInitialized(
     (error: unknown) => {
       state.initializePromise = null;
 
-      if (isDestroyedDatabaseClientError(error)) {
+      if (isDatabaseUnavailableError(error)) {
         return;
       }
 
@@ -258,7 +258,7 @@ export async function awaitInitializationForSync(state: DocumentStoreState) {
     await state.initializePromise;
     return true;
   } catch (error) {
-    if (isDestroyedDatabaseClientError(error)) {
+    if (isDatabaseUnavailableError(error)) {
       return false;
     }
 

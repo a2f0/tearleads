@@ -4,7 +4,6 @@ import {
   getDomainSyncCoordinatorSnapshot,
   getOrCreateDomainSyncCoordinator,
   hasDomainSyncCoordinatorPendingWork,
-  isDestroyedDatabaseClientError,
   subscribeToDomainSyncCoordinator,
   waitForDomainSyncCoordinatorToSettle,
 } from "./syncCoordinator";
@@ -12,18 +11,6 @@ import {
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
-test("isDestroyedDatabaseClientError follows wrapped error causes", () => {
-  expect(
-    isDestroyedDatabaseClientError(
-      new Error("Failed query", {
-        cause: new Error("Database worker client has been destroyed."),
-      }),
-    ),
-  ).toBe(true);
-  const unavailable = new Error("Database client is unavailable.");
-  expect(isDestroyedDatabaseClientError(unavailable)).toBe(true);
-});
 
 test("waitForDomainSyncCoordinatorToSettle waits for running lanes", async () => {
   const domainScope = createDomainScope();
@@ -486,14 +473,4 @@ test("sync coordinator subscriptions snapshot listeners before notifying", () =>
 
   expect(firstNotifications).toBe(1);
   expect(secondNotifications).toBe(1);
-});
-
-test("isDestroyedDatabaseClientError detects wrapped teardown messages", () => {
-  expect(
-    isDestroyedDatabaseClientError(
-      new Error(
-        "Failed to sync document: Database worker client has been destroyed.",
-      ),
-    ),
-  ).toBe(true);
 });

@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
+import { DatabaseUnavailableError } from "../../data/databaseUnavailable";
 import { createDomainScope } from "../../data/domainScope";
 import {
   didRegainSyncPrerequisites,
-  isDestroyedDatabaseClientError,
+  getDomainSyncCoordinatorSnapshot,
+  isDatabaseUnavailableError,
   type SyncRuntimeStatus,
 } from "../../data/sync/syncCoordinator";
 import { registerContainerContentsSyncLane } from "./syncLane";
@@ -73,16 +75,51 @@ test("didRegainSyncPrerequisites detects restored sync inputs", () => {
   ).toBe(true);
 });
 
-test("isDestroyedDatabaseClientError follows wrapped database errors", () => {
-  expect(isDestroyedDatabaseClientError(new Error("DB has been closed."))).toBe(
+test("isDatabaseUnavailableError follows wrapped database errors", () => {
+  expect(isDatabaseUnavailableError(new Error("DB has been closed."))).toBe(
     true,
   );
   expect(
-    isDestroyedDatabaseClientError(
+    isDatabaseUnavailableError(
       new Error("outer", {
         cause: new Error("Database worker client has been destroyed."),
       }),
     ),
   ).toBe(true);
-  expect(isDestroyedDatabaseClientError(new Error("other"))).toBe(false);
+  expect(isDatabaseUnavailableError(new Error("other"))).toBe(false);
+});
+
+test("a lane that loses its database completes instead of reporting", async () => {
+  // The runtime is swapped under in-flight lane work on every identity switch,
+  // logout, and Explorer retry, so this is a routine outcome — not a failure to
+  // log and back off from.
+  const domainScope = createDomainScope();
+  const errors: unknown[] = [];
+  const originalConsoleError = console.error;
+  console.error = (...args: unknown[]) => {
+    errors.push(args);
+  };
+
+  try {
+    const lane = registerContainerContentsSyncLane({
+      domainScope,
+      run: async () => {
+        throw new DatabaseUnavailableError(
+          "Trusted user identity resolution requires a ready SQLite trust store",
+        );
+      },
+    });
+
+    lane.requestSync();
+    await flushSyncLane();
+
+    expect(errors).toEqual([]);
+    expect(
+      getDomainSyncCoordinatorSnapshot(domainScope).lanes.find(
+        (entry) => entry.key === "container-contents",
+      )?.errorCount,
+    ).toBe(0);
+  } finally {
+    console.error = originalConsoleError;
+  }
 });
