@@ -1,6 +1,6 @@
 {
-  "id": "2a7de757-cb99-49b6-86f5-49829d4a5c35",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "81ace2e7-4d35-485f-9699-bcbc21aaa0ec",
+  "prevId": "0ece00ad-d35e-4c6f-b4cf-957c983a586f",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1749,9 +1749,31 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "dereferenced_at": {
+          "name": "dereferenced_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "blobs_storage_key_idx": {
+          "name": "blobs_storage_key_idx",
+          "columns": [
+            {
+              "expression": "storage_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -4848,6 +4870,51 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "account_status": {
+          "name": "account_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'trialing'"
+        },
+        "trial_ends_at": {
+          "name": "trial_ends_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "disabled_at": {
+          "name": "disabled_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "purge_after": {
+          "name": "purge_after",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "purge_started_at": {
+          "name": "purge_started_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "purged_at": {
+          "name": "purged_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "remote_data_epoch": {
+          "name": "remote_data_epoch",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
         },
         "created_at": {
           "name": "created_at",

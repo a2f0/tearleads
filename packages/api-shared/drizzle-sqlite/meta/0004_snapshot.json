@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e6ae7e58-849e-43b5-afb2-07d6c9e15fd1",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "ca43e47e-4805-42da-83e0-16f26443aab5",
+  "prevId": "a9f6d238-e29a-49c4-955c-9140f1de63d6",
   "tables": {
     "access_event_dependency_projection": {
       "name": "access_event_dependency_projection",
@@ -303,9 +303,24 @@
           "columns": ["subject_type", "subject_id"],
           "isUnique": false
         },
+        "access_manifest_container_grant_subject_manifest_idx": {
+          "name": "access_manifest_container_grant_subject_manifest_idx",
+          "columns": [
+            "subject_type",
+            "subject_id",
+            "manifest_hash",
+            "container_id"
+          ],
+          "isUnique": false
+        },
         "access_manifest_container_grant_container_idx": {
           "name": "access_manifest_container_grant_container_idx",
           "columns": ["container_id"],
+          "isUnique": false
+        },
+        "access_manifest_container_grant_container_manifest_idx": {
+          "name": "access_manifest_container_grant_container_manifest_idx",
+          "columns": ["container_id", "manifest_hash"],
           "isUnique": false
         },
         "access_manifest_container_grant_unique_idx": {
@@ -378,6 +393,11 @@
         "access_manifest_document_link_container_idx": {
           "name": "access_manifest_document_link_container_idx",
           "columns": ["container_id"],
+          "isUnique": false
+        },
+        "access_manifest_document_link_container_manifest_idx": {
+          "name": "access_manifest_document_link_container_manifest_idx",
+          "columns": ["container_id", "manifest_hash", "document_id"],
           "isUnique": false
         },
         "access_manifest_document_link_unique_idx": {
@@ -1160,6 +1180,11 @@
           "columns": ["blob_id", "content_key_epoch"],
           "isUnique": false
         },
+        "blob_content_write_headers_organization_blob_idx": {
+          "name": "blob_content_write_headers_organization_blob_idx",
+          "columns": ["organization_id", "blob_id"],
+          "isUnique": false
+        },
         "blob_content_write_headers_header_hash_idx": {
           "name": "blob_content_write_headers_header_hash_idx",
           "columns": ["header_hash"],
@@ -1235,7 +1260,13 @@
           "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "blob_stages_expires_at_idx": {
+          "name": "blob_stages_expires_at_idx",
+          "columns": ["expires_at", "id"],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -1286,9 +1317,28 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
+        },
+        "dereferenced_at": {
+          "name": "dereferenced_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "blobs_storage_key_idx": {
+          "name": "blobs_storage_key_idx",
+          "columns": ["storage_key"],
+          "isUnique": true
+        },
+        "blobs_dereferenced_at_idx": {
+          "name": "blobs_dereferenced_at_idx",
+          "columns": ["dereferenced_at"],
+          "isUnique": false,
+          "where": "\"blobs\".\"dereferenced_at\" is not null"
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -2495,6 +2545,11 @@
           "columns": ["document_id", "content_key_epoch"],
           "isUnique": false
         },
+        "document_content_write_headers_organization_update_idx": {
+          "name": "document_content_write_headers_organization_update_idx",
+          "columns": ["organization_id", "update_id"],
+          "isUnique": false
+        },
         "document_content_write_headers_header_hash_idx": {
           "name": "document_content_write_headers_header_hash_idx",
           "columns": ["header_hash"],
@@ -2727,6 +2782,11 @@
           "name": "document_updates_id_unique",
           "columns": ["id"],
           "isUnique": true
+        },
+        "document_updates_document_sequence_idx": {
+          "name": "document_updates_document_sequence_idx",
+          "columns": ["document_id", "sequence"],
+          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -2813,7 +2873,13 @@
           "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "groups_organization_name_idx": {
+          "name": "groups_organization_name_idx",
+          "columns": ["organization_id", "name", "id"],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -2966,7 +3032,13 @@
           "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "organizations_profile_document_idx": {
+          "name": "organizations_profile_document_idx",
+          "columns": ["profile_document_id"],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -3225,6 +3297,17 @@
         "principal_membership_projection_member_idx": {
           "name": "principal_membership_projection_member_idx",
           "columns": ["member_principal_type", "member_principal_id"],
+          "isUnique": false
+        },
+        "principal_membership_projection_member_state_idx": {
+          "name": "principal_membership_projection_member_state_idx",
+          "columns": [
+            "member_principal_type",
+            "member_principal_id",
+            "principal_type",
+            "principal_id",
+            "state_hash"
+          ],
           "isUnique": false
         },
         "principal_membership_projection_state_member_idx": {
@@ -3527,6 +3610,58 @@
           "notNull": true,
           "autoincrement": false
         },
+        "account_status": {
+          "name": "account_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'trialing'"
+        },
+        "trial_ends_at": {
+          "name": "trial_ends_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
+        },
+        "disabled_at": {
+          "name": "disabled_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "purge_after": {
+          "name": "purge_after",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "purge_started_at": {
+          "name": "purge_started_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "purged_at": {
+          "name": "purged_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "remote_data_epoch": {
+          "name": "remote_data_epoch",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -3541,6 +3676,21 @@
           "name": "users_fingerprint_unique",
           "columns": ["fingerprint"],
           "isUnique": true
+        },
+        "users_trial_expiry_idx": {
+          "name": "users_trial_expiry_idx",
+          "columns": ["account_status", "trial_ends_at", "id"],
+          "isUnique": false
+        },
+        "users_purge_candidates_idx": {
+          "name": "users_purge_candidates_idx",
+          "columns": [
+            "account_status",
+            "purge_after",
+            "purge_started_at",
+            "id"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {},

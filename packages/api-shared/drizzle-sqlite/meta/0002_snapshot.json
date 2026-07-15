@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e6ae7e58-849e-43b5-afb2-07d6c9e15fd1",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "3706cb3c-a581-4b30-962b-bfa126510b94",
+  "prevId": "6a8a3d01-c4f8-4ea5-a2eb-9ed7e4a08943",
   "tables": {
     "access_event_dependency_projection": {
       "name": "access_event_dependency_projection",
@@ -1286,9 +1286,22 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
+        },
+        "dereferenced_at": {
+          "name": "dereferenced_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "blobs_storage_key_idx": {
+          "name": "blobs_storage_key_idx",
+          "columns": ["storage_key"],
+          "isUnique": true
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},

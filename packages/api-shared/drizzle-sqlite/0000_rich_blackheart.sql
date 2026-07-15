@@ -48,9 +48,7 @@ CREATE TABLE `access_manifest_container_grant_projection` (
 --> statement-breakpoint
 CREATE INDEX `access_manifest_container_grant_manifest_idx` ON `access_manifest_container_grant_projection` (`manifest_hash`);--> statement-breakpoint
 CREATE INDEX `access_manifest_container_grant_subject_idx` ON `access_manifest_container_grant_projection` (`subject_type`,`subject_id`);--> statement-breakpoint
-CREATE INDEX `access_manifest_container_grant_subject_manifest_idx` ON `access_manifest_container_grant_projection` (`subject_type`,`subject_id`,`manifest_hash`,`container_id`);--> statement-breakpoint
 CREATE INDEX `access_manifest_container_grant_container_idx` ON `access_manifest_container_grant_projection` (`container_id`);--> statement-breakpoint
-CREATE INDEX `access_manifest_container_grant_container_manifest_idx` ON `access_manifest_container_grant_projection` (`container_id`,`manifest_hash`);--> statement-breakpoint
 CREATE UNIQUE INDEX `access_manifest_container_grant_unique_idx` ON `access_manifest_container_grant_projection` (`manifest_hash`,`subject_type`,`subject_id`,`access_level`);--> statement-breakpoint
 CREATE TABLE `access_manifest_document_link_projection` (
 	`id` text PRIMARY KEY NOT NULL,
@@ -63,7 +61,6 @@ CREATE TABLE `access_manifest_document_link_projection` (
 CREATE INDEX `access_manifest_document_link_manifest_idx` ON `access_manifest_document_link_projection` (`manifest_hash`);--> statement-breakpoint
 CREATE INDEX `access_manifest_document_link_document_idx` ON `access_manifest_document_link_projection` (`document_id`);--> statement-breakpoint
 CREATE INDEX `access_manifest_document_link_container_idx` ON `access_manifest_document_link_projection` (`container_id`);--> statement-breakpoint
-CREATE INDEX `access_manifest_document_link_container_manifest_idx` ON `access_manifest_document_link_projection` (`container_id`,`manifest_hash`,`document_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `access_manifest_document_link_unique_idx` ON `access_manifest_document_link_projection` (`manifest_hash`,`container_id`);--> statement-breakpoint
 CREATE TABLE `access_manifest_heads` (
 	`id` text PRIMARY KEY NOT NULL,
@@ -191,7 +188,6 @@ CREATE TABLE `blob_content_write_headers` (
 );
 --> statement-breakpoint
 CREATE INDEX `blob_content_write_headers_blob_epoch_idx` ON `blob_content_write_headers` (`blob_id`,`content_key_epoch`);--> statement-breakpoint
-CREATE INDEX `blob_content_write_headers_organization_blob_idx` ON `blob_content_write_headers` (`organization_id`,`blob_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `blob_content_write_headers_header_hash_idx` ON `blob_content_write_headers` (`header_hash`);--> statement-breakpoint
 CREATE UNIQUE INDEX `blob_content_write_headers_content_record_idx` ON `blob_content_write_headers` (`blob_id`,`content_key_epoch`,`content_record_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `blob_content_write_headers_nonce_domain_idx` ON `blob_content_write_headers` (`blob_id`,`content_key_epoch`,`nonce_domain_hash`);--> statement-breakpoint
@@ -205,19 +201,15 @@ CREATE TABLE `blob_stages` (
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `blob_stages_expires_at_idx` ON `blob_stages` (`expires_at`,`id`);--> statement-breakpoint
 CREATE TABLE `blobs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`storage_key` text NOT NULL,
 	`encrypted_bytes` text NOT NULL,
 	`sha256` text NOT NULL,
 	`byte_length` integer NOT NULL,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL,
-	`dereferenced_at` integer
+	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `blobs_storage_key_idx` ON `blobs` (`storage_key`);--> statement-breakpoint
-CREATE INDEX `blobs_dereferenced_at_idx` ON `blobs` (`dereferenced_at`) WHERE "blobs"."dereferenced_at" is not null;--> statement-breakpoint
 CREATE TABLE `container_builtin_grants` (
 	`id` text PRIMARY KEY NOT NULL,
 	`organization_id` text NOT NULL,
@@ -417,7 +409,6 @@ CREATE TABLE `document_content_write_headers` (
 );
 --> statement-breakpoint
 CREATE INDEX `document_content_write_headers_document_epoch_idx` ON `document_content_write_headers` (`document_id`,`content_key_epoch`);--> statement-breakpoint
-CREATE INDEX `document_content_write_headers_organization_update_idx` ON `document_content_write_headers` (`organization_id`,`update_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `document_content_write_headers_header_hash_idx` ON `document_content_write_headers` (`header_hash`);--> statement-breakpoint
 CREATE UNIQUE INDEX `document_content_write_headers_content_record_idx` ON `document_content_write_headers` (`document_id`,`content_key_epoch`,`content_record_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `document_content_write_headers_nonce_domain_idx` ON `document_content_write_headers` (`document_id`,`content_key_epoch`,`nonce_domain_hash`);--> statement-breakpoint
@@ -457,11 +448,8 @@ CREATE TABLE `document_updates` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `document_updates_id_unique` ON `document_updates` (`id`);--> statement-breakpoint
-CREATE INDEX `document_updates_document_sequence_idx` ON `document_updates` (`document_id`,`sequence`);--> statement-breakpoint
 CREATE TABLE `documents` (
 	`id` text PRIMARY KEY NOT NULL,
-	`attribution_revision` integer DEFAULT 0 NOT NULL,
-	`attribution_incarnation` text NOT NULL,
 	`created_by_fingerprint` text NOT NULL,
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL,
 	`updated_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
@@ -475,89 +463,6 @@ CREATE TABLE `groups` (
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `groups_organization_name_idx` ON `groups` (`organization_id`,`name`,`id`);--> statement-breakpoint
-CREATE TABLE `key_package_backups` (
-	`id` text PRIMARY KEY NOT NULL,
-	`user_id` text NOT NULL,
-	`signing_key_fingerprint` text NOT NULL,
-	`credential_id` text NOT NULL,
-	`credential` text NOT NULL,
-	`prf_salt` text NOT NULL,
-	`prf_salt_version` integer DEFAULT 1 NOT NULL,
-	`kdf_suite` text NOT NULL,
-	`envelope` text NOT NULL,
-	`backup_version` integer DEFAULT 1 NOT NULL,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL,
-	`updated_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `key_package_backups_credential_id_unique` ON `key_package_backups` (`credential_id`);--> statement-breakpoint
-CREATE INDEX `key_package_backups_user_updated_idx` ON `key_package_backups` (`user_id`,`updated_at`,`id`);--> statement-breakpoint
-CREATE INDEX `key_package_backups_fingerprint_idx` ON `key_package_backups` (`signing_key_fingerprint`);--> statement-breakpoint
-CREATE TABLE `organization_billing` (
-	`id` text PRIMARY KEY NOT NULL,
-	`organization_id` text NOT NULL,
-	`status` text DEFAULT 'local' NOT NULL,
-	`trial_ends_at` integer,
-	`provider` text,
-	`provider_customer_id` text,
-	`provider_subscription_id` text,
-	`provider_product_id` text,
-	`provider_transaction_id` text,
-	`entitlement_id` text,
-	`current_period_starts_at` integer,
-	`current_period_ends_at` integer,
-	`seat_count` integer DEFAULT 0 NOT NULL,
-	`disabled_at` integer,
-	`purge_after` integer,
-	`purge_started_at` integer,
-	`purged_at` integer,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL,
-	`updated_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `organization_billing_org_idx` ON `organization_billing` (`organization_id`);--> statement-breakpoint
-CREATE INDEX `organization_billing_trial_expiry_idx` ON `organization_billing` (`status`,`trial_ends_at`,`organization_id`);--> statement-breakpoint
-CREATE INDEX `organization_billing_purge_candidates_idx` ON `organization_billing` (`status`,`purge_after`,`purge_started_at`,`organization_id`);--> statement-breakpoint
-CREATE TABLE `organization_billing_seat_assignments` (
-	`id` text PRIMARY KEY NOT NULL,
-	`organization_id` text NOT NULL,
-	`user_id` text NOT NULL,
-	`billing_period_starts_at` integer,
-	`billing_period_ends_at` integer,
-	`assigned_at` integer NOT NULL,
-	`released_at` integer,
-	`assignment_source_type` text NOT NULL,
-	`assignment_source_id` text NOT NULL,
-	`release_source_type` text,
-	`release_source_id` text,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL,
-	`updated_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
-);
---> statement-breakpoint
-CREATE INDEX `organization_billing_seat_assignments_org_open_idx` ON `organization_billing_seat_assignments` (`organization_id`,`released_at`);--> statement-breakpoint
-CREATE INDEX `organization_billing_seat_assignments_org_user_idx` ON `organization_billing_seat_assignments` (`organization_id`,`user_id`,`released_at`);--> statement-breakpoint
-CREATE INDEX `organization_billing_seat_assignments_org_period_idx` ON `organization_billing_seat_assignments` (`organization_id`,`billing_period_starts_at`,`billing_period_ends_at`);--> statement-breakpoint
-CREATE TABLE `organization_billing_seat_events` (
-	`id` text PRIMARY KEY NOT NULL,
-	`organization_id` text NOT NULL,
-	`event_type` text NOT NULL,
-	`user_id` text,
-	`quantity_delta` integer NOT NULL,
-	`licensed_seat_count` integer NOT NULL,
-	`active_seat_count` integer NOT NULL,
-	`billing_period_starts_at` integer,
-	`billing_period_ends_at` integer,
-	`source_type` text NOT NULL,
-	`source_id` text NOT NULL,
-	`source_principal_type` text,
-	`source_principal_id` text,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
-);
---> statement-breakpoint
-CREATE INDEX `organization_billing_seat_events_org_created_idx` ON `organization_billing_seat_events` (`organization_id`,`created_at`);--> statement-breakpoint
-CREATE INDEX `organization_billing_seat_events_org_source_idx` ON `organization_billing_seat_events` (`organization_id`,`source_type`,`source_id`);--> statement-breakpoint
-CREATE INDEX `organization_billing_seat_events_org_period_idx` ON `organization_billing_seat_events` (`organization_id`,`billing_period_starts_at`,`billing_period_ends_at`);--> statement-breakpoint
 CREATE TABLE `organization_roster_entries` (
 	`id` text PRIMARY KEY NOT NULL,
 	`organization_id` text NOT NULL,
@@ -583,7 +488,6 @@ CREATE TABLE `organizations` (
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `organizations_profile_document_idx` ON `organizations` (`profile_document_id`);--> statement-breakpoint
 CREATE TABLE `principal_epoch_keys` (
 	`id` text PRIMARY KEY NOT NULL,
 	`principal_type` text NOT NULL,
@@ -626,7 +530,6 @@ CREATE TABLE `principal_membership_projection` (
 --> statement-breakpoint
 CREATE INDEX `principal_membership_projection_principal_idx` ON `principal_membership_projection` (`principal_type`,`principal_id`);--> statement-breakpoint
 CREATE INDEX `principal_membership_projection_member_idx` ON `principal_membership_projection` (`member_principal_type`,`member_principal_id`);--> statement-breakpoint
-CREATE INDEX `principal_membership_projection_member_state_idx` ON `principal_membership_projection` (`member_principal_type`,`member_principal_id`,`principal_type`,`principal_id`,`state_hash`);--> statement-breakpoint
 CREATE UNIQUE INDEX `principal_membership_projection_state_member_idx` ON `principal_membership_projection` (`principal_type`,`principal_id`,`state_hash`,`member_principal_type`,`member_principal_id`);--> statement-breakpoint
 CREATE TABLE `principal_state_payloads` (
 	`id` text PRIMARY KEY NOT NULL,
@@ -652,7 +555,6 @@ CREATE TABLE `principal_states` (
 	`key_fingerprint` text NOT NULL,
 	`membership_mode` text NOT NULL,
 	`membership_root` text NOT NULL,
-	`member_envelopes_root` text NOT NULL,
 	`projection_root` text NOT NULL,
 	`payload_ciphertext_hash` text NOT NULL,
 	`member_count` integer NOT NULL,
@@ -667,24 +569,6 @@ CREATE TABLE `principal_states` (
 CREATE INDEX `principal_states_principal_idx` ON `principal_states` (`principal_type`,`principal_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `principal_states_principal_version_idx` ON `principal_states` (`principal_type`,`principal_id`,`version`);--> statement-breakpoint
 CREATE UNIQUE INDEX `principal_states_principal_state_hash_idx` ON `principal_states` (`principal_type`,`principal_id`,`state_hash`);--> statement-breakpoint
-CREATE TABLE `revenuecat_webhook_events` (
-	`id` text PRIMARY KEY NOT NULL,
-	`event_id` text NOT NULL,
-	`event_type` text NOT NULL,
-	`app_user_id` text NOT NULL,
-	`product_id` text,
-	`transaction_id` text,
-	`original_transaction_id` text,
-	`organization_id` text,
-	`outcome` text NOT NULL,
-	`event_timestamp` integer NOT NULL,
-	`purchased_at` integer,
-	`expiration_at` integer,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `revenuecat_webhook_events_event_id_idx` ON `revenuecat_webhook_events` (`event_id`);--> statement-breakpoint
-CREATE INDEX `revenuecat_webhook_events_org_idx` ON `revenuecat_webhook_events` (`organization_id`);--> statement-breakpoint
 CREATE TABLE `users` (
 	`id` text PRIMARY KEY NOT NULL,
 	`fingerprint` text NOT NULL,
@@ -692,7 +576,6 @@ CREATE TABLE `users` (
 	`encapsulation_public_key` text NOT NULL,
 	`encapsulation_key_fingerprint` text NOT NULL,
 	`default_organization_id` text NOT NULL,
-	`registration_source_ip_address` text,
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint

@@ -1,6 +1,6 @@
 {
-  "id": "2a7de757-cb99-49b6-86f5-49829d4a5c35",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "0a7dc2cd-cb28-49e7-9e02-d220bf2cefb2",
+  "prevId": "2a7de757-cb99-49b6-86f5-49829d4a5c35",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1749,6 +1749,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "dereferenced_at": {
+          "name": "dereferenced_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},

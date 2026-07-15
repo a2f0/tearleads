@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `blobs_storage_key_idx` ON `blobs` (`storage_key`);
