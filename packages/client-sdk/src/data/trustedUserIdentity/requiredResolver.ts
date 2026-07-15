@@ -12,13 +12,26 @@ const unavailableTrustedUserIdentityResolver: TrustedUserIdentityResolver =
     );
   };
 
-/** Normalize an adapter input without weakening cryptographic call sites. */
+const resolverAdaptersByResolver = new WeakMap<
+  TrustedUserIdentityResolver,
+  TrustedUserIdentityResolver
+>();
+
+/** Normalize an adapter without weakening call sites or churning its identity. */
 export function requireTrustedUserIdentityResolver(
   resolver: TrustedUserIdentityResolver | null | undefined,
 ): TrustedUserIdentityResolver {
-  const requiredResolver = resolver ?? unavailableTrustedUserIdentityResolver;
-  return async (userId) => {
-    const identity = await requiredResolver(userId);
+  if (!resolver) {
+    return unavailableTrustedUserIdentityResolver;
+  }
+
+  const existingAdapter = resolverAdaptersByResolver.get(resolver);
+  if (existingAdapter) {
+    return existingAdapter;
+  }
+
+  const adapter: TrustedUserIdentityResolver = async (userId) => {
+    const identity = await resolver(userId);
     if (!identity) {
       return null;
     }
@@ -36,4 +49,7 @@ export function requireTrustedUserIdentityResolver(
     }
     return identity;
   };
+  resolverAdaptersByResolver.set(resolver, adapter);
+  resolverAdaptersByResolver.set(adapter, adapter);
+  return adapter;
 }

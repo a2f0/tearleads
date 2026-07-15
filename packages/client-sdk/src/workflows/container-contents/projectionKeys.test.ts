@@ -1,6 +1,12 @@
 import { expect, test } from "bun:test";
-import { KeyingVerificationError } from "@tearleads/crypto";
+import {
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+  KeyingVerificationError,
+} from "@tearleads/crypto";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { createDomainScope } from "../../data/domainScope";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
 import {
   type ContainerContentsProjectionKeyRuntime,
@@ -8,12 +14,23 @@ import {
   createContainerContentsProjectionUserKeyResolver,
   didContainerContentsProjectionKeyRuntimeChange,
 } from "./projectionKeys";
+import {
+  type ContainerContentsWorkflowRuntimeInput,
+  createContainerContentsWorkflowRuntime,
+} from "./runtime";
 
 function createRuntime(
   patch: Partial<ContainerContentsProjectionKeyRuntime> = {},
 ): ContainerContentsProjectionKeyRuntime {
   return {
+    auth: { isAuthenticated: false, userId: null },
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    },
     resolveTrustedUserIdentity: async () => null,
+    state: { domainScope: createDomainScope() },
     util: { ...patch.util },
     ...patch,
   };
@@ -79,7 +96,53 @@ test("projection transport failures remain soft and retryable", async () => {
   ]);
 });
 
-test("didContainerContentsProjectionKeyRuntimeChange tracks the trusted resolver", () => {
+test("container runtime normalization preserves trusted resolver identity", () => {
+  const resolveTrustedUserIdentity = async () => null;
+  const domainScope = createDomainScope();
+  const input: ContainerContentsWorkflowRuntimeInput = {
+    apiClient: {} as ContainerContentsWorkflowRuntimeInput["apiClient"],
+    auth: {
+      isAuthenticated: false,
+      organizationId: null,
+      userId: null,
+    },
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    },
+    infra: {
+      blobStore:
+        {} as ContainerContentsWorkflowRuntimeInput["infra"]["blobStore"],
+      dbStatus: "idle",
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql: async () => [],
+    },
+    resolveTrustedUserIdentity,
+    state: {
+      containerId: null,
+      domainScope,
+      events: [],
+      online: false,
+    },
+    util: {
+      cacheReferencedPrincipalPolicies: async () => {},
+      log: () => {},
+    },
+  };
+
+  const first = createContainerContentsWorkflowRuntime(input);
+  const second = createContainerContentsWorkflowRuntime(input);
+
+  expect(second.resolveTrustedUserIdentity).toBe(
+    first.resolveTrustedUserIdentity,
+  );
+  expect(didContainerContentsProjectionKeyRuntimeChange(first, second)).toBe(
+    false,
+  );
+});
+
+test("didContainerContentsProjectionKeyRuntimeChange tracks the live trust context", () => {
   const runtime = createRuntime({
     resolveTrustedUserIdentity: async () => null,
   });
@@ -87,6 +150,48 @@ test("didContainerContentsProjectionKeyRuntimeChange tracks the trusted resolver
   expect(didContainerContentsProjectionKeyRuntimeChange(runtime, runtime)).toBe(
     false,
   );
+  expect(
+    didContainerContentsProjectionKeyRuntimeChange(runtime, {
+      ...runtime,
+      auth: { isAuthenticated: true, userId: null },
+    }),
+  ).toBe(true);
+  expect(
+    didContainerContentsProjectionKeyRuntimeChange(runtime, {
+      ...runtime,
+      auth: { ...runtime.auth, userId: "user-2" },
+    }),
+  ).toBe(true);
+  expect(
+    didContainerContentsProjectionKeyRuntimeChange(runtime, {
+      ...runtime,
+      crypto: { ...runtime.crypto, signingFingerprint: "fingerprint-2" },
+    }),
+  ).toBe(true);
+  expect(
+    didContainerContentsProjectionKeyRuntimeChange(runtime, {
+      ...runtime,
+      crypto: {
+        ...runtime.crypto,
+        encapsulationKeyPair: generateKemSeedAndKeyPair(),
+      },
+    }),
+  ).toBe(true);
+  expect(
+    didContainerContentsProjectionKeyRuntimeChange(runtime, {
+      ...runtime,
+      crypto: {
+        ...runtime.crypto,
+        signingKeyPair: generateSigningSeedAndKeyPair(),
+      },
+    }),
+  ).toBe(true);
+  expect(
+    didContainerContentsProjectionKeyRuntimeChange(runtime, {
+      ...runtime,
+      state: { domainScope: createDomainScope() },
+    }),
+  ).toBe(true);
   expect(
     didContainerContentsProjectionKeyRuntimeChange(runtime, {
       ...runtime,

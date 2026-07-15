@@ -3,6 +3,17 @@ import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUser
 import { requireTrustedUserIdentityResolver } from "./requiredResolver";
 import type { TrustedUserIdentity } from "./types";
 
+test("resolver adapters are stable and idempotent", () => {
+  const source = async () => null;
+  const adapter = requireTrustedUserIdentityResolver(source);
+
+  expect(requireTrustedUserIdentityResolver(source)).toBe(adapter);
+  expect(requireTrustedUserIdentityResolver(adapter)).toBe(adapter);
+  expect(requireTrustedUserIdentityResolver(undefined)).toBe(
+    requireTrustedUserIdentityResolver(null),
+  );
+});
+
 test("resolver adapters reject structurally forged identity values", async () => {
   const forged = {
     encapsulationKeyFingerprint: "encapsulation-fingerprint",
