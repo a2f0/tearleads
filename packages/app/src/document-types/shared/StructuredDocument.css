@@ -46,6 +46,18 @@
   font-size: var(--font-size-sm);
 }
 
+.structured-document-field-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.structured-document-field-control > input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .structured-document-field input,
 .structured-document-field select,
 .structured-document-field textarea {
