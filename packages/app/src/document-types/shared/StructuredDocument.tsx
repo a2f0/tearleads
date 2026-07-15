@@ -17,6 +17,7 @@ import { useDocumentReadOnly } from "../../stores/documents/DocumentsProvider";
 import "./StructuredDocument.css";
 
 interface StructuredDocumentReadFieldDescriptor {
+  readonly action?: ReactNode;
   readonly displayValue?: string | undefined;
   readonly label: string;
   readonly title?: string | undefined;
@@ -137,6 +138,7 @@ function StructuredDocumentReadField(
           {displayValue}
         </MiniAppRowText>
       </MiniAppRowStack>
+      {params.action ?? null}
     </MiniAppRow>
   );
 }
@@ -149,6 +151,7 @@ export function StructuredDocumentReadFields(params: {
       {params.fields.map((field) => (
         <StructuredDocumentReadField
           key={field.label}
+          action={field.action}
           displayValue={field.displayValue}
           label={field.label}
           title={field.title}
@@ -165,16 +168,32 @@ export function StructuredDocumentFields({ children }: PropsWithChildren) {
 
 export function StructuredDocumentField(
   params: PropsWithChildren<{
+    action?: ReactNode;
     inputId: string;
     label: string;
   }>,
 ) {
-  const { children, inputId, label } = params;
+  const { action, children, inputId, label } = params;
 
+  if (action === undefined) {
+    return (
+      <label className="structured-document-field" htmlFor={inputId}>
+        {label}
+        {children}
+      </label>
+    );
+  }
+
+  // A trailing control can't live inside the <label>: a button is a labelable
+  // element, so nesting it there is invalid and its clicks would also trigger
+  // the label's own focus-the-input behavior.
   return (
-    <label className="structured-document-field" htmlFor={inputId}>
-      {label}
-      {children}
-    </label>
+    <div className="structured-document-field">
+      <label htmlFor={inputId}>{label}</label>
+      <div className="structured-document-field-control">
+        {children}
+        {action}
+      </div>
+    </div>
   );
 }
