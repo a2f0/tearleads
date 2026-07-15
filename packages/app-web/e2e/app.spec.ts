@@ -167,6 +167,38 @@ test("page loads", async ({ page }) => {
   expect(sqliteWarnings).toEqual([]);
 });
 
+test("mobile sidebar covers Explorer row actions", async ({ page }) => {
+  await page.setViewportSize({ width: 599, height: 800 });
+  await page.goto("/app/explorer");
+
+  const rowAction = page.getByRole("button", { name: "Actions for Contacts" });
+  await expect(rowAction).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Show Sidebar" }).click();
+  const sidebar = page.getByRole("dialog");
+  await expect(sidebar).toBeVisible();
+
+  const actionBox = await rowAction.boundingBox();
+  const sidebarBox = await sidebar.boundingBox();
+  if (!actionBox || !sidebarBox) {
+    throw new Error("Expected visible Explorer action and sidebar boxes.");
+  }
+  const actionCenter = {
+    x: actionBox.x + actionBox.width / 2,
+    y: actionBox.y + actionBox.height / 2,
+  };
+  expect(actionCenter.x).toBeGreaterThan(sidebarBox.x);
+  expect(actionCenter.x).toBeLessThan(sidebarBox.x + sidebarBox.width);
+  expect(actionCenter.y).toBeGreaterThan(sidebarBox.y);
+  expect(actionCenter.y).toBeLessThan(sidebarBox.y + sidebarBox.height);
+  const sidebarCoversAction = await page.evaluate(
+    ({ x, y }) =>
+      Boolean(document.elementFromPoint(x, y)?.closest("#routed-pane-sidebar")),
+    actionCenter,
+  );
+
+  expect(sidebarCoversAction).toBe(true);
+});
+
 test("SQLite tables survive a hard reload", async ({ page }) => {
   // Regression coverage for persistent OPFS-SAHPool reloads: the restored
   // identity must reopen its existing SQLite tables, not race a hidden pane or
