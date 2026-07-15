@@ -6,6 +6,7 @@ import {
   importOrganizationUser,
   type LocalOrganizationSummary,
   listLocalOrganizations,
+  loadOrganizationBilling,
   loadOrganizationContainerGrants,
   loadOrganizationDataUsage,
   loadOrganizationDirectoryAndGroups,
@@ -14,6 +15,7 @@ import {
   loadOrganizationUserDetail,
   removeOrganizationGroupUser,
   revokeOrganizationContainerGrant,
+  startOrganizationTrial,
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "../workflows/organizations";
@@ -24,10 +26,6 @@ import {
   createOrganizationMetadataReshareCoordinator,
   type OrganizationMetadataReshareCoordinator,
 } from "./organizationMetadataReshareCoordinator";
-import {
-  createOrganizationProfileBootstrapCoordinator,
-  type OrganizationProfileBootstrapCoordinator,
-} from "./organizationProfileBootstrap";
 import {
   prepareOrganizationRootRewrapToAdmins,
   recoverOrganizationRootRewrapAfterMutationFailure,
@@ -104,7 +102,7 @@ export interface Organizations {
     groupId: string,
   ) => Promise<DeleteOrganizationGroupResponse | null>;
   importUserById: (userId: string) => ReturnType<typeof importOrganizationUser>;
-  loadBilling: OrganizationProfileBootstrapCoordinator["loadBilling"];
+  loadBilling: () => ReturnType<typeof loadOrganizationBilling>;
   loadDataUsage: () => ReturnType<typeof loadOrganizationDataUsage>;
   loadDirectoryAndGroups: () => ReturnType<
     typeof loadOrganizationDirectoryAndGroups
@@ -131,7 +129,7 @@ export interface Organizations {
   revokeGrant: (
     grant: OrganizationGrantRef,
   ) => ReturnType<typeof revokeOrganizationContainerGrant>;
-  startTrial: OrganizationProfileBootstrapCoordinator["startTrial"];
+  startTrial: () => ReturnType<typeof startOrganizationTrial>;
 }
 
 function requireSigningContext(
@@ -181,18 +179,12 @@ export function createOrganizations(
 
 class OrganizationsService implements Organizations {
   private readonly metadataReshareCoordinator: OrganizationMetadataReshareCoordinator;
-  private readonly profileBootstrapCoordinator: OrganizationProfileBootstrapCoordinator;
   private readonly rootReshareCoordinator: OrganizationRootReshareCoordinator;
 
   constructor(
     private readonly runtimeService: InternalRuntime,
     containerContents: ContainerContents,
   ) {
-    this.profileBootstrapCoordinator =
-      createOrganizationProfileBootstrapCoordinator({
-        containerContents,
-        runtimeService,
-      });
     this.metadataReshareCoordinator =
       createOrganizationMetadataReshareCoordinator({
         containerContents,
@@ -203,9 +195,7 @@ class OrganizationsService implements Organizations {
             apiClient: this.runtimeService.workflowInput().apiClient,
             organizationId,
           });
-          return directory
-            ? { memberGroupId: directory.memberGroupId ?? null }
-            : null;
+          return directory ? { memberGroupId: directory.memberGroupId } : null;
         },
         // Resolve the logger per call so it tracks the current runtime.
         log: (message) => this.runtimeService.workflowInput().util.log(message),
@@ -299,7 +289,14 @@ class OrganizationsService implements Organizations {
   }
 
   loadBilling() {
-    return this.profileBootstrapCoordinator.loadBilling();
+    const runtime = this.runtimeService.workflowInput();
+    const organizationId = authenticatedOrganizationId(runtime);
+    return organizationId
+      ? loadOrganizationBilling({
+          apiClient: runtime.apiClient,
+          organizationId,
+        })
+      : Promise.resolve(null);
   }
 
   loadDataUsage() {
@@ -485,6 +482,10 @@ class OrganizationsService implements Organizations {
   }
 
   startTrial() {
-    return this.profileBootstrapCoordinator.startTrial();
+    const runtime = this.runtimeService.workflowInput();
+    const organizationId = authenticatedOrganizationId(runtime);
+    return organizationId
+      ? startOrganizationTrial({ apiClient: runtime.apiClient, organizationId })
+      : Promise.resolve(null);
   }
 }

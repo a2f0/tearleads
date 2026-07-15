@@ -30,6 +30,7 @@ testApiClient(
           const { organizationId } = params as { organizationId: string };
           return HttpResponse.json({
             organizationId,
+            memberGroupId: "member-group-1",
             groups: [createOrganizationGroupSummary(organizationId)],
           });
         },
@@ -318,7 +319,11 @@ testApiClient(
           });
         }
 
-        return HttpResponse.json({ organizationId: "org-1", groups: [] });
+        return HttpResponse.json({
+          organizationId: "org-1",
+          memberGroupId: "member-group-1",
+          groups: [],
+        });
       }),
     );
 

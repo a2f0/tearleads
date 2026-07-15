@@ -22,6 +22,7 @@ import type {
 } from "@tearleads/validators/response";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../src/document-types/projectors";
 import { createSqlRuntimeBase } from "../createSqlRuntime";
+import { createTestRuntimeTrustedUserIdentityResolver } from "../trustedUserIdentity";
 import { waitForCondition } from "../waitForCondition";
 import {
   createDocumentAttachmentBindResponse,
@@ -166,7 +167,7 @@ export async function documentWorkflowRuntimePatch(input: {
           sha256: blob.sha256,
         };
       },
-      getEncapsulationKey: async (userId) =>
+      getUserIdentity: async (userId) =>
         userId === "user-1"
           ? {
               encapsulationKeyFingerprint: await toFingerprint(
@@ -192,6 +193,9 @@ export async function documentWorkflowRuntimePatch(input: {
           documentId: storedDocument.id,
           documentKekTargets: storedDocument.documentKekTargets,
           documentManifest: storedDocument.accessManifest,
+          documentManifestHistory: [],
+          documentManifestContainerPaths: [],
+          documentContainerManifestHistory: [],
         };
         return (
           input.mapDocumentWriterProjectionResponse?.(projection) ?? projection
@@ -323,6 +327,13 @@ async function createSyncRuntimeInput(
       documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
       execSql: async () => [],
     },
+    resolveTrustedUserIdentity: createTestRuntimeTrustedUserIdentityResolver({
+      encapsulationPublicKey: encapsulationKeyPair.publicKey,
+      loadRemoteIdentity: (userId) => patch.apiClient.getUserIdentity(userId),
+      localUserId: patch.userId,
+      signingKeyFingerprint: patch.signingFingerprint,
+      signingPublicKey: patch.signingKeyPair.signingPublicKey,
+    }),
     state: {
       containerId,
       domainScope: createDomainScope(),
@@ -330,7 +341,6 @@ async function createSyncRuntimeInput(
       online: true,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => {},
       log: () => {},
     },
   };

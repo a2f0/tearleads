@@ -174,11 +174,11 @@ async function verifyDocumentLinkSetTargetContainerProjection(
     targetContainerProjection: ContainerWriterProjectionResponse;
   } & ProjectionVerificationOptions,
 ): Promise<void> {
-  const resolveProjectionUserKey = resolveProjectionVerifier(
+  resolveProjectionVerifier(
     input,
     "Document link-set target container projection",
   );
-  if (!resolveProjectionUserKey) {
+  if (input.trustedLocalProjection === true) {
     return;
   }
 
@@ -187,7 +187,7 @@ async function verifyDocumentLinkSetTargetContainerProjection(
       execSql: input.execSql,
       principalPolicyCache: input.principalPolicyCache,
       projection: input.targetContainerProjection,
-      resolveUserKey: resolveProjectionUserKey,
+      resolveUserKey: input.resolveProjectionUserKey,
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
   } catch (error) {

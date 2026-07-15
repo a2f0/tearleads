@@ -555,6 +555,12 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
         targetHash: createdDocument.plan.request.contentKeyBundle.targetHash,
         targets: [...createdDocument.plan.request.contentKeyBundle.targets],
       },
+      documentContainerManifestHistory: [
+        ...revokedProjection.path,
+        ...revokedProjection.containerKeks.flatMap(
+          (kek) => kek.containerManifestHistory,
+        ),
+      ],
       documentId: createdDocument.plan.documentId,
       documentKekTargets: {
         documentId: createdDocument.plan.documentId,
@@ -584,6 +590,8 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
         manifestHash: createdDocument.plan.manifestHash,
         state: createdDocument.plan.state as unknown as Record<string, unknown>,
       },
+      documentManifestContainerPaths: [[...revokedProjection.path]],
+      documentManifestHistory: [],
     };
     const blobId = "550e8400-e29b-41d4-a716-446655440701";
     const bindingId = "550e8400-e29b-41d4-a716-446655440702";
@@ -827,6 +835,7 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
         keyTargetHash:
           await computeContainerKekRecipientTargetHash(recipientTargets),
         parentContainerKeyEpochId: null,
+        containerManifestHistory: [],
         recipientTargets: recipientTargets as unknown as Record<
           string,
           unknown

@@ -1,4 +1,5 @@
 import {
+  computeContainerKekMaterialId,
   encryptWithDek,
   generateKemSeedAndKeyPair,
   wrapDekForRecipients,
@@ -25,6 +26,7 @@ export {
   getOnlyTarget,
   projectionPathRefs,
 } from "./documentResponseFixtures";
+export { writerProjectionEvidence } from "./documentWriterProjectionFixtures";
 
 interface DeepNonCanonicalRecord {
   next?: DeepNonCanonicalRecord;
@@ -179,6 +181,7 @@ function buildWrappedProjection(input: {
         keyEpochHash: rootKeyEpochHash,
         keyTargetHash: rootKeyTargetHash,
         parentContainerKeyEpochId: null,
+        containerManifestHistory: [],
         recipientTargets: [{}],
         wraps: [rootWrap],
       },
@@ -199,6 +202,7 @@ function buildWrappedProjection(input: {
         keyEpochHash: childKeyEpochHash,
         keyTargetHash: childKeyTargetHash,
         parentContainerKeyEpochId: rootContainerKeyEpochId,
+        containerManifestHistory: [],
         recipientTargets: [{}],
         wraps: [childWrap],
       },
@@ -219,10 +223,18 @@ export async function createWrappedProjection(): Promise<WrappedProjectionFixtur
   const childKeyEpochHash = await fixtureHash("child-container-key-epoch");
   const rootKeyTargetHash = await fixtureHash("root-container-key-target");
   const childKeyTargetHash = await fixtureHash("child-container-key-target");
-  const rootContainerKeyEpochId = "root-container-key-epoch-1";
-  const childContainerKeyEpochId = "child-container-key-epoch-1";
   const rootContainerKek = crypto.getRandomValues(new Uint8Array(32));
   const childContainerKek = crypto.getRandomValues(new Uint8Array(32));
+  const rootContainerKeyEpochId = await computeContainerKekMaterialId({
+    containerId: rootContainerId,
+    keyEpoch: 1,
+    keyMaterial: rootContainerKek,
+  });
+  const childContainerKeyEpochId = await computeContainerKekMaterialId({
+    containerId: childContainerId,
+    keyEpoch: 1,
+    keyMaterial: childContainerKek,
+  });
   const rootWrap = await createUserContainerWrap({
     containerKeyEpochId: rootContainerKeyEpochId,
     containerKek: rootContainerKek,
@@ -287,8 +299,12 @@ export async function createSiblingProjection(input: {
   const siblingKeyTargetHash = await fixtureHash(
     "sibling-container-key-target",
   );
-  const siblingContainerKeyEpochId = "sibling-container-key-epoch-1";
   const siblingContainerKek = crypto.getRandomValues(new Uint8Array(32));
+  const siblingContainerKeyEpochId = await computeContainerKekMaterialId({
+    containerId: siblingContainerId,
+    keyEpoch: 1,
+    keyMaterial: siblingContainerKek,
+  });
   const siblingWrap = await createContainerWrap({
     childContainerKeyEpochId: siblingContainerKeyEpochId,
     childKek: siblingContainerKek,
@@ -338,6 +354,7 @@ export async function createSiblingProjection(input: {
           keyEpochHash: siblingKeyEpochHash,
           keyTargetHash: siblingKeyTargetHash,
           parentContainerKeyEpochId: rootKek.containerKeyEpochId,
+          containerManifestHistory: [],
           recipientTargets: [{}],
           wraps: [siblingWrap],
         },

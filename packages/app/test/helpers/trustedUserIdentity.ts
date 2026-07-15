@@ -3,13 +3,13 @@ import {
   createTestTrustedUserIdentity,
 } from "@tearleads/client-sdk/testing";
 import { toFingerprint } from "@tearleads/crypto";
-import type { EncapsulationKeyResponse } from "@tearleads/validators/response";
+import type { UserIdentityResponse } from "@tearleads/validators/response";
 
 interface TestRuntimeTrustedIdentityInput {
   readonly encapsulationPublicKey: Uint8Array | null;
   readonly loadRemoteIdentity: (
     userId: string,
-  ) => Promise<EncapsulationKeyResponse | null>;
+  ) => Promise<UserIdentityResponse | null>;
   readonly localUserId: string | null;
   readonly signingKeyFingerprint: string | null;
   readonly signingPublicKey: Uint8Array | null;

@@ -18,10 +18,7 @@ const requestProfileEnv = process.env as {
 
 function normalizeRequestPath(path: string): string {
   return path
-    .replace(
-      /^\/auth\/encapsulation-key\/[^/]+$/u,
-      "/auth/encapsulation-key/:userId",
-    )
+    .replace(/^\/auth\/user-identity\/[^/]+$/u, "/auth/user-identity/:userId")
     .replace(
       /^\/organizations\/[^/]+\/groups$/u,
       "/organizations/:organizationId/groups",

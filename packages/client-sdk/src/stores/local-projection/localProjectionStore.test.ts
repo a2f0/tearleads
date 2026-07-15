@@ -60,6 +60,7 @@ function createRuntime(input: {
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql: input.execSql,
     },
+    resolveTrustedUserIdentity: async () => null,
     state: {
       containerId: null,
       domainScope: input.domainScope,
@@ -67,7 +68,6 @@ function createRuntime(input: {
       online: input.online,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => {},
       log: () => {},
     },
   });

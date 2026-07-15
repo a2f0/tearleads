@@ -7,25 +7,24 @@ import type { ExecSql } from "../sqlite/sqlSchema";
 import { enforceAccessManifestCheckpoints } from "./accessManifestCheckpointEnforcement";
 
 export interface ProjectionCheckpointContext {
-  readonly execSql: ExecSql | null;
+  readonly execSql: ExecSql;
   readonly policies: VerifiedPrincipalPolicy[];
   readonly verifiedHeads: AnyVerifiedAccessManifest[];
   readonly verifiedManifests: AnyVerifiedAccessManifest[];
 }
 
 export function createProjectionCheckpointContext(input: {
-  readonly execSql?: ExecSql | undefined;
-  readonly label: string;
+  readonly execSql: ExecSql;
 }): ProjectionCheckpointContext {
-  if (!input.execSql) {
+  if (typeof input.execSql !== "function") {
     throw new KeyingVerificationError(
       "missing_dependency",
-      `${input.label} requires durable keying checkpoint storage`,
+      "Projection verification requires durable keying checkpoint storage",
     );
   }
 
   return {
-    execSql: input.execSql ?? null,
+    execSql: input.execSql,
     policies: [],
     verifiedHeads: [],
     verifiedManifests: [],
@@ -39,9 +38,6 @@ export function observeAccessManifestCheckpoints(
     readonly verifiedManifests: readonly AnyVerifiedAccessManifest[];
   },
 ): void {
-  if (!context.execSql) {
-    return;
-  }
   context.verifiedHeads.push(...input.verifiedHeads);
   context.verifiedManifests.push(...input.verifiedManifests);
 }
@@ -50,17 +46,12 @@ export function observePrincipalPolicy(
   context: ProjectionCheckpointContext,
   policy: VerifiedPrincipalPolicy,
 ): void {
-  if (context.execSql) {
-    context.policies.push(policy);
-  }
+  context.policies.push(policy);
 }
 
 export async function commitProjectionCheckpoints(
   context: ProjectionCheckpointContext,
 ): Promise<void> {
-  if (!context.execSql) {
-    return;
-  }
   await enforceAccessManifestCheckpoints({
     execSql: context.execSql,
     policies: context.policies,

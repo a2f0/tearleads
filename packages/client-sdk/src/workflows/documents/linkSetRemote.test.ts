@@ -11,6 +11,7 @@ import {
   createAuthor,
   createLinkSetResponseFromRequest,
   createResponse,
+  writerProjectionEvidence,
 } from "../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { persistedDocumentLinkSetMutationStateFromResponse } from "../../data/documents/shared/responses";
@@ -99,6 +100,7 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
   const writerProjection: DocumentWriterProjectionResponse = {
     authorizingContainerPaths: [projection],
     contentKeyBundle: createdResponse.contentKeyBundle,
+    ...writerProjectionEvidence([projection], []),
     documentId: createdResponse.id,
     documentKekTargets: createdResponse.documentKekTargets,
     documentManifest: createdResponse.accessManifest,
@@ -237,6 +239,7 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
   const initialWriterProjection: DocumentWriterProjectionResponse = {
     authorizingContainerPaths: [projection],
     contentKeyBundle: createdResponse.contentKeyBundle,
+    ...writerProjectionEvidence([projection], []),
     documentId: createdResponse.id,
     documentKekTargets: createdResponse.documentKekTargets,
     documentManifest: createdResponse.accessManifest,
@@ -256,10 +259,13 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
   const linkedWriterProjection: DocumentWriterProjectionResponse = {
     authorizingContainerPaths: [projection, siblingProjection],
     contentKeyBundle: linkResponse.contentKeyBundle,
+    ...writerProjectionEvidence(
+      [projection, siblingProjection],
+      [initialWriterProjection.documentManifest],
+    ),
     documentId: linkResponse.id,
     documentKekTargets: linkResponse.documentKekTargets,
     documentManifest: linkResponse.accessManifest,
-    documentManifestHistory: [initialWriterProjection.documentManifest],
   };
   const tamperedTargetProjection = structuredClone(projection);
   const signedEvent = tamperedTargetProjection.path[0]?.event

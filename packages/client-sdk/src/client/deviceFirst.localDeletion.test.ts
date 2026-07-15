@@ -110,7 +110,6 @@ test("local deletion evicts a cached device-first summary until disposal", async
       online: false,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => {},
       log: () => {},
       logError: () => {},
     },

@@ -27,11 +27,11 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createProjectionWithAdminSigner,
   signPrincipalStateBundle,
+  storePrincipalState,
 } from "../../../test/helpers/principalState";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import type { StoredPrincipalState } from "../../access/read/principalStateStore";
 import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
-import { storeVerifiedPrincipalState } from "../../access/write/principalStateStore";
 import { listContainers } from "./listContainers";
 
 const SIGNED_AT = "2026-04-30T00:00:00.000Z";
@@ -118,7 +118,7 @@ async function storeGroupPolicy(input: {
     signingPrivateKey: input.signerPrivateKey,
   });
 
-  return storeVerifiedPrincipalState(bundle, db);
+  return storePrincipalState(bundle, db);
 }
 
 async function storeContainerManifest(input: {

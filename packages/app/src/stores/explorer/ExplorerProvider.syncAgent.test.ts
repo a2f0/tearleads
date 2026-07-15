@@ -11,7 +11,11 @@ import {
   subscribeToContainerContentsStore as subscribeToExplorerStore,
   updateContainerContentsSnapshot as updateExplorerSnapshot,
 } from "@tearleads/client-sdk";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  generateKemSeedAndKeyPair,
+  KeyingVerificationError,
+} from "@tearleads/crypto";
+import { createMockApiClient } from "@tearleads/test-utils";
 import {
   listedContainer,
   loadContainers,
@@ -137,11 +141,14 @@ test("explorer snapshot update emits when only node sync state changes", async (
 
 test("explorer sync agent batches concurrent remote ingests into one snapshot update", async () => {
   let snapshotUpdateCount = 0;
-  const cachedPrincipalBatches: number[] = [];
+  const requestedPrincipalPolicies: string[] = [];
   const runtime = runtimeWithPatch(await createSqlRuntime(), {
-    cacheReferencedPrincipalPolicies: async (principals) => {
-      cachedPrincipalBatches.push(principals?.length ?? 0);
-    },
+    apiClient: createMockApiClient({
+      getCurrentPrincipalPolicy: async (principalType, principalId) => {
+        requestedPrincipalPolicies.push(`${principalType}:${principalId}`);
+        return null;
+      },
+    }),
     organizationId: "org-1",
   });
 
@@ -238,7 +245,10 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
 
     expect(snapshotUpdateCount).toBe(1);
     expect(state.containersById.size).toBe(2);
-    expect(cachedPrincipalBatches).toEqual([2]);
+    expect(requestedPrincipalPolicies).toEqual([
+      "group:group-a",
+      "group:group-b",
+    ]);
     await expect(loadContainers(runtime.infra.execSql)).resolves.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -260,14 +270,20 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
 
 test("explorer sync agent retries remote ingests after a failed batch", async () => {
   let snapshotUpdateCount = 0;
-  const cachedPrincipalBatches: number[] = [];
+  const requestedPrincipalPolicies: string[] = [];
   const runtime = runtimeWithPatch(await createSqlRuntime(), {
-    cacheReferencedPrincipalPolicies: async (principals) => {
-      cachedPrincipalBatches.push(principals?.length ?? 0);
-      if (cachedPrincipalBatches.length === 1) {
-        throw new Error("principal cache unavailable");
-      }
-    },
+    apiClient: createMockApiClient({
+      getCurrentPrincipalPolicy: async (principalType, principalId) => {
+        requestedPrincipalPolicies.push(`${principalType}:${principalId}`);
+        if (requestedPrincipalPolicies.length === 1) {
+          throw new KeyingVerificationError(
+            "missing_dependency",
+            "principal cache unavailable",
+          );
+        }
+        return null;
+      },
+    }),
     organizationId: "org-1",
   });
 
@@ -371,7 +387,11 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
       "container-a",
       "container-b",
     ]);
-    expect(cachedPrincipalBatches).toEqual([1, 2]);
+    expect(requestedPrincipalPolicies).toEqual([
+      "group:group-a",
+      "group:group-a",
+      "group:group-b",
+    ]);
   } finally {
     runtime.close();
   }

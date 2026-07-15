@@ -49,7 +49,6 @@ function createRuntime(input: {
       online: input.online,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => {},
       log: () => {},
     },
   });

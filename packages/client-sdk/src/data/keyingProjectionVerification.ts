@@ -55,7 +55,6 @@ export type {
   ProjectionUserKey,
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
-  ReferencedPrincipalPolicyWarmRequest,
 } from "./keyingProjectionVerification/types";
 
 export function requireProjectionUserKeyResolver(
@@ -576,7 +575,7 @@ async function verifyContainerManifestPath(input: {
 }
 
 interface ContainerWriterProjectionVerificationInput {
-  readonly execSql?: ExecSql | undefined;
+  readonly execSql: ExecSql;
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: ContainerWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
@@ -598,6 +597,32 @@ function verifiedContainerManifestsForBundles(
   });
 }
 
+function collectContainerProjectionBundles(
+  projection: ContainerWriterProjectionResponse,
+): Map<string, AccessManifestBundleWireResponse> {
+  const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
+  for (const [index, bundle] of projection.path.entries()) {
+    addBundleByHash(
+      bundlesByHash,
+      bundle,
+      `Container writer projection path[${index}]`,
+    );
+  }
+  for (const [kekIndex, kek] of projection.containerKeks.entries()) {
+    for (const [
+      historyIndex,
+      bundle,
+    ] of kek.containerManifestHistory.entries()) {
+      addBundleByHash(
+        bundlesByHash,
+        bundle,
+        `Container writer projection KEK[${kekIndex}] history[${historyIndex}]`,
+      );
+    }
+  }
+  return bundlesByHash;
+}
+
 async function verifyContainerWriterProjectionWithContext(
   input: Omit<ContainerWriterProjectionVerificationInput, "execSql">,
   checkpointContext: ProjectionCheckpointContext,
@@ -608,25 +633,7 @@ async function verifyContainerWriterProjectionWithContext(
     );
   }
 
-  const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
-  for (const [index, bundle] of input.projection.path.entries()) {
-    addBundleByHash(
-      bundlesByHash,
-      bundle,
-      `Container writer projection path[${index}]`,
-    );
-  }
-  for (const [kekIndex, kek] of input.projection.containerKeks.entries()) {
-    for (const [historyIndex, bundle] of (
-      kek.containerManifestHistory ?? []
-    ).entries()) {
-      addBundleByHash(
-        bundlesByHash,
-        bundle,
-        `Container writer projection KEK[${kekIndex}] history[${historyIndex}]`,
-      );
-    }
-  }
+  const bundlesByHash = collectContainerProjectionBundles(input.projection);
 
   const verifiedByHash =
     input.verifiedByHash ?? new Map<string, VerifiedContainerAccessManifest>();
@@ -651,9 +658,10 @@ async function verifyContainerWriterProjectionWithContext(
       throw new Error(`Container writer projection KEK[${index}] is missing`);
     }
     const verifiedManifestHistory: VerifiedContainerAccessManifest[] = [];
-    for (const [historyIndex, bundle] of (
-      kek.containerManifestHistory ?? []
-    ).entries()) {
+    for (const [
+      historyIndex,
+      bundle,
+    ] of kek.containerManifestHistory.entries()) {
       verifiedManifestHistory.push(
         await verifyContainerManifestBundle({
           bundle,
@@ -701,7 +709,6 @@ export async function verifyContainerWriterProjection(
 ): Promise<VerifiedContainerAccessManifest[]> {
   const checkpointContext = createProjectionCheckpointContext({
     execSql: input.execSql,
-    label: "Container writer projection verification",
   });
   const verifiedPath = await verifyContainerWriterProjectionWithContext(
     input,
@@ -712,7 +719,7 @@ export async function verifyContainerWriterProjection(
 }
 
 export async function collectContainerWriterProjectionPrincipalPolicies(input: {
-  readonly execSql?: ExecSql | undefined;
+  readonly execSql: ExecSql;
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: ContainerWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
@@ -724,7 +731,6 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
     input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
   const checkpointContext = createProjectionCheckpointContext({
     execSql: input.execSql,
-    label: "Container writer projection policy collection",
   });
   const verifiedPath = await verifyContainerWriterProjectionWithContext(
     {
@@ -757,9 +763,10 @@ function addContainerWriterProjectionBundles(
     addBundleByHash(bundlesByHash, bundle, `${label} path[${index}]`);
   }
   for (const [kekIndex, kek] of projection.containerKeks.entries()) {
-    for (const [historyIndex, bundle] of (
-      kek.containerManifestHistory ?? []
-    ).entries()) {
+    for (const [
+      historyIndex,
+      bundle,
+    ] of kek.containerManifestHistory.entries()) {
       addBundleByHash(
         bundlesByHash,
         bundle,
@@ -773,7 +780,7 @@ function readDocumentProjectionContainerPaths(
   projection: DocumentWriterProjectionResponse,
 ): AccessManifestBundleWireResponse[][] {
   return [
-    ...(projection.documentManifestContainerPaths ?? []),
+    ...projection.documentManifestContainerPaths,
     ...projection.authorizingContainerPaths.map((path) => path.path),
   ];
 }
@@ -812,9 +819,10 @@ async function verifyProjectionContainerPaths(input: {
       );
     }
   }
-  for (const [index, bundle] of (
-    input.projection.documentContainerManifestHistory ?? []
-  ).entries()) {
+  for (const [
+    index,
+    bundle,
+  ] of input.projection.documentContainerManifestHistory.entries()) {
     addBundleByHash(
       bundlesByHash,
       bundle,
@@ -1019,7 +1027,7 @@ async function verifyDocumentManifestBundle(input: {
 }
 
 interface DocumentWriterProjectionVerificationInput {
-  readonly execSql?: ExecSql | undefined;
+  readonly execSql: ExecSql;
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: DocumentWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
@@ -1051,7 +1059,7 @@ async function verifyDocumentWriterProjectionWithContext(
     input.projection.documentManifest,
     "Document writer projection manifest",
   );
-  const history = input.projection.documentManifestHistory ?? [];
+  const history = input.projection.documentManifestHistory;
   for (const [index, bundle] of history.entries()) {
     addBundleByHash(
       bundlesByHash,
@@ -1108,7 +1116,6 @@ export async function verifyDocumentWriterProjection(
 ): Promise<VerifiedDocumentLinkSetManifest> {
   const checkpointContext = createProjectionCheckpointContext({
     execSql: input.execSql,
-    label: "Document writer projection verification",
   });
   const verified = await verifyDocumentWriterProjectionWithContext(
     input,

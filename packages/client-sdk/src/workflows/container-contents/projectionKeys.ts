@@ -17,43 +17,18 @@ export interface ContainerContentsProjectionKeyRuntime {
   readonly crypto: WorkflowRuntimeCryptoInput;
   readonly resolveTrustedUserIdentity: ProjectionKeyRuntime["resolveTrustedUserIdentity"];
   readonly state: Pick<WorkflowRuntimeStateInput, "domainScope">;
-  readonly util?: {
-    readonly log?: ProjectionKeyRuntime["log"];
-  };
-}
-
-type ContainerContentsProjectionRuntime = Parameters<
-  typeof createProjectionUserKeyResolver
->[0];
-
-function containerContentsProjectionRuntime(
-  runtime: ContainerContentsProjectionKeyRuntime,
-): ContainerContentsProjectionRuntime {
-  const projectionRuntime: ContainerContentsProjectionRuntime = {
-    resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-  };
-
-  return runtime.util?.log
-    ? { ...projectionRuntime, log: runtime.util.log }
-    : projectionRuntime;
 }
 
 export function createContainerContentsProjectionUserKeyResolver(
   runtime: ContainerContentsProjectionKeyRuntime,
 ): ContainerContentsProjectionUserKeyResolver {
-  return createProjectionUserKeyResolver(
-    containerContentsProjectionRuntime(runtime),
-    "Container contents",
-  );
+  return createProjectionUserKeyResolver(runtime);
 }
 
 export function createContainerContentsDocumentProjectionUserKeyResolver(
   runtime: ContainerContentsProjectionKeyRuntime,
 ): ContainerContentsProjectionUserKeyResolver {
-  return createProjectionUserKeyResolver(
-    containerContentsProjectionRuntime(runtime),
-    "Container document projections",
-  );
+  return createProjectionUserKeyResolver(runtime);
 }
 
 export function didContainerContentsProjectionKeyRuntimeChange(

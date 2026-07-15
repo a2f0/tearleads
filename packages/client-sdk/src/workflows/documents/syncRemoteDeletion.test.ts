@@ -56,6 +56,9 @@ test("syncRemoteDocument notifies when writer projection returns document 404", 
   const deletedDocumentIds: string[] = [];
   const reportedErrors: string[] = [];
   const message = "Document manifest head missing";
+  const { close, execSql } = await createTestExecSql(
+    "deleted-document-projection-sync",
+  );
 
   const synced = await syncRemoteDocument({
     apiClient: {
@@ -76,6 +79,7 @@ test("syncRemoteDocument notifies when writer projection returns document 404", 
     },
     author,
     documentId: writerProjection.documentId,
+    execSql,
     localVersionVector: null,
     onRemoteDocumentDeleted: ({ documentId }) => {
       deletedDocumentIds.push(documentId);
@@ -88,4 +92,5 @@ test("syncRemoteDocument notifies when writer projection returns document 404", 
   expect(synced).toBeNull();
   expect(deletedDocumentIds).toEqual([writerProjection.documentId]);
   expect(reportedErrors).toEqual([]);
+  close();
 });

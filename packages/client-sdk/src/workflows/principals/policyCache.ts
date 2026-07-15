@@ -271,7 +271,6 @@ async function cacheReferencedPrincipalPolicy(
     reference.principalId,
   );
   const localCheckpoint = await loadPrincipalPolicyVerificationCheckpoint({
-    cachedBundle,
     execSql,
     principalId: reference.principalId,
     principalType: reference.principalType,
@@ -335,15 +334,9 @@ async function cachePrincipalPolicyBundle(input: {
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<void> {
   const reference = referenceFromPrincipalPolicyBundle(input.bundle);
-  const cachedBundle = await loadPrincipalPolicyBundle(
-    input.execSql,
-    reference.principalType,
-    reference.principalId,
-  );
   // The API supplied this bundle after rejecting a write, but local storage is
   // only updated after normal signature, signer, and checkpoint verification.
   const localCheckpoint = await loadPrincipalPolicyVerificationCheckpoint({
-    cachedBundle,
     execSql: input.execSql,
     principalId: reference.principalId,
     principalType: reference.principalType,

@@ -210,6 +210,6 @@ export {
   Tearleads,
 } from "./Tearleads";
 export type {
-  UserKey,
-  UserKeys,
-} from "./userKeys";
+  ResolvedUserIdentity,
+  UserIdentities,
+} from "./userIdentities";

@@ -59,6 +59,7 @@ test("hidden future history cannot bypass a persisted projection head", async ()
   try {
     await enforceAccessManifestCheckpoints({
       execSql,
+      policies: [],
       verifiedHeads: [epoch2],
       verifiedManifests: [epoch2],
     });
@@ -174,24 +175,8 @@ test("a valid same-epoch projection fork hard-fails before unwrap", async () => 
   }
 });
 
-test("remote projection verification requires durable storage unless local trust is explicit", async () => {
+test("explicit local projection trust does not require durable storage", async () => {
   const parent = await createParentProjection();
-
-  await expect(
-    unwrapContainerKekPath({
-      projection: parent.projection,
-      resolveProjectionUserKey: async (userId) =>
-        userId === parent.userId
-          ? createTestTrustedUserIdentity({
-              encapsulationPublicKey: parent.encapsulationPublicKey,
-              signingKeyFingerprint: parent.author.signerKeyFingerprint,
-              signingPublicKey: parent.signingPublicKey,
-              userId,
-            })
-          : null,
-      secretKey: parent.secretKey,
-    }),
-  ).rejects.toMatchObject({ code: "missing_dependency" });
 
   await expect(
     unwrapContainerKekPath({
@@ -202,7 +187,20 @@ test("remote projection verification requires durable storage unless local trust
   ).resolves.toBeInstanceOf(Map);
 });
 
-test("the low-level remote verifier cannot use the local trust escape hatch", async () => {
+test("remote projection verification requires durable storage", async () => {
+  const parent = await createParentProjection();
+  const missingCheckpointStorage = {
+    projection: parent.projection,
+    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+    secretKey: parent.secretKey,
+  } as unknown as Parameters<typeof unwrapContainerKekPath>[0];
+
+  await expect(
+    unwrapContainerKekPath(missingCheckpointStorage),
+  ).rejects.toMatchObject({ code: "missing_dependency" });
+});
+
+test("the low-level remote verifier rejects the local trust escape hatch", async () => {
   const parent = await createParentProjection();
   const bypassAttempt = {
     projection: parent.projection,

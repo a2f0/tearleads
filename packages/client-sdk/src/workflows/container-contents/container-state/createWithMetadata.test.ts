@@ -53,6 +53,7 @@ test("container-with-metadata acknowledgement pins both heads atomically", async
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql,
     },
+    resolveTrustedUserIdentity: async () => null,
     state: {
       containerId: parent.projection.containerId,
       domainScope: createDomainScope(),
@@ -60,7 +61,6 @@ test("container-with-metadata acknowledgement pins both heads atomically", async
       online: true,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => undefined,
       log: () => undefined,
     },
   });

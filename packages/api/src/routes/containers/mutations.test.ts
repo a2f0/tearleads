@@ -66,6 +66,7 @@ import {
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { createTestContainerKekId } from "../../../test/helpers/containerKekMaterial";
 import {
   createContainerKeyEpoch,
   createContainerKeyWrap,
@@ -522,7 +523,10 @@ async function buildCreateRequest(input: {
 }): Promise<ContainerMutationRequest> {
   const parent = asVerifiedContainerManifest(input.parent);
   const parentContainerPath = input.parentContainerPath ?? [input.parent];
-  const containerKeyEpochId = crypto.randomUUID();
+  const containerKeyEpochId = await createTestContainerKekId(
+    input.containerId,
+    1,
+  );
   const parentManifestHash =
     input.parentManifestHashOverride ?? input.parent.manifestHash;
   const metadataDocumentId = crypto.randomUUID();
@@ -931,7 +935,10 @@ async function buildRevokeRequest(input: {
   const principalPolicies = await loadPrincipalPoliciesForContainerPaths([
     input.previousContainerPath,
   ]);
-  const containerKeyEpochId = crypto.randomUUID();
+  const containerKeyEpochId = await createTestContainerKekId(
+    previous.state.containerId,
+    input.previousKekState.containerKeyEpoch + 1,
+  );
   const revokedGrant = input.revokedGrant ?? {
     subjectType: "user" as const,
     subjectId: input.revokedUser?.userId,
@@ -1025,7 +1032,10 @@ async function buildRekeyRequest(input: {
   const principalPolicies = await loadPrincipalPoliciesForContainerPaths([
     input.previousContainerPath,
   ]);
-  const containerKeyEpochId = crypto.randomUUID();
+  const containerKeyEpochId = await createTestContainerKekId(
+    previous.state.containerId,
+    input.previousKekState.containerKeyEpoch + 1,
+  );
   const body: ContainerAccessEventBody = {
     eventType: "container.rekey",
     containerKeyEpochId,
@@ -1104,7 +1114,10 @@ async function buildMoveRequest(input: {
     input.previousContainerPath,
     input.destinationParentPath,
   ]);
-  const containerKeyEpochId = crypto.randomUUID();
+  const containerKeyEpochId = await createTestContainerKekId(
+    previous.state.containerId,
+    input.previousKekState.containerKeyEpoch + 1,
+  );
   const body: ContainerAccessEventBody = {
     eventType: "container.move",
     parentContainerId: destinationParent.state.containerId,

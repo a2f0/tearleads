@@ -29,6 +29,7 @@ function createMetadataWriterProjection(
       targetHash,
       targets: [],
     },
+    documentContainerManifestHistory: [],
     documentId,
     documentKekTargets: {
       documentId,
@@ -44,6 +45,8 @@ function createMetadataWriterProjection(
       manifestHash,
       state: {},
     },
+    documentManifestContainerPaths: [],
+    documentManifestHistory: [],
   };
 }
 

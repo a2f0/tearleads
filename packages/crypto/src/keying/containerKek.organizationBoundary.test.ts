@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { fixtureContainerKekMaterialId } from "./containerKekMaterial.testFixtures";
 import { deriveBlobKekTargets } from "./index";
 import {
   createContainerManifestFixture,
@@ -20,7 +21,9 @@ async function createOrganizationBlobBinding(input: {
 }) {
   const container = await createContainerManifestFixture({
     containerId: input.containerId,
-    containerKeyEpochId: `${input.containerId}-key-epoch-1`,
+    containerKeyEpochId: await fixtureContainerKekMaterialId(
+      `${input.containerId}-key-epoch-1`,
+    ),
     directGrants: [
       {
         accessLevel: "write",

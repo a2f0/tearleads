@@ -73,7 +73,7 @@ test("principal policy sync caches a verified referenced principal bundle and sk
         getCurrentPrincipalPolicyCallCount += 1;
         return bundle;
       },
-      getEncapsulationKey: async () => signerKeyResponse,
+      getUserIdentity: async () => signerKeyResponse,
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
 
@@ -90,7 +90,7 @@ test("principal policy sync caches a verified referenced principal bundle and sk
         getCurrentPrincipalPolicyCallCount += 1;
         return bundle;
       },
-      getEncapsulationKey: async () => signerKeyResponse,
+      getUserIdentity: async () => signerKeyResponse,
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
 
@@ -122,7 +122,7 @@ test("principal policy sync fetches a newer referenced state when an older bundl
         getCurrentPrincipalPolicyCallCount += 1;
         return bundle;
       },
-      getEncapsulationKey: async () => signerKeyResponse,
+      getUserIdentity: async () => signerKeyResponse,
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
 
@@ -198,7 +198,7 @@ test("principal policy sync authorizes empty group bundles from verified organiz
         expect(principalId).toBe(groupId);
         return groupPolicy;
       },
-      getEncapsulationKey: async (userId) => {
+      getUserIdentity: async (userId) => {
         expect(userId).toBe(signerUserId);
         return signerKeyResponse;
       },
@@ -232,7 +232,7 @@ test("principal policy sync verifies successor state from the fetched chain when
     await cacheReferencedPolicies({
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,
-      getEncapsulationKey: async () => signerKeyResponse,
+      getUserIdentity: async () => signerKeyResponse,
       log: (message) => logs.push(message),
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
@@ -263,7 +263,7 @@ test("principal policy sync caches current state when the reference points at a 
     await cacheReferencedPolicies({
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,
-      getEncapsulationKey: async () => signerKeyResponse,
+      getUserIdentity: async () => signerKeyResponse,
       log: (message) => logs.push(message),
       references: [referencedPrincipalStateFromPolicyState(previousState)],
     });
@@ -292,7 +292,7 @@ test("principal policy sync skips shrinking successors that reuse the key epoch"
     await cacheReferencedPolicies({
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,
-      getEncapsulationKey: async () => signerKeyResponse,
+      getUserIdentity: async () => signerKeyResponse,
       log: (message) => logs.push(message),
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
@@ -303,77 +303,6 @@ test("principal policy sync skips shrinking successors that reuse the key epoch"
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", "group-1"),
     ).resolves.toBeNull();
-  } finally {
-    close();
-  }
-});
-
-test("principal policy sync skips rollbacks against the cached checkpoint", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "principal-policy-sync-test",
-  );
-
-  try {
-    const { bundle: cachedBundle, signerKeyResponse } =
-      await createSuccessorPrincipalPolicyBundle();
-    const { bundle: olderBundle } = await createPrincipalPolicyBundle();
-    await ensurePrincipalPolicyTables(execSql);
-    await savePrincipalPolicyBundle(
-      execSql,
-      cachedBundle,
-      "2026-04-08T00:02:00.000Z",
-    );
-    const logs: string[] = [];
-
-    await cacheReferencedPolicies({
-      execSql,
-      getCurrentPrincipalPolicy: async () => olderBundle,
-      getEncapsulationKey: async () => signerKeyResponse,
-      log: (message) => logs.push(message),
-      references: [referencedPrincipalStateFromBundle(olderBundle)],
-    });
-
-    expect(logs).toContain(
-      "Principal policy cache: skipped group:group-1: principal policy state is older than the local checkpoint",
-    );
-    await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
-    ).resolves.toEqual(cachedBundle);
-  } finally {
-    close();
-  }
-});
-
-test("principal policy sync skips same-version conflicts against the cached checkpoint", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "principal-policy-sync-test",
-  );
-
-  try {
-    const { bundle: cachedBundle } = await createPrincipalPolicyBundle();
-    const { bundle: conflictingBundle } = await createPrincipalPolicyBundle();
-    await ensurePrincipalPolicyTables(execSql);
-    await savePrincipalPolicyBundle(
-      execSql,
-      cachedBundle,
-      "2026-04-08T00:02:00.000Z",
-    );
-    const logs: string[] = [];
-
-    await cacheReferencedPolicies({
-      execSql,
-      getCurrentPrincipalPolicy: async () => conflictingBundle,
-      getEncapsulationKey: async () => null,
-      log: (message) => logs.push(message),
-      references: [referencedPrincipalStateFromBundle(conflictingBundle)],
-    });
-
-    expect(logs).toContain(
-      "Principal policy cache: skipped group:group-1: principal policy state conflicts with the local checkpoint",
-    );
-    await expect(
-      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
-    ).resolves.toEqual(cachedBundle);
   } finally {
     close();
   }
@@ -407,7 +336,7 @@ test("principal policy sync skips bundles whose projection does not match the si
     await cacheReferencedPolicies({
       execSql,
       getCurrentPrincipalPolicy: async () => tamperedBundle,
-      getEncapsulationKey: async () => signerKeyResponse,
+      getUserIdentity: async () => signerKeyResponse,
       log: (message) => logs.push(message),
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
@@ -437,8 +366,7 @@ test("principal policy sync skips successor bundles signed by non-admins", async
     await cacheReferencedPolicies({
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,
-      getEncapsulationKey: async (userId) =>
-        signerKeyResponses.get(userId) ?? null,
+      getUserIdentity: async (userId) => signerKeyResponses.get(userId) ?? null,
       log: (message) => logs.push(message),
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
@@ -466,7 +394,7 @@ test("principal policy sync skips bundles when the signer key does not match", a
     await cacheReferencedPolicies({
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,
-      getEncapsulationKey: async () => ({
+      getUserIdentity: async () => ({
         ...signerKeyResponse,
         signingKeyFingerprint: "mismatched-fingerprint",
       }),

@@ -58,6 +58,7 @@ test("loadContainerInfo reads direct grants, organization groups, and local sync
           expect(organizationId).toBe(parent.projection.organizationId);
           return {
             organizationId,
+            memberGroupId: "member-group-1",
             groups: [
               {
                 groupId: "group-1",

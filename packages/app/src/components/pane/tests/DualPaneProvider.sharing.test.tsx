@@ -120,7 +120,7 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     // briefly, so projection verification may resolve each pane's public user
     // key remotely once per workflow surface during the share handoff. Keep
     // this capped at two exact path hits per user to catch fetch loops.
-    "GET /auth/encapsulation-key/:userId": 4,
+    "GET /auth/user-identity/:userId": 4,
     // One websocket auth ticket per pane (each opens one events socket). A tight
     // ceiling here catches a reconnect storm, since each reconnect re-mints one.
     "POST /auth/ws-ticket": 3,

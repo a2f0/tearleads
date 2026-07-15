@@ -348,6 +348,7 @@ export function createDocumentStoreRuntime(
       execSql: async () => [],
       ...overrides.infra,
     },
+    resolveTrustedUserIdentity: async () => null,
     state: {
       containerId: "root-container",
       domainScope: createDomainScope(),
@@ -356,7 +357,6 @@ export function createDocumentStoreRuntime(
       ...overrides.state,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => {},
       log: () => {},
       ...overrides.util,
     },

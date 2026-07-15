@@ -37,7 +37,6 @@ test("remote document purge propagates identity failures without deleting local 
           execSql,
         },
         util: {
-          cacheReferencedPrincipalPolicies: async () => undefined,
           log: (message) => logs.push(message),
         },
       },

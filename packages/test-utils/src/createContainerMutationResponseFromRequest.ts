@@ -144,7 +144,7 @@ export async function createContainerMutationResponseFromRequest(
   }));
   const eventHash = await computeAccessEventHash(event);
   const state = deriveMutationState({ body, event, eventHash, request });
-  const containerManifestHistory = request.containerManifestHistory?.map(
+  const containerManifestHistory = (request.containerManifestHistory ?? []).map(
     (bundle) => {
       if (!isAccessManifestBundleWireResponse(bundle)) {
         throw new Error(
@@ -185,7 +185,7 @@ export async function createContainerMutationResponseFromRequest(
       keyTargetHash:
         await computeContainerKekRecipientTargetHash(recipientTargets),
       parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
-      ...(containerManifestHistory ? { containerManifestHistory } : {}),
+      containerManifestHistory,
       recipientTargets: recipientTargets as unknown as Record<
         string,
         unknown

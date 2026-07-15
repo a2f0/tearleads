@@ -52,6 +52,7 @@ function createContainerMutationRequest(
         state: { containerId: "container-1" },
       },
     ],
+    principalPolicies: [],
     keyEpoch: { id: "container-key-epoch-id" },
     wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
     ...overrides,

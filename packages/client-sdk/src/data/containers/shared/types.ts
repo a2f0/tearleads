@@ -137,7 +137,7 @@ export interface ContainerCreateApi {
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;
-  getCurrentPrincipalPolicy?(
+  getCurrentPrincipalPolicy(
     principalType: "group" | "organization",
     principalId: string,
   ): Promise<PrincipalPolicyBundleResponse | null>;
@@ -249,7 +249,7 @@ export interface BuildMaterializedContainerMovePlanInput {
   containerKeyEpochId?: string | undefined;
   destinationParentProjection: ContainerWriterProjectionResponse;
   eventId?: string | undefined;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   previousProjection: ContainerWriterProjectionResponse;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;

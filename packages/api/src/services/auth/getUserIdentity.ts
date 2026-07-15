@@ -1,9 +1,9 @@
 import { users } from "@tearleads/api-shared/schema";
-import type { EncapsulationKeyResponse } from "@tearleads/validators/response";
+import type { UserIdentityResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import type { ApiServiceRuntime } from "../runtime";
 
-export class GetEncapsulationKeyError extends Error {
+export class GetUserIdentityError extends Error {
   constructor(
     message: string,
     readonly status: 404,
@@ -12,10 +12,10 @@ export class GetEncapsulationKeyError extends Error {
   }
 }
 
-export async function getEncapsulationKey(
+export async function getUserIdentity(
   runtime: ApiServiceRuntime,
   userId: string,
-): Promise<EncapsulationKeyResponse> {
+): Promise<UserIdentityResponse> {
   const [user] = await runtime.db
     .select({
       encapsulationKeyFingerprint: users.encapsulationKeyFingerprint,
@@ -27,7 +27,7 @@ export async function getEncapsulationKey(
     .where(eq(users.id, userId));
 
   if (!user) {
-    throw new GetEncapsulationKeyError("User not found", 404);
+    throw new GetUserIdentityError("User not found", 404);
   }
 
   return {

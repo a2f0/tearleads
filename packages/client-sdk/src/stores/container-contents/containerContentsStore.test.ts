@@ -98,6 +98,7 @@ function createTestRuntime(input: {
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql,
     },
+    resolveTrustedUserIdentity: async () => null,
     state: {
       containerId: null,
       domainScope: input.domainScope,
@@ -105,7 +106,6 @@ function createTestRuntime(input: {
       online: false,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => {},
       log: input.log,
     },
   });
@@ -134,6 +134,7 @@ function createSqlTestRuntime(input: {
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql: input.execSql,
     },
+    resolveTrustedUserIdentity: async () => null,
     state: {
       containerId: null,
       domainScope: input.domainScope,
@@ -141,7 +142,6 @@ function createSqlTestRuntime(input: {
       online: true,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => {},
       log: () => {},
     },
   });
@@ -288,6 +288,7 @@ function sharedRootSummary(): ListContainersResponse {
         metadataAccessEpoch: 1,
         metadataAccessStateHash: "owner-root-access-hash",
         metadataDocumentId: "owner-root-metadata-document",
+        metadataReferencedPrincipals: [],
         organizationId: "org-2",
         parentId: null,
         updatedAt: "2026-06-19T00:00:00.000Z",
@@ -313,6 +314,7 @@ function sharedRootChildSummary(): ListContainersResponse {
         metadataAccessEpoch: 1,
         metadataAccessStateHash: "owner-child-access-hash",
         metadataDocumentId: "owner-child-metadata-document",
+        metadataReferencedPrincipals: [],
         organizationId: "org-2",
         parentId: "owner-root",
         updatedAt: "2026-06-19T00:00:00.000Z",

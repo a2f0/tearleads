@@ -56,17 +56,6 @@ export function isProvisionedDocumentRequest(
   );
 }
 
-function isDocumentProvisioningRequest(
-  value: unknown,
-): value is DocumentCreateRequest | ProvisionedDocumentRequest {
-  if (!isDocumentCreateRequest(value)) {
-    return false;
-  }
-
-  const initialSync = Reflect.get(value, "initialSync");
-  return initialSync === undefined || isProvisionedDocumentRequest(value);
-}
-
 export function isProvisionedSystemContainerRequest(
   value: unknown,
 ): value is ProvisionedSystemContainerRequest {
@@ -79,22 +68,6 @@ export function isProvisionedSystemContainerRequest(
     isDocumentSyncRequest(initialMetadataSync) &&
     initialMetadataSync.outgoingUpdates.length === 1 &&
     (initialMetadataSync.containerRekeys?.length ?? 0) === 0
-  );
-}
-
-function isSystemContainerProvisioningRequest(
-  value: unknown,
-): value is
-  | ContainerCreateWithMetadataDocumentRequest
-  | ProvisionedSystemContainerRequest {
-  if (!isContainerCreateWithMetadataDocumentRequest(value)) {
-    return false;
-  }
-
-  const initialMetadataSync = Reflect.get(value, "initialMetadataSync");
-  return (
-    initialMetadataSync === undefined ||
-    isProvisionedSystemContainerRequest(value)
   );
 }
 
@@ -117,17 +90,9 @@ export interface OrganizationProvisioningRequest {
   initialMemberGroup: CreateOrganizationGroupRequest;
   initialOrganizationPolicy: PutPrincipalPolicyRequest;
   initialRootContainer: ContainerMutationRequest;
-  initialRootMetadataDocument:
-    | DocumentCreateRequest
-    | ProvisionedDocumentRequest;
-  initialRosterProfileContainer?:
-    | ContainerCreateWithMetadataDocumentRequest
-    | ProvisionedSystemContainerRequest
-    | undefined;
-  initialRosterProfileDocument?:
-    | DocumentCreateRequest
-    | ProvisionedDocumentRequest
-    | undefined;
+  initialRootMetadataDocument: ProvisionedDocumentRequest;
+  initialRosterProfileContainer?: ProvisionedSystemContainerRequest | undefined;
+  initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined;
   /**
    * Dedicated container for org-wide public metadata, born with a read grant to
    * the reserved Members group so every active roster member can decrypt it.
@@ -136,13 +101,9 @@ export interface OrganizationProvisioningRequest {
    * carries the founder's private roster PII.
    */
   initialOrganizationMetadataContainer?:
-    | ContainerCreateWithMetadataDocumentRequest
     | ProvisionedSystemContainerRequest
     | undefined;
-  initialOrganizationProfileDocument?:
-    | DocumentCreateRequest
-    | ProvisionedDocumentRequest
-    | undefined;
+  initialOrganizationProfileDocument?: ProvisionedDocumentRequest | undefined;
   /**
    * Additional app-owned system containers to provision atomically with the
    * organization (e.g. a trash bin). Each is a child of the root born
@@ -193,17 +154,17 @@ export function isOrganizationProvisioningRequest(
     hasObjectProperty(value, "initialOrganizationPolicy") &&
     isPutPrincipalPolicyRequest(value.initialOrganizationPolicy) &&
     isContainerMutationRequest(initialRootContainer) &&
-    isDocumentProvisioningRequest(initialRootMetadataDocument) &&
+    isProvisionedDocumentRequest(initialRootMetadataDocument) &&
     (initialRosterProfileContainer === undefined ||
-      isSystemContainerProvisioningRequest(initialRosterProfileContainer)) &&
+      isProvisionedSystemContainerRequest(initialRosterProfileContainer)) &&
     (initialRosterProfileDocument === undefined ||
-      isDocumentProvisioningRequest(initialRosterProfileDocument)) &&
+      isProvisionedDocumentRequest(initialRosterProfileDocument)) &&
     (initialOrganizationMetadataContainer === undefined ||
-      isSystemContainerProvisioningRequest(
+      isProvisionedSystemContainerRequest(
         initialOrganizationMetadataContainer,
       )) &&
     (initialOrganizationProfileDocument === undefined ||
-      isDocumentProvisioningRequest(initialOrganizationProfileDocument)) &&
+      isProvisionedDocumentRequest(initialOrganizationProfileDocument)) &&
     (initialSystemContainers === undefined ||
       (Array.isArray(initialSystemContainers) &&
         initialSystemContainers.every(isProvisionedSystemContainerRequest)))

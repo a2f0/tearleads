@@ -64,12 +64,11 @@ Document write routes:
  `writeHeader`
  - response shape: `DocumentSyncResponse`
  - response fields: `acceptedOutgoingUpdateIds[]`, `commitLsn | null`,
- `contentKeyBundle`, optional `contentKeyBundles`, `documentId`,
- `documentKekTargets`,
- `missingUpdateEpochs[]` (`prior_epoch` / `current_epoch`), and encrypted
- `updates[]`
+ `contentKeyBundle`, `contentKeyBundles[]`, `documentId`,
+ `documentKekTargets`, and encrypted `updates[]`
+ - `contentKeyBundles[]` covers every served update's signed content-key epoch
  - each returned update includes its stored `accessEpoch`, visible causal
- metadata, signed `writeHeader`, and `writeHeaderHash`
+ metadata, and signed `writeHeader`, which names that content-key epoch
 
 Attachment write routes:
 
@@ -140,14 +139,12 @@ Behavior:
  - AES-GCM ciphertext encrypted with the current document DEK
  - a fresh per-record AES-GCM IV committed by the encrypted bytes and signed
    write-header ciphertext hash
-- sync responses also expose each returned update's stored `accessEpoch`, plus
- a `missingUpdateEpochs[]` summary so clients can distinguish prior-epoch
- updates needed for rotate rebasing from current-epoch updates after a
- completed rotate
-- clients group all returned updates by `accessEpoch` before decryption, so
- cold syncs and multi-epoch catch-up can attempt every returned epoch with the
- best available current or previous bundle material instead of silently
- dropping intermediate epochs
+- sync responses expose stored `accessEpoch` per update; clients reject values
+ newer than the current signed manifest epoch, and no derived epoch summary is
+ sent
+- clients read each required content-key epoch from the signed `writeHeader`,
+ require one consistent response bundle for it, and decrypt with that key;
+ cold and multi-epoch sync fail closed on missing or conflicting bundles
 - accepted current-epoch sync writes return a `commitLsn`, and the server
  materializes per-peer `document_update_spans` from each update's visible
  partial version-vector metadata in the same transaction as the encrypted

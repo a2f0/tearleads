@@ -30,12 +30,12 @@ function requireResponse<T>(value: T | undefined, label: string): T {
   return value;
 }
 
-function assertOptionalId(
+function assertId(
   actual: string | undefined,
   expected: string,
   label: string,
 ): void {
-  if (actual !== undefined && actual !== expected) {
+  if (actual !== expected) {
     throw new Error(`Organization provisioning response ${label} mismatch`);
   }
 }
@@ -121,28 +121,28 @@ export async function provisioningAcknowledgedAccessHeads(input: {
     response.organizationProfileDocument,
     "organization profile document",
   );
-  assertOptionalId(
+  assertId(
     response.rosterProfileContainerId,
     input.rosterProfile.containerPlan.containerId,
     "roster profile container id",
   );
-  assertOptionalId(
+  assertId(
     response.rosterProfileDocumentId,
     input.rosterProfileDocumentPlan.documentId,
     "roster profile document id",
   );
-  assertOptionalId(
+  assertId(
     response.organizationMetadataContainerId,
     input.organizationMetadata.containerPlan.containerId,
     "organization metadata container id",
   );
-  assertOptionalId(
+  assertId(
     response.organizationProfileDocumentId,
     input.organizationProfileDocumentPlan.documentId,
     "organization profile document id",
   );
 
-  const systemResponses = response.systemContainers ?? [];
+  const systemResponses = response.systemContainers;
   if (systemResponses.length !== input.systemContainers.length) {
     throw new Error(
       "Organization provisioning response system container count mismatch",

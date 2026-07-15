@@ -9,7 +9,6 @@ import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingPro
 import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
 import { loadPrincipalPolicyVerificationCheckpoint } from "../../../data/persistence/principalPolicyCheckpointSelection";
 import {
-  loadPrincipalPolicyBundle,
   retainVerifiedPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "../../../data/persistence/principalPolicyPersistence";
@@ -111,13 +110,7 @@ async function loadOrganizationAdminPolicy(input: {
       return null;
     }
 
-    const cachedBundle = await loadPrincipalPolicyBundle(
-      input.execSql,
-      "organization",
-      input.organizationId,
-    );
     const localCheckpoint = await loadPrincipalPolicyVerificationCheckpoint({
-      cachedBundle,
       execSql: input.execSql,
       principalId: input.organizationId,
       principalType: "organization",
@@ -170,13 +163,7 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
   }
   assertGroupPolicyTarget(bundle, input.groupId);
 
-  const cachedBundle = await loadPrincipalPolicyBundle(
-    input.execSql,
-    "group",
-    input.groupId,
-  );
   const localCheckpoint = await loadPrincipalPolicyVerificationCheckpoint({
-    cachedBundle,
     execSql: input.execSql,
     principalId: input.groupId,
     principalType: "group",

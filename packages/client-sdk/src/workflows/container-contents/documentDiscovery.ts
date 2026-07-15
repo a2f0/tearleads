@@ -263,7 +263,7 @@ export async function discoverContainerDocuments({
   await cacheReferencedPrincipalPolicies?.(
     uniqueReferencedPrincipalStates(
       listedDocuments.items.flatMap(
-        (document) => document.referencedPrincipals ?? [],
+        (document) => document.referencedPrincipals,
       ),
     ),
   );
@@ -342,7 +342,7 @@ export async function discoverAllContainerDocuments({
       listedDocumentsByContainer.flatMap(
         ({ listedDocuments }) =>
           listedDocuments?.items.flatMap(
-            (document) => document.referencedPrincipals ?? [],
+            (document) => document.referencedPrincipals,
           ) ?? [],
       ),
     ),

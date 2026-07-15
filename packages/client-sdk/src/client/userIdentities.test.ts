@@ -7,9 +7,9 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestTrustedUserIdentity } from "../../test/helpers/trustedUserIdentity";
-import { createUserKeys } from "./userKeys";
+import { createUserIdentities } from "./userIdentities";
 
-test("user keys fetch verifies the returned signing public key fingerprint", async () => {
+test("user identity resolution returns the verified trusted bundle", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const logs: string[] = [];
@@ -19,7 +19,7 @@ test("user keys fetch verifies the returned signing public key fingerprint", asy
   const encapsulationKeyFingerprint = await toFingerprint(
     encapsulationKeyPair.publicKey,
   );
-  const userKeys = createUserKeys({
+  const userIdentities = createUserIdentities({
     log: (message) => logs.push(message),
     resolveTrustedUserIdentity: async (userId) =>
       createTestTrustedUserIdentity({
@@ -31,38 +31,38 @@ test("user keys fetch verifies the returned signing public key fingerprint", asy
       }),
   });
 
-  await expect(userKeys.fetch("user-1")).resolves.toEqual({
+  await expect(userIdentities.resolve("user-1")).resolves.toEqual({
     encapsulationKeyFingerprint,
     encapsulationPublicKey: bytesToBase64(encapsulationKeyPair.publicKey),
     signingKeyFingerprint,
     signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
     userId: "user-1",
   });
-  expect(logs).toEqual(["Loading user key for userId: user-1"]);
+  expect(logs).toEqual(["Loading user identity for userId: user-1"]);
 });
 
-test("user keys fetch returns null when the trusted resolver has no identity", async () => {
+test("user identity resolution returns null when the trusted resolver has no identity", async () => {
   const logs: string[] = [];
-  const userKeys = createUserKeys({
+  const userIdentities = createUserIdentities({
     log: (message) => logs.push(message),
     resolveTrustedUserIdentity: async () => null,
   });
 
-  await expect(userKeys.fetch("user-1")).resolves.toBeNull();
-  expect(logs).toEqual(["Loading user key for userId: user-1"]);
+  await expect(userIdentities.resolve("user-1")).resolves.toBeNull();
+  expect(logs).toEqual(["Loading user identity for userId: user-1"]);
 });
 
-test("user keys fetch preserves typed identity integrity failures", async () => {
+test("user identity resolution preserves typed integrity failures", async () => {
   const mismatch = new KeyingVerificationError(
     "equivocation",
     "Trusted user identity changed",
   );
-  const userKeys = createUserKeys({
+  const userIdentities = createUserIdentities({
     log: () => undefined,
     resolveTrustedUserIdentity: async () => {
       throw mismatch;
     },
   });
 
-  await expect(userKeys.fetch("user-1")).rejects.toBe(mismatch);
+  await expect(userIdentities.resolve("user-1")).rejects.toBe(mismatch);
 });

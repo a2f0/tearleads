@@ -9,9 +9,6 @@ test("resolver adapters are stable and idempotent", () => {
 
   expect(requireTrustedUserIdentityResolver(source)).toBe(adapter);
   expect(requireTrustedUserIdentityResolver(adapter)).toBe(adapter);
-  expect(requireTrustedUserIdentityResolver(undefined)).toBe(
-    requireTrustedUserIdentityResolver(null),
-  );
 });
 
 test("resolver adapters reject structurally forged identity values", async () => {

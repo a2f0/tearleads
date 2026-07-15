@@ -8,6 +8,7 @@ import {
   computePrincipalProjectionRoot,
   computePrincipalStateHash,
   derivePrincipalProjectionMembers,
+  type SignedPrincipalState,
   serializeUnsignedPrincipalState,
   signPrincipalState,
   verifySignedPrincipalState,
@@ -228,4 +229,43 @@ test("verifySignedPrincipalState rejects tampered membership roots", async () =>
       signingPublicKey,
     ),
   ).toBe(false);
+});
+
+test("principal states reject missing current commitment fields at runtime", async () => {
+  const { publicKey } = generateKemSeedAndKeyPair();
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const signedState = await signPrincipalState(
+    await buildPrincipalStateSigningInput({
+      principalType: "group",
+      principalId: crypto.randomUUID(),
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: bytesToBase64(publicKey),
+      keyFingerprint: await toFingerprint(publicKey),
+      members: [],
+      memberEnvelopes: [],
+      projection: [],
+      payloadCiphertext: "ciphertext-4",
+      signedAt: new Date("2026-04-07T12:00:00.000Z").toISOString(),
+      signerUserId: crypto.randomUUID(),
+      signerUserKeyFingerprint: await toFingerprint(signingPublicKey),
+    }),
+    signingPrivateKey,
+  );
+  const missingCommitment: Partial<SignedPrincipalState> = {
+    ...signedState,
+  };
+  delete missingCommitment.memberEnvelopesRoot;
+
+  expect(
+    await verifySignedPrincipalState(
+      missingCommitment as SignedPrincipalState,
+      signingPublicKey,
+    ),
+  ).toBe(false);
+  await expect(
+    serializeUnsignedPrincipalState(missingCommitment as SignedPrincipalState),
+  ).rejects.toThrow("Principal state memberEnvelopesRoot is required");
 });

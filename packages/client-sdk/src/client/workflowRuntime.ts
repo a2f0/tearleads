@@ -1,15 +1,13 @@
 import type { ApiClient } from "@tearleads/api-client";
-import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import type { DocumentProjectorRegistry } from "../data/documents/documentKinds";
 import type { DomainScope } from "../data/domainScope";
-import { type ExecSql, unavailableExecSql } from "../data/sqlite/sqlSchema";
+import { unavailableExecSql } from "../data/sqlite/sqlSchema";
 import {
   createApiUserIdentitySource,
   createTrustedUserIdentityService,
   type LocalUserIdentityCandidate,
   type TrustedUserIdentityResolver,
 } from "../data/trustedUserIdentity";
-import { cacheReferencedPrincipalPolicies } from "../workflows/principals";
 import type {
   WorkflowRuntimeAuthInput,
   WorkflowRuntimeCryptoInput,
@@ -168,7 +166,6 @@ function createRuntimeInputFactory(
   let infra: WorkflowRuntimeInfraInput | undefined;
   let state: WorkflowRuntimeStateInput | undefined;
   let util: WorkflowRuntimeUtilInput | undefined;
-  let utilExecSql: ExecSql | undefined;
 
   const workflowInput = (
     containerId?: string | null | undefined,
@@ -214,17 +211,10 @@ function createRuntimeInputFactory(
     });
     if (
       !util ||
-      utilExecSql !== execSql ||
       util.log !== dependencies.log ||
       util.logError !== dependencies.logError
     ) {
       util = {
-        cacheReferencedPrincipalPolicies:
-          createCacheReferencedPrincipalPolicies(
-            dependencies,
-            execSql,
-            resolveTrustedUserIdentity,
-          ),
         isRemoteSyncBlocked: (organizationId) =>
           dependencies.syncBillingGate?.isBlockedForOrganization(
             organizationId,
@@ -232,7 +222,6 @@ function createRuntimeInputFactory(
         log: dependencies.log,
         logError: dependencies.logError,
       };
-      utilExecSql = execSql;
     }
 
     return createInternalWorkflowRuntimeInput(
@@ -277,25 +266,6 @@ function createInternalWorkflowRuntimeInput(
     util,
     resolveTrustedUserIdentity,
   };
-}
-
-function createCacheReferencedPrincipalPolicies(
-  dependencies: WorkflowRuntimeDependencies,
-  execSql: ExecSql,
-  resolveTrustedUserIdentity: TrustedUserIdentityResolver,
-): WorkflowRuntimeUtilInput["cacheReferencedPrincipalPolicies"] {
-  return (
-    references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
-  ) =>
-    cacheReferencedPrincipalPolicies({
-      execSql,
-      getCurrentPrincipalPolicy: (principalType, principalId) =>
-        dependencies.api.getCurrentPrincipalPolicy(principalType, principalId),
-      log: dependencies.log,
-      organizationId: dependencies.session.organizationId,
-      references,
-      resolveTrustedUserIdentity,
-    });
 }
 
 function reuseWorkflowRuntimeAuth(

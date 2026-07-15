@@ -103,9 +103,17 @@ test("pending document move intents replay signed link-set mutations and clear a
     let writerProjection: DocumentWriterProjectionResponse = {
       authorizingContainerPaths: [rootProjection],
       contentKeyBundle: createdResponse.contentKeyBundle,
+      documentContainerManifestHistory: [
+        ...rootProjection.path,
+        ...rootProjection.containerKeks.flatMap(
+          (kek) => kek.containerManifestHistory,
+        ),
+      ],
       documentId: createdResponse.id,
       documentKekTargets: createdResponse.documentKekTargets,
       documentManifest: createdResponse.accessManifest,
+      documentManifestContainerPaths: [[...rootProjection.path]],
+      documentManifestHistory: [],
     };
 
     await defaultDocumentsPersistence.ensureSchema(execSql);
@@ -165,10 +173,24 @@ test("pending document move intents replay signed link-set mutations and clear a
           writerProjection = {
             authorizingContainerPaths: [rootProjection, trashProjection],
             contentKeyBundle: response.contentKeyBundle,
+            documentContainerManifestHistory: [
+              ...writerProjection.documentContainerManifestHistory,
+              ...trashProjection.path,
+              ...trashProjection.containerKeks.flatMap(
+                (kek) => kek.containerManifestHistory,
+              ),
+            ],
             documentId: response.id,
             documentKekTargets: response.documentKekTargets,
             documentManifest: response.accessManifest,
-            documentManifestHistory: [createdResponse.accessManifest],
+            documentManifestContainerPaths: [
+              ...writerProjection.documentManifestContainerPaths,
+              [...trashProjection.path],
+            ],
+            documentManifestHistory: [
+              writerProjection.documentManifest,
+              ...writerProjection.documentManifestHistory,
+            ],
           };
           return response;
         },
@@ -184,9 +206,19 @@ test("pending document move intents replay signed link-set mutations and clear a
           writerProjection = {
             authorizingContainerPaths: [trashProjection],
             contentKeyBundle: response.contentKeyBundle,
+            documentContainerManifestHistory: [
+              ...writerProjection.documentContainerManifestHistory,
+            ],
             documentId: response.id,
             documentKekTargets: response.documentKekTargets,
             documentManifest: response.accessManifest,
+            documentManifestContainerPaths: [
+              ...writerProjection.documentManifestContainerPaths,
+            ],
+            documentManifestHistory: [
+              writerProjection.documentManifest,
+              ...writerProjection.documentManifestHistory,
+            ],
           };
           return response;
         },
@@ -218,7 +250,6 @@ test("pending document move intents replay signed link-set mutations and clear a
         online: true,
       },
       util: {
-        cacheReferencedPrincipalPolicies: async () => undefined,
         log: () => undefined,
       },
     };

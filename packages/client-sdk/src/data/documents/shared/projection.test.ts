@@ -71,10 +71,37 @@ test("unwrapContainerKekPath follows parent KEK edges to the leaf", async () => 
   expect(Array.from(unwrapped.get(childContainerKeyEpochId) ?? [])).toEqual(
     Array.from(childContainerKek),
   );
+  const rootKek = projection.containerKeks[0];
   const childKek = projection.containerKeks[1];
-  if (!childKek) {
-    throw new Error("Expected child container KEK fixture");
+  if (!rootKek || !childKek) {
+    throw new Error("Expected root and child container KEK fixtures");
   }
+
+  const legacyEpochId = "legacy-container-key-epoch";
+  await expect(
+    unwrapContainerKekPath({
+      projection: {
+        ...projection,
+        containerKeks: [
+          {
+            ...rootKek,
+            containerKeyEpochId: legacyEpochId,
+            keyEpoch: {
+              ...rootKek.keyEpoch,
+              id: legacyEpochId,
+            },
+            wraps: rootKek.wraps.map((wrap) => ({
+              ...wrap,
+              containerKeyEpochId: legacyEpochId,
+            })),
+          },
+          childKek,
+        ],
+      },
+      secretKey,
+      trustedLocalProjection: true,
+    }),
+  ).rejects.toThrow("KEK epoch id does not commit to key material");
 
   await expect(
     unwrapContainerKekPath({

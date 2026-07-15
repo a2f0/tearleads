@@ -1,5 +1,4 @@
 import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
-import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import type { BlobStore } from "../data/blobContracts";
 import type { DocumentProjectorRegistry } from "../data/documents/documentKinds";
 import type { DomainScope } from "../data/domainScope";
@@ -47,9 +46,6 @@ export interface WorkflowRuntimeInfraInput {
 }
 
 export interface WorkflowRuntimeUtilInput {
-  readonly cacheReferencedPrincipalPolicies: (
-    references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
-  ) => Promise<void>;
   readonly isRemoteSyncBlocked?:
     | ((organizationId: string) => boolean)
     | undefined;

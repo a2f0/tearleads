@@ -68,9 +68,11 @@ test("document dependency evidence cannot hide a newer container head", async ()
     documentId: response.id,
     documentKekTargets: response.documentKekTargets,
     documentManifest: response.accessManifest,
+    documentManifestHistory: [],
     documentManifestContainerPaths: [
       [secondManifest as unknown as AccessManifestBundleWireResponse],
     ],
+    documentContainerManifestHistory: [],
   };
   const { close, execSql } = await createTestExecSql(
     "document-hidden-newer-container-dependency",

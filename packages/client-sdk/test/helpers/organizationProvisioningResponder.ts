@@ -1,9 +1,5 @@
 import type { ApiClient } from "@tearleads/api-client";
-import {
-  isProvisionedDocumentRequest,
-  isProvisionedSystemContainerRequest,
-  type OrganizationProvisioningRequest,
-} from "@tearleads/validators/request";
+import type { OrganizationProvisioningRequest } from "@tearleads/validators/request";
 import type { OrganizationProvisioningResponse } from "@tearleads/validators/response";
 import { createMutationResponseFromRequest } from "./containerFixtures";
 import { createResponseFromRequest } from "./documentFixtures";
@@ -16,31 +12,28 @@ import { createResponseFromRequest } from "./documentFixtures";
 export async function respondToOrganizationProvisioning(
   request: OrganizationProvisioningRequest,
 ): Promise<OrganizationProvisioningResponse> {
-  if (
-    !request.initialRosterProfileContainer ||
-    !request.initialRosterProfileDocument ||
-    !request.initialOrganizationProfileDocument
-  ) {
-    throw new Error("Expected roster and organization profile requests");
-  }
   const rootMetadataDocument = await createResponseFromRequest(
     request.initialRootMetadataDocument,
   );
-  const rosterProfileMetadataDocument = await createResponseFromRequest(
-    request.initialRosterProfileContainer.metadataDocument,
-  );
-  const rosterProfileContainerResponse =
-    await createMutationResponseFromRequest(
-      request.initialRosterProfileContainer.container,
-    );
-  rosterProfileContainerResponse.systemSlot =
-    request.initialRosterProfileContainer.systemSlot ?? null;
-  const rosterProfileDocument = await createResponseFromRequest(
-    request.initialRosterProfileDocument,
-  );
-  const organizationProfileDocument = await createResponseFromRequest(
-    request.initialOrganizationProfileDocument,
-  );
+  const rosterProfileContainer = request.initialRosterProfileContainer;
+  const rosterProfileMetadataDocument = rosterProfileContainer
+    ? await createResponseFromRequest(rosterProfileContainer.metadataDocument)
+    : undefined;
+  const rosterProfileContainerResponse = rosterProfileContainer
+    ? await createMutationResponseFromRequest(rosterProfileContainer.container)
+    : undefined;
+  if (rosterProfileContainerResponse && rosterProfileContainer) {
+    rosterProfileContainerResponse.systemSlot =
+      rosterProfileContainer.systemSlot ?? null;
+  }
+  const rosterProfileDocument = request.initialRosterProfileDocument
+    ? await createResponseFromRequest(request.initialRosterProfileDocument)
+    : undefined;
+  const organizationProfileDocument = request.initialOrganizationProfileDocument
+    ? await createResponseFromRequest(
+        request.initialOrganizationProfileDocument,
+      )
+    : undefined;
 
   // Echo the Members-granted organization metadata container the client sent, so
   // local provisioning persists it (and its system slot) exactly as production
@@ -82,22 +75,14 @@ export async function respondToOrganizationProvisioning(
     request.initialRosterProfileDocument,
     request.initialOrganizationProfileDocument,
   ].flatMap((profile) =>
-    isProvisionedDocumentRequest(profile)
+    profile
       ? profile.initialSync.outgoingUpdates.map((update) => update.id)
       : [],
   );
   const committedCoreMetadataUpdateIds = [
-    isProvisionedDocumentRequest(request.initialRootMetadataDocument)
-      ? request.initialRootMetadataDocument.initialSync
-      : undefined,
-    isProvisionedSystemContainerRequest(request.initialRosterProfileContainer)
-      ? request.initialRosterProfileContainer.initialMetadataSync
-      : undefined,
-    isProvisionedSystemContainerRequest(
-      request.initialOrganizationMetadataContainer,
-    )
-      ? request.initialOrganizationMetadataContainer.initialMetadataSync
-      : undefined,
+    request.initialRootMetadataDocument.initialSync,
+    request.initialRosterProfileContainer?.initialMetadataSync,
+    request.initialOrganizationMetadataContainer?.initialMetadataSync,
   ].flatMap((syncRequest) =>
     syncRequest ? syncRequest.outgoingUpdates.map((update) => update.id) : [],
   );
@@ -113,15 +98,27 @@ export async function respondToOrganizationProvisioning(
     rootMetadataDocument,
     committedCoreMetadataUpdateIds,
     committedProfileUpdateIds,
-    rosterProfileContainer: {
-      container: rosterProfileContainerResponse,
-      metadataDocument: rosterProfileMetadataDocument,
-    },
-    rosterProfileContainerId: rosterProfileContainerResponse.containerId,
-    rosterProfileDocument,
-    rosterProfileDocumentId: rosterProfileDocument.id,
-    organizationProfileDocument,
-    organizationProfileDocumentId: organizationProfileDocument.id,
+    ...(rosterProfileContainerResponse && rosterProfileMetadataDocument
+      ? {
+          rosterProfileContainer: {
+            container: rosterProfileContainerResponse,
+            metadataDocument: rosterProfileMetadataDocument,
+          },
+          rosterProfileContainerId: rosterProfileContainerResponse.containerId,
+        }
+      : {}),
+    ...(rosterProfileDocument
+      ? {
+          rosterProfileDocument,
+          rosterProfileDocumentId: rosterProfileDocument.id,
+        }
+      : {}),
+    ...(organizationProfileDocument
+      ? {
+          organizationProfileDocument,
+          organizationProfileDocumentId: organizationProfileDocument.id,
+        }
+      : {}),
     ...(organizationMetadataContainerResponse &&
     organizationMetadataMetadataDocument
       ? {
@@ -133,7 +130,7 @@ export async function respondToOrganizationProvisioning(
             organizationMetadataContainerResponse.containerId,
         }
       : {}),
-    ...(systemContainers.length > 0 ? { systemContainers } : {}),
+    systemContainers,
   };
 }
 

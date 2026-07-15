@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { UserKey } from "@tearleads/client-sdk";
+import type { ResolvedUserIdentity } from "@tearleads/client-sdk";
 import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
@@ -79,7 +79,7 @@ async function createContactsRuntime(): Promise<
 
 test("contacts store persists contacts as documents with app-owned projections", async () => {
   const runtime = await createContactsRuntime();
-  const peerKey: UserKey = {
+  const peerKey: ResolvedUserIdentity = {
     encapsulationKeyFingerprint: "peer-encapsulation-fingerprint",
     encapsulationPublicKey: "peer-encapsulation-public-key",
     signingKeyFingerprint: "peer-signing-fingerprint",
@@ -87,7 +87,7 @@ test("contacts store persists contacts as documents with app-owned projections",
     userId: "peer-user-1",
   };
   const store = createContactsStore(runtime, {
-    fetchUserKey: async (userId) =>
+    resolveUserIdentity: async (userId) =>
       userId === peerKey.userId ? peerKey : null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
@@ -196,7 +196,7 @@ test("contacts store persists contacts as documents with app-owned projections",
 
 test("contacts store imports self keys without a synthetic nickname", async () => {
   const runtime = await createContactsRuntime();
-  const selfKey: UserKey = {
+  const selfKey: ResolvedUserIdentity = {
     encapsulationKeyFingerprint: "self-encapsulation-fingerprint",
     encapsulationPublicKey: "self-encapsulation-public-key",
     signingKeyFingerprint: "self-signing-fingerprint",
@@ -204,7 +204,7 @@ test("contacts store imports self keys without a synthetic nickname", async () =
     userId: "self-user",
   };
   const store = createContactsStore(runtime, {
-    fetchUserKey: async (userId) =>
+    resolveUserIdentity: async (userId) =>
       userId === selfKey.userId ? selfKey : null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
@@ -258,7 +258,7 @@ test("contacts store ensures self contact from deterministic local identity", as
   const runtime = await createContactsRuntime();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const signingKeyPair = generateSigningSeedAndKeyPair();
-  const selfKey: UserKey = {
+  const selfKey: ResolvedUserIdentity = {
     encapsulationKeyFingerprint: await toFingerprint(
       encapsulationKeyPair.publicKey,
     ),
@@ -268,10 +268,10 @@ test("contacts store ensures self contact from deterministic local identity", as
     userId: "self-user",
   };
   const store = createContactsStore(runtime, {
-    fetchUserKey: async () => {
+    resolveUserIdentity: async () => {
       throw new Error("unexpected remote self key fetch");
     },
-    getLocalUserKey: async (userId) =>
+    getLocalUserIdentity: async (userId) =>
       userId === selfKey.userId ? selfKey : null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
@@ -344,7 +344,7 @@ test("contacts store ensures self contact from deterministic local identity", as
 
 test("contacts store does not reseed a You nickname for existing self contacts", async () => {
   const runtime = await createContactsRuntime();
-  const selfKey: UserKey = {
+  const selfKey: ResolvedUserIdentity = {
     encapsulationKeyFingerprint: "self-encapsulation-fingerprint",
     encapsulationPublicKey: "self-encapsulation-public-key",
     signingKeyFingerprint: "self-signing-fingerprint",
@@ -352,7 +352,7 @@ test("contacts store does not reseed a You nickname for existing self contacts",
     userId: "self-user",
   };
   const store = createContactsStore(runtime, {
-    fetchUserKey: async (userId) =>
+    resolveUserIdentity: async (userId) =>
       userId === selfKey.userId ? selfKey : null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
@@ -403,7 +403,7 @@ test("contacts store does not reseed a You nickname for existing self contacts",
 test("contacts store keeps live snapshots in projection order", async () => {
   const runtime = await createContactsRuntime();
   const store = createContactsStore(runtime, {
-    fetchUserKey: async () => null,
+    resolveUserIdentity: async () => null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
     },

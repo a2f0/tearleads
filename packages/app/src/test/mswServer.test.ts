@@ -145,11 +145,11 @@ async function verifySession(
   });
 }
 
-async function requestEncapsulationKey(
+async function requestUserIdentity(
   token: string,
   userId: string,
 ): Promise<Response> {
-  return fetch(`${apiBaseUrl}/auth/encapsulation-key/${userId}`, {
+  return fetch(`${apiBaseUrl}/auth/user-identity/${userId}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -186,7 +186,7 @@ test("resetMockServer recreates isolated auth state for the proxied test API app
   const tokenBody = await tokenResponse.json();
   invariant(typeof tokenBody.token === "string", "Expected session token.");
 
-  const authenticatedResponse = await requestEncapsulationKey(
+  const authenticatedResponse = await requestUserIdentity(
     tokenBody.token,
     userId,
   );
@@ -195,7 +195,7 @@ test("resetMockServer recreates isolated auth state for the proxied test API app
   await resetMockServer();
   useTestApiAppHandlers();
 
-  const staleSessionResponse = await requestEncapsulationKey(
+  const staleSessionResponse = await requestUserIdentity(
     tokenBody.token,
     userId,
   );

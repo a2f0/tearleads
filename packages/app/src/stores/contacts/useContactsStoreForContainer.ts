@@ -1,4 +1,4 @@
-import type { Tearleads, UserKey } from "@tearleads/client-sdk";
+import type { ResolvedUserIdentity, Tearleads } from "@tearleads/client-sdk";
 import { toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { useEffect, useMemo } from "react";
@@ -12,7 +12,7 @@ import {
   getOrCreateContactsStore,
 } from "./contactStore";
 
-async function getLocalUserKey(input: {
+async function getLocalUserIdentity(input: {
   encapsulationKeyPair: ReturnType<
     typeof useTearleads
   >["identity"]["encapsulationKeyPair"];
@@ -21,7 +21,7 @@ async function getLocalUserKey(input: {
   >["identity"]["signingFingerprint"];
   signingKeyPair: ReturnType<typeof useTearleads>["identity"]["signingKeyPair"];
   userId: string;
-}): Promise<UserKey | null> {
+}): Promise<ResolvedUserIdentity | null> {
   const { encapsulationKeyPair, signingFingerprint, signingKeyPair, userId } =
     input;
   if (!encapsulationKeyPair || !signingKeyPair) {
@@ -127,9 +127,9 @@ function createContactsStore(
     runtime.documents.state.domainScope,
     runtime,
     {
-      fetchUserKey: (userId) => tearleads.userKeys.fetch(userId),
-      getLocalUserKey: (userId) =>
-        getLocalUserKey({
+      resolveUserIdentity: (userId) => tearleads.userIdentities.resolve(userId),
+      getLocalUserIdentity: (userId) =>
+        getLocalUserIdentity({
           encapsulationKeyPair: tearleads.identity.encapsulationKeyPair,
           signingFingerprint: tearleads.identity.signingFingerprint,
           signingKeyPair: tearleads.identity.signingKeyPair,

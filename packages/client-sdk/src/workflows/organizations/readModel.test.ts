@@ -53,7 +53,7 @@ test("loadOrganizationDirectoryAndGroups combines directory and group lists", as
   expect(result).toEqual({
     directory,
     groups: groups.groups,
-    memberGroupId: groups.memberGroupId ?? null,
+    memberGroupId: groups.memberGroupId,
   });
 });
 

@@ -4,14 +4,6 @@ import {
   type TrustedUserIdentityResolver,
 } from "./types";
 
-const unavailableTrustedUserIdentityResolver: TrustedUserIdentityResolver =
-  async () => {
-    throw new KeyingVerificationError(
-      "missing_dependency",
-      "Trusted user identity resolution is unavailable in this runtime",
-    );
-  };
-
 const resolverAdaptersByResolver = new WeakMap<
   TrustedUserIdentityResolver,
   TrustedUserIdentityResolver
@@ -19,12 +11,8 @@ const resolverAdaptersByResolver = new WeakMap<
 
 /** Normalize an adapter without weakening call sites or churning its identity. */
 export function requireTrustedUserIdentityResolver(
-  resolver: TrustedUserIdentityResolver | null | undefined,
+  resolver: TrustedUserIdentityResolver,
 ): TrustedUserIdentityResolver {
-  if (!resolver) {
-    return unavailableTrustedUserIdentityResolver;
-  }
-
   const existingAdapter = resolverAdaptersByResolver.get(resolver);
   if (existingAdapter) {
     return existingAdapter;

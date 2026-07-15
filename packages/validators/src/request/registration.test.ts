@@ -129,6 +129,7 @@ test("isRegistrationRequest", () => {
       previousManifest: null,
       parentContainerPath: [],
       keyEpoch: { id: "container-key-epoch-id" },
+      principalPolicies: [],
       wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
       userRecipientKeys: [{ userId }],
     },
@@ -150,23 +151,23 @@ test("isRegistrationRequest", () => {
     ...createValidRequest().initialRootMetadataDocument,
     initialSync: createInitialSync(),
   };
-  const { initialSync: _initialSync, ...legacyInitialProfileDocument } =
+  const { initialSync: _initialSync, ...baseDocument } =
     createValidRequest().initialRootMetadataDocument;
   const initialMetadataContainer = {
     container: createValidRequest().initialRootContainer,
     initialMetadataSync: createInitialSync(),
-    metadataDocument: legacyInitialProfileDocument,
+    metadataDocument: baseDocument,
   };
 
   expect(isRegistrationRequest(createValidRequest())).toBe(true);
   expect(
     isRegistrationRequest(
       createValidRequest({
-        initialOrganizationProfileDocument: legacyInitialProfileDocument,
-        initialRosterProfileDocument: legacyInitialProfileDocument,
+        initialOrganizationProfileDocument: baseDocument,
+        initialRosterProfileDocument: baseDocument,
       }),
     ),
-  ).toBe(true);
+  ).toBe(false);
   expect(
     isRegistrationRequest(
       createValidRequest({
@@ -191,10 +192,10 @@ test("isRegistrationRequest", () => {
   expect(
     isRegistrationRequest(
       createValidRequest({
-        initialRootMetadataDocument: legacyInitialProfileDocument,
+        initialRootMetadataDocument: baseDocument,
       }),
     ),
-  ).toBe(true);
+  ).toBe(false);
   expect(
     isRegistrationRequest(
       createValidRequest({
@@ -229,7 +230,7 @@ test("isRegistrationRequest", () => {
         },
       }),
     ),
-  ).toBe(true);
+  ).toBe(false);
   expect(
     isRegistrationRequest(
       createValidRequest({

@@ -144,9 +144,17 @@ test("createRemoteDocument submits the materialized request and persists the ver
   expect(created.writerProjection).toEqual({
     authorizingContainerPaths: [projection],
     contentKeyBundle: response.contentKeyBundle,
+    documentContainerManifestHistory: [
+      ...projection.path,
+      ...projection.containerKeks.flatMap(
+        (kek) => kek.containerManifestHistory,
+      ),
+    ],
     documentId: "document-remote",
     documentKekTargets: response.documentKekTargets,
     documentManifest: response.accessManifest,
+    documentManifestContainerPaths: [[...projection.path]],
+    documentManifestHistory: [],
   });
   // The create response carries enough to seed the projection cache, so the
   // first read after create resolves locally instead of a cold GET.

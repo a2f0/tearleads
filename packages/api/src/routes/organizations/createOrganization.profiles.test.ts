@@ -3,11 +3,9 @@ import { db } from "@tearleads/api-shared/postgres";
 import { documents, organizations } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
-  type DocumentCreateRequest,
   isProvisionedDocumentRequest,
   type ProvisionedDocumentRequest,
 } from "@tearleads/validators/request";
-import { isCreateOrganizationResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import {
@@ -32,50 +30,6 @@ function provisionedProfileDocumentId(
   invariant(typeof documentId === "string", "expected profile document id");
   return documentId;
 }
-
-function toLegacyProfileDocumentRequest(
-  request: ProvisionedDocumentRequest,
-): DocumentCreateRequest {
-  const { initialSync: _initialSync, ...legacyRequest } = request;
-  return legacyRequest;
-}
-
-test("POST /organizations accepts legacy profile documents without claiming their bodies", async () => {
-  const user = await registeredActor();
-  const body = await createOrganizationRequestBody(user, {
-    includeOrganizationProfileDocument: true,
-    includeRosterProfileDocument: true,
-  });
-  const rosterProfile = body.initialRosterProfileDocument;
-  const organizationProfile = body.initialOrganizationProfileDocument;
-  invariant(
-    isProvisionedDocumentRequest(rosterProfile),
-    "expected initial roster profile",
-  );
-  invariant(
-    isProvisionedDocumentRequest(organizationProfile),
-    "expected initial organization profile",
-  );
-  body.initialRosterProfileDocument =
-    toLegacyProfileDocumentRequest(rosterProfile);
-  body.initialOrganizationProfileDocument =
-    toLegacyProfileDocumentRequest(organizationProfile);
-
-  const response = await submitCreateOrganization(user, body);
-  expect(response.status).toBe(200);
-  const responseBody = await response.json();
-  invariant(
-    isCreateOrganizationResponse(responseBody),
-    "expected provisioning body",
-  );
-  expect(responseBody.committedProfileUpdateIds).toEqual([]);
-  expect(responseBody.rosterProfileDocumentId).toBe(
-    provisionedProfileDocumentId(rosterProfile),
-  );
-  expect(responseBody.organizationProfileDocumentId).toBe(
-    provisionedProfileDocumentId(organizationProfile),
-  );
-});
 
 test("POST /organizations rejects a signed dependency-bearing profile seed and rolls back", async () => {
   const user = await registeredActor();

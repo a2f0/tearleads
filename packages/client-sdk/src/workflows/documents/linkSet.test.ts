@@ -12,6 +12,7 @@ import {
   createWrappedProjection,
   fixtureHash,
   getOnlyTarget,
+  writerProjectionEvidence,
 } from "../../../test/helpers/documentFixtures";
 import { unwrapDocumentContentKeyTarget } from "../../data/documents/shared/projection";
 import { buildMaterializedDocumentCreatePlan } from "./create";
@@ -40,6 +41,7 @@ test("buildMaterializedDocumentLinkSetMutationPlan adds links without rotating a
   const writerProjection: DocumentWriterProjectionResponse = {
     authorizingContainerPaths: [projection],
     contentKeyBundle: createdResponse.contentKeyBundle,
+    ...writerProjectionEvidence([projection], []),
     documentId: createdResponse.id,
     documentKekTargets: createdResponse.documentKekTargets,
     documentManifest: createdResponse.accessManifest,
@@ -97,6 +99,10 @@ test("buildMaterializedDocumentLinkSetMutationPlan adds links without rotating a
     writerProjection: {
       authorizingContainerPaths: [projection, siblingProjection],
       contentKeyBundle: linkResponse.contentKeyBundle,
+      ...writerProjectionEvidence(
+        [projection, siblingProjection],
+        [createdResponse.accessManifest],
+      ),
       documentId: linkResponse.id,
       documentKekTargets: linkResponse.documentKekTargets,
       documentManifest: linkResponse.accessManifest,
@@ -155,6 +161,7 @@ test("buildMaterializedDocumentLinkSetMutationPlan rejects split writer projecti
           ...createdResponse.contentKeyBundle,
           targetHash: splitTargetHash,
         },
+        ...writerProjectionEvidence([projection], []),
         documentId: createdResponse.id,
         documentKekTargets: {
           ...createdResponse.documentKekTargets,
@@ -187,6 +194,7 @@ test("buildMaterializedDocumentSyncPlan rejects authorizing paths outside the do
   const writerProjection: DocumentWriterProjectionResponse = {
     authorizingContainerPaths: [projection],
     contentKeyBundle: createdResponse.contentKeyBundle,
+    ...writerProjectionEvidence([projection], []),
     documentId: createdResponse.id,
     documentKekTargets: createdResponse.documentKekTargets,
     documentManifest: createdResponse.accessManifest,
@@ -236,6 +244,7 @@ test("buildMaterializedDocumentSyncPlan rejects authorizing paths outside the do
           targetHash: forgedTargetHash,
           targets: [forgedEnvelope],
         },
+        ...writerProjectionEvidence([projection], []),
         documentId: createdResponse.id,
         documentKekTargets: {
           ...createdResponse.documentKekTargets,
@@ -309,6 +318,7 @@ test("buildMaterializedDocumentLinkSetMutationPlan names inaccessible remaining 
   const writerProjection: DocumentWriterProjectionResponse = {
     authorizingContainerPaths: [projection],
     contentKeyBundle: createdResponse.contentKeyBundle,
+    ...writerProjectionEvidence([projection], []),
     documentId: createdResponse.id,
     documentKekTargets: createdResponse.documentKekTargets,
     documentManifest: createdResponse.accessManifest,
@@ -344,6 +354,10 @@ test("buildMaterializedDocumentLinkSetMutationPlan names inaccessible remaining 
       writerProjection: {
         authorizingContainerPaths: [projection, inaccessibleSiblingProjection],
         contentKeyBundle: linkResponse.contentKeyBundle,
+        ...writerProjectionEvidence(
+          [projection, inaccessibleSiblingProjection],
+          [createdResponse.accessManifest],
+        ),
         documentId: linkResponse.id,
         documentKekTargets: linkResponse.documentKekTargets,
         documentManifest: linkResponse.accessManifest,

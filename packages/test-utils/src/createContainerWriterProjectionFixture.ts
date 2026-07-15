@@ -8,6 +8,7 @@ import {
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
+  computeContainerKekMaterialId,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   deriveContainerAccessManifest,
@@ -178,7 +179,12 @@ export async function createContainerWriterProjectionFixture(
     throw new Error("Parent projection KEK material is unavailable");
   }
 
-  const containerKeyEpochId = `${input.containerId}-key-epoch-1`;
+  const containerKek = crypto.getRandomValues(new Uint8Array(32));
+  const containerKeyEpochId = await computeContainerKekMaterialId({
+    containerId: input.containerId,
+    keyEpoch: 1,
+    keyMaterial: containerKek,
+  });
   const parentContainerId = parentProjection
     ? readParentContainerId(parentProjection)
     : null;
@@ -228,7 +234,6 @@ export async function createContainerWriterProjectionFixture(
   };
   const manifest = await deriveContainerAccessManifest(state);
   const manifestHash = await computeAccessManifestHash(manifest);
-  const containerKek = crypto.getRandomValues(new Uint8Array(32));
   const keyEpoch: ContainerKeyEpoch = {
     id: containerKeyEpochId,
     containerId: input.containerId,
@@ -284,6 +289,7 @@ export async function createContainerWriterProjectionFixture(
         keyEpochHash,
         keyTargetHash,
         parentContainerKeyEpochId: keyEpoch.parentContainerKeyEpochId,
+        containerManifestHistory: [],
         recipientTargets: recipientTargets as unknown as Record<
           string,
           unknown

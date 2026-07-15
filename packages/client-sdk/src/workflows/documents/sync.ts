@@ -147,7 +147,7 @@ function syncResponseContentKeyBundlesByEpoch(
 
   for (const bundle of [
     response.contentKeyBundle,
-    ...(response.contentKeyBundles ?? []),
+    ...response.contentKeyBundles,
   ]) {
     const existing = byEpoch.get(bundle.contentKeyEpoch);
     if (!existing) {
@@ -344,7 +344,7 @@ function pendingUpdateMatchesDecryptedUpdate(
 }
 
 async function syncRemoteDocumentResultFromResponse(input: {
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   materializedPlan: MaterializedDocumentSyncPlan;
   recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -398,7 +398,7 @@ async function syncRemoteDocumentResultFromResponse(input: {
 async function completeReadOnlyRemoteDocumentSyncWithProjection(input: {
   author: DocumentCreateAuthor;
   documentId: string;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   localVersionVector: string | null;
   minLsn?: string | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -423,6 +423,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(input: {
   });
 
   return syncRemoteDocumentResultFromResponse({
+    ...projectionVerificationOptions(input),
     execSql: input.execSql,
     materializedPlan,
     recoveryPendingUpdatesById: new Map(),
@@ -431,7 +432,6 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(input: {
     targetSecretKey: input.targetSecretKey,
     writerProjection: input.writerProjection,
     writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
-    ...projectionVerificationOptions(input),
     resolveProjectionUserKey: input.resolveProjectionUserKey,
   });
 }
@@ -537,7 +537,7 @@ interface ReadOnlyDocumentSyncCompletionInput {
   apiClient: DocumentSyncApi;
   author: DocumentCreateAuthor;
   documentId: string;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   localVersionVector: string | null;
   minLsn?: string | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -625,7 +625,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
   apiClient: DocumentSyncApi;
   author: DocumentCreateAuthor;
   documentId: string;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   localVersionVector: string | null;
   minLsn?: string | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
@@ -868,7 +868,7 @@ interface SyncRemoteDocumentInput {
   apiClient: DocumentSyncApi;
   author: DocumentCreateAuthor;
   documentId: string;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
@@ -1079,6 +1079,7 @@ export async function syncRemoteDocument(
     }
 
     return syncRemoteDocumentResultFromResponse({
+      ...projectionVerificationOptions(input),
       execSql: input.execSql,
       materializedPlan,
       recoveryPendingUpdatesById,
@@ -1087,7 +1088,6 @@ export async function syncRemoteDocument(
       targetSecretKey: input.targetSecretKey,
       writerProjection: plannedWriterProjection,
       writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
-      ...projectionVerificationOptions(input),
       resolveProjectionUserKey,
     });
   }

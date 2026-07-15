@@ -106,6 +106,9 @@ test("syncRemoteDocument gates outgoing writes by the verified document plan org
 test("syncRemoteDocument still submits clean read-only probes for a blocked organization", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
     await createMaterializedSyncFixture();
+  const { close, execSql } = await createTestExecSql(
+    "blocked-read-only-document-sync",
+  );
   let blockCheckCount = 0;
   let submissionCount = 0;
 
@@ -127,6 +130,7 @@ test("syncRemoteDocument still submits clean read-only probes for a blocked orga
     },
     author,
     documentId: writerProjection.documentId,
+    execSql,
     isRemoteSyncBlocked: () => {
       blockCheckCount += 1;
       return true;
@@ -146,4 +150,5 @@ test("syncRemoteDocument still submits clean read-only probes for a blocked orga
   expect(blockCheckCount).toBe(0);
   expect(submissionCount).toBe(1);
   expect(synced).not.toBeNull();
+  close();
 });

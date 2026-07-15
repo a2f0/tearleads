@@ -1,5 +1,4 @@
 import type {
-  ApiDatabase,
   DatabaseSession,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
@@ -236,15 +235,6 @@ export async function listCurrentPrincipalMemberEnvelopes(
     principalId,
     currentState.stateHash,
     executor,
-  );
-}
-
-export async function replaceCurrentPrincipalMemberEnvelopes(
-  input: StorePrincipalMemberEnvelopesInput,
-  database: ApiDatabase,
-): Promise<StoredPrincipalMemberEnvelope[]> {
-  return database.transaction((tx) =>
-    replaceCurrentPrincipalMemberEnvelopesInTransaction(input, tx),
   );
 }
 

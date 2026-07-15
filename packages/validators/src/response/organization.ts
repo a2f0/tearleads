@@ -65,7 +65,7 @@ export interface DeleteOrganizationGroupResponse {
 
 export interface ListOrganizationGroupsResponse {
   organizationId: string;
-  memberGroupId?: string | undefined;
+  memberGroupId: string;
   groups: OrganizationGroupSummaryResponse[];
 }
 
@@ -295,8 +295,7 @@ export function isListOrganizationGroupsResponse(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "organizationId") &&
-    (!Reflect.has(value, "memberGroupId") ||
-      hasStringProperty(value, "memberGroupId")) &&
+    hasStringProperty(value, "memberGroupId") &&
     hasArrayProperty(value, "groups") &&
     value.groups.every(isOrganizationGroupSummaryResponse)
   );

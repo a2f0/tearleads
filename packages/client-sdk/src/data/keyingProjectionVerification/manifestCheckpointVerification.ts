@@ -29,17 +29,15 @@ function isCheckpointPredecessor(input: {
 
 export async function loadManifestCheckpointVerification(input: {
   readonly current: AccessManifest;
-  readonly execSql: ExecSql | null;
+  readonly execSql: ExecSql;
   readonly verifiedManifests: ReadonlyMap<string, AnyVerifiedAccessManifest>;
 }): Promise<ManifestCheckpointVerificationInput> {
-  const localCheckpoint = input.execSql
-    ? await loadAccessManifestCheckpoint(
-        input.execSql,
-        input.current.objectKind,
-        input.current.organizationId,
-        input.current.objectId,
-      )
-    : null;
+  const localCheckpoint = await loadAccessManifestCheckpoint(
+    input.execSql,
+    input.current.objectKind,
+    input.current.organizationId,
+    input.current.objectId,
+  );
   const checkpointPredecessors = localCheckpoint
     ? [...input.verifiedManifests.values()]
         .filter((candidate) =>
@@ -56,7 +54,7 @@ export async function loadManifestCheckpointVerification(input: {
 
 export async function verifyCachedManifestCheckpoint(input: {
   readonly current: AnyVerifiedAccessManifest;
-  readonly execSql: ExecSql | null;
+  readonly execSql: ExecSql;
   readonly verifiedManifests: ReadonlyMap<string, AnyVerifiedAccessManifest>;
 }): Promise<void> {
   const checkpoint = await loadManifestCheckpointVerification({

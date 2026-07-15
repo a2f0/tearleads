@@ -41,11 +41,9 @@ interface ContainerDocumentLinkRuntime
     | "util"
   > {
   apiClient: ContainerDocumentLinkApi &
-    Partial<
-      Pick<
-        ContainerContentsWorkflowRuntime["apiClient"],
-        "getCurrentPrincipalPolicy"
-      >
+    Pick<
+      ContainerContentsWorkflowRuntime["apiClient"],
+      "getCurrentPrincipalPolicy"
     >;
 }
 

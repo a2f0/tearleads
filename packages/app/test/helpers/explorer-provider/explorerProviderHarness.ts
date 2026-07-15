@@ -198,6 +198,9 @@ export function createExplorerContainerApiHarness(
           documentId: storedDocument.id,
           documentKekTargets: storedDocument.documentKekTargets,
           documentManifest: storedDocument.accessManifest,
+          documentManifestHistory: [],
+          documentManifestContainerPaths: [],
+          documentContainerManifestHistory: [],
         };
       },
       getContainerWriterProjection: async (containerId: string) =>
@@ -360,11 +363,14 @@ export async function createExplorerMetadataFixture(input: {
     documentId: storedDocument.id,
     documentKekTargets: storedDocument.documentKekTargets,
     documentManifest: storedDocument.accessManifest,
+    documentManifestHistory: [],
+    documentManifestContainerPaths: [],
+    documentContainerManifestHistory: [],
   };
 
   return {
     apiClient: createMockApiClient({
-      getEncapsulationKey: async (requestedUserId: string) => {
+      getUserIdentity: async (requestedUserId: string) => {
         if (requestedUserId !== userId) {
           return null;
         }
@@ -427,7 +433,7 @@ export async function createSqlRuntime(): Promise<TestRuntime> {
       getBlob: async () => null,
       getContainerWriterProjection: async () => null,
       getDocumentWriterProjection: async () => null,
-      getEncapsulationKey: async () => null,
+      getUserIdentity: async () => null,
       listContainers: async () => listContainersResponse(),
       listDocumentAttachments: async () => null,
       moveContainer: async () => null,
@@ -440,8 +446,7 @@ export async function createSqlRuntime(): Promise<TestRuntime> {
     ...input,
     resolveTrustedUserIdentity: createTestRuntimeTrustedUserIdentityResolver({
       encapsulationPublicKey: null,
-      loadRemoteIdentity: (userId) =>
-        input.apiClient.getEncapsulationKey(userId),
+      loadRemoteIdentity: (userId) => input.apiClient.getUserIdentity(userId),
       localUserId: null,
       signingKeyFingerprint: null,
       signingPublicKey: null,

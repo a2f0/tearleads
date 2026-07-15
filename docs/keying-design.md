@@ -353,12 +353,12 @@ type ContainerKeyEpoch = {
 };
 ```
 
-New app-created KEK epochs use ids of the form
+Container KEK epochs use ids of the form
 `tearleads.container-kek.v1.sha256:<hash>`, where the hash commits to the
 container id, numeric KEK epoch, and plaintext 32-byte KEK material. The signed
 container manifest commits to this id through `containerKeyEpochId`, so clients
 that can unwrap the KEK reject a projection if the decrypted material does not
-match the committed id. Legacy non-prefixed ids remain readable but do not carry
+match the committed id. Non-prefixed ids are rejected because they do not carry
 this material commitment.
 
 ### Container Key Wrap Row
@@ -379,8 +379,8 @@ type ContainerKeyWrap = {
 The `wrapManifestHash` binds the wrap to the manifest that justified it. A
 client rejects wraps whose recipient key epoch, principal policy head, parent
 container key epoch, or manifest hash does not match the verified graph.
-For committed KEK epoch ids, the client also rejects wraps that decrypt to
-different KEK material than the signed epoch id commits to.
+The client also rejects wraps that decrypt to different KEK material than the
+signed epoch id commits to.
 
 ## Additive Versus Subtractive Changes
 
@@ -630,14 +630,13 @@ with an optional transparency log for cross-client append-only proofs.
 
 Minimum:
 
-- clients persist highest-seen identity key state per user;
+- clients durably pin each first-seen complete identity bundle;
 - clients persist highest-seen principal policy version/hash per principal;
 - clients persist highest-seen access manifest epoch/hash per object;
 - clients refuse to move backwards without explicit recovery UX.
 
-The executable checkpoint model is:
+Production uses an exact Part B identity TOFU pin plus two checkpoints:
 
-- `IdentityStateCheckpoint`: `identityId`, `version`, `stateHash`.
 - `PrincipalPolicyCheckpoint`: `principalType`, `principalId`, `version`,
  `stateHash`.
 - `AccessManifestCheckpoint`: `objectKind`, `organizationId`, `objectId`,
@@ -701,9 +700,9 @@ into encryption decisions by type accident.
 
 Required proof obligations:
 
-- `VerifiedIdentityState` proves an identity state head is not older than the
- client's local checkpoint. The eventual identity-key verifier must also bind
- that head to an accepted identity trust root.
+- The eventual Part C `VerifiedIdentityState` must prove that an identity state
+ head is not older than the client's local checkpoint and bind that head to an
+ accepted identity trust root.
 - `VerifiedPrincipalPolicy` proves the group/org policy chain is signed,
  contiguous, projection-bound, payload-bound, and key-epoch-correct for any
  shrink transition.
@@ -878,8 +877,8 @@ Deployment boundaries:
  different content records under the same content-key epoch.
 - Local child creation under a local-only parent queues without inventing a
  server access hash.
-- Clients enforce monotonic checkpoints for identities, principal policies, and
- object manifests.
+- Clients enforce exact durable identity pins and monotonic checkpoints for
+ principal policies and object manifests.
 - Regression coverage includes malicious API fixtures for forged grants,
  swapped keys, omitted targets, stale manifests, split projection rows, and
  key-epoch reuse after membership shrink.

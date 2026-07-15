@@ -4,7 +4,7 @@ import {
   type TrustedUserIdentityResolver,
 } from "../data/trustedUserIdentity";
 
-export interface UserKey {
+export interface ResolvedUserIdentity {
   encapsulationKeyFingerprint: string;
   encapsulationPublicKey: string;
   signingKeyFingerprint: string;
@@ -12,20 +12,20 @@ export interface UserKey {
   userId: string;
 }
 
-export interface UserKeys {
-  fetch(userId: string): Promise<UserKey | null>;
+export interface UserIdentities {
+  resolve(userId: string): Promise<ResolvedUserIdentity | null>;
 }
 
-export function createUserKeys(input: {
+export function createUserIdentities(input: {
   log: (message: string) => void;
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
-}): UserKeys {
+}): UserIdentities {
   const resolveTrustedUserIdentity = requireTrustedUserIdentityResolver(
     input.resolveTrustedUserIdentity,
   );
   return {
-    async fetch(userId) {
-      input.log(`Loading user key for userId: ${userId}`);
+    async resolve(userId) {
+      input.log(`Loading user identity for userId: ${userId}`);
       const identity = await resolveTrustedUserIdentity(userId);
       if (!identity) {
         return null;

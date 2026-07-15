@@ -38,44 +38,31 @@ export interface OrganizationProvisioningResponse {
   organizationMetadataContainerId?: string | undefined;
   organizationProfileDocument?: DocumentCreateResponse | undefined;
   organizationProfileDocumentId?: string | undefined;
-  /**
-   * Update ids for the root, roster-container, and organization-container
-   * metadata seeds that the server committed in the provisioning transaction.
-   * Optional for compatibility with servers predating atomic core metadata;
-   * current servers always return the array, including an empty array for
-   * legacy requests.
-   */
-  committedCoreMetadataUpdateIds?: string[] | undefined;
-  /**
-   * Update ids for roster/organization profile seeds that the server committed
-   * in the provisioning transaction. Optional for compatibility with servers
-   * predating atomic profile seeds; current servers always return the array,
-   * including an empty array for legacy requests.
-   */
-  committedProfileUpdateIds?: string[] | undefined;
+  /** Update ids for metadata seeds committed in the provisioning transaction. */
+  committedCoreMetadataUpdateIds: string[];
+  /** Update ids for profile seeds committed in the provisioning transaction. */
+  committedProfileUpdateIds: string[];
   /**
    * Server-created responses for the additional system containers requested via
    * `initialSystemContainers` (e.g. a trash bin), in request order.
    */
-  systemContainers?: ContainerCreateWithMetadataDocumentResponse[] | undefined;
+  systemContainers: ContainerCreateWithMetadataDocumentResponse[];
 }
 
-function isOptionalSystemContainersResponse(value: unknown): boolean {
+function isSystemContainersResponse(value: unknown): boolean {
   return (
-    value === undefined ||
-    (Array.isArray(value) &&
-      value.every(isContainerCreateWithMetadataDocumentResponse))
+    Array.isArray(value) &&
+    value.every(isContainerCreateWithMetadataDocumentResponse)
   );
 }
 
-function isOptionalCommittedUpdateIds(value: unknown): boolean {
+function isCommittedUpdateIds(value: unknown): boolean {
   return (
-    value === undefined ||
-    (Array.isArray(value) &&
-      new Set(value).size === value.length &&
-      value.every(
-        (updateId) => typeof updateId === "string" && isUuidV4String(updateId),
-      ))
+    Array.isArray(value) &&
+    new Set(value).size === value.length &&
+    value.every(
+      (updateId) => typeof updateId === "string" && isUuidV4String(updateId),
+    )
   );
 }
 
@@ -114,13 +101,11 @@ export function isOrganizationProvisioningResponse(
       )) &&
     (Reflect.get(value, "organizationProfileDocumentId") === undefined ||
       hasStringProperty(value, "organizationProfileDocumentId")) &&
-    isOptionalCommittedUpdateIds(
+    isCommittedUpdateIds(
       Reflect.get(value, "committedCoreMetadataUpdateIds"),
     ) &&
-    isOptionalCommittedUpdateIds(
-      Reflect.get(value, "committedProfileUpdateIds"),
-    ) &&
-    isOptionalSystemContainersResponse(Reflect.get(value, "systemContainers"))
+    isCommittedUpdateIds(Reflect.get(value, "committedProfileUpdateIds")) &&
+    isSystemContainersResponse(Reflect.get(value, "systemContainers"))
   );
 }
 

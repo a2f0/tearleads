@@ -2,32 +2,32 @@ import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import {
-  GetEncapsulationKeyError,
-  getEncapsulationKey,
-} from "../../services/auth/getEncapsulationKey";
+  GetUserIdentityError,
+  getUserIdentity,
+} from "../../services/auth/getUserIdentity";
 import type { ApiServiceRuntime } from "../../services/runtime";
 
-interface EncapsulationKeyRouteDeps {
+interface UserIdentityRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
   readonly runtime: ApiServiceRuntime;
 }
 
-export function createEncapsulationKeyRoute({
+export function createUserIdentityRoute({
   requireAuth,
   runtime,
-}: EncapsulationKeyRouteDeps) {
-  const encapsulationKeyRoute = new Hono();
+}: UserIdentityRouteDeps) {
+  const userIdentityRoute = new Hono();
 
-  encapsulationKeyRoute.get(
-    "/auth/encapsulation-key/:userId",
+  userIdentityRoute.get(
+    "/auth/user-identity/:userId",
     requireAuth,
     async (c) => {
       const userId = c.req.param("userId");
 
       try {
-        return c.json(await getEncapsulationKey(runtime, userId));
+        return c.json(await getUserIdentity(runtime, userId));
       } catch (error) {
-        if (error instanceof GetEncapsulationKeyError) {
+        if (error instanceof GetUserIdentityError) {
           return c.json({ error: error.message }, error.status);
         }
 
@@ -36,5 +36,5 @@ export function createEncapsulationKeyRoute({
     },
   );
 
-  return encapsulationKeyRoute;
+  return userIdentityRoute;
 }

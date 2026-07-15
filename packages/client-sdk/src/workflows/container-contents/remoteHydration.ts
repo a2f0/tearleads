@@ -204,7 +204,7 @@ async function updateExistingRemoteContainerState(input: {
   );
   existingState.containerWriterProjection = null;
   existingState.metadataReferencedPrincipals =
-    remoteContainer.metadataReferencedPrincipals ?? [];
+    remoteContainer.metadataReferencedPrincipals;
   existingState.record = await host.persistContainerState(
     existingState,
     {
@@ -265,8 +265,7 @@ async function insertRemoteContainerState(input: {
       },
       remoteContainer,
     ),
-    metadataReferencedPrincipals:
-      remoteContainer.metadataReferencedPrincipals ?? [],
+    metadataReferencedPrincipals: remoteContainer.metadataReferencedPrincipals,
     doc,
     record: {
       accessEpoch: remoteContainer.metadataAccessEpoch,

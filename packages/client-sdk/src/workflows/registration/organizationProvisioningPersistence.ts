@@ -46,7 +46,7 @@ function coreMetadataInitialUpdateCommitted(
 ): boolean {
   return (
     updateId !== undefined &&
-    response.committedCoreMetadataUpdateIds?.includes(updateId) === true
+    response.committedCoreMetadataUpdateIds.includes(updateId)
   );
 }
 
@@ -119,7 +119,7 @@ function buildOrganizationMetadataContainerBootstrapInput(
 function buildSystemContainersBootstrapInput(
   input: PersistOrganizationProvisioningStateInput,
 ): PersistBootstrapInput["systemContainers"] {
-  const responses = input.response.systemContainers ?? [];
+  const responses = input.response.systemContainers;
   if (responses.length === 0) {
     return;
   }

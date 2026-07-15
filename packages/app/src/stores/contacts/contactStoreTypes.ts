@@ -3,7 +3,7 @@ import type {
   DocumentSummary,
   DocumentsRuntime,
   OpenDocumentInput,
-  UserKey,
+  ResolvedUserIdentity,
 } from "@tearleads/client-sdk";
 import type {
   ContactEntry,
@@ -54,8 +54,10 @@ export interface ContactsStore {
 }
 
 export interface ContactsStoreDependencies {
-  fetchUserKey: (userId: string) => Promise<UserKey | null>;
-  getLocalUserKey?: ((userId: string) => Promise<UserKey | null>) | undefined;
+  resolveUserIdentity: (userId: string) => Promise<ResolvedUserIdentity | null>;
+  getLocalUserIdentity?:
+    | ((userId: string) => Promise<ResolvedUserIdentity | null>)
+    | undefined;
   logError: (message: string | Error, cause?: unknown) => void;
 }
 

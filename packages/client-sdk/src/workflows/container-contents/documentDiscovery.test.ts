@@ -44,7 +44,10 @@ function listContainerDocumentsResponse(
   const lastItem = items.at(-1);
   return {
     hasMore: false,
-    items: [...items],
+    items: items.map((item) => ({
+      ...item,
+      referencedPrincipals: item.referencedPrincipals ?? [],
+    })),
     nextWatermark: lastItem
       ? { id: lastItem.id, updatedAt: lastItem.updatedAt }
       : null,
@@ -66,7 +69,7 @@ function captureInputs(
       typeof input.accessStateHash !== "string" ||
       input.accessStateHash.length === 0
     ) {
-      throw new Error("Expected discovered document input to include a hash.");
+      throw new Error("Expected document hash.");
     }
 
     return {

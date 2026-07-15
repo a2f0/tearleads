@@ -36,6 +36,7 @@ export async function decryptDocumentAttachmentBlob({
     "Document attachment blob decrypt",
   );
   const verificationOptions = projectionVerificationOptions({
+    execSql,
     resolveProjectionUserKey: requiredResolveProjectionUserKey,
   });
   const encrypted = parseBlobEncryptedBytes(encryptedBytes);

@@ -2,24 +2,21 @@ import type { BlobBytes, BlobStore } from "@tearleads/client-sdk";
 import {
   type ExecSql,
   runSerializedSqlMutation,
-  type SqlRow,
-  type SqlRowValue,
 } from "@tearleads/client-sdk/sqlite";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import {
+  preflightSecurityAnchorRestore,
+  readBackupDatabase,
+  restoreBackupDatabase,
+} from "./localBackupDatabase";
 import {
   BACKUP_FORMAT_VERSION,
   BACKUP_PAYLOAD_FORMAT,
   type BackupBlob,
-  type BackupIndex,
   type BackupPayload,
-  type BackupSqlValue,
   type BackupSummary,
   type BackupTable,
 } from "./localBackupFormat";
-import {
-  mergeTrustedIdentityPinBackupTables,
-  TRUSTED_IDENTITY_PIN_TABLE_NAME,
-} from "./trustedIdentityPinBackupMerge";
 
 export type BackupProgressPhase =
   | "blobs"
@@ -53,47 +50,18 @@ interface RestoreBackupPayloadInput {
   readonly payload: BackupPayload;
 }
 
-interface UserTableDefinition {
-  readonly name: string;
-  readonly sql: string;
+interface BlobRestoreUndo {
+  readonly previousBytes: BlobBytes | null;
+  readonly storageKey: string;
 }
 
-interface UserIndexDefinition {
-  readonly name: string;
-  readonly sql: string;
-  readonly tableName: string;
-}
-
-const SYSTEM_TABLE_NAMES = new Set(["__drizzle_migrations"]);
 const ATTACHMENT_BLOB_TABLES = [
   "document_pending_attachments",
   "document_attachment_blob_projection",
 ] as const;
 
-function readString(row: SqlRow, key: string): string {
-  const value = row[key];
-  return typeof value === "string" ? value : "";
-}
-
-function readNumber(row: SqlRow | undefined, key: string): number {
-  const value = row?.[key];
-  return typeof value === "number" ? value : 0;
-}
-
 function quoteSqlIdentifier(identifier: string): string {
   return `"${identifier.replaceAll('"', '""')}"`;
-}
-
-function normalizeSqlValue(value: SqlRowValue | undefined): BackupSqlValue {
-  if (value === undefined) {
-    return null;
-  }
-
-  return value;
-}
-
-function normalizeBackupSqlValue(value: BackupSqlValue): SqlRowValue {
-  return value;
 }
 
 function asBlobBytes(bytes: Uint8Array): BlobBytes {
@@ -108,86 +76,6 @@ function readUserAgent(): string | null {
   }
 
   return navigator.userAgent;
-}
-
-async function listUserTableDefinitions(
-  execSql: ExecSql,
-): Promise<UserTableDefinition[]> {
-  const rows = await execSql(`
-    SELECT name, sql
-    FROM sqlite_master
-    WHERE type = 'table'
-      AND name NOT LIKE 'sqlite_%'
-      AND sql IS NOT NULL
-    ORDER BY name ASC
-  `);
-
-  return rows
-    .map((row) => ({
-      name: readString(row, "name"),
-      sql: readString(row, "sql"),
-    }))
-    .filter((table) => table.name && !SYSTEM_TABLE_NAMES.has(table.name));
-}
-
-async function listUserIndexDefinitions(
-  execSql: ExecSql,
-): Promise<UserIndexDefinition[]> {
-  const rows = await execSql(`
-    SELECT name, tbl_name, sql
-    FROM sqlite_master
-    WHERE type = 'index'
-      AND name NOT LIKE 'sqlite_%'
-      AND sql IS NOT NULL
-    ORDER BY name ASC
-  `);
-
-  return rows
-    .map((row) => ({
-      name: readString(row, "name"),
-      sql: readString(row, "sql"),
-      tableName: readString(row, "tbl_name"),
-    }))
-    .filter(
-      (index) =>
-        index.name && index.sql && !SYSTEM_TABLE_NAMES.has(index.tableName),
-    );
-}
-
-async function readTableColumns(
-  execSql: ExecSql,
-  tableName: string,
-): Promise<string[]> {
-  const rows = await execSql(
-    `PRAGMA table_info(${quoteSqlIdentifier(tableName)})`,
-  );
-
-  return rows.map((row) => readString(row, "name")).filter(Boolean);
-}
-
-async function readTableBackup(
-  execSql: ExecSql,
-  table: UserTableDefinition,
-): Promise<BackupTable> {
-  const columns = await readTableColumns(execSql, table.name);
-  const columnSql = columns.map(quoteSqlIdentifier).join(", ");
-  const rows =
-    columns.length === 0
-      ? []
-      : await execSql(
-          `SELECT ${columnSql} FROM ${quoteSqlIdentifier(table.name)}`,
-        );
-
-  return {
-    columns,
-    name: table.name,
-    rows: rows.map((row) =>
-      Object.fromEntries(
-        columns.map((column) => [column, normalizeSqlValue(row[column])]),
-      ),
-    ),
-    sql: table.sql,
-  };
 }
 
 async function listReferencedBlobStorageKeys(input: {
@@ -211,7 +99,10 @@ async function listReferencedBlobStorageKeys(input: {
     ORDER BY storage_key ASC
   `);
 
-  return rows.map((row) => readString(row, "storage_key")).filter(Boolean);
+  return rows.flatMap((row) => {
+    const { storage_key: storageKey } = row;
+    return typeof storageKey === "string" && storageKey ? [storageKey] : [];
+  });
 }
 
 async function readBackupBlobs(input: {
@@ -273,20 +164,10 @@ export async function createBackupPayload({
   signingFingerprint,
 }: CreateBackupPayloadInput): Promise<BackupPayload> {
   onProgress?.({ current: 0, phase: "preparing", total: 1 });
-  const tableDefinitions = await listUserTableDefinitions(execSql);
-  const indexDefinitions = await listUserIndexDefinitions(execSql);
-  const tableNames = new Set(tableDefinitions.map((table) => table.name));
-  const tables: BackupTable[] = [];
-
-  for (const [index, table] of tableDefinitions.entries()) {
-    onProgress?.({
-      current: index + 1,
-      item: table.name,
-      phase: "database",
-      total: tableDefinitions.length,
-    });
-    tables.push(await readTableBackup(execSql, table));
-  }
+  const { indexes, tableNames, tables } = await readBackupDatabase({
+    execSql,
+    onProgress,
+  });
 
   const storageKeys = await listReferencedBlobStorageKeys({
     execSql,
@@ -303,7 +184,7 @@ export async function createBackupPayload({
     blobs,
     createdAt: new Date().toISOString(),
     database: {
-      indexes: indexDefinitions.map((index): BackupIndex => ({ ...index })),
+      indexes,
       tables,
     },
     format: BACKUP_PAYLOAD_FORMAT,
@@ -318,93 +199,45 @@ export async function createBackupPayload({
   };
 }
 
-async function insertBackupTable(input: {
-  readonly execSql: ExecSql;
-  readonly table: BackupTable;
-}): Promise<void> {
-  if (input.table.rows.length === 0 || input.table.columns.length === 0) {
-    return;
+async function rollbackBlobWrites(
+  blobStore: BlobStore,
+  undo: ReadonlyArray<BlobRestoreUndo>,
+): Promise<unknown[]> {
+  const errors: unknown[] = [];
+  for (const entry of [...undo].reverse()) {
+    try {
+      if (entry.previousBytes) {
+        await blobStore.writeBytes(entry.storageKey, entry.previousBytes);
+      } else {
+        await blobStore.deleteBytes(entry.storageKey);
+      }
+    } catch (error) {
+      errors.push(error);
+    }
   }
-
-  const tableName = quoteSqlIdentifier(input.table.name);
-  const columns = input.table.columns.map(quoteSqlIdentifier).join(", ");
-  const placeholders = input.table.columns.map(() => "?").join(", ");
-  const sql = `INSERT INTO ${tableName} (${columns}) VALUES (${placeholders})`;
-
-  for (const row of input.table.rows) {
-    const values = input.table.columns.map((column) =>
-      normalizeBackupSqlValue(row[column] ?? null),
-    );
-    await input.execSql(sql, values);
-  }
+  return errors;
 }
 
-async function restoreDatabaseTables(input: {
-  readonly execSql: ExecSql;
-  readonly indexes: ReadonlyArray<BackupIndex>;
-  readonly tables: ReadonlyArray<BackupTable>;
+async function writeBackupBlobs(input: {
+  readonly blobStore: BlobStore;
+  readonly blobs: ReadonlyArray<BackupBlob>;
+  readonly onProgress?: BackupProgressCallback | undefined;
+  readonly undo: BlobRestoreUndo[];
 }): Promise<void> {
-  await runSerializedSqlMutation(input.execSql, async (execSql) => {
-    const wasForeignKeysEnabled =
-      readNumber((await execSql("PRAGMA foreign_keys"))[0], "foreign_keys") ===
-      1;
-    if (wasForeignKeysEnabled) {
-      await execSql("PRAGMA foreign_keys = OFF");
-    }
-
-    try {
-      await execSql("BEGIN IMMEDIATE");
-      try {
-        const currentTables = await listUserTableDefinitions(execSql);
-        const currentTrustedIdentityDefinition = currentTables.find(
-          (table) => table.name === TRUSTED_IDENTITY_PIN_TABLE_NAME,
-        );
-        const currentTrustedIdentityTable = currentTrustedIdentityDefinition
-          ? await readTableBackup(execSql, currentTrustedIdentityDefinition)
-          : null;
-        const restoredTrustedIdentityTable =
-          input.tables.find(
-            (table) => table.name === TRUSTED_IDENTITY_PIN_TABLE_NAME,
-          ) ?? null;
-        const mergedTrustedIdentityTable = mergeTrustedIdentityPinBackupTables({
-          current: currentTrustedIdentityTable,
-          restored: restoredTrustedIdentityTable,
-        });
-        const restoredTables = [
-          ...input.tables.filter(
-            (table) => table.name !== TRUSTED_IDENTITY_PIN_TABLE_NAME,
-          ),
-          ...(mergedTrustedIdentityTable ? [mergedTrustedIdentityTable] : []),
-        ];
-        for (const table of [...currentTables].reverse()) {
-          await execSql(
-            `DROP TABLE IF EXISTS ${quoteSqlIdentifier(table.name)}`,
-          );
-        }
-
-        for (const table of restoredTables) {
-          await execSql(table.sql);
-        }
-
-        for (const table of restoredTables) {
-          await insertBackupTable({ execSql, table });
-        }
-
-        for (const index of input.indexes) {
-          await execSql(index.sql);
-        }
-
-        await execSql("COMMIT");
-      } catch (error) {
-        await execSql("ROLLBACK").catch(() => undefined);
-        throw error;
-      }
-    } finally {
-      if (wasForeignKeysEnabled) {
-        await execSql("PRAGMA foreign_keys = ON").catch(() => undefined);
-      }
-    }
-  });
+  for (const [index, blob] of input.blobs.entries()) {
+    input.onProgress?.({
+      current: index + 1,
+      item: blob.storageKey,
+      phase: "blobs",
+      total: input.blobs.length,
+    });
+    const previousBytes = await input.blobStore.readBytes(blob.storageKey);
+    input.undo.push({ previousBytes, storageKey: blob.storageKey });
+    await input.blobStore.writeBytes(
+      blob.storageKey,
+      asBlobBytes(base64ToBytes(blob.bytesBase64)),
+    );
+  }
 }
 
 export async function restoreBackupPayload({
@@ -413,29 +246,40 @@ export async function restoreBackupPayload({
   onProgress,
   payload,
 }: RestoreBackupPayloadInput): Promise<BackupSummary> {
-  for (const [index, blob] of payload.blobs.entries()) {
-    onProgress?.({
-      current: index + 1,
-      item: blob.storageKey,
-      phase: "blobs",
-      total: payload.blobs.length,
+  return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    await preflightSecurityAnchorRestore({
+      execSql: lockedExecSql,
+      restoredTables: payload.database.tables,
     });
-    await blobStore.writeBytes(
-      blob.storageKey,
-      asBlobBytes(base64ToBytes(blob.bytesBase64)),
-    );
-  }
 
-  onProgress?.({
-    current: 0,
-    phase: "restoring",
-    total: payload.database.tables.length,
+    const blobUndo: BlobRestoreUndo[] = [];
+    try {
+      await writeBackupBlobs({
+        blobStore,
+        blobs: payload.blobs,
+        onProgress,
+        undo: blobUndo,
+      });
+      onProgress?.({
+        current: 0,
+        phase: "restoring",
+        total: payload.database.tables.length,
+      });
+      await restoreBackupDatabase({
+        execSql: lockedExecSql,
+        indexes: payload.database.indexes,
+        tables: payload.database.tables,
+      });
+      return payload.summary;
+    } catch (error) {
+      const rollbackErrors = await rollbackBlobWrites(blobStore, blobUndo);
+      if (rollbackErrors.length > 0) {
+        throw new AggregateError(
+          [error, ...rollbackErrors],
+          `Backup restore failed and ${rollbackErrors.length} blob rollback operation(s) failed`,
+        );
+      }
+      throw error;
+    }
   });
-  await restoreDatabaseTables({
-    execSql,
-    indexes: payload.database.indexes,
-    tables: payload.database.tables,
-  });
-
-  return payload.summary;
 }

@@ -63,6 +63,7 @@ async function withOfflineStore(
         documentProjectors: defaultDocumentProjectorRegistry,
         execSql,
       },
+      resolveTrustedUserIdentity: async () => null,
       state: {
         containerId: ROOT_CONTAINER_ID,
         domainScope: {} as DomainScope,
@@ -70,7 +71,6 @@ async function withOfflineStore(
         online: false,
       },
       util: {
-        cacheReferencedPrincipalPolicies: async () => {},
         log: () => {},
       },
     });

@@ -181,14 +181,12 @@ An additional organization deliberately starts with local-only billing. Its
 initial roster and organization-profile bodies are committed atomically with
 their manifests during provisioning, so another authorized session can recover
 the complete seed history and display the organization name immediately. Later
-profile edits still follow normal billing eligibility. Databases created by
-older clients, or by a newer client before the server acknowledges an atomic
-seed, retain the profile update as pending. Every syncable billing snapshot lets
-the creating runtime schedule that legacy row; the registered document lane
-owns its retries until SQLite clears it.
-That upgrade repair is best-effort and cannot turn a committed billing change
-into an apparent failure. Ordinary document hints wake other entitled sessions,
-which eagerly materialize system-document bodies without a manual Refresh.
+profile edits still follow normal billing eligibility. The provisioning
+response explicitly acknowledges every committed seed update; the client
+persists those updates as settled, and a response that omits the acknowledgement
+does not satisfy the current wire contract. Ordinary document hints wake other
+entitled sessions, which eagerly materialize system-document bodies without a
+manual Refresh.
 
 All results flow into Layer A, never back to React directly. The service has no
 React imports (enforced by the lane rules + dependency-cruiser).

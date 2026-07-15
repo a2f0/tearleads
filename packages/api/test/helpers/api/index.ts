@@ -1,5 +1,5 @@
 export { stageBlob } from "./blobs/stageBlob";
-export { fetchEncapsulationKey } from "./fetchEncapsulationKey";
+export { fetchUserIdentity } from "./fetchUserIdentity";
 export { requestChallenge } from "./requestChallenge";
 export {
   createOrganizationRequestBody,

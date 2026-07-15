@@ -130,8 +130,6 @@ const trustedIdentityServiceGateway =
   "packages/client-sdk/src/data/trustedUserIdentity/service.ts";
 const trustedIdentityTypesGateway =
   "packages/client-sdk/src/data/trustedUserIdentity/types.ts";
-const trustedIdentityTestFixtures =
-  "packages/client-sdk/src/data/trustedUserIdentity/testFixtures.ts";
 
 function collectTrustedIdentityBoundaryViolations(
   filePath: string,
@@ -139,10 +137,6 @@ function collectTrustedIdentityBoundaryViolations(
 ): readonly Violation[] {
   const normalizedPath = toPosixPath(filePath);
   const isClientSdk = normalizedPath.includes("packages/client-sdk/src/");
-  const isTestSource = /\.test\.[cm]?[jt]sx?$/u.test(normalizedPath);
-  const isTrustedIdentityTestFixtures = normalizedPath.endsWith(
-    trustedIdentityTestFixtures,
-  );
   const isProductIdentityConsumer =
     isClientSdk || normalizedPath.includes("packages/app/src/");
   if (!isProductIdentityConsumer) {
@@ -157,30 +151,19 @@ function collectTrustedIdentityBoundaryViolations(
   );
   const violations: Violation[] = [];
   const forbiddenIdentifiers = new Set([
-    ...(isClientSdk &&
-    !normalizedPath.endsWith(trustedIdentityRawAdapter) &&
-    !isTrustedIdentityTestFixtures
-      ? [
-          "EncapsulationKeyResponse",
-          "OrganizationUserRecipient",
-          "getEncapsulationKey",
-        ]
+    ...(isClientSdk && !normalizedPath.endsWith(trustedIdentityRawAdapter)
+      ? ["UserIdentityResponse", "OrganizationUserRecipient", "getUserIdentity"]
       : isClientSdk
         ? []
         : ["OrganizationUserRecipient"]),
     ...(normalizedPath.endsWith(trustedIdentityServiceGateway) ||
-    normalizedPath.endsWith(trustedIdentityTypesGateway) ||
-    isTrustedIdentityTestFixtures
+    normalizedPath.endsWith(trustedIdentityTypesGateway)
       ? []
       : ["brandTrustedUserIdentity"]),
-    ...(!isTestSource && !isTrustedIdentityTestFixtures
-      ? [
-          "createMockApiTrustedUserIdentityResolver",
-          "createTestTrustedUserIdentity",
-          "createTestTrustedUserIdentityResolver",
-          "trustedUserIdentityFromResponse",
-        ]
-      : []),
+    "createMockApiTrustedUserIdentityResolver",
+    "createTestTrustedUserIdentity",
+    "createTestTrustedUserIdentityResolver",
+    "trustedUserIdentityFromResponse",
   ]);
 
   function visit(node: ts.Node): void {
@@ -240,7 +223,7 @@ if (violations.length > 0) {
 
 if (trustedIdentityBoundaryViolations.length > 0) {
   console.error(
-    "error package-trusted-identity-boundary: raw remote identity contracts and the nominal trust-brand constructor are restricted to the trusted identity gateway (apart from its explicit test fixture); production source must not use test identity factories, and crypto mutation inputs must not expose OrganizationUserRecipient.",
+    "error package-trusted-identity-boundary: raw remote identity contracts and the nominal trust-brand constructor are restricted to the trusted identity gateway; production source must not use test identity factories, and crypto mutation inputs must not expose OrganizationUserRecipient.",
   );
   for (const violation of trustedIdentityBoundaryViolations) {
     const relativePath = relativePosixPath(process.cwd(), violation.filePath);

@@ -39,6 +39,7 @@ import {
   createSyncFixture,
   createSyncResponse,
   projectionPathRefs,
+  writerProjectionEvidence,
 } from "../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -369,6 +370,7 @@ test("buildMaterializedDocumentSyncPlan rejects document writer projections with
   const writerProjection: DocumentWriterProjectionResponse = {
     documentId: response.id,
     documentManifest: response.accessManifest,
+    ...writerProjectionEvidence([projection], []),
     documentKekTargets: response.documentKekTargets,
     contentKeyBundle: response.contentKeyBundle,
     authorizingContainerPaths: [projection],
@@ -436,6 +438,7 @@ test("buildMaterializedDocumentSyncPlan rejects substituted KEK material before 
   const writerProjection: DocumentWriterProjectionResponse = {
     authorizingContainerPaths: [tamperedProjection],
     contentKeyBundle: response.contentKeyBundle,
+    ...writerProjectionEvidence([tamperedProjection], []),
     documentId: response.id,
     documentKekTargets: response.documentKekTargets,
     documentManifest: response.accessManifest,
@@ -480,6 +483,7 @@ test("buildMaterializedDocumentSyncPlan verifies each authorizing path once acro
   const writerProjection: DocumentWriterProjectionResponse = {
     authorizingContainerPaths: [parent.projection],
     contentKeyBundle: response.contentKeyBundle,
+    ...writerProjectionEvidence([parent.projection], []),
     documentId: response.id,
     documentKekTargets: response.documentKekTargets,
     documentManifest: response.accessManifest,
@@ -539,6 +543,7 @@ test("buildMaterializedDocumentSyncPlan verifies linked document manifest histor
   const initialWriterProjection: DocumentWriterProjectionResponse = {
     documentId: createdResponse.id,
     documentManifest: createdResponse.accessManifest,
+    ...writerProjectionEvidence([rootProjection], []),
     documentKekTargets: createdResponse.documentKekTargets,
     contentKeyBundle: createdResponse.contentKeyBundle,
     authorizingContainerPaths: [rootProjection],
@@ -573,14 +578,7 @@ test("buildMaterializedDocumentSyncPlan verifies linked document manifest histor
       writerProjection: {
         documentId: linkResponse.id,
         documentManifest: linkResponse.accessManifest,
-        documentManifestContainerPaths: [
-          rootProjection.path,
-          childProjection.path,
-        ],
-        documentContainerManifestHistory: [
-          ...rootProjection.path,
-          ...childProjection.path,
-        ],
+        ...writerProjectionEvidence([rootProjection, childProjection], []),
         documentKekTargets: linkResponse.documentKekTargets,
         contentKeyBundle: linkResponse.contentKeyBundle,
         authorizingContainerPaths: [rootProjection, childProjection],

@@ -55,7 +55,7 @@ test("explorer store queues authenticated child containers locally before backgr
     apiClient: createMockApiClient({
       ...runtime.apiClient,
       ...harness.apiClient,
-      getEncapsulationKey: async (requestedUserId: string) => ({
+      getUserIdentity: async (requestedUserId: string) => ({
         encapsulationKeyFingerprint: await toFingerprint(
           localKeyPair.publicKey,
         ),
@@ -395,7 +395,7 @@ test("explorer sync primes local document stores after login", async () => {
       apiClient: createMockApiClient({
         ...runtime.apiClient,
         ...harness.apiClient,
-        getEncapsulationKey: async (requestedUserId: string) => ({
+        getUserIdentity: async (requestedUserId: string) => ({
           encapsulationKeyFingerprint: await toFingerprint(
             localKeyPair.publicKey,
           ),

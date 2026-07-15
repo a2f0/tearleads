@@ -8,7 +8,7 @@ import {
 } from "@tearleads/crypto";
 import invariant from "invariant";
 import {
-  fetchEncapsulationKey,
+  fetchUserIdentity,
   requestChallenge,
   submitRegistration,
   submitVerify,
@@ -52,14 +52,14 @@ test("setup: register user", async () => {
 });
 
 test("returns 401 without a token", async () => {
-  const res = await fetchEncapsulationKey(userId, "");
+  const res = await fetchUserIdentity(userId, "");
   expect(res.status).toBe(401);
 });
 
-test("returns encapsulation public key for a valid user", async () => {
+test("returns the complete identity for a valid user", async () => {
   const token = await authenticate();
 
-  const res = await fetchEncapsulationKey(userId, token);
+  const res = await fetchUserIdentity(userId, token);
   expect(res.status).toBe(200);
 
   const body = await res.json();
@@ -76,7 +76,7 @@ test("returns encapsulation public key for a valid user", async () => {
 test("returns 404 for a non-existent user", async () => {
   const token = await authenticate();
 
-  const res = await fetchEncapsulationKey(
+  const res = await fetchUserIdentity(
     "00000000-0000-0000-0000-000000000000",
     token,
   );

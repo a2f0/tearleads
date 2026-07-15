@@ -368,13 +368,12 @@ function getDocumentInfoRemoteDetails(input: {
     contributors,
     currentManifestHash: projection.documentManifest.manifestHash,
     documentContainerManifestHistoryCount:
-      projection.documentContainerManifestHistory?.length ?? 0,
+      projection.documentContainerManifestHistory.length,
     documentKekTargetCount: projection.documentKekTargets.targets.length,
     documentKeyTargetHash: projection.documentKekTargets.documentKeyTargetHash,
     documentManifestContainerPathCount:
-      projection.documentManifestContainerPaths?.length ?? 0,
-    documentManifestHistoryCount:
-      projection.documentManifestHistory?.length ?? 0,
+      projection.documentManifestContainerPaths.length,
+    documentManifestHistoryCount: projection.documentManifestHistory.length,
     linkedContainerKeyEpochCount:
       projection.documentKekTargets.linkedContainerKeyEpochIds.length,
     linkedContainerManifestCount:

@@ -51,10 +51,7 @@ import type {
   MaterializedContainerSharePlan,
 } from "../../../data/containers/shared/types";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
-import {
-  type ProjectionVerificationOptions,
-  projectionVerificationOptions,
-} from "../../../data/documents/shared/types";
+import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import {
   readCanonicalRecord,
   readCanonicalRecords,
@@ -244,7 +241,7 @@ function shareManifestHistory(input: {
   const byHash = new Map<string, AccessManifestBundleWire>();
   for (const bundle of [
     input.targetManifest,
-    ...(input.targetKek.containerManifestHistory ?? []),
+    ...input.targetKek.containerManifestHistory,
   ]) {
     if (
       readContainerState(bundle).containerId === input.containerId &&
@@ -363,22 +360,21 @@ function collectShareUserRecipientKeys(input: {
 }
 
 async function collectContainerSharePrincipalPolicies(input: {
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   principalPolicyCache?: PrincipalPolicyCache | undefined;
   previousProjection: ContainerWriterProjectionResponse;
   recipientPolicy?: VerifiedPrincipalPolicy | undefined;
-  resolveUserKey?: ProjectionUserKeyResolver | undefined;
+  resolveUserKey: ProjectionUserKeyResolver;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
-  const previousPolicies = input.resolveUserKey
-    ? await collectContainerWriterProjectionPrincipalPolicies({
-        execSql: input.execSql,
-        principalPolicyCache: input.principalPolicyCache,
-        projection: input.previousProjection,
-        resolveUserKey: input.resolveUserKey,
-        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-      })
-    : [];
+  const previousPolicies =
+    await collectContainerWriterProjectionPrincipalPolicies({
+      execSql: input.execSql,
+      principalPolicyCache: input.principalPolicyCache,
+      projection: input.previousProjection,
+      resolveUserKey: input.resolveUserKey,
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+    });
   const recipientPolicy = input.recipientPolicy;
   const retainedPreviousPolicies = recipientPolicy
     ? previousPolicies.filter(
@@ -395,20 +391,20 @@ async function collectContainerSharePrincipalPolicies(input: {
 }
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Container share planning keeps the cryptographic transition in one auditable sequence.
-async function buildMaterializedContainerSharePlan(
-  input: {
-    accessLevel: ContainerAccessLevel;
-    author: ContainerMutationAuthor;
-    eventId?: string | undefined;
-    execSql?: ExecSql | undefined;
-    knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
-    principalPolicyCache?: PrincipalPolicyCache | undefined;
-    previousProjection: ContainerWriterProjectionResponse;
-    recipient: ContainerShareRecipient;
-    signedAt?: string | undefined;
-    targetSecretKey: Uint8Array;
-  } & ProjectionVerificationOptions,
-): Promise<MaterializedContainerSharePlan> {
+async function buildMaterializedContainerSharePlan(input: {
+  accessLevel: ContainerAccessLevel;
+  author: ContainerMutationAuthor;
+  eventId?: string | undefined;
+  execSql: ExecSql;
+  knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
+  principalPolicyCache?: PrincipalPolicyCache | undefined;
+  previousProjection: ContainerWriterProjectionResponse;
+  recipient: ContainerShareRecipient;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  signedAt?: string | undefined;
+  targetSecretKey: Uint8Array;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
+}): Promise<MaterializedContainerSharePlan> {
   const keksByEpochId = await unwrapContainerKekPath({
     execSql: input.execSql,
     knownContainerKeks: input.knownContainerKeks,

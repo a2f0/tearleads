@@ -258,7 +258,7 @@ test("planDemoPeerRosterSeed carries the non-admin flag through the add plan", (
 
 function directoryAndGroups(input: {
   users: OrganizationDirectoryUser[];
-  memberGroupId: string | null;
+  memberGroupId: string;
 }): OrganizationDirectoryAndGroups {
   return {
     directory: directory({ users: input.users }),
@@ -405,22 +405,12 @@ test("seedPeerRosterEntry is settled once the peer has a profile document", asyn
   expect(calls.ensureRosterProfileDocument).toBe(0);
 });
 
-test("seedPeerRosterEntry waits when directory, member group, or peer import is unavailable", async () => {
+test("seedPeerRosterEntry waits when directory, members, or peer import is unavailable", async () => {
   const self = directoryUser({ userId: "self", isSelf: true });
   const noDirectory = fakeRosterSeedActions({ directoryAndGroups: null });
   expect(await seedPeerRosterEntry(noDirectory.actions, "peer", "Peer 2")).toBe(
     false,
   );
-
-  const noMemberGroup = fakeRosterSeedActions({
-    directoryAndGroups: directoryAndGroups({
-      users: [self],
-      memberGroupId: null,
-    }),
-  });
-  expect(
-    await seedPeerRosterEntry(noMemberGroup.actions, "peer", "Peer 2"),
-  ).toBe(false);
 
   const noMembers = fakeRosterSeedActions({
     directoryAndGroups: directoryAndGroups({

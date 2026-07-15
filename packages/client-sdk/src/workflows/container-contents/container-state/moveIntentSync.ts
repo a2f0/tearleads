@@ -85,9 +85,9 @@ async function persistAcceptedMoveIntent(input: {
     return;
   }
 
-  await createRuntimePrincipalPolicyWarmer(state.runtime)?.({
+  await createRuntimePrincipalPolicyWarmer(state.runtime)({
     organizationId: moved.organizationId,
-    references: moved.metadataReferencedPrincipals ?? [],
+    references: moved.metadataReferencedPrincipals,
   });
   const localUpdatedAt = await resolveMoveIntentLocalUpdatedAt({
     containerId: intent.containerId,

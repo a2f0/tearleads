@@ -14,13 +14,7 @@ export async function cacheRemoteContainerCreatePolicyRepair(input: {
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<boolean> {
   const bundles = input.failure.stalePrincipalPolicies;
-  const getCurrentPrincipalPolicy = input.apiClient.getCurrentPrincipalPolicy;
-  if (
-    !input.execSql ||
-    !bundles ||
-    bundles.length === 0 ||
-    !getCurrentPrincipalPolicy
-  ) {
+  if (!input.execSql || !bundles || bundles.length === 0) {
     return false;
   }
 
@@ -29,7 +23,7 @@ export async function cacheRemoteContainerCreatePolicyRepair(input: {
   await cachePrincipalPolicyBundles({
     bundles,
     execSql: input.execSql,
-    getCurrentPrincipalPolicy,
+    getCurrentPrincipalPolicy: input.apiClient.getCurrentPrincipalPolicy,
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });

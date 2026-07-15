@@ -8,9 +8,9 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { isRegistrationRequest } from "@tearleads/validators/request";
 import type {
   DestroySessionResponse,
-  EncapsulationKeyResponse,
   ListSessionsResponse,
   OrganizationBillingResponse,
+  UserIdentityResponse,
   VerifyResponse,
 } from "@tearleads/validators/response";
 import { sql } from "drizzle-orm";
@@ -119,9 +119,9 @@ function randomHex(bytes: number): string {
     .join("");
 }
 
-const mockEncapsulationKeysByUserId = new Map<
+const mockUserIdentitiesByUserId = new Map<
   string,
-  Promise<EncapsulationKeyResponse>
+  Promise<UserIdentityResponse>
 >();
 interface MockAuthContext {
   organizationId: string;
@@ -130,10 +130,10 @@ interface MockAuthContext {
 
 let mockAuthContext: MockAuthContext | null = null;
 
-function getMockEncapsulationKeyResponse(
+function getMockUserIdentityResponse(
   userId: string,
-): Promise<EncapsulationKeyResponse> {
-  let response = mockEncapsulationKeysByUserId.get(userId);
+): Promise<UserIdentityResponse> {
+  let response = mockUserIdentitiesByUserId.get(userId);
   if (!response) {
     response = (async () => {
       const signingKeyPair = generateSigningSeedAndKeyPair();
@@ -150,7 +150,7 @@ function getMockEncapsulationKeyResponse(
         encapsulationPublicKey: bytesToBase64(encapsulationKeyPair.publicKey),
       };
     })();
-    mockEncapsulationKeysByUserId.set(userId, response);
+    mockUserIdentitiesByUserId.set(userId, response);
   }
   return response;
 }
@@ -266,10 +266,10 @@ const server = setupServer(
     },
   ),
   http.get<{ userId: string }>(
-    "http://localhost:3001/auth/encapsulation-key/:userId",
+    "http://localhost:3001/auth/user-identity/:userId",
     async ({ params }) => {
-      return HttpResponse.json<EncapsulationKeyResponse>(
-        await getMockEncapsulationKeyResponse(params.userId),
+      return HttpResponse.json<UserIdentityResponse>(
+        await getMockUserIdentityResponse(params.userId),
       );
     },
   ),
@@ -669,7 +669,7 @@ export async function resetMockServer(
   testApiAppPromise = null;
   activeProxiedApiRequestCount = 0;
   mockAuthContext = null;
-  mockEncapsulationKeysByUserId.clear();
+  mockUserIdentitiesByUserId.clear();
   eventRouter.clear();
   proxiedApiRequests.length = 0;
   server.resetHandlers();

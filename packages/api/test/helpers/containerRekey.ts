@@ -22,6 +22,10 @@ import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
+import {
+  createRootContainerKeyEpoch,
+  createTestContainerKekMaterial,
+} from "./containerKekMaterial";
 
 interface ContainerRekeyFixture {
   readonly bundle: AccessManifestBundleWire | VerifiedContainerAccessManifest;
@@ -95,24 +99,6 @@ async function createSignedContainerRekeyEvent(input: {
   return verified.value;
 }
 
-function createRootContainerKeyEpoch(input: {
-  readonly containerKeyEpochId: string;
-  readonly keyEpoch: number;
-  readonly manifest: AccessManifestBundleWire;
-}): ContainerKeyEpoch {
-  const manifest = asVerifiedContainerManifest(input.manifest);
-
-  return {
-    id: input.containerKeyEpochId,
-    containerId: manifest.state.containerId,
-    keyEpoch: input.keyEpoch,
-    accessManifestHash: manifest.manifestHash,
-    parentContainerKeyEpochId: null,
-    createdByEventHash: manifest.event.eventHash,
-    createdByManifestHash: manifest.manifestHash,
-  };
-}
-
 function userRecipientKeysFromKekState(
   kekState: VerifiedContainerKekState,
 ): ContainerUserRecipientKey[] {
@@ -169,7 +155,11 @@ export async function buildRootContainerRekeyMutation(input: {
 }): Promise<BuiltContainerRekeyMutation> {
   const previous = asVerifiedContainerManifest(input.previous.bundle);
   const previousBundle = containerManifestBundle(previous);
-  const containerKeyEpochId = crypto.randomUUID();
+  const nextKeyEpoch = input.previous.kekState.containerKeyEpoch + 1;
+  const { containerKeyEpochId } = await createTestContainerKekMaterial({
+    containerId: previous.state.containerId,
+    keyEpoch: nextKeyEpoch,
+  });
   const body: ContainerAccessEventBody = {
     eventType: "container.rekey",
     containerKeyEpochId,
@@ -196,7 +186,7 @@ export async function buildRootContainerRekeyMutation(input: {
   };
   const keyEpoch = createRootContainerKeyEpoch({
     containerKeyEpochId,
-    keyEpoch: input.previous.kekState.containerKeyEpoch + 1,
+    keyEpoch: nextKeyEpoch,
     manifest: bundle,
   });
   const userRecipientKeys = userRecipientKeysFromKekState(

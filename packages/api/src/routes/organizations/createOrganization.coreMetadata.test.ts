@@ -2,18 +2,14 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   containerMetadataDocuments,
-  documentUpdates,
   organizationBilling,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
-  type ContainerCreateWithMetadataDocumentRequest,
   type DocumentCreateRequest,
   type DocumentSyncRequest,
   isProvisionedDocumentRequest,
   isProvisionedSystemContainerRequest,
-  type ProvisionedDocumentRequest,
-  type ProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
 import {
   isCreateOrganizationResponse,
@@ -28,21 +24,6 @@ import {
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
-
-function toLegacyDocumentRequest(
-  request: ProvisionedDocumentRequest,
-): DocumentCreateRequest {
-  const { initialSync: _initialSync, ...legacyRequest } = request;
-  return legacyRequest;
-}
-
-function toLegacyContainerRequest(
-  request: ProvisionedSystemContainerRequest,
-): ContainerCreateWithMetadataDocumentRequest {
-  const { initialMetadataSync: _initialMetadataSync, ...legacyRequest } =
-    request;
-  return legacyRequest;
-}
 
 function documentCreateRequestId(request: DocumentCreateRequest): string {
   const documentId = Reflect.get(request.event, "objectId");
@@ -168,58 +149,4 @@ test("POST /organizations atomically stores core metadata bodies readable on loc
     initialSync: organizationContainer.initialMetadataSync,
     user,
   });
-});
-
-test("POST /organizations accepts legacy core metadata without committing its bodies", async () => {
-  const user = createTestUser();
-  await registerUser(user);
-  await authenticate(user);
-  const body = await createOrganizationRequestBody(user, {
-    includeOrganizationProfileDocument: true,
-    includeRosterProfileDocument: true,
-  });
-  const rootMetadata = body.initialRootMetadataDocument;
-  const rosterContainer = body.initialRosterProfileContainer;
-  const organizationContainer = body.initialOrganizationMetadataContainer;
-  invariant(
-    isProvisionedDocumentRequest(rootMetadata),
-    "expected provisioned root metadata",
-  );
-  invariant(
-    isProvisionedSystemContainerRequest(rosterContainer),
-    "expected provisioned roster metadata",
-  );
-  invariant(
-    isProvisionedSystemContainerRequest(organizationContainer),
-    "expected provisioned organization metadata",
-  );
-  const rootUpdate = rootMetadata.initialSync.outgoingUpdates[0];
-  const rosterUpdate = rosterContainer.initialMetadataSync.outgoingUpdates[0];
-  const organizationUpdate =
-    organizationContainer.initialMetadataSync.outgoingUpdates[0];
-  invariant(rootUpdate, "expected root metadata update");
-  invariant(rosterUpdate, "expected roster metadata update");
-  invariant(organizationUpdate, "expected organization metadata update");
-  const updateIds = [rootUpdate.id, rosterUpdate.id, organizationUpdate.id];
-  body.initialRootMetadataDocument = toLegacyDocumentRequest(rootMetadata);
-  body.initialRosterProfileContainer =
-    toLegacyContainerRequest(rosterContainer);
-  body.initialOrganizationMetadataContainer = toLegacyContainerRequest(
-    organizationContainer,
-  );
-
-  const response = await submitCreateOrganization(user, body);
-
-  expect(response.status).toBe(200);
-  const responseBody = await response.json();
-  invariant(
-    isCreateOrganizationResponse(responseBody),
-    "expected provisioning body",
-  );
-  expect(responseBody.committedCoreMetadataUpdateIds).toEqual([]);
-  const storedUpdates = await db
-    .select({ id: documentUpdates.id })
-    .from(documentUpdates)
-    .where(inArray(documentUpdates.id, updateIds));
-  expect(storedUpdates).toEqual([]);
 });

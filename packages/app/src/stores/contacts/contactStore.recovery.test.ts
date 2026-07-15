@@ -5,8 +5,8 @@ import {
   defaultDocumentsPersistence,
   deletePersistedDocument,
   openDocumentStore,
+  type ResolvedUserIdentity,
   subscribeToPersistedDocuments,
-  type UserKey,
 } from "@tearleads/client-sdk";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
@@ -82,7 +82,7 @@ async function createRecoveryContactsRuntime(input: {
 }
 
 test("named recovered self contact remains under its remote local id", async () => {
-  const selfKey: UserKey = {
+  const selfKey: ResolvedUserIdentity = {
     encapsulationKeyFingerprint: "self-encapsulation-fingerprint",
     encapsulationPublicKey: "self-encapsulation-public-key",
     signingKeyFingerprint: "self-signing-fingerprint",
@@ -94,7 +94,7 @@ test("named recovered self contact remains under its remote local id", async () 
     userId: selfKey.userId,
   });
   const store = createContactsStore(runtime, {
-    fetchUserKey: async () => {
+    resolveUserIdentity: async () => {
       throw new Error("unexpected remote self key fetch");
     },
     logError: (message, cause) => {
@@ -158,7 +158,7 @@ test("late recovered self contact replaces a promoted local fallback", async () 
     userId,
   });
   const store = createContactsStore(runtime, {
-    fetchUserKey: async () => null,
+    resolveUserIdentity: async () => null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
     },
@@ -253,7 +253,7 @@ test("late recovered self contact purges a remotely synced fallback", async () =
     },
   };
   const store = createContactsStore(runtime, {
-    fetchUserKey: async () => null,
+    resolveUserIdentity: async () => null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
     },
@@ -305,7 +305,7 @@ test("late recovered self contact purges a remotely synced fallback", async () =
 });
 
 test("late self reconciliation stops after an identity lookup crosses runtimes", async () => {
-  const staleKey: UserKey = {
+  const staleKey: ResolvedUserIdentity = {
     encapsulationKeyFingerprint: "stale-encapsulation-fingerprint",
     encapsulationPublicKey: "stale-encapsulation-key",
     signingKeyFingerprint: "stale-signing-fingerprint",
@@ -313,7 +313,7 @@ test("late self reconciliation stops after an identity lookup crosses runtimes",
     userId: "stale-user",
   };
   const lookupStarted = createDeferred();
-  const lookupResult = createDeferred<UserKey | null>();
+  const lookupResult = createDeferred<ResolvedUserIdentity | null>();
   const staleRuntime = await createRecoveryContactsRuntime({
     runtimeKey: "contacts-store-stale-lookup-runtime",
     signingFingerprint: staleKey.signingKeyFingerprint,
@@ -326,7 +326,7 @@ test("late self reconciliation stops after an identity lookup crosses runtimes",
     userId: "replacement-user",
   });
   const store = createContactsStore(staleRuntime, {
-    fetchUserKey: async () => {
+    resolveUserIdentity: async () => {
       lookupStarted.resolve(undefined);
       return lookupResult.promise;
     },
@@ -377,7 +377,7 @@ test("late self reconciliation stops after an identity lookup crosses runtimes",
 });
 
 test("late self reconciliation rechecks its runtime inside the write chain", async () => {
-  const staleKey: UserKey = {
+  const staleKey: ResolvedUserIdentity = {
     encapsulationKeyFingerprint: "queued-stale-encapsulation-fingerprint",
     encapsulationPublicKey: "queued-stale-encapsulation-key",
     signingKeyFingerprint: "queued-stale-signing-fingerprint",
@@ -412,7 +412,7 @@ test("late self reconciliation rechecks its runtime inside the write chain", asy
     userId: "queued-replacement-user",
   });
   const store = createContactsStore(blockedStaleRuntime, {
-    fetchUserKey: async () => {
+    resolveUserIdentity: async () => {
       throw new Error("unexpected self key fetch");
     },
     logError: (message, cause) => {

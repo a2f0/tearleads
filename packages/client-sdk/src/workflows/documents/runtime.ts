@@ -62,7 +62,7 @@ export interface DocumentsWorkflowRuntimeInputGroups {
 export interface DocumentsWorkflowRuntimeInput
   extends DocumentsWorkflowRuntimeInputGroups {
   readonly apiClient: DocumentsWorkflowApi;
-  readonly resolveTrustedUserIdentity?: TrustedUserIdentityResolver | undefined;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
 export interface DocumentsWorkflowRuntime

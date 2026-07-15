@@ -29,7 +29,6 @@ function createRuntime(
     },
     resolveTrustedUserIdentity: async () => null,
     state: { domainScope: createDomainScope() },
-    util: { ...patch.util },
     ...patch,
   };
 }
@@ -85,7 +84,6 @@ test("document runtime normalization preserves trusted resolver identity", () =>
       online: false,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => {},
       log: () => {},
     },
   };
@@ -152,10 +150,4 @@ test("didDocumentProjectionKeyRuntimeChange tracks the live trust context", () =
       resolveTrustedUserIdentity: async () => null,
     }),
   ).toBe(true);
-  expect(
-    didDocumentProjectionKeyRuntimeChange(runtime, {
-      ...runtime,
-      util: { log: () => {} },
-    }),
-  ).toBe(false);
 });

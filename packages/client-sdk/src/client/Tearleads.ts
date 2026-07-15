@@ -33,7 +33,7 @@ import { createOrganizations, type Organizations } from "./organizations";
 import { createSession } from "./session";
 import type { Session } from "./sessionTypes";
 import { SyncBillingGate } from "./syncBillingGate";
-import { createUserKeys, type UserKeys } from "./userKeys";
+import { createUserIdentities, type UserIdentities } from "./userIdentities";
 import {
   createRuntime,
   type InternalRuntime,
@@ -88,7 +88,7 @@ export class Tearleads {
   readonly runtime: Runtime;
   readonly session: Session;
   readonly syncBillingGate: SyncBillingGate;
-  readonly userKeys: UserKeys;
+  readonly userIdentities: UserIdentities;
 
   private readonly apiClient: ApiClient;
   private readonly documentProjectors: DocumentProjectorRegistry;
@@ -172,7 +172,7 @@ export class Tearleads {
     this.containerContents = createContainerContents(runtime);
     this.deviceFirst = createDeviceFirst(runtime, this.containerContents);
     this.organizations = createOrganizations(runtime, this.containerContents);
-    this.userKeys = createUserKeys({
+    this.userIdentities = createUserIdentities({
       log: this.log,
       resolveTrustedUserIdentity: (userId) =>
         runtime.workflowInput().resolveTrustedUserIdentity(userId),

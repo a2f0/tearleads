@@ -57,12 +57,9 @@ export async function revokeOrganizationContainerGrant(input: {
     containerId: input.containerId,
     execSql: input.execSql,
     revokedSubject: input.revokedSubject,
-    resolveProjectionUserKey: createProjectionUserKeyResolver(
-      {
-        resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-      },
-      "Org Manager",
-    ),
+    resolveProjectionUserKey: createProjectionUserKeyResolver({
+      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    }),
     targetSecretKey: input.encapsulationKeyPair.secretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });

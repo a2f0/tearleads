@@ -1,7 +1,8 @@
 # Durable User Identity Trust
 
 The client SDK applies trust on first use (TOFU) to complete user identity
-bundles. `tearleads.userKeys.fetch(userId)` validates and returns canonical
+bundles. `tearleads.userIdentities.resolve(userId)` fetches the
+`/auth/user-identity/:userId` resource, validates it, and returns canonical
 ML-DSA-87 and ML-KEM-1024 public keys plus both computed SHA-256 fingerprints.
 Every signature-verification and user-recipient encryption workflow uses the
 same internal gateway; organization directory responses are never accepted as
@@ -26,7 +27,9 @@ TOFU detects server substitution after the first accepted sight in this trust
 store. It does not authenticate a malicious first response or bootstrap trust
 on a new device.
 
-Pins survive SDK recreation, ordinary logout, remote-state reset, and local
-backup restore. Restore merges pins monotonically and aborts on overlapping
-conflicts. Deliberately purging or recreating the local database resets the TOFU
-history and should be presented to users as a security reset.
+Pins survive SDK recreation, ordinary logout, remote-state reset, and
+current-format local backup restore. Restore monotonically merges identity pins,
+principal policy checkpoints, and access manifest checkpoints, and aborts on
+overlapping conflicts. Older backup formats are rejected. Deliberately purging
+or recreating the local database resets this security history and should be
+presented to users as a security reset.

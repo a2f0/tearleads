@@ -41,10 +41,11 @@ The security properties assume:
  inconsistent.
 
 The properties are relative to the authenticity of registered user identity
-keys. Signer public keys are fetched from the server by `userId` and checked
-against the fingerprint embedded in signed state. That detects response
-inconsistency, but it is not a full key-transparency or out-of-band identity
-proof.
+keys. The client fetches each complete user identity through one strict gateway,
+checks both key fingerprints, and durably pins the exact bundle by trust domain
+and `userId`. Later substitutions hard-fail, and policy verification also checks
+the signing fingerprint embedded in signed state. The first accepted response
+is still TOFU, not a key-transparency or out-of-band identity proof.
 
 ## Protocol Handshake
 
@@ -77,8 +78,8 @@ The access and policy handshake has these layers:
  access manifests.
 8. Writes commit to the verified access manifest hash and derived recipient
  target hash so stale or forged access views fail verification.
-9. The shared crypto verifier exposes local checkpoint checks for identity
- state heads, principal policy heads, and access manifest heads.
+9. Clients persist exact full-bundle identity pins and monotonic checkpoints for
+ principal policy heads and access manifest heads.
 
 ## Security Properties
 
@@ -180,11 +181,11 @@ explicit `tearleads.*.content-key-wrap.aes-256-gcm-container-kek` suites, while
 container KEK wraps use either ML-KEM-1024 plus AES-GCM for principal
 recipients or AES-GCM under the parent container KEK.
 
-For app-created container KEK epochs with a
+All container KEK epochs use a
 `tearleads.container-kek.v1.sha256:<hash>` id, clients verify that the
 decrypted KEK material matches the signed epoch id before using that KEK to
-wrap document or blob content keys. Legacy non-prefixed KEK epoch ids remain
-readable, but only prefixed ids carry this material commitment.
+wrap document or blob content keys. Non-prefixed ids are rejected because they
+do not commit to the decrypted key material.
 
 When clients use verified principal policy bundles, a forged group or
 organization policy state should fail closed before the client unwraps a
@@ -243,9 +244,11 @@ themselves, prove that the returned head is the latest head.
 
 A server that has older valid signed states can replay an older valid chain
 unless the client has an independent monotonic checkpoint, highest-seen
-version/hash pin, or transparency log. The shared verifier rejects rollbacks
-and same-version hash conflicts for identity heads, principal policy heads, and
-access manifest heads when the caller supplies the local checkpoint.
+version/hash pin, or transparency log. Production clients persist checkpoints
+and reject rollbacks or same-version hash conflicts for principal policy and
+access manifest heads. User identity trust currently uses an exact durable
+full-bundle TOFU pin: any later change to either public key, fingerprint, suite,
+or format is rejected.
 
 ### First-Contact Identity-Key Substitution
 
@@ -276,9 +279,9 @@ to the wrong recipient set.
 
 Removing a member from a signed projection does not erase keys the member
 already learned. Confidentiality after removal depends on rotating the
-principal key and rewrapping subsequent object keys to the new epoch. The
-signed state format can represent this, but validation does not enforce a
-semantic rule that removals must increase `keyEpoch`.
+principal key and rewrapping subsequent object keys to the new epoch. Policy
+validation therefore requires a membership-shrinking transition to advance the
+key epoch and change its encapsulation key.
 
 ### Transparency Requires A Pinned View Or Witnessing
 
@@ -384,14 +387,15 @@ Result: not reliably detected without prior trust in the identity key binding.
 - Principal policy bundles fetched by the app are verified before caching and
  skipped on validation failure.
 - Principal member envelopes must match the active direct signed projection.
-- Post-removal confidentiality requires principal key rotation; the protocol
- records key epochs but does not enforce rotation semantics.
+- Post-removal confidentiality requires principal key rotation; policy
+ validation enforces a new key epoch and encapsulation key on shrink.
 - Signed access manifests are the authority for object grant and document-link
  state used by key derivation.
 - Object writes commit to the verified access manifest hash and derived target
  hash.
-- Local checkpoints can detect replayed older identity, principal policy, and
- access manifest heads after a client has seen newer state.
+- Durable full-bundle identity pins detect identity changes after first use;
+ local checkpoints detect replayed or conflicting principal policy and access
+ manifest heads after a client has seen newer state.
 - First-contact key substitution, withholding, and split views without a
  pinned checkpoint, witness, or gossip peer remain outside the guarantee
  boundary.

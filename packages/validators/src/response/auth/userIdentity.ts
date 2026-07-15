@@ -1,7 +1,7 @@
 import { isPlainObject } from "../../isPlainObject";
 import { hasStringProperty, isSha256HexString } from "../../util";
 
-export interface EncapsulationKeyResponse {
+export interface UserIdentityResponse {
   userId: string;
   signingPublicKey: string;
   signingKeyFingerprint: string;
@@ -9,9 +9,9 @@ export interface EncapsulationKeyResponse {
   encapsulationKeyFingerprint: string;
 }
 
-export function isEncapsulationKeyResponse(
+export function isUserIdentityResponse(
   value: unknown,
-): value is EncapsulationKeyResponse {
+): value is UserIdentityResponse {
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "userId") &&

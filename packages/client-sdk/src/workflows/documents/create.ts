@@ -100,9 +100,17 @@ export function documentWriterProjectionFromCreateResponse(input: {
   return {
     authorizingContainerPaths: [input.containerProjection],
     contentKeyBundle: input.response.contentKeyBundle,
+    documentContainerManifestHistory: [
+      ...input.containerProjection.path,
+      ...input.containerProjection.containerKeks.flatMap(
+        (kek) => kek.containerManifestHistory,
+      ),
+    ],
     documentId: input.response.id,
     documentKekTargets: input.response.documentKekTargets,
     documentManifest: input.response.accessManifest,
+    documentManifestContainerPaths: [[...input.containerProjection.path]],
+    documentManifestHistory: [],
   };
 }
 
@@ -133,7 +141,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
   contentKeyEpoch?: number | undefined;
   documentId?: string | undefined;
   eventId?: string | undefined;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
@@ -403,7 +411,7 @@ async function adoptExistingRemoteDocument(
   input: {
     apiClient: DocumentCreateApi;
     documentId: string;
-    execSql?: ExecSql | undefined;
+    execSql: ExecSql;
     targetSecretKey: Uint8Array;
   } & ProjectionVerificationOptions,
 ): Promise<CreateRemoteDocumentResult | null> {

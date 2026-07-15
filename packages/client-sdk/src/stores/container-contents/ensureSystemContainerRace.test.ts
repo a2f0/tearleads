@@ -137,6 +137,7 @@ test("a late local system create collapses into a remotely hydrated slot", async
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql: (() => Promise.resolve([])) as ExecSql,
     },
+    resolveTrustedUserIdentity: async () => null,
     state: {
       containerId: localRoot.container.id,
       domainScope: {} as DomainScope,
@@ -144,7 +145,6 @@ test("a late local system create collapses into a remotely hydrated slot", async
       online: true,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => {},
       log: () => {},
     },
   });
@@ -264,6 +264,7 @@ test("a root-first late create rebases before its remote system slot arrives", a
         documentProjectors: defaultDocumentProjectorRegistry,
         execSql: (() => Promise.resolve([])) as ExecSql,
       },
+      resolveTrustedUserIdentity: async () => null,
       state: {
         containerId: localRoot.container.id,
         domainScope: {} as DomainScope,
@@ -271,7 +272,6 @@ test("a root-first late create rebases before its remote system slot arrives", a
         online: true,
       },
       util: {
-        cacheReferencedPrincipalPolicies: async () => {},
         log: () => {},
       },
     });

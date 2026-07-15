@@ -53,9 +53,21 @@ test("isRegistrationResponse", () => {
     rootMetadataAccessEpoch: 1,
     rootMetadataAccessStateHash: "root-access-state-hash",
     rootMetadataDocument: createDocumentCreateResponse(),
+    committedCoreMetadataUpdateIds: [],
+    committedProfileUpdateIds: [],
+    systemContainers: [],
     challenge: VALID_CHALLENGE,
   };
   expect(isRegistrationResponse(response)).toBe(true);
+  for (const key of [
+    "committedCoreMetadataUpdateIds",
+    "committedProfileUpdateIds",
+    "systemContainers",
+  ] as const) {
+    const missingAcknowledgement = { ...response };
+    Reflect.deleteProperty(missingAcknowledgement, key);
+    expect(isRegistrationResponse(missingAcknowledgement)).toBe(false);
+  }
   expect(
     isRegistrationResponse({
       ...response,

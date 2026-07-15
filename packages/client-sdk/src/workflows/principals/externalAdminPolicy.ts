@@ -4,7 +4,6 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { loadPrincipalPolicyVerificationCheckpoint } from "../../data/persistence/principalPolicyCheckpointSelection";
-import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import {
   organizationAdminSignerUserIds,
   verifyOrganizationAdminPolicy,
@@ -39,13 +38,7 @@ export async function loadOrganizationExternalAdminPolicy(input: {
     if (!bundle) {
       return null;
     }
-    const cachedBundle = await loadPrincipalPolicyBundle(
-      input.execSql,
-      "organization",
-      input.organizationId,
-    );
     const localCheckpoint = await loadPrincipalPolicyVerificationCheckpoint({
-      cachedBundle,
       execSql: input.execSql,
       principalId: input.organizationId,
       principalType: "organization",

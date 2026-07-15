@@ -44,7 +44,7 @@ export interface RemoteUserIdentityCandidate {
 }
 
 export interface RemoteUserIdentitySource {
-  invalidate?(userId: string): void;
+  invalidate(userId: string): void;
   load(userId: string): Promise<RemoteUserIdentityCandidate | null>;
 }
 

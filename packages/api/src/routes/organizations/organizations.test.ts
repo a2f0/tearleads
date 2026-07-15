@@ -44,13 +44,13 @@ import { authenticate } from "../../../test/helpers/authenticate";
 import {
   createProjectionWithAdminSigner,
   signPrincipalStateBundle,
+  storePrincipalState,
 } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
 import {
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
 } from "../../access/read/principalStateStore";
-import { storeVerifiedPrincipalState } from "../../access/write/principalStateStore";
 import { routeApp } from "../../routeApp";
 import { upsertActiveOrganizationRosterEntries } from "../../workflows/organizations/roster";
 
@@ -191,7 +191,7 @@ async function addMemberGroupUser(input: {
     signingPrivateKey: input.actor.signing.signingPrivateKey,
   });
 
-  await storeVerifiedPrincipalState(state, db);
+  await storePrincipalState(state, db);
 }
 
 function createUsageWriteHeader(input: {
@@ -656,13 +656,13 @@ test("org manager routes list the bootstrap Admins group", async () => {
       headers: { Authorization: `Bearer ${actor.token}` },
     },
   );
-
   expect(listResponse.status).toBe(200);
   const listBody = await listResponse.json();
   invariant(
     isListOrganizationGroupsResponse(listBody),
     "expected list organization groups response",
   );
+  expect(listBody.memberGroupId).toBe(organization.memberGroupId);
   expect(listBody.groups.map((group) => group.groupId)).toEqual([
     organization.adminGroupId,
   ]);

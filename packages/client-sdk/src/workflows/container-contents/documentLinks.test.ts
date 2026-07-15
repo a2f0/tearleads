@@ -14,6 +14,7 @@ import {
   createAuthor,
   createLinkSetResponseFromRequest,
   createResponse,
+  writerProjectionEvidence,
 } from "../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
@@ -80,6 +81,7 @@ test("relinkRemoteContainerDocument persists linked container projections after 
     const writerProjection: DocumentWriterProjectionResponse = {
       authorizingContainerPaths: [rootProjection],
       contentKeyBundle: createdResponse.contentKeyBundle,
+      ...writerProjectionEvidence([rootProjection], []),
       documentId: createdResponse.id,
       documentKekTargets: createdResponse.documentKekTargets,
       documentManifest: createdResponse.accessManifest,
@@ -106,6 +108,7 @@ test("relinkRemoteContainerDocument persists linked container projections after 
             documentId === writerProjection.documentId
               ? writerProjection
               : null,
+          getCurrentPrincipalPolicy: async () => null,
           primeDocumentWriterProjection: () => {},
           linkDocument: async (documentId, request) => {
             submittedRequests.push(request);
@@ -142,7 +145,6 @@ test("relinkRemoteContainerDocument persists linked container projections after 
           online: true,
         },
         util: {
-          cacheReferencedPrincipalPolicies: async () => undefined,
           log: () => undefined,
         },
       },
@@ -212,6 +214,7 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
     let writerProjection: DocumentWriterProjectionResponse = {
       authorizingContainerPaths: [rootProjection],
       contentKeyBundle: createdResponse.contentKeyBundle,
+      ...writerProjectionEvidence([rootProjection], []),
       documentId: createdResponse.id,
       documentKekTargets: createdResponse.documentKekTargets,
       documentManifest: createdResponse.accessManifest,
@@ -248,6 +251,7 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
             documentId === writerProjection.documentId
               ? writerProjection
               : null,
+          getCurrentPrincipalPolicy: async () => null,
           primeDocumentWriterProjection: () => {},
           linkDocument: async (documentId, request) => {
             submittedRequests.push({
@@ -267,10 +271,16 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
             writerProjection = {
               authorizingContainerPaths: [rootProjection, siblingProjection],
               contentKeyBundle: response.contentKeyBundle,
+              ...writerProjectionEvidence(
+                [rootProjection, siblingProjection],
+                [
+                  writerProjection.documentManifest,
+                  ...writerProjection.documentManifestHistory,
+                ],
+              ),
               documentId: response.id,
               documentKekTargets: response.documentKekTargets,
               documentManifest: response.accessManifest,
-              documentManifestHistory: [createdResponse.accessManifest],
             };
             return response;
           },
@@ -292,6 +302,13 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
             writerProjection = {
               authorizingContainerPaths: [siblingProjection],
               contentKeyBundle: response.contentKeyBundle,
+              ...writerProjectionEvidence(
+                [rootProjection, siblingProjection],
+                [
+                  writerProjection.documentManifest,
+                  ...writerProjection.documentManifestHistory,
+                ],
+              ),
               documentId: response.id,
               documentKekTargets: response.documentKekTargets,
               documentManifest: response.accessManifest,
@@ -326,7 +343,6 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
           online: true,
         },
         util: {
-          cacheReferencedPrincipalPolicies: async () => undefined,
           log: () => undefined,
         },
       },
@@ -446,7 +462,6 @@ test("relinkRemoteContainerDocument propagates identity failures without soft-fa
             online: true,
           },
           util: {
-            cacheReferencedPrincipalPolicies: async () => undefined,
             log: (message: string) => logs.push(message),
           },
         } as unknown as Parameters<

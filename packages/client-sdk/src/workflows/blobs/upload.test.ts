@@ -425,9 +425,17 @@ test("uploadDocumentAttachment rejects substituted KEK material before staging",
   const writerProjection: DocumentWriterProjectionResponse = {
     authorizingContainerPaths: [tamperedProjection],
     contentKeyBundle: response.contentKeyBundle,
+    documentContainerManifestHistory: [
+      ...tamperedProjection.path,
+      ...tamperedProjection.containerKeks.flatMap(
+        (kek) => kek.containerManifestHistory,
+      ),
+    ],
     documentId: response.id,
     documentKekTargets: response.documentKekTargets,
     documentManifest: response.accessManifest,
+    documentManifestContainerPaths: [[...tamperedProjection.path]],
+    documentManifestHistory: [],
   };
   let stageCalled = false;
   let bindCalled = false;

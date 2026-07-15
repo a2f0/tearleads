@@ -29,7 +29,7 @@ export interface ContainerKekResponse {
   keyEpochHash: string;
   keyTargetHash: string;
   parentContainerKeyEpochId: string | null;
-  containerManifestHistory?: AccessManifestBundleWireResponse[];
+  containerManifestHistory: AccessManifestBundleWireResponse[];
   recipientTargets: Record<string, unknown>[];
   wraps: Record<string, unknown>[];
 }
@@ -73,7 +73,7 @@ export interface ContainerSummary {
   metadataDocumentId: string;
   metadataAccessEpoch: number;
   metadataAccessStateHash: string;
-  metadataReferencedPrincipals?: ReferencedPrincipalStateResponse[];
+  metadataReferencedPrincipals: ReferencedPrincipalStateResponse[];
   updatedAt: string;
 }
 
@@ -119,9 +119,8 @@ function isContainerSummary(value: unknown): value is ContainerSummary {
     typeof metadataAccessStateHash === "string" &&
     metadataAccessStateHash.length > 0 &&
     hasStringProperty(value, "updatedAt") &&
-    (metadataReferencedPrincipals === undefined ||
-      (Array.isArray(metadataReferencedPrincipals) &&
-        metadataReferencedPrincipals.every(isReferencedPrincipalStateResponse)))
+    Array.isArray(metadataReferencedPrincipals) &&
+    metadataReferencedPrincipals.every(isReferencedPrincipalStateResponse)
   );
 }
 
@@ -190,9 +189,8 @@ function isContainerKekResponse(value: unknown): value is ContainerKekResponse {
     hasStringProperty(value, "keyTargetHash") &&
     value.keyTargetHash.length > 0 &&
     hasNullableStringProperty(value, "parentContainerKeyEpochId") &&
-    (containerManifestHistory === undefined ||
-      (Array.isArray(containerManifestHistory) &&
-        containerManifestHistory.every(isAccessManifestBundleWireResponse))) &&
+    Array.isArray(containerManifestHistory) &&
+    containerManifestHistory.every(isAccessManifestBundleWireResponse) &&
     isRecordArray(recipientTargets) &&
     recipientTargets.length > 0 &&
     isRecordArray(wraps) &&

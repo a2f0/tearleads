@@ -28,6 +28,7 @@ import type {
 } from "../../keyingProjectionVerification";
 import { requireProjectionUserKeyResolver } from "../../keyingProjectionVerification";
 import type { DocumentRecord } from "../../sqlite/documentPersistence";
+import type { ExecSql } from "../../sqlite/sqlSchema";
 
 export const DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT =
   "tearleads.document.loro-update";
@@ -60,10 +61,12 @@ export type ProjectionVerificationOptions =
   ProjectionPrincipalPolicyWarmOptions &
     (
       | {
+          readonly execSql: ExecSql;
           readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
           readonly trustedLocalProjection?: undefined;
         }
       | {
+          readonly execSql?: ExecSql | undefined;
           readonly resolveProjectionUserKey?: undefined;
           readonly trustedLocalProjection: true;
         }
@@ -108,12 +111,19 @@ export function projectionVerificationOptions(
       );
     }
     return {
+      execSql: input.execSql,
       ...policyWarmer,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
     };
   }
   if (input.trustedLocalProjection === true) {
-    return { ...policyWarmer, trustedLocalProjection: true };
+    return input.execSql
+      ? {
+          execSql: input.execSql,
+          ...policyWarmer,
+          trustedLocalProjection: true,
+        }
+      : { ...policyWarmer, trustedLocalProjection: true };
   }
 
   throw new Error(

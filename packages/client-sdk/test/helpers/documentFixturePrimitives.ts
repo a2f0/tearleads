@@ -44,6 +44,7 @@ export async function createProjection(): Promise<ContainerWriterProjectionRespo
         keyEpochHash,
         keyTargetHash,
         parentContainerKeyEpochId: null,
+        containerManifestHistory: [],
         recipientTargets: [{}],
         wraps: [{}],
       },

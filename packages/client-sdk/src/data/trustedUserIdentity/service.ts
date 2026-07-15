@@ -168,7 +168,7 @@ export function createTrustedUserIdentityService(
         }
         return await pinIdentity({ dependencies, execSql, identity });
       } catch (error) {
-        dependencies.remoteSource.invalidate?.(userId);
+        dependencies.remoteSource.invalidate(userId);
         throw error;
       }
     },

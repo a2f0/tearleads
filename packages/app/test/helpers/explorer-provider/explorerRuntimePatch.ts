@@ -9,7 +9,6 @@ export function runtimeWithPatch(
   patch: ExplorerRuntimePatch,
 ): TestRuntime {
   const {
-    cacheReferencedPrincipalPolicies,
     dbStatus,
     encapsulationKeyPair,
     isAuthenticated,
@@ -40,7 +39,7 @@ export function runtimeWithPatch(
     createTestRuntimeTrustedUserIdentityResolver({
       encapsulationPublicKey: crypto.encapsulationKeyPair?.publicKey ?? null,
       loadRemoteIdentity: (requestedUserId) =>
-        apiClient.getEncapsulationKey(requestedUserId),
+        apiClient.getUserIdentity(requestedUserId),
       localUserId: auth.userId,
       signingKeyFingerprint: crypto.signingFingerprint,
       signingPublicKey: crypto.signingKeyPair?.signingPublicKey ?? null,
@@ -66,9 +65,6 @@ export function runtimeWithPatch(
     util: {
       ...runtime.util,
       ...groupedPatch.util,
-      ...(cacheReferencedPrincipalPolicies === undefined
-        ? {}
-        : { cacheReferencedPrincipalPolicies }),
     },
   };
 }
