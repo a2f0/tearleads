@@ -131,7 +131,7 @@ function useExplorerNewContactToolbarAction({
                 model.openInlineDocument(activeContainerId, "contact");
               }
             },
-            priority: 100,
+            priority: 400,
           }
         : null,
     [
@@ -236,7 +236,7 @@ function useExplorerCreateFolderToolbarAction({
                 model.modalState.openCreateChildModal(activeContainerId);
               }
             },
-            priority: 300,
+            priority: 200,
           }
         : null,
     [
@@ -276,7 +276,7 @@ function useExplorerUploadToolbarAction({
                 triggerUpload(activeContainerId);
               }
             },
-            priority: 200,
+            priority: 300,
           }
         : null,
     [
@@ -311,7 +311,7 @@ function useExplorerNewDocumentToolbarAction({
             id: "explorer-new-structured-document-toolbar",
             label: EXPLORER_LABELS.newStructuredDocumentAction,
             onClick: openStructuredDocumentGrid,
-            priority: 100,
+            priority: 400,
           }
         : null,
     [
@@ -347,7 +347,7 @@ function useExplorerContainerInfoToolbarAction({
                 model.routeState.openContainerInfoRoute(activeContainerId);
               }
             },
-            priority: 400,
+            priority: 100,
           }
         : null,
     [activeContainerId, model.routeState.openContainerInfoRoute, show],
