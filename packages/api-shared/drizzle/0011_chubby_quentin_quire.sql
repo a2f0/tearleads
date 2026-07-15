@@ -1,2 +1,0 @@
-ALTER TABLE "documents" ADD COLUMN "attribution_revision" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
-ALTER TABLE "documents" ADD COLUMN "attribution_incarnation" uuid DEFAULT gen_random_uuid() NOT NULL;

@@ -2,7 +2,7 @@ import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 
 const BACKUP_FILE_FORMAT = "tearleads.local-backup.encrypted";
 export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
-export const BACKUP_FORMAT_VERSION = 1;
+export const BACKUP_FORMAT_VERSION = 2;
 
 const BACKUP_KDF_ITERATIONS = 250_000;
 const BACKUP_KDF_MIN_ITERATIONS = 1_000;

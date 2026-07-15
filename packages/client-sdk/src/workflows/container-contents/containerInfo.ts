@@ -163,7 +163,7 @@ function getContainerInfoPathEntries(
       keyEpochHash: kek.keyEpochHash,
       keyTargetHash: kek.keyTargetHash,
       manifestHash: bundle.manifestHash,
-      manifestHistoryCount: kek.containerManifestHistory?.length ?? 0,
+      manifestHistoryCount: kek.containerManifestHistory.length,
       parentContainerId: state.parentContainerId,
       parentManifestHash: state.parentManifestHash,
       recipientTargetCount: kek.recipientTargets.length,

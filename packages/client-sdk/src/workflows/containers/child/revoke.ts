@@ -46,10 +46,7 @@ import type {
   MaterializedContainerRevokePlan,
 } from "../../../data/containers/shared/types";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
-import {
-  type ProjectionVerificationOptions,
-  projectionVerificationOptions,
-} from "../../../data/documents/shared/types";
+import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import {
   readCanonicalRecord,
   readCanonicalRecords,
@@ -226,7 +223,7 @@ async function buildRevocationWraps(input: {
 }
 
 async function collectContainerRevokePrincipalPolicies(input: {
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   previousProjection: ContainerWriterProjectionResponse;
   resolveUserKey: ProjectionUserKeyResolver;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
@@ -291,19 +288,19 @@ function buildContainerRevokePlanResult(input: {
 }
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Revoke planning has to keep the manifest, KEK, wraps, and signed event in one auditable transition.
-export async function buildMaterializedContainerRevokePlan(
-  input: {
-    author: ContainerMutationAuthor;
-    containerKey?: Uint8Array | undefined;
-    containerKeyEpochId?: string | undefined;
-    eventId?: string | undefined;
-    execSql?: ExecSql | undefined;
-    previousProjection: ContainerWriterProjectionResponse;
-    revokedSubject: ContainerRevokeSubject;
-    signedAt?: string | undefined;
-    targetSecretKey: Uint8Array;
-  } & ProjectionVerificationOptions,
-): Promise<MaterializedContainerRevokePlan> {
+export async function buildMaterializedContainerRevokePlan(input: {
+  author: ContainerMutationAuthor;
+  containerKey?: Uint8Array | undefined;
+  containerKeyEpochId?: string | undefined;
+  eventId?: string | undefined;
+  execSql: ExecSql;
+  previousProjection: ContainerWriterProjectionResponse;
+  revokedSubject: ContainerRevokeSubject;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  signedAt?: string | undefined;
+  targetSecretKey: Uint8Array;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
+}): Promise<MaterializedContainerRevokePlan> {
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
     "Remote container revoke",

@@ -105,7 +105,6 @@ function createMoveIntentSyncState(input: {
         online: true,
       },
       util: {
-        cacheReferencedPrincipalPolicies: async () => {},
         log: () => {},
       },
     },

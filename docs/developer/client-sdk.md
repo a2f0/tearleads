@@ -99,7 +99,7 @@ Client capabilities:
 | `tearleads.containerContents` | container tree, document queries/links, discovery, diagnostics, and runtime composition |
 | `tearleads.deviceFirst` | device-first local projection view (instant cached tree + document summaries) and the background reconciler that syncs remote state into it |
 | `tearleads.organizations` | organization administration and directory operations |
-| `tearleads.userKeys` | pinned user identity bundles for cryptographic workflows |
+| `tearleads.userIdentities` | pinned user identity bundles for cryptographic workflows |
 
 Prefer these instance services over constructing workflow runtimes directly
 from host code. The SDK keeps workflow cache scope aligned with the active

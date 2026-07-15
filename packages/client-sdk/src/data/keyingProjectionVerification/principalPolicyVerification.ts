@@ -83,10 +83,6 @@ async function loadOrganizationExternalAdminSignerUserIds(input: {
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<string[]> {
   const execSql = input.checkpointContext.execSql;
-  if (!execSql) {
-    return [];
-  }
-
   let bundle = await loadPrincipalPolicyBundle(
     execSql,
     "organization",
@@ -159,13 +155,11 @@ async function verifyReferencedPrincipalPolicy(input: {
   const cacheKey = referencedPrincipalPolicyKey(input.reference);
   const cachedPolicy = input.principalPolicyCache.get(cacheKey);
   const execSql = input.checkpointContext.execSql;
-  const localCheckpoint = execSql
-    ? await loadPrincipalPolicyCheckpoint(
-        execSql,
-        input.reference.principalType,
-        input.reference.principalId,
-      )
-    : null;
+  const localCheckpoint = await loadPrincipalPolicyCheckpoint(
+    execSql,
+    input.reference.principalType,
+    input.reference.principalId,
+  );
   if (
     cachedPolicy &&
     principalPolicyHeadMeetsCheckpoint(cachedPolicy, localCheckpoint)
@@ -175,12 +169,6 @@ async function verifyReferencedPrincipalPolicy(input: {
   }
 
   const referenceLabel = principalPolicyReferenceLabel(input.reference);
-  if (!execSql) {
-    throw new Error(
-      `Principal policy ${referenceLabel} requires a verified local cache`,
-    );
-  }
-
   let bundle = await loadPrincipalPolicyBundle(
     execSql,
     input.reference.principalType,
@@ -250,10 +238,7 @@ export async function collectReferencedPrincipalPolicies(input: {
   // Warm every missing reference in one batched fetch before verifying, so a
   // path that references several uncached policies makes a single round of
   // requests rather than one per reference.
-  if (
-    input.warmReferencedPrincipalPolicies &&
-    input.checkpointContext.execSql
-  ) {
+  if (input.warmReferencedPrincipalPolicies) {
     const uncached = await filterUncachedPrincipalPolicyReferences({
       execSql: input.checkpointContext.execSql,
       principalPolicyCache: input.principalPolicyCache,

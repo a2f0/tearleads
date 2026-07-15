@@ -12,11 +12,9 @@ import type { AccessManifestBundleWireResponse } from "@tearleads/validators/res
 import {
   createContainerRevokeManifestFixture,
   createParentProjection,
-  createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { unwrapContainerKekPath } from "../../documents/shared/containerKekPath";
-import { verifyContainerWriterProjection } from "../../keyingProjectionVerification";
 import { enforceAccessManifestCheckpoints } from "../../keyingProjectionVerification/accessManifestCheckpointEnforcement";
 import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpointPersistence";
 
@@ -59,6 +57,7 @@ test("hidden future history cannot bypass a persisted projection head", async ()
   try {
     await enforceAccessManifestCheckpoints({
       execSql,
+      policies: [],
       verifiedHeads: [epoch2],
       verifiedManifests: [epoch2],
     });
@@ -174,24 +173,8 @@ test("a valid same-epoch projection fork hard-fails before unwrap", async () => 
   }
 });
 
-test("remote projection verification requires durable storage unless local trust is explicit", async () => {
+test("explicit local projection trust does not require durable storage", async () => {
   const parent = await createParentProjection();
-
-  await expect(
-    unwrapContainerKekPath({
-      projection: parent.projection,
-      resolveProjectionUserKey: async (userId) =>
-        userId === parent.userId
-          ? createTestTrustedUserIdentity({
-              encapsulationPublicKey: parent.encapsulationPublicKey,
-              signingKeyFingerprint: parent.author.signerKeyFingerprint,
-              signingPublicKey: parent.signingPublicKey,
-              userId,
-            })
-          : null,
-      secretKey: parent.secretKey,
-    }),
-  ).rejects.toMatchObject({ code: "missing_dependency" });
 
   await expect(
     unwrapContainerKekPath({
@@ -200,17 +183,4 @@ test("remote projection verification requires durable storage unless local trust
       trustedLocalProjection: true,
     }),
   ).resolves.toBeInstanceOf(Map);
-});
-
-test("the low-level remote verifier cannot use the local trust escape hatch", async () => {
-  const parent = await createParentProjection();
-  const bypassAttempt = {
-    projection: parent.projection,
-    resolveUserKey: createParentProjectionUserKeyResolver(parent),
-    trustedLocalProjection: true,
-  } as unknown as Parameters<typeof verifyContainerWriterProjection>[0];
-
-  await expect(
-    verifyContainerWriterProjection(bypassAttempt),
-  ).rejects.toMatchObject({ code: "missing_dependency" });
 });

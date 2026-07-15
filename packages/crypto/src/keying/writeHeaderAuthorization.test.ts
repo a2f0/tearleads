@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { fixtureContainerKekMaterialId } from "./containerKekMaterial.testFixtures";
 import {
   computeBlobAccessManifestHash,
   computeDocumentContentKeyTargetHash,
@@ -28,7 +29,9 @@ test("write headers prove blob write access through derived attachment targets",
   const documentId = "blob-write-document";
   const container = await createContainerManifestFixture({
     containerId: "blob-write-container",
-    containerKeyEpochId: "blob-write-container-key-1",
+    containerKeyEpochId: await fixtureContainerKekMaterialId(
+      "blob-write-container-key-1",
+    ),
     directGrants: [
       {
         subjectType: "user",
@@ -167,7 +170,9 @@ test("write header authorization covers every linked container target and histor
   const documentId = "document-multi-link";
   const writeContainer = await createContainerManifestFixture({
     containerId: "container-multi-write",
-    containerKeyEpochId: "container-multi-write-key-1",
+    containerKeyEpochId: await fixtureContainerKekMaterialId(
+      "container-multi-write-key-1",
+    ),
     directGrants: [
       {
         subjectType: "user",
@@ -179,7 +184,9 @@ test("write header authorization covers every linked container target and histor
   });
   const readContainer = await createContainerManifestFixture({
     containerId: "container-multi-read",
-    containerKeyEpochId: "container-multi-read-key-1",
+    containerKeyEpochId: await fixtureContainerKekMaterialId(
+      "container-multi-read-key-1",
+    ),
     directGrants: [
       {
         subjectType: "user",
@@ -311,7 +318,9 @@ test("write header authorization covers every linked container target and histor
 
   const laterWriteContainer = await createContainerManifestFixture({
     containerId: writeContainer.state.containerId,
-    containerKeyEpochId: "container-multi-write-key-2",
+    containerKeyEpochId: await fixtureContainerKekMaterialId(
+      "container-multi-write-key-2",
+    ),
     directGrants: [
       {
         subjectType: "user",

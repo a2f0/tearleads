@@ -115,7 +115,6 @@ test("container create sync propagates identity failures without recording a ret
         online: true,
       },
       util: {
-        cacheReferencedPrincipalPolicies: async () => {},
         log: () => {},
       },
     },

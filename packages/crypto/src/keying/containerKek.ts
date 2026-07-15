@@ -1,8 +1,7 @@
-import { bytesToBase64 } from "@tearleads/encoding";
-import { isSha256HexString } from "@tearleads/validators/util";
 import { normalizeReferencedPrincipalHead } from "./accessEvent";
 import { computeKeyingDomainHash } from "./canonical";
 import { principalPolicyMatchesReference } from "./containerAccess";
+import { isContainerKekMaterialId } from "./containerKekMaterial";
 import {
   assertExactKeys,
   normalizeKekRecipientKind,
@@ -32,10 +31,12 @@ import type {
   VerifiedPrincipalPolicy,
   VerifyContainerKekStateInput,
 } from "./types";
-import {
-  CONTAINER_KEK_MATERIAL_ID_PREFIX,
-  makeVerifiedContainerKekState,
-} from "./types";
+import { makeVerifiedContainerKekState } from "./types";
+
+export {
+  computeContainerKekMaterialId,
+  isContainerKekMaterialId,
+} from "./containerKekMaterial";
 
 function normalizeContainerKeyEpoch(value: unknown): ContainerKeyEpoch {
   const record = assertExactKeys(
@@ -187,37 +188,6 @@ export async function computeContainerKeyEpochHash(
   return computeKeyingDomainHash(
     "tearleads.keying.container-key-epoch",
     payload,
-  );
-}
-
-export async function computeContainerKekMaterialId(input: {
-  readonly containerId: string;
-  readonly keyEpoch: number;
-  readonly keyMaterial: Uint8Array;
-}): Promise<`${typeof CONTAINER_KEK_MATERIAL_ID_PREFIX}${string}`> {
-  if (input.keyMaterial.byteLength !== 32) {
-    throw new Error("Container KEK material must be 32 bytes");
-  }
-
-  const materialHash = await computeKeyingDomainHash(
-    "tearleads.keying.container-kek-material-id",
-    {
-      version: 1,
-      containerId: input.containerId,
-      keyEpoch: input.keyEpoch,
-      keyMaterial: bytesToBase64(input.keyMaterial),
-    },
-  );
-  return `${CONTAINER_KEK_MATERIAL_ID_PREFIX}${materialHash}`;
-}
-
-export function isContainerKekMaterialId(value: string): boolean {
-  if (!value.startsWith(CONTAINER_KEK_MATERIAL_ID_PREFIX)) {
-    return false;
-  }
-
-  return isSha256HexString(
-    value.slice(CONTAINER_KEK_MATERIAL_ID_PREFIX.length),
   );
 }
 
@@ -532,6 +502,13 @@ function assertContainerKeyEpochMatchesManifest(input: {
     throwVerification(
       "missing_dependency",
       "container KEK state requires a container key epoch id",
+    );
+  }
+
+  if (!isContainerKekMaterialId(containerKeyEpochId)) {
+    throwVerification(
+      "invalid_shape",
+      "container KEK state requires a material-committing container key epoch id",
     );
   }
 

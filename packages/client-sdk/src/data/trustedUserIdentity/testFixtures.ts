@@ -1,5 +1,5 @@
 import { base64ToBytes } from "@tearleads/encoding";
-import type { EncapsulationKeyResponse } from "@tearleads/validators/response";
+import type { UserIdentityResponse } from "@tearleads/validators/response";
 import {
   brandTrustedUserIdentity,
   type TrustedUserIdentity,
@@ -36,7 +36,7 @@ export function createTestTrustedUserIdentityResolver(
 }
 
 export function trustedUserIdentityFromResponse(
-  response: EncapsulationKeyResponse,
+  response: UserIdentityResponse,
 ): TrustedUserIdentity {
   return createTestTrustedUserIdentity({
     encapsulationKeyFingerprint: response.encapsulationKeyFingerprint,
@@ -49,7 +49,7 @@ export function trustedUserIdentityFromResponse(
 
 /** Test-only adapter for lower-level workflow runtimes backed by mock APIs. */
 export function createMockApiTrustedUserIdentityResolver(
-  loadIdentity: (userId: string) => Promise<EncapsulationKeyResponse | null>,
+  loadIdentity: (userId: string) => Promise<UserIdentityResponse | null>,
 ): TrustedUserIdentityResolver {
   return async (userId) => {
     const response = await loadIdentity(userId);

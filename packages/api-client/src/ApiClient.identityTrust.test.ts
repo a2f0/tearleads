@@ -16,7 +16,7 @@ testApiClient(
       "Local identity does not match its durable pin",
     );
     server.use(
-      http.get(`${apiBaseUrl}/auth/encapsulation-key/:userId`, () =>
+      http.get(`${apiBaseUrl}/auth/user-identity/:userId`, () =>
         HttpResponse.json(
           { error: "Session expired" },
           { status: 401, statusText: "Unauthorized" },
@@ -30,6 +30,6 @@ testApiClient(
       throw mismatch;
     });
 
-    await expect(client.getEncapsulationKey("user-1")).rejects.toBe(mismatch);
+    await expect(client.getUserIdentity("user-1")).rejects.toBe(mismatch);
   },
 );

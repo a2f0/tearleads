@@ -218,12 +218,16 @@ export async function resolveContainerKekEpochId(input: {
   keyMaterial: Uint8Array;
   override?: string | undefined;
 }): Promise<string> {
-  return (
-    input.override ??
-    (await computeContainerKekMaterialId({
-      containerId: input.containerId,
-      keyEpoch: input.keyEpoch,
-      keyMaterial: input.keyMaterial,
-    }))
-  );
+  const materialId = await computeContainerKekMaterialId({
+    containerId: input.containerId,
+    keyEpoch: input.keyEpoch,
+    keyMaterial: input.keyMaterial,
+  });
+  if (input.override !== undefined && input.override !== materialId) {
+    throw new Error(
+      "Container key epoch id does not match the committed KEK material",
+    );
+  }
+
+  return materialId;
 }

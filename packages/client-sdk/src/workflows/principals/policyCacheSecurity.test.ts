@@ -24,7 +24,7 @@ test("principal policy cache preserves trusted identity integrity failures", asy
       cacheReferencedPolicies({
         execSql,
         getCurrentPrincipalPolicy: async () => bundle,
-        getEncapsulationKey: async () => {
+        getUserIdentity: async () => {
           throw integrityError;
         },
         references: [referencedPrincipalStateFromBundle(bundle)],

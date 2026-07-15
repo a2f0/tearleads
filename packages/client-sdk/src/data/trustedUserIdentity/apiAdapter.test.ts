@@ -4,21 +4,19 @@ import { createApiUserIdentitySource } from "./apiAdapter";
 
 type IdentityApi = Pick<
   ApiClient,
-  | "evictEncapsulationKey"
-  | "getEncapsulationKey"
-  | "getEncapsulationKeyRequestFailure"
+  "evictUserIdentity" | "getUserIdentity" | "getUserIdentityRequestFailure"
 >;
 
 function failedIdentityApi(kind: "http" | "json" | "shape"): IdentityApi {
   return {
-    evictEncapsulationKey: () => undefined,
-    getEncapsulationKey: async () => null,
-    getEncapsulationKeyRequestFailure: () => ({
+    evictUserIdentity: () => undefined,
+    getUserIdentity: async () => null,
+    getUserIdentityRequestFailure: () => ({
       kind,
       message: "request failed",
       method: "GET",
       ok: false,
-      path: "/auth/encapsulation-key/user-1",
+      path: "/auth/user-identity/user-1",
       report: () => undefined,
       status: kind === "http" ? 404 : 200,
       statusText: kind === "http" ? "Not Found" : "OK",
@@ -44,10 +42,10 @@ test("identity API adapter delegates scoped cache invalidation", () => {
   const evicted: string[] = [];
   const source = createApiUserIdentitySource({
     ...failedIdentityApi("http"),
-    evictEncapsulationKey: (userId) => evicted.push(userId),
+    evictUserIdentity: (userId) => evicted.push(userId),
   });
 
-  source.invalidate?.("user-1");
+  source.invalidate("user-1");
 
   expect(evicted).toEqual(["user-1"]);
 });

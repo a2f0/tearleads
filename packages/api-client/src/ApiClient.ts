@@ -30,7 +30,6 @@ import {
   type DocumentCreateResponse,
   type DocumentSyncResponse,
   type DocumentWriterProjectionResponse,
-  type EncapsulationKeyResponse,
   isBlobAttachmentBindResponse,
   isBlobAttachmentDetachResponse,
   isBlobUploadCapabilitiesResponse,
@@ -50,7 +49,6 @@ import {
   isDocumentPurgeResponse,
   isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
-  isEncapsulationKeyResponse,
   isHealthResponse,
   isInitiateMultipartBlobStageResponse,
   isKeyPackageBackupResponse,
@@ -74,12 +72,14 @@ import {
   isRegistrationResponse,
   isStageBlobResponse,
   isUploadMultipartBlobPartResponse,
+  isUserIdentityResponse,
   isVerifyResponse,
   type KeyPackageBackupResponse,
   type ListContainerDocumentsResponse,
   type ListContainersResponse,
   type ListDocumentAttachmentsResponse,
   type ListOrganizationGroupsResponse,
+  type UserIdentityResponse,
 } from "@tearleads/validators/response";
 import { hasStringProperty } from "@tearleads/validators/util";
 import { BoundedCache } from "./ApiCache";
@@ -162,8 +162,8 @@ export class ApiClient {
     new BoundedCache<Promise<ListDocumentAttachmentsResponse | null>>();
   private readonly documentAttributionRequests =
     new DocumentAttributionRequests((...args) => this.request(...args));
-  private readonly encapsulationKeyRequestsByUserId = new BoundedCache<
-    Promise<EncapsulationKeyResponse | null>
+  private readonly userIdentityRequestsByUserId = new BoundedCache<
+    Promise<UserIdentityResponse | null>
   >();
   private readonly organizationGroupRequestsByOrganizationId = new BoundedCache<
     Promise<ListOrganizationGroupsResponse | null>
@@ -188,7 +188,7 @@ export class ApiClient {
     this.documentAttributionRequests.clear();
     this.containerWriterProjectionRequestsByContainerId.clear();
     this.documentWriterProjectionRequestsByDocumentId.clear();
-    this.encapsulationKeyRequestsByUserId.clear();
+    this.userIdentityRequestsByUserId.clear();
     this.organizationGroupRequestsByOrganizationId.clear();
   }
 
@@ -201,8 +201,8 @@ export class ApiClient {
     this.documentWriterProjectionRequestsByDocumentId.clear();
   }
 
-  evictEncapsulationKey(userId: string): void {
-    this.encapsulationKeyRequestsByUserId.delete(userId);
+  evictUserIdentity(userId: string): void {
+    this.userIdentityRequestsByUserId.delete(userId);
   }
 
   /**
@@ -718,20 +718,20 @@ export class ApiClient {
     return response?.authenticated ? response : null;
   }
 
-  getEncapsulationKey(userId: string) {
-    return cachedRequest(this.encapsulationKeyRequestsByUserId, userId, () =>
+  getUserIdentity(userId: string) {
+    return cachedRequest(this.userIdentityRequestsByUserId, userId, () =>
       this.request(
-        `/auth/encapsulation-key/${pathSegment(userId)}`,
-        isEncapsulationKeyResponse,
+        `/auth/user-identity/${pathSegment(userId)}`,
+        isUserIdentityResponse,
         "GET",
       ),
     );
   }
 
-  getEncapsulationKeyRequestFailure(userId: string) {
+  getUserIdentityRequestFailure(userId: string) {
     return this.getRequestFailure({
       method: "GET",
-      path: `/auth/encapsulation-key/${pathSegment(userId)}`,
+      path: `/auth/user-identity/${pathSegment(userId)}`,
     });
   }
 

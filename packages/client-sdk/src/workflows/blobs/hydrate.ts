@@ -31,7 +31,7 @@ interface HydratedDocumentAttachmentBlob {
 interface DocumentAttachmentHydrationContext {
   apiClient: DocumentAttachmentHydrationApi;
   documentId: string;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   localBlobIdBySlotId?:
     | Readonly<Record<string, string | null | undefined>>
     | undefined;

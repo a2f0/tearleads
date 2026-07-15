@@ -18,7 +18,6 @@ export async function createSqlRuntimeBase(
 ): Promise<SharedSqlRuntimeBase> {
   const { close, execSql } = await createTestExecSql(key);
   const blobStore = createMemoryBlobStore();
-  const cacheReferencedPrincipalPolicies = async () => {};
   const domainScope = createDomainScope();
   const log = () => {};
 
@@ -40,6 +39,7 @@ export async function createSqlRuntimeBase(
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql,
     },
+    resolveTrustedUserIdentity: async () => null,
     state: {
       containerId: null,
       domainScope,
@@ -47,7 +47,6 @@ export async function createSqlRuntimeBase(
       online: false,
     },
     util: {
-      cacheReferencedPrincipalPolicies,
       log,
     },
   };

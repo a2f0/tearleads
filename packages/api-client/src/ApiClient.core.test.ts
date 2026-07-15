@@ -3,7 +3,7 @@ import { HttpResponse, http } from "msw";
 import {
   createContainerMutationRequest,
   createDocumentSyncRequest,
-  createEncapsulationKeyResponse,
+  createUserIdentityResponse,
 } from "../test/helpers/apiClientTestFactories";
 import {
   apiBaseUrl,
@@ -78,11 +78,11 @@ testApiClient("escapes dynamic route path segments", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(
     http.get(
-      `${apiBaseUrl}/auth/encapsulation-key/:userId`,
+      `${apiBaseUrl}/auth/user-identity/:userId`,
       async ({ request }) => {
         calls.push(await captureHttpCall(request));
         return HttpResponse.json(
-          createEncapsulationKeyResponse("user/id with space"),
+          createUserIdentityResponse("user/id with space"),
         );
       },
     ),
@@ -90,65 +90,62 @@ testApiClient("escapes dynamic route path segments", async () => {
 
   const client = new ApiClient(apiBaseUrl);
 
-  await expect(
-    client.getEncapsulationKey("user/id with space"),
-  ).resolves.toEqual(createEncapsulationKeyResponse("user/id with space"));
+  await expect(client.getUserIdentity("user/id with space")).resolves.toEqual(
+    createUserIdentityResponse("user/id with space"),
+  );
 
   expect(calls[0]?.url).toBe(
-    `${apiBaseUrl}/auth/encapsulation-key/user%2Fid%20with%20space`,
+    `${apiBaseUrl}/auth/user-identity/user%2Fid%20with%20space`,
   );
 });
 
-testApiClient(
-  "caches encapsulation key requests until auth changes",
-  async () => {
-    const calls: CapturedHttpCall[] = [];
-    server.use(
-      http.get(
-        `${apiBaseUrl}/auth/encapsulation-key/:userId`,
-        async ({ params, request }) => {
-          calls.push(await captureHttpCall(request));
-          const { userId } = params as { userId: string };
-          return HttpResponse.json(createEncapsulationKeyResponse(userId));
-        },
-      ),
-    );
-
-    const client = new ApiClient(apiBaseUrl);
-    client.setAuthToken("token-1");
-
-    const [first, second] = await Promise.all([
-      client.getEncapsulationKey("user-1"),
-      client.getEncapsulationKey("user-1"),
-    ]);
-    const third = await client.getEncapsulationKey("user-1");
-    client.setAuthToken("token-2");
-    const fourth = await client.getEncapsulationKey("user-1");
-
-    expect(first).toEqual(createEncapsulationKeyResponse("user-1"));
-    expect(second).toEqual(first);
-    expect(third).toEqual(first);
-    expect(fourth).toEqual(first);
-    expect(
-      calls.map((call) => ({
-        authorization: call.authorization,
-        input: call.url,
-        method: call.method,
-      })),
-    ).toEqual([
-      {
-        authorization: "Bearer token-1",
-        input: `${apiBaseUrl}/auth/encapsulation-key/user-1`,
-        method: "GET",
+testApiClient("caches user identity requests until auth changes", async () => {
+  const calls: CapturedHttpCall[] = [];
+  server.use(
+    http.get(
+      `${apiBaseUrl}/auth/user-identity/:userId`,
+      async ({ params, request }) => {
+        calls.push(await captureHttpCall(request));
+        const { userId } = params as { userId: string };
+        return HttpResponse.json(createUserIdentityResponse(userId));
       },
-      {
-        authorization: "Bearer token-2",
-        input: `${apiBaseUrl}/auth/encapsulation-key/user-1`,
-        method: "GET",
-      },
-    ]);
-  },
-);
+    ),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  client.setAuthToken("token-1");
+
+  const [first, second] = await Promise.all([
+    client.getUserIdentity("user-1"),
+    client.getUserIdentity("user-1"),
+  ]);
+  const third = await client.getUserIdentity("user-1");
+  client.setAuthToken("token-2");
+  const fourth = await client.getUserIdentity("user-1");
+
+  expect(first).toEqual(createUserIdentityResponse("user-1"));
+  expect(second).toEqual(first);
+  expect(third).toEqual(first);
+  expect(fourth).toEqual(first);
+  expect(
+    calls.map((call) => ({
+      authorization: call.authorization,
+      input: call.url,
+      method: call.method,
+    })),
+  ).toEqual([
+    {
+      authorization: "Bearer token-1",
+      input: `${apiBaseUrl}/auth/user-identity/user-1`,
+      method: "GET",
+    },
+    {
+      authorization: "Bearer token-2",
+      input: `${apiBaseUrl}/auth/user-identity/user-1`,
+      method: "GET",
+    },
+  ]);
+});
 
 testApiClient("uses auth session management routes", async () => {
   const calls: CapturedHttpCall[] = [];
@@ -277,7 +274,7 @@ testApiClient(
     const calls: CapturedHttpCall[] = [];
     server.use(
       http.get(
-        `${apiBaseUrl}/auth/encapsulation-key/:userId`,
+        `${apiBaseUrl}/auth/user-identity/:userId`,
         async ({ params, request }) => {
           calls.push(await captureHttpCall(request));
           if (request.headers.get("authorization") === "Bearer stale-token") {
@@ -288,7 +285,7 @@ testApiClient(
           }
 
           const { userId } = params as { userId: string };
-          return HttpResponse.json(createEncapsulationKeyResponse(userId));
+          return HttpResponse.json(createUserIdentityResponse(userId));
         },
       ),
     );
@@ -306,8 +303,8 @@ testApiClient(
       return true;
     });
 
-    await expect(client.getEncapsulationKey("user-1")).resolves.toEqual(
-      createEncapsulationKeyResponse("user-1"),
+    await expect(client.getUserIdentity("user-1")).resolves.toEqual(
+      createUserIdentityResponse("user-1"),
     );
 
     expect(refreshCalls).toBe(1);
@@ -321,12 +318,12 @@ testApiClient(
     ).toEqual([
       {
         authorization: "Bearer stale-token",
-        input: `${apiBaseUrl}/auth/encapsulation-key/user-1`,
+        input: `${apiBaseUrl}/auth/user-identity/user-1`,
         method: "GET",
       },
       {
         authorization: "Bearer fresh-token",
-        input: `${apiBaseUrl}/auth/encapsulation-key/user-1`,
+        input: `${apiBaseUrl}/auth/user-identity/user-1`,
         method: "GET",
       },
     ]);
@@ -337,7 +334,7 @@ testApiClient(
   "reports the session error when renewal throws synchronously",
   async () => {
     server.use(
-      http.get(`${apiBaseUrl}/auth/encapsulation-key/:userId`, () =>
+      http.get(`${apiBaseUrl}/auth/user-identity/:userId`, () =>
         HttpResponse.json(
           { error: "Session expired" },
           { status: 401, statusText: "Unauthorized" },
@@ -355,13 +352,13 @@ testApiClient(
       throw new Error("local key unavailable");
     });
 
-    await expect(client.getEncapsulationKey("user-1")).resolves.toBeNull();
+    await expect(client.getUserIdentity("user-1")).resolves.toBeNull();
 
     // The thrown renewal error is surfaced as a diagnostic (so a failing silent
     // re-auth is not swallowed) in addition to the downstream 401.
     expect(errors).toEqual([
       "Session refresh failed: local key unavailable",
-      "GET /auth/encapsulation-key/user-1: 401 Unauthorized: Session expired",
+      "GET /auth/user-identity/user-1: 401 Unauthorized: Session expired",
     ]);
   },
 );
@@ -493,7 +490,7 @@ testApiClient(
   "invokes the payment-required handler with the org id on a 402",
   async () => {
     server.use(
-      http.get(`${apiBaseUrl}/auth/encapsulation-key/:userId`, () =>
+      http.get(`${apiBaseUrl}/auth/user-identity/:userId`, () =>
         HttpResponse.json(
           { error: "Organization cannot sync", organizationId: "org-42" },
           { status: 402, statusText: "Payment Required" },
@@ -507,7 +504,7 @@ testApiClient(
       blockedOrgs.push(organizationId);
     });
 
-    await expect(client.getEncapsulationKey("user-1")).resolves.toBeNull();
+    await expect(client.getUserIdentity("user-1")).resolves.toBeNull();
     expect(blockedOrgs).toEqual(["org-42"]);
   },
 );
@@ -516,7 +513,7 @@ testApiClient(
   "passes a null org id when the 402 body omits organizationId",
   async () => {
     server.use(
-      http.get(`${apiBaseUrl}/auth/encapsulation-key/:userId`, () =>
+      http.get(`${apiBaseUrl}/auth/user-identity/:userId`, () =>
         HttpResponse.json(
           { error: "Payment required" },
           { status: 402, statusText: "Payment Required" },
@@ -530,7 +527,7 @@ testApiClient(
       blockedOrgs.push(organizationId);
     });
 
-    await client.getEncapsulationKey("user-1");
+    await client.getUserIdentity("user-1");
     expect(blockedOrgs).toEqual([null]);
   },
 );

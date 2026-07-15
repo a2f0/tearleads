@@ -62,6 +62,7 @@ function createAuthenticatedRuntime(input: {
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql: input.execSql,
     },
+    resolveTrustedUserIdentity: async () => null,
     state: {
       containerId: rootContainerId,
       domainScope: input.domainScope,
@@ -69,7 +70,6 @@ function createAuthenticatedRuntime(input: {
       online: input.online,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => {},
       log: () => {},
     },
   });

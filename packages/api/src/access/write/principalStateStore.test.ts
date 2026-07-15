@@ -13,7 +13,10 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
+import {
+  signPrincipalStateBundle,
+  storePrincipalState as storeVerifiedPrincipalState,
+} from "../../../test/helpers/principalState";
 import {
   getCurrentPrincipalEpochKey,
   getCurrentPrincipalEpochKeys,
@@ -23,7 +26,6 @@ import {
   listPrincipalProjectionMembersForStates,
   principalStateReferenceKey,
 } from "../read/principalStateStore";
-import { storeVerifiedPrincipalState } from "./principalStateStore";
 
 async function createPrincipalStateSigner(
   signingPublicKey: Uint8Array,

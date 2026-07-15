@@ -24,7 +24,7 @@ import {
   contactEntryFromDocumentStore,
   findContactByUserId,
   findSelfContact,
-  getUserKeyForSelfContact,
+  getUserIdentityForSelfContact,
 } from "./contactStoreLookup";
 import { connectContactsStoreToPersistedDocuments } from "./contactStorePersistedDocuments";
 import {
@@ -138,12 +138,12 @@ async function resolveSelfContactIdentity(
     normalizedInput.userId &&
     !normalizedInput.encapsulationPublicKey?.trim()
   ) {
-    const userKey = await getUserKeyForSelfContact(
+    const userIdentity = await getUserIdentityForSelfContact(
       state.dependencies,
       normalizedInput.userId,
     );
-    return userKey
-      ? toResolvedSelfContactIdentity(normalizedInput, userKey)
+    return userIdentity
+      ? toResolvedSelfContactIdentity(normalizedInput, userIdentity)
       : null;
   }
 
@@ -263,8 +263,8 @@ async function importKeyFromRuntime(
   state: ContactsStoreState,
   userId: string,
 ): Promise<string | null> {
-  const userKey = await state.dependencies.fetchUserKey(userId);
-  if (!userKey) {
+  const userIdentity = await state.dependencies.resolveUserIdentity(userId);
+  if (!userIdentity) {
     return null;
   }
 
@@ -276,22 +276,22 @@ async function importKeyFromRuntime(
     return null;
   }
 
-  const isSelf = userKey.userId === state.runtime.documents.auth.userId;
+  const isSelf = userIdentity.userId === state.runtime.documents.auth.userId;
   const existingContact = isSelf
-    ? findSelfContact(state.entriesById, userKey.userId)
-    : findContactByUserId(state.entriesById, userKey.userId);
-  const contactId = existingContact?.id ?? userKey.userId;
+    ? findSelfContact(state.entriesById, userIdentity.userId)
+    : findContactByUserId(state.entriesById, userIdentity.userId);
+  const contactId = existingContact?.id ?? userIdentity.userId;
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => {
       const identity = toResolvedSelfContactIdentity({
-        encapsulationPublicKey: userKey.encapsulationPublicKey,
-        userId: userKey.userId,
+        encapsulationPublicKey: userIdentity.encapsulationPublicKey,
+        userId: userIdentity.userId,
       });
       await writeContactPatch(state, contactId, {
-        encapsulationPublicKey: userKey.encapsulationPublicKey,
+        encapsulationPublicKey: userIdentity.encapsulationPublicKey,
         isSelf,
-        userId: userKey.userId,
+        userId: userIdentity.userId,
       });
       if (isSelf && identity) {
         await removeDuplicateSelfContacts(

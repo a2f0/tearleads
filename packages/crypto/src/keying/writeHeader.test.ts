@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { toFingerprint } from "../fingerprint";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { fixtureContainerKekMaterialId } from "./containerKekMaterial.testFixtures";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
@@ -113,7 +114,9 @@ test("write headers prove document write access through committed targets", asyn
   const documentId = "document-write-proof";
   const container = await createContainerManifestFixture({
     containerId: "container-write-proof",
-    containerKeyEpochId: "container-write-proof-key-1",
+    containerKeyEpochId: await fixtureContainerKekMaterialId(
+      "container-write-proof-key-1",
+    ),
     directGrants: [
       {
         subjectType: "user",

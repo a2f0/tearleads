@@ -276,6 +276,14 @@ export async function createMaterializedSyncFixture() {
   const writerProjection: DocumentWriterProjectionResponse = {
     documentId: response.id,
     documentManifest: response.accessManifest,
+    documentManifestHistory: [],
+    documentManifestContainerPaths: [[...projection.path]],
+    documentContainerManifestHistory: [
+      ...projection.path,
+      ...projection.containerKeks.flatMap(
+        (kek) => kek.containerManifestHistory,
+      ),
+    ],
     documentKekTargets: response.documentKekTargets,
     contentKeyBundle: response.contentKeyBundle,
     authorizingContainerPaths: [projection],

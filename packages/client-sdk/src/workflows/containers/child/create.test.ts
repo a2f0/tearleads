@@ -39,11 +39,16 @@ test("buildMaterializedContainerCreatePlan signs a child create and wraps the ch
     userId: parent.userId,
   });
   const containerKey = crypto.getRandomValues(new Uint8Array(32));
+  const containerKeyEpochId = await computeContainerKekMaterialId({
+    containerId: "child-container",
+    keyEpoch: 1,
+    keyMaterial: containerKey,
+  });
   const materialized = await buildMaterializedContainerCreatePlan({
     author,
     containerId: "child-container",
     containerKey,
-    containerKeyEpochId: "child-container-key-epoch-1",
+    containerKeyEpochId,
     eventId: "child-container-event-1",
     metadataDocumentId: "child-container-metadata-document",
     parentProjection: parent.projection,
@@ -63,7 +68,7 @@ test("buildMaterializedContainerCreatePlan signs a child create and wraps the ch
     parentContainerId: parent.projection.containerId,
     parentManifestHash,
     metadataDocumentId: "child-container-metadata-document",
-    containerKeyEpochId: "child-container-key-epoch-1",
+    containerKeyEpochId,
     directGrants: [],
     referencedPrincipalHeads: [],
   });
@@ -162,6 +167,28 @@ test("buildMaterializedContainerCreatePlan commits generated KEK epoch ids to ma
       CONTAINER_KEK_MATERIAL_ID_PREFIX,
     ),
   ).toBe(true);
+});
+
+test("buildMaterializedContainerCreatePlan rejects a KEK epoch id that does not commit to its material", async () => {
+  const parent = await createParentProjection();
+  const { author } = await createAuthor({
+    organizationId: parent.projection.organizationId,
+    userId: parent.userId,
+  });
+
+  await expect(
+    buildMaterializedContainerCreatePlan({
+      author,
+      containerId: "mismatched-child-container",
+      containerKey: crypto.getRandomValues(new Uint8Array(32)),
+      containerKeyEpochId: `${CONTAINER_KEK_MATERIAL_ID_PREFIX}${"0".repeat(64)}`,
+      parentProjection: parent.projection,
+      parentSecretKey: parent.secretKey,
+      trustedLocalProjection: true,
+    }),
+  ).rejects.toThrow(
+    "Container key epoch id does not match the committed KEK material",
+  );
 });
 
 test("buildContainerCreatePlan stamps the child with the parent's organization regardless of the author's", async () => {
@@ -283,6 +310,7 @@ test("createRemoteContainer fetches the parent projection and submits the materi
           containerId === parent.projection.containerId
             ? parent.projection
             : null,
+        getCurrentPrincipalPolicy: async () => null,
         createContainer: async (request) => {
           submittedRequests.push(request);
           return createMutationResponseFromRequest(request);
@@ -290,7 +318,6 @@ test("createRemoteContainer fetches the parent projection and submits the materi
       },
       author,
       containerId: "remote-child-container",
-      containerKeyEpochId: "remote-child-container-key-epoch-1",
       execSql,
       metadataDocumentId: "remote-child-container-metadata-document",
       parentContainerId: parent.projection.containerId,
@@ -356,6 +383,7 @@ test("createRemoteContainer rejects a mismatched acknowledgement without pinning
             };
           },
           getContainerWriterProjection: async () => parent.projection,
+          getCurrentPrincipalPolicy: async () => null,
         },
         author,
         containerId,
@@ -399,6 +427,7 @@ test("createRemoteContainer rejects bad parent projection signatures before send
       createRemoteContainer({
         apiClient: {
           getContainerWriterProjection: async () => tamperedProjection,
+          getCurrentPrincipalPolicy: async () => null,
           createContainer: async () => {
             createCalled = true;
             throw new Error("Unexpected create call");

@@ -92,7 +92,7 @@ describe("Tearleads", () => {
     expect("apiClient" in sdk.runtime.input()).toBe(false);
     expect("workflowInput" in sdk.runtime).toBe(false);
     expect(sdk.session.isAuthenticated).toBe(false);
-    expect(sdk.userKeys.fetch).toBeFunction();
+    expect(sdk.userIdentities.resolve).toBeFunction();
   });
 
   test("uses apiBaseUrl for internal api requests", async () => {
@@ -889,38 +889,6 @@ describe("Tearleads", () => {
           status: "ready",
         }),
     ).toThrow("ready SQLite database requires a configured executor");
-  });
-
-  test("workflow runtime callbacks use the captured SQLite executor", async () => {
-    const messages: string[] = [];
-    const execSql: ExecSql = async () => {
-      throw new Error("captured executor");
-    };
-    const sdk = new Tearleads({
-      database: { execSql },
-      logger: {
-        ...quietLogger,
-        log: (message) => messages.push(message),
-      },
-    });
-    const input = sdk.runtime.input();
-
-    sdk.database.clear("terminated");
-
-    await input.util.cacheReferencedPrincipalPolicies([
-      {
-        keyEpoch: 1,
-        keyFingerprint: "key-fingerprint",
-        principalId: "group-1",
-        principalType: "group",
-        stateHash: "state-hash",
-        version: 1,
-      },
-    ]);
-
-    expect(messages).toContain(
-      "Principal policy cache: failed to initialize cache: captured executor",
-    );
   });
 
   test("rotates workflow domain scope when storage or identity changes", async () => {

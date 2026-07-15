@@ -81,7 +81,7 @@ export interface DocumentSyncResponse {
   acceptedOutgoingUpdateIds: string[];
   commitLsn: string | null;
   contentKeyBundle: DocumentContentKeyBundleResponse;
-  contentKeyBundles?: DocumentContentKeyBundleResponse[];
+  contentKeyBundles: DocumentContentKeyBundleResponse[];
   documentId: string;
   documentKekTargets: DocumentKekTargetsResponse;
   updates: DocumentSyncUpdateResponse[];
@@ -90,9 +90,9 @@ export interface DocumentSyncResponse {
 export interface DocumentWriterProjectionResponse {
   documentId: string;
   documentManifest: AccessManifestBundleWireResponse;
-  documentManifestHistory?: AccessManifestBundleWireResponse[];
-  documentManifestContainerPaths?: AccessManifestBundleWireResponse[][];
-  documentContainerManifestHistory?: AccessManifestBundleWireResponse[];
+  documentManifestHistory: AccessManifestBundleWireResponse[];
+  documentManifestContainerPaths: AccessManifestBundleWireResponse[][];
+  documentContainerManifestHistory: AccessManifestBundleWireResponse[];
   documentKekTargets: DocumentKekTargetsResponse;
   contentKeyBundle: DocumentContentKeyBundleResponse;
   authorizingContainerPaths: ContainerWriterProjectionResponse[];
@@ -272,9 +272,8 @@ export function isDocumentSyncResponse(
     isStringArray(value.acceptedOutgoingUpdateIds) &&
     hasNullableStringProperty(value, "commitLsn") &&
     isDocumentContentKeyBundleResponse(contentKeyBundle) &&
-    (contentKeyBundles === undefined ||
-      (Array.isArray(contentKeyBundles) &&
-        contentKeyBundles.every(isDocumentContentKeyBundleResponse))) &&
+    Array.isArray(contentKeyBundles) &&
+    contentKeyBundles.every(isDocumentContentKeyBundleResponse) &&
     hasStringProperty(value, "documentId") &&
     isDocumentKekTargetsResponse(documentKekTargets) &&
     hasArrayProperty(value, "updates") &&
@@ -308,21 +307,17 @@ export function isDocumentWriterProjectionResponse(
     isPlainObject(value) &&
     hasStringProperty(value, "documentId") &&
     isAccessManifestBundleWireResponse(documentManifest) &&
-    (documentManifestHistory === undefined ||
-      (Array.isArray(documentManifestHistory) &&
-        documentManifestHistory.every(isAccessManifestBundleWireResponse))) &&
-    (documentManifestContainerPaths === undefined ||
-      (Array.isArray(documentManifestContainerPaths) &&
-        documentManifestContainerPaths.every(
-          (path) =>
-            Array.isArray(path) &&
-            path.every(isAccessManifestBundleWireResponse),
-        ))) &&
-    (documentContainerManifestHistory === undefined ||
-      (Array.isArray(documentContainerManifestHistory) &&
-        documentContainerManifestHistory.every(
-          isAccessManifestBundleWireResponse,
-        ))) &&
+    Array.isArray(documentManifestHistory) &&
+    documentManifestHistory.every(isAccessManifestBundleWireResponse) &&
+    Array.isArray(documentManifestContainerPaths) &&
+    documentManifestContainerPaths.every(
+      (path) =>
+        Array.isArray(path) && path.every(isAccessManifestBundleWireResponse),
+    ) &&
+    Array.isArray(documentContainerManifestHistory) &&
+    documentContainerManifestHistory.every(
+      isAccessManifestBundleWireResponse,
+    ) &&
     isDocumentKekTargetsResponse(documentKekTargets) &&
     isDocumentContentKeyBundleResponse(contentKeyBundle) &&
     hasArrayProperty(value, "authorizingContainerPaths") &&

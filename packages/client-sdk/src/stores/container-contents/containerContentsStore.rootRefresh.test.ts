@@ -30,6 +30,7 @@ function activeRootChildSummary(): ListContainersResponse {
         metadataAccessEpoch: 1,
         metadataAccessStateHash: "active-root-trash-access-hash",
         metadataDocumentId: "active-root-trash-metadata-document",
+        metadataReferencedPrincipals: [],
         organizationId: "org-1",
         parentId: "active-root",
         systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -56,6 +57,7 @@ function serverRootNullLanePage(): ListContainersResponse {
         metadataAccessEpoch: 1,
         metadataAccessStateHash: "server-root-access-hash",
         metadataDocumentId: "server-root-metadata-document",
+        metadataReferencedPrincipals: [],
         organizationId: "org-1",
         parentId: null,
         systemSlot: null,
@@ -79,6 +81,7 @@ function serverTrashChildSummary(): ListContainersResponse {
         metadataAccessEpoch: 1,
         metadataAccessStateHash: "server-trash-access-hash",
         metadataDocumentId: "server-trash-metadata-document",
+        metadataReferencedPrincipals: [],
         organizationId: "org-1",
         parentId: "server-root",
         systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -149,6 +152,7 @@ function createSqlTestRuntime(input: {
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql: input.execSql,
     },
+    resolveTrustedUserIdentity: async () => null,
     state: {
       containerId: input.rootContainerId,
       domainScope: input.domainScope,
@@ -156,7 +160,6 @@ function createSqlTestRuntime(input: {
       online: true,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => {},
       log: () => {},
     },
   });

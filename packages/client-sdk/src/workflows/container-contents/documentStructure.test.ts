@@ -48,7 +48,6 @@ function createRuntime(
       online: true,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => undefined,
       log: (message) => {
         logs.push(message);
       },

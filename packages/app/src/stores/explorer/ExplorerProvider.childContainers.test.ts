@@ -7,7 +7,6 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createMockApiClient } from "@tearleads/test-utils";
-import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import {
   createExplorerMetadataContainerProjection,
   listContainersResponse,
@@ -23,9 +22,7 @@ import { waitForCondition } from "../../../test/helpers/waitForCondition";
 
 test("explorer store creates a child under a writable shared root through the parent KEK", async () => {
   let runtime = await createSqlRuntime();
-  const cachedPrincipalReferences: Array<
-    ReadonlyArray<ReferencedPrincipalStateResponse>
-  > = [];
+  const requestedPrincipalPolicies: string[] = [];
   const localKeyPair = generateKemSeedAndKeyPair();
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const signingFingerprint = await toFingerprint(
@@ -46,7 +43,7 @@ test("explorer store creates a child under a writable shared root through the pa
     apiClient: createMockApiClient({
       ...runtime.apiClient,
       ...harness.apiClient,
-      getEncapsulationKey: async (requestedUserId: string) => ({
+      getUserIdentity: async (requestedUserId: string) => ({
         encapsulationKeyFingerprint: await toFingerprint(
           localKeyPair.publicKey,
         ),
@@ -55,6 +52,10 @@ test("explorer store creates a child under a writable shared root through the pa
         signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
         userId: requestedUserId,
       }),
+      getCurrentPrincipalPolicy: async (principalType, principalId) => {
+        requestedPrincipalPolicies.push(`${principalType}:${principalId}`);
+        return null;
+      },
       listContainers: async () =>
         listContainersResponse([
           listedContainer({
@@ -77,9 +78,6 @@ test("explorer store creates a child under a writable shared root through the pa
           }),
         ]),
     }),
-    cacheReferencedPrincipalPolicies: async (references) => {
-      cachedPrincipalReferences.push(references ?? []);
-    },
     encapsulationKeyPair: localKeyPair,
     isAuthenticated: true,
     online: true,
@@ -125,16 +123,7 @@ test("explorer store creates a child under a writable shared root through the pa
         documentId: childNode.id,
       },
     ]);
-    expect(cachedPrincipalReferences).toContainEqual([
-      {
-        keyEpoch: 1,
-        keyFingerprint: "key-fingerprint-1",
-        principalId: "group-1",
-        principalType: "group",
-        stateHash: "state-hash-1",
-        version: 1,
-      },
-    ]);
+    expect(requestedPrincipalPolicies).toContain("group:group-1");
   } finally {
     runtime.close();
   }

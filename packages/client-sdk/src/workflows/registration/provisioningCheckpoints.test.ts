@@ -105,7 +105,7 @@ function expectedProvisioningHeads(
     response.organizationMetadataContainer.container.accessManifest,
     response.organizationMetadataContainer.metadataDocument.accessManifest,
     response.organizationProfileDocument.accessManifest,
-    ...(response.systemContainers ?? []).flatMap((entry) => [
+    ...response.systemContainers.flatMap((entry) => [
       entry.container.accessManifest,
       entry.metadataDocument.accessManifest,
     ]),

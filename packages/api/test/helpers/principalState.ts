@@ -1,3 +1,4 @@
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import {
   buildPrincipalStateSigningInput,
   normalizePrincipalProjectionMembers,
@@ -6,7 +7,21 @@ import {
   type PrincipalStateMember,
   signPrincipalState,
 } from "@tearleads/crypto";
-import type { PrincipalStateBundleInput } from "../../src/access/write/principalStateStore";
+import {
+  type PrincipalStateBundleInput,
+  type StoreVerifiedPrincipalStateOptions,
+  storeVerifiedPrincipalStateInTransaction,
+} from "../../src/access/write/principalStateStore";
+
+export function storePrincipalState(
+  input: PrincipalStateBundleInput,
+  database: ApiDatabase,
+  options?: StoreVerifiedPrincipalStateOptions,
+) {
+  return database.transaction((tx) =>
+    storeVerifiedPrincipalStateInTransaction(input, tx, options),
+  );
+}
 
 export function createProjectionWithAdminSigner(
   signerUserId: string,

@@ -10,7 +10,6 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import { throwKeyingVerificationErrorWithContext } from "../../data/keyingProjectionVerification/error";
 import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
 import { loadPrincipalPolicyVerificationCheckpoint } from "../../data/persistence/principalPolicyCheckpointSelection";
-import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../../data/principalPolicyAdminSigners";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
@@ -134,14 +133,8 @@ export async function prepareGroupPolicyVerification(input: {
   readonly localPolicyCheckpoint: PrincipalPolicyCheckpoint | null;
 }> {
   const principalId = input.currentPolicy.currentState.principalId;
-  const cachedPolicy = await loadPrincipalPolicyBundle(
-    input.execSql,
-    "group",
-    principalId,
-  );
   const localPolicyCheckpoint = await loadPrincipalPolicyVerificationCheckpoint(
     {
-      cachedBundle: cachedPolicy,
       execSql: input.execSql,
       principalId,
       principalType: "group",

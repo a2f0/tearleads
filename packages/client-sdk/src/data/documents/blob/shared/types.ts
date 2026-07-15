@@ -174,7 +174,7 @@ export interface UploadDocumentAttachmentInput {
   contentKeyEpoch?: number | undefined;
   documentId: string;
   eventId?: string | undefined;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   expectedBindingId: string | null;
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
   // A persisted IV so a resumed upload re-encrypts to byte-identical bytes (and
@@ -220,7 +220,7 @@ export interface DetachDocumentAttachmentInput {
   blobId: string;
   documentId: string;
   eventId?: string | undefined;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
@@ -239,7 +239,7 @@ export interface DecryptDocumentAttachmentBlobInput {
   encryptedBytes: string;
   expectedBindingId: string;
   expectedBlobId: string;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   targetSecretKey: Uint8Array;
   writerProjection: DocumentWriterProjectionResponse;

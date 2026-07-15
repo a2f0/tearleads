@@ -296,10 +296,10 @@ class ContainerContentsService implements ContainerContents {
       apiClient: runtime.apiClient,
       cacheReferencedPrincipalPolicies: (references) =>
         containerOrganizationId
-          ? (warmReferencedPrincipalPolicies?.({
+          ? warmReferencedPrincipalPolicies({
               organizationId: containerOrganizationId,
               references,
-            }) ?? Promise.resolve())
+            })
           : Promise.resolve(),
       containerId,
     });

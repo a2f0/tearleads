@@ -7,10 +7,9 @@ import { base64ToBytes } from "@tearleads/encoding";
 import { createDocument, importSnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type {
-  ContainerCreateWithMetadataDocumentRequest,
   CreateOrganizationGroupRequest,
-  DocumentCreateRequest,
   ProvisionedDocumentRequest,
+  ProvisionedSystemContainerRequest,
   RegistrationRequest,
 } from "@tearleads/validators/request";
 import type { RegistrationResponse } from "@tearleads/validators/response";
@@ -47,13 +46,13 @@ const registrationApi = {
     _initialMemberGroup: CreateOrganizationGroupRequest,
     _initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
     initialRootContainer: RegistrationRequest["initialRootContainer"],
-    initialRootMetadataDocument: DocumentCreateRequest,
+    initialRootMetadataDocument: ProvisionedDocumentRequest,
     initialRosterProfileContainer?:
-      | ContainerCreateWithMetadataDocumentRequest
+      | ProvisionedSystemContainerRequest
       | undefined,
     initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined,
     initialOrganizationMetadataContainer?:
-      | ContainerCreateWithMetadataDocumentRequest
+      | ProvisionedSystemContainerRequest
       | undefined,
     initialOrganizationProfileDocument?: ProvisionedDocumentRequest | undefined,
   ): Promise<RegistrationResponse> => {
@@ -116,6 +115,18 @@ const registrationApi = {
         organizationMetadataContainerResponse.containerId,
       organizationProfileDocument,
       organizationProfileDocumentId: organizationProfileDocument.id,
+      committedCoreMetadataUpdateIds: [
+        initialRootMetadataDocument.initialSync,
+        initialRosterProfileContainer.initialMetadataSync,
+        initialOrganizationMetadataContainer.initialMetadataSync,
+      ].flatMap((sync) => sync.outgoingUpdates.map((update) => update.id)),
+      committedProfileUpdateIds: [
+        initialRosterProfileDocument,
+        initialOrganizationProfileDocument,
+      ].flatMap((document) =>
+        document.initialSync.outgoingUpdates.map((update) => update.id),
+      ),
+      systemContainers: [],
       challenge: "a".repeat(64),
     };
   },

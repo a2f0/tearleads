@@ -62,7 +62,7 @@ export interface ContainerState {
 }
 
 interface RemoteContainerHydrationApi {
-  getCurrentPrincipalPolicy?(
+  getCurrentPrincipalPolicy(
     principalType: "group" | "organization",
     principalId: string,
   ): Promise<PrincipalPolicyBundleResponse | null>;

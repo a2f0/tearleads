@@ -39,7 +39,7 @@ test("contacts store cache isolates different containers in one domain scope", a
   );
   const unavailableRuntime = contactsRuntime(createDocumentsRuntime(null));
   const dependencies: ContactsStoreDependencies = {
-    fetchUserKey: () => Promise.resolve(null),
+    resolveUserIdentity: () => Promise.resolve(null),
     logError: () => undefined,
   };
 

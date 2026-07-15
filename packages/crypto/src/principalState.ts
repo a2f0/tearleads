@@ -41,26 +41,6 @@ export type {
   UnsignedPrincipalState,
 } from "./principalStateTypes";
 
-interface PrincipalStateLike {
-  principalType: ManagedRecipientPrincipalType;
-  principalId: string;
-  version: number;
-  prevStateHash: string | null;
-  keyEpoch: number;
-  encapsulationPublicKey: string;
-  keyFingerprint: string;
-  signedAt: string;
-  signerUserId: string;
-  signerUserKeyFingerprint: string;
-  membershipMode?: PrincipalStateMembershipMode;
-  membershipRoot?: string;
-  memberEnvelopesRoot?: string;
-  projectionRoot?: string;
-  payloadCiphertextHash?: string;
-  memberCount?: number;
-  signature?: string;
-}
-
 function isValidPositiveInteger(value: number): boolean {
   return Number.isInteger(value) && value > 0;
 }
@@ -126,9 +106,9 @@ function encodeUnsignedPrincipalState(
 }
 
 function toUnsignedPrincipalState(
-  state: PrincipalStateLike,
-): PrincipalStateLike {
-  const unsignedState: PrincipalStateLike = {
+  state: UnsignedPrincipalState,
+): UnsignedPrincipalState {
+  return {
     principalType: state.principalType,
     principalId: state.principalId,
     version: state.version,
@@ -136,36 +116,16 @@ function toUnsignedPrincipalState(
     keyEpoch: state.keyEpoch,
     encapsulationPublicKey: state.encapsulationPublicKey,
     keyFingerprint: state.keyFingerprint,
+    membershipMode: state.membershipMode,
+    membershipRoot: state.membershipRoot,
+    memberEnvelopesRoot: state.memberEnvelopesRoot,
+    projectionRoot: state.projectionRoot,
+    payloadCiphertextHash: state.payloadCiphertextHash,
+    memberCount: state.memberCount,
     signedAt: state.signedAt,
     signerUserId: state.signerUserId,
     signerUserKeyFingerprint: state.signerUserKeyFingerprint,
   };
-
-  if (typeof state.membershipMode === "string") {
-    unsignedState.membershipMode = state.membershipMode;
-  }
-
-  if (typeof state.membershipRoot === "string") {
-    unsignedState.membershipRoot = state.membershipRoot;
-  }
-
-  if (typeof state.memberEnvelopesRoot === "string") {
-    unsignedState.memberEnvelopesRoot = state.memberEnvelopesRoot;
-  }
-
-  if (typeof state.projectionRoot === "string") {
-    unsignedState.projectionRoot = state.projectionRoot;
-  }
-
-  if (typeof state.payloadCiphertextHash === "string") {
-    unsignedState.payloadCiphertextHash = state.payloadCiphertextHash;
-  }
-
-  if (typeof state.memberCount === "number") {
-    unsignedState.memberCount = state.memberCount;
-  }
-
-  return unsignedState;
 }
 
 function isMembershipMode(
@@ -174,7 +134,9 @@ function isMembershipMode(
   return value === "projection";
 }
 
-function validatePrincipalStateIdentityFields(state: PrincipalStateLike): void {
+function validatePrincipalStateIdentityFields(
+  state: UnsignedPrincipalState,
+): void {
   if (!isValidPositiveInteger(state.version)) {
     throw new Error("Principal state version must be a positive integer");
   }
@@ -227,7 +189,7 @@ function requireNonEmptyHeaderString(
   return value;
 }
 
-function resolveMemberCount(state: PrincipalStateLike): number {
+function resolveMemberCount(state: UnsignedPrincipalState): number {
   if (
     typeof state.memberCount !== "number" ||
     !isValidNonNegativeInteger(state.memberCount)
@@ -241,7 +203,7 @@ function resolveMemberCount(state: PrincipalStateLike): number {
 }
 
 async function validatePrincipalEncapsulationKey(
-  state: PrincipalStateLike,
+  state: UnsignedPrincipalState,
 ): Promise<void> {
   let publicKey: Uint8Array;
   try {
@@ -273,7 +235,7 @@ async function validatePrincipalEncapsulationKey(
 }
 
 async function normalizeUnsignedPrincipalState(
-  state: PrincipalStateLike,
+  state: UnsignedPrincipalState,
 ): Promise<UnsignedPrincipalState> {
   validatePrincipalStateIdentityFields(state);
 
@@ -433,14 +395,14 @@ export async function buildPrincipalStateSigningInput(
 }
 
 export async function serializeUnsignedPrincipalState(
-  state: PrincipalStateLike,
+  state: UnsignedPrincipalState,
 ): Promise<string> {
   const normalizedState = await normalizeUnsignedPrincipalState(state);
   return TEXT_DECODER.decode(encodeUnsignedPrincipalState(normalizedState));
 }
 
 export async function computePrincipalStateHash(
-  state: PrincipalStateLike,
+  state: UnsignedPrincipalState,
 ): Promise<string> {
   const normalizedState = await normalizeUnsignedPrincipalState(state);
   return toFingerprint(encodeUnsignedPrincipalState(normalizedState));

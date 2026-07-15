@@ -60,13 +60,13 @@ function accessManifestCheckpointAdvances(input: {
 
 export async function enforceAccessManifestCheckpoints(input: {
   readonly execSql: ExecSql;
-  readonly policies?: readonly VerifiedPrincipalPolicy[] | undefined;
+  readonly policies: readonly VerifiedPrincipalPolicy[];
   readonly verifiedHeads: readonly AnyVerifiedAccessManifest[];
   readonly verifiedManifests: readonly AnyVerifiedAccessManifest[];
 }): Promise<void> {
   await advanceKeyingCheckpointsAtomically({
     access: accessManifestCheckpointAdvances(input),
     execSql: input.execSql,
-    policies: input.policies ?? [],
+    policies: input.policies,
   });
 }

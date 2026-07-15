@@ -325,10 +325,7 @@ function documentSyncContentKeyBundlesByEpoch(
     number,
     DocumentSyncResponse["contentKeyBundle"]
   >();
-  const bundles = [
-    response.contentKeyBundle,
-    ...(response.contentKeyBundles ?? []),
-  ];
+  const bundles = [response.contentKeyBundle, ...response.contentKeyBundles];
 
   for (const bundle of bundles) {
     if (bundle.documentId !== plan.documentId) {

@@ -45,10 +45,7 @@ import type {
   MaterializedContainerMovePlan,
 } from "../../../data/containers/shared/types";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
-import {
-  type ProjectionVerificationOptions,
-  projectionVerificationOptions,
-} from "../../../data/documents/shared/types";
+import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import {
   readCanonicalRecord,
   readCanonicalRecords,
@@ -128,14 +125,14 @@ function buildContainerMoveRequest(input: {
   };
 }
 
-async function unwrapMoveContainerKeys(
-  input: {
-    destinationParentProjection: ContainerWriterProjectionResponse;
-    execSql?: ExecSql | undefined;
-    previousProjection: ContainerWriterProjectionResponse;
-    targetSecretKey: Uint8Array;
-  } & ProjectionVerificationOptions,
-): Promise<{
+async function unwrapMoveContainerKeys(input: {
+  destinationParentProjection: ContainerWriterProjectionResponse;
+  execSql: ExecSql;
+  previousProjection: ContainerWriterProjectionResponse;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  targetSecretKey: Uint8Array;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
+}): Promise<{
   containerKey: Uint8Array;
   destinationParentKey: Uint8Array;
   destinationParent: ReturnType<typeof getTargetContainerContext>;
@@ -199,7 +196,7 @@ function containerMoveDependencyManifestHashes(input: {
 
 async function collectContainerMovePrincipalPolicies(input: {
   destinationParentProjection: ContainerWriterProjectionResponse;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   previousProjection: ContainerWriterProjectionResponse;
   resolveUserKey: ProjectionUserKeyResolver;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
@@ -225,17 +222,13 @@ async function collectContainerMovePrincipalPolicies(input: {
   ]);
 }
 
-async function collectOptionalContainerMovePrincipalPolicies(input: {
+async function collectContainerMoveProjectionPrincipalPolicies(input: {
   destinationParentProjection: ContainerWriterProjectionResponse;
-  execSql?: ExecSql | undefined;
+  execSql: ExecSql;
   previousProjection: ContainerWriterProjectionResponse;
-  resolveProjectionUserKey?: ProjectionUserKeyResolver | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
-  if (!input.resolveProjectionUserKey) {
-    return [];
-  }
-
   return collectContainerMovePrincipalPolicies({
     destinationParentProjection: input.destinationParentProjection,
     execSql: input.execSql,
@@ -294,16 +287,21 @@ function buildContainerMovePlanResult(input: {
 }
 
 async function buildMaterializedContainerMovePlan(
-  input: BuildMaterializedContainerMovePlanInput &
-    ProjectionVerificationOptions,
+  input: BuildMaterializedContainerMovePlanInput & {
+    resolveProjectionUserKey: ProjectionUserKeyResolver;
+    warmReferencedPrincipalPolicies?:
+      | ReferencedPrincipalPolicyWarmer
+      | undefined;
+  },
 ): Promise<MaterializedContainerMovePlan> {
   const { containerKey, destinationParent, destinationParentKey, source } =
     await unwrapMoveContainerKeys({
       destinationParentProjection: input.destinationParentProjection,
       execSql: input.execSql,
       previousProjection: input.previousProjection,
+      resolveProjectionUserKey: input.resolveProjectionUserKey,
       targetSecretKey: input.targetSecretKey,
-      ...projectionVerificationOptions(input),
+      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     });
   const previousState = readContainerState(source.manifest);
   const destinationState = readContainerState(destinationParent.manifest);
@@ -359,7 +357,7 @@ async function buildMaterializedContainerMovePlan(
     }),
   ];
   const principalPolicies =
-    await collectOptionalContainerMovePrincipalPolicies(input);
+    await collectContainerMoveProjectionPrincipalPolicies(input);
 
   return buildContainerMovePlanResult({
     body,

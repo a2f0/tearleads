@@ -3,7 +3,11 @@ import type { BlobBytes, BlobStore } from "@tearleads/client-sdk";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createBackupPayload, restoreBackupPayload } from "./localBackupData";
-import { decodeBackupFile, encodeBackupFile } from "./localBackupFormat";
+import {
+  type BackupPayload,
+  decodeBackupFile,
+  encodeBackupFile,
+} from "./localBackupFormat";
 
 const TEXT_ENCODER = new TextEncoder();
 const TEXT_DECODER = new TextDecoder();
@@ -127,6 +131,30 @@ test("backup export and restore preserves SQLite rows, indexes, and blob bytes",
       password: "test-password",
       payload,
     });
+    const legacyEnvelope = JSON.parse(encoded) as { version: number };
+    legacyEnvelope.version = 1;
+    await expect(
+      decodeBackupFile({
+        password: "test-password",
+        text: JSON.stringify(legacyEnvelope),
+      }),
+    ).rejects.toThrow("Backup file version is not supported.");
+
+    const legacyPayload = {
+      ...payload,
+      version: 1,
+    } as unknown as BackupPayload;
+    const encodedLegacyPayload = await encodeBackupFile({
+      password: "test-password",
+      payload: legacyPayload,
+    });
+    await expect(
+      decodeBackupFile({
+        password: "test-password",
+        text: encodedLegacyPayload,
+      }),
+    ).rejects.toThrow("Backup payload version is not supported.");
+
     await expect(
       decodeBackupFile({ password: "wrong-password", text: encoded }),
     ).rejects.toThrow("Backup password is incorrect");

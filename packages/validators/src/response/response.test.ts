@@ -14,7 +14,6 @@ import {
   isDocumentLinkSetMutationResponse,
   isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
-  isEncapsulationKeyResponse,
   isHealthResponse,
   isInitiateMultipartBlobStageResponse,
   isListContainerDocumentsResponse,
@@ -34,6 +33,7 @@ import {
   isPrincipalStateResponse,
   isStageBlobResponse,
   isUploadMultipartBlobPartResponse,
+  isUserIdentityResponse,
   isUserSessionResponse,
 } from "./index";
 
@@ -61,7 +61,7 @@ test("isChallengeErrorResponse", () => {
   expect(isChallengeErrorResponse(null)).toBe(false);
 });
 
-test("isEncapsulationKeyResponse", () => {
+test("isUserIdentityResponse", () => {
   const response = {
     encapsulationKeyFingerprint: "b".repeat(64),
     encapsulationPublicKey: "encapsulation-key",
@@ -70,15 +70,15 @@ test("isEncapsulationKeyResponse", () => {
     userId: "user-1",
   };
 
-  expect(isEncapsulationKeyResponse(response)).toBe(true);
+  expect(isUserIdentityResponse(response)).toBe(true);
   expect(
-    isEncapsulationKeyResponse({
+    isUserIdentityResponse({
       ...response,
       encapsulationKeyFingerprint: "not-a-fingerprint",
     }),
   ).toBe(false);
   expect(
-    isEncapsulationKeyResponse({
+    isUserIdentityResponse({
       ...response,
       encapsulationKeyFingerprint: undefined,
     }),
@@ -391,6 +391,24 @@ test("isListContainerDocumentsResponse", () => {
       hasMore: false,
       items: [
         {
+          createdAt: new Date().toISOString(),
+          currentAccessEpoch: 2,
+          currentAccessStateHash: "access-state-hash",
+          effectiveAccessLevel: "write",
+          id: "doc-123",
+          linkedContainerIds: ["ctr-root"],
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+      nextWatermark: null,
+      tombstones: [],
+    }),
+  ).toBe(false);
+  expect(
+    isListContainerDocumentsResponse({
+      hasMore: false,
+      items: [
+        {
           currentAccessEpoch: 2,
           id: "doc-123",
           linkedContainerIds: ["ctr-root"],
@@ -448,6 +466,7 @@ test("organization manager responses", () => {
   expect(
     isListOrganizationGroupsResponse({
       organizationId: "org-1",
+      memberGroupId: "member-group-1",
       groups: [
         {
           groupId: "group-1",
@@ -465,6 +484,12 @@ test("organization manager responses", () => {
       ],
     }),
   ).toBe(true);
+  expect(
+    isListOrganizationGroupsResponse({
+      organizationId: "org-1",
+      groups: [],
+    }),
+  ).toBe(false);
   expect(
     isListOrganizationGroupsResponse({
       organizationId: "org-1",
@@ -892,6 +917,7 @@ function createContainerKekResponse(overrides = {}) {
     keyEpoch: { id: "container-key-epoch-id" },
     keyEpochHash: "key-epoch-hash",
     keyTargetHash: "key-target-hash",
+    containerManifestHistory: [],
     parentContainerKeyEpochId: null,
     recipientTargets: [{ recipientKind: "user" }],
     wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
@@ -1099,6 +1125,9 @@ test("isDocumentWriterProjectionResponse", () => {
   const validResponse = {
     documentId: "550e8400-e29b-41d4-a716-446655440001",
     documentManifest: createDocumentManifestBundleResponse(),
+    documentManifestHistory: [],
+    documentManifestContainerPaths: [],
+    documentContainerManifestHistory: [],
     documentKekTargets: createDocumentKekTargetsResponse(),
     contentKeyBundle: createDocumentContentKeyBundleResponse(),
     authorizingContainerPaths: [createContainerWriterProjectionResponse()],

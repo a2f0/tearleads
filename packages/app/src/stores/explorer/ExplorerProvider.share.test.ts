@@ -55,7 +55,7 @@ test("explorer store shares an authenticated container without reseeding metadat
     apiClient: createMockApiClient({
       ...runtime.apiClient,
       ...harness.apiClient,
-      getEncapsulationKey: async (requestedUserId: string) => {
+      getUserIdentity: async (requestedUserId: string) => {
         if (requestedUserId !== "550e8400-e29b-41d4-a716-446655440000") {
           return null;
         }
@@ -370,18 +370,14 @@ test("explorer store refreshes remote containers on demand after initialization"
           return {
             hasMore: false,
             items: [
-              {
-                createdAt: "2026-05-05T00:00:00.000Z",
-                depth: 0,
-                effectiveAccessLevel: "admin",
+              listedContainer({
                 id: "shared-root-container",
                 metadataAccessEpoch: 1,
                 metadataAccessStateHash: "shared-root-access-state-hash-1",
                 metadataDocumentId: "shared-root-metadata-document",
                 organizationId: "org-2",
                 parentId: null,
-                updatedAt: "2026-05-05T00:00:00.000Z",
-              },
+              }),
             ],
             nextWatermark: {
               id: "shared-root-container",

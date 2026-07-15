@@ -47,8 +47,8 @@ function uniqueManifestPaths(
 function containerProjectionManifestHistory(
   projection: ContainerWriterProjectionResponse,
 ): AccessManifestBundleWireResponse[] {
-  return (projection.containerKeks ?? []).flatMap(
-    (kek) => kek.containerManifestHistory ?? [],
+  return projection.containerKeks.flatMap(
+    (kek) => kek.containerManifestHistory,
   );
 }
 
@@ -56,7 +56,7 @@ function documentProjectionContainerPaths(
   projection: DocumentWriterProjectionResponse,
 ): AccessManifestBundleWireResponse[][] {
   return uniqueManifestPaths([
-    ...(projection.documentManifestContainerPaths ?? []),
+    ...projection.documentManifestContainerPaths,
     ...projection.authorizingContainerPaths.map((path) => path.path),
   ]);
 }
@@ -72,7 +72,7 @@ function documentProjectionContainerHistory(input: {
     input.priorProjection.authorizingContainerPaths;
 
   return uniqueManifestBundles([
-    ...(input.priorProjection.documentContainerManifestHistory ?? []),
+    ...input.priorProjection.documentContainerManifestHistory,
     ...priorContainerPaths.flat(),
     ...priorAuthorizingContainerProjections.flatMap((projection) => [
       ...projection.path,
@@ -126,7 +126,7 @@ function linkSetWriterProjectionFromResponse(input: {
     documentManifestContainerPaths,
     documentManifestHistory: [
       input.priorProjection.documentManifest,
-      ...(input.priorProjection.documentManifestHistory ?? []),
+      ...input.priorProjection.documentManifestHistory,
     ],
   };
 }

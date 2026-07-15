@@ -20,10 +20,10 @@ import type {
   DocumentLinkSetMutationResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-  EncapsulationKeyResponse,
   KeyPackageBackupResponse,
   OrganizationGroupSummaryResponse,
   PrincipalPolicyBundleResponse,
+  UserIdentityResponse,
 } from "@tearleads/validators/response";
 
 export function createContainerMutationRequest(): ContainerMutationRequest {
@@ -33,6 +33,7 @@ export function createContainerMutationRequest(): ContainerMutationRequest {
     expectedManifestHash: "manifest-hash",
     manifest: { objectKind: "container" },
     keyEpoch: { containerKeyEpochId: "container-key-epoch-id" },
+    principalPolicies: [],
     wraps: [],
   };
 }
@@ -73,6 +74,7 @@ export function createContainerMutationResponse(): ContainerMutationResponse {
       keyEpoch: { containerKeyEpochId: "container-key-epoch-id" },
       keyEpochHash: "key-epoch-hash",
       keyTargetHash: "key-target-hash",
+      containerManifestHistory: [],
       parentContainerKeyEpochId: null,
       recipientTargets: [{ recipientKind: "user" }],
       wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
@@ -285,6 +287,7 @@ export function createDocumentSyncResponse(): DocumentSyncResponse {
     acceptedOutgoingUpdateIds: [],
     commitLsn: "0/16B6C50",
     contentKeyBundle: mutationResponse.contentKeyBundle,
+    contentKeyBundles: [mutationResponse.contentKeyBundle],
     documentId: mutationResponse.id,
     documentKekTargets: mutationResponse.documentKekTargets,
     updates: [],
@@ -366,6 +369,9 @@ export function createDocumentWriterProjectionResponse(): DocumentWriterProjecti
   return {
     documentId: mutationResponse.id,
     documentManifest: mutationResponse.accessManifest,
+    documentManifestHistory: [],
+    documentManifestContainerPaths: [],
+    documentContainerManifestHistory: [],
     documentKekTargets: mutationResponse.documentKekTargets,
     contentKeyBundle: mutationResponse.contentKeyBundle,
     authorizingContainerPaths: [createContainerWriterProjectionResponse()],
@@ -427,9 +433,9 @@ export function createOrganizationGroupRequest(): CreateOrganizationGroupRequest
   };
 }
 
-export function createEncapsulationKeyResponse(
+export function createUserIdentityResponse(
   userId: string,
-): EncapsulationKeyResponse {
+): UserIdentityResponse {
   return {
     encapsulationKeyFingerprint: "b".repeat(64),
     encapsulationPublicKey: "encapsulation-key",

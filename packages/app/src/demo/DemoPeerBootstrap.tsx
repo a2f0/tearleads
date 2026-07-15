@@ -109,7 +109,7 @@ function DemoPeerContactSeeder({
 
 // How many times to re-attempt the roster seed, and how long to wait between
 // attempts. The peer's user id is published over the client-side dual-pane
-// channel independently of the server-side encapsulation-key registration, so
+// channel independently of the server-side user-identity registration, so
 // the first attempt can race ahead of the peer's key becoming queryable; a
 // bounded retry closes that gap without polling forever if the peer never
 // finishes registering.

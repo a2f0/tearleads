@@ -38,6 +38,7 @@ import {
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { createTestContainerKekId } from "../../../test/helpers/containerKekMaterial";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
@@ -337,7 +338,10 @@ async function buildChildCreateRequest(input: {
   readonly signer: TestUser;
 }): Promise<ContainerMutationRequest> {
   const parent = asVerifiedContainerManifest(input.parent);
-  const containerKeyEpochId = crypto.randomUUID();
+  const containerKeyEpochId = await createTestContainerKekId(
+    input.containerId,
+    1,
+  );
   const body: ContainerAccessEventBody = {
     eventType: "container.create",
     parentContainerId: parent.state.containerId,

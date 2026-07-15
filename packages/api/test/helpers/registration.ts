@@ -13,6 +13,7 @@ import {
   computeAccessEventBodyHash,
   computeAccessEventHash,
   computeAccessManifestHash,
+  computeContainerKekMaterialId,
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
   computeDocumentContentKeyTargetHash,
@@ -50,6 +51,7 @@ import {
   deriveOrganizationMetadataContainerSystemSlot,
   deriveRosterProfileContainerSystemSlot,
 } from "./provisionedSystemContainer";
+import { rootContainerProjectionFromArtifacts } from "./registrationRootProjection";
 import { toWireJson, toWireRecord, toWireRecords } from "./registrationWire";
 
 const REGISTER_SIGNED_AT = "2026-04-07T00:00:00.000Z";
@@ -468,44 +470,6 @@ async function wrapRootContainerKeyForManagedPrincipal(input: {
   };
 }
 
-function rootContainerProjectionFromArtifacts(
-  artifacts: RootContainerCreateArtifacts,
-): ContainerWriterProjectionResponse {
-  return {
-    containerId: artifacts.state.containerId,
-    organizationId: artifacts.state.organizationId,
-    path: [
-      {
-        event: {
-          event: toWireRecord(artifacts.event, "root container event"),
-          body: toWireRecord(artifacts.body, "root container event body"),
-          eventHash: artifacts.eventHash,
-        },
-        manifest: toWireRecord(artifacts.manifest, "root container manifest"),
-        manifestHash: artifacts.manifestHash,
-        state: toWireRecord(artifacts.state, "root container state"),
-      },
-    ],
-    containerKeks: [
-      {
-        containerId: artifacts.state.containerId,
-        accessManifestHash: artifacts.manifestHash,
-        containerKeyEpochId: artifacts.containerKeyEpochId,
-        containerKeyEpoch: artifacts.keyEpoch.keyEpoch,
-        keyEpoch: toWireRecord(artifacts.keyEpoch, "root container key epoch"),
-        keyEpochHash: artifacts.keyEpochHash,
-        keyTargetHash: artifacts.keyTargetHash,
-        parentContainerKeyEpochId: null,
-        recipientTargets: toWireRecords(
-          artifacts.recipientTargets,
-          "root container recipient targets",
-        ),
-        wraps: toWireRecords(artifacts.wraps, "root container wraps"),
-      },
-    ],
-  };
-}
-
 async function createRootContainerArtifacts(input: {
   adminGroup?: CreateOrganizationGroupRequest | undefined;
   encapsulationPublicKey: Uint8Array;
@@ -518,7 +482,11 @@ async function createRootContainerArtifacts(input: {
   userId: string;
 }): Promise<RootContainerCreateArtifacts> {
   const containerKey = crypto.getRandomValues(new Uint8Array(32));
-  const containerKeyEpochId = crypto.randomUUID();
+  const containerKeyEpochId = await computeContainerKekMaterialId({
+    containerId: input.rootContainerId,
+    keyEpoch: 1,
+    keyMaterial: containerKey,
+  });
   const adminPrincipalHead = input.adminGroup
     ? await principalHeadFromInitialGroupPolicy({
         adminGroup: input.adminGroup,
@@ -663,8 +631,12 @@ async function createChildContainerArtifacts(input: {
   }
 
   const containerKey = crypto.getRandomValues(new Uint8Array(32));
-  const containerKeyEpochId = crypto.randomUUID();
   const containerId = input.metadataDocumentId;
+  const containerKeyEpochId = await computeContainerKekMaterialId({
+    containerId,
+    keyEpoch: 1,
+    keyMaterial: containerKey,
+  });
   const managedGrant = input.managedGrant;
   const managedHead = managedGrant
     ? await principalHeadFromInitialGroupPolicy({
@@ -855,6 +827,7 @@ function childContainerProjectionFromArtifacts(input: {
         ),
         keyEpochHash: input.child.keyEpochHash,
         keyTargetHash: input.child.keyTargetHash,
+        containerManifestHistory: [],
         parentContainerKeyEpochId: parentKek.containerKeyEpochId,
         recipientTargets: toWireRecords(
           input.child.recipientTargets,

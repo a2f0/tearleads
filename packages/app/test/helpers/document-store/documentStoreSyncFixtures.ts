@@ -56,6 +56,7 @@ type DocumentsRuntimeInputOverrides = {
   auth?: Partial<DocumentsRuntimeInput["auth"]>;
   crypto?: Partial<DocumentsRuntimeInput["crypto"]>;
   infra?: Partial<DocumentsRuntimeInput["infra"]>;
+  resolveTrustedUserIdentity?: DocumentsRuntimeInput["resolveTrustedUserIdentity"];
   state?: Partial<DocumentsRuntimeInput["state"]>;
   util?: Partial<DocumentsRuntimeInput["util"]>;
 };
@@ -85,6 +86,7 @@ export function createListedContainers(
         metadataAccessEpoch: 1,
         metadataAccessStateHash,
         metadataDocumentId: `metadata-${containerId}`,
+        metadataReferencedPrincipals: [],
         organizationId,
         parentId: null,
         updatedAt,
@@ -102,7 +104,7 @@ export function createUnavailableDocumentsApiClient(
     bindBlobAttachment: async () => null,
     createDocument: async () => null,
     getBlob: async () => null,
-    getEncapsulationKey: async () => null,
+    getUserIdentity: async () => null,
     getContainerWriterProjection: async () => null,
     getDocumentWriterProjection: async () => null,
     listContainers: async () => createListedContainers(containerId),
@@ -115,22 +117,25 @@ export function createUnavailableDocumentsApiClient(
 export function createDocumentsRuntimeInput(
   overrides: DocumentsRuntimeInputOverrides = {},
 ): DocumentsRuntimeInput {
+  const apiClient =
+    overrides.apiClient ??
+    createUnavailableDocumentsApiClient("root-container");
+  const auth = {
+    isAuthenticated: false,
+    organizationId: null,
+    userId: null,
+    ...overrides.auth,
+  };
+  const crypto = {
+    encapsulationKeyPair: null,
+    signingFingerprint: null,
+    signingKeyPair: null,
+    ...overrides.crypto,
+  };
   return {
-    apiClient:
-      overrides.apiClient ??
-      createUnavailableDocumentsApiClient("root-container"),
-    auth: {
-      isAuthenticated: false,
-      organizationId: null,
-      userId: null,
-      ...overrides.auth,
-    },
-    crypto: {
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-      ...overrides.crypto,
-    },
+    apiClient,
+    auth,
+    crypto,
     infra: {
       blobStore: createMemoryBlobStore(),
       dbStatus: "ready",
@@ -138,6 +143,15 @@ export function createDocumentsRuntimeInput(
       execSql: async () => [],
       ...overrides.infra,
     },
+    resolveTrustedUserIdentity:
+      overrides.resolveTrustedUserIdentity ??
+      createTestRuntimeTrustedUserIdentityResolver({
+        encapsulationPublicKey: crypto.encapsulationKeyPair?.publicKey ?? null,
+        loadRemoteIdentity: (userId) => apiClient.getUserIdentity(userId),
+        localUserId: auth.userId,
+        signingKeyFingerprint: crypto.signingFingerprint,
+        signingPublicKey: crypto.signingKeyPair?.signingPublicKey ?? null,
+      }),
     state: {
       containerId: "root-container",
       domainScope: createDomainScope(),
@@ -146,7 +160,6 @@ export function createDocumentsRuntimeInput(
       ...overrides.state,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => {},
       log: () => {},
       ...overrides.util,
     },
@@ -156,20 +169,7 @@ export function createDocumentsRuntimeInput(
 export function createDocumentsTestRuntime(
   input: DocumentsRuntimeInput,
 ): DocumentsTestRuntime {
-  return createDocumentsWorkflowRuntime({
-    ...input,
-    resolveTrustedUserIdentity:
-      input.resolveTrustedUserIdentity ??
-      createTestRuntimeTrustedUserIdentityResolver({
-        encapsulationPublicKey:
-          input.crypto.encapsulationKeyPair?.publicKey ?? null,
-        loadRemoteIdentity: (userId) =>
-          input.apiClient.getEncapsulationKey(userId),
-        localUserId: input.auth.userId,
-        signingKeyFingerprint: input.crypto.signingFingerprint,
-        signingPublicKey: input.crypto.signingKeyPair?.signingPublicKey ?? null,
-      }),
-  });
+  return createDocumentsWorkflowRuntime(input);
 }
 
 export function cloneDocumentsTestRuntime(
@@ -315,6 +315,7 @@ export async function createDocumentSyncResponse(input: {
     ),
     commitLsn: input.commitLsn,
     contentKeyBundle: input.storedDocument.contentKeyBundle,
+    contentKeyBundles: [input.storedDocument.contentKeyBundle],
     documentId: input.storedDocument.id,
     documentKekTargets: input.storedDocument.documentKekTargets,
     updates,

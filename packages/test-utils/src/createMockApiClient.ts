@@ -46,7 +46,7 @@ export function createMockApiClient(
     getContainerWriterProjection: async () => null,
     getCurrentPrincipalPolicy: async () => null,
     getDocumentWriterProjection: async () => null,
-    getEncapsulationKey: async () => null,
+    getUserIdentity: async () => null,
     getHealth: async () => null,
     getMultipartBlobStage: async () => null,
     linkDocument: async () => null,

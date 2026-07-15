@@ -153,13 +153,12 @@ test("atomic profile initial syncs import cleanly into a fresh peer", async () =
   }
 });
 
-test("registerIdentity settles acknowledged profiles and retains legacy fallbacks", async () => {
+test("registerIdentity settles acknowledged profiles", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const { close, execSql } = await createTestExecSql(
     "registration-atomic-profiles-settled",
   );
-  let acknowledgeProfileUpdates = true;
   let captured: RegistrationRequest | null = null;
   const apiClient: RegistrationApi = {
     async registerUser(...args) {
@@ -210,12 +209,7 @@ test("registerIdentity settles acknowledged profiles and retains legacy fallback
         ...(await respondToOrganizationProvisioning(request)),
         challenge: "a".repeat(64),
       };
-      if (acknowledgeProfileUpdates) {
-        return response;
-      }
-      const { committedProfileUpdateIds: _ignored, ...legacyResponse } =
-        response;
-      return legacyResponse;
+      return response;
     },
   };
 
@@ -278,33 +272,6 @@ test("registerIdentity settles acknowledged profiles and retains legacy fallback
       }),
       request: rosterRequest,
     });
-
-    acknowledgeProfileUpdates = false;
-    captured = null;
-    await registerIdentity({
-      apiClient,
-      containerId: crypto.randomUUID(),
-      dbClient: createClient(execSql),
-      encapsulationKeyPair,
-      pinLocalUserIdentity: async () => undefined,
-      signingKeyPair,
-    });
-    const legacyRequest = requireCapturedRequest(captured);
-    expect(
-      await sqlDocumentsPersistence.listPendingUpdates(
-        execSql,
-        `org-profile:${legacyRequest.organizationId}`,
-      ),
-    ).toHaveLength(1);
-    expect(
-      await sqlDocumentsPersistence.listPendingUpdates(
-        execSql,
-        getRosterProfileDocumentLocalId({
-          organizationId: legacyRequest.organizationId,
-          userId: legacyRequest.userId,
-        }),
-      ),
-    ).toHaveLength(1);
   } finally {
     close();
   }

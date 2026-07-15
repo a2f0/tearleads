@@ -119,7 +119,7 @@ async function persistContact(
 test("contacts store observes a contact persisted after initialization", async () => {
   const runtime = await createPersistedContactsRuntime();
   const store = createContactsStore(runtime, {
-    fetchUserKey: async () => null,
+    resolveUserIdentity: async () => null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
     },
@@ -190,7 +190,7 @@ test("runtime resets replace and release the persisted-document subscription", a
     },
   };
   const store = createContactsStore(trackedRuntime, {
-    fetchUserKey: async () => null,
+    resolveUserIdentity: async () => null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
     },
@@ -307,7 +307,7 @@ test("stale local initialization cannot overwrite a rematerialized Contacts cont
     createExecSql(gatedClient),
   );
   const store = createContactsStore(delayedLocalRuntime, {
-    fetchUserKey: async () => null,
+    resolveUserIdentity: async () => null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
     },
@@ -369,7 +369,7 @@ test("same-container runtime refresh does not abandon an in-flight initializatio
     delayedExecSql,
   );
   const store = createContactsStore(initialRuntime, {
-    fetchUserKey: async () => null,
+    resolveUserIdentity: async () => null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
     },

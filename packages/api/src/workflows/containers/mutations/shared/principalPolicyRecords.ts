@@ -248,7 +248,7 @@ function readVerifiedPrincipalPolicy(
 export function principalPoliciesFromRequest(
   request: ContainerMutationRequest,
 ): VerifiedPrincipalPolicy[] {
-  return (request.principalPolicies ?? []).map((policy, index) =>
+  return request.principalPolicies.map((policy, index) =>
     readVerifiedPrincipalPolicy(policy, `principalPolicies[${index}]`),
   );
 }

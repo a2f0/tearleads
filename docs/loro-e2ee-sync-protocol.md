@@ -64,7 +64,7 @@ Document write routes:
  `writeHeader`
  - response shape: `DocumentSyncResponse`
  - response fields: `acceptedOutgoingUpdateIds[]`, `commitLsn | null`,
- `contentKeyBundle`, optional `contentKeyBundles`, `documentId`,
+ `contentKeyBundle`, `contentKeyBundles[]`, `documentId`,
  `documentKekTargets`,
  `missingUpdateEpochs[]` (`prior_epoch` / `current_epoch`), and encrypted
  `updates[]`

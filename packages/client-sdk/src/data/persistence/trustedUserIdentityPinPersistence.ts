@@ -9,6 +9,11 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
+import {
+  TRUSTED_USER_IDENTITY_ENCAPSULATION_SUITE,
+  TRUSTED_USER_IDENTITY_FORMAT_VERSION,
+  TRUSTED_USER_IDENTITY_SIGNING_SUITE,
+} from "../trustedUserIdentity/types";
 import { runTrustedUserIdentityPinTransaction } from "./trustedUserIdentityPinTransaction";
 
 export interface TrustedUserIdentityPin {
@@ -156,14 +161,25 @@ function validationFailure(value: unknown): string | null {
     return "row must be an object";
   }
   const formatVersion = Reflect.get(value, "formatVersion");
-  if (!Number.isSafeInteger(formatVersion) || Number(formatVersion) < 1) {
-    return "formatVersion must be a positive integer";
+  if (formatVersion !== TRUSTED_USER_IDENTITY_FORMAT_VERSION) {
+    return `formatVersion must be ${TRUSTED_USER_IDENTITY_FORMAT_VERSION}`;
   }
   for (const field of requiredStringFields) {
     const fieldValue = Reflect.get(value, field);
     if (typeof fieldValue !== "string" || fieldValue.trim().length === 0) {
       return `${field} must be a non-empty string`;
     }
+  }
+  if (
+    Reflect.get(value, "signingSuite") !== TRUSTED_USER_IDENTITY_SIGNING_SUITE
+  ) {
+    return `signingSuite must be ${TRUSTED_USER_IDENTITY_SIGNING_SUITE}`;
+  }
+  if (
+    Reflect.get(value, "encapsulationSuite") !==
+    TRUSTED_USER_IDENTITY_ENCAPSULATION_SUITE
+  ) {
+    return `encapsulationSuite must be ${TRUSTED_USER_IDENTITY_ENCAPSULATION_SUITE}`;
   }
   const firstSeenAt = Reflect.get(value, "firstSeenAt");
   if (

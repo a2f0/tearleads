@@ -15,7 +15,7 @@ export interface ListedContainerDocument {
   effectiveAccessLevel?: EffectiveAccessLevel | undefined;
   id: string;
   linkedContainerIds: string[];
-  referencedPrincipals?: ReferencedPrincipalStateResponse[];
+  referencedPrincipals: ReferencedPrincipalStateResponse[];
   updatedAt: string;
 }
 

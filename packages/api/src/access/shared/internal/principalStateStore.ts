@@ -1,5 +1,4 @@
 import type {
-  ApiDatabase,
   DatabaseSession,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
@@ -598,16 +597,6 @@ async function ensureStoredPrincipalEpochKeyMatches(
   ) {
     throw new Error("Principal epoch key conflict");
   }
-}
-
-export async function storeVerifiedPrincipalState(
-  input: PrincipalStateBundleInput,
-  database: ApiDatabase,
-  options?: StoreVerifiedPrincipalStateOptions,
-): Promise<StoredPrincipalState> {
-  return database.transaction((tx) =>
-    storeVerifiedPrincipalStateInTransaction(input, tx, options),
-  );
 }
 
 export async function storeVerifiedPrincipalStateInTransaction(

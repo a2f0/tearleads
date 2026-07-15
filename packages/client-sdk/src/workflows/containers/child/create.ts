@@ -384,6 +384,7 @@ export function childContainerWriterProjectionFromCreatePlan(input: {
         ),
         keyEpochHash: plan.keyEpochHash,
         keyTargetHash: plan.keyTargetHash,
+        containerManifestHistory: [],
         parentContainerKeyEpochId: parentKek.containerKeyEpochId,
         recipientTargets: readCanonicalRecords(
           plan.recipientTargets,

@@ -51,6 +51,7 @@ function createDocumentSyncResponse(input: {
     ),
     commitLsn: input.commitLsn,
     contentKeyBundle: input.storedDocument.contentKeyBundle,
+    contentKeyBundles: [input.storedDocument.contentKeyBundle],
     documentId: input.storedDocument.id,
     documentKekTargets: input.storedDocument.documentKekTargets,
     updates: input.request.outgoingUpdates.map((update) => {
@@ -105,9 +106,17 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       ? {
           authorizingContainerPaths: [fixture.projection],
           contentKeyBundle: storedDocument.contentKeyBundle,
+          documentContainerManifestHistory: [
+            ...fixture.projection.path,
+            ...fixture.projection.containerKeks.flatMap(
+              (kek) => kek.containerManifestHistory,
+            ),
+          ],
           documentId: storedDocument.id,
           documentKekTargets: storedDocument.documentKekTargets,
           documentManifest: storedDocument.accessManifest,
+          documentManifestContainerPaths: [[...fixture.projection.path]],
+          documentManifestHistory: [],
         }
       : null;
 
@@ -227,7 +236,6 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       online: true,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => {},
       log: () => {},
     },
   });

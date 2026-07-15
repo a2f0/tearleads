@@ -28,6 +28,7 @@ function createDocumentWriterProjection(): DocumentWriterProjectionResponse {
             keyEpochHash: "container-key-epoch-hash",
             keyTargetHash: "container-key-target-hash",
             parentContainerKeyEpochId: null,
+            containerManifestHistory: [],
             recipientTargets: [{}],
             wraps: [{}],
           },

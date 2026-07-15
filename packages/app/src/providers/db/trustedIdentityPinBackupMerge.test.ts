@@ -63,3 +63,35 @@ test("backup restore rejects a conflicting current identity pin", () => {
     }),
   ).toThrow("Backup conflicts with a trusted identity pin");
 });
+
+test("backup restore preserves lazy missing trusted identity tables", () => {
+  const current = table([row()]);
+  const restored = table([
+    row({ user_id: "22222222-2222-4222-8222-222222222222" }),
+  ]);
+
+  expect(
+    mergeTrustedIdentityPinBackupTables({ current, restored: null }),
+  ).toEqual(current);
+  expect(
+    mergeTrustedIdentityPinBackupTables({ current: null, restored }),
+  ).toEqual(restored);
+  expect(
+    mergeTrustedIdentityPinBackupTables({ current: null, restored: null }),
+  ).toBeNull();
+});
+
+test("backup restore rejects non-current trusted identity rows", () => {
+  expect(() =>
+    mergeTrustedIdentityPinBackupTables({
+      current: null,
+      restored: table([row({ format_version: 2 })]),
+    }),
+  ).toThrow("unsupported format_version");
+  expect(() =>
+    mergeTrustedIdentityPinBackupTables({
+      current: null,
+      restored: table([row({ signing_key_fingerprint: "not-a-hash" })]),
+    }),
+  ).toThrow("invalid signing_key_fingerprint");
+});

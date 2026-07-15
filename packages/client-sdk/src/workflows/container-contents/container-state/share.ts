@@ -8,7 +8,6 @@ import {
 } from "../../../data/containers/shared/projection";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
-import { rethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerMetadataPatch } from "../metadata";
@@ -51,22 +50,11 @@ async function resolveCurrentGroupKeyEpoch(input: {
   groupId: string;
   runtime: ContainerWorkflowRuntime;
 }): Promise<number | null> {
-  try {
-    const bundle = await input.runtime.apiClient.getCurrentPrincipalPolicy?.(
-      "group",
-      input.groupId,
-    );
-    return bundle?.currentState?.keyEpoch ?? null;
-  } catch (error) {
-    rethrowKeyingVerificationError(error);
-    // Best-effort: if the current head cannot be resolved we fall back to the
-    // idempotent (skip) path rather than turning a redundant re-share into a
-    // hard failure. A genuinely stale grant is retried on the next share pass.
-    input.runtime.util.log(
-      `Container contents: could not resolve current key epoch for group ${input.groupId}: ${error instanceof Error ? error.message : String(error)}`,
-    );
-    return null;
-  }
+  const bundle = await input.runtime.apiClient.getCurrentPrincipalPolicy(
+    "group",
+    input.groupId,
+  );
+  return bundle?.currentState.keyEpoch ?? null;
 }
 
 // A container's KEK is wrapped to a group's encapsulation key at a specific key
@@ -184,7 +172,7 @@ async function persistSharedContainerState(input: {
   runtime: ContainerWorkflowRuntime;
   shared: SharedRemoteContainerState;
 }): Promise<SharedContainerState> {
-  await createRuntimePrincipalPolicyWarmer(input.runtime)?.({
+  await createRuntimePrincipalPolicyWarmer(input.runtime)({
     organizationId: input.shared.writerProjection.organizationId,
     references: input.shared.referencedPrincipalHeads,
   });
@@ -226,7 +214,7 @@ async function persistDuplicateContainerShare(input: {
   projection: ContainerWriterProjectionResponse;
   runtime: ContainerWorkflowRuntime;
 }): Promise<SharedContainerState> {
-  await createRuntimePrincipalPolicyWarmer(input.runtime)?.({
+  await createRuntimePrincipalPolicyWarmer(input.runtime)({
     organizationId: input.projection.organizationId,
     references: input.grant.referencedPrincipalHeads,
   });

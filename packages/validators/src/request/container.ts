@@ -17,7 +17,7 @@ export interface ContainerMutationRequest {
   previousContainerPath?: AccessManifestBundleWire[];
   parentContainerPath?: AccessManifestBundleWire[];
   destinationParentContainerPath?: AccessManifestBundleWire[];
-  principalPolicies?: Record<string, unknown>[];
+  principalPolicies: Record<string, unknown>[];
   keyEpoch: Record<string, unknown>;
   wraps: Record<string, unknown>[];
   containerManifestHistory?: AccessManifestBundleWire[];
@@ -82,7 +82,7 @@ export function isContainerMutationRequest(
     isOptionalAccessManifestBundleWireArray(previousContainerPath) &&
     isOptionalAccessManifestBundleWireArray(parentContainerPath) &&
     isOptionalAccessManifestBundleWireArray(destinationParentContainerPath) &&
-    isOptionalRecordArray(principalPolicies) &&
+    isRecordArray(principalPolicies) &&
     isPlainObject(keyEpoch) &&
     isRecordArray(wraps) &&
     isOptionalAccessManifestBundleWireArray(containerManifestHistory) &&

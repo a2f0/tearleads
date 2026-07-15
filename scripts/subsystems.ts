@@ -272,7 +272,6 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/client/organizations.ts`,
       `${sdk}/client/organizationMetadataReshare.ts`,
       `${sdk}/client/organizationMetadataReshareCoordinator.ts`,
-      `${sdk}/client/organizationProfileBootstrap.ts`,
       `${sdk}/client/organizationRootReshare.ts`,
       `${sdk}/client/organizationRootReshareCoordinator.ts`,
     ],
@@ -318,7 +317,7 @@ export const subsystems: readonly Subsystem[] = [
     package: "client-sdk",
     responsibility:
       "Identity keys, sessions, backups, and TOFU-pinned user identities.",
-    seam: "identity/session/keyPackageBackups/userKeys; TOFU gateway",
+    seam: "identity/session/keyPackageBackups/userIdentities; TOFU gateway",
     paths: [
       `${sdk}/client/identity.ts`,
       `${sdk}/client/identityKeyPackage.ts`,
@@ -326,7 +325,7 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/client/session.ts`,
       `${sdk}/client/sessionIdentityTrust.ts`,
       `${sdk}/client/sessionTypes.ts`,
-      `${sdk}/client/userKeys.ts`,
+      `${sdk}/client/userIdentities.ts`,
       `${sdk}/data/trustedUserIdentity/`,
     ],
   },

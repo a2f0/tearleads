@@ -21,7 +21,7 @@ function initialUpdateCommitted(
   const updateId = input.request.initialSync.outgoingUpdates[0]?.id;
   return (
     updateId !== undefined &&
-    input.response.committedProfileUpdateIds?.includes(updateId) === true
+    input.response.committedProfileUpdateIds.includes(updateId)
   );
 }
 

@@ -75,7 +75,7 @@ Read surfaces:
 | --- | --- |
 | Health check | `GET /` |
 | List auth sessions | `GET /auth/sessions` |
-| Get user key material | `GET /auth/encapsulation-key/:userId` |
+| Get complete user identity | `GET /auth/user-identity/:userId` |
 | List containers | `GET /containers` |
 | List container documents | `GET /containers/:containerId/documents` |
 | Get container writer projection | `GET /containers/:containerId/writer-projection` |
@@ -100,8 +100,8 @@ optional `contentKeyBundle`, optional `containerRekeys`, optional
 `documentManifest`, optional `authorizingContainerPaths`, `localVersionVector`,
 optional `minLsn`, and `outgoingUpdates[]` with per-update `writeHeader`.
 Responses return `acceptedOutgoingUpdateIds`, `commitLsn`, `contentKeyBundle`,
-optional `contentKeyBundles`, `documentKekTargets`, `missingUpdateEpochs`, and
-encrypted `updates[]`.
+the required `contentKeyBundles` array (empty when no additional epoch bundle is
+needed), `documentKekTargets`, and encrypted `updates[]`.
 
 ## Code Layers
 
@@ -225,7 +225,7 @@ Rule:
 
 The service layer covers these route-backed capabilities:
 
-- auth challenge, verify, register, and encapsulation-key lookup
+- auth challenge, verify, register, and user-identity lookup
 - blob staging, multipart staging, blob reads, raw blob byte reads, attachment
   binding, and detach mutations
 - container creation, metadata-document creation, listing, sharing, movement,

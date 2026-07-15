@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { UserKey } from "@tearleads/client-sdk";
+import type { ResolvedUserIdentity } from "@tearleads/client-sdk";
 import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
@@ -84,7 +84,7 @@ test("contacts store promotes a deferred self contact on later ensure", async ()
       };
     },
   };
-  const selfKey: UserKey = {
+  const selfKey: ResolvedUserIdentity = {
     encapsulationKeyFingerprint: "self-encapsulation-fingerprint",
     encapsulationPublicKey: "self-encapsulation-public-key",
     signingKeyFingerprint: "self-signing-fingerprint",
@@ -92,7 +92,7 @@ test("contacts store promotes a deferred self contact on later ensure", async ()
     userId: "self-user",
   };
   const store = createContactsStore(runtime, {
-    fetchUserKey: async () => {
+    resolveUserIdentity: async () => {
       throw new Error("unexpected remote self key fetch");
     },
     logError: (message, cause) => {

@@ -207,10 +207,8 @@ sizes: 1568-byte public keys/ciphertexts and a 3184-byte wrapped secret plus
 AES-GCM tag. Envelopes cover the direct projection one-to-one and bind each
 member id, recipient fingerprint, ciphertext, active state, and key epoch.
 
-`memberEnvelopesRoot` is mandatory. Adding it changes historic signatures,
-state hashes, manifest references, and checkpoints, so deployments using the
-earlier development format require a coordinated server/client data reset.
-Missing policy or envelope material fails closed.
+`memberEnvelopesRoot` is mandatory. States in an older shape and any missing
+policy or envelope material fail closed.
 
 ## Container Access And KEK Protocol
 
@@ -309,9 +307,9 @@ For accepted writes, the API verifies:
  header match the already accepted update
 
 The sync response returns accepted outgoing ids, a `commitLsn`, the active
-content-key bundle, optional bundles for returned older epochs, document KEK
-targets, missing epoch classes, and encrypted updates missing from the
-client-supplied frontier.
+content-key bundle, a required array of any additional returned epoch bundles,
+document KEK targets, and encrypted updates missing from the client-supplied
+frontier.
 
 ## Blob Stage Protocol
 

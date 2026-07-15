@@ -117,7 +117,7 @@ async function loadContactDocumentSummaryForTest(
 
 function createStore(runtime: ContactsRuntime) {
   return createContactsStore(runtime, {
-    fetchUserKey: async () => null,
+    resolveUserIdentity: async () => null,
     logError: (message, cause) => {
       throw new Error(String(message), { cause });
     },

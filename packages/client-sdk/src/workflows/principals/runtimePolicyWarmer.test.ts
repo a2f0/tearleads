@@ -12,17 +12,18 @@ const REFERENCE: ReferencedPrincipalHead = {
   version: 1,
 };
 
-test("runtime policy warmer only uses the legacy adapter for the session organization", async () => {
-  const cachedReferences: Array<readonly ReferencedPrincipalHead[]> = [];
+test("runtime policy warmer fetches policies for every requested organization", async () => {
+  const requestedPolicies: string[] = [];
   const warmer = createRuntimePrincipalPolicyWarmer({
-    apiClient: {},
-    auth: { organizationId: "home-organization" },
+    apiClient: {
+      getCurrentPrincipalPolicy: async (principalType, principalId) => {
+        requestedPolicies.push(`${principalType}:${principalId}`);
+        return null;
+      },
+    },
     infra: { execSql: (() => Promise.resolve([])) as ExecSql },
     resolveTrustedUserIdentity: async () => null,
     util: {
-      cacheReferencedPrincipalPolicies: async (references) => {
-        cachedReferences.push(references);
-      },
       log: () => undefined,
     },
   });
@@ -36,5 +37,5 @@ test("runtime policy warmer only uses the legacy adapter for the session organiz
     references: [REFERENCE],
   });
 
-  expect(cachedReferences).toEqual([[REFERENCE]]);
+  expect(requestedPolicies).toEqual(["group:group-1", "group:group-1"]);
 });

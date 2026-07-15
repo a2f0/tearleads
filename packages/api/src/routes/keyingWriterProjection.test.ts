@@ -51,6 +51,7 @@ import {
 import { and, eq, inArray } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../test/helpers/authenticate";
+import { createTestContainerKekMaterial } from "../../test/helpers/containerKekMaterial";
 import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
@@ -97,7 +98,10 @@ async function createChildContainer(input: {
   readonly signer: TestUser;
 }): Promise<ContainerMutationResponse> {
   const containerId = crypto.randomUUID();
-  const containerKeyEpochId = crypto.randomUUID();
+  const { containerKeyEpochId } = await createTestContainerKekMaterial({
+    containerId,
+    keyEpoch: 1,
+  });
   const parentManifest = asVerifiedContainerManifest(input.parent.bundle);
   const body: ContainerAccessEventBody = {
     eventType: "container.create",
@@ -195,7 +199,11 @@ async function buildContainerMoveRequest(input: {
     input.previousContainerPath,
     input.destinationParentPath,
   ]);
-  const containerKeyEpochId = crypto.randomUUID();
+  const nextKeyEpoch = input.previousKekState.containerKeyEpoch + 1;
+  const { containerKeyEpochId } = await createTestContainerKekMaterial({
+    containerId: previous.state.containerId,
+    keyEpoch: nextKeyEpoch,
+  });
   const body: ContainerAccessEventBody = {
     eventType: "container.move",
     parentContainerId: destinationParent.state.containerId,
@@ -231,7 +239,7 @@ async function buildContainerMoveRequest(input: {
   );
   const keyEpoch = createContainerKeyEpoch({
     containerKeyEpochId,
-    keyEpoch: input.previousKekState.containerKeyEpoch + 1,
+    keyEpoch: nextKeyEpoch,
     manifest: bundle,
     parentKekState: input.destinationParentKekState,
   });

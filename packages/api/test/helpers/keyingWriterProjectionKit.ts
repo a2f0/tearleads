@@ -46,6 +46,10 @@ import {
   listContainerKeyWraps,
 } from "../../src/access/read/containerKekStore";
 import { routeApp } from "../../src/routeApp";
+import {
+  createRootContainerKeyEpoch,
+  createTestContainerKekMaterial,
+} from "./containerKekMaterial";
 import { loadVerifiedPrincipalPolicy } from "./principalPolicy";
 
 interface RootContainerFixture {
@@ -361,24 +365,6 @@ export function createContainerKeyEpoch(input: {
   };
 }
 
-function createRootContainerKeyEpoch(input: {
-  readonly containerKeyEpochId: string;
-  readonly keyEpoch: number;
-  readonly manifest: AccessManifestBundleWire;
-}): ContainerKeyEpoch {
-  const verifiedManifest = asVerifiedContainerManifest(input.manifest);
-
-  return {
-    id: input.containerKeyEpochId,
-    containerId: verifiedManifest.state.containerId,
-    keyEpoch: input.keyEpoch,
-    accessManifestHash: verifiedManifest.manifestHash,
-    parentContainerKeyEpochId: null,
-    createdByEventHash: verifiedManifest.event.eventHash,
-    createdByManifestHash: verifiedManifest.manifestHash,
-  };
-}
-
 export function createContainerKeyWrap(input: {
   readonly containerKeyEpochId: string;
   readonly parentKekState: VerifiedContainerKekState;
@@ -571,7 +557,11 @@ export async function buildRootRevokeRequest(input: {
   const principalPolicies = await loadPrincipalPoliciesForContainerPath([
     input.previous,
   ]);
-  const containerKeyEpochId = crypto.randomUUID();
+  const nextKeyEpoch = input.previousKekState.containerKeyEpoch + 1;
+  const { containerKeyEpochId } = await createTestContainerKekMaterial({
+    containerId: previous.state.containerId,
+    keyEpoch: nextKeyEpoch,
+  });
   const body: ContainerAccessEventBody = {
     eventType: "container.revoke",
     containerKeyEpochId,
@@ -604,7 +594,7 @@ export async function buildRootRevokeRequest(input: {
   );
   const keyEpoch = createRootContainerKeyEpoch({
     containerKeyEpochId,
-    keyEpoch: input.previousKekState.containerKeyEpoch + 1,
+    keyEpoch: nextKeyEpoch,
     manifest: bundle,
   });
   const recipientTargets = input.previousKekState.recipientTargets.filter(

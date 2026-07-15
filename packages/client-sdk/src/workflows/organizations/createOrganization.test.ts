@@ -244,57 +244,6 @@ test("createOrganization provisions a new org for the existing user and persists
   }
 });
 
-test("createOrganization retains core metadata updates when the response omits acknowledgements", async () => {
-  const signingKeyPair = generateSigningSeedAndKeyPair();
-  const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const { close, execSql } = await createTestExecSql(
-    "organizations-create-organization-legacy-core-metadata-test",
-  );
-  let captured: CreateOrganizationRequest | null = null;
-
-  try {
-    const response = await createOrganization({
-      apiClient: {
-        createOrganization: async (request) => {
-          captured = request;
-          const currentResponse =
-            await respondToOrganizationProvisioning(request);
-          const {
-            committedCoreMetadataUpdateIds: _ignored,
-            ...legacyResponse
-          } = currentResponse;
-          return legacyResponse;
-        },
-      },
-      dbClient: createClient(execSql),
-      encapsulationKeyPair,
-      signingKeyPair,
-      userId: crypto.randomUUID(),
-    });
-
-    expect(response).not.toBeNull();
-    expectCapturedRequest(captured);
-    const containers =
-      await sqlContainerContentsPersistence.loadContainers(execSql);
-    expect(containers).toHaveLength(3);
-    expect(
-      await Promise.all(
-        containers.map(
-          async ({ container }) =>
-            (
-              await sqlContainerContentsPersistence.listPendingUpdates(
-                execSql,
-                container.id,
-              )
-            ).length,
-        ),
-      ),
-    ).toEqual([1, 1, 1]);
-  } finally {
-    close();
-  }
-});
-
 test("createOrganization provisions configured system containers (Trash) atomically", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();

@@ -3,11 +3,11 @@ import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { createChallengeRoute } from "./challenge";
-import { createEncapsulationKeyRoute } from "./encapsulationKey";
 import { createKeyPackageBackupsRoute } from "./keyPackageBackups";
 import { createLogoutRoute, type LogoutRouteDeps } from "./logout";
 import { createRegisterRoute } from "./register";
 import { createSessionsRoute, type SessionsRouteDeps } from "./sessions";
+import { createUserIdentityRoute } from "./userIdentity";
 import { createVerifyRoute } from "./verify";
 import { createWsTicketRoute } from "./wsTicket";
 
@@ -29,7 +29,7 @@ export function createAuthRouter({
   const auth = new Hono();
 
   auth.route("/", createChallengeRoute(runtime));
-  auth.route("/", createEncapsulationKeyRoute({ requireAuth, runtime }));
+  auth.route("/", createUserIdentityRoute({ requireAuth, runtime }));
   auth.route("/", createRegisterRoute(runtime));
   auth.route("/", createVerifyRoute(runtime));
   auth.route("/", createKeyPackageBackupsRoute({ requireAuth, runtime }));

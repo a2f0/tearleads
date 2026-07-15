@@ -1,4 +1,7 @@
-import type { DocumentStore, UserKey } from "@tearleads/client-sdk";
+import type {
+  DocumentStore,
+  ResolvedUserIdentity,
+} from "@tearleads/client-sdk";
 import {
   type ContactEntry,
   contactFieldsToEntry,
@@ -6,8 +9,10 @@ import {
 } from "../../document-types/contact/contactDocumentModel";
 
 interface ContactKeyLookupDependencies {
-  fetchUserKey: (userId: string) => Promise<UserKey | null>;
-  getLocalUserKey?: ((userId: string) => Promise<UserKey | null>) | undefined;
+  resolveUserIdentity: (userId: string) => Promise<ResolvedUserIdentity | null>;
+  getLocalUserIdentity?:
+    | ((userId: string) => Promise<ResolvedUserIdentity | null>)
+    | undefined;
 }
 
 export function findContactByUserId(
@@ -40,12 +45,12 @@ export function findSelfContact(
   return selfContact;
 }
 
-export async function getUserKeyForSelfContact(
+export async function getUserIdentityForSelfContact(
   dependencies: ContactKeyLookupDependencies,
   userId: string,
-): Promise<UserKey | null> {
-  const localUserKey = await dependencies.getLocalUserKey?.(userId);
-  return localUserKey ?? dependencies.fetchUserKey(userId);
+): Promise<ResolvedUserIdentity | null> {
+  const localUserIdentity = await dependencies.getLocalUserIdentity?.(userId);
+  return localUserIdentity ?? dependencies.resolveUserIdentity(userId);
 }
 
 export function contactEntryFromDocumentStore(

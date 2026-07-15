@@ -41,6 +41,7 @@ function createTestRuntime() {
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql: (async () => []) as ExecSql,
     },
+    resolveTrustedUserIdentity: async () => null,
     state: {
       containerId: null,
       domainScope: createDomainScope(),
@@ -48,7 +49,6 @@ function createTestRuntime() {
       online: false,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => undefined,
       log: () => undefined,
     },
   });

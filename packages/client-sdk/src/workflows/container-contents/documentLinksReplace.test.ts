@@ -85,9 +85,17 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
     const initialWriterProjection: DocumentWriterProjectionResponse = {
       authorizingContainerPaths: [contactsProjection],
       contentKeyBundle: createdResponse.contentKeyBundle,
+      documentContainerManifestHistory: [
+        ...contactsProjection.path,
+        ...contactsProjection.containerKeks.flatMap(
+          (kek) => kek.containerManifestHistory,
+        ),
+      ],
       documentId: createdResponse.id,
       documentKekTargets: createdResponse.documentKekTargets,
       documentManifest: createdResponse.accessManifest,
+      documentManifestContainerPaths: [[...contactsProjection.path]],
+      documentManifestHistory: [],
     };
     const extraLink = await buildMaterializedDocumentLinkSetMutationPlan({
       author,
@@ -105,9 +113,23 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
     let writerProjection: DocumentWriterProjectionResponse = {
       authorizingContainerPaths: [contactsProjection, extraProjection],
       contentKeyBundle: extraLinkResponse.contentKeyBundle,
+      documentContainerManifestHistory: [
+        ...contactsProjection.path,
+        ...contactsProjection.containerKeks.flatMap(
+          (kek) => kek.containerManifestHistory,
+        ),
+        ...extraProjection.path,
+        ...extraProjection.containerKeks.flatMap(
+          (kek) => kek.containerManifestHistory,
+        ),
+      ],
       documentId: extraLinkResponse.id,
       documentKekTargets: extraLinkResponse.documentKekTargets,
       documentManifest: extraLinkResponse.accessManifest,
+      documentManifestContainerPaths: [
+        [...contactsProjection.path],
+        [...extraProjection.path],
+      ],
       documentManifestHistory: [createdResponse.accessManifest],
     };
     await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
@@ -135,6 +157,7 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
             documentId === writerProjection.documentId
               ? writerProjection
               : null,
+          getCurrentPrincipalPolicy: async () => null,
           primeDocumentWriterProjection: (documentId, primedProjection) => {
             if (documentId === writerProjection.documentId) {
               writerProjection = primedProjection;
@@ -194,7 +217,6 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
           online: true,
         },
         util: {
-          cacheReferencedPrincipalPolicies: async () => undefined,
           log: () => undefined,
         },
       },

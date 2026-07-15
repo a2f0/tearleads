@@ -21,7 +21,7 @@ export interface ContainerDocumentSummary {
   effectiveAccessLevel: EffectiveAccessLevel;
   id: string;
   linkedContainerIds: string[];
-  referencedPrincipals?: ReferencedPrincipalStateResponse[];
+  referencedPrincipals: ReferencedPrincipalStateResponse[];
   updatedAt: string;
 }
 
@@ -59,9 +59,8 @@ function isContainerDocumentSummary(
     hasArrayProperty(value, "linkedContainerIds") &&
     value.linkedContainerIds.every((entry) => typeof entry === "string") &&
     hasStringProperty(value, "updatedAt") &&
-    (referencedPrincipals === undefined ||
-      (Array.isArray(referencedPrincipals) &&
-        referencedPrincipals.every(isReferencedPrincipalStateResponse)))
+    Array.isArray(referencedPrincipals) &&
+    referencedPrincipals.every(isReferencedPrincipalStateResponse)
   );
 }
 

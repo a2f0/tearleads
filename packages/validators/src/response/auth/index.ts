@@ -5,10 +5,6 @@ export {
   isChallengeResponse,
 } from "./challenge";
 export {
-  type EncapsulationKeyResponse,
-  isEncapsulationKeyResponse,
-} from "./encapsulationKey";
-export {
   type DeleteKeyPackageBackupResponse,
   isDeleteKeyPackageBackupResponse,
   isKeyPackageBackupResponse,
@@ -24,4 +20,8 @@ export {
   type ListSessionsResponse,
   type UserSessionResponse,
 } from "./sessions";
+export {
+  isUserIdentityResponse,
+  type UserIdentityResponse,
+} from "./userIdentity";
 export { isVerifyResponse, type VerifyResponse } from "./verify";

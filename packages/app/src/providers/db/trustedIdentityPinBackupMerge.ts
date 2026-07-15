@@ -1,3 +1,11 @@
+import {
+  mapBackupRowsByScope,
+  requireBackupHash,
+  requireBackupPositiveInteger,
+  requireBackupString,
+  requireBackupTimestamp,
+  validateBackupTableColumns,
+} from "./backupTableValidation";
 import type { BackupSqlRow, BackupTable } from "./localBackupFormat";
 
 export const TRUSTED_IDENTITY_PIN_TABLE_NAME = "trusted_user_identity_pins";
@@ -18,43 +26,55 @@ const requiredColumns = [
   "first_seen_at",
 ] as const;
 
-function requireRowValue(
-  row: BackupSqlRow,
-  column: (typeof requiredColumns)[number],
-): string | number {
-  const value = row[column];
+function validateRow(row: BackupSqlRow): void {
+  for (const column of scopeColumns) {
+    requireBackupString(row, column, "Trusted identity pin");
+  }
   if (
-    (typeof value !== "string" && typeof value !== "number") ||
-    value === ""
+    requireBackupPositiveInteger(
+      row,
+      "format_version",
+      "Trusted identity pin",
+    ) !== 1
   ) {
     throw new Error(
-      `Trusted identity pin backup has an invalid ${column} value`,
+      "Trusted identity pin backup has an unsupported format_version value",
     );
   }
-  return value;
+  if (
+    requireBackupString(row, "signing_suite", "Trusted identity pin") !==
+    "ML-DSA-87"
+  ) {
+    throw new Error(
+      "Trusted identity pin backup has an unsupported signing_suite value",
+    );
+  }
+  if (
+    requireBackupString(row, "encapsulation_suite", "Trusted identity pin") !==
+    "ML-KEM-1024"
+  ) {
+    throw new Error(
+      "Trusted identity pin backup has an unsupported encapsulation_suite value",
+    );
+  }
+  requireBackupString(row, "signing_public_key", "Trusted identity pin");
+  requireBackupHash(row, "signing_key_fingerprint", "Trusted identity pin");
+  requireBackupString(row, "encapsulation_public_key", "Trusted identity pin");
+  requireBackupHash(
+    row,
+    "encapsulation_key_fingerprint",
+    "Trusted identity pin",
+  );
+  requireBackupTimestamp(row, "first_seen_at", "Trusted identity pin");
 }
 
 function validateTable(table: BackupTable): void {
-  if (table.name !== TRUSTED_IDENTITY_PIN_TABLE_NAME) {
-    throw new Error("Trusted identity pin backup table name is invalid");
-  }
-  const columns = new Set(table.columns);
-  for (const column of requiredColumns) {
-    if (!columns.has(column)) {
-      throw new Error(
-        `Trusted identity pin backup is missing the ${column} column`,
-      );
-    }
-  }
-  for (const row of table.rows) {
-    for (const column of requiredColumns) {
-      requireRowValue(row, column);
-    }
-  }
-}
-
-function scopeKey(row: BackupSqlRow): string {
-  return scopeColumns.map((column) => requireRowValue(row, column)).join("\0");
+  validateBackupTableColumns({
+    label: "Trusted identity pin",
+    requiredColumns,
+    table,
+    tableName: TRUSTED_IDENTITY_PIN_TABLE_NAME,
+  });
 }
 
 function assertSameIdentity(
@@ -62,8 +82,7 @@ function assertSameIdentity(
   restored: BackupSqlRow,
 ): void {
   const changed = immutableColumns.filter(
-    (column) =>
-      requireRowValue(current, column) !== requireRowValue(restored, column),
+    (column) => current[column] !== restored[column],
   );
   if (changed.length > 0) {
     throw new Error(
@@ -72,12 +91,7 @@ function assertSameIdentity(
   }
 }
 
-/**
- * Merge an imported backup into the current monotonic trust store. Current
- * observations win on exact overlap (including their original first-seen
- * timestamp), backup-only identities are retained, and any identity change
- * aborts the surrounding restore transaction.
- */
+/** Merge backup pins without resetting an existing TOFU decision. */
 export function mergeTrustedIdentityPinBackupTables(input: {
   readonly current: BackupTable | null;
   readonly restored: BackupTable | null;
@@ -91,24 +105,34 @@ export function mergeTrustedIdentityPinBackupTables(input: {
   if (input.restored) {
     validateTable(input.restored);
   }
-
   const template = input.current ?? input.restored;
   if (!template) {
     return null;
   }
-  const rowsByScope = new Map<string, BackupSqlRow>();
-  for (const row of input.current?.rows ?? []) {
-    rowsByScope.set(scopeKey(row), row);
-  }
-  for (const row of input.restored?.rows ?? []) {
-    const key = scopeKey(row);
-    const current = rowsByScope.get(key);
+  const currentRows = input.current
+    ? mapBackupRowsByScope({
+        label: "Trusted identity pin",
+        scopeColumns,
+        table: input.current,
+        validateRow,
+      })
+    : new Map<string, BackupSqlRow>();
+  const restoredRows = input.restored
+    ? mapBackupRowsByScope({
+        label: "Trusted identity pin",
+        scopeColumns,
+        table: input.restored,
+        validateRow,
+      })
+    : new Map<string, BackupSqlRow>();
+
+  for (const [key, restored] of restoredRows) {
+    const current = currentRows.get(key);
     if (current) {
-      assertSameIdentity(current, row);
+      assertSameIdentity(current, restored);
     } else {
-      rowsByScope.set(key, row);
+      currentRows.set(key, restored);
     }
   }
-
-  return { ...template, rows: [...rowsByScope.values()] };
+  return { ...template, rows: [...currentRows.values()] };
 }

@@ -73,7 +73,7 @@ export type OrganizationGroupSummary = OrganizationGroupSummaryResponse;
 export interface OrganizationDirectoryAndGroups {
   readonly directory: OrganizationDirectory;
   readonly groups: ReadonlyArray<OrganizationGroupSummary>;
-  readonly memberGroupId: string | null;
+  readonly memberGroupId: string;
 }
 
 export interface OrganizationGroupDetails {
@@ -172,7 +172,7 @@ export async function loadOrganizationDirectoryAndGroups(input: {
   return {
     directory,
     groups: groups.groups,
-    memberGroupId: groups.memberGroupId ?? null,
+    memberGroupId: groups.memberGroupId,
   };
 }
 

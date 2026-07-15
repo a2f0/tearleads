@@ -51,6 +51,7 @@ async function enforce(input: {
 }): Promise<void> {
   await enforceAccessManifestCheckpoints({
     execSql: input.execSql,
+    policies: [],
     verifiedHeads: input.heads,
     verifiedManifests: input.evidence,
   });

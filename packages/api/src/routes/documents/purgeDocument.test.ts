@@ -64,6 +64,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { readBlobObjectText } from "../../../test/helpers/blobObjectStore";
+import { createTestContainerKekId } from "../../../test/helpers/containerKekMaterial";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { createFailingRuntime } from "../../../test/helpers/serviceRuntime";
@@ -351,7 +352,7 @@ async function createChildContainer(input: {
   readonly signer: TestUser;
 }): Promise<ContainerMutationResponse> {
   const containerId = crypto.randomUUID();
-  const containerKeyEpochId = crypto.randomUUID();
+  const containerKeyEpochId = await createTestContainerKekId(containerId, 1);
   const parentManifest = asVerifiedContainerManifest(input.parent.bundle);
   const body: ContainerAccessEventBody = {
     eventType: "container.create",

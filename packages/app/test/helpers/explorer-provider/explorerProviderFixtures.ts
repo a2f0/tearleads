@@ -29,7 +29,6 @@ import { assertAccessEvent, assertWriteHeader } from "../keyingAssertions";
 export type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
 export type TestRuntime = ExplorerRuntime & { close: () => void };
 export type ExplorerRuntimePatch = Partial<ExplorerRuntime> & {
-  cacheReferencedPrincipalPolicies?: ExplorerRuntime["util"]["cacheReferencedPrincipalPolicies"];
   dbStatus?: ExplorerRuntime["infra"]["dbStatus"];
   encapsulationKeyPair?: ExplorerRuntime["crypto"]["encapsulationKeyPair"];
   isAuthenticated?: ExplorerRuntime["auth"]["isAuthenticated"];
@@ -54,14 +53,24 @@ export const TEST_SYNC_TIMESTAMP = "2026-05-05T00:00:00.000Z";
 export function listedContainer(
   overrides: Omit<
     ContainerSummary,
-    "createdAt" | "depth" | "effectiveAccessLevel" | "updatedAt"
+    | "createdAt"
+    | "depth"
+    | "effectiveAccessLevel"
+    | "metadataReferencedPrincipals"
+    | "updatedAt"
   > &
-    Partial<Pick<ContainerSummary, "createdAt" | "depth" | "updatedAt">>,
+    Partial<
+      Pick<
+        ContainerSummary,
+        "createdAt" | "depth" | "metadataReferencedPrincipals" | "updatedAt"
+      >
+    >,
 ): ContainerSummary {
   return {
     createdAt: TEST_SYNC_TIMESTAMP,
     depth: overrides.parentId === null ? 0 : 1,
     effectiveAccessLevel: "admin",
+    metadataReferencedPrincipals: [],
     updatedAt: TEST_SYNC_TIMESTAMP,
     ...overrides,
   };
@@ -250,6 +259,7 @@ export async function createExplorerMetadataSyncResponse(input: {
     ),
     commitLsn: input.commitLsn,
     contentKeyBundle: input.storedDocument.contentKeyBundle,
+    contentKeyBundles: [input.storedDocument.contentKeyBundle],
     documentId: input.storedDocument.id,
     documentKekTargets: input.storedDocument.documentKekTargets,
     updates,

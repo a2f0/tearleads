@@ -6,9 +6,8 @@ type RemoteContainerPrincipalReferences = Pick<
   RemoteContainer,
   "metadataReferencedPrincipals" | "organizationId"
 >;
-type PrincipalReference = NonNullable<
-  RemoteContainer["metadataReferencedPrincipals"]
->[number];
+type PrincipalReference =
+  RemoteContainer["metadataReferencedPrincipals"][number];
 
 export async function cacheRemoteContainerPrincipalPolicies(input: {
   readonly cacheReferencedPrincipalPolicies?:
@@ -28,7 +27,7 @@ export async function cacheRemoteContainerPrincipalPolicies(input: {
   >();
 
   for (const remoteContainer of input.remoteContainers) {
-    const references = remoteContainer.metadataReferencedPrincipals ?? [];
+    const references = remoteContainer.metadataReferencedPrincipals;
     const { organizationId } = remoteContainer;
     if (references.length === 0 || !organizationId) {
       continue;

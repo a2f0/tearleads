@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { fixtureContainerKekMaterialId as kekId } from "./containerKekMaterial.testFixtures";
 import type {
   ContainerUserRecipientKey,
   DocumentAccessEventBody,
@@ -31,7 +32,7 @@ test("deriveDocumentKekTargets resolves every linked container KEK target", asyn
   const writerSigning = generateSigningSeedAndKeyPair();
   const firstContainer = await createContainerManifestFixture({
     containerId: "container-a",
-    containerKeyEpochId: "container-a-key-epoch-1",
+    containerKeyEpochId: await kekId("container-a-key-epoch-1"),
     directGrants: [
       {
         subjectType: "user",
@@ -44,7 +45,7 @@ test("deriveDocumentKekTargets resolves every linked container KEK target", asyn
   });
   const secondContainer = await createContainerManifestFixture({
     containerId: "container-b",
-    containerKeyEpochId: "container-b-key-epoch-1",
+    containerKeyEpochId: await kekId("container-b-key-epoch-1"),
     directGrants: [
       {
         subjectType: "user",
@@ -141,7 +142,7 @@ test("deriveBlobKekTargets resolves the union of every active attachment binding
   const writerSigning = generateSigningSeedAndKeyPair();
   const firstContainer = await createContainerManifestFixture({
     containerId: "blob-container-a",
-    containerKeyEpochId: "blob-container-a-key-epoch-1",
+    containerKeyEpochId: await kekId("blob-container-a-key-epoch-1"),
     directGrants: [
       {
         subjectType: "user",
@@ -154,7 +155,7 @@ test("deriveBlobKekTargets resolves the union of every active attachment binding
   });
   const secondContainer = await createContainerManifestFixture({
     containerId: "blob-container-b",
-    containerKeyEpochId: "blob-container-b-key-epoch-1",
+    containerKeyEpochId: await kekId("blob-container-b-key-epoch-1"),
     directGrants: [
       {
         subjectType: "user",
@@ -297,7 +298,7 @@ test("deriveBlobKekTargets resolves the union of every active attachment binding
 test("verifyContainerKekState derives user, principal, and parent wrap targets", async () => {
   const parentManifest = await createContainerManifestFixture({
     containerId: "parent-container",
-    containerKeyEpochId: "parent-key-epoch-1",
+    containerKeyEpochId: await kekId("parent-key-epoch-1"),
     directGrants: [
       {
         subjectType: "user",
@@ -352,7 +353,7 @@ test("verifyContainerKekState derives user, principal, and parent wrap targets",
   };
   const childManifest = await createContainerManifestFixture({
     containerId: "child-container",
-    containerKeyEpochId: "child-key-epoch-1",
+    containerKeyEpochId: await kekId("child-key-epoch-1"),
     directGrants: [
       {
         subjectType: "user",
@@ -464,7 +465,7 @@ test("verifyContainerKekState derives user, principal, and parent wrap targets",
 test("verifyContainerKekState rejects forged wrap fingerprints and parent edges", async () => {
   const parentManifest = await createContainerManifestFixture({
     containerId: "parent-container-for-reject",
-    containerKeyEpochId: "parent-key-epoch-1",
+    containerKeyEpochId: await kekId("reject-parent-key-epoch-1"),
     directGrants: [
       {
         subjectType: "user",
@@ -502,7 +503,7 @@ test("verifyContainerKekState rejects forged wrap fingerprints and parent edges"
 
   const childManifest = await createContainerManifestFixture({
     containerId: "child-container-for-reject",
-    containerKeyEpochId: "child-key-epoch-1",
+    containerKeyEpochId: await kekId("reject-child-key-epoch-1"),
     directGrants: [
       {
         subjectType: "user",
@@ -572,79 +573,4 @@ test("verifyContainerKekState rejects forged wrap fingerprints and parent edges"
     }),
     "key_epoch_reuse",
   );
-});
-
-test("verifyContainerKekState accepts additive wraps on the existing KEK epoch", async () => {
-  const originalManifest = await createContainerManifestFixture({
-    containerId: "additive-container",
-    containerKeyEpochId: "container-key-epoch-1",
-    directGrants: [
-      {
-        subjectType: "user",
-        subjectId: "alice",
-        accessLevel: "read",
-      },
-    ],
-  });
-  const currentManifest = await createContainerManifestFixture({
-    containerId: originalManifest.state.containerId,
-    containerKeyEpochId: originalManifest.state.containerKeyEpochId,
-    directGrants: [
-      ...originalManifest.state.directGrants,
-      {
-        subjectType: "user",
-        subjectId: "bob",
-        accessLevel: "read",
-      },
-    ],
-    epoch: 2,
-    previousManifestHash: originalManifest.manifestHash,
-  });
-  const aliceKey: ContainerUserRecipientKey = {
-    userId: "alice",
-    recipientKeyEpochId: "alice-key-epoch-1",
-    recipientKeyFingerprint: await fixtureHash("alice-key"),
-  };
-  const bobKey: ContainerUserRecipientKey = {
-    userId: "bob",
-    recipientKeyEpochId: "bob-key-epoch-1",
-    recipientKeyFingerprint: await fixtureHash("bob-key"),
-  };
-  const keyEpoch = await createContainerKeyEpochFixture({
-    manifest: currentManifest,
-    createdByManifest: originalManifest,
-  });
-  const state = await verifyContainerKekState({
-    containerManifest: currentManifest,
-    containerManifestHistory: [originalManifest],
-    keyEpoch,
-    userRecipientKeys: [aliceKey, bobKey],
-    wraps: [
-      await createContainerKeyWrap({
-        containerKeyEpochId: keyEpoch.id,
-        recipientKind: "user",
-        recipientId: aliceKey.userId,
-        recipientKeyEpochId: aliceKey.recipientKeyEpochId,
-        recipientKeyFingerprint: aliceKey.recipientKeyFingerprint,
-        wrapManifestHash: originalManifest.manifestHash,
-      }),
-      await createContainerKeyWrap({
-        containerKeyEpochId: keyEpoch.id,
-        recipientKind: "user",
-        recipientId: bobKey.userId,
-        recipientKeyEpochId: bobKey.recipientKeyEpochId,
-        recipientKeyFingerprint: bobKey.recipientKeyFingerprint,
-        wrapManifestHash: currentManifest.manifestHash,
-      }),
-    ],
-  });
-
-  expect(state.ok).toBe(true);
-  if (state.ok) {
-    expect(state.value.containerKeyEpochId).toBe("container-key-epoch-1");
-    expect(state.value.wraps.map((wrap) => wrap.wrapManifestHash)).toEqual([
-      originalManifest.manifestHash,
-      currentManifest.manifestHash,
-    ]);
-  }
 });

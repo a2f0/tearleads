@@ -31,7 +31,6 @@ function createRuntime(
     },
     resolveTrustedUserIdentity: async () => null,
     state: { domainScope: createDomainScope() },
-    util: { ...patch.util },
     ...patch,
   };
 }
@@ -74,26 +73,21 @@ test("projection identity integrity failures remain hard failures", async () => 
   await expect(resolver("peer-1")).rejects.toBe(integrityError);
 });
 
-test("projection transport failures remain soft and retryable", async () => {
-  const logs: string[] = [];
+test("projection resolver evicts and rethrows failed identity loads", async () => {
   let attempts = 0;
+  const transportError = new Error("offline");
   const resolver = createContainerContentsDocumentProjectionUserKeyResolver(
     createRuntime({
       resolveTrustedUserIdentity: async () => {
         attempts += 1;
-        throw new Error("offline");
+        throw transportError;
       },
-      util: { log: (message) => logs.push(message) },
     }),
   );
 
-  await expect(resolver("peer-1")).resolves.toBeNull();
-  await expect(resolver("peer-1")).resolves.toBeNull();
+  await expect(resolver("peer-1")).rejects.toBe(transportError);
+  await expect(resolver("peer-1")).rejects.toBe(transportError);
   expect(attempts).toBe(2);
-  expect(logs).toEqual([
-    "Container document projections: skipped projection key for peer-1 because it could not be loaded.",
-    "Container document projections: skipped projection key for peer-1 because it could not be loaded.",
-  ]);
 });
 
 test("container runtime normalization preserves trusted resolver identity", () => {
@@ -126,7 +120,6 @@ test("container runtime normalization preserves trusted resolver identity", () =
       online: false,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => {},
       log: () => {},
     },
   };
@@ -198,10 +191,4 @@ test("didContainerContentsProjectionKeyRuntimeChange tracks the live trust conte
       resolveTrustedUserIdentity: async () => null,
     }),
   ).toBe(true);
-  expect(
-    didContainerContentsProjectionKeyRuntimeChange(runtime, {
-      ...runtime,
-      util: { log: () => {} },
-    }),
-  ).toBe(false);
 });

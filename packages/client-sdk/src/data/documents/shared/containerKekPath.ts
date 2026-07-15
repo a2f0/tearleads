@@ -135,7 +135,9 @@ async function assertUnwrappedContainerKekMatchesMaterialId(input: {
   kek: ContainerWriterProjectionResponse["containerKeks"][number];
 }): Promise<void> {
   if (!isContainerKekMaterialId(input.kek.containerKeyEpochId)) {
-    return;
+    throw new Error(
+      `${projectionKekLabel(input.index)} KEK epoch id does not commit to key material`,
+    );
   }
 
   const expectedId = await computeContainerKekMaterialId({
@@ -199,7 +201,10 @@ export async function unwrapContainerKekPath(
     input,
     "Container KEK unwrap",
   );
-  if (resolveProjectionUserKey) {
+  if (
+    input.trustedLocalProjection !== true &&
+    resolveProjectionUserKey !== null
+  ) {
     // Reuse the caller's verification caches so manifests/policies already
     // verified by the projection-consistency pass are not re-verified here.
     await verifyContainerWriterProjection({

@@ -7,10 +7,9 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type {
-  ContainerCreateWithMetadataDocumentRequest,
   CreateOrganizationGroupRequest,
-  DocumentCreateRequest,
   ProvisionedDocumentRequest,
+  ProvisionedSystemContainerRequest,
   RegistrationRequest,
 } from "@tearleads/validators/request";
 import type { RegistrationResponse } from "@tearleads/validators/response";
@@ -35,10 +34,10 @@ interface CapturedRegistrationRequest {
   initialMemberGroup: CreateOrganizationGroupRequest;
   initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"];
   initialRootContainer: RegistrationRequest["initialRootContainer"];
-  initialRootMetadataDocument: DocumentCreateRequest;
-  initialRosterProfileContainer: ContainerCreateWithMetadataDocumentRequest;
+  initialRootMetadataDocument: ProvisionedDocumentRequest;
+  initialRosterProfileContainer: ProvisionedSystemContainerRequest;
   initialRosterProfileDocument: ProvisionedDocumentRequest;
-  initialOrganizationMetadataContainer: ContainerCreateWithMetadataDocumentRequest;
+  initialOrganizationMetadataContainer: ProvisionedSystemContainerRequest;
   initialOrganizationProfileDocument: ProvisionedDocumentRequest;
 }
 
@@ -124,13 +123,13 @@ test("registerIdentity submits the registration request and persists the local b
       initialMemberGroup: CreateOrganizationGroupRequest,
       initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
       initialRootContainer: RegistrationRequest["initialRootContainer"],
-      initialRootMetadataDocument: DocumentCreateRequest,
+      initialRootMetadataDocument: ProvisionedDocumentRequest,
       initialRosterProfileContainer?:
-        | ContainerCreateWithMetadataDocumentRequest
+        | ProvisionedSystemContainerRequest
         | undefined,
       initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined,
       initialOrganizationMetadataContainer?:
-        | ContainerCreateWithMetadataDocumentRequest
+        | ProvisionedSystemContainerRequest
         | undefined,
       initialOrganizationProfileDocument?:
         | ProvisionedDocumentRequest
@@ -220,6 +219,18 @@ test("registerIdentity submits the registration request and persists the local b
           organizationMetadataContainerResponse.containerId,
         organizationProfileDocument,
         organizationProfileDocumentId: organizationProfileDocument.id,
+        committedCoreMetadataUpdateIds: [
+          initialRootMetadataDocument.initialSync,
+          initialRosterProfileContainer.initialMetadataSync,
+          initialOrganizationMetadataContainer.initialMetadataSync,
+        ].flatMap((sync) => sync.outgoingUpdates.map((update) => update.id)),
+        committedProfileUpdateIds: [
+          initialRosterProfileDocument,
+          initialOrganizationProfileDocument,
+        ].flatMap((document) =>
+          document.initialSync.outgoingUpdates.map((update) => update.id),
+        ),
+        systemContainers: [],
         challenge: "a".repeat(64),
       };
     },
@@ -409,13 +420,13 @@ test("registerIdentity propagates local bootstrap persistence failures", async (
       initialMemberGroup: CreateOrganizationGroupRequest,
       initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
       initialRootContainer: RegistrationRequest["initialRootContainer"],
-      initialRootMetadataDocument: DocumentCreateRequest,
+      initialRootMetadataDocument: ProvisionedDocumentRequest,
       initialRosterProfileContainer?:
-        | ContainerCreateWithMetadataDocumentRequest
+        | ProvisionedSystemContainerRequest
         | undefined,
       initialRosterProfileDocument?: ProvisionedDocumentRequest | undefined,
       initialOrganizationMetadataContainer?:
-        | ContainerCreateWithMetadataDocumentRequest
+        | ProvisionedSystemContainerRequest
         | undefined,
       initialOrganizationProfileDocument?:
         | ProvisionedDocumentRequest

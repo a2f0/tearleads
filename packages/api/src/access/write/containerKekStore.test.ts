@@ -2,91 +2,30 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { containerKeyWraps } from "@tearleads/api-shared/schema";
 import type {
-  AccessManifest,
   ContainerDirectGrant,
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
   ReferencedPrincipalHead,
-  VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import {
-  computeKeyingDomainHash,
   derivePrincipalRecipientKeyEpochId,
   verifyContainerKekState,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
+import { createTestContainerKekMaterial } from "../../../test/helpers/containerKekMaterial";
+import {
+  createContainerKekStoreManifestFixture as createContainerManifestFixture,
+  containerKekStoreFixtureHash as fixtureHash,
+} from "../../../test/helpers/containerKekStoreFixtures";
 import {
   getCurrentContainerKeyEpoch,
   listContainerKeyWraps,
   resolveStoredContainerKekState,
 } from "../read/containerKekStore";
 import { storeVerifiedContainerKekState } from "./containerKekStore";
-
-async function fixtureHash(label: string): Promise<string> {
-  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
-    fixture: label,
-  });
-}
-
-async function createContainerManifestFixture(input: {
-  readonly containerId: string;
-  readonly containerKeyEpochId: string;
-  readonly directGrants: readonly ContainerDirectGrant[];
-  readonly epoch?: number;
-  readonly organizationId?: string;
-  readonly previousManifestHash?: string | null;
-  readonly referencedPrincipalHeads?: readonly ReferencedPrincipalHead[];
-  readonly salt?: string;
-}): Promise<VerifiedContainerAccessManifest> {
-  const organizationId = input.organizationId ?? crypto.randomUUID();
-  const eventHash = await fixtureHash(
-    `${input.salt ?? input.containerId}:event:${input.epoch ?? 1}`,
-  );
-  const manifest: AccessManifest = {
-    version: 1,
-    objectKind: "container",
-    objectId: input.containerId,
-    organizationId,
-    epoch: input.epoch ?? 1,
-    previousManifestHash: input.previousManifestHash ?? null,
-    eventHash,
-    structuralHash: await fixtureHash(`${input.containerId}:structural`),
-    grantRoot: await fixtureHash(`${input.containerId}:grant-root`),
-    referencedPrincipalHeads: [...(input.referencedPrincipalHeads ?? [])],
-    keyTargetHash: await fixtureHash(`${input.containerId}:key-target`),
-  };
-  const manifestHash = await fixtureHash(
-    `${input.salt ?? input.containerId}:manifest:${input.epoch ?? 1}`,
-  );
-
-  return {
-    manifest,
-    manifestHash,
-    event: {
-      eventHash,
-      event: {
-        eventHash,
-      },
-    } as unknown as VerifiedAccessEvent,
-    state: {
-      version: 1,
-      containerId: input.containerId,
-      organizationId,
-      epoch: input.epoch ?? 1,
-      previousManifestHash: input.previousManifestHash ?? null,
-      eventHash,
-      parentContainerId: null,
-      parentManifestHash: null,
-      metadataDocumentId: `${input.containerId}-metadata-document`,
-      containerKeyEpochId: input.containerKeyEpochId,
-      directGrants: [...input.directGrants],
-      referencedPrincipalHeads: [...(input.referencedPrincipalHeads ?? [])],
-    },
-  } as unknown as VerifiedContainerAccessManifest;
-}
 
 async function createContainerKeyEpochFixture(input: {
   readonly createdByManifest?: VerifiedContainerAccessManifest;
@@ -176,7 +115,10 @@ function principalPolicyFixture(
 
 test("container KEK store persists additive wraps and resolves verified state", async () => {
   const containerId = crypto.randomUUID();
-  const containerKeyEpochId = crypto.randomUUID();
+  const { containerKeyEpochId } = await createTestContainerKekMaterial({
+    containerId,
+    keyEpoch: 1,
+  });
   const organizationId = crypto.randomUUID();
   const aliceUserId = crypto.randomUUID();
   const bobUserId = crypto.randomUUID();
@@ -283,7 +225,10 @@ test("container KEK store persists additive wraps and resolves verified state", 
 
 test("container KEK store replaces stale same-epoch principal wraps", async () => {
   const containerId = crypto.randomUUID();
-  const containerKeyEpochId = crypto.randomUUID();
+  const { containerKeyEpochId } = await createTestContainerKekMaterial({
+    containerId,
+    keyEpoch: 1,
+  });
   const organizationId = crypto.randomUUID();
   const groupId = crypto.randomUUID();
   const initialGroupHead = await principalHeadFixture({
@@ -405,7 +350,10 @@ test("container KEK store replaces stale same-epoch principal wraps", async () =
 
 test("container KEK resolver rejects tampered stored wrap fingerprints", async () => {
   const containerId = crypto.randomUUID();
-  const containerKeyEpochId = crypto.randomUUID();
+  const { containerKeyEpochId } = await createTestContainerKekMaterial({
+    containerId,
+    keyEpoch: 1,
+  });
   const aliceUserId = crypto.randomUUID();
   const manifest = await createContainerManifestFixture({
     containerId,
@@ -471,8 +419,16 @@ test("container KEK resolver rejects tampered stored wrap fingerprints", async (
 test("container KEK store advances current epoch after revoke rekey", async () => {
   const containerId = crypto.randomUUID();
   const organizationId = crypto.randomUUID();
-  const oldKeyEpochId = crypto.randomUUID();
-  const newKeyEpochId = crypto.randomUUID();
+  const { containerKeyEpochId: oldKeyEpochId } =
+    await createTestContainerKekMaterial({
+      containerId,
+      keyEpoch: 1,
+    });
+  const { containerKeyEpochId: newKeyEpochId } =
+    await createTestContainerKekMaterial({
+      containerId,
+      keyEpoch: 2,
+    });
   const adminUserId = crypto.randomUUID();
   const removedUserId = crypto.randomUUID();
   const previousManifest = await createContainerManifestFixture({

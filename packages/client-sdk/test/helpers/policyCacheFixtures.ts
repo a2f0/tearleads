@@ -8,9 +8,9 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type {
-  EncapsulationKeyResponse,
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
+  UserIdentityResponse,
 } from "@tearleads/validators/response";
 import type { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
 import {
@@ -25,19 +25,19 @@ type CacheReferencedPoliciesOptions = Omit<
   CacheReferencedPrincipalPoliciesOptions,
   "resolveTrustedUserIdentity"
 > & {
-  readonly getEncapsulationKey: (
+  readonly getUserIdentity: (
     userId: string,
-  ) => Promise<EncapsulationKeyResponse | null>;
+  ) => Promise<UserIdentityResponse | null>;
 };
 
 export function cacheReferencedPolicies(
   options: CacheReferencedPoliciesOptions,
 ): Promise<void> {
-  const { getEncapsulationKey, ...cacheOptions } = options;
+  const { getUserIdentity, ...cacheOptions } = options;
   return cacheReferencedPrincipalPolicies({
     ...cacheOptions,
     resolveTrustedUserIdentity: async (userId) => {
-      const response = await getEncapsulationKey(userId);
+      const response = await getUserIdentity(userId);
       return response ? trustedUserIdentityFromResponse(response) : null;
     },
   });
@@ -325,7 +325,7 @@ export async function createSuccessorPrincipalPolicyBundle(
 
 export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promise<{
   bundle: PrincipalPolicyBundleResponse;
-  signerKeyResponses: Map<string, EncapsulationKeyResponse>;
+  signerKeyResponses: Map<string, UserIdentityResponse>;
 }> {
   const principalKem = generateKemSeedAndKeyPair();
   const principalKeyFingerprint = await toFingerprint(principalKem.publicKey);

@@ -150,7 +150,7 @@ test("explorer sync replays moved local containers from disk after restart and l
       apiClient: createMockApiClient({
         ...runtime.apiClient,
         ...harness.apiClient,
-        getEncapsulationKey: async (requestedUserId: string) => ({
+        getUserIdentity: async (requestedUserId: string) => ({
           encapsulationKeyFingerprint: await toFingerprint(
             localKeyPair.publicKey,
           ),
@@ -331,7 +331,7 @@ test("explorer sync creates queued local containers parent before child", async 
       apiClient: createMockApiClient({
         ...runtime.apiClient,
         ...harness.apiClient,
-        getEncapsulationKey: async (requestedUserId: string) => ({
+        getUserIdentity: async (requestedUserId: string) => ({
           encapsulationKeyFingerprint: await toFingerprint(
             localKeyPair.publicKey,
           ),

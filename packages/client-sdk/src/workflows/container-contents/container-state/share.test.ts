@@ -70,11 +70,15 @@ test("shareContainerState treats an existing matching user grant as an idempoten
       userId: recipientUserId,
     });
     let shareCallCount = 0;
-    const cachedPrincipalReferences: unknown[][] = [];
+    const requestedPrincipalPolicies: string[] = [];
     const logs: string[] = [];
     const runtime = createContainerContentsWorkflowRuntime({
       apiClient: createMockApiClient({
         getContainerWriterProjection: async () => remoteProjection,
+        getCurrentPrincipalPolicy: async (principalType, principalId) => {
+          requestedPrincipalPolicies.push(`${principalType}:${principalId}`);
+          return null;
+        },
         shareContainer: async () => {
           shareCallCount += 1;
           return null;
@@ -96,6 +100,7 @@ test("shareContainerState treats an existing matching user grant as an idempoten
         documentProjectors: defaultDocumentProjectorRegistry,
         execSql,
       },
+      resolveTrustedUserIdentity: async () => null,
       state: {
         containerId: null,
         domainScope: createDomainScope(),
@@ -103,9 +108,6 @@ test("shareContainerState treats an existing matching user grant as an idempoten
         online: true,
       },
       util: {
-        cacheReferencedPrincipalPolicies: async (references) => {
-          cachedPrincipalReferences.push([...(references ?? [])]);
-        },
         log: (message) => logs.push(message),
       },
     });
@@ -170,7 +172,7 @@ test("shareContainerState treats an existing matching user grant as an idempoten
     expect(shared?.container.serverCreatedAt).toBe(remoteCreatedAt);
     expect(shared?.container.serverUpdatedAt).toBe(remoteUpdatedAt);
     expect(shared?.container.updatedAt).toBe(remoteUpdatedAt);
-    expect(cachedPrincipalReferences).toEqual([remoteReferencedPrincipalHeads]);
+    expect(requestedPrincipalPolicies).toEqual(["group:group-1"]);
   } finally {
     close();
   }
@@ -204,7 +206,7 @@ test("shareContainerState reuses the idempotency projection for a new user share
           projectionCallCount += 1;
           return projection;
         },
-        getEncapsulationKey: async () => null,
+        getUserIdentity: async () => null,
       }),
       auth: {
         isAuthenticated: true,
@@ -222,6 +224,7 @@ test("shareContainerState reuses the idempotency projection for a new user share
         documentProjectors: defaultDocumentProjectorRegistry,
         execSql,
       },
+      resolveTrustedUserIdentity: async () => null,
       state: {
         containerId: null,
         domainScope: createDomainScope(),
@@ -229,7 +232,6 @@ test("shareContainerState reuses the idempotency projection for a new user share
         online: true,
       },
       util: {
-        cacheReferencedPrincipalPolicies: async () => undefined,
         log: () => undefined,
       },
     });
@@ -303,6 +305,7 @@ function createShareTestRuntime(input: {
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql: input.execSql,
     },
+    resolveTrustedUserIdentity: async () => null,
     state: {
       containerId: null,
       domainScope: createDomainScope(),
@@ -310,7 +313,6 @@ function createShareTestRuntime(input: {
       online: true,
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => undefined,
       log: (message) => input.logs.push(message),
     },
   });
@@ -530,28 +532,23 @@ test("a prepared existing-grant re-wrap always attempts a real mutation", async 
   expect(shared).toBeNull();
 });
 
-test("a non-prepared existing-grant share dedups when the current head cannot be resolved", async () => {
-  const { containerId, groupId, logs, shareCallCount, shared } =
-    await runGroupShareScenario({
+test("a non-prepared existing-grant share fails closed when the current head cannot be resolved", async () => {
+  let shareCalls = 0;
+
+  await expect(
+    runGroupShareScenario({
       currentGroupKeyEpoch: 2,
       currentPolicyError: true,
+      onShareCall: () => {
+        shareCalls += 1;
+      },
       pinnedKeyEpoch: 1,
       remoteAccessStateHash: "remote-access-state-hash-unresolved",
       requireExistingGrant: true,
       testLabel: "containerContents-share-group-unresolved",
-    });
-
-  // The pinned epoch trails the (unseen) current head, but because the head
-  // could not be resolved the share stays a best-effort no-op instead of
-  // failing outright.
-  expect(logs).toContain(
-    `Container contents: could not resolve current key epoch for group ${groupId}: current principal policy unavailable`,
-  );
-  expect(logs).toContain(
-    `Container contents: skipped duplicate share for container ${containerId} with group ${groupId}`,
-  );
-  expect(shareCallCount).toBe(0);
-  expect(shared?.record.accessEpoch).toBe(2);
+    }),
+  ).rejects.toThrow("current principal policy unavailable");
+  expect(shareCalls).toBe(0);
 });
 
 test("group share propagates identity failures without duplicate-share fallback", async () => {

@@ -102,7 +102,10 @@ export async function assertDocumentWriterProjectionConsistent(
     input,
     "Document writer projection",
   );
-  if (resolveProjectionUserKey) {
+  if (
+    input.trustedLocalProjection !== true &&
+    resolveProjectionUserKey !== null
+  ) {
     await verifyDocumentWriterProjection({
       execSql: input.execSql,
       principalPolicyCache: input.principalPolicyCache,

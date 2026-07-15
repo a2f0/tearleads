@@ -38,11 +38,9 @@ import type { ContainerContentsWorkflowRuntime } from "./runtime";
 type ContainerMetadataSyncApi = Parameters<
   typeof syncRemoteDocument
 >[0]["apiClient"] &
-  Partial<
-    Pick<
-      ContainerContentsWorkflowRuntime["apiClient"],
-      "getCurrentPrincipalPolicy"
-    >
+  Pick<
+    ContainerContentsWorkflowRuntime["apiClient"],
+    "getCurrentPrincipalPolicy"
   >;
 
 interface ContainerMetadataSyncRuntime

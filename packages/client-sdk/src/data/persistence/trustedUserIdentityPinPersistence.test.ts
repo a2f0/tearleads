@@ -77,11 +77,8 @@ test("every identity field is immutable after first contact", async () => {
     "trusted-identity-immutable",
   );
   const changes = [
-    ["formatVersion", 2],
-    ["signingSuite", "another-signing-suite"],
     ["signingPublicKey", "signing-public-key-b"],
     ["signingKeyFingerprint", "signing-fingerprint-b"],
-    ["encapsulationSuite", "another-encapsulation-suite"],
     ["encapsulationPublicKey", "encapsulation-public-key-b"],
     ["encapsulationKeyFingerprint", "encapsulation-fingerprint-b"],
   ] as const;
@@ -287,6 +284,85 @@ test("invalid candidates fail before creating a durable row", async () => {
         userId: pin.userId,
       }),
     ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});
+
+test("candidate pins require the current format version and suites", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "trusted-identity-current-format-input",
+  );
+  const invalidFields = [
+    ["formatVersion", 2, "formatVersion must be 1"],
+    ["signingSuite", "ML-DSA-65", "signingSuite must be ML-DSA-87"],
+    [
+      "encapsulationSuite",
+      "ML-KEM-768",
+      "encapsulationSuite must be ML-KEM-1024",
+    ],
+  ] as const;
+
+  try {
+    for (const [index, [field, value, reason]] of invalidFields.entries()) {
+      const pin = createPin({ userId: `invalid-format-user-${index}` });
+      const candidate = { ...pin, [field]: value };
+
+      await expect(
+        compareOrInsertTrustedUserIdentityPin({ execSql, pin: candidate }),
+      ).rejects.toMatchObject({
+        code: "trusted_user_identity_pin_invalid_input",
+        reason,
+      });
+      await expect(
+        loadTrustedUserIdentityPin({
+          execSql,
+          identityTrustDomain: pin.identityTrustDomain,
+          userId: pin.userId,
+        }),
+      ).resolves.toBeNull();
+    }
+  } finally {
+    close();
+  }
+});
+
+test("stored pins require the current format version and suites", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "trusted-identity-current-format-storage",
+  );
+  const invalidFields = [
+    ["format_version", 2, "formatVersion must be 1"],
+    ["signing_suite", "ML-DSA-65", "signingSuite must be ML-DSA-87"],
+    [
+      "encapsulation_suite",
+      "ML-KEM-768",
+      "encapsulationSuite must be ML-KEM-1024",
+    ],
+  ] as const;
+
+  try {
+    for (const [index, [column, value, reason]] of invalidFields.entries()) {
+      const pin = createPin({ userId: `stored-format-user-${index}` });
+      await compareOrInsertTrustedUserIdentityPin({ execSql, pin });
+      await execSql(
+        `UPDATE trusted_user_identity_pins
+         SET ${column} = ?
+         WHERE identity_trust_domain = ? AND user_id = ?`,
+        [value, pin.identityTrustDomain, pin.userId],
+      );
+
+      await expect(
+        loadTrustedUserIdentityPin({
+          execSql,
+          identityTrustDomain: pin.identityTrustDomain,
+          userId: pin.userId,
+        }),
+      ).rejects.toMatchObject({
+        code: "trusted_user_identity_pin_corrupt",
+        reason,
+      });
+    }
   } finally {
     close();
   }

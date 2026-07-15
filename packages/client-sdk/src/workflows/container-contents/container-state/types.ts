@@ -48,7 +48,7 @@ export type ContainerWorkflowApi = Parameters<
       containerId: string,
       projection: ContainerWriterProjectionResponse,
     ): void;
-    getCurrentPrincipalPolicy?(
+    getCurrentPrincipalPolicy(
       principalType: "group" | "organization",
       principalId: string,
     ): Promise<PrincipalPolicyBundleResponse | null>;

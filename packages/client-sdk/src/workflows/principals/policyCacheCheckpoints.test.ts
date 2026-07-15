@@ -53,7 +53,7 @@ test("principal policy sync rejects rollback after the mutable bundle cache is c
     await cacheReferencedPolicies({
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,
-      getEncapsulationKey: async () => signerKeyResponse,
+      getUserIdentity: async () => signerKeyResponse,
       references: [referencedPrincipalStateFromBundle(bundle)],
     });
     await expect(
@@ -69,7 +69,7 @@ test("principal policy sync rejects rollback after the mutable bundle cache is c
     await cacheReferencedPolicies({
       execSql,
       getCurrentPrincipalPolicy: async () => olderBundle,
-      getEncapsulationKey: async () => signerKeyResponse,
+      getUserIdentity: async () => signerKeyResponse,
       log: (message) => logs.push(message),
       references: [referencedPrincipalStateFromBundle(olderBundle)],
     });
@@ -102,7 +102,7 @@ test("principal policy sync cannot pin a head when its full bundle write fails",
     await cacheReferencedPolicies({
       execSql,
       getCurrentPrincipalPolicy: async () => bundle,
-      getEncapsulationKey: async () => signerKeyResponse,
+      getUserIdentity: async () => signerKeyResponse,
       log: (message) => logs.push(message),
       references: [referencedPrincipalStateFromBundle(bundle)],
     });

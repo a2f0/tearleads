@@ -15,12 +15,9 @@ import {
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
-import {
-  type ContainerCreateWithMetadataDocumentRequest,
-  isProvisionedDocumentRequest,
-  isProvisionedSystemContainerRequest,
-  type OrganizationProvisioningRequest,
-  type ProvisionedSystemContainerRequest,
+import type {
+  OrganizationProvisioningRequest,
+  ProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
 import type {
   ContainerCreateWithMetadataDocumentResponse,
@@ -855,16 +852,14 @@ async function createInitialRootMetadataDocument(
     containerId: input.rootContainerId,
     documentId: created.id,
   });
-  if (isProvisionedDocumentRequest(input.initialRootMetadataDocument)) {
-    await appendProvisionedDocumentInitialUpdate({
-      documentId: created.id,
-      executor: tx,
-      fingerprint: signer.fingerprint,
-      request: input.initialRootMetadataDocument.initialSync,
-      signingPublicKey: signer.signingPublicKey,
-      userId: input.userId,
-    });
-  }
+  await appendProvisionedDocumentInitialUpdate({
+    documentId: created.id,
+    executor: tx,
+    fingerprint: signer.fingerprint,
+    request: input.initialRootMetadataDocument.initialSync,
+    signingPublicKey: signer.signingPublicKey,
+    userId: input.userId,
+  });
 
   return created;
 }
@@ -872,9 +867,7 @@ async function createInitialRootMetadataDocument(
 async function createProvisionedSystemContainer(
   tx: DatabaseTransaction,
   input: {
-    request:
-      | ContainerCreateWithMetadataDocumentRequest
-      | ProvisionedSystemContainerRequest;
+    request: ProvisionedSystemContainerRequest;
     signer: OrganizationProvisioningSigner;
     userId: string;
   },
@@ -899,16 +892,14 @@ async function createProvisionedSystemContainer(
       400,
     );
   }
-  if (isProvisionedSystemContainerRequest(input.request)) {
-    await appendProvisionedDocumentInitialUpdate({
-      documentId: metadataDocument.id,
-      executor: tx,
-      fingerprint: input.signer.fingerprint,
-      request: input.request.initialMetadataSync,
-      signingPublicKey: input.signer.signingPublicKey,
-      userId: input.userId,
-    });
-  }
+  await appendProvisionedDocumentInitialUpdate({
+    documentId: metadataDocument.id,
+    executor: tx,
+    fingerprint: input.signer.fingerprint,
+    request: input.request.initialMetadataSync,
+    signingPublicKey: input.signer.signingPublicKey,
+    userId: input.userId,
+  });
 
   const systemSlot = input.request.systemSlot ?? null;
   const nextContainer = systemSlot
@@ -996,7 +987,7 @@ function listCommittedProfileUpdateIds(
     input.initialRosterProfileDocument,
     input.initialOrganizationProfileDocument,
   ].flatMap((request) =>
-    isProvisionedDocumentRequest(request)
+    request
       ? request.initialSync.outgoingUpdates.map((update) => update.id)
       : [],
   );
@@ -1006,17 +997,9 @@ function listCommittedCoreMetadataUpdateIds(
   input: OrganizationProvisioningRequest,
 ): string[] {
   return [
-    isProvisionedDocumentRequest(input.initialRootMetadataDocument)
-      ? input.initialRootMetadataDocument.initialSync
-      : null,
-    isProvisionedSystemContainerRequest(input.initialRosterProfileContainer)
-      ? input.initialRosterProfileContainer.initialMetadataSync
-      : null,
-    isProvisionedSystemContainerRequest(
-      input.initialOrganizationMetadataContainer,
-    )
-      ? input.initialOrganizationMetadataContainer.initialMetadataSync
-      : null,
+    input.initialRootMetadataDocument.initialSync,
+    input.initialRosterProfileContainer?.initialMetadataSync,
+    input.initialOrganizationMetadataContainer?.initialMetadataSync,
   ].flatMap((initialSync) =>
     initialSync ? initialSync.outgoingUpdates.map((update) => update.id) : [],
   );
@@ -1268,8 +1251,6 @@ export function toOrganizationProvisioningResponse(
             provisioned.organizationProfileDocument.id,
         }
       : {}),
-    ...(provisioned.systemContainers.length > 0
-      ? { systemContainers: provisioned.systemContainers }
-      : {}),
+    systemContainers: provisioned.systemContainers,
   };
 }

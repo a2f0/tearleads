@@ -81,7 +81,7 @@ function createRuntime(input: {
     input.fixture;
   const apiClient = {
     getDocumentWriterProjection: async () => input.fixture.writerProjection,
-    getEncapsulationKey: async () => null,
+    getUserIdentity: async () => null,
     syncDocument: async (
       documentId: string,
       request: DocumentSyncRequest,
@@ -157,7 +157,6 @@ function createRuntime(input: {
       peerScope: "rotation-recovery-restart",
     },
     util: {
-      cacheReferencedPrincipalPolicies: async () => undefined,
       log: () => undefined,
     },
   };

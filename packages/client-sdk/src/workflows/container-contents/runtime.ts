@@ -72,7 +72,7 @@ export interface ContainerContentsWorkflowRuntimeInputGroups {
 export interface ContainerContentsWorkflowRuntimeInput
   extends ContainerContentsWorkflowRuntimeInputGroups {
   readonly apiClient: ContainerContentsWorkflowApi;
-  readonly resolveTrustedUserIdentity?: TrustedUserIdentityResolver | undefined;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
 export interface ContainerContentsWorkflowRuntime
