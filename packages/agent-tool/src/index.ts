@@ -3,8 +3,13 @@
  * agent-tool - minimal CLI for cross-agent code review and PR workflows.
  *
  * Usage: bun packages/agent-tool/src/index.ts <action> [args]
- *   solicitClaudeCodeReview     Review the current PR with the local `claude` CLI
- *   solicitCodexReview          Review the current PR with the local `codex` CLI
+ *   solicitClaudeCodeReview [effort]
+ *                               Review the current PR with the local `claude`
+ *                               CLI (effort defaults to xhigh)
+ *   solicitCodexReview [effort] Review the current PR with the local `codex` CLI
+ *                               (effort defaults to high)
+ *
+ *   effort levels: low | medium | high | xhigh | max
  *   openPr [title]              Open a PR for the current branch with a
  *                               commitlint-valid title (body from stdin)
  *   squashMerge [subject] [sha] Squash-merge the current PR with a subject-only
@@ -36,9 +41,9 @@ function main(): number {
 
   switch (action) {
     case "solicitClaudeCodeReview":
-      return solicitClaudeCodeReview(rootDir);
+      return solicitClaudeCodeReview(rootDir, process.argv[3]);
     case "solicitCodexReview":
-      return solicitCodexReview();
+      return solicitCodexReview(process.argv[3]);
     case "openPr":
       return openPr(rootDir, process.argv[3]);
     case "squashMerge":

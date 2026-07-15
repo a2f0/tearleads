@@ -14,6 +14,19 @@ available.
 
 - First argument (optional): `claude` or `codex`. Defaults to `claude` (the
   other agent when invoked from Codex).
+- Second argument (optional): the reviewer's reasoning **effort level** — one of
+  `low`, `medium`, `high`, `xhigh`, `max`. When omitted it defaults **per agent**:
+  **`xhigh` for Claude**, **`high` for Codex**. An unknown level fails fast
+  before the reviewer CLI is launched.
+
+  The level is passed as `claude --effort <level>` and, for Codex, as
+  `-c model_reasoning_effort="<level>"` — an explicit override, so a Codex review
+  never silently inherits whatever `~/.codex/config.toml` sets.
+- `--passes <n>` (optional flag, position-independent): how many review passes to
+  run over the current diff. **Defaults to `1`** — a single pass. This skill never
+  re-reviews on its own; extra passes are opt-in. A flag rather than a third
+  positional argument, so it can be given without also supplying the agent and
+  effort.
 
 ## Prerequisites
 
@@ -44,18 +57,30 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
    - `codex` → Codex (self-review)
    - otherwise → Claude Code (default for Codex invoking this skill)
 
-2. **Run the review**: Execute the matching action.
+2. **Run the review**: Execute the matching action **once** — one pass is the
+   default. Omit the effort argument to take the per-agent default (`xhigh` for
+   Claude, `high` for Codex); pass a level to override it.
+
+   **Review passes:** with `--passes <n>` and `n > 1`, repeat the review over the
+   *same, unchanged* diff, reporting only findings the earlier passes did not
+   surface, and stop early as soon as a pass adds nothing new. Passes buy
+   discovery depth on one diff — they never fix anything, and this skill does not
+   review code that changed underneath it. Once findings are addressed the diff is
+   different, so reviewing it again is a **new invocation the caller decides to
+   make**, not something this skill does on its own.
 
    **For Claude Code review:**
 
    ```bash
-   bun "$AGENT_TOOL" solicitClaudeCodeReview
+   bun "$AGENT_TOOL" solicitClaudeCodeReview       # effort: xhigh (default)
+   bun "$AGENT_TOOL" solicitClaudeCodeReview high  # explicit override
    ```
 
    **For Codex review:**
 
    ```bash
-   bun "$AGENT_TOOL" solicitCodexReview
+   bun "$AGENT_TOOL" solicitCodexReview            # effort: high (default)
+   bun "$AGENT_TOOL" solicitCodexReview xhigh      # explicit override
    ```
 
    **Fallback behavior (required):**
@@ -112,6 +137,16 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 
 ## Notes
 
+- **One pass by default.** The skill reviews the current diff once and reports;
+  it does not loop. Re-reviewing after fixes is always the caller's explicit
+  decision (a fresh invocation), which keeps a review → fix → re-review cycle from
+  running away and surfacing ever-narrower findings.
+- Effort defaults are per agent — `xhigh` for Claude, `high` for Codex — and are
+  always passed explicitly, so neither reviewer inherits an ambient config value.
+  Fallback reviews use the fallback agent's own default unless a level is given.
+- The fallback chain is not a second pass: falling back to another agent (or the
+  in-session review) is still the *same* single pass, because the first reviewer
+  produced no usable result.
 - The review scripts are non-interactive and stream output to stdout.
 - Reviews are based on the diff between the PR's base branch and HEAD.
 - The Claude review streams the prompt/diff via stdin (not argv) to avoid
