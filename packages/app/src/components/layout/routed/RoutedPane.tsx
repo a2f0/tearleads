@@ -55,15 +55,13 @@ function invertBoolean(value: boolean): boolean {
  */
 export function initialRoutedSidebarExpanded(
   tier: RoutedLayoutTier,
-  activeAppId: MiniAppId | null,
+  activeAppId: MiniAppId,
 ): boolean {
   if (tier === "mobile") {
     return false;
   }
 
-  return activeAppId
-    ? (MINI_APPS[activeAppId].initialShowSidebar ?? true)
-    : true;
+  return MINI_APPS[activeAppId].initialShowSidebar ?? true;
 }
 
 export function resolveRoutedActiveMiniAppId(

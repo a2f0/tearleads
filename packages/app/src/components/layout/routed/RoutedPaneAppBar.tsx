@@ -18,7 +18,7 @@ export function RoutedPaneAppBar({
   onToggleSidebar,
   sidebarExpanded,
 }: {
-  activeAppId: MiniAppId | null;
+  activeAppId: MiniAppId;
   hasSidebar: boolean;
   onToggleSidebar: () => void;
   sidebarExpanded: boolean;
@@ -70,9 +70,7 @@ export function RoutedPaneAppBar({
             <SidebarSimpleIcon aria-hidden size={18} />
           </button>
         )}
-        <div className="routed-pane-title">
-          {activeAppId ? MINI_APPS[activeAppId].title : "Home"}
-        </div>
+        <div className="routed-pane-title">{MINI_APPS[activeAppId].title}</div>
       </div>
       <div className="routed-pane-appbar-spacer" />
       {showToolbar && (
