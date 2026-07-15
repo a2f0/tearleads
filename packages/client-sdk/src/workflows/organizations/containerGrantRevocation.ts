@@ -3,6 +3,7 @@ import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import type { ReferencedPrincipalPolicyWarmer } from "../../data/keyingProjectionVerification";
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { revokeRemoteContainer } from "../containers";
 import { resolveDocumentCreateAuthor } from "../documents";
 
@@ -13,11 +14,7 @@ type OrganizationContainerGrantSubject = Pick<
 
 type OrganizationContainerGrantRevocationApi = Parameters<
   typeof revokeRemoteContainer
->[0]["apiClient"] & {
-  getEncapsulationKey: Parameters<
-    typeof createProjectionUserKeyResolver
-  >[0]["apiClient"]["getEncapsulationKey"];
-};
+>[0]["apiClient"];
 
 export async function revokeOrganizationContainerGrant(input: {
   readonly apiClient: OrganizationContainerGrantRevocationApi;
@@ -28,6 +25,7 @@ export async function revokeOrganizationContainerGrant(input: {
   };
   readonly execSql: ExecSql;
   readonly organizationId: string;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly revokedSubject: OrganizationContainerGrantSubject;
   readonly signerUserId: string;
   readonly signingFingerprint: string;
@@ -61,11 +59,7 @@ export async function revokeOrganizationContainerGrant(input: {
     revokedSubject: input.revokedSubject,
     resolveProjectionUserKey: createProjectionUserKeyResolver(
       {
-        apiClient: input.apiClient,
-        encapsulationKeyPair: input.encapsulationKeyPair,
-        signingFingerprint: input.signingFingerprint,
-        signingKeyPair: input.signingKeyPair,
-        userId: input.signerUserId,
+        resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
       },
       "Org Manager",
     ),

@@ -233,6 +233,7 @@ test("registerIdentity submits the registration request and persists the local b
       encapsulationKeyPair,
       log: (message) => logs.push(message),
       logError: (message, cause) => errors.push({ message, cause }),
+      pinLocalUserIdentity: async () => undefined,
       signingKeyPair,
     });
     const request = expectCapturedRegistration(captured);
@@ -453,6 +454,7 @@ test("registerIdentity propagates local bootstrap persistence failures", async (
       },
       encapsulationKeyPair,
       logError: (message, cause) => errors.push({ message, cause }),
+      pinLocalUserIdentity: async () => undefined,
       signingKeyPair,
     }),
   ).rejects.toThrow("local db unavailable");

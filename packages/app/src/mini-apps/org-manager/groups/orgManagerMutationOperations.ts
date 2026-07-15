@@ -1,14 +1,6 @@
-import type {
-  OrganizationDirectory,
-  OrganizationGroupMembers,
-  OrganizationUserRecipient,
-} from "@tearleads/client-sdk";
+import type { OrganizationDirectory } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
-import {
-  currentGroupUserRecipients,
-  userRecipient,
-} from "../grants/recipients";
 import type { useOrgManagerRefreshers } from "../hooks/useOrgManagerRefreshers";
 import { ORG_MANAGER_LABELS } from "../labels";
 
@@ -47,13 +39,13 @@ export async function prepareRosterImport(input: {
   orgManagerActions: OrgManagerActions;
   setError: Dispatch<SetStateAction<string | null>>;
   targetUserId: string;
-}): Promise<OrganizationUserRecipient | null> {
+}): Promise<{ userId: string } | null> {
   const directoryUser = input.directory.users.find(
     (user) => user.userId === input.targetUserId,
   );
   const [targetUser, memberGroupDetails] = await Promise.all([
     directoryUser
-      ? Promise.resolve(userRecipient(directoryUser))
+      ? Promise.resolve({ userId: directoryUser.userId })
       : input.orgManagerActions.importUserById(input.targetUserId),
     input.orgManagerActions.loadGroupDetails(input.memberGroupId),
   ]);
@@ -77,11 +69,7 @@ export async function prepareRosterImport(input: {
   if (!alreadyMember) {
     await input.orgManagerActions.addUserToGroup(
       input.memberGroupId,
-      targetUser,
-      currentGroupUserRecipients({
-        directory: input.directory,
-        members: memberGroupDetails.members,
-      }),
+      targetUser.userId,
       input.directory.currentUser.isOrgAdmin,
     );
   }
@@ -96,14 +84,13 @@ export async function addRosterUserToGroup(input: {
   directoryUser: OrganizationDirectory["users"][number] | undefined;
   groupId: string;
   isOperationActive: IsOperationActive;
-  members: OrganizationGroupMembers;
   operationOrganizationId: string;
   orgManagerActions: OrgManagerActions;
   setError: Dispatch<SetStateAction<string | null>>;
   targetUserId: string;
 }): Promise<boolean> {
   const targetUser = input.directoryUser
-    ? userRecipient(input.directoryUser)
+    ? { userId: input.directoryUser.userId }
     : await input.orgManagerActions.importUserById(input.targetUserId);
   if (!input.isOperationActive(input.operationOrganizationId)) {
     return false;
@@ -115,11 +102,7 @@ export async function addRosterUserToGroup(input: {
 
   await input.orgManagerActions.addUserToGroup(
     input.groupId,
-    targetUser,
-    currentGroupUserRecipients({
-      directory: input.directory,
-      members: input.members,
-    }),
+    targetUser.userId,
     input.directory.currentUser.isOrgAdmin,
   );
   return input.isOperationActive(input.operationOrganizationId);

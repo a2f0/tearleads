@@ -11,6 +11,7 @@ import {
   createLinkSetResponseFromRequest,
   createResponse,
 } from "../../../test/helpers/documentFixtures";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
@@ -65,11 +66,12 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
     );
     const resolveProjectionUserKey = async (userId: string) =>
       userId === author.signerUserId
-        ? {
+        ? createTestTrustedUserIdentity({
             encapsulationPublicKey: keyPair.publicKey,
+            signingKeyFingerprint: author.signerKeyFingerprint,
             signingPublicKey,
             userId,
-          }
+          })
         : null;
     const created = await buildMaterializedDocumentCreatePlan({
       author,
@@ -178,6 +180,7 @@ test("moveRemoteContainerDocument can replace every existing link with the targe
             signingPublicKey,
           },
         },
+        resolveTrustedUserIdentity: resolveProjectionUserKey,
         infra: {
           blobStore: null as never,
           dbStatus: "ready",

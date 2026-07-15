@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { revokeRemoteContainer } from "@tearleads/client-sdk";
 import {
   type ContainerKeyWrap,
   type ContainerRevokeAccessEventBody,
@@ -21,6 +20,8 @@ import {
   createParentProjectionUserKeyResolver,
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { revokeRemoteContainer } from "./revoke";
 
 test("revokeRemoteContainer removes a direct user grant and rotates the KEK", async () => {
   const revokedUserId = "user-2";
@@ -58,11 +59,12 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
     },
     resolveProjectionUserKey: async (userId) => {
       if (userId === revokedUserId) {
-        return {
+        return createTestTrustedUserIdentity({
           encapsulationPublicKey: revokedUserKeyPair.publicKey,
+          signingKeyFingerprint: parent.author.signerKeyFingerprint,
           signingPublicKey: parent.signingPublicKey,
           userId,
-        };
+        });
       }
 
       return createParentProjectionUserKeyResolver(parent)(userId);

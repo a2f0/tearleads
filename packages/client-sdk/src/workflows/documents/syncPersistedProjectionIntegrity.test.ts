@@ -236,6 +236,7 @@ test("persisted read-only sync propagates rollback after the evicted refetch", a
 
 test.each([
   "equivocation",
+  "object_mismatch",
   "stale_predecessor",
 ] as const)("persisted read-only sync propagates %s from a fresh projection", async (code) => {
   const fixture = await createReadOnlyResponseFixture();
@@ -243,6 +244,10 @@ test.each([
     `persisted-read-only-fresh-${code}`,
   );
   let projectionFetches = 0;
+  const integrityError = new KeyingVerificationError(
+    code,
+    `fresh projection failed with ${code}`,
+  );
 
   try {
     await expect(
@@ -260,17 +265,14 @@ test.each([
         localVersionVector: null,
         persistedState: persistedStateFromProjection(fixture.writerProjection),
         resolveProjectionUserKey: async () => {
-          throw new KeyingVerificationError(
-            code,
-            `fresh projection failed with ${code}`,
-          );
+          throw integrityError;
         },
         targetSecretKey: fixture.secretKey,
         writerPublicKeysByFingerprint: new Map([
           [fixture.author.signerKeyFingerprint, fixture.signingPublicKey],
         ]),
       }),
-    ).rejects.toMatchObject({ code });
+    ).rejects.toBe(integrityError);
     expect(projectionFetches).toBe(1);
   } finally {
     close();

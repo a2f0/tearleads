@@ -5,6 +5,10 @@ import {
 } from "../../data/documents/documentKinds";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
+  requireTrustedUserIdentityResolver,
+  type TrustedUserIdentityResolver,
+} from "../../data/trustedUserIdentity";
+import {
   createDocumentsWorkflowRuntime,
   type DocumentsWorkflowRuntime,
 } from "../documents";
@@ -68,12 +72,13 @@ export interface ContainerContentsWorkflowRuntimeInputGroups {
 export interface ContainerContentsWorkflowRuntimeInput
   extends ContainerContentsWorkflowRuntimeInputGroups {
   readonly apiClient: ContainerContentsWorkflowApi;
+  readonly resolveTrustedUserIdentity?: TrustedUserIdentityResolver | undefined;
 }
 
 export interface ContainerContentsWorkflowRuntime
   extends ContainerContentsWorkflowRuntimeGroups,
     Pick<ContainerContentsWorkflowRuntimeInput, "apiClient"> {
-  readonly getEncapsulationKey: ContainerContentsWorkflowApi["getEncapsulationKey"];
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
 export interface ContainerContentsWorkflowSqlRuntime {
@@ -91,6 +96,7 @@ function documentsRuntimeInput(
     auth: runtime.auth,
     crypto: runtime.crypto,
     infra: runtime.infra,
+    resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
     state: { ...runtime.state, containerId },
     util: runtime.util,
   };
@@ -120,9 +126,10 @@ export function createContainerContentsWorkflowRuntime(
     apiClient: input.apiClient,
     auth: input.auth,
     crypto: input.crypto,
-    getEncapsulationKey: (userId) =>
-      input.apiClient.getEncapsulationKey(userId),
     infra,
+    resolveTrustedUserIdentity: requireTrustedUserIdentityResolver(
+      input.resolveTrustedUserIdentity,
+    ),
     state: input.state,
     util: input.util,
   };

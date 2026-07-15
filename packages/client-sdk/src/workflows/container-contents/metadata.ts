@@ -38,14 +38,22 @@ import type { ContainerContentsWorkflowRuntime } from "./runtime";
 type ContainerMetadataSyncApi = Parameters<
   typeof syncRemoteDocument
 >[0]["apiClient"] &
-  Parameters<
-    typeof createDocumentWriterPublicKeyResolver
-  >[0]["runtime"]["apiClient"];
+  Partial<
+    Pick<
+      ContainerContentsWorkflowRuntime["apiClient"],
+      "getCurrentPrincipalPolicy"
+    >
+  >;
 
 interface ContainerMetadataSyncRuntime
   extends Pick<
     ContainerContentsWorkflowRuntime,
-    "auth" | "crypto" | "infra" | "state" | "util"
+    | "auth"
+    | "crypto"
+    | "infra"
+    | "resolveTrustedUserIdentity"
+    | "state"
+    | "util"
   > {
   apiClient: ContainerMetadataSyncApi;
 }
@@ -216,7 +224,6 @@ async function syncRemoteContainerMetadata(input: {
     persistedState,
     resolveProjectionUserKey,
     resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
-      includeLocalSigningKey: false,
       logPrefix: "Container contents",
       runtime,
       writerKeyLabel: "metadata writer key",

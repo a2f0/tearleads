@@ -1,5 +1,10 @@
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
+import type {
+  WorkflowRuntimeAuthInput,
+  WorkflowRuntimeCryptoInput,
+  WorkflowRuntimeStateInput,
+} from "../runtimeInput";
 
 export type ContainerContentsProjectionUserKeyResolver =
   ProjectionUserKeyResolver;
@@ -8,15 +13,10 @@ type ProjectionKeyRuntime = Parameters<
 >[0];
 
 export interface ContainerContentsProjectionKeyRuntime {
-  readonly apiClient: ProjectionKeyRuntime["apiClient"];
-  readonly auth: {
-    readonly userId?: string | null | undefined;
-  };
-  readonly crypto: {
-    readonly encapsulationKeyPair?: ProjectionKeyRuntime["encapsulationKeyPair"];
-    readonly signingFingerprint?: ProjectionKeyRuntime["signingFingerprint"];
-    readonly signingKeyPair?: ProjectionKeyRuntime["signingKeyPair"];
-  };
+  readonly auth: Pick<WorkflowRuntimeAuthInput, "isAuthenticated" | "userId">;
+  readonly crypto: WorkflowRuntimeCryptoInput;
+  readonly resolveTrustedUserIdentity: ProjectionKeyRuntime["resolveTrustedUserIdentity"];
+  readonly state: Pick<WorkflowRuntimeStateInput, "domainScope">;
   readonly util?: {
     readonly log?: ProjectionKeyRuntime["log"];
   };
@@ -30,11 +30,7 @@ function containerContentsProjectionRuntime(
   runtime: ContainerContentsProjectionKeyRuntime,
 ): ContainerContentsProjectionRuntime {
   const projectionRuntime: ContainerContentsProjectionRuntime = {
-    apiClient: runtime.apiClient,
-    encapsulationKeyPair: runtime.crypto.encapsulationKeyPair ?? null,
-    signingFingerprint: runtime.crypto.signingFingerprint ?? null,
-    signingKeyPair: runtime.crypto.signingKeyPair ?? null,
-    userId: runtime.auth.userId ?? null,
+    resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
   };
 
   return runtime.util?.log
@@ -64,14 +60,21 @@ export function didContainerContentsProjectionKeyRuntimeChange(
   previousRuntime: ContainerContentsProjectionKeyRuntime,
   nextRuntime: ContainerContentsProjectionKeyRuntime,
 ): boolean {
+  // The SDK-owned resolver is stable for the lifetime of Tearleads, but reads
+  // mutable session, identity, and database dependencies. The projection
+  // resolver adds its own per-user cache, so compare that trust context rather
+  // than relying only on the resolver function reference.
   return (
-    previousRuntime.apiClient !== nextRuntime.apiClient ||
+    previousRuntime.resolveTrustedUserIdentity !==
+      nextRuntime.resolveTrustedUserIdentity ||
+    previousRuntime.auth.isAuthenticated !== nextRuntime.auth.isAuthenticated ||
+    previousRuntime.auth.userId !== nextRuntime.auth.userId ||
     previousRuntime.crypto.encapsulationKeyPair !==
       nextRuntime.crypto.encapsulationKeyPair ||
     previousRuntime.crypto.signingFingerprint !==
       nextRuntime.crypto.signingFingerprint ||
     previousRuntime.crypto.signingKeyPair !==
       nextRuntime.crypto.signingKeyPair ||
-    previousRuntime.auth.userId !== nextRuntime.auth.userId
+    previousRuntime.state.domainScope !== nextRuntime.state.domainScope
   );
 }

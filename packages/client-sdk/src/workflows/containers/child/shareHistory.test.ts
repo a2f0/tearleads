@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { shareRemoteContainer } from "@tearleads/client-sdk";
 import {
   type AccessEvent,
   type AccessManifest,
@@ -26,6 +25,8 @@ import {
   createParentProjectionUserKeyResolver,
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { shareRemoteContainer } from "./share";
 
 test("repeated shares submit every same-container manifest needed by retained wraps", async () => {
   const parent = await createParentProjection();
@@ -52,7 +53,13 @@ test("repeated shares submit every same-container manifest needed by retained wr
       return parentKey;
     }
     const recipientKey = recipientKeys.get(userId);
-    return recipientKey ? { ...recipientKey, userId } : null;
+    return recipientKey
+      ? createTestTrustedUserIdentity({
+          ...recipientKey,
+          signingKeyFingerprint: "recipient-signing-fingerprint",
+          userId,
+        })
+      : null;
   };
   const { close, execSql } = await createTestExecSql(
     "container-repeated-share-history",
@@ -122,9 +129,9 @@ test("repeated shares submit every same-container manifest needed by retained wr
         containerId: parent.projection.containerId,
         execSql,
         previousProjection: projection,
-        recipientEncapsulationPublicKey: recipient.publicKey,
         recipientUserId,
         resolveProjectionUserKey,
+        resolveTrustedUserIdentity: resolveProjectionUserKey,
         signedAt: SIGNED_AT,
         targetSecretKey: parent.secretKey,
       });

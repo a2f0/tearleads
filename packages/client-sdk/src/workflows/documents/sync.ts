@@ -68,6 +68,7 @@ import {
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../data/keyingProjectionVerification";
+import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -559,6 +560,7 @@ async function tryCompleteReadOnlyRemoteDocumentSyncWithProjection(input: {
       writerProjection: input.writerProjection,
     });
   } catch (error) {
+    rethrowKeyingVerificationError(error);
     if (projectionIntegrityErrorCode(error)) {
       throw error;
     }

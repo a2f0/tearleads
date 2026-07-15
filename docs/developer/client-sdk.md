@@ -99,7 +99,7 @@ Client capabilities:
 | `tearleads.containerContents` | container tree, document queries/links, discovery, diagnostics, and runtime composition |
 | `tearleads.deviceFirst` | device-first local projection view (instant cached tree + document summaries) and the background reconciler that syncs remote state into it |
 | `tearleads.organizations` | organization administration and directory operations |
-| `tearleads.userKeys` | verified user key lookup for product queries and recipient UIs |
+| `tearleads.userKeys` | pinned user identity bundles for cryptographic workflows |
 
 Prefer these instance services over constructing workflow runtimes directly
 from host code. The SDK keeps workflow cache scope aligned with the active
@@ -184,6 +184,7 @@ const tearleads = new Tearleads({
   events,
   identity,
   identityProvisioning,
+  identityTrustDomain,
   logger,
   online,
 });
@@ -198,8 +199,7 @@ readonly array of `DocumentProjectorDefinition` values. Prefer passing
 definitions when integrating an app-owned document type list; the SDK will
 normalize and cache the registry internally.
 
-Use `apiBaseUrl` for the SDK-managed HTTP transport. The raw API client is
-internal SDK wiring, not a public instance namespace for host code.
+HTTP uses `apiBaseUrl`; the API client is internal. See [identity trust](./trusted-user-identity.md) for TOFU configuration.
 Use `database.client` for a SQLite worker client that implements
 `ExecSqlClientLike`; the SDK creates the canonical `ExecSql` adapter from it.
 Use `database.execSql` only when the host already owns executor construction.
@@ -432,20 +432,18 @@ Supported package entry points are:
 | --- | --- |
 | `@tearleads/client-sdk` | `Tearleads`, SDK service types, local keyring helpers, document contracts, sync diagnostics, stores, and public workflow symbols |
 | `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, and adapter helpers |
+| `@tearleads/client-sdk/testing` | Nominal trusted-identity fixtures for lower-level repository integration tests; never production code |
 
 Each package export maps `types` to an emitted `.d.ts` file and `default` to an
-emitted ESM JavaScript file under `dist`. The export map is exact: these two
-entry points are the entire public surface. Host code reaches document
-contracts, store facades, and public workflow symbols through the root entry
-point; `@tearleads/client-sdk/sqlite` is separate because it is the SQLite
-runtime adapter boundary.
+emitted ESM JavaScript file under `dist`. The export map is exact. Host code
+reaches document contracts, store facades, and public workflow symbols through
+the root entry point; the SQLite entry point owns its runtime adapter boundary,
+and the testing entry point is forbidden from production source.
 
 Do not import `@tearleads/client-sdk/data/*` from host code. The root entry
 point aggregates documented public facades and does not make `data/*` internals,
 deep workflow files, or store implementation files public. Promote a contract
-through the root entry point when it is meant to become public; package-level
-test helpers belong in a dedicated `@tearleads/client-sdk/testing` entry point
-with the same documentation and lint treatment as any other package API.
+through the root entry point when it is meant to become public.
 
 When a lower-level workflow facade name conflicts with a root service type, the
 root meaning stays stable and the lower-level name is exposed under a distinct

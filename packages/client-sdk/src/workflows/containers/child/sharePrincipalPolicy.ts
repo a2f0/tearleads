@@ -3,10 +3,7 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import type {
-  EncapsulationKeyResponse,
-  PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { ContainerShareApi } from "../../../data/containers/shared/types";
 import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingProjectionVerification/error";
 import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
@@ -23,6 +20,7 @@ import {
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
 } from "../../../data/principalPolicyAdminSigners";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import {
   collectPrincipalPolicySignerPublicKeys,
   type PrincipalPolicySignerPublicKeyLoadErrorCode,
@@ -33,9 +31,6 @@ export interface ContainerManagedPrincipalShareApi extends ContainerShareApi {
     principalType: ManagedPrincipalKind,
     principalId: string,
   ) => Promise<PrincipalPolicyBundleResponse | null>;
-  getEncapsulationKey: (
-    userId: string,
-  ) => Promise<EncapsulationKeyResponse | null>;
 }
 
 export interface VerifiedSharePrincipalPolicy {
@@ -94,14 +89,10 @@ function signerPublicKeyLoadErrorMessage(
   code: PrincipalPolicySignerPublicKeyLoadErrorCode,
 ): string {
   switch (code) {
-    case "fingerprint-invalid":
-      return "principal policy signer key fingerprint is invalid";
     case "fingerprint-mismatch":
       return "principal policy signer key fingerprint mismatch";
     case "not-found":
       return "principal policy signer key could not be loaded";
-    case "user-mismatch":
-      return "principal policy signer key user mismatch";
   }
 }
 
@@ -109,6 +100,7 @@ async function loadOrganizationAdminPolicy(input: {
   apiClient: ContainerManagedPrincipalShareApi;
   execSql: ExecSql;
   organizationId: string;
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<VerifiedOrganizationAdminPolicy | null> {
   try {
     const bundle = await input.apiClient.getCurrentPrincipalPolicy(
@@ -132,8 +124,7 @@ async function loadOrganizationAdminPolicy(input: {
     });
     const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
       bundle,
-      getEncapsulationKey: (userId) =>
-        input.apiClient.getEncapsulationKey(userId),
+      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     });
     if ("error" in signerPublicKeys) {
       return null;
@@ -168,6 +159,7 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
   execSql: ExecSql;
   groupId: string;
   organizationId: string;
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<VerifiedSharePrincipalPolicy> {
   const bundle = await input.apiClient.getCurrentPrincipalPolicy(
     "group",
@@ -191,8 +183,7 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
   });
   const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
     bundle,
-    getEncapsulationKey: (userId) =>
-      input.apiClient.getEncapsulationKey(userId),
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   if ("error" in signerPublicKeys) {
     throw new Error(signerPublicKeyLoadErrorMessage(signerPublicKeys.error));
@@ -206,6 +197,7 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
       apiClient: input.apiClient,
       execSql: input.execSql,
       organizationId: input.organizationId,
+      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     });
     return organizationAdminPolicy;
   };

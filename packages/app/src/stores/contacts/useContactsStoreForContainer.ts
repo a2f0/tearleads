@@ -28,14 +28,17 @@ async function getLocalUserKey(input: {
     return null;
   }
 
-  const computedSigningFingerprint = await toFingerprint(
-    signingKeyPair.signingPublicKey,
-  );
+  const [computedSigningFingerprint, encapsulationKeyFingerprint] =
+    await Promise.all([
+      toFingerprint(signingKeyPair.signingPublicKey),
+      toFingerprint(encapsulationKeyPair.publicKey),
+    ]);
   if (signingFingerprint && signingFingerprint !== computedSigningFingerprint) {
     return null;
   }
 
   return {
+    encapsulationKeyFingerprint,
     encapsulationPublicKey: bytesToBase64(encapsulationKeyPair.publicKey),
     signingKeyFingerprint: computedSigningFingerprint,
     signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),

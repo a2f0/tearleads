@@ -2,7 +2,6 @@ import type {
   ContainerSummary,
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
-  EncapsulationKeyResponse,
   ListContainersResponse,
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
@@ -67,7 +66,6 @@ interface RemoteContainerHydrationApi {
     principalType: "group" | "organization",
     principalId: string,
   ): Promise<PrincipalPolicyBundleResponse | null>;
-  getEncapsulationKey(userId: string): Promise<EncapsulationKeyResponse | null>;
   listContainers(options?: {
     limit?: number;
     parentId?: string | null;
@@ -78,7 +76,12 @@ interface RemoteContainerHydrationApi {
 interface RemoteContainerHydrationRuntime
   extends Pick<
     ContainerContentsWorkflowRuntime,
-    "auth" | "crypto" | "infra" | "state" | "util"
+    | "auth"
+    | "crypto"
+    | "infra"
+    | "resolveTrustedUserIdentity"
+    | "state"
+    | "util"
   > {
   apiClient: RemoteContainerHydrationApi;
 }

@@ -14,6 +14,7 @@ import {
   type DocumentFieldBlame,
   summarizeDocumentContributors,
 } from "../../data/documents/editAttribution";
+import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import {
   documentAttachmentBlobProjection,
@@ -413,14 +414,18 @@ export async function loadDocumentInfo(input: {
     return { attachments, local, remoteInfo: null };
   }
 
+  const attributionPromise = input.apiClient
+    .getDocumentEditAttribution(local.documentId, input.attributionRequestKey)
+    .catch((error: unknown) => {
+      rethrowKeyingVerificationError(error);
+      return null;
+    });
   const [projection, attachmentBindings, attribution] = await Promise.all([
     input.apiClient.getDocumentWriterProjection(local.documentId),
     input.apiClient.listDocumentAttachments(local.documentId),
     // Attribution is supplementary: a rejection (network/server) must not block
     // the rest of the document-info load, so swallow it to null (no contributors).
-    input.apiClient
-      .getDocumentEditAttribution(local.documentId, input.attributionRequestKey)
-      .catch(() => null),
+    attributionPromise,
   ]);
 
   if (!projection) {

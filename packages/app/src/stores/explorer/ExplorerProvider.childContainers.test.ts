@@ -47,6 +47,9 @@ test("explorer store creates a child under a writable shared root through the pa
       ...runtime.apiClient,
       ...harness.apiClient,
       getEncapsulationKey: async (requestedUserId: string) => ({
+        encapsulationKeyFingerprint: await toFingerprint(
+          localKeyPair.publicKey,
+        ),
         encapsulationPublicKey: bytesToBase64(localKeyPair.publicKey),
         signingKeyFingerprint: signingFingerprint,
         signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),

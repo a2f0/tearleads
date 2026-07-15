@@ -56,6 +56,9 @@ test("explorer store queues authenticated child containers locally before backgr
       ...runtime.apiClient,
       ...harness.apiClient,
       getEncapsulationKey: async (requestedUserId: string) => ({
+        encapsulationKeyFingerprint: await toFingerprint(
+          localKeyPair.publicKey,
+        ),
         encapsulationPublicKey: bytesToBase64(localKeyPair.publicKey),
         signingKeyFingerprint: signingFingerprint,
         signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
@@ -393,6 +396,9 @@ test("explorer sync primes local document stores after login", async () => {
         ...runtime.apiClient,
         ...harness.apiClient,
         getEncapsulationKey: async (requestedUserId: string) => ({
+          encapsulationKeyFingerprint: await toFingerprint(
+            localKeyPair.publicKey,
+          ),
           encapsulationPublicKey: bytesToBase64(localKeyPair.publicKey),
           signingKeyFingerprint: signingFingerprint,
           signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),

@@ -142,3 +142,38 @@ test("retrySyncPlan refetches a fresh projection after a rollback verification e
   expect(buildCount).toBe(2);
   expect(planned?.[1]).toBe(writerProjection);
 });
+
+test("retrySyncPlan does not retry identity failures that resemble stale unwraps", async () => {
+  const { writerProjection } = await createMaterializedSyncFixture();
+  const integrityError = new KeyingVerificationError(
+    "object_mismatch",
+    "Document authorizing container KEK path could not be unwrapped from Container writer projection KEK",
+  );
+  let builds = 0;
+  let evictions = 0;
+  let projectionRequests = 0;
+
+  await expect(
+    retrySyncPlan({
+      apiClient: {
+        evictDocumentWriterProjection: () => {
+          evictions += 1;
+        },
+        getDocumentWriterProjection: async () => {
+          projectionRequests += 1;
+          return writerProjection;
+        },
+        syncDocument: async () => null,
+      },
+      buildWithProjection: async () => {
+        builds += 1;
+        throw integrityError;
+      },
+      documentId: writerProjection.documentId,
+      writerProjection,
+    }),
+  ).rejects.toBe(integrityError);
+  expect(builds).toBe(1);
+  expect(evictions).toBe(0);
+  expect(projectionRequests).toBe(0);
+});

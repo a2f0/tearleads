@@ -1,10 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
 import {
-  decryptDocumentAttachmentBlob,
-  hydrateDocumentAttachmentBlobs,
-  uploadDocumentAttachment,
-} from "@tearleads/client-sdk";
-import {
   type AccessEvent,
   computeBlobAccessManifestHash,
   computeWriteHeaderHash,
@@ -14,6 +9,9 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobContracts";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
+import { decryptDocumentAttachmentBlob } from "./decrypt";
+import { hydrateDocumentAttachmentBlobs } from "./hydrate";
+import { uploadDocumentAttachment } from "./upload";
 
 const TEXT_ENCODER = new TextEncoder();
 const closeTestDatabases: Array<() => void> = [];

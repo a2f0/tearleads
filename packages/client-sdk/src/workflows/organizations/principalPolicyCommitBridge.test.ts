@@ -7,14 +7,14 @@ import {
   type ReferencedPrincipalHead,
   toFingerprint,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type {
-  PrincipalMemberEnvelopeRequest,
-  PutPrincipalStateRequest,
-} from "@tearleads/validators/request";
+import type { PutPrincipalStateRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
+import {
+  policyBundleAfterMutation,
+  policyBundleFromInitialRequest,
+} from "../../../test/helpers/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import {
   loadAllPrincipalPolicyBundles,
@@ -27,51 +27,6 @@ import {
   buildInitialGroupPolicyRequest,
   removeOrganizationGroupUser,
 } from "./principalPolicy";
-
-interface PolicyMutationArtifacts {
-  memberEnvelopes: readonly PrincipalMemberEnvelopeRequest[];
-  state: PutPrincipalStateRequest;
-}
-
-async function policyBundleAfterMutation(input: {
-  mutation: PolicyMutationArtifacts;
-  previous: PrincipalPolicyBundleResponse;
-}): Promise<PrincipalPolicyBundleResponse> {
-  const stateHash = await computePrincipalStateHash(input.mutation.state.state);
-  const createdAt = input.mutation.state.state.signedAt;
-
-  return {
-    currentState: {
-      ...input.mutation.state.state,
-      stateHash,
-      createdAt,
-    },
-    currentPayload: {
-      principalType: "group",
-      principalId: input.mutation.state.state.principalId,
-      stateHash,
-      cipherSuite: input.mutation.state.encryptedPayload.cipherSuite,
-      ciphertext: input.mutation.state.encryptedPayload.ciphertext,
-      ciphertextHash: input.mutation.state.encryptedPayload.ciphertextHash,
-      createdAt,
-    },
-    currentProjection: [...input.mutation.state.projection],
-    currentMemberEnvelopes: {
-      principalType: "group",
-      principalId: input.mutation.state.state.principalId,
-      stateHash,
-      epoch: input.mutation.state.state.keyEpoch,
-      envelopes: [...input.mutation.memberEnvelopes],
-    },
-    previousStates: [
-      ...input.previous.previousStates,
-      {
-        state: input.previous.currentState,
-        projection: input.previous.currentProjection,
-      },
-    ],
-  };
-}
 
 function signerPublicKeys(input: {
   signerUserId: string;
@@ -120,13 +75,15 @@ test("remove group user bridges committed policy writes before caching the rotat
     signerUserId,
     signingFingerprint,
     signingKeyPair,
-    targetUser: {
+    targetUser: createTestTrustedUserIdentity({
       userId: removedUserId,
-      encapsulationPublicKey: bytesToBase64(removedUserKem.publicKey),
+      encapsulationPublicKey: removedUserKem.publicKey,
       encapsulationKeyFingerprint: await toFingerprint(
         removedUserKem.publicKey,
       ),
-    },
+      signingKeyFingerprint: signingFingerprint,
+      signingPublicKey: signingKeyPair.signingPublicKey,
+    }),
   });
   const previousPolicy = await policyBundleAfterMutation({
     mutation: addedMutation,
@@ -141,6 +98,31 @@ test("remove group user bridges committed policy writes before caching the rotat
   let policyBeforePendingState: PrincipalPolicyBundleResponse | null = null;
   let boundHead: ReferencedPrincipalHead | null = null;
   let currentPolicy = previousPolicy;
+  const remainingUserIdentity = createTestTrustedUserIdentity({
+    encapsulationKeyFingerprint: await toFingerprint(
+      remainingUserKem.publicKey,
+    ),
+    encapsulationPublicKey: remainingUserKem.publicKey,
+    signingKeyFingerprint: signingFingerprint,
+    signingPublicKey: signingKeyPair.signingPublicKey,
+    userId: signerUserId,
+  });
+  const removedUserIdentity = createTestTrustedUserIdentity({
+    encapsulationKeyFingerprint: await toFingerprint(removedUserKem.publicKey),
+    encapsulationPublicKey: removedUserKem.publicKey,
+    signingKeyFingerprint: signingFingerprint,
+    signingPublicKey: signingKeyPair.signingPublicKey,
+    userId: removedUserId,
+  });
+  const resolveTrustedUserIdentity = async (userId: string) => {
+    if (userId === signerUserId) {
+      return remainingUserIdentity;
+    }
+    if (userId === removedUserId) {
+      return removedUserIdentity;
+    }
+    return null;
+  };
   const apiClient: Parameters<
     typeof removeOrganizationGroupUser
   >[0]["apiClient"] = {
@@ -153,15 +135,6 @@ test("remove group user bridges committed policy writes before caching the rotat
       policyReadCount += 1;
       calls.push(policyReadCount === 1 ? "read-previous" : "read-current");
       return currentPolicy;
-    },
-    getEncapsulationKey: async (userId) => {
-      expect(userId).toBe(signerUserId);
-      return {
-        userId,
-        signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
-        signingKeyFingerprint: signingFingerprint,
-        encapsulationPublicKey: bytesToBase64(remainingUserKem.publicKey),
-      };
     },
     putPrincipalState: async (principalType, principalId, input) => {
       expect(principalType).toBe("group");
@@ -267,16 +240,8 @@ test("remove group user bridges committed policy writes before caching the rotat
       canAdministerOrganization: false,
       execSql,
       groupId,
-      remainingUsers: [
-        {
-          userId: signerUserId,
-          encapsulationPublicKey: bytesToBase64(remainingUserKem.publicKey),
-          encapsulationKeyFingerprint: await toFingerprint(
-            remainingUserKem.publicKey,
-          ),
-        },
-      ],
       removedUserId,
+      resolveTrustedUserIdentity,
       signerUserId,
       signingFingerprint,
       signingKeyPair,
@@ -330,15 +295,15 @@ test("remove group user bridges committed policy writes before caching the rotat
             signerUserId,
             signingFingerprint,
             signingKeyPair,
-            targetUser: {
+            targetUser: createTestTrustedUserIdentity({
               userId: concurrentUserId,
-              encapsulationPublicKey: bytesToBase64(
-                concurrentUserKem.publicKey,
-              ),
+              encapsulationPublicKey: concurrentUserKem.publicKey,
               encapsulationKeyFingerprint: await toFingerprint(
                 concurrentUserKem.publicKey,
               ),
-            },
+              signingKeyFingerprint: signingFingerprint,
+              signingPublicKey: signingKeyPair.signingPublicKey,
+            }),
           });
           currentPolicy = await policyBundleAfterMutation({
             mutation: concurrentMutation,
@@ -350,20 +315,14 @@ test("remove group user bridges committed policy writes before caching the rotat
           expectedAddHead.current = head;
         },
         canAdministerOrganization: false,
-        currentUsers: [],
         currentUserSecretKey: remainingUserKem.secretKey,
         execSql,
         groupId,
+        resolveTrustedUserIdentity,
         signerUserId,
         signingFingerprint,
         signingKeyPair,
-        targetUser: {
-          userId: removedUserId,
-          encapsulationPublicKey: bytesToBase64(removedUserKem.publicKey),
-          encapsulationKeyFingerprint: await toFingerprint(
-            removedUserKem.publicKey,
-          ),
-        },
+        targetUserId: removedUserId,
       }),
     ).rejects.toThrow("Updated group policy advanced during root re-wrap");
 

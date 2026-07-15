@@ -1,4 +1,3 @@
-import { base64ToBytes } from "@tearleads/encoding";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
   ContainerMutationResponse,
@@ -55,6 +54,7 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
     parentProjection: input.parentProjection,
     parentSecretKey,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
+    resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
     ),
@@ -151,13 +151,6 @@ export async function shareRemoteContainer(input: {
     return null;
   }
 
-  const recipientKey = await input.runtime.apiClient.getEncapsulationKey(
-    input.recipientUserId,
-  );
-  if (!recipientKey) {
-    return null;
-  }
-
   const shared = await shareRemoteContainerMutation({
     accessLevel: input.accessLevel,
     apiClient,
@@ -165,11 +158,9 @@ export async function shareRemoteContainer(input: {
     containerId: input.containerId,
     execSql,
     previousProjection: input.previousProjection,
-    recipientEncapsulationPublicKey: base64ToBytes(
-      recipientKey.encapsulationPublicKey,
-    ),
     recipientUserId: input.recipientUserId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
+    resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
     targetSecretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
@@ -228,6 +219,7 @@ export async function shareRemoteContainerWithGroup(input: {
     previousProjection: input.previousProjection,
     recipientGroupId: input.recipientGroupId,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
+    resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
     targetSecretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,

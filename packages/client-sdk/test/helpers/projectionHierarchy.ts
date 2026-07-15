@@ -1,4 +1,3 @@
-import { moveRemoteContainer } from "@tearleads/client-sdk";
 import {
   type ContainerKekRecipientTarget,
   computeContainerKekRecipientTargetHash,
@@ -10,6 +9,7 @@ import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
 } from "../../src/workflows/containers";
+import { moveRemoteContainer } from "../../src/workflows/containers/child/move";
 import {
   createMutationResponseFromRequest,
   type createParentProjection,

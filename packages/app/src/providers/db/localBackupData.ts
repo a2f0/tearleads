@@ -16,6 +16,10 @@ import {
   type BackupSummary,
   type BackupTable,
 } from "./localBackupFormat";
+import {
+  mergeTrustedIdentityPinBackupTables,
+  TRUSTED_IDENTITY_PIN_TABLE_NAME,
+} from "./trustedIdentityPinBackupMerge";
 
 export type BackupProgressPhase =
   | "blobs"
@@ -352,17 +356,37 @@ async function restoreDatabaseTables(input: {
       await execSql("BEGIN IMMEDIATE");
       try {
         const currentTables = await listUserTableDefinitions(execSql);
+        const currentTrustedIdentityDefinition = currentTables.find(
+          (table) => table.name === TRUSTED_IDENTITY_PIN_TABLE_NAME,
+        );
+        const currentTrustedIdentityTable = currentTrustedIdentityDefinition
+          ? await readTableBackup(execSql, currentTrustedIdentityDefinition)
+          : null;
+        const restoredTrustedIdentityTable =
+          input.tables.find(
+            (table) => table.name === TRUSTED_IDENTITY_PIN_TABLE_NAME,
+          ) ?? null;
+        const mergedTrustedIdentityTable = mergeTrustedIdentityPinBackupTables({
+          current: currentTrustedIdentityTable,
+          restored: restoredTrustedIdentityTable,
+        });
+        const restoredTables = [
+          ...input.tables.filter(
+            (table) => table.name !== TRUSTED_IDENTITY_PIN_TABLE_NAME,
+          ),
+          ...(mergedTrustedIdentityTable ? [mergedTrustedIdentityTable] : []),
+        ];
         for (const table of [...currentTables].reverse()) {
           await execSql(
             `DROP TABLE IF EXISTS ${quoteSqlIdentifier(table.name)}`,
           );
         }
 
-        for (const table of input.tables) {
+        for (const table of restoredTables) {
           await execSql(table.sql);
         }
 
-        for (const table of input.tables) {
+        for (const table of restoredTables) {
           await insertBackupTable({ execSql, table });
         }
 

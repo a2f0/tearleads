@@ -169,7 +169,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "getUntitledDocumentTitle",
   "hasDomainSyncCoordinatorPendingWork",
   "hydrateDocumentAttachmentBlobs",
-  "importOrganizationUserRecipient",
+  "importOrganizationUser",
   "initializeDocumentLinksSchema",
   "initializeStoredDocumentKind",
   "isPinCodeWrappedLocalSecretEnvelope",

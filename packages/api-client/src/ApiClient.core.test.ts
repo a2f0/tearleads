@@ -92,12 +92,7 @@ testApiClient("escapes dynamic route path segments", async () => {
 
   await expect(
     client.getEncapsulationKey("user/id with space"),
-  ).resolves.toEqual({
-    encapsulationPublicKey: "encapsulation-key",
-    signingKeyFingerprint: "a".repeat(64),
-    signingPublicKey: "signing-key",
-    userId: "user/id with space",
-  });
+  ).resolves.toEqual(createEncapsulationKeyResponse("user/id with space"));
 
   expect(calls[0]?.url).toBe(
     `${apiBaseUrl}/auth/encapsulation-key/user%2Fid%20with%20space`,

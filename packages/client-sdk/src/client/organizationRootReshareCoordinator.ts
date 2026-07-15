@@ -1,3 +1,4 @@
+import { isKeyingVerificationError } from "../data/keyingProjectionVerification/error";
 import type { ContainerContents } from "./containerContents";
 import { logErrorSafely, logErrorToConsole } from "./logger";
 import type { PreparedOrganizationRootRewrap } from "./organizationRootReshare";
@@ -69,6 +70,7 @@ interface OrganizationRootReshareCoordinatorState {
   pendingByOrganization: Map<string, PreparedOrganizationRootRewrap>;
   scheduleRetry: (retry: () => Promise<void>, delayMs: number) => void;
   scheduledByOrganization: Map<string, ScheduledOrganizationRootRewrap>;
+  terminalErrorByOrganization: Map<string, Error>;
 }
 
 function defaultScheduleRetry(
@@ -90,7 +92,55 @@ function createCoordinatorState(
     pendingByOrganization: new Map(),
     scheduleRetry: deps.scheduleRetry ?? defaultScheduleRetry,
     scheduledByOrganization: new Map(),
+    terminalErrorByOrganization: new Map(),
   };
+}
+
+function keyingVerificationError(error: unknown): Error | null {
+  return isKeyingVerificationError(error) && error instanceof Error
+    ? error
+    : null;
+}
+
+function markTerminalRewrapFailure(
+  state: OrganizationRootReshareCoordinatorState,
+  organizationId: string,
+  prepared: PreparedOrganizationRootRewrap,
+  error: Error,
+): void {
+  state.terminalErrorByOrganization.set(organizationId, error);
+  if (state.pendingByOrganization.get(organizationId) === prepared) {
+    state.pendingByOrganization.delete(organizationId);
+  }
+  if (
+    state.scheduledByOrganization.get(organizationId)?.prepared === prepared
+  ) {
+    state.scheduledByOrganization.delete(organizationId);
+  }
+}
+
+function rethrowTerminalRewrapFailure(
+  state: OrganizationRootReshareCoordinatorState,
+  organizationId: string,
+  prepared: PreparedOrganizationRootRewrap,
+  error: unknown,
+): void {
+  const verificationError = keyingVerificationError(error);
+  if (!verificationError) {
+    return;
+  }
+  markTerminalRewrapFailure(state, organizationId, prepared, verificationError);
+  throw verificationError;
+}
+
+function throwTerminalOrganizationError(
+  state: OrganizationRootReshareCoordinatorState,
+  organizationId: string,
+): void {
+  const terminalError = state.terminalErrorByOrganization.get(organizationId);
+  if (terminalError) {
+    throw terminalError;
+  }
 }
 
 async function applyOrganizationRootRewrap(
@@ -182,6 +232,20 @@ function retryPendingRewrap(
     try {
       await applyPendingRewrap(state, organizationId, prepared);
     } catch (error) {
+      const verificationError = keyingVerificationError(error);
+      if (verificationError) {
+        markTerminalRewrapFailure(
+          state,
+          organizationId,
+          prepared,
+          verificationError,
+        );
+        state.logError(
+          `Stopped organization root re-wrap retries for ${organizationId} after an identity verification failure`,
+          verificationError,
+        );
+        return;
+      }
       retryPendingRewrap(state, organizationId, prepared);
       state.logError(
         `Failed to re-wrap organization root for ${organizationId}; retrying`,
@@ -226,6 +290,7 @@ async function flushPendingRewrap(input: {
   try {
     await applyPendingRewrap(state, organizationId, pending);
   } catch (error) {
+    rethrowTerminalRewrapFailure(state, organizationId, pending, error);
     retryPendingRewrap(state, organizationId, pending);
     if (mutatedGroupId === adminGroupId) {
       throw error;
@@ -242,11 +307,13 @@ async function applyPreparedRewrap(
   organizationId: string,
   prepared: PreparedOrganizationRootRewrap,
 ): Promise<void> {
+  throwTerminalOrganizationError(state, organizationId);
   const pending = state.pendingByOrganization.get(organizationId);
   if (pending && pending !== prepared) {
     try {
       await applyPendingRewrap(state, organizationId, pending);
     } catch (error) {
+      rethrowTerminalRewrapFailure(state, organizationId, pending, error);
       retryPendingRewrap(state, organizationId, pending);
       throw error;
     }
@@ -256,6 +323,7 @@ async function applyPreparedRewrap(
   try {
     await applyPendingRewrap(state, organizationId, prepared);
   } catch (error) {
+    rethrowTerminalRewrapFailure(state, organizationId, prepared, error);
     retryPendingRewrap(state, organizationId, prepared);
     throw error;
   }
@@ -298,6 +366,7 @@ async function prepareIfAdminsGroup(
   mutatedGroupId: string,
   organizationId: string,
 ): Promise<PreparedOrganizationRootRewrap> {
+  throwTerminalOrganizationError(state, organizationId);
   const adminGroupId = await resolveAdminGroupId(state, organizationId);
   await flushPendingRewrap({
     adminGroupId,

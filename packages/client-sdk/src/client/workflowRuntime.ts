@@ -1,11 +1,14 @@
 import type { ApiClient } from "@tearleads/api-client";
-import type {
-  EncapsulationKeyResponse,
-  ReferencedPrincipalStateResponse,
-} from "@tearleads/validators/response";
+import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import type { DocumentProjectorRegistry } from "../data/documents/documentKinds";
 import type { DomainScope } from "../data/domainScope";
 import { type ExecSql, unavailableExecSql } from "../data/sqlite/sqlSchema";
+import {
+  createApiUserIdentitySource,
+  createTrustedUserIdentityService,
+  type LocalUserIdentityCandidate,
+  type TrustedUserIdentityResolver,
+} from "../data/trustedUserIdentity";
 import { cacheReferencedPrincipalPolicies } from "../workflows/principals";
 import type {
   WorkflowRuntimeAuthInput,
@@ -35,10 +38,15 @@ export interface Runtime {
 
 export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeInput {
   readonly apiClient: ApiClient;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
 export interface InternalRuntime {
   readonly publicRuntime: Runtime;
+  pinLocalUserIdentity(
+    userId: string,
+    candidate: LocalUserIdentityCandidate,
+  ): Promise<void>;
   workflowInput(
     containerId?: string | null | undefined,
   ): InternalWorkflowRuntimeInput;
@@ -52,6 +60,7 @@ interface WorkflowRuntimeDependencies {
   events: Events;
   getDomainScope: () => DomainScope;
   identity: Identity;
+  identityTrustDomain: string | null;
   log: (message: string) => void;
   logError: (message: string | Error, cause?: unknown) => void;
   network: Network;
@@ -63,11 +72,41 @@ interface WorkflowRuntimeDependencies {
 export function createRuntime(
   dependencies: WorkflowRuntimeDependencies,
 ): InternalRuntime {
+  const trustedUserIdentityService = createTrustedUserIdentityService({
+    getExecSql: () =>
+      dependencies.database.status === "ready"
+        ? dependencies.database.requireExecSql("trusted user identity")
+        : null,
+    getLocalIdentity: () => {
+      const encapsulationKeyPair = dependencies.identity.encapsulationKeyPair;
+      const signingKeyPair = dependencies.identity.signingKeyPair;
+      if (!encapsulationKeyPair || !signingKeyPair) {
+        return null;
+      }
+      return {
+        encapsulationPublicKey: encapsulationKeyPair.publicKey,
+        signingKeyFingerprint: dependencies.identity.signingFingerprint,
+        signingPublicKey: signingKeyPair.signingPublicKey,
+      };
+    },
+    getLocalUserId: () => dependencies.session.userId,
+    identityTrustDomain: dependencies.identityTrustDomain,
+    remoteSource: createApiUserIdentitySource(dependencies.api),
+  });
   const runtimeSubscription = createRuntimeSubscription(dependencies);
-  const publicRuntimeInput = createRuntimeInputFactory(dependencies);
-  const internalRuntimeInput = createRuntimeInputFactory(dependencies);
+  const publicRuntimeInput = createRuntimeInputFactory(
+    dependencies,
+    trustedUserIdentityService.resolve,
+  );
+  const internalRuntimeInput = createRuntimeInputFactory(
+    dependencies,
+    trustedUserIdentityService.resolve,
+  );
 
   return {
+    async pinLocalUserIdentity(userId, candidate) {
+      await trustedUserIdentityService.pinLocal(userId, candidate);
+    },
     publicRuntime: {
       get version() {
         return runtimeSubscription.version;
@@ -122,6 +161,7 @@ interface RuntimeInputFactory {
 
 function createRuntimeInputFactory(
   dependencies: WorkflowRuntimeDependencies,
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver,
 ): RuntimeInputFactory {
   let auth: WorkflowRuntimeAuthInput | undefined;
   let crypto: WorkflowRuntimeCryptoInput | undefined;
@@ -180,7 +220,11 @@ function createRuntimeInputFactory(
     ) {
       util = {
         cacheReferencedPrincipalPolicies:
-          createCacheReferencedPrincipalPolicies(dependencies, execSql),
+          createCacheReferencedPrincipalPolicies(
+            dependencies,
+            execSql,
+            resolveTrustedUserIdentity,
+          ),
         isRemoteSyncBlocked: (organizationId) =>
           dependencies.syncBillingGate?.isBlockedForOrganization(
             organizationId,
@@ -198,12 +242,17 @@ function createRuntimeInputFactory(
       infra,
       state,
       util,
+      resolveTrustedUserIdentity,
     );
   };
 
   return {
     hostInput(containerId) {
-      const { apiClient: _apiClient, ...input } = workflowInput(containerId);
+      const {
+        apiClient: _apiClient,
+        resolveTrustedUserIdentity: _resolveTrustedUserIdentity,
+        ...input
+      } = workflowInput(containerId);
       return input;
     },
     workflowInput,
@@ -217,6 +266,7 @@ function createInternalWorkflowRuntimeInput(
   infra: WorkflowRuntimeInfraInput,
   state: WorkflowRuntimeStateInput,
   util: WorkflowRuntimeUtilInput,
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver,
 ): InternalWorkflowRuntimeInput {
   return {
     apiClient,
@@ -225,33 +275,15 @@ function createInternalWorkflowRuntimeInput(
     infra,
     state,
     util,
+    resolveTrustedUserIdentity,
   };
 }
 
 function createCacheReferencedPrincipalPolicies(
   dependencies: WorkflowRuntimeDependencies,
   execSql: ExecSql,
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver,
 ): WorkflowRuntimeUtilInput["cacheReferencedPrincipalPolicies"] {
-  const encapsulationKeyRequestsByUserId = new Map<
-    string,
-    Promise<EncapsulationKeyResponse | null>
-  >();
-  const getEncapsulationKey = (userId: string) => {
-    const cached = encapsulationKeyRequestsByUserId.get(userId);
-    if (cached) {
-      return cached;
-    }
-
-    const request = dependencies.api
-      .getEncapsulationKey(userId)
-      .catch((error: unknown) => {
-        encapsulationKeyRequestsByUserId.delete(userId);
-        throw error;
-      });
-    encapsulationKeyRequestsByUserId.set(userId, request);
-    return request;
-  };
-
   return (
     references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
   ) =>
@@ -259,10 +291,10 @@ function createCacheReferencedPrincipalPolicies(
       execSql,
       getCurrentPrincipalPolicy: (principalType, principalId) =>
         dependencies.api.getCurrentPrincipalPolicy(principalType, principalId),
-      getEncapsulationKey,
       log: dependencies.log,
       organizationId: dependencies.session.organizationId,
       references,
+      resolveTrustedUserIdentity,
     });
 }
 

@@ -24,12 +24,14 @@ export {
   readOrganizationProfileName,
 } from "./organizationProfile";
 export {
+  type ImportedOrganizationUser,
+  importOrganizationUser,
+} from "./organizationUserImport";
+export {
   addOrganizationGroupUser,
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,
   createOrganizationGroup,
-  importOrganizationUserRecipient,
-  type OrganizationUserRecipient,
   removeOrganizationGroupUser,
 } from "./principalPolicy";
 export {

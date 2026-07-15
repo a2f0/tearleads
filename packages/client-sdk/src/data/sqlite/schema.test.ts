@@ -138,6 +138,73 @@ test("client sqlite schema creates tables and indexes", async () => {
       type: "INTEGER",
     });
 
+    const trustedIdentityPins = await readTableColumns(
+      execSql,
+      "trusted_user_identity_pins",
+    );
+    expect(trustedIdentityPins).toEqual({
+      identity_trust_domain: {
+        defaultValue: null,
+        notNull: 1,
+        pk: 1,
+        type: "TEXT",
+      },
+      user_id: {
+        defaultValue: null,
+        notNull: 1,
+        pk: 2,
+        type: "TEXT",
+      },
+      format_version: {
+        defaultValue: null,
+        notNull: 1,
+        pk: 0,
+        type: "INTEGER",
+      },
+      signing_suite: {
+        defaultValue: null,
+        notNull: 1,
+        pk: 0,
+        type: "TEXT",
+      },
+      signing_public_key: {
+        defaultValue: null,
+        notNull: 1,
+        pk: 0,
+        type: "TEXT",
+      },
+      signing_key_fingerprint: {
+        defaultValue: null,
+        notNull: 1,
+        pk: 0,
+        type: "TEXT",
+      },
+      encapsulation_suite: {
+        defaultValue: null,
+        notNull: 1,
+        pk: 0,
+        type: "TEXT",
+      },
+      encapsulation_public_key: {
+        defaultValue: null,
+        notNull: 1,
+        pk: 0,
+        type: "TEXT",
+      },
+      encapsulation_key_fingerprint: {
+        defaultValue: null,
+        notNull: 1,
+        pk: 0,
+        type: "TEXT",
+      },
+      first_seen_at: {
+        defaultValue: null,
+        notNull: 1,
+        pk: 0,
+        type: "TEXT",
+      },
+    });
+
     const pendingUpdates = await readTableColumns(
       execSql,
       "document_pending_updates",

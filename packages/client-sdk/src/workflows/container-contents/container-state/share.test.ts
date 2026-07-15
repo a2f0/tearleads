@@ -1,15 +1,14 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  generateKemSeedAndKeyPair,
+  KeyingVerificationError,
+} from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createContainerWriterProjectionFixture,
   createMockApiClient,
   createTestExecSql,
 } from "@tearleads/test-utils";
-import type {
-  ContainerWriterProjectionResponse,
-  PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
 import { createAuthor } from "../../../../test/helpers/containerFixtures";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
@@ -19,126 +18,11 @@ import { defaultContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import { createContainerContentsWorkflowRuntime } from "../runtime";
 import { shareContainerState, shareContainerStateWithGroup } from "./share";
-
-function withDirectGrant(input: {
-  accessLevel: "read" | "write" | "admin";
-  createdAt: string;
-  projection: ContainerWriterProjectionResponse;
-  referencedPrincipalHeads: ReadonlyArray<Record<string, unknown>>;
-  remoteAccessStateHash: string;
-  remoteEpoch: number;
-  subjectId: string;
-  subjectType: "group" | "user";
-  updatedAt: string;
-}): ContainerWriterProjectionResponse {
-  const target = input.projection.path.at(-1);
-  const targetKek = input.projection.containerKeks.at(-1);
-  if (!target || !targetKek) {
-    throw new Error("Expected projection target.");
-  }
-
-  return {
-    ...input.projection,
-    createdAt: input.createdAt,
-    containerKeks: [
-      ...input.projection.containerKeks.slice(0, -1),
-      {
-        ...targetKek,
-        accessManifestHash: input.remoteAccessStateHash,
-      },
-    ],
-    path: [
-      ...input.projection.path.slice(0, -1),
-      {
-        ...target,
-        manifestHash: input.remoteAccessStateHash,
-        state: {
-          ...target.state,
-          directGrants: [
-            {
-              accessLevel: input.accessLevel,
-              subjectId: input.subjectId,
-              subjectType: input.subjectType,
-            },
-          ],
-          referencedPrincipalHeads: input.referencedPrincipalHeads,
-          epoch: input.remoteEpoch,
-        },
-      },
-    ],
-    updatedAt: input.updatedAt,
-  } as ContainerWriterProjectionResponse;
-}
-
-function withDirectUserGrant(input: {
-  accessLevel: "read" | "write" | "admin";
-  createdAt: string;
-  projection: ContainerWriterProjectionResponse;
-  referencedPrincipalHeads?: ReadonlyArray<Record<string, unknown>>;
-  remoteAccessStateHash: string;
-  remoteEpoch: number;
-  updatedAt: string;
-  userId: string;
-}): ContainerWriterProjectionResponse {
-  return withDirectGrant({
-    accessLevel: input.accessLevel,
-    createdAt: input.createdAt,
-    projection: input.projection,
-    referencedPrincipalHeads: input.referencedPrincipalHeads ?? [],
-    remoteAccessStateHash: input.remoteAccessStateHash,
-    remoteEpoch: input.remoteEpoch,
-    subjectId: input.userId,
-    subjectType: "user",
-    updatedAt: input.updatedAt,
-  });
-}
-
-function withDirectGroupGrant(input: {
-  accessLevel: "read" | "write" | "admin";
-  createdAt: string;
-  groupId: string;
-  pinnedKeyEpoch: number;
-  projection: ContainerWriterProjectionResponse;
-  remoteAccessStateHash: string;
-  remoteEpoch: number;
-  updatedAt: string;
-}): ContainerWriterProjectionResponse {
-  return withDirectGrant({
-    accessLevel: input.accessLevel,
-    createdAt: input.createdAt,
-    projection: input.projection,
-    referencedPrincipalHeads: [
-      {
-        keyEpoch: input.pinnedKeyEpoch,
-        keyFingerprint: `group-key-fingerprint-${input.pinnedKeyEpoch}`,
-        principalId: input.groupId,
-        principalType: "group",
-        stateHash: `group-state-hash-${input.pinnedKeyEpoch}`,
-        version: input.pinnedKeyEpoch,
-      },
-    ],
-    remoteAccessStateHash: input.remoteAccessStateHash,
-    remoteEpoch: input.remoteEpoch,
-    subjectId: input.groupId,
-    subjectType: "group",
-    updatedAt: input.updatedAt,
-  });
-}
-
-// The dedup only reads bundle.currentState.keyEpoch; the rest of the bundle is
-// irrelevant to the staleness decision, so this keeps the fixture minimal.
-function groupPolicyBundleWithKeyEpoch(input: {
-  groupId: string;
-  keyEpoch: number;
-}): PrincipalPolicyBundleResponse {
-  return {
-    currentState: {
-      keyEpoch: input.keyEpoch,
-      principalId: input.groupId,
-      principalType: "group",
-    },
-  } as unknown as PrincipalPolicyBundleResponse;
-}
+import {
+  groupPolicyBundleWithKeyEpoch,
+  withDirectGroupGrant,
+  withDirectUserGrant,
+} from "./share.testFixtures";
 
 test("shareContainerState treats an existing matching user grant as an idempotent no-op", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -467,8 +351,9 @@ function createGroupShareContainerState(input: {
 
 async function runGroupShareScenario(input: {
   currentGroupKeyEpoch: number;
-  currentPolicyError?: boolean;
+  currentPolicyError?: unknown;
   grantedGroupId?: string;
+  onShareCall?: (() => void) | undefined;
   pinnedKeyEpoch: number;
   preparedRewrap?: boolean;
   remoteAccessStateHash: string;
@@ -522,6 +407,9 @@ async function runGroupShareScenario(input: {
         getCurrentPrincipalPolicy: async (principalType, principalId) => {
           currentPolicyCalls.push({ principalId, principalType });
           if (input.currentPolicyError) {
+            if (input.currentPolicyError instanceof Error) {
+              throw input.currentPolicyError;
+            }
             throw new Error("current principal policy unavailable");
           }
           return groupPolicyBundleWithKeyEpoch({
@@ -531,6 +419,7 @@ async function runGroupShareScenario(input: {
         },
         shareContainer: async () => {
           shareCallCount += 1;
+          input.onShareCall?.();
           return null;
         },
       }),
@@ -663,6 +552,29 @@ test("a non-prepared existing-grant share dedups when the current head cannot be
   );
   expect(shareCallCount).toBe(0);
   expect(shared?.record.accessEpoch).toBe(2);
+});
+
+test("group share propagates identity failures without duplicate-share fallback", async () => {
+  const integrityError = new KeyingVerificationError(
+    "equivocation",
+    "trusted group identity changed",
+  );
+  let shareCalls = 0;
+
+  await expect(
+    runGroupShareScenario({
+      currentGroupKeyEpoch: 2,
+      currentPolicyError: integrityError,
+      onShareCall: () => {
+        shareCalls += 1;
+      },
+      pinnedKeyEpoch: 1,
+      remoteAccessStateHash: "remote-access-state-hash-integrity-failure",
+      requireExistingGrant: true,
+      testLabel: "containerContents-share-group-integrity-failure",
+    }),
+  ).rejects.toBe(integrityError);
+  expect(shareCalls).toBe(0);
 });
 
 test("shareContainerStateWithGroup with requireExistingGrant refuses to mint a new grant", async () => {

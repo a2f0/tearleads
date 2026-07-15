@@ -1,37 +1,25 @@
-import { toFingerprint } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
-import type { EncapsulationKeyResponse } from "@tearleads/validators/response";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterPublicKeyResolver } from "../../data/documents/shared/types";
+import {
+  requireTrustedUserIdentityResolver,
+  type TrustedUserIdentityResolver,
+} from "../../data/trustedUserIdentity";
 
 interface DocumentWriterPublicKeyRuntime {
-  apiClient: {
-    getEncapsulationKey(
-      userId: string,
-    ): Promise<EncapsulationKeyResponse | null>;
-  };
-  auth: {
-    userId?: string | null | undefined;
-  };
-  crypto: {
-    signingFingerprint?: string | null | undefined;
-    signingKeyPair?:
-      | {
-          signingPublicKey: Uint8Array;
-        }
-      | null
-      | undefined;
-  };
-  util: {
-    log: (message: string) => void;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly util: {
+    readonly log: (message: string) => void;
   };
 }
 
 export function createDocumentWriterPublicKeyResolver(input: {
-  includeLocalSigningKey?: boolean | undefined;
-  logPrefix: string;
-  runtime: DocumentWriterPublicKeyRuntime;
-  writerKeyLabel: string;
+  readonly logPrefix: string;
+  readonly runtime: DocumentWriterPublicKeyRuntime;
+  readonly writerKeyLabel: string;
 }): DocumentWriterPublicKeyResolver {
+  const resolveTrustedUserIdentity = requireTrustedUserIdentityResolver(
+    input.runtime.resolveTrustedUserIdentity,
+  );
   const cache = new Map<string, Promise<Uint8Array | null>>();
 
   return async ({ authorFingerprint, header }) => {
@@ -39,31 +27,19 @@ export function createDocumentWriterPublicKeyResolver(input: {
       return null;
     }
 
-    const localSigningPublicKey =
-      input.includeLocalSigningKey === false
-        ? undefined
-        : input.runtime.crypto.signingKeyPair?.signingPublicKey;
-    if (
-      header.writerUserId === input.runtime.auth.userId &&
-      localSigningPublicKey
-    ) {
-      const localFingerprint =
-        input.runtime.crypto.signingFingerprint ??
-        (await toFingerprint(localSigningPublicKey));
-      return localFingerprint === authorFingerprint
-        ? localSigningPublicKey
-        : null;
-    }
-
     const cacheKey = `${header.writerUserId}:${authorFingerprint}`;
     let cached = cache.get(cacheKey);
     if (!cached) {
-      cached = resolveRemoteWriterPublicKey({
+      cached = resolveWriterPublicKey({
         authorFingerprint,
         logPrefix: input.logPrefix,
-        runtime: input.runtime,
+        resolveTrustedUserIdentity,
+        util: input.runtime.util,
         writerKeyLabel: input.writerKeyLabel,
         writerUserId: header.writerUserId,
+      }).catch((error: unknown) => {
+        cache.delete(cacheKey);
+        throw error;
       });
       cache.set(cacheKey, cached);
     }
@@ -72,36 +48,33 @@ export function createDocumentWriterPublicKeyResolver(input: {
   };
 }
 
-async function resolveRemoteWriterPublicKey(input: {
-  authorFingerprint: string;
-  logPrefix: string;
-  runtime: DocumentWriterPublicKeyRuntime;
-  writerKeyLabel: string;
-  writerUserId: string;
+async function resolveWriterPublicKey(input: {
+  readonly authorFingerprint: string;
+  readonly logPrefix: string;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly util: DocumentWriterPublicKeyRuntime["util"];
+  readonly writerKeyLabel: string;
+  readonly writerUserId: string;
 }): Promise<Uint8Array | null> {
   try {
-    const response = await input.runtime.apiClient.getEncapsulationKey(
-      input.writerUserId,
-    );
-    if (!response) {
+    const identity = await input.resolveTrustedUserIdentity(input.writerUserId);
+    if (!identity) {
       return null;
     }
 
-    const signingPublicKey = base64ToBytes(response.signingPublicKey);
-    const signingKeyFingerprint = await toFingerprint(signingPublicKey);
-    if (
-      signingKeyFingerprint !== response.signingKeyFingerprint ||
-      signingKeyFingerprint !== input.authorFingerprint
-    ) {
-      input.runtime.util.log(
-        `${input.logPrefix}: skipped ${input.writerKeyLabel} for ${input.writerUserId} because the signing fingerprint does not match the public key.`,
+    if (identity.signingKeyFingerprint !== input.authorFingerprint) {
+      input.util.log(
+        `${input.logPrefix}: skipped ${input.writerKeyLabel} for ${input.writerUserId} because the signing fingerprint does not match the writer.`,
       );
       return null;
     }
 
-    return signingPublicKey;
-  } catch {
-    input.runtime.util.log(
+    return identity.signingPublicKey;
+  } catch (error) {
+    if (error instanceof KeyingVerificationError) {
+      throw error;
+    }
+    input.util.log(
       `${input.logPrefix}: skipped ${input.writerKeyLabel} for ${input.writerUserId} because it could not be loaded.`,
     );
     return null;

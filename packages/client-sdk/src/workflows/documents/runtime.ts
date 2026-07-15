@@ -3,6 +3,10 @@ import {
   type DocumentProjectorRegistryInput,
   resolveDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
+import {
+  requireTrustedUserIdentityResolver,
+  type TrustedUserIdentityResolver,
+} from "../../data/trustedUserIdentity";
 import type {
   WorkflowRuntimeAuthInput,
   WorkflowRuntimeCryptoInput,
@@ -58,11 +62,13 @@ export interface DocumentsWorkflowRuntimeInputGroups {
 export interface DocumentsWorkflowRuntimeInput
   extends DocumentsWorkflowRuntimeInputGroups {
   readonly apiClient: DocumentsWorkflowApi;
+  readonly resolveTrustedUserIdentity?: TrustedUserIdentityResolver | undefined;
 }
 
 export interface DocumentsWorkflowRuntime
   extends DocumentsWorkflowRuntimeGroups {
   readonly apiClient: DocumentsWorkflowApi;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
 export function createDocumentsWorkflowRuntime(
@@ -81,6 +87,9 @@ export function createDocumentsWorkflowRuntime(
     auth: input.auth,
     crypto: input.crypto,
     infra,
+    resolveTrustedUserIdentity: requireTrustedUserIdentityResolver(
+      input.resolveTrustedUserIdentity,
+    ),
     state: input.state,
     util: input.util,
   };

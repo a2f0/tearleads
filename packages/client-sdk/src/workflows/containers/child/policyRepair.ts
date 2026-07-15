@@ -3,6 +3,7 @@ import type {
   ContainerMutationSubmitFailure,
 } from "../../../data/containers/shared/types";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import { cachePrincipalPolicyBundles } from "../../principals/policyCache";
 
 export async function cacheRemoteContainerCreatePolicyRepair(input: {
@@ -10,16 +11,15 @@ export async function cacheRemoteContainerCreatePolicyRepair(input: {
   readonly execSql: ExecSql | undefined;
   readonly failure: ContainerMutationSubmitFailure;
   readonly organizationId: string;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<boolean> {
   const bundles = input.failure.stalePrincipalPolicies;
   const getCurrentPrincipalPolicy = input.apiClient.getCurrentPrincipalPolicy;
-  const getEncapsulationKey = input.apiClient.getEncapsulationKey;
   if (
     !input.execSql ||
     !bundles ||
     bundles.length === 0 ||
-    !getCurrentPrincipalPolicy ||
-    !getEncapsulationKey
+    !getCurrentPrincipalPolicy
   ) {
     return false;
   }
@@ -30,8 +30,8 @@ export async function cacheRemoteContainerCreatePolicyRepair(input: {
     bundles,
     execSql: input.execSql,
     getCurrentPrincipalPolicy,
-    getEncapsulationKey,
     organizationId: input.organizationId,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   return true;
 }

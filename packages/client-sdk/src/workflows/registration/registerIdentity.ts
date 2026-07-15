@@ -3,6 +3,7 @@ import {
   computePrincipalStateHash,
   type EncapsulationKeyPair,
   generateKemSeedAndKeyPair,
+  KeyingVerificationError,
   type ReferencedPrincipalHead,
   type SigningKeyPair,
   signPrincipalState,
@@ -20,6 +21,7 @@ import type { RegistrationResponse } from "@tearleads/validators/response";
 import { createInitializedContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
 import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
+import type { LocalUserIdentityCandidate } from "../../data/trustedUserIdentity";
 import {
   type ContainerSystemSlotDefinition,
   deriveContainerSystemSlot,
@@ -134,6 +136,10 @@ export interface RegisterIdentityInput {
    * Overrides the seeded personal-org profile name; defaults to "Personal Org".
    */
   organizationProfileName?: string | undefined;
+  pinLocalUserIdentity: (
+    userId: string,
+    candidate: LocalUserIdentityCandidate,
+  ) => Promise<void>;
   /**
    * App-owned system containers to provision atomically with the personal
    * organization (e.g. a trash bin). See {@link ProvisionedSystemContainerSpec}.
@@ -712,6 +718,10 @@ export async function registerIdentity(
   input.log?.("Registering identity...");
 
   const newUserId = crypto.randomUUID();
+  await input.pinLocalUserIdentity(newUserId, {
+    encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+    signingPublicKey: input.signingKeyPair.signingPublicKey,
+  });
   const artifacts = await buildOrganizationProvisioningArtifacts({
     encapsulationKeyPair: input.encapsulationKeyPair,
     organizationProfileName: input.organizationProfileName,
@@ -743,6 +753,12 @@ export async function registerIdentity(
   );
   if (!response) {
     return null;
+  }
+  if (response.userId !== newUserId) {
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "Registration response user does not match the locally pinned identity",
+    );
   }
 
   input.log?.(`Key registered (${response.userId})`);

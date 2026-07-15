@@ -14,6 +14,7 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { unwrapContainerKekPath } from "../../documents/shared/containerKekPath";
 import { verifyContainerWriterProjection } from "../../keyingProjectionVerification";
 import { enforceAccessManifestCheckpoints } from "../../keyingProjectionVerification/accessManifestCheckpointEnforcement";
@@ -77,18 +78,20 @@ test("hidden future history cannot bypass a persisted projection head", async ()
         projection: staleProjection,
         resolveProjectionUserKey: async (userId) => {
           if (userId === parent.userId) {
-            return {
+            return createTestTrustedUserIdentity({
               encapsulationPublicKey: parent.encapsulationPublicKey,
+              signingKeyFingerprint: parent.author.signerKeyFingerprint,
               signingPublicKey: parent.signingPublicKey,
               userId,
-            };
+            });
           }
           if (userId === secondUserId) {
-            return {
+            return createTestTrustedUserIdentity({
               encapsulationPublicKey: secondUserKem.publicKey,
+              signingKeyFingerprint: "second-user-signing-fingerprint",
               signingPublicKey: secondUserSigning.signingPublicKey,
               userId,
-            };
+            });
           }
           return null;
         },
@@ -130,11 +133,12 @@ test("a valid same-epoch projection fork hard-fails before unwrap", async () => 
       projection: first.projection,
       resolveProjectionUserKey: async (userId) =>
         userId === first.userId
-          ? {
+          ? createTestTrustedUserIdentity({
               encapsulationPublicKey: first.encapsulationPublicKey,
+              signingKeyFingerprint: first.author.signerKeyFingerprint,
               signingPublicKey: first.signingPublicKey,
               userId,
-            }
+            })
           : null,
       secretKey: first.secretKey,
     });
@@ -144,11 +148,12 @@ test("a valid same-epoch projection fork hard-fails before unwrap", async () => 
         projection: fork.projection,
         resolveProjectionUserKey: async (userId) =>
           userId === fork.userId
-            ? {
+            ? createTestTrustedUserIdentity({
                 encapsulationPublicKey: fork.encapsulationPublicKey,
+                signingKeyFingerprint: fork.author.signerKeyFingerprint,
                 signingPublicKey: fork.signingPublicKey,
                 userId,
-              }
+              })
             : null,
         secretKey: fork.secretKey,
       }),
@@ -177,11 +182,12 @@ test("remote projection verification requires durable storage unless local trust
       projection: parent.projection,
       resolveProjectionUserKey: async (userId) =>
         userId === parent.userId
-          ? {
+          ? createTestTrustedUserIdentity({
               encapsulationPublicKey: parent.encapsulationPublicKey,
+              signingKeyFingerprint: parent.author.signerKeyFingerprint,
               signingPublicKey: parent.signingPublicKey,
               userId,
-            }
+            })
           : null,
       secretKey: parent.secretKey,
     }),

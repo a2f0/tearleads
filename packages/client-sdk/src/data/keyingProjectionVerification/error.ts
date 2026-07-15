@@ -1,5 +1,24 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 
+/**
+ * Preserve identity and projection verification failures across workflow
+ * boundaries that intentionally soften ordinary transport or availability
+ * errors. These failures are terminal: retrying or falling back could continue
+ * with an untrusted identity.
+ */
+export function isKeyingVerificationError(error: unknown): boolean {
+  return (
+    error instanceof KeyingVerificationError ||
+    (error instanceof Error && error.name === "KeyingVerificationError")
+  );
+}
+
+export function rethrowKeyingVerificationError(error: unknown): void {
+  if (isKeyingVerificationError(error)) {
+    throw error;
+  }
+}
+
 export function throwKeyingVerificationErrorWithContext(
   error: unknown,
   context: string,

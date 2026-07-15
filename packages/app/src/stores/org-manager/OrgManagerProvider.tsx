@@ -1,5 +1,6 @@
 import type {
   ContainerNode,
+  ImportedOrganizationUser,
   OrganizationContainerGrant,
   OrganizationContainerGrants,
   OrganizationDataUsage,
@@ -10,7 +11,6 @@ import type {
   OrganizationPolicyHistory,
   OrganizationProfile,
   OrganizationUserDetail,
-  OrganizationUserRecipient,
 } from "@tearleads/client-sdk";
 import {
   deriveOrganizationRosterProfileContainerSystemSlot,
@@ -48,8 +48,7 @@ import {
 interface OrgManagerContextValue {
   addUserToGroup: (
     groupId: string,
-    targetUser: OrganizationUserRecipient,
-    currentUsers: ReadonlyArray<OrganizationUserRecipient>,
+    targetUserId: string,
     canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
   captureOperationScope: () => OrgManagerOperationScope | null;
@@ -65,7 +64,7 @@ interface OrgManagerContextValue {
     profileDocumentId: string | null,
   ) => Promise<string | null>;
   ensureRosterProfileContainer: () => Promise<ContainerNode | null>;
-  importUserById: (userId: string) => Promise<OrganizationUserRecipient | null>;
+  importUserById: (userId: string) => Promise<ImportedOrganizationUser | null>;
   isOperationScopeActive: (scope: OrgManagerOperationScope) => boolean;
   loadDataUsage: () => Promise<OrganizationDataUsage | null>;
   loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
@@ -76,7 +75,6 @@ interface OrgManagerContextValue {
   removeUserFromGroup: (
     groupId: string,
     removedUserId: string,
-    remainingUsers: ReadonlyArray<OrganizationUserRecipient>,
     canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
   revokeGrant: (
@@ -214,15 +212,13 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
   const addUserToGroup = useCallback(
     async (
       groupId: string,
-      targetUser: OrganizationUserRecipient,
-      currentUsers: ReadonlyArray<OrganizationUserRecipient>,
+      targetUserId: string,
       canAdministerOrganization: boolean,
     ) => {
       return organizations.addUserToGroup({
         canAdministerOrganization,
-        currentUsers,
         groupId,
-        targetUser,
+        targetUserId,
       });
     },
     [organizations],
@@ -232,13 +228,11 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     async (
       groupId: string,
       removedUserId: string,
-      remainingUsers: ReadonlyArray<OrganizationUserRecipient>,
       canAdministerOrganization: boolean,
     ) => {
       return organizations.removeUserFromGroup({
         canAdministerOrganization,
         groupId,
-        remainingUsers,
         removedUserId,
       });
     },

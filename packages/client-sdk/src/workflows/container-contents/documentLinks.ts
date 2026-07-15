@@ -1,5 +1,6 @@
 import { readLinkedContainerIdsFromDocumentManifest } from "../../data/documents/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -32,13 +33,18 @@ type RemoteDocumentPersistedState =
 interface ContainerDocumentLinkRuntime
   extends Pick<
     ContainerContentsWorkflowRuntime,
-    "auth" | "crypto" | "infra" | "state" | "util"
+    | "auth"
+    | "crypto"
+    | "infra"
+    | "resolveTrustedUserIdentity"
+    | "state"
+    | "util"
   > {
   apiClient: ContainerDocumentLinkApi &
     Partial<
       Pick<
         ContainerContentsWorkflowRuntime["apiClient"],
-        "getCurrentPrincipalPolicy" | "getEncapsulationKey"
+        "getCurrentPrincipalPolicy"
       >
     >;
 }
@@ -198,6 +204,7 @@ export async function relinkRemoteContainerDocument(input: {
 
     return result;
   } catch (error) {
+    rethrowKeyingVerificationError(error);
     runtime.util.log(
       `Container contents: failed to ${operation} note ${noteId} ${operation === "link" ? "to" : "from"} container ${targetContainerId}: ${error instanceof Error ? error.message : String(error)}`,
     );
@@ -245,6 +252,7 @@ export async function purgeRemoteContainerDocument(input: {
     );
     return response;
   } catch (error) {
+    rethrowKeyingVerificationError(error);
     runtime.util.log(
       `Container contents: failed to purge note ${noteId} (document ${documentId}): ${error instanceof Error ? error.message : String(error)}`,
     );

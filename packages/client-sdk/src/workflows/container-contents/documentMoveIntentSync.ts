@@ -1,3 +1,4 @@
+import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import {
   type DocumentMoveIntentRecord,
   sqlDocumentMoveIntentPersistence,
@@ -265,6 +266,7 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
     );
     return "moved";
   } catch (error: unknown) {
+    rethrowKeyingVerificationError(error);
     const message = error instanceof Error ? error.message : String(error);
     await recordPendingDocumentMoveIntentError({
       documentId: intent.documentId,

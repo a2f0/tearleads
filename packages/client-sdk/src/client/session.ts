@@ -12,6 +12,11 @@ import {
 } from "../workflows/sync";
 import type { Database } from "./database";
 import type { Identity } from "./identity";
+import {
+  requireRegistrationIdentityPinner,
+  requireUserIdentityAvailable,
+  type UserIdentityAvailable,
+} from "./sessionIdentityTrust";
 import type {
   CreateOrganizationOptions,
   RegisterIdentityOptions,
@@ -31,6 +36,7 @@ interface SessionDependencies {
   identity: Identity;
   log: (message: string) => void;
   logError: (message: string | Error, cause?: unknown) => void;
+  onUserIdentityAvailable?: UserIdentityAvailable | undefined;
   /** App-owned system containers provisioned with each new organization. */
   provisionedSystemContainers?:
     | ReadonlyArray<ProvisionedSystemContainerSpec>
@@ -153,9 +159,17 @@ class SessionService implements Session {
       return false;
     }
     const identitySnapshot = this.dependencies.identity.snapshot;
+    const encapsulationKeyPair = identitySnapshot.encapsulationKeyPair;
+    if (!encapsulationKeyPair) {
+      return false;
+    }
     if (identitySnapshot.signingKeyPair !== signingKeyPair) {
       return false;
     }
+    const pinLocalUserIdentity = requireUserIdentityAvailable(
+      this.dependencies.onUserIdentityAvailable,
+      "Login",
+    );
 
     this.dependencies.log(
       challengeHex ? "Authenticating with challenge..." : "Authenticating...",
@@ -184,6 +198,19 @@ class SessionService implements Session {
       return false;
     }
 
+    try {
+      await pinLocalUserIdentity(authentication.userId, {
+        encapsulationPublicKey: encapsulationKeyPair.publicKey,
+        signingKeyFingerprint: fingerprint,
+        signingPublicKey: signingKeyPair.signingPublicKey,
+      });
+    } catch (error) {
+      this.setContext({ authToken: null, isAuthenticated: false });
+      throw error;
+    }
+    if (this.dependencies.identity.snapshot !== identitySnapshot) {
+      return false;
+    }
     this.setContext({
       authToken: authentication.token,
       defaultOrganizationId: authentication.organizationId,
@@ -248,6 +275,11 @@ class SessionService implements Session {
       );
       return null;
     }
+    const pinLocalUserIdentity = requireRegistrationIdentityPinner({
+      identity: this.dependencies.identity,
+      identitySnapshot,
+      onUserIdentityAvailable: this.dependencies.onUserIdentityAvailable,
+    });
 
     let response: Awaited<ReturnType<typeof registerIdentityWorkflow>>;
     try {
@@ -260,6 +292,7 @@ class SessionService implements Session {
         log: this.dependencies.log,
         logError: this.dependencies.logError,
         organizationProfileName: options?.organizationProfileName,
+        pinLocalUserIdentity,
         provisionedSystemContainers:
           this.dependencies.provisionedSystemContainers,
         rosterProfileNickname: options?.rosterProfileNickname,
@@ -279,6 +312,13 @@ class SessionService implements Session {
       return null;
     }
 
+    await pinLocalUserIdentity(response.userId, {
+      encapsulationPublicKey: encapsulationKeyPair.publicKey,
+      signingPublicKey: signingKeyPair.signingPublicKey,
+    });
+    if (this.dependencies.identity.snapshot !== identitySnapshot) {
+      return null;
+    }
     this.setContext({
       containerId: response.rootContainerId,
       defaultOrganizationId: response.organizationId,

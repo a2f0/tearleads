@@ -56,6 +56,7 @@ export type {
   IdentityListener,
   IdentityOptions,
   IdentitySnapshot,
+  ImportedOrganizationUser,
   IndexedDbLocalKeyringManifestStoreOptions,
   IndexedDbWrappingKeyKeystoreOptions,
   KeyPackageBackups,
@@ -106,7 +107,6 @@ export type {
   OrganizationProfile,
   Organizations,
   OrganizationUserDetail,
-  OrganizationUserRecipient,
   PersistedDocumentListener,
   PinCodeBrowserLocalKeyringOptions,
   PinCodeWrappingKeyKeystoreOptions,
@@ -338,6 +338,8 @@ export {
   unwrapContainerKekPath,
   unwrapDocumentContentKeyTarget,
 } from "./workflows/documents";
+// Nominal identity constructors are deliberately absent here. Integration
+// tests that compose low-level runtimes use the testing package subpath.
 export type {
   OrganizationGroupPolicyHistoryEntry,
   OrganizationPrincipalMemberChange,
@@ -358,7 +360,7 @@ export {
   deriveOrganizationRosterProfileContainerSystemSlot,
   getOrganizationProfileDocumentLocalId,
   getRosterProfileDocumentLocalId,
-  importOrganizationUserRecipient,
+  importOrganizationUser,
   loadOrganizationBilling,
   loadOrganizationContainerGrants,
   loadOrganizationDataUsage,

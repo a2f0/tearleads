@@ -53,6 +53,10 @@ const clientSdkSupportedPackageExports = {
     default: "./dist/sqlite.js",
     types: "./dist/sqlite.d.ts",
   },
+  "./testing": {
+    default: "./dist/data/trustedUserIdentity/testFixtures.js",
+    types: "./dist/data/trustedUserIdentity/testFixtures.d.ts",
+  },
 } as const;
 export const clientSdkRootWorkflowFacadeReExports = [
   "./workflows/blobs",

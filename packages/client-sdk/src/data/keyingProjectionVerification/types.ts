@@ -2,12 +2,9 @@ import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
+import type { TrustedUserIdentity } from "../trustedUserIdentity";
 
-export interface ProjectionUserKey {
-  readonly encapsulationPublicKey: Uint8Array;
-  readonly signingPublicKey: Uint8Array;
-  readonly userId: string;
-}
+export type ProjectionUserKey = TrustedUserIdentity;
 
 export type ProjectionUserKeyResolver = (
   userId: string,

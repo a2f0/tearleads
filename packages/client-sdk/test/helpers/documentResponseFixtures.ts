@@ -35,6 +35,7 @@ import {
   createProjection,
   fixtureHash,
 } from "./documentFixturePrimitives";
+import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
 export function createResponse(
   plan: DocumentCreatePlan,
@@ -253,11 +254,12 @@ export async function createMaterializedSyncFixture() {
   });
   const resolveProjectionUserKey = async (userId: string) =>
     userId === author.signerUserId
-      ? {
+      ? createTestTrustedUserIdentity({
           encapsulationPublicKey: keyPair.publicKey,
+          signingKeyFingerprint: author.signerKeyFingerprint,
           signingPublicKey,
           userId,
-        }
+        })
       : null;
   const contentKey = crypto.getRandomValues(new Uint8Array(32));
   const materializedCreate = await buildMaterializedDocumentCreatePlan({

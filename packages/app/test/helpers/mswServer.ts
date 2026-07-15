@@ -139,6 +139,9 @@ function getMockEncapsulationKeyResponse(
       const signingKeyPair = generateSigningSeedAndKeyPair();
       const encapsulationKeyPair = generateKemSeedAndKeyPair();
       return {
+        encapsulationKeyFingerprint: await toFingerprint(
+          encapsulationKeyPair.publicKey,
+        ),
         userId,
         signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
         signingKeyFingerprint: await toFingerprint(

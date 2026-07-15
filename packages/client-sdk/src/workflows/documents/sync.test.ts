@@ -40,6 +40,7 @@ import {
   createSyncResponse,
   projectionPathRefs,
 } from "../../../test/helpers/documentFixtures";
+import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   buildMaterializedDocumentCreatePlan,
@@ -355,14 +356,12 @@ test("buildMaterializedDocumentSyncPlan rejects document writer projections with
     documentId: "550e8400-e29b-41d4-a716-446655440099",
     eventId: "event-bad-document-signature",
     execSql,
-    resolveProjectionUserKey: async (userId) =>
-      userId === author.signerUserId
-        ? {
-            encapsulationPublicKey: encapsulationKeyPair.publicKey,
-            signingPublicKey,
-            userId,
-          }
-        : null,
+    resolveProjectionUserKey: createTestTrustedUserIdentityResolver({
+      encapsulationPublicKey: encapsulationKeyPair.publicKey,
+      signingKeyFingerprint: author.signerKeyFingerprint,
+      signingPublicKey,
+      userId: author.signerUserId,
+    }),
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
@@ -387,14 +386,12 @@ test("buildMaterializedDocumentSyncPlan rejects document writer projections with
       execSql,
       localVersionVector: null,
       pendingUpdates: [createPendingUpdateRecord()],
-      resolveProjectionUserKey: async (userId) =>
-        userId === author.signerUserId
-          ? {
-              encapsulationPublicKey: encapsulationKeyPair.publicKey,
-              signingPublicKey,
-              userId,
-            }
-          : null,
+      resolveProjectionUserKey: createTestTrustedUserIdentityResolver({
+        encapsulationPublicKey: encapsulationKeyPair.publicKey,
+        signingKeyFingerprint: author.signerKeyFingerprint,
+        signingPublicKey,
+        userId: author.signerUserId,
+      }),
       targetSecretKey: encapsulationKeyPair.secretKey,
       writerProjection: {
         ...writerProjection,
@@ -558,14 +555,12 @@ test("buildMaterializedDocumentSyncPlan verifies linked document manifest histor
     createdResponse.id,
     linked.plan.request,
   );
-  const resolveProjectionUserKey = async (userId: string) =>
-    userId === author.signerUserId
-      ? {
-          encapsulationPublicKey: encapsulationKeyPair.publicKey,
-          signingPublicKey,
-          userId,
-        }
-      : null;
+  const resolveProjectionUserKey = createTestTrustedUserIdentityResolver({
+    encapsulationPublicKey: encapsulationKeyPair.publicKey,
+    signingKeyFingerprint: author.signerKeyFingerprint,
+    signingPublicKey,
+    userId: author.signerUserId,
+  });
 
   await expect(
     buildMaterializedDocumentSyncPlan({

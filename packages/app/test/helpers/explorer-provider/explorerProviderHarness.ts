@@ -22,16 +22,18 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { createSqlRuntimeBase } from "../createSqlRuntime";
+import { createTestRuntimeTrustedUserIdentityResolver } from "../trustedUserIdentity";
 import {
   createExplorerContainerMutationResponse,
   createExplorerMetadataContainerProjection,
   createExplorerMetadataCreateResponse,
   createExplorerMetadataSyncResponse,
-  type ExplorerRuntimePatch,
   listContainersResponse,
   readRequestString,
   type TestRuntime,
 } from "./explorerProviderFixtures";
+
+export { runtimeWithPatch } from "./explorerRuntimePatch";
 
 function sortWrapRecipientKinds(wraps: ReadonlyArray<object>): string[] {
   return wraps
@@ -368,6 +370,9 @@ export async function createExplorerMetadataFixture(input: {
         }
 
         return {
+          encapsulationKeyFingerprint: await toFingerprint(
+            input.encapsulationKeyPair.publicKey,
+          ),
           encapsulationPublicKey: bytesToBase64(
             input.encapsulationKeyPair.publicKey,
           ),
@@ -431,64 +436,20 @@ export async function createSqlRuntime(): Promise<TestRuntime> {
       syncDocument: async () => null,
     }),
   };
-  const runtime = createExplorerWorkflowRuntime(input);
+  const runtime = createExplorerWorkflowRuntime({
+    ...input,
+    resolveTrustedUserIdentity: createTestRuntimeTrustedUserIdentityResolver({
+      encapsulationPublicKey: null,
+      loadRemoteIdentity: (userId) =>
+        input.apiClient.getEncapsulationKey(userId),
+      localUserId: null,
+      signingKeyFingerprint: null,
+      signingPublicKey: null,
+    }),
+  });
 
   return {
     ...runtime,
     close: runtimeBase.close,
-  };
-}
-
-export function runtimeWithPatch(
-  runtime: TestRuntime,
-  patch: ExplorerRuntimePatch,
-): TestRuntime {
-  const {
-    cacheReferencedPrincipalPolicies,
-    dbStatus,
-    encapsulationKeyPair,
-    isAuthenticated,
-    online,
-    organizationId,
-    signingFingerprint,
-    signingKeyPair,
-    userId,
-    ...groupedPatch
-  } = patch;
-
-  return {
-    ...runtime,
-    ...groupedPatch,
-    auth: {
-      ...runtime.auth,
-      ...groupedPatch.auth,
-      ...(isAuthenticated === undefined ? {} : { isAuthenticated }),
-      ...(organizationId === undefined ? {} : { organizationId }),
-      ...(userId === undefined ? {} : { userId }),
-    },
-    crypto: {
-      ...runtime.crypto,
-      ...groupedPatch.crypto,
-      ...(encapsulationKeyPair === undefined ? {} : { encapsulationKeyPair }),
-      ...(signingFingerprint === undefined ? {} : { signingFingerprint }),
-      ...(signingKeyPair === undefined ? {} : { signingKeyPair }),
-    },
-    infra: {
-      ...runtime.infra,
-      ...groupedPatch.infra,
-      ...(dbStatus === undefined ? {} : { dbStatus }),
-    },
-    state: {
-      ...runtime.state,
-      ...groupedPatch.state,
-      ...(online === undefined ? {} : { online }),
-    },
-    util: {
-      ...runtime.util,
-      ...groupedPatch.util,
-      ...(cacheReferencedPrincipalPolicies === undefined
-        ? {}
-        : { cacheReferencedPrincipalPolicies }),
-    },
   };
 }

@@ -59,6 +59,7 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import { cacheRemoteContainerCreatePolicyRepair } from "./policyRepair";
 
 function assertContainerCreatePlanInput(input: {
@@ -431,6 +432,7 @@ export async function createRemoteContainer(input: {
   parentProjection?: ContainerWriterProjectionResponse | undefined;
   parentSecretKey: Uint8Array;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   signedAt?: string | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<CreateRemoteContainerResult | null> {
@@ -479,6 +481,7 @@ export async function createRemoteContainer(input: {
           execSql: input.execSql,
           failure: submitted,
           organizationId: parentProjection.organizationId,
+          resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
         }))
       ) {
         // Rebuild after caching the current signed policy bundle; the rejected

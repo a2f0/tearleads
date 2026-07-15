@@ -12,6 +12,7 @@ import {
   createLinkSetResponseFromRequest,
   createResponse,
 } from "../../../test/helpers/documentFixtures";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { persistedDocumentLinkSetMutationStateFromResponse } from "../../data/documents/shared/responses";
 import { buildMaterializedDocumentCreatePlan } from "./create";
 import {
@@ -80,11 +81,12 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
   });
   const resolveProjectionUserKey = async (userId: string) =>
     userId === author.signerUserId
-      ? {
+      ? createTestTrustedUserIdentity({
           encapsulationPublicKey: keyPair.publicKey,
+          signingKeyFingerprint: author.signerKeyFingerprint,
           signingPublicKey,
           userId,
-        }
+        })
       : null;
   const created = await buildMaterializedDocumentCreatePlan({
     author,
@@ -217,11 +219,12 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
   });
   const resolveProjectionUserKey = async (userId: string) =>
     userId === author.signerUserId
-      ? {
+      ? createTestTrustedUserIdentity({
           encapsulationPublicKey: keyPair.publicKey,
+          signingKeyFingerprint: author.signerKeyFingerprint,
           signingPublicKey,
           userId,
-        }
+        })
       : null;
   const created = await buildMaterializedDocumentCreatePlan({
     author,

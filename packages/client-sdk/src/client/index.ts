@@ -154,6 +154,7 @@ export {
 } from "./network";
 export type {
   AddOrganizationGroupUserInput,
+  ImportedOrganizationUser,
   LocalOrganizationSummary,
   OrganizationBilling,
   OrganizationBillingView,
@@ -175,7 +176,6 @@ export type {
   OrganizationProfile,
   Organizations,
   OrganizationUserDetail,
-  OrganizationUserRecipient,
   RemoveOrganizationGroupUserInput,
 } from "./organizations";
 export {

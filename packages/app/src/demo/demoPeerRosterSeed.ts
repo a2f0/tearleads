@@ -2,10 +2,9 @@ import type {
   OrganizationDirectory,
   OrganizationDirectoryAndGroups,
   OrganizationDirectoryUser,
-  OrganizationGroupMember,
   OrganizationGroupMembers,
-  OrganizationUserRecipient,
 } from "@tearleads/client-sdk";
+import { KeyingVerificationError } from "@tearleads/crypto";
 
 // Demo-only roster seeding. The demo panes each register their own personal
 // organization; this module decides whether the pane still owes an "add the peer
@@ -21,7 +20,7 @@ import type {
 // Preconditions the pane must satisfy before it can attempt to seed the peer
 // onto its roster. Mirrors the org-manager `canImportRosterUser` gate: an
 // authenticated session with a resolved organization and user id plus the
-// signing/encapsulation material the member-group policy write requires.
+// local signing/encapsulation material the member-group policy write requires.
 interface DemoPeerRosterSeedGate {
   readonly canWrite: boolean;
   readonly isAuthenticated: boolean;
@@ -34,58 +33,6 @@ export function shouldAttemptRosterSeed(gate: DemoPeerRosterSeedGate): boolean {
     gate.isAuthenticated &&
     (gate.peerUserId ?? "").trim().length > 0
   );
-}
-
-function directoryUserRecipient(
-  user: OrganizationDirectoryUser,
-): OrganizationUserRecipient {
-  return {
-    userId: user.userId,
-    encapsulationPublicKey: user.encapsulationPublicKey,
-    encapsulationKeyFingerprint: user.encapsulationKeyFingerprint,
-  };
-}
-
-function memberRecipient(
-  member: OrganizationGroupMember,
-): OrganizationUserRecipient | null {
-  if (
-    member.memberPrincipalType !== "user" ||
-    !member.encapsulationPublicKey ||
-    !member.encapsulationKeyFingerprint
-  ) {
-    return null;
-  }
-
-  return {
-    userId: member.memberPrincipalId,
-    encapsulationPublicKey: member.encapsulationPublicKey,
-    encapsulationKeyFingerprint: member.encapsulationKeyFingerprint,
-  };
-}
-
-// The recipients whose keys the member-group policy must be re-encrypted for:
-// every current directory user plus any member-group member not yet in the
-// directory. Deduped by user id (directory entries win, matching the
-// org-manager recipient projection).
-export function memberGroupRecipients(input: {
-  readonly directory: OrganizationDirectory;
-  readonly members: OrganizationGroupMembers | null;
-}): OrganizationUserRecipient[] {
-  const recipientsById = new Map<string, OrganizationUserRecipient>();
-
-  for (const member of input.members?.members ?? []) {
-    const recipient = memberRecipient(member);
-    if (recipient) {
-      recipientsById.set(recipient.userId, recipient);
-    }
-  }
-  for (const user of input.directory.users) {
-    const recipient = directoryUserRecipient(user);
-    recipientsById.set(recipient.userId, recipient);
-  }
-
-  return [...recipientsById.values()];
 }
 
 // Whether the peer already appears on this pane's roster as an active user. Once
@@ -120,21 +67,19 @@ type DemoPeerRosterSeedPlan =
   | {
       readonly kind: "add-to-member-group";
       readonly canAdministerOrganization: boolean;
-      readonly currentUsers: OrganizationUserRecipient[];
-      // The peer's recipient when it is already in the directory; null means the
-      // executor must import it by id (fetching the peer's encapsulation key)
-      // before adding.
-      readonly existingRecipient: OrganizationUserRecipient | null;
       readonly memberGroupId: string;
       readonly peerUserId: string;
+      // Unknown users must be imported before the membership write. Known
+      // directory users can go straight to the SDK's trusted identity gateway.
+      readonly requiresImport: boolean;
     };
 
 /**
  * Decides whether this pane still owes a member-group add to surface the peer on
  * its roster. Pure and idempotent: returns `idle` when the directory/member
  * group is unavailable, or once the peer is already an active roster user or a
- * member-group member. Otherwise returns the add descriptor with the recipients
- * the policy re-encryption needs.
+ * member-group member. Otherwise returns the user-id-only add descriptor; the
+ * SDK resolves all cryptographic recipient material behind its trust boundary.
  */
 export function planDemoPeerRosterSeed(input: {
   readonly directory: OrganizationDirectory | null;
@@ -159,10 +104,9 @@ export function planDemoPeerRosterSeed(input: {
   return {
     kind: "add-to-member-group",
     canAdministerOrganization: directory.currentUser.isOrgAdmin,
-    currentUsers: memberGroupRecipients({ directory, members }),
-    existingRecipient: existing ? directoryUserRecipient(existing) : null,
     memberGroupId,
     peerUserId,
+    requiresImport: existing === null,
   };
 }
 
@@ -172,8 +116,7 @@ export function planDemoPeerRosterSeed(input: {
 export interface DemoRosterSeedActions {
   readonly addUserToGroup: (
     groupId: string,
-    targetUser: OrganizationUserRecipient,
-    currentUsers: ReadonlyArray<OrganizationUserRecipient>,
+    targetUserId: string,
     canAdministerOrganization: boolean,
   ) => Promise<unknown>;
   readonly ensureRosterProfileDocument: (
@@ -182,11 +125,28 @@ export interface DemoRosterSeedActions {
   ) => Promise<OrganizationDirectoryUser | null>;
   readonly importUserById: (
     userId: string,
-  ) => Promise<OrganizationUserRecipient | null>;
+  ) => Promise<{ readonly userId: string } | null>;
   readonly loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
   readonly loadGroupDetails: (
     groupId: string,
   ) => Promise<{ readonly members: OrganizationGroupMembers | null }>;
+}
+
+export async function attemptPeerRosterSeed(
+  actions: DemoRosterSeedActions,
+  peerUserId: string,
+  peerNickname: string,
+  logError: (message: string, error: unknown) => void,
+): Promise<boolean> {
+  try {
+    return await seedPeerRosterEntry(actions, peerUserId, peerNickname);
+  } catch (error) {
+    if (error instanceof KeyingVerificationError) {
+      throw error;
+    }
+    logError("Demo peer bootstrap: failed to seed peer roster entry.", error);
+    return false;
+  }
 }
 
 /**
@@ -215,8 +175,8 @@ export async function seedPeerRosterEntry(
   if (!isPeerOnRoster(directory, peerUserId)) {
     const { members } = await actions.loadGroupDetails(memberGroupId);
     if (!members) {
-      // Without the authoritative member list the policy re-encryption could
-      // omit existing members; wait and retry rather than risk locking them out.
+      // Wait until membership state is authoritative enough to determine
+      // whether the add is still owed. The SDK resolves policy recipients.
       return false;
     }
     const plan = planDemoPeerRosterSeed({
@@ -226,15 +186,15 @@ export async function seedPeerRosterEntry(
       peerUserId,
     });
     if (plan.kind === "add-to-member-group") {
-      const targetUser =
-        plan.existingRecipient ?? (await actions.importUserById(peerUserId));
-      if (!targetUser) {
+      const importedUser = plan.requiresImport
+        ? await actions.importUserById(peerUserId)
+        : { userId: peerUserId };
+      if (!importedUser) {
         return false;
       }
       await actions.addUserToGroup(
         plan.memberGroupId,
-        targetUser,
-        plan.currentUsers,
+        importedUser.userId,
         plan.canAdministerOrganization,
       );
     }

@@ -18,6 +18,7 @@ import {
   documentProjection,
   documents,
   principalPolicies,
+  trustedUserIdentityPins,
 } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
@@ -139,6 +140,18 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         currentMemberEnvelopesJson: "[]",
         previousStatesJson: "[]",
         updatedAt: stale,
+      });
+      await tx.insert(trustedUserIdentityPins).values({
+        encapsulationKeyFingerprint: "b".repeat(64),
+        encapsulationPublicKey: "kem-public-key",
+        encapsulationSuite: "ML-KEM-1024",
+        firstSeenAt: stale,
+        formatVersion: 1,
+        identityTrustDomain: "https://api.example.test/v1",
+        signingKeyFingerprint: "a".repeat(64),
+        signingPublicKey: "signing-public-key",
+        signingSuite: "ML-DSA-87",
+        userId: "11111111-1111-4111-8111-111111111111",
       });
       await tx.insert(documentMoveIntents).values({
         id: "doc-move",
@@ -296,6 +309,12 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
       }),
     ]);
     expect(await db.select().from(principalPolicies)).toEqual([]);
+    expect(await db.select().from(trustedUserIdentityPins)).toEqual([
+      expect.objectContaining({
+        identityTrustDomain: "https://api.example.test/v1",
+        userId: "11111111-1111-4111-8111-111111111111",
+      }),
+    ]);
     expect(await db.select().from(documentContainerProjection)).toEqual([]);
     expect(await db.select().from(documentMoveIntents)).toEqual([]);
     expect(await db.select().from(containerMoveIntents)).toEqual([]);

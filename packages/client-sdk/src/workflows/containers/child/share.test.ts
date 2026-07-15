@@ -1,9 +1,5 @@
 import { expect, test } from "bun:test";
 import {
-  shareRemoteContainer,
-  shareRemoteContainerWithGroup,
-} from "@tearleads/client-sdk";
-import {
   type ContainerGrantAccessEventBody,
   type ContainerKeyWrap,
   type ContainerUserRecipientKey,
@@ -16,7 +12,6 @@ import {
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
@@ -31,8 +26,10 @@ import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
 } from "../../../../test/helpers/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
+import { shareRemoteContainer, shareRemoteContainerWithGroup } from "./share";
 
 async function withTestExecSql<T>(
   name: string,
@@ -80,9 +77,15 @@ test("shareRemoteContainer rejects tampered projected container state before sen
       author,
       containerId: parent.projection.containerId,
       execSql: database.execSql,
-      recipientEncapsulationPublicKey: recipientKeyPair.publicKey,
       recipientUserId: "user-2",
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      resolveTrustedUserIdentity: async (userId) =>
+        createTestTrustedUserIdentity({
+          encapsulationPublicKey: recipientKeyPair.publicKey,
+          signingKeyFingerprint: author.signerKeyFingerprint,
+          signingPublicKey: parent.signingPublicKey,
+          userId,
+        }),
       targetSecretKey: parent.secretKey,
     }),
   ).rejects.toThrow("Container writer projection path[0] state mismatch");
@@ -118,9 +121,15 @@ test("shareRemoteContainer rejects bad previous projection signatures before sen
       author,
       containerId: parent.projection.containerId,
       execSql: database.execSql,
-      recipientEncapsulationPublicKey: recipientKeyPair.publicKey,
       recipientUserId: "user-2",
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      resolveTrustedUserIdentity: async (userId) =>
+        createTestTrustedUserIdentity({
+          encapsulationPublicKey: recipientKeyPair.publicKey,
+          signingKeyFingerprint: author.signerKeyFingerprint,
+          signingPublicKey: parent.signingPublicKey,
+          userId,
+        }),
       targetSecretKey: parent.secretKey,
     }),
   ).rejects.toThrow(
@@ -161,9 +170,15 @@ test("shareRemoteContainer includes existing direct user recipient keys", async 
     author,
     containerId: parent.projection.containerId,
     execSql: database.execSql,
-    recipientEncapsulationPublicKey: recipientKeyPair.publicKey,
     recipientUserId: "user-2",
     resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+    resolveTrustedUserIdentity: async (userId) =>
+      createTestTrustedUserIdentity({
+        encapsulationPublicKey: recipientKeyPair.publicKey,
+        signingKeyFingerprint: author.signerKeyFingerprint,
+        signingPublicKey: parent.signingPublicKey,
+        userId,
+      }),
     signedAt: SIGNED_AT,
     targetSecretKey: parent.secretKey,
   });
@@ -274,19 +289,6 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
           expect(principalId).toBe(groupId);
           return groupPolicy;
         },
-        getEncapsulationKey: async (userId) => {
-          expect(userId).toBe(groupSignerUserId);
-          return {
-            userId: groupSignerUserId,
-            signingPublicKey: bytesToBase64(
-              groupSigningKeyPair.signingPublicKey,
-            ),
-            signingKeyFingerprint: groupSigningFingerprint,
-            encapsulationPublicKey: bytesToBase64(
-              groupEncapsulationKeyPair.publicKey,
-            ),
-          };
-        },
         shareContainer: async (_containerId, request) => {
           submittedRequests.push(request);
           return createMutationResponseFromRequest(request);
@@ -297,6 +299,15 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
       execSql,
       recipientGroupId: groupId,
       resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      resolveTrustedUserIdentity: async (userId) => {
+        expect(userId).toBe(groupSignerUserId);
+        return createTestTrustedUserIdentity({
+          encapsulationPublicKey: groupEncapsulationKeyPair.publicKey,
+          signingKeyFingerprint: groupSigningFingerprint,
+          signingPublicKey: groupSigningKeyPair.signingPublicKey,
+          userId,
+        });
+      },
       signedAt: SIGNED_AT,
       targetSecretKey: parent.secretKey,
     }),
@@ -393,19 +404,6 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
             expect(principalId).toBe(groupId);
             return groupPolicy;
           },
-          getEncapsulationKey: async (userId) => {
-            expect(userId).toBe(groupSignerUserId);
-            return {
-              userId: groupSignerUserId,
-              signingPublicKey: bytesToBase64(
-                groupSigningKeyPair.signingPublicKey,
-              ),
-              signingKeyFingerprint: groupSigningFingerprint,
-              encapsulationPublicKey: bytesToBase64(
-                groupEncapsulationKeyPair.publicKey,
-              ),
-            };
-          },
           shareContainer: async (_containerId, request) => {
             submittedRequests.push(request);
             return createMutationResponseFromRequest(request);
@@ -416,6 +414,15 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
         execSql,
         recipientGroupId: groupId,
         resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+        resolveTrustedUserIdentity: async (userId) => {
+          expect(userId).toBe(groupSignerUserId);
+          return createTestTrustedUserIdentity({
+            encapsulationPublicKey: groupEncapsulationKeyPair.publicKey,
+            signingKeyFingerprint: groupSigningFingerprint,
+            signingPublicKey: groupSigningKeyPair.signingPublicKey,
+            userId,
+          });
+        },
         signedAt: SIGNED_AT,
         targetSecretKey: parent.secretKey,
       }),

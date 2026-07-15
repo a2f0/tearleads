@@ -44,6 +44,7 @@ import {
 } from "../../data/documents/shared/types";
 import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { resolveMultipartUploadOptions } from "./automaticMultipartUpload";
 import { stageMultipartBlobAttachment } from "./multipartUpload";
@@ -132,6 +133,9 @@ async function buildBlobAttachmentMaterial(
 }
 
 function shouldRetryBlobUploadWithFreshWriterProjection(error: unknown) {
+  if (isKeyingVerificationError(error)) {
+    return false;
+  }
   return (
     error instanceof Error &&
     error.message.startsWith("Container writer projection KEK") &&

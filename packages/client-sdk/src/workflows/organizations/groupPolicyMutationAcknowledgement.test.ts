@@ -6,13 +6,13 @@ import {
   type ReferencedPrincipalHead,
   toFingerprint,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import type { PutPrincipalStateRequest } from "@tearleads/validators/request";
 import type {
   CurrentPrincipalMemberEnvelopesResponse,
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import {
   acknowledgeGroupPolicyState,
   assertGroupPolicyEnvelopesMatchAcknowledgement,
@@ -56,11 +56,13 @@ async function acknowledgementFixture() {
     signerUserId,
     signingFingerprint,
     signingKeyPair,
-    targetUser: {
+    targetUser: createTestTrustedUserIdentity({
       userId: crypto.randomUUID(),
-      encapsulationPublicKey: bytesToBase64(targetKem.publicKey),
+      encapsulationPublicKey: targetKem.publicKey,
       encapsulationKeyFingerprint: await toFingerprint(targetKem.publicKey),
-    },
+      signingKeyFingerprint: signingFingerprint,
+      signingPublicKey: signingKeyPair.signingPublicKey,
+    }),
   });
   const stateHash = await computePrincipalStateHash(mutation.state.state);
   const expectedHead: ReferencedPrincipalHead = {

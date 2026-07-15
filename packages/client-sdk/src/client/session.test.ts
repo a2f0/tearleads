@@ -90,6 +90,7 @@ function createSessionHarness(
       identity,
       log: logger.log,
       logError: logger.logError,
+      onUserIdentityAvailable: async () => undefined,
     }),
   };
 }

@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { moveRemoteContainer } from "@tearleads/client-sdk";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createAuthor,
@@ -7,6 +6,7 @@ import {
   createParentProjectionUserKeyResolver,
   tamperFirstProjectionEventSignature,
 } from "../../../../test/helpers/containerFixtures";
+import { moveRemoteContainer } from "./move";
 
 test("moveRemoteContainer rejects bad source projection signatures before sending", async () => {
   const parent = await createParentProjection();

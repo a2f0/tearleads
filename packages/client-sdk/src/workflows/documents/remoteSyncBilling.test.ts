@@ -10,6 +10,7 @@ import {
   createPendingUpdateRecord,
   createSyncResponse,
 } from "../../../test/helpers/documentFixtures";
+import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { createRemoteDocument } from "./create";
 import { buildDocumentSyncPlan, syncRemoteDocument } from "./sync";
 
@@ -50,11 +51,12 @@ test("createRemoteDocument gates writes by the resolved container organization",
     },
     resolveProjectionUserKey: async (userId) =>
       userId === author.signerUserId
-        ? {
+        ? createTestTrustedUserIdentity({
             encapsulationPublicKey: keyPair.publicKey,
+            signingKeyFingerprint: author.signerKeyFingerprint,
             signingPublicKey,
             userId,
-          }
+          })
         : null,
     targetSecretKey: keyPair.secretKey,
   });

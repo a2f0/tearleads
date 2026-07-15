@@ -108,6 +108,7 @@ const baseConfig = {
         "src/index.ts",
         "src/documents.ts",
         "src/sqlite.ts",
+        "src/data/trustedUserIdentity/testFixtures.ts",
         "src/stores/container-contents/index.ts",
         "src/stores/documents/index.ts",
         "src/workflows/blobs/index.ts",

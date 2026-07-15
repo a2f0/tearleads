@@ -61,6 +61,9 @@ test("explorer store shares an authenticated container without reseeding metadat
         }
 
         return {
+          encapsulationKeyFingerprint: await toFingerprint(
+            peerKeyPair.publicKey,
+          ),
           encapsulationPublicKey: bytesToBase64(peerKeyPair.publicKey),
           signingKeyFingerprint: signingFingerprint,
           signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),

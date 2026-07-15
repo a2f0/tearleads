@@ -1,4 +1,5 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
+import { rethrowKeyingVerificationError } from "../data/keyingProjectionVerification/error";
 import type { ContainerContents } from "./containerContents";
 import { logErrorSafely } from "./logger";
 
@@ -25,12 +26,14 @@ export async function recoverOrganizationRootRewrapAfterMutationFailure<
   try {
     return await input.mutation;
   } catch (error) {
+    rethrowKeyingVerificationError(error);
     if (!input.prepared.hasExpectedGroupPolicyHead()) {
       throw error;
     }
     try {
       await input.prepared.rewrap();
     } catch (rewrapError) {
+      rethrowKeyingVerificationError(rewrapError);
       logErrorSafely(
         input.logError,
         "Organization root re-wrap reconciliation failed after a group mutation error",
@@ -134,7 +137,9 @@ export async function prepareOrganizationRootRewrapToAdmins(input: {
         ) {
           return;
         }
-      } catch {}
+      } catch (error) {
+        rethrowKeyingVerificationError(error);
+      }
       try {
         if (
           (await prepared.rewrap()) &&
@@ -146,7 +151,9 @@ export async function prepareOrganizationRootRewrapToAdmins(input: {
         ) {
           return;
         }
-      } catch {}
+      } catch (error) {
+        rethrowKeyingVerificationError(error);
+      }
 
       await tree.refresh();
       try {
@@ -159,7 +166,9 @@ export async function prepareOrganizationRootRewrapToAdmins(input: {
         ) {
           return;
         }
-      } catch {}
+      } catch (error) {
+        rethrowKeyingVerificationError(error);
+      }
       if (
         !(await prepared.rewrap()) ||
         !(await prepared.isCurrent(

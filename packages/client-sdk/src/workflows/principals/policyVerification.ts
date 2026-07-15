@@ -1,24 +1,13 @@
+import type { PrincipalPolicySignerPublicKey } from "@tearleads/crypto";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
-  type PrincipalPolicySignerPublicKey,
-  toFingerprint,
-} from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
-import type {
-  EncapsulationKeyResponse,
-  PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+  requireTrustedUserIdentityResolver,
+  type TrustedUserIdentityResolver,
+} from "../../data/trustedUserIdentity";
 
 export type PrincipalPolicySignerPublicKeyLoadErrorCode =
-  | "fingerprint-invalid"
   | "fingerprint-mismatch"
-  | "not-found"
-  | "user-mismatch";
-
-interface TrustedPrincipalPolicySignerPublicKey {
-  readonly signerUserId: string;
-  readonly signingFingerprint: string;
-  readonly signingPublicKey: Uint8Array;
-}
+  | "not-found";
 
 export function principalPolicyStates(
   bundle: PrincipalPolicyBundleResponse,
@@ -36,55 +25,19 @@ function signerCacheKey(input: {
   return `${input.signerUserId}:${input.signingFingerprint}`;
 }
 
-async function trustedSignerPublicKeysByKey(input: {
-  readonly trustedSignerPublicKeys:
-    | readonly TrustedPrincipalPolicySignerPublicKey[]
-    | undefined;
-}): Promise<Map<string, PrincipalPolicySignerPublicKey>> {
-  const trustedSignerPublicKeysByKey = new Map<
-    string,
-    PrincipalPolicySignerPublicKey
-  >();
-
-  for (const trustedSigner of input.trustedSignerPublicKeys ?? []) {
-    if (trustedSignerPublicKeysByKey.has(signerCacheKey(trustedSigner))) {
-      continue;
-    }
-
-    if (
-      (await toFingerprint(trustedSigner.signingPublicKey)) !==
-      trustedSigner.signingFingerprint
-    ) {
-      continue;
-    }
-
-    trustedSignerPublicKeysByKey.set(signerCacheKey(trustedSigner), {
-      userId: trustedSigner.signerUserId,
-      signingKeyFingerprint: trustedSigner.signingFingerprint,
-      signingPublicKey: trustedSigner.signingPublicKey,
-    });
-  }
-
-  return trustedSignerPublicKeysByKey;
-}
-
-async function loadRemoteSignerPublicKey(input: {
-  readonly getEncapsulationKey: (
-    userId: string,
-  ) => Promise<EncapsulationKeyResponse | null>;
+async function loadTrustedSignerPublicKey(input: {
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly state: PrincipalPolicyBundleResponse["currentState"];
 }): Promise<
   | { readonly signerPublicKey: PrincipalPolicySignerPublicKey }
   | { readonly error: PrincipalPolicySignerPublicKeyLoadErrorCode }
 > {
-  const signerKey = await input.getEncapsulationKey(input.state.signerUserId);
+  const signerKey = await input.resolveTrustedUserIdentity(
+    input.state.signerUserId,
+  );
 
   if (!signerKey) {
     return { error: "not-found" };
-  }
-
-  if (signerKey.userId !== input.state.signerUserId) {
-    return { error: "user-mismatch" };
   }
 
   if (
@@ -93,42 +46,29 @@ async function loadRemoteSignerPublicKey(input: {
     return { error: "fingerprint-mismatch" };
   }
 
-  const signingPublicKey = base64ToBytes(signerKey.signingPublicKey);
-  if (
-    (await toFingerprint(signingPublicKey)) !==
-    input.state.signerUserKeyFingerprint
-  ) {
-    return { error: "fingerprint-invalid" };
-  }
-
   return {
     signerPublicKey: {
       userId: input.state.signerUserId,
       signingKeyFingerprint: input.state.signerUserKeyFingerprint,
-      signingPublicKey,
+      signingPublicKey: signerKey.signingPublicKey,
     },
   };
 }
 
 export async function collectPrincipalPolicySignerPublicKeys(input: {
   readonly bundle: PrincipalPolicyBundleResponse;
-  readonly getEncapsulationKey: (
-    userId: string,
-  ) => Promise<EncapsulationKeyResponse | null>;
-  readonly trustedSignerPublicKeys?:
-    | readonly TrustedPrincipalPolicySignerPublicKey[]
-    | undefined;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<
   | { readonly signerPublicKeys: PrincipalPolicySignerPublicKey[] }
   | { readonly error: PrincipalPolicySignerPublicKeyLoadErrorCode }
 > {
+  const resolveTrustedUserIdentity = requireTrustedUserIdentityResolver(
+    input.resolveTrustedUserIdentity,
+  );
   const signerPublicKeysByKey = new Map<
     string,
     PrincipalPolicySignerPublicKey
   >();
-  const trustedSignerPublicKeys = await trustedSignerPublicKeysByKey({
-    trustedSignerPublicKeys: input.trustedSignerPublicKeys,
-  });
 
   for (const state of principalPolicyStates(input.bundle)) {
     const cacheKey = signerCacheKey({
@@ -139,14 +79,8 @@ export async function collectPrincipalPolicySignerPublicKeys(input: {
       continue;
     }
 
-    const trustedSignerPublicKey = trustedSignerPublicKeys.get(cacheKey);
-    if (trustedSignerPublicKey) {
-      signerPublicKeysByKey.set(cacheKey, trustedSignerPublicKey);
-      continue;
-    }
-
-    const remoteSignerPublicKey = await loadRemoteSignerPublicKey({
-      getEncapsulationKey: input.getEncapsulationKey,
+    const remoteSignerPublicKey = await loadTrustedSignerPublicKey({
+      resolveTrustedUserIdentity,
       state,
     });
     if ("error" in remoteSignerPublicKey) {

@@ -169,6 +169,9 @@ export async function documentWorkflowRuntimePatch(input: {
       getEncapsulationKey: async (userId) =>
         userId === "user-1"
           ? {
+              encapsulationKeyFingerprint: await toFingerprint(
+                input.encapsulationKeyPair.publicKey,
+              ),
               encapsulationPublicKey: bytesToBase64(
                 input.encapsulationKeyPair.publicKey,
               ),

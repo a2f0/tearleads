@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   computeBlobAccessManifestHash,
   computeWriteHeaderHash,
+  KeyingVerificationError,
   type WriteHeader,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
@@ -163,5 +164,59 @@ test("uploadDocumentAttachment automatically uses multipart for large durable bl
     expect(progressEvents[index]?.bytesUploaded).toBeGreaterThanOrEqual(
       progressEvents[index - 1]?.bytesUploaded ?? 0,
     );
+  }
+});
+
+test("automatic multipart capability identity failures do not fall back to legacy staging", async () => {
+  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const integrityError = new KeyingVerificationError(
+    "equivocation",
+    "trusted session identity changed",
+  );
+  const { close, execSql } = await createTestExecSql(
+    "automatic-multipart-identity-failure",
+  );
+  let bindRequests = 0;
+  let capabilityRequests = 0;
+  let legacyStageRequests = 0;
+
+  try {
+    await expect(
+      uploadDocumentAttachment({
+        apiClient: {
+          bindBlobAttachment: async () => {
+            bindRequests += 1;
+            return null;
+          },
+          completeMultipartBlobStage: async () => null,
+          getBlobUploadCapabilities: async () => {
+            capabilityRequests += 1;
+            throw integrityError;
+          },
+          getDocumentWriterProjection: async () => writerProjection,
+          getMultipartBlobStage: async () => null,
+          initiateMultipartBlobStage: async () => null,
+          stageBlob: async () => {
+            legacyStageRequests += 1;
+            return null;
+          },
+          uploadMultipartBlobPart: async () => null,
+        },
+        author,
+        bytes: new Uint8Array(8 * 1024 * 1024) as BlobBytes,
+        documentId: writerProjection.documentId,
+        execSql,
+        expectedBindingId: null,
+        resolveProjectionUserKey,
+        slotId: "identity-failure",
+        targetSecretKey: secretKey,
+      }),
+    ).rejects.toBe(integrityError);
+    expect(capabilityRequests).toBe(1);
+    expect(legacyStageRequests).toBe(0);
+    expect(bindRequests).toBe(0);
+  } finally {
+    close();
   }
 });

@@ -98,6 +98,7 @@ export async function containerStateHasCurrentGroupGrant(input: {
       execSql: input.runtime.infra.execSql,
       groupId: input.groupId,
       organizationId: input.expectedOrganizationId,
+      resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
     });
   if (
     !principalPolicyBundleContainsReference(bundle, input.expectedGroupHead)

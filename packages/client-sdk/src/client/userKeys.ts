@@ -1,8 +1,11 @@
-import type { ApiClient } from "@tearleads/api-client";
-import { toFingerprint } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
+import {
+  requireTrustedUserIdentityResolver,
+  type TrustedUserIdentityResolver,
+} from "../data/trustedUserIdentity";
 
 export interface UserKey {
+  encapsulationKeyFingerprint: string;
   encapsulationPublicKey: string;
   signingKeyFingerprint: string;
   signingPublicKey: string;
@@ -14,34 +17,26 @@ export interface UserKeys {
 }
 
 export function createUserKeys(input: {
-  apiClient: ApiClient;
   log: (message: string) => void;
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): UserKeys {
+  const resolveTrustedUserIdentity = requireTrustedUserIdentityResolver(
+    input.resolveTrustedUserIdentity,
+  );
   return {
     async fetch(userId) {
       input.log(`Loading user key for userId: ${userId}`);
-      const response = await input.apiClient.getEncapsulationKey(userId);
-      if (!response) {
-        return null;
-      }
-
-      const signingPublicKey = base64ToBytes(response.signingPublicKey);
-      const signingKeyFingerprint = await toFingerprint(signingPublicKey);
-      if (
-        response.userId !== userId ||
-        response.signingKeyFingerprint !== signingKeyFingerprint
-      ) {
-        input.log(
-          `Skipped user key for ${userId} because the signing fingerprint does not match the public key.`,
-        );
+      const identity = await resolveTrustedUserIdentity(userId);
+      if (!identity) {
         return null;
       }
 
       return {
-        encapsulationPublicKey: response.encapsulationPublicKey,
-        signingKeyFingerprint,
-        signingPublicKey: response.signingPublicKey,
-        userId: response.userId,
+        encapsulationKeyFingerprint: identity.encapsulationKeyFingerprint,
+        encapsulationPublicKey: bytesToBase64(identity.encapsulationPublicKey),
+        signingKeyFingerprint: identity.signingKeyFingerprint,
+        signingPublicKey: bytesToBase64(identity.signingPublicKey),
+        userId: identity.userId,
       };
     },
   };

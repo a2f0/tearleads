@@ -16,6 +16,7 @@ import {
   createParentProjection,
 } from "../../../../test/helpers/containerFixtures";
 import { createResponse } from "../../../../test/helpers/documentFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { buildMaterializedDocumentCreatePlan } from "../../../workflows/documents/create";
 import { verifyDocumentWriterProjection } from "../../keyingProjectionVerification";
 import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpointPersistence";
@@ -82,18 +83,20 @@ test("document dependency evidence cannot hide a newer container head", async ()
         projection,
         resolveUserKey: async (userId) => {
           if (userId === parent.userId) {
-            return {
+            return createTestTrustedUserIdentity({
               encapsulationPublicKey: parent.encapsulationPublicKey,
+              signingKeyFingerprint: parent.author.signerKeyFingerprint,
               signingPublicKey: parent.signingPublicKey,
               userId,
-            };
+            });
           }
           if (userId === revokedUserId) {
-            return {
+            return createTestTrustedUserIdentity({
               encapsulationPublicKey: revokedUserKem.publicKey,
+              signingKeyFingerprint: "revoked-user-signing-fingerprint",
               signingPublicKey: revokedUserSigning.signingPublicKey,
               userId,
-            };
+            });
           }
           return null;
         },

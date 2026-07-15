@@ -11,7 +11,6 @@ import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useMemo } from "react";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
-import { currentGroupUserRecipients } from "../grants/recipients";
 import {
   addRosterUserToGroup,
   prepareRosterImport,
@@ -347,7 +346,6 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
         directoryUser,
         groupId: selectedGroupId,
         isOperationActive,
-        members,
         operationOrganizationId,
         orgManagerActions,
         setError,
@@ -416,9 +414,6 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
         await orgManagerActions.removeUserFromGroup(
           selectedGroupId,
           removedUserId,
-          currentGroupUserRecipients({ directory, members }).filter(
-            (user) => user.userId !== removedUserId,
-          ),
           directory.currentUser.isOrgAdmin,
         );
         if (!isOperationActive(operationOrganizationId)) {
@@ -448,7 +443,6 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
       appData.crypto.signingKeyPair,
       directory,
       isOperationActive,
-      members,
       orgManagerActions,
       refreshDirectoryAndGroups,
       refreshSelectedGroupDetails,

@@ -80,6 +80,7 @@ async function createContactsRuntime(): Promise<
 test("contacts store persists contacts as documents with app-owned projections", async () => {
   const runtime = await createContactsRuntime();
   const peerKey: UserKey = {
+    encapsulationKeyFingerprint: "peer-encapsulation-fingerprint",
     encapsulationPublicKey: "peer-encapsulation-public-key",
     signingKeyFingerprint: "peer-signing-fingerprint",
     signingPublicKey: "peer-signing-public-key",
@@ -196,6 +197,7 @@ test("contacts store persists contacts as documents with app-owned projections",
 test("contacts store imports self keys without a synthetic nickname", async () => {
   const runtime = await createContactsRuntime();
   const selfKey: UserKey = {
+    encapsulationKeyFingerprint: "self-encapsulation-fingerprint",
     encapsulationPublicKey: "self-encapsulation-public-key",
     signingKeyFingerprint: "self-signing-fingerprint",
     signingPublicKey: "self-signing-public-key",
@@ -257,6 +259,9 @@ test("contacts store ensures self contact from deterministic local identity", as
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const selfKey: UserKey = {
+    encapsulationKeyFingerprint: await toFingerprint(
+      encapsulationKeyPair.publicKey,
+    ),
     encapsulationPublicKey: bytesToBase64(encapsulationKeyPair.publicKey),
     signingKeyFingerprint: await toFingerprint(signingKeyPair.signingPublicKey),
     signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
@@ -340,6 +345,7 @@ test("contacts store ensures self contact from deterministic local identity", as
 test("contacts store does not reseed a You nickname for existing self contacts", async () => {
   const runtime = await createContactsRuntime();
   const selfKey: UserKey = {
+    encapsulationKeyFingerprint: "self-encapsulation-fingerprint",
     encapsulationPublicKey: "self-encapsulation-public-key",
     signingKeyFingerprint: "self-signing-fingerprint",
     signingPublicKey: "self-signing-public-key",

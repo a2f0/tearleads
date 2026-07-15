@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { recoverOrganizationRootRewrapAfterMutationFailure } from "./organizationRootReshare";
 
 test("does not reconcile a successful group mutation", async () => {
@@ -89,4 +90,58 @@ test("preserves the mutation error when reconciliation also fails", async () => 
         "Organization root re-wrap reconciliation failed after a group mutation error",
     },
   ]);
+});
+
+test("propagates a mutation integrity failure without reconciliation", async () => {
+  const integrityError = new KeyingVerificationError(
+    "equivocation",
+    "trusted group identity changed",
+  );
+  let rewrapCalls = 0;
+  let logCalls = 0;
+
+  await expect(
+    recoverOrganizationRootRewrapAfterMutationFailure({
+      logError: () => {
+        logCalls += 1;
+      },
+      mutation: Promise.reject(integrityError),
+      prepared: {
+        hasExpectedGroupPolicyHead: () => true,
+        rewrap: async () => {
+          rewrapCalls += 1;
+        },
+        setExpectedGroupPolicyHead: () => undefined,
+      },
+    }),
+  ).rejects.toBe(integrityError);
+
+  expect(rewrapCalls).toBe(0);
+  expect(logCalls).toBe(0);
+});
+
+test("does not hide a reconciliation integrity failure behind a mutation error", async () => {
+  const integrityError = new KeyingVerificationError(
+    "signature_mismatch",
+    "root projection signature changed",
+  );
+  let logCalls = 0;
+
+  await expect(
+    recoverOrganizationRootRewrapAfterMutationFailure({
+      logError: () => {
+        logCalls += 1;
+      },
+      mutation: Promise.reject(new Error("ambiguous mutation response")),
+      prepared: {
+        hasExpectedGroupPolicyHead: () => true,
+        rewrap: async () => {
+          throw integrityError;
+        },
+        setExpectedGroupPolicyHead: () => undefined,
+      },
+    }),
+  ).rejects.toBe(integrityError);
+
+  expect(logCalls).toBe(0);
 });

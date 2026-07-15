@@ -18,6 +18,7 @@ test("runtime policy warmer only uses the legacy adapter for the session organiz
     apiClient: {},
     auth: { organizationId: "home-organization" },
     infra: { execSql: (() => Promise.resolve([])) as ExecSql },
+    resolveTrustedUserIdentity: async () => null,
     util: {
       cacheReferencedPrincipalPolicies: async (references) => {
         cachedReferences.push(references);

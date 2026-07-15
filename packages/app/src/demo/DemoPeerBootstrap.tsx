@@ -16,8 +16,7 @@ import {
   useOrgManagerActions,
 } from "../stores/org-manager/OrgManagerProvider";
 import {
-  type DemoRosterSeedActions,
-  seedPeerRosterEntry,
+  attemptPeerRosterSeed,
   shouldAttemptRosterSeed,
 } from "./demoPeerRosterSeed";
 import {
@@ -108,22 +107,6 @@ function DemoPeerContactSeeder({
   return null;
 }
 
-// One roster-seed attempt, with failures folded into a `false` (not-settled)
-// result so the retry loop can treat errors and unmet preconditions alike.
-async function attemptPeerRosterSeed(
-  actions: DemoRosterSeedActions,
-  peerUserId: string,
-  peerNickname: string,
-  logError: (message: string, error: unknown) => void,
-): Promise<boolean> {
-  try {
-    return await seedPeerRosterEntry(actions, peerUserId, peerNickname);
-  } catch (error) {
-    logError("Demo peer bootstrap: failed to seed peer roster entry.", error);
-    return false;
-  }
-}
-
 // How many times to re-attempt the roster seed, and how long to wait between
 // attempts. The peer's user id is published over the client-side dual-pane
 // channel independently of the server-side encapsulation-key registration, so
@@ -181,19 +164,30 @@ function DemoPeerRosterSeeder({
     ) {
       return;
     }
+    const targetPeerUserId = peerUserId;
 
     let active = true;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let attempts = 0;
 
-    const attempt = async (): Promise<void> => {
-      if (!active || settledPeerRef.current === peerUserId) {
+    const stopAfterIdentityIntegrityFailure = (error: unknown): void => {
+      active = false;
+      logError(
+        "Demo peer bootstrap: stopped roster seeding after an identity integrity failure.",
+        error,
+      );
+    };
+    const startAttempt = (): void => {
+      void attempt().catch(stopAfterIdentityIntegrityFailure);
+    };
+    async function attempt(): Promise<void> {
+      if (!active || settledPeerRef.current === targetPeerUserId) {
         return;
       }
 
       const settled = await attemptPeerRosterSeed(
         orgManagerActions,
-        peerUserId,
+        targetPeerUserId,
         peerNickname,
         logError,
       );
@@ -201,21 +195,21 @@ function DemoPeerRosterSeeder({
         return;
       }
       if (settled) {
-        settledPeerRef.current = peerUserId;
+        settledPeerRef.current = targetPeerUserId;
         return;
       }
 
       attempts += 1;
       if (attempts < ROSTER_SEED_MAX_ATTEMPTS) {
-        retryTimer = setTimeout(() => void attempt(), ROSTER_SEED_RETRY_MS);
+        retryTimer = setTimeout(startAttempt, ROSTER_SEED_RETRY_MS);
       } else {
         logError(
           `Demo peer bootstrap: gave up seeding the peer roster entry after ${ROSTER_SEED_MAX_ATTEMPTS} attempts.`,
         );
       }
-    };
+    }
 
-    void attempt();
+    startAttempt();
     return () => {
       active = false;
       if (retryTimer) {

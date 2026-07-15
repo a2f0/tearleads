@@ -68,6 +68,9 @@ test("returns encapsulation public key for a valid user", async () => {
   expect(body.signingKeyFingerprint).toBe(fingerprint);
   expect(typeof body.encapsulationPublicKey).toBe("string");
   expect(body.encapsulationPublicKey.length).toBeGreaterThan(0);
+  expect(body.encapsulationKeyFingerprint).toBe(
+    await toFingerprint(kemKeys.publicKey),
+  );
 });
 
 test("returns 404 for a non-existent user", async () => {

@@ -1,58 +1,68 @@
 import { expect, test } from "bun:test";
-import type { ApiClient } from "@tearleads/api-client";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
+  KeyingVerificationError,
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestTrustedUserIdentity } from "../../test/helpers/trustedUserIdentity";
 import { createUserKeys } from "./userKeys";
 
 test("user keys fetch verifies the returned signing public key fingerprint", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const logs: string[] = [];
+  const signingKeyFingerprint = await toFingerprint(
+    signingKeyPair.signingPublicKey,
+  );
+  const encapsulationKeyFingerprint = await toFingerprint(
+    encapsulationKeyPair.publicKey,
+  );
   const userKeys = createUserKeys({
-    apiClient: {
-      getEncapsulationKey: async (userId: string) => ({
-        encapsulationPublicKey: bytesToBase64(encapsulationKeyPair.publicKey),
-        signingKeyFingerprint: await toFingerprint(
-          signingKeyPair.signingPublicKey,
-        ),
-        signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
+    log: (message) => logs.push(message),
+    resolveTrustedUserIdentity: async (userId) =>
+      createTestTrustedUserIdentity({
+        encapsulationKeyFingerprint,
+        encapsulationPublicKey: encapsulationKeyPair.publicKey,
+        signingKeyFingerprint,
+        signingPublicKey: signingKeyPair.signingPublicKey,
         userId,
       }),
-    } as unknown as ApiClient,
-    log: (message) => logs.push(message),
   });
 
   await expect(userKeys.fetch("user-1")).resolves.toEqual({
+    encapsulationKeyFingerprint,
     encapsulationPublicKey: bytesToBase64(encapsulationKeyPair.publicKey),
-    signingKeyFingerprint: await toFingerprint(signingKeyPair.signingPublicKey),
+    signingKeyFingerprint,
     signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
     userId: "user-1",
   });
   expect(logs).toEqual(["Loading user key for userId: user-1"]);
 });
 
-test("user keys fetch skips mismatched responses", async () => {
-  const signingKeyPair = generateSigningSeedAndKeyPair();
-  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+test("user keys fetch returns null when the trusted resolver has no identity", async () => {
   const logs: string[] = [];
   const userKeys = createUserKeys({
-    apiClient: {
-      getEncapsulationKey: async () => ({
-        encapsulationPublicKey: bytesToBase64(encapsulationKeyPair.publicKey),
-        signingKeyFingerprint: "0".repeat(64),
-        signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
-        userId: "other-user",
-      }),
-    } as unknown as ApiClient,
     log: (message) => logs.push(message),
+    resolveTrustedUserIdentity: async () => null,
   });
 
   await expect(userKeys.fetch("user-1")).resolves.toBeNull();
-  expect(logs).toContain(
-    "Skipped user key for user-1 because the signing fingerprint does not match the public key.",
+  expect(logs).toEqual(["Loading user key for userId: user-1"]);
+});
+
+test("user keys fetch preserves typed identity integrity failures", async () => {
+  const mismatch = new KeyingVerificationError(
+    "equivocation",
+    "Trusted user identity changed",
   );
+  const userKeys = createUserKeys({
+    log: () => undefined,
+    resolveTrustedUserIdentity: async () => {
+      throw mismatch;
+    },
+  });
+
+  await expect(userKeys.fetch("user-1")).rejects.toBe(mismatch);
 });
