@@ -218,12 +218,18 @@ export {
   verifyTransparencyProof,
   verifyWriteHeader,
 } from "./keying";
+export {
+  computePrincipalMemberEnvelopesRoot,
+  normalizePrincipalStateMemberEnvelopes,
+  PrincipalMemberEnvelopeValidationError,
+} from "./principalMemberEnvelopes";
 export type {
   ManagedRecipientPrincipalType,
   PrincipalProjectionMember,
   PrincipalProjectionRole,
   PrincipalStateHeaderInput,
   PrincipalStateMember,
+  PrincipalStateMemberEnvelope,
   PrincipalStateMembershipMode,
   PrincipalStateMemberType,
   PrincipalStatePayloadCipherSuite,

@@ -1,11 +1,7 @@
-import {
-  isPutPrincipalMemberEnvelopesRequest,
-  isPutPrincipalStateRequest,
-} from "@tearleads/validators/request";
+import { isPutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type {
   CurrentPrincipalMemberEnvelopesResponse,
   PrincipalPolicyBundleResponse,
-  PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { isUuidV4String } from "@tearleads/validators/util";
 import type { MiddlewareHandler } from "hono";
@@ -13,8 +9,7 @@ import { Hono } from "hono";
 import { validator } from "hono/validator";
 import type { SessionEnv } from "../../middleware/session";
 import { getCurrentPrincipalPolicy } from "../../services/principals/getCurrentPrincipalPolicy";
-import { putPrincipalMemberEnvelopes } from "../../services/principals/putPrincipalMemberEnvelopes";
-import { putPrincipalState } from "../../services/principals/putPrincipalState";
+import { putPrincipalPolicy } from "../../services/principals/putPrincipalPolicy";
 import {
   PrincipalPolicyError,
   parseManagedPrincipalType,
@@ -27,21 +22,18 @@ interface PrincipalPolicyRouteDeps {
   readonly runtime: ApiServiceRuntime;
 }
 
-// A member-envelopes write commits the wrapped group key for every current
-// member, so each user member can now derive the group key and reach every
-// container granted to that group. Those containers are not in the member's
-// local tree yet — membership (not a direct container grant) made them
-// reachable — so, exactly as PR #1184 does for a direct "Share With Peer",
+// A policy write atomically commits signed state and the wrapped group key for
+// every current member. Each user member can then derive the group key and
+// reach every container granted to that group. Those containers are not in
+// the member's local tree yet — membership (not a direct container grant) made
+// them reachable — so, exactly as PR #1184 does for a direct "Share With Peer",
 // publish a scopeless, user-scoped `shared_with_you` per user member.
 // recipientsForEvent (no container scope) routes it to that user's own sockets,
 // whose client re-lists root containers and surfaces the new shares without a
 // manual refresh.
 //
-// This fires from the member-envelopes route, NOT its sibling state route: the
-// recipient's re-list fetches the group's policy bundle, and only after the
-// envelopes commit does that bundle contain the recipient's own wrap — so the
-// surfaced containers are actually decryptable. Publishing from the (earlier)
-// state write would re-list against a bundle with no envelope for the member.
+// This fires only after the combined policy transaction returns, so the
+// recipient's re-list can never observe a committed state without its wrap.
 //
 // Best-effort: the envelopes are already persisted, so a publish failure must
 // never turn a committed write into a 500. We over-notify all current user
@@ -142,10 +134,10 @@ export function createPrincipalPolicyRoute({
   );
 
   principalPolicyRoute.put(
-    "/principals/:principalType/:principalId/state",
+    "/principals/:principalType/:principalId/policy",
     requireAuth,
     validator("json", (value, c) => {
-      if (!isPutPrincipalStateRequest(value)) {
+      if (!isPutPrincipalPolicyRequest(value)) {
         return c.json({ error: "Invalid request" }, 400);
       }
 
@@ -162,57 +154,17 @@ export function createPrincipalPolicyRoute({
       }
 
       try {
-        return c.json<PrincipalStateResponse>(
-          await putPrincipalState(runtime, {
-            ...c.req.valid("json"),
-            expectedPrincipalType: principalParams.principalType,
-            expectedPrincipalId: principalParams.principalId,
-          }),
-        );
-      } catch (error) {
-        const response = toPrincipalPolicyErrorResponse(error);
-        if (response) {
-          return response;
-        }
-
-        throw error;
-      }
-    },
-  );
-
-  principalPolicyRoute.put(
-    "/principals/:principalType/:principalId/member-envelopes",
-    requireAuth,
-    validator("json", (value, c) => {
-      if (!isPutPrincipalMemberEnvelopesRequest(value)) {
-        return c.json({ error: "Invalid request" }, 400);
-      }
-
-      return value;
-    }),
-    async (c) => {
-      const principalParams = getPrincipalRouteParams({
-        principalType: c.req.param("principalType"),
-        principalId: c.req.param("principalId"),
-      });
-
-      if (!principalParams) {
-        return c.json({ error: "Invalid principal route" }, 400);
-      }
-
-      try {
-        const storedEnvelopes = await putPrincipalMemberEnvelopes(runtime, {
+        const storedPolicy = await putPrincipalPolicy(runtime, {
           ...c.req.valid("json"),
-          principalType: principalParams.principalType,
-          principalId: principalParams.principalId,
-          // Authorization signal: only a member of this principal may rewrite
-          // its member key envelopes (see runPutPrincipalMemberEnvelopesWorkflow).
+          expectedPrincipalType: principalParams.principalType,
+          expectedPrincipalId: principalParams.principalId,
           requesterUserId: c.get("session").userId,
         });
-        // Notify the now-keyed members so a brand-new group share surfaces in
-        // their explorer without a manual refresh (see the helper's comment).
-        await publishMembershipShareNotifications(publish, storedEnvelopes);
-        return c.json<CurrentPrincipalMemberEnvelopesResponse>(storedEnvelopes);
+        await publishMembershipShareNotifications(
+          publish,
+          storedPolicy.currentMemberEnvelopes,
+        );
+        return c.json<PrincipalPolicyBundleResponse>(storedPolicy);
       } catch (error) {
         const response = toPrincipalPolicyErrorResponse(error);
         if (response) {

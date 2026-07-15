@@ -189,36 +189,28 @@ mutations and content records to cryptographic authority.
 
 ## Principal Policy Protocol
 
-Groups and organizations are managed principals. Their authority is a signed
-principal state chain:
+Groups and organizations are managed by a signed principal-state chain exposed
+through one atomic `PUT /principals/:principalType/:principalId/policy` and the
+corresponding `GET`.
 
-- `PUT /principals/:principalType/:principalId/state`
-- `PUT /principals/:principalType/:principalId/member-envelopes`
-- `GET /principals/:principalType/:principalId/policy`
+A state commits the principal identity, version and predecessor, key epoch and
+encapsulation key, membership/projection/envelope roots, payload hash, member
+count, signer identity, and timestamp. The API verifies those commitments,
+signature, chain, and admin-signer rule before atomically storing the state,
+payload, projection, and exact envelope set. Initial signers are admins in the
+new projection; successor signers are admins in the prior projection or, for
+org-scoped updates, independently proven members of the reserved `Admins`
+group. Clients verify the complete bundle again before caching or key use.
 
-A principal state signs the principal id, version, previous state hash, key
-epoch, encapsulation key fingerprint, membership/projection roots, encrypted
-payload hash, member count, signer id, signer key fingerprint, timestamp, and
-signature. The API validates the signature, hash chain, projection root,
-payload hash, member count, and admin-signer rule before storage. Initial
-states must be signed by an admin in their own initial projection. Successor
-states must normally be signed by an admin in the previous projection. For
-org-scoped principal policy updates, the API can additionally authorize a
-successor signer by proving reachability through the organization's reserved
-`Admins` group. The app validates fetched bundles again before caching or
-using them for decryption; external org-admin signer authority is only accepted
-when the caller supplies that independently verified authority to the verifier.
+Public keys and envelope fields use canonical base64 and exact ML-KEM-1024
+sizes: 1568-byte public keys/ciphertexts and a 3184-byte wrapped secret plus
+AES-GCM tag. Envelopes cover the direct projection one-to-one and bind each
+member id, recipient fingerprint, ciphertext, active state, and key epoch.
 
-Direct member envelopes must match the active direct projection exactly:
-
-- one envelope for each direct member
-- no envelopes for unknown members
-- envelope state hash equals the active principal state hash
-- envelope epoch equals the active principal key epoch
-- recipient key fingerprints match registered recipient keys
-
-Managed-principal grants fail closed when the referenced signed policy state or
-required member envelope material is unavailable.
+`memberEnvelopesRoot` is mandatory. Adding it changes historic signatures,
+state hashes, manifest references, and checkpoints, so deployments using the
+earlier development format require a coordinated server/client data reset.
+Missing policy or envelope material fails closed.
 
 ## Container Access And KEK Protocol
 

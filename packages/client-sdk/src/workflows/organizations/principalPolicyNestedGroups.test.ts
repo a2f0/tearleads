@@ -3,16 +3,23 @@ import {
   computePrincipalStateHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
+  KeyingVerificationError,
   type PrincipalPolicySignerPublicKey,
   toFingerprint,
 } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { policyBundleAfterMutation } from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
+import { verifyGroupPolicy } from "./groupPolicyVerification";
 import {
   buildAddGroupUserPolicyRequest,
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,
   buildRemoveGroupUserPolicyRequest,
+  removeOrganizationGroupUser,
 } from "./principalPolicy";
 
 function policySignerPublicKeys(input: {
@@ -91,6 +98,8 @@ test("group remove policy builder rekeys remaining nested group members", async 
   });
   const initialMemberPolicy =
     await policyBundleFromInitialRequest(initialMemberGroup);
+  const initialAdminPolicy =
+    await policyBundleFromInitialRequest(initialAdminGroup);
   const currentPolicySignerPublicKeys = policySignerPublicKeys({
     signerUserId,
     signingFingerprint,
@@ -123,11 +132,11 @@ test("group remove policy builder rekeys remaining nested group members", async 
       signingPublicKey: signingKeyPair.signingPublicKey,
     }),
   });
-  const addStateHash = await computePrincipalStateHash(addRequest.state.state);
+  const addStateHash = await computePrincipalStateHash(addRequest.state);
   const addedPolicy: PrincipalPolicyBundleResponse = {
     ...initialMemberPolicy,
     currentState: {
-      ...addRequest.state.state,
+      ...addRequest.state,
       stateHash: addStateHash,
       createdAt: new Date("2026-05-12T12:01:00.000Z").toISOString(),
     },
@@ -135,17 +144,17 @@ test("group remove policy builder rekeys remaining nested group members", async 
       principalType: "group",
       principalId: initialMemberGroup.groupId,
       stateHash: addStateHash,
-      cipherSuite: addRequest.state.encryptedPayload.cipherSuite,
-      ciphertext: addRequest.state.encryptedPayload.ciphertext,
-      ciphertextHash: addRequest.state.encryptedPayload.ciphertextHash,
+      cipherSuite: addRequest.encryptedPayload.cipherSuite,
+      ciphertext: addRequest.encryptedPayload.ciphertext,
+      ciphertextHash: addRequest.encryptedPayload.ciphertextHash,
       createdAt: new Date("2026-05-12T12:01:00.000Z").toISOString(),
     },
-    currentProjection: addRequest.state.projection,
+    currentProjection: addRequest.projection,
     currentMemberEnvelopes: {
       principalType: "group",
       principalId: initialMemberGroup.groupId,
       stateHash: addStateHash,
-      epoch: addRequest.state.state.keyEpoch,
+      epoch: addRequest.state.keyEpoch,
       envelopes: [...addRequest.memberEnvelopes],
     },
     previousStates: [
@@ -162,11 +171,11 @@ test("group remove policy builder rekeys remaining nested group members", async 
     currentPolicySignerPublicKeys,
     localPolicyCheckpoint: null,
     remainingGroups: [
-      {
-        groupId: initialAdminGroup.groupId,
-        encapsulationPublicKey:
-          initialAdminGroup.initialGroupPolicy.state.encapsulationPublicKey,
-      },
+      await verifyGroupPolicy({
+        currentPolicy: initialAdminPolicy,
+        localPolicyCheckpoint: null,
+        signerPublicKeys: currentPolicySignerPublicKeys,
+      }),
     ],
     remainingUsers: [
       createTestTrustedUserIdentity({
@@ -183,9 +192,9 @@ test("group remove policy builder rekeys remaining nested group members", async 
     signingKeyPair,
   });
 
-  expect(removeRequest.state.state.keyEpoch).toBe(2);
+  expect(removeRequest.state.keyEpoch).toBe(2);
   expect(
-    removeRequest.state.projection.some(
+    removeRequest.projection.some(
       (member) => member.memberPrincipalId === targetUserId,
     ),
   ).toBe(false);
@@ -202,4 +211,167 @@ test("group remove policy builder rekeys remaining nested group members", async 
       }),
     ]),
   );
+});
+
+test("group removal rejects a server-substituted nested group key before mutation", async () => {
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const creatorKem = generateKemSeedAndKeyPair();
+  const removedUserKem = generateKemSeedAndKeyPair();
+  const attackerKem = generateKemSeedAndKeyPair();
+  const signerUserId = crypto.randomUUID();
+  const removedUserId = crypto.randomUUID();
+  const organizationId = crypto.randomUUID();
+  const signingFingerprint = await toFingerprint(
+    signingKeyPair.signingPublicKey,
+  );
+  const initialAdminGroup = await buildInitialGroupPolicyRequest({
+    creatorEncapsulationKeyPair: creatorKem,
+    groupId: crypto.randomUUID(),
+    name: "Admins",
+    signerUserId,
+    signingFingerprint,
+    signingKeyPair,
+  });
+  const initialMemberGroup = await buildInitialMemberGroupPolicyRequest({
+    adminGroup: initialAdminGroup,
+    creatorEncapsulationKeyPair: creatorKem,
+    groupId: crypto.randomUUID(),
+    signerUserId,
+    signingFingerprint,
+    signingKeyPair,
+  });
+  const substitutedAdminGroup = await buildInitialGroupPolicyRequest({
+    creatorEncapsulationKeyPair: attackerKem,
+    groupId: initialAdminGroup.groupId,
+    name: "Substituted admins",
+    signerUserId,
+    signingFingerprint,
+    signingKeyPair,
+  });
+  const adminPolicy = await policyBundleFromInitialRequest(initialAdminGroup);
+  const substitutedAdminPolicy = await policyBundleFromInitialRequest(
+    substitutedAdminGroup,
+  );
+  const memberPolicy = await policyBundleFromInitialRequest(initialMemberGroup);
+  const signerIdentity = createTestTrustedUserIdentity({
+    userId: signerUserId,
+    encapsulationPublicKey: creatorKem.publicKey,
+    encapsulationKeyFingerprint: await toFingerprint(creatorKem.publicKey),
+    signingKeyFingerprint: signingFingerprint,
+    signingPublicKey: signingKeyPair.signingPublicKey,
+  });
+  const removedIdentity = createTestTrustedUserIdentity({
+    userId: removedUserId,
+    encapsulationPublicKey: removedUserKem.publicKey,
+    encapsulationKeyFingerprint: await toFingerprint(removedUserKem.publicKey),
+    signingKeyFingerprint: signingFingerprint,
+    signingPublicKey: signingKeyPair.signingPublicKey,
+  });
+  const addRequest = await buildAddGroupUserPolicyRequest({
+    canAdministerOrganization: false,
+    currentPolicy: memberPolicy,
+    currentPolicySignerPublicKeys: policySignerPublicKeys({
+      signerUserId,
+      signingFingerprint,
+      signingKeyPair,
+    }),
+    currentUsers: [signerIdentity],
+    currentUserSecretKey: creatorKem.secretKey,
+    localPolicyCheckpoint: null,
+    signerUserId,
+    signingFingerprint,
+    signingKeyPair,
+    targetUser: removedIdentity,
+  });
+  const currentPolicy = await policyBundleAfterMutation({
+    mutation: addRequest,
+    previous: memberPolicy,
+  });
+  expect(substitutedAdminPolicy.currentState.encapsulationPublicKey).not.toBe(
+    adminPolicy.currentState.encapsulationPublicKey,
+  );
+  const writes = { policies: 0 };
+  const { close, execSql } = await createTestExecSql(
+    "organization-nested-group-substituted-key",
+  );
+  let beforePolicyCommitCalls = 0;
+
+  try {
+    const verifiedAdminPolicy = await verifyGroupPolicy({
+      currentPolicy: adminPolicy,
+      localPolicyCheckpoint: null,
+      signerPublicKeys: policySignerPublicKeys({
+        signerUserId,
+        signingFingerprint,
+        signingKeyPair,
+      }),
+    });
+    await persistVerifiedPrincipalPolicyBundlesAtomically({
+      entries: [{ bundle: adminPolicy, policy: verifiedAdminPolicy }],
+      execSql,
+      updatedAt: "2026-07-15T12:00:00.000Z",
+    });
+    const mutation = removeOrganizationGroupUser({
+      afterPolicyCommitBeforeCache: async () => {
+        throw new Error("Unexpected policy commit bridge");
+      },
+      apiClient: {
+        createOrganizationGroup: async () => {
+          throw new Error("Unexpected group creation");
+        },
+        getCurrentPrincipalPolicy: async (principalType, principalId) => {
+          if (principalType === "organization") {
+            return null;
+          }
+          if (principalId === currentPolicy.currentState.principalId) {
+            return currentPolicy;
+          }
+          if (principalId === adminPolicy.currentState.principalId) {
+            return substitutedAdminPolicy;
+          }
+          return null;
+        },
+        putPrincipalPolicy: async () => {
+          writes.policies += 1;
+          throw new Error("Unexpected principal policy mutation");
+        },
+      },
+      beforePolicyCommit: () => {
+        beforePolicyCommitCalls += 1;
+      },
+      canAdministerOrganization: false,
+      execSql,
+      groupId: currentPolicy.currentState.principalId,
+      organizationId,
+      removedUserId,
+      resolveTrustedUserIdentity: async (userId) =>
+        userId === signerUserId ? signerIdentity : null,
+      signerUserId,
+      signingFingerprint,
+      signingKeyPair,
+    });
+
+    let thrown: unknown;
+    try {
+      await mutation;
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(KeyingVerificationError);
+    expect(thrown).toMatchObject({
+      code: "equivocation",
+      message: expect.stringContaining("Group policy verification failed"),
+    });
+    expect(beforePolicyCommitCalls).toBe(0);
+    expect(writes).toEqual({ policies: 0 });
+    await expect(
+      loadPrincipalPolicyCheckpoint(
+        execSql,
+        "group",
+        adminPolicy.currentState.principalId,
+      ),
+    ).resolves.toEqual(verifiedAdminPolicy.checkpoint);
+  } finally {
+    close();
+  }
 });

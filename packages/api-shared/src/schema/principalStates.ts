@@ -53,6 +53,8 @@ import {
  *   currently supported.
  * - `membershipRoot`: Canonical hash of the normalized direct member list that
  *   was signed by the principal state.
+ * - `memberEnvelopesRoot`: Canonical hash of the exact member key-envelope set
+ *   signed by the principal state.
  * - `projectionRoot`: Canonical hash of the normalized query projection
  *   entries, including member roles. It must match
  *   `principalMembershipProjection` rows for this `stateHash`.
@@ -99,6 +101,7 @@ export const principalStates = pgTable(
       .$type<PrincipalStateMembershipMode>()
       .notNull(),
     membershipRoot: text("membership_root").notNull(),
+    memberEnvelopesRoot: text("member_envelopes_root").notNull(),
     projectionRoot: text("projection_root").notNull(),
     payloadCiphertextHash: text("payload_ciphertext_hash").notNull(),
     memberCount: integer("member_count").notNull(),
@@ -361,11 +364,10 @@ export const principalEpochKeys = pgTable(
  * `users` as the recipient key source; group members use their current
  * `principalEpochKeys` row.
  *
- * Envelopes are scoped to an exact `stateHash`. Replacing envelopes verifies
- * that the requested state is still current, that every current direct member
- * is covered exactly once, and that each submitted `memberKeyFingerprint`
- * matches the expected recipient key. This lets clients refresh wrapping
- * material without changing the signed principal state.
+ * Envelopes are immutable and scoped to an exact `stateHash`. Their canonical
+ * exact root is signed into that state. Initial insertion verifies that every
+ * direct member is covered exactly once and that each submitted fingerprint
+ * matches the expected recipient key; exact retries are idempotent.
  *
  * Columns:
  * - `id`: Surrogate database primary key. Domain identity is
@@ -388,8 +390,8 @@ export const principalEpochKeys = pgTable(
  * - `kemCipherText`: KEM ciphertext/capsule produced while encrypting to the
  *   member recipient key.
  * - `wrappedKey`: Encrypted principal key material for the member recipient.
- * - `createdAt`: Server-side insertion timestamp. It is not signed policy
- *   state.
+ * - `createdAt`: Server-side insertion timestamp. The row timestamp is not
+ *   signed, but every cryptographic envelope field is.
  *
  * Indexes:
  * - `(principalType, principalId)` supports loading current envelopes after the

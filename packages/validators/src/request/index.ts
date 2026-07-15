@@ -66,14 +66,12 @@ export {
   type ProvisionedSystemContainerRequest,
 } from "./organizationProvisioning";
 export {
-  isPutPrincipalMemberEnvelopesRequest,
-  isPutPrincipalStateRequest,
+  isPutPrincipalPolicyRequest,
   type PrincipalMemberEnvelopeRequest,
   type PrincipalProjectionMemberRequest,
   type PrincipalStateEncryptedPayloadRequest,
   type PrincipalStateRequest,
-  type PutPrincipalMemberEnvelopesRequest,
-  type PutPrincipalStateRequest,
+  type PutPrincipalPolicyRequest,
 } from "./principal";
 export {
   isRegistrationRequest,

@@ -1,13 +1,11 @@
 import type {
   PrincipalProjectionMember,
+  PrincipalStateMemberEnvelope,
   PrincipalStatePayloadCipherSuite,
   SignedPrincipalState,
 } from "../principalState";
 
-/**
- * Keying verifier contracts are executable security boundaries: API JSON is
- * untrusted until verified and encryption targets must use branded outputs.
- */
+/** Security-boundary contracts for untrusted keying data and verified outputs. */
 type CanonicalJsonPrimitive = boolean | number | string | null;
 
 export type KeyingCanonicalJson =
@@ -1025,13 +1023,14 @@ export interface PrincipalPolicyMemberEnvelopes {
   readonly principalId: string;
   readonly stateHash: string;
   readonly epoch: number;
+  readonly envelopes: readonly PrincipalStateMemberEnvelope[];
 }
 
 export interface PrincipalPolicyBundle {
   readonly currentState: PrincipalPolicySignedState;
   readonly currentPayload: PrincipalPolicyPayload;
   readonly currentProjection: readonly PrincipalProjectionMember[];
-  readonly currentMemberEnvelopes?: PrincipalPolicyMemberEnvelopes;
+  readonly currentMemberEnvelopes: PrincipalPolicyMemberEnvelopes;
   readonly previousStates: readonly PrincipalPolicyStateChainEntry[];
 }
 

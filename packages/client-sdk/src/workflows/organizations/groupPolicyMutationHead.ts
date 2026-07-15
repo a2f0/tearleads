@@ -2,11 +2,11 @@ import {
   computePrincipalStateHash,
   type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
-import type { PutPrincipalStateRequest } from "@tearleads/validators/request";
+import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 
 export async function groupPolicyMutationHead(
-  request: PutPrincipalStateRequest,
+  request: PutPrincipalPolicyRequest,
 ): Promise<ReferencedPrincipalHead> {
   const state = request.state;
   return {

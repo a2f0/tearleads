@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
 import {
+  computePrincipalMemberEnvelopesRoot,
   computePrincipalMembershipRoot,
   computePrincipalProjectionRoot,
   computePrincipalStateHash,
@@ -59,13 +60,12 @@ async function signPrincipalState(
   });
 }
 
-test("storeVerifiedPrincipalState persists the latest signed principal state and epoch key", async () => {
+test("storeVerifiedPrincipalState persists signed state and epoch key", async () => {
   const { publicKey } = generateKemSeedAndKeyPair();
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const signer = await createPrincipalStateSigner(signingPublicKey);
   const principalId = crypto.randomUUID();
-  const bobUserId = crypto.randomUUID();
   const nestedGroupId = crypto.randomUUID();
   const signedState = await signPrincipalState(
     {
@@ -80,10 +80,6 @@ test("storeVerifiedPrincipalState persists the latest signed principal state and
         {
           principalType: "user",
           principalId: signer.signerUserId,
-        },
-        {
-          principalType: "user",
-          principalId: bobUserId,
         },
         {
           principalType: "group",
@@ -300,6 +296,7 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
       membershipRoot: await computePrincipalMembershipRoot([
         { principalType: "user", principalId: signer.signerUserId },
       ]),
+      memberEnvelopesRoot: await computePrincipalMemberEnvelopesRoot([]),
       projectionRoot: await computePrincipalProjectionRoot(projection),
       payloadCiphertextHash:
         await computePrincipalStatePayloadCiphertextHash(payloadCiphertext),
@@ -321,6 +318,7 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
           ciphertextHash: state.payloadCiphertextHash,
         },
         projection,
+        memberEnvelopes: [],
       },
       db,
     ),

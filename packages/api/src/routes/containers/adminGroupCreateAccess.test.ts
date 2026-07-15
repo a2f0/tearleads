@@ -9,7 +9,6 @@ import type {
   ContainerKeyWrap,
   KeyingCanonicalJson,
   PrincipalProjectionMember,
-  PrincipalStateMember,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
@@ -33,12 +32,13 @@ import type {
 } from "@tearleads/validators/request";
 import {
   isContainerMutationResponse,
+  isPrincipalPolicyBundleResponse,
   isPrincipalPolicyStaleErrorResponse,
-  isPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
@@ -155,10 +155,6 @@ async function advanceAdminPolicy(input: {
   readonly policy: VerifiedPrincipalPolicy;
 }): Promise<void> {
   const principalKem = generateKemSeedAndKeyPair();
-  const members: PrincipalStateMember[] = [
-    { principalType: "user", principalId: input.owner.userId },
-    { principalType: "user", principalId: input.peer.userId },
-  ];
   const projection: PrincipalProjectionMember[] = [
     {
       memberPrincipalType: "user",
@@ -171,6 +167,11 @@ async function advanceAdminPolicy(input: {
       role: "member",
     },
   ];
+  const { memberEnvelopes, stateMembers } =
+    await createPrincipalMemberEnvelopes({
+      principalSecretKey: principalKem.secretKey,
+      projection,
+    });
   const signedState = await signPrincipalStateBundle({
     principalType: "group",
     principalId: input.policy.principalId,
@@ -179,7 +180,7 @@ async function advanceAdminPolicy(input: {
     keyEpoch: input.policy.keyEpoch + 1,
     encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
     keyFingerprint: await toFingerprint(principalKem.publicKey),
-    members,
+    members: stateMembers,
     projection,
     payloadCiphertext: bytesToBase64(
       new TextEncoder().encode(JSON.stringify({ members: projection })),
@@ -188,9 +189,10 @@ async function advanceAdminPolicy(input: {
     signerUserId: input.owner.userId,
     signerUserKeyFingerprint: input.owner.fingerprint,
     signingPrivateKey: input.owner.signing.signingPrivateKey,
+    memberEnvelopes,
   });
   const response = await routeApp.request(
-    `/principals/group/${input.policy.principalId}/state`,
+    `/principals/group/${input.policy.principalId}/policy`,
     {
       method: "PUT",
       headers: {
@@ -201,6 +203,7 @@ async function advanceAdminPolicy(input: {
         state: signedState.state,
         encryptedPayload: signedState.encryptedPayload,
         projection: signedState.projection,
+        memberEnvelopes: signedState.memberEnvelopes,
       }),
     },
   );
@@ -208,10 +211,10 @@ async function advanceAdminPolicy(input: {
   expect(response.status).toBe(200);
   const body = await response.json();
   invariant(
-    isPrincipalStateResponse(body),
-    "expected principal state response",
+    isPrincipalPolicyBundleResponse(body),
+    "expected principal policy bundle response",
   );
-  expect(body.stateHash).toBe(
+  expect(body.currentState.stateHash).toBe(
     await computePrincipalStateHash(signedState.state),
   );
 }

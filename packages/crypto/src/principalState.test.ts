@@ -38,6 +38,7 @@ test("signPrincipalState normalizes members and produces a verifiable state hash
       encapsulationPublicKey: bytesToBase64(publicKey),
       keyFingerprint: await toFingerprint(publicKey),
       members,
+      memberEnvelopes: [],
       projection: derivePrincipalProjectionMembers(members),
       payloadCiphertext: "ciphertext-1",
       signedAt: new Date("2026-04-07T12:00:00.000Z").toISOString(),
@@ -90,6 +91,7 @@ test("signPrincipalState computes membershipRoot and key fingerprint from normal
       encapsulationPublicKey: bytesToBase64(publicKey),
       keyFingerprint: await toFingerprint(publicKey),
       members,
+      memberEnvelopes: [],
       projection: derivePrincipalProjectionMembers(members),
       payloadCiphertext: "ciphertext-2",
       signedAt: new Date("2026-04-07T12:00:00.000Z").toISOString(),
@@ -100,6 +102,50 @@ test("signPrincipalState computes membershipRoot and key fingerprint from normal
   );
 
   expect(signedState.membershipRoot).toBe(expectedMembershipRoot);
+});
+
+test("principal states require canonical, exact-length ML-KEM-1024 public keys", async () => {
+  const { publicKey } = generateKemSeedAndKeyPair();
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const signingInput = await buildPrincipalStateSigningInput({
+    principalType: "group",
+    principalId: crypto.randomUUID(),
+    version: 1,
+    prevStateHash: null,
+    keyEpoch: 1,
+    encapsulationPublicKey: bytesToBase64(publicKey),
+    keyFingerprint: await toFingerprint(publicKey),
+    members: [],
+    memberEnvelopes: [],
+    projection: [],
+    payloadCiphertext: "ciphertext",
+    signedAt: new Date("2026-04-07T12:00:00.000Z").toISOString(),
+    signerUserId: crypto.randomUUID(),
+    signerUserKeyFingerprint: await toFingerprint(signingPublicKey),
+  });
+
+  await expect(
+    signPrincipalState(
+      {
+        ...signingInput,
+        encapsulationPublicKey: `${signingInput.encapsulationPublicKey}\n`,
+      },
+      signingPrivateKey,
+    ),
+  ).rejects.toThrow("must use canonical base64 encoding");
+
+  const truncatedPublicKey = publicKey.slice(0, -1);
+  await expect(
+    signPrincipalState(
+      {
+        ...signingInput,
+        encapsulationPublicKey: bytesToBase64(truncatedPublicKey),
+        keyFingerprint: await toFingerprint(truncatedPublicKey),
+      },
+      signingPrivateKey,
+    ),
+  ).rejects.toThrow("must contain exactly 1568 bytes");
 });
 
 test("principal roots reject duplicate members after normalization", async () => {
@@ -163,6 +209,7 @@ test("verifySignedPrincipalState rejects tampered membership roots", async () =>
       encapsulationPublicKey: bytesToBase64(publicKey),
       keyFingerprint: await toFingerprint(publicKey),
       members,
+      memberEnvelopes: [],
       projection: derivePrincipalProjectionMembers(members),
       payloadCiphertext: "ciphertext-3",
       signedAt: new Date("2026-04-07T12:00:00.000Z").toISOString(),

@@ -54,7 +54,7 @@ export type {
 } from "./principalStateRecords";
 export { principalStateReferenceKey } from "./principalStateRecords";
 
-interface StoreVerifiedPrincipalStateOptions {
+export interface StoreVerifiedPrincipalStateOptions {
   authorizeExternalAdminSigner?: (
     input: PrincipalStateExternalSignerAuthorizationInput,
   ) => Promise<boolean>;
@@ -413,6 +413,7 @@ async function insertPrincipalStateRow(
       keyFingerprint: input.normalizedInput.state.keyFingerprint,
       membershipMode: input.normalizedInput.state.membershipMode,
       membershipRoot: input.normalizedInput.state.membershipRoot,
+      memberEnvelopesRoot: input.normalizedInput.state.memberEnvelopesRoot,
       projectionRoot: input.normalizedInput.state.projectionRoot,
       payloadCiphertextHash: input.normalizedInput.state.payloadCiphertextHash,
       memberCount: input.normalizedInput.state.memberCount,
@@ -637,13 +638,19 @@ export async function storeVerifiedPrincipalStateInTransaction(
     stateHash,
     executor,
   );
-  const previousProjection = await validatePrincipalStateSignerAuthorization({
-    currentState,
-    normalizedInput,
-    options,
-    signerUserId: signer.userId,
-    executor,
-  });
+  // Chain validation accepts an equal version only for the identical state
+  // hash. Such a replay cannot change authority and remains valid after signer
+  // removal; only a new successor requires current-admin authorization.
+  const isExactReplay = currentState?.version === normalizedInput.state.version;
+  const previousProjection = isExactReplay
+    ? null
+    : await validatePrincipalStateSignerAuthorization({
+        currentState,
+        normalizedInput,
+        options,
+        signerUserId: signer.userId,
+        executor,
+      });
   if (currentState && normalizedInput.state.version > currentState.version) {
     validatePrincipalPolicyTransition({
       currentState: normalizedInput.state,

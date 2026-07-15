@@ -1,10 +1,5 @@
 import { isPlainObject } from "../isPlainObject";
-import {
-  hasArrayProperty,
-  hasObjectProperty,
-  hasStringProperty,
-  isUuidV4String,
-} from "../util";
+import { hasObjectProperty, hasStringProperty, isUuidV4String } from "../util";
 import {
   type ContainerMutationRequest,
   isContainerMutationRequest,
@@ -24,14 +19,8 @@ import {
   isCreateOrganizationGroupRequest,
 } from "./organization";
 import {
-  isPrincipalMemberEnvelopeRequest,
-  isPrincipalProjectionMemberRequest,
-  isPrincipalStateEncryptedPayloadRequest,
-  isPrincipalStateRequest,
-  type PrincipalMemberEnvelopeRequest,
-  type PrincipalProjectionMemberRequest,
-  type PrincipalStateEncryptedPayloadRequest,
-  type PrincipalStateRequest,
+  isPutPrincipalPolicyRequest,
+  type PutPrincipalPolicyRequest,
 } from "./principal";
 
 /**
@@ -126,12 +115,7 @@ export interface OrganizationProvisioningRequest {
   rootContainerId: string;
   initialAdminGroup: CreateOrganizationGroupRequest;
   initialMemberGroup: CreateOrganizationGroupRequest;
-  initialOrganizationPolicy: {
-    state: PrincipalStateRequest;
-    encryptedPayload: PrincipalStateEncryptedPayloadRequest;
-    projection: PrincipalProjectionMemberRequest[];
-    memberEnvelopes: PrincipalMemberEnvelopeRequest[];
-  };
+  initialOrganizationPolicy: PutPrincipalPolicyRequest;
   initialRootContainer: ContainerMutationRequest;
   initialRootMetadataDocument:
     | DocumentCreateRequest
@@ -207,20 +191,7 @@ export function isOrganizationProvisioningRequest(
     hasObjectProperty(value, "initialMemberGroup") &&
     isCreateOrganizationGroupRequest(value.initialMemberGroup) &&
     hasObjectProperty(value, "initialOrganizationPolicy") &&
-    hasObjectProperty(value.initialOrganizationPolicy, "state") &&
-    isPrincipalStateRequest(value.initialOrganizationPolicy.state) &&
-    hasObjectProperty(value.initialOrganizationPolicy, "encryptedPayload") &&
-    isPrincipalStateEncryptedPayloadRequest(
-      value.initialOrganizationPolicy.encryptedPayload,
-    ) &&
-    hasArrayProperty(value.initialOrganizationPolicy, "projection") &&
-    value.initialOrganizationPolicy.projection.every(
-      isPrincipalProjectionMemberRequest,
-    ) &&
-    hasArrayProperty(value.initialOrganizationPolicy, "memberEnvelopes") &&
-    value.initialOrganizationPolicy.memberEnvelopes.every(
-      isPrincipalMemberEnvelopeRequest,
-    ) &&
+    isPutPrincipalPolicyRequest(value.initialOrganizationPolicy) &&
     isContainerMutationRequest(initialRootContainer) &&
     isDocumentProvisioningRequest(initialRootMetadataDocument) &&
     (initialRosterProfileContainer === undefined ||

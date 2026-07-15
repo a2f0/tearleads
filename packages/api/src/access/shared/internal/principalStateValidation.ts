@@ -1,4 +1,6 @@
 import {
+  computePrincipalMemberEnvelopesRoot,
+  computePrincipalMembershipRoot,
   computePrincipalProjectionRoot,
   computePrincipalStatePayloadCiphertextHash,
   getPrincipalPolicyTransitionMismatchReason,
@@ -52,11 +54,32 @@ export function validatePrincipalPolicyTransition(input: {
 export async function validatePrincipalStateArtifacts(
   input: PrincipalStateBundleInput,
 ): Promise<void> {
-  const computedProjectionRoot = await computePrincipalProjectionRoot(
-    input.projection,
-  );
+  const [
+    computedProjectionRoot,
+    computedMembershipRoot,
+    computedEnvelopesRoot,
+  ] = await Promise.all([
+    computePrincipalProjectionRoot(input.projection),
+    computePrincipalMembershipRoot(
+      input.projection.map((member) => ({
+        principalType: member.memberPrincipalType,
+        principalId: member.memberPrincipalId,
+      })),
+    ),
+    computePrincipalMemberEnvelopesRoot(input.memberEnvelopes),
+  ]);
   if (computedProjectionRoot !== input.state.projectionRoot) {
     throw new Error("Principal state projectionRoot does not match projection");
+  }
+
+  if (computedMembershipRoot !== input.state.membershipRoot) {
+    throw new Error("Principal state membershipRoot does not match projection");
+  }
+
+  if (computedEnvelopesRoot !== input.state.memberEnvelopesRoot) {
+    throw new Error(
+      "Principal state memberEnvelopesRoot does not match member envelopes",
+    );
   }
 
   const computedPayloadCiphertextHash =

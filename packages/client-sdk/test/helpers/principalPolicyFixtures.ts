@@ -1,45 +1,37 @@
 import { computePrincipalStateHash } from "@tearleads/crypto";
-import type {
-  PrincipalMemberEnvelopeRequest,
-  PutPrincipalStateRequest,
-} from "@tearleads/validators/request";
+import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy";
 import type { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
 
-interface PrincipalPolicyMutationArtifacts {
-  readonly memberEnvelopes: readonly PrincipalMemberEnvelopeRequest[];
-  readonly state: PutPrincipalStateRequest;
-}
-
 export async function policyBundleAfterMutation(input: {
-  readonly mutation: PrincipalPolicyMutationArtifacts;
+  readonly mutation: PutPrincipalPolicyRequest;
   readonly previous: PrincipalPolicyBundleResponse;
 }): Promise<PrincipalPolicyBundleResponse> {
-  const stateHash = await computePrincipalStateHash(input.mutation.state.state);
-  const createdAt = input.mutation.state.state.signedAt;
+  const stateHash = await computePrincipalStateHash(input.mutation.state);
+  const createdAt = input.mutation.state.signedAt;
 
   return {
     currentState: {
-      ...input.mutation.state.state,
+      ...input.mutation.state,
       stateHash,
       createdAt,
     },
     currentPayload: {
-      principalType: input.mutation.state.state.principalType,
-      principalId: input.mutation.state.state.principalId,
+      principalType: input.mutation.state.principalType,
+      principalId: input.mutation.state.principalId,
       stateHash,
-      cipherSuite: input.mutation.state.encryptedPayload.cipherSuite,
-      ciphertext: input.mutation.state.encryptedPayload.ciphertext,
-      ciphertextHash: input.mutation.state.encryptedPayload.ciphertextHash,
+      cipherSuite: input.mutation.encryptedPayload.cipherSuite,
+      ciphertext: input.mutation.encryptedPayload.ciphertext,
+      ciphertextHash: input.mutation.encryptedPayload.ciphertextHash,
       createdAt,
     },
-    currentProjection: [...input.mutation.state.projection],
+    currentProjection: [...input.mutation.projection],
     currentMemberEnvelopes: {
-      principalType: input.mutation.state.state.principalType,
-      principalId: input.mutation.state.state.principalId,
+      principalType: input.mutation.state.principalType,
+      principalId: input.mutation.state.principalId,
       stateHash,
-      epoch: input.mutation.state.state.keyEpoch,
+      epoch: input.mutation.state.keyEpoch,
       envelopes: [...input.mutation.memberEnvelopes],
     },
     previousStates: [

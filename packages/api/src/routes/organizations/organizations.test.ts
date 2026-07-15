@@ -74,8 +74,8 @@ async function createGroupRequest(input: {
   name: string;
 }) {
   const principalKem = generateKemSeedAndKeyPair();
-  const includeActorAsAdmin = input.includeActorAsAdmin ?? true;
-  const projection = includeActorAsAdmin
+  const includeActor = input.includeActorAsAdmin ?? true;
+  const projection = includeActor
     ? createProjectionWithAdminSigner(input.actor.userId, [
         { principalType: "user", principalId: input.actor.userId },
       ])
@@ -83,28 +83,9 @@ async function createGroupRequest(input: {
   const payloadCiphertext = bytesToBase64(
     new TextEncoder().encode(JSON.stringify({ members: projection })),
   );
-  const state = await signPrincipalStateBundle({
-    principalType: "group",
-    principalId: input.groupId,
-    version: 1,
-    prevStateHash: null,
-    keyEpoch: 1,
-    encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
-    keyFingerprint: await toFingerprint(principalKem.publicKey),
-    members: projection.map((member) => ({
-      principalType: member.memberPrincipalType,
-      principalId: member.memberPrincipalId,
-    })),
-    projection,
-    payloadCiphertext,
-    signedAt: new Date("2026-05-12T12:00:00.000Z").toISOString(),
-    signerUserId: input.actor.userId,
-    signerUserKeyFingerprint: input.actor.fingerprint,
-    signingPrivateKey: input.actor.signing.signingPrivateKey,
-  });
   const memberEnvelopes: PrincipalMemberEnvelopeRequest[] = [];
 
-  if (includeActorAsAdmin) {
+  if (includeActor) {
     const [memberEnvelope] = await wrapDekForRecipients(
       principalKem.secretKey,
       [input.actor.kem.publicKey],
@@ -119,7 +100,26 @@ async function createGroupRequest(input: {
       wrappedKey: bytesToBase64(memberEnvelope.wrappedKey),
     });
   }
-
+  const state = await signPrincipalStateBundle({
+    principalType: "group",
+    principalId: input.groupId,
+    version: 1,
+    prevStateHash: null,
+    keyEpoch: 1,
+    encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+    keyFingerprint: await toFingerprint(principalKem.publicKey),
+    members: projection.map((member) => ({
+      principalType: member.memberPrincipalType,
+      principalId: member.memberPrincipalId,
+    })),
+    projection,
+    memberEnvelopes,
+    payloadCiphertext,
+    signedAt: new Date("2026-05-12T12:00:00.000Z").toISOString(),
+    signerUserId: input.actor.userId,
+    signerUserKeyFingerprint: input.actor.fingerprint,
+    signingPrivateKey: input.actor.signing.signingPrivateKey,
+  });
   return {
     groupId: input.groupId,
     name: input.name,

@@ -60,6 +60,21 @@ async function createAdminPolicyBundle(input: {
     },
   ];
   const payloadCiphertext = `admins-payload-${version}`;
+  const [wrappedMember] = await wrapDekForRecipients(input.groupKem.secretKey, [
+    input.memberPublicKey,
+  ]);
+  if (!wrappedMember) {
+    throw new Error("Expected Admins member envelope");
+  }
+  const memberEnvelopes = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: USER_ID,
+      memberKeyFingerprint: wrappedMember.keyFingerprint,
+      kemCipherText: bytesToBase64(wrappedMember.kemCipherText),
+      wrappedKey: bytesToBase64(wrappedMember.wrappedKey),
+    },
+  ];
   const state = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       principalType: "group",
@@ -70,6 +85,7 @@ async function createAdminPolicyBundle(input: {
       encapsulationPublicKey: bytesToBase64(input.groupKem.publicKey),
       keyFingerprint: await toFingerprint(input.groupKem.publicKey),
       members: [{ principalType: "user", principalId: USER_ID }],
+      memberEnvelopes,
       projection,
       payloadCiphertext,
       signedAt: input.signedAt,
@@ -79,13 +95,6 @@ async function createAdminPolicyBundle(input: {
     input.author.signerPrivateKey,
   );
   const stateHash = await computePrincipalStateHash(state);
-  const [memberEnvelope] = await wrapDekForRecipients(
-    input.groupKem.secretKey,
-    [input.memberPublicKey],
-  );
-  if (!memberEnvelope) {
-    throw new Error("Expected Admins member envelope");
-  }
 
   return {
     currentState: {
@@ -108,15 +117,7 @@ async function createAdminPolicyBundle(input: {
       principalId: ADMIN_GROUP_ID,
       stateHash,
       epoch: keyEpoch,
-      envelopes: [
-        {
-          memberPrincipalType: "user",
-          memberPrincipalId: USER_ID,
-          memberKeyFingerprint: memberEnvelope.keyFingerprint,
-          kemCipherText: bytesToBase64(memberEnvelope.kemCipherText),
-          wrappedKey: bytesToBase64(memberEnvelope.wrappedKey),
-        },
-      ],
+      envelopes: memberEnvelopes,
     },
     previousStates: input.previousBundle
       ? [

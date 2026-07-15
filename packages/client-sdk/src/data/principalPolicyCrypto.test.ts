@@ -52,6 +52,34 @@ async function createPrincipalPolicyBundle(input: {
     })),
   ];
   const payloadCiphertext = `${input.principalId}-ciphertext`;
+  const signerRecipientKem = generateKemSeedAndKeyPair();
+  const recipients = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: signerUserId,
+      publicKey: signerRecipientKem.publicKey,
+    },
+    ...input.memberRecipientPublicKeys,
+  ];
+  const memberRecipientEntries = await wrapDekForRecipients(
+    input.principalKem.secretKey,
+    recipients.map((recipient) => recipient.publicKey),
+  );
+  const memberEnvelopes = recipients.map((recipient, index) => {
+    const recipientEntry = memberRecipientEntries[index];
+
+    if (!recipientEntry) {
+      throw new Error("Missing wrapped member recipient entry");
+    }
+
+    return {
+      memberPrincipalType: recipient.memberPrincipalType,
+      memberPrincipalId: recipient.memberPrincipalId,
+      memberKeyFingerprint: recipientEntry.keyFingerprint,
+      kemCipherText: bytesToBase64(recipientEntry.kemCipherText),
+      wrappedKey: bytesToBase64(recipientEntry.wrappedKey),
+    };
+  });
   const signedState = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       principalType: "group",
@@ -61,7 +89,11 @@ async function createPrincipalPolicyBundle(input: {
       keyEpoch,
       encapsulationPublicKey: bytesToBase64(input.principalKem.publicKey),
       keyFingerprint: await toFingerprint(input.principalKem.publicKey),
-      members: input.members,
+      members: currentProjection.map((member) => ({
+        principalType: member.memberPrincipalType,
+        principalId: member.memberPrincipalId,
+      })),
+      memberEnvelopes,
       projection: currentProjection,
       payloadCiphertext,
       signedAt: input.signedAt,
@@ -71,10 +103,6 @@ async function createPrincipalPolicyBundle(input: {
     signingPrivateKey,
   );
   const stateHash = await computePrincipalStateHash(signedState);
-  const memberRecipientEntries = await wrapDekForRecipients(
-    input.principalKem.secretKey,
-    input.memberRecipientPublicKeys.map((recipient) => recipient.publicKey),
-  );
 
   return {
     currentMemberEnvelopes: {
@@ -82,21 +110,7 @@ async function createPrincipalPolicyBundle(input: {
       principalId: input.principalId,
       stateHash,
       epoch: keyEpoch,
-      envelopes: input.memberRecipientPublicKeys.map((recipient, index) => {
-        const recipientEntry = memberRecipientEntries[index];
-
-        if (!recipientEntry) {
-          throw new Error("Missing wrapped member recipient entry");
-        }
-
-        return {
-          memberPrincipalType: recipient.memberPrincipalType,
-          memberPrincipalId: recipient.memberPrincipalId,
-          memberKeyFingerprint: recipientEntry.keyFingerprint,
-          kemCipherText: bytesToBase64(recipientEntry.kemCipherText),
-          wrappedKey: bytesToBase64(recipientEntry.wrappedKey),
-        };
-      }),
+      envelopes: memberEnvelopes,
     },
     currentState: {
       ...signedState,

@@ -1,4 +1,5 @@
 import {
+  computePrincipalMemberEnvelopesRoot,
   computePrincipalMembershipRoot,
   computePrincipalProjectionRoot,
   computePrincipalStatePayloadCiphertextHash,
@@ -11,7 +12,7 @@ import {
 import type {
   CreateOrganizationGroupRequest,
   PrincipalMemberEnvelopeRequest,
-  PutPrincipalStateRequest,
+  PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import type {
   CurrentPrincipalMemberEnvelopesResponse,
@@ -51,24 +52,99 @@ export function assertGroupPolicyEnvelopesMatchAcknowledgement(
   }
 }
 
+function stateWithoutCreatedAt(state: PrincipalStateResponse) {
+  const { createdAt: _createdAt, ...signedState } = state;
+  return signedState;
+}
+
+export function assertGroupPolicyBundleMatchesAcknowledgement(input: {
+  readonly currentPolicy: PrincipalPolicyBundleResponse;
+  readonly expectedHead: ReferencedPrincipalHead;
+  readonly request: PutPrincipalPolicyRequest;
+  readonly response: PrincipalPolicyBundleResponse;
+}): void {
+  const expectedPreviousStates = [
+    ...input.currentPolicy.previousStates,
+    {
+      state: input.currentPolicy.currentState,
+      projection: input.currentPolicy.currentProjection,
+    },
+  ];
+  const normalizedHistory = (
+    history: PrincipalPolicyBundleResponse["previousStates"],
+  ) =>
+    history.map((entry) => ({
+      state: stateWithoutCreatedAt(entry.state),
+      projection: normalizePrincipalProjectionMembers(entry.projection),
+    }));
+  const { createdAt: _payloadCreatedAt, ...observedPayload } =
+    input.response.currentPayload;
+  const expectedPayload = {
+    principalType: input.request.state.principalType,
+    principalId: input.request.state.principalId,
+    stateHash: input.expectedHead.stateHash,
+    ...input.request.encryptedPayload,
+  };
+
+  if (
+    canonical(observedPayload, "stored group policy payload") !==
+      canonical(expectedPayload, "authored group policy payload") ||
+    canonical(
+      normalizePrincipalProjectionMembers(input.response.currentProjection),
+      "stored group policy projection",
+    ) !==
+      canonical(
+        normalizePrincipalProjectionMembers(input.request.projection),
+        "authored group policy projection",
+      ) ||
+    canonical(
+      normalizedHistory(input.response.previousStates),
+      "stored group policy history",
+    ) !==
+      canonical(
+        normalizedHistory(expectedPreviousStates),
+        "expected group policy history",
+      )
+  ) {
+    throw new Error("Group policy bundle acknowledgement mismatch");
+  }
+
+  assertGroupPolicyEnvelopesMatchAcknowledgement(
+    {
+      principalType: input.request.state.principalType,
+      principalId: input.request.state.principalId,
+      stateHash: input.expectedHead.stateHash,
+      epoch: input.request.state.keyEpoch,
+      envelopes: input.request.memberEnvelopes,
+    },
+    input.response.currentMemberEnvelopes,
+  );
+}
+
 async function assertPolicyRequestCommitments(
-  request: PutPrincipalStateRequest,
+  request: PutPrincipalPolicyRequest,
 ): Promise<void> {
   const projection = normalizePrincipalProjectionMembers(request.projection);
   const members = projection.map((member) => ({
     principalId: member.memberPrincipalId,
     principalType: member.memberPrincipalType,
   }));
-  const [membershipRoot, projectionRoot, payloadCiphertextHash] =
-    await Promise.all([
-      computePrincipalMembershipRoot(members),
-      computePrincipalProjectionRoot(projection),
-      computePrincipalStatePayloadCiphertextHash(
-        request.encryptedPayload.ciphertext,
-      ),
-    ]);
+  const [
+    membershipRoot,
+    memberEnvelopesRoot,
+    projectionRoot,
+    payloadCiphertextHash,
+  ] = await Promise.all([
+    computePrincipalMembershipRoot(members),
+    computePrincipalMemberEnvelopesRoot(request.memberEnvelopes),
+    computePrincipalProjectionRoot(projection),
+    computePrincipalStatePayloadCiphertextHash(
+      request.encryptedPayload.ciphertext,
+    ),
+  ]);
   if (
     request.state.membershipRoot !== membershipRoot ||
+    request.state.memberEnvelopesRoot !== memberEnvelopesRoot ||
     request.state.projectionRoot !== projectionRoot ||
     request.state.memberCount !== projection.length ||
     request.encryptedPayload.ciphertextHash !== payloadCiphertextHash ||
@@ -80,7 +156,7 @@ async function assertPolicyRequestCommitments(
 
 function verifiedPolicy(input: {
   currentPolicy?: PrincipalPolicyBundleResponse | undefined;
-  projection: PutPrincipalStateRequest["projection"];
+  projection: PutPrincipalPolicyRequest["projection"];
   state: PrincipalStateResponse;
 }): VerifiedPrincipalPolicy {
   const previousStates = input.currentPolicy
@@ -116,7 +192,7 @@ function verifiedPolicy(input: {
 export async function acknowledgeGroupPolicyState(input: {
   readonly currentPolicy: PrincipalPolicyBundleResponse;
   readonly expectedHead: ReferencedPrincipalHead;
-  readonly request: PutPrincipalStateRequest;
+  readonly request: PutPrincipalPolicyRequest;
   readonly response: PrincipalStateResponse;
 }): Promise<VerifiedPrincipalPolicy> {
   await assertPolicyRequestCommitments(input.request);
@@ -143,51 +219,6 @@ export async function acknowledgeGroupPolicyState(input: {
     projection: input.request.projection,
     state: input.response,
   });
-}
-
-export function groupPolicyBundleFromAcknowledgement(input: {
-  readonly currentPolicy: PrincipalPolicyBundleResponse;
-  readonly envelopes: CurrentPrincipalMemberEnvelopesResponse;
-  readonly expectedHead: ReferencedPrincipalHead;
-  readonly memberEnvelopes: readonly PrincipalMemberEnvelopeRequest[];
-  readonly state: PrincipalStateResponse;
-  readonly stateRequest: PutPrincipalStateRequest;
-}): PrincipalPolicyBundleResponse {
-  if (
-    input.envelopes.principalType !== "group" ||
-    input.envelopes.principalId !== input.expectedHead.principalId ||
-    input.envelopes.stateHash !== input.expectedHead.stateHash ||
-    input.envelopes.epoch !== input.expectedHead.keyEpoch ||
-    canonical(
-      sortedEnvelopes(input.envelopes.envelopes),
-      "stored group member envelopes",
-    ) !==
-      canonical(
-        sortedEnvelopes(input.memberEnvelopes),
-        "authored group member envelopes",
-      )
-  ) {
-    throw new Error("Group member envelopes acknowledgement mismatch");
-  }
-  return {
-    currentMemberEnvelopes: input.envelopes,
-    currentPayload: {
-      principalId: input.state.principalId,
-      principalType: input.state.principalType,
-      stateHash: input.state.stateHash,
-      ...input.stateRequest.encryptedPayload,
-      createdAt: input.state.createdAt,
-    },
-    currentProjection: input.stateRequest.projection,
-    currentState: input.state,
-    previousStates: [
-      ...input.currentPolicy.previousStates,
-      {
-        projection: input.currentPolicy.currentProjection,
-        state: input.currentPolicy.currentState,
-      },
-    ],
-  };
 }
 
 export async function acknowledgeInitialGroupPolicy(input: {

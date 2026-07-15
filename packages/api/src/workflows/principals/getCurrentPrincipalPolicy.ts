@@ -10,6 +10,7 @@ import {
   listPrincipalStateHistory,
   listProjectionMembersForState,
   type StoredPrincipalProjectionMember,
+  type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
 import {
   PrincipalPolicyError,
@@ -28,27 +29,14 @@ function toProjectionResponse(
   }));
 }
 
-export async function getCurrentPrincipalPolicyWithExecutor(
+export async function getPrincipalPolicyForStateWithExecutor(
   executor: DatabaseSession,
-  principalType: "group" | "organization",
-  principalId: string,
+  currentState: StoredPrincipalState,
 ): Promise<PrincipalPolicyBundleResponse> {
-  const currentState = await getCurrentPrincipalState(
-    principalType,
-    principalId,
-    executor,
-  );
-
-  if (!currentState) {
-    throw new PrincipalPolicyError("Principal state not found", 404);
-  }
-  // Pin every dependent read to the version we just resolved. These reads run
-  // under READ COMMITTED (no isolation argument; this workflow can also be
-  // nested inside a container mutation transaction where forcing an isolation
-  // level is not possible), so re-resolving "current" per read would let a
-  // concurrent putPrincipalState advance the version mid-bundle and stitch a
-  // cross-version policy bundle. Keying every read off currentState.stateHash
-  // makes the bundle internally consistent regardless of concurrent commits.
+  const { principalId, principalType } = currentState;
+  // Every dependent read is pinned to this exact accepted state. In particular,
+  // a concurrent successor cannot change which head a successful PUT
+  // acknowledges under READ COMMITTED.
   const pinnedStateHash = currentState.stateHash;
   const currentPayload = await getPrincipalStatePayloadForState(
     principalType,
@@ -70,7 +58,6 @@ export async function getCurrentPrincipalPolicyWithExecutor(
     principalId,
     executor,
   );
-
   const currentMemberEnvelopes = await listPrincipalMemberEnvelopesForState(
     principalType,
     principalId,
@@ -85,7 +72,7 @@ export async function getCurrentPrincipalPolicyWithExecutor(
     currentMemberEnvelopes: toCurrentPrincipalMemberEnvelopesResponse({
       principalType,
       principalId,
-      stateHash: currentState.stateHash,
+      stateHash: pinnedStateHash,
       epoch: currentState.keyEpoch,
       envelopes: currentMemberEnvelopes,
     }),
@@ -96,6 +83,23 @@ export async function getCurrentPrincipalPolicyWithExecutor(
         projection: toProjectionResponse(entry.projection),
       })),
   };
+}
+
+export async function getCurrentPrincipalPolicyWithExecutor(
+  executor: DatabaseSession,
+  principalType: "group" | "organization",
+  principalId: string,
+): Promise<PrincipalPolicyBundleResponse> {
+  const currentState = await getCurrentPrincipalState(
+    principalType,
+    principalId,
+    executor,
+  );
+
+  if (!currentState) {
+    throw new PrincipalPolicyError("Principal state not found", 404);
+  }
+  return getPrincipalPolicyForStateWithExecutor(executor, currentState);
 }
 
 export async function runGetCurrentPrincipalPolicyWorkflow(

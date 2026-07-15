@@ -1,5 +1,8 @@
 import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
-import { isManagedRecipientPrincipalType } from "@tearleads/crypto";
+import {
+  isManagedRecipientPrincipalType,
+  PrincipalMemberEnvelopeValidationError,
+} from "@tearleads/crypto";
 import type { PrincipalMemberEnvelopeRequest } from "@tearleads/validators/request";
 import type {
   CurrentPrincipalMemberEnvelopesResponse,
@@ -17,9 +20,11 @@ export class PrincipalPolicyError extends Error {
   }
 }
 
-export function toPrincipalStateError(
-  error: unknown,
-): PrincipalPolicyError | null {
+function toPrincipalStateError(error: unknown): PrincipalPolicyError | null {
+  if (error instanceof PrincipalMemberEnvelopeValidationError) {
+    return new PrincipalPolicyError(error.message, 400);
+  }
+
   if (!(error instanceof Error)) {
     return null;
   }
@@ -62,7 +67,18 @@ export function toPrincipalStateError(
       "Principal state payloadCiphertextHash does not match encrypted payload" ||
     error.message ===
       "Principal state projectionRoot does not match projection" ||
-    error.message === "Principal state memberCount does not match projection"
+    error.message ===
+      "Principal state membershipRoot does not match projection" ||
+    error.message ===
+      "Principal state memberEnvelopesRoot does not match member envelopes" ||
+    error.message === "Principal state memberCount does not match projection" ||
+    error.message ===
+      "Principal state encapsulationPublicKey must use canonical base64 encoding" ||
+    error.message.startsWith(
+      "Principal state encapsulationPublicKey must contain exactly ",
+    ) ||
+    error.message ===
+      "Principal state keyFingerprint does not match encapsulationPublicKey"
   ) {
     return new PrincipalPolicyError(error.message, 400);
   }
@@ -70,7 +86,7 @@ export function toPrincipalStateError(
   return null;
 }
 
-export function toPrincipalMemberEnvelopeError(
+function toPrincipalMemberEnvelopeError(
   error: unknown,
 ): PrincipalPolicyError | null {
   if (!(error instanceof Error)) {
@@ -78,7 +94,16 @@ export function toPrincipalMemberEnvelopeError(
   }
 
   if (
-    error.message === "Principal member envelopes must target the current state"
+    error.message ===
+    "Principal member envelopes do not match the signed state root"
+  ) {
+    return new PrincipalPolicyError(error.message, 400);
+  }
+
+  if (
+    error.message ===
+      "Principal member envelopes must target the current state" ||
+    error.message === "Principal member envelope conflict"
   ) {
     return new PrincipalPolicyError(error.message, 409);
   }
@@ -151,6 +176,7 @@ export function toPrincipalStateResponse(state: {
   keyFingerprint: string;
   membershipMode: "projection";
   membershipRoot: string;
+  memberEnvelopesRoot: string;
   projectionRoot: string;
   payloadCiphertextHash: string;
   memberCount: number;
@@ -171,6 +197,7 @@ export function toPrincipalStateResponse(state: {
     keyFingerprint: state.keyFingerprint,
     membershipMode: state.membershipMode,
     membershipRoot: state.membershipRoot,
+    memberEnvelopesRoot: state.memberEnvelopesRoot,
     projectionRoot: state.projectionRoot,
     payloadCiphertextHash: state.payloadCiphertextHash,
     memberCount: state.memberCount,

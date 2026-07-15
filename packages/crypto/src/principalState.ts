@@ -1,5 +1,7 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { ML_KEM1024_PUBLIC_KEY_BYTES } from "./encapsulation/generateKeyPair";
 import { toFingerprint } from "./fingerprint";
+import { computePrincipalMemberEnvelopesRoot } from "./principalMemberEnvelopes";
 import {
   comparePrincipalProjectionMembers,
   comparePrincipalStateMembers,
@@ -30,6 +32,7 @@ export type {
   PrincipalProjectionRole,
   PrincipalStateHeaderInput,
   PrincipalStateMember,
+  PrincipalStateMemberEnvelope,
   PrincipalStateMembershipMode,
   PrincipalStateMemberType,
   PrincipalStatePayloadCipherSuite,
@@ -51,6 +54,7 @@ interface PrincipalStateLike {
   signerUserKeyFingerprint: string;
   membershipMode?: PrincipalStateMembershipMode;
   membershipRoot?: string;
+  memberEnvelopesRoot?: string;
   projectionRoot?: string;
   payloadCiphertextHash?: string;
   memberCount?: number;
@@ -110,6 +114,7 @@ function encodeUnsignedPrincipalState(
       keyFingerprint: state.keyFingerprint,
       membershipMode: state.membershipMode,
       membershipRoot: state.membershipRoot,
+      memberEnvelopesRoot: state.memberEnvelopesRoot,
       projectionRoot: state.projectionRoot,
       payloadCiphertextHash: state.payloadCiphertextHash,
       memberCount: state.memberCount,
@@ -142,6 +147,10 @@ function toUnsignedPrincipalState(
 
   if (typeof state.membershipRoot === "string") {
     unsignedState.membershipRoot = state.membershipRoot;
+  }
+
+  if (typeof state.memberEnvelopesRoot === "string") {
+    unsignedState.memberEnvelopesRoot = state.memberEnvelopesRoot;
   }
 
   if (typeof state.projectionRoot === "string") {
@@ -234,9 +243,28 @@ function resolveMemberCount(state: PrincipalStateLike): number {
 async function validatePrincipalEncapsulationKey(
   state: PrincipalStateLike,
 ): Promise<void> {
-  const publicKeyFingerprint = await toFingerprint(
-    base64ToBytes(state.encapsulationPublicKey),
-  );
+  let publicKey: Uint8Array;
+  try {
+    publicKey = base64ToBytes(state.encapsulationPublicKey);
+  } catch {
+    throw new Error(
+      "Principal state encapsulationPublicKey must use canonical base64 encoding",
+    );
+  }
+
+  if (bytesToBase64(publicKey) !== state.encapsulationPublicKey) {
+    throw new Error(
+      "Principal state encapsulationPublicKey must use canonical base64 encoding",
+    );
+  }
+
+  if (publicKey.length !== ML_KEM1024_PUBLIC_KEY_BYTES) {
+    throw new Error(
+      `Principal state encapsulationPublicKey must contain exactly ${ML_KEM1024_PUBLIC_KEY_BYTES} bytes`,
+    );
+  }
+
+  const publicKeyFingerprint = await toFingerprint(publicKey);
   if (publicKeyFingerprint !== state.keyFingerprint) {
     throw new Error(
       "Principal state keyFingerprint does not match encapsulationPublicKey",
@@ -258,6 +286,10 @@ async function normalizeUnsignedPrincipalState(
     state.projectionRoot,
     "Principal state projectionRoot is required",
   );
+  const resolvedMemberEnvelopesRoot = requireNonEmptyHeaderString(
+    state.memberEnvelopesRoot,
+    "Principal state memberEnvelopesRoot is required",
+  );
   const resolvedPayloadCiphertextHash = requireNonEmptyHeaderString(
     state.payloadCiphertextHash,
     "Principal state payloadCiphertextHash is required",
@@ -276,6 +308,7 @@ async function normalizeUnsignedPrincipalState(
     keyFingerprint: state.keyFingerprint,
     membershipMode,
     membershipRoot: resolvedMembershipRoot,
+    memberEnvelopesRoot: resolvedMemberEnvelopesRoot,
     projectionRoot: resolvedProjectionRoot,
     payloadCiphertextHash: resolvedPayloadCiphertextHash,
     memberCount,
@@ -385,6 +418,9 @@ export async function buildPrincipalStateSigningInput(
     keyFingerprint: input.keyFingerprint,
     membershipMode: "projection",
     membershipRoot: await computePrincipalMembershipRoot(input.members),
+    memberEnvelopesRoot: await computePrincipalMemberEnvelopesRoot(
+      input.memberEnvelopes,
+    ),
     projectionRoot: await computePrincipalProjectionRoot(input.projection),
     payloadCiphertextHash: await computePrincipalStatePayloadCiphertextHash(
       input.payloadCiphertext,

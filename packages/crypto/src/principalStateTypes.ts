@@ -15,6 +15,14 @@ export interface PrincipalProjectionMember {
   role: PrincipalProjectionRole;
 }
 
+export interface PrincipalStateMemberEnvelope {
+  memberPrincipalType: PrincipalStateMemberType;
+  memberPrincipalId: string;
+  memberKeyFingerprint: string;
+  kemCipherText: string;
+  wrappedKey: string;
+}
+
 export interface UnsignedPrincipalState {
   principalType: ManagedRecipientPrincipalType;
   principalId: string;
@@ -25,6 +33,7 @@ export interface UnsignedPrincipalState {
   keyFingerprint: string;
   membershipMode: PrincipalStateMembershipMode;
   membershipRoot: string;
+  memberEnvelopesRoot: string;
   projectionRoot: string;
   payloadCiphertextHash: string;
   memberCount: number;
@@ -44,6 +53,7 @@ export interface PrincipalStateHeaderInput {
   encapsulationPublicKey: string;
   keyFingerprint: string;
   members: PrincipalStateMember[];
+  memberEnvelopes: PrincipalStateMemberEnvelope[];
   projection: PrincipalProjectionMember[];
   payloadCiphertext: string;
   signedAt: string;

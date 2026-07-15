@@ -427,3 +427,34 @@ test("verifyPrincipalPolicyBundle fails closed when signer keys are unavailable"
 
   expectVerificationError(result, "missing_dependency");
 });
+
+test("verifyPrincipalPolicyBundle rejects membership roots that do not match the projection", async () => {
+  const signer = await createPolicySigner();
+  const principalId = "group-membership-root-mismatch";
+  const state = await signPolicyState({
+    principalId,
+    version: 1,
+    prevStateHash: null,
+    members: [{ principalType: "user", principalId: signer.userId }],
+    projection: [
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: signer.userId,
+        role: "admin",
+      },
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: "user-hidden-from-membership-root",
+        role: "member",
+      },
+    ],
+    signer,
+  });
+
+  const result = await verifyPrincipalPolicyBundle({
+    bundle: createBundle({ current: state }),
+    signerPublicKeys: [signer],
+  });
+
+  expectVerificationError(result, "hash_mismatch");
+});

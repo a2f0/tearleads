@@ -17,6 +17,7 @@ export interface PrincipalStateResponse {
   keyFingerprint: string;
   membershipMode: "projection";
   membershipRoot: string;
+  memberEnvelopesRoot: string;
   projectionRoot: string;
   payloadCiphertextHash: string;
   memberCount: number;
@@ -149,6 +150,7 @@ export function isPrincipalStateResponse(
     hasStringProperty(value, "membershipMode") &&
     value.membershipMode === "projection" &&
     hasStringProperty(value, "membershipRoot") &&
+    hasStringProperty(value, "memberEnvelopesRoot") &&
     hasStringProperty(value, "projectionRoot") &&
     hasStringProperty(value, "payloadCiphertextHash") &&
     hasNumberProperty(value, "memberCount") &&

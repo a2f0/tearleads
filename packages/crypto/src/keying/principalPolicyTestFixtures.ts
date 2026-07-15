@@ -1,15 +1,21 @@
 import { expect } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { generateKemSeedAndKeyPair } from "../encapsulation/generateKeyPair";
+import {
+  generateKemSeedAndKeyPair,
+  ML_KEM1024_CIPHERTEXT_BYTES,
+  ML_KEM1024_SECRET_KEY_BYTES,
+} from "../encapsulation/generateKeyPair";
 import { toFingerprint } from "../fingerprint";
 import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
   type PrincipalProjectionMember,
   type PrincipalStateMember,
+  type PrincipalStateMemberEnvelope,
   signPrincipalState,
 } from "../principalState";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { AES_GCM_TAG_BYTES } from "../symmetric";
 import type {
   KeyingVerificationCode,
   KeyingVerificationResult,
@@ -75,6 +81,7 @@ export async function createPolicySigner(
 
 export async function signPolicyState(input: {
   readonly keyEpoch?: number;
+  readonly memberEnvelopes?: readonly PrincipalStateMemberEnvelope[];
   readonly members: readonly PrincipalStateMember[];
   readonly prevStateHash: string | null;
   readonly principalId: string;
@@ -86,12 +93,34 @@ export async function signPolicyState(input: {
 }): Promise<{
   readonly entry: PrincipalPolicyStateChainEntry;
   readonly payload: PrincipalPolicyBundle["currentPayload"];
+  readonly memberEnvelopes: readonly PrincipalStateMemberEnvelope[];
   readonly state: PrincipalPolicySignedState;
 }> {
   const principalKeyPair =
     input.principalKeyPair ?? generateKemSeedAndKeyPair();
   const projection =
     input.projection ?? projectionWithAdmin(input.signer.userId, input.members);
+  const memberEnvelopes =
+    input.memberEnvelopes ??
+    (await Promise.all(
+      projection.map(async (member, index) => ({
+        memberPrincipalType: member.memberPrincipalType,
+        memberPrincipalId: member.memberPrincipalId,
+        memberKeyFingerprint: await toFingerprint(
+          new TextEncoder().encode(
+            `${member.memberPrincipalType}:${member.memberPrincipalId}`,
+          ),
+        ),
+        kemCipherText: bytesToBase64(
+          new Uint8Array(ML_KEM1024_CIPHERTEXT_BYTES).fill(index + 1),
+        ),
+        wrappedKey: bytesToBase64(
+          new Uint8Array(ML_KEM1024_SECRET_KEY_BYTES + AES_GCM_TAG_BYTES).fill(
+            index + 1,
+          ),
+        ),
+      })),
+    ));
   const payloadCiphertext = JSON.stringify({ members: projection });
   const state = await signPrincipalState(
     await buildPrincipalStateSigningInput({
@@ -103,6 +132,7 @@ export async function signPolicyState(input: {
       encapsulationPublicKey: bytesToBase64(principalKeyPair.publicKey),
       keyFingerprint: await toFingerprint(principalKeyPair.publicKey),
       members: [...input.members],
+      memberEnvelopes: [...memberEnvelopes],
       projection: [...projection],
       payloadCiphertext,
       signedAt:
@@ -120,6 +150,7 @@ export async function signPolicyState(input: {
 
   return {
     state: stateWithHash,
+    memberEnvelopes,
     entry: {
       state: stateWithHash,
       projection,
@@ -148,6 +179,7 @@ export function createBundle(input: {
       principalId: input.current.state.principalId,
       stateHash: input.current.state.stateHash,
       epoch: input.current.state.keyEpoch,
+      envelopes: input.current.memberEnvelopes,
     },
     previousStates: input.previous ?? [],
   };

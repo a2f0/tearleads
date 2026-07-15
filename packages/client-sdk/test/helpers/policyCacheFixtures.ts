@@ -18,6 +18,7 @@ import {
   cacheReferencedPrincipalPolicies,
 } from "../../src/workflows/principals/policyCache";
 import type { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
+import { memberEnvelopesForProjection } from "./principalPolicyMemberEnvelopeFixtures";
 import { trustedUserIdentityFromResponse } from "./trustedUserIdentity";
 
 type CacheReferencedPoliciesOptions = Omit<
@@ -110,6 +111,7 @@ export async function createPrincipalPolicyBundle(): Promise<{
     },
   ];
   const payloadCiphertext = "ciphertext-1";
+  const memberEnvelopes = await memberEnvelopesForProjection(currentProjection);
   const signedState = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       principalType: "group",
@@ -119,12 +121,11 @@ export async function createPrincipalPolicyBundle(): Promise<{
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
       keyFingerprint: principalKeyFingerprint,
-      members: [
-        {
-          principalType: "user",
-          principalId: "alice",
-        },
-      ],
+      members: currentProjection.map((member) => ({
+        principalType: member.memberPrincipalType,
+        principalId: member.memberPrincipalId,
+      })),
+      memberEnvelopes,
       projection: currentProjection,
       payloadCiphertext,
       signedAt: "2026-04-08T00:00:00.000Z",
@@ -140,15 +141,7 @@ export async function createPrincipalPolicyBundle(): Promise<{
       principalId: "group-1",
       stateHash,
       epoch: 1,
-      envelopes: [
-        {
-          memberPrincipalType: "user",
-          memberPrincipalId: "alice",
-          memberKeyFingerprint: "member-key-1",
-          kemCipherText: "kem-cipher-text-1",
-          wrappedKey: "wrapped-key-1",
-        },
-      ],
+      envelopes: memberEnvelopes,
     },
     currentState: {
       ...signedState,
@@ -211,6 +204,8 @@ export async function createSuccessorPrincipalPolicyBundle(
     },
   ];
   const previousPayloadCiphertext = "ciphertext-1";
+  const previousMemberEnvelopes =
+    await memberEnvelopesForProjection(previousProjection);
   const previousSignedState = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       principalType: "group",
@@ -220,7 +215,11 @@ export async function createSuccessorPrincipalPolicyBundle(
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
       keyFingerprint: principalKeyFingerprint,
-      members: [{ principalType: "user", principalId: "alice" }],
+      members: previousProjection.map((member) => ({
+        principalType: member.memberPrincipalType,
+        principalId: member.memberPrincipalId,
+      })),
+      memberEnvelopes: previousMemberEnvelopes,
       projection: previousProjection,
       payloadCiphertext: previousPayloadCiphertext,
       signedAt: "2026-04-08T00:00:00.000Z",
@@ -253,6 +252,8 @@ export async function createSuccessorPrincipalPolicyBundle(
     },
   ];
   const currentPayloadCiphertext = "ciphertext-2";
+  const currentMemberEnvelopes =
+    await memberEnvelopesForProjection(currentProjection);
   const currentSignedState = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       principalType: "group",
@@ -262,12 +263,11 @@ export async function createSuccessorPrincipalPolicyBundle(
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
       keyFingerprint: principalKeyFingerprint,
-      members: [
-        ...(options.shrinkWithoutRotation
-          ? []
-          : [{ principalType: "user" as const, principalId: "alice" }]),
-        { principalType: "user", principalId: "bob" },
-      ],
+      members: currentProjection.map((member) => ({
+        principalType: member.memberPrincipalType,
+        principalId: member.memberPrincipalId,
+      })),
+      memberEnvelopes: currentMemberEnvelopes,
       projection: currentProjection,
       payloadCiphertext: currentPayloadCiphertext,
       signedAt: "2026-04-08T00:01:00.000Z",
@@ -285,7 +285,7 @@ export async function createSuccessorPrincipalPolicyBundle(
         principalId: "group-1",
         stateHash: currentStateHash,
         epoch: 1,
-        envelopes: [],
+        envelopes: currentMemberEnvelopes,
       },
       currentState: {
         ...currentSignedState,
@@ -356,6 +356,8 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promis
     },
   ];
   const previousPayloadCiphertext = "ciphertext-1";
+  const previousMemberEnvelopes =
+    await memberEnvelopesForProjection(previousProjection);
   const previousSignedState = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       principalType: "group",
@@ -365,7 +367,11 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promis
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
       keyFingerprint: principalKeyFingerprint,
-      members: [{ principalType: "user", principalId: adminUserId }],
+      members: previousProjection.map((member) => ({
+        principalType: member.memberPrincipalType,
+        principalId: member.memberPrincipalId,
+      })),
+      memberEnvelopes: previousMemberEnvelopes,
       projection: previousProjection,
       payloadCiphertext: previousPayloadCiphertext,
       signedAt: "2026-04-08T00:00:00.000Z",
@@ -384,6 +390,8 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promis
     },
   ];
   const currentPayloadCiphertext = "ciphertext-2";
+  const currentMemberEnvelopes =
+    await memberEnvelopesForProjection(currentProjection);
   const currentSignedState = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       principalType: "group",
@@ -394,6 +402,7 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promis
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
       keyFingerprint: principalKeyFingerprint,
       members: [{ principalType: "user", principalId: outsiderUserId }],
+      memberEnvelopes: currentMemberEnvelopes,
       projection: currentProjection,
       payloadCiphertext: currentPayloadCiphertext,
       signedAt: "2026-04-08T00:01:00.000Z",
@@ -411,7 +420,7 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promis
         principalId: "group-1",
         stateHash: currentStateHash,
         epoch: 1,
-        envelopes: [],
+        envelopes: currentMemberEnvelopes,
       },
       currentState: {
         ...currentSignedState,

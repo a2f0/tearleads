@@ -2,9 +2,9 @@ import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import { groups as groupsTable } from "@tearleads/api-shared/schema";
 import type { CreateOrganizationGroupRequest } from "@tearleads/validators/request";
 import type { OrganizationGroupSummaryResponse } from "@tearleads/validators/response";
-import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../../access/write/principalMemberEnvelopes";
-import { storeVerifiedPrincipalStateInTransaction } from "../../../access/write/principalStateStore";
 import { assertOrganizationCanSync } from "../../billing/organizationBilling";
+import { toPrincipalPolicyError } from "../../principals/shared";
+import { storeVerifiedPrincipalPolicyInTransaction } from "../../principals/storeVerifiedPrincipalPolicy";
 import { requireDirectOrganizationAccess } from "../access";
 import { OrganizationManagerError } from "../errors";
 import { toGroupSummary } from "../groupSummary";
@@ -12,72 +12,10 @@ import { toGroupSummary } from "../groupSummary";
 function toPrincipalWriteError(
   error: unknown,
 ): OrganizationManagerError | null {
-  if (!(error instanceof Error)) {
-    return null;
-  }
-
-  if (
-    error.message === "Invalid principal state signature" ||
-    error.message === "Principal state signer user not found" ||
-    error.message === "Principal state signer fingerprint mismatch" ||
-    error.message === "Principal state signer must be an admin"
-  ) {
-    return new OrganizationManagerError(error.message, 403);
-  }
-
-  if (
-    error.message === "Principal state version conflict" ||
-    error.message === "Principal epoch key conflict" ||
-    error.message === "Principal state previous hash mismatch" ||
-    error.message === "Principal state payload conflict" ||
-    error.message === "Principal state projection conflict" ||
-    error.message === "Principal member envelopes must target the current state"
-  ) {
-    return new OrganizationManagerError(error.message, 409);
-  }
-
-  if (
-    error.message ===
-      "Principal state payload ciphertext hash does not match ciphertext" ||
-    error.message ===
-      "Principal state payloadCiphertextHash does not match encrypted payload" ||
-    error.message ===
-      "Principal state projectionRoot does not match projection" ||
-    error.message === "Principal state memberCount does not match projection"
-  ) {
-    return new OrganizationManagerError(error.message, 400);
-  }
-
-  if (
-    error.message ===
-      "Principal member envelopes must match the current direct member set" ||
-    error.message ===
-      "Principal member envelopes must cover the current direct member set" ||
-    error.message.startsWith(
-      "Principal member envelope targets unknown member",
-    ) ||
-    error.message.startsWith(
-      "Principal member envelope fingerprint mismatch",
-    ) ||
-    error.message.startsWith(
-      "Missing user recipient key for principal state member",
-    ) ||
-    error.message.startsWith(
-      "Missing current principal epoch key for group member",
-    )
-  ) {
-    return new OrganizationManagerError(error.message, 409);
-  }
-
-  if (
-    error.message.startsWith(
-      "Principal member envelope is missing wrapped material",
-    )
-  ) {
-    return new OrganizationManagerError(error.message, 400);
-  }
-
-  return null;
+  const policyError = toPrincipalPolicyError(error);
+  return policyError
+    ? new OrganizationManagerError(policyError.message, policyError.status)
+    : null;
 }
 
 export async function runCreateOrganizationGroupWorkflow(
@@ -142,27 +80,18 @@ export async function runCreateOrganizationGroupWorkflow(
     }
 
     try {
-      const storedState = await storeVerifiedPrincipalStateInTransaction(
+      const storedState = await storeVerifiedPrincipalPolicyInTransaction(
         {
           state: input.initialGroupPolicy.state,
           encryptedPayload: input.initialGroupPolicy.encryptedPayload,
           projection: input.initialGroupPolicy.projection,
+          memberEnvelopes: input.initialGroupPolicy.memberEnvelopes,
         },
         tx,
         {
           authorizeExternalAdminSigner: (authorization) =>
             Promise.resolve(authorization.signerUserId === sessionUserId),
         },
-      );
-
-      await replaceCurrentPrincipalMemberEnvelopesInTransaction(
-        {
-          principalType: "group",
-          principalId: input.groupId,
-          stateHash: storedState.stateHash,
-          envelopes: input.initialGroupPolicy.memberEnvelopes,
-        },
-        tx,
       );
 
       return toGroupSummary({

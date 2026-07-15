@@ -7,11 +7,11 @@ import {
   toFingerprint,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
 import {
   listCurrentPrincipalMemberEnvelopes,
-  listCurrentPrincipalMemberRecipients,
+  type listCurrentPrincipalMemberRecipients,
 } from "../read/principalMemberEnvelopes";
 import { replaceCurrentPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
 import { storeVerifiedPrincipalState } from "./principalStateStore";
@@ -91,6 +91,21 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
       role: "admin" as const,
     },
   ];
+  const nestedWrappedSecretEntries = await wrapDekForRecipients(
+    nestedGroupKem.secretKey,
+    [aliceKem.publicKey],
+  );
+  const nestedMemberEnvelopes = toMemberEnvelopeInputs(
+    [
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: aliceUserId,
+        memberKeyFingerprint: await toFingerprint(aliceKem.publicKey),
+        encapsulationPublicKey: bytesToBase64(aliceKem.publicKey),
+      },
+    ],
+    nestedWrappedSecretEntries,
+  );
 
   await storeVerifiedPrincipalState(
     await signPrincipalStateBundle({
@@ -102,6 +117,7 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
       encapsulationPublicKey: bytesToBase64(nestedGroupKem.publicKey),
       keyFingerprint: await toFingerprint(nestedGroupKem.publicKey),
       members: nestedMembers,
+      memberEnvelopes: nestedMemberEnvelopes,
       projection: nestedProjection,
       payloadCiphertext: JSON.stringify({ members: nestedProjection }),
       signedAt: new Date("2026-04-07T12:00:00.000Z").toISOString(),
@@ -134,6 +150,27 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
       role: "admin" as const,
     },
   ];
+  const wrappedSecretEntries = await wrapDekForRecipients(groupKem.secretKey, [
+    nestedGroupKem.publicKey,
+    aliceKem.publicKey,
+  ]);
+  const memberEnvelopes = toMemberEnvelopeInputs(
+    [
+      {
+        memberPrincipalType: "group",
+        memberPrincipalId: nestedGroupPrincipalId,
+        memberKeyFingerprint: await toFingerprint(nestedGroupKem.publicKey),
+        encapsulationPublicKey: bytesToBase64(nestedGroupKem.publicKey),
+      },
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: aliceUserId,
+        memberKeyFingerprint: await toFingerprint(aliceKem.publicKey),
+        encapsulationPublicKey: bytesToBase64(aliceKem.publicKey),
+      },
+    ],
+    wrappedSecretEntries,
+  );
   const storedState = await storeVerifiedPrincipalState(
     await signPrincipalStateBundle({
       principalType: "group",
@@ -144,6 +181,7 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
       encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
       keyFingerprint: await toFingerprint(groupKem.publicKey),
       members: groupMembers,
+      memberEnvelopes,
       projection: groupProjection,
       payloadCiphertext: JSON.stringify({ members: groupProjection }),
       signedAt: new Date("2026-04-07T12:05:00.000Z").toISOString(),
@@ -154,27 +192,12 @@ test("replaceCurrentPrincipalMemberEnvelopes stores the current direct member wr
     db,
   );
 
-  const currentRecipients = await listCurrentPrincipalMemberRecipients(
-    "group",
-    groupPrincipalId,
-    db,
-  );
-  const wrappedSecretEntries = await wrapDekForRecipients(
-    crypto.getRandomValues(new Uint8Array(64)),
-    currentRecipients.map((recipient) =>
-      base64ToBytes(recipient.encapsulationPublicKey),
-    ),
-  );
-
   const storedEnvelopes = await replaceCurrentPrincipalMemberEnvelopes(
     {
       principalType: "group",
       principalId: groupPrincipalId,
       stateHash: storedState.stateHash,
-      envelopes: toMemberEnvelopeInputs(
-        currentRecipients,
-        wrappedSecretEntries,
-      ),
+      envelopes: memberEnvelopes,
     },
     db,
   );
@@ -242,6 +265,22 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
       role: "admin" as const,
     },
   ];
+  const [initialWrappedSecretEntry] = await wrapDekForRecipients(
+    groupKem.secretKey,
+    [aliceKem.publicKey],
+  );
+  if (!initialWrappedSecretEntry) {
+    throw new Error("Missing initial wrapped group key");
+  }
+  const initialMemberEnvelopes = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: aliceUserId,
+      memberKeyFingerprint: await toFingerprint(aliceKem.publicKey),
+      kemCipherText: bytesToBase64(initialWrappedSecretEntry.kemCipherText),
+      wrappedKey: bytesToBase64(initialWrappedSecretEntry.wrappedKey),
+    },
+  ];
   const initialState = await storeVerifiedPrincipalState(
     await signPrincipalStateBundle({
       principalType: "group",
@@ -252,6 +291,7 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
       encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
       keyFingerprint: await toFingerprint(groupKem.publicKey),
       members: initialMembers,
+      memberEnvelopes: initialMemberEnvelopes,
       projection: initialProjection,
       payloadCiphertext: JSON.stringify({ members: initialProjection }),
       signedAt: new Date("2026-04-07T13:00:00.000Z").toISOString(),
@@ -284,6 +324,27 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
       role: "member" as const,
     },
   ];
+  const nextWrappedSecretEntries = await wrapDekForRecipients(
+    groupKem.secretKey,
+    [aliceKem.publicKey, bobKem.publicKey],
+  );
+  const nextMemberEnvelopes = toMemberEnvelopeInputs(
+    [
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: aliceUserId,
+        memberKeyFingerprint: await toFingerprint(aliceKem.publicKey),
+        encapsulationPublicKey: bytesToBase64(aliceKem.publicKey),
+      },
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: bobUserId,
+        memberKeyFingerprint: await toFingerprint(bobKem.publicKey),
+        encapsulationPublicKey: bytesToBase64(bobKem.publicKey),
+      },
+    ],
+    nextWrappedSecretEntries,
+  );
   const nextState = await storeVerifiedPrincipalState(
     await signPrincipalStateBundle({
       principalType: "group",
@@ -294,6 +355,7 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
       encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
       keyFingerprint: await toFingerprint(groupKem.publicKey),
       members: nextMembers,
+      memberEnvelopes: nextMemberEnvelopes,
       projection: nextProjection,
       payloadCiphertext: JSON.stringify({ members: nextProjection }),
       signedAt: new Date("2026-04-07T13:05:00.000Z").toISOString(),
@@ -304,28 +366,13 @@ test("replaceCurrentPrincipalMemberEnvelopes rejects stale state hashes even whe
     db,
   );
 
-  const currentRecipients = await listCurrentPrincipalMemberRecipients(
-    "group",
-    groupPrincipalId,
-    db,
-  );
-  const wrappedSecretEntries = await wrapDekForRecipients(
-    crypto.getRandomValues(new Uint8Array(64)),
-    currentRecipients.map((recipient) =>
-      base64ToBytes(recipient.encapsulationPublicKey),
-    ),
-  );
-
   await expect(
     replaceCurrentPrincipalMemberEnvelopes(
       {
         principalType: "group",
         principalId: groupPrincipalId,
         stateHash: initialState.stateHash,
-        envelopes: toMemberEnvelopeInputs(
-          currentRecipients,
-          wrappedSecretEntries,
-        ),
+        envelopes: nextMemberEnvelopes,
       },
       db,
     ),

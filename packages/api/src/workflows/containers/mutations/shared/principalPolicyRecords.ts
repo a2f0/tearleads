@@ -121,6 +121,7 @@ function readPrincipalPolicyState(
     keyFingerprint: readStringField("keyFingerprint"),
     membershipMode,
     membershipRoot: readStringField("membershipRoot"),
+    memberEnvelopesRoot: readStringField("memberEnvelopesRoot"),
     projectionRoot: readStringField("projectionRoot"),
     payloadCiphertextHash: readStringField("payloadCiphertextHash"),
     memberCount: readNonNegativeInteger(record, "memberCount", label),

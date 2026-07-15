@@ -7,32 +7,30 @@ import {
   organizationRosterEntries,
   organizations,
 } from "@tearleads/api-shared/schema";
-import type { PutPrincipalStateRequest } from "@tearleads/validators/request";
-import type { PrincipalStateResponse } from "@tearleads/validators/response";
+import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { and, eq, inArray } from "drizzle-orm";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import type { PrincipalStateExternalSignerAuthorizationInput } from "../../access/write/principalStateStore";
-import { storeVerifiedPrincipalStateInTransaction } from "../../access/write/principalStateStore";
 import { reconcileOrganizationBillingSeats } from "../billing/organizationSeats";
 import { isUserReachableThroughCurrentGroup } from "../organizations/access";
 import { listUsersReachableFromCurrentPrincipal } from "../organizations/principalReachability";
 import { syncOrganizationRosterFromMemberReachability } from "../organizations/roster";
 import { persistPrincipalPolicyAccessLossTombstones } from "./accessLossTombstones";
+import { getPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
 import { assertPrincipalOrganizationCanSync } from "./organizationSync";
-import {
-  PrincipalPolicyError,
-  toPrincipalStateError,
-  toPrincipalStateResponse,
-} from "./shared";
+import { PrincipalPolicyError, toPrincipalPolicyError } from "./shared";
+import { storeVerifiedPrincipalPolicyInTransaction } from "./storeVerifiedPrincipalPolicy";
 
-export interface PutPrincipalStateInput extends PutPrincipalStateRequest {
+export interface PutPrincipalPolicyInput extends PutPrincipalPolicyRequest {
   expectedPrincipalId: string;
   expectedPrincipalType: "group" | "organization";
+  requesterUserId: string;
 }
 
 async function isOrgAdminAuthorizedPrincipalPolicySigner(
   tx: DatabaseTransaction,
-  input: PutPrincipalStateInput,
+  input: PutPrincipalPolicyInput,
   authorization: PrincipalStateExternalSignerAuthorizationInput,
 ): Promise<boolean> {
   if (input.expectedPrincipalType === "organization") {
@@ -72,7 +70,7 @@ async function isOrgAdminAuthorizedPrincipalPolicySigner(
 }
 
 async function loadRosterSyncTargetForPrincipal(input: {
-  readonly input: PutPrincipalStateInput;
+  readonly input: PutPrincipalPolicyInput;
   readonly tx: DatabaseTransaction;
 }): Promise<{ organizationId: string; memberGroupId: string } | null> {
   if (input.input.expectedPrincipalType === "organization") {
@@ -135,7 +133,7 @@ async function assertManagedPrincipalUsersAreNotDisabledRosterEntries(input: {
 }
 
 async function syncRosterForStoredPrincipalState(input: {
-  readonly request: PutPrincipalStateInput;
+  readonly request: PutPrincipalPolicyInput;
   readonly tx: DatabaseTransaction;
 }): Promise<{ organizationId: string; memberGroupId: string } | null> {
   const rosterSyncTarget = await loadRosterSyncTargetForPrincipal({
@@ -166,61 +164,48 @@ async function syncRosterForStoredPrincipalState(input: {
   return rosterSyncTarget;
 }
 
-export async function runPutPrincipalStateWorkflow(
-  db: ApiDatabase,
-  input: PutPrincipalStateInput,
-): Promise<PrincipalStateResponse> {
+function assertPutPrincipalPolicyRouteBinding(
+  input: PutPrincipalPolicyInput,
+): void {
+  if (input.state.signerUserId !== input.requesterUserId) {
+    throw new PrincipalPolicyError(
+      "Principal policy signer does not match authenticated requester",
+      403,
+    );
+  }
   if (input.state.principalType !== input.expectedPrincipalType) {
     throw new PrincipalPolicyError(
       "Principal state principalType does not match route principal",
       400,
     );
   }
-
   if (input.state.principalId !== input.expectedPrincipalId) {
     throw new PrincipalPolicyError(
       "Principal state principalId does not match route principal",
       400,
     );
   }
+}
+
+export async function runPutPrincipalPolicyWorkflow(
+  db: ApiDatabase,
+  input: PutPrincipalPolicyInput,
+): Promise<PrincipalPolicyBundleResponse> {
+  assertPutPrincipalPolicyRouteBinding(input);
 
   try {
-    const storedState = await db.transaction(async (tx) => {
+    return await db.transaction(async (tx) => {
       const previousState = await getCurrentPrincipalState(
         input.state.principalType,
         input.state.principalId,
         tx,
       );
-      const nextState = await storeVerifiedPrincipalStateInTransaction(
+      const nextState = await storeVerifiedPrincipalPolicyInTransaction(
         {
-          state: {
-            principalType: input.state.principalType,
-            principalId: input.state.principalId,
-            version: input.state.version,
-            prevStateHash: input.state.prevStateHash,
-            keyEpoch: input.state.keyEpoch,
-            encapsulationPublicKey: input.state.encapsulationPublicKey,
-            keyFingerprint: input.state.keyFingerprint,
-            membershipMode: input.state.membershipMode,
-            membershipRoot: input.state.membershipRoot,
-            projectionRoot: input.state.projectionRoot,
-            payloadCiphertextHash: input.state.payloadCiphertextHash,
-            memberCount: input.state.memberCount,
-            signedAt: input.state.signedAt,
-            signerUserId: input.state.signerUserId,
-            signerUserKeyFingerprint: input.state.signerUserKeyFingerprint,
-            signature: input.state.signature,
-          },
-          encryptedPayload: {
-            cipherSuite: input.encryptedPayload.cipherSuite,
-            ciphertext: input.encryptedPayload.ciphertext,
-            ciphertextHash: input.encryptedPayload.ciphertextHash,
-          },
-          projection: input.projection.map((member) => ({
-            memberPrincipalType: member.memberPrincipalType,
-            memberPrincipalId: member.memberPrincipalId,
-            role: member.role,
-          })),
+          state: input.state,
+          encryptedPayload: input.encryptedPayload,
+          projection: input.projection,
+          memberEnvelopes: input.memberEnvelopes,
         },
         tx,
         {
@@ -235,6 +220,10 @@ export async function runPutPrincipalStateWorkflow(
         input.state.principalType,
         input.state.principalId,
       );
+      const isExactReplay = previousState?.stateHash === nextState.stateHash;
+      if (isExactReplay) {
+        return getPrincipalPolicyForStateWithExecutor(tx, nextState);
+      }
       await persistPrincipalPolicyAccessLossTombstones({
         currentState: nextState,
         executor: tx,
@@ -258,12 +247,10 @@ export async function runPutPrincipalStateWorkflow(
         });
       }
 
-      return nextState;
+      return getPrincipalPolicyForStateWithExecutor(tx, nextState);
     });
-
-    return toPrincipalStateResponse(storedState);
   } catch (error) {
-    const principalPolicyError = toPrincipalStateError(error);
+    const principalPolicyError = toPrincipalPolicyError(error);
     if (principalPolicyError) {
       throw principalPolicyError;
     }

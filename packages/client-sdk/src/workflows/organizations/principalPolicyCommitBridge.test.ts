@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import {
-  computePrincipalStateHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   type PrincipalPolicySignerPublicKey,
@@ -8,8 +7,6 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { PutPrincipalStateRequest } from "@tearleads/validators/request";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
@@ -94,8 +91,6 @@ test("remove group user bridges committed policy writes before caching the rotat
   );
   const calls: string[] = [];
   let policyReadCount = 0;
-  let pendingState: PutPrincipalStateRequest | null = null;
-  let policyBeforePendingState: PrincipalPolicyBundleResponse | null = null;
   let boundHead: ReferencedPrincipalHead | null = null;
   let currentPolicy = previousPolicy;
   const remainingUserIdentity = createTestTrustedUserIdentity({
@@ -136,34 +131,16 @@ test("remove group user bridges committed policy writes before caching the rotat
       calls.push(policyReadCount === 1 ? "read-previous" : "read-current");
       return currentPolicy;
     },
-    putPrincipalState: async (principalType, principalId, input) => {
+    putPrincipalPolicy: async (principalType, principalId, input) => {
       expect(principalType).toBe("group");
       expect(principalId).toBe(groupId);
-      calls.push("put-state");
-      policyBeforePendingState = currentPolicy;
-      pendingState = input;
-      return {
-        ...input.state,
-        stateHash: await computePrincipalStateHash(input.state),
-        createdAt: input.state.signedAt,
-      };
-    },
-    putPrincipalMemberEnvelopes: async (principalType, principalId, input) => {
-      expect(principalType).toBe("group");
-      expect(principalId).toBe(groupId);
-      calls.push("put-envelopes");
-      if (!pendingState || !policyBeforePendingState) {
-        throw new Error("Expected committed principal state");
-      }
+      calls.push("put-policy");
+      const previousPolicy = currentPolicy;
       currentPolicy = await policyBundleAfterMutation({
-        mutation: {
-          state: pendingState,
-          memberEnvelopes: input.envelopes,
-        },
-        previous: policyBeforePendingState,
+        mutation: input,
+        previous: previousPolicy,
       });
-      expect(input.stateHash).toBe(currentPolicy.currentState.stateHash);
-      return currentPolicy.currentMemberEnvelopes;
+      return currentPolicy;
     },
   };
 
@@ -180,8 +157,7 @@ test("remove group user bridges committed policy writes before caching the rotat
         expect(calls).toEqual([
           "read-previous",
           "bind-head",
-          "put-state",
-          "put-envelopes",
+          "put-policy",
           "bridge",
         ]);
         expect(currentPolicy.currentState.keyEpoch).toBe(2);
@@ -240,6 +216,7 @@ test("remove group user bridges committed policy writes before caching the rotat
       canAdministerOrganization: false,
       execSql,
       groupId,
+      organizationId: crypto.randomUUID(),
       removedUserId,
       resolveTrustedUserIdentity,
       signerUserId,
@@ -250,8 +227,7 @@ test("remove group user bridges committed policy writes before caching the rotat
     expect(calls).toEqual([
       "read-previous",
       "bind-head",
-      "put-state",
-      "put-envelopes",
+      "put-policy",
       "bridge",
       "read-current",
     ]);

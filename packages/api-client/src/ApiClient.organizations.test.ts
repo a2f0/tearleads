@@ -3,8 +3,8 @@ import { HttpResponse, http } from "msw";
 import {
   createOrganizationGroupRequest,
   createOrganizationGroupSummary,
-  createPrincipalMemberEnvelopesRequest,
-  createPrincipalStateRequest,
+  createPrincipalPolicyBundleResponse,
+  createPrincipalPolicyRequest,
 } from "../test/helpers/apiClientTestFactories";
 import {
   apiBaseUrl,
@@ -292,21 +292,8 @@ testApiClient(
             disabledByUserId: null,
           });
         }
-        if (request.url.endsWith("/member-envelopes")) {
-          return HttpResponse.json({
-            principalType: "group",
-            principalId: "group-1",
-            stateHash: "state-hash",
-            epoch: 1,
-            envelopes: [],
-          });
-        }
-        if (request.url.endsWith("/state")) {
-          return HttpResponse.json({
-            ...createPrincipalStateRequest().state,
-            stateHash: "state-hash",
-            createdAt: "2026-05-12T12:00:00.000Z",
-          });
+        if (request.url.endsWith("/policy")) {
+          return HttpResponse.json(createPrincipalPolicyBundleResponse());
         }
         if (request.method === "POST") {
           return HttpResponse.json({
@@ -337,8 +324,7 @@ testApiClient(
 
     const client = new ApiClient(apiBaseUrl);
     const groupRequest = createOrganizationGroupRequest();
-    const stateRequest = createPrincipalStateRequest();
-    const envelopeRequest = createPrincipalMemberEnvelopesRequest();
+    const policyRequest = createPrincipalPolicyRequest();
 
     expect(await client.listOrganizationDirectory("org-1")).not.toBeNull();
     expect(await client.getOrganizationDataUsage("org-1")).not.toBeNull();
@@ -372,14 +358,7 @@ testApiClient(
       await client.listOrganizationGroupContainers("org-1", "group-1"),
     ).not.toBeNull();
     expect(
-      await client.putPrincipalState("group", "group-1", stateRequest),
-    ).not.toBeNull();
-    expect(
-      await client.putPrincipalMemberEnvelopes(
-        "group",
-        "group-1",
-        envelopeRequest,
-      ),
+      await client.putPrincipalPolicy("group", "group-1", policyRequest),
     ).not.toBeNull();
 
     expect(
@@ -445,13 +424,8 @@ testApiClient(
         method: "GET",
       },
       {
-        body: JSON.stringify(stateRequest),
-        input: `${apiBaseUrl}/principals/group/group-1/state`,
-        method: "PUT",
-      },
-      {
-        body: JSON.stringify(envelopeRequest),
-        input: `${apiBaseUrl}/principals/group/group-1/member-envelopes`,
+        body: JSON.stringify(policyRequest),
+        input: `${apiBaseUrl}/principals/group/group-1/policy`,
         method: "PUT",
       },
     ]);
