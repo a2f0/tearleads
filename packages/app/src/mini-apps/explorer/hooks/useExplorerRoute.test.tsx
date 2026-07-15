@@ -9,7 +9,10 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { WindowStateProvider } from "../../../components/window/WindowStateProvider";
-import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
+import {
+  AppNavigationProvider,
+  useMiniAppRouteSegments,
+} from "../../../navigation/AppNavigationProvider";
 import type { MiniAppDefinition, MiniAppId } from "../../types";
 import { useExplorerRoute } from "./useExplorerRoute";
 import { useExplorerSelection } from "./useExplorerSelection";
@@ -67,6 +70,7 @@ afterEach(() => {
 });
 
 function ExplorerRouteSelectionHarness() {
+  const appRoute = useMiniAppRouteSegments("explorer");
   const selection = useExplorerSelection(nodes, []);
   const routeState = useExplorerRoute({
     loadDocumentSummary: noopLoadDocumentSummary,
@@ -102,6 +106,30 @@ function ExplorerRouteSelectionHarness() {
       <button
         type="button"
         onClick={() =>
+          routeState.openBlobBrowserRoute({
+            storageKey: "front-storage-key",
+          })
+        }
+      >
+        Open Front Blob
+      </button>
+      <button type="button" onClick={routeState.navigateBackFromBlobBrowser}>
+        Blob Back
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          appRoute.setPathSegments(
+            ["blobs", "storage", "external-storage-key"],
+            { replace: true },
+          )
+        }
+      >
+        External Blob Route
+      </button>
+      <button
+        type="button"
+        onClick={() =>
           routeState.selectExplorerDocument("you-contact", "contacts-container")
         }
       >
@@ -110,12 +138,24 @@ function ExplorerRouteSelectionHarness() {
       <div data-testid="selected-id">{selection.selectedId}</div>
       <div data-testid="active-container">{selection.activeContainerId}</div>
       <div data-testid="route-view">{routeState.route.view}</div>
+      <div data-testid="route-storage-key">
+        {routeState.route.view === "blob-browser"
+          ? routeState.route.storageKey
+          : ""}
+      </div>
     </>
   );
 }
 
-function renderExplorerRouteSelectionHarness(mode: "routed" | "windowed") {
-  window.history.replaceState(null, "", "/app/explorer");
+function renderExplorerRouteSelectionHarness(
+  mode: "routed" | "windowed",
+  path = "/app/explorer",
+) {
+  const happyDomWindow = window as typeof window & {
+    happyDOM: { setURL: (url: string) => void };
+  };
+  happyDomWindow.happyDOM.setURL(`http://localhost${path}`);
+  window.history.replaceState(null, "", path);
   return render(
     <WindowStateProvider>
       <AppNavigationProvider mode={mode} miniApps={TEST_MINI_APPS}>
@@ -203,4 +243,97 @@ test("document info back restores the document route in routed mode", async () =
 
 test("document info back restores the document route in windowed mode", async () => {
   await expectDocumentInfoBackRestoresDocumentSelection("windowed");
+});
+
+test("windowed blob back restores the document that opened the attachment", async () => {
+  const view = renderExplorerRouteSelectionHarness("windowed");
+
+  fireEvent.click(view.getByRole("button", { name: "You" }));
+  await waitFor(() => {
+    expect(view.getByTestId("route-view").textContent).toBe(
+      "document-selection",
+    );
+    expect(view.getByTestId("selected-id").textContent).toBe("you-contact");
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Open Front Blob" }));
+  await waitFor(() => {
+    expect(view.getByTestId("route-view").textContent).toBe("blob-browser");
+    expect(view.getByTestId("route-storage-key").textContent).toBe(
+      "front-storage-key",
+    );
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Blob Back" }));
+  await waitFor(() => {
+    expect(view.getByTestId("route-view").textContent).toBe(
+      "document-selection",
+    );
+    expect(view.getByTestId("selected-id").textContent).toBe("you-contact");
+    expect(view.getByTestId("active-container").textContent).toBe(
+      "contacts-container",
+    );
+  });
+});
+
+test("routed direct blob link falls back without creating a history loop", async () => {
+  const view = renderExplorerRouteSelectionHarness(
+    "routed",
+    "/app/explorer/blobs/storage/front-storage-key",
+  );
+
+  await waitFor(() => {
+    expect(view.getByTestId("route-view").textContent).toBe("blob-browser");
+    expect(view.getByTestId("route-storage-key").textContent).toBe(
+      "front-storage-key",
+    );
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Blob Back" }));
+  await waitFor(() => {
+    expect(window.location.pathname).toBe("/app/explorer/blobs");
+    expect(view.getByTestId("route-storage-key").textContent).toBe("");
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Blob Back" }));
+  await waitFor(() => {
+    expect(window.location.pathname).toBe("/app/explorer");
+    expect(view.getByTestId("route-view").textContent).toBe("selection");
+  });
+});
+
+test("an abandoned blob visit cannot leak its origin into a later deep link", async () => {
+  const view = renderExplorerRouteSelectionHarness("routed");
+
+  fireEvent.click(view.getByRole("button", { name: "You" }));
+  await waitFor(() => {
+    expect(view.getByTestId("route-view").textContent).toBe(
+      "document-selection",
+    );
+  });
+  fireEvent.click(view.getByRole("button", { name: "Open Front Blob" }));
+  await waitFor(() => {
+    expect(view.getByTestId("route-view").textContent).toBe("blob-browser");
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Contacts" }));
+  await waitFor(() => {
+    expect(view.getByTestId("route-view").textContent).toBe("selection");
+    expect(view.getByTestId("selected-id").textContent).toBe(
+      "contacts-container",
+    );
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "External Blob Route" }));
+  await waitFor(() => {
+    expect(view.getByTestId("route-storage-key").textContent).toBe(
+      "external-storage-key",
+    );
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Blob Back" }));
+  await waitFor(() => {
+    expect(view.getByTestId("route-view").textContent).toBe("blob-browser");
+    expect(view.getByTestId("route-storage-key").textContent).toBe("");
+  });
 });

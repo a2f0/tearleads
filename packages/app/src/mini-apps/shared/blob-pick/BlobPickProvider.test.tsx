@@ -2,6 +2,10 @@ import { afterEach, expect, test } from "bun:test";
 import type { BlobInfo, BlobInfoList } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { useState } from "react";
+import {
+  type DocumentBlobOpenRequest,
+  useDocumentBlobOpen,
+} from "../../../document-types/shared/DocumentBlobOpenContext";
 import { useDocumentBlobPick } from "../../../document-types/shared/DocumentBlobPickContext";
 import type { DocumentAttachmentSlot } from "../../../document-types/shared/documentAttachmentUtils";
 import { BlobPickProvider, useBlobPick } from "./BlobPickProvider";
@@ -22,6 +26,24 @@ const PICKED_BLOB = {
 function makeLoadBlobInfo(totalCount: number) {
   return () =>
     Promise.resolve({ rows: [], totalCount } as unknown as BlobInfoList);
+}
+
+const OPEN_BLOB_REQUEST = {
+  storageKey: "front-storage-key",
+} satisfies DocumentBlobOpenRequest;
+
+function OpenBlobProbe() {
+  const blobOpen = useDocumentBlobOpen();
+
+  if (!blobOpen) {
+    return null;
+  }
+
+  return (
+    <button type="button" onClick={() => blobOpen.openBlob(OPEN_BLOB_REQUEST)}>
+      open blob
+    </button>
+  );
 }
 
 // Drives both seams the Notes wiring relies on: the document-facing seam
@@ -130,4 +152,21 @@ test("loadPickableBlobCount surfaces the identity-local blob total", async () =>
   await waitFor(() => {
     expect(screen.getByTestId("count").textContent).toBe("7");
   });
+});
+
+test("openBlob forwards the storage-key request to the blob-browser route", () => {
+  const openRequests: Array<DocumentBlobOpenRequest | undefined> = [];
+  const screen = render(
+    <BlobPickProvider
+      loadBlobInfo={makeLoadBlobInfo(0)}
+      openBlobBrowserRoute={(request) => openRequests.push(request)}
+    >
+      <OpenBlobProbe />
+    </BlobPickProvider>,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "open blob" }));
+
+  expect(openRequests).toEqual([OPEN_BLOB_REQUEST]);
+  expect(openRequests[0]).toBe(OPEN_BLOB_REQUEST);
 });

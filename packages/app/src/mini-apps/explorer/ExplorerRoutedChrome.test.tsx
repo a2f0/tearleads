@@ -5,6 +5,7 @@ import {
   useWindowTitleBarActions,
   WindowMenuProvider,
 } from "../../components/window/WindowMenuContext";
+import type { AppNavigationMode } from "../../navigation/AppNavigationMode";
 import { useExplorerRoutedChromeActions } from "./ExplorerRoutedChrome";
 import type { useExplorerModel } from "./hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "./labels";
@@ -50,6 +51,7 @@ function createExplorerModel(
     },
     openInlineDocument: () => undefined,
     routeState: {
+      navigateBackFromBlobBrowser: () => undefined,
       openContainerInfoRoute: () => undefined,
       openDocumentInfoRoute: () => undefined,
       openSyncLanesRoute: () => undefined,
@@ -87,16 +89,22 @@ const noopOpenStructuredDocumentGrid = () => undefined;
 const noopTriggerUpload = () => undefined;
 
 function ExplorerRoutedChromeHarness({
+  historyCanGoBack = false,
   model,
+  navigationMode = "windowed",
   openStructuredDocumentGrid = noopOpenStructuredDocumentGrid,
   triggerUpload = noopTriggerUpload,
 }: {
+  historyCanGoBack?: boolean;
   model: ExplorerModel;
+  navigationMode?: AppNavigationMode;
   openStructuredDocumentGrid?: () => void;
   triggerUpload?: (containerId: string) => void;
 }) {
   useExplorerRoutedChromeActions({
+    historyCanGoBack,
     model,
+    navigationMode,
     openStructuredDocumentGrid,
     triggerUpload,
   });

@@ -7,8 +7,9 @@ import type {
   ContainerNode,
   DomainScope,
 } from "@tearleads/client-sdk";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { MiniAppPanel } from "../../../../components/shared/MiniAppLayout";
+import { useMiniAppDetailBackAction } from "../../../../components/window/useMiniAppDetailBackAction";
 import type { BlobPickTarget } from "../../../shared/blob-pick/BlobPickProvider";
 import {
   BlobListScreen,
@@ -20,6 +21,7 @@ import {
   useBlobBrowserData,
 } from "../../../shared/blob-pick/blob-list/blobListState";
 import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
+import { EXPLORER_LABELS } from "../../labels";
 import {
   BlobBrowserHeader,
   BlobBrowserRowContextMenu,
@@ -47,20 +49,15 @@ function renderExplorerSyncCell(
 interface ExplorerBlobBrowserPanelProps {
   blobStore: BlobStore;
   domainScope: DomainScope;
-  // When embedded in the compact tabbed hub the tab bar owns top-level
-  // navigation, so the list-mode "Back to Explorer" header button is hidden
-  // (the blob-detail "Back to List" stays — it navigates within this panel).
-  embedded?: boolean;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   nodes: ReadonlyArray<ContainerNode>;
-  onBackToSelectionRoute: () => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   online: boolean;
   organizationNamesById?: ReadonlyMap<string, string> | undefined;
   // When set, the panel runs in pick mode: rows resolve the pick (instead of
   // opening blob detail) and the list is filtered to image blobs.
   pickTarget?: BlobPickTarget | null | undefined;
-  onCancelBlobPick?: (() => void) | undefined;
+  onCancelBlobPick: () => void;
   onPickBlob?: ((blob: BlobInfo) => void) | undefined;
   route: BlobBrowserRoute;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
@@ -72,8 +69,6 @@ function BlobBrowserBrowseScreen(params: {
   blobStore: BlobStore;
   containerNamesById: ReadonlyMap<string, string>;
   data: BlobBrowserData;
-  embedded: boolean;
-  onBackToSelectionRoute: () => void;
   online: boolean;
   organizationNamesById?: ReadonlyMap<string, string> | undefined;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
@@ -92,16 +87,27 @@ function BlobBrowserBrowseScreen(params: {
     selectedBlob: data.selectedBlob,
   });
   const isDetailScreen = data.selectedBlob !== null;
+  const backAction = useMemo(
+    () =>
+      data.isListDetail
+        ? {
+            label: EXPLORER_LABELS.blobBrowserBackAction,
+            onBack: data.handleBackToList,
+            // In windowed mode the route-level blob action remains registered
+            // underneath this local drill-in action. Prefer this one first;
+            // once it returns to the list, the route action returns to the
+            // surface that originally opened the Blob Browser.
+            priority: 200,
+          }
+        : null,
+    [data.handleBackToList, data.isListDetail],
+  );
+
+  useMiniAppDetailBackAction(backAction);
 
   return (
     <>
-      <BlobBrowserHeader
-        embedded={params.embedded}
-        onBack={
-          isDetailScreen ? data.handleBackToList : params.onBackToSelectionRoute
-        }
-        selectedBlob={data.selectedBlob}
-      />
+      <BlobBrowserHeader selectedBlob={data.selectedBlob} />
       {isDetailScreen ? (
         <div className="explorer-blob-browser-screen">
           <BlobDetail
@@ -158,10 +164,22 @@ export function ExplorerBlobBrowserPanel(
     [params.nodes],
   );
   const pickBlob = params.onPickBlob;
-  const onCancel = useCallback(
-    () => (params.onCancelBlobPick ?? params.onBackToSelectionRoute)(),
-    [params.onCancelBlobPick, params.onBackToSelectionRoute],
+  const onCancel = params.onCancelBlobPick;
+  const pickBackAction = useMemo(
+    () =>
+      params.pickTarget && pickBlob
+        ? {
+            label: EXPLORER_LABELS.blobBrowserBackAction,
+            onBack: onCancel,
+            // Pick state is internal rather than history-backed. Its Back must
+            // cancel and clear that state before the route-level action runs.
+            priority: 200,
+          }
+        : null,
+    [onCancel, params.pickTarget, pickBlob],
   );
+
+  useMiniAppDetailBackAction(pickBackAction);
 
   return (
     <MiniAppPanel
@@ -184,8 +202,6 @@ export function ExplorerBlobBrowserPanel(
           blobStore={params.blobStore}
           containerNamesById={containerNamesById}
           data={data}
-          embedded={params.embedded ?? false}
-          onBackToSelectionRoute={params.onBackToSelectionRoute}
           online={params.online}
           openDocumentInfoRoute={params.openDocumentInfoRoute}
           organizationNamesById={params.organizationNamesById}

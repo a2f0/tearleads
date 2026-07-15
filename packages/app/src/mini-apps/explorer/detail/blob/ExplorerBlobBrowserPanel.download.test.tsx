@@ -86,7 +86,7 @@ function renderBlobBrowserPanel(input: {
       })}
       nodes={[]}
       online={true}
-      onBackToSelectionRoute={() => undefined}
+      onCancelBlobPick={() => undefined}
       openDocumentInfoRoute={() => undefined}
       route={input.route}
       selectDocumentProjection={() => undefined}
@@ -222,7 +222,7 @@ test("right-click opens the menu without bubbling to the pane menu", async () =>
         loadBlobInfo={async () => ({ rows, totalCount: rows.length })}
         nodes={[]}
         online={true}
-        onBackToSelectionRoute={() => undefined}
+        onCancelBlobPick={() => undefined}
         openDocumentInfoRoute={() => undefined}
         route={{ blobId: null, storageKey: null }}
         selectDocumentProjection={() => undefined}
@@ -385,7 +385,6 @@ test("pick mode does not offer a row download context menu", async () => {
       loadBlobInfo={async () => ({ rows, totalCount: rows.length })}
       nodes={[]}
       online={true}
-      onBackToSelectionRoute={() => undefined}
       onCancelBlobPick={() => undefined}
       onPickBlob={() => undefined}
       openDocumentInfoRoute={() => undefined}

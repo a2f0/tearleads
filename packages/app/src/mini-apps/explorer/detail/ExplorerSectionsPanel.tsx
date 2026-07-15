@@ -164,13 +164,11 @@ export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
       >
         {route.view === "blob-browser" ? (
           <ExplorerBlobBrowserPanel
-            embedded
             blobStore={params.blobStore}
             domainScope={params.domainScope}
             loadBlobInfo={params.loadBlobInfo}
             nodes={params.nodes}
             online={params.online}
-            onBackToSelectionRoute={openSyncLanesRoute}
             onCancelBlobPick={params.onCancelBlobPick}
             onPickBlob={params.onPickBlob}
             openDocumentInfoRoute={params.openDocumentInfoRoute}

@@ -78,7 +78,7 @@ function createBlobReference(
   };
 }
 
-test("blob browser navigates between the list and detail screens", async () => {
+test("blob browser opens list rows in the detail screen", async () => {
   const rows = createBlobRows(3);
   const loadBlobInfo = async (
     input: BlobInfoInput = {},
@@ -97,7 +97,7 @@ test("blob browser navigates between the list and detail screens", async () => {
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
       online={true}
-      onBackToSelectionRoute={() => undefined}
+      onCancelBlobPick={() => undefined}
       openDocumentInfoRoute={() => undefined}
       route={{ blobId: null, storageKey: null }}
       selectDocumentProjection={() => undefined}
@@ -130,16 +130,6 @@ test("blob browser navigates between the list and detail screens", async () => {
   expect(
     view.container.querySelector(".explorer-blob-browser-table-wrap"),
   ).toBeNull();
-
-  // The back button returns to the list screen.
-  fireEvent.click(view.getByRole("button", { name: "Back to List" }));
-
-  await waitFor(() => {
-    expect(
-      view.container.querySelector(".explorer-blob-browser-table-wrap"),
-    ).toBeTruthy();
-  });
-  expect(view.queryByText("Blob Metadata")).toBeNull();
 });
 
 test("blob browser document links open documents and expose get info from the row context menu", async () => {
@@ -177,7 +167,7 @@ test("blob browser document links open documents and expose get info from the ro
         },
       ]}
       online={true}
-      onBackToSelectionRoute={() => undefined}
+      onCancelBlobPick={() => undefined}
       openDocumentInfoRoute={(localId, containerId) => {
         openedInfoRoutes.push([localId, containerId]);
       }}
@@ -218,48 +208,6 @@ test("blob browser document links open documents and expose get info from the ro
   expect(openedInfoRoutes).toEqual([["local-document-1", "container-1"]]);
 });
 
-test("blob browser returns to the list from a deep-linked detail screen", async () => {
-  const rows = createBlobRows(3);
-  const loadBlobInfo = async (
-    input: BlobInfoInput = {},
-  ): Promise<{ rows: BlobInfo[]; totalCount: number }> => {
-    const limit = input.limit ?? 24;
-    const offset = input.offset ?? 0;
-    return {
-      rows: rows.slice(offset, offset + limit),
-      totalCount: rows.length,
-    };
-  };
-  // Deep-link straight to a blob's detail screen via the route.
-  const view = render(
-    <ExplorerBlobBrowserPanel
-      blobStore={createBlobStore()}
-      domainScope={createDomainScope()}
-      loadBlobInfo={loadBlobInfo}
-      nodes={[]}
-      online={true}
-      onBackToSelectionRoute={() => undefined}
-      openDocumentInfoRoute={() => undefined}
-      route={{ blobId: "blob-2", storageKey: null }}
-      selectDocumentProjection={() => undefined}
-    />,
-  );
-
-  await waitFor(() => {
-    expect(view.getByText("Blob Metadata")).toBeTruthy();
-  });
-
-  // Back to List must escape the deep-linked detail, not stay stuck on it.
-  fireEvent.click(view.getByRole("button", { name: "Back to List" }));
-
-  await waitFor(() => {
-    expect(
-      view.container.querySelector(".explorer-blob-browser-table-wrap"),
-    ).toBeTruthy();
-  });
-  expect(view.queryByText("Blob Metadata")).toBeNull();
-});
-
 test("blob browser requests a new blob window when the table scrolls", async () => {
   resizeObserverGlobal.ResizeObserver = undefined;
   const rows = createBlobRows(80);
@@ -282,7 +230,7 @@ test("blob browser requests a new blob window when the table scrolls", async () 
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
       online={true}
-      onBackToSelectionRoute={() => undefined}
+      onCancelBlobPick={() => undefined}
       openDocumentInfoRoute={() => undefined}
       route={{ blobId: null, storageKey: null }}
       selectDocumentProjection={() => undefined}
@@ -352,7 +300,7 @@ test("blob browser keeps current rows visible while the next scroll window loads
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
       online={true}
-      onBackToSelectionRoute={() => undefined}
+      onCancelBlobPick={() => undefined}
       openDocumentInfoRoute={() => undefined}
       route={{ blobId: null, storageKey: null }}
       selectDocumentProjection={() => undefined}
@@ -418,7 +366,7 @@ test("blob browser resets the blob window when sorting changes", async () => {
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
       online={true}
-      onBackToSelectionRoute={() => undefined}
+      onCancelBlobPick={() => undefined}
       openDocumentInfoRoute={() => undefined}
       route={{ blobId: null, storageKey: null }}
       selectDocumentProjection={() => undefined}
@@ -484,7 +432,7 @@ test("blob browser renders row sync badges in the rightmost column", async () =>
       loadBlobInfo={async () => ({ rows, totalCount: rows.length })}
       nodes={[]}
       online={true}
-      onBackToSelectionRoute={() => undefined}
+      onCancelBlobPick={() => undefined}
       openDocumentInfoRoute={() => undefined}
       route={{ blobId: null, storageKey: null }}
       selectDocumentProjection={() => undefined}

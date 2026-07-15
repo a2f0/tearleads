@@ -8,6 +8,7 @@ import { UploadSimpleIcon } from "@phosphor-icons/react/dist/csr/UploadSimple";
 import { useMemo } from "react";
 import { useMiniAppDetailBackAction } from "../../components/window/useMiniAppDetailBackAction";
 import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
+import type { AppNavigationMode } from "../../navigation/AppNavigationMode";
 import { useExplorerHubToolbarActions } from "./ExplorerHubToolbarActions";
 import type { useExplorerModel } from "./hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "./labels";
@@ -15,11 +16,15 @@ import { EXPLORER_LABELS } from "./labels";
 type ExplorerModel = ReturnType<typeof useExplorerModel>;
 
 export function useExplorerRoutedChromeActions({
+  historyCanGoBack,
   model,
+  navigationMode,
   openStructuredDocumentGrid,
   triggerUpload,
 }: {
+  historyCanGoBack: boolean;
   model: ExplorerModel;
+  navigationMode: AppNavigationMode;
   openStructuredDocumentGrid: () => void;
   triggerUpload: (containerId: string) => void;
 }) {
@@ -53,7 +58,9 @@ export function useExplorerRoutedChromeActions({
     route.view !== "document-info";
 
   useExplorerRoutedBackAction({
+    historyCanGoBack,
     model,
+    navigationMode,
     route,
   });
   useExplorerHubToolbarActions({ model, route });
@@ -140,10 +147,14 @@ function useExplorerNewContactToolbarAction({
 }
 
 function useExplorerRoutedBackAction({
+  historyCanGoBack,
   model,
+  navigationMode,
   route,
 }: {
+  historyCanGoBack: boolean;
   model: ExplorerModel;
+  navigationMode: AppNavigationMode;
   route: ExplorerModel["routeState"]["route"];
 }) {
   const backAction = useMemo(() => {
@@ -170,14 +181,32 @@ function useExplorerRoutedBackAction({
       };
     }
 
-    // Sub-routes (blob-browser, container-info, new-structured-document) and open
-    // documents no longer surface a "Back to Container" action; selecting a
-    // container in the sidebar returns to it.
+    // Routed mobile/tablet chrome owns a real app-history Back action whenever
+    // an origin exists; leaving that unoverridden returns an attachment-opened
+    // blob to its source document and keeps Forward intact. Windowed routes and
+    // initial routed deep links have no history entry, so use the origin/fallback
+    // navigation maintained by useExplorerRoute instead.
+    if (
+      route.view === "blob-browser" &&
+      (navigationMode === "windowed" || !historyCanGoBack)
+    ) {
+      return {
+        label: EXPLORER_LABELS.blobBrowserBackAction,
+        onBack: model.routeState.navigateBackFromBlobBrowser,
+      };
+    }
+
+    // Container-info, new-structured-document, and open documents no longer
+    // surface a "Back to Container" action; selecting a container in the
+    // sidebar returns to it.
     return null;
   }, [
+    historyCanGoBack,
+    model.routeState.navigateBackFromBlobBrowser,
     model.routeState.openSyncLanesRoute,
     model.routeState.showSelectionRoute,
     model.selectDocumentProjection,
+    navigationMode,
     route,
   ]);
 

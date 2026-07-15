@@ -2,6 +2,10 @@ import { afterEach, expect, test } from "bun:test";
 import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
 import { createDomainScope } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  useWindowBackActionValue,
+  WindowMenuProvider,
+} from "../../../../components/window/WindowMenuContext";
 import type { BlobPickTarget } from "../../../shared/blob-pick/BlobPickProvider";
 import { ExplorerBlobBrowserPanel } from "./ExplorerBlobBrowserPanel";
 
@@ -43,26 +47,39 @@ const PICK_TARGET: BlobPickTarget = {
   slotLabel: "Front Image",
 };
 
+function BackActionProbe() {
+  const backAction = useWindowBackActionValue();
+  return backAction ? (
+    <button
+      aria-label={backAction.label}
+      type="button"
+      onClick={backAction.onClick}
+    />
+  ) : null;
+}
+
 function renderPickPanel(overrides: {
   onCancelBlobPick?: () => void;
   onPickBlob?: (blob: BlobInfo) => void;
 }) {
   const rows = createBlobRows();
   return render(
-    <ExplorerBlobBrowserPanel
-      blobStore={createBlobStore()}
-      domainScope={createDomainScope()}
-      loadBlobInfo={async () => ({ rows, totalCount: rows.length })}
-      nodes={[]}
-      online={true}
-      onBackToSelectionRoute={() => undefined}
-      onCancelBlobPick={overrides.onCancelBlobPick ?? (() => undefined)}
-      onPickBlob={overrides.onPickBlob ?? (() => undefined)}
-      openDocumentInfoRoute={() => undefined}
-      pickTarget={PICK_TARGET}
-      route={{ blobId: null, storageKey: null }}
-      selectDocumentProjection={() => undefined}
-    />,
+    <WindowMenuProvider>
+      <ExplorerBlobBrowserPanel
+        blobStore={createBlobStore()}
+        domainScope={createDomainScope()}
+        loadBlobInfo={async () => ({ rows, totalCount: rows.length })}
+        nodes={[]}
+        online={true}
+        onCancelBlobPick={overrides.onCancelBlobPick ?? (() => undefined)}
+        onPickBlob={overrides.onPickBlob ?? (() => undefined)}
+        openDocumentInfoRoute={() => undefined}
+        pickTarget={PICK_TARGET}
+        route={{ blobId: null, storageKey: null }}
+        selectDocumentProjection={() => undefined}
+      />
+      <BackActionProbe />
+    </WindowMenuProvider>,
   );
 }
 
@@ -113,5 +130,17 @@ test("pick mode cancel abandons the pick", async () => {
   });
 
   fireEvent.click(await view.findByRole("button", { name: "Cancel" }));
+  expect(cancelled).toBe(1);
+});
+
+test("pick mode toolbar Back abandons the pick", async () => {
+  let cancelled = 0;
+  const view = renderPickPanel({
+    onCancelBlobPick: () => {
+      cancelled += 1;
+    },
+  });
+
+  fireEvent.click(await view.findByRole("button", { name: "Back" }));
   expect(cancelled).toBe(1);
 });

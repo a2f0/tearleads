@@ -3,7 +3,6 @@ import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
 import { Menu, type MenuPosition } from "../../../../components/shared/Menu";
 import { MenuItem } from "../../../../components/shared/MenuItem";
 import {
-  MiniAppActions,
   MiniAppButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
@@ -214,17 +213,8 @@ export function BlobDetail(params: {
   );
 }
 
-export function BlobBrowserHeader(params: {
-  embedded?: boolean;
-  onBack: () => void;
-  selectedBlob: BlobInfo | null;
-}) {
-  const { embedded = false, onBack, selectedBlob } = params;
-  // In the compact tabbed hub the tab bar handles leaving the browser, so the
-  // list-mode "Back to Explorer" button is dropped; blob-detail keeps its
-  // in-panel "Back to List".
-  const showBack = selectedBlob !== null || !embedded;
-
+export function BlobBrowserHeader(params: { selectedBlob: BlobInfo | null }) {
+  const { selectedBlob } = params;
   return (
     <MiniAppHeader>
       <MiniAppHeaderCopy>
@@ -235,15 +225,6 @@ export function BlobBrowserHeader(params: {
             : EXPLORER_LABELS.blobBrowserNoSelection}
         </span>
       </MiniAppHeaderCopy>
-      {showBack ? (
-        <MiniAppActions>
-          <MiniAppButton onClick={onBack}>
-            {selectedBlob
-              ? EXPLORER_LABELS.blobBrowserBackToListAction
-              : EXPLORER_LABELS.blobBrowserBackAction}
-          </MiniAppButton>
-        </MiniAppActions>
-      ) : null}
     </MiniAppHeader>
   );
 }
