@@ -12,9 +12,11 @@ import type { AccessManifestBundleWireResponse } from "@tearleads/validators/res
 import {
   createContainerRevokeManifestFixture,
   createParentProjection,
+  createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { unwrapContainerKekPath } from "../../documents/shared/containerKekPath";
+import { verifyContainerWriterProjection } from "../../keyingProjectionVerification";
 import { enforceAccessManifestCheckpoints } from "../../keyingProjectionVerification/accessManifestCheckpointEnforcement";
 import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpointPersistence";
 
@@ -183,4 +185,30 @@ test("explicit local projection trust does not require durable storage", async (
       trustedLocalProjection: true,
     }),
   ).resolves.toBeInstanceOf(Map);
+});
+
+test("remote projection verification requires durable storage", async () => {
+  const parent = await createParentProjection();
+  const missingCheckpointStorage = {
+    projection: parent.projection,
+    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+    secretKey: parent.secretKey,
+  } as unknown as Parameters<typeof unwrapContainerKekPath>[0];
+
+  await expect(
+    unwrapContainerKekPath(missingCheckpointStorage),
+  ).rejects.toMatchObject({ code: "missing_dependency" });
+});
+
+test("the low-level remote verifier rejects the local trust escape hatch", async () => {
+  const parent = await createParentProjection();
+  const bypassAttempt = {
+    projection: parent.projection,
+    resolveUserKey: createParentProjectionUserKeyResolver(parent),
+    trustedLocalProjection: true,
+  } as unknown as Parameters<typeof verifyContainerWriterProjection>[0];
+
+  await expect(
+    verifyContainerWriterProjection(bypassAttempt),
+  ).rejects.toMatchObject({ code: "missing_dependency" });
 });
