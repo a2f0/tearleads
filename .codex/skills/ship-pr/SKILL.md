@@ -27,6 +27,9 @@ raised blocking issues, and it merges only the exact commit that was reviewed.
 - Second argument (optional): the review agent to pass to `cross-agent-review`
   (`claude` or `codex`). When omitted, that skill picks its own default — the
   *other* agent from whichever one is running this flow.
+- `--passes <n>` (optional flag, position-independent): forwarded verbatim to
+  `cross-agent-review`. **Defaults to `1`** — a single review pass. This flow
+  never re-reviews on its own (see the no-auto-loop note below).
 - `--merge-anyway` (optional flag, position-independent): override the review
   gate. By default the flow stops when the review raises blocking findings or
   cannot run at all (step 2); with this flag it surfaces exactly what it is
@@ -83,8 +86,9 @@ subject-only squash with its `(#<pr>)` reference, and the `MERGED`-state check).
 
    (If local and remote heads differ, push first so the reviewed commit is the
    one that would merge.) Then invoke the `cross-agent-review` skill, passing the
-   review-agent argument when given. Relay its findings, including which agent ran
-   and whether it fell back.
+   review-agent argument and `--passes <n>` when given — it runs a **single pass**
+   by default. Relay its findings, including which agent ran and whether it fell
+   back.
 
    After the review returns, confirm the branch did not move while it ran:
 
@@ -113,6 +117,13 @@ subject-only squash with its `(#<pr>)` reference, and the `MERGED`-state check).
    When `--merge-anyway` is set and the gate would otherwise stop, surface the
    blocking or unavailable findings, state plainly that the gate is being
    overridden, and proceed to step 3.
+
+   **No auto-loop.** With the default single pass, this flow does not fix and
+   re-review on its own. When the gate stops it, report the findings and hand
+   back. Fixing them moves the head, which makes the completed review stale, and
+   spending another review pass on the new head is the caller's call — re-running
+   `ship-pr` afterwards is a deliberate fresh run. Chaining fix → re-review
+   automatically runs away, chasing ever-narrower findings and never converging.
 
 3. **Squash-merge (bound to the reviewed head)** — invoke the `squash-merge`
    skill, passing `REVIEWED_SHA` as its **second (head-SHA) argument** so the
@@ -147,6 +158,9 @@ subject-only squash with its `(#<pr>)` reference, and the `MERGED`-state check).
 - **The review gates the merge** — this flow never silently merges over a review
   that found blocking issues, across either severity vocabulary (Blocker/Major or
   [P0]/[P1]).
+- **One review pass, no auto-loop** — the flow reviews once (pass `--passes <n>`
+  to opt into more), gates, and stops. It never chains fix → re-review → fix on
+  its own; each additional review is a deliberate re-run.
 - **The merged head is the reviewed head** — `REVIEWED_SHA` is snapshotted
   *before* the review, verified unchanged *after* it, and passed to
   `squash-merge`, which binds the merge with `--match-head-commit`. GitHub then
