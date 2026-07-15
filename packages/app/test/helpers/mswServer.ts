@@ -17,6 +17,7 @@ import { sql } from "drizzle-orm";
 import { HttpResponse, http, ws } from "msw";
 import { setupServer } from "msw/node";
 import { createMswEventRouter, type MswSocketClient } from "./mswEventRouter";
+import { recordUnhandledRequest } from "./unhandledRequests";
 
 export const wsUrl = "ws://localhost:3002";
 
@@ -259,6 +260,17 @@ const server = setupServer(
   http.post("http://localhost:3001/documents", () => {
     return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
   }),
+  // Background sync fires from any test that establishes an identity, including
+  // the ones that never opt into useTestApiAppHandlers. A success response is not
+  // constructible here: isDocumentSyncResponse demands a per-document
+  // contentKeyBundle and documentKekTargets that a static handler cannot forge,
+  // and a shape-valid fake would still fail write-header signature verification.
+  // 401 is the one failure the SDK handles cleanly — it is not refreshable (so no
+  // session-refresh replay), and unlike 402/404 it triggers no onPaymentRequired
+  // or onRemoteDocumentDeleted side effect. The lane reports and stops.
+  http.post("http://localhost:3001/documents/:documentId/sync", () => {
+    return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }),
   http.get(
     "http://localhost:3001/documents/:documentId/writer-projection",
     () => {
@@ -275,7 +287,20 @@ const server = setupServer(
   ),
 );
 
-server.listen({ onUnhandledRequest: "error" });
+server.listen({
+  onUnhandledRequest: (request, print) => {
+    recordUnhandledRequest(
+      `${request.method} ${new URL(request.url).pathname.replace(/\/[0-9a-f-]{36}(?=\/|$)/giu, "/:id")}`,
+    );
+    // print.error() is the "error" strategy's body: log, then throw so the
+    // request rejects. happydom.ts asserts on what was recorded at the end of
+    // the run. Note a callback is stricter than the "error" string, which
+    // exempts asset-shaped URLs (.json, .css, fonts) and lets them escape to the
+    // real network — an exemption for browser dev-server noise that this
+    // bun/happy-dom suite has no use for.
+    print.error();
+  },
+});
 
 interface ClosableConnection {
   close: (code?: number, reason?: string) => void;
