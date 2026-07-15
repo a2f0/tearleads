@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { reviewOutputProblem } from "./reviewOutput";
+import { REVIEW_VERDICTS, reviewOutputProblem } from "./reviewOutput";
 
 describe("reviewOutputProblem", () => {
   test("accepts a review that signs off with a verdict", () => {
@@ -23,6 +23,29 @@ describe("reviewOutputProblem", () => {
 
   test("tolerates surrounding whitespace and indentation", () => {
     expect(reviewOutputProblem("  VERDICT: MINOR  \n")).toBeNull();
+  });
+
+  test("accepts every severity the prompt asks the reviewer to use", () => {
+    // A review is told to name the highest severity it found. Any severity it
+    // can find, it must be able to sign off with — otherwise a review whose
+    // worst finding is that severity gets discarded for reporting it honestly.
+    for (const verdict of REVIEW_VERDICTS) {
+      expect(
+        reviewOutputProblem(`## Review\n\nVERDICT: ${verdict}`),
+      ).toBeNull();
+    }
+  });
+
+  test("lets a suggestion-only review sign off without inflating or denying it", () => {
+    const output = [
+      "## Review",
+      "",
+      "- **Suggestion** `src/a.ts:1` — consider a clearer name.",
+      "",
+      "VERDICT: SUGGESTION",
+    ].join("\n");
+
+    expect(reviewOutputProblem(output)).toBeNull();
   });
 
   test("rejects a bare intent sentence", () => {

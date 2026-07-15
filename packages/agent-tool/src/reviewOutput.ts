@@ -1,9 +1,18 @@
 /**
- * Severities a reviewer can sign off with. `CLEAN` is the "nothing to change"
- * verdict, so a review with no findings still has to say so explicitly rather
- * than trailing off into silence.
+ * Severities a reviewer can sign off with. These mirror the severity levels the
+ * prompt asks for, because the reviewer is told to name the highest severity it
+ * found: leave one out and a review whose worst finding is that severity has no
+ * honest verdict to give, and gets discarded for saying so. `CLEAN` is the extra
+ * one — the "nothing to change" verdict, so a review with no findings still has
+ * to say so explicitly rather than trailing off into silence.
  */
-export const REVIEW_VERDICTS = ["BLOCKER", "MAJOR", "MINOR", "CLEAN"] as const;
+export const REVIEW_VERDICTS = [
+  "BLOCKER",
+  "MAJOR",
+  "MINOR",
+  "SUGGESTION",
+  "CLEAN",
+] as const;
 
 /**
  * A reviewer CLI can announce its intent ("I'll review this PR diff...") and then
@@ -18,6 +27,12 @@ export const REVIEW_VERDICTS = ["BLOCKER", "MAJOR", "MINOR", "CLEAN"] as const;
  * that got *stopped*, and anything that cuts generation short takes a trailing
  * sentinel with it. Strictness is load-bearing: loosen the match and
  * "I'll review this and end with VERDICT: CLEAN" starts passing.
+ *
+ * The verdict is looked for anywhere, not pinned to the last line, which does
+ * admit a review that signs off and is then cut off mid-sentence. That is the
+ * cheaper error to make: such a review had already reached its conclusion, while
+ * pinning would discard a real one that adds a trailing aside after signing off
+ * — and a discarded review costs a fresh multi-minute run.
  */
 const VERDICT_PATTERN = new RegExp(
   `^\\s*VERDICT:\\s*(${REVIEW_VERDICTS.join("|")})\\s*$`,
