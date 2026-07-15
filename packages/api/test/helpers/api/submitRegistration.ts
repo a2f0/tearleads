@@ -32,6 +32,23 @@ async function createInitialOrganizationPolicy(input: {
   const payloadCiphertext = bytesToBase64(
     new TextEncoder().encode(JSON.stringify({ members: projection })),
   );
+  const [memberEnvelope] = await wrapDekForRecipients(
+    organizationKem.secretKey,
+    [input.encapsulationPublicKey],
+  );
+
+  if (!memberEnvelope) {
+    throw new Error("Failed to wrap organization key for test user");
+  }
+  const memberEnvelopes = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: input.userId,
+      memberKeyFingerprint: await toFingerprint(input.encapsulationPublicKey),
+      kemCipherText: bytesToBase64(memberEnvelope.kemCipherText),
+      wrappedKey: bytesToBase64(memberEnvelope.wrappedKey),
+    },
+  ];
   const state = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       principalType: "organization",
@@ -42,6 +59,7 @@ async function createInitialOrganizationPolicy(input: {
       encapsulationPublicKey: bytesToBase64(organizationKem.publicKey),
       keyFingerprint: await toFingerprint(organizationKem.publicKey),
       members: [{ principalType: "user", principalId: input.userId }],
+      memberEnvelopes,
       projection,
       payloadCiphertext,
       signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
@@ -50,14 +68,6 @@ async function createInitialOrganizationPolicy(input: {
     }),
     input.signingPrivateKey,
   );
-  const [memberEnvelope] = await wrapDekForRecipients(
-    organizationKem.secretKey,
-    [input.encapsulationPublicKey],
-  );
-
-  if (!memberEnvelope) {
-    throw new Error("Failed to wrap organization key for test user");
-  }
 
   return {
     state,
@@ -67,15 +77,7 @@ async function createInitialOrganizationPolicy(input: {
       ciphertextHash: state.payloadCiphertextHash,
     },
     projection,
-    memberEnvelopes: [
-      {
-        memberPrincipalType: "user",
-        memberPrincipalId: input.userId,
-        memberKeyFingerprint: await toFingerprint(input.encapsulationPublicKey),
-        kemCipherText: bytesToBase64(memberEnvelope.kemCipherText),
-        wrappedKey: bytesToBase64(memberEnvelope.wrappedKey),
-      },
-    ],
+    memberEnvelopes,
   };
 }
 

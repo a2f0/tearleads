@@ -100,6 +100,15 @@ export async function createRegistrationRequest(
   if (!organizationMemberEnvelope) {
     throw new Error("Failed to wrap organization key for test user");
   }
+  const organizationMemberEnvelopes = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: userId,
+      memberKeyFingerprint: await toFingerprint(user.kem.publicKey),
+      kemCipherText: bytesToBase64(organizationMemberEnvelope.kemCipherText),
+      wrappedKey: bytesToBase64(organizationMemberEnvelope.wrappedKey),
+    },
+  ];
   const initialAdminGroup = await createInitialAdminGroupRequest({
     encapsulationPublicKey: user.kem.publicKey,
     signingPrivateKey: user.signing.signingPrivateKey,
@@ -142,6 +151,7 @@ export async function createRegistrationRequest(
           encapsulationPublicKey: bytesToBase64(organizationKem.publicKey),
           keyFingerprint: await toFingerprint(organizationKem.publicKey),
           members: [{ principalType: "user", principalId: userId }],
+          memberEnvelopes: organizationMemberEnvelopes,
           projection: initialOrganizationProjection,
           payloadCiphertext: organizationPayloadCiphertext,
           signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
@@ -160,17 +170,7 @@ export async function createRegistrationRequest(
         ),
       },
       projection: initialOrganizationProjection,
-      memberEnvelopes: [
-        {
-          memberPrincipalType: "user",
-          memberPrincipalId: userId,
-          memberKeyFingerprint: await toFingerprint(user.kem.publicKey),
-          kemCipherText: bytesToBase64(
-            organizationMemberEnvelope.kemCipherText,
-          ),
-          wrappedKey: bytesToBase64(organizationMemberEnvelope.wrappedKey),
-        },
-      ],
+      memberEnvelopes: organizationMemberEnvelopes,
     },
     initialRootContainer: rootBootstrap.initialRootContainer,
     initialRootMetadataDocument: rootBootstrap.initialRootMetadataDocument,

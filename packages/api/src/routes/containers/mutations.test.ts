@@ -26,7 +26,6 @@ import type {
   ContainerUserRecipientKey,
   DocumentLinkAccessEventBody,
   DocumentLinkSetManifestState,
-  KekRecipientKind,
   KeyingCanonicalJson,
   PrincipalProjectionMember,
   PrincipalStateMember,
@@ -62,15 +61,20 @@ import {
   isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
   isContainerMutationResponse,
-  isPrincipalStateResponse,
+  isPrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
+  createContainerKeyEpoch,
+  createContainerKeyWrap,
+} from "../../../test/helpers/containerKeying";
+import {
   setTestOrganizationBillingExpiredTrial,
   setTestOrganizationBillingLocal,
 } from "../../../test/helpers/organizationBilling";
+import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import {
   createProjectionWithAdminSigner,
@@ -247,46 +251,6 @@ async function createManifestBundle(
   };
 }
 
-function createContainerKeyEpoch(input: {
-  readonly containerKeyEpochId: string;
-  readonly keyEpoch: number;
-  readonly manifest: AccessManifestBundleWire;
-  readonly parentKekState: VerifiedContainerKekState | null;
-}): ContainerKeyEpoch {
-  const verifiedManifest = asVerifiedContainerManifest(input.manifest);
-
-  return {
-    id: input.containerKeyEpochId,
-    containerId: verifiedManifest.state.containerId,
-    keyEpoch: input.keyEpoch,
-    accessManifestHash: verifiedManifest.manifestHash,
-    parentContainerKeyEpochId:
-      input.parentKekState?.containerKeyEpochId ?? null,
-    createdByEventHash: verifiedManifest.event.eventHash,
-    createdByManifestHash: verifiedManifest.manifestHash,
-  };
-}
-
-function createContainerKeyWrap(input: {
-  readonly containerKeyEpochId: string;
-  readonly recipientId: string;
-  readonly recipientKeyEpochId: string;
-  readonly recipientKeyFingerprint: string;
-  readonly recipientKind: KekRecipientKind;
-  readonly wrapManifestHash: string;
-}): ContainerKeyWrap {
-  return {
-    containerKeyEpochId: input.containerKeyEpochId,
-    recipientKind: input.recipientKind,
-    recipientId: input.recipientId,
-    recipientKeyEpochId: input.recipientKeyEpochId,
-    recipientKeyFingerprint: input.recipientKeyFingerprint,
-    kemCipherText: `kem:${input.containerKeyEpochId}:${input.recipientId}`,
-    wrappedKey: `wrapped:${input.containerKeyEpochId}:${input.recipientId}`,
-    wrapManifestHash: input.wrapManifestHash,
-  };
-}
-
 async function verifyKekState(input: {
   readonly bundle: AccessManifestBundleWire;
   readonly containerManifestHistory?: readonly AccessManifestBundleWire[];
@@ -344,6 +308,11 @@ async function putGroupPrincipalPolicy(input: {
     ...(input.projection ??
       createProjectionWithAdminSigner(input.actor.userId, members)),
   ];
+  const { memberEnvelopes, stateMembers } =
+    await createPrincipalMemberEnvelopes({
+      principalSecretKey: principalKem.secretKey,
+      projection,
+    });
   const signedState = await signPrincipalStateBundle({
     principalType: "group",
     principalId: input.principalId,
@@ -352,7 +321,7 @@ async function putGroupPrincipalPolicy(input: {
     keyEpoch: input.keyEpoch ?? 1,
     encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
     keyFingerprint: await toFingerprint(principalKem.publicKey),
-    members,
+    members: stateMembers,
     projection,
     payloadCiphertext: bytesToBase64(
       new TextEncoder().encode(JSON.stringify({ members: projection })),
@@ -362,9 +331,10 @@ async function putGroupPrincipalPolicy(input: {
     signerUserId: input.actor.userId,
     signerUserKeyFingerprint: input.actor.fingerprint,
     signingPrivateKey: input.actor.signing.signingPrivateKey,
+    memberEnvelopes,
   });
   const response = await routeApp.request(
-    `/principals/group/${input.principalId}/state`,
+    `/principals/group/${input.principalId}/policy`,
     {
       method: "PUT",
       headers: {
@@ -375,19 +345,20 @@ async function putGroupPrincipalPolicy(input: {
         state: signedState.state,
         encryptedPayload: signedState.encryptedPayload,
         projection: signedState.projection,
+        memberEnvelopes: signedState.memberEnvelopes,
       }),
     },
   );
 
   expect(response.status).toBe(200);
-  const storedState = await response.json();
+  const storedPolicy = await response.json();
   invariant(
-    isPrincipalStateResponse(storedState),
-    "expected principal state response",
+    isPrincipalPolicyBundleResponse(storedPolicy),
+    "expected principal policy bundle response",
   );
 
   const stateHash = await computePrincipalStateHash(signedState.state);
-  expect(storedState.stateHash).toBe(stateHash);
+  expect(storedPolicy.currentState.stateHash).toBe(stateHash);
 
   const policyState = {
     ...signedState.state,
@@ -2626,7 +2597,7 @@ test("POST /containers/:containerId/revoke emits tombstones for removed group gr
   });
 });
 
-test("PUT /principals/group/:principalId/state emits tombstones for removed group members", async () => {
+test("PUT /principals/group/:principalId/policy emits tombstones for removed group members", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const recipient = createTestUser();
@@ -2723,7 +2694,7 @@ test("PUT /principals/group/:principalId/state emits tombstones for removed grou
   });
 });
 
-test("PUT /principals/group/:principalId/state skips tombstones while direct access remains", async () => {
+test("PUT /principals/group/:principalId/policy skips tombstones while direct access remains", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const recipient = createTestUser();
@@ -2905,7 +2876,7 @@ test("POST /containers/:containerId/revoke emits tombstones for nested group gra
   ]);
 });
 
-test("PUT /principals/group/:principalId/state emits tombstones for removed nested group members", async () => {
+test("PUT /principals/group/:principalId/policy emits tombstones for removed nested group members", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const recipient = createTestUser();
@@ -2988,7 +2959,7 @@ test("PUT /principals/group/:principalId/state emits tombstones for removed nest
   ]);
 });
 
-test("PUT /principals/group/:principalId/state emits tombstones for ancestor group grants", async () => {
+test("PUT /principals/group/:principalId/policy emits tombstones for ancestor group grants", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const recipient = createTestUser();

@@ -1,23 +1,13 @@
-import { wrapDekForRecipients } from "@tearleads/crypto";
+import {
+  type VerifiedPrincipalPolicy,
+  wrapDekForRecipients,
+} from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type {
   PrincipalMemberEnvelopeRequest,
   PrincipalProjectionMemberRequest,
 } from "@tearleads/validators/request";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
-
-export interface OrganizationGroupRecipient {
-  readonly groupId: string;
-  readonly encapsulationPublicKey: string;
-}
-
-interface OrganizationPrincipalPolicyReader {
-  readonly getCurrentPrincipalPolicy: (
-    principalType: "group" | "organization",
-    principalId: string,
-  ) => Promise<PrincipalPolicyBundleResponse | null>;
-}
 
 type PrincipalRekeyRecipient = {
   readonly encapsulationPublicKey: Uint8Array;
@@ -44,14 +34,18 @@ function toPrincipalMemberEnvelopeRequest(input: {
 }
 
 function toRekeyRecipientEntries(input: {
-  readonly groups?: ReadonlyArray<OrganizationGroupRecipient> | undefined;
+  readonly groups?: readonly VerifiedPrincipalPolicy[] | undefined;
   readonly projection: ReadonlyArray<PrincipalProjectionMemberRequest>;
   readonly users: ReadonlyArray<TrustedUserIdentity>;
 }): PrincipalRekeyRecipient[] {
   const usersById = new Map(input.users.map((user) => [user.userId, user]));
-  const groupsById = new Map(
-    (input.groups ?? []).map((group) => [group.groupId, group]),
-  );
+  const groupsById = new Map<string, VerifiedPrincipalPolicy>();
+  for (const group of input.groups ?? []) {
+    if (group.principalType !== "group") {
+      throw new Error("Organization group recipient policy must be a group");
+    }
+    groupsById.set(group.principalId, group);
+  }
 
   return input.projection.map((member) => {
     if (member.memberPrincipalType === "user") {
@@ -77,36 +71,11 @@ function toRekeyRecipientEntries(input: {
     }
 
     return {
-      encapsulationPublicKey: base64ToBytes(group.encapsulationPublicKey),
-      memberPrincipalId: group.groupId,
+      encapsulationPublicKey: base64ToBytes(group.state.encapsulationPublicKey),
+      memberPrincipalId: group.principalId,
       memberPrincipalType: "group",
     };
   });
-}
-
-export async function loadOrganizationGroupRecipients(input: {
-  readonly apiClient: OrganizationPrincipalPolicyReader;
-  readonly groupIds: readonly string[];
-}): Promise<OrganizationGroupRecipient[]> {
-  const groupIds = [...new Set(input.groupIds)].sort();
-  const policies = await Promise.all(
-    groupIds.map(async (groupId) => {
-      const policy = await input.apiClient.getCurrentPrincipalPolicy(
-        "group",
-        groupId,
-      );
-      if (!policy) {
-        throw new Error(`Group policy could not be loaded for ${groupId}`);
-      }
-
-      return {
-        groupId,
-        encapsulationPublicKey: policy.currentState.encapsulationPublicKey,
-      };
-    }),
-  );
-
-  return policies;
 }
 
 export function remainingGroupMemberIds(
@@ -118,7 +87,7 @@ export function remainingGroupMemberIds(
 }
 
 export async function rewrapProjectionMemberEnvelopes(input: {
-  readonly groups?: ReadonlyArray<OrganizationGroupRecipient> | undefined;
+  readonly groups?: readonly VerifiedPrincipalPolicy[] | undefined;
   readonly projection: ReadonlyArray<PrincipalProjectionMemberRequest>;
   readonly secretKey: Uint8Array;
   readonly users: ReadonlyArray<TrustedUserIdentity>;

@@ -162,6 +162,23 @@ export async function createInitialAdminGroupRequest(input: {
   const payloadCiphertext = bytesToBase64(
     new TextEncoder().encode(JSON.stringify({ members: projection })),
   );
+  const [memberEnvelope] = await wrapDekForRecipients(groupKem.secretKey, [
+    input.encapsulationPublicKey,
+  ]);
+
+  if (!memberEnvelope) {
+    throw new Error("Failed to wrap admin group key for test user");
+  }
+
+  const memberEnvelopes = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: input.userId,
+      memberKeyFingerprint: await toFingerprint(input.encapsulationPublicKey),
+      kemCipherText: bytesToBase64(memberEnvelope.kemCipherText),
+      wrappedKey: bytesToBase64(memberEnvelope.wrappedKey),
+    },
+  ];
   const state = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       principalType: "group",
@@ -172,6 +189,7 @@ export async function createInitialAdminGroupRequest(input: {
       encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
       keyFingerprint: await toFingerprint(groupKem.publicKey),
       members: [{ principalType: "user", principalId: input.userId }],
+      memberEnvelopes,
       projection,
       payloadCiphertext,
       signedAt: REGISTER_SIGNED_AT,
@@ -180,13 +198,6 @@ export async function createInitialAdminGroupRequest(input: {
     }),
     input.signingPrivateKey,
   );
-  const [memberEnvelope] = await wrapDekForRecipients(groupKem.secretKey, [
-    input.encapsulationPublicKey,
-  ]);
-
-  if (!memberEnvelope) {
-    throw new Error("Failed to wrap admin group key for test user");
-  }
 
   return {
     groupId,
@@ -199,17 +210,7 @@ export async function createInitialAdminGroupRequest(input: {
         ciphertextHash: state.payloadCiphertextHash,
       },
       projection,
-      memberEnvelopes: [
-        {
-          memberPrincipalType: "user",
-          memberPrincipalId: input.userId,
-          memberKeyFingerprint: await toFingerprint(
-            input.encapsulationPublicKey,
-          ),
-          kemCipherText: bytesToBase64(memberEnvelope.kemCipherText),
-          wrappedKey: bytesToBase64(memberEnvelope.wrappedKey),
-        },
-      ],
+      memberEnvelopes,
     },
   };
 }
@@ -239,27 +240,6 @@ export async function createInitialMemberGroupRequest(input: {
   const payloadCiphertext = bytesToBase64(
     new TextEncoder().encode(JSON.stringify({ members: projection })),
   );
-  const state = await signPrincipalState(
-    await buildPrincipalStateSigningInput({
-      principalType: "group",
-      principalId: groupId,
-      version: 1,
-      prevStateHash: null,
-      keyEpoch: 1,
-      encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
-      keyFingerprint: await toFingerprint(groupKem.publicKey),
-      members: [
-        { principalType: "group", principalId: input.adminGroup.groupId },
-        { principalType: "user", principalId: input.userId },
-      ],
-      projection,
-      payloadCiphertext,
-      signedAt: REGISTER_SIGNED_AT,
-      signerUserId: input.userId,
-      signerUserKeyFingerprint: await toFingerprint(input.signingPublicKey),
-    }),
-    input.signingPrivateKey,
-  );
   const [userEnvelope] = await wrapDekForRecipients(groupKem.secretKey, [
     input.encapsulationPublicKey,
   ]);
@@ -273,6 +253,46 @@ export async function createInitialMemberGroupRequest(input: {
     throw new Error("Failed to wrap member group key for test user");
   }
 
+  const memberEnvelopes = [
+    {
+      memberPrincipalType: "group" as const,
+      memberPrincipalId: input.adminGroup.groupId,
+      memberKeyFingerprint:
+        input.adminGroup.initialGroupPolicy.state.keyFingerprint,
+      kemCipherText: bytesToBase64(adminGroupEnvelope.kemCipherText),
+      wrappedKey: bytesToBase64(adminGroupEnvelope.wrappedKey),
+    },
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: input.userId,
+      memberKeyFingerprint: await toFingerprint(input.encapsulationPublicKey),
+      kemCipherText: bytesToBase64(userEnvelope.kemCipherText),
+      wrappedKey: bytesToBase64(userEnvelope.wrappedKey),
+    },
+  ];
+  const state = await signPrincipalState(
+    await buildPrincipalStateSigningInput({
+      principalType: "group",
+      principalId: groupId,
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
+      keyFingerprint: await toFingerprint(groupKem.publicKey),
+      members: [
+        { principalType: "group", principalId: input.adminGroup.groupId },
+        { principalType: "user", principalId: input.userId },
+      ],
+      memberEnvelopes,
+      projection,
+      payloadCiphertext,
+      signedAt: REGISTER_SIGNED_AT,
+      signerUserId: input.userId,
+      signerUserKeyFingerprint: await toFingerprint(input.signingPublicKey),
+    }),
+    input.signingPrivateKey,
+  );
+
   return {
     groupId,
     name: "Members",
@@ -284,25 +304,7 @@ export async function createInitialMemberGroupRequest(input: {
         ciphertextHash: state.payloadCiphertextHash,
       },
       projection,
-      memberEnvelopes: [
-        {
-          memberPrincipalType: "group",
-          memberPrincipalId: input.adminGroup.groupId,
-          memberKeyFingerprint:
-            input.adminGroup.initialGroupPolicy.state.keyFingerprint,
-          kemCipherText: bytesToBase64(adminGroupEnvelope.kemCipherText),
-          wrappedKey: bytesToBase64(adminGroupEnvelope.wrappedKey),
-        },
-        {
-          memberPrincipalType: "user",
-          memberPrincipalId: input.userId,
-          memberKeyFingerprint: await toFingerprint(
-            input.encapsulationPublicKey,
-          ),
-          kemCipherText: bytesToBase64(userEnvelope.kemCipherText),
-          wrappedKey: bytesToBase64(userEnvelope.wrappedKey),
-        },
-      ],
+      memberEnvelopes,
     },
   };
 }

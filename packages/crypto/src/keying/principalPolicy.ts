@@ -4,12 +4,13 @@ import type {
   SignedPrincipalState,
 } from "../principalState";
 import {
-  computePrincipalProjectionRoot,
   computePrincipalStateHash,
   computePrincipalStatePayloadCiphertextHash,
   normalizePrincipalProjectionMembers,
   verifySignedPrincipalState,
 } from "../principalState";
+import { verifyPrincipalPolicyProjectionCommitments } from "./principalPolicyCommitments";
+import { verifyPrincipalPolicyMemberEnvelopes } from "./principalPolicyMemberEnvelopes";
 import { runVerifier, throwVerification } from "./shared";
 import type {
   KeyingVerificationResult,
@@ -266,22 +267,10 @@ async function normalizePrincipalPolicyStateChainEntry(
     );
   }
 
-  const computedProjectionRoot =
-    await computePrincipalProjectionRoot(projection);
-
-  if (computedProjectionRoot !== entry.state.projectionRoot) {
-    throwVerification(
-      "hash_mismatch",
-      "principal policy projection root does not match projection",
-    );
-  }
-
-  if (projection.length !== entry.state.memberCount) {
-    throwVerification(
-      "invalid_shape",
-      "principal policy projection count does not match state member count",
-    );
-  }
+  await verifyPrincipalPolicyProjectionCommitments({
+    projection,
+    state: entry.state,
+  });
 
   return {
     state: entry.state,
@@ -376,36 +365,6 @@ async function verifyPrincipalPolicyPayload(input: {
     throwVerification(
       "hash_mismatch",
       "principal policy payload hash does not match current state",
-    );
-  }
-}
-
-function verifyPrincipalPolicyMemberEnvelopes(input: {
-  readonly bundle: PrincipalPolicyBundle;
-}): void {
-  const { currentMemberEnvelopes, currentState } = input.bundle;
-
-  if (!currentMemberEnvelopes) {
-    return;
-  }
-
-  if (
-    currentMemberEnvelopes.principalType !== currentState.principalType ||
-    currentMemberEnvelopes.principalId !== currentState.principalId
-  ) {
-    throwVerification(
-      "object_mismatch",
-      "principal policy member envelopes do not match current state principal",
-    );
-  }
-
-  if (
-    currentMemberEnvelopes.stateHash !== currentState.stateHash ||
-    currentMemberEnvelopes.epoch !== currentState.keyEpoch
-  ) {
-    throwVerification(
-      "hash_mismatch",
-      "principal policy member envelopes do not match current state",
     );
   }
 }
@@ -687,7 +646,7 @@ export async function verifyPrincipalPolicyBundle({
     }
 
     await verifyPrincipalPolicyPayload({ bundle });
-    verifyPrincipalPolicyMemberEnvelopes({ bundle });
+    await verifyPrincipalPolicyMemberEnvelopes({ bundle });
     verifyPrincipalPolicyReference({
       chain: normalizedChain,
       currentState: currentEntry.state,

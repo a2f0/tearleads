@@ -54,6 +54,7 @@ async function insertMemberGroupState(input: {
     keyFingerprint: "key-fingerprint",
     membershipMode: "projection",
     membershipRoot: `membership-root-${input.version}`,
+    memberEnvelopesRoot: `member-envelopes-root-${input.version}`,
     projectionRoot: `projection-root-${input.version}`,
     payloadCiphertextHash: `payload-ciphertext-hash-${input.version}`,
     memberCount: input.userIds.length,

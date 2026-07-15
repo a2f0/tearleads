@@ -1,8 +1,7 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import type { OrganizationProvisioningRequest } from "@tearleads/validators/request";
-import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../access/write/principalMemberEnvelopes";
-import { storeVerifiedPrincipalStateInTransaction } from "../../access/write/principalStateStore";
 import { reconcileOrganizationBillingSeats } from "../billing/organizationSeats";
+import { storeVerifiedPrincipalPolicyInTransaction } from "../principals/storeVerifiedPrincipalPolicy";
 import { syncOrganizationRosterFromMemberReachability } from "./roster";
 
 export async function storeInitialMemberGroupPolicy(
@@ -10,24 +9,16 @@ export async function storeInitialMemberGroupPolicy(
   input: OrganizationProvisioningRequest,
 ): Promise<string> {
   const { initialGroupPolicy } = input.initialMemberGroup;
-  const storedState = await storeVerifiedPrincipalStateInTransaction(
+  const storedState = await storeVerifiedPrincipalPolicyInTransaction(
     {
       state: initialGroupPolicy.state,
       encryptedPayload: initialGroupPolicy.encryptedPayload,
       projection: initialGroupPolicy.projection,
+      memberEnvelopes: initialGroupPolicy.memberEnvelopes,
     },
     tx,
   );
 
-  await replaceCurrentPrincipalMemberEnvelopesInTransaction(
-    {
-      principalType: "group",
-      principalId: input.initialMemberGroup.groupId,
-      stateHash: storedState.stateHash,
-      envelopes: initialGroupPolicy.memberEnvelopes,
-    },
-    tx,
-  );
   return storedState.stateHash;
 }
 

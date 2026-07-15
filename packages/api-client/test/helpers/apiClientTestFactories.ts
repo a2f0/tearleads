@@ -8,8 +8,7 @@ import type {
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
   PutKeyPackageBackupRequest,
-  PutPrincipalMemberEnvelopesRequest,
-  PutPrincipalStateRequest,
+  PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import type {
   BlobAttachmentBindResponse,
@@ -231,6 +230,7 @@ export function createPrincipalPolicyBundleResponse(): PrincipalPolicyBundleResp
       keyFingerprint: "principal-key-fingerprint",
       membershipMode: "projection",
       membershipRoot: "membership-root",
+      memberEnvelopesRoot: "member-envelopes-root",
       projectionRoot: "projection-root",
       payloadCiphertextHash: "payload-ciphertext-hash",
       memberCount: 1,
@@ -372,7 +372,7 @@ export function createDocumentWriterProjectionResponse(): DocumentWriterProjecti
   };
 }
 
-export function createPrincipalStateRequest(): PutPrincipalStateRequest {
+export function createPrincipalPolicyRequest(): PutPrincipalPolicyRequest {
   return {
     state: {
       principalType: "group",
@@ -384,6 +384,7 @@ export function createPrincipalStateRequest(): PutPrincipalStateRequest {
       keyFingerprint: "key-fingerprint",
       membershipMode: "projection",
       membershipRoot: "membership-root",
+      memberEnvelopesRoot: "member-envelopes-root",
       projectionRoot: "projection-root",
       payloadCiphertextHash: "ciphertext-hash",
       memberCount: 1,
@@ -404,13 +405,7 @@ export function createPrincipalStateRequest(): PutPrincipalStateRequest {
         role: "admin",
       },
     ],
-  };
-}
-
-export function createPrincipalMemberEnvelopesRequest(): PutPrincipalMemberEnvelopesRequest {
-  return {
-    stateHash: "state-hash",
-    envelopes: [
+    memberEnvelopes: [
       {
         memberPrincipalType: "user",
         memberPrincipalId: "550e8400-e29b-41d4-a716-446655440002",
@@ -423,15 +418,12 @@ export function createPrincipalMemberEnvelopesRequest(): PutPrincipalMemberEnvel
 }
 
 export function createOrganizationGroupRequest(): CreateOrganizationGroupRequest {
-  const stateRequest = createPrincipalStateRequest();
+  const policyRequest = createPrincipalPolicyRequest();
 
   return {
-    groupId: stateRequest.state.principalId,
+    groupId: policyRequest.state.principalId,
     name: "Operators",
-    initialGroupPolicy: {
-      ...stateRequest,
-      memberEnvelopes: createPrincipalMemberEnvelopesRequest().envelopes,
-    },
+    initialGroupPolicy: policyRequest,
   };
 }
 

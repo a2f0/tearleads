@@ -65,6 +65,7 @@ async function createGroupPrincipalPolicyBundle(input: {
   };
   signedAt: string;
   signer: {
+    recipientPublicKey: Uint8Array;
     signerKeyFingerprint: string;
     signerPrivateKey: Uint8Array;
     signerUserId: string;
@@ -83,6 +84,32 @@ async function createGroupPrincipalPolicyBundle(input: {
     })),
   ];
   const payloadCiphertext = `${input.principalId}-payload`;
+  const recipients = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: input.signer.signerUserId,
+      publicKey: input.signer.recipientPublicKey,
+    },
+    ...input.memberRecipientPublicKeys,
+  ];
+  const wrappedMembers = await wrapDekForRecipients(
+    input.principalKem.secretKey,
+    recipients.map((recipient) => recipient.publicKey),
+  );
+  const memberEnvelopes = recipients.map((recipient, index) => {
+    const wrappedMember = wrappedMembers[index];
+    if (!wrappedMember) {
+      throw new Error("Expected wrapped principal member key");
+    }
+
+    return {
+      memberPrincipalType: recipient.memberPrincipalType,
+      memberPrincipalId: recipient.memberPrincipalId,
+      memberKeyFingerprint: wrappedMember.keyFingerprint,
+      kemCipherText: bytesToBase64(wrappedMember.kemCipherText),
+      wrappedKey: bytesToBase64(wrappedMember.wrappedKey),
+    };
+  });
   const signedState = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       principalType: "group",
@@ -92,7 +119,11 @@ async function createGroupPrincipalPolicyBundle(input: {
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(input.principalKem.publicKey),
       keyFingerprint: await toFingerprint(input.principalKem.publicKey),
-      members: input.members,
+      members: currentProjection.map((member) => ({
+        principalType: member.memberPrincipalType,
+        principalId: member.memberPrincipalId,
+      })),
+      memberEnvelopes,
       projection: currentProjection,
       payloadCiphertext,
       signedAt: input.signedAt,
@@ -102,10 +133,6 @@ async function createGroupPrincipalPolicyBundle(input: {
     input.signer.signerPrivateKey,
   );
   const stateHash = await computePrincipalStateHash(signedState);
-  const wrappedMembers = await wrapDekForRecipients(
-    input.principalKem.secretKey,
-    input.memberRecipientPublicKeys.map((recipient) => recipient.publicKey),
-  );
 
   return {
     currentMemberEnvelopes: {
@@ -113,20 +140,7 @@ async function createGroupPrincipalPolicyBundle(input: {
       principalId: input.principalId,
       stateHash,
       epoch: 1,
-      envelopes: input.memberRecipientPublicKeys.map((recipient, index) => {
-        const wrappedMember = wrappedMembers[index];
-        if (!wrappedMember) {
-          throw new Error("Expected wrapped principal member key");
-        }
-
-        return {
-          memberPrincipalType: recipient.memberPrincipalType,
-          memberPrincipalId: recipient.memberPrincipalId,
-          memberKeyFingerprint: wrappedMember.keyFingerprint,
-          kemCipherText: bytesToBase64(wrappedMember.kemCipherText),
-          wrappedKey: bytesToBase64(wrappedMember.wrappedKey),
-        };
-      }),
+      envelopes: memberEnvelopes,
     },
     currentPayload: {
       principalType: "group",
@@ -714,7 +728,10 @@ test("unwrapContainerKekPath verifies cached group policies before managed-princ
     principalId: "group-managed-container-access",
     principalKem: groupKem,
     signedAt: SIGNED_AT,
-    signer: parent.author,
+    signer: {
+      ...parent.author,
+      recipientPublicKey: parent.encapsulationPublicKey,
+    },
   });
   const groupHead = {
     principalType: "group" as const,

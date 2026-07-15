@@ -93,7 +93,7 @@ async function appendGroupMember(input: {
 }
 
 function createMutationApi(currentPolicy: PrincipalPolicyBundleResponse) {
-  const calls = { putMemberEnvelopes: 0, putState: 0 };
+  const calls = { putPolicy: 0 };
   const apiClient: Parameters<typeof addOrganizationGroupUser>[0]["apiClient"] =
     {
       createOrganizationGroup: async () => {
@@ -104,13 +104,9 @@ function createMutationApi(currentPolicy: PrincipalPolicyBundleResponse) {
         expect(principalId).toBe(currentPolicy.currentState.principalId);
         return currentPolicy;
       },
-      putPrincipalMemberEnvelopes: async () => {
-        calls.putMemberEnvelopes += 1;
-        throw new Error("Unexpected member envelope mutation");
-      },
-      putPrincipalState: async () => {
-        calls.putState += 1;
-        throw new Error("Unexpected principal state mutation");
+      putPrincipalPolicy: async () => {
+        calls.putPolicy += 1;
+        throw new Error("Unexpected principal policy mutation");
       },
     };
 
@@ -166,7 +162,7 @@ test("group add propagates target identity equivocation before wrapping or mutat
 
   expect(resolvedUserIds).toContain(targetUserId);
   expect(policyRequestBuilt).toBe(0);
-  expect(calls).toEqual({ putMemberEnvelopes: 0, putState: 0 });
+  expect(calls).toEqual({ putPolicy: 0 });
 });
 
 test("group removal propagates remaining identity equivocation before rekey or mutation", async () => {
@@ -225,6 +221,7 @@ test("group removal propagates remaining identity equivocation before rekey or m
         canAdministerOrganization: false,
         execSql,
         groupId: fixture.groupId,
+        organizationId: crypto.randomUUID(),
         removedUserId,
         resolveTrustedUserIdentity: async (userId) => {
           resolvedUserIds.push(userId);
@@ -246,5 +243,5 @@ test("group removal propagates remaining identity equivocation before rekey or m
 
   expect(resolvedUserIds).toContain(remainingUserId);
   expect(policyRequestBuilt).toBe(0);
-  expect(calls).toEqual({ putMemberEnvelopes: 0, putState: 0 });
+  expect(calls).toEqual({ putPolicy: 0 });
 });

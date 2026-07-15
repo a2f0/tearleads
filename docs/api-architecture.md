@@ -47,8 +47,7 @@ Write surfaces:
 | Register identity and bootstrap root state | `POST /auth/register` | `RegistrationRequest` |
 | Destroy current session | `POST /auth/logout` | n/a |
 | Destroy a user session | `DELETE /auth/sessions/:sessionId` | n/a |
-| Store principal policy state | `PUT /principals/:principalType/:principalId/state` | `PutPrincipalStateRequest` |
-| Store principal member envelopes | `PUT /principals/:principalType/:principalId/member-envelopes` | `PutPrincipalMemberEnvelopesRequest` |
+| Store signed principal policy and member envelopes atomically | `PUT /principals/:principalType/:principalId/policy` | `PutPrincipalPolicyRequest` |
 | Create organization group | `POST /organizations/:organizationId/groups` | `CreateOrganizationGroupRequest` |
 | Bind encrypted roster profile document | `PUT /organizations/:organizationId/roster/:userId` | `UpdateOrganizationRosterEntryRequest` |
 | Create container with metadata document | `POST /containers/with-metadata-document` | `ContainerCreateWithMetadataDocumentRequest` |

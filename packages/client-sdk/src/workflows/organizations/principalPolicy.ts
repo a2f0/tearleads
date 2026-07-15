@@ -10,6 +10,7 @@ import {
   signPrincipalState,
   toFingerprint,
   unwrapDek,
+  type VerifiedPrincipalPolicy,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
@@ -17,15 +18,13 @@ import type {
   CreateOrganizationGroupRequest,
   PrincipalMemberEnvelopeRequest,
   PrincipalProjectionMemberRequest,
-  PutPrincipalMemberEnvelopesRequest,
-  PutPrincipalStateRequest,
+  PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import type {
   CurrentPrincipalMemberEnvelopesResponse,
   OrganizationGroupSummaryResponse,
   PrincipalMemberEnvelopeResponse,
   PrincipalPolicyBundleResponse,
-  PrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { advanceKeyingCheckpointsAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
 import {
@@ -44,8 +43,8 @@ import type {
 import {
   acknowledgeGroupPolicyState,
   acknowledgeInitialGroupPolicy,
+  assertGroupPolicyBundleMatchesAcknowledgement,
   assertGroupPolicyEnvelopesMatchAcknowledgement,
-  groupPolicyBundleFromAcknowledgement,
 } from "./groupPolicyMutationAcknowledgement";
 import {
   assertPrincipalPolicyCurrentStateMatchesHead,
@@ -53,6 +52,7 @@ import {
 } from "./groupPolicyMutationHead";
 import {
   collectGroupPolicySignerPublicKeys,
+  loadVerifiedOrganizationGroupPolicies,
   prepareGroupPolicyVerification,
   verifyGroupPolicy,
 } from "./groupPolicyVerification";
@@ -61,8 +61,6 @@ import {
   hasAdmin,
 } from "./principalPolicyProjection";
 import {
-  loadOrganizationGroupRecipients,
-  type OrganizationGroupRecipient,
   remainingGroupMemberIds,
   rewrapProjectionMemberEnvelopes,
 } from "./principalPolicyRecipients";
@@ -80,16 +78,11 @@ interface OrganizationPrincipalPolicyApi {
     principalType: "group" | "organization",
     principalId: string,
   ) => Promise<PrincipalPolicyBundleResponse | null>;
-  putPrincipalMemberEnvelopes: (
+  putPrincipalPolicy: (
     principalType: "group" | "organization",
     principalId: string,
-    input: PutPrincipalMemberEnvelopesRequest,
-  ) => Promise<CurrentPrincipalMemberEnvelopesResponse | null>;
-  putPrincipalState: (
-    principalType: "group" | "organization",
-    principalId: string,
-    input: PutPrincipalStateRequest,
-  ) => Promise<PrincipalStateResponse | null>;
+    input: PutPrincipalPolicyRequest,
+  ) => Promise<PrincipalPolicyBundleResponse | null>;
 }
 
 interface BuildInitialGroupPolicyInput {
@@ -112,10 +105,7 @@ interface BuildGroupMembershipMutationInput {
   readonly signingKeyPair: SigningKeyPair;
 }
 
-type GroupPolicyMutationRequest = {
-  readonly memberEnvelopes: ReadonlyArray<PrincipalMemberEnvelopeRequest>;
-  readonly state: PutPrincipalStateRequest;
-};
+type GroupPolicyMutationRequest = PutPrincipalPolicyRequest;
 
 type BuildAddGroupUserPolicyInput = BuildGroupMembershipMutationInput & {
   readonly currentUsers: ReadonlyArray<TrustedUserIdentity>;
@@ -214,18 +204,19 @@ function isDirectGroupAdmin(
   );
 }
 
-async function signedGroupStateRequest(input: {
+async function signedGroupPolicyRequest(input: {
   readonly currentPolicy?: PrincipalPolicyBundleResponse;
   readonly encapsulationPublicKey: string;
   readonly keyEpoch: number;
   readonly keyFingerprint: string;
+  readonly memberEnvelopes: ReadonlyArray<PrincipalMemberEnvelopeRequest>;
   readonly principalId: string;
   readonly projection: ReadonlyArray<PrincipalProjectionMemberRequest>;
   readonly signedAt: string;
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
-}): Promise<PutPrincipalStateRequest> {
+}): Promise<PutPrincipalPolicyRequest> {
   const projection = normalizePrincipalProjectionMembers(input.projection);
   const payloadCiphertext = payloadCiphertextForProjection(projection);
   const state = await signPrincipalState(
@@ -240,6 +231,7 @@ async function signedGroupStateRequest(input: {
       encapsulationPublicKey: input.encapsulationPublicKey,
       keyFingerprint: input.keyFingerprint,
       members: projectionToStateMembers(projection),
+      memberEnvelopes: [...input.memberEnvelopes],
       projection,
       payloadCiphertext,
       signedAt: input.signedAt,
@@ -257,6 +249,7 @@ async function signedGroupStateRequest(input: {
       ciphertextHash: state.payloadCiphertextHash,
     },
     projection,
+    memberEnvelopes: [...input.memberEnvelopes],
   };
 }
 
@@ -384,49 +377,34 @@ async function commitGroupPolicyMutation(input: {
   readonly groupId: string;
   readonly request: GroupPolicyMutationRequest;
 }): Promise<PrincipalPolicyBundleResponse> {
-  const storedState = await input.apiClient.putPrincipalState(
+  const storedPolicy = await input.apiClient.putPrincipalPolicy(
     "group",
     input.groupId,
-    input.request.state,
+    input.request,
   );
 
-  if (!storedState) {
+  if (!storedPolicy) {
     throw new Error("Group policy update failed");
   }
   const acknowledgedPolicy = await acknowledgeGroupPolicyState({
     currentPolicy: input.currentPolicy,
     expectedHead: input.expectedHead,
-    request: input.request.state,
-    response: storedState,
+    request: input.request,
+    response: storedPolicy.currentState,
   });
-
-  const storedEnvelopes = await input.apiClient.putPrincipalMemberEnvelopes(
-    "group",
-    input.groupId,
-    {
-      stateHash: input.expectedHead.stateHash,
-      envelopes: [...input.request.memberEnvelopes],
-    },
-  );
-
-  if (!storedEnvelopes) {
-    throw new Error("Group member envelopes update failed");
-  }
-  const bundle = groupPolicyBundleFromAcknowledgement({
+  assertGroupPolicyBundleMatchesAcknowledgement({
     currentPolicy: input.currentPolicy,
-    envelopes: storedEnvelopes,
     expectedHead: input.expectedHead,
-    memberEnvelopes: input.request.memberEnvelopes,
-    state: storedState,
-    stateRequest: input.request.state,
+    request: input.request,
+    response: storedPolicy,
   });
   await retainLocallyAcknowledgedPrincipalPolicyBundle({
-    bundle,
+    bundle: storedPolicy,
     execSql: input.execSql,
     policy: acknowledgedPolicy,
     updatedAt: new Date().toISOString(),
   });
-  return bundle;
+  return storedPolicy;
 }
 
 export async function buildInitialGroupPolicyRequest(
@@ -437,17 +415,6 @@ export async function buildInitialGroupPolicyRequest(
   const projection = withSigner
     ? [userProjectionMember(input.signerUserId, "admin")]
     : [];
-  const stateRequest = await signedGroupStateRequest({
-    encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
-    keyEpoch: 1,
-    keyFingerprint: await toFingerprint(groupKem.publicKey),
-    principalId: input.groupId,
-    projection,
-    signedAt: new Date().toISOString(),
-    signerUserId: input.signerUserId,
-    signingFingerprint: input.signingFingerprint,
-    signingKeyPair: input.signingKeyPair,
-  });
   const memberEnvelopes: PrincipalMemberEnvelopeRequest[] = [];
 
   if (withSigner) {
@@ -470,14 +437,23 @@ export async function buildInitialGroupPolicyRequest(
       wrappedKey: bytesToBase64(creatorEnvelope.wrappedKey),
     });
   }
+  const policyRequest = await signedGroupPolicyRequest({
+    encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
+    keyEpoch: 1,
+    keyFingerprint: await toFingerprint(groupKem.publicKey),
+    memberEnvelopes,
+    principalId: input.groupId,
+    projection,
+    signedAt: new Date().toISOString(),
+    signerUserId: input.signerUserId,
+    signingFingerprint: input.signingFingerprint,
+    signingKeyPair: input.signingKeyPair,
+  });
 
   return {
     groupId: input.groupId,
     name: input.name.trim(),
-    initialGroupPolicy: {
-      ...stateRequest,
-      memberEnvelopes,
-    },
+    initialGroupPolicy: policyRequest,
   };
 }
 
@@ -501,17 +477,6 @@ export async function buildInitialMemberGroupPolicyRequest(input: {
       role: "member",
     },
   ]);
-  const stateRequest = await signedGroupStateRequest({
-    encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
-    keyEpoch: 1,
-    keyFingerprint: await toFingerprint(groupKem.publicKey),
-    principalId: input.groupId,
-    projection,
-    signedAt: new Date().toISOString(),
-    signerUserId: input.signerUserId,
-    signingFingerprint: input.signingFingerprint,
-    signingKeyPair: input.signingKeyPair,
-  });
   const [creatorEnvelope] = await wrapDekForRecipients(groupKem.secretKey, [
     input.creatorEncapsulationKeyPair.publicKey,
   ]);
@@ -524,30 +489,40 @@ export async function buildInitialMemberGroupPolicyRequest(input: {
   if (!creatorEnvelope || !adminGroupEnvelope) {
     throw new Error("Failed to wrap member group key");
   }
+  const memberEnvelopes: PrincipalMemberEnvelopeRequest[] = [
+    {
+      memberPrincipalType: "user",
+      memberPrincipalId: input.signerUserId,
+      memberKeyFingerprint: creatorFingerprint,
+      kemCipherText: bytesToBase64(creatorEnvelope.kemCipherText),
+      wrappedKey: bytesToBase64(creatorEnvelope.wrappedKey),
+    },
+    {
+      memberPrincipalType: "group",
+      memberPrincipalId: input.adminGroup.groupId,
+      memberKeyFingerprint:
+        input.adminGroup.initialGroupPolicy.state.keyFingerprint,
+      kemCipherText: bytesToBase64(adminGroupEnvelope.kemCipherText),
+      wrappedKey: bytesToBase64(adminGroupEnvelope.wrappedKey),
+    },
+  ];
+  const policyRequest = await signedGroupPolicyRequest({
+    encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
+    keyEpoch: 1,
+    keyFingerprint: await toFingerprint(groupKem.publicKey),
+    memberEnvelopes,
+    principalId: input.groupId,
+    projection,
+    signedAt: new Date().toISOString(),
+    signerUserId: input.signerUserId,
+    signingFingerprint: input.signingFingerprint,
+    signingKeyPair: input.signingKeyPair,
+  });
 
   return {
     groupId: input.groupId,
     name: "Members",
-    initialGroupPolicy: {
-      ...stateRequest,
-      memberEnvelopes: [
-        {
-          memberPrincipalType: "user",
-          memberPrincipalId: input.signerUserId,
-          memberKeyFingerprint: creatorFingerprint,
-          kemCipherText: bytesToBase64(creatorEnvelope.kemCipherText),
-          wrappedKey: bytesToBase64(creatorEnvelope.wrappedKey),
-        },
-        {
-          memberPrincipalType: "group",
-          memberPrincipalId: input.adminGroup.groupId,
-          memberKeyFingerprint:
-            input.adminGroup.initialGroupPolicy.state.keyFingerprint,
-          kemCipherText: bytesToBase64(adminGroupEnvelope.kemCipherText),
-          wrappedKey: bytesToBase64(adminGroupEnvelope.wrappedKey),
-        },
-      ],
-    },
+    initialGroupPolicy: policyRequest,
   };
 }
 
@@ -576,11 +551,19 @@ async function buildOrgAdminAddGroupUserPolicyRequest(
     groupKem.secretKey,
     recipientUsers.map((user) => user.encapsulationPublicKey),
   );
-  const state = await signedGroupStateRequest({
+  const memberEnvelopes = wrappedRecipients.map((envelope, index) =>
+    toPrincipalMemberEnvelopeRequest({
+      envelope,
+      memberPrincipalType: "user",
+      memberPrincipalId: recipientUsers[index]?.userId ?? "",
+    }),
+  );
+  return signedGroupPolicyRequest({
     currentPolicy: input.currentPolicy,
     encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
     keyEpoch: input.currentPolicy.currentState.keyEpoch + 1,
     keyFingerprint: await toFingerprint(groupKem.publicKey),
+    memberEnvelopes,
     principalId: input.currentPolicy.currentState.principalId,
     projection,
     signedAt: new Date().toISOString(),
@@ -588,17 +571,6 @@ async function buildOrgAdminAddGroupUserPolicyRequest(
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
   });
-
-  return {
-    state,
-    memberEnvelopes: wrappedRecipients.map((envelope, index) =>
-      toPrincipalMemberEnvelopeRequest({
-        envelope,
-        memberPrincipalType: "user",
-        memberPrincipalId: recipientUsers[index]?.userId ?? "",
-      }),
-    ),
-  };
 }
 
 async function buildDirectAdminAddGroupUserPolicyRequest(
@@ -618,12 +590,25 @@ async function buildDirectAdminAddGroupUserPolicyRequest(
     throw new Error("Failed to wrap group key for target user");
   }
 
-  const state = await signedGroupStateRequest({
+  const memberEnvelopes = [
+    ...input.currentPolicy.currentMemberEnvelopes.envelopes.filter(
+      (envelope) => projectionMemberKey(envelope) !== targetKey,
+    ),
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: input.targetUser.userId,
+      memberKeyFingerprint: input.targetUser.encapsulationKeyFingerprint,
+      kemCipherText: bytesToBase64(targetEnvelope.kemCipherText),
+      wrappedKey: bytesToBase64(targetEnvelope.wrappedKey),
+    },
+  ];
+  return signedGroupPolicyRequest({
     currentPolicy: input.currentPolicy,
     encapsulationPublicKey:
       input.currentPolicy.currentState.encapsulationPublicKey,
     keyEpoch: input.currentPolicy.currentState.keyEpoch,
     keyFingerprint: input.currentPolicy.currentState.keyFingerprint,
+    memberEnvelopes,
     principalId: input.currentPolicy.currentState.principalId,
     projection,
     signedAt: new Date().toISOString(),
@@ -631,22 +616,6 @@ async function buildDirectAdminAddGroupUserPolicyRequest(
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
   });
-
-  return {
-    state,
-    memberEnvelopes: [
-      ...input.currentPolicy.currentMemberEnvelopes.envelopes.filter(
-        (envelope) => projectionMemberKey(envelope) !== targetKey,
-      ),
-      {
-        memberPrincipalType: "user",
-        memberPrincipalId: input.targetUser.userId,
-        memberKeyFingerprint: input.targetUser.encapsulationKeyFingerprint,
-        kemCipherText: bytesToBase64(targetEnvelope.kemCipherText),
-        wrappedKey: bytesToBase64(targetEnvelope.wrappedKey),
-      },
-    ],
-  };
 }
 
 export async function buildAddGroupUserPolicyRequest(
@@ -691,7 +660,7 @@ export async function buildAddGroupUserPolicyRequest(
 
 export async function buildRemoveGroupUserPolicyRequest(
   input: BuildGroupMembershipMutationInput & {
-    readonly remainingGroups?: ReadonlyArray<OrganizationGroupRecipient>;
+    readonly remainingGroups?: readonly VerifiedPrincipalPolicy[];
     readonly remainingUsers: ReadonlyArray<TrustedUserIdentity>;
     readonly removedUserId: string;
   },
@@ -733,11 +702,12 @@ export async function buildRemoveGroupUserPolicyRequest(
     secretKey: groupKem.secretKey,
     users: input.remainingUsers,
   });
-  const state = await signedGroupStateRequest({
+  return signedGroupPolicyRequest({
     currentPolicy: input.currentPolicy,
     encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
     keyEpoch: input.currentPolicy.currentState.keyEpoch + 1,
     keyFingerprint: await toFingerprint(groupKem.publicKey),
+    memberEnvelopes,
     principalId: input.currentPolicy.currentState.principalId,
     projection,
     signedAt: new Date().toISOString(),
@@ -745,11 +715,6 @@ export async function buildRemoveGroupUserPolicyRequest(
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
   });
-
-  return {
-    state,
-    memberEnvelopes,
-  };
 }
 
 export async function createOrganizationGroup(input: {
@@ -859,7 +824,7 @@ export async function addOrganizationGroupUser(input: {
     ),
     targetUser,
   });
-  const expectedHead = await groupPolicyMutationHead(request.state);
+  const expectedHead = await groupPolicyMutationHead(request);
   input.beforePolicyCommit(expectedHead);
   const acknowledgedBundle = await commitGroupPolicyMutation({
     apiClient: input.apiClient,
@@ -896,6 +861,7 @@ export async function removeOrganizationGroupUser(input: {
   readonly canAdministerOrganization: boolean;
   readonly execSql: ExecSql;
   readonly groupId: string;
+  readonly organizationId: string;
   readonly removedUserId: string;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly signerUserId: string;
@@ -925,9 +891,13 @@ export async function removeOrganizationGroupUser(input: {
   ) {
     throw new Error("User is not a group member");
   }
-  const gs = await loadOrganizationGroupRecipients({
-    apiClient: input.apiClient,
+  const gs = await loadVerifiedOrganizationGroupPolicies({
+    execSql: input.execSql,
+    getCurrentPrincipalPolicy: (principalType, principalId) =>
+      input.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
     groupIds: remainingGroupMemberIds(projection),
+    organizationId: input.organizationId,
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   const remainingUsers = await resolveRequiredUserIdentities({
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
@@ -939,7 +909,7 @@ export async function removeOrganizationGroupUser(input: {
     remainingUsers,
     removedUserId: input.removedUserId,
   });
-  const expectedHead = await groupPolicyMutationHead(request.state);
+  const expectedHead = await groupPolicyMutationHead(request);
   input.beforePolicyCommit(expectedHead);
   const acknowledgedBundle = await commitGroupPolicyMutation({
     apiClient: input.apiClient,

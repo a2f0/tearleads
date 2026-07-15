@@ -31,6 +31,7 @@ test("isRegistrationRequest", () => {
       keyFingerprint: "key-fingerprint",
       membershipMode: "projection" as const,
       membershipRoot: "membership-root",
+      memberEnvelopesRoot: "member-envelopes-root",
       projectionRoot: "projection-root",
       payloadCiphertextHash: "ciphertext-hash",
       memberCount: 1,

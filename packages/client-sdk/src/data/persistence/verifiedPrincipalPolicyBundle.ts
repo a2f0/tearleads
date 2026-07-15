@@ -1,6 +1,9 @@
 import {
+  computePrincipalMemberEnvelopesRoot,
   computePrincipalStatePayloadCiphertextHash,
+  KeyingVerificationError,
   normalizePrincipalProjectionMembers,
+  PrincipalMemberEnvelopeValidationError,
   serializeKeyingCanonicalJson,
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
@@ -9,6 +12,25 @@ import { readCanonicalJson } from "../keyingCanonicalJson";
 
 function canonical(value: unknown, label: string): string {
   return serializeKeyingCanonicalJson(readCanonicalJson(value, label));
+}
+
+function bundleMismatch(message: string): never {
+  throw new KeyingVerificationError("equivocation", message);
+}
+
+async function memberEnvelopesRoot(
+  bundle: PrincipalPolicyBundleResponse,
+): Promise<string> {
+  try {
+    return await computePrincipalMemberEnvelopesRoot(
+      bundle.currentMemberEnvelopes.envelopes,
+    );
+  } catch (error) {
+    if (error instanceof PrincipalMemberEnvelopeValidationError) {
+      throw new KeyingVerificationError("invalid_shape", error.message);
+    }
+    throw error;
+  }
 }
 
 export async function assertBundleMatchesVerifiedPolicy(input: {
@@ -25,7 +47,7 @@ export async function assertBundleMatchesVerifiedPolicy(input: {
     policy.checkpoint.version !== policy.version ||
     policy.checkpoint.stateHash !== policy.stateHash
   ) {
-    throw new Error("Verified principal policy bundle head mismatch");
+    bundleMismatch("Verified principal policy bundle head mismatch");
   }
   if (
     canonical(bundle.currentState, "principal policy bundle state") !==
@@ -39,7 +61,7 @@ export async function assertBundleMatchesVerifiedPolicy(input: {
         "verified principal policy projection",
       )
   ) {
-    throw new Error("Verified principal policy bundle content mismatch");
+    bundleMismatch("Verified principal policy bundle content mismatch");
   }
 
   const history = policy.history ?? [];
@@ -58,11 +80,12 @@ export async function assertBundleMatchesVerifiedPolicy(input: {
     canonical(expectedChain, "principal policy bundle history") !==
     canonical(verifiedHistory, "verified principal policy history")
   ) {
-    throw new Error("Verified principal policy bundle history mismatch");
+    bundleMismatch("Verified principal policy bundle history mismatch");
   }
   const payloadHash = await computePrincipalStatePayloadCiphertextHash(
     bundle.currentPayload.ciphertext,
   );
+  const envelopesRoot = await memberEnvelopesRoot(bundle);
   if (
     bundle.currentPayload.principalType !== policy.principalType ||
     bundle.currentPayload.principalId !== policy.principalId ||
@@ -72,8 +95,9 @@ export async function assertBundleMatchesVerifiedPolicy(input: {
     bundle.currentMemberEnvelopes.principalType !== policy.principalType ||
     bundle.currentMemberEnvelopes.principalId !== policy.principalId ||
     bundle.currentMemberEnvelopes.stateHash !== policy.stateHash ||
-    bundle.currentMemberEnvelopes.epoch !== policy.keyEpoch
+    bundle.currentMemberEnvelopes.epoch !== policy.keyEpoch ||
+    envelopesRoot !== policy.state.memberEnvelopesRoot
   ) {
-    throw new Error("Verified principal policy bundle payload mismatch");
+    bundleMismatch("Verified principal policy bundle payload mismatch");
   }
 }

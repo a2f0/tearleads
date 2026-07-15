@@ -28,8 +28,6 @@ import type {
 } from "@tearleads/validators/response";
 import { storeVerifiedAccessManifestInTransaction } from "../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../access/write/containerKekStore";
-import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../access/write/principalMemberEnvelopes";
-import { storeVerifiedPrincipalStateInTransaction } from "../../access/write/principalStateStore";
 import {
   readProjectionAccessEvent,
   readProjectionAccessManifest,
@@ -54,6 +52,7 @@ import {
 } from "../documents/mutations";
 import { appendProvisionedDocumentInitialUpdate } from "../documents/mutations/syncDocument";
 import { toPrincipalPolicyError } from "../principals/shared";
+import { storeVerifiedPrincipalPolicyInTransaction } from "../principals/storeVerifiedPrincipalPolicy";
 import {
   createInitialOrganizationBillingRow,
   type InitialOrganizationBilling,
@@ -387,21 +386,12 @@ async function storeInitialOrganizationPolicy(
   tx: DatabaseTransaction,
   input: OrganizationProvisioningRequest,
 ) {
-  const storedState = await storeVerifiedPrincipalStateInTransaction(
+  await storeVerifiedPrincipalPolicyInTransaction(
     {
       state: input.initialOrganizationPolicy.state,
       encryptedPayload: input.initialOrganizationPolicy.encryptedPayload,
       projection: input.initialOrganizationPolicy.projection,
-    },
-    tx,
-  );
-
-  await replaceCurrentPrincipalMemberEnvelopesInTransaction(
-    {
-      principalType: "organization",
-      principalId: input.organizationId,
-      stateHash: storedState.stateHash,
-      envelopes: input.initialOrganizationPolicy.memberEnvelopes,
+      memberEnvelopes: input.initialOrganizationPolicy.memberEnvelopes,
     },
     tx,
   );
@@ -460,21 +450,12 @@ async function storeInitialAdminGroupPolicy(
   input: OrganizationProvisioningRequest,
 ) {
   const { initialGroupPolicy } = input.initialAdminGroup;
-  const storedState = await storeVerifiedPrincipalStateInTransaction(
+  await storeVerifiedPrincipalPolicyInTransaction(
     {
       state: initialGroupPolicy.state,
       encryptedPayload: initialGroupPolicy.encryptedPayload,
       projection: initialGroupPolicy.projection,
-    },
-    tx,
-  );
-
-  await replaceCurrentPrincipalMemberEnvelopesInTransaction(
-    {
-      principalType: "group",
-      principalId: input.initialAdminGroup.groupId,
-      stateHash: storedState.stateHash,
-      envelopes: initialGroupPolicy.memberEnvelopes,
+      memberEnvelopes: initialGroupPolicy.memberEnvelopes,
     },
     tx,
   );

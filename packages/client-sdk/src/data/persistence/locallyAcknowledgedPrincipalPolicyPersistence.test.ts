@@ -6,6 +6,7 @@ import {
   makeVerifiedPrincipalPolicy,
   toFingerprint,
 } from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
@@ -63,11 +64,13 @@ function securityVariant(
     if (!first) {
       throw new Error("Expected a member envelope");
     }
+    const wrappedKey = base64ToBytes(first.wrappedKey);
+    wrappedKey[0] = (wrappedKey[0] ?? 0) ^ 1;
     return {
       ...bundle,
       currentMemberEnvelopes: {
         ...bundle.currentMemberEnvelopes,
-        envelopes: [{ ...first, wrappedKey: `${first.wrappedKey}altered` }],
+        envelopes: [{ ...first, wrappedKey: bytesToBase64(wrappedKey) }],
       },
     };
   }

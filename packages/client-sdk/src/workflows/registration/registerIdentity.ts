@@ -206,6 +206,23 @@ export async function buildInitialOrganizationPolicyRequest(input: {
       }),
     ),
   );
+  const [memberEnvelope] = await wrapDekForRecipients(
+    organizationKem.secretKey,
+    [input.encapsulationPublicKey],
+  );
+
+  if (!memberEnvelope) {
+    throw new Error("Failed to wrap organization key for registering user");
+  }
+  const memberEnvelopes = [
+    {
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: input.userId,
+      memberKeyFingerprint: userEncapsulationKeyFingerprint,
+      kemCipherText: bytesToBase64(memberEnvelope.kemCipherText),
+      wrappedKey: bytesToBase64(memberEnvelope.wrappedKey),
+    },
+  ];
   const state = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       principalType: "organization",
@@ -216,6 +233,7 @@ export async function buildInitialOrganizationPolicyRequest(input: {
       encapsulationPublicKey: bytesToBase64(organizationKem.publicKey),
       keyFingerprint: await toFingerprint(organizationKem.publicKey),
       members: [{ principalType: "user", principalId: input.userId }],
+      memberEnvelopes,
       projection,
       payloadCiphertext,
       signedAt: new Date().toISOString(),
@@ -224,14 +242,6 @@ export async function buildInitialOrganizationPolicyRequest(input: {
     }),
     input.signingKeyPair.signingPrivateKey,
   );
-  const [memberEnvelope] = await wrapDekForRecipients(
-    organizationKem.secretKey,
-    [input.encapsulationPublicKey],
-  );
-
-  if (!memberEnvelope) {
-    throw new Error("Failed to wrap organization key for registering user");
-  }
 
   return {
     state,
@@ -241,15 +251,7 @@ export async function buildInitialOrganizationPolicyRequest(input: {
       ciphertextHash: state.payloadCiphertextHash,
     },
     projection,
-    memberEnvelopes: [
-      {
-        memberPrincipalType: "user",
-        memberPrincipalId: input.userId,
-        memberKeyFingerprint: userEncapsulationKeyFingerprint,
-        kemCipherText: bytesToBase64(memberEnvelope.kemCipherText),
-        wrappedKey: bytesToBase64(memberEnvelope.wrappedKey),
-      },
-    ],
+    memberEnvelopes,
   };
 }
 

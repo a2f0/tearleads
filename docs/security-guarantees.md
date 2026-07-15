@@ -60,12 +60,12 @@ The access and policy handshake has these layers:
  be version `1`, must target the new organization, must be signed by the
  registering user, and must project only the registering user as admin.
 3. Later group and organization policy states are signed principal states. The
- server verifies the signature, state hash, projection root, encrypted payload
- hash, member count, previous-state link, and admin-signer rule before storing
- them.
-4. Direct member envelopes for a principal are stored separately but must
- target the active principal state exactly. The API rejects missing, extra, or
- fingerprint-mismatched direct member envelopes.
+ server verifies the signature, state hash, projection and envelope roots,
+ encrypted payload hash, member count, previous-state link, and admin-signer
+ rule before storage.
+4. The signed state commits the exact direct-member envelope set. State,
+ payload, projection, and envelopes are accepted atomically; the API rejects
+ missing, extra, altered, or fingerprint-mismatched envelopes.
 5. Access changes are represented as signed access events and derived access
  manifests. Manifests bind the object, organization, epoch, predecessor hash,
  event hash, structural hash, grant root, referenced principal heads, and
@@ -84,35 +84,12 @@ The access and policy handshake has these layers:
 
 ### Principal Policy Integrity
 
-For group and organization policy state, the signed state binds:
-
-- principal type and id
-- version
-- previous state hash
-- key epoch
-- principal encapsulation public key and key fingerprint
-- membership mode
-- membership root
-- projection root
-- encrypted payload ciphertext hash
-- member count
-- signer user id
-- signer user key fingerprint
-- signature timestamp
-
-The server validates this before storage. The app validates it again before
-caching a referenced policy bundle. The app also verifies the whole returned
-chain, including contiguous versions, previous-state links, per-entry
-projection roots, per-entry member counts, and per-entry signatures.
-
-The membership root is part of the signed state and signature input. The API
-does not accept a separate member list for independent `membershipRoot`
-recomputation; the validated authorization projection is the signed
-`projectionRoot` plus the supplied projection rows.
-
-This means mutable projection rows are not authority by themselves. If the API
-or database changes projection rows without a matching signed state, honest
-clients reject the bundle.
+A principal signature binds its type/id, version and predecessor, key epoch and
+encapsulation key, membership/projection/envelope roots, encrypted payload
+hash, member count, signer identity, and timestamp. The server validates this
+before storage; clients revalidate the complete contiguous chain before
+caching or key use. Projection rows are therefore not authority by themselves:
+changing them without a matching signed state causes rejection.
 
 ### Admin-Signer Authorization
 
@@ -135,7 +112,8 @@ principal states.
 
 The principal state's `projectionRoot` must match the supplied projection. The
 state's `payloadCiphertextHash` must match the supplied encrypted payload. The
-state's `memberCount` must match the projection length.
+state's `memberCount` must match the projection length. Its
+`memberEnvelopesRoot` must match the canonical exact envelope set.
 
 The app repeats these checks on fetched policy bundles. A bundle with a
 tampered projection, payload, state hash, or chain link is skipped and not used
@@ -143,18 +121,11 @@ for decryption.
 
 ### Member Envelope Binding
 
-Principal member envelopes are required to match the active direct projection
-exactly. The API checks:
-
-- the envelope state hash equals the active principal state hash
-- the envelope epoch equals the active principal key epoch
-- each direct member has exactly one envelope
-- no unknown member has an envelope
-- each envelope's recipient key fingerprint matches the active recipient key
-
-These checks bind the stored principal secret-key envelopes to the signed
-direct member set. They do not make the server able to create valid wrapped
-material for a new member without access to the principal secret key.
+The signed `memberEnvelopesRoot` commits one canonical envelope per direct
+member: identity, active state/epoch, recipient fingerprint, KEM ciphertext,
+and wrapped key. Exact ML-KEM-1024/AES-GCM formats are enforced, and state,
+payload, projection, and immutable envelopes commit in one transaction. The
+server still cannot create a valid new wrap without the principal secret key.
 
 ### Revocation Depends On Principal Key Rotation
 

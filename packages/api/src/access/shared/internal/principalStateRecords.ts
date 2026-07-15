@@ -9,6 +9,7 @@ import {
   normalizePrincipalProjectionMembers,
   type PrincipalProjectionMember,
   type PrincipalProjectionRole,
+  type PrincipalStateMemberEnvelope,
   type PrincipalStateMemberType,
   type PrincipalStatePayloadCipherSuite,
   type SignedPrincipalState,
@@ -64,6 +65,7 @@ export interface PrincipalStateBundleInput {
   state: SignedPrincipalState;
   encryptedPayload: PrincipalStatePayloadInput;
   projection: PrincipalProjectionMember[];
+  memberEnvelopes: PrincipalStateMemberEnvelope[];
 }
 
 export interface PrincipalStateExternalSignerAuthorizationInput {
@@ -92,6 +94,7 @@ export const principalStateSelect = {
   keyFingerprint: principalStates.keyFingerprint,
   membershipMode: principalStates.membershipMode,
   membershipRoot: principalStates.membershipRoot,
+  memberEnvelopesRoot: principalStates.memberEnvelopesRoot,
   projectionRoot: principalStates.projectionRoot,
   payloadCiphertextHash: principalStates.payloadCiphertextHash,
   memberCount: principalStates.memberCount,
@@ -143,6 +146,7 @@ interface PrincipalStateRow {
   keyFingerprint: string;
   membershipMode: "projection";
   membershipRoot: string;
+  memberEnvelopesRoot: string;
   projectionRoot: string;
   payloadCiphertextHash: string;
   memberCount: number;
@@ -177,6 +181,7 @@ export function toStoredPrincipalState(
     keyFingerprint: row.keyFingerprint,
     membershipMode: row.membershipMode,
     membershipRoot: row.membershipRoot,
+    memberEnvelopesRoot: row.memberEnvelopesRoot,
     projectionRoot: row.projectionRoot,
     payloadCiphertextHash: row.payloadCiphertextHash,
     memberCount: row.memberCount,
@@ -216,6 +221,7 @@ function stripSignedPrincipalStateArtifacts(
     keyFingerprint: state.keyFingerprint,
     membershipMode: state.membershipMode,
     membershipRoot: state.membershipRoot,
+    memberEnvelopesRoot: state.memberEnvelopesRoot,
     projectionRoot: state.projectionRoot,
     payloadCiphertextHash: state.payloadCiphertextHash,
     memberCount: state.memberCount,
@@ -237,6 +243,13 @@ export function normalizePrincipalStateWriteInput(
       ciphertextHash: input.encryptedPayload.ciphertextHash,
     },
     projection: normalizePrincipalProjectionMembers(input.projection),
+    memberEnvelopes: input.memberEnvelopes.map((envelope) => ({
+      memberPrincipalType: envelope.memberPrincipalType,
+      memberPrincipalId: envelope.memberPrincipalId,
+      memberKeyFingerprint: envelope.memberKeyFingerprint,
+      kemCipherText: envelope.kemCipherText,
+      wrappedKey: envelope.wrappedKey,
+    })),
   };
 }
 

@@ -6,17 +6,20 @@ import {
   type ReferencedPrincipalHead,
   toFingerprint,
 } from "@tearleads/crypto";
-import type { PutPrincipalStateRequest } from "@tearleads/validators/request";
+import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type {
   CurrentPrincipalMemberEnvelopesResponse,
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
-import { policyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
+import {
+  policyBundleAfterMutation,
+  policyBundleFromInitialRequest,
+} from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import {
   acknowledgeGroupPolicyState,
+  assertGroupPolicyBundleMatchesAcknowledgement,
   assertGroupPolicyEnvelopesMatchAcknowledgement,
-  groupPolicyBundleFromAcknowledgement,
 } from "./groupPolicyMutationAcknowledgement";
 import {
   buildAddGroupUserPolicyRequest,
@@ -64,19 +67,19 @@ async function acknowledgementFixture() {
       signingPublicKey: signingKeyPair.signingPublicKey,
     }),
   });
-  const stateHash = await computePrincipalStateHash(mutation.state.state);
+  const stateHash = await computePrincipalStateHash(mutation.state);
   const expectedHead: ReferencedPrincipalHead = {
     principalType: "group",
-    principalId: mutation.state.state.principalId,
-    version: mutation.state.state.version,
-    keyEpoch: mutation.state.state.keyEpoch,
+    principalId: mutation.state.principalId,
+    version: mutation.state.version,
+    keyEpoch: mutation.state.keyEpoch,
     stateHash,
-    keyFingerprint: mutation.state.state.keyFingerprint,
+    keyFingerprint: mutation.state.keyFingerprint,
   };
   const state: PrincipalStateResponse = {
-    ...mutation.state.state,
+    ...mutation.state,
     stateHash,
-    createdAt: mutation.state.state.signedAt,
+    createdAt: mutation.state.signedAt,
   };
   const envelopes: CurrentPrincipalMemberEnvelopesResponse = {
     principalType: "group",
@@ -93,16 +96,21 @@ test("group policy acknowledgements accept only the exact authored successor", a
   const policy = await acknowledgeGroupPolicyState({
     currentPolicy: fixture.currentPolicy,
     expectedHead: fixture.expectedHead,
-    request: fixture.mutation.state,
+    request: fixture.mutation,
     response: fixture.state,
   });
-  const bundle = groupPolicyBundleFromAcknowledgement({
+  const bundle = {
+    ...(await policyBundleAfterMutation({
+      mutation: fixture.mutation,
+      previous: fixture.currentPolicy,
+    })),
+    currentMemberEnvelopes: fixture.envelopes,
+  };
+  assertGroupPolicyBundleMatchesAcknowledgement({
     currentPolicy: fixture.currentPolicy,
-    envelopes: fixture.envelopes,
     expectedHead: fixture.expectedHead,
-    memberEnvelopes: fixture.mutation.memberEnvelopes,
-    state: fixture.state,
-    stateRequest: fixture.mutation.state,
+    request: fixture.mutation,
+    response: bundle,
   });
 
   expect(policy.checkpoint).toEqual({
@@ -119,10 +127,10 @@ test("group policy acknowledgements accept only the exact authored successor", a
 
 test("group policy state acknowledgement rejects a version gap", async () => {
   const fixture = await acknowledgementFixture();
-  const gapRequest: PutPrincipalStateRequest = {
-    ...fixture.mutation.state,
+  const gapRequest: PutPrincipalPolicyRequest = {
+    ...fixture.mutation,
     state: {
-      ...fixture.mutation.state.state,
+      ...fixture.mutation.state,
       version: fixture.currentPolicy.currentState.version + 2,
     },
   };
@@ -148,10 +156,10 @@ test("group policy state acknowledgement rejects a version gap", async () => {
 
 test("group policy acknowledgements reject altered projection and envelopes", async () => {
   const fixture = await acknowledgementFixture();
-  const alteredRequest: PutPrincipalStateRequest = {
-    ...fixture.mutation.state,
+  const alteredRequest: PutPrincipalPolicyRequest = {
+    ...fixture.mutation,
     projection: [
-      ...fixture.mutation.state.projection,
+      ...fixture.mutation.projection,
       {
         memberPrincipalType: "user",
         memberPrincipalId: crypto.randomUUID(),
@@ -168,19 +176,24 @@ test("group policy acknowledgements reject altered projection and envelopes", as
     }),
   ).rejects.toThrow("Authored group policy commitments are invalid");
 
-  await expect(() =>
-    groupPolicyBundleFromAcknowledgement({
+  const bundle = await policyBundleAfterMutation({
+    mutation: fixture.mutation,
+    previous: fixture.currentPolicy,
+  });
+  expect(() =>
+    assertGroupPolicyBundleMatchesAcknowledgement({
       currentPolicy: fixture.currentPolicy,
-      envelopes: {
-        ...fixture.envelopes,
-        envelopes: fixture.envelopes.envelopes.slice(1),
-      },
       expectedHead: fixture.expectedHead,
-      memberEnvelopes: fixture.mutation.memberEnvelopes,
-      state: fixture.state,
-      stateRequest: fixture.mutation.state,
+      request: fixture.mutation,
+      response: {
+        ...bundle,
+        currentMemberEnvelopes: {
+          ...fixture.envelopes,
+          envelopes: fixture.envelopes.envelopes.slice(1),
+        },
+      },
     }),
-  ).toThrow("Group member envelopes acknowledgement mismatch");
+  ).toThrow("Group member envelopes changed after acknowledgement");
   expect(() =>
     assertGroupPolicyEnvelopesMatchAcknowledgement(fixture.envelopes, {
       ...fixture.envelopes,

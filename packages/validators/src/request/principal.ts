@@ -1,7 +1,6 @@
 import { isPlainObject } from "../isPlainObject";
 import {
   hasArrayProperty,
-  hasNonEmptyStringProperty,
   hasNullableStringProperty,
   hasNumberProperty,
   hasObjectProperty,
@@ -25,6 +24,7 @@ export interface PrincipalStateRequest {
   keyFingerprint: string;
   membershipMode: "projection";
   membershipRoot: string;
+  memberEnvelopesRoot: string;
   projectionRoot: string;
   payloadCiphertextHash: string;
   memberCount: number;
@@ -40,10 +40,11 @@ export interface PrincipalStateEncryptedPayloadRequest {
   ciphertextHash: string;
 }
 
-export interface PutPrincipalStateRequest {
+export interface PutPrincipalPolicyRequest {
   state: PrincipalStateRequest;
   encryptedPayload: PrincipalStateEncryptedPayloadRequest;
   projection: PrincipalProjectionMemberRequest[];
+  memberEnvelopes: PrincipalMemberEnvelopeRequest[];
 }
 
 export interface PrincipalMemberEnvelopeRequest {
@@ -52,11 +53,6 @@ export interface PrincipalMemberEnvelopeRequest {
   memberKeyFingerprint: string;
   kemCipherText: string;
   wrappedKey: string;
-}
-
-export interface PutPrincipalMemberEnvelopesRequest {
-  stateHash: string;
-  envelopes: PrincipalMemberEnvelopeRequest[];
 }
 
 function isManagedPrincipalType(
@@ -77,7 +73,7 @@ function isProjectionRole(
   return value === "member" || value === "admin";
 }
 
-export function isPrincipalProjectionMemberRequest(
+function isPrincipalProjectionMemberRequest(
   value: unknown,
 ): value is PrincipalProjectionMemberRequest {
   return (
@@ -91,7 +87,7 @@ export function isPrincipalProjectionMemberRequest(
   );
 }
 
-export function isPrincipalStateRequest(
+function isPrincipalStateRequest(
   value: unknown,
 ): value is PrincipalStateRequest {
   return (
@@ -108,6 +104,7 @@ export function isPrincipalStateRequest(
     hasStringProperty(value, "membershipMode") &&
     value.membershipMode === "projection" &&
     hasStringProperty(value, "membershipRoot") &&
+    hasStringProperty(value, "memberEnvelopesRoot") &&
     hasStringProperty(value, "projectionRoot") &&
     hasStringProperty(value, "payloadCiphertextHash") &&
     hasNumberProperty(value, "memberCount") &&
@@ -121,7 +118,7 @@ export function isPrincipalStateRequest(
   );
 }
 
-export function isPrincipalStateEncryptedPayloadRequest(
+function isPrincipalStateEncryptedPayloadRequest(
   value: unknown,
 ): value is PrincipalStateEncryptedPayloadRequest {
   return (
@@ -133,7 +130,7 @@ export function isPrincipalStateEncryptedPayloadRequest(
   );
 }
 
-export function isPrincipalMemberEnvelopeRequest(
+function isPrincipalMemberEnvelopeRequest(
   value: unknown,
 ): value is PrincipalMemberEnvelopeRequest {
   return (
@@ -148,9 +145,9 @@ export function isPrincipalMemberEnvelopeRequest(
   );
 }
 
-export function isPutPrincipalStateRequest(
+export function isPutPrincipalPolicyRequest(
   value: unknown,
-): value is PutPrincipalStateRequest {
+): value is PutPrincipalPolicyRequest {
   return (
     isPlainObject(value) &&
     hasObjectProperty(value, "state") &&
@@ -158,17 +155,8 @@ export function isPutPrincipalStateRequest(
     hasObjectProperty(value, "encryptedPayload") &&
     isPrincipalStateEncryptedPayloadRequest(value.encryptedPayload) &&
     hasArrayProperty(value, "projection") &&
-    value.projection.every(isPrincipalProjectionMemberRequest)
-  );
-}
-
-export function isPutPrincipalMemberEnvelopesRequest(
-  value: unknown,
-): value is PutPrincipalMemberEnvelopesRequest {
-  return (
-    isPlainObject(value) &&
-    hasNonEmptyStringProperty(value, "stateHash") &&
-    hasArrayProperty(value, "envelopes") &&
-    value.envelopes.every(isPrincipalMemberEnvelopeRequest)
+    value.projection.every(isPrincipalProjectionMemberRequest) &&
+    hasArrayProperty(value, "memberEnvelopes") &&
+    value.memberEnvelopes.every(isPrincipalMemberEnvelopeRequest)
   );
 }

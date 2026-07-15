@@ -5,8 +5,7 @@ import {
   isCompleteMultipartBlobStageRequest,
   isCreateOrganizationGroupRequest,
   isInitiateMultipartBlobStageRequest,
-  isPutPrincipalMemberEnvelopesRequest,
-  isPutPrincipalStateRequest,
+  isPutPrincipalPolicyRequest,
   isStageBlobRequest,
   isUpdateOrganizationProfileRequest,
   isUpdateOrganizationRosterEntryRequest,
@@ -156,108 +155,72 @@ test("isCompleteMultipartBlobStageRequest", () => {
   expect(isCompleteMultipartBlobStageRequest(null)).toBe(false);
 });
 
-test("isPutPrincipalStateRequest", () => {
-  expect(
-    isPutPrincipalStateRequest({
-      state: {
-        principalType: "group",
-        principalId: "550e8400-e29b-41d4-a716-446655440000",
-        version: 1,
-        prevStateHash: null,
-        keyEpoch: 1,
-        encapsulationPublicKey: "public-key",
-        keyFingerprint: "fingerprint",
-        membershipMode: "projection",
-        membershipRoot: "root",
-        projectionRoot: "projection-root",
-        payloadCiphertextHash: "ciphertext-hash",
-        memberCount: 1,
-        signedAt: new Date().toISOString(),
-        signerUserId: "550e8400-e29b-41d4-a716-446655440001",
-        signerUserKeyFingerprint: "policy-key-fingerprint-1",
-        signature: "signature",
+test("isPutPrincipalPolicyRequest", () => {
+  const request = {
+    state: {
+      principalType: "group",
+      principalId: "550e8400-e29b-41d4-a716-446655440000",
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: "public-key",
+      keyFingerprint: "fingerprint",
+      membershipMode: "projection",
+      membershipRoot: "root",
+      memberEnvelopesRoot: "member-envelopes-root",
+      projectionRoot: "projection-root",
+      payloadCiphertextHash: "ciphertext-hash",
+      memberCount: 1,
+      signedAt: new Date().toISOString(),
+      signerUserId: "550e8400-e29b-41d4-a716-446655440001",
+      signerUserKeyFingerprint: "policy-key-fingerprint-1",
+      signature: "signature",
+    },
+    encryptedPayload: {
+      cipherSuite: "aes-256-gcm",
+      ciphertext: "ciphertext",
+      ciphertextHash: "ciphertext-hash",
+    },
+    projection: [
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: "550e8400-e29b-41d4-a716-446655440001",
+        role: "member",
       },
-      encryptedPayload: {
-        cipherSuite: "aes-256-gcm",
-        ciphertext: "ciphertext",
-        ciphertextHash: "ciphertext-hash",
+    ],
+    memberEnvelopes: [
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: "550e8400-e29b-41d4-a716-446655440001",
+        memberKeyFingerprint: "fingerprint",
+        kemCipherText: "cipher",
+        wrappedKey: "wrapped",
       },
-      projection: [
-        {
-          memberPrincipalType: "user",
-          memberPrincipalId: "550e8400-e29b-41d4-a716-446655440001",
-          role: "member",
-        },
-      ],
-    }),
-  ).toBe(true);
-  expect(
-    isPutPrincipalStateRequest({
-      state: {
-        principalType: "team",
-        principalId: "550e8400-e29b-41d4-a716-446655440000",
-        version: 1,
-        prevStateHash: null,
-        keyEpoch: 1,
-        encapsulationPublicKey: "public-key",
-        keyFingerprint: "fingerprint",
-        membershipMode: "projection",
-        membershipRoot: "root",
-        projectionRoot: "projection-root",
-        payloadCiphertextHash: "ciphertext-hash",
-        memberCount: 0,
-        signedAt: new Date().toISOString(),
-        signerUserId: "550e8400-e29b-41d4-a716-446655440001",
-        signerUserKeyFingerprint: "policy-key-fingerprint-1",
-        signature: "signature",
-      },
-      encryptedPayload: {
-        cipherSuite: "aes-256-gcm",
-        ciphertext: "ciphertext",
-        ciphertextHash: "ciphertext-hash",
-      },
-      projection: [],
-    }),
-  ).toBe(false);
-  expect(isPutPrincipalStateRequest(null)).toBe(false);
-});
+    ],
+  };
 
-test("isPutPrincipalMemberEnvelopesRequest", () => {
+  expect(isPutPrincipalPolicyRequest(request)).toBe(true);
   expect(
-    isPutPrincipalMemberEnvelopesRequest({
-      stateHash: "state-hash",
-      envelopes: [
-        {
-          memberPrincipalType: "user",
-          memberPrincipalId: "550e8400-e29b-41d4-a716-446655440000",
-          memberKeyFingerprint: "fingerprint",
-          kemCipherText: "cipher",
-          wrappedKey: "wrapped",
-        },
-      ],
+    isPutPrincipalPolicyRequest({
+      ...request,
+      state: { ...request.state, principalType: "team" },
     }),
-  ).toBe(true);
+  ).toBe(false);
   expect(
-    isPutPrincipalMemberEnvelopesRequest({
-      stateHash: "state-hash",
-      envelopes: [
+    isPutPrincipalPolicyRequest({
+      ...request,
+      memberEnvelopes: [
         {
+          ...request.memberEnvelopes[0],
           memberPrincipalType: "organization",
-          memberPrincipalId: "550e8400-e29b-41d4-a716-446655440000",
-          memberKeyFingerprint: "fingerprint",
-          kemCipherText: "cipher",
-          wrappedKey: "wrapped",
         },
       ],
     }),
   ).toBe(false);
   expect(
-    isPutPrincipalMemberEnvelopesRequest({
-      stateHash: "",
-      envelopes: [],
-    }),
+    isPutPrincipalPolicyRequest({ ...request, memberEnvelopes: undefined }),
   ).toBe(false);
-  expect(isPutPrincipalMemberEnvelopesRequest(null)).toBe(false);
+  expect(isPutPrincipalPolicyRequest(null)).toBe(false);
 });
 
 test("isCreateOrganizationGroupRequest", () => {
@@ -277,6 +240,7 @@ test("isCreateOrganizationGroupRequest", () => {
         keyFingerprint: "fingerprint",
         membershipMode: "projection",
         membershipRoot: "root",
+        memberEnvelopesRoot: "member-envelopes-root",
         projectionRoot: "projection-root",
         payloadCiphertextHash: "ciphertext-hash",
         memberCount: 1,

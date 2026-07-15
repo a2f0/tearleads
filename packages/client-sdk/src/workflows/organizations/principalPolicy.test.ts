@@ -199,11 +199,8 @@ test("createOrganizationGroup caches the created group policy in a fresh local d
         expect(principalId).toBe(createdPolicyBundle.currentState.principalId);
         return createdPolicyBundle;
       },
-      putPrincipalMemberEnvelopes: async () => {
-        throw new Error("unexpected member envelope mutation");
-      },
-      putPrincipalState: async () => {
-        throw new Error("unexpected state mutation");
+      putPrincipalPolicy: async () => {
+        throw new Error("unexpected policy mutation");
       },
     };
 
@@ -294,17 +291,17 @@ test("group add and remove policy builders preserve additive epochs and rotate s
     }),
   });
 
-  expect(addRequest.state.state.keyEpoch).toBe(1);
+  expect(addRequest.state.keyEpoch).toBe(1);
   expect(
-    addRequest.state.projection.map((member) => member.memberPrincipalId),
+    addRequest.projection.map((member) => member.memberPrincipalId),
   ).toContain(targetUserId);
   expect(addRequest.memberEnvelopes).toHaveLength(2);
 
-  const addStateHash = await computePrincipalStateHash(addRequest.state.state);
+  const addStateHash = await computePrincipalStateHash(addRequest.state);
   const addedPolicy: PrincipalPolicyBundleResponse = {
     ...initialPolicy,
     currentState: {
-      ...addRequest.state.state,
+      ...addRequest.state,
       stateHash: addStateHash,
       createdAt: new Date("2026-05-12T12:01:00.000Z").toISOString(),
     },
@@ -312,17 +309,17 @@ test("group add and remove policy builders preserve additive epochs and rotate s
       principalType: "group",
       principalId: initialRequest.groupId,
       stateHash: addStateHash,
-      cipherSuite: addRequest.state.encryptedPayload.cipherSuite,
-      ciphertext: addRequest.state.encryptedPayload.ciphertext,
-      ciphertextHash: addRequest.state.encryptedPayload.ciphertextHash,
+      cipherSuite: addRequest.encryptedPayload.cipherSuite,
+      ciphertext: addRequest.encryptedPayload.ciphertext,
+      ciphertextHash: addRequest.encryptedPayload.ciphertextHash,
       createdAt: new Date("2026-05-12T12:01:00.000Z").toISOString(),
     },
-    currentProjection: addRequest.state.projection,
+    currentProjection: addRequest.projection,
     currentMemberEnvelopes: {
       principalType: "group",
       principalId: initialRequest.groupId,
       stateHash: addStateHash,
-      epoch: addRequest.state.state.keyEpoch,
+      epoch: addRequest.state.keyEpoch,
       envelopes: [...addRequest.memberEnvelopes],
     },
     previousStates: [
@@ -358,9 +355,9 @@ test("group add and remove policy builders preserve additive epochs and rotate s
     signingKeyPair,
   });
 
-  expect(removeRequest.state.state.keyEpoch).toBe(2);
+  expect(removeRequest.state.keyEpoch).toBe(2);
   expect(
-    removeRequest.state.projection.some(
+    removeRequest.projection.some(
       (member) => member.memberPrincipalId === targetUserId,
     ),
   ).toBe(false);

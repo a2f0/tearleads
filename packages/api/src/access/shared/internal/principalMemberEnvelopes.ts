@@ -8,6 +8,7 @@ import type {
   ManagedRecipientPrincipalType,
   PrincipalStateMemberType,
 } from "@tearleads/crypto";
+import { computePrincipalMemberEnvelopesRoot } from "@tearleads/crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import {
   getCurrentPrincipalEpochKeys,
@@ -36,6 +37,13 @@ interface StoredPrincipalMemberEnvelope extends PrincipalMemberEnvelopeInput {
   stateHash: string;
   epoch: number;
   createdAt: Date;
+}
+
+interface StorePrincipalMemberEnvelopesInput {
+  principalType: ManagedRecipientPrincipalType;
+  principalId: string;
+  stateHash: string;
+  envelopes: PrincipalMemberEnvelopeInput[];
 }
 
 function memberRecipientKey(input: {
@@ -232,12 +240,7 @@ export async function listCurrentPrincipalMemberEnvelopes(
 }
 
 export async function replaceCurrentPrincipalMemberEnvelopes(
-  input: {
-    principalType: ManagedRecipientPrincipalType;
-    principalId: string;
-    stateHash: string;
-    envelopes: PrincipalMemberEnvelopeInput[];
-  },
+  input: StorePrincipalMemberEnvelopesInput,
   database: ApiDatabase,
 ): Promise<StoredPrincipalMemberEnvelope[]> {
   return database.transaction((tx) =>
@@ -245,48 +248,34 @@ export async function replaceCurrentPrincipalMemberEnvelopes(
   );
 }
 
-export async function replaceCurrentPrincipalMemberEnvelopesInTransaction(
-  input: {
-    principalType: ManagedRecipientPrincipalType;
-    principalId: string;
-    stateHash: string;
-    envelopes: PrincipalMemberEnvelopeInput[];
-  },
-  executor: DatabaseTransaction,
-): Promise<StoredPrincipalMemberEnvelope[]> {
-  const { stateHash, epoch, recipients } =
-    await loadCurrentPrincipalMemberRecipientsForState(
-      input.principalType,
-      input.principalId,
-      executor,
-    );
-
-  if (stateHash !== input.stateHash) {
-    throw new Error("Principal member envelopes must target the current state");
-  }
-
-  const expectedRecipientsByKey = new Map<string, PrincipalMemberRecipient>();
-
-  for (const recipient of recipients) {
-    expectedRecipientsByKey.set(memberRecipientKey(recipient), recipient);
-  }
-
-  if (input.envelopes.length !== expectedRecipientsByKey.size) {
+function buildPrincipalMemberEnvelopeRows(input: {
+  readonly envelopes: PrincipalMemberEnvelopeInput[];
+  readonly epoch: number;
+  readonly principalId: string;
+  readonly principalType: ManagedRecipientPrincipalType;
+  readonly recipients: PrincipalMemberRecipient[];
+  readonly stateHash: string;
+}): Array<Omit<StoredPrincipalMemberEnvelope, "createdAt">> {
+  const expectedRecipients = new Map(
+    input.recipients.map((recipient) => [
+      memberRecipientKey(recipient),
+      recipient,
+    ]),
+  );
+  if (input.envelopes.length !== expectedRecipients.size) {
     throw new Error(
       "Principal member envelopes must match the current direct member set",
     );
   }
 
-  const insertedRows = input.envelopes.map((envelope) => {
+  const rows = input.envelopes.map((envelope) => {
     const recipientKey = memberRecipientKey(envelope);
-    const expectedRecipient = expectedRecipientsByKey.get(recipientKey);
-
+    const expectedRecipient = expectedRecipients.get(recipientKey);
     if (!expectedRecipient) {
       throw new Error(
         `Principal member envelope targets unknown member ${recipientKey}`,
       );
     }
-
     if (
       expectedRecipient.memberKeyFingerprint !== envelope.memberKeyFingerprint
     ) {
@@ -294,7 +283,6 @@ export async function replaceCurrentPrincipalMemberEnvelopesInTransaction(
         `Principal member envelope fingerprint mismatch for ${recipientKey}`,
       );
     }
-
     if (
       envelope.kemCipherText.length === 0 ||
       envelope.wrappedKey.length === 0
@@ -303,46 +291,126 @@ export async function replaceCurrentPrincipalMemberEnvelopesInTransaction(
         `Principal member envelope is missing wrapped material for ${recipientKey}`,
       );
     }
-
-    expectedRecipientsByKey.delete(recipientKey);
-
+    expectedRecipients.delete(recipientKey);
     return {
       principalType: input.principalType,
       principalId: input.principalId,
-      stateHash,
-      epoch,
-      memberPrincipalType: envelope.memberPrincipalType,
-      memberPrincipalId: envelope.memberPrincipalId,
-      memberKeyFingerprint: envelope.memberKeyFingerprint,
-      kemCipherText: envelope.kemCipherText,
-      wrappedKey: envelope.wrappedKey,
+      stateHash: input.stateHash,
+      epoch: input.epoch,
+      ...envelope,
     };
   });
 
-  if (expectedRecipientsByKey.size > 0) {
+  if (expectedRecipients.size > 0) {
     throw new Error(
       "Principal member envelopes must cover the current direct member set",
     );
   }
+  return rows;
+}
 
-  await executor
-    .delete(principalMemberEnvelopes)
-    .where(
-      and(
-        eq(principalMemberEnvelopes.principalType, input.principalType),
-        eq(principalMemberEnvelopes.principalId, input.principalId),
-        eq(principalMemberEnvelopes.stateHash, stateHash),
-      ),
-    );
-
-  if (insertedRows.length > 0) {
-    await executor.insert(principalMemberEnvelopes).values(insertedRows);
+async function insertAndVerifyPrincipalMemberEnvelopeRows(input: {
+  readonly executor: DatabaseTransaction;
+  readonly expectedCount: number;
+  readonly principalId: string;
+  readonly principalType: ManagedRecipientPrincipalType;
+  readonly rows: Array<Omit<StoredPrincipalMemberEnvelope, "createdAt">>;
+  readonly stateHash: string;
+  readonly submittedRoot: string;
+}): Promise<StoredPrincipalMemberEnvelope[]> {
+  if (input.rows.length > 0) {
+    await input.executor
+      .insert(principalMemberEnvelopes)
+      .values(input.rows)
+      .onConflictDoNothing({
+        target: [
+          principalMemberEnvelopes.principalType,
+          principalMemberEnvelopes.principalId,
+          principalMemberEnvelopes.stateHash,
+          principalMemberEnvelopes.memberPrincipalType,
+          principalMemberEnvelopes.memberPrincipalId,
+        ],
+      });
   }
-
-  return listPrincipalMemberEnvelopesForState(
+  const persisted = await listPrincipalMemberEnvelopesForState(
     input.principalType,
     input.principalId,
-    stateHash,
+    input.stateHash,
+    input.executor,
+  );
+  if (
+    persisted.length !== input.expectedCount ||
+    (await computePrincipalMemberEnvelopesRoot(persisted)) !==
+      input.submittedRoot
+  ) {
+    throw new Error("Principal member envelope conflict");
+  }
+  return persisted;
+}
+
+export async function replaceCurrentPrincipalMemberEnvelopesInTransaction(
+  input: StorePrincipalMemberEnvelopesInput,
+  executor: DatabaseTransaction,
+): Promise<StoredPrincipalMemberEnvelope[]> {
+  const currentState = await getCurrentPrincipalState(
+    input.principalType,
+    input.principalId,
     executor,
   );
+  if (!currentState) {
+    throw new Error(
+      `Missing current principal state for ${input.principalType}:${input.principalId}`,
+    );
+  }
+
+  if (currentState.stateHash !== input.stateHash) {
+    throw new Error("Principal member envelopes must target the current state");
+  }
+
+  const submittedRoot = await computePrincipalMemberEnvelopesRoot(
+    input.envelopes,
+  );
+  if (submittedRoot !== currentState.memberEnvelopesRoot) {
+    throw new Error(
+      "Principal member envelopes do not match the signed state root",
+    );
+  }
+
+  const stored = await listPrincipalMemberEnvelopesForState(
+    input.principalType,
+    input.principalId,
+    input.stateHash,
+    executor,
+  );
+  if (stored.length > 0) {
+    if ((await computePrincipalMemberEnvelopesRoot(stored)) !== submittedRoot) {
+      throw new Error("Principal member envelope conflict");
+    }
+    return stored;
+  }
+
+  const { stateHash, epoch, recipients } =
+    await loadCurrentPrincipalMemberRecipientsForState(
+      input.principalType,
+      input.principalId,
+      executor,
+    );
+
+  const rows = buildPrincipalMemberEnvelopeRows({
+    envelopes: input.envelopes,
+    epoch,
+    principalId: input.principalId,
+    principalType: input.principalType,
+    recipients,
+    stateHash,
+  });
+  return insertAndVerifyPrincipalMemberEnvelopeRows({
+    executor,
+    expectedCount: input.envelopes.length,
+    principalId: input.principalId,
+    principalType: input.principalType,
+    rows,
+    stateHash,
+    submittedRoot,
+  });
 }

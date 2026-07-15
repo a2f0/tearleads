@@ -13,8 +13,7 @@ import type {
   DocumentSyncRequest,
   InitiateMultipartBlobStageRequest,
   PutKeyPackageBackupRequest,
-  PutPrincipalMemberEnvelopesRequest,
-  PutPrincipalStateRequest,
+  PutPrincipalPolicyRequest,
   RegistrationRequest,
   StageBlobRequest,
   UpdateOrganizationProfileRequest,
@@ -43,7 +42,6 @@ import {
   isContainerWriterProjectionResponse,
   isCreateOrganizationGroupResponse,
   isCreateOrganizationResponse,
-  isCurrentPrincipalMemberEnvelopesResponse,
   isDeleteKeyPackageBackupResponse,
   isDeleteOrganizationGroupResponse,
   isDestroySessionResponse,
@@ -73,7 +71,6 @@ import {
   isOrganizationProfileResponse,
   isOrganizationUserDetailResponse,
   isPrincipalPolicyBundleResponse,
-  isPrincipalStateResponse,
   isRegistrationResponse,
   isStageBlobResponse,
   isUploadMultipartBlobPartResponse,
@@ -808,32 +805,14 @@ export class ApiClient {
     );
   }
 
-  putPrincipalState(
+  putPrincipalPolicy(
     principalType: "group" | "organization",
     principalId: string,
-    input: PutPrincipalStateRequest,
+    input: PutPrincipalPolicyRequest,
   ) {
     return this.request(
-      `/principals/${pathSegment(principalType)}/${pathSegment(principalId)}/state`,
-      isPrincipalStateResponse,
-      "PUT",
-      JSON.stringify(input),
-    ).finally(() => {
-      if (principalType === "group") {
-        this.organizationGroupRequestsByOrganizationId.clear();
-        this.clearWriterProjectionCaches();
-      }
-    });
-  }
-
-  putPrincipalMemberEnvelopes(
-    principalType: "group" | "organization",
-    principalId: string,
-    input: PutPrincipalMemberEnvelopesRequest,
-  ) {
-    return this.request(
-      `/principals/${pathSegment(principalType)}/${pathSegment(principalId)}/member-envelopes`,
-      isCurrentPrincipalMemberEnvelopesResponse,
+      `/principals/${pathSegment(principalType)}/${pathSegment(principalId)}/policy`,
+      isPrincipalPolicyBundleResponse,
       "PUT",
       JSON.stringify(input),
     ).finally(() => {

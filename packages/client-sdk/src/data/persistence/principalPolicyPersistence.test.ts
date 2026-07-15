@@ -7,6 +7,7 @@ import {
   makeVerifiedPrincipalPolicy,
   signPrincipalState,
   toFingerprint,
+  wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
@@ -40,6 +41,20 @@ async function createPrincipalPolicyBundle() {
     },
   ];
   const payloadCiphertext = "ciphertext-1";
+  const signerKem = generateKemSeedAndKeyPair();
+  const aliceKem = generateKemSeedAndKeyPair();
+  const recipientIds = [signerUserId, "alice"];
+  const wrappedRecipients = await wrapDekForRecipients(principalKem.secretKey, [
+    signerKem.publicKey,
+    aliceKem.publicKey,
+  ]);
+  const memberEnvelopes = wrappedRecipients.map((envelope, index) => ({
+    memberPrincipalType: "user" as const,
+    memberPrincipalId: recipientIds[index] ?? "",
+    memberKeyFingerprint: envelope.keyFingerprint,
+    kemCipherText: bytesToBase64(envelope.kemCipherText),
+    wrappedKey: bytesToBase64(envelope.wrappedKey),
+  }));
   const signedState = await signPrincipalState(
     await buildPrincipalStateSigningInput({
       principalType: "group",
@@ -49,12 +64,11 @@ async function createPrincipalPolicyBundle() {
       keyEpoch: 1,
       encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
       keyFingerprint: await toFingerprint(principalKem.publicKey),
-      members: [
-        {
-          principalType: "user",
-          principalId: "alice",
-        },
-      ],
+      members: currentProjection.map((member) => ({
+        principalType: member.memberPrincipalType,
+        principalId: member.memberPrincipalId,
+      })),
+      memberEnvelopes,
       projection: currentProjection,
       payloadCiphertext,
       signedAt: "2026-04-08T00:00:00.000Z",
@@ -70,15 +84,7 @@ async function createPrincipalPolicyBundle() {
       principalId: "group-1",
       stateHash,
       epoch: 1,
-      envelopes: [
-        {
-          memberPrincipalType: "user",
-          memberPrincipalId: "alice",
-          memberKeyFingerprint: "member-key-1",
-          kemCipherText: "kem-cipher-text-1",
-          wrappedKey: "wrapped-key-1",
-        },
-      ],
+      envelopes: memberEnvelopes,
     },
     currentState: {
       ...signedState,

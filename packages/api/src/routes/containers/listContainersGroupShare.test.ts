@@ -1,8 +1,12 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { containers, organizations, users } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
-import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import {
+  generateKemSeedAndKeyPair,
+  toFingerprint,
+  wrapDekForRecipients,
+} from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
@@ -19,7 +23,7 @@ const SIGNED_AT = "2026-05-05T00:00:00.000Z";
 
 async function addUserToAdminGroup(input: {
   actor: ReturnType<typeof createTestUser>;
-  memberUserId: string;
+  member: TestUser;
   organizationId: string;
 }): Promise<string> {
   const [organization] = await db
@@ -49,12 +53,28 @@ async function addUserToAdminGroup(input: {
     })),
     {
       memberPrincipalType: "user" as const,
-      memberPrincipalId: input.memberUserId,
+      memberPrincipalId: input.member.userId,
       role: "member" as const,
     },
   ];
 
   const groupKem = generateKemSeedAndKeyPair();
+  const recipients = [input.actor, input.member];
+  const memberEnvelopes = await Promise.all(
+    recipients.map(async (recipient) => {
+      const [wrappedGroupKey] = await wrapDekForRecipients(groupKem.secretKey, [
+        recipient.kem.publicKey,
+      ]);
+      invariant(wrappedGroupKey, "expected principal member envelope");
+      return {
+        memberPrincipalType: "user" as const,
+        memberPrincipalId: recipient.userId,
+        memberKeyFingerprint: await toFingerprint(recipient.kem.publicKey),
+        kemCipherText: bytesToBase64(wrappedGroupKey.kemCipherText),
+        wrappedKey: bytesToBase64(wrappedGroupKey.wrappedKey),
+      };
+    }),
+  );
   const signedState = await signPrincipalStateBundle({
     principalType: "group",
     principalId: organization.adminGroupId,
@@ -73,10 +93,11 @@ async function addUserToAdminGroup(input: {
     signerUserId: input.actor.userId,
     signerUserKeyFingerprint: input.actor.fingerprint,
     signingPrivateKey: input.actor.signing.signingPrivateKey,
+    memberEnvelopes,
   });
 
   const response = await routeApp.request(
-    `/principals/group/${organization.adminGroupId}/state`,
+    `/principals/group/${organization.adminGroupId}/policy`,
     {
       method: "PUT",
       headers: {
@@ -87,6 +108,7 @@ async function addUserToAdminGroup(input: {
         state: signedState.state,
         encryptedPayload: signedState.encryptedPayload,
         projection: signedState.projection,
+        memberEnvelopes: signedState.memberEnvelopes,
       }),
     },
   );
@@ -123,7 +145,7 @@ test("GET /containers surfaces the owner root container after a peer joins the a
 
   await addUserToAdminGroup({
     actor: owner,
-    memberUserId: peer.userId,
+    member: peer,
     organizationId: ownerRow.organizationId,
   });
 
@@ -171,7 +193,7 @@ test("GET /containers root lane resume hides a newly shared root behind a stale 
 
   await addUserToAdminGroup({
     actor: owner,
-    memberUserId: peer.userId,
+    member: peer,
     organizationId: ownerRow.organizationId,
   });
 

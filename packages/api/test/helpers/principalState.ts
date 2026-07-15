@@ -38,12 +38,14 @@ export function createProjectionWithAdminSigner(
 }
 
 export async function signPrincipalStateBundle(
-  input: PrincipalStateHeaderInput & {
+  input: Omit<PrincipalStateHeaderInput, "memberEnvelopes"> & {
+    memberEnvelopes?: PrincipalStateHeaderInput["memberEnvelopes"];
     signingPrivateKey: Uint8Array;
   },
 ): Promise<PrincipalStateBundleInput> {
+  const memberEnvelopes = input.memberEnvelopes ?? [];
   const state = await signPrincipalState(
-    await buildPrincipalStateSigningInput(input),
+    await buildPrincipalStateSigningInput({ ...input, memberEnvelopes }),
     input.signingPrivateKey,
   );
 
@@ -55,5 +57,6 @@ export async function signPrincipalStateBundle(
       ciphertextHash: state.payloadCiphertextHash,
     },
     projection: normalizePrincipalProjectionMembers(input.projection),
+    memberEnvelopes,
   };
 }
