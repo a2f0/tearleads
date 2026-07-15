@@ -45,10 +45,11 @@ function staleDepMessage(name: string, reason: string): string {
     "Rebuild it:",
     `  bun run --filter='${name}' build`,
     "",
-    // turbo keys its cache on content, this guard compares mtimes. An mtime-only
+    // This guard compares mtimes; turbo keys its cache on content. An mtime-only
     // bump (git checkout, rebase, stash pop) is a cache hit, so turbo reports
-    // success without rewriting dist and this guard keeps firing. The unfiltered
-    // build above bypasses turbo and always clears it.
+    // success without rewriting dist and this guard keeps firing. The command
+    // above runs the package's own build script rather than going through turbo,
+    // so it always rewrites dist and always clears this.
     "`turbo run test --filter=app` and `bun run build:packages` also rebuild,",
     "but cache on content hash — after an mtime-only change they report success",
     "without touching dist, and this guard keeps firing. Prefer the command above.",

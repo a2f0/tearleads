@@ -292,8 +292,12 @@ server.listen({
     recordUnhandledRequest(
       `${request.method} ${new URL(request.url).pathname.replace(/\/[0-9a-f-]{36}(?=\/|$)/giu, "/:id")}`,
     );
-    // Same behaviour as the "error" strategy: log, then throw so the request
-    // rejects. happydom.ts asserts on what was recorded at the end of the run.
+    // print.error() is the "error" strategy's body: log, then throw so the
+    // request rejects. happydom.ts asserts on what was recorded at the end of
+    // the run. Note a callback is stricter than the "error" string, which
+    // exempts asset-shaped URLs (.json, .css, fonts) and lets them escape to the
+    // real network — an exemption for browser dev-server noise that this
+    // bun/happy-dom suite has no use for.
     print.error();
   },
 });
