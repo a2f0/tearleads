@@ -315,3 +315,19 @@ test("window hides sidebar chrome until sidebar content is registered", async ()
   expect(view.queryByText("Show Sidebar")).toBeNull();
   expect(view.queryByText("Hide Sidebar")).toBeNull();
 });
+
+test("window chrome renders no status bar band while idle", async () => {
+  // The status bar only holds transient messages; an idle window must sit flush
+  // on the taskbar rather than reserving a muted band above it.
+  const view = render(
+    <WindowStateProvider>
+      <WindowNoSidebarHarness />
+    </WindowStateProvider>,
+  );
+
+  await waitFor(() => {
+    expect(view.getByText("Main Content")).toBeTruthy();
+  });
+
+  expect(view.container.querySelector(".window-statusbar")).toBeNull();
+});
