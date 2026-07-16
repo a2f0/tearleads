@@ -75,6 +75,7 @@ import {
   type ListContainersResponse,
   type ListDocumentAttachmentsResponse,
   type ListOrganizationGroupsResponse,
+  type PrincipalPolicyBundleResponse,
   type UserIdentityResponse,
 } from "@tearleads/validators/response";
 import { hasStringProperty } from "@tearleads/validators/util";
@@ -163,6 +164,9 @@ export class ApiClient {
   private readonly organizationGroupRequestsByOrganizationId = new BoundedCache<
     Promise<ListOrganizationGroupsResponse | null>
   >();
+  private readonly principalPolicyRequestsByKey = new BoundedCache<
+    Promise<PrincipalPolicyBundleResponse | null>
+  >();
   private readonly requestFailuresByKey = new Map<string, RequestFailure>();
   private readonly request: RequestFn;
   private readonly responseRequest: ResponseRequestFn;
@@ -185,6 +189,7 @@ export class ApiClient {
     this.documentWriterProjectionRequestsByDocumentId.clear();
     this.userIdentityRequestsByUserId.clear();
     this.organizationGroupRequestsByOrganizationId.clear();
+    this.principalPolicyRequestsByKey.clear();
   }
 
   private invalidateDocumentAttribution(documentId: string): void {
@@ -793,10 +798,15 @@ export class ApiClient {
     principalType: "group" | "organization",
     principalId: string,
   ) {
-    return this.request(
-      `/principals/${pathSegment(principalType)}/${pathSegment(principalId)}/policy`,
-      isPrincipalPolicyBundleResponse,
-      "GET",
+    return dedupedRequest(
+      this.principalPolicyRequestsByKey,
+      JSON.stringify([principalType, principalId]),
+      () =>
+        this.request(
+          `/principals/${pathSegment(principalType)}/${pathSegment(principalId)}/policy`,
+          isPrincipalPolicyBundleResponse,
+          "GET",
+        ),
     );
   }
 
@@ -805,12 +815,15 @@ export class ApiClient {
     principalId: string,
     input: PutPrincipalPolicyRequest,
   ) {
+    const requestKey = JSON.stringify([principalType, principalId]);
+    this.principalPolicyRequestsByKey.delete(requestKey);
     return this.request(
       `/principals/${pathSegment(principalType)}/${pathSegment(principalId)}/policy`,
       isPrincipalPolicyBundleResponse,
       "PUT",
       JSON.stringify(input),
     ).finally(() => {
+      this.principalPolicyRequestsByKey.delete(requestKey);
       if (principalType === "group") {
         this.organizationGroupRequestsByOrganizationId.clear();
         this.clearWriterProjectionCaches();

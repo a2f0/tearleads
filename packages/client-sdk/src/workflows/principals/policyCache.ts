@@ -275,10 +275,9 @@ async function cacheReferencedPrincipalPolicy(
     principalId: reference.principalId,
     principalType: reference.principalType,
   });
-  const cachedStateHash = cachedBundle?.currentState.stateHash ?? null;
   const bundle =
-    cachedStateHash === reference.stateHash &&
     cachedBundle &&
+    getBundleReferenceMismatchReason(reference, cachedBundle) === null &&
     principalPolicyHeadMeetsCheckpoint(
       cachedBundle.currentState,
       localCheckpoint,

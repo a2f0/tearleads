@@ -277,6 +277,51 @@ test("principal policy sync caches current state when the reference points at a 
   }
 });
 
+test("principal policy sync reuses and re-verifies a cached successor for a historical reference", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-cached-successor-history",
+  );
+
+  try {
+    const { bundle, signerKeyResponse } =
+      await createSuccessorPrincipalPolicyBundle();
+    const previousState = bundle.previousStates[0]?.state;
+    if (!previousState) {
+      throw new Error("expected previous principal policy state");
+    }
+    let policyReadCount = 0;
+    let signerReadCount = 0;
+    const cache = (
+      references: Parameters<typeof cacheReferencedPolicies>[0]["references"],
+    ) =>
+      cacheReferencedPolicies({
+        execSql,
+        getCurrentPrincipalPolicy: async () => {
+          policyReadCount += 1;
+          return bundle;
+        },
+        getUserIdentity: async () => {
+          signerReadCount += 1;
+          return signerKeyResponse;
+        },
+        references,
+      });
+
+    await cache([referencedPrincipalStateFromBundle(bundle)]);
+    await cache([referencedPrincipalStateFromPolicyState(previousState)]);
+
+    expect(policyReadCount).toBe(1);
+    // Reusing the stored bundle still runs normal signature verification; it is
+    // a network-read optimization, not a trusted-object shortcut.
+    expect(signerReadCount).toBe(2);
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+    ).resolves.toEqual(bundle);
+  } finally {
+    close();
+  }
+});
+
 test("principal policy sync skips shrinking successors that reuse the key epoch", async () => {
   const { close, execSql } = await createTestExecSql(
     "principal-policy-sync-test",

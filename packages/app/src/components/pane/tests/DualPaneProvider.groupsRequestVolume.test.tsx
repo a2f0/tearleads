@@ -26,60 +26,44 @@ import {
   profileProxiedApiRequests,
 } from "../../../../test/helpers/proxiedApiRequestBudget";
 
-// Baseline for the org-manager "add a user to the Admins group" gesture, measured
-// on the isolated admin-add slice (after both panes finish provisioning/backfill).
-//
-// Observed at exactly 69 requests, deterministic across repeated runs (was 84
-// before the resync_required crawl was scoped, see below). Only TWO of those
-// requests actually mutate server state:
-//   PUT  /principals/group/:groupId/policy   -- the add-member write itself
-//   POST /containers/:containerId/share      -- reshare the org root to the new
-//                                               Admins key epoch (Admins-only path)
-// Everything else is read / reconcile / refresh convergence:
-//   * 11 GET /containers -- root-lane re-lists across both panes as the membership
-//     change propagates. This was 26 until resyncContainerAccess (serverEventsBinding)
-//     stopped answering every resync_required event with a full all-parent-lanes
-//     crawl (openTree().refresh()) and instead re-lists the root lane plus the
-//     flagged container's own parent lane (refreshRootLane), leaning on the scoped
-//     reconciler.enqueueContainer for the flagged container (#1281). The admin-add
-//     resync targets the org root (a top-level container), so no extra parent lane
-//     is added here. Further reduction needs the root re-list itself to become
-//     event-delta driven rather than a full re-list per hint.
-//   * 11 GET /principals/group/:groupId/policy -- the add workflow reads the group
-//     policy for its mutation context and again to cache the committed bundle, and
-//     the org-manager refreshers re-read it after the write.
-//   * GET /containers/:id/documents, GET /documents/:id/writer-projection, and
-//     POST /documents/:id/sync -- shared-subtree document convergence.
-//   * The org-manager post-mutation reload fan-out (refreshDirectoryAndGroups +
-//     refreshSelectedGroupDetails + refreshSelectedUserDetail): directory, groups,
-//     group members/containers, grants, data-usage, and the org principal policy.
-//
-// The ceilings carry modest headroom over the observed counts to absorb race timing
-// without masking a regression: a re-sync loop or a duplicated refresh fan-out would
-// blow well past `total`, and the mutation writes are pinned tight (1 each) to catch
-// an accidental double-write. Re-profile with DUAL_PANE_REQUEST_PROFILE=1 to see the
-// current per-endpoint breakdown when a change moves these numbers.
-const ADMIN_GROUP_ADD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 80,
+// #1565 originally measured the whole open-and-add gesture at 84 requests;
+// #1566 reduced it to 69. Keep navigation and the actual mutation separate so
+// bootstrap/UI reads cannot hide a sync regression in shared total headroom.
+// Current deterministic profile: 11 requests to open/select Admins, then 53 from
+// click through convergence. Only the policy PUT and root rewrap POST are writes.
+const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
+  total: 13,
   byRequest: {
-    "GET /containers": 15,
-    "GET /principals/group/:groupId/policy": 14,
-    "GET /containers/:containerId/documents": 12,
-    "GET /documents/:documentId/writer-projection": 10,
-    "POST /documents/:documentId/sync": 10,
-    "GET /organizations/:organizationId/directory": 5,
+    "GET /organizations/:organizationId/directory": 2,
+    "GET /organizations/:organizationId/data-usage": 2,
+    "GET /organizations/:organizationId/grants": 2,
+    "GET /organizations/:organizationId/groups": 1,
+    "GET /organizations/:organizationId/groups/:groupId/containers": 1,
+    "GET /organizations/:organizationId/groups/:groupId/members": 1,
+    "GET /principals/group/:groupId/policy": 1,
+    "GET /principals/organization/:organizationId/policy": 1,
+    "POST /containers/:containerId/share": 0,
+    "PUT /principals/group/:groupId/policy": 0,
+  },
+};
+
+const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
+  total: 55,
+  byRequest: {
+    "GET /containers": 12,
+    "GET /principals/group/:groupId/policy": 11,
+    "GET /containers/:containerId/documents": 9,
+    "GET /documents/:documentId/writer-projection": 9,
+    "POST /documents/:documentId/sync": 9,
     "GET /auth/user-identity/:userId": 3,
-    "GET /organizations/:organizationId/groups": 3,
-    "GET /organizations/:organizationId/data-usage": 3,
-    "GET /organizations/:organizationId/grants": 3,
-    "GET /organizations/:organizationId/groups/:groupId/containers": 3,
-    "GET /organizations/:organizationId/groups/:groupId/members": 3,
-    "GET /principals/organization/:organizationId/policy": 3,
+    "GET /organizations/:organizationId/directory": 2,
+    "GET /organizations/:organizationId/groups": 2,
+    "GET /organizations/:organizationId/groups/:groupId/containers": 2,
+    "GET /organizations/:organizationId/groups/:groupId/members": 2,
     "GET /containers/:containerId/writer-projection": 2,
-    // The two mutation writes. Pinned to exactly 1 (their observed count): a
-    // ceiling of 2 would let an accidental double-add or a redundant second root
-    // reshare slip under the total budget, which is the regression this test
-    // exists to catch. A legitimate retry of either write signals a real problem.
+    "GET /organizations/:organizationId/data-usage": 0,
+    "GET /organizations/:organizationId/grants": 0,
+    "GET /principals/organization/:organizationId/policy": 0,
     "POST /containers/:containerId/share": 1,
     "PUT /principals/group/:groupId/policy": 1,
   },
@@ -111,7 +95,15 @@ test(
     profileProxiedApiRequests("provisioning + settle", 0);
 
     const adminAddBaseline = capturePostShareSyncBaseline();
-    await addPeerToAdminsGroup(leftPane, getPaneUserId(rightPane));
+    let mutationRequestStartIndex = adminAddBaseline.requestStartIndex;
+    await addPeerToAdminsGroup(leftPane, getPaneUserId(rightPane), () => {
+      mutationRequestStartIndex = listProxiedApiRequests().length;
+      profileProxiedApiRequests(
+        "open org manager + select Admins",
+        adminAddBaseline.requestStartIndex,
+        mutationRequestStartIndex,
+      );
+    });
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
       adminAddBaseline,
@@ -120,15 +112,31 @@ test(
     const adminAddRequests = listProxiedApiRequests().slice(
       adminAddBaseline.requestStartIndex,
     );
+    const navigationRequests = adminAddRequests.slice(
+      0,
+      mutationRequestStartIndex - adminAddBaseline.requestStartIndex,
+    );
+    const mutationRequests = listProxiedApiRequests().slice(
+      mutationRequestStartIndex,
+    );
     profileProxiedApiRequests(
       "admin-group add + settle",
       adminAddBaseline.requestStartIndex,
     );
+    profileProxiedApiRequests(
+      "admin-group mutation + settle",
+      mutationRequestStartIndex,
+    );
 
     expectProxiedApiRequestBudget(
-      "admin-group add",
-      adminAddRequests,
-      ADMIN_GROUP_ADD_REQUEST_BUDGET,
+      "open org manager and select Admins",
+      navigationRequests,
+      ADMIN_GROUP_OPEN_REQUEST_BUDGET,
+    );
+    expectProxiedApiRequestBudget(
+      "admin-group mutation",
+      mutationRequests,
+      ADMIN_GROUP_MUTATION_REQUEST_BUDGET,
     );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,

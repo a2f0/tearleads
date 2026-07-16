@@ -230,6 +230,7 @@ export async function shareContainerWithGroup(
 export async function addPeerToAdminsGroup(
   pane: HTMLElement,
   peerUserId: string,
+  onBeforeAdd?: () => void,
 ) {
   // Roster-first flows already have Org Manager open on the imported user.
   // Reopening it would stack a second window and make its navigation ambiguous.
@@ -269,6 +270,7 @@ export async function addPeerToAdminsGroup(
   await waitFor(() => {
     expect(addButton.disabled).toBe(false);
   });
+  onBeforeAdd?.();
   await interact(() => {
     fireEvent.click(addButton);
   });
