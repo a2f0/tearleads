@@ -186,8 +186,8 @@
       "bytes": 18029
     },
     "packages/app/src/mini-apps/identity-manager/IdentityManager.test.tsx": {
-      "lines": 615,
-      "bytes": 18946
+      "lines": 565,
+      "bytes": 17315
     },
     "packages/app/src/mini-apps/system-monitor/SystemMonitor.test.tsx": {
       "lines": 519,

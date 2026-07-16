@@ -1,24 +1,21 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import type { Tearleads, UserSession } from "@tearleads/client-sdk";
-import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
 import {
   act,
-  cleanup,
   fireEvent,
   render,
   waitFor,
   within,
 } from "@testing-library/react";
-import { type PropsWithChildren, useEffect } from "react";
-import { withManualIdentity } from "../../../test/helpers/manualIdentityProfile";
-import { MockWorker } from "../../../test/helpers/mockWorker";
+import {
+  cleanupIdentityManagerTestEnvironment,
+  createIdentityManagerHostConfig,
+  IdentityManagerTestRuntime,
+  TestWebSocket,
+} from "../../../test/helpers/identityManagerTestRuntime";
 import "../../../test/helpers/mswServer";
-import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sharedMemoryLocalKeyring";
 import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../components/shared/DestroyKeyPackageConfirmationDialog";
-import { APP_HOST_PROFILES, AppHostConfig } from "../../host/AppHostConfig";
-import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { IdentityManager } from "./IdentityManager";
 
 const ACTIVE_SESSION: UserSession = {
@@ -46,68 +43,15 @@ const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
   "clipboard",
 );
 
-class TestWebSocket extends EventTarget {
-  constructor(readonly url: string | URL) {
-    super();
-  }
-
-  close() {}
-}
-
-// These tests drive the manual identity flow (Generate Key Pair / Register), so
-// disable the boot-time autopilot that would otherwise provision first.
-// A host keyring marks the keychain host-managed, which disables PIN locking
-// (canManagePinCode, LocalKeyringLockProvider.tsx) — so the PIN test uses this
-// config as-is and installs indexedDB to get the browser-managed keychain.
-const BROWSER_KEYRING_HOST_CONFIG = new AppHostConfig(
-  "http://localhost:3001",
-  "ws://events.example.test",
-  () =>
-    createSQLiteRuntime({
-      workerConstructor: MockWorker,
-    }),
-).withOverrides({ profile: withManualIdentity(APP_HOST_PROFILES.app) });
-
-// Every other test needs a keyring: without one the cipher-key resolver refuses
-// to boot (by design — no development-key fallback), leaving the database in
-// "error" and the assertions running against a degraded app.
-const TEST_HOST_CONFIG = BROWSER_KEYRING_HOST_CONFIG.withOverrides({
-  createLocalKeyring: createSharedMemoryLocalKeyringFactory(),
+const TEST_HOST_CONFIG = createIdentityManagerHostConfig();
+// PIN locking is only offered for a browser-managed keychain, so the PIN test
+// opts out of the host keyring and installs indexedDB to get one.
+const BROWSER_KEYRING_HOST_CONFIG = createIdentityManagerHostConfig({
+  browserManagedKeyring: true,
 });
 
-function TearleadsProbe({
-  onReady,
-}: {
-  onReady: (tearleads: Tearleads) => void;
-}) {
-  const tearleads = useTearleads();
-
-  useEffect(() => {
-    onReady(tearleads);
-  }, [onReady, tearleads]);
-
-  return null;
-}
-
-function IdentityManagerTestRuntime({
-  children,
-  hostConfig = TEST_HOST_CONFIG,
-  onTearleadsReady,
-}: PropsWithChildren<{
-  hostConfig?: AppHostConfig;
-  onTearleadsReady: (tearleads: Tearleads) => void;
-}>) {
-  return (
-    <AppRuntimeProvider autoProvisionEnabled={false} hostConfig={hostConfig}>
-      <TearleadsProbe onReady={onTearleadsReady} />
-      {children}
-    </AppRuntimeProvider>
-  );
-}
-
-afterEach(() => {
-  cleanup();
-  globalThis.localStorage?.clear();
+afterEach(async () => {
+  await cleanupIdentityManagerTestEnvironment();
   if (originalClipboardDescriptor) {
     Object.defineProperty(
       Navigator.prototype,
@@ -141,6 +85,7 @@ async function renderAuthenticatedIdentityManagerWithSessions(
   Reflect.set(globalThis, "WebSocket", TestWebSocket);
   const view = render(
     <IdentityManagerTestRuntime
+      hostConfig={TEST_HOST_CONFIG}
       onTearleadsReady={(sdk) => {
         tearleadsRef.current = sdk;
       }}
@@ -178,6 +123,7 @@ async function renderAuthenticatedIdentityManagerWithSessions(
 
   view.rerender(
     <IdentityManagerTestRuntime
+      hostConfig={TEST_HOST_CONFIG}
       onTearleadsReady={(sdk) => {
         tearleadsRef.current = sdk;
       }}
@@ -432,6 +378,7 @@ test("identity actions menu stays hidden while signed out", async () => {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const view = render(
       <IdentityManagerTestRuntime
+        hostConfig={TEST_HOST_CONFIG}
         onTearleadsReady={(sdk) => {
           tearleadsRef.current = sdk;
         }}
@@ -459,6 +406,7 @@ test("identity detail copies the authenticated user id", async () => {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const view = render(
       <IdentityManagerTestRuntime
+        hostConfig={TEST_HOST_CONFIG}
         onTearleadsReady={(sdk) => {
           tearleadsRef.current = sdk;
         }}
@@ -490,6 +438,7 @@ test("identity detail copies the authenticated user id", async () => {
 
       view.rerender(
         <IdentityManagerTestRuntime
+          hostConfig={TEST_HOST_CONFIG}
           onTearleadsReady={(sdk) => {
             tearleadsRef.current = sdk;
           }}
@@ -523,6 +472,7 @@ test("identity manager confirms before destroying a key package", async () => {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const view = render(
       <IdentityManagerTestRuntime
+        hostConfig={TEST_HOST_CONFIG}
         onTearleadsReady={(sdk) => {
           tearleadsRef.current = sdk;
         }}

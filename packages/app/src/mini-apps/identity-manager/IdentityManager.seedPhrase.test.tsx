@@ -1,77 +1,19 @@
 import { afterEach, expect, test } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
-import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { createIdentitySeedPhraseFromEntropy } from "@tearleads/crypto";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  waitFor,
-} from "@testing-library/react";
-import { type PropsWithChildren, useEffect } from "react";
-import { withManualIdentity } from "../../../test/helpers/manualIdentityProfile";
-import { MockWorker } from "../../../test/helpers/mockWorker";
+  cleanupIdentityManagerTestEnvironment,
+  createIdentityManagerHostConfig,
+  IdentityManagerTestRuntime,
+  TestWebSocket,
+} from "../../../test/helpers/identityManagerTestRuntime";
 import "../../../test/helpers/mswServer";
-import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sharedMemoryLocalKeyring";
-import { APP_HOST_PROFILES, AppHostConfig } from "../../host/AppHostConfig";
-import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { IdentityManager } from "./IdentityManager";
 
-class TestWebSocket extends EventTarget {
-  constructor(readonly url: string | URL) {
-    super();
-  }
+const TEST_HOST_CONFIG = createIdentityManagerHostConfig();
 
-  close() {}
-}
-
-const TEST_HOST_CONFIG = new AppHostConfig(
-  "http://localhost:3001",
-  "ws://events.example.test",
-  () =>
-    createSQLiteRuntime({
-      workerConstructor: MockWorker,
-    }),
-).withOverrides({
-  createLocalKeyring: createSharedMemoryLocalKeyringFactory(),
-  profile: withManualIdentity(APP_HOST_PROFILES.app),
-});
-
-function TearleadsProbe({
-  onReady,
-}: {
-  onReady: (tearleads: Tearleads) => void;
-}) {
-  const tearleads = useTearleads();
-
-  useEffect(() => {
-    onReady(tearleads);
-  }, [onReady, tearleads]);
-
-  return null;
-}
-
-function IdentityManagerTestRuntime({
-  children,
-  onTearleadsReady,
-}: PropsWithChildren<{ onTearleadsReady: (tearleads: Tearleads) => void }>) {
-  return (
-    <AppRuntimeProvider
-      autoProvisionEnabled={false}
-      hostConfig={TEST_HOST_CONFIG}
-    >
-      <TearleadsProbe onReady={onTearleadsReady} />
-      {children}
-    </AppRuntimeProvider>
-  );
-}
-
-afterEach(() => {
-  cleanup();
-  globalThis.localStorage?.clear();
-});
+afterEach(cleanupIdentityManagerTestEnvironment);
 
 test("identity manager exposes the recovery key for seed-backed identities", async () => {
   const originalWebSocket = globalThis.WebSocket;
@@ -81,6 +23,7 @@ test("identity manager exposes the recovery key for seed-backed identities", asy
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const view = render(
       <IdentityManagerTestRuntime
+        hostConfig={TEST_HOST_CONFIG}
         onTearleadsReady={(sdk) => {
           tearleadsRef.current = sdk;
         }}
@@ -126,6 +69,7 @@ test("identity manager restores a recovery key from a typed passphrase", async (
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const view = render(
       <IdentityManagerTestRuntime
+        hostConfig={TEST_HOST_CONFIG}
         onTearleadsReady={(sdk) => {
           tearleadsRef.current = sdk;
         }}
