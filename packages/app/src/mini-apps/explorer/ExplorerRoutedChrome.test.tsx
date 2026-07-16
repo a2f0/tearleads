@@ -55,6 +55,7 @@ function createExplorerModel(
       openContainerInfoRoute: () => undefined,
       openDocumentInfoRoute: () => undefined,
       openSyncLanesRoute: () => undefined,
+      openWriteQueueRoute: () => undefined,
       route: { view: "selection" },
       selectExplorerItem: () => undefined,
       showSelectionRoute: () => undefined,
@@ -412,7 +413,7 @@ test("document-info back action returns to the document projection", async () =>
   expect(selectedDocuments).toEqual([["you-contact", "contacts-container"]]);
 });
 
-test("the Sync toolbar action opens the Sync Lanes / Blob Browser hub", async () => {
+test("the Sync toolbar action opens the Explorer diagnostics hub", async () => {
   const openedSyncLanes: number[] = [];
   const baseModel = createExplorerModel();
   const view = render(
@@ -438,6 +439,31 @@ test("the Sync toolbar action opens the Sync Lanes / Blob Browser hub", async ()
   fireEvent.click(syncButton);
 
   expect(openedSyncLanes).toEqual([1]);
+});
+
+test("the Write Queue route returns to Explorer", async () => {
+  const returned: number[] = [];
+  const baseModel = createExplorerModel();
+  const view = render(
+    <WindowMenuProvider>
+      <ExplorerRoutedChromeHarness
+        model={createExplorerModel({
+          routeState: {
+            ...baseModel.routeState,
+            route: { view: "write-queue" },
+            showSelectionRoute: () => returned.push(1),
+          },
+        })}
+      />
+    </WindowMenuProvider>,
+  );
+
+  const backButton = await view.findByRole("button", {
+    name: EXPLORER_LABELS.syncLanesBackAction,
+  });
+  fireEvent.click(backButton);
+
+  expect(returned).toEqual([1]);
 });
 
 test("the Sync tab swaps the Sync entry point for a Blob Browser switch", async () => {

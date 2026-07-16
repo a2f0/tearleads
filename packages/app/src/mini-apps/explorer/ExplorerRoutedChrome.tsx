@@ -174,7 +174,7 @@ function useExplorerRoutedBackAction({
       };
     }
 
-    if (route.view === "sync-lanes") {
+    if (route.view === "sync-lanes" || route.view === "write-queue") {
       return {
         label: EXPLORER_LABELS.syncLanesBackAction,
         onBack: model.routeState.showSelectionRoute,

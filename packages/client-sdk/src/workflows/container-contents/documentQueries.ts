@@ -48,6 +48,7 @@ import type {
   ContainerItemSort,
   ContainerItemWindow as ContainerItemWindowContract,
 } from "./documentQueries/types";
+import { listPendingWrites, type PendingWriteQueueItem } from "./pendingWrites";
 import type { ContainerDocumentObjectSyncState } from "./syncState";
 
 export type {
@@ -98,6 +99,7 @@ export interface ContainerDocumentQueries {
   listLinkedContainerIdsByDocumentIds(
     documentIds: ReadonlyArray<string>,
   ): Promise<ReadonlyMap<string, ReadonlyArray<string>>>;
+  listPendingWrites(): Promise<ReadonlyArray<PendingWriteQueueItem>>;
   replaceDocumentLinksBatch(
     inputs: ReadonlyArray<ContainerDocumentLinkInput>,
   ): Promise<void>;
@@ -640,6 +642,9 @@ function createContainerDocumentQueries(
         execSql,
         documentIds,
       );
+    },
+    listPendingWrites() {
+      return listPendingWrites(execSql);
     },
     replaceDocumentLinksBatch(inputs) {
       return replaceDocumentLinksBatch(execSql, inputs);

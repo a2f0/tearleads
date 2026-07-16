@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import type {
   ContainerDocumentQueries,
   ContainerNode,
-  ContainerDocumentSidebarRow as SidebarRow,
+  ContainerDocumentSidebarRow as Row,
 } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState as syncedState } from "@tearleads/client-sdk";
 import {
@@ -60,7 +60,7 @@ interface WindowCall {
 function createSidebarRows(
   count: number,
   containerId = "root-container",
-): SidebarRow[] {
+): Row[] {
   return Array.from({ length: count }, (_, index) => {
     const rowNumber = index + 1;
     return {
@@ -76,7 +76,7 @@ function createSidebarRows(
 }
 
 function createDocumentQueries(
-  rowsByContainerId: ReadonlyMap<string, ReadonlyArray<SidebarRow>>,
+  rowsByContainerId: ReadonlyMap<string, ReadonlyArray<Row>>,
   calls: WindowCall[],
 ): ContainerDocumentQueries {
   return {
@@ -94,6 +94,7 @@ function createDocumentQueries(
       };
     },
     listContainerItemWindow: async () => ({ rows: [], totalCount: 0 }),
+    listPendingWrites: async () => [],
     loadContainerDocumentWatermark: async () => null,
     loadDocumentSyncState: async () => null,
     loadDocumentSummary: async () => null,
@@ -104,7 +105,7 @@ function createDocumentQueries(
   };
 }
 
-function createRowsByContainerId(rows: SidebarRow[]) {
+function createRowsByContainerId(rows: Row[]) {
   return new Map([["root-container", rows]]);
 }
 

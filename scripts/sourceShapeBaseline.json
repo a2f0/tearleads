@@ -38,8 +38,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 479,
-      "bytes": 21124
+      "lines": 486,
+      "bytes": 21679
     },
     "docs/glossary.md": {
       "lines": 506,
@@ -259,7 +259,7 @@
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueries.ts": {
       "lines": 670,
-      "bytes": 20397
+      "bytes": 20614
     },
     "packages/client-sdk/src/workflows/container-contents/remoteHydration.ts": {
       "lines": 986,

@@ -150,6 +150,15 @@ host stores that need the lower-level container contents runtime. Most product
 code should use `openTree()`, `documentQueries()`, `documentLinks()`, discovery,
 refresh helpers, and diagnostic loaders.
 
+`tearleads.containerContents.documentQueries().listPendingWrites()` returns an
+identity-wide, locally derived view of durable writes that have not converged.
+Rows are grouped by logical container, document, or unknown document namespace
+and include safe navigation metadata plus aggregate operation counts, attachment
+bytes, move targets, status, and persisted intent errors. Serialized Loro
+updates, local blob storage keys, and upload cryptographic material stay private.
+This answers what data remains pending; sync-coordinator snapshots separately
+answer what the scheduler is currently running.
+
 Document diagnostics keep the default read bounded: `loadDocumentInfo(...)`
 uses at most 2,000 compact effective attribution intervals for contributor and
 local blame derivation. An explicitly `truncated` result disables partial blame.

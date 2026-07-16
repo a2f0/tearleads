@@ -7,7 +7,8 @@
 .explorer-detail--note,
 .explorer-detail--blob-browser,
 .explorer-detail--new-structured-document,
-.explorer-detail--sync-lanes {
+.explorer-detail--sync-lanes,
+.explorer-detail--write-queue {
   flex: 1;
   min-height: 0;
 }
@@ -313,8 +314,8 @@
   gap: var(--space-sm);
 }
 
-/* Full-screen Sync Lanes / Blob Browser hub: a tab strip over the two panels.
-   The hub fills the main pane height so the active panel can scroll. */
+/* Full-screen diagnostics hub: a tab strip over the sync, blob, and durable
+   write panels. The hub fills the main pane height so the active panel scrolls. */
 .explorer-sections-hub {
   display: flex;
   flex: 1;

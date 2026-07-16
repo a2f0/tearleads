@@ -1,0 +1,97 @@
+import { expect, test } from "bun:test";
+import { bytesToBase64 } from "@tearleads/encoding";
+import {
+  createDocument,
+  encodeVersionVector,
+  exportAllUpdates,
+  exportShallowSnapshot,
+  importUpdates,
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
+import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
+import { defaultContainerContentsPersistence } from "./containerPersistence";
+import { listPendingWrites } from "./pendingWrites";
+
+const UPDATED_AT = "2026-01-01T00:00:00.000Z";
+
+test("listPendingWrites unions the marker and queued vector before reporting a deferred tail", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "pending-writes-union-coverage",
+  );
+  try {
+    await listPendingWrites(execSql);
+    await defaultContainerContentsPersistence.saveContainer(
+      execSql,
+      {
+        effectiveAccessLevel: "admin",
+        icon: null,
+        id: "root",
+        metadataDocumentId: "metadata-root",
+        name: "/",
+        organizationId: "organization-a",
+        parentId: null,
+      },
+      {
+        accessEpoch: 1,
+        accessStateHash: "access-root",
+        documentId: "metadata-root",
+        id: "root",
+        loroSnapshot: "",
+      },
+      {
+        localUpdatedAt: UPDATED_AT,
+        serverTimestamps: { createdAt: UPDATED_AT, updatedAt: UPDATED_AT },
+      },
+    );
+
+    const firstPeer = await createDocument("pending-write-first-peer");
+    firstPeer.getText("text").update("first peer");
+    firstPeer.commit();
+    const firstPeerVersion = encodeVersionVector(firstPeer);
+    const secondPeer = await createDocument("pending-write-second-peer");
+    secondPeer.getMap("fields").set("second", true);
+    secondPeer.commit();
+    const secondPeerVersion = encodeVersionVector(secondPeer);
+    importUpdates(firstPeer, [exportAllUpdates(secondPeer)]);
+
+    await sqlDocumentsPersistence.saveDocument(
+      execSql,
+      {
+        accessEpoch: 1,
+        accessStateHash: null,
+        containerId: "root",
+        documentId: "remote-union-covered",
+        documentKind: "note",
+        id: "union-covered-document",
+        loroSnapshot: bytesToBase64(exportShallowSnapshot(firstPeer)),
+        pendingBaseVersion: firstPeerVersion,
+        text: "",
+        title: "Union covered",
+      },
+      { updatedAt: UPDATED_AT },
+    );
+    await execSql(
+      `INSERT INTO document_pending_updates (
+        id, app_kind, local_id, update_data,
+        partial_start_version_vector, partial_end_version_vector,
+        source_version_vector, created_at
+      ) VALUES (?, 'documents', ?, ?, '{}', ?, NULL, ?)`,
+      [
+        "union-covered-update",
+        "union-covered-document",
+        "opaque-update",
+        secondPeerVersion,
+        UPDATED_AT,
+      ],
+    );
+
+    const item = (await listPendingWrites(execSql)).find(
+      (candidate) => candidate.localId === "union-covered-document",
+    );
+    expect(item?.operations).toEqual([
+      expect.objectContaining({ kind: "update" }),
+    ]);
+  } finally {
+    close();
+  }
+});

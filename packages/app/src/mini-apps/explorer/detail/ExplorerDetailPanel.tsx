@@ -102,6 +102,7 @@ interface ExplorerDetailPanelProps {
     | ExplorerAttributionUserLabelResolver
     | undefined;
   blobStore: BlobStore;
+  billingBlockedOrganizationId: string | null;
   canActivateLinkedContainer: boolean;
   canMutateDocumentLinks: boolean;
   canShareWithPeer: boolean;
@@ -121,6 +122,7 @@ interface ExplorerDetailPanelProps {
   domainScope: DomainScope;
   importDroppedFiles: ImportExplorerDroppedFiles;
   initialEditingSelectedDocument: boolean;
+  isAuthenticated: boolean;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
@@ -166,7 +168,9 @@ interface ExplorerDetailPanelProps {
     blobId?: string | null | undefined;
     storageKey?: string | null | undefined;
   }) => void;
+  openContainerInfoRoute: (containerId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
+  openWriteQueueRoute: () => void;
   peerUserId: string | null;
   ready: boolean;
   refreshError: string | null;
@@ -250,19 +254,24 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
     );
   }
 
-  // The Sync toolbar action and its blob/sync deep links render the full-screen
-  // Sync Lanes / Blob Browser hub in the main pane (the folder tree stays in the
+  // The Sync toolbar action and diagnostics deep links render the full-screen
+  // Explorer diagnostics hub in the main pane (the folder tree stays in the
   // sidebar so a container is always one click away).
   if (
     route.view === "sync-lanes" ||
     route.view === "sync-lane-detail" ||
-    route.view === "blob-browser"
+    route.view === "blob-browser" ||
+    route.view === "write-queue"
   ) {
     return (
       <ExplorerSectionsPanel
         blobPickTarget={params.blobPickTarget}
         blobStore={params.blobStore}
+        billingBlockedOrganizationId={params.billingBlockedOrganizationId}
         domainScope={params.domainScope}
+        documentListRevision={params.documentListRevision}
+        documentQueries={params.documentQueries}
+        isAuthenticated={params.isAuthenticated}
         loadBlobInfo={params.loadBlobInfo}
         nodes={params.nodes}
         onCancelBlobPick={params.onCancelBlobPick}
@@ -271,8 +280,10 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         online={params.online}
         organizationNamesById={params.organizationNamesById}
         openBlobBrowserRoute={params.openBlobBrowserRoute}
+        openContainerInfoRoute={params.openContainerInfoRoute}
         openDocumentInfoRoute={params.openDocumentInfoRoute}
         openSyncLanesRoute={params.openSyncLanesRoute}
+        openWriteQueueRoute={params.openWriteQueueRoute}
         route={route}
         selectDocumentProjection={params.selectDocumentProjection}
       />

@@ -1,0 +1,52 @@
+.explorer-detail--write-queue {
+  gap: var(--space-md);
+}
+
+.explorer-write-queue-blockers {
+  padding: var(--space-sm) var(--space-md);
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--color-muted);
+  opacity: var(--opacity-subtle);
+}
+
+.explorer-write-queue-table-wrap {
+  flex: 1;
+}
+
+.explorer-write-queue-more {
+  display: flex;
+  justify-content: center;
+}
+
+.explorer-write-queue-object-copy,
+.explorer-write-queue-status-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.explorer-write-queue-table-wrap .mini-app-table-action {
+  line-height: normal;
+  white-space: normal;
+}
+
+.explorer-write-queue-status {
+  width: max-content;
+  max-width: 100%;
+  padding: var(--space-2xs) var(--space-xs);
+  border-radius: var(--radius);
+  background: var(--color-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.explorer-write-queue-status--blocked,
+.explorer-write-queue-status--error {
+  color: var(--color-danger);
+}
+
+.explorer-write-queue-status-stack .mini-app-table-text {
+  white-space: normal;
+}

@@ -29,6 +29,48 @@ export function getExplorerSyncBlobCountLabel(value: number): string {
   });
 }
 
+export function getExplorerWriteQueueAttachmentLabel(
+  count: number,
+  byteLength: number,
+): string {
+  return `${formatExplorerCountLabel(count, {
+    one: EXPLORER_LABELS.writeQueueAttachmentCountOne,
+    other: EXPLORER_LABELS.writeQueueAttachmentCountOther,
+  })} (${formatByteLength(byteLength)})`;
+}
+
+export function getExplorerWriteQueueSummaryLabel(input: {
+  objectCount: number;
+  writeCount: number;
+}): string {
+  return [
+    formatExplorerCountLabel(input.objectCount, {
+      one: EXPLORER_LABELS.writeQueueObjectCountOne,
+      other: EXPLORER_LABELS.writeQueueObjectCountOther,
+    }),
+    formatExplorerCountLabel(input.writeCount, {
+      one: EXPLORER_LABELS.writeQueueWriteCountOne,
+      other: EXPLORER_LABELS.writeQueueWriteCountOther,
+    }),
+  ].join(" · ");
+}
+
+export function getExplorerWriteQueueMetadataUpdateLabel(
+  count: number,
+): string {
+  return formatExplorerCountLabel(count, {
+    one: EXPLORER_LABELS.writeQueueMetadataUpdateCountOne,
+    other: EXPLORER_LABELS.writeQueueMetadataUpdateCountOther,
+  });
+}
+
+export function getExplorerWriteQueueUpdateLabel(count: number): string {
+  return formatExplorerCountLabel(count, {
+    one: EXPLORER_LABELS.writeQueueUpdateCountOne,
+    other: EXPLORER_LABELS.writeQueueUpdateCountOther,
+  });
+}
+
 export function getExplorerSyncPendingUpdateCountLabel(value: number): string {
   return formatExplorerCountLabel(value, {
     one: EXPLORER_LABELS.syncStatePendingUpdateCountOne,

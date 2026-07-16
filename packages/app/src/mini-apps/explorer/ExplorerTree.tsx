@@ -247,8 +247,8 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
     ],
   );
 
-  // Explorer's sidebar is always the folder tree, in every layout. The Sync
-  // Lanes / Blob Browser hub lives full-screen in the main pane (opened from the
+  // Explorer's sidebar is always the folder tree, in every layout. The
+  // diagnostics hub lives full-screen in the main pane (opened from the
   // Sync toolbar action), not in the sidebar.
   useRegisteredWindowSidebar({
     enabled: true,
