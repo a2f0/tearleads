@@ -126,8 +126,10 @@ loop, subject-only squash, and `MERGED`-state verification.
 2. **Review and repair** — invoke `cross-agent-review`, forwarding the
    review-agent argument, and `--passes <n>` / `--repair-rounds <n>` when given.
 
-   That skill owns the review, the severity gate, and the bounded repair loop: it
-   snapshots each candidate head — the pushed PR head when one is open, the local
+   That skill owns the review, the severity gate, and the bounded repair loop: for
+   each candidate head it first brings the branch up to date with its base (a merge
+   of the latest base — local while there is no PR, so this flow's single push is
+   preserved), snapshots the head — the pushed PR head when one is open, the local
    HEAD otherwise — reviews it, repairs blocking findings (committing locally when
    there is no PR, pushing when there is), and re-reviews every head it changes. It
    reports back a **head SHA**, a **verdict**, and the **repair rounds** it
@@ -251,8 +253,9 @@ loop, subject-only squash, and `MERGED`-state verification.
 - **One push, after the review** — on the fresh path the branch is pushed exactly
   once, when the PR is opened, so the pre-push hook runs once rather than at open
   time and again for every repair round. Reviewing local commits before the PR
-  exists is what buys this. (The resume path keeps its already-open PR and pushes
-  repairs to it, as before.)
+  exists is what buys this — and the base merge the review does first stays local
+  too while there is no PR, so it costs no extra push. (The resume path keeps its
+  already-open PR and pushes repairs, and now the base merge, to it, as before.)
 - **The review gates the merge** — this flow never silently merges over a verdict
   that reports unresolved blocking findings, and never merges an unreviewed head.
 - **Repair belongs to `cross-agent-review`** — including the severity vocabulary

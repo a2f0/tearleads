@@ -14,10 +14,13 @@ self-review. Falls back to an in-session review when no external agent is
 available.
 
 This skill owns the full **review → repair → re-review** loop and the severity
-gate that drives it. Repairs are bounded by `--repair-rounds` (default `2`); each
-round changes the branch once and is followed by a fresh review of the new head,
-so the reported head is always a head that was itself reviewed. Pass
-`--repair-rounds 0` for a report-only review that changes nothing.
+gate that drives it. Each review round first brings the branch up to date with
+its base — a merge of the latest base, never a rebase — so the review reflects the
+branch as it will actually merge, not a stale snapshot. Repairs are bounded by
+`--repair-rounds` (default `2`); each round changes the branch once and is
+followed by a fresh review of the new head, so the reported head is always a head
+that was itself reviewed. Pass `--repair-rounds 0` for a report-only review that
+changes nothing — the base sync included.
 
 ## Arguments
 
@@ -90,16 +93,55 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    would reset on every repair, the `--repair-rounds` bound would never advance,
    and the loop could commit and push without limit.
 
-2. **Snapshot the candidate head**: For each head entering review, snapshot the
-   local HEAD:
+2. **Sync with the base, then snapshot the candidate head**: before reviewing,
+   bring the branch up to date with its base, so the review — and the head that is
+   eventually merged — reflects the branch integrated with the *current* base
+   rather than a stale one. **Skip the sync under `--repair-rounds 0`**, whose
+   contract is to change nothing; take the snapshot as-is in that mode.
+
+   Resolve the base ref, fetch it, and **merge** it in:
+
+   ```bash
+   if [ -n "$PR_NUMBER" ]; then
+     BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+   else
+     BASE_REF="$DEFAULT_BRANCH"
+   fi
+   git fetch origin "$BASE_REF" || { echo "Error: could not fetch origin/$BASE_REF" >&2; exit 1; }
+   git merge --no-edit "origin/$BASE_REF" || {
+     git merge --abort
+     echo "Error: merging origin/$BASE_REF into $BRANCH conflicts — resolve it and re-run" >&2
+     exit 1
+   }
+   ```
+
+   **Merge, not rebase, and never force.** Every branch mutation in these skills
+   pushes without force, and a rebase would need a force push; the squash-merge
+   flattens the merge commit anyway, so it costs nothing in the final history. **On
+   a conflict, abort and stop** — never auto-resolve, and never review a conflicted
+   tree.
+
+   The merge moves `HEAD` only when the base actually advanced; on a branch already
+   current, or a later repair round where nothing new landed, it is a no-op. **When
+   a PR is open**, push the updated head without force so the pushed head still
+   matches what is reviewed (a no-op when the merge changed nothing); **with no
+   PR**, the merge stays local and `open-pr` pushes it later, so the flow's single
+   push is preserved:
+
+   ```bash
+   [ -z "$PR_NUMBER" ] || git push origin "$BRANCH"
+   ```
+
+   Then snapshot the head under review — the integrated head when the sync ran, the
+   current head when it was skipped:
 
    ```bash
    REVIEWED_SHA=$(git rev-parse HEAD)
    ```
 
-   **When a PR is open**, also confirm the snapshot is the pushed PR head —
-   reviewing a head that is not pushed reviews a diff no one else can see, and the
-   resulting SHA cannot be handed to a merge:
+   **When a PR is open**, confirm the snapshot is the pushed PR head — reviewing a
+   head that is not pushed reviews a diff no one else can see, and the resulting SHA
+   cannot be handed to a merge:
 
    ```bash
    [ -z "$PR_NUMBER" ] || test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
@@ -296,6 +338,12 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
 - The review scripts are non-interactive and stream output to stdout.
 - Reviews are based on the diff between the base branch and HEAD — the PR's base
   when a PR is open, the repository's default branch when there is none yet.
+- **Each round merges the current base into the branch first**, so a branch cut
+  from an older base is reviewed as it will actually merge — a signature change or
+  a moved dependency that landed on the base surfaces during the review and the
+  pre-push checks, not after the merge. The merge (never a rebase, so no force
+  push) is local when there is no PR and pushed when there is; a conflict aborts
+  and stops for the user. `--repair-rounds 0` skips it, keeping report-only inert.
 - The Claude review streams the prompt/diff via stdin (not argv) to avoid
   "Argument list too long" failures on large PRs.
 - The Claude reviewer runs with read-only tools (`--tools "Read,Grep,Glob"`) and
