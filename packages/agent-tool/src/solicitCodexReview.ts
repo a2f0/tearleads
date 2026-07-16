@@ -1,6 +1,10 @@
 import { spawnSync } from "node:child_process";
 
-import { ensureChanges, resolvePrContext, spawnExitCode } from "./prContext";
+import {
+  ensureChanges,
+  resolveReviewContext,
+  spawnExitCode,
+} from "./prContext";
 import {
   DEFAULT_CODEX_EFFORT,
   type ReviewEffort,
@@ -17,6 +21,12 @@ export function buildCodexReviewArgs(
   context: { baseRef: string; prNumber: string; branch: string },
   effort: ReviewEffort,
 ): string[] {
+  // The branch may not have a PR yet; title it by branch alone in that case
+  // rather than emitting a bare `PR # (...)`.
+  const title =
+    context.prNumber.length > 0
+      ? `PR #${context.prNumber} (${context.branch})`
+      : `Branch ${context.branch}`;
   return [
     "review",
     "-c",
@@ -24,18 +34,20 @@ export function buildCodexReviewArgs(
     "--base",
     context.baseRef,
     "--title",
-    `PR #${context.prNumber} (${context.branch})`,
+    title,
   ];
 }
 
 /**
- * Ask the local `codex` CLI to review the current PR diff. Codex derives the
- * diff itself from the base branch, so we only resolve and pass the base ref.
- * The effort level defaults to `high` for Codex.
+ * Ask the local `codex` CLI to review the current branch's diff. Codex derives
+ * the diff itself from the base branch, so we only resolve and pass the base
+ * ref; when the branch has no PR yet that base is the default branch, so a
+ * review can run before the PR is opened. The effort level defaults to `high`
+ * for Codex.
  */
 export function solicitCodexReview(effortArg?: string): number {
   const effort = resolveReviewEffort(effortArg, DEFAULT_CODEX_EFFORT);
-  const context = resolvePrContext();
+  const context = resolveReviewContext();
   ensureChanges(context.baseRef);
 
   const result = spawnSync("codex", buildCodexReviewArgs(context, effort), {

@@ -210,19 +210,8 @@ export function findOpenPrNumber(branch: string, repo: string): string {
   );
 }
 
-/**
- * Resolve the open PR for the current branch from git + GitHub. Throws with an
- * actionable message when there is nothing reviewable (on main, no PR, gh not
- * authenticated).
- */
-function fetchPrView(): PrView {
-  const { branch, repo } = resolveRepoContext();
-
-  const prNumber = findOpenPrNumber(branch, repo);
-  if (prNumber.length === 0) {
-    throw new Error(`No PR found for branch '${branch}'. Create a PR first.`);
-  }
-
+/** Read a known-open PR's title and base identity from GitHub. */
+function viewPr(branch: string, repo: string, prNumber: string): PrView {
   const viewRaw = run("gh", [
     "pr",
     "view",
@@ -241,6 +230,22 @@ function fetchPrView(): PrView {
     baseRefName: stringField(viewRaw, "baseRefName"),
     baseRefOid: stringField(viewRaw, "baseRefOid"),
   };
+}
+
+/**
+ * Resolve the open PR for the current branch from git + GitHub. Throws with an
+ * actionable message when there is nothing reviewable (on main, no PR, gh not
+ * authenticated).
+ */
+function fetchPrView(): PrView {
+  const { branch, repo } = resolveRepoContext();
+
+  const prNumber = findOpenPrNumber(branch, repo);
+  if (prNumber.length === 0) {
+    throw new Error(`No PR found for branch '${branch}'. Create a PR first.`);
+  }
+
+  return viewPr(branch, repo, prNumber);
 }
 
 /** Current GitHub state of a PR (e.g. "OPEN", "MERGED", "CLOSED"). */
@@ -262,16 +267,45 @@ export function resolvePr(): PrIdentity {
   };
 }
 
-/** PR identity plus a base ref that `git diff` can resolve locally. */
-export function resolvePrContext(): PrContext {
-  const view = fetchPrView();
+/**
+ * PR identity plus a base ref that `git diff` can resolve locally, for a review
+ * that may run *before* the branch has a PR.
+ *
+ * When an open PR exists this matches what a post-open review would see: the
+ * base ref is the PR's own base. When none exists yet, `prNumber`/`title` are
+ * empty and the base ref is the repository's default branch — so the identical
+ * `base...HEAD` diff can be reviewed on the local branch now and reviewed again
+ * once its PR is open. Throws on the default branch, via `resolveRepoContext`.
+ */
+export function resolveReviewContext(): PrContext {
+  const { branch, repo, defaultBranch } = resolveRepoContext();
+
+  const prNumber = findOpenPrNumber(branch, repo);
+  if (prNumber.length === 0) {
+    if (defaultBranch.length === 0) {
+      throw new Error(
+        "Could not determine the repository default branch to review against.",
+      );
+    }
+    // No PR yet: review the local branch against the default branch. There is no
+    // base OID to fall back on, so resolveBaseRef works from the branch name.
+    return {
+      branch,
+      repo,
+      prNumber: "",
+      title: "",
+      baseRef: resolveBaseRef(defaultBranch, ""),
+    };
+  }
+
+  const view = viewPr(branch, repo, prNumber);
   if (view.baseRefName.length === 0) {
     throw new Error("Could not determine base branch from GitHub.");
   }
   return {
-    branch: view.branch,
-    repo: view.repo,
-    prNumber: view.prNumber,
+    branch,
+    repo,
+    prNumber,
     title: view.title,
     baseRef: resolveBaseRef(view.baseRefName, view.baseRefOid),
   };

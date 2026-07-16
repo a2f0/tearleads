@@ -4,10 +4,14 @@
  *
  * Usage: bun packages/agent-tool/src/index.ts <action> [args]
  *   solicitClaudeCodeReview [effort]
- *                               Review the current PR with the local `claude`
- *                               CLI (effort defaults to xhigh)
- *   solicitCodexReview [effort] Review the current PR with the local `codex` CLI
- *                               (effort defaults to high)
+ *                               Review the current branch's diff with the local
+ *                               `claude` CLI — against the PR base, or the
+ *                               default branch when no PR is open yet (effort
+ *                               defaults to xhigh)
+ *   solicitCodexReview [effort] Review the current branch's diff with the local
+ *                               `codex` CLI — against the PR base, or the default
+ *                               branch when no PR is open yet (effort defaults to
+ *                               high)
  *
  *   effort levels: low | medium | high | xhigh | max
  *   openPr [title]              Open a PR for the current branch with a
