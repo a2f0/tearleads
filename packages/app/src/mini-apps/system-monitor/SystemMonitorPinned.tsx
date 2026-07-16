@@ -14,7 +14,7 @@ export function SystemMonitorPinned() {
 
   return (
     <>
-      <PaneStatus />
+      <PaneStatus pinned />
       <SystemMonitorLog />
     </>
   );

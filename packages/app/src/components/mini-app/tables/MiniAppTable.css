@@ -154,6 +154,23 @@
 }
 
 /*
+ * Pinned System Monitor status table: it rides directly on the pane surface
+ * (no surrounding tab frame), so it drops the per-cell borders. Letting the
+ * value column absorb all the slack collapses the label column to its content
+ * width, so each key sits right beside its value instead of being spread across
+ * the full pane width. The tabbed (unpinned) Status view keeps the bordered,
+ * evenly split grid.
+ */
+.mini-app-info-table--pinned th,
+.mini-app-info-table--pinned td {
+  border: 0;
+}
+
+.mini-app-info-table--pinned td {
+  width: 100%;
+}
+
+/*
  * Touch (routed layout): open dense data rows to the 44px touch target. The
  * compact row height is bumped in lockstep with the virtualization pitch
  * (useTouchRowHeight in MiniAppVirtual), so virtual and non-virtual compact
