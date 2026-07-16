@@ -1,14 +1,17 @@
 ---
 name: cross-agent-review
-description: Review the current PR with another AI agent (Codex by default, or a fresh Claude Code self-review) and repair blocking findings in bounded rounds
+description: Review the current branch — before or after its PR is opened — with another AI agent (Codex by default, or a fresh Claude Code self-review) and repair blocking findings in bounded rounds
 ---
 
 # Cross-Agent Review
 
-Review the current PR with another AI agent, then repair the blocking findings it
-raises. Invoked from Claude Code, this solicits a review from Codex by default,
-or a fresh Claude Code self-review. Falls back to an in-session review when no
-external agent is available.
+Review the current branch with another AI agent, then repair the blocking
+findings it raises. The branch need not have a PR yet: with **no open PR** the
+diff is taken against the default branch and repairs are committed locally; with
+an **open PR** the pushed head is reviewed and repairs are pushed to it. Invoked
+from Claude Code, this solicits a review from Codex by default, or a fresh Claude
+Code self-review. Falls back to an in-session review when no external agent is
+available.
 
 This skill owns the full **review → repair → re-review** loop and the severity
 gate that drives it. Repairs are bounded by `--repair-rounds` (default `2`); each
@@ -47,10 +50,12 @@ commit, repair rounds produce new commits to read.
 - The `@tearleads/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - For Codex reviews: `codex` CLI configured (`OPENAI_API_KEY`).
 - For Claude Code reviews: `claude` CLI authenticated.
-- An open PR on the current branch, with local `HEAD` equal to the pushed PR
-  head.
+- A feature branch (not the default branch) with commits to review. A PR **may
+  or may not** exist: with an open PR, local `HEAD` must equal the pushed PR
+  head, and repairs are pushed to it; with no PR, the branch is reviewed against
+  the repository's default branch and repairs stay local until the PR is opened.
 - Unless `--repair-rounds 0` is given: the worktree contains only changes
-  intended for this PR, since repair rounds stage and commit from it.
+  intended for this branch, since repair rounds stage and commit from it.
 
 ## Setup
 
@@ -60,12 +65,19 @@ Resolve the branch, repo, PR, and tool path:
 ROOT_DIR=$(git rev-parse --show-toplevel)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' -R "$REPO" 2>/dev/null || echo "")
+DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
+PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // ""' -R "$REPO") || { echo "Error: could not query open PRs for $BRANCH (is gh authenticated?)" >&2; exit 1; }
 AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
 [ -f "$AGENT_TOOL" ] || { echo "Error: agent-tool not found at $AGENT_TOOL" >&2; exit 1; }
 ```
 
-If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
+If `$BRANCH` equals `$DEFAULT_BRANCH` (or a conventional `main`/`master`), report
+the error and stop — there is nothing to review. An **empty `$PR_NUMBER` is not
+an error**: it means the branch has no PR yet, and the review runs against
+`$DEFAULT_BRANCH` with repairs kept local. A **failed** lookup is different — the
+command above stops rather than reading a transient `gh` error as "no PR", which
+would silently reroute the review to the wrong base and skip the pushed-head
+checks. `--jq '… // ""'` yields an empty string only on a successful empty result.
 
 ## Workflow
 
@@ -78,16 +90,24 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
    would reset on every repair, the `--repair-rounds` bound would never advance,
    and the loop could commit and push without limit.
 
-2. **Snapshot the candidate head**: For each head entering review, snapshot it
-   and confirm it is the pushed PR head:
+2. **Snapshot the candidate head**: For each head entering review, snapshot the
+   local HEAD:
 
    ```bash
    REVIEWED_SHA=$(git rev-parse HEAD)
-   test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
    ```
 
-   Reviewing a head that is not pushed reviews a diff no one else can see, and
-   the resulting SHA cannot be handed to a merge. Stop if it does not match.
+   **When a PR is open**, also confirm the snapshot is the pushed PR head —
+   reviewing a head that is not pushed reviews a diff no one else can see, and the
+   resulting SHA cannot be handed to a merge:
+
+   ```bash
+   [ -z "$PR_NUMBER" ] || test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
+   ```
+
+   Stop if it does not match. **With no PR**, nothing is pushed to compare
+   against; the local snapshot is the head under review, and `open-pr` later
+   pushes it unchanged, exactly as reviewed.
 
 3. **Run the review**: Execute the matching action over the snapshot head. Omit
    the effort argument to take the per-agent default (`xhigh` for Claude, `high`
@@ -152,13 +172,14 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 
    ```bash
    test "$REVIEWED_SHA" = "$(git rev-parse HEAD)"
-   test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
+   [ -z "$PR_NUMBER" ] || test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
    ```
 
    If either changed, something landed underneath the review. Discard the stale
-   result, reconcile safely, and return to step 2 with the new pushed head. This
-   check runs *before* any repair of this round, so it detects foreign pushes
-   rather than the skill's own.
+   result, reconcile safely, and return to step 2 with the new head. This check
+   runs *before* any repair of this round, so it detects foreign changes rather
+   than the skill's own. With no PR there is no pushed head to check, only the
+   local one.
 
 4. **In-session file-by-file review** (when external agents are unavailable):
 
@@ -166,13 +187,18 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
    exceed prompt limits and cause partial/failed reviews. Interrogate GitHub and
    review file-by-file:
 
-   a. Get the base ref and changed files:
+   a. Get the base ref and changed files. **With a PR**, from GitHub; **with no
+      PR**, the base ref is `$DEFAULT_BRANCH`:
 
       ```bash
+      # With a PR:
       gh pr view "$PR_NUMBER" --json baseRefName,files -R "$REPO"
+      # With no PR (base is the default branch):
+      git diff --name-only "$DEFAULT_BRANCH"...HEAD
       ```
 
-   b. For each changed file, get the per-file diff:
+   b. For each changed file, get the per-file diff (use `$DEFAULT_BRANCH` as
+      `<baseRefName>` when there is no PR):
 
       ```bash
       git diff <baseRefName>...HEAD -- <file-path>
@@ -213,9 +239,11 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
           vacuous tests; do not expand the PR into unrelated cleanup.
        3. Run validation proportionate to the changes, including the repository's
           staged source-shape check before committing.
-       4. Stage only the repair paths, commit with a valid conventional subject,
-          and push without force. Stop if unrelated changes are mixed into the
-          worktree.
+       4. Stage only the repair paths and commit with a valid conventional
+          subject. **When a PR is open, push without force** so the pushed head
+          tracks the repair; **with no PR, do not push** — the repairs stay local
+          and are pushed once, later, when the PR is opened. Stop if unrelated
+          changes are mixed into the worktree.
        5. Increment `REPAIR_ROUND` — never reset it — and return to **step 2**,
           not step 1, so the new head is snapshotted and the **complete** PR diff
           is reviewed again while the round count survives.
@@ -229,10 +257,12 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
    - The PR number and branch
    - The review findings from the final review
    - **The head SHA** — normally `REVIEWED_SHA`, a head a review actually read.
-     On a **review-could-not-run** verdict nothing was reviewed, so report the
-     **candidate** head snapshotted in step 2 and label it plainly as
-     *unreviewed*. Always report a SHA: a caller overriding the gate still needs
-     a head to bind its merge to, and inventing one later would defeat the bind.
+     With an open PR it is the pushed head; with no PR it is a local, not-yet-
+     pushed head that `open-pr` will push unchanged. On a **review-could-not-run**
+     verdict nothing was reviewed, so report the **candidate** head snapshotted in
+     step 2 and label it plainly as *unreviewed*. Always report a SHA: a caller
+     overriding the gate still needs a head to bind its merge to, and inventing
+     one later would defeat the bind.
    - **The final verdict** — clean, non-blocking nits only, unresolved blocking
      findings, or review-could-not-run
    - **Repair rounds performed**, and what was fixed in them
@@ -255,7 +285,9 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
   the loop longer.
 - **The reported head is a reviewed head.** `REVIEWED_SHA` is snapshotted before
   the review, verified unchanged after it, and re-snapshotted after every repair
-  round. A caller that merges the reported SHA merges a commit that was reviewed.
+  round — pushed when a PR is open, local when there is none. A caller that
+  merges the reported SHA (after pushing it, if it was local) merges a commit that
+  was reviewed.
 - **A failed review is not a clean review.** If every agent and fallback fails,
   the verdict is *could-not-run* and no repair happens — repairing against absent
   findings would be inventing work.
@@ -266,7 +298,8 @@ If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
   in-session review) is still the *same* single pass, because the first reviewer
   produced no usable result.
 - The review scripts are non-interactive and stream output to stdout.
-- Reviews are based on the diff between the PR's base branch and HEAD.
+- Reviews are based on the diff between the base branch and HEAD — the PR's base
+  when a PR is open, the repository's default branch when there is none yet.
 - The Claude review streams the prompt/diff via stdin (not argv) to avoid
   "Argument list too long" failures on large PRs.
 - The Claude reviewer runs with read-only tools (`--tools "Read,Grep,Glob"`) and

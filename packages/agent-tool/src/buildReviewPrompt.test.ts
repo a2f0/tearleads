@@ -26,6 +26,17 @@ describe("buildReviewPrompt", () => {
     expect(prompt).toContain("diff --git a/x.ts b/x.ts");
   });
 
+  test("names the PR as not opened yet when there is no PR number", () => {
+    const prompt = buildReviewPrompt({
+      context: { ...context, prNumber: "", title: "" },
+      diff: "diff",
+      reviewInstructions: "",
+    });
+
+    expect(prompt).toContain("PR: (not opened yet)");
+    expect(prompt).not.toContain("PR: #");
+  });
+
   test("demands a verdict line naming every allowed severity", () => {
     const prompt = buildReviewPrompt({
       context,
