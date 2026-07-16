@@ -1,33 +1,9 @@
-import { Readable } from "node:stream";
 import type { GetObjectCommandOutput } from "@aws-sdk/client-s3";
 import {
   type BlobObjectReadStream,
   BlobObjectStoreError,
   blobObjectChunkToStream,
 } from "./blobObjectStore";
-
-async function* readBlobObjectStream(
-  stream: BlobObjectReadStream,
-): AsyncGenerator<Uint8Array> {
-  const reader = stream.getReader();
-  try {
-    for (;;) {
-      const chunk = await reader.read();
-      if (chunk.done) {
-        return;
-      }
-      yield chunk.value;
-    }
-  } finally {
-    reader.releaseLock();
-  }
-}
-
-export function nodeReadableFromBlobObjectStream(
-  stream: BlobObjectReadStream,
-): Readable {
-  return Readable.from(readBlobObjectStream(stream));
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";

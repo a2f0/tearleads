@@ -138,6 +138,116 @@ test("S3 blob object store hashes completed binary multipart bytes", async () =>
   );
 });
 
+test("S3 blob object store buffers streamed parts and trusts the buffered length", async () => {
+  // Regression guard: streaming the request body straight to the object store
+  // segfaults Bun when the upload connection resets mid-part. Parts must be
+  // buffered into in-memory bytes (rewindable, so the SDK can retry a reset
+  // part), and the buffered length — not the client-supplied header — is
+  // authoritative.
+  const { client, store } = createFakeS3BlobObjectStore();
+  const key = "blob-stages/s3-buffered-part";
+  const bytes = "buffered-streamed-part";
+  const { uploadId } = await store.createMultipartUpload({ key });
+
+  const part = await store.uploadPart({
+    body: {
+      // The header over-declares; it bounds the read but the buffered length is
+      // authoritative for the content length sent to the store.
+      byteLength: 999,
+      sha256: await sha256Hex(bytes),
+      stream: blobObjectStream(bytes),
+    },
+    key,
+    partNumber: 1,
+    uploadId,
+  });
+
+  const uploadCommand = client.commands.find(
+    (command) => command instanceof UploadPartCommand,
+  ) as CommandWithInput | undefined;
+  expect(typeof uploadCommand?.input.Body).not.toBe("string");
+  expect(uploadCommand?.input.Body).toBeInstanceOf(Uint8Array);
+  expect(uploadCommand?.input.ContentLength).toBe(
+    Buffer.byteLength(bytes, "utf8"),
+  );
+
+  await store.completeMultipartUpload({
+    expected: {
+      byteLength: Buffer.byteLength(bytes, "utf8"),
+      sha256: await sha256Hex(bytes),
+    },
+    key,
+    parts: [{ etag: part.etag, partNumber: 1 }],
+    uploadId,
+  });
+  expect(await readBlobObjectText(store, key)).toBe(bytes);
+});
+
+test("S3 blob object store rejects a part that streams past its declared length", async () => {
+  // A body that streams more than it declares must be rejected mid-read rather
+  // than fully buffered, so an oversized or chunked body cannot exhaust memory.
+  const { store } = createFakeS3BlobObjectStore();
+  const key = "blob-stages/s3-oversized-part";
+  const bytes = "buffered-streamed-part";
+  const { uploadId } = await store.createMultipartUpload({ key });
+
+  await expect(
+    store.uploadPart({
+      body: {
+        byteLength: 4,
+        sha256: await sha256Hex(bytes),
+        stream: blobObjectStream(bytes),
+      },
+      key,
+      partNumber: 1,
+      uploadId,
+    }),
+  ).rejects.toThrow(/exceeds the maximum/);
+});
+
+test("S3 blob object store rejects a part declared above the size ceiling", async () => {
+  // A part declaring more than the in-memory ceiling is rejected up front (the
+  // guard precedes buffering) so an oversized declaration never allocates.
+  const { store } = createFakeS3BlobObjectStore();
+  const key = "blob-stages/s3-huge-part";
+  const { uploadId } = await store.createMultipartUpload({ key });
+
+  await expect(
+    store.uploadPart({
+      body: {
+        byteLength: 200 * 1024 * 1024,
+        sha256: await sha256Hex("unused"),
+        stream: blobObjectStream("unused"),
+      },
+      key,
+      partNumber: 1,
+      uploadId,
+    }),
+  ).rejects.toThrow(/exceeds the maximum/);
+});
+
+test("S3 blob object store rejects an out-of-range part number before buffering", async () => {
+  // An invalid part number must fail on the number, not after draining the
+  // (upload-sized) body — proving the guard runs before the stream is read.
+  const { store } = createFakeS3BlobObjectStore();
+  const key = "blob-stages/s3-bad-part-number";
+  const bytes = "buffered-streamed-part";
+  const { uploadId } = await store.createMultipartUpload({ key });
+
+  await expect(
+    store.uploadPart({
+      body: {
+        byteLength: Buffer.byteLength(bytes, "utf8"),
+        sha256: await sha256Hex(bytes),
+        stream: blobObjectStream(bytes),
+      },
+      key,
+      partNumber: 10_001,
+      uploadId,
+    }),
+  ).rejects.toThrow(/Invalid multipart part number/);
+});
+
 test("S3 blob object store follows list parts pagination", async () => {
   const { client, store } = createFakeS3BlobObjectStore();
   client.listPartsPageSize = 1;
