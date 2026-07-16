@@ -25,7 +25,7 @@ const STATUS_LABELS = {
   events: "Events",
 } as const;
 
-export function PaneStatus() {
+export function PaneStatus({ pinned = false }: { pinned?: boolean } = {}) {
   const { id, status } = useDatabase();
   const { userId, authToken } = useCryptoSession();
   const { signingFingerprint } = useIdentity();
@@ -44,7 +44,9 @@ export function PaneStatus() {
       className="pane-content"
       onContextMenu={networkContextMenu.handleContextMenu}
     >
-      <MiniAppInfoTable>
+      <MiniAppInfoTable
+        className={pinned ? "mini-app-info-table--pinned" : undefined}
+      >
         <tbody>
           <MiniAppInfoRow label={STATUS_LABELS.sqliteWorker}>
             {status}
