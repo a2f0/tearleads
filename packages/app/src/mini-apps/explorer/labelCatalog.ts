@@ -380,8 +380,6 @@ export const EXPLORER_LABELS = {
   writeQueueOrganizationColumn: "Organization",
   writeQueuePendingStatus: "Queued",
   writeQueueQueuedColumn: "Oldest Write",
-  writeQueueRefreshAction: "Refresh",
-  writeQueueRefreshingAction: "Refreshing...",
   writeQueueSignedOut: "Sign in to send these writes.",
   writeQueueShowMoreAction: "Show more",
   writeQueueStatusColumn: "Status",

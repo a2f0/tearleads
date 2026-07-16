@@ -7,9 +7,17 @@ import type {
 } from "@tearleads/client-sdk";
 import {
   createDomainScope,
+  getOrCreateDomainSyncCoordinator,
   syncedContainerDocumentObjectSyncState,
+  waitForDomainSyncCoordinatorToSettle,
 } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+} from "@testing-library/react";
 import type { ComponentProps } from "react";
 import {
   EXPLORER_LABELS,
@@ -106,7 +114,6 @@ function renderPanel(overrides: Partial<ViewProps> = {}) {
     loading: false,
     nodes: [ARCHIVE_NODE],
     online: true,
-    onRefresh: () => undefined,
     openContainerInfoRoute: () => undefined,
     openDocumentInfoRoute: () => undefined,
     organizationNamesById: new Map([
@@ -119,13 +126,16 @@ function renderPanel(overrides: Partial<ViewProps> = {}) {
   return render(<ExplorerWriteQueuePanelView {...props} />);
 }
 
-function renderPanelLoader(documentQueries: ContainerDocumentQueries) {
+function renderPanelLoader(
+  documentQueries: ContainerDocumentQueries,
+  domainScope = createDomainScope(),
+) {
   return render(
     <ExplorerWriteQueuePanel
       billingBlockedOrganizationId={null}
       documentListRevision={0}
       documentQueries={documentQueries}
-      domainScope={createDomainScope()}
+      domainScope={domainScope}
       isAuthenticated={true}
       nodes={[ARCHIVE_NODE]}
       online={true}
@@ -363,17 +373,11 @@ test("renders the empty state", () => {
   expect(view.getByText(EXPLORER_LABELS.writeQueueEmpty)).toBeTruthy();
 });
 
-test("renders the initial loading state and disables refresh", () => {
+test("renders the initial loading state without a manual action", () => {
   const view = renderPanel({ loading: true });
 
   expect(view.getByText(EXPLORER_LABELS.writeQueueLoading)).toBeTruthy();
-  expect(
-    view
-      .getByRole("button", {
-        name: EXPLORER_LABELS.writeQueueRefreshingAction,
-      })
-      .hasAttribute("disabled"),
-  ).toBe(true);
+  expect(view.queryByRole("button")).toBeNull();
 });
 
 test("renders the load error state", () => {
@@ -382,44 +386,58 @@ test("renders the load error state", () => {
   expect(view.getByText(EXPLORER_LABELS.writeQueueFailedToLoad)).toBeTruthy();
 });
 
-test("requests a refresh from the header action", () => {
-  let refreshCount = 0;
-  const view = renderPanel({
-    onRefresh: () => {
-      refreshCount += 1;
-    },
-  });
-
-  fireEvent.click(
-    view.getByRole("button", {
-      name: EXPLORER_LABELS.writeQueueRefreshAction,
-    }),
-  );
-
-  expect(refreshCount).toBe(1);
-});
-
-test("loads durable writes and refreshes the query", async () => {
+test("reloads durable writes automatically when sync work settles", async () => {
   let queryCount = 0;
+  let pendingItems: ReadonlyArray<PendingWriteQueueItem> = [item()];
+  let markLaneStarted: () => void = () => undefined;
+  let releaseLane: () => void = () => undefined;
+  const laneStarted = new Promise<void>((resolve) => {
+    markLaneStarted = resolve;
+  });
+  const laneRelease = new Promise<void>((resolve) => {
+    releaseLane = resolve;
+  });
+  const domainScope = createDomainScope();
   const documentQueries = {
     listPendingWrites: async () => {
       queryCount += 1;
-      return queryCount === 1 ? [item()] : [];
+      return pendingItems;
     },
   } as unknown as ContainerDocumentQueries;
-  const view = renderPanelLoader(documentQueries);
+  const lane = getOrCreateDomainSyncCoordinator(domainScope).registerLane(
+    "write-queue-reactivity-test",
+    {
+      run: async () => {
+        pendingItems = [];
+        markLaneStarted();
+        await laneRelease;
+      },
+    },
+  );
+  const view = renderPanelLoader(documentQueries, domainScope);
 
   expect(
     await view.findByRole("button", { name: "Open object: Offline note" }),
   ).toBeTruthy();
-  fireEvent.click(
-    view.getByRole("button", {
-      name: EXPLORER_LABELS.writeQueueRefreshAction,
-    }),
-  );
+  await act(async () => {
+    lane.requestSync();
+    await laneStarted;
+  });
 
+  try {
+    await act(async () => {
+      releaseLane();
+      expect(
+        await waitForDomainSyncCoordinatorToSettle(domainScope, {
+          timeoutMs: 1_000,
+        }),
+      ).toBe(true);
+    });
+  } finally {
+    releaseLane();
+  }
   await waitFor(() => {
-    expect(queryCount).toBe(2);
+    expect(queryCount).toBeGreaterThanOrEqual(2);
     expect(view.getByText(EXPLORER_LABELS.writeQueueEmpty)).toBeTruthy();
   });
 });
