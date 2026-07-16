@@ -151,7 +151,8 @@ test("S3 blob object store buffers streamed parts and trusts the buffered length
 
   const part = await store.uploadPart({
     body: {
-      // Deliberately wrong header length: the buffered bytes win.
+      // The header over-declares; it bounds the read but the buffered length is
+      // authoritative for the content length sent to the store.
       byteLength: 999,
       sha256: await sha256Hex(bytes),
       stream: blobObjectStream(bytes),
@@ -180,6 +181,49 @@ test("S3 blob object store buffers streamed parts and trusts the buffered length
     uploadId,
   });
   expect(await readBlobObjectText(store, key)).toBe(bytes);
+});
+
+test("S3 blob object store rejects a part that streams past its declared length", async () => {
+  // A body that streams more than it declares must be rejected mid-read rather
+  // than fully buffered, so an oversized or chunked body cannot exhaust memory.
+  const { store } = createFakeS3BlobObjectStore();
+  const key = "blob-stages/s3-oversized-part";
+  const bytes = "buffered-streamed-part";
+  const { uploadId } = await store.createMultipartUpload({ key });
+
+  await expect(
+    store.uploadPart({
+      body: {
+        byteLength: 4,
+        sha256: await sha256Hex(bytes),
+        stream: blobObjectStream(bytes),
+      },
+      key,
+      partNumber: 1,
+      uploadId,
+    }),
+  ).rejects.toThrow(/exceeds the maximum/);
+});
+
+test("S3 blob object store rejects a part declared above the size ceiling", async () => {
+  // A part declaring more than the in-memory ceiling is rejected up front (the
+  // guard precedes buffering) so an oversized declaration never allocates.
+  const { store } = createFakeS3BlobObjectStore();
+  const key = "blob-stages/s3-huge-part";
+  const { uploadId } = await store.createMultipartUpload({ key });
+
+  await expect(
+    store.uploadPart({
+      body: {
+        byteLength: 200 * 1024 * 1024,
+        sha256: await sha256Hex("unused"),
+        stream: blobObjectStream("unused"),
+      },
+      key,
+      partNumber: 1,
+      uploadId,
+    }),
+  ).rejects.toThrow(/exceeds the maximum/);
 });
 
 test("S3 blob object store follows list parts pagination", async () => {

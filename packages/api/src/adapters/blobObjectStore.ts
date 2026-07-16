@@ -102,6 +102,7 @@ function concatenateBytes(
 
 export async function blobObjectStreamToBytes(
   stream: BlobObjectReadStream,
+  maxBytes?: number,
 ): Promise<Uint8Array> {
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
@@ -112,6 +113,16 @@ export async function blobObjectStreamToBytes(
       const { done, value: chunk } = await reader.read();
       if (done) {
         return concatenateBytes(chunks, byteLength);
+      }
+
+      // Enforce the ceiling while reading so an oversized or chunked body is
+      // rejected before it is fully buffered; the catch below cancels the
+      // source once we stop consuming it.
+      if (maxBytes !== undefined && byteLength + chunk.byteLength > maxBytes) {
+        throw new BlobObjectStoreError(
+          `Blob object stream exceeds the maximum of ${maxBytes} bytes`,
+          "invalid_part",
+        );
       }
 
       const storedChunk = chunk.slice();
