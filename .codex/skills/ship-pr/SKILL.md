@@ -113,6 +113,12 @@ loop, subject-only squash, and `MERGED`-state verification.
      subject. **Do not push.** Leave `PR_NUMBER` empty.
    - In every case, stop if unrelated changes are mixed into the worktree.
 
+   If no title argument was supplied, capture the intended PR title now — the work
+   commit's subject (`git log -1 --format=%s`) — and reuse it when opening the PR
+   in step 3. The review may add repair commits, so letting `open-pr` default the
+   title *after* the review would derive it from a repair commit's subject rather
+   than the work; the squash subject would inherit that too.
+
    `cross-agent-review` reads the current branch either way: with `PR_NUMBER`
    empty it reviews the local commits against the default branch; with the
    resumed PR open it reviews the pushed head.
@@ -169,8 +175,9 @@ loop, subject-only squash, and `MERGED`-state verification.
 3. **Open the PR — the single push, bound to the reviewed head**:
 
    - **No PR yet** (the fresh path, `PR_NUMBER` empty): invoke `open-pr` with the
-     title argument (or none), piping the body via stdin. The worktree is clean
-     after the review, so `open-pr` commits nothing new; it pushes the branch
+     title argument (or the title captured in step 1), piping the body via stdin.
+     The worktree is clean after the review, so `open-pr` commits nothing new; it
+     pushes the branch
      **once** — the only push of the flow, and the one that goes through the
      pre-push hook — and opens the PR. Capture its number and URL, and set
      `PR_NUMBER`. Stop if creation fails.

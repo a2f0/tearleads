@@ -192,22 +192,32 @@ export function resolveRepoContext(): {
   return { branch, repo, defaultBranch };
 }
 
-/** Number of the open PR for `branch`, or "" when there is none. */
+/**
+ * Number of the open PR for `branch`, or "" when the query **succeeded** and
+ * found none. A failed `gh` call (auth, rate limit, network) throws rather than
+ * reporting "" — callers use the empty string to mean "no PR yet" and would
+ * otherwise pick the wrong review base or skip a duplicate-PR guard on a
+ * transient failure.
+ */
 export function findOpenPrNumber(branch: string, repo: string): string {
-  return firstPrNumber(
-    tryRun("gh", [
-      "pr",
-      "list",
-      "--head",
-      branch,
-      "--state",
-      "open",
-      "--json",
-      "number",
-      "-R",
-      repo,
-    ]),
-  );
+  const raw = tryRun("gh", [
+    "pr",
+    "list",
+    "--head",
+    branch,
+    "--state",
+    "open",
+    "--json",
+    "number",
+    "-R",
+    repo,
+  ]);
+  if (raw === null) {
+    throw new Error(
+      `Could not list open PRs for branch '${branch}'. Ensure gh is authenticated and reachable.`,
+    );
+  }
+  return firstPrNumber(raw);
 }
 
 /** Read a known-open PR's title and base identity from GitHub. */
