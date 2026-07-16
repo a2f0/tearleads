@@ -6,7 +6,6 @@ import {
   blobs,
 } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
-import { encodeExternalBlobBytesRef } from "../../../utils/blobStageRecords";
 import { runReclaimDereferencedBlobsWorkflow } from "./reclaimDereferencedBlobs";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -20,7 +19,6 @@ async function insertDereferencedBlob(input: {
   await db.insert(blobs).values({
     id: input.id,
     storageKey,
-    encryptedBytes: encodeExternalBlobBytesRef({ storageKey }),
     sha256: `sha256:${input.id}`,
     byteLength: 1,
     dereferencedAt: input.dereferencedAt,

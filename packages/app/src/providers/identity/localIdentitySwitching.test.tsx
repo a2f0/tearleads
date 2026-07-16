@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { Tearleads } from "@tearleads/client-sdk";
+import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -14,6 +14,7 @@ import {
 
 function createQuietTearleads(): Tearleads {
   return new Tearleads({
+    blobStore: createMemoryBlobStore(),
     logger: { log: () => undefined, logError: () => undefined },
   });
 }

@@ -13,10 +13,6 @@ import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { appendDocumentAttachmentAuditEntries } from "../../../documents/documentAttachmentAuditEvents";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
-import {
-  encodeExternalBlobBytesRef,
-  readMultipartBlobStageRecord,
-} from "../../../utils/blobStageRecords";
 import { isSqliteApiDatabase, nowExpression } from "../../../utils/sqlDialect";
 import {
   BlobMutationError,
@@ -140,11 +136,12 @@ export async function promoteStagedBlobIfPresent(input: {
   const [stage] = await input.executor
     .select({
       byteLength: blobStages.byteLength,
-      encryptedBytes: blobStages.encryptedBytes,
+      completedAt: blobStages.completedAt,
       expiresAt: blobStages.expiresAt,
       id: blobStages.id,
       ownerUserId: blobStages.ownerUserId,
       sha256: blobStages.sha256,
+      storageKey: blobStages.storageKey,
     })
     .from(blobStages)
     .where(eq(blobStages.id, input.request.stagedBlob.stageId))
@@ -160,45 +157,27 @@ export async function promoteStagedBlobIfPresent(input: {
     throw new BlobMutationError("Blob stage has expired", 409);
   }
 
-  const multipartStage = readMultipartBlobStageRecord(stage.encryptedBytes);
-  if (multipartStage) {
-    if (multipartStage.state !== "complete") {
-      throw new BlobMutationError("Blob multipart stage is not complete", 409);
-    }
-    if (
-      !input.prevalidatedMultipartStage ||
-      input.prevalidatedMultipartStage.stageId !== stage.id ||
-      input.prevalidatedMultipartStage.storageKey !==
-        multipartStage.storageKey ||
-      input.prevalidatedMultipartStage.byteLength !== stage.byteLength ||
-      input.prevalidatedMultipartStage.sha256 !== stage.sha256
-    ) {
-      throw new BlobMutationError(
-        "Blob multipart stage prevalidation is stale",
-        409,
-      );
-    }
-
-    await input.executor.insert(blobs).values({
-      id: input.blobId,
-      byteLength: stage.byteLength,
-      encryptedBytes: encodeExternalBlobBytesRef({
-        storageKey: multipartStage.storageKey,
-      }),
-      sha256: stage.sha256,
-      storageKey: multipartStage.storageKey,
-    });
-    await input.executor.delete(blobStages).where(eq(blobStages.id, stage.id));
-
-    return { sha256: stage.sha256 };
+  if (stage.completedAt === null) {
+    throw new BlobMutationError("Blob multipart stage is not complete", 409);
+  }
+  if (
+    !input.prevalidatedMultipartStage ||
+    input.prevalidatedMultipartStage.stageId !== stage.id ||
+    input.prevalidatedMultipartStage.storageKey !== stage.storageKey ||
+    input.prevalidatedMultipartStage.byteLength !== stage.byteLength ||
+    input.prevalidatedMultipartStage.sha256 !== stage.sha256
+  ) {
+    throw new BlobMutationError(
+      "Blob multipart stage prevalidation is stale",
+      409,
+    );
   }
 
   await input.executor.insert(blobs).values({
     id: input.blobId,
     byteLength: stage.byteLength,
-    encryptedBytes: stage.encryptedBytes,
     sha256: stage.sha256,
-    storageKey: stage.id,
+    storageKey: stage.storageKey,
   });
   await input.executor.delete(blobStages).where(eq(blobStages.id, stage.id));
 

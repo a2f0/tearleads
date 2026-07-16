@@ -1,4 +1,3 @@
-export { stageBlob } from "./blobs/stageBlob";
 export { fetchUserIdentity } from "./fetchUserIdentity";
 export { requestChallenge } from "./requestChallenge";
 export {

@@ -6,7 +6,6 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   ListPartsCommand,
-  PutObjectCommand,
   type S3Client,
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
@@ -32,7 +31,7 @@ interface S3CommandInput {
   readonly UploadId?: unknown;
 }
 
-async function sha256Base64(value: string): Promise<string> {
+async function sha256Base64(value: Uint8Array): Promise<string> {
   return Buffer.from(await sha256Hex(value), "hex").toString("base64");
 }
 
@@ -45,63 +44,60 @@ function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
   );
 }
 
-async function bodyToString(body: unknown): Promise<string> {
-  if (typeof body === "string") {
-    return body;
+function copyBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
+}
+
+function concatenateBytes(
+  chunks: readonly Uint8Array[],
+): Uint8Array<ArrayBuffer> {
+  const bytes = new Uint8Array(
+    chunks.reduce((byteLength, chunk) => byteLength + chunk.byteLength, 0),
+  );
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
   }
+  return bytes;
+}
+
+async function bodyToBytes(body: unknown): Promise<Uint8Array<ArrayBuffer>> {
   if (body instanceof Uint8Array) {
-    return new TextDecoder().decode(body);
+    return copyBytes(body);
   }
   if (body instanceof ReadableStream) {
-    return new Response(body).text();
+    return new Uint8Array(await new Response(body).arrayBuffer());
   }
   if (isAsyncIterable(body)) {
     const chunks: Uint8Array[] = [];
     for await (const chunk of body) {
-      if (typeof chunk === "string") {
-        chunks.push(new TextEncoder().encode(chunk));
-      } else if (chunk instanceof Uint8Array) {
-        chunks.push(chunk);
+      if (chunk instanceof Uint8Array) {
+        chunks.push(copyBytes(chunk));
       } else {
         throw new Error("Unsupported test S3 body chunk");
       }
     }
 
-    const bytes = new Uint8Array(
-      chunks.reduce((byteLength, chunk) => byteLength + chunk.byteLength, 0),
-    );
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-
-    return new TextDecoder().decode(bytes);
+    return concatenateBytes(chunks);
   }
 
-  return String(body);
-}
-
-export function textStream(value: string): ReadableStream<Uint8Array> {
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(new TextEncoder().encode(value));
-      controller.close();
-    },
-  });
+  throw new Error("Unsupported test S3 body");
 }
 
 class FakeS3Client {
   readonly commands: unknown[] = [];
   readonly objectBodies = new Map<string, unknown>();
-  readonly objects = new Map<string, string>();
+  readonly objects = new Map<string, Uint8Array<ArrayBuffer>>();
   readonly uploads = new Map<
     string,
     {
       readonly key: string;
       readonly parts: Map<
         number,
-        { readonly bytes: string; readonly etag: string }
+        { readonly bytes: Uint8Array<ArrayBuffer>; readonly etag: string }
       >;
     }
   >();
@@ -129,10 +125,10 @@ class FakeS3Client {
     if (command instanceof UploadPartCommand) {
       const upload = this.requireUpload(input);
       const partNumber = Number(input.PartNumber);
-      const bytes = await bodyToString(input.Body);
+      const bytes = await bodyToBytes(input.Body);
       expect(input.ChecksumAlgorithm).toBe("SHA256");
       expect(input.ChecksumSHA256).toBe(await sha256Base64(bytes));
-      expect(input.ContentLength).toBe(Buffer.byteLength(bytes, "utf8"));
+      expect(input.ContentLength).toBe(bytes.byteLength);
       const etag = `"etag-${partNumber}"`;
       upload.parts.set(partNumber, {
         bytes,
@@ -160,7 +156,7 @@ class FakeS3Client {
         Parts: parts.map(([partNumber, part]) => ({
           ETag: part.etag,
           PartNumber: partNumber,
-          Size: Buffer.byteLength(part.bytes, "utf8"),
+          Size: part.bytes.byteLength,
         })),
       };
     }
@@ -178,8 +174,8 @@ class FakeS3Client {
             }[];
           }
         ).Parts ?? [];
-      const bytes = parts
-        .map((part) => {
+      const bytes = concatenateBytes(
+        parts.map((part) => {
           const storedPart = upload.parts.get(Number(part.PartNumber));
           if (!storedPart || storedPart.etag !== part.ETag) {
             throw Object.assign(new Error("InvalidPart"), {
@@ -188,8 +184,8 @@ class FakeS3Client {
           }
 
           return storedPart.bytes;
-        })
-        .join("");
+        }),
+      );
       this.objects.set(upload.key, bytes);
       this.uploads.delete(String(input.UploadId));
 
@@ -211,15 +207,6 @@ class FakeS3Client {
       }
 
       return { Body: new Blob([bytes]) };
-    }
-    if (command instanceof PutObjectCommand) {
-      const bytes = await bodyToString(input.Body);
-      expect(input.ChecksumAlgorithm).toBe("SHA256");
-      expect(input.ChecksumSHA256).toBe(await sha256Base64(bytes));
-      expect(input.ContentLength).toBe(Buffer.byteLength(bytes, "utf8"));
-      this.objects.set(String(input.Key), bytes);
-
-      return {};
     }
     if (command instanceof DeleteObjectCommand) {
       this.objects.delete(String(input.Key));

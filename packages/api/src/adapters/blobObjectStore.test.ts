@@ -1,62 +1,31 @@
 import { expect, test } from "bun:test";
-import { readBlobObjectText } from "../../test/helpers/blobObjectStore";
-import { sha256Hex } from "../utils/sha256";
 import {
-  BlobObjectStoreError,
-  createMemoryBlobObjectStore,
-} from "./blobObjectStore";
-
-function textStream(value: string): ReadableStream<Uint8Array> {
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(new TextEncoder().encode(value));
-      controller.close();
-    },
-  });
-}
-
-test("memory blob object store puts and reads back a single object", async () => {
-  const store = createMemoryBlobObjectStore();
-  const bytes = "single-shot payload";
-
-  const result = await store.putObject({
-    bytes,
-    key: "blob-stages/memory-put",
-    sha256: await sha256Hex(bytes),
-  });
-
-  expect(result).toEqual({
-    byteLength: Buffer.byteLength(bytes, "utf8"),
-    sha256: await sha256Hex(bytes),
-  });
-  expect(await readBlobObjectText(store, "blob-stages/memory-put")).toBe(bytes);
-});
-
-test("memory blob object store rejects putObject with a mismatched sha256", async () => {
-  const store = createMemoryBlobObjectStore();
-
-  await expect(
-    store.putObject({
-      bytes: "single-shot payload",
-      key: "blob-stages/memory-put-bad",
-      sha256: await sha256Hex("different"),
-    }),
-  ).rejects.toBeInstanceOf(BlobObjectStoreError);
-  expect(await store.getObjectStream("blob-stages/memory-put-bad")).toBeNull();
-});
+  blobObjectStream,
+  readBlobObjectText,
+} from "../../test/helpers/blobObjectStore";
+import { sha256Hex } from "../utils/sha256";
+import { createMemoryBlobObjectStore } from "./blobObjectStore";
 
 test("memory blob object store completes multipart uploads by part number", async () => {
   const store = createMemoryBlobObjectStore();
   const key = "blob-stages/out-of-order-completion";
   const { uploadId } = await store.createMultipartUpload({ key });
   const secondPart = await store.uploadPart({
-    body: { bytes: "-second" },
+    body: {
+      byteLength: 7,
+      sha256: await sha256Hex("-second"),
+      stream: blobObjectStream("-second"),
+    },
     key,
     partNumber: 2,
     uploadId,
   });
   const firstPart = await store.uploadPart({
-    body: { bytes: "first" },
+    body: {
+      byteLength: 5,
+      sha256: await sha256Hex("first"),
+      stream: blobObjectStream("first"),
+    },
     key,
     partNumber: 1,
     uploadId,
@@ -97,7 +66,7 @@ test("memory blob object store accepts streamed multipart parts", async () => {
     body: {
       byteLength: new TextEncoder().encode(bytes).byteLength,
       sha256: await sha256Hex(bytes),
-      stream: textStream(bytes),
+      stream: blobObjectStream(bytes),
     },
     key,
     partNumber: 1,
@@ -115,6 +84,62 @@ test("memory blob object store accepts streamed multipart parts", async () => {
   });
 
   expect(await readBlobObjectText(store, key)).toBe(bytes);
+});
+
+test("memory blob object store preserves arbitrary binary multipart bytes", async () => {
+  const store = createMemoryBlobObjectStore();
+  const key = "blob-stages/streamed-memory-binary";
+  const firstBytes = new Uint8Array([0x00, 0xff, 0xc3, 0x28]);
+  const secondBytes = new Uint8Array([0x80, 0x00, 0xfe, 0x7f]);
+  const expectedBytes = new Uint8Array([...firstBytes, ...secondBytes]);
+  const { uploadId } = await store.createMultipartUpload({ key });
+  const firstPart = await store.uploadPart({
+    body: {
+      byteLength: firstBytes.byteLength,
+      sha256: await sha256Hex(firstBytes),
+      stream: blobObjectStream(firstBytes),
+    },
+    key,
+    partNumber: 1,
+    uploadId,
+  });
+  const secondPart = await store.uploadPart({
+    body: {
+      byteLength: secondBytes.byteLength,
+      sha256: await sha256Hex(secondBytes),
+      stream: blobObjectStream(secondBytes),
+    },
+    key,
+    partNumber: 2,
+    uploadId,
+  });
+
+  const completed = await store.completeMultipartUpload({
+    expected: {
+      byteLength: expectedBytes.byteLength,
+      sha256: await sha256Hex(expectedBytes),
+    },
+    key,
+    parts: [
+      { etag: firstPart.etag, partNumber: 1 },
+      { etag: secondPart.etag, partNumber: 2 },
+    ],
+    uploadId,
+  });
+  const storedStream = await store.getObjectStream(key);
+
+  expect(storedStream).not.toBeNull();
+  if (!storedStream) {
+    throw new Error("Expected completed binary object stream");
+  }
+  const storedBytes = new Uint8Array(
+    await new Response(storedStream).arrayBuffer(),
+  );
+  expect(storedBytes).toEqual(expectedBytes);
+  expect(completed).toEqual({
+    byteLength: expectedBytes.byteLength,
+    sha256: await sha256Hex(expectedBytes),
+  });
 });
 
 test("memory blob object store releases multipart key conflicts after terminal states", async () => {
@@ -138,7 +163,11 @@ test("memory blob object store releases multipart key conflicts after terminal s
     key: completedKey,
   });
   const part = await store.uploadPart({
-    body: { bytes: "complete" },
+    body: {
+      byteLength: 8,
+      sha256: await sha256Hex("complete"),
+      stream: blobObjectStream("complete"),
+    },
     key: completedKey,
     partNumber: 1,
     uploadId: completedUpload.uploadId,

@@ -52,7 +52,9 @@ function createBlobRows(): BlobInfo[] {
 function createBlobStore(overrides: Partial<BlobStore> = {}): BlobStore {
   return {
     deleteBytes: async () => undefined,
+    openByteSource: async () => null,
     readBytes: async () => null,
+    writeByteSource: async () => undefined,
     writeBytes: async () => undefined,
     ...overrides,
   };
@@ -358,6 +360,34 @@ test("image rows show a thumbnail while other rows show a file icon", async () =
   expect(
     view.container.querySelector(".explorer-blob-browser-thumb-icon"),
   ).not.toBeNull();
+});
+
+test("large blobs skip automatic preview and thumbnail reads", async () => {
+  const readKeys: string[] = [];
+  const largeImage = createBlobRow({
+    blobId: "blob-large",
+    byteLength: 5 * 1024 * 1024 + 1,
+    mimeType: "image/png",
+    storageKey: "storage-large",
+  });
+  const view = renderBlobBrowserPanel({
+    blobStore: createBlobStore({
+      readBytes: async (storageKey) => {
+        readKeys.push(storageKey);
+        return new Uint8Array([1, 2, 3]) as BlobBytes;
+      },
+    }),
+    rows: [largeImage],
+    route: {
+      blobId: largeImage.blobId,
+      storageKey: null,
+      view: "blob-browser",
+    },
+  });
+
+  await view.findByText("No inline preview for this blob.");
+  await act(async () => Promise.resolve());
+  expect(readKeys).toEqual([]);
 });
 
 test("the blob id is hidden from the row but stays the button's label", async () => {

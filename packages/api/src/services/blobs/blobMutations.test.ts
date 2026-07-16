@@ -45,6 +45,7 @@ import {
 } from "@tearleads/crypto";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import { and, eq, inArray, isNull } from "drizzle-orm";
+import { blobObjectStream } from "../../../test/helpers/blobObjectStore";
 import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
@@ -61,21 +62,18 @@ import {
   listContainerKeyWraps,
 } from "../../access/read/containerKekStore";
 import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
-import { createMemoryBlobObjectStore } from "../../adapters/blobObjectStore";
 import { verifyDocumentAuditHistory } from "../../documents/verifyDocumentAuditHistory";
-import { readExternalBlobBytesRef } from "../../utils/blobStageRecords";
 import {
   BlobMutationError,
   bindBlobAttachment,
   detachBlobAttachment,
 } from "./blobMutations";
-import { getBlob } from "./getBlob";
+import { getBlobBytes } from "./getBlob";
 import {
   completeMultipartBlobStage,
   initiateMultipartBlobStage,
-  uploadMultipartBlobPart,
+  uploadMultipartBlobPartStream,
 } from "./multipartStage";
-import { stageBlob } from "./stageBlob";
 
 interface RootContainerFixture {
   readonly adminGroupId: string;
@@ -338,23 +336,7 @@ async function createDocumentFixture(input: {
   return { bundle: verified.value };
 }
 
-async function stageEncryptedBlob(input: {
-  readonly encryptedBytes: string;
-  readonly owner: TestUser;
-}) {
-  const byteLength = new TextEncoder().encode(input.encryptedBytes).byteLength;
-  const sha256 = await sha256Hex(input.encryptedBytes);
-  const staged = await stageBlob(runtime, {
-    encryptedBytes: input.encryptedBytes,
-    byteLength,
-    sha256,
-    userId: input.owner.userId,
-  });
-
-  return { ...staged, sha256 };
-}
-
-async function stageMultipartEncryptedBlob(
+async function stageEncryptedBlob(
   input: {
     readonly encryptedBytes: string;
     readonly owner: TestUser;
@@ -368,26 +350,17 @@ async function stageMultipartEncryptedBlob(
     sha256,
     userId: input.owner.userId,
   });
-  const midpoint = Math.ceil(input.encryptedBytes.length / 2);
-  const firstPart = await uploadMultipartBlobPart(serviceRuntime, {
-    encryptedBytes: input.encryptedBytes.slice(0, midpoint),
+  const part = await uploadMultipartBlobPartStream(serviceRuntime, {
+    byteLength,
     partNumber: 1,
+    sha256,
     stageId: staged.stageId,
-    uploadId: staged.uploadId,
-    userId: input.owner.userId,
-  });
-  const secondPart = await uploadMultipartBlobPart(serviceRuntime, {
-    encryptedBytes: input.encryptedBytes.slice(midpoint),
-    partNumber: 2,
-    stageId: staged.stageId,
+    stream: blobObjectStream(input.encryptedBytes),
     uploadId: staged.uploadId,
     userId: input.owner.userId,
   });
   await completeMultipartBlobStage(serviceRuntime, {
-    parts: [
-      { etag: firstPart.part.etag, partNumber: 1 },
-      { etag: secondPart.part.etag, partNumber: 2 },
-    ],
+    parts: [{ etag: part.part.etag, partNumber: 1 }],
     stageId: staged.stageId,
     uploadId: staged.uploadId,
     userId: input.owner.userId,
@@ -679,10 +652,13 @@ test("bind and detach succeed when event publication fails", async () => {
   const documentId = document.bundle.state.documentId;
   const containerId = container.bundle.state.containerId;
   const firstBlobId = crypto.randomUUID();
-  const firstStage = await stageEncryptedBlob({
-    encryptedBytes: "first-encrypted-bytes",
-    owner,
-  });
+  const firstStage = await stageEncryptedBlob(
+    {
+      encryptedBytes: "first-encrypted-bytes",
+      owner,
+    },
+    failureRuntime,
+  );
   const firstBind = await buildBindRequest({
     blobId: firstBlobId,
     container,
@@ -901,7 +877,7 @@ test("bindBlobAttachment applies optional container rekeys before target validat
   );
 });
 
-async function expectStagePromotesToExternalPointer(input: {
+async function expectStagePromotesToObjectStore(input: {
   readonly encryptedBytes: string;
   readonly owner: TestUser;
   readonly serviceRuntime: typeof runtime;
@@ -932,66 +908,39 @@ async function expectStagePromotesToExternalPointer(input: {
 
   const [storedBlob] = await db
     .select({
-      encryptedBytes: blobs.encryptedBytes,
       storageKey: blobs.storageKey,
     })
     .from(blobs)
     .where(eq(blobs.id, blobId))
     .limit(1);
-  expect(storedBlob?.encryptedBytes).not.toBe(input.encryptedBytes);
-  expect(
-    readExternalBlobBytesRef(storedBlob?.encryptedBytes ?? "")?.storageKey,
-  ).toBe(storedBlob?.storageKey);
+  expect(storedBlob?.storageKey).toBe(
+    `blob-stages/${input.stagedBlob.stageId}`,
+  );
 
-  await expect(
-    getBlob(input.serviceRuntime, { blobId, userId: owner.userId }),
-  ).resolves.toMatchObject({
+  const blob = await getBlobBytes(input.serviceRuntime, {
     blobId,
-    encryptedBytes: input.encryptedBytes,
-    sha256: input.sha256,
+    userId: owner.userId,
   });
+  expect(blob.sha256).toBe(input.sha256);
+  const text = await new Response(blob.encryptedBytes).text();
+  expect(text).toBe(input.encryptedBytes);
 }
 
 test("bindBlobAttachment promotes multipart blob stages without storing payload bytes", async () => {
   const owner = createTestUser();
   await registerOnly(owner);
   const encryptedBytes = "multipart-bind-encrypted-bytes";
-  const multipartStage = await stageMultipartEncryptedBlob({
+  const multipartStage = await stageEncryptedBlob({
     encryptedBytes,
     owner,
   });
 
-  await expectStagePromotesToExternalPointer({
+  await expectStagePromotesToObjectStore({
     encryptedBytes,
     owner,
     serviceRuntime: runtime,
     sha256: multipartStage.sha256,
     stagedBlob: multipartStage,
-  });
-});
-
-test("bindBlobAttachment promotes single-shot s3 stages to an external pointer", async () => {
-  const owner = createTestUser();
-  await registerOnly(owner);
-  const encryptedBytes = "single-shot-s3-bind-bytes";
-  const s3Runtime = createServiceTestRuntime(db, {
-    blobObjectStore: createMemoryBlobObjectStore(),
-    blobObjectStoreKind: "s3",
-  });
-  const sha256 = await sha256Hex(encryptedBytes);
-  const staged = await stageBlob(s3Runtime, {
-    encryptedBytes,
-    byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
-    sha256,
-    userId: owner.userId,
-  });
-
-  await expectStagePromotesToExternalPointer({
-    encryptedBytes,
-    owner,
-    serviceRuntime: s3Runtime,
-    sha256,
-    stagedBlob: { ...staged, sha256 },
   });
 });
 
@@ -1034,7 +983,7 @@ test("bindBlobAttachment prevalidates multipart object bytes before opening the 
     db: trackingDb,
   };
   const blobId = crypto.randomUUID();
-  const multipartStage = await stageMultipartEncryptedBlob(
+  const multipartStage = await stageEncryptedBlob(
     {
       encryptedBytes: "multipart-prevalidation-bytes",
       owner,

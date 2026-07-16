@@ -103,13 +103,11 @@ export function createUnavailableDocumentsApiClient(
   return createMockApiClient({
     bindBlobAttachment: async () => null,
     createDocument: async () => null,
-    getBlob: async () => null,
     getUserIdentity: async () => null,
     getContainerWriterProjection: async () => null,
     getDocumentWriterProjection: async () => null,
     listContainers: async () => createListedContainers(containerId),
     listDocumentAttachments: async () => null,
-    stageBlob: async () => null,
     syncDocument: async () => null,
   });
 }

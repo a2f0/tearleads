@@ -1,4 +1,8 @@
 import {
+  blobByteSourceInputLength,
+  createBlobByteSource,
+} from "../../../data/blobContracts";
+import {
   addDocumentAttachments,
   type DocumentAttachment,
   getDocumentAttachments,
@@ -43,8 +47,9 @@ function buildPendingAttachments(
   for (const file of files) {
     const slotId = crypto.randomUUID();
     const storageKey = `${localId}-${slotId}`;
+    const byteLength = blobByteSourceInputLength(file.bytes);
     nextPendingAttachments.push({
-      byteLength: file.bytes.byteLength,
+      byteLength,
       localId,
       mimeType: file.mimeType,
       name: file.name,
@@ -52,7 +57,7 @@ function buildPendingAttachments(
       storageKey,
     });
     nextAttachments.push({
-      byteLength: file.bytes.byteLength,
+      byteLength,
       mimeType: file.mimeType,
       name: file.name,
       slotId,
@@ -87,9 +92,9 @@ async function persistPendingAttachments(
         continue;
       }
 
-      await state.runtime.infra.blobStore.writeBytes(
+      await state.runtime.infra.blobStore.writeByteSource(
         pendingAttachment.storageKey,
-        sourceFile.bytes,
+        createBlobByteSource(sourceFile.bytes),
       );
       await savePendingDocumentAttachment({
         attachment: pendingAttachment,
@@ -222,7 +227,7 @@ async function persistSlotAttachmentFile(
   }
 
   const replacementAttachment: DocumentAttachment = {
-    byteLength: file.bytes.byteLength,
+    byteLength: blobByteSourceInputLength(file.bytes),
     mimeType: file.mimeType,
     name: file.name,
     slotId,
@@ -231,7 +236,10 @@ async function persistSlotAttachmentFile(
   const attachmentUpdate = pendingDeltaSinceBase(state, currentDoc);
 
   const storageKey = `${state.localId}-${slotId}-${crypto.randomUUID()}`;
-  await state.runtime.infra.blobStore.writeBytes(storageKey, file.bytes);
+  await state.runtime.infra.blobStore.writeByteSource(
+    storageKey,
+    createBlobByteSource(file.bytes),
+  );
   await saveLocalAttachmentRecord(state, {
     blobId: null,
     byteLength: replacementAttachment.byteLength,

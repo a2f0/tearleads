@@ -13,7 +13,9 @@ afterEach(() => {
 
 const BLOB_STORE: BlobStore = {
   deleteBytes: async () => undefined,
+  openByteSource: async () => null,
   readBytes: async () => null,
+  writeByteSource: async () => undefined,
   writeBytes: async () => undefined,
 };
 

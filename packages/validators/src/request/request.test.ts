@@ -6,10 +6,8 @@ import {
   isCreateOrganizationGroupRequest,
   isInitiateMultipartBlobStageRequest,
   isPutPrincipalPolicyRequest,
-  isStageBlobRequest,
   isUpdateOrganizationProfileRequest,
   isUpdateOrganizationRosterEntryRequest,
-  isUploadMultipartBlobPartRequest,
   isVerifyRequest,
 } from "./index";
 
@@ -83,24 +81,6 @@ test("isVerifyRequest", () => {
   expect(isVerifyRequest(null)).toBe(false);
 });
 
-test("isStageBlobRequest", () => {
-  expect(
-    isStageBlobRequest({
-      encryptedBytes: "YWJj",
-      byteLength: 3,
-      sha256: "sha256-1",
-    }),
-  ).toBe(true);
-  expect(
-    isStageBlobRequest({
-      encryptedBytes: "YWJj",
-      byteLength: 0,
-      sha256: "sha256-1",
-    }),
-  ).toBe(false);
-  expect(isStageBlobRequest(null)).toBe(false);
-});
-
 test("isInitiateMultipartBlobStageRequest", () => {
   expect(
     isInitiateMultipartBlobStageRequest({
@@ -115,22 +95,6 @@ test("isInitiateMultipartBlobStageRequest", () => {
     }),
   ).toBe(false);
   expect(isInitiateMultipartBlobStageRequest(null)).toBe(false);
-});
-
-test("isUploadMultipartBlobPartRequest", () => {
-  expect(
-    isUploadMultipartBlobPartRequest({
-      encryptedBytes: "part-1",
-      uploadId: "upload-1",
-    }),
-  ).toBe(true);
-  expect(
-    isUploadMultipartBlobPartRequest({
-      encryptedBytes: "",
-      uploadId: "upload-1",
-    }),
-  ).toBe(false);
-  expect(isUploadMultipartBlobPartRequest(null)).toBe(false);
 });
 
 test("isCompleteMultipartBlobStageRequest", () => {

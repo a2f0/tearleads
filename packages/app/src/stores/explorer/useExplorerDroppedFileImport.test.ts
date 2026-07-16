@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
-import type {
-  DocumentAttachmentUpload,
-  DocumentSummary,
-  StoredDocumentKind,
+import {
+  blobByteSourceInputLength,
+  type DocumentAttachmentUpload,
+  type DocumentSummary,
+  type StoredDocumentKind,
 } from "@tearleads/client-sdk";
+import { BINARY_FILE_IMPORT_MAX_BYTES } from "../../document-types/importers";
 import { importExplorerDroppedFiles } from "./useExplorerDroppedFileImport";
 
 const TEXT_ENCODER = new TextEncoder();
@@ -324,18 +326,6 @@ test("dropped file import creates file document types with original attachments"
       title: "Skiff_Whitepaper_2023.pdf",
     },
   ]);
-  expect(
-    createdStoresByKind.map((store) =>
-      Array.from(store.attachments[0]?.bytes ?? []).map((byte) =>
-        String.fromCharCode(byte),
-      ),
-    ),
-  ).toEqual([
-    ["m", "p", "3"],
-    ["b", "i", "n"],
-    ["j", "p", "e", "g"],
-    ["p", "d", "f"],
-  ]);
 });
 
 test("dropped file import creates env file documents without attachments", async () => {
@@ -457,7 +447,7 @@ test("dropped file import applies the text size limit before reading text", asyn
   ]);
 });
 
-test("dropped file import uses a larger size limit for binary attachments", async () => {
+test("dropped file import accepts binary attachments through 1 GiB", async () => {
   const createdStores: CreatedImportStore[] = [];
   const errors: string[] = [];
   let nextLocalId = 0;
@@ -467,12 +457,14 @@ test("dropped file import uses a larger size limit for binary attachments", asyn
     createDocumentStore: createImportStoreFactory(createdStores),
     createLocalId: () => `local-${++nextLocalId}`,
     files: [
-      createFile("sample.mp3", new Uint8Array(6 * 1024 * 1024), {
+      createOversizedFile({
+        name: "one-gib.mp3",
+        size: BINARY_FILE_IMPORT_MAX_BYTES,
         type: "audio/mpeg",
       }),
       createOversizedFile({
         name: "huge.mp3",
-        size: 201 * 1024 * 1024,
+        size: BINARY_FILE_IMPORT_MAX_BYTES + 1,
         type: "audio/mpeg",
       }),
     ],
@@ -489,10 +481,11 @@ test("dropped file import uses a larger size limit for binary attachments", asyn
   expect(result.importedCount).toBe(1);
   expect(result.failedCount).toBe(1);
   expect(createdStores[0]?.initialDocumentKind).toBe("audio");
-  expect(createdStores[0]?.attachments[0]?.bytes.byteLength).toBe(
-    6 * 1024 * 1024,
-  );
+  const boundaryAttachment = createdStores[0]?.attachments[0]?.bytes;
+  expect(
+    boundaryAttachment && blobByteSourceInputLength(boundaryAttachment),
+  ).toBe(BINARY_FILE_IMPORT_MAX_BYTES);
   expect(errors).toEqual([
-    "Explorer: failed to import huge.mp3. huge.mp3 is larger than 200.0 MB.",
+    "Explorer: failed to import huge.mp3. huge.mp3 is larger than 1024.0 MB.",
   ]);
 });

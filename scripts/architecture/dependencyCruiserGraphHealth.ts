@@ -6,7 +6,7 @@ const knownNpmEdge = {
 const knownWorkspaceEdge = {
   module: "@tearleads/encoding",
   resolved: "packages/encoding/src/index.ts",
-  source: "packages/crypto/src/blobEnvelope.ts",
+  source: "packages/crypto/src/keying/accessEvent.ts",
 } as const;
 
 interface GraphDependency {

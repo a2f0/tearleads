@@ -1,12 +1,32 @@
 import { expect, test } from "bun:test";
 import type { BlobInfo } from "@tearleads/client-sdk";
-import { createMemoryBlobStore } from "@tearleads/client-sdk";
 import {
+  createBlobByteSource,
+  createMemoryBlobStore,
+  readBlobByteSource,
+} from "@tearleads/client-sdk";
+import {
+  AUTOMATIC_BLOB_PREVIEW_MAX_BYTES,
   getDocumentAttachmentBlobName,
   getLatestDocumentAttachmentBySlotId,
+  isAutomaticBlobPreviewAllowed,
   isImageDocumentAttachmentBlob,
   readBlobDocumentAttachmentUpload,
+  readDocumentAttachmentUpload,
 } from "./documentAttachmentUtils";
+
+test("automatic blob previews have a fixed memory bound", () => {
+  expect(
+    isAutomaticBlobPreviewAllowed({
+      byteLength: AUTOMATIC_BLOB_PREVIEW_MAX_BYTES,
+    }),
+  ).toBe(true);
+  expect(
+    isAutomaticBlobPreviewAllowed({
+      byteLength: AUTOMATIC_BLOB_PREVIEW_MAX_BYTES + 1,
+    }),
+  ).toBe(false);
+});
 
 function createBlobInfo(patch: Partial<BlobInfo> = {}): BlobInfo {
   return {
@@ -93,7 +113,22 @@ test("blob attachment helpers identify images and choose a stable name", () => {
   ).toBe("storage-only");
 });
 
-test("blob attachment upload reads existing local blob bytes", async () => {
+test("file attachment upload preserves the lazy File source", async () => {
+  const file = new File(["file bytes"], "file.txt", { type: "text/plain" });
+  Object.defineProperty(file, "arrayBuffer", {
+    value: async () => {
+      throw new Error("File should not be materialized during selection");
+    },
+  });
+
+  const upload = await readDocumentAttachmentUpload(file);
+
+  expect(upload.bytes).toBe(file);
+  expect(upload.mimeType).toBe(file.type);
+  expect(upload.name).toBe("file.txt");
+});
+
+test("blob attachment upload opens the existing local blob source", async () => {
   const blobStore = createMemoryBlobStore();
   await blobStore.writeBytes("storage-1", new TextEncoder().encode("blob"));
 
@@ -102,7 +137,8 @@ test("blob attachment upload reads existing local blob bytes", async () => {
     blobStore,
   });
 
-  expect(new TextDecoder().decode(upload.bytes)).toBe("blob");
+  const bytes = await readBlobByteSource(createBlobByteSource(upload.bytes));
+  expect(new TextDecoder().decode(bytes)).toBe("blob");
   expect(upload.mimeType).toBe("image/png");
   expect(upload.name).toBe("blob.png");
 });

@@ -11,7 +11,6 @@ import { createMockApiClient } from "@tearleads/test-utils";
 import type {
   BlobAttachmentBindRequest,
   DocumentSyncRequest,
-  StageBlobRequest,
 } from "@tearleads/validators/request";
 import type {
   BlobAttachmentBindResponse,
@@ -24,6 +23,7 @@ import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../src/document-types/
 import { createSqlRuntimeBase } from "../createSqlRuntime";
 import { createTestRuntimeTrustedUserIdentityResolver } from "../trustedUserIdentity";
 import { waitForCondition } from "../waitForCondition";
+import { createDocumentStoreMultipartApi } from "./documentStoreMultipartApi";
 import {
   createDocumentAttachmentBindResponse,
   createDocumentContainerProjection,
@@ -78,7 +78,6 @@ export async function documentWorkflowRuntimePatch(input: {
   );
   let projectionPromise: Promise<ContainerWriterProjectionResponse> | null =
     null;
-  let stageCount = 0;
   let storedDocument: DocumentCreateResponse | null = null;
   let syncCount = 0;
   const attachments: Array<{
@@ -87,11 +86,11 @@ export async function documentWorkflowRuntimePatch(input: {
     contentKeyBundle: BlobContentKeyBundleResponse;
     slotId: string;
   }> = [];
-  const stagedBlobs = new Map<string, StageBlobRequest>();
+  const multipart = createDocumentStoreMultipartApi();
   const blobs = new Map<
     string,
     {
-      encryptedBytes: string;
+      encryptedBytes: Uint8Array<ArrayBuffer>;
       sha256: string;
     }
   >();
@@ -113,9 +112,10 @@ export async function documentWorkflowRuntimePatch(input: {
         storedDocument = await createDocumentCreateResponse(request);
         return storedDocument;
       },
+      ...multipart.api,
       bindBlobAttachment: async (blobId, request) => {
         const stagedBlob = request.stagedBlob
-          ? stagedBlobs.get(request.stagedBlob.stageId)
+          ? multipart.getCompleted(request.stagedBlob.stageId)
           : null;
         if (request.stagedBlob && !stagedBlob) {
           return null;
@@ -142,17 +142,12 @@ export async function documentWorkflowRuntimePatch(input: {
         });
         if (stagedBlob) {
           blobs.set(blobId, {
-            encryptedBytes: stagedBlob.encryptedBytes,
+            encryptedBytes: stagedBlob.bytes,
             sha256: stagedBlob.sha256,
           });
-          stagedBlobs.delete(request.stagedBlob?.stageId ?? "");
         }
         await input.onBlobAttachmentCommitted?.(blobId, request, response);
         return response;
-      },
-      getBlob: async (blobId) => {
-        const blob = blobs.get(blobId);
-        return blob ? { blobId, ...blob } : null;
       },
       getBlobBytes: async (blobId) => {
         const blob = blobs.get(blobId);
@@ -160,7 +155,7 @@ export async function documentWorkflowRuntimePatch(input: {
           return null;
         }
 
-        const encryptedBytes = new TextEncoder().encode(blob.encryptedBytes);
+        const encryptedBytes = blob.encryptedBytes.slice();
         return {
           blobId,
           byteLength: encryptedBytes.byteLength,
@@ -216,15 +211,6 @@ export async function documentWorkflowRuntimePatch(input: {
       listDocumentAttachments: async (documentId) => {
         input.listDocumentAttachmentsCalls?.push(documentId);
         return attachments;
-      },
-      stageBlob: async (request) => {
-        stageCount += 1;
-        const stageId = `stage-${stageCount}`;
-        stagedBlobs.set(stageId, request);
-        return {
-          stageId,
-          expiresAt: "2026-04-27T00:05:00.000Z",
-        };
       },
       syncDocument: async (_documentId, request) => {
         if (!storedDocument) {

@@ -6,22 +6,18 @@ import type {
   BlobContentKeyBundleRequest,
   CompleteMultipartBlobStageRequest,
   InitiateMultipartBlobStageRequest,
-  StageBlobRequest,
-  UploadMultipartBlobPartRequest,
 } from "@tearleads/validators/request";
 import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
   BlobContentKeyBundleResponse,
-  BlobUploadCapabilitiesResponse,
   CompleteMultipartBlobStageResponse,
   DocumentWriterProjectionResponse,
   InitiateMultipartBlobStageResponse,
   MultipartBlobStageStatusResponse,
-  StageBlobResponse,
   UploadMultipartBlobPartResponse,
 } from "@tearleads/validators/response";
-import type { BlobBytes } from "../../../blobContracts";
+import type { BlobByteSourceInput, BlobBytes } from "../../../blobContracts";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
@@ -30,18 +26,23 @@ import type { ExecSql } from "../../../sqlite/sqlSchema";
 import type { DocumentCreateAuthor } from "../../shared/types";
 
 export const BLOB_ENCRYPTED_BYTES_FORMAT = "tearleads.blob.bytes";
+export const BLOB_ENCRYPTED_BYTES_VERSION = 2;
+export const BLOB_ENCRYPTED_BYTES_MAGIC = "tearleads.blob.bytes.v2";
 export const BLOB_CONTENT_RECORD_KEY_INFO_DOMAIN =
   "tearleads.blob.content-record-key-info";
 export const BLOB_CONTENT_RECORD_AAD_DOMAIN =
   "tearleads.blob.content-record-aad";
 export const BLOB_CONTENT_RECORD_METADATA_HASH_DOMAIN =
   "tearleads.blob.content-record-metadata";
+export const BLOB_CONTENT_RECORD_NONCE_DOMAIN =
+  "tearleads.blob.content-record-nonce";
 export const BLOB_CONTENT_RECORD_HKDF_SALT: Uint8Array<ArrayBuffer> =
   new TextEncoder().encode("tearleads.blob.content-record-hkdf-salt");
 export const BLOB_ENCRYPTED_BYTES_KEYS = new Set([
   "blobId",
   "byteLength",
-  "ciphertext",
+  "chunkCount",
+  "chunkSize",
   "contentKeyEpoch",
   "contentRecordId",
   "encryptionSuite",
@@ -68,27 +69,20 @@ export interface BlobAttachmentApi {
     readonly message: string;
     readonly status: number | null;
   } | null;
-  completeMultipartBlobStage?(
+  completeMultipartBlobStage(
     stageId: string,
     input: CompleteMultipartBlobStageRequest,
   ): Promise<CompleteMultipartBlobStageResponse | null>;
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;
-  getBlobUploadCapabilities?(): Promise<BlobUploadCapabilitiesResponse | null>;
-  getMultipartBlobStage?(
+  getMultipartBlobStage(
     stageId: string,
   ): Promise<MultipartBlobStageStatusResponse | null>;
-  initiateMultipartBlobStage?(
+  initiateMultipartBlobStage(
     input: InitiateMultipartBlobStageRequest,
   ): Promise<InitiateMultipartBlobStageResponse | null>;
-  stageBlob(input: StageBlobRequest): Promise<StageBlobResponse | null>;
-  uploadMultipartBlobPart?(
-    stageId: string,
-    partNumber: number,
-    input: UploadMultipartBlobPartRequest,
-  ): Promise<UploadMultipartBlobPartResponse | null>;
-  uploadMultipartBlobPartBytes?(
+  uploadMultipartBlobPartBytes(
     stageId: string,
     partNumber: number,
     input: UploadMultipartBlobPartBytesRequest,
@@ -111,19 +105,41 @@ export type { BlobContentKeyTarget };
 export interface BlobEncryptedBytesRecord {
   blobId: string;
   byteLength: number;
-  ciphertext: Uint8Array;
+  chunkCount: number;
+  chunks: BlobEncryptedChunk[];
+  chunkSize: number;
   contentKeyEpoch: number;
   contentRecordId: string;
+  encryptedByteLength: number;
+  headerByteLength: number;
   iv: Uint8Array;
   metadataHash: string;
   nonceDomainHash: string;
 }
 
-export interface BlobEncryptedBytes {
-  encryptedBytes: string;
-  metadataHash: string;
-  sha256: string;
-  byteLength: number;
+export interface BlobEncryptedChunk {
+  ciphertext: BlobBytes;
+  index: number;
+  plaintextByteLength: number;
+}
+
+export interface BlobSourceSnapshot {
+  readonly byteLength: number;
+  readonly chunkSha256: readonly string[];
+  readonly chunkSize: number;
+  readonly sha256: string;
+}
+
+export interface BlobEncryptionPlan {
+  readonly byteLength: number;
+  readonly chunkSize: number;
+  readonly metadataHash: string;
+  readonly partCount: number;
+  readonly plaintextByteLength: number;
+  readonly plaintextSha256: string;
+  readonly sha256: string;
+  encryptPart(index: number): Promise<BlobBytes>;
+  getPartByteLength(index: number): number;
 }
 
 export interface DocumentManifestIdentity {
@@ -135,7 +151,7 @@ export interface DocumentManifestIdentity {
 export interface BlobAttachmentMaterial {
   blobAccessManifestHash: string;
   contentKeyBundle: BlobContentKeyBundleRequest;
-  encrypted: BlobEncryptedBytes;
+  encrypted: BlobEncryptionPlan;
   manifestIdentity: DocumentManifestIdentity;
   targetHash: string;
   targets: BlobContentKeyTarget[];
@@ -143,8 +159,7 @@ export interface BlobAttachmentMaterial {
 }
 
 /**
- * Progress for an in-flight multipart blob upload. Only emitted when the
- * multipart path is taken (single-shot staging reports nothing).
+ * Progress for an in-flight multipart blob upload.
  */
 export interface MultipartUploadProgress {
   readonly bytesTotal: number;
@@ -158,10 +173,9 @@ export type MultipartUploadProgressListener = (
 ) => void;
 
 /**
- * Fires once a multipart stage has been opened (or resumed) for an upload, with
- * the stage id and part size the upload will use. Callers persist these so a
- * later attempt (next sync pass or after a restart) can resume the same server
- * stage instead of opening a new one and orphaning the partial upload.
+ * Fires once a multipart stage has been opened (or resumed), with its id and
+ * plaintext chunk size. Callers persist both so a later attempt can reproduce
+ * the same encrypted parts and resume instead of orphaning the partial upload.
  */
 export type MultipartStageResolvedListener = (input: {
   readonly partSize: number;
@@ -173,7 +187,7 @@ export interface UploadDocumentAttachmentInput {
   author: DocumentCreateAuthor;
   blobId?: string | undefined;
   bindingId?: string | undefined;
-  bytes: BlobBytes;
+  bytes: BlobByteSourceInput;
   contentKey?: Uint8Array | undefined;
   contentKeyEpoch?: number | undefined;
   documentId: string;
@@ -181,9 +195,10 @@ export interface UploadDocumentAttachmentInput {
   execSql: ExecSql;
   expectedBindingId: string | null;
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
-  // A persisted IV so a resumed upload re-encrypts to byte-identical bytes (and
-  // therefore the same sha256 the stage was opened with). Defaults to fresh.
-  iv?: Uint8Array | undefined;
+  // A persisted nonce seed. The plaintext digest derives the envelope IV from
+  // it, then each chunk derives a unique IV. Same-source retries reproduce the
+  // encrypted parts; changed bytes cannot reuse their AES-GCM nonces.
+  nonceSeed?: Uint8Array | undefined;
   multipart?: MultipartBlobUploadOptions | undefined;
   onMultipartProgress?: MultipartUploadProgressListener | undefined;
   onStageResolved?: MultipartStageResolvedListener | undefined;
@@ -196,6 +211,7 @@ export interface UploadDocumentAttachmentInput {
 }
 
 export interface MultipartBlobUploadOptions {
+  /** Exactly 5 MiB of plaintext per independently encrypted multipart chunk. */
   readonly partSize: number;
   // The id of a previously opened stage to resume. When set, the upload refetches
   // that stage and skips parts the server already has instead of opening a new
@@ -207,7 +223,6 @@ export interface MultipartBlobUploadOptions {
 export interface UploadDocumentAttachmentResult {
   blobId: string;
   bindingId: string;
-  encryptedBytes: string;
   request: BlobAttachmentBindRequest;
   response: BlobAttachmentBindResponse;
   sha256: string;
@@ -240,7 +255,7 @@ export interface DetachDocumentAttachmentResult {
 
 export interface DecryptDocumentAttachmentBlobInput {
   contentKeyBundle: BlobContentKeyBundleResponse;
-  encryptedBytes: string;
+  encryptedBytes: BlobBytes;
   expectedBindingId: string;
   expectedBlobId: string;
   execSql: ExecSql;

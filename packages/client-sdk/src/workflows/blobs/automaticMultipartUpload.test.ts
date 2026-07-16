@@ -1,42 +1,25 @@
 import { expect, test } from "bun:test";
-import type { BlobAttachmentApi } from "../../data/documents/blob/shared/types";
 import { resolveMultipartUploadOptions } from "./automaticMultipartUpload";
 
-function createAutomaticMultipartApi(
-  getBlobUploadCapabilities: NonNullable<
-    BlobAttachmentApi["getBlobUploadCapabilities"]
-  >,
-): BlobAttachmentApi {
-  return {
-    bindBlobAttachment: async () => null,
-    completeMultipartBlobStage: async () => null,
-    getBlobUploadCapabilities,
-    getDocumentWriterProjection: async () => null,
-    getMultipartBlobStage: async () => null,
-    initiateMultipartBlobStage: async () => null,
-    stageBlob: async () => null,
-    uploadMultipartBlobPart: async () => null,
-  };
-}
-
-test("automatic multipart falls back when capability discovery fails", async () => {
-  await expect(
-    resolveMultipartUploadOptions({
-      apiClient: createAutomaticMultipartApi(async () => {
-        throw new Error("Capability discovery unavailable");
-      }),
-      encryptedByteLength: 8 * 1024 * 1024,
-      multipart: undefined,
-    }),
-  ).resolves.toBeUndefined();
+test("automatic multipart uses exact 5 MiB chunks for every upload", () => {
+  expect(resolveMultipartUploadOptions(undefined)).toEqual({
+    partSize: 5 * 1024 * 1024,
+  });
 });
 
-test("automatic multipart falls back without durable capabilities", async () => {
-  await expect(
-    resolveMultipartUploadOptions({
-      apiClient: createAutomaticMultipartApi(async () => null),
-      encryptedByteLength: 8 * 1024 * 1024,
-      multipart: undefined,
-    }),
-  ).resolves.toBeUndefined();
+test("automatic multipart preserves explicit resume options", () => {
+  const explicit = {
+    partSize: 5 * 1024 * 1024,
+    resumeStageId: "stage-resume",
+    uploadConcurrency: 2,
+  };
+  expect(resolveMultipartUploadOptions(explicit)).toBe(explicit);
+});
+
+test("automatic multipart rejects every non-5-MiB chunk size", () => {
+  for (const partSize of [5 * 1024 * 1024 - 1, 5 * 1024 * 1024 + 1]) {
+    expect(() => resolveMultipartUploadOptions({ partSize })).toThrow(
+      "Multipart blob chunk size must be exactly 5 MiB",
+    );
+  }
 });

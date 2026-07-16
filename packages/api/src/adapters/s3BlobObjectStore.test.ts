@@ -3,51 +3,19 @@ import {
   CompleteMultipartUploadCommand,
   GetObjectCommand,
   ListPartsCommand,
-  PutObjectCommand,
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
-import { readBlobObjectText } from "../../test/helpers/blobObjectStore";
+import {
+  blobObjectStream,
+  readBlobObjectText,
+} from "../../test/helpers/blobObjectStore";
 import {
   type CommandWithInput,
   createFakeS3BlobObjectStore,
   listPartNumbers,
-  textStream,
 } from "../../test/helpers/fakeS3BlobObjectStore";
 import { sha256Hex } from "../utils/sha256";
 import { BlobObjectStoreError } from "./blobObjectStore";
-
-test("S3 blob object store puts a single object with a sha256 checksum", async () => {
-  const { client, store } = createFakeS3BlobObjectStore();
-  const bytes = "single-shot payload";
-
-  const result = await store.putObject({
-    bytes,
-    key: "blob-stages/s3-put",
-    sha256: await sha256Hex(bytes),
-  });
-
-  expect(result).toEqual({
-    byteLength: Buffer.byteLength(bytes, "utf8"),
-    sha256: await sha256Hex(bytes),
-  });
-  expect(
-    client.commands.some((command) => command instanceof PutObjectCommand),
-  ).toBe(true);
-  expect(await readBlobObjectText(store, "blob-stages/s3-put")).toBe(bytes);
-});
-
-test("S3 blob object store puts an empty object like the memory store", async () => {
-  const { store } = createFakeS3BlobObjectStore();
-
-  const result = await store.putObject({
-    bytes: "",
-    key: "blob-stages/s3-put-empty",
-    sha256: await sha256Hex(""),
-  });
-
-  expect(result).toEqual({ byteLength: 0, sha256: await sha256Hex("") });
-  expect(await readBlobObjectText(store, "blob-stages/s3-put-empty")).toBe("");
-});
 
 test("S3 blob object store completes multipart uploads by part number", async () => {
   const { client, store } = createFakeS3BlobObjectStore();
@@ -55,13 +23,21 @@ test("S3 blob object store completes multipart uploads by part number", async ()
     key: "blob-stages/s3-complete",
   });
   const secondPart = await store.uploadPart({
-    body: { bytes: "-second" },
+    body: {
+      byteLength: 7,
+      sha256: await sha256Hex("-second"),
+      stream: blobObjectStream("-second"),
+    },
     key: "blob-stages/s3-complete",
     partNumber: 2,
     uploadId,
   });
   const firstPart = await store.uploadPart({
-    body: { bytes: "first" },
+    body: {
+      byteLength: 5,
+      sha256: await sha256Hex("first"),
+      stream: blobObjectStream("first"),
+    },
     key: "blob-stages/s3-complete",
     partNumber: 1,
     uploadId,
@@ -86,8 +62,8 @@ test("S3 blob object store completes multipart uploads by part number", async ()
   });
 
   expect(
-    client.commands.some((command) => command instanceof GetObjectCommand),
-  ).toBe(false);
+    client.commands.filter((command) => command instanceof GetObjectCommand),
+  ).toHaveLength(1);
   expect(completed).toEqual({
     byteLength: Buffer.byteLength("first-second", "utf8"),
     sha256: await sha256Hex("first-second"),
@@ -111,37 +87,55 @@ test("S3 blob object store completes multipart uploads by part number", async ()
   );
 });
 
-test("S3 blob object store uploads streamed multipart parts", async () => {
+test("S3 blob object store hashes completed binary multipart bytes", async () => {
   const { client, store } = createFakeS3BlobObjectStore();
   const key = "blob-stages/s3-streamed-part";
-  const bytes = "streamed-s3-part";
+  const bytes = Uint8Array.from([0, 0xff, 0x80, 0x0a, 0x00, 0x41]);
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
   const { uploadId } = await store.createMultipartUpload({ key });
   const part = await store.uploadPart({
     body: {
-      byteLength: Buffer.byteLength(bytes, "utf8"),
+      byteLength: bytes.byteLength,
       sha256: await sha256Hex(bytes),
-      stream: textStream(bytes),
+      stream,
     },
     key,
     partNumber: 1,
     uploadId,
   });
 
-  await store.completeMultipartUpload({
+  const completed = await store.completeMultipartUpload({
     expected: {
-      byteLength: Buffer.byteLength(bytes, "utf8"),
-      sha256: await sha256Hex(bytes),
+      byteLength: 1,
+      sha256: await sha256Hex("deliberately-wrong"),
     },
     key,
     parts: [{ etag: part.etag, partNumber: 1 }],
     uploadId,
   });
 
+  expect(completed).toEqual({
+    byteLength: bytes.byteLength,
+    sha256: await sha256Hex(bytes),
+  });
+
   const uploadCommand = client.commands.find(
     (command) => command instanceof UploadPartCommand,
   ) as CommandWithInput | undefined;
   expect(typeof uploadCommand?.input.Body).not.toBe("string");
-  expect(await readBlobObjectText(store, key)).toBe(bytes);
+  const stored = await store.getObjectStream(key);
+  expect(stored).not.toBeNull();
+  if (!stored) {
+    throw new Error("Expected completed binary object");
+  }
+  expect(new Uint8Array(await new Response(stored).arrayBuffer())).toEqual(
+    bytes,
+  );
 });
 
 test("S3 blob object store follows list parts pagination", async () => {
@@ -151,13 +145,21 @@ test("S3 blob object store follows list parts pagination", async () => {
     key: "blob-stages/s3-paginated-list",
   });
   await store.uploadPart({
-    body: { bytes: "first" },
+    body: {
+      byteLength: 5,
+      sha256: await sha256Hex("first"),
+      stream: blobObjectStream("first"),
+    },
     key: "blob-stages/s3-paginated-list",
     partNumber: 1,
     uploadId,
   });
   await store.uploadPart({
-    body: { bytes: "second" },
+    body: {
+      byteLength: 6,
+      sha256: await sha256Hex("second"),
+      stream: blobObjectStream("second"),
+    },
     key: "blob-stages/s3-paginated-list",
     partNumber: 2,
     uploadId,
@@ -182,6 +184,15 @@ test("S3 blob object store maps missing objects to null", async () => {
   await expect(
     store.getObjectStream("blob-stages/missing"),
   ).resolves.toBeNull();
+});
+
+test("S3 blob object store rejects string object bodies", async () => {
+  const { client, store } = createFakeS3BlobObjectStore();
+  client.objectBodies.set("blob-stages/string-body", "legacy-text-body");
+
+  await expect(
+    store.getObjectStream("blob-stages/string-body"),
+  ).rejects.toThrow("Unsupported S3 object body type");
 });
 
 test("S3 blob object store rejects string-only SDK body transforms", async () => {
@@ -262,12 +273,12 @@ test("S3 blob object store closes async iterable bodies after iteration errors",
   client.objectBodies.set("blob-stages/failed-iterable", {
     [Symbol.asyncIterator]() {
       return {
-        async next(): Promise<IteratorResult<string>> {
+        async next(): Promise<IteratorResult<Uint8Array>> {
           throw new Error("iterator failed");
         },
-        async return(): Promise<IteratorResult<string>> {
+        async return(): Promise<IteratorResult<Uint8Array>> {
           returned = true;
-          return { done: true, value: "" };
+          return { done: true, value: new Uint8Array() };
         },
       };
     },
@@ -290,16 +301,19 @@ test("S3 blob object store closes async iterable bodies after normal completion"
   client.objectBodies.set("blob-stages/completed-iterable", {
     [Symbol.asyncIterator]() {
       return {
-        async next(): Promise<IteratorResult<string>> {
+        async next(): Promise<IteratorResult<Uint8Array>> {
           nextCalls += 1;
           if (nextCalls === 1) {
-            return { done: false, value: "completed" };
+            return {
+              done: false,
+              value: new TextEncoder().encode("completed"),
+            };
           }
-          return { done: true, value: "" };
+          return { done: true, value: new Uint8Array() };
         },
-        async return(): Promise<IteratorResult<string>> {
+        async return(): Promise<IteratorResult<Uint8Array>> {
           returned = true;
-          return { done: true, value: "" };
+          return { done: true, value: new Uint8Array() };
         },
       };
     },
@@ -317,7 +331,10 @@ test("S3 blob object store closes async iterable bodies after normal completion"
 
 test("S3 blob object store deletes objects and aborts multipart uploads", async () => {
   const { client, store } = createFakeS3BlobObjectStore();
-  client.objects.set("blob-stages/delete", "delete-me");
+  client.objects.set(
+    "blob-stages/delete",
+    new TextEncoder().encode("delete-me"),
+  );
   const { uploadId } = await store.createMultipartUpload({
     key: "blob-stages/abort",
   });

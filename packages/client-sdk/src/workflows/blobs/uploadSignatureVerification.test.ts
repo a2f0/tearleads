@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { AccessEvent } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createMultipartBlobStageFixture } from "../../../test/helpers/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobContracts";
 import { uploadDocumentAttachment } from "./upload";
@@ -20,19 +21,21 @@ test("uploadDocumentAttachment rejects document writer projections with bad sign
   }`;
   let stageCalled = false;
   let bindCalled = false;
+  const multipart = createMultipartBlobStageFixture();
   const { close, execSql } = await createTestExecSql("blob-signature-check");
 
   await expect(
     uploadDocumentAttachment({
       apiClient: {
+        ...multipart,
         bindBlobAttachment: async () => {
           bindCalled = true;
           throw new Error("Unexpected bind");
         },
         getDocumentWriterProjection: async () => tamperedProjection,
-        stageBlob: async () => {
+        initiateMultipartBlobStage: async (request) => {
           stageCalled = true;
-          throw new Error("Unexpected stage");
+          return multipart.initiateMultipartBlobStage(request);
         },
       },
       author,
@@ -56,13 +59,17 @@ test("uploadDocumentAttachment cannot use local trust to bypass remote checkpoin
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
     await createMaterializedSyncFixture();
   let stageCalled = false;
+  const multipart = createMultipartBlobStageFixture();
   const input = {
     apiClient: {
+      ...multipart,
       bindBlobAttachment: async () => null,
       getDocumentWriterProjection: async () => writerProjection,
-      stageBlob: async () => {
+      initiateMultipartBlobStage: async (
+        request: Parameters<typeof multipart.initiateMultipartBlobStage>[0],
+      ) => {
         stageCalled = true;
-        return null;
+        return multipart.initiateMultipartBlobStage(request);
       },
     },
     author,

@@ -1,14 +1,15 @@
 import { expect, test } from "bun:test";
 import {
   BLOB_CONTENT_KEY_WRAP_SUITE,
-  computeBlobAccessManifestHash,
-  computeWriteHeaderHash,
   type ReferencedPrincipalHead,
   toFingerprint,
-  type WriteHeader,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  createBlobAttachmentBindResponse,
+  createMultipartBlobStageFixture,
+} from "../../../test/helpers/blobUploadFixtures";
 import {
   createContainerManifestFixture,
   createParentProjection,
@@ -20,9 +21,12 @@ import {
   createResponse,
 } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobContracts";
+import { parseBlobEncryptedBytes } from "../../data/documents/blob/shared/readers";
 import { ensurePrincipalPolicyTables } from "../../data/persistence/principalPolicyPersistence";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
 import { uploadDocumentAttachment } from "./upload";
+
+const MIN_MULTIPART_CHUNK_SIZE = 5 * 1024 * 1024;
 
 test("uploadDocumentAttachment wraps blob keys with the blob content-key suite", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
@@ -35,75 +39,25 @@ test("uploadDocumentAttachment wraps blob keys with the blob content-key suite",
       readonly targets: readonly { readonly wrappingMetadata: unknown }[];
     };
   }[] = [];
-  let stagedEncryptedRecord: Record<string, unknown> | null = null;
+  const multipart = createMultipartBlobStageFixture({
+    stageId: "stage-blob-suite",
+  });
+  const { getAssembledBytes, ...multipartApi } = multipart;
   const { close, execSql } = await createTestExecSql("blob-key-wrap-suite");
 
   const uploaded = await uploadDocumentAttachment({
     apiClient: {
-      bindBlobAttachment: async (_blobId, request) => {
-        const targets = request.contentKeyBundle.targets;
-        const targetRecords = targets.map((target) => ({ ...target }));
-        const linkedContainerManifestHashes = [
-          ...new Set(targets.map((target) => target.containerManifestHash)),
-        ].sort();
-        const linkedContainerKeyEpochIds = [
-          ...new Set(targets.map((target) => target.containerKeyEpochId)),
-        ].sort();
-        const blobAccessManifestHash = await computeBlobAccessManifestHash({
-          version: 1,
-          blobId,
-          organizationId: author.organizationId,
-          activeBindingIds: [bindingId],
-          documentManifestHashes: [
-            writerProjection.documentManifest.manifestHash,
-          ],
-          linkedContainerManifestHashes,
-          linkedContainerKeyEpochIds,
-          blobKeyTargetHash: request.contentKeyBundle.targetHash,
+      ...multipartApi,
+      bindBlobAttachment: async (requestBlobId, request) => {
+        const response = await createBlobAttachmentBindResponse({
+          blobId: requestBlobId,
+          documentManifest: writerProjection.documentManifest,
+          request,
         });
-        if (!request.stagedBlob) {
-          throw new Error("Expected staged blob request");
-        }
-        const response = {
-          bindingId,
-          blobId,
-          documentId: writerProjection.documentId,
-          slotId,
-          contentKeyBundle: {
-            blobId,
-            ...request.contentKeyBundle,
-          },
-          blobKekTargets: {
-            blobId,
-            organizationId: author.organizationId,
-            activeBindingIds: [bindingId],
-            documentManifestHashes: [
-              writerProjection.documentManifest.manifestHash,
-            ],
-            linkedContainerManifestHashes,
-            linkedContainerKeyEpochIds,
-            targets: targetRecords,
-            blobKeyTargetHash: request.contentKeyBundle.targetHash,
-            blobAccessManifestHash,
-          },
-          writeHeaderHash: await computeWriteHeaderHash(
-            request.stagedBlob.writeHeader as unknown as WriteHeader,
-          ),
-        };
         submittedResponses.push(response);
         return response;
       },
       getDocumentWriterProjection: async () => writerProjection,
-      stageBlob: async (request) => {
-        stagedEncryptedRecord = JSON.parse(request.encryptedBytes) as Record<
-          string,
-          unknown
-        >;
-        return {
-          stageId: "stage-blob-suite",
-          expiresAt: "2026-04-27T01:00:00.000Z",
-        };
-      },
     },
     author,
     bindingId,
@@ -121,9 +75,13 @@ test("uploadDocumentAttachment wraps blob keys with the blob content-key suite",
 
   expect(uploaded?.blobId).toBe(blobId);
   expect(uploaded?.writerProjection).toBe(writerProjection);
-  if (!stagedEncryptedRecord) {
-    throw new Error("Expected staged encrypted blob record.");
+  const stagedBytes = getAssembledBytes();
+  if (!stagedBytes) {
+    throw new Error("Expected staged encrypted blob bytes.");
   }
+  const stagedEncryptedRecord = parseBlobEncryptedBytes(stagedBytes);
+  expect(stagedEncryptedRecord.blobId).toBe(blobId);
+  expect(stagedEncryptedRecord.byteLength).toBe(4);
   expect(stagedEncryptedRecord).not.toHaveProperty("contentKeyBundle");
   expect(stagedEncryptedRecord).not.toHaveProperty("targetHash");
   expect(submittedResponses[0]?.contentKeyBundle.targets).toEqual([
@@ -135,141 +93,55 @@ test("uploadDocumentAttachment wraps blob keys with the blob content-key suite",
   ]);
 });
 
-test("uploadDocumentAttachment can stage encrypted bytes with multipart uploads", async () => {
+test("uploadDocumentAttachment stages binary v2 with multipart uploads", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
     await createMaterializedSyncFixture();
   const blobId = "550e8400-e29b-41d4-a716-446655440565";
   const bindingId = "550e8400-e29b-41d4-a716-446655440566";
   const slotId = "preview";
-  const uploadedParts: { encryptedBytes: string; partNumber: number }[] = [];
-  const completedParts: unknown[] = [];
-  let activeUploads = 0;
-  let maxActiveUploads = 0;
+  const multipart = createMultipartBlobStageFixture({
+    stageId: "stage-multipart-upload",
+    uploadId: "upload-multipart-upload",
+  });
+  const uploadedPartNumbers: number[] = [];
+  const completedPartNumbers: number[] = [];
   const { close, execSql } = await createTestExecSql("multipart-blob-upload");
 
   const uploaded = await uploadDocumentAttachment({
     apiClient: {
-      bindBlobAttachment: async (_blobId, request) => {
-        const targets = request.contentKeyBundle.targets;
-        const linkedContainerManifestHashes = [
-          ...new Set(targets.map((target) => target.containerManifestHash)),
-        ].sort();
-        const linkedContainerKeyEpochIds = [
-          ...new Set(targets.map((target) => target.containerKeyEpochId)),
-        ].sort();
-        const blobAccessManifestHash = await computeBlobAccessManifestHash({
-          version: 1,
-          blobId,
-          organizationId: author.organizationId,
-          activeBindingIds: [bindingId],
-          documentManifestHashes: [
-            writerProjection.documentManifest.manifestHash,
-          ],
-          linkedContainerManifestHashes,
-          linkedContainerKeyEpochIds,
-          blobKeyTargetHash: request.contentKeyBundle.targetHash,
-        });
-        if (!request.stagedBlob) {
-          throw new Error("Expected staged blob request");
-        }
-
-        return {
-          bindingId,
-          blobId,
-          documentId: writerProjection.documentId,
-          slotId,
-          contentKeyBundle: {
-            blobId,
-            ...request.contentKeyBundle,
-          },
-          blobKekTargets: {
-            blobId,
-            organizationId: author.organizationId,
-            activeBindingIds: [bindingId],
-            documentManifestHashes: [
-              writerProjection.documentManifest.manifestHash,
-            ],
-            linkedContainerManifestHashes,
-            linkedContainerKeyEpochIds,
-            targets: targets.map((target) => ({ ...target })),
-            blobKeyTargetHash: request.contentKeyBundle.targetHash,
-            blobAccessManifestHash,
-          },
-          writeHeaderHash: await computeWriteHeaderHash(
-            request.stagedBlob.writeHeader as unknown as WriteHeader,
-          ),
-        };
-      },
       completeMultipartBlobStage: async (stageId, request) => {
-        completedParts.push(...request.parts);
-        return {
-          byteLength: uploadedParts.reduce(
-            (total, part) =>
-              total + new TextEncoder().encode(part.encryptedBytes).byteLength,
-            0,
-          ),
-          expiresAt: "2026-04-27T01:00:00.000Z",
-          sha256: "multipart-sha256",
-          stageId,
-        };
+        completedPartNumbers.push(
+          ...request.parts.map((part) => part.partNumber),
+        );
+        return multipart.completeMultipartBlobStage(stageId, request);
       },
       getDocumentWriterProjection: async () => writerProjection,
-      getMultipartBlobStage: async () => null,
-      initiateMultipartBlobStage: async (request) => ({
-        ...request,
-        expiresAt: "2026-04-27T01:00:00.000Z",
-        stageId: "stage-multipart-upload",
-        uploadId: "upload-multipart-upload",
-        uploadedParts: [],
-      }),
-      stageBlob: async () => {
-        throw new Error("Expected multipart upload path");
-      },
-      uploadMultipartBlobPart: async () => {
-        throw new Error("Expected streamed multipart upload path");
-      },
-      uploadMultipartBlobPartBytes: async (_stageId, partNumber, request) => {
-        activeUploads += 1;
-        maxActiveUploads = Math.max(maxActiveUploads, activeUploads);
-
-        try {
-          await new Promise((resolve) => setTimeout(resolve, 0));
-          const encryptedBytes = await new Response(
-            request.encryptedBytes,
-          ).text();
-          expect(request.byteLength).toBe(
-            new TextEncoder().encode(encryptedBytes).byteLength,
-          );
-          expect(request.sha256).toMatch(/^[0-9a-f]{64}$/);
-          uploadedParts.push({
-            encryptedBytes,
-            partNumber,
-          });
-
-          return {
-            part: {
-              byteLength: request.byteLength,
-              etag: `etag-${partNumber}`,
-              partNumber,
-            },
-            stageId: "stage-multipart-upload",
-            uploadId: request.uploadId,
-          };
-        } finally {
-          activeUploads -= 1;
-        }
+      getMultipartBlobStage: multipart.getMultipartBlobStage,
+      initiateMultipartBlobStage: multipart.initiateMultipartBlobStage,
+      bindBlobAttachment: async (requestBlobId, request) =>
+        createBlobAttachmentBindResponse({
+          blobId: requestBlobId,
+          documentManifest: writerProjection.documentManifest,
+          request,
+        }),
+      uploadMultipartBlobPartBytes: async (stageId, partNumber, request) => {
+        const response = await multipart.uploadMultipartBlobPartBytes(
+          stageId,
+          partNumber,
+          request,
+        );
+        uploadedPartNumbers.push(partNumber);
+        return response;
       },
     },
     author,
     bindingId,
     blobId,
-    bytes: new Uint8Array(
-      Array.from({ length: 128 }, (_, index) => index),
-    ) as BlobBytes,
+    bytes: new Uint8Array(MIN_MULTIPART_CHUNK_SIZE + 128) as BlobBytes,
     documentId: writerProjection.documentId,
     execSql,
     expectedBindingId: null,
-    multipart: { partSize: 64, uploadConcurrency: 2 },
+    multipart: { partSize: MIN_MULTIPART_CHUNK_SIZE },
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     slotId,
@@ -279,24 +151,21 @@ test("uploadDocumentAttachment can stage encrypted bytes with multipart uploads"
 
   expect(uploaded?.blobId).toBe(blobId);
   expect(uploaded?.request.stagedBlob?.stageId).toBe("stage-multipart-upload");
-  const multipartEncryptedRecord = JSON.parse(
-    uploadedParts
-      .toSorted((left, right) => left.partNumber - right.partNumber)
-      .map((part) => part.encryptedBytes)
-      .join(""),
-  ) as Record<string, unknown>;
-  expect(multipartEncryptedRecord).not.toHaveProperty("contentKeyBundle");
-  expect(multipartEncryptedRecord).not.toHaveProperty("targetHash");
-  expect(uploadedParts.length).toBeGreaterThan(2);
-  expect(maxActiveUploads).toBe(2);
-  expect(completedParts).toEqual(
-    uploadedParts
-      .map((part) => ({
-        etag: `etag-${part.partNumber}`,
-        partNumber: part.partNumber,
-      }))
-      .sort((left, right) => left.partNumber - right.partNumber),
-  );
+  const encryptedBytes = multipart.getAssembledBytes();
+  if (!encryptedBytes) {
+    throw new Error("Expected assembled binary blob bytes");
+  }
+  const encryptedRecord = parseBlobEncryptedBytes(encryptedBytes);
+  expect(encryptedRecord).toMatchObject({
+    blobId,
+    byteLength: MIN_MULTIPART_CHUNK_SIZE + 128,
+    chunkCount: 2,
+    chunkSize: MIN_MULTIPART_CHUNK_SIZE,
+  });
+  expect(encryptedRecord).not.toHaveProperty("contentKeyBundle");
+  expect(encryptedRecord).not.toHaveProperty("targetHash");
+  expect(uploadedPartNumbers.toSorted()).toEqual([1, 2]);
+  expect(completedPartNumbers.toSorted()).toEqual([1, 2]);
 });
 
 test("uploadDocumentAttachment warms managed policies for the projection owner before staging", async () => {
@@ -367,13 +236,11 @@ test("uploadDocumentAttachment warms managed policies for the projection owner b
     await expect(
       uploadDocumentAttachment({
         apiClient: {
+          ...createMultipartBlobStageFixture(),
           bindBlobAttachment: async () => {
             throw new Error("Unexpected bind");
           },
           getDocumentWriterProjection: async () => managedWriterProjection,
-          stageBlob: async () => {
-            throw new Error("Unexpected stage");
-          },
         },
         author,
         blobId: "550e8400-e29b-41d4-a716-446655440567",
@@ -439,19 +306,21 @@ test("uploadDocumentAttachment rejects substituted KEK material before staging",
   };
   let stageCalled = false;
   let bindCalled = false;
+  const multipart = createMultipartBlobStageFixture();
   const { close, execSql } = await createTestExecSql("substituted-blob-kek");
 
   await expect(
     uploadDocumentAttachment({
       apiClient: {
+        ...multipart,
         bindBlobAttachment: async () => {
           bindCalled = true;
           throw new Error("Unexpected bind");
         },
         getDocumentWriterProjection: async () => writerProjection,
-        stageBlob: async () => {
+        initiateMultipartBlobStage: async (request) => {
           stageCalled = true;
-          throw new Error("Unexpected stage");
+          return multipart.initiateMultipartBlobStage(request);
         },
       },
       author: parent.author,

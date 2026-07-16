@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { Tearleads } from "@tearleads/client-sdk";
+import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
 import { createIdentitySeedPhraseFromEntropy } from "@tearleads/crypto";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sharedMemoryLocalKeyring";
@@ -35,12 +35,16 @@ function createMemoryStorage(): LocalIdentityStorage {
   };
 }
 
+function createTestTearleads(): Tearleads {
+  return new Tearleads({ blobStore: createMemoryBlobStore() });
+}
+
 test("identity generation stays in flight until registry persistence finishes", async () => {
   const persistenceStarted = createDeferred();
   const releasePersistence = createDeferred();
   const generationIdRef = { current: 0 };
   const generationInFlight = { current: false };
-  const tearleads = new Tearleads();
+  const tearleads = createTestTearleads();
   Reflect.set(tearleads.session, "bootstrapLocalRootContainer", async () => ({
     containerId: "root",
     created: true,
@@ -83,14 +87,14 @@ test("persisted identity restore completes after its key import rerenders", asyn
     storage: createMemoryStorage(),
     storageKey: "identities",
   });
-  const source = new Tearleads();
+  const source = createTestTearleads();
   await source.identity.importSeedPhrase(
     createIdentitySeedPhraseFromEntropy(new Uint8Array(32).fill(0xab)),
   );
   const keyPackage = await source.identity.exportKeyPackage();
   await repository.upsert(keyPackage);
 
-  const target = new Tearleads();
+  const target = createTestTearleads();
   const generationIdRef = { current: 0 };
   const generationInFlight = { current: false };
   const view = renderHook(() => {
@@ -125,8 +129,8 @@ test("unlock reloads identity choices without replacing the live identity", asyn
     storage: createMemoryStorage(),
     storageKey: "identities",
   });
-  const identityA = new Tearleads();
-  const identityB = new Tearleads();
+  const identityA = createTestTearleads();
+  const identityB = createTestTearleads();
   await identityA.identity.importSeedPhrase(
     createIdentitySeedPhraseFromEntropy(new Uint8Array(32).fill(0xab)),
   );

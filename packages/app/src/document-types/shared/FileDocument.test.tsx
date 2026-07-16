@@ -212,6 +212,16 @@ test("skips unsupported local attachments when resolving a media preview", () =>
   });
 });
 
+test("skips large local attachments when resolving a media preview", () => {
+  const preview = resolveFileDocumentMediaPreview({
+    attachments: [{ ...videoAttachment, byteLength: 5 * 1024 * 1024 + 1 }],
+    attachmentStorageKeyBySlotId: { "video-slot": "local-video" },
+    mediaUrlBySlotId: { "video-slot": "blob:video-preview" },
+  });
+
+  expect(preview).toBeNull();
+});
+
 test("renders the media preview above the metadata when a URL is available", () => {
   const view = renderFields({
     mediaPreview: {

@@ -5,12 +5,11 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   ListPartsCommand,
-  PutObjectCommand,
   type S3Client,
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
 import { isSha256HexString } from "@tearleads/validators/util";
-import { sha256Hex } from "../utils/sha256";
+import { summarizeSha256Stream } from "../utils/sha256";
 import {
   type BlobObjectPart,
   type BlobObjectReadStream,
@@ -18,7 +17,6 @@ import {
   BlobObjectStoreError,
   blobObjectChunkToStream,
   type CompleteMultipartUploadPart,
-  isStringUploadPartBody,
 } from "./blobObjectStore";
 import {
   nodeReadableFromBlobObjectStream,
@@ -33,10 +31,6 @@ interface S3BlobObjectStoreInput {
 }
 
 const MAX_S3_PART_NUMBER = 10_000;
-
-function byteLength(value: string): number {
-  return Buffer.byteLength(value, "utf8");
-}
 
 function sha256HexToBase64(value: string): string {
   if (!isSha256HexString(value)) {
@@ -188,7 +182,7 @@ async function getS3ObjectStream(input: {
       }),
     );
     if (!object.Body) {
-      return blobObjectChunkToStream("");
+      return blobObjectChunkToStream(new Uint8Array());
     }
 
     return responseBodyToStream(object.Body);
@@ -269,7 +263,7 @@ function createCompleteMultipartUpload({
   bucket,
   client,
 }: S3BlobObjectStoreInput): BlobObjectStore["completeMultipartUpload"] {
-  return async ({ expected, key, parts, uploadId }) => {
+  return async ({ key, parts, uploadId }) => {
     if (parts.length === 0) {
       throw new BlobObjectStoreError(
         "Multipart upload requires at least one part",
@@ -280,10 +274,10 @@ function createCompleteMultipartUpload({
     // Complete by part ETag only. Garage (and AWS for SHA-256) do not accept
     // FULL_OBJECT whole-object checksums for multipart uploads, and MpuObjectSize
     // is part of that same proprietary flexible-checksum flow. Per-part integrity
-    // is still validated at upload time via each part's ChecksumSHA256, and the
-    // payload is AES-GCM encrypted with a client-side sha256 check on download.
-    await mapS3Errors("completeMultipartUpload", () =>
-      client.send(
+    // is still validated at upload time via each part's ChecksumSHA256; after
+    // assembly, the exact object is streamed and summarized below.
+    return mapS3Errors("completeMultipartUpload", async () => {
+      await client.send(
         new CompleteMultipartUploadCommand({
           Bucket: bucket,
           Key: key,
@@ -295,10 +289,22 @@ function createCompleteMultipartUpload({
           },
           UploadId: uploadId,
         }),
-      ),
-    );
+      );
 
-    return expected;
+      // S3 completion only confirms the submitted ETags; it does not return an
+      // exact whole-object SHA-256. Read the newly assembled object as a stream
+      // so the service can compare actual bytes with the stage's signed length
+      // and digest without buffering the object in API memory.
+      const completedObject = await getS3ObjectStream({ bucket, client, key });
+      if (!completedObject) {
+        throw new BlobObjectStoreError(
+          "Completed multipart object not found",
+          "not_found",
+        );
+      }
+
+      return summarizeSha256Stream(completedObject);
+    });
   };
 }
 
@@ -360,45 +366,17 @@ function createListParts({
     );
 }
 
-function createPutObject({
-  bucket,
-  client,
-}: S3BlobObjectStoreInput): BlobObjectStore["putObject"] {
-  return ({ bytes, key, sha256 }) =>
-    mapS3Errors("putObject", async () => {
-      const objectByteLength = byteLength(bytes);
-      await client.send(
-        new PutObjectCommand({
-          Body: bytes,
-          Bucket: bucket,
-          ChecksumAlgorithm: "SHA256",
-          ChecksumSHA256: sha256HexToBase64(sha256),
-          ContentLength: objectByteLength,
-          Key: key,
-        }),
-      );
-
-      return { byteLength: objectByteLength, sha256 };
-    });
-}
-
 function createUploadPart({
   bucket,
   client,
 }: S3BlobObjectStoreInput): BlobObjectStore["uploadPart"] {
   return (input) =>
     mapS3Errors("uploadPart", async () => {
-      const uploadBody = isStringUploadPartBody(input.body)
-        ? {
-            body: input.body.bytes,
-            byteLength: byteLength(input.body.bytes),
-            sha256: await sha256Hex(input.body.bytes),
-          }
-        : {
-            body: nodeReadableFromBlobObjectStream(input.body.stream),
-            byteLength: input.body.byteLength,
-            sha256: input.body.sha256,
-          };
+      const uploadBody = {
+        body: nodeReadableFromBlobObjectStream(input.body.stream),
+        byteLength: input.body.byteLength,
+        sha256: input.body.sha256,
+      };
       if (uploadBody.byteLength <= 0) {
         throw new BlobObjectStoreError(
           "Multipart upload part bytes are required",
@@ -438,7 +416,6 @@ export function createS3BlobObjectStore(
     deleteObject: createDeleteObject(input),
     getObjectStream: createGetObjectStream(input),
     listParts: createListParts(input),
-    putObject: createPutObject(input),
     uploadPart: createUploadPart(input),
   };
 }

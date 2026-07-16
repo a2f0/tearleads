@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test";
-import type { BlobBytes, BlobStore } from "../blobContracts";
+import {
+  type BlobByteSource,
+  type BlobBytes,
+  type BlobStore,
+  createBlobByteSource,
+  readBlobByteSource,
+} from "../blobContracts";
+import { ENCRYPTED_BLOB_CHUNK_SIZE } from "./encryptedBlobEnvelope";
 import {
   createEncryptedOpfsBlobStore,
   createLazyEncryptedBlobStore,
@@ -31,12 +38,19 @@ function createInspectableBlobStore(): {
       async deleteBytes(storageKey) {
         rawBytesByKey.delete(storageKey);
       },
-      async readBytes(storageKey) {
+      async openByteSource(storageKey) {
         const bytes = rawBytesByKey.get(storageKey);
-        return bytes ? copyBytes(bytes) : null;
+        return bytes ? createBlobByteSource(copyBytes(bytes)) : null;
+      },
+      async readBytes(storageKey) {
+        const source = await this.openByteSource(storageKey);
+        return source ? readBlobByteSource(source) : null;
+      },
+      async writeByteSource(storageKey, source) {
+        rawBytesByKey.set(storageKey, await readBlobByteSource(source));
       },
       async writeBytes(storageKey, bytes) {
-        rawBytesByKey.set(storageKey, copyBytes(bytes));
+        await this.writeByteSource(storageKey, createBlobByteSource(bytes));
       },
     },
   };
@@ -65,7 +79,10 @@ class FakeFileHandle {
     return {
       async write(chunk: FileSystemWriteChunkType) {
         if (chunk instanceof Uint8Array) {
-          pending = copyBytes(chunk);
+          const next = new Uint8Array(pending.byteLength + chunk.byteLength);
+          next.set(pending);
+          next.set(chunk, pending.byteLength);
+          pending = next;
           return;
         }
         if (chunk instanceof Blob) {
@@ -85,6 +102,9 @@ class FakeFileHandle {
       },
       async close() {
         directory.files.set(name, copyBytes(pending));
+      },
+      async abort() {
+        pending = new Uint8Array();
       },
     } as FileSystemWritableFileStream;
   }
@@ -182,7 +202,7 @@ test("encrypted blob store encrypts stored bytes and decrypts with the same key"
 });
 
 test("encrypted blob store authenticates the key and namespace", async () => {
-  const { store: innerStore } = createInspectableBlobStore();
+  const { rawBytesByKey, store: innerStore } = createInspectableBlobStore();
   const store = wrapEncryptedBlobStore(innerStore, {
     key: "test-key",
     kdfIterations: 1,
@@ -205,6 +225,15 @@ test("encrypted blob store authenticates the key and namespace", async () => {
     namespace: "identity-b",
   });
   await expect(wrongNamespaceStore.readBytes("attachment-1")).rejects.toThrow(
+    "could not be decrypted",
+  );
+
+  const stored = rawBytesByKey.get("attachment-1");
+  if (!stored) {
+    throw new Error("Expected encrypted blob bytes.");
+  }
+  rawBytesByKey.set("attachment-2", stored);
+  await expect(store.readBytes("attachment-2")).rejects.toThrow(
     "could not be decrypted",
   );
 });
@@ -253,82 +282,74 @@ test("encrypted blob store retries key derivation after a transient failure", as
 });
 
 test("lazy encrypted blob store defers key loading until first operation", async () => {
-  let keyProviderCalls = 0;
-  const store = createLazyEncryptedBlobStore("identity-a", async () => {
-    keyProviderCalls += 1;
-    return "test-key";
+  await withFakeOpfs(async () => {
+    let keyProviderCalls = 0;
+    const store = createLazyEncryptedBlobStore("identity-a", async () => {
+      keyProviderCalls += 1;
+      return "test-key";
+    });
+
+    expect(keyProviderCalls).toBe(0);
+
+    await store.writeBytes("attachment-1", blobBytes("local attachment bytes"));
+    await expect(store.readBytes("attachment-1")).resolves.toEqual(
+      blobBytes("local attachment bytes"),
+    );
+    expect(keyProviderCalls).toBe(1);
   });
-
-  expect(keyProviderCalls).toBe(0);
-
-  await store.writeBytes("attachment-1", blobBytes("local attachment bytes"));
-  await expect(store.readBytes("attachment-1")).resolves.toEqual(
-    blobBytes("local attachment bytes"),
-  );
-  expect(keyProviderCalls).toBe(1);
 });
 
 test("lazy encrypted blob store retries after key provider failure", async () => {
-  let keyProviderCalls = 0;
-  const store = createLazyEncryptedBlobStore("identity-a", async () => {
-    keyProviderCalls += 1;
-    if (keyProviderCalls === 1) {
-      throw new Error("temporary key provider failure");
-    }
+  await withFakeOpfs(async () => {
+    let keyProviderCalls = 0;
+    const store = createLazyEncryptedBlobStore("identity-a", async () => {
+      keyProviderCalls += 1;
+      if (keyProviderCalls === 1) {
+        throw new Error("temporary key provider failure");
+      }
 
-    return "test-key";
+      return "test-key";
+    });
+
+    await expect(
+      store.writeBytes("attachment-1", blobBytes("bytes")),
+    ).rejects.toThrow("temporary key provider failure");
+    await store.writeBytes("attachment-1", blobBytes("local attachment bytes"));
+    await expect(store.readBytes("attachment-1")).resolves.toEqual(
+      blobBytes("local attachment bytes"),
+    );
+    expect(keyProviderCalls).toBe(2);
   });
-
-  await expect(
-    store.writeBytes("attachment-1", blobBytes("bytes")),
-  ).rejects.toThrow("temporary key provider failure");
-  await store.writeBytes("attachment-1", blobBytes("local attachment bytes"));
-  await expect(store.readBytes("attachment-1")).resolves.toEqual(
-    blobBytes("local attachment bytes"),
-  );
-  expect(keyProviderCalls).toBe(2);
 });
 
-test("encrypted blob store ignores unknown envelope fields", async () => {
+test("encrypted blob store rejects the removed version-one JSON format", async () => {
   const { rawBytesByKey, store: innerStore } = createInspectableBlobStore();
   const store = wrapEncryptedBlobStore(innerStore, {
     key: "test-key",
     kdfIterations: 1,
     namespace: "identity-a",
   });
-  await store.writeBytes("attachment-1", blobBytes("local attachment bytes"));
-
-  const stored = rawBytesByKey.get("attachment-1");
-  if (!stored) {
-    throw new Error("Expected encrypted blob bytes.");
-  }
-  const envelope = JSON.parse(TEXT_DECODER.decode(stored)) as Record<
-    string,
-    unknown
-  > & {
-    futureField?: unknown;
-    keyDerivation?: unknown;
-  };
-  envelope.futureField = "future-value";
-  if (
-    envelope.keyDerivation &&
-    typeof envelope.keyDerivation === "object" &&
-    !Array.isArray(envelope.keyDerivation)
-  ) {
-    Reflect.set(envelope.keyDerivation, "futureField", "future-value");
-  }
   rawBytesByKey.set(
     "attachment-1",
-    TEXT_ENCODER.encode(JSON.stringify(envelope)),
+    TEXT_ENCODER.encode(
+      JSON.stringify({
+        cipher: "aes-256-gcm",
+        ciphertext: "AA==",
+        format: "tearleads.local-blob-store.encrypted",
+        iv: "AAAAAAAAAAAAAAAA",
+        keyDerivation: null,
+        version: 1,
+      }),
+    ),
   );
 
-  await expect(store.readBytes("attachment-1")).resolves.toEqual(
-    blobBytes("local attachment bytes"),
+  await expect(store.readBytes("attachment-1")).rejects.toThrow(
+    "payload format is invalid",
   );
 });
 
-test("encrypted blob store treats omitted raw-key derivation as none", async () => {
-  const { rawBytesByKey, store: innerStore } = createInspectableBlobStore();
+test("encrypted blob store supports raw AES keys", async () => {
+  const { store: innerStore } = createInspectableBlobStore();
   const rawKey = crypto.getRandomValues(new Uint8Array(32));
   const store = wrapEncryptedBlobStore(innerStore, {
     key: rawKey,
@@ -336,23 +357,69 @@ test("encrypted blob store treats omitted raw-key derivation as none", async () 
   });
   await store.writeBytes("attachment-1", blobBytes("local attachment bytes"));
 
-  const stored = rawBytesByKey.get("attachment-1");
-  if (!stored) {
-    throw new Error("Expected encrypted blob bytes.");
-  }
-  const envelope = JSON.parse(TEXT_DECODER.decode(stored)) as Record<
-    string,
-    unknown
-  >;
-  Reflect.deleteProperty(envelope, "keyDerivation");
-  rawBytesByKey.set(
-    "attachment-1",
-    TEXT_ENCODER.encode(JSON.stringify(envelope)),
-  );
-
   await expect(store.readBytes("attachment-1")).resolves.toEqual(
     blobBytes("local attachment bytes"),
   );
+});
+
+test("encrypted blob store authenticates empty payloads", async () => {
+  const { store: innerStore } = createInspectableBlobStore();
+  const store = wrapEncryptedBlobStore(innerStore, {
+    key: "test-key",
+    kdfIterations: 1,
+    namespace: "identity-a",
+  });
+  await store.writeBytes("empty", new Uint8Array());
+  await expect(store.readBytes("empty")).resolves.toEqual(new Uint8Array());
+
+  const wrongKeyStore = wrapEncryptedBlobStore(innerStore, {
+    key: "wrong-key",
+    kdfIterations: 1,
+    namespace: "identity-a",
+  });
+  await expect(wrongKeyStore.readBytes("empty")).rejects.toThrow(
+    "could not be decrypted",
+  );
+});
+
+test("encrypted blob store consumes and decrypts bounded multi-chunk ranges", async () => {
+  const { store: innerStore } = createInspectableBlobStore();
+  const store = wrapEncryptedBlobStore(innerStore, {
+    key: "test-key",
+    kdfIterations: 1,
+    namespace: "identity-a",
+  });
+  const byteLength = ENCRYPTED_BLOB_CHUNK_SIZE + 137;
+  const reads: Array<{ byteLength: number; offset: number }> = [];
+  const plaintextSource: BlobByteSource = {
+    byteLength,
+    async read(offset, requestedByteLength) {
+      reads.push({ byteLength: requestedByteLength, offset });
+      const bytes = new Uint8Array(requestedByteLength);
+      for (let index = 0; index < bytes.byteLength; index += 1) {
+        bytes[index] = (offset + index) % 251;
+      }
+      return bytes;
+    },
+  };
+
+  await store.writeByteSource("attachment-1", plaintextSource);
+
+  expect(reads).toEqual([
+    { byteLength: ENCRYPTED_BLOB_CHUNK_SIZE, offset: 0 },
+    { byteLength: 137, offset: ENCRYPTED_BLOB_CHUNK_SIZE },
+  ]);
+  const decryptedSource = await store.openByteSource("attachment-1");
+  if (!decryptedSource) {
+    throw new Error("Expected decrypted blob source.");
+  }
+  const rangeOffset = ENCRYPTED_BLOB_CHUNK_SIZE - 19;
+  const range = await decryptedSource.read(rangeOffset, 43);
+  const expected = new Uint8Array(43);
+  for (let index = 0; index < expected.byteLength; index += 1) {
+    expected[index] = (rangeOffset + index) % 251;
+  }
+  expect(range).toEqual(expected);
 });
 
 test("encrypted blob store rejects missing and invalid runtime keys", () => {

@@ -19,11 +19,7 @@ export {
   isBlobAttachmentDetachRequest,
   isCompleteMultipartBlobStageRequest,
   isInitiateMultipartBlobStageRequest,
-  isStageBlobRequest,
-  isUploadMultipartBlobPartRequest,
   type MultipartBlobPartCommitRequest,
-  type StageBlobRequest,
-  type UploadMultipartBlobPartRequest,
 } from "./blob";
 export {
   type ContainerMutationRequest,

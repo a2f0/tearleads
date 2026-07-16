@@ -16,7 +16,7 @@ import { uniqueSortedStrings } from "../../shared/readers";
 import type { DocumentCreateAuthor } from "../../shared/types";
 import type {
   BlobContentKeyTarget,
-  BlobEncryptedBytes,
+  BlobEncryptionPlan,
   DocumentManifestIdentity,
 } from "./types";
 
@@ -119,7 +119,7 @@ export async function signBlobAttachmentWriteHeader(input: {
   blobAccessManifestHash: string;
   blobId: string;
   contentKeyEpoch: number;
-  encrypted: BlobEncryptedBytes;
+  encrypted: BlobEncryptionPlan;
   manifestIdentity: DocumentManifestIdentity;
   signedAt: string;
   targetHash: string;

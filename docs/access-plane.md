@@ -159,11 +159,10 @@ Blob bind writes submit:
 - blob content-key bundle
 - optional staged blob write header
 
-Blob stages can be created in one JSON request or through the multipart staging
-routes. Clients can query `GET /blobs/uploads/capabilities` before choosing
-automatic multipart uploads. The bind path treats both stage kinds as temporary
-encrypted uploads owned by the authenticated user and promotes only a
-completed, unexpired stage.
+Blob stages are created through the multipart staging routes and uploaded as
+binary parts. The bind path treats a stage as a temporary encrypted upload
+owned by the authenticated user and promotes only a completed, unexpired
+stage.
 
 ## Read Surfaces
 

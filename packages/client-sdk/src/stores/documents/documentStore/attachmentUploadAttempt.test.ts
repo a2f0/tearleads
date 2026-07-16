@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createMultipartBlobStageFixture } from "../../../../test/helpers/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../../data/blobContracts";
 import { uploadAttachmentWithWriterProjectionRetry } from "./attachmentUploadAttempt";
@@ -25,13 +26,14 @@ test("classifies a first upload 402 as a billing pause without a cached projecti
     },
     writerProjection: null,
   } as unknown as DocumentStoreState;
-
+  const multipart = createMultipartBlobStageFixture();
   const result = await uploadAttachmentWithWriterProjectionRetry({
     baseUploadInput: {
       apiClient: {
+        ...multipart,
         bindBlobAttachment: async () => null,
         getDocumentWriterProjection: async () => writerProjection,
-        stageBlob: async () => {
+        uploadMultipartBlobPartBytes: async () => {
           stageCount += 1;
           remoteSyncBlocked = true;
           return null;
@@ -77,15 +79,17 @@ test("preserves a billing pause observed before recovery races the postflight ch
     },
     writerProjection: null,
   } as unknown as DocumentStoreState;
+  const multipart = createMultipartBlobStageFixture();
 
   const result = await uploadAttachmentWithWriterProjectionRetry({
     baseUploadInput: {
       apiClient: {
+        ...multipart,
         bindBlobAttachment: async () => null,
         getDocumentWriterProjection: async () => writerProjection,
-        stageBlob: async () => {
+        initiateMultipartBlobStage: async (request) => {
           stageCount += 1;
-          return null;
+          return multipart.initiateMultipartBlobStage(request);
         },
       },
       author,
@@ -124,17 +128,19 @@ test("does not retry a concrete upload failure with a fresh projection", async (
     },
     writerProjection,
   } as unknown as DocumentStoreState;
+  const multipart = createMultipartBlobStageFixture();
 
   try {
     const result = await uploadAttachmentWithWriterProjectionRetry({
       baseUploadInput: {
         apiClient: {
+          ...multipart,
           bindBlobAttachment: async () => null,
           getDocumentWriterProjection: async () => {
             projectionRequests += 1;
             return writerProjection;
           },
-          stageBlob: async () => {
+          uploadMultipartBlobPartBytes: async () => {
             stageRequests += 1;
             throw uploadError;
           },
@@ -234,12 +240,15 @@ test("reuses a multipart stage when retrying a null upload result", async () => 
               uploadId: "upload-reused",
             };
           },
-          stageBlob: async () => null,
-          uploadMultipartBlobPart: async (stageId, partNumber, request) => {
+          uploadMultipartBlobPartBytes: async (
+            stageId,
+            partNumber,
+            request,
+          ) => {
             uploadedParts += 1;
             return {
               part: {
-                byteLength: request.encryptedBytes.length,
+                byteLength: request.byteLength,
                 etag: `etag-${partNumber}`,
                 partNumber,
               },
@@ -257,8 +266,8 @@ test("reuses a multipart stage when retrying a null upload result", async () => 
         eventId: "550e8400-e29b-41d4-a716-446655440582",
         execSql,
         expectedBindingId: null,
-        iv: new Uint8Array(12).fill(3),
-        multipart: { partSize: 1_000_000 },
+        nonceSeed: new Uint8Array(12).fill(3),
+        multipart: { partSize: 5 * 1024 * 1024 },
         onStageResolved: ({ stageId }) => {
           resolvedStageIds.push(stageId);
         },
@@ -303,20 +312,22 @@ test("attachment upload propagates identity failures without a projection retry"
     },
     writerProjection,
   } as unknown as DocumentStoreState;
+  const multipart = createMultipartBlobStageFixture();
 
   try {
     await expect(
       uploadAttachmentWithWriterProjectionRetry({
         baseUploadInput: {
           apiClient: {
+            ...multipart,
             bindBlobAttachment: async () => null,
             getDocumentWriterProjection: async () => {
               projectionRequests += 1;
               return writerProjection;
             },
-            stageBlob: async () => {
+            initiateMultipartBlobStage: async (request) => {
               stageRequests += 1;
-              return null;
+              return multipart.initiateMultipartBlobStage(request);
             },
           },
           author,

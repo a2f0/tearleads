@@ -1,89 +1,12 @@
-import type {
-  BlobAttachmentApi,
-  UploadDocumentAttachmentInput,
-} from "../../data/documents/blob/shared/types";
-import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
+import { DEFAULT_BLOB_CHUNK_SIZE_BYTES } from "../../data/documents/blob/shared/crypto";
+import type { UploadDocumentAttachmentInput } from "../../data/documents/blob/shared/types";
 
-export type MultipartBlobAttachmentApi = BlobAttachmentApi &
-  Required<
-    Pick<
-      BlobAttachmentApi,
-      | "completeMultipartBlobStage"
-      | "getMultipartBlobStage"
-      | "initiateMultipartBlobStage"
-      | "uploadMultipartBlobPart"
-    >
-  >;
-
-const DEFAULT_AUTOMATIC_MULTIPART_THRESHOLD_BYTES = 8 * 1024 * 1024;
-const DEFAULT_AUTOMATIC_MULTIPART_PART_SIZE_BYTES = 8 * 1024 * 1024;
-
-function assertMultipartBlobAttachmentApi(
-  apiClient: BlobAttachmentApi,
-): asserts apiClient is MultipartBlobAttachmentApi {
-  if (
-    typeof apiClient.completeMultipartBlobStage !== "function" ||
-    typeof apiClient.getMultipartBlobStage !== "function" ||
-    typeof apiClient.initiateMultipartBlobStage !== "function" ||
-    typeof apiClient.uploadMultipartBlobPart !== "function"
-  ) {
-    throw new Error("Multipart blob upload API is unavailable");
+export function resolveMultipartUploadOptions(
+  multipart: UploadDocumentAttachmentInput["multipart"],
+): NonNullable<UploadDocumentAttachmentInput["multipart"]> {
+  const resolved = multipart ?? { partSize: DEFAULT_BLOB_CHUNK_SIZE_BYTES };
+  if (resolved.partSize !== DEFAULT_BLOB_CHUNK_SIZE_BYTES) {
+    throw new Error("Multipart blob chunk size must be exactly 5 MiB");
   }
-}
-
-export function requireMultipartBlobAttachmentApi(
-  apiClient: BlobAttachmentApi,
-): MultipartBlobAttachmentApi {
-  assertMultipartBlobAttachmentApi(apiClient);
-  return apiClient;
-}
-
-function isMultipartBlobAttachmentApi(
-  apiClient: BlobAttachmentApi,
-): apiClient is MultipartBlobAttachmentApi {
-  return (
-    typeof apiClient.completeMultipartBlobStage === "function" &&
-    typeof apiClient.getMultipartBlobStage === "function" &&
-    typeof apiClient.initiateMultipartBlobStage === "function" &&
-    typeof apiClient.uploadMultipartBlobPart === "function"
-  );
-}
-
-export async function resolveMultipartUploadOptions(input: {
-  readonly apiClient: BlobAttachmentApi;
-  readonly encryptedByteLength: number;
-  readonly multipart: UploadDocumentAttachmentInput["multipart"];
-}): Promise<UploadDocumentAttachmentInput["multipart"]> {
-  if (input.multipart !== undefined) {
-    return input.multipart;
-  }
-  if (
-    input.encryptedByteLength < DEFAULT_AUTOMATIC_MULTIPART_THRESHOLD_BYTES ||
-    !input.apiClient.getBlobUploadCapabilities ||
-    !isMultipartBlobAttachmentApi(input.apiClient)
-  ) {
-    return undefined;
-  }
-
-  let capabilities: Awaited<
-    ReturnType<NonNullable<BlobAttachmentApi["getBlobUploadCapabilities"]>>
-  >;
-  try {
-    capabilities = await input.apiClient.getBlobUploadCapabilities();
-  } catch (error) {
-    rethrowKeyingVerificationError(error);
-    return undefined;
-  }
-
-  if (
-    !capabilities ||
-    !capabilities.multipart.enabled ||
-    !capabilities.multipart.durable
-  ) {
-    return undefined;
-  }
-
-  return {
-    partSize: DEFAULT_AUTOMATIC_MULTIPART_PART_SIZE_BYTES,
-  };
+  return resolved;
 }

@@ -16,7 +16,8 @@ import { PDF_DOCUMENT_KIND } from "./pdf/pdfDocumentDefinition";
 import { VIDEO_DOCUMENT_KIND } from "./video/videoDocumentDefinition";
 
 export const TEXT_FILE_IMPORT_MAX_BYTES = 5 * 1024 * 1024;
-export const BINARY_FILE_IMPORT_MAX_BYTES = 200 * 1024 * 1024;
+export const BINARY_FILE_IMPORT_MAX_BYTES = 1024 * 1024 * 1024;
+const IMAGE_DIMENSION_PROBE_MAX_BYTES = 5 * 1024 * 1024;
 
 interface DocumentFileImportResult {
   attachment: DocumentAttachmentUpload | null;
@@ -138,6 +139,10 @@ function readSvgOpeningTag(source: string): string {
 async function readImageDimensions(
   file: File,
 ): Promise<Record<string, string>> {
+  if (file.size > IMAGE_DIMENSION_PROBE_MAX_BYTES) {
+    return {};
+  }
+
   if (inferMimeType(file) === "image/svg+xml") {
     try {
       const source = await file.text();
@@ -176,7 +181,7 @@ async function readAttachmentUpload(
 ): Promise<DocumentAttachmentUpload> {
   const mimeType = inferMimeType(file);
   return {
-    bytes: new Uint8Array(await file.arrayBuffer()),
+    bytes: file,
     mimeType: mimeType.length > 0 ? mimeType : null,
     name: file.name,
   };

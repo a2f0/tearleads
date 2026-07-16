@@ -328,12 +328,11 @@ supported key type directly, or use
 `createLazyEncryptedBlobStore(namespace, keyProvider)` to defer async keyring
 loading and retry transient load failures.
 
-`createEncryptedBlobStore(namespace, options)` stores local attachment bytes in
-OPFS when available and encrypted memory otherwise.
-`createEncryptedOpfsBlobStore(namespace, options)` throws when OPFS is
-unavailable. The encrypted store supports `aes-256-gcm`. String keys use
-PBKDF2-SHA256; hosts may also pass a 32-byte raw AES key or AES-GCM
-`CryptoKey`.
+`createEncryptedBlobStore(namespace, options)` requires OPFS and stores
+authenticated 5 MiB chunks. String keys use PBKDF2-SHA256; raw 32-byte and
+AES-GCM keys are supported. Ranged methods provide bounded-memory I/O. Store
+factories throw without OPFS; tests and hosts can explicitly opt into ephemeral
+`createMemoryBlobStore()` storage.
 
 ## Local Keyring
 

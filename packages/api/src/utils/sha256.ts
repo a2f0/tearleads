@@ -1,12 +1,7 @@
 import { createHash } from "node:crypto";
 
-export async function sha256Hex(value: string): Promise<string> {
-  const bytes = new TextEncoder().encode(value);
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
-
-  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join(
-    "",
-  );
+export async function sha256Hex(value: string | Uint8Array): Promise<string> {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 export async function summarizeSha256Stream(

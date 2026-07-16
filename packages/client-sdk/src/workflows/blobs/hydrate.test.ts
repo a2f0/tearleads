@@ -1,11 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
-import {
-  type AccessEvent,
-  computeBlobAccessManifestHash,
-  computeWriteHeaderHash,
-  type WriteHeader,
-} from "@tearleads/crypto";
+import type { AccessEvent } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createBlobAttachmentBindResponse,
+  createMultipartBlobStageFixture,
+} from "../../../test/helpers/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobContracts";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
@@ -13,7 +12,6 @@ import { decryptDocumentAttachmentBlob } from "./decrypt";
 import { hydrateDocumentAttachmentBlobs } from "./hydrate";
 import { uploadDocumentAttachment } from "./upload";
 
-const TEXT_ENCODER = new TextEncoder();
 const closeTestDatabases: Array<() => void> = [];
 
 afterEach(() => {
@@ -25,11 +23,11 @@ afterEach(() => {
 function createBlobBytesResponse(input: {
   readonly blobId: string;
   readonly byteLength?: number | undefined;
-  readonly encryptedBytes: string;
+  readonly encryptedBytes: Uint8Array<ArrayBuffer>;
   readonly onChunk?: (() => void) | undefined;
   readonly sha256: string;
 }) {
-  const encryptedBytes = TEXT_ENCODER.encode(input.encryptedBytes);
+  const encryptedBytes = input.encryptedBytes.slice();
   const midpoint = Math.ceil(encryptedBytes.byteLength / 2);
   const chunks = [
     encryptedBytes.slice(0, midpoint),
@@ -68,75 +66,20 @@ async function createUploadedAttachmentFixture() {
   ) as BlobBytes;
   const { close, execSql } = await createTestExecSql("attachment-hydration");
   closeTestDatabases.push(close);
-  const stageCapture: {
-    stagedBlob?: {
-      encryptedBytes: string;
-      sha256: string;
-      byteLength: number;
-    };
-  } = {};
+  const { getAssembledBytes, ...multipartApi } =
+    createMultipartBlobStageFixture();
 
   const uploaded = await uploadDocumentAttachment({
     apiClient: {
+      ...multipartApi,
       bindBlobAttachment: async (_blobId, request) => {
-        const targets = request.contentKeyBundle.targets;
-        const linkedContainerManifestHashes = [
-          ...new Set(targets.map((target) => target.containerManifestHash)),
-        ].sort();
-        const linkedContainerKeyEpochIds = [
-          ...new Set(targets.map((target) => target.containerKeyEpochId)),
-        ].sort();
-        const blobAccessManifestHash = await computeBlobAccessManifestHash({
-          version: 1,
+        return createBlobAttachmentBindResponse({
           blobId,
-          organizationId: author.organizationId,
-          activeBindingIds: [bindingId],
-          documentManifestHashes: [
-            writerProjection.documentManifest.manifestHash,
-          ],
-          linkedContainerManifestHashes,
-          linkedContainerKeyEpochIds,
-          blobKeyTargetHash: request.contentKeyBundle.targetHash,
+          documentManifest: writerProjection.documentManifest,
+          request,
         });
-        if (!request.stagedBlob) {
-          throw new Error("Expected staged blob request");
-        }
-
-        return {
-          bindingId,
-          blobId,
-          documentId: writerProjection.documentId,
-          slotId,
-          contentKeyBundle: {
-            blobId,
-            ...request.contentKeyBundle,
-          },
-          blobKekTargets: {
-            blobId,
-            organizationId: author.organizationId,
-            activeBindingIds: [bindingId],
-            documentManifestHashes: [
-              writerProjection.documentManifest.manifestHash,
-            ],
-            linkedContainerManifestHashes,
-            linkedContainerKeyEpochIds,
-            targets: targets.map((target) => ({ ...target })),
-            blobKeyTargetHash: request.contentKeyBundle.targetHash,
-            blobAccessManifestHash,
-          },
-          writeHeaderHash: await computeWriteHeaderHash(
-            request.stagedBlob.writeHeader as unknown as WriteHeader,
-          ),
-        };
       },
       getDocumentWriterProjection: async () => writerProjection,
-      stageBlob: async (input) => {
-        stageCapture.stagedBlob = input;
-        return {
-          stageId: "stage-hydrate-blob",
-          expiresAt: "2026-04-27T01:00:00.000Z",
-        };
-      },
     },
     author,
     bindingId,
@@ -150,10 +93,15 @@ async function createUploadedAttachmentFixture() {
     slotId,
     targetSecretKey: secretKey,
   });
-  const { stagedBlob } = stageCapture;
-  if (!uploaded || !stagedBlob) {
+  const encryptedBytes = getAssembledBytes();
+  if (!uploaded || !encryptedBytes) {
     throw new Error("Expected uploaded attachment fixture");
   }
+  const stagedBlob = {
+    byteLength: uploaded.byteLength,
+    encryptedBytes,
+    sha256: uploaded.sha256,
+  };
 
   const attachment: DocumentAttachment = {
     byteLength: bytes.byteLength,

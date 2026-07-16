@@ -343,6 +343,7 @@ describe("Tearleads", () => {
     );
     try {
       const sdk = new Tearleads({
+        blobStoreFactory: () => createMemoryBlobStore(),
         database: { execSql, id: "client-db" },
         logger: quietLogger,
       });
@@ -439,7 +440,10 @@ describe("Tearleads", () => {
   });
 
   test("notifies identity subscribers with stable snapshots", async () => {
-    const sdk = new Tearleads({ logger: quietLogger });
+    const sdk = new Tearleads({
+      blobStoreFactory: () => createMemoryBlobStore(),
+      logger: quietLogger,
+    });
     const snapshots: Array<{
       hasEncapsulationKeyPair: boolean;
       hasSigningKeyPair: boolean;
@@ -474,7 +478,10 @@ describe("Tearleads", () => {
   });
 
   test("exports and imports identity key packages", async () => {
-    const source = new Tearleads({ logger: quietLogger });
+    const source = new Tearleads({
+      blobStoreFactory: () => createMemoryBlobStore(),
+      logger: quietLogger,
+    });
     await setGeneratedIdentity(source);
 
     const keyPackage = await source.identity.exportKeyPackage();
@@ -494,7 +501,10 @@ describe("Tearleads", () => {
   });
 
   test("rejects identity key packages with mismatched signing fingerprints", async () => {
-    const sdk = new Tearleads({ logger: quietLogger });
+    const sdk = new Tearleads({
+      blobStoreFactory: () => createMemoryBlobStore(),
+      logger: quietLogger,
+    });
     await setGeneratedIdentity(sdk);
     const keyPackage = await sdk.identity.exportKeyPackage();
 
@@ -507,7 +517,10 @@ describe("Tearleads", () => {
   });
 
   test("rejects identity key packages with mismatched signing key pairs", async () => {
-    const sdk = new Tearleads({ logger: quietLogger });
+    const sdk = new Tearleads({
+      blobStoreFactory: () => createMemoryBlobStore(),
+      logger: quietLogger,
+    });
     await setGeneratedIdentity(sdk);
     const keyPackage = await sdk.identity.exportKeyPackage();
     const otherSigningKeyPair = generateSigningSeedAndKeyPair();
@@ -526,7 +539,10 @@ describe("Tearleads", () => {
   });
 
   test("rejects identity key packages with mismatched encapsulation key pairs", async () => {
-    const sdk = new Tearleads({ logger: quietLogger });
+    const sdk = new Tearleads({
+      blobStoreFactory: () => createMemoryBlobStore(),
+      logger: quietLogger,
+    });
     await setGeneratedIdentity(sdk);
     const keyPackage = await sdk.identity.exportKeyPackage();
     const otherEncapsulationKeyPair = generateKemSeedAndKeyPair();
@@ -545,6 +561,7 @@ describe("Tearleads", () => {
   test("creates workflow runtimes from the current SDK state", async () => {
     const sqlClient = createNoopSqlClient();
     const sdk = new Tearleads({
+      blobStoreFactory: () => createMemoryBlobStore(),
       database: { client: sqlClient, id: "client-db" },
       logger: quietLogger,
     });
@@ -892,7 +909,10 @@ describe("Tearleads", () => {
   });
 
   test("rotates workflow domain scope when storage or identity changes", async () => {
-    const sdk = new Tearleads({ logger: quietLogger });
+    const sdk = new Tearleads({
+      blobStoreFactory: () => createMemoryBlobStore(),
+      logger: quietLogger,
+    });
     const initialScope = sdk.domainScope;
 
     sdk.database.configure({
@@ -914,6 +934,7 @@ describe("Tearleads", () => {
   test("session registration skips unavailable prerequisites", async () => {
     const messages: string[] = [];
     const sdk = new Tearleads({
+      blobStoreFactory: () => createMemoryBlobStore(),
       logger: {
         ...quietLogger,
         log: (message) => messages.push(message),

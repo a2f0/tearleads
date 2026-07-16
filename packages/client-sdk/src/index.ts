@@ -189,6 +189,8 @@ export {
   WRAPPED_LOCAL_SECRET_FORMAT,
 } from "./client";
 export type {
+  BlobByteSource,
+  BlobByteSourceInput,
   BlobBytes,
   BlobStore,
   DiscoveredDocumentInput,
@@ -212,6 +214,8 @@ export type {
 } from "./documents";
 export {
   addDocumentAttachments,
+  blobByteSourceInputLength,
+  createBlobByteSource,
   createDocumentProjectorRegistry,
   createDocumentSignerDeviceId,
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
@@ -225,6 +229,7 @@ export {
   getUntitledDocumentTitle,
   initializeStoredDocumentKind,
   projectStoredDocumentState,
+  readBlobByteSource,
   readStoredDocumentState,
   readStringDocumentField,
   resolveOpIdAttribution,

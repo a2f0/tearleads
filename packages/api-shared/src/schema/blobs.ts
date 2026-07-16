@@ -12,17 +12,16 @@ import {
 /**
  * Committed encrypted blob payloads.
  *
- * A blob row stores encrypted bytes after a staged upload has been promoted by
- * an authorized attachment mutation. Access to bytes is checked through current
- * attachment bindings and document/container access before the row is returned.
+ * A blob row points to encrypted bytes after a staged upload has been promoted
+ * by an authorized attachment mutation. Access to bytes is checked through
+ * current attachment bindings and document/container access before the object
+ * is returned.
  *
  * Columns:
  * - `id`: Stable blob id.
  * - `storageKey`: Storage key for the encrypted bytes.
- * - `encryptedBytes`: Legacy encrypted blob payload bytes encoded as a string,
- *   or a metadata pointer for object-store-backed multipart uploads.
- * - `sha256`: SHA-256 digest of `encryptedBytes`.
- * - `byteLength`: Byte length of `encryptedBytes`.
+ * - `sha256`: SHA-256 digest of the encrypted object.
+ * - `byteLength`: Byte length of the encrypted object.
  * - `createdAt`: Server-side promotion timestamp.
  * - `dereferencedAt`: Set when a purge found this blob unreferenced by any other
  *   document and soft-deleted it. The bytes are retained; a later GC sweep
@@ -35,7 +34,6 @@ export const blobs = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     storageKey: text("storage_key").notNull(),
-    encryptedBytes: text("encrypted_bytes").notNull(),
     sha256: text("sha256").notNull(),
     byteLength: integer("byte_length").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -65,10 +63,11 @@ export const blobs = pgTable(
  * Columns:
  * - `id`: Stage id returned to the client.
  * - `ownerUserId`: User who created the stage and is allowed to promote it.
- * - `encryptedBytes`: Legacy encrypted blob payload bytes encoded as a string,
- *   or multipart stage metadata for object-store-backed uploads.
- * - `sha256`: SHA-256 digest of `encryptedBytes`.
- * - `byteLength`: Byte length of `encryptedBytes`.
+ * - `storageKey`: Object-store key used for the multipart upload.
+ * - `uploadId`: Object-store multipart upload id.
+ * - `completedAt`: Multipart completion timestamp; null while pending.
+ * - `sha256`: Expected SHA-256 digest of the completed encrypted object.
+ * - `byteLength`: Expected byte length of the completed encrypted object.
  * - `expiresAt`: Expiration timestamp after which promotion is rejected.
  * - `createdAt`: Server-side staging timestamp.
  */
@@ -77,7 +76,9 @@ export const blobStages = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     ownerUserId: uuid("owner_user_id").notNull(),
-    encryptedBytes: text("encrypted_bytes").notNull(),
+    storageKey: text("storage_key").notNull(),
+    uploadId: text("upload_id").notNull(),
+    completedAt: timestamp("completed_at"),
     sha256: text("sha256").notNull(),
     byteLength: integer("byte_length").notNull(),
     expiresAt: timestamp("expires_at").notNull(),

@@ -1,5 +1,6 @@
 import { db } from "@tearleads/api-shared/postgres";
 
+export { createMemoryBlobObjectStore } from "./adapters/blobObjectStore";
 export {
   createDestroySession,
   createDestroyUserSession,

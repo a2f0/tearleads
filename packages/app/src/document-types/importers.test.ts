@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
 import {
+  createBlobByteSource,
+  readBlobByteSource,
+} from "@tearleads/client-sdk";
+import {
   BINARY_FILE_IMPORT_MAX_BYTES,
   getDocumentFileImporter,
   TEXT_FILE_IMPORT_MAX_BYTES,
@@ -187,7 +191,10 @@ test("binary file importers attach original bytes and stable metadata", async ()
   });
   expect(result.attachment?.name).toBe("dl_front.jpeg");
   expect(result.attachment?.mimeType).toBe("image/jpeg");
-  expect(Array.from(result.attachment?.bytes ?? [])).toEqual(Array.from(bytes));
+  const attachmentBytes = result.attachment
+    ? await readBlobByteSource(createBlobByteSource(result.attachment.bytes))
+    : null;
+  expect(Array.from(attachmentBytes ?? [])).toEqual(Array.from(bytes));
 });
 
 test("video file importer attaches original bytes and stable metadata", async () => {
@@ -211,7 +218,10 @@ test("video file importer attaches original bytes and stable metadata", async ()
   });
   expect(result.attachment?.name).toBe("demo.mp4");
   expect(result.attachment?.mimeType).toBe("video/mp4");
-  expect(Array.from(result.attachment?.bytes ?? [])).toEqual(Array.from(bytes));
+  const attachmentBytes = result.attachment
+    ? await readBlobByteSource(createBlobByteSource(result.attachment.bytes))
+    : null;
+  expect(Array.from(attachmentBytes ?? [])).toEqual(Array.from(bytes));
 });
 
 test("binary file importers prefer extension metadata for generic octet-stream drops", async () => {
@@ -255,4 +265,53 @@ test("svg image importer records dimensions when they are available in the sourc
     height: "480",
     width: "640",
   });
+});
+
+test("large image importers skip eager dimension reads", async () => {
+  const svg = createFile("large.svg", "", { type: "image/svg+xml" });
+  Object.defineProperty(svg, "size", {
+    value: BINARY_FILE_IMPORT_MAX_BYTES,
+  });
+  Object.defineProperty(svg, "text", {
+    value: async () => {
+      throw new Error("Large SVG metadata must not read the whole file.");
+    },
+  });
+
+  const originalCreateImageBitmap = Object.getOwnPropertyDescriptor(
+    globalThis,
+    "createImageBitmap",
+  );
+  let bitmapReads = 0;
+  Object.defineProperty(globalThis, "createImageBitmap", {
+    configurable: true,
+    value: async () => {
+      bitmapReads += 1;
+      throw new Error("Large raster metadata must not decode the whole file.");
+    },
+  });
+  const png = createFile("large.png", "", { type: "image/png" });
+  Object.defineProperty(png, "size", {
+    value: BINARY_FILE_IMPORT_MAX_BYTES,
+  });
+
+  try {
+    const [svgResult, pngResult] = await Promise.all([
+      getDocumentFileImporter(svg).importFile(svg),
+      getDocumentFileImporter(png).importFile(png),
+    ]);
+    expect(svgResult.structuredFields).not.toHaveProperty("height");
+    expect(pngResult.structuredFields).not.toHaveProperty("height");
+    expect(bitmapReads).toBe(0);
+  } finally {
+    if (originalCreateImageBitmap) {
+      Object.defineProperty(
+        globalThis,
+        "createImageBitmap",
+        originalCreateImageBitmap,
+      );
+    } else {
+      Reflect.deleteProperty(globalThis, "createImageBitmap");
+    }
+  }
 });

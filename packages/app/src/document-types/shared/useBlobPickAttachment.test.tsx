@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import type { BlobBytes, BlobInfo, BlobStore } from "@tearleads/client-sdk";
+import { createBlobByteSource } from "@tearleads/client-sdk";
 import {
   act,
   cleanup,
@@ -22,7 +23,9 @@ const SLOT_IDS = ["front-image", "back-image"] as const;
 function createBlobStore(bytes: BlobBytes | null): BlobStore {
   return {
     deleteBytes: async () => undefined,
+    openByteSource: async () => (bytes ? createBlobByteSource(bytes) : null),
     readBytes: async () => bytes,
+    writeByteSource: async () => undefined,
     writeBytes: async () => undefined,
   };
 }

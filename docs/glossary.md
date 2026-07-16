@@ -136,9 +136,8 @@ Related docs:
 
 A temporary holding record for encrypted blob bytes before an attachment bind
 promotes them to committed blob storage. The server validates byte length,
-digest, ownership, and expiry, but does not decrypt the bytes. Stages can be
-single-request uploads or multipart object-store uploads that must be completed
-before bind promotion.
+digest, ownership, and expiry, but does not decrypt the bytes. Stages are
+multipart object-store uploads that must be completed before bind promotion.
 
 Related docs:
 

@@ -1,5 +1,5 @@
 import { rethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
-import { uploadDocumentAttachment } from "../../../workflows/blobs";
+import { uploadPreparedDocumentAttachment as uploadDocumentAttachment } from "../../../workflows/blobs/upload";
 import type { DocumentStoreState } from "./state";
 
 export async function uploadAttachmentWithWriterProjectionRetry(input: {
@@ -89,6 +89,9 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
     }
   }
 
+  if (remoteSyncBlocked) {
+    uploadError = undefined;
+  }
   return { error: uploadError, remoteSyncBlocked, uploaded };
 }
 

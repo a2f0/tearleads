@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import type { BlobBytes, BlobStore } from "@tearleads/client-sdk";
+import type {
+  BlobByteSource,
+  BlobBytes,
+  BlobStore,
+} from "@tearleads/client-sdk";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createBackupPayload, restoreBackupPayload } from "./localBackupData";
@@ -29,6 +33,15 @@ class EmptyBlobStore implements BlobStore {
   async readBytes(_storageKey: string): Promise<BlobBytes | null> {
     return null;
   }
+
+  async openByteSource(_storageKey: string): Promise<BlobByteSource | null> {
+    return null;
+  }
+
+  async writeByteSource(
+    _storageKey: string,
+    _source: BlobByteSource,
+  ): Promise<void> {}
 
   async writeBytes(_storageKey: string, _bytes: BlobBytes): Promise<void> {}
 }

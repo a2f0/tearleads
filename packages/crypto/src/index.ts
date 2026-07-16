@@ -1,12 +1,3 @@
-export type {
-  SerializedBlobEnvelopeHeader,
-  SerializedBlobRecipientEntry,
-} from "./blobEnvelope";
-export {
-  parseBlobEnvelope,
-  parseBlobEnvelopeHeader,
-  serializeBlobEnvelope,
-} from "./blobEnvelope";
 export {
   AUTH_CHALLENGE_BYTES,
   AUTH_CHALLENGE_HEX_LENGTH,
@@ -42,6 +33,10 @@ export {
   normalizeIdentitySeedPhrase,
   validateIdentitySeedPhrase,
 } from "./identitySeedPhrase";
+export {
+  createIncrementalSha256,
+  type IncrementalSha256,
+} from "./incrementalSha256";
 export type {
   AccessEvent,
   AccessEventType,

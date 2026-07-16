@@ -12,7 +12,6 @@ import {
   documentAttachmentAuditEvents,
 } from "@tearleads/api-shared/schema";
 import { and, asc, eq, inArray, isNotNull, lte, or } from "drizzle-orm";
-import { readExternalBlobBytesRef } from "../../../utils/blobStageRecords";
 import { isSqliteApiDatabase } from "../../../utils/sqlDialect";
 
 // A blob soft-deleted by purge is reclaimed only after this grace period, giving
@@ -38,7 +37,7 @@ interface ReclaimDereferencedBlobsResult {
 type ReclaimOutcome =
   | { readonly kind: "skipped" }
   | { readonly kind: "revived" }
-  | { readonly kind: "reclaimed"; readonly storageKey: string | null };
+  | { readonly kind: "reclaimed"; readonly storageKey: string };
 
 function normalizeLimit(limit: number | undefined): number {
   if (limit === undefined) {
@@ -120,7 +119,7 @@ async function reclaimOneBlob(
 ): Promise<ReclaimOutcome> {
   return db.transaction(async (tx) => {
     const lockQuery = tx
-      .select({ id: blobs.id, encryptedBytes: blobs.encryptedBytes })
+      .select({ id: blobs.id, storageKey: blobs.storageKey })
       .from(blobs)
       .where(and(eq(blobs.id, blobId), isNotNull(blobs.dereferencedAt)))
       .limit(1);
@@ -146,10 +145,7 @@ async function reclaimOneBlob(
       .where(eq(blobAuditObjects.blobId, blobId));
     await tx.delete(blobs).where(eq(blobs.id, blobId));
 
-    // Legacy inline blobs store bytes in the row, reclaimed by the delete above;
-    // object-store-backed blobs return a storage key for post-commit deletion.
-    const externalRef = readExternalBlobBytesRef(blob.encryptedBytes);
-    return { kind: "reclaimed", storageKey: externalRef?.storageKey ?? null };
+    return { kind: "reclaimed", storageKey: blob.storageKey };
   });
 }
 
@@ -184,9 +180,7 @@ export async function runReclaimDereferencedBlobsWorkflow(
     const outcome = await reclaimOneBlob(db, candidate.id);
     if (outcome.kind === "reclaimed") {
       reclaimedBlobIds.push(candidate.id);
-      if (outcome.storageKey) {
-        reclaimedStorageKeys.push(outcome.storageKey);
-      }
+      reclaimedStorageKeys.push(outcome.storageKey);
     } else if (outcome.kind === "revived") {
       revivedBlobIds.push(candidate.id);
     }

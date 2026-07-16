@@ -1,13 +1,8 @@
-import type { BlobResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
 import type { SessionEnv } from "../../middleware/session";
-import {
-  GetBlobError,
-  getBlob,
-  getBlobBytes,
-} from "../../services/blobs/getBlob";
+import { GetBlobError, getBlobBytes } from "../../services/blobs/getBlob";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { isUuidString } from "../../utils/uuid";
 
@@ -80,26 +75,6 @@ export function createGetBlobRoute({ requireAuth, runtime }: GetBlobRouteDeps) {
       }
     },
   );
-
-  getBlobRoute.get("/blobs/:blobId", requireAuth, validateBlobId, async (c) => {
-    const { blobId } = c.req.valid("param");
-    const session = c.get("session");
-
-    try {
-      return c.json<BlobResponse>(
-        await getBlob(runtime, {
-          blobId,
-          userId: session.userId,
-        }),
-      );
-    } catch (error) {
-      if (error instanceof GetBlobError) {
-        return c.json({ error: error.message }, error.status);
-      }
-
-      throw error;
-    }
-  });
 
   return getBlobRoute;
 }

@@ -1,11 +1,9 @@
 import { Readable } from "node:stream";
 import type { GetObjectCommandOutput } from "@aws-sdk/client-s3";
 import {
-  type BlobObjectReadChunk,
   type BlobObjectReadStream,
   BlobObjectStoreError,
   blobObjectChunkToStream,
-  blobObjectChunkToUint8Array,
 } from "./blobObjectStore";
 
 async function* readBlobObjectStream(
@@ -39,9 +37,7 @@ function recordValue(value: unknown, key: string): unknown {
   return isRecord(value) ? value[key] : undefined;
 }
 
-function isAsyncIterable(
-  value: unknown,
-): value is AsyncIterable<string | Uint8Array> {
+function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
   return (
     isRecord(value) &&
     Symbol.asyncIterator in value &&
@@ -72,8 +68,8 @@ function readableStreamToBlobObjectStream(
           return;
         }
 
-        if (typeof value === "string" || value instanceof Uint8Array) {
-          controller.enqueue(blobObjectChunkToUint8Array(value));
+        if (value instanceof Uint8Array) {
+          controller.enqueue(value);
           return;
         }
 
@@ -119,7 +115,7 @@ async function cancelReader(
 }
 
 async function closeAsyncIterator(
-  iterator: AsyncIterator<BlobObjectReadChunk>,
+  iterator: AsyncIterator<unknown>,
 ): Promise<void> {
   if (typeof iterator.return !== "function") {
     return;
@@ -133,7 +129,7 @@ async function closeAsyncIterator(
 }
 
 function asyncIterableToStream(
-  value: AsyncIterable<BlobObjectReadChunk>,
+  value: AsyncIterable<unknown>,
 ): BlobObjectReadStream {
   const iterator = value[Symbol.asyncIterator]();
 
@@ -149,7 +145,13 @@ function asyncIterableToStream(
           return;
         }
 
-        controller.enqueue(blobObjectChunkToUint8Array(chunk));
+        if (!(chunk instanceof Uint8Array)) {
+          throw new BlobObjectStoreError(
+            "Unsupported S3 object body chunk type",
+            "unsupported_body",
+          );
+        }
+        controller.enqueue(chunk);
       } catch (error) {
         await closeAsyncIterator(iterator);
         controller.error(error);
@@ -166,7 +168,7 @@ export async function responseBodyToStream(
   body: NonNullable<GetObjectCommandOutput["Body"]>,
 ): Promise<BlobObjectReadStream> {
   const value: unknown = body;
-  if (typeof value === "string" || value instanceof Uint8Array) {
+  if (value instanceof Uint8Array) {
     return blobObjectChunkToStream(value);
   }
   if (hasTransformToWebStream(value)) {

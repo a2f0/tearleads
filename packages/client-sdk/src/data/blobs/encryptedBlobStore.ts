@@ -1,22 +1,33 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { BlobBytes, BlobStore } from "../blobContracts";
+import {
+  type BlobByteSource,
+  type BlobBytes,
+  type BlobStore,
+  createBlobByteSource,
+  readBlobByteSource,
+} from "../blobContracts";
+import {
+  createDecryptedBlobByteSource,
+  createEncryptedBlobByteSource,
+} from "./encryptedBlobByteSource";
 import {
   asBlobBytes,
   assertNamespace,
   createAesGcmIv,
   createKeyDerivationEnvelope,
+  ENCRYPTED_BLOB_CHUNK_SIZE,
   ENCRYPTED_BLOB_STORE_FORMAT,
   ENCRYPTED_BLOB_STORE_VERSION,
   type EncryptedBlobEnvelope,
   type EncryptedBlobStoreCipher,
-  envelopeAdditionalData,
+  getChunkCount,
   type KeyDerivationEnvelope,
   normalizeCipher,
   normalizeKdfIterations,
-  parseEncryptedBlobEnvelope,
   readBase64Bytes,
+  readEncryptedBlobEnvelope,
+  serializeEncryptedBlobEnvelope,
 } from "./encryptedBlobEnvelope";
-import { createMemoryBlobStore } from "./memoryBlobStore";
 import { createOpfsBlobStore, isOpfsBlobStoreSupported } from "./opfsBlobStore";
 
 export type { EncryptedBlobStoreCipher };
@@ -119,79 +130,66 @@ class EncryptedBlobStore implements BlobStore {
     await this.innerStore.deleteBytes(storageKey);
   }
 
-  async readBytes(storageKey: string): Promise<BlobBytes | null> {
-    const encryptedBytes = await this.innerStore.readBytes(storageKey);
-    if (!encryptedBytes) {
+  async openByteSource(storageKey: string): Promise<BlobByteSource | null> {
+    const encryptedSource = await this.innerStore.openByteSource(storageKey);
+    if (!encryptedSource) {
       return null;
     }
 
-    const parsed = parseEncryptedBlobEnvelope(encryptedBytes);
+    const parsed = await readEncryptedBlobEnvelope(encryptedSource);
     const key = await this.getCipherKey(parsed.envelope.keyDerivation);
-
-    try {
-      return asBlobBytes(
-        new Uint8Array(
-          await crypto.subtle.decrypt(
-            {
-              name: "AES-GCM",
-              iv: parsed.iv,
-              additionalData: envelopeAdditionalData({
-                envelope: parsed.envelope,
-                namespace: this.namespace,
-                storageKey,
-              }),
-            },
-            key,
-            parsed.ciphertext,
-          ),
-        ),
-      );
-    } catch {
-      throw new Error("Encrypted blob store payload could not be decrypted.");
-    }
+    return createDecryptedBlobByteSource({
+      encryptedSource,
+      headerBytes: parsed.headerBytes,
+      iv: parsed.iv,
+      key,
+      namespace: this.namespace,
+      parsed,
+      storageKey,
+    });
   }
 
-  async writeBytes(storageKey: string, bytes: BlobBytes): Promise<void> {
+  async readBytes(storageKey: string): Promise<BlobBytes | null> {
+    const source = await this.openByteSource(storageKey);
+    return source ? readBlobByteSource(source) : null;
+  }
+
+  async writeByteSource(
+    storageKey: string,
+    source: BlobByteSource,
+  ): Promise<void> {
     const keyDerivation = this.createKeyDerivationEnvelope();
     const key = await this.getCipherKey(keyDerivation);
     const iv = createAesGcmIv();
-    const envelopeWithoutCiphertext: Omit<EncryptedBlobEnvelope, "ciphertext"> =
-      {
-        cipher: this.cipher,
-        format: ENCRYPTED_BLOB_STORE_FORMAT,
-        iv: bytesToBase64(iv),
-        keyDerivation,
-        version: ENCRYPTED_BLOB_STORE_VERSION,
-      };
-    const envelope = {
-      ...envelopeWithoutCiphertext,
-      ciphertext: "",
+    const envelope: EncryptedBlobEnvelope = {
+      chunkCount: getChunkCount(source.byteLength),
+      chunkSize: ENCRYPTED_BLOB_CHUNK_SIZE,
+      cipher: this.cipher,
+      format: ENCRYPTED_BLOB_STORE_FORMAT,
+      iv: bytesToBase64(iv),
+      keyDerivation,
+      plaintextByteLength: source.byteLength,
+      version: ENCRYPTED_BLOB_STORE_VERSION,
     };
-    const ciphertext = new Uint8Array(
-      await crypto.subtle.encrypt(
-        {
-          name: "AES-GCM",
-          iv,
-          additionalData: envelopeAdditionalData({
-            envelope,
-            namespace: this.namespace,
-            storageKey,
-          }),
-        },
-        key,
-        bytes,
-      ),
-    );
-
-    await this.innerStore.writeBytes(
+    const { headerBytes, prefixBytes } =
+      serializeEncryptedBlobEnvelope(envelope);
+    await this.innerStore.writeByteSource(
       storageKey,
-      TEXT_ENCODER.encode(
-        JSON.stringify({
-          ...envelopeWithoutCiphertext,
-          ciphertext: bytesToBase64(ciphertext),
-        } satisfies EncryptedBlobEnvelope),
-      ),
+      createEncryptedBlobByteSource({
+        envelope,
+        headerBytes,
+        iv,
+        key,
+        namespace: this.namespace,
+        plaintextSource: source,
+        prefixBytes,
+        storageKey,
+      }),
     );
+  }
+
+  async writeBytes(storageKey: string, bytes: BlobBytes): Promise<void> {
+    await this.writeByteSource(storageKey, createBlobByteSource(bytes));
   }
 
   private createKeyDerivationEnvelope(): KeyDerivationEnvelope | null {
@@ -295,11 +293,7 @@ export function createEncryptedBlobStore(
   namespace: string,
   options: EncryptedBlobStoreOptions,
 ): BlobStore {
-  const store = isOpfsBlobStoreSupported()
-    ? createOpfsBlobStore(namespace)
-    : createMemoryBlobStore();
-
-  return wrapEncryptedBlobStore(store, { ...options, namespace });
+  return createEncryptedOpfsBlobStore(namespace, options);
 }
 
 export function createLazyEncryptedBlobStore(
@@ -329,9 +323,17 @@ export function createLazyEncryptedBlobStore(
       const store = await getStore();
       return store.deleteBytes(storageKey);
     },
+    openByteSource: async (storageKey) => {
+      const store = await getStore();
+      return store.openByteSource(storageKey);
+    },
     readBytes: async (storageKey) => {
       const store = await getStore();
       return store.readBytes(storageKey);
+    },
+    writeByteSource: async (storageKey, source) => {
+      const store = await getStore();
+      return store.writeByteSource(storageKey, source);
     },
     writeBytes: async (storageKey, bytes) => {
       const store = await getStore();

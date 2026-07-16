@@ -63,7 +63,10 @@ import {
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { readBlobObjectText } from "../../../test/helpers/blobObjectStore";
+import {
+  readBlobObjectText,
+  uploadBlobObject,
+} from "../../../test/helpers/blobObjectStore";
 import { createTestContainerKekId } from "../../../test/helpers/containerKekMaterial";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
@@ -75,7 +78,6 @@ import {
 } from "../../access/read/containerKekStore";
 import { createRouteApp, routeApp } from "../../routeApp";
 import { getDefaultApiServiceRuntime } from "../../services/runtime";
-import { encodeExternalBlobBytesRef } from "../../utils/blobStageRecords";
 
 interface RootContainerFixture {
   readonly adminGroupId: string;
@@ -666,22 +668,7 @@ async function putBlobObjectBytes(
   bytes: string,
 ): Promise<void> {
   const store = getDefaultApiServiceRuntime().blobObjectStore;
-  const { uploadId } = await store.createMultipartUpload({ key: storageKey });
-  const part = await store.uploadPart({
-    key: storageKey,
-    partNumber: 1,
-    body: { bytes },
-    uploadId,
-  });
-  await store.completeMultipartUpload({
-    expected: {
-      byteLength: Buffer.byteLength(bytes, "utf8"),
-      sha256: "ignored",
-    },
-    key: storageKey,
-    parts: [{ etag: part.etag, partNumber: 1 }],
-    uploadId,
-  });
+  await uploadBlobObject(store, storageKey, bytes);
 }
 
 interface SeededAttachment {
@@ -690,9 +677,9 @@ interface SeededAttachment {
   readonly storageKey: string;
 }
 
-// Inserts a committed object-store-backed blob (external bytes ref) plus an
-// active attachment binding to `documentId`. The blob bytes live in the runtime
-// object store at `storageKey`, mirroring a promoted multipart upload.
+// Inserts a committed object-store-backed blob plus an active attachment
+// binding to `documentId`. The blob bytes live in the runtime object store at
+// `storageKey`, mirroring a promoted multipart upload.
 async function seedExternalBlobAttachment(input: {
   readonly documentId: string;
   readonly documentManifestHash: string;
@@ -713,7 +700,6 @@ async function seedExternalBlobAttachment(input: {
     await db.insert(blobs).values({
       id: blobId,
       storageKey,
-      encryptedBytes: encodeExternalBlobBytesRef({ storageKey }),
       sha256: `sha256:${blobId}`,
       byteLength: Buffer.byteLength(bytes, "utf8"),
     });

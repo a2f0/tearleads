@@ -10,39 +10,6 @@ import {
 } from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
 
-testApiClient("uses blob upload capabilities route", async () => {
-  const calls: CapturedHttpCall[] = [];
-  server.use(
-    http.get(
-      `${apiBaseUrl}/blobs/uploads/capabilities`,
-      async ({ request }) => {
-        calls.push(await captureHttpCall(request));
-
-        return HttpResponse.json({
-          multipart: { durable: true, enabled: true },
-        });
-      },
-    ),
-  );
-
-  const client = new ApiClient(apiBaseUrl);
-
-  await expect(client.getBlobUploadCapabilities()).resolves.toEqual({
-    multipart: { durable: true, enabled: true },
-  });
-  expect(
-    calls.map((call) => ({
-      input: call.url,
-      method: call.method,
-    })),
-  ).toEqual([
-    {
-      input: `${apiBaseUrl}/blobs/uploads/capabilities`,
-      method: "GET",
-    },
-  ]);
-});
-
 testApiClient("uses blob multipart stage route namespace", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(
@@ -89,7 +56,6 @@ testApiClient("uses blob multipart stage route namespace", async () => {
 
   const client = new ApiClient(apiBaseUrl);
   const initiateRequest = { byteLength: 12, sha256: "sha256-1" };
-  const partRequest = { encryptedBytes: "part-1", uploadId: "upload-1" };
   const encryptedPartBytes = new TextEncoder().encode("part-2");
   const partBytesRequest = {
     byteLength: encryptedPartBytes.byteLength,
@@ -107,10 +73,7 @@ testApiClient("uses blob multipart stage route namespace", async () => {
   ).not.toBeNull();
   expect(await client.getMultipartBlobStage("stage-1")).not.toBeNull();
   expect(
-    await client.uploadMultipartBlobPart("stage-1", 1, partRequest),
-  ).not.toBeNull();
-  expect(
-    await client.uploadMultipartBlobPartBytes("stage-1", 2, partBytesRequest),
+    await client.uploadMultipartBlobPartBytes("stage-1", 1, partBytesRequest),
   ).not.toBeNull();
   expect(
     await client.completeMultipartBlobStage("stage-1", completeRequest),
@@ -134,13 +97,8 @@ testApiClient("uses blob multipart stage route namespace", async () => {
       method: "GET",
     },
     {
-      body: JSON.stringify(partRequest),
-      input: `${apiBaseUrl}/blobs/stages/multipart/stage-1/parts/1`,
-      method: "PUT",
-    },
-    {
       body: "part-2",
-      input: `${apiBaseUrl}/blobs/stages/multipart/stage-1/parts/2/bytes`,
+      input: `${apiBaseUrl}/blobs/stages/multipart/stage-1/parts/1/bytes`,
       method: "PUT",
     },
     {
@@ -149,7 +107,7 @@ testApiClient("uses blob multipart stage route namespace", async () => {
       method: "POST",
     },
   ]);
-  expect(calls[3]?.contentType).toBe("application/octet-stream");
+  expect(calls[2]?.contentType).toBe("application/octet-stream");
 });
 
 testApiClient(
@@ -188,46 +146,6 @@ testApiClient(
     );
   },
 );
-
-testApiClient("streams blob downloads from the bytes route", async () => {
-  const calls: CapturedHttpCall[] = [];
-  server.use(
-    http.get(`${apiBaseUrl}/blobs/blob-1/bytes`, async ({ request }) => {
-      calls.push(await captureHttpCall(request));
-
-      return HttpResponse.text("encrypted-blob-bytes", {
-        headers: {
-          "Content-Length": new TextEncoder()
-            .encode("encrypted-blob-bytes")
-            .byteLength.toString(),
-          "X-Tearleads-Blob-Id": "blob-1",
-          "X-Tearleads-Blob-Sha256": "sha256-1",
-        },
-      });
-    }),
-  );
-
-  const client = new ApiClient(apiBaseUrl);
-
-  await expect(client.getBlob("blob-1")).resolves.toEqual({
-    blobId: "blob-1",
-    encryptedBytes: "encrypted-blob-bytes",
-    sha256: "sha256-1",
-  });
-  expect(
-    calls.map((call) => ({
-      body: call.body,
-      input: call.url,
-      method: call.method,
-    })),
-  ).toEqual([
-    {
-      body: null,
-      input: `${apiBaseUrl}/blobs/blob-1/bytes`,
-      method: "GET",
-    },
-  ]);
-});
 
 testApiClient("exposes streamed blob download responses", async () => {
   server.use(
@@ -312,7 +230,7 @@ testApiClient("reports malformed blob byte responses", async () => {
     errors.push(message);
   });
 
-  await expect(client.getBlob("blob-1")).resolves.toBeNull();
+  await expect(client.getBlobBytes("blob-1")).resolves.toBeNull();
   expect(errors).toEqual([
     "Invalid response shape for /blobs/blob-1/bytes: missing X-Tearleads-Blob-Id, X-Tearleads-Blob-Sha256",
   ]);
@@ -333,7 +251,7 @@ testApiClient(
       errors.push(message);
     });
 
-    await expect(client.getBlob("blob-1")).resolves.toBeNull();
+    await expect(client.getBlobBytes("blob-1")).resolves.toBeNull();
     expect(errors).toEqual([
       "Invalid response shape for /blobs/blob-1/bytes: missing X-Tearleads-Blob-Id, (X-Tearleads-Blob-Byte-Length or Content-Length), X-Tearleads-Blob-Sha256",
     ]);

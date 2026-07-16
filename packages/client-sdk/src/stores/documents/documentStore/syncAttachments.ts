@@ -1,21 +1,21 @@
+import type { BlobByteSource } from "../../../data/blobContracts";
+import type { BlobSourceSnapshot } from "../../../data/documents/blob/shared/blobSourceSnapshot";
 import { markOriginatedDocuments } from "../../../sync/reconciliation/originatedDocuments";
-import type { uploadDocumentAttachment } from "../../../workflows/blobs";
+import type { uploadPreparedDocumentAttachment as uploadDocumentAttachment } from "../../../workflows/blobs/upload";
 import {
   type DocumentRecord,
   type PendingAttachmentRecord,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
+import { resolveAttachmentSourceUpload } from "./attachmentSourceUpload";
 import { uploadAttachmentWithWriterProjectionRetry } from "./attachmentUploadAttempt";
 import {
   type AttachmentUploadLaneReporter,
   createAttachmentUploadFailedError,
   createAttachmentUploadLaneReporter,
 } from "./attachmentUploadLane";
-import {
-  type AttachmentUploadResume,
-  resolveAttachmentUploadResume,
-} from "./attachmentUploadResume";
+import type { AttachmentUploadResume } from "./attachmentUploadResume";
 import {
   deletePendingAttachment,
   saveLocalAttachmentRecord,
@@ -324,9 +324,10 @@ async function recoverCommittedAttachment(
 
 function createAttachmentBaseUploadInput(input: {
   author: Parameters<typeof uploadDocumentAttachment>[0]["author"];
-  bytes: Parameters<typeof uploadDocumentAttachment>[0]["bytes"];
   pendingUpload: PendingAttachmentUploadInput;
   resume: AttachmentUploadResume;
+  source: BlobByteSource;
+  sourceSnapshot: BlobSourceSnapshot;
   uploadLane: AttachmentUploadLaneReporter;
 }): Parameters<typeof uploadDocumentAttachment>[0] {
   const { pendingAttachment, state } = input.pendingUpload;
@@ -334,7 +335,7 @@ function createAttachmentBaseUploadInput(input: {
     apiClient: state.runtime.apiClient,
     author: input.author,
     blobId: input.resume.blobId,
-    bytes: input.bytes,
+    bytes: input.source,
     contentKey: input.resume.contentKey,
     contentKeyEpoch: input.resume.contentKeyEpoch,
     documentId: input.pendingUpload.remoteDocumentId,
@@ -342,12 +343,13 @@ function createAttachmentBaseUploadInput(input: {
     expectedBindingId:
       input.pendingUpload.activeBindingBySlotId.get(pendingAttachment.slotId)
         ?.bindingId ?? null,
-    iv: input.resume.iv,
+    nonceSeed: input.resume.nonceSeed,
     multipart: input.resume.multipart,
     onMultipartProgress: input.uploadLane.onMultipartProgress,
     onStageResolved: input.resume.onStageResolved,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     slotId: pendingAttachment.slotId,
+    sourceSnapshot: input.sourceSnapshot,
     targetSecretKey: input.pendingUpload.encapsulationKeyPair.secretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       state.runtime,
@@ -417,10 +419,10 @@ async function syncPendingAttachmentUpload(
     return "recovered";
   }
 
-  const bytes = await state.runtime.infra.blobStore.readBytes(
+  const source = await state.runtime.infra.blobStore.openByteSource(
     pendingAttachment.storageKey,
   );
-  if (!bytes) {
+  if (!source) {
     // The local bytes are gone (rollback that deleted bytes but left the row, or
     // OPFS eviction), so this upload can never succeed. Drop the row instead of
     // returning a retry: leaving it would early-return runDocumentSyncPass on
@@ -445,7 +447,11 @@ async function syncPendingAttachmentUpload(
     return "retry";
   }
 
-  const resume = await resolveAttachmentUploadResume(state, pendingAttachment);
+  const { resume, snapshot } = await resolveAttachmentSourceUpload({
+    pendingAttachment,
+    source,
+    state,
+  });
   const uploadLane = createAttachmentUploadLaneReporter({
     blobId: resume.blobId,
     domainScope: state.runtime.state.domainScope,
@@ -453,9 +459,10 @@ async function syncPendingAttachmentUpload(
   });
   const baseUploadInput = createAttachmentBaseUploadInput({
     author,
-    bytes,
     pendingUpload: input,
     resume,
+    source,
+    sourceSnapshot: snapshot,
     uploadLane,
   });
   return uploadPendingAttachmentBytes({

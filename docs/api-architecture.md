@@ -61,9 +61,7 @@ Write surfaces:
 | Link document to container | `POST /documents/:documentId/link` | `DocumentLinkSetMutationRequest` |
 | Unlink document from container | `POST /documents/:documentId/unlink` | `DocumentLinkSetMutationRequest` |
 | Sync encrypted Loro updates | `POST /documents/:documentId/sync` | `DocumentSyncRequest` |
-| Stage encrypted blob bytes | `POST /blobs/stage` | `StageBlobRequest` |
 | Initiate multipart blob stage | `POST /blobs/stages/multipart` | `InitiateMultipartBlobStageRequest` |
-| Upload multipart blob part as JSON | `PUT /blobs/stages/multipart/:stageId/parts/:partNumber` | `UploadMultipartBlobPartRequest` |
 | Upload multipart blob part as bytes | `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes` | headers plus octet stream |
 | Complete multipart blob stage | `POST /blobs/stages/multipart/:stageId/complete` | `CompleteMultipartBlobStageRequest` |
 | Bind or replace blob attachment | `POST /blobs/:blobId/attachment-bindings` | `BlobAttachmentBindRequest` |
@@ -81,8 +79,6 @@ Read surfaces:
 | Get container writer projection | `GET /containers/:containerId/writer-projection` |
 | Get document writer projection | `GET /documents/:documentId/writer-projection` |
 | List active document attachments | `GET /documents/:documentId/attachments` |
-| Get blob upload capabilities | `GET /blobs/uploads/capabilities` |
-| Get committed blob JSON | `GET /blobs/:blobId` |
 | Get committed blob bytes | `GET /blobs/:blobId/bytes` |
 | Get multipart blob stage status | `GET /blobs/stages/multipart/:stageId` |
 | Get principal policy bundle | `GET /principals/:principalType/:principalId/policy` |
@@ -226,7 +222,7 @@ Rule:
 The service layer covers these route-backed capabilities:
 
 - auth challenge, verify, register, and user-identity lookup
-- blob staging, multipart staging, blob reads, raw blob byte reads, attachment
+- multipart blob staging, blob reads, raw blob byte reads, attachment
   binding, and detach mutations
 - container creation, metadata-document creation, listing, sharing, movement,
   deletion, and document listing
@@ -261,10 +257,11 @@ code without importing from `routes/**`.
 API route tests, API integration helpers, and in-process API integration tests
 call `routeApp` directly instead of importing the server entrypoint.
 
-Blob staging is implemented as blob services. The `/blobs/stage` and
+Blob staging is implemented as blob services. The
 `/blobs/stages/multipart` routes validate request shape and map service errors
 to HTTP responses, while the services own digest/byte-length validation,
-staged-row creation, object-store multipart state, part upload, and completion.
+staged-row creation, object-store multipart state, binary part upload, and
+completion.
 
 Document attachment listing is implemented as a document service. The
 `/documents/:documentId/attachments` route maps service errors to HTTP

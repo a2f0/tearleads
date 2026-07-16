@@ -23,6 +23,109 @@ afterEach(() => {
 
 const TEXT_ENCODER = new TextEncoder();
 
+function copyBytes(bytes: Uint8Array): BlobBytes {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
+}
+
+class FakeFileHandle {
+  constructor(
+    private readonly directory: FakeDirectoryHandle,
+    private readonly name: string,
+  ) {}
+
+  async getFile(): Promise<File> {
+    const bytes = this.directory.files.get(this.name);
+    if (!bytes) {
+      throw new DOMException("File not found", "NotFoundError");
+    }
+
+    return new Blob([bytes]) as File;
+  }
+
+  async createWritable(): Promise<FileSystemWritableFileStream> {
+    const directory = this.directory;
+    const name = this.name;
+    let pending = new Uint8Array();
+
+    return {
+      async write(chunk: FileSystemWriteChunkType) {
+        if (!(chunk instanceof Uint8Array)) {
+          throw new Error("Unsupported fake OPFS write chunk.");
+        }
+
+        const next = new Uint8Array(pending.byteLength + chunk.byteLength);
+        next.set(pending);
+        next.set(chunk, pending.byteLength);
+        pending = next;
+      },
+      async close() {
+        directory.files.set(name, copyBytes(pending));
+      },
+      async abort() {
+        pending = new Uint8Array();
+      },
+    } as FileSystemWritableFileStream;
+  }
+}
+
+class FakeDirectoryHandle {
+  readonly directories = new Map<string, FakeDirectoryHandle>();
+  readonly files = new Map<string, BlobBytes>();
+
+  async getDirectoryHandle(
+    name: string,
+    options?: FileSystemGetDirectoryOptions,
+  ): Promise<FileSystemDirectoryHandle> {
+    const existing = this.directories.get(name);
+    if (existing) {
+      return existing as unknown as FileSystemDirectoryHandle;
+    }
+    if (!options?.create) {
+      throw new DOMException("Directory not found", "NotFoundError");
+    }
+
+    const directory = new FakeDirectoryHandle();
+    this.directories.set(name, directory);
+    return directory as unknown as FileSystemDirectoryHandle;
+  }
+
+  async getFileHandle(
+    name: string,
+    options?: FileSystemGetFileOptions,
+  ): Promise<FileSystemFileHandle> {
+    if (!this.files.has(name) && !options?.create) {
+      throw new DOMException("File not found", "NotFoundError");
+    }
+
+    return new FakeFileHandle(this, name) as unknown as FileSystemFileHandle;
+  }
+}
+
+function installFakeOpfs(): () => void {
+  const rootDirectory = new FakeDirectoryHandle();
+  const previousStorage = Object.getOwnPropertyDescriptor(
+    globalThis.navigator,
+    "storage",
+  );
+  Object.defineProperty(globalThis.navigator, "storage", {
+    configurable: true,
+    value: {
+      getDirectory: async () =>
+        rootDirectory as unknown as FileSystemDirectoryHandle,
+    },
+  });
+
+  return () => {
+    if (previousStorage) {
+      Object.defineProperty(globalThis.navigator, "storage", previousStorage);
+    } else {
+      Reflect.deleteProperty(globalThis.navigator, "storage");
+    }
+  };
+}
+
 class TestWebSocket extends EventTarget {
   static instances: TestWebSocket[] = [];
 
@@ -243,6 +346,7 @@ test("marks SDK events disconnected when the WebSocket binding changes URL", asy
 
 test("derives local keyring blob store keys by namespace without overlapping sessions", async () => {
   const originalWebSocket = globalThis.WebSocket;
+  const restoreOpfs = installFakeOpfs();
   const state: { tearleads?: Tearleads } = {};
   const observedEvents: string[] = [];
   TestWebSocket.instances = [];
@@ -300,6 +404,7 @@ test("derives local keyring blob store keys by namespace without overlapping ses
 
     view.unmount();
   } finally {
+    restoreOpfs();
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }
 });

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  type BlobByteSource,
   createDocumentStore,
   createMemoryBlobStore,
 } from "@tearleads/client-sdk";
@@ -20,7 +21,13 @@ function createTrackedMemoryBlobStore() {
         storageKeys.delete(storageKey);
         await blobStore.deleteBytes(storageKey);
       },
+      openByteSource: (storageKey: string) =>
+        blobStore.openByteSource(storageKey),
       readBytes: (storageKey: string) => blobStore.readBytes(storageKey),
+      async writeByteSource(storageKey: string, source: BlobByteSource) {
+        storageKeys.add(storageKey);
+        await blobStore.writeByteSource(storageKey, source);
+      },
       async writeBytes(storageKey: string, bytes: Uint8Array<ArrayBuffer>) {
         storageKeys.add(storageKey);
         await blobStore.writeBytes(storageKey, bytes);

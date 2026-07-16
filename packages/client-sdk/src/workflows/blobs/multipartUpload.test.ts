@@ -1,102 +1,163 @@
 import { describe, expect, test } from "bun:test";
-import {
-  splitEncryptedBytesIntoParts,
-  stageMultipartBlobAttachment,
-} from "./multipartUpload";
+import type { BlobEncryptionPlan } from "../../data/documents/blob/shared/crypto";
+import type { BlobAttachmentApi } from "../../data/documents/blob/shared/types";
+import { stageMultipartBlobAttachment } from "./multipartUpload";
 
-describe("splitEncryptedBytesIntoParts", () => {
-  test("returns no parts for an empty payload", () => {
-    expect(splitEncryptedBytesIntoParts("", 4)).toEqual([]);
-  });
+const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024;
 
-  test("rejects a non-positive or non-integer part size", () => {
-    expect(() => splitEncryptedBytesIntoParts("abc", 0)).toThrow(
-      "Multipart blob part size must be a positive integer",
-    );
-    expect(() => splitEncryptedBytesIntoParts("abc", -1)).toThrow(
-      "Multipart blob part size must be a positive integer",
-    );
-    expect(() => splitEncryptedBytesIntoParts("abc", 1.5)).toThrow(
-      "Multipart blob part size must be a positive integer",
-    );
-  });
+interface FakePlanOptions {
+  readonly byteLength?: number;
+  readonly encryptPart?: (
+    partIndex: number,
+    byteLength: number,
+  ) => Promise<Uint8Array<ArrayBuffer>>;
+  readonly getPartByteLength?: (partIndex: number) => number;
+  readonly partCount: number;
+}
 
-  test("chunks an ASCII payload by part size", () => {
-    expect(splitEncryptedBytesIntoParts("YWJjZGVmZw", 4)).toEqual([
-      "YWJj",
-      "ZGVm",
-      "Zw",
-    ]);
-  });
+function createFakePlan(options: FakePlanOptions): BlobEncryptionPlan {
+  const getPartByteLength = options.getPartByteLength ?? (() => 3);
+  const byteLength =
+    options.byteLength ??
+    Array.from({ length: options.partCount }, (_, partIndex) =>
+      getPartByteLength(partIndex),
+    ).reduce((total, length) => total + length, 0);
 
-  test("returns one part when the payload fits the budget", () => {
-    expect(splitEncryptedBytesIntoParts("YWJj", 4)).toEqual(["YWJj"]);
-    expect(splitEncryptedBytesIntoParts("YWJj", 16)).toEqual(["YWJj"]);
-  });
+  return {
+    byteLength,
+    chunkSize: DEFAULT_CHUNK_SIZE,
+    encryptPart: async (partIndex) =>
+      options.encryptPart
+        ? options.encryptPart(partIndex, getPartByteLength(partIndex))
+        : new Uint8Array(getPartByteLength(partIndex)).fill(partIndex + 1),
+    getPartByteLength,
+    metadataHash: "metadata-hash",
+    partCount: options.partCount,
+    plaintextByteLength: byteLength,
+    plaintextSha256: "plaintext-sha256",
+    sha256: "plan-sha256",
+  };
+}
 
-  test("every part respects the byte budget and reconstructs the payload", () => {
-    // A representative base64-shaped payload (the only kind this path ever sees).
-    const payload = "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVowMTIzNDU2Nzg5Ky89";
-    for (const partSize of [1, 3, 5, 8, 16, 64]) {
-      const parts = splitEncryptedBytesIntoParts(payload, partSize);
-      expect(parts.join("")).toBe(payload);
-      for (const part of parts) {
-        expect(part.length).toBeLessThanOrEqual(partSize);
-      }
-    }
-  });
-
-  test("rejects a non-ASCII payload instead of carrying a UTF-8 splitter", () => {
-    // Encrypted payloads are base64/hex canonical JSON and so always ASCII; a
-    // non-ASCII payload is a contract violation that should fail loudly.
-    expect(() => splitEncryptedBytesIntoParts("a€b", 4)).toThrow(
-      "Multipart blob payload must be ASCII",
-    );
-    expect(() => splitEncryptedBytesIntoParts("😀", 8)).toThrow(
-      "Multipart blob payload must be ASCII",
-    );
-  });
-});
+function createMultipartApi(
+  overrides: Partial<BlobAttachmentApi> = {},
+): BlobAttachmentApi {
+  return {
+    bindBlobAttachment: async () => null,
+    completeMultipartBlobStage: async (stageId) => ({
+      byteLength: 6,
+      expiresAt: "2026-04-27T01:00:00.000Z",
+      sha256: "plan-sha256",
+      stageId,
+    }),
+    getDocumentWriterProjection: async () => null,
+    getMultipartBlobStage: async () => null,
+    initiateMultipartBlobStage: async (request) => ({
+      ...request,
+      expiresAt: "2026-04-27T01:00:00.000Z",
+      stageId: "stage-new",
+      uploadedParts: [],
+      uploadId: "upload-new",
+    }),
+    uploadMultipartBlobPartBytes: async (stageId, partNumber, request) => ({
+      part: {
+        byteLength: request.byteLength,
+        etag: `etag-${partNumber}`,
+        partNumber,
+      },
+      stageId,
+      uploadId: request.uploadId,
+    }),
+    ...overrides,
+  };
+}
 
 describe("stageMultipartBlobAttachment", () => {
-  test("surfaces the failed multipart part number", async () => {
+  test("encrypts parts lazily with bounded concurrency", async () => {
+    const partLengths = [3, 4, 5, 6];
+    const encryptedPartIndices: number[] = [];
+    const uploadedPartNumbers: number[] = [];
+    let activeEncryptions = 0;
+    let maxActiveEncryptions = 0;
+    const encryption = createFakePlan({
+      getPartByteLength: (partIndex) => partLengths[partIndex] ?? 0,
+      partCount: partLengths.length,
+      encryptPart: async (partIndex, byteLength) => {
+        encryptedPartIndices.push(partIndex);
+        activeEncryptions += 1;
+        maxActiveEncryptions = Math.max(
+          maxActiveEncryptions,
+          activeEncryptions,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        activeEncryptions -= 1;
+        return new Uint8Array(byteLength).fill(partIndex + 1);
+      },
+    });
+
+    await stageMultipartBlobAttachment({
+      apiClient: createMultipartApi({
+        completeMultipartBlobStage: async (stageId) => ({
+          byteLength: encryption.byteLength,
+          expiresAt: "2026-04-27T01:00:00.000Z",
+          sha256: encryption.sha256,
+          stageId,
+        }),
+        initiateMultipartBlobStage: async (request) => {
+          expect(encryptedPartIndices).toEqual([]);
+          return {
+            ...request,
+            expiresAt: "2026-04-27T01:00:00.000Z",
+            stageId: "stage-lazy",
+            uploadedParts: [],
+            uploadId: "upload-lazy",
+          };
+        },
+        uploadMultipartBlobPartBytes: async (stageId, partNumber, request) => {
+          uploadedPartNumbers.push(partNumber);
+          expect(request.sha256).toMatch(/^[0-9a-f]{64}$/);
+          expect(request.byteLength).toBe(partLengths[partNumber - 1] ?? 0);
+          return {
+            part: {
+              byteLength: request.byteLength,
+              etag: `etag-${partNumber}`,
+              partNumber,
+            },
+            stageId,
+            uploadId: request.uploadId,
+          };
+        },
+      }),
+      encryption,
+      multipart: { partSize: DEFAULT_CHUNK_SIZE, uploadConcurrency: 2 },
+    });
+
+    expect(encryptedPartIndices).toEqual([0, 1, 2, 3]);
+    expect(uploadedPartNumbers).toEqual([1, 2, 3, 4]);
+    expect(maxActiveEncryptions).toBe(2);
+  });
+
+  test("surfaces the failed binary multipart part number", async () => {
     await expect(
       stageMultipartBlobAttachment({
-        apiClient: {
-          bindBlobAttachment: async () => null,
-          completeMultipartBlobStage: async () => null,
-          getDocumentWriterProjection: async () => null,
-          getMultipartBlobStage: async () => null,
-          initiateMultipartBlobStage: async () => ({
-            byteLength: 6,
-            expiresAt: "2026-04-27T01:00:00.000Z",
-            sha256: "sha256",
-            stageId: "stage-failed-part",
-            uploadedParts: [],
-            uploadId: "upload-failed-part",
-          }),
-          stageBlob: async () => null,
-          uploadMultipartBlobPart: async (_stageId, partNumber, input) =>
+        apiClient: createMultipartApi({
+          uploadMultipartBlobPartBytes: async (stageId, partNumber, request) =>
             partNumber === 1
               ? {
                   part: {
-                    byteLength: input.encryptedBytes.length,
+                    byteLength: request.byteLength,
                     etag: "etag-1",
                     partNumber,
                   },
-                  stageId: "stage-failed-part",
-                  uploadId: input.uploadId,
+                  stageId,
+                  uploadId: request.uploadId,
                 }
               : null,
-        },
-        byteLength: 6,
-        encryptedBytes: "abcdef",
-        multipart: { partSize: 3 },
-        sha256: "sha256",
+        }),
+        encryption: createFakePlan({ partCount: 2 }),
+        multipart: { partSize: DEFAULT_CHUNK_SIZE },
       }),
-    ).rejects.toThrow(
-      "Multipart blob part 2 upload failed for stage stage-failed-part.",
-    );
+    ).rejects.toThrow("part 2 upload failed for stage stage-new");
   });
 
   test("drains active sibling uploads before surfacing the first failure", async () => {
@@ -113,24 +174,12 @@ describe("stageMultipartBlobAttachment", () => {
     let completed = false;
 
     const upload = stageMultipartBlobAttachment({
-      apiClient: {
-        bindBlobAttachment: async () => null,
+      apiClient: createMultipartApi({
         completeMultipartBlobStage: async () => {
           completed = true;
           return null;
         },
-        getDocumentWriterProjection: async () => null,
-        getMultipartBlobStage: async () => null,
-        initiateMultipartBlobStage: async () => ({
-          byteLength: 4,
-          expiresAt: "2026-04-27T01:00:00.000Z",
-          sha256: "sha256",
-          stageId: "stage-drain",
-          uploadedParts: [],
-          uploadId: "upload-drain",
-        }),
-        stageBlob: async () => null,
-        uploadMultipartBlobPart: async (stageId, partNumber, request) => {
+        uploadMultipartBlobPartBytes: async (stageId, partNumber, request) => {
           uploadedPartNumbers.push(partNumber);
           if (partNumber === 2) {
             observeSecondPartFailure?.();
@@ -139,19 +188,21 @@ describe("stageMultipartBlobAttachment", () => {
 
           await firstPartBlocked;
           return {
-            part: { byteLength: 1, etag: "etag-1", partNumber },
+            part: {
+              byteLength: request.byteLength,
+              etag: "etag-1",
+              partNumber,
+            },
             stageId,
             uploadId: request.uploadId,
           };
         },
-      },
-      byteLength: 4,
-      encryptedBytes: "abcd",
-      multipart: { partSize: 1, uploadConcurrency: 2 },
+      }),
+      encryption: createFakePlan({ partCount: 4 }),
+      multipart: { partSize: DEFAULT_CHUNK_SIZE, uploadConcurrency: 2 },
       onMultipartProgress: ({ partsCompleted }) => {
         progressParts.push(partsCompleted);
       },
-      sha256: "sha256",
     });
     let settled = false;
     void upload.then(
@@ -175,130 +226,72 @@ describe("stageMultipartBlobAttachment", () => {
     expect(completed).toBe(false);
   });
 
-  test("resumes an existing stage and skips already-uploaded parts", async () => {
-    const initiateCalls: number[] = [];
+  test("resumes by part length without encrypting completed parts", async () => {
+    const encryptedPartIndices: number[] = [];
     const uploadedPartNumbers: number[] = [];
     const resolvedStages: Array<{ partSize: number; stageId: string }> = [];
     const progress: Array<{
       bytesUploaded: number;
       partsCompleted: number;
     }> = [];
+    const encryption = createFakePlan({
+      encryptPart: async (partIndex, byteLength) => {
+        encryptedPartIndices.push(partIndex);
+        return new Uint8Array(byteLength);
+      },
+      partCount: 2,
+    });
+
     const stageId = await stageMultipartBlobAttachment({
-      apiClient: {
-        bindBlobAttachment: async () => null,
-        completeMultipartBlobStage: async (id) => ({
-          byteLength: 6,
-          expiresAt: "2026-04-27T01:00:00.000Z",
-          sha256: "sha256",
-          stageId: id,
-        }),
-        getDocumentWriterProjection: async () => null,
+      apiClient: createMultipartApi({
         getMultipartBlobStage: async (id) => ({
-          byteLength: 6,
+          byteLength: encryption.byteLength,
           completed: false,
           expiresAt: "2026-04-27T01:00:00.000Z",
-          sha256: "sha256",
+          sha256: encryption.sha256,
           stageId: id,
           uploadId: "upload-resume",
           uploadedParts: [{ byteLength: 3, etag: "etag-1", partNumber: 1 }],
         }),
         initiateMultipartBlobStage: async () => {
-          initiateCalls.push(1);
-          return null;
+          throw new Error("Existing stage must not be replaced");
         },
-        stageBlob: async () => null,
-        uploadMultipartBlobPart: async (id, partNumber, input) => {
+        uploadMultipartBlobPartBytes: async (id, partNumber, request) => {
           uploadedPartNumbers.push(partNumber);
           return {
             part: {
-              byteLength: input.encryptedBytes.length,
+              byteLength: request.byteLength,
               etag: `etag-${partNumber}`,
               partNumber,
             },
             stageId: id,
-            uploadId: input.uploadId,
+            uploadId: request.uploadId,
           };
         },
+      }),
+      encryption,
+      multipart: {
+        partSize: DEFAULT_CHUNK_SIZE,
+        resumeStageId: "stage-resume",
       },
-      byteLength: 6,
-      encryptedBytes: "abcdef",
-      multipart: { partSize: 3, resumeStageId: "stage-resume" },
       onMultipartProgress: ({ bytesUploaded, partsCompleted }) => {
         progress.push({ bytesUploaded, partsCompleted });
       },
       onStageResolved: (input) => {
         resolvedStages.push(input);
       },
-      sha256: "sha256",
     });
 
     expect(stageId).toBe("stage-resume");
-    // The stage already existed, so it was never re-initiated (no orphan)...
-    expect(initiateCalls).toEqual([]);
-    // ...and the part the server already had was not re-uploaded.
+    expect(encryptedPartIndices).toEqual([1]);
     expect(uploadedPartNumbers).toEqual([2]);
-    // Progress is cumulative across attempts: the first update includes the
-    // part the server already had, and the final update describes the file.
     expect(progress).toEqual([
       { bytesUploaded: 3, partsCompleted: 1 },
       { bytesUploaded: 6, partsCompleted: 2 },
     ]);
-    expect(resolvedStages).toEqual([{ partSize: 3, stageId: "stage-resume" }]);
-  });
-
-  test("opens a fresh stage only when the resume target is gone", async () => {
-    const openFreshStage = async (status: 404 | 409) => {
-      const resolvedStages: Array<{ partSize: number; stageId: string }> = [];
-      const stageId = await stageMultipartBlobAttachment({
-        apiClient: {
-          bindBlobAttachment: async () => null,
-          completeMultipartBlobStage: async (id) => ({
-            byteLength: 6,
-            expiresAt: "2026-04-27T01:00:00.000Z",
-            sha256: "sha256",
-            stageId: id,
-          }),
-          getDocumentWriterProjection: async () => null,
-          getRequestFailure: () => ({
-            kind: "http",
-            message: `GET stage-missing: ${status}`,
-            status,
-          }),
-          getMultipartBlobStage: async () => null,
-          initiateMultipartBlobStage: async () => ({
-            byteLength: 6,
-            expiresAt: "2026-04-27T01:00:00.000Z",
-            sha256: "sha256",
-            stageId: "stage-fresh",
-            uploadedParts: [],
-            uploadId: "upload-fresh",
-          }),
-          stageBlob: async () => null,
-          uploadMultipartBlobPart: async (id, partNumber, input) => ({
-            part: {
-              byteLength: input.encryptedBytes.length,
-              etag: `etag-${partNumber}`,
-              partNumber,
-            },
-            stageId: id,
-            uploadId: input.uploadId,
-          }),
-        },
-        byteLength: 6,
-        encryptedBytes: "abcdef",
-        multipart: { partSize: 3, resumeStageId: "stage-missing" },
-        onStageResolved: (input) => {
-          resolvedStages.push(input);
-        },
-        sha256: "sha256",
-      });
-
-      expect(stageId).toBe("stage-fresh");
-      expect(resolvedStages).toEqual([{ partSize: 3, stageId: "stage-fresh" }]);
-    };
-
-    await openFreshStage(404);
-    await openFreshStage(409);
+    expect(resolvedStages).toEqual([
+      { partSize: DEFAULT_CHUNK_SIZE, stageId: "stage-resume" },
+    ]);
   });
 
   test("preserves a resumed stage after transient status lookup failures", async () => {
@@ -309,171 +302,197 @@ describe("stageMultipartBlobAttachment", () => {
     ] as const;
 
     for (const failure of failures) {
+      let encryptCalls = 0;
       let initiateCalls = 0;
       let resolvedCalls = 0;
       await expect(
         stageMultipartBlobAttachment({
-          apiClient: {
-            bindBlobAttachment: async () => null,
-            completeMultipartBlobStage: async () => null,
-            getDocumentWriterProjection: async () => null,
+          apiClient: createMultipartApi({
             getMultipartBlobStage: async () => null,
             getRequestFailure: () => failure,
             initiateMultipartBlobStage: async () => {
               initiateCalls += 1;
               return null;
             },
-            stageBlob: async () => null,
-            uploadMultipartBlobPart: async () => null,
+          }),
+          encryption: createFakePlan({
+            encryptPart: async (_partIndex, byteLength) => {
+              encryptCalls += 1;
+              return new Uint8Array(byteLength);
+            },
+            partCount: 1,
+          }),
+          multipart: {
+            partSize: DEFAULT_CHUNK_SIZE,
+            resumeStageId: "stage-preserved",
           },
-          byteLength: 3,
-          encryptedBytes: "abc",
-          multipart: { partSize: 3, resumeStageId: "stage-preserved" },
           onStageResolved: () => {
             resolvedCalls += 1;
           },
-          sha256: "sha256",
         }),
       ).rejects.toThrow(failure.message);
+      expect(encryptCalls).toBe(0);
       expect(initiateCalls).toBe(0);
       expect(resolvedCalls).toBe(0);
     }
   });
 
-  test("reports full progress when a resumed stage is already complete", async () => {
+  test("reports full progress without encryption for a completed stage", async () => {
+    let encryptCalls = 0;
     const progress: Array<{
       bytesTotal: number;
       bytesUploaded: number;
       partsCompleted: number;
       partsTotal: number;
     }> = [];
-    const stageId = await stageMultipartBlobAttachment({
-      apiClient: {
-        bindBlobAttachment: async () => null,
+    const encryption = createFakePlan({
+      byteLength: 10,
+      getPartByteLength: (partIndex) => [3, 3, 4][partIndex] ?? 0,
+      encryptPart: async (_partIndex, byteLength) => {
+        encryptCalls += 1;
+        return new Uint8Array(byteLength);
+      },
+      partCount: 3,
+    });
+    await stageMultipartBlobAttachment({
+      apiClient: createMultipartApi({
         completeMultipartBlobStage: async () => {
           throw new Error("Completed stage must not be completed again");
         },
-        getDocumentWriterProjection: async () => null,
         getMultipartBlobStage: async (id) => ({
-          byteLength: 10,
+          byteLength: encryption.byteLength,
           completed: true,
           expiresAt: "2026-04-27T01:00:00.000Z",
-          sha256: "sha256",
+          sha256: encryption.sha256,
           stageId: id,
           uploadId: "upload-completed",
-          uploadedParts: Array.from({ length: 7 }, (_, index) => ({
-            byteLength: 1,
-            etag: `etag-${index + 1}`,
-            partNumber: index + 1,
-          })),
+          uploadedParts: [],
         }),
         initiateMultipartBlobStage: async () => {
           throw new Error("Completed stage must not be replaced");
         },
-        stageBlob: async () => null,
-        uploadMultipartBlobPart: async () => {
-          throw new Error("Completed stage must not upload more parts");
-        },
+      }),
+      encryption,
+      multipart: {
+        partSize: DEFAULT_CHUNK_SIZE,
+        resumeStageId: "stage-completed",
       },
-      byteLength: 10,
-      encryptedBytes: "abcdefghij",
-      multipart: { partSize: 1, resumeStageId: "stage-completed" },
       onMultipartProgress: (event) => progress.push(event),
-      sha256: "sha256",
     });
 
-    expect(stageId).toBe("stage-completed");
+    expect(encryptCalls).toBe(0);
     expect(progress).toEqual([
       {
         bytesTotal: 10,
         bytesUploaded: 10,
-        partsCompleted: 10,
-        partsTotal: 10,
+        partsCompleted: 3,
+        partsTotal: 3,
       },
     ]);
   });
 
-  test("opens a fresh stage when the resumed stage was opened for different bytes", async () => {
-    const initiateCalls: number[] = [];
-    const stageId = await stageMultipartBlobAttachment({
-      apiClient: {
-        bindBlobAttachment: async () => null,
-        completeMultipartBlobStage: async (id) => ({
-          byteLength: 6,
-          expiresAt: "2026-04-27T01:00:00.000Z",
-          sha256: "sha256",
-          stageId: id,
-        }),
-        getDocumentWriterProjection: async () => null,
-        getMultipartBlobStage: async (id) => ({
-          byteLength: 6,
-          completed: false,
-          expiresAt: "2026-04-27T01:00:00.000Z",
-          // A stage recorded for different content must not be resumed: its parts
-          // could never assemble to the sha256 this upload will complete against.
-          sha256: "stale-sha256",
-          stageId: id,
-          uploadId: "upload-stale",
-          uploadedParts: [{ byteLength: 3, etag: "etag-1", partNumber: 1 }],
-        }),
-        initiateMultipartBlobStage: async () => {
-          initiateCalls.push(1);
-          return {
-            byteLength: 6,
+  test("opens a fresh stage for a mismatched whole length or digest", async () => {
+    for (const mismatch of ["byteLength", "sha256"] as const) {
+      const encryption = createFakePlan({ partCount: 2 });
+      let initiateCalls = 0;
+      const stageId = await stageMultipartBlobAttachment({
+        apiClient: createMultipartApi({
+          getMultipartBlobStage: async (id) => ({
+            byteLength:
+              mismatch === "byteLength"
+                ? encryption.byteLength + 1
+                : encryption.byteLength,
+            completed: false,
             expiresAt: "2026-04-27T01:00:00.000Z",
-            sha256: "sha256",
-            stageId: "stage-fresh",
-            uploadedParts: [],
-            uploadId: "upload-fresh",
-          };
-        },
-        stageBlob: async () => null,
-        uploadMultipartBlobPart: async (id, partNumber, input) => ({
-          part: {
-            byteLength: input.encryptedBytes.length,
-            etag: `etag-${partNumber}`,
-            partNumber,
+            sha256: mismatch === "sha256" ? "stale-sha256" : encryption.sha256,
+            stageId: id,
+            uploadId: "upload-stale",
+            uploadedParts: [{ byteLength: 3, etag: "etag-1", partNumber: 1 }],
+          }),
+          initiateMultipartBlobStage: async (request) => {
+            initiateCalls += 1;
+            return {
+              ...request,
+              expiresAt: "2026-04-27T01:00:00.000Z",
+              stageId: `stage-fresh-${mismatch}`,
+              uploadedParts: [],
+              uploadId: `upload-fresh-${mismatch}`,
+            };
           },
-          stageId: id,
-          uploadId: input.uploadId,
         }),
-      },
-      byteLength: 6,
-      encryptedBytes: "abcdef",
-      multipart: { partSize: 3, resumeStageId: "stage-stale" },
-      sha256: "sha256",
-    });
+        encryption,
+        multipart: {
+          partSize: DEFAULT_CHUNK_SIZE,
+          resumeStageId: "stage-stale",
+        },
+      });
 
-    expect(stageId).toBe("stage-fresh");
-    expect(initiateCalls).toEqual([1]);
+      expect(stageId).toBe(`stage-fresh-${mismatch}`);
+      expect(initiateCalls).toBe(1);
+    }
   });
 
-  test("rejects multipart plans that exceed the object store part limit", async () => {
+  test("rejects plans above the object store limit before planning bytes", async () => {
+    let plannedParts = 0;
+    let initiated = false;
     await expect(
       stageMultipartBlobAttachment({
-        apiClient: {
-          bindBlobAttachment: async () => null,
-          completeMultipartBlobStage: async () => null,
-          getDocumentWriterProjection: async () => null,
-          getMultipartBlobStage: async () => null,
-          initiateMultipartBlobStage: async () => ({
-            byteLength: 10_001,
-            expiresAt: "2026-04-27T01:00:00.000Z",
-            sha256: "sha256",
-            stageId: "stage-too-many-parts",
-            uploadedParts: [],
-            uploadId: "upload-too-many-parts",
-          }),
-          stageBlob: async () => null,
-          uploadMultipartBlobPart: async () => null,
-        },
-        byteLength: 10_001,
-        encryptedBytes: "a".repeat(10_001),
-        multipart: { partSize: 1 },
-        sha256: "sha256",
+        apiClient: createMultipartApi({
+          initiateMultipartBlobStage: async () => {
+            initiated = true;
+            return null;
+          },
+        }),
+        encryption: createFakePlan({
+          byteLength: 10_001,
+          getPartByteLength: () => {
+            plannedParts += 1;
+            return 1;
+          },
+          partCount: 10_001,
+        }),
+        multipart: { partSize: DEFAULT_CHUNK_SIZE },
+      }),
+    ).rejects.toThrow("maximum is 10,000 fixed 5 MiB chunks");
+    expect(plannedParts).toBe(0);
+    expect(initiated).toBe(false);
+  });
+
+  test("rejects an encrypted part that violates its planned length", async () => {
+    let uploadCalls = 0;
+    await expect(
+      stageMultipartBlobAttachment({
+        apiClient: createMultipartApi({
+          uploadMultipartBlobPartBytes: async () => {
+            uploadCalls += 1;
+            return null;
+          },
+        }),
+        encryption: createFakePlan({
+          encryptPart: async () => new Uint8Array(2),
+          getPartByteLength: () => 3,
+          partCount: 1,
+        }),
+        multipart: { partSize: DEFAULT_CHUNK_SIZE },
       }),
     ).rejects.toThrow(
-      "Multipart blob upload would require 10,001 parts; the maximum is 10,000.",
+      "Encrypted blob part 1 byte length mismatch: expected 3, received 2.",
+    );
+    expect(uploadCalls).toBe(0);
+  });
+
+  test("caps caller-configured upload concurrency", async () => {
+    await expect(
+      stageMultipartBlobAttachment({
+        apiClient: createMultipartApi(),
+        encryption: createFakePlan({ partCount: 1 }),
+        multipart: {
+          partSize: DEFAULT_CHUNK_SIZE,
+          uploadConcurrency: 5,
+        },
+      }),
+    ).rejects.toThrow(
+      "Multipart blob upload concurrency must be between 1 and 4",
     );
   });
 });

@@ -14,20 +14,9 @@ import {
   isContainerManifestRefArrayArray,
 } from "./document";
 
-export interface StageBlobRequest {
-  encryptedBytes: string;
-  byteLength: number;
-  sha256: string;
-}
-
 export interface InitiateMultipartBlobStageRequest {
   byteLength: number;
   sha256: string;
-}
-
-export interface UploadMultipartBlobPartRequest {
-  encryptedBytes: string;
-  uploadId: string;
 }
 
 export interface MultipartBlobPartCommitRequest {
@@ -81,18 +70,6 @@ export interface BlobAttachmentDetachRequest {
   containerRekeys?: ContainerMutationRequest[];
 }
 
-export function isStageBlobRequest(value: unknown): value is StageBlobRequest {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "encryptedBytes") &&
-    hasNumberProperty(value, "byteLength") &&
-    Number.isInteger(value.byteLength) &&
-    value.byteLength > 0 &&
-    hasStringProperty(value, "sha256") &&
-    value.sha256.length > 0
-  );
-}
-
 export function isInitiateMultipartBlobStageRequest(
   value: unknown,
 ): value is InitiateMultipartBlobStageRequest {
@@ -103,18 +80,6 @@ export function isInitiateMultipartBlobStageRequest(
     value.byteLength > 0 &&
     hasStringProperty(value, "sha256") &&
     value.sha256.length > 0
-  );
-}
-
-export function isUploadMultipartBlobPartRequest(
-  value: unknown,
-): value is UploadMultipartBlobPartRequest {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "encryptedBytes") &&
-    value.encryptedBytes.length > 0 &&
-    hasStringProperty(value, "uploadId") &&
-    value.uploadId.length > 0
   );
 }
 

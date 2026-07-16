@@ -1,25 +1,16 @@
-import {
-  assertAesGcmIv,
-  CONTENT_RECORD_ENCRYPTION_SUITE,
-} from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type { BlobContentKeyTargetEnvelopeRequest } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
-  assertOnlyRecordKeys,
   readRecordNumber,
   readRecordString,
   sortTargets,
 } from "../../shared/readers";
+import { parseBlobEnvelopeV2 } from "./blobEnvelopeReader";
 import type {
   BlobContentKeyTarget,
   BlobEncryptedBytesRecord,
   DocumentManifestIdentity,
-} from "./types";
-import {
-  BLOB_ENCRYPTED_BYTES_FORMAT,
-  BLOB_ENCRYPTED_BYTES_KEYS,
 } from "./types";
 
 function targetKey(target: BlobContentKeyTarget): string {
@@ -91,74 +82,9 @@ export function normalizeDocumentTarget(
 }
 
 export function parseBlobEncryptedBytes(
-  encryptedBytes: string,
+  encryptedBytes: Uint8Array<ArrayBuffer>,
 ): BlobEncryptedBytesRecord {
-  let value: unknown;
-  try {
-    value = JSON.parse(encryptedBytes);
-  } catch {
-    throw new Error("Blob encrypted bytes are invalid JSON");
-  }
-  if (!isPlainRecord(value)) {
-    throw new Error("Blob encrypted bytes must be an object");
-  }
-  assertOnlyRecordKeys(
-    value,
-    BLOB_ENCRYPTED_BYTES_KEYS,
-    "Blob encrypted bytes",
-  );
-  if (
-    readRecordString(value, "format", "Blob encrypted bytes") !==
-    BLOB_ENCRYPTED_BYTES_FORMAT
-  ) {
-    throw new Error("Blob encrypted bytes format is invalid");
-  }
-  const version = readRecordNumber(value, "version", "Blob encrypted bytes");
-  if (version !== 1) {
-    throw new Error(
-      `Blob encrypted bytes version ${version} is invalid; expected 1`,
-    );
-  }
-  if (
-    readRecordString(value, "encryptionSuite", "Blob encrypted bytes") !==
-    CONTENT_RECORD_ENCRYPTION_SUITE
-  ) {
-    throw new Error("Blob encrypted bytes suite is invalid");
-  }
-
-  const iv = base64ToBytes(
-    readRecordString(value, "iv", "Blob encrypted bytes"),
-  );
-  assertAesGcmIv(iv, "Blob encrypted bytes IV is invalid");
-
-  return {
-    blobId: readRecordString(value, "blobId", "Blob encrypted bytes"),
-    byteLength: readRecordNumber(value, "byteLength", "Blob encrypted bytes"),
-    ciphertext: base64ToBytes(
-      readRecordString(value, "ciphertext", "Blob encrypted bytes"),
-    ),
-    contentKeyEpoch: readRecordNumber(
-      value,
-      "contentKeyEpoch",
-      "Blob encrypted bytes",
-    ),
-    contentRecordId: readRecordString(
-      value,
-      "contentRecordId",
-      "Blob encrypted bytes",
-    ),
-    iv,
-    metadataHash: readRecordString(
-      value,
-      "metadataHash",
-      "Blob encrypted bytes",
-    ),
-    nonceDomainHash: readRecordString(
-      value,
-      "nonceDomainHash",
-      "Blob encrypted bytes",
-    ),
-  };
+  return parseBlobEnvelopeV2(encryptedBytes);
 }
 
 export function contentKeyTargetReference(
