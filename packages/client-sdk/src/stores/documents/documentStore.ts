@@ -25,6 +25,11 @@ import {
 } from "./documentStore/mutations";
 import { assertDocumentStoreCanRotateContentKey } from "./documentStore/rotation";
 import {
+  addRowToDocumentStore,
+  removeRowFromDocumentStore,
+  updateRowInDocumentStore,
+} from "./documentStore/rows";
+import {
   createDocumentStoreState,
   type DocumentStoreState,
   refreshAttachabilitySnapshot,
@@ -134,6 +139,7 @@ function createBackingDocumentStore(
   const scheduleSync = () => requestDocumentStoreSync(state);
 
   return {
+    addRow: (fields) => addRowToDocumentStore(state, scheduleSync, fields),
     assertCanRotateContentKey: async () => {
       if (
         !(await ensureDocumentStoreReady(state, scheduleSync)) ||
@@ -151,6 +157,7 @@ function createBackingDocumentStore(
     getSnapshot: () => state.snapshot,
     removeAttachment: (slotId: string) =>
       removeAttachmentFromDocumentStore(state, scheduleSync, slotId),
+    removeRow: (id) => removeRowFromDocumentStore(state, scheduleSync, id),
     setAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
       setAttachmentInDocumentStore(state, scheduleSync, slotId, file),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
@@ -164,6 +171,8 @@ function createBackingDocumentStore(
     setText: (value: string) => setDocumentText(state, scheduleSync, value),
     subscribe: (listener: () => void) =>
       subscribeToDocumentStore(state, listener),
+    updateRowFields: (id, patch) =>
+      updateRowInDocumentStore(state, scheduleSync, id, patch),
     updateRuntime: (runtime: DocumentsRuntime) =>
       updateDocumentStoreRuntime(state, runtime, scheduleSync),
   };

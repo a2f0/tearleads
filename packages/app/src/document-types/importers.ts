@@ -5,8 +5,9 @@ import type {
 import { AUDIO_DOCUMENT_KIND } from "./audio/audioDocumentDefinition";
 import {
   ENV_FILE_DOCUMENT_KIND,
+  ENV_FILE_VARIABLE_KEY_FIELD,
+  ENV_FILE_VARIABLE_VALUE_FIELD,
   parseEnvFileText,
-  serializeEnvFileVariables,
 } from "./env-file/envFileDocumentDefinition";
 import { GENERIC_FILE_DOCUMENT_KIND } from "./generic-file/genericFileDocumentDefinition";
 import { IMAGE_DOCUMENT_KIND } from "./image/imageDocumentDefinition";
@@ -23,6 +24,9 @@ interface DocumentFileImportResult {
   attachment: DocumentAttachmentUpload | null;
   documentKind: StoredDocumentKind;
   initialText: string;
+  // Rows seeded into the document's first-class row list after creation (e.g. a
+  // .env file's parsed variables). Each entry is one row's field map.
+  rows?: ReadonlyArray<Readonly<Record<string, string>>>;
   structuredFields: Readonly<Record<string, string>>;
 }
 
@@ -204,11 +208,12 @@ const envFileImporter: DocumentFileImporter = {
     attachment: null,
     documentKind: ENV_FILE_DOCUMENT_KIND,
     initialText: "",
+    rows: parseEnvFileText(await file.text()).map((variable) => ({
+      [ENV_FILE_VARIABLE_KEY_FIELD]: variable.key,
+      [ENV_FILE_VARIABLE_VALUE_FIELD]: variable.value,
+    })),
     structuredFields: {
       fileName: file.name,
-      variablesJson: serializeEnvFileVariables(
-        parseEnvFileText(await file.text()),
-      ),
     },
   }),
   maxByteLength: TEXT_FILE_IMPORT_MAX_BYTES,

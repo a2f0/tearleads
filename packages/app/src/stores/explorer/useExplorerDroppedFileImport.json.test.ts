@@ -55,6 +55,7 @@ function createImportStoreFactory(createdStores: CreatedImportStore[]) {
     createdStores.push(createdStore);
 
     return {
+      addRow: async () => "row-1",
       attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => {
         createdStore.attachments.push(...files);
       },

@@ -7,6 +7,7 @@ import {
 import type { ComponentType } from "react";
 import { AudioDocumentApp } from "./audio/AudioDocumentApp";
 import { AUDIO_DOCUMENT_KIND } from "./audio/audioDocumentDefinition";
+import { BloodPressureDocumentApp } from "./blood-pressure/BloodPressureApp";
 import { ContactDocumentApp } from "./contact/ContactDocumentApp";
 import { CreditCardDocumentApp } from "./credit-card/CreditCardApp";
 import { DefaultLoroDocumentApp } from "./default-loro/DefaultLoroDocumentApp";
@@ -47,6 +48,7 @@ const documentTypeAppsByKind = new Map<
   ["credit_card", CreditCardDocumentApp],
   ["passport", PassportDocumentApp],
   ["env_file", EnvFileDocumentApp],
+  ["blood_pressure", BloodPressureDocumentApp],
   ["json_file", JsonFileDocumentApp],
   ["image", ImageDocumentApp],
   ["audio", AudioDocumentApp],

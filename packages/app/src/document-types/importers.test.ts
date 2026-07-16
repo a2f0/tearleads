@@ -22,12 +22,6 @@ function createFile(
   });
 }
 
-function readVariablesJson(
-  structuredFields: Readonly<{ variablesJson?: string }>,
-): string {
-  return structuredFields.variablesJson ?? "";
-}
-
 test("file importers classify by MIME type before extension", () => {
   expect(
     getDocumentFileImporter(
@@ -146,31 +140,19 @@ test("env files import as key value documents before text MIME handling", async 
   const result = await importer.importFile(file);
 
   expect(importer.maxByteLength).toBe(TEXT_FILE_IMPORT_MAX_BYTES);
-  expect(result).toMatchObject({
+  expect(result).toEqual({
     attachment: null,
     documentKind: "env_file",
     initialText: "",
+    rows: [
+      { key: "API_URL", value: "https://api.example.test" },
+      { key: "DEBUG", value: "true" },
+      { key: "QUOTED", value: "hello world" },
+    ],
     structuredFields: {
       fileName: ".env.local",
     },
   });
-  expect(JSON.parse(readVariablesJson(result.structuredFields))).toEqual([
-    {
-      id: "env-1-api_url",
-      key: "API_URL",
-      value: "https://api.example.test",
-    },
-    {
-      id: "env-2-debug",
-      key: "DEBUG",
-      value: "true",
-    },
-    {
-      id: "env-4-quoted",
-      key: "QUOTED",
-      value: "hello world",
-    },
-  ]);
 });
 
 test("binary file importers attach original bytes and stable metadata", async () => {

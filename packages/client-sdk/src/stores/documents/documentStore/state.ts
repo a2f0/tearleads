@@ -16,6 +16,11 @@ import {
   readStoredDocumentState,
   type StoredDocumentKind,
 } from "../../../data/documents/documentKinds";
+import {
+  type DocumentRow,
+  listDocumentRows,
+  sameDocumentRows,
+} from "../../../data/documents/documentRowList";
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/types";
 import type { DomainScope } from "../../../data/domainScope";
 import {
@@ -25,6 +30,7 @@ import {
   type DocumentSyncLane,
   type DocumentsPersistence,
   type PendingAttachmentRecord,
+  resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
 import type {
   DocumentAttachmentStatus,
@@ -133,11 +139,13 @@ const EMPTY_DOCUMENT_SNAPSHOT: DocumentSnapshot = {
   attachmentStorageKeyBySlotId: {},
   canAttach: false,
   canWrite: true,
+  currentAuthorId: null,
   documentId: null,
   documentKind: DEFAULT_DOCUMENT_KIND,
   effectiveAccessLevel: "admin",
   fieldValidationIssues: [],
   ready: false,
+  rows: [],
   structuredFields: {},
   text: "",
   title: "",
@@ -250,6 +258,7 @@ export function setDocumentSnapshot(
     ) &&
     state.snapshot.canAttach === next.canAttach &&
     state.snapshot.canWrite === next.canWrite &&
+    state.snapshot.currentAuthorId === next.currentAuthorId &&
     state.snapshot.documentId === next.documentId &&
     state.snapshot.documentKind === next.documentKind &&
     state.snapshot.effectiveAccessLevel === next.effectiveAccessLevel &&
@@ -258,6 +267,7 @@ export function setDocumentSnapshot(
       next.fieldValidationIssues,
     ) &&
     state.snapshot.ready === next.ready &&
+    sameDocumentRows(state.snapshot.rows, next.rows) &&
     shallowEqualRecord(
       state.snapshot.structuredFields,
       next.structuredFields,
@@ -321,6 +331,17 @@ function getSnapshotAttachments(
   return currentDoc ? getDocumentAttachments(currentDoc) : [];
 }
 
+function getSnapshotRows(
+  state: DocumentStoreState,
+  currentDoc: DocumentState | null = state.doc,
+): DocumentRow[] {
+  return currentDoc ? listDocumentRows(currentDoc) : [];
+}
+
+function resolveCurrentAuthorId(state: DocumentStoreState): string | null {
+  return resolveDocumentCreateAuthor(state.runtime)?.signerUserId ?? null;
+}
+
 function getAttachmentStorageKeys(
   state: DocumentStoreState,
   attachments: ReadonlyArray<DocumentAttachment>,
@@ -363,6 +384,7 @@ export function setReadySnapshot(
   structuredFieldsOverride?: DocumentSnapshot["structuredFields"],
 ) {
   const attachments = getSnapshotAttachments(state, currentDoc);
+  const rows = getSnapshotRows(state, currentDoc);
   const documentState = readStoredDocumentState(
     currentDoc,
     state.runtime.infra.documentProjectors,
@@ -378,6 +400,7 @@ export function setReadySnapshot(
             documentKind: documentState.documentKind,
             structuredFields,
             text,
+            rows: rows.map((row) => ({ id: row.id, fields: row.fields })),
           },
           state.runtime.infra.documentProjectors,
         );
@@ -388,6 +411,7 @@ export function setReadySnapshot(
     attachmentStorageKeyBySlotId: getAttachmentStorageKeys(state, attachments),
     canAttach: canAttachFiles(state),
     canWrite: canWriteDocument(state),
+    currentAuthorId: resolveCurrentAuthorId(state),
     documentId: state.record?.documentId ?? null,
     documentKind: projectedState.documentKind,
     effectiveAccessLevel: normalizeEffectiveAccessLevel(
@@ -395,6 +419,7 @@ export function setReadySnapshot(
     ),
     fieldValidationIssues: projectedState.fieldValidationIssues,
     ready: true,
+    rows,
     structuredFields: projectedState.structuredFields,
     text,
     title: projectedState.title,
@@ -412,11 +437,13 @@ export function setDocumentSyncing(
     attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
     canAttach: state.snapshot.canAttach,
     canWrite: state.snapshot.canWrite,
+    currentAuthorId: state.snapshot.currentAuthorId,
     documentId: state.snapshot.documentId,
     documentKind: state.snapshot.documentKind,
     effectiveAccessLevel: state.snapshot.effectiveAccessLevel,
     fieldValidationIssues: state.snapshot.fieldValidationIssues,
     ready: state.snapshot.ready,
+    rows: state.snapshot.rows,
     structuredFields: state.snapshot.structuredFields,
     text: state.snapshot.text,
     title: state.snapshot.title,
@@ -435,6 +462,7 @@ export function refreshAttachabilitySnapshot(state: DocumentStoreState) {
     attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
     canAttach: canAttachFiles(state),
     canWrite: canWriteDocument(state),
+    currentAuthorId: state.snapshot.currentAuthorId,
     documentId: state.snapshot.documentId,
     documentKind: state.snapshot.documentKind,
     effectiveAccessLevel: normalizeEffectiveAccessLevel(
@@ -442,6 +470,7 @@ export function refreshAttachabilitySnapshot(state: DocumentStoreState) {
     ),
     fieldValidationIssues: state.snapshot.fieldValidationIssues,
     ready: state.snapshot.ready,
+    rows: state.snapshot.rows,
     structuredFields: state.snapshot.structuredFields,
     text: state.snapshot.text,
     title: state.snapshot.title,
