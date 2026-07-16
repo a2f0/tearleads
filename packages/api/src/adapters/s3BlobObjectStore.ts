@@ -16,12 +16,10 @@ import {
   type BlobObjectStore,
   BlobObjectStoreError,
   blobObjectChunkToStream,
+  blobObjectStreamToBytes,
   type CompleteMultipartUploadPart,
 } from "./blobObjectStore";
-import {
-  nodeReadableFromBlobObjectStream,
-  responseBodyToStream,
-} from "./s3BlobObjectStreams";
+import { responseBodyToStream } from "./s3BlobObjectStreams";
 
 type S3BlobObjectStoreClient = Pick<S3Client, "send">;
 
@@ -372,9 +370,16 @@ function createUploadPart({
 }: S3BlobObjectStoreInput): BlobObjectStore["uploadPart"] {
   return (input) =>
     mapS3Errors("uploadPart", async () => {
+      // Buffer the part before the SDK touches it: streaming the request body
+      // straight to the object store segfaults Bun when the upload connection
+      // resets mid-part — a runtime bug, far more likely under the concurrent
+      // uploads the sync lanes drive. The buffered bytes are rewindable, so the
+      // SDK can also retry a reset part, and the buffered length is
+      // authoritative, catching a truncated body rather than trusting the header.
+      const partBytes = await blobObjectStreamToBytes(input.body.stream);
       const uploadBody = {
-        body: nodeReadableFromBlobObjectStream(input.body.stream),
-        byteLength: input.body.byteLength,
+        body: partBytes,
+        byteLength: partBytes.byteLength,
         sha256: input.body.sha256,
       };
       if (uploadBody.byteLength <= 0) {

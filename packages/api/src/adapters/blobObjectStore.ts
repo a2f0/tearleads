@@ -100,7 +100,7 @@ function concatenateBytes(
   return bytes;
 }
 
-async function blobObjectStreamToBytes(
+export async function blobObjectStreamToBytes(
   stream: BlobObjectReadStream,
 ): Promise<Uint8Array> {
   const reader = stream.getReader();
