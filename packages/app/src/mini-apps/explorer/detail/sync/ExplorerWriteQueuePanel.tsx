@@ -4,10 +4,8 @@ import type {
   DomainScope,
   PendingWriteQueueItem,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  MiniAppActions,
-  MiniAppButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
   MiniAppPanel,
@@ -51,7 +49,6 @@ interface ExplorerWriteQueuePanelViewProps
   error: boolean;
   items: ReadonlyArray<PendingWriteQueueItem>;
   loading: boolean;
-  onRefresh: () => void;
 }
 
 function WriteQueueBlockers(params: {
@@ -141,13 +138,6 @@ export function ExplorerWriteQueuePanelView(
           <strong>{EXPLORER_LABELS.writeQueueTitle}</strong>
           <span>{subtitle}</span>
         </MiniAppHeaderCopy>
-        <MiniAppActions>
-          <MiniAppButton disabled={params.loading} onClick={params.onRefresh}>
-            {params.loading
-              ? EXPLORER_LABELS.writeQueueRefreshingAction
-              : EXPLORER_LABELS.writeQueueRefreshAction}
-          </MiniAppButton>
-        </MiniAppActions>
       </MiniAppHeader>
       <WriteQueueBlockers
         billingBlockedOrganizationId={params.billingBlockedOrganizationId}
@@ -173,7 +163,6 @@ export function ExplorerWriteQueuePanelView(
 
 export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
   const syncSnapshot = useDomainSyncSnapshot(params.domainScope);
-  const [refreshVersion, setRefreshVersion] = useState(0);
   const [state, setState] = useState<{
     error: boolean;
     items: ReadonlyArray<PendingWriteQueueItem>;
@@ -202,13 +191,8 @@ export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
     params.documentListRevision,
     params.documentQueries,
     params.nodes,
-    refreshVersion,
     syncSnapshot.hasPendingWork,
   ]);
-
-  const refresh = useCallback(() => {
-    setRefreshVersion((current) => current + 1);
-  }, []);
 
   return (
     <ExplorerWriteQueuePanelView
@@ -219,7 +203,6 @@ export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
       loading={state.loading}
       nodes={params.nodes}
       online={params.online}
-      onRefresh={refresh}
       openContainerInfoRoute={params.openContainerInfoRoute}
       openDocumentInfoRoute={params.openDocumentInfoRoute}
       organizationNamesById={params.organizationNamesById}
