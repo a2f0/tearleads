@@ -70,10 +70,12 @@ const ADMIN_GROUP_ADD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /organizations/:organizationId/groups/:groupId/members": 3,
     "GET /principals/organization/:organizationId/policy": 3,
     "GET /containers/:containerId/writer-projection": 2,
-    // The two mutation writes. Pinned tight to catch a double-add or a redundant
-    // second root reshare.
-    "POST /containers/:containerId/share": 2,
-    "PUT /principals/group/:groupId/policy": 2,
+    // The two mutation writes. Pinned to exactly 1 (their observed count): a
+    // ceiling of 2 would let an accidental double-add or a redundant second root
+    // reshare slip under the total budget, which is the regression this test
+    // exists to catch. A legitimate retry of either write signals a real problem.
+    "POST /containers/:containerId/share": 1,
+    "PUT /principals/group/:groupId/policy": 1,
   },
 };
 
