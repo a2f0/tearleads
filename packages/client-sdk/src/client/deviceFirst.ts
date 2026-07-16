@@ -1,7 +1,7 @@
 import type { DomainScope } from "../data/domainScope";
 import {
   disposeDomainSyncCoordinator,
-  isDestroyedDatabaseClientError,
+  isDatabaseUnavailableError,
 } from "../data/sync/syncCoordinator";
 import {
   type ContainerContentsStoreOptions,
@@ -252,7 +252,7 @@ class DeviceFirstService implements DeviceFirst {
       refreshRootTree: async () => {
         await store.getContainerStore().refreshRootLane();
       },
-      isIgnorableError: isDestroyedDatabaseClientError,
+      isIgnorableError: isDatabaseUnavailableError,
     };
   }
 }

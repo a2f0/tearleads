@@ -1,14 +1,14 @@
 import type { DomainScope } from "../../data/domainScope";
 import {
   getOrCreateDomainSyncCoordinator,
-  isDestroyedDatabaseClientError,
+  isDatabaseUnavailableError,
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
 
 export { sequenceUnchanged } from "../../data/sync/sequence";
 // Facade re-exports: document stores must reach these shared sync helpers
 // through this workflow boundary, not by importing data/sync directly.
-export { isDestroyedDatabaseClientError } from "../../data/sync/syncCoordinator";
+export { isDatabaseUnavailableError } from "../../data/sync/syncCoordinator";
 
 export type DocumentSyncLane = SyncLane;
 
@@ -26,7 +26,7 @@ export function registerDocumentSyncLane(input: {
       },
       phase: "document",
       run: input.run,
-      shouldIgnoreError: isDestroyedDatabaseClientError,
+      shouldIgnoreError: isDatabaseUnavailableError,
     },
   );
 }

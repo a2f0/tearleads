@@ -3,7 +3,7 @@ import {
   type RemoteContainerHydrationHost,
 } from "../../workflows/container-contents/remoteHydration";
 import type { RemoteContainerHydrationState } from "../../workflows/container-contents/remoteHydration/types";
-import { isDestroyedDatabaseClientError } from "../../workflows/container-contents/syncLane";
+import { isDatabaseUnavailableError } from "../../workflows/container-contents/syncLane";
 import {
   type LocalContainerRefreshState,
   refreshLocalContainerStates,
@@ -70,7 +70,7 @@ export function requestContainerContentsRemoteHydration(input: {
       appliedRemoteContainerChange = changedCount > 0;
     })
     .catch((error: unknown) => {
-      if (isDestroyedDatabaseClientError(error)) {
+      if (isDatabaseUnavailableError(error)) {
         return;
       }
 

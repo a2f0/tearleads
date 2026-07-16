@@ -1,6 +1,6 @@
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
-import { isDestroyedDatabaseClientError } from "../../workflows/container-contents/syncLane";
+import { isDatabaseUnavailableError } from "../../workflows/container-contents/syncLane";
 import type {
   ContainerContentsStoreSyncAgent,
   ContainerState,
@@ -26,7 +26,7 @@ export async function probeExistingSystemContainer(input: {
     });
   } catch (error) {
     rethrowKeyingVerificationError(error);
-    if (!isDestroyedDatabaseClientError(error)) {
+    if (!isDatabaseUnavailableError(error)) {
       const reason = error instanceof Error ? error.message : String(error);
       input.state.runtime.util.log(
         `${input.logLabel}: remote probe for "${input.systemSlot}" failed (${reason}); creating it locally`,

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createDomainScope } from "../../data/domainScope";
 import {
   didRegainSyncPrerequisites,
-  isDestroyedDatabaseClientError,
+  isDatabaseUnavailableError,
   type SyncRuntimeStatus,
 } from "../../data/sync/syncCoordinator";
 import { registerDocumentSyncLane } from "./syncLane";
@@ -83,16 +83,16 @@ test("didRegainSyncPrerequisites detects restored sync inputs", () => {
   ).toBe(true);
 });
 
-test("isDestroyedDatabaseClientError follows wrapped database errors", () => {
-  expect(isDestroyedDatabaseClientError(new Error("DB has been closed."))).toBe(
+test("isDatabaseUnavailableError follows wrapped database errors", () => {
+  expect(isDatabaseUnavailableError(new Error("DB has been closed."))).toBe(
     true,
   );
   expect(
-    isDestroyedDatabaseClientError(
+    isDatabaseUnavailableError(
       new Error("outer", {
         cause: new Error("Database worker client has been destroyed."),
       }),
     ),
   ).toBe(true);
-  expect(isDestroyedDatabaseClientError(new Error("other"))).toBe(false);
+  expect(isDatabaseUnavailableError(new Error("other"))).toBe(false);
 });

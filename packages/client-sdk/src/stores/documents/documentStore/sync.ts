@@ -12,7 +12,7 @@ import {
   syncRemoteDocument,
 } from "../../../workflows/documents";
 import {
-  isDestroyedDatabaseClientError,
+  isDatabaseUnavailableError,
   sequenceUnchanged,
 } from "../../../workflows/documents/syncLane";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
@@ -483,7 +483,7 @@ async function runScheduledSyncIteration(state: DocumentStoreState) {
     await runDocumentSyncPass(state);
     return true;
   } catch (error) {
-    if (isDestroyedDatabaseClientError(error)) {
+    if (isDatabaseUnavailableError(error)) {
       return false;
     }
 

@@ -309,6 +309,7 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/stores/local-projection/`,
       `${sdk}/client/deviceFirst.ts`,
       `${sdk}/data/crdtPeerSeed.ts`,
+      `${sdk}/data/databaseUnavailable.ts`,
       `${sdk}/data/domainScope.ts`,
     ],
   },

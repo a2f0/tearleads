@@ -1,7 +1,7 @@
 import type { DomainScope } from "../../data/domainScope";
 import {
   getOrCreateDomainSyncCoordinator,
-  isDestroyedDatabaseClientError,
+  isDatabaseUnavailableError,
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
 
@@ -10,7 +10,7 @@ export { sequenceUnchanged } from "../../data/sync/sequence";
 // helpers through this workflow boundary, not by importing data/sync directly.
 export {
   didRegainSyncPrerequisites,
-  isDestroyedDatabaseClientError,
+  isDatabaseUnavailableError,
 } from "../../data/sync/syncCoordinator";
 
 export type ContainerContentsSyncLane = SyncLane;
@@ -43,7 +43,7 @@ export function registerContainerContentsSyncLane(input: {
       onUnexpectedError: reportUnexpectedContainerContentsSyncError,
       phase: "structural",
       run: input.run,
-      shouldIgnoreError: isDestroyedDatabaseClientError,
+      shouldIgnoreError: isDatabaseUnavailableError,
     },
   );
 }
