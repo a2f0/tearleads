@@ -7,6 +7,7 @@ import {
   defaultDocumentsPersistence,
   defaultContainerContentsPersistence as defaultExplorerPersistence,
   openDocumentStore,
+  waitForDomainSyncCoordinatorToSettle,
 } from "@tearleads/client-sdk";
 import {
   generateKemSeedAndKeyPair,
@@ -33,7 +34,7 @@ import {
 } from "../../../test/helpers/explorer-provider/explorerProviderHarness";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 
-test("explorer store queues authenticated child containers locally before background sync", async () => {
+test("explorer store flushes an offline child-container write after network reconnect", async () => {
   let runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   const signingKeyPair = generateSigningSeedAndKeyPair();
@@ -68,7 +69,7 @@ test("explorer store queues authenticated child containers locally before backgr
     }),
     encapsulationKeyPair: localKeyPair,
     isAuthenticated: true,
-    online: true,
+    online: false,
     organizationId: "org-1",
     signingFingerprint,
     signingKeyPair,
@@ -121,6 +122,26 @@ test("explorer store queues authenticated child containers locally before backgr
     }
 
     await waitForCondition(async () => {
+      const pendingIntents =
+        await defaultExplorerPersistence.listPendingCreateIntents(
+          runtime.infra.execSql,
+        );
+      return pendingIntents.some(
+        (intent) => intent.containerId === childNode.id,
+      );
+    }, "Offline child container create was not persisted.");
+    expect(harness.containerCreateCalls).toEqual([]);
+    expect(
+      await waitForDomainSyncCoordinatorToSettle(runtime.state.domainScope, {
+        quietMs: 0,
+        timeoutMs: 1_000,
+      }),
+    ).toBe(true);
+
+    runtime = runtimeWithPatch(runtime, { online: true });
+    store.updateRuntime(runtime);
+
+    await waitForCondition(async () => {
       const pendingRows = await runtime.infra.execSql(
         `
  SELECT COUNT(*) AS count
@@ -136,7 +157,12 @@ test("explorer store queues authenticated child containers locally before backgr
         harness.containerCreateCalls.length === 1 &&
         Number(readSqlRowValue(pendingRows[0] ?? {}, "count")) === 0
       );
-    }, "Created child metadata update was not synced.");
+    }, "Created child metadata update was not synced after network reconnect.");
+    expect(
+      await defaultExplorerPersistence.listPendingCreateIntents(
+        runtime.infra.execSql,
+      ),
+    ).toEqual([]);
 
     expect(harness.containerCreateCalls).toEqual([
       {
@@ -432,7 +458,6 @@ test("explorer sync primes local document stores after login", async () => {
       () => store?.getSnapshot().ready === true,
       "Online explorer store did not become ready.",
     );
-    await expect(store.refresh()).resolves.toBe(true);
 
     await waitForCondition(
       () =>
