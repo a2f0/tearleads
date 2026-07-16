@@ -124,6 +124,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    not update:
 
    ```bash
+   PRE_SYNC_HEAD=$(git rev-parse HEAD)
    git merge --no-edit FETCH_HEAD || {
      git merge --abort
      echo "Error: merging the latest $BASE_REF into $BRANCH conflicts — resolve it and re-run" >&2
@@ -140,12 +141,15 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    The merge moves `HEAD` only when the base actually advanced; on a branch already
    current, or a later repair round where nothing new landed, it is a no-op. **When
    a PR is open**, push the updated head without force so the pushed head still
-   matches what is reviewed (a no-op when the merge changed nothing); **with no
-   PR**, the merge stays local and `open-pr` pushes it later, so the flow's single
-   push is preserved:
+   matches what is reviewed — but **only when the merge actually moved `HEAD`**, so
+   an already-current branch does not fire the (expensive) pre-push hook for
+   nothing; **with no PR**, the merge stays local and `open-pr` pushes it later, so
+   the flow's single push is preserved:
 
    ```bash
-   [ -z "$PR_NUMBER" ] || git push origin "$BRANCH"
+   if [ -n "$PR_NUMBER" ] && [ "$(git rev-parse HEAD)" != "$PRE_SYNC_HEAD" ]; then
+     git push origin "$BRANCH"
+   fi
    ```
 
    Then snapshot the head under review — the integrated head when the sync ran, the
