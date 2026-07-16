@@ -33,6 +33,7 @@ const documentQueries: ContainerDocumentQueries = {
   applyContainerDocumentTombstones: async () => [],
   listContainerDocumentSidebarWindow: async () => ({ rows: [], totalCount: 0 }),
   listContainerItemWindow: async () => ({ rows: [], totalCount: 0 }),
+  listPendingWrites: async () => [],
   loadContainerDocumentWatermark: async () => null,
   loadDocumentSyncState: async () => null,
   loadDocumentSummary: async () => null,

@@ -1,11 +1,11 @@
 ---
 name: ship-pr
-description: Ship the current branch end-to-end — open or resume a PR, cross-agent review and repair it, squash-merge the exact reviewed commit, then return to the base branch and delete the merged branch
+description: Ship current work end-to-end — branch from the updated default branch when needed, open or resume a PR, cross-agent review and repair it, squash-merge the exact reviewed commit, then return to the base branch and delete the merged branch
 ---
 
 # Ship PR
 
-Run the full ship flow for the current branch: **open or resume a PR**, get a
+Run the full ship flow for the current work: **prepare, open, or resume a PR**, get a
 **cross-agent review** that repairs its own blocking findings, then
 **squash-merge** and clean up. Delegate PR creation, the review-and-repair loop,
 and the final merge to the `open-pr`, `cross-agent-review`, and `squash-merge`
@@ -54,24 +54,23 @@ belongs to `squash-merge`, which runs it only after GitHub confirms the PR is
 - `git` and `gh` (authenticated) on `PATH`.
 - The `@tearleads/agent-tool` package: `packages/agent-tool/src/index.ts`.
 - `node_modules` installed (`bun install`) so the commitlint CLI is available.
-- The current branch is a **feature branch** (not the default branch).
 - The worktree contains only changes intended for this PR. A PR may already be
   open; this is how a prior gated run resumes after fixes.
 
-Each wrapped skill re-checks its own preconditions; this skill only fails fast up
-front when the branch is the default branch or the tool is missing.
+The flow may start on the default branch. In that case `open-pr` owns preserving
+the intended work, fast-forwarding the default branch, creating a feature branch,
+and restoring the work there. Each wrapped skill re-checks its own preconditions.
 
 ## Setup
 
 ```bash
 ROOT_DIR=$(git rev-parse --show-toplevel)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
+DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
 AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
 [ -f "$AGENT_TOOL" ] || { echo "Error: agent-tool not found at $AGENT_TOOL" >&2; exit 1; }
+[ -n "$DEFAULT_BRANCH" ] || { echo "Error: repository default branch is unavailable" >&2; exit 1; }
 ```
-
-If `$BRANCH` is the repository's default branch (e.g. `main` or `master`),
-report the error and stop.
 
 ## Workflow
 
@@ -80,9 +79,15 @@ blocking verdict, or an overridden-head mismatch. Let each wrapped skill own its
 mechanics: quoting, commitlint validation, the review fallback chain and repair
 loop, subject-only squash, and `MERGED`-state verification.
 
-1. **Open or resume the PR** — look up an open PR for the current branch.
+1. **Prepare, open, or resume the PR**:
 
-   - If none exists, invoke `open-pr` with the title argument (or none), piping
+   - If `$BRANCH` equals `$DEFAULT_BRANCH`, invoke `open-pr` with the title
+     argument (or none), piping the body via stdin. Let it own the safe
+     default-branch transition; do not duplicate its stash, fetch,
+     fast-forward, branch, restore, preflight, commit, or push mechanics. After
+     it returns, refresh `$BRANCH`, then capture the new PR's number and URL.
+   - Otherwise, look up an open PR for the current branch. If none exists,
+     invoke `open-pr` with the title argument (or none), piping
      the body via stdin. Capture its PR number and URL. Stop if creation fails.
    - If one exists, reuse its number, URL, and title instead of invoking
      `open-pr`. Confirm it targets the expected branch. If intended changes are

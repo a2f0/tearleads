@@ -5,6 +5,7 @@ export type ExplorerRoute =
   | { view: "blob-browser"; blobId: string | null; storageKey: string | null }
   | { view: "sync-lanes" }
   | { view: "sync-lane-detail"; laneKey: string }
+  | { view: "write-queue" }
   | { view: "new-structured-document"; containerId: string }
   | { view: "container-info"; containerId: string }
   | { view: "document-selection"; containerId: string; localId: string }
@@ -118,6 +119,10 @@ export function parseExplorerRouteSegments(
     return parseExplorerSyncRoute(pathSegments);
   }
 
+  if (first === "writes") {
+    return { route: { view: "write-queue" } };
+  }
+
   if (first === "containers") {
     return parseExplorerContainerRoute(pathSegments);
   }
@@ -149,6 +154,10 @@ export function formatExplorerRouteSegments(
 
   if (route.view === "sync-lane-detail") {
     return ["sync", "lanes", route.laneKey];
+  }
+
+  if (route.view === "write-queue") {
+    return ["writes"];
   }
 
   if (route.view === "container-info") {
@@ -183,6 +192,10 @@ export function isExplorerRouteAvailable(
   }
 
   if (route.view === "sync-lane-detail") {
+    return true;
+  }
+
+  if (route.view === "write-queue") {
     return true;
   }
 

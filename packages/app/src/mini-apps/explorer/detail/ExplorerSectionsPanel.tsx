@@ -3,6 +3,7 @@ import type {
   BlobInfoInput,
   BlobInfoList,
   BlobStore,
+  ContainerDocumentQueries,
   ContainerNode,
   DomainScope,
 } from "@tearleads/client-sdk";
@@ -17,8 +18,9 @@ import { EXPLORER_LABELS } from "../labels";
 import type { ExplorerRoute } from "../routes";
 import { ExplorerBlobBrowserPanel } from "./blob/ExplorerBlobBrowserPanel";
 import { ExplorerSyncLanesPanel } from "./sync/ExplorerSyncLanesPanel";
+import { ExplorerWriteQueuePanel } from "./sync/ExplorerWriteQueuePanel";
 
-type ExplorerSectionTabId = "sync" | "blobs";
+type ExplorerSectionTabId = "sync" | "blobs" | "writes";
 
 const EXPLORER_SECTION_TABS: ReadonlyArray<{
   id: ExplorerSectionTabId;
@@ -26,6 +28,7 @@ const EXPLORER_SECTION_TABS: ReadonlyArray<{
 }> = [
   { id: "sync", label: EXPLORER_LABELS.syncLanesAction },
   { id: "blobs", label: EXPLORER_LABELS.blobBrowserAction },
+  { id: "writes", label: EXPLORER_LABELS.writeQueueAction },
 ];
 
 // Roving tabindex per the WAI-ARIA tab pattern (mirrors SystemMonitorTabs): only
@@ -105,7 +108,11 @@ function ExplorerSectionTabBar({
 
 interface ExplorerSectionsPanelProps {
   route: ExplorerRoute;
+  billingBlockedOrganizationId: string | null;
   domainScope: DomainScope;
+  documentListRevision: number;
+  documentQueries: ContainerDocumentQueries;
+  isAuthenticated: boolean;
   onOpenSyncLaneDetailRoute: (laneKey: string) => void;
   openSyncLanesRoute: () => void;
   blobStore: BlobStore;
@@ -117,7 +124,9 @@ interface ExplorerSectionsPanelProps {
     blobId?: string | null | undefined;
     storageKey?: string | null | undefined;
   }) => void;
+  openContainerInfoRoute: (containerId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
+  openWriteQueueRoute: () => void;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
   blobPickTarget: BlobPickTarget | null;
   onCancelBlobPick: () => void;
@@ -125,18 +134,23 @@ interface ExplorerSectionsPanelProps {
 }
 
 /**
- * The full-screen Sync Lanes / Blob Browser hub: a two-tab view over the
- * existing Sync Lanes and Blob Browser panels, rendered in Explorer's main pane
- * when the Sync toolbar action opens the sync/blob route family. The active tab
- * is derived from the route (`blob-browser` -> Blob Browser, otherwise Sync
- * Lanes), and tapping a tab navigates the route so deep links and the back
- * button keep working.
+ * The full-screen Explorer diagnostics hub: route-backed tabs for transient
+ * sync-lane telemetry, local blob state, and durable pending writes.
  */
 export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
   const idPrefix = useId();
-  const { openBlobBrowserRoute, openSyncLanesRoute, route } = params;
+  const {
+    openBlobBrowserRoute,
+    openSyncLanesRoute,
+    openWriteQueueRoute,
+    route,
+  } = params;
   const activeTab: ExplorerSectionTabId =
-    route.view === "blob-browser" ? "blobs" : "sync";
+    route.view === "blob-browser"
+      ? "blobs"
+      : route.view === "write-queue"
+        ? "writes"
+        : "sync";
 
   const selectTab = useCallback(
     (tab: ExplorerSectionTabId) => {
@@ -144,9 +158,13 @@ export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
         openBlobBrowserRoute();
         return;
       }
+      if (tab === "writes") {
+        openWriteQueueRoute();
+        return;
+      }
       openSyncLanesRoute();
     },
-    [openBlobBrowserRoute, openSyncLanesRoute],
+    [openBlobBrowserRoute, openSyncLanesRoute, openWriteQueueRoute],
   );
 
   return (
@@ -176,6 +194,19 @@ export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
             pickTarget={params.blobPickTarget}
             route={route}
             selectDocumentProjection={params.selectDocumentProjection}
+          />
+        ) : route.view === "write-queue" ? (
+          <ExplorerWriteQueuePanel
+            billingBlockedOrganizationId={params.billingBlockedOrganizationId}
+            documentListRevision={params.documentListRevision}
+            documentQueries={params.documentQueries}
+            domainScope={params.domainScope}
+            isAuthenticated={params.isAuthenticated}
+            nodes={params.nodes}
+            online={params.online}
+            openContainerInfoRoute={params.openContainerInfoRoute}
+            openDocumentInfoRoute={params.openDocumentInfoRoute}
+            organizationNamesById={params.organizationNamesById}
           />
         ) : (
           <ExplorerSyncLanesPanel

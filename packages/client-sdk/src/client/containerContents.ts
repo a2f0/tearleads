@@ -99,6 +99,14 @@ export type {
 } from "../workflows/container-contents/documentQueries";
 export type { SetLinkedContainerIdsForDocument } from "../workflows/container-contents/documentStructure";
 export type {
+  PendingWriteQueueItem,
+  PendingWriteQueueItemStatus,
+  PendingWriteQueueObjectKind,
+  PendingWriteQueueOperation,
+  PendingWriteQueueOperationKind,
+  PendingWriteQueueOperationStatus,
+} from "../workflows/container-contents/pendingWrites";
+export type {
   ContainerDocumentObjectSyncState,
   ContainerDocumentObjectSyncStatus,
 } from "../workflows/container-contents/syncState";

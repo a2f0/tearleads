@@ -7,9 +7,9 @@ import { EXPLORER_LABELS } from "./labels";
 
 type ExplorerModel = ReturnType<typeof useExplorerModel>;
 
-// Toolbar navigation for the full-screen Sync Lanes / Blob Browser hub: a
-// mirrored pair of actions so each tab surfaces a single one-tap switch to the
-// other, matching the hub's tab bar.
+// Toolbar navigation for the full-screen diagnostics hub. Sync stays the
+// persistent entry point outside its own tab; the tab bar owns navigation among
+// Sync Lanes, Blob Browser, and Write Queue once the hub is open.
 
 function isOnSyncTab(route: ExplorerModel["routeState"]["route"]): boolean {
   return route.view === "sync-lanes" || route.view === "sync-lane-detail";

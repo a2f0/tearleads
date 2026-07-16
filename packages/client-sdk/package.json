@@ -1,7 +1,7 @@
 {
   "name": "@tearleads/client-sdk",
   "version": "0.1.0",
-  "description": "React-free Tearleads client runtime with a trusted user-identity facade, domain services, and attribution diagnostics.",
+  "description": "React-free Tearleads client runtime with a trusted user-identity facade, domain services, and attribution and pending-write diagnostics.",
   "private": true,
   "sideEffects": false,
   "type": "module",

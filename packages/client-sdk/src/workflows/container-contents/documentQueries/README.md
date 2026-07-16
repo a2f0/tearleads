@@ -8,6 +8,8 @@ document projections.
 - `sql.ts` builds the SQLite fragments used by paged container and document
   windows.
 - `rows.ts` maps SQLite rows into query DTOs and sync-state summaries.
+- `../pendingWrites.ts` composes the identity-wide pending-write diagnostic;
+  `../pendingWrites/` owns its source queries, Loro coverage check, and grouping.
 
 Keep the public query interface, persistence adapters, and runtime facade
 wiring in `../documentQueries.ts`.

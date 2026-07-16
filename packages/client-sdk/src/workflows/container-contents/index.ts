@@ -95,6 +95,15 @@ export {
   syncContainerMetadataState,
 } from "./metadata";
 export {
+  listPendingWrites,
+  type PendingWriteQueueItem,
+  type PendingWriteQueueItemStatus,
+  type PendingWriteQueueObjectKind,
+  type PendingWriteQueueOperation,
+  type PendingWriteQueueOperationKind,
+  type PendingWriteQueueOperationStatus,
+} from "./pendingWrites";
+export {
   type ContainerContentsProjectionUserKeyResolver,
   createContainerContentsDocumentProjectionUserKeyResolver,
   createContainerContentsProjectionUserKeyResolver,

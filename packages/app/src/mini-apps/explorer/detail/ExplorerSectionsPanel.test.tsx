@@ -1,5 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
-import type { BlobStore } from "@tearleads/client-sdk";
+import type {
+  BlobStore,
+  ContainerDocumentQueries,
+} from "@tearleads/client-sdk";
 import { createDomainScope } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { EXPLORER_LABELS } from "../labels";
@@ -22,13 +25,21 @@ function renderSectionsPanel(
     onOpenSyncLaneDetailRoute?: (laneKey: string) => void;
     openBlobBrowserRoute?: () => void;
     openSyncLanesRoute?: () => void;
+    openWriteQueueRoute?: () => void;
   } = {},
 ) {
+  const documentQueries = {
+    listPendingWrites: async () => [],
+  } as unknown as ContainerDocumentQueries;
   return render(
     <ExplorerSectionsPanel
+      billingBlockedOrganizationId={null}
       blobPickTarget={null}
       blobStore={createBlobStore()}
+      documentListRevision={0}
+      documentQueries={documentQueries}
       domainScope={createDomainScope()}
+      isAuthenticated={true}
       loadBlobInfo={async () => ({ rows: [], totalCount: 0 })}
       nodes={[]}
       onCancelBlobPick={() => undefined}
@@ -39,15 +50,17 @@ function renderSectionsPanel(
       online={true}
       organizationNamesById={new Map()}
       openBlobBrowserRoute={overrides.openBlobBrowserRoute ?? (() => undefined)}
+      openContainerInfoRoute={() => undefined}
       openDocumentInfoRoute={() => undefined}
       openSyncLanesRoute={overrides.openSyncLanesRoute ?? (() => undefined)}
+      openWriteQueueRoute={overrides.openWriteQueueRoute ?? (() => undefined)}
       route={route}
       selectDocumentProjection={() => undefined}
     />,
   );
 }
 
-test("the default (selection) route shows both tabs with Sync Lanes active", () => {
+test("the default route shows all diagnostics tabs with Sync Lanes active", () => {
   const view = renderSectionsPanel({ view: "selection" });
 
   expect(
@@ -58,6 +71,28 @@ test("the default (selection) route shows both tabs with Sync Lanes active", () 
   expect(
     view
       .getByRole("tab", { name: EXPLORER_LABELS.blobBrowserAction })
+      .getAttribute("aria-selected"),
+  ).toBe("false");
+  expect(
+    view
+      .getByRole("tab", { name: EXPLORER_LABELS.writeQueueAction })
+      .getAttribute("aria-selected"),
+  ).toBe("false");
+});
+
+test("the write-queue route marks the Write Queue tab active", async () => {
+  const view = renderSectionsPanel({ view: "write-queue" });
+
+  await waitFor(() => {
+    expect(
+      view
+        .getByRole("tab", { name: EXPLORER_LABELS.writeQueueAction })
+        .getAttribute("aria-selected"),
+    ).toBe("true");
+  });
+  expect(
+    view
+      .getByRole("tab", { name: EXPLORER_LABELS.syncLanesAction })
       .getAttribute("aria-selected"),
   ).toBe("false");
 });
@@ -111,6 +146,20 @@ test("arrow keys move the active tab and navigate", () => {
     { key: "ArrowRight" },
   );
   expect(opened).toEqual(["blobs"]);
+});
+
+test("End moves selection to the Write Queue tab", () => {
+  const opened: string[] = [];
+  const view = renderSectionsPanel(
+    { view: "sync-lanes" },
+    { openWriteQueueRoute: () => opened.push("writes") },
+  );
+
+  fireEvent.keyDown(
+    view.getByRole("tab", { name: EXPLORER_LABELS.syncLanesAction }),
+    { key: "End" },
+  );
+  expect(opened).toEqual(["writes"]);
 });
 
 test("the embedded Sync Lanes panel drops the back-to-Explorer action", () => {

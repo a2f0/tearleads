@@ -116,6 +116,9 @@ function ExplorerRouteSelectionHarness() {
       <button type="button" onClick={routeState.navigateBackFromBlobBrowser}>
         Blob Back
       </button>
+      <button type="button" onClick={routeState.openWriteQueueRoute}>
+        Open Writes
+      </button>
       <button
         type="button"
         onClick={() =>
@@ -164,6 +167,17 @@ function renderExplorerRouteSelectionHarness(
     </WindowStateProvider>,
   );
 }
+
+test("write queue opener updates the routed path", async () => {
+  const view = renderExplorerRouteSelectionHarness("routed");
+
+  fireEvent.click(view.getByRole("button", { name: "Open Writes" }));
+
+  await waitFor(() => {
+    expect(view.getByTestId("route-view").textContent).toBe("write-queue");
+    expect(window.location.pathname).toBe("/app/explorer/writes");
+  });
+});
 
 test("document route sync preserves pending sidebar document selection", async () => {
   const view = renderExplorerRouteSelectionHarness("routed");

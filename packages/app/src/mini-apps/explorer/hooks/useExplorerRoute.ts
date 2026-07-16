@@ -23,6 +23,7 @@ export interface ExplorerRouteState {
   openNewStructuredDocumentRoute: (containerId: string) => void;
   openSyncLaneDetailRoute: (laneKey: string) => void;
   openSyncLanesRoute: () => void;
+  openWriteQueueRoute: () => void;
   selectExplorerDocument: (localId: string, containerId: string) => void;
   selectExplorerItem: (id: string | null) => void;
   showSelectionRoute: () => void;
@@ -255,6 +256,10 @@ function useExplorerRouteActions(params: {
     [setRoute],
   );
 
+  const openWriteQueueRoute = useCallback(() => {
+    setRoute({ view: "write-queue" }, undefined);
+  }, [setRoute]);
+
   const openContainerInfoRoute = useCallback(
     (containerId: string) => {
       setSelectedId(containerId);
@@ -285,6 +290,7 @@ function useExplorerRouteActions(params: {
     openNewStructuredDocumentRoute,
     openSyncLaneDetailRoute,
     openSyncLanesRoute,
+    openWriteQueueRoute,
     route,
     selectExplorerDocument,
     selectExplorerItem,

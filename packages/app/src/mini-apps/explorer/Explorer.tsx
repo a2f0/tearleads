@@ -12,6 +12,7 @@ import {
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { downloadResolvedAttachment } from "../../document-types/shared/fileDownload";
 import { useAppNavigationState } from "../../navigation/AppNavigationProvider";
+import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
 import { useAppFeatureFlags } from "../../providers/feature-flags/AppFeatureFlagsProvider";
 import { useAppHostConfig } from "../../providers/host/AppHostConfigProvider";
@@ -87,6 +88,7 @@ type ExplorerBlobPickState = ReturnType<typeof useBlobPick>;
 
 interface BlobPickPanelProps {
   appData: RuntimeSnapshot;
+  billingBlockedOrganizationId: string | null;
   databaseError: boolean;
   model: ExplorerModel;
   resolveAttributionUserLabel: ExplorerAttributionUserLabelResolver;
@@ -115,14 +117,14 @@ function renderExplorerDetailPanelWithBlobPick(
     resolveAttributionUserLabel,
     showLinkedDocumentActivationControls,
   } = params;
-  const { cancelBlobPick, pickTarget, resolveBlobPick } = blobPick;
 
   return (
     <ExplorerDetailPanel
       activateLinkedContainer={model.activateLinkedContainer}
       attributionUserLabelResolver={resolveAttributionUserLabel}
-      blobPickTarget={pickTarget}
+      blobPickTarget={blobPick.pickTarget}
       blobStore={appData.infra.blobStore}
+      billingBlockedOrganizationId={params.billingBlockedOrganizationId}
       databaseError={databaseError}
       onRetryDatabase={onRetryDatabase}
       canActivateLinkedContainer={appData.infra.dbStatus === "ready"}
@@ -139,6 +141,7 @@ function renderExplorerDetailPanelWithBlobPick(
       domainScope={appData.state.domainScope}
       importDroppedFiles={model.importDroppedFiles}
       initialEditingSelectedDocument={model.selectedDocumentStartsInEditMode}
+      isAuthenticated={appData.auth.isAuthenticated}
       linkedContainerIdsByDocumentId={model.linkedContainerIdsByDocumentId}
       loadBlobInfo={model.loadBlobInfo}
       loadContainerInfo={model.loadContainerInfo}
@@ -148,20 +151,22 @@ function renderExplorerDetailPanelWithBlobPick(
       nodes={model.explorer.nodes}
       online={appData.state.online}
       organizationNamesById={model.organizationNamesById}
-      onCancelBlobPick={cancelBlobPick}
+      onCancelBlobPick={blobPick.cancelBlobPick}
       onContainerContextMenu={model.contextMenuState.handleContainerContextMenu}
       onItemContextMenu={model.contextMenuState.handleItemContextMenu}
       onBackToSelectionRoute={model.routeState.showSelectionRoute}
       openSyncLanesRoute={model.routeState.openSyncLanesRoute}
       onOpenGrant={onOpenGrant}
       onOpenSyncLaneDetailRoute={model.routeState.openSyncLaneDetailRoute}
-      onPickBlob={resolveBlobPick}
+      onPickBlob={blobPick.resolveBlobPick}
       openInlineDocument={model.openInlineDocument}
       onInitialEditingSelectedDocumentConsumed={
         model.consumeInitialDocumentEditing
       }
       openBlobBrowserRoute={model.routeState.openBlobBrowserRoute}
+      openContainerInfoRoute={model.routeState.openContainerInfoRoute}
       openDocumentInfoRoute={model.routeState.openDocumentInfoRoute}
+      openWriteQueueRoute={model.routeState.openWriteQueueRoute}
       peerUserId={model.peerUserId}
       ready={model.explorer.ready}
       refreshError={model.refreshError}
@@ -209,6 +214,7 @@ export function Explorer() {
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Explorer composes the mini-app shell from model state.
 function ExplorerContent() {
   const appData = useTearleadsRuntime();
+  const billing = useOrganizationBilling();
   const { history, mode: navigationMode } = useAppNavigationState();
   const hostConfig = useAppHostConfig();
   const explorer = useExplorer();
@@ -220,6 +226,10 @@ function ExplorerContent() {
   // status (workflowRuntime sets it from database.status); "error" = boot failed.
   const { clearWorker } = useDatabase();
   const databaseError = appData.infra.dbStatus === "error";
+  const billingBlockedOrganizationId =
+    billing.view && !billing.view.canSync
+      ? (billing.billing?.organizationId ?? null)
+      : null;
   const retryDatabaseBoot = useCallback(() => {
     // A failed boot leaves the database at the terminal "error" status with the
     // worker handle still set, so re-spawning directly would no-op. clearWorker
@@ -395,6 +405,7 @@ function ExplorerContent() {
       >
         <ExplorerDetailPanelWithBlobPick
           appData={appData}
+          billingBlockedOrganizationId={billingBlockedOrganizationId}
           databaseError={databaseError}
           model={model}
           resolveAttributionUserLabel={resolveAttributionUserLabel}
