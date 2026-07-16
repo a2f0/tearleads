@@ -57,8 +57,12 @@ function ExplorerSyncLaneInfoRow(params: {
   );
 }
 
-function ExplorerSyncLaneGeneralSection(params: { lane: SyncLaneSnapshot }) {
+function ExplorerSyncLaneGeneralSection(params: {
+  lane: SyncLaneSnapshot;
+  onOpenBlobDetail?: ((storageKey: string) => void) | undefined;
+}) {
   const { lane } = params;
+  const blobStorageKey = lane.blobStorageKey;
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.syncLanesGeneralHeading}>
@@ -108,6 +112,21 @@ function ExplorerSyncLaneGeneralSection(params: { lane: SyncLaneSnapshot }) {
           >
             {formatSyncLaneProgressPercent(lane)}
           </ExplorerSyncLaneInfoRow>
+          {blobStorageKey !== null && params.onOpenBlobDetail ? (
+            <ExplorerSyncLaneInfoRow
+              label={EXPLORER_LABELS.syncLanesBlobRow}
+              title={blobStorageKey}
+            >
+              <MiniAppButton
+                variant="ghost"
+                onClick={() => {
+                  params.onOpenBlobDetail?.(blobStorageKey);
+                }}
+              >
+                {EXPLORER_LABELS.syncLanesOpenBlobAction}
+              </MiniAppButton>
+            </ExplorerSyncLaneInfoRow>
+          ) : null}
         </tbody>
       </MiniAppInfoTable>
     </MiniAppInfoSection>
@@ -296,6 +315,7 @@ function ExplorerSyncLaneDetailTabPanel(params: {
   activeTab: SyncLaneDetailTabId;
   idPrefix: string;
   lane: SyncLaneSnapshot;
+  onOpenBlobDetail?: ((storageKey: string) => void) | undefined;
   snapshot: DomainSyncSnapshot;
 }) {
   const { activeTab, lane, snapshot } = params;
@@ -308,7 +328,10 @@ function ExplorerSyncLaneDetailTabPanel(params: {
       role="tabpanel"
     >
       {activeTab === "general" ? (
-        <ExplorerSyncLaneGeneralSection lane={lane} />
+        <ExplorerSyncLaneGeneralSection
+          lane={lane}
+          onOpenBlobDetail={params.onOpenBlobDetail}
+        />
       ) : null}
       {activeTab === "timing" ? (
         <ExplorerSyncLaneTimingSection lane={lane} />
@@ -325,6 +348,7 @@ function ExplorerSyncLaneDetailTabPanel(params: {
 
 export function ExplorerSyncLaneDetail(params: {
   laneKey: string;
+  onOpenBlobDetail?: ((storageKey: string) => void) | undefined;
   snapshot: DomainSyncSnapshot;
 }) {
   const [activeTab, setActiveTab] = useState<SyncLaneDetailTabId>("general");
@@ -367,6 +391,7 @@ export function ExplorerSyncLaneDetail(params: {
         activeTab={resolvedTab}
         idPrefix={tabIdPrefix}
         lane={lane}
+        onOpenBlobDetail={params.onOpenBlobDetail}
         snapshot={params.snapshot}
       />
     </div>

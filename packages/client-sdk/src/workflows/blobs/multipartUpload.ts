@@ -30,12 +30,9 @@ interface MultipartPartUploadTask {
   readonly partNumber: number;
 }
 
-interface ApiFailureReporter {
-  getRequestFailure?: (input: {
-    method: "DELETE" | "GET" | "POST" | "PUT";
-    path: string;
-  }) => { readonly message: string } | null;
-}
+type RequestFailureInput = Parameters<
+  NonNullable<BlobAttachmentApi["getRequestFailure"]>
+>[0];
 
 function isAsciiString(value: string): boolean {
   for (let index = 0; index < value.length; index += 1) {
@@ -46,12 +43,6 @@ function isAsciiString(value: string): boolean {
   }
 
   return true;
-}
-
-function isApiFailureReporter(
-  apiClient: BlobAttachmentApi,
-): apiClient is BlobAttachmentApi & ApiFailureReporter {
-  return typeof Reflect.get(apiClient, "getRequestFailure") === "function";
 }
 
 function pathSegment(value: number | string): string {
@@ -73,12 +64,8 @@ function multipartPartPath(input: {
 
 function describeRequestFailure(
   apiClient: BlobAttachmentApi,
-  request: Parameters<NonNullable<ApiFailureReporter["getRequestFailure"]>>[0],
+  request: RequestFailureInput,
 ): string | null {
-  if (!isApiFailureReporter(apiClient)) {
-    return null;
-  }
-
   const failure = apiClient.getRequestFailure?.(request);
   return failure?.message ?? null;
 }
@@ -86,9 +73,7 @@ function describeRequestFailure(
 function multipartApiFailureMessage(input: {
   readonly apiClient: BlobAttachmentApi;
   readonly fallback: string;
-  readonly request: Parameters<
-    NonNullable<ApiFailureReporter["getRequestFailure"]>
-  >[0];
+  readonly request: RequestFailureInput;
 }): string {
   const failure = describeRequestFailure(input.apiClient, input.request);
   return failure
@@ -162,6 +147,7 @@ async function uploadMultipartPartTasks(input: {
   readonly uploadId: string;
 }): Promise<void> {
   let failed = false;
+  let firstFailure: { readonly error: unknown } | undefined;
   let nextTaskIndex = 0;
 
   async function worker(): Promise<void> {
@@ -216,15 +202,20 @@ async function uploadMultipartPartTasks(input: {
         input.onPartUploaded?.(task);
       } catch (error) {
         // Stop sibling workers from pulling new tasks and firing more uploads
-        // once any part rejects; rethrow so Promise.all still surfaces it.
+        // once any part rejects. Keep this worker alive long enough for the
+        // shared join below to drain uploads siblings already started.
         failed = true;
-        throw error;
+        firstFailure ??= { error };
+        return;
       }
     }
   }
 
   const workerCount = Math.min(input.concurrency, input.tasks.length);
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  if (firstFailure) {
+    throw firstFailure.error;
+  }
 }
 
 async function uploadMultipartPartBytes(input: {
@@ -340,6 +331,25 @@ async function resolveMultipartStageStatus(input: {
   const resumeStageId = input.multipart.resumeStageId;
   if (resumeStageId) {
     const resumed = await input.apiClient.getMultipartBlobStage(resumeStageId);
+    if (!resumed) {
+      const request = {
+        method: "GET" as const,
+        path: multipartStagePath(resumeStageId),
+      };
+      const failure = input.apiClient.getRequestFailure?.(request);
+      const stageIsGone =
+        failure?.kind === "http" &&
+        (failure.status === 404 || failure.status === 409);
+      if (!stageIsGone) {
+        throw new Error(
+          multipartApiFailureMessage({
+            apiClient: input.apiClient,
+            fallback: `Multipart blob resume stage lookup failed for stage ${resumeStageId}.`,
+            request,
+          }),
+        );
+      }
+    }
     // Only resume when the stage still exists AND was opened for the same bytes.
     // A sha256 mismatch means the upload no longer reproduces the staged content
     // (or the stage was recycled), so opening a fresh stage is safer than
@@ -403,15 +413,21 @@ export async function stageMultipartBlobAttachment(input: {
     partSize: input.multipart.partSize,
     stageId: status.stageId,
   });
-  if (status.completed) {
-    return status.stageId;
-  }
-
   const encryptedParts = splitEncryptedBytesIntoParts(
     input.encryptedBytes,
     input.multipart.partSize,
   );
   assertMultipartPartLimit(encryptedParts);
+  if (status.completed) {
+    input.onMultipartProgress?.({
+      bytesTotal: input.encryptedBytes.length,
+      bytesUploaded: input.encryptedBytes.length,
+      partsCompleted: encryptedParts.length,
+      partsTotal: encryptedParts.length,
+    });
+    return status.stageId;
+  }
+
   const { completeParts, progress, uploadTasks } = planMultipartParts({
     encryptedParts,
     uploadedParts: uploadedPartsByPartNumber(status.uploadedParts),

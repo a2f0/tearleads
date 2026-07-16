@@ -99,10 +99,90 @@ describe("stageMultipartBlobAttachment", () => {
     );
   });
 
+  test("drains active sibling uploads before surfacing the first failure", async () => {
+    let releaseFirstPart: (() => void) | undefined;
+    const firstPartBlocked = new Promise<void>((resolve) => {
+      releaseFirstPart = resolve;
+    });
+    let observeSecondPartFailure: (() => void) | undefined;
+    const secondPartFailed = new Promise<void>((resolve) => {
+      observeSecondPartFailure = resolve;
+    });
+    const uploadedPartNumbers: number[] = [];
+    const progressParts: number[] = [];
+    let completed = false;
+
+    const upload = stageMultipartBlobAttachment({
+      apiClient: {
+        bindBlobAttachment: async () => null,
+        completeMultipartBlobStage: async () => {
+          completed = true;
+          return null;
+        },
+        getDocumentWriterProjection: async () => null,
+        getMultipartBlobStage: async () => null,
+        initiateMultipartBlobStage: async () => ({
+          byteLength: 4,
+          expiresAt: "2026-04-27T01:00:00.000Z",
+          sha256: "sha256",
+          stageId: "stage-drain",
+          uploadedParts: [],
+          uploadId: "upload-drain",
+        }),
+        stageBlob: async () => null,
+        uploadMultipartBlobPart: async (stageId, partNumber, request) => {
+          uploadedPartNumbers.push(partNumber);
+          if (partNumber === 2) {
+            observeSecondPartFailure?.();
+            throw new Error("part 2 network failure");
+          }
+
+          await firstPartBlocked;
+          return {
+            part: { byteLength: 1, etag: "etag-1", partNumber },
+            stageId,
+            uploadId: request.uploadId,
+          };
+        },
+      },
+      byteLength: 4,
+      encryptedBytes: "abcd",
+      multipart: { partSize: 1, uploadConcurrency: 2 },
+      onMultipartProgress: ({ partsCompleted }) => {
+        progressParts.push(partsCompleted);
+      },
+      sha256: "sha256",
+    });
+    let settled = false;
+    void upload.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+
+    await secondPartFailed;
+    await Promise.resolve();
+    expect(uploadedPartNumbers).toEqual([1, 2]);
+    expect(settled).toBe(false);
+
+    releaseFirstPart?.();
+    await expect(upload).rejects.toThrow("part 2 network failure");
+    expect(uploadedPartNumbers).toEqual([1, 2]);
+    expect(progressParts).toEqual([0, 1]);
+    expect(completed).toBe(false);
+  });
+
   test("resumes an existing stage and skips already-uploaded parts", async () => {
     const initiateCalls: number[] = [];
     const uploadedPartNumbers: number[] = [];
     const resolvedStages: Array<{ partSize: number; stageId: string }> = [];
+    const progress: Array<{
+      bytesUploaded: number;
+      partsCompleted: number;
+    }> = [];
     const stageId = await stageMultipartBlobAttachment({
       apiClient: {
         bindBlobAttachment: async () => null,
@@ -143,6 +223,9 @@ describe("stageMultipartBlobAttachment", () => {
       byteLength: 6,
       encryptedBytes: "abcdef",
       multipart: { partSize: 3, resumeStageId: "stage-resume" },
+      onMultipartProgress: ({ bytesUploaded, partsCompleted }) => {
+        progress.push({ bytesUploaded, partsCompleted });
+      },
       onStageResolved: (input) => {
         resolvedStages.push(input);
       },
@@ -154,52 +237,160 @@ describe("stageMultipartBlobAttachment", () => {
     expect(initiateCalls).toEqual([]);
     // ...and the part the server already had was not re-uploaded.
     expect(uploadedPartNumbers).toEqual([2]);
+    // Progress is cumulative across attempts: the first update includes the
+    // part the server already had, and the final update describes the file.
+    expect(progress).toEqual([
+      { bytesUploaded: 3, partsCompleted: 1 },
+      { bytesUploaded: 6, partsCompleted: 2 },
+    ]);
     expect(resolvedStages).toEqual([{ partSize: 3, stageId: "stage-resume" }]);
   });
 
-  test("opens a fresh stage when the resume target is gone", async () => {
-    const resolvedStages: Array<{ partSize: number; stageId: string }> = [];
+  test("opens a fresh stage only when the resume target is gone", async () => {
+    const openFreshStage = async (status: 404 | 409) => {
+      const resolvedStages: Array<{ partSize: number; stageId: string }> = [];
+      const stageId = await stageMultipartBlobAttachment({
+        apiClient: {
+          bindBlobAttachment: async () => null,
+          completeMultipartBlobStage: async (id) => ({
+            byteLength: 6,
+            expiresAt: "2026-04-27T01:00:00.000Z",
+            sha256: "sha256",
+            stageId: id,
+          }),
+          getDocumentWriterProjection: async () => null,
+          getRequestFailure: () => ({
+            kind: "http",
+            message: `GET stage-missing: ${status}`,
+            status,
+          }),
+          getMultipartBlobStage: async () => null,
+          initiateMultipartBlobStage: async () => ({
+            byteLength: 6,
+            expiresAt: "2026-04-27T01:00:00.000Z",
+            sha256: "sha256",
+            stageId: "stage-fresh",
+            uploadedParts: [],
+            uploadId: "upload-fresh",
+          }),
+          stageBlob: async () => null,
+          uploadMultipartBlobPart: async (id, partNumber, input) => ({
+            part: {
+              byteLength: input.encryptedBytes.length,
+              etag: `etag-${partNumber}`,
+              partNumber,
+            },
+            stageId: id,
+            uploadId: input.uploadId,
+          }),
+        },
+        byteLength: 6,
+        encryptedBytes: "abcdef",
+        multipart: { partSize: 3, resumeStageId: "stage-missing" },
+        onStageResolved: (input) => {
+          resolvedStages.push(input);
+        },
+        sha256: "sha256",
+      });
+
+      expect(stageId).toBe("stage-fresh");
+      expect(resolvedStages).toEqual([{ partSize: 3, stageId: "stage-fresh" }]);
+    };
+
+    await openFreshStage(404);
+    await openFreshStage(409);
+  });
+
+  test("preserves a resumed stage after transient status lookup failures", async () => {
+    const failures = [
+      { kind: "network", message: "fetch failed", status: null },
+      { kind: "http", message: "503 Service Unavailable", status: 503 },
+      { kind: "shape", message: "Invalid response shape", status: 200 },
+    ] as const;
+
+    for (const failure of failures) {
+      let initiateCalls = 0;
+      let resolvedCalls = 0;
+      await expect(
+        stageMultipartBlobAttachment({
+          apiClient: {
+            bindBlobAttachment: async () => null,
+            completeMultipartBlobStage: async () => null,
+            getDocumentWriterProjection: async () => null,
+            getMultipartBlobStage: async () => null,
+            getRequestFailure: () => failure,
+            initiateMultipartBlobStage: async () => {
+              initiateCalls += 1;
+              return null;
+            },
+            stageBlob: async () => null,
+            uploadMultipartBlobPart: async () => null,
+          },
+          byteLength: 3,
+          encryptedBytes: "abc",
+          multipart: { partSize: 3, resumeStageId: "stage-preserved" },
+          onStageResolved: () => {
+            resolvedCalls += 1;
+          },
+          sha256: "sha256",
+        }),
+      ).rejects.toThrow(failure.message);
+      expect(initiateCalls).toBe(0);
+      expect(resolvedCalls).toBe(0);
+    }
+  });
+
+  test("reports full progress when a resumed stage is already complete", async () => {
+    const progress: Array<{
+      bytesTotal: number;
+      bytesUploaded: number;
+      partsCompleted: number;
+      partsTotal: number;
+    }> = [];
     const stageId = await stageMultipartBlobAttachment({
       apiClient: {
         bindBlobAttachment: async () => null,
-        completeMultipartBlobStage: async (id) => ({
-          byteLength: 6,
-          expiresAt: "2026-04-27T01:00:00.000Z",
-          sha256: "sha256",
-          stageId: id,
-        }),
+        completeMultipartBlobStage: async () => {
+          throw new Error("Completed stage must not be completed again");
+        },
         getDocumentWriterProjection: async () => null,
-        getMultipartBlobStage: async () => null,
-        initiateMultipartBlobStage: async () => ({
-          byteLength: 6,
+        getMultipartBlobStage: async (id) => ({
+          byteLength: 10,
+          completed: true,
           expiresAt: "2026-04-27T01:00:00.000Z",
           sha256: "sha256",
-          stageId: "stage-fresh",
-          uploadedParts: [],
-          uploadId: "upload-fresh",
-        }),
-        stageBlob: async () => null,
-        uploadMultipartBlobPart: async (id, partNumber, input) => ({
-          part: {
-            byteLength: input.encryptedBytes.length,
-            etag: `etag-${partNumber}`,
-            partNumber,
-          },
           stageId: id,
-          uploadId: input.uploadId,
+          uploadId: "upload-completed",
+          uploadedParts: Array.from({ length: 7 }, (_, index) => ({
+            byteLength: 1,
+            etag: `etag-${index + 1}`,
+            partNumber: index + 1,
+          })),
         }),
+        initiateMultipartBlobStage: async () => {
+          throw new Error("Completed stage must not be replaced");
+        },
+        stageBlob: async () => null,
+        uploadMultipartBlobPart: async () => {
+          throw new Error("Completed stage must not upload more parts");
+        },
       },
-      byteLength: 6,
-      encryptedBytes: "abcdef",
-      multipart: { partSize: 3, resumeStageId: "stage-missing" },
-      onStageResolved: (input) => {
-        resolvedStages.push(input);
-      },
+      byteLength: 10,
+      encryptedBytes: "abcdefghij",
+      multipart: { partSize: 1, resumeStageId: "stage-completed" },
+      onMultipartProgress: (event) => progress.push(event),
       sha256: "sha256",
     });
 
-    expect(stageId).toBe("stage-fresh");
-    expect(resolvedStages).toEqual([{ partSize: 3, stageId: "stage-fresh" }]);
+    expect(stageId).toBe("stage-completed");
+    expect(progress).toEqual([
+      {
+        bytesTotal: 10,
+        bytesUploaded: 10,
+        partsCompleted: 10,
+        partsTotal: 10,
+      },
+    ]);
   });
 
   test("opens a fresh stage when the resumed stage was opened for different bytes", async () => {

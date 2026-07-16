@@ -74,3 +74,84 @@ test("requestAllDomainSyncLanes publishes the snapshot once for a batch", async 
     timeoutMs: 1_000,
   });
 });
+
+test("requestAllDomainSyncLanes does not fake-complete observational blob uploads", async () => {
+  const domainScope = createDomainScope();
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  let documentRuns = 0;
+  coordinator.registerLane("document:report", {
+    run: async () => {
+      documentRuns += 1;
+    },
+  });
+  const upload = coordinator.beginUploadLane("blob-upload:report", {
+    blobStorageKey: "documents/report.pdf",
+  });
+  upload.reportProgress({
+    bytesTotal: 80,
+    bytesUploaded: 56,
+    partsCompleted: 7,
+    partsTotal: 10,
+  });
+  upload.fail(new Error("network request failed"));
+
+  const before = coordinator
+    .getSnapshot()
+    .lanes.find((lane) => lane.key === "blob-upload:report");
+  expect(before).toMatchObject({
+    requestCount: 0,
+    runCount: 1,
+    status: "error",
+  });
+
+  requestAllDomainSyncLanes(domainScope);
+  expect(
+    await waitForDomainSyncCoordinatorToSettle(domainScope, {
+      quietMs: 0,
+      timeoutMs: 1_000,
+    }),
+  ).toBe(true);
+
+  expect(documentRuns).toBe(1);
+  expect(
+    coordinator
+      .getSnapshot()
+      .lanes.find((lane) => lane.key === "blob-upload:report"),
+  ).toMatchObject({
+    lastError: "network request failed",
+    progress: {
+      bytesTotal: 80,
+      bytesUploaded: 56,
+      partsCompleted: 7,
+      partsTotal: 10,
+    },
+    requestCount: 0,
+    requested: false,
+    runCount: 1,
+    running: false,
+    status: "error",
+  });
+});
+
+test("requestAllDomainSyncLanes leaves running blob uploads under their owner", async () => {
+  const domainScope = createDomainScope();
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  const upload = coordinator.beginUploadLane("blob-upload:running");
+
+  requestAllDomainSyncLanes(domainScope);
+  expect(coordinator.getSnapshot().lanes[0]).toMatchObject({
+    requestCount: 0,
+    requested: false,
+    runCount: 1,
+    running: true,
+    status: "running",
+  });
+
+  upload.complete();
+  expect(
+    await waitForDomainSyncCoordinatorToSettle(domainScope, {
+      quietMs: 0,
+      timeoutMs: 1_000,
+    }),
+  ).toBe(true);
+});

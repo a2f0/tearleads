@@ -25,6 +25,8 @@ export interface SyncLaneProgress {
 }
 
 export interface SyncLaneSnapshot {
+  /** Storage key used to open the associated blob, when this is a blob lane. */
+  blobStorageKey: string | null;
   errorCount: number;
   key: string;
   label: string;
@@ -58,6 +60,7 @@ interface SyncLaneTelemetryConfig {
 }
 
 interface SyncLaneTelemetryState {
+  blobStorageKey: string | null;
   config: SyncLaneTelemetryConfig;
   errorCount: number;
   key: string;
@@ -137,6 +140,7 @@ function createSyncLaneSnapshot(
   state: SyncLaneTelemetryState,
 ): SyncLaneSnapshot {
   return {
+    blobStorageKey: state.blobStorageKey,
     errorCount: state.errorCount,
     key: state.key,
     label: state.config.label ?? state.key,

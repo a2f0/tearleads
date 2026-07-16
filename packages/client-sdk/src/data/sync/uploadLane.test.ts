@@ -27,11 +27,13 @@ test("upload lanes report running, progress, and completion", () => {
   };
 
   const lane = beginDomainSyncUploadLane(domainScope, "blob-upload:slot-1", {
+    blobStorageKey: "blobs/report.pdf",
     label: "Upload report.pdf",
   });
 
   const started = findLane(domainScope, "blob-upload:slot-1");
   expect(started?.phase).toBe("blob");
+  expect(started?.blobStorageKey).toBe("blobs/report.pdf");
   expect(started?.label).toBe("Upload report.pdf");
   expect(started?.status).toBe("running");
   expect(started?.progress).toBeNull();

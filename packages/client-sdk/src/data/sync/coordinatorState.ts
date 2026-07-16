@@ -7,6 +7,7 @@ import type {
 import { createDomainSyncSnapshot } from "./syncTelemetry";
 
 export interface SyncLaneState {
+  blobStorageKey: string | null;
   config: SyncLaneConfig;
   errorCount: number;
   key: string;
@@ -18,6 +19,9 @@ export interface SyncLaneState {
   lastRequestedAt: string | null;
   lastStartedAt: string | null;
   progress: SyncLaneProgress | null;
+  // Registered lanes are driven by the coordinator pump. Blob upload lanes
+  // are observational telemetry driven directly by the upload workflow.
+  pumpDriven: boolean;
   registrationIndex: number;
   requestCount: number;
   requested: boolean;

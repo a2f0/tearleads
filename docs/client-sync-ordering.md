@@ -16,6 +16,12 @@ lanes are `documents:${localId}` lanes. Queued structural work drains before
 queued document work, and a structural follow-up requested during a structural
 pass runs before any queued document pass.
 
+Diagnostics also expose `blob-upload:${blobId}` rows with a `blob` phase. These
+are observational upload telemetry, not a third pump phase: the owning document
+lane performs the work, and upload callbacks update progress and terminal state.
+Manual Sync requests the structural and document owners, never the observational
+rows themselves.
+
 The coordinator is non-preemptive. If a document pass has already started, a
 new structural request waits for that pass to finish. The ordering guarantee is
 for queued work on one client runtime and one domain scope; other devices and
@@ -47,7 +53,9 @@ write document content or blob attachment state.
 ## Document Phase
 
 Each document store has its own `documents:${localId}` lane. Blob attachment
-work is part of that document lane; there is no independent blob sync lane.
+work is part of that document lane; there is no independent pump-driven blob
+sync lane. A separate blob row in diagnostics is only a view of the upload that
+the document lane already owns.
 
 A document pass runs in this order:
 
@@ -77,6 +85,13 @@ and returns before regular Loro sync. This keeps each pass small and ensures
 local attachment projection changes are persisted before the next document
 state sync.
 
+Multipart retries retain a persisted blob identity, encryption material, part
+size, and stage id. A retry resumes only after a definitive stage-status read;
+network and server lookup failures preserve the existing stage. If a bind was
+committed but its response was lost, the next document pass recognizes the same
+blob in the active slot and adopts that binding locally instead of uploading or
+binding a duplicate.
+
 ## Blob Synchronization
 
 Blob synchronization comes into play only inside the document phase.
@@ -104,6 +119,10 @@ error state and returns. The coordinator can then run document lanes; those
 document/blob writes still fail closed if their projections are stale or
 unauthorized. The client can later request structural sync again after remote
 state, credentials, network, or local input changes.
+
+An upload telemetry row becomes complete only when the actual upload workflow
+settles it. Re-running the document owner through Manual Sync cannot directly
+clear a blob error or turn partial part counts into a synthetic completion.
 
 ## Orchestration Boundary
 

@@ -7,9 +7,9 @@ import type {
 } from "@tearleads/client-sdk";
 import {
   createDomainScope,
+  getDomainSyncCoordinatorSnapshot,
   getOrCreateDomainSyncCoordinator,
   syncedContainerDocumentObjectSyncState,
-  waitForDomainSyncCoordinatorToSettle,
 } from "@tearleads/client-sdk";
 import {
   act,
@@ -386,17 +386,9 @@ test("renders the load error state", () => {
   expect(view.getByText(EXPLORER_LABELS.writeQueueFailedToLoad)).toBeTruthy();
 });
 
-test("reloads durable writes automatically when sync work settles", async () => {
+test("reloads a settled write while another sync lane remains active", async () => {
   let queryCount = 0;
   let pendingItems: ReadonlyArray<PendingWriteQueueItem> = [item()];
-  let markLaneStarted: () => void = () => undefined;
-  let releaseLane: () => void = () => undefined;
-  const laneStarted = new Promise<void>((resolve) => {
-    markLaneStarted = resolve;
-  });
-  const laneRelease = new Promise<void>((resolve) => {
-    releaseLane = resolve;
-  });
   const domainScope = createDomainScope();
   const documentQueries = {
     listPendingWrites: async () => {
@@ -404,16 +396,13 @@ test("reloads durable writes automatically when sync work settles", async () => 
       return pendingItems;
     },
   } as unknown as ContainerDocumentQueries;
-  const lane = getOrCreateDomainSyncCoordinator(domainScope).registerLane(
-    "write-queue-reactivity-test",
-    {
-      run: async () => {
-        pendingItems = [];
-        markLaneStarted();
-        await laneRelease;
-      },
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  const activeUpload = coordinator.beginUploadLane("write-queue-active-upload");
+  const lane = coordinator.registerLane("write-queue-settlement-test", {
+    run: async () => {
+      pendingItems = [];
     },
-  );
+  });
   const view = renderPanelLoader(documentQueries, domainScope);
 
   expect(
@@ -421,25 +410,25 @@ test("reloads durable writes automatically when sync work settles", async () => 
   ).toBeTruthy();
   await act(async () => {
     lane.requestSync();
-    await laneStarted;
   });
 
   try {
-    await act(async () => {
-      releaseLane();
-      expect(
-        await waitForDomainSyncCoordinatorToSettle(domainScope, {
-          timeoutMs: 1_000,
-        }),
-      ).toBe(true);
+    await waitFor(() => {
+      expect(queryCount).toBeGreaterThanOrEqual(2);
+      expect(view.getByText(EXPLORER_LABELS.writeQueueEmpty)).toBeTruthy();
     });
+    const snapshot = getDomainSyncCoordinatorSnapshot(domainScope);
+    expect(snapshot.hasPendingWork).toBe(true);
+    expect(
+      snapshot.lanes.find(
+        (snapshotLane) => snapshotLane.key === "write-queue-active-upload",
+      )?.running,
+    ).toBe(true);
   } finally {
-    releaseLane();
+    await act(async () => {
+      activeUpload.complete();
+    });
   }
-  await waitFor(() => {
-    expect(queryCount).toBeGreaterThanOrEqual(2);
-    expect(view.getByText(EXPLORER_LABELS.writeQueueEmpty)).toBeTruthy();
-  });
 });
 
 test("surfaces a durable-write query failure", async () => {

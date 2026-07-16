@@ -40,6 +40,7 @@ export function ExplorerSyncLanesPanelView(params: {
   // embedded, since the compact tabbed hub's tab bar owns top-level navigation.
   embedded?: boolean;
   onBackToSelectionRoute: () => void;
+  onOpenBlobDetail?: ((storageKey: string) => void) | undefined;
   onOpenLaneDetail: (laneKey: string) => void;
   selectedLaneKey: string | null;
   snapshot: DomainSyncSnapshot;
@@ -47,6 +48,7 @@ export function ExplorerSyncLanesPanelView(params: {
   const {
     embedded = false,
     onBackToSelectionRoute,
+    onOpenBlobDetail,
     onOpenLaneDetail,
     selectedLaneKey,
     snapshot,
@@ -82,7 +84,11 @@ export function ExplorerSyncLanesPanelView(params: {
         </MiniAppActions>
       </MiniAppHeader>
       {selectedLaneKey !== null ? (
-        <ExplorerSyncLaneDetail laneKey={selectedLaneKey} snapshot={snapshot} />
+        <ExplorerSyncLaneDetail
+          laneKey={selectedLaneKey}
+          onOpenBlobDetail={onOpenBlobDetail}
+          snapshot={snapshot}
+        />
       ) : (
         <>
           <ExplorerSyncLaneOverview snapshot={snapshot} />
@@ -100,6 +106,7 @@ export function ExplorerSyncLanesPanel(params: {
   embedded?: boolean;
   domainScope: DomainScope;
   onBackToSelectionRoute: () => void;
+  onOpenBlobDetail?: ((storageKey: string) => void) | undefined;
   onOpenLaneDetail: (laneKey: string) => void;
   selectedLaneKey: string | null;
 }) {
@@ -135,6 +142,7 @@ export function ExplorerSyncLanesPanel(params: {
     <ExplorerSyncLanesPanelView
       embedded={params.embedded ?? false}
       onBackToSelectionRoute={params.onBackToSelectionRoute}
+      onOpenBlobDetail={params.onOpenBlobDetail}
       onOpenLaneDetail={params.onOpenLaneDetail}
       selectedLaneKey={params.selectedLaneKey}
       snapshot={snapshot}
