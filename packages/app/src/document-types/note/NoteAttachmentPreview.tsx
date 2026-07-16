@@ -15,9 +15,11 @@ import {
   MiniAppModalBackdrop,
   MiniAppModalPanel,
 } from "../../components/shared/MiniAppLayout";
-// The windowed preview borrows the window manager's own chrome classes so it
-// tracks any change to the floating windows; pull their stylesheets in directly
-// rather than relying on a window happening to be mounted alongside.
+// The windowed preview borrows the window manager's own close control and chrome
+// classes so it tracks any change to the floating windows; pull the title-bar /
+// toolbar stylesheets in directly rather than relying on a window happening to be
+// mounted alongside.
+import { WindowCloseButton } from "../../components/window/WindowCloseButton";
 import "../../components/window/WindowTitleBar.css";
 import "../../components/window/WindowToolBar.css";
 import { useWindowedLayoutActive } from "../../navigation/useRoutedLayoutActive";
@@ -161,7 +163,13 @@ function NoteAttachmentPreviewChrome({
       <>
         <div className="window-titlebar">
           {heading}
-          {closeButton("window-close")}
+          {/* The window manager's own close control, so the title-bar `×`
+              matches every other floating window rather than a look-alike. */}
+          <WindowCloseButton
+            buttonRef={closeButtonRef}
+            label={NOTE_DOCUMENT_LABELS.previewClose}
+            onClick={onClose}
+          />
         </div>
         <div className="window-toolbar" role="toolbar" aria-label="Toolbar">
           <div className="window-toolbar-spacer" />
