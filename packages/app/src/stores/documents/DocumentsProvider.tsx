@@ -130,19 +130,23 @@ export function useDocument(): DocumentContextValue {
       attachmentStatusBySlotId: snapshot.attachmentStatusBySlotId,
       attachmentStorageKeyBySlotId: snapshot.attachmentStorageKeyBySlotId,
       attachFiles: store.attachFiles,
+      addRow: store.addRow,
       // Fold the host read-only flag into both write gates so every editor and
       // attachment control (which all derive from these two booleans) goes
       // read-only for a trashed document even though the viewer still owns it.
       canAttach: snapshot.canAttach && !readOnly,
       canWrite: snapshot.canWrite && !readOnly,
+      currentAuthorId: snapshot.currentAuthorId,
       documentId: snapshot.documentId,
       documentKind: snapshot.documentKind,
       effectiveAccessLevel: snapshot.effectiveAccessLevel,
       fieldValidationIssues: snapshot.fieldValidationIssues,
       ready: snapshot.ready,
+      removeRow: store.removeRow,
       requestSync: store.requestSync,
       relink: store.relink,
       removeAttachment: store.removeAttachment,
+      rows: snapshot.rows,
       setAttachment: store.setAttachment,
       replaceAttachment: store.replaceAttachment,
       setStructuredFields: store.setStructuredFields,
@@ -151,6 +155,7 @@ export function useDocument(): DocumentContextValue {
       title: snapshot.title,
       syncing: snapshot.syncing,
       setText: store.setText,
+      updateRowFields: store.updateRowFields,
     }),
     [snapshot, store, readOnly],
   );

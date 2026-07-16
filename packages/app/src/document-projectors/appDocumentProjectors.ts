@@ -1,4 +1,5 @@
 import { audioDocumentProjectorDefinition } from "../document-types/audio/audioDocumentDefinition";
+import { bloodPressureDocumentProjectorDefinition } from "../document-types/blood-pressure/bloodPressureDocumentDefinition";
 import { contactDocumentProjectorDefinition } from "../document-types/contact/contactDocumentDefinition";
 import { creditCardDocumentProjectorDefinition } from "../document-types/credit-card/creditCardDocumentDefinition";
 import { driverLicenseDocumentProjectorDefinition } from "../document-types/drivers-license/driverLicenseDocumentDefinition";
@@ -36,6 +37,7 @@ export const APP_DOCUMENT_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentProjec
       clientProjection: passportClientProjection,
     },
     envFileDocumentProjectorDefinition,
+    bloodPressureDocumentProjectorDefinition,
     jsonFileDocumentProjectorDefinition,
     imageDocumentProjectorDefinition,
     audioDocumentProjectorDefinition,

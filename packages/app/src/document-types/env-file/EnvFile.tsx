@@ -1,7 +1,9 @@
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
-import { useId, useMemo } from "react";
+import type { DocumentRow } from "@tearleads/client-sdk";
+import { useId } from "react";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
+import { formatRowAttribution } from "../shared/rowAttribution";
 import {
   StructuredDocument,
   StructuredDocumentEditActions,
@@ -10,48 +12,57 @@ import {
   StructuredDocumentReadFields,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
-import {
-  ENV_FILE_VARIABLE_NAME_PATTERN,
-  type EnvFileDocumentFields,
-  type EnvFileVariable,
-  isValidEnvFileVariableName,
-  readEnvFileFields,
-  serializeEnvFileVariables,
-} from "./envFileDocument";
+import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
 import {
   ENV_FILE_DOCUMENT_KIND,
-  ENV_FILE_VARIABLES_FIELD,
+  ENV_FILE_NAME_FIELD,
+  ENV_FILE_VARIABLE_KEY_FIELD,
+  ENV_FILE_VARIABLE_NAME_PATTERN,
+  ENV_FILE_VARIABLE_VALUE_FIELD,
+  isValidEnvFileVariableName,
 } from "./envFileDocumentDefinition";
 import "./EnvFile.css";
 
-let localVariableIdCounter = 0;
+type EnvVariableField =
+  | typeof ENV_FILE_VARIABLE_KEY_FIELD
+  | typeof ENV_FILE_VARIABLE_VALUE_FIELD;
 
-function createLocalVariableId(): string {
-  const randomId = globalThis.crypto?.randomUUID?.();
-  if (randomId) {
-    return randomId;
-  }
+type ReadRowCell = (id: string, field: string, storeValue: string) => string;
 
-  localVariableIdCounter += 1;
-  return `env-${Date.now()}-${localVariableIdCounter}`;
+export interface EnvVariableRow {
+  id: string;
+  key: string;
+  value: string;
+  updatedAt: string;
+  updatedBy: string;
 }
 
-function createBlankVariable(): EnvFileVariable {
-  return {
-    id: createLocalVariableId(),
-    key: "",
-    value: "",
-  };
+function readFileNameField(
+  structuredFields: Readonly<Record<string, string>>,
+): string {
+  const value = structuredFields[ENV_FILE_NAME_FIELD];
+  return typeof value === "string" ? value : "";
 }
 
-function updateVariable(
-  variables: ReadonlyArray<EnvFileVariable>,
-  id: string,
-  patch: Partial<Pick<EnvFileVariable, "key" | "value">>,
-): EnvFileVariable[] {
-  return variables.map((variable) =>
-    variable.id === id ? { ...variable, ...patch } : variable,
-  );
+function toEnvVariableRows(
+  rows: ReadonlyArray<DocumentRow>,
+  readCell: ReadRowCell,
+): EnvVariableRow[] {
+  return rows.map((row) => ({
+    id: row.id,
+    key: readCell(
+      row.id,
+      ENV_FILE_VARIABLE_KEY_FIELD,
+      row.fields[ENV_FILE_VARIABLE_KEY_FIELD] ?? "",
+    ),
+    value: readCell(
+      row.id,
+      ENV_FILE_VARIABLE_VALUE_FIELD,
+      row.fields[ENV_FILE_VARIABLE_VALUE_FIELD] ?? "",
+    ),
+    updatedAt: row.updatedAt,
+    updatedBy: row.updatedBy,
+  }));
 }
 
 const ENV_FILE_EMPTY_VALUE = "None";
@@ -59,45 +70,39 @@ const ENV_FILE_MASKED_VALUE = "********";
 const ENV_FILE_SENSITIVE_KEY_PATTERN =
   /(?:^|_)(?:PASSWORD|PASS|PWD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|ACCESS_KEY)(?:_|$)/u;
 
-function normalizeEnvFileReadValue(value: string | null | undefined): string {
-  return value ?? "";
+function shouldMaskEnvFileVariable(variable: EnvVariableRow): boolean {
+  return ENV_FILE_SENSITIVE_KEY_PATTERN.test(variable.key.trim().toUpperCase());
 }
 
-function getEnvFileReadValue(value: string | null | undefined): string {
-  const normalized = normalizeEnvFileReadValue(value);
-  return normalized.trim().length > 0 ? normalized : ENV_FILE_EMPTY_VALUE;
+function getEnvFileReadValue(value: string): string {
+  return value.trim().length > 0 ? value : ENV_FILE_EMPTY_VALUE;
 }
 
-function shouldMaskEnvFileVariable(
-  variable: Partial<EnvFileVariable>,
-): boolean {
-  return ENV_FILE_SENSITIVE_KEY_PATTERN.test(
-    normalizeEnvFileReadValue(variable.key).trim().toUpperCase(),
-  );
-}
-
-function getEnvFileVariableReadValue(
-  variable: Partial<EnvFileVariable>,
-): string {
-  const value = normalizeEnvFileReadValue(variable.value);
-  if (value.trim().length === 0) {
+function getEnvFileVariableReadValue(variable: EnvVariableRow): string {
+  if (variable.value.trim().length === 0) {
     return ENV_FILE_EMPTY_VALUE;
   }
 
-  return shouldMaskEnvFileVariable(variable) ? ENV_FILE_MASKED_VALUE : value;
+  return shouldMaskEnvFileVariable(variable)
+    ? ENV_FILE_MASKED_VALUE
+    : variable.value;
 }
 
 function EnvFileVariableReadRow(params: {
+  currentAuthorId: string | null;
   index: number;
-  variable: EnvFileVariable;
+  variable: EnvVariableRow;
 }) {
-  const { index, variable } = params;
-  const key = normalizeEnvFileReadValue(variable.key);
-  const value = normalizeEnvFileReadValue(variable.value);
-  const keyTitle = key.trim();
+  const { currentAuthorId, index, variable } = params;
+  const keyTitle = variable.key.trim();
   const valueTitle = shouldMaskEnvFileVariable(variable)
     ? undefined
-    : value.trim();
+    : variable.value.trim();
+  const attribution = formatRowAttribution({
+    currentAuthorId,
+    updatedAt: variable.updatedAt,
+    updatedBy: variable.updatedBy,
+  });
 
   return (
     <div className="env-file-variable-read-row">
@@ -107,7 +112,7 @@ function EnvFileVariableReadRow(params: {
           className="env-file-variable-read-value"
           title={keyTitle.length > 0 ? keyTitle : undefined}
         >
-          {getEnvFileReadValue(key)}
+          {getEnvFileReadValue(variable.key)}
         </span>
       </span>
       <span className="env-file-variable-read-cell">
@@ -120,36 +125,41 @@ function EnvFileVariableReadRow(params: {
         </span>
       </span>
       <span className="env-file-variable-read-index">{index + 1}</span>
+      {attribution ? (
+        <span className="env-file-variable-read-attribution">
+          {attribution}
+        </span>
+      ) : null}
     </div>
   );
 }
 
-type EnvFilePatch = Record<string, string>;
-type EnvFileVariableCommit = (
-  variables: ReadonlyArray<EnvFileVariable>,
-) => void;
-
-function EnvFileReadFields(params: { fields: EnvFileDocumentFields }) {
-  const { fields } = params;
+function EnvFileReadFields(params: {
+  currentAuthorId: string | null;
+  fileName: string;
+  variables: ReadonlyArray<EnvVariableRow>;
+}) {
+  const { currentAuthorId, fileName, variables } = params;
 
   return (
     <div className="env-file-document-fields">
       <StructuredDocumentReadFields
-        fields={[{ label: "File Name", value: fields.fileName }]}
+        fields={[{ label: "File Name", value: fileName }]}
       />
       <section className="env-file-variable-list">
         <div className="env-file-variable-list-header">
           <div className="env-file-variable-list-title">
             <strong>Variables</strong>
-            <span>{fields.variables.length} entries</span>
+            <span>{variables.length} entries</span>
           </div>
         </div>
-        {fields.variables.length === 0 ? (
+        {variables.length === 0 ? (
           <div className="env-file-empty-state">No variables</div>
         ) : (
-          fields.variables.map((variable, index) => (
+          variables.map((variable, index) => (
             <EnvFileVariableReadRow
               key={variable.id}
+              currentAuthorId={currentAuthorId}
               index={index}
               variable={variable}
             />
@@ -161,14 +171,23 @@ function EnvFileReadFields(params: { fields: EnvFileDocumentFields }) {
 }
 
 function EnvFileVariableEditRow(params: {
-  commitVariables: EnvFileVariableCommit;
   controlsDisabled: boolean;
   index: number;
-  variable: EnvFileVariable;
-  variables: ReadonlyArray<EnvFileVariable>;
+  onRemoveVariable: (id: string) => void;
+  onUpdateVariable: (
+    id: string,
+    field: EnvVariableField,
+    value: string,
+  ) => void;
+  variable: EnvVariableRow;
 }) {
-  const { commitVariables, controlsDisabled, index, variable, variables } =
-    params;
+  const {
+    controlsDisabled,
+    index,
+    onRemoveVariable,
+    onUpdateVariable,
+    variable,
+  } = params;
   const keyIsInvalid =
     variable.key.length > 0 && !isValidEnvFileVariableName(variable.key);
 
@@ -180,13 +199,13 @@ function EnvFileVariableEditRow(params: {
           aria-invalid={keyIsInvalid ? "true" : undefined}
           aria-label={`Env variable ${index + 1} key`}
           value={variable.key}
-          onChange={(event) => {
-            commitVariables(
-              updateVariable(variables, variable.id, {
-                key: event.target.value,
-              }),
-            );
-          }}
+          onChange={(event) =>
+            onUpdateVariable(
+              variable.id,
+              ENV_FILE_VARIABLE_KEY_FIELD,
+              event.target.value,
+            )
+          }
           pattern={ENV_FILE_VARIABLE_NAME_PATTERN}
           placeholder="API_TOKEN"
           title="Use a POSIX variable name like API_TOKEN."
@@ -202,10 +221,10 @@ function EnvFileVariableEditRow(params: {
           aria-label={`Env variable ${index + 1} value`}
           value={variable.value}
           onChange={(event) =>
-            commitVariables(
-              updateVariable(variables, variable.id, {
-                value: event.target.value,
-              }),
+            onUpdateVariable(
+              variable.id,
+              ENV_FILE_VARIABLE_VALUE_FIELD,
+              event.target.value,
             )
           }
           placeholder="secret"
@@ -219,11 +238,7 @@ function EnvFileVariableEditRow(params: {
         aria-label={`Remove env variable ${index + 1}`}
         className="env-file-remove-button"
         disabled={controlsDisabled}
-        onClick={() =>
-          commitVariables(
-            variables.filter((candidate) => candidate.id !== variable.id),
-          )
-        }
+        onClick={() => onRemoveVariable(variable.id)}
         title={`Remove env variable ${index + 1}`}
         type="button"
       >
@@ -236,18 +251,30 @@ function EnvFileVariableEditRow(params: {
 
 function EnvFileEditFields(params: {
   controlsDisabled: boolean;
-  fields: EnvFileDocumentFields;
+  fileName: string;
   fileNameInputId: string;
-  onChange: (patch: EnvFilePatch) => void;
+  onAddVariable: () => void;
+  onRemoveVariable: (id: string) => void;
+  onRenameFile: (value: string) => void;
+  onUpdateVariable: (
+    id: string,
+    field: EnvVariableField,
+    value: string,
+  ) => void;
   ready: boolean;
+  variables: ReadonlyArray<EnvVariableRow>;
 }) {
-  const { controlsDisabled, fields, fileNameInputId, onChange, ready } = params;
-
-  function commitVariables(variables: ReadonlyArray<EnvFileVariable>) {
-    onChange({
-      [ENV_FILE_VARIABLES_FIELD]: serializeEnvFileVariables(variables),
-    });
-  }
+  const {
+    controlsDisabled,
+    fileName,
+    fileNameInputId,
+    onAddVariable,
+    onRemoveVariable,
+    onRenameFile,
+    onUpdateVariable,
+    ready,
+    variables,
+  } = params;
 
   return (
     <div className="env-file-document-fields">
@@ -256,8 +283,8 @@ function EnvFileEditFields(params: {
           <input
             id={fileNameInputId}
             aria-label=".env file name"
-            value={fields.fileName}
-            onChange={(event) => onChange({ fileName: event.target.value })}
+            value={fileName}
+            onChange={(event) => onRenameFile(event.target.value)}
             placeholder={ready ? ".env" : "Loading..."}
             disabled={controlsDisabled}
             autoComplete="off"
@@ -268,31 +295,29 @@ function EnvFileEditFields(params: {
         <div className="env-file-variable-list-header">
           <div className="env-file-variable-list-title">
             <strong>Variables</strong>
-            <span>{fields.variables.length} entries</span>
+            <span>{variables.length} entries</span>
           </div>
           <button
             className="env-file-add-button"
             disabled={controlsDisabled}
-            onClick={() =>
-              commitVariables([...fields.variables, createBlankVariable()])
-            }
+            onClick={onAddVariable}
             type="button"
           >
             <PlusIcon aria-hidden size={14} />
             Add Variable
           </button>
         </div>
-        {fields.variables.length === 0 ? (
+        {variables.length === 0 ? (
           <div className="env-file-empty-state">No variables</div>
         ) : (
-          fields.variables.map((variable, index) => (
+          variables.map((variable, index) => (
             <EnvFileVariableEditRow
               key={variable.id}
-              commitVariables={commitVariables}
               controlsDisabled={controlsDisabled}
               index={index}
+              onRemoveVariable={onRemoveVariable}
+              onUpdateVariable={onUpdateVariable}
               variable={variable}
-              variables={fields.variables}
             />
           ))
         )}
@@ -302,50 +327,95 @@ function EnvFileEditFields(params: {
 }
 
 export function EnvFileFields(params: {
+  currentAuthorId?: string | null;
   disabled?: boolean | undefined;
-  fields: EnvFileDocumentFields;
+  fileName: string;
   fileNameInputId: string;
   isEditing?: boolean | undefined;
-  onChange: (patch: EnvFilePatch) => void;
+  onAddVariable: () => void;
+  onRemoveVariable: (id: string) => void;
+  onRenameFile: (value: string) => void;
+  onUpdateVariable: (
+    id: string,
+    field: EnvVariableField,
+    value: string,
+  ) => void;
   ready: boolean;
+  variables: ReadonlyArray<EnvVariableRow>;
 }) {
   const {
+    currentAuthorId = null,
     disabled = false,
-    fields,
+    fileName,
     fileNameInputId,
     isEditing = true,
-    onChange,
+    onAddVariable,
+    onRemoveVariable,
+    onRenameFile,
+    onUpdateVariable,
     ready,
+    variables,
   } = params;
   const controlsDisabled = disabled || !ready;
 
   if (!isEditing) {
-    return <EnvFileReadFields fields={fields} />;
+    return (
+      <EnvFileReadFields
+        currentAuthorId={currentAuthorId}
+        fileName={fileName}
+        variables={variables}
+      />
+    );
   }
 
   return (
     <EnvFileEditFields
       controlsDisabled={controlsDisabled}
-      fields={fields}
+      fileName={fileName}
       fileNameInputId={fileNameInputId}
-      onChange={onChange}
+      onAddVariable={onAddVariable}
+      onRemoveVariable={onRemoveVariable}
+      onRenameFile={onRenameFile}
+      onUpdateVariable={onUpdateVariable}
       ready={ready}
+      variables={variables}
     />
   );
 }
 
 export function EnvFile(params: { initialEditing?: boolean | undefined }) {
-  const { canWrite, ready, setStructuredFields, structuredFields, syncing } =
-    useDocument();
-  const fields = useMemo(
-    () => readEnvFileFields(structuredFields),
-    [structuredFields],
-  );
+  const {
+    addRow,
+    canWrite,
+    currentAuthorId,
+    ready,
+    removeRow,
+    rows,
+    setStructuredFields,
+    structuredFields,
+    syncing,
+    updateRowFields,
+  } = useDocument();
   const fileNameInputId = useId();
   const [isEditing, setIsEditing] = useStructuredDocumentEditing(
     canWrite,
     params.initialEditing,
   );
+  const { clearRow, readCell, stageCell } = useDocumentRowEditing(rows);
+
+  const fileName = readFileNameField(structuredFields);
+  const variables = toEnvVariableRows(rows, readCell);
+
+  function handleUpdateVariable(
+    id: string,
+    field: EnvVariableField,
+    value: string,
+  ) {
+    stageCell(id, field, value);
+    if (canWrite) {
+      void updateRowFields(id, { [field]: value });
+    }
+  }
 
   return (
     <StructuredDocument
@@ -357,16 +427,35 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
             onToggleEditing={() => setIsEditing(!isEditing)}
           />
           <EnvFileFields
+            currentAuthorId={currentAuthorId}
             disabled={!ready || !canWrite}
-            fields={fields}
+            fileName={fileName}
             fileNameInputId={fileNameInputId}
             isEditing={isEditing && canWrite}
-            onChange={(patch) => {
+            onAddVariable={() => {
               if (canWrite) {
-                setStructuredFields(ENV_FILE_DOCUMENT_KIND, patch);
+                void addRow({
+                  [ENV_FILE_VARIABLE_KEY_FIELD]: "",
+                  [ENV_FILE_VARIABLE_VALUE_FIELD]: "",
+                });
               }
             }}
+            onRemoveVariable={(id) => {
+              if (canWrite) {
+                void removeRow(id);
+              }
+              clearRow(id);
+            }}
+            onRenameFile={(value) => {
+              if (canWrite) {
+                void setStructuredFields(ENV_FILE_DOCUMENT_KIND, {
+                  fileName: value,
+                });
+              }
+            }}
+            onUpdateVariable={handleUpdateVariable}
             ready={ready}
+            variables={variables}
           />
         </>
       }

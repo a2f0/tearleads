@@ -14,11 +14,13 @@ const READY_SNAPSHOT: DocumentSnapshot = {
   attachmentStorageKeyBySlotId: {},
   canAttach: false,
   canWrite: true,
+  currentAuthorId: null,
   documentId: null,
   documentKind: "note",
   effectiveAccessLevel: "admin",
   fieldValidationIssues: [],
   ready: true,
+  rows: [],
   structuredFields: {},
   text: "",
   title: "",
@@ -27,11 +29,13 @@ const READY_SNAPSHOT: DocumentSnapshot = {
 
 function createStore(onRemoteSync: () => void): DocumentStore {
   return {
+    addRow: async () => "row-id",
     assertCanRotateContentKey: async () => new Uint8Array(),
     attachFiles: () => undefined,
     ensureInitialized: async () => true,
     getSnapshot: () => READY_SNAPSHOT,
     removeAttachment: () => undefined,
+    removeRow: async () => undefined,
     replaceAttachment: () => undefined,
     requestRemoteSync: onRemoteSync,
     requestSync: () => undefined,
@@ -40,6 +44,7 @@ function createStore(onRemoteSync: () => void): DocumentStore {
     setStructuredFields: async () => undefined,
     setText: async () => undefined,
     subscribe: () => () => undefined,
+    updateRowFields: async () => undefined,
     updateRuntime: () => undefined,
   };
 }

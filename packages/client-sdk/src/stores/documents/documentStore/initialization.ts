@@ -23,6 +23,7 @@ import {
   projectStoredDocumentState,
   readStoredDocumentState,
 } from "../../../data/documents/documentKinds";
+import { ensureDocumentRowsStructure } from "../../../data/documents/documentRowList";
 import {
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
@@ -56,6 +57,7 @@ export async function createStoredDocument(
     : DOCUMENTS_APP_KIND;
   const createdDoc = await createDocument(await getScopedPeerSeed(scope));
   ensureDocumentAttachmentStructure(createdDoc);
+  ensureDocumentRowsStructure(createdDoc);
   return createdDoc;
 }
 

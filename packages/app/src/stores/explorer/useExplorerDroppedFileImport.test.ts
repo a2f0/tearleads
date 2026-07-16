@@ -17,6 +17,7 @@ interface CreatedImportStore {
   initialText: string;
   ready: boolean;
   localId: string;
+  rows: Array<Record<string, string>>;
   structuredFieldKind: StoredDocumentKind | null;
   structuredFields: Record<string, string | undefined>;
   syncRequests: number;
@@ -80,12 +81,6 @@ function createSummary(
   };
 }
 
-function readVariablesJson(
-  structuredFields: Readonly<{ variablesJson?: string }> | undefined,
-): string {
-  return structuredFields?.variablesJson ?? "";
-}
-
 function createImportStoreFactory(createdStores: CreatedImportStore[]) {
   return ({
     containerId,
@@ -105,6 +100,7 @@ function createImportStoreFactory(createdStores: CreatedImportStore[]) {
       initialText,
       ready: false,
       localId,
+      rows: [],
       structuredFieldKind: null,
       structuredFields: {},
       syncRequests: 0,
@@ -112,6 +108,10 @@ function createImportStoreFactory(createdStores: CreatedImportStore[]) {
     createdStores.push(createdStore);
 
     return {
+      addRow: async (fields: Readonly<Record<string, string>>) => {
+        createdStore.rows.push({ ...fields });
+        return `row-${createdStore.rows.length}`;
+      },
       attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => {
         createdStore.attachments.push(...files);
       },
@@ -357,25 +357,15 @@ test("dropped file import creates env file documents without attachments", async
     attachments: [],
     initialDocumentKind: "env_file",
     initialText: "",
+    rows: [
+      { key: "API_TOKEN", value: "secret" },
+      { key: "DEBUG", value: "true" },
+    ],
     structuredFieldKind: "env_file",
     structuredFields: {
       fileName: ".env",
     },
   });
-  expect(
-    JSON.parse(readVariablesJson(createdStores[0]?.structuredFields)),
-  ).toEqual([
-    {
-      id: "env-1-api_token",
-      key: "API_TOKEN",
-      value: "secret",
-    },
-    {
-      id: "env-2-debug",
-      key: "DEBUG",
-      value: "true",
-    },
-  ]);
 });
 
 test("dropped file import keeps going when one file fails", async () => {
