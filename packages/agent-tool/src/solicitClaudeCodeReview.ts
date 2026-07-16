@@ -6,7 +6,7 @@ import {
   ensureChanges,
   MAX_BUFFER_BYTES,
   type PrContext,
-  resolvePrContext,
+  resolveReviewContext,
   run,
   spawnExitCode,
 } from "./prContext";
@@ -47,6 +47,12 @@ export function buildReviewPrompt(params: {
   reviewInstructions: string;
 }): string {
   const { context, diff, reviewInstructions } = params;
+  // The review can run before the branch has a PR, in which case there is no
+  // number to show — say so rather than printing a bare `PR: #`.
+  const prLine =
+    context.prNumber.length > 0
+      ? `PR: #${context.prNumber}`
+      : "PR: (not opened yet)";
   return `Review this PR diff using the project's review guidelines. Be concise and actionable.
 
 ## Review Guidelines
@@ -54,7 +60,7 @@ ${reviewInstructions}
 
 ## PR Context
 Branch: ${context.branch}
-PR: #${context.prNumber}
+${prLine}
 Base: ${context.baseRef}
 
 ## Diff
@@ -133,17 +139,18 @@ export function spawnClaudeReview(
 }
 
 /**
- * Ask the local `claude` CLI to review the current PR diff. Branch/PR/base are
- * derived from git + GitHub and the prompt is streamed via stdin (not argv) to
- * avoid "Argument list too long" failures on large PRs. The effort level
- * defaults to `xhigh` for Claude.
+ * Ask the local `claude` CLI to review the current branch's diff. Branch/PR/base
+ * are derived from git + GitHub; when the branch has no PR yet the diff is taken
+ * against the default branch, so a review can run before the PR is opened. The
+ * prompt is streamed via stdin (not argv) to avoid "Argument list too long"
+ * failures on large PRs. The effort level defaults to `xhigh` for Claude.
  */
 export function solicitClaudeCodeReview(
   rootDir: string,
   effortArg?: string,
 ): number {
   const effort = resolveReviewEffort(effortArg, DEFAULT_CLAUDE_EFFORT);
-  const context = resolvePrContext();
+  const context = resolveReviewContext();
   ensureChanges(context.baseRef);
 
   const diff = run("git", ["diff", `${context.baseRef}...HEAD`]);

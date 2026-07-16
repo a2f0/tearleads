@@ -4,8 +4,10 @@ Minimal CLI for cross-agent code review and PR squash-merges.
 
 ## Cross-agent review
 
-Solicits a review of the current PR from a local coding-agent CLI (`claude` or
-`codex`), so one agent can request a second opinion from another.
+Solicits a review of the current branch's diff from a local coding-agent CLI
+(`claude` or `codex`), so one agent can request a second opinion from another. The
+branch need not have a PR yet — with none open, the diff is taken against the
+default branch.
 
 ```bash
 bun packages/agent-tool/src/index.ts solicitClaudeCodeReview        # effort: xhigh
@@ -16,8 +18,9 @@ bun packages/agent-tool/src/index.ts solicitCodexReview xhigh
 
 Both actions:
 
-1. Resolve the open PR for the current branch from git + `gh`.
-2. Verify there are changes against the PR base branch.
+1. Resolve the review base from git + `gh` — the PR's base when the branch has an
+   open PR, the repository's default branch when it does not.
+2. Verify there are changes against that base.
 3. Hand the diff to the target agent's CLI and stream its review to stdout.
 
 The optional effort argument sets the reviewer's reasoning effort, defaulting to
@@ -78,14 +81,17 @@ deleting the merged branch live in the `squash-merge` skill *around* this call �
 as does its `--keep-branch` flag, which the tool does not accept. Invoking the
 tool directly merges without any of that cleanup.
 
-## Ship (open/resume → review → repair → merge)
+## Ship (commit → review → repair → open/resume → merge)
 
-The `ship-pr` skill opens or resumes a PR, hands it to `cross-agent-review` —
-which reviews the exact pushed head, repairs blocking findings in up to two
-rounds by default, and re-reviews every head it changes — then squash-merges only
-the reviewed commit that review reports back. It adds no new CLI action; it
-orchestrates the `open-pr`, `cross-agent-review`, and `squash-merge` skills. See
-`.claude/skills/ship-pr/` and `.codex/skills/ship-pr/`.
+The `ship-pr` skill commits the work on a feature branch, hands it to
+`cross-agent-review` — which reviews the local commits (or the pushed head when a
+PR is already open), repairs blocking findings in up to two rounds by default, and
+re-reviews every head it changes — then opens or resumes the PR with a single push
+and squash-merges only the reviewed commit that review reports back. Opening the
+PR after the review is what keeps the branch to a single push through the pre-push
+hook. It adds no new CLI action; it orchestrates the `open-pr`,
+`cross-agent-review`, and `squash-merge` skills. See `.claude/skills/ship-pr/` and
+`.codex/skills/ship-pr/`.
 
 Review and repair are one unit, owned by `cross-agent-review`; `ship-pr` keeps
 only the merge gate (and `--merge-anyway` to override it). For a review that
@@ -96,4 +102,6 @@ changes nothing, invoke `cross-agent-review` with `--repair-rounds 0`.
 - `git` and `gh` (authenticated) on `PATH`.
 - `claude` CLI authenticated for `solicitClaudeCodeReview`.
 - `codex` CLI configured (`OPENAI_API_KEY`) for `solicitCodexReview`.
-- An open PR on the current branch.
+- A PR on the current branch: `squashMerge` requires an open one; `openPr`
+  requires that none exists; the review actions work with or without one (with
+  none, they review against the default branch).
