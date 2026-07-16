@@ -44,7 +44,7 @@ function isSharedWithYouEvent(value: unknown): boolean {
 // Force a fresh access check + tree re-list for a container the server flagged.
 // HTTP is the source of access truth: a now-unauthorized container drops out of
 // the tree (and interest); a still-authorized one is re-validated.
-async function resyncContainerAccess(
+export async function resyncContainerAccess(
   tearleads: Tearleads,
   containerId: string,
 ): Promise<void> {
@@ -59,7 +59,15 @@ async function resyncContainerAccess(
     // Reconciler unavailable (runtime not ready); the refresh below still runs.
   }
   try {
-    resyncTasks.push(tearleads.containerContents.openTree().refresh());
+    // Re-list only the root lane (plus any freshly-discovered root's child lane),
+    // NOT the whole tree. The reconciler.enqueueContainer above already
+    // re-validates the flagged container, and a new top-level grant surfaces via
+    // the root lane; the all-parent crawl (openTree().refresh()) is reserved for
+    // explicit user refresh. Per resync_required a single access change used to
+    // re-list every parent lane on every event, which is the bulk of the
+    // membership-change request storm (#1281). refreshRootLane keeps the
+    // revocation/discovery guarantees while dropping that per-parent crawl.
+    resyncTasks.push(tearleads.containerContents.openTree().refreshRootLane());
   } catch {
     // Runtime not ready; the next reconnect re-validates from a ready tree.
   }
