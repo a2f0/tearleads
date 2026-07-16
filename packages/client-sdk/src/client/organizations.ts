@@ -188,14 +188,14 @@ class OrganizationsService implements Organizations {
     this.metadataReshareCoordinator =
       createOrganizationMetadataReshareCoordinator({
         containerContents,
-        // Adapt the rich directory result to the minimal shape the coordinator
-        // needs, reading the current runtime's apiClient on each call.
+        // The coordinator only needs the immutable Members-group id. Reading the
+        // group list avoids reloading the entire roster after every group policy
+        // mutation; concurrent Org Manager refreshes already coalesce this call.
         loadDirectory: async (organizationId) => {
-          const directory = await loadOrganizationDirectoryAndGroups({
-            apiClient: this.runtimeService.workflowInput().apiClient,
-            organizationId,
-          });
-          return directory ? { memberGroupId: directory.memberGroupId } : null;
+          const groups = await this.runtimeService
+            .workflowInput()
+            .apiClient.listOrganizationGroups(organizationId);
+          return groups ? { memberGroupId: groups.memberGroupId } : null;
         },
         // Resolve the logger per call so it tracks the current runtime.
         log: (message) => this.runtimeService.workflowInput().util.log(message),

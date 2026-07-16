@@ -16,6 +16,37 @@ import {
 } from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
 
+testApiClient("coalesces only in-flight principal policy reads", async () => {
+  let callCount = 0;
+  const firstRequestStarted = createDeferred<void>();
+  const finishFirstRequest = createDeferred<void>();
+  const bundle = createPrincipalPolicyBundleResponse();
+  server.use(
+    http.get(`${apiBaseUrl}/principals/group/:groupId/policy`, async () => {
+      callCount += 1;
+      if (callCount === 1) {
+        firstRequestStarted.resolve();
+        await finishFirstRequest.promise;
+      }
+      return HttpResponse.json(bundle);
+    }),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  const first = client.getCurrentPrincipalPolicy("group", "group-1");
+  await firstRequestStarted.promise;
+  const concurrent = client.getCurrentPrincipalPolicy("group", "group-1");
+  finishFirstRequest.resolve();
+  await expect(Promise.all([first, concurrent])).resolves.toEqual([
+    bundle,
+    bundle,
+  ]);
+  await expect(
+    client.getCurrentPrincipalPolicy("group", "group-1"),
+  ).resolves.toEqual(bundle);
+  expect(callCount).toBe(2);
+});
+
 testApiClient(
   "caches organization group lists and invalidates on group changes",
   async () => {

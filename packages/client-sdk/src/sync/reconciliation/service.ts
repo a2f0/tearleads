@@ -150,20 +150,31 @@ async function sweepKnownContainers(
   host: ReconciliationHost,
   state: ReconciliationState,
   knownIds: ReadonlyArray<string>,
+  forceAllDocumentContentPulls: boolean,
 ): Promise<void> {
-  // Mark known containers discovered so the background lane will not also fetch
-  // them while this refresh sweeps. Each is still fetched directly below —
-  // discovery is watermark-based, so this is a cheap delta check.
-  for (const containerId of knownIds) {
+  const containerIds = forceAllDocumentContentPulls
+    ? knownIds
+    : knownIds.filter(
+        (containerId) =>
+          state.forcedContainerIds.has(containerId) ||
+          !state.discoveredContainerIds.has(containerId),
+      );
+  // Mark only the containers this sweep will fetch. Automatic root hints are
+  // discovery signals, so already-reconciled containers stay settled unless a
+  // targeted event forced them; explicit full refreshes still fetch every id.
+  for (const containerId of containerIds) {
     state.discoveredContainerIds.add(containerId);
   }
   // Reconcile every container independently: one failing container must not
   // block refreshing the rest. Surface the first real error after the sweep.
   let firstError: unknown;
-  for (const containerId of knownIds) {
+  for (const containerId of containerIds) {
     try {
+      const forceDocumentContentPull =
+        forceAllDocumentContentPulls ||
+        state.forcedContainerIds.delete(containerId);
       const reconciled = await reconcileOneContainer(host, containerId, {
-        forceDocumentContentPull: true,
+        forceDocumentContentPull,
       });
       if (!reconciled) {
         state.discoveredContainerIds.delete(containerId);
@@ -217,7 +228,19 @@ async function runReconcileLane(
   }
 }
 
+function forgetIneligibleDiscoveredContainers(
+  host: ReconciliationHost,
+  state: ReconciliationState,
+): void {
+  for (const containerId of state.discoveredContainerIds) {
+    if (!host.canDiscoverContainerDocuments(containerId)) {
+      state.discoveredContainerIds.delete(containerId);
+    }
+  }
+}
+
 async function reconcileKnownContainersAfterRefresh(input: {
+  forceAllDocumentContentPulls: boolean;
   host: ReconciliationHost;
   listContainerIds: () => ReadonlyArray<string>;
   refreshTree: () => Promise<void>;
@@ -228,11 +251,29 @@ async function reconcileKnownContainersAfterRefresh(input: {
     return;
   }
 
-  state.queue.clear();
-  state.forcedContainerIds.clear();
+  if (input.forceAllDocumentContentPulls) {
+    state.queue.clear();
+    state.forcedContainerIds.clear();
+  }
   try {
+    // A resync_required structural refresh runs independently of this service.
+    // If it already removed a container after the forced document lane won its
+    // race against the old tree, forget the stale discovered bit before this
+    // refresh can re-add the same id.
+    forgetIneligibleDiscoveredContainers(host, state);
     await refreshTree();
-    await sweepKnownContainers(host, state, listContainerIds());
+    // Structural hydration can revoke and remove a container after a targeted
+    // force already reconciled it against the old tree. Forget every id that
+    // is no longer remotely listable so a later share of the same container id
+    // is treated as newly surfaced instead of being suppressed for the rest of
+    // the session.
+    forgetIneligibleDiscoveredContainers(host, state);
+    await sweepKnownContainers(
+      host,
+      state,
+      listContainerIds(),
+      input.forceAllDocumentContentPulls,
+    );
   } catch (error) {
     if (!host.isIgnorableError(error)) {
       throw error;
@@ -260,6 +301,7 @@ function reconcileKnownContainersSingleFlight(
       .catch(() => undefined)
       .then(() =>
         reconcileKnownContainersAfterRefresh({
+          forceAllDocumentContentPulls: type === "full",
           host,
           listContainerIds,
           refreshTree,
