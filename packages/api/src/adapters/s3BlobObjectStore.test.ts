@@ -226,6 +226,28 @@ test("S3 blob object store rejects a part declared above the size ceiling", asyn
   ).rejects.toThrow(/exceeds the maximum/);
 });
 
+test("S3 blob object store rejects an out-of-range part number before buffering", async () => {
+  // An invalid part number must fail on the number, not after draining the
+  // (upload-sized) body — proving the guard runs before the stream is read.
+  const { store } = createFakeS3BlobObjectStore();
+  const key = "blob-stages/s3-bad-part-number";
+  const bytes = "buffered-streamed-part";
+  const { uploadId } = await store.createMultipartUpload({ key });
+
+  await expect(
+    store.uploadPart({
+      body: {
+        byteLength: Buffer.byteLength(bytes, "utf8"),
+        sha256: await sha256Hex(bytes),
+        stream: blobObjectStream(bytes),
+      },
+      key,
+      partNumber: 10_001,
+      uploadId,
+    }),
+  ).rejects.toThrow(/Invalid multipart part number/);
+});
+
 test("S3 blob object store follows list parts pagination", async () => {
   const { client, store } = createFakeS3BlobObjectStore();
   client.listPartsPageSize = 1;

@@ -376,6 +376,10 @@ function createUploadPart({
 }: S3BlobObjectStoreInput): BlobObjectStore["uploadPart"] {
   return (input) =>
     mapS3Errors("uploadPart", async () => {
+      // Reject a malformed request before draining its (upload-sized) body, so
+      // an out-of-range part number fails without consuming memory or CPU.
+      requireValidPartNumber(input.partNumber);
+
       // Buffer the part before the SDK touches it: streaming the request body
       // straight to the object store segfaults Bun when the upload connection
       // resets mid-part — a runtime bug, far more likely under the concurrent
@@ -408,7 +412,6 @@ function createUploadPart({
           "invalid_part",
         );
       }
-      requireValidPartNumber(input.partNumber);
 
       const part = await client.send(
         new UploadPartCommand({
