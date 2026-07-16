@@ -17,6 +17,7 @@ import {
   BlobObjectStoreError,
   blobObjectChunkToStream,
   type CompleteMultipartUploadPart,
+  MAX_UPLOAD_PART_BYTES,
 } from "./blobObjectStore";
 import { responseBodyToStream } from "./s3BlobObjectStreams";
 
@@ -28,12 +29,6 @@ interface S3BlobObjectStoreInput {
 }
 
 const MAX_S3_PART_NUMBER = 10_000;
-
-// Upper bound on a single multipart part buffered in memory before it is sent to
-// the object store. Mirrors the nginx `client_max_body_size` so the API enforces
-// the same ceiling with or without the proxy in front, and bounds the
-// per-request allocation the buffering introduces.
-const MAX_UPLOAD_PART_BYTES = 100 * 1024 * 1024;
 
 function sha256HexToBase64(value: string): string {
   if (!isSha256HexString(value)) {

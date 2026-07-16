@@ -12,6 +12,7 @@ import { isSha256HexString } from "@tearleads/validators/util";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
+import { MAX_UPLOAD_PART_BYTES } from "../../adapters/blobObjectStore";
 import type { SessionEnv } from "../../middleware/session";
 import {
   completeMultipartBlobStage,
@@ -167,7 +168,16 @@ function registerPartBytesRoute(
       );
       const sha256 = c.req.header(BLOB_PART_SHA256_HEADER) ?? null;
       const uploadId = c.req.header(BLOB_PART_UPLOAD_ID_HEADER);
-      if (byteLength === null || !isSha256HexString(sha256) || !uploadId) {
+      // Reject an over-declared part before buffering its body: the server-level
+      // maxRequestBodySize bounds the actual bytes, and this bounds the declared
+      // length so an absurd Content-Length header fails fast without an
+      // allocation, ahead of the store's own ceiling check on the buffered bytes.
+      if (
+        byteLength === null ||
+        byteLength > MAX_UPLOAD_PART_BYTES ||
+        !isSha256HexString(sha256) ||
+        !uploadId
+      ) {
         return c.json({ error: "Invalid request" }, 400);
       }
 

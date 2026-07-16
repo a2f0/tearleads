@@ -75,6 +75,15 @@ interface MultipartUploadState {
 
 const MAX_S3_PART_NUMBER = 10_000;
 
+// Upper bound on a single multipart part buffered in memory before it is sent to
+// the object store. Mirrors the nginx `client_max_body_size` so the API enforces
+// the same ceiling with or without the proxy in front. The route rejects an
+// over-declared part before buffering, the server caps the request body at this
+// size (see index.ts maxRequestBodySize), and the S3 store enforces it again on
+// the buffered bytes — together they replace the mid-read ceiling the old
+// streaming reader enforced, without the Bun native-stream defect.
+export const MAX_UPLOAD_PART_BYTES = 100 * 1024 * 1024;
+
 export function blobObjectChunkToStream(
   bytes: Uint8Array,
 ): BlobObjectReadStream {
