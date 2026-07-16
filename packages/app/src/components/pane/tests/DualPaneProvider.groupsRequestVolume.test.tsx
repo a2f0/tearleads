@@ -29,16 +29,22 @@ import {
 // Baseline for the org-manager "add a user to the Admins group" gesture, measured
 // on the isolated admin-add slice (after both panes finish provisioning/backfill).
 //
-// Observed at exactly 84 requests, deterministic across repeated runs. Only TWO of
-// those requests actually mutate server state:
+// Observed at exactly 69 requests, deterministic across repeated runs (was 84
+// before the resync_required crawl was scoped, see below). Only TWO of those
+// requests actually mutate server state:
 //   PUT  /principals/group/:groupId/policy   -- the add-member write itself
 //   POST /containers/:containerId/share      -- reshare the org root to the new
 //                                               Admins key epoch (Admins-only path)
 // Everything else is read / reconcile / refresh convergence:
-//   * 26 GET /containers -- every reconcile and every server event re-lists the
-//     whole root container set on BOTH panes, because sync events are hints, not
-//     deltas (#1281 phase A). This single bucket is ~a third of the whole flow and
-//     is the first thing to scope if we want to bring this number down.
+//   * 11 GET /containers -- root-lane re-lists across both panes as the membership
+//     change propagates. This was 26 until resyncContainerAccess (serverEventsBinding)
+//     stopped answering every resync_required event with a full all-parent-lanes
+//     crawl (openTree().refresh()) and instead re-lists the root lane plus the
+//     flagged container's own parent lane (refreshRootLane), leaning on the scoped
+//     reconciler.enqueueContainer for the flagged container (#1281). The admin-add
+//     resync targets the org root (a top-level container), so no extra parent lane
+//     is added here. Further reduction needs the root re-list itself to become
+//     event-delta driven rather than a full re-list per hint.
 //   * 11 GET /principals/group/:groupId/policy -- the add workflow reads the group
 //     policy for its mutation context and again to cache the committed bundle, and
 //     the org-manager refreshers re-read it after the write.
@@ -50,13 +56,13 @@ import {
 //
 // The ceilings carry modest headroom over the observed counts to absorb race timing
 // without masking a regression: a re-sync loop or a duplicated refresh fan-out would
-// blow well past `total`, and the mutation writes are pinned tight (2 each) to catch
+// blow well past `total`, and the mutation writes are pinned tight (1 each) to catch
 // an accidental double-write. Re-profile with DUAL_PANE_REQUEST_PROFILE=1 to see the
 // current per-endpoint breakdown when a change moves these numbers.
 const ADMIN_GROUP_ADD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 96,
+  total: 80,
   byRequest: {
-    "GET /containers": 30,
+    "GET /containers": 15,
     "GET /principals/group/:groupId/policy": 14,
     "GET /containers/:containerId/documents": 12,
     "GET /documents/:documentId/writer-projection": 10,

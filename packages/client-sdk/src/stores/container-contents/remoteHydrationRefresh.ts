@@ -126,6 +126,7 @@ export function refreshAllRemoteHydration(input: {
 
 export function refreshRootRemoteHydration(input: {
   includeActiveRootChildLane?: boolean | undefined;
+  parentIds?: ReadonlyArray<string | null> | undefined;
   requestHydration: RemoteHydrationRequester;
   state: RemoteHydrationRefreshState;
 }): Promise<boolean> {
@@ -163,9 +164,20 @@ export function refreshRootRemoteHydration(input: {
   // watermarked list would hide it forever. hydrateRemoteContainers then crawls a
   // freshly discovered root's child lane within the same pass. (The all-parent
   // traversal stays reserved for explicit user refresh in refreshAllRemoteHydration.)
+  //
+  // The resync_required handler additionally passes the flagged container's parent
+  // lane here. A deleted nested container's tombstone is only returned by its
+  // parent lane (rootDiscoveryVisible=false), never the root lane, so re-listing
+  // that parent lane is what applies the tombstone and drops the stale container
+  // without falling back to the full crawl. Those parent lanes keep their persisted
+  // watermark (a deletion bumps the tombstone's updatedAt, so it still surfaces);
+  // only the root lane is unwatermarked, for the newly-shared-root case above.
+  const parentLanes = Array.from(
+    new Set<string | null>([null, ...(input.parentIds ?? [])]),
+  );
   return requestHydration({
     followDiscoveredParentLanes: false,
-    parentIds: [null],
+    parentIds: parentLanes,
     resetRootLaneWatermark: true,
   }).then(() => true);
 }

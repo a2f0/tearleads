@@ -44,7 +44,7 @@ function isSharedWithYouEvent(value: unknown): boolean {
 // Force a fresh access check + tree re-list for a container the server flagged.
 // HTTP is the source of access truth: a now-unauthorized container drops out of
 // the tree (and interest); a still-authorized one is re-validated.
-async function resyncContainerAccess(
+export async function resyncContainerAccess(
   tearleads: Tearleads,
   containerId: string,
 ): Promise<void> {
@@ -59,7 +59,26 @@ async function resyncContainerAccess(
     // Reconciler unavailable (runtime not ready); the refresh below still runs.
   }
   try {
-    resyncTasks.push(tearleads.containerContents.openTree().refresh());
+    // Re-list the root lane plus the flagged container's own parent lane, NOT the
+    // whole tree. The reconciler.enqueueContainer above re-validates the flagged
+    // container's contents; the root lane surfaces a new top-level grant; and the
+    // parent lane applies the flagged container's tombstone when it was deleted —
+    // a deleted nested container's tombstone is only returned by its parent lane
+    // (rootDiscoveryVisible=false), never the root lane. The all-parent crawl
+    // (openTree().refresh()) is reserved for explicit user refresh. Per
+    // resync_required a single access change used to re-list every parent lane on
+    // every event, which is the bulk of the membership-change request storm
+    // (#1281); scoping to root + the one relevant parent lane keeps the
+    // revocation/discovery/deletion guarantees while dropping that crawl.
+    const tree = tearleads.containerContents.openTree();
+    const flaggedParentId =
+      tree.getSnapshot().nodes.find((node) => node.id === containerId)
+        ?.parentId ?? null;
+    resyncTasks.push(
+      tree.refreshRootLane(
+        flaggedParentId === null ? undefined : { parentIds: [flaggedParentId] },
+      ),
+    );
   } catch {
     // Runtime not ready; the next reconnect re-validates from a ready tree.
   }
