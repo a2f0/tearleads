@@ -19,8 +19,8 @@ export interface CompletedBlobObject {
 export type BlobObjectReadStream = ReadableStream<Uint8Array>;
 export interface BlobObjectUploadPartBody {
   readonly byteLength: number;
+  readonly bytes: Uint8Array;
   readonly sha256: string;
-  readonly stream: BlobObjectReadStream;
 }
 
 type BlobObjectStoreErrorCode =
@@ -98,48 +98,6 @@ function concatenateBytes(
   }
 
   return bytes;
-}
-
-export async function blobObjectStreamToBytes(
-  stream: BlobObjectReadStream,
-  maxBytes?: number,
-): Promise<Uint8Array> {
-  const reader = stream.getReader();
-  const chunks: Uint8Array[] = [];
-  let byteLength = 0;
-
-  try {
-    while (true) {
-      const { done, value: chunk } = await reader.read();
-      if (done) {
-        return concatenateBytes(chunks, byteLength);
-      }
-
-      // Enforce the ceiling while reading so an oversized or chunked body is
-      // rejected before it is fully buffered; the catch below cancels the
-      // source once we stop consuming it.
-      if (maxBytes !== undefined && byteLength + chunk.byteLength > maxBytes) {
-        throw new BlobObjectStoreError(
-          `Blob object stream exceeds the maximum of ${maxBytes} bytes`,
-          "invalid_part",
-        );
-      }
-
-      const storedChunk = chunk.slice();
-      chunks.push(storedChunk);
-      byteLength += storedChunk.byteLength;
-    }
-  } catch (error) {
-    try {
-      await reader.cancel(error);
-    } catch {
-      // Preserve the original stream error.
-    }
-
-    throw error;
-  } finally {
-    reader.releaseLock();
-  }
 }
 
 function requireValidPartNumber(partNumber: number): void {
@@ -284,7 +242,7 @@ function createUploadPart(
 ): BlobObjectStore["uploadPart"] {
   return async ({ body, key, partNumber, uploadId }) => {
     requireValidPartNumber(partNumber);
-    const bytes = await blobObjectStreamToBytes(body.stream);
+    const bytes = body.bytes;
     if (bytes.byteLength === 0) {
       throw new BlobObjectStoreError(
         "Multipart upload part bytes are required",

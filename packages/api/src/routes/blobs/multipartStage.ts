@@ -18,7 +18,7 @@ import {
   getMultipartBlobStage,
   initiateMultipartBlobStage,
   MultipartBlobStageError,
-  uploadMultipartBlobPartStream,
+  uploadMultipartBlobPartBytes,
 } from "../../services/blobs/multipartStage";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { isUuidString } from "../../utils/uuid";
@@ -167,27 +167,28 @@ function registerPartBytesRoute(
       );
       const sha256 = c.req.header(BLOB_PART_SHA256_HEADER) ?? null;
       const uploadId = c.req.header(BLOB_PART_UPLOAD_ID_HEADER);
-      const stream = c.req.raw.body;
-      if (
-        byteLength === null ||
-        !isSha256HexString(sha256) ||
-        !uploadId ||
-        stream === null
-      ) {
+      if (byteLength === null || !isSha256HexString(sha256) || !uploadId) {
         return c.json({ error: "Invalid request" }, 400);
       }
+
+      // Read the part body with Bun's native body consumption instead of a
+      // hand-rolled ReadableStream reader over c.req.raw.body. That reader trips
+      // a Bun native request-stream defect that failed a fraction of part reads
+      // behind the ingress tunnel (and segfaulted the process before the body
+      // was buffered); arrayBuffer() consumes the body without that JS reader.
+      const bytes = new Uint8Array(await c.req.arrayBuffer());
 
       const session = c.get("session");
       const { partNumber, stageId } = c.req.valid("param");
 
       try {
         return c.json<UploadMultipartBlobPartResponse>(
-          await uploadMultipartBlobPartStream(runtime, {
+          await uploadMultipartBlobPartBytes(runtime, {
             byteLength,
+            bytes,
             partNumber,
             sha256,
             stageId,
-            stream,
             uploadId,
             userId: session.userId,
           }),

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import {
-  blobObjectStream,
+  blobObjectBytes,
   readBlobObjectText,
 } from "../../test/helpers/blobObjectStore";
 import { sha256Hex } from "../utils/sha256";
@@ -13,8 +13,8 @@ test("memory blob object store completes multipart uploads by part number", asyn
   const secondPart = await store.uploadPart({
     body: {
       byteLength: 7,
+      bytes: blobObjectBytes("-second"),
       sha256: await sha256Hex("-second"),
-      stream: blobObjectStream("-second"),
     },
     key,
     partNumber: 2,
@@ -23,8 +23,8 @@ test("memory blob object store completes multipart uploads by part number", asyn
   const firstPart = await store.uploadPart({
     body: {
       byteLength: 5,
+      bytes: blobObjectBytes("first"),
       sha256: await sha256Hex("first"),
-      stream: blobObjectStream("first"),
     },
     key,
     partNumber: 1,
@@ -65,8 +65,8 @@ test("memory blob object store accepts streamed multipart parts", async () => {
   const part = await store.uploadPart({
     body: {
       byteLength: new TextEncoder().encode(bytes).byteLength,
+      bytes: blobObjectBytes(bytes),
       sha256: await sha256Hex(bytes),
-      stream: blobObjectStream(bytes),
     },
     key,
     partNumber: 1,
@@ -96,8 +96,8 @@ test("memory blob object store preserves arbitrary binary multipart bytes", asyn
   const firstPart = await store.uploadPart({
     body: {
       byteLength: firstBytes.byteLength,
+      bytes: blobObjectBytes(firstBytes),
       sha256: await sha256Hex(firstBytes),
-      stream: blobObjectStream(firstBytes),
     },
     key,
     partNumber: 1,
@@ -106,8 +106,8 @@ test("memory blob object store preserves arbitrary binary multipart bytes", asyn
   const secondPart = await store.uploadPart({
     body: {
       byteLength: secondBytes.byteLength,
+      bytes: blobObjectBytes(secondBytes),
       sha256: await sha256Hex(secondBytes),
-      stream: blobObjectStream(secondBytes),
     },
     key,
     partNumber: 2,
@@ -165,8 +165,8 @@ test("memory blob object store releases multipart key conflicts after terminal s
   const part = await store.uploadPart({
     body: {
       byteLength: 8,
+      bytes: blobObjectBytes("complete"),
       sha256: await sha256Hex("complete"),
-      stream: blobObjectStream("complete"),
     },
     key: completedKey,
     partNumber: 1,
