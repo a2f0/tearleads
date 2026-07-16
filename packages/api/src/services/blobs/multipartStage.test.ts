@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { blobStages } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import {
-  blobObjectStream,
+  blobObjectBytes,
   readBlobObjectText,
   uploadBlobObject,
 } from "../../../test/helpers/blobObjectStore";
@@ -17,7 +17,7 @@ import {
   getMultipartBlobStage,
   initiateMultipartBlobStage,
   MultipartBlobStageError,
-  uploadMultipartBlobPartStream,
+  uploadMultipartBlobPartBytes,
 } from "./multipartStage";
 
 async function createMultipartStageInput(encryptedBytes: string) {
@@ -37,11 +37,11 @@ async function uploadTextPart(
     readonly userId: string;
   },
 ) {
-  return uploadMultipartBlobPartStream(runtime, {
+  return uploadMultipartBlobPartBytes(runtime, {
     ...(await createMultipartStageInput(input.encryptedBytes)),
+    bytes: blobObjectBytes(input.encryptedBytes),
     partNumber: input.partNumber,
     stageId: input.stageId,
-    stream: blobObjectStream(input.encryptedBytes),
     uploadId: input.uploadId,
     userId: input.userId,
   });
@@ -305,11 +305,11 @@ test("multipart blob stages accept streamed part uploads", async () => {
     userId,
   });
 
-  const part = await uploadMultipartBlobPartStream(runtime, {
+  const part = await uploadMultipartBlobPartBytes(runtime, {
     ...(await createMultipartStageInput(encryptedBytes)),
+    bytes: blobObjectBytes(encryptedBytes),
     partNumber: 1,
     stageId: initiated.stageId,
-    stream: blobObjectStream(encryptedBytes),
     uploadId: initiated.uploadId,
     userId,
   });

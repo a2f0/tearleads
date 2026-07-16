@@ -45,7 +45,7 @@ import {
 } from "@tearleads/crypto";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { blobObjectStream } from "../../../test/helpers/blobObjectStore";
+import { blobObjectBytes } from "../../../test/helpers/blobObjectStore";
 import {
   appendUnexpectedUserWrapToRekey,
   buildRootContainerRekeyMutation,
@@ -72,7 +72,7 @@ import { getBlobBytes } from "./getBlob";
 import {
   completeMultipartBlobStage,
   initiateMultipartBlobStage,
-  uploadMultipartBlobPartStream,
+  uploadMultipartBlobPartBytes,
 } from "./multipartStage";
 
 interface RootContainerFixture {
@@ -350,12 +350,12 @@ async function stageEncryptedBlob(
     sha256,
     userId: input.owner.userId,
   });
-  const part = await uploadMultipartBlobPartStream(serviceRuntime, {
+  const part = await uploadMultipartBlobPartBytes(serviceRuntime, {
     byteLength,
+    bytes: blobObjectBytes(input.encryptedBytes),
     partNumber: 1,
     sha256,
     stageId: staged.stageId,
-    stream: blobObjectStream(input.encryptedBytes),
     uploadId: staged.uploadId,
     userId: input.owner.userId,
   });

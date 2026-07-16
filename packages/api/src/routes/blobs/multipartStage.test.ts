@@ -109,6 +109,29 @@ test("multipart blob stage routes support resumable upload completion", async ()
   });
 });
 
+test("multipart part routes reject a part declared above the size ceiling", async () => {
+  // An over-declared byte length is rejected on the header, before the body is
+  // buffered, so an absurd Content-Length cannot force an allocation. The store
+  // is never reached; a stage need not exist.
+  const app = createAuthenticatedTestApp(crypto.randomUUID());
+  const response = await app.request(
+    `/blobs/stages/multipart/${crypto.randomUUID()}/parts/1/bytes`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "X-Tearleads-Blob-Part-Byte-Length": (100 * 1024 * 1024 + 1).toString(),
+        "X-Tearleads-Blob-Part-Sha256": await sha256Hex("part-bytes"),
+        "X-Tearleads-Blob-Upload-Id": crypto.randomUUID(),
+      },
+      body: "part-bytes",
+    },
+  );
+
+  expect(response.status).toBe(400);
+  await expect(response.json()).resolves.toEqual({ error: "Invalid request" });
+});
+
 test("multipart part routes reject unsafe integer part numbers", async () => {
   const app = createAuthenticatedTestApp(crypto.randomUUID());
   const response = await app.request(

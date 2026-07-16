@@ -66,6 +66,11 @@ function queueRowMutation(
   state: DocumentStoreState,
   mutate: (doc: DocumentState) => boolean,
 ): Promise<void> {
+  // Unlike text/structured-field writes, row writes intentionally do NOT bump
+  // `state.pendingLocalWrites`: rows are never in the optimistic-preserve set —
+  // `setReadySnapshot` always re-derives them from the doc — so there is no
+  // optimistic snapshot for a concurrent sync pass to clobber. Input smoothness
+  // during rapid edits is handled in the app layer (useDocumentRowEditing).
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => persistRowMutation(state, mutate))

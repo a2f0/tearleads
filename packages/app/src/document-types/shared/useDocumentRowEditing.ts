@@ -9,6 +9,9 @@ import { useCallback, useEffect, useState } from "react";
 // catches up (or the row disappears). Cells with no staged edit fall through to
 // the live store value, so remote edits to other cells still surface.
 export function useDocumentRowEditing(rows: ReadonlyArray<DocumentRow>) {
+  // Overlay entries are keyed "<rowId>:<field>". Row ids are UUIDs / "row-…"
+  // slugs and field names are fixed identifier consts, so neither contains a
+  // colon and splitting on the first ":" is unambiguous.
   const [pendingCells, setPendingCells] = useState<Record<string, string>>({});
 
   useEffect(() => {

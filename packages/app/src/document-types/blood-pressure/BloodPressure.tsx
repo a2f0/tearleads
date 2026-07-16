@@ -78,16 +78,15 @@ function BloodPressureReadingReadRow(params: {
       </span>
       <span className="blood-pressure-reading-read-cell">
         <strong>Measured</strong>
-        <span
-          className="blood-pressure-reading-read-value"
-          title={notes.length > 0 ? notes : undefined}
-        >
+        <span className="blood-pressure-reading-read-value">
           {formatMeasuredAt(reading)}
         </span>
       </span>
       <span className="blood-pressure-reading-read-index">{index + 1}</span>
       {notes.length > 0 ? (
-        <span className="blood-pressure-reading-read-notes">{notes}</span>
+        <span className="blood-pressure-reading-read-notes" title={notes}>
+          {notes}
+        </span>
       ) : null}
       {attribution ? (
         <span className="blood-pressure-reading-read-attribution">
