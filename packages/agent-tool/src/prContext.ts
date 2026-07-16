@@ -115,20 +115,24 @@ function resolveBaseRef(baseRefName: string, baseRefOid: string): string {
 }
 
 /**
- * Base ref for a pre-PR review: the *current* remote default branch. A branch cut
- * from a newer default than the local `main` would otherwise diff in upstream
- * commits it never authored — so a repair round could touch code the branch does
- * not own. Fetch first and prefer the freshly-updated remote-tracking ref,
- * falling back to whatever `resolveBaseRef` can find when offline.
+ * Base ref for a review, resolved to the *current* remote base. A branch cut from
+ * an older base than the local ref would otherwise diff in upstream commits it
+ * never authored — so a review (or a repair round) could flag or touch code the
+ * branch does not own. Fetch first and prefer the freshly-updated remote-tracking
+ * ref, then the base OID GitHub reported, then whatever `resolveBaseRef` can find
+ * when offline.
  */
-function resolveDefaultBaseRef(defaultBranch: string): string {
-  spawnSync("git", ["fetch", "--quiet", "origin", defaultBranch], {
+function resolveFreshBaseRef(baseRefName: string, baseRefOid: string): string {
+  spawnSync("git", ["fetch", "--quiet", "origin", baseRefName], {
     stdio: "ignore",
   });
-  if (gitRefExists(`origin/${defaultBranch}`)) {
-    return `origin/${defaultBranch}`;
+  if (gitRefExists(`origin/${baseRefName}`)) {
+    return `origin/${baseRefName}`;
   }
-  return resolveBaseRef(defaultBranch, "");
+  if (gitRefExists(baseRefOid)) {
+    return baseRefOid;
+  }
+  return resolveBaseRef(baseRefName, baseRefOid);
 }
 
 export function ensureChanges(baseRef: string): void {
@@ -299,10 +303,12 @@ export function resolvePr(): PrIdentity {
  * that may run *before* the branch has a PR.
  *
  * When an open PR exists this matches what a post-open review would see: the
- * base ref is the PR's own base. When none exists yet, `prNumber`/`title` are
- * empty and the base ref is the repository's default branch — so the identical
- * `base...HEAD` diff can be reviewed on the local branch now and reviewed again
- * once its PR is open. Throws on the default branch, via `resolveRepoContext`.
+ * base ref is the PR's own base, resolved to its current remote tip. When none
+ * exists yet, `prNumber`/`title` are empty and the base ref is the repository's
+ * current default branch — so the identical `base...HEAD` diff can be reviewed on
+ * the local branch now and reviewed again once its PR is open. Either way the base
+ * is fetched fresh, so a stale local ref never leaks upstream commits into the
+ * diff. Throws on the default branch, via `resolveRepoContext`.
  */
 export function resolveReviewContext(): PrContext {
   const { branch, repo, defaultBranch } = resolveRepoContext();
@@ -322,7 +328,7 @@ export function resolveReviewContext(): PrContext {
       repo,
       prNumber: "",
       title: "",
-      baseRef: resolveDefaultBaseRef(defaultBranch),
+      baseRef: resolveFreshBaseRef(defaultBranch, ""),
     };
   }
 
@@ -335,6 +341,6 @@ export function resolveReviewContext(): PrContext {
     repo,
     prNumber,
     title: view.title,
-    baseRef: resolveBaseRef(view.baseRefName, view.baseRefOid),
+    baseRef: resolveFreshBaseRef(view.baseRefName, view.baseRefOid),
   };
 }

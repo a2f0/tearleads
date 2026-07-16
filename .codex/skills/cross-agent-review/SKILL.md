@@ -14,10 +14,13 @@ self-review. Falls back to an in-session review when no external agent is
 available.
 
 This skill owns the full **review → repair → re-review** loop and the severity
-gate that drives it. Repairs are bounded by `--repair-rounds` (default `2`); each
-round changes the branch once and is followed by a fresh review of the new head,
-so the reported head is always a head that was itself reviewed. Pass
-`--repair-rounds 0` for a report-only review that changes nothing.
+gate that drives it. Each review round first brings the branch up to date with
+its base — a merge of the latest base, never a rebase — so the review reflects the
+branch as it will actually merge, not a stale snapshot. Repairs are bounded by
+`--repair-rounds` (default `2`); each round changes the branch once and is
+followed by a fresh review of the new head, so the reported head is always a head
+that was itself reviewed. Pass `--repair-rounds 0` for a report-only review that
+changes nothing — the base sync included.
 
 ## Arguments
 
@@ -90,24 +93,75 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    would reset on every repair, the `--repair-rounds` bound would never advance,
    and the loop could commit and push without limit.
 
-2. **Snapshot the candidate head**: For each head entering review, snapshot the
-   local HEAD:
+2. **Sync with the base, then snapshot the candidate head**: before reviewing,
+   bring the branch up to date with its base, so the review — and the head that is
+   eventually merged — reflects the branch integrated with the *current* base
+   rather than a stale one. **Skip the sync under `--repair-rounds 0`**, whose
+   contract is to change nothing; take the snapshot as-is in that mode.
+
+   Resolve the base ref and fetch it:
+
+   ```bash
+   if [ -n "$PR_NUMBER" ]; then
+     BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+   else
+     BASE_REF="$DEFAULT_BRANCH"
+   fi
+   git fetch origin "$BASE_REF" || { echo "Error: could not fetch origin/$BASE_REF" >&2; exit 1; }
+   ```
+
+   **When a PR is open**, confirm the local head is already the pushed head
+   *before* the sync changes anything — otherwise the push below would publish
+   unpushed local commits and the after-the-fact check would rubber-stamp them,
+   masking the very mismatch that check exists to catch:
+
+   ```bash
+   [ -z "$PR_NUMBER" ] || test "$(git rev-parse HEAD)" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)" || { echo "Error: local HEAD is not the pushed head of PR #$PR_NUMBER; reconcile before reviewing" >&2; exit 1; }
+   ```
+
+   Then **merge** the fetched base in — merge `FETCH_HEAD`, which the fetch always
+   sets, rather than `origin/$BASE_REF`, which a narrow or single-branch clone may
+   not update:
+
+   ```bash
+   PRE_SYNC_HEAD=$(git rev-parse HEAD)
+   git merge --no-edit FETCH_HEAD || {
+     git merge --abort
+     echo "Error: merging the latest $BASE_REF into $BRANCH conflicts — resolve it and re-run" >&2
+     exit 1
+   }
+   ```
+
+   **Merge, not rebase, and never force.** Every branch mutation in these skills
+   pushes without force, and a rebase would need a force push; the squash-merge
+   flattens the merge commit anyway, so it costs nothing in the final history. **On
+   a conflict, abort and stop** — never auto-resolve, and never review a conflicted
+   tree.
+
+   The merge moves `HEAD` only when the base actually advanced; on a branch already
+   current, or a later repair round where nothing new landed, it is a no-op. **When
+   a PR is open**, push the updated head without force so the pushed head still
+   matches what is reviewed — but **only when the merge actually moved `HEAD`**, so
+   an already-current branch does not fire the (expensive) pre-push hook for
+   nothing; **with no PR**, the merge stays local and `open-pr` pushes it later, so
+   the flow's single push is preserved:
+
+   ```bash
+   if [ -n "$PR_NUMBER" ] && [ "$(git rev-parse HEAD)" != "$PRE_SYNC_HEAD" ]; then
+     git push origin "$BRANCH"
+   fi
+   ```
+
+   Then snapshot the head under review — the integrated head when the sync ran, the
+   current head when it was skipped:
 
    ```bash
    REVIEWED_SHA=$(git rev-parse HEAD)
    ```
 
-   **When a PR is open**, also confirm the snapshot is the pushed PR head —
-   reviewing a head that is not pushed reviews a diff no one else can see, and the
-   resulting SHA cannot be handed to a merge:
-
-   ```bash
-   [ -z "$PR_NUMBER" ] || test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
-   ```
-
-   Stop if it does not match. **With no PR**, nothing is pushed to compare
-   against; the local snapshot is the head under review, and `open-pr` later
-   pushes it unchanged, exactly as reviewed.
+   **With no PR**, nothing is pushed to compare against; the local snapshot is the
+   head under review, and `open-pr` later pushes it unchanged, exactly as reviewed.
+   **With a PR**, the head just pushed is the reviewed head.
 
 3. **Run the review**: Execute the matching action over the snapshot head. Omit
    the effort argument to take the per-agent default (`xhigh` for Claude, `high`
@@ -183,21 +237,25 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    exceed prompt limits and cause partial/failed reviews. Interrogate GitHub and
    review file-by-file:
 
-   a. Get the base ref and changed files. **With a PR**, from GitHub; **with no
-      PR**, the base ref is `$DEFAULT_BRANCH`:
+   a. Resolve and **fetch** the base ref, then diff against the fetched SHA so the
+      file list is the branch's own work even when the local base ref is stale —
+      the PR's base with a PR, the default branch without one:
 
       ```bash
-      # With a PR:
-      gh pr view "$PR_NUMBER" --json baseRefName,files -R "$REPO"
-      # With no PR (base is the default branch):
-      git diff --name-only "$DEFAULT_BRANCH"...HEAD
+      if [ -n "$PR_NUMBER" ]; then
+        BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+      else
+        BASE_REF="$DEFAULT_BRANCH"
+      fi
+      git fetch origin "$BASE_REF" || { echo "Error: could not fetch origin/$BASE_REF" >&2; exit 1; }
+      BASE=$(git rev-parse FETCH_HEAD)
+      git diff --name-only "$BASE"...HEAD
       ```
 
-   b. For each changed file, get the per-file diff (use `$DEFAULT_BRANCH` as
-      `<baseRefName>` when there is no PR):
+   b. For each changed file, get the per-file diff against the same `$BASE`:
 
       ```bash
-      git diff <baseRefName>...HEAD -- <file-path>
+      git diff "$BASE"...HEAD -- <file-path>
       ```
 
    c. For added or modified files, read the file with native file-reading tools
@@ -296,6 +354,12 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
 - The review scripts are non-interactive and stream output to stdout.
 - Reviews are based on the diff between the base branch and HEAD — the PR's base
   when a PR is open, the repository's default branch when there is none yet.
+- **Each round merges the current base into the branch first**, so a branch cut
+  from an older base is reviewed as it will actually merge — a signature change or
+  a moved dependency that landed on the base surfaces during the review and the
+  pre-push checks, not after the merge. The merge (never a rebase, so no force
+  push) is local when there is no PR and pushed when there is; a conflict aborts
+  and stops for the user. `--repair-rounds 0` skips it, keeping report-only inert.
 - The Claude review streams the prompt/diff via stdin (not argv) to avoid
   "Argument list too long" failures on large PRs.
 - The Claude reviewer runs with read-only tools (`--tools "Read,Grep,Glob"`) and
