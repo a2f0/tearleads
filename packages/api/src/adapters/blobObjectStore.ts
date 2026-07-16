@@ -19,8 +19,8 @@ export interface CompletedBlobObject {
 export type BlobObjectReadStream = ReadableStream<Uint8Array>;
 export interface BlobObjectUploadPartBody {
   readonly byteLength: number;
+  readonly bytes: Uint8Array;
   readonly sha256: string;
-  readonly stream: BlobObjectReadStream;
 }
 
 type BlobObjectStoreErrorCode =
@@ -75,6 +75,15 @@ interface MultipartUploadState {
 
 const MAX_S3_PART_NUMBER = 10_000;
 
+// Upper bound on a single multipart part buffered in memory before it is sent to
+// the object store. Mirrors the nginx `client_max_body_size` so the API enforces
+// the same ceiling with or without the proxy in front. The route rejects an
+// over-declared part before buffering, the server caps the request body at this
+// size (see index.ts maxRequestBodySize), and the S3 store enforces it again on
+// the buffered bytes — together they replace the mid-read ceiling the old
+// streaming reader enforced, without the Bun native-stream defect.
+export const MAX_UPLOAD_PART_BYTES = 100 * 1024 * 1024;
+
 export function blobObjectChunkToStream(
   bytes: Uint8Array,
 ): BlobObjectReadStream {
@@ -98,48 +107,6 @@ function concatenateBytes(
   }
 
   return bytes;
-}
-
-export async function blobObjectStreamToBytes(
-  stream: BlobObjectReadStream,
-  maxBytes?: number,
-): Promise<Uint8Array> {
-  const reader = stream.getReader();
-  const chunks: Uint8Array[] = [];
-  let byteLength = 0;
-
-  try {
-    while (true) {
-      const { done, value: chunk } = await reader.read();
-      if (done) {
-        return concatenateBytes(chunks, byteLength);
-      }
-
-      // Enforce the ceiling while reading so an oversized or chunked body is
-      // rejected before it is fully buffered; the catch below cancels the
-      // source once we stop consuming it.
-      if (maxBytes !== undefined && byteLength + chunk.byteLength > maxBytes) {
-        throw new BlobObjectStoreError(
-          `Blob object stream exceeds the maximum of ${maxBytes} bytes`,
-          "invalid_part",
-        );
-      }
-
-      const storedChunk = chunk.slice();
-      chunks.push(storedChunk);
-      byteLength += storedChunk.byteLength;
-    }
-  } catch (error) {
-    try {
-      await reader.cancel(error);
-    } catch {
-      // Preserve the original stream error.
-    }
-
-    throw error;
-  } finally {
-    reader.releaseLock();
-  }
 }
 
 function requireValidPartNumber(partNumber: number): void {
@@ -284,7 +251,7 @@ function createUploadPart(
 ): BlobObjectStore["uploadPart"] {
   return async ({ body, key, partNumber, uploadId }) => {
     requireValidPartNumber(partNumber);
-    const bytes = await blobObjectStreamToBytes(body.stream);
+    const bytes = body.bytes;
     if (bytes.byteLength === 0) {
       throw new BlobObjectStoreError(
         "Multipart upload part bytes are required",

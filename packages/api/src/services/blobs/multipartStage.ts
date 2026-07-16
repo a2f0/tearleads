@@ -11,7 +11,6 @@ import type {
 } from "@tearleads/validators/response";
 import { eq, inArray, lte } from "drizzle-orm";
 import {
-  type BlobObjectReadStream,
   BlobObjectStoreError,
   type CompletedBlobObject,
 } from "../../adapters/blobObjectStore";
@@ -49,12 +48,12 @@ interface CleanupExpiredBlobStagesResult {
   readonly scannedStages: number;
 }
 
-interface UploadMultipartBlobPartStreamInput
+interface UploadMultipartBlobPartInput
   extends AuthenticatedMultipartBlobStageInput {
   readonly byteLength: number;
+  readonly bytes: Uint8Array;
   readonly partNumber: number;
   readonly sha256: string;
-  readonly stream: BlobObjectReadStream;
   readonly uploadId: string;
 }
 
@@ -298,9 +297,9 @@ export async function getMultipartBlobStage(
   }
 }
 
-export async function uploadMultipartBlobPartStream(
+export async function uploadMultipartBlobPartBytes(
   runtime: ApiServiceRuntime,
-  input: UploadMultipartBlobPartStreamInput,
+  input: UploadMultipartBlobPartInput,
 ): Promise<UploadMultipartBlobPartResponse> {
   try {
     const stage = await loadMultipartBlobStage(runtime, input);
@@ -318,8 +317,8 @@ export async function uploadMultipartBlobPartStream(
     const part = await runtime.blobObjectStore.uploadPart({
       body: {
         byteLength: input.byteLength,
+        bytes: input.bytes,
         sha256: input.sha256,
-        stream: input.stream,
       },
       key: stage.storageKey,
       partNumber: input.partNumber,
