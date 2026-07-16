@@ -192,6 +192,10 @@ export function updateContainerContentsStoreRuntime(
     state.snapshot.ready &&
     didRegainSyncPrerequisites(previousRuntime, nextRuntime)
   ) {
+    // A pass blocked by missing prerequisites consumes its lane request before
+    // returning early. Re-arm it directly when they return even if hydration
+    // finds no remote delta; this also primes unopened document stores.
+    syncAgent.scheduleSync();
     syncAgent.scheduleRemoteHydration();
   }
 }
