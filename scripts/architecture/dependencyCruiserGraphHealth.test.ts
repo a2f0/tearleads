@@ -23,7 +23,7 @@ const healthyGraph = {
           resolved: "packages/encoding/src/index.ts",
         },
       ],
-      source: "packages/crypto/src/blobEnvelope.ts",
+      source: "packages/crypto/src/keying/accessEvent.ts",
     },
     {
       dependencies: [],
@@ -58,7 +58,7 @@ describe("findDependencyCruiserGraphHealthViolations", () => {
     ).toEqual([
       "packages/crypto/src: no modules were cruised",
       "packages/crypto/src/encapsulation/generateKeyPair.ts: expected terminal npm edge to @noble/post-quantum/ml-kem.js",
-      "packages/crypto/src/blobEnvelope.ts: expected workspace edge to packages/encoding/src/index.ts",
+      "packages/crypto/src/keying/accessEvent.ts: expected workspace edge to packages/encoding/src/index.ts",
     ]);
   });
 

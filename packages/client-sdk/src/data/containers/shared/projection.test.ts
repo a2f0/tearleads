@@ -28,6 +28,7 @@ import type {
   DocumentWriterProjectionResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
+import { createMultipartBlobStageFixture } from "../../../../test/helpers/blobUploadFixtures";
 import {
   createContainerManifestFixture,
   createContainerRevokeManifestFixture,
@@ -597,8 +598,12 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
     const bindingId = "550e8400-e29b-41d4-a716-446655440702";
     const slotId = "preview-after-revoke";
     const blobContentKey = crypto.getRandomValues(new Uint8Array(32));
+    const multipart = createMultipartBlobStageFixture({
+      stageId: "stage-blob-after-revoke",
+    });
     const uploadedBlob = await uploadDocumentAttachment({
       apiClient: {
+        ...multipart,
         bindBlobAttachment: async (_blobId, request) => {
           const targets = request.contentKeyBundle.targets;
           const linkedContainerManifestHashes = [
@@ -651,10 +656,6 @@ test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", as
           documentId === createdDocument.plan.documentId
             ? documentWriterProjection
             : null,
-        stageBlob: async () => ({
-          stageId: "stage-blob-after-revoke",
-          expiresAt: "2026-04-28T13:00:00.000Z",
-        }),
       },
       author: parent.author,
       bindingId,

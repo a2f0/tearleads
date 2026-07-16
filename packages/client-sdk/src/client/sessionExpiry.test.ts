@@ -4,6 +4,7 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
 import type { Logger } from "./logger";
 import { Tearleads } from "./Tearleads";
 
@@ -82,6 +83,7 @@ describe("session expiry", () => {
     try {
       const sdk = new Tearleads({
         apiBaseUrl: "https://api.example.test",
+        blobStoreFactory: () => createMemoryBlobStore(),
         database: { execSql, id: "session-expiry-identity-trust" },
         logger: quietLogger,
       });

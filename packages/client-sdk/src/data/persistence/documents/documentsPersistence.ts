@@ -23,7 +23,6 @@ import {
   deleteDocumentPendingUpdates,
   deleteDocumentRecord,
   enqueueDocumentPendingUpdate,
-  ensureDocumentPendingAttachmentColumns,
   ensureDocumentTables,
   findLocalIdByDocumentId,
   listDocumentPendingUpdates,
@@ -46,6 +45,7 @@ import {
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
 import {
+  buildPendingAttachmentRow,
   mapLocalAttachmentRecord,
   mapPendingAttachmentRecord,
 } from "./internal/attachmentRows";
@@ -426,7 +426,6 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await ensureDocumentTables(lockedExecSql);
       await ensureSqlTables(lockedExecSql, documentProjectionTables);
-      await ensureDocumentPendingAttachmentColumns(lockedExecSql);
       await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
     });
   },
@@ -651,6 +650,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
         uploadIv: documentPendingAttachments.uploadIv,
         uploadContentKeyEpoch: documentPendingAttachments.uploadContentKeyEpoch,
         uploadPartSize: documentPendingAttachments.uploadPartSize,
+        uploadPlaintextSha256: documentPendingAttachments.uploadPlaintextSha256,
         uploadStageId: documentPendingAttachments.uploadStageId,
       })
       .from(documentPendingAttachments)
@@ -731,21 +731,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     const createdAt = new Date().toISOString();
 
     await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      const attachmentRow = {
-        localId: attachment.localId,
-        slotId: attachment.slotId,
-        name: attachment.name,
-        mimeType: attachment.mimeType,
-        storageKey: attachment.storageKey,
-        byteLength: attachment.byteLength,
-        createdAt,
-        uploadBlobId: attachment.upload?.blobId ?? null,
-        uploadContentKey: attachment.upload?.contentKey ?? null,
-        uploadIv: attachment.upload?.iv ?? null,
-        uploadContentKeyEpoch: attachment.upload?.contentKeyEpoch ?? null,
-        uploadPartSize: attachment.upload?.partSize ?? null,
-        uploadStageId: attachment.upload?.stageId ?? null,
-      };
+      const attachmentRow = buildPendingAttachmentRow(attachment, createdAt);
       await db
         .insert(documentPendingAttachments)
         .values(attachmentRow)
@@ -764,6 +750,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
             uploadIv: attachmentRow.uploadIv,
             uploadContentKeyEpoch: attachmentRow.uploadContentKeyEpoch,
             uploadPartSize: attachmentRow.uploadPartSize,
+            uploadPlaintextSha256: attachmentRow.uploadPlaintextSha256,
             uploadStageId: attachmentRow.uploadStageId,
           },
         })

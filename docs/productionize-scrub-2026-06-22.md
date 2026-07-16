@@ -29,7 +29,6 @@ Success paths skip cleanup that error paths perform. Worth fixing together:
 - `s3BlobObjectStreams.ts:118-143` — `asyncIterableToStream` doesn't `closeAsyncIterator` on normal `done` (error/cancel paths do). **S**
 - `services/blobs/multipartStage.ts:409-422` — object-store `deleteObject` runs before the DB stage update on validation failure; a delete throw orphans the row. Reorder DB-first or wrap deletes in defensive try/catch. **M**
 - `services/blobs/multipartStage.ts:205-219` — `cleanupExpiredBlobStages` increments `failedStages` but never adds the id to `cleanedStageIds`, so an un-cleanable row is retried forever with no logging. Add logging + an age/retry bound. **M**
-- `services/blobs/multipartStage.ts:274-279` — non-`BlobObjectStoreError` DB-insert failure rethrows without aborting the multipart upload (the `stageBlob` path aborts). **S, low**
 - `adapters/blobObjectStore.ts:193-241` — in-memory store strands upload state + key lock when part validation throws before map cleanup. Mostly affects the test adapter. **S, low**
 
 ## Tier 3 — App async-error discipline (one root pattern)

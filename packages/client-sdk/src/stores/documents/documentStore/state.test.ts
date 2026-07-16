@@ -17,7 +17,9 @@ import {
 function createTestBlobStore(): BlobStore {
   return {
     deleteBytes: async () => undefined,
+    openByteSource: async () => null,
     readBytes: async () => null,
+    writeByteSource: async () => undefined,
     writeBytes: async () => undefined,
   };
 }

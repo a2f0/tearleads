@@ -1,11 +1,10 @@
 import { expect, test } from "bun:test";
-import {
-  computeBlobAccessManifestHash,
-  computeWriteHeaderHash,
-  KeyingVerificationError,
-  type WriteHeader,
-} from "@tearleads/crypto";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createBlobAttachmentBindResponse,
+  createMultipartBlobStageFixture,
+} from "../../../test/helpers/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobContracts";
 import { uploadDocumentAttachment } from "./upload";
@@ -21,60 +20,24 @@ test("uploadDocumentAttachment refetches writer projection after a stale contain
   const evictedDocumentIds: string[] = [];
   let projectionRequestCount = 0;
   let stageCount = 0;
+  let completionCount = 0;
+  const multipart = createMultipartBlobStageFixture({
+    stageId: "stage-stale-blob-upload",
+  });
   const { close, execSql } = await createTestExecSql("blob-projection-retry");
 
   const uploaded = await uploadDocumentAttachment({
     apiClient: {
-      bindBlobAttachment: async (_blobId, request) => {
-        const targets = request.contentKeyBundle.targets;
-        const linkedContainerManifestHashes = [
-          ...new Set(targets.map((target) => target.containerManifestHash)),
-        ].sort();
-        const linkedContainerKeyEpochIds = [
-          ...new Set(targets.map((target) => target.containerKeyEpochId)),
-        ].sort();
-        const blobAccessManifestHash = await computeBlobAccessManifestHash({
-          version: 1,
-          blobId,
-          organizationId: author.organizationId,
-          activeBindingIds: [bindingId],
-          documentManifestHashes: [
-            writerProjection.documentManifest.manifestHash,
-          ],
-          linkedContainerManifestHashes,
-          linkedContainerKeyEpochIds,
-          blobKeyTargetHash: request.contentKeyBundle.targetHash,
-        });
-        if (!request.stagedBlob) {
-          throw new Error("Expected staged blob request");
-        }
-
-        return {
-          bindingId,
-          blobId,
-          blobKekTargets: {
-            activeBindingIds: [bindingId],
-            blobAccessManifestHash,
-            blobId,
-            blobKeyTargetHash: request.contentKeyBundle.targetHash,
-            documentManifestHashes: [
-              writerProjection.documentManifest.manifestHash,
-            ],
-            linkedContainerKeyEpochIds,
-            linkedContainerManifestHashes,
-            organizationId: author.organizationId,
-            targets: targets.map((target) => ({ ...target })),
-          },
-          contentKeyBundle: {
-            blobId,
-            ...request.contentKeyBundle,
-          },
-          documentId: writerProjection.documentId,
-          slotId,
-          writeHeaderHash: await computeWriteHeaderHash(
-            request.stagedBlob.writeHeader as unknown as WriteHeader,
-          ),
-        };
+      ...multipart,
+      bindBlobAttachment: async (requestBlobId, request) =>
+        createBlobAttachmentBindResponse({
+          blobId: requestBlobId,
+          documentManifest: writerProjection.documentManifest,
+          request,
+        }),
+      completeMultipartBlobStage: async (stageId, request) => {
+        completionCount += 1;
+        return multipart.completeMultipartBlobStage(stageId, request);
       },
       evictDocumentWriterProjection: (documentId) => {
         evictedDocumentIds.push(documentId);
@@ -88,12 +51,9 @@ test("uploadDocumentAttachment refetches writer projection after a stale contain
         projectionRequestCount += 1;
         return writerProjection;
       },
-      stageBlob: async () => {
+      initiateMultipartBlobStage: async (request) => {
         stageCount += 1;
-        return {
-          stageId: "stage-stale-blob-upload",
-          expiresAt: "2026-04-27T01:00:00.000Z",
-        };
+        return multipart.initiateMultipartBlobStage(request);
       },
     },
     author,
@@ -113,6 +73,7 @@ test("uploadDocumentAttachment refetches writer projection after a stale contain
   expect(evictedDocumentIds).toEqual([writerProjection.documentId]);
   expect(projectionRequestCount).toBe(2);
   expect(stageCount).toBe(1);
+  expect(completionCount).toBe(1);
   expect(uploaded?.bindingId).toBe(bindingId);
 });
 
@@ -129,11 +90,13 @@ test("uploadDocumentAttachment does not retry identity failures that resemble st
   let evictions = 0;
   let projectionRequests = 0;
   let stageRequests = 0;
+  const multipart = createMultipartBlobStageFixture();
 
   try {
     await expect(
       uploadDocumentAttachment({
         apiClient: {
+          ...multipart,
           bindBlobAttachment: async () => null,
           evictDocumentWriterProjection: () => {
             evictions += 1;
@@ -142,9 +105,9 @@ test("uploadDocumentAttachment does not retry identity failures that resemble st
             projectionRequests += 1;
             return writerProjection;
           },
-          stageBlob: async () => {
+          initiateMultipartBlobStage: async (request) => {
             stageRequests += 1;
-            return null;
+            return multipart.initiateMultipartBlobStage(request);
           },
         },
         author,

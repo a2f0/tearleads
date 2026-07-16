@@ -31,7 +31,6 @@ import {
   isOrganizationUserDetailResponse,
   isPrincipalPolicyBundleResponse,
   isPrincipalStateResponse,
-  isStageBlobResponse,
   isUploadMultipartBlobPartResponse,
   isUserIdentityResponse,
   isUserSessionResponse,
@@ -106,17 +105,6 @@ test("session responses", () => {
     isListSessionsResponse({ sessions: [{ ...session, id: "bad" }] }),
   ).toBe(false);
   expect(isListSessionsResponse(null)).toBe(false);
-});
-
-test("isStageBlobResponse", () => {
-  expect(
-    isStageBlobResponse({
-      stageId: "stage_01",
-      expiresAt: new Date().toISOString(),
-    }),
-  ).toBe(true);
-  expect(isStageBlobResponse({ stageId: "stage_01" })).toBe(false);
-  expect(isStageBlobResponse(null)).toBe(false);
 });
 
 test("multipart blob stage responses", () => {

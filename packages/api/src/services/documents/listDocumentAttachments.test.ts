@@ -43,7 +43,6 @@ async function createBlob() {
     .insert(blobs)
     .values({
       byteLength: 10,
-      encryptedBytes: "blob-bytes",
       sha256: "sha256",
       storageKey: crypto.randomUUID(),
     })

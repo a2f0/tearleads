@@ -54,6 +54,18 @@ function normalizeRequestPath(path: string): string {
       /^\/blobs\/[^/]+\/attachment-bindings$/u,
       "/blobs/:blobId/attachment-bindings",
     )
+    .replace(
+      /^\/blobs\/stages\/multipart\/[^/]+\/parts\/[^/]+\/bytes$/u,
+      "/blobs/stages/multipart/:stageId/parts/:partNumber/bytes",
+    )
+    .replace(
+      /^\/blobs\/stages\/multipart\/[^/]+\/complete$/u,
+      "/blobs/stages/multipart/:stageId/complete",
+    )
+    .replace(
+      /^\/blobs\/stages\/multipart\/[^/]+$/u,
+      "/blobs/stages/multipart/:stageId",
+    )
     .replace(/^\/blobs\/[^/]+\/bytes$/u, "/blobs/:blobId/bytes");
 }
 

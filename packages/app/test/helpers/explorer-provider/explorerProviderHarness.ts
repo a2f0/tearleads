@@ -430,7 +430,6 @@ export async function createSqlRuntime(): Promise<TestRuntime> {
       createContainer: async () => null,
       createDocument: async () => null,
       deleteContainer: async () => null,
-      getBlob: async () => null,
       getContainerWriterProjection: async () => null,
       getDocumentWriterProjection: async () => null,
       getUserIdentity: async () => null,
@@ -438,7 +437,6 @@ export async function createSqlRuntime(): Promise<TestRuntime> {
       listDocumentAttachments: async () => null,
       moveContainer: async () => null,
       shareContainer: async () => null,
-      stageBlob: async () => null,
       syncDocument: async () => null,
     }),
   };

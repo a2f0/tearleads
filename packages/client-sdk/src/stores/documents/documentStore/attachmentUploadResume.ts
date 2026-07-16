@@ -8,16 +8,19 @@ import type {
 import { savePendingAttachmentUpload } from "./persistence";
 import type { DocumentStoreState } from "./state";
 
-function createPendingUploadIdentity(): PendingAttachmentUploadIdentity {
-  // Generated once and persisted before the first upload attempt. Reusing these
-  // on a retry makes the encryption byte-identical (same sha256), so the
-  // multipart stage recorded in `stageId` can be resumed rather than orphaned.
+function createPendingUploadIdentity(
+  plaintextSha256: string,
+): PendingAttachmentUploadIdentity {
+  // Generated once and persisted before the first upload attempt. The source
+  // digest derives an envelope IV from this seed, then each chunk derives its
+  // IV. Reusing the material for unchanged bytes makes retries byte-identical.
   return {
     blobId: crypto.randomUUID(),
     contentKey: bytesToBase64(crypto.getRandomValues(new Uint8Array(32))),
     contentKeyEpoch: 1,
-    iv: bytesToBase64(createAesGcmIv()),
+    nonceSeed: bytesToBase64(createAesGcmIv()),
     partSize: null,
+    plaintextSha256,
     stageId: null,
   };
 }
@@ -26,7 +29,7 @@ export interface AttachmentUploadResume {
   readonly blobId: string;
   readonly contentKey: Uint8Array;
   readonly contentKeyEpoch: number;
-  readonly iv: Uint8Array;
+  readonly nonceSeed: Uint8Array;
   readonly multipart: { partSize: number; resumeStageId: string } | undefined;
   readonly onStageResolved: MultipartStageResolvedListener;
 }
@@ -35,9 +38,12 @@ export interface AttachmentUploadResume {
 export async function resolveAttachmentUploadResume(
   state: DocumentStoreState,
   pendingAttachment: PendingAttachmentRecord,
+  plaintextSha256: string,
 ): Promise<AttachmentUploadResume> {
   const uploadIdentity =
-    pendingAttachment.upload ?? createPendingUploadIdentity();
+    pendingAttachment.upload?.plaintextSha256 === plaintextSha256
+      ? pendingAttachment.upload
+      : createPendingUploadIdentity(plaintextSha256);
   if (pendingAttachment.upload !== uploadIdentity) {
     pendingAttachment.upload = uploadIdentity;
     await savePendingAttachmentUpload(state, pendingAttachment);
@@ -69,7 +75,7 @@ export async function resolveAttachmentUploadResume(
     blobId: uploadIdentity.blobId,
     contentKey: base64ToBytes(uploadIdentity.contentKey),
     contentKeyEpoch: uploadIdentity.contentKeyEpoch,
-    iv: base64ToBytes(uploadIdentity.iv),
+    nonceSeed: base64ToBytes(uploadIdentity.nonceSeed),
     multipart,
     onStageResolved,
   };

@@ -1,7 +1,6 @@
 import {
   isCompleteMultipartBlobStageRequest,
   isInitiateMultipartBlobStageRequest,
-  isUploadMultipartBlobPartRequest,
 } from "@tearleads/validators/request";
 import type {
   CompleteMultipartBlobStageResponse,
@@ -19,7 +18,6 @@ import {
   getMultipartBlobStage,
   initiateMultipartBlobStage,
   MultipartBlobStageError,
-  uploadMultipartBlobPart,
   uploadMultipartBlobPartStream,
 } from "../../services/blobs/multipartStage";
 import type { ApiServiceRuntime } from "../../services/runtime";
@@ -155,47 +153,6 @@ function registerStatusRoute(
   );
 }
 
-function registerPartRoute(
-  route: Hono<SessionEnv>,
-  deps: MultipartBlobStageRouteDeps,
-): void {
-  registerJsonPartRoute(route, deps);
-  registerPartBytesRoute(route, deps);
-}
-
-function registerJsonPartRoute(
-  route: Hono<SessionEnv>,
-  { requireAuth, runtime }: MultipartBlobStageRouteDeps,
-): void {
-  route.put(
-    "/blobs/stages/multipart/:stageId/parts/:partNumber",
-    requireAuth,
-    validator("param", validatePartRouteParams),
-    validator("json", createRequestValidator(isUploadMultipartBlobPartRequest)),
-    async (c) => {
-      const session = c.get("session");
-      const { partNumber, stageId } = c.req.valid("param");
-
-      try {
-        return c.json<UploadMultipartBlobPartResponse>(
-          await uploadMultipartBlobPart(runtime, {
-            ...c.req.valid("json"),
-            partNumber,
-            stageId,
-            userId: session.userId,
-          }),
-        );
-      } catch (error) {
-        if (error instanceof MultipartBlobStageError) {
-          return c.json({ error: error.message }, error.status);
-        }
-
-        throw error;
-      }
-    },
-  );
-}
-
 function registerPartBytesRoute(
   route: Hono<SessionEnv>,
   { requireAuth, runtime }: MultipartBlobStageRouteDeps,
@@ -295,7 +252,7 @@ export function createMultipartBlobStageRoute(
 
   registerInitiateRoute(route, deps);
   registerStatusRoute(route, deps);
-  registerPartRoute(route, deps);
+  registerPartBytesRoute(route, deps);
   registerCompleteRoute(route, deps);
 
   return route;

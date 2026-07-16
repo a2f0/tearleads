@@ -1,5 +1,6 @@
 import type { BlobStore, DocumentAttachment } from "@tearleads/client-sdk";
 import { useEffect, useMemo, useState } from "react";
+import { isAutomaticBlobPreviewAllowed } from "./documentAttachmentUtils";
 import {
   getMediaPreviewKind,
   isPreviewableMediaMimeType,
@@ -30,6 +31,7 @@ function resolveLocalFileDocumentMediaAttachment(
     if (
       attachment &&
       attachmentStorageKeyBySlotId[attachment.slotId] &&
+      isAutomaticBlobPreviewAllowed(attachment) &&
       isRenderableFileDocumentMediaMimeType(attachment.mimeType)
     ) {
       return attachment;

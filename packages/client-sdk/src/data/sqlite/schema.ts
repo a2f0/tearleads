@@ -420,15 +420,16 @@ export const documentPendingAttachments = sqliteTable(
     byteLength: integer("byte_length").notNull(),
     createdAt: text("created_at").notNull(),
     // Upload-resume identity, set on the first upload attempt. Reusing the blob
-    // id, content key and IV makes a retry re-encrypt to byte-identical bytes
-    // (same sha256), so the persisted multipart stage can be resumed instead of
-    // orphaned. All nullable: only in-flight uploads have them, and they are
-    // dropped with the row once the upload completes.
+    // id, content key and IV seed makes every encrypted chunk byte-identical, so
+    // the persisted multipart stage can resume instead of being orphaned. All
+    // nullable: only in-flight uploads have them, and they are dropped with the
+    // row once the upload completes.
     uploadBlobId: text("upload_blob_id"),
     uploadContentKey: text("upload_content_key"),
     uploadIv: text("upload_iv"),
     uploadContentKeyEpoch: integer("upload_content_key_epoch"),
     uploadPartSize: integer("upload_part_size"),
+    uploadPlaintextSha256: text("upload_plaintext_sha256"),
     uploadStageId: text("upload_stage_id"),
   },
   (table) => [

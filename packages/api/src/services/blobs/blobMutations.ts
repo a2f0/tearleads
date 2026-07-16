@@ -4,7 +4,6 @@ import type {
   BlobAttachmentDetachResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
-import { readMultipartBlobStageRecord } from "../../utils/blobStageRecords";
 import { summarizeSha256Stream } from "../../utils/sha256";
 import {
   type BindBlobAttachmentInput,
@@ -95,11 +94,12 @@ async function prevalidateMultipartBlobStage(
   const [stage] = await runtime.db
     .select({
       byteLength: blobStages.byteLength,
-      encryptedBytes: blobStages.encryptedBytes,
+      completedAt: blobStages.completedAt,
       expiresAt: blobStages.expiresAt,
       id: blobStages.id,
       ownerUserId: blobStages.ownerUserId,
       sha256: blobStages.sha256,
+      storageKey: blobStages.storageKey,
     })
     .from(blobStages)
     .where(eq(blobStages.id, stagedBlob.stageId))
@@ -115,16 +115,12 @@ async function prevalidateMultipartBlobStage(
     throw new BlobMutationError("Blob stage has expired", 409);
   }
 
-  const multipartStage = readMultipartBlobStageRecord(stage.encryptedBytes);
-  if (!multipartStage) {
-    return null;
-  }
-  if (multipartStage.state !== "complete") {
+  if (stage.completedAt === null) {
     throw new BlobMutationError("Blob multipart stage is not complete", 409);
   }
 
   const objectStream = await runtime.blobObjectStore.getObjectStream(
-    multipartStage.storageKey,
+    stage.storageKey,
   );
   if (objectStream === null) {
     throw new BlobMutationError("Blob staged bytes are missing", 409);
@@ -144,7 +140,7 @@ async function prevalidateMultipartBlobStage(
     byteLength: stage.byteLength,
     sha256: stage.sha256,
     stageId: stage.id,
-    storageKey: multipartStage.storageKey,
+    storageKey: stage.storageKey,
   };
 }
 

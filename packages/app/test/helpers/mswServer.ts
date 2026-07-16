@@ -465,6 +465,7 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
         createDestroySession,
         createDestroyUserSession,
         createListUserSessions,
+        createMemoryBlobObjectStore,
         createRequireAuth,
         createRouteApp,
         createSessionTokenIssuer,
@@ -498,6 +499,11 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
         "API session module missing createListUserSessions export.",
       );
     }
+    if (typeof createMemoryBlobObjectStore !== "function") {
+      throw new Error(
+        "API app test runtime module missing createMemoryBlobObjectStore export.",
+      );
+    }
     if (typeof createRequireAuth !== "function") {
       throw new Error("API session module missing createRequireAuth export.");
     }
@@ -519,6 +525,7 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
       },
     };
     const runtime = {
+      blobObjectStore: createMemoryBlobObjectStore(),
       db,
       eventPublisher,
       keyValueStore,

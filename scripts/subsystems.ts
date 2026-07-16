@@ -68,7 +68,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Blobs & Attachments",
     package: "api",
     responsibility:
-      "Blob staging (single + multipart), retrieval streaming, upload capabilities, attachment binding, and the injectable blob object store (memory or S3).",
+      "Multipart blob staging, binary retrieval streaming, attachment binding, and the injectable blob object store (memory or S3).",
     seam: "routes/blobs; services/blobs facade; BlobObjectStore adapter",
     paths: [
       `${api}/routes/blobs/`,
@@ -78,7 +78,6 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/adapters/defaultBlobObjectStore.ts`,
       `${api}/adapters/s3BlobObjectStore.ts`,
       `${api}/adapters/s3BlobObjectStreams.ts`,
-      `${api}/utils/blobStageRecords.ts`,
     ],
   },
   {

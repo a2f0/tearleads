@@ -1,4 +1,3 @@
-import type { BlobResponse } from "@tearleads/validators/response";
 import type { ResponseRequestFn } from "../../types";
 import { pathSegment } from "../path";
 
@@ -19,10 +18,6 @@ export interface UploadMultipartBlobPartBytesRequest {
   readonly encryptedBytes: Blob | BufferSource;
   readonly sha256: string;
   readonly uploadId: string;
-}
-
-interface LoadedBlobBytesResponse extends BlobBytesResponse {
-  readonly response: Response;
 }
 
 const BLOB_BYTES_PATH_METHOD = "GET";
@@ -81,7 +76,7 @@ function reportMalformedBlobBytesResponse(
 async function loadBlobBytesResponse(
   request: ResponseRequestFn,
   blobId: string,
-): Promise<LoadedBlobBytesResponse | null> {
+): Promise<BlobBytesResponse | null> {
   const path = `/blobs/${pathSegment(blobId)}/bytes`;
   const result = await request(path, BLOB_BYTES_PATH_METHOD);
   if (!result.ok) {
@@ -135,53 +130,13 @@ async function loadBlobBytesResponse(
     blobId: responseBlobId,
     byteLength,
     encryptedBytes: response.body,
-    response,
     sha256,
   };
 }
 
-export async function getBlobBytes(
+export function getBlobBytes(
   request: ResponseRequestFn,
   blobId: string,
 ): Promise<BlobBytesResponse | null> {
-  const loaded = await loadBlobBytesResponse(request, blobId);
-  if (!loaded) {
-    return null;
-  }
-
-  const { response, ...metadata } = loaded;
-  return metadata;
-}
-
-export async function getBlob(
-  request: ResponseRequestFn,
-  blobId: string,
-): Promise<BlobResponse | null> {
-  const path = `/blobs/${pathSegment(blobId)}/bytes`;
-  const loaded = await loadBlobBytesResponse(request, blobId);
-  if (!loaded) {
-    return null;
-  }
-
-  let encryptedBytes: string;
-  try {
-    encryptedBytes = await loaded.response.text();
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    request.reportFailure({
-      kind: "shape",
-      message: `${BLOB_BYTES_PATH_METHOD} ${path}: failed to read response body: ${message}`,
-      method: BLOB_BYTES_PATH_METHOD,
-      path,
-      status: loaded.response.status,
-      statusText: loaded.response.statusText,
-    });
-    return null;
-  }
-
-  return {
-    blobId: loaded.blobId,
-    encryptedBytes,
-    sha256: loaded.sha256,
-  };
+  return loadBlobBytesResponse(request, blobId);
 }

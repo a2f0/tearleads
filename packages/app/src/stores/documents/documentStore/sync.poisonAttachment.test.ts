@@ -24,7 +24,10 @@ test("a pending attachment with missing local bytes does not block document sync
   const baseBlobStore = createMemoryBlobStore();
   const blobStore: typeof baseBlobStore = {
     deleteBytes: (storageKey) => baseBlobStore.deleteBytes(storageKey),
+    openByteSource: async () => null,
     readBytes: async () => null,
+    writeByteSource: (storageKey, source) =>
+      baseBlobStore.writeByteSource(storageKey, source),
     writeBytes: (storageKey, bytes) =>
       baseBlobStore.writeBytes(storageKey, bytes),
   };

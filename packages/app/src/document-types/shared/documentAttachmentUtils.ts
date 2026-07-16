@@ -1,5 +1,5 @@
 import type {
-  BlobBytes,
+  BlobByteSourceInput,
   BlobInfo,
   BlobStore,
   DocumentAttachment,
@@ -13,9 +13,21 @@ export interface DocumentAttachmentSlot {
 }
 
 export interface DocumentAttachmentUpload {
-  bytes: BlobBytes;
+  bytes: BlobByteSourceInput;
   mimeType: string | null;
   name: string;
+}
+
+export const AUTOMATIC_BLOB_PREVIEW_MAX_BYTES = 5 * 1024 * 1024;
+
+export function isAutomaticBlobPreviewAllowed(
+  blob: Pick<BlobInfo, "byteLength">,
+): boolean {
+  return (
+    Number.isSafeInteger(blob.byteLength) &&
+    blob.byteLength >= 0 &&
+    blob.byteLength <= AUTOMATIC_BLOB_PREVIEW_MAX_BYTES
+  );
 }
 
 export function createFrontAndBackImageSlots(params: {
@@ -42,7 +54,7 @@ export async function readDocumentAttachmentUpload(
   file: File,
 ): Promise<DocumentAttachmentUpload> {
   return {
-    bytes: new Uint8Array(await file.arrayBuffer()),
+    bytes: file,
     mimeType: file.type.length > 0 ? file.type : null,
     name: file.name,
   };
@@ -70,7 +82,7 @@ export async function readBlobDocumentAttachmentUpload(params: {
   blobStore: BlobStore;
 }): Promise<DocumentAttachmentUpload> {
   const { blob, blobStore } = params;
-  const bytes = await blobStore.readBytes(blob.storageKey);
+  const bytes = await blobStore.openByteSource(blob.storageKey);
 
   if (!bytes) {
     throw new Error(

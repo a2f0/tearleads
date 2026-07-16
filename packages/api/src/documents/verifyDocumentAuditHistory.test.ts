@@ -35,7 +35,6 @@ async function createDocumentWithAuditHistory() {
     .insert(blobs)
     .values({
       byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
-      encryptedBytes,
       sha256: await sha256Hex(encryptedBytes),
       storageKey: `audit-history/${crypto.randomUUID()}`,
     })

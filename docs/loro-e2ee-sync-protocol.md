@@ -72,13 +72,9 @@ Document write routes:
 
 Attachment write routes:
 
-- `POST /blobs/stage`
- - stores temporary encrypted blob bytes
- - request shape: `StageBlobRequest`
 - multipart stage routes
  - `POST /blobs/stages/multipart`
  - `GET /blobs/stages/multipart/:stageId`
- - `PUT /blobs/stages/multipart/:stageId/parts/:partNumber`
  - `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes`
  - `POST /blobs/stages/multipart/:stageId/complete`
  - store and complete large temporary encrypted blob uploads before a bind
@@ -282,11 +278,10 @@ updates.
 Objects:
 
 - `blobs`
- - committed encrypted blob payload rows, backed by inline bytes or an
- object-store storage key
+ - committed encrypted blob metadata rows backed by an object-store storage key
 - `blob_stages`
- - temporary staged uploads owned by one actor and expiring automatically;
- multipart stages store object-store upload metadata until completion
+ - temporary multipart uploads owned by one actor and expiring automatically;
+ stages store object-store upload metadata until completion
 - `attachment_bindings`
  - server-visible bindings from document slots to blob objects; detached
  bindings are transient replacement metadata and are pruned with unreachable
@@ -310,10 +305,8 @@ changes and wrapped-key bundle changes for the blob object.
 
 Logical operations:
 
-- `POST /blobs/stage`
 - `POST /blobs/stages/multipart`
 - `GET /blobs/stages/multipart/:stageId`
-- `PUT /blobs/stages/multipart/:stageId/parts/:partNumber`
 - `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes`
 - `POST /blobs/stages/multipart/:stageId/complete`
 - `POST /blobs/:blobId/attachment-bindings`
@@ -324,8 +317,8 @@ Implementation objects:
 - `blobs`
  - committed encrypted blob rows and object-store keys
 - `blob_stages`
- - temporary encrypted upload bytes or multipart upload metadata keyed by
- `stageId`
+ - temporary multipart upload metadata keyed by `stageId`, including the
+ object-store key, upload id, expected digest and length, and completion state
 - `attachment_bindings`
  - document-visible attachment state keyed by opaque `slotId`
  - `detached_at IS NULL` means the binding is currently active
@@ -358,7 +351,8 @@ re-encrypted.
 The contract separates encrypted document sync from server-visible signed
 attachment binding mutations:
 
-1. `POST /blobs/stage`
+1. initiate, upload, and complete `POST /blobs/stages/multipart` using the
+ binary part endpoint
 2. `POST /blobs/:blobId/attachment-bindings`
 3. `POST /blobs/:blobId/attachment-bindings/:bindingId/detach`
 4. `POST /documents/:documentId/sync` for the encrypted Loro update that

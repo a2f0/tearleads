@@ -12,7 +12,6 @@ async function insertBlob(input: {
   await db.insert(blobs).values({
     id: input.id,
     storageKey: input.storageKey ?? `blob-object:${input.id}`,
-    encryptedBytes: `encrypted:${input.id}`,
     sha256: `sha256:${input.id}`,
     byteLength: 1,
     dereferencedAt: input.dereferencedAt,

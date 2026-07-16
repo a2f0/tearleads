@@ -304,7 +304,6 @@ async function seedOrganizationDataUsage(input: {
   await db.insert(blobs).values({
     id: blobId,
     storageKey: `${blobId}:storage`,
-    encryptedBytes: "encrypted-blob-bytes",
     sha256: `${blobId}:sha256`,
     byteLength: 17,
   });

@@ -15,10 +15,8 @@ import type {
   PutKeyPackageBackupRequest,
   PutPrincipalPolicyRequest,
   RegistrationRequest,
-  StageBlobRequest,
   UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
-  UploadMultipartBlobPartRequest,
 } from "@tearleads/validators/request";
 import {
   type BlobAttachmentBindResponse,
@@ -32,7 +30,6 @@ import {
   type DocumentWriterProjectionResponse,
   isBlobAttachmentBindResponse,
   isBlobAttachmentDetachResponse,
-  isBlobUploadCapabilitiesResponse,
   isChallengeResponse,
   isCompleteMultipartBlobStageResponse,
   isContainerCreateWithMetadataDocumentResponse,
@@ -70,7 +67,6 @@ import {
   isOrganizationUserDetailResponse,
   isPrincipalPolicyBundleResponse,
   isRegistrationResponse,
-  isStageBlobResponse,
   isUploadMultipartBlobPartResponse,
   isUserIdentityResponse,
   isVerifyResponse,
@@ -98,7 +94,6 @@ import {
   requestFailureKey,
 } from "./requestInternals";
 import {
-  getBlob,
   getBlobBytes,
   type UploadMultipartBlobPartBytesRequest,
 } from "./routes/blobs/get";
@@ -1408,23 +1403,6 @@ export class ApiClient {
     }
   }
 
-  stageBlob(input: StageBlobRequest) {
-    return this.request(
-      "/blobs/stage",
-      isStageBlobResponse,
-      "POST",
-      JSON.stringify(input),
-    );
-  }
-
-  getBlobUploadCapabilities() {
-    return this.request(
-      "/blobs/uploads/capabilities",
-      isBlobUploadCapabilitiesResponse,
-      "GET",
-    );
-  }
-
   initiateMultipartBlobStage(input: InitiateMultipartBlobStageRequest) {
     return this.request(
       "/blobs/stages/multipart",
@@ -1439,19 +1417,6 @@ export class ApiClient {
       `/blobs/stages/multipart/${pathSegment(stageId)}`,
       isMultipartBlobStageStatusResponse,
       "GET",
-    );
-  }
-
-  uploadMultipartBlobPart(
-    stageId: string,
-    partNumber: number,
-    input: UploadMultipartBlobPartRequest,
-  ) {
-    return this.request(
-      `/blobs/stages/multipart/${pathSegment(stageId)}/parts/${pathSegment(partNumber)}`,
-      isUploadMultipartBlobPartResponse,
-      "PUT",
-      JSON.stringify(input),
     );
   }
 
@@ -1486,10 +1451,6 @@ export class ApiClient {
       "POST",
       JSON.stringify(input),
     );
-  }
-
-  getBlob(blobId: string) {
-    return getBlob(this.responseRequest, blobId);
   }
 
   getBlobBytes(blobId: string) {

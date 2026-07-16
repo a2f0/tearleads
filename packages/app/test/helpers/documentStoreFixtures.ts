@@ -1,5 +1,6 @@
 import type { DocumentSummary, DocumentsRuntime } from "@tearleads/client-sdk";
 import {
+  createBlobByteSource,
   createDocumentsWorkflowRuntime,
   createDomainScope,
   type DocumentRecord,
@@ -8,6 +9,7 @@ import {
   type PendingAttachmentRecord,
   type PendingUpdateInsert,
   type PendingUpdateRecord,
+  readBlobByteSource,
 } from "@tearleads/client-sdk";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
@@ -54,6 +56,13 @@ function createFixtureBlobStore(): RuntimeInput["infra"]["blobStore"] {
     },
     async readBytes(storageKey) {
       return blobs.get(storageKey) ?? null;
+    },
+    async openByteSource(storageKey) {
+      const bytes = blobs.get(storageKey);
+      return bytes ? createBlobByteSource(bytes) : null;
+    },
+    async writeByteSource(storageKey, source) {
+      blobs.set(storageKey, await readBlobByteSource(source));
     },
     async writeBytes(storageKey, bytes) {
       blobs.set(storageKey, bytes);

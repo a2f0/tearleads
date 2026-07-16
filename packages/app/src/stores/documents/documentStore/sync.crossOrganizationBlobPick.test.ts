@@ -197,12 +197,17 @@ test("picking a personal-org blob copies and re-encrypts it for the target organ
   );
 
   const [personalRemoteBlob, customRemoteBlob] = await Promise.all([
-    personal.runtime.apiClient.getBlob(personalAttachment.blobId),
-    custom.runtime.apiClient.getBlob(customAttachment.blobId),
+    personal.runtime.apiClient.getBlobBytes(personalAttachment.blobId),
+    custom.runtime.apiClient.getBlobBytes(customAttachment.blobId),
   ]);
-  expect(personalRemoteBlob?.encryptedBytes).toBeString();
-  expect(customRemoteBlob?.encryptedBytes).toBeString();
-  expect(customRemoteBlob?.encryptedBytes).not.toBe(
-    personalRemoteBlob?.encryptedBytes,
+  if (!personalRemoteBlob || !customRemoteBlob) {
+    throw new Error("Expected both remote blob byte streams");
+  }
+  const [personalRemoteBytes, customRemoteBytes] = await Promise.all([
+    new Response(personalRemoteBlob.encryptedBytes).arrayBuffer(),
+    new Response(customRemoteBlob.encryptedBytes).arrayBuffer(),
+  ]);
+  expect(new Uint8Array(customRemoteBytes)).not.toEqual(
+    new Uint8Array(personalRemoteBytes),
   );
 }, 20_000);

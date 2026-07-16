@@ -2,7 +2,6 @@ import { blobStages } from "@tearleads/api-shared/schema";
 import type {
   CompleteMultipartBlobStageRequest,
   InitiateMultipartBlobStageRequest,
-  UploadMultipartBlobPartRequest,
 } from "@tearleads/validators/request";
 import type {
   CompleteMultipartBlobStageResponse,
@@ -14,13 +13,8 @@ import { eq, inArray, lte } from "drizzle-orm";
 import {
   type BlobObjectReadStream,
   BlobObjectStoreError,
-  type BlobObjectUploadPartBody,
   type CompletedBlobObject,
 } from "../../adapters/blobObjectStore";
-import {
-  encodeMultipartBlobStageRecord,
-  readMultipartBlobStageRecord,
-} from "../../utils/blobStageRecords";
 import { summarizeSha256Stream } from "../../utils/sha256";
 import type { ApiServiceRuntime } from "../runtime";
 
@@ -33,11 +27,13 @@ interface AuthenticatedMultipartBlobStageInput {
 
 interface LoadedMultipartBlobStage {
   readonly byteLength: number;
+  readonly completedAt: Date | null;
   readonly expiresAt: Date;
   readonly id: string;
   readonly ownerUserId: string;
-  readonly record: NonNullable<ReturnType<typeof readMultipartBlobStageRecord>>;
   readonly sha256: string;
+  readonly storageKey: string;
+  readonly uploadId: string;
 }
 
 export interface CleanupExpiredBlobStagesInput {
@@ -47,7 +43,6 @@ export interface CleanupExpiredBlobStagesInput {
 
 interface CleanupExpiredBlobStagesResult {
   readonly abortedMultipartUploads: number;
-  readonly deletedLegacyStages: number;
   readonly deletedMultipartObjects: number;
   readonly deletedStages: number;
   readonly failedStages: number;
@@ -90,7 +85,7 @@ function toMultipartBlobStageError(
   return new MultipartBlobStageError(error.message, 400);
 }
 
-export function storageKeyForStage(stageId: string): string {
+function storageKeyForStage(stageId: string): string {
   return `blob-stages/${stageId}`;
 }
 
@@ -133,11 +128,13 @@ async function loadMultipartBlobStage(
   const [stage] = await runtime.db
     .select({
       byteLength: blobStages.byteLength,
-      encryptedBytes: blobStages.encryptedBytes,
+      completedAt: blobStages.completedAt,
       expiresAt: blobStages.expiresAt,
       id: blobStages.id,
       ownerUserId: blobStages.ownerUserId,
       sha256: blobStages.sha256,
+      storageKey: blobStages.storageKey,
+      uploadId: blobStages.uploadId,
     })
     .from(blobStages)
     .where(eq(blobStages.id, input.stageId))
@@ -150,28 +147,22 @@ async function loadMultipartBlobStage(
     throw new MultipartBlobStageError("Forbidden", 403);
   }
 
-  const record = readMultipartBlobStageRecord(stage.encryptedBytes);
-  if (!record) {
-    throw new MultipartBlobStageError("Blob stage is not multipart", 409);
-  }
+  assertStageIsPromotable(stage);
 
-  const loaded = { ...stage, record };
-  assertStageIsPromotable(loaded);
-
-  return loaded;
+  return stage;
 }
 
 async function listStageParts(
   runtime: ApiServiceRuntime,
   stage: LoadedMultipartBlobStage,
 ) {
-  if (stage.record.state === "complete") {
+  if (stage.completedAt !== null) {
     return [];
   }
 
   return runtime.blobObjectStore.listParts({
-    key: stage.record.storageKey,
-    uploadId: stage.record.uploadId,
+    key: stage.storageKey,
+    uploadId: stage.uploadId,
   });
 }
 
@@ -183,36 +174,30 @@ export async function cleanupExpiredBlobStages(
   const limit = normalizeCleanupLimit(input.limit);
   const stages = await runtime.db
     .select({
-      encryptedBytes: blobStages.encryptedBytes,
+      completedAt: blobStages.completedAt,
       id: blobStages.id,
+      storageKey: blobStages.storageKey,
+      uploadId: blobStages.uploadId,
     })
     .from(blobStages)
     .where(lte(blobStages.expiresAt, now))
     .limit(limit);
   let abortedMultipartUploads = 0;
-  let deletedLegacyStages = 0;
   let deletedMultipartObjects = 0;
   let deletedStages = 0;
   let failedStages = 0;
   const cleanedStageIds: string[] = [];
 
   for (const stage of stages) {
-    const record = readMultipartBlobStageRecord(stage.encryptedBytes);
-    if (!record) {
-      deletedLegacyStages += 1;
-      cleanedStageIds.push(stage.id);
-      continue;
-    }
-
     try {
-      if (record.state === "pending") {
+      if (stage.completedAt === null) {
         await runtime.blobObjectStore.abortMultipartUpload({
-          key: record.storageKey,
-          uploadId: record.uploadId,
+          key: stage.storageKey,
+          uploadId: stage.uploadId,
         });
         abortedMultipartUploads += 1;
       } else {
-        await runtime.blobObjectStore.deleteObject(record.storageKey);
+        await runtime.blobObjectStore.deleteObject(stage.storageKey);
         deletedMultipartObjects += 1;
       }
       cleanedStageIds.push(stage.id);
@@ -231,7 +216,6 @@ export async function cleanupExpiredBlobStages(
 
   return {
     abortedMultipartUploads,
-    deletedLegacyStages,
     deletedMultipartObjects,
     deletedStages,
     failedStages,
@@ -252,18 +236,24 @@ export async function initiateMultipartBlobStage(
       key: storageKey,
     });
 
-    await runtime.db.insert(blobStages).values({
-      id: stageId,
-      ownerUserId: input.userId,
-      encryptedBytes: encodeMultipartBlobStageRecord({
-        state: "pending",
+    try {
+      await runtime.db.insert(blobStages).values({
+        id: stageId,
+        ownerUserId: input.userId,
         storageKey,
         uploadId: upload.uploadId,
-      }),
-      byteLength: input.byteLength,
-      sha256: input.sha256,
-      expiresAt,
-    });
+        byteLength: input.byteLength,
+        sha256: input.sha256,
+        expiresAt,
+      });
+    } catch (error) {
+      // Without the stage row, expiry cleanup cannot discover this upload.
+      // Abort it best-effort and preserve the database failure.
+      await runtime.blobObjectStore
+        .abortMultipartUpload({ key: storageKey, uploadId: upload.uploadId })
+        .catch(() => {});
+      throw error;
+    }
 
     return {
       byteLength: input.byteLength,
@@ -292,11 +282,11 @@ export async function getMultipartBlobStage(
 
     return {
       byteLength: stage.byteLength,
-      completed: stage.record.state === "complete",
+      completed: stage.completedAt !== null,
       expiresAt: stage.expiresAt.toISOString(),
       sha256: stage.sha256,
       stageId: stage.id,
-      uploadId: stage.record.uploadId,
+      uploadId: stage.uploadId,
       uploadedParts: [...uploadedParts],
     };
   } catch (error) {
@@ -308,67 +298,38 @@ export async function getMultipartBlobStage(
   }
 }
 
-export async function uploadMultipartBlobPart(
-  runtime: ApiServiceRuntime,
-  input: AuthenticatedMultipartBlobStageInput &
-    UploadMultipartBlobPartRequest & {
-      readonly partNumber: number;
-    },
-): Promise<UploadMultipartBlobPartResponse> {
-  return uploadMultipartBlobPartBody(runtime, {
-    ...input,
-    body: {
-      bytes: input.encryptedBytes,
-    },
-  });
-}
-
 export async function uploadMultipartBlobPartStream(
   runtime: ApiServiceRuntime,
   input: UploadMultipartBlobPartStreamInput,
 ): Promise<UploadMultipartBlobPartResponse> {
-  return uploadMultipartBlobPartBody(runtime, {
-    ...input,
-    body: {
-      byteLength: input.byteLength,
-      sha256: input.sha256,
-      stream: input.stream,
-    },
-  });
-}
-
-async function uploadMultipartBlobPartBody(
-  runtime: ApiServiceRuntime,
-  input: AuthenticatedMultipartBlobStageInput & {
-    readonly body: BlobObjectUploadPartBody;
-    readonly partNumber: number;
-    readonly uploadId: string;
-  },
-): Promise<UploadMultipartBlobPartResponse> {
   try {
     const stage = await loadMultipartBlobStage(runtime, input);
-    if (stage.record.state === "complete") {
+    if (stage.completedAt !== null) {
       throw new MultipartBlobStageError(
         "Blob multipart stage is complete",
         409,
       );
     }
     assertUploadIdMatches({
-      expectedUploadId: stage.record.uploadId,
+      expectedUploadId: stage.uploadId,
       uploadId: input.uploadId,
     });
 
     const part = await runtime.blobObjectStore.uploadPart({
-      body: input.body,
-      key: stage.record.storageKey,
+      body: {
+        byteLength: input.byteLength,
+        sha256: input.sha256,
+        stream: input.stream,
+      },
+      key: stage.storageKey,
       partNumber: input.partNumber,
-      uploadId: stage.record.uploadId,
+      uploadId: stage.uploadId,
     });
 
     return {
       part,
       stageId: stage.id,
-      uploadId: stage.record.uploadId,
+      uploadId: stage.uploadId,
     };
   } catch (error) {
     const multipartError = toMultipartBlobStageError(error);
@@ -400,11 +361,7 @@ async function markMultipartStageComplete(
   await runtime.db
     .update(blobStages)
     .set({
-      encryptedBytes: encodeMultipartBlobStageRecord({
-        state: "complete",
-        storageKey: stage.record.storageKey,
-        uploadId: stage.record.uploadId,
-      }),
+      completedAt: new Date(),
     })
     .where(eq(blobStages.id, stage.id));
 }
@@ -420,14 +377,14 @@ async function assertCompletedMultipartObjectMatches(
   assembled: { readonly byteLength: number; readonly sha256: string },
 ): Promise<void> {
   if (assembled.byteLength !== stage.byteLength) {
-    await runtime.blobObjectStore.deleteObject(stage.record.storageKey);
+    await runtime.blobObjectStore.deleteObject(stage.storageKey);
     throw new MultipartBlobStageError(
       "Blob byteLength does not match multipart upload",
       409,
     );
   }
   if (assembled.sha256 !== stage.sha256) {
-    await runtime.blobObjectStore.deleteObject(stage.record.storageKey);
+    await runtime.blobObjectStore.deleteObject(stage.storageKey);
     throw new MultipartBlobStageError(
       "Blob sha256 does not match multipart upload",
       409,
@@ -451,7 +408,7 @@ async function recoverCompletedMultipartStage(
     throw error;
   }
   const existing = await runtime.blobObjectStore.getObjectStream(
-    stage.record.storageKey,
+    stage.storageKey,
   );
   if (!existing) {
     throw error;
@@ -469,11 +426,11 @@ export async function completeMultipartBlobStage(
 ): Promise<CompleteMultipartBlobStageResponse> {
   try {
     const stage = await loadMultipartBlobStage(runtime, input);
-    if (stage.record.state === "complete") {
+    if (stage.completedAt !== null) {
       return multipartStageCompleteResponse(stage);
     }
     assertUploadIdMatches({
-      expectedUploadId: stage.record.uploadId,
+      expectedUploadId: stage.uploadId,
       uploadId: input.uploadId,
     });
 
@@ -484,9 +441,9 @@ export async function completeMultipartBlobStage(
           byteLength: stage.byteLength,
           sha256: stage.sha256,
         },
-        key: stage.record.storageKey,
+        key: stage.storageKey,
         parts: input.parts,
-        uploadId: stage.record.uploadId,
+        uploadId: stage.uploadId,
       });
     } catch (error) {
       return await recoverCompletedMultipartStage(runtime, stage, error);

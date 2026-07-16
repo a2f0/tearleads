@@ -4,6 +4,7 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { type Logger, Tearleads } from "./client";
+import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
 import { getOrCreateDomainSyncCoordinator } from "./data/sync/syncCoordinator";
 
 const quietLogger: Required<Logger> = {
@@ -39,7 +40,11 @@ test("dispose() force-stops the active scope's coordinator and drops it", async 
 });
 
 test("dispose() tears down reconcilers/coordinators across all scopes", async () => {
-  const sdk = new Tearleads({ logger: quietLogger, online: false });
+  const sdk = new Tearleads({
+    blobStoreFactory: () => createMemoryBlobStore(),
+    logger: quietLogger,
+    online: false,
+  });
   sdk.deviceFirst.reconciler();
   const scopeA = sdk.domainScope;
   const coordinatorA = getOrCreateDomainSyncCoordinator(scopeA);

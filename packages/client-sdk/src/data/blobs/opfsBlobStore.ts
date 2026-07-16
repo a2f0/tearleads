@@ -1,8 +1,17 @@
-import type { BlobBytes, BlobStore } from "../blobContracts";
+import {
+  type BlobByteSource,
+  type BlobBytes,
+  type BlobStore,
+  blobByteSourceInputLength,
+  createBlobByteSource,
+  readBlobByteSource,
+} from "../blobContracts";
 
 interface StorageDirectoryProvider {
   getDirectory: () => Promise<FileSystemDirectoryHandle>;
 }
+
+const OPFS_WRITE_CHUNK_SIZE = 5 * 1024 * 1024;
 
 class OpfsBlobStore implements BlobStore {
   private directoryPromise: Promise<FileSystemDirectoryHandle> | null = null;
@@ -24,6 +33,11 @@ class OpfsBlobStore implements BlobStore {
   }
 
   async readBytes(storageKey: string) {
+    const source = await this.openByteSource(storageKey);
+    return source ? readBlobByteSource(source) : null;
+  }
+
+  async openByteSource(storageKey: string) {
     const directory = await this.getDirectory();
 
     try {
@@ -31,7 +45,7 @@ class OpfsBlobStore implements BlobStore {
         this.getFileName(storageKey),
       );
       const file = await fileHandle.getFile();
-      return new Uint8Array(await file.arrayBuffer());
+      return createBlobByteSource(file);
     } catch (error) {
       if (error instanceof DOMException && error.name === "NotFoundError") {
         return null;
@@ -41,7 +55,8 @@ class OpfsBlobStore implements BlobStore {
     }
   }
 
-  async writeBytes(storageKey: string, bytes: BlobBytes) {
+  async writeByteSource(storageKey: string, source: BlobByteSource) {
+    const sourceByteLength = blobByteSourceInputLength(source);
     const directory = await this.getDirectory();
     const fileHandle = await directory.getFileHandle(
       this.getFileName(storageKey),
@@ -50,10 +65,27 @@ class OpfsBlobStore implements BlobStore {
     const writable = await fileHandle.createWritable();
 
     try {
-      await writable.write(bytes);
-    } finally {
+      for (let offset = 0; offset < sourceByteLength; ) {
+        const byteLength = Math.min(
+          OPFS_WRITE_CHUNK_SIZE,
+          sourceByteLength - offset,
+        );
+        const chunk = await source.read(offset, byteLength);
+        if (chunk.byteLength !== byteLength) {
+          throw new Error("Blob byte source returned an incomplete read.");
+        }
+        await writable.write(chunk);
+        offset += byteLength;
+      }
       await writable.close();
+    } catch (error) {
+      await writable.abort(error).catch(() => undefined);
+      throw error;
     }
+  }
+
+  async writeBytes(storageKey: string, bytes: BlobBytes) {
+    await this.writeByteSource(storageKey, createBlobByteSource(bytes));
   }
 
   private getFileName(storageKey: string): string {

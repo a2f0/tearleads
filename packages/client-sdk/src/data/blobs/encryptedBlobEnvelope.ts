@@ -1,6 +1,6 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import type { BlobBytes } from "../blobContracts";
+import type { BlobByteSource, BlobBytes } from "../blobContracts";
 
 export type EncryptedBlobStoreCipher = "aes-256-gcm";
 
@@ -11,46 +11,51 @@ export interface KeyDerivationEnvelope {
 }
 
 export interface EncryptedBlobEnvelope {
-  ciphertext: string;
+  chunkCount: number;
+  chunkSize: number;
   cipher: EncryptedBlobStoreCipher;
   format: typeof ENCRYPTED_BLOB_STORE_FORMAT;
   iv: string;
   keyDerivation: KeyDerivationEnvelope | null;
-  version: 1;
+  plaintextByteLength: number;
+  version: typeof ENCRYPTED_BLOB_STORE_VERSION;
 }
 
-interface ParsedEncryptedBlobEnvelope {
-  ciphertext: Uint8Array<ArrayBuffer>;
+export interface ParsedEncryptedBlobEnvelope {
+  encryptedByteLength: number;
   envelope: EncryptedBlobEnvelope;
-  iv: Uint8Array<ArrayBuffer>;
+  headerBytes: BlobBytes;
+  iv: BlobBytes;
+  prefixByteLength: number;
 }
 
 export const ENCRYPTED_BLOB_STORE_FORMAT =
   "tearleads.local-blob-store.encrypted";
-export const ENCRYPTED_BLOB_STORE_VERSION = 1;
+export const ENCRYPTED_BLOB_STORE_VERSION = 2;
+export const ENCRYPTED_BLOB_CHUNK_SIZE = 5 * 1024 * 1024;
+export const AES_GCM_TAG_BYTES = 16;
+
 const AES_GCM_IV_BYTES = 12;
-const AES_GCM_TAG_BYTES = 16;
 const DEFAULT_KDF_ITERATIONS = 310_000;
-const TEXT_DECODER = new TextDecoder();
+const MAX_HEADER_BYTES = 64 * 1024;
+const MAGIC_BYTES = new TextEncoder().encode(
+  "tearleads.local-blob-store.encrypted.v2",
+);
+const HEADER_LENGTH_BYTES = 4;
+const TEXT_DECODER = new TextDecoder("utf-8", { fatal: true });
 const TEXT_ENCODER = new TextEncoder();
 
-function isBlobBytes(bytes: Uint8Array): bytes is BlobBytes {
-  return bytes.buffer instanceof ArrayBuffer;
-}
-
 export function asBlobBytes(bytes: Uint8Array): BlobBytes {
-  if (!isBlobBytes(bytes)) {
+  if (!(bytes.buffer instanceof ArrayBuffer)) {
     throw new Error("Encrypted blob store bytes must be ArrayBuffer-backed.");
   }
-
-  return bytes;
+  return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 }
 
 function readRecord(value: unknown, label: string): Record<string, unknown> {
   if (!isPlainObject(value)) {
     throw new Error(`${label} must be an object.`);
   }
-
   return value;
 }
 
@@ -63,20 +68,30 @@ function readString(
   if (typeof field !== "string" || field.length === 0) {
     throw new Error(`${label}.${key} must be a non-empty string.`);
   }
-
   return field;
 }
 
-function readNumber(
+function readPositiveInteger(
   value: Record<string, unknown>,
   key: string,
   label: string,
 ): number {
   const field = value[key];
-  if (typeof field !== "number" || !Number.isInteger(field) || field <= 0) {
-    throw new Error(`${label}.${key} must be a positive integer.`);
+  if (typeof field !== "number" || !Number.isSafeInteger(field) || field <= 0) {
+    throw new Error(`${label}.${key} must be a positive safe integer.`);
   }
+  return field;
+}
 
+function readByteLength(
+  value: Record<string, unknown>,
+  key: string,
+  label: string,
+): number {
+  const field = value[key];
+  if (typeof field !== "number" || !Number.isSafeInteger(field) || field < 0) {
+    throw new Error(`${label}.${key} must be a non-negative safe integer.`);
+  }
   return field;
 }
 
@@ -84,7 +99,7 @@ export function readBase64Bytes(
   value: Record<string, unknown>,
   key: string,
   label: string,
-): Uint8Array<ArrayBuffer> {
+): BlobBytes {
   const encoded = readString(value, key, label);
   try {
     return asBlobBytes(base64ToBytes(encoded));
@@ -99,7 +114,6 @@ export function normalizeCipher(
   if (cipher === undefined || cipher === "aes-256-gcm") {
     return "aes-256-gcm";
   }
-
   throw new Error(`Unsupported encrypted blob store cipher: ${cipher}`);
 }
 
@@ -107,12 +121,11 @@ export function normalizeKdfIterations(iterations: number | undefined): number {
   if (iterations === undefined) {
     return DEFAULT_KDF_ITERATIONS;
   }
-  if (!Number.isInteger(iterations) || iterations <= 0) {
+  if (!Number.isSafeInteger(iterations) || iterations <= 0) {
     throw new Error(
       "Encrypted blob store KDF iterations must be a positive integer.",
     );
   }
-
   return iterations;
 }
 
@@ -122,17 +135,8 @@ export function assertNamespace(namespace: string): void {
   }
 }
 
-export function createAesGcmIv(): Uint8Array<ArrayBuffer> {
+export function createAesGcmIv(): BlobBytes {
   return crypto.getRandomValues(new Uint8Array(AES_GCM_IV_BYTES));
-}
-
-function createPassphraseSalt(input: {
-  cipher: EncryptedBlobStoreCipher;
-  namespace: string;
-}): Uint8Array<ArrayBuffer> {
-  return TEXT_ENCODER.encode(
-    `tearleads.local-opfs-blob-store.v1.${input.cipher}.${input.namespace}`,
-  );
 }
 
 export function createKeyDerivationEnvelope(input: {
@@ -140,10 +144,13 @@ export function createKeyDerivationEnvelope(input: {
   iterations: number;
   namespace: string;
 }): KeyDerivationEnvelope {
+  const salt = TEXT_ENCODER.encode(
+    `tearleads.local-opfs-blob-store.v2.${input.cipher}.${input.namespace}`,
+  );
   return {
     name: "pbkdf2-sha256",
     iterations: input.iterations,
-    salt: bytesToBase64(createPassphraseSalt(input)),
+    salt: bytesToBase64(salt),
   };
 }
 
@@ -160,18 +167,15 @@ function readKeyDerivationEnvelope(
   ) {
     throw new Error("Encrypted blob store key derivation is unsupported.");
   }
-  const salt = readBase64Bytes(
-    record,
-    "salt",
-    "Encrypted blob store keyDerivation",
-  );
-  if (salt.byteLength === 0) {
+  if (
+    readBase64Bytes(record, "salt", "Encrypted blob store keyDerivation")
+      .byteLength === 0
+  ) {
     throw new Error("Encrypted blob store key derivation salt is empty.");
   }
-
   return {
     name: "pbkdf2-sha256",
-    iterations: readNumber(
+    iterations: readPositiveInteger(
       record,
       "iterations",
       "Encrypted blob store keyDerivation",
@@ -180,97 +184,219 @@ function readKeyDerivationEnvelope(
   };
 }
 
-function aadField(value: string | number): string {
-  const stringValue = String(value);
-  return `${stringValue.length}:${stringValue}`;
-}
-
-function keyDerivationAdditionalData(
-  keyDerivation: KeyDerivationEnvelope | null,
-): string {
-  if (!keyDerivation) {
-    return aadField("none");
-  }
-
-  return [
-    aadField(keyDerivation.name),
-    aadField(keyDerivation.iterations),
-    aadField(keyDerivation.salt),
-  ].join("");
-}
-
-export function envelopeAdditionalData(input: {
+function parseHeader(headerBytes: BlobBytes): {
   envelope: EncryptedBlobEnvelope;
-  namespace: string;
-  storageKey: string;
-}): Uint8Array<ArrayBuffer> {
-  return TEXT_ENCODER.encode(
-    [
-      aadField(input.envelope.format),
-      aadField(input.envelope.version),
-      aadField(input.envelope.cipher),
-      aadField(input.namespace),
-      aadField(input.storageKey),
-      aadField(input.envelope.iv),
-      keyDerivationAdditionalData(input.envelope.keyDerivation),
-    ].join(""),
-  );
-}
-
-export function parseEncryptedBlobEnvelope(
-  bytes: BlobBytes,
-): ParsedEncryptedBlobEnvelope {
+  iv: BlobBytes;
+} {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(TEXT_DECODER.decode(bytes));
+    parsed = JSON.parse(TEXT_DECODER.decode(headerBytes));
   } catch {
-    throw new Error("Encrypted blob store payload is invalid JSON.");
+    throw new Error("Encrypted blob store header is invalid JSON.");
   }
-
-  const record = readRecord(parsed, "Encrypted blob store payload");
-  if (
-    readString(record, "format", "Encrypted blob store payload") !==
-    ENCRYPTED_BLOB_STORE_FORMAT
-  ) {
+  const label = "Encrypted blob store header";
+  const record = readRecord(parsed, label);
+  if (readString(record, "format", label) !== ENCRYPTED_BLOB_STORE_FORMAT) {
     throw new Error("Encrypted blob store payload format is invalid.");
   }
-  if (
-    readNumber(record, "version", "Encrypted blob store payload") !==
-    ENCRYPTED_BLOB_STORE_VERSION
-  ) {
+  if (readPositiveInteger(record, "version", label) !== 2) {
     throw new Error("Encrypted blob store payload version is invalid.");
   }
-  const cipher = normalizeCipher(
-    readString(record, "cipher", "Encrypted blob store payload"),
+  const chunkSize = readPositiveInteger(record, "chunkSize", label);
+  if (chunkSize !== ENCRYPTED_BLOB_CHUNK_SIZE) {
+    throw new Error("Encrypted blob store payload chunk size is invalid.");
+  }
+  const plaintextByteLength = readByteLength(
+    record,
+    "plaintextByteLength",
+    label,
   );
-  const iv = readBase64Bytes(record, "iv", "Encrypted blob store payload");
+  const chunkCount = readPositiveInteger(record, "chunkCount", label);
+  if (chunkCount !== getChunkCount(plaintextByteLength)) {
+    throw new Error("Encrypted blob store payload chunk count is invalid.");
+  }
+  const iv = readBase64Bytes(record, "iv", label);
   if (iv.byteLength !== AES_GCM_IV_BYTES) {
     throw new Error("Encrypted blob store payload IV is invalid.");
   }
-  const ciphertext = readBase64Bytes(
-    record,
-    "ciphertext",
-    "Encrypted blob store payload",
-  );
-  if (ciphertext.byteLength < AES_GCM_TAG_BYTES) {
-    throw new Error("Encrypted blob store payload ciphertext is too short.");
-  }
   const { keyDerivation } = record;
-
   return {
-    ciphertext,
     envelope: {
-      ciphertext: readString(
-        record,
-        "ciphertext",
-        "Encrypted blob store payload",
-      ),
-      cipher,
+      chunkCount,
+      chunkSize,
+      cipher: normalizeCipher(readString(record, "cipher", label)),
       format: ENCRYPTED_BLOB_STORE_FORMAT,
-      iv: readString(record, "iv", "Encrypted blob store payload"),
+      iv: readString(record, "iv", label),
       keyDerivation: readKeyDerivationEnvelope(keyDerivation),
+      plaintextByteLength,
       version: ENCRYPTED_BLOB_STORE_VERSION,
     },
     iv,
   };
+}
+
+export function getChunkCount(plaintextByteLength: number): number {
+  if (!Number.isSafeInteger(plaintextByteLength) || plaintextByteLength < 0) {
+    throw new Error("Encrypted blob store byte length is invalid.");
+  }
+  return Math.max(
+    1,
+    Math.ceil(plaintextByteLength / ENCRYPTED_BLOB_CHUNK_SIZE),
+  );
+}
+
+export function getChunkPlaintextByteLength(
+  plaintextByteLength: number,
+  chunkIndex: number,
+): number {
+  const chunkCount = getChunkCount(plaintextByteLength);
+  if (
+    !Number.isSafeInteger(chunkIndex) ||
+    chunkIndex < 0 ||
+    chunkIndex >= chunkCount
+  ) {
+    throw new Error("Encrypted blob store chunk index is invalid.");
+  }
+  if (chunkIndex < chunkCount - 1) {
+    return ENCRYPTED_BLOB_CHUNK_SIZE;
+  }
+  return plaintextByteLength - chunkIndex * ENCRYPTED_BLOB_CHUNK_SIZE;
+}
+
+export function serializeEncryptedBlobEnvelope(
+  envelope: EncryptedBlobEnvelope,
+): { headerBytes: BlobBytes; prefixBytes: BlobBytes } {
+  const headerBytes = TEXT_ENCODER.encode(JSON.stringify(envelope));
+  if (headerBytes.byteLength > MAX_HEADER_BYTES) {
+    throw new Error("Encrypted blob store header is too large.");
+  }
+  const prefixBytes = new Uint8Array(
+    MAGIC_BYTES.byteLength + HEADER_LENGTH_BYTES + headerBytes.byteLength,
+  );
+  prefixBytes.set(MAGIC_BYTES);
+  new DataView(prefixBytes.buffer).setUint32(
+    MAGIC_BYTES.byteLength,
+    headerBytes.byteLength,
+  );
+  prefixBytes.set(headerBytes, MAGIC_BYTES.byteLength + HEADER_LENGTH_BYTES);
+  return { headerBytes, prefixBytes };
+}
+
+function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
+  return (
+    left.byteLength === right.byteLength && left.every((v, i) => v === right[i])
+  );
+}
+
+async function readExact(
+  source: BlobByteSource,
+  offset: number,
+  byteLength: number,
+): Promise<BlobBytes> {
+  const bytes = await source.read(offset, byteLength);
+  if (bytes.byteLength !== byteLength) {
+    throw new Error("Encrypted blob store payload read was incomplete.");
+  }
+  return bytes;
+}
+
+export async function readEncryptedBlobEnvelope(
+  source: BlobByteSource,
+): Promise<ParsedEncryptedBlobEnvelope> {
+  const fixedPrefixLength = MAGIC_BYTES.byteLength + HEADER_LENGTH_BYTES;
+  if (source.byteLength < fixedPrefixLength) {
+    throw new Error("Encrypted blob store payload is too short.");
+  }
+  const fixedPrefix = await readExact(source, 0, fixedPrefixLength);
+  if (
+    !equalBytes(fixedPrefix.subarray(0, MAGIC_BYTES.byteLength), MAGIC_BYTES)
+  ) {
+    throw new Error("Encrypted blob store payload format is invalid.");
+  }
+  const headerByteLength = new DataView(
+    fixedPrefix.buffer,
+    fixedPrefix.byteOffset,
+    fixedPrefix.byteLength,
+  ).getUint32(MAGIC_BYTES.byteLength);
+  if (headerByteLength === 0 || headerByteLength > MAX_HEADER_BYTES) {
+    throw new Error("Encrypted blob store header length is invalid.");
+  }
+  const prefixByteLength = fixedPrefixLength + headerByteLength;
+  if (source.byteLength < prefixByteLength) {
+    throw new Error("Encrypted blob store payload is truncated.");
+  }
+  const headerBytes = await readExact(
+    source,
+    fixedPrefixLength,
+    headerByteLength,
+  );
+  const { envelope, iv } = parseHeader(headerBytes);
+  const encryptedByteLength =
+    prefixByteLength +
+    envelope.plaintextByteLength +
+    envelope.chunkCount * AES_GCM_TAG_BYTES;
+  if (
+    !Number.isSafeInteger(encryptedByteLength) ||
+    source.byteLength !== encryptedByteLength
+  ) {
+    throw new Error("Encrypted blob store payload length is invalid.");
+  }
+  return {
+    encryptedByteLength,
+    envelope,
+    headerBytes,
+    iv,
+    prefixByteLength,
+  };
+}
+
+function writeLengthPrefixedText(
+  target: Uint8Array,
+  offset: number,
+  value: string,
+): number {
+  const bytes = TEXT_ENCODER.encode(value);
+  new DataView(target.buffer).setUint32(offset, bytes.byteLength);
+  target.set(bytes, offset + 4);
+  return offset + 4 + bytes.byteLength;
+}
+
+export function chunkAdditionalData(input: {
+  chunkIndex: number;
+  headerBytes: BlobBytes;
+  namespace: string;
+  storageKey: string;
+}): BlobBytes {
+  const namespaceBytes = TEXT_ENCODER.encode(input.namespace);
+  const storageKeyBytes = TEXT_ENCODER.encode(input.storageKey);
+  const bytes = new Uint8Array(
+    4 +
+      namespaceBytes.byteLength +
+      4 +
+      storageKeyBytes.byteLength +
+      4 +
+      input.headerBytes.byteLength,
+  );
+  let offset = writeLengthPrefixedText(bytes, 0, input.namespace);
+  offset = writeLengthPrefixedText(bytes, offset, input.storageKey);
+  new DataView(bytes.buffer).setUint32(offset, input.chunkIndex);
+  bytes.set(input.headerBytes, offset + 4);
+  return bytes;
+}
+
+export function deriveChunkIv(
+  baseIv: BlobBytes,
+  chunkIndex: number,
+): BlobBytes {
+  if (
+    !Number.isSafeInteger(chunkIndex) ||
+    chunkIndex < 0 ||
+    chunkIndex > 0xffff_ffff
+  ) {
+    throw new Error("Encrypted blob store chunk index exceeds the IV domain.");
+  }
+  const iv = baseIv.slice();
+  const view = new DataView(iv.buffer, iv.byteOffset, iv.byteLength);
+  view.setUint32(8, view.getUint32(8) ^ chunkIndex);
+  return iv;
 }

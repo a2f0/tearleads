@@ -141,10 +141,6 @@
       "lines": 1340,
       "bytes": 40645
     },
-    "packages/api/src/services/blobs/multipartStage.ts": {
-      "lines": 505,
-      "bytes": 14749
-    },
     "packages/api/src/wsRouting.test.ts": {
       "lines": 530,
       "bytes": 16424

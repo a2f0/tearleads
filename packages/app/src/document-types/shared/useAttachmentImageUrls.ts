@@ -1,5 +1,6 @@
 import type { BlobStore, DocumentAttachment } from "@tearleads/client-sdk";
 import { type RefObject, useEffect, useRef, useState } from "react";
+import { isAutomaticBlobPreviewAllowed } from "./documentAttachmentUtils";
 
 type AttachmentStorageKeyBySlotId = Readonly<Record<string, string>>;
 type AttachmentImageUrlBySlotId = Readonly<Record<string, string>>;
@@ -108,6 +109,7 @@ export function useAttachmentImageUrls(
       const imageAttachments = attachments.filter(
         (attachment) =>
           attachment.mimeType?.startsWith("image/") &&
+          isAutomaticBlobPreviewAllowed(attachment) &&
           attachmentStorageKeyBySlotId[attachment.slotId],
       );
 

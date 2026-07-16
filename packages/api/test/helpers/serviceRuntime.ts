@@ -14,7 +14,6 @@ import {
   type BlobObjectStore,
   createMemoryBlobObjectStore,
 } from "../../src/adapters/blobObjectStore";
-import type { BlobObjectStoreKind } from "../../src/adapters/defaultBlobObjectStore";
 import type { ApiServiceRuntime } from "../../src/services/runtime";
 import {
   createInitialAdminGroupRequest,
@@ -26,14 +25,12 @@ export function createServiceTestRuntime(
   db: ApiServiceRuntime["db"] = defaultDb,
   overrides: {
     readonly blobObjectStore?: BlobObjectStore;
-    readonly blobObjectStoreKind?: BlobObjectStoreKind;
   } = {},
 ): ApiServiceRuntime {
   const values = new Map<string, string>();
 
   return {
     blobObjectStore: overrides.blobObjectStore ?? createMemoryBlobObjectStore(),
-    blobObjectStoreKind: overrides.blobObjectStoreKind ?? "memory",
     db,
     eventPublisher: {
       publish: async () => {},

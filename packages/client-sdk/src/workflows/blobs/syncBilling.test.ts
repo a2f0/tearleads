@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createMultipartBlobStageFixture } from "../../../test/helpers/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobContracts";
 import { detachDocumentAttachment } from "./detach";
@@ -11,18 +12,20 @@ test("uploadDocumentAttachment gates writes by the verified manifest organizatio
   const checkedOrganizationIds: string[] = [];
   let bindCount = 0;
   let stageCount = 0;
+  const multipart = createMultipartBlobStageFixture();
   const { close, execSql } = await createTestExecSql("blocked-blob-upload");
 
   const uploaded = await uploadDocumentAttachment({
     apiClient: {
+      ...multipart,
       bindBlobAttachment: async () => {
         bindCount += 1;
         return null;
       },
       getDocumentWriterProjection: async () => writerProjection,
-      stageBlob: async () => {
+      initiateMultipartBlobStage: async (request) => {
         stageCount += 1;
-        return null;
+        return multipart.initiateMultipartBlobStage(request);
       },
     },
     author,

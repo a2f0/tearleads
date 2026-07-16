@@ -1,10 +1,6 @@
 import { db } from "@tearleads/api-shared/postgres";
 import type { BlobObjectStore } from "../adapters/blobObjectStore";
-import {
-  type BlobObjectStoreKind,
-  createDefaultBlobObjectStore,
-  readBlobObjectStoreKind,
-} from "../adapters/defaultBlobObjectStore";
+import { createDefaultBlobObjectStore } from "../adapters/defaultBlobObjectStore";
 import { del, get, getdel, set } from "../adapters/redis";
 import { publish } from "../adapters/redisPubSub";
 import { createSession } from "../middleware/session";
@@ -27,7 +23,6 @@ export interface SessionTokenIssuer {
 
 export interface ApiServiceRuntime {
   blobObjectStore: BlobObjectStore;
-  blobObjectStoreKind: BlobObjectStoreKind;
   db: typeof db;
   eventPublisher: EventPublisher;
   keyValueStore: KeyValueStore;
@@ -37,7 +32,6 @@ export interface ApiServiceRuntime {
 function buildDefaultApiServiceRuntime(): ApiServiceRuntime {
   return {
     blobObjectStore: createDefaultBlobObjectStore(),
-    blobObjectStoreKind: readBlobObjectStoreKind(process.env),
     db,
     eventPublisher: { publish },
     keyValueStore: { del, get, getdel, set },

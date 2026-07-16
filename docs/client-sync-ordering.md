@@ -92,6 +92,16 @@ committed but its response was lost, the next document pass recognizes the same
 blob in the active slot and adopts that binding locally instead of uploading or
 binding a duplicate.
 
+Remote blob encryption uses independently authenticated 5 MiB plaintext
+chunks, with one encrypted chunk per multipart part. Browser `File` input and
+encrypted OPFS storage remain range-readable, so attachment sync never needs a
+whole plaintext or ciphertext buffer. Before encryption, the client fingerprints
+the source and persists that fingerprint with a versioned upload identity. It
+then makes a bounded-memory encryption pass to compute the exact remote SHA-256
+and reproduces only the missing parts. A changed source rotates the blob id,
+content key, nonce seed, and stage before encryption; per-chunk hashes also
+detect mutation between passes.
+
 ## Blob Synchronization
 
 Blob synchronization comes into play only inside the document phase.

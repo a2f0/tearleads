@@ -1,11 +1,6 @@
 import { blobs } from "@tearleads/api-shared/schema";
-import type { BlobResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
-import {
-  type BlobObjectReadStream,
-  blobObjectChunkToStream,
-} from "../../adapters/blobObjectStore";
-import { readExternalBlobBytesRef } from "../../utils/blobStageRecords";
+import type { BlobObjectReadStream } from "../../adapters/blobObjectStore";
 import {
   KeyingReadAccessError,
   resolveReadableBlobAccess,
@@ -20,8 +15,8 @@ interface GetBlobInput {
 interface BlobRow {
   readonly byteLength: number;
   readonly blobId: string;
-  readonly encryptedBytes: string;
   readonly sha256: string;
+  readonly storageKey: string;
 }
 
 interface BlobBytesResponse {
@@ -61,8 +56,8 @@ async function loadReadableBlobRow(
     .select({
       byteLength: blobs.byteLength,
       blobId: blobs.id,
-      encryptedBytes: blobs.encryptedBytes,
       sha256: blobs.sha256,
+      storageKey: blobs.storageKey,
     })
     .from(blobs)
     .where(eq(blobs.id, input.blobId))
@@ -75,28 +70,14 @@ async function loadReadableBlobRow(
   return row;
 }
 
-export async function getBlob(
-  runtime: ApiServiceRuntime,
-  input: GetBlobInput,
-): Promise<BlobResponse> {
-  const blob = await getBlobBytes(runtime, input);
-
-  return {
-    blobId: blob.blobId,
-    encryptedBytes: await new Response(blob.encryptedBytes).text(),
-    sha256: blob.sha256,
-  };
-}
-
 export async function getBlobBytes(
   runtime: ApiServiceRuntime,
   input: GetBlobInput,
 ): Promise<BlobBytesResponse> {
   const row = await loadReadableBlobRow(runtime, input);
-  const externalRef = readExternalBlobBytesRef(row.encryptedBytes);
-  const encryptedBytes = externalRef
-    ? await runtime.blobObjectStore.getObjectStream(externalRef.storageKey)
-    : blobObjectChunkToStream(row.encryptedBytes);
+  const encryptedBytes = await runtime.blobObjectStore.getObjectStream(
+    row.storageKey,
+  );
   if (encryptedBytes === null) {
     throw new GetBlobError("Blob bytes not found", 409);
   }

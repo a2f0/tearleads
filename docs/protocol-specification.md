@@ -315,28 +315,18 @@ frontier.
 
 Blob bytes are staged before attachment binding:
 
-- `GET /blobs/uploads/capabilities`
-- `POST /blobs/stage`
 - `POST /blobs/stages/multipart`
 - `GET /blobs/stages/multipart/:stageId`
-- `PUT /blobs/stages/multipart/:stageId/parts/:partNumber`
 - `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes`
 - `POST /blobs/stages/multipart/:stageId/complete`
 
-`StageBlobRequest` contains `encryptedBytes`, `byteLength`, and `sha256`. The
-encrypted bytes are only the blob payload record; they do not contain the blob
-content-key bundle or current target hash. The API recomputes the encoded byte
-length and SHA-256 digest, stores the stage under the authenticated user, and
-returns `stageId` plus `expiresAt`. Staged bytes are not readable as committed
-blobs and are promoted only by a successful attachment bind.
-
-`GET /blobs/uploads/capabilities` lets clients discover whether automatic
-multipart uploads are enabled for durable object storage. Multipart staging
-uses the same ownership, expiry, byte-length, and SHA-256 rules, but stores
-object-store multipart metadata in `blob_stages` until all parts are uploaded
-and completed. A completed multipart stage is promoted by the same attachment
-bind path as a single-request stage; incomplete multipart stages fail closed
-during bind.
+`InitiateMultipartBlobStageRequest` declares the completed encrypted object's
+`byteLength` and `sha256`. Each part is sent as `application/octet-stream` with
+its byte length, SHA-256 digest, and upload id in request headers. The API stores
+only object-store multipart metadata in `blob_stages`; encrypted payload bytes
+are never encoded into JSON or stored in the database. Staged objects are not
+readable as committed blobs and are promoted only by a successful attachment
+bind. Incomplete or expired stages fail closed during bind.
 
 ## Attachment Bind, Replace, Detach, And Slots
 

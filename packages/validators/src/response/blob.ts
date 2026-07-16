@@ -1,25 +1,12 @@
 import { isPlainObject } from "../isPlainObject";
 import {
   hasArrayProperty,
-  hasBooleanProperty,
   hasObjectProperty,
   hasPositiveIntegerProperty,
   hasStringProperty,
   isRecordArray,
   isStringArray,
 } from "../util";
-
-export interface StageBlobResponse {
-  stageId: string;
-  expiresAt: string;
-}
-
-export interface BlobUploadCapabilitiesResponse {
-  multipart: {
-    durable: boolean;
-    enabled: boolean;
-  };
-}
 
 export interface MultipartBlobStagePart {
   byteLength: number;
@@ -62,12 +49,6 @@ export interface BlobAttachmentSummary {
 }
 
 export type ListDocumentAttachmentsResponse = BlobAttachmentSummary[];
-
-export interface BlobResponse {
-  blobId: string;
-  encryptedBytes: string;
-  sha256: string;
-}
 
 export interface BlobKekTargetsResponse {
   blobId: string;
@@ -114,31 +95,6 @@ export interface BlobAttachmentDetachResponse {
   blobId: string;
   documentId: string;
   slotId: string;
-}
-
-export function isStageBlobResponse(
-  value: unknown,
-): value is StageBlobResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "stageId") &&
-    hasStringProperty(value, "expiresAt")
-  );
-}
-
-export function isBlobUploadCapabilitiesResponse(
-  value: unknown,
-): value is BlobUploadCapabilitiesResponse {
-  const multipart = isPlainObject(value)
-    ? Reflect.get(value, "multipart")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    isPlainObject(multipart) &&
-    hasBooleanProperty(multipart, "enabled") &&
-    hasBooleanProperty(multipart, "durable")
-  );
 }
 
 function isMultipartBlobStagePart(
@@ -223,15 +179,6 @@ export function isListDocumentAttachmentsResponse(
   return (
     Array.isArray(value) &&
     value.every((entry) => isBlobAttachmentSummary(entry))
-  );
-}
-
-export function isBlobResponse(value: unknown): value is BlobResponse {
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "blobId") &&
-    hasStringProperty(value, "encryptedBytes") &&
-    hasStringProperty(value, "sha256")
   );
 }
 

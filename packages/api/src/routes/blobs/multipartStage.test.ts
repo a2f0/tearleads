@@ -27,30 +27,6 @@ function createAuthenticatedTestApp(
   });
 }
 
-test("blob upload capabilities report durable multipart only for S3 storage", async () => {
-  const userId = crypto.randomUUID();
-  const memoryResponse = await createAuthenticatedTestApp(userId).request(
-    "/blobs/uploads/capabilities",
-  );
-  expect(memoryResponse.status).toBe(200);
-  await expect(memoryResponse.json()).resolves.toEqual({
-    multipart: { durable: false, enabled: false },
-  });
-
-  const s3Runtime = {
-    ...createServiceTestRuntime(),
-    blobObjectStoreKind: "s3" as const,
-  };
-  const s3Response = await createAuthenticatedTestApp(
-    userId,
-    s3Runtime,
-  ).request("/blobs/uploads/capabilities");
-  expect(s3Response.status).toBe(200);
-  await expect(s3Response.json()).resolves.toEqual({
-    multipart: { durable: true, enabled: true },
-  });
-});
-
 test("multipart blob stage routes support resumable upload completion", async () => {
   const encryptedBytes = "route-multipart-encrypted-bytes";
   const app = createAuthenticatedTestApp(crypto.randomUUID());
@@ -67,14 +43,17 @@ test("multipart blob stage routes support resumable upload completion", async ()
   const initiated = await initiateResponse.json();
 
   const firstPartResponse = await app.request(
-    `/blobs/stages/multipart/${initiated.stageId}/parts/1`,
+    `/blobs/stages/multipart/${initiated.stageId}/parts/1/bytes`,
     {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        encryptedBytes: "route-multipart",
-        uploadId: initiated.uploadId,
-      }),
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "X-Tearleads-Blob-Part-Byte-Length":
+          "route-multipart".length.toString(),
+        "X-Tearleads-Blob-Part-Sha256": await sha256Hex("route-multipart"),
+        "X-Tearleads-Blob-Upload-Id": initiated.uploadId,
+      },
+      body: "route-multipart",
     },
   );
   expect(firstPartResponse.status).toBe(200);
@@ -133,14 +112,16 @@ test("multipart blob stage routes support resumable upload completion", async ()
 test("multipart part routes reject unsafe integer part numbers", async () => {
   const app = createAuthenticatedTestApp(crypto.randomUUID());
   const response = await app.request(
-    `/blobs/stages/multipart/${crypto.randomUUID()}/parts/9007199254740993`,
+    `/blobs/stages/multipart/${crypto.randomUUID()}/parts/9007199254740993/bytes`,
     {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        encryptedBytes: "part-bytes",
-        uploadId: crypto.randomUUID(),
-      }),
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "X-Tearleads-Blob-Part-Byte-Length": "10",
+        "X-Tearleads-Blob-Part-Sha256": await sha256Hex("part-bytes"),
+        "X-Tearleads-Blob-Upload-Id": crypto.randomUUID(),
+      },
+      body: "part-bytes",
     },
   );
 

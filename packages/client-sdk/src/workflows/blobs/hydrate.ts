@@ -49,15 +49,13 @@ interface DocumentAttachmentHydrationTarget {
 
 interface LoadedDocumentAttachmentBlob
   extends DocumentAttachmentHydrationTarget {
-  encryptedBytes: string;
+  encryptedBytes: Uint8Array<ArrayBuffer>;
 }
 
 interface LoadedDocumentAttachmentBlobBytes {
   blobId: string;
-  encryptedBytes: string;
+  encryptedBytes: Uint8Array<ArrayBuffer>;
 }
-
-const TEXT_DECODER = new TextDecoder();
 
 async function readBlobStreamBytes(
   blob: BlobBytesResponse,
@@ -136,7 +134,7 @@ async function loadDocumentAttachmentBlob(
 
   return {
     blobId: binding.blobId,
-    encryptedBytes: TEXT_DECODER.decode(encryptedBytes),
+    encryptedBytes,
   };
 }
 

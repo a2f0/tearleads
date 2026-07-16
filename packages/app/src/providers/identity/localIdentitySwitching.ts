@@ -1,4 +1,8 @@
-import { type IdentityKeyPackage, Tearleads } from "@tearleads/client-sdk";
+import {
+  createMemoryBlobStore,
+  type IdentityKeyPackage,
+  Tearleads,
+} from "@tearleads/client-sdk";
 import { type MutableRefObject, useCallback } from "react";
 import { prepareForIdentityTransition } from "./identityRuntimeTransition";
 import type {
@@ -340,7 +344,7 @@ export function useSwitchLocalIdentity(
 async function validateIdentityKeyPackage(
   keyPackage: unknown,
 ): Promise<IdentityKeyPackage> {
-  const candidate = new Tearleads();
+  const candidate = new Tearleads({ blobStore: createMemoryBlobStore() });
   try {
     await candidate.identity.importKeyPackage(keyPackage);
     return await candidate.identity.exportKeyPackage();

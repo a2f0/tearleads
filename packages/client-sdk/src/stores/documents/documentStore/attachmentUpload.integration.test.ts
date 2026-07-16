@@ -3,7 +3,6 @@ import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type {
   BlobAttachmentBindRequest,
   DocumentSyncRequest,
-  StageBlobRequest,
 } from "@tearleads/validators/request";
 import type {
   BlobContentKeyBundleResponse,
@@ -11,7 +10,10 @@ import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { createBlobAttachmentBindResponse } from "../../../../test/helpers/blobUploadFixtures";
+import {
+  createBlobAttachmentBindResponse,
+  createMultipartBlobStageFixture,
+} from "../../../../test/helpers/blobUploadFixtures";
 import {
   createMaterializedSyncFixture,
   createResponseFromRequest,
@@ -89,18 +91,26 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     readonly contentKeyBundle: BlobContentKeyBundleResponse;
     readonly slotId: string;
   }> = [];
-  const stagedBlobs = new Map<string, StageBlobRequest>();
   const blobs = new Map<
     string,
-    { readonly encryptedBytes: string; readonly sha256: string }
+    {
+      readonly byteLength: number;
+      readonly encryptedBytes: Uint8Array<ArrayBuffer>;
+      readonly sha256: string;
+    }
   >();
   const syncCalls: Array<{
     readonly minLsn: string | null;
     readonly outgoingUpdateCount: number;
   }> = [];
-  let stageCount = 0;
   let syncCount = 0;
   let storedDocument: DocumentCreateResponse | null = null;
+  let completedBlob: {
+    readonly byteLength: number;
+    readonly sha256: string;
+  } | null = null;
+  const { getAssembledBytes, ...multipartApi } =
+    createMultipartBlobStageFixture();
   const writerProjection = (): DocumentWriterProjectionResponse | null =>
     storedDocument
       ? {
@@ -121,14 +131,18 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       : null;
 
   const apiClient = createMockApiClient({
+    ...multipartApi,
     async bindBlobAttachment(
       blobId: string,
       request: BlobAttachmentBindRequest,
     ) {
-      const stagedBlob = request.stagedBlob
-        ? stagedBlobs.get(request.stagedBlob.stageId)
-        : null;
-      if (!storedDocument || (request.stagedBlob && !stagedBlob)) {
+      const encryptedBytes = getAssembledBytes();
+      if (
+        !storedDocument ||
+        !request.stagedBlob ||
+        !encryptedBytes ||
+        !completedBlob
+      ) {
         return null;
       }
       const response = await createBlobAttachmentBindResponse({
@@ -143,13 +157,19 @@ test("document store uploads attachment bytes with signed bindings", async () =>
         contentKeyBundle: response.contentKeyBundle,
         slotId: response.slotId,
       });
-      if (stagedBlob) {
-        blobs.set(blobId, {
-          encryptedBytes: stagedBlob.encryptedBytes,
-          sha256: stagedBlob.sha256,
-        });
-        stagedBlobs.delete(request.stagedBlob?.stageId ?? "");
-      }
+      blobs.set(blobId, {
+        byteLength: completedBlob.byteLength,
+        encryptedBytes,
+        sha256: completedBlob.sha256,
+      });
+      return response;
+    },
+    completeMultipartBlobStage: async (stageId, request) => {
+      const response = await multipartApi.completeMultipartBlobStage(
+        stageId,
+        request,
+      );
+      completedBlob = response;
       return response;
     },
     async createDocument(
@@ -163,13 +183,14 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       if (!blob) {
         return null;
       }
-      const encryptedBytes = new TextEncoder().encode(blob.encryptedBytes);
+      const midpoint = Math.ceil(blob.encryptedBytes.byteLength / 2);
       return {
         blobId,
-        byteLength: encryptedBytes.byteLength,
+        byteLength: blob.byteLength,
         encryptedBytes: new ReadableStream<Uint8Array>({
           start(controller) {
-            controller.enqueue(encryptedBytes);
+            controller.enqueue(blob.encryptedBytes.slice(0, midpoint));
+            controller.enqueue(blob.encryptedBytes.slice(midpoint));
             controller.close();
           },
         }),
@@ -179,15 +200,6 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     getContainerWriterProjection: async () => fixture.projection,
     getDocumentWriterProjection: async () => writerProjection(),
     listDocumentAttachments: async () => attachments,
-    async stageBlob(request: StageBlobRequest) {
-      stageCount += 1;
-      const stageId = `stage-${stageCount}`;
-      stagedBlobs.set(stageId, request);
-      return {
-        expiresAt: "2026-04-27T00:05:00.000Z",
-        stageId,
-      };
-    },
     async syncDocument(_documentId: string, request: DocumentSyncRequest) {
       if (!storedDocument) {
         return null;
@@ -267,7 +279,6 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       throw new Error("Expected uploaded attachment fixtures.");
     }
     expect(bind.request.stagedBlob?.writeHeader).toBeDefined();
-    expect(stagedBlobs).toHaveLength(0);
     expect(syncCalls.some((call) => call.outgoingUpdateCount === 1)).toBe(true);
     expect(store.getSnapshot().attachments).toHaveLength(1);
 
@@ -298,14 +309,12 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       }),
     ).rejects.toThrow("missing attachment target");
 
-    const encryptedRecord = JSON.parse(blob.encryptedBytes) as Record<
-      string,
-      unknown
-    >;
+    const invalidMagic = blob.encryptedBytes.slice();
+    invalidMagic[0] = (invalidMagic[0] ?? 0) ^ 0xff;
     await expect(
       decryptDocumentAttachmentBlob({
         contentKeyBundle: attachment.contentKeyBundle,
-        encryptedBytes: JSON.stringify({ ...encryptedRecord, version: 2 }),
+        encryptedBytes: invalidMagic,
         expectedBindingId: attachment.bindingId,
         expectedBlobId: attachment.blobId,
         execSql,
@@ -313,7 +322,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
         targetSecretKey: fixture.secretKey,
         writerProjection: projection,
       }),
-    ).rejects.toThrow("Blob encrypted bytes version 2 is invalid; expected 1");
+    ).rejects.toThrow("Blob encrypted bytes magic is invalid");
 
     const [firstTarget, ...remainingTargets] =
       attachment.contentKeyBundle.targets;

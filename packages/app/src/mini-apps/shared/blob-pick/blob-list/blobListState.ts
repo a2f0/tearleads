@@ -13,7 +13,10 @@ import {
   MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
   useMiniAppVirtualWindow,
 } from "../../../../components/shared/MiniAppVirtual";
-import { isImageDocumentAttachmentBlob } from "../../../../document-types/shared/documentAttachmentUtils";
+import {
+  isAutomaticBlobPreviewAllowed,
+  isImageDocumentAttachmentBlob,
+} from "../../../../document-types/shared/documentAttachmentUtils";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 
 export const BLOB_BROWSER_ROW_HEIGHT =
@@ -187,6 +190,19 @@ async function readBlobPreview(input: {
   blob: BlobInfo;
   blobStore: BlobStore;
 }): Promise<{ objectUrl: string | null; state: BlobPreviewState }> {
+  if (!isAutomaticBlobPreviewAllowed(input.blob)) {
+    return {
+      objectUrl: null,
+      state: {
+        byteLength: input.blob.byteLength,
+        status: "ready",
+        text: null,
+        truncated: false,
+        url: null,
+      },
+    };
+  }
+
   const bytes = await input.blobStore.readBytes(input.blob.storageKey);
   if (!bytes) {
     return {
@@ -295,23 +311,21 @@ export function useBlobPreview(params: {
   return state;
 }
 
-// Read an image blob's bytes into an object URL for a compact table thumbnail.
-// Non-image blobs (and non-browser environments) return null so the caller falls
-// back to a file-type icon. The URL is revoked when the row unmounts or its blob
-// changes, mirroring useBlobPreview's lifecycle. Reads stay bounded because the
-// list is virtualized — only on-screen rows mount this hook.
+// Read a small image blob into an object URL for a compact table thumbnail.
+// Large, non-image, and non-browser blobs use the file-type icon instead.
 export function useBlobThumbnailUrl(params: {
   blob: BlobInfo;
   blobStore: BlobStore;
 }): string | null {
   const { blobStore } = params;
   const isImage = isImageDocumentAttachmentBlob(params.blob);
+  const isPreviewAllowed = isAutomaticBlobPreviewAllowed(params.blob);
   const { storageKey } = params.blob;
   const mimeType = params.blob.mimeType ?? "application/octet-stream";
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isImage || !canCreateObjectUrl()) {
+    if (!isImage || !isPreviewAllowed || !canCreateObjectUrl()) {
       setUrl(null);
       return;
     }
@@ -339,7 +353,7 @@ export function useBlobThumbnailUrl(params: {
       }
       setUrl(null);
     };
-  }, [blobStore, isImage, mimeType, storageKey]);
+  }, [blobStore, isImage, isPreviewAllowed, mimeType, storageKey]);
 
   return url;
 }

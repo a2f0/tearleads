@@ -5,7 +5,7 @@ import {
 } from "./blobObjectStore";
 import { createS3BlobObjectStore } from "./s3BlobObjectStore";
 
-export type BlobObjectStoreKind = "memory" | "s3";
+type BlobObjectStoreKind = "memory" | "s3";
 
 interface BlobObjectStoreEnv {
   readonly BLOB_OBJECT_STORE?: string | undefined;
@@ -45,9 +45,7 @@ function readBlobObjectStoreEnv(
   return undefined;
 }
 
-export function readBlobObjectStoreKind(
-  env: BlobObjectStoreEnv,
-): BlobObjectStoreKind {
+function readBlobObjectStoreKind(env: BlobObjectStoreEnv): BlobObjectStoreKind {
   const configuredValue = readBlobObjectStoreEnv(env, "BLOB_OBJECT_STORE");
   if (!configuredValue) {
     if (readBlobObjectStoreEnv(env, "NODE_ENV") === "production") {
@@ -123,11 +121,6 @@ function createPrefixedBlobObjectStore(
       store.getObjectStream(prefixBlobObjectKey(prefix, key)),
     listParts: (input) =>
       store.listParts({
-        ...input,
-        key: prefixBlobObjectKey(prefix, input.key),
-      }),
-    putObject: (input) =>
-      store.putObject({
         ...input,
         key: prefixBlobObjectKey(prefix, input.key),
       }),

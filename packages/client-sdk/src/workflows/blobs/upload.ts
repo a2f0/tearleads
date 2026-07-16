@@ -12,8 +12,12 @@ import type {
   BlobContentKeyBundleRequest,
 } from "@tearleads/validators/request";
 import type { BlobAttachmentBindResponse } from "@tearleads/validators/response";
-import type { BlobBytes } from "../../data/blobContracts";
-import { encryptBlobBytes } from "../../data/documents/blob/shared/crypto";
+import {
+  type BlobByteSource,
+  createBlobByteSource,
+} from "../../data/blobContracts";
+import type { BlobSourceSnapshot } from "../../data/documents/blob/shared/blobSourceSnapshot";
+import { prepareBlobEncryption } from "../../data/documents/blob/shared/crypto";
 import {
   signBlobAttachmentEvent,
   signBlobAttachmentWriteHeader,
@@ -54,12 +58,15 @@ async function buildBlobAttachmentMaterial(
     apiClient: BlobAttachmentApi;
     bindingId: string;
     blobId: string;
-    bytes: BlobBytes;
     contentKey: Uint8Array;
     contentKeyEpoch: number;
     documentId: string;
     execSql?: ExecSql | undefined;
-    iv?: Uint8Array | undefined;
+    isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
+    nonceSeed?: Uint8Array | undefined;
+    partSize: number;
+    source: BlobByteSource;
+    sourceSnapshot?: BlobSourceSnapshot | undefined;
     targetSecretKey: Uint8Array;
     writerProjection?: UploadDocumentAttachmentInput["writerProjection"];
   } & ProjectionVerificationOptions,
@@ -78,6 +85,9 @@ async function buildBlobAttachmentMaterial(
   const manifestIdentity = readDocumentManifestIdentity(writerProjection);
   if (manifestIdentity.documentId !== input.documentId) {
     throw new Error("Blob attachment writer projection targets wrong document");
+  }
+  if (input.isRemoteSyncBlocked?.(manifestIdentity.organizationId)) {
+    return null;
   }
 
   const targets = deriveBlobTargetsFromDocumentProjection({
@@ -98,13 +108,15 @@ async function buildBlobAttachmentMaterial(
       ...projectionVerificationOptions(input),
     }),
   };
-  const encrypted = await encryptBlobBytes({
+  const encrypted = await prepareBlobEncryption({
     blobId: input.blobId,
-    bytes: input.bytes,
+    chunkSize: input.partSize,
     contentKey: input.contentKey,
     contentKeyBundle,
-    iv: input.iv,
+    nonceSeed: input.nonceSeed,
     organizationId: manifestIdentity.organizationId,
+    source: input.source,
+    sourceSnapshot: input.sourceSnapshot,
   });
   const blobAccessManifestHash = await computeBlobAccessManifestHash({
     version: 1,
@@ -187,13 +199,12 @@ async function stageAndBindBlobAttachment(input: {
   eventId: string;
   expectedBindingId: string | null;
   material: BlobAttachmentMaterial;
-  multipart: UploadDocumentAttachmentInput["multipart"];
+  multipart: NonNullable<UploadDocumentAttachmentInput["multipart"]>;
   onMultipartProgress?: MultipartUploadProgressListener | undefined;
   onStageResolved?: MultipartStageResolvedListener | undefined;
   signedAt: string;
   slotId: string;
 }): Promise<{
-  encryptedBytes: string;
   request: BlobAttachmentBindRequest;
   response: BlobAttachmentBindResponse;
   sha256: string;
@@ -223,27 +234,13 @@ async function stageAndBindBlobAttachment(input: {
     signedAt: input.signedAt,
     targetHash: input.material.targetHash,
   });
-  const multipart = await resolveMultipartUploadOptions({
+  const stageId = await stageMultipartBlobAttachment({
     apiClient: input.apiClient,
-    encryptedByteLength: input.material.encrypted.byteLength,
+    encryption: input.material.encrypted,
     multipart: input.multipart,
+    onMultipartProgress: input.onMultipartProgress,
+    onStageResolved: input.onStageResolved,
   });
-  const stageId = multipart
-    ? await stageMultipartBlobAttachment({
-        apiClient: input.apiClient,
-        encryptedBytes: input.material.encrypted.encryptedBytes,
-        multipart,
-        byteLength: input.material.encrypted.byteLength,
-        onMultipartProgress: input.onMultipartProgress,
-        onStageResolved: input.onStageResolved,
-        sha256: input.material.encrypted.sha256,
-      })
-    : await stageLegacyBlobAttachment({
-        apiClient: input.apiClient,
-        encryptedBytes: input.material.encrypted.encryptedBytes,
-        byteLength: input.material.encrypted.byteLength,
-        sha256: input.material.encrypted.sha256,
-      });
   if (!stageId) {
     return null;
   }
@@ -278,7 +275,6 @@ async function stageAndBindBlobAttachment(input: {
   });
 
   return {
-    encryptedBytes: input.material.encrypted.encryptedBytes,
     request,
     response,
     sha256: input.material.encrypted.sha256,
@@ -288,22 +284,12 @@ async function stageAndBindBlobAttachment(input: {
   };
 }
 
-async function stageLegacyBlobAttachment(input: {
-  readonly apiClient: BlobAttachmentApi;
-  readonly byteLength: number;
-  readonly encryptedBytes: string;
-  readonly sha256: string;
-}): Promise<string | null> {
-  const stage = await input.apiClient.stageBlob({
-    encryptedBytes: input.encryptedBytes,
-    byteLength: input.byteLength,
-    sha256: input.sha256,
-  });
-
-  return stage?.stageId ?? null;
+interface PreparedUploadDocumentAttachmentInput
+  extends UploadDocumentAttachmentInput {
+  readonly sourceSnapshot?: BlobSourceSnapshot | undefined;
 }
 
-export async function uploadDocumentAttachment({
+async function uploadDocumentAttachmentImpl({
   apiClient,
   author,
   blobId = crypto.randomUUID(),
@@ -316,17 +302,18 @@ export async function uploadDocumentAttachment({
   execSql,
   expectedBindingId,
   isRemoteSyncBlocked,
-  iv,
+  nonceSeed,
   multipart,
   onMultipartProgress,
   onStageResolved,
   resolveProjectionUserKey,
   signedAt = new Date().toISOString(),
   slotId,
+  sourceSnapshot,
   targetSecretKey,
   warmReferencedPrincipalPolicies,
   writerProjection,
-}: UploadDocumentAttachmentInput): Promise<UploadDocumentAttachmentResult | null> {
+}: PreparedUploadDocumentAttachmentInput): Promise<UploadDocumentAttachmentResult | null> {
   if (contentKey.byteLength !== 32) {
     throw new Error("Blob content key must be 32 bytes");
   }
@@ -334,6 +321,8 @@ export async function uploadDocumentAttachment({
     resolveProjectionUserKey,
     "Document attachment upload",
   );
+  const resolvedMultipart = resolveMultipartUploadOptions(multipart);
+  const source = createBlobByteSource(bytes);
 
   const buildMaterial = (
     freshWriterProjection: UploadDocumentAttachmentInput["writerProjection"],
@@ -342,13 +331,16 @@ export async function uploadDocumentAttachment({
       apiClient,
       bindingId,
       blobId,
-      bytes,
       contentKey,
       contentKeyEpoch,
       documentId,
       execSql,
-      iv,
+      isRemoteSyncBlocked,
+      nonceSeed,
+      partSize: resolvedMultipart.partSize,
       resolveProjectionUserKey: resolveProjectionUserKeyForUpload,
+      source,
+      sourceSnapshot,
       targetSecretKey,
       warmReferencedPrincipalPolicies,
       writerProjection: freshWriterProjection,
@@ -372,10 +364,6 @@ export async function uploadDocumentAttachment({
   if (!material) {
     return null;
   }
-  if (isRemoteSyncBlocked?.(material.manifestIdentity.organizationId)) {
-    return null;
-  }
-
   const result = await stageAndBindBlobAttachment({
     apiClient,
     author,
@@ -386,7 +374,7 @@ export async function uploadDocumentAttachment({
     eventId,
     expectedBindingId,
     material,
-    multipart,
+    multipart: resolvedMultipart,
     onMultipartProgress,
     onStageResolved,
     signedAt,
@@ -402,4 +390,17 @@ export async function uploadDocumentAttachment({
     writerProjection: material.writerProjection,
     ...result,
   };
+}
+
+export function uploadDocumentAttachment(
+  input: UploadDocumentAttachmentInput,
+): Promise<UploadDocumentAttachmentResult | null> {
+  return uploadDocumentAttachmentImpl({ ...input, sourceSnapshot: undefined });
+}
+
+/** Internal upload path for a source snapshot produced by `inspectBlobSource`. */
+export function uploadPreparedDocumentAttachment(
+  input: PreparedUploadDocumentAttachmentInput,
+): Promise<UploadDocumentAttachmentResult | null> {
+  return uploadDocumentAttachmentImpl(input);
 }

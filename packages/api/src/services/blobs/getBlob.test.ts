@@ -1,21 +1,13 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { attachmentBindings, blobs } from "@tearleads/api-shared/schema";
-import {
-  encryptForRecipients,
-  serializeBlobEnvelope,
-  toFingerprint,
-} from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { toFingerprint } from "@tearleads/crypto";
+import { uploadBlobObject } from "../../../test/helpers/blobObjectStore";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
-import {
-  createRecordingDb,
-  createServiceTestRuntime,
-} from "../../../test/helpers/serviceRuntime";
-import { encodeExternalBlobBytesRef } from "../../utils/blobStageRecords";
+import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { sha256Hex } from "../../utils/sha256";
-import { GetBlobError, getBlob, getBlobBytes } from "./getBlob";
+import { GetBlobError, getBlobBytes } from "./getBlob";
 
 async function createReadableDocument(input: {
   containerId: string;
@@ -37,7 +29,6 @@ async function createCommittedBlob(input: {
     .insert(blobs)
     .values({
       byteLength: new TextEncoder().encode(input.encryptedBytes).byteLength,
-      encryptedBytes: input.encryptedBytes,
       sha256: await sha256Hex(input.encryptedBytes),
       storageKey: crypto.randomUUID(),
     })
@@ -56,19 +47,7 @@ async function createCommittedBlob(input: {
   return blob;
 }
 
-async function createEncryptedBlobBytes(
-  plaintext: string,
-  encodedRecipientPublicKeys: string[],
-): Promise<string> {
-  const envelope = await encryptForRecipients(
-    new TextEncoder().encode(plaintext),
-    encodedRecipientPublicKeys.map((publicKey) => base64ToBytes(publicKey)),
-  );
-
-  return serializeBlobEnvelope(envelope);
-}
-
-async function expectGetBlobError(
+async function expectGetBlobBytesError(
   promise: Promise<unknown>,
 ): Promise<GetBlobError> {
   try {
@@ -78,77 +57,27 @@ async function expectGetBlobError(
     return error as GetBlobError;
   }
 
-  throw new Error("Expected getBlob to fail");
+  throw new Error("Expected getBlobBytes to fail");
 }
 
-test("getBlob returns committed blob bytes for readable blobs", async () => {
+test("getBlobBytes streams object-store blobs for readable users", async () => {
   const { registration, user } = await registerServiceUser();
   const document = await createReadableDocument({
     containerId: registration.rootContainerId,
     createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
     organizationId: registration.organizationId,
   });
-  const encryptedBytes = await createEncryptedBlobBytes("service-blob-bytes", [
-    bytesToBase64(user.kem.publicKey),
-  ]);
-  const blob = await createCommittedBlob({
-    documentId: document.id,
-    encryptedBytes,
-  });
-  const recording = createRecordingDb();
-
-  const result = await getBlob(createServiceTestRuntime(recording.db), {
-    blobId: blob.id,
-    userId: registration.userId,
-  });
-
-  expect(result).toEqual({
-    blobId: blob.id,
-    encryptedBytes,
-    sha256: await sha256Hex(encryptedBytes),
-  });
-  expect(recording.calls.get("select") ?? 0).toBeGreaterThan(0);
-});
-
-test("getBlobBytes streams external blob objects for readable blobs", async () => {
-  const { registration, user } = await registerServiceUser();
-  const document = await createReadableDocument({
-    containerId: registration.rootContainerId,
-    createdByFingerprint: await toFingerprint(user.signing.signingPublicKey),
-    organizationId: registration.organizationId,
-  });
-  const encryptedBytes = await createEncryptedBlobBytes(
-    "streamed-service-blob-bytes",
-    [bytesToBase64(user.kem.publicKey)],
-  );
+  const encryptedBytes = "streamed-service-blob-bytes";
   const storageKey = `blob-stages/${crypto.randomUUID()}`;
   const objectStore = createServiceTestRuntime().blobObjectStore;
-  const { uploadId } = await objectStore.createMultipartUpload({
-    key: storageKey,
-  });
-  const part = await objectStore.uploadPart({
-    body: { bytes: encryptedBytes },
-    key: storageKey,
-    partNumber: 1,
-    uploadId,
-  });
   const sha256 = await sha256Hex(encryptedBytes);
-  await objectStore.completeMultipartUpload({
-    expected: {
-      byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
-      sha256,
-    },
-    key: storageKey,
-    parts: [{ etag: part.etag, partNumber: 1 }],
-    uploadId,
-  });
+  await uploadBlobObject(objectStore, storageKey, encryptedBytes);
   const [blob] = await db
     .insert(blobs)
     .values({
       byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
-      encryptedBytes: encodeExternalBlobBytesRef({ storageKey }),
       sha256,
-      storageKey: crypto.randomUUID(),
+      storageKey,
     })
     .returning({ id: blobs.id });
   if (!blob) {
@@ -187,7 +116,7 @@ test("getBlobBytes streams external blob objects for readable blobs", async () =
   expect(streamRead).toBe(true);
 });
 
-test("getBlobBytes returns external streams without buffering them", async () => {
+test("getBlobBytes returns object streams without buffering them", async () => {
   const { registration, user } = await registerServiceUser();
   const document = await createReadableDocument({
     containerId: registration.rootContainerId,
@@ -201,9 +130,8 @@ test("getBlobBytes returns external streams without buffering them", async () =>
     .insert(blobs)
     .values({
       byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
-      encryptedBytes: encodeExternalBlobBytesRef({ storageKey }),
       sha256,
-      storageKey: crypto.randomUUID(),
+      storageKey,
     })
     .returning({ id: blobs.id });
   if (!blob) {
@@ -255,7 +183,7 @@ test("getBlobBytes returns external streams without buffering them", async () =>
   await reader.cancel();
 });
 
-test("getBlob reports not-found and forbidden cases", async () => {
+test("getBlobBytes reports not-found and forbidden cases", async () => {
   const { registration, user } = await registerServiceUser();
   const other = await registerServiceUser();
   const document = await createReadableDocument({
@@ -268,8 +196,8 @@ test("getBlob reports not-found and forbidden cases", async () => {
     encryptedBytes: "private-service-blob-bytes",
   });
 
-  const missing = await expectGetBlobError(
-    getBlob(createServiceTestRuntime(), {
+  const missing = await expectGetBlobBytesError(
+    getBlobBytes(createServiceTestRuntime(), {
       blobId: crypto.randomUUID(),
       userId: registration.userId,
     }),
@@ -277,8 +205,8 @@ test("getBlob reports not-found and forbidden cases", async () => {
   expect(missing.status).toBe(404);
   expect(missing.message).toBe("Blob not found");
 
-  const forbidden = await expectGetBlobError(
-    getBlob(createServiceTestRuntime(), {
+  const forbidden = await expectGetBlobBytesError(
+    getBlobBytes(createServiceTestRuntime(), {
       blobId: blob.id,
       userId: other.registration.userId,
     }),

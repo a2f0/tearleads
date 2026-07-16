@@ -2,9 +2,11 @@ import { expect, test } from "bun:test";
 import * as rootEntrypoint from "./index";
 import {
   type BlobInfoInput,
+  blobByteSourceInputLength,
   type ContainerDocumentObjectSyncState,
   type ContainerDocumentQueriesLinkInput,
   clearRemoteSyncState,
+  createBlobByteSource,
   createBrowserLocalKeyring,
   createContainerDocumentObjectSyncState,
   createDocumentProjectorRegistry,
@@ -23,6 +25,7 @@ import {
   type DocumentAttachmentUpload,
   getDocumentClientProjectionTables,
   isPinCodeWrappedLocalSecretEnvelope,
+  readBlobByteSource,
   syncedContainerDocumentObjectSyncState,
 } from "./index";
 
@@ -43,11 +46,13 @@ test("root entrypoint exposes public facade symbols", () => {
   const blobInfoInput: BlobInfoInput = { query: "blob-1" };
 
   expect(upload.bytes).toBeInstanceOf(Uint8Array);
+  expect(blobByteSourceInputLength(upload.bytes)).toBe(1);
   expect(blobInfoInput.query).toBe("blob-1");
   expect(queriesLink.containerIds).toEqual(["container-1"]);
   expect(DEFAULT_DOCUMENT_KIND).toBe("note");
   expect(createDocumentProjectorRegistry).toBeFunction();
   expect(clearRemoteSyncState).toBeFunction();
+  expect(createBlobByteSource).toBeFunction();
   expect(createEncryptedBlobStore).toBeFunction();
   expect(createEncryptedOpfsBlobStore).toBeFunction();
   expect(createBrowserLocalKeyring).toBeFunction();
@@ -60,6 +65,7 @@ test("root entrypoint exposes public facade symbols", () => {
   expect(createPinCodeWrappingKeyKeystore).toBeFunction();
   expect(createWebViewLocalKeyring).toBeFunction();
   expect(isPinCodeWrappedLocalSecretEnvelope).toBeFunction();
+  expect(readBlobByteSource).toBeFunction();
   expect(getDocumentClientProjectionTables).toBeFunction();
   expect(createMemoryBlobStore).toBeFunction();
   expect(syncState.status).toBe("pending");
@@ -95,6 +101,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "WRAPPED_LOCAL_SECRET_FORMAT",
   "addDocumentAttachments",
   "addOrganizationGroupUser",
+  "blobByteSourceInputLength",
   "bootstrapRootContainer",
   "buildInitialGroupPolicyRequest",
   "buildInitialMemberGroupPolicyRequest",
@@ -105,6 +112,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "buildRosterProfileDocumentPatch",
   "cacheReferencedPrincipalPolicies",
   "clearRemoteSyncState",
+  "createBlobByteSource",
   "createBlobStore",
   "createBrowserLocalKeyring",
   "createBrowserLocalKeyringManifestStore",
@@ -197,6 +205,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "persistedDocumentCreateStateFromResponse",
   "projectStoredDocumentState",
   "purgeOpfsBlobStore",
+  "readBlobByteSource",
   "readOrganizationProfileName",
   "readStoredDocumentState",
   "readStringDocumentField",

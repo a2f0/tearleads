@@ -1390,7 +1390,6 @@ async function seedDownstreamContentKeyRows(input: {
   await db.insert(blobs).values({
     id: blobId,
     storageKey: `blob:${blobId}`,
-    encryptedBytes: "encrypted-blob-bytes",
     sha256: `sha256:${blobId}`,
     byteLength: 20,
   });

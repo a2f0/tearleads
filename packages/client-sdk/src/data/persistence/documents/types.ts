@@ -27,15 +27,16 @@ export interface PendingUpdateInsert extends PendingUpdateFields {
  * The identity a pending attachment upload reuses across attempts so a retry
  * (next sync pass or after a restart) reproduces byte-identical encrypted bytes
  * and resumes the same multipart stage instead of orphaning it. `contentKey` and
- * `iv` are base64. `partSize`/`stageId` are filled in once the multipart stage
- * has been opened (null before that, and for one-shot uploads).
+ * the chunk `nonceSeed` are base64. `partSize`/`stageId` are filled in once the
+ * multipart stage has been opened and remain null before that.
  */
 export interface PendingAttachmentUploadIdentity {
   blobId: string;
   contentKey: string;
   contentKeyEpoch: number;
-  iv: string;
+  nonceSeed: string;
   partSize: number | null;
+  plaintextSha256: string;
   stageId: string | null;
 }
 
