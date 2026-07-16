@@ -99,7 +99,7 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    rather than a stale one. **Skip the sync under `--repair-rounds 0`**, whose
    contract is to change nothing; take the snapshot as-is in that mode.
 
-   Resolve the base ref, fetch it, and **merge** it in:
+   Resolve the base ref and fetch it:
 
    ```bash
    if [ -n "$PR_NUMBER" ]; then
@@ -108,9 +108,25 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
      BASE_REF="$DEFAULT_BRANCH"
    fi
    git fetch origin "$BASE_REF" || { echo "Error: could not fetch origin/$BASE_REF" >&2; exit 1; }
-   git merge --no-edit "origin/$BASE_REF" || {
+   ```
+
+   **When a PR is open**, confirm the local head is already the pushed head
+   *before* the sync changes anything — otherwise the push below would publish
+   unpushed local commits and the after-the-fact check would rubber-stamp them,
+   masking the very mismatch that check exists to catch:
+
+   ```bash
+   [ -z "$PR_NUMBER" ] || test "$(git rev-parse HEAD)" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)" || { echo "Error: local HEAD is not the pushed head of PR #$PR_NUMBER; reconcile before reviewing" >&2; exit 1; }
+   ```
+
+   Then **merge** the fetched base in — merge `FETCH_HEAD`, which the fetch always
+   sets, rather than `origin/$BASE_REF`, which a narrow or single-branch clone may
+   not update:
+
+   ```bash
+   git merge --no-edit FETCH_HEAD || {
      git merge --abort
-     echo "Error: merging origin/$BASE_REF into $BRANCH conflicts — resolve it and re-run" >&2
+     echo "Error: merging the latest $BASE_REF into $BRANCH conflicts — resolve it and re-run" >&2
      exit 1
    }
    ```
@@ -139,17 +155,9 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    REVIEWED_SHA=$(git rev-parse HEAD)
    ```
 
-   **When a PR is open**, confirm the snapshot is the pushed PR head — reviewing a
-   head that is not pushed reviews a diff no one else can see, and the resulting SHA
-   cannot be handed to a merge:
-
-   ```bash
-   [ -z "$PR_NUMBER" ] || test "$REVIEWED_SHA" = "$(gh pr view "$PR_NUMBER" --json headRefOid -q .headRefOid)"
-   ```
-
-   Stop if it does not match. **With no PR**, nothing is pushed to compare
-   against; the local snapshot is the head under review, and `open-pr` later
-   pushes it unchanged, exactly as reviewed.
+   **With no PR**, nothing is pushed to compare against; the local snapshot is the
+   head under review, and `open-pr` later pushes it unchanged, exactly as reviewed.
+   **With a PR**, the head just pushed is the reviewed head.
 
 3. **Run the review**: Execute the matching action over the snapshot head. Omit
    the effort argument to take the per-agent default (`xhigh` for Claude, `high`
@@ -225,21 +233,25 @@ checks. `--jq '… // ""'` yields an empty string only on a successful empty res
    exceed prompt limits and cause partial/failed reviews. Interrogate GitHub and
    review file-by-file:
 
-   a. Get the base ref and changed files. **With a PR**, from GitHub; **with no
-      PR**, the base ref is `$DEFAULT_BRANCH`:
+   a. Resolve and **fetch** the base ref, then diff against the fetched SHA so the
+      file list is the branch's own work even when the local base ref is stale —
+      the PR's base with a PR, the default branch without one:
 
       ```bash
-      # With a PR:
-      gh pr view "$PR_NUMBER" --json baseRefName,files -R "$REPO"
-      # With no PR (base is the default branch):
-      git diff --name-only "$DEFAULT_BRANCH"...HEAD
+      if [ -n "$PR_NUMBER" ]; then
+        BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+      else
+        BASE_REF="$DEFAULT_BRANCH"
+      fi
+      git fetch origin "$BASE_REF" || { echo "Error: could not fetch origin/$BASE_REF" >&2; exit 1; }
+      BASE=$(git rev-parse FETCH_HEAD)
+      git diff --name-only "$BASE"...HEAD
       ```
 
-   b. For each changed file, get the per-file diff (use `$DEFAULT_BRANCH` as
-      `<baseRefName>` when there is no PR):
+   b. For each changed file, get the per-file diff against the same `$BASE`:
 
       ```bash
-      git diff <baseRefName>...HEAD -- <file-path>
+      git diff "$BASE"...HEAD -- <file-path>
       ```
 
    c. For added or modified files, read the file with native file-reading tools
