@@ -4,6 +4,9 @@ import { cleanup, fireEvent, render } from "@testing-library/react";
 import { createRef } from "react";
 import { NoteEditorFields } from "./NoteEditorFields";
 
+// The attachment preview overlay opened from these tiles is covered separately
+// in NoteAttachmentPreview.test.tsx.
+
 afterEach(cleanup);
 
 function noop() {
@@ -219,47 +222,6 @@ test("opening a tile forwards a download request", () => {
   fireEvent.click(view.getByRole("button", { name: "Download diagram.png" }));
 
   expect(downloaded).toEqual(["slot-1"]);
-});
-
-test("opening a tile reveals the enlarged preview overlay", () => {
-  const view = renderNoteEditorFields({
-    attachments: [attachment],
-    imageUrlBySlotId: { "slot-1": "blob:preview" },
-  });
-
-  fireEvent.click(view.getByRole("button", { name: "Open diagram.png" }));
-
-  const dialog = view.getByRole("dialog");
-  expect(dialog).toBeTruthy();
-  const previewImage = dialog.querySelector(
-    ".note-attachment-preview-image",
-  ) as HTMLImageElement | null;
-  expect(previewImage?.src).toContain("blob:preview");
-});
-
-test("closing the preview overlay dismisses it", () => {
-  const view = renderNoteEditorFields({ attachments: [attachment] });
-
-  fireEvent.click(view.getByRole("button", { name: "Open diagram.png" }));
-  expect(view.queryByRole("dialog")).toBeTruthy();
-
-  fireEvent.click(view.getByRole("button", { name: "Close preview" }));
-  expect(view.queryByRole("dialog")).toBeNull();
-});
-
-test("closing the preview restores focus to the opening tile", () => {
-  const view = renderNoteEditorFields({ attachments: [attachment] });
-  const openButton = view.getByRole("button", { name: "Open diagram.png" });
-
-  openButton.focus();
-  fireEvent.click(openButton);
-  // Focus moves into the overlay while it is open.
-  const closeButton = view.getByRole("button", { name: "Close preview" });
-  expect(document.activeElement).toBe(closeButton);
-
-  fireEvent.click(closeButton);
-  // ...and returns to the tile that opened it once it closes.
-  expect(document.activeElement).toBe(openButton);
 });
 
 test("read-only notes hide the upload and remove affordances", () => {

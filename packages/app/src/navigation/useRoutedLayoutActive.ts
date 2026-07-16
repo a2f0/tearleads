@@ -51,6 +51,15 @@ function isRoutedLayoutSnapshot(): boolean {
   );
 }
 
+function isWindowedLayoutSnapshot(): boolean {
+  if (typeof document === "undefined") {
+    return false;
+  }
+  return (
+    document.documentElement.getAttribute("data-navigation-mode") === "windowed"
+  );
+}
+
 /**
  * `true` while the routed (touch) layout is active — mobile **or** tablet/iPad —
  * tracked reactively via the `data-navigation-mode` attribute so it stays in
@@ -69,5 +78,25 @@ export function useRoutedLayoutActive(): boolean {
   return useTearleadsExternalValue(
     subscribeToNavigationMode,
     isRoutedLayoutSnapshot,
+  );
+}
+
+/**
+ * `true` while the windowed (desktop window-manager) layout is active — the
+ * counterpart to {@link useRoutedLayoutActive}, tracked off the same
+ * `data-navigation-mode` attribute so JS and CSS stay in lockstep.
+ *
+ * The routed layout's negation is deliberately *not* used here: a render with no
+ * attribute at all (an isolated component tree outside {@link
+ * AppNavigationProvider}, e.g. a unit test) is neither routed nor windowed, so
+ * `!routed` would wrongly report windowed. This checks for the explicit
+ * `"windowed"` value instead. Used by portaled overlays that should read as
+ * floating windows on the desktop — e.g. the note attachment preview — while the
+ * routed (touch) shell keeps its compact styling.
+ */
+export function useWindowedLayoutActive(): boolean {
+  return useTearleadsExternalValue(
+    subscribeToNavigationMode,
+    isWindowedLayoutSnapshot,
   );
 }

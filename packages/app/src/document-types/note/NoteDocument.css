@@ -385,3 +385,30 @@
   font-size: var(--font-size-sm);
   opacity: var(--opacity-faint);
 }
+
+/* === Windowed preview: window-manager chrome ===
+   On the desktop windowed shell the preview dresses itself as one of the window
+   manager's floating windows: the title bar (`.window-titlebar` + `.window-close`)
+   over the compact toolbar (`.window-toolbar` + `.window-toolbar-button`), reusing
+   the window manager's own classes so the two stay in lockstep by construction
+   rather than by a copied set of rules. Only the handful of deltas a modal panel
+   needs live here; the routed (touch) shell keeps the single
+   `.note-attachment-preview-bar` above. */
+.note-attachment-preview-panel--windowed {
+  /* Carry the heavier window-chrome edge and drop the modal's hairline ring so
+     the panel frames like a window, not a centered card. */
+  border: var(--border-strong);
+  box-shadow: none;
+}
+
+/* The window title bar is a drag handle; this one is not, so drop its grab
+   cursor. */
+.note-attachment-preview-panel--windowed .window-titlebar {
+  cursor: default;
+}
+
+/* A window's toolbar leans on the body below it for its lower edge; the preview
+   has none, so close it off against the stage. */
+.note-attachment-preview-panel--windowed .window-toolbar {
+  border-bottom: var(--border);
+}
