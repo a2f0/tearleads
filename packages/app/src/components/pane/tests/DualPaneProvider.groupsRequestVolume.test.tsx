@@ -39,10 +39,12 @@ import {
 //   * 11 GET /containers -- root-lane re-lists across both panes as the membership
 //     change propagates. This was 26 until resyncContainerAccess (serverEventsBinding)
 //     stopped answering every resync_required event with a full all-parent-lanes
-//     crawl (openTree().refresh()) and instead re-lists only the root lane
-//     (refreshRootLane), leaning on the scoped reconciler.enqueueContainer for the
-//     flagged container (#1281). Further reduction needs the root re-list itself to
-//     become event-delta driven rather than a full re-list per hint.
+//     crawl (openTree().refresh()) and instead re-lists the root lane plus the
+//     flagged container's own parent lane (refreshRootLane), leaning on the scoped
+//     reconciler.enqueueContainer for the flagged container (#1281). The admin-add
+//     resync targets the org root (a top-level container), so no extra parent lane
+//     is added here. Further reduction needs the root re-list itself to become
+//     event-delta driven rather than a full re-list per hint.
 //   * 11 GET /principals/group/:groupId/policy -- the add workflow reads the group
 //     policy for its mutation context and again to cache the committed bundle, and
 //     the org-manager refreshers re-read it after the write.

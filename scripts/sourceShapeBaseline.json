@@ -261,6 +261,14 @@
       "lines": 670,
       "bytes": 20614
     },
+    "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
+      "lines": 592,
+      "bytes": 19608
+    },
+    "packages/client-sdk/src/stores/container-contents/syncAgent.ts": {
+      "lines": 505,
+      "bytes": 17135
+    },
     "packages/client-sdk/src/workflows/container-contents/remoteHydration.ts": {
       "lines": 986,
       "bytes": 31123

@@ -112,6 +112,46 @@ async function saveServerRootContainer(execSql: ExecSql): Promise<void> {
   );
 }
 
+async function saveNestedChildContainer(execSql: ExecSql): Promise<void> {
+  await defaultContainerContentsPersistence.saveContainer(
+    execSql,
+    {
+      icon: null,
+      id: "nested-child",
+      effectiveAccessLevel: "read",
+      metadataDocumentId: "nested-child-metadata-document",
+      name: "Nested",
+      organizationId: "org-1",
+      parentId: "server-root",
+    },
+    null,
+  );
+}
+
+// The deletion tombstone a viewer who inherited access via the parent receives:
+// it lives under the parent lane and is marked rootDiscoveryVisible=false server-
+// side, so listContainers({parentId:null}) never returns it — only the parent lane
+// does. updatedAt is well in the future so it always wins over the local row.
+function nestedChildDeletionTombstonePage(): ListContainersResponse {
+  return {
+    hasMore: false,
+    items: [],
+    nextWatermark: {
+      id: "nested-child",
+      updatedAt: "2027-01-01T00:00:00.000Z",
+    },
+    tombstones: [
+      {
+        containerId: "nested-child",
+        depth: 1,
+        parentId: "server-root",
+        reason: "deleted",
+        updatedAt: "2027-01-01T00:00:00.000Z",
+      },
+    ],
+  };
+}
+
 async function waitForCondition(
   predicate: () => boolean | Promise<boolean>,
   message: string,
@@ -367,6 +407,127 @@ test("refreshLocalContainers surfaces a newly persisted container from local SQL
         .getSnapshot()
         .nodes.filter((node) => node.id === "provisioned-trash"),
     ).toHaveLength(1);
+  } finally {
+    close();
+  }
+});
+
+// The resync_required handler passes a flagged container's parent lane to
+// refreshRootLane so a deleted nested container is dropped without the full crawl.
+// A deleted nested container the viewer reached via its parent is tombstoned
+// rootDiscoveryVisible=false, so its tombstone comes back ONLY from the parent
+// lane. Re-listing that parent lane must apply the tombstone and remove the stale
+// container from the tree.
+test("resync parent-lane refresh applies a deleted nested container's tombstone", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-contents-store-nested-delete-parent-lane-test",
+  );
+  const domainScope = {} as DomainScope;
+  const listedParentIds: Array<string | null | undefined> = [];
+
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await saveServerRootContainer(execSql);
+    await saveNestedChildContainer(execSql);
+
+    const runtime = createSqlTestRuntime({
+      apiClient: createMockApiClient({
+        listContainers: async ({ parentId } = {}) => {
+          listedParentIds.push(parentId);
+          if (parentId === "server-root") {
+            return nestedChildDeletionTombstonePage();
+          }
+          if (parentId === null) {
+            return serverRootNullLanePage();
+          }
+          return emptyListContainersResponse();
+        },
+      }),
+      domainScope,
+      execSql,
+      rootContainerId: "server-root",
+    });
+    const store = createContainerContentsStore(runtime);
+
+    store.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Container contents store did not become ready.",
+    );
+
+    // The nested container is present before the resync.
+    await store.refreshLocalContainers();
+    expect(store.getSnapshot().nodes.map((node) => node.id)).toContain(
+      "nested-child",
+    );
+
+    // Resync for the nested container re-lists its parent lane (root + parent),
+    // which returns the deletion tombstone and drops the container.
+    await store.refreshRootLane({ parentIds: ["server-root"] });
+
+    expect(listedParentIds).toContain("server-root");
+    expect(store.getSnapshot().nodes.map((node) => node.id)).not.toContain(
+      "nested-child",
+    );
+  } finally {
+    close();
+  }
+});
+
+// The counterpart that proves the parent lane is load-bearing: a root-only refresh
+// (no parentIds) never lists the parent lane, so the parent-only tombstone is never
+// fetched and the deleted nested container stays stale — the exact regression the
+// resync parent-lane fix prevents.
+test("root-only refresh leaves a deleted nested container's parent-only tombstone stale", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-contents-store-nested-delete-root-only-test",
+  );
+  const domainScope = {} as DomainScope;
+  const listedParentIds: Array<string | null | undefined> = [];
+
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await saveServerRootContainer(execSql);
+    await saveNestedChildContainer(execSql);
+
+    const runtime = createSqlTestRuntime({
+      apiClient: createMockApiClient({
+        listContainers: async ({ parentId } = {}) => {
+          listedParentIds.push(parentId);
+          if (parentId === "server-root") {
+            return nestedChildDeletionTombstonePage();
+          }
+          if (parentId === null) {
+            return serverRootNullLanePage();
+          }
+          return emptyListContainersResponse();
+        },
+      }),
+      domainScope,
+      execSql,
+      rootContainerId: "server-root",
+    });
+    const store = createContainerContentsStore(runtime);
+
+    store.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Container contents store did not become ready.",
+    );
+
+    await store.refreshLocalContainers();
+    expect(store.getSnapshot().nodes.map((node) => node.id)).toContain(
+      "nested-child",
+    );
+
+    await store.refreshRootLane();
+
+    expect(listedParentIds).not.toContain("server-root");
+    expect(store.getSnapshot().nodes.map((node) => node.id)).toContain(
+      "nested-child",
+    );
   } finally {
     close();
   }

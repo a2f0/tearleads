@@ -111,6 +111,11 @@ export interface ContainerContentsStoreSyncAgent {
 
 export interface RefreshRootLaneOptions {
   readonly includeActiveRootChildLane?: boolean | undefined;
+  // Extra parent lanes to re-list alongside the root lane. Used by the
+  // resync_required handler to re-list a flagged container's parent lane so a
+  // tombstone only visible there (a deleted nested container reached via its
+  // parent, rootDiscoveryVisible=false) is still applied without the full crawl.
+  readonly parentIds?: ReadonlyArray<string | null> | undefined;
 }
 
 type ContainerContentsStoreSyncHost = RemoteContainerHydrationHost;
@@ -487,6 +492,7 @@ export function createContainerContentsStoreSyncAgent(input: {
     refreshRootLane: (options) =>
       refreshRootRemoteHydration({
         includeActiveRootChildLane: options?.includeActiveRootChildLane,
+        parentIds: options?.parentIds,
         requestHydration: requestRefreshHydration,
         state,
       }),
