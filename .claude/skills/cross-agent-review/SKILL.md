@@ -66,7 +66,7 @@ ROOT_DIR=$(git rev-parse --show-toplevel)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
-PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' -R "$REPO" 2>/dev/null || echo "")
+PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // ""' -R "$REPO") || { echo "Error: could not query open PRs for $BRANCH (is gh authenticated?)" >&2; exit 1; }
 AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
 [ -f "$AGENT_TOOL" ] || { echo "Error: agent-tool not found at $AGENT_TOOL" >&2; exit 1; }
 ```
@@ -74,7 +74,10 @@ AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
 If `$BRANCH` equals `$DEFAULT_BRANCH` (or a conventional `main`/`master`), report
 the error and stop — there is nothing to review. An **empty `$PR_NUMBER` is not
 an error**: it means the branch has no PR yet, and the review runs against
-`$DEFAULT_BRANCH` with repairs kept local.
+`$DEFAULT_BRANCH` with repairs kept local. A **failed** lookup is different — the
+command above stops rather than reading a transient `gh` error as "no PR", which
+would silently reroute the review to the wrong base and skip the pushed-head
+checks. `--jq '… // ""'` yields an empty string only on a successful empty result.
 
 ## Workflow
 

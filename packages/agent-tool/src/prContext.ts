@@ -114,6 +114,23 @@ function resolveBaseRef(baseRefName: string, baseRefOid: string): string {
   );
 }
 
+/**
+ * Base ref for a pre-PR review: the *current* remote default branch. A branch cut
+ * from a newer default than the local `main` would otherwise diff in upstream
+ * commits it never authored — so a repair round could touch code the branch does
+ * not own. Fetch first and prefer the freshly-updated remote-tracking ref,
+ * falling back to whatever `resolveBaseRef` can find when offline.
+ */
+function resolveDefaultBaseRef(defaultBranch: string): string {
+  spawnSync("git", ["fetch", "--quiet", "origin", defaultBranch], {
+    stdio: "ignore",
+  });
+  if (gitRefExists(`origin/${defaultBranch}`)) {
+    return `origin/${defaultBranch}`;
+  }
+  return resolveBaseRef(defaultBranch, "");
+}
+
 export function ensureChanges(baseRef: string): void {
   const result = spawnSync("git", ["diff", "--quiet", `${baseRef}...HEAD`], {
     stdio: "ignore",
@@ -297,14 +314,15 @@ export function resolveReviewContext(): PrContext {
         "Could not determine the repository default branch to review against.",
       );
     }
-    // No PR yet: review the local branch against the default branch. There is no
-    // base OID to fall back on, so resolveBaseRef works from the branch name.
+    // No PR yet: review the local branch against the *current* remote default,
+    // fetched fresh so a stale local ref cannot pull unrelated upstream commits
+    // into the diff.
     return {
       branch,
       repo,
       prNumber: "",
       title: "",
-      baseRef: resolveBaseRef(defaultBranch, ""),
+      baseRef: resolveDefaultBaseRef(defaultBranch),
     };
   }
 
