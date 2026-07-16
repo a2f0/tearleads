@@ -1,27 +1,24 @@
-import { createAesGcmIv } from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { markOriginatedDocuments } from "../../../sync/reconciliation/originatedDocuments";
-import type {
-  MultipartStageResolvedListener,
-  MultipartUploadProgressListener,
-  uploadDocumentAttachment,
-} from "../../../workflows/blobs";
+import type { uploadDocumentAttachment } from "../../../workflows/blobs";
 import {
   type DocumentRecord,
   type PendingAttachmentRecord,
-  type PendingAttachmentUploadIdentity,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
-import {
-  beginDomainSyncUploadLane,
-  type UploadSyncLane,
-} from "../../../workflows/sync";
 import { uploadAttachmentWithWriterProjectionRetry } from "./attachmentUploadAttempt";
+import {
+  type AttachmentUploadLaneReporter,
+  createAttachmentUploadFailedError,
+  createAttachmentUploadLaneReporter,
+} from "./attachmentUploadLane";
+import {
+  type AttachmentUploadResume,
+  resolveAttachmentUploadResume,
+} from "./attachmentUploadResume";
 import {
   deletePendingAttachment,
   saveLocalAttachmentRecord,
-  savePendingAttachmentUpload,
 } from "./persistence";
 import {
   type DocumentAttachmentBinding,
@@ -33,15 +30,20 @@ import {
 } from "./state";
 import { ensureRemoteDocument } from "./syncShared";
 
-interface AttachmentUploadLaneReporter {
-  complete: () => void;
-  fail: (error: unknown) => void;
-  onMultipartProgress: MultipartUploadProgressListener;
-}
-
 // Preserve transient failures for retry. Drop irrecoverable missing bytes so a
 // pending attachment cannot wedge the document sync lane across restarts.
-type PendingAttachmentUploadOutcome = "uploaded" | "retry" | "dropped";
+type PendingAttachmentUploadOutcome =
+  | "uploaded"
+  | "recovered"
+  | "retry"
+  | "dropped";
+
+interface AttachmentSyncProgress {
+  activeBindingBySlotId: Map<string, DocumentAttachmentBinding>;
+  fetchedRemoteBindings: boolean;
+  settledAttachment: boolean;
+  uploadedAttachment: boolean;
+}
 
 export async function syncPendingAttachments(
   state: DocumentStoreState,
@@ -68,32 +70,29 @@ export async function syncPendingAttachments(
   }
   const remoteDocumentId = currentRecord.documentId;
 
-  const activeBindingBySlotId = new Map<string, DocumentAttachmentBinding>();
-  let fetchedRemoteBindings = false;
-  const completedSlotIds = new Set<string>();
+  const progress: AttachmentSyncProgress = {
+    activeBindingBySlotId: new Map(),
+    fetchedRemoteBindings: false,
+    settledAttachment: false,
+    uploadedAttachment: false,
+  };
 
   for (const pendingAttachment of [...state.pendingAttachments]) {
-    if (
-      !fetchedRemoteBindings &&
-      !isNewPendingAttachmentSlot(state, pendingAttachment)
-    ) {
-      const remoteBindings =
-        await state.runtime.apiClient.listDocumentAttachments(remoteDocumentId);
-      if (!remoteBindings) {
-        return {
-          completed: completedSlotIds.size > 0,
-          nextRecord: currentRecord,
-        };
-      }
-
-      fetchedRemoteBindings = true;
-      for (const binding of remoteBindings) {
-        activeBindingBySlotId.set(binding.slotId, binding);
-      }
+    const bindingsReady = await loadRemoteAttachmentBindings({
+      pendingAttachment,
+      progress,
+      remoteDocumentId,
+      state,
+    });
+    if (!bindingsReady) {
+      return {
+        completed: progress.settledAttachment,
+        nextRecord: currentRecord,
+      };
     }
 
     const outcome = await syncPendingAttachmentUpload({
-      activeBindingBySlotId,
+      activeBindingBySlotId: progress.activeBindingBySlotId,
       encapsulationKeyPair,
       pendingAttachment,
       remoteDocumentId,
@@ -101,38 +100,21 @@ export async function syncPendingAttachments(
     });
     if (outcome === "retry") {
       return {
-        completed: completedSlotIds.size > 0,
+        completed: progress.settledAttachment,
         nextRecord: currentRecord,
       };
     }
 
-    // "uploaded" or "dropped": the row is gone (uploaded successfully, or
-    // discarded because its local bytes were missing). Either way remove it from
-    // the in-memory queue and keep draining; only a real upload counts as
-    // completed work.
-    state.pendingAttachments = state.pendingAttachments.filter(
-      (attachment) => attachment !== pendingAttachment,
-    );
-    if (outcome === "uploaded") {
-      completedSlotIds.add(pendingAttachment.slotId);
+    removeSettledPendingAttachment(state, currentDoc, pendingAttachment);
+    if (outcome === "uploaded" || outcome === "recovered") {
+      progress.settledAttachment = true;
     }
-    // Republish progressively so a settled attachment drops its "syncing" badge
-    // (derived from state.pendingAttachments) right away — otherwise a later
-    // attachment that returns "retry", or a pass that drops everything without a
-    // successful upload, would return before the end-of-loop publish and leave
-    // an already-removed attachment stuck "syncing" in the UI.
-    if (currentDoc === state.doc) {
-      setReadySnapshot(
-        state,
-        currentDoc,
-        state.snapshot.syncing,
-        state.snapshot.text,
-        state.snapshot.structuredFields,
-      );
+    if (outcome === "uploaded") {
+      progress.uploadedAttachment = true;
     }
   }
 
-  if (completedSlotIds.size === 0) {
+  if (!progress.settledAttachment) {
     return { completed: false, nextRecord: currentRecord };
   }
 
@@ -141,85 +123,68 @@ export async function syncPendingAttachments(
   // re-discovering a delta we already have locally rather than cycling its lane
   // per uploaded file. Marking here (not before the loop) avoids a dangling id
   // that would suppress the next genuine remote update if every upload failed.
-  markOriginatedDocuments(state.runtime.state.domainScope, [remoteDocumentId]);
+  if (progress.uploadedAttachment) {
+    markOriginatedDocuments(state.runtime.state.domainScope, [
+      remoteDocumentId,
+    ]);
+  }
 
   // The snapshot was already republished progressively inside the loop as each
   // attachment settled, so there is nothing left to publish here.
   return { completed: true, nextRecord: currentRecord };
 }
 
-function createPendingUploadIdentity(): PendingAttachmentUploadIdentity {
-  // Generated once and persisted before the first upload attempt. Reusing these
-  // on a retry makes the encryption byte-identical (same sha256), so the
-  // multipart stage recorded in `stageId` can be resumed rather than orphaned.
-  return {
-    blobId: crypto.randomUUID(),
-    contentKey: bytesToBase64(crypto.getRandomValues(new Uint8Array(32))),
-    contentKeyEpoch: 1,
-    iv: bytesToBase64(createAesGcmIv()),
-    partSize: null,
-    stageId: null,
-  };
-}
-
-interface AttachmentUploadResume {
-  readonly blobId: string;
-  readonly contentKey: Uint8Array;
-  readonly contentKeyEpoch: number;
-  readonly iv: Uint8Array;
-  readonly multipart: { partSize: number; resumeStageId: string } | undefined;
-  readonly onStageResolved: MultipartStageResolvedListener;
-}
-
-/**
- * Resolve the upload inputs for a pending attachment so a retry reuses the same
- * identity: mint-and-persist one on the first attempt, and reuse (resuming the
- * recorded multipart stage) thereafter. The identity is attached to and mutated
- * on the pending record in place, so the sync loop keeps tracking it by
- * reference and still drops it after a settled upload.
- */
-async function resolveAttachmentUploadResume(
-  state: DocumentStoreState,
-  pendingAttachment: PendingAttachmentRecord,
-): Promise<AttachmentUploadResume> {
-  const uploadIdentity =
-    pendingAttachment.upload ?? createPendingUploadIdentity();
-  if (pendingAttachment.upload !== uploadIdentity) {
-    pendingAttachment.upload = uploadIdentity;
-    await savePendingAttachmentUpload(state, pendingAttachment);
+async function loadRemoteAttachmentBindings(input: {
+  pendingAttachment: PendingAttachmentRecord;
+  progress: AttachmentSyncProgress;
+  remoteDocumentId: string;
+  state: DocumentStoreState;
+}): Promise<boolean> {
+  const { pendingAttachment, progress, state } = input;
+  const freshUpload =
+    pendingAttachment.upload == null &&
+    isNewPendingAttachmentSlot(state, pendingAttachment);
+  if (progress.fetchedRemoteBindings || freshUpload) {
+    return true;
   }
 
-  const multipart =
-    uploadIdentity.stageId !== null && uploadIdentity.partSize !== null
-      ? {
-          partSize: uploadIdentity.partSize,
-          resumeStageId: uploadIdentity.stageId,
-        }
-      : undefined;
+  const remoteBindings = await state.runtime.apiClient.listDocumentAttachments(
+    input.remoteDocumentId,
+  );
+  if (!remoteBindings) {
+    return false;
+  }
 
-  const onStageResolved: MultipartStageResolvedListener = async ({
-    partSize,
-    stageId,
-  }) => {
-    if (
-      uploadIdentity.stageId === stageId &&
-      uploadIdentity.partSize === partSize
-    ) {
-      return;
-    }
-    uploadIdentity.partSize = partSize;
-    uploadIdentity.stageId = stageId;
-    await savePendingAttachmentUpload(state, pendingAttachment);
-  };
+  progress.fetchedRemoteBindings = true;
+  for (const binding of remoteBindings) {
+    progress.activeBindingBySlotId.set(binding.slotId, binding);
+  }
+  return true;
+}
 
-  return {
-    blobId: uploadIdentity.blobId,
-    contentKey: base64ToBytes(uploadIdentity.contentKey),
-    contentKeyEpoch: uploadIdentity.contentKeyEpoch,
-    iv: base64ToBytes(uploadIdentity.iv),
-    multipart,
-    onStageResolved,
-  };
+function removeSettledPendingAttachment(
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  pendingAttachment: PendingAttachmentRecord,
+): void {
+  // Every non-retry outcome removed the durable row: uploaded now, recovered
+  // after an ambiguous response, or discarded because local bytes vanished.
+  state.pendingAttachments = state.pendingAttachments.filter(
+    (attachment) => attachment !== pendingAttachment,
+  );
+  if (currentDoc !== state.doc) {
+    return;
+  }
+
+  // Republish progressively so the attachment drops its syncing badge even if
+  // a later attachment returns retry before the loop finishes.
+  setReadySnapshot(
+    state,
+    currentDoc,
+    state.snapshot.syncing,
+    state.snapshot.text,
+    state.snapshot.structuredFields,
+  );
 }
 
 async function settleUploadedAttachment(input: {
@@ -231,19 +196,7 @@ async function settleUploadedAttachment(input: {
   uploadLane: AttachmentUploadLaneReporter;
 }): Promise<void> {
   const { pendingAttachment, state, uploaded } = input;
-  await saveLocalAttachmentRecord(state, {
-    blobId: uploaded.blobId,
-    byteLength: pendingAttachment.byteLength,
-    localId: state.localId,
-    mimeType: pendingAttachment.mimeType,
-    slotId: pendingAttachment.slotId,
-    storageKey: pendingAttachment.storageKey,
-  });
-  await deletePendingAttachment(
-    state,
-    pendingAttachment.slotId,
-    pendingAttachment.storageKey,
-  );
+  await persistSettledAttachment(state, pendingAttachment, uploaded.blobId);
   input.activeBindingBySlotId.set(pendingAttachment.slotId, {
     bindingId: uploaded.bindingId,
     blobId: uploaded.blobId,
@@ -254,6 +207,44 @@ async function settleUploadedAttachment(input: {
   input.uploadLane.complete();
   state.runtime.util.log(
     `Uploaded attachment ${pendingAttachment.name} for document ${input.remoteDocumentId}.`,
+  );
+}
+
+async function settleRecoveredAttachment(input: {
+  binding: DocumentAttachmentBinding;
+  pendingAttachment: PendingAttachmentRecord;
+  remoteDocumentId: string;
+  state: DocumentStoreState;
+  uploadLane: AttachmentUploadLaneReporter;
+}): Promise<void> {
+  await persistSettledAttachment(
+    input.state,
+    input.pendingAttachment,
+    input.binding.blobId,
+  );
+  input.uploadLane.complete();
+  input.state.runtime.util.log(
+    `Recovered uploaded attachment ${input.pendingAttachment.name} for document ${input.remoteDocumentId}.`,
+  );
+}
+
+async function persistSettledAttachment(
+  state: DocumentStoreState,
+  pendingAttachment: PendingAttachmentRecord,
+  blobId: string,
+): Promise<void> {
+  await saveLocalAttachmentRecord(state, {
+    blobId,
+    byteLength: pendingAttachment.byteLength,
+    localId: state.localId,
+    mimeType: pendingAttachment.mimeType,
+    slotId: pendingAttachment.slotId,
+    storageKey: pendingAttachment.storageKey,
+  });
+  await deletePendingAttachment(
+    state,
+    pendingAttachment.slotId,
+    pendingAttachment.storageKey,
   );
 }
 
@@ -286,14 +277,146 @@ async function ensureRemoteDocumentForAttachmentSync(
   );
 }
 
-async function syncPendingAttachmentUpload(input: {
+interface PendingAttachmentUploadInput {
   activeBindingBySlotId: Map<string, DocumentAttachmentBinding>;
   encapsulationKeyPair: EncapsulationKeyPair;
   pendingAttachment: PendingAttachmentRecord;
   remoteDocumentId: string;
   state: DocumentStoreState;
-}): Promise<PendingAttachmentUploadOutcome> {
+}
+
+async function recoverCommittedAttachment(
+  input: PendingAttachmentUploadInput,
+): Promise<boolean> {
   const { pendingAttachment, state } = input;
+  const persistedUpload = pendingAttachment.upload;
+  const activeBinding = input.activeBindingBySlotId.get(
+    pendingAttachment.slotId,
+  );
+  if (!persistedUpload || activeBinding?.blobId !== persistedUpload.blobId) {
+    return false;
+  }
+
+  const uploadLane = createAttachmentUploadLaneReporter({
+    blobId: persistedUpload.blobId,
+    domainScope: state.runtime.state.domainScope,
+    pendingAttachment,
+  });
+  try {
+    await settleRecoveredAttachment({
+      binding: activeBinding,
+      pendingAttachment,
+      remoteDocumentId: input.remoteDocumentId,
+      state,
+      uploadLane,
+    });
+    return true;
+  } catch (error) {
+    reportAttachmentUploadFailure({
+      error,
+      pendingAttachment,
+      state,
+      uploadLane,
+    });
+    throw error;
+  }
+}
+
+function createAttachmentBaseUploadInput(input: {
+  author: Parameters<typeof uploadDocumentAttachment>[0]["author"];
+  bytes: Parameters<typeof uploadDocumentAttachment>[0]["bytes"];
+  pendingUpload: PendingAttachmentUploadInput;
+  resume: AttachmentUploadResume;
+  uploadLane: AttachmentUploadLaneReporter;
+}): Parameters<typeof uploadDocumentAttachment>[0] {
+  const { pendingAttachment, state } = input.pendingUpload;
+  return {
+    apiClient: state.runtime.apiClient,
+    author: input.author,
+    blobId: input.resume.blobId,
+    bytes: input.bytes,
+    contentKey: input.resume.contentKey,
+    contentKeyEpoch: input.resume.contentKeyEpoch,
+    documentId: input.pendingUpload.remoteDocumentId,
+    execSql: state.runtime.infra.execSql,
+    expectedBindingId:
+      input.pendingUpload.activeBindingBySlotId.get(pendingAttachment.slotId)
+        ?.bindingId ?? null,
+    iv: input.resume.iv,
+    multipart: input.resume.multipart,
+    onMultipartProgress: input.uploadLane.onMultipartProgress,
+    onStageResolved: input.resume.onStageResolved,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
+    slotId: pendingAttachment.slotId,
+    targetSecretKey: input.pendingUpload.encapsulationKeyPair.secretKey,
+    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+      state.runtime,
+    ),
+  };
+}
+
+async function uploadPendingAttachmentBytes(input: {
+  baseUploadInput: Parameters<typeof uploadDocumentAttachment>[0];
+  pendingUpload: PendingAttachmentUploadInput;
+  uploadLane: AttachmentUploadLaneReporter;
+}): Promise<PendingAttachmentUploadOutcome> {
+  const { pendingAttachment, state } = input.pendingUpload;
+  const writerProjection =
+    state.writerProjection?.documentId === input.pendingUpload.remoteDocumentId
+      ? state.writerProjection
+      : null;
+
+  try {
+    const uploadAttempt = await uploadAttachmentWithWriterProjectionRetry({
+      baseUploadInput: input.baseUploadInput,
+      state,
+      writerProjection,
+    });
+    const { error: uploadError, remoteSyncBlocked, uploaded } = uploadAttempt;
+    if (!uploaded) {
+      if (remoteSyncBlocked) {
+        input.uploadLane.failIfStarted(
+          new Error("Attachment upload paused because remote sync is blocked."),
+        );
+        return "retry";
+      }
+      reportAttachmentUploadFailure({
+        error: uploadError,
+        pendingAttachment,
+        state,
+        uploadLane: input.uploadLane,
+      });
+      return "retry";
+    }
+
+    await settleUploadedAttachment({
+      activeBindingBySlotId: input.pendingUpload.activeBindingBySlotId,
+      pendingAttachment,
+      remoteDocumentId: input.pendingUpload.remoteDocumentId,
+      state,
+      uploadLane: input.uploadLane,
+      uploaded,
+    });
+    return "uploaded";
+  } catch (error) {
+    reportAttachmentUploadFailure({
+      error,
+      pendingAttachment,
+      state,
+      uploadLane: input.uploadLane,
+    });
+    throw error;
+  }
+}
+
+async function syncPendingAttachmentUpload(
+  input: PendingAttachmentUploadInput,
+): Promise<PendingAttachmentUploadOutcome> {
+  const { pendingAttachment, state } = input;
+  if (await recoverCommittedAttachment(input)) {
+    return "recovered";
+  }
+
   const bytes = await state.runtime.infra.blobStore.readBytes(
     pendingAttachment.storageKey,
   );
@@ -322,67 +445,24 @@ async function syncPendingAttachmentUpload(input: {
     return "retry";
   }
 
-  const uploadLane = createAttachmentUploadLaneReporter({
-    pendingAttachment,
-    state,
-  });
-  const writerProjection =
-    state.writerProjection?.documentId === input.remoteDocumentId
-      ? state.writerProjection
-      : null;
   const resume = await resolveAttachmentUploadResume(state, pendingAttachment);
-
-  const baseUploadInput = {
-    apiClient: state.runtime.apiClient,
-    author,
+  const uploadLane = createAttachmentUploadLaneReporter({
     blobId: resume.blobId,
-    bytes,
-    contentKey: resume.contentKey,
-    contentKeyEpoch: resume.contentKeyEpoch,
-    documentId: input.remoteDocumentId,
-    execSql: state.runtime.infra.execSql,
-    expectedBindingId:
-      input.activeBindingBySlotId.get(pendingAttachment.slotId)?.bindingId ??
-      null,
-    iv: resume.iv,
-    multipart: resume.multipart,
-    onMultipartProgress: uploadLane.onMultipartProgress,
-    onStageResolved: resume.onStageResolved,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    slotId: pendingAttachment.slotId,
-    targetSecretKey: input.encapsulationKeyPair.secretKey,
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      state.runtime,
-    ),
-  };
-  const uploadAttempt = await uploadAttachmentWithWriterProjectionRetry({
-    baseUploadInput,
-    state,
-    writerProjection,
-  });
-  const { error: uploadError, remoteSyncBlocked, uploaded } = uploadAttempt;
-  if (!uploaded) {
-    if (remoteSyncBlocked) {
-      return "retry";
-    }
-    reportAttachmentUploadFailure({
-      error: uploadError,
-      pendingAttachment,
-      state,
-      uploadLane,
-    });
-    return "retry";
-  }
-
-  await settleUploadedAttachment({
-    activeBindingBySlotId: input.activeBindingBySlotId,
+    domainScope: state.runtime.state.domainScope,
     pendingAttachment,
-    remoteDocumentId: input.remoteDocumentId,
-    state,
-    uploaded,
+  });
+  const baseUploadInput = createAttachmentBaseUploadInput({
+    author,
+    bytes,
+    pendingUpload: input,
+    resume,
     uploadLane,
   });
-  return "uploaded";
+  return uploadPendingAttachmentBytes({
+    baseUploadInput,
+    pendingUpload: input,
+    uploadLane,
+  });
 }
 
 function reportAttachmentUploadFailure(input: {
@@ -397,63 +477,4 @@ function reportAttachmentUploadFailure(input: {
   );
   input.uploadLane.fail(error);
   input.state.runtime.util.log(`Documents: ${error.message}`);
-}
-
-function getAttachmentUploadLaneLabel(name: string | null | undefined): string {
-  return name ? `Upload ${name}` : "Attachment upload";
-}
-
-function getAttachmentUploadFailureTarget(
-  pendingAttachment: PendingAttachmentRecord,
-): string {
-  return pendingAttachment.name
-    ? `${pendingAttachment.name} (slot ${pendingAttachment.slotId})`
-    : `slot ${pendingAttachment.slotId}`;
-}
-
-function createAttachmentUploadFailedError(
-  pendingAttachment: PendingAttachmentRecord,
-  cause: unknown,
-): Error {
-  const error = new Error(
-    `Attachment upload failed for ${getAttachmentUploadFailureTarget(pendingAttachment)}.`,
-  );
-  if (cause !== undefined) Reflect.set(error, "cause", cause);
-
-  return error;
-}
-
-// Surfaces multipart uploads as sync lanes, forcing lane creation on failure.
-function createAttachmentUploadLaneReporter(input: {
-  pendingAttachment: PendingAttachmentRecord;
-  state: DocumentStoreState;
-}): AttachmentUploadLaneReporter {
-  const { pendingAttachment, state } = input;
-  const laneRef: { current: UploadSyncLane | null } = { current: null };
-
-  const ensureLane = (): UploadSyncLane => {
-    if (!laneRef.current) {
-      laneRef.current = beginDomainSyncUploadLane(
-        state.runtime.state.domainScope,
-        `blob-upload:${pendingAttachment.slotId}`,
-        { label: getAttachmentUploadLaneLabel(pendingAttachment.name) },
-      );
-    }
-
-    return laneRef.current;
-  };
-
-  const onMultipartProgress: MultipartUploadProgressListener = (progress) => {
-    ensureLane().reportProgress(progress);
-  };
-
-  return {
-    complete() {
-      laneRef.current?.complete();
-    },
-    fail(error: unknown) {
-      ensureLane().fail(error);
-    },
-    onMultipartProgress,
-  };
 }

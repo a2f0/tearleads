@@ -38,6 +38,7 @@ function createLaneSnapshot(
   overrides: Partial<SyncLaneSnapshot>,
 ): SyncLaneSnapshot {
   return {
+    blobStorageKey: null,
     errorCount: 0,
     key: "container-contents",
     label: "Container contents",

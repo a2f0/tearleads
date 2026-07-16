@@ -163,6 +163,12 @@ export function ExplorerWriteQueuePanelView(
 
 export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
   const syncSnapshot = useDomainSyncSnapshot(params.domainScope);
+  const syncSettlementRevision = syncSnapshot.lanes
+    .map(
+      (lane) =>
+        `${lane.key}:${lane.runCount}:${lane.running}:${lane.lastCompletedAt ?? ""}:${lane.lastFailedAt ?? ""}`,
+    )
+    .join("\0");
   const [state, setState] = useState<{
     error: boolean;
     items: ReadonlyArray<PendingWriteQueueItem>;
@@ -192,6 +198,7 @@ export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
     params.documentQueries,
     params.nodes,
     syncSnapshot.hasPendingWork,
+    syncSettlementRevision,
   ]);
 
   return (

@@ -213,6 +213,9 @@ export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
             embedded
             domainScope={params.domainScope}
             onBackToSelectionRoute={openSyncLanesRoute}
+            onOpenBlobDetail={(storageKey) => {
+              openBlobBrowserRoute({ storageKey });
+            }}
             onOpenLaneDetail={params.onOpenSyncLaneDetailRoute}
             selectedLaneKey={
               route.view === "sync-lane-detail" ? route.laneKey : null

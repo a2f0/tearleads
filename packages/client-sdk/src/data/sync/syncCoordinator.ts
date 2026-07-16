@@ -60,9 +60,9 @@ export interface DomainSyncCoordinator {
   dispose: () => void;
   getSnapshot: () => DomainSyncSnapshot;
   registerLane: (key: string, config: SyncLaneConfig) => SyncLane;
-  // Re-request every registered lane — a manual "sync now" that re-drives work
-  // stranded by a transient failure that left the lanes idle (no re-arm fires
-  // until an edit, a remote event, an online/auth regain, or a restart).
+  // Re-request every pump-driven lane — a manual "sync now" that re-drives
+  // durable owners stranded by a transient failure. Observational upload rows
+  // are updated only by those owners' real attachment upload attempts.
   requestAllLanes: () => void;
   hasPendingWork: () => boolean;
   subscribe: (listener: () => void) => () => void;
@@ -116,7 +116,7 @@ function delay(ms: number): Promise<void> {
 
 function hasRequestedLaneWork(lanes: Iterable<SyncLaneState>): boolean {
   for (const lane of lanes) {
-    if (lane.requested) {
+    if (lane.pumpDriven && lane.requested) {
       return true;
     }
   }
@@ -130,7 +130,7 @@ function selectNextRequestedLane(
   let selectedLane: SyncLaneState | null = null;
 
   for (const lane of lanes) {
-    if (!lane.requested) {
+    if (!lane.pumpDriven || !lane.requested) {
       continue;
     }
 
@@ -252,10 +252,37 @@ function requestLaneSync(
   coordinatorState: DomainSyncCoordinatorState,
   lane: SyncLaneState,
 ) {
-  if (coordinatorState.disposed) {
+  if (coordinatorState.disposed || !lane.pumpDriven) {
     return;
   }
   markLaneRequested(lane, createSyncTimestamp());
+  publishSyncCoordinatorSnapshot(coordinatorState);
+  scheduleCoordinatorPump(coordinatorState);
+}
+
+function requestAllPumpDrivenLanes(
+  coordinatorState: DomainSyncCoordinatorState,
+): void {
+  if (coordinatorState.disposed || coordinatorState.lanes.size === 0) {
+    return;
+  }
+
+  // Mark every executable lane requested, then publish the snapshot and
+  // schedule the pump ONCE. Blob upload lanes are observational: requesting
+  // their no-op runner would fabricate completion without uploading bytes.
+  const requestedAt = createSyncTimestamp();
+  let didRequestLane = false;
+  for (const lane of coordinatorState.lanes.values()) {
+    if (!lane.pumpDriven) {
+      continue;
+    }
+    markLaneRequested(lane, requestedAt);
+    didRequestLane = true;
+  }
+  if (!didRequestLane) {
+    return;
+  }
+
   publishSyncCoordinatorSnapshot(coordinatorState);
   scheduleCoordinatorPump(coordinatorState);
 }
@@ -332,6 +359,8 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
       const existingLane = coordinatorState.lanes.get(key);
       if (existingLane) {
         existingLane.config = config;
+        existingLane.blobStorageKey = null;
+        existingLane.pumpDriven = true;
         publishSyncCoordinatorSnapshot(coordinatorState);
         return {
           requestSync: () => requestLaneSync(coordinatorState, existingLane),
@@ -340,6 +369,7 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
 
       const registeredAt = createSyncTimestamp();
       const nextLane: SyncLaneState = {
+        blobStorageKey: null,
         config,
         errorCount: 0,
         key,
@@ -351,6 +381,7 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
         lastRequestedAt: null,
         lastStartedAt: null,
         progress: null,
+        pumpDriven: true,
         registrationIndex: coordinatorState.nextRegistrationIndex,
         requestCount: 0,
         requested: false,
@@ -365,18 +396,7 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
       };
     },
     requestAllLanes() {
-      if (coordinatorState.disposed || coordinatorState.lanes.size === 0) {
-        return;
-      }
-      // Mark every lane requested, then publish the snapshot and schedule the
-      // pump ONCE — re-requesting per lane via requestLaneSync would emit one
-      // snapshot notification (and React re-render) per lane.
-      const requestedAt = createSyncTimestamp();
-      for (const lane of coordinatorState.lanes.values()) {
-        markLaneRequested(lane, requestedAt);
-      }
-      publishSyncCoordinatorSnapshot(coordinatorState);
-      scheduleCoordinatorPump(coordinatorState);
+      requestAllPumpDrivenLanes(coordinatorState);
     },
     subscribe(listener: () => void) {
       coordinatorState.listeners.add(listener);
@@ -409,9 +429,10 @@ export function hasDomainSyncCoordinatorPendingWork(
   return coordinatorsByScope.get(domainScope)?.hasPendingWork() ?? false;
 }
 
-// Re-request every registered lane for a scope: a user-driven "sync now" that
-// retries work stranded by a transient failure. A no-op when no coordinator
-// exists yet (nothing has been synced) or it has been disposed.
+// Re-request every pump-driven lane for a scope: a user-driven "sync now" that
+// retries durable work stranded by a transient failure. Observational upload
+// telemetry is never directly pumped. A no-op when no coordinator exists yet
+// (nothing has been synced) or it has been disposed.
 export function requestAllDomainSyncLanes(domainScope: DomainScope): void {
   coordinatorsByScope.get(domainScope)?.requestAllLanes();
 }

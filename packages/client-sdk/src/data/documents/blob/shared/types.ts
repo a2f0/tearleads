@@ -63,7 +63,11 @@ export interface BlobAttachmentApi {
   getRequestFailure?(input: {
     method: "DELETE" | "GET" | "POST" | "PUT";
     path: string;
-  }): { readonly message: string } | null;
+  }): {
+    readonly kind: "http" | "json" | "network" | "shape";
+    readonly message: string;
+    readonly status: number | null;
+  } | null;
   completeMultipartBlobStage?(
     stageId: string,
     input: CompleteMultipartBlobStageRequest,

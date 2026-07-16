@@ -23,6 +23,7 @@ export interface UploadSyncLane {
 }
 
 export interface UploadSyncLaneOptions {
+  blobStorageKey?: string | undefined;
   label?: string | undefined;
 }
 
@@ -63,8 +64,10 @@ export function beginUploadLane(
   let lane = coordinatorState.lanes.get(key);
   if (lane) {
     lane.config = { label: options.label, phase: "blob", run: noopLaneRun };
+    lane.blobStorageKey = options.blobStorageKey ?? null;
   } else {
     lane = {
+      blobStorageKey: options.blobStorageKey ?? null,
       config: { label: options.label, phase: "blob", run: noopLaneRun },
       errorCount: 0,
       key,
@@ -76,6 +79,7 @@ export function beginUploadLane(
       lastRequestedAt: null,
       lastStartedAt: startedAt,
       progress: null,
+      pumpDriven: false,
       registrationIndex: coordinatorState.nextRegistrationIndex,
       requestCount: 0,
       requested: false,
@@ -87,6 +91,10 @@ export function beginUploadLane(
   }
 
   const uploadLane = lane;
+  // A stale executable handle may share this key. Make the upload row
+  // observational before publishing and discard any queued pump request.
+  uploadLane.pumpDriven = false;
+  uploadLane.requested = false;
   uploadLane.running = true;
   uploadLane.runCount += 1;
   uploadLane.lastAction = "started";

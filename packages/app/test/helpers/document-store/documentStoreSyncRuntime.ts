@@ -52,6 +52,11 @@ export async function documentWorkflowRuntimePatch(input: {
     blobId: string,
     request: BlobAttachmentBindRequest,
   ) => Promise<void> | void;
+  onBlobAttachmentCommitted?: (
+    blobId: string,
+    request: BlobAttachmentBindRequest,
+    response: BlobAttachmentBindResponse,
+  ) => Promise<void> | void;
   mapBindBlobAttachmentResponse?: (
     response: BlobAttachmentBindResponse,
   ) => BlobAttachmentBindResponse;
@@ -142,6 +147,7 @@ export async function documentWorkflowRuntimePatch(input: {
           });
           stagedBlobs.delete(request.stagedBlob?.stageId ?? "");
         }
+        await input.onBlobAttachmentCommitted?.(blobId, request, response);
         return response;
       },
       getBlob: async (blobId) => {
@@ -270,6 +276,11 @@ interface SyncRuntimeOptions {
     blobId: string,
     request: BlobAttachmentBindRequest,
   ) => Promise<void> | void;
+  onBlobAttachmentCommitted?: (
+    blobId: string,
+    request: BlobAttachmentBindRequest,
+    response: BlobAttachmentBindResponse,
+  ) => Promise<void> | void;
   onSyncDocumentRequest?: (request: DocumentSyncRequest) => void;
   listDocumentAttachmentsCalls?: string[];
   organizationId?: string;
@@ -300,6 +311,9 @@ async function createSyncRuntimeInput(
       : {}),
     ...(options.onBindBlobAttachment
       ? { onBindBlobAttachment: options.onBindBlobAttachment }
+      : {}),
+    ...(options.onBlobAttachmentCommitted
+      ? { onBlobAttachmentCommitted: options.onBlobAttachmentCommitted }
       : {}),
     ...(options.onSyncDocumentRequest
       ? { onSyncDocumentRequest: options.onSyncDocumentRequest }

@@ -17,6 +17,8 @@ Current production lanes include:
 - `container-contents`, a `structural` lane registered by the
   explorer/container contents store.
 - `documents:${localId}`, `document` lanes registered by document stores.
+- `blob-upload:${blobId}`, observational rows updated by attachment upload
+  callbacks for diagnostics. These are not coordinator-pumped lanes.
 
 The coordinator guarantees that a single lane does not run concurrently with
 itself. If `requestSync()` is called while that lane is already running, the
@@ -32,8 +34,11 @@ lane pass starts.
 
 The coordinator also maintains cached read-only telemetry snapshots. A snapshot
 contains lane phase, status, request/run/error counts, last action timestamps,
-and the last handled error message. It is for diagnostics and UI observation
-only; callers still trigger sync through the lane owners.
+the last handled error message, and an optional blob storage key for navigation.
+It is for diagnostics and UI observation only; callers still trigger sync
+through the lane owners. Manual Sync requests only pump-driven structural and
+document lanes. It never executes an observational blob row or fabricates a
+terminal upload state.
 
 ## Reads, Writes, Documents, And Blobs
 
@@ -48,8 +53,10 @@ The current document lanes do both sides of document sync:
 - uploads pending attachment blob bytes before regular document-state sync when
   a document has attachment mutations.
 
-Those blob uploads are part of the document store's sync lanes. The byte stores,
-blob envelopes, and attachment persistence live elsewhere under `data/blobs`,
+Those blob uploads are part of the document store's executable sync lanes. The
+visualizer can show separate blob-upload telemetry, but those rows are driven by
+the real upload workflow and never own or schedule work. The byte stores, blob
+envelopes, and attachment persistence live elsewhere under `data/blobs`,
 `data/blob*`, and document persistence modules. This coordinator never reads or
 writes blob bytes directly.
 

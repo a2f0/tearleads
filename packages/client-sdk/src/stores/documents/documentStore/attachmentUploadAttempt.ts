@@ -13,6 +13,16 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
 }> {
   let remoteSyncBlocked = false;
   let checkedOrganizationId: string | undefined;
+  let resolvedMultipartStage:
+    | { readonly partSize: number; readonly stageId: string }
+    | undefined;
+  const onStageResolved = async (stage: {
+    readonly partSize: number;
+    readonly stageId: string;
+  }) => {
+    resolvedMultipartStage = stage;
+    await input.baseUploadInput.onStageResolved?.(stage);
+  };
   const baseUploadInput = {
     ...input.baseUploadInput,
     isRemoteSyncBlocked: (organizationId: string) => {
@@ -21,14 +31,17 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
         input.state.runtime.util.isRemoteSyncBlocked?.(organizationId) ?? false;
       return remoteSyncBlocked;
     },
+    onStageResolved,
   };
   let uploadError: unknown;
+  let uploadThrew = false;
   let uploaded = await tryUploadDocumentAttachment({
     input: {
       ...baseUploadInput,
       writerProjection: input.writerProjection ?? undefined,
     },
     onError: (error) => {
+      uploadThrew = true;
       uploadError = error;
     },
   });
@@ -41,13 +54,30 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
       input.state.runtime.util.isRemoteSyncBlocked?.(checkedOrganizationId) ??
       false;
   }
-  if (!uploaded && input.writerProjection && !remoteSyncBlocked) {
-    // A stale cached writer projection may have caused the rejection. Retry
-    // once with a fresh projection, but never turn an expected billing pause
-    // into a second attempt or a failed upload lane.
+  if (
+    !uploaded &&
+    input.writerProjection &&
+    !remoteSyncBlocked &&
+    !uploadThrew
+  ) {
+    // A stale cached writer projection may have caused an ambiguous null. Retry
+    // once with a fresh projection, but do not immediately replay a concrete
+    // thrown failure or an expected billing pause.
     input.state.writerProjection = null;
+    // Binding can return null after multipart staging succeeded. Carry that
+    // resolved stage into the retry so it is resumed instead of orphaned.
+    const retryUploadInput = resolvedMultipartStage
+      ? {
+          ...baseUploadInput,
+          multipart: {
+            ...(baseUploadInput.multipart ?? {}),
+            partSize: resolvedMultipartStage.partSize,
+            resumeStageId: resolvedMultipartStage.stageId,
+          },
+        }
+      : baseUploadInput;
     uploaded = await tryUploadDocumentAttachment({
-      input: baseUploadInput,
+      input: retryUploadInput,
       onError: (error) => {
         uploadError = error;
       },
