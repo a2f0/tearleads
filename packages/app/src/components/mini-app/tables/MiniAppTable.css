@@ -166,6 +166,16 @@
   border: 0;
 }
 
+/*
+ * The value column absorbs all the slack (width: 100%), so the label column
+ * shrinks to its content. Keep multi-word labels ("SQLite Worker", "Web Socket")
+ * on one line — the shared cell rule allows word breaks, which would otherwise
+ * collapse the label column to its longest word and wrap each key.
+ */
+.mini-app-info-table--pinned th {
+  white-space: nowrap;
+}
+
 .mini-app-info-table--pinned td {
   width: 100%;
 }
