@@ -1,7 +1,3 @@
-import {
-  useBackupKeyPackageAction,
-  useRestoreKeyPackageAction,
-} from "../../identity/useKeyPackageActions";
 import { useRegisterCurrentIdentity } from "../../identity/useRegisterCurrentIdentity";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
@@ -133,27 +129,11 @@ function PaneKeyMenuItems({
   onRequestDestroyKeyPackage: () => void;
   showDeveloperControls: boolean;
 }) {
-  const backupKeyPackage = useBackupKeyPackageAction({ onComplete: onClose });
-  const {
-    handleRestoreFileChange,
-    handleRestoreKeyPackageClick,
-    restoreFileInputRef,
-  } = useRestoreKeyPackageAction({ onComplete: onClose });
-  const { encapsulationKeyPair, generateKey, signingKeyPair } = useIdentity();
+  const { generateKey, signingKeyPair } = useIdentity();
   const localKeyringLock = useLocalKeyringLock();
 
   return (
     <>
-      {showDeveloperControls && (
-        <input
-          ref={restoreFileInputRef}
-          aria-label="Restore Key Package File"
-          type="file"
-          accept="application/json,.json"
-          hidden
-          onChange={handleRestoreFileChange}
-        />
-      )}
       {!signingKeyPair && !localKeyringLock.isLocked && (
         <MenuItem
           label="Generate Key Pair"
@@ -161,15 +141,6 @@ function PaneKeyMenuItems({
             generateKey();
             onClose();
           }}
-        />
-      )}
-      {showDeveloperControls && signingKeyPair && encapsulationKeyPair && (
-        <MenuItem label="Backup Key Package" onClick={backupKeyPackage} />
-      )}
-      {showDeveloperControls && (
-        <MenuItem
-          label="Restore Key Package"
-          onClick={handleRestoreKeyPackageClick}
         />
       )}
       {showDeveloperControls && signingKeyPair && (

@@ -107,10 +107,7 @@ function IdentitySection({
 }
 
 function getIdentitySectionActions({
-  backupKeyPackage,
   canAuthenticate,
-  canExportKeyPackage,
-  handleRestoreKeyPackageClick,
   identity,
   identityMutations,
   localKeyringLocked,
@@ -120,18 +117,14 @@ function getIdentitySectionActions({
   sessionMutations,
 }: IdentityManagerModel): IdentityActionToolbarProps {
   return {
-    backupKeyPackage,
     canAuthenticate,
-    canExportKeyPackage,
     canGenerateKey: !localKeyringLocked,
     canRegisterCurrentIdentity: registration.canRegisterCurrentIdentity,
-    canRestoreKeyPackage: !localKeyringLocked,
     generateKey: identity.generateKey,
     handleAuthenticate: identityMutations.authenticate,
     handleDestroyKeyPair: identityMutations.requestDestroyKeyPackage,
     handleLogoutCurrentSession: logoutDialog.requestLogout,
     handleRegisterIdentity: identityMutations.handleRegisterIdentity,
-    handleRestoreKeyPackageClick,
     hasSigningKeyPair: identity.signingKeyPair !== null,
     identityBusy: identity.identityTransitionInFlight
       ? "transition"
@@ -189,14 +182,12 @@ function IdentityManagerPrimaryScreen({
 function IdentityManagerLayout(model: IdentityManagerModel) {
   const {
     canManageSessions,
-    handleRestoreFileChange,
     identityMutations,
     identitySwitcher,
     isDestroyKeyPackageDialogOpen,
     logoutBusy,
     logoutDialog,
     onConfirmLogout,
-    restoreFileInputRef,
     sessionList,
     sessionMutations,
   } = model;
@@ -220,14 +211,6 @@ function IdentityManagerLayout(model: IdentityManagerModel) {
 
   return (
     <MiniAppRoot className="identity-manager">
-      <input
-        ref={restoreFileInputRef}
-        aria-label="Identity Manager Restore Key Package File"
-        type="file"
-        accept="application/json,.json"
-        hidden
-        onChange={handleRestoreFileChange}
-      />
       <IdentitySwitcher switcher={identitySwitcher} />
       <main className="identity-manager-main">
         {canManageSessions && selectedSession ? (

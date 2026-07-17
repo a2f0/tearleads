@@ -153,7 +153,7 @@ function listUnresolvedPostShareFailures(
   });
 }
 
-export function listPaneErrorLines(panes: readonly HTMLElement[]): string[] {
+function listPaneErrorLines(panes: readonly HTMLElement[]): string[] {
   return panes.flatMap((pane) => {
     const text = pane.textContent ?? "";
     return text

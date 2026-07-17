@@ -10,12 +10,12 @@ import invariant from "invariant";
 import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
 import {
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
-  downloadPaneKeyPackageBackup,
   getPaneRoot,
   getPaneUserId,
   interact,
+  readPaneRecoveryKey,
   renderDualPane,
-  restorePaneKeyPackageBackup,
+  restorePaneFromRecoveryKey,
   selectContainerAndWaitForItemTable,
   waitForDualPaneProvisioning,
 } from "../../../../test/helpers/dual-pane/dualPaneCore";
@@ -51,8 +51,8 @@ async function restorePrimaryIdentityIntoSecondary(
 ) {
   const primaryUserId = getPaneUserId(primaryPane);
   const primarySessionId = readPaneStatusValue(primaryPane, "Session");
-  const backupJson = await downloadPaneKeyPackageBackup(primaryPane);
-  await restorePaneKeyPackageBackup(secondaryPane, backupJson);
+  const recoveryKey = await readPaneRecoveryKey(primaryPane);
+  await restorePaneFromRecoveryKey(secondaryPane, recoveryKey);
 
   await waitForCondition(
     () => getPaneUserId(secondaryPane) === primaryUserId,

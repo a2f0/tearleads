@@ -359,7 +359,6 @@ test(
       expect(view.getByText("Identity Manager")).toBeTruthy();
       expect(view.getByText("Active Sessions")).toBeTruthy();
       expect(view.getByText("Current")).toBeTruthy();
-      expect(view.getByText("Backup Key Package")).toBeTruthy();
     });
     expect(view.container.querySelector(".window-sidebar-layout")).toBeNull();
 

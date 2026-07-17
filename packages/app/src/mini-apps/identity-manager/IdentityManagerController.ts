@@ -6,10 +6,6 @@ import {
   useLogoutConfirmationDialogState,
 } from "../../components/shared/useLogoutConfirmation";
 import {
-  useBackupKeyPackageAction,
-  useRestoreKeyPackageAction,
-} from "../../identity/useKeyPackageActions";
-import {
   type RegisterCurrentIdentityResult,
   useRegisterCurrentIdentity,
 } from "../../identity/useRegisterCurrentIdentity";
@@ -324,27 +320,11 @@ function deriveIdentityManagerStatus(
       identity.signingKeyPair !== null &&
       session.userId !== null &&
       !session.isAuthenticated,
-    canExportKeyPackage:
-      identity.signingKeyPair !== null &&
-      identity.encapsulationKeyPair !== null,
     canManageSessions: session.isAuthenticated && session.authToken !== null,
     identityState: getIdentityState({
       signingKeyPair: identity.signingKeyPair,
       userId: session.userId,
     }),
-  };
-}
-
-function useIdentityManagerBackupRestoreActions() {
-  const backupKeyPackage = useBackupKeyPackageAction();
-  const restoreKeyPackage = useRestoreKeyPackageAction();
-
-  return {
-    backupKeyPackage,
-    handleRestoreFileChange: restoreKeyPackage.handleRestoreFileChange,
-    handleRestoreKeyPackageClick:
-      restoreKeyPackage.handleRestoreKeyPackageClick,
-    restoreFileInputRef: restoreKeyPackage.restoreFileInputRef,
   };
 }
 
@@ -360,14 +340,9 @@ export function useIdentityManager() {
   const localKeyringLock = useLocalKeyringLock();
   const { log, logError } = useLog();
   const registration: RegistrationResult = useRegisterCurrentIdentity();
-  const backupRestoreActions = useIdentityManagerBackupRestoreActions();
   const { purgeWorker } = useDatabase();
-  const {
-    canAuthenticate,
-    canExportKeyPackage,
-    canManageSessions,
-    identityState,
-  } = deriveIdentityManagerStatus(session, identity);
+  const { canAuthenticate, canManageSessions, identityState } =
+    deriveIdentityManagerStatus(session, identity);
   const sessionList = useIdentityManagerSessionList({
     canManageSessions,
     logError,
@@ -415,9 +390,7 @@ export function useIdentityManager() {
   });
 
   return {
-    ...backupRestoreActions,
     canAuthenticate,
-    canExportKeyPackage,
     canManageSessions,
     identity,
     identityMutations,

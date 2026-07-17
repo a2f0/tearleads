@@ -1,7 +1,4 @@
-import type {
-  IdentityKeyPackage,
-  IdentitySnapshot,
-} from "@tearleads/client-sdk";
+import type { IdentitySnapshot } from "@tearleads/client-sdk";
 import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
 import {
   createContext,
@@ -43,7 +40,6 @@ export interface IdentityContextValue {
   createIdentity: () => Promise<boolean>;
   encapsulationKeyPair: EncapsulationKeyPair | null;
   destroyKey: () => void;
-  exportKeyPackage: () => Promise<IdentityKeyPackage>;
   generateKey: () => Promise<boolean>;
   /**
    * Whether the user has explicitly destroyed the identity this session. The
@@ -176,10 +172,6 @@ function useIdentityProviderActions(input: IdentityProviderActionsInput) {
     tearleads,
   });
 
-  const exportKeyPackage = useCallback(
-    () => tearleads.identity.exportKeyPackage(),
-    [tearleads],
-  );
   const { createIdentity, importIdentityPackage, switchIdentity } =
     useLocalIdentitySwitcherActions({ ...input, generateKey });
   const restoreKeyPackage = useRestoreKeyPackage({ importIdentityPackage });
@@ -189,7 +181,6 @@ function useIdentityProviderActions(input: IdentityProviderActionsInput) {
     () => ({
       createIdentity,
       destroyKey,
-      exportKeyPackage,
       generateKey,
       identityDestroyed,
       restoreKeyPackage,
@@ -199,7 +190,6 @@ function useIdentityProviderActions(input: IdentityProviderActionsInput) {
     [
       createIdentity,
       destroyKey,
-      exportKeyPackage,
       generateKey,
       identityDestroyed,
       restoreKeyPackage,
@@ -232,7 +222,6 @@ function useIdentityContextValue(input: {
       createIdentity: identityActions.createIdentity,
       encapsulationKeyPair: snapshot.encapsulationKeyPair,
       destroyKey: identityActions.destroyKey,
-      exportKeyPackage: identityActions.exportKeyPackage,
       generateKey: identityActions.generateKey,
       identityDestroyed: identityActions.identityDestroyed,
       identityTransitionInFlight,

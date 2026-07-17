@@ -10,18 +10,14 @@ export type IdentityBusyState =
   | null;
 
 export interface IdentityActionToolbarProps {
-  readonly backupKeyPackage: () => Promise<void>;
   readonly canAuthenticate: boolean;
-  readonly canExportKeyPackage: boolean;
   readonly canGenerateKey: boolean;
   readonly canRegisterCurrentIdentity: boolean;
-  readonly canRestoreKeyPackage: boolean;
   readonly generateKey: () => void;
   readonly handleAuthenticate: () => Promise<void>;
   readonly handleDestroyKeyPair: () => void;
   readonly handleLogoutCurrentSession: () => void;
   readonly handleRegisterIdentity: () => Promise<void>;
-  readonly handleRestoreKeyPackageClick: () => void;
   readonly hasSigningKeyPair: boolean;
   readonly identityBusy: IdentityBusyState;
   readonly isAuthenticated: boolean;
@@ -32,17 +28,13 @@ export interface IdentityActionToolbarProps {
 // (see IdentityManagerActionsMenu), so it is intentionally not rendered here
 // even though the shared props type still carries its handler.
 export function IdentityActionToolbar({
-  backupKeyPackage,
   canAuthenticate,
-  canExportKeyPackage,
   canGenerateKey,
   canRegisterCurrentIdentity,
-  canRestoreKeyPackage,
   generateKey,
   handleAuthenticate,
   handleDestroyKeyPair,
   handleRegisterIdentity,
-  handleRestoreKeyPackageClick,
   hasSigningKeyPair,
   identityBusy,
 }: IdentityActionToolbarProps) {
@@ -51,22 +43,6 @@ export function IdentityActionToolbar({
       {canGenerateKey && !hasSigningKeyPair && (
         <MiniAppButton disabled={identityBusy !== null} onClick={generateKey}>
           Generate Key Pair
-        </MiniAppButton>
-      )}
-      {canExportKeyPackage && (
-        <MiniAppButton
-          disabled={identityBusy !== null}
-          onClick={() => void backupKeyPackage()}
-        >
-          Backup Key Package
-        </MiniAppButton>
-      )}
-      {canRestoreKeyPackage && (
-        <MiniAppButton
-          disabled={identityBusy !== null}
-          onClick={handleRestoreKeyPackageClick}
-        >
-          Restore Key Package
         </MiniAppButton>
       )}
       {canRegisterCurrentIdentity && (
