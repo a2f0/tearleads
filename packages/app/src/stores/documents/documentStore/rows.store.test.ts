@@ -76,3 +76,87 @@ test("blood pressure store adds, updates, and removes readings via the row axis"
     "Reading was not removed.",
   );
 });
+
+test("row mutations are no-ops without write access", async () => {
+  const persistence = createDocumentStorePersistence();
+  const writableRuntime = createDocumentStoreRuntime();
+  const writableStore = createDocumentStore(
+    "bp-readonly",
+    writableRuntime,
+    persistence,
+    null,
+    "",
+    "blood_pressure",
+  );
+
+  writableStore.updateRuntime(writableRuntime);
+  await waitForCondition(
+    () => writableStore.getSnapshot().ready,
+    "Writable store did not become ready.",
+  );
+
+  const readingId = await writableStore.addRow({
+    systolic: "120",
+    diastolic: "80",
+    pulse: "",
+    measuredAt: "",
+    notes: "",
+  });
+  await waitForCondition(
+    () => writableStore.getSnapshot().rows.length === 1,
+    "Reading was not persisted.",
+  );
+
+  // Downgrade the persisted record to read-only, then reload it in a fresh
+  // store. The client-side gate is a UX guard — the API independently rejects
+  // unauthorized writes — that stops a read-only viewer from making a local
+  // change that could never be flushed.
+  const persisted = persistence.getState().document;
+  if (!persisted) {
+    throw new Error("expected a persisted document record");
+  }
+  persistence.getState().document = {
+    ...persisted,
+    effectiveAccessLevel: "read",
+  };
+
+  const readOnlyRuntime = createDocumentStoreRuntime();
+  const readOnlyStore = createDocumentStore(
+    "bp-readonly",
+    readOnlyRuntime,
+    persistence,
+    null,
+    "",
+    "blood_pressure",
+  );
+  readOnlyStore.updateRuntime(readOnlyRuntime);
+  await waitForCondition(
+    () => readOnlyStore.getSnapshot().ready,
+    "Read-only store did not become ready.",
+  );
+
+  expect(readOnlyStore.getSnapshot().canWrite).toBe(false);
+  expect(readOnlyStore.getSnapshot().effectiveAccessLevel).toBe("read");
+  // The reading persisted by the writable store reloads through the row axis.
+  expect(readOnlyStore.getSnapshot().rows).toHaveLength(1);
+
+  const pendingUpdatesBefore = persistence.getState().pendingUpdates.length;
+
+  await readOnlyStore.addRow({
+    systolic: "200",
+    diastolic: "100",
+    pulse: "",
+    measuredAt: "",
+    notes: "",
+  });
+  await readOnlyStore.updateRowFields(readingId, { systolic: "200" });
+  await readOnlyStore.removeRow(readingId);
+
+  // No mutation landed: the row list is untouched and nothing was enqueued.
+  const rows = readOnlyStore.getSnapshot().rows;
+  expect(rows).toHaveLength(1);
+  expect(rows[0]).toMatchObject({ fields: { systolic: "120" } });
+  expect(persistence.getState().pendingUpdates.length).toBe(
+    pendingUpdatesBefore,
+  );
+});
