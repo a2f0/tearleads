@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { BloodPressureFields } from "./BloodPressure";
 import type { BloodPressureReadingRow } from "./bloodPressureReadings";
 
@@ -45,29 +45,66 @@ const readings: BloodPressureReadingRow[] = [
   }),
 ];
 
+// A fully-attributed reading: systolic was last written by peer 9 (→ user-bob);
+// every other cell by peer 7 (→ user-alice, the local author, shown as "you").
+const attributedReading = makeReading({
+  id: "r1",
+  systolic: "120",
+  diastolic: "80",
+  pulse: "72",
+  measuredAt: "2026-07-16T08:30",
+  notes: "Before coffee",
+  createdAt: "2026-07-16T08:00:00.000Z",
+  createdBy: "user-alice",
+  createdByPeer: "7",
+  updatedAt: "2026-07-16T09:00:00.000Z",
+  updatedBy: "user-alice",
+  updatedByPeer: "9",
+  fieldEditors: {
+    systolic: "9",
+    diastolic: "7",
+    pulse: "7",
+    measuredAt: "7",
+    notes: "7",
+  },
+});
+
+const attributedResolver = (peer: string | null): string | null => {
+  if (peer === "9") {
+    return "user-bob";
+  }
+  if (peer === "7") {
+    return "user-alice";
+  }
+  return null;
+};
+
 function renderBloodPressureFields(params?: {
   currentAuthorId?: string | null;
   isEditing?: boolean | undefined;
   onAddReading?: () => void;
+  onEnterEdit?: (() => void) | undefined;
   onRemoveReading?: (id: string) => void;
   onRenameTracker?: (value: string) => void;
   onUpdateReading?: (id: string, field: string, value: string) => void;
   readings?: BloodPressureReadingRow[];
   ready?: boolean;
   resolveRowWriter?: (updatedByPeer: string | null) => string | null;
+  trackerName?: string;
 }) {
   return render(
     <BloodPressureFields
       currentAuthorId={params?.currentAuthorId ?? null}
       isEditing={params?.isEditing}
       onAddReading={params?.onAddReading ?? (() => undefined)}
+      onEnterEdit={params?.onEnterEdit}
       onRemoveReading={params?.onRemoveReading ?? (() => undefined)}
       onRenameTracker={params?.onRenameTracker ?? (() => undefined)}
       onUpdateReading={params?.onUpdateReading ?? (() => undefined)}
       readings={params?.readings ?? readings}
       ready={params?.ready ?? true}
       resolveRowWriter={params?.resolveRowWriter}
-      trackerName="Home log"
+      trackerName={params?.trackerName ?? "Home log"}
       trackerNameInputId="blood-pressure-name"
     />,
   );
@@ -156,56 +193,28 @@ test("read mode falls back to the self-attested author when unresolved", () => {
   expect(view.getByText("Updated 2026-07-16 08:30 by you")).toBeTruthy();
 });
 
-test("read mode drills into a reading detail with per-field writers", () => {
+test("read-only viewer opens attribution directly, without showing values", () => {
   const view = renderBloodPressureFields({
     currentAuthorId: "user-alice",
     isEditing: false,
-    readings: [
-      makeReading({
-        id: "r1",
-        systolic: "120",
-        diastolic: "80",
-        pulse: "72",
-        measuredAt: "2026-07-16T08:30",
-        notes: "Before coffee",
-        createdAt: "2026-07-16T08:00:00.000Z",
-        createdBy: "user-alice",
-        createdByPeer: "7",
-        updatedAt: "2026-07-16T09:00:00.000Z",
-        updatedBy: "user-alice",
-        updatedByPeer: "9",
-        // Systolic was last written by peer 9 (→ user-bob); the rest by peer 7
-        // (→ user-alice, the local author, shown as "you").
-        fieldEditors: {
-          systolic: "9",
-          diastolic: "7",
-          pulse: "7",
-          measuredAt: "7",
-          notes: "7",
-        },
-      }),
-    ],
-    resolveRowWriter: (peer) => {
-      if (peer === "9") {
-        return "user-bob";
-      }
-      if (peer === "7") {
-        return "user-alice";
-      }
-      return null;
-    },
+    // No onEnterEdit → read-only viewer: the single-action kebab opens the
+    // attribution overlay directly rather than a one-item menu.
+    readings: [attributedReading],
+    resolveRowWriter: attributedResolver,
   });
 
-  // The overlay is closed until the kebab is pressed.
   expect(view.queryByRole("dialog")).toBeNull();
-  const kebab = view.getByRole("button", { name: "Reading 1 details" });
+  const kebab = view.getByRole("button", { name: "Reading 1 attribution" });
   kebab.focus();
   fireEvent.click(kebab);
 
-  expect(view.getByRole("dialog", { name: "Reading 1" })).toBeTruthy();
+  const dialog = view.getByRole("dialog", { name: "Reading 1" });
   // Systolic resolves to the other writer; the remaining cells to the local one.
-  expect(view.getByText("set by user-bob")).toBeTruthy();
-  expect(view.getAllByText("set by you").length).toBeGreaterThan(0);
+  expect(within(dialog).getByText("set by user-bob")).toBeTruthy();
+  expect(within(dialog).getAllByText("set by you").length).toBeGreaterThan(0);
+  // The attribution view lists who set each field, never the field values.
+  expect(within(dialog).queryByText("120")).toBeNull();
+  expect(within(dialog).queryByText("Before coffee")).toBeNull();
 
   // Opening moves focus into the dialog; closing restores it to the kebab so a
   // keyboard user never loses their place in the list.
@@ -214,6 +223,46 @@ test("read mode drills into a reading detail with per-field writers", () => {
   fireEvent.click(close);
   expect(view.queryByRole("dialog")).toBeNull();
   expect(document.activeElement).toBe(kebab);
+});
+
+test("writer's kebab menu offers Edit and Attribution", () => {
+  let editCalls = 0;
+  const view = renderBloodPressureFields({
+    currentAuthorId: "user-alice",
+    isEditing: false,
+    onEnterEdit: () => {
+      editCalls += 1;
+    },
+    readings: [attributedReading],
+    resolveRowWriter: attributedResolver,
+  });
+
+  // The kebab opens a menu (not the dialog directly). Attribution opens the
+  // overlay with per-field writers and no values.
+  expect(view.queryByRole("dialog")).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Reading 1 actions" }));
+  fireEvent.click(view.getByRole("button", { name: "Attribution" }));
+
+  const dialog = view.getByRole("dialog", { name: "Reading 1" });
+  expect(within(dialog).getByText("set by user-bob")).toBeTruthy();
+  expect(within(dialog).queryByText("120")).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Close" }));
+
+  // Edit switches the tracker into edit mode.
+  fireEvent.click(view.getByRole("button", { name: "Reading 1 actions" }));
+  fireEvent.click(view.getByRole("button", { name: "Edit" }));
+  expect(editCalls).toBe(1);
+});
+
+test("read mode shows the default tracker name when unnamed", () => {
+  const view = renderBloodPressureFields({
+    isEditing: false,
+    readings: [],
+    trackerName: "",
+  });
+
+  expect(view.getByText("Blood Pressure Tracker")).toBeTruthy();
+  expect(view.queryByText("None")).toBeNull();
 });
 
 test("edits tracker name and reading cells through callbacks", () => {

@@ -1,4 +1,8 @@
-import { useState } from "react";
+import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
+import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
+import { type MouseEvent, useRef, useState } from "react";
+import { Menu, type MenuPosition } from "../../components/shared/Menu";
+import { MenuItem } from "../../components/shared/MenuItem";
 import { MiniAppRowActionsButton } from "../../components/shared/MiniAppTable";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import {
@@ -20,34 +24,16 @@ import {
   formatPulse,
 } from "./bloodPressureReadings";
 
-// A single reading in read mode: the summary cells, a kebab that opens the
-// per-reading detail overlay, and the row's last-edit attribution line.
-export function BloodPressureReadingReadRow(params: {
-  currentAuthorId: string | null;
-  index: number;
-  reading: BloodPressureReadingRow;
-  resolveRowWriter?: RowWriterResolver | undefined;
-}) {
-  const { currentAuthorId, index, reading, resolveRowWriter } = params;
-  const [detailOpen, setDetailOpen] = useState(false);
-  const notes = reading.notes.trim();
-  // Prefer the server-verified writer for this reading's last edit; fall back to
-  // the row's self-attested author when attribution is unavailable.
-  const updatedBy =
-    resolveRowWriter?.(reading.updatedByPeer) ?? reading.updatedBy;
-  const createdBy =
-    resolveRowWriter?.(reading.createdByPeer) ?? reading.createdBy;
-  const attribution = formatRowAttribution({
-    currentAuthorId,
-    updatedAt: reading.updatedAt,
-    updatedBy,
-  });
-
-  // Resolve a single cell's verified writer for the drill-down; null when the
-  // cell's editor is unknown (attribution not synced) so the overlay omits it.
+// Build the per-field attribution rows for the drill-down. Each cell's verified
+// writer is resolved from its last-editor peer; null when unknown (attribution
+// not synced) so the overlay can omit it.
+function toReadingDetailFields(
+  reading: BloodPressureReadingRow,
+  resolveRowWriter?: RowWriterResolver | undefined,
+): RowDetailField[] {
   const fieldWriter = (field: string): string | null =>
     resolveRowWriter?.(reading.fieldEditors[field] ?? null) ?? null;
-  const detailFields: RowDetailField[] = [
+  return [
     {
       label: "Systolic",
       value: reading.systolic,
@@ -74,6 +60,111 @@ export function BloodPressureReadingReadRow(params: {
       writerUserId: fieldWriter(BLOOD_PRESSURE_NOTES_FIELD),
     },
   ];
+}
+
+// The kebab actions for a reading. When Edit is available (the viewer can
+// write) it opens a small popover with Edit (switch the tracker into edit mode)
+// and Attribution (open the per-field attribution overlay), mirroring the
+// explorer/identity kebabs. A read-only viewer has only one action, so the kebab
+// opens the attribution overlay directly rather than a one-item menu — one
+// keystroke, and the trigger stays mounted so the overlay restores focus to it.
+function BloodPressureReadingActions(params: {
+  index: number;
+  onEnterEdit?: (() => void) | undefined;
+  onOpenAttribution: () => void;
+}) {
+  const { index, onEnterEdit, onOpenAttribution } = params;
+  const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
+  const actionsButtonRef = useRef<HTMLButtonElement>(null);
+
+  if (!onEnterEdit) {
+    return (
+      <MiniAppRowActionsButton
+        aria-haspopup="dialog"
+        aria-label={`Reading ${index + 1} attribution`}
+        className="blood-pressure-reading-read-actions"
+        onClick={onOpenAttribution}
+      />
+    );
+  }
+
+  const toggleMenu = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (menuPosition !== null) {
+      setMenuPosition(null);
+      return;
+    }
+    // Anchor to the button's box (not the pointer) so keyboard activation, which
+    // reports 0,0 client coordinates, still opens the menu under the trigger.
+    const rect = event.currentTarget.getBoundingClientRect();
+    setMenuPosition({ x: rect.left, y: rect.bottom });
+  };
+  const closeMenu = () => setMenuPosition(null);
+
+  return (
+    <>
+      <MiniAppRowActionsButton
+        ref={actionsButtonRef}
+        aria-expanded={menuPosition !== null}
+        aria-label={`Reading ${index + 1} actions`}
+        className="blood-pressure-reading-read-actions"
+        onClick={toggleMenu}
+        // Keep the trigger's mousedown from reaching the Menu's outside-click
+        // handler so re-clicking the trigger can toggle the menu shut.
+        onMouseDown={(event) => event.stopPropagation()}
+      />
+      {menuPosition ? (
+        <Menu direction="down" onClose={closeMenu} position={menuPosition}>
+          <MenuItem
+            icon={PencilSimpleIcon}
+            label="Edit"
+            onClick={() => {
+              closeMenu();
+              onEnterEdit();
+            }}
+          />
+          <MenuItem
+            icon={InfoIcon}
+            label="Attribution"
+            onClick={() => {
+              // Return focus to the trigger before the overlay mounts so the
+              // detail's focus-restore lands back on the kebab on close.
+              actionsButtonRef.current?.focus();
+              closeMenu();
+              onOpenAttribution();
+            }}
+          />
+        </Menu>
+      ) : null}
+    </>
+  );
+}
+
+// A single reading in read mode: the summary cells, a kebab that opens a small
+// actions menu (Edit / Attribution), and the row's last-edit attribution line.
+export function BloodPressureReadingReadRow(params: {
+  currentAuthorId: string | null;
+  index: number;
+  onEnterEdit?: (() => void) | undefined;
+  reading: BloodPressureReadingRow;
+  resolveRowWriter?: RowWriterResolver | undefined;
+}) {
+  const { currentAuthorId, index, onEnterEdit, reading, resolveRowWriter } =
+    params;
+  const [detailOpen, setDetailOpen] = useState(false);
+  const notes = reading.notes.trim();
+  // Prefer the server-verified writer for this reading's last edit; fall back to
+  // the row's self-attested author when attribution is unavailable.
+  const updatedBy =
+    resolveRowWriter?.(reading.updatedByPeer) ?? reading.updatedBy;
+  const createdBy =
+    resolveRowWriter?.(reading.createdByPeer) ?? reading.createdBy;
+  const attribution = formatRowAttribution({
+    currentAuthorId,
+    updatedAt: reading.updatedAt,
+    updatedBy,
+  });
+  const detailFields = toReadingDetailFields(reading, resolveRowWriter);
 
   return (
     <>
@@ -97,12 +188,10 @@ export function BloodPressureReadingReadRow(params: {
           </span>
         </span>
         <span className="blood-pressure-reading-read-index">{index + 1}</span>
-        <MiniAppRowActionsButton
-          aria-expanded={detailOpen}
-          aria-haspopup="dialog"
-          aria-label={`Reading ${index + 1} details`}
-          className="blood-pressure-reading-read-actions"
-          onClick={() => setDetailOpen(true)}
+        <BloodPressureReadingActions
+          index={index}
+          onEnterEdit={onEnterEdit}
+          onOpenAttribution={() => setDetailOpen(true)}
         />
         {notes.length > 0 ? (
           <span className="blood-pressure-reading-read-notes" title={notes}>
@@ -122,6 +211,7 @@ export function BloodPressureReadingReadRow(params: {
           currentAuthorId={currentAuthorId}
           fields={detailFields}
           onClose={() => setDetailOpen(false)}
+          showFieldValues={false}
           title={`Reading ${index + 1}`}
           updatedAt={reading.updatedAt}
           updatedBy={updatedBy}
