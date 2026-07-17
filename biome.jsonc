@@ -107,8 +107,12 @@
       "linter": { "enabled": false }
     },
     {
-      "includes": ["docs/openapi.json"],
-      "formatter": { "enabled": false }
+      "includes": [
+        "docs/openapi.json",
+        "packages/validators/src/operation/generatedOpenApi.ts"
+      ],
+      "formatter": { "enabled": false },
+      "linter": { "enabled": false }
     }
   ],
   "javascript": {

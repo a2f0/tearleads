@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@types/bun": "catalog:",
-    "ajv": "catalog:"
+    "ajv": "catalog:",
+    "openapi-typescript": "catalog:"
   }
 }

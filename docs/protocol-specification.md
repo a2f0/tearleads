@@ -21,11 +21,10 @@ method, auth, parameters, statuses, and the canonical server/client path. Legacy
 predicates stay schema-backed; parsing never coerces, defaults, strips, or
 replaces signed input.
 
-[`openapi.json`](./openapi.json) projects `documentSyncOperation` to OpenAPI 3.1.
-Custom schemas need views; `lint:openapi` rejects missing views/drift.
-
-It is descriptive. `x-tearleads-runtime-refinements` marks Zod-only rules;
-crypto, transactions, convergence, and formal guarantees are separate.
+[`openapi.json`](./openapi.json) and checked generated TypeScript are structural
+views. Zod remains runtime authority; each `x-tearleads-runtime-refinements` gap
+needs an executable OpenAPI-accepts/Zod-rejects witness. Crypto, transactions,
+convergence, and formal guarantees remain separate.
 
 Related background documents:
 
