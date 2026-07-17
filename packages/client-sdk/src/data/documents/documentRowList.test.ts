@@ -2,7 +2,9 @@ import { expect, test } from "bun:test";
 import {
   createDocument,
   encodeVersionVector,
+  exportShallowSnapshot,
   exportUpdatesSince,
+  importSnapshot,
   importUpdates,
 } from "@tearleads/loro";
 import {
@@ -33,6 +35,7 @@ test("rows round-trip through a first-class Loro list of maps", async () => {
       createdAt: "2026-07-16T08:30:00.000Z",
       updatedBy: "user-alice",
       updatedAt: "2026-07-16T08:30:00.000Z",
+      updatedByPeer: doc.peerIdStr,
     },
     {
       id: "row-2",
@@ -41,6 +44,7 @@ test("rows round-trip through a first-class Loro list of maps", async () => {
       createdAt: "2026-07-16T08:30:00.000Z",
       updatedBy: "user-alice",
       updatedAt: "2026-07-16T08:30:00.000Z",
+      updatedByPeer: doc.peerIdStr,
     },
   ]);
 });
@@ -65,6 +69,7 @@ test("updating a cell restamps only the updated attribution", async () => {
       createdAt: "2026-07-16T08:30:00.000Z",
       updatedBy: "user-bob",
       updatedAt: "2026-07-16T20:00:00.000Z",
+      updatedByPeer: doc.peerIdStr,
     },
   ]);
 });
@@ -123,4 +128,40 @@ test("concurrent edits to different rows merge without clobbering", async () => 
     fields: { value: "b2" },
   });
   expect(sameDocumentRows(aliceRows, bobRows)).toBe(true);
+});
+
+test("updatedByPeer records the writer's peer and survives shallow reload", async () => {
+  const doc = await createDocument("rows-peer");
+  addDocumentRow(doc, "row-1", { systolic: "120" }, AUTHOR);
+
+  const [row] = listDocumentRows(doc);
+  expect(row?.updatedByPeer).toBe(doc.peerIdStr);
+
+  // The last-editor register must survive the store's shallow-snapshot persist
+  // cycle, since rows always reload from a shallow snapshot.
+  const reloaded = await createDocument("rows-peer-reload");
+  importSnapshot(reloaded, exportShallowSnapshot(doc));
+  const [reloadedRow] = listDocumentRows(reloaded);
+  expect(reloadedRow?.updatedByPeer).toBe(doc.peerIdStr);
+});
+
+test("updatedByPeer attributes concurrent per-row edits to their writers", async () => {
+  const alice = await createDocument("rows-peer-alice");
+  const bob = await createDocument("rows-peer-bob");
+
+  addDocumentRow(alice, "row-1", { value: "a" }, AUTHOR);
+  const aliceVersion = encodeVersionVector(alice);
+  importUpdates(bob, [exportUpdatesSince(alice, null)]);
+
+  // Bob adds row-2 concurrently; alice merges it in.
+  addDocumentRow(bob, "row-2", { value: "b" }, AUTHOR);
+  importUpdates(alice, [exportUpdatesSince(bob, aliceVersion)]);
+
+  const rows = listDocumentRows(alice);
+  expect(rows.find((row) => row.id === "row-1")?.updatedByPeer).toBe(
+    alice.peerIdStr,
+  );
+  expect(rows.find((row) => row.id === "row-2")?.updatedByPeer).toBe(
+    bob.peerIdStr,
+  );
 });

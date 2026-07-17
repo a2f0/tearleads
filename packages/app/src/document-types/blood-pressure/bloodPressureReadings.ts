@@ -19,6 +19,7 @@ export interface BloodPressureReadingRow {
   notes: string;
   updatedAt: string;
   updatedBy: string;
+  updatedByPeer: string | null;
 }
 
 const BLOOD_PRESSURE_EMPTY_VALUE = "None";
@@ -65,6 +66,7 @@ export function toBloodPressureReadingRows(
     ),
     updatedAt: row.updatedAt,
     updatedBy: row.updatedBy,
+    updatedByPeer: row.updatedByPeer,
   }));
 }
 

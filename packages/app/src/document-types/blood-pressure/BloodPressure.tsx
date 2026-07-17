@@ -2,6 +2,10 @@ import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { useId } from "react";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
+import {
+  type RowWriterResolver,
+  useDocumentRowWriters,
+} from "../../stores/documents/useDocumentRowWriters";
 import { formatRowAttribution } from "../shared/rowAttribution";
 import {
   StructuredDocument,
@@ -53,13 +57,18 @@ function BloodPressureReadingReadRow(params: {
   currentAuthorId: string | null;
   index: number;
   reading: BloodPressureReadingRow;
+  resolveRowWriter?: RowWriterResolver | undefined;
 }) {
-  const { currentAuthorId, index, reading } = params;
+  const { currentAuthorId, index, reading, resolveRowWriter } = params;
   const notes = reading.notes.trim();
+  // Prefer the server-verified writer for this reading's last edit; fall back to
+  // the row's self-attested author when attribution is unavailable.
+  const updatedBy =
+    resolveRowWriter?.(reading.updatedByPeer) ?? reading.updatedBy;
   const attribution = formatRowAttribution({
     currentAuthorId,
     updatedAt: reading.updatedAt,
-    updatedBy: reading.updatedBy,
+    updatedBy,
   });
 
   return (
@@ -100,9 +109,10 @@ function BloodPressureReadingReadRow(params: {
 function BloodPressureReadFields(params: {
   currentAuthorId: string | null;
   readings: ReadonlyArray<BloodPressureReadingRow>;
+  resolveRowWriter?: RowWriterResolver | undefined;
   trackerName: string;
 }) {
-  const { currentAuthorId, readings, trackerName } = params;
+  const { currentAuthorId, readings, resolveRowWriter, trackerName } = params;
 
   return (
     <div className="blood-pressure-document-fields">
@@ -125,6 +135,7 @@ function BloodPressureReadFields(params: {
               currentAuthorId={currentAuthorId}
               index={index}
               reading={reading}
+              resolveRowWriter={resolveRowWriter}
             />
           ))
         )}
@@ -344,6 +355,7 @@ export function BloodPressureFields(params: {
   onUpdateReading: UpdateReading;
   readings: ReadonlyArray<BloodPressureReadingRow>;
   ready: boolean;
+  resolveRowWriter?: RowWriterResolver | undefined;
   trackerName: string;
   trackerNameInputId: string;
 }) {
@@ -357,6 +369,7 @@ export function BloodPressureFields(params: {
     onUpdateReading,
     readings,
     ready,
+    resolveRowWriter,
     trackerName,
     trackerNameInputId,
   } = params;
@@ -367,6 +380,7 @@ export function BloodPressureFields(params: {
       <BloodPressureReadFields
         currentAuthorId={currentAuthorId}
         readings={readings}
+        resolveRowWriter={resolveRowWriter}
         trackerName={trackerName}
       />
     );
@@ -408,6 +422,11 @@ export function BloodPressure(params: {
     params.initialEditing,
   );
   const { clearRow, readCell, stageCell } = useDocumentRowEditing(rows);
+  // Only resolve verified writers for the read view (attribution is not shown
+  // while editing) of a non-empty tracker.
+  const resolveRowWriter = useDocumentRowWriters(
+    !(isEditing && canWrite) && rows.length > 0,
+  );
 
   const trackerName = readTrackerNameField(structuredFields);
   const readings = toBloodPressureReadingRows(rows, readCell);
@@ -436,6 +455,7 @@ export function BloodPressure(params: {
             currentAuthorId={currentAuthorId}
             disabled={!ready || !canWrite}
             isEditing={isEditing && canWrite}
+            resolveRowWriter={resolveRowWriter}
             onAddReading={() => {
               if (canWrite) {
                 void addRow({
