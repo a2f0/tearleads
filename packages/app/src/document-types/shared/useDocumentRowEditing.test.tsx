@@ -13,6 +13,7 @@ function row(id: string, fields: Record<string, string>): DocumentRow {
     createdAt: "",
     updatedBy: "",
     updatedAt: "",
+    updatedByPeer: null,
   };
 }
 

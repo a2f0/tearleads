@@ -12,6 +12,7 @@ const variables: EnvVariableRow[] = [
     value: "https://api.example.test",
     updatedAt: "2026-07-16T08:30:00.000Z",
     updatedBy: "user-alice",
+    updatedByPeer: "7",
   },
   {
     id: "v2",
@@ -19,6 +20,7 @@ const variables: EnvVariableRow[] = [
     value: "true",
     updatedAt: "",
     updatedBy: "",
+    updatedByPeer: null,
   },
 ];
 
@@ -30,6 +32,7 @@ function renderEnvFileFields(params?: {
   onRenameFile?: (value: string) => void;
   onUpdateVariable?: (id: string, field: string, value: string) => void;
   ready?: boolean;
+  resolveRowWriter?: (updatedByPeer: string | null) => string | null;
   variables?: EnvVariableRow[];
 }) {
   return render(
@@ -43,6 +46,7 @@ function renderEnvFileFields(params?: {
       onRenameFile={params?.onRenameFile ?? (() => undefined)}
       onUpdateVariable={params?.onUpdateVariable ?? (() => undefined)}
       ready={params?.ready ?? true}
+      resolveRowWriter={params?.resolveRowWriter}
       variables={params?.variables ?? variables}
     />,
   );
@@ -74,6 +78,7 @@ test("read mode renders text rows, masks passwords, and shows attribution", () =
         value: "super-secret",
         updatedAt: "2026-07-16T09:00:00.000Z",
         updatedBy: "user-bob",
+        updatedByPeer: null,
       },
     ],
     isEditing: false,
@@ -100,12 +105,47 @@ test("read mode tolerates missing variable values", () => {
         value: "",
         updatedAt: "",
         updatedBy: "",
+        updatedByPeer: null,
       },
     ],
     isEditing: false,
   });
 
   expect(view.getAllByText("None")).toHaveLength(2);
+});
+
+test("read mode resolves an authoritative writer over the self-attested one", () => {
+  const view = renderEnvFileFields({
+    currentAuthorId: "user-alice",
+    isEditing: false,
+    variables: [
+      {
+        id: "v1",
+        key: "API_URL",
+        value: "x",
+        // Self-attested author claims alice, but the variable was written by
+        // peer "9", which resolves to the verified writer user-bob.
+        updatedAt: "2026-07-16T08:30:00.000Z",
+        updatedBy: "user-alice",
+        updatedByPeer: "9",
+      },
+    ],
+    resolveRowWriter: (peer) => (peer === "9" ? "user-bob" : null),
+  });
+
+  expect(view.getByText("Updated 2026-07-16 08:30 by user-bob")).toBeTruthy();
+  expect(view.queryByText("Updated 2026-07-16 08:30 by you")).toBeNull();
+});
+
+test("read mode falls back to the self-attested author when unresolved", () => {
+  const view = renderEnvFileFields({
+    currentAuthorId: "user-alice",
+    isEditing: false,
+    // v1's updatedBy is user-alice (=== currentAuthorId) → "you".
+    resolveRowWriter: () => null,
+  });
+
+  expect(view.getByText("Updated 2026-07-16 08:30 by you")).toBeTruthy();
 });
 
 test("edits file name and variable cells through callbacks", () => {
@@ -143,6 +183,7 @@ test("marks existing malformed variable keys invalid", () => {
         value: "bad",
         updatedAt: "",
         updatedBy: "",
+        updatedByPeer: null,
       },
     ],
   });

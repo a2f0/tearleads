@@ -3,6 +3,10 @@ import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import type { DocumentRow } from "@tearleads/client-sdk";
 import { useId } from "react";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
+import {
+  type RowWriterResolver,
+  useDocumentRowWriters,
+} from "../../stores/documents/useDocumentRowWriters";
 import { formatRowAttribution } from "../shared/rowAttribution";
 import {
   StructuredDocument,
@@ -35,6 +39,7 @@ export interface EnvVariableRow {
   value: string;
   updatedAt: string;
   updatedBy: string;
+  updatedByPeer: string | null;
 }
 
 function readFileNameField(
@@ -62,6 +67,7 @@ function toEnvVariableRows(
     ),
     updatedAt: row.updatedAt,
     updatedBy: row.updatedBy,
+    updatedByPeer: row.updatedByPeer,
   }));
 }
 
@@ -91,17 +97,22 @@ function getEnvFileVariableReadValue(variable: EnvVariableRow): string {
 function EnvFileVariableReadRow(params: {
   currentAuthorId: string | null;
   index: number;
+  resolveRowWriter?: RowWriterResolver | undefined;
   variable: EnvVariableRow;
 }) {
-  const { currentAuthorId, index, variable } = params;
+  const { currentAuthorId, index, resolveRowWriter, variable } = params;
   const keyTitle = variable.key.trim();
   const valueTitle = shouldMaskEnvFileVariable(variable)
     ? undefined
     : variable.value.trim();
+  // Prefer the server-verified writer of this variable's last edit; fall back to
+  // the row's self-attested author when attribution is unavailable.
+  const updatedBy =
+    resolveRowWriter?.(variable.updatedByPeer) ?? variable.updatedBy;
   const attribution = formatRowAttribution({
     currentAuthorId,
     updatedAt: variable.updatedAt,
-    updatedBy: variable.updatedBy,
+    updatedBy,
   });
 
   return (
@@ -137,9 +148,10 @@ function EnvFileVariableReadRow(params: {
 function EnvFileReadFields(params: {
   currentAuthorId: string | null;
   fileName: string;
+  resolveRowWriter?: RowWriterResolver | undefined;
   variables: ReadonlyArray<EnvVariableRow>;
 }) {
-  const { currentAuthorId, fileName, variables } = params;
+  const { currentAuthorId, fileName, resolveRowWriter, variables } = params;
 
   return (
     <div className="env-file-document-fields">
@@ -161,6 +173,7 @@ function EnvFileReadFields(params: {
               key={variable.id}
               currentAuthorId={currentAuthorId}
               index={index}
+              resolveRowWriter={resolveRowWriter}
               variable={variable}
             />
           ))
@@ -341,6 +354,7 @@ export function EnvFileFields(params: {
     value: string,
   ) => void;
   ready: boolean;
+  resolveRowWriter?: RowWriterResolver | undefined;
   variables: ReadonlyArray<EnvVariableRow>;
 }) {
   const {
@@ -354,6 +368,7 @@ export function EnvFileFields(params: {
     onRenameFile,
     onUpdateVariable,
     ready,
+    resolveRowWriter,
     variables,
   } = params;
   const controlsDisabled = disabled || !ready;
@@ -363,6 +378,7 @@ export function EnvFileFields(params: {
       <EnvFileReadFields
         currentAuthorId={currentAuthorId}
         fileName={fileName}
+        resolveRowWriter={resolveRowWriter}
         variables={variables}
       />
     );
@@ -402,6 +418,11 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
     params.initialEditing,
   );
   const { clearRow, readCell, stageCell } = useDocumentRowEditing(rows);
+  // Only resolve verified writers for the read view (attribution is not shown
+  // while editing) of a non-empty file.
+  const resolveRowWriter = useDocumentRowWriters(
+    !(isEditing && canWrite) && rows.length > 0,
+  );
 
   const fileName = readFileNameField(structuredFields);
   const variables = toEnvVariableRows(rows, readCell);
@@ -432,6 +453,7 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
             fileName={fileName}
             fileNameInputId={fileNameInputId}
             isEditing={isEditing && canWrite}
+            resolveRowWriter={resolveRowWriter}
             onAddVariable={() => {
               if (canWrite) {
                 void addRow({

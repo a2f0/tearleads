@@ -32,6 +32,13 @@ export interface DocumentRow {
   createdAt: string;
   updatedBy: string;
   updatedAt: string;
+  // The Loro peer id that last wrote this row (read from the last-editor register
+  // of the always-restamped "@updatedAt" key). Unlike `updatedBy` — a
+  // self-attested user id stored in the row — this peer can be resolved to a
+  // server-verified writer via the edit-attribution segments. Null when the
+  // register has no editor (e.g. a never-written row). Survives shallow-snapshot
+  // reload, so it is stable across the store's persist cycle.
+  updatedByPeer: string | null;
 }
 
 // The minimal projection of a row the document projector needs to derive a
@@ -62,6 +69,15 @@ function readRowString(row: LoroMap, key: string): string {
   return typeof value === "string" ? value : "";
 }
 
+// The peer that last set a key, from Loro's per-key last-writer-wins register.
+// "@updatedAt" is restamped with a fresh timestamp on every row write, so its
+// last editor is the peer of the row's most recent write. (Probing "@updatedBy"
+// would be wrong: it stores a user id that repeats when one user edits twice,
+// which Loro records as a no-op, leaving the register on the earlier writer.)
+function readRowEditorPeer(row: LoroMap, key: string): string | null {
+  return row.getLastEditor(key) ?? null;
+}
+
 function parseDocumentRow(row: LoroMap): DocumentRow | null {
   const id = readRowString(row, ROW_ID_KEY);
   if (id.length === 0) {
@@ -85,6 +101,7 @@ function parseDocumentRow(row: LoroMap): DocumentRow | null {
     createdAt: readRowString(row, ROW_CREATED_AT_KEY),
     updatedBy: readRowString(row, ROW_UPDATED_BY_KEY),
     updatedAt: readRowString(row, ROW_UPDATED_AT_KEY),
+    updatedByPeer: readRowEditorPeer(row, ROW_UPDATED_AT_KEY),
   };
 }
 
@@ -188,7 +205,8 @@ function sameRow(left: DocumentRow, right: DocumentRow): boolean {
     left.createdBy !== right.createdBy ||
     left.createdAt !== right.createdAt ||
     left.updatedBy !== right.updatedBy ||
-    left.updatedAt !== right.updatedAt
+    left.updatedAt !== right.updatedAt ||
+    left.updatedByPeer !== right.updatedByPeer
   ) {
     return false;
   }
