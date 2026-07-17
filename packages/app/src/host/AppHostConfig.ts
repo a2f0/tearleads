@@ -16,6 +16,53 @@ export type CreatePurchasesFn = () => PurchasesCapability;
 
 export type PaneRuntimePolicy = "shared" | "isolated";
 
+type AppBuildTarget = "capacitor" | "electrobun" | "web";
+
+/**
+ * Build identity for the running bundle, surfaced by the System Monitor's
+ * Environment tab and its support report.
+ *
+ * Each deployment target stamps this itself: `packages/app` has no single way to
+ * read build-time values because the targets use three different bundlers
+ * (`bun build --env` for web, `Bun.build` env passthrough for electrobun, Vite
+ * `define` for capacitor). Injecting through the host config keeps the
+ * bundler-specific reads at each entry point, where the other build-time values
+ * (apiBaseUrl, variant) already live.
+ *
+ * `version` and `commit` fall back to "unknown" when a build runs outside a git
+ * checkout, so a report always has the field rather than dropping it.
+ */
+interface AppBuildInfo {
+  readonly commit: string;
+  readonly target: AppBuildTarget;
+  readonly version: string;
+}
+
+const UNKNOWN_BUILD_VALUE = "unknown";
+
+/**
+ * Normalizes the raw, possibly-unset env values a bundler inlines. Bundlers emit
+ * an empty string for an unset var as often as they emit `undefined`, so both
+ * collapse to the same "unknown" sentinel.
+ */
+export function createAppBuildInfo(input: {
+  readonly commit: string | undefined;
+  readonly target: AppBuildTarget;
+  readonly version: string | undefined;
+}): AppBuildInfo {
+  return {
+    commit:
+      input.commit === undefined || input.commit === ""
+        ? UNKNOWN_BUILD_VALUE
+        : input.commit,
+    target: input.target,
+    version:
+      input.version === undefined || input.version === ""
+        ? UNKNOWN_BUILD_VALUE
+        : input.version,
+  };
+}
+
 export interface AppHostFeatureFlags {
   /**
    * Derive an identity key pair (signing + encapsulation keys) automatically on
@@ -109,6 +156,7 @@ export function resolveAppHostProfile(
 /** @public */
 export interface AppHostConfigOptions {
   readonly apiBaseUrl: string;
+  readonly buildInfo?: AppBuildInfo | undefined;
   readonly createBlobStore?: BlobStoreFactory | undefined;
   readonly createLocalKeyring?: CreateLocalKeyringFn | undefined;
   readonly createPurchases?: CreatePurchasesFn | undefined;
@@ -145,6 +193,13 @@ export class AppHostConfig {
      * omitted the app falls back to the unavailable stub.
      */
     readonly createPurchases?: CreatePurchasesFn | undefined,
+    /**
+     * Build identity for the running bundle. Omitted by tests and by any shell
+     * that does not stamp one; the Environment tab reports it as unknown rather
+     * than hiding the row, so a support report never looks like it was captured
+     * from a build that simply has no version.
+     */
+    readonly buildInfo?: AppBuildInfo | undefined,
   ) {}
 
   /**
@@ -166,6 +221,7 @@ export class AppHostConfig {
       storagePersistence: this.storagePersistence,
       profile: this.profile,
       createPurchases: this.createPurchases,
+      buildInfo: this.buildInfo,
       ...overrides,
     });
   }
@@ -186,6 +242,7 @@ export function createAppHostConfig(
     options.storagePersistence,
     options.profile,
     options.createPurchases,
+    options.buildInfo,
   );
 }
 

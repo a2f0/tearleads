@@ -1,5 +1,6 @@
 import { renderApp } from "app/client";
 import {
+  createAppBuildInfo,
   createAppHostConfig,
   resolveAppHostProfile,
   resolveEventsWebSocketUrl,
@@ -25,6 +26,12 @@ const wsUrl = resolveEventsWebSocketUrl(
 
 const hostConfig = createAppHostConfig({
   apiBaseUrl,
+  // Stamped by scripts/withBuildInfoEnv.sh and inlined by `bun build --env`.
+  buildInfo: createAppBuildInfo({
+    commit: process.env.BUN_PUBLIC_GIT_SHA,
+    target: "web",
+    version: process.env.BUN_PUBLIC_APP_VERSION,
+  }),
   createPurchases: createWebPurchases,
   wsUrl,
   profile: resolveAppHostProfile(process.env.BUN_PUBLIC_APP_VARIANT),

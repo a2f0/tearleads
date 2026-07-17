@@ -18,6 +18,7 @@ import {
   MiniAppStatus,
 } from "../../components/shared/MiniAppLayout";
 import type { BackupProgress } from "../../providers/db/useLocalBackupOperations";
+import { formatByteSize } from "../../utils/formatByteSize";
 import { useBackupRestore } from "./BackupRestoreController";
 import "./BackupRestore.css";
 
@@ -32,23 +33,6 @@ const BACKUP_RESTORE_TABS: ReadonlyArray<{
   { id: "backup", label: "Backup" },
   { id: "restore", label: "Restore" },
 ];
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-
-  const units = ["KB", "MB", "GB", "TB"];
-  let value = bytes / 1024;
-  let unitIndex = 0;
-
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-
-  return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unitIndex]}`;
-}
 
 function formatProgress(progress: BackupProgress): string {
   const labels: Record<BackupProgress["phase"], string> = {
@@ -82,7 +66,7 @@ function BackupSummaryDetails({
       <dt>OPFS blobs</dt>
       <dd>{lastSummary.blobCount}</dd>
       <dt>Blob bytes</dt>
-      <dd>{formatBytes(lastSummary.blobBytes)}</dd>
+      <dd>{formatByteSize(lastSummary.blobBytes)}</dd>
       <dt>Missing blobs</dt>
       <dd>{lastSummary.missingBlobCount}</dd>
     </dl>

@@ -57,10 +57,17 @@ export function MiniAppClipboardButton({
   ...props
 }: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "value"> & {
   label: string;
-  value: string | null | undefined;
+  /**
+   * A function is resolved on click rather than on render, for values that are
+   * expensive to build or that must be captured at the moment of the copy. Such
+   * a value is always considered copyable, since emptiness cannot be checked
+   * without doing the work the laziness exists to avoid.
+   */
+  value: string | null | undefined | (() => string);
 }) {
-  const clipboardValue = value ?? "";
-  const canCopy = clipboardValue.trim().length > 0;
+  const resolveValue = typeof value === "function" ? value : null;
+  const staticValue = typeof value === "function" ? "" : (value ?? "");
+  const canCopy = resolveValue !== null || staticValue.trim().length > 0;
   const currentWindow = useCurrentWindow();
   const [copied, setCopied] = useState(false);
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -121,8 +128,13 @@ export function MiniAppClipboardButton({
           return;
         }
 
+        const resolved = resolveValue ? resolveValue() : staticValue;
+        if (resolved.trim().length === 0) {
+          return;
+        }
+
         void navigator.clipboard
-          .writeText(clipboardValue)
+          .writeText(resolved)
           .then(markCopied)
           .catch(() => undefined);
       }}
