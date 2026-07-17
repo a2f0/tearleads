@@ -6,13 +6,13 @@ import type {
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { downloadTextAsFile } from "../utils/downloadFile";
 
-export interface AppKeyPackageSession {
+interface AppKeyPackageSession {
   readonly containerId: string;
   readonly organizationId: string;
   readonly userId: string;
 }
 
-export type AppKeyPackage = IdentityKeyPackage & {
+type AppKeyPackage = IdentityKeyPackage & {
   readonly session?: AppKeyPackageSession;
 };
 
