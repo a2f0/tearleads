@@ -197,10 +197,6 @@ export async function loadOrganizationReadModelProjectionInTransaction(input: {
   if (!state) {
     return null;
   }
-  if (state.protocolVersion !== ORGANIZATION_READ_MODEL_PROTOCOL_VERSION) {
-    throw new Error("Stored organization read-model version is unsupported");
-  }
-
   const [requester] = await input.tx
     .select({ isOrgAdmin: organizationReadModelRequesters.isOrgAdmin })
     .from(organizationReadModelRequesters)

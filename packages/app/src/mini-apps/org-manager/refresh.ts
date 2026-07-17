@@ -75,6 +75,8 @@ export async function refreshOrgManagerVisibleData(
 
   const detailOptions = { clearError: false } as const;
   const viewOptions = { clearError: false, manageLoading: false } as const;
+  // A no-op shared reconcile can still leave the visible detail stale, so a
+  // manual refresh intentionally reloads that view-specific data.
   switch (input.view) {
     case "directory":
       await input.refreshSelectedUserDetail(

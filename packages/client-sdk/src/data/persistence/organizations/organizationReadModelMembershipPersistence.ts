@@ -19,6 +19,7 @@ import {
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import { ORGANIZATION_READ_MODEL_PROTOCOL_VERSION } from "./organizationReadModelProtocol";
 
+const GROUP_MEMBERSHIP_BATCH_SIZE = 90;
 const GROUP_MEMBER_INSERT_BATCH_SIZE = 30;
 
 interface SelectedGroupMember {
@@ -108,30 +109,40 @@ async function deleteMembershipRows(
   input: ApplyGroupMembershipsLaneInput,
   groupIds: string[],
 ): Promise<void> {
-  await input.tx
-    .delete(organizationReadModelGroupMembers)
-    .where(
-      and(
-        eq(
-          organizationReadModelGroupMembers.organizationId,
-          input.organizationId,
+  for (
+    let index = 0;
+    index < groupIds.length;
+    index += GROUP_MEMBERSHIP_BATCH_SIZE
+  ) {
+    const groupIdBatch = groupIds.slice(
+      index,
+      index + GROUP_MEMBERSHIP_BATCH_SIZE,
+    );
+    await input.tx
+      .delete(organizationReadModelGroupMembers)
+      .where(
+        and(
+          eq(
+            organizationReadModelGroupMembers.organizationId,
+            input.organizationId,
+          ),
+          inArray(organizationReadModelGroupMembers.groupId, groupIdBatch),
         ),
-        inArray(organizationReadModelGroupMembers.groupId, groupIds),
-      ),
-    )
-    .run();
-  await input.tx
-    .delete(organizationReadModelGroupMemberships)
-    .where(
-      and(
-        eq(
-          organizationReadModelGroupMemberships.organizationId,
-          input.organizationId,
+      )
+      .run();
+    await input.tx
+      .delete(organizationReadModelGroupMemberships)
+      .where(
+        and(
+          eq(
+            organizationReadModelGroupMemberships.organizationId,
+            input.organizationId,
+          ),
+          inArray(organizationReadModelGroupMemberships.groupId, groupIdBatch),
         ),
-        inArray(organizationReadModelGroupMemberships.groupId, groupIds),
-      ),
-    )
-    .run();
+      )
+      .run();
+  }
 }
 
 async function removeExistingMembershipRows(
@@ -156,17 +167,21 @@ async function insertMembershipRows(
   if (input.lane.groups.length === 0) {
     return;
   }
-  await input.tx
-    .insert(organizationReadModelGroupMemberships)
-    .values(
-      input.lane.groups.map((group, sortOrder) => ({
-        organizationId: input.organizationId,
-        groupId: group.groupId,
-        sortOrder,
-        stateHash: group.stateHash,
-      })),
-    )
-    .run();
+  const membershipRows = input.lane.groups.map((group) => ({
+    organizationId: input.organizationId,
+    groupId: group.groupId,
+    stateHash: group.stateHash,
+  }));
+  for (
+    let index = 0;
+    index < membershipRows.length;
+    index += GROUP_MEMBERSHIP_BATCH_SIZE
+  ) {
+    await input.tx
+      .insert(organizationReadModelGroupMemberships)
+      .values(membershipRows.slice(index, index + GROUP_MEMBERSHIP_BATCH_SIZE))
+      .run();
+  }
 
   const memberRows = input.lane.groups.flatMap((group) =>
     group.members.map((member, sortOrder) => ({

@@ -79,7 +79,6 @@ export const organizationReadModelGroupMemberships = sqliteTable(
   {
     organizationId: text("organization_id").notNull(),
     groupId: text("group_id").notNull(),
-    sortOrder: integer("sort_order").notNull(),
     stateHash: text("state_hash").notNull(),
   },
   (table) => [primaryKey({ columns: [table.organizationId, table.groupId] })],

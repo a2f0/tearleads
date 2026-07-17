@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
+import { groups as groupsTable, users } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
   isOrganizationGroupSummaryResponse,
@@ -42,6 +42,12 @@ function readModelPath(organizationId: string, cursor?: string): string {
 test("organization read-model route snapshots and coalesces group changes", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticate(actor);
+  const statelessGroupId = crypto.randomUUID();
+  await db.insert(groupsTable).values({
+    id: statelessGroupId,
+    name: "Catalog only",
+    organizationId,
+  });
 
   const snapshotResponse = await routeApp.request(
     readModelPath(organizationId),
@@ -65,6 +71,7 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   expect(Reflect.has(snapshot.lanes.directory, "currentUser")).toBe(false);
   expect(snapshot.lanes.groups.groups.map((group) => group.name)).toEqual([
     "Admins",
+    "Catalog only",
   ]);
   expect(snapshot.version).toBe(2);
   expect(snapshot.lanes.groupMemberships.deletedGroupIds).toEqual([]);
@@ -72,6 +79,9 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   expect(
     snapshot.lanes.groupMemberships.groups.map((group) => group.groupId),
   ).toContain(snapshot.lanes.groups.memberGroupId);
+  expect(
+    snapshot.lanes.groupMemberships.groups.map((group) => group.groupId),
+  ).not.toContain(statelessGroupId);
   const adminGroupId = snapshot.lanes.groups.groups[0]?.groupId;
   invariant(adminGroupId, "expected Admins group");
 
@@ -124,6 +134,7 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   expect(changed.lanes.directory).toBeUndefined();
   expect(changed.lanes.groups?.groups.map((group) => group.name)).toEqual([
     "Admins",
+    "Catalog only",
     "Operators",
   ]);
   expect(changed.lanes.groupMemberships?.deletedGroupIds).toEqual([]);
@@ -206,6 +217,7 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   );
   expect(deletedDelta.lanes.groups?.groups.map((group) => group.name)).toEqual([
     "Admins",
+    "Catalog only",
   ]);
   expect(deletedDelta.lanes.groupMemberships).toEqual({
     organizationId,

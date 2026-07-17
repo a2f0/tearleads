@@ -441,9 +441,9 @@ test("v1 local state is discarded before a v2 snapshot is applied", async () => 
     );
     await execSql(
       `INSERT INTO organization_read_model_group_memberships
-        (organization_id, group_id, sort_order, state_hash)
-       VALUES (?, ?, ?, ?)`,
-      [ORGANIZATION_ID, "legacy-group", 0, "legacy-state"],
+        (organization_id, group_id, state_hash)
+       VALUES (?, ?, ?)`,
+      [ORGANIZATION_ID, "legacy-group", "legacy-state"],
     );
 
     await applySnapshot(execSql, snapshot({ cursor: "cursor-v2" }));

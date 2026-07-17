@@ -262,8 +262,7 @@ export const subsystems: readonly Subsystem[] = [
   {
     name: "Organization Read Models",
     package: "client-sdk",
-    responsibility:
-      "Org directory/groups/grants/usage/user-detail read models, roster/profile mutations, and reserved-grant rewrap orchestration for the client.",
+    responsibility: "Org projections, roster/profile writes, and key rewraps.",
     seam: "tearleads.organizations facade; workflows/organizations",
     paths: [
       `${sdk}/workflows/organizations/`,
@@ -694,7 +693,8 @@ export async function findSubsystemDocsViolations(): Promise<
   for (const name of manifestNames) {
     if (!documentedNames.has(name)) {
       violations.push({
-        detail: "is missing from docs/SUBSYSTEMS.md",
+        detail:
+          "is defined in scripts/subsystems.ts but has no row in the docs/SUBSYSTEMS.md registry table",
         name,
       });
     }

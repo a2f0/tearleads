@@ -280,12 +280,6 @@ function resolveApplyDisposition(input: {
   if (!input.current && input.response.mode !== "snapshot") {
     throw new Error("Organization read-model delta requires a local snapshot");
   }
-  if (
-    input.current &&
-    input.current.protocolVersion !== ORGANIZATION_READ_MODEL_PROTOCOL_VERSION
-  ) {
-    throw new Error("Stored organization read-model version is unsupported");
-  }
   return null;
 }
 

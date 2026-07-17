@@ -91,16 +91,13 @@ async function loadOrganizationGroupRows(
   return rows;
 }
 
-function requireOrderedGroupStates(
+function listOrderedGroupStates(
   groupRows: readonly OrganizationGroupCatalogRow[],
   currentStates: ReadonlyMap<string, StoredPrincipalState>,
 ): StoredPrincipalState[] {
-  return groupRows.map((group) => {
+  return groupRows.flatMap((group) => {
     const state = currentStates.get(group.groupId);
-    if (!state) {
-      throw new Error("Organization group policy state is missing");
-    }
-    return state;
+    return state ? [state] : [];
   });
 }
 
@@ -109,15 +106,12 @@ function indexProjectionsByGroupId(
   projectionsByState: ReadonlyMap<string, StoredPrincipalProjectionMember[]>,
 ): Map<string, StoredPrincipalProjectionMember[]> {
   const result = new Map<string, StoredPrincipalProjectionMember[]>();
-  for (const projection of projectionsByState.values()) {
-    const groupId = projection[0]?.principalId;
-    if (groupId) {
-      result.set(groupId, projection);
-    }
-  }
   for (const state of orderedStates) {
-    if (!result.has(state.principalId)) {
-      result.set(state.principalId, []);
+    result.set(state.principalId, []);
+  }
+  for (const projections of projectionsByState.values()) {
+    for (const member of projections) {
+      result.get(member.principalId)?.push(member);
     }
   }
   return result;
@@ -191,7 +185,7 @@ export async function loadOrganizationGroupMembershipsInTransaction(
     groupRows.map((group) => group.groupId),
     input.executor,
   );
-  const orderedStates = requireOrderedGroupStates(groupRows, currentStates);
+  const orderedStates = listOrderedGroupStates(groupRows, currentStates);
   const projectionsByState = await listPrincipalProjectionMembersForStates(
     "group",
     orderedStates,

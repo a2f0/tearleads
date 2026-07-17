@@ -41,39 +41,10 @@ const authoritativeMembers: OrganizationGroupMembersResponse = {
   members: [],
 };
 
-test("group presentation reads projected members without requesting members", async () => {
-  const networkCalls: string[] = [];
-  const localCalls: string[] = [];
-  const apiClient = createMockApiClient({
-    async getCurrentPrincipalPolicy(principalType, principalId) {
-      networkCalls.push(`policy:${principalType}:${principalId}`);
-      return principalPolicy;
-    },
-    async listOrganizationGroupContainers(nextOrganizationId, nextGroupId) {
-      networkCalls.push(`containers:${nextOrganizationId}:${nextGroupId}`);
-      return containers;
-    },
-    async listOrganizationGroupMembers(nextOrganizationId, nextGroupId) {
-      networkCalls.push(`members:${nextOrganizationId}:${nextGroupId}`);
-      return authoritativeMembers;
-    },
-  });
-  const readModelCoordinator = {
-    async loadLocal() {
-      return null;
-    },
-    async loadLocalGroupMembers(nextGroupId, nextOrganizationId) {
-      localCalls.push(`members:${nextOrganizationId}:${nextGroupId}`);
-      return projectedMembers;
-    },
-    async loadLocalOrReconcile() {
-      return null;
-    },
-    async reconcile() {
-      return null;
-    },
-  } satisfies OrganizationReadModelCoordinator;
-  const runtime = {
+function runtimeWith(
+  apiClient: InternalWorkflowRuntimeInput["apiClient"],
+): InternalWorkflowRuntimeInput {
+  return {
     apiClient,
     resolveTrustedUserIdentity: async () => null,
     auth: {
@@ -102,15 +73,87 @@ test("group presentation reads projected members without requesting members", as
       log: () => {},
       logError: () => {},
     },
-  } satisfies InternalWorkflowRuntimeInput;
+  };
+}
+
+function coordinatorWithMembers(
+  members: OrganizationGroupMembersResponse | null,
+  calls: string[],
+): OrganizationReadModelCoordinator {
+  return {
+    async loadLocal() {
+      return null;
+    },
+    async loadLocalGroupMembers(nextGroupId, nextOrganizationId) {
+      calls.push(`members:${nextOrganizationId}:${nextGroupId}`);
+      return members;
+    },
+    async loadLocalOrReconcile() {
+      return null;
+    },
+    async reconcile() {
+      return null;
+    },
+  };
+}
+
+test("group presentation reads projected members without requesting members", async () => {
+  const networkCalls: string[] = [];
+  const localCalls: string[] = [];
+  const apiClient = createMockApiClient({
+    async getCurrentPrincipalPolicy(principalType, principalId) {
+      networkCalls.push(`policy:${principalType}:${principalId}`);
+      return principalPolicy;
+    },
+    async listOrganizationGroupContainers(nextOrganizationId, nextGroupId) {
+      networkCalls.push(`containers:${nextOrganizationId}:${nextGroupId}`);
+      return containers;
+    },
+    async listOrganizationGroupMembers(nextOrganizationId, nextGroupId) {
+      networkCalls.push(`members:${nextOrganizationId}:${nextGroupId}`);
+      return authoritativeMembers;
+    },
+  });
 
   const result = await loadOrganizationGroupPresentationDetails({
     groupId,
-    readModelCoordinator,
-    runtime,
+    readModelCoordinator: coordinatorWithMembers(projectedMembers, localCalls),
+    runtime: runtimeWith(apiClient),
   });
 
   expect(result.members).toEqual(projectedMembers);
+  expect(localCalls).toEqual(["members:org-1:group-1"]);
+  expect([...networkCalls].sort()).toEqual([
+    "containers:org-1:group-1",
+    "policy:group:group-1",
+  ]);
+});
+
+test("group presentation does not fall back when projected members are absent", async () => {
+  const networkCalls: string[] = [];
+  const localCalls: string[] = [];
+  const apiClient = createMockApiClient({
+    async getCurrentPrincipalPolicy(principalType, principalId) {
+      networkCalls.push(`policy:${principalType}:${principalId}`);
+      return principalPolicy;
+    },
+    async listOrganizationGroupContainers(nextOrganizationId, nextGroupId) {
+      networkCalls.push(`containers:${nextOrganizationId}:${nextGroupId}`);
+      return containers;
+    },
+    async listOrganizationGroupMembers(nextOrganizationId, nextGroupId) {
+      networkCalls.push(`members:${nextOrganizationId}:${nextGroupId}`);
+      return authoritativeMembers;
+    },
+  });
+
+  const result = await loadOrganizationGroupPresentationDetails({
+    groupId,
+    readModelCoordinator: coordinatorWithMembers(null, localCalls),
+    runtime: runtimeWith(apiClient),
+  });
+
+  expect(result.members).toBeNull();
   expect(localCalls).toEqual(["members:org-1:group-1"]);
   expect([...networkCalls].sort()).toEqual([
     "containers:org-1:group-1",
