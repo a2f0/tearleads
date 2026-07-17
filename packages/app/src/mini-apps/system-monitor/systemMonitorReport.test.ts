@@ -75,9 +75,9 @@ test("report omits the feature flags section outside developer mode", () => {
   expect(
     formatSystemMonitorReport({
       ...base,
-      featureFlags: [{ label: "Passkeys", value: "Enabled" }],
+      featureFlags: [{ label: "Built-in system containers", value: "Enabled" }],
     }),
-  ).toContain("| Passkeys | Enabled |");
+  ).toContain("| Built-in system containers | Enabled |");
 });
 
 test("report drops the peer user id row when the feature is off", () => {

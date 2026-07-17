@@ -8,7 +8,6 @@ import {
   MiniAppSectionHeading,
   MiniAppStatus,
 } from "../../components/shared/MiniAppLayout";
-import { useAppFeatureFlags } from "../../providers/feature-flags/AppFeatureFlagsProvider";
 import "./IdentityManager.css";
 import { IdentityManagerActionsMenu } from "./IdentityManagerActionsMenu";
 import {
@@ -57,8 +56,6 @@ function IdentitySection({
   identityState,
   isAuthenticated,
   organizationId,
-  passkeyBackupError,
-  passkeyBackupStatus,
   signingFingerprint,
   userId,
 }: {
@@ -68,8 +65,6 @@ function IdentitySection({
   identityState: string;
   isAuthenticated: boolean;
   organizationId: string | null;
-  passkeyBackupError: string | null;
-  passkeyBackupStatus: string | null;
   signingFingerprint: string | null;
   userId: string | null;
 }) {
@@ -92,12 +87,6 @@ function IdentitySection({
       {identityError && (
         <MiniAppStatus tone="error">{identityError}</MiniAppStatus>
       )}
-      {passkeyBackupError && (
-        <MiniAppStatus tone="error">{passkeyBackupError}</MiniAppStatus>
-      )}
-      {passkeyBackupStatus && (
-        <MiniAppStatus>{passkeyBackupStatus}</MiniAppStatus>
-      )}
       <dl className="identity-manager-details">
         <IdentityDetail label="Signing Key" value={signingFingerprint} />
         <IdentityDetail
@@ -117,46 +106,30 @@ function IdentitySection({
   );
 }
 
-function getIdentitySectionActions(
-  {
-    backupKeyPackage,
-    canAuthenticate,
-    canExportKeyPackage,
-    handleRestoreKeyPackageClick,
-    identity,
-    identityMutations,
-    localKeyringLocked,
-    logoutDialog,
-    registration,
-    session,
-    sessionMutations,
-  }: IdentityManagerModel,
-  passkeysEnabled: boolean,
-): IdentityActionToolbarProps {
+function getIdentitySectionActions({
+  backupKeyPackage,
+  canAuthenticate,
+  canExportKeyPackage,
+  handleRestoreKeyPackageClick,
+  identity,
+  identityMutations,
+  localKeyringLocked,
+  logoutDialog,
+  registration,
+  session,
+  sessionMutations,
+}: IdentityManagerModel): IdentityActionToolbarProps {
   return {
     backupKeyPackage,
     canAuthenticate,
     canExportKeyPackage,
     canGenerateKey: !localKeyringLocked,
-    canPasskeyBackupKeyPackage:
-      passkeysEnabled &&
-      identityMutations.passkeyBackupSupported &&
-      canExportKeyPackage &&
-      session.isAuthenticated,
-    canPasskeyRestoreKeyPackage:
-      passkeysEnabled &&
-      identityMutations.passkeyBackupSupported &&
-      !localKeyringLocked,
     canRegisterCurrentIdentity: registration.canRegisterCurrentIdentity,
     canRestoreKeyPackage: !localKeyringLocked,
     generateKey: identity.generateKey,
     handleAuthenticate: identityMutations.authenticate,
     handleDestroyKeyPair: identityMutations.requestDestroyKeyPackage,
     handleLogoutCurrentSession: logoutDialog.requestLogout,
-    handlePasskeyBackupKeyPackage:
-      identityMutations.handlePasskeyBackupKeyPackage,
-    handlePasskeyRestoreKeyPackage:
-      identityMutations.handlePasskeyRestoreKeyPackage,
     handleRegisterIdentity: identityMutations.handleRegisterIdentity,
     handleRestoreKeyPackageClick,
     hasSigningKeyPair: identity.signingKeyPair !== null,
@@ -165,10 +138,6 @@ function getIdentitySectionActions(
       : identityMutations.identityBusy,
     isAuthenticated: session.isAuthenticated,
     mutatingSessionId: sessionMutations.mutatingSessionId,
-    onPasskeyAuthenticatorAttachmentChange:
-      identityMutations.setPasskeyBackupAuthenticatorAttachment,
-    passkeyAuthenticatorAttachment:
-      identityMutations.passkeyBackupAuthenticatorAttachment,
   };
 }
 
@@ -188,19 +157,16 @@ function IdentityManagerPrimaryScreen({
     sessionList,
     sessionMutations,
   } = model;
-  const { passkeysEnabled } = useAppFeatureFlags();
 
   return (
     <>
       <IdentitySection
-        actions={getIdentitySectionActions(model, passkeysEnabled)}
+        actions={getIdentitySectionActions(model)}
         containerId={session.containerId}
         identityError={identityMutations.identityError}
         identityState={identityState}
         isAuthenticated={session.isAuthenticated}
         organizationId={session.organizationId}
-        passkeyBackupError={identityMutations.passkeyBackupError}
-        passkeyBackupStatus={identityMutations.passkeyBackupStatus}
         signingFingerprint={identity.signingFingerprint}
         userId={session.userId}
       />

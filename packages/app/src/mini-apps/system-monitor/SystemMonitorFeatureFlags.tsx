@@ -13,14 +13,11 @@ export function SystemMonitorFeatureFlags() {
   const {
     builtInSystemContainersVisible,
     linkedDocumentActivationControlsEnabled,
-    passkeysEnabled,
     setBuiltInSystemContainersVisible,
     setLinkedDocumentActivationControlsEnabled,
-    setPasskeysEnabled,
   } = useAppFeatureFlags();
   const builtInSystemContainersToggleId = useId();
   const linkedDocumentActivationControlsToggleId = useId();
-  const passkeysToggleId = useId();
 
   return (
     <MiniAppSection className="system-monitor-feature-flags">
@@ -48,28 +45,6 @@ export function SystemMonitorFeatureFlags() {
             type="checkbox"
             onChange={(event) => {
               setBuiltInSystemContainersVisible(event.currentTarget.checked);
-            }}
-          />
-        </span>
-      </label>
-      <label className="system-monitor-feature-flag" htmlFor={passkeysToggleId}>
-        <span className="system-monitor-feature-flag-name">
-          {FEATURE_FLAG_LABELS.passkeys}
-        </span>
-        <span className="system-monitor-feature-flag-control">
-          <span className="system-monitor-feature-flag-state">
-            {formatFeatureFlagState(passkeysEnabled)}
-          </span>
-          <input
-            aria-checked={passkeysEnabled}
-            aria-label="Enable passkeys"
-            checked={passkeysEnabled}
-            className="system-monitor-feature-flag-switch"
-            id={passkeysToggleId}
-            role="switch"
-            type="checkbox"
-            onChange={(event) => {
-              setPasskeysEnabled(event.currentTarget.checked);
             }}
           />
         </span>

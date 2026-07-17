@@ -120,6 +120,13 @@
       "when": 1784245419223,
       "tag": "0016_last_hitman",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1784301403999,
+      "tag": "0017_white_lionheart",
+      "breakpoints": true
     }
   ]
 }
