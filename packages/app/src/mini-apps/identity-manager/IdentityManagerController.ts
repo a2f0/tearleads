@@ -6,11 +6,6 @@ import {
   useLogoutConfirmationDialogState,
 } from "../../components/shared/useLogoutConfirmation";
 import {
-  useBackupKeyPackageAction,
-  usePasskeyKeyPackageBackupActions,
-  useRestoreKeyPackageAction,
-} from "../../identity/useKeyPackageActions";
-import {
   type RegisterCurrentIdentityResult,
   useRegisterCurrentIdentity,
 } from "../../identity/useRegisterCurrentIdentity";
@@ -204,7 +199,6 @@ function useIdentityManagerIdentityMutations({
   logError,
   logout,
   login,
-  passkeyBackup,
   registerCurrentIdentity,
 }: {
   clearSessionError: () => void;
@@ -213,7 +207,6 @@ function useIdentityManagerIdentityMutations({
   logError: LogContextValue["logError"];
   logout: CryptoSessionContextValue["logout"];
   login: CryptoSessionContextValue["login"];
-  passkeyBackup: ReturnType<typeof usePasskeyKeyPackageBackupActions>;
   registerCurrentIdentity: () => Promise<boolean>;
 }) {
   const [identityError, setIdentityError] = useState<string | null>(null);
@@ -253,28 +246,6 @@ function useIdentityManagerIdentityMutations({
     }
   }, [logError, login]);
 
-  const { backupToPasskey, restoreFromPasskey } = passkeyBackup;
-
-  const handlePasskeyBackupKeyPackage = useCallback(async () => {
-    setIdentityBusy("passkey-backup");
-    setIdentityError(null);
-    try {
-      await backupToPasskey();
-    } finally {
-      setIdentityBusy(null);
-    }
-  }, [backupToPasskey]);
-
-  const handlePasskeyRestoreKeyPackage = useCallback(async () => {
-    setIdentityBusy("passkey-restore");
-    setIdentityError(null);
-    try {
-      await restoreFromPasskey();
-    } finally {
-      setIdentityBusy(null);
-    }
-  }, [restoreFromPasskey]);
-
   const requestDestroyKeyPackage = useCallback(() => {
     setDestroyKeyPackageDialogOpen(true);
   }, []);
@@ -296,19 +267,11 @@ function useIdentityManagerIdentityMutations({
     authenticate,
     closeDestroyKeyPackageDialog,
     confirmDestroyKeyPackage,
-    handlePasskeyBackupKeyPackage,
-    handlePasskeyRestoreKeyPackage,
     handleRegisterIdentity,
     identityBusy,
     identityError,
     isDestroyKeyPackageDialogOpen,
-    passkeyBackupAuthenticatorAttachment: passkeyBackup.authenticatorAttachment,
-    passkeyBackupError: passkeyBackup.error,
-    passkeyBackupStatus: passkeyBackup.status,
-    passkeyBackupSupported: passkeyBackup.supported,
     requestDestroyKeyPackage,
-    setPasskeyBackupAuthenticatorAttachment:
-      passkeyBackup.setAuthenticatorAttachment,
   };
 }
 
@@ -357,27 +320,11 @@ function deriveIdentityManagerStatus(
       identity.signingKeyPair !== null &&
       session.userId !== null &&
       !session.isAuthenticated,
-    canExportKeyPackage:
-      identity.signingKeyPair !== null &&
-      identity.encapsulationKeyPair !== null,
     canManageSessions: session.isAuthenticated && session.authToken !== null,
     identityState: getIdentityState({
       signingKeyPair: identity.signingKeyPair,
       userId: session.userId,
     }),
-  };
-}
-
-function useIdentityManagerBackupRestoreActions() {
-  const backupKeyPackage = useBackupKeyPackageAction();
-  const restoreKeyPackage = useRestoreKeyPackageAction();
-
-  return {
-    backupKeyPackage,
-    handleRestoreFileChange: restoreKeyPackage.handleRestoreFileChange,
-    handleRestoreKeyPackageClick:
-      restoreKeyPackage.handleRestoreKeyPackageClick,
-    restoreFileInputRef: restoreKeyPackage.restoreFileInputRef,
   };
 }
 
@@ -393,15 +340,9 @@ export function useIdentityManager() {
   const localKeyringLock = useLocalKeyringLock();
   const { log, logError } = useLog();
   const registration: RegistrationResult = useRegisterCurrentIdentity();
-  const backupRestoreActions = useIdentityManagerBackupRestoreActions();
-  const passkeyBackup = usePasskeyKeyPackageBackupActions();
   const { purgeWorker } = useDatabase();
-  const {
-    canAuthenticate,
-    canExportKeyPackage,
-    canManageSessions,
-    identityState,
-  } = deriveIdentityManagerStatus(session, identity);
+  const { canAuthenticate, canManageSessions, identityState } =
+    deriveIdentityManagerStatus(session, identity);
   const sessionList = useIdentityManagerSessionList({
     canManageSessions,
     logError,
@@ -434,7 +375,6 @@ export function useIdentityManager() {
     logError,
     logout: session.logout,
     login: session.login,
-    passkeyBackup,
     registerCurrentIdentity: registration.registerCurrentIdentity,
   });
   const switcherBusy =
@@ -450,9 +390,7 @@ export function useIdentityManager() {
   });
 
   return {
-    ...backupRestoreActions,
     canAuthenticate,
-    canExportKeyPackage,
     canManageSessions,
     identity,
     identityMutations,

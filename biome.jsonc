@@ -105,6 +105,10 @@
       ],
       "formatter": { "enabled": false },
       "linter": { "enabled": false }
+    },
+    {
+      "includes": ["docs/openapi.json"],
+      "formatter": { "enabled": false }
     }
   ],
   "javascript": {

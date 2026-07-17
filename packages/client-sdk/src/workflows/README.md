@@ -46,11 +46,6 @@ client-facade exports rather than workflow facades. Keep platform keychain
 composition in `client/*` so workflow modules stay focused on domain
 operations.
 
-Remote key package backup storage is also a client facade
-(`tearleads.keyPackageBackups`), not a workflow facade. The SDK exposes the
-opaque API storage contract; browser/WebAuthn PRF wrapping and product restore
-UX belong in host/app code.
-
 Seed phrase generation/import lives on the `tearleads.identity` client facade.
 The phrase derives identity key pairs only; product backup/restore UX and any
 session/container recovery metadata stay in host/app code.

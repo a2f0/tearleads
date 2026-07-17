@@ -7,7 +7,6 @@ import type { SystemMonitorReportFlag } from "./systemMonitorReport";
 export const FEATURE_FLAG_LABELS = {
   builtInSystemContainers: "Built-in system containers",
   linkedDocumentActivationControls: "Linked document activation controls",
-  passkeys: "Passkeys",
 } as const;
 
 const FEATURE_FLAG_ENABLED = "Enabled";
@@ -22,7 +21,6 @@ export function useSystemMonitorFeatureFlagRows(): ReadonlyArray<SystemMonitorRe
   const {
     builtInSystemContainersVisible,
     linkedDocumentActivationControlsEnabled,
-    passkeysEnabled,
   } = useAppFeatureFlags();
 
   return useMemo(
@@ -32,18 +30,10 @@ export function useSystemMonitorFeatureFlagRows(): ReadonlyArray<SystemMonitorRe
         value: formatFeatureFlagState(builtInSystemContainersVisible),
       },
       {
-        label: FEATURE_FLAG_LABELS.passkeys,
-        value: formatFeatureFlagState(passkeysEnabled),
-      },
-      {
         label: FEATURE_FLAG_LABELS.linkedDocumentActivationControls,
         value: formatFeatureFlagState(linkedDocumentActivationControlsEnabled),
       },
     ],
-    [
-      builtInSystemContainersVisible,
-      linkedDocumentActivationControlsEnabled,
-      passkeysEnabled,
-    ],
+    [builtInSystemContainersVisible, linkedDocumentActivationControlsEnabled],
   );
 }

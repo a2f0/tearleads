@@ -319,13 +319,11 @@ export const subsystems: readonly Subsystem[] = [
   {
     name: "Identity & Session",
     package: "client-sdk",
-    responsibility:
-      "Identity keys, sessions, backups, and TOFU-pinned user identities.",
-    seam: "identity/session/keyPackageBackups/userIdentities; TOFU gateway",
+    responsibility: "Identity keys, sessions, and TOFU-pinned user identities.",
+    seam: "identity/session/userIdentities; TOFU gateway",
     paths: [
       `${sdk}/client/identity.ts`,
       `${sdk}/client/identityKeyPackage.ts`,
-      `${sdk}/client/keyPackageBackups.ts`,
       `${sdk}/client/session.ts`,
       `${sdk}/client/sessionIdentityTrust.ts`,
       `${sdk}/client/sessionTypes.ts`,

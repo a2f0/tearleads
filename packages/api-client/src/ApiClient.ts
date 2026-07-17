@@ -12,7 +12,6 @@ import type {
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
   InitiateMultipartBlobStageRequest,
-  PutKeyPackageBackupRequest,
   PutPrincipalPolicyRequest,
   RegistrationRequest,
   UpdateOrganizationProfileRequest,
@@ -38,21 +37,17 @@ import {
   isContainerWriterProjectionResponse,
   isCreateOrganizationGroupResponse,
   isCreateOrganizationResponse,
-  isDeleteKeyPackageBackupResponse,
   isDeleteOrganizationGroupResponse,
   isDestroySessionResponse,
   isDocumentCreateResponse,
   isDocumentLinkSetMutationResponse,
   isDocumentPurgeResponse,
-  isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
   isHealthResponse,
   isInitiateMultipartBlobStageResponse,
-  isKeyPackageBackupResponse,
   isListContainerDocumentsResponse,
   isListContainersResponse,
   isListDocumentAttachmentsResponse,
-  isListKeyPackageBackupsResponse,
   isListSessionsResponse,
   isMultipartBlobStageStatusResponse,
   isOrganizationBillingResponse,
@@ -66,7 +61,6 @@ import {
   isUploadMultipartBlobPartResponse,
   isUserIdentityResponse,
   isVerifyResponse,
-  type KeyPackageBackupResponse,
   type ListContainerDocumentsResponse,
   type ListContainersResponse,
   type ListDocumentAttachmentsResponse,
@@ -100,6 +94,7 @@ import {
   containerDocsPath,
 } from "./routes/containers/queryParams";
 import { DocumentAttributionRequests } from "./routes/documents/attributionRequests";
+import { documentSync as sync } from "./routes/documents/sync";
 import { organizationReadModelPath } from "./routes/organizations/readModelPath";
 import { pathSegment } from "./routes/path";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
@@ -728,43 +723,6 @@ export class ApiClient {
     });
   }
 
-  putKeyPackageBackup(input: PutKeyPackageBackupRequest) {
-    return this.request(
-      `/auth/key-package-backups/${pathSegment(input.backupId)}`,
-      isKeyPackageBackupResponse,
-      "PUT",
-      JSON.stringify(input),
-    );
-  }
-
-  listKeyPackageBackups() {
-    return this.request(
-      "/auth/key-package-backups",
-      isListKeyPackageBackupsResponse,
-      "GET",
-    );
-  }
-
-  getKeyPackageBackupByCredentialId(
-    credentialId: string,
-  ): Promise<KeyPackageBackupResponse | null> {
-    return this.request(
-      `/auth/key-package-backups/by-credential?credentialId=${pathSegment(credentialId)}`,
-      isKeyPackageBackupResponse,
-      "GET",
-      undefined,
-      { retryOnSessionExpired: false },
-    );
-  }
-
-  deleteKeyPackageBackup(backupId: string) {
-    return this.request(
-      `/auth/key-package-backups/${pathSegment(backupId)}`,
-      isDeleteKeyPackageBackupResponse,
-      "DELETE",
-    );
-  }
-
   listSessions() {
     return this.request("/auth/sessions", isListSessionsResponse, "GET");
   }
@@ -1289,9 +1247,9 @@ export class ApiClient {
     const cachedBefore =
       this.documentWriterProjectionRequestsByDocumentId.get(documentId);
     return this.request(
-      `/documents/${pathSegment(documentId)}/sync`,
-      isDocumentSyncResponse,
-      "POST",
+      sync.path(documentId),
+      sync.isResponse,
+      sync.method,
       JSON.stringify(input),
     )
       .then(async (response) => {
@@ -1341,9 +1299,9 @@ export class ApiClient {
       this.documentWriterProjectionRequestsByDocumentId.get(documentId);
     try {
       const result = await this.makeRequestResult(
-        `/documents/${pathSegment(documentId)}/sync`,
-        isDocumentSyncResponse,
-        "POST",
+        sync.path(documentId),
+        sync.isResponse,
+        sync.method,
         JSON.stringify(input),
         options,
       );

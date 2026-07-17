@@ -9,8 +9,10 @@ import type { ThemeId } from "./themes";
  * base `:root`.
  *
  * This mirrors `useNavigationModeDocumentAttribute` — same reasoning for keying
- * off a root attribute rather than a media query: the theme is an explicit user
- * choice, not something to infer from the environment.
+ * off a root attribute rather than a bare CSS media query: the provider resolves
+ * the active theme in one place (an explicit choice when the user has made one,
+ * otherwise the OS preference) and stamps the result, so the CSS selects on the
+ * single resolved attribute rather than re-deriving the preference itself.
  */
 export function useThemeDocumentAttribute(theme: ThemeId): void {
   useEffect(() => {

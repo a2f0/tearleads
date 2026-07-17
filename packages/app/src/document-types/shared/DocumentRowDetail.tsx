@@ -28,6 +28,9 @@ export interface RowDetailField {
 // plus the row's created/updated history. Presentational: the caller resolves
 // writers (via the row-writer resolver) and passes labels/values in, so both
 // document types with different field sets reuse it.
+//
+// Pass `showFieldValues={false}` to render a pure attribution view — each field
+// shows only its last editor, not the value (e.g. a "who set what" drill-down).
 export function DocumentRowDetailOverlay(params: {
   title: string;
   fields: ReadonlyArray<RowDetailField>;
@@ -36,6 +39,7 @@ export function DocumentRowDetailOverlay(params: {
   updatedAt: string;
   updatedBy: string;
   currentAuthorId: string | null;
+  showFieldValues?: boolean;
   onClose: () => void;
 }) {
   const {
@@ -46,6 +50,7 @@ export function DocumentRowDetailOverlay(params: {
     updatedAt,
     updatedBy,
     currentAuthorId,
+    showFieldValues = true,
     onClose,
   } = params;
   const titleId = useId();
@@ -113,18 +118,27 @@ export function DocumentRowDetailOverlay(params: {
                   field.writerUserId,
                   currentAuthorId,
                 );
+                const attribution = writer ? `set by ${writer}` : null;
                 return (
                   <MiniAppInfoRow key={field.label} label={field.label}>
-                    <span className="document-row-detail-value">
-                      {field.value.trim().length > 0
-                        ? field.value
-                        : ROW_DETAIL_EMPTY_VALUE}
-                    </span>
-                    {writer ? (
-                      <span className="document-row-detail-writer">
-                        set by {writer}
+                    {showFieldValues ? (
+                      <span className="document-row-detail-value">
+                        {field.value.trim().length > 0
+                          ? field.value
+                          : ROW_DETAIL_EMPTY_VALUE}
                       </span>
                     ) : null}
+                    {showFieldValues ? (
+                      attribution ? (
+                        <span className="document-row-detail-writer">
+                          {attribution}
+                        </span>
+                      ) : null
+                    ) : (
+                      <span className="document-row-detail-writer document-row-detail-writer-solo">
+                        {attribution ?? "Unknown"}
+                      </span>
+                    )}
                   </MiniAppInfoRow>
                 );
               })}

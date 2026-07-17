@@ -59,7 +59,6 @@ export type {
   ImportedOrganizationUser,
   IndexedDbLocalKeyringManifestStoreOptions,
   IndexedDbWrappingKeyKeystoreOptions,
-  KeyPackageBackups,
   LinkDocumentToContainerInput,
   ListDocumentsInput,
   LocalKeyPurpose,

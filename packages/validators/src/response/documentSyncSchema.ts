@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { documentSyncResponseRotationRefinement } from "../documentSyncRefinements";
+import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import {
   arraySchema,
   loosePlainObject,
@@ -46,36 +48,41 @@ export type DocumentContentKeyBundleResponse = z.infer<
   typeof DocumentContentKeyBundleResponseSchema
 >;
 
-export const DocumentSyncUpdateResponseSchema = loosePlainObject({
-  accessEpoch: positiveIntegerSchema,
-  authorFingerprint: z.string(),
-  checkpointKind: z.literal("rotate_baseline").optional(),
-  checkpointPayloadKind: z.literal("full_history_snapshot").optional(),
-  createdAt: z.string(),
-  documentId: z.string(),
-  encryptedData: z.string(),
-  id: z.string(),
-  partialEndVersionVector: z.string(),
-  partialStartVersionVector: z.string(),
-  sourceVersionVector: z.string().min(1).optional(),
-  writeHeader: plainObjectSchema,
-}).superRefine((update, context) => {
-  const hasNoCheckpoint =
-    update.checkpointKind === undefined &&
-    update.checkpointPayloadKind === undefined &&
-    update.sourceVersionVector === undefined;
-  const hasRotationCheckpoint =
-    update.checkpointKind === "rotate_baseline" &&
-    update.checkpointPayloadKind === "full_history_snapshot" &&
-    update.sourceVersionVector !== undefined;
+export const DocumentSyncUpdateResponseSchema =
+  registerJsonSchemaRuntimeRefinements(
+    loosePlainObject({
+      accessEpoch: positiveIntegerSchema,
+      authorFingerprint: z.string(),
+      checkpointKind: z.literal("rotate_baseline").optional(),
+      checkpointPayloadKind: z.literal("full_history_snapshot").optional(),
+      createdAt: z.string(),
+      documentId: z.string(),
+      encryptedData: z.string(),
+      id: z.string(),
+      partialEndVersionVector: z.string(),
+      partialStartVersionVector: z.string(),
+      sourceVersionVector: z.string().min(1).optional(),
+      writeHeader: plainObjectSchema,
+    }).superRefine((update, context) => {
+      const hasNoCheckpoint =
+        update.checkpointKind === undefined &&
+        update.checkpointPayloadKind === undefined &&
+        update.sourceVersionVector === undefined;
+      const hasRotationCheckpoint =
+        update.checkpointKind === "rotate_baseline" &&
+        update.checkpointPayloadKind === "full_history_snapshot" &&
+        update.sourceVersionVector !== undefined;
 
-  if (!hasNoCheckpoint && !hasRotationCheckpoint) {
-    context.addIssue({
-      code: "custom",
-      message: "checkpoint fields must be absent or form a rotation baseline",
-    });
-  }
-});
+      if (!hasNoCheckpoint && !hasRotationCheckpoint) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "checkpoint fields must be absent or form a rotation baseline",
+        });
+      }
+    }),
+    [documentSyncResponseRotationRefinement],
+  );
 
 export type DocumentSyncUpdateResponse = z.infer<
   typeof DocumentSyncUpdateResponseSchema

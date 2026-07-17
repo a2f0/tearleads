@@ -1,10 +1,14 @@
 import {
+  documentSyncOperation,
+  isDocumentSyncOperationRequest,
+  operationRoutePath,
+} from "@tearleads/validators/operation";
+import {
   type DocumentCreateRequest,
   type DocumentLinkSetMutationRequest,
   type DocumentSyncRequest,
   isDocumentCreateRequest,
   isDocumentLinkSetMutationRequest,
-  isDocumentSyncRequest,
 } from "@tearleads/validators/request";
 import type {
   DocumentCreateResponse,
@@ -183,7 +187,18 @@ function validateDocumentLinkSetMutationRequest(
 }
 
 function validateDocumentSyncRequest(value: unknown, c: JsonValidationContext) {
-  if (!isDocumentSyncRequest(value)) {
+  if (!isDocumentSyncOperationRequest(value)) {
+    return c.json({ error: "Invalid request" }, 400);
+  }
+
+  return value;
+}
+
+function validateDocumentSyncPathParams(
+  value: Record<string, string>,
+  c: JsonValidationContext,
+) {
+  if (!documentSyncOperation.params.safeParse(value).success) {
     return c.json({ error: "Invalid request" }, 400);
   }
 
@@ -377,9 +392,11 @@ export function createDocumentMutationsRoute({
       }),
   );
 
-  route.post(
-    "/documents/:documentId/sync",
+  route.on(
+    documentSyncOperation.method,
+    operationRoutePath(documentSyncOperation),
     requireAuth,
+    validator("param", validateDocumentSyncPathParams),
     validator("json", validateDocumentSyncRequest),
     (c) =>
       respondWithDocumentSync(c, {

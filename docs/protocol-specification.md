@@ -8,20 +8,24 @@ attachment slots.
 
 The executable contract is layered:
 
-- `packages/validators/src/{request,response}` defines structural wire grammar.
+- `packages/validators/src/{request,response,operation}` defines wire grammar
+  and HTTP metadata.
 - `packages/crypto/src/keying.ts` defines canonical cryptographic checks.
 - `packages/api/src/workflows` defines authorized transactional transitions.
 - `packages/client-sdk/src/workflows` defines local decisions and fail-closed
   response verification.
 
-For the document-sync pilot, `DocumentSyncRequestSchema` and
-`DocumentSyncResponseSchema` are normative structural grammar and derive the
-TypeScript types. The legacy
-`isDocumentSyncRequest` and `isDocumentSyncResponse` exports are compatibility
-predicates over the same schemas. Validation does not coerce, default, strip, or
-replace original signed values. Schema refinements enforce local rules, not
-authorization, transaction, retry, convergence, or storage guarantees; formal
-models still require conformance tests against verifiers and workflows.
+For document sync, `DocumentSyncRequestSchema` and `DocumentSyncResponseSchema`
+are normative wire grammar and derive TS types. `documentSyncOperation` owns
+method, auth, parameters, statuses, and the canonical server/client path. Legacy
+predicates stay schema-backed; parsing never coerces, defaults, strips, or
+replaces signed input.
+
+[`openapi.json`](./openapi.json) projects `documentSyncOperation` to OpenAPI 3.1.
+Custom schemas need views; `lint:openapi` rejects missing views/drift.
+
+It is descriptive. `x-tearleads-runtime-refinements` marks Zod-only rules;
+crypto, transactions, convergence, and formal guarantees are separate.
 
 Related background documents:
 
@@ -285,7 +289,7 @@ principal policies, derives the document link-set manifest, stores the manifest
 head, and validates the submitted content-key bundle against derived document
 KEK targets.
 
-Encrypted Loro sync uses `POST /documents/:documentId/sync`.
+Encrypted Loro sync uses `POST /documents/{documentId}/sync`.
 `DocumentSyncRequest` carries:
 
 - `contentKeyEpoch`

@@ -6,7 +6,6 @@ import {
   saveAppFeatureFlag,
 } from "./appFeatureFlags";
 
-const PASSKEYS_KEY = appFeatureFlagStorageKey("passkeys");
 const BUILT_IN_SYSTEM_CONTAINERS_KEY = appFeatureFlagStorageKey(
   "built-in-system-containers",
 );
@@ -21,7 +20,6 @@ afterEach(() => {
 test("feature flags default to disabled when nothing is stored", () => {
   expect(DEFAULT_APP_FEATURE_FLAG_MODE).toBe("disabled");
   expect(loadAppFeatureFlag(BUILT_IN_SYSTEM_CONTAINERS_KEY)).toBe("disabled");
-  expect(loadAppFeatureFlag(PASSKEYS_KEY)).toBe("disabled");
   expect(loadAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY)).toBe(
     "disabled",
   );
@@ -30,8 +28,6 @@ test("feature flags default to disabled when nothing is stored", () => {
 test("round-trips a saved feature flag", () => {
   saveAppFeatureFlag(BUILT_IN_SYSTEM_CONTAINERS_KEY, "enabled");
   expect(loadAppFeatureFlag(BUILT_IN_SYSTEM_CONTAINERS_KEY)).toBe("enabled");
-  saveAppFeatureFlag(PASSKEYS_KEY, "enabled");
-  expect(loadAppFeatureFlag(PASSKEYS_KEY)).toBe("enabled");
   saveAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY, "enabled");
   expect(loadAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY)).toBe(
     "enabled",
@@ -39,8 +35,6 @@ test("round-trips a saved feature flag", () => {
 
   saveAppFeatureFlag(BUILT_IN_SYSTEM_CONTAINERS_KEY, "disabled");
   expect(loadAppFeatureFlag(BUILT_IN_SYSTEM_CONTAINERS_KEY)).toBe("disabled");
-  saveAppFeatureFlag(PASSKEYS_KEY, "disabled");
-  expect(loadAppFeatureFlag(PASSKEYS_KEY)).toBe("disabled");
   saveAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY, "disabled");
   expect(loadAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY)).toBe(
     "disabled",
@@ -48,6 +42,6 @@ test("round-trips a saved feature flag", () => {
 });
 
 test("feature flags fall back to disabled for an unrecognized stored value", () => {
-  globalThis.localStorage.setItem(PASSKEYS_KEY, "bogus");
-  expect(loadAppFeatureFlag(PASSKEYS_KEY)).toBe("disabled");
+  globalThis.localStorage.setItem(BUILT_IN_SYSTEM_CONTAINERS_KEY, "bogus");
+  expect(loadAppFeatureFlag(BUILT_IN_SYSTEM_CONTAINERS_KEY)).toBe("disabled");
 });

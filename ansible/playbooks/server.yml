@@ -66,6 +66,7 @@
     blob_s3_key_prefix: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_KEY_PREFIX') | default('', true) }}"
     api_default_cors_origins: "{{ ([app_hostname] + app_demo_hostnames) | map('regex_replace', '^(.*)$', 'https://\\1') | join(',') }}"
     api_cors_origins: "{{ lookup('env', 'API_CORS_ORIGINS') | default(api_default_cors_origins, true) }}"
+    revenuecat_webhook_auth_header: "{{ lookup('env', 'REVENUECAT_WEBHOOK_AUTH_HEADER') | default('', true) }}"
     garage_s3_region: "{{ blob_s3_region }}"
     garage_default_access_key: "{{ blob_s3_access_key_id }}"
     garage_default_secret_key: "{{ blob_s3_secret_access_key }}"

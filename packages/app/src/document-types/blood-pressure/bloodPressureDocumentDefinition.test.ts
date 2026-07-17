@@ -62,10 +62,8 @@ test("title falls back to a reading count when unnamed", () => {
   expect(projection.title).toBe("Blood Pressure (1 reading)");
 });
 
-test("title is the untitled placeholder with no readings", () => {
-  expect(project({ trackerName: "" }, []).title).toBe(
-    "Untitled blood pressure tracker",
-  );
+test("title defaults to the document type name with no readings", () => {
+  expect(project({ trackerName: "" }, []).title).toBe("Blood Pressure Tracker");
 });
 
 test("out-of-range measurements surface as validation issues", () => {

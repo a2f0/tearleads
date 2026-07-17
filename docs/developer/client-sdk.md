@@ -91,7 +91,6 @@ Client capabilities:
 | `tearleads.identity` | signing and encapsulation key pairs, seed phrase state |
 | `tearleads.blobs` | local blob byte storage |
 | `tearleads.session` | registration, auth token, personal-org identity, and active context |
-| `tearleads.keyPackageBackups` | encrypted backups |
 | `tearleads.network` | online/offline state passed into sync workflows |
 | `tearleads.events` | remote event list passed into sync workflows |
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
@@ -412,8 +411,8 @@ and development wiring. They are not a durable or platform-secure keychain.
 The browser IndexedDB helper is durable but origin-bound: same-origin code can
 ask the stored `CryptoKey` to unwrap the local secret even though it cannot
 export the key bytes. Hosts needing
-unlock can use `createPinCodeWrappingKeyKeystore`, passphrases, WebAuthn, OS
-keychains, or secure enclaves.
+unlock can use `createPinCodeWrappingKeyKeystore`, passphrases, OS keychains,
+or secure enclaves.
 Call `session.dispose()` when a host is done with a local keyring session; it
 zeroes the in-memory root and derived byte keys owned by that session.
 `keyring.deleteSession(scope)` removes both the manifest and the wrapping-key

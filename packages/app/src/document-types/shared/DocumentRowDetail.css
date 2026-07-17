@@ -23,3 +23,9 @@
   font-size: var(--font-size-sm);
   opacity: var(--opacity-muted);
 }
+
+/* When the attribution stands alone (no value above it), drop the gap that only
+   made sense as separation from the value. */
+.document-row-detail-writer-solo {
+  margin-top: 0;
+}

@@ -27,14 +27,42 @@
   opacity: var(--opacity-muted);
 }
 
+/* Two lines in the windowed view: the three measurements share the top line,
+   measured-at + notes sit on the bottom line, and remove anchors the right.
+   Wrapping keeps the row from overflowing a narrow window. */
 .blood-pressure-reading-row {
   display: grid;
-  grid-template-columns:
-    repeat(3, minmax(4rem, 0.5fr)) minmax(10rem, 0.9fr)
-    minmax(8rem, 1fr) auto;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) auto;
+  grid-template-areas:
+    "systolic systolic diastolic diastolic pulse pulse remove"
+    "measured measured measured  notes     notes notes remove";
   gap: var(--space-sm);
   align-items: end;
   min-width: 0;
+}
+
+.blood-pressure-reading-field-systolic {
+  grid-area: systolic;
+}
+
+.blood-pressure-reading-field-diastolic {
+  grid-area: diastolic;
+}
+
+.blood-pressure-reading-field-pulse {
+  grid-area: pulse;
+}
+
+.blood-pressure-reading-field-measured {
+  grid-area: measured;
+}
+
+.blood-pressure-reading-notes-field {
+  grid-area: notes;
+}
+
+.blood-pressure-remove-button {
+  grid-area: remove;
 }
 
 .blood-pressure-reading-read-row {
@@ -99,6 +127,9 @@
 
 .blood-pressure-reading-field input {
   width: 100%;
+  /* Let the datetime-local control shrink to its grid track instead of forcing
+     the row wider than the window (its intrinsic width otherwise overflows). */
+  min-width: 0;
   min-height: var(--control-height);
   padding: 0 var(--space-sm);
   border: var(--border);
@@ -162,14 +193,14 @@
   }
 
   .blood-pressure-reading-row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas:
+      "systolic diastolic pulse"
+      "measured measured  measured"
+      "notes    notes     notes"
+      "remove   remove    remove";
     padding-bottom: var(--space-sm);
     border-bottom: var(--border);
-  }
-
-  .blood-pressure-reading-notes-field,
-  .blood-pressure-reading-row .blood-pressure-remove-button {
-    grid-column: 1 / -1;
   }
 
   .blood-pressure-reading-read-row {

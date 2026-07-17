@@ -3,7 +3,6 @@ import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { createChallengeRoute } from "./challenge";
-import { createKeyPackageBackupsRoute } from "./keyPackageBackups";
 import { createLogoutRoute, type LogoutRouteDeps } from "./logout";
 import { createRegisterRoute } from "./register";
 import { createSessionsRoute, type SessionsRouteDeps } from "./sessions";
@@ -32,7 +31,6 @@ export function createAuthRouter({
   auth.route("/", createUserIdentityRoute({ requireAuth, runtime }));
   auth.route("/", createRegisterRoute(runtime));
   auth.route("/", createVerifyRoute(runtime));
-  auth.route("/", createKeyPackageBackupsRoute({ requireAuth, runtime }));
   auth.route("/", createLogoutRoute({ destroySession, requireAuth }));
   auth.route("/", createWsTicketRoute({ requireAuth }));
   auth.route(
