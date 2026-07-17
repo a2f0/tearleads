@@ -12,7 +12,6 @@ import {
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type {
   ContainerKekResponse,
-  ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
@@ -33,11 +32,9 @@ import {
 } from "../../../data/containers/shared/projection";
 import type {
   BuildContainerCreatePlanInput,
-  ContainerCreateApi,
   ContainerCreatePlan,
   ContainerCreatePlanContext,
   ContainerMutationAuthor,
-  ContainerMutationSubmitFailure,
   CreateRemoteContainerResult,
   MaterializedContainerCreatePlan,
 } from "../../../data/containers/shared/types";
@@ -59,8 +56,12 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
-import { cacheRemoteContainerCreatePolicyRepair } from "./policyRepair";
+import {
+  type ContainerCreateRepairState,
+  type RemoteContainerCreateInput,
+  repairContainerCreateFailure,
+  submitRemoteContainerCreate,
+} from "./createSubmission";
 
 function assertContainerCreatePlanInput(input: {
   containerKey: Uint8Array;
@@ -396,47 +397,82 @@ export function childContainerWriterProjectionFromCreatePlan(input: {
   };
 }
 
-async function submitRemoteContainerCreate(input: {
-  readonly apiClient: ContainerCreateApi;
-  readonly plan: ContainerCreatePlan;
-}): Promise<
-  | {
-      readonly ok: true;
-      readonly response: ContainerMutationResponse;
+async function createRemoteContainerWithRepairs(input: {
+  readonly containerId: string;
+  readonly containerKey: Uint8Array;
+  readonly eventId: string;
+  readonly metadataDocumentId: string;
+  readonly parentProjection: ContainerWriterProjectionResponse;
+  readonly request: RemoteContainerCreateInput;
+  readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
+  readonly signedAt: string;
+}): Promise<CreateRemoteContainerResult | null> {
+  let parentProjection = input.parentProjection;
+  const repairState: ContainerCreateRepairState = {
+    didRepairStaleParent: false,
+    didRepairStalePolicies: false,
+  };
+  for (;;) {
+    const materializedPlan = await buildMaterializedContainerCreatePlan({
+      author: input.request.author,
+      containerId: input.containerId,
+      containerKey: input.containerKey,
+      containerKeyEpochId: input.request.containerKeyEpochId,
+      eventId: input.eventId,
+      execSql: input.request.execSql,
+      metadataDocumentId: input.metadataDocumentId,
+      parentProjection,
+      parentSecretKey: input.request.parentSecretKey,
+      resolveProjectionUserKey: input.resolveProjectionUserKey,
+      signedAt: input.signedAt,
+      warmReferencedPrincipalPolicies:
+        input.request.warmReferencedPrincipalPolicies,
+    });
+    const submitted = await submitRemoteContainerCreate({
+      apiClient: input.request.apiClient,
+      plan: materializedPlan.plan,
+    });
+    if (!submitted) {
+      return null;
     }
-  | ContainerMutationSubmitFailure
-  | null
-> {
-  if (input.apiClient.createContainerResult) {
-    const result = await input.apiClient.createContainerResult(
-      input.plan.request,
-      { reportErrors: false },
-    );
-
-    return result.ok ? { ok: true, response: result.data } : result;
+    if (!submitted.ok) {
+      const repair = await repairContainerCreateFailure({
+        apiClient: input.request.apiClient,
+        execSql: input.request.execSql,
+        failure: submitted,
+        parentContainerId: input.request.parentContainerId,
+        parentProjection,
+        resolveTrustedUserIdentity: input.request.resolveTrustedUserIdentity,
+        state: repairState,
+      });
+      if (repair.kind === "retry") {
+        parentProjection = repair.parentProjection;
+        continue;
+      }
+      if (repair.kind === "unavailable") {
+        return null;
+      }
+      submitted.report();
+      return null;
+    }
+    await acknowledgeContainerMutation({
+      execSql: input.request.execSql,
+      plan: materializedPlan.plan,
+      response: submitted.response,
+    });
+    return {
+      containerKey: materializedPlan.containerKey,
+      containerId: submitted.response.containerId,
+      metadataDocumentId: materializedPlan.plan.metadataDocumentId,
+      plan: materializedPlan.plan,
+      response: submitted.response,
+    };
   }
-
-  const response = await input.apiClient.createContainer(input.plan.request);
-  return response ? { ok: true, response } : null;
 }
 
-export async function createRemoteContainer(input: {
-  apiClient: ContainerCreateApi;
-  author: ContainerMutationAuthor;
-  containerId?: string | undefined;
-  containerKey?: Uint8Array | undefined;
-  containerKeyEpochId?: string | undefined;
-  eventId?: string | undefined;
-  execSql: ExecSql;
-  metadataDocumentId?: string | undefined;
-  parentContainerId: string;
-  parentProjection?: ContainerWriterProjectionResponse | undefined;
-  parentSecretKey: Uint8Array;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
-  resolveTrustedUserIdentity: TrustedUserIdentityResolver;
-  signedAt?: string | undefined;
-  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<CreateRemoteContainerResult | null> {
+export async function createRemoteContainer(
+  input: RemoteContainerCreateInput,
+): Promise<CreateRemoteContainerResult | null> {
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
     "Remote container create",
@@ -450,64 +486,20 @@ export async function createRemoteContainer(input: {
     return null;
   }
 
-  const maxAttempts = input.apiClient.createContainerResult ? 2 : 1;
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const materializedPlan = await buildMaterializedContainerCreatePlan({
-      author: input.author,
-      containerId: input.containerId,
-      containerKey: input.containerKey,
-      containerKeyEpochId: input.containerKeyEpochId,
-      eventId: input.eventId,
-      execSql: input.execSql,
-      metadataDocumentId: input.metadataDocumentId,
-      parentProjection,
-      parentSecretKey: input.parentSecretKey,
-      resolveProjectionUserKey,
-      signedAt: input.signedAt,
-      warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-    });
-    const submitted = await submitRemoteContainerCreate({
-      apiClient: input.apiClient,
-      plan: materializedPlan.plan,
-    });
-    if (!submitted) {
-      return null;
-    }
-
-    if (!submitted.ok) {
-      if (
-        attempt < maxAttempts &&
-        (await cacheRemoteContainerCreatePolicyRepair({
-          apiClient: input.apiClient,
-          execSql: input.execSql,
-          failure: submitted,
-          organizationId: parentProjection.organizationId,
-          resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-        }))
-      ) {
-        // Rebuild after caching the current signed policy bundle; the rejected
-        // request was signed against stale policy material and cannot be replayed.
-        continue;
-      }
-
-      submitted.report();
-      return null;
-    }
-
-    await acknowledgeContainerMutation({
-      execSql: input.execSql,
-      plan: materializedPlan.plan,
-      response: submitted.response,
-    });
-
-    return {
-      containerKey: materializedPlan.containerKey,
-      containerId: submitted.response.containerId,
-      metadataDocumentId: materializedPlan.plan.metadataDocumentId,
-      plan: materializedPlan.plan,
-      response: submitted.response,
-    };
-  }
-
-  return null;
+  const containerId = input.containerId ?? crypto.randomUUID();
+  const containerKey =
+    input.containerKey ?? crypto.getRandomValues(new Uint8Array(32));
+  const eventId = input.eventId ?? crypto.randomUUID();
+  const metadataDocumentId = input.metadataDocumentId ?? crypto.randomUUID();
+  const signedAt = input.signedAt ?? new Date().toISOString();
+  return createRemoteContainerWithRepairs({
+    containerId,
+    containerKey,
+    eventId,
+    metadataDocumentId,
+    parentProjection,
+    request: input,
+    resolveProjectionUserKey,
+    signedAt,
+  });
 }
