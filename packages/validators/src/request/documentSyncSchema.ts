@@ -107,6 +107,10 @@ export const DocumentSyncRequestSchema = loosePlainObject({
   minLsn: z.string().refine(isWalLsnString).optional(),
   outgoingUpdates: arraySchema(DocumentOutgoingUpdateSchema),
 }).superRefine((request, context) => {
+  if (!Array.isArray(request.outgoingUpdates)) {
+    return;
+  }
+
   const hasOutgoingUpdates = request.outgoingUpdates.length > 0;
 
   if (

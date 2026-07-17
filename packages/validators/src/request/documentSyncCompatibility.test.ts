@@ -134,6 +134,9 @@ test("document sync request guard preserves cross-field rules", () => {
   const valid = createSyncRequest();
   const update = valid.outgoingUpdates[0];
 
+  expect(isDocumentSyncRequest({})).toBe(false);
+  expect(isDocumentSyncRequest({ outgoingUpdates: "invalid" })).toBe(false);
+
   expect(
     isDocumentSyncRequest({
       ...valid,
@@ -179,6 +182,12 @@ test("document sync request guard preserves cross-field rules", () => {
       minLsn: "FFFFFFFF/FFFFFFFF",
     }),
   ).toBe(true);
+  expect(
+    isDocumentSyncRequest({ ...valid, contentKeyEpoch: Number.MAX_VALUE }),
+  ).toBe(true);
+  expect(isDocumentSyncRequest({ ...valid, contentKeyEpoch: 1e-10 })).toBe(
+    false,
+  );
   expect(
     isDocumentSyncRequest({
       ...valid,
@@ -298,6 +307,12 @@ test("document sync response guard preserves permissive envelope behavior", () =
     }),
   ).toBe(true);
   expect(isDocumentSyncResponse(classEnvelope)).toBe(false);
+  expect(
+    isDocumentSyncResponse({
+      ...valid,
+      updates: [{ ...update, accessEpoch: 1e-10 }],
+    }),
+  ).toBe(false);
 });
 
 test("document sync response guard preserves checkpoint rules", () => {

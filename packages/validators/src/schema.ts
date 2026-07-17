@@ -4,7 +4,10 @@ import { isPlainObject } from "./isPlainObject";
 export const plainObjectSchema =
   z.custom<Record<string, unknown>>(isPlainObject);
 
-export const positiveIntegerSchema = z.number().positive().multipleOf(1);
+export const positiveIntegerSchema = z
+  .number()
+  .positive()
+  .refine(Number.isInteger);
 
 export const nonEmptyStringSchema = z.string().min(1);
 
