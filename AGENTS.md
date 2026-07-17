@@ -4,7 +4,7 @@
 
 Run the smallest command that matches the handoff risk:
 
-- `bun run check:fast`: formatting, package assertions, Knip, architecture, file names, source shape, and binary-file checks.
+- `bun run check:fast`: formatting, OpenAPI generation and compatibility, package assertions, Knip, architecture, file names, source shape, and binary-file checks.
 - `bun run check:affected`: `check:fast`, TypeScript, and affected Turbo tests.
 - `bun run check`: `check:fast`, TypeScript, and the full Turbo test suite.
 - `bun run lint:knip:production`: production-only dependency and source reachability.
@@ -13,6 +13,8 @@ Run the smallest command that matches the handoff risk:
 - `bun run report:dependencies:archi`: collapsed Graphviz DOT output for package/module reports.
 
 Use `bun run lint:source-shape -- --staged` before committing and `bun run lint:source-shape -- --range <base>..<head>` before handing off a larger branch.
+
+OpenAPI compatibility checks use the mise-pinned `oasdiff`. Run `mise install github:oasdiff/oasdiff` after cloning, and fetch `origin/main` or set `OPENAPI_BASE_REF` when checking against another base commit.
 
 ## Ownership Lanes
 
