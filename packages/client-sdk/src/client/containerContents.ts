@@ -353,6 +353,14 @@ class ContainerContentsService implements ContainerContents {
     });
   }
 
+  loadDocumentEditAttribution(
+    documentId: string,
+  ): ReturnType<ContainerContents["loadDocumentEditAttribution"]> {
+    return this.runtimeService
+      .workflowInput()
+      .apiClient.getDocumentEditAttribution(documentId);
+  }
+
   loadDocumentAttributionRanges(
     input: DocumentAttributionRangesInput,
   ): Promise<DocumentAttributionRangesPage> {

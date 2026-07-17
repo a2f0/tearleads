@@ -1,3 +1,4 @@
+import type { DocumentEditAttributionResponse } from "@tearleads/validators/response";
 import type { DocumentSummary } from "../data/documentSummary";
 import type { StoredDocumentKind } from "../data/documents/documentKinds";
 import type {
@@ -227,6 +228,17 @@ export interface ContainerContents {
    * default is `"if-synced"`.
    */
   loadDocumentInfo(input: DocumentInfoInput): Promise<DocumentInfo>;
+
+  /**
+   * Fetch a synced document's compact edit-attribution segments (peer -> writer
+   * intervals) on their own, without the writer-projection/attachment work
+   * `loadDocumentInfo` also does. Resolves to `null` on any request failure.
+   * Callers must ignore the segments when `truncated` is set — a truncated
+   * interval list can drop a peer's segments and mis-resolve it.
+   */
+  loadDocumentEditAttribution(
+    documentId: string,
+  ): Promise<DocumentEditAttributionResponse | null>;
 
   /** Load one revision-bound page of detailed per-upload edit attribution. */
   loadDocumentAttributionRanges(

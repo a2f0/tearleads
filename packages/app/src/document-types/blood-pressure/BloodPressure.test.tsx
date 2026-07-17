@@ -15,6 +15,7 @@ const readings: BloodPressureReadingRow[] = [
     notes: "Before coffee",
     updatedAt: "2026-07-16T08:30:00.000Z",
     updatedBy: "user-alice",
+    updatedByPeer: "7",
   },
   {
     id: "r2",
@@ -25,6 +26,7 @@ const readings: BloodPressureReadingRow[] = [
     notes: "",
     updatedAt: "",
     updatedBy: "",
+    updatedByPeer: null,
   },
 ];
 
@@ -37,6 +39,7 @@ function renderBloodPressureFields(params?: {
   onUpdateReading?: (id: string, field: string, value: string) => void;
   readings?: BloodPressureReadingRow[];
   ready?: boolean;
+  resolveRowWriter?: (updatedByPeer: string | null) => string | null;
 }) {
   return render(
     <BloodPressureFields
@@ -48,6 +51,7 @@ function renderBloodPressureFields(params?: {
       onUpdateReading={params?.onUpdateReading ?? (() => undefined)}
       readings={params?.readings ?? readings}
       ready={params?.ready ?? true}
+      resolveRowWriter={params?.resolveRowWriter}
       trackerName="Home log"
       trackerNameInputId="blood-pressure-name"
     />,
@@ -105,6 +109,7 @@ test("read mode tolerates missing reading values", () => {
         notes: "",
         updatedAt: "",
         updatedBy: "",
+        updatedByPeer: null,
       },
     ],
     isEditing: false,
@@ -112,6 +117,43 @@ test("read mode tolerates missing reading values", () => {
 
   // Reading pair, pulse, and measured time all fall back to None.
   expect(view.getAllByText("None")).toHaveLength(3);
+});
+
+test("read mode resolves an authoritative writer over the self-attested one", () => {
+  const view = renderBloodPressureFields({
+    currentAuthorId: "user-alice",
+    isEditing: false,
+    readings: [
+      {
+        id: "r1",
+        systolic: "120",
+        diastolic: "80",
+        pulse: "",
+        measuredAt: "",
+        // Self-attested author claims alice, but the row was actually written
+        // by peer "9", which the resolver maps to the verified writer user-bob.
+        notes: "",
+        updatedAt: "2026-07-16T08:30:00.000Z",
+        updatedBy: "user-alice",
+        updatedByPeer: "9",
+      },
+    ],
+    resolveRowWriter: (peer) => (peer === "9" ? "user-bob" : null),
+  });
+
+  expect(view.getByText("Updated 2026-07-16 08:30 by user-bob")).toBeTruthy();
+  expect(view.queryByText("Updated 2026-07-16 08:30 by you")).toBeNull();
+});
+
+test("read mode falls back to the self-attested author when unresolved", () => {
+  const view = renderBloodPressureFields({
+    currentAuthorId: "user-alice",
+    isEditing: false,
+    // r1's updatedBy is user-alice (=== currentAuthorId) → "you".
+    resolveRowWriter: () => null,
+  });
+
+  expect(view.getByText("Updated 2026-07-16 08:30 by you")).toBeTruthy();
 });
 
 test("edits tracker name and reading cells through callbacks", () => {
@@ -151,6 +193,7 @@ test("marks out-of-range measurements invalid without blocking edits", () => {
         notes: "",
         updatedAt: "",
         updatedBy: "",
+        updatedByPeer: null,
       },
     ],
   });
