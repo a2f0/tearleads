@@ -9,10 +9,14 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { policyBundleAfterMutation } from "../../../test/helpers/principalPolicyFixtures";
+import {
+  organizationPolicyBundleFromInitialRequest,
+  policyBundleAfterMutation,
+} from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
+import { buildInitialOrganizationPolicyRequest } from "../registration/registerIdentity";
 import { verifyGroupPolicy } from "./groupPolicyVerification";
 import {
   buildAddGroupUserPolicyRequest,
@@ -107,7 +111,6 @@ test("group remove policy builder rekeys remaining nested group members", async 
   });
 
   const addRequest = await buildAddGroupUserPolicyRequest({
-    canAdministerOrganization: true,
     currentPolicy: initialMemberPolicy,
     currentPolicySignerPublicKeys,
     currentUsers: [
@@ -166,7 +169,6 @@ test("group remove policy builder rekeys remaining nested group members", async 
   };
 
   const removeRequest = await buildRemoveGroupUserPolicyRequest({
-    canAdministerOrganization: true,
     currentPolicy: addedPolicy,
     currentPolicySignerPublicKeys,
     localPolicyCheckpoint: null,
@@ -253,6 +255,17 @@ test("group removal rejects a server-substituted nested group key before mutatio
     substitutedAdminGroup,
   );
   const memberPolicy = await policyBundleFromInitialRequest(initialMemberGroup);
+  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
+    organizationId,
+    await buildInitialOrganizationPolicyRequest({
+      adminGroupId: initialAdminGroup.groupId,
+      encapsulationPublicKey: creatorKem.publicKey,
+      memberGroupId: initialMemberGroup.groupId,
+      organizationId,
+      signingKeyPair,
+      userId: signerUserId,
+    }),
+  );
   const signerIdentity = createTestTrustedUserIdentity({
     userId: signerUserId,
     encapsulationPublicKey: creatorKem.publicKey,
@@ -268,7 +281,6 @@ test("group removal rejects a server-substituted nested group key before mutatio
     signingPublicKey: signingKeyPair.signingPublicKey,
   });
   const addRequest = await buildAddGroupUserPolicyRequest({
-    canAdministerOrganization: false,
     currentPolicy: memberPolicy,
     currentPolicySignerPublicKeys: policySignerPublicKeys({
       signerUserId,
@@ -321,7 +333,7 @@ test("group removal rejects a server-substituted nested group key before mutatio
         },
         getCurrentPrincipalPolicy: async (principalType, principalId) => {
           if (principalType === "organization") {
-            return null;
+            return organizationPolicy;
           }
           if (principalId === currentPolicy.currentState.principalId) {
             return currentPolicy;
@@ -339,7 +351,6 @@ test("group removal rejects a server-substituted nested group key before mutatio
       beforePolicyCommit: () => {
         beforePolicyCommitCalls += 1;
       },
-      canAdministerOrganization: false,
       execSql,
       groupId: currentPolicy.currentState.principalId,
       organizationId,
@@ -360,7 +371,7 @@ test("group removal rejects a server-substituted nested group key before mutatio
     expect(thrown).toBeInstanceOf(KeyingVerificationError);
     expect(thrown).toMatchObject({
       code: "equivocation",
-      message: expect.stringContaining("Group policy verification failed"),
+      message: expect.stringContaining("local checkpoint"),
     });
     expect(beforePolicyCommitCalls).toBe(0);
     expect(writes).toEqual({ policies: 0 });

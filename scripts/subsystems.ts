@@ -37,7 +37,6 @@ export interface Subsystem {
 const api = packageSourcePath.api;
 const sdk = packageSourcePath.clientSdk;
 const app = packageSourcePath.app;
-
 export const subsystems: readonly Subsystem[] = [
   {
     name: "Containers",
@@ -269,6 +268,7 @@ export const subsystems: readonly Subsystem[] = [
     paths: [
       `${sdk}/workflows/organizations/`,
       `${sdk}/client/organizations.ts`,
+      `${sdk}/client/organizationReadModels.ts`,
       `${sdk}/client/organizationMetadataReshare.ts`,
       `${sdk}/client/organizationMetadataReshareCoordinator.ts`,
       `${sdk}/client/organizationRootReshare.ts`,
@@ -283,6 +283,7 @@ export const subsystems: readonly Subsystem[] = [
     seam: "workflows/principals",
     paths: [
       `${sdk}/workflows/principals/`,
+      `${sdk}/data/organizationAuthorityDescriptor.ts`,
       `${sdk}/data/principalPolicyAdminSigners.ts`,
       `${sdk}/data/principalPolicyCrypto.ts`,
     ],

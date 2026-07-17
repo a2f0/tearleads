@@ -9,7 +9,10 @@ import type {
 export async function prepareContainerGroupRewrap(
   state: ContainerContentsStoreState,
   containerId: string,
-): Promise<ReadonlyMap<string, Uint8Array> | null> {
+  groupId: string,
+  accessLevel: ContainerContentsShareAccessLevel,
+  options?: { requireExistingGrant?: boolean } | undefined,
+) {
   if (
     state.runtime.infra.dbStatus !== "ready" ||
     !state.snapshot.ready ||
@@ -24,7 +27,10 @@ export async function prepareContainerGroupRewrap(
   }
 
   return prepareContainerStateGroupRewrap({
+    accessLevel,
     containerState,
+    groupId,
+    requireExistingGrant: options?.requireExistingGrant,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
   });

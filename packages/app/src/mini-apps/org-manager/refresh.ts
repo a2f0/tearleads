@@ -1,3 +1,7 @@
+import type {
+  OrganizationDirectory,
+  OrganizationGroupSummary,
+} from "@tearleads/client-sdk";
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 
 export type DirectoryRefreshOptions = {
@@ -6,10 +10,17 @@ export type DirectoryRefreshOptions = {
   skipNextGroupDetailsEffect?: boolean;
 };
 
-export type DirectoryRefreshResult = {
-  didLoad: boolean;
-  groupId: string | null;
-};
+export type DirectoryRefreshResult =
+  | {
+      didLoad: false;
+      groupId: string | null;
+    }
+  | {
+      didLoad: true;
+      directory: OrganizationDirectory;
+      groupId: string | null;
+      groups: ReadonlyArray<OrganizationGroupSummary>;
+    };
 
 export type GroupDetailsRefreshOptions = {
   clearError?: boolean;

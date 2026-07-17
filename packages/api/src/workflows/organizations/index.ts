@@ -10,5 +10,6 @@ export {
 } from "./groups";
 export { runCreateOrganizationGroupWorkflow } from "./mutations/createGroup";
 export { runUpdateOrganizationProfileWorkflow } from "./profileMutation";
+export { runGetOrganizationReadModelWorkflow } from "./readModelFeed";
 export { runUpdateOrganizationRosterEntryWorkflow } from "./rosterMutation";
 export { runGetOrganizationUserDetailWorkflow } from "./userDetail";

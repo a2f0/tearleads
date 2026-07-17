@@ -41,7 +41,6 @@ interface OrgManagerRefreshersParams {
   resetSelectedRosterUser: () => void;
   selectGroup: (groupId: string | null) => void;
   selectedGroupIdRef: { current: string | null };
-  selectedUserIdRef: { current: string | null };
   skippedGroupDetailsEffectRef: { current: { groupId: string | null } | null };
   setDataUsage: Dispatch<SetStateAction<OrganizationDataUsage | null>>;
   setDirectory: Dispatch<SetStateAction<OrganizationDirectory | null>>;
@@ -79,7 +78,6 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     resetSelectedRosterUser,
     selectGroup,
     selectedGroupIdRef,
-    selectedUserIdRef,
     skippedGroupDetailsEffectRef,
     setDataUsage,
     setDirectory,
@@ -137,34 +135,57 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
         return { didLoad: false, groupId: null };
       }
 
+      const applyDirectoryAndGroups = (
+        nextDirectoryState: NonNullable<
+          Awaited<ReturnType<typeof orgManagerActions.loadDirectoryAndGroups>>
+        >,
+      ): DirectoryRefreshResult => {
+        setDirectory(nextDirectoryState.directory);
+        setGroups(nextDirectoryState.groups);
+        setMemberGroupId(nextDirectoryState.memberGroupId);
+        const currentSelectedGroupId = selectedGroupIdRef.current;
+        const nextSelectedGroupId = resolveOrgManagerSelectedGroupId(
+          currentSelectedGroupId,
+          nextDirectoryState.groups,
+        );
+        if (
+          options.skipNextGroupDetailsEffect &&
+          nextSelectedGroupId !== currentSelectedGroupId
+        ) {
+          skippedGroupDetailsEffectRef.current = {
+            groupId: nextSelectedGroupId,
+          };
+        }
+        selectGroup(nextSelectedGroupId);
+        return {
+          didLoad: true,
+          directory: nextDirectoryState.directory,
+          groupId: nextSelectedGroupId,
+          groups: nextDirectoryState.groups,
+        };
+      };
+
+      const localDirectoryState =
+        await orgManagerActions.loadLocalDirectoryAndGroups();
+      if (!isCurrentRequest()) {
+        return { didLoad: false, groupId: null };
+      }
+      if (localDirectoryState) {
+        applyDirectoryAndGroups(localDirectoryState);
+      }
+
       const nextDirectoryState =
         await orgManagerActions.loadDirectoryAndGroups();
       if (!isCurrentRequest()) {
         return { didLoad: false, groupId: null };
       }
-
-      if (nextDirectoryState === null) {
-        resetDirectoryState();
-        setError(ORG_MANAGER_LABELS.failedLoadDirectoryGroups);
-        return { didLoad: false, groupId: null };
+      if (nextDirectoryState) {
+        return applyDirectoryAndGroups(nextDirectoryState);
       }
 
-      setDirectory(nextDirectoryState.directory);
-      setGroups(nextDirectoryState.groups);
-      setMemberGroupId(nextDirectoryState.memberGroupId);
-      const currentSelectedGroupId = selectedGroupIdRef.current;
-      const nextSelectedGroupId = resolveOrgManagerSelectedGroupId(
-        currentSelectedGroupId,
-        nextDirectoryState.groups,
-      );
-      if (
-        options.skipNextGroupDetailsEffect &&
-        nextSelectedGroupId !== currentSelectedGroupId
-      ) {
-        skippedGroupDetailsEffectRef.current = { groupId: nextSelectedGroupId };
-      }
-      selectGroup(nextSelectedGroupId);
-      return { didLoad: true, groupId: nextSelectedGroupId };
+      resetDirectoryState();
+      setError(ORG_MANAGER_LABELS.failedLoadDirectoryGroups);
+      return { didLoad: false, groupId: null };
     },
     [
       appData.auth.isAuthenticated,
@@ -436,53 +457,17 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setLoading(true);
     setError(null);
     try {
-      const [refreshedDirectory] = await Promise.all([
-        refreshDirectoryAndGroups({
-          clearError: false,
-          manageLoading: false,
-          skipNextGroupDetailsEffect: true,
-        }),
-        refreshGrants({
-          clearError: false,
-          manageLoading: false,
-        }),
-        refreshDataUsage({
-          clearError: false,
-          manageLoading: false,
-        }),
-        refreshOrganizationPolicyHistory({
-          clearError: false,
-          manageLoading: false,
-        }),
-      ]);
-      if (!isCurrentRequest()) {
-        return;
-      }
-      if (refreshedDirectory.didLoad) {
-        await refreshSelectedGroupDetails(refreshedDirectory.groupId, {
-          clearError: false,
-        });
-      }
-      await refreshSelectedUserDetail(selectedUserIdRef.current, {
+      await refreshDirectoryAndGroups({
         clearError: false,
+        manageLoading: false,
+        skipNextGroupDetailsEffect: true,
       });
     } finally {
       if (isCurrentRequest()) {
         setLoading(false);
       }
     }
-  }, [
-    beginRequest,
-    refreshDataUsage,
-    refreshDirectoryAndGroups,
-    refreshGrants,
-    refreshOrganizationPolicyHistory,
-    refreshSelectedGroupDetails,
-    refreshSelectedUserDetail,
-    selectedUserIdRef,
-    setError,
-    setLoading,
-  ]);
+  }, [beginRequest, refreshDirectoryAndGroups, setError, setLoading]);
 
   return {
     refreshDataUsage,

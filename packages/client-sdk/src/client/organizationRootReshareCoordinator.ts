@@ -6,35 +6,18 @@ import type { PreparedOrganizationRootRewrap } from "./organizationRootReshare";
 const INITIAL_RETRY_DELAY_MS = 1_000;
 const MAX_RETRY_DELAY_MS = 60_000;
 
-export interface OrganizationDirectoryForRootReshare {
-  adminGroupId: string | null;
-}
-
-export type LoadOrganizationDirectoryForRootReshare = (
-  organizationId: string,
-) => Promise<OrganizationDirectoryForRootReshare | null>;
-
-export type ReshareOrganizationRootToAdmins = (input: {
-  adminGroupId: string;
+export type PrepareOrganizationRootRewrapForGroup = (input: {
   containerContents: ContainerContents;
+  groupId: string;
   organizationId: string;
-}) => Promise<void>;
-
-export type PrepareOrganizationRootRewrapToAdmins = (input: {
-  adminGroupId: string;
-  containerContents: ContainerContents;
-  organizationId: string;
-}) => Promise<PreparedOrganizationRootRewrap>;
+}) => Promise<PreparedOrganizationRootRewrap | null>;
 
 export interface OrganizationRootReshareCoordinator {
   /**
-   * Repair or refresh root access when the changed group is Admins.
-   *
-   * Admins failures intentionally reject. A pending repair does not block an
-   * unrelated group mutation, but remains scheduled because the old cached
-   * Admins policy may be the only way to unwrap root's stale KEK.
+   * Capture root key material only when the signed root manifest directly
+   * grants the mutated group admin access. An unrelated group is a no-op.
    */
-  prepareIfAdminsGroup(input: {
+  prepareForGroupMutation(input: {
     mutatedGroupId: string;
     organizationId: string;
   }): Promise<PreparedOrganizationRootRewrap>;
@@ -53,10 +36,8 @@ interface ScheduledOrganizationRootRewrap {
 
 interface OrganizationRootReshareCoordinatorDependencies {
   containerContents: ContainerContents;
-  loadDirectory: LoadOrganizationDirectoryForRootReshare;
   logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
-  prepare: PrepareOrganizationRootRewrapToAdmins;
-  reshare: ReshareOrganizationRootToAdmins;
+  prepare: PrepareOrganizationRootRewrapForGroup;
   scheduleRetry?:
     | ((retry: () => Promise<void>, delayMs: number) => void)
     | undefined;
@@ -64,7 +45,6 @@ interface OrganizationRootReshareCoordinatorDependencies {
 
 interface OrganizationRootReshareCoordinatorState {
   activeByOrganization: Map<string, ActiveOrganizationRootRewrap>;
-  adminGroupIdByOrganization: Map<string, string>;
   deps: OrganizationRootReshareCoordinatorDependencies;
   logError: (message: string | Error, cause?: unknown) => void;
   pendingByOrganization: Map<string, PreparedOrganizationRootRewrap>;
@@ -72,6 +52,12 @@ interface OrganizationRootReshareCoordinatorState {
   scheduledByOrganization: Map<string, ScheduledOrganizationRootRewrap>;
   terminalErrorByOrganization: Map<string, Error>;
 }
+
+const NOOP_REWRAP: PreparedOrganizationRootRewrap = {
+  hasExpectedGroupPolicyHead: () => false,
+  rewrap: async () => undefined,
+  setExpectedGroupPolicyHead: () => undefined,
+};
 
 function defaultScheduleRetry(
   retry: () => Promise<void>,
@@ -86,7 +72,6 @@ function createCoordinatorState(
   const logError = deps.logError ?? logErrorToConsole;
   return {
     activeByOrganization: new Map(),
-    adminGroupIdByOrganization: new Map(),
     deps,
     logError: (message, cause) => logErrorSafely(logError, message, cause),
     pendingByOrganization: new Map(),
@@ -167,15 +152,11 @@ async function applyOrganizationRootRewrap(
       state.pendingByOrganization.delete(organizationId);
     }
   })();
-  state.activeByOrganization.set(organizationId, {
-    prepared,
-    promise,
-  });
+  state.activeByOrganization.set(organizationId, { prepared, promise });
   try {
     await promise;
   } finally {
-    const current = state.activeByOrganization.get(organizationId);
-    if (current?.promise === promise) {
+    if (state.activeByOrganization.get(organizationId)?.promise === promise) {
       state.activeByOrganization.delete(organizationId);
     }
   }
@@ -255,50 +236,20 @@ function retryPendingRewrap(
   }, delayMs);
 }
 
-async function resolveAdminGroupId(
+async function flushPendingRewrap(
   state: OrganizationRootReshareCoordinatorState,
   organizationId: string,
-): Promise<string> {
-  const cached = state.adminGroupIdByOrganization.get(organizationId);
-  if (cached) {
-    return cached;
-  }
-
-  const directory = await state.deps.loadDirectory(organizationId);
-  const adminGroupId = directory?.adminGroupId ?? null;
-  if (!adminGroupId) {
-    throw new Error(
-      `Admins group could not be resolved for organization ${organizationId}`,
-    );
-  }
-  state.adminGroupIdByOrganization.set(organizationId, adminGroupId);
-  return adminGroupId;
-}
-
-async function flushPendingRewrap(input: {
-  adminGroupId: string;
-  mutatedGroupId: string;
-  organizationId: string;
-  state: OrganizationRootReshareCoordinatorState;
-}): Promise<void> {
-  const { adminGroupId, mutatedGroupId, organizationId, state } = input;
+): Promise<void> {
   const pending = state.pendingByOrganization.get(organizationId);
   if (!pending) {
     return;
   }
-
   try {
     await applyPendingRewrap(state, organizationId, pending);
   } catch (error) {
     rethrowTerminalRewrapFailure(state, organizationId, pending, error);
     retryPendingRewrap(state, organizationId, pending);
-    if (mutatedGroupId === adminGroupId) {
-      throw error;
-    }
-    state.logError(
-      `Failed to re-wrap organization root for ${organizationId}; allowing unrelated group mutation`,
-      error,
-    );
+    throw error;
   }
 }
 
@@ -308,17 +259,7 @@ async function applyPreparedRewrap(
   prepared: PreparedOrganizationRootRewrap,
 ): Promise<void> {
   throwTerminalOrganizationError(state, organizationId);
-  const pending = state.pendingByOrganization.get(organizationId);
-  if (pending && pending !== prepared) {
-    try {
-      await applyPendingRewrap(state, organizationId, pending);
-    } catch (error) {
-      rethrowTerminalRewrapFailure(state, organizationId, pending, error);
-      retryPendingRewrap(state, organizationId, pending);
-      throw error;
-    }
-  }
-
+  await flushPendingRewrap(state, organizationId);
   state.pendingByOrganization.set(organizationId, prepared);
   try {
     await applyPendingRewrap(state, organizationId, prepared);
@@ -329,59 +270,41 @@ async function applyPreparedRewrap(
   }
 }
 
-async function prepareAdminsRewrap(
+function wrapPreparedRewrap(
   state: OrganizationRootReshareCoordinatorState,
   organizationId: string,
-  adminGroupId: string,
-): Promise<PreparedOrganizationRootRewrap> {
-  const dependencyInput = {
-    adminGroupId,
-    containerContents: state.deps.containerContents,
-    organizationId,
-  };
-  await state.deps.reshare(dependencyInput);
-  const captured = await state.deps.prepare(dependencyInput);
+  captured: PreparedOrganizationRootRewrap,
+): PreparedOrganizationRootRewrap {
   const prepared: PreparedOrganizationRootRewrap = {
     hasExpectedGroupPolicyHead: () => captured.hasExpectedGroupPolicyHead(),
     rewrap: () => captured.rewrap(),
-    setExpectedGroupPolicyHead(head) {
-      captured.setExpectedGroupPolicyHead(head);
-    },
+    setExpectedGroupPolicyHead: (head) =>
+      captured.setExpectedGroupPolicyHead(head),
   };
   return {
     hasExpectedGroupPolicyHead: () => prepared.hasExpectedGroupPolicyHead(),
-    async rewrap() {
-      // A captured key must not be flushable before the group commit. Activate
-      // it only when the post-commit bridge (or ambiguous-failure recovery)
-      // invokes this operation.
-      await applyPreparedRewrap(state, organizationId, prepared);
-    },
+    rewrap: () => applyPreparedRewrap(state, organizationId, prepared),
     setExpectedGroupPolicyHead: (head) =>
       prepared.setExpectedGroupPolicyHead(head),
   };
 }
 
-async function prepareIfAdminsGroup(
+async function prepareForGroupMutation(
   state: OrganizationRootReshareCoordinatorState,
   mutatedGroupId: string,
   organizationId: string,
 ): Promise<PreparedOrganizationRootRewrap> {
-  throwTerminalOrganizationError(state, organizationId);
-  const adminGroupId = await resolveAdminGroupId(state, organizationId);
-  await flushPendingRewrap({
-    adminGroupId,
-    mutatedGroupId,
+  const captured = await state.deps.prepare({
+    containerContents: state.deps.containerContents,
+    groupId: mutatedGroupId,
     organizationId,
-    state,
   });
-  if (mutatedGroupId !== adminGroupId) {
-    return {
-      hasExpectedGroupPolicyHead: () => false,
-      rewrap: async () => undefined,
-      setExpectedGroupPolicyHead: () => undefined,
-    };
+  if (!captured) {
+    return NOOP_REWRAP;
   }
-  return prepareAdminsRewrap(state, organizationId, adminGroupId);
+  throwTerminalOrganizationError(state, organizationId);
+  await flushPendingRewrap(state, organizationId);
+  return wrapPreparedRewrap(state, organizationId, captured);
 }
 
 export function createOrganizationRootReshareCoordinator(
@@ -389,7 +312,7 @@ export function createOrganizationRootReshareCoordinator(
 ): OrganizationRootReshareCoordinator {
   const state = createCoordinatorState(deps);
   return {
-    prepareIfAdminsGroup: ({ mutatedGroupId, organizationId }) =>
-      prepareIfAdminsGroup(state, mutatedGroupId, organizationId),
+    prepareForGroupMutation: ({ mutatedGroupId, organizationId }) =>
+      prepareForGroupMutation(state, mutatedGroupId, organizationId),
   };
 }

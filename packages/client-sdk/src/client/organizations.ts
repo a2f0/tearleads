@@ -9,7 +9,6 @@ import {
   loadOrganizationBilling,
   loadOrganizationContainerGrants,
   loadOrganizationDataUsage,
-  loadOrganizationDirectoryAndGroups,
   loadOrganizationGroupDetails,
   loadOrganizationPolicyHistory,
   loadOrganizationUserDetail,
@@ -21,15 +20,18 @@ import {
 } from "../workflows/organizations";
 import { createRuntimePrincipalPolicyWarmer } from "../workflows/principals/runtimePolicyWarmer";
 import type { ContainerContents } from "./containerContents";
-import { reshareOrganizationMetadataToMembers } from "./organizationMetadataReshare";
+import { reshareOrganizationMetadataAfterGroupChange } from "./organizationMetadataReshare";
 import {
   createOrganizationMetadataReshareCoordinator,
   type OrganizationMetadataReshareCoordinator,
 } from "./organizationMetadataReshareCoordinator";
 import {
-  prepareOrganizationRootRewrapToAdmins,
+  createOrganizationReadModelCoordinator,
+  type OrganizationReadModelCoordinator,
+} from "./organizationReadModels";
+import {
+  prepareOrganizationRootRewrapForGroup,
   recoverOrganizationRootRewrapAfterMutationFailure,
-  reshareOrganizationRootToAdmins,
 } from "./organizationRootReshare";
 import {
   createOrganizationRootReshareCoordinator,
@@ -79,7 +81,6 @@ export interface OrganizationGrantRef {
 }
 
 export interface OrganizationGroupUserMutationInput {
-  canAdministerOrganization: boolean;
   groupId: string;
 }
 
@@ -105,7 +106,10 @@ export interface Organizations {
   loadBilling: () => ReturnType<typeof loadOrganizationBilling>;
   loadDataUsage: () => ReturnType<typeof loadOrganizationDataUsage>;
   loadDirectoryAndGroups: () => ReturnType<
-    typeof loadOrganizationDirectoryAndGroups
+    OrganizationReadModelCoordinator["reconcile"]
+  >;
+  loadLocalDirectoryAndGroups: () => ReturnType<
+    OrganizationReadModelCoordinator["loadLocal"]
   >;
   loadGroupDetails: (
     groupId: string,
@@ -179,47 +183,28 @@ export function createOrganizations(
 
 class OrganizationsService implements Organizations {
   private readonly metadataReshareCoordinator: OrganizationMetadataReshareCoordinator;
+  private readonly readModelCoordinator: OrganizationReadModelCoordinator;
   private readonly rootReshareCoordinator: OrganizationRootReshareCoordinator;
 
   constructor(
     private readonly runtimeService: InternalRuntime,
     containerContents: ContainerContents,
   ) {
+    this.readModelCoordinator = createOrganizationReadModelCoordinator(
+      this.runtimeService,
+    );
     this.metadataReshareCoordinator =
       createOrganizationMetadataReshareCoordinator({
         containerContents,
-        // The coordinator only needs the immutable Members-group id. Reading the
-        // group list avoids reloading the entire roster after every group policy
-        // mutation; concurrent Org Manager refreshes already coalesce this call.
-        loadDirectory: async (organizationId) => {
-          const groups = await this.runtimeService
-            .workflowInput()
-            .apiClient.listOrganizationGroups(organizationId);
-          return groups ? { memberGroupId: groups.memberGroupId } : null;
-        },
         // Resolve the logger per call so it tracks the current runtime.
         log: (message) => this.runtimeService.workflowInput().util.log(message),
-        reshare: reshareOrganizationMetadataToMembers,
+        reshare: reshareOrganizationMetadataAfterGroupChange,
       });
     this.rootReshareCoordinator = createOrganizationRootReshareCoordinator({
       containerContents,
-      loadDirectory: async (organizationId) => {
-        const groups = await this.runtimeService
-          .workflowInput()
-          .apiClient.listOrganizationGroups(organizationId);
-        return groups
-          ? {
-              adminGroupId:
-                groups.groups.find(
-                  (group) => group.isBuiltin && group.name === "Admins",
-                )?.groupId ?? null,
-            }
-          : null;
-      },
       logError: (message, cause) =>
         this.runtimeService.workflowInput().util.logError(message, cause),
-      prepare: prepareOrganizationRootRewrapToAdmins,
-      reshare: reshareOrganizationRootToAdmins,
+      prepare: prepareOrganizationRootRewrapForGroup,
     });
   }
 
@@ -228,17 +213,20 @@ class OrganizationsService implements Organizations {
     const signingContext = requireSigningContext(runtime);
     const currentUserSecretKey = requireEncapsulationKeyPair(runtime).secretKey;
     const preparedRootRewrap =
-      await this.rootReshareCoordinator.prepareIfAdminsGroup({
+      await this.rootReshareCoordinator.prepareForGroupMutation({
         mutatedGroupId: input.groupId,
         organizationId: signingContext.organizationId,
       });
+    let memberGroupId: string | null = null;
     const bundle = await recoverOrganizationRootRewrapAfterMutationFailure({
       logError: runtime.util.logError,
       mutation: addOrganizationGroupUser({
         afterPolicyCommitBeforeCache: () => preparedRootRewrap.rewrap(),
         apiClient: runtime.apiClient,
-        beforePolicyCommit: preparedRootRewrap.setExpectedGroupPolicyHead,
-        canAdministerOrganization: input.canAdministerOrganization,
+        beforePolicyCommit: (head, authority) => {
+          preparedRootRewrap.setExpectedGroupPolicyHead(head);
+          memberGroupId = authority.memberGroupId;
+        },
         currentUserSecretKey,
         execSql: runtime.infra.execSql,
         groupId: input.groupId,
@@ -248,10 +236,13 @@ class OrganizationsService implements Organizations {
       }),
       prepared: preparedRootRewrap,
     });
-    void this.metadataReshareCoordinator.reshareAfterGroupChange({
-      mutatedGroupId: input.groupId,
-      organizationId: signingContext.organizationId,
-    });
+    if (memberGroupId) {
+      void this.metadataReshareCoordinator.reshareAfterGroupChange({
+        memberGroupId,
+        mutatedGroupId: input.groupId,
+        organizationId: signingContext.organizationId,
+      });
+    }
     return bundle;
   }
 
@@ -313,16 +304,11 @@ class OrganizationsService implements Organizations {
   }
 
   loadDirectoryAndGroups() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    if (!organizationId) {
-      return Promise.resolve(null);
-    }
+    return this.readModelCoordinator.reconcile();
+  }
 
-    return loadOrganizationDirectoryAndGroups({
-      apiClient: runtime.apiClient,
-      organizationId,
-    });
+  loadLocalDirectoryAndGroups() {
+    return this.readModelCoordinator.loadLocal();
   }
 
   loadGroupDetails(groupId: string) {
@@ -431,17 +417,20 @@ class OrganizationsService implements Organizations {
     const runtime = this.runtimeService.workflowInput();
     const signingContext = requireSigningContext(runtime);
     const preparedRootRewrap =
-      await this.rootReshareCoordinator.prepareIfAdminsGroup({
+      await this.rootReshareCoordinator.prepareForGroupMutation({
         mutatedGroupId: input.groupId,
         organizationId: signingContext.organizationId,
       });
+    let memberGroupId: string | null = null;
     const bundle = await recoverOrganizationRootRewrapAfterMutationFailure({
       logError: runtime.util.logError,
       mutation: removeOrganizationGroupUser({
         afterPolicyCommitBeforeCache: () => preparedRootRewrap.rewrap(),
         apiClient: runtime.apiClient,
-        beforePolicyCommit: preparedRootRewrap.setExpectedGroupPolicyHead,
-        canAdministerOrganization: input.canAdministerOrganization,
+        beforePolicyCommit: (head, authority) => {
+          preparedRootRewrap.setExpectedGroupPolicyHead(head);
+          memberGroupId = authority.memberGroupId;
+        },
         execSql: runtime.infra.execSql,
         groupId: input.groupId,
         removedUserId: input.removedUserId,
@@ -450,10 +439,13 @@ class OrganizationsService implements Organizations {
       }),
       prepared: preparedRootRewrap,
     });
-    void this.metadataReshareCoordinator.reshareAfterGroupChange({
-      mutatedGroupId: input.groupId,
-      organizationId: signingContext.organizationId,
-    });
+    if (memberGroupId) {
+      void this.metadataReshareCoordinator.reshareAfterGroupChange({
+        memberGroupId,
+        mutatedGroupId: input.groupId,
+        organizationId: signingContext.organizationId,
+      });
+    }
     return bundle;
   }
 

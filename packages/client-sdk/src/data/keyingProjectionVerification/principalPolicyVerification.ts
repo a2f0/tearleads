@@ -4,13 +4,15 @@ import {
   type ReferencedPrincipalHead,
   toFingerprint,
   type VerifiedPrincipalPolicy,
+  verifyPrincipalPolicyBundle,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { parseOrganizationAuthorityDescriptor } from "../organizationAuthorityDescriptor";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import { principalPolicyHeadMeetsCheckpoint } from "../persistence/principalPolicyCheckpointSelection";
 import { loadPrincipalPolicyBundle } from "../persistence/principalPolicyPersistence";
 import {
-  organizationAdminSignerUserIds,
+  organizationAdminExternalAuthority,
   principalPolicyReferenceFromBundle,
   verifyOrganizationAdminPolicy,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
@@ -76,12 +78,24 @@ async function collectPrincipalPolicySignerPublicKeys(input: {
   return [...signerPublicKeysByKey.values()];
 }
 
-async function loadOrganizationExternalAdminSignerUserIds(input: {
+type OrganizationAdminPolicyInput = {
   checkpointContext: ProjectionCheckpointContext;
   organizationId: string;
   resolveUserKey: ProjectionUserKeyResolver;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<string[]> {
+};
+
+async function loadOrganizationPolicyForVerification(
+  input: OrganizationAdminPolicyInput,
+): Promise<
+  | {
+      bundle: PrincipalPolicyBundleResponse;
+      localCheckpoint: Awaited<
+        ReturnType<typeof loadPrincipalPolicyCheckpoint>
+      >;
+    }
+  | undefined
+> {
   const execSql = input.checkpointContext.execSql;
   let bundle = await loadPrincipalPolicyBundle(
     execSql,
@@ -89,7 +103,7 @@ async function loadOrganizationExternalAdminSignerUserIds(input: {
     input.organizationId,
   );
   if (!bundle) {
-    return [];
+    return undefined;
   }
   let localCheckpoint = await loadPrincipalPolicyCheckpoint(
     execSql,
@@ -115,32 +129,118 @@ async function loadOrganizationExternalAdminSignerUserIds(input: {
       input.organizationId,
     );
     if (!bundle) {
-      return [];
+      return undefined;
     }
+  }
+
+  return { bundle, localCheckpoint };
+}
+
+function assertReservedAdminsPolicyShape(
+  policy: VerifiedPrincipalPolicy,
+): void {
+  const history = policy.history ?? [{ projection: policy.projection }];
+  if (
+    history.some(
+      (entry) =>
+        entry.projection.length === 0 ||
+        entry.projection.some(
+          (member) =>
+            member.memberPrincipalType !== "user" || member.role !== "admin",
+        ),
+    )
+  ) {
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "reserved Admins policy must contain only direct admin users",
+    );
+  }
+}
+
+async function verifyOrganizationAdminsPolicy(input: {
+  adminGroupId: string;
+  execSql: ProjectionCheckpointContext["execSql"];
+  resolveUserKey: ProjectionUserKeyResolver;
+}): Promise<VerifiedPrincipalPolicy | undefined> {
+  const adminBundle = await loadPrincipalPolicyBundle(
+    input.execSql,
+    "group",
+    input.adminGroupId,
+  );
+  if (!adminBundle) {
+    return undefined;
+  }
+  const adminCheckpoint = await loadPrincipalPolicyCheckpoint(
+    input.execSql,
+    "group",
+    input.adminGroupId,
+  );
+  const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
+    bundle: adminBundle,
+    label: `Admins policy ${input.adminGroupId}`,
+    resolveUserKey: input.resolveUserKey,
+  });
+  const verified = await verifyPrincipalPolicyBundle({
+    bundle: adminBundle,
+    expectedReference: principalPolicyReferenceFromBundle(adminBundle),
+    localCheckpoint: adminCheckpoint,
+    signerPublicKeys,
+  });
+  if (!verified.ok) {
+    throw verified.error;
+  }
+  assertReservedAdminsPolicyShape(verified.value);
+  return verified.value;
+}
+
+async function loadOrganizationExternalAuthority(
+  input: OrganizationAdminPolicyInput,
+): Promise<ReturnType<typeof organizationAdminExternalAuthority> | null> {
+  const organizationPolicy = await loadOrganizationPolicyForVerification(input);
+  if (!organizationPolicy) {
+    return null;
   }
 
   try {
     const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
-      bundle,
+      bundle: organizationPolicy.bundle,
       label: `Organization policy ${input.organizationId}`,
       resolveUserKey: input.resolveUserKey,
     });
     const verified = await verifyOrganizationAdminPolicy({
-      bundle,
-      localCheckpoint,
+      bundle: organizationPolicy.bundle,
+      localCheckpoint: organizationPolicy.localCheckpoint,
       organizationId: input.organizationId,
       signerPublicKeys,
     });
     if (!verified.ok) {
       throw verified.error;
     }
+    const descriptor = parseOrganizationAuthorityDescriptor(
+      organizationPolicy.bundle.currentPayload.ciphertext,
+    );
+    if (descriptor.organizationId !== input.organizationId) {
+      throw new KeyingVerificationError(
+        "object_mismatch",
+        "organization authority descriptor scope does not match",
+      );
+    }
+    const verifiedAdmins = await verifyOrganizationAdminsPolicy({
+      adminGroupId: descriptor.adminGroupId,
+      execSql: input.checkpointContext.execSql,
+      resolveUserKey: input.resolveUserKey,
+    });
+    if (!verifiedAdmins) {
+      return null;
+    }
     observePrincipalPolicy(input.checkpointContext, verified.value);
-    return organizationAdminSignerUserIds(verified.value);
+    observePrincipalPolicy(input.checkpointContext, verifiedAdmins);
+    return organizationAdminExternalAuthority(verifiedAdmins);
   } catch (error) {
     if (error instanceof KeyingVerificationError) {
       throw error;
     }
-    return [];
+    return null;
   }
 }
 
@@ -201,8 +301,8 @@ async function verifyReferencedPrincipalPolicy(input: {
     await verifyPrincipalPolicyBundleWithExternalOrganizationAdmins({
       bundle,
       expectedReference: input.reference,
-      loadExternalAdminSignerUserIds: () =>
-        loadOrganizationExternalAdminSignerUserIds({
+      loadExternalAuthority: () =>
+        loadOrganizationExternalAuthority({
           checkpointContext: input.checkpointContext,
           organizationId: input.organizationId,
           resolveUserKey: input.resolveUserKey,

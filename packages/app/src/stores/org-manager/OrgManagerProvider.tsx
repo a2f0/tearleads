@@ -49,7 +49,6 @@ interface OrgManagerContextValue {
   addUserToGroup: (
     groupId: string,
     targetUserId: string,
-    canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
   captureOperationScope: () => OrgManagerOperationScope | null;
   createGroup: (name: string) => Promise<OrganizationGroupSummary>;
@@ -68,6 +67,7 @@ interface OrgManagerContextValue {
   isOperationScopeActive: (scope: OrgManagerOperationScope) => boolean;
   loadDataUsage: () => Promise<OrganizationDataUsage | null>;
   loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
+  loadLocalDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
   loadGroupDetails: (groupId: string) => Promise<OrganizationGroupDetails>;
   loadGrants: () => Promise<OrganizationContainerGrants | null>;
   loadPolicyHistory: () => Promise<OrganizationPolicyHistory | null>;
@@ -75,7 +75,6 @@ interface OrgManagerContextValue {
   removeUserFromGroup: (
     groupId: string,
     removedUserId: string,
-    canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
   revokeGrant: (
     grant: Pick<
@@ -183,6 +182,10 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     return organizations.loadDirectoryAndGroups();
   }, [organizations]);
 
+  const loadLocalDirectoryAndGroups = useCallback(() => {
+    return organizations.loadLocalDirectoryAndGroups();
+  }, [organizations]);
+
   const loadGroupDetails = useCallback(
     (groupId: string) => {
       return organizations.loadGroupDetails(groupId);
@@ -210,13 +213,8 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
   );
 
   const addUserToGroup = useCallback(
-    async (
-      groupId: string,
-      targetUserId: string,
-      canAdministerOrganization: boolean,
-    ) => {
+    async (groupId: string, targetUserId: string) => {
       return organizations.addUserToGroup({
-        canAdministerOrganization,
         groupId,
         targetUserId,
       });
@@ -225,13 +223,8 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
   );
 
   const removeUserFromGroup = useCallback(
-    async (
-      groupId: string,
-      removedUserId: string,
-      canAdministerOrganization: boolean,
-    ) => {
+    async (groupId: string, removedUserId: string) => {
       return organizations.removeUserFromGroup({
-        canAdministerOrganization,
         groupId,
         removedUserId,
       });
@@ -385,6 +378,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       isOperationScopeActive,
       loadDataUsage,
       loadDirectoryAndGroups,
+      loadLocalDirectoryAndGroups,
       loadGroupDetails,
       loadGrants,
       loadPolicyHistory,
@@ -406,6 +400,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       isOperationScopeActive,
       loadDataUsage,
       loadDirectoryAndGroups,
+      loadLocalDirectoryAndGroups,
       loadGroupDetails,
       loadGrants,
       loadPolicyHistory,

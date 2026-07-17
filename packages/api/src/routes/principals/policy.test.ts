@@ -17,6 +17,7 @@ import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response"
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { getCurrentOrganizationAdminAuthority } from "../../../test/helpers/organizationAdmin";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import {
   createProjectionWithAdminSigner,
@@ -30,6 +31,9 @@ import {
 import { routeApp } from "../../routeApp";
 
 async function createSignedPrincipalState(input: {
+  externalAuthority?: Parameters<
+    typeof signPrincipalStateBundle
+  >[0]["externalAuthority"];
   keyEpoch?: number;
   members: Array<{ principalType: "user" | "group"; principalId: string }>;
   prevStateHash?: string | null;
@@ -67,6 +71,7 @@ async function createSignedPrincipalState(input: {
     keyFingerprint: await toFingerprint(principalKem.publicKey),
     members: stateMembers,
     projection,
+    externalAuthority: input.externalAuthority ?? null,
     payloadCiphertext: bytesToBase64(
       new TextEncoder().encode(JSON.stringify(input.members)),
     ),
@@ -786,6 +791,8 @@ test("PUT /principals/:principalType/:principalId/policy allows org admins to up
     "expected initial principal policy bundle response",
   );
   const initialStoredState = initialStoredPolicy.currentState;
+  const externalAuthority =
+    await getCurrentOrganizationAdminAuthority(organizationId);
 
   const successorProjection = [
     ...initialState.projection,
@@ -807,6 +814,7 @@ test("PUT /principals/:principalType/:principalId/policy allows org admins to up
       principalId: member.memberPrincipalId,
     })),
     projection: successorProjection,
+    externalAuthority,
     signedAt: "2026-04-08T16:01:00.000Z",
     signerUserId: orgAdmin.userId,
     signerUserKeyFingerprint: orgAdmin.fingerprint,

@@ -4,6 +4,12 @@ import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { addDocumentAttachments } from "../../data/documents/documentContent";
 import {
+  organizationReadModelDirectoryUsers,
+  organizationReadModelGroups,
+  organizationReadModelRequesters,
+  organizationReadModelState,
+} from "../../data/sqlite/organizationReadModelSchema";
+import {
   clientSqlTables,
   containerCreateIntents,
   containerMoveIntents,
@@ -204,6 +210,48 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         laneId: "root",
         checkedAt: stale,
       });
+      await tx.insert(organizationReadModelState).values({
+        organizationId: "org-old",
+        protocolVersion: 1,
+        cursor: "opaque-cursor",
+        profileDocumentId: null,
+        memberGroupId: "members-group",
+        updatedAt: stale,
+      });
+      await tx.insert(organizationReadModelRequesters).values({
+        organizationId: "org-old",
+        userId: "user-old",
+        isOrgAdmin: true,
+        updatedAt: stale,
+      });
+      await tx.insert(organizationReadModelDirectoryUsers).values({
+        organizationId: "org-old",
+        userId: "user-old",
+        sortOrder: 0,
+        signingKeyFingerprint: "signing-fingerprint",
+        signingPublicKey: "signing-public-key",
+        encapsulationPublicKey: "encapsulation-public-key",
+        encapsulationKeyFingerprint: "encapsulation-fingerprint",
+        createdAt: stale,
+        status: "active",
+        profileDocumentId: null,
+        joinedAt: stale,
+        updatedAt: stale,
+        disabledAt: null,
+        disabledByUserId: null,
+      });
+      await tx.insert(organizationReadModelGroups).values({
+        organizationId: "org-old",
+        groupId: "group-old",
+        sortOrder: 0,
+        name: "Old group",
+        createdAt: stale,
+        isBuiltin: false,
+        stateHash: null,
+        stateVersion: null,
+        keyEpoch: null,
+        memberCount: null,
+      });
     });
 
     const result = await clearRemoteSyncState(execSql);
@@ -320,6 +368,12 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
     expect(await db.select().from(containerMoveIntents)).toEqual([]);
     expect(await db.select().from(containerSyncWatermarks)).toEqual([]);
     expect(await db.select().from(containerSyncLaneChecks)).toEqual([]);
+    expect(await db.select().from(organizationReadModelState)).toEqual([]);
+    expect(await db.select().from(organizationReadModelRequesters)).toEqual([]);
+    expect(await db.select().from(organizationReadModelDirectoryUsers)).toEqual(
+      [],
+    );
+    expect(await db.select().from(organizationReadModelGroups)).toEqual([]);
   } finally {
     close();
   }

@@ -1,0 +1,101 @@
+import { db } from "@tearleads/api-shared/postgres";
+import { organizations, users } from "@tearleads/api-shared/schema";
+import type { TestUser } from "@tearleads/bob-and-alice";
+import {
+  generateKemSeedAndKeyPair,
+  normalizePrincipalProjectionMembers,
+  toFingerprint,
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { eq } from "drizzle-orm";
+import invariant from "invariant";
+import { getCurrentPrincipalState } from "../../src/access/read/principalStateStore";
+import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
+import {
+  signPrincipalStateBundle,
+  toPrincipalStateExternalAuthority,
+} from "./principalState";
+
+export async function createGroupRequest(input: {
+  actor: TestUser;
+  groupId: string;
+  includeActorAsAdmin?: boolean | undefined;
+  name: string;
+  nestedGroupIds?: readonly string[] | undefined;
+}) {
+  const principalKem = generateKemSeedAndKeyPair();
+  const includeActor = input.includeActorAsAdmin ?? true;
+  const projection = normalizePrincipalProjectionMembers([
+    ...(includeActor
+      ? [
+          {
+            memberPrincipalType: "user" as const,
+            memberPrincipalId: input.actor.userId,
+            role: "admin" as const,
+          },
+        ]
+      : []),
+    ...(input.nestedGroupIds ?? []).map((groupId) => ({
+      memberPrincipalType: "group" as const,
+      memberPrincipalId: groupId,
+      role: "member" as const,
+    })),
+  ]);
+  const payloadCiphertext = bytesToBase64(
+    new TextEncoder().encode(JSON.stringify({ members: projection })),
+  );
+  const { memberEnvelopes, stateMembers } =
+    await createPrincipalMemberEnvelopes({
+      principalSecretKey: principalKem.secretKey,
+      projection,
+    });
+  let externalAuthority = null;
+  if (!includeActor) {
+    const [organization] = await db
+      .select({ adminGroupId: organizations.adminGroupId })
+      .from(users)
+      .innerJoin(
+        organizations,
+        eq(organizations.id, users.defaultOrganizationId),
+      )
+      .where(eq(users.id, input.actor.userId))
+      .limit(1);
+    invariant(organization, "expected actor organization");
+    const adminState = await getCurrentPrincipalState(
+      "group",
+      organization.adminGroupId,
+      db,
+    );
+    invariant(adminState, "expected current Admins state");
+    externalAuthority = toPrincipalStateExternalAuthority(adminState);
+  }
+  const state = await signPrincipalStateBundle({
+    principalType: "group",
+    principalId: input.groupId,
+    version: 1,
+    prevStateHash: null,
+    keyEpoch: 1,
+    encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+    keyFingerprint: await toFingerprint(principalKem.publicKey),
+    members: stateMembers,
+    projection,
+    memberEnvelopes,
+    payloadCiphertext,
+    externalAuthority,
+    signedAt: new Date("2026-05-12T12:00:00.000Z").toISOString(),
+    signerUserId: input.actor.userId,
+    signerUserKeyFingerprint: input.actor.fingerprint,
+    signingPrivateKey: input.actor.signing.signingPrivateKey,
+  });
+
+  return {
+    groupId: input.groupId,
+    name: input.name,
+    initialGroupPolicy: {
+      state: state.state,
+      encryptedPayload: state.encryptedPayload,
+      projection: state.projection,
+      memberEnvelopes,
+    },
+  };
+}

@@ -2,10 +2,11 @@ import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import { organizations } from "@tearleads/api-shared/schema";
 import type { UpdateOrganizationProfileRequest } from "@tearleads/validators/request";
 import type { OrganizationProfileResponse } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { assertOrganizationCanSync } from "../billing/organizationBilling";
-import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
+import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
+import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
 import { isOrganizationProfileDocument } from "./roster";
 
 export async function runUpdateOrganizationProfileWorkflow(
@@ -15,10 +16,10 @@ export async function runUpdateOrganizationProfileWorkflow(
   input: UpdateOrganizationProfileRequest,
 ): Promise<OrganizationProfileResponse> {
   return db.transaction(async (tx) => {
-    await requireDirectOrganizationAccess({
-      executor: tx,
+    await requireSerializedOrganizationMutationAccess({
       organizationId,
       requireAdmin: true,
+      tx,
       userId: sessionUserId,
     });
     await assertOrganizationCanSync(tx, organizationId);
@@ -37,18 +38,35 @@ export async function runUpdateOrganizationProfileWorkflow(
       );
     }
 
-    const [organization] = await tx
+    const profileDocumentChanged =
+      input.profileDocumentId === null
+        ? isNotNull(organizations.profileDocumentId)
+        : or(
+            isNull(organizations.profileDocumentId),
+            ne(organizations.profileDocumentId, input.profileDocumentId),
+          );
+    const [updatedOrganization] = await tx
       .update(organizations)
       .set({ profileDocumentId: input.profileDocumentId })
-      .where(eq(organizations.id, organizationId))
+      .where(and(eq(organizations.id, organizationId), profileDocumentChanged))
       .returning({
         organizationId: organizations.id,
         profileDocumentId: organizations.profileDocumentId,
       });
-    if (!organization) {
-      throw new OrganizationManagerError("Organization not found", 404);
+    if (updatedOrganization) {
+      await appendOrganizationReadModelChangeInTransaction(tx, {
+        organizationId,
+        lane: "directory",
+        entityId: organizationId,
+        operation: "replace",
+      });
     }
 
-    return organization;
+    return (
+      updatedOrganization ?? {
+        organizationId,
+        profileDocumentId: input.profileDocumentId,
+      }
+    );
   });
 }

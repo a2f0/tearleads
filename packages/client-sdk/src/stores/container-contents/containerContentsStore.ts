@@ -135,18 +135,25 @@ type ContainerWriteMethods = Pick<
   | "shareWithUser"
 >;
 
-// The group-rewrap builder: it first loads the container's known KEKs (a chained
-// read), then returns a check/rewrap pair — extracted so createContainerWriteMethods
-// stays a flat, readable binding table.
+// The group-rewrap builder verifies any required existing grant before capturing
+// the container KEK, then returns a check/rewrap pair. A verified non-match is
+// distinct from an unavailable preparation so security-critical callers can
+// no-op unrelated groups without failing open for a real grant.
 function createPrepareGroupRewrapMethod(
   state: ContainerContentsStoreState,
   syncAgent: ReturnType<typeof createContainerContentsStoreSyncAgent>,
 ): ContainerContentsStore["prepareGroupRewrap"] {
   return async (containerId, groupId, accessLevel, options) => {
-    const knownContainerKeks = await chainContainerTask(state, () =>
-      prepareContainerGroupRewrap(state, containerId),
+    const preparation = await chainContainerTask(state, () =>
+      prepareContainerGroupRewrap(
+        state,
+        containerId,
+        groupId,
+        accessLevel,
+        options,
+      ),
     );
-    return knownContainerKeks
+    return preparation?.status === "prepared"
       ? {
           isCurrent: (
             expectedGroupHead,
@@ -172,11 +179,15 @@ function createPrepareGroupRewrapMethod(
                 containerId,
                 groupId,
                 accessLevel,
-                { ...options, knownContainerKeks },
+                {
+                  ...options,
+                  knownContainerKeks: preparation.knownContainerKeks,
+                },
               ),
             ),
+          status: "prepared" as const,
         }
-      : null;
+      : (preparation ?? null);
   };
 }
 

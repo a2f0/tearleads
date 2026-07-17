@@ -4,11 +4,9 @@ import {
   containers,
   containersWithMissingDisplayNames,
   dataUsage,
-  directory,
   grants,
   grantsWithMissingDisplayNames,
   groupId,
-  groups,
   members,
   organizationId,
   organizationPrincipalPolicy,
@@ -25,49 +23,12 @@ import {
   buildOrganizationPolicyHistory,
   loadOrganizationContainerGrants,
   loadOrganizationDataUsage,
-  loadOrganizationDirectoryAndGroups,
   loadOrganizationGroupDetails,
   loadOrganizationPolicyHistory,
   loadOrganizationUserDetail,
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "./readModel";
-
-test("loadOrganizationDirectoryAndGroups combines directory and group lists", async () => {
-  const calls: string[] = [];
-  const result = await loadOrganizationDirectoryAndGroups({
-    apiClient: {
-      listOrganizationDirectory: async (nextOrganizationId) => {
-        calls.push(`directory:${nextOrganizationId}`);
-        return directory;
-      },
-      listOrganizationGroups: async (nextOrganizationId) => {
-        calls.push(`groups:${nextOrganizationId}`);
-        return groups;
-      },
-    },
-    organizationId,
-  });
-
-  expect([...calls].sort()).toEqual(["directory:org-1", "groups:org-1"]);
-  expect(result).toEqual({
-    directory,
-    groups: groups.groups,
-    memberGroupId: groups.memberGroupId,
-  });
-});
-
-test("loadOrganizationDirectoryAndGroups reports unavailable directory state", async () => {
-  const result = await loadOrganizationDirectoryAndGroups({
-    apiClient: {
-      listOrganizationDirectory: async () => null,
-      listOrganizationGroups: async () => groups,
-    },
-    organizationId,
-  });
-
-  expect(result).toBeNull();
-});
 
 test("loadOrganizationGroupDetails preserves partial group detail results", async () => {
   const calls: string[] = [];

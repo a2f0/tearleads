@@ -4,6 +4,7 @@ import {
   containerMetadataDocuments,
   containers,
   groups,
+  organizationReadModelHeads,
   organizations,
 } from "@tearleads/api-shared/schema";
 import {
@@ -23,6 +24,7 @@ import type {
   ContainerCreateWithMetadataDocumentResponse,
   OrganizationProvisioningResponse,
 } from "@tearleads/validators/response";
+import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { storeVerifiedAccessManifestInTransaction } from "../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../access/write/containerKekStore";
 import {
@@ -48,8 +50,10 @@ import {
   DocumentMutationError,
 } from "../documents/mutations";
 import { appendProvisionedDocumentInitialUpdate } from "../documents/mutations/syncDocument";
+import { lockPrincipalMutationInTransaction } from "../principals/principalMutationLock";
 import { toPrincipalPolicyError } from "../principals/shared";
 import { storeVerifiedPrincipalPolicyInTransaction } from "../principals/storeVerifiedPrincipalPolicy";
+import { wasOrganizationGroupDeleted } from "./groupTombstone";
 import {
   createInitialOrganizationBillingRow,
   type InitialOrganizationBilling,
@@ -58,6 +62,7 @@ import {
   storeInitialMemberGroupPolicy,
   syncInitialRosterAndBillingSeats,
 } from "./initialMemberGroupBilling";
+import { parseOrganizationAuthorityDescriptor } from "./organizationAuthorityDescriptor";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";
 import {
   createInitialOrganizationProfileDocument,
@@ -80,6 +85,48 @@ export interface OrganizationProvisioningSigner {
   readonly fingerprint: string;
   readonly encapsulationFingerprint: string;
   readonly signingPublicKey: Uint8Array;
+}
+
+async function lockProvisioningGroupPrincipalIds(
+  tx: DatabaseTransaction,
+  input: OrganizationProvisioningRequest,
+): Promise<void> {
+  const groupIds = [
+    input.initialAdminGroup.groupId,
+    input.initialMemberGroup.groupId,
+  ].toSorted();
+  for (const groupId of groupIds) {
+    await lockPrincipalMutationInTransaction(tx, "group", groupId);
+    const [wasDeleted, currentState] = await Promise.all([
+      wasOrganizationGroupDeleted({ executor: tx, groupId }),
+      getCurrentPrincipalState("group", groupId, tx),
+    ]);
+    if (wasDeleted || currentState) {
+      throw new OrganizationProvisioningError(
+        "Provisioning group principal ID is unavailable",
+        409,
+      );
+    }
+  }
+}
+
+async function lockProvisioningOrganizationPrincipalId(
+  tx: DatabaseTransaction,
+  input: OrganizationProvisioningRequest,
+): Promise<void> {
+  await lockPrincipalMutationInTransaction(
+    tx,
+    "organization",
+    input.organizationId,
+  );
+  if (
+    await getCurrentPrincipalState("organization", input.organizationId, tx)
+  ) {
+    throw new OrganizationProvisioningError(
+      "Provisioning organization principal ID is unavailable",
+      409,
+    );
+  }
 }
 
 function provisioningShapeError(
@@ -119,6 +166,9 @@ async function createOrganizationRow(
   if (!org) {
     throw new Error("Failed to create organization");
   }
+  await tx
+    .insert(organizationReadModelHeads)
+    .values({ organizationId: org.id });
   return org;
 }
 
@@ -147,8 +197,23 @@ function validateInitialOrganizationPolicyInput(
   signingFingerprint: string,
   encapsulationFingerprint: string,
 ) {
-  const { memberEnvelopes, projection, state } =
+  const { encryptedPayload, memberEnvelopes, projection, state } =
     input.initialOrganizationPolicy;
+
+  const descriptor = parseOrganizationAuthorityDescriptor(
+    encryptedPayload.ciphertext,
+  );
+  if (
+    !descriptor ||
+    descriptor.organizationId !== input.organizationId ||
+    descriptor.adminGroupId !== input.initialAdminGroup.groupId ||
+    descriptor.memberGroupId !== input.initialMemberGroup.groupId
+  ) {
+    throw new OrganizationProvisioningError(
+      "initialOrganizationPolicy authority descriptor must bind the reserved groups",
+      400,
+    );
+  }
 
   if (
     state.principalType !== "organization" ||
@@ -789,9 +854,9 @@ async function createInitialBuiltinGrants(
  *
  * Like the root -> Admins grant, this is a reserved system grant: Members must
  * never lose it (revoking it permanently strips their ability to decrypt the org
- * display name, with no self-heal — reshareOrganizationMetadataToMembers only
- * re-wraps an existing grant and refuses to mint, a metadata->Members analog of
- * the root/Admins lockout). Unlike root -> Admins it is not admin-frozen: it must
+ * display name, with no self-heal — the client metadata re-wrap only refreshes a
+ * verified existing grant and refuses to mint, a metadata->Members analog of the
+ * root/Admins lockout). Unlike root -> Admins it is not admin-frozen: it must
  * still be re-wrapped on every Members-group key rotation. Recording it here lets
  * the built-in-grant guard reject a revoke / access-level change while still
  * permitting the same-level "read" re-wrap (assertContainerBuiltinGrantPolicyPreserved),
@@ -1095,6 +1160,8 @@ export async function provisionOrganizationInTransaction(
   signer: OrganizationProvisioningSigner,
   options: ProvisionOrganizationOptions,
 ): Promise<ProvisionedOrganization> {
+  await lockProvisioningOrganizationPrincipalId(tx, input);
+  await lockProvisioningGroupPrincipalIds(tx, input);
   const org = await createOrganizationRow(tx, {
     adminGroupId: input.initialAdminGroup.groupId,
     memberGroupId: input.initialMemberGroup.groupId,

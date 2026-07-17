@@ -210,7 +210,6 @@ test("planDemoPeerRosterSeed plans an import-and-add when the peer is unknown", 
 
   expect(plan).toEqual({
     kind: "add-to-member-group",
-    canAdministerOrganization: true,
     memberGroupId: "member-group",
     peerUserId: "peer",
     requiresImport: true,
@@ -238,7 +237,7 @@ test("planDemoPeerRosterSeed skips import for a known-but-unseeded peer", () => 
   }
 });
 
-test("planDemoPeerRosterSeed carries the non-admin flag through the add plan", () => {
+test("planDemoPeerRosterSeed does not trust the projected admin flag", () => {
   const self = directoryUser({ userId: "self", isSelf: true });
   const plan = planDemoPeerRosterSeed({
     directory: directory({
@@ -251,9 +250,7 @@ test("planDemoPeerRosterSeed carries the non-admin flag through the add plan", (
   });
 
   expect(plan.kind).toBe("add-to-member-group");
-  if (plan.kind === "add-to-member-group") {
-    expect(plan.canAdministerOrganization).toBe(false);
-  }
+  expect(plan).not.toHaveProperty("canAdministerOrganization");
 });
 
 function directoryAndGroups(input: {
@@ -283,7 +280,6 @@ function fakeRosterSeedActions(overrides: {
   let ensureArgs: { userId: string; nickname: string | undefined } | null =
     null;
   let addArgs: {
-    canAdministerOrganization: boolean;
     groupId: string;
     targetUserId: string;
   } | null = null;
@@ -296,9 +292,9 @@ function fakeRosterSeedActions(overrides: {
       calls.importUserById += 1;
       return Promise.resolve(overrides.importedUser ?? null);
     },
-    addUserToGroup: (groupId, targetUserId, canAdministerOrganization) => {
+    addUserToGroup: (groupId, targetUserId) => {
       calls.addUserToGroup += 1;
-      addArgs = { canAdministerOrganization, groupId, targetUserId };
+      addArgs = { groupId, targetUserId };
       return Promise.resolve({});
     },
     ensureRosterProfileDocument: (user, nickname) => {
@@ -332,7 +328,6 @@ test("seedPeerRosterEntry adds the peer to the member group, then retries", asyn
   expect(calls.importUserById).toBe(1);
   expect(calls.addUserToGroup).toBe(1);
   expect(getAddArgs()).toEqual({
-    canAdministerOrganization: true,
     groupId: "mg",
     targetUserId: "peer",
   });

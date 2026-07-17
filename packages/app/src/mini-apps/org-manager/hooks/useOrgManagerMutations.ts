@@ -11,12 +11,8 @@ import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useMemo } from "react";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
-import {
-  addRosterUserToGroup,
-  prepareRosterImport,
-  refreshAfterGroupMutation,
-} from "../groups/orgManagerMutationOperations";
-import { ORG_MANAGER_LABELS } from "../labels";
+import { prepareRosterImport } from "../groups/orgManagerMutationOperations";
+import { useOrgManagerMembershipMutations } from "../groups/useOrgManagerMembershipMutations";
 import { setUnknownError } from "../refresh";
 import type { OrgManagerView } from "../routes";
 import { useOrgManagerDisableRosterUser } from "./useOrgManagerDisableRosterUser";
@@ -312,72 +308,9 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     setMutating,
   ]);
 
-  const addUser = useCallback(async () => {
-    const targetUserId = addUserId.trim();
-    const directoryUser = directory?.users.find(
-      (user) => user.userId === targetUserId,
-    );
-    if (
-      !directory ||
-      !members ||
-      targetUserId.length === 0 ||
-      !selectedGroupId ||
-      !appData.auth.userId ||
-      !appData.crypto.signingFingerprint ||
-      !appData.crypto.signingKeyPair ||
-      !appData.crypto.encapsulationKeyPair
-    ) {
-      return;
-    }
-    const operationOrganizationId = directory.organizationId;
-    if (!isOperationActive(operationOrganizationId)) {
-      return;
-    }
-    if (directoryUser?.status === "disabled" && !selectedGroupIsMembersGroup) {
-      setError(ORG_MANAGER_LABELS.userNotFound);
-      return;
-    }
-
-    setMutating(true);
-    setError(null);
-    try {
-      const didAdd = await addRosterUserToGroup({
-        directory,
-        directoryUser,
-        groupId: selectedGroupId,
-        isOperationActive,
-        operationOrganizationId,
-        orgManagerActions,
-        setError,
-        targetUserId,
-      });
-      if (!didAdd) {
-        return;
-      }
-      setAddUserId("");
-      await refreshAfterGroupMutation({
-        isOperationActive,
-        operationOrganizationId,
-        refreshDirectoryAndGroups,
-        refreshSelectedGroupDetails,
-        refreshSelectedUserDetail,
-        selectedUserIdRef,
-      });
-    } catch (nextError) {
-      if (isOperationActive(operationOrganizationId)) {
-        setUnknownError(setError, nextError);
-      }
-    } finally {
-      if (isOperationActive(operationOrganizationId)) {
-        setMutating(false);
-      }
-    }
-  }, [
+  const { addUser, removeMember } = useOrgManagerMembershipMutations({
     addUserId,
-    appData.auth.userId,
-    appData.crypto.encapsulationKeyPair,
-    appData.crypto.signingFingerprint,
-    appData.crypto.signingKeyPair,
+    appData,
     directory,
     isOperationActive,
     members,
@@ -385,74 +318,15 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     refreshDirectoryAndGroups,
     refreshSelectedGroupDetails,
     refreshSelectedUserDetail,
-    selectedGroupIsMembersGroup,
     selectedGroupId,
+    selectedGroupIsMembersGroup,
     selectedUserIdRef,
     setAddUserId,
     setError,
+    setGroupPolicyHistory,
+    setMembers,
     setMutating,
-  ]);
-
-  const removeMember = useCallback(
-    async (removedUserId: string) => {
-      if (
-        !selectedGroupId ||
-        !appData.auth.userId ||
-        !appData.crypto.signingFingerprint ||
-        !appData.crypto.signingKeyPair ||
-        !directory
-      ) {
-        return;
-      }
-      const operationOrganizationId = directory.organizationId;
-      if (!isOperationActive(operationOrganizationId)) {
-        return;
-      }
-      setMutating(true);
-      setError(null);
-      try {
-        await orgManagerActions.removeUserFromGroup(
-          selectedGroupId,
-          removedUserId,
-          directory.currentUser.isOrgAdmin,
-        );
-        if (!isOperationActive(operationOrganizationId)) {
-          return;
-        }
-        await refreshAfterGroupMutation({
-          isOperationActive,
-          operationOrganizationId,
-          refreshDirectoryAndGroups,
-          refreshSelectedGroupDetails,
-          refreshSelectedUserDetail,
-          selectedUserIdRef,
-        });
-      } catch (nextError) {
-        if (isOperationActive(operationOrganizationId)) {
-          setUnknownError(setError, nextError);
-        }
-      } finally {
-        if (isOperationActive(operationOrganizationId)) {
-          setMutating(false);
-        }
-      }
-    },
-    [
-      appData.auth.userId,
-      appData.crypto.signingFingerprint,
-      appData.crypto.signingKeyPair,
-      directory,
-      isOperationActive,
-      orgManagerActions,
-      refreshDirectoryAndGroups,
-      refreshSelectedGroupDetails,
-      refreshSelectedUserDetail,
-      selectedGroupId,
-      selectedUserIdRef,
-      setError,
-      setMutating,
-    ],
-  );
+  });
 
   const disableRosterUser = useOrgManagerDisableRosterUser({
     appData,

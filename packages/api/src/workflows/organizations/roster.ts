@@ -81,14 +81,14 @@ export async function upsertActiveOrganizationRosterEntries(input: {
   readonly executor: DatabaseSession;
   readonly organizationId: string;
   readonly userIds: readonly string[];
-}): Promise<void> {
+}): Promise<string[]> {
   const userIds = [...new Set(input.userIds)].sort();
   if (userIds.length === 0) {
-    return;
+    return [];
   }
 
   const now = new Date();
-  await input.executor
+  const changedRows = await input.executor
     .insert(organizationRosterEntries)
     .values(
       userIds.map((userId) => ({
@@ -112,15 +112,18 @@ export async function upsertActiveOrganizationRosterEntries(input: {
         updatedAt: now,
       },
       // Only write (and bump updatedAt) when the member is actually
-      // transitioning back to active. This reconcile runs opportunistically on
-      // every directory read, so without this guard updatedAt would be
-      // rewritten to now() for every active member on every read, making it
-      // track read time rather than change time and rendering it useless as a
-      // sync cursor. `status` is the authoritative signal: disabledAt /
+      // transitioning back to active. Without this guard, repeated policy
+      // reconciliation would rewrite updatedAt for every active member, making
+      // it track reconcile time rather than change time and rendering it
+      // useless as a sync cursor. `status` is the authoritative signal:
+      // disabledAt /
       // disabledByUserId are only ever set together with status="disabled" (see
       // disableOrganizationRosterEntries), so an already-active row is clean.
       setWhere: ne(organizationRosterEntries.status, "active"),
-    });
+    })
+    .returning({ userId: organizationRosterEntries.userId });
+
+  return changedRows.map((row) => row.userId).sort();
 }
 
 async function disableOrganizationRosterEntries(input: {
@@ -128,14 +131,14 @@ async function disableOrganizationRosterEntries(input: {
   readonly executor: DatabaseSession;
   readonly organizationId: string;
   readonly userIds: readonly string[];
-}): Promise<void> {
+}): Promise<string[]> {
   const userIds = [...new Set(input.userIds)].sort();
   if (userIds.length === 0) {
-    return;
+    return [];
   }
 
   const now = new Date();
-  await input.executor
+  const changedRows = await input.executor
     .update(organizationRosterEntries)
     .set({
       status: "disabled",
@@ -148,7 +151,10 @@ async function disableOrganizationRosterEntries(input: {
         eq(organizationRosterEntries.organizationId, input.organizationId),
         inArray(organizationRosterEntries.userId, userIds),
       ),
-    );
+    )
+    .returning({ userId: organizationRosterEntries.userId });
+
+  return changedRows.map((row) => row.userId).sort();
 }
 
 export async function syncOrganizationRosterFromMemberReachability(input: {
@@ -156,14 +162,14 @@ export async function syncOrganizationRosterFromMemberReachability(input: {
   readonly executor: DatabaseSession;
   readonly memberGroupId: string;
   readonly organizationId: string;
-}): Promise<void> {
+}): Promise<string[]> {
   const reachableUserIds = await listUsersReachableFromCurrentGroup({
     executor: input.executor,
     groupId: input.memberGroupId,
   });
   const activeUserIds = [...reachableUserIds].sort();
 
-  await upsertActiveOrganizationRosterEntries({
+  const activatedUserIds = await upsertActiveOrganizationRosterEntries({
     executor: input.executor,
     organizationId: input.organizationId,
     userIds: activeUserIds,
@@ -179,12 +185,14 @@ export async function syncOrganizationRosterFromMemberReachability(input: {
     .filter((entry) => !activeUserIdSet.has(entry.userId))
     .map((entry) => entry.userId);
 
-  await disableOrganizationRosterEntries({
+  const disabledUserIdsChanged = await disableOrganizationRosterEntries({
     disabledByUserId: input.disabledByUserId,
     executor: input.executor,
     organizationId: input.organizationId,
     userIds: disabledUserIds,
   });
+
+  return [...activatedUserIds, ...disabledUserIdsChanged].sort();
 }
 
 export async function isOrganizationProfileDocument(input: {

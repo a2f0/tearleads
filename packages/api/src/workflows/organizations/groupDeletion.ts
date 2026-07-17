@@ -1,6 +1,9 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
+  accessManifestContainerGrantProjection,
+  accessManifestHeads,
   groups as groupsTable,
+  organizationGroupTombstones,
   organizations,
   principalEpochKeys,
   principalMemberEnvelopes,
@@ -10,7 +13,6 @@ import {
 } from "@tearleads/api-shared/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { currentPrincipalStateHashSql } from "../principals/currentPrincipalStateSql";
-import { listOrganizationContainerGrantRows } from "./containerGrants";
 import { OrganizationManagerError } from "./errors";
 
 interface OrganizationGroupMutationInput {
@@ -38,6 +40,38 @@ async function hasCurrentPrincipalReferences(input: {
   `);
 
   return result.rows.length > 0;
+}
+
+async function hasCurrentContainerGrant(input: {
+  executor: DatabaseSession;
+  groupId: string;
+}): Promise<boolean> {
+  const [grant] = await input.executor
+    .select({ id: accessManifestContainerGrantProjection.id })
+    .from(accessManifestContainerGrantProjection)
+    .innerJoin(
+      accessManifestHeads,
+      and(
+        eq(accessManifestHeads.objectKind, "container"),
+        eq(
+          accessManifestHeads.objectId,
+          accessManifestContainerGrantProjection.containerId,
+        ),
+        eq(
+          accessManifestHeads.manifestHash,
+          accessManifestContainerGrantProjection.manifestHash,
+        ),
+      ),
+    )
+    .where(
+      and(
+        eq(accessManifestContainerGrantProjection.subjectType, "group"),
+        eq(accessManifestContainerGrantProjection.subjectId, input.groupId),
+      ),
+    )
+    .limit(1);
+
+  return grant !== undefined;
 }
 
 export async function requireDeletableOrganizationGroup(
@@ -83,15 +117,12 @@ export async function requireDeletableOrganizationGroup(
 export async function requireOrganizationGroupWithoutDeleteBlockers(
   input: OrganizationGroupMutationInput,
 ): Promise<void> {
-  const directContainerGrants = await listOrganizationContainerGrantRows({
-    executor: input.executor,
-    organizationId: input.organizationId,
-    subjectFilter: {
-      subjectId: input.groupId,
-      subjectType: "group",
-    },
-  });
-  if (directContainerGrants.length > 0) {
+  if (
+    await hasCurrentContainerGrant({
+      executor: input.executor,
+      groupId: input.groupId,
+    })
+  ) {
     throw new OrganizationManagerError(
       "Group has direct container grants",
       409,
@@ -114,7 +145,12 @@ export async function requireOrganizationGroupWithoutDeleteBlockers(
 export async function deleteOrganizationGroupRows(input: {
   executor: DatabaseSession;
   groupId: string;
+  organizationId: string;
 }): Promise<void> {
+  await input.executor.insert(organizationGroupTombstones).values({
+    groupId: input.groupId,
+    organizationId: input.organizationId,
+  });
   await input.executor
     .delete(principalMemberEnvelopes)
     .where(

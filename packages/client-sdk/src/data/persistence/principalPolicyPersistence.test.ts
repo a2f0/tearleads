@@ -71,6 +71,7 @@ async function createPrincipalPolicyBundle() {
       memberEnvelopes,
       projection: currentProjection,
       payloadCiphertext,
+      externalAuthority: null,
       signedAt: "2026-04-08T00:00:00.000Z",
       signerUserId,
       signerUserKeyFingerprint,

@@ -1,0 +1,327 @@
+import { expect, test } from "bun:test";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
+import {
+  organizationReadModelFailure,
+  organizationReadModelGroupsDelta,
+  organizationReadModelOrganizationId,
+  organizationReadModelSnapshot,
+  organizationReadModelUserId,
+} from "../../../test/helpers/organizationReadModelProjectionFixtures";
+import { applyOrganizationReadModelResponse } from "../../data/persistence/organizations/organizationReadModelPersistence";
+import {
+  loadLocalOrganizationDirectoryAndGroups,
+  reconcileOrganizationDirectoryAndGroups,
+} from "./readModelProjection";
+
+const organizationId = organizationReadModelOrganizationId;
+const currentUserId = organizationReadModelUserId;
+
+async function seedProjection(
+  execSql: Parameters<typeof applyOrganizationReadModelResponse>[0]["execSql"],
+  response: OrganizationReadModelResponse = organizationReadModelSnapshot(),
+): Promise<void> {
+  await applyOrganizationReadModelResponse({
+    currentUserId,
+    execSql,
+    requestedCursor: null,
+    response,
+  });
+}
+
+test("cold reconciliation stores a snapshot without legacy roster requests", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-cold-reconcile-test",
+  );
+  const requests: Array<[string, string | undefined]> = [];
+  let legacyRequests = 0;
+  const response = organizationReadModelSnapshot();
+  const apiClient = {
+    async getOrganizationReadModelResult(
+      nextOrganizationId: string,
+      cursor?: string,
+    ) {
+      requests.push([nextOrganizationId, cursor]);
+      return { data: response, ok: true } as const;
+    },
+    async listOrganizationDirectory() {
+      legacyRequests += 1;
+      return null;
+    },
+    async listOrganizationGroups() {
+      legacyRequests += 1;
+      return null;
+    },
+  };
+
+  try {
+    const projection = await reconcileOrganizationDirectoryAndGroups({
+      apiClient,
+      currentUserId,
+      execSql,
+      organizationId,
+    });
+
+    expect(requests).toEqual([[organizationId, undefined]]);
+    expect(legacyRequests).toBe(0);
+    expect(projection?.directory.organizationId).toBe(organizationId);
+    expect(projection?.directory.currentUser).toEqual({ isOrgAdmin: true });
+    expect(projection?.groups[0]?.name).toBe("Admins");
+    await expect(
+      loadLocalOrganizationDirectoryAndGroups({
+        currentUserId,
+        execSql,
+        organizationId,
+      }),
+    ).resolves.toEqual(projection);
+  } finally {
+    close();
+  }
+});
+
+test("warm reconciliation requests and applies a cursor delta", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-warm-reconcile-test",
+  );
+  const requestedCursors: Array<string | undefined> = [];
+  const response = organizationReadModelGroupsDelta({
+    cursor: "cursor-2",
+    groupName: "Operators",
+  });
+
+  try {
+    await seedProjection(execSql);
+    const projection = await reconcileOrganizationDirectoryAndGroups({
+      apiClient: {
+        async getOrganizationReadModelResult(_organizationId, cursor) {
+          requestedCursors.push(cursor);
+          return { data: response, ok: true };
+        },
+      },
+      currentUserId,
+      execSql,
+      organizationId,
+    });
+
+    expect(requestedCursors).toEqual(["cursor-1"]);
+    expect(projection?.groups[0]?.name).toBe("Operators");
+    expect(projection?.directory.users).toHaveLength(2);
+  } finally {
+    close();
+  }
+});
+
+test("a missing requester reconciles from the shared global cursor", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-missing-requester-test",
+  );
+  const requestedCursors: Array<string | undefined> = [];
+  const response: OrganizationReadModelResponse = {
+    version: 1,
+    mode: "delta",
+    organizationId,
+    nextCursor: "cursor-1",
+    hasMore: false,
+    currentUser: { isOrgAdmin: false },
+    lanes: {},
+  };
+
+  try {
+    await seedProjection(execSql);
+    const projection = await reconcileOrganizationDirectoryAndGroups({
+      apiClient: {
+        async getOrganizationReadModelResult(_organizationId, cursor) {
+          requestedCursors.push(cursor);
+          return { data: response, ok: true };
+        },
+      },
+      currentUserId: "user-2",
+      execSql,
+      organizationId,
+    });
+
+    expect(requestedCursors).toEqual(["cursor-1"]);
+    expect(projection?.directory.currentUser).toEqual({ isOrgAdmin: false });
+    expect(
+      projection?.directory.users.find((user) => user.userId === "user-2")
+        ?.isSelf,
+    ).toBe(true);
+  } finally {
+    close();
+  }
+});
+
+for (const status of [403, 404] as const) {
+  test(`${status} purges the organization projection`, async () => {
+    const { close, execSql } = await createTestExecSql(
+      `organization-read-model-purge-${status}-test`,
+    );
+    let reported = false;
+
+    try {
+      await seedProjection(execSql);
+      await expect(
+        reconcileOrganizationDirectoryAndGroups({
+          apiClient: {
+            async getOrganizationReadModelResult() {
+              return organizationReadModelFailure({
+                kind: "http",
+                report: () => {
+                  reported = true;
+                },
+                status,
+              });
+            },
+          },
+          currentUserId,
+          execSql,
+          organizationId,
+        }),
+      ).resolves.toBeNull();
+      await expect(
+        loadLocalOrganizationDirectoryAndGroups({
+          currentUserId,
+          execSql,
+          organizationId,
+        }),
+      ).resolves.toBeNull();
+      expect(reported).toBe(false);
+    } finally {
+      close();
+    }
+  });
+}
+
+test("network, shape, and server failures retain and report last-known-good data", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-retained-failure-test",
+  );
+  const reports: string[] = [];
+  const failures = [
+    { kind: "network", status: null },
+    { kind: "shape", status: 200 },
+    { kind: "http", status: 503 },
+  ] as const;
+  let failureIndex = 0;
+
+  try {
+    await seedProjection(execSql);
+    const local = await loadLocalOrganizationDirectoryAndGroups({
+      currentUserId,
+      execSql,
+      organizationId,
+    });
+
+    for (const failure of failures) {
+      const result = await reconcileOrganizationDirectoryAndGroups({
+        apiClient: {
+          async getOrganizationReadModelResult() {
+            const label = `${failure.kind}:${failure.status}`;
+            failureIndex += 1;
+            return organizationReadModelFailure({
+              ...failure,
+              report: () => reports.push(label),
+            });
+          },
+        },
+        currentUserId,
+        execSql,
+        organizationId,
+      });
+      expect(result).toEqual(local);
+    }
+
+    expect(failureIndex).toBe(3);
+    expect(reports).toEqual(["network:null", "shape:200", "http:503"]);
+  } finally {
+    close();
+  }
+});
+
+test("an invalid warm cursor resets once with a cursorless snapshot", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-invalid-cursor-test",
+  );
+  const cursors: Array<string | undefined> = [];
+  const replacement = organizationReadModelSnapshot({
+    cursor: "cursor-reset",
+    groupName: "Reset Group",
+  });
+  let reports = 0;
+
+  try {
+    await seedProjection(execSql);
+    const projection = await reconcileOrganizationDirectoryAndGroups({
+      apiClient: {
+        async getOrganizationReadModelResult(_organizationId, cursor) {
+          cursors.push(cursor);
+          return cursors.length === 1
+            ? organizationReadModelFailure({
+                kind: "http",
+                report: () => {
+                  reports += 1;
+                },
+                status: 400,
+              })
+            : ({ data: replacement, ok: true } as const);
+        },
+      },
+      currentUserId,
+      execSql,
+      organizationId,
+    });
+
+    expect(cursors).toEqual(["cursor-1", undefined]);
+    expect(reports).toBe(0);
+    expect(projection?.groups[0]?.name).toBe("Reset Group");
+  } finally {
+    close();
+  }
+});
+
+test("a response for another organization retains the scoped projection", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-scope-mismatch-test",
+  );
+  const logs: string[] = [];
+
+  try {
+    await seedProjection(execSql);
+    const local = await loadLocalOrganizationDirectoryAndGroups({
+      currentUserId,
+      execSql,
+      organizationId,
+    });
+    const result = await reconcileOrganizationDirectoryAndGroups({
+      apiClient: {
+        async getOrganizationReadModelResult() {
+          return {
+            data: organizationReadModelSnapshot({
+              cursor: "wrong-scope-cursor",
+              organizationId: "org-2",
+            }),
+            ok: true,
+          } as const;
+        },
+      },
+      currentUserId,
+      execSql,
+      logError: (message) => logs.push(String(message)),
+      organizationId,
+    });
+
+    expect(result).toEqual(local);
+    expect(logs).toEqual([
+      `Organization read-model response scope does not match ${organizationId}`,
+    ]);
+    await expect(
+      loadLocalOrganizationDirectoryAndGroups({
+        currentUserId,
+        execSql,
+        organizationId: "org-2",
+      }),
+    ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});

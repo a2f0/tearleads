@@ -339,12 +339,18 @@ async function validatePrincipalStateSignerAuthorization(input: {
         input.signerUserId,
       )
     ) {
+      if (input.normalizedInput.state.externalAuthority !== null) {
+        throw new Error(
+          "Directly authorized principal state cannot cite external authority",
+        );
+      }
       return null;
     }
 
     let isExternalAdmin = false;
     if (
       input.normalizedInput.projection.length === 0 &&
+      input.normalizedInput.state.externalAuthority !== null &&
       input.options?.authorizeExternalAdminSigner
     ) {
       isExternalAdmin = await input.options.authorizeExternalAdminSigner({
@@ -374,7 +380,16 @@ async function validatePrincipalStateSignerAuthorization(input: {
     input.signerUserId,
   );
   let isExternalAdmin = false;
-  if (!isDirectAdmin && input.options?.authorizeExternalAdminSigner) {
+  if (isDirectAdmin && input.normalizedInput.state.externalAuthority !== null) {
+    throw new Error(
+      "Directly authorized principal state cannot cite external authority",
+    );
+  }
+  if (
+    !isDirectAdmin &&
+    input.normalizedInput.state.externalAuthority !== null &&
+    input.options?.authorizeExternalAdminSigner
+  ) {
     isExternalAdmin = await input.options.authorizeExternalAdminSigner({
       currentState: input.currentState,
       normalizedInput: input.normalizedInput,
@@ -416,6 +431,7 @@ async function insertPrincipalStateRow(
       projectionRoot: input.normalizedInput.state.projectionRoot,
       payloadCiphertextHash: input.normalizedInput.state.payloadCiphertextHash,
       memberCount: input.normalizedInput.state.memberCount,
+      externalAuthority: input.normalizedInput.state.externalAuthority,
       stateHash: input.stateHash,
       signedAt: new Date(input.normalizedInput.state.signedAt),
       signerUserId: input.normalizedInput.state.signerUserId,

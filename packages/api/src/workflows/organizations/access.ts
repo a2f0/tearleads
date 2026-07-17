@@ -8,20 +8,6 @@ interface OrganizationAccess {
   isOrgAdmin: boolean;
 }
 
-export async function isUserReachableThroughCurrentGroup(input: {
-  executor: DatabaseSession;
-  groupId: string;
-  userId: string;
-}): Promise<boolean> {
-  const reachableGroupIds = await listUserReachableCurrentGroupIds({
-    executor: input.executor,
-    groupIds: [input.groupId],
-    userId: input.userId,
-  });
-
-  return reachableGroupIds.has(input.groupId);
-}
-
 async function loadOrganizationAccess(input: {
   executor: DatabaseSession;
   organizationId: string;

@@ -16,6 +16,7 @@ import type { RegistrationResponse } from "@tearleads/validators/response";
 import { createMutationResponseFromRequest } from "../../../test/helpers/containerFixtures";
 import { createResponseFromRequest } from "../../../test/helpers/documentFixtures";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
+import { parseOrganizationAuthorityDescriptor } from "../../data/organizationAuthorityDescriptor";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
@@ -66,10 +67,14 @@ test("buildInitialOrganizationPolicyRequest creates the initial admin organizati
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const organizationId = crypto.randomUUID();
+  const adminGroupId = crypto.randomUUID();
+  const memberGroupId = crypto.randomUUID();
   const userId = crypto.randomUUID();
 
   const policy = await buildInitialOrganizationPolicyRequest({
+    adminGroupId,
     encapsulationPublicKey: encapsulationKeyPair.publicKey,
+    memberGroupId,
     organizationId,
     signingKeyPair,
     userId,
@@ -85,6 +90,9 @@ test("buildInitialOrganizationPolicyRequest creates the initial admin organizati
     await toFingerprint(signingKeyPair.signingPublicKey),
   );
   expect(policy.encryptedPayload.cipherSuite).toBe("aes-256-gcm");
+  expect(
+    parseOrganizationAuthorityDescriptor(policy.encryptedPayload.ciphertext),
+  ).toEqual({ version: 1, organizationId, adminGroupId, memberGroupId });
   expect(policy.projection).toEqual([
     {
       memberPrincipalType: "user",

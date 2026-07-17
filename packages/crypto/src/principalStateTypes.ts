@@ -23,6 +23,19 @@ export interface PrincipalStateMemberEnvelope {
   wrappedKey: string;
 }
 
+/**
+ * Exact signed head of the external principal policy that authorized a state.
+ * Organization-scoped group policies use the reserved Admins group here.
+ */
+export interface PrincipalStateExternalAuthority {
+  principalType: "group";
+  principalId: string;
+  version: number;
+  keyEpoch: number;
+  stateHash: string;
+  keyFingerprint: string;
+}
+
 export interface UnsignedPrincipalState {
   principalType: ManagedRecipientPrincipalType;
   principalId: string;
@@ -37,6 +50,7 @@ export interface UnsignedPrincipalState {
   projectionRoot: string;
   payloadCiphertextHash: string;
   memberCount: number;
+  externalAuthority: PrincipalStateExternalAuthority | null;
   signedAt: string;
   signerUserId: string;
   signerUserKeyFingerprint: string;
@@ -56,6 +70,7 @@ export interface PrincipalStateHeaderInput {
   memberEnvelopes: PrincipalStateMemberEnvelope[];
   projection: PrincipalProjectionMember[];
   payloadCiphertext: string;
+  externalAuthority: PrincipalStateExternalAuthority | null;
   signedAt: string;
   signerUserId: string;
   signerUserKeyFingerprint: string;

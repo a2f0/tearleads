@@ -478,8 +478,8 @@ test(
 
     await waitFor(() => {
       expect(
-        within(leftPane).getByText(ORG_MANAGER_LABELS.grantDetail),
-      ).toBeTruthy();
+        within(leftPane).getAllByText(ORG_MANAGER_LABELS.grantDetail),
+      ).toHaveLength(2);
     });
     await waitForNoPostShareSyncFailures([leftPane], postShareBaseline);
   },

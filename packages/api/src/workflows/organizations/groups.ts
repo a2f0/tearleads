@@ -22,6 +22,8 @@ import {
   type StoredPrincipalProjectionMember,
 } from "../../access/read/principalStateStore";
 import { assertOrganizationCanSync } from "../billing/organizationBilling";
+import { lockGroupReferenceExclusiveInTransaction } from "../principals/groupReferenceLock";
+import { lockPrincipalMutationInTransaction } from "../principals/principalMutationLock";
 import { requireDirectOrganizationAccess } from "./access";
 import {
   listOrganizationContainerGrantRows,
@@ -34,6 +36,8 @@ import {
   requireOrganizationGroupWithoutDeleteBlockers,
 } from "./groupDeletion";
 import { toGroupSummary } from "./groupSummary";
+import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
+import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
 import { loadUsersById, type UserKeyRow } from "./users";
 
 interface NestedGroupRow {
@@ -78,17 +82,25 @@ export async function runListOrganizationGroupsWorkflow(
       organizationId,
       userId: sessionUserId,
     });
-    const groupSummaries = await listOrganizationGroupSummariesInTransaction({
+    return loadOrganizationGroupsInTransaction({
       executor: tx,
       organizationId,
     });
-
-    return {
-      organizationId,
-      memberGroupId: groupSummaries.memberGroupId,
-      groups: groupSummaries.groups,
-    };
   });
+}
+
+export async function loadOrganizationGroupsInTransaction(input: {
+  readonly executor: DatabaseSession;
+  readonly organizationId: string;
+}): Promise<ListOrganizationGroupsResponse> {
+  const groupSummaries =
+    await listOrganizationGroupSummariesInTransaction(input);
+
+  return {
+    organizationId: input.organizationId,
+    memberGroupId: groupSummaries.memberGroupId,
+    groups: groupSummaries.groups,
+  };
 }
 
 export async function runDeleteOrganizationGroupWorkflow(
@@ -104,6 +116,14 @@ export async function runDeleteOrganizationGroupWorkflow(
       requireAdmin: true,
       userId: sessionUserId,
     });
+    await lockPrincipalMutationInTransaction(tx, "group", groupId);
+    await lockGroupReferenceExclusiveInTransaction(tx, groupId);
+    await requireSerializedOrganizationMutationAccess({
+      organizationId,
+      requireAdmin: true,
+      tx,
+      userId: sessionUserId,
+    });
     await assertOrganizationCanSync(tx, organizationId);
     await requireDeletableOrganizationGroup({
       executor: tx,
@@ -115,7 +135,17 @@ export async function runDeleteOrganizationGroupWorkflow(
       groupId,
       organizationId,
     });
-    await deleteOrganizationGroupRows({ executor: tx, groupId });
+    await deleteOrganizationGroupRows({
+      executor: tx,
+      groupId,
+      organizationId,
+    });
+    await appendOrganizationReadModelChangeInTransaction(tx, {
+      organizationId,
+      lane: "groups",
+      entityId: groupId,
+      operation: "delete",
+    });
 
     return {
       deleted: true,

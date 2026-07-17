@@ -35,6 +35,7 @@ test("isRegistrationRequest", () => {
       projectionRoot: "projection-root",
       payloadCiphertextHash: "ciphertext-hash",
       memberCount: 1,
+      externalAuthority: null,
       signedAt: new Date().toISOString(),
       signerUserId: userId,
       signerUserKeyFingerprint: "signing-fingerprint",
@@ -260,6 +261,21 @@ test("isRegistrationRequest", () => {
   expect(
     isRegistrationRequest(
       createValidRequest({ rootContainerId: "not-a-uuid" }),
+    ),
+  ).toBe(false);
+  expect(
+    isRegistrationRequest(
+      createValidRequest({ organizationId: organizationId.toUpperCase() }),
+    ),
+  ).toBe(false);
+  expect(
+    isRegistrationRequest(
+      createValidRequest({
+        initialAdminGroup: {
+          ...validInitialAdminGroup,
+          groupId: adminGroupId.toUpperCase(),
+        },
+      }),
     ),
   ).toBe(false);
   expect(

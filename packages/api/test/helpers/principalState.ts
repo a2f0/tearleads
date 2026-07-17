@@ -3,6 +3,7 @@ import {
   buildPrincipalStateSigningInput,
   normalizePrincipalProjectionMembers,
   type PrincipalProjectionMember,
+  type PrincipalStateExternalAuthority,
   type PrincipalStateHeaderInput,
   type PrincipalStateMember,
   signPrincipalState,
@@ -52,15 +53,36 @@ export function createProjectionWithAdminSigner(
   );
 }
 
+export function toPrincipalStateExternalAuthority(
+  state: Omit<PrincipalStateExternalAuthority, "principalType">,
+): PrincipalStateExternalAuthority {
+  return {
+    principalType: "group",
+    principalId: state.principalId,
+    version: state.version,
+    keyEpoch: state.keyEpoch,
+    stateHash: state.stateHash,
+    keyFingerprint: state.keyFingerprint,
+  };
+}
+
 export async function signPrincipalStateBundle(
-  input: Omit<PrincipalStateHeaderInput, "memberEnvelopes"> & {
+  input: Omit<
+    PrincipalStateHeaderInput,
+    "externalAuthority" | "memberEnvelopes"
+  > & {
+    externalAuthority?: PrincipalStateHeaderInput["externalAuthority"];
     memberEnvelopes?: PrincipalStateHeaderInput["memberEnvelopes"];
     signingPrivateKey: Uint8Array;
   },
 ): Promise<PrincipalStateBundleInput> {
   const memberEnvelopes = input.memberEnvelopes ?? [];
   const state = await signPrincipalState(
-    await buildPrincipalStateSigningInput({ ...input, memberEnvelopes }),
+    await buildPrincipalStateSigningInput({
+      ...input,
+      externalAuthority: input.externalAuthority ?? null,
+      memberEnvelopes,
+    }),
     input.signingPrivateKey,
   );
 

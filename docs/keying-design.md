@@ -94,14 +94,14 @@ should support one of these trust roots:
 Without one of these, first-contact key substitution remains possible. No
 object keying algorithm can fully fix that by itself.
 
-Organization administration and membership are modeled with reserved
-organization-scoped groups. `Admins` is the org-admin authority, and `Members`
-is the opaque org-membership authority used to drive active org-manager roster
-state. Disabled roster entries can remain visible after access removal.
-Registration creates both policies atomically and nests `Admins` into
-`Members`, so admins are members by signed group reachability. The organization
-principal policy remains managed-principal state, but it should not expose
-product role semantics for org-manager.
+Organization administration uses reserved groups: `Admins` authorizes admins,
+and `Members` drives the roster. Registration nests `Admins` into `Members`.
+The signed organization payload binds both IDs, and `Admins` contains only
+direct `admin` users. Each signed principal state uses a null
+`externalAuthority` for direct authorization or the exact Admins head for
+external authorization. Historical citations match exact signed Admins states;
+post-checkpoint child successors must cite its verified current head.
+Display/read-model projections never provide keying inputs.
 
 ## Signed Access Manifests
 

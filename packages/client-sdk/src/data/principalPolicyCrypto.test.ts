@@ -96,6 +96,7 @@ async function createPrincipalPolicyBundle(input: {
       memberEnvelopes,
       projection: currentProjection,
       payloadCiphertext,
+      externalAuthority: null,
       signedAt: input.signedAt,
       signerUserId,
       signerUserKeyFingerprint,

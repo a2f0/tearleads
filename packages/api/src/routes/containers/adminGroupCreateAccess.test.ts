@@ -165,7 +165,7 @@ async function advanceAdminPolicy(input: {
     {
       memberPrincipalType: "user",
       memberPrincipalId: input.peer.userId,
-      role: "member",
+      role: "admin",
     },
   ];
   const { memberEnvelopes, stateMembers } =

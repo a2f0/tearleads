@@ -88,6 +88,7 @@ async function createAdminPolicyBundle(input: {
       memberEnvelopes,
       projection,
       payloadCiphertext,
+      externalAuthority: null,
       signedAt: input.signedAt,
       signerUserId: USER_ID,
       signerUserKeyFingerprint: input.author.signerKeyFingerprint,

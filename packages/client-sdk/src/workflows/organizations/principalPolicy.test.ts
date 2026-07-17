@@ -8,9 +8,11 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { organizationPolicyBundleFromInitialRequest } from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
+import { buildInitialOrganizationPolicyRequest } from "../registration/registerIdentity";
 import { importOrganizationUser } from "./organizationUserImport";
 import {
   buildAddGroupUserPolicyRequest,
@@ -163,6 +165,29 @@ test("createOrganizationGroup caches the created group policy in a fresh local d
   const signingFingerprint = await toFingerprint(
     signingKeyPair.signingPublicKey,
   );
+  const adminGroupId = crypto.randomUUID();
+  const memberGroupId = crypto.randomUUID();
+  const adminPolicy = await policyBundleFromInitialRequest(
+    await buildInitialGroupPolicyRequest({
+      creatorEncapsulationKeyPair: creatorKem,
+      groupId: adminGroupId,
+      name: "Admins",
+      signerUserId,
+      signingFingerprint,
+      signingKeyPair,
+    }),
+  );
+  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
+    organizationId,
+    await buildInitialOrganizationPolicyRequest({
+      adminGroupId,
+      encapsulationPublicKey: creatorKem.publicKey,
+      memberGroupId,
+      organizationId,
+      signingKeyPair,
+      userId: signerUserId,
+    }),
+  );
   const { close, execSql } = await createTestExecSql(
     "organization-create-group-policy-cache-test",
   );
@@ -170,6 +195,22 @@ test("createOrganizationGroup caches the created group policy in a fresh local d
   const apiClient: Parameters<typeof createOrganizationGroup>[0]["apiClient"] =
     {
       createOrganizationGroup: async (nextOrganizationId, request) => {
+        await expect(
+          loadPrincipalPolicyCheckpoint(
+            execSql,
+            "organization",
+            organizationId,
+          ),
+        ).resolves.toMatchObject({
+          version: organizationPolicy.currentState.version,
+          stateHash: organizationPolicy.currentState.stateHash,
+        });
+        await expect(
+          loadPrincipalPolicyCheckpoint(execSql, "group", adminGroupId),
+        ).resolves.toMatchObject({
+          version: adminPolicy.currentState.version,
+          stateHash: adminPolicy.currentState.stateHash,
+        });
         expect(request.initialGroupPolicy.state.memberCount).toBe(0);
         expect(request.initialGroupPolicy.projection).toEqual([]);
         expect(request.initialGroupPolicy.memberEnvelopes).toEqual([]);
@@ -190,6 +231,13 @@ test("createOrganizationGroup caches the created group policy in a fresh local d
         };
       },
       getCurrentPrincipalPolicy: async (principalType, principalId) => {
+        if (principalType === "organization") {
+          expect(principalId).toBe(organizationId);
+          return organizationPolicy;
+        }
+        if (principalId === adminGroupId) {
+          return adminPolicy;
+        }
         expect(createdPolicyBundle).not.toBeNull();
         if (!createdPolicyBundle) {
           return null;
@@ -243,6 +291,28 @@ test("createOrganizationGroup caches the created group policy in a fresh local d
       version: createdGroup.currentState.version,
       stateHash: createdGroup.currentState.stateHash,
     });
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "organization", organizationId),
+    ).resolves.toEqual(organizationPolicy);
+    await expect(
+      loadPrincipalPolicyCheckpoint(execSql, "organization", organizationId),
+    ).resolves.toEqual({
+      principalType: "organization",
+      principalId: organizationId,
+      version: organizationPolicy.currentState.version,
+      stateHash: organizationPolicy.currentState.stateHash,
+    });
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", adminGroupId),
+    ).resolves.toEqual(adminPolicy);
+    await expect(
+      loadPrincipalPolicyCheckpoint(execSql, "group", adminGroupId),
+    ).resolves.toEqual({
+      principalType: "group",
+      principalId: adminGroupId,
+      version: adminPolicy.currentState.version,
+      stateHash: adminPolicy.currentState.stateHash,
+    });
   } finally {
     close();
   }
@@ -273,7 +343,6 @@ test("group add and remove policy builders preserve additive epochs and rotate s
   });
 
   const addRequest = await buildAddGroupUserPolicyRequest({
-    canAdministerOrganization: true,
     currentPolicy: initialPolicy,
     currentPolicySignerPublicKeys,
     currentUsers: [],
@@ -331,7 +400,6 @@ test("group add and remove policy builders preserve additive epochs and rotate s
   };
 
   const removeRequest = await buildRemoveGroupUserPolicyRequest({
-    canAdministerOrganization: false,
     currentPolicy: addedPolicy,
     currentPolicySignerPublicKeys,
     localPolicyCheckpoint: {
@@ -399,7 +467,6 @@ test("group mutation builders reject tampered server policy projections", async 
 
   await expect(
     buildAddGroupUserPolicyRequest({
-      canAdministerOrganization: false,
       currentPolicy: tamperedPolicy,
       currentPolicySignerPublicKeys: policySignerPublicKeys({
         signerUserId,

@@ -1,8 +1,14 @@
-import type { OrganizationDirectory } from "@tearleads/client-sdk";
+import type {
+  OrganizationDirectory,
+  OrganizationGroupMembers,
+  OrganizationGroupPolicyHistory,
+} from "@tearleads/client-sdk";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { Dispatch, SetStateAction } from "react";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import type { useOrgManagerRefreshers } from "../hooks/useOrgManagerRefreshers";
 import { ORG_MANAGER_LABELS } from "../labels";
+import { projectGroupMutationResult } from "./groupMutationProjection";
 
 type OrgManagerActions = ReturnType<typeof useOrgManagerActions>;
 type IsOperationActive = (organizationId: string) => boolean;
@@ -10,6 +16,16 @@ type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
 
 export async function refreshAfterGroupMutation(input: {
   isOperationActive: IsOperationActive;
+  mutationProjection?: {
+    readonly bundle: PrincipalPolicyBundleResponse;
+    readonly groupId: string;
+    readonly setGroupPolicyHistory: Dispatch<
+      SetStateAction<OrganizationGroupPolicyHistory | null>
+    >;
+    readonly setMembers: Dispatch<
+      SetStateAction<OrganizationGroupMembers | null>
+    >;
+  };
   operationOrganizationId: string;
   refreshDirectoryAndGroups: Refreshers["refreshDirectoryAndGroups"];
   refreshSelectedGroupDetails: Refreshers["refreshSelectedGroupDetails"];
@@ -23,7 +39,23 @@ export async function refreshAfterGroupMutation(input: {
     return;
   }
   if (refreshedDirectory.didLoad) {
-    await input.refreshSelectedGroupDetails(refreshedDirectory.groupId);
+    const mutationProjection = input.mutationProjection;
+    const projection =
+      mutationProjection &&
+      refreshedDirectory.groupId === mutationProjection.groupId
+        ? projectGroupMutationResult({
+            bundle: mutationProjection.bundle,
+            directory: refreshedDirectory.directory,
+            groupId: mutationProjection.groupId,
+            groups: refreshedDirectory.groups,
+          })
+        : null;
+    if (projection) {
+      mutationProjection?.setMembers(projection.members);
+      mutationProjection?.setGroupPolicyHistory(projection.policyHistory);
+    } else {
+      await input.refreshSelectedGroupDetails(refreshedDirectory.groupId);
+    }
   }
   if (!input.isOperationActive(input.operationOrganizationId)) {
     return;
@@ -70,7 +102,6 @@ export async function prepareRosterImport(input: {
     await input.orgManagerActions.addUserToGroup(
       input.memberGroupId,
       targetUser.userId,
-      input.directory.currentUser.isOrgAdmin,
     );
   }
 
@@ -80,7 +111,6 @@ export async function prepareRosterImport(input: {
 }
 
 export async function addRosterUserToGroup(input: {
-  directory: OrganizationDirectory;
   directoryUser: OrganizationDirectory["users"][number] | undefined;
   groupId: string;
   isOperationActive: IsOperationActive;
@@ -88,22 +118,21 @@ export async function addRosterUserToGroup(input: {
   orgManagerActions: OrgManagerActions;
   setError: Dispatch<SetStateAction<string | null>>;
   targetUserId: string;
-}): Promise<boolean> {
+}): Promise<PrincipalPolicyBundleResponse | null> {
   const targetUser = input.directoryUser
     ? { userId: input.directoryUser.userId }
     : await input.orgManagerActions.importUserById(input.targetUserId);
   if (!input.isOperationActive(input.operationOrganizationId)) {
-    return false;
+    return null;
   }
   if (!targetUser) {
     input.setError(ORG_MANAGER_LABELS.userNotFound);
-    return false;
+    return null;
   }
 
-  await input.orgManagerActions.addUserToGroup(
+  const bundle = await input.orgManagerActions.addUserToGroup(
     input.groupId,
     targetUser.userId,
-    input.directory.currentUser.isOrgAdmin,
   );
-  return input.isOperationActive(input.operationOrganizationId);
+  return input.isOperationActive(input.operationOrganizationId) ? bundle : null;
 }
