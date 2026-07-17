@@ -134,6 +134,7 @@ export interface ContainerCreateApi {
   ): Promise<
     ContainerMutationSubmitResult<ContainerCreateWithMetadataDocumentResponse>
   >;
+  evictContainerWriterProjection?(containerId: string): void;
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;

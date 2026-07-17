@@ -15,6 +15,7 @@ type IsOperationActive = (organizationId: string) => boolean;
 type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
 
 export async function refreshAfterGroupMutation(input: {
+  invalidateSelectedGroupDetails: Refreshers["invalidateSelectedGroupDetails"];
   isOperationActive: IsOperationActive;
   mutationProjection?: {
     readonly bundle: PrincipalPolicyBundleResponse;
@@ -33,12 +34,14 @@ export async function refreshAfterGroupMutation(input: {
   selectedUserIdRef?: { current: string | null };
 }): Promise<void> {
   const refreshedDirectory = await input.refreshDirectoryAndGroups({
+    afterMutation: true,
     skipNextGroupDetailsEffect: true,
   });
   if (!input.isOperationActive(input.operationOrganizationId)) {
     return;
   }
   if (refreshedDirectory.didLoad) {
+    input.invalidateSelectedGroupDetails();
     const mutationProjection = input.mutationProjection;
     const projection =
       mutationProjection &&
@@ -77,11 +80,11 @@ export async function prepareRosterImport(input: {
   const directoryUser = input.directory.users.find(
     (user) => user.userId === input.targetUserId,
   );
-  const [targetUser, memberGroupDetails] = await Promise.all([
+  const [targetUser, memberGroupMembers] = await Promise.all([
     directoryUser
       ? Promise.resolve({ userId: directoryUser.userId })
       : input.orgManagerActions.importUserById(input.targetUserId),
-    input.orgManagerActions.loadGroupDetails(input.memberGroupId),
+    input.orgManagerActions.loadGroupMembers(input.memberGroupId),
   ]);
   if (!input.isOperationActive(input.operationOrganizationId)) {
     return null;
@@ -90,12 +93,12 @@ export async function prepareRosterImport(input: {
     input.setError(ORG_MANAGER_LABELS.userNotFound);
     return null;
   }
-  if (!memberGroupDetails.members) {
+  if (!memberGroupMembers) {
     input.setError(ORG_MANAGER_LABELS.failedLoadGroupMembers);
     return null;
   }
 
-  const alreadyMember = memberGroupDetails.members.members.some(
+  const alreadyMember = memberGroupMembers.members.some(
     (member) =>
       member.memberPrincipalType === "user" &&
       member.memberPrincipalId === targetUser.userId,

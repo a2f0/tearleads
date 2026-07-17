@@ -14,6 +14,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import {
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
+  type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
 import { reconcileOrganizationBillingSeats } from "../billing/organizationSeats";
 import { wasOrganizationGroupDeleted } from "../organizations/groupTombstone";
@@ -25,6 +26,7 @@ import {
   lockOrganizationReadModelHeadInTransaction,
 } from "../organizations/readModelChanges";
 import { syncOrganizationRosterFromMemberReachability } from "../organizations/roster";
+import { listPrincipalPolicyAccessGainNotificationUserIds } from "./accessGainNotifications";
 import { persistPrincipalPolicyAccessLossTombstones } from "./accessLossTombstones";
 import { getPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
 import { assertPrincipalOrganizationCanSync } from "./organizationSync";
@@ -34,6 +36,7 @@ import {
   type OrganizationPolicyTarget,
 } from "./principalPolicyAuthorityConstraints";
 import { assertPrincipalPolicyGroupReferencesExist } from "./principalPolicyGroupReferences";
+import { listUserIdsReachableFromPrincipalState } from "./principalStateReachability";
 import { PrincipalPolicyError, toPrincipalPolicyError } from "./shared";
 import { storeVerifiedPrincipalPolicyInTransaction } from "./storeVerifiedPrincipalPolicy";
 
@@ -41,6 +44,11 @@ export interface PutPrincipalPolicyInput extends PutPrincipalPolicyRequest {
   expectedPrincipalId: string;
   expectedPrincipalType: "group" | "organization";
   requesterUserId: string;
+}
+
+export interface PutPrincipalPolicyResult {
+  readonly policy: PrincipalPolicyBundleResponse;
+  readonly sharedWithYouUserIds: readonly string[];
 }
 
 interface RosterSyncResult {
@@ -354,10 +362,57 @@ async function lockPolicyPrincipalMutation(
   });
 }
 
+async function applyPrincipalPolicyTransitionEffects(input: {
+  readonly currentReachableUserIds: readonly string[];
+  readonly nextState: StoredPrincipalState;
+  readonly policy: PutPrincipalPolicyInput;
+  readonly previousReachableUserIds: readonly string[];
+  readonly previousState: StoredPrincipalState | null;
+  readonly tx: DatabaseTransaction;
+}): Promise<string[]> {
+  await persistPrincipalPolicyAccessLossTombstones({
+    currentReachableUserIds: input.currentReachableUserIds,
+    currentState: input.nextState,
+    executor: input.tx,
+    previousReachableUserIds: input.previousReachableUserIds,
+    previousState: input.previousState,
+    updatedAt: new Date(),
+  });
+  const rosterSyncTarget = await syncRosterForStoredPrincipalState({
+    request: input.policy,
+    tx: input.tx,
+  });
+  if (rosterSyncTarget) {
+    await reconcileOrganizationBillingSeats({
+      executor: input.tx,
+      organizationId: rosterSyncTarget.organizationId,
+      source: {
+        sourceId: input.nextState.stateHash,
+        sourcePrincipalId: input.policy.expectedPrincipalId,
+        sourcePrincipalType: input.policy.expectedPrincipalType,
+        sourceType: "principal_state",
+      },
+    });
+    await appendPolicyReadModelChanges({
+      policy: input.policy,
+      rosterSync: rosterSyncTarget,
+      tx: input.tx,
+    });
+  }
+
+  return listPrincipalPolicyAccessGainNotificationUserIds({
+    currentReachableUserIds: input.currentReachableUserIds,
+    executor: input.tx,
+    previousReachableUserIds: input.previousReachableUserIds,
+    principalId: input.policy.expectedPrincipalId,
+    principalType: input.policy.expectedPrincipalType,
+  });
+}
+
 export async function runPutPrincipalPolicyWorkflow(
   db: ApiDatabase,
   input: PutPrincipalPolicyInput,
-): Promise<PrincipalPolicyBundleResponse> {
+): Promise<PutPrincipalPolicyResult> {
   assertPutPrincipalPolicyRouteBinding(input);
 
   try {
@@ -371,6 +426,12 @@ export async function runPutPrincipalPolicyWorkflow(
         input.state.principalId,
         tx,
       );
+      const previousReachableUserIds = previousState
+        ? await listUserIdsReachableFromPrincipalState({
+            executor: tx,
+            state: previousState,
+          })
+        : [];
       const nextState = await storeVerifiedPrincipalPolicyInTransaction(
         {
           state: input.state,
@@ -397,37 +458,28 @@ export async function runPutPrincipalPolicyWorkflow(
       );
       const isExactReplay = previousState?.stateHash === nextState.stateHash;
       if (isExactReplay) {
-        return getPrincipalPolicyForStateWithExecutor(tx, nextState);
+        return {
+          policy: await getPrincipalPolicyForStateWithExecutor(tx, nextState),
+          sharedWithYouUserIds: [],
+        };
       }
-      await persistPrincipalPolicyAccessLossTombstones({
-        currentState: nextState,
-        executor: tx,
+      const currentReachableUserIds =
+        await listUserIdsReachableFromPrincipalState({
+          executor: tx,
+          state: nextState,
+        });
+      const sharedWithYouUserIds = await applyPrincipalPolicyTransitionEffects({
+        currentReachableUserIds,
+        nextState,
+        policy: input,
+        previousReachableUserIds,
         previousState,
-        updatedAt: new Date(),
-      });
-      const rosterSyncTarget = await syncRosterForStoredPrincipalState({
-        request: input,
         tx,
       });
-      if (rosterSyncTarget) {
-        await reconcileOrganizationBillingSeats({
-          executor: tx,
-          organizationId: rosterSyncTarget.organizationId,
-          source: {
-            sourceId: nextState.stateHash,
-            sourcePrincipalId: input.expectedPrincipalId,
-            sourcePrincipalType: input.expectedPrincipalType,
-            sourceType: "principal_state",
-          },
-        });
-        await appendPolicyReadModelChanges({
-          policy: input,
-          rosterSync: rosterSyncTarget,
-          tx,
-        });
-      }
-
-      return getPrincipalPolicyForStateWithExecutor(tx, nextState);
+      return {
+        policy: await getPrincipalPolicyForStateWithExecutor(tx, nextState),
+        sharedWithYouUserIds,
+      };
     });
   } catch (error) {
     const principalPolicyError = toPrincipalPolicyError(error);

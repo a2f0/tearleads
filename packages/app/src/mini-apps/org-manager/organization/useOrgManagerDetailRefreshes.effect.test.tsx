@@ -7,6 +7,10 @@ import { useOrgManagerDetailRefreshes } from "./useOrgManagerDetailRefreshes";
 afterEach(() => cleanup());
 
 interface DetailRefreshProbeProps {
+  readonly readModelCursor: string | null;
+  readonly refreshSelectedGroupContainers: (
+    groupId: string | null,
+  ) => Promise<void>;
   readonly refreshSelectedGroupDetails: (
     groupId: string | null,
   ) => Promise<void>;
@@ -31,6 +35,8 @@ test("retained selections load details only in their visible view", () => {
   const userLoads: Array<string | null> = [];
   const skippedGroupDetailsEffectRef = { current: null };
   const stableProps = {
+    readModelCursor: "cursor-1",
+    refreshSelectedGroupContainers: async () => {},
     refreshSelectedGroupDetails: async (groupId: string | null) => {
       groupLoads.push(groupId);
     },
@@ -96,6 +102,8 @@ test("a manual group refresh skip is consumed only when groups are visible", () 
     current: GroupDetailsEffectKey | null;
   } = { current: { groupId: "group-a", stateHash: "state-a" } };
   const stableProps = {
+    readModelCursor: "cursor-1",
+    refreshSelectedGroupContainers: async () => {},
     refreshSelectedGroupDetails: async (groupId: string | null) => {
       groupLoads.push(groupId);
     },
@@ -141,6 +149,8 @@ test("a cold group deep link loads once its group arrives in the snapshot", () =
     groupLoads.push(nextGroupId);
   };
   const stableProps = {
+    readModelCursor: "cursor-1",
+    refreshSelectedGroupContainers: async () => {},
     refreshSelectedGroupDetails,
     refreshSelectedUserDetail: async () => {},
     selectedGroupId: "group-a",
@@ -166,6 +176,8 @@ test("a cold group deep link loads once its group arrives in the snapshot", () =
 test("a reconciled membership state reloads a retained group", () => {
   const groupLoads: Array<string | null> = [];
   const stableProps = {
+    readModelCursor: "cursor-1",
+    refreshSelectedGroupContainers: async () => {},
     refreshSelectedGroupDetails: async (groupId: string | null) => {
       groupLoads.push(groupId);
     },
@@ -205,6 +217,8 @@ test("a skip for an older state does not hide reconciled members", () => {
 
   render(
     <DetailRefreshProbe
+      readModelCursor="cursor-1"
+      refreshSelectedGroupContainers={async () => {}}
       refreshSelectedGroupDetails={async (groupId) => {
         groupLoads.push(groupId);
       }}
@@ -220,4 +234,70 @@ test("a skip for an older state does not hide reconciled members", () => {
 
   expect(groupLoads).toEqual(["group-a"]);
   expect(skippedGroupDetailsEffectRef.current).toBeNull();
+});
+
+test("cursor advancement repaints local details without reloading group policy", () => {
+  const groupLoads: Array<string | null> = [];
+  const containerLoads: Array<string | null> = [];
+  const userLoads: Array<string | null> = [];
+  const stableProps = {
+    refreshSelectedGroupContainers: async (groupId: string | null) => {
+      containerLoads.push(groupId);
+    },
+    refreshSelectedGroupDetails: async (groupId: string | null) => {
+      groupLoads.push(groupId);
+    },
+    refreshSelectedUserDetail: async (userId: string | null) => {
+      userLoads.push(userId);
+    },
+    selectedGroupAvailable: true,
+    selectedGroupId: "group-a",
+    selectedGroupStateHash: "state-1",
+    selectedUserId: "user-a",
+    skippedGroupDetailsEffectRef: { current: null },
+  };
+  const view = render(
+    <DetailRefreshProbe
+      {...stableProps}
+      readModelCursor="cursor-1"
+      view="groups"
+    />,
+  );
+
+  expect(groupLoads).toEqual(["group-a"]);
+  expect(containerLoads).toEqual(["group-a"]);
+
+  act(() => {
+    view.rerender(
+      <DetailRefreshProbe
+        {...stableProps}
+        readModelCursor="cursor-2"
+        view="groups"
+      />,
+    );
+  });
+  expect(groupLoads).toEqual(["group-a"]);
+  expect(containerLoads).toEqual(["group-a", "group-a"]);
+
+  act(() => {
+    view.rerender(
+      <DetailRefreshProbe
+        {...stableProps}
+        readModelCursor="cursor-2"
+        view="directory"
+      />,
+    );
+  });
+  expect(userLoads).toEqual(["user-a"]);
+
+  act(() => {
+    view.rerender(
+      <DetailRefreshProbe
+        {...stableProps}
+        readModelCursor="cursor-3"
+        view="directory"
+      />,
+    );
+  });
+  expect(userLoads).toEqual(["user-a", "user-a"]);
 });

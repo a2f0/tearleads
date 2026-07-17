@@ -399,7 +399,9 @@ export async function createOrganizationGroup(
   pane: HTMLElement,
   groupName: string,
 ) {
-  await openOrgManager(pane);
+  if (within(pane).queryAllByRole("button", { name: "Groups" }).length === 0) {
+    await openOrgManager(pane);
+  }
 
   const fileMenu = within(pane).getByRole("menuitem", { name: "File" });
   await interact(() => {

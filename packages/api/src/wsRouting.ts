@@ -1,17 +1,23 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { isUuidV4String } from "@tearleads/validators/util";
-import type { WebSocketTicketIdentity } from "./wsIdentity";
+import {
+  closeSafely,
+  isSameSession,
+  readOrigin,
+  sendSafely,
+  sessionKey,
+  socketSessionKey,
+  type WsConnection,
+} from "./wsConnection";
+import {
+  KNOWN_ORGANIZATIONS_REPLACE,
+  ORGANIZATION_READ_MODEL_CHANGED,
+  type OrganizationInterestDeclaration,
+  readOrganizationInterest,
+  WsOrganizationRouter,
+} from "./wsOrganizationRouting";
 
-/**
- * The subset of a Bun `ServerWebSocket` the router needs: the authenticated
- * identity bound at upgrade (`data`) and `send`. Narrowed so the router is
- * unit-testable with plain fakes.
- */
-export interface WsConnection {
-  readonly data: WebSocketTicketIdentity;
-  close?(code?: number, reason?: string): unknown;
-  send(message: string): unknown;
-}
+export type { WsConnection } from "./wsConnection";
 
 // Client -> server interest-declaration message types. Interest is the set of
 // containers a socket wants invalidations for; it is NOT an authorization grant
@@ -19,7 +25,6 @@ export interface WsConnection {
 const KNOWN_CONTAINERS_REPLACE = "known_containers";
 const KNOWN_CONTAINERS_ADD = "known_containers.add";
 const KNOWN_CONTAINERS_REMOVE = "known_containers.remove";
-
 // A container's access changed; sockets interested in it must resync (server ->
 // router control event) and are told to over HTTP (router -> client).
 const ACCESS_CHANGED = "access_changed";
@@ -39,6 +44,11 @@ export type AppliedInterest = {
   readonly kind: "replace" | "add" | "remove";
   readonly containerIds: string[];
 } | null;
+
+type ClientMessageAction =
+  | Exclude<AppliedInterest, null>
+  | OrganizationInterestDeclaration
+  | null;
 
 // An interest the router dropped on an access change, returned so the caller can
 // remove it from the persisted set too.
@@ -100,23 +110,6 @@ function eventContainerIds(event: Record<string, unknown>): string[] {
 }
 
 /**
- * The authoring session an event came from, if the publisher tagged it. Read
- * defensively (events arrive as untrusted JSON over redis): a malformed or
- * partial `origin` yields null, which the router treats as "exclude nobody".
- */
-function readOrigin(
-  event: Record<string, unknown>,
-): WebSocketTicketIdentity | null {
-  const origin = Reflect.get(event, "origin");
-  if (!isPlainObject(origin)) {
-    return null;
-  }
-  const userId = readStringField(Reflect.get(origin, "userId"));
-  const sessionId = readStringField(Reflect.get(origin, "sessionId"));
-  return userId && sessionId ? { sessionId, userId } : null;
-}
-
-/**
  * Re-serialize the event without its `origin` field. `origin` is internal
  * server-to-server routing data — it carries a per-session identifier that must
  * not leak to clients, and clients have no use for it. Done with a destructuring
@@ -126,20 +119,6 @@ function readOrigin(
 function stripOrigin(event: Record<string, unknown>): string {
   const { origin: _origin, ...rest } = event;
   return JSON.stringify(rest);
-}
-
-/**
- * Whether this socket is the exact authoring session named by `origin`. Matched
- * on (userId, sessionId) so it is independent of which process the socket lives
- * on and which process published the event.
- */
-function isSameSession(
-  ws: WsConnection,
-  origin: WebSocketTicketIdentity,
-): boolean {
-  return (
-    ws.data.userId === origin.userId && ws.data.sessionId === origin.sessionId
-  );
 }
 
 function addToIndex<K>(
@@ -181,6 +160,7 @@ export class WsEventRouter {
   private readonly socketsByUserId = new Map<string, Set<WsConnection>>();
   private readonly socketsByContainerId = new Map<string, Set<WsConnection>>();
   private readonly interestBySocket = new Map<WsConnection, Set<string>>();
+  private readonly organizationRouter = new WsOrganizationRouter();
 
   open(ws: WsConnection): void {
     addToIndex(this.socketsBySessionKey, socketSessionKey(ws), ws);
@@ -188,6 +168,7 @@ export class WsEventRouter {
     if (!this.interestBySocket.has(ws)) {
       this.interestBySocket.set(ws, new Set());
     }
+    this.organizationRouter.open(ws);
   }
 
   close(ws: WsConnection): void {
@@ -200,29 +181,64 @@ export class WsEventRouter {
       }
       this.interestBySocket.delete(ws);
     }
+    this.organizationRouter.close(ws);
   }
 
-  handleClientMessage(ws: WsConnection, rawMessage: string): AppliedInterest {
+  handleClientMessage(
+    ws: WsConnection,
+    rawMessage: string,
+  ): ClientMessageAction {
     const parsed = parseClientJsonObject(rawMessage);
     if (!parsed) {
       return null;
     }
-    const containerIds = readContainerIdArray(
-      Reflect.get(parsed, "containerIds"),
-    );
-    if (!containerIds) {
-      return null;
-    }
     switch (Reflect.get(parsed, "type")) {
-      case KNOWN_CONTAINERS_REPLACE:
+      case KNOWN_CONTAINERS_REPLACE: {
+        const containerIds = readContainerIdArray(
+          Reflect.get(parsed, "containerIds"),
+        );
+        if (!containerIds) {
+          return null;
+        }
         this.replaceInterest(ws, containerIds);
         return { containerIds, kind: "replace" };
-      case KNOWN_CONTAINERS_ADD:
+      }
+      case KNOWN_CONTAINERS_ADD: {
+        const containerIds = readContainerIdArray(
+          Reflect.get(parsed, "containerIds"),
+        );
+        if (!containerIds) {
+          return null;
+        }
         this.addInterest(ws, containerIds);
         return { containerIds, kind: "add" };
-      case KNOWN_CONTAINERS_REMOVE:
+      }
+      case KNOWN_CONTAINERS_REMOVE: {
+        const containerIds = readContainerIdArray(
+          Reflect.get(parsed, "containerIds"),
+        );
+        if (!containerIds) {
+          return null;
+        }
         this.removeInterest(ws, containerIds);
         return { containerIds, kind: "remove" };
+      }
+      case KNOWN_ORGANIZATIONS_REPLACE: {
+        const organizationId = readOrganizationInterest(
+          Reflect.get(parsed, "organizationIds"),
+        );
+        if (organizationId === undefined) {
+          return null;
+        }
+        // Unlike container interest, an organization declaration is not
+        // applied here. The gateway must authorize the authenticated socket
+        // against the requested organization first, then call
+        // applyAuthorizedOrganizationInterest.
+        return {
+          kind: "organization-replace",
+          organizationId,
+        };
+      }
       default:
         return null;
     }
@@ -242,6 +258,18 @@ export class WsEventRouter {
   }
 
   /**
+   * Apply a gateway-authorized organization declaration. A null organization
+   * clears interest immediately. Closed sockets are absent from the interest
+   * map, so a late authorization result cannot re-index one after close.
+   */
+  applyAuthorizedOrganizationInterest(
+    ws: WsConnection,
+    organizationId: string | null,
+  ): void {
+    this.organizationRouter.applyAuthorizedInterest(ws, organizationId);
+  }
+
+  /**
    * Route one event. Returns the interest evictions an access-change caused, so
    * the impure shell can mirror them into the persisted set (otherwise a
    * reconnect would re-hydrate an interest the access change just dropped).
@@ -258,6 +286,10 @@ export class WsEventRouter {
     }
     if (Reflect.get(event, "type") === ACCESS_CHANGED) {
       return this.handleAccessChanged(event);
+    }
+    if (Reflect.get(event, "type") === ORGANIZATION_READ_MODEL_CHANGED) {
+      this.organizationRouter.routeReadModelChanged(event);
+      return [];
     }
     // Resolve recipients before touching `origin`. Redis fans every event to
     // every API process, but most processes hold no socket interested in a
@@ -415,30 +447,6 @@ export class WsEventRouter {
         removeFromIndex(this.socketsByContainerId, containerId, ws);
       }
     }
-  }
-}
-
-function sessionKey(userId: string, sessionId: string): string {
-  return `${userId}:${sessionId}`;
-}
-
-function socketSessionKey(ws: WsConnection): string {
-  return sessionKey(ws.data.userId, ws.data.sessionId);
-}
-
-function closeSafely(ws: WsConnection, code: number, reason: string): void {
-  try {
-    ws.close?.(code, reason);
-  } catch {
-    // A broken/closing socket must not block revocation for the others.
-  }
-}
-
-function sendSafely(ws: WsConnection, message: string): void {
-  try {
-    ws.send(message);
-  } catch {
-    // A broken/closing socket must not block delivery to the other recipients.
   }
 }
 

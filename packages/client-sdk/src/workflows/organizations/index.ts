@@ -16,6 +16,12 @@ export {
   listLocalOrganizations,
 } from "./listLocalOrganizations";
 export {
+  loadLocalOrganizationContainerGrants,
+  loadLocalOrganizationGroupContainers,
+  loadLocalOrganizationGroupPolicyHistory,
+  loadLocalOrganizationUserDetail,
+} from "./localReadModelDetails";
+export {
   buildOrganizationProfileDocumentPatch,
   createInitializedOrganizationProfileDocument,
   DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
@@ -36,13 +42,9 @@ export {
 } from "./principalPolicy";
 export {
   buildOrganizationGroupPolicyHistory,
-  loadOrganizationContainerGrants,
   loadOrganizationDataUsage,
-  loadOrganizationGroupDetails,
   loadOrganizationGroupPolicyHistory,
-  loadOrganizationGroupSupportingDetails,
   loadOrganizationPolicyHistory,
-  loadOrganizationUserDetail,
   type OrganizationContainerGrant,
   type OrganizationContainerGrants,
   type OrganizationDataUsage,
@@ -57,7 +59,6 @@ export {
   type OrganizationGroupPolicyHistory,
   type OrganizationGroupPolicyHistoryEntry,
   type OrganizationGroupSummary,
-  type OrganizationGroupSupportingDetails,
   type OrganizationPolicyHistory,
   type OrganizationPrincipalMemberChange,
   type OrganizationPrincipalMemberChangeType,

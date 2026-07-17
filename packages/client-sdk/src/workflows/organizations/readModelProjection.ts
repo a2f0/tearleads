@@ -55,6 +55,7 @@ function toDirectoryAndGroups(
     },
     groups: projection.groups.groups,
     memberGroupId: projection.groups.memberGroupId,
+    readModelCursor: projection.cursor,
   };
 }
 
@@ -230,6 +231,7 @@ export async function loadLocalOrganizationGroupMembers(
     input.execSql,
     input.organizationId,
     input.groupId,
+    input.currentUserId,
   );
 }
 

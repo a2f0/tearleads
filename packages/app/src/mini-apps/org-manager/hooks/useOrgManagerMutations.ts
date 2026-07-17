@@ -31,6 +31,7 @@ interface OrgManagerMutationsParams {
   groupNameDraft: string;
   groups: ReadonlyArray<OrganizationGroupSummary>;
   importUserIdDraft: string;
+  invalidateSelectedGroupDetails: Refreshers["invalidateSelectedGroupDetails"];
   memberGroupId: string | null;
   members: OrganizationGroupMembers | null;
   openGroupRoute: (groupId: string) => void;
@@ -75,6 +76,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     groupNameDraft,
     groups,
     importUserIdDraft,
+    invalidateSelectedGroupDetails,
     memberGroupId,
     members,
     openGroupRoute,
@@ -139,7 +141,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
       }
       setGroupNameDraft("");
       setIsCreateGroupDialogOpen(false);
-      await refreshDirectoryAndGroups();
+      await refreshDirectoryAndGroups({ afterMutation: true });
       if (!isOperationActive(operationOrganizationId)) {
         return;
       }
@@ -198,6 +200,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
           return;
         }
         await refreshDirectoryAndGroups({
+          afterMutation: true,
           skipNextGroupDetailsEffect: true,
         });
       } catch (nextError) {
@@ -264,6 +267,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
       setImportUserIdDraft("");
       setIsImportUserDialogOpen(false);
       await refreshDirectoryAndGroups({
+        afterMutation: true,
         skipNextGroupDetailsEffect: true,
       });
       if (!isOperationActive(operationOrganizationId)) {
@@ -306,6 +310,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     addUserId,
     appData,
     directory,
+    invalidateSelectedGroupDetails,
     isOperationActive,
     members,
     orgManagerActions,
@@ -325,6 +330,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     canDisableRosterUsers,
     directory,
     groups,
+    invalidateSelectedGroupDetails,
     memberGroupId,
     orgManagerActions,
     refreshDirectoryAndGroups,

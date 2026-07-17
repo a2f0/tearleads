@@ -1,3 +1,4 @@
+import { expect } from "bun:test";
 import { listProxiedApiRequests } from "./mswServer";
 
 const MAX_REQUEST_SUMMARY_BODY_LENGTH = 500;
@@ -45,4 +46,24 @@ export function summarizeProxiedApiRequests(
         `${request.method} ${request.status} ${requestPath(request.url)} request=${summarizeRequestBody(request.requestBody)} response=${truncateText(request.responseBody)}`,
     )
     .join("\n");
+}
+
+export function expectGrantReadModelRequestBoundary(
+  requests: readonly ProxiedApiRequest[],
+): void {
+  const requestSummary = summarizeProxiedApiRequests(requests);
+  expect(
+    requests.filter(
+      (request) =>
+        request.method === "GET" &&
+        /^\/organizations\/[^/]+\/read-model$/u.test(requestPath(request.url)),
+    ),
+    `Grant detail should reconcile the read model exactly once.\nrequests=\n${requestSummary}`,
+  ).toHaveLength(1);
+  expect(
+    requests.filter((request) =>
+      /^\/organizations\/[^/]+\/grants$/u.test(requestPath(request.url)),
+    ),
+    `Grant detail must not use the removed grants endpoint.\nrequests=\n${requestSummary}`,
+  ).toEqual([]);
 }

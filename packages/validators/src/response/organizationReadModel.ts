@@ -9,9 +9,11 @@ import {
 } from "../util";
 import {
   isListOrganizationGroupsResponse,
+  isOrganizationContainerGrantResponse,
   isOrganizationDirectoryUserResponse,
   isOrganizationGroupMemberResponse,
   type ListOrganizationGroupsResponse,
+  type OrganizationContainerGrantsResponse,
   type OrganizationDirectoryResponse,
   type OrganizationGroupMemberResponse,
 } from "./organization";
@@ -20,6 +22,9 @@ export type OrganizationReadModelDirectoryResponse = Omit<
   OrganizationDirectoryResponse,
   "currentUser"
 >;
+
+export type OrganizationReadModelGrantsResponse =
+  OrganizationContainerGrantsResponse;
 
 export interface OrganizationReadModelGroupMembershipResponse {
   readonly groupId: string;
@@ -38,7 +43,7 @@ interface OrganizationReadModelResponseBase {
   readonly hasMore: boolean;
   readonly nextCursor: string;
   readonly organizationId: string;
-  readonly version: 2;
+  readonly version: 3;
 }
 
 export interface OrganizationReadModelSnapshotResponse
@@ -46,6 +51,7 @@ export interface OrganizationReadModelSnapshotResponse
   readonly mode: "snapshot";
   readonly lanes: {
     readonly directory: OrganizationReadModelDirectoryResponse;
+    readonly grants: OrganizationReadModelGrantsResponse;
     readonly groupMemberships: OrganizationReadModelGroupMembershipsResponse;
     readonly groups: ListOrganizationGroupsResponse;
   };
@@ -56,6 +62,7 @@ export interface OrganizationReadModelDeltaResponse
   readonly mode: "delta";
   readonly lanes: {
     readonly directory?: OrganizationReadModelDirectoryResponse;
+    readonly grants?: OrganizationReadModelGrantsResponse;
     readonly groupMemberships?: OrganizationReadModelGroupMembershipsResponse;
     readonly groups?: ListOrganizationGroupsResponse;
   };
@@ -129,6 +136,81 @@ function isGroupsLane(value: unknown): value is ListOrganizationGroupsResponse {
           ])),
     )
   );
+}
+
+function hasValidGrantSubjectFields(
+  grant: OrganizationContainerGrantsResponse["grants"][number],
+): boolean {
+  if (grant.subjectType === "user") {
+    return (
+      grant.userId === grant.subjectId &&
+      grant.groupId === null &&
+      grant.groupName === null &&
+      grant.organizationName === null
+    );
+  }
+  if (grant.subjectType === "group") {
+    return (
+      grant.userId === null &&
+      grant.signingKeyFingerprint === null &&
+      grant.groupId === grant.subjectId &&
+      grant.organizationName === null
+    );
+  }
+  return (
+    grant.userId === null &&
+    grant.signingKeyFingerprint === null &&
+    grant.groupId === null &&
+    grant.groupName === null
+  );
+}
+
+function isGrantsLane(
+  value: unknown,
+): value is OrganizationReadModelGrantsResponse {
+  if (
+    !isPlainObject(value) ||
+    !hasStringProperty(value, "organizationId") ||
+    !hasArrayProperty(value, "grants") ||
+    !hasExactKeys(value, ["organizationId", "grants"])
+  ) {
+    return false;
+  }
+
+  const grantKeys = new Set<string>();
+  for (const grant of value.grants) {
+    if (
+      !isOrganizationContainerGrantResponse(grant) ||
+      !hasExactKeys(grant, [
+        "accessLevel",
+        "containerId",
+        "createdAt",
+        "depth",
+        "isBuiltin",
+        "metadataAccessEpoch",
+        "metadataAccessStateHash",
+        "metadataDocumentId",
+        "parentId",
+        "updatedAt",
+        "subjectType",
+        "subjectId",
+        "userId",
+        "signingKeyFingerprint",
+        "groupId",
+        "groupName",
+        "organizationName",
+      ]) ||
+      !hasValidGrantSubjectFields(grant)
+    ) {
+      return false;
+    }
+    const key = `${grant.subjectType}:${grant.subjectId}:${grant.containerId}`;
+    if (grantKeys.has(key)) {
+      return false;
+    }
+    grantKeys.add(key);
+  }
+  return true;
 }
 
 function isGroupMembership(
@@ -229,7 +311,7 @@ function hasValidCommonFields(value: unknown): value is {
       "lanes",
     ]) &&
     hasNumberProperty(value, "version") &&
-    value.version === 2 &&
+    value.version === 3 &&
     hasStringProperty(value, "mode") &&
     hasStringProperty(value, "organizationId") &&
     hasStringProperty(value, "nextCursor") &&
@@ -252,15 +334,20 @@ export function isOrganizationReadModelResponse(
   if (
     Object.keys(value.lanes).some(
       (key) =>
-        key !== "directory" && key !== "groupMemberships" && key !== "groups",
+        key !== "directory" &&
+        key !== "grants" &&
+        key !== "groupMemberships" &&
+        key !== "groups",
     )
   ) {
     return false;
   }
   const directory = Reflect.get(value.lanes, "directory");
+  const grants = Reflect.get(value.lanes, "grants");
   const groupMemberships = Reflect.get(value.lanes, "groupMemberships");
   const groups = Reflect.get(value.lanes, "groups");
   const validDirectory = directory === undefined || isDirectoryLane(directory);
+  const validGrants = grants === undefined || isGrantsLane(grants);
   const validGroupMemberships =
     groupMemberships === undefined || isGroupMembershipsLane(groupMemberships);
   const validGroups =
@@ -269,11 +356,17 @@ export function isOrganizationReadModelResponse(
       groups.groups.every(
         (group) => group.organizationId === value.organizationId,
       ));
-  if (!validDirectory || !validGroupMemberships || !validGroups) {
+  if (
+    !validDirectory ||
+    !validGrants ||
+    !validGroupMemberships ||
+    !validGroups
+  ) {
     return false;
   }
   if (
     (directory && directory.organizationId !== value.organizationId) ||
+    (grants && grants.organizationId !== value.organizationId) ||
     (groupMemberships &&
       groupMemberships.organizationId !== value.organizationId) ||
     (groups && groups.organizationId !== value.organizationId)
@@ -284,6 +377,7 @@ export function isOrganizationReadModelResponse(
   if (value.mode === "snapshot") {
     return (
       directory !== undefined &&
+      grants !== undefined &&
       groupMemberships !== undefined &&
       groupMemberships.deletedGroupIds.length === 0 &&
       groups !== undefined &&

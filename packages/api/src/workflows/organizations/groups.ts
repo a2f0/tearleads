@@ -9,7 +9,6 @@ import {
 import type {
   DeleteOrganizationGroupResponse,
   ListOrganizationGroupsResponse,
-  OrganizationGroupContainersResponse,
   OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
 } from "@tearleads/validators/response";
@@ -24,10 +23,6 @@ import { assertOrganizationCanSync } from "../billing/organizationBilling";
 import { lockGroupReferenceExclusiveInTransaction } from "../principals/groupReferenceLock";
 import { lockPrincipalMutationInTransaction } from "../principals/principalMutationLock";
 import { requireDirectOrganizationAccess } from "./access";
-import {
-  listOrganizationContainerGrantRows,
-  toOrganizationGroupContainerResponse,
-} from "./containerGrants";
 import { OrganizationManagerError } from "./errors";
 import {
   deleteOrganizationGroupRows,
@@ -67,24 +62,6 @@ async function requireGroupInOrganization(input: {
   if (!group) {
     throw new OrganizationManagerError("Group not found", 404);
   }
-}
-
-export async function runListOrganizationGroupsWorkflow(
-  db: ApiDatabase,
-  organizationId: string,
-  sessionUserId: string,
-): Promise<ListOrganizationGroupsResponse> {
-  return db.transaction(async (tx) => {
-    await requireDirectOrganizationAccess({
-      executor: tx,
-      organizationId,
-      userId: sessionUserId,
-    });
-    return loadOrganizationGroupsInTransaction({
-      executor: tx,
-      organizationId,
-    });
-  });
 }
 
 export async function loadOrganizationGroupsInTransaction(input: {
@@ -159,7 +136,7 @@ export async function runDeleteOrganizationGroupWorkflow(
   });
 }
 
-export async function listOrganizationGroupSummariesInTransaction(input: {
+async function listOrganizationGroupSummariesInTransaction(input: {
   executor: DatabaseSession;
   organizationId: string;
 }): Promise<OrganizationGroupSummariesResult> {
@@ -216,55 +193,6 @@ export async function listOrganizationGroupSummariesInTransaction(input: {
       ];
     }),
   };
-}
-
-async function listOrganizationGroupContainersInTransaction(input: {
-  executor: DatabaseSession;
-  groupId: string;
-  organizationId: string;
-  sessionUserId: string;
-}): Promise<OrganizationGroupContainersResponse> {
-  await requireDirectOrganizationAccess({
-    executor: input.executor,
-    organizationId: input.organizationId,
-    userId: input.sessionUserId,
-  });
-  await requireGroupInOrganization({
-    executor: input.executor,
-    groupId: input.groupId,
-    organizationId: input.organizationId,
-  });
-
-  const rows = await listOrganizationContainerGrantRows({
-    executor: input.executor,
-    organizationId: input.organizationId,
-    subjectFilter: {
-      subjectId: input.groupId,
-      subjectType: "group",
-    },
-  });
-
-  return {
-    organizationId: input.organizationId,
-    groupId: input.groupId,
-    containers: rows.map((row) => toOrganizationGroupContainerResponse(row)),
-  };
-}
-
-export async function runListOrganizationGroupContainersWorkflow(
-  db: ApiDatabase,
-  organizationId: string,
-  groupId: string,
-  sessionUserId: string,
-): Promise<OrganizationGroupContainersResponse> {
-  return db.transaction((tx) =>
-    listOrganizationGroupContainersInTransaction({
-      executor: tx,
-      groupId,
-      organizationId,
-      sessionUserId,
-    }),
-  );
 }
 
 async function loadNestedGroupsById(input: {

@@ -3,7 +3,6 @@ import type {
   OrganizationContainerGrantsResponse,
   OrganizationDataUsageResponse,
   OrganizationGroupContainersResponse,
-  OrganizationGroupMembersResponse,
   OrganizationUserDetailResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
@@ -24,12 +23,6 @@ const groups: ListOrganizationGroupsResponse = {
       currentState: null,
     },
   ],
-};
-
-export const members: OrganizationGroupMembersResponse = {
-  organizationId,
-  groupId,
-  members: [],
 };
 
 export const principalPolicy: PrincipalPolicyBundleResponse = {
@@ -195,7 +188,7 @@ export const containers: OrganizationGroupContainersResponse = {
   ],
 };
 
-export const grants: OrganizationContainerGrantsResponse = {
+const grants: OrganizationContainerGrantsResponse = {
   organizationId,
   grants: [
     {
@@ -255,22 +248,6 @@ export const dataUsage: OrganizationDataUsageResponse = {
   totalByteLength: 128,
 };
 
-export const containersWithMissingDisplayNames = {
-  ...containers,
-  containers: containers.containers.map((container) => ({
-    ...container,
-    containerDisplayName: null,
-  })),
-};
-
-export const grantsWithMissingDisplayNames = {
-  ...grants,
-  grants: grants.grants.map((grant) => ({
-    ...grant,
-    containerDisplayName: null,
-  })),
-};
-
 export const userDetail: OrganizationUserDetailResponse = {
   organizationId,
   user: {
@@ -292,18 +269,6 @@ export const userDetail: OrganizationUserDetailResponse = {
   grants: {
     directGrants: [],
     groupGrants: grants.grants,
-    organizationGrants: [],
-  },
-};
-
-export const userDetailWithMissingDisplayNames = {
-  ...userDetail,
-  grants: {
-    directGrants: [],
-    groupGrants: grants.grants.map((grant) => ({
-      ...grant,
-      containerDisplayName: null,
-    })),
     organizationGrants: [],
   },
 };

@@ -248,6 +248,7 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
     runtimeAuth.authToken,
     log,
     syncEnabled,
+    runtimeInput.state.online,
   );
 
   return (

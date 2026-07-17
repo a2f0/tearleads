@@ -21,6 +21,7 @@ interface OrgManagerMembershipMutationsParams {
   readonly addUserId: string;
   readonly appData: ReturnType<typeof useTearleadsRuntime>;
   readonly directory: OrganizationDirectory | null;
+  readonly invalidateSelectedGroupDetails: Refreshers["invalidateSelectedGroupDetails"];
   readonly isOperationActive: (organizationId: string) => boolean;
   readonly members: OrganizationGroupMembers | null;
   readonly orgManagerActions: ReturnType<typeof useOrgManagerActions>;
@@ -87,6 +88,7 @@ async function addUserToSelectedGroup(
     }
     params.setAddUserId("");
     await refreshAfterGroupMutation({
+      invalidateSelectedGroupDetails: params.invalidateSelectedGroupDetails,
       isOperationActive: params.isOperationActive,
       mutationProjection: {
         bundle: policyBundle,
@@ -137,6 +139,7 @@ async function removeUserFromSelectedGroup(
       return;
     }
     await refreshAfterGroupMutation({
+      invalidateSelectedGroupDetails: params.invalidateSelectedGroupDetails,
       isOperationActive: params.isOperationActive,
       mutationProjection: {
         bundle: policyBundle,
@@ -171,6 +174,7 @@ export function useOrgManagerMembershipMutations(
       params.appData.crypto.signingFingerprint,
       params.appData.crypto.signingKeyPair,
       params.directory,
+      params.invalidateSelectedGroupDetails,
       params.isOperationActive,
       params.members,
       params.orgManagerActions,
@@ -193,6 +197,7 @@ export function useOrgManagerMembershipMutations(
       params.appData.crypto.signingFingerprint,
       params.appData.crypto.signingKeyPair,
       params.directory,
+      params.invalidateSelectedGroupDetails,
       params.isOperationActive,
       params.orgManagerActions,
       params.refreshDirectoryAndGroups,

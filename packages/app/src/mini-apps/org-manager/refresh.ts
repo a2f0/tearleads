@@ -6,7 +6,9 @@ import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 import type { OrgManagerView } from "./routes";
 
 export type DirectoryRefreshOptions = {
+  afterMutation?: boolean;
   clearError?: boolean;
+  localOnly?: boolean;
   manageLoading?: boolean;
   skipNextGroupDetailsEffect?: boolean;
 };
@@ -61,6 +63,7 @@ export interface OrgManagerVisibleRefreshInput {
     groupId: string | null,
     options?: GroupDetailsRefreshOptions,
   ) => Promise<void>;
+  refreshSelectedGroupContainers: (groupId: string | null) => Promise<void>;
   refreshSelectedUserDetail: (
     userId: string | null,
     options?: GroupDetailsRefreshOptions,
@@ -90,10 +93,13 @@ export async function refreshOrgManagerVisibleData(
       );
       break;
     case "groups":
-      await input.refreshSelectedGroupDetails(
-        directoryResult.groupId,
-        detailOptions,
-      );
+      await Promise.all([
+        input.refreshSelectedGroupDetails(
+          directoryResult.groupId,
+          detailOptions,
+        ),
+        input.refreshSelectedGroupContainers(directoryResult.groupId),
+      ]);
       break;
     case "grants":
       await input.refreshGrants(viewOptions);
@@ -144,12 +150,18 @@ export function setLoadingIfManaged(
 }
 
 export function directoryLoadOptions({
+  afterMutation,
+  localOnly,
   skipNextGroupDetailsEffect,
 }: DirectoryRefreshOptions): Pick<
   DirectoryRefreshOptions,
-  "skipNextGroupDetailsEffect"
+  "afterMutation" | "localOnly" | "skipNextGroupDetailsEffect"
 > {
-  return skipNextGroupDetailsEffect === undefined
-    ? {}
-    : { skipNextGroupDetailsEffect };
+  return {
+    ...(afterMutation === undefined ? {} : { afterMutation }),
+    ...(localOnly === undefined ? {} : { localOnly }),
+    ...(skipNextGroupDetailsEffect === undefined
+      ? {}
+      : { skipNextGroupDetailsEffect }),
+  };
 }

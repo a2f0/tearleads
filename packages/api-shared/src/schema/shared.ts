@@ -27,6 +27,7 @@ export type OrganizationBillingStatus =
 export type OrganizationRosterStatus = "active" | "disabled";
 export type OrganizationReadModelLane =
   | "directory"
+  | "grants"
   | "groupMemberships"
   | "groups";
 export type OrganizationReadModelOperation = "delete" | "replace" | "upsert";

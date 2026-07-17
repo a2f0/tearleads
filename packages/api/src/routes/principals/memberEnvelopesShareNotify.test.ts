@@ -1,19 +1,28 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import { organizations, users } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   generateKemSeedAndKeyPair,
+  type PrincipalProjectionMember,
   toFingerprint,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import {
   createProjectionWithAdminSigner,
   signPrincipalStateBundle,
 } from "../../../test/helpers/principalState";
 import { registerUser } from "../../../test/helpers/registerUser";
+import {
+  getCurrentPrincipalState,
+  listCurrentPrincipalProjectionMembers,
+} from "../../access/read/principalStateStore";
 import { createRouteApp } from "../../routeApp";
 
 // Sign a complete minimal group policy whose only member is the signing user,
@@ -58,6 +67,68 @@ async function signSoloGroupState(
   });
 }
 
+async function signAdminsAccessGain(
+  actor: ReturnType<typeof createTestUser>,
+  member: ReturnType<typeof createTestUser>,
+) {
+  const [organization] = await db
+    .select({ adminGroupId: organizations.adminGroupId })
+    .from(users)
+    .innerJoin(organizations, eq(organizations.id, users.defaultOrganizationId))
+    .where(eq(users.id, actor.userId))
+    .limit(1);
+  invariant(organization, "expected actor's default organization");
+
+  const currentState = await getCurrentPrincipalState(
+    "group",
+    organization.adminGroupId,
+    db,
+  );
+  invariant(currentState, "expected provisioned Admins policy");
+  const currentProjection = await listCurrentPrincipalProjectionMembers(
+    "group",
+    organization.adminGroupId,
+    db,
+  );
+  const projection: PrincipalProjectionMember[] = [
+    ...currentProjection.map((projectionMember) => ({
+      memberPrincipalType: projectionMember.memberPrincipalType,
+      memberPrincipalId: projectionMember.memberPrincipalId,
+      role: projectionMember.role,
+    })),
+    {
+      memberPrincipalType: "user",
+      memberPrincipalId: member.userId,
+      role: "admin",
+    },
+  ];
+  const groupKem = generateKemSeedAndKeyPair();
+  const { memberEnvelopes, stateMembers } =
+    await createPrincipalMemberEnvelopes({
+      principalSecretKey: groupKem.secretKey,
+      projection,
+    });
+  const signedState = await signPrincipalStateBundle({
+    principalType: "group",
+    principalId: organization.adminGroupId,
+    version: currentState.version + 1,
+    prevStateHash: currentState.stateHash,
+    keyEpoch: currentState.keyEpoch + 1,
+    encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
+    keyFingerprint: await toFingerprint(groupKem.publicKey),
+    members: stateMembers,
+    projection,
+    payloadCiphertext: JSON.stringify({ members: projection }),
+    signedAt: "2026-04-08T16:00:00.000Z",
+    signerUserId: actor.userId,
+    signerUserKeyFingerprint: actor.fingerprint,
+    signingPrivateKey: actor.signing.signingPrivateKey,
+    memberEnvelopes,
+  });
+
+  return { adminGroupId: organization.adminGroupId, signedState };
+}
+
 function sharedWithYouUserIds(
   events: ReadonlyArray<Record<string, unknown>>,
 ): string[] {
@@ -67,11 +138,7 @@ function sharedWithYouUserIds(
     .filter((userId): userId is string => typeof userId === "string");
 }
 
-// Second pass on PR #1184 (which auto-surfaced direct "Share With Peer" shares):
-// Committing the complete policy grants each member access to the group key.
-// Publish only after that atomic commit so a recipient's immediate re-list can
-// never observe the signed state without its corresponding wrap.
-test("PUT policy publishes a user-scoped shared_with_you after the atomic commit", async () => {
+test("PUT ungranted policy does not publish shared_with_you", async () => {
   const actor = createTestUser();
   await registerUser(actor);
   await authenticate(actor);
@@ -104,15 +171,61 @@ test("PUT policy publishes a user-scoped shared_with_you after the atomic commit
   );
   expect(putPolicyResponse.status).toBe(200);
 
-  expect(sharedWithYouUserIds(publishedEvents)).toEqual([actor.userId]);
+  expect(sharedWithYouUserIds(publishedEvents)).toEqual([]);
 });
 
-// The envelopes are already committed before the route publishes, so a transient
-// publish failure must not turn a successful group update into a 500.
-test("PUT policy still succeeds when publishing shared_with_you throws", async () => {
+test("PUT granted Admins access notifies only the newly reachable user", async () => {
   const actor = createTestUser();
   await registerUser(actor);
   await authenticate(actor);
+  const member = createTestUser();
+  await registerUser(member);
+
+  const { adminGroupId, signedState } = await signAdminsAccessGain(
+    actor,
+    member,
+  );
+  const publishedEvents: Array<Record<string, unknown>> = [];
+  const app = createRouteApp({
+    publish: async (event) => {
+      publishedEvents.push(event);
+    },
+  });
+
+  const putPolicyResponse = await app.request(
+    `/principals/group/${adminGroupId}/policy`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify({
+        state: signedState.state,
+        encryptedPayload: signedState.encryptedPayload,
+        projection: signedState.projection,
+        memberEnvelopes: signedState.memberEnvelopes,
+      }),
+    },
+  );
+
+  expect(putPolicyResponse.status).toBe(200);
+  expect(sharedWithYouUserIds(publishedEvents)).toEqual([member.userId]);
+});
+
+// The policy and envelopes commit before notification delivery, so a transient
+// publish failure must not turn a real granted access gain into a 500.
+test("PUT granted access still succeeds when shared_with_you publish throws", async () => {
+  const actor = createTestUser();
+  await registerUser(actor);
+  await authenticate(actor);
+  const member = createTestUser();
+  await registerUser(member);
+
+  const { adminGroupId, signedState } = await signAdminsAccessGain(
+    actor,
+    member,
+  );
 
   const app = createRouteApp({
     publish: async () => {
@@ -120,11 +233,8 @@ test("PUT policy still succeeds when publishing shared_with_you throws", async (
     },
   });
 
-  const principalId = crypto.randomUUID();
-  const signedState = await signSoloGroupState(actor, principalId);
-
   const putPolicyResponse = await app.request(
-    `/principals/group/${principalId}/policy`,
+    `/principals/group/${adminGroupId}/policy`,
     {
       method: "PUT",
       headers: {
@@ -145,7 +255,13 @@ test("PUT policy still succeeds when publishing shared_with_you throws", async (
     isPrincipalPolicyBundleResponse(storedPolicy),
     "expected principal policy bundle response",
   );
-  expect(storedPolicy.currentMemberEnvelopes.envelopes).toEqual(
-    signedState.memberEnvelopes,
+  const sortByMemberId = <T extends { memberPrincipalId: string }>(
+    envelopes: readonly T[],
+  ) =>
+    [...envelopes].sort((left, right) =>
+      left.memberPrincipalId.localeCompare(right.memberPrincipalId),
+    );
+  expect(sortByMemberId(storedPolicy.currentMemberEnvelopes.envelopes)).toEqual(
+    sortByMemberId(signedState.memberEnvelopes),
   );
 });

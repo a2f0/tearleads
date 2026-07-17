@@ -7,6 +7,9 @@ import type { WebSocketTicketIdentity } from "./wsIdentity";
 import type { AppliedInterest } from "./wsRouting";
 import { MAX_CLIENT_MESSAGE_BYTES } from "./wsRouting";
 
+const ORGANIZATION_ID = "00000000-0000-4000-8000-00000000000a";
+const USER_ID = "10000000-0000-4000-8000-00000000000a";
+
 interface FakeSocket {
   readonly closed: Array<{
     code: number | undefined;
@@ -38,6 +41,10 @@ function serverSocket(
   ws: FakeSocket,
 ): ServerWebSocket<WebSocketTicketIdentity> {
   return ws as unknown as ServerWebSocket<WebSocketTicketIdentity>;
+}
+
+async function flushAsyncRouting(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 function createFakeBus() {
@@ -110,6 +117,196 @@ test("caps websocket client message payloads at the router limit", () => {
   expect(createRealtimeGateway().websocket.maxPayloadLength).toBe(
     MAX_CLIENT_MESSAGE_BYTES,
   );
+});
+
+test("rejects unauthorized organization declarations before indexing", async () => {
+  const bus = createFakeBus();
+  const authorizationCalls: Array<{
+    organizationId: string;
+    userId: string;
+  }> = [];
+  const gateway = createRealtimeGateway({
+    authorizeOrganizationAccess: async (userId, organizationId) => {
+      authorizationCalls.push({ organizationId, userId });
+      return false;
+    },
+    interestStore: createMemoryInterestStore(),
+    subscribe: bus.subscribe,
+  });
+  gateway.start();
+  const socket = fakeSocket(USER_ID, "session-a");
+  const ws = serverSocket(socket);
+  await gateway.websocket.open(ws);
+
+  await gateway.websocket.message(
+    ws,
+    JSON.stringify({
+      type: "known_organizations",
+      organizationIds: [ORGANIZATION_ID],
+    }),
+  );
+  await bus.publish({
+    type: "organization_read_model_changed",
+    organizationId: ORGANIZATION_ID,
+    recipientUserIds: [USER_ID],
+  });
+  await flushAsyncRouting();
+
+  expect(authorizationCalls).toEqual([
+    { organizationId: ORGANIZATION_ID, userId: USER_ID },
+    { organizationId: ORGANIZATION_ID, userId: USER_ID },
+  ]);
+  expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
+    { type: "interest_state", containerIds: [] },
+  ]);
+  gateway.stop();
+});
+
+test("reauthorizes denied demand when a later audience restores access", async () => {
+  const bus = createFakeBus();
+  let authorized = false;
+  let authorizationCalls = 0;
+  const gateway = createRealtimeGateway({
+    authorizeOrganizationAccess: async () => {
+      authorizationCalls += 1;
+      return authorized;
+    },
+    interestStore: createMemoryInterestStore(),
+    subscribe: bus.subscribe,
+  });
+  gateway.start();
+  const socket = fakeSocket(USER_ID, "session-a");
+  const ws = serverSocket(socket);
+  await gateway.websocket.open(ws);
+  await gateway.websocket.message(
+    ws,
+    JSON.stringify({
+      type: "known_organizations",
+      organizationIds: [ORGANIZATION_ID],
+    }),
+  );
+
+  await bus.publish({
+    type: "organization_read_model_changed",
+    organizationId: ORGANIZATION_ID,
+    recipientUserIds: [USER_ID],
+  });
+  await flushAsyncRouting();
+  expect(authorizationCalls).toBe(2);
+  expect(socket.sent).toHaveLength(1);
+
+  authorized = true;
+  await bus.publish({
+    type: "organization_read_model_changed",
+    organizationId: ORGANIZATION_ID,
+    recipientUserIds: [USER_ID],
+  });
+  await flushAsyncRouting();
+
+  expect(authorizationCalls).toBe(3);
+  expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
+    { type: "interest_state", containerIds: [] },
+    {
+      type: "organization_read_model_changed",
+      organizationId: ORGANIZATION_ID,
+      originatedFromSession: false,
+    },
+  ]);
+  gateway.stop();
+});
+
+test("does not index an organization until asynchronous authorization resolves", async () => {
+  const bus = createFakeBus();
+  let resolveAuthorization: ((authorized: boolean) => void) | undefined;
+  const authorization = new Promise<boolean>((resolve) => {
+    resolveAuthorization = resolve;
+  });
+  const gateway = createRealtimeGateway({
+    authorizeOrganizationAccess: () => authorization,
+    interestStore: createMemoryInterestStore(),
+    subscribe: bus.subscribe,
+  });
+  gateway.start();
+  const socket = fakeSocket(USER_ID, "session-a");
+  const ws = serverSocket(socket);
+  await gateway.websocket.open(ws);
+
+  const declaration = gateway.websocket.message(
+    ws,
+    JSON.stringify({
+      type: "known_organizations",
+      organizationIds: [ORGANIZATION_ID],
+    }),
+  );
+  await bus.publish({
+    type: "organization_read_model_changed",
+    organizationId: ORGANIZATION_ID,
+    recipientUserIds: [USER_ID],
+  });
+  expect(socket.sent).toHaveLength(1);
+
+  resolveAuthorization?.(true);
+  await declaration;
+  await bus.publish({
+    type: "organization_read_model_changed",
+    organizationId: ORGANIZATION_ID,
+    recipientUserIds: [USER_ID],
+    origin: { sessionId: "session-a", userId: USER_ID },
+  });
+
+  expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
+    { type: "interest_state", containerIds: [] },
+    {
+      type: "organization_read_model_changed",
+      organizationId: ORGANIZATION_ID,
+      originatedFromSession: true,
+    },
+  ]);
+  gateway.stop();
+});
+
+test("a newer clear declaration defeats stale asynchronous authorization", async () => {
+  const bus = createFakeBus();
+  let resolveAuthorization: ((authorized: boolean) => void) | undefined;
+  const authorization = new Promise<boolean>((resolve) => {
+    resolveAuthorization = resolve;
+  });
+  const gateway = createRealtimeGateway({
+    authorizeOrganizationAccess: () => authorization,
+    interestStore: createMemoryInterestStore(),
+    subscribe: bus.subscribe,
+  });
+  gateway.start();
+  const socket = fakeSocket(USER_ID, "session-a");
+  const ws = serverSocket(socket);
+  await gateway.websocket.open(ws);
+
+  const staleDeclaration = gateway.websocket.message(
+    ws,
+    JSON.stringify({
+      type: "known_organizations",
+      organizationIds: [ORGANIZATION_ID],
+    }),
+  );
+  await gateway.websocket.message(
+    ws,
+    JSON.stringify({
+      type: "known_organizations",
+      organizationIds: [],
+    }),
+  );
+  resolveAuthorization?.(true);
+  await staleDeclaration;
+  await bus.publish({
+    type: "organization_read_model_changed",
+    organizationId: ORGANIZATION_ID,
+    recipientUserIds: [USER_ID],
+  });
+
+  expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
+    { type: "interest_state", containerIds: [] },
+  ]);
+  gateway.stop();
 });
 
 test("cross-instance session revocation closes only the revoked session socket", async () => {

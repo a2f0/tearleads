@@ -19,7 +19,7 @@ import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import {
   type DocumentCreateResponse,
   isDocumentSyncResponse,
-  isOrganizationDirectoryResponse,
+  isOrganizationReadModelResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
@@ -124,13 +124,13 @@ async function createSignedDocumentSyncRequest(input: {
   };
 }
 
-test("lapsed organizations can read directory data but cannot change org profile", async () => {
+test("lapsed organizations can read organization data but cannot change org profile", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticate(actor);
   await setTestOrganizationBillingLocal(organizationId);
 
   const readResponse = await routeApp.request(
-    `/organizations/${organizationId}/directory`,
+    `/organizations/${organizationId}/read-model`,
     {
       method: "GET",
       headers: { Authorization: `Bearer ${actor.token}` },
@@ -138,7 +138,12 @@ test("lapsed organizations can read directory data but cannot change org profile
   );
 
   expect(readResponse.status).toBe(200);
-  expect(isOrganizationDirectoryResponse(await readResponse.json())).toBe(true);
+  const readBody: unknown = await readResponse.json();
+  expect(
+    isOrganizationReadModelResponse(readBody) &&
+      readBody.mode === "snapshot" &&
+      readBody.lanes.directory.organizationId === organizationId,
+  ).toBe(true);
 
   const writeResponse = await routeApp.request(
     `/organizations/${organizationId}/profile`,

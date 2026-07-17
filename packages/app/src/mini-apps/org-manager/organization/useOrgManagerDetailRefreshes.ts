@@ -3,6 +3,10 @@ import type { GroupDetailsEffectKey } from "../refresh";
 import type { OrgManagerView } from "../routes";
 
 interface OrgManagerDetailRefreshesInput {
+  readonly readModelCursor: string | null;
+  readonly refreshSelectedGroupContainers: (
+    groupId: string | null,
+  ) => Promise<void>;
   readonly refreshSelectedGroupDetails: (
     groupId: string | null,
   ) => Promise<void>;
@@ -50,8 +54,28 @@ export function useOrgManagerDetailRefreshes(
   ]);
 
   useEffect(() => {
+    if (
+      input.view === "groups" &&
+      (input.selectedGroupId === null || input.selectedGroupAvailable)
+    ) {
+      void input.refreshSelectedGroupContainers(input.selectedGroupId);
+    }
+  }, [
+    input.readModelCursor,
+    input.refreshSelectedGroupContainers,
+    input.selectedGroupAvailable,
+    input.selectedGroupId,
+    input.view,
+  ]);
+
+  useEffect(() => {
     if (input.view === "directory") {
       void input.refreshSelectedUserDetail(input.selectedUserId);
     }
-  }, [input.refreshSelectedUserDetail, input.selectedUserId, input.view]);
+  }, [
+    input.readModelCursor,
+    input.refreshSelectedUserDetail,
+    input.selectedUserId,
+    input.view,
+  ]);
 }

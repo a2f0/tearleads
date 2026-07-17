@@ -9,6 +9,7 @@ import {
   organizationReadModelGroupMembers,
   organizationReadModelGroupMemberships,
   organizationReadModelGroups,
+  organizationReadModelRequesters,
   organizationReadModelState,
 } from "../../sqlite/organizationReadModelSchema";
 import { organizationReadModelTables } from "../../sqlite/schema";
@@ -361,6 +362,7 @@ export async function loadOrganizationReadModelGroupMembers(
   execSql: ExecSql,
   organizationId: string,
   groupId: string,
+  currentUserId: string,
 ): Promise<OrganizationGroupMembersResponse | null> {
   await ensureSqlTables(execSql, organizationReadModelTables);
   return getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
@@ -377,6 +379,19 @@ export async function loadOrganizationReadModelGroupMembers(
         organizationId,
         tx,
       });
+      return null;
+    }
+    const [requester] = await tx
+      .select({ userId: organizationReadModelRequesters.userId })
+      .from(organizationReadModelRequesters)
+      .where(
+        and(
+          eq(organizationReadModelRequesters.organizationId, organizationId),
+          eq(organizationReadModelRequesters.userId, currentUserId),
+        ),
+      )
+      .limit(1);
+    if (!requester) {
       return null;
     }
     return loadOrganizationReadModelGroupMembersInTransaction({

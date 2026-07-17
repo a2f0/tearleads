@@ -124,9 +124,9 @@ export interface DemoRosterSeedActions {
     userId: string,
   ) => Promise<{ readonly userId: string } | null>;
   readonly loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
-  readonly loadGroupDetails: (
+  readonly loadGroupMembers: (
     groupId: string,
-  ) => Promise<{ readonly members: OrganizationGroupMembers | null }>;
+  ) => Promise<OrganizationGroupMembers | null>;
 }
 
 export async function attemptPeerRosterSeed(
@@ -170,7 +170,7 @@ export async function seedPeerRosterEntry(
 
   // Phase 1: ensure the peer is an active roster member.
   if (!isPeerOnRoster(directory, peerUserId)) {
-    const { members } = await actions.loadGroupDetails(memberGroupId);
+    const members = await actions.loadGroupMembers(memberGroupId);
     if (!members) {
       // Wait until membership state is authoritative enough to determine
       // whether the add is still owed. The SDK resolves policy recipients.

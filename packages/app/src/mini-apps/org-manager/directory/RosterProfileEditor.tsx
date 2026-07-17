@@ -1,5 +1,4 @@
 import {
-  buildRosterProfileDocumentPatch,
   getRosterProfileDocumentLocalId,
   type OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
@@ -104,29 +103,6 @@ function RosterProfileReadField({
   );
 }
 
-export function getMissingProfileIdentityPatch(
-  user: OrganizationDirectoryUser,
-  structuredFields: Readonly<Record<string, string>>,
-): Record<string, string | undefined> | null {
-  return getMissingProfileIdentityPatchFromExpectedPatch(
-    buildRosterProfileDocumentPatch(user),
-    structuredFields,
-  );
-}
-
-function getMissingProfileIdentityPatchFromExpectedPatch(
-  expectedPatch: Record<string, string | undefined>,
-  structuredFields: Readonly<Record<string, string>>,
-): Record<string, string | undefined> | null {
-  const missingPatch = Object.fromEntries(
-    Object.entries(expectedPatch).filter(
-      ([key]) => structuredFields[key] === undefined,
-    ),
-  );
-
-  return Object.keys(missingPatch).length > 0 ? missingPatch : null;
-}
-
 function useRosterProfileDocumentLinkState({
   documentId,
   localId,
@@ -180,56 +156,6 @@ function useRosterProfileDocumentLinkState({
   return profileLinkReady;
 }
 
-function useRosterProfileIdentitySeed({
-  canEdit,
-  profileLinkReady,
-  ready,
-  setStructuredFields,
-  structuredFields,
-  user,
-}: {
-  canEdit: boolean;
-  profileLinkReady: boolean;
-  ready: boolean;
-  setStructuredFields: ReturnType<typeof useDocument>["setStructuredFields"];
-  structuredFields: Readonly<Record<string, string>>;
-  user: OrganizationDirectoryUser;
-}): void {
-  const { encapsulationPublicKey, isSelf, userId } = user;
-  const expectedPatch = useMemo(
-    () =>
-      buildRosterProfileDocumentPatch({
-        encapsulationPublicKey,
-        isSelf,
-        userId,
-      }),
-    [encapsulationPublicKey, isSelf, userId],
-  );
-
-  useEffect(() => {
-    if (!canEdit || !ready || !profileLinkReady) {
-      return;
-    }
-
-    const identityPatch = getMissingProfileIdentityPatchFromExpectedPatch(
-      expectedPatch,
-      structuredFields,
-    );
-    if (!identityPatch) {
-      return;
-    }
-
-    void setStructuredFields("contact", identityPatch);
-  }, [
-    canEdit,
-    profileLinkReady,
-    ready,
-    setStructuredFields,
-    structuredFields,
-    expectedPatch,
-  ]);
-}
-
 function RosterProfileDocumentFields({
   canEdit,
   isEditing,
@@ -275,15 +201,6 @@ function RosterProfileDocumentFields({
 
     onDisplayNameChange?.(getRosterProfileDisplayName(fields));
   }, [fields, onDisplayNameChange, profileLinkReady, ready]);
-
-  useRosterProfileIdentitySeed({
-    canEdit,
-    profileLinkReady,
-    ready,
-    setStructuredFields,
-    structuredFields,
-    user,
-  });
 
   return (
     <div className="org-manager-roster-profile">

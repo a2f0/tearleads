@@ -5,7 +5,6 @@ import {
   blobContentWriteHeaders,
   blobs,
   containerMetadataDocuments,
-  containers,
   documentContentWriteHeaders,
   documents,
   documentUpdates,
@@ -22,19 +21,15 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   isDeleteOrganizationGroupResponse,
-  isListOrganizationGroupsResponse,
-  isOrganizationContainerGrantsResponse,
   isOrganizationDataUsageResponse,
-  isOrganizationDirectoryResponse,
   isOrganizationDirectoryUserResponse,
-  isOrganizationGroupContainersResponse,
   isOrganizationGroupMembersResponse,
   isOrganizationGroupSummaryResponse,
   isOrganizationProfileResponse,
-  isOrganizationUserDetailResponse,
+  isOrganizationReadModelResponse,
   type OrganizationDataUsageResponse,
 } from "@tearleads/validators/response";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
@@ -55,6 +50,23 @@ async function registerAndAuthenticate(user: TestUser): Promise<string> {
 
   invariant(row, "expected registered user row");
   return row.organizationId;
+}
+
+async function loadOrganizationReadModelSnapshot(
+  actor: TestUser,
+  organizationId: string,
+) {
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/read-model`,
+    { headers: { Authorization: `Bearer ${actor.token}` } },
+  );
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  invariant(
+    isOrganizationReadModelResponse(body) && body.mode === "snapshot",
+    "expected organization read-model snapshot",
+  );
+  return body;
 }
 
 function createUsageWriteHeader(input: {
@@ -229,27 +241,17 @@ async function seedOrganizationDataUsage(input: {
   } satisfies Omit<OrganizationDataUsageResponse, "organizationId">;
 }
 
-test("org manager routes list the current org directory", async () => {
+test("organization read model includes the current org directory", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticate(actor);
-
-  const response = await routeApp.request(
-    `/organizations/${organizationId}/directory`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${actor.token}` },
-    },
+  const snapshot = await loadOrganizationReadModelSnapshot(
+    actor,
+    organizationId,
   );
-
-  expect(response.status).toBe(200);
-  const body = await response.json();
-  invariant(
-    isOrganizationDirectoryResponse(body),
-    "expected organization directory response",
-  );
+  const body = snapshot.lanes.directory;
   expect(body.organizationId).toBe(organizationId);
   expect(body.profileDocumentId).toBeNull();
-  expect(body.currentUser.isOrgAdmin).toBe(true);
+  expect(snapshot.currentUser.isOrgAdmin).toBe(true);
   expect(body.users).toHaveLength(1);
   expect(body.users[0]?.userId).toBe(actor.userId);
   expect(body.users[0]?.isSelf).toBe(true);
@@ -355,20 +357,9 @@ test("org manager routes keep disabled roster entries visible outside access gro
     disabledByUserId: actor.userId,
   });
 
-  const directoryResponse = await routeApp.request(
-    `/organizations/${organizationId}/directory`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${actor.token}` },
-    },
-  );
-
-  expect(directoryResponse.status).toBe(200);
-  const directoryBody = await directoryResponse.json();
-  invariant(
-    isOrganizationDirectoryResponse(directoryBody),
-    "expected organization directory response",
-  );
+  const directoryBody = (
+    await loadOrganizationReadModelSnapshot(actor, organizationId)
+  ).lanes.directory;
   expect(
     directoryBody.users.map((user) => [
       user.userId,
@@ -377,27 +368,8 @@ test("org manager routes keep disabled roster entries visible outside access gro
     ]),
   ).toContainEqual([disabledUser.userId, "disabled", actor.userId]);
 
-  const detailResponse = await routeApp.request(
-    `/organizations/${organizationId}/users/${disabledUser.userId}/detail`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${actor.token}` },
-    },
-  );
-
-  expect(detailResponse.status).toBe(200);
-  const detailBody = await detailResponse.json();
-  invariant(
-    isOrganizationUserDetailResponse(detailBody),
-    "expected organization user detail response",
-  );
-  expect(detailBody.user.status).toBe("disabled");
-  expect(detailBody.groups).toEqual([]);
-  expect(detailBody.grants.directGrants).toEqual([]);
-  expect(detailBody.grants.groupGrants).toEqual([]);
-
   const disabledUserDirectoryResponse = await routeApp.request(
-    `/organizations/${organizationId}/directory`,
+    `/organizations/${organizationId}/read-model`,
     {
       method: "GET",
       headers: { Authorization: `Bearer ${disabledUser.token}` },
@@ -469,19 +441,11 @@ test("org manager routes let admins bind an encrypted organization profile docum
     profileDocumentId,
   });
 
-  const directoryResponse = await routeApp.request(
-    `/organizations/${organizationId}/directory`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${actor.token}` },
-    },
+  const snapshot = await loadOrganizationReadModelSnapshot(
+    actor,
+    organizationId,
   );
-  const directoryBody = await directoryResponse.json();
-  invariant(
-    isOrganizationDirectoryResponse(directoryBody),
-    "expected organization directory response",
-  );
-  expect(directoryBody.profileDocumentId).toBe(profileDocumentId);
+  expect(snapshot.lanes.directory.profileDocumentId).toBe(profileDocumentId);
 });
 
 test("org manager routes reject users outside the organization", async () => {
@@ -491,7 +455,7 @@ test("org manager routes reject users outside the organization", async () => {
   await registerAndAuthenticate(intruder);
 
   const response = await routeApp.request(
-    `/organizations/${organizationId}/directory`,
+    `/organizations/${organizationId}/read-model`,
     {
       method: "GET",
       headers: { Authorization: `Bearer ${intruder.token}` },
@@ -501,7 +465,7 @@ test("org manager routes reject users outside the organization", async () => {
   expect(response.status).toBe(403);
 });
 
-test("org manager routes list the bootstrap Admins group", async () => {
+test("organization read model includes the bootstrap Admins group", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticate(actor);
   const [organization] = await db
@@ -514,19 +478,9 @@ test("org manager routes list the bootstrap Admins group", async () => {
     .limit(1);
   invariant(organization, "expected organization row");
 
-  const listResponse = await routeApp.request(
-    `/organizations/${organizationId}/groups`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${actor.token}` },
-    },
-  );
-  expect(listResponse.status).toBe(200);
-  const listBody = await listResponse.json();
-  invariant(
-    isListOrganizationGroupsResponse(listBody),
-    "expected list organization groups response",
-  );
+  const listBody = (
+    await loadOrganizationReadModelSnapshot(actor, organizationId)
+  ).lanes.groups;
   expect(listBody.memberGroupId).toBe(organization.memberGroupId);
   expect(listBody.groups.map((group) => group.groupId)).toEqual([
     organization.adminGroupId,
@@ -539,133 +493,30 @@ test("org manager routes list the bootstrap Admins group", async () => {
   expect(listBody.groups[0]?.currentState?.memberCount).toBe(1);
 });
 
-test("org manager routes list containers directly granted to a group", async () => {
+test("legacy organization projection routes are absent", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticate(actor);
   const [organization] = await db
-    .select({
-      adminGroupId: organizations.adminGroupId,
-      memberGroupId: organizations.memberGroupId,
-    })
+    .select({ adminGroupId: organizations.adminGroupId })
     .from(organizations)
     .where(eq(organizations.id, organizationId))
     .limit(1);
   invariant(organization, "expected organization row");
-  const [rootContainer] = await db
-    .select({ id: containers.id })
-    .from(containers)
-    .where(
-      and(
-        eq(containers.organizationId, organizationId),
-        isNull(containers.parentId),
-      ),
-    )
-    .limit(1);
-  invariant(rootContainer, "expected root container row");
 
-  const adminResponse = await routeApp.request(
-    `/organizations/${organizationId}/groups/${organization.adminGroupId}/containers`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${actor.token}` },
-    },
-  );
-
-  expect(adminResponse.status).toBe(200);
-  const adminBody = await adminResponse.json();
-  invariant(
-    isOrganizationGroupContainersResponse(adminBody),
-    "expected group containers response",
-  );
-  expect(adminBody.groupId).toBe(organization.adminGroupId);
-  expect(
-    adminBody.containers.map((container) => ({
-      accessLevel: container.accessLevel,
-      containerId: container.containerId,
-      isBuiltin: container.isBuiltin,
-      parentId: container.parentId,
-    })),
-  ).toContainEqual({
-    accessLevel: "admin",
-    containerId: rootContainer.id,
-    isBuiltin: true,
-    parentId: null,
-  });
-
-  const memberResponse = await routeApp.request(
-    `/organizations/${organizationId}/groups/${organization.memberGroupId}/containers`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${actor.token}` },
-    },
-  );
-
-  expect(memberResponse.status).toBe(200);
-  const memberBody = await memberResponse.json();
-  invariant(
-    isOrganizationGroupContainersResponse(memberBody),
-    "expected member group containers response",
-  );
-  expect(memberBody.containers).toEqual([]);
-});
-
-test("org manager routes list organization container grants", async () => {
-  const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
-  const [organization] = await db
-    .select({
-      adminGroupId: organizations.adminGroupId,
-    })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId))
-    .limit(1);
-  invariant(organization, "expected organization row");
-  const [rootContainer] = await db
-    .select({ id: containers.id })
-    .from(containers)
-    .where(
-      and(
-        eq(containers.organizationId, organizationId),
-        isNull(containers.parentId),
-      ),
-    )
-    .limit(1);
-  invariant(rootContainer, "expected root container row");
-
-  const response = await routeApp.request(
+  const paths = [
+    `/organizations/${organizationId}/directory`,
     `/organizations/${organizationId}/grants`,
-    {
+    `/organizations/${organizationId}/groups`,
+    `/organizations/${organizationId}/groups/${organization.adminGroupId}/containers`,
+    `/organizations/${organizationId}/users/${actor.userId}/detail`,
+  ];
+  for (const path of paths) {
+    const response = await routeApp.request(path, {
       method: "GET",
       headers: { Authorization: `Bearer ${actor.token}` },
-    },
-  );
-
-  expect(response.status).toBe(200);
-  const body = await response.json();
-  invariant(
-    isOrganizationContainerGrantsResponse(body),
-    "expected organization grants response",
-  );
-  expect(body.organizationId).toBe(organizationId);
-  expect(
-    body.grants.map((grant) => ({
-      accessLevel: grant.accessLevel,
-      containerId: grant.containerId,
-      groupId: grant.groupId,
-      groupName: grant.groupName,
-      isBuiltin: grant.isBuiltin,
-      subjectId: grant.subjectId,
-      subjectType: grant.subjectType,
-    })),
-  ).toContainEqual({
-    accessLevel: "admin",
-    containerId: rootContainer.id,
-    groupId: organization.adminGroupId,
-    groupName: "Admins",
-    isBuiltin: true,
-    subjectId: organization.adminGroupId,
-    subjectType: "group",
-  });
+    });
+    expect(response.status).toBe(404);
+  }
 });
 
 test("org manager routes report organization data usage", async () => {
@@ -696,69 +547,6 @@ test("org manager routes report organization data usage", async () => {
   });
 });
 
-test("org manager routes read user detail with groups and grants", async () => {
-  const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
-  const [organization] = await db
-    .select({
-      adminGroupId: organizations.adminGroupId,
-    })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId))
-    .limit(1);
-  invariant(organization, "expected organization row");
-  const [rootContainer] = await db
-    .select({ id: containers.id })
-    .from(containers)
-    .where(
-      and(
-        eq(containers.organizationId, organizationId),
-        isNull(containers.parentId),
-      ),
-    )
-    .limit(1);
-  invariant(rootContainer, "expected root container row");
-
-  const response = await routeApp.request(
-    `/organizations/${organizationId}/users/${actor.userId}/detail`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${actor.token}` },
-    },
-  );
-
-  expect(response.status).toBe(200);
-  const body = await response.json();
-  invariant(
-    isOrganizationUserDetailResponse(body),
-    "expected organization user detail response",
-  );
-  expect(body.organizationId).toBe(organizationId);
-  expect(body.user.userId).toBe(actor.userId);
-  expect(body.user.isSelf).toBe(true);
-  expect(body.groups.map((group) => group.groupId)).toContain(
-    organization.adminGroupId,
-  );
-  expect(
-    body.grants.groupGrants.map((grant) => ({
-      accessLevel: grant.accessLevel,
-      containerId: grant.containerId,
-      groupId: grant.groupId,
-      isBuiltin: grant.isBuiltin,
-      subjectId: grant.subjectId,
-      subjectType: grant.subjectType,
-    })),
-  ).toContainEqual({
-    accessLevel: "admin",
-    containerId: rootContainer.id,
-    groupId: organization.adminGroupId,
-    isBuiltin: true,
-    subjectId: organization.adminGroupId,
-    subjectType: "group",
-  });
-  expect(body.grants.directGrants).toEqual([]);
-});
-
 test("org manager routes allow organization members to read but reserve mutations for Admins members", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticate(actor);
@@ -770,21 +558,12 @@ test("org manager routes allow organization members to read but reserve mutation
     organizationId,
   });
 
-  const directoryResponse = await routeApp.request(
-    `/organizations/${organizationId}/directory`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${member.token}` },
-    },
+  const memberSnapshot = await loadOrganizationReadModelSnapshot(
+    member,
+    organizationId,
   );
-
-  expect(directoryResponse.status).toBe(200);
-  const directoryBody = await directoryResponse.json();
-  invariant(
-    isOrganizationDirectoryResponse(directoryBody),
-    "expected organization directory response",
-  );
-  expect(directoryBody.currentUser.isOrgAdmin).toBe(false);
+  const directoryBody = memberSnapshot.lanes.directory;
+  expect(memberSnapshot.currentUser.isOrgAdmin).toBe(false);
   expect(directoryBody.users.map((user) => user.userId)).toEqual(
     [actor.userId, member.userId].sort(),
   );
@@ -975,19 +754,9 @@ test("org manager routes create and list groups with members", async () => {
   expect(createBody.isBuiltin).toBe(false);
   expect(createBody.currentState?.memberCount).toBe(1);
 
-  const listResponse = await routeApp.request(
-    `/organizations/${organizationId}/groups`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${actor.token}` },
-    },
-  );
-  expect(listResponse.status).toBe(200);
-  const listBody = await listResponse.json();
-  invariant(
-    isListOrganizationGroupsResponse(listBody),
-    "expected list organization groups response",
-  );
+  const listBody = (
+    await loadOrganizationReadModelSnapshot(actor, organizationId)
+  ).lanes.groups;
   expect(listBody.groups.map((group) => group.groupId)).toContain(groupId);
   expect(listBody.groups.map((group) => group.name)).toEqual([
     "Admins",
@@ -1050,19 +819,9 @@ test("org manager routes create and list groups with members", async () => {
     organizationId,
   });
 
-  const postDeleteListResponse = await routeApp.request(
-    `/organizations/${organizationId}/groups`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${actor.token}` },
-    },
-  );
-  expect(postDeleteListResponse.status).toBe(200);
-  const postDeleteListBody = await postDeleteListResponse.json();
-  invariant(
-    isListOrganizationGroupsResponse(postDeleteListBody),
-    "expected list organization groups response",
-  );
+  const postDeleteListBody = (
+    await loadOrganizationReadModelSnapshot(actor, organizationId)
+  ).lanes.groups;
   expect(
     postDeleteListBody.groups.map((deletedGroup) => deletedGroup.groupId),
   ).not.toContain(groupId);

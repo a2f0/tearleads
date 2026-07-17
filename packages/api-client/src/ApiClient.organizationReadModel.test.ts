@@ -20,7 +20,7 @@ testApiClient(
           calls.push(await captureHttpCall(request));
           const { organizationId } = params as { organizationId: string };
           return HttpResponse.json({
-            version: 2,
+            version: 3,
             mode: "snapshot",
             organizationId,
             nextCursor: "next-cursor",
@@ -31,6 +31,10 @@ testApiClient(
                 organizationId,
                 profileDocumentId: null,
                 users: [],
+              },
+              grants: {
+                organizationId,
+                grants: [],
               },
               groupMemberships: {
                 organizationId,

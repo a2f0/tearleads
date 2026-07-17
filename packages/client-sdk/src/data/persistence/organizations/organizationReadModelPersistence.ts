@@ -16,6 +16,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import { applyOrganizationReadModelGrantsLane } from "./organizationReadModelGrantPersistence";
 import {
   applyGroupMembershipsLane,
   assertStoredGroupMembershipBindings,
@@ -55,6 +56,9 @@ function assertResponse(input: {
   readonly response: OrganizationReadModelResponse;
 }): void {
   const { response } = input;
+  if (response.version !== ORGANIZATION_READ_MODEL_PROTOCOL_VERSION) {
+    throw new Error("Organization read-model protocol version is unsupported");
+  }
   if (
     response.lanes.directory?.organizationId !== undefined &&
     response.lanes.directory.organizationId !== response.organizationId
@@ -72,6 +76,12 @@ function assertResponse(input: {
     response.lanes.groupMemberships.organizationId !== response.organizationId
   ) {
     throw new Error("Organization group memberships scope does not match");
+  }
+  if (
+    response.lanes.grants?.organizationId !== undefined &&
+    response.lanes.grants.organizationId !== response.organizationId
+  ) {
+    throw new Error("Organization grants response scope does not match");
   }
   if (
     response.lanes.groups?.groups.some(
@@ -261,6 +271,14 @@ async function replaceResponseLanes(input: {
       lane: groupMemberships,
       organizationId: input.response.organizationId,
       replaceAll: input.response.mode === "snapshot",
+      tx: input.tx,
+    });
+  }
+  const grants = input.response.lanes.grants;
+  if (grants) {
+    await applyOrganizationReadModelGrantsLane({
+      lane: grants,
+      organizationId: input.response.organizationId,
       tx: input.tx,
     });
   }

@@ -5,6 +5,7 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { locallyAcknowledgedContainerMutationHead } from "../../../data/containers/shared/mutationAcknowledgement";
+import { isStaleParentContainerPathFailure } from "../../../data/containers/shared/mutationFailures";
 import type { ContainerMutationSubmitFailure } from "../../../data/containers/shared/types";
 import { locallyAcknowledgedDocumentMutationHead } from "../../../data/documents/shared/mutationAcknowledgement";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
@@ -184,7 +185,13 @@ function seedChildContainerWriterProjection(input: {
 
 async function createRemoteContainerWithMetadataDocumentAttempt(input: {
   readonly author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
+  readonly containerEventId: string;
   readonly containerId: string;
+  readonly containerKey: Uint8Array;
+  readonly containerSignedAt: string;
+  readonly metadataContentKey: Uint8Array;
+  readonly metadataEventId: string;
+  readonly metadataSignedAt: string;
   readonly parentProjection: ContainerWriterProjectionResponse;
   readonly parentSecretKey: Uint8Array;
   readonly resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -199,16 +206,19 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
   | null
 > {
   const execSql = input.runtime.infra.execSql;
-  // Build both signed mutations in one attempt so a retry can regenerate every
-  // hash and key wrap from the refreshed principal-policy cache.
+  // Rebuild parent- and policy-dependent hashes, signatures, and wraps on every
+  // attempt while retaining the logical mutation identities and key material.
   const containerPlan = await buildMaterializedContainerCreatePlan({
     author: input.author,
     containerId: input.containerId,
+    containerKey: input.containerKey,
     execSql,
+    eventId: input.containerEventId,
     metadataDocumentId: input.containerId,
     parentProjection: input.parentProjection,
     parentSecretKey: input.parentSecretKey,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
+    signedAt: input.containerSignedAt,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
       input.runtime,
     ),
@@ -220,11 +230,14 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
   const metadataDocumentPlan = await buildMaterializedDocumentCreatePlan({
     author: input.author,
     containerProjection: childProjection,
+    contentKey: input.metadataContentKey,
     documentId: containerPlan.plan.metadataDocumentId,
+    eventId: input.metadataEventId,
     execSql,
     knownContainerKeks: new Map([
       [containerPlan.plan.containerKeyEpochId, containerPlan.containerKey],
     ]),
+    signedAt: input.metadataSignedAt,
     targetSecretKey: input.parentSecretKey,
     trustedLocalProjection: true,
   });
@@ -288,6 +301,60 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
   };
 }
 
+async function createContainerWithMetadataWithRepairs(
+  input: Parameters<
+    typeof createRemoteContainerWithMetadataDocumentAttempt
+  >[0] & {
+    readonly parentContainerId: string;
+  },
+): Promise<CreatedRemoteContainerState | null> {
+  const { apiClient } = input.runtime;
+  let parentProjection = input.parentProjection;
+  let didRepairStaleParent = false;
+  let didRepairStalePolicies = false;
+  for (;;) {
+    const submitted = await createRemoteContainerWithMetadataDocumentAttempt({
+      ...input,
+      parentProjection,
+    });
+    if (!submitted) {
+      return null;
+    }
+    if (submitted.ok) {
+      return submitted.state;
+    }
+    if (
+      !didRepairStalePolicies &&
+      (await cacheStalePrincipalPolicyBundles({
+        failure: submitted,
+        organizationId: parentProjection.organizationId,
+        runtime: input.runtime,
+      }))
+    ) {
+      didRepairStalePolicies = true;
+      continue;
+    }
+    if (
+      !didRepairStaleParent &&
+      isStaleParentContainerPathFailure(submitted) &&
+      apiClient.evictContainerWriterProjection
+    ) {
+      didRepairStaleParent = true;
+      apiClient.evictContainerWriterProjection(input.parentContainerId);
+      const refreshedProjection = await apiClient.getContainerWriterProjection(
+        input.parentContainerId,
+      );
+      if (!refreshedProjection) {
+        return null;
+      }
+      parentProjection = refreshedProjection;
+      continue;
+    }
+    submitted.report();
+    return null;
+  }
+}
+
 export async function createRemoteContainerWithMetadataDocument(input: {
   systemSlot?: ContainerSystemSlot | null | undefined;
   containerId: string;
@@ -320,43 +387,26 @@ export async function createRemoteContainerWithMetadataDocument(input: {
     return null;
   }
 
-  const maxAttempts = apiClient.createContainerWithMetadataDocumentResult
-    ? 2
-    : 1;
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const submitted = await createRemoteContainerWithMetadataDocumentAttempt({
-      author,
-      containerId: input.containerId,
-      parentProjection,
-      parentSecretKey,
-      resolveProjectionUserKey: input.resolveProjectionUserKey,
-      runtime: input.runtime,
-      systemSlot: input.systemSlot,
-    });
-    if (!submitted) {
-      return null;
-    }
-
-    if (!submitted.ok) {
-      if (
-        attempt < maxAttempts &&
-        (await cacheStalePrincipalPolicyBundles({
-          failure: submitted,
-          organizationId: parentProjection.organizationId,
-          runtime: input.runtime,
-        }))
-      ) {
-        // The original body is signed over stale policy material, so retry by
-        // rebuilding the mutation instead of replaying the rejected request.
-        continue;
-      }
-
-      submitted.report();
-      return null;
-    }
-
-    return submitted.state;
-  }
-
-  return null;
+  const containerEventId = crypto.randomUUID();
+  const containerKey = crypto.getRandomValues(new Uint8Array(32));
+  const containerSignedAt = new Date().toISOString();
+  const metadataContentKey = crypto.getRandomValues(new Uint8Array(32));
+  const metadataEventId = crypto.randomUUID();
+  const metadataSignedAt = new Date().toISOString();
+  return createContainerWithMetadataWithRepairs({
+    author,
+    containerEventId,
+    containerId: input.containerId,
+    containerKey,
+    containerSignedAt,
+    metadataContentKey,
+    metadataEventId,
+    metadataSignedAt,
+    parentContainerId: input.parentContainerId,
+    parentProjection,
+    parentSecretKey,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    runtime: input.runtime,
+    systemSlot: input.systemSlot,
+  });
 }

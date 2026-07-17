@@ -345,8 +345,7 @@ export async function moveExplorerContainer(
     clientX: 210,
     clientY: 210,
   });
-  // Scope to the context menu so a document toolbar "Move" cannot shadow the
-  // container context-menu item.
+  // Scope to the context menu so a document toolbar action cannot shadow it.
   const moveMenu = view.baseElement.querySelector<HTMLElement>(".menu");
   invariant(moveMenu, "explorer context menu not found");
   fireEvent.click(within(moveMenu).getByRole("button", { name: "Move" }));
@@ -370,8 +369,8 @@ export async function moveExplorerContainer(
   });
   fireEvent.click(within(dialog).getByRole("button", { name: "Move" }));
 
-  await waitFor(() => {
-    expect(view.queryByRole("dialog")).toBeNull();
+  await waitFor(() => expect(view.queryByRole("dialog")).toBeNull(), {
+    timeout: PANE_ASYNC_TEST_TIMEOUT_MS,
   });
 }
 

@@ -10,7 +10,7 @@ import {
   isOrganizationGroupContainerAccessLevel,
   type OrganizationGroupContainerResponse,
 } from "@tearleads/validators/response";
-import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { booleanExpression, jsonTextProperty } from "../../utils/sqlDialect";
 
 export interface OrganizationContainerGrantRow {
@@ -26,66 +26,6 @@ export interface OrganizationContainerGrantRow {
   subjectId: string;
   subjectType: string;
   updatedAt: Date;
-}
-
-export interface OrganizationContainerGrantSubjectFilter {
-  subjectId: string;
-  subjectType: "group" | "organization" | "user";
-}
-
-function uniqueSortedStrings(values: readonly string[]): string[] {
-  return [...new Set(values)].sort();
-}
-
-function buildSubjectFilterCondition(
-  filters: readonly OrganizationContainerGrantSubjectFilter[],
-) {
-  if (filters.length === 0) {
-    return undefined;
-  }
-
-  const groupIds = uniqueSortedStrings(
-    filters.flatMap((filter) =>
-      filter.subjectType === "group" ? [filter.subjectId] : [],
-    ),
-  );
-  const organizationIds = uniqueSortedStrings(
-    filters.flatMap((filter) =>
-      filter.subjectType === "organization" ? [filter.subjectId] : [],
-    ),
-  );
-  const userIds = uniqueSortedStrings(
-    filters.flatMap((filter) =>
-      filter.subjectType === "user" ? [filter.subjectId] : [],
-    ),
-  );
-
-  return or(
-    groupIds.length > 0
-      ? and(
-          eq(accessManifestContainerGrantProjection.subjectType, "group"),
-          inArray(accessManifestContainerGrantProjection.subjectId, groupIds),
-        )
-      : undefined,
-    organizationIds.length > 0
-      ? and(
-          eq(
-            accessManifestContainerGrantProjection.subjectType,
-            "organization",
-          ),
-          inArray(
-            accessManifestContainerGrantProjection.subjectId,
-            organizationIds,
-          ),
-        )
-      : undefined,
-    userIds.length > 0
-      ? and(
-          eq(accessManifestContainerGrantProjection.subjectType, "user"),
-          inArray(accessManifestContainerGrantProjection.subjectId, userIds),
-        )
-      : undefined,
-  );
 }
 
 export function toOrganizationGroupContainerResponse(
@@ -112,16 +52,7 @@ export function toOrganizationGroupContainerResponse(
 export function listOrganizationContainerGrantRows(input: {
   executor: DatabaseSession;
   organizationId: string;
-  subjectFilter?: OrganizationContainerGrantSubjectFilter | undefined;
-  subjectFilters?:
-    | readonly OrganizationContainerGrantSubjectFilter[]
-    | undefined;
 }): Promise<OrganizationContainerGrantRow[]> {
-  const subjectFilters = [
-    ...(input.subjectFilter ? [input.subjectFilter] : []),
-    ...(input.subjectFilters ?? []),
-  ];
-
   return input.executor
     .select({
       accessLevel: accessManifestContainerGrantProjection.accessLevel,
@@ -139,7 +70,7 @@ export function listOrganizationContainerGrantRows(input: {
       parentId: containers.parentId,
       subjectId: accessManifestContainerGrantProjection.subjectId,
       subjectType: accessManifestContainerGrantProjection.subjectType,
-      updatedAt: containers.updatedAt,
+      updatedAt: accessManifestHeads.updatedAt,
     })
     .from(accessManifestContainerGrantProjection)
     .innerJoin(
@@ -181,12 +112,7 @@ export function listOrganizationContainerGrantRows(input: {
         ),
       ),
     )
-    .where(
-      and(
-        eq(containers.organizationId, input.organizationId),
-        buildSubjectFilterCondition(subjectFilters),
-      ),
-    )
+    .where(eq(containers.organizationId, input.organizationId))
     .orderBy(
       asc(accessManifestContainerGrantProjection.subjectType),
       asc(accessManifestContainerGrantProjection.subjectId),

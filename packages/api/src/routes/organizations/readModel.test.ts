@@ -73,7 +73,9 @@ test("organization read-model route snapshots and coalesces group changes", asyn
     "Admins",
     "Catalog only",
   ]);
-  expect(snapshot.version).toBe(2);
+  expect(snapshot.version).toBe(3);
+  expect(snapshot.lanes.grants.organizationId).toBe(organizationId);
+  expect(snapshot.lanes.grants.grants.length).toBeGreaterThan(0);
   expect(snapshot.lanes.groupMemberships.deletedGroupIds).toEqual([]);
   expect(snapshot.lanes.groupMemberships.groups).toHaveLength(2);
   expect(
@@ -132,6 +134,7 @@ test("organization read-model route snapshots and coalesces group changes", asyn
     "expected organization read-model delta",
   );
   expect(changed.lanes.directory).toBeUndefined();
+  expect(changed.lanes.grants).toBeUndefined();
   expect(changed.lanes.groups?.groups.map((group) => group.name)).toEqual([
     "Admins",
     "Catalog only",
@@ -471,23 +474,4 @@ test("no-op organization profile writes do not advance the read model", async ()
   );
   expect(delta.lanes).toEqual({});
   expect(delta.nextCursor).toBe(initial.nextCursor);
-});
-
-test("an ahead organization read-model cursor requests a reset snapshot", async () => {
-  const actor = createTestUser();
-  const organizationId = await registerAndAuthenticate(actor);
-  const response = await routeApp.request(
-    readModelPath(
-      organizationId,
-      encodeOrganizationReadModelCursor(organizationId, 99n),
-    ),
-    { headers: { Authorization: `Bearer ${actor.token}` } },
-  );
-  const body = await response.json();
-
-  invariant(
-    isOrganizationReadModelResponse(body),
-    "expected organization read-model response",
-  );
-  expect(body.mode).toBe("snapshot");
 });

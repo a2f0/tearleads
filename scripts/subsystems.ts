@@ -148,6 +148,8 @@ export const subsystems: readonly Subsystem[] = [
     seam: "createRealtimeGateway, assembled and started by index.ts",
     paths: [
       `${api}/realtimeGateway.ts`,
+      `${api}/wsConnection.ts`,
+      `${api}/wsOrganizationRouting.ts`,
       `${api}/wsRouting.ts`,
       `${api}/wsInterestStore.ts`,
       `${api}/wsTicket.ts`,

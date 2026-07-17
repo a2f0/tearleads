@@ -5,7 +5,11 @@ import {
   organizationReadModelHeads,
 } from "@tearleads/api-shared/schema";
 import { eq, inArray } from "drizzle-orm";
-import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
+import {
+  appendOrganizationReadModelChangeInTransaction,
+  collectOrganizationReadModelChanges,
+  listCommittedOrganizationReadModelChanges,
+} from "./readModelChanges";
 
 async function createOrganizationReadModelHead(
   organizationId: string,
@@ -18,22 +22,35 @@ test("organization read-model changes receive ordered cursors", async () => {
   const groupId = crypto.randomUUID();
   await createOrganizationReadModelHead(organizationId);
 
-  const results = await db.transaction(async (tx) => {
-    const first = await appendOrganizationReadModelChangeInTransaction(tx, {
-      organizationId,
-      lane: "groups",
-      entityId: groupId,
-      operation: "upsert",
-    });
-    const second = await appendOrganizationReadModelChangeInTransaction(tx, {
-      organizationId,
-      lane: "directory",
-      entityId: groupId,
-      operation: "replace",
-    });
+  const { observedChanges, result: results } =
+    await collectOrganizationReadModelChanges(() =>
+      db.transaction(async (tx) => {
+        const first = await appendOrganizationReadModelChangeInTransaction(tx, {
+          organizationId,
+          lane: "groups",
+          entityId: groupId,
+          operation: "upsert",
+        });
+        const second = await appendOrganizationReadModelChangeInTransaction(
+          tx,
+          {
+            organizationId,
+            lane: "directory",
+            entityId: groupId,
+            operation: "replace",
+          },
+        );
 
-    return { first, second };
-  });
+        return { first, second };
+      }),
+    );
+
+  expect(observedChanges).toEqual([
+    {
+      cursor: 2n,
+      organizationId,
+    },
+  ]);
 
   expect(results.first.cursor).toBe("1");
   expect(results.second.cursor).toBe("2");
@@ -83,6 +100,61 @@ test("organization read-model cursor allocation rolls back without gaps", async 
     }),
   );
   expect(next).toEqual({ cursor: "1" });
+});
+
+test("rolled-back observed cursors are not considered committed", async () => {
+  const organizationId = crypto.randomUUID();
+  await createOrganizationReadModelHead(organizationId);
+
+  const { observedChanges } = await collectOrganizationReadModelChanges(
+    async () => {
+      try {
+        await db.transaction(async (tx) => {
+          await appendOrganizationReadModelChangeInTransaction(tx, {
+            organizationId,
+            lane: "directory",
+            entityId: crypto.randomUUID(),
+            operation: "upsert",
+          });
+          throw new Error("roll back but return a successful outer result");
+        });
+      } catch {
+        // Model a request boundary that converts an inner failure to 2xx.
+      }
+    },
+  );
+
+  expect(observedChanges).toEqual([{ cursor: 1n, organizationId }]);
+  expect(
+    await listCommittedOrganizationReadModelChanges(db, observedChanges),
+  ).toEqual([]);
+});
+
+test("committed observed cursors survive a later request error", async () => {
+  const organizationId = crypto.randomUUID();
+  await createOrganizationReadModelHead(organizationId);
+
+  const { observedChanges } = await collectOrganizationReadModelChanges(
+    async () => {
+      await db.transaction((tx) =>
+        appendOrganizationReadModelChangeInTransaction(tx, {
+          organizationId,
+          lane: "groups",
+          entityId: crypto.randomUUID(),
+          operation: "upsert",
+        }),
+      );
+      try {
+        throw new Error("post-commit request failure");
+      } catch {
+        // Hono converts route errors into a response before collection ends.
+      }
+    },
+  );
+
+  expect(
+    await listCommittedOrganizationReadModelChanges(db, observedChanges),
+  ).toEqual([{ cursor: 1n, organizationId, recipientUserIds: [] }]);
 });
 
 test("organization read-model cursors are independent per organization", async () => {

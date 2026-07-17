@@ -1,6 +1,7 @@
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
+import type { SessionEnv } from "./middleware/session";
 import {
   productionRouteAppOverrides,
   type RouteAppOverrides,
@@ -14,7 +15,13 @@ import { createDocumentsRouter } from "./routes/documents";
 import { createHealthRoute } from "./routes/health";
 import { createOrganizationsRouter } from "./routes/organizations";
 import { createPrincipalsRouter } from "./routes/principals";
+import {
+  publishOrganizationReadModelChanged,
+  resolveCommittedOrganizationReadModelChanges,
+} from "./services/organizations/readModelNotifications";
+import type { ApiServiceRuntime } from "./services/runtime";
 import { OrganizationSyncDisabledError } from "./workflows/billing/organizationBilling";
+import { collectOrganizationReadModelChanges } from "./workflows/organizations/readModelChanges";
 
 type ApiCorsOrigins = "*" | readonly string[];
 
@@ -87,6 +94,54 @@ function createApiCorsMiddleware(origins: ApiCorsOrigins) {
   });
 }
 
+function createReadModelHintMiddleware(
+  publish: (event: Record<string, unknown>) => Promise<void>,
+  runtime: ApiServiceRuntime,
+): MiddlewareHandler<SessionEnv> {
+  return async (c, next) => {
+    const { observedChanges } = await collectOrganizationReadModelChanges(
+      async () => {
+        await next();
+      },
+    );
+    if (observedChanges.length === 0) {
+      return;
+    }
+    const session = c.get("session");
+    if (!session) {
+      // Unauthenticated provisioning has no connected authoring session yet.
+      return;
+    }
+    let committedChanges: Awaited<
+      ReturnType<typeof resolveCommittedOrganizationReadModelChanges>
+    >;
+    try {
+      committedChanges = await resolveCommittedOrganizationReadModelChanges({
+        observedChanges,
+        runtime,
+      });
+    } catch (error) {
+      // Realtime is a lossy wake-up. The feed remains authoritative, so a
+      // verification failure must not change the HTTP response.
+      console.error(
+        "Failed to verify organization read-model notifications:",
+        error,
+      );
+      return;
+    }
+    await Promise.all(
+      committedChanges.map(({ organizationId, recipientUserIds }) =>
+        publishOrganizationReadModelChanged({
+          organizationId,
+          origin: { sessionId: session.id, userId: session.userId },
+          publish,
+          recipientUserIds,
+        }),
+      ),
+    );
+  };
+}
+
 export function createRouteApp(
   overrides: RouteAppOverrides,
   options: RouteAppOptions = {},
@@ -99,11 +154,13 @@ export function createRouteApp(
     requireAuth: resolvedRequireAuth,
     runtime: resolvedRuntime,
   } = resolveRouteAppDeps(overrides);
-  const routeApp = new Hono();
+  const routeApp = new Hono<SessionEnv>();
 
+  const corsOrigins = options.corsOrigins ?? readApiCorsOrigins();
+  routeApp.use("*", createApiCorsMiddleware(corsOrigins));
   routeApp.use(
     "*",
-    createApiCorsMiddleware(options.corsOrigins ?? readApiCorsOrigins()),
+    createReadModelHintMiddleware(resolvedPublish, resolvedRuntime),
   );
 
   routeApp.route(

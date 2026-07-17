@@ -28,12 +28,12 @@ import {
   KeyingReadAccessError,
   resolveReadableContainerAccess,
 } from "../../../keyingReadAccess";
+import { appendOrganizationReadModelChangeInTransaction } from "../../../organizations/readModelChanges";
 import {
   userIdsForGrant,
   userIdsWithReadableAccessThroughPath,
 } from "../../containerPathUsers";
 import { createContainerWriterProjectionContext } from "../../writerProjection";
-import { loadContainerKekManifestHistory } from "../../writerProjection/kek";
 import { ContainerMutationError, runConflictBoundary } from "../errors";
 import type {
   ContainerMutationContext,
@@ -49,6 +49,7 @@ import {
   containerKeyEpochRecord,
   containerKeyWrapRecord,
 } from "./containerKekRecords";
+import { loadMutationContainerKekHistory } from "./mutationKekHistory";
 
 async function loadContainerRow(
   executor: DatabaseTransaction,
@@ -503,32 +504,6 @@ async function persistMoveAccessLossTombstones(input: {
     });
 }
 
-// Build the KEK's container manifest history for the mutation response so
-// clients can synthesize a self-verifiable writer projection from this mutation
-// alone (matching the writer-projection endpoint). A manifest-advancing mutation
-// (grant/share, move, revoke) chains its new manifest to the prior one via
-// previousManifestHash; without the history the response omits that prior
-// bundle, so a later op reusing this container as a parent fails verification
-// with "previous manifest <hash> is missing".
-async function loadMutationContainerKekHistory(
-  executor: DatabaseTransaction,
-  manifest: VerifiedContainerAccessManifest,
-  kekState: VerifiedContainerKekState,
-): Promise<
-  Awaited<ReturnType<typeof loadContainerKekManifestHistory>>["bundles"]
-> {
-  const history = await loadContainerKekManifestHistory({
-    context: createContainerWriterProjectionContext(executor),
-    currentManifest: manifest,
-    keyEpoch: kekState.keyEpoch,
-    wraps: kekState.wraps,
-    // The client already holds the parent path; it only needs this container's
-    // own previous-epoch manifest, so skip the ancestry walk in the write txn.
-    onlyCurrentContainer: true,
-  });
-  return history.bundles;
-}
-
 function containerKekResponseRecord(
   storedKekState: Awaited<
     ReturnType<typeof storeVerifiedContainerKekStateInTransaction>
@@ -611,6 +586,12 @@ export async function persistVerifiedMutation(
     manifest,
     kekState,
   );
+  await appendOrganizationReadModelChangeInTransaction(executor, {
+    organizationId: manifest.state.organizationId,
+    lane: "grants",
+    entityId: manifest.state.organizationId,
+    operation: "replace",
+  });
 
   const systemSlot = isContainerSystemSlot(container.systemSlot)
     ? container.systemSlot

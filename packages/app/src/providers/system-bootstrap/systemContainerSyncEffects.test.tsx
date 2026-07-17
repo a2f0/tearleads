@@ -187,6 +187,56 @@ test("provisioned-container pull skips the remote poll when the local surface yi
   expect(refreshRootLane.mock.calls.length).toBe(0);
 });
 
+test("provisioned-container pull accepts an opaque shared-org system slot", async () => {
+  const nodes: ContainerNode[] = [
+    {
+      ...trashNode(),
+      id: "foreign-root",
+      name: "/",
+      organizationId: "foreign-org",
+      parentId: null,
+      systemSlot: null,
+    },
+    {
+      ...trashNode(),
+      id: "foreign-trash",
+      organizationId: "foreign-org",
+      parentId: "foreign-root",
+      systemSlot: "opaque-founder-trash-slot",
+    },
+  ];
+  const refreshRootLane = mock((_options?: RefreshRootLaneOptions) =>
+    Promise.resolve(true),
+  );
+  const store = {
+    getSnapshot: () => ({ nodes, ready: true }),
+    refreshLocalContainers: () => Promise.resolve(),
+    refreshRootLane,
+  } as unknown as ContainerContentsStore;
+
+  const { unmount } = renderHook(
+    (hookProps: Parameters<typeof useProvisionedSystemContainerPull>[0]) =>
+      useProvisionedSystemContainerPull(hookProps),
+    {
+      initialProps: {
+        currentOrganizationId: "foreign-org",
+        currentRootContainerId: "viewer-home-root",
+        enabled: true,
+        isAuthenticated: true,
+        logError: () => {},
+        snapshotReady: true,
+        store,
+        systemContainers: [trashSystemContainer()],
+      },
+    },
+  );
+
+  await new Promise((resolve) => setTimeout(resolve, 320));
+  unmount();
+
+  expect(refreshRootLane).not.toHaveBeenCalled();
+});
+
 // Regression: a slow network must not let interval ticks pile up concurrent
 // root-lane pulls and burn the attempt budget before the first request answers.
 // With a pull that never settles the in-flight guard must keep every later tick

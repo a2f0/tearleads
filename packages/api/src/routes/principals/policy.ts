@@ -1,8 +1,5 @@
 import { isPutPrincipalPolicyRequest } from "@tearleads/validators/request";
-import type {
-  CurrentPrincipalMemberEnvelopesResponse,
-  PrincipalPolicyBundleResponse,
-} from "@tearleads/validators/response";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { isUuidV4String } from "@tearleads/validators/util";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
@@ -22,48 +19,42 @@ interface PrincipalPolicyRouteDeps {
   readonly runtime: ApiServiceRuntime;
 }
 
-// A policy write atomically commits signed state and the wrapped group key for
-// every current member. Each user member can then derive the group key and
-// reach every container granted to that group. Those containers are not in
-// the member's local tree yet — membership (not a direct container grant) made
-// them reachable — so, exactly as PR #1184 does for a direct "Share With Peer",
-// publish a scopeless, user-scoped `shared_with_you` per user member.
+// A policy write can make a user newly reachable from a principal that already
+// has container grants. Those containers are not in the user's local tree yet,
+// so, exactly as a direct "Share With Peer" does, publish a scopeless,
+// user-scoped `shared_with_you` for each user who actually gained reachability.
 // recipientsForEvent (no container scope) routes it to that user's own sockets,
 // whose client re-lists root containers and surfaces the new shares without a
 // manual refresh.
 //
-// This fires only after the combined policy transaction returns, so the
-// recipient's re-list can never observe a committed state without its wrap.
+// The workflow derives this list inside the combined policy transaction and
+// returns it only after commit. Ungranted policy changes and existing members
+// therefore do not wake root-container sync, while nested-group access gains
+// still do because grants on current ancestor principals are included.
 //
 // Best-effort: the envelopes are already persisted, so a publish failure must
-// never turn a committed write into a 500. We over-notify all current user
-// members rather than diffing the previous set; the client single-flights and
-// coalesces the root re-list, so redundant nudges are harmless. Recipients are
-// read from the persisted response (the stored member set), not the raw request
-// body. Group-type members carry a groupId, not a userId, so they are skipped.
+// never turn a committed write into a 500.
 async function publishMembershipShareNotifications(
   publish: PrincipalPolicyRouteDeps["publish"],
-  storedEnvelopes: CurrentPrincipalMemberEnvelopesResponse,
+  userIds: readonly string[],
 ): Promise<void> {
   // Publish concurrently: the per-member notifications are independent, so
   // awaiting them in series would add each socket's publish latency to the
   // response time of a large group's update.
   await Promise.all(
-    storedEnvelopes.envelopes
-      .filter((envelope) => envelope.memberPrincipalType === "user")
-      .map(async (envelope) => {
-        try {
-          await publish({
-            type: "shared_with_you",
-            userId: envelope.memberPrincipalId,
-          });
-        } catch (error) {
-          console.error(
-            "Failed to publish membership shared_with_you notification:",
-            error,
-          );
-        }
-      }),
+    userIds.map(async (userId) => {
+      try {
+        await publish({
+          type: "shared_with_you",
+          userId,
+        });
+      } catch (error) {
+        console.error(
+          "Failed to publish membership shared_with_you notification:",
+          error,
+        );
+      }
+    }),
   );
 }
 
@@ -154,7 +145,7 @@ export function createPrincipalPolicyRoute({
       }
 
       try {
-        const storedPolicy = await putPrincipalPolicy(runtime, {
+        const result = await putPrincipalPolicy(runtime, {
           ...c.req.valid("json"),
           expectedPrincipalType: principalParams.principalType,
           expectedPrincipalId: principalParams.principalId,
@@ -162,9 +153,9 @@ export function createPrincipalPolicyRoute({
         });
         await publishMembershipShareNotifications(
           publish,
-          storedPolicy.currentMemberEnvelopes,
+          result.sharedWithYouUserIds,
         );
-        return c.json<PrincipalPolicyBundleResponse>(storedPolicy);
+        return c.json<PrincipalPolicyBundleResponse>(result.policy);
       } catch (error) {
         const response = toPrincipalPolicyErrorResponse(error);
         if (response) {

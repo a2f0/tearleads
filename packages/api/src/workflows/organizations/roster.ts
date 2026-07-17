@@ -8,8 +8,7 @@ import { and, eq, inArray, ne } from "drizzle-orm";
 import { listUsersReachableFromCurrentGroup } from "./principalReachability";
 import type { UserKeyRow } from "./users";
 
-export type OrganizationRosterEntryRow =
-  typeof organizationRosterEntries.$inferSelect;
+type OrganizationRosterEntryRow = typeof organizationRosterEntries.$inferSelect;
 
 export function toOrganizationDirectoryUser(input: {
   readonly rosterEntry: OrganizationRosterEntryRow;

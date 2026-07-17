@@ -46,7 +46,7 @@ function requireColumn(
   return column;
 }
 
-test("organization read model schema stores group membership heads and rows", async () => {
+test("organization read model schema stores memberships and container grants", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-schema-test",
   );
@@ -78,6 +78,37 @@ test("organization read model schema stores group membership heads and rows", as
     expect(requireColumn(members, "member_principal_id")).toMatchObject({
       notNull: 1,
       pk: 4,
+    });
+
+    const grants = await readTableColumns(
+      execSql,
+      "organization_read_model_container_grants",
+    );
+    expect(requireColumn(grants, "organization_id")).toMatchObject({
+      notNull: 1,
+      pk: 1,
+    });
+    expect(requireColumn(grants, "container_id")).toMatchObject({
+      notNull: 1,
+      pk: 2,
+    });
+    expect(requireColumn(grants, "subject_type")).toMatchObject({
+      notNull: 1,
+      pk: 3,
+    });
+    expect(requireColumn(grants, "subject_id")).toMatchObject({
+      notNull: 1,
+      pk: 4,
+    });
+    expect(requireColumn(grants, "metadata_access_epoch")).toEqual({
+      notNull: 1,
+      pk: 0,
+      type: "INTEGER",
+    });
+    expect(requireColumn(grants, "organization_name")).toEqual({
+      notNull: 0,
+      pk: 0,
+      type: "TEXT",
     });
   } finally {
     close();

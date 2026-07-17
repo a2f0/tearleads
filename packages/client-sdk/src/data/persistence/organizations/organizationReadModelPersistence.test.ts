@@ -228,6 +228,50 @@ test("organization read-model persistence rejects requester flag and duplicate I
   }
 });
 
+test("organization read-model persistence rejects v2 responses at runtime", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-protocol-version-test",
+  );
+  try {
+    const initial = snapshot("org-1", "cursor-1");
+    await applyOrganizationReadModelResponse({
+      currentUserId: "user-1",
+      execSql,
+      requestedCursor: null,
+      response: initial,
+    });
+
+    const versionTwo = {
+      ...delta({
+        groups: groups("org-1", "v2"),
+        nextCursor: "cursor-v2",
+        organizationId: "org-1",
+      }),
+      version: 2,
+    } as unknown as Parameters<
+      typeof applyOrganizationReadModelResponse
+    >[0]["response"];
+    await expect(
+      applyOrganizationReadModelResponse({
+        currentUserId: "user-1",
+        execSql,
+        requestedCursor: "cursor-1",
+        response: versionTwo,
+      }),
+    ).rejects.toThrow("protocol version is unsupported");
+
+    await expect(
+      loadOrganizationReadModelProjection(execSql, "org-1", "user-1"),
+    ).resolves.toMatchObject({
+      cursor: "cursor-1",
+      groups: initial.lanes.groups,
+      protocolVersion: 3,
+    });
+  } finally {
+    close();
+  }
+});
+
 test("organization read-model response and cursor roll back together on lane failure", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-atomic-persistence-test",

@@ -19,7 +19,6 @@ import type {
   DocumentLinkSetMutationResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-  OrganizationGroupSummaryResponse,
   PrincipalPolicyBundleResponse,
   UserIdentityResponse,
 } from "@tearleads/validators/response";
@@ -442,18 +441,5 @@ export function createUserIdentityResponse(
     signingKeyFingerprint: "a".repeat(64),
     signingPublicKey: "signing-key",
     userId,
-  };
-}
-
-export function createOrganizationGroupSummary(
-  organizationId: string,
-): OrganizationGroupSummaryResponse {
-  return {
-    groupId: "group-1",
-    organizationId,
-    name: "Operators",
-    createdAt: "2026-05-12T12:00:00.000Z",
-    isBuiltin: false,
-    currentState: null,
   };
 }

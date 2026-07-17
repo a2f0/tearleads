@@ -1,7 +1,12 @@
 import type { Tearleads } from "@tearleads/client-sdk";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import { hasStringProperty } from "@tearleads/validators/util";
+import { hasStringProperty, isUuidV4String } from "@tearleads/validators/util";
 import { useEffect } from "react";
+import {
+  attachOrganizationReadModelSocket,
+  handleOrganizationReadModelHint,
+} from "./organizationReadModelRealtime";
+import { startServerEventsConnectionLoop } from "./serverEventsConnectionLoop";
 
 function isServerEvent(value: unknown): value is {
   type: string;
@@ -39,6 +44,29 @@ function readResyncRequiredContainerId(value: unknown): string | null {
 // by user, not interest); the client reacts by re-listing root containers.
 function isSharedWithYouEvent(value: unknown): boolean {
   return isServerEvent(value) && value.type === "shared_with_you";
+}
+
+function readOrganizationReadModelControl(
+  value: unknown,
+): { organizationId: string; originatedFromSession: boolean } | null {
+  if (
+    !isServerEvent(value) ||
+    (value.type !== "organization_read_model_changed" &&
+      value.type !== "organization_read_model_access_revoked")
+  ) {
+    return null;
+  }
+  const organizationId = Reflect.get(value, "organizationId");
+  if (typeof organizationId !== "string" || !isUuidV4String(organizationId)) {
+    return null;
+  }
+  if (value.type === "organization_read_model_access_revoked") {
+    return { organizationId, originatedFromSession: false };
+  }
+  const originatedFromSession = Reflect.get(value, "originatedFromSession");
+  return typeof originatedFromSession === "boolean"
+    ? { organizationId, originatedFromSession }
+    : null;
 }
 
 // Force a fresh access check + tree re-list for a container the server flagged.
@@ -128,10 +156,14 @@ async function resyncRootContainers(tearleads: Tearleads): Promise<void> {
   }
 }
 
-function routeIncomingWsMessage(
+export function routeIncomingWsMessage(
   rawData: string,
   handlers: {
     onInterestState: (baseline: string[]) => void;
+    onOrganizationReadModelChanged: (
+      organizationId: string,
+      originatedFromSession: boolean,
+    ) => void;
     onResyncRequired: (containerId: string) => void;
     onSharedWithYou: () => void;
     onServerEvent: (event: { type: string; [key: string]: unknown }) => void;
@@ -158,15 +190,23 @@ function routeIncomingWsMessage(
     handlers.onSharedWithYou();
     return;
   }
+  if (
+    isServerEvent(data) &&
+    (data.type === "organization_read_model_changed" ||
+      data.type === "organization_read_model_access_revoked")
+  ) {
+    const control = readOrganizationReadModelControl(data);
+    if (control) {
+      handlers.onOrganizationReadModelChanged(
+        control.organizationId,
+        control.originatedFromSession,
+      );
+    }
+    return;
+  }
   if (isServerEvent(data)) {
     handlers.onServerEvent(data);
   }
-}
-
-function appendTicketToWsUrl(wsUrl: string, ticket: string): string {
-  const url = new URL(wsUrl);
-  url.searchParams.set("ticket", ticket);
-  return url.toString();
 }
 
 // Single pass over each set so only the changed ids are allocated, not a full
@@ -265,41 +305,30 @@ export function useServerEventsBinding(
   authToken: string | null,
   log: (message: string) => void,
   syncEnabled: boolean,
+  online: boolean,
 ): void {
   useEffect(() => {
     // In local-only mode the events WebSocket stays closed: no server
     // invalidations, interest declarations, or resync signals. The reconciler
     // and upload paths pause independently via the resolved runtime
     // `state.online` (Session.syncEnabled), so both sync channels are off.
-    if (!authToken || !wsUrl || !syncEnabled) {
+    if (!authToken || !wsUrl || !syncEnabled || !online) {
       return;
     }
-
-    let cancelled = false;
-    let socket: WebSocket | null = null;
+    let detachOrganizationSocket: (() => void) | null = null;
     let interestHandle: ContainerInterestDeclaration | null = null;
-
-    void (async () => {
-      const ticket = await tearleads.requestWebSocketTicket();
-      if (cancelled || ticket === null) {
-        return;
-      }
-
-      const ws = new WebSocket(appendTicketToWsUrl(wsUrl, ticket));
-      socket = ws;
-
-      ws.addEventListener("open", () => {
-        if (!cancelled) {
-          tearleads.events.setConnected(true);
-          log("WebSocket connected");
-        }
-      });
-
-      ws.addEventListener("message", (event) => {
-        if (cancelled) {
-          return;
-        }
-
+    const stopDeclarations = (): void => {
+      interestHandle?.stop();
+      interestHandle = null;
+      detachOrganizationSocket?.();
+      detachOrganizationSocket = null;
+    };
+    return startServerEventsConnectionLoop({
+      onDisconnect: () => {
+        stopDeclarations();
+        tearleads.events.setConnected(false);
+      },
+      onMessage: (ws, event) => {
         routeIncomingWsMessage(String(event.data), {
           onInterestState: (baseline) => {
             interestHandle?.stop();
@@ -307,6 +336,16 @@ export function useServerEventsBinding(
               tearleads,
               ws,
               new Set(baseline),
+            );
+          },
+          onOrganizationReadModelChanged: (
+            organizationId,
+            originatedFromSession,
+          ) => {
+            handleOrganizationReadModelHint(
+              tearleads,
+              organizationId,
+              originatedFromSession,
             );
           },
           onResyncRequired: (containerId) => {
@@ -323,30 +362,18 @@ export function useServerEventsBinding(
             tearleads.events.push({ ...data, id: String(nextEventId++) });
           },
         });
-      });
-
-      ws.addEventListener("close", () => {
-        interestHandle?.stop();
-        interestHandle = null;
-        if (!cancelled) {
-          tearleads.events.setConnected(false);
-        }
-      });
-
-      ws.addEventListener("error", () => {
-        interestHandle?.stop();
-        interestHandle = null;
-        if (!cancelled) {
-          tearleads.events.setConnected(false);
-        }
-      });
-    })();
-
-    return () => {
-      cancelled = true;
-      interestHandle?.stop();
-      socket?.close();
-      tearleads.events.setConnected(false);
-    };
-  }, [authToken, log, syncEnabled, tearleads, wsUrl]);
+      },
+      onOpen: (ws) => {
+        tearleads.events.setConnected(true);
+        detachOrganizationSocket?.();
+        detachOrganizationSocket = attachOrganizationReadModelSocket(
+          tearleads,
+          ws,
+        );
+        log("WebSocket connected");
+      },
+      requestTicket: () => tearleads.requestWebSocketTicket(),
+      wsUrl,
+    });
+  }, [authToken, log, online, syncEnabled, tearleads, wsUrl]);
 }
