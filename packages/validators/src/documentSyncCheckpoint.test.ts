@@ -57,6 +57,7 @@ test("classifies every decoded checkpoint field-presence state", () => {
 });
 
 test("classifies source-vector presence by definedness", () => {
+  // Field-level Zod validation rejects empty strings before this classifier runs.
   expect(
     classifyDocumentSyncCheckpointFields({
       checkpointKind: DOCUMENT_SYNC_ROTATION_CHECKPOINT_KIND,

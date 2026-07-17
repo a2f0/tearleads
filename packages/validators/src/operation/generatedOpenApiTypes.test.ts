@@ -2,7 +2,13 @@ import { expect, test } from "bun:test";
 import type { DocumentSyncRequest } from "../request";
 import type { DocumentSyncResponse } from "../response";
 import { documentSyncOperation } from "./documentSync";
-import type { operations, paths } from "./generatedOpenApi";
+import type {
+  $defs,
+  components,
+  operations,
+  paths,
+  webhooks,
+} from "./generatedOpenApi";
 import type {
   createSyncRequest,
   createSyncResponse,
@@ -56,10 +62,21 @@ type GeneratedFailuresHaveNoContent =
   GeneratedResponses[GeneratedFailureStatus] extends { content?: never }
     ? true
     : false;
+type EmptyGeneratedComponents = {
+  schemas: never;
+  responses: never;
+  parameters: never;
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
+};
 
 function assertType<Condition extends true>(_condition?: Condition): void {}
 
 test("generated OpenAPI types match the document sync structural contract", () => {
+  assertType<IsEqual<webhooks, Record<string, never>>>();
+  assertType<IsEqual<$defs, Record<string, never>>>();
+  assertType<IsEqual<components, EmptyGeneratedComponents>>();
   assertType<
     IsNotEqual<
       NormalizeWireType<
