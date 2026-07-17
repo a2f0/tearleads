@@ -4,10 +4,11 @@ import {
   parseSystemMonitorRouteSegments,
 } from "./routes";
 
-test("system monitor route segments cover logs, status, and feature flag tabs", () => {
+test("system monitor route segments cover logs, status, environment, and feature flag tabs", () => {
   expect(parseSystemMonitorRouteSegments([])).toBe("logs");
   expect(parseSystemMonitorRouteSegments(["logs"])).toBe("logs");
   expect(parseSystemMonitorRouteSegments(["status"])).toBe("status");
+  expect(parseSystemMonitorRouteSegments(["environment"])).toBe("environment");
   expect(parseSystemMonitorRouteSegments(["feature-flags"])).toBe(
     "feature-flags",
   );
@@ -15,6 +16,9 @@ test("system monitor route segments cover logs, status, and feature flag tabs", 
 
   expect(formatSystemMonitorRouteSegments("logs")).toEqual([]);
   expect(formatSystemMonitorRouteSegments("status")).toEqual(["status"]);
+  expect(formatSystemMonitorRouteSegments("environment")).toEqual([
+    "environment",
+  ]);
   expect(formatSystemMonitorRouteSegments("feature-flags")).toEqual([
     "feature-flags",
   ]);

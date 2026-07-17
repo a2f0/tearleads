@@ -1,12 +1,29 @@
+/* The bar owns the baseline rather than the tablist, so the rule runs the full
+   width behind the copy button instead of stopping at the last tab. Tabs still
+   overlap it via their negative margin-bottom, since the tablist adds no box of
+   its own between them and this border. */
+.system-monitor-tab-bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  /* Match the selected tab's edge (--border-strong-color), like the Explorer
+     info tabs, so the baseline stays a soft graphite hairline in dark. */
+  border-bottom: var(--border-strong);
+}
+
+.system-monitor-copy-button {
+  flex: none;
+  margin-bottom: var(--space-xs);
+}
+
 /* Tab styling mirrors the Explorer info panels (.explorer-info-*) so the
    System Monitor matches the established mini-app tab look. */
 .system-monitor-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-xs);
-  /* Match the selected tab's edge (--border-strong-color), like the Explorer
-     info tabs, so the baseline stays a soft graphite hairline in dark. */
-  border-bottom: var(--border-strong);
+  min-width: 0;
 }
 
 .system-monitor-tab {
@@ -30,6 +47,27 @@
   min-width: 0;
   overflow: auto;
   scrollbar-gutter: var(--scrollbar-gutter);
+}
+
+/* The user-agent row is one long unbroken token; without this it forces the
+   whole info table wider than the pane. */
+.system-monitor-environment-value {
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Same shape as the pinned status table: the value column absorbs the slack so
+ * the label column shrinks to its content, and labels stay on one line. Without
+ * the nowrap the shared cell rule's word breaks let the long User Agent value
+ * squeeze the label column until multi-word keys ("OS Color Scheme", "Reduced
+ * Motion") wrap mid-word on a phone.
+ */
+.system-monitor-environment-table th {
+  white-space: nowrap;
+}
+
+.system-monitor-environment-table td {
+  width: 100%;
 }
 
 .system-monitor-feature-flags {

@@ -66,8 +66,12 @@ const baseConfig = {
       includeEntryExports: true,
     },
     "packages/app-web": {
+      // `dev`/`start` launch devServer.ts through the scripts/withBuildInfoEnv.sh
+      // wrapper, so knip can no longer discover it from the package.json script
+      // and it must be declared explicitly.
       entry: [
         "src/index.tsx",
+        "src/servers/devServer.ts",
         "src/servers/e2eServer.ts",
         "e2e/**/*.spec.ts",
         "screenshots/**/*.spec.ts",

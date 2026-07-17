@@ -4,6 +4,10 @@ import {
   MiniAppSectionHeading,
 } from "../../components/shared/MiniAppLayout";
 import { useAppFeatureFlags } from "../../providers/feature-flags/AppFeatureFlagsProvider";
+import {
+  FEATURE_FLAG_LABELS,
+  formatFeatureFlagState,
+} from "./useSystemMonitorFeatureFlagRows";
 
 export function SystemMonitorFeatureFlags() {
   const {
@@ -28,11 +32,11 @@ export function SystemMonitorFeatureFlags() {
         htmlFor={builtInSystemContainersToggleId}
       >
         <span className="system-monitor-feature-flag-name">
-          Built-in system containers
+          {FEATURE_FLAG_LABELS.builtInSystemContainers}
         </span>
         <span className="system-monitor-feature-flag-control">
           <span className="system-monitor-feature-flag-state">
-            {builtInSystemContainersVisible ? "Enabled" : "Disabled"}
+            {formatFeatureFlagState(builtInSystemContainersVisible)}
           </span>
           <input
             aria-checked={builtInSystemContainersVisible}
@@ -49,10 +53,12 @@ export function SystemMonitorFeatureFlags() {
         </span>
       </label>
       <label className="system-monitor-feature-flag" htmlFor={passkeysToggleId}>
-        <span className="system-monitor-feature-flag-name">Passkeys</span>
+        <span className="system-monitor-feature-flag-name">
+          {FEATURE_FLAG_LABELS.passkeys}
+        </span>
         <span className="system-monitor-feature-flag-control">
           <span className="system-monitor-feature-flag-state">
-            {passkeysEnabled ? "Enabled" : "Disabled"}
+            {formatFeatureFlagState(passkeysEnabled)}
           </span>
           <input
             aria-checked={passkeysEnabled}
@@ -73,11 +79,11 @@ export function SystemMonitorFeatureFlags() {
         htmlFor={linkedDocumentActivationControlsToggleId}
       >
         <span className="system-monitor-feature-flag-name">
-          Linked document activation controls
+          {FEATURE_FLAG_LABELS.linkedDocumentActivationControls}
         </span>
         <span className="system-monitor-feature-flag-control">
           <span className="system-monitor-feature-flag-state">
-            {linkedDocumentActivationControlsEnabled ? "Enabled" : "Disabled"}
+            {formatFeatureFlagState(linkedDocumentActivationControlsEnabled)}
           </span>
           <input
             aria-checked={linkedDocumentActivationControlsEnabled}
