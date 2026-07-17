@@ -3,7 +3,8 @@ import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { ThemeProvider } from "./ThemeProvider";
 import { ThemeToggleButton } from "./ThemeToggleButton";
 
-const STORAGE_KEY = "tearleads.theme";
+const CHOICE_KEY = "tearleads.theme.choice";
+const LEGACY_KEY = "tearleads.theme";
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 
 const originalMatchMedia = window.matchMedia;
@@ -43,7 +44,8 @@ function installMatchMedia(initialDark: boolean) {
 afterEach(() => {
   cleanup();
   window.matchMedia = originalMatchMedia;
-  globalThis.localStorage.removeItem(STORAGE_KEY);
+  globalThis.localStorage.removeItem(CHOICE_KEY);
+  globalThis.localStorage.removeItem(LEGACY_KEY);
   document.documentElement.removeAttribute("data-theme");
 });
 
@@ -65,7 +67,7 @@ test("defaults to the OS light preference and labels the toggle for the next the
     "Switch to Dark theme",
   );
   // The OS-derived default is not an explicit choice, so nothing is persisted.
-  expect(globalThis.localStorage.getItem(STORAGE_KEY)).toBeNull();
+  expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBeNull();
 });
 
 test("defaults to the OS dark preference when the system prefers dark", () => {
@@ -77,7 +79,7 @@ test("defaults to the OS dark preference when the system prefers dark", () => {
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
     "Switch to Light theme",
   );
-  expect(globalThis.localStorage.getItem(STORAGE_KEY)).toBeNull();
+  expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBeNull();
 });
 
 test("follows a live OS preference change while the user has not chosen", () => {
@@ -92,7 +94,33 @@ test("follows a live OS preference change while the user has not chosen", () => 
 
   expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   // Still no explicit choice — the app is tracking the system, not storing it.
-  expect(globalThis.localStorage.getItem(STORAGE_KEY)).toBeNull();
+  expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBeNull();
+  expect(view.getByRole("button").getAttribute("aria-label")).toBe(
+    "Switch to Light theme",
+  );
+});
+
+test("a legacy auto-persisted light default still follows the OS preference", () => {
+  // The regression the migration fixes: the old provider left "light" in storage
+  // for users who never chose, which must not pin them to light.
+  installMatchMedia(true);
+  globalThis.localStorage.setItem(LEGACY_KEY, "light");
+
+  const view = renderToggle();
+
+  expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  expect(view.getByRole("button").getAttribute("aria-label")).toBe(
+    "Switch to Light theme",
+  );
+});
+
+test("a legacy explicit dark choice is preserved over the OS preference", () => {
+  installMatchMedia(false);
+  globalThis.localStorage.setItem(LEGACY_KEY, "dark");
+
+  const view = renderToggle();
+
+  expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
     "Switch to Light theme",
   );
@@ -106,7 +134,7 @@ test("toggling advances from the OS default, persists the choice, and restamps t
   fireEvent.click(view.getByRole("button"));
 
   expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
-  expect(globalThis.localStorage.getItem(STORAGE_KEY)).toBe("dark");
+  expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBe("dark");
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
     "Switch to Light theme",
   );
@@ -115,7 +143,7 @@ test("toggling advances from the OS default, persists the choice, and restamps t
 test("an explicit choice wins over the OS preference and its live changes", () => {
   const media = installMatchMedia(true);
   // The user has explicitly chosen light while the OS prefers dark.
-  globalThis.localStorage.setItem(STORAGE_KEY, "light");
+  globalThis.localStorage.setItem(CHOICE_KEY, "light");
 
   const view = renderToggle();
   expect(document.documentElement.getAttribute("data-theme")).toBe("light");
@@ -130,9 +158,9 @@ test("an explicit choice wins over the OS preference and its live changes", () =
   );
 });
 
-test("restores the persisted theme on mount", () => {
+test("restores the persisted choice on mount", () => {
   installMatchMedia(false);
-  globalThis.localStorage.setItem(STORAGE_KEY, "dark");
+  globalThis.localStorage.setItem(CHOICE_KEY, "dark");
 
   const view = renderToggle();
 
