@@ -7,7 +7,10 @@ import {
   readContainerState,
 } from "../../../data/containers/shared/projection";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
-import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
+import {
+  type ProjectionUserKeyResolver,
+  verifyContainerWriterProjection,
+} from "../../../data/keyingProjectionVerification";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerMetadataPatch } from "../metadata";
@@ -265,20 +268,68 @@ async function persistDuplicateContainerShare(input: {
 }
 
 export async function prepareContainerStateGroupRewrap(input: {
+  accessLevel: ContainerShareAccessLevel;
   containerState: ContainerState;
+  groupId: string;
+  requireExistingGrant?: boolean | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
-}): Promise<ReadonlyMap<string, Uint8Array> | null> {
-  const targetSecretKey =
-    input.runtime.crypto.encapsulationKeyPair?.secretKey ?? null;
-  if (!targetSecretKey) {
-    return null;
-  }
+}): Promise<
+  | { status: "not-granted" }
+  | {
+      knownContainerKeks: ReadonlyMap<string, Uint8Array>;
+      status: "prepared";
+    }
+  | null
+> {
   const projection = await loadContainerWriterProjectionForState({
     containerState: input.containerState,
     runtime: input.runtime,
   });
   if (!projection) {
+    return null;
+  }
+
+  if (input.requireExistingGrant) {
+    await verifyContainerWriterProjection({
+      execSql: input.runtime.infra.execSql,
+      projection,
+      resolveUserKey: input.resolveProjectionUserKey,
+      warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
+        input.runtime,
+      ),
+    });
+    const verifiedState = readContainerState(
+      getTargetContainerContext(projection).manifest,
+    );
+    if (
+      projection.containerId !== input.containerState.container.id ||
+      projection.organizationId !==
+        input.containerState.container.organizationId ||
+      verifiedState.containerId !== input.containerState.container.id ||
+      verifiedState.organizationId !==
+        input.containerState.container.organizationId ||
+      verifiedState.parentContainerId !==
+        input.containerState.container.parentId
+    ) {
+      throw new Error(
+        "Prepared container group re-wrap target is inconsistent",
+      );
+    }
+    const hasGrant = verifiedState.directGrants.some(
+      (grant) =>
+        grant.subjectType === "group" &&
+        grant.subjectId === input.groupId &&
+        grant.accessLevel === input.accessLevel,
+    );
+    if (!hasGrant) {
+      return { status: "not-granted" };
+    }
+  }
+
+  const targetSecretKey =
+    input.runtime.crypto.encapsulationKeyPair?.secretKey ?? null;
+  if (!targetSecretKey) {
     return null;
   }
 
@@ -294,7 +345,12 @@ export async function prepareContainerStateGroupRewrap(input: {
   });
   const targetKek = keksByEpochId.get(target.kek.containerKeyEpochId);
   return targetKek
-    ? new Map([[target.kek.containerKeyEpochId, targetKek]])
+    ? {
+        knownContainerKeks: new Map([
+          [target.kek.containerKeyEpochId, targetKek],
+        ]),
+        status: "prepared",
+      }
     : null;
 }
 

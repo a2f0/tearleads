@@ -7,6 +7,7 @@ import type {
   PrincipalMemberEnvelopeRequest,
   PrincipalProjectionMemberRequest,
 } from "@tearleads/validators/request";
+import type { PrincipalMemberEnvelopeResponse } from "@tearleads/validators/response";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
 
 type PrincipalRekeyRecipient = {
@@ -15,7 +16,7 @@ type PrincipalRekeyRecipient = {
   readonly memberPrincipalType: "user" | "group";
 };
 
-function toPrincipalMemberEnvelopeRequest(input: {
+export function toPrincipalMemberEnvelopeRequest(input: {
   readonly envelope: {
     readonly keyFingerprint: string;
     readonly kemCipherText: Uint8Array;
@@ -31,6 +32,16 @@ function toPrincipalMemberEnvelopeRequest(input: {
     kemCipherText: bytesToBase64(input.envelope.kemCipherText),
     wrappedKey: bytesToBase64(input.envelope.wrappedKey),
   };
+}
+
+export function toRecipientEntries(
+  envelopes: ReadonlyArray<PrincipalMemberEnvelopeResponse>,
+) {
+  return envelopes.map((envelope) => ({
+    keyFingerprint: envelope.memberKeyFingerprint,
+    kemCipherText: base64ToBytes(envelope.kemCipherText),
+    wrappedKey: base64ToBytes(envelope.wrappedKey),
+  }));
 }
 
 function toRekeyRecipientEntries(input: {

@@ -84,11 +84,6 @@ export async function createRegistrationRequest(
       role: "admin" as const,
     },
   ];
-  const organizationPayloadCiphertext = bytesToBase64(
-    new TextEncoder().encode(
-      JSON.stringify({ members: initialOrganizationProjection }),
-    ),
-  );
   const [organizationMemberEnvelope] = await wrapDekForRecipients(
     organizationKem.secretKey,
     [user.kem.publicKey],
@@ -119,6 +114,16 @@ export async function createRegistrationRequest(
     signingPublicKey: user.signing.signingPublicKey,
     userId,
   });
+  const organizationPayloadCiphertext = bytesToBase64(
+    new TextEncoder().encode(
+      JSON.stringify({
+        version: 1,
+        organizationId,
+        adminGroupId: initialAdminGroup.groupId,
+        memberGroupId: initialMemberGroup.groupId,
+      }),
+    ),
+  );
   const rootBootstrap = await createRegistrationBootstrap({
     adminGroup: initialAdminGroup,
     encapsulationPublicKey: user.kem.publicKey,
@@ -151,6 +156,7 @@ export async function createRegistrationRequest(
           memberEnvelopes: organizationMemberEnvelopes,
           projection: initialOrganizationProjection,
           payloadCiphertext: organizationPayloadCiphertext,
+          externalAuthority: null,
           signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
           signerUserId: userId,
           signerUserKeyFingerprint: await toFingerprint(

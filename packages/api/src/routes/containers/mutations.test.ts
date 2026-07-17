@@ -61,7 +61,6 @@ import {
   isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
   isContainerMutationResponse,
-  isPrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import invariant from "invariant";
@@ -334,60 +333,67 @@ async function putGroupPrincipalPolicy(input: {
     signingPrivateKey: input.actor.signing.signingPrivateKey,
     memberEnvelopes,
   });
-  const response = await routeApp.request(
-    `/principals/group/${input.principalId}/policy`,
-    {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${input.actor.token}`,
+  const policyRequest = {
+    state: signedState.state,
+    encryptedPayload: signedState.encryptedPayload,
+    projection: signedState.projection,
+    memberEnvelopes: signedState.memberEnvelopes,
+  };
+  const isInitialState =
+    signedState.state.version === 1 && signedState.state.prevStateHash === null;
+  let response: Response;
+  if (isInitialState) {
+    const [actor] = await db
+      .select({ organizationId: users.defaultOrganizationId })
+      .from(users)
+      .where(eq(users.id, input.actor.userId))
+      .limit(1);
+    invariant(actor, "expected registered actor");
+    response = await routeApp.request(
+      `/organizations/${actor.organizationId}/groups`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${input.actor.token}`,
+        },
+        body: JSON.stringify({
+          groupId: input.principalId,
+          name: "Test group",
+          initialGroupPolicy: policyRequest,
+        }),
       },
-      body: JSON.stringify({
-        state: signedState.state,
-        encryptedPayload: signedState.encryptedPayload,
-        projection: signedState.projection,
-        memberEnvelopes: signedState.memberEnvelopes,
-      }),
-    },
-  );
+    );
+  } else {
+    response = await routeApp.request(
+      `/principals/group/${input.principalId}/policy`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${input.actor.token}`,
+        },
+        body: JSON.stringify(policyRequest),
+      },
+    );
+  }
 
   expect(response.status).toBe(200);
-  const storedPolicy = await response.json();
-  invariant(
-    isPrincipalPolicyBundleResponse(storedPolicy),
-    "expected principal policy bundle response",
-  );
-
   const stateHash = await computePrincipalStateHash(signedState.state);
-  expect(storedPolicy.currentState.stateHash).toBe(stateHash);
-
-  const policyState = {
-    ...signedState.state,
-    stateHash,
-  };
+  const policy = await loadVerifiedPrincipalPolicy(
+    db,
+    "group",
+    input.principalId,
+  );
+  expect(policy.stateHash).toBe(stateHash);
   const reference: ReferencedPrincipalHead = {
     principalType: "group",
     principalId: input.principalId,
-    version: policyState.version,
-    keyEpoch: policyState.keyEpoch,
+    version: policy.version,
+    keyEpoch: policy.keyEpoch,
     stateHash,
-    keyFingerprint: policyState.keyFingerprint,
+    keyFingerprint: policy.state.keyFingerprint,
   };
-  const policy = {
-    principalType: "group",
-    principalId: input.principalId,
-    version: policyState.version,
-    keyEpoch: policyState.keyEpoch,
-    stateHash,
-    state: policyState,
-    projection: signedState.projection,
-    checkpoint: {
-      principalType: "group",
-      principalId: input.principalId,
-      version: policyState.version,
-      stateHash,
-    },
-  } as VerifiedPrincipalPolicy;
 
   return {
     policy,

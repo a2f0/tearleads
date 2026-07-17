@@ -20,6 +20,7 @@ import type {
 import type { RegistrationResponse } from "@tearleads/validators/response";
 import { createInitializedContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
+import { encodeOrganizationAuthorityDescriptor } from "../../data/organizationAuthorityDescriptor";
 import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import type { LocalUserIdentityCandidate } from "../../data/trustedUserIdentity";
 import {
@@ -180,7 +181,9 @@ export interface OrganizationProvisioningArtifactsInput {
 }
 
 export async function buildInitialOrganizationPolicyRequest(input: {
+  adminGroupId: string;
   encapsulationPublicKey: Uint8Array;
+  memberGroupId: string;
   organizationId: string;
   signingKeyPair: SigningKeyPair;
   userId: string;
@@ -199,13 +202,12 @@ export async function buildInitialOrganizationPolicyRequest(input: {
       role: "admin" as const,
     },
   ];
-  const payloadCiphertext = bytesToBase64(
-    new TextEncoder().encode(
-      JSON.stringify({
-        members: projection,
-      }),
-    ),
-  );
+  const payloadCiphertext = encodeOrganizationAuthorityDescriptor({
+    version: 1,
+    organizationId: input.organizationId,
+    adminGroupId: input.adminGroupId,
+    memberGroupId: input.memberGroupId,
+  });
   const [memberEnvelope] = await wrapDekForRecipients(
     organizationKem.secretKey,
     [input.encapsulationPublicKey],
@@ -236,6 +238,7 @@ export async function buildInitialOrganizationPolicyRequest(input: {
       memberEnvelopes,
       projection,
       payloadCiphertext,
+      externalAuthority: null,
       signedAt: new Date().toISOString(),
       signerUserId: input.userId,
       signerUserKeyFingerprint,
@@ -282,7 +285,9 @@ async function createOrganizationPrincipalPolicies(input: {
   });
   const initialOrganizationPolicy = await buildInitialOrganizationPolicyRequest(
     {
+      adminGroupId: initialAdminGroup.groupId,
       encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+      memberGroupId: initialMemberGroup.groupId,
       organizationId,
       signingKeyPair: input.signingKeyPair,
       userId: input.userId,

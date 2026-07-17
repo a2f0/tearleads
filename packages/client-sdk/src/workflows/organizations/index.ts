@@ -35,9 +35,9 @@ export {
   removeOrganizationGroupUser,
 } from "./principalPolicy";
 export {
+  buildOrganizationGroupPolicyHistory,
   loadOrganizationContainerGrants,
   loadOrganizationDataUsage,
-  loadOrganizationDirectoryAndGroups,
   loadOrganizationGroupDetails,
   loadOrganizationGroupPolicyHistory,
   loadOrganizationPolicyHistory,
@@ -66,6 +66,11 @@ export {
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "./readModel";
+export {
+  loadLocalOrganizationDirectoryAndGroups,
+  type ReconcileOrganizationDirectoryAndGroupsInput,
+  reconcileOrganizationDirectoryAndGroups,
+} from "./readModelProjection";
 export {
   buildRosterProfileDocumentPatch,
   createInitializedRosterProfileDocument,

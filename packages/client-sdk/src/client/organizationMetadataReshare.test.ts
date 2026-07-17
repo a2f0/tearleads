@@ -3,7 +3,7 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { getOrganizationProfileDocumentLocalId } from "../workflows/organizations/organizationProfile";
 import { deriveOrganizationMetadataContainerSystemSlot } from "../workflows/organizations/rosterProfileContainer";
 import type { ContainerContents } from "./containerContents";
-import { reshareOrganizationMetadataToMembers } from "./organizationMetadataReshare";
+import { reshareOrganizationMetadataAfterGroupChange } from "./organizationMetadataReshare";
 
 const ORGANIZATION_ID = "org-1";
 const MEMBER_GROUP_ID = "members-group-1";
@@ -49,7 +49,7 @@ function createFakeContainerContents(input: {
       }
       return true;
     },
-    shareWithGroup: async (
+    prepareGroupRewrap: async (
       containerId: string,
       groupId: string,
       accessLevel: string,
@@ -57,7 +57,14 @@ function createFakeContainerContents(input: {
     ) => {
       const call = { accessLevel, containerId, groupId, options };
       shareCalls.push(call);
-      return (await input.shareWithGroup?.(call)) ?? true;
+      const applies = (await input.shareWithGroup?.(call)) ?? true;
+      return applies
+        ? {
+            isCurrent: async () => false,
+            rewrap: async () => true,
+            status: "prepared" as const,
+          }
+        : { status: "not-granted" as const };
     },
   };
   const containerContents = {
@@ -86,10 +93,9 @@ test("re-shares the org metadata container to the members group when it is the m
       ],
     });
 
-  await reshareOrganizationMetadataToMembers({
+  await reshareOrganizationMetadataAfterGroupChange({
     containerContents,
     log: () => undefined,
-    memberGroupId: MEMBER_GROUP_ID,
     mutatedGroupId: MEMBER_GROUP_ID,
     organizationId: ORGANIZATION_ID,
   });
@@ -115,24 +121,31 @@ test("re-shares the org metadata container to the members group when it is the m
   expect(refreshCount()).toBe(0);
 });
 
-test("does nothing when the mutated group is not the members group", async () => {
+test("an unrelated mutated group cannot mint a metadata grant or pull content", async () => {
   const slot = await deriveOrganizationMetadataContainerSystemSlot({
     organizationId: ORGANIZATION_ID,
   });
   const { containerContents, pullCalls, refreshCount, shareCalls } =
     createFakeContainerContents({
       initialNodes: [{ id: "metadata-container", systemSlot: slot }],
+      shareWithGroup: async () => false,
     });
 
-  await reshareOrganizationMetadataToMembers({
+  await reshareOrganizationMetadataAfterGroupChange({
     containerContents,
     log: () => undefined,
-    memberGroupId: MEMBER_GROUP_ID,
     mutatedGroupId: "some-custom-group",
     organizationId: ORGANIZATION_ID,
   });
 
-  expect(shareCalls).toEqual([]);
+  expect(shareCalls).toEqual([
+    {
+      accessLevel: "read",
+      containerId: "metadata-container",
+      groupId: "some-custom-group",
+      options: { requireExistingGrant: true },
+    },
+  ]);
   expect(pullCalls).toEqual([]);
   expect(refreshCount()).toBe(0);
 });
@@ -147,10 +160,9 @@ test("refreshes to hydrate the container when it is not yet loaded, then re-shar
       nodesAfterRefresh: [{ id: "metadata-container", systemSlot: slot }],
     });
 
-  await reshareOrganizationMetadataToMembers({
+  await reshareOrganizationMetadataAfterGroupChange({
     containerContents,
     log: () => undefined,
-    memberGroupId: MEMBER_GROUP_ID,
     mutatedGroupId: MEMBER_GROUP_ID,
     organizationId: ORGANIZATION_ID,
   });
@@ -173,10 +185,9 @@ test("skips and logs when the org metadata container stays unreachable", async (
     });
   const logs: string[] = [];
 
-  await reshareOrganizationMetadataToMembers({
+  await reshareOrganizationMetadataAfterGroupChange({
     containerContents,
     log: (message) => logs.push(message),
-    memberGroupId: MEMBER_GROUP_ID,
     mutatedGroupId: MEMBER_GROUP_ID,
     organizationId: ORGANIZATION_ID,
   });
@@ -199,10 +210,9 @@ test("swallows errors so a re-share failure never surfaces to the caller", async
   const logs: string[] = [];
 
   // Resolves rather than rejects.
-  await reshareOrganizationMetadataToMembers({
+  await reshareOrganizationMetadataAfterGroupChange({
     containerContents,
     log: (message) => logs.push(message),
-    memberGroupId: MEMBER_GROUP_ID,
     mutatedGroupId: MEMBER_GROUP_ID,
     organizationId: ORGANIZATION_ID,
   });
@@ -231,10 +241,9 @@ test("propagates identity failures to the coordinator without logging them as av
   const logs: string[] = [];
 
   await expect(
-    reshareOrganizationMetadataToMembers({
+    reshareOrganizationMetadataAfterGroupChange({
       containerContents,
       log: (message) => logs.push(message),
-      memberGroupId: MEMBER_GROUP_ID,
       mutatedGroupId: MEMBER_GROUP_ID,
       organizationId: ORGANIZATION_ID,
     }),

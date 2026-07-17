@@ -5,6 +5,10 @@ export * from "./containerAccess";
 export * from "./containerKek";
 export * from "./documentAccess";
 export * from "./principalPolicy";
+export type {
+  PrincipalPolicyExternalAuthority,
+  PrincipalPolicyExternalAuthorityState,
+} from "./principalPolicyExternalAuthorityTypes";
 export * from "./transparency";
 export * from "./types";
 export * from "./writeHeader";

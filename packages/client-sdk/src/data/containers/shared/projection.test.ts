@@ -127,6 +127,7 @@ async function createGroupPrincipalPolicyBundle(input: {
       memberEnvelopes,
       projection: currentProjection,
       payloadCiphertext,
+      externalAuthority: null,
       signedAt: input.signedAt,
       signerUserId: input.signer.signerUserId,
       signerUserKeyFingerprint: input.signer.signerKeyFingerprint,

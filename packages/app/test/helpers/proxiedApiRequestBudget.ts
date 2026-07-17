@@ -24,6 +24,10 @@ function normalizeRequestPath(path: string): string {
         /^\/organizations\/[^/]+\/groups$/u,
         "/organizations/:organizationId/groups",
       )
+      .replace(
+        /^\/organizations\/[^/]+\/read-model$/u,
+        "/organizations/:organizationId/read-model",
+      )
       // Group-subresource reads issued by the org-manager refresh fan-out. Anchored
       // after the bare `/groups$` rule so the group id collapses too.
       .replace(

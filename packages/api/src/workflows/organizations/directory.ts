@@ -5,14 +5,11 @@ import type {
 import { organizations } from "@tearleads/api-shared/schema";
 import type { OrganizationDirectoryResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
-import { resolveOrganizationSyncEligibility } from "../billing/organizationBilling";
 import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
-import { listUsersReachableFromCurrentGroup } from "./principalReachability";
 import {
   listOrganizationRosterEntries,
   toOrganizationDirectoryUser,
-  upsertActiveOrganizationRosterEntries,
 } from "./roster";
 import { loadUsersById } from "./users";
 
@@ -25,16 +22,12 @@ function compareOrganizationDirectoryUsers(
   return left.userId.localeCompare(right.userId);
 }
 
-async function loadMemberGroupId(input: {
+async function loadOrganizationProfileDocumentId(input: {
   executor: DatabaseSession;
   organizationId: string;
-}): Promise<{
-  memberGroupId: string;
-  profileDocumentId: string | null;
-}> {
+}): Promise<string | null> {
   const [organization] = await input.executor
     .select({
-      memberGroupId: organizations.memberGroupId,
       profileDocumentId: organizations.profileDocumentId,
     })
     .from(organizations)
@@ -45,7 +38,45 @@ async function loadMemberGroupId(input: {
     throw new OrganizationManagerError("Organization not found", 404);
   }
 
-  return organization;
+  return organization.profileDocumentId;
+}
+
+export async function loadOrganizationDirectoryInTransaction(input: {
+  readonly executor: DatabaseSession;
+  readonly isOrgAdmin: boolean;
+  readonly organizationId: string;
+  readonly sessionUserId: string;
+}): Promise<OrganizationDirectoryResponse> {
+  const profileDocumentId = await loadOrganizationProfileDocumentId(input);
+  const rosterEntries = await listOrganizationRosterEntries(input);
+  const usersById = await loadUsersById(
+    input.executor,
+    rosterEntries.map((entry) => entry.userId),
+  );
+
+  return {
+    organizationId: input.organizationId,
+    profileDocumentId,
+    currentUser: {
+      isOrgAdmin: input.isOrgAdmin,
+    },
+    users: rosterEntries
+      .flatMap((rosterEntry) => {
+        const user = usersById.get(rosterEntry.userId);
+        if (!user) {
+          return [];
+        }
+
+        return [
+          toOrganizationDirectoryUser({
+            rosterEntry,
+            sessionUserId: input.sessionUserId,
+            user,
+          }),
+        ];
+      })
+      .sort(compareOrganizationDirectoryUsers),
+  };
 }
 
 export async function runListOrganizationDirectoryWorkflow(
@@ -59,57 +90,11 @@ export async function runListOrganizationDirectoryWorkflow(
       organizationId,
       userId: sessionUserId,
     });
-    const organization = await loadMemberGroupId({
+    return loadOrganizationDirectoryInTransaction({
       executor: tx,
+      isOrgAdmin: access.isOrgAdmin,
       organizationId,
+      sessionUserId,
     });
-    const { canSync } = await resolveOrganizationSyncEligibility(
-      tx,
-      organizationId,
-    );
-    if (canSync) {
-      const memberUserIds = await listUsersReachableFromCurrentGroup({
-        executor: tx,
-        groupId: organization.memberGroupId,
-      });
-      await upsertActiveOrganizationRosterEntries({
-        executor: tx,
-        organizationId,
-        userIds: [...memberUserIds],
-      });
-    }
-    const rosterEntries = await listOrganizationRosterEntries({
-      executor: tx,
-      organizationId,
-    });
-
-    const usersById = await loadUsersById(
-      tx,
-      rosterEntries.map((entry) => entry.userId),
-    );
-
-    return {
-      organizationId,
-      profileDocumentId: organization.profileDocumentId,
-      currentUser: {
-        isOrgAdmin: access.isOrgAdmin,
-      },
-      users: rosterEntries
-        .flatMap((rosterEntry) => {
-          const user = usersById.get(rosterEntry.userId);
-          if (!user) {
-            return [];
-          }
-
-          return [
-            toOrganizationDirectoryUser({
-              rosterEntry,
-              sessionUserId,
-              user,
-            }),
-          ];
-        })
-        .sort(compareOrganizationDirectoryUsers),
-    };
   });
 }

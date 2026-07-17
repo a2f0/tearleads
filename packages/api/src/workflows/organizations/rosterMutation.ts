@@ -2,10 +2,11 @@ import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import { organizationRosterEntries } from "@tearleads/api-shared/schema";
 import type { UpdateOrganizationRosterEntryRequest } from "@tearleads/validators/request";
 import type { OrganizationDirectoryUserResponse } from "@tearleads/validators/response";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { assertOrganizationCanSync } from "../billing/organizationBilling";
-import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
+import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
+import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
 import {
   isOrganizationProfileDocument,
   loadOrganizationRosterEntry,
@@ -21,14 +22,12 @@ export async function runUpdateOrganizationRosterEntryWorkflow(
   input: UpdateOrganizationRosterEntryRequest,
 ): Promise<OrganizationDirectoryUserResponse> {
   return db.transaction(async (tx) => {
-    const access = await requireDirectOrganizationAccess({
-      executor: tx,
+    await requireSerializedOrganizationMutationAccess({
       organizationId,
+      requireAdmin: sessionUserId !== userId,
+      tx,
       userId: sessionUserId,
     });
-    if (sessionUserId !== userId && !access.isOrgAdmin) {
-      throw new OrganizationManagerError("Organization admin required", 403);
-    }
     await assertOrganizationCanSync(tx, organizationId);
 
     const currentEntry = await loadOrganizationRosterEntry({
@@ -54,7 +53,17 @@ export async function runUpdateOrganizationRosterEntryWorkflow(
       );
     }
 
-    const [rosterEntry] = await tx
+    const profileDocumentChanged =
+      input.profileDocumentId === null
+        ? isNotNull(organizationRosterEntries.profileDocumentId)
+        : or(
+            isNull(organizationRosterEntries.profileDocumentId),
+            ne(
+              organizationRosterEntries.profileDocumentId,
+              input.profileDocumentId,
+            ),
+          );
+    const [updatedRosterEntry] = await tx
       .update(organizationRosterEntries)
       .set({
         profileDocumentId: input.profileDocumentId,
@@ -64,11 +73,27 @@ export async function runUpdateOrganizationRosterEntryWorkflow(
         and(
           eq(organizationRosterEntries.organizationId, organizationId),
           eq(organizationRosterEntries.userId, userId),
+          profileDocumentChanged,
         ),
       )
       .returning();
+    const rosterEntry =
+      updatedRosterEntry ??
+      (await loadOrganizationRosterEntry({
+        executor: tx,
+        organizationId,
+        userId,
+      }));
     if (!rosterEntry) {
       throw new OrganizationManagerError("Roster entry not found", 404);
+    }
+    if (updatedRosterEntry) {
+      await appendOrganizationReadModelChangeInTransaction(tx, {
+        organizationId,
+        lane: "directory",
+        entityId: userId,
+        operation: "upsert",
+      });
     }
 
     const usersById = await loadUsersById(tx, [userId]);

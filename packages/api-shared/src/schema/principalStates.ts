@@ -1,6 +1,7 @@
 import type {
   ManagedRecipientPrincipalType,
   PrincipalProjectionRole,
+  PrincipalStateExternalAuthority,
   PrincipalStateMembershipMode,
   PrincipalStateMemberType,
   PrincipalStatePayloadCipherSuite,
@@ -8,6 +9,7 @@ import type {
 import {
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -105,6 +107,8 @@ export const principalStates = pgTable(
     projectionRoot: text("projection_root").notNull(),
     payloadCiphertextHash: text("payload_ciphertext_hash").notNull(),
     memberCount: integer("member_count").notNull(),
+    externalAuthority:
+      jsonb("external_authority").$type<PrincipalStateExternalAuthority>(),
     stateHash: text("state_hash").notNull(),
     signedAt: timestamp("signed_at").notNull(),
     signerUserId: uuid("signer_user_id").notNull(),

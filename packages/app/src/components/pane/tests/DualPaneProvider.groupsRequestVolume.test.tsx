@@ -1,4 +1,4 @@
-import { afterEach, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import { act, cleanup } from "@testing-library/react";
 import { waitForAppTestRuntimeToSettle } from "../../../../test/helpers/appRuntimeIdle";
 import {
@@ -27,47 +27,75 @@ import {
 } from "../../../../test/helpers/proxiedApiRequestBudget";
 
 // #1565 originally measured the whole open-and-add gesture at 84 requests;
-// #1566 reduced it to 69. Keep navigation and the actual mutation separate so
-// bootstrap/UI reads cannot hide a sync regression in shared total headroom.
-// Current deterministic profile: 11 requests to open/select Admins, then 53 from
-// click through convergence. Only the policy PUT and root rewrap POST are writes.
+// #1566 reduced it to 69. The #1500 directory/groups projection reduces the
+// deterministic profile to 4 requests to open/select Admins and 49 from click
+// through convergence. One organization-policy read verifies the signed
+// reserved-group descriptor; it replaces, rather than trusts, display metadata.
+// Keep navigation and mutation separate so UI reads cannot hide a sync
+// regression. Only the policy PUT and root rewrap POST are writes.
 const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 13,
+  total: 5,
   byRequest: {
-    "GET /organizations/:organizationId/directory": 2,
-    "GET /organizations/:organizationId/data-usage": 2,
-    "GET /organizations/:organizationId/grants": 2,
-    "GET /organizations/:organizationId/groups": 1,
+    "GET /organizations/:organizationId/read-model": 1,
     "GET /organizations/:organizationId/groups/:groupId/containers": 1,
     "GET /organizations/:organizationId/groups/:groupId/members": 1,
     "GET /principals/group/:groupId/policy": 1,
-    "GET /principals/organization/:organizationId/policy": 1,
+    "GET /organizations/:organizationId/directory": 0,
+    "GET /organizations/:organizationId/data-usage": 0,
+    "GET /organizations/:organizationId/grants": 0,
+    "GET /organizations/:organizationId/groups": 0,
+    "GET /principals/organization/:organizationId/policy": 0,
     "POST /containers/:containerId/share": 0,
     "PUT /principals/group/:groupId/policy": 0,
   },
 };
 
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 55,
+  total: 50,
   byRequest: {
-    "GET /containers": 12,
-    "GET /principals/group/:groupId/policy": 11,
-    "GET /containers/:containerId/documents": 9,
-    "GET /documents/:documentId/writer-projection": 9,
-    "POST /documents/:documentId/sync": 9,
-    "GET /auth/user-identity/:userId": 3,
-    "GET /organizations/:organizationId/directory": 2,
-    "GET /organizations/:organizationId/groups": 2,
-    "GET /organizations/:organizationId/groups/:groupId/containers": 2,
-    "GET /organizations/:organizationId/groups/:groupId/members": 2,
-    "GET /containers/:containerId/writer-projection": 2,
+    "GET /containers": 11,
+    "GET /principals/group/:groupId/policy": 8,
+    "GET /containers/:containerId/documents": 7,
+    "GET /documents/:documentId/writer-projection": 8,
+    "POST /documents/:documentId/sync": 8,
+    "GET /auth/user-identity/:userId": 2,
+    "GET /organizations/:organizationId/read-model": 1,
+    "GET /organizations/:organizationId/groups/:groupId/containers": 0,
+    "GET /organizations/:organizationId/groups/:groupId/members": 0,
+    "GET /containers/:containerId/writer-projection": 1,
+    "GET /organizations/:organizationId/directory": 0,
+    "GET /organizations/:organizationId/groups": 0,
     "GET /organizations/:organizationId/data-usage": 0,
     "GET /organizations/:organizationId/grants": 0,
-    "GET /principals/organization/:organizationId/policy": 0,
+    "GET /principals/organization/:organizationId/policy": 1,
     "POST /containers/:containerId/share": 1,
     "PUT /principals/group/:groupId/policy": 1,
   },
 };
+
+function documentSyncIntentCounts(
+  requests: ReturnType<typeof listProxiedApiRequests>,
+): { readOnly: number; writeBearing: number } {
+  let readOnly = 0;
+  let writeBearing = 0;
+  for (const request of requests) {
+    if (
+      request.method !== "POST" ||
+      !/^\/documents\/[^/]+\/sync$/u.test(new URL(request.url).pathname)
+    ) {
+      continue;
+    }
+    const body = JSON.parse(request.requestBody ?? "{}") as {
+      outgoingUpdates?: unknown[] | undefined;
+    };
+    if ((body.outgoingUpdates?.length ?? 0) === 0) {
+      readOnly += 1;
+    } else {
+      writeBearing += 1;
+    }
+  }
+  return { readOnly, writeBearing };
+}
 
 afterEach(async () => {
   cleanup();
@@ -119,6 +147,7 @@ test(
     const mutationRequests = listProxiedApiRequests().slice(
       mutationRequestStartIndex,
     );
+    const syncIntents = documentSyncIntentCounts(mutationRequests);
     profileProxiedApiRequests(
       "admin-group add + settle",
       adminAddBaseline.requestStartIndex,
@@ -138,6 +167,8 @@ test(
       mutationRequests,
       ADMIN_GROUP_MUTATION_REQUEST_BUDGET,
     );
+    expect(syncIntents.writeBearing).toBe(0);
+    expect(syncIntents.readOnly).toBeLessThanOrEqual(8);
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );

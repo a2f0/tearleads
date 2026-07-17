@@ -10,6 +10,7 @@ import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
   type PrincipalProjectionMember,
+  type PrincipalStateExternalAuthority,
   type PrincipalStateMember,
   type PrincipalStateMemberEnvelope,
   signPrincipalState,
@@ -80,6 +81,7 @@ export async function createPolicySigner(
 }
 
 export async function signPolicyState(input: {
+  readonly externalAuthority?: PrincipalStateExternalAuthority | null;
   readonly keyEpoch?: number;
   readonly memberEnvelopes?: readonly PrincipalStateMemberEnvelope[];
   readonly members: readonly PrincipalStateMember[];
@@ -135,6 +137,7 @@ export async function signPolicyState(input: {
       memberEnvelopes: [...memberEnvelopes],
       projection: [...projection],
       payloadCiphertext,
+      externalAuthority: input.externalAuthority ?? null,
       signedAt:
         input.signedAt ??
         `2026-04-26T12:${String(input.version).padStart(2, "0")}:00.000Z`,

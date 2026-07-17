@@ -64,6 +64,7 @@ import {
   isOrganizationGroupContainersResponse,
   isOrganizationGroupMembersResponse,
   isOrganizationProfileResponse,
+  isOrganizationReadModelResponse,
   isOrganizationUserDetailResponse,
   isPrincipalPolicyBundleResponse,
   isRegistrationResponse,
@@ -75,6 +76,7 @@ import {
   type ListContainersResponse,
   type ListDocumentAttachmentsResponse,
   type ListOrganizationGroupsResponse,
+  type OrganizationReadModelResponse,
   type PrincipalPolicyBundleResponse,
   type UserIdentityResponse,
 } from "@tearleads/validators/response";
@@ -104,6 +106,7 @@ import {
   containerDocsPath,
 } from "./routes/containers/queryParams";
 import { DocumentAttributionRequests } from "./routes/documents/attributionRequests";
+import { organizationReadModelPath } from "./routes/organizations/readModelPath";
 import { pathSegment } from "./routes/path";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
 import type {
@@ -836,6 +839,20 @@ export class ApiClient {
       `/organizations/${pathSegment(organizationId)}/directory`,
       isOrganizationDirectoryResponse,
       "GET",
+    );
+  }
+
+  getOrganizationReadModelResult(
+    organizationId: string,
+    cursor?: string,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<OrganizationReadModelResponse>> {
+    return this.makeRequestResult(
+      organizationReadModelPath(organizationId, cursor),
+      isOrganizationReadModelResponse,
+      "GET",
+      undefined,
+      options,
     );
   }
 

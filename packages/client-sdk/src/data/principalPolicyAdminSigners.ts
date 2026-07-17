@@ -2,6 +2,7 @@ import {
   KeyingVerificationError,
   type KeyingVerificationResult,
   type PrincipalPolicyCheckpoint,
+  type PrincipalPolicyExternalAuthority,
   type PrincipalPolicySignerPublicKey,
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicy,
@@ -37,6 +38,29 @@ export function organizationAdminSignerUserIds(
   ].sort();
 }
 
+export function organizationAdminExternalAuthority(
+  policy: VerifiedPrincipalPolicy,
+): PrincipalPolicyExternalAuthority {
+  const history = policy.history ?? [
+    { state: policy.state, projection: policy.projection },
+  ];
+  const toHead = (state: (typeof history)[number]["state"]) => ({
+    principalType: "group" as const,
+    principalId: state.principalId,
+    version: state.version,
+    keyEpoch: state.keyEpoch,
+    stateHash: state.stateHash,
+    keyFingerprint: state.keyFingerprint,
+  });
+  return {
+    currentHead: toHead(policy.state),
+    states: history.map((entry) => ({
+      head: toHead(entry.state),
+      projection: entry.projection,
+    })),
+  };
+}
+
 export async function verifyOrganizationAdminPolicy(input: {
   readonly bundle: PrincipalPolicyBundleResponse;
   readonly localCheckpoint?: PrincipalPolicyCheckpoint | null | undefined;
@@ -67,7 +91,7 @@ export async function verifyOrganizationAdminPolicy(input: {
 export async function verifyPrincipalPolicyBundleWithExternalOrganizationAdmins(input: {
   readonly bundle: PrincipalPolicyBundleResponse;
   readonly expectedReference: ReferencedPrincipalHead;
-  readonly loadExternalAdminSignerUserIds: () => Promise<readonly string[]>;
+  readonly loadExternalAuthority: () => Promise<PrincipalPolicyExternalAuthority | null>;
   readonly localCheckpoint?: PrincipalPolicyCheckpoint | null | undefined;
   readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
 }): Promise<KeyingVerificationResult<VerifiedPrincipalPolicy>> {
@@ -81,15 +105,14 @@ export async function verifyPrincipalPolicyBundleWithExternalOrganizationAdmins(
     return verified;
   }
 
-  const externalAdminSignerUserIds =
-    await input.loadExternalAdminSignerUserIds();
-  if (externalAdminSignerUserIds.length === 0) {
+  const externalAuthority = await input.loadExternalAuthority();
+  if (!externalAuthority) {
     return verified;
   }
 
   const verifiedWithExternalAdmins = await verifyPrincipalPolicyBundle({
     bundle: input.bundle,
-    externalAdminSignerUserIds,
+    externalAuthority,
     expectedReference: input.expectedReference,
     localCheckpoint: input.localCheckpoint ?? null,
     signerPublicKeys: input.signerPublicKeys,

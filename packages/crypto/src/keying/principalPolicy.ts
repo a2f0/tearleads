@@ -10,6 +10,12 @@ import {
   verifySignedPrincipalState,
 } from "../principalState";
 import { verifyPrincipalPolicyProjectionCommitments } from "./principalPolicyCommitments";
+import {
+  createPrincipalPolicyExternalAuthorityVerifier,
+  externalAuthorityIncludesAdminSigner,
+  type PrincipalPolicyExternalAuthorityVerifier,
+  verifyPrincipalPolicyExternalAuthorityProgress,
+} from "./principalPolicyExternalAuthority";
 import { verifyPrincipalPolicyMemberEnvelopes } from "./principalPolicyMemberEnvelopes";
 import { runVerifier, throwVerification } from "./shared";
 import type {
@@ -47,17 +53,6 @@ function projectionIncludesAdminUser(
       member.memberPrincipalType === "user" &&
       member.memberPrincipalId === userId &&
       member.role === "admin",
-  );
-}
-
-function isPrincipalPolicyAdminSigner(input: {
-  readonly externalAdminSignerUserIds: ReadonlySet<string>;
-  readonly projection: readonly PrincipalProjectionMember[];
-  readonly signerUserId: string;
-}): boolean {
-  return (
-    projectionIncludesAdminUser(input.projection, input.signerUserId) ||
-    input.externalAdminSignerUserIds.has(input.signerUserId)
   );
 }
 
@@ -460,10 +455,10 @@ function verifyPrincipalPolicyChainEntryIdentity(input: {
 }
 
 function verifyInitialPrincipalPolicyChainEntry(input: {
-  readonly externalAdminSignerUserIds: ReadonlySet<string>;
+  readonly authorityVerifier: PrincipalPolicyExternalAuthorityVerifier;
   readonly normalizedEntry: NormalizedPrincipalPolicyStateChainEntry;
 }): void {
-  const { externalAdminSignerUserIds, normalizedEntry } = input;
+  const { normalizedEntry } = input;
 
   if (normalizedEntry.state.prevStateHash !== null) {
     throwVerification(
@@ -478,12 +473,21 @@ function verifyInitialPrincipalPolicyChainEntry(input: {
       normalizedEntry.state.signerUserId,
     )
   ) {
+    if (normalizedEntry.state.externalAuthority) {
+      throwVerification(
+        "invalid_shape",
+        "directly authorized principal policy state cannot cite external authority",
+      );
+    }
     return;
   }
 
   if (
     normalizedEntry.projection.length === 0 &&
-    externalAdminSignerUserIds.has(normalizedEntry.state.signerUserId)
+    externalAuthorityIncludesAdminSigner({
+      entry: normalizedEntry,
+      verifier: input.authorityVerifier,
+    })
   ) {
     return;
   }
@@ -495,7 +499,7 @@ function verifyInitialPrincipalPolicyChainEntry(input: {
 }
 
 function verifySuccessorPrincipalPolicyChainEntry(input: {
-  readonly externalAdminSignerUserIds: ReadonlySet<string>;
+  readonly authorityVerifier: PrincipalPolicyExternalAuthorityVerifier;
   readonly normalizedEntry: NormalizedPrincipalPolicyStateChainEntry;
   readonly previousEntry: NormalizedPrincipalPolicyStateChainEntry;
 }): void {
@@ -509,16 +513,24 @@ function verifySuccessorPrincipalPolicyChainEntry(input: {
     );
   }
 
-  if (
-    !isPrincipalPolicyAdminSigner({
-      externalAdminSignerUserIds: input.externalAdminSignerUserIds,
-      projection: input.previousEntry.projection,
-      signerUserId: input.normalizedEntry.state.signerUserId,
-    })
-  ) {
+  const isDirectAdmin = projectionIncludesAdminUser(
+    input.previousEntry.projection,
+    input.normalizedEntry.state.signerUserId,
+  );
+  const isExternalAdmin = externalAuthorityIncludesAdminSigner({
+    entry: input.normalizedEntry,
+    verifier: input.authorityVerifier,
+  });
+  if (!isDirectAdmin && !isExternalAdmin) {
     throwVerification(
       "unauthorized",
       "principal policy state signer is not an admin in previous projection",
+    );
+  }
+  if (isDirectAdmin && input.normalizedEntry.state.externalAuthority) {
+    throwVerification(
+      "invalid_shape",
+      "directly authorized principal policy state cannot cite external authority",
     );
   }
 
@@ -557,7 +569,8 @@ async function verifyPrincipalPolicyChainEntrySignature(input: {
 
 async function verifyPrincipalPolicyChain(input: {
   readonly bundle: PrincipalPolicyBundle;
-  readonly externalAdminSignerUserIds: ReadonlySet<string>;
+  readonly externalAuthority: VerifyPrincipalPolicyBundleInput["externalAuthority"];
+  readonly localCheckpoint: PrincipalPolicyCheckpoint | null | undefined;
   readonly signerPublicKeyByUserAndFingerprint: ReadonlyMap<string, Uint8Array>;
 }): Promise<NormalizedPrincipalPolicyStateChainEntry[]> {
   const chain = [
@@ -574,6 +587,10 @@ async function verifyPrincipalPolicyChain(input: {
   });
 
   const normalizedChain: NormalizedPrincipalPolicyStateChainEntry[] = [];
+  const authorityVerifier = createPrincipalPolicyExternalAuthorityVerifier({
+    authority: input.externalAuthority,
+    localCheckpoint: input.localCheckpoint,
+  });
 
   for (let index = 0; index < chain.length; index += 1) {
     const entry = chain[index];
@@ -596,16 +613,21 @@ async function verifyPrincipalPolicyChain(input: {
     const previousEntry = normalizedChain[index - 1];
     if (previousEntry) {
       verifySuccessorPrincipalPolicyChainEntry({
-        externalAdminSignerUserIds: input.externalAdminSignerUserIds,
+        authorityVerifier,
         normalizedEntry,
         previousEntry,
       });
     } else {
       verifyInitialPrincipalPolicyChainEntry({
-        externalAdminSignerUserIds: input.externalAdminSignerUserIds,
+        authorityVerifier,
         normalizedEntry,
       });
     }
+
+    verifyPrincipalPolicyExternalAuthorityProgress({
+      entry: normalizedEntry,
+      verifier: authorityVerifier,
+    });
 
     await verifyPrincipalPolicyChainEntrySignature({
       normalizedEntry,
@@ -621,7 +643,7 @@ async function verifyPrincipalPolicyChain(input: {
 
 export async function verifyPrincipalPolicyBundle({
   bundle,
-  externalAdminSignerUserIds = [],
+  externalAuthority,
   expectedReference,
   localCheckpoint,
   signerPublicKeys,
@@ -633,7 +655,8 @@ export async function verifyPrincipalPolicyBundle({
       await buildPrincipalPolicySignerKeyMap(signerPublicKeys);
     const normalizedChain = await verifyPrincipalPolicyChain({
       bundle,
-      externalAdminSignerUserIds: new Set(externalAdminSignerUserIds),
+      externalAuthority,
+      localCheckpoint,
       signerPublicKeyByUserAndFingerprint,
     });
     const currentEntry = normalizedChain.at(-1);

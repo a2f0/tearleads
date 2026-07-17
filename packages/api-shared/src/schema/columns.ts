@@ -14,6 +14,7 @@ import {
 import {
   index as sqliteIndex,
   integer as sqliteInteger,
+  numeric as sqliteNumeric,
   sqliteTable,
   text as sqliteText,
   uniqueIndex as sqliteUniqueIndex,
@@ -25,6 +26,7 @@ const isSqlite = isSqliteSchemaDialect();
 
 const pgBigintNumber = (name: string) =>
   pgBigint(name, { mode: "number" }).generatedAlwaysAsIdentity();
+const pgBigintBigInt = (name: string) => pgBigint(name, { mode: "bigint" });
 const pgBooleanColumn = (name: string) => pgBoolean(name);
 const pgIntegerColumn = (name: string) => pgInteger(name);
 const pgJsonColumn = (name: string) => pgJsonb(name);
@@ -32,6 +34,7 @@ const pgTimestampColumn = (name: string) => pgTimestamp(name);
 const pgUuidColumn = (name: string) => pgUuid(name);
 
 type PgBigintNumberBuilder = ReturnType<typeof pgBigintNumber>;
+type PgBigintBigIntBuilder = ReturnType<typeof pgBigintBigInt>;
 type PgBooleanBuilder = ReturnType<typeof pgBooleanColumn>;
 type PgIntegerBuilder = ReturnType<typeof pgIntegerColumn>;
 type PgJsonBuilder = ReturnType<typeof pgJsonColumn>;
@@ -74,11 +77,14 @@ const sqliteTextBridge = unsafeCoerce<SqliteTextBridge>(sqliteText);
 // increasing.
 function sqliteBigint(
   name: string,
-  // Accepted for signature parity with `pgBigint`; the mode is irrelevant under
-  // SQLite, where the column is always a JS-number integer.
   config: { mode: "number" | "bigint" },
-): PgBigintNumberBuilder {
-  void config;
+): PgBigintNumberBuilder | PgBigintBigIntBuilder {
+  if (config.mode === "bigint") {
+    return unsafeCoerce<PgBigintBigIntBuilder>(
+      sqliteNumeric(name, { mode: "bigint" }),
+    );
+  }
+
   const builder = unsafeCoerce<SqliteRuntimeIntegerBuilder>(
     sqliteIntegerBridge(name),
   );

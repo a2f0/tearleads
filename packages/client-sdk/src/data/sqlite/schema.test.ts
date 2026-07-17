@@ -205,6 +205,48 @@ test("client sqlite schema creates tables and indexes", async () => {
       },
     });
 
+    const organizationReadModelState = await readTableColumns(
+      execSql,
+      "organization_read_model_state",
+    );
+    expect(
+      readRecordValue(organizationReadModelState, "organization_id"),
+    ).toEqual({
+      defaultValue: null,
+      notNull: 1,
+      pk: 1,
+      type: "TEXT",
+    });
+    expect(readRecordValue(organizationReadModelState, "cursor")).toEqual({
+      defaultValue: null,
+      notNull: 1,
+      pk: 0,
+      type: "TEXT",
+    });
+
+    const organizationDirectoryUsers = await readTableColumns(
+      execSql,
+      "organization_read_model_directory_users",
+    );
+    expect("is_self" in organizationDirectoryUsers).toBe(false);
+    expect(
+      readRecordValue(organizationDirectoryUsers, "organization_id"),
+    ).toMatchObject({ notNull: 1, pk: 1 });
+    expect(
+      readRecordValue(organizationDirectoryUsers, "user_id"),
+    ).toMatchObject({ notNull: 1, pk: 2 });
+
+    const organizationRequesters = await readTableColumns(
+      execSql,
+      "organization_read_model_requesters",
+    );
+    expect(readRecordValue(organizationRequesters, "is_org_admin")).toEqual({
+      defaultValue: null,
+      notNull: 1,
+      pk: 0,
+      type: "INTEGER",
+    });
+
     const pendingUpdates = await readTableColumns(
       execSql,
       "document_pending_updates",

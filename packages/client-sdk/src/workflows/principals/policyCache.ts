@@ -20,6 +20,7 @@ import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../..
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import {
+  externalAdminPolicyPersistenceEntries,
   loadOrganizationExternalAdminPolicy,
   type VerifiedExternalAdminPolicy,
 } from "./externalAdminPolicy";
@@ -238,9 +239,9 @@ async function validatePrincipalPolicyBundle(
     await verifyPrincipalPolicyBundleWithExternalOrganizationAdmins({
       bundle,
       expectedReference: reference,
-      loadExternalAdminSignerUserIds: async () => {
+      loadExternalAuthority: async () => {
         usedExternalAdminPolicy = true;
-        return (await loadExternalAdminPolicy())?.signerUserIds ?? [];
+        return (await loadExternalAdminPolicy())?.externalAuthority ?? null;
       },
       localCheckpoint,
       signerPublicKeys: signerPublicKeys.signerPublicKeys,
@@ -311,12 +312,7 @@ async function cacheReferencedPrincipalPolicy(
   await persistVerifiedPrincipalPolicyBundlesAtomically({
     entries: [
       ...(validation.externalAdminPolicy
-        ? [
-            {
-              bundle: validation.externalAdminPolicy.bundle,
-              policy: validation.externalAdminPolicy.policy,
-            },
-          ]
+        ? externalAdminPolicyPersistenceEntries(validation.externalAdminPolicy)
         : []),
       { bundle, policy: validation.policy },
     ],
@@ -357,12 +353,7 @@ async function cachePrincipalPolicyBundle(input: {
   await persistVerifiedPrincipalPolicyBundlesAtomically({
     entries: [
       ...(validation.externalAdminPolicy
-        ? [
-            {
-              bundle: validation.externalAdminPolicy.bundle,
-              policy: validation.externalAdminPolicy.policy,
-            },
-          ]
+        ? externalAdminPolicyPersistenceEntries(validation.externalAdminPolicy)
         : []),
       { bundle: input.bundle, policy: validation.policy },
     ],

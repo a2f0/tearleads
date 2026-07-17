@@ -15,7 +15,9 @@ import {
 } from "../registration";
 
 async function createInitialOrganizationPolicy(input: {
+  adminGroupId: string;
   encapsulationPublicKey: Uint8Array;
+  memberGroupId: string;
   organizationId: string;
   signingPrivateKey: Uint8Array;
   signingPublicKey: Uint8Array;
@@ -30,7 +32,14 @@ async function createInitialOrganizationPolicy(input: {
     },
   ];
   const payloadCiphertext = bytesToBase64(
-    new TextEncoder().encode(JSON.stringify({ members: projection })),
+    new TextEncoder().encode(
+      JSON.stringify({
+        version: 1,
+        organizationId: input.organizationId,
+        adminGroupId: input.adminGroupId,
+        memberGroupId: input.memberGroupId,
+      }),
+    ),
   );
   const [memberEnvelope] = await wrapDekForRecipients(
     organizationKem.secretKey,
@@ -62,6 +71,7 @@ async function createInitialOrganizationPolicy(input: {
       memberEnvelopes,
       projection,
       payloadCiphertext,
+      externalAuthority: null,
       signedAt: new Date("2026-04-07T00:00:00.000Z").toISOString(),
       signerUserId: input.userId,
       signerUserKeyFingerprint: await toFingerprint(input.signingPublicKey),
@@ -156,7 +166,9 @@ export async function createRegistrationRequestBody(
     initialAdminGroup,
     initialMemberGroup,
     initialOrganizationPolicy: await createInitialOrganizationPolicy({
+      adminGroupId: initialAdminGroup.groupId,
       encapsulationPublicKey,
+      memberGroupId: initialMemberGroup.groupId,
       organizationId,
       signingPrivateKey,
       signingPublicKey,
