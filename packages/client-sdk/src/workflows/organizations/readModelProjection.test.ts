@@ -29,12 +29,11 @@ async function seedProjection(
   });
 }
 
-test("cold reconciliation stores a snapshot without legacy roster requests", async () => {
+test("cold reconciliation stores a snapshot from the read-model feed", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-cold-reconcile-test",
   );
   const requests: Array<[string, string | undefined]> = [];
-  let legacyRequests = 0;
   const response = organizationReadModelSnapshot();
   const apiClient = {
     async getOrganizationReadModelResult(
@@ -43,14 +42,6 @@ test("cold reconciliation stores a snapshot without legacy roster requests", asy
     ) {
       requests.push([nextOrganizationId, cursor]);
       return { data: response, ok: true } as const;
-    },
-    async listOrganizationDirectory() {
-      legacyRequests += 1;
-      return null;
-    },
-    async listOrganizationGroups() {
-      legacyRequests += 1;
-      return null;
     },
   };
 
@@ -63,7 +54,6 @@ test("cold reconciliation stores a snapshot without legacy roster requests", asy
     });
 
     expect(requests).toEqual([[organizationId, undefined]]);
-    expect(legacyRequests).toBe(0);
     expect(projection?.directory.organizationId).toBe(organizationId);
     expect(projection?.directory.currentUser).toEqual({ isOrgAdmin: true });
     expect(projection?.groups[0]?.name).toBe("Admins");
@@ -117,7 +107,7 @@ test("a missing requester reconciles from the shared global cursor", async () =>
   );
   const requestedCursors: Array<string | undefined> = [];
   const response: OrganizationReadModelResponse = {
-    version: 2,
+    version: 3,
     mode: "delta",
     organizationId,
     nextCursor: "cursor-1",

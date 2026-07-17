@@ -1,7 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import type {
   OrganizationDirectory,
-  OrganizationGroupDetails,
   OrganizationGroupMembers,
   OrganizationGroupSummary,
 } from "@tearleads/client-sdk";
@@ -66,12 +65,6 @@ const MEMBERS: OrganizationGroupMembers = {
   groupId: "members",
   members: [],
   organizationId: DIRECTORY.organizationId,
-};
-
-const GROUP_DETAILS: OrganizationGroupDetails = {
-  containers: null,
-  members: MEMBERS,
-  policyHistory: null,
 };
 
 function deferred<T>() {
@@ -196,9 +189,11 @@ function createActions(
     isOperationScopeActive: () => true,
     loadDataUsage: unusedAsync,
     loadDirectoryAndGroups: unusedAsync,
+    loadDirectoryAndGroupsAfterMutation: unusedAsync,
     loadLocalDirectoryAndGroups: unusedAsync,
     loadGrants: unusedAsync,
-    loadGroupDetails: unusedAsync,
+    loadGroupContainers: unusedAsync,
+    loadGroupMembers: unusedAsync,
     loadGroupPresentationDetails: unusedAsync,
     loadPolicyHistory: unusedAsync,
     loadUserDetail: unusedAsync,
@@ -324,6 +319,7 @@ test("group mutation projection derives role changes and removals", () => {
 });
 
 test("group mutation refresh falls back when a projection member is unknown", async () => {
+  const invalidateSelectedGroupDetails = mock(() => {});
   const refreshSelectedGroupDetails = mock(async () => {});
   const refreshSelectedUserDetail = mock(async () => {});
   const setGroupPolicyHistory = mock(() => {});
@@ -339,6 +335,7 @@ test("group mutation refresh falls back when a projection member is unknown", as
   });
 
   await refreshAfterGroupMutation({
+    invalidateSelectedGroupDetails,
     isOperationActive: () => true,
     mutationProjection: {
       bundle,
@@ -359,6 +356,7 @@ test("group mutation refresh falls back when a projection member is unknown", as
   });
 
   expect(refreshSelectedGroupDetails).toHaveBeenCalledTimes(1);
+  expect(invalidateSelectedGroupDetails).toHaveBeenCalledTimes(1);
   expect(refreshSelectedGroupDetails).toHaveBeenCalledWith(
     TARGET_GROUP.groupId,
   );
@@ -375,7 +373,7 @@ test("roster import does not write after its organization changes during lookup"
   const actions = createActions({
     addUserToGroup,
     importUserById: mock(() => imported.promise),
-    loadGroupDetails: mock(async () => GROUP_DETAILS),
+    loadGroupMembers: mock(async () => MEMBERS),
   });
   const { observed, setError } = createErrorSetter();
 
@@ -406,7 +404,7 @@ test("roster import reports no result when the organization changes during its m
   const actions = createActions({
     addUserToGroup,
     importUserById: mock(async () => TARGET_USER),
-    loadGroupDetails: mock(async () => GROUP_DETAILS),
+    loadGroupMembers: mock(async () => MEMBERS),
   });
 
   const result = await prepareRosterImport({

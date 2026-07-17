@@ -4,6 +4,7 @@ import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { addDocumentAttachments } from "../../data/documents/documentContent";
 import {
+  organizationReadModelContainerGrants,
   organizationReadModelDirectoryUsers,
   organizationReadModelGroupMembers,
   organizationReadModelGroupMemberships,
@@ -275,6 +276,27 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         nestedGroupId: null,
         nestedGroupName: null,
       });
+      await tx.insert(organizationReadModelContainerGrants).values({
+        organizationId: "org-old",
+        containerId: "container-old",
+        subjectType: "group",
+        subjectId: "group-old",
+        sortOrder: 0,
+        accessLevel: "read",
+        createdAt: stale,
+        depth: 1,
+        isBuiltin: false,
+        metadataAccessEpoch: 1,
+        metadataAccessStateHash: "manifest-old",
+        metadataDocumentId: "metadata-old",
+        parentId: "root-old",
+        updatedAt: stale,
+        userId: null,
+        signingKeyFingerprint: null,
+        groupId: "group-old",
+        groupName: "Old group",
+        organizationName: null,
+      });
     });
 
     const result = await clearRemoteSyncState(execSql);
@@ -403,6 +425,9 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
     expect(await db.select().from(organizationReadModelGroupMembers)).toEqual(
       [],
     );
+    expect(
+      await db.select().from(organizationReadModelContainerGrants),
+    ).toEqual([]);
   } finally {
     close();
   }

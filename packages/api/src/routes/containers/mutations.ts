@@ -145,7 +145,20 @@ function readGrantUserRecipientId(
     : null;
 }
 
-async function publishContainerMutationCreated(input: {
+async function publishContainerMutationEventBestEffort(
+  publish: ContainerMutationsRouteDeps["publish"],
+  event: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await publish(event);
+  } catch (error) {
+    // The mutation is already committed. Realtime is lossy, so a broker outage
+    // must not turn the write into a misleading retryable response.
+    console.error("Failed to publish container mutation notification:", error);
+  }
+}
+
+export async function publishContainerMutationCreated(input: {
   readonly expectedEventType: AccessEventType;
   readonly origin: { readonly sessionId: string; readonly userId: string };
   readonly publish: ContainerMutationsRouteDeps["publish"];
@@ -157,7 +170,7 @@ async function publishContainerMutationCreated(input: {
     readContainerMutationBodyEventType(input.request) ??
     input.expectedEventType;
 
-  await input.publish({
+  await publishContainerMutationEventBestEffort(input.publish, {
     type: "container_mutation_created",
     containerId: input.response.containerId,
     eventType,
@@ -179,7 +192,7 @@ async function publishContainerMutationCreated(input: {
   // its key epoch, so tell sockets interested in it to resync their access (and
   // drop stale interest) before they receive further scoped events.
   if (eventType !== "container.create") {
-    await input.publish({
+    await publishContainerMutationEventBestEffort(input.publish, {
       type: "access_changed",
       containerId: input.response.containerId,
     });
@@ -193,7 +206,7 @@ async function publishContainerMutationCreated(input: {
   if (eventType === "container.grant") {
     const recipientUserId = readGrantUserRecipientId(input.request);
     if (recipientUserId) {
-      await input.publish({
+      await publishContainerMutationEventBestEffort(input.publish, {
         type: "shared_with_you",
         userId: recipientUserId,
       });

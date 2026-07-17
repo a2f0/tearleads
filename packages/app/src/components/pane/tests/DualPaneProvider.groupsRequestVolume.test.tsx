@@ -28,18 +28,21 @@ import {
 
 // #1565 originally measured the whole open-and-add gesture at 84 requests;
 // #1566 reduced it to 69. The #1500 membership projection reduces the
-// deterministic profile to 3 requests to open/select Admins and 49 from click
-// through convergence. One policy read verifies the signed Admins descriptor;
-// it replaces, rather than trusts, display metadata.
+// deterministic profile to 1 request to open/select Admins and 49 from click
+// through convergence. The local policy-history view is allowed only when its
+// verified policy head exactly matches the v3 group summary.
 // Keep navigation and mutation separate so UI reads cannot hide a sync
 // regression. Only the policy PUT and root rewrap POST are writes.
+// The one read-model GET also proves that author websocket echoes are absorbed
+// by the explicit mutation reconcile and that the unopened peer Org Manager
+// declares no demand (and therefore performs no organization feed GET).
 const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 3,
+  total: 1,
   byRequest: {
     "GET /organizations/:organizationId/read-model": 1,
-    "GET /organizations/:organizationId/groups/:groupId/containers": 1,
+    "GET /organizations/:organizationId/groups/:groupId/containers": 0,
     "GET /organizations/:organizationId/groups/:groupId/members": 0,
-    "GET /principals/group/:groupId/policy": 1,
+    "GET /principals/group/:groupId/policy": 0,
     "GET /organizations/:organizationId/directory": 0,
     "GET /organizations/:organizationId/data-usage": 0,
     "GET /organizations/:organizationId/grants": 0,

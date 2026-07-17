@@ -12,6 +12,10 @@ import { and, eq, ne, sql } from "drizzle-orm";
 import { uuidValue } from "../../utils/sqlDialect";
 import { assertOrganizationCanSync } from "../billing/organizationBilling";
 import { teardownContainerMetadataDocument } from "../documents/mutations/purgeDocument";
+import {
+  appendOrganizationReadModelChangeInTransaction,
+  lockOrganizationReadModelHeadForUpdateInTransaction,
+} from "../organizations/readModelChanges";
 import { userIdsByContainerPath } from "./containerPathUsers";
 import {
   ContainerWriterProjectionError,
@@ -183,38 +187,59 @@ async function deleteContainerWithExecutor(input: {
   readonly executor: DatabaseTransaction;
   readonly userId: string;
 }): Promise<ContainerDeleteResponse> {
-  const context = createContainerWriterProjectionContext(input.executor);
-  let access: Awaited<ReturnType<typeof resolveContainerAccessProjection>>;
-
-  try {
-    access = await resolveContainerAccessProjection({
-      containerId: input.containerId,
-      context,
-      executor: input.executor,
-      minimumAccessLevel: "admin",
-      userId: input.userId,
-    });
-  } catch (error) {
-    if (error instanceof ContainerWriterProjectionError) {
-      throw toDeleteContainerError(error);
+  const resolveAccess = async () => {
+    const context = createContainerWriterProjectionContext(input.executor);
+    try {
+      return await resolveContainerAccessProjection({
+        containerId: input.containerId,
+        context,
+        executor: input.executor,
+        minimumAccessLevel: "admin",
+        userId: input.userId,
+      });
+    } catch (error) {
+      if (error instanceof ContainerWriterProjectionError) {
+        throw toDeleteContainerError(error);
+      }
+      throw error;
     }
-    throw error;
+  };
+
+  const initialAccess = await resolveAccess();
+  const initialTargetManifest = initialAccess.verifiedPath.at(-1);
+  if (!initialTargetManifest) {
+    throw new DeleteContainerError("Container not found", 404);
+  }
+  const organizationId = initialTargetManifest.state.organizationId;
+  const headLocked = await lockOrganizationReadModelHeadForUpdateInTransaction(
+    input.executor,
+    organizationId,
+  );
+  if (!headLocked) {
+    throw new Error("Organization read-model cursor head is missing");
+  }
+
+  // Rebuild the writer projection after serializing the organization so a
+  // concurrent revocation cannot race the delete authorization.
+  const access = await resolveAccess();
+  const targetManifest = access.verifiedPath.at(-1);
+  if (!targetManifest) {
+    throw new DeleteContainerError("Container not found", 404);
+  }
+  if (targetManifest.state.organizationId !== organizationId) {
+    throw new DeleteContainerError("Container organization mismatch", 409);
   }
 
   const container = await loadContainerForDelete(input);
+  if (container.organizationId !== organizationId) {
+    throw new DeleteContainerError("Container organization mismatch", 409);
+  }
   const updatedAt = new Date();
   const visibleUserIds = await userIdsByContainerPath({
     executor: input.executor,
     path: access.verifiedPath,
   });
-  const targetManifest = access.verifiedPath.at(-1);
-  if (!targetManifest) {
-    throw new DeleteContainerError("Container not found", 404);
-  }
-  await assertOrganizationCanSync(
-    input.executor,
-    targetManifest.state.organizationId,
-  );
+  await assertOrganizationCanSync(input.executor, organizationId);
   const rootDiscoveryUserIds = new Set(
     visibleUserIds.userIdsByContainerId.get(targetManifest.state.containerId) ??
       [],
@@ -242,6 +267,12 @@ async function deleteContainerWithExecutor(input: {
     dereferencedAt: updatedAt,
     documentId: targetManifest.state.metadataDocumentId,
     executor: input.executor,
+  });
+  await appendOrganizationReadModelChangeInTransaction(input.executor, {
+    organizationId,
+    lane: "grants",
+    entityId: organizationId,
+    operation: "replace",
   });
 
   return {

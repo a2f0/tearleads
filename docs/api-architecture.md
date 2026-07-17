@@ -83,12 +83,10 @@ Read surfaces:
 | Get multipart blob stage status | `GET /blobs/stages/multipart/:stageId` |
 | Get principal policy bundle | `GET /principals/:principalType/:principalId/policy` |
 | List organization directory | `GET /organizations/:organizationId/directory` |
-| List organization container grants | `GET /organizations/:organizationId/grants` |
 | Get organization data usage | `GET /organizations/:organizationId/data-usage` |
 | List organization groups | `GET /organizations/:organizationId/groups` |
 | List organization group members | `GET /organizations/:organizationId/groups/:groupId/members` |
-| List organization group containers | `GET /organizations/:organizationId/groups/:groupId/containers` |
-| Get organization user detail | `GET /organizations/:organizationId/users/:userId/detail` |
+| Reconcile the organization read model | `GET /organizations/:organizationId/read-model` |
 
 The document sync request names protocol fields:
 `contentKeyEpoch`, `expectedLinkSetManifestHash`, `expectedTargetHash`,
@@ -234,9 +232,11 @@ The service layer covers these route-backed capabilities:
 - document attachment listing
 - document link and unlink mutations
 - principal policy read and write operations
-- org-manager roster, directory, group, grant, data-usage, and user-detail
-  operations backed by roster rows and reserved `Admins` / `Members` group
-  policy reachability
+- org-manager roster, directory, group-authoring, and data-usage operations,
+  plus the protocol-v3 organization read-model feed backed by roster rows and
+  reserved `Admins` / `Members` group policy reachability; grant and user-detail
+  presentation are derived from the local projection, with no dedicated legacy
+  HTTP routes
 
 The session routes remain route-local. `logout` composes `requireAuth` and
 `destroySession` directly, and `/auth/sessions` delegates to injected session

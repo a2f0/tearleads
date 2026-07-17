@@ -1,5 +1,6 @@
 import type {
   ListOrganizationGroupsResponse,
+  OrganizationContainerGrantsResponse,
   OrganizationDirectoryResponse,
   OrganizationDirectoryUserResponse,
   OrganizationGroupCurrentStateResponse,
@@ -8,11 +9,13 @@ import type {
 import { and, asc, eq } from "drizzle-orm";
 import {
   organizationReadModelDirectoryUsers,
+  organizationReadModelGroupMembers,
   organizationReadModelGroups,
   organizationReadModelRequesters,
   organizationReadModelState,
 } from "../../sqlite/organizationReadModelSchema";
 import type { ClientSQLiteTransaction } from "../../sqlite/sqlitePersistenceRuntime";
+import { loadOrganizationReadModelGrantsInTransaction } from "./organizationReadModelGrantPersistence";
 import { ORGANIZATION_READ_MODEL_PROTOCOL_VERSION } from "./organizationReadModelProtocol";
 
 export type OrganizationDirectoryProjection = Omit<
@@ -23,11 +26,19 @@ export type OrganizationDirectoryProjection = Omit<
 export interface OrganizationReadModelProjection {
   readonly cursor: string;
   readonly directory: OrganizationDirectoryProjection;
+  readonly grants: OrganizationContainerGrantsResponse;
   readonly groups: ListOrganizationGroupsResponse;
+  readonly membershipEdges: OrganizationReadModelMembershipEdge[];
   readonly organizationId: string;
   readonly protocolVersion: typeof ORGANIZATION_READ_MODEL_PROTOCOL_VERSION;
   readonly requester: OrganizationDirectoryResponse["currentUser"] | null;
   readonly updatedAt: string;
+}
+
+export interface OrganizationReadModelMembershipEdge {
+  readonly groupId: string;
+  readonly memberPrincipalId: string;
+  readonly memberPrincipalType: string;
 }
 
 interface SelectedDirectoryUser {
@@ -178,6 +189,27 @@ async function loadGroupRows(
     );
 }
 
+async function loadMembershipEdges(
+  tx: ClientSQLiteTransaction,
+  organizationId: string,
+): Promise<OrganizationReadModelMembershipEdge[]> {
+  return tx
+    .select({
+      groupId: organizationReadModelGroupMembers.groupId,
+      memberPrincipalId: organizationReadModelGroupMembers.memberPrincipalId,
+      memberPrincipalType:
+        organizationReadModelGroupMembers.memberPrincipalType,
+    })
+    .from(organizationReadModelGroupMembers)
+    .where(eq(organizationReadModelGroupMembers.organizationId, organizationId))
+    .orderBy(
+      asc(organizationReadModelGroupMembers.groupId),
+      asc(organizationReadModelGroupMembers.sortOrder),
+      asc(organizationReadModelGroupMembers.memberPrincipalType),
+      asc(organizationReadModelGroupMembers.memberPrincipalId),
+    );
+}
+
 export async function loadOrganizationReadModelProjectionInTransaction(input: {
   readonly currentUserId: string;
   readonly organizationId: string;
@@ -212,6 +244,11 @@ export async function loadOrganizationReadModelProjectionInTransaction(input: {
     .limit(1);
   const directoryRows = await loadDirectoryRows(input.tx, input.organizationId);
   const groupRows = await loadGroupRows(input.tx, input.organizationId);
+  const grants = await loadOrganizationReadModelGrantsInTransaction(input);
+  const membershipEdges = await loadMembershipEdges(
+    input.tx,
+    input.organizationId,
+  );
 
   return {
     cursor: state.cursor,
@@ -222,6 +259,7 @@ export async function loadOrganizationReadModelProjectionInTransaction(input: {
         toDirectoryUser(row, input.currentUserId),
       ),
     },
+    grants,
     groups: {
       organizationId: input.organizationId,
       memberGroupId: state.memberGroupId,
@@ -234,6 +272,7 @@ export async function loadOrganizationReadModelProjectionInTransaction(input: {
         currentState: toGroupCurrentState(row),
       })),
     },
+    membershipEdges,
     organizationId: input.organizationId,
     protocolVersion: ORGANIZATION_READ_MODEL_PROTOCOL_VERSION,
     requester: requester ? { isOrgAdmin: requester.isOrgAdmin } : null,

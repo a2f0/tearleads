@@ -53,19 +53,14 @@ import {
   isListContainersResponse,
   isListDocumentAttachmentsResponse,
   isListKeyPackageBackupsResponse,
-  isListOrganizationGroupsResponse,
   isListSessionsResponse,
   isMultipartBlobStageStatusResponse,
   isOrganizationBillingResponse,
-  isOrganizationContainerGrantsResponse,
   isOrganizationDataUsageResponse,
-  isOrganizationDirectoryResponse,
   isOrganizationDirectoryUserResponse,
-  isOrganizationGroupContainersResponse,
   isOrganizationGroupMembersResponse,
   isOrganizationProfileResponse,
   isOrganizationReadModelResponse,
-  isOrganizationUserDetailResponse,
   isPrincipalPolicyBundleResponse,
   isRegistrationResponse,
   isUploadMultipartBlobPartResponse,
@@ -75,7 +70,6 @@ import {
   type ListContainerDocumentsResponse,
   type ListContainersResponse,
   type ListDocumentAttachmentsResponse,
-  type ListOrganizationGroupsResponse,
   type OrganizationReadModelResponse,
   type PrincipalPolicyBundleResponse,
   type UserIdentityResponse,
@@ -164,9 +158,6 @@ export class ApiClient {
   private readonly userIdentityRequestsByUserId = new BoundedCache<
     Promise<UserIdentityResponse | null>
   >();
-  private readonly organizationGroupRequestsByOrganizationId = new BoundedCache<
-    Promise<ListOrganizationGroupsResponse | null>
-  >();
   private readonly principalPolicyRequestsByKey = new BoundedCache<
     Promise<PrincipalPolicyBundleResponse | null>
   >();
@@ -191,7 +182,6 @@ export class ApiClient {
     this.containerWriterProjectionRequestsByContainerId.clear();
     this.documentWriterProjectionRequestsByDocumentId.clear();
     this.userIdentityRequestsByUserId.clear();
-    this.organizationGroupRequestsByOrganizationId.clear();
     this.principalPolicyRequestsByKey.clear();
   }
 
@@ -828,18 +818,9 @@ export class ApiClient {
     ).finally(() => {
       this.principalPolicyRequestsByKey.delete(requestKey);
       if (principalType === "group") {
-        this.organizationGroupRequestsByOrganizationId.clear();
         this.clearWriterProjectionCaches();
       }
     });
-  }
-
-  listOrganizationDirectory(organizationId: string) {
-    return this.request(
-      `/organizations/${pathSegment(organizationId)}/directory`,
-      isOrganizationDirectoryResponse,
-      "GET",
-    );
   }
 
   getOrganizationReadModelResult(
@@ -853,27 +834,6 @@ export class ApiClient {
       "GET",
       undefined,
       options,
-    );
-  }
-
-  listOrganizationGroups(organizationId: string) {
-    return cachedRequest(
-      this.organizationGroupRequestsByOrganizationId,
-      organizationId,
-      () =>
-        this.request(
-          `/organizations/${pathSegment(organizationId)}/groups`,
-          isListOrganizationGroupsResponse,
-          "GET",
-        ),
-    );
-  }
-
-  listOrganizationContainerGrants(organizationId: string) {
-    return this.request(
-      `/organizations/${pathSegment(organizationId)}/grants`,
-      isOrganizationContainerGrantsResponse,
-      "GET",
     );
   }
 
@@ -898,14 +858,6 @@ export class ApiClient {
       `/organizations/${pathSegment(organizationId)}/billing/trial`,
       isOrganizationBillingResponse,
       "POST",
-    );
-  }
-
-  getOrganizationUserDetail(organizationId: string, userId: string) {
-    return this.request(
-      `/organizations/${pathSegment(organizationId)}/users/${pathSegment(userId)}/detail`,
-      isOrganizationUserDetailResponse,
-      "GET",
     );
   }
 
@@ -943,13 +895,7 @@ export class ApiClient {
       isCreateOrganizationGroupResponse,
       "POST",
       JSON.stringify(input),
-    ).finally(() => {
-      // Invalidate only the org's group list. Creating a group grants it no
-      // container access yet (that is a separate share/rekey), so no existing
-      // container or document writer projection can have changed — clearing the
-      // projection caches here just forced needless cold refetches.
-      this.organizationGroupRequestsByOrganizationId.delete(organizationId);
-    });
+    );
   }
 
   deleteOrganizationGroup(organizationId: string, groupId: string) {
@@ -957,24 +903,13 @@ export class ApiClient {
       `/organizations/${pathSegment(organizationId)}/groups/${pathSegment(groupId)}`,
       isDeleteOrganizationGroupResponse,
       "DELETE",
-    ).finally(() => {
-      this.organizationGroupRequestsByOrganizationId.delete(organizationId);
-      this.clearWriterProjectionCaches();
-    });
+    ).finally(() => this.clearWriterProjectionCaches());
   }
 
   listOrganizationGroupMembers(organizationId: string, groupId: string) {
     return this.request(
       `/organizations/${pathSegment(organizationId)}/groups/${pathSegment(groupId)}/members`,
       isOrganizationGroupMembersResponse,
-      "GET",
-    );
-  }
-
-  listOrganizationGroupContainers(organizationId: string, groupId: string) {
-    return this.request(
-      `/organizations/${pathSegment(organizationId)}/groups/${pathSegment(groupId)}/containers`,
-      isOrganizationGroupContainersResponse,
       "GET",
     );
   }

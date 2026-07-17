@@ -9,14 +9,7 @@ import type {
   OrganizationPolicyHistory,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { useCompactRoutedMode } from "../../../navigation/useCompactRoutedMode";
 import {
   useTearleads,
@@ -29,6 +22,8 @@ import { deriveOrgManagerState } from "../deriveOrgManagerState";
 import { useClearMissingOrgManagerUser } from "../directory/useClearMissingOrgManagerUser";
 import { useOrgManagerSidebarPanel } from "../OrgManagerSidebar";
 import { useOrgManagerDetailRefreshes } from "../organization/useOrgManagerDetailRefreshes";
+import { useOrgManagerDirectorySync } from "../organization/useOrgManagerDirectorySync";
+import { useOrgManagerScopeReset } from "../organization/useOrgManagerScopeReset";
 import { useOrgManagerViewRefreshes } from "../organization/useOrgManagerViewRefreshes";
 import type { GroupDetailsEffectKey } from "../refresh";
 import type { OrgManagerView } from "../routes";
@@ -60,6 +55,7 @@ export function useOrgManagerModel() {
   const [groups, setGroups] = useState<ReadonlyArray<OrganizationGroupSummary>>(
     [],
   );
+  const [readModelCursor, setReadModelCursor] = useState<string | null>(null);
   const organizationId = appData.auth.organizationId;
   const activeDirectory = scopeOrganizationDirectory(
     directory,
@@ -119,7 +115,6 @@ export function useOrgManagerModel() {
   );
   const selectedUserIdRef = useRef<string | null>(null);
   const orgManagerScopeKey = getOrgManagerStateScopeKey(appData);
-  const previousScopeKeyRef = useRef(orgManagerScopeKey);
   const beginRequest = useOrgManagerRequestGuard(orgManagerScopeKey);
   const canLoadAuthenticatedOrgData = Boolean(
     organizationId && appData.auth.isAuthenticated,
@@ -208,13 +203,11 @@ export function useOrgManagerModel() {
     setGroupNameDraft("");
     setIsCreateGroupDialogOpen(false);
   }, [mutating]);
-
   const selectUser = useCallback((userId: string | null) => {
     selectedUserIdRef.current = userId;
     setSelectedUserIdState(userId);
     setUserDetail(null);
   }, []);
-
   const setOrgManagerView = useCallback(
     (nextView: OrgManagerView) => {
       if (nextView === "directory") {
@@ -227,7 +220,6 @@ export function useOrgManagerModel() {
     },
     [selectGroup, selectUser, setView],
   );
-
   const openImportUserDialog = useCallback(() => {
     if (!canImportRosterUser) {
       return;
@@ -238,7 +230,6 @@ export function useOrgManagerModel() {
     setOrgManagerView("directory");
     setIsImportUserDialogOpen(true);
   }, [canImportRosterUser, setOrgManagerView]);
-
   const closeImportUserDialog = useCallback(() => {
     if (mutating) {
       return;
@@ -248,7 +239,6 @@ export function useOrgManagerModel() {
     setImportUserIdDraft("");
     setIsImportUserDialogOpen(false);
   }, [mutating]);
-
   const contextMenuState = useOrgManagerContextMenu();
   const rosterActions = useOrgManagerRosterActions({
     authUserId: appData.auth.userId,
@@ -264,13 +254,14 @@ export function useOrgManagerModel() {
     rosterActions.clearRosterProfileEditRequest();
     selectUser(null);
   }, [rosterActions.clearRosterProfileEditRequest, selectUser]);
-
   const {
+    invalidateSelectedGroupDetails,
     refreshDataUsage,
     refreshDirectoryAndGroups,
     refreshGrants,
     refreshOrgManager,
     refreshOrganizationPolicyHistory,
+    refreshSelectedGroupContainers,
     refreshSelectedGroupDetails,
     refreshSelectedUserDetail,
     resetDirectoryState,
@@ -298,6 +289,7 @@ export function useOrgManagerModel() {
     setMembers,
     setOrganizationPolicyHistory,
     setProfileDisplayNamesByUserId,
+    setReadModelCursor,
     setIsCreateGroupDialogOpen,
     setIsImportUserDialogOpen,
     setUserDetail,
@@ -305,35 +297,35 @@ export function useOrgManagerModel() {
   });
   useOrgManagerViewRefreshes({
     enabled: canLoadAuthenticatedOrgData,
+    readModelCursor,
     refreshDataUsage,
     refreshGrants,
+    refreshGrantsOnEntry: refreshOrgManager,
     refreshOrganizationPolicyHistory,
     view,
   });
-
-  useEffect(() => {
-    if (previousScopeKeyRef.current === orgManagerScopeKey) {
-      return;
-    }
-    previousScopeKeyRef.current = orgManagerScopeKey;
-    resetDirectoryState();
-    setOrganizationPolicyHistory(null);
-    setGrants(null);
-    setDataUsage(null);
-    setError(null);
-    setMutating(false);
-    contextMenuState.closeContextMenu();
-  }, [
-    contextMenuState.closeContextMenu,
-    orgManagerScopeKey,
+  useOrgManagerScopeReset({
+    closeContextMenu: contextMenuState.closeContextMenu,
     resetDirectoryState,
-  ]);
-
-  useEffect(() => {
-    void refreshDirectoryAndGroups();
-  }, [orgManagerScopeKey, refreshDirectoryAndGroups]);
-
+    scopeKey: orgManagerScopeKey,
+    setDataUsage,
+    setError,
+    setGrants,
+    setMutating,
+    setOrganizationPolicyHistory,
+  });
+  useOrgManagerDirectorySync({
+    canLoadAuthenticatedOrgData,
+    mutating,
+    organizationId,
+    readModelCursor,
+    refreshDirectoryAndGroups,
+    scopeKey: orgManagerScopeKey,
+    tearleads,
+  });
   useOrgManagerDetailRefreshes({
+    readModelCursor,
+    refreshSelectedGroupContainers,
     refreshSelectedGroupDetails,
     refreshSelectedUserDetail,
     selectedGroupAvailable: selectedGroupId === null || selectedGroup !== null,
@@ -344,7 +336,6 @@ export function useOrgManagerModel() {
     view,
   });
   useClearMissingOrgManagerUser(activeDirectory, selectedUserId, selectUser);
-
   useEnsureRosterProfileDocument({
     appData,
     canLoadAuthenticatedOrgData,
@@ -359,7 +350,6 @@ export function useOrgManagerModel() {
     setMutating,
     setUserDetail,
   });
-
   const {
     addUser,
     createGroup,
@@ -378,6 +368,7 @@ export function useOrgManagerModel() {
     groupNameDraft,
     groups: activeGroups,
     importUserIdDraft,
+    invalidateSelectedGroupDetails,
     memberGroupId: activeMemberGroupId,
     members: activeMembers,
     openGroupRoute,

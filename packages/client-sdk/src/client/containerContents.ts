@@ -336,6 +336,7 @@ class ContainerContentsService implements ContainerContents {
       ...input,
       apiClient: runtime.apiClient,
       containerProjection: cachedContainerProjection,
+      currentUserId: runtime.auth.userId,
       execSql:
         runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
       organizationId: runtime.auth.organizationId,

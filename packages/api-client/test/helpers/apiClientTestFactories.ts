@@ -21,7 +21,6 @@ import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
   KeyPackageBackupResponse,
-  OrganizationGroupSummaryResponse,
   PrincipalPolicyBundleResponse,
   UserIdentityResponse,
 } from "@tearleads/validators/response";
@@ -479,18 +478,5 @@ export function createKeyPackageBackupResponse(
     ...request,
     createdAt: "2026-06-01T12:00:00.000Z",
     updatedAt: "2026-06-01T12:00:00.000Z",
-  };
-}
-
-export function createOrganizationGroupSummary(
-  organizationId: string,
-): OrganizationGroupSummaryResponse {
-  return {
-    groupId: "group-1",
-    organizationId,
-    name: "Operators",
-    createdAt: "2026-05-12T12:00:00.000Z",
-    isBuiltin: false,
-    currentState: null,
   };
 }

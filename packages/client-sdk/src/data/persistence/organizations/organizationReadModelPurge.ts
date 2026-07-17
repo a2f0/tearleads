@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import {
+  organizationReadModelContainerGrants,
   organizationReadModelDirectoryUsers,
   organizationReadModelGroupMembers,
   organizationReadModelGroupMemberships,
@@ -13,6 +14,15 @@ export async function purgeOrganizationReadModelProjectionInTransaction(input: {
   readonly organizationId: string;
   readonly tx: ClientSQLiteTransaction;
 }): Promise<void> {
+  await input.tx
+    .delete(organizationReadModelContainerGrants)
+    .where(
+      eq(
+        organizationReadModelContainerGrants.organizationId,
+        input.organizationId,
+      ),
+    )
+    .run();
   await input.tx
     .delete(organizationReadModelGroupMembers)
     .where(

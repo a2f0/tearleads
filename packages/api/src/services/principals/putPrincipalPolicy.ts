@@ -1,6 +1,6 @@
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   type PutPrincipalPolicyInput,
+  type PutPrincipalPolicyResult,
   runPutPrincipalPolicyWorkflow,
 } from "../../workflows/principals/putPrincipalPolicy";
 import type { ApiServiceRuntime } from "../runtime";
@@ -8,6 +8,6 @@ import type { ApiServiceRuntime } from "../runtime";
 export async function putPrincipalPolicy(
   runtime: ApiServiceRuntime,
   input: PutPrincipalPolicyInput,
-): Promise<PrincipalPolicyBundleResponse> {
+): Promise<PutPrincipalPolicyResult> {
   return runPutPrincipalPolicyWorkflow(runtime.db, input);
 }

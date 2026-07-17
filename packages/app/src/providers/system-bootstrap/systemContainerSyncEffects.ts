@@ -278,25 +278,48 @@ export function useProvisionedSystemContainerPull(input: {
     if (!enabled || !isAuthenticated || !snapshotReady) {
       return;
     }
-    const provisionedSlots = systemContainers
-      .filter(
-        (systemContainer) => systemContainer.provisionedAtOrganizationCreation,
-      )
-      .map((systemContainer) => systemContainer.systemSlot);
-    if (provisionedSlots.length === 0) {
+    const provisionedContainers = systemContainers.filter(
+      (systemContainer) => systemContainer.provisionedAtOrganizationCreation,
+    );
+    if (provisionedContainers.length === 0) {
       return;
     }
 
-    const listMissingSlots = (): string[] =>
-      provisionedSlots.filter(
-        (slot) =>
-          !findExplorerSystemNode(
-            store.getSnapshot().nodes,
-            slot,
-            currentOrganizationId,
-            currentRootContainerId,
-          ),
+    const listMissingSlots = (): string[] => {
+      const nodes = store.getSnapshot().nodes;
+      const organizationRoot = nodes.find(
+        (node) =>
+          node.organizationId === currentOrganizationId &&
+          node.parentId === null,
       );
+      return provisionedContainers.flatMap((container) => {
+        const exactSlot = findExplorerSystemNode(
+          nodes,
+          container.systemSlot,
+          currentOrganizationId,
+          currentRootContainerId,
+        );
+        if (exactSlot) {
+          return [];
+        }
+
+        // A shared organization's system slots are derived from its founder's
+        // key and are intentionally opaque to this viewer. Once its signed,
+        // direct-root system container has hydrated, matching by the registered
+        // visible name is enough to stop polling; waiting for this viewer's own
+        // slot can never succeed and otherwise burns the full retry budget.
+        const opaqueSharedSlot =
+          organizationRoot &&
+          nodes.some(
+            (node) =>
+              node.organizationId === currentOrganizationId &&
+              node.parentId === organizationRoot.id &&
+              node.name === container.name &&
+              (node.systemSlot ?? null) !== null,
+          );
+        return opaqueSharedSlot ? [] : [container.systemSlot];
+      });
+    };
 
     // Already whole (synced in, or loaded from SQLite on a returning session), or
     // a poll is already running for this scope: nothing to start.

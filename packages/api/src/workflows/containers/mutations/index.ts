@@ -3,7 +3,10 @@ import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { assertOrganizationCanSync } from "../../billing/organizationBilling";
 import { ContainerMutationError, toMutationError } from "./errors";
 import { rekeyContainer } from "./rekeyContainer";
-import { mutateContainerWithExecutor } from "./shared/mutationRunner";
+import {
+  mutateContainerWithExecutor,
+  prelockContainerMutationBatch,
+} from "./shared/mutationRunner";
 import type {
   ApiDatabase,
   ContainerMutationContext,
@@ -32,6 +35,15 @@ export async function applyContainerRekeys(input: {
     executor: input.executor,
     manifestHeadByContainerId: new Map(),
   };
+  await prelockContainerMutationBatch(
+    context,
+    input.requests.map((request) => ({
+      expectedEventType: "container.rekey",
+      fingerprint: input.fingerprint,
+      request,
+      userId: input.userId,
+    })),
+  );
 
   for (const request of input.requests) {
     const response = await rekeyContainer({

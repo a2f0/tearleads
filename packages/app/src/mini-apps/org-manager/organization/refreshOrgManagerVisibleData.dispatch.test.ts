@@ -39,6 +39,9 @@ function createRefreshHarness(view: OrgManagerView) {
         ) => {
           calls.push("organization");
         },
+        refreshSelectedGroupContainers: async (groupId: string | null) => {
+          calls.push(`group-containers:${groupId}`);
+        },
         refreshSelectedGroupDetails: async (
           groupId: string | null,
           _options?: GroupDetailsRefreshOptions,
@@ -64,7 +67,10 @@ const visibleRefreshCases: ReadonlyArray<{
     expectedCalls: ["directory", "user:user-after-directory"],
     view: "directory",
   },
-  { expectedCalls: ["directory", "group:group-a"], view: "groups" },
+  {
+    expectedCalls: ["directory", "group:group-a", "group-containers:group-a"],
+    view: "groups",
+  },
   { expectedCalls: ["directory", "grants"], view: "grants" },
   {
     expectedCalls: ["directory", "organization"],

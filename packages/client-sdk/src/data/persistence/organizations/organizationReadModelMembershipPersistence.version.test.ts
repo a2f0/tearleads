@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  loadLocalOrganizationContainerGrants,
+  loadLocalOrganizationUserDetail,
+} from "../../../workflows/organizations/localReadModelDetails";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMembershipPersistence";
 
@@ -31,12 +35,49 @@ async function seedState(input: {
      VALUES (?, ?, ?)`,
     [input.organizationId, "group-1", `state-${input.organizationId}`],
   );
+  await input.execSql(
+    `INSERT INTO organization_read_model_requesters
+      (organization_id, user_id, is_org_admin, updated_at)
+     VALUES (?, ?, ?, ?)`,
+    [input.organizationId, "user-1", 1, CREATED_AT],
+  );
+  await input.execSql(
+    `INSERT INTO organization_read_model_container_grants
+      (organization_id, container_id, subject_type, subject_id, sort_order,
+       access_level, created_at, depth, is_builtin, metadata_access_epoch,
+       metadata_access_state_hash, metadata_document_id, parent_id, updated_at,
+       user_id, signing_key_fingerprint, group_id, group_name, organization_name)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      input.organizationId,
+      `container-${input.organizationId}`,
+      "user",
+      "user-1",
+      0,
+      "read",
+      CREATED_AT,
+      1,
+      0,
+      1,
+      `manifest-${input.organizationId}`,
+      null,
+      null,
+      CREATED_AT,
+      "user-1",
+      "signing-fingerprint-user-1",
+      null,
+      null,
+      null,
+    ],
+  );
 }
 
 async function loadOrganizationIds(
   execSql: ExecSql,
   table:
+    | "organization_read_model_container_grants"
     | "organization_read_model_group_memberships"
+    | "organization_read_model_requesters"
     | "organization_read_model_state",
 ): Promise<string[]> {
   const rows = await execSql(
@@ -47,7 +88,7 @@ async function loadOrganizationIds(
   return rows.map((row) => String(row[0]));
 }
 
-test("stale membership loads purge only the outdated organization", async () => {
+test("v3 local reads purge every stale v2 authorization projection row", async () => {
   const { close, execSql } = await createTestExecSql(
     "org-memberships-stale-version",
   );
@@ -56,28 +97,43 @@ test("stale membership loads purge only the outdated organization", async () => 
       execSql,
       STALE_ORGANIZATION_ID,
       "group-1",
+      "user-1",
     );
     await seedState({
       execSql,
       organizationId: STALE_ORGANIZATION_ID,
-      protocolVersion: 1,
+      protocolVersion: 2,
     });
     await seedState({
       execSql,
       organizationId: CURRENT_ORGANIZATION_ID,
-      protocolVersion: 2,
+      protocolVersion: 3,
     });
 
+    const staleRead = {
+      currentUserId: "user-1",
+      execSql,
+      organizationId: STALE_ORGANIZATION_ID,
+    };
+    await expect(
+      loadLocalOrganizationContainerGrants(staleRead),
+    ).resolves.toBeNull();
+    await expect(
+      loadLocalOrganizationUserDetail({ ...staleRead, userId: "user-1" }),
+    ).resolves.toBeNull();
     await expect(
       loadOrganizationReadModelGroupMembers(
         execSql,
         STALE_ORGANIZATION_ID,
         "group-1",
+        "user-1",
       ),
     ).resolves.toBeNull();
 
     for (const table of [
+      "organization_read_model_container_grants",
       "organization_read_model_group_memberships",
+      "organization_read_model_requesters",
       "organization_read_model_state",
     ] as const) {
       await expect(loadOrganizationIds(execSql, table)).resolves.toEqual([

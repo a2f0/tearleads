@@ -167,6 +167,7 @@ export {
   isOrganizationReadModelResponse,
   type OrganizationReadModelDeltaResponse,
   type OrganizationReadModelDirectoryResponse,
+  type OrganizationReadModelGrantsResponse,
   type OrganizationReadModelGroupMembershipResponse,
   type OrganizationReadModelGroupMembershipsResponse,
   type OrganizationReadModelResponse,

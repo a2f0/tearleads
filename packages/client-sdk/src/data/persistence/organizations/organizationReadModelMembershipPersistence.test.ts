@@ -19,11 +19,10 @@ import {
 } from "./organizationReadModelPersistence";
 
 const CREATED_AT = "2026-07-17T12:00:00.000Z";
-const ORGANIZATION_ID = "organization-v2";
-const ADMINS_GROUP_ID = "admins-v2";
-const EMPTY_GROUP_ID = "empty-v2";
-const MEMBERS_GROUP_ID = "members-v2";
-
+const ORGANIZATION_ID = "organization-v3";
+const ADMINS_GROUP_ID = "admins-v3";
+const EMPTY_GROUP_ID = "empty-v3";
+const MEMBERS_GROUP_ID = "members-v3";
 function directoryUser(userId: string): OrganizationDirectoryUserResponse {
   return {
     userId,
@@ -141,7 +140,7 @@ function snapshot(
   } = {},
 ): OrganizationReadModelSnapshotResponse {
   return {
-    version: 2,
+    version: 3,
     mode: "snapshot",
     organizationId: ORGANIZATION_ID,
     nextCursor: input.cursor ?? "cursor-1",
@@ -153,6 +152,7 @@ function snapshot(
         profileDocumentId: "organization-profile-1",
         users: [directoryUser("user-1"), directoryUser("user-2")],
       },
+      grants: { organizationId: ORGANIZATION_ID, grants: [] },
       groups: input.groups ?? groupsLane(),
       groupMemberships:
         input.groupMemberships ?? membershipsLane(defaultMemberships()),
@@ -167,7 +167,7 @@ function delta(input: {
   profileDocumentId?: string;
 }): OrganizationReadModelDeltaResponse {
   return {
-    version: 2,
+    version: 3,
     mode: "delta",
     organizationId: ORGANIZATION_ID,
     nextCursor: input.nextCursor ?? "cursor-2",
@@ -208,12 +208,13 @@ function loadMembers(execSql: ExecSql, groupId: string) {
     execSql,
     ORGANIZATION_ID,
     groupId,
+    "user-1",
   );
 }
 
-test("v2 snapshots persist visible, hidden Members, and empty group memberships", async () => {
+test("v3 snapshots persist visible, hidden Members, and empty group memberships", async () => {
   const { close, execSql } = await createTestExecSql(
-    "org-memberships-snapshot-v2",
+    "org-memberships-snapshot-v3",
   );
   try {
     await applySnapshot(execSql);
@@ -250,7 +251,7 @@ test("v2 snapshots persist visible, hidden Members, and empty group memberships"
 
 test("entity membership deltas replace only the supplied group", async () => {
   const { close, execSql } = await createTestExecSql(
-    "org-memberships-delta-v2",
+    "org-memberships-delta-v3",
   );
   try {
     await applySnapshot(execSql);
@@ -287,7 +288,7 @@ test("entity membership deltas replace only the supplied group", async () => {
 
 test("entity membership deletions remove only the target group", async () => {
   const { close, execSql } = await createTestExecSql(
-    "org-memberships-delete-v2",
+    "org-memberships-delete-v3",
   );
   try {
     await applySnapshot(execSql);
@@ -370,9 +371,9 @@ test("invalid memberships roll back every changed lane and the cursor", async ()
 
 test("large membership snapshots are persisted across insert batches", async () => {
   const { close, execSql } = await createTestExecSql(
-    "org-memberships-large-v2",
+    "org-memberships-large-v3",
   );
-  const groupId = "large-group-v2";
+  const groupId = "large-group-v3";
   const members = Array.from({ length: 95 }, (_, index) =>
     member(`member-${index}`),
   );
@@ -416,9 +417,9 @@ test("large membership snapshots are persisted across insert batches", async () 
   }
 });
 
-test("v1 local state is discarded before a v2 snapshot is applied", async () => {
+test("v2 local state is discarded before a v3 snapshot is applied", async () => {
   const { close, execSql } = await createTestExecSql(
-    "org-memberships-upgrade-v2",
+    "org-memberships-upgrade-v3",
   );
   try {
     await loadOrganizationReadModelProjection(
@@ -432,7 +433,7 @@ test("v1 local state is discarded before a v2 snapshot is applied", async () => 
        VALUES (?, ?, ?, ?, ?, ?)`,
       [
         ORGANIZATION_ID,
-        1,
+        2,
         "legacy-cursor",
         "legacy-profile",
         "legacy-members",
@@ -446,12 +447,12 @@ test("v1 local state is discarded before a v2 snapshot is applied", async () => 
       [ORGANIZATION_ID, "legacy-group", "legacy-state"],
     );
 
-    await applySnapshot(execSql, snapshot({ cursor: "cursor-v2" }));
+    await applySnapshot(execSql, snapshot({ cursor: "cursor-v3" }));
 
     await expect(loadMembers(execSql, "legacy-group")).resolves.toBeNull();
     await expect(
       loadOrganizationReadModelProjection(execSql, ORGANIZATION_ID, "user-1"),
-    ).resolves.toMatchObject({ cursor: "cursor-v2", protocolVersion: 2 });
+    ).resolves.toMatchObject({ cursor: "cursor-v3", protocolVersion: 3 });
   } finally {
     close();
   }
@@ -459,7 +460,7 @@ test("v1 local state is discarded before a v2 snapshot is applied", async () => 
 
 test("purge clears membership rows without deleting verified policy checkpoints", async () => {
   const { close, execSql } = await createTestExecSql(
-    "org-memberships-purge-v2",
+    "org-memberships-purge-v3",
   );
   try {
     await applySnapshot(execSql);

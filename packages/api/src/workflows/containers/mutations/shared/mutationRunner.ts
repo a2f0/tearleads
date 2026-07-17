@@ -1,11 +1,16 @@
 import type {
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
+  VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { assertOrganizationCanSync } from "../../../billing/organizationBilling";
+import { lockOrganizationReadModelHeadForUpdateInTransaction } from "../../../organizations/readModelChanges";
+import { lockAndFindMissingGroupReferencesInTransaction } from "../../../principals/groupReferenceLock";
+import { ContainerMutationError } from "../errors";
 import type {
   ContainerMutationContext,
+  MutateContainerInput,
   MutateContainerWithExecutorInput,
 } from "../types";
 import { assertContainerBuiltinGrantPolicyPreserved } from "./builtinGrants";
@@ -23,6 +28,7 @@ import {
   assertMutationHeadCanAdvance,
   verifyContainerManifestFromRequest,
 } from "./manifests";
+import { planContainerMutationBatchLocks } from "./mutationBatchLocks";
 import { persistVerifiedMutation } from "./persistence";
 import { assertPrincipalPoliciesCurrent } from "./principalPolicies";
 import { principalPoliciesFromRequest } from "./principalPolicyRecords";
@@ -87,14 +93,46 @@ async function assertPreviousManifestHeadCurrent(
   }
 }
 
-export async function mutateContainerWithExecutor(
-  input: MutateContainerWithExecutorInput,
-): Promise<ContainerMutationResponse> {
-  const context: ContainerMutationContext = input.context ?? {
-    executor: input.executor,
-    manifestHeadByContainerId: new Map(),
-  };
+interface VerifiedMutationArtifacts {
+  readonly containerManifestHistory:
+    | readonly VerifiedContainerAccessManifest[]
+    | undefined;
+  readonly destinationParentContainerPath:
+    | readonly VerifiedContainerAccessManifest[]
+    | undefined;
+  readonly manifest: VerifiedContainerAccessManifest;
+  readonly parentContainerPath:
+    | readonly VerifiedContainerAccessManifest[]
+    | undefined;
+  readonly previousContainerPath:
+    | readonly VerifiedContainerAccessManifest[]
+    | undefined;
+  readonly previousManifest: VerifiedContainerAccessManifest | null;
+  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
+}
 
+interface PrelockedContainerMutationBatchScope {
+  readonly groupIds: ReadonlySet<string>;
+  readonly organizationIds: ReadonlySet<string>;
+}
+
+const prelockedBatchScopeByContext = new WeakMap<
+  ContainerMutationContext,
+  PrelockedContainerMutationBatchScope
+>();
+
+function containerGroupReferenceIds(
+  manifest: VerifiedContainerAccessManifest,
+): string[] {
+  return manifest.state.directGrants.flatMap((grant) =>
+    grant.subjectType === "group" ? [grant.subjectId] : [],
+  );
+}
+
+async function verifyMutationArtifacts(
+  context: ContainerMutationContext,
+  input: MutateContainerWithExecutorInput,
+): Promise<VerifiedMutationArtifacts> {
   const previousContainerPath = await assertCurrentContainerPath(
     context,
     input.request.previousContainerPath,
@@ -143,36 +181,192 @@ export async function mutateContainerWithExecutor(
       principalPolicies,
     },
   );
-  await assertVerifiedContainerGroupReferencesExist({
-    executor: context.executor,
+
+  return {
+    containerManifestHistory,
+    destinationParentContainerPath,
     manifest,
+    parentContainerPath,
+    previousContainerPath,
+    previousManifest,
+    principalPolicies,
+  };
+}
+
+function cachePreflightManifestHead(
+  context: ContainerMutationContext,
+  manifest: VerifiedContainerAccessManifest,
+): void {
+  context.manifestHeadByContainerId.set(manifest.state.containerId, {
+    objectKind: "container",
+    objectId: manifest.state.containerId,
+    organizationId: manifest.state.organizationId,
+    epoch: manifest.state.epoch,
+    manifestHash: manifest.manifestHash,
+    updatedAt: new Date(0),
   });
+}
+
+async function deriveVerifiedBatchScope(
+  context: ContainerMutationContext,
+  inputs: readonly MutateContainerInput[],
+): Promise<PrelockedContainerMutationBatchScope> {
+  const preflightContext: ContainerMutationContext = {
+    executor: context.executor,
+    manifestHeadByContainerId: new Map(),
+  };
+  const groupIds = new Set<string>();
+  const organizationIds = new Set<string>();
+
+  for (const input of inputs) {
+    const artifacts = await verifyMutationArtifacts(preflightContext, {
+      ...input,
+      executor: context.executor,
+    });
+    await assertMutationHeadCanAdvance(preflightContext, artifacts.manifest);
+    organizationIds.add(artifacts.manifest.state.organizationId);
+    for (const groupId of containerGroupReferenceIds(artifacts.manifest)) {
+      groupIds.add(groupId);
+    }
+
+    // Later rekeys in one document/blob write may depend on an earlier rekey
+    // from the same batch. Advance only the preflight cache so their signed
+    // paths can be verified without writing before the full lock set is known.
+    cachePreflightManifestHead(preflightContext, artifacts.manifest);
+  }
+
+  return { groupIds, organizationIds };
+}
+
+async function lockVerifiedBatchScope(
+  context: ContainerMutationContext,
+  scope: PrelockedContainerMutationBatchScope,
+): Promise<void> {
+  const lockPlan = planContainerMutationBatchLocks(scope);
+  const missingGroupIds = await lockAndFindMissingGroupReferencesInTransaction(
+    context.executor,
+    lockPlan.groupIds,
+  );
+  if (missingGroupIds.length > 0) {
+    throw new ContainerMutationError(
+      "Container manifest references a missing group",
+      409,
+    );
+  }
+
+  for (const organizationId of lockPlan.organizationIds) {
+    const headLocked =
+      await lockOrganizationReadModelHeadForUpdateInTransaction(
+        context.executor,
+        organizationId,
+      );
+    if (!headLocked) {
+      throw new Error("Organization read-model cursor head is missing");
+    }
+  }
+}
+
+/**
+ * Verify a mutation batch without writes, then lock every group and
+ * organization in deterministic group -> organization order. Per-item writes
+ * still repeat mutable-source verification under these transaction locks.
+ */
+export async function prelockContainerMutationBatch(
+  context: ContainerMutationContext,
+  inputs: readonly MutateContainerInput[],
+): Promise<void> {
+  if (inputs.length === 0) {
+    return;
+  }
+  if (prelockedBatchScopeByContext.has(context)) {
+    throw new Error("Container mutation context already has a prelocked batch");
+  }
+
+  const scope = await deriveVerifiedBatchScope(context, inputs);
+  await lockVerifiedBatchScope(context, scope);
+  prelockedBatchScopeByContext.set(context, scope);
+}
+
+function assertMutationWithinPrelockedScope(
+  scope: PrelockedContainerMutationBatchScope,
+  manifest: VerifiedContainerAccessManifest,
+): void {
+  if (
+    !scope.organizationIds.has(manifest.state.organizationId) ||
+    containerGroupReferenceIds(manifest).some(
+      (groupId) => !scope.groupIds.has(groupId),
+    )
+  ) {
+    throw new ContainerMutationError(
+      "Container mutation escaped its prelocked batch scope",
+      409,
+    );
+  }
+}
+
+export async function mutateContainerWithExecutor(
+  input: MutateContainerWithExecutorInput,
+): Promise<ContainerMutationResponse> {
+  const context: ContainerMutationContext = input.context ?? {
+    executor: input.executor,
+    manifestHeadByContainerId: new Map(),
+  };
+  const prelockedBatchScope = prelockedBatchScopeByContext.get(context);
+  let organizationId: string | null = null;
+
+  if (!prelockedBatchScope) {
+    const initialArtifacts = await verifyMutationArtifacts(context, input);
+    await assertVerifiedContainerGroupReferencesExist({
+      executor: context.executor,
+      manifest: initialArtifacts.manifest,
+    });
+    organizationId = initialArtifacts.manifest.state.organizationId;
+    const headLocked =
+      await lockOrganizationReadModelHeadForUpdateInTransaction(
+        context.executor,
+        organizationId,
+      );
+    if (!headLocked) {
+      throw new Error("Organization read-model cursor head is missing");
+    }
+  }
+
+  // Initial verification establishes a trusted group/organization lock scope.
+  // Clear the read cache and repeat all mutable source checks under those locks
+  // so a concurrently revoked writer cannot commit stale authorization.
+  context.manifestHeadByContainerId.clear();
+  const artifacts = await verifyMutationArtifacts(context, input);
+  if (prelockedBatchScope) {
+    assertMutationWithinPrelockedScope(prelockedBatchScope, artifacts.manifest);
+  } else if (artifacts.manifest.state.organizationId !== organizationId) {
+    throw new ContainerMutationError("Container organization mismatch", 409);
+  }
   await assertContainerBuiltinGrantPolicyPreserved({
     executor: context.executor,
-    manifest,
-    previousManifest,
+    manifest: artifacts.manifest,
+    previousManifest: artifacts.previousManifest,
   });
-  await assertMutationHeadCanAdvance(context, manifest);
+  await assertMutationHeadCanAdvance(context, artifacts.manifest);
   const kekState = await verifyContainerKekFromRequest(
     context.executor,
     input.request,
-    manifest,
+    artifacts.manifest,
     {
-      containerManifestHistory,
-      principalPolicies,
+      containerManifestHistory: artifacts.containerManifestHistory,
+      principalPolicies: artifacts.principalPolicies,
     },
   );
   await assertMutationOrganizationCanSync(
     context,
     input.expectedEventType,
-    manifest.state.organizationId,
+    artifacts.manifest.state.organizationId,
   );
 
   return persistVerifiedMutation(
     context,
-    manifest,
+    artifacts.manifest,
     kekState,
-    previousManifest,
-    previousContainerPath,
+    artifacts.previousManifest,
+    artifacts.previousContainerPath,
   );
 }

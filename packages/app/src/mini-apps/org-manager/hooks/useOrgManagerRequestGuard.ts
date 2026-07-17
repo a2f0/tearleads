@@ -4,6 +4,7 @@ export type OrgManagerRequestKind =
   | "dataUsage"
   | "directory"
   | "grants"
+  | "groupContainers"
   | "groupDetails"
   | "organizationPolicy"
   | "refresh"

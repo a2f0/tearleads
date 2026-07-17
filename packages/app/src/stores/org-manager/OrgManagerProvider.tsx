@@ -1,11 +1,11 @@
 import type {
   ContainerNode,
   ImportedOrganizationUser,
-  OrganizationContainerGrant,
   OrganizationContainerGrants,
   OrganizationDataUsage,
   OrganizationDirectoryAndGroups,
   OrganizationDirectoryUser,
+  OrganizationGrantRef,
   OrganizationGroupDetails,
   OrganizationGroupSummary,
   OrganizationPolicyHistory,
@@ -67,11 +67,17 @@ interface OrgManagerContextValue {
   isOperationScopeActive: (scope: OrgManagerOperationScope) => boolean;
   loadDataUsage: () => Promise<OrganizationDataUsage | null>;
   loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
+  loadDirectoryAndGroupsAfterMutation: () => Promise<OrganizationDirectoryAndGroups | null>;
   loadLocalDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
-  loadGroupDetails: (groupId: string) => Promise<OrganizationGroupDetails>;
+  loadGroupContainers: (
+    groupId: string,
+  ) => Promise<OrganizationGroupDetails["containers"]>;
+  loadGroupMembers: (
+    groupId: string,
+  ) => Promise<OrganizationGroupDetails["members"]>;
   loadGroupPresentationDetails: (
     groupId: string,
-  ) => Promise<OrganizationGroupDetails>;
+  ) => Promise<Pick<OrganizationGroupDetails, "members" | "policyHistory">>;
   loadGrants: () => Promise<OrganizationContainerGrants | null>;
   loadPolicyHistory: () => Promise<OrganizationPolicyHistory | null>;
   loadUserDetail: (userId: string) => Promise<OrganizationUserDetail | null>;
@@ -80,10 +86,7 @@ interface OrgManagerContextValue {
     removedUserId: string,
   ) => Promise<PrincipalPolicyBundleResponse>;
   revokeGrant: (
-    grant: Pick<
-      OrganizationContainerGrant,
-      "containerId" | "subjectId" | "subjectType"
-    >,
+    grant: OrganizationGrantRef,
   ) => Promise<ContainerMutationResponse>;
   updateRosterEntry: (
     userId: string,
@@ -99,7 +102,7 @@ const OrgManagerContext = createContext<OrgManagerContextValue | null>(null);
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The provider keeps the React context wiring for SDK organization actions in one place.
 export function OrgManagerProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
-  const { documents, organizations } = tearleads;
+  const { documents, organizations, userIdentities } = tearleads;
   const runtime = useTearleadsRuntime();
   const scopeGeneration = useMemo(
     () => ({}),
@@ -185,14 +188,23 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     return organizations.loadDirectoryAndGroups();
   }, [organizations]);
 
+  const loadDirectoryAndGroupsAfterMutation = useCallback(() => {
+    return organizations.loadDirectoryAndGroupsAfterMutation();
+  }, [organizations]);
+
   const loadLocalDirectoryAndGroups = useCallback(() => {
     return organizations.loadLocalDirectoryAndGroups();
   }, [organizations]);
 
-  const loadGroupDetails = useCallback(
+  const loadGroupMembers = useCallback(
     (groupId: string) => {
-      return organizations.loadGroupDetails(groupId);
+      return organizations.loadGroupMembers(groupId);
     },
+    [organizations],
+  );
+
+  const loadGroupContainers = useCallback(
+    (groupId: string) => organizations.loadGroupContainers(groupId),
     [organizations],
   );
 
@@ -243,12 +255,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
   );
 
   const revokeGrant = useCallback(
-    async (
-      grant: Pick<
-        OrganizationContainerGrant,
-        "containerId" | "subjectId" | "subjectType"
-      >,
-    ) => {
+    async (grant: OrganizationGrantRef) => {
       return organizations.revokeGrant({
         containerId: grant.containerId,
         subjectId: grant.subjectId,
@@ -317,12 +324,18 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
         return null;
       }
 
+      const trustedIdentity = await userIdentities.resolve(user.userId);
+      if (!trustedIdentity || !isOperationScopeActive(operationScope)) {
+        return null;
+      }
+
       const profileDocumentId = await createRosterProfileDocument({
         containerId: ensuredContainer.id,
         documents,
+        identity: trustedIdentity,
+        isSelf: trustedIdentity.userId === operationScope.userId,
         nickname,
         organizationId: operationScope.organizationId,
-        user,
       });
       if (!profileDocumentId || !isOperationScopeActive(operationScope)) {
         return null;
@@ -336,6 +349,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       ensureRosterProfileContainer,
       isOperationScopeActive,
       organizations,
+      userIdentities,
     ],
   );
 
@@ -388,8 +402,10 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       isOperationScopeActive,
       loadDataUsage,
       loadDirectoryAndGroups,
+      loadDirectoryAndGroupsAfterMutation,
       loadLocalDirectoryAndGroups,
-      loadGroupDetails,
+      loadGroupContainers,
+      loadGroupMembers,
       loadGroupPresentationDetails,
       loadGrants,
       loadPolicyHistory,
@@ -411,8 +427,10 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       isOperationScopeActive,
       loadDataUsage,
       loadDirectoryAndGroups,
+      loadDirectoryAndGroupsAfterMutation,
       loadLocalDirectoryAndGroups,
-      loadGroupDetails,
+      loadGroupContainers,
+      loadGroupMembers,
       loadGroupPresentationDetails,
       loadGrants,
       loadPolicyHistory,

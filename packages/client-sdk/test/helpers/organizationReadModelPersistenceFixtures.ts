@@ -1,5 +1,6 @@
 import type {
   ListOrganizationGroupsResponse,
+  OrganizationContainerGrantsResponse,
   OrganizationDirectoryUserResponse,
   OrganizationReadModelDeltaResponse,
   OrganizationReadModelDirectoryResponse,
@@ -125,6 +126,12 @@ function organizationReadModelMemberships(
   };
 }
 
+function organizationReadModelGrants(
+  organizationId: string,
+): OrganizationContainerGrantsResponse {
+  return { organizationId, grants: [] };
+}
+
 export function organizationReadModelSnapshot(
   organizationId: string,
   nextCursor: string,
@@ -133,7 +140,7 @@ export function organizationReadModelSnapshot(
 ): OrganizationReadModelSnapshotResponse {
   const groups = organizationReadModelGroups(organizationId, suffix);
   return {
-    version: 2,
+    version: 3,
     mode: "snapshot",
     organizationId,
     nextCursor,
@@ -141,6 +148,7 @@ export function organizationReadModelSnapshot(
     currentUser: { isOrgAdmin },
     lanes: {
       directory: organizationReadModelDirectory(organizationId),
+      grants: organizationReadModelGrants(organizationId),
       groupMemberships: organizationReadModelMemberships(groups),
       groups,
     },
@@ -161,7 +169,7 @@ export function organizationReadModelDelta(input: {
       ? organizationReadModelMemberships(input.groups, false)
       : undefined);
   return {
-    version: 2,
+    version: 3,
     mode: "delta",
     organizationId: input.organizationId,
     nextCursor: input.nextCursor,

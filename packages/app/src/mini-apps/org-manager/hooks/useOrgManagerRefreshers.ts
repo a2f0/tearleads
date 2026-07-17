@@ -2,6 +2,7 @@ import type {
   OrganizationContainerGrants,
   OrganizationDataUsage,
   OrganizationDirectory,
+  OrganizationDirectoryAndGroups,
   OrganizationGroupContainers,
   OrganizationGroupMembers,
   OrganizationGroupPolicyHistory,
@@ -13,6 +14,8 @@ import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
+import { useOrgManagerGroupContainersRefresher } from "../groups/useOrgManagerGroupContainersRefresher";
+import { useOrgManagerGroupDetailsRefresher } from "../groups/useOrgManagerGroupDetailsRefresher";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { useOrgManagerVisibleRefresher } from "../organization/useOrgManagerVisibleRefresher";
 import {
@@ -23,7 +26,6 @@ import {
   directoryLoadOptions,
   type GrantsRefreshOptions,
   type GroupDetailsEffectKey,
-  type GroupDetailsRefreshOptions,
   getRefreshBehavior,
   type RefreshBehaviorOptions,
   setLoadingIfManaged,
@@ -37,6 +39,35 @@ import type { useOrgManagerRequestGuard } from "./useOrgManagerRequestGuard";
 import { useOrgManagerUserDetailRefresher } from "./useOrgManagerUserDetailRefresher";
 
 type BeginRequest = ReturnType<typeof useOrgManagerRequestGuard>;
+
+type LocalDirectoryLoadStep =
+  | { readonly kind: "continue" }
+  | { readonly kind: "done"; readonly result: DirectoryRefreshResult };
+
+async function loadLocalDirectoryStep(input: {
+  readonly apply: (
+    value: OrganizationDirectoryAndGroups,
+  ) => DirectoryRefreshResult;
+  readonly isCurrentRequest: () => boolean;
+  readonly localOnly: boolean;
+  readonly load: () => Promise<OrganizationDirectoryAndGroups | null>;
+  readonly onMissing: () => void;
+}): Promise<LocalDirectoryLoadStep> {
+  const localDirectoryState = await input.load();
+  if (!input.isCurrentRequest()) {
+    return { kind: "done", result: { didLoad: false, groupId: null } };
+  }
+  if (!localDirectoryState) {
+    if (!input.localOnly) {
+      return { kind: "continue" };
+    }
+    input.onMissing();
+    return { kind: "done", result: { didLoad: false, groupId: null } };
+  }
+
+  const result = input.apply(localDirectoryState);
+  return input.localOnly ? { kind: "done", result } : { kind: "continue" };
+}
 
 interface OrgManagerRefreshersParams {
   appData: ReturnType<typeof useTearleadsRuntime>;
@@ -70,6 +101,7 @@ interface OrgManagerRefreshersParams {
   setProfileDisplayNamesByUserId: Dispatch<
     SetStateAction<ReadonlyMap<string, string>>
   >;
+  setReadModelCursor: Dispatch<SetStateAction<string | null>>;
   setIsCreateGroupDialogOpen: Dispatch<SetStateAction<boolean>>;
   setIsImportUserDialogOpen: Dispatch<SetStateAction<boolean>>;
   setUserDetail: Dispatch<SetStateAction<OrganizationUserDetail | null>>;
@@ -102,11 +134,31 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setMembers,
     setOrganizationPolicyHistory,
     setProfileDisplayNamesByUserId,
+    setReadModelCursor,
     setIsCreateGroupDialogOpen,
     setIsImportUserDialogOpen,
     setUserDetail,
     view,
   } = params;
+
+  const refreshSelectedGroupDetails = useOrgManagerGroupDetailsRefresher({
+    appData,
+    beginRequest,
+    orgManagerActions,
+    setError,
+    setGroupPolicyHistory,
+    setMembers,
+  });
+  const invalidateSelectedGroupDetails = useCallback(() => {
+    beginRequest("groupDetails");
+  }, [beginRequest]);
+  const refreshSelectedGroupContainers = useOrgManagerGroupContainersRefresher({
+    beginRequest,
+    canLoadAuthenticatedOrgData,
+    orgManagerActions,
+    setError,
+    setGroupContainers,
+  });
 
   const resetDirectoryState = useCallback(() => {
     setDirectory(null);
@@ -116,6 +168,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setGroupContainers(null);
     setGroupPolicyHistory(null);
     setProfileDisplayNamesByUserId(new Map());
+    setReadModelCursor(null);
     setIsCreateGroupDialogOpen(false);
     setIsImportUserDialogOpen(false);
     resetSelectedRosterUser();
@@ -132,12 +185,16 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setMemberGroupId,
     setMembers,
     setProfileDisplayNamesByUserId,
+    setReadModelCursor,
   ]);
 
   const loadDirectoryAndGroups = useCallback(
     async (
       isCurrentRequest: () => boolean,
-      options: Pick<DirectoryRefreshOptions, "skipNextGroupDetailsEffect"> = {},
+      options: Pick<
+        DirectoryRefreshOptions,
+        "afterMutation" | "localOnly" | "skipNextGroupDetailsEffect"
+      > = {},
     ): Promise<DirectoryRefreshResult> => {
       if (!appData.auth.organizationId || !appData.auth.isAuthenticated) {
         if (isCurrentRequest()) {
@@ -154,6 +211,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
         setDirectory(nextDirectoryState.directory);
         setGroups(nextDirectoryState.groups);
         setMemberGroupId(nextDirectoryState.memberGroupId);
+        setReadModelCursor(nextDirectoryState.readModelCursor);
         const currentSelectedGroupId = selectedGroupIdRef.current;
         const nextSelectedGroupId = resolveOrgManagerSelectedGroupId(
           currentSelectedGroupId,
@@ -174,7 +232,9 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
           };
         }
         selectedGroupStateHashRef.current = nextSelectedGroupStateHash;
-        selectGroup(nextSelectedGroupId);
+        if (nextSelectedGroupId !== currentSelectedGroupId) {
+          selectGroup(nextSelectedGroupId);
+        }
         return {
           didLoad: true,
           directory: nextDirectoryState.directory,
@@ -183,17 +243,25 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
         };
       };
 
-      const localDirectoryState =
-        await orgManagerActions.loadLocalDirectoryAndGroups();
-      if (!isCurrentRequest()) {
-        return { didLoad: false, groupId: null };
-      }
-      if (localDirectoryState) {
-        applyDirectoryAndGroups(localDirectoryState);
+      if (!options.afterMutation) {
+        const localStep = await loadLocalDirectoryStep({
+          apply: applyDirectoryAndGroups,
+          isCurrentRequest,
+          load: orgManagerActions.loadLocalDirectoryAndGroups,
+          localOnly: options.localOnly ?? false,
+          onMissing: () => {
+            resetDirectoryState();
+            setError(ORG_MANAGER_LABELS.failedLoadDirectoryGroups);
+          },
+        });
+        if (localStep.kind === "done") {
+          return localStep.result;
+        }
       }
 
-      const nextDirectoryState =
-        await orgManagerActions.loadDirectoryAndGroups();
+      const nextDirectoryState = options.afterMutation
+        ? await orgManagerActions.loadDirectoryAndGroupsAfterMutation()
+        : await orgManagerActions.loadDirectoryAndGroups();
       if (!isCurrentRequest()) {
         return { didLoad: false, groupId: null };
       }
@@ -217,6 +285,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
       setError,
       setGroups,
       setMemberGroupId,
+      setReadModelCursor,
       skippedGroupDetailsEffectRef,
     ],
   );
@@ -253,82 +322,6 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
       selectedGroupIdRef,
       setError,
       setLoading,
-    ],
-  );
-
-  const refreshSelectedGroupDetails = useCallback(
-    async (
-      groupId: string | null,
-      options: GroupDetailsRefreshOptions = {},
-    ) => {
-      const isCurrentRequest = beginRequest("groupDetails");
-      const shouldClearError = options.clearError ?? true;
-      if (
-        !appData.auth.organizationId ||
-        !groupId ||
-        !appData.auth.isAuthenticated
-      ) {
-        if (isCurrentRequest()) {
-          setMembers(null);
-          setGroupContainers(null);
-          setGroupPolicyHistory(null);
-        }
-        return;
-      }
-
-      if (shouldClearError) {
-        setError(null);
-      }
-      try {
-        const nextDetails =
-          await orgManagerActions.loadGroupPresentationDetails(groupId);
-        if (!isCurrentRequest()) {
-          return;
-        }
-        const {
-          containers: nextContainers,
-          members: nextMembers,
-          policyHistory: nextPolicyHistory,
-        } = nextDetails;
-        const errors: string[] = [];
-
-        if (nextMembers === null) {
-          setMembers(null);
-          errors.push(ORG_MANAGER_LABELS.failedLoadGroupMembers);
-        } else {
-          setMembers(nextMembers);
-        }
-
-        if (nextContainers === null) {
-          setGroupContainers(null);
-          errors.push(ORG_MANAGER_LABELS.failedLoadGroupContainers);
-        } else {
-          setGroupContainers(nextContainers);
-        }
-
-        setGroupPolicyHistory(nextPolicyHistory);
-
-        if (errors.length > 0) {
-          setError(errors.join(" "));
-        }
-      } catch (nextError) {
-        if (isCurrentRequest()) {
-          setMembers(null);
-          setGroupContainers(null);
-          setGroupPolicyHistory(null);
-          setUnknownError(setError, nextError);
-        }
-      }
-    },
-    [
-      appData.auth.isAuthenticated,
-      appData.auth.organizationId,
-      beginRequest,
-      orgManagerActions,
-      setError,
-      setGroupContainers,
-      setGroupPolicyHistory,
-      setMembers,
     ],
   );
 
@@ -478,6 +471,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     refreshDirectoryAndGroups,
     refreshGrants,
     refreshOrganizationPolicyHistory,
+    refreshSelectedGroupContainers,
     refreshSelectedGroupDetails,
     refreshSelectedUserDetail,
     selectedUserIdRef,
@@ -487,11 +481,13 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
   });
 
   return {
+    invalidateSelectedGroupDetails,
     refreshDataUsage,
     refreshDirectoryAndGroups,
     refreshGrants,
     refreshOrganizationPolicyHistory,
     refreshOrgManager,
+    refreshSelectedGroupContainers,
     refreshSelectedGroupDetails,
     refreshSelectedUserDetail,
     resetDirectoryState,

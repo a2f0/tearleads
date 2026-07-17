@@ -2,6 +2,10 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createParentProjection } from "../../../test/helpers/containerFixtures";
 import {
+  organizationReadModelSnapshot,
+  organizationReadModelUserId,
+} from "../../../test/helpers/organizationReadModelProjectionFixtures";
+import {
   ensureContainerTables,
   saveContainer,
 } from "../../data/persistence/containers/containerPersistence";
@@ -54,30 +58,20 @@ test("loadContainerInfo reads direct grants, organization groups, and local sync
           expect(containerId).toBe(parent.projection.containerId);
           return parent.projection;
         },
-        listOrganizationGroups: async (organizationId) => {
+        getOrganizationReadModelResult: async (organizationId) => {
           expect(organizationId).toBe(parent.projection.organizationId);
           return {
-            organizationId,
-            memberGroupId: "member-group-1",
-            groups: [
-              {
-                groupId: "group-1",
-                organizationId,
-                name: "Operators",
-                createdAt: "2026-05-12T12:00:00.000Z",
-                isBuiltin: false,
-                currentState: {
-                  stateHash: "a".repeat(64),
-                  version: 1,
-                  keyEpoch: 1,
-                  memberCount: 1,
-                },
-              },
-            ],
-          };
+            data: organizationReadModelSnapshot({
+              currentUserId: organizationReadModelUserId,
+              groupName: "Operators",
+              organizationId,
+            }),
+            ok: true,
+          } as const;
         },
       },
       containerId: parent.projection.containerId,
+      currentUserId: organizationReadModelUserId,
       execSql,
       organizationId: parent.projection.organizationId,
       parentId: null,
@@ -181,7 +175,9 @@ test("loadContainerInfo includes inherited grants from ancestor containers", asy
         expect(containerId).toBe(childProjection.containerId);
         return childProjection;
       },
-      listOrganizationGroups: async () => null,
+      getOrganizationReadModelResult: async () => {
+        throw new Error("Unexpected organization read-model fetch.");
+      },
     },
     containerId: childProjection.containerId,
     organizationId: childProjection.organizationId,
@@ -223,16 +219,16 @@ test("loadContainerInfo returns local details without network for unsynced conta
     });
 
     let projectionCallCount = 0;
-    let groupCallCount = 0;
+    let readModelCallCount = 0;
     const info = await loadContainerInfo({
       apiClient: {
         getContainerWriterProjection: async () => {
           projectionCallCount += 1;
           throw new Error("Unexpected projection fetch.");
         },
-        listOrganizationGroups: async () => {
-          groupCallCount += 1;
-          throw new Error("Unexpected group fetch.");
+        getOrganizationReadModelResult: async () => {
+          readModelCallCount += 1;
+          throw new Error("Unexpected organization read-model fetch.");
         },
       },
       containerId: "root-container",
@@ -246,7 +242,7 @@ test("loadContainerInfo returns local details without network for unsynced conta
     expect(info.local.updatedAt).toEqual(expect.any(String));
     expect(info.remoteInfo).toBeNull();
     expect(projectionCallCount).toBe(0);
-    expect(groupCallCount).toBe(0);
+    expect(readModelCallCount).toBe(0);
   } finally {
     close();
   }

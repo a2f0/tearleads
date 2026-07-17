@@ -9,7 +9,6 @@ import {
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   getCurrentPrincipalStates,
-  listPrincipalProjectionMembersForStates,
   type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
@@ -55,13 +54,6 @@ function principalKey(principal: PrincipalReference): string {
   return `${principal.principalType}:${principal.principalId}`;
 }
 
-function projectionStateKey(input: {
-  readonly principalId: string;
-  readonly stateHash: string;
-}): string {
-  return `${input.principalId}:${input.stateHash}`;
-}
-
 function uniqueSortedStrings(values: Iterable<string>): string[] {
   return [...new Set(values)].sort();
 }
@@ -79,39 +71,6 @@ function principalMemberTypeForPrincipal(
   principalType: ManagedPrincipalType,
 ): PrincipalMemberType | null {
   return principalType === "group" ? "group" : null;
-}
-
-async function loadProjectionMembersByState(input: {
-  readonly executor: DatabaseTransaction;
-  readonly states: readonly StoredPrincipalState[];
-}): Promise<Map<string, StoredPrincipalProjectionMember[]>> {
-  const projectionByState = new Map<
-    string,
-    StoredPrincipalProjectionMember[]
-  >();
-
-  for (const state of input.states) {
-    projectionByState.set(projectionStateKey(state), []);
-  }
-
-  for (const principalType of [
-    ...new Set(input.states.map((state) => state.principalType)),
-  ]) {
-    const statesForType = input.states.filter(
-      (state) => state.principalType === principalType,
-    );
-    const projections = await listPrincipalProjectionMembersForStates(
-      principalType,
-      statesForType,
-      input.executor,
-    );
-
-    for (const [stateKey, members] of projections) {
-      projectionByState.set(stateKey, members);
-    }
-  }
-
-  return projectionByState;
 }
 
 async function loadCurrentStatesByReference(input: {
@@ -141,58 +100,6 @@ async function loadCurrentStatesByReference(input: {
   }
 
   return statesByKey;
-}
-
-async function reachableUserIdsFromPrincipalState(input: {
-  readonly executor: DatabaseTransaction;
-  readonly state: StoredPrincipalState;
-}): Promise<Set<string>> {
-  const userIds = new Set<string>();
-  const visitedPrincipalKeys = new Set([principalKey(input.state)]);
-  let frontier: StoredPrincipalState[] = [input.state];
-
-  while (frontier.length > 0) {
-    const projectionsByState = await loadProjectionMembersByState({
-      executor: input.executor,
-      states: frontier,
-    });
-    const nextGroupIds = new Set<string>();
-
-    for (const state of frontier) {
-      for (const member of projectionsByState.get(projectionStateKey(state)) ??
-        []) {
-        if (member.memberPrincipalType === "user") {
-          userIds.add(member.memberPrincipalId);
-          continue;
-        }
-
-        const key = principalKey({
-          principalType: "group",
-          principalId: member.memberPrincipalId,
-        });
-        if (!visitedPrincipalKeys.has(key)) {
-          nextGroupIds.add(member.memberPrincipalId);
-        }
-      }
-    }
-
-    const nextStates = await getCurrentPrincipalStates(
-      "group",
-      uniqueSortedStrings(nextGroupIds),
-      input.executor,
-    );
-    frontier = [];
-    for (const state of nextStates.values()) {
-      const key = principalKey(state);
-      if (visitedPrincipalKeys.has(key)) {
-        continue;
-      }
-      visitedPrincipalKeys.add(key);
-      frontier.push(state);
-    }
-  }
-
-  return userIds;
 }
 
 async function listParentPrincipalMemberships(input: {
@@ -583,19 +490,15 @@ function userRetainsAccessThroughPath(input: {
 
 async function buildPrincipalPolicyAccessLossRows(input: {
   readonly currentState: StoredPrincipalState;
+  readonly currentReachableUserIds: readonly string[];
   readonly executor: DatabaseTransaction;
-  readonly previousState: StoredPrincipalState;
+  readonly previousReachableUserIds: readonly string[];
 }): Promise<PrincipalPolicyAccessLossRow[]> {
-  const previousUserIds = await reachableUserIdsFromPrincipalState({
-    executor: input.executor,
-    state: input.previousState,
-  });
-  const currentUserIds = await reachableUserIdsFromPrincipalState({
-    executor: input.executor,
-    state: input.currentState,
-  });
+  const currentUserIds = new Set(input.currentReachableUserIds);
   const removedUserIds = uniqueSortedStrings(
-    [...previousUserIds].filter((userId) => !currentUserIds.has(userId)),
+    input.previousReachableUserIds.filter(
+      (userId) => !currentUserIds.has(userId),
+    ),
   );
   if (removedUserIds.length === 0) {
     return [];
@@ -660,19 +563,29 @@ async function buildPrincipalPolicyAccessLossRows(input: {
 
 export async function persistPrincipalPolicyAccessLossTombstones(input: {
   readonly currentState: StoredPrincipalState;
+  readonly currentReachableUserIds: readonly string[];
   readonly executor: DatabaseTransaction;
   readonly previousState: StoredPrincipalState | null;
+  readonly previousReachableUserIds: readonly string[];
   readonly updatedAt: Date;
 }): Promise<void> {
-  const { currentState, executor, previousState, updatedAt } = input;
+  const {
+    currentReachableUserIds,
+    currentState,
+    executor,
+    previousReachableUserIds,
+    previousState,
+    updatedAt,
+  } = input;
   if (!previousState || previousState.stateHash === currentState.stateHash) {
     return;
   }
 
   const rows = await buildPrincipalPolicyAccessLossRows({
+    currentReachableUserIds,
     currentState,
     executor,
-    previousState,
+    previousReachableUserIds,
   });
   if (rows.length === 0) {
     return;

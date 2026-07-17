@@ -19,6 +19,7 @@ interface UseOrgManagerDisableRosterUserParams {
   canDisableRosterUsers: boolean;
   directory: OrganizationDirectory | null;
   groups: ReadonlyArray<OrganizationGroupSummary>;
+  invalidateSelectedGroupDetails: Refreshers["invalidateSelectedGroupDetails"];
   isOperationActive: (organizationId: string) => boolean;
   memberGroupId: string | null;
   orgManagerActions: ReturnType<typeof useOrgManagerActions>;
@@ -97,29 +98,26 @@ async function loadRosterDisableMembershipTargets(input: {
   orgManagerActions: ReturnType<typeof useOrgManagerActions>;
   setError: Dispatch<SetStateAction<string | null>>;
 }): Promise<string[] | null> {
-  const [memberGroupDetails, adminGroupDetails] = await Promise.all([
-    input.orgManagerActions.loadGroupDetails(input.memberGroupId),
+  const [memberGroupMembers, adminGroupMembers] = await Promise.all([
+    input.orgManagerActions.loadGroupMembers(input.memberGroupId),
     input.adminGroupId
-      ? input.orgManagerActions.loadGroupDetails(input.adminGroupId)
+      ? input.orgManagerActions.loadGroupMembers(input.adminGroupId)
       : Promise.resolve(null),
   ]);
   if (!input.isOperationActive(input.organizationId)) {
     return null;
   }
-  if (
-    !memberGroupDetails?.members ||
-    (input.adminGroupId && !adminGroupDetails?.members)
-  ) {
+  if (!memberGroupMembers || (input.adminGroupId && !adminGroupMembers)) {
     input.setError(ORG_MANAGER_LABELS.failedLoadGroupMembers);
     return null;
   }
 
   const mutationTargets = collectRosterDisableMembershipTargets({
     adminGroupId: input.adminGroupId,
-    adminMembers: adminGroupDetails?.members ?? null,
+    adminMembers: adminGroupMembers,
     disabledUserId: input.disabledUserId,
     memberGroupId: input.memberGroupId,
-    memberMembers: memberGroupDetails.members,
+    memberMembers: memberGroupMembers,
   });
   if (mutationTargets.length === 0) {
     input.setError(ORG_MANAGER_LABELS.userNotFound);
@@ -202,6 +200,7 @@ async function disableRosterUser(
     }
 
     await refreshAfterGroupMutation({
+      invalidateSelectedGroupDetails: input.invalidateSelectedGroupDetails,
       isOperationActive: input.isOperationActive,
       operationOrganizationId,
       refreshDirectoryAndGroups: input.refreshDirectoryAndGroups,
@@ -228,6 +227,7 @@ export function useOrgManagerDisableRosterUser(
     canDisableRosterUsers,
     directory,
     groups,
+    invalidateSelectedGroupDetails,
     isOperationActive,
     memberGroupId,
     orgManagerActions,
@@ -247,6 +247,7 @@ export function useOrgManagerDisableRosterUser(
         directory,
         disabledUserId,
         groups,
+        invalidateSelectedGroupDetails,
         isOperationActive,
         memberGroupId,
         orgManagerActions,
@@ -262,6 +263,7 @@ export function useOrgManagerDisableRosterUser(
       canDisableRosterUsers,
       directory,
       groups,
+      invalidateSelectedGroupDetails,
       isOperationActive,
       memberGroupId,
       orgManagerActions,

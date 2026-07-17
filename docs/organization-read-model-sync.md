@@ -73,35 +73,46 @@ feed marker. Policy replay and catalog creation consult that tombstone; they do
 not treat the read-model change log as authority, so future feed retention
 cannot alter cryptographic or lifecycle decisions.
 
-Protocol version 2 includes these lanes:
+Protocol version 3 includes these lanes:
 
 - `directory`: roster and profile-binding rows;
 - `groups`: visible group catalog rows and state-head summaries;
 - `groupMemberships`: state-hash-bound membership projections for individual
   groups, including the reserved `Members` group that is hidden from the group
-  catalog.
+  catalog;
+- `grants`: a whole-lane replacement of container access presentation rows.
 
-Container grants, data usage, user details, and policy history remain
-request-driven until their response shapes and mutation coverage ship end to
-end. Realtime hints and feed retention/compaction are also deferred. A client
-must never advance a cursor past data it cannot apply, so each future persisted
-shape must arrive as a new strict lane or another explicit protocol reset.
+Grant lists and group-container views filter the local grants lane. User details
+are derived locally from the directory, the complete cycle-safe membership
+graph, the visible group catalog, and grants. Hidden groups remain traversal and
+grant inputs even though they are omitted from the displayed group list.
+Container display names are joined from local encrypted metadata. Data usage
+and organization policy history remain request-driven. Group policy history may
+be rendered from the separately persisted, verified policy bundle only when its
+principal ID, state hash, version, key epoch, and member count exactly match the
+visible group's read-model head. Missing or mismatched policy state triggers one
+canonical policy request; projected membership or group metadata never becomes
+a cryptographic input. The feed logically retains the newest 10,000 change
+markers per organization.
+
+Grant `updatedAt` is access-head time, not the container content timestamp.
+Container access-manifest advancement, structural moves, and deletion replace
+the grants lane; ordinary document or blob content writes do not invalidate it.
+This avoids turning content sync into organization-wide grant fanout.
 
 `upsert` and `delete` apply to entity rows. `replace` invalidates a whole
 state-bound entity or lane snapshot.
 
 ## Protocol versioning
 
-Version 2 is a clean protocol reset, not a compatibility extension. Responses
-and opaque cursors carry version 2, response validation accepts only the exact
-version 2 lane shapes, and the server rejects version 1 cursors. A client that
-finds a persisted version 1 organization projection atomically deletes that
-disposable projection and reconciles again without a cursor to obtain a full
-version 2 snapshot.
+Version 3 is a clean protocol reset, not a compatibility extension. Responses
+and opaque cursors carry version 3, response validation accepts only the exact
+version 3 lane shapes, and the server rejects older cursors. A client that finds
+an older organization projection atomically deletes that disposable projection
+and reconciles again without a cursor to obtain a full version 3 snapshot.
 
-There is no version 1 to version 2 translation, dual-read period, or legacy
-directory/group fallback. Request-driven organization views that have not yet
-moved into the feed are current APIs, not compatibility shims.
+There is no translation, dual-read period, or legacy directory, group,
+membership, grants, group-container, or user-detail fallback.
 
 ## Snapshot and delta contract
 
@@ -120,23 +131,89 @@ than a member patch: `groups` contains the complete replacement for each changed
 group, while `deletedGroupIds` removes groups whose final coalesced operation is
 deletion. Unchanged memberships are omitted.
 
-The client applies group summaries, membership heads, member rows, requester
-metadata, and the cursor in one SQLite transaction. Every stateful visible
-group must have a membership head whose hash and member count match its group
-summary, and the reserved `Members` head must be present. A mismatch rejects and
-rolls back the whole page, including cursor advancement.
+The client applies group summaries, membership heads, member rows, grants,
+requester metadata, and the cursor in one SQLite transaction. Every stateful
+visible group must have a membership head whose hash and member count match its
+group summary, and the reserved `Members` head must be present. Duplicate grant
+identities or a scope/binding mismatch rejects and rolls back the whole page,
+including cursor advancement.
 
-Retention is disabled in the first slice. Once compaction is introduced, a
-cursor that predates retained history returns reset semantics and the client
-atomically replaces the organization's projection from a new full snapshot.
-Applying the same response more than once is a no-op.
+Each append prunes an older contiguous marker prefix in the same transaction as
+the source mutation, while retaining the newest 10,000 markers. A cursor
+immediately before the earliest retained marker can still replay every change;
+an older cursor receives reset semantics and the client atomically replaces the
+organization's projection from a new full snapshot. Applying the same response
+more than once is a no-op. This bounds live logical feed rows; physical database
+reclamation, such as PostgreSQL autovacuum or SQLite `VACUUM`, is separate
+database maintenance.
 
 Network, server, and response-shape failures retain the last-known-good local
 snapshot. An authoritative 403 or 404 purges the organization's projection.
 
 ## Realtime behavior
 
-WebSocket messages are content-free hints. An organization read-model hint may
-schedule reconciliation only for that organization and lane; it must not start
-container or document reconciliation. HTTP remains authoritative after hints,
-reconnects, explicit refreshes, and cursor-gap recovery.
+WebSocket messages are content-free hints. A client declares
+`known_organizations` only while an eligible Org Manager consumer is mounted;
+an authenticated SDK that never opens the projection declares no organization
+interest and performs no background read-model request. Interest is replaced on
+scope changes, cleared when the last consumer unmounts, and re-declared on
+reconnect.
+
+The gateway authorizes every organization declaration against direct current
+access before indexing the socket. Each internal
+`organization_read_model_changed` event also carries the authoritative active
+roster audience resolved after commit. The process-local router intersects that
+audience with declared interest and reconstructs a minimal client frame;
+recipient IDs and the authoring-session origin never cross the websocket
+boundary. A malformed event or one without an audience fails closed. When a
+previously authorized interested user leaves the audience, the socket receives
+one access-revoked control and no subsequent mutation timing while access is
+absent. HTTP reconciliation then purges the local projection on 403 or 404.
+
+Principal-policy writes publish the container-discovery `shared_with_you` hint
+only for users who become newly reachable after the commit, and only when the
+changed principal or one of its current ancestors holds a grant in a current
+container manifest. Existing members and ungranted group changes publish no
+discovery hint. Ancestor traversal preserves real nested-group access gains
+without turning every membership edit into root-container synchronization.
+
+Every HTTP request that observes one or more marker appends retains the highest
+observed cursor per organization. After the handler finishes, one batched head
+and active-roster read verifies which observations actually committed and
+resolves their audiences. Each committed organization publishes at most one
+hint, even if a later post-commit step changed the HTTP status. Rolled-back
+transactions, no-op writes, and exact policy replays publish none. Verification
+and publication are best-effort: a database or broker failure cannot turn a
+committed mutation into a retrying HTTP failure.
+
+Author sockets receive the hint because one auth session can own multiple client
+instances and session-wide suppression would strand siblings. The minimal frame
+marks whether it came from that socket's session without exposing the session
+identifier. While Org Manager itself is mutating, its own hints are held; the
+explicit post-mutation feed reconciliation absorbs them when it advances the
+local cursor, so correctness does not add duplicate requests. Other active
+clients reconcile immediately. A synchronous burst collapses before I/O, and a
+hint arriving during I/O sets one dirty bit for a sequential catch-up pass;
+parallel organization feed requests are never started for one SDK scope.
+
+Socket closure or error enters a cancellable exponential-backoff loop with
+jitter. Every attempt mints a fresh one-time websocket ticket. A handshake must
+remain open for ten seconds before it resets that backoff, so
+accept-and-immediately-close failures cannot create a fixed-rate ticket storm.
+A successful reconnect re-declares current demand and schedules one catch-up for
+the mounted consumer. A declaration denied while access is absent remains
+non-routable, but a later authoritative audience event triggers a fresh access
+check so restored access cannot be stranded until another reconnect.
+Authentication, offline, and local-only transitions tear down the loop; the
+first connection still does not fetch a projection that has no consumer.
+
+Provisioned system-container polling prefers an exact system-slot match. A
+viewer of a shared organization cannot derive slots keyed by that
+organization's founder, so an already-hydrated direct child of the active root
+with the registered visible name and an opaque non-null slot also ends the
+poll. This is only a discovery stop condition; signed container state remains
+the access and keying authority.
+
+This control event never enters the container/document event queue and schedules
+only organization read-model reconciliation. HTTP remains authoritative after
+hints, reconnects, explicit refreshes, and cursor-gap recovery.

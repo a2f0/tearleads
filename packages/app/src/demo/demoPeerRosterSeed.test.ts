@@ -261,6 +261,7 @@ function directoryAndGroups(input: {
     directory: directory({ users: input.users }),
     groups: [],
     memberGroupId: input.memberGroupId,
+    readModelCursor: "cursor-1",
   };
 }
 
@@ -286,8 +287,7 @@ function fakeRosterSeedActions(overrides: {
   const actions: DemoRosterSeedActions = {
     loadDirectoryAndGroups: () =>
       Promise.resolve(overrides.directoryAndGroups ?? null),
-    loadGroupDetails: () =>
-      Promise.resolve({ members: overrides.members ?? null }),
+    loadGroupMembers: () => Promise.resolve(overrides.members ?? null),
     importUserById: () => {
       calls.importUserById += 1;
       return Promise.resolve(overrides.importedUser ?? null);

@@ -5,17 +5,12 @@ import type {
 } from "@tearleads/validators/request";
 import type {
   DeleteOrganizationGroupResponse,
-  ListOrganizationGroupsResponse,
-  OrganizationContainerGrantsResponse,
   OrganizationDataUsageResponse,
-  OrganizationDirectoryResponse,
   OrganizationDirectoryUserResponse,
-  OrganizationGroupContainersResponse,
   OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
   OrganizationProfileResponse,
   OrganizationReadModelResponse,
-  OrganizationUserDetailResponse,
 } from "@tearleads/validators/response";
 import {
   OrganizationManagerError,
@@ -23,54 +18,13 @@ import {
   runDeleteOrganizationGroupWorkflow,
   runGetOrganizationDataUsageWorkflow,
   runGetOrganizationReadModelWorkflow,
-  runGetOrganizationUserDetailWorkflow,
-  runListOrganizationContainerGrantsWorkflow,
-  runListOrganizationDirectoryWorkflow,
-  runListOrganizationGroupContainersWorkflow,
   runListOrganizationGroupMembersWorkflow,
-  runListOrganizationGroupsWorkflow,
   runUpdateOrganizationProfileWorkflow,
   runUpdateOrganizationRosterEntryWorkflow,
 } from "../../workflows/organizations";
 import type { ApiServiceRuntime } from "../runtime";
 
 export { OrganizationManagerError };
-
-export async function listOrganizationDirectory(
-  runtime: ApiServiceRuntime,
-  organizationId: string,
-  sessionUserId: string,
-): Promise<OrganizationDirectoryResponse> {
-  return runListOrganizationDirectoryWorkflow(
-    runtime.db,
-    organizationId,
-    sessionUserId,
-  );
-}
-
-export async function listOrganizationGroups(
-  runtime: ApiServiceRuntime,
-  organizationId: string,
-  sessionUserId: string,
-): Promise<ListOrganizationGroupsResponse> {
-  return runListOrganizationGroupsWorkflow(
-    runtime.db,
-    organizationId,
-    sessionUserId,
-  );
-}
-
-export async function listOrganizationContainerGrants(
-  runtime: ApiServiceRuntime,
-  organizationId: string,
-  sessionUserId: string,
-): Promise<OrganizationContainerGrantsResponse> {
-  return runListOrganizationContainerGrantsWorkflow(
-    runtime.db,
-    organizationId,
-    sessionUserId,
-  );
-}
 
 export async function getOrganizationDataUsage(
   runtime: ApiServiceRuntime,
@@ -95,20 +49,6 @@ export async function getOrganizationReadModel(
     organizationId,
     sessionUserId,
     cursor,
-  );
-}
-
-export async function getOrganizationUserDetail(
-  runtime: ApiServiceRuntime,
-  organizationId: string,
-  userId: string,
-  sessionUserId: string,
-): Promise<OrganizationUserDetailResponse> {
-  return runGetOrganizationUserDetailWorkflow(
-    runtime.db,
-    organizationId,
-    userId,
-    sessionUserId,
   );
 }
 
@@ -177,20 +117,6 @@ export async function listOrganizationGroupMembers(
   sessionUserId: string,
 ): Promise<OrganizationGroupMembersResponse> {
   return runListOrganizationGroupMembersWorkflow(
-    runtime.db,
-    organizationId,
-    groupId,
-    sessionUserId,
-  );
-}
-
-export async function listOrganizationGroupContainers(
-  runtime: ApiServiceRuntime,
-  organizationId: string,
-  groupId: string,
-  sessionUserId: string,
-): Promise<OrganizationGroupContainersResponse> {
-  return runListOrganizationGroupContainersWorkflow(
     runtime.db,
     organizationId,
     groupId,

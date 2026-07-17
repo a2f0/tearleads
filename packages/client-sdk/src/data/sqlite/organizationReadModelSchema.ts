@@ -114,3 +114,39 @@ export const organizationReadModelGroupMembers = sqliteTable(
     }),
   ],
 );
+
+/** Whole-lane container grants used only by organization presentation reads. */
+export const organizationReadModelContainerGrants = sqliteTable(
+  "organization_read_model_container_grants",
+  {
+    organizationId: text("organization_id").notNull(),
+    containerId: text("container_id").notNull(),
+    subjectType: text("subject_type").notNull(),
+    subjectId: text("subject_id").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    accessLevel: text("access_level").notNull(),
+    createdAt: text("created_at").notNull(),
+    depth: integer("depth").notNull(),
+    isBuiltin: integer("is_builtin", { mode: "boolean" }).notNull(),
+    metadataAccessEpoch: integer("metadata_access_epoch").notNull(),
+    metadataAccessStateHash: text("metadata_access_state_hash").notNull(),
+    metadataDocumentId: text("metadata_document_id"),
+    parentId: text("parent_id"),
+    updatedAt: text("updated_at").notNull(),
+    userId: text("user_id"),
+    signingKeyFingerprint: text("signing_key_fingerprint"),
+    groupId: text("group_id"),
+    groupName: text("group_name"),
+    organizationName: text("organization_name"),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.organizationId,
+        table.containerId,
+        table.subjectType,
+        table.subjectId,
+      ],
+    }),
+  ],
+);

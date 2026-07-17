@@ -2,7 +2,7 @@ import type {
   DocumentStore,
   DocumentStoreRelinkInput,
   Documents,
-  OrganizationDirectoryUser,
+  ResolvedUserIdentity,
 } from "@tearleads/client-sdk";
 import {
   buildOrganizationProfileDocumentPatch,
@@ -104,21 +104,26 @@ function waitForRemoteDocumentId(
 export async function createRosterProfileDocument(input: {
   containerId: string;
   documents: Documents;
+  identity: Pick<ResolvedUserIdentity, "encapsulationPublicKey" | "userId">;
+  isSelf: boolean;
   nickname?: string | undefined;
   organizationId: string;
-  user: OrganizationDirectoryUser;
 }): Promise<string | null> {
   const store = input.documents.open({
     containerId: input.containerId,
     initialDocumentKind: "contact",
     localId: getRosterProfileDocumentLocalId({
       organizationId: input.organizationId,
-      userId: input.user.userId,
+      userId: input.identity.userId,
     }),
   });
 
   await store.setStructuredFields("contact", {
-    ...buildRosterProfileDocumentPatch(input.user),
+    ...buildRosterProfileDocumentPatch({
+      encapsulationPublicKey: input.identity.encapsulationPublicKey,
+      isSelf: input.isSelf,
+      userId: input.identity.userId,
+    }),
     ...(input.nickname ? { nickname: input.nickname } : {}),
   });
   if (!store.getSnapshot().ready) {

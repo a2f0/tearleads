@@ -1,6 +1,7 @@
 import type { RequestFailure } from "@tearleads/api-client";
 import type {
   ListOrganizationGroupsResponse,
+  OrganizationContainerGrantsResponse,
   OrganizationDirectoryUserResponse,
   OrganizationReadModelDeltaResponse,
   OrganizationReadModelDirectoryResponse,
@@ -127,6 +128,38 @@ function organizationReadModelMemberships(
   };
 }
 
+function organizationReadModelGrants(
+  groups: ListOrganizationGroupsResponse,
+): OrganizationContainerGrantsResponse {
+  const group = groups.groups[0];
+  return {
+    organizationId: groups.organizationId,
+    grants: group
+      ? [
+          {
+            accessLevel: "admin",
+            containerId: `container-${groups.organizationId}`,
+            createdAt: CREATED_AT,
+            depth: 0,
+            isBuiltin: true,
+            metadataAccessEpoch: 1,
+            metadataAccessStateHash: `manifest-${groups.organizationId}`,
+            metadataDocumentId: `metadata-${groups.organizationId}`,
+            parentId: null,
+            updatedAt: CREATED_AT,
+            subjectType: "group",
+            subjectId: group.groupId,
+            userId: null,
+            signingKeyFingerprint: null,
+            groupId: group.groupId,
+            groupName: group.name,
+            organizationName: null,
+          },
+        ]
+      : [],
+  };
+}
+
 export function organizationReadModelSnapshot(
   input: {
     readonly cursor?: string;
@@ -143,7 +176,7 @@ export function organizationReadModelSnapshot(
     organizationId,
   });
   return {
-    version: 2,
+    version: 3,
     mode: "snapshot",
     organizationId,
     nextCursor: input.cursor ?? "cursor-1",
@@ -154,6 +187,7 @@ export function organizationReadModelSnapshot(
         currentUserId: input.currentUserId ?? organizationReadModelUserId,
         organizationId,
       }),
+      grants: organizationReadModelGrants(groups),
       groupMemberships: organizationReadModelMemberships(groups, true),
       groups,
     },
@@ -173,7 +207,7 @@ export function organizationReadModelGroupsDelta(input: {
     organizationId,
   });
   return {
-    version: 2,
+    version: 3,
     mode: "delta",
     organizationId,
     nextCursor: input.cursor,

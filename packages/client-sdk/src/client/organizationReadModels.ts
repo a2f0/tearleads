@@ -1,9 +1,17 @@
 import type { DomainScope } from "../data/domainScope";
 import {
+  loadLocalOrganizationContainerGrants,
   loadLocalOrganizationDirectoryAndGroups,
+  loadLocalOrganizationGroupContainers,
   loadLocalOrganizationGroupMembers,
+  loadLocalOrganizationGroupPolicyHistory,
+  loadLocalOrganizationUserDetail,
+  type OrganizationContainerGrants,
   type OrganizationDirectoryAndGroups,
+  type OrganizationGroupContainers,
   type OrganizationGroupMembers,
+  type OrganizationGroupPolicyHistory,
+  type OrganizationUserDetail,
   reconcileOrganizationDirectoryAndGroups,
 } from "../workflows/organizations";
 import type {
@@ -28,7 +36,25 @@ export interface OrganizationReadModelCoordinator {
     groupId: string,
     organizationId?: string | undefined,
   ): Promise<OrganizationGroupMembers | null>;
+  loadLocalGroupPolicyHistory(
+    groupId: string,
+    organizationId?: string | undefined,
+  ): Promise<OrganizationGroupPolicyHistory | null>;
+  loadLocalGrants(
+    organizationId?: string | undefined,
+  ): Promise<OrganizationContainerGrants | null>;
+  loadLocalGroupContainers(
+    groupId: string,
+    organizationId?: string | undefined,
+  ): Promise<OrganizationGroupContainers | null>;
+  loadLocalUserDetail(
+    userId: string,
+    organizationId?: string | undefined,
+  ): Promise<OrganizationUserDetail | null>;
   reconcile(
+    organizationId?: string | undefined,
+  ): Promise<OrganizationDirectoryAndGroups | null>;
+  reconcileAfterMutation(
     organizationId?: string | undefined,
   ): Promise<OrganizationDirectoryAndGroups | null>;
 }
@@ -58,16 +84,28 @@ function reconciliationKey(input: ActiveOrganizationReadModelRuntime): string {
   return `${input.organizationId}\0${input.userId}`;
 }
 
-export function createOrganizationReadModelCoordinator(
-  runtimeService: InternalRuntime,
-): OrganizationReadModelCoordinator {
-  const reconciliationsByScope = new WeakMap<
+class OrganizationReadModelCoordinatorImpl
+  implements OrganizationReadModelCoordinator
+{
+  private readonly reconciliationsByScope = new WeakMap<
     DomainScope,
     Map<string, Promise<OrganizationDirectoryAndGroups | null>>
   >();
 
-  const loadLocal = async (organizationId?: string) => {
-    const active = activeReadModelRuntime(runtimeService, organizationId);
+  constructor(private readonly runtimeService: InternalRuntime) {}
+
+  private reconciliationMap(active: ActiveOrganizationReadModelRuntime) {
+    const scope = active.runtime.state.domainScope;
+    let byKey = this.reconciliationsByScope.get(scope);
+    if (!byKey) {
+      byKey = new Map();
+      this.reconciliationsByScope.set(scope, byKey);
+    }
+    return byKey;
+  }
+
+  async loadLocal(organizationId?: string) {
+    const active = activeReadModelRuntime(this.runtimeService, organizationId);
     if (!active) {
       return null;
     }
@@ -76,20 +114,85 @@ export function createOrganizationReadModelCoordinator(
       execSql: active.runtime.infra.execSql,
       organizationId: active.organizationId,
     });
-  };
+  }
 
-  const reconcile = (organizationId?: string) => {
-    const active = activeReadModelRuntime(runtimeService, organizationId);
+  async loadLocalGrants(organizationId?: string) {
+    const active = activeReadModelRuntime(this.runtimeService, organizationId);
+    if (!active) {
+      return null;
+    }
+    return loadLocalOrganizationContainerGrants({
+      currentUserId: active.userId,
+      execSql: active.runtime.infra.execSql,
+      organizationId: active.organizationId,
+    });
+  }
+
+  async loadLocalGroupContainers(groupId: string, organizationId?: string) {
+    const active = activeReadModelRuntime(this.runtimeService, organizationId);
+    if (!active || groupId.length === 0) {
+      return null;
+    }
+    return loadLocalOrganizationGroupContainers({
+      currentUserId: active.userId,
+      execSql: active.runtime.infra.execSql,
+      groupId,
+      organizationId: active.organizationId,
+    });
+  }
+
+  async loadLocalGroupMembers(groupId: string, organizationId?: string) {
+    const active = activeReadModelRuntime(this.runtimeService, organizationId);
+    if (!active || groupId.length === 0) {
+      return null;
+    }
+    return loadLocalOrganizationGroupMembers({
+      currentUserId: active.userId,
+      execSql: active.runtime.infra.execSql,
+      groupId,
+      organizationId: active.organizationId,
+    });
+  }
+
+  async loadLocalGroupPolicyHistory(groupId: string, organizationId?: string) {
+    const active = activeReadModelRuntime(this.runtimeService, organizationId);
+    if (!active || groupId.length === 0) {
+      return null;
+    }
+    return loadLocalOrganizationGroupPolicyHistory({
+      currentUserId: active.userId,
+      execSql: active.runtime.infra.execSql,
+      groupId,
+      organizationId: active.organizationId,
+    });
+  }
+
+  async loadLocalUserDetail(userId: string, organizationId?: string) {
+    const active = activeReadModelRuntime(this.runtimeService, organizationId);
+    if (!active || userId.length === 0) {
+      return null;
+    }
+    return loadLocalOrganizationUserDetail({
+      currentUserId: active.userId,
+      execSql: active.runtime.infra.execSql,
+      organizationId: active.organizationId,
+      userId,
+    });
+  }
+
+  async loadLocalOrReconcile(organizationId?: string) {
+    return (
+      (await this.loadLocal(organizationId)) ?? this.reconcile(organizationId)
+    );
+  }
+
+  reconcile(organizationId?: string) {
+    const active = activeReadModelRuntime(this.runtimeService, organizationId);
     if (!active) {
       return Promise.resolve(null);
     }
 
-    const scope = active.runtime.state.domainScope;
-    let byKey = reconciliationsByScope.get(scope);
-    if (!byKey) {
-      byKey = new Map();
-      reconciliationsByScope.set(scope, byKey);
-    }
+    const byKey = this.reconciliationMap(active);
     const key = reconciliationKey(active);
     const existing = byKey.get(key);
     if (existing) {
@@ -103,31 +206,31 @@ export function createOrganizationReadModelCoordinator(
       logError: active.runtime.util.logError,
       organizationId: active.organizationId,
     }).finally(() => {
-      if (byKey?.get(key) === reconciliation) {
+      if (byKey.get(key) === reconciliation) {
         byKey.delete(key);
       }
     });
     byKey.set(key, reconciliation);
     return reconciliation;
-  };
+  }
 
-  return {
-    loadLocal,
-    async loadLocalGroupMembers(groupId, organizationId) {
-      const active = activeReadModelRuntime(runtimeService, organizationId);
-      if (!active || groupId.length === 0) {
-        return null;
-      }
-      return loadLocalOrganizationGroupMembers({
-        currentUserId: active.userId,
-        execSql: active.runtime.infra.execSql,
-        groupId,
-        organizationId: active.organizationId,
-      });
-    },
-    async loadLocalOrReconcile(organizationId) {
-      return (await loadLocal(organizationId)) ?? reconcile(organizationId);
-    },
-    reconcile,
-  };
+  async reconcileAfterMutation(organizationId?: string) {
+    const active = activeReadModelRuntime(this.runtimeService, organizationId);
+    if (!active) {
+      return null;
+    }
+    const existing = this.reconciliationMap(active).get(
+      reconciliationKey(active),
+    );
+    if (existing) {
+      await existing.catch(() => null);
+    }
+    return this.reconcile(active.organizationId);
+  }
+}
+
+export function createOrganizationReadModelCoordinator(
+  runtimeService: InternalRuntime,
+): OrganizationReadModelCoordinator {
+  return new OrganizationReadModelCoordinatorImpl(runtimeService);
 }

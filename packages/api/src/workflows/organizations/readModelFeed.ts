@@ -11,12 +11,14 @@ import type {
   ListOrganizationGroupsResponse,
   OrganizationDirectoryResponse,
   OrganizationReadModelDirectoryResponse,
+  OrganizationReadModelGrantsResponse,
   OrganizationReadModelGroupMembershipsResponse,
   OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
 import { and, asc, eq, gt } from "drizzle-orm";
 import { requireDirectOrganizationAccess } from "./access";
 import { loadOrganizationDirectoryInTransaction } from "./directory";
+import { listOrganizationContainerGrantResponsesInTransaction } from "./grants";
 import { loadOrganizationGroupMembershipsInTransaction } from "./groupMemberships";
 import { loadOrganizationGroupsInTransaction } from "./groups";
 import { lockOrganizationReadModelHeadInTransaction } from "./readModelChanges";
@@ -24,6 +26,7 @@ import {
   decodeOrganizationReadModelCursor,
   encodeOrganizationReadModelCursor,
 } from "./readModelCursor";
+import { isOrganizationReadModelCursorRetained } from "./readModelRetention";
 
 interface ReadModelChange {
   readonly entityId: string;
@@ -84,8 +87,21 @@ interface ReadModelResponseContext {
 
 interface ReadModelLanes {
   directory?: OrganizationReadModelDirectoryResponse;
+  grants?: OrganizationReadModelGrantsResponse;
   groupMemberships?: OrganizationReadModelGroupMembershipsResponse;
   groups?: ListOrganizationGroupsResponse;
+}
+
+async function loadGrantsLane(
+  input: ReadModelResponseContext,
+): Promise<OrganizationReadModelGrantsResponse> {
+  return {
+    organizationId: input.organizationId,
+    grants: await listOrganizationContainerGrantResponsesInTransaction({
+      executor: input.tx,
+      organizationId: input.organizationId,
+    }),
+  };
 }
 
 async function loadDirectoryLane(
@@ -105,6 +121,7 @@ async function loadSnapshotResponse(
   input: ReadModelResponseContext,
 ): Promise<OrganizationReadModelResponse> {
   const directory = await loadDirectoryLane(input);
+  const grants = await loadGrantsLane(input);
   const groups = await loadOrganizationGroupsInTransaction({
     executor: input.tx,
     organizationId: input.organizationId,
@@ -114,13 +131,13 @@ async function loadSnapshotResponse(
     organizationId: input.organizationId,
   });
   return {
-    version: 2,
+    version: 3,
     mode: "snapshot",
     organizationId: input.organizationId,
     nextCursor: input.nextCursor,
     hasMore: false,
     currentUser: { isOrgAdmin: input.isOrgAdmin },
-    lanes: { directory, groupMemberships, groups },
+    lanes: { directory, grants, groupMemberships, groups },
   };
 }
 
@@ -168,6 +185,9 @@ async function loadDeltaResponse(
       organizationId: input.organizationId,
     });
   }
+  if (changedLanes.has("grants")) {
+    lanes.grants = await loadGrantsLane(input);
+  }
   if (changedLanes.has("groupMemberships")) {
     lanes.groupMemberships = await loadGroupMembershipDelta({
       changes,
@@ -176,7 +196,7 @@ async function loadDeltaResponse(
     });
   }
   return {
-    version: 2,
+    version: 3,
     mode: "delta",
     organizationId: input.organizationId,
     nextCursor: input.nextCursor,
@@ -223,7 +243,16 @@ async function getReadModelInTransaction(input: {
     sessionUserId: input.sessionUserId,
     tx: input.tx,
   };
-  return requestedCursor === null || requestedCursor > currentHead
+  const requiresSnapshot =
+    requestedCursor === null ||
+    requestedCursor > currentHead ||
+    !(await isOrganizationReadModelCursorRetained({
+      currentCursor: currentHead,
+      organizationId: input.organizationId,
+      requestedCursor,
+      tx: input.tx,
+    }));
+  return requiresSnapshot
     ? loadSnapshotResponse(context)
     : loadDeltaResponse(context, requestedCursor);
 }

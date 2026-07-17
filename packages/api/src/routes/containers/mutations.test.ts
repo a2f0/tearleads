@@ -74,6 +74,7 @@ import {
   setTestOrganizationBillingExpiredTrial,
   setTestOrganizationBillingLocal,
 } from "../../../test/helpers/organizationBilling";
+import * as grants from "../../../test/helpers/organizationGrantChanges";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import {
@@ -1691,6 +1692,9 @@ test("DELETE /containers/:id deletes an empty metadata folder and tears down its
   });
   expect(deleteResponse.status).toBe(200);
   expect(isContainerDeleteResponse(await deleteResponse.json())).toBe(true);
+  await grants.expectLatestChange(
+    asVerifiedContainerManifest(root.bundle).state.organizationId,
+  );
 
   // The container and every trace of its metadata document are gone (no orphan).
   expect(
@@ -1927,6 +1931,10 @@ test("POST /containers/:containerId/share stores signed grants", async () => {
     recipient,
     signer: owner,
   });
+  const grantDelta = await grants.trackDelta(
+    created.organizationId,
+    owner.token,
+  );
   const shared = await expectMutationSuccess(
     await postMutation({
       path: `/containers/${created.containerId}/share`,
@@ -1934,6 +1942,7 @@ test("POST /containers/:containerId/share stores signed grants", async () => {
       token: owner.token,
     }),
   );
+  await grantDelta.expectReplacement(created.containerId);
 
   expect(shared.manifestHead.epoch).toBe(2);
   expect(shared.containerKek.containerKeyEpochId).toBe(

@@ -1,3 +1,5 @@
+import { isUuidV4String } from "@tearleads/validators/util";
+
 export interface MswSocketClient {
   addEventListener?: (
     type: "close" | "message",
@@ -69,6 +71,35 @@ function readContainerIdArray(value: unknown): string[] | null {
     containerIds.push(entry);
   }
   return containerIds;
+}
+
+function readOrganizationIdArray(value: unknown): string[] | null {
+  if (!Array.isArray(value) || value.length > 1) {
+    return null;
+  }
+  if (value.some((entry) => !isUuidV4String(entry))) {
+    return null;
+  }
+  return value;
+}
+
+function readOrganizationReadModelAudience(event: Record<string, unknown>): {
+  organizationId: string;
+  recipientUserIds: ReadonlySet<string>;
+} | null {
+  const organizationId = Reflect.get(event, "organizationId");
+  const recipientUserIds = Reflect.get(event, "recipientUserIds");
+  if (
+    typeof organizationId !== "string" ||
+    !isUuidV4String(organizationId) ||
+    !Array.isArray(recipientUserIds) ||
+    recipientUserIds.some(
+      (userId) => typeof userId !== "string" || !isUuidV4String(userId),
+    )
+  ) {
+    return null;
+  }
+  return { organizationId, recipientUserIds: new Set(recipientUserIds) };
 }
 
 function readStringField(value: unknown): string | null {
@@ -159,11 +190,13 @@ function shouldDropServerEvent(event: Record<string, unknown>): boolean {
  * The routing semantics the budget tests measure must match production:
  *
  * - container-scoped events go to sockets that declared interest;
+ * - organization read-model hints go only to sockets interested in that
+ *   organization whose authenticated user is in the internal audience;
  * - scopeless events route by the event's `userId` to that user's own sockets
  *   (e.g. `shared_with_you`) and to nobody else;
- * - an event tagged with `origin` is NOT delivered to the exact authoring
- *   session (matched on userId+sessionId), so the author never receives its own
- *   echo — the author's other sessions still do;
+ * - a non-organization event tagged with `origin` is NOT delivered to the
+ *   exact authoring session (matched on userId+sessionId), so the author never
+ *   receives its own echo — the author's other sessions still do;
  * - `origin` is stripped from the delivered payload.
  *
  * Socket identity comes from the same one-time ws-ticket the production
@@ -171,7 +204,8 @@ function shouldDropServerEvent(event: Record<string, unknown>): boolean {
  * injected `resolveTicketIdentity` (backed by the test API app's ticket store).
  * A socket whose ticket cannot be resolved (e.g. suites that stub the ws-ticket
  * route without the real API app) stays anonymous: it still receives
- * interest-routed events but never matches an origin or a user scope.
+ * container-interest-routed events but never matches an organization audience,
+ * origin, or user scope.
  */
 export function createMswEventRouter(
   options: {
@@ -181,6 +215,14 @@ export function createMswEventRouter(
   } = {},
 ) {
   const socketInterestByClient = new Map<MswSocketClient, Set<string>>();
+  const organizationInterestByClient = new Map<
+    MswSocketClient,
+    string | null
+  >();
+  const absentOrganizationAudienceByClient = new Map<
+    MswSocketClient,
+    Set<string>
+  >();
   const socketIdentityByClient = new Map<
     MswSocketClient,
     Promise<MswSocketIdentity | null>
@@ -196,6 +238,8 @@ export function createMswEventRouter(
       client.send(data);
     } catch {
       socketInterestByClient.delete(client);
+      organizationInterestByClient.delete(client);
+      absentOrganizationAudienceByClient.delete(client);
       socketIdentityByClient.delete(client);
     }
   };
@@ -213,6 +257,18 @@ export function createMswEventRouter(
   ): void => {
     const message = readJsonRecord(rawMessage);
     if (!message) {
+      return;
+    }
+
+    if (Reflect.get(message, "type") === "known_organizations") {
+      const organizationIds = readOrganizationIdArray(
+        Reflect.get(message, "organizationIds"),
+      );
+      if (!organizationIds) {
+        return;
+      }
+      organizationInterestByClient.set(client, organizationIds[0] ?? null);
+      absentOrganizationAudienceByClient.set(client, new Set());
       return;
     }
 
@@ -258,14 +314,60 @@ export function createMswEventRouter(
     }
   };
 
+  const handleOrganizationReadModelChanged = async (
+    event: Record<string, unknown>,
+  ): Promise<void> => {
+    const audience = readOrganizationReadModelAudience(event);
+    if (!audience) {
+      return;
+    }
+    const origin = readEventOrigin(event);
+
+    for (const [client, organizationId] of organizationInterestByClient) {
+      if (organizationId !== audience.organizationId) {
+        continue;
+      }
+      const identity = await resolveClientIdentity(client);
+      if (!identity) {
+        continue;
+      }
+      const absentOrganizations =
+        absentOrganizationAudienceByClient.get(client) ?? new Set<string>();
+      absentOrganizationAudienceByClient.set(client, absentOrganizations);
+      if (audience.recipientUserIds.has(identity.userId)) {
+        absentOrganizations.delete(audience.organizationId);
+        // Organization author echoes are deliberate. Multiple app clients can
+        // share one authenticated session, so session-wide origin suppression
+        // would leave sibling clients stale.
+        sendSocketEvent(client, {
+          type: "organization_read_model_changed",
+          organizationId: audience.organizationId,
+          originatedFromSession:
+            origin?.userId === identity.userId &&
+            origin.sessionId === identity.sessionId,
+        });
+      } else if (!absentOrganizations.has(audience.organizationId)) {
+        absentOrganizations.add(audience.organizationId);
+        sendSocketEvent(client, {
+          type: "organization_read_model_access_revoked",
+          organizationId: audience.organizationId,
+        });
+      }
+    }
+  };
+
   return {
     clear: () => {
       eventDropRules.length = 0;
       socketInterestByClient.clear();
+      organizationInterestByClient.clear();
+      absentOrganizationAudienceByClient.clear();
       socketIdentityByClient.clear();
     },
     handleConnection: (client: MswSocketClient) => {
       socketInterestByClient.set(client, new Set());
+      organizationInterestByClient.set(client, null);
+      absentOrganizationAudienceByClient.set(client, new Set());
       const ticket = readTicketFromClientUrl(client);
       const resolveTicketIdentity = options.resolveTicketIdentity;
       socketIdentityByClient.set(
@@ -279,6 +381,8 @@ export function createMswEventRouter(
       });
       client.addEventListener?.("close", () => {
         socketInterestByClient.delete(client);
+        organizationInterestByClient.delete(client);
+        absentOrganizationAudienceByClient.delete(client);
         socketIdentityByClient.delete(client);
       });
 
@@ -294,6 +398,11 @@ export function createMswEventRouter(
         // interested socket with NO origin exclusion, and interest is dropped
         // until the client reconciles over HTTP and re-declares.
         handleAccessChangedEvent(event);
+        return;
+      }
+
+      if (Reflect.get(event, "type") === "organization_read_model_changed") {
+        await handleOrganizationReadModelChanged(event);
         return;
       }
 

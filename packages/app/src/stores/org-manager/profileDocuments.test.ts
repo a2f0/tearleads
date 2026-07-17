@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import {
-  buildRosterProfileDocumentPatch,
   type DocumentStore,
   type Documents,
   getRosterProfileDocumentLocalId,
@@ -33,17 +32,10 @@ test("roster profile documents use stable org-scoped local ids", () => {
   ).toBe(`org-profile:organization-1:${user.userId}`);
 });
 
-test("roster profile documents seed contact identity fields", () => {
-  expect(buildRosterProfileDocumentPatch(user)).toEqual({
-    encapsulationPublicKey: user.encapsulationPublicKey,
-    isSelf: "1",
-    userId: user.userId,
-  });
-});
-
-test("roster profile document sync wait handles synchronous subscriptions", async () => {
+test("roster profile documents persist trusted identity fields", async () => {
   let documentId: string | null = null;
   let requestSyncCalls = 0;
+  let structuredFields: Readonly<Record<string, string | undefined>> = {};
   let unsubscribeCalls = 0;
   const store = {
     ensureInitialized: () => Promise.resolve(true),
@@ -51,7 +43,13 @@ test("roster profile document sync wait handles synchronous subscriptions", asyn
     requestSync: () => {
       requestSyncCalls += 1;
     },
-    setStructuredFields: () => Promise.resolve(),
+    setStructuredFields: (
+      _documentKind: string,
+      patch: Readonly<Record<string, string | undefined>>,
+    ) => {
+      structuredFields = patch;
+      return Promise.resolve();
+    },
     subscribe: (listener: () => void) => {
       documentId = "profile-document-1";
       listener();
@@ -70,11 +68,22 @@ test("roster profile document sync wait handles synchronous subscriptions", asyn
   const createdDocumentId = await createRosterProfileDocument({
     containerId: "roster-profile-container-1",
     documents,
+    identity: {
+      encapsulationPublicKey: "trusted-encapsulation-public-key",
+      userId: user.userId,
+    },
+    isSelf: true,
+    nickname: "Ada",
     organizationId: "organization-1",
-    user,
   });
 
   expect(createdDocumentId).toBe("profile-document-1");
+  expect(structuredFields).toEqual({
+    encapsulationPublicKey: "trusted-encapsulation-public-key",
+    isSelf: "1",
+    nickname: "Ada",
+    userId: user.userId,
+  });
   expect(unsubscribeCalls).toBe(1);
   expect(requestSyncCalls).toBe(1);
 });

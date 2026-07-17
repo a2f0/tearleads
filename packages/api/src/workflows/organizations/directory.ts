@@ -1,11 +1,7 @@
-import type {
-  ApiDatabase,
-  DatabaseSession,
-} from "@tearleads/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { organizations } from "@tearleads/api-shared/schema";
 import type { OrganizationDirectoryResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
-import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
 import {
   listOrganizationRosterEntries,
@@ -77,24 +73,4 @@ export async function loadOrganizationDirectoryInTransaction(input: {
       })
       .sort(compareOrganizationDirectoryUsers),
   };
-}
-
-export async function runListOrganizationDirectoryWorkflow(
-  db: ApiDatabase,
-  organizationId: string,
-  sessionUserId: string,
-): Promise<OrganizationDirectoryResponse> {
-  return db.transaction(async (tx) => {
-    const access = await requireDirectOrganizationAccess({
-      executor: tx,
-      organizationId,
-      userId: sessionUserId,
-    });
-    return loadOrganizationDirectoryInTransaction({
-      executor: tx,
-      isOrgAdmin: access.isOrgAdmin,
-      organizationId,
-      sessionUserId,
-    });
-  });
 }

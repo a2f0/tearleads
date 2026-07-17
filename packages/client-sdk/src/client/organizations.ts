@@ -7,11 +7,8 @@ import {
   type LocalOrganizationSummary,
   listLocalOrganizations,
   loadOrganizationBilling,
-  loadOrganizationContainerGrants,
   loadOrganizationDataUsage,
-  loadOrganizationGroupDetails,
   loadOrganizationPolicyHistory,
-  loadOrganizationUserDetail,
   removeOrganizationGroupUser,
   revokeOrganizationContainerGrant,
   startOrganizationTrial,
@@ -109,21 +106,31 @@ export interface Organizations {
   loadDirectoryAndGroups: () => ReturnType<
     OrganizationReadModelCoordinator["reconcile"]
   >;
+  loadDirectoryAndGroupsAfterMutation: () => ReturnType<
+    OrganizationReadModelCoordinator["reconcileAfterMutation"]
+  >;
   loadLocalDirectoryAndGroups: () => ReturnType<
     OrganizationReadModelCoordinator["loadLocal"]
   >;
-  loadGroupDetails: (
+  loadGroupMembers: (
     groupId: string,
-  ) => ReturnType<typeof loadOrganizationGroupDetails>;
+  ) => ReturnType<
+    InternalWorkflowRuntimeInput["apiClient"]["listOrganizationGroupMembers"]
+  >;
   loadGroupPresentationDetails(
     groupId: string,
   ): ReturnType<typeof loadOrganizationGroupPresentationDetails>;
-  loadGrants: () => ReturnType<typeof loadOrganizationContainerGrants>;
+  loadGroupContainers: (
+    groupId: string,
+  ) => ReturnType<OrganizationReadModelCoordinator["loadLocalGroupContainers"]>;
+  loadGrants: () => ReturnType<
+    OrganizationReadModelCoordinator["loadLocalGrants"]
+  >;
   listLocalOrganizations: () => Promise<LocalOrganizationSummary[]>;
   loadPolicyHistory: () => ReturnType<typeof loadOrganizationPolicyHistory>;
   loadUserDetail: (
     userId: string,
-  ) => ReturnType<typeof loadOrganizationUserDetail>;
+  ) => ReturnType<OrganizationReadModelCoordinator["loadLocalUserDetail"]>;
   updateRosterEntry: (
     userId: string,
     profileDocumentId: string | null,
@@ -311,28 +318,25 @@ class OrganizationsService implements Organizations {
     return this.readModelCoordinator.reconcile();
   }
 
+  loadDirectoryAndGroupsAfterMutation() {
+    return this.readModelCoordinator.reconcileAfterMutation();
+  }
+
   loadLocalDirectoryAndGroups() {
     return this.readModelCoordinator.loadLocal();
   }
 
-  loadGroupDetails(groupId: string) {
+  loadGroupMembers(groupId: string) {
     const runtime = this.runtimeService.workflowInput();
     const organizationId = authenticatedOrganizationId(runtime);
     if (!organizationId || groupId.length === 0) {
-      return Promise.resolve({
-        members: null,
-        containers: null,
-        policyHistory: null,
-      });
+      return Promise.resolve(null);
     }
 
-    return loadOrganizationGroupDetails({
-      apiClient: runtime.apiClient,
-      execSql:
-        runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
-      groupId,
+    return runtime.apiClient.listOrganizationGroupMembers(
       organizationId,
-    });
+      groupId,
+    );
   }
 
   loadGroupPresentationDetails(groupId: string) {
@@ -344,18 +348,11 @@ class OrganizationsService implements Organizations {
   }
 
   loadGrants() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    if (!organizationId) {
-      return Promise.resolve(null);
-    }
+    return this.readModelCoordinator.loadLocalGrants();
+  }
 
-    return loadOrganizationContainerGrants({
-      apiClient: runtime.apiClient,
-      execSql:
-        runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
-      organizationId,
-    });
+  loadGroupContainers(groupId: string) {
+    return this.readModelCoordinator.loadLocalGroupContainers(groupId);
   }
 
   listLocalOrganizations() {
@@ -381,19 +378,7 @@ class OrganizationsService implements Organizations {
   }
 
   loadUserDetail(userId: string) {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    if (!organizationId || userId.length === 0) {
-      return Promise.resolve(null);
-    }
-
-    return loadOrganizationUserDetail({
-      apiClient: runtime.apiClient,
-      execSql:
-        runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
-      organizationId,
-      userId,
-    });
+    return this.readModelCoordinator.loadLocalUserDetail(userId);
   }
 
   updateRosterEntry(userId: string, profileDocumentId: string | null) {
@@ -461,7 +446,7 @@ class OrganizationsService implements Organizations {
     return bundle;
   }
 
-  revokeGrant(grant: OrganizationGrantRef) {
+  async revokeGrant(grant: OrganizationGrantRef) {
     const runtime = this.runtimeService.workflowInput();
     const signingContext = requireSigningContext(runtime);
     const encapsulationKeyPair = requireEncapsulationKeyPair(runtime);
@@ -469,7 +454,7 @@ class OrganizationsService implements Organizations {
       throw new Error("Organization local database is unavailable");
     }
 
-    return revokeOrganizationContainerGrant({
+    const response = await revokeOrganizationContainerGrant({
       apiClient: runtime.apiClient,
       containerId: grant.containerId,
       encapsulationKeyPair,
@@ -483,6 +468,10 @@ class OrganizationsService implements Organizations {
         createRuntimePrincipalPolicyWarmer(runtime),
       ...signingContext,
     });
+    await this.readModelCoordinator.reconcileAfterMutation(
+      signingContext.organizationId,
+    );
+    return response;
   }
 
   startTrial() {

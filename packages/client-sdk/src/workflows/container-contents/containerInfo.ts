@@ -1,11 +1,15 @@
 import type {
+  RequestResult,
+  RequestResultOptions,
+} from "@tearleads/api-client";
+import type {
   ContainerAccessLevel,
   ContainerGrantSubjectType,
 } from "@tearleads/crypto";
 import type {
   ContainerWriterProjectionResponse,
-  ListOrganizationGroupsResponse,
   OrganizationGroupSummaryResponse,
+  OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {
@@ -23,6 +27,7 @@ import {
 import { containers } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { reconcileOrganizationDirectoryAndGroups } from "../organizations";
 
 export type ContainerShareAccessLevel = ContainerAccessLevel;
 
@@ -96,9 +101,11 @@ interface ContainerInfoApi {
   getContainerWriterProjection: (
     containerId: string,
   ) => Promise<ContainerWriterProjectionResponse | null>;
-  listOrganizationGroups: (
+  getOrganizationReadModelResult: (
     organizationId: string,
-  ) => Promise<ListOrganizationGroupsResponse | null>;
+    cursor?: string,
+    options?: RequestResultOptions,
+  ) => Promise<RequestResult<OrganizationReadModelResponse>>;
 }
 
 export type ContainerInfoRemoteMode = "always" | "if-synced" | "never";
@@ -311,10 +318,33 @@ function shouldLoadRemoteContainerInfo(input: {
   }
 }
 
+async function loadContainerInfoGroups(input: {
+  apiClient: ContainerInfoApi;
+  currentUserId: string | null;
+  execSql: ExecSql | null;
+  organizationId: string | null;
+}): Promise<OrganizationGroupSummaryResponse[]> {
+  if (!input.currentUserId || !input.execSql || !input.organizationId) {
+    return [];
+  }
+
+  // Group names are presentation data. Reconcile them through the disposable
+  // organization read model; container writer projections remain the only
+  // authority for the grants and access state shown alongside them.
+  const projection = await reconcileOrganizationDirectoryAndGroups({
+    apiClient: input.apiClient,
+    currentUserId: input.currentUserId,
+    execSql: input.execSql,
+    organizationId: input.organizationId,
+  });
+  return projection ? [...projection.groups] : [];
+}
+
 export async function loadContainerInfo(input: {
   apiClient: ContainerInfoApi;
   containerId: string;
   containerProjection?: ContainerWriterProjectionResponse | null | undefined;
+  currentUserId?: string | null | undefined;
   execSql?: ExecSql | null;
   organizationId: string | null;
   parentId?: string | null;
@@ -342,13 +372,16 @@ export async function loadContainerInfo(input: {
     };
   }
 
-  const [projection, groupsResponse, syncCursors] = await Promise.all([
+  const [projection, groups, syncCursors] = await Promise.all([
     input.containerProjection
       ? Promise.resolve(input.containerProjection)
       : input.apiClient.getContainerWriterProjection(input.containerId),
-    input.organizationId
-      ? input.apiClient.listOrganizationGroups(input.organizationId)
-      : Promise.resolve(null),
+    loadContainerInfoGroups({
+      apiClient: input.apiClient,
+      currentUserId: input.currentUserId ?? null,
+      execSql: input.execSql ?? null,
+      organizationId: input.organizationId,
+    }),
     loadContainerSyncCursors({
       containerId: input.containerId,
       execSql: input.execSql ?? null,
@@ -374,7 +407,7 @@ export async function loadContainerInfo(input: {
           subjectType: grant.subjectType,
         })),
       ),
-      groups: groupsResponse?.groups ?? [],
+      groups,
       security: getContainerInfoSecurityDetails(projection),
       syncCursors,
     },

@@ -11,7 +11,10 @@ import type { BlobStore } from "../data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../data/documents/documentKinds";
 import { createDomainScope } from "../data/domainScope";
 import { unavailableExecSql } from "../data/sqlite/sqlSchema";
-import { loadOrganizationGroupDetails } from "../workflows/organizations";
+import {
+  buildOrganizationGroupPolicyHistory,
+  type OrganizationGroupPolicyHistory,
+} from "../workflows/organizations";
 import { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
 import type { InternalWorkflowRuntimeInput } from "./workflowRuntime";
@@ -41,8 +44,12 @@ const authoritativeMembers: OrganizationGroupMembersResponse = {
   members: [],
 };
 
+const projectedPolicyHistory =
+  buildOrganizationGroupPolicyHistory(principalPolicy);
+
 function runtimeWith(
   apiClient: InternalWorkflowRuntimeInput["apiClient"],
+  logError: InternalWorkflowRuntimeInput["util"]["logError"] = () => {},
 ): InternalWorkflowRuntimeInput {
   return {
     apiClient,
@@ -71,7 +78,7 @@ function runtimeWith(
     },
     util: {
       log: () => {},
-      logError: () => {},
+      logError,
     },
   };
 }
@@ -79,19 +86,47 @@ function runtimeWith(
 function coordinatorWithMembers(
   members: OrganizationGroupMembersResponse | null,
   calls: string[],
+  policyHistory: OrganizationGroupPolicyHistory | null = projectedPolicyHistory,
+  policyHistoryError?: Error | undefined,
 ): OrganizationReadModelCoordinator {
   return {
     async loadLocal() {
       return null;
     },
+    async loadLocalGrants() {
+      return null;
+    },
+    async loadLocalGroupContainers(nextGroupId, nextOrganizationId) {
+      calls.push(`containers:${nextOrganizationId}:${nextGroupId}`);
+      return {
+        ...containers,
+        containers: containers.containers.map((container) => ({
+          ...container,
+          containerDisplayName: null,
+        })),
+      };
+    },
     async loadLocalGroupMembers(nextGroupId, nextOrganizationId) {
       calls.push(`members:${nextOrganizationId}:${nextGroupId}`);
       return members;
     },
+    async loadLocalGroupPolicyHistory(nextGroupId, nextOrganizationId) {
+      calls.push(`policy:${nextOrganizationId}:${nextGroupId}`);
+      if (policyHistoryError) {
+        throw policyHistoryError;
+      }
+      return policyHistory;
+    },
     async loadLocalOrReconcile() {
       return null;
     },
+    async loadLocalUserDetail() {
+      return null;
+    },
     async reconcile() {
+      return null;
+    },
+    async reconcileAfterMutation() {
       return null;
     },
   };
@@ -104,10 +139,6 @@ test("group presentation reads projected members without requesting members", as
     async getCurrentPrincipalPolicy(principalType, principalId) {
       networkCalls.push(`policy:${principalType}:${principalId}`);
       return principalPolicy;
-    },
-    async listOrganizationGroupContainers(nextOrganizationId, nextGroupId) {
-      networkCalls.push(`containers:${nextOrganizationId}:${nextGroupId}`);
-      return containers;
     },
     async listOrganizationGroupMembers(nextOrganizationId, nextGroupId) {
       networkCalls.push(`members:${nextOrganizationId}:${nextGroupId}`);
@@ -122,11 +153,9 @@ test("group presentation reads projected members without requesting members", as
   });
 
   expect(result.members).toEqual(projectedMembers);
-  expect(localCalls).toEqual(["members:org-1:group-1"]);
-  expect([...networkCalls].sort()).toEqual([
-    "containers:org-1:group-1",
-    "policy:group:group-1",
-  ]);
+  expect(result.policyHistory).toEqual(projectedPolicyHistory);
+  expect(localCalls).toEqual(["members:org-1:group-1", "policy:org-1:group-1"]);
+  expect(networkCalls).toEqual([]);
 });
 
 test("group presentation does not fall back when projected members are absent", async () => {
@@ -136,10 +165,6 @@ test("group presentation does not fall back when projected members are absent", 
     async getCurrentPrincipalPolicy(principalType, principalId) {
       networkCalls.push(`policy:${principalType}:${principalId}`);
       return principalPolicy;
-    },
-    async listOrganizationGroupContainers(nextOrganizationId, nextGroupId) {
-      networkCalls.push(`containers:${nextOrganizationId}:${nextGroupId}`);
-      return containers;
     },
     async listOrganizationGroupMembers(nextOrganizationId, nextGroupId) {
       networkCalls.push(`members:${nextOrganizationId}:${nextGroupId}`);
@@ -154,32 +179,72 @@ test("group presentation does not fall back when projected members are absent", 
   });
 
   expect(result.members).toBeNull();
-  expect(localCalls).toEqual(["members:org-1:group-1"]);
-  expect([...networkCalls].sort()).toEqual([
-    "containers:org-1:group-1",
-    "policy:group:group-1",
-  ]);
+  expect(result.policyHistory).toEqual(projectedPolicyHistory);
+  expect(localCalls).toEqual(["members:org-1:group-1", "policy:org-1:group-1"]);
+  expect(networkCalls).toEqual([]);
 });
 
-test("authoritative group details still request members", async () => {
-  const calls: string[] = [];
-  const result = await loadOrganizationGroupDetails({
-    apiClient: {
-      async getCurrentPrincipalPolicy() {
-        return principalPolicy;
-      },
-      async listOrganizationGroupContainers() {
-        return containers;
-      },
-      async listOrganizationGroupMembers(nextOrganizationId, nextGroupId) {
-        calls.push(`members:${nextOrganizationId}:${nextGroupId}`);
-        return authoritativeMembers;
-      },
+test("group presentation fetches policy history once after a local miss", async () => {
+  const networkCalls: string[] = [];
+  const localCalls: string[] = [];
+  const apiClient = createMockApiClient({
+    async getCurrentPrincipalPolicy(principalType, principalId) {
+      networkCalls.push(`policy:${principalType}:${principalId}`);
+      return principalPolicy;
     },
-    groupId,
-    organizationId,
+    async listOrganizationGroupMembers(nextOrganizationId, nextGroupId) {
+      networkCalls.push(`members:${nextOrganizationId}:${nextGroupId}`);
+      return authoritativeMembers;
+    },
   });
 
-  expect(calls).toEqual(["members:org-1:group-1"]);
-  expect(result.members).toEqual(authoritativeMembers);
+  const result = await loadOrganizationGroupPresentationDetails({
+    groupId,
+    readModelCoordinator: coordinatorWithMembers(
+      projectedMembers,
+      localCalls,
+      null,
+    ),
+    runtime: runtimeWith(apiClient),
+  });
+
+  expect(result.members).toEqual(projectedMembers);
+  expect(result.policyHistory).toEqual(projectedPolicyHistory);
+  expect(localCalls).toEqual(["members:org-1:group-1", "policy:org-1:group-1"]);
+  expect(networkCalls).toEqual(["policy:group:group-1"]);
+});
+
+test("group presentation recovers from local policy storage failures", async () => {
+  const networkCalls: string[] = [];
+  const localCalls: string[] = [];
+  const loggedErrors: Array<{ cause: unknown; message: string | Error }> = [];
+  const localError = new Error("local policy storage is corrupt");
+  const apiClient = createMockApiClient({
+    async getCurrentPrincipalPolicy(principalType, principalId) {
+      networkCalls.push(`policy:${principalType}:${principalId}`);
+      return principalPolicy;
+    },
+  });
+
+  const result = await loadOrganizationGroupPresentationDetails({
+    groupId,
+    readModelCoordinator: coordinatorWithMembers(
+      projectedMembers,
+      localCalls,
+      null,
+      localError,
+    ),
+    runtime: runtimeWith(apiClient, (message, cause) => {
+      loggedErrors.push({ cause, message });
+    }),
+  });
+
+  expect(result.policyHistory).toEqual(projectedPolicyHistory);
+  expect(networkCalls).toEqual(["policy:group:group-1"]);
+  expect(loggedErrors).toEqual([
+    {
+      cause: localError,
+      message: "Failed to load local organization group policy history",
+    },
+  ]);
 });

@@ -5,6 +5,7 @@ import {
   organizationReadModelGroups as groups,
   organizationReadModelSnapshot as snapshot,
 } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
+import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMembershipPersistence";
 import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,
@@ -41,9 +42,17 @@ test("organization read-model snapshots persist normalized requester-safe projec
           expect.objectContaining({ isSelf: false, userId: "user-2" }),
         ],
       },
+      grants: { organizationId: "org-1", grants: [] },
       groups: groups("org-1"),
+      membershipEdges: [
+        {
+          groupId: "admins-org-1",
+          memberPrincipalId: "user-1",
+          memberPrincipalType: "user",
+        },
+      ],
       organizationId: "org-1",
-      protocolVersion: 2,
+      protocolVersion: 3,
       requester: { isOrgAdmin: true },
       updatedAt: expect.any(String),
     });
@@ -58,6 +67,31 @@ test("organization read-model snapshots persist normalized requester-safe projec
       expect.objectContaining({ isSelf: false, userId: "user-1" }),
       expect.objectContaining({ isSelf: true, userId: "user-2" }),
     ]);
+  } finally {
+    close();
+  }
+});
+
+test("local group members require a requester projection", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-members-requester-test",
+  );
+  try {
+    await applyOrganizationReadModelResponse({
+      currentUserId: "user-1",
+      execSql,
+      requestedCursor: null,
+      response: snapshot("org-1", "cursor-1"),
+    });
+
+    await expect(
+      loadOrganizationReadModelGroupMembers(
+        execSql,
+        "org-1",
+        "admins-org-1",
+        "user-without-requester",
+      ),
+    ).resolves.toBeNull();
   } finally {
     close();
   }

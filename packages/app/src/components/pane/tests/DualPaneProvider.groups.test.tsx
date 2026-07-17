@@ -45,6 +45,7 @@ import {
   waitForNoPostShareSyncFailures,
 } from "../../../../test/helpers/dual-pane/dualPaneSyncKit";
 import {
+  expectGrantReadModelRequestBoundary,
   requestPath,
   summarizeProxiedApiRequests,
 } from "../../../../test/helpers/dualPaneRequestSummary";
@@ -471,6 +472,7 @@ test(
       groupName,
       "read",
     );
+    const grantDetailRequestStartIndex = listProxiedApiRequests().length;
 
     await interact(() => {
       fireEvent.click(grantRow);
@@ -482,6 +484,10 @@ test(
       ).toHaveLength(2);
     });
     await waitForNoPostShareSyncFailures([leftPane], postShareBaseline);
+
+    expectGrantReadModelRequestBoundary(
+      listProxiedApiRequests().slice(grantDetailRequestStartIndex),
+    );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );

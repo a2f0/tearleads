@@ -1,11 +1,14 @@
 import { useEffect } from "react";
 import { useOrgManagerDataUsageRefresh } from "../billing/useOrgManagerDataUsageRefresh";
+import { useOrgManagerGrantsRefresh } from "../grants/useOrgManagerGrantsRefresh";
 import type { OrgManagerView } from "../routes";
 
 interface OrgManagerViewRefreshesInput {
   readonly enabled: boolean;
+  readonly readModelCursor: string | null;
   readonly refreshDataUsage: () => Promise<void>;
   readonly refreshGrants: () => Promise<void>;
+  readonly refreshGrantsOnEntry: () => Promise<void>;
   readonly refreshOrganizationPolicyHistory: () => Promise<void>;
   readonly view: OrgManagerView;
 }
@@ -19,11 +22,13 @@ export function useOrgManagerViewRefreshes(
     visible: input.view === "usage",
   });
 
-  useEffect(() => {
-    if (input.view === "grants") {
-      void input.refreshGrants();
-    }
-  }, [input.refreshGrants, input.view]);
+  useOrgManagerGrantsRefresh({
+    enabled: input.enabled,
+    readModelCursor: input.readModelCursor,
+    refreshGrants: input.refreshGrants,
+    refreshGrantsOnEntry: input.refreshGrantsOnEntry,
+    visible: input.view === "grants",
+  });
 
   useEffect(() => {
     if (input.view === "organization") {

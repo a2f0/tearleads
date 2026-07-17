@@ -1,7 +1,4 @@
-import type {
-  ApiDatabase,
-  DatabaseSession,
-} from "@tearleads/api-shared/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   groups as groupsTable,
   organizations,
@@ -9,14 +6,11 @@ import {
 import {
   isOrganizationContainerGrantSubjectType,
   type OrganizationContainerGrantResponse,
-  type OrganizationContainerGrantsResponse,
 } from "@tearleads/validators/response";
 import { and, eq, inArray } from "drizzle-orm";
-import { requireDirectOrganizationAccess } from "./access";
 import {
   listOrganizationContainerGrantRows,
   type OrganizationContainerGrantRow,
-  type OrganizationContainerGrantSubjectFilter,
   toOrganizationGroupContainerResponse,
 } from "./containerGrants";
 import { loadUsersById, type UserKeyRow } from "./users";
@@ -104,38 +98,13 @@ function toOrganizationContainerGrantResponse(input: {
   };
 }
 
-async function listOrganizationContainerGrantsInTransaction(input: {
-  executor: DatabaseSession;
-  organizationId: string;
-  sessionUserId: string;
-}): Promise<OrganizationContainerGrantsResponse> {
-  await requireDirectOrganizationAccess({
-    executor: input.executor,
-    organizationId: input.organizationId,
-    userId: input.sessionUserId,
-  });
-  const grants = await listOrganizationContainerGrantResponsesInTransaction({
-    executor: input.executor,
-    organizationId: input.organizationId,
-  });
-
-  return {
-    organizationId: input.organizationId,
-    grants,
-  };
-}
-
 export async function listOrganizationContainerGrantResponsesInTransaction(input: {
   executor: DatabaseSession;
   organizationId: string;
-  subjectFilters?:
-    | readonly OrganizationContainerGrantSubjectFilter[]
-    | undefined;
 }): Promise<OrganizationContainerGrantResponse[]> {
   const rows = await listOrganizationContainerGrantRows({
     executor: input.executor,
     organizationId: input.organizationId,
-    subjectFilters: input.subjectFilters,
   });
 
   const groupNamesById = await loadGroupNamesById({
@@ -165,20 +134,6 @@ export async function listOrganizationContainerGrantResponsesInTransaction(input
       organizationNamesById,
       row,
       usersById,
-    }),
-  );
-}
-
-export async function runListOrganizationContainerGrantsWorkflow(
-  db: ApiDatabase,
-  organizationId: string,
-  sessionUserId: string,
-): Promise<OrganizationContainerGrantsResponse> {
-  return db.transaction((tx) =>
-    listOrganizationContainerGrantsInTransaction({
-      executor: tx,
-      organizationId,
-      sessionUserId,
     }),
   );
 }
