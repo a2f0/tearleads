@@ -303,12 +303,12 @@ Encrypted Loro sync uses `POST /documents/{documentId}/sync`.
 - optional `minLsn`
 - `outgoingUpdates[]`
 
-Outgoing updates carry encrypted bytes, visible partial start/end version
-vectors, optional source version vector, optional checkpoint kind, and a signed
-write header. Successful writes require at least one resolved, active
-authorizing container path; read-only sync probes can omit the references. The
-`expectedLinkSetManifestHash` pins the document head that the server resolves,
-so the request does not echo the full document manifest.
+Document sync updates carry encrypted bytes, partial version vectors, and a
+signed write header. Checkpoint fields are either all absent or the tuple
+`rotate_baseline`, `full_history_snapshot`, and a non-empty source vector.
+Writes require a resolved active authorizing path; read-only probes may omit it.
+`expectedLinkSetManifestHash` pins the server-resolved document head instead of
+echoing the full manifest.
 
 For accepted writes, the API verifies:
 

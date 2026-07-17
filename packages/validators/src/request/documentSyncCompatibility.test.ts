@@ -133,6 +133,12 @@ test("document sync request guard preserves permissive envelope behavior", () =>
 test("document sync request guard preserves cross-field rules", () => {
   const valid = createSyncRequest();
   const update = valid.outgoingUpdates[0];
+  const incompleteCheckpointRequest = {
+    ...valid,
+    outgoingUpdates: [
+      { ...update, checkpointKind: "rotate_baseline" as const },
+    ],
+  };
 
   expect(isDocumentSyncRequest({})).toBe(false);
   expect(isDocumentSyncRequest({ outgoingUpdates: "invalid" })).toBe(false);
@@ -150,12 +156,20 @@ test("document sync request guard preserves cross-field rules", () => {
       ],
     }),
   ).toBe(true);
-  expect(
-    isDocumentSyncRequest({
-      ...valid,
-      outgoingUpdates: [{ ...update, checkpointKind: "rotate_baseline" }],
-    }),
-  ).toBe(false);
+  expect(isDocumentSyncRequest(incompleteCheckpointRequest)).toBe(false);
+  const incompleteCheckpointResult = DocumentSyncRequestSchema.safeParse(
+    incompleteCheckpointRequest,
+  );
+  expect(incompleteCheckpointResult.success).toBe(false);
+  if (!incompleteCheckpointResult.success) {
+    expect(incompleteCheckpointResult.error.issues).toEqual([
+      {
+        code: "custom",
+        message: "checkpoint fields must be absent or form a rotation baseline",
+        path: ["outgoingUpdates", 0],
+      },
+    ]);
+  }
   expect(
     isDocumentSyncRequest({
       ...valid,
@@ -318,6 +332,10 @@ test("document sync response guard preserves permissive envelope behavior", () =
 test("document sync response guard preserves checkpoint rules", () => {
   const valid = createSyncResponse();
   const update = valid.updates[0];
+  const incompleteCheckpointResponse = {
+    ...valid,
+    updates: [{ ...update, checkpointKind: "rotate_baseline" as const }],
+  };
 
   expect(
     isDocumentSyncResponse({
@@ -332,12 +350,20 @@ test("document sync response guard preserves checkpoint rules", () => {
       ],
     }),
   ).toBe(true);
-  expect(
-    isDocumentSyncResponse({
-      ...valid,
-      updates: [{ ...update, checkpointKind: "rotate_baseline" }],
-    }),
-  ).toBe(false);
+  expect(isDocumentSyncResponse(incompleteCheckpointResponse)).toBe(false);
+  const incompleteCheckpointResult = DocumentSyncResponseSchema.safeParse(
+    incompleteCheckpointResponse,
+  );
+  expect(incompleteCheckpointResult.success).toBe(false);
+  if (!incompleteCheckpointResult.success) {
+    expect(incompleteCheckpointResult.error.issues).toEqual([
+      {
+        code: "custom",
+        message: "checkpoint fields must be absent or form a rotation baseline",
+        path: ["updates", 0],
+      },
+    ]);
+  }
 });
 
 test("document sync response schema preserves signed and extension fields", () => {

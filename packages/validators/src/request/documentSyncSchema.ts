@@ -1,5 +1,11 @@
 import { z } from "zod";
 import {
+  classifyDocumentSyncCheckpointFields,
+  DOCUMENT_SYNC_CHECKPOINT_FIELD_SET_ISSUE_MESSAGE,
+  DOCUMENT_SYNC_ROTATION_CHECKPOINT_KIND,
+  DOCUMENT_SYNC_ROTATION_CHECKPOINT_PAYLOAD_KIND,
+} from "../documentSyncCheckpoint";
+import {
   documentSyncRequestEnvelopeRefinements,
   documentSyncRequestRotationRefinement,
 } from "../documentSyncRefinements";
@@ -74,8 +80,12 @@ export type DocumentContentKeyBundleRequest = z.infer<
 export const DocumentOutgoingUpdateSchema =
   registerJsonSchemaRuntimeRefinements(
     loosePlainObject({
-      checkpointKind: z.literal("rotate_baseline").optional(),
-      checkpointPayloadKind: z.literal("full_history_snapshot").optional(),
+      checkpointKind: z
+        .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_KIND)
+        .optional(),
+      checkpointPayloadKind: z
+        .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_PAYLOAD_KIND)
+        .optional(),
       encryptedData: nonEmptyStringSchema,
       id: registerJsonSchemaFragment(z.string().refine(isUuidV4String), {
         pattern: UUID_V4_PATTERN.source,
@@ -86,20 +96,10 @@ export const DocumentOutgoingUpdateSchema =
       sourceVersionVector: nonEmptyStringSchema.optional(),
       writeHeader: plainObjectSchema,
     }).superRefine((update, context) => {
-      const hasNoCheckpoint =
-        update.checkpointKind === undefined &&
-        update.checkpointPayloadKind === undefined &&
-        update.sourceVersionVector === undefined;
-      const hasRotationCheckpoint =
-        update.checkpointKind === "rotate_baseline" &&
-        update.checkpointPayloadKind === "full_history_snapshot" &&
-        update.sourceVersionVector !== undefined;
-
-      if (!hasNoCheckpoint && !hasRotationCheckpoint) {
+      if (classifyDocumentSyncCheckpointFields(update) === "invalid") {
         context.addIssue({
           code: "custom",
-          message:
-            "checkpoint fields must be absent or form a rotation baseline",
+          message: DOCUMENT_SYNC_CHECKPOINT_FIELD_SET_ISSUE_MESSAGE,
         });
       }
     }),
