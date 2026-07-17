@@ -4,7 +4,11 @@ import {
   PERSISTENT_STORAGE_POLICY,
 } from "@tearleads/client-sdk/sqlite";
 import { renderApp } from "app/client";
-import { APP_HOST_PROFILES, createAppHostConfig } from "app/host/AppHostConfig";
+import {
+  APP_HOST_PROFILES,
+  createAppBuildInfo,
+  createAppHostConfig,
+} from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
 
 function createElectrobunSQLiteRuntime() {
@@ -29,6 +33,13 @@ if (!elem) {
 renderApp(createRoot(elem), {
   hostConfig: createAppHostConfig({
     apiBaseUrl: "http://localhost:3001",
+    // Stamped by scripts/withBuildInfoEnv.sh and inlined by the `env` passthrough
+    // this view declares in electrobun.config.ts.
+    buildInfo: createAppBuildInfo({
+      commit: process.env.BUN_PUBLIC_GIT_SHA,
+      target: "electrobun",
+      version: process.env.BUN_PUBLIC_APP_VERSION,
+    }),
     // WKWebView cannot structured-clone a non-extractable CryptoKey into
     // IndexedDB (the default browser keyring) without keychain access, which an
     // unsigned dev app lacks; use the raw-bytes WebView keyring so keyring init

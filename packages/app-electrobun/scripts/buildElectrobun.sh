@@ -3,10 +3,12 @@ set -e
 
 SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 PACKAGE_DIR="$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(CDPATH='' cd -- "$PACKAGE_DIR/../.." && pwd)"
 BUILD_DIR="$PACKAGE_DIR/build"
 
 cd "$PACKAGE_DIR"
-NODE_ENV=production bun run electrobun build "$@"
+NODE_ENV=production sh "$REPO_ROOT/scripts/withBuildInfoEnv.sh" \
+  bun run electrobun build "$@"
 
 if [ ! -d "$BUILD_DIR" ]; then
   echo "Build directory $BUILD_DIR does not exist. The build may have failed." >&2

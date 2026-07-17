@@ -2,6 +2,7 @@ import { Capacitor } from "@capacitor/core";
 import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { renderApp } from "app/client";
 import {
+  createAppBuildInfo,
   createAppHostConfig,
   resolveEventsWebSocketUrl,
 } from "app/host/AppHostConfig";
@@ -25,6 +26,12 @@ const wsUrl = resolveEventsWebSocketUrl(
 
 const hostConfig = createAppHostConfig({
   apiBaseUrl,
+  // Resolved and inlined by the `define` block in vite.config.ts.
+  buildInfo: createAppBuildInfo({
+    commit: import.meta.env.VITE_GIT_SHA,
+    target: "capacitor",
+    version: import.meta.env.VITE_APP_VERSION,
+  }),
   createPurchases: createCapacitorPurchases,
   createSQLiteRuntime: createCapacitorSQLiteRuntime,
   navigationMode: Capacitor.isNativePlatform() ? "routed" : undefined,

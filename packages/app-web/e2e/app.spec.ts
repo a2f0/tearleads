@@ -88,7 +88,7 @@ async function killWorker(page: Page, pane: Locator): Promise<void> {
 
 async function showSystemMonitorTab(
   pane: Locator,
-  tabName: "Logs" | "Status",
+  tabName: "Environment" | "Logs" | "Status",
 ): Promise<void> {
   if ((await pane.getByRole("tab", { name: "Logs" }).count()) === 0) {
     await pane.getByRole("button", { name: "System Monitor" }).click();

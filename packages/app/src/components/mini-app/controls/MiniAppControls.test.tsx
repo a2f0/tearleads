@@ -124,6 +124,49 @@ test("mini app clipboard button disables empty values and respects prevented cli
   expect(copied).toEqual([]);
 });
 
+test("mini app clipboard button resolves a function value at click time", () => {
+  const copied: string[] = [];
+  installClipboard((value) => {
+    copied.push(value);
+    return Promise.resolve();
+  });
+  let current = "first";
+  const view = render(
+    <MiniAppClipboardButton label="Copy lazy" value={() => current} />,
+  );
+
+  const button = view.getByRole("button", {
+    name: "Copy lazy",
+  }) as HTMLButtonElement;
+
+  // Enabled without ever resolving the value: emptiness cannot be checked
+  // without doing the work the laziness exists to avoid.
+  expect(button.disabled).toBe(false);
+
+  fireEvent.click(button);
+  current = "second";
+  fireEvent.click(button);
+
+  // Each click copies what the builder returns at that moment, not a value
+  // captured at render.
+  expect(copied).toEqual(["first", "second"]);
+});
+
+test("mini app clipboard button skips a function value that resolves empty", () => {
+  const copied: string[] = [];
+  installClipboard((value) => {
+    copied.push(value);
+    return Promise.resolve();
+  });
+  const view = render(
+    <MiniAppClipboardButton label="Copy empty lazy" value={() => "  "} />,
+  );
+
+  fireEvent.click(view.getByRole("button", { name: "Copy empty lazy" }));
+
+  expect(copied).toEqual([]);
+});
+
 test("mini app form controls preserve class names and forwarded refs", () => {
   const inputRef = createRef<HTMLInputElement>();
   const selectRef = createRef<HTMLSelectElement>();
