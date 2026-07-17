@@ -11,6 +11,11 @@ export type DirectoryRefreshOptions = {
   skipNextGroupDetailsEffect?: boolean;
 };
 
+export interface GroupDetailsEffectKey {
+  readonly groupId: string | null;
+  readonly stateHash: string | null;
+}
+
 export type DirectoryRefreshResult =
   | {
       didLoad: false;

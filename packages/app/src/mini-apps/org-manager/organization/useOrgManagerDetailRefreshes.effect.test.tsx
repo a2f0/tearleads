@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { act, cleanup, render } from "@testing-library/react";
+import type { GroupDetailsEffectKey } from "../refresh";
 import type { OrgManagerView } from "../routes";
 import { useOrgManagerDetailRefreshes } from "./useOrgManagerDetailRefreshes";
 
@@ -12,9 +13,10 @@ interface DetailRefreshProbeProps {
   readonly refreshSelectedUserDetail: (userId: string | null) => Promise<void>;
   readonly selectedGroupAvailable: boolean;
   readonly selectedGroupId: string | null;
+  readonly selectedGroupStateHash: string | null;
   readonly selectedUserId: string | null;
   readonly skippedGroupDetailsEffectRef: {
-    current: { groupId: string | null } | null;
+    current: GroupDetailsEffectKey | null;
   };
   readonly view: OrgManagerView;
 }
@@ -37,6 +39,7 @@ test("retained selections load details only in their visible view", () => {
     },
     skippedGroupDetailsEffectRef,
     selectedGroupAvailable: true,
+    selectedGroupStateHash: "state-a",
   };
   const view = render(
     <DetailRefreshProbe
@@ -90,14 +93,15 @@ test("retained selections load details only in their visible view", () => {
 test("a manual group refresh skip is consumed only when groups are visible", () => {
   const groupLoads: Array<string | null> = [];
   const skippedGroupDetailsEffectRef: {
-    current: { groupId: string | null } | null;
-  } = { current: { groupId: "group-a" } };
+    current: GroupDetailsEffectKey | null;
+  } = { current: { groupId: "group-a", stateHash: "state-a" } };
   const stableProps = {
     refreshSelectedGroupDetails: async (groupId: string | null) => {
       groupLoads.push(groupId);
     },
     refreshSelectedUserDetail: async (_userId: string | null) => undefined,
     selectedGroupId: "group-a",
+    selectedGroupStateHash: "state-a",
     selectedUserId: "user-a",
     selectedGroupAvailable: true,
     skippedGroupDetailsEffectRef,
@@ -107,13 +111,27 @@ test("a manual group refresh skip is consumed only when groups are visible", () 
   );
 
   expect(groupLoads).toEqual([]);
-  expect(skippedGroupDetailsEffectRef.current).toEqual({ groupId: "group-a" });
+  expect(skippedGroupDetailsEffectRef.current).toEqual({
+    groupId: "group-a",
+    stateHash: "state-a",
+  });
 
   act(() => {
     view.rerender(<DetailRefreshProbe {...stableProps} view="groups" />);
   });
   expect(groupLoads).toEqual([]);
   expect(skippedGroupDetailsEffectRef.current).toBeNull();
+
+  act(() => {
+    view.rerender(
+      <DetailRefreshProbe
+        {...stableProps}
+        selectedGroupStateHash="state-b"
+        view="groups"
+      />,
+    );
+  });
+  expect(groupLoads).toEqual(["group-a"]);
 });
 
 test("a cold group deep link loads once its group arrives in the snapshot", () => {
@@ -126,6 +144,7 @@ test("a cold group deep link loads once its group arrives in the snapshot", () =
     refreshSelectedGroupDetails,
     refreshSelectedUserDetail: async () => {},
     selectedGroupId: "group-a",
+    selectedGroupStateHash: "state-a",
     selectedUserId: null,
     skippedGroupDetailsEffectRef,
     view: "groups" as const,
@@ -142,4 +161,63 @@ test("a cold group deep link loads once its group arrives in the snapshot", () =
     );
   });
   expect(groupLoads).toEqual(["group-a"]);
+});
+
+test("a reconciled membership state reloads a retained group", () => {
+  const groupLoads: Array<string | null> = [];
+  const stableProps = {
+    refreshSelectedGroupDetails: async (groupId: string | null) => {
+      groupLoads.push(groupId);
+    },
+    refreshSelectedUserDetail: async () => {},
+    selectedGroupAvailable: true,
+    selectedGroupId: "group-a",
+    selectedUserId: null,
+    skippedGroupDetailsEffectRef: { current: null },
+    view: "groups" as const,
+  };
+  const view = render(
+    <DetailRefreshProbe {...stableProps} selectedGroupStateHash="state-1" />,
+  );
+
+  expect(groupLoads).toEqual(["group-a"]);
+
+  act(() => {
+    view.rerender(
+      <DetailRefreshProbe {...stableProps} selectedGroupStateHash="state-2" />,
+    );
+  });
+  expect(groupLoads).toEqual(["group-a", "group-a"]);
+
+  act(() => {
+    view.rerender(
+      <DetailRefreshProbe {...stableProps} selectedGroupStateHash="state-2" />,
+    );
+  });
+  expect(groupLoads).toEqual(["group-a", "group-a"]);
+});
+
+test("a skip for an older state does not hide reconciled members", () => {
+  const groupLoads: Array<string | null> = [];
+  const skippedGroupDetailsEffectRef = {
+    current: { groupId: "group-a", stateHash: "state-1" },
+  };
+
+  render(
+    <DetailRefreshProbe
+      refreshSelectedGroupDetails={async (groupId) => {
+        groupLoads.push(groupId);
+      }}
+      refreshSelectedUserDetail={async () => {}}
+      selectedGroupAvailable
+      selectedGroupId="group-a"
+      selectedGroupStateHash="state-2"
+      selectedUserId={null}
+      skippedGroupDetailsEffectRef={skippedGroupDetailsEffectRef}
+      view="groups"
+    />,
+  );
+
+  expect(groupLoads).toEqual(["group-a"]);
+  expect(skippedGroupDetailsEffectRef.current).toBeNull();
 });

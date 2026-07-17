@@ -22,6 +22,7 @@ import {
   type DirectoryRefreshResult,
   directoryLoadOptions,
   type GrantsRefreshOptions,
+  type GroupDetailsEffectKey,
   type GroupDetailsRefreshOptions,
   getRefreshBehavior,
   type RefreshBehaviorOptions,
@@ -45,8 +46,9 @@ interface OrgManagerRefreshersParams {
   resetSelectedRosterUser: () => void;
   selectGroup: (groupId: string | null) => void;
   selectedGroupIdRef: { current: string | null };
+  selectedGroupStateHashRef: { current: string | null };
   selectedUserIdRef: { current: string | null };
-  skippedGroupDetailsEffectRef: { current: { groupId: string | null } | null };
+  skippedGroupDetailsEffectRef: { current: GroupDetailsEffectKey | null };
   setDataUsage: Dispatch<SetStateAction<OrganizationDataUsage | null>>;
   setDirectory: Dispatch<SetStateAction<OrganizationDirectory | null>>;
   setError: Dispatch<SetStateAction<string | null>>;
@@ -84,6 +86,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     resetSelectedRosterUser,
     selectGroup,
     selectedGroupIdRef,
+    selectedGroupStateHashRef,
     selectedUserIdRef,
     skippedGroupDetailsEffectRef,
     setDataUsage,
@@ -156,14 +159,21 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
           currentSelectedGroupId,
           nextDirectoryState.groups,
         );
+        const nextSelectedGroupStateHash =
+          nextDirectoryState.groups.find(
+            (group) => group.groupId === nextSelectedGroupId,
+          )?.currentState?.stateHash ?? null;
         if (
           options.skipNextGroupDetailsEffect &&
-          nextSelectedGroupId !== currentSelectedGroupId
+          (nextSelectedGroupId !== currentSelectedGroupId ||
+            nextSelectedGroupStateHash !== selectedGroupStateHashRef.current)
         ) {
           skippedGroupDetailsEffectRef.current = {
             groupId: nextSelectedGroupId,
+            stateHash: nextSelectedGroupStateHash,
           };
         }
+        selectedGroupStateHashRef.current = nextSelectedGroupStateHash;
         selectGroup(nextSelectedGroupId);
         return {
           didLoad: true,
@@ -202,6 +212,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
       resetDirectoryState,
       selectGroup,
       selectedGroupIdRef,
+      selectedGroupStateHashRef,
       setDirectory,
       setError,
       setGroups,

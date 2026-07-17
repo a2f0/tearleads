@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import type { GroupDetailsEffectKey } from "../refresh";
 import type { OrgManagerView } from "../routes";
 
 interface OrgManagerDetailRefreshesInput {
@@ -8,9 +9,10 @@ interface OrgManagerDetailRefreshesInput {
   readonly refreshSelectedUserDetail: (userId: string | null) => Promise<void>;
   readonly selectedGroupAvailable: boolean;
   readonly selectedGroupId: string | null;
+  readonly selectedGroupStateHash: string | null;
   readonly selectedUserId: string | null;
   readonly skippedGroupDetailsEffectRef: {
-    current: { groupId: string | null } | null;
+    current: GroupDetailsEffectKey | null;
   };
   readonly view: OrgManagerView;
 }
@@ -30,7 +32,10 @@ export function useOrgManagerDetailRefreshes(
     const skippedGroupDetailsEffect =
       input.skippedGroupDetailsEffectRef.current;
     input.skippedGroupDetailsEffectRef.current = null;
-    if (skippedGroupDetailsEffect?.groupId === input.selectedGroupId) {
+    if (
+      skippedGroupDetailsEffect?.groupId === input.selectedGroupId &&
+      skippedGroupDetailsEffect.stateHash === input.selectedGroupStateHash
+    ) {
       return;
     }
 
@@ -39,6 +44,7 @@ export function useOrgManagerDetailRefreshes(
     input.refreshSelectedGroupDetails,
     input.selectedGroupAvailable,
     input.selectedGroupId,
+    input.selectedGroupStateHash,
     input.skippedGroupDetailsEffectRef,
     input.view,
   ]);
