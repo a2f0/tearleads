@@ -166,11 +166,18 @@ AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
      `@commitlint/cli` binary and `commitlint.config.mts` the commit-msg hook
      uses). If validation fails it prints commitlint's report and exits non-zero
      **without creating the PR**.
+   - Rejects a body carrying Claude Code branding — the "Generated with Claude
+     Code" attribution, its `claude.com/claude-code` or `claude.ai/code` links,
+     or a Claude co-author trailer — and exits non-zero **without creating the
+     PR**. This mirrors the pre-push hook that strips co-author trailers from
+     commits: keep the attribution footer out of PR descriptions entirely.
    - Runs `gh pr create --title <title> --body <stdin> --head <branch>` (base
      defaults to the repository's default branch) and prints the PR URL.
 
-5. **On a validation failure**: relay commitlint's output, propose a corrected
-   title (valid type, ≤50 chars), and re-run once confirmed.
+5. **On a validation failure**: for a rejected title, relay commitlint's output,
+   propose a corrected title (valid type, ≤50 chars), and re-run once confirmed.
+   For a rejected body, remove the flagged Claude Code branding from the
+   description and re-run — never re-add the attribution to satisfy it.
 
 6. **Report results**: output the created PR URL and the final title.
 
@@ -181,4 +188,6 @@ AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
 - Always single-quote the title and use a quoted heredoc for the body.
 - Default-branch preparation carries untracked files but not ignored files.
 - Never commit unrelated user changes or discard a stash after a failed restore.
+- The body must not contain Claude Code branding; the tool rejects it before
+  creating the PR, so write PR descriptions without any attribution footer.
 - Base defaults to the repository's default branch.

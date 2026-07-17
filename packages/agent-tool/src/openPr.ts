@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
+import { assertNoClaudeBranding } from "./assertNoClaudeBranding";
 import {
   findOpenPrNumber,
   resolveRepoContext,
@@ -42,6 +43,9 @@ export function openPr(rootDir: string, titleArg: string | undefined): number {
   const title = singleLineSubject(titleArg, tipSubject, "PR title");
   validateCommitSubject(rootDir, title);
 
+  const body = readBody();
+  assertNoClaudeBranding(body);
+
   // Pin the base to the repo default branch; without --base, gh honors a
   // branch.<name>.gh-merge-base git config that could target another branch.
   const baseArgs = defaultBranch.length > 0 ? ["--base", defaultBranch] : [];
@@ -53,7 +57,7 @@ export function openPr(rootDir: string, titleArg: string | undefined): number {
       "--title",
       title,
       "--body",
-      readBody(),
+      body,
       "--head",
       branch,
       ...baseArgs,
