@@ -5,14 +5,6 @@ export {
   isChallengeResponse,
 } from "./challenge";
 export {
-  type DeleteKeyPackageBackupResponse,
-  isDeleteKeyPackageBackupResponse,
-  isKeyPackageBackupResponse,
-  isListKeyPackageBackupsResponse,
-  type KeyPackageBackupResponse,
-  type ListKeyPackageBackupsResponse,
-} from "./keyPackageBackup";
-export {
   type DestroySessionResponse,
   isDestroySessionResponse,
   isListSessionsResponse,

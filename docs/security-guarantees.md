@@ -227,8 +227,6 @@ client device. It does not change server-side access authorization, signed
 manifest verification, content-key bundle validation, or remote ciphertext
 confidentiality.
 
-Passkey backups store encrypted keys; PRF output stays local.
-
 ## Boundaries
 
 ### No Universal Compromised-Server Detection

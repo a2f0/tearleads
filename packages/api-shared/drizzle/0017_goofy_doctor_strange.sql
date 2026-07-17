@@ -1,0 +1,1 @@
+DROP TABLE "key_package_backups" CASCADE;

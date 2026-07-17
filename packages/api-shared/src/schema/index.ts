@@ -36,7 +36,6 @@ export {
   documentContainerLinks,
 } from "./documentLinks";
 export { groups, organizationGroupTombstones } from "./groups";
-export { keyPackageBackups } from "./keyPackageBackups";
 export { documents, documentUpdateSpans, documentUpdates } from "./loro";
 export {
   organizationReadModelChanges,

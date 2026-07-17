@@ -7,7 +7,6 @@ import type {
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
-  PutKeyPackageBackupRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import type {
@@ -20,7 +19,6 @@ import type {
   DocumentLinkSetMutationResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-  KeyPackageBackupResponse,
   OrganizationGroupSummaryResponse,
   PrincipalPolicyBundleResponse,
   UserIdentityResponse,
@@ -444,41 +442,6 @@ export function createUserIdentityResponse(
     signingKeyFingerprint: "a".repeat(64),
     signingPublicKey: "signing-key",
     userId,
-  };
-}
-
-export function createPutKeyPackageBackupRequest(): PutKeyPackageBackupRequest {
-  return {
-    backupId: "00000000-0000-4000-8000-000000000001",
-    backupVersion: 1,
-    credential: {
-      id: "credential/id with space",
-      publicKey: "credential-public-key",
-      publicKeyAlgorithm: -7,
-      transports: ["internal"],
-      type: "public-key",
-    },
-    envelope: {
-      ciphertext: "encrypted-key-package",
-      encryptionSuite: "aes-256-gcm",
-      format: "tearleads.identity-key-package.passkey-backup",
-      iv: "backup-iv",
-      version: 1,
-    },
-    kdfSuite: "webauthn-prf-hkdf-sha256",
-    prfSalt: "prf-salt",
-    prfSaltVersion: 1,
-    signingKeyFingerprint: "a".repeat(64),
-  };
-}
-
-export function createKeyPackageBackupResponse(
-  request = createPutKeyPackageBackupRequest(),
-): KeyPackageBackupResponse {
-  return {
-    ...request,
-    createdAt: "2026-06-01T12:00:00.000Z",
-    updatedAt: "2026-06-01T12:00:00.000Z",
   };
 }
 
