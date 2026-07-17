@@ -1,3 +1,5 @@
+export const WAL_LSN_PATTERN = /^[0-9A-Fa-f]{1,8}\/[0-9A-Fa-f]{1,8}$/;
+
 function invalidWalLsn(label?: string): never {
   throw new Error(label ? `${label} is invalid` : "Invalid WAL LSN.");
 }
@@ -23,14 +25,5 @@ export function parseWalLsn(value: string, label?: string): bigint {
 }
 
 export function isWalLsnString(value: unknown): value is string {
-  if (typeof value !== "string") {
-    return false;
-  }
-
-  try {
-    parseWalLsn(value);
-    return true;
-  } catch {
-    return false;
-  }
+  return typeof value === "string" && WAL_LSN_PATTERN.test(value);
 }

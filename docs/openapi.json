@@ -1,0 +1,829 @@
+{
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "bearerFormat": "session token",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "Tearleads Protocol API",
+    "version": "0.1.0"
+  },
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "openapi": "3.1.0",
+  "paths": {
+    "/documents/{documentId}/sync": {
+      "post": {
+        "operationId": "documents.sync",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "style": "simple"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "authorizingContainerPathRefs": {
+                    "type": "array",
+                    "items": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "containerId": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "manifestHash": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "containerId",
+                          "manifestHash"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    }
+                  },
+                  "containerRekeys": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "body": {},
+                        "containerManifestHistory": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "event": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifest": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "state": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "event",
+                              "manifest",
+                              "manifestHash",
+                              "state"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "destinationParentContainerPath": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "event": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifest": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "state": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "event",
+                              "manifest",
+                              "manifestHash",
+                              "state"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "event": {
+                          "type": "object",
+                          "properties": {},
+                          "additionalProperties": {}
+                        },
+                        "expectedManifestHash": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "keyEpoch": {
+                          "type": "object",
+                          "properties": {},
+                          "additionalProperties": {}
+                        },
+                        "manifest": {
+                          "type": "object",
+                          "properties": {},
+                          "additionalProperties": {}
+                        },
+                        "parentContainerPath": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "event": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifest": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "state": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "event",
+                              "manifest",
+                              "manifestHash",
+                              "state"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "parentKekState": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "previousContainerPath": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "event": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifest": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "manifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "state": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "event",
+                              "manifest",
+                              "manifestHash",
+                              "state"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        },
+                        "previousManifest": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "event": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                },
+                                "manifest": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                },
+                                "manifestHash": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "state": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                }
+                              },
+                              "required": [
+                                "event",
+                                "manifest",
+                                "manifestHash",
+                                "state"
+                              ],
+                              "additionalProperties": {}
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "principalPolicies": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        },
+                        "userRecipientKeys": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        },
+                        "wraps": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        }
+                      },
+                      "required": [
+                        "body",
+                        "event",
+                        "expectedManifestHash",
+                        "keyEpoch",
+                        "manifest",
+                        "principalPolicies",
+                        "wraps"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  },
+                  "contentKeyBundle": {
+                    "type": "object",
+                    "properties": {
+                      "contentKeyEpoch": {
+                        "exclusiveMinimum": 0,
+                        "maximum": 1.7976931348623157e+308,
+                        "type": "integer"
+                      },
+                      "linkSetManifestHash": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "targetHash": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "targets": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "containerId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "containerKeyEpoch": {
+                              "exclusiveMinimum": 0,
+                              "maximum": 1.7976931348623157e+308,
+                              "type": "integer"
+                            },
+                            "containerKeyEpochId": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "containerManifestHash": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "wrappedKey": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "wrappingMetadata": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            }
+                          },
+                          "required": [
+                            "containerId",
+                            "containerKeyEpoch",
+                            "containerKeyEpochId",
+                            "containerManifestHash",
+                            "wrappedKey",
+                            "wrappingMetadata"
+                          ],
+                          "additionalProperties": {}
+                        }
+                      }
+                    },
+                    "required": [
+                      "contentKeyEpoch",
+                      "linkSetManifestHash",
+                      "targetHash",
+                      "targets"
+                    ],
+                    "additionalProperties": {}
+                  },
+                  "contentKeyEpoch": {
+                    "exclusiveMinimum": 0,
+                    "maximum": 1.7976931348623157e+308,
+                    "type": "integer"
+                  },
+                  "expectedLinkSetManifestHash": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "expectedTargetHash": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "localVersionVector": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "minLsn": {
+                    "pattern": "^[0-9A-Fa-f]{1,8}\\/[0-9A-Fa-f]{1,8}$",
+                    "type": "string"
+                  },
+                  "outgoingUpdates": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "checkpointKind": {
+                          "type": "string",
+                          "const": "rotate_baseline"
+                        },
+                        "checkpointPayloadKind": {
+                          "type": "string",
+                          "const": "full_history_snapshot"
+                        },
+                        "encryptedData": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "id": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                          "type": "string"
+                        },
+                        "partialEndVersionVector": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "partialStartVersionVector": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "sourceVersionVector": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "writeHeader": {
+                          "type": "object",
+                          "properties": {},
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "encryptedData",
+                        "id",
+                        "partialEndVersionVector",
+                        "partialStartVersionVector",
+                        "writeHeader"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  }
+                },
+                "required": [
+                  "contentKeyEpoch",
+                  "expectedLinkSetManifestHash",
+                  "expectedTargetHash",
+                  "localVersionVector",
+                  "outgoingUpdates"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "acceptedOutgoingUpdateIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "commitLsn": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "contentKeyBundle": {
+                      "type": "object",
+                      "properties": {
+                        "contentKeyEpoch": {
+                          "exclusiveMinimum": 0,
+                          "maximum": 1.7976931348623157e+308,
+                          "type": "integer"
+                        },
+                        "documentId": {
+                          "type": "string"
+                        },
+                        "linkSetManifestHash": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "targetHash": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "targets": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "containerId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "containerKeyEpoch": {
+                                "exclusiveMinimum": 0,
+                                "maximum": 1.7976931348623157e+308,
+                                "type": "integer"
+                              },
+                              "containerKeyEpochId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "containerManifestHash": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "wrappedKey": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "wrappingMetadata": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              }
+                            },
+                            "required": [
+                              "containerId",
+                              "containerKeyEpoch",
+                              "containerKeyEpochId",
+                              "containerManifestHash",
+                              "wrappedKey",
+                              "wrappingMetadata"
+                            ],
+                            "additionalProperties": {}
+                          }
+                        }
+                      },
+                      "required": [
+                        "contentKeyEpoch",
+                        "documentId",
+                        "linkSetManifestHash",
+                        "targetHash",
+                        "targets"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "contentKeyBundles": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "contentKeyEpoch": {
+                            "exclusiveMinimum": 0,
+                            "maximum": 1.7976931348623157e+308,
+                            "type": "integer"
+                          },
+                          "documentId": {
+                            "type": "string"
+                          },
+                          "linkSetManifestHash": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "targetHash": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "targets": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "containerId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerKeyEpoch": {
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 1.7976931348623157e+308,
+                                  "type": "integer"
+                                },
+                                "containerKeyEpochId": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "containerManifestHash": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "wrappedKey": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "wrappingMetadata": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                }
+                              },
+                              "required": [
+                                "containerId",
+                                "containerKeyEpoch",
+                                "containerKeyEpochId",
+                                "containerManifestHash",
+                                "wrappedKey",
+                                "wrappingMetadata"
+                              ],
+                              "additionalProperties": {}
+                            }
+                          }
+                        },
+                        "required": [
+                          "contentKeyEpoch",
+                          "documentId",
+                          "linkSetManifestHash",
+                          "targetHash",
+                          "targets"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "documentId": {
+                      "type": "string"
+                    },
+                    "documentKekTargets": {
+                      "type": "object",
+                      "properties": {
+                        "documentId": {
+                          "type": "string"
+                        },
+                        "documentKeyTargetHash": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "linkedContainerKeyEpochIds": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "linkedContainerManifestHashes": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "linkSetManifestHash": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "targets": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        }
+                      },
+                      "required": [
+                        "documentId",
+                        "documentKeyTargetHash",
+                        "linkedContainerKeyEpochIds",
+                        "linkedContainerManifestHashes",
+                        "linkSetManifestHash",
+                        "targets"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "updates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "accessEpoch": {
+                            "exclusiveMinimum": 0,
+                            "maximum": 1.7976931348623157e+308,
+                            "type": "integer"
+                          },
+                          "authorFingerprint": {
+                            "type": "string"
+                          },
+                          "checkpointKind": {
+                            "type": "string",
+                            "const": "rotate_baseline"
+                          },
+                          "checkpointPayloadKind": {
+                            "type": "string",
+                            "const": "full_history_snapshot"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "documentId": {
+                            "type": "string"
+                          },
+                          "encryptedData": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "partialEndVersionVector": {
+                            "type": "string"
+                          },
+                          "partialStartVersionVector": {
+                            "type": "string"
+                          },
+                          "sourceVersionVector": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "writeHeader": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "accessEpoch",
+                          "authorFingerprint",
+                          "createdAt",
+                          "documentId",
+                          "encryptedData",
+                          "id",
+                          "partialEndVersionVector",
+                          "partialStartVersionVector",
+                          "writeHeader"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    }
+                  },
+                  "required": [
+                    "acceptedOutgoingUpdateIds",
+                    "commitLsn",
+                    "contentKeyBundle",
+                    "contentKeyBundles",
+                    "documentId",
+                    "documentKekTargets",
+                    "updates"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Successful JSON response"
+          },
+          "400": {
+            "description": "Response without a declared JSON body"
+          },
+          "401": {
+            "description": "Response without a declared JSON body"
+          },
+          "402": {
+            "description": "Response without a declared JSON body"
+          },
+          "403": {
+            "description": "Response without a declared JSON body"
+          },
+          "404": {
+            "description": "Response without a declared JSON body"
+          },
+          "409": {
+            "description": "Response without a declared JSON body"
+          },
+          "500": {
+            "description": "Response without a declared JSON body"
+          },
+          "503": {
+            "description": "Response without a declared JSON body"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-tearleads-runtime-refinements": [
+          {
+            "description": "authorizingContainerPathRefs is required when outgoingUpdates is non-empty",
+            "id": "request.authorizing-paths-for-writes"
+          },
+          {
+            "description": "containerRekeys may be non-empty only when outgoingUpdates is non-empty",
+            "id": "request.container-rekeys-require-write"
+          },
+          {
+            "description": "outgoing update ids must be unique within the request",
+            "id": "request.unique-outgoing-update-ids"
+          },
+          {
+            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
+            "id": "request.rotation-checkpoint-fields"
+          },
+          {
+            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
+            "id": "response.rotation-checkpoint-fields"
+          }
+        ]
+      }
+    }
+  }
+}

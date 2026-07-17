@@ -1,5 +1,9 @@
 import { z } from "zod";
 import {
+  documentSyncRequestRuntimeRefinements,
+  documentSyncResponseRuntimeRefinements,
+} from "../documentSyncRefinements";
+import {
   DocumentSyncRequestSchema,
   isDocumentSyncRequest,
 } from "../request/document";
@@ -28,6 +32,10 @@ export const documentSyncOperation = defineJsonOperation({
   responses: {
     200: DocumentSyncResponseSchema,
   },
+  runtimeRefinements: [
+    ...documentSyncRequestRuntimeRefinements,
+    ...documentSyncResponseRuntimeRefinements,
+  ],
 });
 
 export const isDocumentSyncOperationRequest = isDocumentSyncRequest;

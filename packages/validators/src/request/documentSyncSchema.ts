@@ -1,5 +1,14 @@
 import { z } from "zod";
+import {
+  documentSyncRequestEnvelopeRefinements,
+  documentSyncRequestRotationRefinement,
+} from "../documentSyncRefinements";
 import { isPlainObject } from "../isPlainObject";
+import {
+  registerJsonSchemaFragment,
+  registerJsonSchemaRuntimeRefinements,
+  registerJsonSchemaView,
+} from "../jsonSchema";
 import {
   arraySchema,
   loosePlainObject,
@@ -8,7 +17,8 @@ import {
   plainObjectSchema,
   positiveIntegerSchema,
 } from "../schema";
-import { isUuidV4String, isWalLsnString } from "../util";
+import { isUuidV4String, UUID_V4_PATTERN } from "../util/uuid";
+import { isWalLsnString, WAL_LSN_PATTERN } from "../util/walLsn";
 import {
   type ContainerMutationRequest,
   isContainerMutationRequest,
@@ -61,90 +71,137 @@ export type DocumentContentKeyBundleRequest = z.infer<
   typeof DocumentContentKeyBundleRequestSchema
 >;
 
-export const DocumentOutgoingUpdateSchema = loosePlainObject({
-  checkpointKind: z.literal("rotate_baseline").optional(),
-  checkpointPayloadKind: z.literal("full_history_snapshot").optional(),
-  encryptedData: nonEmptyStringSchema,
-  id: z.string().refine(isUuidV4String),
-  partialEndVersionVector: nonEmptyStringSchema,
-  partialStartVersionVector: nonEmptyStringSchema,
-  sourceVersionVector: nonEmptyStringSchema.optional(),
-  writeHeader: plainObjectSchema,
-}).superRefine((update, context) => {
-  const hasNoCheckpoint =
-    update.checkpointKind === undefined &&
-    update.checkpointPayloadKind === undefined &&
-    update.sourceVersionVector === undefined;
-  const hasRotationCheckpoint =
-    update.checkpointKind === "rotate_baseline" &&
-    update.checkpointPayloadKind === "full_history_snapshot" &&
-    update.sourceVersionVector !== undefined;
+export const DocumentOutgoingUpdateSchema =
+  registerJsonSchemaRuntimeRefinements(
+    loosePlainObject({
+      checkpointKind: z.literal("rotate_baseline").optional(),
+      checkpointPayloadKind: z.literal("full_history_snapshot").optional(),
+      encryptedData: nonEmptyStringSchema,
+      id: registerJsonSchemaFragment(z.string().refine(isUuidV4String), {
+        pattern: UUID_V4_PATTERN.source,
+        type: "string",
+      }),
+      partialEndVersionVector: nonEmptyStringSchema,
+      partialStartVersionVector: nonEmptyStringSchema,
+      sourceVersionVector: nonEmptyStringSchema.optional(),
+      writeHeader: plainObjectSchema,
+    }).superRefine((update, context) => {
+      const hasNoCheckpoint =
+        update.checkpointKind === undefined &&
+        update.checkpointPayloadKind === undefined &&
+        update.sourceVersionVector === undefined;
+      const hasRotationCheckpoint =
+        update.checkpointKind === "rotate_baseline" &&
+        update.checkpointPayloadKind === "full_history_snapshot" &&
+        update.sourceVersionVector !== undefined;
 
-  if (!hasNoCheckpoint && !hasRotationCheckpoint) {
-    context.addIssue({
-      code: "custom",
-      message: "checkpoint fields must be absent or form a rotation baseline",
-    });
-  }
-});
+      if (!hasNoCheckpoint && !hasRotationCheckpoint) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "checkpoint fields must be absent or form a rotation baseline",
+        });
+      }
+    }),
+    [documentSyncRequestRotationRefinement],
+  );
 
 export type DocumentOutgoingUpdate = z.infer<
   typeof DocumentOutgoingUpdateSchema
 >;
 
-const ContainerMutationRequestSchema = z.custom<ContainerMutationRequest>(
-  isContainerMutationRequest,
+const AccessManifestBundleWireViewSchema = loosePlainObject({
+  event: plainObjectSchema,
+  manifest: plainObjectSchema,
+  manifestHash: nonEmptyStringSchema,
+  state: plainObjectSchema,
+});
+
+const ContainerMutationRequestViewSchema = loosePlainObject({
+  body: z.unknown(),
+  containerManifestHistory: z
+    .array(AccessManifestBundleWireViewSchema)
+    .optional(),
+  destinationParentContainerPath: z
+    .array(AccessManifestBundleWireViewSchema)
+    .optional(),
+  event: plainObjectSchema,
+  expectedManifestHash: nonEmptyStringSchema,
+  keyEpoch: plainObjectSchema,
+  manifest: plainObjectSchema,
+  parentContainerPath: z.array(AccessManifestBundleWireViewSchema).optional(),
+  parentKekState: plainObjectSchema.nullable().optional(),
+  previousContainerPath: z.array(AccessManifestBundleWireViewSchema).optional(),
+  previousManifest: AccessManifestBundleWireViewSchema.nullable().optional(),
+  principalPolicies: z.array(plainObjectSchema),
+  userRecipientKeys: z.array(plainObjectSchema).optional(),
+  wraps: z.array(plainObjectSchema),
+});
+
+const ContainerMutationRequestSchema = registerJsonSchemaView(
+  z.custom<ContainerMutationRequest>(isContainerMutationRequest),
+  ContainerMutationRequestViewSchema,
 );
 
-export const DocumentSyncRequestSchema = loosePlainObject({
-  authorizingContainerPathRefs: ContainerManifestRefArrayArraySchema.optional(),
-  containerRekeys: arraySchema(ContainerMutationRequestSchema).optional(),
-  contentKeyBundle: DocumentContentKeyBundleRequestSchema.optional(),
-  contentKeyEpoch: positiveIntegerSchema,
-  expectedLinkSetManifestHash: nonEmptyStringSchema,
-  expectedTargetHash: nonEmptyStringSchema,
-  localVersionVector: z.string().nullable(),
-  minLsn: z.string().refine(isWalLsnString).optional(),
-  outgoingUpdates: arraySchema(DocumentOutgoingUpdateSchema),
-}).superRefine((request, context) => {
-  if (!Array.isArray(request.outgoingUpdates)) {
-    return;
-  }
+const WalLsnSchema = registerJsonSchemaFragment(
+  z.string().refine(isWalLsnString),
+  { pattern: WAL_LSN_PATTERN.source, type: "string" },
+);
 
-  const hasOutgoingUpdates = request.outgoingUpdates.length > 0;
+export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
+  loosePlainObject({
+    authorizingContainerPathRefs:
+      ContainerManifestRefArrayArraySchema.optional(),
+    containerRekeys: arraySchema(ContainerMutationRequestSchema).optional(),
+    contentKeyBundle: DocumentContentKeyBundleRequestSchema.optional(),
+    contentKeyEpoch: positiveIntegerSchema,
+    expectedLinkSetManifestHash: nonEmptyStringSchema,
+    expectedTargetHash: nonEmptyStringSchema,
+    localVersionVector: z.string().nullable(),
+    minLsn: WalLsnSchema.optional(),
+    outgoingUpdates: arraySchema(DocumentOutgoingUpdateSchema),
+  }).superRefine((request, context) => {
+    if (!Array.isArray(request.outgoingUpdates)) {
+      return;
+    }
 
-  if (
-    request.authorizingContainerPathRefs === undefined &&
-    hasOutgoingUpdates
-  ) {
-    context.addIssue({
-      code: "custom",
-      message: "authorizing container paths are required for outgoing updates",
-      path: ["authorizingContainerPathRefs"],
-    });
-  }
+    const hasOutgoingUpdates = request.outgoingUpdates.length > 0;
 
-  if ((request.containerRekeys?.length ?? 0) > 0 && !hasOutgoingUpdates) {
-    context.addIssue({
-      code: "custom",
-      message: "container rekeys require an outgoing update",
-      path: ["containerRekeys"],
-    });
-  }
+    if (
+      request.authorizingContainerPathRefs === undefined &&
+      hasOutgoingUpdates
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "authorizing container paths are required for outgoing updates",
+        path: ["authorizingContainerPathRefs"],
+      });
+    }
 
-  if (
-    new Set(
-      request.outgoingUpdates
-        .filter(isPlainObject)
-        .map((update) => Reflect.get(update, "id")),
-    ).size !== request.outgoingUpdates.length
-  ) {
-    context.addIssue({
-      code: "custom",
-      message: "outgoing update ids must be unique",
-      path: ["outgoingUpdates"],
-    });
-  }
-});
+    if ((request.containerRekeys?.length ?? 0) > 0 && !hasOutgoingUpdates) {
+      context.addIssue({
+        code: "custom",
+        message: "container rekeys require an outgoing update",
+        path: ["containerRekeys"],
+      });
+    }
+
+    if (
+      new Set(
+        request.outgoingUpdates
+          .filter(isPlainObject)
+          .map((update) => Reflect.get(update, "id")),
+      ).size !== request.outgoingUpdates.length
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "outgoing update ids must be unique",
+        path: ["outgoingUpdates"],
+      });
+    }
+  }),
+  documentSyncRequestEnvelopeRefinements,
+);
 
 export type DocumentSyncRequest = z.infer<typeof DocumentSyncRequestSchema>;

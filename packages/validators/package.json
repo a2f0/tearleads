@@ -13,12 +13,15 @@
     "./response": "./src/response/index.ts"
   },
   "scripts": {
+    "generate:openapi": "bun scripts/generateOpenApi.ts",
+    "lint:openapi": "bun scripts/generateOpenApi.ts --check",
     "test": "bun test src"
   },
   "dependencies": {
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@types/bun": "catalog:"
+    "@types/bun": "catalog:",
+    "ajv": "catalog:"
   }
 }
