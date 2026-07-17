@@ -72,9 +72,10 @@ testApiClient(
     const client = new ApiClient(apiBaseUrl);
     const createRequest = createDocumentCreateRequest();
     const syncRequest = createDocumentSyncRequest();
+    const documentId = "document /%雪";
 
     expect(await client.createDocument(createRequest)).not.toBeNull();
-    expect(await client.syncDocument("document-1", syncRequest)).not.toBeNull();
+    expect(await client.syncDocument(documentId, syncRequest)).not.toBeNull();
 
     expect(
       calls.map((call) => ({
@@ -90,7 +91,7 @@ testApiClient(
       },
       {
         body: JSON.stringify(syncRequest),
-        input: `${apiBaseUrl}/documents/document-1/sync`,
+        input: `${apiBaseUrl}/documents/document%20%2F%25%E9%9B%AA/sync`,
         method: "POST",
       },
     ]);

@@ -44,7 +44,6 @@ import {
   isDocumentCreateResponse,
   isDocumentLinkSetMutationResponse,
   isDocumentPurgeResponse,
-  isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
   isHealthResponse,
   isInitiateMultipartBlobStageResponse,
@@ -106,6 +105,7 @@ import {
   containerDocsPath,
 } from "./routes/containers/queryParams";
 import { DocumentAttributionRequests } from "./routes/documents/attributionRequests";
+import { documentSync as sync } from "./routes/documents/sync";
 import { organizationReadModelPath } from "./routes/organizations/readModelPath";
 import { pathSegment } from "./routes/path";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
@@ -1354,9 +1354,9 @@ export class ApiClient {
     const cachedBefore =
       this.documentWriterProjectionRequestsByDocumentId.get(documentId);
     return this.request(
-      `/documents/${pathSegment(documentId)}/sync`,
-      isDocumentSyncResponse,
-      "POST",
+      sync.path(documentId),
+      sync.isResponse,
+      sync.method,
       JSON.stringify(input),
     )
       .then(async (response) => {
@@ -1406,9 +1406,9 @@ export class ApiClient {
       this.documentWriterProjectionRequestsByDocumentId.get(documentId);
     try {
       const result = await this.makeRequestResult(
-        `/documents/${pathSegment(documentId)}/sync`,
-        isDocumentSyncResponse,
-        "POST",
+        sync.path(documentId),
+        sync.isResponse,
+        sync.method,
         JSON.stringify(input),
         options,
       );
