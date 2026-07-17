@@ -34,16 +34,14 @@ import {
   requireDeletableOrganizationGroup,
   requireOrganizationGroupWithoutDeleteBlockers,
 } from "./groupDeletion";
-import { toOrganizationGroupMemberResponse } from "./groupMemberships";
+import {
+  type OrganizationGroupCatalogRow,
+  toOrganizationGroupMemberResponse,
+} from "./groupMemberships";
 import { toGroupSummary } from "./groupSummary";
 import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
 import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
 import { loadUsersById } from "./users";
-
-interface NestedGroupRow {
-  groupId: string;
-  groupName: string;
-}
 
 interface OrganizationGroupSummariesResult {
   readonly groups: OrganizationGroupSummaryResponse[];
@@ -273,7 +271,7 @@ async function loadNestedGroupsById(input: {
   executor: DatabaseSession;
   groupMembers: ReadonlyArray<StoredPrincipalProjectionMember>;
   organizationId: string;
-}): Promise<Map<string, NestedGroupRow>> {
+}): Promise<Map<string, OrganizationGroupCatalogRow>> {
   if (input.groupMembers.length === 0) {
     return new Map();
   }

@@ -331,6 +331,9 @@ export function useOrgManagerModel() {
   useOrgManagerDetailRefreshes({
     refreshSelectedGroupDetails,
     refreshSelectedUserDetail,
+    selectedGroupAvailable:
+      selectedGroupId === null ||
+      activeGroups.some((group) => group.groupId === selectedGroupId),
     selectedGroupId,
     selectedUserId,
     skippedGroupDetailsEffectRef,

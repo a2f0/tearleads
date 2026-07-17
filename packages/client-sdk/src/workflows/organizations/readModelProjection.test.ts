@@ -279,6 +279,56 @@ test("an invalid warm cursor resets once with a cursorless snapshot", async () =
   }
 });
 
+test("a binding failure purges and retries from a snapshot", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-binding-reset-test",
+  );
+  const cursors: Array<string | undefined> = [];
+  const inconsistentDelta = organizationReadModelGroupsDelta({
+    cursor: "cursor-2",
+    groupName: "Missing membership head",
+  });
+  const replacement = organizationReadModelSnapshot({
+    cursor: "cursor-reset",
+    groupName: "Recovered Group",
+  });
+  const inconsistentGroups = inconsistentDelta.lanes.groups;
+  if (!inconsistentGroups) {
+    throw new Error("Expected an inconsistent groups lane");
+  }
+  const responses: OrganizationReadModelResponse[] = [
+    {
+      ...inconsistentDelta,
+      lanes: { groups: inconsistentGroups },
+    },
+    replacement,
+  ];
+
+  try {
+    await seedProjection(execSql);
+    const projection = await reconcileOrganizationDirectoryAndGroups({
+      apiClient: {
+        async getOrganizationReadModelResult(_organizationId, cursor) {
+          cursors.push(cursor);
+          const response = responses.shift();
+          if (!response) {
+            throw new Error("Unexpected read-model request");
+          }
+          return { data: response, ok: true };
+        },
+      },
+      currentUserId,
+      execSql,
+      organizationId,
+    });
+
+    expect(cursors).toEqual(["cursor-1", undefined]);
+    expect(projection?.groups[0]?.name).toBe("Recovered Group");
+  } finally {
+    close();
+  }
+});
+
 test("a response for another organization retains the scoped projection", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-scope-mismatch-test",

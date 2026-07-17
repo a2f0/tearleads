@@ -3,11 +3,33 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { OrganizationReadModelGroupMembershipsResponse } from "@tearleads/validators/response";
 import { organizationReadModelTables } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
-import { ensureSqlTables } from "../../sqlite/sqlSchema";
+import {
+  createExecSql,
+  type ExecSql,
+  ensureSqlTables,
+} from "../../sqlite/sqlSchema";
 import { applyGroupMembershipsLane } from "./organizationReadModelMembershipPersistence";
 
 const ORGANIZATION_ID = "organization-batching";
-const GROUP_COUNT = 33_000;
+const SQLITE_VARIABLE_LIMIT = 999;
+const GROUP_COUNT = 1_000;
+
+function withVariableLimit(execSql: ExecSql): ExecSql {
+  return createExecSql({
+    async exec({ sql, bind, rowMode }) {
+      if (Array.isArray(bind) && bind.length > SQLITE_VARIABLE_LIMIT) {
+        throw new Error("Test SQLite variable limit exceeded");
+      }
+      if (rowMode === "array") {
+        return { rows: await execSql(sql, bind, { rowMode: "array" }) };
+      }
+      if (rowMode === "object") {
+        return { rows: await execSql(sql, bind, { rowMode: "object" }) };
+      }
+      return { rows: await execSql(sql, bind) };
+    },
+  });
+}
 
 function lane(
   groups: OrganizationReadModelGroupMembershipsResponse["groups"],
@@ -17,9 +39,10 @@ function lane(
 }
 
 test("wide membership head inserts and deletions are batched", async () => {
-  const { close, execSql } = await createTestExecSql(
+  const { close, execSql: testExecSql } = await createTestExecSql(
     "organization-membership-batching",
   );
+  const execSql = withVariableLimit(testExecSql);
   const groupIds = Array.from(
     { length: GROUP_COUNT },
     (_, index) => `group-${index}`,

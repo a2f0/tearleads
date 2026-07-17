@@ -262,7 +262,8 @@ export const subsystems: readonly Subsystem[] = [
   {
     name: "Organization Read Models",
     package: "client-sdk",
-    responsibility: "Org projections, roster/profile writes, and key rewraps.",
+    responsibility:
+      "Org directory/groups/grants/usage/user-detail read models, roster/profile mutations, and reserved-grant rewrap orchestration for the client.",
     seam: "tearleads.organizations facade; workflows/organizations",
     paths: [
       `${sdk}/workflows/organizations/`,
@@ -659,10 +660,7 @@ export interface SubsystemDocsViolation {
   name: string;
 }
 
-/**
- * Drift between the `docs/SUBSYSTEMS.md` registry table and the manifest above.
- * Surfaced by the `subsystem-registry-matches-docs` architecture check.
- */
+/** Docs/manifest drift surfaced by `subsystem-registry-matches-docs`. */
 export async function findSubsystemDocsViolations(): Promise<
   SubsystemDocsViolation[]
 > {
@@ -689,7 +687,6 @@ export async function findSubsystemDocsViolations(): Promise<
   const manifestNames = new Set(subsystems.map((subsystem) => subsystem.name));
 
   const violations: SubsystemDocsViolation[] = [];
-
   for (const name of manifestNames) {
     if (!documentedNames.has(name)) {
       violations.push({

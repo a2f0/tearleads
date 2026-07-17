@@ -6,8 +6,6 @@ import type {
 import { eq } from "drizzle-orm";
 import {
   organizationReadModelDirectoryUsers,
-  organizationReadModelGroupMembers,
-  organizationReadModelGroupMemberships,
   organizationReadModelGroups,
   organizationReadModelRequesters,
   organizationReadModelState,
@@ -27,6 +25,7 @@ import {
   type OrganizationReadModelProjection,
 } from "./organizationReadModelProjection";
 import { ORGANIZATION_READ_MODEL_PROTOCOL_VERSION } from "./organizationReadModelProtocol";
+import { purgeOrganizationReadModelProjectionInTransaction } from "./organizationReadModelPurge";
 
 export type { OrganizationReadModelProjection } from "./organizationReadModelProjection";
 
@@ -219,53 +218,6 @@ async function loadCurrentState(
   return current ?? null;
 }
 
-async function purgeOrganizationReadModelProjectionInTransaction(input: {
-  readonly organizationId: string;
-  readonly tx: ClientSQLiteTransaction;
-}): Promise<void> {
-  await input.tx
-    .delete(organizationReadModelGroupMembers)
-    .where(
-      eq(
-        organizationReadModelGroupMembers.organizationId,
-        input.organizationId,
-      ),
-    )
-    .run();
-  await input.tx
-    .delete(organizationReadModelGroupMemberships)
-    .where(
-      eq(
-        organizationReadModelGroupMemberships.organizationId,
-        input.organizationId,
-      ),
-    )
-    .run();
-  await input.tx
-    .delete(organizationReadModelDirectoryUsers)
-    .where(
-      eq(
-        organizationReadModelDirectoryUsers.organizationId,
-        input.organizationId,
-      ),
-    )
-    .run();
-  await input.tx
-    .delete(organizationReadModelGroups)
-    .where(eq(organizationReadModelGroups.organizationId, input.organizationId))
-    .run();
-  await input.tx
-    .delete(organizationReadModelRequesters)
-    .where(
-      eq(organizationReadModelRequesters.organizationId, input.organizationId),
-    )
-    .run();
-  await input.tx
-    .delete(organizationReadModelState)
-    .where(eq(organizationReadModelState.organizationId, input.organizationId))
-    .run();
-}
-
 function resolveApplyDisposition(input: {
   readonly current: CurrentOrganizationReadModelState | null;
   readonly requestedCursor: string | null;
@@ -404,11 +356,16 @@ export async function applyOrganizationReadModelResponse(input: {
         response: input.response,
         tx,
       });
-      await assertStoredGroupMembershipBindings({
-        memberGroupId,
-        organizationId: input.response.organizationId,
-        tx,
-      });
+      if (
+        input.response.lanes.groups ||
+        input.response.lanes.groupMemberships
+      ) {
+        await assertStoredGroupMembershipBindings({
+          memberGroupId,
+          organizationId: input.response.organizationId,
+          tx,
+        });
+      }
       const directory = input.response.lanes.directory;
 
       const stateRow = {

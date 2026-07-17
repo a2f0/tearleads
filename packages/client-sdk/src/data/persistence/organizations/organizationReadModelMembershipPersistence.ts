@@ -18,9 +18,17 @@ import {
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import { ORGANIZATION_READ_MODEL_PROTOCOL_VERSION } from "./organizationReadModelProtocol";
+import { purgeOrganizationReadModelProjectionInTransaction } from "./organizationReadModelPurge";
 
 const GROUP_MEMBERSHIP_BATCH_SIZE = 90;
 const GROUP_MEMBER_INSERT_BATCH_SIZE = 30;
+
+export class OrganizationReadModelBindingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OrganizationReadModelBindingError";
+  }
+}
 
 interface SelectedGroupMember {
   readonly encapsulationKeyFingerprint: string | null;
@@ -361,7 +369,14 @@ export async function loadOrganizationReadModelGroupMembers(
       .from(organizationReadModelState)
       .where(eq(organizationReadModelState.organizationId, organizationId))
       .limit(1);
-    if (state?.protocolVersion !== ORGANIZATION_READ_MODEL_PROTOCOL_VERSION) {
+    if (!state) {
+      return null;
+    }
+    if (state.protocolVersion !== ORGANIZATION_READ_MODEL_PROTOCOL_VERSION) {
+      await purgeOrganizationReadModelProjectionInTransaction({
+        organizationId,
+        tx,
+      });
       return null;
     }
     return loadOrganizationReadModelGroupMembersInTransaction({
@@ -420,14 +435,16 @@ export async function assertStoredGroupMembershipBindings(input: {
     heads.length !== expectedHeadIds.size ||
     heads.some((head) => !expectedHeadIds.has(head.groupId))
   ) {
-    throw new Error("Organization group membership coverage is inconsistent");
+    throw new OrganizationReadModelBindingError(
+      "Organization group membership coverage is inconsistent",
+    );
   }
 
   const memberCountsByGroupId = new Map<string, number>();
   for (const member of members) {
     const head = headsByGroupId.get(member.groupId);
     if (!head || head.stateHash !== member.stateHash) {
-      throw new Error(
+      throw new OrganizationReadModelBindingError(
         "Organization group membership member state is inconsistent",
       );
     }
@@ -440,9 +457,6 @@ export async function assertStoredGroupMembershipBindings(input: {
   for (const group of groups) {
     const head = headsByGroupId.get(group.groupId);
     if (group.stateHash === null) {
-      if (head) {
-        throw new Error("Stateless organization group has projected members");
-      }
       continue;
     }
     if (
@@ -451,7 +465,7 @@ export async function assertStoredGroupMembershipBindings(input: {
       group.memberCount === null ||
       group.memberCount !== (memberCountsByGroupId.get(group.groupId) ?? 0)
     ) {
-      throw new Error(
+      throw new OrganizationReadModelBindingError(
         "Organization group membership state hash is inconsistent",
       );
     }

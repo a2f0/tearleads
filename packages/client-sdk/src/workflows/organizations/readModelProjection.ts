@@ -3,7 +3,10 @@ import type {
   RequestResultOptions,
 } from "@tearleads/api-client";
 import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
-import { loadOrganizationReadModelGroupMembers } from "../../data/persistence/organizations/organizationReadModelMembershipPersistence";
+import {
+  loadOrganizationReadModelGroupMembers,
+  OrganizationReadModelBindingError,
+} from "../../data/persistence/organizations/organizationReadModelMembershipPersistence";
 import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,
@@ -80,6 +83,7 @@ interface ReconciliationState {
   expectedLocalCursor: string | null;
   projection: OrganizationReadModelProjection | null;
   requestCursor: string | undefined;
+  retriedBindingFailure: boolean;
   retriedInvalidCursor: boolean;
   staleRetries: number;
 }
@@ -179,6 +183,19 @@ async function applyReadModelPage(
     });
   } catch (error) {
     input.logError?.("Failed to apply organization read-model response", error);
+    if (
+      error instanceof OrganizationReadModelBindingError &&
+      !state.retriedBindingFailure
+    ) {
+      state.retriedBindingFailure = true;
+      await purgeOrganizationReadModelProjection(
+        input.execSql,
+        input.organizationId,
+      );
+      state.projection = null;
+      resetRequestCursor(state);
+      return { kind: "continue" };
+    }
     return localResult(state);
   }
 
@@ -223,6 +240,7 @@ export async function reconcileOrganizationDirectoryAndGroups(
     expectedLocalCursor: null,
     projection: await loadProjection(input),
     requestCursor: undefined,
+    retriedBindingFailure: false,
     retriedInvalidCursor: false,
     staleRetries: 0,
   };

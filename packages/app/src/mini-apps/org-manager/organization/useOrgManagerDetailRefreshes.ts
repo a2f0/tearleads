@@ -6,6 +6,7 @@ interface OrgManagerDetailRefreshesInput {
     groupId: string | null,
   ) => Promise<void>;
   readonly refreshSelectedUserDetail: (userId: string | null) => Promise<void>;
+  readonly selectedGroupAvailable: boolean;
   readonly selectedGroupId: string | null;
   readonly selectedUserId: string | null;
   readonly skippedGroupDetailsEffectRef: {
@@ -19,7 +20,10 @@ export function useOrgManagerDetailRefreshes(
   input: OrgManagerDetailRefreshesInput,
 ): void {
   useEffect(() => {
-    if (input.view !== "groups") {
+    if (
+      input.view !== "groups" ||
+      (input.selectedGroupId !== null && !input.selectedGroupAvailable)
+    ) {
       return;
     }
 
@@ -33,6 +37,7 @@ export function useOrgManagerDetailRefreshes(
     void input.refreshSelectedGroupDetails(input.selectedGroupId);
   }, [
     input.refreshSelectedGroupDetails,
+    input.selectedGroupAvailable,
     input.selectedGroupId,
     input.skippedGroupDetailsEffectRef,
     input.view,

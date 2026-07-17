@@ -10,6 +10,7 @@ interface DetailRefreshProbeProps {
     groupId: string | null,
   ) => Promise<void>;
   readonly refreshSelectedUserDetail: (userId: string | null) => Promise<void>;
+  readonly selectedGroupAvailable: boolean;
   readonly selectedGroupId: string | null;
   readonly selectedUserId: string | null;
   readonly skippedGroupDetailsEffectRef: {
@@ -35,6 +36,7 @@ test("retained selections load details only in their visible view", () => {
       userLoads.push(userId);
     },
     skippedGroupDetailsEffectRef,
+    selectedGroupAvailable: true,
   };
   const view = render(
     <DetailRefreshProbe
@@ -97,6 +99,7 @@ test("a manual group refresh skip is consumed only when groups are visible", () 
     refreshSelectedUserDetail: async (_userId: string | null) => undefined,
     selectedGroupId: "group-a",
     selectedUserId: "user-a",
+    selectedGroupAvailable: true,
     skippedGroupDetailsEffectRef,
   };
   const view = render(
@@ -111,4 +114,32 @@ test("a manual group refresh skip is consumed only when groups are visible", () 
   });
   expect(groupLoads).toEqual([]);
   expect(skippedGroupDetailsEffectRef.current).toBeNull();
+});
+
+test("a cold group deep link loads once its group arrives in the snapshot", () => {
+  const groupLoads: Array<string | null> = [];
+  const skippedGroupDetailsEffectRef = { current: null };
+  const refreshSelectedGroupDetails = async (nextGroupId: string | null) => {
+    groupLoads.push(nextGroupId);
+  };
+  const stableProps = {
+    refreshSelectedGroupDetails,
+    refreshSelectedUserDetail: async () => {},
+    selectedGroupId: "group-a",
+    selectedUserId: null,
+    skippedGroupDetailsEffectRef,
+    view: "groups" as const,
+  };
+  const view = render(
+    <DetailRefreshProbe {...stableProps} selectedGroupAvailable={false} />,
+  );
+
+  expect(groupLoads).toEqual([]);
+
+  act(() => {
+    view.rerender(
+      <DetailRefreshProbe {...stableProps} selectedGroupAvailable />,
+    );
+  });
+  expect(groupLoads).toEqual(["group-a"]);
 });

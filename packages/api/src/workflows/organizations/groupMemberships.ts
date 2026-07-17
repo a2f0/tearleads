@@ -13,7 +13,7 @@ import {
 } from "../../access/read/principalStateStore";
 import { loadUsersById, type UserKeyRow } from "./users";
 
-interface OrganizationGroupCatalogRow {
+export interface OrganizationGroupCatalogRow {
   readonly groupId: string;
   readonly groupName: string;
 }
@@ -81,13 +81,6 @@ async function loadOrganizationGroupRows(
         : eq(groupsTable.organizationId, input.organizationId),
     )
     .orderBy(asc(groupsTable.name), asc(groupsTable.id));
-  if (
-    input.groupIds &&
-    new Set(rows.map((group) => group.groupId)).size !==
-      new Set(input.groupIds).size
-  ) {
-    throw new Error("Organization group membership target is missing");
-  }
   return rows;
 }
 
@@ -99,6 +92,19 @@ function listOrderedGroupStates(
     const state = currentStates.get(group.groupId);
     return state ? [state] : [];
   });
+}
+
+function listDeletedGroupIds(
+  input: GroupMembershipLoadInput,
+  currentStates: ReadonlyMap<string, StoredPrincipalState>,
+): string[] {
+  const deletedGroupIds = new Set(input.deletedGroupIds ?? []);
+  for (const groupId of input.groupIds ?? []) {
+    if (!currentStates.has(groupId)) {
+      deletedGroupIds.add(groupId);
+    }
+  }
+  return [...deletedGroupIds].sort();
 }
 
 function indexProjectionsByGroupId(
@@ -174,7 +180,7 @@ export async function loadOrganizationGroupMembershipsInTransaction(
   if (input.groupIds?.length === 0) {
     return {
       organizationId: input.organizationId,
-      deletedGroupIds: [...(input.deletedGroupIds ?? [])],
+      deletedGroupIds: listDeletedGroupIds(input, new Map()),
       groups: [],
     };
   }
@@ -186,6 +192,7 @@ export async function loadOrganizationGroupMembershipsInTransaction(
     input.executor,
   );
   const orderedStates = listOrderedGroupStates(groupRows, currentStates);
+  const deletedGroupIds = listDeletedGroupIds(input, currentStates);
   const projectionsByState = await listPrincipalProjectionMembersForStates(
     "group",
     orderedStates,
@@ -204,7 +211,7 @@ export async function loadOrganizationGroupMembershipsInTransaction(
 
   return {
     organizationId: input.organizationId,
-    deletedGroupIds: [...(input.deletedGroupIds ?? [])],
+    deletedGroupIds,
     groups: orderedStates.map((state) => ({
       groupId: state.principalId,
       stateHash: state.stateHash,
