@@ -39,6 +39,13 @@ export interface DocumentRow {
   // register has no editor (e.g. a never-written row). Survives shallow-snapshot
   // reload, so it is stable across the store's persist cycle.
   updatedByPeer: string | null;
+  // The Loro peer that created this row (last editor of the write-once
+  // "@createdAt" key), resolvable to a verified writer like `updatedByPeer`.
+  createdByPeer: string | null;
+  // Per-cell last-editor peers, keyed identically to `fields`. Each resolves to
+  // the verified writer of that specific cell's current value — the field-level
+  // analog of `updatedByPeer`.
+  fieldEditors: Record<string, string | null>;
 }
 
 // The minimal projection of a row the document projector needs to derive a
@@ -85,20 +92,26 @@ function parseDocumentRow(row: LoroMap): DocumentRow | null {
   }
 
   const fields: Record<string, string> = {};
+  const fieldEditors: Record<string, string | null> = {};
   for (const [key, value] of row.entries()) {
     if (key.startsWith(ROW_META_PREFIX)) {
       continue;
     }
     if (typeof value === "string") {
       fields[key] = value;
+      // Each data cell has its own last-editor register, so field-level
+      // attribution is read the same way as the row-level peer.
+      fieldEditors[key] = readRowEditorPeer(row, key);
     }
   }
 
   return {
     id,
     fields,
+    fieldEditors,
     createdBy: readRowString(row, ROW_CREATED_BY_KEY),
     createdAt: readRowString(row, ROW_CREATED_AT_KEY),
+    createdByPeer: readRowEditorPeer(row, ROW_CREATED_AT_KEY),
     updatedBy: readRowString(row, ROW_UPDATED_BY_KEY),
     updatedAt: readRowString(row, ROW_UPDATED_AT_KEY),
     updatedByPeer: readRowEditorPeer(row, ROW_UPDATED_AT_KEY),
@@ -204,6 +217,7 @@ function sameRow(left: DocumentRow, right: DocumentRow): boolean {
     left.id !== right.id ||
     left.createdBy !== right.createdBy ||
     left.createdAt !== right.createdAt ||
+    left.createdByPeer !== right.createdByPeer ||
     left.updatedBy !== right.updatedBy ||
     left.updatedAt !== right.updatedAt ||
     left.updatedByPeer !== right.updatedByPeer
@@ -217,7 +231,13 @@ function sameRow(left: DocumentRow, right: DocumentRow): boolean {
     return false;
   }
 
-  return leftKeys.every((key) => left.fields[key] === right.fields[key]);
+  // fieldEditors shares the exact key set as fields, so comparing per key here
+  // also covers a cell whose value is unchanged but whose editor changed.
+  return leftKeys.every(
+    (key) =>
+      left.fields[key] === right.fields[key] &&
+      left.fieldEditors[key] === right.fieldEditors[key],
+  );
 }
 
 export function sameDocumentRows(

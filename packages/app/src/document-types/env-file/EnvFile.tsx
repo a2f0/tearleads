@@ -1,13 +1,11 @@
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
-import type { DocumentRow } from "@tearleads/client-sdk";
 import { useId } from "react";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
   type RowWriterResolver,
   useDocumentRowWriters,
 } from "../../stores/documents/useDocumentRowWriters";
-import { formatRowAttribution } from "../shared/rowAttribution";
 import {
   StructuredDocument,
   StructuredDocumentEditActions,
@@ -17,6 +15,7 @@ import {
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
+import { EnvFileVariableReadRow } from "./EnvFileVariableReadRow";
 import {
   ENV_FILE_DOCUMENT_KIND,
   ENV_FILE_NAME_FIELD,
@@ -25,124 +24,18 @@ import {
   ENV_FILE_VARIABLE_VALUE_FIELD,
   isValidEnvFileVariableName,
 } from "./envFileDocumentDefinition";
+import { type EnvVariableRow, toEnvVariableRows } from "./envFileVariables";
 import "./EnvFile.css";
 
 type EnvVariableField =
   | typeof ENV_FILE_VARIABLE_KEY_FIELD
   | typeof ENV_FILE_VARIABLE_VALUE_FIELD;
 
-type ReadRowCell = (id: string, field: string, storeValue: string) => string;
-
-export interface EnvVariableRow {
-  id: string;
-  key: string;
-  value: string;
-  updatedAt: string;
-  updatedBy: string;
-  updatedByPeer: string | null;
-}
-
 function readFileNameField(
   structuredFields: Readonly<Record<string, string>>,
 ): string {
   const value = structuredFields[ENV_FILE_NAME_FIELD];
   return typeof value === "string" ? value : "";
-}
-
-function toEnvVariableRows(
-  rows: ReadonlyArray<DocumentRow>,
-  readCell: ReadRowCell,
-): EnvVariableRow[] {
-  return rows.map((row) => ({
-    id: row.id,
-    key: readCell(
-      row.id,
-      ENV_FILE_VARIABLE_KEY_FIELD,
-      row.fields[ENV_FILE_VARIABLE_KEY_FIELD] ?? "",
-    ),
-    value: readCell(
-      row.id,
-      ENV_FILE_VARIABLE_VALUE_FIELD,
-      row.fields[ENV_FILE_VARIABLE_VALUE_FIELD] ?? "",
-    ),
-    updatedAt: row.updatedAt,
-    updatedBy: row.updatedBy,
-    updatedByPeer: row.updatedByPeer,
-  }));
-}
-
-const ENV_FILE_EMPTY_VALUE = "None";
-const ENV_FILE_MASKED_VALUE = "********";
-const ENV_FILE_SENSITIVE_KEY_PATTERN =
-  /(?:^|_)(?:PASSWORD|PASS|PWD|SECRET|TOKEN|API_KEY|PRIVATE_KEY|ACCESS_KEY)(?:_|$)/u;
-
-function shouldMaskEnvFileVariable(variable: EnvVariableRow): boolean {
-  return ENV_FILE_SENSITIVE_KEY_PATTERN.test(variable.key.trim().toUpperCase());
-}
-
-function getEnvFileReadValue(value: string): string {
-  return value.trim().length > 0 ? value : ENV_FILE_EMPTY_VALUE;
-}
-
-function getEnvFileVariableReadValue(variable: EnvVariableRow): string {
-  if (variable.value.trim().length === 0) {
-    return ENV_FILE_EMPTY_VALUE;
-  }
-
-  return shouldMaskEnvFileVariable(variable)
-    ? ENV_FILE_MASKED_VALUE
-    : variable.value;
-}
-
-function EnvFileVariableReadRow(params: {
-  currentAuthorId: string | null;
-  index: number;
-  resolveRowWriter?: RowWriterResolver | undefined;
-  variable: EnvVariableRow;
-}) {
-  const { currentAuthorId, index, resolveRowWriter, variable } = params;
-  const keyTitle = variable.key.trim();
-  const valueTitle = shouldMaskEnvFileVariable(variable)
-    ? undefined
-    : variable.value.trim();
-  // Prefer the server-verified writer of this variable's last edit; fall back to
-  // the row's self-attested author when attribution is unavailable.
-  const updatedBy =
-    resolveRowWriter?.(variable.updatedByPeer) ?? variable.updatedBy;
-  const attribution = formatRowAttribution({
-    currentAuthorId,
-    updatedAt: variable.updatedAt,
-    updatedBy,
-  });
-
-  return (
-    <div className="env-file-variable-read-row">
-      <span className="env-file-variable-read-cell">
-        <strong>Key</strong>
-        <span
-          className="env-file-variable-read-value"
-          title={keyTitle.length > 0 ? keyTitle : undefined}
-        >
-          {getEnvFileReadValue(variable.key)}
-        </span>
-      </span>
-      <span className="env-file-variable-read-cell">
-        <strong>Value</strong>
-        <span
-          className="env-file-variable-read-value"
-          title={valueTitle && valueTitle.length > 0 ? valueTitle : undefined}
-        >
-          {getEnvFileVariableReadValue(variable)}
-        </span>
-      </span>
-      <span className="env-file-variable-read-index">{index + 1}</span>
-      {attribution ? (
-        <span className="env-file-variable-read-attribution">
-          {attribution}
-        </span>
-      ) : null}
-    </div>
-  );
 }
 
 function EnvFileReadFields(params: {

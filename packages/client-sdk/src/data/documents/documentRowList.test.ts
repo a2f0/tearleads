@@ -31,8 +31,10 @@ test("rows round-trip through a first-class Loro list of maps", async () => {
     {
       id: "row-1",
       fields: { systolic: "120", diastolic: "80" },
+      fieldEditors: { systolic: doc.peerIdStr, diastolic: doc.peerIdStr },
       createdBy: "user-alice",
       createdAt: "2026-07-16T08:30:00.000Z",
+      createdByPeer: doc.peerIdStr,
       updatedBy: "user-alice",
       updatedAt: "2026-07-16T08:30:00.000Z",
       updatedByPeer: doc.peerIdStr,
@@ -40,8 +42,10 @@ test("rows round-trip through a first-class Loro list of maps", async () => {
     {
       id: "row-2",
       fields: { systolic: "118", diastolic: "76" },
+      fieldEditors: { systolic: doc.peerIdStr, diastolic: doc.peerIdStr },
       createdBy: "user-alice",
       createdAt: "2026-07-16T08:30:00.000Z",
+      createdByPeer: doc.peerIdStr,
       updatedBy: "user-alice",
       updatedAt: "2026-07-16T08:30:00.000Z",
       updatedByPeer: doc.peerIdStr,
@@ -65,8 +69,10 @@ test("updating a cell restamps only the updated attribution", async () => {
     {
       id: "row-1",
       fields: { systolic: "130", diastolic: "80" },
+      fieldEditors: { systolic: doc.peerIdStr, diastolic: doc.peerIdStr },
       createdBy: "user-alice",
       createdAt: "2026-07-16T08:30:00.000Z",
+      createdByPeer: doc.peerIdStr,
       updatedBy: "user-bob",
       updatedAt: "2026-07-16T20:00:00.000Z",
       updatedByPeer: doc.peerIdStr,
@@ -164,4 +170,26 @@ test("updatedByPeer attributes concurrent per-row edits to their writers", async
   expect(rows.find((row) => row.id === "row-2")?.updatedByPeer).toBe(
     bob.peerIdStr,
   );
+});
+
+test("fieldEditors attribute concurrent per-cell edits to their writers", async () => {
+  const alice = await createDocument("rows-cell-alice");
+  const bob = await createDocument("rows-cell-bob");
+
+  addDocumentRow(alice, "row-1", { systolic: "120", diastolic: "80" }, AUTHOR);
+  const baseVersion = encodeVersionVector(alice);
+  importUpdates(bob, [exportUpdatesSince(alice, null)]);
+
+  // Alice edits systolic while Bob edits diastolic — different cells of the same
+  // row, so both survive the merge with their own last editors.
+  setDocumentRowFields(alice, "row-1", { systolic: "130" }, AUTHOR);
+  setDocumentRowFields(bob, "row-1", { diastolic: "70" }, AUTHOR);
+  importUpdates(alice, [exportUpdatesSince(bob, baseVersion)]);
+
+  expect(
+    listDocumentRows(alice).find((row) => row.id === "row-1"),
+  ).toMatchObject({
+    fields: { systolic: "130", diastolic: "70" },
+    fieldEditors: { systolic: alice.peerIdStr, diastolic: bob.peerIdStr },
+  });
 });
