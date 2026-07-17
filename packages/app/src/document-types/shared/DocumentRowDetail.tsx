@@ -1,4 +1,4 @@
-import { useEffect, useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -49,6 +49,7 @@ export function DocumentRowDetailOverlay(params: {
     onClose,
   } = params;
   const titleId = useId();
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -59,6 +60,20 @@ export function DocumentRowDetailOverlay(params: {
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
+
+  // Move focus into the overlay on open and restore it to the triggering row
+  // action on close, so keyboard focus is never dropped to the document body.
+  // The active element is narrowed with instanceof (not a cast) so `.focus()`
+  // is only called on something that actually has it.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement;
+    closeButtonRef.current?.focus();
+    return () => {
+      if (previouslyFocused instanceof HTMLElement) {
+        previouslyFocused.focus();
+      }
+    };
+  }, []);
 
   const created = formatRowByline({
     at: createdAt,
@@ -131,7 +146,7 @@ export function DocumentRowDetailOverlay(params: {
           </MiniAppInfoSection>
         ) : null}
         <MiniAppActions>
-          <MiniAppButton autoFocus onClick={onClose}>
+          <MiniAppButton onClick={onClose} ref={closeButtonRef}>
             Close
           </MiniAppButton>
         </MiniAppActions>

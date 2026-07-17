@@ -181,7 +181,9 @@ test("read mode drills into a variable detail, keeping secrets masked", () => {
   });
 
   expect(view.queryByRole("dialog")).toBeNull();
-  fireEvent.click(view.getByRole("button", { name: "Env variable 1 details" }));
+  const kebab = view.getByRole("button", { name: "Env variable 1 details" });
+  kebab.focus();
+  fireEvent.click(kebab);
 
   expect(view.getByRole("dialog", { name: "DATABASE_PASSWORD" })).toBeTruthy();
   // The secret stays masked in the drill-down and never leaks in cleartext.
@@ -189,8 +191,12 @@ test("read mode drills into a variable detail, keeping secrets masked", () => {
   expect(view.getByText("set by you")).toBeTruthy();
   expect(view.getByText("set by user-bob")).toBeTruthy();
 
-  fireEvent.click(view.getByRole("button", { name: "Close" }));
+  // Opening moves focus into the dialog; closing restores it to the kebab.
+  const close = view.getByRole("button", { name: "Close" });
+  expect(document.activeElement).toBe(close);
+  fireEvent.click(close);
   expect(view.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(kebab);
 });
 
 test("edits file name and variable cells through callbacks", () => {

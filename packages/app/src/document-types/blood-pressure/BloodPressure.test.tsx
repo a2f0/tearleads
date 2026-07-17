@@ -198,15 +198,22 @@ test("read mode drills into a reading detail with per-field writers", () => {
 
   // The overlay is closed until the kebab is pressed.
   expect(view.queryByRole("dialog")).toBeNull();
-  fireEvent.click(view.getByRole("button", { name: "Reading 1 details" }));
+  const kebab = view.getByRole("button", { name: "Reading 1 details" });
+  kebab.focus();
+  fireEvent.click(kebab);
 
   expect(view.getByRole("dialog", { name: "Reading 1" })).toBeTruthy();
   // Systolic resolves to the other writer; the remaining cells to the local one.
   expect(view.getByText("set by user-bob")).toBeTruthy();
   expect(view.getAllByText("set by you").length).toBeGreaterThan(0);
 
-  fireEvent.click(view.getByRole("button", { name: "Close" }));
+  // Opening moves focus into the dialog; closing restores it to the kebab so a
+  // keyboard user never loses their place in the list.
+  const close = view.getByRole("button", { name: "Close" });
+  expect(document.activeElement).toBe(close);
+  fireEvent.click(close);
   expect(view.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(kebab);
 });
 
 test("edits tracker name and reading cells through callbacks", () => {
