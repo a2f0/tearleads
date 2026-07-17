@@ -5,8 +5,28 @@ import type { BloodPressureReadingRow } from "./bloodPressureReadings";
 
 afterEach(cleanup);
 
+function makeReading(
+  overrides: Partial<BloodPressureReadingRow> & { id: string },
+): BloodPressureReadingRow {
+  return {
+    systolic: "",
+    diastolic: "",
+    pulse: "",
+    measuredAt: "",
+    notes: "",
+    createdAt: "",
+    createdBy: "",
+    createdByPeer: null,
+    updatedAt: "",
+    updatedBy: "",
+    updatedByPeer: null,
+    fieldEditors: {},
+    ...overrides,
+  };
+}
+
 const readings: BloodPressureReadingRow[] = [
-  {
+  makeReading({
     id: "r1",
     systolic: "120",
     diastolic: "80",
@@ -16,18 +36,13 @@ const readings: BloodPressureReadingRow[] = [
     updatedAt: "2026-07-16T08:30:00.000Z",
     updatedBy: "user-alice",
     updatedByPeer: "7",
-  },
-  {
+  }),
+  makeReading({
     id: "r2",
     systolic: "118",
     diastolic: "76",
-    pulse: "",
     measuredAt: "2026-07-16T20:15",
-    notes: "",
-    updatedAt: "",
-    updatedBy: "",
-    updatedByPeer: null,
-  },
+  }),
 ];
 
 function renderBloodPressureFields(params?: {
@@ -99,19 +114,7 @@ test("read mode renders formatted measurements and attribution", () => {
 
 test("read mode tolerates missing reading values", () => {
   const view = renderBloodPressureFields({
-    readings: [
-      {
-        id: "r-missing",
-        systolic: "",
-        diastolic: "",
-        pulse: "",
-        measuredAt: "",
-        notes: "",
-        updatedAt: "",
-        updatedBy: "",
-        updatedByPeer: null,
-      },
-    ],
+    readings: [makeReading({ id: "r-missing" })],
     isEditing: false,
   });
 
@@ -124,19 +127,16 @@ test("read mode resolves an authoritative writer over the self-attested one", ()
     currentAuthorId: "user-alice",
     isEditing: false,
     readings: [
-      {
+      makeReading({
         id: "r1",
         systolic: "120",
         diastolic: "80",
-        pulse: "",
-        measuredAt: "",
         // Self-attested author claims alice, but the row was actually written
         // by peer "9", which the resolver maps to the verified writer user-bob.
-        notes: "",
         updatedAt: "2026-07-16T08:30:00.000Z",
         updatedBy: "user-alice",
         updatedByPeer: "9",
-      },
+      }),
     ],
     resolveRowWriter: (peer) => (peer === "9" ? "user-bob" : null),
   });
@@ -154,6 +154,66 @@ test("read mode falls back to the self-attested author when unresolved", () => {
   });
 
   expect(view.getByText("Updated 2026-07-16 08:30 by you")).toBeTruthy();
+});
+
+test("read mode drills into a reading detail with per-field writers", () => {
+  const view = renderBloodPressureFields({
+    currentAuthorId: "user-alice",
+    isEditing: false,
+    readings: [
+      makeReading({
+        id: "r1",
+        systolic: "120",
+        diastolic: "80",
+        pulse: "72",
+        measuredAt: "2026-07-16T08:30",
+        notes: "Before coffee",
+        createdAt: "2026-07-16T08:00:00.000Z",
+        createdBy: "user-alice",
+        createdByPeer: "7",
+        updatedAt: "2026-07-16T09:00:00.000Z",
+        updatedBy: "user-alice",
+        updatedByPeer: "9",
+        // Systolic was last written by peer 9 (→ user-bob); the rest by peer 7
+        // (→ user-alice, the local author, shown as "you").
+        fieldEditors: {
+          systolic: "9",
+          diastolic: "7",
+          pulse: "7",
+          measuredAt: "7",
+          notes: "7",
+        },
+      }),
+    ],
+    resolveRowWriter: (peer) => {
+      if (peer === "9") {
+        return "user-bob";
+      }
+      if (peer === "7") {
+        return "user-alice";
+      }
+      return null;
+    },
+  });
+
+  // The overlay is closed until the kebab is pressed.
+  expect(view.queryByRole("dialog")).toBeNull();
+  const kebab = view.getByRole("button", { name: "Reading 1 details" });
+  kebab.focus();
+  fireEvent.click(kebab);
+
+  expect(view.getByRole("dialog", { name: "Reading 1" })).toBeTruthy();
+  // Systolic resolves to the other writer; the remaining cells to the local one.
+  expect(view.getByText("set by user-bob")).toBeTruthy();
+  expect(view.getAllByText("set by you").length).toBeGreaterThan(0);
+
+  // Opening moves focus into the dialog; closing restores it to the kebab so a
+  // keyboard user never loses their place in the list.
+  const close = view.getByRole("button", { name: "Close" });
+  expect(document.activeElement).toBe(close);
+  fireEvent.click(close);
+  expect(view.queryByRole("dialog")).toBeNull();
+  expect(document.activeElement).toBe(kebab);
 });
 
 test("edits tracker name and reading cells through callbacks", () => {
@@ -183,19 +243,7 @@ test("edits tracker name and reading cells through callbacks", () => {
 
 test("marks out-of-range measurements invalid without blocking edits", () => {
   const view = renderBloodPressureFields({
-    readings: [
-      {
-        id: "r-bad",
-        systolic: "1200",
-        diastolic: "80",
-        pulse: "",
-        measuredAt: "",
-        notes: "",
-        updatedAt: "",
-        updatedBy: "",
-        updatedByPeer: null,
-      },
-    ],
+    readings: [makeReading({ id: "r-bad", systolic: "1200", diastolic: "80" })],
   });
 
   expect(

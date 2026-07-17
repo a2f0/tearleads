@@ -1,0 +1,25 @@
+.document-row-detail-panel {
+  display: grid;
+  gap: var(--space-md);
+  max-height: 100%;
+  overflow-y: auto;
+  text-align: start;
+}
+
+.document-row-detail-title {
+  margin: 0;
+}
+
+.document-row-detail-value {
+  font-family:
+    ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono",
+    monospace;
+  overflow-wrap: anywhere;
+}
+
+.document-row-detail-writer {
+  display: block;
+  margin-top: var(--space-xs);
+  font-size: var(--font-size-sm);
+  opacity: var(--opacity-muted);
+}

@@ -17,9 +17,15 @@ export interface BloodPressureReadingRow {
   pulse: string;
   measuredAt: string;
   notes: string;
+  createdAt: string;
+  createdBy: string;
+  createdByPeer: string | null;
   updatedAt: string;
   updatedBy: string;
   updatedByPeer: string | null;
+  // Per-cell last-editor peers, keyed by the row's field keys, for field-level
+  // attribution in the row detail.
+  fieldEditors: Record<string, string | null>;
 }
 
 const BLOOD_PRESSURE_EMPTY_VALUE = "None";
@@ -64,9 +70,13 @@ export function toBloodPressureReadingRows(
       BLOOD_PRESSURE_NOTES_FIELD,
       row.fields[BLOOD_PRESSURE_NOTES_FIELD] ?? "",
     ),
+    createdAt: row.createdAt,
+    createdBy: row.createdBy,
+    createdByPeer: row.createdByPeer,
     updatedAt: row.updatedAt,
     updatedBy: row.updatedBy,
     updatedByPeer: row.updatedByPeer,
+    fieldEditors: row.fieldEditors,
   }));
 }
 
