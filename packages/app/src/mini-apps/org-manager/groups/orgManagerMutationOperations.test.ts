@@ -90,6 +90,14 @@ function policyState(input: {
   return {
     createdAt: "2026-07-16T12:00:00.000Z",
     encapsulationPublicKey: `encapsulation-key-${input.version}`,
+    externalAuthority: {
+      keyEpoch: 1,
+      keyFingerprint: "admins-key-fingerprint-1",
+      principalId: "admins-group",
+      principalType: "group",
+      stateHash: "admins-state-1",
+      version: 1,
+    },
     keyEpoch: input.version,
     keyFingerprint: `key-fingerprint-${input.version}`,
     memberCount: input.memberCount,
