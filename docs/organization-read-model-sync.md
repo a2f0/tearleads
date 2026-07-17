@@ -29,6 +29,9 @@ Explorer writes must obtain the exact verified policy and access state needed
 to unwrap keys and encrypt content. They must never infer authority from a
 cached roster, membership, grant, or administrator row. Verified policy data
 may enrich the UI projection; the UI projection never feeds keying decisions.
+The local membership tables bind each projected roster to a principal-state
+hash, but that binding is a projection-integrity check, not a substitute for
+verifying the signed principal policy.
 
 The projection and verified policy tables may share a physical SQLite database,
 but they use separate types, persistence modules, and dependency paths.
@@ -70,21 +73,35 @@ feed marker. Policy replay and catalog creation consult that tombstone; they do
 not treat the read-model change log as authority, so future feed retention
 cannot alter cryptographic or lifecycle decisions.
 
-Initial lanes are:
+Protocol version 2 includes these lanes:
 
 - `directory`: roster and profile-binding rows;
-- `groups`: group catalog rows and state-head summaries.
+- `groups`: visible group catalog rows and state-head summaries;
+- `groupMemberships`: state-hash-bound membership projections for individual
+  groups, including the reserved `Members` group that is hidden from the group
+  catalog.
 
-State-hash-bound membership payloads, grants, and data usage are intentionally
-deferred until their response shapes and mutation coverage ship end to end. A
-client must never advance a cursor past data it cannot apply. Version 1 response
-validation rejects unknown lanes and extra nested lane fields for that reason.
-Adding memberships inside `groups`, or otherwise evolving a lane's persisted
-shape, requires a new lane or protocol-version reset; it cannot be slipped into
-the version 1 payload.
+Container grants, data usage, user details, and policy history remain
+request-driven until their response shapes and mutation coverage ship end to
+end. Realtime hints and feed retention/compaction are also deferred. A client
+must never advance a cursor past data it cannot apply, so each future persisted
+shape must arrive as a new strict lane or another explicit protocol reset.
 
 `upsert` and `delete` apply to entity rows. `replace` invalidates a whole
 state-bound entity or lane snapshot.
+
+## Protocol versioning
+
+Version 2 is a clean protocol reset, not a compatibility extension. Responses
+and opaque cursors carry version 2, response validation accepts only the exact
+version 2 lane shapes, and the server rejects version 1 cursors. A client that
+finds a persisted version 1 organization projection atomically deletes that
+disposable projection and reconciles again without a cursor to obtain a full
+version 2 snapshot.
+
+There is no version 1 to version 2 translation, dual-read period, or legacy
+directory/group fallback. Request-driven organization views that have not yet
+moved into the feed are current APIs, not compatibility shims.
 
 ## Snapshot and delta contract
 
@@ -94,6 +111,20 @@ cursor requests ordered changes after that cursor. Responses include an opaque
 advances its cursor and requester row in the same local SQLite transaction that
 applies the page. A concurrent response already applied at the same cursor may
 still update its own requester row. A stale response updates neither.
+
+A snapshot carries a membership head for the reserved `Members` group and for
+every stateful visible group, including groups with no members. Each head
+contains the complete ordered member list and the exact principal-state hash;
+snapshot `deletedGroupIds` is empty. A membership delta is entity-level rather
+than a member patch: `groups` contains the complete replacement for each changed
+group, while `deletedGroupIds` removes groups whose final coalesced operation is
+deletion. Unchanged memberships are omitted.
+
+The client applies group summaries, membership heads, member rows, requester
+metadata, and the cursor in one SQLite transaction. Every stateful visible
+group must have a membership head whose hash and member count match its group
+summary, and the reserved `Members` head must be present. A mismatch rejects and
+rolls back the whole page, including cursor advancement.
 
 Retention is disabled in the first slice. Once compaction is introduced, a
 cursor that predates retained history returns reset semantics and the client

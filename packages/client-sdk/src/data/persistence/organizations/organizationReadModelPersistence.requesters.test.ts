@@ -43,7 +43,7 @@ test("organization read-model snapshots persist normalized requester-safe projec
       },
       groups: groups("org-1"),
       organizationId: "org-1",
-      protocolVersion: 1,
+      protocolVersion: 2,
       requester: { isOrgAdmin: true },
       updatedAt: expect.any(String),
     });

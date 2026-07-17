@@ -4,6 +4,10 @@ import type {
 } from "@tearleads/api-client";
 import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
 import {
+  loadOrganizationReadModelGroupMembers,
+  OrganizationReadModelBindingError,
+} from "../../data/persistence/organizations/organizationReadModelMembershipPersistence";
+import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,
   type OrganizationReadModelProjection,
@@ -79,6 +83,7 @@ interface ReconciliationState {
   expectedLocalCursor: string | null;
   projection: OrganizationReadModelProjection | null;
   requestCursor: string | undefined;
+  retriedBindingFailure: boolean;
   retriedInvalidCursor: boolean;
   staleRetries: number;
 }
@@ -178,6 +183,19 @@ async function applyReadModelPage(
     });
   } catch (error) {
     input.logError?.("Failed to apply organization read-model response", error);
+    if (
+      error instanceof OrganizationReadModelBindingError &&
+      !state.retriedBindingFailure
+    ) {
+      state.retriedBindingFailure = true;
+      await purgeOrganizationReadModelProjection(
+        input.execSql,
+        input.organizationId,
+      );
+      state.projection = null;
+      resetRequestCursor(state);
+      return { kind: "continue" };
+    }
     return localResult(state);
   }
 
@@ -205,6 +223,16 @@ export async function loadLocalOrganizationDirectoryAndGroups(
   return toDirectoryAndGroups(await loadProjection(input));
 }
 
+export async function loadLocalOrganizationGroupMembers(
+  input: OrganizationReadModelProjectionInput & { readonly groupId: string },
+) {
+  return loadOrganizationReadModelGroupMembers(
+    input.execSql,
+    input.organizationId,
+    input.groupId,
+  );
+}
+
 export async function reconcileOrganizationDirectoryAndGroups(
   input: ReconcileOrganizationDirectoryAndGroupsInput,
 ): Promise<OrganizationDirectoryAndGroups | null> {
@@ -212,6 +240,7 @@ export async function reconcileOrganizationDirectoryAndGroups(
     expectedLocalCursor: null,
     projection: await loadProjection(input),
     requestCursor: undefined,
+    retriedBindingFailure: false,
     retriedInvalidCursor: false,
     staleRetries: 0,
   };

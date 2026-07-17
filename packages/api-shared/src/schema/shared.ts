@@ -25,5 +25,8 @@ export type OrganizationBillingStatus =
   | "deleting"
   | "purged";
 export type OrganizationRosterStatus = "active" | "disabled";
-export type OrganizationReadModelLane = "directory" | "groups";
+export type OrganizationReadModelLane =
+  | "directory"
+  | "groupMemberships"
+  | "groups";
 export type OrganizationReadModelOperation = "delete" | "replace" | "upsert";

@@ -13,6 +13,7 @@ import {
   organizationReadModelState,
 } from "../../sqlite/organizationReadModelSchema";
 import type { ClientSQLiteTransaction } from "../../sqlite/sqlitePersistenceRuntime";
+import { ORGANIZATION_READ_MODEL_PROTOCOL_VERSION } from "./organizationReadModelProtocol";
 
 export type OrganizationDirectoryProjection = Omit<
   OrganizationDirectoryResponse,
@@ -24,7 +25,7 @@ export interface OrganizationReadModelProjection {
   readonly directory: OrganizationDirectoryProjection;
   readonly groups: ListOrganizationGroupsResponse;
   readonly organizationId: string;
-  readonly protocolVersion: 1;
+  readonly protocolVersion: typeof ORGANIZATION_READ_MODEL_PROTOCOL_VERSION;
   readonly requester: OrganizationDirectoryResponse["currentUser"] | null;
   readonly updatedAt: string;
 }
@@ -196,10 +197,6 @@ export async function loadOrganizationReadModelProjectionInTransaction(input: {
   if (!state) {
     return null;
   }
-  if (state.protocolVersion !== 1) {
-    throw new Error("Stored organization read-model version is unsupported");
-  }
-
   const [requester] = await input.tx
     .select({ isOrgAdmin: organizationReadModelRequesters.isOrgAdmin })
     .from(organizationReadModelRequesters)
@@ -238,7 +235,7 @@ export async function loadOrganizationReadModelProjectionInTransaction(input: {
       })),
     },
     organizationId: input.organizationId,
-    protocolVersion: 1,
+    protocolVersion: ORGANIZATION_READ_MODEL_PROTOCOL_VERSION,
     requester: requester ? { isOrgAdmin: requester.isOrgAdmin } : null,
     updatedAt: state.updatedAt,
   };

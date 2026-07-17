@@ -1,7 +1,11 @@
 import { db } from "@tearleads/api-shared/postgres";
 import { organizations } from "@tearleads/api-shared/schema";
 import type { TestUser } from "@tearleads/bob-and-alice";
-import { normalizePrincipalProjectionMembers } from "@tearleads/crypto";
+import {
+  generateKemSeedAndKeyPair,
+  normalizePrincipalProjectionMembers,
+  toFingerprint,
+} from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
@@ -9,17 +13,20 @@ import {
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
 } from "../../src/access/read/principalStateStore";
-import { upsertActiveOrganizationRosterEntries } from "../../src/workflows/organizations/roster";
-import {
-  signPrincipalStateBundle,
-  storePrincipalState,
-} from "./principalState";
+import { routeApp } from "../../src/routeApp";
+import { createPrincipalMemberEnvelopes } from "./principalMemberEnvelopes";
+import { signPrincipalStateBundle } from "./principalState";
 
-export async function addMemberGroupUser(input: {
+interface MemberGroupUserMutationInput {
   actor: TestUser;
   memberUserId: string;
   organizationId: string;
-}): Promise<void> {
+}
+
+async function updateMemberGroupUser(
+  input: MemberGroupUserMutationInput,
+  operation: "add" | "remove",
+): Promise<void> {
   const [organization] = await db
     .select({ memberGroupId: organizations.memberGroupId })
     .from(organizations)
@@ -39,34 +46,47 @@ export async function addMemberGroupUser(input: {
     organization.memberGroupId,
     db,
   );
-  const projection = normalizePrincipalProjectionMembers([
-    ...currentProjection.map((member) => ({
-      memberPrincipalType: member.memberPrincipalType,
-      memberPrincipalId: member.memberPrincipalId,
-      role: member.role,
-    })),
-    {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.memberUserId,
-      role: "member" as const,
-    },
-  ]);
+  const existingProjection = currentProjection.map((member) => ({
+    memberPrincipalType: member.memberPrincipalType,
+    memberPrincipalId: member.memberPrincipalId,
+    role: member.role,
+  }));
+  const projection = normalizePrincipalProjectionMembers(
+    operation === "add"
+      ? [
+          ...existingProjection,
+          {
+            memberPrincipalType: "user" as const,
+            memberPrincipalId: input.memberUserId,
+            role: "member" as const,
+          },
+        ]
+      : existingProjection.filter(
+          (member) =>
+            member.memberPrincipalType !== "user" ||
+            member.memberPrincipalId !== input.memberUserId,
+        ),
+  );
   const payloadCiphertext = bytesToBase64(
     new TextEncoder().encode(JSON.stringify({ members: projection })),
   );
+  const principalKem = generateKemSeedAndKeyPair();
+  const { memberEnvelopes, stateMembers } =
+    await createPrincipalMemberEnvelopes({
+      principalSecretKey: principalKem.secretKey,
+      projection,
+    });
   const state = await signPrincipalStateBundle({
     principalType: "group",
     principalId: organization.memberGroupId,
     version: currentState.version + 1,
     prevStateHash: currentState.stateHash,
-    keyEpoch: currentState.keyEpoch,
-    encapsulationPublicKey: currentState.encapsulationPublicKey,
-    keyFingerprint: currentState.keyFingerprint,
-    members: projection.map((member) => ({
-      principalType: member.memberPrincipalType,
-      principalId: member.memberPrincipalId,
-    })),
+    keyEpoch: currentState.keyEpoch + 1,
+    encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
+    keyFingerprint: await toFingerprint(principalKem.publicKey),
+    members: stateMembers,
     projection,
+    memberEnvelopes,
     payloadCiphertext,
     signedAt: new Date("2026-05-12T12:00:00.000Z").toISOString(),
     signerUserId: input.actor.userId,
@@ -74,10 +94,32 @@ export async function addMemberGroupUser(input: {
     signingPrivateKey: input.actor.signing.signingPrivateKey,
   });
 
-  await storePrincipalState(state, db);
-  await upsertActiveOrganizationRosterEntries({
-    executor: db,
-    organizationId: input.organizationId,
-    userIds: [input.memberUserId],
-  });
+  const response = await routeApp.request(
+    `/principals/group/${organization.memberGroupId}/policy`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${input.actor.token}`,
+      },
+      body: JSON.stringify(state),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Failed to update organization membership: ${response.status} ${await response.text()}`,
+    );
+  }
+}
+
+export function addMemberGroupUser(
+  input: MemberGroupUserMutationInput,
+): Promise<void> {
+  return updateMemberGroupUser(input, "add");
+}
+
+export function removeMemberGroupUser(
+  input: MemberGroupUserMutationInput,
+): Promise<void> {
+  return updateMemberGroupUser(input, "remove");
 }

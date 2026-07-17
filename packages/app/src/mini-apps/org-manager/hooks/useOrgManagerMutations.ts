@@ -200,10 +200,6 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
         await refreshDirectoryAndGroups({
           skipNextGroupDetailsEffect: true,
         });
-        if (!isOperationActive(operationOrganizationId)) {
-          return;
-        }
-        await refreshSelectedUserDetail(selectedUserIdRef.current);
       } catch (nextError) {
         if (isOperationActive(operationOrganizationId)) {
           setUnknownError(setError, nextError);
@@ -220,10 +216,8 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
       isOperationActive,
       orgManagerActions,
       refreshDirectoryAndGroups,
-      refreshSelectedUserDetail,
       selectGroup,
       selectedGroupIdRef,
-      selectedUserIdRef,
       setError,
       setGroupContainers,
       setGroupPolicyHistory,
@@ -317,10 +311,8 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     orgManagerActions,
     refreshDirectoryAndGroups,
     refreshSelectedGroupDetails,
-    refreshSelectedUserDetail,
     selectedGroupId,
     selectedGroupIsMembersGroup,
-    selectedUserIdRef,
     setAddUserId,
     setError,
     setGroupPolicyHistory,

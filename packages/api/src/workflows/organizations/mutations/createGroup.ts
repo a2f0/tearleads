@@ -82,6 +82,25 @@ async function prepareOrganizationGroupCreation(input: {
   }
 }
 
+async function appendCreatedGroupReadModelChanges(input: {
+  readonly groupId: string;
+  readonly organizationId: string;
+  readonly tx: DatabaseTransaction;
+}): Promise<void> {
+  await appendOrganizationReadModelChangeInTransaction(input.tx, {
+    organizationId: input.organizationId,
+    lane: "groups",
+    entityId: input.groupId,
+    operation: "upsert",
+  });
+  await appendOrganizationReadModelChangeInTransaction(input.tx, {
+    organizationId: input.organizationId,
+    lane: "groupMemberships",
+    entityId: input.groupId,
+    operation: "replace",
+  });
+}
+
 export async function runCreateOrganizationGroupWorkflow(
   db: ApiDatabase,
   organizationId: string,
@@ -165,11 +184,10 @@ export async function runCreateOrganizationGroupWorkflow(
         },
       );
 
-      await appendOrganizationReadModelChangeInTransaction(tx, {
+      await appendCreatedGroupReadModelChanges({
+        groupId: input.groupId,
         organizationId,
-        lane: "groups",
-        entityId: input.groupId,
-        operation: "upsert",
+        tx,
       });
 
       return toGroupSummary({

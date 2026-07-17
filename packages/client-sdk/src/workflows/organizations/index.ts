@@ -40,6 +40,7 @@ export {
   loadOrganizationDataUsage,
   loadOrganizationGroupDetails,
   loadOrganizationGroupPolicyHistory,
+  loadOrganizationGroupSupportingDetails,
   loadOrganizationPolicyHistory,
   loadOrganizationUserDetail,
   type OrganizationContainerGrant,
@@ -56,6 +57,7 @@ export {
   type OrganizationGroupPolicyHistory,
   type OrganizationGroupPolicyHistoryEntry,
   type OrganizationGroupSummary,
+  type OrganizationGroupSupportingDetails,
   type OrganizationPolicyHistory,
   type OrganizationPrincipalMemberChange,
   type OrganizationPrincipalMemberChangeType,
@@ -68,6 +70,7 @@ export {
 } from "./readModel";
 export {
   loadLocalOrganizationDirectoryAndGroups,
+  loadLocalOrganizationGroupMembers,
   type ReconcileOrganizationDirectoryAndGroupsInput,
   reconcileOrganizationDirectoryAndGroups,
 } from "./readModelProjection";

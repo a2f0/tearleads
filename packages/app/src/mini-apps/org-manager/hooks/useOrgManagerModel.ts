@@ -28,7 +28,9 @@ import { useOrgManagerContextMenu } from "../context-menu/OrgManagerContextMenu"
 import { deriveOrgManagerState } from "../deriveOrgManagerState";
 import { useClearMissingOrgManagerUser } from "../directory/useClearMissingOrgManagerUser";
 import { useOrgManagerSidebarPanel } from "../OrgManagerSidebar";
+import { useOrgManagerDetailRefreshes } from "../organization/useOrgManagerDetailRefreshes";
 import { useOrgManagerViewRefreshes } from "../organization/useOrgManagerViewRefreshes";
+import type { GroupDetailsEffectKey } from "../refresh";
 import type { OrgManagerView } from "../routes";
 import {
   getOrgManagerStateScopeKey,
@@ -112,9 +114,9 @@ export function useOrgManagerModel() {
   const [loadingUserDetail, setLoadingUserDetail] = useState(false);
   const [mutating, setMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const skippedGroupDetailsEffectRef = useRef<{
-    groupId: string | null;
-  } | null>(null);
+  const skippedGroupDetailsEffectRef = useRef<GroupDetailsEffectKey | null>(
+    null,
+  );
   const selectedUserIdRef = useRef<string | null>(null);
   const orgManagerScopeKey = getOrgManagerStateScopeKey(appData);
   const previousScopeKeyRef = useRef(orgManagerScopeKey);
@@ -166,6 +168,9 @@ export function useOrgManagerModel() {
     userDetail,
     userId: appData.auth.userId,
   });
+  const selectedGroupStateHashRef = useRef<string | null>(null);
+  selectedGroupStateHashRef.current =
+    selectedGroup?.currentState?.stateHash ?? null;
   const {
     profileDisplayNamesByUserId,
     setProfileDisplayNamesByUserId,
@@ -277,6 +282,8 @@ export function useOrgManagerModel() {
     resetSelectedRosterUser,
     selectGroup,
     selectedGroupIdRef,
+    selectedGroupStateHashRef,
+    selectedUserIdRef,
     skippedGroupDetailsEffectRef,
     setDataUsage,
     setDirectory,
@@ -294,6 +301,7 @@ export function useOrgManagerModel() {
     setIsCreateGroupDialogOpen,
     setIsImportUserDialogOpen,
     setUserDetail,
+    view,
   });
   useOrgManagerViewRefreshes({
     enabled: canLoadAuthenticatedOrgData,
@@ -322,24 +330,20 @@ export function useOrgManagerModel() {
   ]);
 
   useEffect(() => {
-    void refreshOrgManager();
-  }, [orgManagerScopeKey, refreshOrgManager]);
+    void refreshDirectoryAndGroups();
+  }, [orgManagerScopeKey, refreshDirectoryAndGroups]);
 
-  useEffect(() => {
-    const skippedGroupDetailsEffect = skippedGroupDetailsEffectRef.current;
-    if (skippedGroupDetailsEffect?.groupId === selectedGroupId) {
-      skippedGroupDetailsEffectRef.current = null;
-      return;
-    }
-
-    void refreshSelectedGroupDetails(selectedGroupId);
-  }, [refreshSelectedGroupDetails, selectedGroupId]);
-
+  useOrgManagerDetailRefreshes({
+    refreshSelectedGroupDetails,
+    refreshSelectedUserDetail,
+    selectedGroupAvailable: selectedGroupId === null || selectedGroup !== null,
+    selectedGroupId,
+    selectedGroupStateHash: selectedGroup?.currentState?.stateHash ?? null,
+    selectedUserId,
+    skippedGroupDetailsEffectRef,
+    view,
+  });
   useClearMissingOrgManagerUser(activeDirectory, selectedUserId, selectUser);
-
-  useEffect(() => {
-    void refreshSelectedUserDetail(selectedUserId);
-  }, [refreshSelectedUserDetail, selectedUserId]);
 
   useEnsureRosterProfileDocument({
     appData,

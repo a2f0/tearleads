@@ -199,6 +199,7 @@ function createActions(
     loadLocalDirectoryAndGroups: unusedAsync,
     loadGrants: unusedAsync,
     loadGroupDetails: unusedAsync,
+    loadGroupPresentationDetails: unusedAsync,
     loadPolicyHistory: unusedAsync,
     loadUserDetail: unusedAsync,
     removeUserFromGroup: unusedAsync,

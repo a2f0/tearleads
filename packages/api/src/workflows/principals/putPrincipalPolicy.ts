@@ -43,6 +43,12 @@ export interface PutPrincipalPolicyInput extends PutPrincipalPolicyRequest {
   requesterUserId: string;
 }
 
+interface RosterSyncResult {
+  readonly changedRosterUserIds: string[];
+  readonly memberGroupId: string;
+  readonly organizationId: string;
+}
+
 function policyTargetChanged(): PrincipalPolicyError {
   return new PrincipalPolicyError(
     "Organization policy target changed during mutation",
@@ -147,11 +153,7 @@ async function assertManagedPrincipalUsersAreNotDisabledRosterEntries(input: {
 async function syncRosterForStoredPrincipalState(input: {
   readonly request: PutPrincipalPolicyInput;
   readonly tx: DatabaseTransaction;
-}): Promise<{
-  changedRosterUserIds: string[];
-  organizationId: string;
-  memberGroupId: string;
-} | null> {
+}): Promise<RosterSyncResult | null> {
   const rosterSyncTarget = await loadRosterSyncTargetForPrincipal({
     input: input.request,
     tx: input.tx,
@@ -179,6 +181,42 @@ async function syncRosterForStoredPrincipalState(input: {
     });
   }
   return { ...rosterSyncTarget, changedRosterUserIds };
+}
+
+async function appendPolicyReadModelChanges(input: {
+  readonly policy: PutPrincipalPolicyInput;
+  readonly rosterSync: RosterSyncResult;
+  readonly tx: DatabaseTransaction;
+}): Promise<void> {
+  const isOrganizationGroupChange =
+    input.policy.expectedPrincipalType === "group";
+  const isVisibleOrganizationGroupChange =
+    isOrganizationGroupChange &&
+    input.policy.expectedPrincipalId !== input.rosterSync.memberGroupId;
+  if (input.rosterSync.changedRosterUserIds.length > 0) {
+    await appendOrganizationReadModelChangeInTransaction(input.tx, {
+      organizationId: input.rosterSync.organizationId,
+      lane: "directory",
+      entityId: input.rosterSync.organizationId,
+      operation: "replace",
+    });
+  }
+  if (isVisibleOrganizationGroupChange) {
+    await appendOrganizationReadModelChangeInTransaction(input.tx, {
+      organizationId: input.rosterSync.organizationId,
+      lane: "groups",
+      entityId: input.policy.expectedPrincipalId,
+      operation: "upsert",
+    });
+  }
+  if (isOrganizationGroupChange) {
+    await appendOrganizationReadModelChangeInTransaction(input.tx, {
+      organizationId: input.rosterSync.organizationId,
+      lane: "groupMemberships",
+      entityId: input.policy.expectedPrincipalId,
+      operation: "replace",
+    });
+  }
 }
 
 function assertPutPrincipalPolicyRouteBinding(
@@ -372,9 +410,6 @@ export async function runPutPrincipalPolicyWorkflow(
         tx,
       });
       if (rosterSyncTarget) {
-        const isVisibleOrganizationGroupChange =
-          input.expectedPrincipalType === "group" &&
-          input.expectedPrincipalId !== rosterSyncTarget.memberGroupId;
         await reconcileOrganizationBillingSeats({
           executor: tx,
           organizationId: rosterSyncTarget.organizationId,
@@ -385,25 +420,11 @@ export async function runPutPrincipalPolicyWorkflow(
             sourceType: "principal_state",
           },
         });
-        if (
-          rosterSyncTarget.changedRosterUserIds.length > 0 ||
-          isVisibleOrganizationGroupChange
-        ) {
-          await appendOrganizationReadModelChangeInTransaction(tx, {
-            organizationId: rosterSyncTarget.organizationId,
-            lane: "directory",
-            entityId: rosterSyncTarget.organizationId,
-            operation: "replace",
-          });
-        }
-        if (isVisibleOrganizationGroupChange) {
-          await appendOrganizationReadModelChangeInTransaction(tx, {
-            organizationId: rosterSyncTarget.organizationId,
-            lane: "groups",
-            entityId: input.expectedPrincipalId,
-            operation: "upsert",
-          });
-        }
+        await appendPolicyReadModelChanges({
+          policy: input,
+          rosterSync: rosterSyncTarget,
+          tx,
+        });
       }
 
       return getPrincipalPolicyForStateWithExecutor(tx, nextState);

@@ -1,7 +1,9 @@
 import type { DomainScope } from "../data/domainScope";
 import {
   loadLocalOrganizationDirectoryAndGroups,
+  loadLocalOrganizationGroupMembers,
   type OrganizationDirectoryAndGroups,
+  type OrganizationGroupMembers,
   reconcileOrganizationDirectoryAndGroups,
 } from "../workflows/organizations";
 import type {
@@ -22,6 +24,10 @@ export interface OrganizationReadModelCoordinator {
   loadLocalOrReconcile(
     organizationId?: string | undefined,
   ): Promise<OrganizationDirectoryAndGroups | null>;
+  loadLocalGroupMembers(
+    groupId: string,
+    organizationId?: string | undefined,
+  ): Promise<OrganizationGroupMembers | null>;
   reconcile(
     organizationId?: string | undefined,
   ): Promise<OrganizationDirectoryAndGroups | null>;
@@ -107,6 +113,18 @@ export function createOrganizationReadModelCoordinator(
 
   return {
     loadLocal,
+    async loadLocalGroupMembers(groupId, organizationId) {
+      const active = activeReadModelRuntime(runtimeService, organizationId);
+      if (!active || groupId.length === 0) {
+        return null;
+      }
+      return loadLocalOrganizationGroupMembers({
+        currentUserId: active.userId,
+        execSql: active.runtime.infra.execSql,
+        groupId,
+        organizationId: active.organizationId,
+      });
+    },
     async loadLocalOrReconcile(organizationId) {
       return (await loadLocal(organizationId)) ?? reconcile(organizationId);
     },

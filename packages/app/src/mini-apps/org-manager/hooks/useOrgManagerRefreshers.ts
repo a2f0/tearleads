@@ -14,6 +14,7 @@ import { useCallback } from "react";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
+import { useOrgManagerVisibleRefresher } from "../organization/useOrgManagerVisibleRefresher";
 import {
   clearErrorIfRequested,
   type DataUsageRefreshOptions,
@@ -21,13 +22,17 @@ import {
   type DirectoryRefreshResult,
   directoryLoadOptions,
   type GrantsRefreshOptions,
+  type GroupDetailsEffectKey,
   type GroupDetailsRefreshOptions,
   getRefreshBehavior,
   type RefreshBehaviorOptions,
   setLoadingIfManaged,
   setUnknownError,
 } from "../refresh";
-import { resolveOrgManagerSelectedGroupId } from "../routes";
+import {
+  type OrgManagerView,
+  resolveOrgManagerSelectedGroupId,
+} from "../routes";
 import type { useOrgManagerRequestGuard } from "./useOrgManagerRequestGuard";
 import { useOrgManagerUserDetailRefresher } from "./useOrgManagerUserDetailRefresher";
 
@@ -41,7 +46,9 @@ interface OrgManagerRefreshersParams {
   resetSelectedRosterUser: () => void;
   selectGroup: (groupId: string | null) => void;
   selectedGroupIdRef: { current: string | null };
-  skippedGroupDetailsEffectRef: { current: { groupId: string | null } | null };
+  selectedGroupStateHashRef: { current: string | null };
+  selectedUserIdRef: { current: string | null };
+  skippedGroupDetailsEffectRef: { current: GroupDetailsEffectKey | null };
   setDataUsage: Dispatch<SetStateAction<OrganizationDataUsage | null>>;
   setDirectory: Dispatch<SetStateAction<OrganizationDirectory | null>>;
   setError: Dispatch<SetStateAction<string | null>>;
@@ -66,6 +73,7 @@ interface OrgManagerRefreshersParams {
   setIsCreateGroupDialogOpen: Dispatch<SetStateAction<boolean>>;
   setIsImportUserDialogOpen: Dispatch<SetStateAction<boolean>>;
   setUserDetail: Dispatch<SetStateAction<OrganizationUserDetail | null>>;
+  view: OrgManagerView;
 }
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Colocates the org-manager data load/refresh callbacks that share setters and ordering.
@@ -78,6 +86,8 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     resetSelectedRosterUser,
     selectGroup,
     selectedGroupIdRef,
+    selectedGroupStateHashRef,
+    selectedUserIdRef,
     skippedGroupDetailsEffectRef,
     setDataUsage,
     setDirectory,
@@ -95,6 +105,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setIsCreateGroupDialogOpen,
     setIsImportUserDialogOpen,
     setUserDetail,
+    view,
   } = params;
 
   const resetDirectoryState = useCallback(() => {
@@ -148,14 +159,21 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
           currentSelectedGroupId,
           nextDirectoryState.groups,
         );
+        const nextSelectedGroupStateHash =
+          nextDirectoryState.groups.find(
+            (group) => group.groupId === nextSelectedGroupId,
+          )?.currentState?.stateHash ?? null;
         if (
           options.skipNextGroupDetailsEffect &&
-          nextSelectedGroupId !== currentSelectedGroupId
+          (nextSelectedGroupId !== currentSelectedGroupId ||
+            nextSelectedGroupStateHash !== selectedGroupStateHashRef.current)
         ) {
           skippedGroupDetailsEffectRef.current = {
             groupId: nextSelectedGroupId,
+            stateHash: nextSelectedGroupStateHash,
           };
         }
+        selectedGroupStateHashRef.current = nextSelectedGroupStateHash;
         selectGroup(nextSelectedGroupId);
         return {
           didLoad: true,
@@ -194,6 +212,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
       resetDirectoryState,
       selectGroup,
       selectedGroupIdRef,
+      selectedGroupStateHashRef,
       setDirectory,
       setError,
       setGroups,
@@ -261,7 +280,8 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
         setError(null);
       }
       try {
-        const nextDetails = await orgManagerActions.loadGroupDetails(groupId);
+        const nextDetails =
+          await orgManagerActions.loadGroupPresentationDetails(groupId);
         if (!isCurrentRequest()) {
           return;
         }
@@ -452,22 +472,19 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setUserDetail,
   });
 
-  const refreshOrgManager = useCallback(async () => {
-    const isCurrentRequest = beginRequest("refresh");
-    setLoading(true);
-    setError(null);
-    try {
-      await refreshDirectoryAndGroups({
-        clearError: false,
-        manageLoading: false,
-        skipNextGroupDetailsEffect: true,
-      });
-    } finally {
-      if (isCurrentRequest()) {
-        setLoading(false);
-      }
-    }
-  }, [beginRequest, refreshDirectoryAndGroups, setError, setLoading]);
+  const refreshOrgManager = useOrgManagerVisibleRefresher({
+    beginRequest,
+    refreshDataUsage,
+    refreshDirectoryAndGroups,
+    refreshGrants,
+    refreshOrganizationPolicyHistory,
+    refreshSelectedGroupDetails,
+    refreshSelectedUserDetail,
+    selectedUserIdRef,
+    setError,
+    setLoading,
+    view,
+  });
 
   return {
     refreshDataUsage,

@@ -268,6 +268,7 @@ export const subsystems: readonly Subsystem[] = [
     paths: [
       `${sdk}/workflows/organizations/`,
       `${sdk}/client/organizations.ts`,
+      `${sdk}/client/organizationGroupPresentation.ts`,
       `${sdk}/client/organizationReadModels.ts`,
       `${sdk}/client/organizationMetadataReshare.ts`,
       `${sdk}/client/organizationMetadataReshareCoordinator.ts`,
@@ -659,10 +660,7 @@ export interface SubsystemDocsViolation {
   name: string;
 }
 
-/**
- * Drift between the `docs/SUBSYSTEMS.md` registry table and the manifest above.
- * Surfaced by the `subsystem-registry-matches-docs` architecture check.
- */
+/** Docs/manifest drift surfaced by `subsystem-registry-matches-docs`. */
 export async function findSubsystemDocsViolations(): Promise<
   SubsystemDocsViolation[]
 > {
@@ -689,7 +687,6 @@ export async function findSubsystemDocsViolations(): Promise<
   const manifestNames = new Set(subsystems.map((subsystem) => subsystem.name));
 
   const violations: SubsystemDocsViolation[] = [];
-
   for (const name of manifestNames) {
     if (!documentedNames.has(name)) {
       violations.push({

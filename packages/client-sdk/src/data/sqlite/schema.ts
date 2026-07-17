@@ -7,24 +7,22 @@ import {
   text,
 } from "drizzle-orm/sqlite-core";
 import {
-  organizationReadModelDirectoryUsers,
-  organizationReadModelGroups,
-  organizationReadModelRequesters,
-  organizationReadModelState,
-} from "./organizationReadModelSchema";
+  organizationReadModelSQLiteSchema,
+  organizationReadModelTables,
+} from "./organizationReadModelTableRegistry";
 import {
   principalPolicies,
   principalPolicyBundleHistory,
   principalPolicyCheckpoints,
 } from "./principalPolicySchema";
+import { defineSqlTableSchema, type SqlTableSchema } from "./sqlTableSchema";
 
 export {
   principalPolicies,
   principalPolicyBundleHistory,
   principalPolicyCheckpoints,
 } from "./principalPolicySchema";
-
-import { defineSqlTableSchema, type SqlTableSchema } from "./sqlTableSchema";
+export { organizationReadModelTables };
 
 const accessLevelColumn = "effective_access_level";
 
@@ -694,13 +692,6 @@ export const containerSyncWatermarkTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(containerSyncLaneChecks),
 ];
 
-export const organizationReadModelTables: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(organizationReadModelState),
-  defineSqlTableSchema(organizationReadModelRequesters),
-  defineSqlTableSchema(organizationReadModelDirectoryUsers),
-  defineSqlTableSchema(organizationReadModelGroups),
-];
-
 export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...documentTables,
   ...principalPolicyTables,
@@ -735,8 +726,5 @@ export const clientSQLiteSchema = {
   containerMoveIntents,
   containerSyncLaneChecks,
   containerSyncWatermarks,
-  organizationReadModelState,
-  organizationReadModelRequesters,
-  organizationReadModelDirectoryUsers,
-  organizationReadModelGroups,
+  ...organizationReadModelSQLiteSchema,
 };

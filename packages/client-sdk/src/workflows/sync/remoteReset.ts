@@ -8,6 +8,8 @@ import { createPendingUpdateFields } from "../../data/documentSync";
 import { getDocumentAttachments } from "../../data/documents/documentContent";
 import {
   organizationReadModelDirectoryUsers,
+  organizationReadModelGroupMembers,
+  organizationReadModelGroupMemberships,
   organizationReadModelGroups,
   organizationReadModelRequesters,
   organizationReadModelState,
@@ -227,6 +229,8 @@ async function readRemoteSyncStateSnapshot(
 async function clearRemoteDerivedRows(
   tx: ClientSQLiteTransaction,
 ): Promise<void> {
+  await tx.delete(organizationReadModelGroupMembers).run();
+  await tx.delete(organizationReadModelGroupMemberships).run();
   await tx.delete(organizationReadModelDirectoryUsers).run();
   await tx.delete(organizationReadModelGroups).run();
   await tx.delete(organizationReadModelRequesters).run();

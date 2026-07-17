@@ -4,17 +4,20 @@ import type {
 } from "@tearleads/api-shared/postgres";
 import {
   type OrganizationReadModelLane,
+  type OrganizationReadModelOperation,
   organizationReadModelChanges,
 } from "@tearleads/api-shared/schema";
 import type {
   ListOrganizationGroupsResponse,
   OrganizationDirectoryResponse,
   OrganizationReadModelDirectoryResponse,
+  OrganizationReadModelGroupMembershipsResponse,
   OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
-import { and, eq, gt } from "drizzle-orm";
+import { and, asc, eq, gt } from "drizzle-orm";
 import { requireDirectOrganizationAccess } from "./access";
 import { loadOrganizationDirectoryInTransaction } from "./directory";
+import { loadOrganizationGroupMembershipsInTransaction } from "./groupMemberships";
 import { loadOrganizationGroupsInTransaction } from "./groups";
 import { lockOrganizationReadModelHeadInTransaction } from "./readModelChanges";
 import {
@@ -22,13 +25,23 @@ import {
   encodeOrganizationReadModelCursor,
 } from "./readModelCursor";
 
-async function listChangedLanes(input: {
+interface ReadModelChange {
+  readonly entityId: string;
+  readonly lane: OrganizationReadModelLane;
+  readonly operation: OrganizationReadModelOperation;
+}
+
+async function listChanges(input: {
   readonly cursor: bigint;
   readonly organizationId: string;
   readonly tx: DatabaseTransaction;
-}): Promise<Set<OrganizationReadModelLane>> {
-  const rows = await input.tx
-    .select({ lane: organizationReadModelChanges.lane })
+}): Promise<ReadModelChange[]> {
+  return input.tx
+    .select({
+      entityId: organizationReadModelChanges.entityId,
+      lane: organizationReadModelChanges.lane,
+      operation: organizationReadModelChanges.operation,
+    })
     .from(organizationReadModelChanges)
     .where(
       and(
@@ -36,9 +49,19 @@ async function listChangedLanes(input: {
         gt(organizationReadModelChanges.cursor, input.cursor),
       ),
     )
-    .groupBy(organizationReadModelChanges.lane);
+    .orderBy(asc(organizationReadModelChanges.cursor));
+}
 
-  return new Set(rows.map((row) => row.lane));
+function coalesceGroupMembershipChanges(
+  changes: readonly ReadModelChange[],
+): ReadonlyMap<string, OrganizationReadModelOperation> {
+  const operationsByGroupId = new Map<string, OrganizationReadModelOperation>();
+  for (const change of changes) {
+    if (change.lane === "groupMemberships") {
+      operationsByGroupId.set(change.entityId, change.operation);
+    }
+  }
+  return operationsByGroupId;
 }
 
 function toReadModelDirectory(
@@ -51,96 +74,172 @@ function toReadModelDirectory(
   };
 }
 
+interface ReadModelResponseContext {
+  readonly isOrgAdmin: boolean;
+  readonly nextCursor: string;
+  readonly organizationId: string;
+  readonly sessionUserId: string;
+  readonly tx: DatabaseTransaction;
+}
+
+interface ReadModelLanes {
+  directory?: OrganizationReadModelDirectoryResponse;
+  groupMemberships?: OrganizationReadModelGroupMembershipsResponse;
+  groups?: ListOrganizationGroupsResponse;
+}
+
+async function loadDirectoryLane(
+  input: ReadModelResponseContext,
+): Promise<OrganizationReadModelDirectoryResponse> {
+  return toReadModelDirectory(
+    await loadOrganizationDirectoryInTransaction({
+      executor: input.tx,
+      isOrgAdmin: input.isOrgAdmin,
+      organizationId: input.organizationId,
+      sessionUserId: input.sessionUserId,
+    }),
+  );
+}
+
+async function loadSnapshotResponse(
+  input: ReadModelResponseContext,
+): Promise<OrganizationReadModelResponse> {
+  const directory = await loadDirectoryLane(input);
+  const groups = await loadOrganizationGroupsInTransaction({
+    executor: input.tx,
+    organizationId: input.organizationId,
+  });
+  const groupMemberships = await loadOrganizationGroupMembershipsInTransaction({
+    executor: input.tx,
+    organizationId: input.organizationId,
+  });
+  return {
+    version: 2,
+    mode: "snapshot",
+    organizationId: input.organizationId,
+    nextCursor: input.nextCursor,
+    hasMore: false,
+    currentUser: { isOrgAdmin: input.isOrgAdmin },
+    lanes: { directory, groupMemberships, groups },
+  };
+}
+
+async function loadGroupMembershipDelta(input: {
+  readonly changes: readonly ReadModelChange[];
+  readonly organizationId: string;
+  readonly tx: DatabaseTransaction;
+}): Promise<OrganizationReadModelGroupMembershipsResponse> {
+  const membershipOperations = coalesceGroupMembershipChanges(input.changes);
+  const deletedGroupIds = [...membershipOperations.entries()]
+    .flatMap(([groupId, operation]) =>
+      operation === "delete" ? [groupId] : [],
+    )
+    .sort();
+  const currentGroupIds = [...membershipOperations.entries()]
+    .flatMap(([groupId, operation]) =>
+      operation === "delete" ? [] : [groupId],
+    )
+    .sort();
+  return loadOrganizationGroupMembershipsInTransaction({
+    deletedGroupIds,
+    executor: input.tx,
+    groupIds: currentGroupIds,
+    organizationId: input.organizationId,
+  });
+}
+
+async function loadDeltaResponse(
+  input: ReadModelResponseContext,
+  requestedCursor: bigint,
+): Promise<OrganizationReadModelResponse> {
+  const changes = await listChanges({
+    cursor: requestedCursor,
+    organizationId: input.organizationId,
+    tx: input.tx,
+  });
+  const changedLanes = new Set(changes.map((change) => change.lane));
+  const lanes: ReadModelLanes = {};
+  if (changedLanes.has("directory")) {
+    lanes.directory = await loadDirectoryLane(input);
+  }
+  if (changedLanes.has("groups")) {
+    lanes.groups = await loadOrganizationGroupsInTransaction({
+      executor: input.tx,
+      organizationId: input.organizationId,
+    });
+  }
+  if (changedLanes.has("groupMemberships")) {
+    lanes.groupMemberships = await loadGroupMembershipDelta({
+      changes,
+      organizationId: input.organizationId,
+      tx: input.tx,
+    });
+  }
+  return {
+    version: 2,
+    mode: "delta",
+    organizationId: input.organizationId,
+    nextCursor: input.nextCursor,
+    hasMore: false,
+    currentUser: { isOrgAdmin: input.isOrgAdmin },
+    lanes,
+  };
+}
+
+async function getReadModelInTransaction(input: {
+  readonly encodedCursor: string | undefined;
+  readonly organizationId: string;
+  readonly sessionUserId: string;
+  readonly tx: DatabaseTransaction;
+}): Promise<OrganizationReadModelResponse> {
+  const accessInput = {
+    executor: input.tx,
+    organizationId: input.organizationId,
+    userId: input.sessionUserId,
+  };
+  await requireDirectOrganizationAccess(accessInput);
+  const currentHead = await lockOrganizationReadModelHeadInTransaction(
+    input.tx,
+    input.organizationId,
+  );
+  if (currentHead === null) {
+    throw new Error("Organization read-model cursor head is missing");
+  }
+  const access = await requireDirectOrganizationAccess(accessInput);
+  const requestedCursor =
+    input.encodedCursor === undefined
+      ? null
+      : decodeOrganizationReadModelCursor(
+          input.encodedCursor,
+          input.organizationId,
+        );
+  const context: ReadModelResponseContext = {
+    isOrgAdmin: access.isOrgAdmin,
+    nextCursor: encodeOrganizationReadModelCursor(
+      input.organizationId,
+      currentHead,
+    ),
+    organizationId: input.organizationId,
+    sessionUserId: input.sessionUserId,
+    tx: input.tx,
+  };
+  return requestedCursor === null || requestedCursor > currentHead
+    ? loadSnapshotResponse(context)
+    : loadDeltaResponse(context, requestedCursor);
+}
+
 export async function runGetOrganizationReadModelWorkflow(
   db: ApiDatabase,
   organizationId: string,
   sessionUserId: string,
   encodedCursor: string | undefined,
 ): Promise<OrganizationReadModelResponse> {
-  return db.transaction(async (tx) => {
-    const accessInput = {
-      executor: tx,
+  return db.transaction((tx) =>
+    getReadModelInTransaction({
+      encodedCursor,
       organizationId,
-      userId: sessionUserId,
-    };
-    await requireDirectOrganizationAccess(accessInput);
-    const lockedHead = await lockOrganizationReadModelHeadInTransaction(
+      sessionUserId,
       tx,
-      organizationId,
-    );
-    if (lockedHead === null) {
-      throw new Error("Organization read-model cursor head is missing");
-    }
-    const currentHead = lockedHead;
-    const access = await requireDirectOrganizationAccess(accessInput);
-    const requestedCursor =
-      encodedCursor === undefined
-        ? null
-        : decodeOrganizationReadModelCursor(encodedCursor, organizationId);
-    const nextCursor = encodeOrganizationReadModelCursor(
-      organizationId,
-      currentHead,
-    );
-    if (requestedCursor === null || requestedCursor > currentHead) {
-      const directory = toReadModelDirectory(
-        await loadOrganizationDirectoryInTransaction({
-          executor: tx,
-          isOrgAdmin: access.isOrgAdmin,
-          organizationId,
-          sessionUserId,
-        }),
-      );
-      const groups = await loadOrganizationGroupsInTransaction({
-        executor: tx,
-        organizationId,
-      });
-
-      return {
-        version: 1,
-        mode: "snapshot",
-        organizationId,
-        nextCursor,
-        hasMore: false,
-        currentUser: { isOrgAdmin: access.isOrgAdmin },
-        lanes: { directory, groups },
-      };
-    }
-
-    const changedLanes = await listChangedLanes({
-      cursor: requestedCursor,
-      organizationId,
-      tx,
-    });
-    const lanes: {
-      directory?: OrganizationReadModelDirectoryResponse;
-      groups?: ListOrganizationGroupsResponse;
-    } = {};
-
-    if (changedLanes.has("directory")) {
-      lanes.directory = toReadModelDirectory(
-        await loadOrganizationDirectoryInTransaction({
-          executor: tx,
-          isOrgAdmin: access.isOrgAdmin,
-          organizationId,
-          sessionUserId,
-        }),
-      );
-    }
-    if (changedLanes.has("groups")) {
-      lanes.groups = await loadOrganizationGroupsInTransaction({
-        executor: tx,
-        organizationId,
-      });
-    }
-
-    return {
-      version: 1,
-      mode: "delta",
-      organizationId,
-      nextCursor,
-      hasMore: false,
-      currentUser: { isOrgAdmin: access.isOrgAdmin },
-      lanes,
-    };
-  });
+    }),
+  );
 }
