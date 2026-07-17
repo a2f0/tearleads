@@ -94,6 +94,23 @@ function formatStatusRows(
   return rows;
 }
 
+/**
+ * Chooses a code-fence length that the content cannot close early.
+ *
+ * A log message can be multiline (an error's `String(cause)` may carry a stack
+ * trace), so a line of three-or-more backticks inside it would terminate a fixed
+ * ```` ``` ```` fence and spill the rest of the log into rendered Markdown. Per
+ * CommonMark, a fence of N backticks is closed only by a run of N or more, so a
+ * fence one longer than the content's longest backtick run stays intact.
+ */
+function fenceForContent(content: string): string {
+  let longestRun = 0;
+  for (const match of content.matchAll(/`+/gu)) {
+    longestRun = Math.max(longestRun, match[0].length);
+  }
+  return "`".repeat(Math.max(3, longestRun + 1));
+}
+
 function formatLogSection(
   logEntries: ReadonlyArray<PaneLogEntry>,
 ): ReadonlyArray<string> {
@@ -110,14 +127,10 @@ function formatLogSection(
         ]
       : [];
 
-  return [
-    "## Logs",
-    "",
-    ...truncationNote,
-    "```text",
-    ...visible.map(formatPaneLogLine),
-    "```",
-  ];
+  const lines = visible.map(formatPaneLogLine);
+  const fence = fenceForContent(lines.join("\n"));
+
+  return ["## Logs", "", ...truncationNote, `${fence}text`, ...lines, fence];
 }
 
 export function formatSystemMonitorReport(

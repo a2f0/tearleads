@@ -193,3 +193,43 @@ test("report states an empty log instead of emitting a blank code fence", () => 
   expect(report).toContain("_No log entries._");
   expect(report).not.toContain("```text");
 });
+
+test("report widens the log fence so a backtick line cannot close it early", () => {
+  // A multiline log message (e.g. an error's stack trace) containing a line of
+  // three backticks would otherwise close the ```text fence and spill the rest
+  // of the log into rendered Markdown.
+  const report = formatSystemMonitorReport({
+    capturedAt: CAPTURED_AT,
+    environment: [],
+    logEntries: [
+      createLogEntry(1, { message: "before\n```\nafter" }),
+      createLogEntry(2, { message: "tail" }),
+    ],
+    status: createStatus(),
+  });
+
+  // The fence is one backtick longer than the content's longest run, so it
+  // opens with ````text and closes with ````.
+  expect(report).toContain("````text");
+  expect(report).toContain("\n````\n");
+  // The embedded ``` is quoted content, not a closing fence, so the later entry
+  // stays inside the block.
+  expect(report).toContain("tail");
+  const openIndex = report.indexOf("````text");
+  const tailIndex = report.indexOf("tail");
+  const closeIndex = report.indexOf("\n````\n");
+  expect(openIndex).toBeLessThan(tailIndex);
+  expect(tailIndex).toBeLessThan(closeIndex);
+});
+
+test("report escalates the fence past longer backtick runs too", () => {
+  const report = formatSystemMonitorReport({
+    capturedAt: CAPTURED_AT,
+    environment: [],
+    logEntries: [createLogEntry(1, { message: "````` five" })],
+    status: createStatus(),
+  });
+
+  // Longest run is five backticks, so the fence must be at least six.
+  expect(report).toContain("``````text");
+});
