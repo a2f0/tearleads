@@ -29,12 +29,18 @@ export {
 } from "./containerMetadata";
 export {
   type ContainerManifestRef,
+  ContainerManifestRefArrayArraySchema,
+  ContainerManifestRefSchema,
   type DocumentContentKeyBundleRequest,
+  DocumentContentKeyBundleRequestSchema,
   type DocumentContentKeyTargetEnvelope,
+  DocumentContentKeyTargetEnvelopeSchema,
   type DocumentCreateRequest,
   type DocumentLinkSetMutationRequest,
   type DocumentOutgoingUpdate,
+  DocumentOutgoingUpdateSchema,
   type DocumentSyncRequest,
+  DocumentSyncRequestSchema,
   isContainerManifestRefArrayArray,
   isDocumentContentKeyBundleRequest,
   isDocumentCreateRequest,

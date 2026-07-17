@@ -54,10 +54,12 @@ Document write routes:
  and current derived KEK targets
  - request shape: `DocumentSyncRequest`
  - key fields: optional `contentKeyBundle`, optional signed
- `containerRekeys[]`, `contentKeyEpoch`, optional `documentManifest`,
- `expectedLinkSetManifestHash`, `expectedTargetHash`, optional
- `authorizingContainerPaths`, `localVersionVector`, optional `minLsn`, and
- `outgoingUpdates[]`
+ `containerRekeys[]`, `contentKeyEpoch`, `expectedLinkSetManifestHash`,
+ `expectedTargetHash`, optional `authorizingContainerPathRefs`,
+ `localVersionVector`, optional `minLsn`, and `outgoingUpdates[]`
+ - each authorizing path contains `{containerId, manifestHash}` references; the
+ server resolves the signed container manifests it already stores, while
+ `expectedLinkSetManifestHash` pins the document head without echoing its bundle
  - each outgoing update includes `id`, encrypted `encryptedData`, visible
  `partialStartVersionVector`, visible `partialEndVersionVector`, optional
  `sourceVersionVector`, optional `checkpointKind`, and a signed

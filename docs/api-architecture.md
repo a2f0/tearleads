@@ -90,11 +90,13 @@ Read surfaces:
 | List organization group containers | `GET /organizations/:organizationId/groups/:groupId/containers` |
 | Get organization user detail | `GET /organizations/:organizationId/users/:userId/detail` |
 
-The document sync request names signed fields:
+The document sync request names protocol fields:
 `contentKeyEpoch`, `expectedLinkSetManifestHash`, `expectedTargetHash`,
 optional `contentKeyBundle`, optional `containerRekeys`, optional
-`documentManifest`, optional `authorizingContainerPaths`, `localVersionVector`,
-optional `minLsn`, and `outgoingUpdates[]` with per-update `writeHeader`.
+`authorizingContainerPathRefs`, `localVersionVector`, optional `minLsn`, and
+`outgoingUpdates[]` with per-update `writeHeader`. The path references identify
+signed container manifests already held by the API; the expected link-set hash
+pins the server-resolved document manifest.
 Responses return `acceptedOutgoingUpdateIds`, `commitLsn`, `contentKeyBundle`,
 the required `contentKeyBundles` array (empty when no additional epoch bundle is
 needed), `documentKekTargets`, and encrypted `updates[]`.

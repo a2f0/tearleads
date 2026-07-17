@@ -74,12 +74,18 @@ export {
 } from "./document";
 export {
   type DocumentContentKeyBundleResponse,
+  DocumentContentKeyBundleResponseSchema,
   type DocumentContentKeyTargetEnvelopeResponse,
+  DocumentContentKeyTargetEnvelopeResponseSchema,
   type DocumentCreateResponse,
   type DocumentKekTargetsResponse,
+  DocumentKekTargetsResponseSchema,
   type DocumentLinkSetMutationResponse,
   type DocumentPurgeResponse,
   type DocumentSyncResponse,
+  DocumentSyncResponseSchema,
+  type DocumentSyncUpdateResponse,
+  DocumentSyncUpdateResponseSchema,
   type DocumentWriterProjectionResponse,
   isDocumentContentKeyBundleResponse,
   isDocumentCreateResponse,

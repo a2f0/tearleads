@@ -6,13 +6,22 @@ messages, proofs, encrypted payload boundaries, and validation rules used for
 identity, access, document sync, blob staging, attachment binding, and
 attachment slots.
 
-The executable source of truth is:
+The executable contract is layered:
 
-- request validators in `packages/validators/src/request`
-- response validators in `packages/validators/src/response`
-- protocol verifiers in `packages/crypto/src/keying.ts`
-- API workflows in `packages/api/src/workflows`
-- client request builders and response checks in `packages/client-sdk/src/workflows`
+- `packages/validators/src/{request,response}` defines structural wire grammar.
+- `packages/crypto/src/keying.ts` defines canonical cryptographic checks.
+- `packages/api/src/workflows` defines authorized transactional transitions.
+- `packages/client-sdk/src/workflows` defines local decisions and fail-closed
+  response verification.
+
+For the document-sync pilot, `DocumentSyncRequestSchema` and
+`DocumentSyncResponseSchema` are normative structural grammar and derive the
+TypeScript types. The legacy
+`isDocumentSyncRequest` and `isDocumentSyncResponse` exports are compatibility
+predicates over the same schemas. Validation does not coerce, default, strip, or
+replace original signed values. Schema refinements enforce local rules, not
+authorization, transaction, retry, convergence, or storage guarantees; formal
+models still require conformance tests against verifiers and workflows.
 
 Related background documents:
 
@@ -284,16 +293,19 @@ Encrypted Loro sync uses `POST /documents/:documentId/sync`.
 - `expectedTargetHash`
 - optional `contentKeyBundle`
 - optional `containerRekeys[]`
-- optional `documentManifest`
-- optional `authorizingContainerPaths`
+- optional `authorizingContainerPathRefs`, containing paths of
+  `{containerId, manifestHash}` references that the server resolves from its own
+  committed manifest store
 - `localVersionVector`
 - optional `minLsn`
 - `outgoingUpdates[]`
 
 Outgoing updates carry encrypted bytes, visible partial start/end version
 vectors, optional source version vector, optional checkpoint kind, and a signed
-write header. Writes require `documentManifest` and
-`authorizingContainerPaths`; read-only sync probes can omit those proofs.
+write header. Successful writes require at least one resolved, active
+authorizing container path; read-only sync probes can omit the references. The
+`expectedLinkSetManifestHash` pins the document head that the server resolves,
+so the request does not echo the full document manifest.
 
 For accepted writes, the API verifies:
 
