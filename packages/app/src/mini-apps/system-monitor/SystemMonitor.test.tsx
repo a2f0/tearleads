@@ -35,7 +35,6 @@ const LINKED_DOCUMENT_ACTIVATION_CONTROLS_FEATURE_FLAG_KEY =
 const ROUTED_DEVELOPER_MENU_ITEM_LABELS = [
   "Force Online",
   "Force Offline",
-  "Restore Key Package",
 ] as const;
 
 function spyPushState(onPush: (url: string | URL | null | undefined) => void) {

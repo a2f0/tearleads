@@ -3,7 +3,6 @@ import {
   act,
   fireEvent,
   render,
-  screen,
   waitFor,
   within,
 } from "@testing-library/react";
@@ -15,7 +14,6 @@ import {
 } from "../../../src/components/pane/dual-pane";
 import { Pane } from "../../../src/components/pane/Pane";
 import { PaneProvider } from "../../../src/components/pane/PaneProvider";
-import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../../src/components/shared/DestroyKeyPackageConfirmationDialog";
 import { APP_HOST_PROFILES } from "../../../src/host/AppHostConfig";
 import { useRegisterCurrentIdentity } from "../../../src/identity/useRegisterCurrentIdentity";
 import {
@@ -363,96 +361,34 @@ export async function provisionPaneFromMenu(pane: HTMLElement) {
   await waitForSinglePaneProvisioning(pane);
 }
 
-export async function downloadPaneKeyPackageBackup(
-  pane: HTMLElement,
-): Promise<string> {
-  const downloaded = { blob: null as Blob | null };
-  const originalCreateObjectUrl = URL.createObjectURL;
-  const originalRevokeObjectUrl = URL.revokeObjectURL;
-  const originalAnchorClick = HTMLAnchorElement.prototype.click;
-
-  try {
-    URL.createObjectURL = ((blob: Blob) => {
-      downloaded.blob = blob;
-      return "blob:tearleads-key-package-test";
-    }) as typeof URL.createObjectURL;
-    URL.revokeObjectURL = (() => undefined) as typeof URL.revokeObjectURL;
-    HTMLAnchorElement.prototype.click = () => undefined;
-
-    const identityManager = await openIdentityManagerForPane(pane);
-    const backupButton = within(identityManager).getByRole("button", {
-      name: "Backup Key Package",
-    });
-    await interact(() => {
-      fireEvent.click(backupButton);
-    });
-
-    const blob = downloaded.blob;
-    if (!blob) {
-      throw new Error("Expected key package backup blob.");
-    }
-    return blob.text();
-  } finally {
-    URL.createObjectURL = originalCreateObjectUrl;
-    URL.revokeObjectURL = originalRevokeObjectUrl;
-    HTMLAnchorElement.prototype.click = originalAnchorClick;
+export async function readPaneRecoveryKey(pane: HTMLElement): Promise<string> {
+  const identityManager = await openIdentityManagerForPane(pane);
+  const passphraseField = within(identityManager).getByLabelText(
+    "Passphrase",
+  ) as HTMLTextAreaElement;
+  const seedPhrase = passphraseField.value.trim();
+  if (!seedPhrase) {
+    throw new Error("Expected a recovery key passphrase for the pane.");
   }
+  return seedPhrase;
 }
 
-export async function destroyPaneKeyPackage(pane: HTMLElement) {
+export async function restorePaneFromRecoveryKey(
+  pane: HTMLElement,
+  seedPhrase: string,
+) {
   const identityManager = await openIdentityManagerForPane(pane);
-  const destroyButton = within(identityManager).getByRole("button", {
-    name: "Destroy Key Pair",
-  });
+  const restoreInput =
+    within(identityManager).getByLabelText("Restore passphrase");
   await interact(() => {
-    fireEvent.click(destroyButton);
-  });
-  const confirmationInput = screen.getByLabelText(
-    /Type confirm delete to continue/u,
-  );
-  await interact(() => {
-    fireEvent.change(confirmationInput, {
-      target: { value: DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE },
-    });
+    fireEvent.change(restoreInput, { target: { value: seedPhrase } });
   });
   await interact(() => {
     fireEvent.click(
-      screen.getByRole("button", { name: "Destroy Key Package" }),
+      within(identityManager).getByRole("button", {
+        name: "Restore from Passphrase",
+      }),
     );
-  });
-
-  await waitForCondition(() => {
-    const status = flattenPaneStatusText(pane);
-    return (
-      (status.includes("userId: none") || status.includes("User ID: none")) &&
-      (status.includes("sqlite worker: idle") ||
-        status.includes("SQLite Worker: idle"))
-    );
-  }, "Pane did not clear local identity state after key destruction.");
-}
-
-export async function restorePaneKeyPackageBackup(
-  pane: HTMLElement,
-  backupJson: string,
-) {
-  const identityManager = await openIdentityManagerForPane(pane);
-  const fileInput = within(identityManager).getByLabelText(
-    "Identity Manager Restore Key Package File",
-  );
-  const restoreButton = within(identityManager).getByRole("button", {
-    name: "Restore Key Package",
-  });
-  await interact(() => {
-    fireEvent.click(restoreButton);
-  });
-
-  const backupFile = new File([backupJson], "tearleads-key-package.json", {
-    type: "application/json",
-  });
-  await interact(() => {
-    fireEvent.change(fileInput, {
-      target: { files: [backupFile] },
-    });
   });
 
   await waitForSinglePaneProvisioning(pane);
