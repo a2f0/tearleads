@@ -96,3 +96,27 @@ testApiClient(
     ]);
   },
 );
+
+testApiClient("rejects an invalid document sync response shape", async () => {
+  server.use(
+    http.post(`${apiBaseUrl}/documents/:documentId/sync`, () =>
+      HttpResponse.json({
+        ...createDocumentSyncResponse(),
+        contentKeyBundle: undefined,
+      }),
+    ),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  const errors: string[] = [];
+  client.setOnError((message) => {
+    errors.push(message);
+  });
+
+  await expect(
+    client.syncDocument("document-1", createDocumentSyncRequest()),
+  ).resolves.toBeNull();
+  expect(errors).toEqual([
+    "Invalid response shape for /documents/document-1/sync",
+  ]);
+});

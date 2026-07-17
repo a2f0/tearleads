@@ -1,33 +1,37 @@
 import { isPlainObject } from "../isPlainObject";
 import {
   type AccessManifestBundleWire,
-  hasArrayProperty,
-  hasPositiveIntegerProperty,
   hasStringProperty,
   isAccessManifestBundleWire,
-  isUuidV4String,
-  isWalLsnString,
 } from "../util";
 import {
   type ContainerMutationRequest,
   isOptionalContainerMutationRequestArray,
 } from "./container";
+import {
+  type ContainerManifestRef,
+  ContainerManifestRefArrayArraySchema,
+  type DocumentContentKeyBundleRequest,
+  DocumentContentKeyBundleRequestSchema,
+  type DocumentOutgoingUpdate,
+  DocumentOutgoingUpdateSchema,
+  type DocumentSyncRequest,
+  DocumentSyncRequestSchema,
+} from "./documentSyncSchema";
 
-export interface DocumentContentKeyTargetEnvelope {
-  containerId: string;
-  containerManifestHash: string;
-  containerKeyEpochId: string;
-  containerKeyEpoch: number;
-  wrappedKey: string;
-  wrappingMetadata: Record<string, unknown>;
-}
-
-export interface DocumentContentKeyBundleRequest {
-  contentKeyEpoch: number;
-  linkSetManifestHash: string;
-  targetHash: string;
-  targets: DocumentContentKeyTargetEnvelope[];
-}
+export {
+  type ContainerManifestRef,
+  ContainerManifestRefArrayArraySchema,
+  ContainerManifestRefSchema,
+  type DocumentContentKeyBundleRequest,
+  DocumentContentKeyBundleRequestSchema,
+  type DocumentContentKeyTargetEnvelope,
+  DocumentContentKeyTargetEnvelopeSchema,
+  type DocumentOutgoingUpdate,
+  DocumentOutgoingUpdateSchema,
+  type DocumentSyncRequest,
+  DocumentSyncRequestSchema,
+} from "./documentSyncSchema";
 
 export interface DocumentCreateRequest {
   event: Record<string, unknown>;
@@ -61,53 +65,6 @@ export interface DocumentLinkSetMutationRequest {
   rotationBaseline?: DocumentOutgoingUpdate;
 }
 
-export interface DocumentOutgoingUpdate {
-  checkpointKind?: "rotate_baseline";
-  checkpointPayloadKind?: "full_history_snapshot";
-  id: string;
-  encryptedData: string;
-  partialStartVersionVector: string;
-  partialEndVersionVector: string;
-  sourceVersionVector?: string;
-  writeHeader: Record<string, unknown>;
-}
-
-/**
- * A reference to a container access manifest the server already stores, in lieu
- * of re-embedding the full signed manifest bundle. The server resolves the full
- * manifest from its own store by `manifestHash` and pins it to the container's
- * current head, so the reference carries the same authority as the full bundle
- * without the multi-KB signature. `containerId` is advisory: the server keys the
- * head lookup off the resolved bundle's own containerId and rejects a mismatch.
- */
-export interface ContainerManifestRef {
-  containerId: string;
-  manifestHash: string;
-}
-
-export interface DocumentSyncRequest {
-  contentKeyBundle?: DocumentContentKeyBundleRequest;
-  containerRekeys?: ContainerMutationRequest[];
-  contentKeyEpoch: number;
-  // The document's current link-set manifest is identified by
-  // expectedLinkSetManifestHash; the server resolves the full manifest from its
-  // own store rather than having the writer echo the signed bundle back.
-  expectedLinkSetManifestHash: string;
-  expectedTargetHash: string;
-  // Container access manifests authorizing the write, as hash references the
-  // server resolves from its own store. Required when there are outgoing
-  // updates. (The server already holds these manifests; re-embedding the full
-  // signed bundles would only bloat every write.)
-  authorizingContainerPathRefs?: ContainerManifestRef[][];
-  localVersionVector: string | null;
-  minLsn?: string;
-  outgoingUpdates: DocumentOutgoingUpdate[];
-}
-
-function isNullableString(value: unknown): value is string | null {
-  return value === null || typeof value === "string";
-}
-
 function isContainerManifestRef(value: unknown): value is ContainerManifestRef {
   return (
     isPlainObject(value) &&
@@ -133,81 +90,19 @@ function isContainerManifestRefArray(
 export function isContainerManifestRefArrayArray(
   value: unknown,
 ): value is ContainerManifestRef[][] {
-  return Array.isArray(value) && value.every(isContainerManifestRefArray);
-}
-
-function isDocumentContentKeyTargetEnvelope(
-  value: unknown,
-): value is DocumentContentKeyTargetEnvelope {
-  const wrappingMetadata = isPlainObject(value)
-    ? Reflect.get(value, "wrappingMetadata")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "containerId") &&
-    value.containerId.length > 0 &&
-    hasStringProperty(value, "containerManifestHash") &&
-    value.containerManifestHash.length > 0 &&
-    hasStringProperty(value, "containerKeyEpochId") &&
-    value.containerKeyEpochId.length > 0 &&
-    hasPositiveIntegerProperty(value, "containerKeyEpoch") &&
-    hasStringProperty(value, "wrappedKey") &&
-    value.wrappedKey.length > 0 &&
-    isPlainObject(wrappingMetadata)
-  );
+  return ContainerManifestRefArrayArraySchema.safeParse(value).success;
 }
 
 export function isDocumentContentKeyBundleRequest(
   value: unknown,
 ): value is DocumentContentKeyBundleRequest {
-  return (
-    isPlainObject(value) &&
-    hasPositiveIntegerProperty(value, "contentKeyEpoch") &&
-    hasStringProperty(value, "linkSetManifestHash") &&
-    value.linkSetManifestHash.length > 0 &&
-    hasStringProperty(value, "targetHash") &&
-    value.targetHash.length > 0 &&
-    hasArrayProperty(value, "targets") &&
-    value.targets.every(isDocumentContentKeyTargetEnvelope)
-  );
+  return DocumentContentKeyBundleRequestSchema.safeParse(value).success;
 }
 
 function isDocumentOutgoingUpdate(
   value: unknown,
 ): value is DocumentOutgoingUpdate {
-  const checkpointKind = isPlainObject(value)
-    ? Reflect.get(value, "checkpointKind")
-    : undefined;
-  const checkpointPayloadKind = isPlainObject(value)
-    ? Reflect.get(value, "checkpointPayloadKind")
-    : undefined;
-  const sourceVersionVector = isPlainObject(value)
-    ? Reflect.get(value, "sourceVersionVector")
-    : undefined;
-  const writeHeader = isPlainObject(value)
-    ? Reflect.get(value, "writeHeader")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "id") &&
-    isUuidV4String(value.id) &&
-    hasStringProperty(value, "encryptedData") &&
-    value.encryptedData.length > 0 &&
-    hasStringProperty(value, "partialStartVersionVector") &&
-    value.partialStartVersionVector.length > 0 &&
-    hasStringProperty(value, "partialEndVersionVector") &&
-    value.partialEndVersionVector.length > 0 &&
-    ((checkpointKind === undefined &&
-      checkpointPayloadKind === undefined &&
-      sourceVersionVector === undefined) ||
-      (checkpointKind === "rotate_baseline" &&
-        checkpointPayloadKind === "full_history_snapshot" &&
-        hasStringProperty(value, "sourceVersionVector") &&
-        value.sourceVersionVector.length > 0)) &&
-    isPlainObject(writeHeader)
-  );
+  return DocumentOutgoingUpdateSchema.safeParse(value).success;
 }
 
 export function isDocumentCreateRequest(
@@ -298,51 +193,5 @@ export function isDocumentLinkSetMutationRequest(
 export function isDocumentSyncRequest(
   value: unknown,
 ): value is DocumentSyncRequest {
-  const authorizingContainerPathRefs = isPlainObject(value)
-    ? Reflect.get(value, "authorizingContainerPathRefs")
-    : undefined;
-  const contentKeyBundle = isPlainObject(value)
-    ? Reflect.get(value, "contentKeyBundle")
-    : undefined;
-  const containerRekeys = isPlainObject(value)
-    ? Reflect.get(value, "containerRekeys")
-    : undefined;
-  const minLsn = isPlainObject(value)
-    ? Reflect.get(value, "minLsn")
-    : undefined;
-  const outgoingUpdates = isPlainObject(value)
-    ? Reflect.get(value, "outgoingUpdates")
-    : undefined;
-  const hasOutgoingUpdates =
-    Array.isArray(outgoingUpdates) && outgoingUpdates.length > 0;
-  const hasUniqueOutgoingUpdateIds =
-    !Array.isArray(outgoingUpdates) ||
-    new Set(
-      outgoingUpdates
-        .filter(isPlainObject)
-        .map((update) => Reflect.get(update, "id")),
-    ).size === outgoingUpdates.length;
-  const hasContainerRekeys =
-    Array.isArray(containerRekeys) && containerRekeys.length > 0;
-
-  return (
-    isPlainObject(value) &&
-    (contentKeyBundle === undefined ||
-      isDocumentContentKeyBundleRequest(contentKeyBundle)) &&
-    hasPositiveIntegerProperty(value, "contentKeyEpoch") &&
-    hasStringProperty(value, "expectedLinkSetManifestHash") &&
-    value.expectedLinkSetManifestHash.length > 0 &&
-    hasStringProperty(value, "expectedTargetHash") &&
-    value.expectedTargetHash.length > 0 &&
-    (authorizingContainerPathRefs === undefined
-      ? !hasOutgoingUpdates
-      : isContainerManifestRefArrayArray(authorizingContainerPathRefs)) &&
-    isOptionalContainerMutationRequestArray(containerRekeys) &&
-    (!hasContainerRekeys || hasOutgoingUpdates) &&
-    isNullableString(Reflect.get(value, "localVersionVector")) &&
-    (minLsn === undefined || isWalLsnString(minLsn)) &&
-    hasArrayProperty(value, "outgoingUpdates") &&
-    hasUniqueOutgoingUpdateIds &&
-    value.outgoingUpdates.every(isDocumentOutgoingUpdate)
-  );
+  return DocumentSyncRequestSchema.safeParse(value).success;
 }

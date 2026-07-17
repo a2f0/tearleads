@@ -293,6 +293,9 @@
     "packages/validators": {
       "name": "@tearleads/validators",
       "version": "0.1.0",
+      "dependencies": {
+        "zod": "catalog:",
+      },
       "devDependencies": {
         "@types/bun": "catalog:",
       },
@@ -318,6 +321,7 @@
     "@types/invariant": "2.2.37",
     "invariant": "2.2.4",
     "loro-crdt": "1.10.8",
+    "zod": "4.3.6",
   },
   "catalogs": {
     "react": {
