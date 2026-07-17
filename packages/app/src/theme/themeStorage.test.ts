@@ -1,6 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { loadTheme, saveTheme } from "./themeStorage";
-import { DEFAULT_THEME_ID } from "./themes";
+import { loadStoredTheme, saveTheme } from "./themeStorage";
 
 const STORAGE_KEY = "tearleads.theme";
 
@@ -8,17 +7,17 @@ afterEach(() => {
   globalThis.localStorage.removeItem(STORAGE_KEY);
 });
 
-test("loadTheme returns the default when nothing is stored", () => {
-  expect(loadTheme()).toBe(DEFAULT_THEME_ID);
+test("loadStoredTheme returns null when nothing is stored", () => {
+  expect(loadStoredTheme()).toBeNull();
 });
 
-test("saveTheme then loadTheme round-trips a valid theme", () => {
+test("saveTheme then loadStoredTheme round-trips a valid theme", () => {
   saveTheme("dark");
   expect(globalThis.localStorage.getItem(STORAGE_KEY)).toBe("dark");
-  expect(loadTheme()).toBe("dark");
+  expect(loadStoredTheme()).toBe("dark");
 });
 
-test("loadTheme falls back to the default for an unrecognized stored value", () => {
+test("loadStoredTheme treats an unrecognized stored value as no choice", () => {
   globalThis.localStorage.setItem(STORAGE_KEY, "solarized");
-  expect(loadTheme()).toBe(DEFAULT_THEME_ID);
+  expect(loadStoredTheme()).toBeNull();
 });

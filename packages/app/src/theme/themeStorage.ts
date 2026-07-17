@@ -1,4 +1,4 @@
-import { DEFAULT_THEME_ID, isThemeId, type ThemeId } from "./themes";
+import { isThemeId, type ThemeId } from "./themes";
 
 // The selected theme is a display preference, not per-identity data, so it is
 // persisted once for the app (not scoped per workspace/pane), mirroring the
@@ -15,16 +15,24 @@ function getStorage(): Pick<Storage, "getItem" | "setItem"> | null {
   }
 }
 
-export function loadTheme(): ThemeId {
+/**
+ * The theme the user has explicitly chosen, or `null` when they have not.
+ *
+ * `null` is distinct from any theme id: it means "no stored choice", which is
+ * what lets the provider fall back to (and keep following) the OS preference
+ * instead of a frozen default. An unrecognized stored value is treated as no
+ * choice rather than coerced to a default.
+ */
+export function loadStoredTheme(): ThemeId | null {
   const storage = getStorage();
   if (!storage) {
-    return DEFAULT_THEME_ID;
+    return null;
   }
   try {
     const stored = storage.getItem(STORAGE_KEY);
-    return isThemeId(stored) ? stored : DEFAULT_THEME_ID;
+    return isThemeId(stored) ? stored : null;
   } catch {
-    return DEFAULT_THEME_ID;
+    return null;
   }
 }
 
