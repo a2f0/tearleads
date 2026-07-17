@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import {
-  blobObjectStream,
+  blobObjectBytes,
   readBlobObjectText,
 } from "../../test/helpers/blobObjectStore";
 import { sha256Hex } from "../utils/sha256";
@@ -14,8 +14,8 @@ test("default blob object store uses memory when unconfigured", async () => {
   const part = await store.uploadPart({
     body: {
       byteLength: 15,
+      bytes: blobObjectBytes("runtime-default"),
       sha256: await sha256Hex("runtime-default"),
-      stream: blobObjectStream("runtime-default"),
     },
     key: "blob-stages/runtime-default",
     partNumber: 1,

@@ -162,12 +162,14 @@ export function createDocumentStoreFacade(
   };
 
   return {
+    addRow: (fields) => targetStore.addRow(fields),
     assertCanRotateContentKey: () => targetStore.assertCanRotateContentKey(),
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
       targetStore.attachFiles(files),
     ensureInitialized: () => targetStore.ensureInitialized(),
     getSnapshot: () => targetStore.getSnapshot(),
     removeAttachment: (slotId: string) => targetStore.removeAttachment(slotId),
+    removeRow: (id) => targetStore.removeRow(id),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
       targetStore.replaceAttachment(slotId, file),
     requestRemoteSync: () => targetStore.requestRemoteSync(),
@@ -185,6 +187,7 @@ export function createDocumentStoreFacade(
         listeners.delete(listener);
       };
     },
+    updateRowFields: (id, patch) => targetStore.updateRowFields(id, patch),
     updateRuntime: (runtime: DocumentsRuntime) =>
       targetStore.updateRuntime(runtime),
   };

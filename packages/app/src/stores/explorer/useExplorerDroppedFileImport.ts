@@ -11,6 +11,7 @@ import { getDocumentFileImporter } from "../../document-types/importers";
 const EXPLORER_DROPPED_FILE_IMPORT_BATCH_SIZE = 8;
 
 interface ExplorerDroppedFileDocumentStore {
+  addRow: (fields: Readonly<Record<string, string>>) => Promise<string>;
   attachFiles: (
     files: ReadonlyArray<DocumentAttachmentUpload>,
   ) => Promise<void> | void;
@@ -143,6 +144,9 @@ async function importExplorerDroppedFile(input: {
       importedFile.documentKind,
       importedFile.structuredFields,
     );
+  }
+  for (const row of importedFile.rows ?? []) {
+    await store.addRow(row);
   }
   if (importedFile.attachment) {
     await store.attachFiles([importedFile.attachment]);

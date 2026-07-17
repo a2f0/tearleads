@@ -204,6 +204,8 @@ export type {
   DocumentProjectorInput,
   DocumentProjectorRegistry,
   DocumentProjectorRegistryInput,
+  DocumentRow,
+  DocumentRowSummary,
   DocumentSummary,
   StoredDocumentKind,
   StoredDocumentState,

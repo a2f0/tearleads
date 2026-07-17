@@ -6,6 +6,7 @@ import type {
   DocumentFieldValidationIssue,
   StoredDocumentKind,
 } from "../../data/documents/documentKinds";
+import type { DocumentRow } from "../../data/documents/documentRowList";
 import type {
   DocumentsWorkflowRuntime,
   RelinkPersistedDocumentInput,
@@ -31,21 +32,38 @@ export interface DocumentAttachmentUpload {
 
 export type DocumentAttachmentStatus = "syncing";
 
+// Add a row to the document's repeated-row list, returning the new row id.
+export type AddDocumentRow = (
+  fields: Readonly<Record<string, string>>,
+) => Promise<string>;
+// Patch one or more cells of a single row (merges per-cell).
+export type UpdateDocumentRowFields = (
+  id: string,
+  patch: Readonly<Record<string, string>>,
+) => Promise<void>;
+export type RemoveDocumentRow = (id: string) => Promise<void>;
+
 export interface DocumentContextValue {
   attachments: ReadonlyArray<DocumentAttachment>;
   attachmentStatusBySlotId: Readonly<Record<string, DocumentAttachmentStatus>>;
   attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
   attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
+  addRow: AddDocumentRow;
   canAttach: boolean;
   canWrite: boolean;
+  // The signing user id of the local writer, or null when unauthenticated —
+  // lets row attribution render "you" for the current user.
+  currentAuthorId: string | null;
   documentId: string | null;
   documentKind: StoredDocumentKind;
   effectiveAccessLevel: ContainerAccessLevel;
   fieldValidationIssues: ReadonlyArray<DocumentFieldValidationIssue>;
   ready: boolean;
+  removeRow: RemoveDocumentRow;
   requestSync: () => void;
   relink: (input: DocumentStoreRelinkInput) => Promise<DocumentSummary | null>;
   removeAttachment: (slotId: string) => void;
+  rows: ReadonlyArray<DocumentRow>;
   setAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   setStructuredFields: (
@@ -58,6 +76,7 @@ export interface DocumentContextValue {
   title: string;
   syncing: boolean;
   setText: (value: string) => Promise<void>;
+  updateRowFields: UpdateDocumentRowFields;
 }
 
 export interface DocumentSnapshot {
@@ -66,11 +85,13 @@ export interface DocumentSnapshot {
   attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
   canAttach: boolean;
   canWrite: boolean;
+  currentAuthorId: string | null;
   documentId: string | null;
   documentKind: StoredDocumentKind;
   effectiveAccessLevel: ContainerAccessLevel;
   fieldValidationIssues: ReadonlyArray<DocumentFieldValidationIssue>;
   ready: boolean;
+  rows: ReadonlyArray<DocumentRow>;
   structuredFields: Readonly<Record<string, string>>;
   text: string;
   title: string;
@@ -78,12 +99,14 @@ export interface DocumentSnapshot {
 }
 
 export interface DocumentStore {
+  addRow: AddDocumentRow;
   /** Fail unless this store can produce a mergeable full-history checkpoint. */
   assertCanRotateContentKey: () => Promise<Uint8Array>;
   attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
   ensureInitialized: () => Promise<boolean>;
   getSnapshot: () => DocumentSnapshot;
   removeAttachment: (slotId: string) => void;
+  removeRow: RemoveDocumentRow;
   setAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   /** Pull remote document updates even when no websocket event marked it dirty. */
@@ -97,6 +120,7 @@ export interface DocumentStore {
   ) => Promise<void>;
   setText: (value: string) => Promise<void>;
   subscribe: (listener: () => void) => () => void;
+  updateRowFields: UpdateDocumentRowFields;
   updateRuntime: (runtime: DocumentsRuntime) => void;
 }
 

@@ -2,6 +2,7 @@ import {
   getDefaultApiDatabaseKind,
   initializeApiDatabase,
 } from "@tearleads/api-shared/postgres";
+import { MAX_UPLOAD_PART_BYTES } from "./adapters/blobObjectStore";
 import { createRealtimeGateway } from "./realtimeGateway";
 import type { RouteRequestBindings } from "./requestContext";
 import { routeApp } from "./routeApp";
@@ -73,6 +74,13 @@ export function createRouteRequestBindings(
 
 const server = {
   port: 3001,
+  // Bound every request body to the multipart part ceiling. The part route reads
+  // its body with c.req.arrayBuffer() (Bun's native read, which sidesteps the
+  // native-stream defect that segfaulted the streamed reader), so this server cap
+  // is what keeps that buffered read from growing unbounded — Bun rejects a larger
+  // body with a 413 before the handler allocates it. Blob parts are the only
+  // bodies that approach this size; everything else is small JSON.
+  maxRequestBodySize: MAX_UPLOAD_PART_BYTES,
   fetch(
     req: Request,
     server: ApiServer,

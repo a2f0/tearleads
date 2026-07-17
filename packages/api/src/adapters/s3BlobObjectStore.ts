@@ -16,8 +16,8 @@ import {
   type BlobObjectStore,
   BlobObjectStoreError,
   blobObjectChunkToStream,
-  blobObjectStreamToBytes,
   type CompleteMultipartUploadPart,
+  MAX_UPLOAD_PART_BYTES,
 } from "./blobObjectStore";
 import { responseBodyToStream } from "./s3BlobObjectStreams";
 
@@ -29,12 +29,6 @@ interface S3BlobObjectStoreInput {
 }
 
 const MAX_S3_PART_NUMBER = 10_000;
-
-// Upper bound on a single multipart part buffered in memory before it is sent to
-// the object store. Mirrors the nginx `client_max_body_size` so the API enforces
-// the same ceiling with or without the proxy in front, and bounds the
-// per-request allocation the buffering introduces.
-const MAX_UPLOAD_PART_BYTES = 100 * 1024 * 1024;
 
 function sha256HexToBase64(value: string): string {
   if (!isSha256HexString(value)) {
@@ -376,42 +370,42 @@ function createUploadPart({
 }: S3BlobObjectStoreInput): BlobObjectStore["uploadPart"] {
   return (input) =>
     mapS3Errors("uploadPart", async () => {
-      // Reject a malformed request before draining its (upload-sized) body, so
-      // an out-of-range part number fails without consuming memory or CPU.
       requireValidPartNumber(input.partNumber);
 
-      // Buffer the part before the SDK touches it: streaming the request body
-      // straight to the object store segfaults Bun when the upload connection
-      // resets mid-part — a runtime bug, far more likely under the concurrent
-      // uploads the sync lanes drive. The buffered bytes are rewindable, so the
-      // SDK can also retry a reset part, and the buffered length is
-      // authoritative, catching a truncated body rather than trusting the header.
-      //
-      // Bound the buffer so an oversized or chunked body cannot exhaust the
-      // process: reject a part that declares more than the ceiling up front, and
-      // cap the read at the declared length so a body that streams past its
-      // declaration is rejected mid-read rather than fully buffered.
+      // The part body is already read into memory at the route via Bun's native
+      // body consumption (c.req.arrayBuffer), not a hand-rolled ReadableStream
+      // reader — that reader is a Bun native-stream defect that fails a fraction
+      // of part reads behind the ingress tunnel (and segfaulted before the body
+      // was buffered). Send the in-memory bytes straight to the object store;
+      // they are rewindable, so the SDK can retry a reset part.
+      const partBytes = input.body.bytes;
+      if (partBytes.byteLength <= 0) {
+        throw new BlobObjectStoreError(
+          "Multipart upload part bytes are required",
+          "invalid_part",
+        );
+      }
+      // Reject an oversized declaration before comparing it to the buffered
+      // bytes, so an absurd Content-Length header fails on the ceiling rather
+      // than the mismatch. The strict equality below then bounds the actual
+      // bytes to the same ceiling.
       if (input.body.byteLength > MAX_UPLOAD_PART_BYTES) {
         throw new BlobObjectStoreError(
           `Multipart upload part exceeds the maximum of ${MAX_UPLOAD_PART_BYTES} bytes`,
           "invalid_part",
         );
       }
-      const partBytes = await blobObjectStreamToBytes(
-        input.body.stream,
-        input.body.byteLength,
-      );
+      if (partBytes.byteLength !== input.body.byteLength) {
+        throw new BlobObjectStoreError(
+          "Multipart upload part byteLength mismatch",
+          "invalid_part",
+        );
+      }
       const uploadBody = {
         body: partBytes,
         byteLength: partBytes.byteLength,
         sha256: input.body.sha256,
       };
-      if (uploadBody.byteLength <= 0) {
-        throw new BlobObjectStoreError(
-          "Multipart upload part bytes are required",
-          "invalid_part",
-        );
-      }
 
       const part = await client.send(
         new UploadPartCommand({

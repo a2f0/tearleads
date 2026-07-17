@@ -30,6 +30,10 @@ export {
   type ValidatedDocumentFields,
   writeStoredDocumentFields,
 } from "./data/documents/documentKinds";
+export type {
+  DocumentRow,
+  DocumentRowSummary,
+} from "./data/documents/documentRowList";
 export {
   resolveOpIdAttribution,
   summarizeDocumentContributors,

@@ -1,6 +1,7 @@
-import type { LoroMap } from "@tearleads/loro";
+import type { LoroList, LoroMap } from "@tearleads/loro";
 import type { ExecSql, SqlTableSchema } from "../sqlite/sqlSchema";
 import { DEFAULT_DOCUMENT_KIND } from "./documentConstants";
+import { type DocumentRowSummary, listDocumentRows } from "./documentRowList";
 
 export type StoredDocumentKind = string;
 
@@ -39,6 +40,7 @@ export interface StructuredDocumentText {
 }
 
 export interface StructuredDocumentShape {
+  getList: (key: string) => LoroList;
   getMap: (key: string) => StructuredDocumentMap;
   getText: (key: string) => StructuredDocumentText;
 }
@@ -47,6 +49,9 @@ export interface DocumentProjectorInput {
   documentKind: StoredDocumentKind;
   structuredFields: Readonly<Record<string, unknown>>;
   text: string;
+  // The document's repeated rows (variables, readings, …), so a projector can
+  // derive a count-based title. Absent for kinds that carry no row list.
+  rows?: ReadonlyArray<DocumentRowSummary> | undefined;
 }
 
 export interface DocumentProjection {
@@ -415,11 +420,15 @@ export function readStoredDocumentState(
   const structuredFields = isStructuredDocumentKind(documentKind)
     ? readStructuredFields(doc)
     : {};
+  const rows = isStructuredDocumentKind(documentKind)
+    ? listDocumentRows(doc).map((row) => ({ id: row.id, fields: row.fields }))
+    : [];
 
   return resolvedRegistry.projectStoredDocumentState({
     documentKind,
     structuredFields,
     text,
+    rows,
   });
 }
 
