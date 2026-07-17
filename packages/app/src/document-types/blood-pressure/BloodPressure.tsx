@@ -6,7 +6,6 @@ import {
   type RowWriterResolver,
   useDocumentRowWriters,
 } from "../../stores/documents/useDocumentRowWriters";
-import { formatRowAttribution } from "../shared/rowAttribution";
 import {
   StructuredDocument,
   StructuredDocumentEditActions,
@@ -16,6 +15,7 @@ import {
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
+import { BloodPressureReadingReadRow } from "./BloodPressureReadRow";
 import {
   BLOOD_PRESSURE_DIASTOLIC_FIELD,
   BLOOD_PRESSURE_DOCUMENT_KIND,
@@ -27,9 +27,6 @@ import {
 } from "./bloodPressureDocumentDefinition";
 import {
   type BloodPressureReadingRow,
-  formatMeasuredAt,
-  formatMeasurementPair,
-  formatPulse,
   readTrackerNameField,
   toBloodPressureReadingRows,
 } from "./bloodPressureReadings";
@@ -52,59 +49,6 @@ type UpdateReading = (
   field: BloodPressureField,
   value: string,
 ) => void;
-
-function BloodPressureReadingReadRow(params: {
-  currentAuthorId: string | null;
-  index: number;
-  reading: BloodPressureReadingRow;
-  resolveRowWriter?: RowWriterResolver | undefined;
-}) {
-  const { currentAuthorId, index, reading, resolveRowWriter } = params;
-  const notes = reading.notes.trim();
-  // Prefer the server-verified writer for this reading's last edit; fall back to
-  // the row's self-attested author when attribution is unavailable.
-  const updatedBy =
-    resolveRowWriter?.(reading.updatedByPeer) ?? reading.updatedBy;
-  const attribution = formatRowAttribution({
-    currentAuthorId,
-    updatedAt: reading.updatedAt,
-    updatedBy,
-  });
-
-  return (
-    <div className="blood-pressure-reading-read-row">
-      <span className="blood-pressure-reading-read-cell">
-        <strong>Reading</strong>
-        <span className="blood-pressure-reading-read-value">
-          {formatMeasurementPair(reading)}
-        </span>
-      </span>
-      <span className="blood-pressure-reading-read-cell">
-        <strong>Pulse</strong>
-        <span className="blood-pressure-reading-read-value">
-          {formatPulse(reading)}
-        </span>
-      </span>
-      <span className="blood-pressure-reading-read-cell">
-        <strong>Measured</strong>
-        <span className="blood-pressure-reading-read-value">
-          {formatMeasuredAt(reading)}
-        </span>
-      </span>
-      <span className="blood-pressure-reading-read-index">{index + 1}</span>
-      {notes.length > 0 ? (
-        <span className="blood-pressure-reading-read-notes" title={notes}>
-          {notes}
-        </span>
-      ) : null}
-      {attribution ? (
-        <span className="blood-pressure-reading-read-attribution">
-          {attribution}
-        </span>
-      ) : null}
-    </div>
-  );
-}
 
 function BloodPressureReadFields(params: {
   currentAuthorId: string | null;

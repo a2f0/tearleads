@@ -9,8 +9,10 @@ function row(id: string, fields: Record<string, string>): DocumentRow {
   return {
     id,
     fields,
+    fieldEditors: {},
     createdBy: "",
     createdAt: "",
+    createdByPeer: null,
     updatedBy: "",
     updatedAt: "",
     updatedByPeer: null,
