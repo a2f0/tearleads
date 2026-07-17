@@ -20,6 +20,7 @@ import {
 } from "../workflows/organizations";
 import { createRuntimePrincipalPolicyWarmer } from "../workflows/principals/runtimePolicyWarmer";
 import type { ContainerContents } from "./containerContents";
+import { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
 import { reshareOrganizationMetadataAfterGroupChange } from "./organizationMetadataReshare";
 import {
   createOrganizationMetadataReshareCoordinator,
@@ -114,6 +115,9 @@ export interface Organizations {
   loadGroupDetails: (
     groupId: string,
   ) => ReturnType<typeof loadOrganizationGroupDetails>;
+  loadGroupPresentationDetails(
+    groupId: string,
+  ): ReturnType<typeof loadOrganizationGroupPresentationDetails>;
   loadGrants: () => ReturnType<typeof loadOrganizationContainerGrants>;
   listLocalOrganizations: () => Promise<LocalOrganizationSummary[]>;
   loadPolicyHistory: () => ReturnType<typeof loadOrganizationPolicyHistory>;
@@ -328,6 +332,14 @@ class OrganizationsService implements Organizations {
         runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
       groupId,
       organizationId,
+    });
+  }
+
+  loadGroupPresentationDetails(groupId: string) {
+    return loadOrganizationGroupPresentationDetails({
+      groupId,
+      readModelCoordinator: this.readModelCoordinator,
+      runtime: this.runtimeService.workflowInput(),
     });
   }
 

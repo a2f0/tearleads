@@ -10,7 +10,6 @@ import type {
   DeleteOrganizationGroupResponse,
   ListOrganizationGroupsResponse,
   OrganizationGroupContainersResponse,
-  OrganizationGroupMemberResponse,
   OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
 } from "@tearleads/validators/response";
@@ -35,10 +34,11 @@ import {
   requireDeletableOrganizationGroup,
   requireOrganizationGroupWithoutDeleteBlockers,
 } from "./groupDeletion";
+import { toOrganizationGroupMemberResponse } from "./groupMemberships";
 import { toGroupSummary } from "./groupSummary";
 import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
 import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
-import { loadUsersById, type UserKeyRow } from "./users";
+import { loadUsersById } from "./users";
 
 interface NestedGroupRow {
   groupId: string;
@@ -143,6 +143,12 @@ export async function runDeleteOrganizationGroupWorkflow(
     await appendOrganizationReadModelChangeInTransaction(tx, {
       organizationId,
       lane: "groups",
+      entityId: groupId,
+      operation: "delete",
+    });
+    await appendOrganizationReadModelChangeInTransaction(tx, {
+      organizationId,
+      lane: "groupMemberships",
       entityId: groupId,
       operation: "delete",
     });
@@ -291,44 +297,6 @@ async function loadNestedGroupsById(input: {
   return new Map(rows.map((row) => [row.groupId, row]));
 }
 
-function toGroupMemberResponse(input: {
-  groupsById: ReadonlyMap<string, NestedGroupRow>;
-  member: StoredPrincipalProjectionMember;
-  usersById: ReadonlyMap<string, UserKeyRow>;
-}): OrganizationGroupMemberResponse {
-  if (input.member.memberPrincipalType === "user") {
-    const user = input.usersById.get(input.member.memberPrincipalId);
-
-    return {
-      memberPrincipalType: input.member.memberPrincipalType,
-      memberPrincipalId: input.member.memberPrincipalId,
-      role: input.member.role,
-      userId: user?.userId ?? null,
-      signingKeyFingerprint: user?.signingKeyFingerprint ?? null,
-      signingPublicKey: user?.signingPublicKey ?? null,
-      encapsulationPublicKey: user?.encapsulationPublicKey ?? null,
-      encapsulationKeyFingerprint: user?.encapsulationKeyFingerprint ?? null,
-      groupId: null,
-      groupName: null,
-    };
-  }
-
-  const nestedGroup = input.groupsById.get(input.member.memberPrincipalId);
-
-  return {
-    memberPrincipalType: input.member.memberPrincipalType,
-    memberPrincipalId: input.member.memberPrincipalId,
-    role: input.member.role,
-    userId: null,
-    signingKeyFingerprint: null,
-    signingPublicKey: null,
-    encapsulationPublicKey: null,
-    encapsulationKeyFingerprint: null,
-    groupId: nestedGroup?.groupId ?? null,
-    groupName: nestedGroup?.groupName ?? null,
-  };
-}
-
 async function listOrganizationGroupMembersInTransaction(input: {
   executor: DatabaseSession;
   groupId: string;
@@ -376,7 +344,7 @@ async function listOrganizationGroupMembersInTransaction(input: {
     organizationId: input.organizationId,
     groupId: input.groupId,
     members: projection.map((member) =>
-      toGroupMemberResponse({
+      toOrganizationGroupMemberResponse({
         groupsById,
         member,
         usersById,

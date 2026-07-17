@@ -268,6 +268,7 @@ export const subsystems: readonly Subsystem[] = [
     paths: [
       `${sdk}/workflows/organizations/`,
       `${sdk}/client/organizations.ts`,
+      `${sdk}/client/organizationGroupPresentation.ts`,
       `${sdk}/client/organizationReadModels.ts`,
       `${sdk}/client/organizationMetadataReshare.ts`,
       `${sdk}/client/organizationMetadataReshareCoordinator.ts`,
@@ -693,8 +694,7 @@ export async function findSubsystemDocsViolations(): Promise<
   for (const name of manifestNames) {
     if (!documentedNames.has(name)) {
       violations.push({
-        detail:
-          "is defined in scripts/subsystems.ts but has no row in the docs/SUBSYSTEMS.md registry table",
+        detail: "is missing from docs/SUBSYSTEMS.md",
         name,
       });
     }

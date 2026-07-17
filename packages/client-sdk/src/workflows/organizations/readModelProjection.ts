@@ -3,6 +3,7 @@ import type {
   RequestResultOptions,
 } from "@tearleads/api-client";
 import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
+import { loadOrganizationReadModelGroupMembers } from "../../data/persistence/organizations/organizationReadModelMembershipPersistence";
 import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,
@@ -203,6 +204,16 @@ export async function loadLocalOrganizationDirectoryAndGroups(
   input: OrganizationReadModelProjectionInput,
 ): Promise<OrganizationDirectoryAndGroups | null> {
   return toDirectoryAndGroups(await loadProjection(input));
+}
+
+export async function loadLocalOrganizationGroupMembers(
+  input: OrganizationReadModelProjectionInput & { readonly groupId: string },
+) {
+  return loadOrganizationReadModelGroupMembers(
+    input.execSql,
+    input.organizationId,
+    input.groupId,
+  );
 }
 
 export async function reconcileOrganizationDirectoryAndGroups(

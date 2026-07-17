@@ -161,6 +161,8 @@ export {
   isOrganizationReadModelResponse,
   type OrganizationReadModelDeltaResponse,
   type OrganizationReadModelDirectoryResponse,
+  type OrganizationReadModelGroupMembershipResponse,
+  type OrganizationReadModelGroupMembershipsResponse,
   type OrganizationReadModelResponse,
   type OrganizationReadModelSnapshotResponse,
 } from "./organizationReadModel";

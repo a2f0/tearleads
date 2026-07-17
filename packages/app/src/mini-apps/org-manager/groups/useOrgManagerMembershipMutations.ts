@@ -26,10 +26,8 @@ interface OrgManagerMembershipMutationsParams {
   readonly orgManagerActions: ReturnType<typeof useOrgManagerActions>;
   readonly refreshDirectoryAndGroups: Refreshers["refreshDirectoryAndGroups"];
   readonly refreshSelectedGroupDetails: Refreshers["refreshSelectedGroupDetails"];
-  readonly refreshSelectedUserDetail: Refreshers["refreshSelectedUserDetail"];
   readonly selectedGroupId: string | null;
   readonly selectedGroupIsMembersGroup: boolean;
-  readonly selectedUserIdRef: { current: string | null };
   readonly setAddUserId: Dispatch<SetStateAction<string>>;
   readonly setError: Dispatch<SetStateAction<string | null>>;
   readonly setGroupPolicyHistory: Dispatch<
@@ -99,8 +97,6 @@ async function addUserToSelectedGroup(
       operationOrganizationId,
       refreshDirectoryAndGroups: params.refreshDirectoryAndGroups,
       refreshSelectedGroupDetails: params.refreshSelectedGroupDetails,
-      refreshSelectedUserDetail: params.refreshSelectedUserDetail,
-      selectedUserIdRef: params.selectedUserIdRef,
     });
   } catch (error) {
     if (params.isOperationActive(operationOrganizationId)) {
@@ -151,8 +147,6 @@ async function removeUserFromSelectedGroup(
       operationOrganizationId,
       refreshDirectoryAndGroups: params.refreshDirectoryAndGroups,
       refreshSelectedGroupDetails: params.refreshSelectedGroupDetails,
-      refreshSelectedUserDetail: params.refreshSelectedUserDetail,
-      selectedUserIdRef: params.selectedUserIdRef,
     });
   } catch (error) {
     if (params.isOperationActive(operationOrganizationId)) {
@@ -182,10 +176,8 @@ export function useOrgManagerMembershipMutations(
       params.orgManagerActions,
       params.refreshDirectoryAndGroups,
       params.refreshSelectedGroupDetails,
-      params.refreshSelectedUserDetail,
       params.selectedGroupId,
       params.selectedGroupIsMembersGroup,
-      params.selectedUserIdRef,
       params.setAddUserId,
       params.setError,
       params.setGroupPolicyHistory,
@@ -205,9 +197,7 @@ export function useOrgManagerMembershipMutations(
       params.orgManagerActions,
       params.refreshDirectoryAndGroups,
       params.refreshSelectedGroupDetails,
-      params.refreshSelectedUserDetail,
       params.selectedGroupId,
-      params.selectedUserIdRef,
       params.setError,
       params.setGroupPolicyHistory,
       params.setMembers,

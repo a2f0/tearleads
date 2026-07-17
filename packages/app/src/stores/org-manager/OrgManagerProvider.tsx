@@ -69,6 +69,9 @@ interface OrgManagerContextValue {
   loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
   loadLocalDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
   loadGroupDetails: (groupId: string) => Promise<OrganizationGroupDetails>;
+  loadGroupPresentationDetails: (
+    groupId: string,
+  ) => Promise<OrganizationGroupDetails>;
   loadGrants: () => Promise<OrganizationContainerGrants | null>;
   loadPolicyHistory: () => Promise<OrganizationPolicyHistory | null>;
   loadUserDetail: (userId: string) => Promise<OrganizationUserDetail | null>;
@@ -189,6 +192,13 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
   const loadGroupDetails = useCallback(
     (groupId: string) => {
       return organizations.loadGroupDetails(groupId);
+    },
+    [organizations],
+  );
+
+  const loadGroupPresentationDetails = useCallback(
+    (groupId: string) => {
+      return organizations.loadGroupPresentationDetails(groupId);
     },
     [organizations],
   );
@@ -380,6 +390,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       loadDirectoryAndGroups,
       loadLocalDirectoryAndGroups,
       loadGroupDetails,
+      loadGroupPresentationDetails,
       loadGrants,
       loadPolicyHistory,
       loadUserDetail,
@@ -402,6 +413,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       loadDirectoryAndGroups,
       loadLocalDirectoryAndGroups,
       loadGroupDetails,
+      loadGroupPresentationDetails,
       loadGrants,
       loadPolicyHistory,
       loadUserDetail,

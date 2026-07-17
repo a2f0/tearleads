@@ -5,6 +5,8 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { addDocumentAttachments } from "../../data/documents/documentContent";
 import {
   organizationReadModelDirectoryUsers,
+  organizationReadModelGroupMembers,
+  organizationReadModelGroupMemberships,
   organizationReadModelGroups,
   organizationReadModelRequesters,
   organizationReadModelState,
@@ -247,10 +249,32 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         name: "Old group",
         createdAt: stale,
         isBuiltin: false,
-        stateHash: null,
-        stateVersion: null,
-        keyEpoch: null,
-        memberCount: null,
+        stateHash: "group-state",
+        stateVersion: 1,
+        keyEpoch: 1,
+        memberCount: 1,
+      });
+      await tx.insert(organizationReadModelGroupMemberships).values({
+        organizationId: "org-old",
+        groupId: "group-old",
+        sortOrder: 0,
+        stateHash: "group-state",
+      });
+      await tx.insert(organizationReadModelGroupMembers).values({
+        organizationId: "org-old",
+        groupId: "group-old",
+        memberPrincipalType: "user",
+        memberPrincipalId: "user-old",
+        sortOrder: 0,
+        stateHash: "group-state",
+        role: "member",
+        userId: "user-old",
+        signingKeyFingerprint: "signing-fingerprint",
+        signingPublicKey: "signing-public-key",
+        encapsulationPublicKey: "encapsulation-public-key",
+        encapsulationKeyFingerprint: "encapsulation-fingerprint",
+        nestedGroupId: null,
+        nestedGroupName: null,
       });
     });
 
@@ -374,6 +398,12 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
       [],
     );
     expect(await db.select().from(organizationReadModelGroups)).toEqual([]);
+    expect(
+      await db.select().from(organizationReadModelGroupMemberships),
+    ).toEqual([]);
+    expect(await db.select().from(organizationReadModelGroupMembers)).toEqual(
+      [],
+    );
   } finally {
     close();
   }

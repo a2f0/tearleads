@@ -4,6 +4,7 @@ import type {
   OrganizationDirectoryUserResponse,
   OrganizationReadModelDeltaResponse,
   OrganizationReadModelDirectoryResponse,
+  OrganizationReadModelGroupMembershipsResponse,
   OrganizationReadModelSnapshotResponse,
 } from "@tearleads/validators/response";
 
@@ -66,7 +67,7 @@ function organizationReadModelGroups(
     memberGroupId: `members-${organizationId}`,
     groups: [
       {
-        groupId: `${groupName.toLowerCase()}-${organizationId}`,
+        groupId: `group-${organizationId}`,
         organizationId,
         name: groupName,
         createdAt: CREATED_AT,
@@ -82,6 +83,50 @@ function organizationReadModelGroups(
   };
 }
 
+function organizationReadModelMemberships(
+  groups: ListOrganizationGroupsResponse,
+  includeMemberGroup: boolean,
+): OrganizationReadModelGroupMembershipsResponse {
+  const visibleGroup = groups.groups[0];
+  return {
+    organizationId: groups.organizationId,
+    deletedGroupIds: [],
+    groups: [
+      ...(includeMemberGroup
+        ? [
+            {
+              groupId: groups.memberGroupId,
+              stateHash: `members-state-${groups.organizationId}`,
+              members: [],
+            },
+          ]
+        : []),
+      ...(visibleGroup?.currentState
+        ? [
+            {
+              groupId: visibleGroup.groupId,
+              stateHash: visibleGroup.currentState.stateHash,
+              members: [
+                {
+                  memberPrincipalType: "user" as const,
+                  memberPrincipalId: organizationReadModelUserId,
+                  role: "admin" as const,
+                  userId: organizationReadModelUserId,
+                  signingKeyFingerprint: `signing-fingerprint-${organizationReadModelUserId}`,
+                  signingPublicKey: `signing-public-key-${organizationReadModelUserId}`,
+                  encapsulationPublicKey: `encapsulation-public-key-${organizationReadModelUserId}`,
+                  encapsulationKeyFingerprint: `encapsulation-fingerprint-${organizationReadModelUserId}`,
+                  groupId: null,
+                  groupName: null,
+                },
+              ],
+            },
+          ]
+        : []),
+    ],
+  };
+}
+
 export function organizationReadModelSnapshot(
   input: {
     readonly cursor?: string;
@@ -93,8 +138,12 @@ export function organizationReadModelSnapshot(
 ): OrganizationReadModelSnapshotResponse {
   const organizationId =
     input.organizationId ?? organizationReadModelOrganizationId;
+  const groups = organizationReadModelGroups({
+    groupName: input.groupName,
+    organizationId,
+  });
   return {
-    version: 1,
+    version: 2,
     mode: "snapshot",
     organizationId,
     nextCursor: input.cursor ?? "cursor-1",
@@ -105,10 +154,8 @@ export function organizationReadModelSnapshot(
         currentUserId: input.currentUserId ?? organizationReadModelUserId,
         organizationId,
       }),
-      groups: organizationReadModelGroups({
-        groupName: input.groupName,
-        organizationId,
-      }),
+      groupMemberships: organizationReadModelMemberships(groups, true),
+      groups,
     },
   };
 }
@@ -121,18 +168,20 @@ export function organizationReadModelGroupsDelta(input: {
 }): OrganizationReadModelDeltaResponse {
   const organizationId =
     input.organizationId ?? organizationReadModelOrganizationId;
+  const groups = organizationReadModelGroups({
+    groupName: input.groupName,
+    organizationId,
+  });
   return {
-    version: 1,
+    version: 2,
     mode: "delta",
     organizationId,
     nextCursor: input.cursor,
     hasMore: false,
     currentUser: { isOrgAdmin: input.isOrgAdmin ?? true },
     lanes: {
-      groups: organizationReadModelGroups({
-        groupName: input.groupName,
-        organizationId,
-      }),
+      groupMemberships: organizationReadModelMemberships(groups, false),
+      groups,
     },
   };
 }

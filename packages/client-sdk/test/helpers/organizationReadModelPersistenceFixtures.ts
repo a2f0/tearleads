@@ -3,6 +3,7 @@ import type {
   OrganizationDirectoryUserResponse,
   OrganizationReadModelDeltaResponse,
   OrganizationReadModelDirectoryResponse,
+  OrganizationReadModelGroupMembershipsResponse,
   OrganizationReadModelSnapshotResponse,
 } from "@tearleads/validators/response";
 
@@ -54,7 +55,7 @@ export function organizationReadModelGroups(
     memberGroupId: `members-${organizationId}`,
     groups: [
       {
-        groupId: `admins-${suffix}`,
+        groupId: `admins-${organizationId}`,
         organizationId,
         name: `Admins ${suffix}`,
         createdAt: CREATED_AT,
@@ -67,7 +68,7 @@ export function organizationReadModelGroups(
         },
       },
       {
-        groupId: `empty-${suffix}`,
+        groupId: `empty-${organizationId}`,
         organizationId,
         name: `Empty ${suffix}`,
         createdAt: CREATED_AT,
@@ -78,14 +79,61 @@ export function organizationReadModelGroups(
   };
 }
 
+function organizationReadModelMemberships(
+  groups: ListOrganizationGroupsResponse,
+  includeMemberGroup = true,
+): OrganizationReadModelGroupMembershipsResponse {
+  return {
+    organizationId: groups.organizationId,
+    deletedGroupIds: [],
+    groups: [
+      ...(includeMemberGroup
+        ? [
+            {
+              groupId: groups.memberGroupId,
+              stateHash: `members-state-${groups.organizationId}`,
+              members: [],
+            },
+          ]
+        : []),
+      ...groups.groups.flatMap((group) =>
+        group.currentState
+          ? [
+              {
+                groupId: group.groupId,
+                stateHash: group.currentState.stateHash,
+                members: [
+                  {
+                    memberPrincipalType: "user" as const,
+                    memberPrincipalId: "user-1",
+                    role: "admin" as const,
+                    userId: "user-1",
+                    signingKeyFingerprint: "signing-fingerprint-user-1",
+                    signingPublicKey: "signing-public-key-user-1",
+                    encapsulationPublicKey: "encapsulation-public-key-user-1",
+                    encapsulationKeyFingerprint:
+                      "encapsulation-fingerprint-user-1",
+                    groupId: null,
+                    groupName: null,
+                  },
+                ],
+              },
+            ]
+          : [],
+      ),
+    ],
+  };
+}
+
 export function organizationReadModelSnapshot(
   organizationId: string,
   nextCursor: string,
   suffix = "initial",
   isOrgAdmin = true,
 ): OrganizationReadModelSnapshotResponse {
+  const groups = organizationReadModelGroups(organizationId, suffix);
   return {
-    version: 1,
+    version: 2,
     mode: "snapshot",
     organizationId,
     nextCursor,
@@ -93,20 +141,27 @@ export function organizationReadModelSnapshot(
     currentUser: { isOrgAdmin },
     lanes: {
       directory: organizationReadModelDirectory(organizationId),
-      groups: organizationReadModelGroups(organizationId, suffix),
+      groupMemberships: organizationReadModelMemberships(groups),
+      groups,
     },
   };
 }
 
 export function organizationReadModelDelta(input: {
   directory?: OrganizationReadModelDirectoryResponse;
+  groupMemberships?: OrganizationReadModelGroupMembershipsResponse;
   groups?: ListOrganizationGroupsResponse;
   isOrgAdmin?: boolean;
   nextCursor: string;
   organizationId: string;
 }): OrganizationReadModelDeltaResponse {
+  const groupMemberships =
+    input.groupMemberships ??
+    (input.groups
+      ? organizationReadModelMemberships(input.groups, false)
+      : undefined);
   return {
-    version: 1,
+    version: 2,
     mode: "delta",
     organizationId: input.organizationId,
     nextCursor: input.nextCursor,
@@ -114,6 +169,7 @@ export function organizationReadModelDelta(input: {
     currentUser: { isOrgAdmin: input.isOrgAdmin ?? true },
     lanes: {
       ...(input.directory ? { directory: input.directory } : {}),
+      ...(groupMemberships ? { groupMemberships } : {}),
       ...(input.groups ? { groups: input.groups } : {}),
     },
   };

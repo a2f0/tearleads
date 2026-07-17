@@ -72,3 +72,46 @@ export const organizationReadModelGroups = sqliteTable(
   },
   (table) => [primaryKey({ columns: [table.organizationId, table.groupId] })],
 );
+
+/** State-hash-bound completeness rows for each projected group membership. */
+export const organizationReadModelGroupMemberships = sqliteTable(
+  "organization_read_model_group_memberships",
+  {
+    organizationId: text("organization_id").notNull(),
+    groupId: text("group_id").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    stateHash: text("state_hash").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.organizationId, table.groupId] })],
+);
+
+/** Direct members bound to the exact state in the membership completeness row. */
+export const organizationReadModelGroupMembers = sqliteTable(
+  "organization_read_model_group_members",
+  {
+    organizationId: text("organization_id").notNull(),
+    groupId: text("group_id").notNull(),
+    memberPrincipalType: text("member_principal_type").notNull(),
+    memberPrincipalId: text("member_principal_id").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    stateHash: text("state_hash").notNull(),
+    role: text("role").notNull(),
+    userId: text("user_id"),
+    signingKeyFingerprint: text("signing_key_fingerprint"),
+    signingPublicKey: text("signing_public_key"),
+    encapsulationPublicKey: text("encapsulation_public_key"),
+    encapsulationKeyFingerprint: text("encapsulation_key_fingerprint"),
+    nestedGroupId: text("nested_group_id"),
+    nestedGroupName: text("nested_group_name"),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.organizationId,
+        table.groupId,
+        table.memberPrincipalType,
+        table.memberPrincipalId,
+      ],
+    }),
+  ],
+);

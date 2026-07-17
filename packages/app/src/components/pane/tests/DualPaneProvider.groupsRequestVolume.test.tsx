@@ -27,18 +27,18 @@ import {
 } from "../../../../test/helpers/proxiedApiRequestBudget";
 
 // #1565 originally measured the whole open-and-add gesture at 84 requests;
-// #1566 reduced it to 69. The #1500 directory/groups projection reduces the
-// deterministic profile to 4 requests to open/select Admins and 49 from click
-// through convergence. One organization-policy read verifies the signed
-// reserved-group descriptor; it replaces, rather than trusts, display metadata.
+// #1566 reduced it to 69. The #1500 membership projection reduces the
+// deterministic profile to 3 requests to open/select Admins and 49 from click
+// through convergence. One policy read verifies the signed Admins descriptor;
+// it replaces, rather than trusts, display metadata.
 // Keep navigation and mutation separate so UI reads cannot hide a sync
 // regression. Only the policy PUT and root rewrap POST are writes.
 const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 5,
+  total: 3,
   byRequest: {
     "GET /organizations/:organizationId/read-model": 1,
     "GET /organizations/:organizationId/groups/:groupId/containers": 1,
-    "GET /organizations/:organizationId/groups/:groupId/members": 1,
+    "GET /organizations/:organizationId/groups/:groupId/members": 0,
     "GET /principals/group/:groupId/policy": 1,
     "GET /organizations/:organizationId/directory": 0,
     "GET /organizations/:organizationId/data-usage": 0,
@@ -51,7 +51,7 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 };
 
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 50,
+  total: 49,
   byRequest: {
     "GET /containers": 11,
     "GET /principals/group/:groupId/policy": 8,

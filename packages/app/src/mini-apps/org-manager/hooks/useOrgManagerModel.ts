@@ -28,6 +28,7 @@ import { useOrgManagerContextMenu } from "../context-menu/OrgManagerContextMenu"
 import { deriveOrgManagerState } from "../deriveOrgManagerState";
 import { useClearMissingOrgManagerUser } from "../directory/useClearMissingOrgManagerUser";
 import { useOrgManagerSidebarPanel } from "../OrgManagerSidebar";
+import { useOrgManagerDetailRefreshes } from "../organization/useOrgManagerDetailRefreshes";
 import { useOrgManagerViewRefreshes } from "../organization/useOrgManagerViewRefreshes";
 import type { OrgManagerView } from "../routes";
 import {
@@ -277,6 +278,7 @@ export function useOrgManagerModel() {
     resetSelectedRosterUser,
     selectGroup,
     selectedGroupIdRef,
+    selectedUserIdRef,
     skippedGroupDetailsEffectRef,
     setDataUsage,
     setDirectory,
@@ -294,6 +296,7 @@ export function useOrgManagerModel() {
     setIsCreateGroupDialogOpen,
     setIsImportUserDialogOpen,
     setUserDetail,
+    view,
   });
   useOrgManagerViewRefreshes({
     enabled: canLoadAuthenticatedOrgData,
@@ -322,24 +325,19 @@ export function useOrgManagerModel() {
   ]);
 
   useEffect(() => {
-    void refreshOrgManager();
-  }, [orgManagerScopeKey, refreshOrgManager]);
+    void refreshDirectoryAndGroups();
+  }, [orgManagerScopeKey, refreshDirectoryAndGroups]);
 
-  useEffect(() => {
-    const skippedGroupDetailsEffect = skippedGroupDetailsEffectRef.current;
-    if (skippedGroupDetailsEffect?.groupId === selectedGroupId) {
-      skippedGroupDetailsEffectRef.current = null;
-      return;
-    }
-
-    void refreshSelectedGroupDetails(selectedGroupId);
-  }, [refreshSelectedGroupDetails, selectedGroupId]);
+  useOrgManagerDetailRefreshes({
+    refreshSelectedGroupDetails,
+    refreshSelectedUserDetail,
+    selectedGroupId,
+    selectedUserId,
+    skippedGroupDetailsEffectRef,
+    view,
+  });
 
   useClearMissingOrgManagerUser(activeDirectory, selectedUserId, selectUser);
-
-  useEffect(() => {
-    void refreshSelectedUserDetail(selectedUserId);
-  }, [refreshSelectedUserDetail, selectedUserId]);
 
   useEnsureRosterProfileDocument({
     appData,

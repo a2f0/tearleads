@@ -10,8 +10,10 @@ import {
 import {
   isListOrganizationGroupsResponse,
   isOrganizationDirectoryUserResponse,
+  isOrganizationGroupMemberResponse,
   type ListOrganizationGroupsResponse,
   type OrganizationDirectoryResponse,
+  type OrganizationGroupMemberResponse,
 } from "./organization";
 
 export type OrganizationReadModelDirectoryResponse = Omit<
@@ -19,12 +21,24 @@ export type OrganizationReadModelDirectoryResponse = Omit<
   "currentUser"
 >;
 
+export interface OrganizationReadModelGroupMembershipResponse {
+  readonly groupId: string;
+  readonly stateHash: string;
+  readonly members: OrganizationGroupMemberResponse[];
+}
+
+export interface OrganizationReadModelGroupMembershipsResponse {
+  readonly deletedGroupIds: string[];
+  readonly organizationId: string;
+  readonly groups: OrganizationReadModelGroupMembershipResponse[];
+}
+
 interface OrganizationReadModelResponseBase {
   readonly currentUser: OrganizationDirectoryResponse["currentUser"];
   readonly hasMore: boolean;
   readonly nextCursor: string;
   readonly organizationId: string;
-  readonly version: 1;
+  readonly version: 2;
 }
 
 export interface OrganizationReadModelSnapshotResponse
@@ -32,6 +46,7 @@ export interface OrganizationReadModelSnapshotResponse
   readonly mode: "snapshot";
   readonly lanes: {
     readonly directory: OrganizationReadModelDirectoryResponse;
+    readonly groupMemberships: OrganizationReadModelGroupMembershipsResponse;
     readonly groups: ListOrganizationGroupsResponse;
   };
 }
@@ -41,6 +56,7 @@ export interface OrganizationReadModelDeltaResponse
   readonly mode: "delta";
   readonly lanes: {
     readonly directory?: OrganizationReadModelDirectoryResponse;
+    readonly groupMemberships?: OrganizationReadModelGroupMembershipsResponse;
     readonly groups?: ListOrganizationGroupsResponse;
   };
 }
@@ -60,7 +76,7 @@ function hasExactKeys(
   );
 }
 
-function isVersionOneDirectoryLane(
+function isDirectoryLane(
   value: unknown,
 ): value is OrganizationReadModelDirectoryResponse {
   return (
@@ -90,9 +106,7 @@ function isVersionOneDirectoryLane(
   );
 }
 
-function isVersionOneGroupsLane(
-  value: unknown,
-): value is ListOrganizationGroupsResponse {
+function isGroupsLane(value: unknown): value is ListOrganizationGroupsResponse {
   return (
     isListOrganizationGroupsResponse(value) &&
     hasExactKeys(value, ["organizationId", "memberGroupId", "groups"]) &&
@@ -117,6 +131,83 @@ function isVersionOneGroupsLane(
   );
 }
 
+function isGroupMembership(
+  value: unknown,
+): value is OrganizationReadModelGroupMembershipResponse {
+  if (
+    !isPlainObject(value) ||
+    !hasStringProperty(value, "groupId") ||
+    !hasStringProperty(value, "stateHash") ||
+    value.stateHash.length === 0 ||
+    !hasArrayProperty(value, "members") ||
+    !hasExactKeys(value, ["groupId", "stateHash", "members"])
+  ) {
+    return false;
+  }
+
+  const memberKeys = new Set<string>();
+  for (const member of value.members) {
+    if (
+      !isOrganizationGroupMemberResponse(member) ||
+      !hasExactKeys(member, [
+        "memberPrincipalType",
+        "memberPrincipalId",
+        "role",
+        "userId",
+        "signingKeyFingerprint",
+        "signingPublicKey",
+        "encapsulationPublicKey",
+        "encapsulationKeyFingerprint",
+        "groupId",
+        "groupName",
+      ])
+    ) {
+      return false;
+    }
+    const key = `${member.memberPrincipalType}:${member.memberPrincipalId}`;
+    if (memberKeys.has(key)) {
+      return false;
+    }
+    memberKeys.add(key);
+  }
+  return true;
+}
+
+function isGroupMembershipsLane(
+  value: unknown,
+): value is OrganizationReadModelGroupMembershipsResponse {
+  if (
+    !isPlainObject(value) ||
+    !hasStringProperty(value, "organizationId") ||
+    !hasArrayProperty(value, "deletedGroupIds") ||
+    !hasArrayProperty(value, "groups") ||
+    !hasExactKeys(value, ["organizationId", "groups", "deletedGroupIds"])
+  ) {
+    return false;
+  }
+
+  const groupIds = new Set<string>();
+  for (const group of value.groups) {
+    if (!isGroupMembership(group) || groupIds.has(group.groupId)) {
+      return false;
+    }
+    groupIds.add(group.groupId);
+  }
+  const deletedGroupIds = new Set<string>();
+  for (const groupId of value.deletedGroupIds) {
+    if (
+      typeof groupId !== "string" ||
+      groupId.length === 0 ||
+      groupIds.has(groupId) ||
+      deletedGroupIds.has(groupId)
+    ) {
+      return false;
+    }
+    deletedGroupIds.add(groupId);
+  }
+  return true;
+}
+
 function hasValidCommonFields(value: unknown): value is {
   readonly currentUser: OrganizationDirectoryResponse["currentUser"];
   readonly hasMore: boolean;
@@ -138,7 +229,7 @@ function hasValidCommonFields(value: unknown): value is {
       "lanes",
     ]) &&
     hasNumberProperty(value, "version") &&
-    value.version === 1 &&
+    value.version === 2 &&
     hasStringProperty(value, "mode") &&
     hasStringProperty(value, "organizationId") &&
     hasStringProperty(value, "nextCursor") &&
@@ -160,33 +251,44 @@ export function isOrganizationReadModelResponse(
 
   if (
     Object.keys(value.lanes).some(
-      (key) => key !== "directory" && key !== "groups",
+      (key) =>
+        key !== "directory" && key !== "groupMemberships" && key !== "groups",
     )
   ) {
     return false;
   }
   const directory = Reflect.get(value.lanes, "directory");
+  const groupMemberships = Reflect.get(value.lanes, "groupMemberships");
   const groups = Reflect.get(value.lanes, "groups");
-  const validDirectory =
-    directory === undefined || isVersionOneDirectoryLane(directory);
+  const validDirectory = directory === undefined || isDirectoryLane(directory);
+  const validGroupMemberships =
+    groupMemberships === undefined || isGroupMembershipsLane(groupMemberships);
   const validGroups =
     groups === undefined ||
-    (isVersionOneGroupsLane(groups) &&
+    (isGroupsLane(groups) &&
       groups.groups.every(
         (group) => group.organizationId === value.organizationId,
       ));
-  if (!validDirectory || !validGroups) {
+  if (!validDirectory || !validGroupMemberships || !validGroups) {
     return false;
   }
   if (
     (directory && directory.organizationId !== value.organizationId) ||
+    (groupMemberships &&
+      groupMemberships.organizationId !== value.organizationId) ||
     (groups && groups.organizationId !== value.organizationId)
   ) {
     return false;
   }
 
   if (value.mode === "snapshot") {
-    return directory !== undefined && groups !== undefined && !value.hasMore;
+    return (
+      directory !== undefined &&
+      groupMemberships !== undefined &&
+      groupMemberships.deletedGroupIds.length === 0 &&
+      groups !== undefined &&
+      !value.hasMore
+    );
   }
 
   return value.mode === "delta";

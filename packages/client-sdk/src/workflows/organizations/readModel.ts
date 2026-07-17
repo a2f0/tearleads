@@ -81,6 +81,11 @@ export interface OrganizationGroupDetails {
   readonly policyHistory: OrganizationGroupPolicyHistory | null;
 }
 
+export type OrganizationGroupSupportingDetails = Omit<
+  OrganizationGroupDetails,
+  "members"
+>;
+
 interface OrganizationReadApi {
   readonly listOrganizationContainerGrants: (
     organizationId: string,
@@ -259,11 +264,32 @@ export async function loadOrganizationGroupDetails(input: {
   readonly groupId: string;
   readonly organizationId: string;
 }): Promise<OrganizationGroupDetails> {
-  const [members, containers, policyHistory] = await Promise.all([
+  const [members, supportingDetails] = await Promise.all([
     input.apiClient.listOrganizationGroupMembers(
       input.organizationId,
       input.groupId,
     ),
+    loadOrganizationGroupSupportingDetails({
+      apiClient: input.apiClient,
+      execSql: input.execSql,
+      groupId: input.groupId,
+      organizationId: input.organizationId,
+    }),
+  ]);
+
+  return { members, ...supportingDetails };
+}
+
+export async function loadOrganizationGroupSupportingDetails(input: {
+  readonly apiClient: Pick<
+    OrganizationReadApi,
+    "getCurrentPrincipalPolicy" | "listOrganizationGroupContainers"
+  >;
+  readonly execSql?: ExecSql | null | undefined;
+  readonly groupId: string;
+  readonly organizationId: string;
+}): Promise<OrganizationGroupSupportingDetails> {
+  const [containers, policyHistory] = await Promise.all([
     input.apiClient.listOrganizationGroupContainers(
       input.organizationId,
       input.groupId,
@@ -280,7 +306,6 @@ export async function loadOrganizationGroupDetails(input: {
   });
 
   return {
-    members,
     policyHistory,
     containers: containers
       ? {

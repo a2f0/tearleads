@@ -3,6 +3,7 @@ import type {
   OrganizationGroupSummary,
 } from "@tearleads/client-sdk";
 import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
+import type { OrgManagerView } from "./routes";
 
 export type DirectoryRefreshOptions = {
   clearError?: boolean;
@@ -40,6 +41,67 @@ export type RefreshBehaviorOptions = {
   clearError?: boolean;
   manageLoading?: boolean;
 };
+
+export interface OrgManagerVisibleRefreshInput {
+  getSelectedUserId: () => string | null;
+  refreshDataUsage: (options?: DataUsageRefreshOptions) => Promise<void>;
+  refreshDirectoryAndGroups: (
+    options?: DirectoryRefreshOptions,
+  ) => Promise<DirectoryRefreshResult>;
+  refreshGrants: (options?: GrantsRefreshOptions) => Promise<void>;
+  refreshOrganizationPolicyHistory: (
+    options?: RefreshBehaviorOptions,
+  ) => Promise<void>;
+  refreshSelectedGroupDetails: (
+    groupId: string | null,
+    options?: GroupDetailsRefreshOptions,
+  ) => Promise<void>;
+  refreshSelectedUserDetail: (
+    userId: string | null,
+    options?: GroupDetailsRefreshOptions,
+  ) => Promise<void>;
+  view: OrgManagerView;
+}
+
+/** Refreshes the shared roster projection and only the currently visible view. */
+export async function refreshOrgManagerVisibleData(
+  input: OrgManagerVisibleRefreshInput,
+): Promise<void> {
+  const directoryResult = await input.refreshDirectoryAndGroups({
+    clearError: false,
+    manageLoading: false,
+    ...(input.view === "groups" ? { skipNextGroupDetailsEffect: true } : {}),
+  });
+
+  const detailOptions = { clearError: false } as const;
+  const viewOptions = { clearError: false, manageLoading: false } as const;
+  switch (input.view) {
+    case "directory":
+      await input.refreshSelectedUserDetail(
+        input.getSelectedUserId(),
+        detailOptions,
+      );
+      break;
+    case "groups":
+      await input.refreshSelectedGroupDetails(
+        directoryResult.groupId,
+        detailOptions,
+      );
+      break;
+    case "grants":
+      await input.refreshGrants(viewOptions);
+      break;
+    case "organization":
+      await input.refreshOrganizationPolicyHistory(viewOptions);
+      break;
+    case "usage":
+      await input.refreshDataUsage(viewOptions);
+      break;
+    case "billing":
+    case "menu":
+      break;
+  }
+}
 
 export function setUnknownError(
   setError: (error: string | null) => void,

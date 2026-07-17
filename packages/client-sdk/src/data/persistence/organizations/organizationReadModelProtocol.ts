@@ -1,0 +1,1 @@
+export const ORGANIZATION_READ_MODEL_PROTOCOL_VERSION = 2 as const;

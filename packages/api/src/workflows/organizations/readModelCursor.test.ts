@@ -29,6 +29,14 @@ test("organization read-model cursors are scoped and strictly validated", () => 
       JSON.stringify({
         version: 1,
         organizationId,
+        cursor: "4",
+      }),
+      "utf8",
+    ).toString("base64url"),
+    Buffer.from(
+      JSON.stringify({
+        version: 2,
+        organizationId,
         cursor: "01",
       }),
       "utf8",

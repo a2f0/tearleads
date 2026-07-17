@@ -29,8 +29,8 @@ export async function refreshAfterGroupMutation(input: {
   operationOrganizationId: string;
   refreshDirectoryAndGroups: Refreshers["refreshDirectoryAndGroups"];
   refreshSelectedGroupDetails: Refreshers["refreshSelectedGroupDetails"];
-  refreshSelectedUserDetail: Refreshers["refreshSelectedUserDetail"];
-  selectedUserIdRef: { current: string | null };
+  refreshSelectedUserDetail?: Refreshers["refreshSelectedUserDetail"];
+  selectedUserIdRef?: { current: string | null };
 }): Promise<void> {
   const refreshedDirectory = await input.refreshDirectoryAndGroups({
     skipNextGroupDetailsEffect: true,
@@ -60,7 +60,9 @@ export async function refreshAfterGroupMutation(input: {
   if (!input.isOperationActive(input.operationOrganizationId)) {
     return;
   }
-  await input.refreshSelectedUserDetail(input.selectedUserIdRef.current);
+  if (input.refreshSelectedUserDetail && input.selectedUserIdRef) {
+    await input.refreshSelectedUserDetail(input.selectedUserIdRef.current);
+  }
 }
 
 export async function prepareRosterImport(input: {

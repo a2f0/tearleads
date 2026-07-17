@@ -6,6 +6,8 @@ import type {
 import { eq } from "drizzle-orm";
 import {
   organizationReadModelDirectoryUsers,
+  organizationReadModelGroupMembers,
+  organizationReadModelGroupMemberships,
   organizationReadModelGroups,
   organizationReadModelRequesters,
   organizationReadModelState,
@@ -17,9 +19,14 @@ import {
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import {
+  applyGroupMembershipsLane,
+  assertStoredGroupMembershipBindings,
+} from "./organizationReadModelMembershipPersistence";
+import {
   loadOrganizationReadModelProjectionInTransaction,
   type OrganizationReadModelProjection,
 } from "./organizationReadModelProjection";
+import { ORGANIZATION_READ_MODEL_PROTOCOL_VERSION } from "./organizationReadModelProtocol";
 
 export type { OrganizationReadModelProjection } from "./organizationReadModelProjection";
 
@@ -60,6 +67,12 @@ function assertResponse(input: {
     response.lanes.groups.organizationId !== response.organizationId
   ) {
     throw new Error("Organization groups response scope does not match");
+  }
+  if (
+    response.lanes.groupMemberships?.organizationId !== undefined &&
+    response.lanes.groupMemberships.organizationId !== response.organizationId
+  ) {
+    throw new Error("Organization group memberships scope does not match");
   }
   if (
     response.lanes.groups?.groups.some(
@@ -206,6 +219,53 @@ async function loadCurrentState(
   return current ?? null;
 }
 
+async function purgeOrganizationReadModelProjectionInTransaction(input: {
+  readonly organizationId: string;
+  readonly tx: ClientSQLiteTransaction;
+}): Promise<void> {
+  await input.tx
+    .delete(organizationReadModelGroupMembers)
+    .where(
+      eq(
+        organizationReadModelGroupMembers.organizationId,
+        input.organizationId,
+      ),
+    )
+    .run();
+  await input.tx
+    .delete(organizationReadModelGroupMemberships)
+    .where(
+      eq(
+        organizationReadModelGroupMemberships.organizationId,
+        input.organizationId,
+      ),
+    )
+    .run();
+  await input.tx
+    .delete(organizationReadModelDirectoryUsers)
+    .where(
+      eq(
+        organizationReadModelDirectoryUsers.organizationId,
+        input.organizationId,
+      ),
+    )
+    .run();
+  await input.tx
+    .delete(organizationReadModelGroups)
+    .where(eq(organizationReadModelGroups.organizationId, input.organizationId))
+    .run();
+  await input.tx
+    .delete(organizationReadModelRequesters)
+    .where(
+      eq(organizationReadModelRequesters.organizationId, input.organizationId),
+    )
+    .run();
+  await input.tx
+    .delete(organizationReadModelState)
+    .where(eq(organizationReadModelState.organizationId, input.organizationId))
+    .run();
+}
+
 function resolveApplyDisposition(input: {
   readonly current: CurrentOrganizationReadModelState | null;
   readonly requestedCursor: string | null;
@@ -220,7 +280,10 @@ function resolveApplyDisposition(input: {
   if (!input.current && input.response.mode !== "snapshot") {
     throw new Error("Organization read-model delta requires a local snapshot");
   }
-  if (input.current && input.current.protocolVersion !== 1) {
+  if (
+    input.current &&
+    input.current.protocolVersion !== ORGANIZATION_READ_MODEL_PROTOCOL_VERSION
+  ) {
     throw new Error("Stored organization read-model version is unsupported");
   }
   return null;
@@ -246,6 +309,15 @@ async function replaceResponseLanes(input: {
       tx: input.tx,
     });
   }
+  const groupMemberships = input.response.lanes.groupMemberships;
+  if (groupMemberships) {
+    await applyGroupMembershipsLane({
+      lane: groupMemberships,
+      organizationId: input.response.organizationId,
+      replaceAll: input.response.mode === "snapshot",
+      tx: input.tx,
+    });
+  }
 }
 
 function requireMemberGroupId(input: {
@@ -266,13 +338,24 @@ export async function loadOrganizationReadModelProjection(
   currentUserId: string,
 ): Promise<OrganizationReadModelProjection | null> {
   await ensureSqlTables(execSql, organizationReadModelTables);
-  return getClientSQLitePersistenceRuntime(execSql).transaction((tx) =>
-    loadOrganizationReadModelProjectionInTransaction({
+  return getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
+    const current = await loadCurrentState(tx, organizationId);
+    if (
+      current &&
+      current.protocolVersion !== ORGANIZATION_READ_MODEL_PROTOCOL_VERSION
+    ) {
+      await purgeOrganizationReadModelProjectionInTransaction({
+        organizationId,
+        tx,
+      });
+      return null;
+    }
+    return loadOrganizationReadModelProjectionInTransaction({
       currentUserId,
       organizationId,
       tx,
-    }),
-  );
+    });
+  });
 }
 
 export async function applyOrganizationReadModelResponse(input: {
@@ -289,7 +372,17 @@ export async function applyOrganizationReadModelResponse(input: {
 
   return getClientSQLitePersistenceRuntime(input.execSql).transaction(
     async (tx) => {
-      const current = await loadCurrentState(tx, input.response.organizationId);
+      let current = await loadCurrentState(tx, input.response.organizationId);
+      if (
+        current &&
+        current.protocolVersion !== ORGANIZATION_READ_MODEL_PROTOCOL_VERSION
+      ) {
+        await purgeOrganizationReadModelProjectionInTransaction({
+          organizationId: input.response.organizationId,
+          tx,
+        });
+        current = null;
+      }
       const disposition = resolveApplyDisposition({
         current,
         requestedCursor: input.requestedCursor,
@@ -309,13 +402,18 @@ export async function applyOrganizationReadModelResponse(input: {
       if (disposition === "already-applied") {
         return disposition;
       }
+      const memberGroupId = requireMemberGroupId({
+        current,
+        response: input.response,
+      });
       await replaceResponseLanes({
         response: input.response,
         tx,
       });
-      const memberGroupId = requireMemberGroupId({
-        current,
-        response: input.response,
+      await assertStoredGroupMembershipBindings({
+        memberGroupId,
+        organizationId: input.response.organizationId,
+        tx,
       });
       const directory = input.response.lanes.directory;
 
@@ -356,23 +454,9 @@ export async function purgeOrganizationReadModelProjection(
 ): Promise<void> {
   await ensureSqlTables(execSql, organizationReadModelTables);
   await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
-    await tx
-      .delete(organizationReadModelDirectoryUsers)
-      .where(
-        eq(organizationReadModelDirectoryUsers.organizationId, organizationId),
-      )
-      .run();
-    await tx
-      .delete(organizationReadModelGroups)
-      .where(eq(organizationReadModelGroups.organizationId, organizationId))
-      .run();
-    await tx
-      .delete(organizationReadModelRequesters)
-      .where(eq(organizationReadModelRequesters.organizationId, organizationId))
-      .run();
-    await tx
-      .delete(organizationReadModelState)
-      .where(eq(organizationReadModelState.organizationId, organizationId))
-      .run();
+    await purgeOrganizationReadModelProjectionInTransaction({
+      organizationId,
+      tx,
+    });
   });
 }
