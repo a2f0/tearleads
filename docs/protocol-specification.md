@@ -21,11 +21,10 @@ method, auth, parameters, statuses, and the canonical server/client path. Legacy
 predicates stay schema-backed; parsing never coerces, defaults, strips, or
 replaces signed input.
 
-[`openapi.json`](./openapi.json) projects `documentSyncOperation` to OpenAPI 3.1.
-Custom schemas need views; `lint:openapi` rejects missing views/drift.
-
-It is descriptive. `x-tearleads-runtime-refinements` marks Zod-only rules;
-crypto, transactions, convergence, and formal guarantees are separate.
+[`openapi.json`](./openapi.json) and checked generated TypeScript are structural
+views. Zod remains runtime authority; each `x-tearleads-runtime-refinements` gap
+needs an executable OpenAPI-accepts/Zod-rejects witness. Crypto, transactions,
+convergence, and formal guarantees remain separate.
 
 Related background documents:
 
@@ -304,12 +303,12 @@ Encrypted Loro sync uses `POST /documents/{documentId}/sync`.
 - optional `minLsn`
 - `outgoingUpdates[]`
 
-Outgoing updates carry encrypted bytes, visible partial start/end version
-vectors, optional source version vector, optional checkpoint kind, and a signed
-write header. Successful writes require at least one resolved, active
-authorizing container path; read-only sync probes can omit the references. The
-`expectedLinkSetManifestHash` pins the document head that the server resolves,
-so the request does not echo the full document manifest.
+Document sync updates carry encrypted bytes, partial version vectors, and a
+signed write header. Checkpoint fields are either all absent or the tuple
+`rotate_baseline`, `full_history_snapshot`, and a non-empty source vector.
+Writes require a resolved active authorizing path; read-only probes may omit it.
+`expectedLinkSetManifestHash` pins the server-resolved document head instead of
+echoing the full manifest.
 
 For accepted writes, the API verifies:
 

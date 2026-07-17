@@ -1,4 +1,10 @@
 import { z } from "zod";
+import {
+  classifyDocumentSyncCheckpointFields,
+  DOCUMENT_SYNC_CHECKPOINT_FIELD_SET_ISSUE_MESSAGE,
+  DOCUMENT_SYNC_ROTATION_CHECKPOINT_KIND,
+  DOCUMENT_SYNC_ROTATION_CHECKPOINT_PAYLOAD_KIND,
+} from "../documentSyncCheckpoint";
 import { documentSyncResponseRotationRefinement } from "../documentSyncRefinements";
 import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import {
@@ -53,8 +59,12 @@ export const DocumentSyncUpdateResponseSchema =
     loosePlainObject({
       accessEpoch: positiveIntegerSchema,
       authorFingerprint: z.string(),
-      checkpointKind: z.literal("rotate_baseline").optional(),
-      checkpointPayloadKind: z.literal("full_history_snapshot").optional(),
+      checkpointKind: z
+        .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_KIND)
+        .optional(),
+      checkpointPayloadKind: z
+        .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_PAYLOAD_KIND)
+        .optional(),
       createdAt: z.string(),
       documentId: z.string(),
       encryptedData: z.string(),
@@ -64,20 +74,10 @@ export const DocumentSyncUpdateResponseSchema =
       sourceVersionVector: z.string().min(1).optional(),
       writeHeader: plainObjectSchema,
     }).superRefine((update, context) => {
-      const hasNoCheckpoint =
-        update.checkpointKind === undefined &&
-        update.checkpointPayloadKind === undefined &&
-        update.sourceVersionVector === undefined;
-      const hasRotationCheckpoint =
-        update.checkpointKind === "rotate_baseline" &&
-        update.checkpointPayloadKind === "full_history_snapshot" &&
-        update.sourceVersionVector !== undefined;
-
-      if (!hasNoCheckpoint && !hasRotationCheckpoint) {
+      if (classifyDocumentSyncCheckpointFields(update) === "invalid") {
         context.addIssue({
           code: "custom",
-          message:
-            "checkpoint fields must be absent or form a rotation baseline",
+          message: DOCUMENT_SYNC_CHECKPOINT_FIELD_SET_ISSUE_MESSAGE,
         });
       }
     }),
