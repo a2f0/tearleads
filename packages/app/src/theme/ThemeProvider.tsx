@@ -3,17 +3,17 @@ import {
   type PropsWithChildren,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
-import { loadTheme, saveTheme } from "./themeStorage";
+import { loadStoredTheme, saveTheme } from "./themeStorage";
 import {
   getTheme,
   nextThemeId,
   type ThemeDefinition,
   type ThemeId,
 } from "./themes";
+import { useOsPreferredTheme } from "./useOsPreferredTheme";
 import { useThemeDocumentAttribute } from "./useThemeDocumentAttribute";
 
 interface ThemeContextValue {
@@ -34,26 +34,33 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 // peer) render their own footer toggles, but all of them drive this shared
 // state.
 export function ThemeProvider({ children }: PropsWithChildren) {
-  const [activeTheme, setActiveTheme] = useState<ThemeId>(() => loadTheme());
+  // A stored value is the user's explicit choice; `null` means "follow the OS",
+  // which is the default until they pick one.
+  const [selectedTheme, setSelectedTheme] = useState<ThemeId | null>(() =>
+    loadStoredTheme(),
+  );
+  const osTheme = useOsPreferredTheme();
+  const activeTheme = selectedTheme ?? osTheme;
 
   useThemeDocumentAttribute(activeTheme);
 
-  // Persist as a side effect keyed on the committed theme so the state updaters
-  // below stay pure — React may run an updater more than once or discard its
-  // result (StrictMode, concurrent rendering), and persistence must track only
-  // what actually commits. This is the single persistence site; saveTheme is
-  // idempotent, so the initial write of the loaded value is a harmless no-op.
-  useEffect(() => {
-    saveTheme(activeTheme);
-  }, [activeTheme]);
-
+  // Persist only an explicit choice — never the OS-derived default. A user who
+  // has not chosen keeps following their system preference (including a live
+  // auto light/dark switch) instead of being frozen at whatever it was on first
+  // load. saveTheme runs here in the event handler, not a render path, so the
+  // render stays free of side effects.
   const setTheme = useCallback((theme: ThemeId) => {
-    setActiveTheme(theme);
+    setSelectedTheme(theme);
+    saveTheme(theme);
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setActiveTheme(nextThemeId);
-  }, []);
+    // Advance from what is currently shown — the OS theme until the user has
+    // chosen — so the first toggle flips away from the system default.
+    const next = nextThemeId(activeTheme);
+    setSelectedTheme(next);
+    saveTheme(next);
+  }, [activeTheme]);
 
   const value = useMemo<ThemeContextValue>(
     () => ({

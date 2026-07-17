@@ -1,13 +1,51 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { ThemeProvider } from "./ThemeProvider";
 import { ThemeToggleButton } from "./ThemeToggleButton";
 
-const STORAGE_KEY = "tearleads.theme";
+const CHOICE_KEY = "tearleads.theme.choice";
+const LEGACY_KEY = "tearleads.theme";
+const DARK_QUERY = "(prefers-color-scheme: dark)";
+
+const originalMatchMedia = window.matchMedia;
+
+// A controllable matchMedia so the tests can assert the OS default and drive a
+// live preference change. Returns `matches` for the dark-scheme query and
+// exposes an emitter that fires the registered "change" listeners.
+function installMatchMedia(initialDark: boolean) {
+  let dark = initialDark;
+  const listeners = new Set<() => void>();
+  window.matchMedia = ((query: string) => ({
+    matches: query === DARK_QUERY ? dark : false,
+    media: query,
+    addEventListener: (_type: string, listener: () => void) => {
+      listeners.add(listener);
+    },
+    removeEventListener: (_type: string, listener: () => void) => {
+      listeners.delete(listener);
+    },
+    // Legacy no-ops so the shape is a plausible MediaQueryList.
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+    onchange: null,
+  })) as unknown as typeof window.matchMedia;
+
+  return {
+    setDark(next: boolean) {
+      dark = next;
+      for (const listener of listeners) {
+        listener();
+      }
+    },
+  };
+}
 
 afterEach(() => {
   cleanup();
-  globalThis.localStorage.removeItem(STORAGE_KEY);
+  window.matchMedia = originalMatchMedia;
+  globalThis.localStorage.removeItem(CHOICE_KEY);
+  globalThis.localStorage.removeItem(LEGACY_KEY);
   document.documentElement.removeAttribute("data-theme");
 });
 
@@ -19,29 +57,110 @@ function renderToggle() {
   );
 }
 
-test("defaults to Light, stamps the root, and labels the toggle for the next theme", () => {
+test("defaults to the OS light preference and labels the toggle for the next theme", () => {
+  installMatchMedia(false);
+
   const view = renderToggle();
 
   expect(document.documentElement.getAttribute("data-theme")).toBe("light");
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
     "Switch to Dark theme",
   );
+  // The OS-derived default is not an explicit choice, so nothing is persisted.
+  expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBeNull();
 });
 
-test("toggling advances the theme, persists it, and restamps the root", () => {
+test("defaults to the OS dark preference when the system prefers dark", () => {
+  installMatchMedia(true);
+
   const view = renderToggle();
 
-  fireEvent.click(view.getByRole("button"));
+  expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  expect(view.getByRole("button").getAttribute("aria-label")).toBe(
+    "Switch to Light theme",
+  );
+  expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBeNull();
+});
+
+test("follows a live OS preference change while the user has not chosen", () => {
+  const media = installMatchMedia(false);
+
+  const view = renderToggle();
+  expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+
+  act(() => {
+    media.setDark(true);
+  });
 
   expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
-  expect(globalThis.localStorage.getItem(STORAGE_KEY)).toBe("dark");
+  // Still no explicit choice — the app is tracking the system, not storing it.
+  expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBeNull();
   expect(view.getByRole("button").getAttribute("aria-label")).toBe(
     "Switch to Light theme",
   );
 });
 
-test("restores the persisted theme on mount", () => {
-  globalThis.localStorage.setItem(STORAGE_KEY, "dark");
+test("a legacy auto-persisted light default still follows the OS preference", () => {
+  // The regression the migration fixes: the old provider left "light" in storage
+  // for users who never chose, which must not pin them to light.
+  installMatchMedia(true);
+  globalThis.localStorage.setItem(LEGACY_KEY, "light");
+
+  const view = renderToggle();
+
+  expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  expect(view.getByRole("button").getAttribute("aria-label")).toBe(
+    "Switch to Light theme",
+  );
+});
+
+test("a legacy explicit dark choice is preserved over the OS preference", () => {
+  installMatchMedia(false);
+  globalThis.localStorage.setItem(LEGACY_KEY, "dark");
+
+  const view = renderToggle();
+
+  expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  expect(view.getByRole("button").getAttribute("aria-label")).toBe(
+    "Switch to Light theme",
+  );
+});
+
+test("toggling advances from the OS default, persists the choice, and restamps the root", () => {
+  installMatchMedia(false);
+
+  const view = renderToggle();
+
+  fireEvent.click(view.getByRole("button"));
+
+  expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBe("dark");
+  expect(view.getByRole("button").getAttribute("aria-label")).toBe(
+    "Switch to Light theme",
+  );
+});
+
+test("an explicit choice wins over the OS preference and its live changes", () => {
+  const media = installMatchMedia(true);
+  // The user has explicitly chosen light while the OS prefers dark.
+  globalThis.localStorage.setItem(CHOICE_KEY, "light");
+
+  const view = renderToggle();
+  expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+
+  // A later OS flip does not move an explicitly chosen theme.
+  act(() => {
+    media.setDark(false);
+  });
+  expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+  expect(view.getByRole("button").getAttribute("aria-label")).toBe(
+    "Switch to Dark theme",
+  );
+});
+
+test("restores the persisted choice on mount", () => {
+  installMatchMedia(false);
+  globalThis.localStorage.setItem(CHOICE_KEY, "dark");
 
   const view = renderToggle();
 
