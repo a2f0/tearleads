@@ -15,7 +15,9 @@ export const BLOOD_PRESSURE_DIASTOLIC_FIELD = "diastolic";
 export const BLOOD_PRESSURE_PULSE_FIELD = "pulse";
 export const BLOOD_PRESSURE_MEASURED_AT_FIELD = "measuredAt";
 export const BLOOD_PRESSURE_NOTES_FIELD = "notes";
-const BLOOD_PRESSURE_UNTITLED_TITLE = "Untitled blood pressure tracker";
+// Shown for a tracker that was never named — the document type's own name rather
+// than a generic "Untitled …" placeholder.
+const BLOOD_PRESSURE_DEFAULT_TITLE = "Blood Pressure Tracker";
 
 // Plausible mmHg / bpm bounds — wide enough to accept any real measurement but
 // tight enough to flag obvious typos like a systolic of 1200.
@@ -57,7 +59,7 @@ function deriveBloodPressureTitle(
     return `Blood Pressure (${readingCount} reading${readingCount === 1 ? "" : "s"})`;
   }
 
-  return BLOOD_PRESSURE_UNTITLED_TITLE;
+  return BLOOD_PRESSURE_DEFAULT_TITLE;
 }
 
 function validateMeasurementField(
@@ -130,5 +132,5 @@ export const bloodPressureDocumentProjectorDefinition: AppDocumentProjectorDefin
         title: deriveBloodPressureTitle(trackerName, rows),
       };
     },
-    untitledTitle: BLOOD_PRESSURE_UNTITLED_TITLE,
+    untitledTitle: BLOOD_PRESSURE_DEFAULT_TITLE,
   };
