@@ -77,6 +77,7 @@ build_app_web() {
     BUN_PUBLIC_APP_VARIANT="$variant" \
     BUN_PUBLIC_API_BASE_URL="https://api.${DOMAIN}" \
     BUN_PUBLIC_WS_URL="wss://api.${DOMAIN}/events" \
+    BUN_PUBLIC_REVENUECAT_WEB_API_KEY="${BUN_PUBLIC_REVENUECAT_WEB_API_KEY:-}" \
     bun run build)
 }
 
