@@ -9,6 +9,7 @@ import {
   documentSyncRequestEnvelopeRefinements,
   documentSyncRequestRotationRefinement,
 } from "../documentSyncRefinements";
+import { classifyDocumentSyncRequestMode } from "../documentSyncRequestMode";
 import { isPlainObject } from "../isPlainObject";
 import {
   registerJsonSchemaFragment,
@@ -166,11 +167,14 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
     }
 
     const hasOutgoingUpdates = request.outgoingUpdates.length > 0;
+    const requestMode = classifyDocumentSyncRequestMode({
+      authorizingContainerPathRefsPresent:
+        request.authorizingContainerPathRefs !== undefined,
+      hasContainerRekeys: (request.containerRekeys?.length ?? 0) > 0,
+      hasOutgoingUpdates,
+    });
 
-    if (
-      request.authorizingContainerPathRefs === undefined &&
-      hasOutgoingUpdates
-    ) {
+    if (requestMode === "invalid-authorizing-path-refs-absent") {
       context.addIssue({
         code: "custom",
         message:
@@ -179,7 +183,7 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
       });
     }
 
-    if ((request.containerRekeys?.length ?? 0) > 0 && !hasOutgoingUpdates) {
+    if (requestMode === "invalid-rekeys-without-write") {
       context.addIssue({
         code: "custom",
         message: "container rekeys require an outgoing update",
