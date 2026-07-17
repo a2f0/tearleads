@@ -135,6 +135,7 @@ test("isPutPrincipalPolicyRequest", () => {
       projectionRoot: "projection-root",
       payloadCiphertextHash: "ciphertext-hash",
       memberCount: 1,
+      externalAuthority: null,
       signedAt: new Date().toISOString(),
       signerUserId: "550e8400-e29b-41d4-a716-446655440001",
       signerUserKeyFingerprint: "policy-key-fingerprint-1",
@@ -208,6 +209,7 @@ test("isCreateOrganizationGroupRequest", () => {
         projectionRoot: "projection-root",
         payloadCiphertextHash: "ciphertext-hash",
         memberCount: 1,
+        externalAuthority: null,
         signedAt: new Date().toISOString(),
         signerUserId: userId,
         signerUserKeyFingerprint: "policy-key-fingerprint-1",
@@ -247,5 +249,11 @@ test("isCreateOrganizationGroupRequest", () => {
   expect(isCreateOrganizationGroupRequest({ ...request, groupId: "bad" })).toBe(
     false,
   );
+  expect(
+    isCreateOrganizationGroupRequest({
+      ...request,
+      groupId: groupId.toUpperCase(),
+    }),
+  ).toBe(false);
   expect(isCreateOrganizationGroupRequest(null)).toBe(false);
 });

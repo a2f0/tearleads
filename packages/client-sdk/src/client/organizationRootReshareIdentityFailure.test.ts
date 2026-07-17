@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { ContainerContents } from "./containerContents";
-import { prepareOrganizationRootRewrapToAdmins } from "./organizationRootReshare";
+import { prepareOrganizationRootRewrapForGroup } from "./organizationRootReshare";
 
 const ADMIN_GROUP_ID = "admins-group-1";
 const ORGANIZATION_ID = "org-1";
@@ -40,19 +40,23 @@ async function createPreparedRewrap(input: {
         rewraps += 1;
         return input.rewrap(rewraps);
       },
+      status: "prepared" as const,
     }),
     refresh: async () => {
       refreshes += 1;
       return true;
     },
   };
-  const prepared = await prepareOrganizationRootRewrapToAdmins({
-    adminGroupId: ADMIN_GROUP_ID,
+  const prepared = await prepareOrganizationRootRewrapForGroup({
     containerContents: {
       openTree: () => tree,
     } as unknown as ContainerContents,
+    groupId: ADMIN_GROUP_ID,
     organizationId: ORGANIZATION_ID,
   });
+  if (!prepared) {
+    throw new Error("Expected a matching root admin grant");
+  }
   prepared.setExpectedGroupPolicyHead(EXPECTED_GROUP_HEAD);
 
   return {

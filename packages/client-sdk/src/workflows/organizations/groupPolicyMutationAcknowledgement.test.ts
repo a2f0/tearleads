@@ -44,7 +44,6 @@ async function acknowledgementFixture() {
   });
   const currentPolicy = await policyBundleFromInitialRequest(initialRequest);
   const mutation = await buildAddGroupUserPolicyRequest({
-    canAdministerOrganization: false,
     currentPolicy,
     currentPolicySignerPublicKeys: [
       {

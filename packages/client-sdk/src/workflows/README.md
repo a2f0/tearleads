@@ -12,7 +12,7 @@ coordination, but they must stay React-free and product-UI-free.
 | `containers` | Platform runtime | Container mutation planning and remote container operations. |
 | `documents` | Platform runtime | Document creation, persistence, sync, projection keys, and document link-set helpers. |
 | `container-contents` | Platform query and runtime | Container tree projections, container metadata documents, document discovery, document links, identity-wide pending-write diagnostics, compact attribution diagnostics, lazy paginated attribution ranges, and sync-state helpers. Product UI routes, panels, menus, and selection state belong in `packages/app`. |
-| `organizations` | Platform organization administration | Organization directory, groups, grants, usage, user-detail read models, ID-only user membership mutations, principal-policy mutation helpers, and organization-scoped system-container slot helpers. Org Manager screens and labels belong in `packages/app`. |
+| `organizations` | Platform organization administration | Transactional local directory/group projections with opaque feed cursors, grants, usage, user-detail read models, ID-only user membership mutations, verified principal-policy mutation helpers, and organization-scoped system-container slot helpers. Org Manager screens and labels belong in `packages/app`. |
 | `principals` | Platform runtime | Principal-policy cache and verification support routed through the durable trusted-user-identity gateway. |
 | `registration` | Platform runtime | Local registration and atomic organization bootstrap helpers, including the initial encrypted roster and organization-profile bodies. |
 | `sync` | Platform runtime | Shared sync coordinator helpers. |
@@ -63,6 +63,15 @@ injected gateway; raw identity endpoint and organization response objects must
 not reach signature or encryption helpers.
 Lower-level integration tests may use `@tearleads/client-sdk/testing` to
 construct the nominal test values; production source must not import it.
+
+Organization directory and group-summary rows are presentation projections.
+The SDK reconciles them through the organization read-model feed and keeps the
+opaque cursor in the same SQLite transaction as each applied page. It never
+falls back to the legacy directory/group pair. `isSelf` is derived from the
+active user, while `isOrgAdmin` is requester-scoped and UI-only; group-policy
+mutations derive administrator authority from the signed organization
+authority descriptor and verified `Admins` policy instead. Root and metadata
+key rewraps test verified existing grants, never read-model group IDs.
 
 Name SDK facades after the platform state they expose. Product names can stay
 in app providers and components that adapt those platform facades into a UI.

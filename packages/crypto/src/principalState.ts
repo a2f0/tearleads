@@ -12,6 +12,7 @@ import type {
   ManagedRecipientPrincipalType,
   PrincipalProjectionMember,
   PrincipalProjectionRole,
+  PrincipalStateExternalAuthority,
   PrincipalStateHeaderInput,
   PrincipalStateMember,
   PrincipalStateMembershipMode,
@@ -30,6 +31,7 @@ export type {
   ManagedRecipientPrincipalType,
   PrincipalProjectionMember,
   PrincipalProjectionRole,
+  PrincipalStateExternalAuthority,
   PrincipalStateHeaderInput,
   PrincipalStateMember,
   PrincipalStateMemberEnvelope,
@@ -98,6 +100,7 @@ function encodeUnsignedPrincipalState(
       projectionRoot: state.projectionRoot,
       payloadCiphertextHash: state.payloadCiphertextHash,
       memberCount: state.memberCount,
+      externalAuthority: state.externalAuthority,
       signedAt: state.signedAt,
       signerUserId: state.signerUserId,
       signerUserKeyFingerprint: state.signerUserKeyFingerprint,
@@ -122,6 +125,7 @@ function toUnsignedPrincipalState(
     projectionRoot: state.projectionRoot,
     payloadCiphertextHash: state.payloadCiphertextHash,
     memberCount: state.memberCount,
+    externalAuthority: state.externalAuthority,
     signedAt: state.signedAt,
     signerUserId: state.signerUserId,
     signerUserKeyFingerprint: state.signerUserKeyFingerprint,
@@ -202,6 +206,34 @@ function resolveMemberCount(state: UnsignedPrincipalState): number {
   return state.memberCount;
 }
 
+function normalizeExternalAuthority(
+  authority: PrincipalStateExternalAuthority | null,
+): PrincipalStateExternalAuthority | null {
+  if (authority === null) {
+    return null;
+  }
+
+  if (
+    authority.principalType !== "group" ||
+    authority.principalId.length === 0 ||
+    !isValidPositiveInteger(authority.version) ||
+    !isValidPositiveInteger(authority.keyEpoch) ||
+    authority.stateHash.length === 0 ||
+    authority.keyFingerprint.length === 0
+  ) {
+    throw new Error("Principal state externalAuthority is invalid");
+  }
+
+  return {
+    principalType: "group",
+    principalId: authority.principalId,
+    version: authority.version,
+    keyEpoch: authority.keyEpoch,
+    stateHash: authority.stateHash,
+    keyFingerprint: authority.keyFingerprint,
+  };
+}
+
 async function validatePrincipalEncapsulationKey(
   state: UnsignedPrincipalState,
 ): Promise<void> {
@@ -274,6 +306,7 @@ async function normalizeUnsignedPrincipalState(
     projectionRoot: resolvedProjectionRoot,
     payloadCiphertextHash: resolvedPayloadCiphertextHash,
     memberCount,
+    externalAuthority: normalizeExternalAuthority(state.externalAuthority),
     signedAt: state.signedAt,
     signerUserId: state.signerUserId,
     signerUserKeyFingerprint: state.signerUserKeyFingerprint,
@@ -388,6 +421,7 @@ export async function buildPrincipalStateSigningInput(
       input.payloadCiphertext,
     ),
     memberCount: input.projection.length,
+    externalAuthority: input.externalAuthority,
     signedAt: input.signedAt,
     signerUserId: input.signerUserId,
     signerUserKeyFingerprint: input.signerUserKeyFingerprint,

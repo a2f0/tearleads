@@ -7,6 +7,12 @@ import {
   text,
 } from "drizzle-orm/sqlite-core";
 import {
+  organizationReadModelDirectoryUsers,
+  organizationReadModelGroups,
+  organizationReadModelRequesters,
+  organizationReadModelState,
+} from "./organizationReadModelSchema";
+import {
   principalPolicies,
   principalPolicyBundleHistory,
   principalPolicyCheckpoints,
@@ -688,6 +694,13 @@ export const containerSyncWatermarkTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(containerSyncLaneChecks),
 ];
 
+export const organizationReadModelTables: ReadonlyArray<SqlTableSchema> = [
+  defineSqlTableSchema(organizationReadModelState),
+  defineSqlTableSchema(organizationReadModelRequesters),
+  defineSqlTableSchema(organizationReadModelDirectoryUsers),
+  defineSqlTableSchema(organizationReadModelGroups),
+];
+
 export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...documentTables,
   ...principalPolicyTables,
@@ -700,6 +713,7 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...containerCreateIntentTables,
   ...containerMoveIntentTables,
   ...containerSyncWatermarkTables,
+  ...organizationReadModelTables,
 ];
 
 export const clientSQLiteSchema = {
@@ -721,4 +735,8 @@ export const clientSQLiteSchema = {
   containerMoveIntents,
   containerSyncLaneChecks,
   containerSyncWatermarks,
+  organizationReadModelState,
+  organizationReadModelRequesters,
+  organizationReadModelDirectoryUsers,
+  organizationReadModelGroups,
 };

@@ -143,6 +143,7 @@ test("principal policy sync authorizes empty group bundles from verified organiz
   try {
     const organizationId = "organization-1";
     const groupId = "group-empty-1";
+    const adminGroupId = "admins-group-1";
     const signerUserId = "organization-admin-1";
     const signingKeyPair = generateSigningSeedAndKeyPair();
     const encapsulationKeyPair = generateKemSeedAndKeyPair();
@@ -162,17 +163,40 @@ test("principal policy sync authorizes empty group bundles from verified organiz
     const organizationPolicy = await principalPolicyBundleFromInitialPolicy({
       principalId: organizationId,
       policy: await buildInitialOrganizationPolicyRequest({
+        adminGroupId,
         encapsulationPublicKey: encapsulationKeyPair.publicKey,
+        memberGroupId: "members-group-1",
         organizationId,
         signingKeyPair,
         userId: signerUserId,
       }),
+    });
+    const adminPolicy = await principalPolicyBundleFromInitialPolicy({
+      principalId: adminGroupId,
+      policy: (
+        await buildInitialGroupPolicyRequest({
+          creatorEncapsulationKeyPair: encapsulationKeyPair,
+          groupId: adminGroupId,
+          name: "Admins",
+          signerUserId,
+          signingFingerprint: signingKeyFingerprint,
+          signingKeyPair,
+        })
+      ).initialGroupPolicy,
     });
     const groupPolicy = await principalPolicyBundleFromInitialPolicy({
       principalId: groupId,
       policy: (
         await buildInitialGroupPolicyRequest({
           creatorEncapsulationKeyPair: encapsulationKeyPair,
+          externalAuthority: {
+            principalType: "group",
+            principalId: adminPolicy.currentState.principalId,
+            version: adminPolicy.currentState.version,
+            keyEpoch: adminPolicy.currentState.keyEpoch,
+            stateHash: adminPolicy.currentState.stateHash,
+            keyFingerprint: adminPolicy.currentState.keyFingerprint,
+          },
           groupId,
           includeSignerAsAdmin: false,
           name: "Operators",
@@ -192,6 +216,9 @@ test("principal policy sync authorizes empty group bundles from verified organiz
           principalId === organizationId
         ) {
           return organizationPolicy;
+        }
+        if (principalType === "group" && principalId === adminGroupId) {
+          return adminPolicy;
         }
 
         expect(principalType).toBe("group");
@@ -214,6 +241,9 @@ test("principal policy sync authorizes empty group bundles from verified organiz
     await expect(
       loadPrincipalPolicyBundle(execSql, "organization", organizationId),
     ).resolves.toEqual(organizationPolicy);
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", adminGroupId),
+    ).resolves.toEqual(adminPolicy);
   } finally {
     close();
   }

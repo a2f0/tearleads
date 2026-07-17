@@ -94,20 +94,30 @@ changing them without a matching signed state causes rejection.
 
 ### Admin-Signer Authorization
 
-The signer rule is enforced against signed projection state:
+Every signed principal-state header includes `externalAuthority`. It is `null`
+for a signer authorized directly by the initial or preceding projection. An
+externally authorized organization-group state instead commits the exact
+reserved `Admins` policy head. The API accepts only its current exact head and
+a direct `admin` signer; organization and Admins states cannot cite it.
 
-- For an initial state, the signer must be an admin in that initial projection.
-- For a successor state, the signer must be an admin in the previous signed
- projection.
-- For an org-scoped successor state, the API may also authorize the signer by
- proving reachability through the organization's reserved `Admins` group.
+Client verification resolves every non-null citation to that exact Admins
+history entry and tests its projection, rather than unioning historical admins.
+Historical child states may cite historical exact heads. Every child successor
+newer than a local checkpoint must instead cite the fetched, verified current
+Admins head, and cited heads cannot roll back within a chain. Thus a removed
+admin cannot append after the client checkpoints the child policy.
 
-This prevents the API from authorizing a policy transition merely by editing
-projection rows. A successor must chain from the previous signed state and be
-signed by either a user who was admin in that previous signed state or a user
-whose external org-admin authority is itself derived from signed `Admins`
-group state. External org-admin authorization does not apply to initial
-principal states.
+A cold client has no cross-object ordering checkpoint, so the two signed
+histories do not prove a historical Admins head was current when cited. Honest
+writes enforce this; detecting a malicious first-contact stale view needs
+cross-object transparency, witnessing, or gossip.
+
+The signed organization descriptor selects `Admins`; display and read-model
+projections never authorize policy or keying. Root and metadata repairs use
+verified grants.
+
+There is no legacy or unsigned fallback. Pre-contract signed state must be reset
+and its organization reprovisioned, not translated.
 
 ### Principal Payload And Projection Binding
 
@@ -223,19 +233,10 @@ Passkey backups store encrypted keys; PRF output stays local.
 
 ### No Universal Compromised-Server Detection
 
-An honest client cannot categorically detect every compromised-server action.
-The server can:
-
-- refuse to return policy state or object data
-- omit newer states or grants
-- replay an older valid policy chain
-- show different valid policy heads to different clients
-- return projection rows that do not match the signed access manifests
-- substitute signer or recipient public keys before a client has any trusted
- binding for those identities
-
-Validation turns many tampering attempts into fail-closed behavior, but it is
-not a global transparency system unless clients also pin or witness tree heads.
+The server can withhold data, omit newer state, replay valid history, show split
+views, return projections inconsistent with signed manifests, or substitute
+identity keys on first contact. Validation makes many of these fail closed, but
+is not global transparency unless clients pin or witness tree heads.
 
 ### Rollback And Split-View
 

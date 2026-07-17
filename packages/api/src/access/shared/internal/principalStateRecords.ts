@@ -9,6 +9,7 @@ import {
   normalizePrincipalProjectionMembers,
   type PrincipalProjectionMember,
   type PrincipalProjectionRole,
+  type PrincipalStateExternalAuthority,
   type PrincipalStateMemberEnvelope,
   type PrincipalStateMemberType,
   type PrincipalStatePayloadCipherSuite,
@@ -98,6 +99,7 @@ export const principalStateSelect = {
   projectionRoot: principalStates.projectionRoot,
   payloadCiphertextHash: principalStates.payloadCiphertextHash,
   memberCount: principalStates.memberCount,
+  externalAuthority: principalStates.externalAuthority,
   signedAt: principalStates.signedAt,
   signerUserId: principalStates.signerUserId,
   signerUserKeyFingerprint: principalStates.signerUserKeyFingerprint,
@@ -150,6 +152,7 @@ interface PrincipalStateRow {
   projectionRoot: string;
   payloadCiphertextHash: string;
   memberCount: number;
+  externalAuthority: PrincipalStateExternalAuthority | null;
   signedAt: Date;
   signerUserId: string;
   signerUserKeyFingerprint: string;
@@ -185,6 +188,7 @@ export function toStoredPrincipalState(
     projectionRoot: row.projectionRoot,
     payloadCiphertextHash: row.payloadCiphertextHash,
     memberCount: row.memberCount,
+    externalAuthority: row.externalAuthority,
     signedAt: row.signedAt.toISOString(),
     signerUserId: row.signerUserId,
     signerUserKeyFingerprint: row.signerUserKeyFingerprint,
@@ -225,6 +229,7 @@ function stripSignedPrincipalStateArtifacts(
     projectionRoot: state.projectionRoot,
     payloadCiphertextHash: state.payloadCiphertextHash,
     memberCount: state.memberCount,
+    externalAuthority: state.externalAuthority,
     signedAt: state.signedAt,
     signerUserId: state.signerUserId,
     signerUserKeyFingerprint: state.signerUserKeyFingerprint,

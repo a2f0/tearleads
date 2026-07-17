@@ -1,6 +1,7 @@
 import {
   type KeyingVerificationResult,
   type PrincipalPolicyCheckpoint,
+  type PrincipalPolicyExternalAuthority,
   type PrincipalPolicySignerPublicKey,
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicy,
@@ -14,6 +15,7 @@ import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../..
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import {
+  externalAdminPolicyPersistenceEntries,
   loadOrganizationExternalAdminPolicy,
   type VerifiedExternalAdminPolicy,
 } from "../principals/externalAdminPolicy";
@@ -76,15 +78,15 @@ export async function collectGroupPolicySignerPublicKeys(input: {
 }
 
 export async function verifyGroupPolicy(input: {
-  readonly externalAdminSignerUserIds?: readonly string[];
+  readonly externalAuthority?: PrincipalPolicyExternalAuthority;
   readonly currentPolicy: PrincipalPolicyBundleResponse;
   readonly localPolicyCheckpoint: PrincipalPolicyCheckpoint | null;
   readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
 }): Promise<VerifiedPrincipalPolicy> {
   const verified = await verifyPrincipalPolicyBundle({
     bundle: input.currentPolicy,
-    ...(input.externalAdminSignerUserIds
-      ? { externalAdminSignerUserIds: input.externalAdminSignerUserIds }
+    ...(input.externalAuthority
+      ? { externalAuthority: input.externalAuthority }
       : {}),
     expectedReference: groupPolicyReference(input.currentPolicy),
     localCheckpoint: input.localPolicyCheckpoint,
@@ -101,9 +103,9 @@ export async function verifyGroupPolicy(input: {
   return verified.value;
 }
 
-async function verifyGroupPolicyWithExternalAdmins(input: {
+export async function verifyGroupPolicyWithExternalOrganizationAdmins(input: {
   readonly currentPolicy: PrincipalPolicyBundleResponse;
-  readonly loadExternalAdminSignerUserIds: () => Promise<readonly string[]>;
+  readonly loadExternalAuthority: () => Promise<PrincipalPolicyExternalAuthority | null>;
   readonly localPolicyCheckpoint: PrincipalPolicyCheckpoint | null;
   readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
 }): Promise<VerifiedPrincipalPolicy> {
@@ -111,7 +113,7 @@ async function verifyGroupPolicyWithExternalAdmins(input: {
     await verifyPrincipalPolicyBundleWithExternalOrganizationAdmins({
       bundle: input.currentPolicy,
       expectedReference: groupPolicyReference(input.currentPolicy),
-      loadExternalAdminSignerUserIds: input.loadExternalAdminSignerUserIds,
+      loadExternalAuthority: input.loadExternalAuthority,
       localCheckpoint: input.localPolicyCheckpoint,
       signerPublicKeys: input.signerPublicKeys,
     });
@@ -190,10 +192,10 @@ export async function loadVerifiedOrganizationGroupPolicies(input: {
         execSql: input.execSql,
         resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
       });
-      const policy = await verifyGroupPolicyWithExternalAdmins({
+      const policy = await verifyGroupPolicyWithExternalOrganizationAdmins({
         currentPolicy: bundle,
-        loadExternalAdminSignerUserIds: async () =>
-          (await loadExternalAdminPolicy())?.signerUserIds ?? [],
+        loadExternalAuthority: async () =>
+          (await loadExternalAdminPolicy())?.externalAuthority ?? null,
         localPolicyCheckpoint: verification.localPolicyCheckpoint,
         signerPublicKeys: verification.currentPolicySignerPublicKeys,
       });
@@ -207,12 +209,7 @@ export async function loadVerifiedOrganizationGroupPolicies(input: {
   await persistVerifiedPrincipalPolicyBundlesAtomically({
     entries: [
       ...(verifiedExternalAdminPolicy
-        ? [
-            {
-              bundle: verifiedExternalAdminPolicy.bundle,
-              policy: verifiedExternalAdminPolicy.policy,
-            },
-          ]
+        ? externalAdminPolicyPersistenceEntries(verifiedExternalAdminPolicy)
         : []),
       ...entries,
     ],

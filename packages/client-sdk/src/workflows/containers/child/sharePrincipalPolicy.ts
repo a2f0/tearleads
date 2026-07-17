@@ -2,7 +2,6 @@ import type {
   ManagedPrincipalKind,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import { KeyingVerificationError } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { ContainerShareApi } from "../../../data/containers/shared/types";
 import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingProjectionVerification/error";
@@ -13,13 +12,16 @@ import {
   savePrincipalPolicyBundle,
 } from "../../../data/persistence/principalPolicyPersistence";
 import {
-  organizationAdminSignerUserIds,
   principalPolicyReferenceFromBundle,
-  verifyOrganizationAdminPolicy,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
 } from "../../../data/principalPolicyAdminSigners";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
+import {
+  externalAdminPolicyPersistenceEntries,
+  loadOrganizationExternalAdminPolicy,
+  type VerifiedExternalAdminPolicy,
+} from "../../principals/externalAdminPolicy";
 import {
   collectPrincipalPolicySignerPublicKeys,
   type PrincipalPolicySignerPublicKeyLoadErrorCode,
@@ -39,26 +41,23 @@ export interface VerifiedSharePrincipalPolicy {
   readonly policy: VerifiedPrincipalPolicy;
 }
 
-interface VerifiedOrganizationAdminPolicy {
-  readonly bundle: PrincipalPolicyBundleResponse;
-  readonly policy: VerifiedPrincipalPolicy;
-  readonly signerUserIds: readonly string[];
-}
-
 async function retainVerifiedSharePolicies(input: {
   bundle: PrincipalPolicyBundleResponse;
   execSql: ExecSql;
-  organizationPolicy: VerifiedOrganizationAdminPolicy | null;
+  organizationPolicy: VerifiedExternalAdminPolicy | null;
   policy: VerifiedPrincipalPolicy;
 }): Promise<VerifiedPrincipalPolicy[]> {
   const retainedAt = new Date().toISOString();
   if (input.organizationPolicy) {
-    await retainVerifiedPrincipalPolicyBundle({
-      bundle: input.organizationPolicy.bundle,
-      execSql: input.execSql,
-      policy: input.organizationPolicy.policy,
-      updatedAt: retainedAt,
-    });
+    for (const entry of externalAdminPolicyPersistenceEntries(
+      input.organizationPolicy,
+    )) {
+      await retainVerifiedPrincipalPolicyBundle({
+        ...entry,
+        execSql: input.execSql,
+        updatedAt: retainedAt,
+      });
+    }
   }
   await retainVerifiedPrincipalPolicyBundle({
     bundle: input.bundle,
@@ -67,9 +66,37 @@ async function retainVerifiedSharePolicies(input: {
     updatedAt: retainedAt,
   });
   return [
-    ...(input.organizationPolicy ? [input.organizationPolicy.policy] : []),
+    ...(input.organizationPolicy
+      ? externalAdminPolicyPersistenceEntries(input.organizationPolicy).map(
+          (entry) => entry.policy,
+        )
+      : []),
     input.policy,
   ];
+}
+
+async function advanceAndSaveVerifiedSharePolicies(input: {
+  checkpointPolicies: readonly VerifiedPrincipalPolicy[];
+  execSql: ExecSql;
+  organizationPolicy: VerifiedExternalAdminPolicy | null;
+}): Promise<void> {
+  await advanceKeyingCheckpointsAtomically({
+    access: [],
+    execSql: input.execSql,
+    policies: input.checkpointPolicies,
+  });
+  if (!input.organizationPolicy) {
+    return;
+  }
+  for (const dependency of externalAdminPolicyPersistenceEntries(
+    input.organizationPolicy,
+  )) {
+    await savePrincipalPolicyBundle(
+      input.execSql,
+      dependency.bundle,
+      new Date().toISOString(),
+    );
+  }
 }
 
 function assertGroupPolicyTarget(
@@ -92,57 +119,6 @@ function signerPublicKeyLoadErrorMessage(
       return "principal policy signer key fingerprint mismatch";
     case "not-found":
       return "principal policy signer key could not be loaded";
-  }
-}
-
-async function loadOrganizationAdminPolicy(input: {
-  apiClient: ContainerManagedPrincipalShareApi;
-  execSql: ExecSql;
-  organizationId: string;
-  resolveTrustedUserIdentity: TrustedUserIdentityResolver;
-}): Promise<VerifiedOrganizationAdminPolicy | null> {
-  try {
-    const bundle = await input.apiClient.getCurrentPrincipalPolicy(
-      "organization",
-      input.organizationId,
-    );
-    if (!bundle) {
-      return null;
-    }
-
-    const localCheckpoint = await loadPrincipalPolicyVerificationCheckpoint({
-      execSql: input.execSql,
-      principalId: input.organizationId,
-      principalType: "organization",
-    });
-    const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
-      bundle,
-      resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-    });
-    if ("error" in signerPublicKeys) {
-      return null;
-    }
-
-    const verified = await verifyOrganizationAdminPolicy({
-      bundle,
-      localCheckpoint,
-      organizationId: input.organizationId,
-      signerPublicKeys: signerPublicKeys.signerPublicKeys,
-    });
-    if (!verified.ok) {
-      throw verified.error;
-    }
-
-    return {
-      bundle,
-      policy: verified.value,
-      signerUserIds: organizationAdminSignerUserIds(verified.value),
-    };
-  } catch (error) {
-    if (error instanceof KeyingVerificationError) {
-      throw error;
-    }
-    return null;
   }
 }
 
@@ -176,13 +152,19 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
     throw new Error(signerPublicKeyLoadErrorMessage(signerPublicKeys.error));
   }
 
-  let organizationAdminPolicy: Promise<VerifiedOrganizationAdminPolicy | null> | null =
+  let organizationAdminPolicy: Promise<VerifiedExternalAdminPolicy | null> | null =
     null;
   let usedOrganizationAdminPolicy = false;
   const loadOrganizationAdminPolicyOnce = () => {
-    organizationAdminPolicy ??= loadOrganizationAdminPolicy({
-      apiClient: input.apiClient,
+    organizationAdminPolicy ??= loadOrganizationExternalAdminPolicy({
       execSql: input.execSql,
+      getCurrentPrincipalPolicy: (principalType, principalId) =>
+        principalType === "group" && principalId === input.groupId
+          ? Promise.resolve(bundle)
+          : input.apiClient.getCurrentPrincipalPolicy(
+              principalType,
+              principalId,
+            ),
       organizationId: input.organizationId,
       resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     });
@@ -192,9 +174,11 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
     await verifyPrincipalPolicyBundleWithExternalOrganizationAdmins({
       bundle,
       expectedReference: principalPolicyReferenceFromBundle(bundle),
-      loadExternalAdminSignerUserIds: async () => {
+      loadExternalAuthority: async () => {
         usedOrganizationAdminPolicy = true;
-        return (await loadOrganizationAdminPolicyOnce())?.signerUserIds ?? [];
+        return (
+          (await loadOrganizationAdminPolicyOnce())?.externalAuthority ?? null
+        );
       },
       localCheckpoint,
       signerPublicKeys: signerPublicKeys.signerPublicKeys,
@@ -216,24 +200,19 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
     policy: verified.value,
   });
   if (!input.deferCheckpointAdvance) {
-    await advanceKeyingCheckpointsAtomically({
-      access: [],
+    await advanceAndSaveVerifiedSharePolicies({
+      checkpointPolicies,
       execSql: input.execSql,
-      policies: checkpointPolicies,
+      organizationPolicy: verifiedOrganizationPolicy,
     });
-    if (verifiedOrganizationPolicy) {
-      await savePrincipalPolicyBundle(
-        input.execSql,
-        verifiedOrganizationPolicy.bundle,
-        new Date().toISOString(),
-      );
-    }
   }
   return {
     bundle,
     checkpointPolicies,
     dependencyBundles: verifiedOrganizationPolicy
-      ? [verifiedOrganizationPolicy.bundle]
+      ? externalAdminPolicyPersistenceEntries(verifiedOrganizationPolicy).map(
+          (entry) => entry.bundle,
+        )
       : [],
     policy: verified.value,
   };

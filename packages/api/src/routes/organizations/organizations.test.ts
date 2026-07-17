@@ -16,14 +16,10 @@ import {
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
-  generateKemSeedAndKeyPair,
-  normalizePrincipalProjectionMembers,
   toFingerprint,
   type WriteHeader,
-  wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { PrincipalMemberEnvelopeRequest } from "@tearleads/validators/request";
 import {
   isDeleteOrganizationGroupResponse,
   isListOrganizationGroupsResponse,
@@ -41,16 +37,10 @@ import {
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
-import {
-  createProjectionWithAdminSigner,
-  signPrincipalStateBundle,
-  storePrincipalState,
-} from "../../../test/helpers/principalState";
+import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
+import { createGroupRequest } from "../../../test/helpers/organizationGroup";
+import { addMemberGroupUser } from "../../../test/helpers/organizationMember";
 import { registerUser } from "../../../test/helpers/registerUser";
-import {
-  getCurrentPrincipalState,
-  listCurrentPrincipalProjectionMembers,
-} from "../../access/read/principalStateStore";
 import { routeApp } from "../../routeApp";
 import { upsertActiveOrganizationRosterEntries } from "../../workflows/organizations/roster";
 
@@ -65,133 +55,6 @@ async function registerAndAuthenticate(user: TestUser): Promise<string> {
 
   invariant(row, "expected registered user row");
   return row.organizationId;
-}
-
-async function createGroupRequest(input: {
-  actor: TestUser;
-  groupId: string;
-  includeActorAsAdmin?: boolean | undefined;
-  name: string;
-}) {
-  const principalKem = generateKemSeedAndKeyPair();
-  const includeActor = input.includeActorAsAdmin ?? true;
-  const projection = includeActor
-    ? createProjectionWithAdminSigner(input.actor.userId, [
-        { principalType: "user", principalId: input.actor.userId },
-      ])
-    : [];
-  const payloadCiphertext = bytesToBase64(
-    new TextEncoder().encode(JSON.stringify({ members: projection })),
-  );
-  const memberEnvelopes: PrincipalMemberEnvelopeRequest[] = [];
-
-  if (includeActor) {
-    const [memberEnvelope] = await wrapDekForRecipients(
-      principalKem.secretKey,
-      [input.actor.kem.publicKey],
-    );
-
-    invariant(memberEnvelope, "expected member envelope");
-    memberEnvelopes.push({
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.actor.userId,
-      memberKeyFingerprint: await toFingerprint(input.actor.kem.publicKey),
-      kemCipherText: bytesToBase64(memberEnvelope.kemCipherText),
-      wrappedKey: bytesToBase64(memberEnvelope.wrappedKey),
-    });
-  }
-  const state = await signPrincipalStateBundle({
-    principalType: "group",
-    principalId: input.groupId,
-    version: 1,
-    prevStateHash: null,
-    keyEpoch: 1,
-    encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
-    keyFingerprint: await toFingerprint(principalKem.publicKey),
-    members: projection.map((member) => ({
-      principalType: member.memberPrincipalType,
-      principalId: member.memberPrincipalId,
-    })),
-    projection,
-    memberEnvelopes,
-    payloadCiphertext,
-    signedAt: new Date("2026-05-12T12:00:00.000Z").toISOString(),
-    signerUserId: input.actor.userId,
-    signerUserKeyFingerprint: input.actor.fingerprint,
-    signingPrivateKey: input.actor.signing.signingPrivateKey,
-  });
-  return {
-    groupId: input.groupId,
-    name: input.name,
-    initialGroupPolicy: {
-      state: state.state,
-      encryptedPayload: state.encryptedPayload,
-      projection: state.projection,
-      memberEnvelopes,
-    },
-  };
-}
-
-async function addMemberGroupUser(input: {
-  actor: TestUser;
-  memberUserId: string;
-  organizationId: string;
-}) {
-  const [organization] = await db
-    .select({ memberGroupId: organizations.memberGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, input.organizationId))
-    .limit(1);
-  invariant(organization, "expected organization row");
-
-  const currentState = await getCurrentPrincipalState(
-    "group",
-    organization.memberGroupId,
-    db,
-  );
-  invariant(currentState, "expected current member group state");
-
-  const currentProjection = await listCurrentPrincipalProjectionMembers(
-    "group",
-    organization.memberGroupId,
-    db,
-  );
-  const projection = normalizePrincipalProjectionMembers([
-    ...currentProjection.map((member) => ({
-      memberPrincipalType: member.memberPrincipalType,
-      memberPrincipalId: member.memberPrincipalId,
-      role: member.role,
-    })),
-    {
-      memberPrincipalType: "user" as const,
-      memberPrincipalId: input.memberUserId,
-      role: "member" as const,
-    },
-  ]);
-  const payloadCiphertext = bytesToBase64(
-    new TextEncoder().encode(JSON.stringify({ members: projection })),
-  );
-  const state = await signPrincipalStateBundle({
-    principalType: "group",
-    principalId: organization.memberGroupId,
-    version: currentState.version + 1,
-    prevStateHash: currentState.stateHash,
-    keyEpoch: currentState.keyEpoch,
-    encapsulationPublicKey: currentState.encapsulationPublicKey,
-    keyFingerprint: currentState.keyFingerprint,
-    members: projection.map((member) => ({
-      principalType: member.memberPrincipalType,
-      principalId: member.memberPrincipalId,
-    })),
-    projection,
-    payloadCiphertext,
-    signedAt: new Date("2026-05-12T12:00:00.000Z").toISOString(),
-    signerUserId: input.actor.userId,
-    signerUserKeyFingerprint: input.actor.fingerprint,
-    signingPrivateKey: input.actor.signing.signingPrivateKey,
-  });
-
-  await storePrincipalState(state, db);
 }
 
 function createUsageWriteHeader(input: {
@@ -405,11 +268,12 @@ test("roster reconcile does not churn updatedAt for unchanged active members", a
   );
 
   // Ensure an active roster row exists, then pin it to a fixed past updatedAt.
-  await upsertActiveOrganizationRosterEntries({
+  const unchangedUserIds = await upsertActiveOrganizationRosterEntries({
     executor: db,
     organizationId,
     userIds: [actor.userId],
   });
+  expect(unchangedUserIds).toEqual([]);
   // A safely-past date so the re-activation assertion below (updatedAt bumped
   // to new Date()) holds regardless of the runner's system clock.
   const pinnedUpdatedAt = new Date("2020-01-01T00:00:00.000Z");
@@ -425,11 +289,12 @@ test("roster reconcile does not churn updatedAt for unchanged active members", a
 
   // Re-asserting an already-active member is a no-op and must NOT bump updatedAt
   // (otherwise the timestamp tracks read time, not change time).
-  await upsertActiveOrganizationRosterEntries({
+  const repeatedUserIds = await upsertActiveOrganizationRosterEntries({
     executor: db,
     organizationId,
     userIds: [actor.userId],
   });
+  expect(repeatedUserIds).toEqual([]);
 
   const [afterNoop] = await db
     .select({
@@ -453,11 +318,12 @@ test("roster reconcile does not churn updatedAt for unchanged active members", a
       updatedAt: pinnedUpdatedAt,
     })
     .where(rosterEntryWhere);
-  await upsertActiveOrganizationRosterEntries({
+  const reactivatedUserIds = await upsertActiveOrganizationRosterEntries({
     executor: db,
     organizationId,
     userIds: [actor.userId],
   });
+  expect(reactivatedUserIds).toEqual([actor.userId]);
 
   const [afterReactivate] = await db
     .select({
@@ -1032,6 +898,41 @@ test("org manager routes let admins create empty externally-administered groups"
     "expected organization group members response",
   );
   expect(membersBody.members).toEqual([]);
+});
+
+test("org manager group creation rejects a stale signed Admins authority head", async () => {
+  const actor = createTestUser();
+  const organizationId = await registerAndAuthenticate(actor);
+  const futureAdmin = createTestUser();
+  await registerAndAuthenticate(futureAdmin);
+  const request = await createGroupRequest({
+    actor,
+    groupId: crypto.randomUUID(),
+    includeActorAsAdmin: false,
+    name: "Stale authority",
+  });
+  await addUserToAdminGroup({
+    actor,
+    member: futureAdmin,
+    organizationId,
+  });
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/groups`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify(request),
+    },
+  );
+
+  expect(response.status).toBe(403);
+  expect(await response.json()).toEqual({
+    error: "Principal state signer must be an admin",
+  });
 });
 
 test("org manager routes create and list groups with members", async () => {

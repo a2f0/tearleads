@@ -70,44 +70,16 @@ async function resolveOrganizationRoot(
   return root;
 }
 
-/**
- * Re-wrap the organization's root KEK to the current Admins-group key.
- *
- * Unlike the best-effort metadata re-share, root access is an availability
- * invariant. A caller must observe and handle failure rather than allowing an
- * Admins-group rotation to commit silently with a stale root grant.
- */
-export async function reshareOrganizationRootToAdmins(input: {
-  adminGroupId: string;
+export async function prepareOrganizationRootRewrapForGroup(input: {
   containerContents: ContainerContents;
+  groupId: string;
   organizationId: string;
-}): Promise<void> {
-  const tree = input.containerContents.openTree();
-  const root = await resolveOrganizationRoot(tree, input.organizationId);
-
-  const reshared = await tree.shareWithGroup(
-    root.id,
-    input.adminGroupId,
-    "admin",
-    { requireExistingGrant: true },
-  );
-  if (!reshared) {
-    throw new Error(
-      `Organization root re-share to Admins did not apply for organization ${input.organizationId}`,
-    );
-  }
-}
-
-export async function prepareOrganizationRootRewrapToAdmins(input: {
-  adminGroupId: string;
-  containerContents: ContainerContents;
-  organizationId: string;
-}): Promise<PreparedOrganizationRootRewrap> {
+}): Promise<PreparedOrganizationRootRewrap | null> {
   const tree = input.containerContents.openTree();
   const root = await resolveOrganizationRoot(tree, input.organizationId);
   const prepared = await tree.prepareGroupRewrap(
     root.id,
-    input.adminGroupId,
+    input.groupId,
     "admin",
     { requireExistingGrant: true },
   );
@@ -115,6 +87,9 @@ export async function prepareOrganizationRootRewrapToAdmins(input: {
     throw new Error(
       `Organization root re-wrap could not be prepared for organization ${input.organizationId}`,
     );
+  }
+  if (prepared.status === "not-granted") {
+    return null;
   }
 
   let expectedGroupHead: ReferencedPrincipalHead | null = null;
@@ -124,7 +99,7 @@ export async function prepareOrganizationRootRewrapToAdmins(input: {
     async rewrap() {
       if (!expectedGroupHead) {
         throw new Error(
-          `Organization root re-wrap has no committed Admins policy head for organization ${input.organizationId}`,
+          `Organization root re-wrap has no committed group policy head for organization ${input.organizationId}`,
         );
       }
       try {
@@ -178,16 +153,16 @@ export async function prepareOrganizationRootRewrapToAdmins(input: {
         ))
       ) {
         throw new Error(
-          `Organization root re-share to Admins did not apply for organization ${input.organizationId}`,
+          `Organization root admin re-wrap did not apply for organization ${input.organizationId}`,
         );
       }
     },
     setExpectedGroupPolicyHead(head) {
       if (
         head.principalType !== "group" ||
-        head.principalId !== input.adminGroupId
+        head.principalId !== input.groupId
       ) {
-        throw new Error("Organization root re-wrap Admins policy mismatch");
+        throw new Error("Organization root re-wrap group policy mismatch");
       }
       expectedGroupHead = head;
     },

@@ -14,6 +14,15 @@ export interface PrincipalProjectionMemberRequest {
   role: "member" | "admin";
 }
 
+export interface PrincipalStateExternalAuthorityRequest {
+  principalType: "group";
+  principalId: string;
+  version: number;
+  keyEpoch: number;
+  stateHash: string;
+  keyFingerprint: string;
+}
+
 export interface PrincipalStateRequest {
   principalType: "group" | "organization";
   principalId: string;
@@ -28,6 +37,7 @@ export interface PrincipalStateRequest {
   projectionRoot: string;
   payloadCiphertextHash: string;
   memberCount: number;
+  externalAuthority: PrincipalStateExternalAuthorityRequest | null;
   signedAt: string;
   signerUserId: string;
   signerUserKeyFingerprint: string;
@@ -90,6 +100,9 @@ function isPrincipalProjectionMemberRequest(
 function isPrincipalStateRequest(
   value: unknown,
 ): value is PrincipalStateRequest {
+  const externalAuthority = isPlainObject(value)
+    ? Reflect.get(value, "externalAuthority")
+    : undefined;
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "principalType") &&
@@ -110,6 +123,20 @@ function isPrincipalStateRequest(
     hasNumberProperty(value, "memberCount") &&
     Number.isInteger(value.memberCount) &&
     value.memberCount >= 0 &&
+    (externalAuthority === null ||
+      (isPlainObject(externalAuthority) &&
+        hasStringProperty(externalAuthority, "principalType") &&
+        externalAuthority.principalType === "group" &&
+        hasStringProperty(externalAuthority, "principalId") &&
+        isUuidV4String(externalAuthority.principalId) &&
+        hasNumberProperty(externalAuthority, "version") &&
+        Number.isInteger(externalAuthority.version) &&
+        externalAuthority.version > 0 &&
+        hasNumberProperty(externalAuthority, "keyEpoch") &&
+        Number.isInteger(externalAuthority.keyEpoch) &&
+        externalAuthority.keyEpoch > 0 &&
+        hasStringProperty(externalAuthority, "stateHash") &&
+        hasStringProperty(externalAuthority, "keyFingerprint"))) &&
     hasStringProperty(value, "signedAt") &&
     hasStringProperty(value, "signerUserId") &&
     isUuidV4String(value.signerUserId) &&

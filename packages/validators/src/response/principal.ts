@@ -21,12 +21,22 @@ export interface PrincipalStateResponse {
   projectionRoot: string;
   payloadCiphertextHash: string;
   memberCount: number;
+  externalAuthority: PrincipalStateExternalAuthorityResponse | null;
   signedAt: string;
   signerUserId: string;
   signerUserKeyFingerprint: string;
   signature: string;
   stateHash: string;
   createdAt: string;
+}
+
+export interface PrincipalStateExternalAuthorityResponse {
+  principalType: "group";
+  principalId: string;
+  version: number;
+  keyEpoch: number;
+  stateHash: string;
+  keyFingerprint: string;
 }
 
 export interface PrincipalProjectionMemberResponse {
@@ -137,6 +147,9 @@ function isPrincipalMemberEnvelopeResponse(
 export function isPrincipalStateResponse(
   value: unknown,
 ): value is PrincipalStateResponse {
+  const externalAuthority = isPlainObject(value)
+    ? Reflect.get(value, "externalAuthority")
+    : undefined;
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "principalType") &&
@@ -156,6 +169,19 @@ export function isPrincipalStateResponse(
     hasNumberProperty(value, "memberCount") &&
     Number.isInteger(value.memberCount) &&
     value.memberCount >= 0 &&
+    (externalAuthority === null ||
+      (isPlainObject(externalAuthority) &&
+        hasStringProperty(externalAuthority, "principalType") &&
+        externalAuthority.principalType === "group" &&
+        hasStringProperty(externalAuthority, "principalId") &&
+        hasNumberProperty(externalAuthority, "version") &&
+        Number.isInteger(externalAuthority.version) &&
+        externalAuthority.version > 0 &&
+        hasNumberProperty(externalAuthority, "keyEpoch") &&
+        Number.isInteger(externalAuthority.keyEpoch) &&
+        externalAuthority.keyEpoch > 0 &&
+        hasStringProperty(externalAuthority, "stateHash") &&
+        hasStringProperty(externalAuthority, "keyFingerprint"))) &&
     hasStringProperty(value, "signedAt") &&
     hasStringProperty(value, "signerUserId") &&
     hasStringProperty(value, "signerUserKeyFingerprint") &&

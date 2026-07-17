@@ -8,11 +8,13 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
+  organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
 } from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../registration/registerIdentity";
 import {
   addOrganizationGroupUser,
   buildAddGroupUserPolicyRequest,
@@ -21,9 +23,13 @@ import {
 } from "./principalPolicy";
 
 interface GroupPolicyFixture {
+  readonly adminGroupId: string;
+  readonly adminPolicy: PrincipalPolicyBundleResponse;
   readonly creatorKem: ReturnType<typeof generateKemSeedAndKeyPair>;
   readonly groupId: string;
   readonly initialPolicy: PrincipalPolicyBundleResponse;
+  readonly organizationId: string;
+  readonly organizationPolicy: PrincipalPolicyBundleResponse;
   readonly signerIdentity: TrustedUserIdentity;
   readonly signerUserId: string;
   readonly signingFingerprint: string;
@@ -35,6 +41,9 @@ async function createGroupPolicyFixture(): Promise<GroupPolicyFixture> {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const signerUserId = crypto.randomUUID();
   const groupId = crypto.randomUUID();
+  const organizationId = crypto.randomUUID();
+  const adminGroupId = crypto.randomUUID();
+  const memberGroupId = crypto.randomUUID();
   const signingFingerprint = await toFingerprint(
     signingKeyPair.signingPublicKey,
   );
@@ -46,11 +55,36 @@ async function createGroupPolicyFixture(): Promise<GroupPolicyFixture> {
     signingFingerprint,
     signingKeyPair,
   });
+  const adminPolicy = await policyBundleFromInitialRequest(
+    await buildInitialGroupPolicyRequest({
+      creatorEncapsulationKeyPair: creatorKem,
+      groupId: adminGroupId,
+      name: "Admins",
+      signerUserId,
+      signingFingerprint,
+      signingKeyPair,
+    }),
+  );
+  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
+    organizationId,
+    await buildInitialOrganizationPolicyRequest({
+      adminGroupId,
+      encapsulationPublicKey: creatorKem.publicKey,
+      memberGroupId,
+      organizationId,
+      signingKeyPair,
+      userId: signerUserId,
+    }),
+  );
 
   return {
+    adminGroupId,
+    adminPolicy,
     creatorKem,
     groupId,
     initialPolicy: await policyBundleFromInitialRequest(initialRequest),
+    organizationId,
+    organizationPolicy,
     signerIdentity: createTestTrustedUserIdentity({
       encapsulationKeyFingerprint: await toFingerprint(creatorKem.publicKey),
       encapsulationPublicKey: creatorKem.publicKey,
@@ -71,7 +105,6 @@ async function appendGroupMember(input: {
   readonly targetUser: TrustedUserIdentity;
 }): Promise<PrincipalPolicyBundleResponse> {
   const mutation = await buildAddGroupUserPolicyRequest({
-    canAdministerOrganization: false,
     currentPolicy: input.currentPolicy,
     currentPolicySignerPublicKeys: [
       {
@@ -92,7 +125,10 @@ async function appendGroupMember(input: {
   return policyBundleAfterMutation({ mutation, previous: input.currentPolicy });
 }
 
-function createMutationApi(currentPolicy: PrincipalPolicyBundleResponse) {
+function createMutationApi(
+  fixture: GroupPolicyFixture,
+  currentPolicy: PrincipalPolicyBundleResponse,
+) {
   const calls = { putPolicy: 0 };
   const apiClient: Parameters<typeof addOrganizationGroupUser>[0]["apiClient"] =
     {
@@ -100,7 +136,14 @@ function createMutationApi(currentPolicy: PrincipalPolicyBundleResponse) {
         throw new Error("Unexpected group creation");
       },
       getCurrentPrincipalPolicy: async (principalType, principalId) => {
+        if (principalType === "organization") {
+          expect(principalId).toBe(fixture.organizationId);
+          return fixture.organizationPolicy;
+        }
         expect(principalType).toBe("group");
+        if (principalId === fixture.adminGroupId) {
+          return fixture.adminPolicy;
+        }
         expect(principalId).toBe(currentPolicy.currentState.principalId);
         return currentPolicy;
       },
@@ -120,7 +163,10 @@ test("group add propagates target identity equivocation before wrapping or mutat
     "equivocation",
     "Trusted target identity changed",
   );
-  const { apiClient, calls } = createMutationApi(fixture.initialPolicy);
+  const { apiClient, calls } = createMutationApi(
+    fixture,
+    fixture.initialPolicy,
+  );
   const resolvedUserIds: string[] = [];
   let policyRequestBuilt = 0;
   const { close, execSql } = await createTestExecSql(
@@ -137,10 +183,10 @@ test("group add propagates target identity equivocation before wrapping or mutat
         beforePolicyCommit: () => {
           policyRequestBuilt += 1;
         },
-        canAdministerOrganization: false,
         currentUserSecretKey: fixture.creatorKem.secretKey,
         execSql,
         groupId: fixture.groupId,
+        organizationId: fixture.organizationId,
         resolveTrustedUserIdentity: async (userId) => {
           resolvedUserIds.push(userId);
           if (userId === targetUserId) {
@@ -201,7 +247,7 @@ test("group removal propagates remaining identity equivocation before rekey or m
     "equivocation",
     "Trusted remaining identity changed",
   );
-  const { apiClient, calls } = createMutationApi(currentPolicy);
+  const { apiClient, calls } = createMutationApi(fixture, currentPolicy);
   const resolvedUserIds: string[] = [];
   let policyRequestBuilt = 0;
   const { close, execSql } = await createTestExecSql(
@@ -218,10 +264,9 @@ test("group removal propagates remaining identity equivocation before rekey or m
         beforePolicyCommit: () => {
           policyRequestBuilt += 1;
         },
-        canAdministerOrganization: false,
         execSql,
         groupId: fixture.groupId,
-        organizationId: crypto.randomUUID(),
+        organizationId: fixture.organizationId,
         removedUserId,
         resolveTrustedUserIdentity: async (userId) => {
           resolvedUserIds.push(userId);

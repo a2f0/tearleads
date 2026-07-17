@@ -3,6 +3,7 @@ import type {
   PrincipalPolicyCheckpoint,
   PrincipalPolicySignedState,
   PrincipalProjectionMember,
+  PrincipalStateExternalAuthority,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { makeVerifiedPrincipalPolicy } from "@tearleads/crypto";
@@ -87,6 +88,52 @@ function readPrincipalProjectionMembers(
   );
 }
 
+function readExternalAuthority(
+  value: unknown,
+  label: string,
+): PrincipalStateExternalAuthority | null {
+  if (value === null) {
+    return null;
+  }
+  const record = readProjectionPlainRecord(value, label, mutationShapeError);
+  if (readProjectionValue(record, "principalType") !== "group") {
+    throw mutationShapeError(`${label}.principalType is invalid`);
+  }
+  return {
+    principalType: "group",
+    principalId: readProjectionString(
+      record,
+      "principalId",
+      label,
+      mutationShapeError,
+    ),
+    version: readProjectionPositiveInteger(
+      record,
+      "version",
+      label,
+      mutationShapeError,
+    ),
+    keyEpoch: readProjectionPositiveInteger(
+      record,
+      "keyEpoch",
+      label,
+      mutationShapeError,
+    ),
+    stateHash: readProjectionString(
+      record,
+      "stateHash",
+      label,
+      mutationShapeError,
+    ),
+    keyFingerprint: readProjectionString(
+      record,
+      "keyFingerprint",
+      label,
+      mutationShapeError,
+    ),
+  };
+}
+
 function readPrincipalPolicyState(
   value: unknown,
   label: string,
@@ -125,6 +172,10 @@ function readPrincipalPolicyState(
     projectionRoot: readStringField("projectionRoot"),
     payloadCiphertextHash: readStringField("payloadCiphertextHash"),
     memberCount: readNonNegativeInteger(record, "memberCount", label),
+    externalAuthority: readExternalAuthority(
+      readProjectionValue(record, "externalAuthority"),
+      `${label}.externalAuthority`,
+    ),
     signedAt: readStringField("signedAt"),
     signerUserId: readStringField("signerUserId"),
     signerUserKeyFingerprint: readStringField("signerUserKeyFingerprint"),

@@ -31,3 +31,20 @@ export const groups = pgTable(
     ),
   ],
 );
+
+/** Durable authority tombstone preventing a deleted organization group from
+ * being recreated as either an organization-scoped or standalone principal. */
+export const organizationGroupTombstones = pgTable(
+  "organization_group_tombstones",
+  {
+    groupId: uuid("group_id").primaryKey(),
+    organizationId: uuid("organization_id").notNull(),
+    deletedAt: timestamp("deleted_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("organization_group_tombstones_org_idx").on(
+      table.organizationId,
+      table.deletedAt,
+    ),
+  ],
+);

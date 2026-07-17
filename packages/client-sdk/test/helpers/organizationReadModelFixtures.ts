@@ -2,7 +2,6 @@ import type {
   ListOrganizationGroupsResponse,
   OrganizationContainerGrantsResponse,
   OrganizationDataUsageResponse,
-  OrganizationDirectoryResponse,
   OrganizationGroupContainersResponse,
   OrganizationGroupMembersResponse,
   OrganizationUserDetailResponse,
@@ -12,16 +11,7 @@ import type {
 export const organizationId = "org-1";
 export const groupId = "group-1";
 
-export const directory: OrganizationDirectoryResponse = {
-  organizationId,
-  profileDocumentId: null,
-  currentUser: {
-    isOrgAdmin: true,
-  },
-  users: [],
-};
-
-export const groups: ListOrganizationGroupsResponse = {
+const groups: ListOrganizationGroupsResponse = {
   organizationId,
   memberGroupId: "member-group-1",
   groups: [
@@ -57,6 +47,7 @@ export const principalPolicy: PrincipalPolicyBundleResponse = {
     projectionRoot: "group-projection-root-3",
     payloadCiphertextHash: "group-payload-hash-3",
     memberCount: 1,
+    externalAuthority: null,
     signedAt: "2026-05-16T12:10:00.000Z",
     signerUserId: "user-1",
     signerUserKeyFingerprint: "signing-fingerprint-1",
@@ -103,6 +94,7 @@ export const principalPolicy: PrincipalPolicyBundleResponse = {
         projectionRoot: "group-projection-root-1",
         payloadCiphertextHash: "group-payload-hash-1",
         memberCount: 1,
+        externalAuthority: null,
         signedAt: "2026-05-16T12:00:00.000Z",
         signerUserId: "user-1",
         signerUserKeyFingerprint: "signing-fingerprint-1",
@@ -133,6 +125,7 @@ export const principalPolicy: PrincipalPolicyBundleResponse = {
         projectionRoot: "group-projection-root-2",
         payloadCiphertextHash: "group-payload-hash-2",
         memberCount: 2,
+        externalAuthority: null,
         signedAt: "2026-05-16T12:05:00.000Z",
         signerUserId: "user-1",
         signerUserKeyFingerprint: "signing-fingerprint-1",

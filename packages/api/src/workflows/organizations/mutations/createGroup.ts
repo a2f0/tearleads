@@ -1,13 +1,23 @@
-import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import type {
+  ApiDatabase,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
 import { groups as groupsTable } from "@tearleads/api-shared/schema";
 import type { CreateOrganizationGroupRequest } from "@tearleads/validators/request";
 import type { OrganizationGroupSummaryResponse } from "@tearleads/validators/response";
+import { getCurrentPrincipalState } from "../../../access/read/principalStateStore";
 import { assertOrganizationCanSync } from "../../billing/organizationBilling";
+import { lockPrincipalMutationInTransaction } from "../../principals/principalMutationLock";
 import { toPrincipalPolicyError } from "../../principals/shared";
 import { storeVerifiedPrincipalPolicyInTransaction } from "../../principals/storeVerifiedPrincipalPolicy";
 import { requireDirectOrganizationAccess } from "../access";
 import { OrganizationManagerError } from "../errors";
+import { hasOnlySameOrganizationGroupMembers } from "../groupPolicyScope";
 import { toGroupSummary } from "../groupSummary";
+import { wasOrganizationGroupDeleted } from "../groupTombstone";
+import { requireSerializedOrganizationMutationAccess } from "../mutationAccess";
+import { isCurrentOrganizationAdminAuthority } from "../principalPolicyExternalAuthority";
+import { appendOrganizationReadModelChangeInTransaction } from "../readModelChanges";
 
 function toPrincipalWriteError(
   error: unknown,
@@ -16,6 +26,60 @@ function toPrincipalWriteError(
   return policyError
     ? new OrganizationManagerError(policyError.message, policyError.status)
     : null;
+}
+
+async function prepareOrganizationGroupCreation(input: {
+  readonly organizationId: string;
+  readonly request: CreateOrganizationGroupRequest;
+  readonly sessionUserId: string;
+  readonly tx: DatabaseTransaction;
+}): Promise<void> {
+  await requireDirectOrganizationAccess({
+    executor: input.tx,
+    organizationId: input.organizationId,
+    requireAdmin: true,
+    userId: input.sessionUserId,
+  });
+  await lockPrincipalMutationInTransaction(
+    input.tx,
+    "group",
+    input.request.groupId,
+  );
+  await requireSerializedOrganizationMutationAccess({
+    organizationId: input.organizationId,
+    requireAdmin: true,
+    tx: input.tx,
+    userId: input.sessionUserId,
+  });
+  await assertOrganizationCanSync(input.tx, input.organizationId);
+  if (
+    await wasOrganizationGroupDeleted({
+      executor: input.tx,
+      groupId: input.request.groupId,
+    })
+  ) {
+    throw new OrganizationManagerError(
+      "Deleted organization group IDs cannot be reused",
+      409,
+    );
+  }
+  if (
+    await getCurrentPrincipalState("group", input.request.groupId, input.tx)
+  ) {
+    throw new OrganizationManagerError("Group principal already exists", 409);
+  }
+  if (
+    !(await hasOnlySameOrganizationGroupMembers({
+      executor: input.tx,
+      organizationId: input.organizationId,
+      projection: input.request.initialGroupPolicy.projection,
+    }))
+  ) {
+    throw new OrganizationManagerError(
+      "Organization policies may only reference groups from the same organization",
+      400,
+    );
+  }
 }
 
 export async function runCreateOrganizationGroupWorkflow(
@@ -52,13 +116,12 @@ export async function runCreateOrganizationGroupWorkflow(
   }
 
   return db.transaction(async (tx) => {
-    await requireDirectOrganizationAccess({
-      executor: tx,
+    await prepareOrganizationGroupCreation({
       organizationId,
-      requireAdmin: true,
-      userId: sessionUserId,
+      request: input,
+      sessionUserId,
+      tx,
     });
-    await assertOrganizationCanSync(tx, organizationId);
 
     const [insertedGroup] = await tx
       .insert(groupsTable)
@@ -90,9 +153,24 @@ export async function runCreateOrganizationGroupWorkflow(
         tx,
         {
           authorizeExternalAdminSigner: (authorization) =>
-            Promise.resolve(authorization.signerUserId === sessionUserId),
+            authorization.signerUserId === sessionUserId
+              ? isCurrentOrganizationAdminAuthority({
+                  executor: tx,
+                  organizationId,
+                  signerUserId: authorization.signerUserId,
+                  submittedAuthority:
+                    authorization.normalizedInput.state.externalAuthority,
+                })
+              : Promise.resolve(false),
         },
       );
+
+      await appendOrganizationReadModelChangeInTransaction(tx, {
+        organizationId,
+        lane: "groups",
+        entityId: input.groupId,
+        operation: "upsert",
+      });
 
       return toGroupSummary({
         createdAt: insertedGroup.createdAt,

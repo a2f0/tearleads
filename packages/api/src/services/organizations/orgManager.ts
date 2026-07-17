@@ -14,6 +14,7 @@ import type {
   OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
   OrganizationProfileResponse,
+  OrganizationReadModelResponse,
   OrganizationUserDetailResponse,
 } from "@tearleads/validators/response";
 import {
@@ -21,6 +22,7 @@ import {
   runCreateOrganizationGroupWorkflow,
   runDeleteOrganizationGroupWorkflow,
   runGetOrganizationDataUsageWorkflow,
+  runGetOrganizationReadModelWorkflow,
   runGetOrganizationUserDetailWorkflow,
   runListOrganizationContainerGrantsWorkflow,
   runListOrganizationDirectoryWorkflow,
@@ -79,6 +81,20 @@ export async function getOrganizationDataUsage(
     runtime.db,
     organizationId,
     sessionUserId,
+  );
+}
+
+export async function getOrganizationReadModel(
+  runtime: ApiServiceRuntime,
+  organizationId: string,
+  sessionUserId: string,
+  cursor: string | undefined,
+): Promise<OrganizationReadModelResponse> {
+  return runGetOrganizationReadModelWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
+    cursor,
   );
 }
 

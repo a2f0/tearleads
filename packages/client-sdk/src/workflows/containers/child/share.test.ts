@@ -361,12 +361,15 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
   const groupEncapsulationKeyPair = generateKemSeedAndKeyPair();
   const groupSignerUserId = "org-admin-signer";
   const groupId = "group-empty";
+  const adminGroupId = "admins-group";
   const groupSigningFingerprint = await toFingerprint(
     groupSigningKeyPair.signingPublicKey,
   );
   const organizationPolicyRequest = await buildInitialOrganizationPolicyRequest(
     {
+      adminGroupId,
       encapsulationPublicKey: groupEncapsulationKeyPair.publicKey,
+      memberGroupId: "members-group",
       organizationId: parent.projection.organizationId,
       signingKeyPair: groupSigningKeyPair,
       userId: groupSignerUserId,
@@ -376,8 +379,26 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
     parent.projection.organizationId,
     organizationPolicyRequest,
   );
+  const adminPolicy = await policyBundleFromInitialRequest(
+    await buildInitialGroupPolicyRequest({
+      creatorEncapsulationKeyPair: groupEncapsulationKeyPair,
+      groupId: adminGroupId,
+      name: "Admins",
+      signerUserId: groupSignerUserId,
+      signingFingerprint: groupSigningFingerprint,
+      signingKeyPair: groupSigningKeyPair,
+    }),
+  );
   const groupPolicyRequest = await buildInitialGroupPolicyRequest({
     creatorEncapsulationKeyPair: groupEncapsulationKeyPair,
+    externalAuthority: {
+      principalType: "group",
+      principalId: adminPolicy.currentState.principalId,
+      version: adminPolicy.currentState.version,
+      keyEpoch: adminPolicy.currentState.keyEpoch,
+      stateHash: adminPolicy.currentState.stateHash,
+      keyFingerprint: adminPolicy.currentState.keyFingerprint,
+    },
     groupId,
     includeSignerAsAdmin: false,
     name: "Operators",
@@ -401,6 +422,9 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
               return organizationPolicy;
             }
 
+            if (principalId === adminGroupId) {
+              return adminPolicy;
+            }
             expect(principalId).toBe(groupId);
             return groupPolicy;
           },

@@ -24,10 +24,11 @@ import {
 } from "../../../providers/sdk/TearleadsProvider";
 import { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { useMiniAppBusActions } from "../../bus";
-import { useOrgManagerDataUsageRefresh } from "../billing/useOrgManagerDataUsageRefresh";
 import { useOrgManagerContextMenu } from "../context-menu/OrgManagerContextMenu";
 import { deriveOrgManagerState } from "../deriveOrgManagerState";
+import { useClearMissingOrgManagerUser } from "../directory/useClearMissingOrgManagerUser";
 import { useOrgManagerSidebarPanel } from "../OrgManagerSidebar";
+import { useOrgManagerViewRefreshes } from "../organization/useOrgManagerViewRefreshes";
 import type { OrgManagerView } from "../routes";
 import {
   getOrgManagerStateScopeKey,
@@ -262,7 +263,9 @@ export function useOrgManagerModel() {
   const {
     refreshDataUsage,
     refreshDirectoryAndGroups,
+    refreshGrants,
     refreshOrgManager,
+    refreshOrganizationPolicyHistory,
     refreshSelectedGroupDetails,
     refreshSelectedUserDetail,
     resetDirectoryState,
@@ -274,7 +277,6 @@ export function useOrgManagerModel() {
     resetSelectedRosterUser,
     selectGroup,
     selectedGroupIdRef,
-    selectedUserIdRef,
     skippedGroupDetailsEffectRef,
     setDataUsage,
     setDirectory,
@@ -293,10 +295,12 @@ export function useOrgManagerModel() {
     setIsImportUserDialogOpen,
     setUserDetail,
   });
-  useOrgManagerDataUsageRefresh({
+  useOrgManagerViewRefreshes({
     enabled: canLoadAuthenticatedOrgData,
     refreshDataUsage,
-    visible: view === "usage",
+    refreshGrants,
+    refreshOrganizationPolicyHistory,
+    view,
   });
 
   useEffect(() => {
@@ -331,15 +335,7 @@ export function useOrgManagerModel() {
     void refreshSelectedGroupDetails(selectedGroupId);
   }, [refreshSelectedGroupDetails, selectedGroupId]);
 
-  useEffect(() => {
-    if (
-      activeDirectory &&
-      selectedUserId &&
-      !activeDirectory.users.some((user) => user.userId === selectedUserId)
-    ) {
-      selectUser(null);
-    }
-  }, [activeDirectory, selectedUserId, selectUser]);
+  useClearMissingOrgManagerUser(activeDirectory, selectedUserId, selectUser);
 
   useEffect(() => {
     void refreshSelectedUserDetail(selectedUserId);

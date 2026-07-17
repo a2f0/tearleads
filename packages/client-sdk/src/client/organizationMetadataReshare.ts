@@ -4,39 +4,33 @@ import { deriveOrganizationMetadataContainerSystemSlot } from "../workflows/orga
 import type { ContainerContents } from "./containerContents";
 
 /**
- * Best-effort re-share of the per-org "Organization Metadata" container to the
- * reserved Members group after a Members-group membership change.
+ * Best-effort re-share of the per-org "Organization Metadata" container after
+ * a group membership change.
  *
  * The container's KEK is wrapped to the Members group's encapsulation key. An
  * org-admin add or any removal rotates that group (new key epoch + fresh KEM),
  * leaving the wrap pinned to the old epoch so post-rotation members can no
  * longer decrypt the org name. Re-sharing to the Members group re-wraps to the
- * current head. The container-share dedup is epoch-aware, so this is idempotent
- * — a no-op unless the epoch actually advanced — which is why we do not attempt
- * to detect rotation here and simply re-share after every Members-group change.
+ * current head. The caller supplies only the mutated group. The signed metadata
+ * manifest decides whether that group has the existing read grant, so neither a
+ * display projection nor the reserved group name participates in keying.
  *
  * This never mints a NEW grant: the container's system slot is server-supplied,
  * so a compromised server could point it at a container the Members group is not
  * entitled to (e.g. the Admins-only roster container). Passing
- * `requireExistingGrant` makes the re-share re-wrap only a container that already
- * grants the Members group — refusing to create one — so a redirected slot can
- * never leak a foreign container. It also never creates the container itself:
+ * `requireExistingGrant` verifies the manifest before capturing key material and
+ * refuses to create a grant, so an unrelated group or redirected slot cannot
+ * leak a foreign container. It also never creates the container itself:
  * resolution is snapshot lookup plus a non-creating refresh. Availability
  * failures are swallowed so they cannot surface into the group mutation that
- * already committed. Identity integrity failures propagate to the coordinator,
- * which records a terminal stop without creating an unhandled rejection.
+ * already committed. Identity integrity failures propagate to the coordinator.
  */
-export async function reshareOrganizationMetadataToMembers(input: {
+export async function reshareOrganizationMetadataAfterGroupChange(input: {
   containerContents: ContainerContents;
   log: (message: string) => void;
-  memberGroupId: string;
   mutatedGroupId: string;
   organizationId: string;
 }): Promise<void> {
-  if (input.mutatedGroupId !== input.memberGroupId) {
-    return;
-  }
-
   try {
     const systemSlot = await deriveOrganizationMetadataContainerSystemSlot({
       organizationId: input.organizationId,
@@ -61,20 +55,26 @@ export async function reshareOrganizationMetadataToMembers(input: {
       return;
     }
 
-    const reshared = await tree.shareWithGroup(
+    const prepared = await tree.prepareGroupRewrap(
       node.id,
-      input.memberGroupId,
+      input.mutatedGroupId,
       "read",
       { requireExistingGrant: true },
     );
-    if (!reshared) {
-      // shareWithGroup returns false (never throws) when the store is offline or
-      // not ready, or when the re-wrap was refused for lacking an existing
-      // grant. Log for observability; the epoch-aware dedup re-wraps on the next
-      // successful Members-group change.
+    if (!prepared) {
       input.log(
-        `Organizations: org metadata re-share to members did not apply for org ${input.organizationId}`,
+        `Organizations: org metadata existing-grant re-share was unavailable for org ${input.organizationId}`,
       );
+      return;
+    }
+    if (prepared.status === "not-granted") {
+      return;
+    }
+    if (!(await prepared.rewrap())) {
+      input.log(
+        `Organizations: org metadata existing-grant re-share did not apply for org ${input.organizationId}`,
+      );
+      return;
     }
 
     // Re-sharing only re-wraps the container KEK — it does not upload the org

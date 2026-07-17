@@ -35,9 +35,13 @@ export {
   containerMetadataDocuments,
   documentContainerLinks,
 } from "./documentLinks";
-export { groups } from "./groups";
+export { groups, organizationGroupTombstones } from "./groups";
 export { keyPackageBackups } from "./keyPackageBackups";
 export { documents, documentUpdateSpans, documentUpdates } from "./loro";
+export {
+  organizationReadModelChanges,
+  organizationReadModelHeads,
+} from "./organizationReadModels";
 export {
   organizationBilling,
   organizationBillingSeatAssignments,
@@ -61,6 +65,8 @@ export type {
   OrganizationBillingSeatEventSourceType,
   OrganizationBillingSeatEventType,
   OrganizationBillingStatus,
+  OrganizationReadModelLane,
+  OrganizationReadModelOperation,
   OrganizationRosterStatus,
 } from "./shared";
 export { users } from "./users";

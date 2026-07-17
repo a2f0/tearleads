@@ -4,6 +4,7 @@ import type {
   PrincipalStatePayloadCipherSuite,
   SignedPrincipalState,
 } from "../principalState";
+import type { PrincipalPolicyExternalAuthority } from "./principalPolicyExternalAuthorityTypes";
 
 /** Security-boundary contracts for untrusted keying data and verified outputs. */
 type CanonicalJsonPrimitive = boolean | number | string | null;
@@ -1042,11 +1043,7 @@ export interface PrincipalPolicySignerPublicKey {
 
 export interface VerifyPrincipalPolicyBundleInput {
   readonly bundle: PrincipalPolicyBundle;
-  /**
-   * Successor-state signers authorized by a verified authority outside the
-   * principal's own projection, such as an organization's reserved Admins group.
-   */
-  readonly externalAdminSignerUserIds?: readonly string[];
+  readonly externalAuthority?: PrincipalPolicyExternalAuthority;
   readonly expectedReference?: ReferencedPrincipalHead;
   readonly localCheckpoint?: PrincipalPolicyCheckpoint | null;
   readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];

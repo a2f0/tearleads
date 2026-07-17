@@ -3,7 +3,6 @@ import type {
   UpdateOrganizationRosterEntryRequest,
 } from "@tearleads/validators/request";
 import type {
-  ListOrganizationGroupsResponse,
   OrganizationContainerGrantResponse,
   OrganizationContainerGrantsResponse,
   OrganizationDataUsageResponse,
@@ -83,12 +82,6 @@ export interface OrganizationGroupDetails {
 }
 
 interface OrganizationReadApi {
-  readonly listOrganizationDirectory: (
-    organizationId: string,
-  ) => Promise<OrganizationDirectoryResponse | null>;
-  readonly listOrganizationGroups: (
-    organizationId: string,
-  ) => Promise<ListOrganizationGroupsResponse | null>;
   readonly listOrganizationContainerGrants: (
     organizationId: string,
   ) => Promise<OrganizationContainerGrantsResponse | null>;
@@ -151,29 +144,6 @@ function withContainerDisplayNames<
     ...container,
     containerDisplayName: displayNamesById.get(container.containerId) ?? null,
   }));
-}
-
-export async function loadOrganizationDirectoryAndGroups(input: {
-  readonly apiClient: Pick<
-    OrganizationReadApi,
-    "listOrganizationDirectory" | "listOrganizationGroups"
-  >;
-  readonly organizationId: string;
-}): Promise<OrganizationDirectoryAndGroups | null> {
-  const [directory, groups] = await Promise.all([
-    input.apiClient.listOrganizationDirectory(input.organizationId),
-    input.apiClient.listOrganizationGroups(input.organizationId),
-  ]);
-
-  if (!directory || !groups) {
-    return null;
-  }
-
-  return {
-    directory,
-    groups: groups.groups,
-    memberGroupId: groups.memberGroupId,
-  };
 }
 
 export async function loadOrganizationContainerGrants(input: {

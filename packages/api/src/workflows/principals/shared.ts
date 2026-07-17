@@ -1,4 +1,7 @@
-import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
+import type {
+  ManagedRecipientPrincipalType,
+  PrincipalStateExternalAuthority,
+} from "@tearleads/crypto";
 import {
   isManagedRecipientPrincipalType,
   PrincipalMemberEnvelopeValidationError,
@@ -36,7 +39,9 @@ function toPrincipalStateError(error: unknown): PrincipalPolicyError | null {
   if (
     error.message === "Principal state signer user not found" ||
     error.message === "Principal state signer fingerprint mismatch" ||
-    error.message === "Principal state signer must be an admin"
+    error.message === "Principal state signer must be an admin" ||
+    error.message ===
+      "Directly authorized principal state cannot cite external authority"
   ) {
     return new PrincipalPolicyError(error.message, 403);
   }
@@ -180,6 +185,7 @@ export function toPrincipalStateResponse(state: {
   projectionRoot: string;
   payloadCiphertextHash: string;
   memberCount: number;
+  externalAuthority: PrincipalStateExternalAuthority | null;
   signedAt: string;
   signerUserId: string;
   signerUserKeyFingerprint: string;
@@ -201,6 +207,7 @@ export function toPrincipalStateResponse(state: {
     projectionRoot: state.projectionRoot,
     payloadCiphertextHash: state.payloadCiphertextHash,
     memberCount: state.memberCount,
+    externalAuthority: state.externalAuthority,
     signedAt: state.signedAt,
     signerUserId: state.signerUserId,
     signerUserKeyFingerprint: state.signerUserKeyFingerprint,

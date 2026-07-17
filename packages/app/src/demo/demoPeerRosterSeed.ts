@@ -66,7 +66,6 @@ type DemoPeerRosterSeedPlan =
   | { readonly kind: "idle" }
   | {
       readonly kind: "add-to-member-group";
-      readonly canAdministerOrganization: boolean;
       readonly memberGroupId: string;
       readonly peerUserId: string;
       // Unknown users must be imported before the membership write. Known
@@ -103,7 +102,6 @@ export function planDemoPeerRosterSeed(input: {
 
   return {
     kind: "add-to-member-group",
-    canAdministerOrganization: directory.currentUser.isOrgAdmin,
     memberGroupId,
     peerUserId,
     requiresImport: existing === null,
@@ -117,7 +115,6 @@ export interface DemoRosterSeedActions {
   readonly addUserToGroup: (
     groupId: string,
     targetUserId: string,
-    canAdministerOrganization: boolean,
   ) => Promise<unknown>;
   readonly ensureRosterProfileDocument: (
     user: OrganizationDirectoryUser,
@@ -192,11 +189,7 @@ export async function seedPeerRosterEntry(
       if (!importedUser) {
         return false;
       }
-      await actions.addUserToGroup(
-        plan.memberGroupId,
-        importedUser.userId,
-        plan.canAdministerOrganization,
-      );
+      await actions.addUserToGroup(plan.memberGroupId, importedUser.userId);
     }
     // The membership write (or a prior one) has not surfaced in this directory
     // snapshot yet; retry so the next attempt can seed the profile nickname.

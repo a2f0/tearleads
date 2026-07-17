@@ -199,7 +199,6 @@ test("storeVerifiedPrincipalState rejects projection roots that do not match the
     },
     signingPrivateKey,
   );
-
   await expect(
     storeVerifiedPrincipalState(
       {
@@ -303,7 +302,8 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
       payloadCiphertextHash:
         await computePrincipalStatePayloadCiphertextHash(payloadCiphertext),
       memberCount: projection.length + 1,
-      signedAt: new Date("2026-04-07T12:07:00.000Z").toISOString(),
+      externalAuthority: null,
+      signedAt: "2026-04-07T12:07:00.000Z",
       signerUserId: signer.signerUserId,
       signerUserKeyFingerprint: signer.signerUserKeyFingerprint,
     },
@@ -329,14 +329,20 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
 
 test("storeVerifiedPrincipalState accepts empty initial states signed by authorized external admins", async () => {
   const { publicKey } = generateKemSeedAndKeyPair();
-  const { signingPrivateKey, signingPublicKey } =
-    generateSigningSeedAndKeyPair();
-  const signer = await createPrincipalStateSigner(signingPublicKey);
-  const principalId = crypto.randomUUID();
+  const signingKeys = generateSigningSeedAndKeyPair();
+  const signer = await createPrincipalStateSigner(signingKeys.signingPublicKey);
+  const externalAuthority = {
+    principalType: "group" as const,
+    principalId: crypto.randomUUID(),
+    version: 1,
+    keyEpoch: 1,
+    stateHash: crypto.randomUUID(),
+    keyFingerprint: await toFingerprint(publicKey),
+  };
   const signedState = await signPrincipalState(
     {
       principalType: "group",
-      principalId,
+      principalId: crypto.randomUUID(),
       version: 1,
       prevStateHash: null,
       keyEpoch: 1,
@@ -344,25 +350,19 @@ test("storeVerifiedPrincipalState accepts empty initial states signed by authori
       keyFingerprint: await toFingerprint(publicKey),
       members: [],
       projection: [],
-      signedAt: new Date("2026-04-07T12:08:00.000Z").toISOString(),
+      externalAuthority,
+      signedAt: "2026-04-07T12:08:00.000Z",
       ...signer,
     },
-    signingPrivateKey,
+    signingKeys.signingPrivateKey,
   );
-
   await expect(storeVerifiedPrincipalState(signedState, db)).rejects.toThrow(
     "Principal state signer must be an admin",
   );
-
   const storedState = await storeVerifiedPrincipalState(signedState, db, {
-    authorizeExternalAdminSigner: async (authorization) => {
-      expect(authorization.currentState).toBeNull();
-      expect(authorization.previousProjection).toBeNull();
-      expect(authorization.normalizedInput.projection).toEqual([]);
-      return authorization.signerUserId === signer.signerUserId;
-    },
+    authorizeExternalAdminSigner: async ({ signerUserId }) =>
+      signerUserId === signer.signerUserId,
   });
-
   expect(storedState.memberCount).toBe(0);
 });
 

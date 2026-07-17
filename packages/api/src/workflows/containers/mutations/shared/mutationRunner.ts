@@ -14,6 +14,7 @@ import {
   assertAccessEventDependenciesMatchRequest,
   verifyMutationEvent,
 } from "./events";
+import { assertVerifiedContainerGroupReferencesExist } from "./groupReferences";
 import {
   assertContainerManifestBundleConsistent,
   assertCurrentContainerPath,
@@ -142,6 +143,10 @@ export async function mutateContainerWithExecutor(
       principalPolicies,
     },
   );
+  await assertVerifiedContainerGroupReferencesExist({
+    executor: context.executor,
+    manifest,
+  });
   await assertContainerBuiltinGrantPolicyPreserved({
     executor: context.executor,
     manifest,

@@ -90,7 +90,7 @@ async function resolveOrganizationBilling(
  * Resolves billing and reports whether the organization may currently sync.
  * Sync choke points use this to gate one organization's server sync.
  */
-export async function resolveOrganizationSyncEligibility(
+async function resolveOrganizationSyncEligibility(
   executor: DatabaseSession,
   organizationId: string,
   now: Date = new Date(),

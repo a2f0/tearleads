@@ -90,6 +90,20 @@ export interface ContainerContentsSnapshot {
   ready: boolean;
 }
 
+export type ContainerGroupRewrapPreparation =
+  | {
+      status: "not-granted";
+    }
+  | {
+      isCurrent(
+        expectedGroupHead: ReferencedPrincipalHead,
+        expectedContainerId: string,
+        expectedOrganizationId: string,
+      ): Promise<boolean>;
+      rewrap(): Promise<boolean>;
+      status: "prepared";
+    };
+
 export interface ContainerContentsStore {
   createChild: (
     parentId: string,
@@ -118,14 +132,7 @@ export interface ContainerContentsStore {
     groupId: string,
     accessLevel: ContainerContentsShareAccessLevel,
     options?: { requireExistingGrant?: boolean } | undefined,
-  ) => Promise<{
-    isCurrent(
-      expectedGroupHead: ReferencedPrincipalHead,
-      expectedContainerId: string,
-      expectedOrganizationId: string,
-    ): Promise<boolean>;
-    rewrap(): Promise<boolean>;
-  } | null>;
+  ) => Promise<ContainerGroupRewrapPreparation | null>;
   refresh: () => Promise<boolean>;
   refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
   // Re-read root-lane containers from local SQLite into the snapshot with NO

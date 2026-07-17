@@ -158,6 +158,13 @@ export {
   type OrganizationProvisioningResponse,
 } from "./organizationProvisioning";
 export {
+  isOrganizationReadModelResponse,
+  type OrganizationReadModelDeltaResponse,
+  type OrganizationReadModelDirectoryResponse,
+  type OrganizationReadModelResponse,
+  type OrganizationReadModelSnapshotResponse,
+} from "./organizationReadModel";
+export {
   type CurrentPrincipalMemberEnvelopesResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isPrincipalPolicyBundleResponse,

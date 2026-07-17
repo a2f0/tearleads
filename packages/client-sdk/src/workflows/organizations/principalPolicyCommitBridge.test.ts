@@ -8,6 +8,7 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
+  organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
 } from "../../../test/helpers/principalPolicyFixtures";
@@ -18,6 +19,7 @@ import {
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "../../data/persistence/principalPolicyPersistence";
+import { buildInitialOrganizationPolicyRequest } from "../registration/registerIdentity";
 import {
   addOrganizationGroupUser,
   buildAddGroupUserPolicyRequest,
@@ -45,21 +47,44 @@ test("remove group user bridges committed policy writes before caching the rotat
   const removedUserKem = generateKemSeedAndKeyPair();
   const signerUserId = crypto.randomUUID();
   const removedUserId = crypto.randomUUID();
+  const organizationId = crypto.randomUUID();
   const groupId = crypto.randomUUID();
+  const adminGroupId = crypto.randomUUID();
+  const memberGroupId = crypto.randomUUID();
   const signingFingerprint = await toFingerprint(
     signingKeyPair.signingPublicKey,
   );
   const initialRequest = await buildInitialGroupPolicyRequest({
     creatorEncapsulationKeyPair: remainingUserKem,
     groupId,
-    name: "Admins",
+    name: "Operators",
     signerUserId,
     signingFingerprint,
     signingKeyPair,
   });
   const initialPolicy = await policyBundleFromInitialRequest(initialRequest);
+  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
+    organizationId,
+    await buildInitialOrganizationPolicyRequest({
+      adminGroupId,
+      encapsulationPublicKey: remainingUserKem.publicKey,
+      memberGroupId,
+      organizationId,
+      signingKeyPair,
+      userId: signerUserId,
+    }),
+  );
+  const adminPolicy = await policyBundleFromInitialRequest(
+    await buildInitialGroupPolicyRequest({
+      creatorEncapsulationKeyPair: remainingUserKem,
+      groupId: adminGroupId,
+      name: "Admins",
+      signerUserId,
+      signingFingerprint,
+      signingKeyPair,
+    }),
+  );
   const addedMutation = await buildAddGroupUserPolicyRequest({
-    canAdministerOrganization: false,
     currentPolicy: initialPolicy,
     currentPolicySignerPublicKeys: signerPublicKeys({
       signerUserId,
@@ -125,7 +150,13 @@ test("remove group user bridges committed policy writes before caching the rotat
       throw new Error("Unexpected group create");
     },
     getCurrentPrincipalPolicy: async (principalType, principalId) => {
-      expect(principalType).toBe("group");
+      if (principalType === "organization") {
+        expect(principalId).toBe(organizationId);
+        return organizationPolicy;
+      }
+      if (principalId === adminGroupId) {
+        return adminPolicy;
+      }
       expect(principalId).toBe(groupId);
       policyReadCount += 1;
       calls.push(policyReadCount === 1 ? "read-previous" : "read-current");
@@ -213,10 +244,9 @@ test("remove group user bridges committed policy writes before caching the rotat
           keyFingerprint: expect.any(String),
         });
       },
-      canAdministerOrganization: false,
       execSql,
       groupId,
-      organizationId: crypto.randomUUID(),
+      organizationId,
       removedUserId,
       resolveTrustedUserIdentity,
       signerUserId,
@@ -258,7 +288,6 @@ test("remove group user bridges committed policy writes before caching the rotat
             "2026-07-11T12:01:00.000Z",
           );
           const concurrentMutation = await buildAddGroupUserPolicyRequest({
-            canAdministerOrganization: false,
             currentPolicy,
             currentPolicySignerPublicKeys: signerPublicKeys({
               signerUserId,
@@ -290,10 +319,10 @@ test("remove group user bridges committed policy writes before caching the rotat
         beforePolicyCommit: (head) => {
           expectedAddHead.current = head;
         },
-        canAdministerOrganization: false,
         currentUserSecretKey: remainingUserKem.secretKey,
         execSql,
         groupId,
+        organizationId,
         resolveTrustedUserIdentity,
         signerUserId,
         signingFingerprint,

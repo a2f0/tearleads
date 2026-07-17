@@ -1,0 +1,1 @@
+ALTER TABLE `principal_states` ADD `external_authority` text;
