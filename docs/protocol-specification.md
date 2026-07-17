@@ -21,10 +21,11 @@ method, auth, parameters, statuses, and the canonical server/client path. Legacy
 predicates stay schema-backed; parsing never coerces, defaults, strips, or
 replaces signed input.
 
-The registry is runtime metadata, not OpenAPI. Its `z.custom` schemas preserve
-signed/extensions; phase 3 needs a faithful JSON Schema view without weakening
-validation or emitting `any`. Refinements and formal claims still require
-authorization, transactions, convergence, and conformance.
+[`openapi.json`](./openapi.json) projects `documentSyncOperation` to OpenAPI 3.1.
+Custom schemas need views; `lint:openapi` rejects missing views/drift.
+
+It is descriptive. `x-tearleads-runtime-refinements` marks Zod-only rules;
+crypto, transactions, convergence, and formal guarantees are separate.
 
 Related background documents:
 

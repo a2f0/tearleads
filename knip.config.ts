@@ -147,7 +147,7 @@ const baseConfig = {
     },
     "packages/validators": {
       entry: ["src/**/*.test.ts"],
-      project: ["src/**/*.ts"],
+      project: ["scripts/**/*.ts", "src/**/*.ts"],
     },
     "packages/website": {
       entry: ["src/pages/**/*.astro"],

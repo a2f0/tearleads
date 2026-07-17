@@ -4,6 +4,7 @@ export {
   type JsonOperationMethod,
   operationRequestPath,
   operationRoutePath,
+  type RuntimeRefinement,
 } from "./definition";
 export {
   type DocumentSyncPathParams,

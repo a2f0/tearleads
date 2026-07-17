@@ -3,6 +3,11 @@ import { isPlainObject } from "../isPlainObject";
 
 export type JsonOperationMethod = "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
 
+export interface RuntimeRefinement {
+  readonly description: string;
+  readonly id: string;
+}
+
 export interface JsonOperation {
   readonly auth: "none" | "session";
   readonly body: z.ZodType;
@@ -12,6 +17,7 @@ export interface JsonOperation {
   readonly params: z.ZodType;
   readonly path: `/${string}`;
   readonly responses: Readonly<Record<number, z.ZodType>>;
+  readonly runtimeRefinements?: readonly RuntimeRefinement[];
 }
 
 export function defineJsonOperation<const Operation extends JsonOperation>(
