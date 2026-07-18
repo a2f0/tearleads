@@ -1,10 +1,9 @@
 # Protocol Specification
 
-This document specifies the protocol boundary between `@tearleads/client-sdk`,
-`packages/api`, and the shared `@tearleads/*` packages. It describes the
-messages, proofs, encrypted payload boundaries, and validation rules used for
-identity, access, document sync, blob staging, attachment binding, and
-attachment slots.
+This document specifies messages, proofs, encrypted payload boundaries, and
+validation rules across `@tearleads/client-sdk`, `packages/api`, and shared
+`@tearleads/*` packages for identity, access, document sync, blob staging,
+attachment binding, and slots.
 
 The executable contract is layered:
 
@@ -26,7 +25,7 @@ views. Zod remains runtime authority; each `x-tearleads-runtime-refinements` gap
 needs an executable OpenAPI-accepts/Zod-rejects witness. Crypto, transactions,
 convergence, and formal guarantees remain separate.
 
-Related background documents:
+Related documents:
 
 - [glossary.md](./glossary.md)
 - [api-architecture.md](./api-architecture.md)
@@ -35,6 +34,7 @@ Related background documents:
 - [keying-design.md](./keying-design.md)
 - [loro-e2ee-sync-protocol.md](./loro-e2ee-sync-protocol.md)
 - [security-guarantees.md](./security-guarantees.md)
+- [formal protocol models](../formal/README.md)
 
 ## Goals
 

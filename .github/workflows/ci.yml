@@ -25,11 +25,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up OpenAPI compatibility tooling
+      - name: Set up lint tooling
         uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4.2.1
         with:
           version: 2026.6.12
-          install_args: github:oasdiff/oasdiff
+          install_args: java github:oasdiff/oasdiff github:tlaplus/tlaplus
           cache: true
 
       - name: Set up Bun
