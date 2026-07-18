@@ -17,9 +17,8 @@ cd "$REPO_ROOT"
 command -v mise >/dev/null 2>&1 ||
   fail "mise is unavailable. Install mise, then run 'mise install github:tlaplus/tlaplus'."
 
-JAVA_ROOT=$(mise where java 2>/dev/null) ||
+JAVA_BIN=$(mise which java 2>/dev/null) ||
   fail "Java is unavailable. Run 'mise install java'."
-JAVA_BIN=$JAVA_ROOT/bin/java
 [ -x "$JAVA_BIN" ] || fail "$JAVA_BIN is not executable."
 
 TLA_TOOLS_ROOT=$(mise where github:tlaplus/tlaplus 2>/dev/null) ||
