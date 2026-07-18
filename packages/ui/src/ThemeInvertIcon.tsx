@@ -1,15 +1,15 @@
 import type { SVGProps } from "react";
 
-interface ThemeInvertIconProps extends SVGProps<SVGSVGElement> {
-  size?: number;
+export interface ThemeInvertIconProps extends SVGProps<SVGSVGElement> {
+  readonly size?: number;
 }
 
-// A square split along its diagonal: one half painted with the current color,
-// the other left transparent so the surface behind shows through. Because it
-// paints with currentColor over a transparent ground, the two halves swap tone
-// between the light and dark themes — a "photo negative" invert that mirrors
-// what the toggle does. Uses the 256-unit viewBox and currentColor fill
-// convention shared with the @phosphor-icons set used elsewhere in the footer.
+/**
+ * Theme-neutral invert glyph shared by every surface that switches between
+ * light and dark. One triangular half uses `currentColor`; the transparent
+ * half shows the control surface beneath it, so the mark naturally inverts
+ * with the active theme.
+ */
 export function ThemeInvertIcon({ size = 20, ...props }: ThemeInvertIconProps) {
   return (
     <svg

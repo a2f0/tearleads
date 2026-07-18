@@ -8,13 +8,15 @@ import {
   useState,
 } from "react";
 import "./ScreenshotsBrowser.css";
+import {
+  ScreenshotStepControls,
+  ScreenshotsToolbar,
+} from "./ScreenshotGalleryControls";
 import { Stage } from "./ScreenshotsStage";
 import {
   entryKey,
-  projectLabel,
   type ScreenshotEntry,
   type ScreenshotManifest,
-  themeLabel,
   titleCase,
 } from "./screenshotsManifest";
 
@@ -253,6 +255,18 @@ function Gallery({
   const { bySrc, screens, activeName, activeIndex, step, setSelectedName } =
     useGalleryNavigation(manifest, project, containerRef, initialScreen);
   useScreenUrlSync(activeName);
+  useEffect(() => {
+    const root = document.documentElement;
+    const previousTheme = root.getAttribute("data-theme");
+    root.setAttribute("data-theme", theme);
+    return () => {
+      if (previousTheme) {
+        root.setAttribute("data-theme", previousTheme);
+      } else {
+        root.removeAttribute("data-theme");
+      }
+    };
+  }, [theme]);
 
   if (entries.length === 0) {
     return (
@@ -275,7 +289,7 @@ function Gallery({
 
   return (
     <div className="screenshots-browser" ref={containerRef}>
-      <Toolbar
+      <ScreenshotsToolbar
         projects={projects}
         themes={themes}
         project={project}
@@ -296,7 +310,7 @@ function Gallery({
           name={activeName}
           entry={currentEntry}
         />
-        <StepControls canStep={screens.length > 1} onStep={step} />
+        <ScreenshotStepControls canStep={screens.length > 1} onStep={step} />
         <Filmstrip
           screens={screens}
           activeIndex={activeIndex}
@@ -310,43 +324,6 @@ function Gallery({
         />
       </div>
     </div>
-  );
-}
-
-function Toolbar({
-  projects,
-  themes,
-  project,
-  theme,
-  onProjectChange,
-  onThemeChange,
-  position,
-}: {
-  projects: string[];
-  themes: string[];
-  project: string;
-  theme: string;
-  onProjectChange: (id: string) => void;
-  onThemeChange: (id: string) => void;
-  position: string;
-}) {
-  return (
-    <header className="screenshots-browser__toolbar">
-      <div className="screenshots-browser__title">Screenshots</div>
-      <Toggle
-        label="Device"
-        value={project}
-        options={projects.map((id) => ({ id, label: projectLabel(id) }))}
-        onChange={onProjectChange}
-      />
-      <Toggle
-        label="Theme"
-        value={theme}
-        options={themes.map((id) => ({ id, label: themeLabel(id) }))}
-        onChange={onThemeChange}
-      />
-      <div className="screenshots-browser__counter">{position}</div>
-    </header>
   );
 }
 
@@ -413,77 +390,5 @@ function Filmstrip({
         );
       })}
     </nav>
-  );
-}
-
-function StepControls({
-  canStep,
-  onStep,
-}: {
-  canStep: boolean;
-  onStep: (delta: number) => void;
-}) {
-  return (
-    <div className="screenshots-browser__navrow">
-      <button
-        type="button"
-        className="screenshots-browser__nav"
-        onClick={() => onStep(-1)}
-        disabled={!canStep}
-        aria-label="Previous screen"
-      >
-        ‹
-      </button>
-      <button
-        type="button"
-        className="screenshots-browser__nav"
-        onClick={() => onStep(1)}
-        disabled={!canStep}
-        aria-label="Next screen"
-      >
-        ›
-      </button>
-    </div>
-  );
-}
-
-interface ToggleOption {
-  id: string;
-  label: string;
-}
-
-function Toggle({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: ToggleOption[];
-  onChange: (id: string) => void;
-}) {
-  if (options.length === 0) {
-    return null;
-  }
-  return (
-    <fieldset className="screenshots-browser__toggle">
-      <legend className="screenshots-browser__toggle-legend">{label}</legend>
-      {options.map((option) => (
-        <button
-          key={option.id}
-          type="button"
-          className={
-            option.id === value
-              ? "screenshots-browser__toggle-button screenshots-browser__toggle-button--active"
-              : "screenshots-browser__toggle-button"
-          }
-          onClick={() => onChange(option.id)}
-          aria-pressed={option.id === value}
-        >
-          {option.label}
-        </button>
-      ))}
-    </fieldset>
   );
 }

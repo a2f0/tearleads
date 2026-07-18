@@ -6,6 +6,11 @@ import {
   titleCase,
 } from "./screenshotsManifest";
 
+const DEVICE_FRAME_CHROME: Readonly<Record<string, number>> = {
+  mobile: 22,
+  ipad: 18,
+};
+
 // Measure the stage's content box so the image can be capped in pixels. A CSS
 // `max-height: 100%` chain cannot do this: the frame is a centered (not
 // stretched) flex item, so its height is never definite and the image's
@@ -54,10 +59,10 @@ export function Stage({
   const [expanded, setExpanded] = useState(false);
   const zoomRef = useRef<HTMLButtonElement>(null);
   const { stageRef, fit } = useStageFit();
-  // The frame's border (and the mobile variant's padding) sit outside the
+  // The frame's border (and the device variants' padding) sit outside the
   // image, so subtract them from the measured budget to keep the frame inside
   // the stage.
-  const frameChrome = project === "mobile" ? 22 : 2;
+  const frameChrome = DEVICE_FRAME_CHROME[project] ?? 2;
   const imageStyle = fit
     ? {
         maxWidth: Math.max(0, fit.width - frameChrome),
@@ -65,10 +70,13 @@ export function Stage({
       }
     : undefined;
   const label = `${projectLabel(project)} · ${theme} · ${name}`;
-  const frameClass =
-    project === "mobile"
-      ? "screenshots-browser__frame screenshots-browser__frame--mobile"
-      : "screenshots-browser__frame";
+  const frameClass = [
+    "screenshots-browser__frame",
+    project === "mobile" ? "screenshots-browser__frame--mobile" : "",
+    project === "ipad" ? "screenshots-browser__frame--ipad" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   const missing = (
     <div className="screenshots-browser__missing">
       <p>

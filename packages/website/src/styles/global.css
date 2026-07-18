@@ -141,6 +141,16 @@
   line-height: 1.5;
 }
 
+/* The screenshot picker applies the selected capture theme to the document so
+   its surrounding page chrome tracks the app preview too. */
+.screenshots-page h1 {
+  color: var(--tearleads-text);
+}
+
+.screenshots-page .section-lede {
+  color: color-mix(in srgb, var(--tearleads-text) 78%, transparent);
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

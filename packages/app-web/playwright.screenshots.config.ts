@@ -1,4 +1,4 @@
-import { defineConfig } from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test";
 
 const WEB_API_BASE_URL = "http://127.0.0.1:32001";
 const MOBILE_API_BASE_URL = "http://127.0.0.1:32002";
@@ -8,10 +8,10 @@ const COLLABORATION_APP_BASE_URL = "http://127.0.0.1:32101";
 const MOBILE_APP_BASE_URL = "http://127.0.0.1:32102";
 
 /**
- * Separate Playwright run dedicated to desktop (windowed), mobile-compact
- * (routed), and authenticated two-peer collaboration screenshots. Kept apart
- * from the e2e behavior suite (playwright.config.ts) so screenshotting never
- * blocks or is blocked by the assertion tests.
+ * Separate Playwright run dedicated to desktop (windowed), iPad and
+ * mobile-compact (routed), plus authenticated two-peer blame screenshots. Kept
+ * apart from the e2e behavior suite (playwright.config.ts) so screenshotting
+ * never blocks or is blocked by the assertion tests.
  *
  * Run: bun run screenshots
  */
@@ -38,6 +38,23 @@ export default defineConfig({
       },
     },
     {
+      // A real iPad profile exercises the routed tablet tier (persistent rail)
+      // with touch input and its native device scale factor. It can share the
+      // screenshot API/host with mobile because projects run serially and each
+      // receives an isolated browser context.
+      name: "ipad",
+      metadata: { screenshotApiBaseUrl: MOBILE_API_BASE_URL },
+      testMatch: "**/capture.spec.ts",
+      use: {
+        ...devices["iPad Pro 11"],
+        baseURL: MOBILE_APP_BASE_URL,
+        // Keep the iPad viewport, UA, touch input, and scale factor while using
+        // the same browser engine as the other deterministic captures. WebKit
+        // cannot currently import the seeded local identity key package.
+        browserName: "chromium",
+      },
+    },
+    {
       // Mobile compact layout: width < 760px puts the routed shell in its
       // phone-style "mobile" tier (top app bar + slide-in nav drawer). See
       // packages/app/src/navigation/breakpoints.ts.
@@ -45,22 +62,41 @@ export default defineConfig({
       metadata: { screenshotApiBaseUrl: MOBILE_API_BASE_URL },
       testMatch: "**/capture.spec.ts",
       use: {
+        ...devices["iPhone 13"],
         baseURL: MOBILE_APP_BASE_URL,
-        viewport: { width: 390, height: 844 },
-        deviceScaleFactor: 3,
-        hasTouch: true,
-        isMobile: true,
+        browserName: "chromium",
       },
     },
     {
-      // Authenticated, dual-pane collaboration scenarios run against the demo
-      // host profile on its own app-web server.
-      name: "collaboration",
+      // Blame setup still needs the demo host's two authenticated peers, but
+      // its artifacts belong to the ordinary Windowed screenshot collection.
+      name: "blame-web",
+      metadata: { screenshotLayout: "web" },
       testMatch: "**/blame.spec.ts",
       use: {
         baseURL: COLLABORATION_APP_BASE_URL,
         viewport: { width: 1440, height: 900 },
         deviceScaleFactor: 2,
+      },
+    },
+    {
+      name: "blame-ipad",
+      metadata: { screenshotLayout: "ipad" },
+      testMatch: "**/blame.spec.ts",
+      use: {
+        ...devices["iPad Pro 11"],
+        baseURL: COLLABORATION_APP_BASE_URL,
+        browserName: "chromium",
+      },
+    },
+    {
+      name: "blame-mobile",
+      metadata: { screenshotLayout: "mobile" },
+      testMatch: "**/blame.spec.ts",
+      use: {
+        ...devices["iPhone 13"],
+        baseURL: COLLABORATION_APP_BASE_URL,
+        browserName: "chromium",
       },
     },
   ],
