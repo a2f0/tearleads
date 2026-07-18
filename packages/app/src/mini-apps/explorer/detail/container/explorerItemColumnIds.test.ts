@@ -56,7 +56,16 @@ test("compact layout uses a fixed trimmed set and ignores hidden preferences", (
       compact: true,
       hiddenColumns: new Set(["type", "modified"]),
     }),
-  ).toEqual(["name", "type", "modified", "actions"]);
+  ).toEqual(["name", "modified", "actions"]);
+});
+
+test("compact layout drops the type column (icon conveys kind)", () => {
+  expect(
+    getVisibleExplorerItemColumnIds({
+      compact: true,
+      hiddenColumns: new Set(),
+    }),
+  ).not.toContain("type");
 });
 
 test("Name is not user-toggleable", () => {

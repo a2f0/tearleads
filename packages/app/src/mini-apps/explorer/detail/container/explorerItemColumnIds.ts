@@ -18,11 +18,11 @@ const WIDE_COLUMN_ORDER: ReadonlyArray<ExplorerItemColumnId> = [
 ];
 
 // Phone-tier explorer keeps a trimmed, fixed set so the file name leads and the
-// row fits without a horizontal scroll. Column-visibility preferences do not
-// apply here.
+// row fits on one line without a horizontal scroll. Type is dropped here — the
+// per-row icon already conveys folder-vs-document kind — which frees the width
+// the name needs to stop truncating. Column-visibility preferences do not apply.
 const COMPACT_COLUMN_ORDER: ReadonlyArray<ExplorerItemColumnId> = [
   "name",
-  "type",
   "modified",
   "actions",
 ];
