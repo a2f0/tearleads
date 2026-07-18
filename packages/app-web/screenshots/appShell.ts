@@ -25,8 +25,8 @@ export async function waitForBooted(page: Page): Promise<void> {
     .first()
     .waitFor({ state: "visible", timeout: 60_000 });
 
-  // Best-effort: let the auto-registration attempt (which targets the dev API and
-  // may be refused) and initial asset loads settle. Never block on it.
+  // Best-effort: let initial asset loads and any host-enabled identity autopilot
+  // work settle. Never block on background network activity.
   await page.waitForLoadState("networkidle").catch(() => {});
 
   // Autopilot clears the first-run "Generate Key Pair" affordance once it has

@@ -124,6 +124,21 @@ export const APP_HOST_PROFILES = {
     },
     paneRuntimePolicy: "isolated",
   },
+  // Screenshot fixture setup imports a fixed identity and restores its database
+  // before registering. Suppress only the automatic registration step so it
+  // cannot bind the temporary first-boot root; the Playwright harness explicitly
+  // logs in or registers once the restored root is authoritative.
+  screenshot: {
+    defaultSplit: false,
+    features: {
+      autoGenerateIdentity: true,
+      autoRegisterIdentity: false,
+      explorerPeerSharing: false,
+      panePeerUserIds: false,
+      seedPeerIdentities: false,
+    },
+    paneRuntimePolicy: "shared",
+  },
 } satisfies Record<string, AppHostProfile>;
 
 type AppHostVariant = keyof typeof APP_HOST_PROFILES;
