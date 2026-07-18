@@ -1,0 +1,1 @@
+formal/document-sync/BaselineDominance.tla|formal/document-sync/BaselineDominance.cfg

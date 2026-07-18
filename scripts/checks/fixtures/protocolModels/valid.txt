@@ -1,0 +1,3 @@
+formal/zeta/Zeta.tla|formal/zeta/Zeta.cfg
+formal/alpha/Alpha.tla|formal/alpha/AlphaBroad.cfg
+formal/alpha/Alpha.tla|formal/alpha/Alpha.cfg
