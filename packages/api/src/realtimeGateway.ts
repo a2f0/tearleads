@@ -1,8 +1,10 @@
 import type { ServerWebSocket } from "bun";
 import { addListener } from "./adapters/redisPubSub";
+import { sendSafely } from "./wsConnection";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
 import { wsInterestStore } from "./wsInterestStore";
 import {
+  KNOWN_ORGANIZATIONS_ACK,
   type OrganizationInterestDeclaration,
   type OrganizationReadModelAudience,
   readOrganizationReadModelAudienceMessage,
@@ -19,10 +21,12 @@ type AuthorizeOrganizationAccess = (
   userId: string,
   organizationId: string,
 ) => Promise<boolean>;
+const ORGANIZATION_AUTHORIZATION_TIMEOUT_MS = 10_000;
 
 interface RealtimeGatewayDeps {
   readonly authorizeOrganizationAccess?: AuthorizeOrganizationAccess;
   readonly interestStore?: InterestStore;
+  readonly organizationAuthorizationTimeoutMs?: number;
   readonly router?: WsEventRouter;
   readonly subscribe?: Subscribe;
 }
@@ -131,6 +135,7 @@ class OrganizationInterestAuthorizer {
 
   constructor(
     private readonly authorizeOrganizationAccess: AuthorizeOrganizationAccess,
+    private readonly authorizationTimeoutMs: number,
     private readonly router: WsEventRouter,
   ) {}
 
@@ -141,6 +146,7 @@ class OrganizationInterestAuthorizer {
     this.router.applyAuthorizedOrganizationInterest(ws, null);
     if (declaration.organizationId === null) {
       this.states.delete(ws);
+      this.sendAcknowledgement(ws, declaration, true);
       return;
     }
 
@@ -156,9 +162,13 @@ class OrganizationInterestAuthorizer {
     if (state.authorization === authorization) {
       state.authorization = null;
     }
-    if (authorized) {
-      this.applyAuthorizedState(ws, state);
+    if (this.states.get(ws) !== state) {
+      return;
     }
+    if (authorized && !this.applyAuthorizedState(ws, state)) {
+      return;
+    }
+    this.sendAcknowledgement(ws, declaration, authorized);
   }
 
   close(ws: OrganizationSocket): void {
@@ -184,24 +194,64 @@ class OrganizationInterestAuthorizer {
   private applyAuthorizedState(
     ws: OrganizationSocket,
     state: OrganizationAuthorizationState,
-  ): void {
+  ): boolean {
     if (this.states.get(ws) !== state) {
-      return;
+      return false;
     }
     state.authorized = true;
     this.router.applyAuthorizedOrganizationInterest(ws, state.organizationId);
+    return true;
+  }
+
+  private sendAcknowledgement(
+    ws: OrganizationSocket,
+    declaration: OrganizationInterestDeclaration,
+    authorized: boolean,
+  ): void {
+    sendSafely(
+      ws,
+      JSON.stringify({
+        type: KNOWN_ORGANIZATIONS_ACK,
+        declarationId: declaration.declarationId,
+        organizationId: declaration.organizationId,
+        authorized,
+      }),
+    );
   }
 
   private authorize(userId: string, organizationId: string): Promise<boolean> {
-    return this.authorizeOrganizationAccess(userId, organizationId).catch(
-      (error) => {
-        console.error(
-          "Failed to authorize websocket organization interest:",
-          error,
-        );
-        return false;
-      },
-    );
+    const authorization = this.authorizeOrganizationAccess(
+      userId,
+      organizationId,
+    ).catch((error) => {
+      console.error(
+        "Failed to authorize websocket organization interest:",
+        error,
+      );
+      return false;
+    });
+    return new Promise((resolve) => {
+      let settled = false;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const finish = (authorized: boolean) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        if (timer) {
+          clearTimeout(timer);
+        }
+        resolve(authorized);
+      };
+      timer = setTimeout(() => finish(false), this.authorizationTimeoutMs);
+      if (typeof timer === "object" && timer !== null) {
+        const unref = Reflect.get(timer, "unref");
+        if (typeof unref === "function") {
+          Reflect.apply(unref, timer, []);
+        }
+      }
+      void authorization.then(finish);
+    });
   }
 
   private collectPending(
@@ -319,6 +369,8 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
   const persistInterest = createOrderedInterestPersister(interestStore);
   const organizationInterest = new OrganizationInterestAuthorizer(
     authorizeOrganizationAccess,
+    deps.organizationAuthorizationTimeoutMs ??
+      ORGANIZATION_AUTHORIZATION_TIMEOUT_MS,
     router,
   );
   const websocket = createWebsocketHandler({

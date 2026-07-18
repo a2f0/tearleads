@@ -13,6 +13,7 @@ interface OrgManagerDirectorySyncInput {
   readonly canLoadAuthenticatedOrgData: boolean;
   readonly organizationId: string | null;
   readonly mutating: boolean;
+  readonly online: boolean;
   readonly readModelCursor: string | null;
   readonly refreshDirectoryAndGroups: (
     options?: DirectoryRefreshOptions,
@@ -21,28 +22,37 @@ interface OrgManagerDirectorySyncInput {
   readonly tearleads: Tearleads;
 }
 
-/** Initial authoritative load plus demand-scoped realtime projection updates. */
+/** Immediate local load plus demand-scoped background reconciliation. */
 export function useOrgManagerDirectorySync(
   input: OrgManagerDirectorySyncInput,
 ): void {
   const mutatingRef = useRef(input.mutating);
   const readModelCursorRef = useRef(input.readModelCursor);
+  const refreshDirectoryAndGroupsRef = useRef(input.refreshDirectoryAndGroups);
   mutatingRef.current = input.mutating;
   readModelCursorRef.current = input.readModelCursor;
+  refreshDirectoryAndGroupsRef.current = input.refreshDirectoryAndGroups;
   useEffect(() => {
-    void input.refreshDirectoryAndGroups();
-  }, [input.refreshDirectoryAndGroups, input.scopeKey]);
+    void refreshDirectoryAndGroupsRef.current({
+      localOnly: true,
+      manageLoading: false,
+    });
+  }, [input.scopeKey]);
 
   useEffect(() => {
-    if (!input.canLoadAuthenticatedOrgData || !input.organizationId) {
+    if (
+      !input.canLoadAuthenticatedOrgData ||
+      !input.online ||
+      !input.organizationId
+    ) {
       return;
     }
     return subscribeOrganizationReadModelRealtime(
       input.tearleads,
       input.organizationId,
       () =>
-        input.refreshDirectoryAndGroups({
-          clearError: false,
+        refreshDirectoryAndGroupsRef.current({
+          clearError: true,
           localOnly: true,
           manageLoading: false,
         }),
@@ -53,8 +63,9 @@ export function useOrgManagerDirectorySync(
     );
   }, [
     input.canLoadAuthenticatedOrgData,
+    input.online,
     input.organizationId,
-    input.refreshDirectoryAndGroups,
+    input.scopeKey,
     input.tearleads,
   ]);
 

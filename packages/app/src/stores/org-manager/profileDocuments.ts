@@ -12,7 +12,6 @@ import {
   getRosterProfileDocumentLocalId,
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
 } from "@tearleads/client-sdk";
-import { readContactFields } from "../../document-types/contact/contactDocumentModel";
 
 const PROFILE_DOCUMENT_SYNC_TIMEOUT_MS = 15_000;
 
@@ -30,12 +29,6 @@ export function getRosterProfileDisplayName(fields: {
   const lastName = fields.lastName?.trim() ?? "";
   const fullName = `${firstName} ${lastName}`.trim();
   return fullName.length > 0 ? fullName : null;
-}
-
-export function readRosterProfileDisplayName(
-  structuredFields: Readonly<Record<string, unknown>>,
-): string | null {
-  return getRosterProfileDisplayName(readContactFields(structuredFields));
 }
 
 export function getRosterProfileDocumentRelinkInput(input: {

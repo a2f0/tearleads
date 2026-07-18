@@ -58,22 +58,15 @@ test("loadContainerInfo reads direct grants, organization groups, and local sync
           expect(containerId).toBe(parent.projection.containerId);
           return parent.projection;
         },
-        getOrganizationReadModelResult: async (organizationId) => {
-          expect(organizationId).toBe(parent.projection.organizationId);
-          return {
-            data: organizationReadModelSnapshot({
-              currentUserId: organizationReadModelUserId,
-              groupName: "Operators",
-              organizationId,
-            }),
-            ok: true,
-          } as const;
-        },
       },
       containerId: parent.projection.containerId,
-      currentUserId: organizationReadModelUserId,
       execSql,
-      organizationId: parent.projection.organizationId,
+      loadOrganizationGroups: async () =>
+        organizationReadModelSnapshot({
+          currentUserId: organizationReadModelUserId,
+          groupName: "Operators",
+          organizationId: parent.projection.organizationId,
+        }).lanes.groups.groups,
       parentId: null,
     });
 
@@ -175,12 +168,9 @@ test("loadContainerInfo includes inherited grants from ancestor containers", asy
         expect(containerId).toBe(childProjection.containerId);
         return childProjection;
       },
-      getOrganizationReadModelResult: async () => {
-        throw new Error("Unexpected organization read-model fetch.");
-      },
     },
     containerId: childProjection.containerId,
-    organizationId: childProjection.organizationId,
+    loadOrganizationGroups: async () => [],
     parentId: parent.projection.containerId,
   });
 
@@ -226,14 +216,13 @@ test("loadContainerInfo returns local details without network for unsynced conta
           projectionCallCount += 1;
           throw new Error("Unexpected projection fetch.");
         },
-        getOrganizationReadModelResult: async () => {
-          readModelCallCount += 1;
-          throw new Error("Unexpected organization read-model fetch.");
-        },
       },
       containerId: "root-container",
       execSql,
-      organizationId: "org-1",
+      loadOrganizationGroups: async () => {
+        readModelCallCount += 1;
+        throw new Error("Unexpected organization read-model fetch.");
+      },
       parentId: null,
       remoteInfoMode: "if-synced",
     });

@@ -34,6 +34,7 @@ const SESSION_REVOKED_CLOSE_CODE = 1008;
 const SESSION_REVOKED_CLOSE_REASON = "Session revoked";
 export const MAX_CLIENT_MESSAGE_BYTES = 1_000_000;
 const MAX_INTEREST_CONTAINER_IDS = 10_000;
+const MAX_ORGANIZATION_DECLARATION_ID_LENGTH = 128;
 
 /**
  * The interest change a client message applied, returned to the impure shell so
@@ -88,6 +89,14 @@ function readEventStringArray(value: unknown): string[] {
 
 function readStringField(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function readOrganizationDeclarationId(value: unknown): string | null {
+  return typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= MAX_ORGANIZATION_DECLARATION_ID_LENGTH
+    ? value
+    : null;
 }
 
 /**
@@ -224,10 +233,13 @@ export class WsEventRouter {
         return { containerIds, kind: "remove" };
       }
       case KNOWN_ORGANIZATIONS_REPLACE: {
+        const declarationId = readOrganizationDeclarationId(
+          Reflect.get(parsed, "declarationId"),
+        );
         const organizationId = readOrganizationInterest(
           Reflect.get(parsed, "organizationIds"),
         );
-        if (organizationId === undefined) {
+        if (!declarationId || organizationId === undefined) {
           return null;
         }
         // Unlike container interest, an organization declaration is not
@@ -235,6 +247,7 @@ export class WsEventRouter {
         // against the requested organization first, then call
         // applyAuthorizedOrganizationInterest.
         return {
+          declarationId,
           kind: "organization-replace",
           organizationId,
         };

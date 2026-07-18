@@ -67,7 +67,11 @@ function declareOrganization(
   client: FakeSocketClient,
   organizationIds: string[],
 ): void {
-  client.message({ type: "known_organizations", organizationIds });
+  client.message({
+    type: "known_organizations",
+    declarationId: `declaration-${client.sent.length + 1}`,
+    organizationIds,
+  });
 }
 
 describe("MSW organization event routing", () => {
@@ -91,6 +95,10 @@ describe("MSW organization event routing", () => {
     declareOrganization(otherSession, [ORGANIZATION_A]);
     declareOrganization(excluded, [ORGANIZATION_A]);
     declareOrganization(otherOrganization, [ORGANIZATION_B]);
+    author.sent.length = 0;
+    otherSession.sent.length = 0;
+    excluded.sent.length = 0;
+    otherOrganization.sent.length = 0;
 
     await router.publish({
       type: "organization_read_model_changed",
@@ -133,6 +141,7 @@ describe("MSW organization event routing", () => {
     });
     const alice = connect(router, "alice");
     declareOrganization(alice, [ORGANIZATION_A]);
+    alice.sent.length = 0;
     const publishTo = (recipientUserIds: string[]) =>
       router.publish({
         type: "organization_read_model_changed",
@@ -180,6 +189,7 @@ describe("MSW organization event routing", () => {
     declareOrganization(alice, [ORGANIZATION_A]);
     declareOrganization(alice, [ORGANIZATION_A, ORGANIZATION_B]);
     declareOrganization(alice, [ORGANIZATION_B]);
+    alice.sent.length = 0;
 
     await router.publish({
       type: "organization_read_model_changed",
@@ -193,6 +203,55 @@ describe("MSW organization event routing", () => {
     });
 
     expect(alice.sent).toEqual([]);
+    router.clear();
+  });
+
+  test("acknowledges only strict organization declarations after indexing", async () => {
+    const router = createMswEventRouter({
+      resolveTicketIdentity: async () => ({
+        sessionId: "alice-session",
+        userId: USER_A,
+      }),
+    });
+    const alice = connect(router, "alice");
+
+    alice.message({
+      type: "known_organizations",
+      organizationIds: [ORGANIZATION_A],
+    });
+    alice.message({
+      type: "known_organizations",
+      declarationId: "x".repeat(129),
+      organizationIds: [ORGANIZATION_A],
+    });
+    alice.message({
+      type: "known_organizations",
+      declarationId: "declaration-1",
+      organizationIds: [ORGANIZATION_A],
+    });
+
+    expect(parsedMessages(alice)).toEqual([
+      {
+        type: "known_organizations_ack",
+        authorized: true,
+        declarationId: "declaration-1",
+        organizationId: ORGANIZATION_A,
+      },
+    ]);
+
+    alice.sent.length = 0;
+    await router.publish({
+      type: "organization_read_model_changed",
+      organizationId: ORGANIZATION_A,
+      recipientUserIds: [USER_A],
+    });
+    expect(parsedMessages(alice)).toEqual([
+      {
+        type: "organization_read_model_changed",
+        organizationId: ORGANIZATION_A,
+        originatedFromSession: false,
+      },
+    ]);
     router.clear();
   });
 

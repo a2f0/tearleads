@@ -20,7 +20,7 @@ import {
 } from "../../labels";
 import type { MiniAppWindowPosition } from "../../types";
 import { compactId } from "../compactId";
-import { getContainerInfoShareableGroups } from "./ExplorerContainerInfoState";
+import { getContainerInfoShareableGroups } from "./explorerContainerInfoStateHelpers";
 
 type ExplorerContainerInfoGrantSubjectType = NonNullable<
   ContainerInfo["remoteInfo"]

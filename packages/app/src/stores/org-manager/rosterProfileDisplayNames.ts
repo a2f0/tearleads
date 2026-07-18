@@ -1,95 +1,64 @@
-import type {
-  DocumentStore,
-  Documents,
-  DocumentsRuntime,
-  OrganizationDirectoryUser,
-} from "@tearleads/client-sdk";
-import { getRosterProfileDocumentLocalId } from "@tearleads/client-sdk";
 import {
-  getRosterProfileDocumentRelinkInput,
-  readRosterProfileDisplayName,
-} from "./profileDocuments";
+  type DocumentList,
+  getRosterProfileDocumentLocalId,
+  type OrganizationDirectoryUser,
+} from "@tearleads/client-sdk";
 
-type RosterProfileDocumentUser = OrganizationDirectoryUser & {
-  profileDocumentId: string;
-};
+export interface RosterProfileBinding {
+  readonly profileDocumentId: string;
+  readonly userId: string;
+}
 
-type ProfileDisplayNameSetter = (
-  userId: string,
-  displayName: string | null,
-) => void;
-
-export function hasRosterProfileDocument(
+function hasRosterProfileDocument(
   user: OrganizationDirectoryUser,
-): user is RosterProfileDocumentUser {
+): user is OrganizationDirectoryUser & { profileDocumentId: string } {
   return user.profileDocumentId !== null;
 }
 
-function applyRosterProfileDisplayName(input: {
-  setProfileDisplayName: ProfileDisplayNameSetter;
-  store: DocumentStore;
-  userId: string;
-}) {
-  const snapshot = input.store.getSnapshot();
-  if (!snapshot.ready) {
-    return;
-  }
-
-  const displayName = readRosterProfileDisplayName(snapshot.structuredFields);
-  input.setProfileDisplayName(input.userId, displayName ?? null);
+export function getRosterProfileDocumentBindingKey(
+  user: Pick<OrganizationDirectoryUser, "profileDocumentId" | "userId">,
+): string | null {
+  return user.profileDocumentId
+    ? `${user.userId}\0${user.profileDocumentId}`
+    : null;
 }
 
-export async function loadRosterProfileDisplayName(input: {
-  documents: Documents;
-  isCancelled: () => boolean;
-  organizationId: string;
-  profileContainerId: string;
-  runtime: DocumentsRuntime;
-  setProfileDisplayName: ProfileDisplayNameSetter;
-  unsubscribes: Array<() => void>;
-  user: RosterProfileDocumentUser;
-}): Promise<void> {
-  if (input.isCancelled()) {
-    return;
-  }
-
-  const localId = getRosterProfileDocumentLocalId({
-    organizationId: input.organizationId,
-    userId: input.user.userId,
-  });
-  const store = input.documents.open(
-    {
-      containerId: input.profileContainerId,
-      documentId: input.user.profileDocumentId,
-      initialDocumentKind: "contact",
-      localId,
-    },
-    { workflowRuntime: input.runtime },
+export function getRosterProfileBindingsByLocalId(input: {
+  readonly organizationId: string;
+  readonly users: ReadonlyArray<OrganizationDirectoryUser>;
+}): ReadonlyMap<string, RosterProfileBinding> {
+  return new Map(
+    input.users.filter(hasRosterProfileDocument).map((user) => [
+      getRosterProfileDocumentLocalId({
+        organizationId: input.organizationId,
+        userId: user.userId,
+      }),
+      {
+        profileDocumentId: user.profileDocumentId,
+        userId: user.userId,
+      },
+    ]),
   );
-  const applyDisplayName = () => {
-    applyRosterProfileDisplayName({
-      setProfileDisplayName: input.setProfileDisplayName,
-      store,
-      userId: input.user.userId,
-    });
-  };
+}
 
-  input.unsubscribes.push(store.subscribe(applyDisplayName));
-  if (input.isCancelled()) {
-    return;
+export function getLocalRosterProfileDisplayNames(input: {
+  readonly documents: DocumentList | null;
+  readonly profileBindingsByLocalId: ReadonlyMap<string, RosterProfileBinding>;
+}): ReadonlyMap<string, string> {
+  const names = new Map<string, string>();
+  for (const document of input.documents?.rows ?? []) {
+    const profile = input.profileBindingsByLocalId.get(document.id);
+    if (!profile || document.documentId !== profile.profileDocumentId) {
+      continue;
+    }
+    const displayName = document.title.trim();
+    if (
+      displayName.length > 0 &&
+      displayName !== "Untitled contact" &&
+      displayName !== profile.userId
+    ) {
+      names.set(profile.userId, displayName);
+    }
   }
-
-  const relinked = await store.relink(
-    getRosterProfileDocumentRelinkInput({
-      localId,
-      profileContainerId: input.profileContainerId,
-      profileDocumentId: input.user.profileDocumentId,
-    }),
-  );
-  if (!relinked || input.isCancelled()) {
-    return;
-  }
-
-  applyDisplayName();
-  store.requestSync();
+  return names;
 }

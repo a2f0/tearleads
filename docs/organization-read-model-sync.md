@@ -153,11 +153,42 @@ snapshot. An authoritative 403 or 404 purges the organization's projection.
 ## Realtime behavior
 
 WebSocket messages are content-free hints. A client declares
-`known_organizations` only while an eligible Org Manager consumer is mounted;
-an authenticated SDK that never opens the projection declares no organization
+`known_organizations` only while an eligible projection consumer has demand.
+Org Manager demands it while mounted; Explorer latches demand for the lifetime
+of its mount after first opening container or document info so projected group
+and attribution labels stay current without repeated warm-open requests. An
+authenticated SDK that never opens the projection declares no organization
 interest and performs no background read-model request. Interest is replaced on
 scope changes, cleared when the last consumer unmounts, and re-declared on
 reconnect.
+
+Explorer presentation loaders read the SQLite projection only. They do not
+reconcile as a cold-miss fallback; the latched demand catch-up above is the one
+network owner and repaints consumers after the atomic projection update.
+Roster and attribution display names are joined only from already-persisted
+local contact summaries. Explorer and Org Manager never provision the
+roster-profile container, open profile document stores, or schedule
+profile-document synchronization to render the roster. A cold profile
+therefore falls back to its user ID until the normal document sync path
+persists that profile locally. Opening the selected profile editor remains an
+explicit document operation and may synchronize that one selected profile.
+
+Demand is exact to the authenticated domain, organization, and user scope.
+Offline consumers may keep rendering their last-known-good local projection,
+but they do not reconcile or declare live interest. Returning online lets the
+socket interest declaration own the normal single catch-up pass. The gateway
+acknowledges that declaration only after authorization and socket indexing, and
+the client starts HTTP catch-up only after the matching acknowledgement. This
+ordering prevents a committed feed event from falling between catch-up and
+live routing. A denied acknowledgement still drives HTTP reconciliation so its
+authoritative 403 or 404 response purges stale local policy and keying material.
+Declaration authorization is deadline-bounded and fails closed with that same
+denied acknowledgement, so one stalled access check cannot strand catch-up or
+delay organization events for other connected recipients indefinitely.
+If realtime remains unavailable, a bounded HTTP fallback refreshes the
+projection; any later socket connection performs a fresh gap-closing pass.
+Logout, database loss, and identity transitions synchronously invalidate
+presentation from the previous scope.
 
 The gateway authorizes every organization declaration against direct current
 access before indexing the socket. Each internal

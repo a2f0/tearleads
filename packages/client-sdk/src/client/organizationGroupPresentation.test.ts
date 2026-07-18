@@ -117,9 +117,6 @@ function coordinatorWithMembers(
       }
       return policyHistory;
     },
-    async loadLocalOrReconcile() {
-      return null;
-    },
     async loadLocalUserDetail() {
       return null;
     },

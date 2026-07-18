@@ -11,6 +11,7 @@ import type {
   DocumentInfo,
   DocumentSummary,
   DomainScope,
+  OrganizationDirectoryAndGroups,
   StoredDocumentKind,
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
@@ -132,6 +133,9 @@ interface ExplorerDetailPanelProps {
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
   organizationNamesById: ReadonlyMap<string, string>;
+  readModelProjection?: OrganizationDirectoryAndGroups | null | undefined;
+  readModelRevision?: number | undefined;
+  readModelScope?: object | null | undefined;
   // Pick mode for the blob-browser route: set when "Choose Blob" on a document
   // routed here. onPickBlob resolves the pick; onCancelBlobPick abandons it.
   blobPickTarget: BlobPickTarget | null;
@@ -309,6 +313,9 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         canShareWithPeer={params.canShareWithPeer}
         loadContainerInfo={params.loadContainerInfo}
         onOpenGrant={params.onOpenGrant}
+        readModelProjection={params.readModelProjection}
+        readModelRevision={params.readModelRevision}
+        readModelScope={params.readModelScope}
         peerUserId={params.peerUserId}
         setContainerIcon={params.setContainerIcon}
         shareWithGroup={params.shareWithGroup}
