@@ -11,8 +11,6 @@ const REPO_ROOT = path.resolve(
   "..",
 );
 
-const OUTPUT_ROOT = path.join(REPO_ROOT, ".screenshots", "collaboration");
-
 const NOTE_TITLE = "Authorship demo";
 const OWNER_TEXT = [
   NOTE_TITLE,
@@ -23,9 +21,33 @@ const PEER_TEXT = "Peer 2 added the rollout checklist.";
 const COLLABORATIVE_TEXT = `${OWNER_TEXT}\n${PEER_TEXT}`;
 
 const THEMES = ["light", "dark"] as const;
+const SETUP_VIEWPORT = { width: 1440, height: 900 };
+
+type ScreenshotLayout = "web" | "ipad" | "mobile";
+type ScreenshotScope = Locator | Page;
+
+function readScreenshotLayout(
+  metadata: Record<string, unknown>,
+): ScreenshotLayout {
+  const layout: unknown = Reflect.get(metadata, "screenshotLayout");
+  if (layout === "web" || layout === "ipad" || layout === "mobile") {
+    return layout;
+  }
+  throw new Error("Missing blame screenshot layout metadata.");
+}
 
 function activePane(page: Page, side: "left" | "right"): Locator {
   return page.locator(`.pane-${side}:not(.pane-hidden)`).first();
+}
+
+async function openPaneMenu(page: Page, pane: Locator): Promise<Locator> {
+  const launcher = pane.locator(".pane-footer-menu-button");
+  if ((await launcher.getAttribute("aria-expanded")) !== "true") {
+    await launcher.click();
+  }
+  const menu = page.locator(".menu:visible").last();
+  await expect(menu).toBeVisible();
+  return menu;
 }
 
 async function openPaneApp(
@@ -33,11 +55,18 @@ async function openPaneApp(
   pane: Locator,
   label: string,
 ): Promise<Locator> {
-  await pane.locator(".pane-footer-menu-button").click();
-  await page
-    .locator(".menu")
-    .getByRole("button", { name: label, exact: true })
-    .click();
+  let menu = await openPaneMenu(page, pane);
+  const generateKey = menu.getByRole("button", {
+    name: "Generate Key Pair",
+    exact: true,
+  });
+  if (await generateKey.isVisible()) {
+    await generateKey.click();
+    menu = await openPaneMenu(page, pane);
+  }
+  const app = menu.getByRole("button", { name: label, exact: true });
+  await expect(app).toBeVisible({ timeout: 30_000 });
+  await app.click();
 
   const window = pane.locator(".window").first();
   await expect(window).toBeVisible({ timeout: 30_000 });
@@ -118,8 +147,8 @@ async function ensureExplorerReady(window: Locator): Promise<void> {
   await expect(firstItem).toBeVisible({ timeout: 60_000 });
 }
 
-function noteButton(window: Locator): Locator {
-  return window
+function noteButton(scope: ScreenshotScope): Locator {
+  return scope
     .locator(
       "button.explorer-sidebar-item--note, button.explorer-item-row-button",
     )
@@ -127,11 +156,11 @@ function noteButton(window: Locator): Locator {
     .first();
 }
 
-async function selectNote(window: Locator): Promise<Locator> {
-  const button = noteButton(window);
+async function selectNote(scope: ScreenshotScope): Promise<Locator> {
+  const button = noteButton(scope);
   await expect(button).toBeVisible({ timeout: 60_000 });
   await button.click();
-  const editor = window.getByRole("textbox", { name: /Notes editor/u });
+  const editor = scope.getByRole("textbox", { name: /Notes editor/u });
   await expect(editor).toBeVisible({ timeout: 30_000 });
   return editor;
 }
@@ -251,42 +280,21 @@ async function appendPeerText(page: Page, peerWindow: Locator): Promise<void> {
   await syncResponse;
 }
 
-async function openDocumentBlame(
-  page: Page,
-  ownerWindow: Locator,
-): Promise<Locator> {
-  const button = noteButton(ownerWindow);
-  await expect(button).toBeVisible({ timeout: 60_000 });
-  const attributionResponse = page.waitForResponse(
-    (response) => {
-      const url = new URL(response.url());
-      return (
-        response.request().method() === "GET" &&
-        url.pathname.endsWith("/attribution") &&
-        response.status() === 200
-      );
-    },
-    { timeout: 60_000 },
-  );
-  await clickContextMenuAction(page, button, "Get Info");
-  await attributionResponse;
-
-  await expect(
-    ownerWindow.getByText("Document Info", { exact: true }),
-  ).toBeVisible({
+async function waitForBlame(scope: ScreenshotScope): Promise<Locator> {
+  await expect(scope.getByText("Document Info", { exact: true })).toBeVisible({
     timeout: 30_000,
   });
-  await expect(
-    ownerWindow.getByText("Character Blame", { exact: true }),
-  ).toBeVisible({
-    timeout: 60_000,
-  });
+  await expect(scope.getByText("Character Blame", { exact: true })).toBeVisible(
+    {
+      timeout: 60_000,
+    },
+  );
 
-  const prose = ownerWindow.locator(".explorer-blame-prose");
+  const prose = scope.locator(".explorer-blame-prose");
   await expect(prose).toBeVisible({ timeout: 60_000 });
   await expect(prose).toHaveText(COLLABORATIVE_TEXT);
 
-  const legendItems = ownerWindow.locator(".explorer-blame-legend-item");
+  const legendItems = scope.locator(".explorer-blame-legend-item");
   await expect
     .poll(() => legendItems.count(), { timeout: 60_000 })
     .toBeGreaterThanOrEqual(2);
@@ -297,7 +305,7 @@ async function openDocumentBlame(
     timeout: 60_000,
   });
 
-  const attributedRuns = ownerWindow.locator(
+  const attributedRuns = scope.locator(
     ".explorer-blame-run:not(.explorer-blame-run--unattributed)",
   );
   await expect
@@ -308,37 +316,119 @@ async function openDocumentBlame(
   );
   expect(runTitles.some((title) => title.includes("Peer 1"))).toBe(true);
   expect(runTitles.some((title) => title.includes("Peer 2"))).toBe(true);
-  await expect(
-    ownerWindow.locator(".explorer-blame-run--unattributed"),
-  ).toHaveCount(0);
+  await expect(scope.locator(".explorer-blame-run--unattributed")).toHaveCount(
+    0,
+  );
 
   await prose.scrollIntoViewIfNeeded();
   return prose;
 }
 
-async function screenshotOpenBlame(
+function attributionResponse(page: Page): Promise<unknown> {
+  return page.waitForResponse(
+    (response) => {
+      const url = new URL(response.url());
+      return (
+        response.request().method() === "GET" &&
+        url.pathname.endsWith("/attribution") &&
+        response.status() === 200
+      );
+    },
+    { timeout: 60_000 },
+  );
+}
+
+async function openWindowedDocumentBlame(
+  page: Page,
   ownerWindow: Locator,
+): Promise<void> {
+  const button = noteButton(ownerWindow);
+  await expect(button).toBeVisible({ timeout: 60_000 });
+  const response = attributionResponse(page);
+  await clickContextMenuAction(page, button, "Get Info");
+  await response;
+  await waitForBlame(ownerWindow);
+}
+
+async function openRoutedDocumentBlame(
+  page: Page,
+  routedPane: Locator,
+): Promise<void> {
+  const editor = await selectNote(routedPane);
+  await expect(editor).toHaveValue(COLLABORATIVE_TEXT, { timeout: 60_000 });
+  const response = attributionResponse(page);
+  await routedPane
+    .getByRole("button", { name: "Get Info", exact: true })
+    .click();
+  await response;
+  await waitForBlame(routedPane);
+}
+
+async function switchToWindowed(page: Page): Promise<void> {
+  await page
+    .getByRole("button", { name: "Switch to windowed layout", exact: true })
+    .click();
+  await expect(activePane(page, "left")).toBeVisible({ timeout: 30_000 });
+}
+
+async function switchToRouted(
+  page: Page,
+  ownerPane: Locator,
+  viewport: { width: number; height: number },
+  layout: Exclude<ScreenshotLayout, "web">,
+): Promise<Locator> {
+  await ownerPane
+    .getByRole("button", {
+      name: "Switch to iPad / mobile layout",
+      exact: true,
+    })
+    .click();
+  const routedPane = page.locator(".routed-pane").first();
+  await expect(routedPane).toBeVisible({ timeout: 30_000 });
+  await page.setViewportSize(viewport);
+  const tier = layout === "ipad" ? "tablet" : "mobile";
+  await expect(routedPane).toHaveClass(new RegExp(`routed-pane--${tier}`));
+  return routedPane;
+}
+
+async function switchToDarkTheme(
+  page: Page,
+  ownerPane: Locator,
+): Promise<void> {
+  await ownerPane
+    .getByRole("button", { name: "Switch to Dark theme", exact: true })
+    .click();
+  await page.waitForFunction(
+    () => document.documentElement.getAttribute("data-theme") === "dark",
+    undefined,
+    { timeout: 30_000 },
+  );
+}
+
+async function screenshotOpenBlame(
+  page: Page,
+  scope: Locator,
+  layout: ScreenshotLayout,
   theme: (typeof THEMES)[number],
 ): Promise<void> {
-  const prose = ownerWindow.locator(".explorer-blame-prose");
-  await expect(prose).toBeVisible();
-  await expect(prose).toHaveText(COLLABORATIVE_TEXT);
-  await prose.scrollIntoViewIfNeeded();
-  const outputDir = path.join(OUTPUT_ROOT, theme);
+  await waitForBlame(scope);
+  const outputDir = path.join(REPO_ROOT, ".screenshots", layout, theme);
   await mkdir(outputDir, { recursive: true });
-  await ownerWindow.screenshot({
-    path: path.join(outputDir, "note-blame.png"),
-  });
+  const screenshotPath = path.join(outputDir, "note-blame.png");
+  if (layout === "web") {
+    await scope.screenshot({ path: screenshotPath });
+  } else {
+    await page.screenshot({ path: screenshotPath, fullPage: false });
+  }
 }
 
 test("capture two-peer note blame", async ({ page }, testInfo) => {
-  const { SCREENSHOT_COLLABORATION } = process.env;
-  test.skip(
-    testInfo.project.name !== "collaboration" &&
-      SCREENSHOT_COLLABORATION !== "1",
-    "Runs only in the collaboration screenshot project.",
-  );
   test.setTimeout(300_000);
+  const layout = readScreenshotLayout(testInfo.project.metadata);
+  const captureViewport = page.viewportSize();
+  if (!captureViewport) {
+    throw new Error(`Missing viewport for blame-${layout}.`);
+  }
 
   await page.addInitScript(() => {
     localStorage.setItem("tearleads.theme.choice", "light");
@@ -351,8 +441,12 @@ test("capture two-peer note blame", async ({ page }, testInfo) => {
     undefined,
     { timeout: 30_000 },
   );
+  if (layout !== "web") {
+    await switchToWindowed(page);
+    await page.setViewportSize(SETUP_VIEWPORT);
+  }
 
-  const { ownerPane, ownerWindow, peerWindow } =
+  const { ownerPane, ownerWindow, peerPane, peerWindow } =
     await openAuthenticatedExplorers(page);
   await ownerWindow.locator(".window-maximize").click();
   await peerWindow.locator(".window-maximize").click();
@@ -366,16 +460,29 @@ test("capture two-peer note blame", async ({ page }, testInfo) => {
   await expect(ownerEditor).toHaveValue(COLLABORATIVE_TEXT, {
     timeout: 60_000,
   });
-  await openDocumentBlame(page, ownerWindow);
-  await screenshotOpenBlame(ownerWindow, "light");
 
-  await ownerPane
-    .getByRole("button", { name: "Switch to Dark theme", exact: true })
-    .click();
-  await page.waitForFunction(
-    () => document.documentElement.getAttribute("data-theme") === "dark",
-    undefined,
-    { timeout: 30_000 },
+  if (layout === "web") {
+    await openWindowedDocumentBlame(page, ownerWindow);
+    await page.getByRole("button", { name: "Hide Peer", exact: true }).click();
+    await expect(peerPane).toBeHidden();
+    await screenshotOpenBlame(page, ownerWindow, layout, "light");
+    await switchToDarkTheme(page, ownerPane);
+    await screenshotOpenBlame(page, ownerWindow, layout, "dark");
+    return;
+  }
+
+  let routedPane = await switchToRouted(
+    page,
+    ownerPane,
+    captureViewport,
+    layout,
   );
-  await screenshotOpenBlame(ownerWindow, "dark");
+  await openRoutedDocumentBlame(page, routedPane);
+  await screenshotOpenBlame(page, routedPane, layout, "light");
+
+  await switchToWindowed(page);
+  await page.setViewportSize(SETUP_VIEWPORT);
+  await switchToDarkTheme(page, ownerPane);
+  routedPane = await switchToRouted(page, ownerPane, captureViewport, layout);
+  await screenshotOpenBlame(page, routedPane, layout, "dark");
 });

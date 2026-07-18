@@ -18,7 +18,8 @@ export interface ScreenshotManifest {
 // title-cased id for any project not listed here.
 const PROJECT_LABELS: Record<string, string> = {
   web: "Windowed",
-  mobile: "Mobile",
+  mobile: "iPhone",
+  ipad: "iPad",
 };
 
 const THEME_LABELS: Record<string, string> = {

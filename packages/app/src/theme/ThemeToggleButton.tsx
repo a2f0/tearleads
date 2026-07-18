@@ -1,4 +1,4 @@
-import { ThemeInvertIcon } from "./ThemeInvertIcon";
+import { ThemeInvertIcon } from "@tearleads/ui";
 import { useOptionalTheme } from "./ThemeProvider";
 
 // The theme control that docks in the pane footer's system tray, next to the

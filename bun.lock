@@ -308,6 +308,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@astrojs/react": "5.0.6",
+        "@phosphor-icons/react": "2.1.10",
         "@tearleads/ui": "workspace:*",
         "astro": "6.4.0",
         "react": "catalog:react",

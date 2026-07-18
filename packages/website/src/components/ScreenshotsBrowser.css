@@ -1,16 +1,13 @@
-/*
- * The gallery chrome keeps the site's light look regardless of the Light/Dark
- * toggle, which only selects which capture set is previewed.
- */
+/* Gallery chrome uses the same theme roles and control rhythm as the app. */
 .screenshots-browser {
-  --sb-bg: #f4f5f7;
-  --sb-panel: #ffffff;
-  --sb-border: #d7dae0;
-  --sb-text: #1c2024;
-  --sb-muted: #6b7280;
-  --sb-accent: #2f6feb;
-  --sb-accent-text: #ffffff;
-  --sb-shadow: rgba(15, 23, 42, 0.12);
+  --sb-bg: var(--tearleads-background);
+  --sb-panel: var(--color-light);
+  --sb-border: var(--tearleads-border);
+  --sb-text: var(--tearleads-text);
+  --sb-muted: color-mix(in srgb, var(--sb-text) 68%, transparent);
+  --sb-accent: var(--emphasis-surface);
+  --sb-accent-text: var(--emphasis-text);
+  --sb-shadow: color-mix(in srgb, var(--sb-text) 18%, transparent);
 
   display: flex;
   flex-direction: column;
@@ -22,20 +19,20 @@
    * box's intrinsic width independent of its content, breaking the loop. */
   contain: inline-size;
   border: 1px solid var(--sb-border);
-  border-radius: 14px;
+  border-radius: var(--radius);
   overflow: hidden;
   background: var(--sb-bg);
   color: var(--sb-text);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: inherit;
 }
 
 .screenshots-browser__toolbar {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 12px 20px;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
   border-bottom: 1px solid var(--sb-border);
-  background: var(--sb-panel);
+  background: var(--color-muted);
   flex-wrap: wrap;
 }
 
@@ -54,7 +51,7 @@
 .screenshots-browser__toggle {
   display: inline-flex;
   border: 1px solid var(--sb-border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   overflow: hidden;
   margin: 0;
   padding: 0;
@@ -75,12 +72,20 @@
 
 .screenshots-browser__toggle-button {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
   border: none;
   background: transparent;
   color: var(--sb-text);
-  padding: 6px 14px;
+  padding: var(--space-sm);
+  font: inherit;
   font-size: 13px;
   cursor: pointer;
+}
+
+.screenshots-browser__toggle-button svg {
+  flex: 0 0 auto;
 }
 
 .screenshots-browser__toggle-button:not(:last-child) {
@@ -88,6 +93,38 @@
 }
 
 .screenshots-browser__toggle-button--active {
+  background: var(--sb-accent);
+  color: var(--sb-accent-text);
+}
+
+.screenshots-browser__toggle-button:hover:not(
+    .screenshots-browser__toggle-button--active
+  ),
+.screenshots-browser__toggle-button:focus-visible:not(
+    .screenshots-browser__toggle-button--active
+  ) {
+  background: var(--sb-accent);
+  color: var(--sb-accent-text);
+}
+
+.screenshots-browser__theme-button {
+  appearance: none;
+  display: inline-flex;
+  flex: 0 0 var(--control-height);
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
+  border: 1px solid var(--sb-border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--sb-text);
+  cursor: pointer;
+}
+
+.screenshots-browser__theme-button:hover,
+.screenshots-browser__theme-button:focus-visible {
   background: var(--sb-accent);
   color: var(--sb-accent-text);
 }
@@ -120,7 +157,7 @@
   width: 148px;
   flex-shrink: 0;
   border: 1px solid var(--sb-border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--sb-bg);
   padding: 6px;
   cursor: pointer;
@@ -141,7 +178,7 @@
   height: 72px;
   object-fit: cover;
   object-position: top;
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: var(--sb-border);
   display: block;
 }
@@ -176,7 +213,7 @@
   justify-content: center;
   background: var(--sb-panel);
   border: 1px solid var(--sb-border);
-  border-radius: 12px;
+  border-radius: var(--radius);
   box-shadow: 0 12px 40px var(--sb-shadow);
   overflow: hidden;
 }
@@ -198,6 +235,11 @@
   padding: 10px;
 }
 
+.screenshots-browser__frame--ipad {
+  border-radius: 18px;
+  padding: 8px;
+}
+
 .screenshots-browser__image {
   display: block;
   max-width: 100%;
@@ -207,6 +249,10 @@
 
 .screenshots-browser__frame--mobile .screenshots-browser__image {
   border-radius: 20px;
+}
+
+.screenshots-browser__frame--ipad .screenshots-browser__image {
+  border-radius: 11px;
 }
 
 .screenshots-browser__missing {
@@ -221,22 +267,29 @@
   flex-shrink: 0;
   display: flex;
   justify-content: center;
-  gap: 16px;
+  gap: var(--space-2xs);
   padding: 0 24px 14px;
 }
 
 .screenshots-browser__nav {
   appearance: none;
+  display: inline-flex;
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  border-radius: var(--radius);
   border: 1px solid var(--sb-border);
-  background: var(--sb-panel);
+  background: transparent;
   color: var(--sb-text);
-  font-size: 24px;
-  line-height: 1;
   cursor: pointer;
+}
+
+.screenshots-browser__nav:hover:not(:disabled),
+.screenshots-browser__nav:focus-visible:not(:disabled) {
+  background: var(--sb-accent);
+  color: var(--sb-accent-text);
 }
 
 .screenshots-browser__nav:disabled {
@@ -376,9 +429,8 @@
   }
 
   .screenshots-browser__nav {
-    width: 36px;
-    height: 36px;
-    font-size: 20px;
+    width: 44px;
+    height: 44px;
   }
 
   .screenshots-browser__lightbox {
