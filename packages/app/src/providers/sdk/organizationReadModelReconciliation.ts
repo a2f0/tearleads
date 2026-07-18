@@ -25,6 +25,30 @@ async function notifyProjectionListeners(
   );
 }
 
+/** Record a same-scope pass outcome. A reconciled pass marks the acked scope
+ * caught up and repaints listeners; a declined or failed pass consumed its
+ * hint without reconciling, so the scope is no longer provably caught up and
+ * the next exact-scope subscription must schedule a fresh catch-up. */
+async function settleSameScopePass(
+  state: OrganizationRealtimeState,
+  passScope: OrganizationReadModelScope,
+  reconciled: boolean,
+): Promise<void> {
+  if (!reconciled) {
+    if (isSameOrganizationReadModelScope(state.caughtUpScope, passScope)) {
+      state.caughtUpScope = null;
+    }
+    return;
+  }
+  if (
+    hasOpenOrganizationReadModelSocket(state) &&
+    state.acknowledgedOrganizationId === passScope.organizationId
+  ) {
+    state.caughtUpScope = passScope;
+  }
+  await notifyProjectionListeners(state, passScope);
+}
+
 /** Undefined means the SDK declined without I/O (offline or database not
  * ready): the scope is not caught up and must stay eligible for the next
  * trigger. Null still counts as a completed pass — an authoritative denial
@@ -100,14 +124,8 @@ function scheduleOrganizationReadModelReconciliationPass(
         // An identity transition cannot consume or repaint from the stale pass.
         // One dirty bit catches up the current exact scope sequentially.
         reconciliation.pending ||= currentScope !== null;
-      } else if (reconciled) {
-        if (
-          hasOpenOrganizationReadModelSocket(state) &&
-          state.acknowledgedOrganizationId === passScope.organizationId
-        ) {
-          state.caughtUpScope = passScope;
-        }
-        await notifyProjectionListeners(state, passScope);
+      } else {
+        await settleSameScopePass(state, passScope, reconciled);
       }
     } while (reconciliation.pending);
   };

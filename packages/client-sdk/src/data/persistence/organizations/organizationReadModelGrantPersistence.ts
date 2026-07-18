@@ -24,9 +24,9 @@ function grantIdentity(
   return `${grant.containerId}\0${grant.subjectType}\0${grant.subjectId}`;
 }
 
-function assertGrantSubjectBinding(
+function hasValidGrantSubjectBinding(
   grant: OrganizationContainerGrantResponse,
-): void {
+): boolean {
   const validUser =
     grant.subjectType === "user" &&
     grant.userId === grant.subjectId &&
@@ -45,9 +45,7 @@ function assertGrantSubjectBinding(
     grant.signingKeyFingerprint === null &&
     grant.groupId === null &&
     grant.groupName === null;
-  if (!validUser && !validGroup && !validOrganization) {
-    throw new Error("Organization read-model grant subject binding is invalid");
-  }
+  return validUser || validGroup || validOrganization;
 }
 
 function assertGrantsLane(input: {
@@ -62,7 +60,11 @@ function assertGrantsLane(input: {
     throw new Error("Organization read-model grants contain duplicates");
   }
   for (const grant of input.lane.grants) {
-    assertGrantSubjectBinding(grant);
+    if (!hasValidGrantSubjectBinding(grant)) {
+      throw new Error(
+        "Organization read-model grant subject binding is invalid",
+      );
+    }
   }
 }
 
@@ -125,7 +127,11 @@ function toGrant(row: SelectedGrant): OrganizationContainerGrantResponse {
     groupName: row.groupName,
     organizationName: row.organizationName,
   };
-  assertGrantSubjectBinding(grant);
+  if (!hasValidGrantSubjectBinding(grant)) {
+    throw new OrganizationReadModelIntegrityError(
+      "Stored organization grant subject binding is invalid",
+    );
+  }
   return grant;
 }
 
