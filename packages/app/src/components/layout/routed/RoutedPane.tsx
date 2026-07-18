@@ -102,12 +102,20 @@ function RoutedPaneTaskBar({
 }) {
   const isMobile = tier === "mobile";
   const expanded = isMobile ? drawerOpen : railExpanded;
-  const controls = isMobile ? "routed-pane-sheet" : ROUTED_PANE_NAV_PANEL_ID;
+  // The mobile launcher sheet stays mounted (just hidden), so keep its
+  // disclosure relationship wired regardless of open state. The tablet rail's
+  // nav panel only exists while expanded, so reference it only then (mirroring
+  // the rail toggle) rather than pointing aria-controls at an absent element.
+  const controls = isMobile
+    ? "routed-pane-sheet"
+    : expanded
+      ? ROUTED_PANE_NAV_PANEL_ID
+      : undefined;
 
   return (
     <footer className="routed-pane-taskbar">
       <button
-        aria-controls={expanded ? controls : undefined}
+        aria-controls={controls}
         aria-expanded={expanded}
         aria-label="Menu"
         className="routed-pane-taskbar-menu-button"
