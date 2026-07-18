@@ -59,6 +59,26 @@ export async function openWindowedApp(
     .click();
 }
 
+// The localStorage key the ThemeProvider reads on boot to restore an explicit
+// theme choice (see packages/app/src/theme/themeStorage.ts). Writing it before a
+// reload pins the app to that theme deterministically — an explicit choice wins
+// over the OS preference — so the screenshot run can capture a known theme rather
+// than whatever `prefers-color-scheme` happens to emulate. clearStaleLocalState
+// leaves this key untouched, so a pinned theme also survives the seed reload.
+const THEME_CHOICE_STORAGE_KEY = "tearleads.theme.choice";
+
+// Pins the app to `theme` ("light" | "dark") on the next boot. Runs in the page
+// context (page.evaluate), so it writes localStorage directly rather than
+// importing the app's saveTheme.
+export async function setStoredTheme(page: Page, theme: string): Promise<void> {
+  await page.evaluate(
+    ([key, value]) => {
+      localStorage.setItem(key, value);
+    },
+    [THEME_CHOICE_STORAGE_KEY, theme] as const,
+  );
+}
+
 // Restoring a backup authored under a different identity replaces the DB's root
 // container, but the persisted session + document/container caches still point
 // at the pre-restore root, so a plain reload re-bootstraps an empty root.

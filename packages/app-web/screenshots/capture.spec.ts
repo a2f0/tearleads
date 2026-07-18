@@ -7,6 +7,7 @@ import {
   clearStaleLocalState,
   disableAnimations,
   openWindowedApp,
+  setStoredTheme,
   visiblePane,
   waitForBooted,
 } from "./appShell";
@@ -14,7 +15,9 @@ import { importSeedIdentity } from "./seedIdentity";
 import { restoreSeedBackup } from "./seedRestore";
 
 // This file lives at packages/app-web/screenshots/, so the repo root is three
-// levels up. Screenshots are written to `<repoRoot>/.screenshots/<project>/`.
+// levels up. Screenshots are written to
+// `<repoRoot>/.screenshots/<project>/<theme>/` — each layout (project) is
+// captured once per theme (light, dark) into its own subfolder.
 const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -47,6 +50,14 @@ const SEED_IDENTITY_PHRASE = SEED_SPEC.identitySeedPhrase;
 //   mobile -> routed layout: one mini-app per URL; screenshot the viewport.
 //   web    -> windowed desktop: open each mini-app as a floating window from the
 //             footer launcher and screenshot the window element only.
+//
+// Each layout is then captured once per theme — light and dark — with the theme
+// pinned via localStorage and the app reloaded between passes (see applyTheme).
+
+// The themes to capture, in order. The light pass reproduces the historical
+// (pre-dark) screenshots; the dark pass is the added set. Each is written to a
+// `<project>/<theme>/` subfolder.
+const THEMES = ["light", "dark"] as const;
 
 interface RoutedScreen {
   /** URL to load; see packages/app/src/navigation/AppRoutePaths.ts. */
@@ -332,10 +343,29 @@ async function captureWindowedDetails(
   }
 }
 
+// Pins the app to `theme` and reloads so it boots under that theme. The seeded
+// DB persists across the reload (the per-identity DB file is untouched — only the
+// theme choice key is added), so the same populated app is re-captured in the
+// other theme. Hard-fails if `<html data-theme>` does not settle on the target,
+// so a theme that silently failed to apply can never emit mislabeled shots.
+async function applyTheme(page: Page, theme: string): Promise<void> {
+  await setStoredTheme(page, theme);
+  await page.reload();
+  await waitForBooted(page);
+  await page.waitForFunction(
+    (expected) =>
+      document.documentElement.getAttribute("data-theme") === expected,
+    theme,
+    { timeout: 20_000 },
+  );
+  // Re-inject after the reload (a full load resets injected styles) so the
+  // capture phases start with animations already disabled.
+  await disableAnimations(page);
+}
+
 test("capture screenshots", async ({ page }, testInfo) => {
   const project = testInfo.project.name;
-  const outputDir = path.join(REPO_ROOT, ".screenshots", project);
-  await mkdir(outputDir, { recursive: true });
+  const projectDir = path.join(REPO_ROOT, ".screenshots", project);
 
   await page.goto("/");
   await waitForBooted(page);
@@ -364,11 +394,19 @@ test("capture screenshots", async ({ page }, testInfo) => {
   await disableAnimations(page);
   await assertSeededDataVisible(page, routed);
 
-  if (routed) {
-    await captureRouted(page, outputDir);
-    await captureRoutedDetails(page, outputDir);
-  } else {
-    await captureWindowed(page, outputDir);
-    await captureWindowedDetails(page, outputDir);
+  // Capture a full set per theme into `<project>/<theme>/`. applyTheme reloads
+  // between passes; the seeded DB survives, so each pass re-captures the same
+  // populated app in the other theme.
+  for (const theme of THEMES) {
+    await applyTheme(page, theme);
+    const outputDir = path.join(projectDir, theme);
+    await mkdir(outputDir, { recursive: true });
+    if (routed) {
+      await captureRouted(page, outputDir);
+      await captureRoutedDetails(page, outputDir);
+    } else {
+      await captureWindowed(page, outputDir);
+      await captureWindowedDetails(page, outputDir);
+    }
   }
 });
