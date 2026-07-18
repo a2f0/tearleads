@@ -11,9 +11,11 @@ import {
   isDocumentLinkSetMutationRequest,
 } from "@tearleads/validators/request";
 import {
+  DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
   type DocumentCreateResponse,
   type DocumentLinkSetMutationResponse,
+  type DocumentNotFoundErrorResponse,
   type DocumentPurgeResponse,
   type DocumentSyncErrorResponse,
   type DocumentSyncResponse,
@@ -325,9 +327,25 @@ async function respondWithDocumentSync(
     if (result.status === 409) {
       return c.json<DocumentSyncErrorResponse>(
         {
-          code: result.code ?? DOCUMENT_SYNC_ERROR_CODES.conflict,
+          code:
+            result.code === undefined ||
+            result.code === DOCUMENT_NOT_FOUND_ERROR_CODE
+              ? DOCUMENT_SYNC_ERROR_CODES.conflict
+              : result.code,
           error: result.error,
         },
+        result.status,
+      );
+    }
+    if (
+      result.status === 404 &&
+      result.code === DOCUMENT_NOT_FOUND_ERROR_CODE
+    ) {
+      // Positively-verified deletion: the only 404 body that authorizes the
+      // client's destructive local teardown. Every other 404 stays code-less
+      // and the client fails closed on it.
+      return c.json<DocumentNotFoundErrorResponse>(
+        { code: result.code, error: result.error },
         result.status,
       );
     }

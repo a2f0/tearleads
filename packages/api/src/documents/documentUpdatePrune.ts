@@ -11,8 +11,17 @@ import { isDocumentUpdateDominatedByBaseline } from "./documentBaselineDominance
  * row — and its attribution metadata (spans + write header) — is left intact.
  *
  * This module is the pure selection: which update ids are safe to prune. The
- * domination gate is identical to the sync redirect, so an update is only ever
- * pruned when a baseline provably carries it forward.
+ * per-update domination predicate is shared with the sync redirect
+ * (isDocumentUpdateDominatedByBaseline), but the gates are NOT identical:
+ * prune clears payloads dominated by ANY higher-epoch replayable baseline,
+ * while the redirect only ever substitutes a CURRENT-epoch baseline, and a
+ * cleared row is hidden from serving unconditionally (encrypted_data <> '')
+ * rather than through the redirect's coverage gate. Safety therefore rests on
+ * induction over baseline coverage — every baseline is written under the
+ * rotation head-lock and must cover the committed frontier, so a payload this
+ * plan clears is carried forward by the baseline chain even when the epoch
+ * that dominated it is no longer current — not on the redirect re-deriving
+ * each pruned update.
  */
 
 export interface PruneBaseline {

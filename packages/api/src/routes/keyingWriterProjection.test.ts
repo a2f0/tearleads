@@ -1199,7 +1199,49 @@ async function postDocumentSync(
   });
 }
 
-test("POST /documents/:documentId/sync rejects an unknown authorizing path ref with 404", async () => {
+test("POST /documents/:documentId/sync emits the coded document_not_found 404 only for a positively-absent document", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const { request } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+
+  const response = await postDocumentSync(crypto.randomUUID(), owner, request);
+
+  expect(response.status).toBe(404);
+  expect(await response.json()).toEqual({
+    code: "document_not_found",
+    error: "Document not found",
+  });
+});
+
+test("GET /documents/:documentId/writer-projection emits the coded document_not_found 404 for an unknown document", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+
+  const response = await routeApp.request(
+    `/documents/${crypto.randomUUID()}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+
+  expect(response.status).toBe(404);
+  expect(await response.json()).toEqual({
+    code: "document_not_found",
+    error: "Document not found",
+  });
+});
+
+test("POST /documents/:documentId/sync rejects an unknown authorizing path ref with 409, never the wipe-signal 404", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -1222,7 +1264,7 @@ test("POST /documents/:documentId/sync rejects an unknown authorizing path ref w
       ],
     ],
   });
-  expect(response.status).toBe(404);
+  expect(response.status).toBe(409);
 });
 
 test("POST /documents/:documentId/sync rejects an authorizing path ref whose containerId does not match the resolved manifest with 400", async () => {

@@ -1,6 +1,8 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import {
+  DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
+  type DocumentNotFoundErrorCode,
   type DocumentSyncErrorCode,
 } from "@tearleads/validators/response";
 import { DocumentKekTargetError } from "../../../access/read/documentKekTargets";
@@ -12,11 +14,15 @@ import { PrincipalPolicyProjectionError } from "../../principals/principalPolicy
 
 type DocumentMutationStatus = 400 | 403 | 404 | 409 | 503;
 
+type DocumentMutationErrorCode =
+  | DocumentSyncErrorCode
+  | DocumentNotFoundErrorCode;
+
 export class DocumentMutationError extends Error {
   constructor(
     message: string,
     readonly status: DocumentMutationStatus,
-    readonly code?: DocumentSyncErrorCode | undefined,
+    readonly code?: DocumentMutationErrorCode | undefined,
   ) {
     super(message);
     this.name = "DocumentMutationError";
@@ -43,6 +49,21 @@ export function documentUpdateIdConflict(): DocumentMutationError {
   );
 }
 
+/**
+ * The positively-verified "this document does not exist" failure. Clients
+ * answer this code with a destructive local teardown, so it may only be thrown
+ * after a direct existence check of the `documents` row — never for a missing
+ * head, bundle, or container, which can also 404 without the document being
+ * deleted.
+ */
+export function documentNotFound(): DocumentMutationError {
+  return new DocumentMutationError(
+    "Document not found",
+    404,
+    DOCUMENT_NOT_FOUND_ERROR_CODE,
+  );
+}
+
 function mapVerificationStatus(
   error: KeyingVerificationError,
 ): DocumentMutationStatus {
@@ -65,13 +86,27 @@ function mapVerificationStatus(
   return 409;
 }
 
+/**
+ * Only documentNotFound() may reach the wire as a 404 on document routes —
+ * clients answer that coded 404 with a destructive local teardown, and legacy
+ * clients wipe on ANY document-route 404. A 404 from a store lookup (missing
+ * head, bundle, or target) is not proof of deletion, so it degrades to 409.
+ */
+function nonWipeStatus<Status extends number>(status: Status): Status | 409 {
+  return status === 404 ? 409 : status;
+}
+
 export function toMutationError(error: unknown): DocumentMutationError | null {
   if (error instanceof DocumentMutationError) {
     return error;
   }
 
   if (error instanceof DocumentContentKeyBundleError) {
-    return new DocumentMutationError(error.message, error.status, error.code);
+    return new DocumentMutationError(
+      error.message,
+      nonWipeStatus(error.status),
+      error.code,
+    );
   }
 
   if (error instanceof DocumentUpdateReadError) {
@@ -79,7 +114,11 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
   }
 
   if (error instanceof DocumentKekTargetError) {
-    return new DocumentMutationError(error.message, error.status, error.code);
+    return new DocumentMutationError(
+      error.message,
+      nonWipeStatus(error.status),
+      error.code,
+    );
   }
 
   if (error instanceof PrincipalPolicyProjectionError) {
@@ -87,16 +126,16 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
   }
 
   if (error instanceof ContainerMutationError) {
-    return new DocumentMutationError(error.message, error.status);
+    return new DocumentMutationError(
+      error.message,
+      nonWipeStatus(error.status),
+    );
   }
 
   if (error instanceof ContainerWriterProjectionError) {
-    // A container-level 404 must not become the sync route's 404, which
-    // clients treat as upstream document deletion and answer with a
-    // destructive local wipe; surface it as an uncoded conflict instead.
     return new DocumentMutationError(
       error.message,
-      error.status === 404 ? 409 : error.status,
+      nonWipeStatus(error.status),
     );
   }
 
@@ -107,5 +146,43 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
     );
   }
 
+  if (isUniqueViolation(error)) {
+    // A unique violation that survives the explicit existence checks means a
+    // concurrent request committed the same row between our read and write.
+    // Surface it as a conflict rather than letting the driver error 500.
+    return new DocumentMutationError("Document sync write conflict", 409);
+  }
+
+  if (isTransientTransactionFailure(error)) {
+    // Deadlock detection / serialization failure: the losing transaction was
+    // rolled back by the database and a retry is expected to succeed.
+    return new DocumentMutationError(
+      "Document mutation transaction conflicted; retry",
+      503,
+    );
+  }
+
   return null;
+}
+
+function findSqlStateCode(error: unknown): string | null {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current instanceof Error; depth += 1) {
+    const code = Reflect.get(current, "code");
+    if (typeof code === "string") {
+      return code;
+    }
+    current = current.cause;
+  }
+  return null;
+}
+
+export function isUniqueViolation(error: unknown): boolean {
+  const code = findSqlStateCode(error);
+  return code === "23505" || code?.startsWith("SQLITE_CONSTRAINT") === true;
+}
+
+function isTransientTransactionFailure(error: unknown): boolean {
+  const code = findSqlStateCode(error);
+  return code === "40001" || code === "40P01";
 }

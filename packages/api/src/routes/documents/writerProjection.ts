@@ -35,10 +35,22 @@ export function createDocumentWriterProjectionRoute({
         );
       } catch (error) {
         if (error instanceof DocumentWriterProjectionError) {
-          return c.json({ error: error.message }, error.status);
+          return c.json(
+            error.code === undefined
+              ? { error: error.message }
+              : { code: error.code, error: error.message },
+            error.status,
+          );
         }
         if (error instanceof ContainerWriterProjectionError) {
-          return c.json({ error: error.message }, error.status);
+          // A container-level 404 must not become this route's 404: clients
+          // treat a document-route 404 as upstream document deletion and
+          // answer with a destructive local wipe. The coded document_not_found
+          // 404 above is the only deletion signal this route emits.
+          return c.json(
+            { error: error.message },
+            error.status === 404 ? 409 : error.status,
+          );
         }
 
         throw error;

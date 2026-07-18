@@ -7,7 +7,7 @@ export type {
   DocumentCreateAuthor,
   RelinkRemoteDocumentResult,
 } from "../../data/documents/shared/types";
-export { shouldReArmAfterOutgoingSettlement } from "../../data/sync/outgoingUpdateSettlement";
+export { settleOutgoingPassAndDecideReArm } from "../../data/sync/outgoingUpdateSettlement";
 export {
   didRegainSyncPrerequisites,
   isDatabaseUnavailableError,
