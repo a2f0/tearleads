@@ -102,38 +102,10 @@
   border-color: var(--color-danger);
 }
 
-.env-file-add-button,
-.env-file-remove-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-xs);
-  min-height: var(--control-height);
-  padding: var(--control-padding-block) var(--control-padding-inline);
-  border: var(--border);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
+/* Chrome comes from the shared MiniAppButton; only per-surface deltas here. */
 .env-file-remove-button {
   min-width: var(--control-height);
   padding-inline: var(--space-sm);
-}
-
-.env-file-add-button:hover:not(:disabled),
-.env-file-add-button:focus-visible:not(:disabled),
-.env-file-remove-button:hover:not(:disabled),
-.env-file-remove-button:focus-visible:not(:disabled) {
-  background: var(--emphasis-surface);
-  color: var(--emphasis-text);
-}
-
-.env-file-add-button:disabled,
-.env-file-remove-button:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: default;
 }
 
 .env-file-empty-state {

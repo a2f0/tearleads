@@ -14,6 +14,8 @@ import "./MiniAppButton.css";
 type MiniAppButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   block?: boolean | undefined;
   variant?: "default" | "ghost" | undefined;
+  /** Lays the children out as a centered icon + label row with a small gap. */
+  withIcon?: boolean | undefined;
 };
 
 export const MiniAppButton = forwardRef<HTMLButtonElement, MiniAppButtonProps>(
@@ -23,6 +25,7 @@ export const MiniAppButton = forwardRef<HTMLButtonElement, MiniAppButtonProps>(
       className,
       type = "button",
       variant = "default",
+      withIcon = false,
       ...props
     },
     ref,
@@ -33,6 +36,7 @@ export const MiniAppButton = forwardRef<HTMLButtonElement, MiniAppButtonProps>(
         className={classNames(
           "mini-app-button",
           block && "mini-app-button--block",
+          withIcon && "mini-app-button--with-icon",
           variant !== "default" && `mini-app-button--${variant}`,
           className,
         )}

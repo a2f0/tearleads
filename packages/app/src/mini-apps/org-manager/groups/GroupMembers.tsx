@@ -2,20 +2,20 @@ import type { OrganizationGroupMember } from "@tearleads/client-sdk";
 import {
   MiniAppButton,
   MiniAppStatus,
-} from "../../../components/shared/MiniAppLayout";
+} from "../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRow,
   MiniAppRowButton,
   MiniAppRowStack,
   MiniAppRowText,
-} from "../../../components/shared/MiniAppRow";
+} from "../../../components/mini-app/rows/MiniAppRow";
 import {
   MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT,
   MiniAppVirtualList,
   MiniAppVirtualListFrame,
   MiniAppVirtualListRow,
   useMiniAppVirtualRows,
-} from "../../../components/shared/MiniAppVirtual";
+} from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { compactFingerprint } from "../display";
 import { getOrgManagerPolicyRoleLabel, ORG_MANAGER_LABELS } from "../labels";
 

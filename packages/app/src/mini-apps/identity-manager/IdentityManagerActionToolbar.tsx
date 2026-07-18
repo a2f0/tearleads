@@ -1,7 +1,7 @@
 import {
   MiniAppButton,
   MiniAppToolbar,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
 
 export type IdentityBusyState =
   | "authenticate"

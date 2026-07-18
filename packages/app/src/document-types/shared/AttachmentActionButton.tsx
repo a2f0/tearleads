@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import "./AttachmentActionButton.css";
+import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 
 // The shared "attach something" control used across document attachment
 // surfaces: the structured-document image slots (Upload / Choose Blob / Clear)
@@ -8,6 +8,8 @@ import "./AttachmentActionButton.css";
 // no matter which document type renders it. Callers supply the label plus an
 // optional leading icon via `children`; `ariaLabel` overrides the accessible
 // name when the visible text alone is ambiguous (e.g. a per-slot "Clear").
+// Chrome comes from the shared MiniAppButton; the retained class only marks
+// the control for surface-specific layout rules (e.g. NoteDocument.css).
 export function AttachmentActionButton({
   ariaLabel,
   children,
@@ -24,9 +26,9 @@ export function AttachmentActionButton({
   title?: string | undefined;
 }) {
   return (
-    <button
-      type="button"
+    <MiniAppButton
       className="attachment-action-button"
+      withIcon
       disabled={disabled}
       onClick={onClick}
       aria-label={ariaLabel}
@@ -34,6 +36,6 @@ export function AttachmentActionButton({
     >
       {children}
       <span>{label}</span>
-    </button>
+    </MiniAppButton>
   );
 }

@@ -8,10 +8,7 @@ import type {
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
-import {
-  loadPrincipalPolicyVerificationCheckpoint,
-  principalPolicyHeadMeetsCheckpoint,
-} from "../../data/persistence/principalPolicyCheckpointSelection";
+import { loadPrincipalPolicyVerificationCheckpoint } from "../../data/persistence/principalPolicyCheckpointSelection";
 import { ensurePrincipalPolicyTables } from "../../data/persistence/principalPolicyPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../../data/persistence/principalPolicyReferencePersistence";
 import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../../data/principalPolicyAdminSigners";
@@ -264,35 +261,24 @@ async function cacheReferencedPrincipalPolicy(
   log: ((message: string) => void) | undefined,
   loadExternalAdminPolicy: () => Promise<VerifiedExternalAdminPolicy | null>,
 ): Promise<void> {
-  let cachedBundle: PrincipalPolicyBundleResponse | null = null;
-  try {
-    cachedBundle = await loadPrincipalPolicyBundleForReference(
-      execSql,
-      reference,
-    );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    log?.(
-      `Principal policy cache: ignored invalid local ${getReferencedPrincipalKey(reference)}: ${message}`,
-    );
-  }
   const localCheckpoint = await loadPrincipalPolicyVerificationCheckpoint({
     execSql,
     principalId: reference.principalId,
     principalType: reference.principalType,
   });
+  // Only null is a recoverable local miss. Integrity failures remain typed and
+  // must escape rather than being hidden by a canonical network retry.
+  const cachedBundle = await loadPrincipalPolicyBundleForReference(
+    execSql,
+    reference,
+    localCheckpoint,
+  );
   const bundle =
-    cachedBundle &&
-    getBundleReferenceMismatchReason(reference, cachedBundle) === null &&
-    principalPolicyHeadMeetsCheckpoint(
-      cachedBundle.currentState,
-      localCheckpoint,
-    )
-      ? cachedBundle
-      : await getCurrentPrincipalPolicy(
-          reference.principalType,
-          reference.principalId,
-        );
+    cachedBundle ??
+    (await getCurrentPrincipalPolicy(
+      reference.principalType,
+      reference.principalId,
+    ));
   if (!bundle) {
     log?.(
       `Principal policy cache: failed to fetch ${getReferencedPrincipalKey(reference)}`,

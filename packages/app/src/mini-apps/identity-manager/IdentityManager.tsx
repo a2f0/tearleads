@@ -1,13 +1,13 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { DestroyKeyPackageConfirmationDialog } from "../../components/shared/DestroyKeyPackageConfirmationDialog";
-import { LogoutConfirmationDialog } from "../../components/shared/LogoutConfirmationDialog";
 import {
   MiniAppClipboardButton,
   MiniAppRoot,
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
+import { DestroyKeyPackageConfirmationDialog } from "../../components/shared/DestroyKeyPackageConfirmationDialog";
+import { LogoutConfirmationDialog } from "../../components/shared/LogoutConfirmationDialog";
 import "./IdentityManager.css";
 import { IdentityManagerActionsMenu } from "./IdentityManagerActionsMenu";
 import {

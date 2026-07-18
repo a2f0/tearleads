@@ -10,8 +10,8 @@ import {
   MiniAppHeaderCopy,
   MiniAppPanel,
   MiniAppStatus,
-} from "../../../../components/shared/MiniAppLayout";
-import { useMiniAppVirtualWindow } from "../../../../components/shared/MiniAppVirtual";
+} from "../../../../components/mini-app/MiniAppLayout";
+import { useMiniAppVirtualWindow } from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import type { ImportExplorerDroppedFiles } from "../../../../stores/explorer/useExplorerDroppedFileImport";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
 import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";

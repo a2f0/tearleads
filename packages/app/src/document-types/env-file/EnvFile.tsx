@@ -1,6 +1,7 @@
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { useId } from "react";
+import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
   type RowWriterResolver,
@@ -140,17 +141,17 @@ function EnvFileVariableEditRow(params: {
           spellCheck={false}
         />
       </label>
-      <button
+      <MiniAppButton
         aria-label={`Remove env variable ${index + 1}`}
         className="env-file-remove-button"
+        withIcon
         disabled={controlsDisabled}
         onClick={() => onRemoveVariable(variable.id)}
         title={`Remove env variable ${index + 1}`}
-        type="button"
       >
         <TrashIcon aria-hidden size={14} />
         Remove
-      </button>
+      </MiniAppButton>
     </div>
   );
 }
@@ -203,15 +204,15 @@ function EnvFileEditFields(params: {
             <strong>Variables</strong>
             <span>{variables.length} entries</span>
           </div>
-          <button
+          <MiniAppButton
             className="env-file-add-button"
+            withIcon
             disabled={controlsDisabled}
             onClick={onAddVariable}
-            type="button"
           >
             <PlusIcon aria-hidden size={14} />
             Add Variable
-          </button>
+          </MiniAppButton>
         </div>
         {variables.length === 0 ? (
           <div className="env-file-empty-state">No variables</div>

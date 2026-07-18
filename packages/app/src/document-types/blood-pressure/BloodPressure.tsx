@@ -1,6 +1,7 @@
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { useId } from "react";
+import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
   type RowWriterResolver,
@@ -224,17 +225,17 @@ function BloodPressureReadingEditRow(params: {
           autoComplete="off"
         />
       </label>
-      <button
+      <MiniAppButton
         aria-label={`Remove reading ${index + 1}`}
         className="blood-pressure-remove-button"
+        withIcon
         disabled={controlsDisabled}
         onClick={() => onRemoveReading(reading.id)}
         title={`Remove reading ${index + 1}`}
-        type="button"
       >
         <TrashIcon aria-hidden size={14} />
         Remove
-      </button>
+      </MiniAppButton>
     </div>
   );
 }
@@ -286,15 +287,15 @@ function BloodPressureEditFields(params: {
             <strong>Readings</strong>
             <span>{readings.length} entries</span>
           </div>
-          <button
+          <MiniAppButton
             className="blood-pressure-add-button"
+            withIcon
             disabled={controlsDisabled}
             onClick={onAddReading}
-            type="button"
           >
             <PlusIcon aria-hidden size={14} />
             Add Reading
-          </button>
+          </MiniAppButton>
         </div>
         {readings.length === 0 ? (
           <div className="blood-pressure-empty-state">No readings</div>

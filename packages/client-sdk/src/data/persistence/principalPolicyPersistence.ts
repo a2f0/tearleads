@@ -1,4 +1,7 @@
-import type { VerifiedPrincipalPolicy } from "@tearleads/crypto";
+import {
+  KeyingVerificationError,
+  type VerifiedPrincipalPolicy,
+} from "@tearleads/crypto";
 import type {
   PrincipalPolicyBundleResponse,
   PrincipalStateResponse,
@@ -18,6 +21,7 @@ import {
 } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 import { assertSameHeadPrincipalPolicyBundle } from "./principalPolicyBundleIntegrity";
+import { indexPrincipalPolicyBundleInTransaction } from "./principalPolicyReferenceIndexPersistence";
 import { assertBundleMatchesVerifiedPolicy } from "./verifiedPrincipalPolicyBundle";
 
 interface PrincipalPolicyRow {
@@ -243,16 +247,20 @@ function policyBundleRow(
   };
 }
 
-function headWouldRegress(
+function assertNoHeadConflict(
   incoming: StoredPrincipalPolicyHead,
   checkpoint: StoredPrincipalPolicyHead | null,
-): boolean {
-  return Boolean(
+): void {
+  if (
     checkpoint &&
-      (incoming.version < checkpoint.version ||
-        (incoming.version === checkpoint.version &&
-          incoming.stateHash !== checkpoint.stateHash)),
-  );
+    incoming.version === checkpoint.version &&
+    incoming.stateHash !== checkpoint.stateHash
+  ) {
+    throw new KeyingVerificationError(
+      "equivocation",
+      "principal policy bundle conflicts with the cached head at one version",
+    );
+  }
 }
 
 async function archiveOlderPolicyBundle(
@@ -286,6 +294,7 @@ async function archiveOlderPolicyBundle(
 
 async function writePrincipalPolicyBundle(
   tx: ClientSQLiteTransaction,
+  bundle: PrincipalPolicyBundleResponse,
   nextRow: PrincipalPolicyRow,
   incomingHead: StoredPrincipalPolicyHead,
 ): Promise<void> {
@@ -320,6 +329,7 @@ async function writePrincipalPolicyBundle(
     storedHead.stateHash === incomingHead.stateHash
   ) {
     assertSameHeadPrincipalPolicyBundle(storedPolicy, nextRow);
+    await indexPrincipalPolicyBundleInTransaction(tx, bundle);
     return;
   }
   const [retainedPolicy] = await tx
@@ -335,13 +345,16 @@ async function writePrincipalPolicyBundle(
     .limit(1);
   if (retainedPolicy) {
     assertSameHeadPrincipalPolicyBundle(retainedPolicy, nextRow);
+    await indexPrincipalPolicyBundleInTransaction(tx, bundle);
   }
   const effectiveHead =
     durableCheckpoint &&
     (!storedHead || durableCheckpoint.version >= storedHead.version)
       ? durableCheckpoint
       : storedHead;
-  if (headWouldRegress(incomingHead, effectiveHead)) {
+  assertNoHeadConflict(incomingHead, storedHead);
+  assertNoHeadConflict(incomingHead, durableCheckpoint ?? null);
+  if (effectiveHead && incomingHead.version < effectiveHead.version) {
     return;
   }
 
@@ -364,6 +377,7 @@ async function writePrincipalPolicyBundle(
       ),
     )
     .run();
+  await indexPrincipalPolicyBundleInTransaction(tx, bundle);
 }
 
 export function writePrincipalPolicyBundleInTransaction(
@@ -373,6 +387,7 @@ export function writePrincipalPolicyBundleInTransaction(
 ): Promise<void> {
   return writePrincipalPolicyBundle(
     tx,
+    bundle,
     policyBundleRow(bundle, updatedAt),
     bundle.currentState,
   );
@@ -417,6 +432,7 @@ export async function retainPrincipalPolicyBundleInTransaction(
     .limit(1);
   if (current?.stateHash === row.stateHash) {
     assertSameHeadPrincipalPolicyBundle(current, row);
+    await indexPrincipalPolicyBundleInTransaction(tx, bundle);
     return;
   }
   const [retained] = await tx
@@ -432,9 +448,11 @@ export async function retainPrincipalPolicyBundleInTransaction(
     .limit(1);
   if (retained) {
     assertSameHeadPrincipalPolicyBundle(retained, row);
+    await indexPrincipalPolicyBundleInTransaction(tx, bundle);
     return;
   }
   await tx.insert(principalPolicyBundleHistory).values(row).run();
+  await indexPrincipalPolicyBundleInTransaction(tx, bundle);
 }
 
 /** Retains a just-verified epoch without promoting it to the mutable head. */
@@ -470,7 +488,8 @@ export async function savePrincipalPolicyBundle(
   const nextRow = policyBundleRow(bundle, updatedAt);
 
   await getClientSQLitePersistenceRuntime(execSql).transaction(
-    (tx) => writePrincipalPolicyBundle(tx, nextRow, bundle.currentState),
+    (tx) =>
+      writePrincipalPolicyBundle(tx, bundle, nextRow, bundle.currentState),
     { behavior: "immediate" },
   );
 }

@@ -9,12 +9,12 @@ import {
   MiniAppHeader,
   MiniAppHeaderCopy,
   MiniAppPanel,
-} from "../../../../components/shared/MiniAppLayout";
+} from "../../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppTable,
   MiniAppTableEmptyRow,
   MiniAppTableFrame,
-} from "../../../../components/shared/MiniAppTable";
+} from "../../../../components/mini-app/MiniAppTable";
 import { useRoutedLayoutTier } from "../../../../navigation/useRoutedLayoutTier";
 import {
   EXPLORER_LABELS,

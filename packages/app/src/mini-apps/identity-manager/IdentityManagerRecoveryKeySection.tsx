@@ -8,7 +8,7 @@ import {
   MiniAppStatus,
   MiniAppTextarea,
   MiniAppToolbar,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
 import {
   createSeedPhraseFileName,
   downloadSeedPhraseFile,

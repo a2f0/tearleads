@@ -17,6 +17,9 @@ project(':capacitor-keyboard').projectDir = new File('../../../node_modules/.bun
 include ':capacitor-share'
 project(':capacitor-share').projectDir = new File('../../../node_modules/.bun/@capacitor+share@8.0.1+1b808583819c2ac6/node_modules/@capacitor/share/android')
 
+include ':capacitor-status-bar'
+project(':capacitor-status-bar').projectDir = new File('../../../node_modules/.bun/@capacitor+status-bar@8.0.3+1b808583819c2ac6/node_modules/@capacitor/status-bar/android')
+
 include ':capawesome-capacitor-file-picker'
 project(':capawesome-capacitor-file-picker').projectDir = new File('../../../node_modules/.bun/@capawesome+capacitor-file-picker@8.0.2+1b808583819c2ac6/node_modules/@capawesome/capacitor-file-picker/android')
 

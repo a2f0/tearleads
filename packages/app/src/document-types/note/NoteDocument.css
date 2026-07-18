@@ -89,7 +89,7 @@
 }
 
 /* Upload + Select Blob controls. They use the shared `.attachment-action-button`
-   chrome (see AttachmentActionButton.css); this row just keeps them together and
+   chrome (see the shared MiniAppButton); this row just keeps them together and
    stops them from stretching as the title column flexes. */
 .note-document-attachments-actions {
   display: flex;
@@ -324,24 +324,9 @@
   gap: var(--space-xs);
 }
 
-.note-attachment-preview-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-height);
-  height: var(--control-height);
-  padding: 0;
-  border: var(--border);
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-}
-
-.note-attachment-preview-button:hover,
-.note-attachment-preview-button:focus-visible {
-  background: var(--emphasis-surface);
-  color: var(--emphasis-text);
-}
+/* The preview bar's icon buttons draw their chrome from the shared
+   MiniAppButton (.mini-app-icon-button); `note-attachment-preview-button` is
+   retained on the elements only as a layout hook. */
 
 .note-attachment-preview-stage {
   display: flex;

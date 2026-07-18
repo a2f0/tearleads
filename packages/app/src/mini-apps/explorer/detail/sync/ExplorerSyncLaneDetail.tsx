@@ -8,8 +8,8 @@ import {
   MiniAppButton,
   MiniAppInfoSection,
   MiniAppStatus,
-} from "../../../../components/shared/MiniAppLayout";
-import { MiniAppInfoTable } from "../../../../components/shared/MiniAppTable";
+} from "../../../../components/mini-app/MiniAppLayout";
+import { MiniAppInfoTable } from "../../../../components/mini-app/MiniAppTable";
 import { formatByteLength } from "../../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS, getExplorerSyncLaneCountLabel } from "../../labels";

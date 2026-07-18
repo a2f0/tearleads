@@ -1,4 +1,4 @@
-import { PaneStatus } from "../../components/pane/PaneStatus";
+import { PaneStatus } from "../../components/pane/status/PaneStatus";
 import { SystemMonitorLog } from "./SystemMonitorLog";
 import { useSystemMonitor } from "./SystemMonitorProvider";
 

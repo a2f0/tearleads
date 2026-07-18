@@ -6,13 +6,13 @@ import {
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
-} from "../../../components/shared/MiniAppLayout";
+} from "../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRow,
   MiniAppRowButton,
   MiniAppRowStack,
   MiniAppRowText,
-} from "../../../components/shared/MiniAppRow";
+} from "../../../components/mini-app/rows/MiniAppRow";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import {
   getOrgManagerBillingStatusLabel,

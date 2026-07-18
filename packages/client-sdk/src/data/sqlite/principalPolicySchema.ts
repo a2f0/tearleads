@@ -39,6 +39,34 @@ export const principalPolicyBundleHistory = sqliteTable(
   ],
 );
 
+/** Exact policy states mapped to every retained bundle chain that contains them. */
+export const principalPolicyBundleReferences = sqliteTable(
+  "principal_policy_bundle_references",
+  {
+    principalType: text("principal_type").notNull(),
+    principalId: text("principal_id").notNull(),
+    version: integer("version").notNull(),
+    stateHash: text("state_hash").notNull(),
+    keyEpoch: integer("key_epoch").notNull(),
+    keyFingerprint: text("key_fingerprint").notNull(),
+    bundleVersion: integer("bundle_version").notNull(),
+    bundleStateHash: text("bundle_state_hash").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.principalType,
+        table.principalId,
+        table.version,
+        table.stateHash,
+        table.keyEpoch,
+        table.keyFingerprint,
+        table.bundleStateHash,
+      ],
+    }),
+  ],
+);
+
 /** Monotonic anti-rollback pin for each verified managed principal. */
 export const principalPolicyCheckpoints = sqliteTable(
   "principal_policy_checkpoints",

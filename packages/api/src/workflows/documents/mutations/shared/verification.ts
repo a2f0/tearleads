@@ -178,7 +178,8 @@ async function resolveCurrentContainerManifestRefs(
   const resolved = flatRefs.map(({ ref, refLabel }) => {
     const stored = storedBundles.get(ref.manifestHash);
     if (!stored || stored.manifest.objectKind !== "container") {
-      throw new DocumentMutationError(`${refLabel} head missing`, 404);
+      // 409, not 404 — a document-route 404 is the legacy client wipe signal.
+      throw new DocumentMutationError(`${refLabel} head missing`, 409);
     }
 
     // Build the verified manifest from the trusted store via the same
@@ -214,7 +215,7 @@ async function resolveCurrentContainerManifestRefs(
   return resolved.map(({ manifest, refLabel }) => {
     const head = heads.get(manifest.state.containerId);
     if (!head) {
-      throw new DocumentMutationError(`${refLabel} head missing`, 404);
+      throw new DocumentMutationError(`${refLabel} head missing`, 409);
     }
     if (head.manifestHash !== manifest.manifestHash) {
       throw documentSyncStateStale(`${refLabel} is stale`);

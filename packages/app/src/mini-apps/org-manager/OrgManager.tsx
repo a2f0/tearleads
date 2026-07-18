@@ -6,7 +6,7 @@ import { type MouseEvent, useCallback, useMemo, useState } from "react";
 import {
   MiniAppRoot,
   MiniAppStatus,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
 import {
   useWindowFileMenuItem,
   useWindowRefreshMenuItem,

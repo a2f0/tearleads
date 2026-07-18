@@ -12,7 +12,7 @@ import {
   MiniAppTableCell,
   type MiniAppTableColumn,
   MiniAppTableText,
-} from "../../../../components/shared/MiniAppTable";
+} from "../../../../components/mini-app/MiniAppTable";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/projectors";
 import { getDocumentTypeIcon } from "../../../../document-types/registry";
 import { getViewerRelativeContactDocumentLabel } from "../../../../stores/contacts/contactLabels";

@@ -12,7 +12,7 @@ import {
 import {
   MiniAppSidebar,
   MiniAppStatus,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { ExplorerDatabaseErrorStatus } from "./ExplorerDatabaseErrorStatus";
 import type { ExplorerSidebarVirtualRow } from "./ExplorerSidebarRows";

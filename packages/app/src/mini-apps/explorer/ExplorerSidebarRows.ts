@@ -2,7 +2,7 @@ import type {
   ContainerDocumentSidebarRow,
   ContainerNode,
 } from "@tearleads/client-sdk";
-import { MINI_APP_VIRTUAL_DEFAULT_MIN_WINDOW_ROWS } from "../../components/shared/MiniAppVirtual";
+import { MINI_APP_VIRTUAL_DEFAULT_MIN_WINDOW_ROWS } from "../../components/mini-app/virtual/MiniAppVirtual";
 import { EXPLORER_LABELS } from "./labels";
 
 export const EXPLORER_SIDEBAR_MIN_WINDOW_ROWS =

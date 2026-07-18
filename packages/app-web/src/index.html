@@ -2,7 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover matches the Capacitor shell: it lets the app paint
+         edge-to-edge on notched devices and exposes the env(safe-area-inset-*)
+         values the chrome pads by (see @tearleads/ui styles.css). -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <title>App</title>
     <!--
       Favicon <link> tags are injected into dist/index.html at build time by

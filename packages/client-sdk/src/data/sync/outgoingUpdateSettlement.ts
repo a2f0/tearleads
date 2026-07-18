@@ -9,10 +9,16 @@
  *
  * Also re-arm when the pass re-keyed conflicted pending updates: the fresh
  * ids exist precisely so the next pass can submit them, and without a re-arm
- * they wait for an unrelated edit or remote event. This stays bounded for an
- * honest server, which can conflict on a given id at most once — a re-keyed
- * id is one the server has never been shown, so a repeat conflict requires a
- * genuine new lost ack (each of which also commits the ops server-side).
+ * they wait for an unrelated edit or remote event. For an honest server this
+ * terminates on its own (it can conflict on a given id at most once — a
+ * re-keyed id is one it has never been shown), but honesty is not assumed:
+ * a buggy or malicious server that keeps 409ing fresh ids — or a proxy
+ * replaying cached conflict bodies — would otherwise drive a network-speed
+ * re-key loop on a lane that keeps reporting `completed`, so the failed-lane
+ * backoff never engages. The lane's consecutive rekey-only pass counter
+ * bounds that: once it reaches the cap the lane stops self-arming and the
+ * still-pending work waits for the next external signal (edit, remote event,
+ * lane restart).
  *
  * A server that under-settles without conflicting (accepts fewer ids than
  * were sent, settling and re-keying none) must not drive an unbounded
@@ -21,14 +27,40 @@
  * one pass per macrotask forever while still reporting `completed`, and the
  * coordinator never reaches idle.
  */
-export function shouldReArmAfterOutgoingSettlement(input: {
+
+export const MAX_CONSECUTIVE_REKEY_ONLY_PASSES = 3;
+
+interface OutgoingSettlementLane {
+  rekeyOnlyPassCount?: number | undefined;
+}
+
+interface OutgoingSettlementPass {
   readonly outgoingUpdateCount: number;
   readonly rekeyedUpdateCount: number;
   readonly settledUpdateCount: number;
-}): boolean {
+}
+
+function isRekeyOnlyPass(pass: OutgoingSettlementPass): boolean {
+  return pass.rekeyedUpdateCount > 0 && pass.settledUpdateCount === 0;
+}
+
+/**
+ * Record a completed pass's settlement outcome on the lane and decide whether
+ * the lane should immediately re-arm. Settling anything (or not re-keying at
+ * all) proves the loop is not rekey-driven and resets the lane's consecutive
+ * rekey-only counter.
+ */
+export function settleOutgoingPassAndDecideReArm(
+  lane: OutgoingSettlementLane,
+  pass: OutgoingSettlementPass,
+): boolean {
+  const rekeyOnlyPassCount = lane.rekeyOnlyPassCount ?? 0;
+  lane.rekeyOnlyPassCount = isRekeyOnlyPass(pass) ? rekeyOnlyPassCount + 1 : 0;
+
   return (
-    input.rekeyedUpdateCount > 0 ||
-    (input.settledUpdateCount > 0 &&
-      input.outgoingUpdateCount > input.settledUpdateCount)
+    (isRekeyOnlyPass(pass) &&
+      rekeyOnlyPassCount < MAX_CONSECUTIVE_REKEY_ONLY_PASSES) ||
+    (pass.settledUpdateCount > 0 &&
+      pass.outgoingUpdateCount > pass.settledUpdateCount)
   );
 }

@@ -7,7 +7,7 @@ import {
   createContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
 import { type MouseEvent, type ReactNode, useMemo, useState } from "react";
-import { MiniAppStatus } from "../../../../components/shared/MiniAppLayout";
+import { MiniAppStatus } from "../../../../components/mini-app/MiniAppLayout";
 import {
   addMiniAppTableHeaderAction,
   MiniAppColumnMenuButton,
@@ -18,11 +18,11 @@ import {
   MiniAppTableFrame,
   MiniAppTableRow,
   useMiniAppColumnVisibility,
-} from "../../../../components/shared/MiniAppTable";
+} from "../../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
   MiniAppVirtualTableSpacerRow,
-} from "../../../../components/shared/MiniAppVirtual";
+} from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import { getAttachmentFileType } from "../../../../document-types/shared/attachmentFileType";
 import { formatByteLength } from "../../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";

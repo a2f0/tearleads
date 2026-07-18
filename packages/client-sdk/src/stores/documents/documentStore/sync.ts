@@ -8,7 +8,7 @@ import {
   type PendingUpdateRecord,
   registerDocumentSyncLane,
   resolveDocumentCreateAuthor,
-  shouldReArmAfterOutgoingSettlement,
+  settleOutgoingPassAndDecideReArm,
   syncRemoteDocument,
 } from "../../../workflows/documents";
 import {
@@ -351,7 +351,7 @@ async function finalizeDocumentSync(
   }
 
   if (
-    shouldReArmAfterOutgoingSettlement({
+    settleOutgoingPassAndDecideReArm(state, {
       outgoingUpdateCount: syncAttempt.outgoingUpdateCount,
       rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
       settledUpdateCount: synced.settledPendingUpdateIds.length,

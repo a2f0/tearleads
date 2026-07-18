@@ -6,7 +6,7 @@ import type {
   ContainerNode,
 } from "@tearleads/client-sdk";
 import { useEffect, useMemo, useState } from "react";
-import { MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT } from "../../../../components/shared/MiniAppVirtual";
+import { MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT } from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import { SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES } from "../../../../stores/systemContainers";
 
 export const EXPLORER_VIRTUAL_ROW_HEIGHT =

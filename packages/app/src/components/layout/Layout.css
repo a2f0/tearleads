@@ -8,6 +8,15 @@
   height: 100vh;
 }
 
+/* Small-viewport units track iOS Safari's collapsing toolbars so the routed
+   taskbar is never hidden behind the browser chrome; the plain vh declaration
+   above is the fallback for engines without dvh support. */
+@supports (height: 100dvh) {
+  .tearleads-frame.layout {
+    height: 100dvh;
+  }
+}
+
 .tearleads-frame.layout--split {
   grid-template:
     "header header" auto

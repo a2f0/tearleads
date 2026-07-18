@@ -3,7 +3,7 @@ import type {
   ContainerNode,
 } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useMiniAppVirtualWindow } from "../../components/shared/MiniAppVirtual";
+import { useMiniAppVirtualWindow } from "../../components/mini-app/virtual/MiniAppVirtual";
 import {
   buildExplorerSidebarSections,
   countExplorerSidebarRows,

@@ -6,8 +6,8 @@ import {
   MiniAppTableEmptyRow,
   MiniAppTableRow,
   MiniAppTableText,
-} from "../../components/shared/MiniAppTable";
-import { MiniAppVirtualTableSpacerRow } from "../../components/shared/MiniAppVirtual";
+} from "../../components/mini-app/MiniAppTable";
+import { MiniAppVirtualTableSpacerRow } from "../../components/mini-app/virtual/MiniAppVirtual";
 import { formatMiniAppDateTime } from "../../utils/formatMiniAppDate";
 import type { SessionTableColumnId } from "./IdentityManagerSessionColumns";
 import {

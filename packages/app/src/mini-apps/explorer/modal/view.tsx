@@ -8,7 +8,7 @@ import {
   MiniAppModalForm,
   MiniAppModalPanel,
   MiniAppStatus,
-} from "../../../components/shared/MiniAppLayout";
+} from "../../../components/mini-app/MiniAppLayout";
 import { EXPLORER_LABELS } from "../labels";
 import type { MoveTargetOption } from "../targetOptions";
 import { ExplorerTargetSelect } from "./ExplorerTargetSelect";

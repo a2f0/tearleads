@@ -6,7 +6,7 @@ import {
   MiniAppModalBackdrop,
   MiniAppModalForm,
   MiniAppModalPanel,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
 import { NOTE_DOCUMENT_LABELS } from "./noteDocumentLabels";
 
 // Confirms removal of a single note attachment before the destructive store op

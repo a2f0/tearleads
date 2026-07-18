@@ -11,7 +11,10 @@ import {
   DocumentSyncResponseSchema,
   isDocumentSyncResponse,
 } from "../response/documentMutation";
-import { DocumentSyncErrorResponseSchema } from "../response/documentSyncError";
+import {
+  DocumentNotFoundErrorResponseSchema,
+  DocumentSyncErrorResponseSchema,
+} from "../response/documentSyncError";
 import { defineJsonOperation } from "./definition";
 
 export const DocumentSyncPathParamsSchema = z.strictObject({
@@ -26,6 +29,7 @@ export const documentSyncOperation = defineJsonOperation({
   auth: "session",
   body: DocumentSyncRequestSchema,
   failureResponses: {
+    404: DocumentNotFoundErrorResponseSchema,
     409: DocumentSyncErrorResponseSchema,
   },
   failureStatuses: [400, 401, 402, 403, 404, 409, 500, 503],

@@ -64,29 +64,16 @@
   min-width: 0;
 }
 
-.backup-restore-action-button,
-.backup-restore-inline-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-xs);
-}
-
+/* Chrome comes from the shared MiniAppButton (withIcon lays out the icon+label
+   row); only per-surface deltas here. */
 .backup-restore-inline-action {
   width: max-content;
 }
 
-/*
- * Touch sizing: on coarse pointers bump the primary actions to the shell's
- * ~44px touch target (mirroring RoutedPane's coarse-pointer rules) so the
- * export/restore CTAs are comfortable to tap on a phone.
- */
-@media (pointer: coarse) {
-  .routed-pane .backup-restore-action-button,
-  .routed-pane .backup-restore-inline-action {
-    min-height: var(--routed-touch-target);
-  }
-}
+/* No coarse-pointer touch bump needed: MiniAppButton keys its min-height off
+   --control-height, which resolves to 44px whenever the routed shell is
+   active (see :root[data-navigation-mode="routed"] in @tearleads/ui) — and
+   unlike a `pointer: coarse` query that also covers an iPad with a mouse. */
 
 .backup-restore-details {
   display: grid;

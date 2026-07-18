@@ -17,8 +17,10 @@ let package = Package(
         .package(name: "CapacitorFilesystem", path: "../../../../../node_modules/.bun/@capacitor+filesystem@8.1.2+1b808583819c2ac6/node_modules/@capacitor/filesystem"),
         .package(name: "CapacitorKeyboard", path: "../../../../../node_modules/.bun/@capacitor+keyboard@8.0.3+1b808583819c2ac6/node_modules/@capacitor/keyboard"),
         .package(name: "CapacitorShare", path: "../../../../../node_modules/.bun/@capacitor+share@8.0.1+1b808583819c2ac6/node_modules/@capacitor/share"),
+        .package(name: "CapacitorStatusBar", path: "../../../../../node_modules/.bun/@capacitor+status-bar@8.0.3+1b808583819c2ac6/node_modules/@capacitor/status-bar"),
         .package(name: "CapawesomeCapacitorFilePicker", path: "../../../../../node_modules/.bun/@capawesome+capacitor-file-picker@8.0.2+1b808583819c2ac6/node_modules/@capawesome/capacitor-file-picker"),
-        .package(name: "CapgoCapacitorNativeBiometric", path: "../../../../../node_modules/.bun/@capgo+capacitor-native-biometric@8.4.5+1b808583819c2ac6/node_modules/@capgo/capacitor-native-biometric")
+        .package(name: "CapgoCapacitorNativeBiometric", path: "../../../../../node_modules/.bun/@capgo+capacitor-native-biometric@8.4.5+1b808583819c2ac6/node_modules/@capgo/capacitor-native-biometric"),
+        .package(name: "RevenuecatPurchasesCapacitor", path: "../../../../../node_modules/.bun/@revenuecat+purchases-capacitor@13.2.1+1b808583819c2ac6/node_modules/@revenuecat/purchases-capacitor")
     ],
     targets: [
         .target(
@@ -31,8 +33,10 @@ let package = Package(
                 .product(name: "CapacitorFilesystem", package: "CapacitorFilesystem"),
                 .product(name: "CapacitorKeyboard", package: "CapacitorKeyboard"),
                 .product(name: "CapacitorShare", package: "CapacitorShare"),
+                .product(name: "CapacitorStatusBar", package: "CapacitorStatusBar"),
                 .product(name: "CapawesomeCapacitorFilePicker", package: "CapawesomeCapacitorFilePicker"),
-                .product(name: "CapgoCapacitorNativeBiometric", package: "CapgoCapacitorNativeBiometric")
+                .product(name: "CapgoCapacitorNativeBiometric", package: "CapgoCapacitorNativeBiometric"),
+                .product(name: "RevenuecatPurchasesCapacitor", package: "RevenuecatPurchasesCapacitor")
             ]
         )
     ]

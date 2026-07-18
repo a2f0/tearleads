@@ -2,7 +2,7 @@ import { IdentificationCardIcon } from "@phosphor-icons/react/dist/csr/Identific
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { useMemo } from "react";
 import { MiniAppSelectMenu } from "../../components/mini-app/controls/MiniAppSelectMenu";
-import { MiniAppStatus } from "../../components/shared/MiniAppLayout";
+import { MiniAppStatus } from "../../components/mini-app/MiniAppLayout";
 import type { IdentitySwitcherState } from "./useIdentitySwitcher";
 
 export function compactIdentityFingerprint(signingFingerprint: string): string {

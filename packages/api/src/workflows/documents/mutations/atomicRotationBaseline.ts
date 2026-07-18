@@ -12,10 +12,10 @@ import type {
 import { eq } from "drizzle-orm";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
 import { isAuthenticatedReplayableBaseline } from "../../../documents/documentReplayableBaseline";
+import { appendDocumentUpdates } from "./appendOutgoingUpdates";
 import { DocumentMutationError } from "./errors";
 import { readWriteHeader } from "./shared/records";
 import { loadSignerPublicKey } from "./shared/verification";
-import { appendDocumentUpdates } from "./syncDocument";
 import type { DocumentWriteAuthorizationProof } from "./types";
 
 function requireRotationBaselineMetadata(update: DocumentOutgoingUpdate) {

@@ -2,7 +2,7 @@ import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
 import {
   MiniAppRowButton,
   MiniAppRowText,
-} from "../../components/shared/MiniAppRow";
+} from "../../components/mini-app/rows/MiniAppRow";
 import { ORG_MANAGER_LABELS } from "./labels";
 import type { OrgManagerView } from "./routes";
 import { ORG_MANAGER_SECTIONS } from "./sections";

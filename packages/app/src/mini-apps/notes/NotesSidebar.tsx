@@ -4,17 +4,16 @@ import {
   getUntitledDocumentTitle,
 } from "@tearleads/client-sdk";
 import { type MouseEvent, useMemo } from "react";
-import { classNames } from "../../components/shared/classNames";
 import {
   MiniAppSidebar,
   MiniAppStatus,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
+import { MiniAppRowActionsButton } from "../../components/mini-app/MiniAppTable";
 import {
   MiniAppRowButton,
   MiniAppRowStack,
   MiniAppRowText,
-} from "../../components/shared/MiniAppRow";
-import { MiniAppRowActionsButton } from "../../components/shared/MiniAppTable";
+} from "../../components/mini-app/rows/MiniAppRow";
 import {
   MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT,
   MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
@@ -22,7 +21,8 @@ import {
   MiniAppVirtualListFrame,
   MiniAppVirtualListRow,
   useMiniAppVirtualRows,
-} from "../../components/shared/MiniAppVirtual";
+} from "../../components/mini-app/virtual/MiniAppVirtual";
+import { classNames } from "../../components/shared/classNames";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { useRoutedLayoutActive } from "../../navigation/useRoutedLayoutActive";
 import { formatMiniAppDateTime } from "../../utils/formatMiniAppDate";

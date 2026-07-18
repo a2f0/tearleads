@@ -4,9 +4,7 @@ import type {
   BlobInfoDocumentReference,
 } from "@tearleads/client-sdk";
 import { type MouseEvent, useMemo } from "react";
-import { Menu } from "../../../../components/shared/Menu";
-import { MenuItem } from "../../../../components/shared/MenuItem";
-import { MiniAppInfoSection } from "../../../../components/shared/MiniAppLayout";
+import { MiniAppInfoSection } from "../../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppTable,
   MiniAppTableActionButton,
@@ -15,7 +13,9 @@ import {
   MiniAppTableFrame,
   MiniAppTableRow,
   MiniAppTableText,
-} from "../../../../components/shared/MiniAppTable";
+} from "../../../../components/mini-app/MiniAppTable";
+import { Menu } from "../../../../components/shared/Menu";
+import { MenuItem } from "../../../../components/shared/MenuItem";
 import {
   type ContextMenuState,
   useContextMenuState,

@@ -11,7 +11,7 @@ import {
   MiniAppHeader,
   MiniAppHeaderCopy,
   MiniAppPanel,
-} from "../../../../components/shared/MiniAppLayout";
+} from "../../../../components/mini-app/MiniAppLayout";
 import { useWindowTitleBarAction } from "../../../../components/window/WindowMenuContext";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";

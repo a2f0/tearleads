@@ -10,7 +10,7 @@ import {
   MiniAppInput,
   MiniAppPanel,
   MiniAppStatus,
-} from "../../../components/shared/MiniAppLayout";
+} from "../../../components/mini-app/MiniAppLayout";
 import { useMiniAppDetailBackAction } from "../../../components/window/useMiniAppDetailBackAction";
 import { useWindowTitleBarAction } from "../../../components/window/WindowMenuContext";
 import { ContactFields } from "../../../document-types/contact/ContactFields";

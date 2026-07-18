@@ -1,7 +1,7 @@
 import {
   loadMiniAppHiddenColumns,
   saveMiniAppHiddenColumns,
-} from "../../../../components/shared/MiniAppTable";
+} from "../../../../components/mini-app/MiniAppTable";
 import {
   type ExplorerItemColumnId,
   TOGGLEABLE_COLUMN_IDS,

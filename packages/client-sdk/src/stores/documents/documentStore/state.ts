@@ -114,6 +114,13 @@ export interface DocumentStoreState {
   pendingLocalWrites: number;
   persistence: DocumentsPersistence;
   record: DocumentRecord | null;
+  /**
+   * Consecutive completed sync passes that re-keyed conflicted pending updates
+   * without settling anything. Bounds the rekey-driven self re-arm so a server
+   * that keeps conflicting fresh ids cannot drive a network-speed loop; see
+   * shouldReArmAfterOutgoingSettlement.
+   */
+  rekeyOnlyPassCount: number;
   resolveProjectionUserKey: DocumentProjectionUserKeyResolver;
   remoteUpdatePending: boolean;
   /**
@@ -224,6 +231,7 @@ export function createDocumentStoreState(
     pendingLocalWrites: 0,
     persistence,
     record: null,
+    rekeyOnlyPassCount: 0,
     resolveProjectionUserKey:
       createDocumentProjectionUserKeyResolver(initialRuntime),
     remoteUpdatePending: false,

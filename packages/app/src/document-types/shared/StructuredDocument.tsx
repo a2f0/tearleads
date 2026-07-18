@@ -7,12 +7,12 @@ import {
 import {
   MiniAppActions,
   MiniAppButton,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRow,
   MiniAppRowStack,
   MiniAppRowText,
-} from "../../components/shared/MiniAppRow";
+} from "../../components/mini-app/rows/MiniAppRow";
 import { useDocumentReadOnly } from "../../stores/documents/DocumentsProvider";
 import "./StructuredDocument.css";
 

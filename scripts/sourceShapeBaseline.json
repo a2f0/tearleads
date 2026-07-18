@@ -50,8 +50,8 @@
       "bytes": 37936
     },
     "docs/openapi.json": {
-      "lines": 855,
-      "bytes": 33519
+      "lines": 877,
+      "bytes": 34161
     },
     "docs/protocol-specification.md": {
       "lines": 501,
@@ -126,8 +126,8 @@
       "bytes": 43277
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2136,
-      "bytes": 69913
+      "lines": 2164,
+      "bytes": 70218
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 1169,
@@ -152,10 +152,6 @@
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
       "lines": 644,
       "bytes": 18997
-    },
-    "packages/api/src/workflows/documents/mutations/syncDocument.ts": {
-      "lines": 874,
-      "bytes": 28588
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 721,
@@ -239,7 +235,7 @@
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
       "lines": 538,
-      "bytes": 16516
+      "bytes": 16519
     },
     "packages/client-sdk/src/workflows/container-contents/container-state/share.test.ts": {
       "lines": 722,

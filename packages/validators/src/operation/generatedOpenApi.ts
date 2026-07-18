@@ -305,12 +305,20 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Response without a declared JSON body */
+            /** @description Failure JSON response */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "document_not_found";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description Failure JSON response */
             409: {
