@@ -1,4 +1,5 @@
 import {
+  index,
   integer,
   primaryKey,
   sqliteTable,
@@ -36,6 +37,43 @@ export const principalPolicyBundleHistory = sqliteTable(
     primaryKey({
       columns: [table.principalType, table.principalId, table.stateHash],
     }),
+  ],
+);
+
+/** Exact policy states mapped to every retained bundle chain that contains them. */
+export const principalPolicyBundleReferences = sqliteTable(
+  "principal_policy_bundle_references",
+  {
+    principalType: text("principal_type").notNull(),
+    principalId: text("principal_id").notNull(),
+    version: integer("version").notNull(),
+    stateHash: text("state_hash").notNull(),
+    keyEpoch: integer("key_epoch").notNull(),
+    keyFingerprint: text("key_fingerprint").notNull(),
+    bundleVersion: integer("bundle_version").notNull(),
+    bundleStateHash: text("bundle_state_hash").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.principalType,
+        table.principalId,
+        table.version,
+        table.stateHash,
+        table.keyEpoch,
+        table.keyFingerprint,
+        table.bundleStateHash,
+      ],
+    }),
+    index("principal_policy_bundle_references_exact_idx").on(
+      table.principalType,
+      table.principalId,
+      table.version,
+      table.stateHash,
+      table.keyEpoch,
+      table.keyFingerprint,
+      table.bundleVersion,
+    ),
   ],
 );
 

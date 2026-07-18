@@ -5,6 +5,7 @@ import type {
 } from "@tearleads/crypto";
 import { makeVerifiedPrincipalPolicy } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   createPrincipalPolicyBundle,
   createSuccessorPrincipalPolicyBundle,
@@ -48,6 +49,36 @@ function verifiedPolicyForBundle(
     stateHash: bundle.currentState.stateHash,
     version: bundle.currentState.version,
   });
+}
+
+function predecessorBundle(
+  bundle: PrincipalPolicyBundleResponse,
+): PrincipalPolicyBundleResponse {
+  const previous = bundle.previousStates[0];
+  if (!previous) {
+    throw new Error("expected successor bundle to include a previous state");
+  }
+  return {
+    currentMemberEnvelopes: {
+      principalType: previous.state.principalType,
+      principalId: previous.state.principalId,
+      stateHash: previous.state.stateHash,
+      epoch: previous.state.keyEpoch,
+      envelopes: [],
+    },
+    currentPayload: {
+      principalType: previous.state.principalType,
+      principalId: previous.state.principalId,
+      stateHash: previous.state.stateHash,
+      cipherSuite: "aes-256-gcm",
+      ciphertext: "cached-previous-ciphertext",
+      ciphertextHash: previous.state.payloadCiphertextHash,
+      createdAt: previous.state.createdAt,
+    },
+    currentProjection: previous.projection,
+    currentState: previous.state,
+    previousStates: [],
+  };
 }
 
 test("filterUncachedPrincipalPolicyReferences treats a reference with no stored bundle as uncached", async () => {
@@ -154,10 +185,11 @@ test("filterUncachedPrincipalPolicyReferences treats an in-memory cache hit as c
     await ensurePrincipalPolicyTables(execSql);
     const { bundle } = await createPrincipalPolicyBundle();
     const reference = referencedPrincipalStateFromBundle(bundle);
+    const verifiedPolicy = verifiedPolicyForBundle(bundle);
     // Nothing is persisted; only the in-memory cache holds the key. A hit there
     // must short-circuit the storage lookup.
     const cache = new Map<string, VerifiedPrincipalPolicy>([
-      [referencedPrincipalPolicyKey(reference), {} as VerifiedPrincipalPolicy],
+      [referencedPrincipalPolicyKey(reference), verifiedPolicy],
     ]);
 
     const uncached = await filterUncachedPrincipalPolicyReferences({
@@ -167,6 +199,124 @@ test("filterUncachedPrincipalPolicyReferences treats an in-memory cache hit as c
     });
 
     expect(uncached).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+test("referencedPrincipalPolicyKey includes the exact epoch and key fingerprint", async () => {
+  const { bundle } = await createPrincipalPolicyBundle();
+  const reference = referencedPrincipalStateFromBundle(bundle);
+  const exactKey = referencedPrincipalPolicyKey(reference);
+
+  expect(
+    referencedPrincipalPolicyKey({
+      ...reference,
+      keyEpoch: reference.keyEpoch + 1,
+    }),
+  ).not.toBe(exactKey);
+  expect(
+    referencedPrincipalPolicyKey({
+      ...reference,
+      keyFingerprint: `${reference.keyFingerprint}-different`,
+    }),
+  ).not.toBe(exactKey);
+});
+
+test("filterUncachedPrincipalPolicyReferences accepts an in-memory chain extending the durable pin", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-cache-memory-chain",
+  );
+  try {
+    const { bundle } = await createSuccessorPrincipalPolicyBundle();
+    const previousState = bundle.previousStates[0]?.state;
+    if (!previousState) {
+      throw new Error("expected successor bundle to include a previous state");
+    }
+    const reference = referencedPrincipalStateFromBundle(bundle);
+    const cache = new Map<string, VerifiedPrincipalPolicy>([
+      [
+        referencedPrincipalPolicyKey(reference),
+        verifiedPolicyForBundle(bundle),
+      ],
+    ]);
+    await ensurePrincipalPolicyTables(execSql);
+    await loadPrincipalPolicyCheckpoint(
+      execSql,
+      previousState.principalType,
+      previousState.principalId,
+    );
+    await execSql(
+      `INSERT INTO principal_policy_checkpoints
+         (principal_type, principal_id, version, state_hash, updated_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        previousState.principalType,
+        previousState.principalId,
+        previousState.version,
+        previousState.stateHash,
+        "2026-04-08T00:01:00.000Z",
+      ],
+    );
+
+    await expect(
+      filterUncachedPrincipalPolicyReferences({
+        execSql,
+        principalPolicyCache: cache,
+        references: [reference],
+      }),
+    ).resolves.toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+test("filterUncachedPrincipalPolicyReferences rejects an in-memory chain that conflicts with the durable pin", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-cache-memory-chain-conflict",
+  );
+  try {
+    const { bundle } = await createSuccessorPrincipalPolicyBundle();
+    const previousState = bundle.previousStates[0]?.state;
+    if (!previousState) {
+      throw new Error("expected successor bundle to include a previous state");
+    }
+    const reference = referencedPrincipalStateFromBundle(bundle);
+    const cache = new Map<string, VerifiedPrincipalPolicy>([
+      [
+        referencedPrincipalPolicyKey(reference),
+        verifiedPolicyForBundle(bundle),
+      ],
+    ]);
+    await ensurePrincipalPolicyTables(execSql);
+    await loadPrincipalPolicyCheckpoint(
+      execSql,
+      previousState.principalType,
+      previousState.principalId,
+    );
+    await execSql(
+      `INSERT INTO principal_policy_checkpoints
+         (principal_type, principal_id, version, state_hash, updated_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        previousState.principalType,
+        previousState.principalId,
+        previousState.version,
+        "f".repeat(64),
+        "2026-04-08T00:01:00.000Z",
+      ],
+    );
+
+    await expect(
+      filterUncachedPrincipalPolicyReferences({
+        execSql,
+        principalPolicyCache: cache,
+        references: [reference],
+      }),
+    ).rejects.toMatchObject({
+      code: "stale_predecessor",
+      name: "KeyingVerificationError",
+    });
   } finally {
     close();
   }
@@ -217,9 +367,9 @@ test("filterUncachedPrincipalPolicyReferences uses retained history ahead of the
     "principal-policy-cache-retained-ahead",
   );
   try {
-    const { bundle: currentBundle } = await createPrincipalPolicyBundle();
     const { bundle: retainedBundle } =
       await createSuccessorPrincipalPolicyBundle();
+    const currentBundle = predecessorBundle(retainedBundle);
     const previousState = retainedBundle.previousStates[0]?.state;
     if (!previousState) {
       throw new Error("expected retained bundle predecessor");

@@ -7,11 +7,10 @@ import {
 } from "../../../test/helpers/policyCacheFixtures";
 import {
   ensurePrincipalPolicyTables,
-  loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "../../data/persistence/principalPolicyPersistence";
 
-test("principal policy sync replaces an invalid local bundle with verified canonical data", async () => {
+test("principal policy sync hard-fails without fetching or repairing an invalid exact match", async () => {
   const { close, execSql } = await createTestExecSql(
     "principal-policy-corrupt-local-test",
   );
@@ -31,30 +30,30 @@ test("principal policy sync replaces an invalid local bundle with verified canon
       ["{}", "group", bundle.currentState.principalId],
     );
 
-    const logs: string[] = [];
     let policyReadCount = 0;
-    await cacheReferencedPolicies({
-      execSql,
-      getCurrentPrincipalPolicy: async () => {
-        policyReadCount += 1;
-        return bundle;
-      },
-      getUserIdentity: async () => signerKeyResponse,
-      log: (message) => logs.push(message),
-      references: [referencedPrincipalStateFromBundle(bundle)],
+    await expect(
+      cacheReferencedPolicies({
+        execSql,
+        getCurrentPrincipalPolicy: async () => {
+          policyReadCount += 1;
+          return bundle;
+        },
+        getUserIdentity: async () => signerKeyResponse,
+        references: [referencedPrincipalStateFromBundle(bundle)],
+      }),
+    ).rejects.toMatchObject({
+      code: "invalid_shape",
+      name: "KeyingVerificationError",
     });
 
-    expect(policyReadCount).toBe(1);
-    expect(
-      logs.some((message) => message.includes("ignored invalid local")),
-    ).toBe(true);
-    await expect(
-      loadPrincipalPolicyBundle(
-        execSql,
-        bundle.currentState.principalType,
-        bundle.currentState.principalId,
-      ),
-    ).resolves.toEqual(bundle);
+    expect(policyReadCount).toBe(0);
+    const rows = await execSql(
+      `SELECT current_state_json AS currentStateJson
+       FROM principal_policies
+       WHERE principal_type = ? AND principal_id = ?`,
+      [bundle.currentState.principalType, bundle.currentState.principalId],
+    );
+    expect(Reflect.get(rows[0] ?? {}, "currentStateJson")).toBe("{}");
   } finally {
     close();
   }

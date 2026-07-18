@@ -17,6 +17,7 @@ import {
 import {
   principalPolicies,
   principalPolicyBundleHistory,
+  principalPolicyBundleReferences,
   principalPolicyCheckpoints,
 } from "./principalPolicySchema";
 import { defineSqlTableSchema, type SqlTableSchema } from "./sqlTableSchema";
@@ -24,6 +25,7 @@ import { defineSqlTableSchema, type SqlTableSchema } from "./sqlTableSchema";
 export {
   principalPolicies,
   principalPolicyBundleHistory,
+  principalPolicyBundleReferences,
   principalPolicyCheckpoints,
 } from "./principalPolicySchema";
 export { organizationReadModelTables };
@@ -654,6 +656,7 @@ export const documentTables: ReadonlyArray<SqlTableSchema> = [
 export const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(principalPolicies),
   defineSqlTableSchema(principalPolicyBundleHistory),
+  defineSqlTableSchema(principalPolicyBundleReferences),
 ];
 
 export const keyingCheckpointTables: ReadonlyArray<SqlTableSchema> = [
@@ -717,6 +720,7 @@ export const clientSQLiteSchema = {
   documentPendingUpdates,
   principalPolicies,
   principalPolicyBundleHistory,
+  principalPolicyBundleReferences,
   accessManifestCheckpoints,
   principalPolicyCheckpoints,
   trustedUserIdentityPins,

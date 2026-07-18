@@ -9,7 +9,10 @@ import {
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { parseOrganizationAuthorityDescriptor } from "../organizationAuthorityDescriptor";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
-import { principalPolicyHeadMeetsCheckpoint } from "../persistence/principalPolicyCheckpointSelection";
+import {
+  principalPolicyHeadMeetsCheckpoint,
+  verifiedPrincipalPolicyMeetsCheckpoint,
+} from "../persistence/principalPolicyCheckpointSelection";
 import { loadPrincipalPolicyBundle } from "../persistence/principalPolicyPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../persistence/principalPolicyReferencePersistence";
 import {
@@ -26,6 +29,7 @@ import {
   filterUncachedPrincipalPolicyReferences,
   principalPolicyBundleStates,
   referencedPrincipalPolicyKey,
+  verifiedPrincipalPolicyContainsReference,
 } from "./principalPolicyCache";
 import type {
   PrincipalPolicyCache,
@@ -261,18 +265,26 @@ async function verifyReferencedPrincipalPolicy(input: {
     input.reference.principalType,
     input.reference.principalId,
   );
-  if (
-    cachedPolicy &&
-    principalPolicyHeadMeetsCheckpoint(cachedPolicy, localCheckpoint)
-  ) {
-    observePrincipalPolicy(input.checkpointContext, cachedPolicy);
-    return cachedPolicy;
+  if (cachedPolicy) {
+    if (
+      !verifiedPrincipalPolicyContainsReference(cachedPolicy, input.reference)
+    ) {
+      throw new KeyingVerificationError(
+        "hash_mismatch",
+        "in-memory principal policy cache does not match its exact reference",
+      );
+    }
+    if (verifiedPrincipalPolicyMeetsCheckpoint(cachedPolicy, localCheckpoint)) {
+      observePrincipalPolicy(input.checkpointContext, cachedPolicy);
+      return cachedPolicy;
+    }
   }
 
   const referenceLabel = principalPolicyReferenceLabel(input.reference);
   let bundle = await loadPrincipalPolicyBundleForReference(
     execSql,
     input.reference,
+    localCheckpoint,
   );
   if (!bundle && input.warmReferencedPrincipalPolicies) {
     // The reference is not cached locally — the common case for a member who
@@ -285,6 +297,7 @@ async function verifyReferencedPrincipalPolicy(input: {
     bundle = await loadPrincipalPolicyBundleForReference(
       execSql,
       input.reference,
+      localCheckpoint,
     );
   }
   if (!bundle) {
