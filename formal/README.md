@@ -35,6 +35,11 @@ The one-readable-baseline abstraction maps to production at these seams:
 | `Prune` | `planDominatedUpdatePrune` |
 | `Serve` | `selectServedSyncUpdates` |
 
+The model's `live` set relies on `listMissingDocumentUpdates` excluding rows
+whose encrypted payload has been cleared. Removing that query predicate would
+break the modeled coupling between pruning a payload and omitting it from the
+next sync response.
+
 TLC explores every ordering of eligible prune actions followed by a sync serve
 decision. The checked invariants require that:
 
