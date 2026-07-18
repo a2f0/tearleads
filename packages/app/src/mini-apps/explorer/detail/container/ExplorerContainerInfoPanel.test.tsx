@@ -22,6 +22,7 @@ function createGroup(input: { groupId: string; name: string }) {
     createdAt: "2026-05-18T00:00:00.000Z",
     currentState: {
       keyEpoch: 1,
+      keyFingerprint: `${input.groupId}-key-fingerprint`,
       memberCount: 1,
       stateHash: `${input.groupId}-state`,
       version: 1,

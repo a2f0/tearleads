@@ -9,54 +9,49 @@ function GrantsRefreshProbe({ input }: { input: GrantsRefreshInput }) {
   return null;
 }
 
-test("grants reconcile on entry and repaint locally on cursor changes", async () => {
-  const refreshGrantsOnEntry = mock(async () => {});
+test("grants entry and re-entry repaint only from the local projection", async () => {
   const refreshGrants = mock(async () => {});
   const baseInput = {
     enabled: true,
     readModelCursor: "cursor-1",
     refreshGrants,
-    refreshGrantsOnEntry,
     visible: false,
   } satisfies GrantsRefreshInput;
   const view = render(<GrantsRefreshProbe input={baseInput} />);
 
-  expect(refreshGrantsOnEntry).toHaveBeenCalledTimes(0);
   expect(refreshGrants).toHaveBeenCalledTimes(0);
 
   view.rerender(<GrantsRefreshProbe input={{ ...baseInput, visible: true }} />);
   await waitFor(() => {
-    expect(refreshGrantsOnEntry).toHaveBeenCalledTimes(1);
+    expect(refreshGrants).toHaveBeenCalledTimes(1);
   });
-  expect(refreshGrants).toHaveBeenCalledTimes(0);
 
-  const replacementEntryRefresh = mock(async () => {});
+  const replacementLocalRefresh = mock(async () => {});
   view.rerender(
     <GrantsRefreshProbe
       input={{
         ...baseInput,
-        refreshGrantsOnEntry: replacementEntryRefresh,
+        refreshGrants: replacementLocalRefresh,
         visible: true,
       }}
     />,
   );
-  expect(replacementEntryRefresh).toHaveBeenCalledTimes(0);
+  expect(replacementLocalRefresh).toHaveBeenCalledTimes(0);
 
   view.rerender(
     <GrantsRefreshProbe
       input={{
         ...baseInput,
         readModelCursor: "cursor-2",
-        refreshGrantsOnEntry: replacementEntryRefresh,
+        refreshGrants: replacementLocalRefresh,
         visible: true,
       }}
     />,
   );
   await waitFor(() => {
-    expect(refreshGrants).toHaveBeenCalledTimes(1);
+    expect(replacementLocalRefresh).toHaveBeenCalledTimes(1);
   });
-  expect(refreshGrantsOnEntry).toHaveBeenCalledTimes(1);
-  expect(replacementEntryRefresh).toHaveBeenCalledTimes(0);
+  expect(refreshGrants).toHaveBeenCalledTimes(1);
 
   view.rerender(
     <GrantsRefreshProbe
@@ -64,7 +59,7 @@ test("grants reconcile on entry and repaint locally on cursor changes", async ()
         ...baseInput,
         enabled: false,
         readModelCursor: "cursor-3",
-        refreshGrantsOnEntry: replacementEntryRefresh,
+        refreshGrants: replacementLocalRefresh,
         visible: true,
       }}
     />,
@@ -74,13 +69,13 @@ test("grants reconcile on entry and repaint locally on cursor changes", async ()
       input={{
         ...baseInput,
         readModelCursor: "cursor-3",
-        refreshGrantsOnEntry: replacementEntryRefresh,
+        refreshGrants: replacementLocalRefresh,
         visible: true,
       }}
     />,
   );
   await waitFor(() => {
-    expect(replacementEntryRefresh).toHaveBeenCalledTimes(1);
+    expect(replacementLocalRefresh).toHaveBeenCalledTimes(2);
   });
   expect(refreshGrants).toHaveBeenCalledTimes(1);
 });

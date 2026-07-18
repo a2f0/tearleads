@@ -11,10 +11,12 @@ import {
   isListOrganizationGroupsResponse,
   isOrganizationContainerGrantResponse,
   isOrganizationDirectoryUserResponse,
+  isOrganizationGroupCurrentStateResponse,
   isOrganizationGroupMemberResponse,
   type ListOrganizationGroupsResponse,
   type OrganizationContainerGrantsResponse,
   type OrganizationDirectoryResponse,
+  type OrganizationGroupCurrentStateResponse,
   type OrganizationGroupMemberResponse,
 } from "./organization";
 
@@ -38,12 +40,17 @@ export interface OrganizationReadModelGroupMembershipsResponse {
   readonly groups: OrganizationReadModelGroupMembershipResponse[];
 }
 
+export interface OrganizationReadModelOrganizationPolicyResponse {
+  readonly currentState: OrganizationGroupCurrentStateResponse;
+  readonly organizationId: string;
+}
+
 interface OrganizationReadModelResponseBase {
   readonly currentUser: OrganizationDirectoryResponse["currentUser"];
   readonly hasMore: boolean;
   readonly nextCursor: string;
   readonly organizationId: string;
-  readonly version: 3;
+  readonly version: 4;
 }
 
 export interface OrganizationReadModelSnapshotResponse
@@ -54,6 +61,7 @@ export interface OrganizationReadModelSnapshotResponse
     readonly grants: OrganizationReadModelGrantsResponse;
     readonly groupMemberships: OrganizationReadModelGroupMembershipsResponse;
     readonly groups: ListOrganizationGroupsResponse;
+    readonly organizationPolicy: OrganizationReadModelOrganizationPolicyResponse;
   };
 }
 
@@ -65,6 +73,7 @@ export interface OrganizationReadModelDeltaResponse
     readonly grants?: OrganizationReadModelGrantsResponse;
     readonly groupMemberships?: OrganizationReadModelGroupMembershipsResponse;
     readonly groups?: ListOrganizationGroupsResponse;
+    readonly organizationPolicy?: OrganizationReadModelOrganizationPolicyResponse;
   };
 }
 
@@ -132,9 +141,36 @@ function isGroupsLane(value: unknown): value is ListOrganizationGroupsResponse {
             "stateHash",
             "version",
             "keyEpoch",
+            "keyFingerprint",
             "memberCount",
           ])),
     )
+  );
+}
+
+function isOrganizationPolicyLane(
+  value: unknown,
+): value is OrganizationReadModelOrganizationPolicyResponse {
+  if (
+    !isPlainObject(value) ||
+    !hasStringProperty(value, "organizationId") ||
+    !hasObjectProperty(value, "currentState") ||
+    !hasExactKeys(value, ["organizationId", "currentState"])
+  ) {
+    return false;
+  }
+
+  const currentState = value.currentState;
+  return (
+    isOrganizationGroupCurrentStateResponse(currentState) &&
+    currentState.stateHash.length > 0 &&
+    hasExactKeys(currentState, [
+      "stateHash",
+      "version",
+      "keyEpoch",
+      "keyFingerprint",
+      "memberCount",
+    ])
   );
 }
 
@@ -311,7 +347,7 @@ function hasValidCommonFields(value: unknown): value is {
       "lanes",
     ]) &&
     hasNumberProperty(value, "version") &&
-    value.version === 3 &&
+    value.version === 4 &&
     hasStringProperty(value, "mode") &&
     hasStringProperty(value, "organizationId") &&
     hasStringProperty(value, "nextCursor") &&
@@ -337,7 +373,8 @@ export function isOrganizationReadModelResponse(
         key !== "directory" &&
         key !== "grants" &&
         key !== "groupMemberships" &&
-        key !== "groups",
+        key !== "groups" &&
+        key !== "organizationPolicy",
     )
   ) {
     return false;
@@ -346,6 +383,7 @@ export function isOrganizationReadModelResponse(
   const grants = Reflect.get(value.lanes, "grants");
   const groupMemberships = Reflect.get(value.lanes, "groupMemberships");
   const groups = Reflect.get(value.lanes, "groups");
+  const organizationPolicy = Reflect.get(value.lanes, "organizationPolicy");
   const validDirectory = directory === undefined || isDirectoryLane(directory);
   const validGrants = grants === undefined || isGrantsLane(grants);
   const validGroupMemberships =
@@ -356,11 +394,15 @@ export function isOrganizationReadModelResponse(
       groups.groups.every(
         (group) => group.organizationId === value.organizationId,
       ));
+  const validOrganizationPolicy =
+    organizationPolicy === undefined ||
+    isOrganizationPolicyLane(organizationPolicy);
   if (
     !validDirectory ||
     !validGrants ||
     !validGroupMemberships ||
-    !validGroups
+    !validGroups ||
+    !validOrganizationPolicy
   ) {
     return false;
   }
@@ -369,7 +411,9 @@ export function isOrganizationReadModelResponse(
     (grants && grants.organizationId !== value.organizationId) ||
     (groupMemberships &&
       groupMemberships.organizationId !== value.organizationId) ||
-    (groups && groups.organizationId !== value.organizationId)
+    (groups && groups.organizationId !== value.organizationId) ||
+    (organizationPolicy &&
+      organizationPolicy.organizationId !== value.organizationId)
   ) {
     return false;
   }
@@ -381,6 +425,7 @@ export function isOrganizationReadModelResponse(
       groupMemberships !== undefined &&
       groupMemberships.deletedGroupIds.length === 0 &&
       groups !== undefined &&
+      organizationPolicy !== undefined &&
       !value.hasMore
     );
   }

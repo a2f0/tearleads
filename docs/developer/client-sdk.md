@@ -97,7 +97,7 @@ Client capabilities:
 | `tearleads.documents` | document editing, lists, deletion, subscriptions, and runtime composition |
 | `tearleads.containerContents` | container tree, document queries/links, discovery, diagnostics, and runtime composition |
 | `tearleads.deviceFirst` | device-first local projection view (instant cached tree + document summaries) and the background reconciler that syncs remote state into it |
-| `tearleads.organizations` | strict local-first organization read-model reconciliation |
+| `tearleads.organizations` | strict local-first organization projections and exact-head history from verified policy storage |
 | `tearleads.userIdentities` | pinned user identity bundles for cryptographic workflows |
 
 Prefer these instance services over constructing workflow runtimes directly

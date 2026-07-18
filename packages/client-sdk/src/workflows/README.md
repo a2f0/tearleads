@@ -12,7 +12,7 @@ coordination, but they must stay React-free and product-UI-free.
 | `containers` | Platform runtime | Container mutation planning and remote container operations. |
 | `documents` | Platform runtime | Document creation, persistence, sync, projection keys, and document link-set helpers. |
 | `container-contents` | Platform query and runtime | Container tree projections, container metadata documents, document discovery, document links, identity-wide pending-write diagnostics, compact attribution diagnostics, lazy paginated attribution ranges, and sync-state helpers. Product UI routes, panels, menus, and selection state belong in `packages/app`. |
-| `organizations` | Platform organization administration | Transactional local directory, group-summary, group-membership, grant, and user-detail projections with opaque feed cursors; request-driven usage and signed policy history; ID-only user membership mutations; verified principal-policy mutation helpers; and organization-scoped system-container slot helpers. Org Manager screens and labels belong in `packages/app`. |
+| `organizations` | Platform organization administration | Transactional local directory, group-summary, group-membership, grant, policy-head, and user-detail projections with opaque feed cursors; separately refreshed usage; exact-head history from verified principal-policy storage; ID-only user membership mutations; verified principal-policy mutation helpers; and organization-scoped system-container slot helpers. Org Manager screens and labels belong in `packages/app`. |
 | `principals` | Platform runtime | Principal-policy cache and verification support routed through the durable trusted-user-identity gateway. |
 | `registration` | Platform runtime | Local registration and atomic organization bootstrap helpers, including the initial encrypted roster and organization-profile bodies. |
 | `sync` | Platform runtime | Shared sync coordinator helpers. |
@@ -59,25 +59,27 @@ not reach signature or encryption helpers.
 Lower-level integration tests may use `@tearleads/client-sdk/testing` to
 construct the nominal test values; production source must not import it.
 
-Organization directory, group-summary, state-hash-bound membership, and grant
-rows are presentation projections. The SDK reconciles them through the strict
-version 3 organization read-model feed and keeps the opaque cursor in the same
-SQLite transaction as each applied page. Older projections are discarded before
-a cursorless version 3 snapshot; there is no translation or legacy HTTP
-fallback.
+Organization directory, group-summary, state-hash-bound membership, grant, and
+policy-head rows are presentation projections. The SDK reconciles them through
+the strict version 4 organization read-model feed and keeps the opaque cursor in
+the same SQLite transaction as each applied page. Older projections are
+discarded before a cursorless version 4 snapshot; there is no translation or
+legacy HTTP fallback.
 
 Grant lists, group containers, and user details are derived from this local
 projection. User-detail group reachability is cycle-safe and traverses hidden
 groups before filtering the displayed group catalog. Container display names are
 joined from local encrypted metadata. `loadGroupPresentationDetails(...)`
-combines local members with signed policy history, while group containers
-repaint independently from the local grants lane; neither path falls back to
-remote presentation reads. State-hash and member-count checks prevent
-torn local views, but do not make these rows authoritative. `isSelf` is derived
-from the active user, while `isOrgAdmin` is requester-scoped and UI-only;
-mutations derive authority from verified writer projections and signed policies.
-Root and metadata key rewraps test verified existing grants, never read-model
-grant IDs, group IDs, or memberships.
+combines local members with policy history only after the separately verified
+policy bundle exactly matches the projected head. A missing bundle runs the
+canonical fetch, signature, trusted-identity, checkpoint, and persistence path
+before rereading local history; raw responses are never rendered. Group
+containers repaint independently from the local grants lane. State-hash and
+member-count checks prevent torn local views, but do not make presentation rows
+authoritative. `isSelf` is derived from the active user, while `isOrgAdmin` is
+requester-scoped and UI-only; mutations derive authority from verified writer
+projections and signed policies. Root and metadata key rewraps test verified
+existing grants, never read-model grant IDs, group IDs, or memberships.
 
 Name SDK facades after the platform state they expose. Product names can stay
 in app providers and components that adapt those platform facades into a UI.

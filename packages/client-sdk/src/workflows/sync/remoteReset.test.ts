@@ -9,6 +9,7 @@ import {
   organizationReadModelGroupMembers,
   organizationReadModelGroupMemberships,
   organizationReadModelGroups,
+  organizationReadModelPolicyHeads,
   organizationReadModelRequesters,
   organizationReadModelState,
 } from "../../data/sqlite/organizationReadModelSchema";
@@ -255,6 +256,16 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         keyEpoch: 1,
         memberCount: 1,
       });
+      await tx.insert(organizationReadModelPolicyHeads).values({
+        organizationId: "org-old",
+        principalType: "group",
+        principalId: "group-old",
+        stateHash: "group-state",
+        stateVersion: 1,
+        keyEpoch: 1,
+        keyFingerprint: "group-key-fingerprint",
+        memberCount: 1,
+      });
       await tx.insert(organizationReadModelGroupMemberships).values({
         organizationId: "org-old",
         groupId: "group-old",
@@ -419,6 +430,9 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
       [],
     );
     expect(await db.select().from(organizationReadModelGroups)).toEqual([]);
+    expect(await db.select().from(organizationReadModelPolicyHeads)).toEqual(
+      [],
+    );
     expect(
       await db.select().from(organizationReadModelGroupMemberships),
     ).toEqual([]);

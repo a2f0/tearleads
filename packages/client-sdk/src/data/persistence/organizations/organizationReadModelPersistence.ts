@@ -22,6 +22,10 @@ import {
   assertStoredGroupMembershipBindings,
 } from "./organizationReadModelMembershipPersistence";
 import {
+  applyOrganizationPolicyLane,
+  replaceGroupPolicyHeads,
+} from "./organizationReadModelPolicyHeadPersistence";
+import {
   loadOrganizationReadModelProjectionInTransaction,
   type OrganizationReadModelProjection,
 } from "./organizationReadModelProjection";
@@ -82,6 +86,12 @@ function assertResponse(input: {
     response.lanes.grants.organizationId !== response.organizationId
   ) {
     throw new Error("Organization grants response scope does not match");
+  }
+  if (
+    response.lanes.organizationPolicy?.organizationId !== undefined &&
+    response.lanes.organizationPolicy.organizationId !== response.organizationId
+  ) {
+    throw new Error("Organization policy response scope does not match");
   }
   if (
     response.lanes.groups?.groups.some(
@@ -190,6 +200,7 @@ async function replaceGroupsLane(input: {
     .delete(organizationReadModelGroups)
     .where(eq(organizationReadModelGroups.organizationId, input.organizationId))
     .run();
+  await replaceGroupPolicyHeads(input);
 
   const rows = input.groups.groups.map((group, sortOrder) => ({
     organizationId: input.organizationId,
@@ -262,6 +273,14 @@ async function replaceResponseLanes(input: {
     await replaceGroupsLane({
       groups,
       organizationId: input.response.organizationId,
+      tx: input.tx,
+    });
+  }
+  const organizationPolicy = input.response.lanes.organizationPolicy;
+  if (organizationPolicy) {
+    await applyOrganizationPolicyLane({
+      organizationId: input.response.organizationId,
+      organizationPolicy,
       tx: input.tx,
     });
   }

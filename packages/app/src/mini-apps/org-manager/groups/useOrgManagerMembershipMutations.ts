@@ -1,7 +1,6 @@
 import type {
   OrganizationDirectory,
   OrganizationGroupMembers,
-  OrganizationGroupPolicyHistory,
 } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
@@ -31,12 +30,6 @@ interface OrgManagerMembershipMutationsParams {
   readonly selectedGroupIsMembersGroup: boolean;
   readonly setAddUserId: Dispatch<SetStateAction<string>>;
   readonly setError: Dispatch<SetStateAction<string | null>>;
-  readonly setGroupPolicyHistory: Dispatch<
-    SetStateAction<OrganizationGroupPolicyHistory | null>
-  >;
-  readonly setMembers: Dispatch<
-    SetStateAction<OrganizationGroupMembers | null>
-  >;
   readonly setMutating: Dispatch<SetStateAction<boolean>>;
 }
 
@@ -90,12 +83,6 @@ async function addUserToSelectedGroup(
     await refreshAfterGroupMutation({
       invalidateSelectedGroupDetails: params.invalidateSelectedGroupDetails,
       isOperationActive: params.isOperationActive,
-      mutationProjection: {
-        bundle: policyBundle,
-        groupId: params.selectedGroupId,
-        setGroupPolicyHistory: params.setGroupPolicyHistory,
-        setMembers: params.setMembers,
-      },
       operationOrganizationId,
       refreshDirectoryAndGroups: params.refreshDirectoryAndGroups,
       refreshSelectedGroupDetails: params.refreshSelectedGroupDetails,
@@ -131,7 +118,7 @@ async function removeUserFromSelectedGroup(
   params.setMutating(true);
   params.setError(null);
   try {
-    const policyBundle = await params.orgManagerActions.removeUserFromGroup(
+    await params.orgManagerActions.removeUserFromGroup(
       params.selectedGroupId,
       removedUserId,
     );
@@ -141,12 +128,6 @@ async function removeUserFromSelectedGroup(
     await refreshAfterGroupMutation({
       invalidateSelectedGroupDetails: params.invalidateSelectedGroupDetails,
       isOperationActive: params.isOperationActive,
-      mutationProjection: {
-        bundle: policyBundle,
-        groupId: params.selectedGroupId,
-        setGroupPolicyHistory: params.setGroupPolicyHistory,
-        setMembers: params.setMembers,
-      },
       operationOrganizationId,
       refreshDirectoryAndGroups: params.refreshDirectoryAndGroups,
       refreshSelectedGroupDetails: params.refreshSelectedGroupDetails,
@@ -184,8 +165,6 @@ export function useOrgManagerMembershipMutations(
       params.selectedGroupIsMembersGroup,
       params.setAddUserId,
       params.setError,
-      params.setGroupPolicyHistory,
-      params.setMembers,
       params.setMutating,
     ],
   );
@@ -204,8 +183,6 @@ export function useOrgManagerMembershipMutations(
       params.refreshSelectedGroupDetails,
       params.selectedGroupId,
       params.setError,
-      params.setGroupPolicyHistory,
-      params.setMembers,
       params.setMutating,
     ],
   );

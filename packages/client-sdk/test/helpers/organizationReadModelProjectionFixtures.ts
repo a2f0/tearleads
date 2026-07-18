@@ -6,6 +6,7 @@ import type {
   OrganizationReadModelDeltaResponse,
   OrganizationReadModelDirectoryResponse,
   OrganizationReadModelGroupMembershipsResponse,
+  OrganizationReadModelOrganizationPolicyResponse,
   OrganizationReadModelSnapshotResponse,
 } from "@tearleads/validators/response";
 
@@ -77,10 +78,27 @@ function organizationReadModelGroups(
           stateHash: `state-${groupName}`,
           version: 1,
           keyEpoch: 1,
+          keyFingerprint: `key-${groupName}`,
           memberCount: 1,
         },
       },
     ],
+  };
+}
+
+function organizationReadModelOrganizationPolicy(
+  organizationId: string,
+  suffix: string,
+): OrganizationReadModelOrganizationPolicyResponse {
+  return {
+    organizationId,
+    currentState: {
+      stateHash: `organization-state-${suffix}`,
+      version: 1,
+      keyEpoch: 1,
+      keyFingerprint: `organization-key-${suffix}`,
+      memberCount: 1,
+    },
   };
 }
 
@@ -176,7 +194,7 @@ export function organizationReadModelSnapshot(
     organizationId,
   });
   return {
-    version: 3,
+    version: 4,
     mode: "snapshot",
     organizationId,
     nextCursor: input.cursor ?? "cursor-1",
@@ -190,6 +208,10 @@ export function organizationReadModelSnapshot(
       grants: organizationReadModelGrants(groups),
       groupMemberships: organizationReadModelMemberships(groups, true),
       groups,
+      organizationPolicy: organizationReadModelOrganizationPolicy(
+        organizationId,
+        input.groupName ?? "Admins",
+      ),
     },
   };
 }
@@ -207,7 +229,7 @@ export function organizationReadModelGroupsDelta(input: {
     organizationId,
   });
   return {
-    version: 3,
+    version: 4,
     mode: "delta",
     organizationId,
     nextCursor: input.cursor,

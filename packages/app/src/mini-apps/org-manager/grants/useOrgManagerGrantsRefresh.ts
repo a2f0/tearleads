@@ -4,7 +4,6 @@ interface OrgManagerGrantsRefreshInput {
   readonly enabled: boolean;
   readonly readModelCursor: string | null;
   readonly refreshGrants: () => Promise<void>;
-  readonly refreshGrantsOnEntry: () => Promise<void>;
   readonly visible: boolean;
 }
 
@@ -24,17 +23,13 @@ export function useOrgManagerGrantsRefresh(
     if (!grantsVisible) {
       return;
     }
-    if (!wasGrantsVisible) {
-      void input.refreshGrantsOnEntry();
-      return;
-    }
-    if (previousReadModelCursor !== input.readModelCursor) {
+    // Continuous read-model demand owns remote reconciliation. View entry and
+    // cursor changes only repaint grants from the local projection.
+    if (
+      !wasGrantsVisible ||
+      previousReadModelCursor !== input.readModelCursor
+    ) {
       void input.refreshGrants();
     }
-  }, [
-    grantsVisible,
-    input.readModelCursor,
-    input.refreshGrants,
-    input.refreshGrantsOnEntry,
-  ]);
+  }, [grantsVisible, input.readModelCursor, input.refreshGrants]);
 }

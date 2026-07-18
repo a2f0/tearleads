@@ -266,11 +266,19 @@ async function cacheReferencedPrincipalPolicy(
   log: ((message: string) => void) | undefined,
   loadExternalAdminPolicy: () => Promise<VerifiedExternalAdminPolicy | null>,
 ): Promise<void> {
-  const cachedBundle = await loadPrincipalPolicyBundle(
-    execSql,
-    reference.principalType,
-    reference.principalId,
-  );
+  let cachedBundle: PrincipalPolicyBundleResponse | null = null;
+  try {
+    cachedBundle = await loadPrincipalPolicyBundle(
+      execSql,
+      reference.principalType,
+      reference.principalId,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log?.(
+      `Principal policy cache: ignored invalid local ${getReferencedPrincipalKey(reference)}: ${message}`,
+    );
+  }
   const localCheckpoint = await loadPrincipalPolicyVerificationCheckpoint({
     execSql,
     principalId: reference.principalId,

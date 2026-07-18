@@ -19,6 +19,8 @@ export {
   loadLocalOrganizationContainerGrants,
   loadLocalOrganizationGroupContainers,
   loadLocalOrganizationGroupPolicyHistory,
+  loadLocalOrganizationPolicyHistory,
+  loadLocalOrganizationPolicyReference,
   loadLocalOrganizationUserDetail,
 } from "./localReadModelDetails";
 export {
@@ -43,8 +45,6 @@ export {
 export {
   buildOrganizationGroupPolicyHistory,
   loadOrganizationDataUsage,
-  loadOrganizationGroupPolicyHistory,
-  loadOrganizationPolicyHistory,
   type OrganizationContainerGrant,
   type OrganizationContainerGrants,
   type OrganizationDataUsage,

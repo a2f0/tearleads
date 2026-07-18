@@ -226,6 +226,7 @@ test("createOrganizationGroup caches the created group policy in a fresh local d
             stateHash: createdPolicyBundle.currentState.stateHash,
             version: createdPolicyBundle.currentState.version,
             keyEpoch: createdPolicyBundle.currentState.keyEpoch,
+            keyFingerprint: createdPolicyBundle.currentState.keyFingerprint,
             memberCount: createdPolicyBundle.currentState.memberCount,
           },
         };

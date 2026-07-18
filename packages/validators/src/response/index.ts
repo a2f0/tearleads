@@ -164,6 +164,7 @@ export {
   type OrganizationReadModelGrantsResponse,
   type OrganizationReadModelGroupMembershipResponse,
   type OrganizationReadModelGroupMembershipsResponse,
+  type OrganizationReadModelOrganizationPolicyResponse,
   type OrganizationReadModelResponse,
   type OrganizationReadModelSnapshotResponse,
 } from "./organizationReadModel";

@@ -5,15 +5,19 @@ import {
   loadLocalOrganizationGroupContainers,
   loadLocalOrganizationGroupMembers,
   loadLocalOrganizationGroupPolicyHistory,
+  loadLocalOrganizationPolicyHistory,
+  loadLocalOrganizationPolicyReference,
   loadLocalOrganizationUserDetail,
   type OrganizationContainerGrants,
   type OrganizationDirectoryAndGroups,
   type OrganizationGroupContainers,
   type OrganizationGroupMembers,
   type OrganizationGroupPolicyHistory,
+  type OrganizationPolicyHistory,
   type OrganizationUserDetail,
   reconcileOrganizationDirectoryAndGroups,
 } from "../workflows/organizations";
+import { createRuntimePrincipalPolicyWarmer } from "../workflows/principals/runtimePolicyWarmer";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
@@ -38,10 +42,13 @@ export interface OrganizationReadModelCoordinator {
     groupId: string,
     organizationId?: string | undefined,
   ): Promise<OrganizationGroupMembers | null>;
-  loadLocalGroupPolicyHistory(
+  loadGroupPolicyHistory(
     groupId: string,
     organizationId?: string | undefined,
   ): Promise<OrganizationGroupPolicyHistory | null>;
+  loadOrganizationPolicyHistory(
+    organizationId?: string | undefined,
+  ): Promise<OrganizationPolicyHistory | null>;
   loadLocalGrants(
     organizationId?: string | undefined,
   ): Promise<OrganizationContainerGrants | null>;
@@ -93,6 +100,10 @@ class OrganizationReadModelCoordinatorImpl
     DomainScope,
     Map<string, Promise<OrganizationDirectoryAndGroups | null>>
   >();
+  private readonly policyWarmersByScope = new WeakMap<
+    DomainScope,
+    Map<string, Promise<void>>
+  >();
 
   constructor(private readonly runtimeService: InternalRuntime) {}
 
@@ -104,6 +115,98 @@ class OrganizationReadModelCoordinatorImpl
       this.reconciliationsByScope.set(scope, byKey);
     }
     return byKey;
+  }
+
+  private policyWarmerMap(active: ActiveOrganizationReadModelRuntime) {
+    const scope = active.runtime.state.domainScope;
+    let byKey = this.policyWarmersByScope.get(scope);
+    if (!byKey) {
+      byKey = new Map();
+      this.policyWarmersByScope.set(scope, byKey);
+    }
+    return byKey;
+  }
+
+  private async warmPolicyReference(
+    active: ActiveOrganizationReadModelRuntime,
+    reference: NonNullable<
+      Awaited<ReturnType<typeof loadLocalOrganizationPolicyReference>>
+    >,
+  ): Promise<void> {
+    if (!active.runtime.state.online) {
+      return;
+    }
+    const byKey = this.policyWarmerMap(active);
+    const key = `${active.organizationId}\0${reference.principalType}\0${reference.principalId}\0${reference.stateHash}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      return existing;
+    }
+    const warming = createRuntimePrincipalPolicyWarmer(active.runtime)({
+      organizationId: active.organizationId,
+      references: [reference],
+    }).finally(() => {
+      if (byKey.get(key) === warming) {
+        byKey.delete(key);
+      }
+    });
+    byKey.set(key, warming);
+    return warming;
+  }
+
+  private async loadPolicyHistoryAfterWarm<History>(input: {
+    readonly active: ActiveOrganizationReadModelRuntime;
+    readonly loadLocal: () => Promise<History | null>;
+    readonly principalId: string;
+    readonly principalType: "group" | "organization";
+  }): Promise<History | null> {
+    try {
+      const local = await input.loadLocal();
+      if (local) {
+        return local;
+      }
+    } catch (error) {
+      input.active.runtime.util.logError(
+        "Failed to load verified organization policy history",
+        error,
+      );
+    }
+    if (!input.active.runtime.state.online) {
+      return null;
+    }
+
+    let reference: Awaited<
+      ReturnType<typeof loadLocalOrganizationPolicyReference>
+    >;
+    try {
+      reference = await loadLocalOrganizationPolicyReference({
+        currentUserId: input.active.userId,
+        execSql: input.active.runtime.infra.execSql,
+        organizationId: input.active.organizationId,
+        principalId: input.principalId,
+        principalType: input.principalType,
+      });
+    } catch (error) {
+      input.active.runtime.util.logError(
+        "Failed to load organization policy-head projection",
+        error,
+      );
+      return null;
+    }
+    if (!reference) {
+      return null;
+    }
+
+    await this.warmPolicyReference(input.active, reference);
+    try {
+      return await input.loadLocal();
+    } catch (error) {
+      input.active.runtime.util.logError(
+        "Failed to reload verified organization policy history",
+        error,
+      );
+      return null;
+    }
   }
 
   async loadLocal(organizationId?: string) {
@@ -156,16 +259,40 @@ class OrganizationReadModelCoordinatorImpl
     });
   }
 
-  async loadLocalGroupPolicyHistory(groupId: string, organizationId?: string) {
+  async loadGroupPolicyHistory(groupId: string, organizationId?: string) {
     const active = activeReadModelRuntime(this.runtimeService, organizationId);
     if (!active || groupId.length === 0) {
       return null;
     }
-    return loadLocalOrganizationGroupPolicyHistory({
-      currentUserId: active.userId,
-      execSql: active.runtime.infra.execSql,
-      groupId,
-      organizationId: active.organizationId,
+    return this.loadPolicyHistoryAfterWarm({
+      active,
+      loadLocal: () =>
+        loadLocalOrganizationGroupPolicyHistory({
+          currentUserId: active.userId,
+          execSql: active.runtime.infra.execSql,
+          groupId,
+          organizationId: active.organizationId,
+        }),
+      principalId: groupId,
+      principalType: "group",
+    });
+  }
+
+  async loadOrganizationPolicyHistory(organizationId?: string) {
+    const active = activeReadModelRuntime(this.runtimeService, organizationId);
+    if (!active) {
+      return null;
+    }
+    return this.loadPolicyHistoryAfterWarm({
+      active,
+      loadLocal: () =>
+        loadLocalOrganizationPolicyHistory({
+          currentUserId: active.userId,
+          execSql: active.runtime.infra.execSql,
+          organizationId: active.organizationId,
+        }),
+      principalId: active.organizationId,
+      principalType: "organization",
     });
   }
 

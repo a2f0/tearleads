@@ -45,6 +45,7 @@ export interface OrganizationGroupCurrentStateResponse {
   stateHash: string;
   version: number;
   keyEpoch: number;
+  keyFingerprint: string;
   memberCount: number;
 }
 
@@ -264,9 +265,9 @@ export function isOrganizationGroupCurrentStateResponse(
     hasNumberProperty(value, "keyEpoch") &&
     Number.isInteger(value.keyEpoch) &&
     value.keyEpoch > 0 &&
-    hasNumberProperty(value, "memberCount") &&
-    Number.isInteger(value.memberCount) &&
-    value.memberCount >= 0
+    hasStringProperty(value, "keyFingerprint") &&
+    value.keyFingerprint.length > 0 &&
+    isNonNegativeIntegerProperty(value, "memberCount")
   );
 }
 
