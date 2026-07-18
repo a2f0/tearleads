@@ -114,8 +114,8 @@ test("mobile routed shell opens the nav sheet from the bottom menu bar", () => {
 
   try {
     view = renderRoutedPane();
-    const mobileBar = view.container.querySelector(".routed-pane-mobile-bar");
-    expect(mobileBar).toBeTruthy();
+    const taskbar = view.container.querySelector(".routed-pane-taskbar");
+    expect(taskbar).toBeTruthy();
     expect(view.container.querySelector(".routed-pane-hamburger")).toBeNull();
 
     const sheet = view.container.querySelector(".routed-pane-sheet");
@@ -154,6 +154,10 @@ test("tablet routed shell starts with the navigation rail collapsed", () => {
 
   try {
     view = renderRoutedPane();
+
+    // The tablet/iPad tier now carries the same bottom taskbar as mobile
+    // (centered logo + mode switch) in addition to its persistent rail.
+    expect(view.container.querySelector(".routed-pane-taskbar")).toBeTruthy();
 
     // The rail now defaults to collapsed, so its nav panel (and the app links)
     // stays hidden behind the toggle until the user expands it.

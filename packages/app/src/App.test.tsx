@@ -148,9 +148,12 @@ test("routed App boots from the Explorer home gate and navigates via the rail", 
 
     // The redesigned routed shell renders the navigation/system actions
     // inline in the rail (tablet) or drawer (mobile) instead of behind a
-    // "Pane" popover, so there is no "Pane" or "Menu" button.
+    // "Pane" popover, so there is no "Pane" button.
     expect(view.queryByRole("button", { name: "Pane" })).toBeNull();
-    expect(view.queryByRole("button", { name: "Menu" })).toBeNull();
+    // The bottom taskbar's centered logo is the routed shell's "Menu"
+    // affordance in both tiers (toggling the rail on tablet, the launcher
+    // sheet on mobile) — not the old windowed pane-menu popover.
+    expect(view.getByRole("button", { name: "Menu" })).toBeTruthy();
     expect(view.queryByText(/SQLite Worker/i)).toBeNull();
 
     // The navigation rail now defaults to collapsed, so its links stay hidden

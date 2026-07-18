@@ -6,6 +6,7 @@ import { SystemMonitorPinned } from "../../../mini-apps/system-monitor/SystemMon
 import { SystemMonitorProvider } from "../../../mini-apps/system-monitor/SystemMonitorProvider";
 import type { AppNavigationMode } from "../../../navigation/AppNavigationMode";
 import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
+import { NavigationModeSwitch } from "../../../navigation/NavigationModeSwitch";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { AppFeatureFlagsProvider } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
@@ -73,6 +74,7 @@ function PaneInner({
           tray={
             <>
               <ThemeToggleButton />
+              <NavigationModeSwitch mode="windowed" />
               <SystemMonitorLauncherButton />
             </>
           }
