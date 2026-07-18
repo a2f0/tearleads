@@ -1,0 +1,44 @@
+---
+import { readFile } from "node:fs/promises";
+import { ScreenshotsBrowser } from "../../components/ScreenshotsBrowser";
+import { titleCase } from "../../components/screenshotsManifest";
+import Layout from "../../layouts/Layout.astro";
+
+// One route per captured screen (plus the bare /screenshots index) so every
+// screenshot has a shareable URL. The manifest is staged by
+// scripts/buildScreenshots.ts on predev/prebuild, before Astro runs; with no
+// captures only the index route exists.
+export async function getStaticPaths() {
+  const manifestUrl = new URL(
+    "../../../public/screenshot-gallery/manifest.json",
+    import.meta.url,
+  );
+  const manifest = JSON.parse(await readFile(manifestUrl, "utf8")) as {
+    screens: string[];
+  };
+  return [
+    { params: { slug: undefined } },
+    ...manifest.screens.map((slug) => ({ params: { slug } })),
+  ];
+}
+
+const { slug } = Astro.params;
+---
+
+<Layout
+  title={slug
+    ? `${titleCase(slug)} Screenshot | Tearleads`
+    : "Screenshots | Tearleads"}
+  description="Browse Tearleads screenshots: windowed and mobile layouts in light and dark themes."
+>
+  <main class="website-main">
+    <section class="section" aria-labelledby="page-title">
+      <h1 id="page-title">Screenshots</h1>
+      <p class="section-lede">
+        A look at Tearleads across windowed and mobile layouts, in light and
+        dark themes.
+      </p>
+      <ScreenshotsBrowser client:load initialScreen={slug} />
+    </section>
+  </main>
+</Layout>

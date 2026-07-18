@@ -8,63 +8,31 @@ import {
   useState,
 } from "react";
 import "./ScreenshotsBrowser.css";
+import { Stage } from "./ScreenshotsStage";
+import {
+  entryKey,
+  projectLabel,
+  type ScreenshotEntry,
+  type ScreenshotManifest,
+  themeLabel,
+  titleCase,
+} from "./screenshotsManifest";
 
 // Manifest URL, staged into Astro's public/ by scripts/buildScreenshots.ts and
 // served at the site root in both `astro dev` and the static build.
 const MANIFEST_URL = "/screenshot-gallery/manifest.json";
-
-// Mirror of the manifest shape written by scripts/buildScreenshots.ts. Kept in
-// sync by hand (the script emits JSON; this reads it).
-interface ScreenshotEntry {
-  project: string;
-  theme: string;
-  name: string;
-  src: string;
-}
-interface ScreenshotManifest {
-  projects: string[];
-  themes: string[];
-  screens: string[];
-  entries: ScreenshotEntry[];
-}
-
-// Friendlier labels for the device (capture project) toggle; falls back to a
-// title-cased id for any project not listed here.
-const PROJECT_LABELS: Record<string, string> = {
-  web: "Windowed",
-  mobile: "Mobile",
-};
-
-const THEME_LABELS: Record<string, string> = {
-  light: "Light",
-  dark: "Dark",
-};
-
-function titleCase(value: string): string {
-  return value
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
-function projectLabel(project: string): string {
-  return PROJECT_LABELS[project] ?? titleCase(project);
-}
-
-function themeLabel(theme: string): string {
-  return THEME_LABELS[theme] ?? titleCase(theme);
-}
-
-function entryKey(project: string, theme: string, name: string): string {
-  return `${project} ${theme} ${name}`;
-}
 
 type LoadState =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; manifest: ScreenshotManifest };
 
-export function ScreenshotsBrowser() {
+export function ScreenshotsBrowser({
+  initialScreen,
+}: {
+  /** Screen name from a /screenshots/<slug> deep link to open with. */
+  initialScreen?: string;
+}) {
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
 
   useEffect(() => {
@@ -104,7 +72,7 @@ export function ScreenshotsBrowser() {
       />
     );
   }
-  return <Gallery manifest={load.manifest} />;
+  return <Gallery manifest={load.manifest} initialScreen={initialScreen} />;
 }
 
 /** Root chrome for the non-gallery states (loading / error / empty). */
@@ -116,7 +84,7 @@ function Shell({
   children?: ReactNode;
 }) {
   return (
-    <div className="screenshots-browser" data-gallery-theme="light">
+    <div className="screenshots-browser">
       {status ? (
         <p className="screenshots-browser__status">{status}</p>
       ) : (
@@ -133,13 +101,14 @@ function useGalleryNavigation(
   manifest: ScreenshotManifest,
   project: string,
   containerRef: RefObject<HTMLDivElement | null>,
+  initialScreen?: string,
 ) {
   const { themes } = manifest;
   // The selection is stored by screen name, not index: the web and mobile
   // captures don't share the same screen list (mobile has `home`, web doesn't),
   // so a numeric index would jump to a different screen when the device toggles.
   const [selectedName, setSelectedName] = useState<string | undefined>(
-    undefined,
+    initialScreen,
   );
 
   const bySrc = useMemo(() => {
@@ -182,19 +151,47 @@ function useGalleryNavigation(
     [screens, activeIndex],
   );
 
-  // Only intercept arrow keys when focus is inside the gallery, so the handler
-  // never swallows page scrolling (or arrows on unrelated controls) while the
-  // gallery merely happens to be mounted on the page.
+  useArrowKeys(containerRef, step);
+
+  return { bySrc, screens, activeName, activeIndex, step, setSelectedName };
+}
+
+// Left/Right step the gallery from anywhere on the page — it is the page's
+// primary content, so they must work without clicking into it first. Up/Down
+// step only while focus is inside the gallery, so they never swallow page
+// scrolling. Modified arrows (Alt+Left is browser Back) and arrows aimed at
+// editable controls are left alone.
+function useArrowKeys(
+  containerRef: RefObject<HTMLDivElement | null>,
+  step: (delta: number) => void,
+) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      const container = containerRef.current;
-      if (!container || !container.contains(document.activeElement)) {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
         return;
       }
-      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT")
+      ) {
+        return;
+      }
+      const inGallery =
+        containerRef.current?.contains(document.activeElement) ?? false;
+      if (
+        event.key === "ArrowRight" ||
+        (inGallery && event.key === "ArrowDown")
+      ) {
         event.preventDefault();
         step(1);
-      } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      } else if (
+        event.key === "ArrowLeft" ||
+        (inGallery && event.key === "ArrowUp")
+      ) {
         event.preventDefault();
         step(-1);
       }
@@ -202,17 +199,60 @@ function useGalleryNavigation(
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [step, containerRef]);
-
-  return { bySrc, screens, activeName, activeIndex, step, setSelectedName };
 }
 
-function Gallery({ manifest }: { manifest: ScreenshotManifest }) {
+// Reflect the active screen in the address bar (/screenshots/<name>) so the
+// current view is shareable. replaceState, not pushState: stepping through
+// screens should not pile history entries onto the Back button. The first
+// render is skipped so merely loading a screenshots URL does not rewrite it.
+function useScreenUrlSync(activeName: string | undefined) {
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    if (activeName) {
+      window.history.replaceState(null, "", `/screenshots/${activeName}`);
+    }
+  }, [activeName]);
+}
+
+// Pick the starting device: honor a deep-linked screen by choosing the first
+// project that captured it, since the default project may not have it.
+function initialProject(
+  manifest: ScreenshotManifest,
+  screen: string | undefined,
+): string {
+  if (screen) {
+    const withScreen = manifest.projects.find((project) =>
+      manifest.entries.some(
+        (entry) => entry.project === project && entry.name === screen,
+      ),
+    );
+    if (withScreen) {
+      return withScreen;
+    }
+  }
+  return manifest.projects[0] ?? "";
+}
+
+function Gallery({
+  manifest,
+  initialScreen,
+}: {
+  manifest: ScreenshotManifest;
+  initialScreen?: string;
+}) {
   const { projects, themes, entries } = manifest;
-  const [project, setProject] = useState<string>(() => projects[0] ?? "");
+  const [project, setProject] = useState<string>(() =>
+    initialProject(manifest, initialScreen),
+  );
   const [theme, setTheme] = useState<string>(() => themes[0] ?? "light");
   const containerRef = useRef<HTMLDivElement>(null);
   const { bySrc, screens, activeName, activeIndex, step, setSelectedName } =
-    useGalleryNavigation(manifest, project, containerRef);
+    useGalleryNavigation(manifest, project, containerRef, initialScreen);
+  useScreenUrlSync(activeName);
 
   if (entries.length === 0) {
     return (
@@ -234,11 +274,7 @@ function Gallery({ manifest }: { manifest: ScreenshotManifest }) {
     : undefined;
 
   return (
-    <div
-      className="screenshots-browser"
-      data-gallery-theme={theme}
-      ref={containerRef}
-    >
+    <div className="screenshots-browser" ref={containerRef}>
       <Toolbar
         projects={projects}
         themes={themes}
@@ -254,6 +290,13 @@ function Gallery({ manifest }: { manifest: ScreenshotManifest }) {
       />
 
       <div className="screenshots-browser__body">
+        <Stage
+          project={project}
+          theme={theme}
+          name={activeName}
+          entry={currentEntry}
+        />
+        <StepControls canStep={screens.length > 1} onStep={step} />
         <Filmstrip
           screens={screens}
           activeIndex={activeIndex}
@@ -264,14 +307,6 @@ function Gallery({ manifest }: { manifest: ScreenshotManifest }) {
               .find(Boolean)
           }
           onSelect={(index) => setSelectedName(screens[index])}
-        />
-        <Stage
-          project={project}
-          theme={theme}
-          name={activeName}
-          entry={currentEntry}
-          canStep={screens.length > 1}
-          onStep={step}
         />
       </div>
     </div>
@@ -326,8 +361,32 @@ function Filmstrip({
   thumbFor: (name: string) => ScreenshotEntry | undefined;
   onSelect: (index: number) => void;
 }) {
+  const stripRef = useRef<HTMLElement>(null);
+
+  // Keep the active thumb visible when arrows / nav buttons step to a screen
+  // that is scrolled out of the strip. Manual scrollLeft math rather than
+  // scrollIntoView so stepping can only ever scroll the strip, never the page.
+  useEffect(() => {
+    const strip = stripRef.current;
+    const thumb = strip?.children.item(activeIndex);
+    if (!strip || !(thumb instanceof HTMLElement)) {
+      return;
+    }
+    const left = thumb.offsetLeft;
+    const right = left + thumb.offsetWidth;
+    if (left < strip.scrollLeft) {
+      strip.scrollTo({ left, behavior: "smooth" });
+    } else if (right > strip.scrollLeft + strip.clientWidth) {
+      strip.scrollTo({ left: right - strip.clientWidth, behavior: "smooth" });
+    }
+  }, [activeIndex]);
+
   return (
-    <nav className="screenshots-browser__filmstrip" aria-label="Screens">
+    <nav
+      className="screenshots-browser__filmstrip"
+      aria-label="Screens"
+      ref={stripRef}
+    >
       {screens.map((name, index) => {
         const thumb = thumbFor(name);
         return (
@@ -357,62 +416,27 @@ function Filmstrip({
   );
 }
 
-function Stage({
-  project,
-  theme,
-  name,
-  entry,
+function StepControls({
   canStep,
   onStep,
 }: {
-  project: string;
-  theme: string;
-  name: string | undefined;
-  entry: ScreenshotEntry | undefined;
   canStep: boolean;
   onStep: (delta: number) => void;
 }) {
   return (
-    // A plain div, not <main>: the Astro page already provides the page's
-    // <main> landmark, and a nested one is invalid.
-    <div className="screenshots-browser__stage">
+    <div className="screenshots-browser__navrow">
       <button
         type="button"
-        className="screenshots-browser__nav screenshots-browser__nav--prev"
+        className="screenshots-browser__nav"
         onClick={() => onStep(-1)}
         disabled={!canStep}
         aria-label="Previous screen"
       >
         ‹
       </button>
-
-      <div
-        className={
-          project === "mobile"
-            ? "screenshots-browser__frame screenshots-browser__frame--mobile"
-            : "screenshots-browser__frame"
-        }
-      >
-        {entry ? (
-          <img
-            key={entry.src}
-            className="screenshots-browser__image"
-            src={entry.src}
-            alt={`${projectLabel(project)} · ${theme} · ${name}`}
-          />
-        ) : (
-          <div className="screenshots-browser__missing">
-            <p>
-              {name ? titleCase(name) : "This screen"} was not captured in{" "}
-              {themeLabel(theme)} for {projectLabel(project)}.
-            </p>
-          </div>
-        )}
-      </div>
-
       <button
         type="button"
-        className="screenshots-browser__nav screenshots-browser__nav--next"
+        className="screenshots-browser__nav"
         onClick={() => onStep(1)}
         disabled={!canStep}
         aria-label="Next screen"
