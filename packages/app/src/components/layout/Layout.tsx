@@ -6,9 +6,10 @@ import {
   useSystemMonitorDeveloperMode,
 } from "../../mini-apps/system-monitor/systemMonitorDeveloperMode";
 import {
-  type NavigationModeOverride,
-  NavigationModeToggle,
-} from "../../navigation/NavigationModeToggle";
+  NavigationModeOverrideProvider,
+  useNavigationModeOverride,
+} from "../../navigation/NavigationModeOverrideProvider";
+import { NavigationModeToggle } from "../../navigation/NavigationModeToggle";
 import { useAppNavigationMode } from "../../navigation/useAppNavigationMode";
 import { useNavigationModeDocumentAttribute } from "../../navigation/useNavigationModeDocumentAttribute";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
@@ -76,12 +77,16 @@ function WorkspaceRuntimeHost({
 }
 
 function LayoutInner({ hostConfig }: LayoutProps) {
-  const [modeOverride, setModeOverride] =
-    useState<NavigationModeOverride>(null);
+  // The override is a real user setting now (driven by the always-available
+  // footer/taskbar mode switch), so it applies regardless of developer mode.
+  // It defaults to null (auto) until the user flips a switch, so untouched
+  // behavior is unchanged. The developer-mode header toggle shares this same
+  // state and can additionally select "auto".
+  const { override, setOverride } = useNavigationModeOverride();
   const { isDeveloperMode } = useSystemMonitorDeveloperMode();
   const navigationMode = useAppNavigationMode(
     hostConfig.navigationMode,
-    isDeveloperMode ? modeOverride : null,
+    override,
   );
   const [split, setSplit] = useState(hostConfig.profile.defaultSplit);
   const { activeWorkspace, workspaceIds } = useWorkspace();
@@ -110,9 +115,9 @@ function LayoutInner({ hostConfig }: LayoutProps) {
       )}
       {isDeveloperMode && (
         <NavigationModeToggle
-          override={modeOverride}
+          override={override}
           resolvedMode={navigationMode}
-          onChange={setModeOverride}
+          onChange={setOverride}
         />
       )}
     </>
@@ -159,13 +164,15 @@ export function Layout({ hostConfig }: LayoutProps) {
 
   return (
     <ThemeProvider>
-      <SystemMonitorDeveloperModeProvider>
-        <AppFeatureFlagsProvider>
-          <WorkspaceProvider workspaceIds={workspaceIds}>
-            <LayoutInner hostConfig={hostConfig} />
-          </WorkspaceProvider>
-        </AppFeatureFlagsProvider>
-      </SystemMonitorDeveloperModeProvider>
+      <NavigationModeOverrideProvider>
+        <SystemMonitorDeveloperModeProvider>
+          <AppFeatureFlagsProvider>
+            <WorkspaceProvider workspaceIds={workspaceIds}>
+              <LayoutInner hostConfig={hostConfig} />
+            </WorkspaceProvider>
+          </AppFeatureFlagsProvider>
+        </SystemMonitorDeveloperModeProvider>
+      </NavigationModeOverrideProvider>
     </ThemeProvider>
   );
 }

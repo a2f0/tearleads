@@ -16,6 +16,18 @@ bun run check:protocol-models
 The repository pins Java 21 and the prebuilt TLA+ tools; TLC itself requires
 Java 11 or newer. No generated state directory or tool binary is committed.
 
+[`protocol-models.txt`](./protocol-models.txt) is the pull-request model
+registry. Each non-comment line pairs one repository-relative TLA+ module and
+configuration as `model|config`. The checker validates the complete registry
+before starting Java, rejects unregistered configuration files, sorts pairs
+deterministically, and gives each TLC invocation an isolated state directory.
+
+To add a model, commit its `.tla` and bounded `.cfg` files and register the pair.
+One module may appear with multiple configurations, but each configuration must
+appear exactly once. Keep registered bounds small enough for `check:fast`;
+broader configurations should use a separate scheduled suite rather than
+silently increasing pull-request check time.
+
 ## Document Baseline Dominance
 
 [`document-sync/BaselineDominance.tla`](./document-sync/BaselineDominance.tla)
