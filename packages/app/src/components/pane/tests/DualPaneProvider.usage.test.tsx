@@ -205,6 +205,14 @@ function requestPath(url: string): string {
   }
 }
 
+function countOrganizationDataUsageRequests(): number {
+  return listProxiedApiRequests().filter(
+    (request) =>
+      request.method === "GET" &&
+      requestPath(request.url).endsWith("/data-usage"),
+  ).length;
+}
+
 function truncateText(
   text: string,
   maxLength = MAX_REQUEST_SUMMARY_BODY_LENGTH,
@@ -250,6 +258,7 @@ test(
         timeoutMs: BOOTSTRAP_SYNC_SETTLE_TIMEOUT_MS,
       });
     });
+    expect(countOrganizationDataUsageRequests()).toBeLessThanOrEqual(1);
 
     // This is the org-manager-plus-system-bootstrap baseline. Usage counts
     // synced document update rows, not every document shell created by

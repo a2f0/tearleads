@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import {
-  dataUsage,
   groupId,
   organizationId,
   organizationPrincipalPolicy,
@@ -10,7 +9,6 @@ import {
 import {
   buildOrganizationGroupPolicyHistory,
   buildOrganizationPolicyHistory,
-  loadOrganizationDataUsage,
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "./readModel";
@@ -88,22 +86,6 @@ test("buildOrganizationPolicyHistory diffs organization policy projections", () 
       nextRole: null,
     },
   ]);
-});
-
-test("loadOrganizationDataUsage forwards organization usage summary", async () => {
-  const calls: string[] = [];
-  const result = await loadOrganizationDataUsage({
-    apiClient: {
-      getOrganizationDataUsage: async (nextOrganizationId) => {
-        calls.push(`usage:${nextOrganizationId}`);
-        return dataUsage;
-      },
-    },
-    organizationId,
-  });
-
-  expect(calls).toEqual(["usage:org-1"]);
-  expect(result).toEqual(dataUsage);
 });
 
 test("updateOrganizationRosterEntry binds encrypted profile document ids", async () => {

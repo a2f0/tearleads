@@ -11,10 +11,11 @@ import {
   organizationRosterEntries,
   organizations,
 } from "@tearleads/api-shared/schema";
-import type {
-  OrganizationDataUsageResponse,
-  OrganizationDocumentUsageCategory,
-  OrganizationDocumentUsageCategoryBreakdown,
+import {
+  ORGANIZATION_DOCUMENT_USAGE_CATEGORIES,
+  type OrganizationDataUsageResponse,
+  type OrganizationDocumentUsageCategory,
+  type OrganizationDocumentUsageCategoryBreakdown,
 } from "@tearleads/validators/response";
 import { sql } from "drizzle-orm";
 import { uuidValue } from "../../utils/sqlDialect";
@@ -26,7 +27,7 @@ import { requireDirectOrganizationAccess } from "./access";
 // a genuine user document. Contacts and Trash contents are deliberately counted
 // as user data — those live in per-user system containers but hold user content.
 const DOCUMENT_USAGE_CATEGORY_ORDER: readonly OrganizationDocumentUsageCategory[] =
-  ["containerMetadata", "rosterProfiles", "organizationMetadata", "user"];
+  ORGANIZATION_DOCUMENT_USAGE_CATEGORIES;
 
 interface OrganizationBlobUsageRow {
   blobByteLength: unknown;

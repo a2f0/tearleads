@@ -41,6 +41,7 @@ export type GrantsRefreshOptions = {
 
 export type DataUsageRefreshOptions = {
   clearError?: boolean;
+  localOnly?: boolean;
   manageLoading?: boolean;
 };
 

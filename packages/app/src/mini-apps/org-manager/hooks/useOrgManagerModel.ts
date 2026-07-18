@@ -95,6 +95,8 @@ export function useOrgManagerModel() {
   const [dataUsage, setDataUsage] = useState<OrganizationDataUsage | null>(
     null,
   );
+  const dataUsageRef = useRef<OrganizationDataUsage | null>(dataUsage);
+  dataUsageRef.current = dataUsage;
   const [selectedUserId, setSelectedUserIdState] = useState<string | null>(
     null,
   );
@@ -265,6 +267,7 @@ export function useOrgManagerModel() {
     appData,
     beginRequest,
     canLoadAuthenticatedOrgData,
+    dataUsageRef,
     orgManagerActions,
     resetSelectedRosterUser,
     selectGroup,

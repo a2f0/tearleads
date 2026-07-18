@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
+import { dataUsage } from "../../../test/helpers/organizationReadModelFixtures";
 import {
   organizationReadModelFailure,
   organizationReadModelGroupsDelta,
@@ -8,6 +9,10 @@ import {
   organizationReadModelSnapshot,
   organizationReadModelUserId,
 } from "../../../test/helpers/organizationReadModelProjectionFixtures";
+import {
+  loadOrganizationDataUsageProjection,
+  saveOrganizationDataUsageProjection,
+} from "../../data/persistence/organizations/organizationDataUsagePersistence";
 import { applyOrganizationReadModelResponse } from "../../data/persistence/organizations/organizationReadModelPersistence";
 import {
   loadLocalOrganizationDirectoryAndGroups,
@@ -150,6 +155,11 @@ for (const status of [403, 404] as const) {
 
     try {
       await seedProjection(execSql);
+      await saveOrganizationDataUsageProjection({
+        execSql,
+        requesterUserId: currentUserId,
+        response: { ...dataUsage, organizationId },
+      });
       await expect(
         reconcileOrganizationDirectoryAndGroups({
           apiClient: {
@@ -174,6 +184,13 @@ for (const status of [403, 404] as const) {
           execSql,
           organizationId,
         }),
+      ).resolves.toBeNull();
+      await expect(
+        loadOrganizationDataUsageProjection(
+          execSql,
+          organizationId,
+          currentUserId,
+        ),
       ).resolves.toBeNull();
       expect(reported).toBe(false);
     } finally {

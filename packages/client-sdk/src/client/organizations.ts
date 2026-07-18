@@ -7,7 +7,6 @@ import {
   type LocalOrganizationSummary,
   listLocalOrganizations,
   loadOrganizationBilling,
-  loadOrganizationDataUsage,
   removeOrganizationGroupUser,
   revokeOrganizationContainerGrant,
   startOrganizationTrial,
@@ -16,6 +15,10 @@ import {
 } from "../workflows/organizations";
 import { createRuntimePrincipalPolicyWarmer } from "../workflows/principals/runtimePolicyWarmer";
 import type { ContainerContents } from "./containerContents";
+import {
+  createOrganizationDataUsageCoordinator,
+  type OrganizationDataUsageCoordinator,
+} from "./organizationDataUsage";
 import { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
 import { reshareOrganizationMetadataAfterGroupChange } from "./organizationMetadataReshare";
 import {
@@ -101,7 +104,12 @@ export interface Organizations {
   ) => Promise<DeleteOrganizationGroupResponse | null>;
   importUserById: (userId: string) => ReturnType<typeof importOrganizationUser>;
   loadBilling: () => ReturnType<typeof loadOrganizationBilling>;
-  loadDataUsage: () => ReturnType<typeof loadOrganizationDataUsage>;
+  loadDataUsage: () => ReturnType<
+    OrganizationDataUsageCoordinator["reconcile"]
+  >;
+  loadLocalDataUsage: () => ReturnType<
+    OrganizationDataUsageCoordinator["loadLocal"]
+  >;
   loadDirectoryAndGroups: () => ReturnType<
     OrganizationReadModelCoordinator["reconcile"]
   >;
@@ -194,6 +202,7 @@ export function createOrganizations(
 }
 
 class OrganizationsService implements Organizations {
+  private readonly dataUsageCoordinator: OrganizationDataUsageCoordinator;
   private readonly metadataReshareCoordinator: OrganizationMetadataReshareCoordinator;
   private readonly readModelCoordinator: OrganizationReadModelCoordinator;
   private readonly rootReshareCoordinator: OrganizationRootReshareCoordinator;
@@ -202,6 +211,9 @@ class OrganizationsService implements Organizations {
     private readonly runtimeService: InternalRuntime,
     containerContents: ContainerContents,
   ) {
+    this.dataUsageCoordinator = createOrganizationDataUsageCoordinator(
+      this.runtimeService,
+    );
     this.readModelCoordinator = createOrganizationReadModelCoordinator(
       this.runtimeService,
     );
@@ -303,16 +315,11 @@ class OrganizationsService implements Organizations {
   }
 
   loadDataUsage() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    if (!organizationId) {
-      return Promise.resolve(null);
-    }
+    return this.dataUsageCoordinator.reconcile();
+  }
 
-    return loadOrganizationDataUsage({
-      apiClient: runtime.apiClient,
-      organizationId,
-    });
+  loadLocalDataUsage() {
+    return this.dataUsageCoordinator.loadLocal();
   }
 
   loadDirectoryAndGroups() {

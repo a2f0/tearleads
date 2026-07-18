@@ -7,6 +7,10 @@ import {
 import { createPendingUpdateFields } from "../../data/documentSync";
 import { getDocumentAttachments } from "../../data/documents/documentContent";
 import {
+  organizationDataUsageCategories,
+  organizationDataUsageSnapshots,
+} from "../../data/sqlite/organizationDataUsageSchema";
+import {
   organizationReadModelContainerGrants,
   organizationReadModelDirectoryUsers,
   organizationReadModelGroupMembers,
@@ -231,6 +235,8 @@ async function readRemoteSyncStateSnapshot(
 async function clearRemoteDerivedRows(
   tx: ClientSQLiteTransaction,
 ): Promise<void> {
+  await tx.delete(organizationDataUsageCategories).run();
+  await tx.delete(organizationDataUsageSnapshots).run();
   await tx.delete(organizationReadModelContainerGrants).run();
   await tx.delete(organizationReadModelGroupMembers).run();
   await tx.delete(organizationReadModelGroupMemberships).run();

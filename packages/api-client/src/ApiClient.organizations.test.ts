@@ -15,6 +15,48 @@ import {
 } from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
 
+function organizationDataUsageResponse() {
+  return {
+    organizationId: "org-1",
+    blobs: {
+      blobCount: 2,
+      byteLength: 96,
+    },
+    documents: {
+      breakdown: [
+        {
+          category: "containerMetadata",
+          byteLength: 0,
+          documentCount: 0,
+          updateCount: 0,
+        },
+        {
+          category: "rosterProfiles",
+          byteLength: 0,
+          documentCount: 0,
+          updateCount: 0,
+        },
+        {
+          category: "organizationMetadata",
+          byteLength: 0,
+          documentCount: 0,
+          updateCount: 0,
+        },
+        {
+          category: "user",
+          byteLength: 32,
+          documentCount: 1,
+          updateCount: 2,
+        },
+      ],
+      byteLength: 32,
+      documentCount: 1,
+      updateCount: 2,
+    },
+    totalByteLength: 128,
+  };
+}
+
 testApiClient("coalesces only in-flight principal policy reads", async () => {
   let callCount = 0;
   const firstRequestStarted = createDeferred<void>();
@@ -61,27 +103,7 @@ testApiClient(
           });
         }
         if (request.url.endsWith("/data-usage")) {
-          return HttpResponse.json({
-            organizationId: "org-1",
-            blobs: {
-              blobCount: 2,
-              byteLength: 96,
-            },
-            documents: {
-              breakdown: [
-                {
-                  category: "user",
-                  byteLength: 32,
-                  documentCount: 1,
-                  updateCount: 2,
-                },
-              ],
-              byteLength: 32,
-              documentCount: 1,
-              updateCount: 2,
-            },
-            totalByteLength: 128,
-          });
+          return HttpResponse.json(organizationDataUsageResponse());
         }
         if (request.url.endsWith("/members")) {
           return HttpResponse.json({
@@ -146,7 +168,9 @@ testApiClient(
     const groupRequest = createOrganizationGroupRequest();
     const policyRequest = createPrincipalPolicyRequest();
 
-    expect(await client.getOrganizationDataUsage("org-1")).not.toBeNull();
+    expect((await client.getOrganizationDataUsageResult("org-1")).ok).toBe(
+      true,
+    );
     expect(
       await client.updateOrganizationRosterEntry("org-1", "user-1", {
         profileDocumentId: null,
@@ -213,5 +237,45 @@ testApiClient(
         method: "PUT",
       },
     ]);
+  },
+);
+
+testApiClient(
+  "returns typed organization data-usage failures without a nullable fallback",
+  async () => {
+    let responseKind: "forbidden" | "invalid" = "forbidden";
+    server.use(
+      http.get(`${apiBaseUrl}/organizations/:organizationId/data-usage`, () =>
+        responseKind === "forbidden"
+          ? HttpResponse.json({ error: "Forbidden" }, { status: 403 })
+          : HttpResponse.json({
+              ...organizationDataUsageResponse(),
+              blobs: {
+                ...organizationDataUsageResponse().blobs,
+                unexpected: true,
+              },
+            }),
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const forbidden = await client.getOrganizationDataUsageResult("org-1", {
+      reportErrors: false,
+    });
+    expect(forbidden).toMatchObject({
+      kind: "http",
+      ok: false,
+      status: 403,
+    });
+
+    responseKind = "invalid";
+    const invalid = await client.getOrganizationDataUsageResult("org-1", {
+      reportErrors: false,
+    });
+    expect(invalid).toMatchObject({
+      kind: "shape",
+      ok: false,
+      status: 200,
+    });
   },
 );

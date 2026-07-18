@@ -3,6 +3,7 @@ import type {
   RequestResultOptions,
 } from "@tearleads/api-client";
 import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
+import { purgeOrganizationDataUsageProjection } from "../../data/persistence/organizations/organizationDataUsagePersistence";
 import {
   loadOrganizationReadModelGroupMembers,
   OrganizationReadModelBindingError,
@@ -128,6 +129,11 @@ async function requestReadModelPage(
     await purgeOrganizationReadModelProjection(
       input.execSql,
       input.organizationId,
+    );
+    await purgeOrganizationDataUsageProjection(
+      input.execSql,
+      input.organizationId,
+      input.currentUserId,
     );
     return { kind: "done", value: null };
   }

@@ -12,7 +12,7 @@ coordination, but they must stay React-free and product-UI-free.
 | `containers` | Platform runtime | Container mutation planning and remote container operations. |
 | `documents` | Platform runtime | Document creation, persistence, sync, projection keys, and document link-set helpers. |
 | `container-contents` | Platform query and runtime | Container tree projections, container metadata documents, document discovery, document links, identity-wide pending-write diagnostics, compact attribution diagnostics, lazy paginated attribution ranges, and sync-state helpers. Product UI routes, panels, menus, and selection state belong in `packages/app`. |
-| `organizations` | Platform organization administration | Transactional local directory, group-summary, group-membership, grant, policy-head, and user-detail projections with opaque feed cursors; separately refreshed usage; exact-head history from verified principal-policy storage; ID-only user membership mutations; verified principal-policy mutation helpers; and organization-scoped system-container slot helpers. Org Manager screens and labels belong in `packages/app`. |
+| `organizations` | Platform organization administration | Transactional local directory, group-summary, group-membership, grant, policy-head, user-detail, and separately reconciled durable data-usage projections; opaque feed cursors; exact-head history from verified principal-policy storage; ID-only user membership mutations; verified principal-policy mutation helpers; and organization-scoped system-container slot helpers. Org Manager screens and labels belong in `packages/app`. |
 | `principals` | Platform runtime | Principal-policy cache and verification support routed through the durable trusted-user-identity gateway. |
 | `registration` | Platform runtime | Local registration and atomic organization bootstrap helpers, including the initial encrypted roster and organization-profile bodies. |
 | `sync` | Platform runtime | Shared sync coordinator helpers. |
@@ -65,6 +65,13 @@ the strict version 4 organization read-model feed and keeps the opaque cursor in
 the same SQLite transaction as each applied page. Older projections are
 discarded before a cursorless version 4 snapshot; there is no translation or
 legacy HTTP fallback.
+
+Organization data usage stays outside that feed because content and blob
+writes do not share its administrative cursor. The SDK stores the strict
+aggregate in a requester-scoped SQLite projection, paints it locally, and
+single-flights canonical revalidation. Transient failures retain the
+last-known-good projection; authoritative access loss purges it. No nullable
+HTTP fallback or older cache format is read.
 
 Grant lists, group containers, and user details are derived from this local
 projection. User-detail group reachability is cycle-safe and traverses hidden
