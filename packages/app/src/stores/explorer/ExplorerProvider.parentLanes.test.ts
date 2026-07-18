@@ -12,7 +12,10 @@ import {
   saveContainerSyncWatermark as saveExplorerContainerSyncWatermark,
 } from "@tearleads/client-sdk";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
-import { createMockApiClient } from "@tearleads/test-utils";
+import {
+  createContainerParentLaneBatchMock as batchParentLanes,
+  createMockApiClient,
+} from "@tearleads/test-utils";
 import {
   listContainersResponse,
   listedContainer,
@@ -35,7 +38,7 @@ test("explorer sync hydrates container parent lanes concurrently", async () => {
   runtime = runtimeWithPatch(runtime, {
     apiClient: createMockApiClient({
       ...runtime.apiClient,
-      listContainers: async (options = {}) => {
+      listContainerParentLanes: batchParentLanes(async (options) => {
         requestedParentIds.push(options.parentId);
         activeListContainerCalls += 1;
         maxActiveListContainerCalls = Math.max(
@@ -78,7 +81,7 @@ test("explorer sync hydrates container parent lanes concurrently", async () => {
         } finally {
           activeListContainerCalls -= 1;
         }
-      },
+      }),
     }),
     encapsulationKeyPair: localKeyPair,
     isAuthenticated: true,
@@ -128,7 +131,7 @@ test("explorer sync retries failed parent lane batches without advancing their w
   runtime = runtimeWithPatch(runtime, {
     apiClient: createMockApiClient({
       ...runtime.apiClient,
-      listContainers: async (options = {}) => {
+      listContainerParentLanes: batchParentLanes(async (options) => {
         await Promise.resolve();
 
         if (options.parentId === null || options.parentId === undefined) {
@@ -187,7 +190,7 @@ test("explorer sync retries failed parent lane batches without advancing their w
         }
 
         return listContainersResponse();
-      },
+      }),
     }),
     encapsulationKeyPair: localKeyPair,
     isAuthenticated: true,
@@ -288,7 +291,7 @@ test("explorer sync applies container tombstones before advancing the parent wat
   runtime = runtimeWithPatch(runtime, {
     apiClient: createMockApiClient({
       ...runtime.apiClient,
-      listContainers: async (options = {}) => {
+      listContainerParentLanes: batchParentLanes(async (options) => {
         if (options.parentId === "child-container") {
           return listContainersResponse([
             listedContainer({
@@ -323,7 +326,7 @@ test("explorer sync applies container tombstones before advancing the parent wat
         }
 
         return listContainersResponse();
-      },
+      }),
     }),
     encapsulationKeyPair: localKeyPair,
     isAuthenticated: true,

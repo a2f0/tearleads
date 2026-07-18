@@ -12,7 +12,10 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createMockApiClient } from "@tearleads/test-utils";
+import {
+  createContainerParentLaneBatchMock,
+  createMockApiClient,
+} from "@tearleads/test-utils";
 import {
   createExplorerMetadataContainerProjection,
   ensureContainerTables,
@@ -74,7 +77,9 @@ test("explorer store shares an authenticated container without reseeding metadat
         writerProjectionCallCount += 1;
         return null;
       },
-      listContainers: async () => listContainersResponse(),
+      listContainerParentLanes: createContainerParentLaneBatchMock(async () =>
+        listContainersResponse(),
+      ),
       syncDocument: async () => {
         syncCallCount += 1;
         return null;
@@ -221,7 +226,9 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
     apiClient: createMockApiClient({
       ...runtime.apiClient,
       ...fixture.apiClient,
-      listContainers: async () => listContainersResponse(),
+      listContainerParentLanes: createContainerParentLaneBatchMock(async () =>
+        listContainersResponse(),
+      ),
     }),
     encapsulationKeyPair: localKeyPair,
     isAuthenticated: true,
@@ -358,50 +365,52 @@ test("explorer store refreshes remote containers on demand after initialization"
   runtime = runtimeWithPatch(runtime, {
     apiClient: createMockApiClient({
       ...runtime.apiClient,
-      listContainers: async (options = {}) => {
-        listContainersCalls += 1;
-        listContainersOptions.push(options);
+      listContainerParentLanes: createContainerParentLaneBatchMock(
+        async (options) => {
+          listContainersCalls += 1;
+          listContainersOptions.push(options);
 
-        if (listContainersCalls === 1) {
-          return listContainersResponse();
-        }
+          if (listContainersCalls === 1) {
+            return listContainersResponse();
+          }
 
-        if (options.parentId === null || options.parentId === undefined) {
-          return {
-            hasMore: false,
-            items: [
-              listedContainer({
-                id: "shared-root-container",
-                metadataAccessEpoch: 1,
-                metadataAccessStateHash: "shared-root-access-state-hash-1",
-                metadataDocumentId: "shared-root-metadata-document",
-                organizationId: "org-2",
-                parentId: null,
-              }),
-            ],
-            nextWatermark: {
-              id: "shared-root-container",
-              updatedAt: "2026-05-05T00:00:00.000Z",
-            },
-            tombstones: [],
-          };
-        }
-
-        return listContainersResponse(
-          options.parentId === "shared-root-container"
-            ? [
+          if (options.parentId === null || options.parentId === undefined) {
+            return {
+              hasMore: false,
+              items: [
                 listedContainer({
-                  id: "shared-child-container",
+                  id: "shared-root-container",
                   metadataAccessEpoch: 1,
-                  metadataAccessStateHash: "shared-child-access-state-hash-1",
-                  metadataDocumentId: "shared-child-metadata-document",
+                  metadataAccessStateHash: "shared-root-access-state-hash-1",
+                  metadataDocumentId: "shared-root-metadata-document",
                   organizationId: "org-2",
-                  parentId: "shared-root-container",
+                  parentId: null,
                 }),
-              ]
-            : [],
-        );
-      },
+              ],
+              nextWatermark: {
+                id: "shared-root-container",
+                updatedAt: "2026-05-05T00:00:00.000Z",
+              },
+              tombstones: [],
+            };
+          }
+
+          return listContainersResponse(
+            options.parentId === "shared-root-container"
+              ? [
+                  listedContainer({
+                    id: "shared-child-container",
+                    metadataAccessEpoch: 1,
+                    metadataAccessStateHash: "shared-child-access-state-hash-1",
+                    metadataDocumentId: "shared-child-metadata-document",
+                    organizationId: "org-2",
+                    parentId: "shared-root-container",
+                  }),
+                ]
+              : [],
+          );
+        },
+      ),
     }),
     encapsulationKeyPair: localKeyPair,
     isAuthenticated: true,

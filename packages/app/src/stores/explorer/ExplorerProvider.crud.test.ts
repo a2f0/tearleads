@@ -3,7 +3,10 @@ import {
   createContainerDocumentObjectSyncState,
   createContainerContentsStore as createExplorerStore,
 } from "@tearleads/client-sdk";
-import { createMockApiClient } from "@tearleads/test-utils";
+import {
+  createContainerParentLaneBatchMock,
+  createMockApiClient,
+} from "@tearleads/test-utils";
 import {
   ensureContainerTables,
   ensureDocumentTables,
@@ -207,7 +210,9 @@ test("explorer store deletes remote leaf containers through the API", async () =
             deletedAt: "2026-05-06T18:00:00.000Z",
           };
         },
-        listContainers: async () => listContainersResponse(),
+        listContainerParentLanes: createContainerParentLaneBatchMock(async () =>
+          listContainersResponse(),
+        ),
       }),
       isAuthenticated: true,
       online: true,
@@ -263,7 +268,9 @@ test("explorer store keeps remote containers local when API delete fails", async
     runtime = runtimeWithPatch(runtime, {
       apiClient: createMockApiClient({
         deleteContainer: async () => null,
-        listContainers: async () => listContainersResponse(),
+        listContainerParentLanes: createContainerParentLaneBatchMock(async () =>
+          listContainersResponse(),
+        ),
       }),
       isAuthenticated: true,
       online: true,
@@ -326,7 +333,9 @@ test("explorer store removes local remote containers when API delete returns 404
             statusText: "Not Found",
           };
         },
-        listContainers: async () => listContainersResponse(),
+        listContainerParentLanes: createContainerParentLaneBatchMock(async () =>
+          listContainersResponse(),
+        ),
       }),
       isAuthenticated: true,
       online: true,

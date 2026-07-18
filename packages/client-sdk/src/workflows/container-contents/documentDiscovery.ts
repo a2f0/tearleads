@@ -20,8 +20,66 @@ import type {
 
 export type { RefreshAllContainerDocumentsFromApiOptions } from "./documentDiscoveryTypes";
 
-const CONTAINER_PARENT_DISCOVERY_CONCURRENCY = 4;
+const CONTAINER_PARENT_DISCOVERY_BATCH_SIZE = 4;
 const CONTAINER_DOCUMENT_DISCOVERY_CONCURRENCY = 4;
+
+type ContainerParentLaneRequest = Parameters<
+  ContainerDocumentDiscoveryApi["listContainerParentLanes"]
+>[0]["lanes"][number];
+
+interface RequestedContainerParentLane {
+  lane: ContainerParentDiscoveryLane;
+  request: ContainerParentLaneRequest;
+}
+
+async function listContainerParentLaneBatch(
+  listContainerParentLanes: ContainerDocumentDiscoveryApi["listContainerParentLanes"],
+  requestedLanes: ReadonlyArray<RequestedContainerParentLane>,
+) {
+  const response = await listContainerParentLanes({
+    lanes: requestedLanes.map(({ request }) => request),
+  });
+  if (!response || response.results.length !== requestedLanes.length) {
+    return null;
+  }
+
+  const requestedLaneIds = new Set(
+    requestedLanes.map(({ request }) => request.laneId),
+  );
+  const pagesByLaneId = new Map<
+    string,
+    (typeof response.results)[number]["page"]
+  >();
+  for (const result of response.results) {
+    if (
+      !requestedLaneIds.has(result.laneId) ||
+      pagesByLaneId.has(result.laneId)
+    ) {
+      return null;
+    }
+    pagesByLaneId.set(result.laneId, result.page);
+  }
+
+  return requestedLanes.map(({ lane, request }) => ({
+    lane,
+    response: pagesByLaneId.get(request.laneId),
+  }));
+}
+
+function collectRemoteContainerIds(
+  items: ReadonlyArray<{ id: string }>,
+  seenContainerIds: Set<string>,
+  containerIds: string[],
+): ReadonlyArray<string> {
+  for (const { id } of items) {
+    if (!seenContainerIds.has(id)) {
+      seenContainerIds.add(id);
+      containerIds.push(id);
+    }
+  }
+
+  return items.map(({ id }) => id);
+}
 
 function isUnavailableContainerDocumentLane(
   failure: Awaited<
@@ -172,12 +230,13 @@ export function hasUndiscoveredDocumentUpdateEvent(
 }
 
 export async function listAllRemoteContainerIds(
-  listContainers: ContainerDocumentDiscoveryApi["listContainers"],
+  listContainerParentLanes: ContainerDocumentDiscoveryApi["listContainerParentLanes"],
 ): Promise<ReadonlyArray<string> | null> {
   const containerIds: string[] = [];
   const queuedParentIds = new Set<string | null>();
   const seenContainerIds = new Set<string>();
   const lanes: ContainerParentDiscoveryLane[] = [];
+  let nextLaneId = 0;
   const queueParentLane = (parentId: string | null) => {
     if (queuedParentIds.has(parentId)) {
       return;
@@ -190,16 +249,22 @@ export async function listAllRemoteContainerIds(
   queueParentLane(null);
 
   while (lanes.length > 0) {
-    const laneBatch = lanes.splice(0, CONTAINER_PARENT_DISCOVERY_CONCURRENCY);
-    const listedLanes = await Promise.all(
-      laneBatch.map(async (lane) => ({
-        lane,
-        response: await listContainers({
-          parentId: lane.parentId,
-          watermark: lane.watermark,
-        }),
-      })),
+    const laneBatch = lanes.splice(0, CONTAINER_PARENT_DISCOVERY_BATCH_SIZE);
+    const requestedLanes = laneBatch.map((lane) => ({
+      lane,
+      request: {
+        laneId: `container-parent-${nextLaneId++}`,
+        parentId: lane.parentId,
+        watermark: lane.watermark,
+      },
+    }));
+    const listedLanes = await listContainerParentLaneBatch(
+      listContainerParentLanes,
+      requestedLanes,
     );
+    if (!listedLanes) {
+      return null;
+    }
     const continuationLanes: ContainerParentDiscoveryLane[] = [];
 
     for (const { lane, response } of listedLanes) {
@@ -207,13 +272,12 @@ export async function listAllRemoteContainerIds(
         return null;
       }
 
-      for (const container of response.items) {
-        if (!seenContainerIds.has(container.id)) {
-          seenContainerIds.add(container.id);
-          containerIds.push(container.id);
-        }
-
-        queueParentLane(container.id);
+      for (const containerId of collectRemoteContainerIds(
+        response.items,
+        seenContainerIds,
+        containerIds,
+      )) {
+        queueParentLane(containerId);
       }
 
       if (response.hasMore) {
@@ -234,10 +298,10 @@ export async function listAllRemoteContainerIds(
 }
 
 export function listAllRemoteContainerIdsFromApi(
-  apiClient: Pick<ContainerDocumentDiscoveryApi, "listContainers">,
+  apiClient: Pick<ContainerDocumentDiscoveryApi, "listContainerParentLanes">,
 ): Promise<ReadonlyArray<string> | null> {
-  return listAllRemoteContainerIds((options) =>
-    apiClient.listContainers(options),
+  return listAllRemoteContainerIds((input) =>
+    apiClient.listContainerParentLanes(input),
   );
 }
 
@@ -386,10 +450,12 @@ export async function discoverAllContainerDocuments({
 }
 
 async function refreshAllContainerDocuments({
-  listContainers,
+  listContainerParentLanes,
   ...input
 }: RefreshAllContainerDocumentsOptions): Promise<ReadonlyArray<DocumentSummary> | null> {
-  const containerIds = await listAllRemoteContainerIds(listContainers);
+  const containerIds = await listAllRemoteContainerIds(
+    listContainerParentLanes,
+  );
   if (!containerIds) {
     return null;
   }
@@ -408,6 +474,7 @@ export function refreshAllContainerDocumentsFromApi({
     ...input,
     listContainerDocuments: (containerId, options) =>
       listContainerDocumentsFromApi(apiClient, containerId, options),
-    listContainers: (options) => apiClient.listContainers(options),
+    listContainerParentLanes: (input) =>
+      apiClient.listContainerParentLanes(input),
   });
 }

@@ -1,3 +1,4 @@
+import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
@@ -5,14 +6,12 @@ import type {
   SyncWatermark,
 } from "@tearleads/validators/response";
 import {
+  isListContainerParentLanesResponse,
   isPaymentRequiredErrorResponse,
   isPrincipalPolicyStaleErrorResponse,
+  type ListContainerParentLanesResponse,
 } from "@tearleads/validators/response";
-import type {
-  ListContainerDocumentsOptions,
-  ListContainersOptions,
-  RequestBody,
-} from "./types";
+import type { ListContainerDocumentsOptions, RequestBody } from "./types";
 
 /**
  * True when a sync response advances the document's write material past what a
@@ -120,15 +119,31 @@ function syncWatermarkRequestKey(
   return watermark ? `${watermark.updatedAt}\u0000${watermark.id}` : "";
 }
 
-export function listContainersRequestKey(
-  options: ListContainersOptions = {},
+export function listContainerParentLanesRequestKey(
+  input: ListContainerParentLanesRequest,
 ): string {
-  const { watermark, ...rest } = options;
-  return JSON.stringify({
-    ...rest,
-    parentId: rest.parentId === undefined ? "__undefined__" : rest.parentId,
-    watermark: syncWatermarkRequestKey(watermark),
-  });
+  return JSON.stringify(
+    input.lanes.map((lane) => ({
+      laneId: lane.laneId,
+      limit: lane.limit ?? null,
+      parentId: lane.parentId,
+      watermark: syncWatermarkRequestKey(lane.watermark),
+    })),
+  );
+}
+
+export function isListContainerParentLanesResponseForRequest(
+  input: ListContainerParentLanesRequest,
+  value: unknown,
+): value is ListContainerParentLanesResponse {
+  if (!isListContainerParentLanesResponse(value)) {
+    return false;
+  }
+  const expectedLaneIds = new Set(input.lanes.map((lane) => lane.laneId));
+  return (
+    value.results.length === input.lanes.length &&
+    value.results.every((result) => expectedLaneIds.has(result.laneId))
+  );
 }
 
 export function listContainerDocumentsRequestKey(

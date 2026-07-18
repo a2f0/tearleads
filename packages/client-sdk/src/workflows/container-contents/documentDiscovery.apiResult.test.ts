@@ -54,10 +54,15 @@ test("manual refresh discovery reports unexpected container document failures", 
         },
         status: 500,
       }),
-      listContainers: async (options) => ({
-        hasMore: false,
-        items: options.parentId === null ? [{ id: "root" }] : [],
-        nextWatermark: null,
+      listContainerParentLanes: async ({ lanes }) => ({
+        results: lanes.map((lane) => ({
+          laneId: lane.laneId,
+          page: {
+            hasMore: false,
+            items: lane.parentId === null ? [{ id: "root" }] : [],
+            nextWatermark: null,
+          },
+        })),
       }),
     },
     replaceDocumentLinksBatch: async () => {},

@@ -28,6 +28,11 @@ export {
   isContainerCreateWithMetadataDocumentRequest,
 } from "./containerMetadata";
 export {
+  isListContainerParentLanesRequest,
+  type ListContainerParentLanesRequest,
+  ListContainerParentLanesRequestSchema,
+} from "./containerParentLanes";
+export {
   type ContainerManifestRef,
   ContainerManifestRefArrayArraySchema,
   ContainerManifestRefSchema,

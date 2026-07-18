@@ -22,6 +22,10 @@ import {
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
+import {
+  readContainerParentLanePage,
+  requestContainerParentLanes,
+} from "../../../test/helpers/containerParentLaneQuery";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
 import { routeApp } from "../../routeApp";
@@ -120,20 +124,21 @@ async function storeChildContainerAccessManifest(input: {
   await storeVerifiedAccessManifest({ verifiedManifest }, db);
 }
 
-test("GET /containers returns the manifest-backed root container for the authenticated user", async () => {
+test("POST parent-lanes/query returns the manifest-backed root lane", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
 
-  const response = await routeApp.request("/containers", {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${owner.token}`,
-    },
-  });
+  const response = await requestContainerParentLanes(owner.token, [
+    { laneId: "root", parentId: null },
+  ]);
 
   expect(response.status).toBe(200);
-  const listedContainers = await response.json();
+  const responseBody = await response.json();
+  expect(
+    responseBody.results.map((result: { laneId: string }) => result.laneId),
+  ).toEqual(["root"]);
+  const listedContainers = responseBody.results[0]?.page;
   expect(listedContainers).toEqual({
     hasMore: false,
     items: [
@@ -163,7 +168,7 @@ test("GET /containers returns the manifest-backed root container for the authent
   );
 });
 
-test("GET /containers only returns containers readable through current manifests", async () => {
+test("parent-lanes/query only returns containers readable through current manifests", async () => {
   const owner = createTestUser();
   const otherUser = createTestUser();
 
@@ -172,15 +177,12 @@ test("GET /containers only returns containers readable through current manifests
   await registerUser(otherUser);
   await authenticate(otherUser);
 
-  const response = await routeApp.request("/containers", {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${otherUser.token}`,
-    },
-  });
+  const response = await requestContainerParentLanes(otherUser.token, [
+    { laneId: "root", parentId: null },
+  ]);
 
   expect(response.status).toBe(200);
-  const listedContainers = await response.json();
+  const listedContainers = await readContainerParentLanePage(response, "root");
   expect(
     listedContainers.items.map((container: { id: string }) => container.id),
   ).toEqual([otherUser.rootContainerId]);
@@ -189,35 +191,7 @@ test("GET /containers only returns containers readable through current manifests
   ).not.toContain(owner.rootContainerId);
 });
 
-test("GET /containers treats missing parentId as the root discovery lane", async () => {
-  const owner = createTestUser();
-  await registerUser(owner);
-  await authenticate(owner);
-
-  const explicitRootResponse = await routeApp.request(
-    "/containers?parentId=null",
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${owner.token}`,
-      },
-    },
-  );
-  expect(explicitRootResponse.status).toBe(200);
-
-  const defaultRootResponse = await routeApp.request("/containers", {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${owner.token}`,
-    },
-  });
-  expect(defaultRootResponse.status).toBe(200);
-  expect(await defaultRootResponse.json()).toEqual(
-    await explicitRootResponse.json(),
-  );
-});
-
-test("GET /containers lists inherited children in the requested parent lane", async () => {
+test("parent-lanes/query keeps root and child lane pages independent", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -254,30 +228,21 @@ test("GET /containers lists inherited children in the requested parent lane", as
     parentManifestHash: rootHead.manifestHash,
   });
 
-  const rootLaneResponse = await routeApp.request("/containers?parentId=null", {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${owner.token}`,
-    },
-  });
-  expect(rootLaneResponse.status).toBe(200);
+  const response = await requestContainerParentLanes(owner.token, [
+    { laneId: "root", parentId: null },
+    { laneId: "root-children", parentId: owner.rootContainerId },
+  ]);
+  expect(response.status).toBe(200);
+  const body = await response.json();
   expect(
-    (await rootLaneResponse.json()).items.map(
-      (container: { id: string }) => container.id,
-    ),
+    body.results.map((result: { laneId: string }) => result.laneId),
+  ).toEqual(["root", "root-children"]);
+  const rootLanePage = body.results[0]?.page;
+  expect(
+    rootLanePage.items.map((container: { id: string }) => container.id),
   ).toEqual([owner.rootContainerId]);
 
-  const childLaneResponse = await routeApp.request(
-    `/containers?parentId=${owner.rootContainerId}`,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${owner.token}`,
-      },
-    },
-  );
-  expect(childLaneResponse.status).toBe(200);
-  expect(await childLaneResponse.json()).toEqual(
+  expect(body.results[1]?.page).toEqual(
     expect.objectContaining({
       items: [
         expect.objectContaining({
@@ -292,7 +257,7 @@ test("GET /containers lists inherited children in the requested parent lane", as
   );
 });
 
-test("GET /containers root discovery includes directly granted non-root containers", async () => {
+test("root parent lane includes directly granted non-root containers", async () => {
   const owner = createTestUser();
   const recipient = createTestUser();
   await registerUser(owner);
@@ -338,14 +303,11 @@ test("GET /containers root discovery includes directly granted non-root containe
     parentManifestHash: rootHead.manifestHash,
   });
 
-  const response = await routeApp.request("/containers?parentId=null", {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${recipient.token}`,
-    },
-  });
+  const response = await requestContainerParentLanes(recipient.token, [
+    { laneId: "root", parentId: null },
+  ]);
   expect(response.status).toBe(200);
-  const body = await response.json();
+  const body = await readContainerParentLanePage(response, "root");
   expect(
     body.items.map((container: { id: string }) => container.id),
   ).not.toContain(owner.rootContainerId);
@@ -363,74 +325,67 @@ test("GET /containers root discovery includes directly granted non-root containe
   );
 });
 
-test("GET /containers rejects malformed parent lanes", async () => {
+test("parent-lanes/query supports client-owned watermark resume", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
 
-  const response = await routeApp.request("/containers?parentId=not-a-uuid", {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${owner.token}`,
-    },
-  });
-
-  expect(response.status).toBe(400);
-  expect(await response.json()).toEqual({ error: "Invalid parentId" });
-});
-
-test("GET /containers supports client-owned watermark resume", async () => {
-  const owner = createTestUser();
-  await registerUser(owner);
-  await authenticate(owner);
-
-  const firstResponse = await routeApp.request(
-    "/containers?parentId=null&limit=1",
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${owner.token}`,
-      },
-    },
-  );
+  const firstResponse = await requestContainerParentLanes(owner.token, [
+    { laneId: "root", limit: 1, parentId: null },
+  ]);
   expect(firstResponse.status).toBe(200);
-  const firstBody = await firstResponse.json();
+  const firstBody = await readContainerParentLanePage(firstResponse, "root");
   expect(firstBody.items).toHaveLength(1);
   expect(firstBody.nextWatermark).toEqual({
     id: owner.rootContainerId,
     updatedAt: expect.any(String),
   });
+  const firstWatermark = firstBody.nextWatermark;
+  if (!firstWatermark) {
+    throw new Error("Expected a root lane watermark");
+  }
 
-  const secondResponse = await routeApp.request(
-    `/containers?parentId=null&watermarkUpdatedAt=${encodeURIComponent(firstBody.nextWatermark.updatedAt)}&watermarkId=${encodeURIComponent(firstBody.nextWatermark.id)}`,
+  const secondResponse = await requestContainerParentLanes(owner.token, [
     {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${owner.token}`,
-      },
+      laneId: "root",
+      parentId: null,
+      watermark: firstWatermark,
     },
-  );
+  ]);
   expect(secondResponse.status).toBe(200);
-  expect(await secondResponse.json()).toEqual({
+  expect(await readContainerParentLanePage(secondResponse, "root")).toEqual({
     hasMore: false,
     items: [],
-    nextWatermark: firstBody.nextWatermark,
+    nextWatermark: firstWatermark,
     tombstones: [],
   });
 
   const malformedWatermarkResponse = await routeApp.request(
-    `/containers?parentId=null&watermarkUpdatedAt=not-a-date&watermarkId=${encodeURIComponent(firstBody.nextWatermark.id)}`,
+    "/containers/parent-lanes/query",
     {
-      method: "GET",
+      method: "POST",
       headers: {
         Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        lanes: [
+          {
+            laneId: "root",
+            parentId: null,
+            watermark: {
+              id: firstWatermark.id,
+              updatedAt: "not-a-date",
+            },
+          },
+        ],
+      }),
     },
   );
   expect(malformedWatermarkResponse.status).toBe(400);
 });
 
-test("GET /containers advances the watermark over filtered page candidates", async () => {
+test("parent-lanes/query advances a lane watermark over filtered candidates", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -481,17 +436,11 @@ test("GET /containers advances the watermark over filtered page candidates", asy
     userId: owner.userId,
   });
 
-  const firstResponse = await routeApp.request(
-    "/containers?parentId=null&limit=1",
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${owner.token}`,
-      },
-    },
-  );
+  const firstResponse = await requestContainerParentLanes(owner.token, [
+    { laneId: "root", limit: 1, parentId: null },
+  ]);
   expect(firstResponse.status).toBe(200);
-  const firstBody = await firstResponse.json();
+  const firstBody = await readContainerParentLanePage(firstResponse, "root");
   expect(firstBody).toEqual({
     hasMore: true,
     items: [],
@@ -502,17 +451,16 @@ test("GET /containers advances the watermark over filtered page candidates", asy
     tombstones: [],
   });
 
-  const secondResponse = await routeApp.request(
-    `/containers?parentId=null&limit=1&watermarkUpdatedAt=${encodeURIComponent(firstBody.nextWatermark.updatedAt)}&watermarkId=${encodeURIComponent(firstBody.nextWatermark.id)}`,
+  const secondResponse = await requestContainerParentLanes(owner.token, [
     {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${owner.token}`,
-      },
+      laneId: "root",
+      limit: 1,
+      parentId: null,
+      watermark: firstBody.nextWatermark,
     },
-  );
+  ]);
   expect(secondResponse.status).toBe(200);
-  expect(await secondResponse.json()).toEqual({
+  expect(await readContainerParentLanePage(secondResponse, "root")).toEqual({
     hasMore: false,
     items: [],
     nextWatermark: {
@@ -531,7 +479,7 @@ test("GET /containers advances the watermark over filtered page candidates", asy
   });
 });
 
-test("GET /containers exposes non-root tombstones from root discovery and parent lanes", async () => {
+test("parent-lanes/query keeps root and child tombstones scoped per result", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -570,14 +518,16 @@ test("GET /containers exposes non-root tombstones from root discovery and parent
     },
   ]);
 
-  const rootLaneResponse = await routeApp.request("/containers?parentId=null", {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${owner.token}`,
-    },
-  });
-  expect(rootLaneResponse.status).toBe(200);
-  const rootLaneBody = await rootLaneResponse.json();
+  const response = await requestContainerParentLanes(owner.token, [
+    { laneId: "root", parentId: null },
+    { laneId: "root-children", parentId: owner.rootContainerId },
+  ]);
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  expect(
+    body.results.map((result: { laneId: string }) => result.laneId),
+  ).toEqual(["root", "root-children"]);
+  const rootLaneBody = body.results[0]?.page;
   expect(rootLaneBody.tombstones).toContainEqual({
     containerId: tombstoneContainerId,
     depth: 1,
@@ -593,17 +543,7 @@ test("GET /containers exposes non-root tombstones from root discovery and parent
     updatedAt: "2026-05-05T00:00:02.000Z",
   });
 
-  const parentLaneResponse = await routeApp.request(
-    `/containers?parentId=${owner.rootContainerId}`,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${owner.token}`,
-      },
-    },
-  );
-  expect(parentLaneResponse.status).toBe(200);
-  const parentLaneBody = await parentLaneResponse.json();
+  const parentLaneBody = body.results[1]?.page;
   expect(parentLaneBody.tombstones).toContainEqual({
     containerId: tombstoneContainerId,
     depth: 1,

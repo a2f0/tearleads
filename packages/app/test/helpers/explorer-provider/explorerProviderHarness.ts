@@ -9,7 +9,10 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createMockApiClient } from "@tearleads/test-utils";
+import {
+  createContainerParentLaneBatchMock,
+  createMockApiClient,
+} from "@tearleads/test-utils";
 import type {
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
@@ -433,7 +436,9 @@ export async function createSqlRuntime(): Promise<TestRuntime> {
       getContainerWriterProjection: async () => null,
       getDocumentWriterProjection: async () => null,
       getUserIdentity: async () => null,
-      listContainers: async () => listContainersResponse(),
+      listContainerParentLanes: createContainerParentLaneBatchMock(async () =>
+        listContainersResponse(),
+      ),
       listDocumentAttachments: async () => null,
       moveContainer: async () => null,
       shareContainer: async () => null,

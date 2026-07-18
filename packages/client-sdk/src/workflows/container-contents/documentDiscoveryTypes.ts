@@ -1,3 +1,4 @@
+import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import type {
   EffectiveAccessLevel,
   ReferencedPrincipalStateResponse,
@@ -40,6 +41,13 @@ export interface ListContainersResponse {
   nextWatermark: SyncWatermark | null;
 }
 
+export interface ListContainerParentLanesResponse {
+  results: ReadonlyArray<{
+    laneId: string;
+    page: ListContainersResponse;
+  }>;
+}
+
 export interface ContainerDocumentDiscoveryApi {
   readonly listContainerDocuments: (
     containerId: string,
@@ -61,10 +69,9 @@ export interface ContainerDocumentDiscoveryApi {
         readonly status: number | null;
       }
   >;
-  readonly listContainers: (options: {
-    parentId: string | null;
-    watermark?: SyncWatermark | null;
-  }) => Promise<ListContainersResponse | null>;
+  readonly listContainerParentLanes: (
+    input: ListContainerParentLanesRequest,
+  ) => Promise<ListContainerParentLanesResponse | null>;
 }
 
 export interface DocumentLinkInput {
@@ -122,16 +129,18 @@ export interface DiscoverAllContainerDocumentsOptions
 
 export interface RefreshAllContainerDocumentsOptions
   extends Omit<DiscoverAllContainerDocumentsOptions, "containerIds"> {
-  listContainers: ContainerDocumentDiscoveryApi["listContainers"];
+  listContainerParentLanes: ContainerDocumentDiscoveryApi["listContainerParentLanes"];
 }
 
 export interface RefreshAllContainerDocumentsFromApiOptions
   extends Omit<
     RefreshAllContainerDocumentsOptions,
-    "listContainerDocuments" | "listContainers"
+    "listContainerDocuments" | "listContainerParentLanes"
   > {
   readonly apiClient: Pick<
     ContainerDocumentDiscoveryApi,
-    "listContainerDocuments" | "listContainerDocumentsResult" | "listContainers"
+    | "listContainerDocuments"
+    | "listContainerDocumentsResult"
+    | "listContainerParentLanes"
   >;
 }

@@ -6,7 +6,10 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createMockApiClient } from "@tearleads/test-utils";
+import {
+  createContainerParentLaneBatchMock,
+  createMockApiClient,
+} from "@tearleads/test-utils";
 import {
   createExplorerMetadataContainerProjection,
   listContainersResponse,
@@ -56,7 +59,7 @@ test("explorer store creates a child under a writable shared root through the pa
         requestedPrincipalPolicies.push(`${principalType}:${principalId}`);
         return null;
       },
-      listContainers: async () =>
+      listContainerParentLanes: createContainerParentLaneBatchMock(async () =>
         listContainersResponse([
           listedContainer({
             id: "shared-root-container",
@@ -77,6 +80,7 @@ test("explorer store creates a child under a writable shared root through the pa
             parentId: null,
           }),
         ]),
+      ),
     }),
     encapsulationKeyPair: localKeyPair,
     isAuthenticated: true,
@@ -216,7 +220,9 @@ test("explorer store moves authenticated child containers locally before backgro
     apiClient: createMockApiClient({
       ...runtime.apiClient,
       ...harness.apiClient,
-      listContainers: async () => listContainersResponse(remoteContainers),
+      listContainerParentLanes: createContainerParentLaneBatchMock(async () =>
+        listContainersResponse(remoteContainers),
+      ),
       moveContainer: async (containerId, request) => {
         const response = await harness.apiClient.moveContainer(
           containerId,

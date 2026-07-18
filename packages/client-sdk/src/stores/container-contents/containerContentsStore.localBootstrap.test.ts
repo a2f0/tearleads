@@ -31,14 +31,7 @@ function createRuntime(input: {
   rootContainerId: string;
 }) {
   return createContainerContentsWorkflowRuntime({
-    apiClient: createMockApiClient({
-      listContainers: async () => ({
-        hasMore: false,
-        items: [],
-        nextWatermark: null,
-        tombstones: [],
-      }),
-    }),
+    apiClient: createMockApiClient(),
     auth: {
       isAuthenticated: true,
       organizationId: input.organizationId,

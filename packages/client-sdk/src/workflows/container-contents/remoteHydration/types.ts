@@ -1,11 +1,12 @@
+import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import type {
   ContainerSummary,
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
+  ListContainerParentLanesResponse,
   ListContainersResponse,
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
-  SyncWatermark,
 } from "@tearleads/validators/response";
 import type { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import type {
@@ -66,11 +67,9 @@ interface RemoteContainerHydrationApi {
     principalType: "group" | "organization",
     principalId: string,
   ): Promise<PrincipalPolicyBundleResponse | null>;
-  listContainers(options?: {
-    limit?: number;
-    parentId?: string | null;
-    watermark?: SyncWatermark | null;
-  }): Promise<ListContainersResponse | null>;
+  listContainerParentLanes(
+    input: ListContainerParentLanesRequest,
+  ): Promise<ListContainerParentLanesResponse | null>;
 }
 
 interface RemoteContainerHydrationRuntime

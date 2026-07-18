@@ -61,6 +61,11 @@ export {
   isContainerCreateWithMetadataDocumentResponse,
 } from "./containerMetadata";
 export {
+  isListContainerParentLanesResponse,
+  type ListContainerParentLanesResponse,
+  ListContainerParentLanesResponseSchema,
+} from "./containerParentLanes";
+export {
   type ContainerDocumentSummary,
   type ContainerDocumentSyncTombstone,
   type DocumentEditAttributionRangeResponse,

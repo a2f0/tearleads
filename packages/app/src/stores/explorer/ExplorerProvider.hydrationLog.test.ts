@@ -4,7 +4,10 @@ import {
   createInitializedContainerMetadataDocument,
 } from "@tearleads/client-sdk";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createMockApiClient } from "@tearleads/test-utils";
+import {
+  createContainerParentLaneBatchMock,
+  createMockApiClient,
+} from "@tearleads/test-utils";
 import {
   ensureContainerTables,
   ensureDocumentTables,
@@ -71,43 +74,45 @@ test("explorer hydration logs a fresh-bootstrap re-pull as reconciling already-l
   runtime = runtimeWithPatch(runtime, {
     apiClient: createMockApiClient({
       ...runtime.apiClient,
-      listContainers: async (options = {}) =>
-        options.parentId === null || options.parentId === undefined
-          ? listContainersResponse([
-              listedContainer({
-                id: "root-container",
-                metadataAccessEpoch: 1,
-                metadataAccessStateHash: "root-access-state-hash-1",
-                metadataDocumentId: "root-metadata-document",
-                organizationId: "org-2",
-                parentId: null,
-                updatedAt,
-              }),
-            ])
-          : listContainersResponse(
-              options.parentId === "root-container"
-                ? [
-                    listedContainer({
-                      id: "contacts-container",
-                      metadataAccessEpoch: 1,
-                      metadataAccessStateHash: "contacts-access-state-hash-1",
-                      metadataDocumentId: "contacts-metadata-document",
-                      organizationId: "org-2",
-                      parentId: "root-container",
-                      updatedAt,
-                    }),
-                    listedContainer({
-                      id: "trash-container",
-                      metadataAccessEpoch: 1,
-                      metadataAccessStateHash: "trash-access-state-hash-1",
-                      metadataDocumentId: "trash-metadata-document",
-                      organizationId: "org-2",
-                      parentId: "root-container",
-                      updatedAt,
-                    }),
-                  ]
-                : [],
-            ),
+      listContainerParentLanes: createContainerParentLaneBatchMock(
+        async (options) =>
+          options.parentId === null || options.parentId === undefined
+            ? listContainersResponse([
+                listedContainer({
+                  id: "root-container",
+                  metadataAccessEpoch: 1,
+                  metadataAccessStateHash: "root-access-state-hash-1",
+                  metadataDocumentId: "root-metadata-document",
+                  organizationId: "org-2",
+                  parentId: null,
+                  updatedAt,
+                }),
+              ])
+            : listContainersResponse(
+                options.parentId === "root-container"
+                  ? [
+                      listedContainer({
+                        id: "contacts-container",
+                        metadataAccessEpoch: 1,
+                        metadataAccessStateHash: "contacts-access-state-hash-1",
+                        metadataDocumentId: "contacts-metadata-document",
+                        organizationId: "org-2",
+                        parentId: "root-container",
+                        updatedAt,
+                      }),
+                      listedContainer({
+                        id: "trash-container",
+                        metadataAccessEpoch: 1,
+                        metadataAccessStateHash: "trash-access-state-hash-1",
+                        metadataDocumentId: "trash-metadata-document",
+                        organizationId: "org-2",
+                        parentId: "root-container",
+                        updatedAt,
+                      }),
+                    ]
+                  : [],
+              ),
+      ),
     }),
     isAuthenticated: true,
     online: true,

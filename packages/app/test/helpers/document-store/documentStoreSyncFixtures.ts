@@ -17,6 +17,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import {
+  createContainerParentLaneBatchMock,
   createContainerWriterProjectionFixture,
   createMockApiClient,
 } from "@tearleads/test-utils";
@@ -106,7 +107,9 @@ export function createUnavailableDocumentsApiClient(
     getUserIdentity: async () => null,
     getContainerWriterProjection: async () => null,
     getDocumentWriterProjection: async () => null,
-    listContainers: async () => createListedContainers(containerId),
+    listContainerParentLanes: createContainerParentLaneBatchMock(async () =>
+      createListedContainers(containerId),
+    ),
     listDocumentAttachments: async () => null,
     syncDocument: async () => null,
   });

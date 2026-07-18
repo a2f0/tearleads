@@ -10,7 +10,10 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createMockApiClient } from "@tearleads/test-utils";
+import {
+  createContainerParentLaneBatchMock,
+  createMockApiClient,
+} from "@tearleads/test-utils";
 import {
   createExplorerMetadataContainerProjection,
   ensureContainerTables,
@@ -239,7 +242,9 @@ test("explorer sync replays moved synced containers from disk after restart and 
       apiClient: createMockApiClient({
         ...runtime.apiClient,
         ...harness.apiClient,
-        listContainers: async () => listContainersResponse(remoteContainers),
+        listContainerParentLanes: createContainerParentLaneBatchMock(async () =>
+          listContainersResponse(remoteContainers),
+        ),
         moveContainer: async (containerId, request) => {
           const response = await harness.apiClient.moveContainer(
             containerId,

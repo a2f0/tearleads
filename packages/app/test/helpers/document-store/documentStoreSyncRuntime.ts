@@ -7,7 +7,10 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createMockApiClient } from "@tearleads/test-utils";
+import {
+  createContainerParentLaneBatchMock,
+  createMockApiClient,
+} from "@tearleads/test-utils";
 import type {
   BlobAttachmentBindRequest,
   DocumentSyncRequest,
@@ -202,12 +205,13 @@ export async function documentWorkflowRuntimePatch(input: {
           input.mapDocumentWriterProjectionResponse?.(projection) ?? projection
         );
       },
-      listContainers: async () =>
+      listContainerParentLanes: createContainerParentLaneBatchMock(async () =>
         createListedContainers(
           containerId,
           `${containerId}-access-state-hash-1`,
           organizationId,
         ),
+      ),
       listDocumentAttachments: async (documentId) => {
         input.listDocumentAttachmentsCalls?.push(documentId);
         return attachments;

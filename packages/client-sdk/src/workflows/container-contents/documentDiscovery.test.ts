@@ -16,6 +16,7 @@ import {
   listAllRemoteContainerIdsFromApi,
   refreshAllContainerDocumentsFromApi,
 } from "./documentDiscovery";
+import { createDiscoveryParentLaneBatchMock } from "./documentDiscovery.testUtils";
 
 type CapturedInput = Omit<DiscoveredDocumentInput, "accessStateHash"> & {
   accessStateHash: string;
@@ -61,6 +62,7 @@ const nullContainerDocumentWatermarks = {
   loadContainerDocumentWatermark: async () => null,
   saveContainerDocumentWatermark: async () => {},
 };
+
 function captureInputs(
   inputs: ReadonlyArray<DiscoveredDocumentInput>,
 ): CapturedInput[] {
@@ -728,55 +730,57 @@ test("manual refresh lists remote container ids across paged parent lanes", asyn
     id: "root-page-1",
     updatedAt: "2026-04-06T12:00:00.000Z",
   };
-  const listContainersCalls: Array<{
+  const parentLaneCalls: Array<{
     parentId: string | null;
     watermark?: SyncWatermark | null;
   }> = [];
 
-  const containerIds = await listAllRemoteContainerIds(async (options) => {
-    listContainersCalls.push(options);
+  const containerIds = await listAllRemoteContainerIds(
+    createDiscoveryParentLaneBatchMock(async (options) => {
+      parentLaneCalls.push(options);
 
-    if (options.parentId === null && !options.watermark) {
-      return {
-        hasMore: true,
-        items: [{ id: "root" }, { id: "container-a" }],
-        nextWatermark: firstRootWatermark,
-      };
-    }
+      if (options.parentId === null && !options.watermark) {
+        return {
+          hasMore: true,
+          items: [{ id: "root" }, { id: "container-a" }],
+          nextWatermark: firstRootWatermark,
+        };
+      }
 
-    if (
-      options.parentId === null &&
-      options.watermark?.id === firstRootWatermark.id
-    ) {
+      if (
+        options.parentId === null &&
+        options.watermark?.id === firstRootWatermark.id
+      ) {
+        return {
+          hasMore: false,
+          items: [{ id: "container-b" }],
+          nextWatermark: null,
+        };
+      }
+
+      if (options.parentId === "root") {
+        return {
+          hasMore: false,
+          items: [{ id: "root-child" }],
+          nextWatermark: null,
+        };
+      }
+
+      if (options.parentId === "container-a") {
+        return {
+          hasMore: false,
+          items: [{ id: "container-a-child" }],
+          nextWatermark: null,
+        };
+      }
+
       return {
         hasMore: false,
-        items: [{ id: "container-b" }],
+        items: [],
         nextWatermark: null,
       };
-    }
-
-    if (options.parentId === "root") {
-      return {
-        hasMore: false,
-        items: [{ id: "root-child" }],
-        nextWatermark: null,
-      };
-    }
-
-    if (options.parentId === "container-a") {
-      return {
-        hasMore: false,
-        items: [{ id: "container-a-child" }],
-        nextWatermark: null,
-      };
-    }
-
-    return {
-      hasMore: false,
-      items: [],
-      nextWatermark: null,
-    };
-  });
+    }),
+  );
 
   expect(containerIds).toEqual([
     "root",
@@ -785,7 +789,7 @@ test("manual refresh lists remote container ids across paged parent lanes", asyn
     "root-child",
     "container-a-child",
   ]);
-  expect(listContainersCalls).toEqual([
+  expect(parentLaneCalls).toEqual([
     { parentId: null, watermark: null },
     { parentId: null, watermark: firstRootWatermark },
     { parentId: "root", watermark: null },
@@ -797,31 +801,33 @@ test("manual refresh lists remote container ids across paged parent lanes", asyn
 });
 
 test("manual refresh API facade lists remote container ids through the api client", async () => {
-  const listContainersCalls: Array<{
+  const parentLaneCalls: Array<{
     parentId: string | null;
     watermark?: SyncWatermark | null;
   }> = [];
 
   const containerIds = await listAllRemoteContainerIdsFromApi({
-    listContainers: async (options) => {
-      listContainersCalls.push(options);
-      return {
-        hasMore: false,
-        items: options.parentId === null ? [{ id: "container-a" }] : [],
-        nextWatermark: null,
-      };
-    },
+    listContainerParentLanes: createDiscoveryParentLaneBatchMock(
+      async (options) => {
+        parentLaneCalls.push(options);
+        return {
+          hasMore: false,
+          items: options.parentId === null ? [{ id: "container-a" }] : [],
+          nextWatermark: null,
+        };
+      },
+    ),
   });
 
   expect(containerIds).toEqual(["container-a"]);
-  expect(listContainersCalls).toEqual([
+  expect(parentLaneCalls).toEqual([
     { parentId: null, watermark: null },
     { parentId: "container-a", watermark: null },
   ]);
 });
 
 test("manual refresh API facade discovers documents for every remote container", async () => {
-  const listContainersCalls: Array<{
+  const parentLaneCalls: Array<{
     parentId: string | null;
     watermark?: SyncWatermark | null;
   }> = [];
@@ -849,14 +855,16 @@ test("manual refresh API facade discovers documents for every remote container",
           },
         ]);
       },
-      listContainers: async (options) => {
-        listContainersCalls.push(options);
-        return {
-          hasMore: false,
-          items: options.parentId === null ? [{ id: "container-a" }] : [],
-          nextWatermark: null,
-        };
-      },
+      listContainerParentLanes: createDiscoveryParentLaneBatchMock(
+        async (options) => {
+          parentLaneCalls.push(options);
+          return {
+            hasMore: false,
+            items: options.parentId === null ? [{ id: "container-a" }] : [],
+            nextWatermark: null,
+          };
+        },
+      ),
     },
     replaceDocumentLinksBatch: async (inputs) => {
       replaceDocumentLinksBatchCalls.push(inputs);
@@ -882,7 +890,7 @@ test("manual refresh API facade discovers documents for every remote container",
       updatedAt: "2026-05-01T12:30:00.000Z",
     },
   ]);
-  expect(listContainersCalls).toEqual([
+  expect(parentLaneCalls).toEqual([
     { parentId: null, watermark: null },
     { parentId: "container-a", watermark: null },
   ]);
@@ -907,7 +915,7 @@ test("manual refresh API facade stops when remote container listing is unavailab
         listContainerDocumentsCallCount += 1;
         return listContainerDocumentsResponse([]);
       },
-      listContainers: async () => null,
+      listContainerParentLanes: async () => null,
     },
     replaceDocumentLinksBatch: async () => {},
     upsertDiscoveredDocuments: async () => [],
@@ -921,11 +929,13 @@ test("manual refresh container listing stops on unavailable pages", async () => 
   await expect(listAllRemoteContainerIds(async () => null)).resolves.toBeNull();
 
   await expect(
-    listAllRemoteContainerIds(async () => ({
-      hasMore: true,
-      items: [{ id: "container-a" }],
-      nextWatermark: null,
-    })),
+    listAllRemoteContainerIds(
+      createDiscoveryParentLaneBatchMock(async () => ({
+        hasMore: true,
+        items: [{ id: "container-a" }],
+        nextWatermark: null,
+      })),
+    ),
   ).resolves.toBeNull();
 });
 
@@ -963,52 +973,4 @@ test("manual refresh limits concurrent container document lane fetches", async (
   expect(new Set(listContainerDocumentsCalls)).toEqual(new Set(containerIds));
   expect(maxActiveListContainerDocumentsCalls).toBeGreaterThan(1);
   expect(maxActiveListContainerDocumentsCalls).toBeLessThanOrEqual(4);
-});
-
-test("manual refresh limits concurrent container parent lane fetches", async () => {
-  const childContainerIds = Array.from(
-    { length: 9 },
-    (_, index) => `container-${index}`,
-  );
-  const listContainersCalls: Array<{
-    parentId: string | null;
-    watermark?: SyncWatermark | null;
-  }> = [];
-  let activeListContainersCalls = 0;
-  let maxActiveListContainersCalls = 0;
-
-  const containerIds = await listAllRemoteContainerIds(async (options) => {
-    listContainersCalls.push(options);
-    activeListContainersCalls += 1;
-    maxActiveListContainersCalls = Math.max(
-      maxActiveListContainersCalls,
-      activeListContainersCalls,
-    );
-
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      if (options.parentId === null) {
-        return {
-          hasMore: false,
-          items: childContainerIds.map((id) => ({ id })),
-          nextWatermark: null,
-        };
-      }
-
-      return {
-        hasMore: false,
-        items: [],
-        nextWatermark: null,
-      };
-    } finally {
-      activeListContainersCalls -= 1;
-    }
-  });
-
-  expect(containerIds).toEqual(childContainerIds);
-  expect(new Set(listContainersCalls.map(({ parentId }) => parentId))).toEqual(
-    new Set([null, ...childContainerIds]),
-  );
-  expect(maxActiveListContainersCalls).toBeGreaterThan(1);
-  expect(maxActiveListContainersCalls).toBeLessThanOrEqual(4);
 });

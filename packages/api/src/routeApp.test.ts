@@ -91,7 +91,13 @@ describe("createRouteApp", () => {
     };
 
     const app = createRouteApp({ requireAuth });
-    const res = await app.request("/containers");
+    const res = await app.request("/containers/parent-lanes/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lanes: [{ laneId: "root", parentId: null, watermark: null }],
+      }),
+    });
 
     expect(res.status).toBe(418);
     expect(await res.json()).toEqual({ error: "blocked by injected auth" });

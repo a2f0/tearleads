@@ -25,7 +25,7 @@ import { createLocalProjectionStore } from "./localProjectionStore";
 function createThrowingApiClient(): ReturnType<typeof createMockApiClient> {
   // Any remote call is a device-first violation in these tests.
   return createMockApiClient({
-    listContainers: async () => {
+    listContainerParentLanes: async () => {
       throw new Error("network is forbidden in device-first read tests");
     },
     listContainerDocuments: async () => {

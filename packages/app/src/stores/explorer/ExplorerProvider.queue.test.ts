@@ -15,7 +15,10 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createMockApiClient } from "@tearleads/test-utils";
+import {
+  createContainerParentLaneBatchMock as batchParentLanes,
+  createMockApiClient,
+} from "@tearleads/test-utils";
 import {
   createExplorerMetadataContainerProjection,
   ensureContainerTables,
@@ -65,7 +68,6 @@ test("explorer store flushes an offline child-container write after network reco
         signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
         userId: requestedUserId,
       }),
-      listContainers: async () => listContainersResponse(),
     }),
     encapsulationKeyPair: localKeyPair,
     isAuthenticated: true,
@@ -222,7 +224,7 @@ test("explorer store can skip background system container creation after managed
         writerProjectionCalls += 1;
         return null;
       },
-      listContainers: async () => {
+      listContainerParentLanes: batchParentLanes(async () => {
         listContainersCalls += 1;
         return listContainersResponse([
           listedContainer({
@@ -244,7 +246,7 @@ test("explorer store can skip background system container creation after managed
             parentId: null,
           }),
         ]);
-      },
+      }),
     }),
     isAuthenticated: true,
     online: true,
@@ -293,7 +295,6 @@ test("explorer store queues authenticated child create when parent has no remote
   runtime = runtimeWithPatch(runtime, {
     apiClient: createMockApiClient({
       ...runtime.apiClient,
-      listContainers: async () => listContainersResponse(),
     }),
     encapsulationKeyPair: localKeyPair,
     isAuthenticated: true,
@@ -430,7 +431,7 @@ test("explorer sync primes local document stores after login", async () => {
           signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
           userId: requestedUserId,
         }),
-        listContainers: async (options = {}) =>
+        listContainerParentLanes: batchParentLanes(async (options) =>
           options.parentId === null || options.parentId === undefined
             ? listContainersResponse([
                 listedContainer({
@@ -443,6 +444,7 @@ test("explorer sync primes local document stores after login", async () => {
                 }),
               ])
             : listContainersResponse(),
+        ),
       }),
       encapsulationKeyPair: localKeyPair,
       isAuthenticated: true,

@@ -9,11 +9,7 @@ import {
   getDefaultContainerName,
 } from "../../data/containers/containerMetadataDocument";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
-import {
-  type ContainerRecord,
-  createContainerParentSyncLane,
-  loadContainerSyncWatermark,
-} from "./containerPersistence";
+import type { ContainerRecord } from "./containerPersistence";
 import {
   addIndexedContainerChild,
   createContainerChildIndex,
@@ -21,6 +17,7 @@ import {
   removeIndexedContainerChild,
 } from "./remoteHydration/childIndex";
 import { markContainerParentLaneFetched } from "./remoteHydration/laneFetchMarkers";
+import { fetchContainerParentLaneBatch } from "./remoteHydration/parentLaneFetch";
 import { createContainerParentHydrationQueue } from "./remoteHydration/parentLaneQueue";
 import { cacheRemoteContainerPrincipalPolicies } from "./remoteHydration/principalPolicyCache";
 import {
@@ -677,25 +674,6 @@ function canHydrateRemoteContainers(
   );
 }
 
-async function fetchContainerParentLanePage(input: {
-  lane: ContainerParentHydrationLane;
-  state: RemoteContainerHydrationState;
-}): Promise<FetchedContainerParentLanePage | null> {
-  const { lane, state } = input;
-  const syncLane = createContainerParentSyncLane(lane.parentId);
-  const execSql = state.runtime.infra.execSql;
-  const watermark =
-    lane.watermark === undefined
-      ? await loadContainerSyncWatermark(execSql, syncLane)
-      : lane.watermark;
-  const response = await state.runtime.apiClient.listContainers({
-    parentId: lane.parentId,
-    watermark,
-  });
-
-  return response ? { lane, response, syncLane } : null;
-}
-
 async function applyContainerParentLanePage(input: {
   childIdsByParentId: ContainerChildIndex;
   fetchedPage: FetchedContainerParentLanePage;
@@ -780,26 +758,6 @@ function takeContainerParentLaneBatch(input: {
   }
 
   return batch;
-}
-
-function isFetchedContainerParentLanePage(
-  fetchedPage: FetchedContainerParentLanePage | null,
-): fetchedPage is FetchedContainerParentLanePage {
-  return fetchedPage !== null;
-}
-
-async function fetchContainerParentLaneBatch(input: {
-  batch: ReadonlyArray<ContainerParentHydrationLane>;
-  state: RemoteContainerHydrationState;
-}): Promise<ReadonlyArray<FetchedContainerParentLanePage> | null> {
-  const { batch, state } = input;
-  const fetchedPages = await Promise.all(
-    batch.map((lane) => fetchContainerParentLanePage({ lane, state })),
-  );
-
-  return fetchedPages.every(isFetchedContainerParentLanePage)
-    ? fetchedPages
-    : null;
 }
 
 function canApplyFetchedContainerParentLanePage(input: {

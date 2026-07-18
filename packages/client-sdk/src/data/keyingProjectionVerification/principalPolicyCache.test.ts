@@ -3,6 +3,7 @@ import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
+import { makeVerifiedPrincipalPolicy } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createPrincipalPolicyBundle,
@@ -10,9 +11,11 @@ import {
   referencedPrincipalStateFromBundle,
   referencedPrincipalStateFromPolicyState,
 } from "../../../test/helpers/policyCacheFixtures";
+import { advanceKeyingCheckpointsAtomically } from "../persistence/keyingCheckpointAdvancePersistence";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import {
   ensurePrincipalPolicyTables,
+  retainVerifiedPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "../persistence/principalPolicyPersistence";
 import {
@@ -22,6 +25,30 @@ import {
 } from "./principalPolicyCache";
 
 const EMPTY_CACHE: ReadonlyMap<string, VerifiedPrincipalPolicy> = new Map();
+
+function verifiedPolicyForBundle(
+  bundle: Awaited<ReturnType<typeof createPrincipalPolicyBundle>>["bundle"],
+): VerifiedPrincipalPolicy {
+  return makeVerifiedPrincipalPolicy({
+    checkpoint: {
+      principalId: bundle.currentState.principalId,
+      principalType: bundle.currentState.principalType,
+      stateHash: bundle.currentState.stateHash,
+      version: bundle.currentState.version,
+    },
+    history: [
+      ...bundle.previousStates,
+      { state: bundle.currentState, projection: bundle.currentProjection },
+    ],
+    keyEpoch: bundle.currentState.keyEpoch,
+    principalId: bundle.currentState.principalId,
+    principalType: bundle.currentState.principalType,
+    projection: bundle.currentProjection,
+    state: bundle.currentState,
+    stateHash: bundle.currentState.stateHash,
+    version: bundle.currentState.version,
+  });
+}
 
 test("filterUncachedPrincipalPolicyReferences treats a reference with no stored bundle as uncached", async () => {
   const { close, execSql } = await createTestExecSql("principal-policy-cache");
@@ -180,6 +207,49 @@ test("filterUncachedPrincipalPolicyReferences re-warms a cache behind the durabl
         references: [reference],
       }),
     ).resolves.toEqual([reference]);
+  } finally {
+    close();
+  }
+});
+
+test("filterUncachedPrincipalPolicyReferences uses retained history ahead of the mutable current row", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-cache-retained-ahead",
+  );
+  try {
+    const { bundle: currentBundle } = await createPrincipalPolicyBundle();
+    const { bundle: retainedBundle } =
+      await createSuccessorPrincipalPolicyBundle();
+    const previousState = retainedBundle.previousStates[0]?.state;
+    if (!previousState) {
+      throw new Error("expected retained bundle predecessor");
+    }
+    const retainedPolicy = verifiedPolicyForBundle(retainedBundle);
+    await savePrincipalPolicyBundle(
+      execSql,
+      currentBundle,
+      "2026-04-08T00:00:00.000Z",
+    );
+    await retainVerifiedPrincipalPolicyBundle({
+      bundle: retainedBundle,
+      execSql,
+      policy: retainedPolicy,
+      updatedAt: "2026-04-08T00:01:00.000Z",
+    });
+    await advanceKeyingCheckpointsAtomically({
+      access: [],
+      execSql,
+      policies: [retainedPolicy],
+    });
+
+    const reference = referencedPrincipalStateFromPolicyState(previousState);
+    await expect(
+      filterUncachedPrincipalPolicyReferences({
+        execSql,
+        principalPolicyCache: EMPTY_CACHE,
+        references: [reference],
+      }),
+    ).resolves.toEqual([]);
   } finally {
     close();
   }

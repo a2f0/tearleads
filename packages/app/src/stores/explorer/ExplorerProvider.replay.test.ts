@@ -10,7 +10,10 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createMockApiClient } from "@tearleads/test-utils";
+import {
+  createContainerParentLaneBatchMock,
+  createMockApiClient,
+} from "@tearleads/test-utils";
 import {
   createExplorerMetadataContainerProjection,
   ensureContainerTables,
@@ -159,19 +162,21 @@ test("explorer sync replays moved local containers from disk after restart and l
           signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
           userId: requestedUserId,
         }),
-        listContainers: async (options = {}) =>
-          options.parentId === null || options.parentId === undefined
-            ? listContainersResponse([
-                listedContainer({
-                  id: "root-container",
-                  metadataAccessEpoch: 1,
-                  metadataAccessStateHash: "root-access-state-hash-1",
-                  metadataDocumentId: "root-metadata-document",
-                  organizationId: "org-1",
-                  parentId: null,
-                }),
-              ])
-            : listContainersResponse(),
+        listContainerParentLanes: createContainerParentLaneBatchMock(
+          async (options) =>
+            options.parentId === null || options.parentId === undefined
+              ? listContainersResponse([
+                  listedContainer({
+                    id: "root-container",
+                    metadataAccessEpoch: 1,
+                    metadataAccessStateHash: "root-access-state-hash-1",
+                    metadataDocumentId: "root-metadata-document",
+                    organizationId: "org-1",
+                    parentId: null,
+                  }),
+                ])
+              : listContainersResponse(),
+        ),
       }),
       encapsulationKeyPair: localKeyPair,
       isAuthenticated: true,
@@ -340,8 +345,9 @@ test("explorer sync creates queued local containers parent before child", async 
           signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
           userId: requestedUserId,
         }),
-        listContainers: async () =>
+        listContainerParentLanes: createContainerParentLaneBatchMock(async () =>
           listContainersResponse(Array.from(remoteContainers.values())),
+        ),
       }),
       encapsulationKeyPair: localKeyPair,
       isAuthenticated: true,
