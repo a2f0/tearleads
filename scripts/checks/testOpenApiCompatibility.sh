@@ -121,7 +121,39 @@ removal_output=$(
     MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
     OPENAPI_BASE_REF="$refinement_commit" \
     "$CHECK_SCRIPT" 2>&1
-) || fail "removing a runtime refinement loosens the contract and must pass."
+) || fail "removing a request refinement loosens the contract and must pass."
 assert_contains "$removal_output" "$refinement_commit"
+
+cp "$FIXTURE_ROOT/refinementResponse.json" "$TEST_ROOT/docs/openapi.json"
+
+response_added_output=$(
+  cd "$TEST_ROOT"
+  GITHUB_ACTIONS='' \
+    MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
+    OPENAPI_BASE_REF="$revision_commit" \
+    "$CHECK_SCRIPT" 2>&1
+) || fail "adding a response refinement narrows server output and must pass."
+assert_contains "$response_added_output" "$revision_commit"
+
+git -C "$TEST_ROOT" add docs/openapi.json
+git -C "$TEST_ROOT" commit --quiet -m "add response refinement"
+response_commit=$(git -C "$TEST_ROOT" rev-parse HEAD)
+cp "$FIXTURE_ROOT/additive.json" "$TEST_ROOT/docs/openapi.json"
+
+if response_removed_output=$(
+  cd "$TEST_ROOT"
+  GITHUB_ACTIONS='' \
+    MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
+    OPENAPI_BASE_REF="$response_commit" \
+    "$CHECK_SCRIPT" 2>&1
+); then
+  fail "a removed response refinement was accepted as compatible."
+else
+  response_removed_exit=$?
+fi
+
+[ "$response_removed_exit" -eq 1 ] ||
+  fail "expected exit 1 for a removed response refinement, received $response_removed_exit."
+assert_contains "$response_removed_output" "response.widget-count-consistent"
 
 echo "OpenAPI compatibility regression fixtures passed."

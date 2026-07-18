@@ -1,15 +1,21 @@
 /**
- * Fail when a revision spec tightens an operation's runtime refinements.
+ * Fail when a revision spec changes an operation's runtime refinements in a
+ * direction existing clients can observe as breaking.
  *
- * oasdiff ignores x-tearleads-runtime-refinements, so adding or rewording a
- * refinement — a server-side rejection rule invisible to the JSON Schema —
- * would otherwise land as a breaking contract change with a green
- * compatibility check. Removing a refinement loosens the contract and is
- * allowed, as are refinements on operations that do not exist in the base.
+ * oasdiff ignores x-tearleads-runtime-refinements, so these server-side rules
+ * invisible to the JSON Schema would otherwise change with a green
+ * compatibility check. Direction depends on which side a refinement
+ * constrains: adding or rewording a `request.` refinement rejects previously
+ * valid client requests, while removing or rewording a `response.` refinement
+ * lets the server emit responses old clients still validate against the
+ * refinement and reject. Removing a request refinement or adding a response
+ * refinement loosens or narrows compatibly and is allowed, as is anything on
+ * an operation that does not exist in the base. Ids with any other prefix
+ * fail on every change until they are classified.
  *
  * Usage: bun checkOpenApiRefinementCompatibility.ts <base.json> <revision.json>
  * Set OPENAPI_ALLOW_REFINEMENT_TIGHTENING=1 to acknowledge an intentional
- * tightening and let the check pass loudly.
+ * breaking change and let the check pass loudly.
  */
 
 import process from "node:process";
@@ -102,6 +108,63 @@ async function loadSpec(filePath: string): Promise<unknown> {
   return JSON.parse(await Bun.file(filePath).text());
 }
 
+function addedRefinementViolation(
+  operation: string,
+  id: string,
+): string | null {
+  if (id.startsWith("response.")) {
+    return null;
+  }
+  if (id.startsWith("request.")) {
+    return `${operation}: request refinement '${id}' was added; existing clients were not rejected by it.`;
+  }
+  return `${operation}: refinement '${id}' has no request./response. prefix; classify it before changing it.`;
+}
+
+function removedRefinementViolation(
+  operation: string,
+  id: string,
+): string | null {
+  if (id.startsWith("request.")) {
+    return null;
+  }
+  if (id.startsWith("response.")) {
+    return `${operation}: response refinement '${id}' was removed; existing clients still validate responses against it.`;
+  }
+  return `${operation}: refinement '${id}' has no request./response. prefix; classify it before changing it.`;
+}
+
+function operationViolations(
+  operation: string,
+  baseRefinements: ReadonlyMap<string, string>,
+  revisionRefinements: ReadonlyMap<string, string>,
+): string[] {
+  const violations: string[] = [];
+  for (const [id, description] of [...revisionRefinements.entries()].sort()) {
+    const baseDescription = baseRefinements.get(id);
+    if (baseDescription === undefined) {
+      const violation = addedRefinementViolation(operation, id);
+      if (violation !== null) {
+        violations.push(violation);
+      }
+    } else if (baseDescription !== description) {
+      violations.push(
+        `${operation}: refinement '${id}' was reworded; treat semantic changes as breaking.`,
+      );
+    }
+  }
+  for (const id of [...baseRefinements.keys()].sort()) {
+    if (revisionRefinements.has(id)) {
+      continue;
+    }
+    const violation = removedRefinementViolation(operation, id);
+    if (violation !== null) {
+      violations.push(violation);
+    }
+  }
+  return violations;
+}
+
 function collectViolations(
   base: RefinementsByOperation,
   revision: RefinementsByOperation,
@@ -114,18 +177,9 @@ function collectViolations(
     if (baseRefinements === undefined) {
       continue;
     }
-    for (const [id, description] of [...revisionRefinements.entries()].sort()) {
-      const baseDescription = baseRefinements.get(id);
-      if (baseDescription === undefined) {
-        violations.push(
-          `${operation}: refinement '${id}' was added; existing clients were not rejected by it.`,
-        );
-      } else if (baseDescription !== description) {
-        violations.push(
-          `${operation}: refinement '${id}' was reworded; treat semantic changes as breaking.`,
-        );
-      }
-    }
+    violations.push(
+      ...operationViolations(operation, baseRefinements, revisionRefinements),
+    );
   }
   return violations;
 }
@@ -149,7 +203,7 @@ async function main(): Promise<number> {
     return 0;
   }
 
-  const heading = `${violations.length} runtime-refinement tightening(s) not visible to oasdiff:`;
+  const heading = `${violations.length} breaking runtime-refinement change(s) not visible to oasdiff:`;
   const { OPENAPI_ALLOW_REFINEMENT_TIGHTENING: allowTightening } = process.env;
   if (allowTightening === "1") {
     console.warn(
@@ -166,7 +220,7 @@ async function main(): Promise<number> {
     console.error(`  ${violation}`);
   }
   console.error(
-    "Adding or rewording a runtime refinement rejects previously valid requests. " +
+    "Tightening request refinements or loosening response refinements breaks existing clients. " +
       "Coordinate the rollout, then set OPENAPI_ALLOW_REFINEMENT_TIGHTENING=1 for the intentional change.",
   );
   return 1;
