@@ -7,6 +7,7 @@ import { DocumentKekTargetError } from "../../../access/read/documentKekTargets"
 import { DocumentContentKeyBundleError } from "../../../access/write/documentContentKeyStore";
 import { DocumentUpdateReadError } from "../../../documents/documentUpdateStore";
 import { ContainerMutationError } from "../../containers/mutations";
+import { ContainerWriterProjectionError } from "../../containers/writerProjection/types";
 import { PrincipalPolicyProjectionError } from "../../principals/principalPolicyProjection";
 
 type DocumentMutationStatus = 400 | 403 | 404 | 409 | 503;
@@ -86,6 +87,10 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
   }
 
   if (error instanceof ContainerMutationError) {
+    return new DocumentMutationError(error.message, error.status);
+  }
+
+  if (error instanceof ContainerWriterProjectionError) {
     return new DocumentMutationError(error.message, error.status);
   }
 

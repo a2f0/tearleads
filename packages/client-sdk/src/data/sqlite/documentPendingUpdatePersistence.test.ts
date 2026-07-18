@@ -6,6 +6,7 @@ import {
   enqueueDocumentPendingUpdate,
   ensureDocumentTables,
   listDocumentPendingUpdates,
+  rekeyDocumentPendingUpdate,
 } from "./documentPersistence";
 
 const documentScope = {
@@ -48,6 +49,48 @@ test("document pending updates persist queue fields and delete by id", async () 
     await expect(
       listDocumentPendingUpdates(execSql, documentScope),
     ).resolves.toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+test("document pending update re-key swaps the id and keeps the fields", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-pending-update-rekey-test",
+  );
+
+  try {
+    await ensureDocumentTables(execSql);
+
+    await enqueueDocumentPendingUpdate(execSql, documentScope, {
+      updateData: "update-1",
+      partialStartVersionVector: "start-vector-1",
+      partialEndVersionVector: "end-vector-1",
+    });
+    const [pendingUpdate] = await listDocumentPendingUpdates(
+      execSql,
+      documentScope,
+    );
+    if (!pendingUpdate) {
+      throw new Error("Expected an enqueued pending update");
+    }
+
+    const nextId = await rekeyDocumentPendingUpdate(execSql, pendingUpdate.id);
+
+    expect(nextId).not.toBe(pendingUpdate.id);
+    const rekeyed = await listDocumentPendingUpdates(execSql, documentScope);
+    expect(rekeyed).toHaveLength(1);
+    expect(rekeyed[0]).toMatchObject({
+      id: nextId,
+      updateData: "update-1",
+      partialStartVersionVector: "start-vector-1",
+      partialEndVersionVector: "end-vector-1",
+    });
+
+    await rekeyDocumentPendingUpdate(execSql, "missing-id");
+    await expect(
+      listDocumentPendingUpdates(execSql, documentScope),
+    ).resolves.toHaveLength(1);
   } finally {
     close();
   }

@@ -7,7 +7,6 @@ import {
   type VerifiedContainerAccessManifest,
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
 import type {
   ContainerManifestRef,
   DocumentOutgoingUpdate,
@@ -80,6 +79,10 @@ import {
   retrySyncPlan,
   submitDocumentSyncAttemptIfAllowed,
 } from "./syncFailures";
+import {
+  rekeyUnsettledRecoveryPendingUpdates,
+  settledPendingUpdateIdsFromSync,
+} from "./syncRecoveryRekey";
 
 export function hasDocumentUpdateEvent(
   events: ReadonlyArray<unknown>,
@@ -288,61 +291,6 @@ function contentKeyBundleForSyncRequest(
   return bundle;
 }
 
-function settledPendingUpdateIdsFromSync(input: {
-  decryptedUpdates: readonly {
-    id: string;
-    partialEndVersionVector: string;
-    partialStartVersionVector: string;
-    updateData: Uint8Array;
-  }[];
-  recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
-  response: DocumentSyncResponse;
-}): string[] {
-  const settled = new Set(input.response.acceptedOutgoingUpdateIds);
-
-  for (const update of input.decryptedUpdates) {
-    const pendingUpdate = input.recoveryPendingUpdatesById.get(update.id);
-    if (
-      pendingUpdate &&
-      pendingUpdateMatchesDecryptedUpdate(pendingUpdate, update)
-    ) {
-      settled.add(update.id);
-    }
-  }
-
-  return [...settled];
-}
-
-function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
-  return (
-    left.byteLength === right.byteLength &&
-    left.every((value, index) => value === right[index])
-  );
-}
-
-function pendingUpdateMatchesDecryptedUpdate(
-  pendingUpdate: PendingUpdateRecord,
-  decryptedUpdate: {
-    partialEndVersionVector: string;
-    partialStartVersionVector: string;
-    updateData: Uint8Array;
-  },
-): boolean {
-  if (
-    pendingUpdate.partialStartVersionVector !==
-      decryptedUpdate.partialStartVersionVector ||
-    pendingUpdate.partialEndVersionVector !==
-      decryptedUpdate.partialEndVersionVector
-  ) {
-    return false;
-  }
-
-  return bytesEqual(
-    base64ToBytes(pendingUpdate.updateData),
-    decryptedUpdate.updateData,
-  );
-}
-
 async function syncRemoteDocumentResultFromResponse(input: {
   execSql: ExecSql;
   materializedPlan: MaterializedDocumentSyncPlan;
@@ -379,6 +327,16 @@ async function syncRemoteDocumentResultFromResponse(input: {
     organizationId: plan.organizationId,
     updates: input.response.updates,
   });
+  const settledPendingUpdateIds = settledPendingUpdateIdsFromSync({
+    decryptedUpdates,
+    recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
+    response: input.response,
+  });
+  await rekeyUnsettledRecoveryPendingUpdates({
+    execSql: input.execSql,
+    recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
+    settledPendingUpdateIds,
+  });
 
   return {
     contentKey: input.materializedPlan.contentKey,
@@ -386,11 +344,7 @@ async function syncRemoteDocumentResultFromResponse(input: {
     persistedState,
     plan,
     response: input.response,
-    settledPendingUpdateIds: settledPendingUpdateIdsFromSync({
-      decryptedUpdates,
-      recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
-      response: input.response,
-    }),
+    settledPendingUpdateIds,
     writerProjection: input.writerProjection,
   };
 }

@@ -20,6 +20,7 @@ export {
   deleteDocumentPendingUpdates,
   enqueueDocumentPendingUpdate,
   listDocumentPendingUpdates,
+  rekeyDocumentPendingUpdate,
 } from "./documentPendingUpdatePersistence";
 export type {
   DocumentRecord,
