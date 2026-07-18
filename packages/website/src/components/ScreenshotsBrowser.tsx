@@ -8,56 +8,19 @@ import {
   useState,
 } from "react";
 import "./ScreenshotsBrowser.css";
+import { Stage } from "./ScreenshotsStage";
+import {
+  entryKey,
+  projectLabel,
+  type ScreenshotEntry,
+  type ScreenshotManifest,
+  themeLabel,
+  titleCase,
+} from "./screenshotsManifest";
 
 // Manifest URL, staged into Astro's public/ by scripts/buildScreenshots.ts and
 // served at the site root in both `astro dev` and the static build.
 const MANIFEST_URL = "/screenshot-gallery/manifest.json";
-
-// Mirror of the manifest shape written by scripts/buildScreenshots.ts. Kept in
-// sync by hand (the script emits JSON; this reads it).
-interface ScreenshotEntry {
-  project: string;
-  theme: string;
-  name: string;
-  src: string;
-}
-interface ScreenshotManifest {
-  projects: string[];
-  themes: string[];
-  screens: string[];
-  entries: ScreenshotEntry[];
-}
-
-// Friendlier labels for the device (capture project) toggle; falls back to a
-// title-cased id for any project not listed here.
-const PROJECT_LABELS: Record<string, string> = {
-  web: "Windowed",
-  mobile: "Mobile",
-};
-
-const THEME_LABELS: Record<string, string> = {
-  light: "Light",
-  dark: "Dark",
-};
-
-function titleCase(value: string): string {
-  return value
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
-function projectLabel(project: string): string {
-  return PROJECT_LABELS[project] ?? titleCase(project);
-}
-
-function themeLabel(theme: string): string {
-  return THEME_LABELS[theme] ?? titleCase(theme);
-}
-
-function entryKey(project: string, theme: string, name: string): string {
-  return `${project} ${theme} ${name}`;
-}
 
 type LoadState =
   | { status: "loading" }
@@ -254,6 +217,13 @@ function Gallery({ manifest }: { manifest: ScreenshotManifest }) {
       />
 
       <div className="screenshots-browser__body">
+        <Stage
+          project={project}
+          theme={theme}
+          name={activeName}
+          entry={currentEntry}
+        />
+        <StepControls canStep={screens.length > 1} onStep={step} />
         <Filmstrip
           screens={screens}
           activeIndex={activeIndex}
@@ -264,14 +234,6 @@ function Gallery({ manifest }: { manifest: ScreenshotManifest }) {
               .find(Boolean)
           }
           onSelect={(index) => setSelectedName(screens[index])}
-        />
-        <Stage
-          project={project}
-          theme={theme}
-          name={activeName}
-          entry={currentEntry}
-          canStep={screens.length > 1}
-          onStep={step}
         />
       </div>
     </div>
@@ -326,8 +288,32 @@ function Filmstrip({
   thumbFor: (name: string) => ScreenshotEntry | undefined;
   onSelect: (index: number) => void;
 }) {
+  const stripRef = useRef<HTMLElement>(null);
+
+  // Keep the active thumb visible when arrows / nav buttons step to a screen
+  // that is scrolled out of the strip. Manual scrollLeft math rather than
+  // scrollIntoView so stepping can only ever scroll the strip, never the page.
+  useEffect(() => {
+    const strip = stripRef.current;
+    const thumb = strip?.children.item(activeIndex);
+    if (!strip || !(thumb instanceof HTMLElement)) {
+      return;
+    }
+    const left = thumb.offsetLeft;
+    const right = left + thumb.offsetWidth;
+    if (left < strip.scrollLeft) {
+      strip.scrollTo({ left, behavior: "smooth" });
+    } else if (right > strip.scrollLeft + strip.clientWidth) {
+      strip.scrollTo({ left: right - strip.clientWidth, behavior: "smooth" });
+    }
+  }, [activeIndex]);
+
   return (
-    <nav className="screenshots-browser__filmstrip" aria-label="Screens">
+    <nav
+      className="screenshots-browser__filmstrip"
+      aria-label="Screens"
+      ref={stripRef}
+    >
       {screens.map((name, index) => {
         const thumb = thumbFor(name);
         return (
@@ -357,62 +343,27 @@ function Filmstrip({
   );
 }
 
-function Stage({
-  project,
-  theme,
-  name,
-  entry,
+function StepControls({
   canStep,
   onStep,
 }: {
-  project: string;
-  theme: string;
-  name: string | undefined;
-  entry: ScreenshotEntry | undefined;
   canStep: boolean;
   onStep: (delta: number) => void;
 }) {
   return (
-    // A plain div, not <main>: the Astro page already provides the page's
-    // <main> landmark, and a nested one is invalid.
-    <div className="screenshots-browser__stage">
+    <div className="screenshots-browser__navrow">
       <button
         type="button"
-        className="screenshots-browser__nav screenshots-browser__nav--prev"
+        className="screenshots-browser__nav"
         onClick={() => onStep(-1)}
         disabled={!canStep}
         aria-label="Previous screen"
       >
         ‹
       </button>
-
-      <div
-        className={
-          project === "mobile"
-            ? "screenshots-browser__frame screenshots-browser__frame--mobile"
-            : "screenshots-browser__frame"
-        }
-      >
-        {entry ? (
-          <img
-            key={entry.src}
-            className="screenshots-browser__image"
-            src={entry.src}
-            alt={`${projectLabel(project)} · ${theme} · ${name}`}
-          />
-        ) : (
-          <div className="screenshots-browser__missing">
-            <p>
-              {name ? titleCase(name) : "This screen"} was not captured in{" "}
-              {themeLabel(theme)} for {projectLabel(project)}.
-            </p>
-          </div>
-        )}
-      </div>
-
       <button
         type="button"
-        className="screenshots-browser__nav screenshots-browser__nav--next"
+        className="screenshots-browser__nav"
         onClick={() => onStep(1)}
         disabled={!canStep}
         aria-label="Next screen"
