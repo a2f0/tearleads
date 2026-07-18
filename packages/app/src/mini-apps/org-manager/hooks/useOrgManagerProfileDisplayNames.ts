@@ -1,25 +1,190 @@
 import type { OrganizationDirectory } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type {
   useTearleads,
   useTearleadsRuntime,
 } from "../../../providers/sdk/TearleadsProvider";
-import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import {
-  hasRosterProfileDocument,
-  loadRosterProfileDisplayName,
+  getLocalRosterProfileDisplayNames,
+  getRosterProfileBindingsByLocalId,
+  getRosterProfileDocumentBindingKey,
 } from "../../../stores/org-manager/rosterProfileDisplayNames";
 
 interface OrgManagerProfileDisplayNamesParams {
   appData: ReturnType<typeof useTearleadsRuntime>;
   canLoadAuthenticatedOrgData: boolean;
   directory: OrganizationDirectory | null;
-  orgManagerActions: ReturnType<typeof useOrgManagerActions>;
   selectedUserIdRef: { current: string | null };
   tearleads: ReturnType<typeof useTearleads>;
 }
 
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: Owns roster profile display-name state, derivation, and async loading in one place.
+interface ProfileDisplayNameScope {
+  readonly bindingKey: string;
+  readonly domainScope: ReturnType<
+    typeof useTearleadsRuntime
+  >["state"]["domainScope"];
+  readonly organizationId: string;
+  readonly userId: string;
+}
+
+interface ProfileDisplayNameState extends ProfileDisplayNameScope {
+  readonly names: ReadonlyMap<string, string>;
+}
+
+const EMPTY_PROFILE_DISPLAY_NAMES: ReadonlyMap<string, string> = new Map();
+
+function getProfileBindingKey(
+  directory: OrganizationDirectory | null,
+  organizationId: string | null,
+): string {
+  if (!directory || directory.organizationId !== organizationId) {
+    return "purged";
+  }
+  return JSON.stringify(
+    directory.users
+      .map(getRosterProfileDocumentBindingKey)
+      .filter((key): key is string => key !== null)
+      .sort(),
+  );
+}
+
+function matchesScope(
+  state: ProfileDisplayNameState | null,
+  input: ProfileDisplayNameScope,
+): state is ProfileDisplayNameState {
+  return (
+    state?.bindingKey === input.bindingKey &&
+    state.domainScope === input.domainScope &&
+    state.organizationId === input.organizationId &&
+    state.userId === input.userId
+  );
+}
+
+function startLocalProfileDisplayNameLoad(input: {
+  readonly directory: OrganizationDirectory;
+  readonly scope: ProfileDisplayNameScope;
+  readonly setState: Dispatch<SetStateAction<ProfileDisplayNameState | null>>;
+  readonly tearleads: ReturnType<typeof useTearleads>;
+}): (() => void) | undefined {
+  const profileBindingsByLocalId = getRosterProfileBindingsByLocalId({
+    organizationId: input.scope.organizationId,
+    users: input.directory.users,
+  });
+  if (profileBindingsByLocalId.size === 0) {
+    return;
+  }
+  let cancelled = false;
+  let loadSequence = 0;
+  const reload = async () => {
+    const sequence = ++loadSequence;
+    try {
+      const documents = await input.tearleads.documents.list({
+        documentKind: "contact",
+      });
+      const names = getLocalRosterProfileDisplayNames({
+        documents,
+        profileBindingsByLocalId,
+      });
+      if (!cancelled && sequence === loadSequence) {
+        input.setState({ ...input.scope, names });
+      }
+    } catch (error) {
+      if (!cancelled) {
+        input.tearleads.logError(
+          "Failed to load local organization roster display names",
+          error,
+        );
+      }
+    }
+  };
+  const unsubscribe = input.tearleads.documents.subscribe((document) => {
+    if (profileBindingsByLocalId.has(document.id)) {
+      void reload();
+    }
+  });
+  void reload();
+  return () => {
+    cancelled = true;
+    loadSequence += 1;
+    unsubscribe();
+  };
+}
+
+function updateSelectedProfileDisplayName(input: {
+  readonly current: ProfileDisplayNameState | null;
+  readonly displayName: string | null;
+  readonly scope: ProfileDisplayNameScope;
+  readonly selectedUserId: string;
+}): ProfileDisplayNameState {
+  const names = new Map(
+    matchesScope(input.current, input.scope)
+      ? input.current.names
+      : EMPTY_PROFILE_DISPLAY_NAMES,
+  );
+  const displayName = input.displayName?.trim() ?? "";
+  if (displayName.length > 0) {
+    names.set(input.selectedUserId, displayName);
+  } else {
+    names.delete(input.selectedUserId);
+  }
+  return { ...input.scope, names };
+}
+
+function useSelectedProfileDisplayNameSetter(input: {
+  readonly bindingKey: string;
+  readonly canReadLocalProfiles: boolean;
+  readonly domainScope: ProfileDisplayNameScope["domainScope"];
+  readonly organizationId: string | null;
+  readonly selectedUserIdRef: { current: string | null };
+  readonly setState: Dispatch<SetStateAction<ProfileDisplayNameState | null>>;
+  readonly userId: string | null;
+}) {
+  return useCallback(
+    (displayName: string | null) => {
+      const organizationId = input.organizationId;
+      const selectedUserId = input.selectedUserIdRef.current;
+      const userId = input.userId;
+      if (
+        !input.canReadLocalProfiles ||
+        !organizationId ||
+        !selectedUserId ||
+        !userId
+      ) {
+        return;
+      }
+      input.setState((current) =>
+        updateSelectedProfileDisplayName({
+          current,
+          displayName,
+          scope: {
+            bindingKey: input.bindingKey,
+            domainScope: input.domainScope,
+            organizationId,
+            userId,
+          },
+          selectedUserId,
+        }),
+      );
+    },
+    [
+      input.bindingKey,
+      input.canReadLocalProfiles,
+      input.domainScope,
+      input.organizationId,
+      input.selectedUserIdRef,
+      input.setState,
+      input.userId,
+    ],
+  );
+}
+
 export function useOrgManagerProfileDisplayNames(
   params: OrgManagerProfileDisplayNamesParams,
 ) {
@@ -27,110 +192,67 @@ export function useOrgManagerProfileDisplayNames(
     appData,
     canLoadAuthenticatedOrgData,
     directory,
-    orgManagerActions,
     selectedUserIdRef,
     tearleads,
   } = params;
-
-  const [profileDisplayNamesByUserId, setProfileDisplayNamesByUserId] =
-    useState<ReadonlyMap<string, string>>(new Map());
-
-  const setProfileDisplayName = useCallback(
-    (userId: string, displayName: string | null) => {
-      const trimmedDisplayName = displayName?.trim() ?? "";
-
-      setProfileDisplayNamesByUserId((current) => {
-        const existing = current.get(userId) ?? "";
-        if (existing === trimmedDisplayName) {
-          return current;
-        }
-
-        const next = new Map(current);
-        if (trimmedDisplayName.length > 0) {
-          next.set(userId, trimmedDisplayName);
-        } else {
-          next.delete(userId);
-        }
-        return next;
-      });
-    },
-    [],
+  const [state, setState] = useState<ProfileDisplayNameState | null>(null);
+  const directoryRef = useRef(directory);
+  directoryRef.current = directory;
+  const organizationId = appData.auth.organizationId;
+  const userId = appData.auth.userId;
+  const domainScope = appData.state.domainScope;
+  const bindingKey = getProfileBindingKey(directory, organizationId);
+  const canReadLocalProfiles = Boolean(
+    canLoadAuthenticatedOrgData &&
+      appData.auth.isAuthenticated &&
+      appData.infra.dbStatus === "ready" &&
+      organizationId &&
+      userId &&
+      bindingKey !== "purged",
   );
-
-  const setSelectedProfileDisplayName = useCallback(
-    (displayName: string | null) => {
-      if (selectedUserIdRef.current) {
-        setProfileDisplayName(selectedUserIdRef.current, displayName);
-      }
-    },
-    [setProfileDisplayName],
-  );
-
   useEffect(() => {
-    setProfileDisplayNamesByUserId(new Map());
-  }, [appData.auth.organizationId]);
-
-  useEffect(() => {
-    const organizationId = appData.auth.organizationId;
-    if (!directory || !organizationId || !canLoadAuthenticatedOrgData) {
+    const activeDirectory = directoryRef.current;
+    if (
+      !canReadLocalProfiles ||
+      !organizationId ||
+      !userId ||
+      !activeDirectory ||
+      activeDirectory.organizationId !== organizationId
+    ) {
       return;
     }
-
-    const usersWithProfileDocuments = directory.users.filter(
-      hasRosterProfileDocument,
-    );
-    if (usersWithProfileDocuments.length === 0) {
-      return;
-    }
-
-    let cancelled = false;
-    const unsubscribes: Array<() => void> = [];
-
-    const loadProfileDisplayNames = async () => {
-      const profileContainer =
-        await orgManagerActions.ensureRosterProfileContainer();
-      if (cancelled || !profileContainer?.id) {
-        return;
-      }
-
-      const runtime = tearleads.documents.workflowRuntime(profileContainer.id);
-
-      await Promise.all(
-        usersWithProfileDocuments.map((user) =>
-          loadRosterProfileDisplayName({
-            documents: tearleads.documents,
-            isCancelled: () => cancelled,
-            organizationId,
-            profileContainerId: profileContainer.id,
-            runtime,
-            setProfileDisplayName,
-            unsubscribes,
-            user,
-          }),
-        ),
-      );
-    };
-
-    void loadProfileDisplayNames().catch(() => null);
-
-    return () => {
-      cancelled = true;
-      for (const unsubscribe of unsubscribes) {
-        unsubscribe();
-      }
-    };
+    return startLocalProfileDisplayNameLoad({
+      directory: activeDirectory,
+      scope: { bindingKey, domainScope, organizationId, userId },
+      setState,
+      tearleads,
+    });
   }, [
-    appData.auth.organizationId,
-    canLoadAuthenticatedOrgData,
-    directory,
-    orgManagerActions,
-    setProfileDisplayName,
-    tearleads.documents,
+    bindingKey,
+    canReadLocalProfiles,
+    domainScope,
+    organizationId,
+    tearleads,
+    userId,
   ]);
 
-  return {
-    profileDisplayNamesByUserId,
-    setProfileDisplayNamesByUserId,
-    setSelectedProfileDisplayName,
-  };
+  const setSelectedProfileDisplayName = useSelectedProfileDisplayNameSetter({
+    bindingKey,
+    canReadLocalProfiles,
+    domainScope,
+    organizationId,
+    selectedUserIdRef,
+    setState,
+    userId,
+  });
+
+  const profileDisplayNamesByUserId =
+    canReadLocalProfiles &&
+    organizationId &&
+    userId &&
+    matchesScope(state, { bindingKey, domainScope, organizationId, userId })
+      ? state.names
+      : EMPTY_PROFILE_DISPLAY_NAMES;
+
+  return { profileDisplayNamesByUserId, setSelectedProfileDisplayName };
 }

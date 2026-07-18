@@ -166,18 +166,14 @@ export function useOrgManagerModel() {
   const selectedGroupStateHashRef = useRef<string | null>(null);
   selectedGroupStateHashRef.current =
     selectedGroup?.currentState?.stateHash ?? null;
-  const {
-    profileDisplayNamesByUserId,
-    setProfileDisplayNamesByUserId,
-    setSelectedProfileDisplayName,
-  } = useOrgManagerProfileDisplayNames({
-    appData,
-    canLoadAuthenticatedOrgData,
-    directory: activeDirectory,
-    orgManagerActions,
-    selectedUserIdRef,
-    tearleads,
-  });
+  const { profileDisplayNamesByUserId, setSelectedProfileDisplayName } =
+    useOrgManagerProfileDisplayNames({
+      appData,
+      canLoadAuthenticatedOrgData,
+      directory: activeDirectory,
+      selectedUserIdRef,
+      tearleads,
+    });
   useOrgManagerRouteMessages(openGroupRoute, openGrantRoute);
   const canDeleteGroup = useCallback(
     (group: OrganizationGroupSummary) => canCreateGroup && !group.isBuiltin,
@@ -288,7 +284,6 @@ export function useOrgManagerModel() {
     setMemberGroupId,
     setMembers,
     setOrganizationPolicyHistory,
-    setProfileDisplayNamesByUserId,
     setReadModelCursor,
     setIsCreateGroupDialogOpen,
     setIsImportUserDialogOpen,
@@ -317,6 +312,7 @@ export function useOrgManagerModel() {
   useOrgManagerDirectorySync({
     canLoadAuthenticatedOrgData,
     mutating,
+    online: appData.state.online,
     organizationId,
     readModelCursor,
     refreshDirectoryAndGroups,

@@ -83,6 +83,12 @@ function readOrganizationIdArray(value: unknown): string[] | null {
   return value;
 }
 
+function readOrganizationDeclarationId(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 && value.length <= 128
+    ? value
+    : null;
+}
+
 function readOrganizationReadModelAudience(event: Record<string, unknown>): {
   organizationId: string;
   recipientUserIds: ReadonlySet<string>;
@@ -261,14 +267,27 @@ export function createMswEventRouter(
     }
 
     if (Reflect.get(message, "type") === "known_organizations") {
+      const declarationId = readOrganizationDeclarationId(
+        Reflect.get(message, "declarationId"),
+      );
       const organizationIds = readOrganizationIdArray(
         Reflect.get(message, "organizationIds"),
       );
-      if (!organizationIds) {
+      if (!declarationId || !organizationIds) {
         return;
       }
-      organizationInterestByClient.set(client, organizationIds[0] ?? null);
+      const organizationId = organizationIds[0] ?? null;
+      organizationInterestByClient.set(client, organizationId);
       absentOrganizationAudienceByClient.set(client, new Set());
+      // The proxied HTTP read-model route remains the authorization authority
+      // in app tests. This transport twin acknowledges only after installing
+      // the declaration, preserving the production catch-up/routing order.
+      sendSocketEvent(client, {
+        type: "known_organizations_ack",
+        authorized: true,
+        declarationId,
+        organizationId,
+      });
       return;
     }
 

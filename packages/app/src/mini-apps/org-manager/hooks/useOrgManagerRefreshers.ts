@@ -98,9 +98,6 @@ interface OrgManagerRefreshersParams {
   setOrganizationPolicyHistory: Dispatch<
     SetStateAction<OrganizationPolicyHistory | null>
   >;
-  setProfileDisplayNamesByUserId: Dispatch<
-    SetStateAction<ReadonlyMap<string, string>>
-  >;
   setReadModelCursor: Dispatch<SetStateAction<string | null>>;
   setIsCreateGroupDialogOpen: Dispatch<SetStateAction<boolean>>;
   setIsImportUserDialogOpen: Dispatch<SetStateAction<boolean>>;
@@ -133,7 +130,6 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setMemberGroupId,
     setMembers,
     setOrganizationPolicyHistory,
-    setProfileDisplayNamesByUserId,
     setReadModelCursor,
     setIsCreateGroupDialogOpen,
     setIsImportUserDialogOpen,
@@ -167,7 +163,6 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setMembers(null);
     setGroupContainers(null);
     setGroupPolicyHistory(null);
-    setProfileDisplayNamesByUserId(new Map());
     setReadModelCursor(null);
     setIsCreateGroupDialogOpen(false);
     setIsImportUserDialogOpen(false);
@@ -184,7 +179,6 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setIsImportUserDialogOpen,
     setMemberGroupId,
     setMembers,
-    setProfileDisplayNamesByUserId,
     setReadModelCursor,
   ]);
 

@@ -9,6 +9,8 @@ import { MAX_CLIENT_MESSAGE_BYTES } from "./wsRouting";
 
 const ORGANIZATION_ID = "00000000-0000-4000-8000-00000000000a";
 const USER_ID = "10000000-0000-4000-8000-00000000000a";
+const DECLARATION_ID = "organization-interest-a";
+const CLEAR_DECLARATION_ID = "organization-interest-clear";
 
 interface FakeSocket {
   readonly closed: Array<{
@@ -142,6 +144,7 @@ test("rejects unauthorized organization declarations before indexing", async () 
     ws,
     JSON.stringify({
       type: "known_organizations",
+      declarationId: DECLARATION_ID,
       organizationIds: [ORGANIZATION_ID],
     }),
   );
@@ -158,6 +161,12 @@ test("rejects unauthorized organization declarations before indexing", async () 
   ]);
   expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
     { type: "interest_state", containerIds: [] },
+    {
+      type: "known_organizations_ack",
+      declarationId: DECLARATION_ID,
+      organizationId: ORGANIZATION_ID,
+      authorized: false,
+    },
   ]);
   gateway.stop();
 });
@@ -182,6 +191,7 @@ test("reauthorizes denied demand when a later audience restores access", async (
     ws,
     JSON.stringify({
       type: "known_organizations",
+      declarationId: DECLARATION_ID,
       organizationIds: [ORGANIZATION_ID],
     }),
   );
@@ -193,7 +203,7 @@ test("reauthorizes denied demand when a later audience restores access", async (
   });
   await flushAsyncRouting();
   expect(authorizationCalls).toBe(2);
-  expect(socket.sent).toHaveLength(1);
+  expect(socket.sent).toHaveLength(2);
 
   authorized = true;
   await bus.publish({
@@ -206,6 +216,12 @@ test("reauthorizes denied demand when a later audience restores access", async (
   expect(authorizationCalls).toBe(3);
   expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
     { type: "interest_state", containerIds: [] },
+    {
+      type: "known_organizations_ack",
+      declarationId: DECLARATION_ID,
+      organizationId: ORGANIZATION_ID,
+      authorized: false,
+    },
     {
       type: "organization_read_model_changed",
       organizationId: ORGANIZATION_ID,
@@ -235,6 +251,7 @@ test("does not index an organization until asynchronous authorization resolves",
     ws,
     JSON.stringify({
       type: "known_organizations",
+      declarationId: DECLARATION_ID,
       organizationIds: [ORGANIZATION_ID],
     }),
   );
@@ -247,19 +264,20 @@ test("does not index an organization until asynchronous authorization resolves",
 
   resolveAuthorization?.(true);
   await declaration;
-  await bus.publish({
-    type: "organization_read_model_changed",
-    organizationId: ORGANIZATION_ID,
-    recipientUserIds: [USER_ID],
-    origin: { sessionId: "session-a", userId: USER_ID },
-  });
+  await flushAsyncRouting();
 
   expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
     { type: "interest_state", containerIds: [] },
     {
+      type: "known_organizations_ack",
+      declarationId: DECLARATION_ID,
+      organizationId: ORGANIZATION_ID,
+      authorized: true,
+    },
+    {
       type: "organization_read_model_changed",
       organizationId: ORGANIZATION_ID,
-      originatedFromSession: true,
+      originatedFromSession: false,
     },
   ]);
   gateway.stop();
@@ -285,6 +303,7 @@ test("a newer clear declaration defeats stale asynchronous authorization", async
     ws,
     JSON.stringify({
       type: "known_organizations",
+      declarationId: DECLARATION_ID,
       organizationIds: [ORGANIZATION_ID],
     }),
   );
@@ -292,6 +311,7 @@ test("a newer clear declaration defeats stale asynchronous authorization", async
     ws,
     JSON.stringify({
       type: "known_organizations",
+      declarationId: CLEAR_DECLARATION_ID,
       organizationIds: [],
     }),
   );
@@ -305,6 +325,12 @@ test("a newer clear declaration defeats stale asynchronous authorization", async
 
   expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
     { type: "interest_state", containerIds: [] },
+    {
+      type: "known_organizations_ack",
+      declarationId: CLEAR_DECLARATION_ID,
+      organizationId: null,
+      authorized: true,
+    },
   ]);
   gateway.stop();
 });
