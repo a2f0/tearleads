@@ -65,7 +65,8 @@ interface OrgManagerContextValue {
   ensureRosterProfileContainer: () => Promise<ContainerNode | null>;
   importUserById: (userId: string) => Promise<ImportedOrganizationUser | null>;
   isOperationScopeActive: (scope: OrgManagerOperationScope) => boolean;
-  loadDataUsage: () => Promise<OrganizationDataUsage | null>;
+  loadDataUsage: () => Promise<OrganizationDataUsage | null | undefined>;
+  loadLocalDataUsage: () => Promise<OrganizationDataUsage | null>;
   loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
   loadDirectoryAndGroupsAfterMutation: () => Promise<OrganizationDirectoryAndGroups | null>;
   loadLocalDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
@@ -225,6 +226,10 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
 
   const loadDataUsage = useCallback(() => {
     return organizations.loadDataUsage();
+  }, [organizations]);
+
+  const loadLocalDataUsage = useCallback(() => {
+    return organizations.loadLocalDataUsage();
   }, [organizations]);
 
   const loadUserDetail = useCallback(
@@ -401,6 +406,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       importUserById,
       isOperationScopeActive,
       loadDataUsage,
+      loadLocalDataUsage,
       loadDirectoryAndGroups,
       loadDirectoryAndGroupsAfterMutation,
       loadLocalDirectoryAndGroups,
@@ -426,6 +432,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       importUserById,
       isOperationScopeActive,
       loadDataUsage,
+      loadLocalDataUsage,
       loadDirectoryAndGroups,
       loadDirectoryAndGroupsAfterMutation,
       loadLocalDirectoryAndGroups,

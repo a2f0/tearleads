@@ -64,6 +64,7 @@ import {
   type ListContainerDocumentsResponse,
   type ListContainersResponse,
   type ListDocumentAttachmentsResponse,
+  type OrganizationDataUsageResponse,
   type OrganizationReadModelResponse,
   type PrincipalPolicyBundleResponse,
   type UserIdentityResponse,
@@ -800,11 +801,16 @@ export class ApiClient {
     );
   }
 
-  getOrganizationDataUsage(organizationId: string) {
-    return this.request(
+  getOrganizationDataUsageResult(
+    organizationId: string,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<OrganizationDataUsageResponse>> {
+    return this.makeRequestResult(
       `/organizations/${pathSegment(organizationId)}/data-usage`,
       isOrganizationDataUsageResponse,
       "GET",
+      undefined,
+      options,
     );
   }
 

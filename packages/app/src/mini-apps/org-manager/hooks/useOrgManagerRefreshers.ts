@@ -14,13 +14,13 @@ import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
+import { useOrgManagerDataUsageRefresher } from "../billing/useOrgManagerDataUsageRefresher";
 import { useOrgManagerGroupContainersRefresher } from "../groups/useOrgManagerGroupContainersRefresher";
 import { useOrgManagerGroupDetailsRefresher } from "../groups/useOrgManagerGroupDetailsRefresher";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { useOrgManagerVisibleRefresher } from "../organization/useOrgManagerVisibleRefresher";
 import {
   clearErrorIfRequested,
-  type DataUsageRefreshOptions,
   type DirectoryRefreshOptions,
   type DirectoryRefreshResult,
   directoryLoadOptions,
@@ -73,6 +73,7 @@ interface OrgManagerRefreshersParams {
   appData: ReturnType<typeof useTearleadsRuntime>;
   beginRequest: BeginRequest;
   canLoadAuthenticatedOrgData: boolean;
+  dataUsageRef: { current: OrganizationDataUsage | null };
   orgManagerActions: ReturnType<typeof useOrgManagerActions>;
   resetSelectedRosterUser: () => void;
   selectGroup: (groupId: string | null) => void;
@@ -111,6 +112,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     appData,
     beginRequest,
     canLoadAuthenticatedOrgData,
+    dataUsageRef,
     orgManagerActions,
     resetSelectedRosterUser,
     selectGroup,
@@ -154,6 +156,16 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     orgManagerActions,
     setError,
     setGroupContainers,
+  });
+  const refreshDataUsage = useOrgManagerDataUsageRefresher({
+    appData,
+    beginRequest,
+    canLoadAuthenticatedOrgData,
+    dataUsageRef,
+    orgManagerActions,
+    setDataUsage,
+    setError,
+    setLoading,
   });
 
   const resetDirectoryState = useCallback(() => {
@@ -361,52 +373,6 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
       orgManagerActions,
       setError,
       setGrants,
-      setLoading,
-    ],
-  );
-
-  const refreshDataUsage = useCallback(
-    async (options: DataUsageRefreshOptions = {}) => {
-      const isCurrentRequest = beginRequest("dataUsage");
-      const { shouldClearError, shouldManageLoading } =
-        getRefreshBehavior(options);
-      if (!canLoadAuthenticatedOrgData) {
-        setDataUsage(null);
-        return;
-      }
-
-      setLoadingIfManaged(shouldManageLoading, setLoading, true);
-      clearErrorIfRequested(shouldClearError, setError);
-
-      try {
-        const nextUsage = await orgManagerActions.loadDataUsage();
-        if (!isCurrentRequest()) {
-          return;
-        }
-        if (nextUsage === null) {
-          setDataUsage(null);
-          setError(ORG_MANAGER_LABELS.failedLoadDataUsage);
-          return;
-        }
-
-        setDataUsage(nextUsage);
-      } catch (nextError) {
-        if (isCurrentRequest()) {
-          setDataUsage(null);
-          setUnknownError(setError, nextError);
-        }
-      } finally {
-        if (isCurrentRequest()) {
-          setLoadingIfManaged(shouldManageLoading, setLoading, false);
-        }
-      }
-    },
-    [
-      canLoadAuthenticatedOrgData,
-      beginRequest,
-      orgManagerActions,
-      setDataUsage,
-      setError,
       setLoading,
     ],
   );

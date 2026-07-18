@@ -130,38 +130,6 @@ export interface OrganizationContainerGrantsResponse {
   grants: OrganizationContainerGrantResponse[];
 }
 
-export type OrganizationDocumentUsageCategory =
-  | "containerMetadata"
-  | "rosterProfiles"
-  | "organizationMetadata"
-  | "user";
-
-export interface OrganizationDocumentUsageCategoryBreakdown {
-  byteLength: number;
-  category: OrganizationDocumentUsageCategory;
-  documentCount: number;
-  updateCount: number;
-}
-
-export interface OrganizationDocumentDataUsageResponse {
-  breakdown: OrganizationDocumentUsageCategoryBreakdown[];
-  byteLength: number;
-  documentCount: number;
-  updateCount: number;
-}
-
-export interface OrganizationBlobDataUsageResponse {
-  blobCount: number;
-  byteLength: number;
-}
-
-export interface OrganizationDataUsageResponse {
-  organizationId: string;
-  blobs: OrganizationBlobDataUsageResponse;
-  documents: OrganizationDocumentDataUsageResponse;
-  totalByteLength: number;
-}
-
 export interface OrganizationUserDetailGrantsResponse {
   directGrants: OrganizationContainerGrantResponse[];
   groupGrants: OrganizationContainerGrantResponse[];
@@ -406,76 +374,6 @@ function isNonNegativeIntegerProperty(
 
   return (
     typeof property === "number" && Number.isInteger(property) && property >= 0
-  );
-}
-
-const ORGANIZATION_DOCUMENT_USAGE_CATEGORIES: readonly OrganizationDocumentUsageCategory[] =
-  ["containerMetadata", "rosterProfiles", "organizationMetadata", "user"];
-
-function isOrganizationDocumentUsageCategory(
-  value: unknown,
-): value is OrganizationDocumentUsageCategory {
-  return (
-    typeof value === "string" &&
-    ORGANIZATION_DOCUMENT_USAGE_CATEGORIES.some(
-      (category) => category === value,
-    )
-  );
-}
-
-function isOrganizationDocumentUsageCategoryBreakdown(
-  value: unknown,
-): value is OrganizationDocumentUsageCategoryBreakdown {
-  return (
-    isPlainObject(value) &&
-    isOrganizationDocumentUsageCategory(Reflect.get(value, "category")) &&
-    isNonNegativeIntegerProperty(value, "byteLength") &&
-    isNonNegativeIntegerProperty(value, "documentCount") &&
-    isNonNegativeIntegerProperty(value, "updateCount")
-  );
-}
-
-function isOrganizationDocumentDataUsageResponse(
-  value: unknown,
-): value is OrganizationDocumentDataUsageResponse {
-  const breakdown = isPlainObject(value)
-    ? Reflect.get(value, "breakdown")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    Array.isArray(breakdown) &&
-    breakdown.every(isOrganizationDocumentUsageCategoryBreakdown) &&
-    isNonNegativeIntegerProperty(value, "byteLength") &&
-    isNonNegativeIntegerProperty(value, "documentCount") &&
-    isNonNegativeIntegerProperty(value, "updateCount")
-  );
-}
-
-function isOrganizationBlobDataUsageResponse(
-  value: unknown,
-): value is OrganizationBlobDataUsageResponse {
-  return (
-    isPlainObject(value) &&
-    isNonNegativeIntegerProperty(value, "blobCount") &&
-    isNonNegativeIntegerProperty(value, "byteLength")
-  );
-}
-
-export function isOrganizationDataUsageResponse(
-  value: unknown,
-): value is OrganizationDataUsageResponse {
-  const blobs = isPlainObject(value) ? Reflect.get(value, "blobs") : undefined;
-  const documents = isPlainObject(value)
-    ? Reflect.get(value, "documents")
-    : undefined;
-
-  return (
-    isPlainObject(value) &&
-    hasStringProperty(value, "organizationId") &&
-    isOrganizationBlobDataUsageResponse(blobs) &&
-    isOrganizationDocumentDataUsageResponse(documents) &&
-    isNonNegativeIntegerProperty(value, "totalByteLength")
   );
 }
 

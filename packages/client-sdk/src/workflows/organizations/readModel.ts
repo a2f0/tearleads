@@ -5,7 +5,6 @@ import type {
 import type {
   OrganizationContainerGrantResponse,
   OrganizationContainerGrantsResponse,
-  OrganizationDataUsageResponse,
   OrganizationDirectoryResponse,
   OrganizationDirectoryUserResponse,
   OrganizationGroupContainerResponse,
@@ -33,7 +32,6 @@ export {
 } from "./policyHistoryReadModel";
 
 export type OrganizationDirectory = OrganizationDirectoryResponse;
-export type OrganizationDataUsage = OrganizationDataUsageResponse;
 export type OrganizationDirectoryUser = OrganizationDirectoryUserResponse;
 export type OrganizationProfile = OrganizationProfileResponse;
 export type OrganizationGroupContainer = OrganizationGroupContainerResponse & {
@@ -75,9 +73,6 @@ export interface OrganizationGroupDetails {
 }
 
 interface OrganizationReadApi {
-  readonly getOrganizationDataUsage: (
-    organizationId: string,
-  ) => Promise<OrganizationDataUsageResponse | null>;
   readonly updateOrganizationRosterEntry: (
     organizationId: string,
     userId: string,
@@ -87,13 +82,6 @@ interface OrganizationReadApi {
     organizationId: string,
     input: UpdateOrganizationProfileRequest,
   ) => Promise<OrganizationProfileResponse | null>;
-}
-
-export async function loadOrganizationDataUsage(input: {
-  readonly apiClient: Pick<OrganizationReadApi, "getOrganizationDataUsage">;
-  readonly organizationId: string;
-}): Promise<OrganizationDataUsage | null> {
-  return input.apiClient.getOrganizationDataUsage(input.organizationId);
 }
 
 export async function updateOrganizationRosterEntry(input: {

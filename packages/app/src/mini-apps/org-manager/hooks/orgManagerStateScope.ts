@@ -19,6 +19,17 @@ export function getOrgManagerStateScopeKey(
   ]);
 }
 
+export function getOrgManagerDataUsageScopeKey(
+  appData: ReturnType<typeof useTearleadsRuntime>,
+): string {
+  return JSON.stringify([
+    appData.auth.isAuthenticated,
+    appData.auth.organizationId,
+    appData.auth.userId,
+    appData.infra.dbId,
+  ]);
+}
+
 export function scopeOrganizationDirectory(
   value: OrganizationDirectory | null,
   organizationId: string | null,

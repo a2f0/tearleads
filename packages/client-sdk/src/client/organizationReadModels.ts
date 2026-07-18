@@ -17,6 +17,7 @@ import {
   type OrganizationUserDetail,
   reconcileOrganizationDirectoryAndGroups,
 } from "../workflows/organizations";
+import { organizationAccessScopeKey } from "../workflows/organizations/organizationPresentationAccessState";
 import { createRuntimePrincipalPolicyWarmer } from "../workflows/principals/runtimePolicyWarmer";
 import type {
   InternalRuntime,
@@ -87,10 +88,6 @@ function activeReadModelRuntime(
   }
 
   return { runtime, organizationId, userId };
-}
-
-function reconciliationKey(input: ActiveOrganizationReadModelRuntime): string {
-  return `${input.organizationId}\0${input.userId}`;
 }
 
 class OrganizationReadModelCoordinatorImpl
@@ -316,7 +313,10 @@ class OrganizationReadModelCoordinatorImpl
     }
 
     const byKey = this.reconciliationMap(active);
-    const key = reconciliationKey(active);
+    const key = organizationAccessScopeKey(
+      active.organizationId,
+      active.userId,
+    );
     const existing = byKey.get(key);
     if (existing) {
       return existing;
@@ -343,7 +343,7 @@ class OrganizationReadModelCoordinatorImpl
       return null;
     }
     const existing = this.reconciliationMap(active).get(
-      reconciliationKey(active),
+      organizationAccessScopeKey(active.organizationId, active.userId),
     );
     if (existing) {
       await existing.catch(() => null);

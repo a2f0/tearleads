@@ -7,6 +7,10 @@ import {
   text,
 } from "drizzle-orm/sqlite-core";
 import {
+  organizationDataUsageSQLiteSchema,
+  organizationDataUsageTables,
+} from "./organizationDataUsageSchema";
+import {
   organizationReadModelSQLiteSchema,
   organizationReadModelTables,
 } from "./organizationReadModelTableRegistry";
@@ -705,6 +709,7 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...containerMoveIntentTables,
   ...containerSyncWatermarkTables,
   ...organizationReadModelTables,
+  ...organizationDataUsageTables,
 ];
 
 export const clientSQLiteSchema = {
@@ -727,4 +732,5 @@ export const clientSQLiteSchema = {
   containerSyncLaneChecks,
   containerSyncWatermarks,
   ...organizationReadModelSQLiteSchema,
+  ...organizationDataUsageSQLiteSchema,
 };

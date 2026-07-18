@@ -14,6 +14,22 @@ interface DataUsageRefreshInput {
   readonly visible: boolean;
 }
 
+export async function refreshDataUsageOnEntry(input: {
+  readonly cancelled: () => boolean;
+  readonly readPending: () => boolean;
+  readonly refreshDataUsage: DataUsageRefreshInput["refreshDataUsage"];
+}): Promise<void> {
+  await input.refreshDataUsage({
+    clearError: false,
+    localOnly: true,
+    manageLoading: false,
+  });
+  if (input.cancelled() || input.readPending()) {
+    return;
+  }
+  await input.refreshDataUsage({ clearError: true, manageLoading: false });
+}
+
 export function shouldRefreshDataUsageAfterSync(input: {
   readonly enabled: boolean;
   readonly pending: boolean;
@@ -25,7 +41,7 @@ export function shouldRefreshDataUsageAfterSync(input: {
   );
 }
 
-/** Refreshes server usage when its view opens or queued local writes settle. */
+/** Paints local usage on entry, then reconciles after entry or sync settles. */
 export function useOrgManagerDataUsageRefresh({
   enabled,
   refreshDataUsage,
@@ -36,10 +52,20 @@ export function useOrgManagerDataUsageRefresh({
   const previouslyPendingRef = useRef(false);
 
   useEffect(() => {
-    if (enabled && visible) {
-      void refreshDataUsage({ clearError: true, manageLoading: false });
+    if (!enabled || !visible) {
+      return;
     }
-  }, [enabled, refreshDataUsage, visible]);
+    let cancelled = false;
+    void refreshDataUsageOnEntry({
+      cancelled: () => cancelled,
+      readPending: () =>
+        getDomainSyncCoordinatorSnapshot(domainScope).hasPendingWork,
+      refreshDataUsage,
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [domainScope, enabled, refreshDataUsage, visible]);
 
   useEffect(() => {
     if (!enabled || !visible) {

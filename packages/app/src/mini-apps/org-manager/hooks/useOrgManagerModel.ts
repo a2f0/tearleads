@@ -1,6 +1,5 @@
 import type {
   OrganizationContainerGrants,
-  OrganizationDataUsage,
   OrganizationDirectory,
   OrganizationGroupContainers,
   OrganizationGroupMembers,
@@ -17,6 +16,7 @@ import {
 } from "../../../providers/sdk/TearleadsProvider";
 import { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { useMiniAppBusActions } from "../../bus";
+import { useOrgManagerScopedDataUsage } from "../billing/useOrgManagerScopedDataUsage";
 import { useOrgManagerContextMenu } from "../context-menu/OrgManagerContextMenu";
 import { deriveOrgManagerState } from "../deriveOrgManagerState";
 import { useClearMissingOrgManagerUser } from "../directory/useClearMissingOrgManagerUser";
@@ -28,6 +28,7 @@ import { useOrgManagerViewRefreshes } from "../organization/useOrgManagerViewRef
 import type { GroupDetailsEffectKey } from "../refresh";
 import type { OrgManagerView } from "../routes";
 import {
+  getOrgManagerDataUsageScopeKey,
   getOrgManagerStateScopeKey,
   scopeOrganizationDirectory,
   scopeOrganizationList,
@@ -57,6 +58,8 @@ export function useOrgManagerModel() {
   );
   const [readModelCursor, setReadModelCursor] = useState<string | null>(null);
   const organizationId = appData.auth.organizationId;
+  const dataUsageScopeKey = getOrgManagerDataUsageScopeKey(appData);
+  const orgManagerScopeKey = getOrgManagerStateScopeKey(appData);
   const activeDirectory = scopeOrganizationDirectory(
     directory,
     organizationId,
@@ -92,9 +95,8 @@ export function useOrgManagerModel() {
   const [grants, setGrants] = useState<OrganizationContainerGrants | null>(
     null,
   );
-  const [dataUsage, setDataUsage] = useState<OrganizationDataUsage | null>(
-    null,
-  );
+  const { dataUsage, dataUsageRef, setDataUsage } =
+    useOrgManagerScopedDataUsage(dataUsageScopeKey);
   const [selectedUserId, setSelectedUserIdState] = useState<string | null>(
     null,
   );
@@ -114,7 +116,6 @@ export function useOrgManagerModel() {
     null,
   );
   const selectedUserIdRef = useRef<string | null>(null);
-  const orgManagerScopeKey = getOrgManagerStateScopeKey(appData);
   const beginRequest = useOrgManagerRequestGuard(orgManagerScopeKey);
   const canLoadAuthenticatedOrgData = Boolean(
     organizationId && appData.auth.isAuthenticated,
@@ -265,6 +266,7 @@ export function useOrgManagerModel() {
     appData,
     beginRequest,
     canLoadAuthenticatedOrgData,
+    dataUsageRef,
     orgManagerActions,
     resetSelectedRosterUser,
     selectGroup,
@@ -302,7 +304,6 @@ export function useOrgManagerModel() {
     closeContextMenu: contextMenuState.closeContextMenu,
     resetDirectoryState,
     scopeKey: orgManagerScopeKey,
-    setDataUsage,
     setError,
     setGrants,
     setMutating,

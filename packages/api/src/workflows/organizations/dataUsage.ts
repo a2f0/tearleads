@@ -11,10 +11,11 @@ import {
   organizationRosterEntries,
   organizations,
 } from "@tearleads/api-shared/schema";
-import type {
-  OrganizationDataUsageResponse,
-  OrganizationDocumentUsageCategory,
-  OrganizationDocumentUsageCategoryBreakdown,
+import {
+  ORGANIZATION_DOCUMENT_USAGE_CATEGORIES,
+  type OrganizationDataUsageResponse,
+  type OrganizationDocumentUsageCategory,
+  type OrganizationDocumentUsageCategoryBreakdown,
 } from "@tearleads/validators/response";
 import { sql } from "drizzle-orm";
 import { uuidValue } from "../../utils/sqlDialect";
@@ -26,7 +27,7 @@ import { requireDirectOrganizationAccess } from "./access";
 // a genuine user document. Contacts and Trash contents are deliberately counted
 // as user data — those live in per-user system containers but hold user content.
 const DOCUMENT_USAGE_CATEGORY_ORDER: readonly OrganizationDocumentUsageCategory[] =
-  ["containerMetadata", "rosterProfiles", "organizationMetadata", "user"];
+  ORGANIZATION_DOCUMENT_USAGE_CATEGORIES;
 
 interface OrganizationBlobUsageRow {
   blobByteLength: unknown;
@@ -79,6 +80,15 @@ function isDocumentUsageCategory(
     typeof value === "string" &&
     DOCUMENT_USAGE_CATEGORY_ORDER.some((category) => category === value)
   );
+}
+
+function sumUsageField(
+  entries: readonly OrganizationDocumentUsageCategoryBreakdown[],
+  field: "byteLength" | "documentCount" | "updateCount",
+  label: string,
+): number {
+  const total = entries.reduce((sum, entry) => sum + BigInt(entry[field]), 0n);
+  return toNonNegativeSafeInteger(total, label);
 }
 
 async function loadOrganizationDataUsageInTransaction(input: {
@@ -209,17 +219,20 @@ async function loadOrganizationDataUsageInTransaction(input: {
       return { category, ...usage };
     });
 
-  const documentByteLength = breakdown.reduce(
-    (total, entry) => total + entry.byteLength,
-    0,
+  const documentByteLength = sumUsageField(
+    breakdown,
+    "byteLength",
+    "documentByteLength",
   );
-  const documentCount = breakdown.reduce(
-    (total, entry) => total + entry.documentCount,
-    0,
+  const documentCount = sumUsageField(
+    breakdown,
+    "documentCount",
+    "documentCount",
   );
-  const documentUpdateCount = breakdown.reduce(
-    (total, entry) => total + entry.updateCount,
-    0,
+  const documentUpdateCount = sumUsageField(
+    breakdown,
+    "updateCount",
+    "documentUpdateCount",
   );
 
   const blobRow = blobResult.rows[0];
@@ -243,7 +256,10 @@ async function loadOrganizationDataUsageInTransaction(input: {
       documentCount,
       updateCount: documentUpdateCount,
     },
-    totalByteLength: documentByteLength + blobByteLength,
+    totalByteLength: toNonNegativeSafeInteger(
+      BigInt(documentByteLength) + BigInt(blobByteLength),
+      "totalByteLength",
+    ),
   };
 }
 
