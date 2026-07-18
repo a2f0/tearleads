@@ -21,6 +21,7 @@ import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvide
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
 import { useRegisterUserId } from "../../pane/dual-pane";
+import { SyncStatusIndicator } from "../../pane/footer/sync-status/SyncStatusIndicator";
 import { DestroyKeyPackageConfirmationDialog } from "../../shared/DestroyKeyPackageConfirmationDialog";
 import { LogoutConfirmationDialog } from "../../shared/LogoutConfirmationDialog";
 import type { MenuPosition } from "../../shared/Menu";
@@ -125,6 +126,7 @@ function RoutedPaneTaskBar({
         <TearleadsLogo className="routed-pane-taskbar-menu-logo" />
       </button>
       <div className="routed-pane-taskbar-end">
+        <SyncStatusIndicator />
         <NavigationModeSwitch mode="routed" />
       </div>
     </footer>
