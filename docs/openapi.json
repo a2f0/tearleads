@@ -784,7 +784,29 @@
             "description": "Response without a declared JSON body"
           },
           "404": {
-            "description": "Response without a declared JSON body"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "document_not_found"
+                    },
+                    "error": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           },
           "409": {
             "content": {

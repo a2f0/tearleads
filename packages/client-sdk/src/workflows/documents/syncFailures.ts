@@ -93,16 +93,10 @@ function shouldRetrySyncWithFreshWriterProjection(error: unknown): boolean {
 export function isRecoverableDocumentUpdateIdConflict(
   failure: DocumentSyncSubmitFailure,
 ): boolean {
-  if (failure.status !== 409) {
-    return false;
-  }
-  if (failure.code != null) {
-    return failure.code === DOCUMENT_SYNC_ERROR_CODES.updateIdConflict;
-  }
-  // Transitional (#1607): pre-coded API deployments emit this 409 without a
-  // `code`; without the message fallback, update-id recovery is disabled for
-  // the whole deploy-skew window. Delete once the coded API is deployed.
-  return failure.message.includes("Document update id conflict");
+  return (
+    failure.status === 409 &&
+    failure.code === DOCUMENT_SYNC_ERROR_CODES.updateIdConflict
+  );
 }
 
 /**

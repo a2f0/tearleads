@@ -8,6 +8,7 @@ import {
 } from "@tearleads/crypto";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import {
+  DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
   type DocumentSyncResponse,
 } from "@tearleads/validators/response";
@@ -405,43 +406,27 @@ export async function persistedDocumentSyncStateFromResponse(
   };
 }
 
-// Transitional (#1607): a pre-coded API deployment emits 409 bodies without a
-// `code`, and strict code matching would turn its recoverable stale-state
-// conflicts into surfaced failures for the whole deploy-skew window. Match the
-// legacy message shapes only when `code` is absent; a present-but-unknown code
-// still fails closed. Delete once the coded API deployment is confirmed.
-const LEGACY_RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES = [
-  "Document KEK targets are stale",
-  "Document content-key bundle is stale",
-];
-
-function isLegacyRetryableDocumentSyncConflict(message: string): boolean {
-  return (
-    LEGACY_RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES.some((legacyMessage) =>
-      message.includes(legacyMessage),
-    ) ||
-    (message.includes("authorizingContainerPath") &&
-      message.includes("is stale")) ||
-    (message.includes("targetContainerPath") && message.includes("is stale"))
-  );
-}
-
 export function isRetryableDocumentSyncConflict(
   failure: DocumentSyncSubmitFailure,
 ): boolean {
-  if (failure.status !== 409) {
-    return false;
-  }
-  if (failure.code != null) {
-    return failure.code === DOCUMENT_SYNC_ERROR_CODES.stateStale;
-  }
-  return isLegacyRetryableDocumentSyncConflict(failure.message);
+  return (
+    failure.status === 409 &&
+    failure.code === DOCUMENT_SYNC_ERROR_CODES.stateStale
+  );
 }
 
+// The wipe gate is deliberately strict, with NO legacy-message fallback: a
+// pre-coded API's genuine deletion 404 fails closed (the document lingers
+// locally until the coded API is deployed), which is the right failure mode
+// for a destructive action. A bare 404 proves nothing about the document —
+// proxy/tunnel error pages, deploy-skew route misses, and container-level
+// lookups all produce one.
 export function isUpstreamDeletedDocumentSyncFailure(
   failure: DocumentSyncSubmitFailure,
 ): boolean {
-  return failure.status === 404;
+  return (
+    failure.status === 404 && failure.code === DOCUMENT_NOT_FOUND_ERROR_CODE
+  );
 }
 
 export async function submitDocumentSync(input: {

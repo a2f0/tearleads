@@ -7,7 +7,7 @@ import type {
   DocumentRecord,
   PendingUpdateRecord,
 } from "../../data/sqlite/documentPersistence";
-import { shouldReArmAfterOutgoingSettlement } from "../../data/sync/outgoingUpdateSettlement";
+import { settleOutgoingPassAndDecideReArm } from "../../data/sync/outgoingUpdateSettlement";
 import {
   createDocumentWriterPublicKeyResolver,
   type RekeyPendingUpdate,
@@ -402,7 +402,7 @@ export async function syncContainerMetadataState(input: {
 
   return {
     ...persisted,
-    shouldRequestFollowupSync: shouldReArmAfterOutgoingSettlement({
+    shouldRequestFollowupSync: settleOutgoingPassAndDecideReArm(metadataState, {
       outgoingUpdateCount,
       rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
       settledUpdateCount: synced.settledPendingUpdateIds.length,

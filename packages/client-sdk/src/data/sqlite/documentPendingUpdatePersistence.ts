@@ -79,7 +79,10 @@ export async function enqueueDocumentPendingUpdate(
  * harmless because CRDT update import is idempotent.
  *
  * Returns null when no row carries the id, so callers never report progress
- * for a row that lives in some other queue (or nowhere).
+ * for a row that lives in some other queue (or nowhere). The UPDATE's own
+ * RETURNING row is the progress signal — a pre-flight SELECT would race a
+ * second tab sharing the SQLite file, which can settle-delete the row between
+ * the read and the write and turn "rekeyed" into a spurious re-arm.
  */
 export async function rekeyDocumentPendingUpdate(
   execSql: ExecSql,
@@ -88,19 +91,12 @@ export async function rekeyDocumentPendingUpdate(
   const nextId = crypto.randomUUID();
   let rekeyed = false;
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    const existing = await db
-      .select({ id: documentPendingUpdates.id })
-      .from(documentPendingUpdates)
-      .where(eq(documentPendingUpdates.id, id));
-    if (existing.length === 0) {
-      return;
-    }
-    await db
+    const updated = await db
       .update(documentPendingUpdates)
       .set({ id: nextId })
       .where(eq(documentPendingUpdates.id, id))
-      .run();
-    rekeyed = true;
+      .returning({ id: documentPendingUpdates.id });
+    rekeyed = updated.length > 0;
   });
   return rekeyed ? nextId : null;
 }

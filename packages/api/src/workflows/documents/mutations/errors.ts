@@ -1,6 +1,8 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import {
+  DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
+  type DocumentNotFoundErrorCode,
   type DocumentSyncErrorCode,
 } from "@tearleads/validators/response";
 import { DocumentKekTargetError } from "../../../access/read/documentKekTargets";
@@ -12,11 +14,15 @@ import { PrincipalPolicyProjectionError } from "../../principals/principalPolicy
 
 type DocumentMutationStatus = 400 | 403 | 404 | 409 | 503;
 
+type DocumentMutationErrorCode =
+  | DocumentSyncErrorCode
+  | DocumentNotFoundErrorCode;
+
 export class DocumentMutationError extends Error {
   constructor(
     message: string,
     readonly status: DocumentMutationStatus,
-    readonly code?: DocumentSyncErrorCode | undefined,
+    readonly code?: DocumentMutationErrorCode | undefined,
   ) {
     super(message);
     this.name = "DocumentMutationError";
@@ -40,6 +46,21 @@ export function documentUpdateIdConflict(): DocumentMutationError {
     "Document update id conflict",
     409,
     DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
+  );
+}
+
+/**
+ * The positively-verified "this document does not exist" failure. Clients
+ * answer this code with a destructive local teardown, so it may only be thrown
+ * after a direct existence check of the `documents` row — never for a missing
+ * head, bundle, or container, which can also 404 without the document being
+ * deleted.
+ */
+export function documentNotFound(): DocumentMutationError {
+  return new DocumentMutationError(
+    "Document not found",
+    404,
+    DOCUMENT_NOT_FOUND_ERROR_CODE,
   );
 }
 
@@ -86,14 +107,18 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
     return new DocumentMutationError(error.message, error.status);
   }
 
+  // Container-level 404s must not become the document route's 404: the wipe
+  // signal is the coded documentNotFound() 404, and even for code-blind legacy
+  // clients a bare 404 here would read as upstream document deletion and
+  // trigger a destructive local wipe. Surface them as uncoded conflicts.
   if (error instanceof ContainerMutationError) {
-    return new DocumentMutationError(error.message, error.status);
+    return new DocumentMutationError(
+      error.message,
+      error.status === 404 ? 409 : error.status,
+    );
   }
 
   if (error instanceof ContainerWriterProjectionError) {
-    // A container-level 404 must not become the sync route's 404, which
-    // clients treat as upstream document deletion and answer with a
-    // destructive local wipe; surface it as an uncoded conflict instead.
     return new DocumentMutationError(
       error.message,
       error.status === 404 ? 409 : error.status,
@@ -107,5 +132,43 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
     );
   }
 
+  if (isUniqueViolation(error)) {
+    // A unique violation that survives the explicit existence checks means a
+    // concurrent request committed the same row between our read and write.
+    // Surface it as a conflict rather than letting the driver error 500.
+    return new DocumentMutationError("Document sync write conflict", 409);
+  }
+
+  if (isTransientTransactionFailure(error)) {
+    // Deadlock detection / serialization failure: the losing transaction was
+    // rolled back by the database and a retry is expected to succeed.
+    return new DocumentMutationError(
+      "Document mutation transaction conflicted; retry",
+      503,
+    );
+  }
+
   return null;
+}
+
+function findSqlStateCode(error: unknown): string | null {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current instanceof Error; depth += 1) {
+    const code = Reflect.get(current, "code");
+    if (typeof code === "string") {
+      return code;
+    }
+    current = current.cause;
+  }
+  return null;
+}
+
+export function isUniqueViolation(error: unknown): boolean {
+  const code = findSqlStateCode(error);
+  return code === "23505" || code?.startsWith("SQLITE_CONSTRAINT") === true;
+}
+
+function isTransientTransactionFailure(error: unknown): boolean {
+  const code = findSqlStateCode(error);
+  return code === "40001" || code === "40P01";
 }

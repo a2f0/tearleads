@@ -9,7 +9,11 @@ import {
 import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
 import { eq, inArray, sql } from "drizzle-orm";
 import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
-import { DocumentMutationError } from "../errors";
+import {
+  DocumentMutationError,
+  documentNotFound,
+  isUniqueViolation,
+} from "../errors";
 
 export async function insertDocumentAndLinks(input: {
   readonly createdByFingerprint: string;
@@ -17,14 +21,26 @@ export async function insertDocumentAndLinks(input: {
   readonly manifest: VerifiedDocumentLinkSetManifest;
 }) {
   const updatedAt = new Date();
-  const [inserted] = await input.executor
-    .insert(documents)
-    .values({
-      id: input.manifest.state.documentId,
-      createdByFingerprint: input.createdByFingerprint,
-      updatedAt,
-    })
-    .returning();
+  let inserted: typeof documents.$inferSelect | undefined;
+  try {
+    [inserted] = await input.executor
+      .insert(documents)
+      .values({
+        id: input.manifest.state.documentId,
+        createdByFingerprint: input.createdByFingerprint,
+        updatedAt,
+      })
+      .returning();
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      // A concurrent create with the same client-chosen id committed between
+      // assertCreateCanAdvanceDocumentHead and this insert. Report the same
+      // conflict the sequential path gives so the caller adopts the existing
+      // remote document instead of failing on a driver 500.
+      throw new DocumentMutationError("Document manifest already exists", 409);
+    }
+    throw error;
+  }
   if (!inserted) {
     throw new DocumentMutationError("Failed to create document", 409);
   }
@@ -177,7 +193,9 @@ export async function ensureDocumentExists(input: {
     .where(eq(documents.id, input.documentId))
     .limit(1);
   if (!document) {
-    throw new DocumentMutationError("Document not found", 404);
+    // The documents row is the authoritative existence signal, so this is the
+    // one place the sync path may emit the coded wipe-authorizing 404.
+    throw documentNotFound();
   }
 }
 

@@ -3,6 +3,7 @@ import type {
   DatabaseSession,
 } from "@tearleads/api-shared/postgres";
 import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
+import { documents } from "@tearleads/api-shared/schema";
 import type {
   AccessManifest,
   DocumentLinkSetManifestState,
@@ -11,8 +12,11 @@ import type {
 import type {
   AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
+  DocumentNotFoundErrorCode,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
+import { eq } from "drizzle-orm";
 import {
   getAccessManifestBundle,
   getAccessManifestBundles,
@@ -55,6 +59,7 @@ export class DocumentWriterProjectionError extends Error {
   constructor(
     message: string,
     readonly status: DocumentWriterProjectionStatus,
+    readonly code?: DocumentNotFoundErrorCode | undefined,
   ) {
     super(message);
     this.name = "DocumentWriterProjectionError";
@@ -159,9 +164,25 @@ async function loadCurrentDocumentManifestBundle(
     executor,
   );
   if (!head) {
+    // A missing head alone is not proof of deletion — only the documents row
+    // is. Clients tear down their local copy on the coded 404, so emit it
+    // solely when the row is positively absent; a headless-but-present row is
+    // an anomalous state that must surface as a conflict, never as a wipe.
+    const [document] = await executor
+      .select({ id: documents.id })
+      .from(documents)
+      .where(eq(documents.id, documentId))
+      .limit(1);
+    if (!document) {
+      throw new DocumentWriterProjectionError(
+        "Document not found",
+        404,
+        DOCUMENT_NOT_FOUND_ERROR_CODE,
+      );
+    }
     throw new DocumentWriterProjectionError(
       "Document manifest head missing",
-      404,
+      409,
     );
   }
 
@@ -604,7 +625,13 @@ async function resolveDocumentWriterProjection(input: {
     });
   } catch (error) {
     if (error instanceof DocumentKekTargetError) {
-      throw new DocumentWriterProjectionError(error.message, error.status);
+      // The coded existence check above already ran, so a 404 here (e.g. a
+      // link-set head that vanished mid-projection) is not proof of deletion;
+      // keep it away from the legacy client's 404-triggered wipe.
+      throw new DocumentWriterProjectionError(
+        error.message,
+        error.status === 404 ? 409 : error.status,
+      );
     }
     throw error;
   }

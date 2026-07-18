@@ -11,6 +11,12 @@ export interface ContainerMetadataState {
     | null
     | undefined;
   record: DocumentRecord;
+  /**
+   * Consecutive completed sync passes that re-keyed conflicted pending updates
+   * without settling anything; bounds the rekey-driven follow-up sync. See
+   * shouldReArmAfterOutgoingSettlement.
+   */
+  rekeyOnlyPassCount?: number | undefined;
 }
 
 export interface ContainerMetadataPatch {

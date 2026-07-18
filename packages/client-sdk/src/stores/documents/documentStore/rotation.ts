@@ -134,12 +134,6 @@ async function pullVerifiedHistoryForRotation(input: {
     sentUpdateIds,
     new Set(synced.response.acceptedOutgoingUpdateIds),
   );
-  // Conflicted pending updates re-keyed during this preflight need a
-  // follow-up pass to submit their fresh ids, and the rotation that follows
-  // may abort before syncing again.
-  if (synced.rekeyedPendingUpdateIds.length > 0) {
-    requestDocumentStoreSync(input.state);
-  }
   return synced;
 }
 
@@ -214,33 +208,52 @@ async function recoverFullHistoryForRotation(
     state,
   });
 
-  // Do not replace or persist over a document that changed while the verified
-  // pull was in flight. A retry can recover the newer frontier safely.
-  if (
-    state.doc !== currentDoc ||
-    !versionVectorsEqual(encodeVersionVector(currentDoc), capturedVersion)
-  ) {
-    throw new Error(
-      "Document changed during rotation recovery; retry key rotation",
-    );
-  }
+  try {
+    // Do not replace or persist over a document that changed while the
+    // verified pull was in flight. A retry can recover the newer frontier
+    // safely.
+    if (
+      state.doc !== currentDoc ||
+      !versionVectorsEqual(encodeVersionVector(currentDoc), capturedVersion)
+    ) {
+      throw new Error(
+        "Document changed during rotation recovery; retry key rotation",
+      );
+    }
 
-  const rebuiltDoc = await createStoredDocument(state);
-  if (localFullHistorySnapshot !== null) {
-    importSnapshot(rebuiltDoc, localFullHistorySnapshot);
-  }
-  importSyncedDocumentUpdates(rebuiltDoc, synced.decryptedUpdates);
-  // A successful write pull normally echoes accepted local updates, but merge
-  // the durable queue too so recovery does not depend on that response detail.
-  importPendingUpdates(rebuiltDoc, pendingUpdates);
-  if (uncoveredLocalDelta.byteLength > 0) {
-    importUpdates(rebuiltDoc, [uncoveredLocalDelta]);
-    // `pendingBaseVersion` can intentionally lag a deferred or interrupted
-    // local write. Make that uncovered delta durable before advancing it.
-    await enqueuePendingUpdate(state, uncoveredLocalDelta);
-  }
+    const rebuiltDoc = await createStoredDocument(state);
+    if (localFullHistorySnapshot !== null) {
+      importSnapshot(rebuiltDoc, localFullHistorySnapshot);
+    }
+    importSyncedDocumentUpdates(rebuiltDoc, synced.decryptedUpdates);
+    // A successful write pull normally echoes accepted local updates, but
+    // merge the durable queue too so recovery does not depend on that
+    // response detail.
+    importPendingUpdates(rebuiltDoc, pendingUpdates);
+    if (uncoveredLocalDelta.byteLength > 0) {
+      importUpdates(rebuiltDoc, [uncoveredLocalDelta]);
+      // `pendingBaseVersion` can intentionally lag a deferred or interrupted
+      // local write. Make that uncovered delta durable before advancing it.
+      await enqueuePendingUpdate(state, uncoveredLocalDelta);
+    }
 
-  return installRebuiltDocument({ currentRecord, rebuiltDoc, state, synced });
+    return await installRebuiltDocument({
+      currentRecord,
+      rebuiltDoc,
+      state,
+      synced,
+    });
+  } finally {
+    // Conflicted pending updates re-keyed during the preflight pull need a
+    // follow-up lane pass to submit their fresh ids, and the rotation that
+    // follows may abort before syncing again. Request that pass only AFTER
+    // the rebuild/install window has closed (successfully or not) —
+    // scheduling it mid-window deterministically raced the lane's import
+    // against the version check above and the rebuilt-document install.
+    if (synced.rekeyedPendingUpdateIds.length > 0) {
+      requestDocumentStoreSync(state);
+    }
+  }
 }
 
 /**

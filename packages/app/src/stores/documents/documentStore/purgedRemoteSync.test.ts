@@ -48,9 +48,12 @@ test("document store deletes local state when a pending write targets a purged r
     apiClient: createMockApiClient({
       getDocumentWriterProjectionResult: async (documentId) => {
         projectionResultCalls.push(documentId);
+        // The positively-coded deletion 404 the API emits for a purged
+        // document; a bare 404 no longer authorizes the local teardown.
         return {
+          code: "document_not_found",
           kind: "http",
-          message: `GET /documents/${documentId}/writer-projection: 404 Not Found: Document manifest head missing`,
+          message: `GET /documents/${documentId}/writer-projection: 404 Not Found: Document not found`,
           method: "GET",
           ok: false,
           path: `/documents/${documentId}/writer-projection`,

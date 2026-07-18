@@ -12,6 +12,7 @@ import {
   documents,
 } from "@tearleads/api-shared/schema";
 import { and, eq, inArray, ne } from "drizzle-orm";
+import { lockAccessManifestHeadsForUpdate } from "../../../access/read/accessManifestStore";
 import { assertOrganizationCanSync } from "../../billing/organizationBilling";
 import {
   ContainerWriterProjectionError,
@@ -240,6 +241,18 @@ async function purgeDocumentWithExecutor(input: {
   readonly executor: DatabaseTransaction;
   readonly userId: string;
 }): Promise<PurgeDocumentWorkflowResult> {
+  // Take the document manifest-head lock BEFORE any read or delete, mirroring
+  // the link-set mutation path. Sync writers hold this head FOR SHARE while
+  // inserting content rows, so without it a purge interleaving with an
+  // in-flight sync write silently skips the writer's uncommitted rows
+  // (invisible under READ COMMITTED), commits the head/document delete after
+  // the writer commits, and strands orphaned update rows that permanently
+  // wedge any re-create of the same client-chosen document id.
+  await lockAccessManifestHeadsForUpdate(
+    "document",
+    [input.documentId],
+    input.executor,
+  );
   await assertDocumentIsPurgeable({
     documentId: input.documentId,
     executor: input.executor,
@@ -335,6 +348,14 @@ export async function teardownContainerMetadataDocument(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
 }): Promise<void> {
+  // Same serialization requirement as purgeDocumentWithExecutor: the metadata
+  // document's rows are deleted below, so an in-flight sync write on it must
+  // commit or abort before this teardown reads what to delete.
+  await lockAccessManifestHeadsForUpdate(
+    "document",
+    [input.documentId],
+    input.executor,
+  );
   await input.executor
     .delete(containerMetadataDocuments)
     .where(eq(containerMetadataDocuments.containerId, input.containerId));
