@@ -4,8 +4,8 @@ import {
   documentContentWriteHeaders,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
-import { satisfiesVersionVector } from "@tearleads/loro";
 import { and, desc, eq } from "drizzle-orm";
+import { isDocumentUpdateDominatedByBaseline } from "./documentBaselineDominance";
 import { isAuthenticatedReplayableBaseline } from "./documentReplayableBaseline";
 
 /**
@@ -62,7 +62,12 @@ export function selectServedSyncUpdates<
   }
   const coverage = input.baselineCoverage;
   const baselineDominatesOlderUpdates = olderEpochEntries.every((entry) =>
-    satisfiesVersionVector(coverage, entry.update.partialEndVersionVector),
+    isDocumentUpdateDominatedByBaseline({
+      baselineEpoch: input.currentContentKeyEpoch,
+      baselineVersionVector: coverage,
+      updateEpoch: entry.writeHeader.contentKeyEpoch,
+      updateVersionVector: entry.update.partialEndVersionVector,
+    }),
   );
   // An older update the baseline does not cover cannot be safely dropped: serve
   // everything rather than risk silent partial convergence.

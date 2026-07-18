@@ -1,4 +1,4 @@
-import { satisfiesVersionVector } from "@tearleads/loro";
+import { isDocumentUpdateDominatedByBaseline } from "./documentBaselineDominance";
 
 /**
  * Compaction planning for document-update storage reclamation.
@@ -11,8 +11,8 @@ import { satisfiesVersionVector } from "@tearleads/loro";
  * row — and its attribution metadata (spans + write header) — is left intact.
  *
  * This module is the pure selection: which update ids are safe to prune. The
- * domination gate is identical to the sync redirect (`satisfiesVersionVector`),
- * so an update is only ever pruned when a baseline provably carries it forward.
+ * domination gate is identical to the sync redirect, so an update is only ever
+ * pruned when a baseline provably carries it forward.
  */
 
 export interface PruneBaseline {
@@ -76,13 +76,13 @@ export function planDominatedUpdatePrune(input: {
     if (!baselines) {
       continue;
     }
-    const dominatingBaseline = baselines.find(
-      (baseline) =>
-        candidate.contentKeyEpoch < baseline.baselineEpoch &&
-        satisfiesVersionVector(
-          baseline.sourceVersionVector,
-          candidate.partialEndVersionVector,
-        ),
+    const dominatingBaseline = baselines.find((baseline) =>
+      isDocumentUpdateDominatedByBaseline({
+        baselineEpoch: baseline.baselineEpoch,
+        baselineVersionVector: baseline.sourceVersionVector,
+        updateEpoch: candidate.contentKeyEpoch,
+        updateVersionVector: candidate.partialEndVersionVector,
+      }),
     );
     if (!dominatingBaseline) {
       continue;
