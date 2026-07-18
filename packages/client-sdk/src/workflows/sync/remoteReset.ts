@@ -7,6 +7,10 @@ import {
 import { createPendingUpdateFields } from "../../data/documentSync";
 import { getDocumentAttachments } from "../../data/documents/documentContent";
 import {
+  organizationDataUsageCategories,
+  organizationDataUsageSnapshots,
+} from "../../data/sqlite/organizationDataUsageSchema";
+import {
   organizationReadModelContainerGrants,
   organizationReadModelDirectoryUsers,
   organizationReadModelGroupMembers,
@@ -38,6 +42,7 @@ import {
 } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
+import { runOrganizationPresentationReset } from "../organizations/organizationPresentationAccessState";
 
 const CONTAINER_CREATE_INTENT_TYPE = "container.create";
 
@@ -231,6 +236,8 @@ async function readRemoteSyncStateSnapshot(
 async function clearRemoteDerivedRows(
   tx: ClientSQLiteTransaction,
 ): Promise<void> {
+  await tx.delete(organizationDataUsageCategories).run();
+  await tx.delete(organizationDataUsageSnapshots).run();
   await tx.delete(organizationReadModelContainerGrants).run();
   await tx.delete(organizationReadModelGroupMembers).run();
   await tx.delete(organizationReadModelGroupMemberships).run();
@@ -412,10 +419,12 @@ async function clearRemoteSyncStateInTransaction(input: {
 export async function clearRemoteSyncState(
   execSql: ExecSql,
 ): Promise<ClearRemoteSyncStateResult> {
-  await ensureSqlTables(execSql, clientSqlTables);
-  const plans = await buildResetPlans(execSql);
+  return runOrganizationPresentationReset(execSql, async () => {
+    await ensureSqlTables(execSql, clientSqlTables);
+    const plans = await buildResetPlans(execSql);
 
-  return getClientSQLitePersistenceRuntime(execSql).transaction((tx) =>
-    clearRemoteSyncStateInTransaction({ plans, tx }),
-  );
+    return getClientSQLitePersistenceRuntime(execSql).transaction((tx) =>
+      clearRemoteSyncStateInTransaction({ plans, tx }),
+    );
+  });
 }

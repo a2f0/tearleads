@@ -12,6 +12,12 @@ export {
   createOrganization,
 } from "./createOrganization";
 export {
+  loadLocalOrganizationDataUsage,
+  type OrganizationDataUsage,
+  type ReconcileOrganizationDataUsageInput,
+  reconcileOrganizationDataUsage,
+} from "./dataUsageReadModel";
+export {
   type LocalOrganizationSummary,
   listLocalOrganizations,
 } from "./listLocalOrganizations";
@@ -44,10 +50,8 @@ export {
 } from "./principalPolicy";
 export {
   buildOrganizationGroupPolicyHistory,
-  loadOrganizationDataUsage,
   type OrganizationContainerGrant,
   type OrganizationContainerGrants,
-  type OrganizationDataUsage,
   type OrganizationDirectory,
   type OrganizationDirectoryAndGroups,
   type OrganizationDirectoryUser,

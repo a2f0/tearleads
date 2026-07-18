@@ -1,11 +1,52 @@
 import { expect, test } from "bun:test";
 import {
+  getOrgManagerDataUsageScopeKey,
   scopeOrganizationDirectory,
   scopeOrganizationList,
   scopeOrganizationValue,
   scopeSelectedGroupValue,
   scopeSelectedUserDetail,
 } from "./orgManagerStateScope";
+
+function dataUsageRuntime(input: {
+  readonly dbId: string;
+  readonly dbStatus: string;
+  readonly userId: string;
+}) {
+  return {
+    auth: {
+      isAuthenticated: true,
+      organizationId: "org-a",
+      userId: input.userId,
+    },
+    infra: { dbId: input.dbId, dbStatus: input.dbStatus },
+  } as Parameters<typeof getOrgManagerDataUsageScopeKey>[0];
+}
+
+test("data usage scope follows requester storage, not database readiness", () => {
+  const ready = dataUsageRuntime({
+    dbId: "db-a",
+    dbStatus: "ready",
+    userId: "user-a",
+  });
+  const idle = dataUsageRuntime({
+    dbId: "db-a",
+    dbStatus: "idle",
+    userId: "user-a",
+  });
+  const anotherRequester = dataUsageRuntime({
+    dbId: "db-a",
+    dbStatus: "ready",
+    userId: "user-b",
+  });
+
+  expect(getOrgManagerDataUsageScopeKey(ready)).toBe(
+    getOrgManagerDataUsageScopeKey(idle),
+  );
+  expect(getOrgManagerDataUsageScopeKey(ready)).not.toBe(
+    getOrgManagerDataUsageScopeKey(anotherRequester),
+  );
+});
 
 test("org-manager state scope hides values from a previous organization", () => {
   const oldDirectory = { organizationId: "org-a", users: [] };

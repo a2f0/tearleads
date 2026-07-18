@@ -7,6 +7,7 @@ import { loadContainerDisplayNamesByIds } from "../../data/persistence/container
 import { loadOrganizationReadModelProjection } from "../../data/persistence/organizations/organizationReadModelPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { runOrganizationPresentationRead } from "./organizationPresentationAccessState";
 import {
   buildOrganizationGroupPolicyHistory,
   buildOrganizationPolicyHistory,
@@ -131,80 +132,95 @@ function reachableGroupIds(input: {
 export async function loadLocalOrganizationContainerGrants(
   input: LocalReadModelInput,
 ): Promise<OrganizationContainerGrants | null> {
-  const projection = await loadOrganizationReadModelProjection(
-    input.execSql,
-    input.organizationId,
-    input.currentUserId,
+  return runOrganizationPresentationRead(
+    { ...input, requesterUserId: input.currentUserId },
+    async () => {
+      const projection = await loadOrganizationReadModelProjection(
+        input.execSql,
+        input.organizationId,
+        input.currentUserId,
+      );
+      if (!projection?.requester) {
+        return null;
+      }
+      return {
+        organizationId: input.organizationId,
+        grants: await enrichGrants(input.execSql, projection.grants.grants),
+      };
+    },
   );
-  if (!projection?.requester) {
-    return null;
-  }
-  return {
-    organizationId: input.organizationId,
-    grants: await enrichGrants(input.execSql, projection.grants.grants),
-  };
 }
 
 export async function loadLocalOrganizationGroupContainers(
   input: LocalReadModelInput & { readonly groupId: string },
 ): Promise<OrganizationGroupContainers | null> {
-  const projection = await loadOrganizationReadModelProjection(
-    input.execSql,
-    input.organizationId,
-    input.currentUserId,
+  return runOrganizationPresentationRead(
+    { ...input, requesterUserId: input.currentUserId },
+    async () => {
+      const projection = await loadOrganizationReadModelProjection(
+        input.execSql,
+        input.organizationId,
+        input.currentUserId,
+      );
+      if (!projection?.requester) {
+        return null;
+      }
+      const groupIsInOrganization =
+        input.groupId === projection.groups.memberGroupId ||
+        projection.groups.groups.some(
+          (group) => group.groupId === input.groupId,
+        );
+      if (!groupIsInOrganization) {
+        return null;
+      }
+      const grants = projection.grants.grants.filter(
+        (grant) =>
+          grant.subjectType === "group" && grant.subjectId === input.groupId,
+      );
+      return {
+        organizationId: input.organizationId,
+        groupId: input.groupId,
+        containers: (await enrichGrants(input.execSql, grants)).map(
+          toGroupContainer,
+        ),
+      };
+    },
   );
-  if (!projection?.requester) {
-    return null;
-  }
-  const groupIsInOrganization =
-    input.groupId === projection.groups.memberGroupId ||
-    projection.groups.groups.some((group) => group.groupId === input.groupId);
-  if (!groupIsInOrganization) {
-    return null;
-  }
-  const grants = projection.grants.grants.filter(
-    (grant) =>
-      grant.subjectType === "group" && grant.subjectId === input.groupId,
-  );
-  return {
-    organizationId: input.organizationId,
-    groupId: input.groupId,
-    containers: (await enrichGrants(input.execSql, grants)).map(
-      toGroupContainer,
-    ),
-  };
 }
 
 export async function loadLocalOrganizationGroupPolicyHistory(
   input: LocalReadModelInput & { readonly groupId: string },
 ): Promise<OrganizationGroupPolicyHistory | null> {
-  const projection = await loadOrganizationReadModelProjection(
-    input.execSql,
-    input.organizationId,
-    input.currentUserId,
-  );
-  if (!projection?.requester) {
-    return null;
-  }
+  return runOrganizationPresentationRead(
+    { ...input, requesterUserId: input.currentUserId },
+    async () => {
+      const projection = await loadOrganizationReadModelProjection(
+        input.execSql,
+        input.organizationId,
+        input.currentUserId,
+      );
+      if (!projection?.requester) {
+        return null;
+      }
 
-  const projectedHead = projection.policyHeads.find(
-    (head) =>
-      head.principalType === "group" && head.principalId === input.groupId,
-  );
-  if (!projectedHead) {
-    return null;
-  }
+      const projectedHead = projection.policyHeads.find(
+        (head) =>
+          head.principalType === "group" && head.principalId === input.groupId,
+      );
+      if (!projectedHead) {
+        return null;
+      }
 
-  const bundle = await loadPrincipalPolicyBundle(
-    input.execSql,
-    "group",
-    input.groupId,
+      const bundle = await loadPrincipalPolicyBundle(
+        input.execSql,
+        "group",
+        input.groupId,
+      );
+      return policyBundleMatchesProjectedHead(bundle, projectedHead)
+        ? buildOrganizationGroupPolicyHistory(bundle)
+        : null;
+    },
   );
-  if (!policyBundleMatchesProjectedHead(bundle, projectedHead)) {
-    return null;
-  }
-
-  return buildOrganizationGroupPolicyHistory(bundle);
 }
 
 function policyBundleMatchesProjectedHead(
@@ -235,30 +251,35 @@ function policyBundleMatchesProjectedHead(
 export async function loadLocalOrganizationPolicyHistory(
   input: LocalReadModelInput,
 ): Promise<OrganizationPolicyHistory | null> {
-  const projection = await loadOrganizationReadModelProjection(
-    input.execSql,
-    input.organizationId,
-    input.currentUserId,
+  return runOrganizationPresentationRead(
+    { ...input, requesterUserId: input.currentUserId },
+    async () => {
+      const projection = await loadOrganizationReadModelProjection(
+        input.execSql,
+        input.organizationId,
+        input.currentUserId,
+      );
+      if (!projection?.requester) {
+        return null;
+      }
+      const projectedHead = projection.policyHeads.find(
+        (head) =>
+          head.principalType === "organization" &&
+          head.principalId === input.organizationId,
+      );
+      if (!projectedHead) {
+        return null;
+      }
+      const bundle = await loadPrincipalPolicyBundle(
+        input.execSql,
+        "organization",
+        input.organizationId,
+      );
+      return policyBundleMatchesProjectedHead(bundle, projectedHead)
+        ? buildOrganizationPolicyHistory(bundle)
+        : null;
+    },
   );
-  if (!projection?.requester) {
-    return null;
-  }
-  const projectedHead = projection.policyHeads.find(
-    (head) =>
-      head.principalType === "organization" &&
-      head.principalId === input.organizationId,
-  );
-  if (!projectedHead) {
-    return null;
-  }
-  const bundle = await loadPrincipalPolicyBundle(
-    input.execSql,
-    "organization",
-    input.organizationId,
-  );
-  return policyBundleMatchesProjectedHead(bundle, projectedHead)
-    ? buildOrganizationPolicyHistory(bundle)
-    : null;
 }
 
 export async function loadLocalOrganizationPolicyReference(
@@ -267,79 +288,89 @@ export async function loadLocalOrganizationPolicyReference(
     readonly principalType: PolicyPrincipalType;
   },
 ): Promise<ReferencedPrincipalStateResponse | null> {
-  const projection = await loadOrganizationReadModelProjection(
-    input.execSql,
-    input.organizationId,
-    input.currentUserId,
-  );
-  if (!projection?.requester) {
-    return null;
-  }
-  const head = projection.policyHeads.find(
-    (candidate) =>
-      candidate.principalType === input.principalType &&
-      candidate.principalId === input.principalId,
-  );
-  return head
-    ? {
-        principalType: head.principalType,
-        principalId: head.principalId,
-        stateHash: head.stateHash,
-        version: head.version,
-        keyEpoch: head.keyEpoch,
-        keyFingerprint: head.keyFingerprint,
+  return runOrganizationPresentationRead(
+    { ...input, requesterUserId: input.currentUserId },
+    async () => {
+      const projection = await loadOrganizationReadModelProjection(
+        input.execSql,
+        input.organizationId,
+        input.currentUserId,
+      );
+      if (!projection?.requester) {
+        return null;
       }
-    : null;
+      const head = projection.policyHeads.find(
+        (candidate) =>
+          candidate.principalType === input.principalType &&
+          candidate.principalId === input.principalId,
+      );
+      return head
+        ? {
+            principalType: head.principalType,
+            principalId: head.principalId,
+            stateHash: head.stateHash,
+            version: head.version,
+            keyEpoch: head.keyEpoch,
+            keyFingerprint: head.keyFingerprint,
+          }
+        : null;
+    },
+  );
 }
 
 export async function loadLocalOrganizationUserDetail(
   input: LocalReadModelInput & { readonly userId: string },
 ): Promise<OrganizationUserDetail | null> {
-  const projection = await loadOrganizationReadModelProjection(
-    input.execSql,
-    input.organizationId,
-    input.currentUserId,
-  );
-  const user = projection?.directory.users.find(
-    (candidate) => candidate.userId === input.userId,
-  );
-  if (!projection?.requester || !user) {
-    return null;
-  }
+  return runOrganizationPresentationRead(
+    { ...input, requesterUserId: input.currentUserId },
+    async () => {
+      const projection = await loadOrganizationReadModelProjection(
+        input.execSql,
+        input.organizationId,
+        input.currentUserId,
+      );
+      const user = projection?.directory.users.find(
+        (candidate) => candidate.userId === input.userId,
+      );
+      if (!projection?.requester || !user) {
+        return null;
+      }
 
-  const reachable = reachableGroupIds({
-    edges: projection.membershipEdges,
-    userId: input.userId,
-  });
-  const groups = projection.groups.groups.filter((group) =>
-    reachable.has(group.groupId),
-  );
-  const relevantGrants = projection.grants.grants.filter(
-    (grant) =>
-      (grant.subjectType === "user" && grant.subjectId === input.userId) ||
-      (grant.subjectType === "group" && reachable.has(grant.subjectId)) ||
-      (grant.subjectType === "organization" &&
-        grant.subjectId === input.organizationId),
-  );
-  const grants = await enrichGrants(input.execSql, relevantGrants);
-  return {
-    organizationId: input.organizationId,
-    user,
-    groups,
-    grants: {
-      directGrants: grants.filter(
+      const reachable = reachableGroupIds({
+        edges: projection.membershipEdges,
+        userId: input.userId,
+      });
+      const groups = projection.groups.groups.filter((group) =>
+        reachable.has(group.groupId),
+      );
+      const relevantGrants = projection.grants.grants.filter(
         (grant) =>
-          grant.subjectType === "user" && grant.subjectId === input.userId,
-      ),
-      groupGrants: grants.filter(
-        (grant) =>
-          grant.subjectType === "group" && reachable.has(grant.subjectId),
-      ),
-      organizationGrants: grants.filter(
-        (grant) =>
-          grant.subjectType === "organization" &&
-          grant.subjectId === input.organizationId,
-      ),
+          (grant.subjectType === "user" && grant.subjectId === input.userId) ||
+          (grant.subjectType === "group" && reachable.has(grant.subjectId)) ||
+          (grant.subjectType === "organization" &&
+            grant.subjectId === input.organizationId),
+      );
+      const grants = await enrichGrants(input.execSql, relevantGrants);
+      return {
+        organizationId: input.organizationId,
+        user,
+        groups,
+        grants: {
+          directGrants: grants.filter(
+            (grant) =>
+              grant.subjectType === "user" && grant.subjectId === input.userId,
+          ),
+          groupGrants: grants.filter(
+            (grant) =>
+              grant.subjectType === "group" && reachable.has(grant.subjectId),
+          ),
+          organizationGrants: grants.filter(
+            (grant) =>
+              grant.subjectType === "organization" &&
+              grant.subjectId === input.organizationId,
+          ),
+        },
+      };
     },
-  };
+  );
 }

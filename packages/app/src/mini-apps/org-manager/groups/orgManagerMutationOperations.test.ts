@@ -55,6 +55,7 @@ function createActions(
     importUserById: unusedAsync,
     isOperationScopeActive: () => true,
     loadDataUsage: unusedAsync,
+    loadLocalDataUsage: unusedAsync,
     loadDirectoryAndGroups: unusedAsync,
     loadDirectoryAndGroupsAfterMutation: unusedAsync,
     loadLocalDirectoryAndGroups: unusedAsync,

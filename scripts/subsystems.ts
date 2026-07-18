@@ -271,6 +271,7 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/workflows/organizations/`,
       `${sdk}/client/organizations.ts`,
       `${sdk}/client/organizationGroupPresentation.ts`,
+      `${sdk}/client/organizationDataUsage.ts`,
       `${sdk}/client/organizationReadModels.ts`,
       `${sdk}/client/organizationMetadataReshare.ts`,
       `${sdk}/client/organizationMetadataReshareCoordinator.ts`,

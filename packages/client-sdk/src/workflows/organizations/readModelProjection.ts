@@ -3,6 +3,7 @@ import type {
   RequestResultOptions,
 } from "@tearleads/api-client";
 import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
+import { purgeOrganizationAccessProjection } from "../../data/persistence/organizations/organizationAccessRevocationPersistence";
 import {
   loadOrganizationReadModelGroupMembers,
   OrganizationReadModelBindingError,
@@ -14,6 +15,17 @@ import {
   purgeOrganizationReadModelProjection,
 } from "../../data/persistence/organizations/organizationReadModelPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  captureOrganizationPresentationAccessAttempt,
+  denyOrganizationPresentationAccess,
+  isOrganizationPresentationAccessAttemptCurrent,
+  isOrganizationPresentationAccessReadable,
+  type OrganizationPresentationAccessAttempt,
+  type OrganizationPresentationAccessInput,
+  restoreOrganizationPresentationAccess,
+  runOrganizationPresentationMutation,
+  runOrganizationPresentationRead,
+} from "./organizationPresentationAccessState";
 import type { OrganizationDirectoryAndGroups } from "./readModel";
 
 const MAX_READ_MODEL_PAGES = 100;
@@ -62,11 +74,30 @@ function toDirectoryAndGroups(
 async function loadProjection(
   input: OrganizationReadModelProjectionInput,
 ): Promise<OrganizationReadModelProjection | null> {
+  return runOrganizationPresentationRead(
+    organizationPresentationAccessInput(input),
+    () => loadRawProjection(input),
+  );
+}
+
+function loadRawProjection(
+  input: OrganizationReadModelProjectionInput,
+): Promise<OrganizationReadModelProjection | null> {
   return loadOrganizationReadModelProjection(
     input.execSql,
     input.organizationId,
     input.currentUserId,
   );
+}
+
+function organizationPresentationAccessInput(
+  input: OrganizationReadModelProjectionInput,
+): OrganizationPresentationAccessInput {
+  return {
+    execSql: input.execSql,
+    organizationId: input.organizationId,
+    requesterUserId: input.currentUserId,
+  };
 }
 
 function reportRetainedFailure(
@@ -81,7 +112,9 @@ function reportRetainedFailure(
 }
 
 interface ReconciliationState {
+  readonly accessAttempt: OrganizationPresentationAccessAttempt;
   expectedLocalCursor: string | null;
+  preparedDeniedProjection: boolean;
   projection: OrganizationReadModelProjection | null;
   requestCursor: string | undefined;
   retriedBindingFailure: boolean;
@@ -103,8 +136,20 @@ type PageRequestStep =
       readonly response: OrganizationReadModelResponse;
     };
 
-function localResult(state: ReconciliationState): ReconciliationStep {
-  return { kind: "done", value: toDirectoryAndGroups(state.projection) };
+function localResult(
+  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  state: ReconciliationState,
+): ReconciliationStep {
+  const accessInput = organizationPresentationAccessInput(input);
+  const readable =
+    isOrganizationPresentationAccessAttemptCurrent(
+      accessInput,
+      state.accessAttempt,
+    ) && isOrganizationPresentationAccessReadable(accessInput, "readModel");
+  return {
+    kind: "done",
+    value: readable ? toDirectoryAndGroups(state.projection) : null,
+  };
 }
 
 function resetRequestCursor(state: ReconciliationState): void {
@@ -125,10 +170,19 @@ async function requestReadModelPage(
     return { kind: "response", response: result.data };
   }
   if (result.status === 403 || result.status === 404) {
-    await purgeOrganizationReadModelProjection(
-      input.execSql,
-      input.organizationId,
-    );
+    const accessInput = organizationPresentationAccessInput(input);
+    denyOrganizationPresentationAccess(accessInput, ["readModel", "usage"]);
+    try {
+      await runOrganizationPresentationMutation(input.execSql, () =>
+        purgeOrganizationAccessProjection({
+          execSql: input.execSql,
+          organizationId: input.organizationId,
+          requesterUserId: input.currentUserId,
+        }),
+      );
+    } catch (error) {
+      input.logError?.("Failed to purge denied organization access", error);
+    }
     return { kind: "done", value: null };
   }
   if (
@@ -142,7 +196,7 @@ async function requestReadModelPage(
   }
 
   reportRetainedFailure(result);
-  return localResult(state);
+  return localResult(input, state);
 }
 
 function responseMatchesRequest(
@@ -163,59 +217,136 @@ function responseMatchesRequest(
   return true;
 }
 
+function reconciliationIsCurrent(
+  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  state: ReconciliationState,
+): boolean {
+  return isOrganizationPresentationAccessAttemptCurrent(
+    organizationPresentationAccessInput(input),
+    state.accessAttempt,
+  );
+}
+
+type ApplyResponseStep =
+  | ReconciliationStep
+  | {
+      readonly kind: "applied";
+      readonly result: Awaited<
+        ReturnType<typeof applyOrganizationReadModelResponse>
+      >;
+    };
+
+async function applyResponse(
+  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  state: ReconciliationState,
+  response: OrganizationReadModelResponse,
+): Promise<ApplyResponseStep> {
+  try {
+    return {
+      kind: "applied",
+      result: await applyOrganizationReadModelResponse({
+        currentUserId: input.currentUserId,
+        execSql: input.execSql,
+        requestedCursor: state.expectedLocalCursor,
+        response,
+      }),
+    };
+  } catch (error) {
+    input.logError?.("Failed to apply organization read-model response", error);
+    if (
+      !(error instanceof OrganizationReadModelBindingError) ||
+      state.retriedBindingFailure
+    ) {
+      return localResult(input, state);
+    }
+    state.retriedBindingFailure = true;
+    await purgeOrganizationReadModelProjection(
+      input.execSql,
+      input.organizationId,
+    );
+    if (!reconciliationIsCurrent(input, state)) {
+      return { kind: "done", value: null };
+    }
+    state.projection = null;
+    resetRequestCursor(state);
+    return { kind: "continue" };
+  }
+}
+
+async function prepareDeniedProjectionForApply(
+  input: ReconcileOrganizationDirectoryAndGroupsInput,
+  state: ReconciliationState,
+): Promise<ReconciliationStep | null> {
+  if (state.preparedDeniedProjection) {
+    return null;
+  }
+  try {
+    await purgeOrganizationReadModelProjection(
+      input.execSql,
+      input.organizationId,
+    );
+  } catch (error) {
+    input.logError?.("Failed to replace denied organization read model", error);
+    return { kind: "done", value: null };
+  }
+  if (!reconciliationIsCurrent(input, state)) {
+    return { kind: "done", value: null };
+  }
+  state.expectedLocalCursor = null;
+  state.preparedDeniedProjection = true;
+  state.projection = null;
+  return null;
+}
+
 async function applyReadModelPage(
   input: ReconcileOrganizationDirectoryAndGroupsInput,
   state: ReconciliationState,
   response: OrganizationReadModelResponse,
 ): Promise<ReconciliationStep> {
   if (!responseMatchesRequest(input, state, response)) {
-    return localResult(state);
+    return localResult(input, state);
   }
 
-  let applyResult: Awaited<
-    ReturnType<typeof applyOrganizationReadModelResponse>
-  >;
-  try {
-    applyResult = await applyOrganizationReadModelResponse({
-      currentUserId: input.currentUserId,
-      execSql: input.execSql,
-      requestedCursor: state.expectedLocalCursor,
-      response,
-    });
-  } catch (error) {
-    input.logError?.("Failed to apply organization read-model response", error);
-    if (
-      error instanceof OrganizationReadModelBindingError &&
-      !state.retriedBindingFailure
-    ) {
-      state.retriedBindingFailure = true;
-      await purgeOrganizationReadModelProjection(
-        input.execSql,
-        input.organizationId,
-      );
-      state.projection = null;
+  const accessInput = organizationPresentationAccessInput(input);
+  return runOrganizationPresentationMutation(input.execSql, async () => {
+    if (!reconciliationIsCurrent(input, state)) {
+      return { kind: "done", value: null };
+    }
+    const preparation = await prepareDeniedProjectionForApply(input, state);
+    if (preparation) {
+      return preparation;
+    }
+
+    const applied = await applyResponse(input, state, response);
+    if (applied.kind !== "applied") {
+      return applied;
+    }
+
+    state.projection = await loadRawProjection(input);
+    if (!reconciliationIsCurrent(input, state)) {
+      return { kind: "done", value: null };
+    }
+    if (applied.result === "stale") {
+      if (state.staleRetries >= MAX_STALE_RETRIES) {
+        return localResult(input, state);
+      }
+      state.staleRetries += 1;
       resetRequestCursor(state);
       return { kind: "continue" };
     }
-    return localResult(state);
-  }
 
-  state.projection = await loadProjection(input);
-  if (applyResult === "stale") {
-    if (state.staleRetries >= MAX_STALE_RETRIES) {
-      return localResult(state);
+    state.expectedLocalCursor = state.projection?.cursor ?? response.nextCursor;
+    if (!response.hasMore) {
+      return restoreOrganizationPresentationAccess(
+        accessInput,
+        state.accessAttempt,
+      )
+        ? localResult(input, state)
+        : { kind: "done", value: null };
     }
-    state.staleRetries += 1;
-    resetRequestCursor(state);
+    state.requestCursor = response.nextCursor;
     return { kind: "continue" };
-  }
-
-  state.expectedLocalCursor = state.projection?.cursor ?? response.nextCursor;
-  if (!response.hasMore) {
-    return localResult(state);
-  }
-  state.requestCursor = response.nextCursor;
-  return { kind: "continue" };
+  });
 }
 
 export async function loadLocalOrganizationDirectoryAndGroups(
@@ -227,19 +358,30 @@ export async function loadLocalOrganizationDirectoryAndGroups(
 export async function loadLocalOrganizationGroupMembers(
   input: OrganizationReadModelProjectionInput & { readonly groupId: string },
 ) {
-  return loadOrganizationReadModelGroupMembers(
-    input.execSql,
-    input.organizationId,
-    input.groupId,
-    input.currentUserId,
+  return runOrganizationPresentationRead(
+    organizationPresentationAccessInput(input),
+    () =>
+      loadOrganizationReadModelGroupMembers(
+        input.execSql,
+        input.organizationId,
+        input.groupId,
+        input.currentUserId,
+      ),
   );
 }
 
 export async function reconcileOrganizationDirectoryAndGroups(
   input: ReconcileOrganizationDirectoryAndGroupsInput,
 ): Promise<OrganizationDirectoryAndGroups | null> {
+  const accessInput = organizationPresentationAccessInput(input);
+  const accessAttempt = captureOrganizationPresentationAccessAttempt(
+    accessInput,
+    "readModel",
+  );
   const state: ReconciliationState = {
+    accessAttempt,
     expectedLocalCursor: null,
+    preparedDeniedProjection: !accessAttempt.startedDenied,
     projection: await loadProjection(input),
     requestCursor: undefined,
     retriedBindingFailure: false,
@@ -265,5 +407,6 @@ export async function reconcileOrganizationDirectoryAndGroups(
   input.logError?.(
     "Organization read-model reconciliation exceeded page limit",
   );
-  return toDirectoryAndGroups(state.projection);
+  const retained = localResult(input, state);
+  return retained.kind === "done" ? retained.value : null;
 }

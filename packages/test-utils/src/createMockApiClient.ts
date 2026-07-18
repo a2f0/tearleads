@@ -48,6 +48,14 @@ export function createMockApiClient(
     getUserIdentity: async () => null,
     getHealth: async () => null,
     getMultipartBlobStage: async () => null,
+    getOrganizationDataUsageResult: async (organizationId: string) => {
+      const path = `/organizations/${encodeURIComponent(organizationId)}/data-usage`;
+      return mockRequestFailure({
+        message: `GET ${path}: mock data usage is not configured`,
+        method: "GET",
+        path,
+      });
+    },
     linkDocument: async () => null,
     listContainerDocuments: async () => null,
     listContainers: async () => EMPTY_LIST_CONTAINERS_RESPONSE,
