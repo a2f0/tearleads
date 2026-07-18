@@ -1,0 +1,48 @@
+/* Footer-tray sync indicator. The design system is deliberately monochrome save
+   for the one chromatic --color-danger token, so the "synced" green and the
+   "billing" amber are scoped here rather than promoted to global tokens. Red
+   reuses --color-danger (already theme-aware); the two added hues carry a Light
+   default and a Dark override, matching the danger token's two definitions. */
+.sync-status-indicator {
+  --sync-status-synced-color: #1a7f37;
+  --sync-status-warning-color: #9a6700;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--control-height);
+  height: var(--control-height);
+  /* Non-interactive: no pointer affordance, and stay out of the tab order. */
+  color: var(--sync-status-synced-color);
+}
+
+:root[data-theme="dark"] .sync-status-indicator {
+  --sync-status-synced-color: #6fbf87;
+  --sync-status-warning-color: #e3b341;
+}
+
+.sync-status-indicator-dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.sync-status-indicator--synced {
+  color: var(--sync-status-synced-color);
+}
+
+.sync-status-indicator--pending {
+  color: var(--color-danger);
+}
+
+.sync-status-indicator--billing {
+  color: var(--sync-status-warning-color);
+}
+
+/* Before the first queue read resolves: a muted neutral dot rather than a
+   premature green, so a fresh mount does not flash "synced". */
+.sync-status-indicator--loading {
+  color: color-mix(in srgb, var(--color-dark) 35%, transparent);
+}

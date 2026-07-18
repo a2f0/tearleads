@@ -1,0 +1,75 @@
+import type {
+  ContainerDocumentQueries,
+  DomainScope,
+} from "@tearleads/client-sdk";
+import {
+  subscribeToDomainSyncCoordinator,
+  subscribeToPersistedDocuments,
+} from "@tearleads/client-sdk";
+import { useEffect, useState } from "react";
+import { createPendingWriteWatcher } from "./pendingWriteWatcher";
+
+// `listPendingWrites()` is an identity-wide scan (multiple tables plus deferred
+// Loro tails), and this indicator is always mounted (two panes in the windowed
+// layout), so change notifications are throttled to at most one scan per window.
+const READ_THROTTLE_MS = 750;
+
+export interface PendingWriteCount {
+  /** False until the first successful read resolves (or while the db is booting). */
+  readonly loaded: boolean;
+  /** Aggregate unflushed write-operation count; `0` once everything is synced. */
+  readonly count: number;
+}
+
+/**
+ * Track the durable write-queue size for the active domain (see
+ * `createPendingWriteWatcher` for the read state machine). It subscribes to two
+ * signals: the sync coordinator (lane requests, completions, settles) and
+ * document persistence. The latter is essential — deferred writes (e.g.
+ * `deferRemoteSync` during system bootstrap) enqueue durable work *without*
+ * requesting a lane, so the coordinator alone would never re-trigger and the
+ * indicator could stay green while the Explorer Write Queue holds items.
+ */
+export function usePendingWriteCount(
+  documentQueries: ContainerDocumentQueries,
+  domainScope: DomainScope,
+  dbReady: boolean,
+): PendingWriteCount {
+  const [state, setState] = useState<PendingWriteCount>({
+    loaded: false,
+    count: 0,
+  });
+
+  useEffect(() => {
+    if (!dbReady) {
+      // Idempotent reset: return the same state when already cleared so a
+      // re-render with unchanged not-ready inputs cannot loop.
+      setState((prev) =>
+        prev.loaded || prev.count !== 0 ? { loaded: false, count: 0 } : prev,
+      );
+      return;
+    }
+    const watcher = createPendingWriteWatcher({
+      listPendingWrites: () => documentQueries.listPendingWrites(),
+      subscribe: (onChange) => {
+        const unsubscribeCoordinator = subscribeToDomainSyncCoordinator(
+          domainScope,
+          onChange,
+        );
+        const unsubscribeDocuments = subscribeToPersistedDocuments(
+          domainScope,
+          onChange,
+        );
+        return () => {
+          unsubscribeCoordinator();
+          unsubscribeDocuments();
+        };
+      },
+      onCount: (count) => setState({ loaded: true, count }),
+      throttleMs: READ_THROTTLE_MS,
+    });
+    return () => watcher.stop();
+  }, [dbReady, documentQueries, domainScope]);
+
+  return state;
+}

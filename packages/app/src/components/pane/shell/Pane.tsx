@@ -21,6 +21,7 @@ import {
 } from "../../window/WindowStateProvider";
 import { useRegisterUserId } from "../dual-pane";
 import { PaneFooter } from "../footer/PaneFooter";
+import { SyncStatusIndicator } from "../footer/sync-status/SyncStatusIndicator";
 import "./Pane.css";
 import { PaneContextMenu } from "./PaneContextMenu";
 
@@ -73,6 +74,7 @@ function PaneInner({
         <PaneFooter
           tray={
             <>
+              <SyncStatusIndicator />
               <ThemeToggleButton />
               <NavigationModeSwitch mode="windowed" />
               <SystemMonitorLauncherButton />
