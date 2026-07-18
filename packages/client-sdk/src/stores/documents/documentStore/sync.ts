@@ -352,6 +352,7 @@ async function finalizeDocumentSync(
   if (
     shouldReArmAfterOutgoingSettlement({
       outgoingUpdateCount: syncAttempt.outgoingUpdateCount,
+      rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
       settledUpdateCount: synced.settledPendingUpdateIds.length,
     })
   ) {

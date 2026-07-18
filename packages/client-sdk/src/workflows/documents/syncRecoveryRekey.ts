@@ -70,16 +70,23 @@ export function settledPendingUpdateIdsFromSync(input: {
  * recovery could not settle so the next sync pass submits the same ops under
  * a conflict-free id; the server-side copy stays harmless because CRDT
  * update import is idempotent.
+ *
+ * Returns the fresh ids so callers can treat re-keying as settlement-like
+ * progress and schedule the pass that actually submits them.
  */
 export async function rekeyUnsettledRecoveryPendingUpdates(input: {
   execSql: ExecSql;
   recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
   settledPendingUpdateIds: readonly string[];
-}): Promise<void> {
+}): Promise<string[]> {
   const settled = new Set(input.settledPendingUpdateIds);
+  const rekeyedPendingUpdateIds: string[] = [];
   for (const pendingUpdateId of input.recoveryPendingUpdatesById.keys()) {
     if (!settled.has(pendingUpdateId)) {
-      await rekeyDocumentPendingUpdate(input.execSql, pendingUpdateId);
+      rekeyedPendingUpdateIds.push(
+        await rekeyDocumentPendingUpdate(input.execSql, pendingUpdateId),
+      );
     }
   }
+  return rekeyedPendingUpdateIds;
 }

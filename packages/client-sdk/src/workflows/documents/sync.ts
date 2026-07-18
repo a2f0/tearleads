@@ -332,7 +332,7 @@ async function syncRemoteDocumentResultFromResponse(input: {
     recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
     response: input.response,
   });
-  await rekeyUnsettledRecoveryPendingUpdates({
+  const rekeyedPendingUpdateIds = await rekeyUnsettledRecoveryPendingUpdates({
     execSql: input.execSql,
     recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
     settledPendingUpdateIds,
@@ -343,6 +343,7 @@ async function syncRemoteDocumentResultFromResponse(input: {
     decryptedUpdates,
     persistedState,
     plan,
+    rekeyedPendingUpdateIds,
     response: input.response,
     settledPendingUpdateIds,
     writerProjection: input.writerProjection,
@@ -648,6 +649,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
         decryptedUpdates: [],
         persistedState,
         plan,
+        rekeyedPendingUpdateIds: [],
         response: submitted.response,
         settledPendingUpdateIds: [],
       },

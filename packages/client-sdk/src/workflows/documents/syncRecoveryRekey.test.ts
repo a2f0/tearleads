@@ -119,6 +119,8 @@ test("syncRemoteDocument re-keys pending conflicts recovery cannot settle", asyn
   const rekeyed = await listDocumentPendingUpdates(execSql, scope);
   expect(rekeyed).toHaveLength(1);
   expect(rekeyed[0]?.id).not.toBe(pendingUpdate.id);
+  // Re-keying reports as progress so sync lanes re-arm and submit the new id.
+  expect(synced?.rekeyedPendingUpdateIds).toEqual([rekeyed[0]?.id ?? ""]);
   expect(rekeyed[0]).toMatchObject({
     updateData: pendingUpdate.updateData,
     partialStartVersionVector: pendingUpdate.partialStartVersionVector,

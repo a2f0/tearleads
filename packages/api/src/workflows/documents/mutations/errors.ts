@@ -91,7 +91,13 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
   }
 
   if (error instanceof ContainerWriterProjectionError) {
-    return new DocumentMutationError(error.message, error.status);
+    // A container-level 404 must not become the sync route's 404, which
+    // clients treat as upstream document deletion and answer with a
+    // destructive local wipe; surface it as an uncoded conflict instead.
+    return new DocumentMutationError(
+      error.message,
+      error.status === 404 ? 409 : error.status,
+    );
   }
 
   if (error instanceof KeyingVerificationError) {

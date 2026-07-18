@@ -399,6 +399,7 @@ export async function syncContainerMetadataState(input: {
     ...persisted,
     shouldRequestFollowupSync: shouldReArmAfterOutgoingSettlement({
       outgoingUpdateCount,
+      rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
       settledUpdateCount: synced.settledPendingUpdateIds.length,
     }),
   };
