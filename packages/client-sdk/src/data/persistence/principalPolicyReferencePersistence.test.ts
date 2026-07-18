@@ -355,3 +355,48 @@ test("exact principal policy lookup hard-fails on same-version indexed candidate
     close();
   }
 });
+
+test("exact principal policy lookup rejects conflicting orphaned index metadata", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-exact-orphan-index-conflict",
+  );
+  try {
+    const { bundle } = await createSuccessorPrincipalPolicyBundle();
+    const previousState = bundle.previousStates[0]?.state;
+    if (!previousState) {
+      throw new Error("Expected a predecessor state");
+    }
+    const reference = referencedPrincipalStateFromPolicyState(previousState);
+    await savePrincipalPolicyBundle(execSql, bundle, "2026-07-18T00:00:00Z");
+    await execSql(
+      `INSERT INTO principal_policy_bundle_references
+         (principal_type, principal_id, version, state_hash, key_epoch,
+          key_fingerprint, bundle_version, bundle_state_hash)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        reference.principalType,
+        reference.principalId,
+        reference.version,
+        reference.stateHash,
+        reference.keyEpoch,
+        reference.keyFingerprint,
+        bundle.currentState.version,
+        "f".repeat(64),
+      ],
+    );
+    await execSql(
+      `DELETE FROM principal_policies
+       WHERE principal_type = ? AND principal_id = ?`,
+      [reference.principalType, reference.principalId],
+    );
+
+    await expect(
+      loadPrincipalPolicyBundleForReference(execSql, reference, null),
+    ).rejects.toMatchObject({
+      code: "equivocation",
+      name: "KeyingVerificationError",
+    });
+  } finally {
+    close();
+  }
+});

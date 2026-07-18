@@ -342,18 +342,26 @@ async function loadIndexedHeads(
 function indexHeadsByHash(
   heads: readonly IndexedBundleHead[],
 ): Map<string, IndexedBundleHead> {
-  if (
-    heads.some(
-      (head) =>
-        !Number.isInteger(head.bundleVersion) ||
-        head.bundleVersion < 1 ||
-        head.bundleStateHash.length === 0,
-    )
-  ) {
-    throw new KeyingVerificationError(
-      "invalid_shape",
-      "principal policy reference index is malformed",
-    );
+  const stateHashByVersion = new Map<number, string>();
+  for (const head of heads) {
+    if (
+      !Number.isInteger(head.bundleVersion) ||
+      head.bundleVersion < 1 ||
+      head.bundleStateHash.length === 0
+    ) {
+      throw new KeyingVerificationError(
+        "invalid_shape",
+        "principal policy reference index is malformed",
+      );
+    }
+    const indexedHash = stateHashByVersion.get(head.bundleVersion);
+    if (indexedHash !== undefined && indexedHash !== head.bundleStateHash) {
+      throw new KeyingVerificationError(
+        "equivocation",
+        "principal policy reference index has conflicting bundle heads at one version",
+      );
+    }
+    stateHashByVersion.set(head.bundleVersion, head.bundleStateHash);
   }
   return new Map(heads.map((head) => [head.bundleStateHash, head]));
 }

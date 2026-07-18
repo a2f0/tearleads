@@ -352,7 +352,8 @@ async function writePrincipalPolicyBundle(
     (!storedHead || durableCheckpoint.version >= storedHead.version)
       ? durableCheckpoint
       : storedHead;
-  assertNoHeadConflict(incomingHead, effectiveHead);
+  assertNoHeadConflict(incomingHead, storedHead);
+  assertNoHeadConflict(incomingHead, durableCheckpoint ?? null);
   if (effectiveHead && incomingHead.version < effectiveHead.version) {
     return;
   }

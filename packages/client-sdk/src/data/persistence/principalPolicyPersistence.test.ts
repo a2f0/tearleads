@@ -233,6 +233,51 @@ test("principal policy persistence rejects a competing head at the cached versio
   }
 });
 
+test("principal policy persistence rejects a stored-head fork below a newer checkpoint", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-persistence-conflict-below-checkpoint",
+  );
+
+  try {
+    const { bundle: version1 } = await createPrincipalPolicyBundle();
+    const storedVersion2 = successorBundleForPersistence(version1);
+    const competingVersion2 = successorBundleForPersistence(version1, "4");
+    const checkpointVersion3 = successorBundleForPersistence(
+      storedVersion2,
+      "3",
+    );
+    await savePrincipalPolicyBundle(
+      execSql,
+      storedVersion2,
+      "2026-04-08T00:01:00.000Z",
+    );
+    await advanceKeyingCheckpointsAtomically({
+      access: [],
+      execSql,
+      policies: [
+        verifiedPolicyForPersistence(storedVersion2),
+        verifiedPolicyForPersistence(checkpointVersion3),
+      ],
+    });
+
+    await expect(
+      savePrincipalPolicyBundle(
+        execSql,
+        competingVersion2,
+        "2026-04-08T00:02:00.000Z",
+      ),
+    ).rejects.toMatchObject({
+      code: "equivocation",
+      name: "KeyingVerificationError",
+    });
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+    ).resolves.toEqual(storedVersion2);
+  } finally {
+    close();
+  }
+});
+
 test("principal policy persistence reads from a fresh database before any bundle is cached", async () => {
   const { close, execSql } = await createTestExecSql(
     "principal-policy-persistence-test",
