@@ -1,8 +1,11 @@
 import { serve } from "bun";
 import { coreRoutes, devRoute } from "./serverConfig";
 
+const { APP_WEB_PORT = "3100" } = process.env;
+const appWebPort = Number(APP_WEB_PORT);
+
 const server = serve({
-  port: 3100,
+  port: appWebPort,
   routes: { ...coreRoutes, ...devRoute },
   websocket: {
     message() {},

@@ -317,9 +317,7 @@ function deriveIdentityManagerStatus(
 ) {
   return {
     canAuthenticate:
-      identity.signingKeyPair !== null &&
-      session.userId !== null &&
-      !session.isAuthenticated,
+      identity.signingKeyPair !== null && !session.isAuthenticated,
     canManageSessions: session.isAuthenticated && session.authToken !== null,
     identityState: getIdentityState({
       signingKeyPair: identity.signingKeyPair,

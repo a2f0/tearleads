@@ -38,6 +38,9 @@ test("resolveAppHostProfile treats an empty string as unset", () => {
 test("resolveAppHostProfile resolves a known variant id", () => {
   expect(resolveAppHostProfile("app")).toBe(APP_HOST_PROFILES.app);
   expect(resolveAppHostProfile("demo")).toBe(APP_HOST_PROFILES.demo);
+  expect(resolveAppHostProfile("screenshot")).toBe(
+    APP_HOST_PROFILES.screenshot,
+  );
 });
 
 test("app and demo profiles auto-provision identities", () => {
@@ -54,6 +57,13 @@ test("only the demo profile seeds friendly peer identities", () => {
   // org names) is demo-only sugar; the regular app keeps the neutral defaults.
   expect(APP_HOST_PROFILES.app.features.seedPeerIdentities).toBe(false);
   expect(APP_HOST_PROFILES.demo.features.seedPeerIdentities).toBe(true);
+});
+
+test("screenshot profile defers registration until its fixture is restored", () => {
+  expect(APP_HOST_PROFILES.screenshot.features.autoGenerateIdentity).toBe(true);
+  expect(APP_HOST_PROFILES.screenshot.features.autoRegisterIdentity).toBe(
+    false,
+  );
 });
 
 test("resolveAppHostProfile throws on an unknown variant id", () => {

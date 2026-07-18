@@ -11,6 +11,10 @@ import {
   visiblePane,
   waitForBooted,
 } from "./appShell";
+import {
+  assertAuthenticatedOrgManager,
+  authenticateOrRegisterScreenshotIdentity,
+} from "./screenshotAuth";
 import { importSeedIdentity } from "./seedIdentity";
 import { restoreSeedBackup } from "./seedRestore";
 
@@ -366,6 +370,10 @@ async function applyTheme(page: Page, theme: string): Promise<void> {
 test("capture screenshots", async ({ page }, testInfo) => {
   const project = testInfo.project.name;
   const projectDir = path.join(REPO_ROOT, ".screenshots", project);
+  const { screenshotApiBaseUrl } = testInfo.project.metadata;
+  if (typeof screenshotApiBaseUrl !== "string") {
+    throw new Error(`Missing screenshot API URL for project ${project}.`);
+  }
 
   await page.goto("/");
   await waitForBooted(page);
@@ -389,9 +397,15 @@ test("capture screenshots", async ({ page }, testInfo) => {
   await clearStaleLocalState(page);
   await page.reload();
   await waitForBooted(page);
+  await authenticateOrRegisterScreenshotIdentity(
+    screenshotApiBaseUrl,
+    page,
+    routed,
+  );
   // Disable animations before asserting so a still-animating window/pane can't
   // flake the visibility check (capture phases re-inject after their navigations).
   await disableAnimations(page);
+  await assertAuthenticatedOrgManager(page, routed);
   await assertSeededDataVisible(page, routed);
 
   // Capture a full set per theme into `<project>/<theme>/`. applyTheme reloads

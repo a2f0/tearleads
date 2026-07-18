@@ -72,8 +72,10 @@ export function createRouteRequestBindings(
   }
 }
 
+const { API_PORT = "3001" } = process.env;
+
 const server = {
-  port: 3001,
+  port: Number(API_PORT),
   // Bound every request body to the multipart part ceiling. The part route reads
   // its body with c.req.arrayBuffer() (Bun's native read, which sidesteps the
   // native-stream defect that segfaulted the streamed reader), so this server cap
