@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { createListContainerDocumentsRoute } from "./listContainerDocuments";
-import { createListContainersRoute } from "./listContainers";
+import { createListContainerParentLanesRoute } from "./listContainerParentLanes";
 import { createContainerMutationsRoute } from "./mutations";
 import { createContainerWriterProjectionRoute } from "./writerProjection";
 
@@ -27,7 +27,7 @@ export function createContainersRouter({
   );
   containersRouter.route(
     "/",
-    createListContainersRoute({ requireAuth, runtime }),
+    createListContainerParentLanesRoute({ requireAuth, runtime }),
   );
   containersRouter.route("/", createContainerMutationsRoute(routeDeps));
   containersRouter.route(

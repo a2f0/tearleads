@@ -5,7 +5,7 @@ import type {
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import { principalPolicyHeadMeetsCheckpoint } from "../persistence/principalPolicyCheckpointSelection";
-import { loadPrincipalPolicyBundle } from "../persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyBundleForReference } from "../persistence/principalPolicyReferencePersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 
 /**
@@ -93,14 +93,12 @@ export async function filterUncachedPrincipalPolicyReferences(input: {
       ) {
         return null;
       }
-      const bundle = await loadPrincipalPolicyBundle(
+      const bundle = await loadPrincipalPolicyBundleForReference(
         input.execSql,
-        reference.principalType,
-        reference.principalId,
+        reference,
       );
       return bundle &&
-        principalPolicyHeadMeetsCheckpoint(bundle.currentState, checkpoint) &&
-        principalPolicyBundleContainsReference(bundle, reference)
+        principalPolicyHeadMeetsCheckpoint(bundle.currentState, checkpoint)
         ? null
         : reference;
     }),

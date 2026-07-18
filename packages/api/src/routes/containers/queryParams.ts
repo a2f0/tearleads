@@ -14,15 +14,6 @@ export function parseOptionalInteger(
   return Number.isSafeInteger(parsed) ? parsed : Number.NaN;
 }
 
-export function parseOptionalParentId(
-  value: string | undefined,
-): string | null {
-  if (value === undefined || value === "null") {
-    return null;
-  }
-  return value;
-}
-
 export function parseOptionalWatermark(
   updatedAt: string | undefined,
   id: string | undefined,

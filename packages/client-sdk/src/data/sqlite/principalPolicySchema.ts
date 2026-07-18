@@ -28,7 +28,7 @@ export const principalPolicies = sqliteTable(
   ],
 );
 
-/** Older verified bundles retained only for epoch-specific key unwrapping. */
+/** Older verified bundles retained for exact-reference verification and epoch key unwrapping. */
 export const principalPolicyBundleHistory = sqliteTable(
   "principal_policy_bundle_history",
   principalPolicyBundleColumns(),

@@ -8,6 +8,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { isRegistrationRequest } from "@tearleads/validators/request";
 import type {
   DestroySessionResponse,
+  ListContainerParentLanesResponse,
   ListSessionsResponse,
   OrganizationBillingResponse,
   UserIdentityResponse,
@@ -246,7 +247,32 @@ const server = setupServer(
       });
     },
   ),
-  http.get("http://localhost:3001/containers", emptyListResponse),
+  http.post(
+    "http://localhost:3001/containers/parent-lanes/query",
+    async ({ request }) => {
+      const input = (await request.json()) as {
+        lanes?: Array<{ laneId?: unknown }> | undefined;
+      };
+      const lanes = Array.isArray(input.lanes) ? input.lanes : [];
+      return HttpResponse.json<ListContainerParentLanesResponse>({
+        results: lanes.flatMap((lane) =>
+          typeof lane.laneId === "string"
+            ? [
+                {
+                  laneId: lane.laneId,
+                  page: {
+                    hasMore: false,
+                    items: [],
+                    nextWatermark: null,
+                    tombstones: [],
+                  },
+                },
+              ]
+            : [],
+        ),
+      });
+    },
+  ),
   http.get(
     "http://localhost:3001/containers/:containerId/documents",
     emptyListResponse,

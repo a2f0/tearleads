@@ -1,5 +1,6 @@
 import type {
   ManagedPrincipalKind,
+  ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
@@ -11,6 +12,7 @@ import {
   retainVerifiedPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "../../../data/persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicyReferencePersistence";
 import {
   principalPolicyReferenceFromBundle,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
@@ -122,15 +124,31 @@ function signerPublicKeyLoadErrorMessage(
   }
 }
 
-export async function loadVerifiedGroupSharePrincipalPolicy(input: {
+async function loadGroupSharePolicyBundle(input: {
   apiClient: ContainerManagedPrincipalShareApi;
-  deferCheckpointAdvance?: true | undefined;
   execSql: ExecSql;
+  expectedGroupHead?: ReferencedPrincipalHead | undefined;
   groupId: string;
-  organizationId: string;
-  resolveTrustedUserIdentity: TrustedUserIdentityResolver;
-}): Promise<VerifiedSharePrincipalPolicy> {
-  const bundle = await input.apiClient.getCurrentPrincipalPolicy(
+}): Promise<PrincipalPolicyBundleResponse> {
+  if (
+    input.expectedGroupHead &&
+    (input.expectedGroupHead.principalType !== "group" ||
+      input.expectedGroupHead.principalId !== input.groupId)
+  ) {
+    throw new Error("Container share expected group policy target mismatch");
+  }
+  let bundle: PrincipalPolicyBundleResponse | null = null;
+  if (input.expectedGroupHead) {
+    try {
+      bundle = await loadPrincipalPolicyBundleForReference(
+        input.execSql,
+        input.expectedGroupHead,
+      );
+    } catch {
+      bundle = null;
+    }
+  }
+  bundle ??= await input.apiClient.getCurrentPrincipalPolicy(
     "group",
     input.groupId,
   );
@@ -138,6 +156,19 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
     throw new Error("Container share principal policy could not be loaded");
   }
   assertGroupPolicyTarget(bundle, input.groupId);
+  return bundle;
+}
+
+export async function loadVerifiedGroupSharePrincipalPolicy(input: {
+  apiClient: ContainerManagedPrincipalShareApi;
+  deferCheckpointAdvance?: true | undefined;
+  execSql: ExecSql;
+  expectedGroupHead?: ReferencedPrincipalHead | undefined;
+  groupId: string;
+  organizationId: string;
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+}): Promise<VerifiedSharePrincipalPolicy> {
+  const bundle = await loadGroupSharePolicyBundle(input);
 
   const localCheckpoint = await loadPrincipalPolicyVerificationCheckpoint({
     execSql: input.execSql,
@@ -173,7 +204,8 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
   const verified =
     await verifyPrincipalPolicyBundleWithExternalOrganizationAdmins({
       bundle,
-      expectedReference: principalPolicyReferenceFromBundle(bundle),
+      expectedReference:
+        input.expectedGroupHead ?? principalPolicyReferenceFromBundle(bundle),
       loadExternalAuthority: async () => {
         usedOrganizationAdminPolicy = true;
         return (

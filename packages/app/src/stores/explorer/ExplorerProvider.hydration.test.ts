@@ -9,7 +9,10 @@ import {
 } from "@tearleads/client-sdk";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createMockApiClient } from "@tearleads/test-utils";
+import {
+  createContainerParentLaneBatchMock,
+  createMockApiClient,
+} from "@tearleads/test-utils";
 import {
   ensureContainerTables,
   ensureDocumentTables,
@@ -103,45 +106,47 @@ test("explorer hydration repairs stale local timestamps for remote containers wi
   runtime = runtimeWithPatch(runtime, {
     apiClient: createMockApiClient({
       ...runtime.apiClient,
-      listContainers: async (options = {}) =>
-        options.parentId === null || options.parentId === undefined
-          ? listContainersResponse([
-              listedContainer({
-                id: "shared-root-container",
-                metadataAccessEpoch: 1,
-                metadataAccessStateHash: "shared-root-access-state-hash-1",
-                metadataDocumentId: "shared-root-metadata-document",
-                organizationId: "org-2",
-                parentId: null,
-                updatedAt: remoteUpdatedAt,
-              }),
-            ])
-          : listContainersResponse(
-              options.parentId === "shared-root-container"
-                ? [
-                    listedContainer({
-                      id: "shared-child-container",
-                      metadataAccessEpoch: 1,
-                      metadataAccessStateHash:
-                        "shared-child-access-state-hash-1",
-                      metadataDocumentId: "shared-child-metadata-document",
-                      organizationId: "org-2",
-                      parentId: "shared-root-container",
-                      updatedAt: remoteUpdatedAt,
-                    }),
-                    listedContainer({
-                      id: "shared-child-container-b",
-                      metadataAccessEpoch: 1,
-                      metadataAccessStateHash:
-                        "shared-child-b-access-state-hash-1",
-                      metadataDocumentId: "shared-child-b-metadata-document",
-                      organizationId: "org-2",
-                      parentId: "shared-root-container",
-                      updatedAt: remoteUpdatedAt,
-                    }),
-                  ]
-                : [],
-            ),
+      listContainerParentLanes: createContainerParentLaneBatchMock(
+        async (options) =>
+          options.parentId === null || options.parentId === undefined
+            ? listContainersResponse([
+                listedContainer({
+                  id: "shared-root-container",
+                  metadataAccessEpoch: 1,
+                  metadataAccessStateHash: "shared-root-access-state-hash-1",
+                  metadataDocumentId: "shared-root-metadata-document",
+                  organizationId: "org-2",
+                  parentId: null,
+                  updatedAt: remoteUpdatedAt,
+                }),
+              ])
+            : listContainersResponse(
+                options.parentId === "shared-root-container"
+                  ? [
+                      listedContainer({
+                        id: "shared-child-container",
+                        metadataAccessEpoch: 1,
+                        metadataAccessStateHash:
+                          "shared-child-access-state-hash-1",
+                        metadataDocumentId: "shared-child-metadata-document",
+                        organizationId: "org-2",
+                        parentId: "shared-root-container",
+                        updatedAt: remoteUpdatedAt,
+                      }),
+                      listedContainer({
+                        id: "shared-child-container-b",
+                        metadataAccessEpoch: 1,
+                        metadataAccessStateHash:
+                          "shared-child-b-access-state-hash-1",
+                        metadataDocumentId: "shared-child-b-metadata-document",
+                        organizationId: "org-2",
+                        parentId: "shared-root-container",
+                        updatedAt: remoteUpdatedAt,
+                      }),
+                    ]
+                  : [],
+              ),
+      ),
     }),
     isAuthenticated: true,
     online: true,
@@ -247,19 +252,21 @@ test("explorer hydration reconciles a restored local-only root into the authenti
   runtime = runtimeWithPatch(runtime, {
     apiClient: createMockApiClient({
       ...runtime.apiClient,
-      listContainers: async (options = {}) =>
-        options.parentId === null || options.parentId === undefined
-          ? listContainersResponse([
-              listedContainer({
-                id: "remote-root",
-                metadataAccessEpoch: 1,
-                metadataAccessStateHash: "remote-root-access-state-hash-1",
-                metadataDocumentId: "remote-root-metadata-document",
-                organizationId: "org-remote",
-                parentId: null,
-              }),
-            ])
-          : listContainersResponse(),
+      listContainerParentLanes: createContainerParentLaneBatchMock(
+        async (options) =>
+          options.parentId === null || options.parentId === undefined
+            ? listContainersResponse([
+                listedContainer({
+                  id: "remote-root",
+                  metadataAccessEpoch: 1,
+                  metadataAccessStateHash: "remote-root-access-state-hash-1",
+                  metadataDocumentId: "remote-root-metadata-document",
+                  organizationId: "org-remote",
+                  parentId: null,
+                }),
+              ])
+            : listContainersResponse(),
+      ),
     }),
     encapsulationKeyPair: localKeyPair,
     isAuthenticated: true,

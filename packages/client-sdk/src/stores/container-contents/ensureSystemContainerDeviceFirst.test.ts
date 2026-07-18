@@ -101,7 +101,9 @@ async function seedLocalRootContainer(
 
 async function withReadyStore(
   online: boolean,
-  listContainers: ReturnType<typeof createMockApiClient>["listContainers"],
+  listContainerParentLanes: ReturnType<
+    typeof createMockApiClient
+  >["listContainerParentLanes"],
   body: (
     store: ReturnType<typeof createContainerContentsStore>,
     execSql: ExecSql,
@@ -118,7 +120,7 @@ async function withReadyStore(
     await seedLocalRootContainer(execSql);
     const runtime = createAuthenticatedRuntime({
       apiClient: createMockApiClient({
-        listContainers,
+        listContainerParentLanes,
         ...options.apiClientOverrides,
       }),
       domainScope: {} as DomainScope,
@@ -143,7 +145,7 @@ async function withReadyStore(
   }
 }
 
-test("ensureSystemContainer creates the slot locally when listContainers returns a network failure (null)", async () => {
+test("ensureSystemContainer creates the slot locally when parent-lane hydration returns a network failure (null)", async () => {
   // The ApiClient surfaces a "Failed to fetch" as a null result, not a throw.
   // The system container must still be provisioned locally so a caller that
   // waits on it reaches a ready state instead of wedging on loading.
@@ -196,11 +198,11 @@ test("ensureSystemContainer creates the slot locally when remote hydration throw
 test("ensureSystemContainer creates the slot locally while offline without touching the network", async () => {
   // Offline (network toggle off): the remote probe is skipped entirely and the
   // container is created locally, queued for sync when connectivity returns.
-  let listContainersCalls = 0;
+  let parentLaneBatchCalls = 0;
   await withReadyStore(
     false,
     async () => {
-      listContainersCalls += 1;
+      parentLaneBatchCalls += 1;
       return null;
     },
     async (store) => {
@@ -212,7 +214,7 @@ test("ensureSystemContainer creates the slot locally while offline without touch
 
       expect(node).not.toBeNull();
       expect(node?.systemSlot).toBe(TEST_SYSTEM_SLOT);
-      expect(listContainersCalls).toBe(0);
+      expect(parentLaneBatchCalls).toBe(0);
       expect(store.getSnapshot().ready).toBe(true);
     },
   );
@@ -221,12 +223,12 @@ test("ensureSystemContainer creates the slot locally while offline without touch
 test("ensureSystemContainer can defer remote bootstrap for non-blocking startup", async () => {
   // Contacts opens from local SQLite first; slow remote system-container I/O
   // must not keep the mini-app on its loading gate.
-  let listContainersCalls = 0;
+  let parentLaneBatchCalls = 0;
   let projectionCalls = 0;
   await withReadyStore(
     true,
     () => {
-      listContainersCalls += 1;
+      parentLaneBatchCalls += 1;
       return new Promise<never>(() => {});
     },
     async (store) => {
@@ -238,7 +240,7 @@ test("ensureSystemContainer can defer remote bootstrap for non-blocking startup"
 
       expect(node).not.toBeNull();
       expect(node?.systemSlot).toBe(TEST_SYSTEM_SLOT);
-      expect(listContainersCalls).toBe(0);
+      expect(parentLaneBatchCalls).toBe(0);
       expect(projectionCalls).toBe(0);
       expect(store.getSnapshot().ready).toBe(true);
     },
@@ -345,7 +347,9 @@ test("ensureSystemContainer cannot provision a slot when no local root exists an
     // Schema only — deliberately no root container persisted.
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     const runtime = createAuthenticatedRuntime({
-      apiClient: createMockApiClient({ listContainers: async () => null }),
+      apiClient: createMockApiClient({
+        listContainerParentLanes: async () => null,
+      }),
       domainScope: {} as DomainScope,
       execSql,
       online: true,
@@ -419,7 +423,9 @@ test("ensureSystemContainer creates distinct local system containers for the sam
       rootContainerId: secondRootContainerId,
     });
 
-    const apiClient = createMockApiClient({ listContainers: async () => null });
+    const apiClient = createMockApiClient({
+      listContainerParentLanes: async () => null,
+    });
     const store = createContainerContentsStore(
       createAuthenticatedRuntime({
         apiClient,

@@ -11,6 +11,7 @@ import { parseOrganizationAuthorityDescriptor } from "../organizationAuthorityDe
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import { principalPolicyHeadMeetsCheckpoint } from "../persistence/principalPolicyCheckpointSelection";
 import { loadPrincipalPolicyBundle } from "../persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyBundleForReference } from "../persistence/principalPolicyReferencePersistence";
 import {
   organizationAdminExternalAuthority,
   principalPolicyReferenceFromBundle,
@@ -269,10 +270,9 @@ async function verifyReferencedPrincipalPolicy(input: {
   }
 
   const referenceLabel = principalPolicyReferenceLabel(input.reference);
-  let bundle = await loadPrincipalPolicyBundle(
+  let bundle = await loadPrincipalPolicyBundleForReference(
     execSql,
-    input.reference.principalType,
-    input.reference.principalId,
+    input.reference,
   );
   if (!bundle && input.warmReferencedPrincipalPolicies) {
     // The reference is not cached locally — the common case for a member who
@@ -282,10 +282,9 @@ async function verifyReferencedPrincipalPolicy(input: {
       organizationId: input.organizationId,
       references: [input.reference],
     });
-    bundle = await loadPrincipalPolicyBundle(
+    bundle = await loadPrincipalPolicyBundleForReference(
       execSql,
-      input.reference.principalType,
-      input.reference.principalId,
+      input.reference,
     );
   }
   if (!bundle) {

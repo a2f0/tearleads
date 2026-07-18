@@ -5,11 +5,25 @@ import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import {
+  readContainerParentLanePage,
+  requestContainerParentLanes,
+} from "../../../test/helpers/containerParentLaneQuery";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { routeApp } from "../../routeApp";
 
-test("GET /containers surfaces the owner root container after a peer joins the admin group", async () => {
+async function listRootContainerPage(
+  token: string,
+  watermark: { readonly id: string; readonly updatedAt: string } | null = null,
+) {
+  const response = await requestContainerParentLanes(token, [
+    { laneId: "root", parentId: null, watermark },
+  ]);
+  expect(response.status).toBe(200);
+  return readContainerParentLanePage(response, "root");
+}
+
+test("root parent lane surfaces the owner root after an admin-group add", async () => {
   const owner = createTestUser();
   const peer = createTestUser();
 
@@ -26,12 +40,7 @@ test("GET /containers surfaces the owner root container after a peer joins the a
   invariant(ownerRow, "expected owner user row");
 
   // Before joining: peer only sees their own root container.
-  const beforeResponse = await routeApp.request("/containers", {
-    method: "GET",
-    headers: { Authorization: `Bearer ${peer.token}` },
-  });
-  expect(beforeResponse.status).toBe(200);
-  const beforeBody = await beforeResponse.json();
+  const beforeBody = await listRootContainerPage(peer.token);
   expect(
     beforeBody.items.map((container: { id: string }) => container.id),
   ).not.toContain(owner.rootContainerId);
@@ -44,18 +53,13 @@ test("GET /containers surfaces the owner root container after a peer joins the a
 
   // After joining the admin group, the owner's root container (granted to the
   // admin group at registration) should be reachable for the peer.
-  const afterResponse = await routeApp.request("/containers", {
-    method: "GET",
-    headers: { Authorization: `Bearer ${peer.token}` },
-  });
-  expect(afterResponse.status).toBe(200);
-  const afterBody = await afterResponse.json();
+  const afterBody = await listRootContainerPage(peer.token);
   expect(
     afterBody.items.map((container: { id: string }) => container.id),
   ).toContain(owner.rootContainerId);
 });
 
-test("GET /containers root lane resume hides a newly shared root behind a stale watermark", async () => {
+test("root parent lane resume keeps its watermark scoped", async () => {
   const owner = createTestUser();
   const peer = createTestUser();
 
@@ -91,29 +95,17 @@ test("GET /containers root lane resume hides a newly shared root behind a stale 
   });
 
   // Without a watermark, the peer sees the shared root (proven above).
-  const freshResponse = await routeApp.request("/containers?parentId=null", {
-    method: "GET",
-    headers: { Authorization: `Bearer ${peer.token}` },
-  });
-  expect(freshResponse.status).toBe(200);
-  const freshBody = await freshResponse.json();
+  const freshBody = await listRootContainerPage(peer.token);
   expect(
     freshBody.items.map((container: { id: string }) => container.id),
   ).toContain(owner.rootContainerId);
 
   // Resuming from the stale watermark, the refresh re-probe returns nothing new
   // and the share never appears — the real-app symptom.
-  const resumeResponse = await routeApp.request(
-    `/containers?parentId=null&watermarkUpdatedAt=${encodeURIComponent(
-      staleWatermarkUpdatedAt,
-    )}&watermarkId=${encodeURIComponent(crypto.randomUUID())}`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${peer.token}` },
-    },
-  );
-  expect(resumeResponse.status).toBe(200);
-  const resumeBody = await resumeResponse.json();
+  const resumeBody = await listRootContainerPage(peer.token, {
+    id: crypto.randomUUID(),
+    updatedAt: staleWatermarkUpdatedAt,
+  });
   expect(
     resumeBody.items.map((container: { id: string }) => container.id),
   ).not.toContain(owner.rootContainerId);

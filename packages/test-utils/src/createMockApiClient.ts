@@ -58,7 +58,12 @@ export function createMockApiClient(
     },
     linkDocument: async () => null,
     listContainerDocuments: async () => null,
-    listContainers: async () => EMPTY_LIST_CONTAINERS_RESPONSE,
+    listContainerParentLanes: async (input) => ({
+      results: input.lanes.map(({ laneId }) => ({
+        laneId,
+        page: EMPTY_LIST_CONTAINERS_RESPONSE,
+      })),
+    }),
     listDocumentAttachments: async () => null,
     listOrganizationGroupMembers: async () => null,
     moveContainer: async () => null,

@@ -51,89 +51,29 @@ import {
 } from "../../../../test/helpers/proxiedApiRequestBudget";
 
 const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  // Observed 116 after recovery rematerialization began reconciling remote-backed
-  // system containers (was ~111, and ~100 before the org-public metadata
-  // container; earlier ~120, see issue #1281 for the full profile). The first
-  // authenticated backfill now lists each pane's system-container documents
-  // once so Contacts and other headless projections converge on a fresh device.
-  // The auth-aware billing bootstrap also adds one billing read per pane; the
-  // resulting flow has been observed at 124-126 requests.
-  // Explorer/shared-root catch-up retains regular/directly granted containers
-  // but excludes own system children, so those children are not re-fetched on
-  // every discovery hint.
-  // The earlier ~11-request rise was the
-  // per-org "Organization Metadata" container that every registration now mints
-  // and read-grants to the Members group so any active roster member can
-  // decrypt org-wide public fields: each pane's provisioning and the share
-  // settle re-list, sync, and writer-project this extra container through the
-  // same reconcile passes as the other system containers (roughly linear, one
-  // more container = a bounded handful of requests, not a re-sync loop). The
-  // earlier drop from ~120 came from making the test WebSocket harness mirror
-  // production origin-based routing (the author no longer receives its own
-  // echoes), suppressing self-echo in the container-metadata lane and on
-  // server-side document-sync/attachment-bind broadcasts, and replacing global
-  // writer-projection cache wipes with targeted eviction on retry. The bulk is
-  // still read/reconcile convergence (poll + sync + writer-projection): only
-  // ~12 requests actually mutate state. Driving this toward ~40 (#1281 phase A)
-  // requires scoping the resync_required full-tree crawl and the reconciler
-  // sweep force-pull, which are convergence-core and deferred (they risk
-  // revocation/staleness bugs). Small headroom absorbs race timing; a real
-  // re-sync loop would blow far past this.
-  total: 130,
+  // Ten serial profiles after the strict parent-lane cutover measured total
+  // min/median/max 87/87/88. Phase ranges were provisioning 19/20/22, note +
+  // attachment creation 29/30/30, and root-share settle 35/36/37. The dominant
+  // request kinds were invariant in all ten runs: 24 read-only document probes,
+  // 14 container-document reads, 10 document writer projections, and 9 bounded
+  // parent-lane batches. Keep the deleted singular endpoint pinned to zero.
+  total: 88,
   byRequest: {
-    // ~18-19 observed. Each container metadata document's writer projection is
-    // primed from its create response (like plain document creates), so the
-    // first read resolves locally instead of a cold GET; priming can only avoid
-    // a fetch, so this stays a tight ceiling. The org metadata container adds
-    // one more metadata document whose projection is read on reconcile, and the
-    // Trash bin — now provisioned server-side with the organization rather than
-    // created device-first — is not locally primed, so its metadata projection
-    // is read cold once when it syncs in.
-    "GET /documents/:documentId/writer-projection": 20,
-    // ~26-27 observed. A remote update arriving mid-pass is retained (per-document
-    // signal sequencing) and re-synced rather than dropped, so each document
-    // that sees a concurrent peer update during the share does its extra correct
-    // passes. Self-echo suppression (metadata lane + server-side broadcast gated
-    // on newly-inserted update ids) keeps a retry that re-acknowledges existing
-    // updates from re-pinging. Per-doc counts stay small (<=5), confirming
-    // convergence not amplification — a re-sync loop would blow far past this.
-    "POST /documents/:documentId/sync": 30,
-    // 18 observed. Device-first reconciliation re-checks active/event-scoped
-    // containers, while the first authenticated backfill now also lists every
-    // remote-backed system child once. That one-time sweep is required for
-    // recovery-key rematerialization: a fresh device has not authored or opened
-    // Contacts/organization-profile documents, so their bodies otherwise never
-    // enter local projections. Automatic root catch-up retains regular/direct
-    // shares but excludes own system children, keeping later Explorer opens and
-    // shared-root hints from repeating the system sweep. Small headroom catches
-    // amplification.
-    "GET /containers/:containerId/documents": 20,
-    // The test WebSocket harness mirrors production routing: an access_changed
-    // event evicts interested sockets, then each still-authorized pane rechecks
-    // the tree before re-declaring interest. ~33 observed for ~4 root containers
-    // per pane — every
-    // reconcile and server event re-lists the whole root
-    // because events are hints, not deltas (#1281, phase A). The org metadata
-    // container adds one more event-scoped reconcile per pane. Small headroom.
-    "GET /containers": 35,
-    // Device-first bootstrap can leave the explorer store on a pre-root runtime
-    // briefly, so projection verification may resolve each pane's public user
-    // key remotely once per workflow surface during the share handoff. Keep
-    // this capped at two exact path hits per user to catch fetch loops.
-    "GET /auth/user-identity/:userId": 4,
-    // One websocket auth ticket per pane (each opens one events socket). A tight
-    // ceiling here catches a reconnect storm, since each reconnect re-mints one.
-    "POST /auth/ws-ticket": 3,
-    // Access rechecks can refetch the root writer projection once before the
-    // socket re-declares interest.
-    "GET /containers/:containerId/writer-projection": 5,
-    // The owner and peer panes can each load attachment metadata once while
-    // settling the shared root view; keep the ceiling tight to catch loops.
+    "GET /documents/:documentId/writer-projection": 10,
+    "POST /documents/:documentId/sync": 24,
+    "GET /containers/:containerId/documents": 14,
+    "GET /containers": 0,
+    "POST /containers/parent-lanes/query": 9,
+    "GET /auth/user-identity/:userId": 2,
+    "POST /auth/ws-ticket": 2,
+    "GET /containers/:containerId/writer-projection": 3,
     "GET /documents/:documentId/attachments": 2,
-    // Registration loads billing exactly once per authenticated pane.
     "GET /organizations/:organizationId/billing": 2,
-    "GET /organizations/:organizationId/groups": 1,
-    "POST /containers/with-metadata-document": 5,
+    "GET /organizations/:organizationId/read-model": 2,
+    "GET /principals/group/:groupId/policy": 2,
+    "GET /organizations/:organizationId/groups": 0,
+    "POST /containers/with-metadata-document": 3,
+    "POST /containers/:containerId/share": 1,
   },
 };
 

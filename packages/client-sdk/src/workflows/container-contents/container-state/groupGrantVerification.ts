@@ -96,6 +96,7 @@ export async function containerStateHasCurrentGroupGrant(input: {
       apiClient: input.runtime.apiClient,
       deferCheckpointAdvance: true,
       execSql: input.runtime.infra.execSql,
+      expectedGroupHead: input.expectedGroupHead,
       groupId: input.groupId,
       organizationId: input.expectedOrganizationId,
       resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,

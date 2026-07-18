@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import {
+  createContainerParentLaneBatchMock as batchParentLanes,
+  createMockApiClient,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import type {
   ListContainersResponse,
   SyncWatermark,
@@ -199,8 +203,8 @@ test("container contents store publishes cached containers before startup hydrat
   );
   const domainScope = {} as DomainScope;
   const listedContainers = createDeferred<ListContainersResponse>();
-  let listContainersStarted = 0;
-  let listContainersSettled = 0;
+  let parentLaneResolversStarted = 0;
+  let parentLaneResolversSettled = 0;
 
   try {
     await defaultContainerContentsPersistence.ensureSchema(execSql);
@@ -228,12 +232,12 @@ test("container contents store publishes cached containers before startup hydrat
 
     const runtime = createSqlTestRuntime({
       apiClient: createMockApiClient({
-        listContainers: async () => {
-          listContainersStarted += 1;
+        listContainerParentLanes: batchParentLanes(async () => {
+          parentLaneResolversStarted += 1;
           const response = await listedContainers.promise;
-          listContainersSettled += 1;
+          parentLaneResolversSettled += 1;
           return response;
-        },
+        }),
       }),
       domainScope,
       execSql,
@@ -250,19 +254,19 @@ test("container contents store publishes cached containers before startup hydrat
     expect(store.getSnapshot().nodes.map((node) => node.id)).toContain(
       "cached-root",
     );
-    expect(listContainersSettled).toBe(0);
+    expect(parentLaneResolversSettled).toBe(0);
 
-    if (listContainersStarted === 0) {
+    if (parentLaneResolversStarted === 0) {
       await waitForCondition(
-        () => listContainersStarted > 0,
+        () => parentLaneResolversStarted > 0,
         "Startup hydration was not scheduled.",
       );
     }
     listedContainers.resolve(emptyListContainersResponse());
     await waitForCondition(
       () =>
-        listContainersStarted > 0 &&
-        listContainersSettled === listContainersStarted,
+        parentLaneResolversStarted > 0 &&
+        parentLaneResolversSettled === parentLaneResolversStarted,
       "Startup hydration did not settle.",
     );
     await waitForCondition(async () => {
@@ -362,25 +366,25 @@ test("root-lane refresh follows a newly discovered shared root into its children
       { id: "peer-root", updatedAt: "2026-06-20T00:00:00.000Z" },
     );
 
-    // The server returns the owner's root on the unwatermarked null lane, and the
-    // owner's child (a system folder, say) when that root's child lane is probed.
     const childLaneParentIds: Array<string | null | undefined> = [];
     const runtime = createSqlTestRuntime({
       apiClient: createMockApiClient({
-        listContainers: async ({ parentId, watermark } = {}) => {
-          if (parentId === "owner-root") {
-            childLaneParentIds.push(parentId);
+        listContainerParentLanes: batchParentLanes(
+          async ({ parentId, watermark }) => {
+            if (parentId === "owner-root") {
+              childLaneParentIds.push(parentId);
+              return watermark
+                ? emptyListContainersResponse()
+                : sharedRootChildSummary();
+            }
+            if (parentId !== null && parentId !== undefined) {
+              return emptyListContainersResponse();
+            }
             return watermark
               ? emptyListContainersResponse()
-              : sharedRootChildSummary();
-          }
-          if (parentId !== null && parentId !== undefined) {
-            return emptyListContainersResponse();
-          }
-          return watermark
-            ? emptyListContainersResponse()
-            : sharedRootSummary();
-        },
+              : sharedRootSummary();
+          },
+        ),
       }),
       domainScope,
       execSql,
@@ -452,15 +456,17 @@ test("refresh re-lists the root lane unwatermarked to surface a newly shared roo
     // returns it when the root lane is probed WITHOUT the stale watermark.
     const runtime = createSqlTestRuntime({
       apiClient: createMockApiClient({
-        listContainers: async ({ parentId, watermark } = {}) => {
-          if (parentId !== null && parentId !== undefined) {
-            return emptyListContainersResponse();
-          }
-          rootLaneWatermarks.push(watermark);
-          return watermark
-            ? emptyListContainersResponse()
-            : sharedRootSummary();
-        },
+        listContainerParentLanes: batchParentLanes(
+          async ({ parentId, watermark }) => {
+            if (parentId !== null && parentId !== undefined) {
+              return emptyListContainersResponse();
+            }
+            rootLaneWatermarks.push(watermark);
+            return watermark
+              ? emptyListContainersResponse()
+              : sharedRootSummary();
+          },
+        ),
       }),
       domainScope,
       execSql,
@@ -487,7 +493,6 @@ test("refresh re-lists the root lane unwatermarked to surface a newly shared roo
       () => store.getSnapshot().nodes.some((node) => node.id === "owner-root"),
       "Refresh did not surface the newly shared root container.",
     );
-    // The refresh root-lane probe dropped the persisted watermark.
     expect(rootLaneWatermarks).toContainEqual(null);
   } finally {
     close();

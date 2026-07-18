@@ -71,6 +71,11 @@ import {
   createContainerKeyWrap,
 } from "../../../test/helpers/containerKeying";
 import {
+  firstContainerTombstone as firstTombstone,
+  requestSingleContainerParentLane as listContainersForUser,
+  readContainerParentLanePage as readLanePage,
+} from "../../../test/helpers/containerParentLaneQuery";
+import {
   setTestOrganizationBillingExpiredTrial,
   setTestOrganizationBillingLocal,
 } from "../../../test/helpers/organizationBilling";
@@ -1245,28 +1250,6 @@ async function listRootContainers(input: {
   return listContainersForUser({ ...input, parentId: null });
 }
 
-async function listContainersForUser(input: {
-  readonly parentId?: string | null;
-  readonly token: string;
-  readonly watermark?: { id: string; updatedAt: string } | null;
-}): Promise<Response> {
-  const searchParams = new URLSearchParams();
-  if (input.parentId !== undefined) {
-    searchParams.set("parentId", input.parentId ?? "null");
-  }
-  if (input.watermark) {
-    searchParams.set("watermarkUpdatedAt", input.watermark.updatedAt);
-    searchParams.set("watermarkId", input.watermark.id);
-  }
-
-  return routeApp.request(`/containers?${searchParams}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${input.token}`,
-    },
-  });
-}
-
 async function expectMutationSuccess(
   response: Response,
 ): Promise<ContainerMutationResponse> {
@@ -1505,7 +1488,7 @@ test("POST /containers is rejected with 402 when the organization cannot sync", 
   expect(containerRows).toHaveLength(0);
 });
 
-test("GET /containers includes containers when the organization cannot sync", async () => {
+test("batch reads work with sync disabled", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
@@ -1519,7 +1502,7 @@ test("GET /containers includes containers when the organization cannot sync", as
     parentId: owner.rootContainerId,
     token: owner.token,
   });
-  const before = await beforeResponse.json();
+  const before = await readLanePage(beforeResponse);
   expect(
     before.items.map((container: { id: string }) => container.id),
   ).toContain(child.containerId);
@@ -1536,13 +1519,13 @@ test("GET /containers includes containers when the organization cannot sync", as
     token: owner.token,
   });
   expect(afterResponse.status).toBe(200);
-  const after = await afterResponse.json();
+  const after = await readLanePage(afterResponse);
   expect(
     after.items.map((container: { id: string }) => container.id),
   ).toContain(child.containerId);
 });
 
-test("GET /containers includes containers of an expired trial not yet disabled", async () => {
+test("batch reads work before expired-trial disablement", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
@@ -1566,7 +1549,7 @@ test("GET /containers includes containers of an expired trial not yet disabled",
     token: owner.token,
   });
   expect(afterResponse.status).toBe(200);
-  const after = await afterResponse.json();
+  const after = await readLanePage(afterResponse);
   expect(
     after.items.map((container: { id: string }) => container.id),
   ).toContain(child.containerId);
@@ -2307,7 +2290,7 @@ test("POST /containers/:containerId/revoke advances the KEK epoch", async () => 
     token: recipient.token,
   });
   expect(recipientBaselineResponse.status).toBe(200);
-  const recipientBaseline = await recipientBaselineResponse.json();
+  const recipientBaseline = await readLanePage(recipientBaselineResponse);
   expect(
     recipientBaseline.items.map((container: { id: string }) => container.id),
   ).toContain(created.containerId);
@@ -2339,7 +2322,7 @@ test("POST /containers/:containerId/revoke advances the KEK epoch", async () => 
     watermark: recipientBaseline.nextWatermark,
   });
   expect(recipientDeltaResponse.status).toBe(200);
-  const recipientDelta = await recipientDeltaResponse.json();
+  const recipientDelta = await readLanePage(recipientDeltaResponse);
   expect(
     recipientDelta.items.map((container: { id: string }) => container.id),
   ).not.toContain(created.containerId);
@@ -2354,7 +2337,7 @@ test("POST /containers/:containerId/revoke advances the KEK epoch", async () => 
   ]);
   expect(recipientDelta.nextWatermark).toEqual({
     id: created.containerId,
-    updatedAt: recipientDelta.tombstones[0].updatedAt,
+    updatedAt: firstTombstone(recipientDelta).updatedAt,
   });
 
   expect(revoked.manifestHead.epoch).toBe(3);
@@ -2557,7 +2540,7 @@ test("POST /containers/:containerId/revoke emits tombstones for removed group gr
     token: recipient.token,
   });
   expect(recipientBaselineResponse.status).toBe(200);
-  const recipientBaseline = await recipientBaselineResponse.json();
+  const recipientBaseline = await readLanePage(recipientBaselineResponse);
   expect(
     recipientBaseline.items.map((container: { id: string }) => container.id),
   ).toContain(created.containerId);
@@ -2592,7 +2575,7 @@ test("POST /containers/:containerId/revoke emits tombstones for removed group gr
     watermark: recipientBaseline.nextWatermark,
   });
   expect(recipientDeltaResponse.status).toBe(200);
-  const recipientDelta = await recipientDeltaResponse.json();
+  const recipientDelta = await readLanePage(recipientDeltaResponse);
   expect(
     recipientDelta.items.map((container: { id: string }) => container.id),
   ).not.toContain(created.containerId);
@@ -2607,7 +2590,7 @@ test("POST /containers/:containerId/revoke emits tombstones for removed group gr
   ]);
   expect(recipientDelta.nextWatermark).toEqual({
     id: created.containerId,
-    updatedAt: recipientDelta.tombstones[0].updatedAt,
+    updatedAt: firstTombstone(recipientDelta).updatedAt,
   });
 
   const recipientParentLaneResponse = await listContainersForUser({
@@ -2615,12 +2598,14 @@ test("POST /containers/:containerId/revoke emits tombstones for removed group gr
     token: recipient.token,
   });
   expect(recipientParentLaneResponse.status).toBe(200);
-  expect((await recipientParentLaneResponse.json()).tombstones).toContainEqual({
+  expect(
+    (await readLanePage(recipientParentLaneResponse)).tombstones,
+  ).toContainEqual({
     containerId: created.containerId,
     depth: 1,
     parentId: root.kekState.containerId,
     reason: "access_revoked",
-    updatedAt: recipientDelta.tombstones[0].updatedAt,
+    updatedAt: firstTombstone(recipientDelta).updatedAt,
   });
 });
 
@@ -2664,7 +2649,7 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed gro
     token: recipient.token,
   });
   expect(recipientBaselineResponse.status).toBe(200);
-  const recipientBaseline = await recipientBaselineResponse.json();
+  const recipientBaseline = await readLanePage(recipientBaselineResponse);
   expect(
     recipientBaseline.items.map((container: { id: string }) => container.id),
   ).toContain(created.containerId);
@@ -2689,7 +2674,7 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed gro
     watermark: recipientBaseline.nextWatermark,
   });
   expect(recipientDeltaResponse.status).toBe(200);
-  const recipientDelta = await recipientDeltaResponse.json();
+  const recipientDelta = await readLanePage(recipientDeltaResponse);
   expect(
     recipientDelta.items.map((container: { id: string }) => container.id),
   ).not.toContain(created.containerId);
@@ -2704,7 +2689,7 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed gro
   ]);
   expect(recipientDelta.nextWatermark).toEqual({
     id: created.containerId,
-    updatedAt: recipientDelta.tombstones[0].updatedAt,
+    updatedAt: firstTombstone(recipientDelta).updatedAt,
   });
 
   const recipientParentLaneResponse = await listContainersForUser({
@@ -2712,12 +2697,14 @@ test("PUT /principals/group/:principalId/policy emits tombstones for removed gro
     token: recipient.token,
   });
   expect(recipientParentLaneResponse.status).toBe(200);
-  expect((await recipientParentLaneResponse.json()).tombstones).toContainEqual({
+  expect(
+    (await readLanePage(recipientParentLaneResponse)).tombstones,
+  ).toContainEqual({
     containerId: created.containerId,
     depth: 1,
     parentId: root.kekState.containerId,
     reason: "access_revoked",
-    updatedAt: recipientDelta.tombstones[0].updatedAt,
+    updatedAt: firstTombstone(recipientDelta).updatedAt,
   });
 });
 
@@ -2780,7 +2767,7 @@ test("PUT /principals/group/:principalId/policy skips tombstones while direct ac
     token: recipient.token,
   });
   expect(recipientBaselineResponse.status).toBe(200);
-  const recipientBaseline = await recipientBaselineResponse.json();
+  const recipientBaseline = await readLanePage(recipientBaselineResponse);
   expect(
     recipientBaseline.items.map((container: { id: string }) => container.id),
   ).toContain(created.containerId);
@@ -2805,7 +2792,7 @@ test("PUT /principals/group/:principalId/policy skips tombstones while direct ac
     watermark: recipientBaseline.nextWatermark,
   });
   expect(recipientDeltaResponse.status).toBe(200);
-  const recipientDelta = await recipientDeltaResponse.json();
+  const recipientDelta = await readLanePage(recipientDeltaResponse);
   expect(recipientDelta.tombstones).toEqual([]);
   expect(recipientDelta.nextWatermark).toEqual(recipientBaseline.nextWatermark);
 });
@@ -3128,7 +3115,7 @@ test("POST /containers/:containerId/revoke skips tombstones while access remains
     token: recipient.token,
   });
   expect(recipientBaselineResponse.status).toBe(200);
-  const recipientBaseline = await recipientBaselineResponse.json();
+  const recipientBaseline = await readLanePage(recipientBaselineResponse);
   expect(
     recipientBaseline.items.map((container: { id: string }) => container.id),
   ).toEqual(
@@ -3163,7 +3150,7 @@ test("POST /containers/:containerId/revoke skips tombstones while access remains
     watermark: recipientBaseline.nextWatermark,
   });
   expect(recipientRootDeltaResponse.status).toBe(200);
-  const recipientRootDelta = await recipientRootDeltaResponse.json();
+  const recipientRootDelta = await readLanePage(recipientRootDeltaResponse);
   expect(recipientRootDelta.tombstones).toEqual([]);
   expect(recipientRootDelta.nextWatermark).toEqual(
     recipientBaseline.nextWatermark,
@@ -3174,7 +3161,7 @@ test("POST /containers/:containerId/revoke skips tombstones while access remains
     token: recipient.token,
   });
   expect(recipientChildLaneResponse.status).toBe(200);
-  const recipientChildLane = await recipientChildLaneResponse.json();
+  const recipientChildLane = await readLanePage(recipientChildLaneResponse);
   expect(
     recipientChildLane.items.map((container: { id: string }) => container.id),
   ).toContain(grandchild.containerId);
@@ -3594,7 +3581,7 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
     token: recipient.token,
   });
   expect(recipientBaselineResponse.status).toBe(200);
-  const recipientBaseline = await recipientBaselineResponse.json();
+  const recipientBaseline = await readLanePage(recipientBaselineResponse);
   expect(
     recipientBaseline.items.map((container: { id: string }) => container.id),
   ).toContain(source.containerId);
@@ -3631,7 +3618,7 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
     watermark: recipientBaseline.nextWatermark,
   });
   expect(recipientDeltaResponse.status).toBe(200);
-  const recipientDelta = await recipientDeltaResponse.json();
+  const recipientDelta = await readLanePage(recipientDeltaResponse);
   expect(
     recipientDelta.items.map((container: { id: string }) => container.id),
   ).not.toContain(source.containerId);
@@ -3646,7 +3633,7 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
   ]);
   expect(recipientDelta.nextWatermark).toEqual({
     id: source.containerId,
-    updatedAt: recipientDelta.tombstones[0].updatedAt,
+    updatedAt: firstTombstone(recipientDelta).updatedAt,
   });
 });
 
@@ -3714,7 +3701,7 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
     token: recipient.token,
   });
   expect(recipientBaselineResponse.status).toBe(200);
-  const recipientBaseline = await recipientBaselineResponse.json();
+  const recipientBaseline = await readLanePage(recipientBaselineResponse);
   expect(
     recipientBaseline.items.map((container: { id: string }) => container.id),
   ).toContain(groupSharedChild.containerId);
@@ -3723,7 +3710,7 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
     token: groupMember.token,
   });
   expect(groupMemberBaselineResponse.status).toBe(200);
-  const groupMemberBaseline = await groupMemberBaselineResponse.json();
+  const groupMemberBaseline = await readLanePage(groupMemberBaselineResponse);
   expect(
     groupMemberBaseline.items.map((container: { id: string }) => container.id),
   ).toContain(groupSharedChild.containerId);
@@ -3789,7 +3776,7 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
     watermark: recipientBaseline.nextWatermark,
   });
   expect(recipientDeltaResponse.status).toBe(200);
-  const recipientDelta = await recipientDeltaResponse.json();
+  const recipientDelta = await readLanePage(recipientDeltaResponse);
   expect(recipientDelta.items).toEqual([]);
   expect(recipientDelta.tombstones).toEqual([
     {
@@ -3806,7 +3793,7 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
     watermark: groupMemberBaseline.nextWatermark,
   });
   expect(groupMemberDeltaResponse.status).toBe(200);
-  const groupMemberDelta = await groupMemberDeltaResponse.json();
+  const groupMemberDelta = await readLanePage(groupMemberDeltaResponse);
   expect(groupMemberDelta.items).toEqual([]);
   expect(groupMemberDelta.tombstones).toEqual([
     {

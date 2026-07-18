@@ -46,7 +46,9 @@ async function withOfflineStore(
   try {
     await seedLocalRootContainer(execSql);
     const runtime = createContainerContentsWorkflowRuntime({
-      apiClient: createMockApiClient({ listContainers: async () => null }),
+      apiClient: createMockApiClient({
+        listContainerParentLanes: async () => null,
+      }),
       auth: {
         isAuthenticated: true,
         organizationId: "org-1",

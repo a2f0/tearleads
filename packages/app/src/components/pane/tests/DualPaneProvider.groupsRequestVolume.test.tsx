@@ -28,9 +28,11 @@ import {
 
 // #1565 originally measured the whole open-and-add gesture at 84 requests;
 // #1566 reduced it to 69. The #1500 membership projection reduces the
-// deterministic profile to 1 request to open/select Admins and 49 from click
-// through convergence. The local policy-history view is allowed only when its
-// verified policy head exactly matches the v3 group summary.
+// deterministic profile to 1 request to open/select Admins. Parent-lane
+// batching then reduces click-through convergence from a 47-request median to
+// a 43-request maximum. Reusing an exact, independently verified local policy
+// chain for reference-bound checks reduces the mutation to 40 requests in each
+// of ten runs; freshness-sensitive mutation and current-head reads stay remote.
 // Keep navigation and mutation separate so UI reads cannot hide a sync
 // regression. Only the policy PUT and root rewrap POST are writes.
 // The one read-model GET also proves that author websocket echoes are absorbed
@@ -54,10 +56,11 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 };
 
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 49,
+  total: 40,
   byRequest: {
-    "GET /containers": 11,
-    "GET /principals/group/:groupId/policy": 8,
+    "GET /containers": 0,
+    "POST /containers/parent-lanes/query": 6,
+    "GET /principals/group/:groupId/policy": 5,
     "GET /containers/:containerId/documents": 7,
     "GET /documents/:documentId/writer-projection": 8,
     "POST /documents/:documentId/sync": 8,

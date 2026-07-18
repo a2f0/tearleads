@@ -1,4 +1,8 @@
 export { createContainerMutationResponseFromRequest } from "./createContainerMutationResponseFromRequest";
+export {
+  type ContainerParentLaneBatchMockInput,
+  createContainerParentLaneBatchMock,
+} from "./createContainerParentLaneBatchMock";
 export { createContainerWriterProjectionFixture } from "./createContainerWriterProjectionFixture";
 export { createLargeText } from "./createLargeText";
 export { createMockApiClient } from "./createMockApiClient";

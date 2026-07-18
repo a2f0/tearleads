@@ -12,10 +12,8 @@ import {
   loadPrincipalPolicyVerificationCheckpoint,
   principalPolicyHeadMeetsCheckpoint,
 } from "../../data/persistence/principalPolicyCheckpointSelection";
-import {
-  ensurePrincipalPolicyTables,
-  loadPrincipalPolicyBundle,
-} from "../../data/persistence/principalPolicyPersistence";
+import { ensurePrincipalPolicyTables } from "../../data/persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyBundleForReference } from "../../data/persistence/principalPolicyReferencePersistence";
 import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../../data/principalPolicyAdminSigners";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
@@ -268,10 +266,9 @@ async function cacheReferencedPrincipalPolicy(
 ): Promise<void> {
   let cachedBundle: PrincipalPolicyBundleResponse | null = null;
   try {
-    cachedBundle = await loadPrincipalPolicyBundle(
+    cachedBundle = await loadPrincipalPolicyBundleForReference(
       execSql,
-      reference.principalType,
-      reference.principalId,
+      reference,
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

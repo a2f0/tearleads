@@ -313,19 +313,11 @@ testApiClient(
 );
 
 testApiClient(
-  "coalesces in-flight container list requests without caching settled responses",
+  "coalesces in-flight container document lists without caching settled responses",
   async () => {
     const calls: CapturedHttpCall[] = [];
-    const firstContainersRequestStarted = createDeferred<void>();
-    const finishContainersRequest = createDeferred<void>();
     const firstDocumentsRequestStarted = createDeferred<void>();
     const finishDocumentsRequest = createDeferred<void>();
-    const listContainersResponse = {
-      hasMore: false,
-      items: [],
-      nextWatermark: null,
-      tombstones: [],
-    };
     const listContainerDocumentsResponse = {
       hasMore: false,
       items: [],
@@ -334,16 +326,6 @@ testApiClient(
     };
 
     server.use(
-      http.get(`${apiBaseUrl}/containers`, async ({ request }) => {
-        calls.push(await captureHttpCall(request));
-        if (
-          calls.filter((call) => call.url.includes("/containers?")).length === 1
-        ) {
-          firstContainersRequestStarted.resolve();
-          await finishContainersRequest.promise;
-        }
-        return HttpResponse.json(listContainersResponse);
-      }),
       http.get(
         `${apiBaseUrl}/containers/:containerId/documents`,
         async ({ request }) => {
@@ -360,18 +342,6 @@ testApiClient(
     );
 
     const client = new ApiClient(apiBaseUrl);
-    const firstContainersRequest = client.listContainers({
-      parentId: "container-1",
-    });
-    await firstContainersRequestStarted.promise;
-    const secondContainersRequest = client.listContainers({
-      parentId: "container-1",
-    });
-    finishContainersRequest.resolve();
-    await expect(
-      Promise.all([firstContainersRequest, secondContainersRequest]),
-    ).resolves.toEqual([listContainersResponse, listContainersResponse]);
-
     const firstDocumentsRequest = client.listContainerDocuments("container-1");
     await firstDocumentsRequestStarted.promise;
     const secondDocumentsRequest = client.listContainerDocuments("container-1");
@@ -383,9 +353,6 @@ testApiClient(
       listContainerDocumentsResponse,
     ]);
 
-    await expect(
-      client.listContainers({ parentId: "container-1" }),
-    ).resolves.toEqual(listContainersResponse);
     await expect(client.listContainerDocuments("container-1")).resolves.toEqual(
       listContainerDocumentsResponse,
     );
@@ -397,15 +364,7 @@ testApiClient(
       })),
     ).toEqual([
       {
-        input: `${apiBaseUrl}/containers?parentId=container-1`,
-        method: "GET",
-      },
-      {
         input: `${apiBaseUrl}/containers/container-1/documents`,
-        method: "GET",
-      },
-      {
-        input: `${apiBaseUrl}/containers?parentId=container-1`,
         method: "GET",
       },
       {

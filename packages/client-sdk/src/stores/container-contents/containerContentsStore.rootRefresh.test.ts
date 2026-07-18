@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import {
+  createContainerParentLaneBatchMock as batchParentLanes,
+  createMockApiClient,
+  createTestExecSql,
+} from "@tearleads/test-utils";
 import type { ListContainersResponse } from "@tearleads/validators/response";
 import type { BlobStore } from "../../data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
@@ -128,10 +132,6 @@ async function saveNestedChildContainer(execSql: ExecSql): Promise<void> {
   );
 }
 
-// The deletion tombstone a viewer who inherited access via the parent receives:
-// it lives under the parent lane and is marked rootDiscoveryVisible=false server-
-// side, so listContainers({parentId:null}) never returns it — only the parent lane
-// does. updatedAt is well in the future so it always wins over the local row.
 function nestedChildDeletionTombstonePage(): ListContainersResponse {
   return {
     hasMore: false,
@@ -230,12 +230,12 @@ test("root-lane refresh hydrates the active root's system children", async () =>
 
     const runtime = createSqlTestRuntime({
       apiClient: createMockApiClient({
-        listContainers: async ({ parentId } = {}) => {
+        listContainerParentLanes: batchParentLanes(async ({ parentId }) => {
           parentIds.push(parentId);
           return parentId === "active-root"
             ? activeRootChildSummary()
             : emptyListContainersResponse();
-        },
+        }),
       }),
       domainScope,
       execSql,
@@ -285,12 +285,12 @@ test("provisioned root-lane refresh surfaces Trash under the reconciled server r
 
     const runtime = createSqlTestRuntime({
       apiClient: createMockApiClient({
-        listContainers: async ({ parentId } = {}) => {
+        listContainerParentLanes: batchParentLanes(async ({ parentId }) => {
           listedParentIds.push(parentId);
           return parentId === "server-root"
             ? serverTrashChildSummary()
             : emptyListContainersResponse();
-        },
+        }),
       }),
       domainScope,
       execSql,
@@ -329,7 +329,7 @@ test("refreshLocalContainers surfaces a newly persisted container from local SQL
     "container-contents-store-local-refresh-surface-test",
   );
   const domainScope = {} as DomainScope;
-  let listContainerCalls = 0;
+  let parentLaneCalls = 0;
 
   try {
     await defaultContainerContentsPersistence.ensureSchema(execSql);
@@ -349,10 +349,10 @@ test("refreshLocalContainers surfaces a newly persisted container from local SQL
 
     const runtime = createSqlTestRuntime({
       apiClient: createMockApiClient({
-        listContainers: async () => {
-          listContainerCalls += 1;
+        listContainerParentLanes: batchParentLanes(async () => {
+          parentLaneCalls += 1;
           return emptyListContainersResponse();
-        },
+        }),
       }),
       domainScope,
       execSql,
@@ -389,7 +389,7 @@ test("refreshLocalContainers surfaces a newly persisted container from local SQL
       null,
     );
 
-    const listCallsBeforeSurface = listContainerCalls;
+    const listCallsBeforeSurface = parentLaneCalls;
     await store.refreshLocalContainers();
 
     // Surfaced from local SQLite (the remote list only returns empty, so it could
@@ -397,7 +397,7 @@ test("refreshLocalContainers surfaces a newly persisted container from local SQL
     expect(store.getSnapshot().nodes.map((node) => node.id)).toContain(
       "provisioned-trash",
     );
-    expect(listContainerCalls).toBe(listCallsBeforeSurface);
+    expect(parentLaneCalls).toBe(listCallsBeforeSurface);
 
     // Idempotent with a repeat surface (and any later remote pull): keyed by
     // container id, so it reconciles in place rather than inserting a duplicate.
@@ -432,7 +432,7 @@ test("resync parent-lane refresh applies a deleted nested container's tombstone"
 
     const runtime = createSqlTestRuntime({
       apiClient: createMockApiClient({
-        listContainers: async ({ parentId } = {}) => {
+        listContainerParentLanes: batchParentLanes(async ({ parentId }) => {
           listedParentIds.push(parentId);
           if (parentId === "server-root") {
             return nestedChildDeletionTombstonePage();
@@ -441,7 +441,7 @@ test("resync parent-lane refresh applies a deleted nested container's tombstone"
             return serverRootNullLanePage();
           }
           return emptyListContainersResponse();
-        },
+        }),
       }),
       domainScope,
       execSql,
@@ -456,14 +456,11 @@ test("resync parent-lane refresh applies a deleted nested container's tombstone"
       "Container contents store did not become ready.",
     );
 
-    // The nested container is present before the resync.
     await store.refreshLocalContainers();
     expect(store.getSnapshot().nodes.map((node) => node.id)).toContain(
       "nested-child",
     );
 
-    // Resync for the nested container re-lists its parent lane (root + parent),
-    // which returns the deletion tombstone and drops the container.
     await store.refreshRootLane({ parentIds: ["server-root"] });
 
     expect(listedParentIds).toContain("server-root");
@@ -493,7 +490,7 @@ test("root-only refresh leaves a deleted nested container's parent-only tombston
 
     const runtime = createSqlTestRuntime({
       apiClient: createMockApiClient({
-        listContainers: async ({ parentId } = {}) => {
+        listContainerParentLanes: batchParentLanes(async ({ parentId }) => {
           listedParentIds.push(parentId);
           if (parentId === "server-root") {
             return nestedChildDeletionTombstonePage();
@@ -502,7 +499,7 @@ test("root-only refresh leaves a deleted nested container's parent-only tombston
             return serverRootNullLanePage();
           }
           return emptyListContainersResponse();
-        },
+        }),
       }),
       domainScope,
       execSql,
@@ -553,15 +550,17 @@ test("repeated provisioned root-lane refreshes do not re-list the root lane unwa
 
     const runtime = createSqlTestRuntime({
       apiClient: createMockApiClient({
-        listContainers: async ({ parentId, watermark } = {}) => {
-          if (parentId === null) {
-            nullLaneWatermarks.push(watermark ?? null);
-            return serverRootNullLanePage();
-          }
-          return parentId === "server-root"
-            ? serverTrashChildSummary()
-            : emptyListContainersResponse();
-        },
+        listContainerParentLanes: batchParentLanes(
+          async ({ parentId, watermark }) => {
+            if (parentId === null) {
+              nullLaneWatermarks.push(watermark ?? null);
+              return serverRootNullLanePage();
+            }
+            return parentId === "server-root"
+              ? serverTrashChildSummary()
+              : emptyListContainersResponse();
+          },
+        ),
       }),
       domainScope,
       execSql,

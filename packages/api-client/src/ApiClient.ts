@@ -12,6 +12,7 @@ import type {
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
   InitiateMultipartBlobStageRequest,
+  ListContainerParentLanesRequest,
   PutPrincipalPolicyRequest,
   RegistrationRequest,
   UpdateOrganizationProfileRequest,
@@ -46,7 +47,6 @@ import {
   isHealthResponse,
   isInitiateMultipartBlobStageResponse,
   isListContainerDocumentsResponse,
-  isListContainersResponse,
   isListDocumentAttachmentsResponse,
   isListSessionsResponse,
   isMultipartBlobStageStatusResponse,
@@ -62,7 +62,7 @@ import {
   isUserIdentityResponse,
   isVerifyResponse,
   type ListContainerDocumentsResponse,
-  type ListContainersResponse,
+  type ListContainerParentLanesResponse,
   type ListDocumentAttachmentsResponse,
   type OrganizationDataUsageResponse,
   type OrganizationReadModelResponse,
@@ -80,8 +80,9 @@ import {
   errorMessage,
   evictWriterProjectionIfSyncChanged,
   hasHeader,
+  isListContainerParentLanesResponseForRequest,
   listContainerDocumentsRequestKey,
-  listContainersRequestKey,
+  listContainerParentLanesRequestKey,
   normalizeApiBaseUrl,
   requestFailureKey,
 } from "./requestInternals";
@@ -89,11 +90,7 @@ import {
   getBlobBytes,
   type UploadMultipartBlobPartBytesRequest,
 } from "./routes/blobs/get";
-import {
-  appendOptionalWatermark,
-  appendQuery,
-  containerDocsPath,
-} from "./routes/containers/queryParams";
+import { containerDocsPath } from "./routes/containers/queryParams";
 import { DocumentAttributionRequests } from "./routes/documents/attributionRequests";
 import { documentSync as sync } from "./routes/documents/sync";
 import { organizationReadModelPath } from "./routes/organizations/readModelPath";
@@ -102,7 +99,6 @@ import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
 import type {
   HttpMethod,
   ListContainerDocumentsOptions,
-  ListContainersOptions,
   ListDocumentEditAttributionRangesOptions,
   RequestBody,
   RequestFailure,
@@ -139,9 +135,9 @@ export class ApiClient {
     string,
     Promise<ListContainerDocumentsResponse | null>
   >();
-  private readonly containerListRequestsByKey = new Map<
+  private readonly containerParentLaneRequestsByKey = new Map<
     string,
-    Promise<ListContainersResponse | null>
+    Promise<ListContainerParentLanesResponse | null>
   >();
   private readonly containerWriterProjectionRequestsByContainerId =
     new BoundedCache<Promise<ContainerWriterProjectionResponse | null>>();
@@ -172,7 +168,7 @@ export class ApiClient {
 
   private clearAuthScopedCaches(): void {
     this.containerDocumentListRequestsByKey.clear();
-    this.containerListRequestsByKey.clear();
+    this.containerParentLaneRequestsByKey.clear();
     this.documentAttachmentListRequestsByDocumentId.clear();
     this.documentAttributionRequests.clear();
     this.containerWriterProjectionRequestsByContainerId.clear();
@@ -1174,26 +1170,18 @@ export class ApiClient {
     });
   }
 
-  listContainers(options?: ListContainersOptions) {
+  listContainerParentLanes(input: ListContainerParentLanesRequest) {
     return dedupedRequest(
-      this.containerListRequestsByKey,
-      listContainersRequestKey(options),
-      () => {
-        const params = new URLSearchParams();
-        appendOptionalWatermark(params, options?.watermark);
-        if (options?.parentId !== undefined) {
-          params.set("parentId", options.parentId ?? "null");
-        }
-        if (options?.limit !== undefined) {
-          params.set("limit", String(options.limit));
-        }
-
-        return this.request<ListContainersResponse>(
-          appendQuery("/containers", params),
-          isListContainersResponse,
-          "GET",
-        );
-      },
+      this.containerParentLaneRequestsByKey,
+      listContainerParentLanesRequestKey(input),
+      () =>
+        this.request<ListContainerParentLanesResponse>(
+          "/containers/parent-lanes/query",
+          (value): value is ListContainerParentLanesResponse =>
+            isListContainerParentLanesResponseForRequest(input, value),
+          "POST",
+          JSON.stringify(input),
+        ),
     );
   }
 

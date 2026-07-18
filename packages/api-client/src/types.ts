@@ -6,12 +6,6 @@ import type {
 export type HttpMethod = "DELETE" | "GET" | "POST" | "PUT";
 export type RequestBody = BodyInit;
 
-export interface ListContainersOptions {
-  limit?: number;
-  parentId?: string | null;
-  watermark?: SyncWatermark | null;
-}
-
 export interface ListContainerDocumentsOptions {
   limit?: number;
   watermark?: SyncWatermark | null;
