@@ -139,7 +139,7 @@ test("an active subscription shows seats billed and the period end date", () => 
   ).toBeDefined();
 });
 
-test("a trialing organization shows seats and the trial end date", () => {
+test("a trialing organization shows the trial end date, not billed seats", () => {
   const trialEndsAtMs = Date.parse("2026-07-25T12:00:00Z");
   const view = render(
     <BillingView
@@ -156,12 +156,13 @@ test("a trialing organization shows seats and the trial end date", () => {
       })}
     />,
   );
-  expect(view.getByText(getOrgManagerSeatsLabel(2))).toBeDefined();
   expect(
     view.getByText(
       getOrgManagerTrialEndsLabel(formatMiniAppDate(trialEndsAtMs)),
     ),
   ).toBeDefined();
+  // A free trial is not billed, so no "seats billed" label appears.
+  expect(view.queryByText(/billed/)).toBeNull();
 });
 
 test("a local organization shows no seats or period date", () => {
