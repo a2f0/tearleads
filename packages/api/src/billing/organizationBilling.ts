@@ -2,7 +2,10 @@ import type {
   OrganizationBillingProvider,
   OrganizationBillingStatus,
 } from "@tearleads/api-shared/schema";
-import type { OrganizationBillingResponse } from "@tearleads/validators/response";
+import type {
+  OrganizationBillingHistoryResponse,
+  OrganizationBillingResponse,
+} from "@tearleads/validators/response";
 
 export const FREE_TRIAL_MS = 7 * 24 * 60 * 60 * 1000;
 export const LAPSED_BILLING_PURGE_GRACE_MS = 30 * 24 * 60 * 60 * 1000;
@@ -86,5 +89,36 @@ export function serializeOrganizationBilling(
     seatCount: billing.seatCount,
     disabledAt: billing.disabledAt?.toISOString() ?? null,
     purgeAfter: billing.purgeAfter?.toISOString() ?? null,
+  };
+}
+
+/**
+ * One `revenuecat_webhook_events` audit row projected for the history read:
+ * what happened (`eventType`), whether it changed billing (`outcome`), and
+ * when the provider says it happened (`eventTimestamp`).
+ */
+export interface OrganizationBillingHistoryEvent {
+  readonly eventType: string;
+  readonly outcome: string;
+  readonly eventTimestamp: Date;
+  readonly productId: string | null;
+  readonly transactionId: string | null;
+}
+
+export function serializeOrganizationBillingHistory(
+  organizationId: string,
+  events: readonly OrganizationBillingHistoryEvent[],
+): OrganizationBillingHistoryResponse {
+  return {
+    organizationId,
+    entries: events.map((event) => ({
+      eventType: event.eventType,
+      // The webhook only ever records `applied`/`ignored`; anything else in the
+      // audit column is surfaced as `ignored` rather than failing the read.
+      outcome: event.outcome === "applied" ? "applied" : "ignored",
+      occurredAt: event.eventTimestamp.toISOString(),
+      productId: event.productId,
+      transactionId: event.transactionId,
+    })),
   };
 }

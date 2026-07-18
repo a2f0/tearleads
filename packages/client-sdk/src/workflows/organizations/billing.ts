@@ -1,4 +1,5 @@
 import type {
+  OrganizationBillingHistoryResponse,
   OrganizationBillingResponse,
   OrganizationBillingStatus,
 } from "@tearleads/validators/response";
@@ -6,11 +7,21 @@ import type {
 /** Per-organization sync-billing snapshot (the server wire shape). */
 export type OrganizationBilling = OrganizationBillingResponse;
 
+/** Per-organization billing lifecycle history (the server wire shape). */
+export type OrganizationBillingHistory = OrganizationBillingHistoryResponse;
+
+/** One lifecycle event in an organization's billing history, newest first. */
+export type OrganizationBillingHistoryEntry =
+  OrganizationBillingHistoryResponse["entries"][number];
+
 /** The billing methods these workflows need from the api client. */
 interface OrganizationBillingApi {
   readonly getOrganizationBilling: (
     organizationId: string,
   ) => Promise<OrganizationBillingResponse | null>;
+  readonly getOrganizationBillingHistory: (
+    organizationId: string,
+  ) => Promise<OrganizationBillingHistoryResponse | null>;
   readonly startOrganizationTrial: (
     organizationId: string,
   ) => Promise<OrganizationBillingResponse | null>;
@@ -21,6 +32,16 @@ export async function loadOrganizationBilling(input: {
   readonly organizationId: string;
 }): Promise<OrganizationBilling | null> {
   return input.apiClient.getOrganizationBilling(input.organizationId);
+}
+
+export async function loadOrganizationBillingHistory(input: {
+  readonly apiClient: Pick<
+    OrganizationBillingApi,
+    "getOrganizationBillingHistory"
+  >;
+  readonly organizationId: string;
+}): Promise<OrganizationBillingHistory | null> {
+  return input.apiClient.getOrganizationBillingHistory(input.organizationId);
 }
 
 export async function startOrganizationTrial(input: {

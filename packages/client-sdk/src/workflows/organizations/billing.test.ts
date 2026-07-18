@@ -2,7 +2,9 @@ import { expect, test } from "bun:test";
 import type { OrganizationBillingResponse } from "@tearleads/validators/response";
 import {
   loadOrganizationBilling,
+  loadOrganizationBillingHistory,
   type OrganizationBilling,
+  type OrganizationBillingHistory,
   resolveOrganizationBillingView,
   startOrganizationTrial,
 } from "./billing";
@@ -135,6 +137,33 @@ test("loadOrganizationBilling passes the org id through to the api client", asyn
   });
   expect(calls).toEqual(["org-9"]);
   expect(result).toBe(snapshot);
+});
+
+test("loadOrganizationBillingHistory passes the org id through to the api client", async () => {
+  const calls: string[] = [];
+  const history: OrganizationBillingHistory = {
+    organizationId: "org-9",
+    entries: [
+      {
+        eventType: "INITIAL_PURCHASE",
+        outcome: "applied",
+        occurredAt: iso(0),
+        productId: "sync_monthly",
+        transactionId: "transaction-1",
+      },
+    ],
+  };
+  const result = await loadOrganizationBillingHistory({
+    apiClient: {
+      getOrganizationBillingHistory: async (organizationId) => {
+        calls.push(organizationId);
+        return history;
+      },
+    },
+    organizationId: "org-9",
+  });
+  expect(calls).toEqual(["org-9"]);
+  expect(result).toBe(history);
 });
 
 test("startOrganizationTrial posts for the given org", async () => {
