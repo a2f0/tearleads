@@ -40,8 +40,11 @@ test("stale scope setters cannot retag usage into the active requester", () => {
   const staleSetter = hook.result.current.setDataUsage;
   hook.rerender({ scopeKey: "org-1:user-b:db-1" });
 
-  act(() => staleSetter(USAGE));
+  act(() => hook.result.current.setDataUsage(USAGE));
+  expect(hook.result.current.dataUsage).toBe(USAGE);
 
-  expect(hook.result.current.dataUsage).toBeNull();
-  expect(hook.result.current.dataUsageRef.current).toBeNull();
+  act(() => staleSetter(null));
+
+  expect(hook.result.current.dataUsage).toBe(USAGE);
+  expect(hook.result.current.dataUsageRef.current).toBe(USAGE);
 });

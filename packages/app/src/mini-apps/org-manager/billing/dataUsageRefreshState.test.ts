@@ -27,6 +27,18 @@ test("usage refresh treats remote null as an authoritative miss", () => {
   ).toEqual({ shouldReportMissing: true, value: null });
 });
 
+test("usage refresh retains the active value without an authoritative result", () => {
+  const current = usage("org-1");
+  expect(
+    resolveDataUsageRefresh({
+      current,
+      localOnly: false,
+      next: undefined,
+      organizationId: "org-1",
+    }),
+  ).toEqual({ shouldReportMissing: false, value: current });
+});
+
 test("usage refresh reports a cold remote miss without leaking another scope", () => {
   expect(
     resolveDataUsageRefresh({

@@ -65,7 +65,7 @@ interface OrgManagerContextValue {
   ensureRosterProfileContainer: () => Promise<ContainerNode | null>;
   importUserById: (userId: string) => Promise<ImportedOrganizationUser | null>;
   isOperationScopeActive: (scope: OrgManagerOperationScope) => boolean;
-  loadDataUsage: () => Promise<OrganizationDataUsage | null>;
+  loadDataUsage: () => Promise<OrganizationDataUsage | null | undefined>;
   loadLocalDataUsage: () => Promise<OrganizationDataUsage | null>;
   loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
   loadDirectoryAndGroupsAfterMutation: () => Promise<OrganizationDirectoryAndGroups | null>;

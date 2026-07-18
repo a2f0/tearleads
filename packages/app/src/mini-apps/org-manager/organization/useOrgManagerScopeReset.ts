@@ -4,7 +4,6 @@ interface OrgManagerScopeResetInput {
   readonly closeContextMenu: () => void;
   readonly resetDirectoryState: () => void;
   readonly scopeKey: string;
-  readonly setDataUsage: (value: null) => void;
   readonly setError: (value: null) => void;
   readonly setGrants: (value: null) => void;
   readonly setMutating: (value: false) => void;
@@ -24,7 +23,6 @@ export function useOrgManagerScopeReset(
     input.resetDirectoryState();
     input.setOrganizationPolicyHistory(null);
     input.setGrants(null);
-    input.setDataUsage(null);
     input.setError(null);
     input.setMutating(false);
     input.closeContextMenu();

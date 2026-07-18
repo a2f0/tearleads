@@ -8,18 +8,22 @@ interface DataUsageRefreshResolution {
 export function resolveDataUsageRefresh(input: {
   readonly current: OrganizationDataUsage | null;
   readonly localOnly: boolean;
-  readonly next: OrganizationDataUsage | null;
+  readonly next: OrganizationDataUsage | null | undefined;
   readonly organizationId: string;
 }): DataUsageRefreshResolution {
+  const current =
+    input.current?.organizationId === input.organizationId
+      ? input.current
+      : null;
+  if (input.next === undefined) {
+    return { shouldReportMissing: false, value: current };
+  }
+
   if (input.next?.organizationId === input.organizationId) {
     return { shouldReportMissing: false, value: input.next };
   }
 
   if (input.localOnly) {
-    const current =
-      input.current?.organizationId === input.organizationId
-        ? input.current
-        : null;
     return { shouldReportMissing: false, value: current };
   }
 

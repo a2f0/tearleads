@@ -71,7 +71,10 @@ writes do not share its administrative cursor. The SDK stores the strict
 aggregate in a requester-scoped SQLite projection, paints it locally, and
 single-flights canonical revalidation. Transient failures retain the
 last-known-good projection; authoritative access loss purges it. No nullable
-HTTP fallback or older cache format is read.
+HTTP fallback or older cache format is read. If SQLite rejects the purge
+transaction, the current executor still fails closed in memory; physical rows
+can remain until a later successful canonical reconcile replaces or removes
+them.
 
 Grant lists, group containers, and user details are derived from this local
 projection. User-detail group reachability is cycle-safe and traverses hidden

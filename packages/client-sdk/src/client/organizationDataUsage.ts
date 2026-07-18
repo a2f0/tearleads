@@ -4,6 +4,7 @@ import {
   type OrganizationDataUsage,
   reconcileOrganizationDataUsage,
 } from "../workflows/organizations";
+import { organizationAccessScopeKey } from "../workflows/organizations/organizationPresentationAccessState";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
@@ -24,9 +25,10 @@ export interface OrganizationDataUsageCoordinator {
   loadLocal(
     organizationId?: string | undefined,
   ): Promise<OrganizationDataUsage | null>;
+  /** Undefined means no authoritative result was available for this runtime. */
   reconcile(
     organizationId?: string | undefined,
-  ): Promise<OrganizationDataUsage | null>;
+  ): Promise<OrganizationDataUsage | null | undefined>;
 }
 
 function activeDataUsageRuntime(
@@ -50,16 +52,12 @@ function activeDataUsageRuntime(
   return { organizationId, runtime, userId };
 }
 
-function reconciliationKey(input: ActiveOrganizationDataUsageRuntime): string {
-  return `${input.organizationId}\0${input.userId}`;
-}
-
 class OrganizationDataUsageCoordinatorImpl
   implements OrganizationDataUsageCoordinator
 {
   private readonly reconciliationsByScope = new WeakMap<
     DomainScope,
-    Map<string, Promise<OrganizationDataUsage | null>>
+    Map<string, Promise<OrganizationDataUsage | null | undefined>>
   >();
 
   constructor(private readonly runtimeService: InternalRuntime) {}
@@ -98,14 +96,19 @@ class OrganizationDataUsageCoordinatorImpl
   reconcile(organizationId?: string) {
     const active = activeDataUsageRuntime(this.runtimeService, organizationId);
     if (!active) {
-      return Promise.resolve(null);
+      return Promise.resolve(undefined);
     }
     if (!active.runtime.state.online) {
-      return this.loadLocal(active.organizationId);
+      return this.loadLocal(active.organizationId).then(
+        (local) => local ?? undefined,
+      );
     }
 
     const byKey = this.reconciliationMap(active);
-    const key = reconciliationKey(active);
+    const key = organizationAccessScopeKey(
+      active.organizationId,
+      active.userId,
+    );
     const existing = byKey.get(key);
     if (existing) {
       return existing;

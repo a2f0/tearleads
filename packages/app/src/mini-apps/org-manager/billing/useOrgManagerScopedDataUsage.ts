@@ -3,46 +3,63 @@ import {
   type Dispatch,
   type SetStateAction,
   useCallback,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 
+interface DataUsageScope {
+  readonly valueRef: { current: OrganizationDataUsage | null };
+}
+
 interface ScopedDataUsage {
-  readonly scopeKey: string;
+  readonly scope: DataUsageScope;
   readonly value: OrganizationDataUsage | null;
 }
 
-/** Keeps requester-specific usage hidden whenever the full runtime scope changes. */
+/** Keeps requester-specific usage hidden whenever the persistence scope changes. */
 export function useOrgManagerScopedDataUsage(scopeKey: string): {
   readonly dataUsage: OrganizationDataUsage | null;
   readonly dataUsageRef: { current: OrganizationDataUsage | null };
   readonly setDataUsage: Dispatch<SetStateAction<OrganizationDataUsage | null>>;
 } {
+  const scope = useMemo<DataUsageScope>(
+    () => ({ valueRef: { current: null } }),
+    [scopeKey],
+  );
+  const activeScopeRef = useRef(scope);
+  useLayoutEffect(() => {
+    activeScopeRef.current = scope;
+  }, [scope]);
   const [scopedDataUsage, setScopedDataUsage] = useState<ScopedDataUsage>({
-    scopeKey,
+    scope,
     value: null,
   });
   const dataUsage =
-    scopedDataUsage.scopeKey === scopeKey ? scopedDataUsage.value : null;
-  const dataUsageRef = useRef<OrganizationDataUsage | null>(dataUsage);
-  dataUsageRef.current = dataUsage;
+    scopedDataUsage.scope === scope ? scopedDataUsage.value : null;
   const setDataUsage = useCallback<
     Dispatch<SetStateAction<OrganizationDataUsage | null>>
   >(
     (update) => {
+      if (activeScopeRef.current !== scope) {
+        return;
+      }
+      const value =
+        typeof update === "function" ? update(scope.valueRef.current) : update;
+      scope.valueRef.current = value;
       setScopedDataUsage((current) => {
-        const currentValue =
-          current.scopeKey === scopeKey ? current.value : null;
-        const value =
-          typeof update === "function" ? update(currentValue) : update;
-        if (current.scopeKey === scopeKey && Object.is(current.value, value)) {
+        if (activeScopeRef.current !== scope) {
           return current;
         }
-        return { scopeKey, value };
+        if (current.scope === scope && Object.is(current.value, value)) {
+          return current;
+        }
+        return { scope, value };
       });
     },
-    [scopeKey],
+    [scope],
   );
 
-  return { dataUsage, dataUsageRef, setDataUsage };
+  return { dataUsage, dataUsageRef: scope.valueRef, setDataUsage };
 }

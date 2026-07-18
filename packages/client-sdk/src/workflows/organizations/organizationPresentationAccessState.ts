@@ -1,0 +1,234 @@
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
+
+export type OrganizationPresentationProjection = "readModel" | "usage";
+
+export interface OrganizationPresentationAccessInput {
+  readonly execSql: ExecSql;
+  readonly organizationId: string;
+  readonly requesterUserId: string;
+}
+
+interface ProjectionAccessState {
+  denied: boolean;
+  generation: number;
+}
+
+interface AccessScopeState {
+  readonly readModel: ProjectionAccessState;
+  readonly usage: ProjectionAccessState;
+}
+
+interface AccessExecutorState {
+  generation: number;
+  mutationQueue?: Promise<void> | undefined;
+  resetDepth: number;
+  readonly scopes: Map<string, AccessScopeState>;
+}
+
+export interface OrganizationPresentationAccessAttempt {
+  readonly executorGeneration: number;
+  readonly projection: OrganizationPresentationProjection;
+  readonly projectionGeneration: number;
+  readonly startedDenied: boolean;
+  readonly startedDuringReset: boolean;
+}
+
+const accessByExecutor = new WeakMap<ExecSql, AccessExecutorState>();
+
+export function organizationAccessScopeKey(
+  organizationId: string,
+  requesterUserId: string,
+): string {
+  return JSON.stringify([organizationId, requesterUserId]);
+}
+
+function accessExecutorState(execSql: ExecSql): AccessExecutorState {
+  let state = accessByExecutor.get(execSql);
+  if (!state) {
+    state = {
+      generation: 0,
+      resetDepth: 0,
+      scopes: new Map(),
+    };
+    accessByExecutor.set(execSql, state);
+  }
+  return state;
+}
+
+function newProjectionState(denied: boolean): ProjectionAccessState {
+  return { denied, generation: 0 };
+}
+
+function accessScopeState(
+  executor: AccessExecutorState,
+  organizationId: string,
+  requesterUserId: string,
+): AccessScopeState {
+  const key = organizationAccessScopeKey(organizationId, requesterUserId);
+  let scope = executor.scopes.get(key);
+  if (!scope) {
+    const denied = executor.resetDepth > 0;
+    scope = {
+      readModel: newProjectionState(denied),
+      usage: newProjectionState(denied),
+    };
+    executor.scopes.set(key, scope);
+  }
+  return scope;
+}
+
+function projectionState(
+  scope: AccessScopeState,
+  projection: OrganizationPresentationProjection,
+): ProjectionAccessState {
+  return scope[projection];
+}
+
+export function captureOrganizationPresentationAccessAttempt(
+  input: OrganizationPresentationAccessInput,
+  projection: OrganizationPresentationProjection,
+): OrganizationPresentationAccessAttempt {
+  const executor = accessExecutorState(input.execSql);
+  const state = projectionState(
+    accessScopeState(executor, input.organizationId, input.requesterUserId),
+    projection,
+  );
+  return {
+    executorGeneration: executor.generation,
+    projection,
+    projectionGeneration: state.generation,
+    startedDenied: state.denied,
+    startedDuringReset: executor.resetDepth > 0,
+  };
+}
+
+export function isOrganizationPresentationAccessAttemptCurrent(
+  input: OrganizationPresentationAccessInput,
+  attempt: OrganizationPresentationAccessAttempt,
+): boolean {
+  const executor = accessExecutorState(input.execSql);
+  const state = projectionState(
+    accessScopeState(executor, input.organizationId, input.requesterUserId),
+    attempt.projection,
+  );
+  return (
+    !attempt.startedDuringReset &&
+    executor.resetDepth === 0 &&
+    executor.generation === attempt.executorGeneration &&
+    state.generation === attempt.projectionGeneration
+  );
+}
+
+export function isOrganizationPresentationAccessReadable(
+  input: OrganizationPresentationAccessInput,
+  projection: OrganizationPresentationProjection,
+): boolean {
+  const executor = accessExecutorState(input.execSql);
+  const state = projectionState(
+    accessScopeState(executor, input.organizationId, input.requesterUserId),
+    projection,
+  );
+  return executor.resetDepth === 0 && !state.denied;
+}
+
+export function denyOrganizationPresentationAccess(
+  input: OrganizationPresentationAccessInput,
+  projections: readonly OrganizationPresentationProjection[],
+): void {
+  const executor = accessExecutorState(input.execSql);
+  const scope = accessScopeState(
+    executor,
+    input.organizationId,
+    input.requesterUserId,
+  );
+  for (const projection of new Set(projections)) {
+    const state = projectionState(scope, projection);
+    state.denied = true;
+    state.generation += 1;
+  }
+}
+
+export function restoreOrganizationPresentationAccess(
+  input: OrganizationPresentationAccessInput,
+  attempt: OrganizationPresentationAccessAttempt,
+): boolean {
+  if (!isOrganizationPresentationAccessAttemptCurrent(input, attempt)) {
+    return false;
+  }
+  const executor = accessExecutorState(input.execSql);
+  projectionState(
+    accessScopeState(executor, input.organizationId, input.requesterUserId),
+    attempt.projection,
+  ).denied = false;
+  return true;
+}
+
+export async function runOrganizationPresentationRead<T>(
+  input: OrganizationPresentationAccessInput,
+  operation: () => Promise<T>,
+): Promise<T | null> {
+  const attempt = captureOrganizationPresentationAccessAttempt(
+    input,
+    "readModel",
+  );
+  if (!isOrganizationPresentationAccessReadable(input, "readModel")) {
+    return null;
+  }
+  const value = await operation();
+  return isOrganizationPresentationAccessAttemptCurrent(input, attempt) &&
+    isOrganizationPresentationAccessReadable(input, "readModel")
+    ? value
+    : null;
+}
+
+function beginOrganizationPresentationAccessReset(execSql: ExecSql): void {
+  const executor = accessExecutorState(execSql);
+  executor.generation += 1;
+  executor.resetDepth += 1;
+  for (const scope of executor.scopes.values()) {
+    scope.readModel.denied = true;
+    scope.usage.denied = true;
+  }
+}
+
+function finishOrganizationPresentationAccessReset(execSql: ExecSql): void {
+  const executor = accessExecutorState(execSql);
+  executor.resetDepth = Math.max(0, executor.resetDepth - 1);
+}
+
+export async function runOrganizationPresentationMutation<T>(
+  execSql: ExecSql,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const executor = accessExecutorState(execSql);
+  const previous = executor.mutationQueue ?? Promise.resolve();
+  let releaseCurrent = () => {};
+  const current = new Promise<void>((resolve) => {
+    releaseCurrent = resolve;
+  });
+  const waitForPrevious = previous.catch(() => undefined);
+  const queuedCurrent = waitForPrevious.then(() => current);
+  executor.mutationQueue = queuedCurrent;
+  await waitForPrevious;
+
+  try {
+    return await operation();
+  } finally {
+    releaseCurrent();
+    if (executor.mutationQueue === queuedCurrent) {
+      executor.mutationQueue = undefined;
+    }
+  }
+}
+
+export async function runOrganizationPresentationReset<T>(
+  execSql: ExecSql,
+  operation: () => Promise<T>,
+): Promise<T> {
+  beginOrganizationPresentationAccessReset(execSql);
+  try {
+    return await runOrganizationPresentationMutation(execSql, operation);
+  } finally {
+    finishOrganizationPresentationAccessReset(execSql);
+  }
+}

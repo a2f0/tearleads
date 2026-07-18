@@ -10,13 +10,13 @@ import {
 } from "../../data/persistence/organizations/organizationDataUsagePersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
-  captureOrganizationDataUsageAccessAttempt,
-  denyOrganizationDataUsageAccess,
-  isOrganizationDataUsageAccessAttemptCurrent,
-  isOrganizationDataUsageAccessReadable,
-  restoreOrganizationDataUsageAccess,
-  runOrganizationDataUsageAccessMutation,
-} from "./dataUsageAccessState";
+  captureOrganizationPresentationAccessAttempt,
+  denyOrganizationPresentationAccess,
+  isOrganizationPresentationAccessAttemptCurrent,
+  isOrganizationPresentationAccessReadable,
+  restoreOrganizationPresentationAccess,
+  runOrganizationPresentationMutation,
+} from "./organizationPresentationAccessState";
 
 export type OrganizationDataUsage = OrganizationDataUsageResponse;
 
@@ -44,8 +44,8 @@ export interface ReconcileOrganizationDataUsageInput
 export async function loadLocalOrganizationDataUsage(
   input: OrganizationDataUsageProjectionInput,
 ): Promise<OrganizationDataUsage | null> {
-  const attempt = captureOrganizationDataUsageAccessAttempt(input);
-  if (!isOrganizationDataUsageAccessReadable(input)) {
+  const attempt = captureOrganizationPresentationAccessAttempt(input, "usage");
+  if (!isOrganizationPresentationAccessReadable(input, "usage")) {
     return null;
   }
   const projection = await loadOrganizationDataUsageProjection(
@@ -53,8 +53,8 @@ export async function loadLocalOrganizationDataUsage(
     input.organizationId,
     input.requesterUserId,
   );
-  return isOrganizationDataUsageAccessAttemptCurrent(input, attempt) &&
-    isOrganizationDataUsageAccessReadable(input)
+  return isOrganizationPresentationAccessAttemptCurrent(input, attempt) &&
+    isOrganizationPresentationAccessReadable(input, "usage")
     ? projection
     : null;
 }
@@ -62,7 +62,7 @@ export async function loadLocalOrganizationDataUsage(
 export async function reconcileOrganizationDataUsage(
   input: ReconcileOrganizationDataUsageInput,
 ): Promise<OrganizationDataUsage | null> {
-  const attempt = captureOrganizationDataUsageAccessAttempt(input);
+  const attempt = captureOrganizationPresentationAccessAttempt(input, "usage");
   const local = await loadLocalOrganizationDataUsage(input);
   const result = await input.apiClient.getOrganizationDataUsageResult(
     input.organizationId,
@@ -70,9 +70,9 @@ export async function reconcileOrganizationDataUsage(
   );
   if (!result.ok) {
     if (result.status === 403 || result.status === 404) {
-      denyOrganizationDataUsageAccess(input);
+      denyOrganizationPresentationAccess(input, ["usage"]);
       try {
-        await runOrganizationDataUsageAccessMutation(input.execSql, () =>
+        await runOrganizationPresentationMutation(input.execSql, () =>
           purgeOrganizationDataUsageProjection(
             input.execSql,
             input.organizationId,
@@ -89,8 +89,8 @@ export async function reconcileOrganizationDataUsage(
     }
 
     result.report();
-    return isOrganizationDataUsageAccessAttemptCurrent(input, attempt) &&
-      isOrganizationDataUsageAccessReadable(input)
+    return isOrganizationPresentationAccessAttemptCurrent(input, attempt) &&
+      isOrganizationPresentationAccessReadable(input, "usage")
       ? local
       : null;
   }
@@ -99,14 +99,14 @@ export async function reconcileOrganizationDataUsage(
     input.logError?.(
       `Organization data-usage response scope does not match ${input.organizationId}`,
     );
-    return isOrganizationDataUsageAccessAttemptCurrent(input, attempt) &&
-      isOrganizationDataUsageAccessReadable(input)
+    return isOrganizationPresentationAccessAttemptCurrent(input, attempt) &&
+      isOrganizationPresentationAccessReadable(input, "usage")
       ? local
       : null;
   }
 
-  return runOrganizationDataUsageAccessMutation(input.execSql, async () => {
-    if (!isOrganizationDataUsageAccessAttemptCurrent(input, attempt)) {
+  return runOrganizationPresentationMutation(input.execSql, async () => {
+    if (!isOrganizationPresentationAccessAttemptCurrent(input, attempt)) {
       return null;
     }
     try {
@@ -117,12 +117,12 @@ export async function reconcileOrganizationDataUsage(
       });
     } catch (error) {
       input.logError?.("Failed to persist organization data usage", error);
-      return isOrganizationDataUsageAccessAttemptCurrent(input, attempt) &&
-        isOrganizationDataUsageAccessReadable(input)
+      return isOrganizationPresentationAccessAttemptCurrent(input, attempt) &&
+        isOrganizationPresentationAccessReadable(input, "usage")
         ? local
         : null;
     }
-    return restoreOrganizationDataUsageAccess(input, attempt)
+    return restoreOrganizationPresentationAccess(input, attempt)
       ? result.data
       : null;
   });

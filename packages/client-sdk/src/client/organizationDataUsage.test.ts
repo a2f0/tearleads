@@ -20,6 +20,9 @@ import type {
 
 interface DataUsageTestRuntime {
   readonly coordinator: OrganizationDataUsageCoordinator;
+  readonly setDatabaseStatus: (
+    status: InternalWorkflowRuntimeInput["infra"]["dbStatus"],
+  ) => void;
   readonly setOnline: (online: boolean) => void;
 }
 
@@ -28,6 +31,7 @@ function createDataUsageTestRuntime(input: {
   readonly execSql: InternalWorkflowRuntimeInput["infra"]["execSql"];
 }): DataUsageTestRuntime {
   const domainScope = createDomainScope();
+  let dbStatus: InternalWorkflowRuntimeInput["infra"]["dbStatus"] = "ready";
   let online = true;
   const workflowInput = (): InternalWorkflowRuntimeInput => ({
     apiClient: input.apiClient,
@@ -43,7 +47,7 @@ function createDataUsageTestRuntime(input: {
     },
     infra: {
       blobStore: {} as BlobStore,
-      dbStatus: "ready",
+      dbStatus,
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql: input.execSql,
     },
@@ -68,6 +72,9 @@ function createDataUsageTestRuntime(input: {
 
   return {
     coordinator: createOrganizationDataUsageCoordinator(runtime),
+    setDatabaseStatus: (nextStatus) => {
+      dbStatus = nextStatus;
+    },
     setOnline: (nextOnline) => {
       online = nextOnline;
     },
@@ -135,6 +142,33 @@ test("offline organization usage reads the durable projection without HTTP", asy
 
     await expect(runtime.coordinator.reconcile()).resolves.toEqual(dataUsage);
     expect(requestCount).toBe(1);
+  } finally {
+    close();
+  }
+});
+
+test("inactive and empty offline usage loads are non-authoritative", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-data-usage-inactive",
+  );
+  let requestCount = 0;
+  const runtime = createDataUsageTestRuntime({
+    apiClient: createMockApiClient({
+      getOrganizationDataUsageResult: async () => {
+        requestCount += 1;
+        return { data: dataUsage, ok: true };
+      },
+    }),
+    execSql,
+  });
+
+  try {
+    runtime.setDatabaseStatus("idle");
+    await expect(runtime.coordinator.reconcile()).resolves.toBeUndefined();
+    runtime.setDatabaseStatus("ready");
+    runtime.setOnline(false);
+    await expect(runtime.coordinator.reconcile()).resolves.toBeUndefined();
+    expect(requestCount).toBe(0);
   } finally {
     close();
   }

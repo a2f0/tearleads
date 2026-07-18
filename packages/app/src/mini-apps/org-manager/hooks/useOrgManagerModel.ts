@@ -28,6 +28,7 @@ import { useOrgManagerViewRefreshes } from "../organization/useOrgManagerViewRef
 import type { GroupDetailsEffectKey } from "../refresh";
 import type { OrgManagerView } from "../routes";
 import {
+  getOrgManagerDataUsageScopeKey,
   getOrgManagerStateScopeKey,
   scopeOrganizationDirectory,
   scopeOrganizationList,
@@ -57,6 +58,7 @@ export function useOrgManagerModel() {
   );
   const [readModelCursor, setReadModelCursor] = useState<string | null>(null);
   const organizationId = appData.auth.organizationId;
+  const dataUsageScopeKey = getOrgManagerDataUsageScopeKey(appData);
   const orgManagerScopeKey = getOrgManagerStateScopeKey(appData);
   const activeDirectory = scopeOrganizationDirectory(
     directory,
@@ -94,7 +96,7 @@ export function useOrgManagerModel() {
     null,
   );
   const { dataUsage, dataUsageRef, setDataUsage } =
-    useOrgManagerScopedDataUsage(orgManagerScopeKey);
+    useOrgManagerScopedDataUsage(dataUsageScopeKey);
   const [selectedUserId, setSelectedUserIdState] = useState<string | null>(
     null,
   );
@@ -302,7 +304,6 @@ export function useOrgManagerModel() {
     closeContextMenu: contextMenuState.closeContextMenu,
     resetDirectoryState,
     scopeKey: orgManagerScopeKey,
-    setDataUsage,
     setError,
     setGrants,
     setMutating,
