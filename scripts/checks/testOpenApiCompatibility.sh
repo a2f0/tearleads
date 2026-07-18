@@ -87,6 +87,7 @@ cp "$FIXTURE_ROOT/refinementAdded.json" "$TEST_ROOT/docs/openapi.json"
 if refinement_output=$(
   cd "$TEST_ROOT"
   GITHUB_ACTIONS='' \
+    OPENAPI_ALLOW_REFINEMENT_TIGHTENING='' \
     MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
     OPENAPI_BASE_REF="$revision_commit" \
     "$CHECK_SCRIPT" 2>&1
@@ -143,6 +144,7 @@ cp "$FIXTURE_ROOT/additive.json" "$TEST_ROOT/docs/openapi.json"
 if response_removed_output=$(
   cd "$TEST_ROOT"
   GITHUB_ACTIONS='' \
+    OPENAPI_ALLOW_REFINEMENT_TIGHTENING='' \
     MISE_CONFIG_FILE="$SOURCE_ROOT/.mise.toml" \
     OPENAPI_BASE_REF="$response_commit" \
     "$CHECK_SCRIPT" 2>&1
