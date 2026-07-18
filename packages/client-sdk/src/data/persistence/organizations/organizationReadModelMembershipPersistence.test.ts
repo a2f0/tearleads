@@ -12,7 +12,7 @@ import type {
 } from "@tearleads/validators/response";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { loadPrincipalPolicyCheckpoint } from "../keyingCheckpointPersistence";
-import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMembershipPersistence";
+import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMemberLoad";
 import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,

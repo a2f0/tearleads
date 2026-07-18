@@ -6,7 +6,7 @@ import {
   loadLocalOrganizationUserDetail,
 } from "../../../workflows/organizations/localReadModelDetails";
 import type { ExecSql } from "../../sqlite/sqlSchema";
-import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMembershipPersistence";
+import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMemberLoad";
 import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,

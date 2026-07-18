@@ -3,7 +3,6 @@ import {
   attachOrganizationReadModelSocket,
   ensureOrganizationReadModelReconciliation,
   handleOrganizationReadModelHint,
-  releaseDeferredOrganizationReadModelHint,
   scheduleOrganizationReadModelReconciliation,
   subscribeOrganizationReadModelRealtime,
 } from "./organizationReadModelRealtime";
@@ -20,8 +19,8 @@ import {
 test("coalesces a websocket burst and performs one trailing in-flight pass", async () => {
   let releaseFirst: (() => void) | undefined;
   let markFirstStarted: (() => void) | undefined;
-  const first = new Promise<void>((resolve) => {
-    releaseFirst = resolve;
+  const first = new Promise<object>((resolve) => {
+    releaseFirst = () => resolve({});
   });
   const firstStarted = new Promise<void>((resolve) => {
     markFirstStarted = resolve;
@@ -34,7 +33,7 @@ test("coalesces a websocket burst and performs one trailing in-flight pass", asy
         markFirstStarted?.();
         return first;
       }
-      return Promise.resolve(null);
+      return Promise.resolve({});
     },
   });
   let projectionUpdates = 0;
@@ -75,8 +74,8 @@ test("coalesces a websocket burst and performs one trailing in-flight pass", asy
 test("initial consumer catch-up joins an active reconciliation without a trailing pass", async () => {
   let releaseRequest: (() => void) | undefined;
   let markRequestStarted: (() => void) | undefined;
-  const request = new Promise<void>((resolve) => {
-    releaseRequest = resolve;
+  const request = new Promise<object>((resolve) => {
+    releaseRequest = () => resolve({});
   });
   const requestStarted = new Promise<void>((resolve) => {
     markRequestStarted = resolve;
@@ -145,8 +144,8 @@ test("first exact demand owns catch-up until the last consumer leaves", async ()
 test("first-demand catch-up repaints consumers that join while it is in flight", async () => {
   let releaseRequest: (() => void) | undefined;
   let markRequestStarted: (() => void) | undefined;
-  const request = new Promise<void>((resolve) => {
-    releaseRequest = resolve;
+  const request = new Promise<object>((resolve) => {
+    releaseRequest = () => resolve({});
   });
   const requestStarted = new Promise<void>((resolve) => {
     markRequestStarted = resolve;
@@ -200,8 +199,8 @@ for (const transition of ["user identity", "domain scope"] as const) {
   test(`same-organization ${transition} transition catches up only the current exact scope`, async () => {
     let releaseFirstRequest: (() => void) | undefined;
     let markFirstRequestStarted: (() => void) | undefined;
-    const firstRequest = new Promise<void>((resolve) => {
-      releaseFirstRequest = resolve;
+    const firstRequest = new Promise<object>((resolve) => {
+      releaseFirstRequest = () => resolve({});
     });
     const firstRequestStarted = new Promise<void>((resolve) => {
       markFirstRequestStarted = resolve;
@@ -219,6 +218,7 @@ for (const transition of ["user identity", "domain scope"] as const) {
           await firstRequest;
         }
         inFlight -= 1;
+        return {};
       },
     });
     let staleProjectionUpdates = 0;
@@ -313,7 +313,6 @@ test("an unmounted mutation owner releases its deferred hint to remaining demand
     ORGANIZATION_A,
     () => undefined,
     {
-      getReadModelCursor: () => "cursor-before",
       isMutationActive: () => mutating,
     },
   );
@@ -332,48 +331,6 @@ test("an unmounted mutation owner releases its deferred hint to remaining demand
   expect(explorerUpdates).toBe(2);
   unsubscribeExplorer();
   detach();
-});
-
-test("an explicit mutation reconcile absorbs deferred author echoes", async () => {
-  const runtime = createRuntimeHarness();
-  let cursor: string | null = "cursor-before";
-  let mutating = false;
-  let projectionUpdates = 0;
-  subscribeOrganizationReadModelRealtime(
-    runtime.tearleads,
-    ORGANIZATION_A,
-    () => {
-      projectionUpdates += 1;
-    },
-    {
-      getReadModelCursor: () => cursor,
-      isMutationActive: () => mutating,
-    },
-  );
-
-  await ensureOrganizationReadModelReconciliation(
-    runtime.tearleads,
-    ORGANIZATION_A,
-  );
-  expect(runtime.reconcileCalls).toBe(1);
-  expect(projectionUpdates).toBe(1);
-
-  mutating = true;
-  handleOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A, true);
-  await Promise.resolve();
-  expect(runtime.reconcileCalls).toBe(1);
-
-  cursor = "cursor-after";
-  mutating = false;
-  releaseDeferredOrganizationReadModelHint(
-    runtime.tearleads,
-    ORGANIZATION_A,
-    cursor,
-  );
-  await Promise.resolve();
-
-  expect(runtime.reconcileCalls).toBe(1);
-  expect(projectionUpdates).toBe(2);
 });
 
 test("ignores undemanded scope and catches up demanded scope on reconnect", async () => {

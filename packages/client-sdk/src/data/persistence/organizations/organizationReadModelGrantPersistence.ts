@@ -9,6 +9,7 @@ import {
 import { asc, eq } from "drizzle-orm";
 import { organizationReadModelContainerGrants } from "../../sqlite/organizationReadModelSchema";
 import type { ClientSQLiteTransaction } from "../../sqlite/sqlitePersistenceRuntime";
+import { OrganizationReadModelIntegrityError } from "./organizationReadModelProtocol";
 
 const GRANT_INSERT_BATCH_SIZE = 40;
 
@@ -23,9 +24,9 @@ function grantIdentity(
   return `${grant.containerId}\0${grant.subjectType}\0${grant.subjectId}`;
 }
 
-function assertGrantSubjectBinding(
+function hasValidGrantSubjectBinding(
   grant: OrganizationContainerGrantResponse,
-): void {
+): boolean {
   const validUser =
     grant.subjectType === "user" &&
     grant.userId === grant.subjectId &&
@@ -44,9 +45,7 @@ function assertGrantSubjectBinding(
     grant.signingKeyFingerprint === null &&
     grant.groupId === null &&
     grant.groupName === null;
-  if (!validUser && !validGroup && !validOrganization) {
-    throw new Error("Organization read-model grant subject binding is invalid");
-  }
+  return validUser || validGroup || validOrganization;
 }
 
 function assertGrantsLane(input: {
@@ -61,7 +60,11 @@ function assertGrantsLane(input: {
     throw new Error("Organization read-model grants contain duplicates");
   }
   for (const grant of input.lane.grants) {
-    assertGrantSubjectBinding(grant);
+    if (!hasValidGrantSubjectBinding(grant)) {
+      throw new Error(
+        "Organization read-model grant subject binding is invalid",
+      );
+    }
   }
 }
 
@@ -96,10 +99,14 @@ export async function applyOrganizationReadModelGrantsLane(input: {
 
 function toGrant(row: SelectedGrant): OrganizationContainerGrantResponse {
   if (!isOrganizationGroupContainerAccessLevel(row.accessLevel)) {
-    throw new Error("Stored organization grant access level is invalid");
+    throw new OrganizationReadModelIntegrityError(
+      "Stored organization grant access level is invalid",
+    );
   }
   if (!isOrganizationContainerGrantSubjectType(row.subjectType)) {
-    throw new Error("Stored organization grant subject type is invalid");
+    throw new OrganizationReadModelIntegrityError(
+      "Stored organization grant subject type is invalid",
+    );
   }
   const grant: OrganizationContainerGrantResponse = {
     accessLevel: row.accessLevel,
@@ -120,7 +127,11 @@ function toGrant(row: SelectedGrant): OrganizationContainerGrantResponse {
     groupName: row.groupName,
     organizationName: row.organizationName,
   };
-  assertGrantSubjectBinding(grant);
+  if (!hasValidGrantSubjectBinding(grant)) {
+    throw new OrganizationReadModelIntegrityError(
+      "Stored organization grant subject binding is invalid",
+    );
+  }
   return grant;
 }
 

@@ -403,7 +403,7 @@ test("organization policy head and cursor roll back together on head failure", a
   }
 });
 
-test("organization group summaries require an exact persisted policy head", async () => {
+test("an inexact persisted policy head purges the projection on load", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-policy-head-binding-test",
   );
@@ -421,9 +421,31 @@ test("organization group summaries require an exact persisted policy head", asyn
        WHERE organization_id = 'org-1' AND principal_type = 'group'`,
     );
 
-    await expect(
-      loadOrganizationReadModelProjection(execSql, "org-1", "user-1"),
-    ).rejects.toThrow("group state is invalid");
+    // Invalid stored rows self-heal: the load purges the projection so the
+    // next reconcile requests a cursorless snapshot instead of failing every
+    // read and repair pass on the same row.
+    expect(
+      await loadOrganizationReadModelProjection(execSql, "org-1", "user-1"),
+    ).toBeNull();
+    const stateRows = await execSql(
+      "SELECT COUNT(*) FROM organization_read_model_state WHERE organization_id = 'org-1'",
+      undefined,
+      { rowMode: "array" },
+    );
+    expect(stateRows[0]?.[0]).toBe(0);
+
+    await applyOrganizationReadModelResponse({
+      currentUserId: "user-1",
+      execSql,
+      requestedCursor: null,
+      response: snapshot("org-1", "cursor-2"),
+    });
+    const reapplied = await loadOrganizationReadModelProjection(
+      execSql,
+      "org-1",
+      "user-1",
+    );
+    expect(reapplied?.cursor).toBe("cursor-2");
   } finally {
     close();
   }

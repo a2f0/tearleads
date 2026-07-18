@@ -14,7 +14,6 @@ interface OrgManagerDirectorySyncInput {
   readonly organizationId: string | null;
   readonly mutating: boolean;
   readonly online: boolean;
-  readonly readModelCursor: string | null;
   readonly refreshDirectoryAndGroups: (
     options?: DirectoryRefreshOptions,
   ) => Promise<DirectoryRefreshResult>;
@@ -27,10 +26,8 @@ export function useOrgManagerDirectorySync(
   input: OrgManagerDirectorySyncInput,
 ): void {
   const mutatingRef = useRef(input.mutating);
-  const readModelCursorRef = useRef(input.readModelCursor);
   const refreshDirectoryAndGroupsRef = useRef(input.refreshDirectoryAndGroups);
   mutatingRef.current = input.mutating;
-  readModelCursorRef.current = input.readModelCursor;
   refreshDirectoryAndGroupsRef.current = input.refreshDirectoryAndGroups;
   useEffect(() => {
     void refreshDirectoryAndGroupsRef.current({
@@ -57,7 +54,6 @@ export function useOrgManagerDirectorySync(
           manageLoading: false,
         }),
       {
-        getReadModelCursor: () => readModelCursorRef.current,
         isMutationActive: () => mutatingRef.current,
       },
     );
@@ -76,12 +72,6 @@ export function useOrgManagerDirectorySync(
     releaseDeferredOrganizationReadModelHint(
       input.tearleads,
       input.organizationId,
-      input.readModelCursor,
     );
-  }, [
-    input.mutating,
-    input.organizationId,
-    input.readModelCursor,
-    input.tearleads,
-  ]);
+  }, [input.mutating, input.organizationId, input.tearleads]);
 }

@@ -123,7 +123,9 @@ export interface DemoRosterSeedActions {
   readonly importUserById: (
     userId: string,
   ) => Promise<{ readonly userId: string } | null>;
-  readonly loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
+  readonly loadDirectoryAndGroups: () => Promise<
+    OrganizationDirectoryAndGroups | null | undefined
+  >;
   readonly loadGroupMembers: (
     groupId: string,
   ) => Promise<OrganizationGroupMembers | null>;

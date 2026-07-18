@@ -15,7 +15,7 @@ const USER_ID = "00000000-0000-4000-8000-00000000001a";
 test("loads locally offline and establishes reconciliation demand when online", async () => {
   const domainScope = {};
   let runtimeOnline = false;
-  const loadDirectoryAndGroups = mock(async () => null);
+  const loadDirectoryAndGroups = mock(async () => ({}));
   const tearleads = {
     organizations: {
       loadDirectoryAndGroups,
@@ -44,7 +44,6 @@ test("loads locally offline and establishes reconciliation demand when online", 
         mutating: false,
         online,
         organizationId: ORGANIZATION_ID,
-        readModelCursor: null,
         refreshDirectoryAndGroups,
         scopeKey: "scope-a",
         tearleads,

@@ -5,7 +5,7 @@ import {
   organizationReadModelGroups as groups,
   organizationReadModelSnapshot as snapshot,
 } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
-import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMembershipPersistence";
+import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMemberLoad";
 import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,

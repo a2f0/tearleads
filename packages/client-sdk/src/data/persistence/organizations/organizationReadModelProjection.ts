@@ -17,7 +17,10 @@ import {
 } from "../../sqlite/organizationReadModelSchema";
 import type { ClientSQLiteTransaction } from "../../sqlite/sqlitePersistenceRuntime";
 import { loadOrganizationReadModelGrantsInTransaction } from "./organizationReadModelGrantPersistence";
-import { ORGANIZATION_READ_MODEL_PROTOCOL_VERSION } from "./organizationReadModelProtocol";
+import {
+  ORGANIZATION_READ_MODEL_PROTOCOL_VERSION,
+  OrganizationReadModelIntegrityError,
+} from "./organizationReadModelProtocol";
 
 export type OrganizationDirectoryProjection = Omit<
   OrganizationDirectoryResponse,
@@ -102,7 +105,9 @@ function toDirectoryUser(
   currentUserId: string,
 ): OrganizationDirectoryUserResponse {
   if (!isOrganizationRosterStatus(row.status)) {
-    throw new Error("Stored organization directory status is invalid");
+    throw new OrganizationReadModelIntegrityError(
+      "Stored organization directory status is invalid",
+    );
   }
 
   return {
@@ -134,7 +139,9 @@ function toGroupCurrentState(
   ];
   if (values.every((value) => value === null)) {
     if (policyHead) {
-      throw new Error("Stored organization group policy head is orphaned");
+      throw new OrganizationReadModelIntegrityError(
+        "Stored organization group policy head is orphaned",
+      );
     }
     return null;
   }
@@ -156,7 +163,9 @@ function toGroupCurrentState(
     policyHead.keyEpoch !== row.keyEpoch ||
     policyHead.memberCount !== row.memberCount
   ) {
-    throw new Error("Stored organization group state is invalid");
+    throw new OrganizationReadModelIntegrityError(
+      "Stored organization group state is invalid",
+    );
   }
 
   return {
@@ -183,7 +192,9 @@ function toPolicyHead(
     !Number.isInteger(row.memberCount) ||
     row.memberCount < 0
   ) {
-    throw new Error("Stored organization policy head is invalid");
+    throw new OrganizationReadModelIntegrityError(
+      "Stored organization policy head is invalid",
+    );
   }
 
   return {
@@ -316,7 +327,9 @@ function validatePolicyHeads(input: {
     organizationPolicyHeads.length !== 1 ||
     organizationPolicyHeads[0]?.principalId !== input.organizationId
   ) {
-    throw new Error("Stored organization policy head is missing or ambiguous");
+    throw new OrganizationReadModelIntegrityError(
+      "Stored organization policy head is missing or ambiguous",
+    );
   }
   const groupPolicyHeads = new Map(
     policyHeads
@@ -329,7 +342,9 @@ function validatePolicyHeads(input: {
       (principalId) => !visibleGroupIds.has(principalId),
     )
   ) {
-    throw new Error("Stored organization group policy head is not visible");
+    throw new OrganizationReadModelIntegrityError(
+      "Stored organization group policy head is not visible",
+    );
   }
   return { groupPolicyHeads, policyHeads };
 }

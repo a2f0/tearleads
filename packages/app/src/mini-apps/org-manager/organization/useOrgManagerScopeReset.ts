@@ -6,6 +6,8 @@ interface OrgManagerScopeResetInput {
   readonly scopeKey: string;
   readonly setError: (value: null) => void;
   readonly setGrants: (value: null) => void;
+  readonly setLoading: (value: false) => void;
+  readonly setLoadingUserDetail: (value: false) => void;
   readonly setMutating: (value: false) => void;
   readonly setOrganizationPolicyHistory: (value: null) => void;
 }
@@ -24,6 +26,10 @@ export function useOrgManagerScopeReset(
     input.setOrganizationPolicyHistory(null);
     input.setGrants(null);
     input.setError(null);
+    // An in-flight managed refresh abandoned by the scope guard skips its own
+    // finally-clear, so the reset must release the busy flags itself.
+    input.setLoading(false);
+    input.setLoadingUserDetail(false);
     input.setMutating(false);
     input.closeContextMenu();
   }, [input]);
