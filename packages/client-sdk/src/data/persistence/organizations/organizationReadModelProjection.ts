@@ -11,6 +11,7 @@ import {
   organizationReadModelDirectoryUsers,
   organizationReadModelGroupMembers,
   organizationReadModelGroups,
+  organizationReadModelPolicyHeads,
   organizationReadModelRequesters,
   organizationReadModelState,
 } from "../../sqlite/organizationReadModelSchema";
@@ -30,9 +31,21 @@ export interface OrganizationReadModelProjection {
   readonly groups: ListOrganizationGroupsResponse;
   readonly membershipEdges: OrganizationReadModelMembershipEdge[];
   readonly organizationId: string;
+  readonly policyHeads: readonly OrganizationReadModelPolicyHead[];
   readonly protocolVersion: typeof ORGANIZATION_READ_MODEL_PROTOCOL_VERSION;
   readonly requester: OrganizationDirectoryResponse["currentUser"] | null;
   readonly updatedAt: string;
+}
+
+export interface OrganizationReadModelPolicyHead {
+  readonly keyEpoch: number;
+  readonly keyFingerprint: string;
+  readonly memberCount: number;
+  readonly organizationId: string;
+  readonly principalId: string;
+  readonly principalType: "group" | "organization";
+  readonly stateHash: string;
+  readonly version: number;
 }
 
 export interface OrganizationReadModelMembershipEdge {
@@ -65,6 +78,17 @@ interface SelectedGroup {
   readonly name: string;
   readonly stateHash: string | null;
   readonly stateVersion: number | null;
+}
+
+interface SelectedPolicyHead {
+  readonly keyEpoch: number;
+  readonly keyFingerprint: string;
+  readonly memberCount: number;
+  readonly organizationId: string;
+  readonly principalId: string;
+  readonly principalType: string;
+  readonly stateHash: string;
+  readonly stateVersion: number;
 }
 
 function isOrganizationRosterStatus(
@@ -100,6 +124,7 @@ function toDirectoryUser(
 
 function toGroupCurrentState(
   row: SelectedGroup,
+  policyHead: OrganizationReadModelPolicyHead | undefined,
 ): OrganizationGroupCurrentStateResponse | null {
   const values = [
     row.stateHash,
@@ -108,6 +133,9 @@ function toGroupCurrentState(
     row.memberCount,
   ];
   if (values.every((value) => value === null)) {
+    if (policyHead) {
+      throw new Error("Stored organization group policy head is orphaned");
+    }
     return null;
   }
   if (
@@ -121,7 +149,12 @@ function toGroupCurrentState(
     !Number.isInteger(row.keyEpoch) ||
     row.keyEpoch <= 0 ||
     !Number.isInteger(row.memberCount) ||
-    row.memberCount < 0
+    row.memberCount < 0 ||
+    !policyHead ||
+    policyHead.stateHash !== row.stateHash ||
+    policyHead.version !== row.stateVersion ||
+    policyHead.keyEpoch !== row.keyEpoch ||
+    policyHead.memberCount !== row.memberCount
   ) {
     throw new Error("Stored organization group state is invalid");
   }
@@ -130,6 +163,37 @@ function toGroupCurrentState(
     stateHash: row.stateHash,
     version: row.stateVersion,
     keyEpoch: row.keyEpoch,
+    keyFingerprint: policyHead.keyFingerprint,
+    memberCount: row.memberCount,
+  };
+}
+
+function toPolicyHead(
+  row: SelectedPolicyHead,
+): OrganizationReadModelPolicyHead {
+  if (
+    (row.principalType !== "group" && row.principalType !== "organization") ||
+    row.principalId.length === 0 ||
+    row.stateHash.length === 0 ||
+    !Number.isInteger(row.stateVersion) ||
+    row.stateVersion <= 0 ||
+    !Number.isInteger(row.keyEpoch) ||
+    row.keyEpoch <= 0 ||
+    row.keyFingerprint.length === 0 ||
+    !Number.isInteger(row.memberCount) ||
+    row.memberCount < 0
+  ) {
+    throw new Error("Stored organization policy head is invalid");
+  }
+
+  return {
+    organizationId: row.organizationId,
+    principalType: row.principalType,
+    principalId: row.principalId,
+    stateHash: row.stateHash,
+    version: row.stateVersion,
+    keyEpoch: row.keyEpoch,
+    keyFingerprint: row.keyFingerprint,
     memberCount: row.memberCount,
   };
 }
@@ -189,6 +253,29 @@ async function loadGroupRows(
     );
 }
 
+async function loadPolicyHeadRows(
+  tx: ClientSQLiteTransaction,
+  organizationId: string,
+): Promise<SelectedPolicyHead[]> {
+  return tx
+    .select({
+      keyEpoch: organizationReadModelPolicyHeads.keyEpoch,
+      keyFingerprint: organizationReadModelPolicyHeads.keyFingerprint,
+      memberCount: organizationReadModelPolicyHeads.memberCount,
+      organizationId: organizationReadModelPolicyHeads.organizationId,
+      principalId: organizationReadModelPolicyHeads.principalId,
+      principalType: organizationReadModelPolicyHeads.principalType,
+      stateHash: organizationReadModelPolicyHeads.stateHash,
+      stateVersion: organizationReadModelPolicyHeads.stateVersion,
+    })
+    .from(organizationReadModelPolicyHeads)
+    .where(eq(organizationReadModelPolicyHeads.organizationId, organizationId))
+    .orderBy(
+      asc(organizationReadModelPolicyHeads.principalType),
+      asc(organizationReadModelPolicyHeads.principalId),
+    );
+}
+
 async function loadMembershipEdges(
   tx: ClientSQLiteTransaction,
   organizationId: string,
@@ -208,6 +295,43 @@ async function loadMembershipEdges(
       asc(organizationReadModelGroupMembers.memberPrincipalType),
       asc(organizationReadModelGroupMembers.memberPrincipalId),
     );
+}
+
+function validatePolicyHeads(input: {
+  readonly groupRows: readonly SelectedGroup[];
+  readonly organizationId: string;
+  readonly policyHeadRows: readonly SelectedPolicyHead[];
+}): {
+  readonly groupPolicyHeads: ReadonlyMap<
+    string,
+    OrganizationReadModelPolicyHead
+  >;
+  readonly policyHeads: readonly OrganizationReadModelPolicyHead[];
+} {
+  const policyHeads = input.policyHeadRows.map(toPolicyHead);
+  const organizationPolicyHeads = policyHeads.filter(
+    (head) => head.principalType === "organization",
+  );
+  if (
+    organizationPolicyHeads.length !== 1 ||
+    organizationPolicyHeads[0]?.principalId !== input.organizationId
+  ) {
+    throw new Error("Stored organization policy head is missing or ambiguous");
+  }
+  const groupPolicyHeads = new Map(
+    policyHeads
+      .filter((head) => head.principalType === "group")
+      .map((head) => [head.principalId, head]),
+  );
+  const visibleGroupIds = new Set(input.groupRows.map((row) => row.groupId));
+  if (
+    [...groupPolicyHeads.keys()].some(
+      (principalId) => !visibleGroupIds.has(principalId),
+    )
+  ) {
+    throw new Error("Stored organization group policy head is not visible");
+  }
+  return { groupPolicyHeads, policyHeads };
 }
 
 export async function loadOrganizationReadModelProjectionInTransaction(input: {
@@ -249,6 +373,15 @@ export async function loadOrganizationReadModelProjectionInTransaction(input: {
     input.tx,
     input.organizationId,
   );
+  const policyHeadRows = await loadPolicyHeadRows(
+    input.tx,
+    input.organizationId,
+  );
+  const { groupPolicyHeads, policyHeads } = validatePolicyHeads({
+    groupRows,
+    organizationId: input.organizationId,
+    policyHeadRows,
+  });
 
   return {
     cursor: state.cursor,
@@ -269,11 +402,15 @@ export async function loadOrganizationReadModelProjectionInTransaction(input: {
         name: row.name,
         createdAt: row.createdAt,
         isBuiltin: row.isBuiltin,
-        currentState: toGroupCurrentState(row),
+        currentState: toGroupCurrentState(
+          row,
+          groupPolicyHeads.get(row.groupId),
+        ),
       })),
     },
     membershipEdges,
     organizationId: input.organizationId,
+    policyHeads,
     protocolVersion: ORGANIZATION_READ_MODEL_PROTOCOL_VERSION,
     requester: requester ? { isOrgAdmin: requester.isOrgAdmin } : null,
     updatedAt: state.updatedAt,

@@ -19,6 +19,7 @@ const group: OrganizationGroupSummary = {
   createdAt: "2026-05-20T12:00:00.000Z",
   currentState: {
     keyEpoch: 2,
+    keyFingerprint: "group-key-fingerprint",
     memberCount: 1,
     stateHash: "group-state-hash",
     version: 3,

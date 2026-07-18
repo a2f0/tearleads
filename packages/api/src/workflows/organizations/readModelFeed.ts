@@ -13,9 +13,11 @@ import type {
   OrganizationReadModelDirectoryResponse,
   OrganizationReadModelGrantsResponse,
   OrganizationReadModelGroupMembershipsResponse,
+  OrganizationReadModelOrganizationPolicyResponse,
   OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
 import { and, asc, eq, gt } from "drizzle-orm";
+import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { requireDirectOrganizationAccess } from "./access";
 import { loadOrganizationDirectoryInTransaction } from "./directory";
 import { listOrganizationContainerGrantResponsesInTransaction } from "./grants";
@@ -90,6 +92,7 @@ interface ReadModelLanes {
   grants?: OrganizationReadModelGrantsResponse;
   groupMemberships?: OrganizationReadModelGroupMembershipsResponse;
   groups?: ListOrganizationGroupsResponse;
+  organizationPolicy?: OrganizationReadModelOrganizationPolicyResponse;
 }
 
 async function loadGrantsLane(
@@ -117,6 +120,30 @@ async function loadDirectoryLane(
   );
 }
 
+async function loadOrganizationPolicyLane(
+  input: ReadModelResponseContext,
+): Promise<OrganizationReadModelOrganizationPolicyResponse> {
+  const currentState = await getCurrentPrincipalState(
+    "organization",
+    input.organizationId,
+    input.tx,
+  );
+  if (!currentState) {
+    throw new Error("Organization policy state is missing");
+  }
+
+  return {
+    organizationId: input.organizationId,
+    currentState: {
+      stateHash: currentState.stateHash,
+      version: currentState.version,
+      keyEpoch: currentState.keyEpoch,
+      keyFingerprint: currentState.keyFingerprint,
+      memberCount: currentState.memberCount,
+    },
+  };
+}
+
 async function loadSnapshotResponse(
   input: ReadModelResponseContext,
 ): Promise<OrganizationReadModelResponse> {
@@ -130,14 +157,21 @@ async function loadSnapshotResponse(
     executor: input.tx,
     organizationId: input.organizationId,
   });
+  const organizationPolicy = await loadOrganizationPolicyLane(input);
   return {
-    version: 3,
+    version: 4,
     mode: "snapshot",
     organizationId: input.organizationId,
     nextCursor: input.nextCursor,
     hasMore: false,
     currentUser: { isOrgAdmin: input.isOrgAdmin },
-    lanes: { directory, grants, groupMemberships, groups },
+    lanes: {
+      directory,
+      grants,
+      groupMemberships,
+      groups,
+      organizationPolicy,
+    },
   };
 }
 
@@ -195,8 +229,11 @@ async function loadDeltaResponse(
       tx: input.tx,
     });
   }
+  if (changedLanes.has("organizationPolicy")) {
+    lanes.organizationPolicy = await loadOrganizationPolicyLane(input);
+  }
   return {
-    version: 3,
+    version: 4,
     mode: "delta",
     organizationId: input.organizationId,
     nextCursor: input.nextCursor,

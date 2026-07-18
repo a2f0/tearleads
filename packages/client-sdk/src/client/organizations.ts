@@ -8,7 +8,6 @@ import {
   listLocalOrganizations,
   loadOrganizationBilling,
   loadOrganizationDataUsage,
-  loadOrganizationPolicyHistory,
   removeOrganizationGroupUser,
   revokeOrganizationContainerGrant,
   startOrganizationTrial,
@@ -127,7 +126,9 @@ export interface Organizations {
     OrganizationReadModelCoordinator["loadLocalGrants"]
   >;
   listLocalOrganizations: () => Promise<LocalOrganizationSummary[]>;
-  loadPolicyHistory: () => ReturnType<typeof loadOrganizationPolicyHistory>;
+  loadPolicyHistory: () => ReturnType<
+    OrganizationReadModelCoordinator["loadOrganizationPolicyHistory"]
+  >;
   loadUserDetail: (
     userId: string,
   ) => ReturnType<OrganizationReadModelCoordinator["loadLocalUserDetail"]>;
@@ -365,16 +366,7 @@ class OrganizationsService implements Organizations {
   }
 
   loadPolicyHistory() {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    if (!organizationId) {
-      return Promise.resolve(null);
-    }
-
-    return loadOrganizationPolicyHistory({
-      apiClient: runtime.apiClient,
-      organizationId,
-    });
+    return this.readModelCoordinator.loadOrganizationPolicyHistory();
   }
 
   loadUserDetail(userId: string) {

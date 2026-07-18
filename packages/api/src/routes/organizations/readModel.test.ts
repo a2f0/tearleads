@@ -73,7 +73,17 @@ test("organization read-model route snapshots and coalesces group changes", asyn
     "Admins",
     "Catalog only",
   ]);
-  expect(snapshot.version).toBe(3);
+  expect(snapshot.version).toBe(4);
+  expect(snapshot.lanes.organizationPolicy).toEqual({
+    organizationId,
+    currentState: expect.objectContaining({
+      keyEpoch: 1,
+      keyFingerprint: expect.any(String),
+      memberCount: 1,
+      stateHash: expect.any(String),
+      version: 1,
+    }),
+  });
   expect(snapshot.lanes.grants.organizationId).toBe(organizationId);
   expect(snapshot.lanes.grants.grants.length).toBeGreaterThan(0);
   expect(snapshot.lanes.groupMemberships.deletedGroupIds).toEqual([]);
@@ -86,6 +96,9 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   ).not.toContain(statelessGroupId);
   const adminGroupId = snapshot.lanes.groups.groups[0]?.groupId;
   invariant(adminGroupId, "expected Admins group");
+  expect(snapshot.lanes.groups.groups[0]?.currentState?.keyFingerprint).toEqual(
+    expect.any(String),
+  );
 
   const unchangedResponse = await routeApp.request(
     readModelPath(organizationId, snapshot.nextCursor),

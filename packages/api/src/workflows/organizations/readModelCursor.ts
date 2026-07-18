@@ -12,7 +12,7 @@ const DECIMAL_PATTERN = /^(0|[1-9]\d*)$/u;
 interface OrganizationReadModelCursorPayload {
   readonly cursor: string;
   readonly organizationId: string;
-  readonly version: 3;
+  readonly version: 4;
 }
 
 function invalidCursor(): OrganizationManagerError {
@@ -27,7 +27,7 @@ export function encodeOrganizationReadModelCursor(
   cursor: bigint,
 ): string {
   const payload: OrganizationReadModelCursorPayload = {
-    version: 3,
+    version: 4,
     organizationId,
     cursor: cursor.toString(),
   };
@@ -63,7 +63,7 @@ export function decodeOrganizationReadModelCursor(
     !isPlainObject(payload) ||
     Object.keys(payload).length !== 3 ||
     !hasNumberProperty(payload, "version") ||
-    payload.version !== 3 ||
+    payload.version !== 4 ||
     !hasStringProperty(payload, "organizationId") ||
     payload.organizationId !== organizationId ||
     !hasStringProperty(payload, "cursor") ||

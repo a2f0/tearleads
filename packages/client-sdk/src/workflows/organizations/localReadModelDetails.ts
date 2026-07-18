@@ -1,15 +1,23 @@
-import type { OrganizationContainerGrantResponse } from "@tearleads/validators/response";
+import type {
+  OrganizationContainerGrantResponse,
+  PrincipalPolicyBundleResponse,
+  ReferencedPrincipalStateResponse,
+} from "@tearleads/validators/response";
 import { loadContainerDisplayNamesByIds } from "../../data/persistence/containers/containerPersistence";
 import { loadOrganizationReadModelProjection } from "../../data/persistence/organizations/organizationReadModelPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { buildOrganizationGroupPolicyHistory } from "./policyHistoryReadModel";
+import {
+  buildOrganizationGroupPolicyHistory,
+  buildOrganizationPolicyHistory,
+} from "./policyHistoryReadModel";
 import type {
   OrganizationContainerGrant,
   OrganizationContainerGrants,
   OrganizationGroupContainer,
   OrganizationGroupContainers,
   OrganizationGroupPolicyHistory,
+  OrganizationPolicyHistory,
   OrganizationUserDetail,
 } from "./readModel";
 
@@ -18,6 +26,8 @@ interface LocalReadModelInput {
   readonly execSql: ExecSql;
   readonly organizationId: string;
 }
+
+type PolicyPrincipalType = ReferencedPrincipalStateResponse["principalType"];
 
 const DISPLAY_NAME_BATCH_SIZE = 400;
 
@@ -177,9 +187,10 @@ export async function loadLocalOrganizationGroupPolicyHistory(
     return null;
   }
 
-  const projectedHead = projection.groups.groups.find(
-    (group) => group.groupId === input.groupId,
-  )?.currentState;
+  const projectedHead = projection.policyHeads.find(
+    (head) =>
+      head.principalType === "group" && head.principalId === input.groupId,
+  );
   if (!projectedHead) {
     return null;
   }
@@ -189,21 +200,96 @@ export async function loadLocalOrganizationGroupPolicyHistory(
     "group",
     input.groupId,
   );
-  const storedHead = bundle?.currentState;
-  if (
-    !bundle ||
-    !storedHead ||
-    storedHead.principalType !== "group" ||
-    storedHead.principalId !== input.groupId ||
-    storedHead.stateHash !== projectedHead.stateHash ||
-    storedHead.version !== projectedHead.version ||
-    storedHead.keyEpoch !== projectedHead.keyEpoch ||
-    storedHead.memberCount !== projectedHead.memberCount
-  ) {
+  if (!policyBundleMatchesProjectedHead(bundle, projectedHead)) {
     return null;
   }
 
   return buildOrganizationGroupPolicyHistory(bundle);
+}
+
+function policyBundleMatchesProjectedHead(
+  bundle: PrincipalPolicyBundleResponse | null,
+  projectedHead: {
+    readonly keyEpoch: number;
+    readonly keyFingerprint: string;
+    readonly memberCount: number;
+    readonly principalId: string;
+    readonly principalType: PolicyPrincipalType;
+    readonly stateHash: string;
+    readonly version: number;
+  },
+): bundle is PrincipalPolicyBundleResponse {
+  const storedHead = bundle?.currentState;
+  return Boolean(
+    storedHead &&
+      storedHead.principalType === projectedHead.principalType &&
+      storedHead.principalId === projectedHead.principalId &&
+      storedHead.stateHash === projectedHead.stateHash &&
+      storedHead.version === projectedHead.version &&
+      storedHead.keyEpoch === projectedHead.keyEpoch &&
+      storedHead.keyFingerprint === projectedHead.keyFingerprint &&
+      storedHead.memberCount === projectedHead.memberCount,
+  );
+}
+
+export async function loadLocalOrganizationPolicyHistory(
+  input: LocalReadModelInput,
+): Promise<OrganizationPolicyHistory | null> {
+  const projection = await loadOrganizationReadModelProjection(
+    input.execSql,
+    input.organizationId,
+    input.currentUserId,
+  );
+  if (!projection?.requester) {
+    return null;
+  }
+  const projectedHead = projection.policyHeads.find(
+    (head) =>
+      head.principalType === "organization" &&
+      head.principalId === input.organizationId,
+  );
+  if (!projectedHead) {
+    return null;
+  }
+  const bundle = await loadPrincipalPolicyBundle(
+    input.execSql,
+    "organization",
+    input.organizationId,
+  );
+  return policyBundleMatchesProjectedHead(bundle, projectedHead)
+    ? buildOrganizationPolicyHistory(bundle)
+    : null;
+}
+
+export async function loadLocalOrganizationPolicyReference(
+  input: LocalReadModelInput & {
+    readonly principalId: string;
+    readonly principalType: PolicyPrincipalType;
+  },
+): Promise<ReferencedPrincipalStateResponse | null> {
+  const projection = await loadOrganizationReadModelProjection(
+    input.execSql,
+    input.organizationId,
+    input.currentUserId,
+  );
+  if (!projection?.requester) {
+    return null;
+  }
+  const head = projection.policyHeads.find(
+    (candidate) =>
+      candidate.principalType === input.principalType &&
+      candidate.principalId === input.principalId,
+  );
+  return head
+    ? {
+        principalType: head.principalType,
+        principalId: head.principalId,
+        stateHash: head.stateHash,
+        version: head.version,
+        keyEpoch: head.keyEpoch,
+        keyFingerprint: head.keyFingerprint,
+      }
+    : null;
 }
 
 export async function loadLocalOrganizationUserDetail(

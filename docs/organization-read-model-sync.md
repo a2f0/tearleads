@@ -73,27 +73,29 @@ feed marker. Policy replay and catalog creation consult that tombstone; they do
 not treat the read-model change log as authority, so future feed retention
 cannot alter cryptographic or lifecycle decisions.
 
-Protocol version 3 includes these lanes:
+Protocol version 4 includes these lanes:
 
 - `directory`: roster and profile-binding rows;
 - `groups`: visible group catalog rows and state-head summaries;
 - `groupMemberships`: state-hash-bound membership projections for individual
   groups, including the reserved `Members` group that is hidden from the group
   catalog;
-- `grants`: a whole-lane replacement of container access presentation rows.
+- `grants`: a whole-lane replacement of container access presentation rows;
+- `organizationPolicy`: the current organization policy head used only to
+  determine whether separately verified local policy history is current.
 
 Grant lists and group-container views filter the local grants lane. User details
 are derived locally from the directory, the complete cycle-safe membership
 graph, the visible group catalog, and grants. Hidden groups remain traversal and
 grant inputs even though they are omitted from the displayed group list.
 Container display names are joined from local encrypted metadata. Data usage
-and organization policy history remain request-driven. Group policy history may
-be rendered from the separately persisted, verified policy bundle only when its
-principal ID, state hash, version, key epoch, and member count exactly match the
-visible group's read-model head. Missing or mismatched policy state triggers one
-canonical policy request; projected membership or group metadata never becomes
-a cryptographic input. The feed logically retains the newest 10,000 change
-markers per organization.
+remains a separately refreshed aggregate. Organization and group policy history
+may be rendered from the separately persisted, verified policy bundle only when
+its principal ID, state hash, version, key epoch, key fingerprint, and member
+count exactly match the corresponding read-model head. Missing or mismatched
+policy state triggers one canonical verified-policy request; projected policy
+heads, membership, and group metadata never become cryptographic inputs. The
+feed logically retains the newest 10,000 change markers per organization.
 
 Grant `updatedAt` is access-head time, not the container content timestamp.
 Container access-manifest advancement, structural moves, and deletion replace
@@ -105,14 +107,14 @@ state-bound entity or lane snapshot.
 
 ## Protocol versioning
 
-Version 3 is a clean protocol reset, not a compatibility extension. Responses
-and opaque cursors carry version 3, response validation accepts only the exact
-version 3 lane shapes, and the server rejects older cursors. A client that finds
+Version 4 is a clean protocol reset, not a compatibility extension. Responses
+and opaque cursors carry version 4, response validation accepts only the exact
+version 4 lane shapes, and the server rejects older cursors. A client that finds
 an older organization projection atomically deletes that disposable projection
-and reconciles again without a cursor to obtain a full version 3 snapshot.
+and reconciles again without a cursor to obtain a full version 4 snapshot.
 
 There is no translation, dual-read period, or legacy directory, group,
-membership, grants, group-container, or user-detail fallback.
+membership, grants, group-container, user-detail, or raw policy-history fallback.
 
 ## Snapshot and delta contract
 

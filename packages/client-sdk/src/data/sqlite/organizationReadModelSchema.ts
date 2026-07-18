@@ -73,6 +73,26 @@ export const organizationReadModelGroups = sqliteTable(
   (table) => [primaryKey({ columns: [table.organizationId, table.groupId] })],
 );
 
+/** Exact policy-state heads used to bind locally projected cryptographic data. */
+export const organizationReadModelPolicyHeads = sqliteTable(
+  "organization_read_model_policy_heads",
+  {
+    organizationId: text("organization_id").notNull(),
+    principalType: text("principal_type").notNull(),
+    principalId: text("principal_id").notNull(),
+    stateHash: text("state_hash").notNull(),
+    stateVersion: integer("state_version").notNull(),
+    keyEpoch: integer("key_epoch").notNull(),
+    keyFingerprint: text("key_fingerprint").notNull(),
+    memberCount: integer("member_count").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.organizationId, table.principalType, table.principalId],
+    }),
+  ],
+);
+
 /** State-hash-bound completeness rows for each projected group membership. */
 export const organizationReadModelGroupMemberships = sqliteTable(
   "organization_read_model_group_memberships",

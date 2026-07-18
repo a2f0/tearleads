@@ -48,7 +48,7 @@ export function summarizeProxiedApiRequests(
     .join("\n");
 }
 
-export function expectGrantReadModelRequestBoundary(
+export function expectGrantLocalProjectionRequestBoundary(
   requests: readonly ProxiedApiRequest[],
 ): void {
   const requestSummary = summarizeProxiedApiRequests(requests);
@@ -58,8 +58,8 @@ export function expectGrantReadModelRequestBoundary(
         request.method === "GET" &&
         /^\/organizations\/[^/]+\/read-model$/u.test(requestPath(request.url)),
     ),
-    `Grant detail should reconcile the read model exactly once.\nrequests=\n${requestSummary}`,
-  ).toHaveLength(1);
+    `Grant detail should open from the local projection without read-model reconciliation.\nrequests=\n${requestSummary}`,
+  ).toEqual([]);
   expect(
     requests.filter((request) =>
       /^\/organizations\/[^/]+\/grants$/u.test(requestPath(request.url)),

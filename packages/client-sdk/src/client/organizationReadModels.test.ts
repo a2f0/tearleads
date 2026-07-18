@@ -1,21 +1,54 @@
 import { expect, test } from "bun:test";
 import type { RequestResult } from "@tearleads/api-client";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
+import type {
+  OrganizationGroupMemberResponse,
+  OrganizationReadModelResponse,
+  PrincipalPolicyBundleResponse,
+} from "@tearleads/validators/response";
 import {
   organizationReadModelGroupsDelta,
   organizationReadModelOrganizationId,
   organizationReadModelSnapshot,
   organizationReadModelUserId,
 } from "../../test/helpers/organizationReadModelProjectionFixtures";
+import { createPrincipalPolicyBundle } from "../../test/helpers/policyCacheFixtures";
+import { trustedUserIdentityFromResponse } from "../../test/helpers/trustedUserIdentity";
 import type { BlobStore } from "../data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../data/documents/documentKinds";
 import { createDomainScope } from "../data/domainScope";
+import { applyOrganizationReadModelResponse } from "../data/persistence/organizations/organizationReadModelPersistence";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
 } from "./workflowRuntime";
+
+function projectedPolicyMember(
+  member: PrincipalPolicyBundleResponse["currentProjection"][number],
+): OrganizationGroupMemberResponse {
+  const isUser = member.memberPrincipalType === "user";
+  return {
+    memberPrincipalType: member.memberPrincipalType,
+    memberPrincipalId: member.memberPrincipalId,
+    role: member.role,
+    userId: isUser ? member.memberPrincipalId : null,
+    signingKeyFingerprint: isUser
+      ? `signing-fingerprint-${member.memberPrincipalId}`
+      : null,
+    signingPublicKey: isUser
+      ? `signing-public-key-${member.memberPrincipalId}`
+      : null,
+    encapsulationPublicKey: isUser
+      ? `encapsulation-public-key-${member.memberPrincipalId}`
+      : null,
+    encapsulationKeyFingerprint: isUser
+      ? `encapsulation-fingerprint-${member.memberPrincipalId}`
+      : null,
+    groupId: isUser ? null : member.memberPrincipalId,
+    groupName: isUser ? null : member.memberPrincipalId,
+  };
+}
 
 test("concurrent read-model reconciliation is single-flight", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -250,6 +283,138 @@ test("post-mutation reconciliation waits for an older request and coalesces one 
     await expect(afterScopeMutation).resolves.toBeNull();
     expect(readModelRequests).toBe(3);
   } finally {
+    close();
+  }
+});
+
+test("policy history cold misses single-flight through verified persistence", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-policy-history-verified-warm-test",
+  );
+  const { bundle, signerKeyResponse } = await createPrincipalPolicyBundle();
+  const organizationId = "1";
+  const groupId = bundle.currentState.principalId;
+  const response = organizationReadModelSnapshot({ organizationId });
+  const visibleMembership = response.lanes.groupMemberships.groups.find(
+    (group) => group.groupId === groupId,
+  );
+  if (!visibleMembership) {
+    throw new Error("Expected visible group membership fixture");
+  }
+  const policyResponse: OrganizationReadModelResponse = {
+    ...response,
+    lanes: {
+      ...response.lanes,
+      groups: {
+        ...response.lanes.groups,
+        groups: response.lanes.groups.groups.map((group) =>
+          group.groupId === groupId
+            ? {
+                ...group,
+                currentState: {
+                  stateHash: bundle.currentState.stateHash,
+                  version: bundle.currentState.version,
+                  keyEpoch: bundle.currentState.keyEpoch,
+                  keyFingerprint: bundle.currentState.keyFingerprint,
+                  memberCount: bundle.currentState.memberCount,
+                },
+              }
+            : group,
+        ),
+      },
+      groupMemberships: {
+        ...response.lanes.groupMemberships,
+        groups: response.lanes.groupMemberships.groups.map((group) =>
+          group.groupId === groupId
+            ? {
+                ...group,
+                stateHash: bundle.currentState.stateHash,
+                members: bundle.currentProjection.map(projectedPolicyMember),
+              }
+            : group,
+        ),
+      },
+    },
+  };
+
+  let policyRequests = 0;
+  let resolvePolicyRequest: (
+    value: PrincipalPolicyBundleResponse | null,
+  ) => void = () => {};
+  const policyRequest = new Promise<PrincipalPolicyBundleResponse | null>(
+    (resolve) => {
+      resolvePolicyRequest = resolve;
+    },
+  );
+  const apiClient = createMockApiClient({
+    async getCurrentPrincipalPolicy() {
+      policyRequests += 1;
+      return policyRequest;
+    },
+  });
+  const workflowInput = {
+    apiClient,
+    resolveTrustedUserIdentity: async (userId: string) =>
+      userId === signerKeyResponse.userId
+        ? trustedUserIdentityFromResponse(signerKeyResponse)
+        : null,
+    auth: {
+      isAuthenticated: true,
+      organizationId,
+      userId: organizationReadModelUserId,
+    },
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    },
+    infra: {
+      blobStore: {} as BlobStore,
+      dbStatus: "ready",
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql,
+    },
+    state: {
+      containerId: null,
+      domainScope: createDomainScope(),
+      events: [],
+      online: true,
+    },
+    util: {
+      log: () => {},
+      logError: () => {},
+    },
+  } satisfies InternalWorkflowRuntimeInput;
+  const runtime = {
+    pinLocalUserIdentity: async () => {},
+    publicRuntime: {
+      version: 0,
+      input: () => workflowInput,
+      subscribe: () => () => {},
+    },
+    workflowInput: () => workflowInput,
+  } satisfies InternalRuntime;
+
+  try {
+    await applyOrganizationReadModelResponse({
+      currentUserId: organizationReadModelUserId,
+      execSql,
+      requestedCursor: null,
+      response: policyResponse,
+    });
+    const coordinator = createOrganizationReadModelCoordinator(runtime);
+    const first = coordinator.loadGroupPolicyHistory(groupId);
+    const second = coordinator.loadGroupPolicyHistory(groupId);
+    resolvePolicyRequest(bundle);
+    const [firstHistory, secondHistory] = await Promise.all([first, second]);
+    expect(firstHistory).toEqual(secondHistory);
+    expect(firstHistory?.entries.map((entry) => entry.version)).toEqual([1]);
+    await expect(coordinator.loadGroupPolicyHistory(groupId)).resolves.toEqual(
+      firstHistory,
+    );
+    expect(policyRequests).toBe(1);
+  } finally {
+    resolvePolicyRequest(null);
     close();
   }
 });

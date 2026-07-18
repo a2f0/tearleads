@@ -8,7 +8,6 @@ interface OrgManagerViewRefreshesInput {
   readonly readModelCursor: string | null;
   readonly refreshDataUsage: () => Promise<void>;
   readonly refreshGrants: () => Promise<void>;
-  readonly refreshGrantsOnEntry: () => Promise<void>;
   readonly refreshOrganizationPolicyHistory: () => Promise<void>;
   readonly view: OrgManagerView;
 }
@@ -26,7 +25,6 @@ export function useOrgManagerViewRefreshes(
     enabled: input.enabled,
     readModelCursor: input.readModelCursor,
     refreshGrants: input.refreshGrants,
-    refreshGrantsOnEntry: input.refreshGrantsOnEntry,
     visible: input.view === "grants",
   });
 

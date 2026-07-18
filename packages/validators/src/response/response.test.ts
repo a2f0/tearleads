@@ -466,6 +466,7 @@ test("organization manager responses", () => {
             stateHash: "state-hash",
             version: 1,
             keyEpoch: 1,
+            keyFingerprint: "key-fingerprint",
             memberCount: 1,
           },
         },

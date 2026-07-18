@@ -12,6 +12,7 @@ function group(groupId: string, name: string): OrganizationGroupSummary {
     createdAt: "2026-05-18T00:00:00.000Z",
     currentState: {
       keyEpoch: 1,
+      keyFingerprint: `${groupId}-key-fingerprint`,
       memberCount: 1,
       stateHash: `${groupId}-state`,
       version: 1,

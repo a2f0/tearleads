@@ -209,6 +209,14 @@ async function appendPolicyReadModelChanges(input: {
       operation: "replace",
     });
   }
+  if (input.policy.expectedPrincipalType === "organization") {
+    await appendOrganizationReadModelChangeInTransaction(input.tx, {
+      organizationId: input.rosterSync.organizationId,
+      lane: "organizationPolicy",
+      entityId: input.rosterSync.organizationId,
+      operation: "replace",
+    });
+  }
   if (isVisibleOrganizationGroupChange) {
     await appendOrganizationReadModelChangeInTransaction(input.tx, {
       organizationId: input.rosterSync.organizationId,

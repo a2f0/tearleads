@@ -161,6 +161,7 @@ function groupsForBundle(
       ...TARGET_GROUP,
       currentState: {
         keyEpoch: bundle.currentState.keyEpoch,
+        keyFingerprint: bundle.currentState.keyFingerprint,
         memberCount: bundle.currentState.memberCount,
         stateHash: bundle.currentState.stateHash,
         version: bundle.currentState.version,

@@ -12,6 +12,7 @@ import {
   organizationReadModelGroupMembers,
   organizationReadModelGroupMemberships,
   organizationReadModelGroups,
+  organizationReadModelPolicyHeads,
   organizationReadModelRequesters,
   organizationReadModelState,
 } from "../../data/sqlite/organizationReadModelSchema";
@@ -235,6 +236,7 @@ async function clearRemoteDerivedRows(
   await tx.delete(organizationReadModelGroupMemberships).run();
   await tx.delete(organizationReadModelDirectoryUsers).run();
   await tx.delete(organizationReadModelGroups).run();
+  await tx.delete(organizationReadModelPolicyHeads).run();
   await tx.delete(organizationReadModelRequesters).run();
   await tx.delete(organizationReadModelState).run();
   await tx.delete(principalPolicies).run();
