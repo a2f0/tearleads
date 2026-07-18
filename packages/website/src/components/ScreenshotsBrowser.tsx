@@ -70,11 +70,11 @@ export function ScreenshotsBrowser() {
   useEffect(() => {
     let cancelled = false;
     fetch(MANIFEST_URL)
-      .then((response) => {
+      .then((response): Promise<ScreenshotManifest> => {
         if (!response.ok) {
           throw new Error(`Manifest request failed (${response.status})`);
         }
-        return response.json() as Promise<ScreenshotManifest>;
+        return response.json();
       })
       .then((manifest) => {
         if (!cancelled) {
