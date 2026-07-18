@@ -13,8 +13,18 @@
   flex: 0 0 auto;
   width: var(--control-height);
   height: var(--control-height);
-  /* Non-interactive: no pointer affordance, and stay out of the tab order. */
+  /* A borderless button whose glyph carries the status; the shared tray hover
+     chip (below) is the only added chrome. */
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
   color: var(--sync-status-synced-color);
+}
+
+.sync-status-indicator:hover,
+.sync-status-indicator:focus-visible {
+  background: var(--emphasis-surface);
 }
 
 :root[data-theme="dark"] .sync-status-indicator {
@@ -45,4 +55,13 @@
    premature green, so a fresh mount does not flash "synced". */
 .sync-status-indicator--loading {
   color: color-mix(in srgb, var(--color-dark) 35%, transparent);
+}
+
+/* Click-popover body. The status line reads as text; the write-queue link below
+   it inherits the shared `.menu button` affordance. */
+.sync-status-popover-message {
+  margin: 0;
+  padding: var(--menu-item-padding);
+  max-width: 16rem;
+  color: var(--color-dark);
 }
