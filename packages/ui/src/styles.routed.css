@@ -1,0 +1,57 @@
+/*
+ * === Touch / routed-layout sizing (Apple Human Interface Guidelines) ===
+ *
+ * Companion to styles.css, imported immediately after it (see TearleadsFrame).
+ * Every rule here is scoped to `:root[data-navigation-mode="routed"]`, so it is
+ * inert off the routed layout and outranks the base `:root` tokens by
+ * specificity regardless of import order — the split is purely to keep each
+ * stylesheet within the source-shape size budget.
+ *
+ * The routed layout IS the touch layout — it is used on phones, tablets, and
+ * iPad (see navigation/AppNavigationMode). Layout stamps
+ * `data-navigation-mode="routed"` on <html> whenever it is active, so these
+ * overrides key off the layout itself rather than `@media (pointer: coarse)`.
+ * That distinction matters: an iPad with a mouse/trackpad renders the routed
+ * layout but reports `pointer: fine`, so a coarse-pointer query would silently
+ * leave every control at its dense desktop size on that device. Stamping the
+ * root element (not a subtree) also lets portaled menus and modals inherit it.
+ *
+ * Three HIG rules drive the values below:
+ *   1. Interactive controls get a >=44px hit target (`--control-height`, which
+ *      nearly every control primitive already keys its min-height/size off of).
+ *   2. Native text controls render at >=16px so iOS Safari does not auto-zoom
+ *      the viewport when they receive focus. `max(16px, 1em)` keeps any control
+ *      that was intentionally larger than 16px unchanged.
+ *   3. The type ramp is re-anchored so body text keeps pace with that enlarged
+ *      touch chrome (see the compact type ramp below).
+ */
+:root[data-navigation-mode="routed"] {
+  --control-height: 2.75rem;
+
+  /*
+   * Compact type ramp. Rule 1 above grows every control to a 44px hit target
+   * and rule 2 floors native inputs at 16px, but the desktop type ramp (the
+   * `--font-size-*` block in styles.css) is anchored to `sm` (0.9rem / 14.4px)
+   * as body text — which leaves labels and section subheadings rendering
+   * *smaller* than the 16px field values sitting next to them, and small
+   * against the enlarged touch chrome generally.
+   *
+   * Re-anchor the ramp so the body step (`sm`) meets the same 16px floor, and
+   * scale the neighbouring steps with it so the desktop hierarchy
+   * (2xs < xs < sm < md < lg) is preserved at touch proportions — same ratios,
+   * anchored to 1rem = 16px instead of 0.9rem. Deliberately overrides the
+   * tokens (not the root font-size) so `--control-height` and the virtualized
+   * row pitch stay pinned at 44px.
+   */
+  --font-size-2xs: 0.8rem; /* 12.8px */
+  --font-size-xs: 0.85rem; /* 13.6px */
+  --font-size-sm: 1rem; /* 16px — matches the native-input auto-zoom floor */
+  --font-size-md: 1.1rem; /* 17.6px */
+  --font-size-lg: 1.25rem; /* 20px */
+}
+
+:root[data-navigation-mode="routed"] input,
+:root[data-navigation-mode="routed"] select,
+:root[data-navigation-mode="routed"] textarea {
+  font-size: max(16px, 1em);
+}
