@@ -124,6 +124,8 @@ export const EXPLORER_LABELS = {
   databaseLoadError: "Couldn't open the local database.",
   dateCreatedColumn: "Date created",
   dateModifiedColumn: "Date modified",
+  // Phone-tier header: the narrow column can only fit one word on a line.
+  dateModifiedColumnCompact: "Modified",
   documentDeleteAction: "Move to Trash",
   documentDownloadAction: "Download",
   documentInfoAccessEpochRow: "Access Epoch",

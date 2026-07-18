@@ -16,7 +16,10 @@ import {
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/projectors";
 import { getDocumentTypeIcon } from "../../../../document-types/registry";
 import { getViewerRelativeContactDocumentLabel } from "../../../../stores/contacts/contactLabels";
-import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
+import {
+  formatMiniAppDate,
+  formatMiniAppDateTime,
+} from "../../../../utils/formatMiniAppDate";
 import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
 import { getExplorerContainerIcon } from "../../explorerContainerIcons";
 import { EXPLORER_LABELS } from "../../labels";
@@ -116,8 +119,16 @@ function buildExplorerItemColumn(
       return {
         ariaSort: getSortAria(sort, "modified"),
         id,
-        header: sortableHeader("modified", EXPLORER_LABELS.dateModifiedColumn),
-        width: compact ? "8rem" : "11rem",
+        // On the phone tier the header shrinks to one word and the column is
+        // sized to hold the date-only value (see the cell renderer) on a single
+        // line, so the row keeps its fixed height and the virtual pitch holds.
+        header: sortableHeader(
+          "modified",
+          compact
+            ? EXPLORER_LABELS.dateModifiedColumnCompact
+            : EXPLORER_LABELS.dateModifiedColumn,
+        ),
+        width: compact ? "9rem" : "11rem",
       };
     case "sync":
       return {
@@ -152,6 +163,9 @@ function getExplorerContainerItemTypeLabel(row: ContainerItemRow): string {
 }
 
 export interface ExplorerItemCellContext {
+  // Phone tier (useRoutedLayoutTier() === "mobile"): drives the date-only,
+  // single-line rendering of the modified cell so the row height stays fixed.
+  compact: boolean;
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
@@ -224,9 +238,18 @@ function ExplorerItemNameCell(ctx: ExplorerItemCellContext): ReactNode {
   // Keep standard table-row semantics: a native button in the name cell carries
   // the click/keyboard behaviour, and a CSS ::after overlay (see Explorer.css)
   // stretches its hit area across the whole row so the entire row is clickable.
+  //
+  // On the phone tier the Type column is dropped and the leading icon is
+  // aria-hidden, so fold the item kind into the button's accessible name to keep
+  // it announced to screen readers ("Contacts, Folder"). The wide layout leaves
+  // this off — the visible Type column already exposes the kind as table text.
+  const accessibleName = ctx.compact
+    ? `${name}, ${getExplorerContainerItemTypeLabel(row)}`
+    : undefined;
   return (
     <MiniAppTableCell key="name">
       <button
+        aria-label={accessibleName}
         className="explorer-item-row-button"
         data-document-local-id={
           row.itemKind === "document" ? row.localId : undefined
@@ -306,13 +329,25 @@ export function renderExplorerItemCell(
           })}
         </MiniAppTableCell>
       );
-    case "modified":
+    case "modified": {
+      const modifiedValue = (
+        ctx.compact ? formatMiniAppDate : formatMiniAppDateTime
+      )(row.updatedAt, { emptyFallback: EXPLORER_LABELS.unknownDate });
       return (
         <MiniAppTableCell key="modified" title={row.updatedAt ?? undefined}>
-          {formatMiniAppDateTime(row.updatedAt, {
-            emptyFallback: EXPLORER_LABELS.unknownDate,
-          })}
+          {/* Date-only on phone so the value fits the narrow column. Wrap it in
+              MiniAppTableText (single-line, ellipsis) so even a locale whose
+              medium date is wider than the column clips instead of wrapping —
+              keeping the row at its fixed height and the virtual pitch intact.
+              The full timestamp stays available via the cell's title attribute
+              and the item's Get Info panel. */}
+          {ctx.compact ? (
+            <MiniAppTableText>{modifiedValue}</MiniAppTableText>
+          ) : (
+            modifiedValue
+          )}
         </MiniAppTableCell>
       );
+    }
   }
 }

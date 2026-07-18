@@ -91,6 +91,7 @@ function isExplorerContainerItemContextTarget(
 
 function ExplorerContainerItemTableRow(params: {
   columnIds: ReadonlyArray<ExplorerItemColumnId>;
+  compact: boolean;
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
@@ -106,6 +107,7 @@ function ExplorerContainerItemTableRow(params: {
 }) {
   const {
     columnIds,
+    compact,
     currentSigningFingerprint,
     currentSelfContactLocalId,
     currentUserId,
@@ -117,6 +119,7 @@ function ExplorerContainerItemTableRow(params: {
     setSelectedId,
   } = params;
   const cellContext: ExplorerItemCellContext = {
+    compact,
     currentSigningFingerprint,
     currentSelfContactLocalId,
     currentUserId,
@@ -154,6 +157,7 @@ function isExplorerItemTableBlankContextTarget(
 
 function ExplorerContainerItemTableBody(params: {
   columnIds: ReadonlyArray<ExplorerItemColumnId>;
+  compact: boolean;
   contextTarget: ExplorerContextMenuTarget | null;
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
@@ -173,6 +177,7 @@ function ExplorerContainerItemTableBody(params: {
 }) {
   const {
     columnIds,
+    compact,
     contextTarget,
     currentSigningFingerprint,
     currentSelfContactLocalId,
@@ -205,6 +210,7 @@ function ExplorerContainerItemTableBody(params: {
           <ExplorerContainerItemTableRow
             key={getExplorerContainerItemRowKey(row)}
             columnIds={columnIds}
+            compact={compact}
             currentSigningFingerprint={currentSigningFingerprint}
             currentSelfContactLocalId={currentSelfContactLocalId}
             currentUserId={currentUserId}
@@ -328,7 +334,7 @@ function useExplorerContainerItemTableColumns({
     ];
   }, [compact, columnIds, hiddenColumns, onSort, sort, toggleColumn]);
 
-  return { columnIds, columns };
+  return { columnIds, columns, compact };
 }
 
 export function ExplorerContainerItemTable(params: ItemTableProps) {
@@ -360,7 +366,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
     toggleColumn,
     totalCount,
   } = params;
-  const { columnIds, columns } = useExplorerContainerItemTableColumns({
+  const { columnIds, columns, compact } = useExplorerContainerItemTableColumns({
     hiddenColumns,
     onSort,
     sort,
@@ -398,6 +404,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
       >
         <ExplorerContainerItemTableBody
           columnIds={columnIds}
+          compact={compact}
           contextTarget={contextTarget}
           currentSigningFingerprint={currentSigningFingerprint}
           currentSelfContactLocalId={currentSelfContactLocalId}
