@@ -8,6 +8,7 @@ import {
   loadDocumentRecord,
   type PendingUpdateFields,
   type PendingUpdateRecord,
+  rekeyDocumentPendingUpdate,
 } from "../../sqlite/documentPersistence";
 import {
   containerCreateIntents,
@@ -145,6 +146,7 @@ export interface ContainerContentsPersistence {
     execSql: ExecSql,
     containerId: string,
   ) => Promise<PendingUpdateRecord[]>;
+  rekeyPendingUpdate: (execSql: ExecSql, id: string) => Promise<string | null>;
   recordCreateIntentError: (
     execSql: ExecSql,
     containerId: string,
@@ -919,6 +921,9 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
       execSql,
       getContainerMetadataScope(containerId),
     );
+  },
+  async rekeyPendingUpdate(execSql, id) {
+    return rekeyDocumentPendingUpdate(execSql, id);
   },
   async listPendingCreateIntents(execSql) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);

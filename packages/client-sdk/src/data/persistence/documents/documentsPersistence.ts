@@ -27,6 +27,7 @@ import {
   findLocalIdByDocumentId,
   listDocumentPendingUpdates,
   loadDocumentRecord,
+  rekeyDocumentPendingUpdate,
 } from "../../sqlite/documentPersistence";
 import {
   documentAttachmentBlobProjection,
@@ -634,6 +635,9 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   },
   async listPendingUpdates(execSql, localId) {
     return listDocumentPendingUpdates(execSql, getDocumentScope(localId));
+  },
+  async rekeyPendingUpdate(execSql, id) {
+    return rekeyDocumentPendingUpdate(execSql, id);
   },
   async listPendingAttachments(execSql, localId) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);

@@ -86,6 +86,9 @@ function createContainerContentsPersistence(input: {
     async listContainerIdsWithPendingUpdates() {
       return [];
     },
+    async rekeyPendingUpdate() {
+      return null;
+    },
     async listPendingUpdates() {
       return [];
     },
@@ -379,6 +382,9 @@ test("syncContainerMetadataState skips clean metadata with current read state", 
     metadataState: { container, doc, record },
     persistence: {
       ...persistence,
+      async rekeyPendingUpdate() {
+        return null;
+      },
       async listPendingUpdates() {
         listPendingUpdateCalls += 1;
         return [];

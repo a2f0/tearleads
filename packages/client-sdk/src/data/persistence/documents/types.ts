@@ -154,6 +154,7 @@ export interface DocumentsPersistence {
     execSql: ExecSql,
     localId: string,
   ) => Promise<PendingUpdateRecord[]>;
+  rekeyPendingUpdate: (execSql: ExecSql, id: string) => Promise<string | null>;
   listPendingAttachments: (
     execSql: ExecSql,
     localId: string,

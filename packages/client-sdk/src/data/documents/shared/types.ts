@@ -377,6 +377,7 @@ export interface SyncRemoteDocumentResult {
   decryptedUpdates: DecryptedDocumentSyncUpdate[];
   persistedState: PersistedDocumentSyncState;
   plan: DocumentSyncPlan;
+  rekeyedPendingUpdateIds: readonly string[];
   response: DocumentSyncResponse;
   settledPendingUpdateIds: readonly string[];
   writerProjection?: DocumentWriterProjectionResponse | undefined;

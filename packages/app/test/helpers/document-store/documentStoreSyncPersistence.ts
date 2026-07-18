@@ -214,6 +214,19 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
     async listPendingUpdates() {
       return pendingUpdates;
     },
+    async rekeyPendingUpdate(_execSql, id: string) {
+      const pendingUpdate = pendingUpdates.find(
+        (candidate) => candidate.id === id,
+      );
+      if (!pendingUpdate) {
+        return null;
+      }
+      const nextId = crypto.randomUUID();
+      pendingUpdates = pendingUpdates.map((candidate) =>
+        candidate.id === id ? { ...candidate, id: nextId } : candidate,
+      );
+      return nextId;
+    },
     async listPendingAttachments() {
       return pendingAttachments;
     },
