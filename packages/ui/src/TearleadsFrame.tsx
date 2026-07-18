@@ -1,6 +1,8 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import { classNames } from "./classNames";
 import "./styles.css";
+// Touch/routed-layout overrides; must load after styles.css (see that file).
+import "./styles.routed.css";
 
 export interface TearleadsHeaderProps {
   readonly actions?: ReactNode;

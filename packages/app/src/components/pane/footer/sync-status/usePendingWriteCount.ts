@@ -14,7 +14,7 @@ import { createPendingWriteWatcher } from "./pendingWriteWatcher";
 // layout), so change notifications are throttled to at most one scan per window.
 const READ_THROTTLE_MS = 750;
 
-export interface PendingWriteCount {
+interface PendingWriteCount {
   /** False until the first successful read resolves (or while the db is booting). */
   readonly loaded: boolean;
   /** Aggregate unflushed write-operation count; `0` once everything is synced. */

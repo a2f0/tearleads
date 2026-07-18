@@ -1,7 +1,7 @@
 import type { PendingWriteQueueItem } from "@tearleads/client-sdk";
 import { countPendingWrites } from "./syncStatusModel";
 
-export interface PendingWriteWatcherDeps {
+interface PendingWriteWatcherDeps {
   /** Read the durable write queue for the active domain. */
   readonly listPendingWrites: () => Promise<
     ReadonlyArray<PendingWriteQueueItem>
@@ -14,7 +14,7 @@ export interface PendingWriteWatcherDeps {
   readonly throttleMs: number;
 }
 
-export interface PendingWriteWatcher {
+interface PendingWriteWatcher {
   readonly stop: () => void;
 }
 
