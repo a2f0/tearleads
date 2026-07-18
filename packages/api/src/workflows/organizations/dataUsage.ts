@@ -82,6 +82,15 @@ function isDocumentUsageCategory(
   );
 }
 
+function sumUsageField(
+  entries: readonly OrganizationDocumentUsageCategoryBreakdown[],
+  field: "byteLength" | "documentCount" | "updateCount",
+  label: string,
+): number {
+  const total = entries.reduce((sum, entry) => sum + BigInt(entry[field]), 0n);
+  return toNonNegativeSafeInteger(total, label);
+}
+
 async function loadOrganizationDataUsageInTransaction(input: {
   executor: DatabaseSession;
   organizationId: string;
@@ -210,17 +219,20 @@ async function loadOrganizationDataUsageInTransaction(input: {
       return { category, ...usage };
     });
 
-  const documentByteLength = breakdown.reduce(
-    (total, entry) => total + entry.byteLength,
-    0,
+  const documentByteLength = sumUsageField(
+    breakdown,
+    "byteLength",
+    "documentByteLength",
   );
-  const documentCount = breakdown.reduce(
-    (total, entry) => total + entry.documentCount,
-    0,
+  const documentCount = sumUsageField(
+    breakdown,
+    "documentCount",
+    "documentCount",
   );
-  const documentUpdateCount = breakdown.reduce(
-    (total, entry) => total + entry.updateCount,
-    0,
+  const documentUpdateCount = sumUsageField(
+    breakdown,
+    "updateCount",
+    "documentUpdateCount",
   );
 
   const blobRow = blobResult.rows[0];
@@ -244,7 +256,10 @@ async function loadOrganizationDataUsageInTransaction(input: {
       documentCount,
       updateCount: documentUpdateCount,
     },
-    totalByteLength: documentByteLength + blobByteLength,
+    totalByteLength: toNonNegativeSafeInteger(
+      BigInt(documentByteLength) + BigInt(blobByteLength),
+      "totalByteLength",
+    ),
   };
 }
 

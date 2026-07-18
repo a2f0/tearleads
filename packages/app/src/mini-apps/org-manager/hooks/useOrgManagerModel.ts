@@ -1,6 +1,5 @@
 import type {
   OrganizationContainerGrants,
-  OrganizationDataUsage,
   OrganizationDirectory,
   OrganizationGroupContainers,
   OrganizationGroupMembers,
@@ -17,6 +16,7 @@ import {
 } from "../../../providers/sdk/TearleadsProvider";
 import { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { useMiniAppBusActions } from "../../bus";
+import { useOrgManagerScopedDataUsage } from "../billing/useOrgManagerScopedDataUsage";
 import { useOrgManagerContextMenu } from "../context-menu/OrgManagerContextMenu";
 import { deriveOrgManagerState } from "../deriveOrgManagerState";
 import { useClearMissingOrgManagerUser } from "../directory/useClearMissingOrgManagerUser";
@@ -57,6 +57,7 @@ export function useOrgManagerModel() {
   );
   const [readModelCursor, setReadModelCursor] = useState<string | null>(null);
   const organizationId = appData.auth.organizationId;
+  const orgManagerScopeKey = getOrgManagerStateScopeKey(appData);
   const activeDirectory = scopeOrganizationDirectory(
     directory,
     organizationId,
@@ -92,11 +93,8 @@ export function useOrgManagerModel() {
   const [grants, setGrants] = useState<OrganizationContainerGrants | null>(
     null,
   );
-  const [dataUsage, setDataUsage] = useState<OrganizationDataUsage | null>(
-    null,
-  );
-  const dataUsageRef = useRef<OrganizationDataUsage | null>(dataUsage);
-  dataUsageRef.current = dataUsage;
+  const { dataUsage, dataUsageRef, setDataUsage } =
+    useOrgManagerScopedDataUsage(orgManagerScopeKey);
   const [selectedUserId, setSelectedUserIdState] = useState<string | null>(
     null,
   );
@@ -116,7 +114,6 @@ export function useOrgManagerModel() {
     null,
   );
   const selectedUserIdRef = useRef<string | null>(null);
-  const orgManagerScopeKey = getOrgManagerStateScopeKey(appData);
   const beginRequest = useOrgManagerRequestGuard(orgManagerScopeKey);
   const canLoadAuthenticatedOrgData = Boolean(
     organizationId && appData.auth.isAuthenticated,

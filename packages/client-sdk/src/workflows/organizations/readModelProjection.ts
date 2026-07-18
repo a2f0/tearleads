@@ -3,7 +3,7 @@ import type {
   RequestResultOptions,
 } from "@tearleads/api-client";
 import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
-import { purgeOrganizationDataUsageProjection } from "../../data/persistence/organizations/organizationDataUsagePersistence";
+import { purgeOrganizationAccessProjection } from "../../data/persistence/organizations/organizationAccessRevocationPersistence";
 import {
   loadOrganizationReadModelGroupMembers,
   OrganizationReadModelBindingError,
@@ -15,6 +15,10 @@ import {
   purgeOrganizationReadModelProjection,
 } from "../../data/persistence/organizations/organizationReadModelPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  denyOrganizationDataUsageAccess,
+  runOrganizationDataUsageAccessMutation,
+} from "./dataUsageAccessState";
 import type { OrganizationDirectoryAndGroups } from "./readModel";
 
 const MAX_READ_MODEL_PAGES = 100;
@@ -126,15 +130,22 @@ async function requestReadModelPage(
     return { kind: "response", response: result.data };
   }
   if (result.status === 403 || result.status === 404) {
-    await purgeOrganizationReadModelProjection(
-      input.execSql,
-      input.organizationId,
-    );
-    await purgeOrganizationDataUsageProjection(
-      input.execSql,
-      input.organizationId,
-      input.currentUserId,
-    );
+    denyOrganizationDataUsageAccess({
+      execSql: input.execSql,
+      organizationId: input.organizationId,
+      requesterUserId: input.currentUserId,
+    });
+    try {
+      await runOrganizationDataUsageAccessMutation(input.execSql, () =>
+        purgeOrganizationAccessProjection({
+          execSql: input.execSql,
+          organizationId: input.organizationId,
+          requesterUserId: input.currentUserId,
+        }),
+      );
+    } catch (error) {
+      input.logError?.("Failed to purge denied organization access", error);
+    }
     return { kind: "done", value: null };
   }
   if (

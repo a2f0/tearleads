@@ -16,7 +16,7 @@ interface DataUsageRefreshInput {
 
 export async function refreshDataUsageOnEntry(input: {
   readonly cancelled: () => boolean;
-  readonly pending: boolean;
+  readonly readPending: () => boolean;
   readonly refreshDataUsage: DataUsageRefreshInput["refreshDataUsage"];
 }): Promise<void> {
   await input.refreshDataUsage({
@@ -24,7 +24,7 @@ export async function refreshDataUsageOnEntry(input: {
     localOnly: true,
     manageLoading: false,
   });
-  if (input.cancelled() || input.pending) {
+  if (input.cancelled() || input.readPending()) {
     return;
   }
   await input.refreshDataUsage({ clearError: true, manageLoading: false });
@@ -58,7 +58,8 @@ export function useOrgManagerDataUsageRefresh({
     let cancelled = false;
     void refreshDataUsageOnEntry({
       cancelled: () => cancelled,
-      pending: getDomainSyncCoordinatorSnapshot(domainScope).hasPendingWork,
+      readPending: () =>
+        getDomainSyncCoordinatorSnapshot(domainScope).hasPendingWork,
       refreshDataUsage,
     });
     return () => {

@@ -162,7 +162,6 @@ export {
   type OrganizationDocumentDataUsageResponse,
   type OrganizationDocumentUsageCategory,
   type OrganizationDocumentUsageCategoryBreakdown,
-  OrganizationDocumentUsageCategorySchema,
 } from "./organizationDataUsage";
 export {
   type CreateOrganizationResponse,

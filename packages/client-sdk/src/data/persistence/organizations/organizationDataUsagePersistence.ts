@@ -61,11 +61,12 @@ function parseResponse(
   return parsed.data;
 }
 
-async function purgeInTransaction(input: {
+export async function purgeOrganizationDataUsageProjectionInTransaction(input: {
   readonly organizationId: string;
   readonly requesterUserId?: string | undefined;
   readonly tx: ClientSQLiteTransaction;
 }): Promise<void> {
+  requireScope(input.organizationId, input.requesterUserId);
   const condition = input.requesterUserId
     ? and(
         eq(
@@ -201,7 +202,11 @@ export async function loadOrganizationDataUsageProjection(
       );
     if (!snapshot) {
       if (categories.length > 0) {
-        await purgeInTransaction({ organizationId, requesterUserId, tx });
+        await purgeOrganizationDataUsageProjectionInTransaction({
+          organizationId,
+          requesterUserId,
+          tx,
+        });
       }
       return null;
     }
@@ -213,7 +218,11 @@ export async function loadOrganizationDataUsageProjection(
       ? storedResponse(snapshot, categories)
       : null;
     if (!response) {
-      await purgeInTransaction({ organizationId, requesterUserId, tx });
+      await purgeOrganizationDataUsageProjectionInTransaction({
+        organizationId,
+        requesterUserId,
+        tx,
+      });
     }
     return response;
   });
@@ -298,6 +307,10 @@ export async function purgeOrganizationDataUsageProjection(
   requireScope(organizationId, requesterUserId);
   await ensureSqlTables(execSql, organizationDataUsageTables);
   await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
-    await purgeInTransaction({ organizationId, requesterUserId, tx });
+    await purgeOrganizationDataUsageProjectionInTransaction({
+      organizationId,
+      requesterUserId,
+      tx,
+    });
   });
 }

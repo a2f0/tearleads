@@ -18,7 +18,7 @@ test("usage entry paints local data before reconciling once", async () => {
 
   const entry = refreshDataUsageOnEntry({
     cancelled: () => false,
-    pending: false,
+    readPending: () => false,
     refreshDataUsage,
   });
   await Promise.resolve();
@@ -46,7 +46,7 @@ test("usage entry does not reconcile after the view leaves", async () => {
 
   await refreshDataUsageOnEntry({
     cancelled: () => cancelled,
-    pending: false,
+    readPending: () => false,
     refreshDataUsage,
   });
 
@@ -60,7 +60,7 @@ test("usage entry lets pending sync own the remote reconcile", async () => {
 
   await refreshDataUsageOnEntry({
     cancelled: () => false,
-    pending: true,
+    readPending: () => true,
     refreshDataUsage,
   });
 
@@ -70,6 +70,31 @@ test("usage entry lets pending sync own the remote reconcile", async () => {
     localOnly: true,
     manageLoading: false,
   });
+});
+
+test("usage entry rechecks pending sync after painting local data", async () => {
+  let pending = false;
+  let resolveLocal = () => {};
+  const local = new Promise<void>((resolve) => {
+    resolveLocal = resolve;
+  });
+  const refreshDataUsage = mock(async (options = {}) => {
+    if (Reflect.get(options, "localOnly") === true) {
+      await local;
+    }
+  });
+
+  const entry = refreshDataUsageOnEntry({
+    cancelled: () => false,
+    readPending: () => pending,
+    refreshDataUsage,
+  });
+  await Promise.resolve();
+  pending = true;
+  resolveLocal();
+  await entry;
+
+  expect(refreshDataUsage).toHaveBeenCalledTimes(1);
 });
 
 test("usage refresh waits for visible sync work to settle", () => {

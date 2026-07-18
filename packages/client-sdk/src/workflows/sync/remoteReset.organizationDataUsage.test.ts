@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test";
+import type { RequestResult } from "@tearleads/api-client";
 import { createTestExecSql } from "@tearleads/test-utils";
+import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
+import {
+  dataUsage,
+  organizationId,
+} from "../../../test/helpers/organizationReadModelFixtures";
+import { loadOrganizationDataUsageProjection } from "../../data/persistence/organizations/organizationDataUsagePersistence";
 import {
   organizationDataUsageCategories,
   organizationDataUsageSnapshots,
@@ -7,7 +14,10 @@ import {
 import { clientSqlTables } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
+import { reconcileOrganizationDataUsage } from "../organizations/dataUsageReadModel";
 import { clearRemoteSyncState } from "./remoteReset";
+
+const REQUESTER_USER_ID = "user-1";
 
 test("remote reset deletes durable organization data usage", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -41,6 +51,52 @@ test("remote reset deletes durable organization data usage", async () => {
 
     expect(await db.select().from(organizationDataUsageSnapshots)).toEqual([]);
     expect(await db.select().from(organizationDataUsageCategories)).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+test("remote reset invalidates an in-flight organization usage response", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "remote-reset-in-flight-organization-data-usage",
+  );
+  let resolveRequest: (
+    result: RequestResult<OrganizationDataUsageResponse>,
+  ) => void = () => {};
+  let signalRequestStarted = () => {};
+  const requestStarted = new Promise<void>((resolve) => {
+    signalRequestStarted = resolve;
+  });
+  const pendingRequest = new Promise<
+    RequestResult<OrganizationDataUsageResponse>
+  >((resolve) => {
+    resolveRequest = resolve;
+  });
+
+  try {
+    const reconciliation = reconcileOrganizationDataUsage({
+      apiClient: {
+        getOrganizationDataUsageResult: async () => {
+          signalRequestStarted();
+          return pendingRequest;
+        },
+      },
+      execSql,
+      organizationId,
+      requesterUserId: REQUESTER_USER_ID,
+    });
+    await requestStarted;
+    await clearRemoteSyncState(execSql);
+
+    resolveRequest({ data: dataUsage, ok: true });
+    await expect(reconciliation).resolves.toBeNull();
+    await expect(
+      loadOrganizationDataUsageProjection(
+        execSql,
+        organizationId,
+        REQUESTER_USER_ID,
+      ),
+    ).resolves.toBeNull();
   } finally {
     close();
   }

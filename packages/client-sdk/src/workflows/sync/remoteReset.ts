@@ -42,6 +42,7 @@ import {
 } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
+import { runOrganizationDataUsageAccessReset } from "../organizations/dataUsageAccessState";
 
 const CONTAINER_CREATE_INTENT_TYPE = "container.create";
 
@@ -418,10 +419,12 @@ async function clearRemoteSyncStateInTransaction(input: {
 export async function clearRemoteSyncState(
   execSql: ExecSql,
 ): Promise<ClearRemoteSyncStateResult> {
-  await ensureSqlTables(execSql, clientSqlTables);
-  const plans = await buildResetPlans(execSql);
+  return runOrganizationDataUsageAccessReset(execSql, async () => {
+    await ensureSqlTables(execSql, clientSqlTables);
+    const plans = await buildResetPlans(execSql);
 
-  return getClientSQLitePersistenceRuntime(execSql).transaction((tx) =>
-    clearRemoteSyncStateInTransaction({ plans, tx }),
-  );
+    return getClientSQLitePersistenceRuntime(execSql).transaction((tx) =>
+      clearRemoteSyncStateInTransaction({ plans, tx }),
+    );
+  });
 }
