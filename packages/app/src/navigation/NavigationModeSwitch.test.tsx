@@ -6,15 +6,10 @@ import {
 } from "./NavigationModeOverrideProvider";
 import { NavigationModeSwitch } from "./NavigationModeSwitch";
 
-const CHOICE_KEY = "tearleads.navigationMode.choice";
-
-afterEach(() => {
-  cleanup();
-  globalThis.localStorage.removeItem(CHOICE_KEY);
-});
+afterEach(cleanup);
 
 // Surfaces the current override alongside the switch so a test can read what the
-// click wrote without reaching into storage.
+// click set on the shared (in-memory) override.
 function OverrideReadout() {
   const { override } = useNavigationModeOverride();
   return <output>{override ?? "auto"}</output>;
@@ -40,7 +35,6 @@ test("the windowed switch offers (and selects) the iPad/mobile layout", () => {
   fireEvent.click(button);
 
   expect(view.getByText("routed")).toBeTruthy();
-  expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBe("routed");
   view.unmount();
 });
 
@@ -58,6 +52,5 @@ test("the routed switch offers (and selects) the windowed layout", () => {
   fireEvent.click(button);
 
   expect(view.getByText("windowed")).toBeTruthy();
-  expect(globalThis.localStorage.getItem(CHOICE_KEY)).toBe("windowed");
   view.unmount();
 });

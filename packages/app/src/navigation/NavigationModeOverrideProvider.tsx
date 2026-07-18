@@ -1,16 +1,11 @@
 import {
   createContext,
   type PropsWithChildren,
-  useCallback,
   useContext,
   useMemo,
   useState,
 } from "react";
 import type { NavigationModeOverride } from "./NavigationModeToggle";
-import {
-  loadStoredNavigationMode,
-  saveNavigationMode,
-} from "./navigationModeStorage";
 
 interface NavigationModeOverrideContextValue {
   // The manual windowed/routed choice, or `null` to defer to automatic
@@ -23,31 +18,26 @@ const NavigationModeOverrideContext =
   createContext<NavigationModeOverrideContextValue | null>(null);
 
 /**
- * Owns the shared, persisted windowed/routed override. A single instance mounts
- * above the whole app (in Layout) so the footer mode switch, the routed
- * taskbar switch, and the developer-mode header toggle all drive the one choice
- * — and so the layout that reads it renders from the same source.
+ * Owns the shared windowed/routed override. A single instance mounts above the
+ * whole app (in Layout) so the footer mode switch, the routed taskbar switch,
+ * and the developer-mode header toggle all drive the one choice — and so the
+ * layout that reads it renders from the same source.
  *
- * The choice persists (mirroring the theme toggle): it is a deliberate manual
- * preference, so it should survive a reload rather than snapping back to auto.
+ * The override is intentionally in-memory only: it resets to `null` (auto) on a
+ * full reload, so viewport/pointer detection resumes and a mode forced for a
+ * quick preview never sticks silently. Persisting it here would also make the
+ * developer toggle's cycling survive reloads, which the kill-worker E2E flow
+ * (it cycles to routed, then hard-reloads expecting the windowed pane) relies
+ * on not happening.
  */
 export function NavigationModeOverrideProvider({
   children,
 }: PropsWithChildren) {
-  const [override, setOverrideState] = useState<NavigationModeOverride>(() =>
-    loadStoredNavigationMode(),
-  );
-
-  // Persist in the event handler, not a render path, so render stays free of
-  // side effects (as ThemeProvider does with saveTheme).
-  const setOverride = useCallback((next: NavigationModeOverride) => {
-    setOverrideState(next);
-    saveNavigationMode(next);
-  }, []);
+  const [override, setOverride] = useState<NavigationModeOverride>(null);
 
   const value = useMemo<NavigationModeOverrideContextValue>(
     () => ({ override, setOverride }),
-    [override, setOverride],
+    [override],
   );
 
   return (
