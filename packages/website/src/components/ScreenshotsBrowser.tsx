@@ -1,8 +1,10 @@
 import {
   type ReactNode,
+  type RefObject,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import "./ScreenshotsBrowser.css";
@@ -124,11 +126,21 @@ function Shell({
   );
 }
 
-// Index entries by project+theme+name and derive the screen list, clamped
-// selection, stepping, and keyboard navigation for the selected device/theme.
-function useGalleryNavigation(manifest: ScreenshotManifest, project: string) {
+// Index entries by project+theme+name and derive the selected-device screen
+// list, the active screen (tracked by name so a device toggle stays on the same
+// screen where it exists), stepping, and gallery-scoped keyboard navigation.
+function useGalleryNavigation(
+  manifest: ScreenshotManifest,
+  project: string,
+  containerRef: RefObject<HTMLDivElement | null>,
+) {
   const { themes } = manifest;
-  const [screenIndex, setScreenIndex] = useState(0);
+  // The selection is stored by screen name, not index: the web and mobile
+  // captures don't share the same screen list (mobile has `home`, web doesn't),
+  // so a numeric index would jump to a different screen when the device toggles.
+  const [selectedName, setSelectedName] = useState<string | undefined>(
+    undefined,
+  );
 
   const bySrc = useMemo(() => {
     const map = new Map<string, ScreenshotEntry>();
@@ -151,27 +163,34 @@ function useGalleryNavigation(manifest: ScreenshotManifest, project: string) {
     [manifest.screens, themes, bySrc, project],
   );
 
-  // Clamp the selection whenever the available screens shrink (e.g. switching
-  // to a device with fewer captures).
-  useEffect(() => {
-    setScreenIndex((current) =>
-      screens.length === 0 ? 0 : Math.min(current, screens.length - 1),
-    );
-  }, [screens.length]);
+  // Resolve the active screen from the tracked name, falling back to the first
+  // screen when the name is unset or absent for this device. Derived (not
+  // stored), so switching device never strands the selection on a stale index.
+  const activeName =
+    selectedName && screens.includes(selectedName) ? selectedName : screens[0];
+  const activeIndex = activeName ? screens.indexOf(activeName) : -1;
 
   const step = useCallback(
     (delta: number) => {
-      setScreenIndex((current) =>
-        screens.length === 0
-          ? 0
-          : (current + delta + screens.length) % screens.length,
-      );
+      if (screens.length === 0) {
+        return;
+      }
+      const base = activeIndex < 0 ? 0 : activeIndex;
+      const next = (base + delta + screens.length) % screens.length;
+      setSelectedName(screens[next]);
     },
-    [screens.length],
+    [screens, activeIndex],
   );
 
+  // Only intercept arrow keys when focus is inside the gallery, so the handler
+  // never swallows page scrolling (or arrows on unrelated controls) while the
+  // gallery merely happens to be mounted on the page.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      const container = containerRef.current;
+      if (!container || !container.contains(document.activeElement)) {
+        return;
+      }
       if (event.key === "ArrowRight" || event.key === "ArrowDown") {
         event.preventDefault();
         step(1);
@@ -182,17 +201,18 @@ function useGalleryNavigation(manifest: ScreenshotManifest, project: string) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [step]);
+  }, [step, containerRef]);
 
-  return { bySrc, screens, screenIndex, setScreenIndex, step };
+  return { bySrc, screens, activeName, activeIndex, step, setSelectedName };
 }
 
 function Gallery({ manifest }: { manifest: ScreenshotManifest }) {
   const { projects, themes, entries } = manifest;
   const [project, setProject] = useState<string>(() => projects[0] ?? "");
   const [theme, setTheme] = useState<string>(() => themes[0] ?? "light");
-  const { bySrc, screens, screenIndex, setScreenIndex, step } =
-    useGalleryNavigation(manifest, project);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { bySrc, screens, activeName, activeIndex, step, setSelectedName } =
+    useGalleryNavigation(manifest, project, containerRef);
 
   if (entries.length === 0) {
     return (
@@ -200,21 +220,25 @@ function Gallery({ manifest }: { manifest: ScreenshotManifest }) {
         <div className="screenshots-browser__empty">
           <h1>No screenshots yet</h1>
           <p>
-            Generate them with <code>bun run screenshots</code>, then reload
-            this page.
+            Run <code>bun run screenshots</code> from the repo root to capture
+            them, then restart the dev server (the gallery is staged on
+            <code>predev</code>) or rebuild.
           </p>
         </div>
       </Shell>
     );
   }
 
-  const currentName = screens[screenIndex];
-  const currentEntry = currentName
-    ? bySrc.get(entryKey(project, theme, currentName))
+  const currentEntry = activeName
+    ? bySrc.get(entryKey(project, theme, activeName))
     : undefined;
 
   return (
-    <div className="screenshots-browser" data-gallery-theme={theme}>
+    <div
+      className="screenshots-browser"
+      data-gallery-theme={theme}
+      ref={containerRef}
+    >
       <Toolbar
         projects={projects}
         themes={themes}
@@ -225,26 +249,26 @@ function Gallery({ manifest }: { manifest: ScreenshotManifest }) {
         position={
           screens.length === 0
             ? "0 / 0"
-            : `${screenIndex + 1} / ${screens.length}`
+            : `${activeIndex + 1} / ${screens.length}`
         }
       />
 
       <div className="screenshots-browser__body">
         <Filmstrip
           screens={screens}
-          activeIndex={screenIndex}
+          activeIndex={activeIndex}
           thumbFor={(name) =>
             bySrc.get(entryKey(project, theme, name)) ??
             themes
               .map((t) => bySrc.get(entryKey(project, t, name)))
               .find(Boolean)
           }
-          onSelect={setScreenIndex}
+          onSelect={(index) => setSelectedName(screens[index])}
         />
         <Stage
           project={project}
           theme={theme}
-          name={currentName}
+          name={activeName}
           entry={currentEntry}
           canStep={screens.length > 1}
           onStep={step}
@@ -349,7 +373,9 @@ function Stage({
   onStep: (delta: number) => void;
 }) {
   return (
-    <main className="screenshots-browser__stage">
+    // A plain div, not <main>: the Astro page already provides the page's
+    // <main> landmark, and a nested one is invalid.
+    <div className="screenshots-browser__stage">
       <button
         type="button"
         className="screenshots-browser__nav screenshots-browser__nav--prev"
@@ -393,7 +419,7 @@ function Stage({
       >
         ›
       </button>
-    </main>
+    </div>
   );
 }
 

@@ -242,3 +242,55 @@
   padding: 1px 6px;
   font-size: 13px;
 }
+
+/*
+ * Narrow screens (phones): a fixed 200px side filmstrip plus the stage padding
+ * and nav buttons leave no room for the preview at ~390px. Stack instead — the
+ * stage on top, a horizontal, scrollable filmstrip beneath it — and trim the
+ * stage padding and nav buttons so the preview keeps the width.
+ */
+@media (max-width: 700px) {
+  .screenshots-browser {
+    height: min(85vh, 720px);
+  }
+
+  .screenshots-browser__toolbar {
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .screenshots-browser__body {
+    flex-direction: column;
+  }
+
+  .screenshots-browser__filmstrip {
+    width: auto;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: none;
+    border-top: 1px solid var(--sb-border);
+    padding: 10px;
+  }
+
+  .screenshots-browser__thumb {
+    width: 108px;
+    flex-shrink: 0;
+  }
+
+  .screenshots-browser__thumb img,
+  .screenshots-browser__thumb-missing {
+    height: 64px;
+  }
+
+  .screenshots-browser__stage {
+    padding: 12px;
+    gap: 6px;
+  }
+
+  .screenshots-browser__nav {
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+  }
+}
