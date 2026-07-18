@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createContainerMutation } from "../operation/openApiTestFixtures";
 import {
   DocumentSyncResponseSchema,
   isDocumentSyncResponse,
@@ -243,6 +244,86 @@ test("document sync request guard preserves cross-field rules", () => {
   expect(
     isDocumentSyncRequest({ ...valid, outgoingUpdates: new Array(1) }),
   ).toBe(false);
+});
+
+test("document sync request mode preserves issue mapping", () => {
+  const valid = createSyncRequest();
+  const update = valid.outgoingUpdates[0];
+
+  const missingPathsResult = DocumentSyncRequestSchema.safeParse({
+    ...valid,
+    authorizingContainerPathRefs: undefined,
+    outgoingUpdates: [update, update],
+  });
+  expect(missingPathsResult.success).toBe(false);
+  if (!missingPathsResult.success) {
+    expect(missingPathsResult.error.issues).toEqual([
+      {
+        code: "custom",
+        message:
+          "authorizing container paths are required for outgoing updates",
+        path: ["authorizingContainerPathRefs"],
+      },
+      {
+        code: "custom",
+        message: "outgoing update ids must be unique",
+        path: ["outgoingUpdates"],
+      },
+    ]);
+  }
+
+  const rekeysWithoutWriteResult = DocumentSyncRequestSchema.safeParse({
+    ...valid,
+    containerRekeys: [createContainerMutation()],
+    outgoingUpdates: [],
+  });
+  expect(rekeysWithoutWriteResult.success).toBe(false);
+  if (!rekeysWithoutWriteResult.success) {
+    expect(rekeysWithoutWriteResult.error.issues).toEqual([
+      {
+        code: "custom",
+        message: "container rekeys require an outgoing update",
+        path: ["containerRekeys"],
+      },
+    ]);
+  }
+
+  const malformedRekeysResult = DocumentSyncRequestSchema.safeParse({
+    ...valid,
+    containerRekeys: "invalid",
+    outgoingUpdates: [],
+  });
+  expect(malformedRekeysResult.success).toBe(false);
+  if (!malformedRekeysResult.success) {
+    expect(malformedRekeysResult.error.issues).toEqual([
+      {
+        code: "custom",
+        message: "Invalid input",
+        path: ["containerRekeys"],
+      },
+      {
+        code: "custom",
+        message: "container rekeys require an outgoing update",
+        path: ["containerRekeys"],
+      },
+    ]);
+  }
+
+  expect(
+    DocumentSyncRequestSchema.safeParse({
+      ...valid,
+      authorizingContainerPathRefs: [],
+      containerRekeys: [],
+    }).success,
+  ).toBe(true);
+  expect(
+    DocumentSyncRequestSchema.safeParse({
+      ...valid,
+      authorizingContainerPathRefs: undefined,
+      containerRekeys: [],
+      outgoingUpdates: [],
+    }).success,
+  ).toBe(true);
 });
 
 test("document sync request schema preserves signed and extension fields", () => {
