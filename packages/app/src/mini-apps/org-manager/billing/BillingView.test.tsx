@@ -4,7 +4,13 @@ import type {
   SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { ORG_MANAGER_LABELS } from "../labels";
+import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
+import {
+  getOrgManagerPeriodEndsLabel,
+  getOrgManagerSeatsLabel,
+  getOrgManagerTrialEndsLabel,
+  ORG_MANAGER_LABELS,
+} from "../labels";
 import { BillingView, type BillingViewProps } from "./BillingView";
 
 afterEach(() => cleanup());
@@ -109,6 +115,60 @@ test("a trialing organization shows the days remaining and can sync", () => {
   expect(
     view.queryByRole("button", { name: ORG_MANAGER_LABELS.billingStartTrial }),
   ).toBeNull();
+});
+
+test("an active subscription shows seats billed and the period end date", () => {
+  const endsAtMs = Date.parse("2026-08-15T12:00:00Z");
+  const view = render(
+    <BillingView
+      {...props({
+        view: billingView({
+          status: "active",
+          canSync: true,
+          isLocal: false,
+          isActive: true,
+          seatCount: 3,
+          currentPeriodEndsAtMs: endsAtMs,
+        }),
+      })}
+    />,
+  );
+  expect(view.getByText(getOrgManagerSeatsLabel(3))).toBeDefined();
+  expect(
+    view.getByText(getOrgManagerPeriodEndsLabel(formatMiniAppDate(endsAtMs))),
+  ).toBeDefined();
+});
+
+test("a trialing organization shows the trial end date, not billed seats", () => {
+  const trialEndsAtMs = Date.parse("2026-07-25T12:00:00Z");
+  const view = render(
+    <BillingView
+      {...props({
+        view: billingView({
+          status: "trialing",
+          canSync: true,
+          isLocal: false,
+          isTrialing: true,
+          trialDaysRemaining: 5,
+          trialEndsAtMs,
+          seatCount: 2,
+        }),
+      })}
+    />,
+  );
+  expect(
+    view.getByText(
+      getOrgManagerTrialEndsLabel(formatMiniAppDate(trialEndsAtMs)),
+    ),
+  ).toBeDefined();
+  // A free trial is not billed, so no "seats billed" label appears.
+  expect(view.queryByText(/billed/)).toBeNull();
+});
+
+test("a local organization shows no seats or period date", () => {
+  const view = render(<BillingView {...props({})} />);
+  expect(view.queryByText(/billed/)).toBeNull();
+  expect(view.queryByText(/Current period ends/)).toBeNull();
 });
 
 test("non-admins see a read-only notice and no actions", () => {

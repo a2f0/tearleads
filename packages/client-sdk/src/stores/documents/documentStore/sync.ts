@@ -106,6 +106,7 @@ async function requestRemoteDocumentSync(input: {
     onRemoteDocumentDeleted: () => deleteUpstreamDeletedDocument(state),
     pendingUpdates,
     persistedState: currentRecord,
+    rekeyPendingUpdate: state.persistence.rekeyPendingUpdate,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
       logPrefix: "Documents",
@@ -352,6 +353,7 @@ async function finalizeDocumentSync(
   if (
     shouldReArmAfterOutgoingSettlement({
       outgoingUpdateCount: syncAttempt.outgoingUpdateCount,
+      rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
       settledUpdateCount: synced.settledPendingUpdateIds.length,
     })
   ) {

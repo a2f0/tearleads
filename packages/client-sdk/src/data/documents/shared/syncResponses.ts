@@ -405,13 +405,37 @@ export async function persistedDocumentSyncStateFromResponse(
   };
 }
 
+// Transitional (#1607): a pre-coded API deployment emits 409 bodies without a
+// `code`, and strict code matching would turn its recoverable stale-state
+// conflicts into surfaced failures for the whole deploy-skew window. Match the
+// legacy message shapes only when `code` is absent; a present-but-unknown code
+// still fails closed. Delete once the coded API deployment is confirmed.
+const LEGACY_RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES = [
+  "Document KEK targets are stale",
+  "Document content-key bundle is stale",
+];
+
+function isLegacyRetryableDocumentSyncConflict(message: string): boolean {
+  return (
+    LEGACY_RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES.some((legacyMessage) =>
+      message.includes(legacyMessage),
+    ) ||
+    (message.includes("authorizingContainerPath") &&
+      message.includes("is stale")) ||
+    (message.includes("targetContainerPath") && message.includes("is stale"))
+  );
+}
+
 export function isRetryableDocumentSyncConflict(
   failure: DocumentSyncSubmitFailure,
 ): boolean {
-  return (
-    failure.status === 409 &&
-    failure.code === DOCUMENT_SYNC_ERROR_CODES.stateStale
-  );
+  if (failure.status !== 409) {
+    return false;
+  }
+  if (failure.code != null) {
+    return failure.code === DOCUMENT_SYNC_ERROR_CODES.stateStale;
+  }
+  return isLegacyRetryableDocumentSyncConflict(failure.message);
 }
 
 export function isUpstreamDeletedDocumentSyncFailure(

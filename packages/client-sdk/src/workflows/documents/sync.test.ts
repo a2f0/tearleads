@@ -45,6 +45,7 @@ import {
   writerProjectionEvidence,
 } from "../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
+import { ensureDocumentTables } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   buildMaterializedDocumentCreatePlan,
@@ -62,6 +63,7 @@ let closeExecSql: () => void;
 
 beforeEach(async () => {
   ({ close: closeExecSql, execSql } = await createTestExecSql("document-sync"));
+  await ensureDocumentTables(execSql);
 });
 
 afterEach(() => closeExecSql());

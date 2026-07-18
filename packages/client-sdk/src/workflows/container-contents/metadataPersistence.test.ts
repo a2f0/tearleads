@@ -66,6 +66,9 @@ function createPersistence(): ContainerContentsPersistence {
     async listPendingMoveIntents() {
       return [];
     },
+    async rekeyPendingUpdate() {
+      return null;
+    },
     async listPendingUpdates() {
       return [];
     },

@@ -7,6 +7,7 @@ import {
   type LocalOrganizationSummary,
   listLocalOrganizations,
   loadOrganizationBilling,
+  loadOrganizationBillingHistory,
   removeOrganizationGroupUser,
   revokeOrganizationContainerGrant,
   startOrganizationTrial,
@@ -46,6 +47,8 @@ export type {
   ImportedOrganizationUser,
   LocalOrganizationSummary,
   OrganizationBilling,
+  OrganizationBillingHistory,
+  OrganizationBillingHistoryEntry,
   OrganizationBillingView,
   OrganizationContainerGrant,
   OrganizationContainerGrants,
@@ -104,6 +107,7 @@ export interface Organizations {
   ) => Promise<DeleteOrganizationGroupResponse | null>;
   importUserById: (userId: string) => ReturnType<typeof importOrganizationUser>;
   loadBilling: () => ReturnType<typeof loadOrganizationBilling>;
+  loadBillingHistory: () => ReturnType<typeof loadOrganizationBillingHistory>;
   loadDataUsage: () => ReturnType<
     OrganizationDataUsageCoordinator["reconcile"]
   >;
@@ -308,6 +312,17 @@ class OrganizationsService implements Organizations {
     const organizationId = authenticatedOrganizationId(runtime);
     return organizationId
       ? loadOrganizationBilling({
+          apiClient: runtime.apiClient,
+          organizationId,
+        })
+      : Promise.resolve(null);
+  }
+
+  loadBillingHistory() {
+    const runtime = this.runtimeService.workflowInput();
+    const organizationId = authenticatedOrganizationId(runtime);
+    return organizationId
+      ? loadOrganizationBillingHistory({
           apiClient: runtime.apiClient,
           organizationId,
         })

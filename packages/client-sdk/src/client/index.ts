@@ -162,6 +162,8 @@ export type {
   ImportedOrganizationUser,
   LocalOrganizationSummary,
   OrganizationBilling,
+  OrganizationBillingHistory,
+  OrganizationBillingHistoryEntry,
   OrganizationBillingView,
   OrganizationContainerGrant,
   OrganizationContainerGrants,

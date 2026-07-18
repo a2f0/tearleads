@@ -12,6 +12,7 @@ import {
   syncRemoteDocument,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
+import { requestDocumentStoreSync } from "../registry";
 import { createStoredDocument } from "./initialization";
 import {
   advancePendingBaseVersion,
@@ -102,6 +103,7 @@ async function pullVerifiedHistoryForRotation(input: {
       minLsn: input.currentRecord.lastCommitLsn ?? undefined,
       pendingUpdates: input.pendingUpdates,
       persistedState: input.currentRecord,
+      rekeyPendingUpdate: input.state.persistence.rekeyPendingUpdate,
       resolveProjectionUserKey: input.state.resolveProjectionUserKey,
       resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
         logPrefix: "Documents",
@@ -132,6 +134,12 @@ async function pullVerifiedHistoryForRotation(input: {
     sentUpdateIds,
     new Set(synced.response.acceptedOutgoingUpdateIds),
   );
+  // Conflicted pending updates re-keyed during this preflight need a
+  // follow-up pass to submit their fresh ids, and the rotation that follows
+  // may abort before syncing again.
+  if (synced.rekeyedPendingUpdateIds.length > 0) {
+    requestDocumentStoreSync(input.state);
+  }
   return synced;
 }
 

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { DocumentKekTargetError } from "../../../access/read/documentKekTargets";
+import { ContainerWriterProjectionError } from "../../containers/writerProjection/types";
 import {
   DocumentMutationError,
   documentSyncStateStale,
@@ -38,4 +39,32 @@ test("document mutation conversion preserves lower-layer protocol codes", () => 
   expect(new DocumentMutationError("Terminal conflict", 409).code).toBe(
     undefined,
   );
+});
+
+test("sync access projection errors keep their status instead of a 500", () => {
+  const conflict = toMutationError(
+    new ContainerWriterProjectionError("Container head is stale", 409),
+  );
+  const forbidden = toMutationError(
+    new ContainerWriterProjectionError("Container access denied", 403),
+  );
+
+  expect(conflict).toMatchObject({
+    message: "Container head is stale",
+    status: 409,
+  });
+  expect(forbidden).toMatchObject({
+    message: "Container access denied",
+    status: 403,
+  });
+});
+
+test("container 404s do not become document-deletion 404s", () => {
+  // Clients treat a sync-route 404 as upstream document deletion and wipe the
+  // local document; a missing *container* projection must not trigger that.
+  expect(
+    toMutationError(
+      new ContainerWriterProjectionError("Container not found", 404),
+    ),
+  ).toMatchObject({ message: "Container not found", status: 409 });
 });

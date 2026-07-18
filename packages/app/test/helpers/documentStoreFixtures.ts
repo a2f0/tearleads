@@ -208,6 +208,7 @@ function createPendingUpdatePersistence(
 ): Pick<
   DocumentsPersistence,
   | "listPendingUpdates"
+  | "rekeyPendingUpdate"
   | "enqueuePendingUpdate"
   | "deletePendingUpdate"
   | "deletePendingUpdates"
@@ -215,6 +216,19 @@ function createPendingUpdatePersistence(
   return {
     async listPendingUpdates() {
       return state.pendingUpdates;
+    },
+    async rekeyPendingUpdate(_execSql, id) {
+      const pendingUpdate = state.pendingUpdates.find(
+        (candidate) => candidate.id === id,
+      );
+      if (!pendingUpdate) {
+        return null;
+      }
+      const nextId = crypto.randomUUID();
+      state.pendingUpdates = state.pendingUpdates.map((candidate) =>
+        candidate.id === id ? { ...candidate, id: nextId } : candidate,
+      );
+      return nextId;
     },
     async enqueuePendingUpdate(_execSql, pendingUpdate: PendingUpdateInsert) {
       state.pendingUpdates = [

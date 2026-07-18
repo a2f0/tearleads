@@ -159,6 +159,12 @@ export {
   type PaymentRequiredErrorResponse,
 } from "./organizationBilling";
 export {
+  isOrganizationBillingHistoryResponse,
+  type OrganizationBillingHistoryEntry,
+  type OrganizationBillingHistoryOutcome,
+  type OrganizationBillingHistoryResponse,
+} from "./organizationBillingHistory";
+export {
   isOrganizationDataUsageResponse,
   ORGANIZATION_DOCUMENT_USAGE_CATEGORIES,
   type OrganizationBlobDataUsageResponse,
