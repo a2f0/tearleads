@@ -281,11 +281,35 @@ test("exact principal policy lookup hard-fails on same-version indexed candidate
     }
     const reference = referencedPrincipalStateFromPolicyState(previousState);
     const competingStateHash = "f".repeat(64);
+    const newerStateHash = "e".repeat(64);
+    const newerBundle = {
+      ...bundle,
+      currentState: {
+        ...bundle.currentState,
+        version: bundle.currentState.version + 1,
+        prevStateHash: bundle.currentState.stateHash,
+        stateHash: newerStateHash,
+      },
+      currentPayload: { ...bundle.currentPayload, stateHash: newerStateHash },
+      currentMemberEnvelopes: {
+        ...bundle.currentMemberEnvelopes,
+        stateHash: newerStateHash,
+      },
+      previousStates: [
+        ...bundle.previousStates,
+        { state: bundle.currentState, projection: bundle.currentProjection },
+      ],
+    };
     const competingCurrentState = {
       ...bundle.currentState,
       stateHash: competingStateHash,
     };
     await savePrincipalPolicyBundle(execSql, bundle, "2026-07-18T00:00:00Z");
+    await savePrincipalPolicyBundle(
+      execSql,
+      newerBundle,
+      "2026-07-18T00:00:30Z",
+    );
     await execSql(
       `INSERT INTO principal_policy_bundle_history
          (principal_type, principal_id, state_hash, current_state_json,

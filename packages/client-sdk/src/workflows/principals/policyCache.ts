@@ -266,6 +266,8 @@ async function cacheReferencedPrincipalPolicy(
     principalId: reference.principalId,
     principalType: reference.principalType,
   });
+  // Only null is a recoverable local miss. Integrity failures remain typed and
+  // must escape rather than being hidden by a canonical network retry.
   const cachedBundle = await loadPrincipalPolicyBundleForReference(
     execSql,
     reference,

@@ -243,22 +243,27 @@ function selectNewestCandidate(
   >,
 ): PrincipalPolicyBundleResponse | null {
   let selected: PrincipalPolicyBundleResponse | null = null;
+  const stateHashByVersion = new Map<number, string>();
   for (const { bundle } of candidates.values()) {
+    const existingHash = stateHashByVersion.get(bundle.currentState.version);
     if (
-      !selected ||
-      bundle.currentState.version > selected.currentState.version
-    ) {
-      selected = bundle;
-      continue;
-    }
-    if (
-      bundle.currentState.version === selected.currentState.version &&
-      bundle.currentState.stateHash !== selected.currentState.stateHash
+      existingHash !== undefined &&
+      existingHash !== bundle.currentState.stateHash
     ) {
       throw new KeyingVerificationError(
         "equivocation",
         "stored principal policy bundles conflict at one version",
       );
+    }
+    stateHashByVersion.set(
+      bundle.currentState.version,
+      bundle.currentState.stateHash,
+    );
+    if (
+      !selected ||
+      bundle.currentState.version > selected.currentState.version
+    ) {
+      selected = bundle;
     }
   }
   return selected;
@@ -366,6 +371,9 @@ async function loadRetainedRows(
   if (hashes.size === 0) {
     return [];
   }
+  // Remote reset deliberately clears mutable heads while retaining historical
+  // key material, so an index target can outlive its bundle row. Such a target
+  // is only a selection hint; rows that still exist remain authoritative.
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   return db
     .select(retainedBundleSelection)

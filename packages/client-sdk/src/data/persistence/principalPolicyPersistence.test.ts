@@ -186,6 +186,53 @@ test("principal policy persistence stores and reloads the current verified bundl
   }
 });
 
+test("principal policy persistence rejects a competing head at the cached version", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-persistence-head-conflict",
+  );
+
+  try {
+    const { bundle } = await createPrincipalPolicyBundle();
+    const competingStateHash = "f".repeat(64);
+    const competingBundle: PrincipalPolicyBundleResponse = {
+      ...bundle,
+      currentState: {
+        ...bundle.currentState,
+        stateHash: competingStateHash,
+      },
+      currentPayload: {
+        ...bundle.currentPayload,
+        stateHash: competingStateHash,
+      },
+      currentMemberEnvelopes: {
+        ...bundle.currentMemberEnvelopes,
+        stateHash: competingStateHash,
+      },
+    };
+    await savePrincipalPolicyBundle(
+      execSql,
+      bundle,
+      "2026-04-08T00:01:00.000Z",
+    );
+
+    await expect(
+      savePrincipalPolicyBundle(
+        execSql,
+        competingBundle,
+        "2026-04-08T00:02:00.000Z",
+      ),
+    ).rejects.toMatchObject({
+      code: "equivocation",
+      name: "KeyingVerificationError",
+    });
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+    ).resolves.toEqual(bundle);
+  } finally {
+    close();
+  }
+});
+
 test("principal policy persistence reads from a fresh database before any bundle is cached", async () => {
   const { close, execSql } = await createTestExecSql(
     "principal-policy-persistence-test",

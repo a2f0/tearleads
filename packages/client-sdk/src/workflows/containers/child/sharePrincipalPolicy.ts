@@ -125,15 +125,13 @@ function signerPublicKeyLoadErrorMessage(
   }
 }
 
-async function loadGroupSharePolicyBundle(
-  input: {
-    apiClient: ContainerManagedPrincipalShareApi;
-    execSql: ExecSql;
-    expectedGroupHead?: ReferencedPrincipalHead | undefined;
-    groupId: string;
-  },
-  localCheckpoint: PrincipalPolicyCheckpoint | null,
-): Promise<PrincipalPolicyBundleResponse> {
+async function loadGroupSharePolicyBundle(input: {
+  apiClient: ContainerManagedPrincipalShareApi;
+  execSql: ExecSql;
+  expectedGroupHead?: ReferencedPrincipalHead | undefined;
+  groupId: string;
+  localCheckpoint: PrincipalPolicyCheckpoint | null;
+}): Promise<PrincipalPolicyBundleResponse> {
   if (
     input.expectedGroupHead &&
     (input.expectedGroupHead.principalType !== "group" ||
@@ -145,7 +143,7 @@ async function loadGroupSharePolicyBundle(
     ? await loadPrincipalPolicyBundleForReference(
         input.execSql,
         input.expectedGroupHead,
-        localCheckpoint,
+        input.localCheckpoint,
       )
     : null;
   let bundle = bundleFromCache;
@@ -174,7 +172,10 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
     principalId: input.groupId,
     principalType: "group",
   });
-  const bundle = await loadGroupSharePolicyBundle(input, localCheckpoint);
+  const bundle = await loadGroupSharePolicyBundle({
+    ...input,
+    localCheckpoint,
+  });
   const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
     bundle,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,

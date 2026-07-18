@@ -116,7 +116,6 @@ test("client sqlite schema creates tables and indexes", async () => {
       "document_pending_attachments_mime_type_idx",
       "document_pending_updates_scope_created_idx",
       "documents_app_document_idx",
-      "principal_policy_bundle_references_exact_idx",
     ]);
 
     const documents = await readTableColumns(execSql, "documents");

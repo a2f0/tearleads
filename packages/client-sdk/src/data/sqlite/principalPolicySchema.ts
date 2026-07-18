@@ -1,5 +1,4 @@
 import {
-  index,
   integer,
   primaryKey,
   sqliteTable,
@@ -65,15 +64,6 @@ export const principalPolicyBundleReferences = sqliteTable(
         table.bundleStateHash,
       ],
     }),
-    index("principal_policy_bundle_references_exact_idx").on(
-      table.principalType,
-      table.principalId,
-      table.version,
-      table.stateHash,
-      table.keyEpoch,
-      table.keyFingerprint,
-      table.bundleVersion,
-    ),
   ],
 );
 
