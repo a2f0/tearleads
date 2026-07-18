@@ -3,3 +3,8 @@
 /public/favicon.svg
 /public/favicon.ico
 /public/apple-touch-icon.png
+
+# Screenshot gallery assets staged from `.screenshots/` by
+# scripts/buildScreenshots.ts (runs on predev/prebuild). Regenerated on every
+# dev/build, so not committed.
+/public/screenshot-gallery/
