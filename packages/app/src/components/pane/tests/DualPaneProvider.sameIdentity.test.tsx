@@ -188,11 +188,20 @@ test(
       "Secondary pane websocket did not reconnect after identity recovery.",
       20_000,
     );
+    // Both panes derive the same deterministic self-contact local id from the
+    // shared signing fingerprint; the recovered pane adopts the primary's
+    // remote self-contact document onto that row instead of materializing a
+    // second row under the remote document id.
     await expectSingleYouContact({
-      expectedLocalId: primarySelfDocumentId,
+      expectedLocalId: primarySelfIdentity.localId,
       pane: secondaryPane,
       userId: primaryUserId,
     });
+    const secondarySelfIdentity = await readPaneExplorerDocumentIdentity(
+      secondaryPane,
+      "You",
+    );
+    expect(secondarySelfIdentity.documentId).toBe(primarySelfDocumentId);
 
     await openOrgManager(primaryPane);
     await openOrgManager(secondaryPane);
@@ -284,7 +293,7 @@ test(
     await expectAppRuntimeSettled();
     await expectSingleYouContact({ pane: primaryPane, userId: primaryUserId });
     await expectSingleYouContact({
-      expectedLocalId: primarySelfDocumentId,
+      expectedLocalId: primarySelfIdentity.localId,
       pane: secondaryPane,
       userId: primaryUserId,
     });

@@ -262,10 +262,14 @@ test(
         const selfButtons = within(currentItemsTable).queryAllByRole("button", {
           name: "You",
         });
+        // Both devices derive the same deterministic self-contact local id from
+        // the shared signing fingerprint, and discovery adopts the recovered
+        // pane's pending row onto the primary's remote document instead of
+        // materializing a second row under the remote document id.
         return (
           selfButtons.length === 1 &&
           selfButtons[0]?.getAttribute("data-document-local-id") ===
-            primarySelfDocumentId
+            primarySelfIdentity.localId
         );
       },
       "Recovered self contact did not converge on the primary document identity.",
@@ -302,7 +306,7 @@ test(
     expect(secondarySelfIdentity.containerId).toBe(
       primarySelfIdentity.containerId,
     );
-    expect(secondarySelfIdentity.localId).toBe(primarySelfDocumentId);
+    expect(secondarySelfIdentity.localId).toBe(primarySelfIdentity.localId);
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );

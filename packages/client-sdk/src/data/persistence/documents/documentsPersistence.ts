@@ -72,6 +72,7 @@ import {
   resolvePersistedAccessStateHash,
   resolvePersistedDocumentRuntimeState,
 } from "./internal/documentRuntimeState";
+import { mapPendingCreateLocalIds } from "./internal/pendingCreateAdoption";
 import type {
   ContainerDocumentTombstoneInput,
   DocumentSummaryList,
@@ -208,13 +209,15 @@ async function listDocumentSummaries(
 async function upsertDiscoveredDocumentWithExec(
   execSql: ExecSql,
   input: DiscoveredDocumentInput,
+  pendingCreates: ReadonlyMap<string, string>,
 ): Promise<DocumentSummary> {
   const existingLocalId = await findLocalIdByDocumentId(
     execSql,
     DOCUMENTS_APP_KIND,
     input.documentId,
   );
-  const localId = existingLocalId ?? input.documentId;
+  const localId =
+    existingLocalId ?? pendingCreates.get(input.documentId) ?? input.documentId;
   const existingDocument = await sqlDocumentsPersistence.loadDocument(
     execSql,
     localId,
@@ -323,11 +326,16 @@ export async function upsertDiscoveredDocuments(
 ): Promise<DocumentSummary[]> {
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
+    const pendingCreates = await mapPendingCreateLocalIds(lockedExecSql);
     const nextSummaries: DocumentSummary[] = [];
 
     for (const input of inputs) {
       nextSummaries.push(
-        await upsertDiscoveredDocumentWithExec(lockedExecSql, input),
+        await upsertDiscoveredDocumentWithExec(
+          lockedExecSql,
+          input,
+          pendingCreates,
+        ),
       );
     }
 
