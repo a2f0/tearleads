@@ -1,12 +1,46 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   cacheReferencedPolicies,
   createPrincipalPolicyBundle,
   createSuccessorPrincipalPolicyBundle,
   referencedPrincipalStateFromBundle,
 } from "../../../test/helpers/policyCacheFixtures";
-import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
+import {
+  loadPrincipalPolicyBundle,
+  savePrincipalPolicyBundle,
+} from "../../data/persistence/principalPolicyPersistence";
+
+function predecessorBundle(
+  bundle: PrincipalPolicyBundleResponse,
+): PrincipalPolicyBundleResponse {
+  const previous = bundle.previousStates[0];
+  if (!previous) {
+    throw new Error("Expected a predecessor state");
+  }
+  return {
+    currentMemberEnvelopes: {
+      principalType: previous.state.principalType,
+      principalId: previous.state.principalId,
+      stateHash: previous.state.stateHash,
+      epoch: previous.state.keyEpoch,
+      envelopes: [],
+    },
+    currentPayload: {
+      principalType: previous.state.principalType,
+      principalId: previous.state.principalId,
+      stateHash: previous.state.stateHash,
+      cipherSuite: "aes-256-gcm",
+      ciphertext: "cached-previous-ciphertext",
+      ciphertextHash: previous.state.payloadCiphertextHash,
+      createdAt: previous.state.createdAt,
+    },
+    currentProjection: previous.projection,
+    currentState: previous.state,
+    previousStates: [],
+  };
+}
 
 test("referenced policy warming re-verifies an exact local bundle without a policy GET", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -59,6 +93,156 @@ test("referenced policy warming performs one policy GET for a local head mismatc
     });
 
     expect(policyGetCount).toBe(1);
+  } finally {
+    close();
+  }
+});
+
+test("referenced policy warming fetches once when the exact local chain is behind its checkpoint", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-warmer-behind-checkpoint",
+  );
+  try {
+    const { bundle, signerKeyResponse } =
+      await createSuccessorPrincipalPolicyBundle();
+    const cachedBundle = predecessorBundle(bundle);
+    const reference = referencedPrincipalStateFromBundle(cachedBundle);
+    await savePrincipalPolicyBundle(
+      execSql,
+      cachedBundle,
+      "2026-07-18T00:00:00Z",
+    );
+    await execSql(
+      `INSERT INTO principal_policy_checkpoints
+         (principal_type, principal_id, version, state_hash, updated_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        bundle.currentState.principalType,
+        bundle.currentState.principalId,
+        bundle.currentState.version,
+        bundle.currentState.stateHash,
+        "2026-07-18T00:01:00Z",
+      ],
+    );
+    let policyGetCount = 0;
+
+    await cacheReferencedPolicies({
+      execSql,
+      getCurrentPrincipalPolicy: async () => {
+        policyGetCount += 1;
+        return bundle;
+      },
+      getUserIdentity: async () => signerKeyResponse,
+      references: [reference],
+    });
+
+    expect(policyGetCount).toBe(1);
+  } finally {
+    close();
+  }
+});
+
+test("referenced policy warming leaves stale local state unchanged when the canonical bundle is unavailable", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-warmer-behind-checkpoint-unavailable",
+  );
+  try {
+    const { bundle, signerKeyResponse } =
+      await createSuccessorPrincipalPolicyBundle();
+    const cachedBundle = predecessorBundle(bundle);
+    await savePrincipalPolicyBundle(
+      execSql,
+      cachedBundle,
+      "2026-07-18T00:00:00Z",
+    );
+    await execSql(
+      `INSERT INTO principal_policy_checkpoints
+         (principal_type, principal_id, version, state_hash, updated_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        bundle.currentState.principalType,
+        bundle.currentState.principalId,
+        bundle.currentState.version,
+        bundle.currentState.stateHash,
+        "2026-07-18T00:01:00Z",
+      ],
+    );
+    let policyGetCount = 0;
+
+    await cacheReferencedPolicies({
+      execSql,
+      getCurrentPrincipalPolicy: async () => {
+        policyGetCount += 1;
+        return null;
+      },
+      getUserIdentity: async () => signerKeyResponse,
+      references: [referencedPrincipalStateFromBundle(cachedBundle)],
+    });
+
+    expect(policyGetCount).toBe(1);
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+    ).resolves.toEqual(cachedBundle);
+  } finally {
+    close();
+  }
+});
+
+test("referenced policy warming leaves stale local state unchanged when the canonical bundle is invalid", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-warmer-behind-checkpoint-invalid",
+  );
+  try {
+    const { bundle, signerKeyResponse } =
+      await createSuccessorPrincipalPolicyBundle();
+    const cachedBundle = predecessorBundle(bundle);
+    const firstMember = bundle.currentProjection[0];
+    if (!firstMember) {
+      throw new Error("Expected a current projection member");
+    }
+    const invalidBundle: PrincipalPolicyBundleResponse = {
+      ...bundle,
+      currentProjection: [
+        {
+          ...firstMember,
+          role: firstMember.role === "admin" ? "member" : "admin",
+        },
+        ...bundle.currentProjection.slice(1),
+      ],
+    };
+    await savePrincipalPolicyBundle(
+      execSql,
+      cachedBundle,
+      "2026-07-18T00:00:00Z",
+    );
+    await execSql(
+      `INSERT INTO principal_policy_checkpoints
+         (principal_type, principal_id, version, state_hash, updated_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        bundle.currentState.principalType,
+        bundle.currentState.principalId,
+        bundle.currentState.version,
+        bundle.currentState.stateHash,
+        "2026-07-18T00:01:00Z",
+      ],
+    );
+    let policyGetCount = 0;
+
+    await cacheReferencedPolicies({
+      execSql,
+      getCurrentPrincipalPolicy: async () => {
+        policyGetCount += 1;
+        return invalidBundle;
+      },
+      getUserIdentity: async () => signerKeyResponse,
+      references: [referencedPrincipalStateFromBundle(cachedBundle)],
+    });
+
+    expect(policyGetCount).toBe(1);
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+    ).resolves.toEqual(cachedBundle);
   } finally {
     close();
   }

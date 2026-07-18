@@ -2,9 +2,10 @@ import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
-import { principalPolicyHeadMeetsCheckpoint } from "../persistence/principalPolicyCheckpointSelection";
+import { verifiedPrincipalPolicyMeetsCheckpoint } from "../persistence/principalPolicyCheckpointSelection";
 import { loadPrincipalPolicyBundleForReference } from "../persistence/principalPolicyReferencePersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 
@@ -17,7 +18,14 @@ import type { ExecSql } from "../sqlite/sqlSchema";
 export function referencedPrincipalPolicyKey(
   reference: ReferencedPrincipalHead,
 ): string {
-  return `${reference.principalType}:${reference.principalId}:${reference.version}:${reference.stateHash}`;
+  return JSON.stringify([
+    reference.principalType,
+    reference.principalId,
+    reference.version,
+    reference.stateHash,
+    reference.keyEpoch,
+    reference.keyFingerprint,
+  ]);
 }
 
 export function principalPolicyCacheForVerifiedPolicies(
@@ -70,6 +78,22 @@ export function principalPolicyBundleContainsReference(
   );
 }
 
+export function verifiedPrincipalPolicyContainsReference(
+  policy: VerifiedPrincipalPolicy,
+  reference: ReferencedPrincipalHead,
+): boolean {
+  const states = policy.history?.map(({ state }) => state) ?? [policy.state];
+  return states.some(
+    (state) =>
+      state.principalType === reference.principalType &&
+      state.principalId === reference.principalId &&
+      state.version === reference.version &&
+      state.keyEpoch === reference.keyEpoch &&
+      state.stateHash === reference.stateHash &&
+      state.keyFingerprint === reference.keyFingerprint,
+  );
+}
+
 // Identify which referenced policies are absent from both the in-memory cache
 // and local storage, so the warmer fetches only what is genuinely missing.
 export async function filterUncachedPrincipalPolicyReferences(input: {
@@ -87,20 +111,25 @@ export async function filterUncachedPrincipalPolicyReferences(input: {
       const cachedPolicy = input.principalPolicyCache.get(
         referencedPrincipalPolicyKey(reference),
       );
-      if (
-        cachedPolicy &&
-        principalPolicyHeadMeetsCheckpoint(cachedPolicy, checkpoint)
-      ) {
-        return null;
+      if (cachedPolicy) {
+        if (
+          !verifiedPrincipalPolicyContainsReference(cachedPolicy, reference)
+        ) {
+          throw new KeyingVerificationError(
+            "hash_mismatch",
+            "in-memory principal policy cache does not match its exact reference",
+          );
+        }
+        if (verifiedPrincipalPolicyMeetsCheckpoint(cachedPolicy, checkpoint)) {
+          return null;
+        }
       }
       const bundle = await loadPrincipalPolicyBundleForReference(
         input.execSql,
         reference,
+        checkpoint,
       );
-      return bundle &&
-        principalPolicyHeadMeetsCheckpoint(bundle.currentState, checkpoint)
-        ? null
-        : reference;
+      return bundle ? null : reference;
     }),
   );
   return results.filter(

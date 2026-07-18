@@ -1,5 +1,6 @@
 import type {
   ManagedPrincipalKind,
+  PrincipalPolicyCheckpoint,
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
@@ -129,6 +130,7 @@ async function loadGroupSharePolicyBundle(input: {
   execSql: ExecSql;
   expectedGroupHead?: ReferencedPrincipalHead | undefined;
   groupId: string;
+  localCheckpoint: PrincipalPolicyCheckpoint | null;
 }): Promise<PrincipalPolicyBundleResponse> {
   if (
     input.expectedGroupHead &&
@@ -137,17 +139,14 @@ async function loadGroupSharePolicyBundle(input: {
   ) {
     throw new Error("Container share expected group policy target mismatch");
   }
-  let bundle: PrincipalPolicyBundleResponse | null = null;
-  if (input.expectedGroupHead) {
-    try {
-      bundle = await loadPrincipalPolicyBundleForReference(
+  const bundleFromCache = input.expectedGroupHead
+    ? await loadPrincipalPolicyBundleForReference(
         input.execSql,
         input.expectedGroupHead,
-      );
-    } catch {
-      bundle = null;
-    }
-  }
+        input.localCheckpoint,
+      )
+    : null;
+  let bundle = bundleFromCache;
   bundle ??= await input.apiClient.getCurrentPrincipalPolicy(
     "group",
     input.groupId,
@@ -168,12 +167,14 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
   organizationId: string;
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<VerifiedSharePrincipalPolicy> {
-  const bundle = await loadGroupSharePolicyBundle(input);
-
   const localCheckpoint = await loadPrincipalPolicyVerificationCheckpoint({
     execSql: input.execSql,
     principalId: input.groupId,
     principalType: "group",
+  });
+  const bundle = await loadGroupSharePolicyBundle({
+    ...input,
+    localCheckpoint,
   });
   const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
     bundle,
