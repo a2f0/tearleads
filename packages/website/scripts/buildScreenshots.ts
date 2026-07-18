@@ -61,9 +61,15 @@ interface ScreenshotEntry {
 async function listDir(dir: string): Promise<string[]> {
   try {
     return await readdir(dir);
-  } catch {
-    // Missing `.screenshots/` (never captured) is the common case, not an error.
-    return [];
+  } catch (error) {
+    // A missing `.screenshots/` (never captured) is the common, expected case.
+    // Any other failure (permissions, I/O, not-a-directory) means the captures
+    // are broken — rethrow so the build fails loudly instead of silently
+    // staging an empty or partial gallery.
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return [];
+    }
+    throw error;
   }
 }
 
