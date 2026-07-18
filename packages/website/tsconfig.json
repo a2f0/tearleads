@@ -9,6 +9,6 @@
     "noEmit": false,
     "outDir": "dist"
   },
-  "include": [".astro/types.d.ts", "astro.config.ts", "src"],
+  "include": [".astro/types.d.ts", "astro.config.ts", "src", "scripts"],
   "exclude": ["dist"]
 }
