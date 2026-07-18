@@ -17,6 +17,12 @@
   display: flex;
   flex-direction: column;
   height: min(80vh, 840px);
+  /* The page centers sections in a flex column, where min-width: auto lets a
+   * wide stage image inflate the section to its content width. That feeds the
+   * stage measurement in useStageFit its own output and the layout settles
+   * overflowed after a viewport shrink. Inline-size containment makes this
+   * box's intrinsic width independent of its content, breaking the loop. */
+  contain: inline-size;
   border: 1px solid var(--sb-border);
   border-radius: 14px;
   overflow: hidden;
@@ -99,26 +105,33 @@
   color: var(--sb-accent-text);
 }
 
+/* Stage on top, nav row beneath it, filmstrip along the bottom — the preview
+ * gets the container's full width. */
 .screenshots-browser__body {
   flex: 1;
   display: flex;
+  flex-direction: column;
   min-height: 0;
 }
 
 .screenshots-browser__filmstrip {
-  width: 200px;
+  /* Positioned so thumb offsetLeft is strip-relative for the keep-visible
+   * scrolling in Filmstrip. */
+  position: relative;
   flex-shrink: 0;
-  overflow-y: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: 12px;
-  border-right: 1px solid var(--sb-border);
+  border-top: 1px solid var(--sb-border);
   background: var(--sb-panel);
   display: flex;
-  flex-direction: column;
   gap: 10px;
 }
 
 .screenshots-browser__thumb {
   appearance: none;
+  width: 148px;
+  flex-shrink: 0;
   border: 1px solid var(--sb-border);
   border-radius: 8px;
   background: var(--sb-bg);
@@ -138,7 +151,7 @@
 .screenshots-browser__thumb img,
 .screenshots-browser__thumb-missing {
   width: 100%;
-  height: 96px;
+  height: 72px;
   object-fit: cover;
   object-position: top;
   border-radius: 4px;
@@ -161,13 +174,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 24px;
+  padding: 24px 24px 12px;
 }
 
 .screenshots-browser__frame {
   max-width: 100%;
   max-height: 100%;
+  /* Without these a tall screenshot sets the flex item's min-content size and
+   * the frame ignores max-height, bleeding under the nav row. */
+  min-width: 0;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -176,6 +192,18 @@
   border-radius: 12px;
   box-shadow: 0 12px 40px var(--sb-shadow);
   overflow: hidden;
+}
+
+/* Applied together with __frame when the frame is the click-to-expand button;
+ * resets button chrome so the frame looks identical to the plain-div variant.
+ * Declared before __frame--mobile so the mobile padding still wins. */
+.screenshots-browser__zoom {
+  appearance: none;
+  font: inherit;
+  color: inherit;
+  margin: 0;
+  padding: 0;
+  cursor: zoom-in;
 }
 
 .screenshots-browser__frame--mobile {
@@ -202,6 +230,14 @@
   font-size: 14px;
 }
 
+.screenshots-browser__navrow {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  padding: 0 24px 14px;
+}
+
 .screenshots-browser__nav {
   appearance: none;
   flex-shrink: 0;
@@ -219,6 +255,79 @@
 .screenshots-browser__nav:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+/*
+ * Click-to-expand lightbox. A modal <dialog> in the browser's top layer, so the
+ * enlarged image sits above the page and is not clipped by the gallery
+ * container. The dialog spans the viewport (transparent, flex-centered) with a
+ * full-bleed backdrop button behind the image, so clicking the area around the
+ * image closes it.
+ */
+.screenshots-browser__lightbox {
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  margin: 0;
+  padding: 32px;
+  border: none;
+  background: transparent;
+  align-items: center;
+  justify-content: center;
+}
+
+.screenshots-browser__lightbox[open] {
+  display: flex;
+}
+
+.screenshots-browser__lightbox::backdrop {
+  background: rgba(9, 11, 15, 0.82);
+}
+
+.screenshots-browser__lightbox-backdrop {
+  appearance: none;
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: zoom-out;
+}
+
+/* Positioned so they paint above the backdrop button and clicks land on them
+ * rather than closing the dialog. */
+.screenshots-browser__lightbox-image,
+.screenshots-browser__lightbox .screenshots-browser__missing {
+  position: relative;
+}
+
+.screenshots-browser__lightbox-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+.screenshots-browser__lightbox .screenshots-browser__missing {
+  background: var(--sb-panel);
+  border-radius: 12px;
+}
+
+.screenshots-browser__lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(20, 22, 26, 0.6);
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .screenshots-browser__status,
@@ -244,10 +353,8 @@
 }
 
 /*
- * Narrow screens (phones): a fixed 200px side filmstrip plus the stage padding
- * and nav buttons leave no room for the preview at ~390px. Stack instead — the
- * stage on top, a horizontal, scrollable filmstrip beneath it — and trim the
- * stage padding and nav buttons so the preview keeps the width.
+ * Narrow screens (phones): same stacked layout, just tighter — trim paddings
+ * and shrink the thumbs and nav buttons so the preview keeps the width.
  */
 @media (max-width: 700px) {
   .screenshots-browser {
@@ -259,23 +366,12 @@
     padding: 10px 12px;
   }
 
-  .screenshots-browser__body {
-    flex-direction: column;
-  }
-
   .screenshots-browser__filmstrip {
-    width: auto;
-    flex-direction: row;
-    overflow-x: auto;
-    overflow-y: hidden;
-    border-right: none;
-    border-top: 1px solid var(--sb-border);
     padding: 10px;
   }
 
   .screenshots-browser__thumb {
     width: 108px;
-    flex-shrink: 0;
   }
 
   .screenshots-browser__thumb img,
@@ -284,13 +380,26 @@
   }
 
   .screenshots-browser__stage {
-    padding: 12px;
-    gap: 6px;
+    padding: 12px 12px 8px;
+  }
+
+  .screenshots-browser__navrow {
+    gap: 10px;
+    padding: 0 12px 10px;
   }
 
   .screenshots-browser__nav {
     width: 36px;
     height: 36px;
     font-size: 20px;
+  }
+
+  .screenshots-browser__lightbox {
+    padding: 12px;
+  }
+
+  .screenshots-browser__lightbox-close {
+    top: 10px;
+    right: 10px;
   }
 }
