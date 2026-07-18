@@ -232,6 +232,18 @@ export function getOrgManagerMemberCountLabel(memberCount: number): string {
   return `${memberCount} member${memberCount === 1 ? "" : "s"}`;
 }
 
+export function getOrgManagerSeatsLabel(seats: number): string {
+  return `${seats} seat${seats === 1 ? "" : "s"} billed`;
+}
+
+export function getOrgManagerPeriodEndsLabel(dateLabel: string): string {
+  return `Current period ends ${dateLabel}`;
+}
+
+export function getOrgManagerTrialEndsLabel(dateLabel: string): string {
+  return `Trial ends ${dateLabel}`;
+}
+
 export function getOrgManagerPolicyAddedLabel(
   memberLabel: string,
   role: string | null | undefined,

@@ -13,9 +13,13 @@ import {
   MiniAppRowStack,
   MiniAppRowText,
 } from "../../../components/shared/MiniAppRow";
+import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import {
   getOrgManagerBillingStatusLabel,
+  getOrgManagerPeriodEndsLabel,
+  getOrgManagerSeatsLabel,
   getOrgManagerTrialDaysLabel,
+  getOrgManagerTrialEndsLabel,
   ORG_MANAGER_LABELS,
 } from "../labels";
 
@@ -41,7 +45,29 @@ export interface BillingViewProps {
   readonly onRefresh: () => void;
 }
 
+function resolveBillingPeriodLabel(
+  view: OrganizationBillingView,
+): string | null {
+  if (view.isActive && view.currentPeriodEndsAtMs !== null) {
+    return getOrgManagerPeriodEndsLabel(
+      formatMiniAppDate(view.currentPeriodEndsAtMs),
+    );
+  }
+  if (view.isTrialing && view.trialEndsAtMs !== null) {
+    return getOrgManagerTrialEndsLabel(formatMiniAppDate(view.trialEndsAtMs));
+  }
+  return null;
+}
+
 function BillingSummary({ view }: { view: OrganizationBillingView }) {
+  // Seats and the current-period end date only apply to a paid/trial subscription
+  // (both are meaningless while local). seatCount is a derived active-member count.
+  const seatsLabel =
+    (view.isActive || view.isTrialing) && view.seatCount > 0
+      ? getOrgManagerSeatsLabel(view.seatCount)
+      : null;
+  const periodLabel = resolveBillingPeriodLabel(view);
+
   return (
     <MiniAppSection>
       <MiniAppSectionHeading>
@@ -62,6 +88,16 @@ function BillingSummary({ view }: { view: OrganizationBillingView }) {
           </strong>
         ) : null}
       </MiniAppRow>
+      {seatsLabel || periodLabel ? (
+        <MiniAppRow density="roomy">
+          <MiniAppRowStack>
+            {seatsLabel ? <MiniAppRowText>{seatsLabel}</MiniAppRowText> : null}
+            {periodLabel ? (
+              <MiniAppRowText muted>{periodLabel}</MiniAppRowText>
+            ) : null}
+          </MiniAppRowStack>
+        </MiniAppRow>
+      ) : null}
     </MiniAppSection>
   );
 }
