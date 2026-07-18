@@ -12,6 +12,7 @@ import { SystemMonitorPinned } from "../../../mini-apps/system-monitor/SystemMon
 import { useSystemMonitor } from "../../../mini-apps/system-monitor/SystemMonitorProvider";
 import type { MiniAppId } from "../../../mini-apps/types";
 import { useAppNavigationState } from "../../../navigation/AppNavigationProvider";
+import { NavigationModeSwitch } from "../../../navigation/NavigationModeSwitch";
 import {
   type RoutedLayoutTier,
   useRoutedLayoutTier,
@@ -36,7 +37,7 @@ import {
 } from "../../window/WindowSidebarContext";
 import "./RoutedPane.css";
 import { RoutedPaneAppBar } from "./RoutedPaneAppBar";
-import { RoutedPaneNav } from "./RoutedPaneNav";
+import { ROUTED_PANE_NAV_PANEL_ID, RoutedPaneNav } from "./RoutedPaneNav";
 import { RoutedPaneSidebar } from "./RoutedPaneSidebar";
 
 const ROUTED_ROOT_MINI_APP_ID: MiniAppId = "explorer";
@@ -79,25 +80,45 @@ export function menuPositionBelow(anchor: HTMLElement): MenuPosition {
   return { x: rect.left, y: rect.bottom };
 }
 
-function RoutedPaneMobileBar({
+/**
+ * The routed shell's bottom taskbar — the routed counterpart of the windowed
+ * pane footer. Present in both tiers: the centered Tearleads logo is the menu
+ * affordance (opening the launcher sheet on mobile, revealing the rail on
+ * tablet) and the corner hosts the windowed/routed switch so the layout can be
+ * flipped back to windows from inside the routed shell.
+ */
+function RoutedPaneTaskBar({
+  tier,
   drawerOpen,
   onToggleDrawer,
+  railExpanded,
+  onToggleRail,
 }: {
+  tier: RoutedLayoutTier;
   drawerOpen: boolean;
   onToggleDrawer: () => void;
+  railExpanded: boolean;
+  onToggleRail: () => void;
 }) {
+  const isMobile = tier === "mobile";
+  const expanded = isMobile ? drawerOpen : railExpanded;
+  const controls = isMobile ? "routed-pane-sheet" : ROUTED_PANE_NAV_PANEL_ID;
+
   return (
-    <footer className="routed-pane-mobile-bar">
+    <footer className="routed-pane-taskbar">
       <button
-        aria-controls="routed-pane-sheet"
-        aria-expanded={drawerOpen}
+        aria-controls={expanded ? controls : undefined}
+        aria-expanded={expanded}
         aria-label="Menu"
-        className="routed-pane-mobile-menu-button"
+        className="routed-pane-taskbar-menu-button"
         type="button"
-        onClick={onToggleDrawer}
+        onClick={isMobile ? onToggleDrawer : onToggleRail}
       >
-        <TearleadsLogo className="routed-pane-mobile-menu-logo" />
+        <TearleadsLogo className="routed-pane-taskbar-menu-logo" />
       </button>
+      <div className="routed-pane-taskbar-end">
+        <NavigationModeSwitch mode="routed" />
+      </div>
     </footer>
   );
 }
@@ -246,12 +267,13 @@ function RoutedPaneSurface({
         <SystemMonitorPinned />
         {showUnlockPanel ? <LocalKeyringUnlockWindow /> : <ActiveMiniApp />}
       </main>
-      {tier === "mobile" && (
-        <RoutedPaneMobileBar
-          drawerOpen={drawerOpen}
-          onToggleDrawer={toggleDrawer}
-        />
-      )}
+      <RoutedPaneTaskBar
+        drawerOpen={drawerOpen}
+        onToggleDrawer={toggleDrawer}
+        onToggleRail={onToggleNavigationRail}
+        railExpanded={navigationRailExpanded}
+        tier={tier}
+      />
       <RoutedPaneConfirmationDialogs
         destroyKeyPackageDialog={destroyKeyPackageDialog}
         logoutDialog={logoutDialog}

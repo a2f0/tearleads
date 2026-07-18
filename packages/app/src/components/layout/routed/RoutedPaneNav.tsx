@@ -12,7 +12,7 @@ import { classNames } from "../../shared/classNames";
 import { PaneSystemMenuItems } from "../../shared/PaneSystemMenuItems";
 import type { WindowMenuItem } from "../../window/WindowMenuBar";
 
-const ROUTED_PANE_NAV_PANEL_ID = "routed-pane-nav-panel";
+export const ROUTED_PANE_NAV_PANEL_ID = "routed-pane-nav-panel";
 
 function RoutedPaneNavLink({
   appId,

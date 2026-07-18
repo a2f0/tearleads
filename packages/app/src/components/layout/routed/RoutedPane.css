@@ -7,6 +7,9 @@
  * - mobile: top app bar + centered bottom menu button that opens a bottom
  *   sheet of app-launcher tiles over content.
  * - tablet: persistent left rail beside the main content (the iPad layout).
+ *
+ * Both tiers carry the bottom taskbar (centered logo + the windowed/routed mode
+ * switch); tablet keeps its rail in addition.
  */
 
 .routed-pane {
@@ -28,22 +31,24 @@
   );
 }
 
-/* Mobile: app bar on top, menu bar on bottom; rail/sidebar are overlays. */
+/* Mobile: app bar on top, taskbar on bottom; rail/sidebar are overlays. */
 .routed-pane--mobile {
   display: grid;
   grid-template:
     "appbar" auto
     "main" 1fr
-    "mobilebar" auto
+    "taskbar" auto
     / minmax(0, 1fr);
 }
 
-/* Tablet: persistent rail column + app bar over main. */
+/* Tablet: persistent rail column (full height) + app bar over main + taskbar
+   spanning the content column beside the rail (matches the mobile bottom bar). */
 .routed-pane--tablet {
   display: grid;
   grid-template:
     "rail appbar" auto
     "rail main" 1fr
+    "rail taskbar" auto
     / auto minmax(0, 1fr);
 }
 
@@ -51,6 +56,7 @@
   grid-template:
     "rail appbar appbar" auto
     "rail sidebar main" 1fr
+    "rail taskbar taskbar" auto
     / auto auto minmax(0, 1fr);
 }
 
@@ -379,19 +385,25 @@
   scrollbar-gutter: var(--scrollbar-gutter);
 }
 
-/* === Mobile menu bar === */
+/* === Bottom taskbar (both tiers) === */
 
-.routed-pane-mobile-bar {
-  grid-area: mobilebar;
-  display: flex;
-  justify-content: center;
+/* Three columns keep the logo optically centered regardless of the corner
+   controls' width: an empty balancing column, the centered logo, then the
+   end-aligned system tray (the mode switch). */
+.routed-pane-taskbar {
+  grid-area: taskbar;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
   padding: var(--space-xs) var(--space-sm)
     max(var(--space-xs), env(safe-area-inset-bottom));
   border-top: var(--border-strong);
   background: var(--color-muted);
 }
 
-.routed-pane-mobile-menu-button {
+.routed-pane-taskbar-menu-button {
+  grid-column: 2;
+  justify-self: center;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -405,9 +417,9 @@
   line-height: 1;
   cursor: pointer;
   /* Resting logo tones, theme-adaptive. The old #555/#999 literals were tuned
-     for a light bar and vanished on the dark mobile bar (--color-muted). Key
-     both off the foreground role — mirroring the .tearleads-header remap — so
-     the mark stays legible on either surface: the "T" (secondary) is the full
+     for a light bar and vanished on the dark taskbar (--color-muted). Key both
+     off the foreground role — mirroring the .tearleads-header remap — so the
+     mark stays legible on either surface: the "T" (secondary) is the full
      foreground glyph, the "L:" (primary) a dimmer tone mixed toward the bar. */
   --tearleads-logo-secondary: var(--color-dark);
   --tearleads-logo-primary: color-mix(
@@ -417,9 +429,9 @@
   );
 }
 
-.routed-pane-mobile-menu-button:hover,
-.routed-pane-mobile-menu-button:focus-visible,
-.routed-pane-mobile-menu-button[aria-expanded="true"] {
+.routed-pane-taskbar-menu-button:hover,
+.routed-pane-taskbar-menu-button:focus-visible,
+.routed-pane-taskbar-menu-button[aria-expanded="true"] {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
   --tearleads-logo-primary: color-mix(
@@ -430,10 +442,19 @@
   --tearleads-logo-secondary: var(--emphasis-text);
 }
 
-.routed-pane-mobile-menu-logo {
+.routed-pane-taskbar-menu-logo {
   display: block;
   width: 28px;
   height: 28px;
+}
+
+/* System tray: the windowed/routed switch, tucked into the trailing corner. */
+.routed-pane-taskbar-end {
+  grid-column: 3;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
 /*
@@ -467,7 +488,7 @@
     grid-template:
       "appbar" auto
       "main" 1fr
-      "mobilebar" auto
+      "taskbar" auto
       / minmax(0, 1fr);
   }
 
