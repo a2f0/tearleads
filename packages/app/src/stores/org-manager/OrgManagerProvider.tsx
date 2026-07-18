@@ -67,8 +67,12 @@ interface OrgManagerContextValue {
   isOperationScopeActive: (scope: OrgManagerOperationScope) => boolean;
   loadDataUsage: () => Promise<OrganizationDataUsage | null | undefined>;
   loadLocalDataUsage: () => Promise<OrganizationDataUsage | null>;
-  loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
-  loadDirectoryAndGroupsAfterMutation: () => Promise<OrganizationDirectoryAndGroups | null>;
+  loadDirectoryAndGroups: () => Promise<
+    OrganizationDirectoryAndGroups | null | undefined
+  >;
+  loadDirectoryAndGroupsAfterMutation: () => Promise<
+    OrganizationDirectoryAndGroups | null | undefined
+  >;
   loadLocalDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
   loadGroupContainers: (
     groupId: string,

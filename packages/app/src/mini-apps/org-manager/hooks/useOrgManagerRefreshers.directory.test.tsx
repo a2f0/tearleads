@@ -88,7 +88,7 @@ function createRefresherHarness(input: {
 test("a transient null reconcile keeps the painted local projection", async () => {
   const harness = createRefresherHarness({
     // The SDK declines without I/O when offline or the database is not ready.
-    loadDirectoryAndGroups: async () => null,
+    loadDirectoryAndGroups: async () => undefined,
     loadLocalDirectoryAndGroups: async () => localDirectoryState,
   });
 

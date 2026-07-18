@@ -292,14 +292,8 @@ export function useOrgManagerModel() {
     setUserDetail,
     view,
   });
-  useOrgManagerViewRefreshes({
-    enabled: canLoadAuthenticatedOrgData,
-    readModelCursor,
-    refreshDataUsage,
-    refreshGrants,
-    refreshOrganizationPolicyHistory,
-    view,
-  });
+  // The scope reset must register before the view refreshers so its effect
+  // clears abandoned-scope state before the new scope's refreshes begin.
   useOrgManagerScopeReset({
     closeContextMenu: contextMenuState.closeContextMenu,
     resetDirectoryState,
@@ -310,6 +304,14 @@ export function useOrgManagerModel() {
     setLoadingUserDetail,
     setMutating,
     setOrganizationPolicyHistory,
+  });
+  useOrgManagerViewRefreshes({
+    enabled: canLoadAuthenticatedOrgData,
+    readModelCursor,
+    refreshDataUsage,
+    refreshGrants,
+    refreshOrganizationPolicyHistory,
+    view,
   });
   useOrgManagerDirectorySync({
     canLoadAuthenticatedOrgData,

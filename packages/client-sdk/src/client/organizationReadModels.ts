@@ -61,12 +61,18 @@ export interface OrganizationReadModelCoordinator {
     userId: string,
     organizationId?: string | undefined,
   ): Promise<OrganizationUserDetail | null>;
+  /**
+   * Resolves `undefined` when the runtime declines without I/O (offline,
+   * database not ready, organization mismatch); `null` when the reconcile ran
+   * but produced nothing presentable — including an authoritative denial that
+   * purged the projection, which consumers must repaint.
+   */
   reconcile(
     organizationId?: string | undefined,
-  ): Promise<OrganizationDirectoryAndGroups | null>;
+  ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
   reconcileAfterMutation(
     organizationId?: string | undefined,
-  ): Promise<OrganizationDirectoryAndGroups | null>;
+  ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
 }
 
 function activeReadModelRuntime(
@@ -306,10 +312,12 @@ class OrganizationReadModelCoordinatorImpl
     });
   }
 
-  reconcile(organizationId?: string) {
+  reconcile(
+    organizationId?: string,
+  ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
     const active = activeReadModelRuntime(this.runtimeService, organizationId);
     if (!active || !active.runtime.state.online) {
-      return Promise.resolve(null);
+      return Promise.resolve(undefined);
     }
 
     const byKey = this.reconciliationMap(active);
@@ -337,10 +345,12 @@ class OrganizationReadModelCoordinatorImpl
     return reconciliation;
   }
 
-  async reconcileAfterMutation(organizationId?: string) {
+  async reconcileAfterMutation(
+    organizationId?: string,
+  ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
     const active = activeReadModelRuntime(this.runtimeService, organizationId);
     if (!active || !active.runtime.state.online) {
-      return null;
+      return undefined;
     }
     const existing = this.reconciliationMap(active).get(
       organizationAccessScopeKey(active.organizationId, active.userId),

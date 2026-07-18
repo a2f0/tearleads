@@ -20,8 +20,8 @@ import {
 test("coalesces a websocket burst and performs one trailing in-flight pass", async () => {
   let releaseFirst: (() => void) | undefined;
   let markFirstStarted: (() => void) | undefined;
-  const first = new Promise<void>((resolve) => {
-    releaseFirst = resolve;
+  const first = new Promise<object>((resolve) => {
+    releaseFirst = () => resolve({});
   });
   const firstStarted = new Promise<void>((resolve) => {
     markFirstStarted = resolve;
@@ -75,8 +75,8 @@ test("coalesces a websocket burst and performs one trailing in-flight pass", asy
 test("initial consumer catch-up joins an active reconciliation without a trailing pass", async () => {
   let releaseRequest: (() => void) | undefined;
   let markRequestStarted: (() => void) | undefined;
-  const request = new Promise<void>((resolve) => {
-    releaseRequest = resolve;
+  const request = new Promise<object>((resolve) => {
+    releaseRequest = () => resolve({});
   });
   const requestStarted = new Promise<void>((resolve) => {
     markRequestStarted = resolve;
@@ -145,8 +145,8 @@ test("first exact demand owns catch-up until the last consumer leaves", async ()
 test("first-demand catch-up repaints consumers that join while it is in flight", async () => {
   let releaseRequest: (() => void) | undefined;
   let markRequestStarted: (() => void) | undefined;
-  const request = new Promise<void>((resolve) => {
-    releaseRequest = resolve;
+  const request = new Promise<object>((resolve) => {
+    releaseRequest = () => resolve({});
   });
   const requestStarted = new Promise<void>((resolve) => {
     markRequestStarted = resolve;
@@ -200,8 +200,8 @@ for (const transition of ["user identity", "domain scope"] as const) {
   test(`same-organization ${transition} transition catches up only the current exact scope`, async () => {
     let releaseFirstRequest: (() => void) | undefined;
     let markFirstRequestStarted: (() => void) | undefined;
-    const firstRequest = new Promise<void>((resolve) => {
-      releaseFirstRequest = resolve;
+    const firstRequest = new Promise<object>((resolve) => {
+      releaseFirstRequest = () => resolve({});
     });
     const firstRequestStarted = new Promise<void>((resolve) => {
       markFirstRequestStarted = resolve;
@@ -219,6 +219,7 @@ for (const transition of ["user identity", "domain scope"] as const) {
           await firstRequest;
         }
         inFlight -= 1;
+        return {};
       },
     });
     let staleProjectionUpdates = 0;
@@ -374,8 +375,32 @@ test("a released deferred author hint reconciles the feed", async () => {
   expect(projectionUpdates).toBe(2);
 });
 
+test("an authoritative null reconcile still repaints mounted consumers", async () => {
+  // Null is a completed pass — an authoritative denial purged the durable
+  // projection — so listeners must repaint the loss instead of holding
+  // revoked rows on screen.
+  const runtime = createRuntimeHarness({
+    loadDirectoryAndGroups: () => Promise.resolve(null),
+  });
+  let projectionUpdates = 0;
+  const unsubscribe = subscribeOrganizationReadModelRealtime(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    () => {
+      projectionUpdates += 1;
+    },
+  );
+  await ensureOrganizationReadModelReconciliation(
+    runtime.tearleads,
+    ORGANIZATION_A,
+  );
+  expect(runtime.reconcileCalls).toBe(1);
+  expect(projectionUpdates).toBe(1);
+  unsubscribe();
+});
+
 test("a declined reconcile does not mark the scope caught up", async () => {
-  let result: unknown = null;
+  let result: unknown;
   const runtime = createRuntimeHarness({
     loadDirectoryAndGroups: () => Promise.resolve(result),
   });

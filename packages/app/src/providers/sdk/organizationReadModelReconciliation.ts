@@ -25,8 +25,10 @@ async function notifyProjectionListeners(
   );
 }
 
-/** Null means the SDK declined without I/O (offline or database not ready),
- * so the scope is not caught up and must stay eligible for the next trigger. */
+/** Undefined means the SDK declined without I/O (offline or database not
+ * ready): the scope is not caught up and must stay eligible for the next
+ * trigger. Null still counts as a completed pass — an authoritative denial
+ * purged the projection and mounted consumers must repaint the loss. */
 async function reconcileFeed(
   tearleads: Tearleads,
   useSdkBarrier: boolean,
@@ -34,7 +36,7 @@ async function reconcileFeed(
   const result = useSdkBarrier
     ? await tearleads.organizations.loadDirectoryAndGroupsAfterMutation()
     : await tearleads.organizations.loadDirectoryAndGroups();
-  return result !== null;
+  return result !== undefined;
 }
 
 /**

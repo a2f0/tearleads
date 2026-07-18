@@ -129,8 +129,8 @@ test("concurrent read-model reconciliation is single-flight", async () => {
       ...workflowInput,
       state: { ...workflowInput.state, online: false },
     };
-    await expect(coordinator.reconcile()).resolves.toBeNull();
-    await expect(coordinator.reconcileAfterMutation()).resolves.toBeNull();
+    await expect(coordinator.reconcile()).resolves.toBeUndefined();
+    await expect(coordinator.reconcileAfterMutation()).resolves.toBeUndefined();
     expect(readModelRequests).toBe(1);
   } finally {
     close();
@@ -280,7 +280,7 @@ test("post-mutation reconciliation waits for an older request and coalesces one 
       ok: true,
     });
     await olderScopeRequest;
-    await expect(afterScopeMutation).resolves.toBeNull();
+    await expect(afterScopeMutation).resolves.toBeUndefined();
     expect(readModelRequests).toBe(3);
   } finally {
     close();
