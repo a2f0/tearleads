@@ -8,7 +8,7 @@ import {
   type ReactNode,
   useMemo,
 } from "react";
-import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
+import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import {
   addMiniAppTableHeaderAction,
   getVisibleMiniAppTableColumnIds,
@@ -23,13 +23,13 @@ import {
   MiniAppTableText,
   miniAppRowActionsColumn,
   useMiniAppColumnVisibility,
-} from "../../../components/shared/MiniAppTable";
+} from "../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
   MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
   MiniAppVirtualTableSpacerRow,
   useMiniAppVirtualRows,
-} from "../../../components/shared/MiniAppVirtual";
+} from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { compactFingerprint, isKeyboardActivationKey } from "../display";

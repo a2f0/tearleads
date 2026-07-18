@@ -6,7 +6,7 @@ import {
   type MiniAppColumnMenuOption,
   type MiniAppTableColumn,
   useMiniAppColumnVisibility,
-} from "../../components/shared/MiniAppTable";
+} from "../../components/mini-app/MiniAppTable";
 
 export type SessionTableColumnId =
   | "status"

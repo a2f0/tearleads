@@ -10,7 +10,7 @@ import {
   MiniAppHeaderCopy,
   MiniAppPanel,
   MiniAppStatus,
-} from "../../../../components/shared/MiniAppLayout";
+} from "../../../../components/mini-app/MiniAppLayout";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../../stores/explorer/documentInfo";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 import { canWriteDocumentSummary } from "../../containerRules";

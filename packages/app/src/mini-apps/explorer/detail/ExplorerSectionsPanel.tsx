@@ -12,7 +12,7 @@ import {
   useCallback,
   useId,
 } from "react";
-import { MiniAppButton } from "../../../components/shared/MiniAppLayout";
+import { MiniAppButton } from "../../../components/mini-app/MiniAppLayout";
 import type { BlobPickTarget } from "../../shared/blob-pick/BlobPickProvider";
 import { EXPLORER_LABELS } from "../labels";
 import type { ExplorerRoute } from "../routes";

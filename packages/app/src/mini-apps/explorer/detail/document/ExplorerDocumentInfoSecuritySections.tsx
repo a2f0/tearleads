@@ -2,11 +2,11 @@ import type { DocumentInfo } from "@tearleads/client-sdk";
 import {
   MiniAppInfoSection,
   MiniAppStatus,
-} from "../../../../components/shared/MiniAppLayout";
+} from "../../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppInfoRow,
   MiniAppInfoTable,
-} from "../../../../components/shared/MiniAppTable";
+} from "../../../../components/mini-app/MiniAppTable";
 import {
   EXPLORER_LABELS,
   getExplorerDocumentInfoBundleStateLabel,

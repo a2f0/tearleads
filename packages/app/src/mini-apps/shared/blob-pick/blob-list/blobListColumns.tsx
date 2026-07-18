@@ -7,7 +7,7 @@ import {
   getVisibleMiniAppTableColumnIds,
   type MiniAppColumnMenuOption,
   type MiniAppTableColumn,
-} from "../../../../components/shared/MiniAppTable";
+} from "../../../../components/mini-app/MiniAppTable";
 import { BLOB_LIST_LABELS } from "./blobListLabels";
 
 export type BlobInfoColumnId =

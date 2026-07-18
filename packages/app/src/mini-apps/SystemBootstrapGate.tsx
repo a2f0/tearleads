@@ -3,7 +3,7 @@ import {
   MiniAppRoot,
   MiniAppSidebar,
   MiniAppStatus,
-} from "../components/shared/MiniAppLayout";
+} from "../components/mini-app/MiniAppLayout";
 import {
   useRegisteredWindowSidebar,
   useWindowSidebar,

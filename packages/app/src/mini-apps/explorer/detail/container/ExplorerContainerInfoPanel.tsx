@@ -9,7 +9,7 @@ import {
   MiniAppButton,
   MiniAppFormPanel,
   MiniAppStatus,
-} from "../../../../components/shared/MiniAppLayout";
+} from "../../../../components/mini-app/MiniAppLayout";
 import { EXPLORER_LABELS } from "../../labels";
 import type { MiniAppWindowPosition } from "../../types";
 import {

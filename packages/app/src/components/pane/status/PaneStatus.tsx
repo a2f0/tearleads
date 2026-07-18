@@ -1,7 +1,7 @@
 import {
   MiniAppInfoRow,
   MiniAppInfoTable,
-} from "../../../components/shared/MiniAppTable";
+} from "../../../components/mini-app/MiniAppTable";
 import { useNetworkModeContextMenu } from "../../../components/shared/NetworkModeContextMenu";
 import {
   NO_STATUS_VALUE,

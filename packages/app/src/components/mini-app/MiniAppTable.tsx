@@ -1,15 +1,15 @@
 export {
   MiniAppColumnMenuButton,
   type MiniAppColumnMenuOption,
-} from "../mini-app/tables/MiniAppColumnMenuButton";
+} from "./tables/MiniAppColumnMenuButton";
 export {
   getVisibleMiniAppTableColumnIds,
   loadMiniAppHiddenColumns,
   type MiniAppColumnVisibility,
   saveMiniAppHiddenColumns,
   useMiniAppColumnVisibility,
-} from "../mini-app/tables/MiniAppColumnVisibility";
-export { MiniAppRowActionsButton } from "../mini-app/tables/MiniAppRowActionsButton";
+} from "./tables/MiniAppColumnVisibility";
+export { MiniAppRowActionsButton } from "./tables/MiniAppRowActionsButton";
 export {
   addMiniAppTableHeaderAction,
   MiniAppInfoRow,
@@ -25,4 +25,4 @@ export {
   MiniAppTableRow,
   MiniAppTableText,
   miniAppRowActionsColumn,
-} from "../mini-app/tables/MiniAppTable";
+} from "./tables/MiniAppTable";

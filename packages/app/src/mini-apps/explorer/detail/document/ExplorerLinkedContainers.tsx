@@ -4,8 +4,8 @@ import {
   MiniAppButton,
   MiniAppInfoSection,
   MiniAppStatus,
-} from "../../../../components/shared/MiniAppLayout";
-import { MiniAppRow } from "../../../../components/shared/MiniAppRow";
+} from "../../../../components/mini-app/MiniAppLayout";
+import { MiniAppRow } from "../../../../components/mini-app/rows/MiniAppRow";
 import { canWriteContainerNode } from "../../containerRules";
 import { ExplorerContainerIcon } from "../../ExplorerContainerIcon";
 import {

@@ -9,12 +9,12 @@ import {
   MiniAppField,
   MiniAppInput,
   MiniAppStatus,
-} from "../../../components/shared/MiniAppLayout";
+} from "../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRow,
   MiniAppRowStack,
   MiniAppRowText,
-} from "../../../components/shared/MiniAppRow";
+} from "../../../components/mini-app/rows/MiniAppRow";
 import {
   DocumentsProvider,
   useDocument,

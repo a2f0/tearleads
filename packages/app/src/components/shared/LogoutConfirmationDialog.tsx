@@ -5,7 +5,7 @@ import {
   MiniAppModalBackdrop,
   MiniAppModalForm,
   MiniAppModalPanel,
-} from "./MiniAppLayout";
+} from "../mini-app/MiniAppLayout";
 import type { LogoutOptions } from "./useLogoutConfirmation";
 import "./LogoutConfirmationDialog.css";
 

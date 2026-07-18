@@ -4,8 +4,8 @@ import {
   MiniAppRow,
   MiniAppRowButton,
   MiniAppRowText,
-} from "../../components/shared/MiniAppRow";
-import { MiniAppVirtualBlockSpacer } from "../../components/shared/MiniAppVirtual";
+} from "../../components/mini-app/rows/MiniAppRow";
+import { MiniAppVirtualBlockSpacer } from "../../components/mini-app/virtual/MiniAppVirtual";
 import { getDocumentTypeIcon } from "../../document-types/registry";
 import { useTouchRowHeight } from "../../navigation/useTouchRowHeight";
 import { getViewerRelativeContactDocumentLabel } from "../../stores/contacts/contactLabels";

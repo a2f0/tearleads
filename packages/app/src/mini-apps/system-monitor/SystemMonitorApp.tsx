@@ -6,12 +6,12 @@ import {
   useMemo,
   useState,
 } from "react";
-import { PaneStatus } from "../../components/pane/PaneStatus";
 import {
   MiniAppButton,
   MiniAppClipboardButton,
   MiniAppRoot,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
+import { PaneStatus } from "../../components/pane/status/PaneStatus";
 import { useNetworkModeContextMenu } from "../../components/shared/NetworkModeContextMenu";
 import { useCurrentWindow } from "../../components/window/CurrentWindowContext";
 import {

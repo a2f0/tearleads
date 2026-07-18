@@ -1,7 +1,7 @@
 import {
   type MiniAppColumnVisibility,
   useMiniAppColumnVisibility,
-} from "../../../../components/shared/MiniAppTable";
+} from "../../../../components/mini-app/MiniAppTable";
 import {
   DEFAULT_HIDDEN_EXPLORER_COLUMNS,
   EXPLORER_COLUMN_STORAGE_KEY,

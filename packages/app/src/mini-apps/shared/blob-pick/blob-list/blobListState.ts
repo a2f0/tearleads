@@ -12,7 +12,7 @@ import {
   getMiniAppVirtualWindowRange,
   MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
   useMiniAppVirtualWindow,
-} from "../../../../components/shared/MiniAppVirtual";
+} from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import {
   isAutomaticBlobPreviewAllowed,
   isImageDocumentAttachmentBlob,

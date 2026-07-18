@@ -1,9 +1,9 @@
 import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
 import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import { type MouseEvent, useRef, useState } from "react";
+import { MiniAppRowActionsButton } from "../../components/mini-app/MiniAppTable";
 import { Menu, type MenuPosition } from "../../components/shared/Menu";
 import { MenuItem } from "../../components/shared/MenuItem";
-import { MiniAppRowActionsButton } from "../../components/shared/MiniAppTable";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import {
   DocumentRowDetailOverlay,

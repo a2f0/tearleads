@@ -4,7 +4,7 @@ import type {
   PendingWriteQueueOperation,
 } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { MiniAppButton } from "../../../../components/shared/MiniAppLayout";
+import { MiniAppButton } from "../../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppTable,
   MiniAppTableActionButton,
@@ -13,7 +13,7 @@ import {
   MiniAppTableFrame,
   MiniAppTableRow,
   MiniAppTableText,
-} from "../../../../components/shared/MiniAppTable";
+} from "../../../../components/mini-app/MiniAppTable";
 import { useRoutedLayoutTier } from "../../../../navigation/useRoutedLayoutTier";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import {

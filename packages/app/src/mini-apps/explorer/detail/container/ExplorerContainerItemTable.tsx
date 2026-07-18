@@ -5,7 +5,6 @@ import type {
   ContainerNode,
 } from "@tearleads/client-sdk";
 import { type DragEvent, type MouseEvent, useMemo } from "react";
-import { classNames } from "../../../../components/shared/classNames";
 import {
   addMiniAppTableHeaderAction,
   MiniAppColumnMenuButton,
@@ -14,11 +13,12 @@ import {
   MiniAppTableEmptyRow,
   MiniAppTableFrame,
   MiniAppTableRow,
-} from "../../../../components/shared/MiniAppTable";
+} from "../../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
   MiniAppVirtualTableSpacerRow,
-} from "../../../../components/shared/MiniAppVirtual";
+} from "../../../../components/mini-app/virtual/MiniAppVirtual";
+import { classNames } from "../../../../components/shared/classNames";
 import { useRoutedLayoutActive } from "../../../../navigation/useRoutedLayoutActive";
 import { useRoutedLayoutTier } from "../../../../navigation/useRoutedLayoutTier";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";

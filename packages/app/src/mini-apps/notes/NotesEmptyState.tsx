@@ -1,4 +1,4 @@
-import { MiniAppRoot } from "../../components/shared/MiniAppLayout";
+import { MiniAppRoot } from "../../components/mini-app/MiniAppLayout";
 import { NOTES_LABELS } from "./labels";
 
 export function NotesEmptyState() {

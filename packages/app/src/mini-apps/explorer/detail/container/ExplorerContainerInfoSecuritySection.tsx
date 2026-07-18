@@ -2,8 +2,8 @@ import type { ContainerInfo } from "@tearleads/client-sdk";
 import {
   MiniAppInfoHeading,
   MiniAppInfoSection,
-} from "../../../../components/shared/MiniAppLayout";
-import { MiniAppInfoTable } from "../../../../components/shared/MiniAppTable";
+} from "../../../../components/mini-app/MiniAppLayout";
+import { MiniAppInfoTable } from "../../../../components/mini-app/MiniAppTable";
 import {
   EXPLORER_LABELS,
   getExplorerContainerInfoEventLabel,

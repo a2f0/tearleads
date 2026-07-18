@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MiniAppRowActionsButton } from "../../components/shared/MiniAppTable";
+import { MiniAppRowActionsButton } from "../../components/mini-app/MiniAppTable";
 import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWriters";
 import {
   DocumentRowDetailOverlay,

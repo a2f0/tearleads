@@ -1,11 +1,11 @@
 import type { OrganizationUserDetail } from "@tearleads/client-sdk";
 import type { ReactNode } from "react";
-import { MiniAppClipboardButton } from "../../../components/shared/MiniAppLayout";
+import { MiniAppClipboardButton } from "../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRow,
   MiniAppRowStack,
   MiniAppRowText,
-} from "../../../components/shared/MiniAppRow";
+} from "../../../components/mini-app/rows/MiniAppRow";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { compactFingerprint } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";

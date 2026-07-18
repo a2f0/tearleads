@@ -5,7 +5,7 @@ import type {
 import {
   MiniAppSection,
   MiniAppSectionHeading,
-} from "../../../components/shared/MiniAppLayout";
+} from "../../../components/mini-app/MiniAppLayout";
 import { useGrantContextMenu } from "../grants/GrantContextMenu";
 import { GrantTable } from "../grants/GrantTable";
 import { ORG_MANAGER_LABELS } from "../labels";

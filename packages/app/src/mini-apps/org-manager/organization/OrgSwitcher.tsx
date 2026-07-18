@@ -2,7 +2,7 @@ import { BuildingsIcon } from "@phosphor-icons/react/dist/csr/Buildings";
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { useMemo } from "react";
 import { MiniAppSelectMenu } from "../../../components/mini-app/controls/MiniAppSelectMenu";
-import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
+import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import type { OrgSwitcherState } from "../hooks/useOrgSwitcher";
 import { ORG_MANAGER_LABELS } from "../labels";
 

@@ -12,8 +12,8 @@ import {
   DualPaneProvider,
   PaneSideProvider,
 } from "../../../src/components/pane/dual-pane";
-import { Pane } from "../../../src/components/pane/Pane";
-import { PaneProvider } from "../../../src/components/pane/PaneProvider";
+import { PaneProvider } from "../../../src/components/pane/runtime/PaneProvider";
+import { Pane } from "../../../src/components/pane/shell/Pane";
 import { APP_HOST_PROFILES } from "../../../src/host/AppHostConfig";
 import { useRegisterCurrentIdentity } from "../../../src/identity/useRegisterCurrentIdentity";
 import {

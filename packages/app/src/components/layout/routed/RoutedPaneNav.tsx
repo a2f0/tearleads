@@ -11,6 +11,7 @@ import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import { classNames } from "../../shared/classNames";
 import { PaneSystemMenuItems } from "../../shared/PaneSystemMenuItems";
 import type { WindowMenuItem } from "../../window/WindowMenuBar";
+import "./RoutedPaneNav.css";
 
 export const ROUTED_PANE_NAV_PANEL_ID = "routed-pane-nav-panel";
 

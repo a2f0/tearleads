@@ -20,7 +20,7 @@ import {
   WindowStateProvider,
 } from "../../window/WindowStateProvider";
 import { useRegisterUserId } from "../dual-pane";
-import { PaneFooter } from "../PaneFooter";
+import { PaneFooter } from "../footer/PaneFooter";
 import "./Pane.css";
 import { PaneContextMenu } from "./PaneContextMenu";
 

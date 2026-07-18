@@ -2,7 +2,7 @@ import type { ContainerNode } from "@tearleads/client-sdk";
 import {
   getMiniAppVirtualWindowRange,
   MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
-} from "../../components/shared/MiniAppVirtual";
+} from "../../components/mini-app/virtual/MiniAppVirtual";
 import type { ExplorerSidebarTreeEntry } from "./ExplorerSidebarRows";
 
 export const EXPLORER_SIDEBAR_ROW_HEIGHT = MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT;

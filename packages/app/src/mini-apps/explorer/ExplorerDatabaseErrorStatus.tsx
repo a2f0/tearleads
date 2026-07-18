@@ -1,7 +1,7 @@
 import {
   MiniAppButton,
   MiniAppStatus,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
 import { EXPLORER_LABELS } from "./labels";
 
 // Shared boot-failure surface for Explorer's two gates (the detail panel and the

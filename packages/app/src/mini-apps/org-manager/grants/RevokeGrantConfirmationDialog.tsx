@@ -6,8 +6,8 @@ import {
   MiniAppModalBackdrop,
   MiniAppModalForm,
   MiniAppModalPanel,
-} from "../../../components/shared/MiniAppLayout";
-import { MiniAppInfoTable } from "../../../components/shared/MiniAppTable";
+} from "../../../components/mini-app/MiniAppLayout";
+import { MiniAppInfoTable } from "../../../components/mini-app/MiniAppTable";
 import {
   getAccessLabel,
   getContainerDisplayLabel,

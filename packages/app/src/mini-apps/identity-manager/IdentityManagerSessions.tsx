@@ -4,16 +4,16 @@ import {
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
 import {
   MiniAppTable,
   MiniAppTableFrame,
-} from "../../components/shared/MiniAppTable";
+} from "../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
   MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
   useMiniAppVirtualRows,
-} from "../../components/shared/MiniAppVirtual";
+} from "../../components/mini-app/virtual/MiniAppVirtual";
 import { useContextMenuState } from "../../components/shared/useContextMenuState";
 import { useSessionTableColumns } from "./IdentityManagerSessionColumns";
 import { SessionContextMenu } from "./IdentityManagerSessionContextMenu";

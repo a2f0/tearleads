@@ -7,7 +7,7 @@ import {
   MiniAppSectionHeading,
   MiniAppStatus,
   MiniAppToolbar,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
 

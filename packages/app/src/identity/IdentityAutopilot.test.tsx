@@ -22,8 +22,8 @@ import {
   DualPaneProvider,
   PaneSideProvider,
 } from "../components/pane/dual-pane";
-import { Pane } from "../components/pane/Pane";
-import { PaneProvider } from "../components/pane/PaneProvider";
+import { PaneProvider } from "../components/pane/runtime/PaneProvider";
+import { Pane } from "../components/pane/shell/Pane";
 import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../components/shared/DestroyKeyPackageConfirmationDialog";
 import type { AppHostConfig } from "../host/AppHostConfig";
 import {

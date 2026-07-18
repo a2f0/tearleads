@@ -4,7 +4,7 @@ import {
   MiniAppModalBackdrop,
   MiniAppModalPanel,
   MiniAppStatus,
-} from "../../../components/shared/MiniAppLayout";
+} from "../../../components/mini-app/MiniAppLayout";
 import { EXPLORER_LABELS, getExplorerPurgeProgressStatus } from "../labels";
 import "./ExplorerPurgeProgressModal.css";
 import type { ExplorerPurgeRunState } from "./useExplorerPurgeRun";

@@ -3,12 +3,12 @@ import {
   MiniAppClipboardButton,
   MiniAppInput,
   MiniAppTextarea,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRow,
   MiniAppRowStack,
   MiniAppRowText,
-} from "../../components/shared/MiniAppRow";
+} from "../../components/mini-app/rows/MiniAppRow";
 import {
   CONTACT_FIELD_DESCRIPTORS,
   CONTACT_FIELD_LABELS,

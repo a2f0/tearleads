@@ -8,7 +8,7 @@ import type {
   DomainScope,
 } from "@tearleads/client-sdk";
 import { useMemo } from "react";
-import { MiniAppPanel } from "../../../../components/shared/MiniAppLayout";
+import { MiniAppPanel } from "../../../../components/mini-app/MiniAppLayout";
 import { useMiniAppDetailBackAction } from "../../../../components/window/useMiniAppDetailBackAction";
 import type { BlobPickTarget } from "../../../shared/blob-pick/BlobPickProvider";
 import {
