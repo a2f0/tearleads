@@ -1,0 +1,2 @@
+formal/alpha/Alpha.tla|formal/alpha/AlphaBroad.cfg
+formal/alpha/Alpha.tla|formal/alpha/Alpha.cfg

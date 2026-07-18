@@ -5,7 +5,7 @@
 Run the smallest command that matches the handoff risk:
 
 - `bun run check:fast`: formatting, OpenAPI generation and compatibility, bounded protocol models, package assertions, Knip, architecture, file names, source shape, and binary-file checks.
-- `bun run check:protocol-models`: bounded TLC checks using the Java and TLA+ tools pinned in `.mise.toml`.
+- `bun run check:protocol-models`: all bounded TLC checks registered in `formal/protocol-models.txt`, using the Java and TLA+ tools pinned in `.mise.toml`.
 - `bun run check:affected`: `check:fast`, TypeScript, and affected Turbo tests.
 - `bun run check`: `check:fast`, TypeScript, and the full Turbo test suite.
 - `bun run lint:knip:production`: production-only dependency and source reachability.
