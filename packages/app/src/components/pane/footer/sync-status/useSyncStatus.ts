@@ -14,6 +14,8 @@ import { usePendingWriteCount } from "./usePendingWriteCount";
 interface SyncStatusResult {
   readonly status: SyncStatus;
   readonly title: string;
+  /** Aggregate unflushed write-operation count; drives the "view queue" link. */
+  readonly pendingWriteCount: number;
 }
 
 /**
@@ -55,5 +57,5 @@ export function useSyncStatus(): SyncStatusResult {
     billingStatus: billing.view?.status ?? null,
   });
 
-  return { status, title };
+  return { status, title, pendingWriteCount: queue.count };
 }
