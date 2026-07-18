@@ -62,6 +62,7 @@ export async function evictWriterProjectionIfSyncChanged(
 }
 
 export interface ErrorResponseDescription {
+  readonly code: string | null;
   readonly detail: string;
   readonly error: string | null;
   readonly stalePrincipalPolicies?: PrincipalPolicyBundleResponse[] | undefined;
@@ -217,11 +218,11 @@ export async function describeErrorResponse(
   try {
     responseText = (await response.text()).trim();
   } catch {
-    return { detail: "", error: null };
+    return { code: null, detail: "", error: null };
   }
 
   if (responseText.length === 0) {
-    return { detail: "", error: null };
+    return { code: null, detail: "", error: null };
   }
 
   try {
@@ -234,7 +235,14 @@ export async function describeErrorResponse(
       parsed.error.trim().length > 0
     ) {
       const error = parsed.error.trim();
+      const code =
+        "code" in parsed &&
+        typeof parsed.code === "string" &&
+        parsed.code.length > 0
+          ? parsed.code
+          : null;
       return {
+        code,
         detail: `: ${error}`,
         error,
         // Container mutation 409s can carry signed policy bundles that make the
@@ -253,7 +261,7 @@ export async function describeErrorResponse(
     // Use the raw response body when the error payload is not JSON.
   }
 
-  return { detail: `: ${responseText}`, error: null };
+  return { code: null, detail: `: ${responseText}`, error: null };
 }
 
 export function isRefreshableSessionError(

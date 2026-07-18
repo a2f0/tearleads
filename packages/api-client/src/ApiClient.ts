@@ -245,6 +245,7 @@ export class ApiClient {
   }
 
   private requestFailure(input: {
+    code?: string | undefined;
     kind: RequestFailureKind;
     message: string;
     method: HttpMethod;
@@ -255,6 +256,7 @@ export class ApiClient {
     statusText: string;
   }): RequestFailure {
     const failure: RequestFailure = {
+      ...(input.code === undefined ? {} : { code: input.code }),
       kind: input.kind,
       message: input.message,
       method: input.method,
@@ -455,7 +457,7 @@ export class ApiClient {
     }
 
     return {
-      errorDescription: { detail: "", error: null },
+      errorDescription: { code: null, detail: "", error: null },
       ok: true,
       response,
     };
@@ -476,6 +478,9 @@ export class ApiClient {
       );
     }
     return this.requestFailure({
+      ...(input.errorDescription.code === null
+        ? {}
+        : { code: input.errorDescription.code }),
       kind: "http",
       message: `${input.method} ${input.path}: ${input.response.status} ${input.response.statusText}${input.errorDescription.detail}`,
       method: input.method,

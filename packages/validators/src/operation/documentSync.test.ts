@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { z } from "zod";
 import { DocumentSyncRequestSchema } from "../request";
-import { DocumentSyncResponseSchema } from "../response";
+import {
+  DocumentSyncErrorResponseSchema,
+  DocumentSyncResponseSchema,
+} from "../response";
 import {
   defineJsonOperation,
   operationRequestPath,
@@ -11,6 +14,7 @@ import {
   DocumentSyncPathParamsSchema,
   documentSyncOperation,
 } from "./documentSync";
+import { createOpenApiDocument } from "./openApi";
 
 test("document sync operation owns its HTTP contract metadata", () => {
   expect(documentSyncOperation.id).toBe("documents.sync");
@@ -22,6 +26,9 @@ test("document sync operation owns its HTTP contract metadata", () => {
   ]);
   expect(documentSyncOperation.params).toBe(DocumentSyncPathParamsSchema);
   expect(documentSyncOperation.body).toBe(DocumentSyncRequestSchema);
+  expect(documentSyncOperation.failureResponses?.[409]).toBe(
+    DocumentSyncErrorResponseSchema,
+  );
   expect(documentSyncOperation.responses[200]).toBe(DocumentSyncResponseSchema);
   expect(Object.keys(documentSyncOperation.responses)).toEqual(["200"]);
 });
@@ -54,4 +61,22 @@ test("operation definitions preserve schema identity", () => {
   });
 
   expect(operation.responses[200]).toBe(schema);
+});
+
+test("operation definitions reject bodies for undeclared failure statuses", () => {
+  expect(() =>
+    createOpenApiDocument([
+      defineJsonOperation({
+        auth: "none",
+        body: z.unknown(),
+        failureResponses: { 409: z.object({ error: z.string() }) },
+        failureStatuses: [],
+        id: "test.invalid-failure",
+        method: "POST",
+        params: z.strictObject({ id: z.string() }),
+        path: "/test/{id}",
+        responses: { 200: z.object({ ok: z.literal(true) }) },
+      }),
+    ]),
+  ).toThrow("body for unregistered failure status 409");
 });

@@ -8,16 +8,14 @@ on:
 permissions:
   contents: read
 
-# TEMPORARY: CI jobs are paused to avoid spending Actions credits.
-# Each job is gated on `workflow_dispatch` so it only runs when triggered
-# manually from the Actions tab. To fully re-enable, delete the
-# `if: ${{ github.event_name == 'workflow_dispatch' }}` line from every job.
+# TEMPORARY: build and Terraform jobs remain paused to avoid spending Actions
+# credits. The lint job runs automatically so generated contracts and bounded
+# protocol models cannot drift on push or pull requests.
 
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' }}
 
     steps:
       - name: Checkout

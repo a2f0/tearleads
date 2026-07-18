@@ -125,10 +125,23 @@ function openApiResponses(
     ]),
   );
   const failureStatuses = new Set(operation.failureStatuses);
+  const failureResponses = new Map(
+    Object.entries(operation.failureResponses ?? {}).map(([status, schema]) => [
+      Number(status),
+      schema,
+    ]),
+  );
 
   for (const status of successResponses.keys()) {
     if (failureStatuses.has(status)) {
       throw new Error(`${operation.id} declares status ${status} twice`);
+    }
+  }
+  for (const status of failureResponses.keys()) {
+    if (!failureStatuses.has(status)) {
+      throw new Error(
+        `${operation.id} declares a body for unregistered failure status ${status}`,
+      );
     }
   }
 
@@ -137,7 +150,8 @@ function openApiResponses(
   );
   const responses: Record<string, OpenApiResponse> = {};
   for (const status of statuses) {
-    const schema = successResponses.get(status);
+    const successSchema = successResponses.get(status);
+    const schema = successSchema ?? failureResponses.get(status);
     responses[String(status)] =
       schema === undefined
         ? { description: "Response without a declared JSON body" }
@@ -147,7 +161,10 @@ function openApiResponses(
                 schema: openApiSchema(schema, runtimeRefinementIds),
               },
             },
-            description: "Successful JSON response",
+            description:
+              successSchema === undefined
+                ? "Failure JSON response"
+                : "Successful JSON response",
           };
   }
 

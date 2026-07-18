@@ -1,7 +1,7 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
-import { DocumentMutationError } from "./errors";
+import { documentSyncStateStale } from "./errors";
 
 /** Serialize an old-head sync write against a concurrent link-set rotation. */
 export async function lockSyncDocumentWriteFrontier(input: {
@@ -29,7 +29,7 @@ export async function lockSyncDocumentWriteFrontier(input: {
     lockedTargets.linkSetManifestHash !==
     input.currentTargets.linkSetManifestHash
   ) {
-    throw new DocumentMutationError("Document manifest is stale", 409);
+    throw documentSyncStateStale("Document manifest is stale");
   }
   return lockedTargets;
 }

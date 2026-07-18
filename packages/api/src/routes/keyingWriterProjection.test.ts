@@ -1299,6 +1299,9 @@ test("POST /documents/:documentId/sync rejects a stale authorizing path ref afte
     authorizingContainerPathRefs: [[rootAuthorizingPathRef(root)]],
   });
   expect(response.status).toBe(409);
+  expect(await response.json()).toMatchObject({
+    code: "document_sync_state_stale",
+  });
 });
 
 test("POST /documents/:documentId/sync rejects a stale expectedLinkSetManifestHash with 409", async () => {
@@ -1321,6 +1324,9 @@ test("POST /documents/:documentId/sync rejects a stale expectedLinkSetManifestHa
     expectedLinkSetManifestHash: "f".repeat(64),
   });
   expect(response.status).toBe(409);
+  expect(await response.json()).toMatchObject({
+    code: "document_sync_state_stale",
+  });
 });
 
 test("POST /documents/:documentId/sync redirects historical updates to the atomic rotation baseline", async () => {
@@ -1483,6 +1489,7 @@ test("POST /documents/:documentId/sync rejects invalid optional container rekeys
 
   expect(syncResponse.status).toBe(409);
   expect(await syncResponse.json()).toEqual({
+    code: "document_sync_conflict",
     error: "container key wrap is not justified by its manifest",
   });
   const currentRootEpoch = await getCurrentContainerKeyEpoch(

@@ -95,6 +95,14 @@ export {
   isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
 } from "./documentMutation";
+export {
+  DOCUMENT_SYNC_ERROR_CODES,
+  type DocumentSyncErrorCode,
+  DocumentSyncErrorCodeSchema,
+  type DocumentSyncErrorResponse,
+  DocumentSyncErrorResponseSchema,
+  isDocumentSyncErrorResponse,
+} from "./documentSyncError";
 export { type HealthResponse, isHealthResponse } from "./health";
 export {
   type DeleteOrganizationGroupResponse,

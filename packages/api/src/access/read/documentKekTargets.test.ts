@@ -22,6 +22,7 @@ import {
   verifyAccessManifest,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { storeVerifiedAccessManifest } from "../write/accessManifestStore";
 import {
@@ -557,6 +558,10 @@ test("assertDocumentKekTargetsCurrent rejects stale target hashes", async () => 
       db,
     ),
   ).rejects.toMatchObject(
-    new DocumentKekTargetError("Document KEK targets are stale", 409),
+    new DocumentKekTargetError(
+      "Document KEK targets are stale",
+      409,
+      DOCUMENT_SYNC_ERROR_CODES.stateStale,
+    ),
   );
 });

@@ -50,12 +50,12 @@
       "bytes": 37936
     },
     "docs/openapi.json": {
-      "lines": 829,
-      "bytes": 32711
+      "lines": 855,
+      "bytes": 33519
     },
     "docs/protocol-specification.md": {
-      "lines": 492,
-      "bytes": 21104
+      "lines": 501,
+      "bytes": 21595
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 541,
@@ -70,8 +70,8 @@
       "bytes": 15169
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
-      "lines": 562,
-      "bytes": 17876
+      "lines": 567,
+      "bytes": 18015
     },
     "packages/api/src/access/shared/internal/accessManifestStore.ts": {
       "lines": 886,
@@ -102,8 +102,8 @@
       "bytes": 18310
     },
     "packages/api/src/access/write/documentContentKeyStore.test.ts": {
-      "lines": 1047,
-      "bytes": 32284
+      "lines": 1052,
+      "bytes": 32423
     },
     "packages/api/src/access/write/principalStateStore.test.ts": {
       "lines": 974,

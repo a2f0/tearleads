@@ -44,7 +44,11 @@ import { uniqueSortedStrings } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { assertOrganizationCanSync } from "../../billing/organizationBilling";
 import { applyContainerRekeys } from "../../containers/mutations";
-import { DocumentMutationError, toMutationError } from "./errors";
+import {
+  DocumentMutationError,
+  documentUpdateIdConflict,
+  toMutationError,
+} from "./errors";
 import {
   ensureDocumentExists,
   touchDocumentAndLinkedContainers,
@@ -243,7 +247,7 @@ async function assertRetryUpdateMatchesAcceptedContent(input: {
     input.existingRow.partialEndVersionVector !==
       input.update.partialEndVersionVector
   ) {
-    throw new DocumentMutationError("Document update id conflict", 409);
+    throw documentUpdateIdConflict();
   }
   if (!input.acceptedHeaderHash) {
     throw new DocumentMutationError("Document write header conflict", 409);
@@ -286,7 +290,7 @@ function assertDuplicateOutgoingUpdateMatches(
     return;
   }
 
-  throw new DocumentMutationError("Document update id conflict", 409);
+  throw documentUpdateIdConflict();
 }
 
 function uniqueOutgoingUpdates(
@@ -410,7 +414,7 @@ async function loadExistingDocumentUpdateRows(input: {
 
   for (const row of existingRows) {
     if (row.documentId !== input.documentId) {
-      throw new DocumentMutationError("Document update id conflict", 409);
+      throw documentUpdateIdConflict();
     }
   }
 

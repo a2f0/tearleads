@@ -1,7 +1,8 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import type {
-  DocumentSyncResponse,
-  DocumentWriterProjectionResponse,
+import {
+  DOCUMENT_SYNC_ERROR_CODES,
+  type DocumentSyncResponse,
+  type DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
   isRetryableDocumentSyncConflict,
@@ -89,12 +90,12 @@ function shouldRetrySyncWithFreshWriterProjection(error: unknown): boolean {
   );
 }
 
-function isRecoverableDocumentUpdateIdConflict(
+export function isRecoverableDocumentUpdateIdConflict(
   failure: DocumentSyncSubmitFailure,
 ): boolean {
   return (
     failure.status === 409 &&
-    failure.message.includes("Document update id conflict")
+    failure.code === DOCUMENT_SYNC_ERROR_CODES.updateIdConflict
   );
 }
 

@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import type { DocumentSyncRequest } from "../request";
-import type { DocumentSyncResponse } from "../response";
+import type {
+  DocumentSyncErrorResponse,
+  DocumentSyncResponse,
+} from "../response";
 import { documentSyncOperation } from "./documentSync";
 import type {
   $defs,
@@ -53,13 +56,16 @@ type GeneratedRequest =
   GeneratedOperation["requestBody"]["content"]["application/json"];
 type GeneratedResponses = GeneratedOperation["responses"];
 type GeneratedResponse = GeneratedResponses[200]["content"]["application/json"];
+type GeneratedErrorResponse =
+  GeneratedResponses[409]["content"]["application/json"];
 type FixtureRequest = ReturnType<typeof createSyncRequest>;
 type FixtureResponse = ReturnType<typeof createSyncResponse>;
 type GeneratedFailureStatus = Exclude<keyof GeneratedResponses, 200>;
 type DeclaredFailureStatus =
   (typeof documentSyncOperation.failureStatuses)[number];
-type GeneratedFailuresHaveNoContent =
-  GeneratedResponses[GeneratedFailureStatus] extends { content?: never }
+type GeneratedStatusOnlyFailure = Exclude<GeneratedFailureStatus, 409>;
+type GeneratedStatusOnlyFailuresHaveNoContent =
+  GeneratedResponses[GeneratedStatusOnlyFailure] extends { content?: never }
     ? true
     : false;
 type EmptyGeneratedComponents = {
@@ -110,11 +116,17 @@ test("generated OpenAPI types match the document sync structural contract", () =
   >();
   assertType<IsAssignable<GeneratedRequest, DocumentSyncRequest>>();
   assertType<IsAssignable<GeneratedResponse, DocumentSyncResponse>>();
+  assertType<
+    IsEqual<
+      NormalizeWireType<GeneratedErrorResponse>,
+      NormalizeWireType<DocumentSyncErrorResponse>
+    >
+  >();
   assertType<IsAssignable<FixtureRequest, GeneratedRequest>>();
   assertType<IsAssignable<FixtureResponse, GeneratedResponse>>();
   assertType<IsAssignable<GeneratedFailureStatus, DeclaredFailureStatus>>();
   assertType<IsAssignable<DeclaredFailureStatus, GeneratedFailureStatus>>();
-  assertType<GeneratedFailuresHaveNoContent>();
+  assertType<GeneratedStatusOnlyFailuresHaveNoContent>();
 
   expect(documentSyncOperation.method).toBe("POST");
   expect(documentSyncOperation.path).toBe("/documents/{documentId}/sync");

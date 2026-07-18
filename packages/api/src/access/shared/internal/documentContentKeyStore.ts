@@ -11,6 +11,7 @@ import {
   documentContentWriteHeaders,
 } from "@tearleads/api-shared/schema";
 import type { WriteHeader } from "@tearleads/crypto";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { isRecord } from "../../../utils/record";
 import {
@@ -53,6 +54,14 @@ interface StoreDocumentContentKeyBundleInput {
   readonly linkSetManifestHash: string;
   readonly targetHash: string;
   readonly targets: readonly DocumentContentKeyTargetEnvelope[];
+}
+
+function staleBundle(text: string) {
+  return new DocumentContentKeyBundleError(
+    text,
+    409,
+    DOCUMENT_SYNC_ERROR_CODES.stateStale,
+  );
 }
 
 async function loadDocumentContentKeyEpochRow(
@@ -738,15 +747,13 @@ async function validateCurrentTargetsForBundle(
     );
   } catch (error) {
     if (error instanceof DocumentKekTargetError) {
-      throw new DocumentContentKeyBundleError(error.message, error.status);
+      const { code, message, status } = error;
+      throw new DocumentContentKeyBundleError(message, status, code);
     }
     throw error;
   }
   if (currentTargets.linkSetManifestHash !== input.linkSetManifestHash) {
-    throw new DocumentContentKeyBundleError(
-      "Document link-set manifest hash is stale",
-      409,
-    );
+    throw staleBundle("Document link-set manifest hash is stale");
   }
   assertTargetsMatchCurrent({ currentTargets, targets: input.targets });
   return currentTargets;
@@ -932,10 +939,7 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
   if (
     currentTargets.linkSetManifestHash !== input.expectedLinkSetManifestHash
   ) {
-    throw new DocumentContentKeyBundleError(
-      "Document link-set manifest hash is stale",
-      409,
-    );
+    throw staleBundle("Document link-set manifest hash is stale");
   }
 
   const bundle = await getDocumentContentKeyBundle(
@@ -959,10 +963,7 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
       executor,
     });
     if (!refreshedBundle) {
-      throw new DocumentContentKeyBundleError(
-        "Document content-key bundle is stale",
-        409,
-      );
+      throw staleBundle("Document content-key bundle is stale");
     }
 
     const storedBundle = await addDocumentContentKeyTargetsToExistingBundle({

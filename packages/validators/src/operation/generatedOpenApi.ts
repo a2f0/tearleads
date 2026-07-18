@@ -312,12 +312,20 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Response without a declared JSON body */
+            /** @description Failure JSON response */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        code: "document_sync_conflict" | "document_sync_state_stale" | "document_sync_update_id_conflict";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description Response without a declared JSON body */
             500: {

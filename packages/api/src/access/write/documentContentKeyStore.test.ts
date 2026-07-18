@@ -25,6 +25,7 @@ import {
   verifySignedAccessEvent,
   type WriteHeader,
 } from "@tearleads/crypto";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {
   type DocumentContentKeyTargetEnvelope,
@@ -417,7 +418,11 @@ test("storeDocumentContentKeyBundle rejects missing extra duplicate and stale ta
       db,
     ),
   ).rejects.toMatchObject(
-    new DocumentContentKeyBundleError("Document KEK targets are stale", 409),
+    new DocumentContentKeyBundleError(
+      "Document KEK targets are stale",
+      409,
+      DOCUMENT_SYNC_ERROR_CODES.stateStale,
+    ),
   );
 });
 
