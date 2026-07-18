@@ -9,6 +9,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { ContainerDeleteResponse } from "@tearleads/validators/response";
 import { and, eq, ne, sql } from "drizzle-orm";
+import { lockAccessManifestHeadsForUpdate } from "../../access/read/accessManifestStore";
 import { uuidValue } from "../../utils/sqlDialect";
 import { assertOrganizationCanSync } from "../billing/organizationBilling";
 import { teardownContainerMetadataDocument } from "../documents/mutations/purgeDocument";
@@ -252,6 +253,16 @@ async function deleteContainerWithExecutor(input: {
     updatedAt,
     userIds: [...visibleUserIds.allUserIds, input.userId],
   });
+  // Lock the metadata document's manifest head BEFORE touching the container
+  // row. A concurrent sync of that document holds the head FOR SHARE and later
+  // updates the linked container row; locking the container row first (via its
+  // delete) and the head second would wait on that sync while it waits on the
+  // row — a deadlock. Head-then-row here matches the sync path's order.
+  await lockAccessManifestHeadsForUpdate(
+    "document",
+    [targetManifest.state.metadataDocumentId],
+    input.executor,
+  );
   // deleteLeafContainerRow throws on a non-empty container (child or other
   // linked document), so the teardown below only runs once the container is
   // genuinely gone; the whole delete is one transaction, so a thrown 409 rolls

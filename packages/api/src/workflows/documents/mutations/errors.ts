@@ -86,13 +86,27 @@ function mapVerificationStatus(
   return 409;
 }
 
+/**
+ * Only documentNotFound() may reach the wire as a 404 on document routes —
+ * clients answer that coded 404 with a destructive local teardown, and legacy
+ * clients wipe on ANY document-route 404. A 404 from a store lookup (missing
+ * head, bundle, or target) is not proof of deletion, so it degrades to 409.
+ */
+function nonWipeStatus<Status extends number>(status: Status): Status | 409 {
+  return status === 404 ? 409 : status;
+}
+
 export function toMutationError(error: unknown): DocumentMutationError | null {
   if (error instanceof DocumentMutationError) {
     return error;
   }
 
   if (error instanceof DocumentContentKeyBundleError) {
-    return new DocumentMutationError(error.message, error.status, error.code);
+    return new DocumentMutationError(
+      error.message,
+      nonWipeStatus(error.status),
+      error.code,
+    );
   }
 
   if (error instanceof DocumentUpdateReadError) {
@@ -100,28 +114,28 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
   }
 
   if (error instanceof DocumentKekTargetError) {
-    return new DocumentMutationError(error.message, error.status, error.code);
+    return new DocumentMutationError(
+      error.message,
+      nonWipeStatus(error.status),
+      error.code,
+    );
   }
 
   if (error instanceof PrincipalPolicyProjectionError) {
     return new DocumentMutationError(error.message, error.status);
   }
 
-  // Container-level 404s must not become the document route's 404: the wipe
-  // signal is the coded documentNotFound() 404, and even for code-blind legacy
-  // clients a bare 404 here would read as upstream document deletion and
-  // trigger a destructive local wipe. Surface them as uncoded conflicts.
   if (error instanceof ContainerMutationError) {
     return new DocumentMutationError(
       error.message,
-      error.status === 404 ? 409 : error.status,
+      nonWipeStatus(error.status),
     );
   }
 
   if (error instanceof ContainerWriterProjectionError) {
     return new DocumentMutationError(
       error.message,
-      error.status === 404 ? 409 : error.status,
+      nonWipeStatus(error.status),
     );
   }
 

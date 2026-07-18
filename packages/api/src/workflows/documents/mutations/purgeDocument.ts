@@ -350,7 +350,11 @@ export async function teardownContainerMetadataDocument(input: {
 }): Promise<void> {
   // Same serialization requirement as purgeDocumentWithExecutor: the metadata
   // document's rows are deleted below, so an in-flight sync write on it must
-  // commit or abort before this teardown reads what to delete.
+  // commit or abort before this teardown reads what to delete. Callers that
+  // lock or delete container rows in the same transaction must take THIS head
+  // lock first (deleteContainer does) — sync holds the head FOR SHARE and then
+  // updates container rows, so row-then-head ordering here would deadlock.
+  // Re-locking an already-held head is a no-op.
   await lockAccessManifestHeadsForUpdate(
     "document",
     [input.documentId],
