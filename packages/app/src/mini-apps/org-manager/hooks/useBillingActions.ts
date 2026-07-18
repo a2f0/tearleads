@@ -13,6 +13,10 @@ import {
 } from "react";
 import { usePurchases } from "../../../providers/purchases/PurchasesProvider";
 import type { BillingBusyAction } from "../billing/BillingView";
+import {
+  ACTIVATION_POLL_DELAYS_MS,
+  useActivationBillingPoll,
+} from "../billing/useActivationBillingPoll";
 import { ORG_MANAGER_LABELS } from "../labels";
 
 interface BillingActions {
@@ -258,7 +262,12 @@ async function purchaseForOrganization({
       activationPending: true,
     }));
     await refresh();
-  } catch {
+  } catch (error) {
+    // Previously swallowed silently, which made a rejected purchase
+    // indistinguishable from a no-op. Log the real PurchasesError (e.g. a
+    // ConfigurationError from a key/offering mismatch, or a cancellation) so it
+    // is diagnosable, while still surfacing the generic label to the user.
+    console.error("Failed to complete the organization sync purchase:", error);
     updateActionState(scope, (current) => ({
       ...current,
       actionError: ORG_MANAGER_LABELS.failedSubscribe,
@@ -379,6 +388,7 @@ function useBillingActionState(
  * billing afterwards. Trial start is delegated to the billing snapshot hook.
  */
 export function useBillingActions({
+  activationPollDelaysMs = ACTIVATION_POLL_DELAYS_MS,
   billingCanSync,
   isOrgAdmin,
   organizationId,
@@ -386,6 +396,8 @@ export function useBillingActions({
   startTrial: startTrialRequest,
   userId,
 }: {
+  /** Backoff schedule for post-purchase billing re-reads; injectable for tests. */
+  activationPollDelaysMs?: readonly number[];
   billingCanSync: boolean;
   isOrgAdmin: boolean;
   organizationId: string;
@@ -439,6 +451,14 @@ export function useBillingActions({
     currentScope.userId === userId;
   const actionStateMatches =
     scopeMatchesInputs && scopeMatches(actionState, currentScope);
+
+  useActivationBillingPoll(
+    actionStateMatches && actionState.activationPending,
+    billingCanSync,
+    refresh,
+    activationPollDelaysMs,
+  );
+
   const options =
     scopeMatchesInputs && scopeMatches(optionsState, currentScope)
       ? optionsState.options

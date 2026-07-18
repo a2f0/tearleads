@@ -17,6 +17,9 @@ import { useBillingActions } from "./useBillingActions";
 
 afterEach(() => cleanup());
 
+/** Disables post-purchase polling by default so existing tests are unaffected. */
+const NO_POLL: readonly number[] = [];
+
 const OPTION: SyncSubscriptionOption = {
   packageId: "monthly",
   productId: "sync_monthly",
@@ -56,6 +59,7 @@ function wrapper(createPurchasesFn: CreatePurchasesFn) {
 }
 
 function renderBillingActions(input: {
+  activationPollDelaysMs?: readonly number[];
   billingCanSync?: boolean;
   purchases: PurchasesCapability;
   refresh?: () => Promise<void>;
@@ -72,6 +76,7 @@ function renderBillingActions(input: {
       userId: string;
     }) =>
       useBillingActions({
+        activationPollDelaysMs: input.activationPollDelaysMs ?? NO_POLL,
         billingCanSync,
         isOrgAdmin: true,
         organizationId,
@@ -273,4 +278,37 @@ test("an old purchase completion cannot commit into or clear the new org", async
   await waitFor(() => expect(result.current.busy).toBe(null));
   expect(result.current.activationPending).toBe(true);
   expect(refresh).toHaveBeenCalledTimes(1);
+});
+
+test("polls billing after a successful purchase until the org can sync", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: true });
+  const refresh = mock(() => Promise.resolve());
+  const { result, rerender } = renderBillingActions({
+    purchases,
+    refresh,
+    activationPollDelaysMs: [5, 5, 5, 5],
+  });
+
+  await act(async () => {
+    result.current.subscribe(OPTION);
+  });
+
+  // The immediate post-purchase read plus the backoff poll keep re-reading
+  // billing while the org is not yet syncable (the webhook has not landed).
+  await waitFor(() => expect(result.current.activationPending).toBe(true));
+  await waitFor(() => expect(refresh.mock.calls.length).toBeGreaterThan(1));
+
+  // Once billing reports the org can sync, the pending flag clears and polling
+  // stops — the refresh count no longer grows.
+  rerender({
+    billingCanSync: true,
+    organizationId: "org-1",
+    userId: "user-1",
+  });
+  await waitFor(() => expect(result.current.activationPending).toBe(false));
+  const callsAfterActive = refresh.mock.calls.length;
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 40));
+  });
+  expect(refresh.mock.calls.length).toBe(callsAfterActive);
 });
