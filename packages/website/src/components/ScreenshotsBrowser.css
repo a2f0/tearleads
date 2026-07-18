@@ -1,0 +1,244 @@
+/*
+ * The screenshot gallery renders outside the app's ThemeProvider, so it carries
+ * its own theme via `data-gallery-theme` on the root rather than `<html
+ * data-theme>`. Selecting the Light/Dark toggle themes both the previewed shots
+ * and this chrome.
+ */
+.screenshots-browser {
+  --sb-bg: #f4f5f7;
+  --sb-panel: #ffffff;
+  --sb-border: #d7dae0;
+  --sb-text: #1c2024;
+  --sb-muted: #6b7280;
+  --sb-accent: #2f6feb;
+  --sb-accent-text: #ffffff;
+  --sb-shadow: rgba(15, 23, 42, 0.12);
+
+  display: flex;
+  flex-direction: column;
+  height: min(80vh, 840px);
+  border: 1px solid var(--sb-border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--sb-bg);
+  color: var(--sb-text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.screenshots-browser[data-gallery-theme="dark"] {
+  --sb-bg: #14161a;
+  --sb-panel: #1e2126;
+  --sb-border: #333941;
+  --sb-text: #e6e8eb;
+  --sb-muted: #9aa2ad;
+  --sb-accent: #4f8bff;
+  --sb-accent-text: #0b0d10;
+  --sb-shadow: rgba(0, 0, 0, 0.4);
+}
+
+.screenshots-browser__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--sb-border);
+  background: var(--sb-panel);
+  flex-wrap: wrap;
+}
+
+.screenshots-browser__title {
+  font-weight: 600;
+  font-size: 15px;
+  margin-right: auto;
+}
+
+.screenshots-browser__counter {
+  font-variant-numeric: tabular-nums;
+  color: var(--sb-muted);
+  font-size: 13px;
+}
+
+.screenshots-browser__toggle {
+  display: inline-flex;
+  border: 1px solid var(--sb-border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.screenshots-browser__toggle-legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.screenshots-browser__toggle-button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--sb-text);
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.screenshots-browser__toggle-button:not(:last-child) {
+  border-right: 1px solid var(--sb-border);
+}
+
+.screenshots-browser__toggle-button--active {
+  background: var(--sb-accent);
+  color: var(--sb-accent-text);
+}
+
+.screenshots-browser__body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.screenshots-browser__filmstrip {
+  width: 200px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: 12px;
+  border-right: 1px solid var(--sb-border);
+  background: var(--sb-panel);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.screenshots-browser__thumb {
+  appearance: none;
+  border: 1px solid var(--sb-border);
+  border-radius: 8px;
+  background: var(--sb-bg);
+  padding: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.screenshots-browser__thumb--active {
+  border-color: var(--sb-accent);
+  box-shadow: 0 0 0 1px var(--sb-accent);
+}
+
+.screenshots-browser__thumb img,
+.screenshots-browser__thumb-missing {
+  width: 100%;
+  height: 96px;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 4px;
+  background: var(--sb-border);
+  display: block;
+}
+
+.screenshots-browser__thumb-label {
+  font-size: 12px;
+  color: var(--sb-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.screenshots-browser__stage {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+}
+
+.screenshots-browser__frame {
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--sb-panel);
+  border: 1px solid var(--sb-border);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px var(--sb-shadow);
+  overflow: hidden;
+}
+
+.screenshots-browser__frame--mobile {
+  border-radius: 28px;
+  padding: 10px;
+}
+
+.screenshots-browser__image {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.screenshots-browser__frame--mobile .screenshots-browser__image {
+  border-radius: 20px;
+}
+
+.screenshots-browser__missing {
+  padding: 48px;
+  max-width: 320px;
+  text-align: center;
+  color: var(--sb-muted);
+  font-size: 14px;
+}
+
+.screenshots-browser__nav {
+  appearance: none;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--sb-border);
+  background: var(--sb-panel);
+  color: var(--sb-text);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.screenshots-browser__nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.screenshots-browser__status,
+.screenshots-browser__empty {
+  margin: auto;
+  text-align: center;
+  color: var(--sb-muted);
+  padding: 24px;
+}
+
+.screenshots-browser__empty h1 {
+  font-size: 20px;
+  color: var(--sb-text);
+  margin-bottom: 8px;
+}
+
+.screenshots-browser__empty code {
+  background: var(--sb-panel);
+  border: 1px solid var(--sb-border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 13px;
+}
