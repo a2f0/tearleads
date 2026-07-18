@@ -1,14 +1,9 @@
-import type {
-  OrganizationDirectory,
-  OrganizationGroupMembers,
-  OrganizationGroupPolicyHistory,
-} from "@tearleads/client-sdk";
+import type { OrganizationDirectory } from "@tearleads/client-sdk";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { Dispatch, SetStateAction } from "react";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import type { useOrgManagerRefreshers } from "../hooks/useOrgManagerRefreshers";
 import { ORG_MANAGER_LABELS } from "../labels";
-import { projectGroupMutationResult } from "./groupMutationProjection";
 
 type OrgManagerActions = ReturnType<typeof useOrgManagerActions>;
 type IsOperationActive = (organizationId: string) => boolean;
@@ -17,16 +12,6 @@ type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
 export async function refreshAfterGroupMutation(input: {
   invalidateSelectedGroupDetails: Refreshers["invalidateSelectedGroupDetails"];
   isOperationActive: IsOperationActive;
-  mutationProjection?: {
-    readonly bundle: PrincipalPolicyBundleResponse;
-    readonly groupId: string;
-    readonly setGroupPolicyHistory: Dispatch<
-      SetStateAction<OrganizationGroupPolicyHistory | null>
-    >;
-    readonly setMembers: Dispatch<
-      SetStateAction<OrganizationGroupMembers | null>
-    >;
-  };
   operationOrganizationId: string;
   refreshDirectoryAndGroups: Refreshers["refreshDirectoryAndGroups"];
   refreshSelectedGroupDetails: Refreshers["refreshSelectedGroupDetails"];
@@ -42,23 +27,7 @@ export async function refreshAfterGroupMutation(input: {
   }
   if (refreshedDirectory.didLoad) {
     input.invalidateSelectedGroupDetails();
-    const mutationProjection = input.mutationProjection;
-    const projection =
-      mutationProjection &&
-      refreshedDirectory.groupId === mutationProjection.groupId
-        ? projectGroupMutationResult({
-            bundle: mutationProjection.bundle,
-            directory: refreshedDirectory.directory,
-            groupId: mutationProjection.groupId,
-            groups: refreshedDirectory.groups,
-          })
-        : null;
-    if (projection) {
-      mutationProjection?.setMembers(projection.members);
-      mutationProjection?.setGroupPolicyHistory(projection.policyHistory);
-    } else {
-      await input.refreshSelectedGroupDetails(refreshedDirectory.groupId);
-    }
+    await input.refreshSelectedGroupDetails(refreshedDirectory.groupId);
   }
   if (!input.isOperationActive(input.operationOrganizationId)) {
     return;
