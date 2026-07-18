@@ -7,7 +7,10 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
-import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import {
+  DOCUMENT_SYNC_ERROR_CODES,
+  type DocumentSyncResponse,
+} from "@tearleads/validators/response";
 import { parseWalLsn } from "@tearleads/validators/util";
 import {
   readRecordNumber,
@@ -402,27 +405,12 @@ export async function persistedDocumentSyncStateFromResponse(
   };
 }
 
-const RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES = [
-  "Document KEK targets are stale",
-  "Document content-key bundle is stale",
-  "Document write authorization manifest does not match sync request",
-];
-
 export function isRetryableDocumentSyncConflict(
   failure: DocumentSyncSubmitFailure,
 ): boolean {
-  if (failure.status !== 409) {
-    return false;
-  }
-
   return (
-    RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES.some((message) =>
-      failure.message.includes(message),
-    ) ||
-    (failure.message.includes("authorizingContainerPath") &&
-      failure.message.includes("is stale")) ||
-    (failure.message.includes("targetContainerPath") &&
-      failure.message.includes("is stale"))
+    failure.status === 409 &&
+    failure.code === DOCUMENT_SYNC_ERROR_CODES.stateStale
   );
 }
 

@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { act } from "@testing-library/react";
 import {
   type AppTestSyncLaneErrorBaseline,
@@ -19,12 +20,6 @@ import {
   POST_SHARE_NETWORK_IDLE_QUIET_MS,
   POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
 } from "./dualPaneCore";
-
-const RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES = [
-  "Document KEK targets are stale",
-  "Document content-key bundle is stale",
-  "Document write authorization manifest does not match sync request",
-] as const;
 
 interface PostShareSyncBaseline {
   readonly requestStartIndex: number;
@@ -87,20 +82,22 @@ export async function waitForRemoteAttachmentBlob() {
 function isRetryableDocumentSyncStaleFailure(
   request: ProxiedApiRequest,
 ): boolean {
-  const responseBody = request.responseBody;
+  let code: unknown;
+  try {
+    const body = JSON.parse(request.responseBody) as unknown;
+    code =
+      typeof body === "object" && body !== null
+        ? Reflect.get(body, "code")
+        : null;
+  } catch {
+    code = null;
+  }
+
   return (
     request.method === "POST" &&
     request.status === 409 &&
     /^\/documents\/[^/]+\/sync$/u.test(requestPath(request.url)) &&
-    (RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES.some((message) =>
-      responseBody.includes(message),
-    ) ||
-      (responseBody.includes("authorizingContainerPath") &&
-        responseBody.includes("is stale")) ||
-      (responseBody.includes("authorizingContainerPathRefs") &&
-        responseBody.includes("is stale")) ||
-      (responseBody.includes("targetContainerPath") &&
-        responseBody.includes("is stale")))
+    code === DOCUMENT_SYNC_ERROR_CODES.stateStale
   );
 }
 

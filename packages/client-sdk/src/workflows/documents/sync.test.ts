@@ -22,7 +22,10 @@ import {
   type DocumentSyncRequest,
   isDocumentSyncRequest,
 } from "@tearleads/validators/request";
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  DOCUMENT_SYNC_ERROR_CODES,
+  type DocumentWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
@@ -876,6 +879,7 @@ test("syncRemoteDocument falls back to writer projection when persisted read-onl
         if (submittedRequests.length === 1) {
           const message = "Document content-key bundle is stale";
           return {
+            code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
             message,
             ok: false,
             report: () => {
@@ -1050,6 +1054,7 @@ test("syncRemoteDocument recovers pending write id conflicts with a read-only sy
         if (submittedOutgoingCounts.length === 1) {
           const message = `POST /documents/${documentId}/sync: 409 Conflict: Document update id conflict`;
           return {
+            code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
             message,
             ok: false,
             report: () => undefined,
@@ -1152,6 +1157,7 @@ test("syncRemoteDocument does not settle recovered pending conflicts with differ
       syncDocumentResult: async (documentId, request) => {
         if (request.outgoingUpdates.length > 0) {
           return {
+            code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
             message: `POST /documents/${documentId}/sync: 409 Conflict: Document update id conflict`,
             ok: false,
             report: () => undefined,
@@ -1238,6 +1244,7 @@ test("syncRemoteDocument replans once after a stale document sync conflict", asy
         if (submittedRequests.length === 1) {
           const message = `POST /documents/${documentId}/sync: 409 Conflict: authorizingContainerPathRefs[0][0] is stale`;
           return {
+            code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
             message,
             ok: false,
             report: () => {

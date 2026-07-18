@@ -28,7 +28,7 @@ import {
   getCurrentAccessManifestHead,
   getCurrentAccessManifestHeads,
 } from "../../../../access/read/accessManifestStore";
-import type { resolveCurrentDocumentKekTargets } from "../../../../access/read/documentKekTargets";
+import type { resolveCurrentDocumentKekTargets as resolveTargets } from "../../../../access/read/documentKekTargets";
 import {
   readProjectionAccessEvent,
   readProjectionAccessManifest,
@@ -42,12 +42,18 @@ import {
   toVerifiedContainerManifest,
 } from "../../../containers/writerProjection/records";
 import { loadPrincipalPoliciesForContainerPaths } from "../../../principals/principalPolicyProjection";
-import { DocumentMutationError, documentShapeError } from "../errors";
+import {
+  DocumentMutationError,
+  documentShapeError,
+  documentSyncStateStale,
+} from "../errors";
 import type { DocumentWriteAuthorizationProof } from "../types";
 import {
   readVerifiedDocumentManifest,
   verifiedDocumentKekTargetsFromResolved,
 } from "./records";
+
+type CurrentDocumentKekTargets = Awaited<ReturnType<typeof resolveTargets>>;
 
 export async function loadSignerPublicKey(
   executor: DatabaseSession,
@@ -211,7 +217,7 @@ async function resolveCurrentContainerManifestRefs(
       throw new DocumentMutationError(`${refLabel} head missing`, 404);
     }
     if (head.manifestHash !== manifest.manifestHash) {
-      throw new DocumentMutationError(`${refLabel} is stale`, 409);
+      throw documentSyncStateStale(`${refLabel} is stale`);
     }
     return manifest;
   });
@@ -437,26 +443,19 @@ export async function loadCurrentDocumentManifest(
  * an explicit optimistic-concurrency pin, the same one the content-key path uses.
  */
 async function resolveCurrentDocumentManifestForWrite(input: {
-  readonly currentTargets: Awaited<
-    ReturnType<typeof resolveCurrentDocumentKekTargets>
-  >;
+  readonly currentTargets: CurrentDocumentKekTargets;
   readonly executor: DatabaseTransaction;
   readonly request: DocumentSyncRequest;
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const headManifestHash = input.currentTargets.linkSetManifestHash;
   if (input.request.expectedLinkSetManifestHash !== headManifestHash) {
-    throw new DocumentMutationError(
-      "Document link-set manifest hash is stale",
-      409,
-    );
+    throw documentSyncStateStale("Document link-set manifest hash is stale");
   }
   return resolveStoredDocumentManifest(headManifestHash, input.executor);
 }
 
 export async function verifySyncWriteAuthorizationProof(input: {
-  readonly currentTargets: Awaited<
-    ReturnType<typeof resolveCurrentDocumentKekTargets>
-  >;
+  readonly currentTargets: CurrentDocumentKekTargets;
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly request: DocumentSyncRequest;

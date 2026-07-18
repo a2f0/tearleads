@@ -383,6 +383,7 @@ export interface SyncRemoteDocumentResult {
 }
 
 export interface DocumentSyncSubmitFailure {
+  readonly code?: string | undefined;
   readonly message: string;
   readonly ok: false;
   readonly report: () => void;

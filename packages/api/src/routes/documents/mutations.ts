@@ -10,11 +10,13 @@ import {
   isDocumentCreateRequest,
   isDocumentLinkSetMutationRequest,
 } from "@tearleads/validators/request";
-import type {
-  DocumentCreateResponse,
-  DocumentLinkSetMutationResponse,
-  DocumentPurgeResponse,
-  DocumentSyncResponse,
+import {
+  DOCUMENT_SYNC_ERROR_CODES,
+  type DocumentCreateResponse,
+  type DocumentLinkSetMutationResponse,
+  type DocumentPurgeResponse,
+  type DocumentSyncErrorResponse,
+  type DocumentSyncResponse,
 } from "@tearleads/validators/response";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
@@ -207,7 +209,7 @@ function validateDocumentSyncPathParams(
 
 function handleDocumentMutationError(error: unknown) {
   if (error instanceof DocumentMutationError) {
-    return { error: error.message, status: error.status };
+    return { code: error.code, error: error.message, status: error.status };
   }
 
   throw error;
@@ -320,6 +322,15 @@ async function respondWithDocumentSync(
     return c.json<DocumentSyncResponse>(response);
   } catch (error) {
     const result = handleDocumentMutationError(error);
+    if (result.status === 409) {
+      return c.json<DocumentSyncErrorResponse>(
+        {
+          code: result.code ?? DOCUMENT_SYNC_ERROR_CODES.conflict,
+          error: result.error,
+        },
+        result.status,
+      );
+    }
     return c.json({ error: result.error }, result.status);
   }
 }

@@ -3,6 +3,7 @@ import {
   type DocumentContentKeyTarget,
   type KeyingCanonicalJson,
 } from "@tearleads/crypto";
+import type { DocumentSyncErrorCode } from "@tearleads/validators/response";
 import {
   assertContentKeyTargetHashMatches,
   assertContentKeyTargetsMatchCurrent,
@@ -39,6 +40,7 @@ export class DocumentContentKeyBundleError extends Error {
   constructor(
     message: string,
     readonly status: 400 | 404 | 409,
+    readonly code?: DocumentSyncErrorCode | undefined,
   ) {
     super(message);
     this.name = "DocumentContentKeyBundleError";

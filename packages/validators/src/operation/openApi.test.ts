@@ -7,7 +7,10 @@ import {
   toJsonSchema,
 } from "../jsonSchema";
 import { DocumentSyncRequestSchema } from "../request";
-import { DocumentSyncResponseSchema } from "../response";
+import {
+  DOCUMENT_SYNC_ERROR_CODES,
+  DocumentSyncResponseSchema,
+} from "../response";
 import { documentSyncOperation } from "./documentSync";
 import {
   createOpenApiDocument,
@@ -28,6 +31,8 @@ const syncPost = syncPathItem?.post;
 const requestSchema = syncPost?.requestBody.content["application/json"].schema;
 const responseSchema =
   syncPost?.responses["200"]?.content?.["application/json"].schema;
+const errorResponseSchema =
+  syncPost?.responses["409"]?.content?.["application/json"].schema;
 
 if (syncPost === undefined || requestSchema === undefined) {
   throw new Error("Document sync OpenAPI request is missing");
@@ -35,10 +40,14 @@ if (syncPost === undefined || requestSchema === undefined) {
 if (responseSchema === undefined) {
   throw new Error("Document sync OpenAPI response is missing");
 }
+if (errorResponseSchema === undefined) {
+  throw new Error("Document sync OpenAPI error response is missing");
+}
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validateRequestSchema = ajv.compile(requestSchema);
 const validateResponseSchema = ajv.compile(responseSchema);
+const validateErrorResponseSchema = ajv.compile(errorResponseSchema);
 
 test("document sync emits its operation registry as OpenAPI 3.1", () => {
   expect(documentSyncOpenApiDocument.openapi).toBe("3.1.0");
@@ -67,9 +76,24 @@ test("document sync emits its operation registry as OpenAPI 3.1", () => {
     "503",
   ]);
   expect(syncPost.responses["400"]?.content).toBeUndefined();
+  expect(syncPost.responses["409"]?.description).toBe("Failure JSON response");
   expect(syncPost["x-tearleads-runtime-refinements"]).toEqual(
     documentSyncOperation.runtimeRefinements,
   );
+});
+
+test("document sync OpenAPI declares the stable 409 error envelope", () => {
+  expect(
+    validateErrorResponseSchema({
+      code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
+      error: "State changed",
+      future: true,
+    }),
+  ).toBe(true);
+  expect(
+    validateErrorResponseSchema({ code: "unknown", error: "State changed" }),
+  ).toBe(false);
+  expect(validateErrorResponseSchema({ error: "State changed" })).toBe(false);
 });
 
 test("JSON Schema projection rejects unregistered schemas", () => {

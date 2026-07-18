@@ -327,6 +327,19 @@ content-key bundle, a required array of any additional returned epoch bundles,
 document KEK targets, and encrypted updates missing from the client-supplied
 frontier.
 
+### Document Sync Conflict Codes
+
+JSON `409` responses retain `error` for diagnostics and carry a normative code:
+
+| Code | Client action |
+| --- | --- |
+| `document_sync_state_stale` | Refetch the writer projection and replan. |
+| `document_sync_update_id_conflict` | Run pending-update ID recovery. |
+| `document_sync_conflict` | Report the terminal conflict without retrying. |
+
+Retry and recovery decisions use status plus `code`, never `error` text. A
+missing or unknown code fails closed as a terminal conflict.
+
 ## Blob Stage Protocol
 
 Blob bytes are staged before attachment binding:

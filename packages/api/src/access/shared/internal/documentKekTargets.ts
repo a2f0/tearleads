@@ -4,6 +4,10 @@ import {
   type DocumentContentKeyTarget,
 } from "@tearleads/crypto";
 import {
+  DOCUMENT_SYNC_ERROR_CODES,
+  type DocumentSyncErrorCode,
+} from "@tearleads/validators/response";
+import {
   getCurrentAccessManifestHead,
   listAccessManifestDocumentLinkProjection,
 } from "./accessManifestStore";
@@ -14,6 +18,7 @@ export class DocumentKekTargetError extends Error {
   constructor(
     message: string,
     readonly status: 404 | 409,
+    readonly code?: DocumentSyncErrorCode | undefined,
   ) {
     super(message);
     this.name = "DocumentKekTargetError";
@@ -133,7 +138,11 @@ export async function assertDocumentKekTargetsCurrent(
         409,
       ),
     createStaleError: () =>
-      new DocumentKekTargetError("Document KEK targets are stale", 409),
+      new DocumentKekTargetError(
+        "Document KEK targets are stale",
+        409,
+        DOCUMENT_SYNC_ERROR_CODES.stateStale,
+      ),
   });
 
   return currentTargets;

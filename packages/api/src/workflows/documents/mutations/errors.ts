@@ -1,4 +1,8 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
+import {
+  DOCUMENT_SYNC_ERROR_CODES,
+  type DocumentSyncErrorCode,
+} from "@tearleads/validators/response";
 import { DocumentKekTargetError } from "../../../access/read/documentKekTargets";
 import { DocumentContentKeyBundleError } from "../../../access/write/documentContentKeyStore";
 import { DocumentUpdateReadError } from "../../../documents/documentUpdateStore";
@@ -11,6 +15,7 @@ export class DocumentMutationError extends Error {
   constructor(
     message: string,
     readonly status: DocumentMutationStatus,
+    readonly code?: DocumentSyncErrorCode | undefined,
   ) {
     super(message);
     this.name = "DocumentMutationError";
@@ -19,6 +24,22 @@ export class DocumentMutationError extends Error {
 
 export function documentShapeError(message: string): DocumentMutationError {
   return new DocumentMutationError(message, 400);
+}
+
+export function documentSyncStateStale(message: string): DocumentMutationError {
+  return new DocumentMutationError(
+    message,
+    409,
+    DOCUMENT_SYNC_ERROR_CODES.stateStale,
+  );
+}
+
+export function documentUpdateIdConflict(): DocumentMutationError {
+  return new DocumentMutationError(
+    "Document update id conflict",
+    409,
+    DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
+  );
 }
 
 function mapVerificationStatus(
@@ -49,7 +70,7 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
   }
 
   if (error instanceof DocumentContentKeyBundleError) {
-    return new DocumentMutationError(error.message, error.status);
+    return new DocumentMutationError(error.message, error.status, error.code);
   }
 
   if (error instanceof DocumentUpdateReadError) {
@@ -57,7 +78,7 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
   }
 
   if (error instanceof DocumentKekTargetError) {
-    return new DocumentMutationError(error.message, error.status);
+    return new DocumentMutationError(error.message, error.status, error.code);
   }
 
   if (error instanceof PrincipalPolicyProjectionError) {

@@ -40,6 +40,7 @@ export type RequestFn = <T>(
 export type RequestFailureKind = "http" | "network" | "json" | "shape";
 
 export interface RequestFailure {
+  readonly code?: string | undefined;
   readonly kind: RequestFailureKind;
   readonly message: string;
   readonly method: HttpMethod;

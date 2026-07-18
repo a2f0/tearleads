@@ -787,7 +787,33 @@
             "description": "Response without a declared JSON body"
           },
           "409": {
-            "description": "Response without a declared JSON body"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "document_sync_conflict",
+                        "document_sync_state_stale",
+                        "document_sync_update_id_conflict"
+                      ]
+                    },
+                    "error": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
           },
           "500": {
             "description": "Response without a declared JSON body"

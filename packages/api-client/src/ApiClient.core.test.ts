@@ -436,6 +436,7 @@ testApiClient(
       http.post(`${apiBaseUrl}/documents/:documentId/sync`, () => {
         return HttpResponse.json(
           {
+            code: "document_sync_state_stale",
             error: "Document KEK targets are stale",
           },
           {
@@ -463,6 +464,7 @@ testApiClient(
     if (result.ok) {
       throw new Error("Expected document sync result failure");
     }
+    expect(result.code).toBe("document_sync_state_stale");
     expect(result.status).toBe(409);
     expect(result.message).toBe(
       "POST /documents/document-1/sync: 409 Conflict: Document KEK targets are stale",

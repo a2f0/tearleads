@@ -11,6 +11,7 @@ import {
   DocumentSyncResponseSchema,
   isDocumentSyncResponse,
 } from "../response/documentMutation";
+import { DocumentSyncErrorResponseSchema } from "../response/documentSyncError";
 import { defineJsonOperation } from "./definition";
 
 export const DocumentSyncPathParamsSchema = z.strictObject({
@@ -24,6 +25,9 @@ export type DocumentSyncPathParams = z.infer<
 export const documentSyncOperation = defineJsonOperation({
   auth: "session",
   body: DocumentSyncRequestSchema,
+  failureResponses: {
+    409: DocumentSyncErrorResponseSchema,
+  },
   failureStatuses: [400, 401, 402, 403, 404, 409, 500, 503],
   id: "documents.sync",
   method: "POST",
