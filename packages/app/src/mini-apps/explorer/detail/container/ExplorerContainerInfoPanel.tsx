@@ -2,6 +2,7 @@ import type {
   ContainerInfo,
   ContainerNode,
   ContainerShareAccessLevel,
+  OrganizationDirectoryAndGroups,
 } from "@tearleads/client-sdk";
 import { useEffect, useId, useState } from "react";
 import {
@@ -47,6 +48,9 @@ interface Props {
     },
     position?: MiniAppWindowPosition,
   ) => void;
+  readModelProjection?: OrganizationDirectoryAndGroups | null | undefined;
+  readModelRevision?: number | undefined;
+  readModelScope?: object | null | undefined;
   peerUserId: string | null;
   setContainerIcon: (
     containerId: string,
@@ -78,6 +82,9 @@ function useExplorerContainerInfoPanelState(params: Props) {
   const containerInfoState = useExplorerContainerInfo({
     containerId,
     loadContainerInfo: params.loadContainerInfo,
+    organizationReadModelProjection: params.readModelProjection,
+    organizationReadModelRevision: params.readModelRevision,
+    organizationReadModelScope: params.readModelScope,
     reloadToken: params.containerSyncStatus,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);

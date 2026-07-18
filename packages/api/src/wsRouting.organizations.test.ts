@@ -5,6 +5,7 @@ const ORG_A = "00000000-0000-4000-8000-00000000000a";
 const ORG_B = "00000000-0000-4000-8000-00000000000b";
 const USER_A = "10000000-0000-4000-8000-00000000000a";
 const USER_B = "20000000-0000-4000-8000-00000000000b";
+const DECLARATION_ID = "organization-interest-a";
 
 interface FakeSocket extends WsConnection {
   readonly sent: string[];
@@ -34,10 +35,12 @@ function declareAuthorizedOrganization(
     ws,
     JSON.stringify({
       type: "known_organizations",
+      declarationId: DECLARATION_ID,
       organizationIds: organizationId ? [organizationId] : [],
     }),
   );
   expect(action).toEqual({
+    declarationId: DECLARATION_ID,
     kind: "organization-replace",
     organizationId,
   });
@@ -132,6 +135,7 @@ test("rejects malformed organization interest declarations", () => {
       alice,
       JSON.stringify({
         type: "known_organizations",
+        declarationId: DECLARATION_ID,
         organizationIds: [ORG_A, ORG_B],
       }),
     ),
@@ -141,10 +145,23 @@ test("rejects malformed organization interest declarations", () => {
       alice,
       JSON.stringify({
         type: "known_organizations",
+        declarationId: DECLARATION_ID,
         organizationIds: ["not-an-organization-id"],
       }),
     ),
   ).toBeNull();
+  for (const declarationId of [undefined, "", 42, "x".repeat(129)]) {
+    expect(
+      router.handleClientMessage(
+        alice,
+        JSON.stringify({
+          type: "known_organizations",
+          declarationId,
+          organizationIds: [ORG_A],
+        }),
+      ),
+    ).toBeNull();
+  }
 
   router.routeServerEvent(
     JSON.stringify({
@@ -154,6 +171,28 @@ test("rejects malformed organization interest declarations", () => {
     }),
   );
   expect(alice.sent).toEqual([]);
+});
+
+test("accepts an organization declaration ID at the maximum length", () => {
+  const router = new WsEventRouter();
+  const alice = fakeSocket(USER_A);
+  const declarationId = "x".repeat(128);
+  router.open(alice);
+
+  expect(
+    router.handleClientMessage(
+      alice,
+      JSON.stringify({
+        type: "known_organizations",
+        declarationId,
+        organizationIds: [ORG_A],
+      }),
+    ),
+  ).toEqual({
+    declarationId,
+    kind: "organization-replace",
+    organizationId: ORG_A,
+  });
 });
 
 test("drops organization events without a strict authoritative audience", () => {

@@ -37,7 +37,7 @@ test("concurrent read-model reconciliation is single-flight", async () => {
       return pendingRequest;
     },
   });
-  const workflowInput = {
+  let workflowInput: InternalWorkflowRuntimeInput = {
     apiClient,
     resolveTrustedUserIdentity: async () => null,
     auth: {
@@ -66,7 +66,7 @@ test("concurrent read-model reconciliation is single-flight", async () => {
       log: () => {},
       logError: () => {},
     },
-  } satisfies InternalWorkflowRuntimeInput;
+  };
   const runtime = {
     pinLocalUserIdentity: async () => {},
     publicRuntime: {
@@ -78,6 +78,8 @@ test("concurrent read-model reconciliation is single-flight", async () => {
   } satisfies InternalRuntime;
   const coordinator = createOrganizationReadModelCoordinator(runtime);
 
+  expect(createOrganizationReadModelCoordinator(runtime)).toBe(coordinator);
+
   try {
     const first = coordinator.reconcile();
     const second = coordinator.reconcile();
@@ -88,6 +90,14 @@ test("concurrent read-model reconciliation is single-flight", async () => {
 
     expect(firstResult).toEqual(secondResult);
     expect(firstResult?.groups[0]?.name).toBe("Admins");
+    expect(readModelRequests).toBe(1);
+
+    workflowInput = {
+      ...workflowInput,
+      state: { ...workflowInput.state, online: false },
+    };
+    await expect(coordinator.reconcile()).resolves.toBeNull();
+    await expect(coordinator.reconcileAfterMutation()).resolves.toBeNull();
     expect(readModelRequests).toBe(1);
   } finally {
     close();

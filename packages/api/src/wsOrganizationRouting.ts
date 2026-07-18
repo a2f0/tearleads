@@ -8,12 +8,14 @@ import {
 } from "./wsConnection";
 
 export const KNOWN_ORGANIZATIONS_REPLACE = "known_organizations";
+export const KNOWN_ORGANIZATIONS_ACK = "known_organizations_ack";
 export const ORGANIZATION_READ_MODEL_CHANGED =
   "organization_read_model_changed";
 const ORGANIZATION_READ_MODEL_ACCESS_REVOKED =
   "organization_read_model_access_revoked";
 
 export type OrganizationInterestDeclaration = {
+  readonly declarationId: string;
   readonly kind: "organization-replace";
   readonly organizationId: string | null;
 };

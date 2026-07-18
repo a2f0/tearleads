@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import {
   attachOrganizationReadModelSocket,
   handleOrganizationReadModelHint,
+  handleOrganizationReadModelInterestAcknowledgement,
 } from "./organizationReadModelRealtime";
 import { startServerEventsConnectionLoop } from "./serverEventsConnectionLoop";
 
@@ -67,6 +68,30 @@ function readOrganizationReadModelControl(
   return typeof originatedFromSession === "boolean"
     ? { organizationId, originatedFromSession }
     : null;
+}
+
+function readOrganizationInterestAcknowledgement(value: unknown): {
+  readonly authorized: boolean;
+  readonly declarationId: string;
+  readonly organizationId: string | null;
+} | null {
+  if (!isServerEvent(value) || value.type !== "known_organizations_ack") {
+    return null;
+  }
+  const authorized = Reflect.get(value, "authorized");
+  const declarationId = Reflect.get(value, "declarationId");
+  const organizationId = Reflect.get(value, "organizationId");
+  if (
+    typeof authorized !== "boolean" ||
+    typeof declarationId !== "string" ||
+    declarationId.length === 0 ||
+    declarationId.length > 128 ||
+    (organizationId !== null &&
+      (typeof organizationId !== "string" || !isUuidV4String(organizationId)))
+  ) {
+    return null;
+  }
+  return { authorized, declarationId, organizationId };
 }
 
 // Force a fresh access check + tree re-list for a container the server flagged.
@@ -160,6 +185,11 @@ export function routeIncomingWsMessage(
   rawData: string,
   handlers: {
     onInterestState: (baseline: string[]) => void;
+    onOrganizationInterestAcknowledged: (
+      declarationId: string,
+      organizationId: string | null,
+      authorized: boolean,
+    ) => void;
     onOrganizationReadModelChanged: (
       organizationId: string,
       originatedFromSession: boolean,
@@ -179,6 +209,18 @@ export function routeIncomingWsMessage(
   const baseline = readInterestStateContainerIds(data);
   if (baseline !== null) {
     handlers.onInterestState(baseline);
+    return;
+  }
+  if (isServerEvent(data) && data.type === "known_organizations_ack") {
+    const organizationAcknowledgement =
+      readOrganizationInterestAcknowledgement(data);
+    if (organizationAcknowledgement) {
+      handlers.onOrganizationInterestAcknowledged(
+        organizationAcknowledgement.declarationId,
+        organizationAcknowledgement.organizationId,
+        organizationAcknowledgement.authorized,
+      );
+    }
     return;
   }
   const resyncContainerId = readResyncRequiredContainerId(data);
@@ -336,6 +378,19 @@ export function useServerEventsBinding(
               tearleads,
               ws,
               new Set(baseline),
+            );
+          },
+          onOrganizationInterestAcknowledged: (
+            declarationId,
+            organizationId,
+            authorized,
+          ) => {
+            handleOrganizationReadModelInterestAcknowledgement(
+              tearleads,
+              ws,
+              declarationId,
+              organizationId,
+              authorized,
             );
           },
           onOrganizationReadModelChanged: (

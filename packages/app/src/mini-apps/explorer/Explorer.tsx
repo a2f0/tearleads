@@ -1,4 +1,7 @@
-import type { DomainScope } from "@tearleads/client-sdk";
+import type {
+  DomainScope,
+  OrganizationDirectoryAndGroups,
+} from "@tearleads/client-sdk";
 import { useCallback, useEffect } from "react";
 import { usePeerUserId } from "../../components/pane/dual-pane";
 import {
@@ -31,8 +34,8 @@ import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenuLaye
 import type { ExplorerAttributionUserLabelResolver } from "./detail/attributionDisplay";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
 import { useExplorerRoutedChromeActions } from "./ExplorerRoutedChrome";
-import { useExplorerAttributionUserLabels } from "./hooks/useExplorerAttributionUserLabels";
 import { useExplorerModel } from "./hooks/useExplorerModel";
+import { useExplorerOrganizationPresentation } from "./hooks/useExplorerOrganizationPresentation";
 import { EXPLORER_LABELS } from "./labels";
 import { ExplorerModalLayer } from "./modal/view";
 import { ExplorerPurgeProgressModal } from "./purge-progress/ExplorerPurgeProgressModal";
@@ -40,13 +43,8 @@ import type { MiniAppWindowPosition } from "./types";
 import { useExplorerToolbarUpload } from "./useExplorerToolbarUpload";
 import "./Explorer.css";
 
-// Auto catch-up performs a watermark-resetting root-tree re-list; it only needs
-// to run once per domain scope (identity/database), not once per mount. Tracking
-// completion in a per-mount ref re-fired the sweep every time the compact/mobile
-// breakpoint remounted Explorer. A module-level WeakSet keyed by the domain-scope
-// object survives those remounts and rotates automatically when the scope object
-// changes on a real identity/database switch — the previous scope is then GC'd, so
-// the new one catches up afresh.
+// Keep root-tree catch-up once per identity/database scope across responsive
+// Explorer remounts; a real scope switch rotates the weakly held marker.
 const catchupCompletedScopes = new WeakSet<DomainScope>();
 
 interface ExplorerGrantOrgManagerTarget {
@@ -91,6 +89,9 @@ interface BlobPickPanelProps {
   billingBlockedOrganizationId: string | null;
   databaseError: boolean;
   model: ExplorerModel;
+  readModelProjection: OrganizationDirectoryAndGroups | null;
+  readModelRevision: number;
+  readModelScope: object | null;
   resolveAttributionUserLabel: ExplorerAttributionUserLabelResolver;
   onOpenGrant: (
     grant: ExplorerGrantOrgManagerTarget,
@@ -107,16 +108,8 @@ interface BlobPickPanelRenderParams extends BlobPickPanelProps {
 function renderExplorerDetailPanelWithBlobPick(
   params: BlobPickPanelRenderParams,
 ) {
-  const {
-    appData,
-    blobPick,
-    databaseError,
-    model,
-    onOpenGrant,
-    onRetryDatabase,
-    resolveAttributionUserLabel,
-    showLinkedDocumentActivationControls,
-  } = params;
+  const { appData, blobPick, model, onOpenGrant, resolveAttributionUserLabel } =
+    params;
 
   return (
     <ExplorerDetailPanel
@@ -125,8 +118,8 @@ function renderExplorerDetailPanelWithBlobPick(
       blobPickTarget={blobPick.pickTarget}
       blobStore={appData.infra.blobStore}
       billingBlockedOrganizationId={params.billingBlockedOrganizationId}
-      databaseError={databaseError}
-      onRetryDatabase={onRetryDatabase}
+      databaseError={params.databaseError}
+      onRetryDatabase={params.onRetryDatabase}
       canActivateLinkedContainer={appData.infra.dbStatus === "ready"}
       canMutateDocumentLinks={model.canMutateDocumentLinks}
       canShareWithPeer={model.canShareWithPeer}
@@ -151,6 +144,9 @@ function renderExplorerDetailPanelWithBlobPick(
       nodes={model.explorer.nodes}
       online={appData.state.online}
       organizationNamesById={model.organizationNamesById}
+      readModelProjection={params.readModelProjection}
+      readModelRevision={params.readModelRevision}
+      readModelScope={params.readModelScope}
       onCancelBlobPick={blobPick.cancelBlobPick}
       onContainerContextMenu={model.contextMenuState.handleContainerContextMenu}
       onItemContextMenu={model.contextMenuState.handleItemContextMenu}
@@ -178,7 +174,7 @@ function renderExplorerDetailPanelWithBlobPick(
       trashSystemSlot={model.explorer.trashSystemSlot}
       setSelectedId={model.routeState.selectExplorerItem}
       showLinkedDocumentActivationControls={
-        showLinkedDocumentActivationControls
+        params.showLinkedDocumentActivationControls
       }
       shareWithGroup={model.explorer.shareWithGroup}
       shareWithUser={model.explorer.shareWithUser}
@@ -245,10 +241,9 @@ function ExplorerContent() {
     peerUserId,
     retryDatabaseBoot,
   );
-  const resolveAttributionUserLabel = useExplorerAttributionUserLabels({
+  const organizationPresentation = useExplorerOrganizationPresentation({
     appData,
-    enabled: model.routeState.route.view === "document-info",
-    explorer: model.explorer,
+    view: model.routeState.route.view,
   });
   const catchupScope = appData.state.domainScope;
   useEffect(() => {
@@ -408,7 +403,12 @@ function ExplorerContent() {
           billingBlockedOrganizationId={billingBlockedOrganizationId}
           databaseError={databaseError}
           model={model}
-          resolveAttributionUserLabel={resolveAttributionUserLabel}
+          readModelProjection={organizationPresentation.projection}
+          readModelRevision={organizationPresentation.revision}
+          readModelScope={organizationPresentation.scope}
+          resolveAttributionUserLabel={
+            organizationPresentation.resolveAttributionUserLabel
+          }
           onOpenGrant={openGrantInOrgManager}
           onRetryDatabase={retryDatabaseBoot}
         />

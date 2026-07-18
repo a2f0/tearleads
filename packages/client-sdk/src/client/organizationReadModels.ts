@@ -19,6 +19,11 @@ import type {
   InternalWorkflowRuntimeInput,
 } from "./workflowRuntime";
 
+const coordinatorsByRuntime = new WeakMap<
+  InternalRuntime,
+  OrganizationReadModelCoordinator
+>();
+
 interface ActiveOrganizationReadModelRuntime {
   readonly runtime: InternalWorkflowRuntimeInput;
   readonly organizationId: string;
@@ -27,9 +32,6 @@ interface ActiveOrganizationReadModelRuntime {
 
 export interface OrganizationReadModelCoordinator {
   loadLocal(
-    organizationId?: string | undefined,
-  ): Promise<OrganizationDirectoryAndGroups | null>;
-  loadLocalOrReconcile(
     organizationId?: string | undefined,
   ): Promise<OrganizationDirectoryAndGroups | null>;
   loadLocalGroupMembers(
@@ -180,15 +182,9 @@ class OrganizationReadModelCoordinatorImpl
     });
   }
 
-  async loadLocalOrReconcile(organizationId?: string) {
-    return (
-      (await this.loadLocal(organizationId)) ?? this.reconcile(organizationId)
-    );
-  }
-
   reconcile(organizationId?: string) {
     const active = activeReadModelRuntime(this.runtimeService, organizationId);
-    if (!active) {
+    if (!active || !active.runtime.state.online) {
       return Promise.resolve(null);
     }
 
@@ -216,7 +212,7 @@ class OrganizationReadModelCoordinatorImpl
 
   async reconcileAfterMutation(organizationId?: string) {
     const active = activeReadModelRuntime(this.runtimeService, organizationId);
-    if (!active) {
+    if (!active || !active.runtime.state.online) {
       return null;
     }
     const existing = this.reconciliationMap(active).get(
@@ -232,5 +228,12 @@ class OrganizationReadModelCoordinatorImpl
 export function createOrganizationReadModelCoordinator(
   runtimeService: InternalRuntime,
 ): OrganizationReadModelCoordinator {
-  return new OrganizationReadModelCoordinatorImpl(runtimeService);
+  const existing = coordinatorsByRuntime.get(runtimeService);
+  if (existing) {
+    return existing;
+  }
+
+  const coordinator = new OrganizationReadModelCoordinatorImpl(runtimeService);
+  coordinatorsByRuntime.set(runtimeService, coordinator);
+  return coordinator;
 }

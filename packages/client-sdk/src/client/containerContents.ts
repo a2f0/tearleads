@@ -59,6 +59,10 @@ import type {
   MoveDocumentToContainerInput,
   OpenContainerDocumentInput,
 } from "./containerContentsTypes";
+import {
+  createOrganizationReadModelCoordinator,
+  type OrganizationReadModelCoordinator,
+} from "./organizationReadModels";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
@@ -173,8 +177,31 @@ function moveDocumentLinkNote(
   return input.note;
 }
 
+interface ContainerInfoOrganizationScope {
+  readonly domainScope: InternalWorkflowRuntimeInput["state"]["domainScope"];
+  readonly organizationId: string;
+  readonly userId: string;
+}
+
+function isActiveContainerInfoOrganizationScope(
+  runtime: InternalWorkflowRuntimeInput,
+  scope: ContainerInfoOrganizationScope,
+): boolean {
+  return (
+    runtime.auth.isAuthenticated &&
+    runtime.auth.organizationId === scope.organizationId &&
+    runtime.auth.userId === scope.userId &&
+    runtime.state.domainScope === scope.domainScope
+  );
+}
+
 class ContainerContentsService implements ContainerContents {
-  constructor(private readonly runtimeService: InternalRuntime) {}
+  private readonly organizationReadModels: OrganizationReadModelCoordinator;
+
+  constructor(private readonly runtimeService: InternalRuntime) {
+    this.organizationReadModels =
+      createOrganizationReadModelCoordinator(runtimeService);
+  }
 
   openTree(
     options?: ContainerContentsStoreOptions | undefined,
@@ -330,16 +357,46 @@ class ContainerContentsService implements ContainerContents {
 
   loadContainerInfo(input: ContainerInfoInput): Promise<ContainerInfo> {
     const runtime = this.runtimeService.workflowInput();
+    const organizationScope =
+      runtime.auth.isAuthenticated &&
+      runtime.auth.organizationId &&
+      runtime.auth.userId
+        ? {
+            domainScope: runtime.state.domainScope,
+            organizationId: runtime.auth.organizationId,
+            userId: runtime.auth.userId,
+          }
+        : null;
     const cachedContainerProjection =
       this.openTree().getCachedContainerWriterProjection(input.containerId);
     return loadContainerInfo({
       ...input,
       apiClient: runtime.apiClient,
       containerProjection: cachedContainerProjection,
-      currentUserId: runtime.auth.userId,
       execSql:
         runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
-      organizationId: runtime.auth.organizationId,
+      loadOrganizationGroups: async () => {
+        if (
+          !organizationScope ||
+          !isActiveContainerInfoOrganizationScope(
+            this.runtimeService.workflowInput(),
+            organizationScope,
+          )
+        ) {
+          return [];
+        }
+        // Organization groups are disposable presentation data. Container
+        // writer projections remain the authority for grants and access.
+        const projection = await this.organizationReadModels.loadLocal(
+          organizationScope.organizationId,
+        );
+        return isActiveContainerInfoOrganizationScope(
+          this.runtimeService.workflowInput(),
+          organizationScope,
+        )
+          ? (projection?.groups ?? [])
+          : [];
+      },
       parentId: input.parentId ?? null,
     });
   }
