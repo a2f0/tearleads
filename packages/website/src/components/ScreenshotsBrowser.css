@@ -1,8 +1,6 @@
 /*
- * The screenshot gallery renders outside the app's ThemeProvider, so it carries
- * its own theme via `data-gallery-theme` on the root rather than `<html
- * data-theme>`. Selecting the Light/Dark toggle themes both the previewed shots
- * and this chrome.
+ * The gallery chrome keeps the site's light look regardless of the Light/Dark
+ * toggle, which only selects which capture set is previewed.
  */
 .screenshots-browser {
   --sb-bg: #f4f5f7;
@@ -29,17 +27,6 @@
   background: var(--sb-bg);
   color: var(--sb-text);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-}
-
-.screenshots-browser[data-gallery-theme="dark"] {
-  --sb-bg: #14161a;
-  --sb-panel: #1e2126;
-  --sb-border: #333941;
-  --sb-text: #e6e8eb;
-  --sb-muted: #9aa2ad;
-  --sb-accent: #4f8bff;
-  --sb-accent-text: #0b0d10;
-  --sb-shadow: rgba(0, 0, 0, 0.4);
 }
 
 .screenshots-browser__toolbar {
