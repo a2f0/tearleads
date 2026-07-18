@@ -60,6 +60,15 @@ decision. The checked invariants require that:
 - current-or-newer-epoch payloads remain live and are served;
 - after serving, every unserved update is carried by the readable baseline.
 
+The invariants are stated with the same `Dominated`/`Older` operators that
+guard the actions, so TLC verifies the prune/serve **composition** relative to
+those definitions — not the dominance definition itself. Mutation testing
+confirms this boundary: weakening `VectorCovers` or deleting its conjunct from
+`Dominated` passes TLC unchanged, while removing the serve gate is caught. The
+ground truth for the dominance semantics is the TypeScript parity suite below,
+which `check:fast` runs on every push and pull request via
+`test:protocol-conformance`.
+
 The checked configuration bounds the state space to two peers, counters from
 zero through two, three content-key epochs, and two arbitrary updates. The
 TypeScript bounded-parity test

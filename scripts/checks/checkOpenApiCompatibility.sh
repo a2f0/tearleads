@@ -45,6 +45,21 @@ git cat-file -e "$base_spec" 2>/dev/null ||
 
 echo "Checking $OPENAPI_PATH compatibility against $base_description ($base_commit)..."
 
+command -v bun >/dev/null 2>&1 ||
+  fail "bun is unavailable; it is required for the runtime-refinement check."
+
+# oasdiff ignores x-tearleads-runtime-refinements, so tightening them must be
+# caught separately. The helper lives next to this script, not in $REPO_ROOT,
+# so fixture repositories exercise the real implementation.
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+base_spec_file=$(mktemp "${TMPDIR:-/tmp}/openapi-base.XXXXXX")
+trap 'rm -f "$base_spec_file"' EXIT
+git cat-file blob "$base_spec" >"$base_spec_file"
+bun "$script_dir/checkOpenApiRefinementCompatibility.ts" \
+  "$base_spec_file" "$OPENAPI_PATH"
+rm -f "$base_spec_file"
+trap - EXIT
+
 set -- breaking "$base_spec" "$OPENAPI_PATH" \
   --fail-on WARN \
   --allow-external-refs=false
