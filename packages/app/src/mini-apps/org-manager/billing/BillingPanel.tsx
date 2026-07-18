@@ -31,7 +31,13 @@ export function BillingPanel({
     startTrial: billing.startTrial,
     userId,
   });
-  const history = useBillingHistory(organizationId, isOrgAdmin);
+  // Pass the billing snapshot so a billing refresh (activation poll / Refresh)
+  // also refetches history, keeping the tabs current after a purchase.
+  const history = useBillingHistory(
+    organizationId,
+    isOrgAdmin,
+    billing.billing,
+  );
   const handleRefresh = useCallback(() => {
     void refresh();
   }, [refresh]);

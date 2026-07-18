@@ -18,11 +18,15 @@ interface BillingHistoryState extends BillingHistorySnapshot {
  * facade (mirroring how the billing snapshot is loaded). The facade reads the
  * ACTIVE organization, so every result is scoped back to the organization that
  * requested it and stale responses are dropped. `enabled` gates the fetch:
- * the panel only requests history for org admins.
+ * the panel only requests history for org admins. `reloadToken` re-fetches when
+ * it changes — pass the billing snapshot so a billing refresh (the activation
+ * poll or the Refresh button) also refreshes the history, keeping the two in
+ * sync instead of leaving the history stale after a purchase.
  */
 export function useBillingHistory(
   organizationId: string,
   enabled: boolean,
+  reloadToken?: unknown,
 ): BillingHistorySnapshot {
   const tearleads = useTearleads();
   const requestIdRef = useRef(0);
@@ -38,7 +42,19 @@ export function useBillingHistory(
       return;
     }
     const requestId = ++requestIdRef.current;
-    setState({ organizationId, entries: null, loading: true, error: null });
+    setState((prev) => {
+      // Preserve already-loaded rows across a background reload (a billing
+      // refresh bumps reloadToken) so the list does not flicker; only the first
+      // load for an organization shows the loading state.
+      const reloading =
+        prev.organizationId === organizationId && prev.entries !== null;
+      return {
+        organizationId,
+        entries: reloading ? prev.entries : null,
+        loading: !reloading,
+        error: null,
+      };
+    });
     void (async () => {
       try {
         const history = await tearleads.organizations.loadBillingHistory();
@@ -69,7 +85,7 @@ export function useBillingHistory(
     return () => {
       requestIdRef.current++;
     };
-  }, [enabled, organizationId, tearleads]);
+  }, [enabled, organizationId, tearleads, reloadToken]);
 
   const scoped = state.organizationId === organizationId;
   return {
