@@ -1,13 +1,16 @@
 import { useCallback } from "react";
 import { useOrganizationBilling } from "../../../providers/billing/BillingProvider";
 import { useBillingActions } from "../hooks/useBillingActions";
+import { BillingHistory } from "./BillingHistory";
 import { BillingView } from "./BillingView";
+import { useBillingHistory } from "./useBillingHistory";
 
 /**
  * Container for the org-manager billing view: wires the billing snapshot
- * ({@link useOrganizationBilling}) and the purchase orchestration
- * ({@link useBillingActions}). The presentational {@link BillingView} stays
- * prop-driven and unit-testable.
+ * ({@link useOrganizationBilling}), the purchase orchestration
+ * ({@link useBillingActions}), and — for org admins — the billing lifecycle
+ * history ({@link useBillingHistory}). The presentational {@link BillingView}
+ * and {@link BillingHistory} stay prop-driven and unit-testable.
  */
 export function BillingPanel({
   isOrgAdmin,
@@ -28,26 +31,36 @@ export function BillingPanel({
     startTrial: billing.startTrial,
     userId,
   });
+  const history = useBillingHistory(organizationId, isOrgAdmin);
   const handleRefresh = useCallback(() => {
     void refresh();
   }, [refresh]);
 
   return (
-    <BillingView
-      actionError={actions.actionError}
-      activationPending={actions.activationPending}
-      busy={actions.busy}
-      canSubscribe={actions.canSubscribe}
-      error={billing.error}
-      isOrgAdmin={isOrgAdmin}
-      loading={billing.loading}
-      onRefresh={handleRefresh}
-      onRestore={actions.restore}
-      onStartTrial={actions.startTrial}
-      onSubscribe={actions.subscribe}
-      options={actions.options}
-      purchaseAvailable={actions.purchaseAvailable}
-      view={billing.view}
-    />
+    <div>
+      <BillingView
+        actionError={actions.actionError}
+        activationPending={actions.activationPending}
+        busy={actions.busy}
+        canSubscribe={actions.canSubscribe}
+        error={billing.error}
+        isOrgAdmin={isOrgAdmin}
+        loading={billing.loading}
+        onRefresh={handleRefresh}
+        onRestore={actions.restore}
+        onStartTrial={actions.startTrial}
+        onSubscribe={actions.subscribe}
+        options={actions.options}
+        purchaseAvailable={actions.purchaseAvailable}
+        view={billing.view}
+      />
+      {isOrgAdmin ? (
+        <BillingHistory
+          entries={history.entries}
+          error={history.error}
+          loading={history.loading}
+        />
+      ) : null}
+    </div>
   );
 }

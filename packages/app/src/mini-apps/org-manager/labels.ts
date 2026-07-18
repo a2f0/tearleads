@@ -16,6 +16,11 @@ export const ORG_MANAGER_LABELS = {
   billingAdminOnly: "Only an organization admin can manage billing.",
   billingDeleting: "Deleting remote data",
   billingDisabled: "Sync disabled",
+  billingHistoryActivityTab: "Activity",
+  billingHistoryEmpty: "No billing events yet.",
+  billingHistoryEventsTab: "Events",
+  billingHistoryTabsLabel: "Billing history sections",
+  billingHistoryTitle: "Billing history",
   billingLocal: "Local only",
   billingNoOptions: "No subscription options are available right now.",
   billingPastDue: "Payment past due",
@@ -59,6 +64,7 @@ export const ORG_MANAGER_LABELS = {
   editRosterEntryAction: "Edit Roster Entry",
   failedLoadDirectoryGroups: "Failed to load organization roster or groups.",
   failedLoadDataUsage: "Failed to load organization data usage.",
+  failedLoadBillingHistory: "Failed to load billing history.",
   failedRestorePurchases: "Failed to restore purchases.",
   failedSubscribe: "Purchase failed.",
   failedLoadGrants: "Failed to load organization grants.",
@@ -84,6 +90,7 @@ export const ORG_MANAGER_LABELS = {
   joined: "Joined",
   lastName: "Last name",
   loadingBilling: "Loading billing...",
+  loadingBillingHistory: "Loading billing history...",
   loadingDirectory: "Loading roster...",
   loadingDataUsage: "Loading data usage...",
   loadingGrants: "Loading grants...",
@@ -222,6 +229,38 @@ export function getOrgManagerBillingStatusLabel(
 
 export function getOrgManagerTrialDaysLabel(days: number): string {
   return `${days} day${days === 1 ? "" : "s"} left`;
+}
+
+/** Friendly labels for the RevenueCat lifecycle events the webhook records. */
+const ORG_MANAGER_BILLING_EVENT_LABELS: Readonly<Record<string, string>> = {
+  CANCELLATION: "Cancellation scheduled",
+  EXPIRATION: "Expired",
+  INITIAL_PURCHASE: "Subscription started",
+  NON_RENEWING_PURCHASE: "Purchased",
+  PRODUCT_CHANGE: "Plan changed",
+  RENEWAL: "Renewed",
+  SUBSCRIPTION_EXTENDED: "Extended",
+  SUBSCRIPTION_PAUSED: "Paused",
+  TEMPORARY_ENTITLEMENT_GRANT: "Access granted",
+  UNCANCELLATION: "Resumed",
+};
+
+/**
+ * Maps a raw RevenueCat event type to its friendly activity label. Unknown
+ * types fall back to a title-cased rendering of the raw type (for example
+ * `BILLING_ISSUE` becomes "Billing issue") so new provider events still read
+ * as words rather than SCREAMING_SNAKE_CASE.
+ */
+export function getOrgManagerBillingEventLabel(eventType: string): string {
+  const label = ORG_MANAGER_BILLING_EVENT_LABELS[eventType];
+  if (label !== undefined) {
+    return label;
+  }
+  const words = eventType.toLowerCase().split("_").filter(Boolean).join(" ");
+  if (words.length === 0) {
+    return eventType;
+  }
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 export function getOrgManagerEpochLabel(keyEpoch: number): string {
