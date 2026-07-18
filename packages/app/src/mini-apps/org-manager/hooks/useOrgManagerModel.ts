@@ -306,6 +306,8 @@ export function useOrgManagerModel() {
     scopeKey: orgManagerScopeKey,
     setError,
     setGrants,
+    setLoading,
+    setLoadingUserDetail,
     setMutating,
     setOrganizationPolicyHistory,
   });
@@ -314,7 +316,6 @@ export function useOrgManagerModel() {
     mutating,
     online: appData.state.online,
     organizationId,
-    readModelCursor,
     refreshDirectoryAndGroups,
     scopeKey: orgManagerScopeKey,
     tearleads,

@@ -69,6 +69,31 @@ async function loadLocalDirectoryStep(input: {
   return input.localOnly ? { kind: "done", result } : { kind: "continue" };
 }
 
+/**
+ * A null reconcile is either a transient decline (offline, database not
+ * ready) or an authoritative denial that purged the projection. Reread the
+ * durable local projection to tell them apart: retained rows are
+ * last-known-good and must stay painted; absence is authoritative.
+ */
+async function resolveDeclinedReconcile(input: {
+  readonly apply: (
+    value: OrganizationDirectoryAndGroups,
+  ) => DirectoryRefreshResult;
+  readonly isCurrentRequest: () => boolean;
+  readonly load: () => Promise<OrganizationDirectoryAndGroups | null>;
+  readonly onPurged: () => void;
+}): Promise<DirectoryRefreshResult> {
+  const retainedDirectoryState = await input.load();
+  if (!input.isCurrentRequest()) {
+    return { didLoad: false, groupId: null };
+  }
+  if (retainedDirectoryState) {
+    return input.apply(retainedDirectoryState);
+  }
+  input.onPurged();
+  return { didLoad: false, groupId: null };
+}
+
 interface OrgManagerRefreshersParams {
   appData: ReturnType<typeof useTearleadsRuntime>;
   beginRequest: BeginRequest;
@@ -256,8 +281,10 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
           load: orgManagerActions.loadLocalDirectoryAndGroups,
           localOnly: options.localOnly ?? false,
           onMissing: () => {
+            // A missing local projection on a local-only pass means the
+            // organization has not synced yet, not that loading failed; the
+            // background feed reconcile paints it once the snapshot lands.
             resetDirectoryState();
-            setError(ORG_MANAGER_LABELS.failedLoadDirectoryGroups);
           },
         });
         if (localStep.kind === "done") {
@@ -275,9 +302,15 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
         return applyDirectoryAndGroups(nextDirectoryState);
       }
 
-      resetDirectoryState();
-      setError(ORG_MANAGER_LABELS.failedLoadDirectoryGroups);
-      return { didLoad: false, groupId: null };
+      return resolveDeclinedReconcile({
+        apply: applyDirectoryAndGroups,
+        isCurrentRequest,
+        load: orgManagerActions.loadLocalDirectoryAndGroups,
+        onPurged: () => {
+          resetDirectoryState();
+          setError(ORG_MANAGER_LABELS.failedLoadDirectoryGroups);
+        },
+      });
     },
     [
       appData.auth.isAuthenticated,

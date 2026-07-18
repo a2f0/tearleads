@@ -4,10 +4,8 @@ import type {
 } from "@tearleads/api-client";
 import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
 import { purgeOrganizationAccessProjection } from "../../data/persistence/organizations/organizationAccessRevocationPersistence";
-import {
-  loadOrganizationReadModelGroupMembers,
-  OrganizationReadModelBindingError,
-} from "../../data/persistence/organizations/organizationReadModelMembershipPersistence";
+import { loadOrganizationReadModelGroupMembers } from "../../data/persistence/organizations/organizationReadModelMemberLoad";
+import { OrganizationReadModelBindingError } from "../../data/persistence/organizations/organizationReadModelMembershipPersistence";
 import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,

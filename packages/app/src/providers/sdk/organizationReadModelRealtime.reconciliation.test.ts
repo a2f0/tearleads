@@ -34,7 +34,7 @@ test("coalesces a websocket burst and performs one trailing in-flight pass", asy
         markFirstStarted?.();
         return first;
       }
-      return Promise.resolve(null);
+      return Promise.resolve({});
     },
   });
   let projectionUpdates = 0;
@@ -313,7 +313,6 @@ test("an unmounted mutation owner releases its deferred hint to remaining demand
     ORGANIZATION_A,
     () => undefined,
     {
-      getReadModelCursor: () => "cursor-before",
       isMutationActive: () => mutating,
     },
   );
@@ -334,9 +333,8 @@ test("an unmounted mutation owner releases its deferred hint to remaining demand
   detach();
 });
 
-test("an explicit mutation reconcile absorbs deferred author echoes", async () => {
+test("a released deferred author hint reconciles the feed", async () => {
   const runtime = createRuntimeHarness();
-  let cursor: string | null = "cursor-before";
   let mutating = false;
   let projectionUpdates = 0;
   subscribeOrganizationReadModelRealtime(
@@ -346,7 +344,6 @@ test("an explicit mutation reconcile absorbs deferred author echoes", async () =
       projectionUpdates += 1;
     },
     {
-      getReadModelCursor: () => cursor,
       isMutationActive: () => mutating,
     },
   );
@@ -363,17 +360,56 @@ test("an explicit mutation reconcile absorbs deferred author echoes", async () =
   await Promise.resolve();
   expect(runtime.reconcileCalls).toBe(1);
 
-  cursor = "cursor-after";
+  // A session-scoped origin flag cannot prove the deferred change was this
+  // client's own echo (a sibling client shares the login session), so the
+  // release must reconcile the feed instead of repainting from local rows.
   mutating = false;
-  releaseDeferredOrganizationReadModelHint(
+  releaseDeferredOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A);
+  await ensureOrganizationReadModelReconciliation(
     runtime.tearleads,
     ORGANIZATION_A,
-    cursor,
   );
-  await Promise.resolve();
 
-  expect(runtime.reconcileCalls).toBe(1);
+  expect(runtime.reconcileCalls).toBe(2);
   expect(projectionUpdates).toBe(2);
+});
+
+test("a declined reconcile does not mark the scope caught up", async () => {
+  let result: unknown = null;
+  const runtime = createRuntimeHarness({
+    loadDirectoryAndGroups: () => Promise.resolve(result),
+  });
+  const socket = fakeOpenSocket();
+  const detach = attachOrganizationReadModelSocket(
+    runtime.tearleads,
+    socket.ws,
+  );
+  const unsubscribeFirst = subscribeOrganizationReadModelRealtime(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    () => undefined,
+  );
+  acknowledgeLatestDeclaration(runtime.tearleads, socket);
+  await ensureOrganizationReadModelReconciliation(
+    runtime.tearleads,
+    ORGANIZATION_A,
+  );
+  expect(runtime.reconcileCalls).toBe(1);
+
+  // A warm same-task remount keeps the acknowledged lease. The declined pass
+  // (e.g. database not yet ready) must not satisfy the remount's catch-up.
+  result = {};
+  unsubscribeFirst();
+  const unsubscribeSecond = subscribeOrganizationReadModelRealtime(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    () => undefined,
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  expect(runtime.reconcileCalls).toBe(2);
+  unsubscribeSecond();
+  detach();
 });
 
 test("ignores undemanded scope and catches up demanded scope on reconnect", async () => {

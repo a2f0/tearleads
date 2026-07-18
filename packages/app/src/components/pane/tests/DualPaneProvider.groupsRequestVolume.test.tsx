@@ -35,9 +35,12 @@ import {
 // of ten runs; freshness-sensitive mutation and current-head reads stay remote.
 // Keep navigation and mutation separate so UI reads cannot hide a sync
 // regression. Only the policy PUT and root rewrap POST are writes.
-// The one read-model GET also proves that author websocket echoes are absorbed
-// by the explicit mutation reconcile and that the unopened peer Org Manager
-// declares no demand (and therefore performs no organization feed GET).
+// The second read-model GET is the deferred author-echo release: a
+// session-scoped origin flag cannot prove the deferred hint was this client's
+// own echo (a sibling client shares the login session), so the release
+// reconciles the feed instead of trusting a repaint shortcut. Per-client
+// origin attribution under #1512 can reclaim it. The unopened peer Org
+// Manager still declares no demand and performs no organization feed GET.
 const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   total: 1,
   byRequest: {
@@ -56,7 +59,7 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 };
 
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 40,
+  total: 41,
   byRequest: {
     "GET /containers": 0,
     "POST /containers/parent-lanes/query": 6,
@@ -65,7 +68,7 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /documents/:documentId/writer-projection": 8,
     "POST /documents/:documentId/sync": 8,
     "GET /auth/user-identity/:userId": 2,
-    "GET /organizations/:organizationId/read-model": 1,
+    "GET /organizations/:organizationId/read-model": 2,
     "GET /organizations/:organizationId/groups/:groupId/containers": 0,
     "GET /organizations/:organizationId/groups/:groupId/members": 0,
     "GET /containers/:containerId/writer-projection": 1,

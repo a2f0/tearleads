@@ -19,9 +19,11 @@ export function createRuntimeHarness(input?: {
   let containerCalls = 0;
   let documentCalls = 0;
   let reconcileCalls = 0;
+  // A non-null default models a reconcile that reached the feed; passes that
+  // resolve null are treated as declined and must not mark the scope caught up.
   const loadDirectoryAndGroups = async () => {
     reconcileCalls += 1;
-    return input?.loadDirectoryAndGroups?.() ?? null;
+    return input?.loadDirectoryAndGroups ? input.loadDirectoryAndGroups() : {};
   };
   const tearleads = {
     containerContents: {

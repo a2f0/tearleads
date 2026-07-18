@@ -13,7 +13,6 @@ import {
 } from "./organizationReadModelRealtimeState";
 import {
   ensureOrganizationReadModelReconciliation,
-  notifyProjectionListeners,
   scheduleOrganizationReadModelReconciliation,
   scheduleOrganizationReadModelReconciliationAfterActivePass,
 } from "./organizationReadModelReconciliation";
@@ -114,7 +113,6 @@ export function subscribeOrganizationReadModelRealtime(
   organizationId: string,
   listener: ProjectionListener,
   options: {
-    readonly getReadModelCursor?: (() => string | null) | undefined;
     readonly isMutationActive?: (() => boolean) | undefined;
   } = {},
 ): () => void {
@@ -130,7 +128,6 @@ export function subscribeOrganizationReadModelRealtime(
   );
   const subscription: ProjectionSubscription = {
     active: true,
-    getReadModelCursor: options.getReadModelCursor ?? (() => null),
     isMutationActive: options.isMutationActive ?? (() => false),
     listener,
     scope,
@@ -292,7 +289,6 @@ export function handleOrganizationReadModelHint(
       : undefined;
   if (mutationSubscription && scope) {
     state.deferredSelfHintByOrganizationId.set(organizationId, {
-      cursor: mutationSubscription.getReadModelCursor(),
       owner: mutationSubscription,
       scope,
     });
@@ -305,14 +301,14 @@ export function handleOrganizationReadModelHint(
 }
 
 /**
- * Release author hints held during an Org Manager mutation. A changed cursor
- * proves the mutation's explicit reconciliation already caught up, so active
- * views only repaint from local SQLite; otherwise the feed is reconciled now.
+ * Release author hints held during an Org Manager mutation. Session-scoped
+ * origin flags cannot prove the deferred change was this client's own echo (a
+ * sibling client on the same login session sets the same flag), so the release
+ * always reconciles the feed rather than trusting a repaint shortcut.
  */
 export function releaseDeferredOrganizationReadModelHint(
   tearleads: Tearleads,
   organizationId: string,
-  readModelCursor: string | null,
 ): void {
   const state = stateFor(tearleads);
   const deferredHint =
@@ -323,10 +319,6 @@ export function releaseDeferredOrganizationReadModelHint(
   state.deferredSelfHintByOrganizationId.delete(organizationId);
   const activeScope = activeDemandScope(tearleads, state, organizationId);
   if (!isSameOrganizationReadModelScope(deferredHint.scope, activeScope)) {
-    return;
-  }
-  if (deferredHint.cursor !== readModelCursor) {
-    void notifyProjectionListeners(state, deferredHint.scope);
     return;
   }
   void scheduleOrganizationReadModelReconciliationAfterActivePass(

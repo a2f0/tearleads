@@ -9,7 +9,7 @@ import {
   stateFor,
 } from "./organizationReadModelRealtimeState";
 
-export async function notifyProjectionListeners(
+async function notifyProjectionListeners(
   state: OrganizationRealtimeState,
   scope: OrganizationReadModelScope,
 ): Promise<void> {
@@ -23,6 +23,18 @@ export async function notifyProjectionListeners(
   await Promise.allSettled(
     listeners.map((subscription) => subscription.listener()),
   );
+}
+
+/** Null means the SDK declined without I/O (offline or database not ready),
+ * so the scope is not caught up and must stay eligible for the next trigger. */
+async function reconcileFeed(
+  tearleads: Tearleads,
+  useSdkBarrier: boolean,
+): Promise<boolean> {
+  const result = useSdkBarrier
+    ? await tearleads.organizations.loadDirectoryAndGroupsAfterMutation()
+    : await tearleads.organizations.loadDirectoryAndGroups();
+  return result !== null;
 }
 
 /**
@@ -76,12 +88,7 @@ function scheduleOrganizationReadModelReconciliationPass(
       reconciliation.requiresSdkBarrier = false;
       let reconciled = false;
       try {
-        if (useSdkBarrier) {
-          await tearleads.organizations.loadDirectoryAndGroupsAfterMutation();
-        } else {
-          await tearleads.organizations.loadDirectoryAndGroups();
-        }
-        reconciled = true;
+        reconciled = await reconcileFeed(tearleads, useSdkBarrier);
       } catch {
         // The durable projection stays last-known-good. Another hint,
         // reconnect, or explicit Org Manager refresh retries the feed.

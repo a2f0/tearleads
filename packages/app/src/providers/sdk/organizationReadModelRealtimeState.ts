@@ -10,7 +10,6 @@ export interface OrganizationReadModelScope {
 
 export interface ProjectionSubscription {
   active: boolean;
-  readonly getReadModelCursor: () => string | null;
   readonly isMutationActive: () => boolean;
   readonly listener: ProjectionListener;
   readonly scope: OrganizationReadModelScope | null;
@@ -25,7 +24,6 @@ export interface ReconciliationState {
 }
 
 interface DeferredSelfHint {
-  readonly cursor: string | null;
   readonly owner: ProjectionSubscription;
   readonly scope: OrganizationReadModelScope;
 }

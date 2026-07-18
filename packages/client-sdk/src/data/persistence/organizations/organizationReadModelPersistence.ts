@@ -29,7 +29,10 @@ import {
   loadOrganizationReadModelProjectionInTransaction,
   type OrganizationReadModelProjection,
 } from "./organizationReadModelProjection";
-import { ORGANIZATION_READ_MODEL_PROTOCOL_VERSION } from "./organizationReadModelProtocol";
+import {
+  ORGANIZATION_READ_MODEL_PROTOCOL_VERSION,
+  OrganizationReadModelIntegrityError,
+} from "./organizationReadModelProtocol";
 import { purgeOrganizationReadModelProjectionInTransaction } from "./organizationReadModelPurge";
 
 export type { OrganizationReadModelProjection } from "./organizationReadModelProjection";
@@ -333,11 +336,25 @@ export async function loadOrganizationReadModelProjection(
       });
       return null;
     }
-    return loadOrganizationReadModelProjectionInTransaction({
-      currentUserId,
-      organizationId,
-      tx,
-    });
+    try {
+      return await loadOrganizationReadModelProjectionInTransaction({
+        currentUserId,
+        organizationId,
+        tx,
+      });
+    } catch (error) {
+      if (!(error instanceof OrganizationReadModelIntegrityError)) {
+        throw error;
+      }
+      // The projection is a server-refetchable cache: purge the invalid rows
+      // so the next reconcile requests a cursorless snapshot instead of every
+      // read and repair pass failing on the same row.
+      await purgeOrganizationReadModelProjectionInTransaction({
+        organizationId,
+        tx,
+      });
+      return null;
+    }
   });
 }
 
