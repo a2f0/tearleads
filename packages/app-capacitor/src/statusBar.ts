@@ -16,8 +16,13 @@ const HEADER_BACKGROUND_BY_THEME: Record<"light" | "dark", string> = {
 };
 
 function applyStatusBarTheme(): void {
+  // getAttribute rather than dataset: the repo enables both biome's
+  // useLiteralKeys and TS noPropertyAccessFromIndexSignature, which demand
+  // opposite dataset access forms.
   const theme =
-    document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+    document.documentElement.getAttribute("data-theme") === "dark"
+      ? "dark"
+      : "light";
 
   // Style.Dark = light icons for a dark background — correct for both themes
   // because the header band underneath the status bar is always dark.
