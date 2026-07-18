@@ -69,4 +69,5 @@ export {
   type DocumentSyncLane,
   registerDocumentSyncLane,
 } from "./syncLane";
+export type { RekeyPendingUpdate } from "./syncRecoveryRekey";
 export { createDocumentWriterPublicKeyResolver } from "./writerKeys";

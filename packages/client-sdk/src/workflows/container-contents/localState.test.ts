@@ -80,6 +80,9 @@ function createContainerContentsPersistence(input: {
     async listContainerIdsWithPendingUpdates() {
       return [];
     },
+    async rekeyPendingUpdate() {
+      return null;
+    },
     async listPendingUpdates() {
       return [];
     },

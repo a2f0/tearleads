@@ -77,20 +77,32 @@ export async function enqueueDocumentPendingUpdate(
  * 409s and the whole outgoing batch rolls back. Re-keying lets the next sync
  * pass submit the same ops under a conflict-free id; the server-side copy is
  * harmless because CRDT update import is idempotent.
+ *
+ * Returns null when no row carries the id, so callers never report progress
+ * for a row that lives in some other queue (or nowhere).
  */
 export async function rekeyDocumentPendingUpdate(
   execSql: ExecSql,
   id: string,
-): Promise<string> {
+): Promise<string | null> {
   const nextId = crypto.randomUUID();
+  let rekeyed = false;
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+    const existing = await db
+      .select({ id: documentPendingUpdates.id })
+      .from(documentPendingUpdates)
+      .where(eq(documentPendingUpdates.id, id));
+    if (existing.length === 0) {
+      return;
+    }
     await db
       .update(documentPendingUpdates)
       .set({ id: nextId })
       .where(eq(documentPendingUpdates.id, id))
       .run();
+    rekeyed = true;
   });
-  return nextId;
+  return rekeyed ? nextId : null;
 }
 
 export async function deleteDocumentPendingUpdate(

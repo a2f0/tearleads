@@ -10,6 +10,7 @@ import type {
 import { shouldReArmAfterOutgoingSettlement } from "../../data/sync/outgoingUpdateSettlement";
 import {
   createDocumentWriterPublicKeyResolver,
+  type RekeyPendingUpdate,
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
 } from "../documents";
@@ -179,6 +180,7 @@ async function syncRemoteContainerMetadata(input: {
   localVersionVector: string | null;
   pendingUpdates: readonly PendingUpdateRecord[];
   persistedState?: DocumentRecord | null | undefined;
+  rekeyPendingUpdate: RekeyPendingUpdate;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerMetadataSyncRuntime;
   targetSecretKey: Uint8Array;
@@ -191,6 +193,7 @@ async function syncRemoteContainerMetadata(input: {
     localVersionVector,
     pendingUpdates,
     persistedState,
+    rekeyPendingUpdate,
     resolveProjectionUserKey,
     runtime,
     targetSecretKey,
@@ -220,6 +223,7 @@ async function syncRemoteContainerMetadata(input: {
     minLsn: lastCommitLsn ?? undefined,
     pendingUpdates,
     persistedState,
+    rekeyPendingUpdate,
     resolveProjectionUserKey,
     resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
       logPrefix: "Container contents",
@@ -343,6 +347,7 @@ export async function syncContainerMetadataState(input: {
     localVersionVector: encodeVersionVector(metadataState.doc),
     pendingUpdates,
     persistedState: metadataState.record,
+    rekeyPendingUpdate: persistence.rekeyPendingUpdate,
     resolveProjectionUserKey,
     runtime,
     targetSecretKey,

@@ -6,6 +6,11 @@ import {
 } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
+export type RekeyPendingUpdate = (
+  execSql: ExecSql,
+  id: string,
+) => Promise<string | null>;
+
 interface DecryptedSyncUpdate {
   id: string;
   partialEndVersionVector: string;
@@ -71,21 +76,29 @@ export function settledPendingUpdateIdsFromSync(input: {
  * a conflict-free id; the server-side copy stays harmless because CRDT
  * update import is idempotent.
  *
- * Returns the fresh ids so callers can treat re-keying as settlement-like
- * progress and schedule the pass that actually submits them.
+ * Re-keying goes through the caller's persistence implementation when given
+ * (defaulting to the built-in pending-update table) and reports only ids
+ * whose row actually changed, so a record living in some other queue never
+ * counts as progress. Returns the fresh ids so callers can treat re-keying
+ * as settlement-like progress and schedule the pass that submits them.
  */
 export async function rekeyUnsettledRecoveryPendingUpdates(input: {
   execSql: ExecSql;
   recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
+  rekeyPendingUpdate?: RekeyPendingUpdate | undefined;
   settledPendingUpdateIds: readonly string[];
 }): Promise<string[]> {
+  const rekeyPendingUpdate =
+    input.rekeyPendingUpdate ?? rekeyDocumentPendingUpdate;
   const settled = new Set(input.settledPendingUpdateIds);
   const rekeyedPendingUpdateIds: string[] = [];
   for (const pendingUpdateId of input.recoveryPendingUpdatesById.keys()) {
-    if (!settled.has(pendingUpdateId)) {
-      rekeyedPendingUpdateIds.push(
-        await rekeyDocumentPendingUpdate(input.execSql, pendingUpdateId),
-      );
+    if (settled.has(pendingUpdateId)) {
+      continue;
+    }
+    const nextId = await rekeyPendingUpdate(input.execSql, pendingUpdateId);
+    if (nextId !== null) {
+      rekeyedPendingUpdateIds.push(nextId);
     }
   }
   return rekeyedPendingUpdateIds;

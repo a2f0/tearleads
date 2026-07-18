@@ -226,8 +226,8 @@
       "bytes": 39373
     },
     "packages/client-sdk/src/data/persistence/container-contents/containerContentsPersistence.ts": {
-      "lines": 1308,
-      "bytes": 40503
+      "lines": 1313,
+      "bytes": 40704
     },
     "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
       "lines": 811,
@@ -238,8 +238,8 @@
       "bytes": 29013
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
-      "lines": 537,
-      "bytes": 16454
+      "lines": 538,
+      "bytes": 16516
     },
     "packages/client-sdk/src/workflows/container-contents/container-state/share.test.ts": {
       "lines": 722,
@@ -282,8 +282,8 @@
       "bytes": 44380
     },
     "packages/client-sdk/src/workflows/documents/sync.ts": {
-      "lines": 1052,
-      "bytes": 34714
+      "lines": 1057,
+      "bytes": 34953
     },
     "packages/client-sdk/src/workflows/organizations/principalPolicy.ts": {
       "lines": 992,

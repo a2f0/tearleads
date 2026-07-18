@@ -80,6 +80,7 @@ import {
   submitDocumentSyncAttemptIfAllowed,
 } from "./syncFailures";
 import {
+  type RekeyPendingUpdate,
   rekeyUnsettledRecoveryPendingUpdates,
   settledPendingUpdateIdsFromSync,
 } from "./syncRecoveryRekey";
@@ -295,6 +296,7 @@ async function syncRemoteDocumentResultFromResponse(input: {
   execSql: ExecSql;
   materializedPlan: MaterializedDocumentSyncPlan;
   recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
+  rekeyPendingUpdate?: RekeyPendingUpdate | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
@@ -335,6 +337,7 @@ async function syncRemoteDocumentResultFromResponse(input: {
   const rekeyedPendingUpdateIds = await rekeyUnsettledRecoveryPendingUpdates({
     execSql: input.execSql,
     recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
+    rekeyPendingUpdate: input.rekeyPendingUpdate,
     settledPendingUpdateIds,
   });
 
@@ -831,6 +834,7 @@ interface SyncRemoteDocumentInput {
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;
+  rekeyPendingUpdate?: RekeyPendingUpdate | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
   signedAt?: string | undefined;
@@ -1039,6 +1043,7 @@ export async function syncRemoteDocument(
       execSql: input.execSql,
       materializedPlan,
       recoveryPendingUpdatesById,
+      rekeyPendingUpdate: input.rekeyPendingUpdate,
       resolveWriterPublicKey: input.resolveWriterPublicKey,
       response: submitted.response,
       targetSecretKey: input.targetSecretKey,

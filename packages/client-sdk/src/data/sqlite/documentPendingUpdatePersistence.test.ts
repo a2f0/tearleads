@@ -87,7 +87,9 @@ test("document pending update re-key swaps the id and keeps the fields", async (
       partialEndVersionVector: "end-vector-1",
     });
 
-    await rekeyDocumentPendingUpdate(execSql, "missing-id");
+    await expect(
+      rekeyDocumentPendingUpdate(execSql, "missing-id"),
+    ).resolves.toBeNull();
     await expect(
       listDocumentPendingUpdates(execSql, documentScope),
     ).resolves.toHaveLength(1);
