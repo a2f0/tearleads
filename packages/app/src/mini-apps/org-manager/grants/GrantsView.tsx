@@ -9,8 +9,8 @@ import {
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
-} from "../../../components/shared/MiniAppLayout";
-import { MiniAppInfoTable } from "../../../components/shared/MiniAppTable";
+} from "../../../components/mini-app/MiniAppLayout";
+import { MiniAppInfoTable } from "../../../components/mini-app/MiniAppTable";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import {
   compactFingerprint,

@@ -1,9 +1,9 @@
 import { type MouseEvent, useMemo } from "react";
-import { MiniAppSidebar } from "../../components/shared/MiniAppLayout";
+import { MiniAppSidebar } from "../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRowButton,
   MiniAppRowText,
-} from "../../components/shared/MiniAppRow";
+} from "../../components/mini-app/rows/MiniAppRow";
 import {
   useRegisteredWindowSidebar,
   useWindowSidebar,

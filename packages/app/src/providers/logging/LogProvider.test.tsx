@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { fireEvent, render } from "@testing-library/react";
-import { PaneLog } from "../../components/pane/PaneLog";
+import { PaneLog } from "../../components/pane/log/PaneLog";
 import { LogProvider, useLog } from "./LogProvider";
 
 function LogHarness() {

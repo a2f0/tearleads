@@ -193,7 +193,7 @@
 }
 
 /* The slot action buttons (Upload / Choose Blob / Clear) use the shared
-   `.attachment-action-button` chrome — see AttachmentActionButton.css. */
+   `.attachment-action-button` chrome — see the shared MiniAppButton. */
 
 .structured-document-slot-status {
   font-size: var(--font-size-sm);

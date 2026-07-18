@@ -12,19 +12,19 @@ import {
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
-} from "../../../components/shared/MiniAppLayout";
+} from "../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRowButton,
   MiniAppRowStack,
   MiniAppRowText,
-} from "../../../components/shared/MiniAppRow";
+} from "../../../components/mini-app/rows/MiniAppRow";
 import {
   MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT,
   MiniAppVirtualList,
   MiniAppVirtualListFrame,
   MiniAppVirtualListRow,
   useMiniAppVirtualRows,
-} from "../../../components/shared/MiniAppVirtual";
+} from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { compactFingerprint } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";

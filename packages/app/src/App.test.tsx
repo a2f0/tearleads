@@ -20,8 +20,8 @@ import {
   DualPaneProvider,
   PaneSideProvider,
 } from "./components/pane/dual-pane";
-import { Pane } from "./components/pane/Pane";
-import { PaneProvider } from "./components/pane/PaneProvider";
+import { PaneProvider } from "./components/pane/runtime/PaneProvider";
+import { Pane } from "./components/pane/shell/Pane";
 import type { AppNavigationMode } from "./navigation/AppNavigationMode";
 import { useDeviceFirstContainerContents } from "./stores/device-first/DeviceFirstProvider";
 

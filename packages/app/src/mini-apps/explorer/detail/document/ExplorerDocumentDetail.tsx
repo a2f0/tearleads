@@ -16,7 +16,7 @@ import {
   MiniAppHeaderCopy,
   MiniAppPanel,
   MiniAppStatus,
-} from "../../../../components/shared/MiniAppLayout";
+} from "../../../../components/mini-app/MiniAppLayout";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/projectors";
 import { getDocumentTypeDefinition } from "../../../../document-types/registry";
 import { getViewerRelativeContactDocumentLabel } from "../../../../stores/contacts/contactLabels";

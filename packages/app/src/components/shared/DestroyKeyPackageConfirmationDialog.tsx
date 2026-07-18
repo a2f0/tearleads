@@ -7,7 +7,7 @@ import {
   MiniAppModalBackdrop,
   MiniAppModalForm,
   MiniAppModalPanel,
-} from "./MiniAppLayout";
+} from "../mini-app/MiniAppLayout";
 import "./DestroyKeyPackageConfirmationDialog.css";
 
 export const DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE = "confirm delete";

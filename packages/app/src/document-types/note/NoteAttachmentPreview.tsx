@@ -10,11 +10,12 @@ import {
   useRef,
 } from "react";
 import { createPortal } from "react-dom";
-import { classNames } from "../../components/shared/classNames";
 import {
+  MiniAppButton,
   MiniAppModalBackdrop,
   MiniAppModalPanel,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
+import { classNames } from "../../components/shared/classNames";
 // The windowed preview borrows the window manager's own close control and chrome
 // classes so it tracks any change to the floating windows; pull the title-bar /
 // toolbar stylesheets in directly rather than relying on a window happening to be
@@ -38,32 +39,47 @@ interface NoteAttachmentPreviewProps {
   onRemove: (slotId: string) => void;
 }
 
-// A labelled icon button shared by both chromes; only the class dressing it
-// differs between the compact bar and the window toolbar.
+// A labelled icon button shared by both chromes. The windowed toolbar keeps the
+// window manager's own chrome class; the compact bar draws its chrome from the
+// shared MiniAppButton icon-button recipe (the retained
+// `note-attachment-preview-button` class is only a layout hook).
 function PreviewIconButton({
-  buttonClassName,
   buttonRef,
   children,
+  chrome = false,
   label,
   onClick,
 }: {
-  buttonClassName: string;
   buttonRef?: RefObject<HTMLButtonElement | null>;
   children: ReactNode;
+  chrome?: boolean;
   label: string;
   onClick: () => void;
 }) {
+  if (chrome) {
+    return (
+      <button
+        type="button"
+        className="window-toolbar-button"
+        onClick={onClick}
+        ref={buttonRef}
+        title={label}
+        aria-label={label}
+      >
+        {children}
+      </button>
+    );
+  }
   return (
-    <button
-      type="button"
-      className={buttonClassName}
+    <MiniAppButton
+      className="mini-app-icon-button note-attachment-preview-button"
       onClick={onClick}
       ref={buttonRef}
       title={label}
       aria-label={label}
     >
       {children}
-    </button>
+    </MiniAppButton>
   );
 }
 
@@ -123,9 +139,9 @@ function NoteAttachmentPreviewChrome({
     />
   );
 
-  const downloadButton = (buttonClassName: string) => (
+  const downloadButton = (chrome: boolean) => (
     <PreviewIconButton
-      buttonClassName={buttonClassName}
+      chrome={chrome}
       label={NOTE_DOCUMENT_LABELS.downloadAttachment(attachment.name)}
       onClick={() => onDownload(attachment.slotId)}
     >
@@ -133,10 +149,10 @@ function NoteAttachmentPreviewChrome({
     </PreviewIconButton>
   );
 
-  const removeButton = (buttonClassName: string) =>
+  const removeButton = (chrome: boolean) =>
     canRemove ? (
       <PreviewIconButton
-        buttonClassName={buttonClassName}
+        chrome={chrome}
         label={NOTE_DOCUMENT_LABELS.removeAttachment(attachment.name)}
         onClick={() => {
           onRemove(attachment.slotId);
@@ -147,10 +163,10 @@ function NoteAttachmentPreviewChrome({
       </PreviewIconButton>
     ) : null;
 
-  const closeButton = (buttonClassName: string) => (
+  const closeButton = (chrome: boolean) => (
     <PreviewIconButton
-      buttonClassName={buttonClassName}
       buttonRef={closeButtonRef}
+      chrome={chrome}
       label={NOTE_DOCUMENT_LABELS.previewClose}
       onClick={onClose}
     >
@@ -174,8 +190,8 @@ function NoteAttachmentPreviewChrome({
         <div className="window-toolbar" role="toolbar" aria-label="Toolbar">
           <div className="window-toolbar-spacer" />
           <div className="window-toolbar-actions">
-            {downloadButton("window-toolbar-button")}
-            {removeButton("window-toolbar-button")}
+            {downloadButton(true)}
+            {removeButton(true)}
           </div>
         </div>
       </>
@@ -186,9 +202,9 @@ function NoteAttachmentPreviewChrome({
     <div className="note-attachment-preview-bar">
       {heading}
       <div className="note-attachment-preview-actions">
-        {downloadButton("note-attachment-preview-button")}
-        {removeButton("note-attachment-preview-button")}
-        {closeButton("note-attachment-preview-button")}
+        {downloadButton(false)}
+        {removeButton(false)}
+        {closeButton(false)}
       </div>
     </div>
   );

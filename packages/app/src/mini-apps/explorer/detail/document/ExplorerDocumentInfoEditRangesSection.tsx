@@ -7,8 +7,8 @@ import {
   MiniAppButton,
   MiniAppInfoSection,
   MiniAppStatus,
-} from "../../../../components/shared/MiniAppLayout";
-import { MiniAppInfoTable } from "../../../../components/shared/MiniAppTable";
+} from "../../../../components/mini-app/MiniAppLayout";
+import { MiniAppInfoTable } from "../../../../components/mini-app/MiniAppTable";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../../stores/explorer/documentInfo";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 import { EXPLORER_LABELS } from "../../labels";

@@ -24,6 +24,15 @@
   width: 100%;
 }
 
+/* Icon-and-label buttons: center the glyph beside the text. Kept a variant
+   (not the base) so plain text buttons keep normal inline-block baselines. */
+.mini-app-button--with-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+}
+
 .mini-app-button--ghost {
   border-color: transparent;
   padding-inline: var(--space-sm);

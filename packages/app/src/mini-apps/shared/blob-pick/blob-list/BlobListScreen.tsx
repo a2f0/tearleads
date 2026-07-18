@@ -15,7 +15,7 @@ import {
   MiniAppInput,
   MiniAppStatus,
   MiniAppToolbar,
-} from "../../../../components/shared/MiniAppLayout";
+} from "../../../../components/mini-app/MiniAppLayout";
 import { isImageDocumentAttachmentBlob } from "../../../../document-types/shared/documentAttachmentUtils";
 import { BlobInfoTable, type RenderBlobSyncCell } from "./BlobInfoTable";
 import { BLOB_LIST_LABELS, getBlobListPickSubtitle } from "./blobListLabels";

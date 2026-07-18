@@ -3,11 +3,11 @@ import type {
   OrganizationDirectoryAndGroups,
 } from "@tearleads/client-sdk";
 import { useCallback, useEffect } from "react";
-import { usePeerUserId } from "../../components/pane/dual-pane";
 import {
   MiniAppRoot,
   MiniAppStatus,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
+import { usePeerUserId } from "../../components/pane/dual-pane";
 import {
   useWindowFileMenuItem,
   useWindowRefreshMenuItem,

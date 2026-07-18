@@ -2,7 +2,7 @@ import { useId } from "react";
 import {
   MiniAppSection,
   MiniAppSectionHeading,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
 import { useAppFeatureFlags } from "../../providers/feature-flags/AppFeatureFlagsProvider";
 import {
   FEATURE_FLAG_LABELS,

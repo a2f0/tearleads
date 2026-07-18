@@ -14,7 +14,7 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
   useMiniAppColumnVisibility,
-} from "../../../../components/shared/MiniAppTable";
+} from "../../../../components/mini-app/MiniAppTable";
 import { useRoutedLayoutTier } from "../../../../navigation/useRoutedLayoutTier";
 import { EXPLORER_LABELS, getExplorerSyncLaneCountLabel } from "../../labels";
 import {

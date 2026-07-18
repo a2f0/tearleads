@@ -3,7 +3,7 @@ import {
   MiniAppButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
-} from "../../../../components/shared/MiniAppLayout";
+} from "../../../../components/mini-app/MiniAppLayout";
 import { EXPLORER_LABELS } from "../../labels";
 import { compactId } from "../compactId";
 

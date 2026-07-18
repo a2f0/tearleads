@@ -16,7 +16,7 @@ import {
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
 import type { BackupProgress } from "../../providers/db/useLocalBackupOperations";
 import { formatByteSize } from "../../utils/formatByteSize";
 import { useBackupRestore } from "./BackupRestoreController";
@@ -94,6 +94,7 @@ function BackupRestoreStatus({ model }: { model: BackupRestoreModel }) {
           className="backup-restore-inline-action"
           onClick={model.handleReload}
           variant="ghost"
+          withIcon
         >
           <ArrowsClockwiseIcon aria-hidden size={16} />
           Reload App
@@ -223,6 +224,7 @@ function BackupExportPanel({
         className="backup-restore-action-button"
         disabled={busy}
         type="submit"
+        withIcon
       >
         <DownloadSimpleIcon aria-hidden size={16} />
         Export Backup
@@ -254,6 +256,7 @@ function BackupRestorePanel({
         disabled={busy}
         onClick={model.handleChooseRestoreFile}
         variant="ghost"
+        withIcon
       >
         <UploadSimpleIcon aria-hidden size={16} />
         Choose Backup File
@@ -276,6 +279,7 @@ function BackupRestorePanel({
         className="backup-restore-action-button"
         disabled={busy}
         type="submit"
+        withIcon
       >
         <ArrowsClockwiseIcon aria-hidden size={16} />
         Restore Backup

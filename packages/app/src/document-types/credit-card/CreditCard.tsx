@@ -1,7 +1,7 @@
 import { EyeIcon } from "@phosphor-icons/react/dist/csr/Eye";
 import { EyeSlashIcon } from "@phosphor-icons/react/dist/csr/EyeSlash";
 import { useId, useMemo, useState } from "react";
-import { MiniAppButton } from "../../components/shared/MiniAppLayout";
+import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";

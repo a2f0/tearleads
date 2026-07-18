@@ -28,8 +28,8 @@ import {
 } from "../../../mini-apps/system-monitor/systemMonitorMode";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { DualPaneProvider, PaneSideProvider } from "../dual-pane";
-import { Pane } from "../Pane";
-import { PaneProvider } from "../PaneProvider";
+import { PaneProvider } from "../runtime/PaneProvider";
+import { Pane } from "../shell/Pane";
 
 afterEach(cleanupPaneTestEnvironment);
 

@@ -155,6 +155,18 @@
   --scrollbar-track: transparent;
   --scrollbar-gutter: auto;
 
+  /* === Safe areas === */
+  /* Device cutout insets (notch / Dynamic Island / home indicator / rounded
+     corners). Resolve to 0 everywhere except devices whose viewport meta opts
+     into `viewport-fit=cover` (the Capacitor shell, and iOS Safari on the web
+     build). Chrome that touches a screen edge pads by the matching token so
+     controls never sit under a cutout — see .tearleads-header below and the
+     routed shell (RoutedPane.css). */
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+
   /* === Motion === */
   --transition: 0.18s ease;
 
@@ -343,6 +355,14 @@ textarea {
   background: var(--tearleads-background);
 }
 
+/* Small-viewport units track iOS Safari's collapsing toolbars; the plain vh
+   declaration above stays as the fallback for engines without dvh support. */
+@supports (min-height: 100dvh) {
+  .tearleads-frame {
+    min-height: 100dvh;
+  }
+}
+
 .tearleads-header {
   grid-area: header;
   display: flex;
@@ -350,6 +370,12 @@ textarea {
   gap: var(--space-md);
   min-width: 0;
   padding: var(--space-md);
+  /* Topmost chrome in both shells: absorb the top cutout (Dynamic Island /
+     status bar) and the landscape side insets so the brand and header actions
+     stay tappable on notched devices. */
+  padding-top: calc(var(--space-md) + var(--safe-area-top));
+  padding-inline: calc(var(--space-md) + var(--safe-area-left))
+    calc(var(--space-md) + var(--safe-area-right));
   background: var(--tearleads-header-background);
   color: var(--tearleads-header-text);
 
@@ -416,6 +442,10 @@ textarea {
   gap: var(--space-sm);
   min-width: 0;
   padding: var(--space-md);
+  /* Bottom chrome: keep clear of the home indicator and landscape corners. */
+  padding-bottom: calc(var(--space-md) + var(--safe-area-bottom));
+  padding-inline: calc(var(--space-md) + var(--safe-area-left))
+    calc(var(--space-md) + var(--safe-area-right));
   background: var(--tearleads-footer-background);
   color: var(--tearleads-footer-text);
 }

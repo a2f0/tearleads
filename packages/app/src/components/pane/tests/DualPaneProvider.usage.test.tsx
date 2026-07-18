@@ -34,8 +34,8 @@ import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvide
 import { useDatabase } from "../../../providers/db/DatabaseProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { DualPaneProvider, PaneSideProvider } from "../dual-pane";
-import { Pane } from "../Pane";
-import { PaneProvider } from "../PaneProvider";
+import { PaneProvider } from "../runtime/PaneProvider";
+import { Pane } from "../shell/Pane";
 
 const ORG_MANAGER_USAGE_TEST_TIMEOUT_MS = 20_000;
 const BOOTSTRAP_SYNC_SETTLE_TIMEOUT_MS = 6_000;

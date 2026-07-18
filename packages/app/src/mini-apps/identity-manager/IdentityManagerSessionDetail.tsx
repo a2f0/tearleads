@@ -5,11 +5,11 @@ import {
   MiniAppHeader,
   MiniAppHeaderCopy,
   MiniAppSection,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
 import {
   MiniAppInfoRow,
   MiniAppInfoTable,
-} from "../../components/shared/MiniAppTable";
+} from "../../components/mini-app/MiniAppTable";
 import { formatMiniAppDateTime } from "../../utils/formatMiniAppDate";
 import {
   compactIdentifier,

@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { MiniAppRoot } from "../../components/shared/MiniAppLayout";
+import { MiniAppRoot } from "../../components/mini-app/MiniAppLayout";
 import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
 import { NoteEditorFields } from "../../document-types/note/NoteEditorFields";
 import { useNotesModel } from "./hooks/useNotesModel";

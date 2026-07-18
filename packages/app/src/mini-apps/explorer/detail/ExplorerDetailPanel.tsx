@@ -16,7 +16,7 @@ import type {
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { MouseEvent } from "react";
-import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
+import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";

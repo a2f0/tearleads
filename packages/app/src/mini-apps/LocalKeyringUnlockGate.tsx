@@ -13,7 +13,7 @@ import {
   MiniAppRoot,
   MiniAppStatus,
   MiniAppToolbar,
-} from "../components/shared/MiniAppLayout";
+} from "../components/mini-app/MiniAppLayout";
 import { useCurrentWindow } from "../components/window/CurrentWindowContext";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";

@@ -6,8 +6,8 @@ import {
   PaneSideProvider,
   selfPaneLabel,
 } from "../../pane/dual-pane";
-import { Pane } from "../../pane/Pane";
-import { PaneProvider } from "../../pane/PaneProvider";
+import { PaneProvider } from "../../pane/runtime/PaneProvider";
+import { Pane } from "../../pane/shell/Pane";
 import {
   localIdentityNamespaceForWorkspace,
   type WORKSPACE_IDS,

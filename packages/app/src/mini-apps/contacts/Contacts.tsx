@@ -1,4 +1,4 @@
-import { MiniAppRoot } from "../../components/shared/MiniAppLayout";
+import { MiniAppRoot } from "../../components/mini-app/MiniAppLayout";
 import { useWindowFileMenuItem } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { SystemBootstrapGate } from "../SystemBootstrapGate";

@@ -1,7 +1,7 @@
 import {
   MiniAppInfoRow,
   MiniAppInfoTable,
-} from "../../components/shared/MiniAppTable";
+} from "../../components/mini-app/MiniAppTable";
 import { useSystemEnvironment } from "./useSystemEnvironment";
 
 export function SystemMonitorEnvironment() {

@@ -9,7 +9,7 @@ import {
   MiniAppModalForm,
   MiniAppModalPanel,
   MiniAppStatus,
-} from "../../../components/shared/MiniAppLayout";
+} from "../../../components/mini-app/MiniAppLayout";
 import { ORG_MANAGER_LABELS } from "../labels";
 import "./CreateOrganizationDialog.css";
 

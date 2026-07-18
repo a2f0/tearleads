@@ -8,6 +8,7 @@ import {
 } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
 import { createCapacitorPurchases } from "./capacitorPurchases";
+import { syncStatusBarWithTheme } from "./statusBar";
 
 function createCapacitorSQLiteRuntime() {
   const workerUrl = "./worker.js";
@@ -37,5 +38,7 @@ const hostConfig = createAppHostConfig({
   navigationMode: Capacitor.isNativePlatform() ? "routed" : undefined,
   wsUrl,
 });
+
+syncStatusBarWithTheme();
 
 renderApp(createRoot(elem), { hostConfig });

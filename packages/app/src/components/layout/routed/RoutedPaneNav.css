@@ -1,0 +1,260 @@
+/*
+ * Routed shell navigation surfaces: the nav panel shared by the tablet rail
+ * and the mobile drawer, the rail itself, and the mobile bottom-sheet app
+ * launcher with its scrim. Shell grid, app bar, main, and taskbar live in
+ * RoutedPane.css; the tier tokens (--routed-rail-width, --routed-touch-target,
+ * ...) are declared there on .routed-pane and cascade here.
+ */
+
+/* === Navigation panel (shared by rail + drawer) === */
+
+.routed-pane-nav-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-height: 0;
+  padding: var(--space-sm);
+}
+
+.routed-pane-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.routed-pane-nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding-top: var(--space-sm);
+  border-top: var(--border);
+}
+
+.routed-pane-nav-link,
+.routed-pane-nav-action,
+.routed-pane-nav-section > button {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-height);
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.routed-pane-nav-link:hover,
+.routed-pane-nav-link:focus-visible,
+.routed-pane-nav-link--active,
+.routed-pane-nav-action:hover:not(:disabled),
+.routed-pane-nav-action:focus-visible:not(:disabled),
+.routed-pane-nav-section > button:hover:not(:disabled),
+.routed-pane-nav-section > button:focus-visible:not(:disabled) {
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
+}
+
+.routed-pane-nav-action:disabled,
+.routed-pane-nav-section > button:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: default;
+}
+
+/* === Tablet rail === */
+
+.routed-pane-rail {
+  grid-area: rail;
+  display: flex;
+  flex-direction: column;
+  /* The rail owns the screen's leading edge on tablet: widen by the landscape
+     inset and pad the content past it so nav stays clear of the cutout. */
+  width: calc(var(--routed-rail-width) + var(--safe-area-left));
+  padding-left: var(--safe-area-left);
+  min-height: 0;
+  overflow: hidden;
+  border-right: var(--border-strong);
+  background: var(--color-muted);
+}
+
+.routed-pane-rail--collapsed {
+  width: calc(var(--routed-rail-collapsed-width) + var(--safe-area-left));
+}
+
+.routed-pane-rail-toggle {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 var(--routed-touch-target);
+  align-self: flex-end;
+  align-items: center;
+  justify-content: center;
+  width: var(--routed-touch-target);
+  min-width: var(--routed-touch-target);
+  height: var(--routed-touch-target);
+  min-height: var(--routed-touch-target);
+  margin-block: calc(
+      (var(--routed-appbar-block-size) - var(--routed-touch-target)) *
+      0.5
+    )
+    0;
+  margin-inline: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.routed-pane-rail--collapsed .routed-pane-rail-toggle {
+  align-self: center;
+}
+
+.routed-pane-rail-toggle::before {
+  position: absolute;
+  inset: calc(
+    (var(--routed-touch-target) - var(--routed-rail-toggle-visual-size)) *
+    0.5
+  );
+  border: var(--border);
+  content: "";
+  pointer-events: none;
+}
+
+.routed-pane-rail-toggle:hover,
+.routed-pane-rail-toggle:focus-visible {
+  color: var(--emphasis-text);
+}
+
+.routed-pane-rail-toggle:hover::before,
+.routed-pane-rail-toggle:focus-visible::before {
+  background: var(--emphasis-surface);
+}
+
+.routed-pane-rail-toggle svg {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.routed-pane-rail .routed-pane-nav-panel {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  scrollbar-gutter: var(--scrollbar-gutter);
+}
+
+/* === Mobile bottom sheet + scrim === */
+
+.routed-pane-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--overlay-background);
+  cursor: pointer;
+}
+
+.routed-pane-scrim:focus-visible {
+  outline: var(--border-strong);
+  outline-offset: calc(-2 * var(--border-width));
+}
+
+.routed-pane-sheet {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: 2;
+  max-height: min(70vh, 32rem);
+  overflow-y: auto;
+  scrollbar-gutter: var(--scrollbar-gutter);
+  padding-bottom: max(var(--space-sm), var(--safe-area-bottom));
+  padding-inline: var(--safe-area-left) var(--safe-area-right);
+  border-top: var(--border-strong);
+  background: var(--color-muted);
+  transform: translateY(100%);
+  /* `visibility: hidden` takes the off-screen sheet out of the tab order and
+     the accessibility tree while closed; the delayed transition keeps it
+     visible through the slide-out so the animation still plays. */
+  visibility: hidden;
+  transition:
+    transform var(--transition),
+    visibility 0s linear 0.18s;
+}
+
+.routed-pane-sheet[data-open="true"] {
+  transform: translateY(0);
+  visibility: visible;
+  transition:
+    transform var(--transition),
+    visibility 0s;
+}
+
+/*
+ * Launcher tiles — square icon-and-label cells (mirrors Explorer's New Document
+ * grid) so the sheet reads as an app launcher rather than a menu list.
+ */
+.routed-pane-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+}
+
+.routed-pane-sheet-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  aspect-ratio: 1;
+  padding: var(--space-sm);
+  border: var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.routed-pane-sheet-tile:hover,
+.routed-pane-sheet-tile:focus-visible,
+.routed-pane-sheet-tile--active {
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
+}
+
+.routed-pane-sheet-tile svg {
+  flex: 0 0 auto;
+}
+
+.routed-pane-sheet-tile-label {
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+
+/* Touch spacing between the enlarged nav targets (see the sizing note in
+   RoutedPane.css — --control-height already resolves to 44px in routed mode;
+   only the inter-target gaps need the bump). */
+:root[data-navigation-mode="routed"] .routed-pane-nav,
+:root[data-navigation-mode="routed"] .routed-pane-nav-section {
+  gap: var(--space-xs);
+}
+
+/*
+ * Keep the JS tier and CSS in lockstep at the 760px line
+ * (ROUTED_TABLET_BREAKPOINT_PX, guarded by breakpoints.test.ts). Below it the
+ * mobile shell is active; this prevents a brief tablet-rail flash if markup
+ * renders before the tier hook resolves. The matching grid collapse lives in
+ * RoutedPane.css.
+ */
+@media (max-width: 759px) {
+  .routed-pane--tablet .routed-pane-rail {
+    display: none;
+  }
+}

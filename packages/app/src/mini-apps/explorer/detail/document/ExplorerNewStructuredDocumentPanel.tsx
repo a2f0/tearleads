@@ -6,7 +6,7 @@ import {
   MiniAppPanel,
   MiniAppSection,
   MiniAppSectionHeading,
-} from "../../../../components/shared/MiniAppLayout";
+} from "../../../../components/mini-app/MiniAppLayout";
 import { CREATABLE_DOCUMENT_TYPE_DEFINITIONS } from "../../../../document-types/registry";
 import { EXPLORER_LABELS } from "../../labels";
 

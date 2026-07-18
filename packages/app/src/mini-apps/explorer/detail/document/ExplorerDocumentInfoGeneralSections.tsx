@@ -7,11 +7,11 @@ import type { CSSProperties } from "react";
 import {
   MiniAppInfoSection,
   MiniAppStatus,
-} from "../../../../components/shared/MiniAppLayout";
+} from "../../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppInfoRow,
   MiniAppInfoTable,
-} from "../../../../components/shared/MiniAppTable";
+} from "../../../../components/mini-app/MiniAppTable";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/projectors";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import {

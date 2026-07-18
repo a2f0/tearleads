@@ -10,12 +10,12 @@ import {
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
-} from "../../../components/shared/MiniAppLayout";
+} from "../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRow,
   MiniAppRowStack,
   MiniAppRowText,
-} from "../../../components/shared/MiniAppRow";
+} from "../../../components/mini-app/rows/MiniAppRow";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import { getOrgManagerBillingEventLabel, ORG_MANAGER_LABELS } from "../labels";
 import "./BillingHistory.css";

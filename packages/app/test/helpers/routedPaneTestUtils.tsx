@@ -3,8 +3,8 @@ import {
   DualPaneProvider,
   PaneSideProvider,
 } from "../../src/components/pane/dual-pane";
-import { Pane } from "../../src/components/pane/Pane";
-import { PaneProvider } from "../../src/components/pane/PaneProvider";
+import { PaneProvider } from "../../src/components/pane/runtime/PaneProvider";
+import { Pane } from "../../src/components/pane/shell/Pane";
 import { createTestHostConfig } from "./paneTestUtils";
 
 export function renderRoutedPane(): RenderResult {

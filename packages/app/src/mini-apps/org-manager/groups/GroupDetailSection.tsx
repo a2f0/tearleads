@@ -15,7 +15,7 @@ import {
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppToolbar,
-} from "../../../components/shared/MiniAppLayout";
+} from "../../../components/mini-app/MiniAppLayout";
 import { compactFingerprint, EMPTY_PROFILE_DISPLAY_NAMES } from "../display";
 import { getOrgManagerEpochLabel, ORG_MANAGER_LABELS } from "../labels";
 import { PolicyHistorySection } from "../PolicyHistory";

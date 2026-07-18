@@ -9,11 +9,11 @@ import {
   MiniAppInfoSection,
   MiniAppSelect,
   MiniAppStatus,
-} from "../../../../components/shared/MiniAppLayout";
+} from "../../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppInfoTable,
   MiniAppInfoTableRow,
-} from "../../../../components/shared/MiniAppTable";
+} from "../../../../components/mini-app/MiniAppTable";
 import {
   EXPLORER_LABELS,
   getExplorerContainerInfoInheritedGrantSource,

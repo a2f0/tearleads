@@ -5,11 +5,11 @@ import {
   MiniAppInfoSection,
   MiniAppModalBackdrop,
   MiniAppModalPanel,
-} from "../../components/shared/MiniAppLayout";
+} from "../../components/mini-app/MiniAppLayout";
 import {
   MiniAppInfoRow,
   MiniAppInfoTable,
-} from "../../components/shared/MiniAppTable";
+} from "../../components/mini-app/MiniAppTable";
 import { formatRowByline, formatWriterLabel } from "./rowAttribution";
 import "./DocumentRowDetail.css";
 

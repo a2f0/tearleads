@@ -11,8 +11,8 @@ import {
   DualPaneProvider,
   PaneSideProvider,
 } from "../../components/pane/dual-pane";
-import { Pane } from "../../components/pane/Pane";
-import { PaneProvider } from "../../components/pane/PaneProvider";
+import { PaneProvider } from "../../components/pane/runtime/PaneProvider";
+import { Pane } from "../../components/pane/shell/Pane";
 import { appFeatureFlagStorageKey } from "../../providers/feature-flags/appFeatureFlags";
 import {
   systemMonitorDeveloperModeStorageKey,

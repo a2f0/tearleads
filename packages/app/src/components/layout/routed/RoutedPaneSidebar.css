@@ -27,6 +27,9 @@
   inset-inline-end: 0;
   z-index: 2;
   width: var(--routed-drawer-width);
+  /* The drawer overlays the screen's trailing edge; keep its content clear of
+     a landscape cutout. */
+  padding-inline-end: var(--safe-area-right);
   border-left: var(--border-strong);
 }
 
