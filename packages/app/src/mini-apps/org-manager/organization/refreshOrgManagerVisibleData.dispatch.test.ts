@@ -71,7 +71,6 @@ const visibleRefreshCases: ReadonlyArray<{
     expectedCalls: ["directory", "group:group-a", "group-containers:group-a"],
     view: "groups",
   },
-  { expectedCalls: ["directory", "grants"], view: "grants" },
   {
     expectedCalls: ["directory", "organization"],
     view: "organization",
@@ -97,3 +96,17 @@ for (const { expectedCalls, view } of visibleRefreshCases) {
     ]);
   });
 }
+
+test("manual grants refresh retains the broad directory reconcile", async () => {
+  const harness = createRefreshHarness("grants");
+
+  await harness.refresh();
+
+  expect(harness.calls).toEqual(["directory", "grants"]);
+  expect(harness.directoryOptions).toEqual([
+    {
+      clearError: false,
+      manageLoading: false,
+    },
+  ]);
+});

@@ -233,7 +233,7 @@ The service layer covers these route-backed capabilities:
 - document link and unlink mutations
 - principal policy read and write operations
 - org-manager roster, directory, group-authoring, and data-usage operations,
-  plus the protocol-v3 organization read-model feed backed by roster rows and
+  plus the protocol-v4 organization read-model feed backed by roster rows and
   reserved `Admins` / `Members` group policy reachability; grant and user-detail
   presentation are derived from the local projection, with no dedicated legacy
   HTTP routes

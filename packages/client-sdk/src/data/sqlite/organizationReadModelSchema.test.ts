@@ -46,12 +46,44 @@ function requireColumn(
   return column;
 }
 
-test("organization read model schema stores memberships and container grants", async () => {
+test("organization read model schema stores exact policy heads and access lanes", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-schema-test",
   );
   try {
     await ensureSqlTables(execSql, organizationReadModelTables);
+
+    const groups = await readTableColumns(
+      execSql,
+      "organization_read_model_groups",
+    );
+    expect("key_fingerprint" in groups).toBe(false);
+
+    const policyHeads = await readTableColumns(
+      execSql,
+      "organization_read_model_policy_heads",
+    );
+    expect(requireColumn(policyHeads, "organization_id")).toMatchObject({
+      notNull: 1,
+      pk: 1,
+    });
+    expect(requireColumn(policyHeads, "principal_type")).toMatchObject({
+      notNull: 1,
+      pk: 2,
+    });
+    expect(requireColumn(policyHeads, "principal_id")).toMatchObject({
+      notNull: 1,
+      pk: 3,
+    });
+    for (const name of [
+      "state_hash",
+      "state_version",
+      "key_epoch",
+      "key_fingerprint",
+      "member_count",
+    ]) {
+      expect(requireColumn(policyHeads, name).notNull).toBe(1);
+    }
 
     const memberships = await readTableColumns(
       execSql,

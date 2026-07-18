@@ -11,6 +11,7 @@ export function toGroupSummary(input: {
         stateHash: string;
         version: number;
         keyEpoch: number;
+        keyFingerprint: string;
         memberCount: number;
       }
     | null
@@ -27,6 +28,7 @@ export function toGroupSummary(input: {
           stateHash: input.state.stateHash,
           version: input.state.version,
           keyEpoch: input.state.keyEpoch,
+          keyFingerprint: input.state.keyFingerprint,
           memberCount: input.state.memberCount,
         }
       : null,

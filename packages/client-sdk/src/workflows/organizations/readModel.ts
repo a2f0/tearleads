@@ -30,8 +30,6 @@ export type {
 export {
   buildOrganizationGroupPolicyHistory,
   buildOrganizationPolicyHistory,
-  loadOrganizationGroupPolicyHistory,
-  loadOrganizationPolicyHistory,
 } from "./policyHistoryReadModel";
 
 export type OrganizationDirectory = OrganizationDirectoryResponse;

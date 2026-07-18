@@ -44,13 +44,6 @@ export interface OrganizationPolicyHistory
   readonly principalType: "organization";
 }
 
-interface OrganizationPolicyHistoryApi {
-  readonly getCurrentPrincipalPolicy: (
-    principalType: "group" | "organization",
-    principalId: string,
-  ) => Promise<PrincipalPolicyBundleResponse | null>;
-}
-
 interface PrincipalPolicyHistoryState {
   readonly projection: ReadonlyArray<PrincipalProjectionMemberResponse>;
   readonly state: PrincipalStateResponse;
@@ -192,34 +185,4 @@ export function buildOrganizationPolicyHistory(
     principalId: bundle.currentState.principalId,
     principalType: "organization",
   };
-}
-
-export async function loadOrganizationGroupPolicyHistory(input: {
-  readonly apiClient: Pick<
-    OrganizationPolicyHistoryApi,
-    "getCurrentPrincipalPolicy"
-  >;
-  readonly groupId: string;
-}): Promise<OrganizationGroupPolicyHistory | null> {
-  const bundle = await input.apiClient.getCurrentPrincipalPolicy(
-    "group",
-    input.groupId,
-  );
-
-  return bundle ? buildOrganizationGroupPolicyHistory(bundle) : null;
-}
-
-export async function loadOrganizationPolicyHistory(input: {
-  readonly apiClient: Pick<
-    OrganizationPolicyHistoryApi,
-    "getCurrentPrincipalPolicy"
-  >;
-  readonly organizationId: string;
-}): Promise<OrganizationPolicyHistory | null> {
-  const bundle = await input.apiClient.getCurrentPrincipalPolicy(
-    "organization",
-    input.organizationId,
-  );
-
-  return bundle ? buildOrganizationPolicyHistory(bundle) : null;
 }

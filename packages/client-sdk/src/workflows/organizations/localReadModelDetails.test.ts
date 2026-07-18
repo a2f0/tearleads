@@ -126,7 +126,7 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
     }),
   ];
   return {
-    version: 3,
+    version: 4,
     mode: "snapshot",
     organizationId: ORGANIZATION_ID,
     nextCursor: "cursor-local-details",
@@ -167,6 +167,7 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
               stateHash: "parent-state",
               version: 1,
               keyEpoch: 1,
+              keyFingerprint: "parent-key-fingerprint",
               memberCount: 2,
             },
           },
@@ -180,6 +181,7 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
               stateHash: "cycle-state",
               version: 1,
               keyEpoch: 1,
+              keyFingerprint: "cycle-key-fingerprint",
               memberCount: 1,
             },
           },
@@ -208,6 +210,16 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
             members: [groupMember(PARENT_GROUP_ID, "Parent")],
           },
         ],
+      },
+      organizationPolicy: {
+        organizationId: ORGANIZATION_ID,
+        currentState: {
+          stateHash: "organization-policy-state",
+          version: 1,
+          keyEpoch: 1,
+          keyFingerprint: "organization-policy-key-fingerprint",
+          memberCount: 1,
+        },
       },
     },
   };
@@ -247,6 +259,7 @@ function policySnapshot(input: {
     stateHash: input.projectedStateHash ?? input.bundle.currentState.stateHash,
     version: input.bundle.currentState.version,
     keyEpoch: input.bundle.currentState.keyEpoch,
+    keyFingerprint: input.bundle.currentState.keyFingerprint,
     memberCount: input.bundle.currentState.memberCount,
   };
   return {

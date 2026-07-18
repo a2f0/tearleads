@@ -5,6 +5,7 @@ import {
   organizationReadModelGroupMembers,
   organizationReadModelGroupMemberships,
   organizationReadModelGroups,
+  organizationReadModelPolicyHeads,
   organizationReadModelRequesters,
   organizationReadModelState,
 } from "../../sqlite/organizationReadModelSchema";
@@ -14,6 +15,12 @@ export async function purgeOrganizationReadModelProjectionInTransaction(input: {
   readonly organizationId: string;
   readonly tx: ClientSQLiteTransaction;
 }): Promise<void> {
+  await input.tx
+    .delete(organizationReadModelPolicyHeads)
+    .where(
+      eq(organizationReadModelPolicyHeads.organizationId, input.organizationId),
+    )
+    .run();
   await input.tx
     .delete(organizationReadModelContainerGrants)
     .where(

@@ -34,6 +34,7 @@ function createGroup(input: {
     currentState: input.current
       ? {
           keyEpoch: 1,
+          keyFingerprint: `${input.groupId}-key-fingerprint`,
           memberCount: 1,
           stateHash: `${input.groupId}-state`,
           version: 1,

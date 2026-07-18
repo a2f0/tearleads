@@ -4,6 +4,7 @@ import {
   organizationReadModelGroupMembers,
   organizationReadModelGroupMemberships,
   organizationReadModelGroups,
+  organizationReadModelPolicyHeads,
   organizationReadModelRequesters,
   organizationReadModelState,
 } from "./organizationReadModelSchema";
@@ -14,6 +15,7 @@ export const organizationReadModelTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(organizationReadModelRequesters),
   defineSqlTableSchema(organizationReadModelDirectoryUsers),
   defineSqlTableSchema(organizationReadModelGroups),
+  defineSqlTableSchema(organizationReadModelPolicyHeads),
   defineSqlTableSchema(organizationReadModelGroupMemberships),
   defineSqlTableSchema(organizationReadModelGroupMembers),
   defineSqlTableSchema(organizationReadModelContainerGrants),
@@ -24,6 +26,7 @@ export const organizationReadModelSQLiteSchema = {
   organizationReadModelRequesters,
   organizationReadModelDirectoryUsers,
   organizationReadModelGroups,
+  organizationReadModelPolicyHeads,
   organizationReadModelGroupMemberships,
   organizationReadModelGroupMembers,
   organizationReadModelContainerGrants,

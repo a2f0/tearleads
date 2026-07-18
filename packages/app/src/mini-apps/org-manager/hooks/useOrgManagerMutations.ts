@@ -320,8 +320,6 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     selectedGroupIsMembersGroup,
     setAddUserId,
     setError,
-    setGroupPolicyHistory,
-    setMembers,
     setMutating,
   });
 

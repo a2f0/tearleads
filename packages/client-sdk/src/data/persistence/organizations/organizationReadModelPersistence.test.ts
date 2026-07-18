@@ -5,6 +5,7 @@ import {
   organizationReadModelDirectory as directory,
   organizationReadModelDirectoryUser as directoryUser,
   organizationReadModelGroups as groups,
+  organizationReadModelOrganizationPolicy as organizationPolicy,
   organizationReadModelSnapshot as snapshot,
 } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
 import {
@@ -62,6 +63,7 @@ test("organization read-model deltas replace only supplied lanes and reject stal
           directory: staleDirectory,
           isOrgAdmin: false,
           nextCursor: "cursor-3",
+          organizationPolicy: organizationPolicy("org-1", "stale"),
           organizationId: "org-1",
         }),
       }),
@@ -82,6 +84,28 @@ test("organization read-model deltas replace only supplied lanes and reject stal
       ],
     });
     expect(afterGroups?.groups).toEqual(groups("org-1", "next"));
+    expect(afterGroups?.policyHeads).toEqual([
+      {
+        organizationId: "org-1",
+        principalType: "group",
+        principalId: "admins-org-1",
+        stateHash: "state-next",
+        version: 2,
+        keyEpoch: 2,
+        keyFingerprint: "key-fingerprint-next",
+        memberCount: 1,
+      },
+      {
+        organizationId: "org-1",
+        principalType: "organization",
+        principalId: "org-1",
+        stateHash: "organization-state-initial",
+        version: 2,
+        keyEpoch: 2,
+        keyFingerprint: "organization-key-fingerprint-initial",
+        memberCount: 1,
+      },
+    ]);
     expect(afterGroups?.requester).toEqual({ isOrgAdmin: true });
 
     const nextDirectory = directory("org-1", {
@@ -97,6 +121,7 @@ test("organization read-model deltas replace only supplied lanes and reject stal
           directory: nextDirectory,
           isOrgAdmin: false,
           nextCursor: "cursor-3",
+          organizationPolicy: organizationPolicy("org-1", "next"),
           organizationId: "org-1",
         }),
       }),
@@ -113,6 +138,14 @@ test("organization read-model deltas replace only supplied lanes and reject stal
     );
     expect(afterDirectory?.requester).toEqual({ isOrgAdmin: false });
     expect(afterDirectory?.groups).toEqual(groups("org-1", "next"));
+    expect(
+      afterDirectory?.policyHeads.find(
+        (head) => head.principalType === "organization",
+      ),
+    ).toMatchObject({
+      stateHash: "organization-state-next",
+      keyFingerprint: "organization-key-fingerprint-next",
+    });
   } finally {
     close();
   }
@@ -124,11 +157,31 @@ test("organization read-model reset snapshots replace both lanes and purge only 
   );
 
   try {
+    const initialOrgOne = snapshot("org-1", "cursor-1");
+    initialOrgOne.lanes.groups.groups.push({
+      groupId: "stale-org-1",
+      organizationId: "org-1",
+      name: "Stale",
+      createdAt: "2026-07-16T12:00:00.000Z",
+      isBuiltin: false,
+      currentState: {
+        stateHash: "stale-state",
+        version: 1,
+        keyEpoch: 1,
+        keyFingerprint: "stale-key",
+        memberCount: 0,
+      },
+    });
+    initialOrgOne.lanes.groupMemberships.groups.push({
+      groupId: "stale-org-1",
+      stateHash: "stale-state",
+      members: [],
+    });
     await applyOrganizationReadModelResponse({
       currentUserId: "user-1",
       execSql,
       requestedCursor: null,
-      response: snapshot("org-1", "cursor-1"),
+      response: initialOrgOne,
     });
     await applyOrganizationReadModelResponse({
       currentUserId: "user-1",
@@ -160,6 +213,11 @@ test("organization read-model reset snapshots replace both lanes and purge only 
       expect.objectContaining({ userId: "user-reset" }),
     ]);
     expect(resetProjection?.groups).toEqual(groups("org-1", "reset"));
+    expect(
+      resetProjection?.policyHeads.some(
+        (head) => head.principalId === "stale-org-1",
+      ),
+    ).toBe(false);
 
     await purgeOrganizationReadModelProjection(execSql, "org-1");
     await expect(
@@ -209,6 +267,22 @@ test("organization read-model persistence rejects requester flag and duplicate I
       }),
     ).rejects.toThrow("duplicate IDs");
 
+    const wrongPolicyScope = snapshot("org-1", "cursor-wrong-policy-scope");
+    await expect(
+      applyOrganizationReadModelResponse({
+        currentUserId: "user-1",
+        execSql,
+        requestedCursor: null,
+        response: {
+          ...wrongPolicyScope,
+          lanes: {
+            ...wrongPolicyScope.lanes,
+            organizationPolicy: organizationPolicy("other-organization"),
+          },
+        },
+      }),
+    ).rejects.toThrow("policy response scope");
+
     const duplicateGroups = snapshot("org-1", "cursor-duplicate-group");
     const duplicateGroup = duplicateGroups.lanes.groups.groups[0];
     if (!duplicateGroup) {
@@ -228,7 +302,7 @@ test("organization read-model persistence rejects requester flag and duplicate I
   }
 });
 
-test("organization read-model persistence rejects v2 responses at runtime", async () => {
+test("organization read-model persistence rejects v3 responses at runtime", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-protocol-version-test",
   );
@@ -241,13 +315,13 @@ test("organization read-model persistence rejects v2 responses at runtime", asyn
       response: initial,
     });
 
-    const versionTwo = {
+    const versionThree = {
       ...delta({
-        groups: groups("org-1", "v2"),
-        nextCursor: "cursor-v2",
+        groups: groups("org-1", "v3"),
+        nextCursor: "cursor-v3",
         organizationId: "org-1",
       }),
-      version: 2,
+      version: 3,
     } as unknown as Parameters<
       typeof applyOrganizationReadModelResponse
     >[0]["response"];
@@ -256,7 +330,7 @@ test("organization read-model persistence rejects v2 responses at runtime", asyn
         currentUserId: "user-1",
         execSql,
         requestedCursor: "cursor-1",
-        response: versionTwo,
+        response: versionThree,
       }),
     ).rejects.toThrow("protocol version is unsupported");
 
@@ -265,14 +339,14 @@ test("organization read-model persistence rejects v2 responses at runtime", asyn
     ).resolves.toMatchObject({
       cursor: "cursor-1",
       groups: initial.lanes.groups,
-      protocolVersion: 3,
+      protocolVersion: 4,
     });
   } finally {
     close();
   }
 });
 
-test("organization read-model response and cursor roll back together on lane failure", async () => {
+test("organization policy head and cursor roll back together on head failure", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-atomic-persistence-test",
   );
@@ -286,25 +360,21 @@ test("organization read-model response and cursor roll back together on lane fai
     });
 
     await execSql(`
-      CREATE TRIGGER fail_organization_directory_insert
-      BEFORE INSERT ON organization_read_model_directory_users
-      WHEN NEW.user_id = 'fail-user'
+      CREATE TRIGGER fail_organization_policy_head_insert
+      BEFORE INSERT ON organization_read_model_policy_heads
+      WHEN NEW.state_hash = 'organization-state-must-roll-back'
       BEGIN
-        SELECT RAISE(ABORT, 'forced organization directory insert failure');
+        SELECT RAISE(ABORT, 'forced organization policy head insert failure');
       END
     `);
-    const failingDirectory = directory("org-1", {
-      profileDocumentId: "must-roll-back",
-      users: [directoryUser("fail-user")],
-    });
     await expect(
       applyOrganizationReadModelResponse({
         currentUserId: "user-1",
         execSql,
         requestedCursor: "cursor-1",
         response: delta({
-          directory: failingDirectory,
           nextCursor: "cursor-2",
+          organizationPolicy: organizationPolicy("org-1", "must-roll-back"),
           organizationId: "org-1",
         }),
       }),
@@ -323,6 +393,37 @@ test("organization read-model response and cursor roll back together on lane fai
       "user-1",
       "user-2",
     ]);
+    expect(
+      projection?.policyHeads.find(
+        (head) => head.principalType === "organization",
+      ),
+    ).toMatchObject({ stateHash: "organization-state-initial" });
+  } finally {
+    close();
+  }
+});
+
+test("organization group summaries require an exact persisted policy head", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-policy-head-binding-test",
+  );
+
+  try {
+    await applyOrganizationReadModelResponse({
+      currentUserId: "user-1",
+      execSql,
+      requestedCursor: null,
+      response: snapshot("org-1", "cursor-1"),
+    });
+    await execSql(
+      `UPDATE organization_read_model_policy_heads
+       SET state_hash = 'mismatched-state'
+       WHERE organization_id = 'org-1' AND principal_type = 'group'`,
+    );
+
+    await expect(
+      loadOrganizationReadModelProjection(execSql, "org-1", "user-1"),
+    ).rejects.toThrow("group state is invalid");
   } finally {
     close();
   }

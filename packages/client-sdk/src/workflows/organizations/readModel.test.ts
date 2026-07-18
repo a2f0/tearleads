@@ -11,7 +11,6 @@ import {
   buildOrganizationGroupPolicyHistory,
   buildOrganizationPolicyHistory,
   loadOrganizationDataUsage,
-  loadOrganizationPolicyHistory,
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "./readModel";
@@ -89,24 +88,6 @@ test("buildOrganizationPolicyHistory diffs organization policy projections", () 
       nextRole: null,
     },
   ]);
-});
-
-test("loadOrganizationPolicyHistory fetches organization principal policy", async () => {
-  const calls: string[] = [];
-  const result = await loadOrganizationPolicyHistory({
-    apiClient: {
-      getCurrentPrincipalPolicy: async (principalType, principalId) => {
-        calls.push(`policy:${principalType}:${principalId}`);
-        return organizationPrincipalPolicy;
-      },
-    },
-    organizationId,
-  });
-
-  expect(calls).toEqual(["policy:organization:org-1"]);
-  expect(result).toEqual(
-    buildOrganizationPolicyHistory(organizationPrincipalPolicy),
-  );
 });
 
 test("loadOrganizationDataUsage forwards organization usage summary", async () => {

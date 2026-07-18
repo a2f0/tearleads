@@ -295,7 +295,6 @@ export function useOrgManagerModel() {
     readModelCursor,
     refreshDataUsage,
     refreshGrants,
-    refreshGrantsOnEntry: refreshOrgManager,
     refreshOrganizationPolicyHistory,
     view,
   });

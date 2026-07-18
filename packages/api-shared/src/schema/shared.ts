@@ -29,5 +29,6 @@ export type OrganizationReadModelLane =
   | "directory"
   | "grants"
   | "groupMemberships"
-  | "groups";
+  | "groups"
+  | "organizationPolicy";
 export type OrganizationReadModelOperation = "delete" | "replace" | "upsert";

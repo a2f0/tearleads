@@ -1,11 +1,16 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { organizationReadModelSnapshot } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
 import {
   loadLocalOrganizationContainerGrants,
   loadLocalOrganizationUserDetail,
 } from "../../../workflows/organizations/localReadModelDetails";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMembershipPersistence";
+import {
+  applyOrganizationReadModelResponse,
+  loadOrganizationReadModelProjection,
+} from "./organizationReadModelPersistence";
 
 const CREATED_AT = "2026-07-17T12:00:00.000Z";
 const CURRENT_ORGANIZATION_ID = "organization-current";
@@ -27,6 +32,22 @@ async function seedState(input: {
       null,
       `members-${input.organizationId}`,
       CREATED_AT,
+    ],
+  );
+  await input.execSql(
+    `INSERT INTO organization_read_model_policy_heads
+      (organization_id, principal_type, principal_id, state_hash, state_version,
+       key_epoch, key_fingerprint, member_count)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      input.organizationId,
+      "organization",
+      input.organizationId,
+      `policy-state-${input.organizationId}`,
+      1,
+      1,
+      `policy-key-${input.organizationId}`,
+      1,
     ],
   );
   await input.execSql(
@@ -77,6 +98,7 @@ async function loadOrganizationIds(
   table:
     | "organization_read_model_container_grants"
     | "organization_read_model_group_memberships"
+    | "organization_read_model_policy_heads"
     | "organization_read_model_requesters"
     | "organization_read_model_state",
 ): Promise<string[]> {
@@ -88,7 +110,7 @@ async function loadOrganizationIds(
   return rows.map((row) => String(row[0]));
 }
 
-test("v3 local reads purge every stale v2 authorization projection row", async () => {
+test("v4 local reads purge every stale v3 authorization projection row", async () => {
   const { close, execSql } = await createTestExecSql(
     "org-memberships-stale-version",
   );
@@ -102,12 +124,12 @@ test("v3 local reads purge every stale v2 authorization projection row", async (
     await seedState({
       execSql,
       organizationId: STALE_ORGANIZATION_ID,
-      protocolVersion: 2,
+      protocolVersion: 3,
     });
     await seedState({
       execSql,
       organizationId: CURRENT_ORGANIZATION_ID,
-      protocolVersion: 3,
+      protocolVersion: 4,
     });
 
     const staleRead = {
@@ -133,6 +155,7 @@ test("v3 local reads purge every stale v2 authorization projection row", async (
     for (const table of [
       "organization_read_model_container_grants",
       "organization_read_model_group_memberships",
+      "organization_read_model_policy_heads",
       "organization_read_model_requesters",
       "organization_read_model_state",
     ] as const) {
@@ -140,6 +163,54 @@ test("v3 local reads purge every stale v2 authorization projection row", async (
         CURRENT_ORGANIZATION_ID,
       ]);
     }
+  } finally {
+    close();
+  }
+});
+
+test("a v4 snapshot replaces v3 local state without translating it", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "org-memberships-v4-strict-reset",
+  );
+  try {
+    await loadOrganizationReadModelProjection(
+      execSql,
+      STALE_ORGANIZATION_ID,
+      "user-1",
+    );
+    await seedState({
+      execSql,
+      organizationId: STALE_ORGANIZATION_ID,
+      protocolVersion: 3,
+    });
+
+    await expect(
+      applyOrganizationReadModelResponse({
+        currentUserId: "user-1",
+        execSql,
+        requestedCursor: null,
+        response: organizationReadModelSnapshot(
+          STALE_ORGANIZATION_ID,
+          "cursor-v4",
+        ),
+      }),
+    ).resolves.toBe("applied");
+
+    await expect(
+      loadOrganizationReadModelGroupMembers(
+        execSql,
+        STALE_ORGANIZATION_ID,
+        "group-1",
+        "user-1",
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      loadOrganizationReadModelProjection(
+        execSql,
+        STALE_ORGANIZATION_ID,
+        "user-1",
+      ),
+    ).resolves.toMatchObject({ cursor: "cursor-v4", protocolVersion: 4 });
   } finally {
     close();
   }

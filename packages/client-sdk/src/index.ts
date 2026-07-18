@@ -377,8 +377,6 @@ export {
   loadLocalOrganizationDirectoryAndGroups,
   loadOrganizationBilling,
   loadOrganizationDataUsage,
-  loadOrganizationGroupPolicyHistory,
-  loadOrganizationPolicyHistory,
   ORGANIZATION_METADATA_CONTAINER_NAME,
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,

@@ -45,7 +45,7 @@ import {
   waitForNoPostShareSyncFailures,
 } from "../../../../test/helpers/dual-pane/dualPaneSyncKit";
 import {
-  expectGrantReadModelRequestBoundary,
+  expectGrantLocalProjectionRequestBoundary,
   requestPath,
   summarizeProxiedApiRequests,
 } from "../../../../test/helpers/dualPaneRequestSummary";
@@ -485,7 +485,7 @@ test(
     });
     await waitForNoPostShareSyncFailures([leftPane], postShareBaseline);
 
-    expectGrantReadModelRequestBoundary(
+    expectGrantLocalProjectionRequestBoundary(
       listProxiedApiRequests().slice(grantDetailRequestStartIndex),
     );
   },

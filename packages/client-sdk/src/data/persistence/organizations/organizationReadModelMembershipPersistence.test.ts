@@ -7,6 +7,7 @@ import type {
   OrganizationReadModelDeltaResponse,
   OrganizationReadModelGroupMembershipResponse,
   OrganizationReadModelGroupMembershipsResponse,
+  OrganizationReadModelOrganizationPolicyResponse,
   OrganizationReadModelSnapshotResponse,
 } from "@tearleads/validators/response";
 import type { ExecSql } from "../../sqlite/sqlSchema";
@@ -19,10 +20,10 @@ import {
 } from "./organizationReadModelPersistence";
 
 const CREATED_AT = "2026-07-17T12:00:00.000Z";
-const ORGANIZATION_ID = "organization-v3";
-const ADMINS_GROUP_ID = "admins-v3";
-const EMPTY_GROUP_ID = "empty-v3";
-const MEMBERS_GROUP_ID = "members-v3";
+const ORGANIZATION_ID = "organization-v4";
+const ADMINS_GROUP_ID = "admins-v4";
+const EMPTY_GROUP_ID = "empty-v4";
+const MEMBERS_GROUP_ID = "members-v4";
 function directoryUser(userId: string): OrganizationDirectoryUserResponse {
   return {
     userId,
@@ -107,6 +108,7 @@ function groupsLane(
               stateHash: input.adminStateHash ?? "admins-state-1",
               version: 1,
               keyEpoch: 1,
+              keyFingerprint: `admins-key-${input.adminStateHash ?? "admins-state-1"}`,
               memberCount: input.adminMemberCount ?? 2,
             },
           },
@@ -121,6 +123,7 @@ function groupsLane(
         stateHash: "empty-state-1",
         version: 1,
         keyEpoch: 1,
+        keyFingerprint: "empty-key-1",
         memberCount: 0,
       },
     },
@@ -132,6 +135,19 @@ function groupsLane(
   };
 }
 
+function organizationPolicyLane(): OrganizationReadModelOrganizationPolicyResponse {
+  return {
+    organizationId: ORGANIZATION_ID,
+    currentState: {
+      stateHash: "organization-state-1",
+      version: 1,
+      keyEpoch: 1,
+      keyFingerprint: "organization-key-1",
+      memberCount: 2,
+    },
+  };
+}
+
 function snapshot(
   input: {
     cursor?: string;
@@ -140,7 +156,7 @@ function snapshot(
   } = {},
 ): OrganizationReadModelSnapshotResponse {
   return {
-    version: 3,
+    version: 4,
     mode: "snapshot",
     organizationId: ORGANIZATION_ID,
     nextCursor: input.cursor ?? "cursor-1",
@@ -156,6 +172,7 @@ function snapshot(
       groups: input.groups ?? groupsLane(),
       groupMemberships:
         input.groupMemberships ?? membershipsLane(defaultMemberships()),
+      organizationPolicy: organizationPolicyLane(),
     },
   };
 }
@@ -167,7 +184,7 @@ function delta(input: {
   profileDocumentId?: string;
 }): OrganizationReadModelDeltaResponse {
   return {
-    version: 3,
+    version: 4,
     mode: "delta",
     organizationId: ORGANIZATION_ID,
     nextCursor: input.nextCursor ?? "cursor-2",
@@ -212,9 +229,9 @@ function loadMembers(execSql: ExecSql, groupId: string) {
   );
 }
 
-test("v3 snapshots persist visible, hidden Members, and empty group memberships", async () => {
+test("v4 snapshots persist visible, hidden Members, and empty group memberships", async () => {
   const { close, execSql } = await createTestExecSql(
-    "org-memberships-snapshot-v3",
+    "org-memberships-snapshot-v4",
   );
   try {
     await applySnapshot(execSql);
@@ -251,7 +268,7 @@ test("v3 snapshots persist visible, hidden Members, and empty group memberships"
 
 test("entity membership deltas replace only the supplied group", async () => {
   const { close, execSql } = await createTestExecSql(
-    "org-memberships-delta-v3",
+    "org-memberships-delta-v4",
   );
   try {
     await applySnapshot(execSql);
@@ -288,7 +305,7 @@ test("entity membership deltas replace only the supplied group", async () => {
 
 test("entity membership deletions remove only the target group", async () => {
   const { close, execSql } = await createTestExecSql(
-    "org-memberships-delete-v3",
+    "org-memberships-delete-v4",
   );
   try {
     await applySnapshot(execSql);
@@ -371,9 +388,9 @@ test("invalid memberships roll back every changed lane and the cursor", async ()
 
 test("large membership snapshots are persisted across insert batches", async () => {
   const { close, execSql } = await createTestExecSql(
-    "org-memberships-large-v3",
+    "org-memberships-large-v4",
   );
-  const groupId = "large-group-v3";
+  const groupId = "large-group-v4";
   const members = Array.from({ length: 95 }, (_, index) =>
     member(`member-${index}`),
   );
@@ -391,6 +408,7 @@ test("large membership snapshots are persisted across insert batches", async () 
           stateHash: "large-state-1",
           version: 1,
           keyEpoch: 1,
+          keyFingerprint: "large-key-1",
           memberCount: members.length,
         },
       },
@@ -417,50 +435,9 @@ test("large membership snapshots are persisted across insert batches", async () 
   }
 });
 
-test("v2 local state is discarded before a v3 snapshot is applied", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "org-memberships-upgrade-v3",
-  );
-  try {
-    await loadOrganizationReadModelProjection(
-      execSql,
-      ORGANIZATION_ID,
-      "user-1",
-    );
-    await execSql(
-      `INSERT INTO organization_read_model_state
-        (organization_id, protocol_version, cursor, profile_document_id, member_group_id, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        ORGANIZATION_ID,
-        2,
-        "legacy-cursor",
-        "legacy-profile",
-        "legacy-members",
-        CREATED_AT,
-      ],
-    );
-    await execSql(
-      `INSERT INTO organization_read_model_group_memberships
-        (organization_id, group_id, state_hash)
-       VALUES (?, ?, ?)`,
-      [ORGANIZATION_ID, "legacy-group", "legacy-state"],
-    );
-
-    await applySnapshot(execSql, snapshot({ cursor: "cursor-v3" }));
-
-    await expect(loadMembers(execSql, "legacy-group")).resolves.toBeNull();
-    await expect(
-      loadOrganizationReadModelProjection(execSql, ORGANIZATION_ID, "user-1"),
-    ).resolves.toMatchObject({ cursor: "cursor-v3", protocolVersion: 3 });
-  } finally {
-    close();
-  }
-});
-
 test("purge clears membership rows without deleting verified policy checkpoints", async () => {
   const { close, execSql } = await createTestExecSql(
-    "org-memberships-purge-v3",
+    "org-memberships-purge-v4",
   );
   try {
     await applySnapshot(execSql);

@@ -5,6 +5,7 @@ import type {
   OrganizationReadModelDeltaResponse,
   OrganizationReadModelDirectoryResponse,
   OrganizationReadModelGroupMembershipsResponse,
+  OrganizationReadModelOrganizationPolicyResponse,
   OrganizationReadModelSnapshotResponse,
 } from "@tearleads/validators/response";
 
@@ -65,6 +66,7 @@ export function organizationReadModelGroups(
           stateHash: `state-${suffix}`,
           version: 2,
           keyEpoch: 2,
+          keyFingerprint: `key-fingerprint-${suffix}`,
           memberCount: 1,
         },
       },
@@ -77,6 +79,22 @@ export function organizationReadModelGroups(
         currentState: null,
       },
     ],
+  };
+}
+
+export function organizationReadModelOrganizationPolicy(
+  organizationId: string,
+  suffix = "initial",
+): OrganizationReadModelOrganizationPolicyResponse {
+  return {
+    organizationId,
+    currentState: {
+      stateHash: `organization-state-${suffix}`,
+      version: 2,
+      keyEpoch: 2,
+      keyFingerprint: `organization-key-fingerprint-${suffix}`,
+      memberCount: 1,
+    },
   };
 }
 
@@ -140,7 +158,7 @@ export function organizationReadModelSnapshot(
 ): OrganizationReadModelSnapshotResponse {
   const groups = organizationReadModelGroups(organizationId, suffix);
   return {
-    version: 3,
+    version: 4,
     mode: "snapshot",
     organizationId,
     nextCursor,
@@ -151,6 +169,10 @@ export function organizationReadModelSnapshot(
       grants: organizationReadModelGrants(organizationId),
       groupMemberships: organizationReadModelMemberships(groups),
       groups,
+      organizationPolicy: organizationReadModelOrganizationPolicy(
+        organizationId,
+        suffix,
+      ),
     },
   };
 }
@@ -161,6 +183,7 @@ export function organizationReadModelDelta(input: {
   groups?: ListOrganizationGroupsResponse;
   isOrgAdmin?: boolean;
   nextCursor: string;
+  organizationPolicy?: OrganizationReadModelOrganizationPolicyResponse;
   organizationId: string;
 }): OrganizationReadModelDeltaResponse {
   const groupMemberships =
@@ -169,7 +192,7 @@ export function organizationReadModelDelta(input: {
       ? organizationReadModelMemberships(input.groups, false)
       : undefined);
   return {
-    version: 3,
+    version: 4,
     mode: "delta",
     organizationId: input.organizationId,
     nextCursor: input.nextCursor,
@@ -179,6 +202,9 @@ export function organizationReadModelDelta(input: {
       ...(input.directory ? { directory: input.directory } : {}),
       ...(groupMemberships ? { groupMemberships } : {}),
       ...(input.groups ? { groups: input.groups } : {}),
+      ...(input.organizationPolicy
+        ? { organizationPolicy: input.organizationPolicy }
+        : {}),
     },
   };
 }

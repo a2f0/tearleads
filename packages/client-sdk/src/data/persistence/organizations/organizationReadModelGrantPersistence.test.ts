@@ -13,7 +13,7 @@ import {
 } from "./organizationReadModelPersistence";
 
 const CREATED_AT = "2026-07-17T12:00:00.000Z";
-const ORGANIZATION_ID = "organization-grants-v3";
+const ORGANIZATION_ID = "organization-grants-v4";
 const CURRENT_USER_ID = "user-1";
 
 function groupGrant(
@@ -61,7 +61,7 @@ function grantsDelta(input: {
   readonly organizationId?: string;
 }): OrganizationReadModelDeltaResponse {
   return {
-    version: 3,
+    version: 4,
     mode: "delta",
     organizationId: ORGANIZATION_ID,
     nextCursor: input.cursor ?? "cursor-2",

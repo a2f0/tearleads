@@ -38,12 +38,6 @@ const projectedMembers: OrganizationGroupMembersResponse = {
   ],
 };
 
-const authoritativeMembers: OrganizationGroupMembersResponse = {
-  organizationId,
-  groupId,
-  members: [],
-};
-
 const projectedPolicyHistory =
   buildOrganizationGroupPolicyHistory(principalPolicy);
 
@@ -110,12 +104,15 @@ function coordinatorWithMembers(
       calls.push(`members:${nextOrganizationId}:${nextGroupId}`);
       return members;
     },
-    async loadLocalGroupPolicyHistory(nextGroupId, nextOrganizationId) {
+    async loadGroupPolicyHistory(nextGroupId, nextOrganizationId) {
       calls.push(`policy:${nextOrganizationId}:${nextGroupId}`);
       if (policyHistoryError) {
         throw policyHistoryError;
       }
       return policyHistory;
+    },
+    async loadOrganizationPolicyHistory() {
+      return null;
     },
     async loadLocalUserDetail() {
       return null;
@@ -136,10 +133,6 @@ test("group presentation reads projected members without requesting members", as
     async getCurrentPrincipalPolicy(principalType, principalId) {
       networkCalls.push(`policy:${principalType}:${principalId}`);
       return principalPolicy;
-    },
-    async listOrganizationGroupMembers(nextOrganizationId, nextGroupId) {
-      networkCalls.push(`members:${nextOrganizationId}:${nextGroupId}`);
-      return authoritativeMembers;
     },
   });
 
@@ -163,10 +156,6 @@ test("group presentation does not fall back when projected members are absent", 
       networkCalls.push(`policy:${principalType}:${principalId}`);
       return principalPolicy;
     },
-    async listOrganizationGroupMembers(nextOrganizationId, nextGroupId) {
-      networkCalls.push(`members:${nextOrganizationId}:${nextGroupId}`);
-      return authoritativeMembers;
-    },
   });
 
   const result = await loadOrganizationGroupPresentationDetails({
@@ -181,17 +170,13 @@ test("group presentation does not fall back when projected members are absent", 
   expect(networkCalls).toEqual([]);
 });
 
-test("group presentation fetches policy history once after a local miss", async () => {
+test("group presentation never renders a raw policy response after a verified miss", async () => {
   const networkCalls: string[] = [];
   const localCalls: string[] = [];
   const apiClient = createMockApiClient({
     async getCurrentPrincipalPolicy(principalType, principalId) {
       networkCalls.push(`policy:${principalType}:${principalId}`);
       return principalPolicy;
-    },
-    async listOrganizationGroupMembers(nextOrganizationId, nextGroupId) {
-      networkCalls.push(`members:${nextOrganizationId}:${nextGroupId}`);
-      return authoritativeMembers;
     },
   });
 
@@ -206,15 +191,14 @@ test("group presentation fetches policy history once after a local miss", async 
   });
 
   expect(result.members).toEqual(projectedMembers);
-  expect(result.policyHistory).toEqual(projectedPolicyHistory);
+  expect(result.policyHistory).toBeNull();
   expect(localCalls).toEqual(["members:org-1:group-1", "policy:org-1:group-1"]);
-  expect(networkCalls).toEqual(["policy:group:group-1"]);
+  expect(networkCalls).toEqual([]);
 });
 
-test("group presentation recovers from local policy storage failures", async () => {
+test("group presentation does not bypass verified storage failures", async () => {
   const networkCalls: string[] = [];
   const localCalls: string[] = [];
-  const loggedErrors: Array<{ cause: unknown; message: string | Error }> = [];
   const localError = new Error("local policy storage is corrupt");
   const apiClient = createMockApiClient({
     async getCurrentPrincipalPolicy(principalType, principalId) {
@@ -223,25 +207,17 @@ test("group presentation recovers from local policy storage failures", async () 
     },
   });
 
-  const result = await loadOrganizationGroupPresentationDetails({
-    groupId,
-    readModelCoordinator: coordinatorWithMembers(
-      projectedMembers,
-      localCalls,
-      null,
-      localError,
-    ),
-    runtime: runtimeWith(apiClient, (message, cause) => {
-      loggedErrors.push({ cause, message });
+  await expect(
+    loadOrganizationGroupPresentationDetails({
+      groupId,
+      readModelCoordinator: coordinatorWithMembers(
+        projectedMembers,
+        localCalls,
+        null,
+        localError,
+      ),
+      runtime: runtimeWith(apiClient),
     }),
-  });
-
-  expect(result.policyHistory).toEqual(projectedPolicyHistory);
-  expect(networkCalls).toEqual(["policy:group:group-1"]);
-  expect(loggedErrors).toEqual([
-    {
-      cause: localError,
-      message: "Failed to load local organization group policy history",
-    },
-  ]);
+  ).rejects.toBe(localError);
+  expect(networkCalls).toEqual([]);
 });

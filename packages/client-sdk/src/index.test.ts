@@ -192,8 +192,6 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "loadLocalOrganizationDirectoryAndGroups",
   "loadOrganizationBilling",
   "loadOrganizationDataUsage",
-  "loadOrganizationGroupPolicyHistory",
-  "loadOrganizationPolicyHistory",
   "localKeyringScopeKey",
   "moveRemoteContainer",
   "normalizeLocalKeyringScope",
