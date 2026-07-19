@@ -99,6 +99,23 @@ assert_contains "$failure_output" "TLC failed for formal/alpha/Alpha.tla with fo
 [ "$(wc -l <"$JAVA_LOG" | tr -d '[:space:]')" -eq 2 ] ||
   fail "the checker did not stop after the first TLC failure."
 
+# A model file with no registered configuration must fail loudly instead of
+# silently dropping out of checking.
+mkdir -p "$TEST_ROOT/formal/helper"
+printf -- '---- MODULE Helper ----\n====\n' >"$TEST_ROOT/formal/helper/Helper.tla"
+install_registry valid.txt
+if orphan_output=$(run_check 2>&1); then
+  fail "an unregistered .tla model was accepted."
+else
+  orphan_status=$?
+fi
+[ "$orphan_status" -eq 1 ] ||
+  fail "an unregistered model exited $orphan_status instead of 1."
+assert_contains "$orphan_output" "formal/helper/Helper.tla is not registered"
+[ ! -e "$JAVA_LOG" ] ||
+  fail "an unregistered model launched Java before validation finished."
+rm -rf "$TEST_ROOT/formal/helper"
+
 assert_validation_failure empty.txt "does not register any models"
 assert_validation_failure malformed.txt "contains whitespace"
 assert_validation_failure duplicate.txt "more than once"
