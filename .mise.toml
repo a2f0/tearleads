@@ -9,4 +9,7 @@ gradle = "8.14.3"
 "aqua:rustwasm/wasm-pack" = "0.14.0"
 "aqua:WebAssembly/binaryen" = "128"
 "github:oasdiff/oasdiff" = "1.23.0"
-"github:tlaplus/tlaplus" = "1.7.4"
+"github:tlaplus/tlaplus" = { version = "1.7.4", asset_pattern = "tla2tools.jar" }
+
+[settings]
+lockfile = true

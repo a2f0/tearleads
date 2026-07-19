@@ -34,6 +34,12 @@ cp "$FIXTURE_ROOT/fakeMise.sh" "$TEST_ROOT/bin/mise"
 cp "$FIXTURE_ROOT/tla2tools.jar" "$TEST_ROOT/tla-tools/tla2tools.jar"
 chmod +x "$TEST_ROOT/bin/java" "$TEST_ROOT/bin/mise"
 
+if command -v sha256sum >/dev/null 2>&1; then
+  FIXTURE_JAR_SHA256=$(sha256sum "$TEST_ROOT/tla-tools/tla2tools.jar" | cut -d ' ' -f 1)
+else
+  FIXTURE_JAR_SHA256=$(shasum -a 256 "$TEST_ROOT/tla-tools/tla2tools.jar" | cut -d ' ' -f 1)
+fi
+
 run_check() (
   cd "$TEST_ROOT"
   PATH="$TEST_ROOT/bin:$PATH" \
@@ -43,6 +49,7 @@ run_check() (
     FAKE_FAIL_CONFIG="${FAKE_FAIL_CONFIG:-}" \
     FAKE_FAIL_MODEL="${FAKE_FAIL_MODEL:-}" \
     FAKE_FAIL_STATUS="${FAKE_FAIL_STATUS:-}" \
+    TLA_TOOLS_JAR_SHA256="${TLA_TOOLS_JAR_SHA256:-$FIXTURE_JAR_SHA256}" \
     "$CHECK_SCRIPT"
 )
 
@@ -98,6 +105,19 @@ fi
 assert_contains "$failure_output" "TLC failed for formal/alpha/Alpha.tla with formal/alpha/AlphaBroad.cfg."
 [ "$(wc -l <"$JAVA_LOG" | tr -d '[:space:]')" -eq 2 ] ||
   fail "the checker did not stop after the first TLC failure."
+
+# A tla2tools.jar whose bytes do not match the pin must fail before TLC runs.
+install_registry valid.txt
+if pin_output=$(TLA_TOOLS_JAR_SHA256=deadbeef run_check 2>&1); then
+  fail "a jar with a mismatched sha256 pin was accepted."
+else
+  pin_status=$?
+fi
+[ "$pin_status" -eq 1 ] ||
+  fail "a mismatched jar pin exited $pin_status instead of 1."
+assert_contains "$pin_output" "does not match the pinned deadbeef"
+[ ! -e "$JAVA_LOG" ] ||
+  fail "a mismatched jar pin launched Java anyway."
 
 # A model file with no registered configuration must fail loudly instead of
 # silently dropping out of checking.
