@@ -5,7 +5,10 @@ import {
   PurchasesError,
   type Package as WebBillingPackage,
 } from "@revenuecat/purchases-js";
-import { PurchaseCancelledError } from "@tearleads/client-sdk";
+import {
+  PurchaseAbortedError,
+  PurchaseCancelledError,
+} from "@tearleads/client-sdk";
 import {
   createWebRevenueCatBackend,
   type RevenueCatWebPurchases,
@@ -231,6 +234,43 @@ test("a pre-mount failure of an abandoned purchase reads as cancellation", async
   rejectOfferings?.(new Error("network down"));
 
   expect(purchase).rejects.toBeInstanceOf(PurchaseCancelledError);
+});
+
+test("an aborted flow with a vanished package still reads as an abort", async () => {
+  let resolveOfferings:
+    | ((value: {
+        current: { availablePackages: readonly WebBillingPackage[] } | null;
+      }) => void)
+    | undefined;
+  const { sdk } = createFakeSdk();
+  const gatedSdk: RevenueCatWebSdk = {
+    ...sdk,
+    configure(input) {
+      const instance = sdk.configure(input);
+      return {
+        ...instance,
+        getOfferings() {
+          return new Promise((resolve) => {
+            resolveOfferings = resolve;
+          });
+        },
+      };
+    },
+  };
+  const backend = createWebRevenueCatBackend(gatedSdk);
+  const controller = new AbortController();
+
+  await backend.configure({ apiKey: "web-key", appUserId: "user-1" });
+  const purchase = backend.purchasePackage({
+    packageId: "monthly",
+    abortSignal: controller.signal,
+  });
+  // Cancelled mid-fetch, and the offering comes back without the package:
+  // the abandonment must win over the unknown-package error.
+  controller.abort();
+  resolveOfferings?.({ current: { availablePackages: [] } });
+
+  expect(purchase).rejects.toBeInstanceOf(PurchaseAbortedError);
 });
 
 test("web RevenueCat backend refuses to mount a checkout for an aborted flow", async () => {

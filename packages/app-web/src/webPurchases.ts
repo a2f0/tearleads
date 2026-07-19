@@ -130,12 +130,13 @@ async function purchaseOnInstance({
     throwIfAborted();
     throw error;
   }
+  // Aborted takes precedence over a missing package: an abandoned flow's
+  // outcome must stay a pre-mount abort, not a plain error a caller could
+  // mistake for a mounted checkout's failure.
+  throwIfAborted();
   if (!aPackage) {
     throw new Error(`Unknown purchase package: ${packageId}`);
   }
-  // Last chance to stop before purchase() mounts the checkout UI; the SDK has
-  // no abort API once it starts.
-  throwIfAborted();
 
   let settled = false;
   const onAbort = () => {
