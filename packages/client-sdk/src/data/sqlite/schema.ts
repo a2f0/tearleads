@@ -127,6 +127,7 @@ export const documentPendingUpdates = sqliteTable(
     partialEndVersionVector: text("partial_end_version_vector").notNull(),
     sourceVersionVector: text("source_version_vector"),
     createdAt: text("created_at").notNull(),
+    rekeyCount: integer("rekey_count").notNull().default(0),
   },
   (table) => [
     primaryKey({ columns: [table.id] }),

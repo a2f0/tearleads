@@ -23,6 +23,12 @@ export interface PendingUpdateFields {
 
 export interface PendingUpdateRecord extends PendingUpdateFields {
   id: string;
+  /**
+   * Times this row was assigned a fresh id by lost-ack conflict recovery.
+   * Persisted so the bound survives restarts; absent means zero (rows from
+   * fakes or pre-migration databases).
+   */
+  rekeyCount?: number | undefined;
 }
 
 export interface DocumentScope {
@@ -50,4 +56,5 @@ export interface SelectedPendingUpdateRow {
   partialStartVersionVector: string;
   partialEndVersionVector: string;
   sourceVersionVector: string | null;
+  rekeyCount: number;
 }
