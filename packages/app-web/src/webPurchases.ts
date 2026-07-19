@@ -285,9 +285,11 @@ export function createWebPurchases(): PurchasesCapability {
 
   return createRevenueCatPurchases(createWebRevenueCatBackend(), {
     apiKey,
-    // Web Billing honors `checkoutHost`, so the billing panel offers its own
-    // in-app Cancel affordance for the embedded checkout.
-    supportsEmbeddedCheckout: true,
+    // Only Web Billing keys (`rcb_…`) honor `checkoutHost` with an embedded
+    // checkout the app can cancel. A Test Store key (`test_…`) ignores the
+    // host and presents its own fullscreen simulation modal — advertising
+    // embedded support there would show a Cancel row that cannot reach it.
+    supportsEmbeddedCheckout: apiKey.startsWith("rcb_"),
     syncEntitlementId:
       readEnvString(process.env.BUN_PUBLIC_REVENUECAT_SYNC_ENTITLEMENT) ??
       DEFAULT_SYNC_ENTITLEMENT_ID,

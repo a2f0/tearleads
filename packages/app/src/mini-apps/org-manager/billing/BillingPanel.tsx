@@ -66,6 +66,7 @@ export function BillingPanel({
         activationPending={actions.activationPending}
         busy={actions.busy}
         canSubscribe={actions.canSubscribe}
+        checkoutActive={actions.checkoutActive}
         checkoutHostRef={checkoutHostRef}
         embeddedCheckout={actions.embeddedCheckout}
         error={billing.error}

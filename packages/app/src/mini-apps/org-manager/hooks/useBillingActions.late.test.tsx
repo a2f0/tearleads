@@ -14,6 +14,35 @@ import {
 
 afterEach(() => cleanup());
 
+test("checkoutActive clears when the purchase settles, before the refresh", async () => {
+  let resolveRefresh: (() => void) | undefined;
+  const refresh = mock(
+    () =>
+      new Promise<void>((resolve) => {
+        resolveRefresh = resolve;
+      }),
+  );
+  const purchases = createPurchases({ syncEntitlementActive: true });
+  const { result } = renderBillingActions({ purchases, refresh });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  await act(async () => {
+    result.current.subscribe(OPTION);
+  });
+
+  // The purchase settled; the billing refresh is still pending. The panel is
+  // busy, but there is no checkout left to cancel.
+  await waitFor(() =>
+    expect(result.current.busy).toBe(`subscribe:${OPTION.packageId}`),
+  );
+  await waitFor(() => expect(result.current.checkoutActive).toBe(false));
+
+  await act(async () => {
+    resolveRefresh?.();
+  });
+  await waitFor(() => expect(result.current.busy).toBe(null));
+});
+
 test("a purchase landing after cancellation still activates billing", async () => {
   const purchaseResolvers: Array<(value: SyncPurchaseResult) => void> = [];
   const purchases: PurchasesCapability = {

@@ -34,6 +34,8 @@ export interface BillingActions {
   readonly canSubscribe: boolean;
   /** Whether this platform embeds a cancellable checkout in the panel. */
   readonly embeddedCheckout: boolean;
+  /** True while an embedded checkout can still be cancelled (not the refresh tail). */
+  readonly checkoutActive: boolean;
   readonly options: ReadonlyArray<SyncSubscriptionOption>;
   readonly busy: BillingBusyAction | null;
   readonly actionError: string | null;
@@ -381,12 +383,11 @@ export function useBillingActions({
     purchaseAvailable: purchases.isAvailable,
     canSubscribe,
     embeddedCheckout: purchases.supportsEmbeddedCheckout === true,
+    checkoutActive: actionStateMatches ? actionState.checkoutActive : false,
     options,
     busy: actionStateMatches ? actionState.busy : null,
     actionError: actionStateMatches ? actionState.actionError : null,
-    activationPending: actionStateMatches
-      ? actionState.activationPending
-      : false,
+    activationPending: actionStateMatches && actionState.activationPending,
     startTrial,
     subscribe,
     cancelCheckout,

@@ -52,6 +52,7 @@ export function useSubscribeAction({
         ...current,
         busy: `subscribe:${option.packageId}`,
         actionError: null,
+        checkoutActive: true,
       }));
       void purchaseForOrganization({
         cancelPurchaseRef,
@@ -200,6 +201,12 @@ async function purchaseForOrganization({
       },
     );
     const result = await Promise.race([purchase, cancelSignal]);
+    // The checkout is settled — Cancel has nothing left to reach, so retire
+    // the affordance now rather than after the billing refresh below.
+    updateActionState(scope, (current) => ({
+      ...current,
+      checkoutActive: false,
+    }));
     if (!scopeMatches(scopeRef.current, scope)) {
       return;
     }
@@ -238,6 +245,10 @@ async function purchaseForOrganization({
     if (cancelPurchaseRef.current === cancelPurchase) {
       cancelPurchaseRef.current = null;
     }
-    updateActionState(scope, (current) => ({ ...current, busy: null }));
+    updateActionState(scope, (current) => ({
+      ...current,
+      busy: null,
+      checkoutActive: false,
+    }));
   }
 }

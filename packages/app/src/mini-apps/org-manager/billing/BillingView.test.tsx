@@ -280,6 +280,7 @@ test("shows the Cancel row only during an embedded subscribe", () => {
     purchaseAvailable: true,
     embeddedCheckout: true,
     busy: "subscribe:monthly",
+    checkoutActive: true,
   });
   const view = render(<BillingView {...embeddedBusy} />);
   expect(
@@ -298,7 +299,25 @@ test("shows the Cancel row only during an embedded subscribe", () => {
   // an in-app Cancel row there would mislead.
   view.rerender(
     <BillingView
-      {...props({ purchaseAvailable: true, busy: "subscribe:monthly" })}
+      {...props({
+        purchaseAvailable: true,
+        busy: "subscribe:monthly",
+        checkoutActive: true,
+      })}
+    />,
+  );
+  expect(view.queryByText(ORG_MANAGER_LABELS.billingCancelCheckout)).toBeNull();
+
+  // A settled purchase awaiting the billing refresh: still busy, but there is
+  // no checkout left to cancel.
+  view.rerender(
+    <BillingView
+      {...props({
+        purchaseAvailable: true,
+        embeddedCheckout: true,
+        busy: "subscribe:monthly",
+        checkoutActive: false,
+      })}
     />,
   );
   expect(view.queryByText(ORG_MANAGER_LABELS.billingCancelCheckout)).toBeNull();
@@ -312,6 +331,7 @@ test("clicking the Cancel row dismisses the embedded checkout", () => {
         purchaseAvailable: true,
         embeddedCheckout: true,
         busy: "subscribe:monthly",
+        checkoutActive: true,
         onCancelCheckout: () => {
           cancelled += 1;
         },

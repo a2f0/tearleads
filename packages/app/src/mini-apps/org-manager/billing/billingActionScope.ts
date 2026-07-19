@@ -16,6 +16,13 @@ export interface BillingActionState extends BillingActionScope {
   readonly busy: BillingBusyAction | null;
   readonly actionError: string | null;
   readonly activationPending: boolean;
+  /**
+   * True only while a purchase's checkout can still be cancelled — from flow
+   * start until the purchase race settles. Distinct from `busy`, which also
+   * spans the post-payment billing refresh, when there is nothing left to
+   * cancel.
+   */
+  readonly checkoutActive: boolean;
 }
 
 export interface BillingScopeRef {
@@ -46,5 +53,6 @@ export function emptyActionState(
     busy: null,
     actionError: null,
     activationPending: false,
+    checkoutActive: false,
   };
 }

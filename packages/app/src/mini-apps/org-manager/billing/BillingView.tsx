@@ -44,6 +44,13 @@ export interface BillingViewProps {
    */
   readonly embeddedCheckout?: boolean;
   /**
+   * True while an embedded checkout can still be cancelled — from purchase
+   * start until it settles. Deliberately narrower than a `subscribe:*` busy
+   * state, which also spans the post-payment billing refresh, when a Cancel
+   * row would be a misleading no-op.
+   */
+  readonly checkoutActive?: boolean;
+  /**
    * Host element the provider checkout renders into during a purchase (Web
    * Billing). The div is always mounted (hidden while empty) so it exists by
    * the time the purchase starts; without the ref the provider falls back to a
@@ -254,9 +261,7 @@ function BillingAdminActions({
               ref={checkoutHostRef}
             />
           ) : null}
-          {props.embeddedCheckout &&
-          typeof props.busy === "string" &&
-          props.busy.startsWith("subscribe:") ? (
+          {props.embeddedCheckout && props.checkoutActive ? (
             <MiniAppRowButton
               className="org-manager-billing-checkout-cancel"
               onClick={props.onCancelCheckout}
