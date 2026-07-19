@@ -71,6 +71,18 @@ test("discarding a document write tears down its whole local sync state", async 
       ) VALUES (?, ?, ?, ?, NULL, 0, 'document.move', 'pending', NULL, NULL, ?, ?)`,
       ["stuck-move", "local-document", "remote-document", "target", T0, T1],
     );
+    await execSql(
+      `INSERT INTO document_container_projection (
+        document_id, container_id, updated_at
+      ) VALUES (?, ?, ?)`,
+      ["remote-document", "linked-container", T1],
+    );
+    await execSql(
+      `INSERT INTO container_sync_watermarks (
+        lane_kind, lane_id, watermark_updated_at, watermark_id, updated_at
+      ) VALUES ('container_documents', ?, ?, ?, ?)`,
+      ["linked-container", T1, "watermark-1", T1],
+    );
     expect(
       (await listPendingWrites(execSql)).some(
         (item) => item.localId === "local-document",
@@ -96,6 +108,13 @@ test("discarding a document write tears down its whole local sync state", async 
     expect(await execSql("SELECT id FROM document_move_intents")).toHaveLength(
       0,
     );
+    // The linked container's document-discovery watermark was reset, so the
+    // synced document is re-listed (and re-materialized) by the next pass.
+    expect(
+      await execSql(
+        "SELECT lane_id FROM container_sync_watermarks WHERE lane_kind = 'container_documents'",
+      ),
+    ).toHaveLength(0);
   } finally {
     close();
   }
@@ -277,6 +296,53 @@ test("container discard refuses roots, parents, and synced containers", async ()
     expect(
       (await execSql("SELECT id FROM containers ORDER BY id")).length,
     ).toBe(3);
+  } finally {
+    close();
+  }
+});
+
+test("container discard refuses containers that documents still reference", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "discard-pending-write-container-document-guards",
+  );
+  try {
+    await listPendingWrites(execSql);
+    await saveGuardContainer({ execSql, id: "root-container", parentId: null });
+    await saveGuardContainer({
+      execSql,
+      id: "occupied-container",
+      parentId: "root-container",
+    });
+    await sqlDocumentsPersistence.saveDocument(
+      execSql,
+      {
+        accessEpoch: 1,
+        accessStateHash: null,
+        containerId: "occupied-container",
+        documentId: null,
+        documentKind: "note",
+        id: "resident-document",
+        loroSnapshot: "",
+        text: "",
+        title: "Resident note",
+      },
+      { updatedAt: T0 },
+    );
+
+    // A leaf container still holding a document must be rejected: deleting it
+    // would strand the document's queued writes without a container.
+    expect(
+      await discardPendingWrite({
+        documentProjectors: defaultDocumentProjectorRegistry,
+        execSql,
+        localId: "occupied-container",
+        namespace: null,
+        objectKind: "container",
+      }),
+    ).toBe(false);
+    expect(
+      (await execSql("SELECT id FROM containers ORDER BY id")).length,
+    ).toBe(2);
   } finally {
     close();
   }

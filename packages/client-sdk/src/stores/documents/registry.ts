@@ -109,6 +109,24 @@ export function requestDocumentStoreSync(state: {
   state.syncLane?.requestSync();
 }
 
+// Whether a live store is currently registered for this document. Callers that
+// tear down a document's persisted state outside the store (e.g. a write-queue
+// discard) must refuse while one is open: the store's next persist would
+// silently re-create the deleted rows.
+export function hasRegisteredDocumentStore(
+  domainScope: DomainScope,
+  localId: string,
+  documentId: string | null,
+): boolean {
+  const registry = documentStoreRegistriesByScope.get(domainScope);
+  if (!registry) {
+    return false;
+  }
+  return registry.storesByKey.has(
+    resolveDocumentStoreKey(registry, localId, documentId),
+  );
+}
+
 export function requestRegisteredDocumentRemoteSync(
   domainScope: DomainScope,
   localId: string,

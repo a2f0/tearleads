@@ -4,8 +4,8 @@ import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
+import { discardContainer } from "./discardContainerOperation";
 import { emptyTrash } from "./emptyTrashOperation";
-import { evictContainer } from "./evictContainerOperation";
 import {
   prepareContainerGroupRewrap,
   verifyContainerGroupRewrapCurrent,
@@ -125,9 +125,9 @@ type ContainerWriteMethods = Pick<
   ContainerContentsStore,
   | "createChild"
   | "deleteContainer"
+  | "discardContainer"
   | "emptyTrash"
   | "ensureSystemContainer"
-  | "evictContainer"
   | "moveContainer"
   | "prepareGroupRewrap"
   | "purgeContainer"
@@ -204,8 +204,8 @@ function createContainerWriteMethods(
       ),
     deleteContainer: (containerId) =>
       chainNodePresenceWrite(state, () => deleteContainer(state, containerId)),
-    evictContainer: (containerId) =>
-      chainNodePresenceWrite(state, () => evictContainer(state, containerId)),
+    discardContainer: (containerId) =>
+      chainContainerTask(state, () => discardContainer(state, containerId)),
     purgeContainer: (containerId, options) =>
       chainPurgeWrite(state, () => purgeContainer(state, containerId, options)),
     emptyTrash: (trashContainerId, options) =>
@@ -267,8 +267,8 @@ function createContainerContentsStoreEntry(
     store: {
       createChild: writeMethods.createChild,
       deleteContainer: writeMethods.deleteContainer,
+      discardContainer: writeMethods.discardContainer,
       emptyTrash: writeMethods.emptyTrash,
-      evictContainer: writeMethods.evictContainer,
       purgeContainer: writeMethods.purgeContainer,
       ensureSystemContainer: writeMethods.ensureSystemContainer,
       moveContainer: writeMethods.moveContainer,
