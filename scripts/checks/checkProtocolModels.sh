@@ -144,6 +144,18 @@ TLA_TOOLS_ROOT=$(mise where github:tlaplus/tlaplus 2>/dev/null) ||
 TLA_TOOLS_JAR=$TLA_TOOLS_ROOT/tla2tools.jar
 [ -f "$TLA_TOOLS_JAR" ] || fail "$TLA_TOOLS_JAR does not exist."
 
+# TLC gates the protocol contract, but the GitHub release publishes no digest
+# and mise records no checksum for this asset, so the jar bytes are pinned
+# here. Update the pin only for an intentional TLA+ tools upgrade.
+TLA_TOOLS_JAR_SHA256=${TLA_TOOLS_JAR_SHA256:-936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88}
+if command -v sha256sum >/dev/null 2>&1; then
+  tla_tools_jar_sha256=$(sha256sum "$TLA_TOOLS_JAR" | cut -d ' ' -f 1)
+else
+  tla_tools_jar_sha256=$(shasum -a 256 "$TLA_TOOLS_JAR" | cut -d ' ' -f 1)
+fi
+[ "$tla_tools_jar_sha256" = "$TLA_TOOLS_JAR_SHA256" ] ||
+  fail "$TLA_TOOLS_JAR sha256 $tla_tools_jar_sha256 does not match the pinned $TLA_TOOLS_JAR_SHA256."
+
 model_count=0
 while IFS='|' read -r model_path config_path; do
   model_count=$((model_count + 1))
