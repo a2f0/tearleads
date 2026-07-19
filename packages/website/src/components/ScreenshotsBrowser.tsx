@@ -250,23 +250,12 @@ function Gallery({
   const [project, setProject] = useState<string>(() =>
     initialProject(manifest, initialScreen),
   );
+  // This state selects captured assets only; it must not theme the website.
   const [theme, setTheme] = useState<string>(() => themes[0] ?? "light");
   const containerRef = useRef<HTMLDivElement>(null);
   const { bySrc, screens, activeName, activeIndex, step, setSelectedName } =
     useGalleryNavigation(manifest, project, containerRef, initialScreen);
   useScreenUrlSync(activeName);
-  useEffect(() => {
-    const root = document.documentElement;
-    const previousTheme = root.getAttribute("data-theme");
-    root.setAttribute("data-theme", theme);
-    return () => {
-      if (previousTheme) {
-        root.setAttribute("data-theme", previousTheme);
-      } else {
-        root.removeAttribute("data-theme");
-      }
-    };
-  }, [theme]);
 
   if (entries.length === 0) {
     return (
