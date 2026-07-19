@@ -121,9 +121,11 @@ export async function discardPendingContainerWrite(
 /**
  * The containers whose discovery must re-run for a synced document to
  * re-materialize after its local copy is torn down: the document's linked
- * containers. Empty for a never-synced document (there is no server copy to
- * re-discover). Read this *before* the teardown — the link rows are deleted
- * with the document.
+ * containers, plus any move intent's source and target — a failed move has
+ * already unlinked the source optimistically, yet that is where the unchanged
+ * server copy still lives. Empty for a never-synced document (there is no
+ * server copy to re-discover). Read this *before* the teardown — the link and
+ * intent rows are deleted with the document.
  */
 export async function listSyncedDocumentDiscoveryContainerIds(
   execSql: ExecSql,
@@ -147,7 +149,21 @@ export async function listSyncedDocumentDiscoveryContainerIds(
     .select({ containerId: documentContainerProjection.containerId })
     .from(documentContainerProjection)
     .where(eq(documentContainerProjection.documentId, stored.documentId));
-  return links.map((link) => link.containerId);
+  const moveIntents = await db
+    .select({
+      sourceContainerId: documentMoveIntents.sourceContainerId,
+      targetContainerId: documentMoveIntents.targetContainerId,
+    })
+    .from(documentMoveIntents)
+    .where(eq(documentMoveIntents.localId, localId));
+  const containerIds = new Set<string>(links.map((link) => link.containerId));
+  for (const intent of moveIntents) {
+    if (intent.sourceContainerId) {
+      containerIds.add(intent.sourceContainerId);
+    }
+    containerIds.add(intent.targetContainerId);
+  }
+  return Array.from(containerIds);
 }
 
 // A synced document that is torn down locally must be re-discovered from the
