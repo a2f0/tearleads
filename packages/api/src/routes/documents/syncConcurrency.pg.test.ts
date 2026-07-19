@@ -1,0 +1,146 @@
+import { expect, test } from "bun:test";
+import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
+import { documents, documentUpdates } from "@tearleads/api-shared/schema";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import type { DocumentSyncRequest } from "@tearleads/validators/request";
+import {
+  DOCUMENT_NOT_FOUND_ERROR_CODE,
+  DOCUMENT_SYNC_ERROR_CODES,
+} from "@tearleads/validators/response";
+import { eq } from "drizzle-orm";
+import { authenticate } from "../../../test/helpers/authenticate";
+import { createSignedDocumentSyncRequest } from "../../../test/helpers/documentUpdateRequests";
+import {
+  bootstrapRoot,
+  createDocument,
+} from "../../../test/helpers/keyingWriterProjectionKit";
+import { registerUser } from "../../../test/helpers/registerUser";
+import { routeApp } from "../../routeApp";
+
+// These races only exist on a multi-connection backend: the default pglite
+// test database serializes every transaction, so every concurrency finding in
+// the #1613 scrub (H2, H3, L2, L7) was invisible to the regular suite. The
+// test:postgres-concurrency lane runs this file against a real server; under
+// pglite the tests skip.
+const onPostgres = getDefaultApiDatabaseKind() === "postgres";
+
+const syncErrorCodes: readonly string[] = Object.values(
+  DOCUMENT_SYNC_ERROR_CODES,
+);
+
+const RACE_ROUNDS = 4;
+const CONCURRENT_SUBMISSIONS = 6;
+
+function postDocumentSync(
+  owner: TestUser,
+  documentId: string,
+  request: DocumentSyncRequest,
+) {
+  return routeApp.request(`/documents/${documentId}/sync`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+}
+
+// H3 regression (#1613, fixed in #1616): a concurrent insert of the same
+// update id surfaced the raw unique-violation as an unmapped 500. The fix
+// inserts with onConflictDoNothing and byte-compares skipped ids, so identical
+// retries settle idempotently and only genuine byte conflicts 409.
+test.skipIf(!onPostgres)(
+  "concurrent identical sync submissions settle without server errors",
+  async () => {
+    const owner = createTestUser();
+    await registerUser(owner);
+    await authenticate(owner);
+    const root = await bootstrapRoot(owner);
+
+    for (let round = 0; round < RACE_ROUNDS; round += 1) {
+      const created = await createDocument({ owner, root });
+      const { request, updateId } = await createSignedDocumentSyncRequest({
+        created,
+        owner,
+        root,
+      });
+
+      const responses = await Promise.all(
+        Array.from({ length: CONCURRENT_SUBMISSIONS }, () =>
+          postDocumentSync(owner, created.id, request),
+        ),
+      );
+
+      for (const response of responses) {
+        expect([200, 409]).toContain(response.status);
+        if (response.status === 409) {
+          const body = (await response.json()) as { code?: string };
+          expect(syncErrorCodes).toContain(body.code ?? "");
+        }
+      }
+      expect(responses.some((response) => response.status === 200)).toBe(true);
+
+      const storedUpdates = await db
+        .select({ id: documentUpdates.id })
+        .from(documentUpdates)
+        .where(eq(documentUpdates.id, updateId));
+      expect(storedUpdates).toHaveLength(1);
+    }
+  },
+  30_000,
+);
+
+// H2 regression (#1613, fixed in #1616): purge without the manifest-head lock
+// could commit a snapshot that missed a concurrently inserted update, leaving
+// orphan rows that permanently wedged re-creation. Whichever way the race
+// serializes, the document row and every update row must be gone afterwards,
+// and neither side may surface a server error (a deadlock's 503 backstop
+// fails this too — consistent lock ordering must prevent it).
+test.skipIf(!onPostgres)(
+  "concurrent purge and sync leave no orphan document rows",
+  async () => {
+    const owner = createTestUser();
+    await registerUser(owner);
+    await authenticate(owner);
+    const root = await bootstrapRoot(owner);
+
+    for (let round = 0; round < RACE_ROUNDS; round += 1) {
+      const created = await createDocument({ owner, root });
+      const { request } = await createSignedDocumentSyncRequest({
+        created,
+        owner,
+        root,
+      });
+
+      const [purgeResponse, syncResponse] = await Promise.all([
+        routeApp.request(`/documents/${created.id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${owner.token}` },
+        }),
+        postDocumentSync(owner, created.id, request),
+      ]);
+
+      expect(purgeResponse.status).toBe(200);
+      expect(syncResponse.status).toBeLessThan(500);
+      if (syncResponse.status === 404) {
+        // The only 404 a document route may emit is the positively coded
+        // deletion signal that gates the client's destructive local wipe.
+        const body = (await syncResponse.json()) as { code?: string };
+        expect(body.code).toBe(DOCUMENT_NOT_FOUND_ERROR_CODE);
+      }
+
+      const documentRows = await db
+        .select({ id: documents.id })
+        .from(documents)
+        .where(eq(documents.id, created.id));
+      const updateRows = await db
+        .select({ id: documentUpdates.id })
+        .from(documentUpdates)
+        .where(eq(documentUpdates.documentId, created.id));
+      expect(documentRows).toHaveLength(0);
+      expect(updateRows).toHaveLength(0);
+    }
+  },
+  30_000,
+);
