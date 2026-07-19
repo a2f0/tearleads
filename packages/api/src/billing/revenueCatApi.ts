@@ -158,14 +158,19 @@ async function fetchCustomerSubscriptions(
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!response.ok) {
-      // 404 = no such customer: an empty but COMPLETE result. Any other non-2xx
-      // is a provider/auth error worth logging and leaves the list incomplete.
+      // A FIRST-page 404 means the customer has no subscriptions: an empty but
+      // COMPLETE result. Any other error — or a 404 after a page was already
+      // collected (an expired cursor, a mid-pagination deletion) — leaves the
+      // list incomplete, so the no-id fallback must not treat it as the full set.
       if (response.status !== 404) {
         console.error(
           `RevenueCat management URL lookup failed with status ${response.status}`,
         );
       }
-      return { subscriptions, complete: response.status === 404 };
+      return {
+        subscriptions,
+        complete: response.status === 404 && page === 0,
+      };
     }
     const parsed = parseSubscriptionPage(await response.json());
     subscriptions.push(...parsed.subscriptions);

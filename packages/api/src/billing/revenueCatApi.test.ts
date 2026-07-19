@@ -240,6 +240,30 @@ test("does not fall back to a sole subscription from an incomplete list", async 
   ).toBeNull();
 });
 
+test("treats a later-page 404 as incomplete, not a complete empty list", async () => {
+  const { fetchImpl } = fakeFetch([
+    {
+      body: {
+        items: [
+          sub({
+            store_subscription_identifier: "a",
+            management_url: "https://a",
+          }),
+        ],
+        next_page:
+          "/v2/projects/proj_1/customers/user-1/subscriptions?starting_after=a",
+      },
+    },
+    { body: { message: "gone" }, status: 404 },
+  ]);
+  expect(
+    await fetchRevenueCatManagementUrl("user-1", NO_REF, {
+      env: ENV,
+      fetchImpl,
+    }),
+  ).toBeNull();
+});
+
 test("returns null for a missing customer (404) or a server error", async () => {
   expect(
     await fetchRevenueCatManagementUrl("user-1", NO_REF, {
