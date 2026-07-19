@@ -320,8 +320,9 @@ test(
       within(actionsMenu).getByRole("button", { name: "Log Out" }),
     );
 
-    const dialog = view.getByRole("dialog");
-    expect(dialog).toBeTruthy();
+    // findByRole, not getByRole: the dialog mounts on a state update that can
+    // land a tick after the menu click under suite load.
+    const dialog = await view.findByRole("dialog");
     const checkbox = within(dialog).getByRole("checkbox") as HTMLInputElement;
     expect(checkbox.checked).toBe(true);
     expect(checkbox.classList.contains("logout-confirmation-checkbox")).toBe(

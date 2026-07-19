@@ -112,8 +112,23 @@ test(
       "Bootstrap did not provision the Trash system folder.",
       ROW_DISCOVERY_TIMEOUT_MS,
     );
+    // Pre-sample guard 2: the "You" self-contact DOCUMENT row — the exact row
+    // that re-blanked in the reported bug — must have rendered. Its presence
+    // proves the link projection applied at least once (the first apply always
+    // bumps the counter), which the container rows above cannot: under suite
+    // load the settle heuristic can report quiet while document discovery still
+    // has a queued trigger, and sampling then reads a counter of 0. Waiting here
+    // turns the old instant >0 assertion into a deterministic precondition —
+    // and waiting longer can only raise the sampled count, so the budget bound
+    // below stays as strict as before.
+    await refreshUntil(
+      pane,
+      () => getExplorerSidebarItemsByName(pane, "You").length > 0,
+      "Bootstrap did not surface the You self-contact row.",
+      ROW_DISCOVERY_TIMEOUT_MS,
+    );
 
-    // Pre-sample guard 2: assert the runtime has quiesced. waitForPaneRuntimeToSettle
+    // Pre-sample guard 3: assert the runtime has quiesced. waitForPaneRuntimeToSettle
     // wraps act() + waitForAppTestRuntimeToSettle and asserts settled===true (that
     // helper RETURNS false on timeout rather than throwing), so a premature settle
     // that would under-count fails here instead of passing green. An explicit
@@ -124,8 +139,8 @@ test(
     // missing/garbled attribute fails there with a clear message (not as NaN <= 6).
     const destructiveReloads = readSidebarReloadCount(pane);
 
-    // version>0 only proves the projection effect ran at least once (the first
-    // apply always bumps) — the real liveness is the "You" row assertion below.
+    // The You-row guard above proves the projection applied, so a zero here is
+    // a broken seam (the attribute stopped tracking applies), not a race.
     expect(destructiveReloads).toBeGreaterThan(0);
 
     // The clamp: content-only sync churn must NOT drive destructive reloads.

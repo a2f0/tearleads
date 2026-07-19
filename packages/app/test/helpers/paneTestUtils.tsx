@@ -350,7 +350,7 @@ export async function moveExplorerContainer(
   invariant(moveMenu, "explorer context menu not found");
   fireEvent.click(within(moveMenu).getByRole("button", { name: "Move" }));
 
-  const dialog = view.getByRole("dialog");
+  const dialog = await view.findByRole("dialog");
   const destinationSelect = within(dialog).getByRole("combobox", {
     name: "Destination container",
   });
