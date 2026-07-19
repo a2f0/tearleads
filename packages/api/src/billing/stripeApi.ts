@@ -101,7 +101,7 @@ export function isStripeCheckoutConfigured(deps: StripeApiDeps = {}): boolean {
 async function stripeRequest(input: {
   fetchImpl: typeof fetch;
   secretKey: string;
-  method: "GET" | "POST" | "DELETE";
+  method: "GET" | "POST";
   path: string;
   operation: string;
   form?: URLSearchParams;
@@ -238,8 +238,11 @@ export async function findOrCreateCustomer(
  * belongs to THIS buyer and the CURRENT price — a pending attempt by a since-
  * removed admin would otherwise be paid by someone else and then fail its
  * entitlement grant, and a pre-price-change attempt would charge the old
- * amount. Anything stale is cancelled (nothing has been paid on an
- * incomplete subscription) and replaced by a fresh create.
+ * amount. A MISMATCHED pending attempt is a conflict, never cancelled: its
+ * client secret may be mid-payment in another admin's browser, and Stripe
+ * cancelling a subscription that just became paid would not refund it. The
+ * conflict self-resolves when the attempt is paid (live) or expires
+ * (terminal, at which point the search skips it and the create key rotates).
  */
 async function resumePendingSubscription(input: {
   subscriptionId: string;
@@ -248,9 +251,7 @@ async function resumePendingSubscription(input: {
   fetchImpl: typeof fetch;
   secretKey: string;
 }): Promise<
-  | { kind: "resumed"; intent: StripeCheckoutIntent }
-  | { kind: "conflict" }
-  | { kind: "replaced"; canceledSubscriptionId: string }
+  { kind: "resumed"; intent: StripeCheckoutIntent } | { kind: "conflict" }
 > {
   const { fetchImpl, secretKey } = input;
   const pending = await stripeRequest({
@@ -273,14 +274,7 @@ async function resumePendingSubscription(input: {
     // unknown state; refusing beats risking a duplicate.
     return intent ? { kind: "resumed", intent } : { kind: "conflict" };
   }
-  await stripeRequest({
-    fetchImpl,
-    secretKey,
-    method: "DELETE",
-    path: `/v1/subscriptions/${encodeURIComponent(input.subscriptionId)}`,
-    operation: "subscription cancel",
-  });
-  return { kind: "replaced", canceledSubscriptionId: input.subscriptionId };
+  return { kind: "conflict" };
 }
 
 function parseCheckoutIntent(body: unknown): StripeCheckoutIntent | null {
@@ -362,7 +356,6 @@ export async function createSyncSubscription(
   if (candidate && candidate.status !== "incomplete") {
     return { kind: "conflict" };
   }
-  let rotationMarker = terminalAttemptId;
   if (candidate) {
     const resumed = await resumePendingSubscription({
       subscriptionId: candidate.subscriptionId,
@@ -371,14 +364,9 @@ export async function createSyncSubscription(
       fetchImpl,
       secretKey,
     });
-    if (resumed.kind !== "replaced") {
-      return resumed.kind === "resumed"
-        ? { kind: "ready", intent: resumed.intent }
-        : { kind: "conflict" };
-    }
-    // The stale pending attempt was cancelled; its id rotates the create key
-    // below so Stripe cannot replay it.
-    rotationMarker = resumed.canceledSubscriptionId;
+    return resumed.kind === "resumed"
+      ? { kind: "ready", intent: resumed.intent }
+      : { kind: "conflict" };
   }
 
   const form = new URLSearchParams();
@@ -405,7 +393,7 @@ export async function createSyncSubscription(
     // subscription that Stripe's key retention still remembers.
     idempotencyKey:
       `sync-sub:${input.organizationId}:${syncPriceId}` +
-      `:${rotationMarker ?? "initial"}`,
+      `:${terminalAttemptId ?? "initial"}`,
   });
   const intent = parseCheckoutIntent(body);
   return intent ? { kind: "ready", intent } : null;

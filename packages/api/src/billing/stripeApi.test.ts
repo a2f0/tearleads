@@ -171,10 +171,13 @@ test("an existing incomplete subscription is resumed, not duplicated", async () 
   expect(requests[1]?.method).toBe("GET");
 });
 
-test("a stale pending checkout is cancelled and replaced, not resumed", async () => {
+test("a stale pending checkout is a conflict, never cancelled", async () => {
   // The pending attempt belongs to a different buyer (e.g. a since-removed
-  // admin): resuming it would let the current admin pay a subscription whose
-  // entitlement grant then fails. Same handling for an obsolete price.
+  // admin) or an obsolete price. It cannot be RESUMED (its buyer/price no
+  // longer match) and must not be CANCELLED either — its client secret could
+  // be mid-payment in another browser, and Stripe would not refund a
+  // subscription that became paid moments before the cancel. The conflict
+  // self-resolves when the attempt is paid or expires.
   const { fetchImpl, requests } = fakeFetch([
     { body: { data: [{ id: "sub_stale", status: "incomplete" }] } },
     {
@@ -185,29 +188,15 @@ test("a stale pending checkout is cancelled and replaced, not resumed", async ()
         latest_invoice: { payment_intent: { client_secret: "pi_stale" } },
       },
     },
-    { body: { id: "sub_stale", status: "canceled" } },
-    {
-      body: {
-        id: "sub_fresh",
-        latest_invoice: { payment_intent: { client_secret: "pi_fresh" } },
-      },
-    },
   ]);
   const outcome = await createSyncSubscription(
     { customerId: "cus_1", userId: "user-1", organizationId: "org-1" },
     { env: ENV, fetchImpl },
   );
 
-  expect(outcome).toEqual({
-    kind: "ready",
-    intent: { subscriptionId: "sub_fresh", clientSecret: "pi_fresh" },
-  });
-  expect(requests[2]?.method).toBe("DELETE");
-  expect(requests[2]?.url).toContain("/v1/subscriptions/sub_stale");
-  // The cancelled attempt rotates the create key so Stripe cannot replay it.
-  expect(requests[3]?.headers.get("Idempotency-Key")).toBe(
-    "sync-sub:org-1:price_sync:sub_stale",
-  );
+  expect(outcome).toEqual({ kind: "conflict" });
+  // Search and inspect only — no cancel, no create.
+  expect(requests).toHaveLength(2);
 });
 
 test("a live subscription for the org refuses a second checkout", async () => {

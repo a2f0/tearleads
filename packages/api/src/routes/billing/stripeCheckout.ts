@@ -1,6 +1,7 @@
 import { type Context, Hono } from "hono";
 import { StripeApiError } from "../../billing/stripeApi";
 import type { SessionEnv } from "../../middleware/session";
+import { readApiCorsOrigins } from "../../routeApp";
 import {
   createStripeCheckout,
   createStripePortalUrl,
@@ -21,22 +22,30 @@ import {
  */
 
 /**
- * Only an http(s) URL may be handed to Stripe as the portal return target —
- * anything else (e.g. a javascript: URL) must not round-trip back to a
- * browser redirect.
+ * The portal return target must be an http(s) URL on one of the app's own
+ * origins (the CORS allowlist): `returnUrl` is caller-supplied, and Stripe's
+ * portal redirects to it verbatim — accepting arbitrary origins would make
+ * billing.stripe.com an open-redirect/phishing vector. The development
+ * wildcard allowlist accepts any http(s) origin, matching the CORS policy.
  */
 function parseReturnUrl(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
   }
+  let url: URL;
   try {
-    const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:"
-      ? url.toString()
-      : null;
+    url = new URL(value);
   } catch {
     return null;
   }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    return null;
+  }
+  const allowedOrigins = readApiCorsOrigins();
+  if (allowedOrigins !== "*" && !allowedOrigins.includes(url.origin)) {
+    return null;
+  }
+  return url.toString();
 }
 
 async function respondForOrganization(

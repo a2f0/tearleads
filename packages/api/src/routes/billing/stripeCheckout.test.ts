@@ -109,6 +109,43 @@ test("the portal validates its return url", async () => {
   expect(response.status).toBe(400);
 });
 
+test("the portal refuses return urls outside the app's origins", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const CORS_ENV_KEY = "API_CORS_ORIGINS";
+  process.env[CORS_ENV_KEY] = "https://app.tearleads.example";
+  try {
+    // billing.stripe.com redirects to returnUrl verbatim; a foreign origin
+    // would turn the portal into an open redirect.
+    const rejected = await routeApp.request(
+      `/organizations/${organizationId}/billing/stripe/portal`,
+      {
+        method: "POST",
+        headers: { ...authHeader(admin), "Content-Type": "application/json" },
+        body: JSON.stringify({ returnUrl: "https://evil.example/phish" }),
+      },
+    );
+    expect(rejected.status).toBe(400);
+
+    // An allowlisted origin passes URL validation (and then answers a null
+    // portal, since the org has no Stripe subscription).
+    const allowed = await routeApp.request(
+      `/organizations/${organizationId}/billing/stripe/portal`,
+      {
+        method: "POST",
+        headers: { ...authHeader(admin), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          returnUrl: "https://app.tearleads.example/billing",
+        }),
+      },
+    );
+    expect(allowed.status).toBe(200);
+    expect(await allowed.json()).toEqual({ portalUrl: null });
+  } finally {
+    delete process.env[CORS_ENV_KEY];
+  }
+});
+
 test("the Stripe webhook fails closed without its signing secret", async () => {
   const response = await routeApp.request("/billing/stripe/webhook", {
     method: "POST",
