@@ -20,8 +20,10 @@ export API_DATABASE
 # Never write into a development database by default: when no explicit target
 # is configured, aim at a dedicated local database and create it when
 # possible. A full URL is required — bun test sets NODE_ENV=test, where the
-# adapter accepts only DATABASE_URL or the complete POSTGRES_* set.
-if [ -z "${DATABASE_URL:-}${POSTGRES_URL:-}" ]; then
+# adapter accepts only DATABASE_URL or the complete POSTGRES_* set — so the
+# default is only injected when neither a URL nor any discrete POSTGRES_*
+# setting is present.
+if [ -z "${DATABASE_URL:-}${POSTGRES_URL:-}${POSTGRES_HOST:-}${POSTGRES_PORT:-}${POSTGRES_USER:-}${POSTGRES_PASSWORD:-}${POSTGRES_DATABASE:-}" ]; then
   DATABASE_URL=postgres://localhost:5432/tearleads_concurrency_test
   export DATABASE_URL
   if command -v createdb >/dev/null 2>&1; then
