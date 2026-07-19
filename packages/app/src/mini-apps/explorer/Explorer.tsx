@@ -128,6 +128,7 @@ function renderExplorerDetailPanelWithBlobPick(
       currentSigningFingerprint={appData.crypto.signingFingerprint}
       currentSelfContactLocalId={model.currentSelfContactLocalId}
       currentUserId={appData.auth.userId}
+      discardPendingWrite={model.discardPendingWrite}
       documentListRevision={model.documentListRevision}
       documentQueries={model.documentQueries}
       documentSummaries={model.documentSummaries}

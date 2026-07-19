@@ -43,7 +43,7 @@ export function SyncStatusIndicatorView({
       title={title}
       type="button"
     >
-      {status === "billing" ? (
+      {status === "billing" || status === "error" ? (
         <WarningIcon aria-hidden focusable={false} size={18} weight="fill" />
       ) : (
         <span aria-hidden className="sync-status-indicator-dot" />
@@ -80,9 +80,10 @@ export function SyncStatusPopover({
 }
 
 // A persistent footer-tray indicator (green = synced, red = unflushed data,
-// warning = billing paused). Clicking it opens a popover with the status detail
-// and, when the write queue is non-empty, a link into the Explorer's Write Queue
-// view. Same source of truth as that panel (see `useSyncStatus`).
+// red warning = writes failing terminally, amber warning = billing paused).
+// Clicking it opens a popover with the status detail and, when the write queue
+// is non-empty, a link into the Explorer's Write Queue view. Same source of
+// truth as that panel (see `useSyncStatus`).
 export function SyncStatusIndicator() {
   const { status, title, pendingWriteCount } = useSyncStatus();
   const { openMiniApp } = useMiniAppBusActions();

@@ -1,4 +1,5 @@
 import type { DomainScope } from "../data/domainScope";
+import { requestAllDomainSyncLanes } from "../data/sync/syncCoordinator";
 import {
   loadLocalOrganizationContainerGrants,
   loadLocalOrganizationDirectoryAndGroups,
@@ -17,7 +18,10 @@ import {
   type OrganizationUserDetail,
   reconcileOrganizationDirectoryAndGroups,
 } from "../workflows/organizations";
-import { organizationAccessScopeKey } from "../workflows/organizations/organizationPresentationAccessState";
+import {
+  organizationAccessScopeKey,
+  wasOrganizationPresentationAccessDeniedByServer,
+} from "../workflows/organizations/organizationPresentationAccessState";
 import { createRuntimePrincipalPolicyWarmer } from "../workflows/principals/runtimePolicyWarmer";
 import type {
   InternalRuntime,
@@ -330,17 +334,42 @@ class OrganizationReadModelCoordinatorImpl
       return existing;
     }
 
+    // Snapshot the server-denied flag before reconciling. A reconcile that
+    // flips it back to readable means org access was just restored (e.g. the
+    // user was re-added to a group), and any write lanes idled by
+    // permission-denied submissions have no self re-arm — regaining access is
+    // their retry signal, mirroring how billing recovery re-requests all
+    // lanes. Only a genuine server denial counts: a local session reset also
+    // marks scopes denied, and re-arming on its first reconcile would race the
+    // startup sync passes (e.g. pending-create adoption between panes).
+    const accessWasDenied = wasOrganizationPresentationAccessDeniedByServer(
+      {
+        execSql: active.runtime.infra.execSql,
+        organizationId: active.organizationId,
+        requesterUserId: active.userId,
+      },
+      "readModel",
+    );
+    const domainScope = active.runtime.state.domainScope;
+
     const reconciliation = reconcileOrganizationDirectoryAndGroups({
       apiClient: active.runtime.apiClient,
       currentUserId: active.userId,
       execSql: active.runtime.infra.execSql,
       logError: active.runtime.util.logError,
       organizationId: active.organizationId,
-    }).finally(() => {
-      if (byKey.get(key) === reconciliation) {
-        byKey.delete(key);
-      }
-    });
+    })
+      .then((directoryAndGroups) => {
+        if (accessWasDenied && directoryAndGroups !== null) {
+          requestAllDomainSyncLanes(domainScope);
+        }
+        return directoryAndGroups;
+      })
+      .finally(() => {
+        if (byKey.get(key) === reconciliation) {
+          byKey.delete(key);
+        }
+      });
     byKey.set(key, reconciliation);
     return reconciliation;
   }

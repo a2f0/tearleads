@@ -66,6 +66,10 @@ export {
   syncRemoteDocument,
 } from "./sync";
 export {
+  describeDocumentSyncSubmitFailure,
+  type TerminalSubmitFailureHandler,
+} from "./syncFailures";
+export {
   type DocumentSyncLane,
   registerDocumentSyncLane,
 } from "./syncLane";

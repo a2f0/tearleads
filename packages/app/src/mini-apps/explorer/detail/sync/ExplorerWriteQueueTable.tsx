@@ -3,9 +3,16 @@ import type {
   PendingWriteQueueItem,
   PendingWriteQueueOperation,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { MiniAppButton } from "../../../../components/mini-app/MiniAppLayout";
 import {
+  MiniAppRowActionsButton,
   MiniAppTable,
   MiniAppTableActionButton,
   MiniAppTableCell,
@@ -14,6 +21,8 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
 } from "../../../../components/mini-app/MiniAppTable";
+import { Menu, type MenuPosition } from "../../../../components/shared/Menu";
+import { MenuItem } from "../../../../components/shared/MenuItem";
 import { useRoutedLayoutTier } from "../../../../navigation/useRoutedLayoutTier";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import {
@@ -59,6 +68,19 @@ export const WRITE_QUEUE_COMPACT_COLUMNS: ReadonlyArray<MiniAppTableColumn> = [
     width: "8rem",
   },
 ];
+
+// Appended only when a discard handler is wired, so read-only mounts (and the
+// empty state) keep the plain column set.
+const WRITE_QUEUE_ACTIONS_COLUMN: MiniAppTableColumn = {
+  className: "mini-app-row-actions-column",
+  header: (
+    <span className="mini-app-row-actions-heading">
+      {EXPLORER_LABELS.itemActionsColumn}
+    </span>
+  ),
+  id: "actions",
+  width: "var(--mini-app-row-actions-column-width, 2.25rem)",
+};
 
 const WRITE_QUEUE_PAGE_SIZE = 100;
 
@@ -125,6 +147,11 @@ function getStatusLabel(status: PendingWriteQueueItem["status"]): string {
   return EXPLORER_LABELS.writeQueuePendingStatus;
 }
 
+function getWriteQueueItemName(item: PendingWriteQueueItem): string {
+  const displayName = item.name?.trim() ?? "";
+  return displayName.length > 0 ? displayName : item.localId;
+}
+
 function WriteQueueObjectCell(params: {
   item: PendingWriteQueueItem;
   operationLabel: string | null;
@@ -144,8 +171,7 @@ function WriteQueueObjectCell(params: {
   const canOpen =
     item.objectKind === "container" ||
     (item.objectKind === "document" && item.containerId !== null);
-  const displayName = item.name?.trim() ?? "";
-  const name = displayName.length > 0 ? displayName : item.localId;
+  const name = getWriteQueueItemName(item);
   const typeLabel =
     item.objectKind === "unknown" && item.namespace
       ? item.namespace
@@ -209,8 +235,78 @@ function WriteQueueStatusCell(params: {
   );
 }
 
+// The row kebab: opens a small menu whose single destructive action requires a
+// second, explicit confirm click before the queued write's local state is
+// discarded (see the SDK's `discardPendingWrite` for what a discard entails).
+function WriteQueueActionsCell(params: {
+  discardPendingWrite: (item: PendingWriteQueueItem) => Promise<boolean>;
+  item: PendingWriteQueueItem;
+  name: string;
+}) {
+  const { discardPendingWrite, item } = params;
+  const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const closeMenu = useCallback(() => {
+    setMenuPosition(null);
+    setConfirming(false);
+  }, []);
+  const toggleMenu = useCallback((event: MouseEvent<HTMLButtonElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setConfirming(false);
+    setMenuPosition((current) =>
+      current ? null : { x: rect.left, y: rect.bottom },
+    );
+  }, []);
+  const discard = useCallback(() => {
+    setBusy(true);
+    void discardPendingWrite(item).finally(() => {
+      setBusy(false);
+      closeMenu();
+    });
+  }, [closeMenu, discardPendingWrite, item]);
+
+  return (
+    <MiniAppTableCell className="mini-app-row-actions-cell">
+      <MiniAppRowActionsButton
+        aria-expanded={menuPosition !== null}
+        aria-label={`${EXPLORER_LABELS.itemActionsButtonPrefix} ${params.name}`}
+        onClick={toggleMenu}
+        title={`${EXPLORER_LABELS.itemActionsButtonPrefix} ${params.name}`}
+      />
+      {menuPosition && (
+        <Menu direction="down" onClose={closeMenu} position={menuPosition}>
+          {confirming ? (
+            <>
+              <MenuItem
+                disabled={busy}
+                label={EXPLORER_LABELS.writeQueueDiscardConfirm}
+                onClick={discard}
+              />
+              <MenuItem
+                disabled={busy}
+                label={EXPLORER_LABELS.writeQueueDiscardCancel}
+                onClick={closeMenu}
+              />
+            </>
+          ) : (
+            <MenuItem
+              label={EXPLORER_LABELS.writeQueueDiscardAction}
+              onClick={() => setConfirming(true)}
+            />
+          )}
+        </Menu>
+      )}
+    </MiniAppTableCell>
+  );
+}
+
 interface WriteQueueTableProps {
   billingBlockedOrganizationId: string | null;
+  discardPendingWrite?:
+    | ((item: PendingWriteQueueItem) => Promise<boolean>)
+    | undefined;
   items: ReadonlyArray<PendingWriteQueueItem>;
   nodes: ReadonlyArray<ContainerNode>;
   openContainerInfoRoute: (containerId: string) => void;
@@ -262,6 +358,13 @@ function WriteQueueRow(
         }
         item={item}
       />
+      {params.discardPendingWrite ? (
+        <WriteQueueActionsCell
+          discardPendingWrite={params.discardPendingWrite}
+          item={item}
+          name={getWriteQueueItemName(item)}
+        />
+      ) : null}
     </MiniAppTableRow>
   );
 }
@@ -272,7 +375,12 @@ export function ExplorerWriteQueueTable(params: WriteQueueTableProps) {
     () => new Map(params.nodes.map((node) => [node.id, node.name])),
     [params.nodes],
   );
-  const columns = compact ? WRITE_QUEUE_COMPACT_COLUMNS : WRITE_QUEUE_COLUMNS;
+  const baseColumns = compact
+    ? WRITE_QUEUE_COMPACT_COLUMNS
+    : WRITE_QUEUE_COLUMNS;
+  const columns = params.discardPendingWrite
+    ? [...baseColumns, WRITE_QUEUE_ACTIONS_COLUMN]
+    : baseColumns;
   const [visibleCount, setVisibleCount] = useState(WRITE_QUEUE_PAGE_SIZE);
   useEffect(() => {
     setVisibleCount(WRITE_QUEUE_PAGE_SIZE);
@@ -292,6 +400,7 @@ export function ExplorerWriteQueueTable(params: WriteQueueTableProps) {
               billingBlockedOrganizationId={params.billingBlockedOrganizationId}
               compact={compact}
               containerNamesById={containerNamesById}
+              discardPendingWrite={params.discardPendingWrite}
               item={item}
               key={`${item.objectKind}:${item.namespace ?? ""}:${item.localId}`}
               openContainerInfoRoute={params.openContainerInfoRoute}

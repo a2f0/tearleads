@@ -1,9 +1,13 @@
 import type {
   ContainerDocumentQueries,
   DocumentSummary,
+  PendingWriteQueueItem,
 } from "@tearleads/client-sdk";
-import { type ReactNode, useEffect, useMemo } from "react";
-import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import { type ReactNode, useCallback, useEffect, useMemo } from "react";
+import {
+  type RuntimeSnapshot,
+  useTearleads,
+} from "../../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
 import { findCurrentSelfContactLocalId } from "../../../stores/contacts/contactLabels";
 import { useContactsStoreForContainer } from "../../../stores/contacts/useContactsStoreForContainer";
@@ -53,6 +57,7 @@ interface ExplorerModel {
   consumeInitialDocumentEditing: ExplorerPanelState["consumeInitialDocumentEditing"];
   deleteDocument: ExplorerPanelState["deleteDocument"];
   purgeDocument: ExplorerPanelState["purgeDocument"];
+  discardPendingWrite: (item: PendingWriteQueueItem) => Promise<boolean>;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   documentSummaries: ReadonlyArray<DocumentSummary>;
@@ -101,6 +106,7 @@ export function useExplorerModel(
     handleDocumentLinksChanged,
   } = useDocumentLinkProjectionVersion();
   const documentQueries = useExplorerDocumentQueries(appData);
+  const { containerContents } = useTearleads();
   const {
     bumpDocumentListRevision,
     documentListRevision,
@@ -120,6 +126,22 @@ export function useExplorerModel(
   const treeEntries = useMemo(
     () => buildExplorerTree(explorer.nodes),
     [explorer.nodes],
+  );
+  const discardPendingWrite = useCallback(
+    async (item: PendingWriteQueueItem) => {
+      const discarded = await containerContents.discardPendingWrite({
+        localId: item.localId,
+        namespace: item.namespace,
+        objectKind: item.objectKind,
+      });
+      if (discarded) {
+        // The write-queue panel reloads on this revision, so the discarded row
+        // disappears without waiting for a sync-lane settlement signal.
+        bumpDocumentListRevision();
+      }
+      return discarded;
+    },
+    [bumpDocumentListRevision, containerContents],
   );
   const { contactsContainerId, primaryOrganizationId } =
     useExplorerPrimarySystemContainers({
@@ -320,6 +342,7 @@ export function useExplorerModel(
     contextMenuState,
     deleteDocument,
     purgeDocument,
+    discardPendingWrite,
     documentListRevision,
     documentQueries,
     documentSummaries,

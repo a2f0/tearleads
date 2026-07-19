@@ -6,6 +6,7 @@ import type {
   ContainerDocumentQueries,
   ContainerNode,
   DomainScope,
+  PendingWriteQueueItem,
 } from "@tearleads/client-sdk";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
@@ -109,6 +110,9 @@ function ExplorerSectionTabBar({
 interface ExplorerSectionsPanelProps {
   route: ExplorerRoute;
   billingBlockedOrganizationId: string | null;
+  discardPendingWrite?:
+    | ((item: PendingWriteQueueItem) => Promise<boolean>)
+    | undefined;
   domainScope: DomainScope;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
@@ -198,6 +202,7 @@ export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
         ) : route.view === "write-queue" ? (
           <ExplorerWriteQueuePanel
             billingBlockedOrganizationId={params.billingBlockedOrganizationId}
+            discardPendingWrite={params.discardPendingWrite}
             documentListRevision={params.documentListRevision}
             documentQueries={params.documentQueries}
             domainScope={params.domainScope}

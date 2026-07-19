@@ -1,4 +1,4 @@
-import { documentTables } from "./schema";
+import { documentProjectionTables, documentTables } from "./schema";
 import { type ExecSql, ensureSqlColumns, ensureSqlTables } from "./sqlSchema";
 
 export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
@@ -11,6 +11,18 @@ export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
     {
       name: "pending_base_version",
       definition: '"pending_base_version" TEXT',
+    },
+  ]);
+}
+
+export async function ensureDocumentProjectionTables(
+  execSql: ExecSql,
+): Promise<void> {
+  await ensureSqlTables(execSql, documentProjectionTables);
+  await ensureSqlColumns(execSql, "document_projection", [
+    {
+      name: "organization_id",
+      definition: '"organization_id" TEXT',
     },
   ]);
 }
@@ -35,3 +47,7 @@ export {
   mapSelectedDocumentRecord,
   saveDocumentRecord,
 } from "./documentRecordPersistence";
+export {
+  clearDocumentSyncFailure,
+  recordDocumentSyncFailure,
+} from "./documentSyncFailurePersistence";

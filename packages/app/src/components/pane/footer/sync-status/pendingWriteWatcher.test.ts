@@ -4,6 +4,7 @@ import type {
   PendingWriteQueueOperation,
 } from "@tearleads/client-sdk";
 import { createPendingWriteWatcher } from "./pendingWriteWatcher";
+import type { PendingWriteQueueSummary } from "./syncStatusModel";
 
 const THROTTLE_MS = 5;
 
@@ -51,17 +52,21 @@ const settle = () =>
   new Promise((resolve) => setTimeout(resolve, THROTTLE_MS * 4));
 
 test("reads once immediately and reports the summed count", async () => {
-  const onCount = mock((_count: number) => {});
+  const onSnapshot = mock((_snapshot: PendingWriteQueueSummary) => {});
   const watcher = createPendingWriteWatcher({
     listPendingWrites: async () => [item(2), item(3)],
     subscribe: () => () => {},
-    onCount,
+    onSnapshot,
     throttleMs: THROTTLE_MS,
   });
 
   await settle();
-  expect(onCount).toHaveBeenCalledTimes(1);
-  expect(onCount.mock.calls[0]?.[0]).toBe(5);
+  expect(onSnapshot).toHaveBeenCalledTimes(1);
+  expect(onSnapshot.mock.calls[0]?.[0]).toEqual({
+    count: 5,
+    failedCount: 0,
+    firstError: null,
+  });
   watcher.stop();
 });
 
@@ -77,7 +82,7 @@ test("re-reads once when a subscribed change fires", async () => {
       notify = onChange;
       return () => {};
     },
-    onCount: () => {},
+    onSnapshot: () => {},
     throttleMs: THROTTLE_MS,
   });
 
@@ -101,7 +106,7 @@ test("coalesces a burst of changes into a single re-read", async () => {
       notify = onChange;
       return () => {};
     },
-    onCount: () => {},
+    onSnapshot: () => {},
     throttleMs: THROTTLE_MS,
   });
 
@@ -132,7 +137,7 @@ test("serializes: a change mid-read queues exactly one follow-up", async () => {
       notify = onChange;
       return () => {};
     },
-    onCount: () => {},
+    onSnapshot: () => {},
     throttleMs: THROTTLE_MS,
   });
 
@@ -156,24 +161,24 @@ test("serializes: a change mid-read queues exactly one follow-up", async () => {
 
 test("reports nothing after stop(), even for an in-flight read", async () => {
   const gate = deferred<PendingWriteQueueItem[]>();
-  const onCount = mock((_count: number) => {});
+  const onSnapshot = mock((_snapshot: PendingWriteQueueSummary) => {});
   const watcher = createPendingWriteWatcher({
     listPendingWrites: () => gate.promise,
     subscribe: () => () => {},
-    onCount,
+    onSnapshot,
     throttleMs: THROTTLE_MS,
   });
 
   watcher.stop();
   gate.resolve([item(1)]);
   await settle();
-  expect(onCount).not.toHaveBeenCalled();
+  expect(onSnapshot).not.toHaveBeenCalled();
 });
 
 test("a failed read reports nothing and a later change still reads", async () => {
   let calls = 0;
   let notify = () => {};
-  const onCount = mock((_count: number) => {});
+  const onSnapshot = mock((_snapshot: PendingWriteQueueSummary) => {});
   const watcher = createPendingWriteWatcher({
     listPendingWrites: () => {
       calls += 1;
@@ -185,16 +190,16 @@ test("a failed read reports nothing and a later change still reads", async () =>
       notify = onChange;
       return () => {};
     },
-    onCount,
+    onSnapshot,
     throttleMs: THROTTLE_MS,
   });
 
   await settle();
-  expect(onCount).not.toHaveBeenCalled();
+  expect(onSnapshot).not.toHaveBeenCalled();
   notify();
   await settle();
-  expect(onCount).toHaveBeenCalledTimes(1);
-  expect(onCount.mock.calls[0]?.[0]).toBe(4);
+  expect(onSnapshot).toHaveBeenCalledTimes(1);
+  expect(onSnapshot.mock.calls[0]?.[0]?.count).toBe(4);
   watcher.stop();
 });
 
@@ -205,7 +210,7 @@ test("stop() unsubscribes from the change source", () => {
     subscribe: () => () => {
       unsubscribed = true;
     },
-    onCount: () => {},
+    onSnapshot: () => {},
     throttleMs: THROTTLE_MS,
   });
 

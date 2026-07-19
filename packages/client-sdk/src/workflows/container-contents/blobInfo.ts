@@ -116,7 +116,10 @@ function createPendingBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
       localId: documentPendingAttachments.localId,
       mimeType: documentPendingAttachments.mimeType,
       name: sql<string | null>`${documentPendingAttachments.name}`.as("name"),
-      organizationId: containers.organizationId,
+      organizationId: sql<string | null>`COALESCE(
+        NULLIF(${containers.organizationId}, ''),
+        NULLIF(${documentProjection.organizationId}, '')
+      )`.as("organization_id"),
       searchText: sql<string>`LOWER(
         COALESCE(${documentPendingAttachments.storageKey}, '')
         || CHAR(0) || COALESCE(${documentPendingAttachments.mimeType}, '')
@@ -166,7 +169,10 @@ function createLocalBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
       localId: documentAttachmentBlobProjection.localId,
       mimeType: documentAttachmentBlobProjection.mimeType,
       name: sql<string | null>`NULL`.as("name"),
-      organizationId: containers.organizationId,
+      organizationId: sql<string | null>`COALESCE(
+        NULLIF(${containers.organizationId}, ''),
+        NULLIF(${documentProjection.organizationId}, '')
+      )`.as("organization_id"),
       searchText: sql<string>`LOWER(
         COALESCE(${documentAttachmentBlobProjection.blobId}, '')
         || CHAR(0) || COALESCE(${documentAttachmentBlobProjection.storageKey}, '')

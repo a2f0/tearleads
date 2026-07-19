@@ -5,6 +5,7 @@ import {
   getOrCreateContainerContentsStore,
 } from "../stores/container-contents";
 import { openDocumentStore } from "../stores/documents";
+import { emitPersistedDocumentDeletion } from "../stores/documents/registry";
 import {
   type BlobInfoInput,
   type BlobInfoList,
@@ -14,6 +15,7 @@ import {
   type ContainerInfo,
   loadContainerInfo,
 } from "../workflows/container-contents/containerInfo";
+import { discardPendingWrite } from "../workflows/container-contents/discardPendingWrite";
 import {
   type DocumentAttributionRangesInput,
   type DocumentAttributionRangesPage,
@@ -54,6 +56,7 @@ import type {
   ContainerContents,
   ContainerDocumentLinks,
   ContainerInfoInput,
+  DiscardPendingWriteItemInput,
   DocumentInfoInput,
   MergeDocumentSummary,
   MoveDocumentToContainerInput,
@@ -435,6 +438,29 @@ class ContainerContentsService implements ContainerContents {
       execSql:
         runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
     });
+  }
+
+  async discardPendingWrite(
+    input: DiscardPendingWriteItemInput,
+  ): Promise<boolean> {
+    const runtime = this.runtimeService.workflowInput();
+    if (runtime.infra.dbStatus !== "ready") {
+      return false;
+    }
+
+    await discardPendingWrite({
+      documentProjectors: runtime.infra.documentProjectors,
+      execSql: runtime.infra.execSql,
+      localId: input.localId,
+      namespace: input.namespace ?? null,
+      objectKind: input.objectKind,
+    });
+    if (input.objectKind === "document") {
+      // The same broadcast a local delete uses — otherwise an open store's
+      // next persist would resurrect the discarded record.
+      emitPersistedDocumentDeletion(runtime.state.domainScope, input.localId);
+    }
+    return true;
   }
 
   workflowRuntime(): ContainerContentsWorkflowRuntime {

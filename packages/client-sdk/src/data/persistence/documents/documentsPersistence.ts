@@ -19,10 +19,12 @@ import {
   DEFAULT_DOCUMENT_KIND,
 } from "../../documents/documentConstants";
 import {
+  clearDocumentSyncFailure,
   deleteDocumentPendingUpdate,
   deleteDocumentPendingUpdates,
   deleteDocumentRecord,
   enqueueDocumentPendingUpdate,
+  ensureDocumentProjectionTables,
   ensureDocumentTables,
   findLocalIdByDocumentId,
   listDocumentPendingUpdates,
@@ -36,7 +38,6 @@ import {
   documentPendingAttachments,
   documentPendingUpdates,
   documentProjection,
-  documentProjectionTables,
   documents,
 } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
@@ -434,7 +435,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   async ensureSchema(execSql) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await ensureDocumentTables(lockedExecSql);
-      await ensureSqlTables(lockedExecSql, documentProjectionTables);
+      await ensureDocumentProjectionTables(lockedExecSql);
       await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
     });
   },
@@ -619,6 +620,10 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
               .run();
           }
           await deleteDocumentPendingUpdates(
+            lockedExecSql,
+            getDocumentScope(localId),
+          );
+          await clearDocumentSyncFailure(
             lockedExecSql,
             getDocumentScope(localId),
           );

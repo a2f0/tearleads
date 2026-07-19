@@ -22,7 +22,10 @@ const PENDING_WRITE_SOURCE_SQL = `
     stored.document_id AS remote_id,
     projection.title AS name,
     projection.container_id AS container_id,
-    NULLIF(container.organization_id, '') AS organization_id,
+    COALESCE(
+      NULLIF(container.organization_id, ''),
+      NULLIF(projection.organization_id, '')
+    ) AS organization_id,
     'update' AS operation_kind,
     updates.operation_count AS operation_count,
     0 AS byte_length,
@@ -30,8 +33,8 @@ const PENDING_WRITE_SOURCE_SQL = `
     updates.updated_at AS updated_at,
     NULL AS target_container_id,
     'pending' AS operation_status,
-    NULL AS last_error,
-    NULL AS last_attempted_at,
+    failure.message AS last_error,
+    failure.attempted_at AS last_attempted_at,
     'always' AS inclusion
   FROM pending_update_groups updates
   LEFT JOIN documents stored
@@ -41,6 +44,9 @@ const PENDING_WRITE_SOURCE_SQL = `
     ON projection.local_id = updates.local_id
   LEFT JOIN containers container
     ON container.id = projection.container_id
+  LEFT JOIN document_sync_failures failure
+    ON failure.app_kind = 'documents'
+    AND failure.local_id = updates.local_id
   WHERE updates.app_kind = 'documents'
 
   UNION ALL
@@ -60,13 +66,16 @@ const PENDING_WRITE_SOURCE_SQL = `
     updates.updated_at AS updated_at,
     NULL AS target_container_id,
     'pending' AS operation_status,
-    NULL AS last_error,
-    NULL AS last_attempted_at,
+    failure.message AS last_error,
+    failure.attempted_at AS last_attempted_at,
     'always' AS inclusion
   FROM pending_update_groups updates
   LEFT JOIN containers container ON container.id = updates.local_id
   LEFT JOIN container_projection
     ON container_projection.container_id = updates.local_id
+  LEFT JOIN document_sync_failures failure
+    ON failure.app_kind = 'container-metadata'
+    AND failure.local_id = updates.local_id
   WHERE updates.app_kind = 'container-metadata'
 
   UNION ALL
@@ -86,13 +95,16 @@ const PENDING_WRITE_SOURCE_SQL = `
     updates.updated_at AS updated_at,
     NULL AS target_container_id,
     'pending' AS operation_status,
-    NULL AS last_error,
-    NULL AS last_attempted_at,
+    failure.message AS last_error,
+    failure.attempted_at AS last_attempted_at,
     'always' AS inclusion
   FROM pending_update_groups updates
   LEFT JOIN documents stored
     ON stored.app_kind = updates.app_kind
     AND stored.local_id = updates.local_id
+  LEFT JOIN document_sync_failures failure
+    ON failure.app_kind = updates.app_kind
+    AND failure.local_id = updates.local_id
   WHERE updates.app_kind NOT IN ('documents', 'container-metadata')
 
   UNION ALL
@@ -104,7 +116,10 @@ const PENDING_WRITE_SOURCE_SQL = `
     stored.document_id AS remote_id,
     projection.title AS name,
     projection.container_id AS container_id,
-    NULLIF(container.organization_id, '') AS organization_id,
+    COALESCE(
+      NULLIF(container.organization_id, ''),
+      NULLIF(projection.organization_id, '')
+    ) AS organization_id,
     'attachment' AS operation_kind,
     COUNT(*) AS operation_count,
     COALESCE(SUM(attachment.byte_length), 0) AS byte_length,
@@ -112,8 +127,8 @@ const PENDING_WRITE_SOURCE_SQL = `
     MAX(attachment.created_at) AS updated_at,
     NULL AS target_container_id,
     'pending' AS operation_status,
-    NULL AS last_error,
-    NULL AS last_attempted_at,
+    failure.message AS last_error,
+    failure.attempted_at AS last_attempted_at,
     'always' AS inclusion
   FROM document_pending_attachments attachment
   LEFT JOIN documents stored
@@ -123,6 +138,9 @@ const PENDING_WRITE_SOURCE_SQL = `
     ON projection.local_id = attachment.local_id
   LEFT JOIN containers container
     ON container.id = projection.container_id
+  LEFT JOIN document_sync_failures failure
+    ON failure.app_kind = 'documents'
+    AND failure.local_id = attachment.local_id
   GROUP BY attachment.local_id
 
   UNION ALL
@@ -187,7 +205,10 @@ const PENDING_WRITE_SOURCE_SQL = `
     intent.document_id AS remote_id,
     projection.title AS name,
     COALESCE(projection.container_id, intent.target_container_id) AS container_id,
-    NULLIF(container.organization_id, '') AS organization_id,
+    COALESCE(
+      NULLIF(container.organization_id, ''),
+      NULLIF(projection.organization_id, '')
+    ) AS organization_id,
     'move' AS operation_kind,
     1 AS operation_count,
     0 AS byte_length,
@@ -214,7 +235,10 @@ const PENDING_WRITE_SOURCE_SQL = `
     NULL AS remote_id,
     projection.title AS name,
     projection.container_id AS container_id,
-    NULLIF(container.organization_id, '') AS organization_id,
+    COALESCE(
+      NULLIF(container.organization_id, ''),
+      NULLIF(projection.organization_id, '')
+    ) AS organization_id,
     'create' AS operation_kind,
     1 AS operation_count,
     0 AS byte_length,
@@ -222,14 +246,17 @@ const PENDING_WRITE_SOURCE_SQL = `
     stored.updated_at AS updated_at,
     projection.container_id AS target_container_id,
     'pending' AS operation_status,
-    NULL AS last_error,
-    NULL AS last_attempted_at,
+    failure.message AS last_error,
+    failure.attempted_at AS last_attempted_at,
     'unless-operation-covered' AS inclusion
   FROM documents stored
   LEFT JOIN document_projection projection
     ON projection.local_id = stored.local_id
   LEFT JOIN containers container
     ON container.id = projection.container_id
+  LEFT JOIN document_sync_failures failure
+    ON failure.app_kind = 'documents'
+    AND failure.local_id = stored.local_id
   WHERE stored.app_kind = 'documents'
     AND stored.document_id IS NULL
 

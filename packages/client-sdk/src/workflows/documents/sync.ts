@@ -78,6 +78,7 @@ import {
   resolveDocumentSyncWriterProjection,
   retrySyncPlan,
   submitDocumentSyncAttemptIfAllowed,
+  type TerminalSubmitFailureHandler,
 } from "./syncFailures";
 import {
   type RekeyPendingUpdate,
@@ -832,6 +833,7 @@ interface SyncRemoteDocumentInput {
   localVersionVector: string | null;
   minLsn?: string | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
+  onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;
   rekeyPendingUpdate?: RekeyPendingUpdate | undefined;
@@ -1015,6 +1017,7 @@ export async function syncRemoteDocument(
       isRemoteSyncBlocked: input.isRemoteSyncBlocked,
       maxAttempts,
       onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
+      onTerminalSubmitFailure: input.onTerminalSubmitFailure,
       pendingUpdates,
       plan,
     });
