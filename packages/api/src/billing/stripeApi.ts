@@ -61,7 +61,7 @@ export interface StripeCheckoutIntent {
  * means Stripe already holds a live subscription for this org and creating
  * another would double-bill it.
  */
-export type StripeCheckoutOutcome =
+type StripeCheckoutOutcome =
   | { kind: "ready"; intent: StripeCheckoutIntent }
   | { kind: "conflict" };
 
@@ -180,20 +180,25 @@ export async function getStripeSyncOption(
 }
 
 /**
- * Finds the Stripe customer previously created for this user (matched on the
- * `userId` metadata this module writes), or creates one. Search is eventually
- * consistent, so a rapid retry can create a duplicate customer — harmless
- * here, because the subscription (not the customer) carries the org binding.
+ * Finds the Stripe customer previously created for this buyer AND
+ * organization, or creates one. Customers are deliberately scoped per
+ * (user, org): the Billing Portal exposes everything on a customer, so a
+ * buyer purchasing for several organizations must not have their
+ * subscriptions pooled on one customer — org A's portal would expose (and
+ * allow cancelling) org B's billing.
  */
 export async function findOrCreateCustomer(
-  userId: string,
+  input: { userId: string; organizationId: string },
   deps: StripeApiDeps = {},
 ): Promise<string | null> {
   const { fetchImpl, secretKey } = resolveDeps(deps);
   if (!secretKey) {
     return null;
   }
-  const query = encodeURIComponent(`metadata['userId']:'${userId}'`);
+  const query = encodeURIComponent(
+    `metadata['userId']:'${input.userId}' AND ` +
+      `metadata['orgId']:'${input.organizationId}'`,
+  );
   const found = await stripeRequest({
     fetchImpl,
     secretKey,
@@ -210,7 +215,8 @@ export async function findOrCreateCustomer(
   }
 
   const form = new URLSearchParams();
-  form.set("metadata[userId]", userId);
+  form.set("metadata[userId]", input.userId);
+  form.set("metadata[orgId]", input.organizationId);
   const created = await stripeRequest({
     fetchImpl,
     secretKey,
@@ -219,10 +225,10 @@ export async function findOrCreateCustomer(
     operation: "customer create",
     form,
     // Search is eventually consistent, so a rapid retry can miss the customer
-    // it just created; the user-scoped key makes the create itself return the
+    // it just created; the scoped key makes the create itself return the
     // original instead — and beyond the idempotency window the search IS
     // consistent.
-    idempotencyKey: `sync-customer:${userId}`,
+    idempotencyKey: `sync-customer:${input.userId}:${input.organizationId}`,
   });
   return readString(prop(created, "id"));
 }
@@ -247,7 +253,16 @@ function parseCheckoutIntent(body: unknown): StripeCheckoutIntent | null {
 async function findOrgSubscription(
   organizationId: string,
   request: { fetchImpl: typeof fetch; secretKey: string },
-): Promise<{ subscriptionId: string; status: string } | null> {
+): Promise<{
+  candidate: { subscriptionId: string; status: string } | null;
+  /**
+   * Newest terminal (expired/canceled) attempt, used to rotate the create
+   * idempotency key: without it, a create within Stripe's key-retention
+   * window but after the previous attempt expired would replay the DEAD
+   * subscription and its unusable client secret.
+   */
+  terminalAttemptId: string | null;
+}> {
   const query = encodeURIComponent(`metadata['orgId']:'${organizationId}'`);
   const found = await stripeRequest({
     ...request,
@@ -256,8 +271,9 @@ async function findOrgSubscription(
     operation: "subscription search",
   });
   const items = prop(found, "data");
+  let terminalAttemptId: string | null = null;
   if (!Array.isArray(items)) {
-    return null;
+    return { candidate: null, terminalAttemptId };
   }
   for (const item of items) {
     const status = readString(prop(item, "status"));
@@ -266,10 +282,11 @@ async function findOrgSubscription(
       continue;
     }
     if (LIVE_SUBSCRIPTION_STATUSES.has(status) || status === "incomplete") {
-      return { subscriptionId, status };
+      return { candidate: { subscriptionId, status }, terminalAttemptId };
     }
+    terminalAttemptId = terminalAttemptId ?? subscriptionId;
   }
-  return null;
+  return { candidate: null, terminalAttemptId };
 }
 
 /**
@@ -288,21 +305,21 @@ export async function createSyncSubscription(
     return null;
   }
 
-  const existing = await findOrgSubscription(input.organizationId, {
-    fetchImpl,
-    secretKey,
-  });
-  if (existing && existing.status !== "incomplete") {
+  const { candidate, terminalAttemptId } = await findOrgSubscription(
+    input.organizationId,
+    { fetchImpl, secretKey },
+  );
+  if (candidate && candidate.status !== "incomplete") {
     return { kind: "conflict" };
   }
-  if (existing) {
+  if (candidate) {
     // Resume the pending checkout instead of creating a parallel one.
     const pending = await stripeRequest({
       fetchImpl,
       secretKey,
       method: "GET",
       path:
-        `/v1/subscriptions/${encodeURIComponent(existing.subscriptionId)}` +
+        `/v1/subscriptions/${encodeURIComponent(candidate.subscriptionId)}` +
         "?expand[]=latest_invoice.payment_intent",
       operation: "subscription resume",
     });
@@ -331,9 +348,12 @@ export async function createSyncSubscription(
     // checkout returns the original subscription, and two admins racing to
     // buy for the same org produce different request bodies under the same
     // key — which Stripe rejects — so the org can never gain two parallel
-    // subscriptions. An unconfirmed `default_incomplete` subscription expires
-    // on Stripe's side before the idempotency window does.
-    idempotencyKey: `sync-sub:${input.organizationId}:${syncPriceId}`,
+    // subscriptions. The terminal-attempt suffix rotates the key once a
+    // previous attempt expired, so a fresh checkout never replays a dead
+    // subscription that Stripe's key retention still remembers.
+    idempotencyKey:
+      `sync-sub:${input.organizationId}:${syncPriceId}` +
+      `:${terminalAttemptId ?? "initial"}`,
   });
   const intent = parseCheckoutIntent(body);
   return intent ? { kind: "ready", intent } : null;

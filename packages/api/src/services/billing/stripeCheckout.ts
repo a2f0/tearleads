@@ -87,7 +87,7 @@ export async function createStripeCheckout(
     return null;
   }
   const customerId = await findOrCreateCustomer(
-    sessionUserId,
+    { userId: sessionUserId, organizationId },
     deps.stripe ?? {},
   );
   if (!customerId) {

@@ -79,11 +79,17 @@ test("customer lookup reuses an existing metadata match", async () => {
   const { fetchImpl, requests } = fakeFetch([
     { body: { data: [{ id: "cus_existing" }] } },
   ]);
-  const id = await findOrCreateCustomer("user-1", { env: ENV, fetchImpl });
+  const id = await findOrCreateCustomer(
+    { userId: "user-1", organizationId: "org-1" },
+    { env: ENV, fetchImpl },
+  );
 
   expect(id).toBe("cus_existing");
   expect(requests).toHaveLength(1);
+  // Customers are scoped per (user, org): one pooled customer would let one
+  // org's Billing Portal expose another org's subscription.
   expect(requests[0]?.url).toContain("/v1/customers/search");
+  expect(decodeURIComponent(requests[0]?.url ?? "")).toContain("org-1");
 });
 
 test("customer lookup creates one with userId metadata when none exists", async () => {
@@ -91,12 +97,18 @@ test("customer lookup creates one with userId metadata when none exists", async 
     { body: { data: [] } },
     { body: { id: "cus_new" } },
   ]);
-  const id = await findOrCreateCustomer("user-1", { env: ENV, fetchImpl });
+  const id = await findOrCreateCustomer(
+    { userId: "user-1", organizationId: "org-1" },
+    { env: ENV, fetchImpl },
+  );
 
   expect(id).toBe("cus_new");
   expect(requests[1]?.method).toBe("POST");
   expect(requests[1]?.body).toContain(
     `${encodeURIComponent("metadata[userId]")}=user-1`,
+  );
+  expect(requests[1]?.body).toContain(
+    `${encodeURIComponent("metadata[orgId]")}=org-1`,
   );
 });
 
@@ -129,7 +141,7 @@ test("subscription create binds org metadata and returns the client secret", asy
   // admins racing produce conflicting bodies under one key, which Stripe
   // rejects — the org can never gain two parallel subscriptions.
   expect(requests[1]?.headers.get("Idempotency-Key")).toBe(
-    "sync-sub:org-1:price_sync",
+    "sync-sub:org-1:price_sync:initial",
   );
 });
 
@@ -175,9 +187,37 @@ test("customer creation is idempotency-keyed per user", async () => {
     { body: { data: [] } },
     { body: { id: "cus_new" } },
   ]);
-  await findOrCreateCustomer("user-1", { env: ENV, fetchImpl });
+  await findOrCreateCustomer(
+    { userId: "user-1", organizationId: "org-1" },
+    { env: ENV, fetchImpl },
+  );
   expect(requests[1]?.headers.get("Idempotency-Key")).toBe(
-    "sync-customer:user-1",
+    "sync-customer:user-1:org-1",
+  );
+});
+
+test("a terminal previous attempt rotates the subscription idempotency key", async () => {
+  const { fetchImpl, requests } = fakeFetch([
+    // The abandoned attempt expired; a fresh checkout must not replay it.
+    { body: { data: [{ id: "sub_expired", status: "incomplete_expired" }] } },
+    {
+      body: {
+        id: "sub_2",
+        latest_invoice: { payment_intent: { client_secret: "pi_2" } },
+      },
+    },
+  ]);
+  const outcome = await createSyncSubscription(
+    { customerId: "cus_1", userId: "user-1", organizationId: "org-1" },
+    { env: ENV, fetchImpl },
+  );
+
+  expect(outcome).toEqual({
+    kind: "ready",
+    intent: { subscriptionId: "sub_2", clientSecret: "pi_2" },
+  });
+  expect(requests[1]?.headers.get("Idempotency-Key")).toBe(
+    "sync-sub:org-1:price_sync:sub_expired",
   );
 });
 
@@ -227,6 +267,11 @@ test("a failed Stripe request surfaces as StripeApiError with its status", () =>
 test("unconfigured environments read as null, never a network call", async () => {
   const { fetchImpl, requests } = fakeFetch([]);
   expect(await getStripeSyncOption({ env: {}, fetchImpl })).toBeNull();
-  expect(await findOrCreateCustomer("u", { env: {}, fetchImpl })).toBeNull();
+  expect(
+    await findOrCreateCustomer(
+      { userId: "u", organizationId: "o" },
+      { env: {}, fetchImpl },
+    ),
+  ).toBeNull();
   expect(requests).toHaveLength(0);
 });
