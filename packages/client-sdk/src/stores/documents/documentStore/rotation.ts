@@ -22,6 +22,7 @@ import {
   persistDocument,
 } from "./persistence";
 import type { DocumentState, DocumentStoreState } from "./state";
+import { documentTerminalSubmitFailureHandler } from "./syncShared";
 import { importSyncedDocumentUpdates } from "./syncUpdateImport";
 
 function importPendingUpdates(
@@ -101,6 +102,9 @@ async function pullVerifiedHistoryForRotation(input: {
       isRemoteSyncBlocked: input.state.runtime.util.isRemoteSyncBlocked,
       localVersionVector: input.localVersionVector,
       minLsn: input.currentRecord.lastCommitLsn ?? undefined,
+      onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
+        input.state,
+      ),
       pendingUpdates: input.pendingUpdates,
       persistedState: input.currentRecord,
       rekeyPendingUpdate: input.state.persistence.rekeyPendingUpdate,

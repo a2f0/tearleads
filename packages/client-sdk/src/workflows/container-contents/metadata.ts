@@ -278,8 +278,11 @@ async function syncRemoteContainerMetadata(input: {
   }
 
   // The pass submitted successfully, so any recorded terminal failure for this
-  // container's metadata document no longer describes reality.
-  await clearDocumentSyncFailure(execSql, metadataScope);
+  // container's metadata document no longer describes reality — unless the
+  // pass itself just recorded one for re-key-exhausted updates.
+  if (synced.exhaustedPendingUpdateCount === 0) {
+    await clearDocumentSyncFailure(execSql, metadataScope);
+  }
 
   return {
     outgoingUpdateCount: pendingUpdates.length,

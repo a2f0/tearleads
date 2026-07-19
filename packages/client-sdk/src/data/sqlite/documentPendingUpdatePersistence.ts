@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, lt, sql } from "drizzle-orm";
 import type {
   DocumentScope,
   PendingUpdateFields,
@@ -18,6 +18,7 @@ function mapSelectedPendingUpdate(
     partialStartVersionVector: row.partialStartVersionVector,
     partialEndVersionVector: row.partialEndVersionVector,
     sourceVersionVector: row.sourceVersionVector,
+    rekeyCount: row.rekeyCount,
   };
 }
 
@@ -34,6 +35,7 @@ export async function listDocumentPendingUpdates(
         documentPendingUpdates.partialStartVersionVector,
       partialEndVersionVector: documentPendingUpdates.partialEndVersionVector,
       sourceVersionVector: documentPendingUpdates.sourceVersionVector,
+      rekeyCount: documentPendingUpdates.rekeyCount,
     })
     .from(documentPendingUpdates)
     .where(
@@ -83,7 +85,15 @@ export async function enqueueDocumentPendingUpdate(
  * RETURNING row is the progress signal — a pre-flight SELECT would race a
  * second tab sharing the SQLite file, which can settle-delete the row between
  * the read and the write and turn "rekeyed" into a spurious re-arm.
+ *
+ * The persisted per-row bound is enforced here as well: a row already at
+ * MAX_PENDING_UPDATE_REKEYS is left untouched and reported as no progress.
+ * The in-memory lane counter bounds a busy-loop within one session; this
+ * bound survives restarts, so a poisoned row cannot re-key forever at three
+ * passes per launch.
  */
+export const MAX_PENDING_UPDATE_REKEYS = 5;
+
 export async function rekeyDocumentPendingUpdate(
   execSql: ExecSql,
   id: string,
@@ -93,8 +103,16 @@ export async function rekeyDocumentPendingUpdate(
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
     const updated = await db
       .update(documentPendingUpdates)
-      .set({ id: nextId })
-      .where(eq(documentPendingUpdates.id, id))
+      .set({
+        id: nextId,
+        rekeyCount: sql`${documentPendingUpdates.rekeyCount} + 1`,
+      })
+      .where(
+        and(
+          eq(documentPendingUpdates.id, id),
+          lt(documentPendingUpdates.rekeyCount, MAX_PENDING_UPDATE_REKEYS),
+        ),
+      )
       .returning({ id: documentPendingUpdates.id });
     rekeyed = updated.length > 0;
   });

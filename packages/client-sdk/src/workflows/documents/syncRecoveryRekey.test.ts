@@ -15,9 +15,15 @@ import {
   enqueueDocumentPendingUpdate,
   ensureDocumentTables,
   listDocumentPendingUpdates,
+  MAX_PENDING_UPDATE_REKEYS,
+  rekeyDocumentPendingUpdate,
 } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { buildMaterializedDocumentSyncPlan, syncRemoteDocument } from "./sync";
+import {
+  rekeyLimitSubmitFailure,
+  rekeyUnsettledRecoveryPendingUpdates,
+} from "./syncRecoveryRekey";
 
 let execSql: ExecSql;
 let closeExecSql: () => void;
@@ -126,4 +132,132 @@ test("syncRemoteDocument re-keys pending conflicts recovery cannot settle", asyn
     partialStartVersionVector: pendingUpdate.partialStartVersionVector,
     partialEndVersionVector: pendingUpdate.partialEndVersionVector,
   });
+});
+
+test("an exhausted pending update surfaces terminally and survives the pass", async () => {
+  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  await ensureDocumentTables(execSql);
+  const scope = { appKind: "documents", localId: "exhausted-document" };
+  await enqueueDocumentPendingUpdate(
+    execSql,
+    scope,
+    await createLoroPendingUpdateFields("exhausted update"),
+  );
+  let [pendingUpdate] = await listDocumentPendingUpdates(execSql, scope);
+  for (let attempt = 0; attempt < MAX_PENDING_UPDATE_REKEYS; attempt += 1) {
+    await rekeyDocumentPendingUpdate(execSql, pendingUpdate?.id ?? "");
+    [pendingUpdate] = await listDocumentPendingUpdates(execSql, scope);
+  }
+  if (!pendingUpdate) {
+    throw new Error("Expected the capped pending update");
+  }
+
+  const terminalFailures: string[] = [];
+  const synced = await syncRemoteDocument({
+    apiClient: {
+      getDocumentWriterProjection: async () => writerProjection,
+      syncDocument: async () => {
+        throw new Error("Expected syncDocumentResult to handle recovery");
+      },
+      syncDocumentResult: async (documentId, request) => {
+        if (request.outgoingUpdates.length > 0) {
+          return {
+            code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
+            message: `POST /documents/${documentId}/sync: 409 Conflict: Document update id conflict`,
+            ok: false,
+            report: () => undefined,
+            status: 409,
+          };
+        }
+        const readOnlyMaterialized = await buildMaterializedDocumentSyncPlan({
+          author,
+          execSql,
+          localVersionVector: null,
+          pendingUpdates: [],
+          resolveProjectionUserKey,
+          targetSecretKey: secretKey,
+          writerProjection,
+        });
+        return {
+          data: await createSyncResponse({
+            ...readOnlyMaterialized.plan,
+            documentId,
+            request,
+          }),
+          ok: true,
+        };
+      },
+    },
+    author,
+    documentId: writerProjection.documentId,
+    execSql,
+    localVersionVector: null,
+    onTerminalSubmitFailure: (failure) => {
+      terminalFailures.push(failure.message);
+    },
+    pendingUpdates: [pendingUpdate],
+    resolveProjectionUserKey,
+    targetSecretKey: secretKey,
+  });
+
+  // The pass completes, but it is not clean: the exhausted row was not
+  // re-keyed again, the terminal failure fired, and the result carries the
+  // count so callers keep the recorded failure instead of clearing it.
+  expect(synced?.exhaustedPendingUpdateCount).toBe(1);
+  expect(synced?.rekeyedPendingUpdateIds).toEqual([]);
+  expect(terminalFailures).toEqual([
+    `Update conflict recovery gave up after ${MAX_PENDING_UPDATE_REKEYS} re-key attempts (1 update)`,
+  ]);
+  const [unchanged] = await listDocumentPendingUpdates(execSql, scope);
+  expect(unchanged).toMatchObject({
+    id: pendingUpdate.id,
+    rekeyCount: MAX_PENDING_UPDATE_REKEYS,
+  });
+});
+
+test("recovery reports exhausted rows instead of re-keying them again", async () => {
+  const fields = {
+    partialEndVersionVector: "end",
+    partialStartVersionVector: "start",
+    updateData: "data",
+  };
+  const rekeyedInputIds: string[] = [];
+
+  const result = await rekeyUnsettledRecoveryPendingUpdates({
+    execSql,
+    recoveryPendingUpdatesById: new Map([
+      [
+        "at-cap",
+        { ...fields, id: "at-cap", rekeyCount: MAX_PENDING_UPDATE_REKEYS },
+      ],
+      [
+        "below-cap",
+        {
+          ...fields,
+          id: "below-cap",
+          rekeyCount: MAX_PENDING_UPDATE_REKEYS - 1,
+        },
+      ],
+      ["settled", { ...fields, id: "settled" }],
+    ]),
+    rekeyPendingUpdate: async (_execSql, id) => {
+      rekeyedInputIds.push(id);
+      return `next-${id}`;
+    },
+    settledPendingUpdateIds: ["settled"],
+  });
+
+  expect(result.exhaustedPendingUpdateIds).toEqual(["at-cap"]);
+  expect(result.rekeyedPendingUpdateIds).toEqual(["next-below-cap"]);
+  expect(rekeyedInputIds).toEqual(["below-cap"]);
+});
+
+test("the re-key limit failure names the bound for the write queue", () => {
+  const failure = rekeyLimitSubmitFailure(2);
+  expect(failure.ok).toBe(false);
+  expect(failure.status).toBeNull();
+  expect(failure.message).toBe(
+    `Update conflict recovery gave up after ${MAX_PENDING_UPDATE_REKEYS} re-key attempts (2 updates)`,
+  );
 });

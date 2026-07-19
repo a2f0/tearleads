@@ -3,6 +3,12 @@ import { type ExecSql, ensureSqlColumns, ensureSqlTables } from "./sqlSchema";
 
 export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
   await ensureSqlTables(execSql, documentTables);
+  await ensureSqlColumns(execSql, "document_pending_updates", [
+    {
+      name: "rekey_count",
+      definition: '"rekey_count" INTEGER NOT NULL DEFAULT 0',
+    },
+  ]);
   await ensureSqlColumns(execSql, "documents", [
     {
       name: "effective_access_level",
@@ -32,6 +38,7 @@ export {
   deleteDocumentPendingUpdates,
   enqueueDocumentPendingUpdate,
   listDocumentPendingUpdates,
+  MAX_PENDING_UPDATE_REKEYS,
   rekeyDocumentPendingUpdate,
 } from "./documentPendingUpdatePersistence";
 export type {
