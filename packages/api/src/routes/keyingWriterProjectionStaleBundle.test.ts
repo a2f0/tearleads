@@ -109,6 +109,7 @@ test("GET /documents/:documentId/writer-projection is stale for a pre-existing d
   // to the new epoch) — the read path is not expected to self-heal.
   expect(projectionResponse.status).toBe(409);
   expect(await projectionResponse.json()).toEqual({
+    code: "document_sync_state_stale",
     error: "Document content-key bundle is stale",
   });
 }, 10_000);

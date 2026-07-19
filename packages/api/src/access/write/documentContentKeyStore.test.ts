@@ -727,6 +727,7 @@ test("storeDocumentContentKeyBundle requires a new content key epoch after conta
     new DocumentContentKeyBundleError(
       "Document content-key bundle is stale",
       409,
+      DOCUMENT_SYNC_ERROR_CODES.stateStale,
     ),
   );
 
