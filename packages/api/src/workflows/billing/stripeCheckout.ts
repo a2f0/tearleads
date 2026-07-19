@@ -5,24 +5,32 @@ import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
 
 /**
- * Access gate for the direct Stripe checkout routes (issue #1654): starting a
- * checkout or opening the billing portal for an organization requires the
- * session user to be an admin of that organization. Throws
- * `OrganizationManagerError` (mapped to its HTTP response by the route)
- * otherwise.
+ * Admin-gated read of the organization's stored provider subscription id
+ * (issue #1654). The Billing Portal must manage THE ORGANIZATION'S
+ * subscription — resolving from the caller instead would hand a co-admin a
+ * fresh empty customer, or hand a multi-org purchaser a portal spanning
+ * other organizations' subscriptions.
  */
-export async function runRequireBillingAdminWorkflow(
+export async function runResolveOrgSubscriptionForAdminWorkflow(
   db: ApiDatabase,
   organizationId: string,
   sessionUserId: string,
-): Promise<void> {
-  await db.transaction(async (tx) => {
+): Promise<{ providerSubscriptionId: string | null }> {
+  return db.transaction(async (tx) => {
     await requireDirectOrganizationAccess({
       executor: tx,
       organizationId,
       requireAdmin: true,
       userId: sessionUserId,
     });
+    const [row] = await tx
+      .select({
+        providerSubscriptionId: organizationBilling.providerSubscriptionId,
+      })
+      .from(organizationBilling)
+      .where(eq(organizationBilling.organizationId, organizationId))
+      .limit(1);
+    return { providerSubscriptionId: row?.providerSubscriptionId ?? null };
   });
 }
 

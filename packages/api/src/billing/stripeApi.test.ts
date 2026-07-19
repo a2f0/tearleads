@@ -122,9 +122,11 @@ test("subscription create binds org metadata and returns the client secret", asy
   expect(body).toContain(`${encodeURIComponent("metadata[orgId]")}=org-1`);
   expect(body).toContain(`${encodeURIComponent("metadata[userId]")}=user-1`);
   expect(body).toContain("payment_behavior=default_incomplete");
-  // A retried checkout must return the SAME subscription, not create another.
+  // Org-scoped: a retried checkout returns the SAME subscription, and two
+  // admins racing produce conflicting bodies under one key, which Stripe
+  // rejects — the org can never gain two parallel subscriptions.
   expect(requests[0]?.headers.get("Idempotency-Key")).toBe(
-    "sync-sub:user-1:org-1:price_sync",
+    "sync-sub:org-1:price_sync",
   );
 });
 
@@ -147,6 +149,7 @@ test("subscription binding reads metadata and status", async () => {
     userId: "user-1",
     organizationId: "org-1",
     status: "active",
+    customerId: null,
   });
 });
 

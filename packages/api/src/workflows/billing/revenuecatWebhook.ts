@@ -35,7 +35,13 @@ export type RevenueCatWebhookOutcome =
       billingStatus: OrganizationBillingStatus;
     }
   | { status: "ignored"; reason: string }
-  | { status: "duplicate" };
+  | { status: "duplicate" }
+  /**
+   * The event could not be safely attributed right now (e.g. a Stripe-store
+   * event whose immutable subscription lookup failed). Nothing was recorded
+   * or claimed; the route answers non-2xx so RevenueCat redelivers.
+   */
+  | { status: "retry"; reason: string };
 
 async function isOrganizationAdmin(
   executor: DatabaseSession,
@@ -167,12 +173,25 @@ export async function runRevenueCatWebhookWorkflow(
   deps: { stripe?: StripeApiDeps } = {},
 ): Promise<RevenueCatWebhookOutcome> {
   const transition = classifyRevenueCatEvent(event, now);
-  // Stripe-store events prefer the immutable per-subscription org binding
-  // (the customer-level attribute could have been rebound by a later purchase
-  // for another org); everything else resolves from metadata/attributes.
+  // Stripe-store events use the immutable per-subscription org binding — the
+  // customer-level attribute could have been rebound by a later purchase for
+  // another org. A FAILED lookup on an event that would change billing must
+  // defer (never fall back to the attribute, never claim the event id) so a
+  // redelivery can attribute it correctly.
+  const stripeResolution = await resolveStripeStoreOrganizationId(
+    event,
+    deps.stripe ?? {},
+  );
+  if (stripeResolution.kind === "error" && transition.kind !== "ignore") {
+    return {
+      status: "retry",
+      reason: "Stripe subscription lookup failed for a Stripe-store event",
+    };
+  }
   const organizationId =
-    (await resolveStripeStoreOrganizationId(event, deps.stripe ?? {})) ??
-    resolveOrganizationIdFromEvent(event);
+    stripeResolution.kind === "resolved"
+      ? stripeResolution.organizationId
+      : resolveOrganizationIdFromEvent(event);
 
   return db.transaction(async (tx) => {
     const ignoredReason = await resolveIgnoredReason(

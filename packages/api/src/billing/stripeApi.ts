@@ -233,11 +233,13 @@ export async function createSyncSubscription(
     path: "/v1/subscriptions",
     operation: "subscription create",
     form,
-    // A retried or double-submitted checkout must not create a second
-    // subscription: within Stripe's idempotency window this returns the
-    // original one, and an unconfirmed `default_incomplete` subscription
-    // expires on Stripe's side before the window does.
-    idempotencyKey: `sync-sub:${input.userId}:${input.organizationId}:${syncPriceId}`,
+    // ORG-scoped (no user in the key): a retried or double-submitted
+    // checkout returns the original subscription, and two admins racing to
+    // buy for the same org produce different request bodies under the same
+    // key — which Stripe rejects — so the org can never gain two parallel
+    // subscriptions. An unconfirmed `default_incomplete` subscription expires
+    // on Stripe's side before the idempotency window does.
+    idempotencyKey: `sync-sub:${input.organizationId}:${syncPriceId}`,
   });
   const subscriptionId = readString(prop(body, "id"));
   const clientSecret = readString(
@@ -249,7 +251,7 @@ export async function createSyncSubscription(
   return { subscriptionId, clientSecret };
 }
 
-/** Reads a subscription's metadata (`userId`/`orgId`) and status. */
+/** Reads a subscription's metadata (`userId`/`orgId`), status, and customer. */
 export async function getSubscriptionBinding(
   subscriptionId: string,
   deps: StripeApiDeps = {},
@@ -257,6 +259,7 @@ export async function getSubscriptionBinding(
   userId: string | null;
   organizationId: string | null;
   status: string | null;
+  customerId: string | null;
 } | null> {
   const { fetchImpl, secretKey } = resolveDeps(deps);
   if (!secretKey) {
@@ -273,10 +276,12 @@ export async function getSubscriptionBinding(
     return null;
   }
   const metadata = prop(body, "metadata");
+  const customer = prop(body, "customer");
   return {
     userId: readString(prop(metadata, "userId")),
     organizationId: readString(prop(metadata, "orgId")),
     status: readString(prop(body, "status")),
+    customerId: readString(customer) ?? readString(prop(customer, "id")),
   };
 }
 

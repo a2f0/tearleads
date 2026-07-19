@@ -21,8 +21,8 @@ import {
   verifyStripeSignature,
 } from "../../billing/stripeWebhook";
 import {
-  runRequireBillingAdminWorkflow,
   runRequireCheckoutEligibleWorkflow,
+  runResolveOrgSubscriptionForAdminWorkflow,
 } from "../../workflows/billing/stripeCheckout";
 import type { ApiServiceRuntime } from "../runtime";
 
@@ -99,8 +99,12 @@ export async function createStripeCheckout(
 }
 
 /**
- * Resolves the buyer's Billing Portal URL. Null when unconfigured or when the
- * user has no Stripe customer yet (nothing to manage).
+ * Resolves the Billing Portal URL for THE ORGANIZATION'S subscription: the
+ * customer is read from the org's stored Stripe subscription, never from the
+ * caller — a co-admin manages the org's subscription, and a multi-org
+ * purchaser is never handed a portal spanning other organizations. Null when
+ * unconfigured or when the org has no Stripe-store subscription (Web Billing
+ * subscriptions use the RevenueCat management URL route instead).
  */
 export async function createStripePortalUrl(
   runtime: ApiServiceRuntime,
@@ -109,22 +113,29 @@ export async function createStripePortalUrl(
   returnUrl: string,
   deps: StripeCheckoutServiceDeps = {},
 ): Promise<string | null> {
-  await runRequireBillingAdminWorkflow(
-    runtime.db,
-    organizationId,
-    sessionUserId,
-  );
+  const { providerSubscriptionId } =
+    await runResolveOrgSubscriptionForAdminWorkflow(
+      runtime.db,
+      organizationId,
+      sessionUserId,
+    );
   if (!isStripeCheckoutConfigured(deps.stripe ?? {})) {
     return null;
   }
-  const customerId = await findOrCreateCustomer(
-    sessionUserId,
-    deps.stripe ?? {},
-  );
-  if (!customerId) {
+  if (!providerSubscriptionId?.startsWith("sub_")) {
     return null;
   }
-  return createPortalSession({ customerId, returnUrl }, deps.stripe ?? {});
+  const binding = await getSubscriptionBinding(
+    providerSubscriptionId,
+    deps.stripe ?? {},
+  );
+  if (!binding?.customerId) {
+    return null;
+  }
+  return createPortalSession(
+    { customerId: binding.customerId, returnUrl },
+    deps.stripe ?? {},
+  );
 }
 
 type StripeWebhookOutcome =

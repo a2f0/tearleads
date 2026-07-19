@@ -123,41 +123,59 @@ export function resolveOrganizationIdFromEvent(
 }
 
 /**
+ * The outcome of the immutable org resolution for one event: `resolved`
+ * carries the org bound to the Stripe subscription; `none` means the event
+ * has no such binding to consult (not a Stripe-store event, no subscription
+ * id, or a subscription our checkout did not create) and ordinary resolution
+ * applies; `error` means the binding EXISTS in principle but could not be
+ * read (lookup unconfigured or failed) — the caller must defer the event
+ * rather than fall back to the mutable attribute, which for a multi-org
+ * buyer can point at the wrong organization.
+ */
+type StripeStoreOrgResolution =
+  | { kind: "resolved"; organizationId: string }
+  | { kind: "none" }
+  | { kind: "error" };
+
+/**
  * Immutable org resolution for STRIPE-store events (direct checkout, issue
  * #1654). RevenueCat forwards no transaction metadata for the Stripe store,
  * and the `orgId` subscriber attribute is customer-level and mutable — a
  * buyer admining several orgs would have every Stripe event resolve to
  * whichever org they purchased for LAST. But these events carry the Stripe
  * subscription id, and the subscription's own metadata (written by our
- * checkout) binds the org immutably — so it is the preferred source for this
- * store. Returns null (caller falls back to the attribute) when the event is
- * not a Stripe-store event, carries no subscription id, the lookup is
- * unconfigured, or the lookup fails — a lookup failure must not turn an
- * otherwise-processable event into a hard error.
+ * checkout) binds the org immutably — so it is the authoritative source for
+ * this store.
  */
 export async function resolveStripeStoreOrganizationId(
   event: RevenueCatWebhookEvent,
   deps: StripeApiDeps = {},
-): Promise<string | null> {
+): Promise<StripeStoreOrgResolution> {
   if (event.store?.toUpperCase() !== "STRIPE") {
-    return null;
+    return { kind: "none" };
   }
   const subscriptionId =
     event.original_transaction_id ?? event.transaction_id ?? null;
   if (!subscriptionId) {
-    return null;
+    return { kind: "none" };
   }
   try {
     const binding = await getSubscriptionBinding(subscriptionId, deps);
-    return binding?.organizationId && isUuidV4String(binding.organizationId)
-      ? binding.organizationId
-      : null;
+    if (binding === null) {
+      // Unconfigured lookup: the binding exists but cannot be read now.
+      return { kind: "error" };
+    }
+    return binding.organizationId && isUuidV4String(binding.organizationId)
+      ? { kind: "resolved", organizationId: binding.organizationId }
+      : // A Stripe subscription without our metadata was not created by this
+        // checkout; ordinary resolution applies.
+        { kind: "none" };
   } catch (error) {
     console.error(
       "Stripe subscription lookup for RevenueCat event failed:",
       error,
     );
-    return null;
+    return { kind: "error" };
   }
 }
 

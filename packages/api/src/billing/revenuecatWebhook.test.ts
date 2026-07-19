@@ -198,7 +198,7 @@ test("Stripe-store events resolve their org from the subscription binding", asyn
     }),
     { env: stripeEnv, fetchImpl },
   );
-  expect(resolved).toBe(ORG_ID);
+  expect(resolved).toEqual({ kind: "resolved", organizationId: ORG_ID });
 
   // Non-Stripe stores and events without a subscription id fall through to
   // the ordinary resolution.
@@ -207,7 +207,7 @@ test("Stripe-store events resolve their org from the subscription binding", asyn
       makeEvent({ store: "RC_BILLING", original_transaction_id: "sub_1" }),
       { env: stripeEnv, fetchImpl },
     ),
-  ).toBeNull();
+  ).toEqual({ kind: "none" });
   expect(
     await resolveStripeStoreOrganizationId(
       makeEvent({
@@ -217,10 +217,13 @@ test("Stripe-store events resolve their org from the subscription binding", asyn
       }),
       { env: stripeEnv, fetchImpl },
     ),
-  ).toBeNull();
+  ).toEqual({ kind: "none" });
 });
 
-test("a failed Stripe lookup falls back rather than blocking the event", async () => {
+test("a failed or unconfigured Stripe lookup reads as an error, not a fallback", async () => {
+  // Falling back to the mutable subscriber attribute could attribute a
+  // multi-org buyer's event to the wrong organization AND claim the event id,
+  // making the misattribution permanent — the caller defers instead.
   const failingFetch = (async (
     _input: RequestInfo | URL,
     _init?: RequestInit,
@@ -233,5 +236,11 @@ test("a failed Stripe lookup falls back rather than blocking the event", async (
         fetchImpl: failingFetch,
       },
     ),
-  ).toBeNull();
+  ).toEqual({ kind: "error" });
+  expect(
+    await resolveStripeStoreOrganizationId(
+      makeEvent({ store: "STRIPE", original_transaction_id: "sub_1" }),
+      { env: {}, fetchImpl: failingFetch },
+    ),
+  ).toEqual({ kind: "error" });
 });
