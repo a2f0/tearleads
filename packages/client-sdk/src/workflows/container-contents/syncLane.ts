@@ -15,23 +15,6 @@ export {
 
 export type ContainerContentsSyncLane = SyncLane;
 
-function isTransientPrincipalPolicyCacheError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    /^Principal policy (group|organization):[^@]+@\d+ is not cached$/u.test(
-      error.message,
-    )
-  );
-}
-
-function reportUnexpectedContainerContentsSyncError(error: unknown): void {
-  if (isTransientPrincipalPolicyCacheError(error)) {
-    return;
-  }
-
-  console.error("Failed to run sync lane container-contents:", error);
-}
-
 export function registerContainerContentsSyncLane(input: {
   readonly domainScope: DomainScope;
   readonly run: () => Promise<void>;
@@ -40,7 +23,6 @@ export function registerContainerContentsSyncLane(input: {
     "container-contents",
     {
       label: "Container contents",
-      onUnexpectedError: reportUnexpectedContainerContentsSyncError,
       phase: "structural",
       run: input.run,
       shouldIgnoreError: isDatabaseUnavailableError,

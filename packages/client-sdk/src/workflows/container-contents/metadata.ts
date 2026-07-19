@@ -2,6 +2,7 @@ import { encodeVersionVector, importUpdates } from "@tearleads/loro";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import { isPrincipalPolicyNotCachedError } from "../../data/keyingProjectionVerification/principalPolicyVerification";
 import {
   CONTAINER_METADATA_APP_KIND,
   type ContainerContentsPersistence,
@@ -254,6 +255,18 @@ async function syncRemoteContainerMetadata(input: {
     if (isStaleContainerMetadataSecurityStateError(error)) {
       runtime.util.log(
         `Container contents: deferred metadata sync for ${containerId} because its content-key targets are stale.`,
+      );
+      return null;
+    }
+
+    // A cold principal-policy cache is transient: warming already ran and
+    // failed within this attempt, and a null return leaves the container's
+    // needing-sync/read state unsettled, so the next lane trigger retries it.
+    // Deferring per container keeps one cold policy from failing the whole
+    // structural pass (and from counting as a lane failure).
+    if (isPrincipalPolicyNotCachedError(error)) {
+      runtime.util.log(
+        `Container contents: deferred metadata sync for ${containerId} because a referenced principal policy is not cached yet.`,
       );
       return null;
     }
