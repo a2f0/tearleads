@@ -3,6 +3,10 @@ import type {
   DocumentSummary,
 } from "@tearleads/client-sdk";
 import { type ReactNode, useEffect, useMemo } from "react";
+import {
+  type AvatarUrlByContactId,
+  useContactAvatarUrls,
+} from "../../../document-types/contact/useContactAvatarUrls";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
 import { findCurrentSelfContactLocalId } from "../../../stores/contacts/contactLabels";
@@ -49,6 +53,7 @@ interface ExplorerModel {
   canPurgeSelectedDocument: boolean;
   canShareWithPeer: boolean;
   canUnlinkSelectedDocument: boolean;
+  contactAvatarUrlByLocalId: AvatarUrlByContactId;
   contextMenuState: ExplorerPanelState["contextMenuState"];
   consumeInitialDocumentEditing: ExplorerPanelState["consumeInitialDocumentEditing"];
   deleteDocument: ExplorerPanelState["deleteDocument"];
@@ -132,6 +137,14 @@ export function useExplorerModel(
   // never removes contacts, so it needs no Trash resolver.
   const contactsStore = useContactsStoreForContainer(contactsContainerId);
   const contactsSnapshot = useTearleadsExternalStoreSnapshot(contactsStore);
+  // Contact rows across the Explorer show the contact's avatar in place of the
+  // document-kind glyph, the same swap the Contacts mini-app's rows make. Only
+  // this container's contacts are loaded, so contact documents living elsewhere
+  // keep the glyph.
+  const contactAvatarUrlByLocalId = useContactAvatarUrls(
+    contactsSnapshot.entries,
+    appData.infra.blobStore,
+  );
   const currentSelfContactLocalId = useMemo(
     () =>
       findCurrentSelfContactLocalId(
@@ -204,6 +217,7 @@ export function useExplorerModel(
     mergeDocumentSummary,
     documentSummaries,
     documentListRevision,
+    contactAvatarUrlByLocalId,
     currentSelfContactLocalId,
     onDocumentLinksChanged: handleDocumentLinksChanged,
     onRetryDatabase,
@@ -317,6 +331,7 @@ export function useExplorerModel(
       contextMenuDocumentState.canPurgeContextMenuDocument,
     canShareWithPeer,
     consumeInitialDocumentEditing,
+    contactAvatarUrlByLocalId,
     contextMenuState,
     deleteDocument,
     purgeDocument,

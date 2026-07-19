@@ -19,6 +19,7 @@ import {
   MiniAppVirtualTableSpacerRow,
 } from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import { classNames } from "../../../../components/shared/classNames";
+import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
 import { useRoutedLayoutActive } from "../../../../navigation/useRoutedLayoutActive";
 import { useRoutedLayoutTier } from "../../../../navigation/useRoutedLayoutTier";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
@@ -92,6 +93,7 @@ function isExplorerContainerItemContextTarget(
 function ExplorerContainerItemTableRow(params: {
   columnIds: ReadonlyArray<ExplorerItemColumnId>;
   compact: boolean;
+  contactAvatarUrlByLocalId: AvatarUrlByContactId;
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
@@ -108,6 +110,7 @@ function ExplorerContainerItemTableRow(params: {
   const {
     columnIds,
     compact,
+    contactAvatarUrlByLocalId,
     currentSigningFingerprint,
     currentSelfContactLocalId,
     currentUserId,
@@ -120,6 +123,7 @@ function ExplorerContainerItemTableRow(params: {
   } = params;
   const cellContext: ExplorerItemCellContext = {
     compact,
+    contactAvatarUrlByLocalId,
     currentSigningFingerprint,
     currentSelfContactLocalId,
     currentUserId,
@@ -158,6 +162,7 @@ function isExplorerItemTableBlankContextTarget(
 function ExplorerContainerItemTableBody(params: {
   columnIds: ReadonlyArray<ExplorerItemColumnId>;
   compact: boolean;
+  contactAvatarUrlByLocalId: AvatarUrlByContactId;
   contextTarget: ExplorerContextMenuTarget | null;
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
@@ -178,6 +183,7 @@ function ExplorerContainerItemTableBody(params: {
   const {
     columnIds,
     compact,
+    contactAvatarUrlByLocalId,
     contextTarget,
     currentSigningFingerprint,
     currentSelfContactLocalId,
@@ -211,6 +217,7 @@ function ExplorerContainerItemTableBody(params: {
             key={getExplorerContainerItemRowKey(row)}
             columnIds={columnIds}
             compact={compact}
+            contactAvatarUrlByLocalId={contactAvatarUrlByLocalId}
             currentSigningFingerprint={currentSigningFingerprint}
             currentSelfContactLocalId={currentSelfContactLocalId}
             currentUserId={currentUserId}
@@ -246,6 +253,7 @@ function ExplorerContainerItemTableBody(params: {
 }
 
 interface ItemTableProps {
+  contactAvatarUrlByLocalId: AvatarUrlByContactId;
   contextTarget: ExplorerContextMenuTarget | null;
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
@@ -339,6 +347,7 @@ function useExplorerContainerItemTableColumns({
 
 export function ExplorerContainerItemTable(params: ItemTableProps) {
   const {
+    contactAvatarUrlByLocalId,
     contextTarget,
     currentSigningFingerprint,
     currentSelfContactLocalId,
@@ -405,6 +414,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
         <ExplorerContainerItemTableBody
           columnIds={columnIds}
           compact={compact}
+          contactAvatarUrlByLocalId={contactAvatarUrlByLocalId}
           contextTarget={contextTarget}
           currentSigningFingerprint={currentSigningFingerprint}
           currentSelfContactLocalId={currentSelfContactLocalId}

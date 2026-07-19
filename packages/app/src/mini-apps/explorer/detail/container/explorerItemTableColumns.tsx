@@ -13,6 +13,8 @@ import {
   type MiniAppTableColumn,
   MiniAppTableText,
 } from "../../../../components/mini-app/MiniAppTable";
+import { ContactAvatar } from "../../../../document-types/contact/ContactAvatar";
+import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/projectors";
 import { getDocumentTypeIcon } from "../../../../document-types/registry";
 import { getViewerRelativeContactDocumentLabel } from "../../../../stores/contacts/contactLabels";
@@ -21,6 +23,7 @@ import {
   formatMiniAppDateTime,
 } from "../../../../utils/formatMiniAppDate";
 import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
+import { getExplorerContactAvatarUrl } from "../../explorerContactAvatar";
 import { getExplorerContainerIcon } from "../../explorerContainerIcons";
 import { EXPLORER_LABELS } from "../../labels";
 import type { ExplorerItemColumnId } from "./explorerItemColumnIds";
@@ -166,6 +169,10 @@ export interface ExplorerItemCellContext {
   // Phone tier (useRoutedLayoutTier() === "mobile"): drives the date-only,
   // single-line rendering of the modified cell so the row height stays fixed.
   compact: boolean;
+  // Object URLs for contact avatars, keyed by the contact document's local id.
+  // Covers only contacts in the Explorer's contacts container; rows without an
+  // entry keep the document-kind glyph.
+  contactAvatarUrlByLocalId: AvatarUrlByContactId;
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
@@ -226,6 +233,14 @@ function ExplorerItemNameCell(ctx: ExplorerItemCellContext): ReactNode {
   const name = getExplorerContainerItemName(ctx);
   const itemIcon = getExplorerItemIcon(row);
   const ItemIcon = itemIcon.Icon;
+  const avatarUrl =
+    row.itemKind === "document"
+      ? getExplorerContactAvatarUrl(
+          row.documentKind,
+          row.localId,
+          ctx.contactAvatarUrlByLocalId,
+        )
+      : undefined;
   const openItem = () => {
     if (row.itemKind === "container") {
       ctx.setSelectedId(row.id);
@@ -258,15 +273,22 @@ function ExplorerItemNameCell(ctx: ExplorerItemCellContext): ReactNode {
         type="button"
       >
         <span className="explorer-item-name">
-          <ItemIcon
-            aria-hidden="true"
-            className="explorer-item-icon"
-            data-container-icon={itemIcon.containerIcon ?? undefined}
-            data-icon={itemIcon.name}
-            focusable="false"
-            size={16}
-            weight="regular"
-          />
+          {avatarUrl ? (
+            // ContactAvatar already sizes and shrink-proofs itself, and it
+            // deliberately skips the glyph classes' icon opacity — a dimmed
+            // photograph reads as disabled rather than as a leading glyph.
+            <ContactAvatar imageUrl={avatarUrl} size="small" />
+          ) : (
+            <ItemIcon
+              aria-hidden="true"
+              className="explorer-item-icon"
+              data-container-icon={itemIcon.containerIcon ?? undefined}
+              data-icon={itemIcon.name}
+              focusable="false"
+              size={16}
+              weight="regular"
+            />
+          )}
           <MiniAppTableText title={name}>{name}</MiniAppTableText>
         </span>
       </button>

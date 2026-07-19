@@ -8,7 +8,7 @@ interface ContactAvatarEntryLike {
   id: string;
 }
 
-type AvatarUrlByContactId = Readonly<Record<string, string>>;
+export type AvatarUrlByContactId = Readonly<Record<string, string>>;
 
 interface AvatarObjectUrlEntry {
   storageKey: string;

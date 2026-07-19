@@ -123,6 +123,7 @@ function renderExplorerDetailPanelWithBlobPick(
       canActivateLinkedContainer={appData.infra.dbStatus === "ready"}
       canMutateDocumentLinks={model.canMutateDocumentLinks}
       canShareWithPeer={model.canShareWithPeer}
+      contactAvatarUrlByLocalId={model.contactAvatarUrlByLocalId}
       contextTarget={model.contextMenuState.contextMenu?.id ?? null}
       currentOrganizationId={appData.auth.organizationId}
       currentSigningFingerprint={appData.crypto.signingFingerprint}

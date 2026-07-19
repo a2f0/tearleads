@@ -25,8 +25,13 @@ interface StructuredDocumentReadFieldDescriptor {
 }
 
 interface StructuredDocumentProps {
+  // Trailing file lists (scans, photos) — rendered below the fields.
   attachments?: ReactNode;
   fields: ReactNode;
+  // Identity media that heads the document, such as a contact's avatar.
+  // Distinct from `attachments` so it keeps the leading position the Contacts
+  // mini-app's detail panel gives it.
+  leading?: ReactNode;
   ready: boolean;
   syncing: boolean;
   title: string;
@@ -74,7 +79,7 @@ export function useStructuredDocumentEditing(
 }
 
 export function StructuredDocument(params: StructuredDocumentProps) {
-  const { attachments, fields, ready, syncing, title } = params;
+  const { attachments, fields, leading, ready, syncing, title } = params;
 
   return (
     <div className="structured-document">
@@ -86,6 +91,7 @@ export function StructuredDocument(params: StructuredDocumentProps) {
           </span>
         </div>
       </div>
+      {leading ?? null}
       {fields}
       {attachments ?? null}
     </div>

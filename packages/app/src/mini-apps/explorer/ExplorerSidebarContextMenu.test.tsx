@@ -48,6 +48,9 @@ const documentQueries: ContainerDocumentQueries = {
 const NO_ORGANIZATION_NAMES: ReadonlyMap<string, string> = new Map();
 // Same stability requirement for the per-container link-projection versions.
 const NO_CONTAINER_VERSIONS: ReadonlyMap<string, number> = new Map();
+// Stable identity, for the same reason as onRetryDatabase below: the sidebar
+// memoizes on this prop, so an inline literal would loop the registration.
+const NO_CONTACT_AVATAR_URLS: Readonly<Record<string, string>> = {};
 const TEST_MINI_APPS = {} as Readonly<Record<MiniAppId, MiniAppDefinition>>;
 
 function SidebarContextMenuHarness(params: {
@@ -82,6 +85,7 @@ function SidebarContextMenuHarness(params: {
   useExplorerSidebarPanel({
     activeContainerId: rootNode.id,
     collapsedIds,
+    contactAvatarUrlByLocalId: NO_CONTACT_AVATAR_URLS,
     currentSigningFingerprint: null,
     currentSelfContactLocalId: null,
     currentUserId: null,
