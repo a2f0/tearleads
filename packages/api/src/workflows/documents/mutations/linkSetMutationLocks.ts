@@ -19,7 +19,9 @@ type DocumentLinkSetMutationLockStep =
       readonly objectKind: "document";
     };
 
-function uniqueSortedContainerIds(containerIds: readonly string[]): string[] {
+export function uniqueSortedContainerIds(
+  containerIds: readonly string[],
+): string[] {
   if (containerIds.some((containerId) => !isUuidV4String(containerId))) {
     throw new DocumentMutationError("Document container id is invalid", 400);
   }

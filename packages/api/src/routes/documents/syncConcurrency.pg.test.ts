@@ -94,6 +94,33 @@ test.skipIf(!onPostgres)(
   30_000,
 );
 
+// The UUID guard on authorizing refs is code-level, so this pin runs on every
+// backend: a malformed container id must 400 before it reaches the uuid-typed
+// lock query, where it would surface as an uncaught SQLSTATE 22P02 500.
+test("sync rejects a malformed authorizing container id with 400", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const { request } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+
+  const response = await postDocumentSync(owner, created.id, {
+    ...request,
+    authorizingContainerPathRefs: [
+      [{ containerId: "not-a-uuid", manifestHash: "manifest-hash" }],
+    ],
+  });
+  expect(response.status).toBe(400);
+  expect(((await response.json()) as { error?: string }).error).toBe(
+    "Document container id is invalid",
+  );
+});
+
 // L2 regression (#1613): the sync write frontier must pin every authorizing
 // ancestor container head, not only the directly linked targets — an
 // unlocked ancestor lets a concurrent access mutation (e.g. a root revoke)
