@@ -15,106 +15,18 @@ import {
   renameContainerMetadataStateFromRuntime,
   syncContainerMetadataState,
 } from "./metadata";
+import {
+  createContainerContentsPersistence,
+  createContainerRecord,
+  createDocumentRecord,
+  metadataTestExecSql as execSql,
+} from "./metadata.testFixtures";
 
-const execSql: ExecSql = async () => [];
 const runtime = { infra: { execSql } };
 
 type PendingUpdateInput = Parameters<
   ContainerContentsPersistence["enqueuePendingUpdate"]
 >[1];
-
-function createContainerRecord(
-  input: Partial<ContainerRecord> & Pick<ContainerRecord, "id" | "parentId">,
-): ContainerRecord {
-  return {
-    effectiveAccessLevel: "admin",
-    icon: null,
-    metadataDocumentId: null,
-    name: "Stored container",
-    organizationId: "org-1",
-    ...input,
-  };
-}
-
-function createDocumentRecord(
-  input: Partial<ContainerDocumentRecord> & Pick<ContainerDocumentRecord, "id">,
-): ContainerDocumentRecord {
-  return {
-    accessEpoch: 1,
-    accessStateHash: null,
-    contentKeyBundle: null,
-    documentId: null,
-    documentKekTargets: null,
-    documentManifestBundle: null,
-    lastCommitLsn: null,
-    loroSnapshot: "",
-    ...input,
-  };
-}
-
-function createContainerContentsPersistence(input: {
-  pendingUpdates?: Array<{
-    execSql: ExecSql;
-    input: PendingUpdateInput;
-  }>;
-  savedContainers?: Array<{
-    container: ContainerRecord;
-    execSql: ExecSql;
-    record: ContainerDocumentRecord | null;
-  }>;
-}): ContainerContentsPersistence {
-  return {
-    async deleteContainer() {},
-    async deleteContainers() {},
-    async deletePendingUpdates() {},
-    async ensureSchema() {},
-    async enqueuePendingUpdate(receivedExecSql, pendingUpdate) {
-      input.pendingUpdates?.push({
-        execSql: receivedExecSql,
-        input: pendingUpdate,
-      });
-    },
-    async listPendingCreateIntents() {
-      return [];
-    },
-    async listPendingMoveIntents() {
-      return [];
-    },
-    async listUnsyncedMoveIntents() {
-      return [];
-    },
-    async listContainerIdsWithPendingUpdates() {
-      return [];
-    },
-    async rekeyPendingUpdate() {
-      return null;
-    },
-    async listPendingUpdates() {
-      return [];
-    },
-    async loadContainers() {
-      return [];
-    },
-    async markCreateIntentSynced() {},
-    async markMoveIntentSynced() {},
-    async recordCreateIntentError() {},
-    async recordMoveIntentError() {},
-    async reassignContainerDocuments() {},
-    async reconcileLocalRootContainer() {},
-    async reconcileLocalSystemContainer() {},
-    async saveContainer(receivedExecSql, container, record) {
-      input.savedContainers?.push({
-        container,
-        execSql: receivedExecSql,
-        record,
-      });
-      return container;
-    },
-    async saveContainerAndDeletePendingUpdates(_execSql, container) {
-      return container;
-    },
-  };
-}
 
 test("persistContainerMetadataStateFromRuntime uses the runtime executor", async () => {
   const container = createContainerRecord({

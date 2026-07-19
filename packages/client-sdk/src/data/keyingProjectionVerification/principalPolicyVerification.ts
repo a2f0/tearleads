@@ -43,6 +43,27 @@ function principalPolicyReferenceLabel(
   return `${reference.principalType}:${reference.principalId}@${reference.version}`;
 }
 
+/**
+ * A referenced principal policy is not in the local store and warming could
+ * not fetch it this pass — a transient cold-cache condition, typical for a
+ * member whose access arrives via a group policy the device has not hydrated
+ * yet. Sync passes discriminate on this type to defer the affected container
+ * and retry on a later trigger, rather than failing the whole pass.
+ */
+export class PrincipalPolicyNotCachedError extends Error {
+  constructor(referenceLabel: string) {
+    super(`Principal policy ${referenceLabel} is not cached`);
+    this.name = "PrincipalPolicyNotCachedError";
+  }
+}
+
+export function isPrincipalPolicyNotCachedError(error: unknown): boolean {
+  return (
+    error instanceof PrincipalPolicyNotCachedError ||
+    (error instanceof Error && error.name === "PrincipalPolicyNotCachedError")
+  );
+}
+
 async function collectPrincipalPolicySignerPublicKeys(input: {
   bundle: PrincipalPolicyBundleResponse;
   label: string;
@@ -301,7 +322,7 @@ async function verifyReferencedPrincipalPolicy(input: {
     );
   }
   if (!bundle) {
-    throw new Error(`Principal policy ${referenceLabel} is not cached`);
+    throw new PrincipalPolicyNotCachedError(referenceLabel);
   }
 
   const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
