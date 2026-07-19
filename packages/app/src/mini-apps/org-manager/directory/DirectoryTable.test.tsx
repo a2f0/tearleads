@@ -80,6 +80,32 @@ test("org manager directory table opens the row context menu from the touch keba
   expect(contextMenuUserIds).toEqual([rosterUser.userId]);
 });
 
+test("org manager directory columns menu rides the touch actions header", () => {
+  document.documentElement.setAttribute("data-navigation-mode", "routed");
+  const view = render(
+    <DirectoryTable
+      directory={directory}
+      loading={false}
+      openRosterUserContextMenu={() => undefined}
+      selectedUserId={null}
+      selectUser={() => undefined}
+    />,
+  );
+  const lastHeaderCell = Array.from(
+    view.container.querySelectorAll("thead th"),
+  ).at(-1);
+  const columnsButton = view.getByRole("button", {
+    name: ORG_MANAGER_LABELS.columns,
+  });
+
+  // The kebab column is the table's trailing edge here, so the trigger rides
+  // in its header instead of sitting one narrow column in from the edge.
+  expect(
+    lastHeaderCell?.classList.contains("mini-app-row-actions-column"),
+  ).toBe(true);
+  expect(lastHeaderCell?.contains(columnsButton)).toBe(true);
+});
+
 test("org manager directory kebab keeps keyboard activation off the row", () => {
   // Enter/Space on the focused kebab must not bubble to the row's onKeyDown and
   // navigate into the user detail instead of opening the kebab menu.

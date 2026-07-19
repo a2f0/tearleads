@@ -287,18 +287,24 @@ export const MiniAppTableActionButton = forwardRef<
 
 /**
  * The shared trailing "actions" (kebab) column definition — a narrow,
- * right-aligned column whose header carries only a visually-hidden label. Pair
- * with {@link MiniAppRowActionsCell} in each body row. Append it *after*
- * {@link addMiniAppTableHeaderAction} so a column-menu trigger stays on the last
- * data column instead of this narrow one.
+ * right-aligned column whose header carries a visually-hidden label. Pair with
+ * {@link MiniAppRowActionsCell} in each body row. When this column is present
+ * it is the table's trailing edge, so a column-menu trigger belongs in its
+ * header (pass it as `action`) rather than via
+ * {@link addMiniAppTableHeaderAction}, which would seat the trigger one column
+ * in from the edge on the last data column.
  */
 export function miniAppRowActionsColumn(
   headingLabel: string,
+  action?: ReactNode,
 ): MiniAppTableColumn {
   return {
     className: "mini-app-row-actions-column",
     header: (
-      <span className="mini-app-row-actions-heading">{headingLabel}</span>
+      <>
+        <span className="mini-app-row-actions-heading">{headingLabel}</span>
+        {action}
+      </>
     ),
     id: "actions",
     width: "var(--mini-app-row-actions-column-width, 2.25rem)",
