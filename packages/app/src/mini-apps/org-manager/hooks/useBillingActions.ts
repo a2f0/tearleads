@@ -29,7 +29,7 @@ import {
 import { useSubscribeAction } from "../billing/useSubscribeAction";
 import { ORG_MANAGER_LABELS } from "../labels";
 
-interface BillingActions {
+export interface BillingActions {
   readonly purchaseAvailable: boolean;
   readonly canSubscribe: boolean;
   readonly options: ReadonlyArray<SyncSubscriptionOption>;
@@ -312,6 +312,14 @@ export function useBillingActions({
   const cancelCheckout = useCallback(() => {
     cancelPurchaseRef.current?.();
   }, []);
+  // An embedded checkout must not outlive its host: when the buyer scope
+  // changes or the panel unmounts, cancel any in-flight purchase so an
+  // orphaned provider flow is not left running with no reachable UI.
+  useEffect(() => {
+    return () => {
+      cancelPurchaseRef.current?.();
+    };
+  }, [organizationId, userId]);
   const restore = useRestoreAction(
     currentScope,
     purchases,

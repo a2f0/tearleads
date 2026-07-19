@@ -140,6 +140,10 @@ async function purchaseForOrganization({
         ) {
           return;
         }
+        // The scope just got its entitlement, so a checkout the buyer started
+        // in the meantime can only duplicate it — dismiss it before
+        // reflecting the landed purchase.
+        cancelPurchaseRef.current?.();
         updateActionState(scope, (current) => ({
           ...current,
           activationPending: true,
