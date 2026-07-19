@@ -21,6 +21,7 @@ import {
   getExplorerSidebarItem,
   getExplorerWindowRoot,
   interact,
+  openWindowMenuDialog,
   POST_SHARE_NETWORK_IDLE_QUIET_MS,
   POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
   queryExplorerItemTable,
@@ -303,33 +304,12 @@ export async function createGroupAndAddPeer(
 ) {
   await openOrgManager(pane);
 
-  const fileMenu = within(pane).getByRole("menuitem", { name: "File" });
-  await interact(() => {
-    fireEvent.click(fileMenu);
+  const dialog = await openWindowMenuDialog({
+    dialogName: "New Group",
+    itemName: "New Group",
+    scope: pane,
+    timeoutMs: ORG_MANAGER_ADD_USER_TIMEOUT_MS,
   });
-  const newGroupItem = await within(pane).findByRole(
-    "menuitem",
-    { name: "New Group" },
-    { timeout: ORG_MANAGER_ADD_USER_TIMEOUT_MS },
-  );
-  invariant(
-    newGroupItem instanceof HTMLButtonElement,
-    "Expected new group menu item.",
-  );
-  await waitFor(
-    () => {
-      expect(newGroupItem.disabled).toBe(false);
-    },
-    { timeout: ORG_MANAGER_ADD_USER_TIMEOUT_MS },
-  );
-  await interact(() => {
-    fireEvent.click(newGroupItem);
-  });
-  const dialog = await within(pane).findByRole(
-    "dialog",
-    { name: "New Group" },
-    { timeout: ORG_MANAGER_ADD_USER_TIMEOUT_MS },
-  );
   const groupNameInput = within(dialog).getByLabelText("Group name");
   invariant(
     groupNameInput instanceof HTMLInputElement,
@@ -403,30 +383,11 @@ export async function createOrganizationGroup(
     await openOrgManager(pane);
   }
 
-  // Retry the whole menu sequence: an org-manager re-render under suite load
-  // can rebuild the File menu between finding the "New Group" item and the
-  // click landing, silently dropping the click. Clicking "File" again either
-  // reopens the menu or toggles a stale one closed for the next attempt.
-  let dialog: HTMLElement | null = null;
-  for (let attempt = 0; attempt < 5 && !dialog; attempt += 1) {
-    const fileMenu = within(pane).getByRole("menuitem", { name: "File" });
-    await interact(() => {
-      fireEvent.click(fileMenu);
-    });
-    const newGroupItem = within(pane).queryByRole("menuitem", {
-      name: "New Group",
-    });
-    if (!newGroupItem) {
-      continue;
-    }
-    await interact(() => {
-      fireEvent.click(newGroupItem);
-    });
-    dialog = await within(pane)
-      .findByRole("dialog", { name: "New Group" })
-      .catch(() => null);
-  }
-  invariant(dialog, "Expected the New Group dialog to open.");
+  const dialog = await openWindowMenuDialog({
+    dialogName: "New Group",
+    itemName: "New Group",
+    scope: pane,
+  });
   const groupNameInput = within(dialog).getByLabelText("Group name");
   invariant(
     groupNameInput instanceof HTMLInputElement,

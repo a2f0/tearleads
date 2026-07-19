@@ -42,6 +42,55 @@ export async function interact(operation: () => void): Promise<void> {
   });
 }
 
+/**
+ * Open a window-menu item that launches a dialog, retrying the whole sequence
+ * until the dialog mounts. A re-render under suite load can rebuild the menu
+ * between finding the item and the click landing — silently dropping the click
+ * on a detached node — and the item can render disabled until async state
+ * (e.g. org-manager permissions) loads. Re-clicking the menu either reopens it
+ * or toggles a stale one closed for the next attempt, and each attempt clicks
+ * a freshly queried, enabled item.
+ */
+export async function openWindowMenuDialog(input: {
+  dialogName: string;
+  itemName: string;
+  menuName?: string;
+  scope: HTMLElement;
+  timeoutMs?: number;
+}): Promise<HTMLElement> {
+  const menuName = input.menuName ?? "File";
+  const deadline = Date.now() + (input.timeoutMs ?? 10_000);
+  while (true) {
+    const menu = within(input.scope).queryByRole("menuitem", {
+      name: menuName,
+    });
+    if (menu) {
+      await interact(() => {
+        fireEvent.click(menu);
+      });
+      const item = within(input.scope).queryByRole("menuitem", {
+        name: input.itemName,
+      });
+      if (item instanceof HTMLButtonElement && !item.disabled) {
+        await interact(() => {
+          fireEvent.click(item);
+        });
+        const dialog = await within(input.scope)
+          .findByRole("dialog", { name: input.dialogName })
+          .catch(() => null);
+        if (dialog) {
+          return dialog;
+        }
+      }
+    }
+    invariant(
+      Date.now() < deadline,
+      `Expected the ${input.dialogName} dialog to open from the ${menuName} menu.`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
 function clickOpenPaneMenuItem(name: string) {
   const menu = document.body.querySelector<HTMLElement>(".menu");
   invariant(menu, "pane menu not found");
