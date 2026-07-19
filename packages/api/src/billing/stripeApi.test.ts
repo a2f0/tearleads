@@ -151,6 +151,8 @@ test("an existing incomplete subscription is resumed, not duplicated", async () 
     {
       body: {
         id: "sub_pending",
+        metadata: { userId: "user-1", orgId: "org-1" },
+        items: { data: [{ price: { id: "price_sync" } }] },
         latest_invoice: { payment_intent: { client_secret: "pi_resume" } },
       },
     },
@@ -167,6 +169,45 @@ test("an existing incomplete subscription is resumed, not duplicated", async () 
   // Search, then resume — never a create.
   expect(requests).toHaveLength(2);
   expect(requests[1]?.method).toBe("GET");
+});
+
+test("a stale pending checkout is cancelled and replaced, not resumed", async () => {
+  // The pending attempt belongs to a different buyer (e.g. a since-removed
+  // admin): resuming it would let the current admin pay a subscription whose
+  // entitlement grant then fails. Same handling for an obsolete price.
+  const { fetchImpl, requests } = fakeFetch([
+    { body: { data: [{ id: "sub_stale", status: "incomplete" }] } },
+    {
+      body: {
+        id: "sub_stale",
+        metadata: { userId: "user-gone", orgId: "org-1" },
+        items: { data: [{ price: { id: "price_old" } }] },
+        latest_invoice: { payment_intent: { client_secret: "pi_stale" } },
+      },
+    },
+    { body: { id: "sub_stale", status: "canceled" } },
+    {
+      body: {
+        id: "sub_fresh",
+        latest_invoice: { payment_intent: { client_secret: "pi_fresh" } },
+      },
+    },
+  ]);
+  const outcome = await createSyncSubscription(
+    { customerId: "cus_1", userId: "user-1", organizationId: "org-1" },
+    { env: ENV, fetchImpl },
+  );
+
+  expect(outcome).toEqual({
+    kind: "ready",
+    intent: { subscriptionId: "sub_fresh", clientSecret: "pi_fresh" },
+  });
+  expect(requests[2]?.method).toBe("DELETE");
+  expect(requests[2]?.url).toContain("/v1/subscriptions/sub_stale");
+  // The cancelled attempt rotates the create key so Stripe cannot replay it.
+  expect(requests[3]?.headers.get("Idempotency-Key")).toBe(
+    "sync-sub:org-1:price_sync:sub_stale",
+  );
 });
 
 test("a live subscription for the org refuses a second checkout", async () => {

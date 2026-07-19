@@ -101,7 +101,7 @@ export function isStripeCheckoutConfigured(deps: StripeApiDeps = {}): boolean {
 async function stripeRequest(input: {
   fetchImpl: typeof fetch;
   secretKey: string;
-  method: "GET" | "POST";
+  method: "GET" | "POST" | "DELETE";
   path: string;
   operation: string;
   form?: URLSearchParams;
@@ -233,6 +233,56 @@ export async function findOrCreateCustomer(
   return readString(prop(created, "id"));
 }
 
+/**
+ * Resolves an org's pending (incomplete) checkout: resumed when it still
+ * belongs to THIS buyer and the CURRENT price — a pending attempt by a since-
+ * removed admin would otherwise be paid by someone else and then fail its
+ * entitlement grant, and a pre-price-change attempt would charge the old
+ * amount. Anything stale is cancelled (nothing has been paid on an
+ * incomplete subscription) and replaced by a fresh create.
+ */
+async function resumePendingSubscription(input: {
+  subscriptionId: string;
+  userId: string;
+  syncPriceId: string;
+  fetchImpl: typeof fetch;
+  secretKey: string;
+}): Promise<
+  | { kind: "resumed"; intent: StripeCheckoutIntent }
+  | { kind: "conflict" }
+  | { kind: "replaced"; canceledSubscriptionId: string }
+> {
+  const { fetchImpl, secretKey } = input;
+  const pending = await stripeRequest({
+    fetchImpl,
+    secretKey,
+    method: "GET",
+    path:
+      `/v1/subscriptions/${encodeURIComponent(input.subscriptionId)}` +
+      "?expand[]=latest_invoice.payment_intent",
+    operation: "subscription resume",
+  });
+  const pendingUserId = readString(prop(prop(pending, "metadata"), "userId"));
+  const items = prop(prop(pending, "items"), "data");
+  const pendingPriceId = Array.isArray(items)
+    ? readString(prop(prop(items[0], "price"), "id"))
+    : null;
+  if (pendingUserId === input.userId && pendingPriceId === input.syncPriceId) {
+    const intent = parseCheckoutIntent(pending);
+    // A matching pending checkout whose intent cannot be read is in an
+    // unknown state; refusing beats risking a duplicate.
+    return intent ? { kind: "resumed", intent } : { kind: "conflict" };
+  }
+  await stripeRequest({
+    fetchImpl,
+    secretKey,
+    method: "DELETE",
+    path: `/v1/subscriptions/${encodeURIComponent(input.subscriptionId)}`,
+    operation: "subscription cancel",
+  });
+  return { kind: "replaced", canceledSubscriptionId: input.subscriptionId };
+}
+
 function parseCheckoutIntent(body: unknown): StripeCheckoutIntent | null {
   const subscriptionId = readString(prop(body, "id"));
   const clientSecret = readString(
@@ -312,21 +362,23 @@ export async function createSyncSubscription(
   if (candidate && candidate.status !== "incomplete") {
     return { kind: "conflict" };
   }
+  let rotationMarker = terminalAttemptId;
   if (candidate) {
-    // Resume the pending checkout instead of creating a parallel one.
-    const pending = await stripeRequest({
+    const resumed = await resumePendingSubscription({
+      subscriptionId: candidate.subscriptionId,
+      userId: input.userId,
+      syncPriceId,
       fetchImpl,
       secretKey,
-      method: "GET",
-      path:
-        `/v1/subscriptions/${encodeURIComponent(candidate.subscriptionId)}` +
-        "?expand[]=latest_invoice.payment_intent",
-      operation: "subscription resume",
     });
-    const intent = parseCheckoutIntent(pending);
-    // An incomplete subscription whose intent cannot be read is a pending
-    // checkout in an unknown state; refusing beats risking a duplicate.
-    return intent ? { kind: "ready", intent } : { kind: "conflict" };
+    if (resumed.kind !== "replaced") {
+      return resumed.kind === "resumed"
+        ? { kind: "ready", intent: resumed.intent }
+        : { kind: "conflict" };
+    }
+    // The stale pending attempt was cancelled; its id rotates the create key
+    // below so Stripe cannot replay it.
+    rotationMarker = resumed.canceledSubscriptionId;
   }
 
   const form = new URLSearchParams();
@@ -353,7 +405,7 @@ export async function createSyncSubscription(
     // subscription that Stripe's key retention still remembers.
     idempotencyKey:
       `sync-sub:${input.organizationId}:${syncPriceId}` +
-      `:${terminalAttemptId ?? "initial"}`,
+      `:${rotationMarker ?? "initial"}`,
   });
   const intent = parseCheckoutIntent(body);
   return intent ? { kind: "ready", intent } : null;
