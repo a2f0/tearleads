@@ -62,6 +62,7 @@
     "screenshots:seed": "bun packages/app/test/screenshot-seed/buildScreenshotSeed.ts",
     "test:bun": "bun run build:packages && bun run --filter='*' --sequential test",
     "test:openapi:compatibility": "sh scripts/checks/testOpenApiCompatibility.sh",
+    "test:postgres-concurrency": "sh scripts/checks/testPostgresConcurrency.sh",
     "test:protocol-conformance": "sh scripts/checks/testProtocolConformance.sh",
     "test:protocol-models": "sh scripts/checks/testProtocolModels.sh",
     "test:architecture": "bun scripts/testArchitecture.ts",
