@@ -20,18 +20,26 @@
 .org-manager-billing-checkout {
   margin-top: var(--space-sm);
   border-top: var(--border-strong);
-  /* The SDK's embedded layout root (#layout-query-container) declares
-     `container-type: size` with `height: 100%`, so it takes no height from
-     its contents — without a definite height here the whole checkout
-     collapses to 0px and only the sandbox banner (rendered outside that
-     container) is visible. */
-  height: min(600px, 70vh);
 }
 
-/* Pass the definite height through the per-attempt child the checkout
-   actually mounts into (see useSubscribeAction). */
-.org-manager-billing-checkout > div {
-  height: 100%;
+/* The SDK sizes its checkout for a fixed-height viewport: its root is
+   height:100% + overflow-y:auto, and #layout-query-container declares
+   `container-type: size` — which takes no height from its contents, so in an
+   auto-height host the checkout either collapses to 0px or (given a fixed
+   height) nests its own scrollbar inside the panel. Every @container rule
+   the SDK ships queries WIDTH only, so downgrading the containment to
+   inline-size keeps the responsive layout while letting height grow with the
+   content; the height/overflow overrides then hand scrolling back to the
+   panel, leaving a single scroll area. */
+.org-manager-billing-checkout .rcb-ui-container {
+  height: auto !important;
+  overflow-y: visible !important;
+}
+
+.org-manager-billing-checkout #layout-query-container {
+  container-type: inline-size !important;
+  height: auto !important;
+  overflow-y: visible !important;
 }
 
 /* The Cancel row itself is rendered (and removed) by BillingView based on the

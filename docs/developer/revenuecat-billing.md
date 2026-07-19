@@ -51,10 +51,13 @@ through `PurchasesCapability.purchaseSync({ checkoutHost })`, which the web
 backend forwards to the SDK's `purchase({ htmlTarget })`. Each purchase
 attempt actually mounts into its own child of that host, because the SDK
 empties its target element on teardown — a shared element would let an
-abandoned attempt settling late wipe a replacement checkout's UI. The host
-must have a **definite height** (`BillingCheckout.css`): the SDK's embedded
-layout root uses `container-type: size` with `height: 100%`, so it renders
-0px tall inside an auto-height container. If the host
+abandoned attempt settling late wipe a replacement checkout's UI. The SDK's embedded
+layout root sizes itself for a fixed-height viewport (`container-type: size`
+plus `height: 100%`/`overflow-y: auto`), which in an auto-height host either
+collapses to 0px or nests a second scrollbar; `BillingCheckout.css`
+downgrades the containment to `inline-size` (the SDK's container queries are
+width-only) and frees the heights so the checkout flows with the panel's own
+scroll. If the host
 is missing the SDK falls back to its fullscreen modal, and native (Capacitor)
 flows ignore the option entirely.
 
@@ -95,8 +98,12 @@ Styling comes from two layers:
 - **`BillingCheckout.css`** re-themes the embedded widget with the app's theme
   tokens by overriding the SDK's `--rc-*` custom properties (with
   `!important`, since the SDK inlines its branding). This keeps the checkout
-  in sync with Light/Dark. The card inputs are Stripe-hosted iframes and keep
-  Stripe's own field styling.
+  in sync with Light/Dark. The text inputs (email and card fields) are
+  **Stripe-hosted iframes** page CSS cannot reach: the SDK builds their
+  Stripe `appearance` from the dashboard branding (form background → input
+  background, shapes → radius, text colors derived from the background) and
+  hard-codes the font size and padding — so input colors are a dashboard
+  setting, and input row height/font size are not adjustable at all.
 
 ## Webhook (server)
 
