@@ -81,7 +81,7 @@ deleting the merged branch live in the `squash-merge` skill *around* this call �
 as does its `--keep-branch` flag, which the tool does not accept. Invoking the
 tool directly merges without any of that cleanup.
 
-## Ship (commit → review → repair → open/resume → merge)
+## Ship (commit → review → repair → open/resume → merge → reset)
 
 The `ship-pr` skill commits the work on a feature branch, hands it to
 `cross-agent-review` — which reviews the local commits (or the pushed head when a
@@ -89,9 +89,11 @@ PR is already open), repairs blocking findings in up to two rounds by default, a
 re-reviews every head it changes — then opens or resumes the PR with a single push
 and squash-merges only the reviewed commit that review reports back. Opening the
 PR after the review is what keeps the branch to a single push through the pre-push
-hook. It adds no new CLI action; it orchestrates the `open-pr`,
-`cross-agent-review`, and `squash-merge` skills. See `.claude/skills/ship-pr/` and
-`.codex/skills/ship-pr/`.
+hook. It finishes by handing off to `reset`, which returns the checkout to the
+default branch and reinstalls the repo's git hooks, so a merged change under
+`scripts/git/hooks/` takes effect instead of sitting uninstalled. It adds no new
+CLI action; it orchestrates the `open-pr`, `cross-agent-review`, `squash-merge`,
+and `reset` skills. See `.claude/skills/ship-pr/` and `.codex/skills/ship-pr/`.
 
 Review and repair are one unit, owned by `cross-agent-review`; `ship-pr` keeps
 only the merge gate (and `--merge-anyway` to override it). For a review that
