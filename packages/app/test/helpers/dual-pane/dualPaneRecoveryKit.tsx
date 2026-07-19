@@ -3,8 +3,10 @@ import { fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import { flattenPaneStatusText } from "../paneTestUtils";
 import {
+  getExplorerSidebarItem,
   interact,
   openIdentityManagerForPane,
+  queryExplorerItemTable,
   waitForSinglePaneProvisioning,
 } from "./dualPaneCore";
 
@@ -154,20 +156,28 @@ function getInfoRowTitle(pane: HTMLElement, label: string): string | null {
   );
 }
 
-export async function readPaneExplorerDocumentIdentity(
+async function openPaneExplorerDocumentInfo(
   pane: HTMLElement,
   itemLabel: string,
 ): Promise<PaneExplorerDocumentIdentity> {
-  const itemTable = within(pane).getByRole("table", {
-    name: /^Items in /u,
-  });
-  const itemButton = within(itemTable).getByRole("button", {
-    name: itemLabel,
-  });
-  const itemRow = itemButton.closest("tr");
-  if (!itemRow) {
-    throw new Error(`Expected an Explorer row for ${itemLabel}.`);
-  }
+  // Acquire the row inside waitFor: remote hydration re-renders can unmount
+  // the item table for a frame between the caller's checks and this read.
+  const itemRow = await waitFor(
+    () => {
+      const itemTable = within(pane).getByRole("table", {
+        name: /^Items in /u,
+      });
+      const itemButton = within(itemTable).getByRole("button", {
+        name: itemLabel,
+      });
+      const row = itemButton.closest("tr");
+      if (!row) {
+        throw new Error(`Expected an Explorer row for ${itemLabel}.`);
+      }
+      return row;
+    },
+    { timeout: 10_000 },
+  );
   await interact(() => {
     fireEvent.contextMenu(itemRow);
   });
@@ -209,4 +219,53 @@ export async function readPaneExplorerDocumentIdentity(
     },
     { timeout: 10_000 },
   );
+}
+
+export async function readPaneExplorerDocumentIdentity(
+  pane: HTMLElement,
+  itemLabel: string,
+  options: {
+    /**
+     * Re-open the Info panel until it shows this remote document id. The panel
+     * is a point-in-time read: without polling, the first render races a peer
+     * whose discovery adoption stamps the id onto the row moments later, and
+     * the already-open panel never refreshes to show it. Requires
+     * `containerName`: re-opening Get Info on the same route preserves the
+     * mounted panel (context-menu Get Info does not select the document, so
+     * the loader identity never changes) — each retry must first navigate back
+     * to the container so the next open remounts the panel and reloads.
+     */
+    expectedDocumentId?: string | undefined;
+    containerName?: string | undefined;
+  } = {},
+): Promise<PaneExplorerDocumentIdentity> {
+  if (options.expectedDocumentId === undefined) {
+    return openPaneExplorerDocumentInfo(pane, itemLabel);
+  }
+  const { containerName } = options;
+  invariant(
+    containerName,
+    "expectedDocumentId polling requires containerName to remount the Info panel between reads.",
+  );
+
+  const deadline = Date.now() + 20_000;
+  while (true) {
+    const identity = await openPaneExplorerDocumentInfo(pane, itemLabel);
+    if (
+      identity.documentId === options.expectedDocumentId ||
+      Date.now() > deadline
+    ) {
+      // On timeout, return the mismatch so the caller's assertion reports it.
+      return identity;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    // Navigate back to the container view so the info route unmounts and the
+    // next Get Info performs a fresh load instead of reusing the stale panel.
+    await interact(() => {
+      fireEvent.click(getExplorerSidebarItem(pane, containerName));
+    });
+    await waitFor(() => {
+      expect(queryExplorerItemTable(pane)).toBeTruthy();
+    });
+  }
 }

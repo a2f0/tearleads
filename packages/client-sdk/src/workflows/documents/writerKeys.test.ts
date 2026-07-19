@@ -6,6 +6,7 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
+import { DatabaseUnavailableError } from "../../data/databaseUnavailable";
 import { createDocumentWriterPublicKeyResolver } from "./writerKeys";
 
 function createWriteHeader(input: {
@@ -144,6 +145,38 @@ test("createDocumentWriterPublicKeyResolver logs a writer fingerprint mismatch",
   expect(logs).toEqual([
     "Documents: skipped writer key for user-2 because the signing fingerprint does not match the writer.",
   ]);
+});
+
+test("createDocumentWriterPublicKeyResolver preserves database-unavailable errors", async () => {
+  // A vanished database must keep its type so sync lanes classify the run as
+  // benign infrastructure loss; nulling it here would resurface downstream as a
+  // generic "writer public key missing" failure that kills the lane.
+  const unavailableError = new DatabaseUnavailableError(
+    "Trusted user identity resolution requires a ready SQLite trust store",
+  );
+  const logs: string[] = [];
+  const resolver = createDocumentWriterPublicKeyResolver({
+    logPrefix: "Documents",
+    runtime: {
+      resolveTrustedUserIdentity: async () => {
+        throw unavailableError;
+      },
+      util: { log: (message) => logs.push(message) },
+    },
+    writerKeyLabel: "writer key",
+  });
+
+  await expect(
+    resolver({
+      authorFingerprint: "fingerprint",
+      header: createWriteHeader({
+        authorFingerprint: "fingerprint",
+        writerUserId: "user-2",
+      }),
+      update: {} as never,
+    }),
+  ).rejects.toBe(unavailableError);
+  expect(logs).toEqual([]);
 });
 
 test("createDocumentWriterPublicKeyResolver preserves identity integrity errors", async () => {
