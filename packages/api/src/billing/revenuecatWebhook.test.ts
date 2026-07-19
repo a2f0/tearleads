@@ -244,3 +244,33 @@ test("a failed or unconfigured Stripe lookup reads as an error, not a fallback",
     ),
   ).toEqual({ kind: "error" });
 });
+
+test("Stripe-store grants fall back to transaction_id for the subscription", () => {
+  const stripeGrant = classifyRevenueCatEvent(
+    makeEvent({
+      store: "STRIPE",
+      original_transaction_id: null,
+      transaction_id: "sub_only",
+    }),
+    ACTIVE_GRANT_NOW,
+  );
+  // Without the fallback the billing row would store no subscription id and
+  // the Billing Portal could never resolve this org's subscription.
+  expect(
+    stripeGrant.kind === "grant" && stripeGrant.fields.providerSubscriptionId,
+  ).toBe("sub_only");
+
+  // Other stores keep the canonical original transaction id semantics.
+  const appStoreGrant = classifyRevenueCatEvent(
+    makeEvent({
+      store: "APP_STORE",
+      original_transaction_id: null,
+      transaction_id: "1000000",
+    }),
+    ACTIVE_GRANT_NOW,
+  );
+  expect(
+    appStoreGrant.kind === "grant" &&
+      appStoreGrant.fields.providerSubscriptionId,
+  ).toBeNull();
+});

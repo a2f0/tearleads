@@ -214,7 +214,15 @@ export function classifyRevenueCatEvent(
         status: "active",
         provider: REVENUECAT_PROVIDER,
         providerCustomerId: event.app_user_id,
-        providerSubscriptionId: event.original_transaction_id ?? null,
+        // Stripe-store events may carry the subscription id only in
+        // `transaction_id`; without the fallback the billing row would store
+        // no subscription id and the Billing Portal could never resolve the
+        // org's subscription. Other stores keep the canonical original id.
+        providerSubscriptionId:
+          event.original_transaction_id ??
+          (event.store?.toUpperCase() === "STRIPE"
+            ? (event.transaction_id ?? null)
+            : null),
         providerProductId: event.product_id ?? null,
         providerTransactionId: event.transaction_id ?? null,
         entitlementId: resolveEntitlementId(event),

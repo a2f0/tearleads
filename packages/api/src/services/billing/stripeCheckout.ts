@@ -140,7 +140,10 @@ export async function createStripePortalUrl(
     providerSubscriptionId,
     deps.stripe ?? {},
   );
-  if (!binding?.customerId) {
+  // The subscription must be explicitly bound to THIS org: a legacy or
+  // foreign subscription (no/other orgId metadata) may live on a pooled
+  // customer whose portal would expose unrelated organizations' billing.
+  if (!binding?.customerId || binding.organizationId !== organizationId) {
     return null;
   }
   return createPortalSession(
