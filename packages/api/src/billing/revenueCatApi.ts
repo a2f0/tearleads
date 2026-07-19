@@ -91,11 +91,14 @@ function parseSubscriptionPage(body: unknown): {
  * manage page to fix billing), never another org's. Only when the org has NO
  * stored reference does it fall back to the sole access-giving subscription,
  * returning null when several are ambiguous — so an admin is never sent to a
- * different organization's manage page.
+ * different organization's manage page. `complete` reports whether the whole
+ * subscription list was retrieved; that fallback is skipped on a partial list,
+ * which could otherwise hide a second subscription and make one look sole.
  */
 function pickManagementUrl(
   subscriptions: readonly ResolvedSubscription[],
   ref: OrganizationSubscriptionRef,
+  complete: boolean,
 ): string | null {
   const storeIds = [ref.subscriptionId, ref.transactionId].filter(
     (value): value is string => typeof value === "string" && value.length > 0,
@@ -114,7 +117,12 @@ function pickManagementUrl(
 
   // No stored reference (e.g. a legacy billing row written before these ids
   // were persisted): fall back to the sole access-giving subscription; with
-  // several and nothing to disambiguate, do not guess.
+  // several and nothing to disambiguate, do not guess. Only a fully-retrieved
+  // list is safe to reduce to a "sole" subscription — a partial list could omit
+  // another org's subscription and make one look sole.
+  if (!complete) {
+    return null;
+  }
   const accessGiving = subscriptions.filter(
     (subscription) => subscription.givesAccess,
   );
@@ -123,13 +131,18 @@ function pickManagementUrl(
     : null;
 }
 
-/** Fetches every subscription page for a customer (bounded, per-request timeout). */
+/**
+ * Fetches every subscription page for a customer (bounded, per-request timeout).
+ * `complete` is true only when the ENTIRE list was read — false on a mid-request
+ * failure or when the page cap was hit with pages remaining — so a caller does
+ * not treat a partial list as the customer's full set of subscriptions.
+ */
 async function fetchCustomerSubscriptions(
   appUserId: string,
   projectId: string,
   secretKey: string,
   fetchImpl: typeof fetch,
-): Promise<ResolvedSubscription[]> {
+): Promise<{ subscriptions: ResolvedSubscription[]; complete: boolean }> {
   const headers = {
     Authorization: `Bearer ${secretKey}`,
     Accept: "application/json",
@@ -139,27 +152,30 @@ async function fetchCustomerSubscriptions(
     `/customers/${encodeURIComponent(appUserId)}/subscriptions`;
   const subscriptions: ResolvedSubscription[] = [];
 
-  for (let page = 0; page < MAX_SUBSCRIPTION_PAGES && path; page++) {
+  for (let page = 0; page < MAX_SUBSCRIPTION_PAGES; page++) {
     const response = await fetchImpl(`${REVENUECAT_API_ORIGIN}${path}`, {
       headers,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!response.ok) {
-      // 404 = no such customer (nothing to manage). Any other non-2xx is an
-      // unexpected provider/auth error worth logging; either way, use only the
-      // pages already collected.
+      // 404 = no such customer: an empty but COMPLETE result. Any other non-2xx
+      // is a provider/auth error worth logging and leaves the list incomplete.
       if (response.status !== 404) {
         console.error(
           `RevenueCat management URL lookup failed with status ${response.status}`,
         );
       }
-      break;
+      return { subscriptions, complete: response.status === 404 };
     }
     const parsed = parseSubscriptionPage(await response.json());
     subscriptions.push(...parsed.subscriptions);
+    if (!parsed.nextPage) {
+      return { subscriptions, complete: true };
+    }
     path = parsed.nextPage;
   }
-  return subscriptions;
+  // Reached the page cap with pages still remaining: an incomplete list.
+  return { subscriptions, complete: false };
 }
 
 /**
@@ -184,13 +200,13 @@ export async function fetchRevenueCatManagementUrl(
   }
 
   try {
-    const subscriptions = await fetchCustomerSubscriptions(
+    const { subscriptions, complete } = await fetchCustomerSubscriptions(
       appUserId,
       projectId,
       secretKey,
       fetchImpl,
     );
-    return pickManagementUrl(subscriptions, ref);
+    return pickManagementUrl(subscriptions, ref, complete);
   } catch (error) {
     console.error("RevenueCat management URL lookup errored:", error);
     return null;
