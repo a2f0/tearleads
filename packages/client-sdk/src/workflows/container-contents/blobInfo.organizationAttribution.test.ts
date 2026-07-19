@@ -159,6 +159,13 @@ test("listBlobInfo keeps org attribution after the container is removed", async 
         info.rows.map((row) => [row.blobId, row.organizationId]),
       ),
     ).toEqual({ "shared-blob": "peer-org" });
+    // Searching by the retained org must match the displayed attribution.
+    await expect(
+      listBlobInfo({ execSql, query: "PEER-ORG" }),
+    ).resolves.toMatchObject({
+      totalCount: 1,
+      rows: [{ organizationId: "peer-org" }],
+    });
   } finally {
     close();
   }

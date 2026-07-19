@@ -127,6 +127,10 @@ export interface ContainerContentsStore {
     trashContainerId: string,
     options?: PurgeOptions,
   ) => Promise<boolean>;
+  // Drop a container from the live tree state without touching persistence or
+  // the server — the eviction step after a write-queue discard, whose workflow
+  // already deleted the SQLite rows. Resolves false when the id is not present.
+  evictContainer: (containerId: string) => Promise<boolean>;
   prepareGroupRewrap: (
     containerId: string,
     groupId: string,

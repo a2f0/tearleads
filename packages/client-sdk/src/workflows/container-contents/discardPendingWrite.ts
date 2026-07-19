@@ -5,7 +5,7 @@ import {
   deleteDocumentPendingUpdates,
   deleteDocumentRecord,
 } from "../../data/sqlite/documentPersistence";
-import { documentMoveIntents } from "../../data/sqlite/schema";
+import { containers, documentMoveIntents } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -23,6 +23,44 @@ interface DiscardPendingWriteInput {
   readonly objectKind: PendingWriteQueueObjectKind;
 }
 
+// A container may only be discarded when doing so cannot corrupt the local
+// hierarchy or reach beyond local state: never a root, never an app-managed
+// system container, never a parent (children would become orphan roots — the
+// containers table has no cascade), and never a server-synced container (its
+// row is shared state; only its never-synced local intents are safe to drop
+// this way). A missing row is discardable: only stray intent/queue rows remain.
+async function canDiscardContainer(
+  execSql: ExecSql,
+  containerId: string,
+): Promise<boolean> {
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const [container] = await db
+    .select({
+      parentId: containers.parentId,
+      serverCreatedAt: containers.serverCreatedAt,
+      systemSlot: containers.systemSlot,
+    })
+    .from(containers)
+    .where(eq(containers.id, containerId))
+    .limit(1);
+  if (!container) {
+    return true;
+  }
+  if (
+    container.parentId === null ||
+    container.systemSlot !== null ||
+    container.serverCreatedAt !== null
+  ) {
+    return false;
+  }
+  const children = await db
+    .select({ id: containers.id })
+    .from(containers)
+    .where(eq(containers.parentId, containerId))
+    .limit(1);
+  return children.length === 0;
+}
+
 /**
  * Drop a write-queue item by discarding the object's local sync state, never by
  * deleting queue rows in isolation. A pending update's ops already live in the
@@ -35,27 +73,32 @@ interface DiscardPendingWriteInput {
  *   never-synced document is simply gone; a synced one is re-discovered from
  *   the server and re-materializes with server state — i.e. the local edits are
  *   reverted, not stranded.
- * - `container`: delete the local container, which also drops its create/move
- *   intents, metadata document + pending updates, watermarks, and repairs
- *   member document projections. A server-side container re-hydrates on the
- *   next structural pass.
+ * - `container`: delete the local container — only when it is a never-synced,
+ *   childless, non-system, non-root container (see `canDiscardContainer`) —
+ *   which also drops its create/move intents, metadata document + pending
+ *   updates, watermarks, and repairs member document projections.
  * - `unknown` namespaces: drop the scope's pending updates, stored row, and
  *   recorded failure.
  *
- * Callers own store/projection notification (e.g. emitting the persisted
- * document deletion so an open store tears down instead of resurrecting the
- * record on its next persist).
+ * Resolves `false` when the item was rejected (a container failing the guard)
+ * and nothing was changed. Callers own store/projection notification (e.g.
+ * emitting the persisted document deletion so an open store tears down instead
+ * of resurrecting the record on its next persist, and evicting a discarded
+ * container from the live tree store).
  */
 export async function discardPendingWrite(
   input: DiscardPendingWriteInput,
-): Promise<void> {
+): Promise<boolean> {
   const { execSql, localId } = input;
 
   if (input.objectKind === "container") {
+    if (!(await canDiscardContainer(execSql, localId))) {
+      return false;
+    }
     await defaultContainerContentsPersistence.deleteContainers(execSql, [
       localId,
     ]);
-    return;
+    return true;
   }
 
   if (input.objectKind === "document") {
@@ -71,14 +114,15 @@ export async function discardPendingWrite(
         .where(eq(documentMoveIntents.localId, localId))
         .run();
     });
-    return;
+    return true;
   }
 
   const scope = { appKind: input.namespace ?? "", localId };
   if (scope.appKind.length === 0) {
-    return;
+    return false;
   }
   await deleteDocumentPendingUpdates(execSql, scope);
   await clearDocumentSyncFailure(execSql, scope);
   await deleteDocumentRecord(execSql, scope);
+  return true;
 }

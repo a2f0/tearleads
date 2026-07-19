@@ -200,3 +200,84 @@ test("discarding an unknown-namespace write drops its queue rows and record", as
     close();
   }
 });
+
+async function saveGuardContainer(input: {
+  execSql: ExecSql;
+  id: string;
+  parentId: string | null;
+  synced?: boolean;
+  systemSlot?: string;
+}): Promise<void> {
+  await defaultContainerContentsPersistence.saveContainer(
+    input.execSql,
+    {
+      effectiveAccessLevel: "admin",
+      icon: null,
+      id: input.id,
+      metadataDocumentId: input.synced ? `metadata-${input.id}` : null,
+      name: input.id,
+      organizationId: "organization-a",
+      parentId: input.parentId,
+      ...(input.systemSlot ? { systemSlot: input.systemSlot } : {}),
+    },
+    null,
+    {
+      localUpdatedAt: T0,
+      ...(input.synced
+        ? { serverTimestamps: { createdAt: T0, updatedAt: T0 } }
+        : {}),
+    },
+  );
+}
+
+test("container discard refuses roots, parents, and synced containers", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "discard-pending-write-container-guards",
+  );
+  try {
+    await listPendingWrites(execSql);
+    await saveGuardContainer({ execSql, id: "root-container", parentId: null });
+    await saveGuardContainer({
+      execSql,
+      id: "parent-container",
+      parentId: "root-container",
+    });
+    await saveGuardContainer({
+      execSql,
+      id: "child-container",
+      parentId: "parent-container",
+    });
+    await saveGuardContainer({
+      execSql,
+      id: "synced-container",
+      parentId: "root-container",
+      synced: true,
+    });
+
+    const discard = (localId: string) =>
+      discardPendingWrite({
+        documentProjectors: defaultDocumentProjectorRegistry,
+        execSql,
+        localId,
+        namespace: null,
+        objectKind: "container",
+      });
+
+    // A root, a parent with children, and a server-synced container must all
+    // be rejected: deleting them would orphan children or drop shared state.
+    expect(await discard("root-container")).toBe(false);
+    expect(await discard("parent-container")).toBe(false);
+    expect(await discard("synced-container")).toBe(false);
+    expect(
+      (await execSql("SELECT id FROM containers ORDER BY id")).length,
+    ).toBe(4);
+
+    // A never-synced leaf is discardable.
+    expect(await discard("child-container")).toBe(true);
+    expect(
+      (await execSql("SELECT id FROM containers ORDER BY id")).length,
+    ).toBe(3);
+  } finally {
+    close();
+  }
+});

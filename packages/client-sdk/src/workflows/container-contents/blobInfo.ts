@@ -128,7 +128,11 @@ function createPendingBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
         || CHAR(0) || COALESCE(${documentProjection.documentId}, '')
         || CHAR(0) || COALESCE(${documentProjection.title}, '')
         || CHAR(0) || COALESCE(${documentProjection.containerId}, '')
-        || CHAR(0) || COALESCE(${containers.organizationId}, '')
+        || CHAR(0) || COALESCE(
+          NULLIF(${containers.organizationId}, ''),
+          NULLIF(${documentProjection.organizationId}, ''),
+          ''
+        )
         || CHAR(0) || COALESCE(${documentPendingAttachments.slotId}, '')
       )`.as("search_text"),
       slotId: documentPendingAttachments.slotId,
@@ -181,7 +185,11 @@ function createLocalBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
         || CHAR(0) || COALESCE(${documentProjection.documentId}, '')
         || CHAR(0) || COALESCE(${documentProjection.title}, '')
         || CHAR(0) || COALESCE(${documentProjection.containerId}, '')
-        || CHAR(0) || COALESCE(${containers.organizationId}, '')
+        || CHAR(0) || COALESCE(
+          NULLIF(${containers.organizationId}, ''),
+          NULLIF(${documentProjection.organizationId}, ''),
+          ''
+        )
         || CHAR(0) || COALESCE(${documentAttachmentBlobProjection.slotId}, '')
       )`.as("search_text"),
       slotId: documentAttachmentBlobProjection.slotId,

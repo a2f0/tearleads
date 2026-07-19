@@ -272,7 +272,15 @@ export async function submitDocumentSyncAttemptIfAllowed(
     return "stop";
   }
 
-  return submitDocumentSyncAttempt(submissionInput);
+  return submitDocumentSyncAttempt({
+    ...submissionInput,
+    // A read-only pass carries no writes, so a terminal failure describes a
+    // pull, not queued local data — recording it would flag the next local
+    // edit as failed before it was ever attempted.
+    onTerminalSubmitFailure: hasRemoteWrites
+      ? submissionInput.onTerminalSubmitFailure
+      : undefined,
+  });
 }
 
 export async function resolveDocumentSyncWriterProjection(input: {
