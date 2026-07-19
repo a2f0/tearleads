@@ -1,11 +1,15 @@
 import { encodeVersionVector } from "@tearleads/loro";
 import { isDocumentUpdateCreatedEvent } from "../../../data/documentSync";
 import {
+  clearDocumentSyncFailure,
   createDocumentWriterPublicKeyResolver,
+  DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type DocumentSyncLane,
   deletePersistedDocument,
+  describeDocumentSyncSubmitFailure,
   type PendingUpdateRecord,
+  recordDocumentSyncFailure,
   registerDocumentSyncLane,
   resolveDocumentCreateAuthor,
   settleOutgoingPassAndDecideReArm,
@@ -104,6 +108,16 @@ async function requestRemoteDocumentSync(input: {
     localVersionVector: encodeVersionVector(currentDoc),
     minLsn: currentRecord.lastCommitLsn ?? undefined,
     onRemoteDocumentDeleted: () => deleteUpstreamDeletedDocument(state),
+    onTerminalSubmitFailure: (failure) =>
+      recordDocumentSyncFailure(
+        state.runtime.infra.execSql,
+        { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+        {
+          attemptedAt: new Date().toISOString(),
+          message: describeDocumentSyncSubmitFailure(failure),
+          status: failure.status,
+        },
+      ),
     pendingUpdates,
     persistedState: currentRecord,
     rekeyPendingUpdate: state.persistence.rekeyPendingUpdate,
@@ -125,6 +139,13 @@ async function requestRemoteDocumentSync(input: {
   if (!synced) {
     return null;
   }
+
+  // The pass submitted successfully, so any recorded terminal failure for this
+  // document no longer describes reality (e.g. write access was restored).
+  await clearDocumentSyncFailure(state.runtime.infra.execSql, {
+    appKind: DOCUMENTS_APP_KIND,
+    localId: state.localId,
+  });
 
   return {
     outgoingUpdateCount: pendingUpdates.length,

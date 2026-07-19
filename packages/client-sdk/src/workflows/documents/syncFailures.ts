@@ -24,6 +24,28 @@ export type RemoteDocumentDeletionHandler = (input: {
   readonly documentId: string;
 }) => Promise<void> | void;
 
+/**
+ * Invoked when a submission fails terminally — the failure is neither a
+ * retryable conflict nor a recoverable update-id conflict, so the sync pass
+ * stops and the pending writes stay queued (e.g. a 403 after write access was
+ * revoked). Callers persist the failure so the write queue can surface it.
+ */
+export type TerminalSubmitFailureHandler = (
+  failure: DocumentSyncSubmitFailure,
+) => Promise<void> | void;
+
+/** Human-readable description of a terminal submit failure for queue display. */
+export function describeDocumentSyncSubmitFailure(
+  failure: Pick<DocumentSyncSubmitFailure, "message" | "status">,
+): string {
+  if (failure.status === 403) {
+    return "Write access denied by the server (403)";
+  }
+  const message =
+    failure.message.trim().length > 0 ? failure.message.trim() : "Sync failed";
+  return failure.status === null ? message : `${message} (${failure.status})`;
+}
+
 type DocumentWriterProjectionResolution =
   | DocumentWriterProjectionResponse
   | typeof REMOTE_DOCUMENT_DELETED
@@ -158,6 +180,7 @@ async function resolveFailedDocumentSyncAction(input: {
   failure: DocumentSyncSubmitFailure;
   maxAttempts: number;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
+  onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
 }): Promise<FailedDocumentSyncAction> {
   if (
@@ -197,6 +220,7 @@ async function resolveFailedDocumentSyncAction(input: {
   }
 
   input.failure.report();
+  await input.onTerminalSubmitFailure?.(input.failure);
   return "stop";
 }
 
@@ -206,6 +230,7 @@ async function submitDocumentSyncAttempt(input: {
   documentId: string;
   maxAttempts: number;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
+  onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
   plan: DocumentSyncPlan;
 }): Promise<DocumentSyncAttemptSubmission> {
@@ -229,6 +254,7 @@ async function submitDocumentSyncAttempt(input: {
     failure: submitted,
     maxAttempts: input.maxAttempts,
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
+    onTerminalSubmitFailure: input.onTerminalSubmitFailure,
     pendingUpdates: input.pendingUpdates,
   });
 }
@@ -246,12 +272,27 @@ export async function submitDocumentSyncAttemptIfAllowed(
     return "stop";
   }
 
-  return submitDocumentSyncAttempt(submissionInput);
+  return submitDocumentSyncAttempt({
+    ...submissionInput,
+    // A read-only pass carries no writes, so a terminal failure describes a
+    // pull, not queued local data — recording it would flag the next local
+    // edit as failed before it was ever attempted.
+    onTerminalSubmitFailure: hasRemoteWrites
+      ? submissionInput.onTerminalSubmitFailure
+      : undefined,
+  });
 }
 
 export async function resolveDocumentSyncWriterProjection(input: {
   apiClient: DocumentSyncApi;
   documentId: string;
+  /**
+   * Invoked when the projection fetch fails terminally. Write-bearing sync
+   * passes persist this: without a writer projection their queued writes can
+   * never submit, so the failure (e.g. a 403 after access revocation) is what
+   * the write queue should surface.
+   */
+  onTerminalFailure?: TerminalSubmitFailureHandler | undefined;
   reusableWriterProjection: DocumentWriterProjectionResponse | null;
 }): Promise<DocumentWriterProjectionResolution> {
   if (input.reusableWriterProjection) {
@@ -271,6 +312,7 @@ export async function resolveDocumentSyncWriterProjection(input: {
     }
 
     result.report();
+    await input.onTerminalFailure?.(result);
     return null;
   }
 

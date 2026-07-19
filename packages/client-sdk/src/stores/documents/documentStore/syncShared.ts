@@ -1,7 +1,10 @@
 import { deriveStableDocumentId } from "../../../data/documents/shared/stableDocumentId";
 import {
   createRemoteDocument,
+  DOCUMENTS_APP_KIND,
   type DocumentRecord,
+  describeDocumentSyncSubmitFailure,
+  recordDocumentSyncFailure,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
@@ -47,6 +50,16 @@ export async function ensureRemoteDocument(
     documentId: await deriveStableDocumentId(state.localId),
     execSql: state.runtime.infra.execSql,
     isRemoteSyncBlocked: state.runtime.util.isRemoteSyncBlocked,
+    onTerminalSubmitFailure: (failure) =>
+      recordDocumentSyncFailure(
+        state.runtime.infra.execSql,
+        { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+        {
+          attemptedAt: new Date().toISOString(),
+          message: describeDocumentSyncSubmitFailure(failure),
+          status: failure.status,
+        },
+      ),
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(

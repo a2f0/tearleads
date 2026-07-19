@@ -26,7 +26,10 @@ const DEFERRED_TAIL_CANDIDATE_SQL = `
     ) AS latest_pending_end_version,
     document_projection.title AS document_name,
     document_projection.container_id AS document_container_id,
-    NULLIF(document_container.organization_id, '') AS document_organization_id,
+    COALESCE(
+      NULLIF(document_container.organization_id, ''),
+      NULLIF(document_projection.organization_id, '')
+    ) AS document_organization_id,
     CASE
       WHEN metadata_container.server_created_at IS NULL THEN NULL
       ELSE metadata_container.id

@@ -226,20 +226,20 @@
       "bytes": 39373
     },
     "packages/client-sdk/src/data/persistence/container-contents/containerContentsPersistence.ts": {
-      "lines": 1313,
-      "bytes": 40704
+      "lines": 1370,
+      "bytes": 42812
     },
     "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
-      "lines": 811,
-      "bytes": 25986
+      "lines": 815,
+      "bytes": 26057
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
-      "lines": 743,
-      "bytes": 29013
+      "lines": 782,
+      "bytes": 30461
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
-      "lines": 538,
-      "bytes": 16519
+      "lines": 561,
+      "bytes": 17336
     },
     "packages/client-sdk/src/workflows/container-contents/container-state/share.test.ts": {
       "lines": 722,
@@ -282,8 +282,8 @@
       "bytes": 44380
     },
     "packages/client-sdk/src/workflows/documents/sync.ts": {
-      "lines": 1057,
-      "bytes": 34953
+      "lines": 1064,
+      "bytes": 35368
     },
     "packages/client-sdk/src/workflows/organizations/principalPolicy.ts": {
       "lines": 992,
@@ -338,12 +338,16 @@
       "bytes": 33792
     },
     "scripts/subsystems.ts": {
-      "lines": 714,
-      "bytes": 25803
+      "lines": 713,
+      "bytes": 25818
     },
     "packages/client-sdk/src/workflows/containers/child/create.ts": {
       "lines": 531,
       "bytes": 18022
+    },
+    "packages/client-sdk/src/stores/documents/documentStore/syncAttachments.ts": {
+      "lines": 510,
+      "bytes": 16056
     }
   },
   "categories": {

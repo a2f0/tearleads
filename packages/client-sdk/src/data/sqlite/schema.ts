@@ -139,6 +139,39 @@ export const documentPendingUpdates = sqliteTable(
 );
 
 /**
+ * Last terminal outbound-sync failure per document scope.
+ *
+ * The durable write queue (`documentPendingUpdates`) has no status columns — a
+ * row is either pending or settled-and-deleted. When a submission fails
+ * terminally (e.g. the server denies the write with a 403 after group access
+ * was revoked), the failure is recorded here so the write-queue view and the
+ * footer sync indicator can surface *why* local data is not flushing. Rows are
+ * upserted per scope on terminal failure and deleted when a later sync pass
+ * for the scope succeeds or the scope's local state is torn down.
+ *
+ * Columns:
+ * - `appKind`: Local document namespace matching `documents.appKind`.
+ * - `localId`: Local document id matching `documents.localId`.
+ * - `status`: HTTP status of the failed submission when known.
+ * - `message`: Human-readable failure description for queue display.
+ * - `attemptedAt`: Timestamp of the failed attempt.
+ *
+ * Indexes:
+ * - `(appKind, localId)` is the primary key and keeps one failure per scope.
+ */
+export const documentSyncFailures = sqliteTable(
+  "document_sync_failures",
+  {
+    appKind: text("app_kind").notNull(),
+    localId: text("local_id").notNull(),
+    status: integer("status"),
+    message: text("message").notNull(),
+    attemptedAt: text("attempted_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.appKind, table.localId] })],
+);
+
+/**
  * Anti-rollback pin for verified access manifests.
  *
  * Records the highest access-manifest epoch this client has verified for each
@@ -376,6 +409,12 @@ export const documentMoveIntents = sqliteTable(
  * - `documentId`: Server document id when known.
  * - `containerId`: Selected container for primary document placement, or
  *   `null` if the document is not currently linked to a visible container.
+ * - `organizationId`: Last-known owning organization. Stamped from the
+ *   container row when the document is detached because its container was
+ *   removed locally (e.g. access to a shared org was revoked and the container
+ *   tombstoned), so pending writes keep their org attribution after the
+ *   `containers` join source disappears. Read as a fallback only — a live
+ *   container join always wins.
  * - `documentKind`: Stored document kind. Defaults to `note`.
  * - `text`: Plain projected text used to rebuild summaries/details.
  * - `title`: Plain projected title. Defaults to the note fallback title.
@@ -390,6 +429,7 @@ export const documentProjection = sqliteTable(
     localId: text("local_id"),
     documentId: text("document_id"),
     containerId: text("container_id"),
+    organizationId: text("organization_id"),
     documentKind: text("document_kind").notNull().default("note"),
     text: text("text").notNull(),
     title: text("title").notNull().default("Untitled note"),
@@ -651,6 +691,7 @@ export const containerSyncLaneChecks = sqliteTable(
 export const documentTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(documents),
   defineSqlTableSchema(documentPendingUpdates),
+  defineSqlTableSchema(documentSyncFailures),
 ];
 
 export const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
@@ -718,6 +759,7 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
 export const clientSQLiteSchema = {
   documents,
   documentPendingUpdates,
+  documentSyncFailures,
   principalPolicies,
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,

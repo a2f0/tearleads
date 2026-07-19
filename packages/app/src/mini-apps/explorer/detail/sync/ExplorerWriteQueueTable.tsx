@@ -125,6 +125,11 @@ function getStatusLabel(status: PendingWriteQueueItem["status"]): string {
   return EXPLORER_LABELS.writeQueuePendingStatus;
 }
 
+function getWriteQueueItemName(item: PendingWriteQueueItem): string {
+  const displayName = item.name?.trim() ?? "";
+  return displayName.length > 0 ? displayName : item.localId;
+}
+
 function WriteQueueObjectCell(params: {
   item: PendingWriteQueueItem;
   operationLabel: string | null;
@@ -144,8 +149,7 @@ function WriteQueueObjectCell(params: {
   const canOpen =
     item.objectKind === "container" ||
     (item.objectKind === "document" && item.containerId !== null);
-  const displayName = item.name?.trim() ?? "";
-  const name = displayName.length > 0 ? displayName : item.localId;
+  const name = getWriteQueueItemName(item);
   const typeLabel =
     item.objectKind === "unknown" && item.namespace
       ? item.namespace
