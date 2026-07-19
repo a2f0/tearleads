@@ -15,9 +15,14 @@ import {
   enqueueDocumentPendingUpdate,
   ensureDocumentTables,
   listDocumentPendingUpdates,
+  MAX_PENDING_UPDATE_REKEYS,
 } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { buildMaterializedDocumentSyncPlan, syncRemoteDocument } from "./sync";
+import {
+  rekeyLimitSubmitFailure,
+  rekeyUnsettledRecoveryPendingUpdates,
+} from "./syncRecoveryRekey";
 
 let execSql: ExecSql;
 let closeExecSql: () => void;
@@ -126,4 +131,50 @@ test("syncRemoteDocument re-keys pending conflicts recovery cannot settle", asyn
     partialStartVersionVector: pendingUpdate.partialStartVersionVector,
     partialEndVersionVector: pendingUpdate.partialEndVersionVector,
   });
+});
+
+test("recovery reports exhausted rows instead of re-keying them again", async () => {
+  const fields = {
+    partialEndVersionVector: "end",
+    partialStartVersionVector: "start",
+    updateData: "data",
+  };
+  const rekeyedInputIds: string[] = [];
+
+  const result = await rekeyUnsettledRecoveryPendingUpdates({
+    execSql,
+    recoveryPendingUpdatesById: new Map([
+      [
+        "at-cap",
+        { ...fields, id: "at-cap", rekeyCount: MAX_PENDING_UPDATE_REKEYS },
+      ],
+      [
+        "below-cap",
+        {
+          ...fields,
+          id: "below-cap",
+          rekeyCount: MAX_PENDING_UPDATE_REKEYS - 1,
+        },
+      ],
+      ["settled", { ...fields, id: "settled" }],
+    ]),
+    rekeyPendingUpdate: async (_execSql, id) => {
+      rekeyedInputIds.push(id);
+      return `next-${id}`;
+    },
+    settledPendingUpdateIds: ["settled"],
+  });
+
+  expect(result.exhaustedPendingUpdateIds).toEqual(["at-cap"]);
+  expect(result.rekeyedPendingUpdateIds).toEqual(["next-below-cap"]);
+  expect(rekeyedInputIds).toEqual(["below-cap"]);
+});
+
+test("the re-key limit failure names the bound for the write queue", () => {
+  const failure = rekeyLimitSubmitFailure(2);
+  expect(failure.ok).toBe(false);
+  expect(failure.status).toBeNull();
+  expect(failure.message).toBe(
+    `Update conflict recovery gave up after ${MAX_PENDING_UPDATE_REKEYS} re-key attempts (2 updates)`,
+  );
 });

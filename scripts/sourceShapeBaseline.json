@@ -242,8 +242,8 @@
       "bytes": 26057
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
-      "lines": 782,
-      "bytes": 30461
+      "lines": 783,
+      "bytes": 30522
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
       "lines": 561,
@@ -290,8 +290,8 @@
       "bytes": 44380
     },
     "packages/client-sdk/src/workflows/documents/sync.ts": {
-      "lines": 1064,
-      "bytes": 35368
+      "lines": 1068,
+      "bytes": 35594
     },
     "packages/client-sdk/src/workflows/organizations/principalPolicy.ts": {
       "lines": 992,

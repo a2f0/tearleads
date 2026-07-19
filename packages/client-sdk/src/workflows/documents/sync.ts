@@ -82,7 +82,7 @@ import {
 } from "./syncFailures";
 import {
   type RekeyPendingUpdate,
-  rekeyUnsettledRecoveryPendingUpdates,
+  rekeyAndReportUnsettledRecoveryPendingUpdates,
   settledPendingUpdateIdsFromSync,
 } from "./syncRecoveryRekey";
 
@@ -296,6 +296,7 @@ function contentKeyBundleForSyncRequest(
 async function syncRemoteDocumentResultFromResponse(input: {
   execSql: ExecSql;
   materializedPlan: MaterializedDocumentSyncPlan;
+  onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
   rekeyPendingUpdate?: RekeyPendingUpdate | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -335,12 +336,14 @@ async function syncRemoteDocumentResultFromResponse(input: {
     recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
     response: input.response,
   });
-  const rekeyedPendingUpdateIds = await rekeyUnsettledRecoveryPendingUpdates({
-    execSql: input.execSql,
-    recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
-    rekeyPendingUpdate: input.rekeyPendingUpdate,
-    settledPendingUpdateIds,
-  });
+  const rekeyedPendingUpdateIds =
+    await rekeyAndReportUnsettledRecoveryPendingUpdates({
+      execSql: input.execSql,
+      onTerminalSubmitFailure: input.onTerminalSubmitFailure,
+      recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
+      rekeyPendingUpdate: input.rekeyPendingUpdate,
+      settledPendingUpdateIds,
+    });
 
   return {
     contentKey: input.materializedPlan.contentKey,
@@ -1049,6 +1052,7 @@ export async function syncRemoteDocument(
       ...projectionVerificationOptions(input),
       execSql: input.execSql,
       materializedPlan,
+      onTerminalSubmitFailure: input.onTerminalSubmitFailure,
       recoveryPendingUpdatesById,
       rekeyPendingUpdate: input.rekeyPendingUpdate,
       resolveWriterPublicKey: input.resolveWriterPublicKey,

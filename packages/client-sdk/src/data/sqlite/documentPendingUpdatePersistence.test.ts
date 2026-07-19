@@ -6,6 +6,7 @@ import {
   enqueueDocumentPendingUpdate,
   ensureDocumentTables,
   listDocumentPendingUpdates,
+  MAX_PENDING_UPDATE_REKEYS,
   rekeyDocumentPendingUpdate,
 } from "./documentPersistence";
 
@@ -93,6 +94,57 @@ test("document pending update re-key swaps the id and keeps the fields", async (
     await expect(
       listDocumentPendingUpdates(execSql, documentScope),
     ).resolves.toHaveLength(1);
+  } finally {
+    close();
+  }
+});
+
+test("document pending update re-key stops at the persisted bound", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-pending-update-rekey-bound-test",
+  );
+
+  try {
+    await ensureDocumentTables(execSql);
+
+    await enqueueDocumentPendingUpdate(execSql, documentScope, {
+      updateData: "update-1",
+      partialStartVersionVector: "start-vector-1",
+      partialEndVersionVector: "end-vector-1",
+    });
+
+    let [pendingUpdate] = await listDocumentPendingUpdates(
+      execSql,
+      documentScope,
+    );
+    expect(pendingUpdate?.rekeyCount).toBe(0);
+
+    for (let attempt = 0; attempt < MAX_PENDING_UPDATE_REKEYS; attempt += 1) {
+      const nextId = await rekeyDocumentPendingUpdate(
+        execSql,
+        pendingUpdate?.id ?? "",
+      );
+      expect(nextId).not.toBeNull();
+      [pendingUpdate] = await listDocumentPendingUpdates(
+        execSql,
+        documentScope,
+      );
+      expect(pendingUpdate?.rekeyCount).toBe(attempt + 1);
+    }
+
+    // The bound survives in the row itself: the next re-key refuses and
+    // leaves the record untouched instead of minting a fresh id forever.
+    await expect(
+      rekeyDocumentPendingUpdate(execSql, pendingUpdate?.id ?? ""),
+    ).resolves.toBeNull();
+    const [unchanged] = await listDocumentPendingUpdates(
+      execSql,
+      documentScope,
+    );
+    expect(unchanged).toMatchObject({
+      id: pendingUpdate?.id ?? "",
+      rekeyCount: MAX_PENDING_UPDATE_REKEYS,
+    });
   } finally {
     close();
   }
