@@ -10,6 +10,10 @@ import "./SyncStatusIndicator.css";
 // source of truth with (`pathSegments: ["writes"]`, see the routes module).
 const OPEN_WRITE_QUEUE_LABEL = "View write queue";
 
+// Jumps to the Org Manager's Billing view — where the "Update billing to
+// resume" instruction in the billing-paused status text can actually be done.
+const OPEN_BILLING_LABEL = "Update billing";
+
 // Applied only while this popover is open: keep the trigger's own mousedown from
 // reaching Menu's document-level outside-click handler, so clicking the button
 // closes the popover via onClick instead of closing-then-reopening. While it is
@@ -52,20 +56,35 @@ export function SyncStatusIndicatorView({
   );
 }
 
-// The popover body: the status detail, plus a link into the Explorer Write Queue
-// when the local queue holds unflushed data. Props-only for the same reason.
+// The popover body: the status detail, plus a link into the Org Manager's
+// Billing view when billing has sync paused and a link into the Explorer Write
+// Queue when the local queue holds unflushed data. Props-only for the same
+// reason.
 export function SyncStatusPopover({
   title,
+  billingBlocked,
   hasUnflushed,
+  onOpenBilling,
   onOpenWriteQueue,
 }: {
   title: string;
+  billingBlocked: boolean;
   hasUnflushed: boolean;
+  onOpenBilling: () => void;
   onOpenWriteQueue: () => void;
 }) {
   return (
     <>
       <p className="sync-status-popover-message">{title}</p>
+      {billingBlocked && (
+        <button
+          className="sync-status-popover-action"
+          onClick={onOpenBilling}
+          type="button"
+        >
+          <span className="menu-item-label">{OPEN_BILLING_LABEL}</span>
+        </button>
+      )}
       {hasUnflushed && (
         <button
           className="sync-status-popover-action"
@@ -81,7 +100,8 @@ export function SyncStatusPopover({
 
 // A persistent footer-tray indicator (green = synced, red = unflushed data,
 // red warning = writes failing terminally, amber warning = billing paused).
-// Clicking it opens a popover with the status detail and, when the write queue
+// Clicking it opens a popover with the status detail plus a link into the Org
+// Manager's Billing view when billing has sync paused and, when the write queue
 // is non-empty, a link into the Explorer's Write Queue view. Same source of
 // truth as that panel (see `useSyncStatus`).
 export function SyncStatusIndicator() {
@@ -102,6 +122,10 @@ export function SyncStatusIndicator() {
     openMiniApp({ appId: "explorer", pathSegments: ["writes"] });
     setMenuPosition(null);
   }, [openMiniApp]);
+  const openBilling = useCallback(() => {
+    openMiniApp({ appId: "org-manager", pathSegments: ["billing"] });
+    setMenuPosition(null);
+  }, [openMiniApp]);
 
   return (
     <>
@@ -114,7 +138,9 @@ export function SyncStatusIndicator() {
       {menuPosition && (
         <Menu onClose={closeMenu} position={menuPosition}>
           <SyncStatusPopover
+            billingBlocked={status === "billing"}
             hasUnflushed={pendingWriteCount > 0}
+            onOpenBilling={openBilling}
             onOpenWriteQueue={openWriteQueue}
             title={title}
           />
