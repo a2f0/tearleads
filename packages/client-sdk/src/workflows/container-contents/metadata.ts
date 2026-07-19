@@ -2,14 +2,20 @@ import { encodeVersionVector, importUpdates } from "@tearleads/loro";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
-import type { ContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
-import type {
-  DocumentRecord,
-  PendingUpdateRecord,
+import {
+  CONTAINER_METADATA_APP_KIND,
+  type ContainerContentsPersistence,
+} from "../../data/persistence/container-contents/containerContentsPersistence";
+import {
+  clearDocumentSyncFailure,
+  type DocumentRecord,
+  type PendingUpdateRecord,
+  recordDocumentSyncFailure,
 } from "../../data/sqlite/documentPersistence";
 import { settleOutgoingPassAndDecideReArm } from "../../data/sync/outgoingUpdateSettlement";
 import {
   createDocumentWriterPublicKeyResolver,
+  describeDocumentSyncSubmitFailure,
   type RekeyPendingUpdate,
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
@@ -213,6 +219,10 @@ async function syncRemoteContainerMetadata(input: {
     return null;
   }
 
+  const metadataScope = {
+    appKind: CONTAINER_METADATA_APP_KIND,
+    localId: containerId,
+  };
   const synced = await syncRemoteDocument({
     apiClient: runtime.apiClient,
     author,
@@ -221,6 +231,12 @@ async function syncRemoteContainerMetadata(input: {
     isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
     localVersionVector,
     minLsn: lastCommitLsn ?? undefined,
+    onTerminalSubmitFailure: (failure) =>
+      recordDocumentSyncFailure(execSql, metadataScope, {
+        attemptedAt: new Date().toISOString(),
+        message: describeDocumentSyncSubmitFailure(failure),
+        status: failure.status,
+      }),
     pendingUpdates,
     persistedState,
     rekeyPendingUpdate,
@@ -247,6 +263,10 @@ async function syncRemoteContainerMetadata(input: {
   if (!synced) {
     return null;
   }
+
+  // The pass submitted successfully, so any recorded terminal failure for this
+  // container's metadata document no longer describes reality.
+  await clearDocumentSyncFailure(execSql, metadataScope);
 
   return {
     outgoingUpdateCount: pendingUpdates.length,

@@ -3,8 +3,11 @@ import type { BlobSourceSnapshot } from "../../../data/documents/blob/shared/blo
 import { markOriginatedDocuments } from "../../../sync/reconciliation/originatedDocuments";
 import type { uploadPreparedDocumentAttachment as uploadDocumentAttachment } from "../../../workflows/blobs/upload";
 import {
+  clearDocumentSyncFailure,
+  DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type PendingAttachmentRecord,
+  recordDocumentSyncFailure,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
@@ -128,6 +131,15 @@ export async function syncPendingAttachments(
       remoteDocumentId,
     ]);
   }
+
+  // A settled attachment pass invalidates any recorded failure itself: a
+  // retried upload with no pending CRDT update never reaches the document
+  // submission that would otherwise clear it, and the stale row would flag the
+  // next unrelated edit as failed before it was attempted.
+  await clearDocumentSyncFailure(state.runtime.infra.execSql, {
+    appKind: DOCUMENTS_APP_KIND,
+    localId: state.localId,
+  });
 
   // The snapshot was already republished progressively inside the loop as each
   // attachment settled, so there is nothing left to publish here.
@@ -484,4 +496,15 @@ function reportAttachmentUploadFailure(input: {
   );
   input.uploadLane.fail(error);
   input.state.runtime.util.log(`Documents: ${error.message}`);
+  // Surface the stuck upload in the write queue; a later successful sync pass
+  // for the document clears the record.
+  void recordDocumentSyncFailure(
+    input.state.runtime.infra.execSql,
+    { appKind: DOCUMENTS_APP_KIND, localId: input.state.localId },
+    {
+      attemptedAt: new Date().toISOString(),
+      message: error.message,
+      status: null,
+    },
+  ).catch(() => undefined);
 }

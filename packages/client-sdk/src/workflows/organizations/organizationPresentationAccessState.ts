@@ -10,6 +10,13 @@ export interface OrganizationPresentationAccessInput {
 
 interface ProjectionAccessState {
   denied: boolean;
+  /**
+   * True only when the server itself denied the projection (a 403/404 read).
+   * A session reset also flips `denied`, but that is a local lifecycle event —
+   * consumers reacting specifically to lost-then-regained org access (e.g.
+   * re-arming write lanes) must not treat a routine reset as a denial.
+   */
+  deniedByServer: boolean;
   generation: number;
 }
 
@@ -56,7 +63,7 @@ function accessExecutorState(execSql: ExecSql): AccessExecutorState {
 }
 
 function newProjectionState(denied: boolean): ProjectionAccessState {
-  return { denied, generation: 0 };
+  return { denied, deniedByServer: false, generation: 0 };
 }
 
 function accessScopeState(
@@ -144,8 +151,26 @@ export function denyOrganizationPresentationAccess(
   for (const projection of new Set(projections)) {
     const state = projectionState(scope, projection);
     state.denied = true;
+    state.deniedByServer = true;
     state.generation += 1;
   }
+}
+
+/**
+ * Whether the scope's projection is currently denied because the server
+ * refused it (as opposed to a local session reset). The flip back to readable
+ * after this returns true is the "org access was just restored" edge.
+ */
+export function wasOrganizationPresentationAccessDeniedByServer(
+  input: OrganizationPresentationAccessInput,
+  projection: OrganizationPresentationProjection,
+): boolean {
+  const executor = accessExecutorState(input.execSql);
+  const state = projectionState(
+    accessScopeState(executor, input.organizationId, input.requesterUserId),
+    projection,
+  );
+  return state.denied && state.deniedByServer;
 }
 
 export function restoreOrganizationPresentationAccess(
@@ -156,10 +181,12 @@ export function restoreOrganizationPresentationAccess(
     return false;
   }
   const executor = accessExecutorState(input.execSql);
-  projectionState(
+  const state = projectionState(
     accessScopeState(executor, input.organizationId, input.requesterUserId),
     attempt.projection,
-  ).denied = false;
+  );
+  state.denied = false;
+  state.deniedByServer = false;
   return true;
 }
 
@@ -186,8 +213,13 @@ function beginOrganizationPresentationAccessReset(execSql: ExecSql): void {
   executor.generation += 1;
   executor.resetDepth += 1;
   for (const scope of executor.scopes.values()) {
+    // A reset denies presentation locally but is not a server denial: the next
+    // session re-derives server state, and startup sync already re-drives the
+    // lanes, so the lost-access memory must not survive into it.
     scope.readModel.denied = true;
+    scope.readModel.deniedByServer = false;
     scope.usage.denied = true;
+    scope.usage.deniedByServer = false;
   }
 }
 

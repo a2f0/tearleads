@@ -1,5 +1,8 @@
 import type { PendingWriteQueueItem } from "@tearleads/client-sdk";
-import { countPendingWrites } from "./syncStatusModel";
+import {
+  type PendingWriteQueueSummary,
+  summarizePendingWrites,
+} from "./syncStatusModel";
 
 interface PendingWriteWatcherDeps {
   /** Read the durable write queue for the active domain. */
@@ -8,8 +11,8 @@ interface PendingWriteWatcherDeps {
   >;
   /** Subscribe to every signal that can change the queue; returns an unsubscribe. */
   readonly subscribe: (onChange: () => void) => () => void;
-  /** Report a freshly read unflushed-operation count; not called on a failed read. */
-  readonly onCount: (count: number) => void;
+  /** Report a freshly read queue summary; not called on a failed read. */
+  readonly onSnapshot: (snapshot: PendingWriteQueueSummary) => void;
   /** Trailing-throttle window (ms) collapsing a burst of changes into one scan. */
   readonly throttleMs: number;
 }
@@ -29,7 +32,7 @@ interface PendingWriteWatcher {
 export function createPendingWriteWatcher(
   deps: PendingWriteWatcherDeps,
 ): PendingWriteWatcher {
-  const { listPendingWrites, subscribe, onCount, throttleMs } = deps;
+  const { listPendingWrites, subscribe, onSnapshot, throttleMs } = deps;
   let active = true;
   let reading = false;
   let rereadPending = false;
@@ -62,7 +65,7 @@ export function createPendingWriteWatcher(
     listPendingWrites()
       .then((items) => {
         if (active) {
-          onCount(countPendingWrites(items));
+          onSnapshot(summarizePendingWrites(items));
         }
       })
       // A failed read leaves the true state unknown; report nothing so the caller

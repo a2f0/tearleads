@@ -19,7 +19,18 @@ interface PendingWriteCount {
   readonly loaded: boolean;
   /** Aggregate unflushed write-operation count; `0` once everything is synced. */
   readonly count: number;
+  /** Queue items whose last submission failed terminally (status `error`). */
+  readonly failedCount: number;
+  /** The first failed item's recorded error, for the tooltip/popover. */
+  readonly firstError: string | null;
 }
+
+const EMPTY_PENDING_WRITE_COUNT: PendingWriteCount = {
+  loaded: false,
+  count: 0,
+  failedCount: 0,
+  firstError: null,
+};
 
 /**
  * Track the durable write-queue size for the active domain (see
@@ -35,17 +46,18 @@ export function usePendingWriteCount(
   domainScope: DomainScope,
   dbReady: boolean,
 ): PendingWriteCount {
-  const [state, setState] = useState<PendingWriteCount>({
-    loaded: false,
-    count: 0,
-  });
+  const [state, setState] = useState<PendingWriteCount>(
+    EMPTY_PENDING_WRITE_COUNT,
+  );
 
   useEffect(() => {
     if (!dbReady) {
       // Idempotent reset: return the same state when already cleared so a
       // re-render with unchanged not-ready inputs cannot loop.
       setState((prev) =>
-        prev.loaded || prev.count !== 0 ? { loaded: false, count: 0 } : prev,
+        prev.loaded || prev.count !== 0 || prev.failedCount !== 0
+          ? EMPTY_PENDING_WRITE_COUNT
+          : prev,
       );
       return;
     }
@@ -65,7 +77,7 @@ export function usePendingWriteCount(
           unsubscribeDocuments();
         };
       },
-      onCount: (count) => setState({ loaded: true, count }),
+      onSnapshot: (snapshot) => setState({ loaded: true, ...snapshot }),
       throttleMs: READ_THROTTLE_MS,
     });
     return () => watcher.stop();

@@ -61,6 +61,23 @@ test("renders a warning glyph (not a dot) when billing blocks sync", () => {
   expect(container.querySelector(".sync-status-indicator-dot")).toBeNull();
 });
 
+test("renders a danger warning glyph for terminal write failures", () => {
+  const { getByRole, container } = render(
+    <SyncStatusIndicatorView
+      expanded={false}
+      onToggle={noop}
+      status="error"
+      title="1 change failed to sync — Write access denied by the server (403)"
+    />,
+  );
+
+  const button = getByRole("button");
+  expect(button.className).toContain("sync-status-indicator--error");
+  expect(button.getAttribute("aria-label")).toContain("failed to sync");
+  expect(container.querySelector("svg")).not.toBeNull();
+  expect(container.querySelector(".sync-status-indicator-dot")).toBeNull();
+});
+
 test("reflects the expanded state and calls onToggle when clicked", () => {
   const onToggle = mock(() => {});
   const { getByRole } = render(

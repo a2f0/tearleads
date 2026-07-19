@@ -3,6 +3,7 @@ import {
   type DocumentRecord,
   deleteDocumentPendingUpdates,
   enqueueDocumentPendingUpdate,
+  ensureDocumentProjectionTables,
   ensureDocumentTables,
   listDocumentPendingUpdates,
   loadDocumentRecord,
@@ -23,6 +24,7 @@ import {
   documentPendingUpdates,
   documentProjection,
   documentProjectionTables,
+  documentSyncFailures,
   documents,
 } from "../../sqlite/schema";
 import {
@@ -48,7 +50,7 @@ import {
   sqlContainerSyncWatermarkPersistence,
 } from "../containers/containerSyncWatermarkPersistence";
 
-const CONTAINER_METADATA_APP_KIND = "container-metadata";
+export const CONTAINER_METADATA_APP_KIND = "container-metadata";
 const CONTAINER_CREATE_INTENT_TYPE = "container.create";
 const CONTAINER_MOVE_INTENT_TYPE = "container.move";
 
@@ -526,6 +528,63 @@ async function hasPendingContainerMetadataUpdates(input: {
   return rows.length > 0;
 }
 
+// The containers being removed still exist when repair runs (deletion follows
+// it). Capture their org attribution so a detached document's pending writes
+// keep a resolvable organization id after the join source is gone — e.g. when
+// access to a shared org is revoked mid-sync.
+async function loadOrganizationIdsForContainers(
+  tx: ClientSQLiteTransaction,
+  containerIds: ReadonlyArray<string>,
+): Promise<Map<string, string>> {
+  const rows = await tx
+    .select({
+      id: containers.id,
+      organizationId: containers.organizationId,
+    })
+    .from(containers)
+    .where(inArray(containers.id, containerIds));
+  const organizationIdByContainerId = new Map<string, string>();
+  for (const container of rows) {
+    if (container.id && container.organizationId) {
+      organizationIdByContainerId.set(container.id, container.organizationId);
+    }
+  }
+  return organizationIdByContainerId;
+}
+
+// A document unlinked from a removed container may keep other live links; its
+// projection then re-homes to the first remaining link (deterministic order)
+// instead of dropping to null.
+async function loadFirstRemainingContainerIdByDocumentId(
+  tx: ClientSQLiteTransaction,
+  documentIds: ReadonlyArray<string>,
+): Promise<Map<string, string>> {
+  const firstRemainingContainerIdByDocumentId = new Map<string, string>();
+  if (documentIds.length === 0) {
+    return firstRemainingContainerIdByDocumentId;
+  }
+  const remainingLinks = await tx
+    .select({
+      containerId: documentContainerProjection.containerId,
+      documentId: documentContainerProjection.documentId,
+    })
+    .from(documentContainerProjection)
+    .where(inArray(documentContainerProjection.documentId, documentIds))
+    .orderBy(
+      asc(documentContainerProjection.documentId),
+      asc(documentContainerProjection.containerId),
+    );
+  for (const link of remainingLinks) {
+    if (!firstRemainingContainerIdByDocumentId.has(link.documentId)) {
+      firstRemainingContainerIdByDocumentId.set(
+        link.documentId,
+        link.containerId,
+      );
+    }
+  }
+  return firstRemainingContainerIdByDocumentId;
+}
+
 async function repairDocumentsForRemovedContainers(input: {
   containerIds: ReadonlyArray<string>;
   execSql: ExecSql;
@@ -537,20 +596,24 @@ async function repairDocumentsForRemovedContainers(input: {
     return;
   }
 
-  await ensureSqlTables(execSql, [
-    ...documentContainerProjectionTables,
-    ...documentProjectionTables,
-  ]);
+  await ensureSqlTables(execSql, documentContainerProjectionTables);
+  await ensureDocumentProjectionTables(execSql);
 
   await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
     const selectedRows = await tx
       .select({
+        containerId: documentProjection.containerId,
         documentId: documentProjection.documentId,
         localId: documentProjection.localId,
         updatedAt: documentProjection.updatedAt,
       })
       .from(documentProjection)
       .where(inArray(documentProjection.containerId, containerIds));
+
+    const organizationIdByContainerId = await loadOrganizationIdsForContainers(
+      tx,
+      containerIds,
+    );
 
     await tx
       .delete(documentContainerProjection)
@@ -562,35 +625,17 @@ async function repairDocumentsForRemovedContainers(input: {
         selectedRows.flatMap((row) => (row.documentId ? [row.documentId] : [])),
       ),
     );
-    const remainingLinks =
-      documentIds.length > 0
-        ? await tx
-            .select({
-              containerId: documentContainerProjection.containerId,
-              documentId: documentContainerProjection.documentId,
-            })
-            .from(documentContainerProjection)
-            .where(inArray(documentContainerProjection.documentId, documentIds))
-            .orderBy(
-              asc(documentContainerProjection.documentId),
-              asc(documentContainerProjection.containerId),
-            )
-        : [];
-    const firstRemainingContainerIdByDocumentId = new Map<string, string>();
-    for (const link of remainingLinks) {
-      if (!firstRemainingContainerIdByDocumentId.has(link.documentId)) {
-        firstRemainingContainerIdByDocumentId.set(
-          link.documentId,
-          link.containerId,
-        );
-      }
-    }
+    const firstRemainingContainerIdByDocumentId =
+      await loadFirstRemainingContainerIdByDocumentId(tx, documentIds);
 
     for (const row of selectedRows) {
       if (!row.localId) {
         continue;
       }
 
+      const removedOrganizationId = row.containerId
+        ? organizationIdByContainerId.get(row.containerId)
+        : undefined;
       await tx
         .update(documentProjection)
         .set({
@@ -598,6 +643,9 @@ async function repairDocumentsForRemovedContainers(input: {
             ? (firstRemainingContainerIdByDocumentId.get(row.documentId) ??
               null)
             : null,
+          ...(removedOrganizationId
+            ? { organizationId: removedOrganizationId }
+            : {}),
           updatedAt: getLatestTimestamp(row.updatedAt, updatedAt),
         })
         .where(eq(documentProjection.localId, row.localId))
@@ -882,6 +930,15 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
           ),
         )
         .run();
+      await db
+        .delete(documentSyncFailures)
+        .where(
+          and(
+            eq(documentSyncFailures.appKind, CONTAINER_METADATA_APP_KIND),
+            inArray(documentSyncFailures.localId, uniqueContainerIds),
+          ),
+        )
+        .run();
       await sqlContainerSyncWatermarkPersistence.deleteWatermarksForContainers(
         lockedExecSql,
         uniqueContainerIds,
@@ -903,7 +960,7 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
       await ensureSqlTables(lockedExecSql, containerCreateIntentTables);
       await ensureSqlTables(lockedExecSql, containerMoveIntentTables);
       await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
-      await ensureSqlTables(lockedExecSql, documentProjectionTables);
+      await ensureDocumentProjectionTables(lockedExecSql);
       await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
     });
   },

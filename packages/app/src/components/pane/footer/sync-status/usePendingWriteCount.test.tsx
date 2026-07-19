@@ -50,7 +50,12 @@ test("stays in the loading state until the db is ready", () => {
   const { result } = renderHook(() =>
     usePendingWriteCount(queries, scope, false),
   );
-  expect(result.current).toEqual({ loaded: false, count: 0 });
+  expect(result.current).toEqual({
+    loaded: false,
+    count: 0,
+    failedCount: 0,
+    firstError: null,
+  });
 });
 
 test("populates the count once the first read resolves", async () => {
@@ -74,5 +79,10 @@ test("resets to loading when the db goes not-ready", async () => {
 
   await waitFor(() => expect(result.current.loaded).toBe(true));
   rerender({ ready: false });
-  expect(result.current).toEqual({ loaded: false, count: 0 });
+  expect(result.current).toEqual({
+    loaded: false,
+    count: 0,
+    failedCount: 0,
+    firstError: null,
+  });
 });
