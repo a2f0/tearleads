@@ -201,6 +201,21 @@ loop, subject-only squash, and `MERGED`-state verification.
    reconcile and re-review before merging; never merge a head the review did not
    read.
 
+   **Sole exception — the pre-push co-author strip.** `checkCommitTrust`
+   rejects `Co-authored-by` trailers; the only remedy is a message rewrite,
+   which moves the SHA but not the content. When that is the only reason the
+   head moved, do **not** re-review. Verify and re-pin:
+
+   ```bash
+   test "$(git rev-parse "$REVIEWED_SHA^{tree}")" = "$(git rev-parse "HEAD^{tree}")"
+   test "$(git merge-base "$REVIEWED_SHA" "origin/$DEFAULT_BRANCH")" = "$(git merge-base HEAD "origin/$DEFAULT_BRANCH")"
+   REVIEWED_SHA=$(git rev-parse HEAD)
+   ```
+
+   GitHub squashes from the merge base — changed ancestry could merge a diff
+   no review read even with equal trees. The message diff must remove only
+   `Co-authored-by` lines; anything else keeps the rule above.
+
 4. **Squash-merge and clean up (bound to the reviewed head)** — invoke the
    `squash-merge` skill, passing `REVIEWED_SHA` as its **second (head-SHA)
    argument** so the merge runs with `--match-head-commit` and GitHub
@@ -290,7 +305,9 @@ loop, subject-only squash, and `MERGED`-state verification.
   the pushed head once the PR is open) and passes it to `squash-merge`, which
   binds the merge with
   `--match-head-commit`. GitHub then rejects the merge outright if any commit
-  landed after the review, so an unreviewed commit can never be merged. The lone
+  landed after the review, so an unreviewed commit can never be merged. (A
+  message-only co-author strip keeps it: step 3 checks tree and merge-base
+  identity, then re-pins `REVIEWED_SHA`.) The lone
   exception is an explicit `--merge-anyway` over a could-not-run verdict, where
   the bound head is a candidate that no review read — the merge is still pinned,
   but the reviewed-head guarantee is the thing the caller chose to waive.
