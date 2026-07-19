@@ -1,8 +1,17 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import type { DocumentScope } from "./documentPersistenceTypes";
-import { documentSyncFailures } from "./schema";
+import {
+  containerCreateIntents,
+  containerCreateIntentTables,
+  containerMoveIntents,
+  containerMoveIntentTables,
+  documentMoveIntents,
+  documentMoveIntentTables,
+  documentSyncFailures,
+  documentTables,
+} from "./schema";
 import { getClientSQLitePersistenceRuntime } from "./sqlitePersistenceRuntime";
-import type { ExecSql } from "./sqlSchema";
+import { type ExecSql, ensureSqlTables } from "./sqlSchema";
 
 interface DocumentSyncFailureFields {
   readonly attemptedAt: string;
@@ -41,6 +50,54 @@ export async function recordDocumentSyncFailure(
       })
       .run();
   });
+}
+
+/**
+ * Whether any queued local write has recorded a terminal failure — a
+ * `document_sync_failures` row or an intent row carrying `last_error`. This is
+ * the evidence gate for recovery triggers (e.g. re-arming write lanes when org
+ * access is restored): without it a transient denial during bootstrap would
+ * fire recovery work with nothing to recover, racing the startup sync passes.
+ */
+export async function hasRecordedTerminalSyncFailures(
+  execSql: ExecSql,
+): Promise<boolean> {
+  await ensureSqlTables(execSql, [
+    ...documentTables,
+    ...containerCreateIntentTables,
+    ...containerMoveIntentTables,
+    ...documentMoveIntentTables,
+  ]);
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const [failure] = await db
+    .select({ localId: documentSyncFailures.localId })
+    .from(documentSyncFailures)
+    .limit(1);
+  if (failure) {
+    return true;
+  }
+  const [createIntent] = await db
+    .select({ id: containerCreateIntents.id })
+    .from(containerCreateIntents)
+    .where(isNotNull(containerCreateIntents.lastError))
+    .limit(1);
+  if (createIntent) {
+    return true;
+  }
+  const [moveIntent] = await db
+    .select({ id: containerMoveIntents.id })
+    .from(containerMoveIntents)
+    .where(isNotNull(containerMoveIntents.lastError))
+    .limit(1);
+  if (moveIntent) {
+    return true;
+  }
+  const [documentMoveIntent] = await db
+    .select({ id: documentMoveIntents.id })
+    .from(documentMoveIntents)
+    .where(isNotNull(documentMoveIntents.lastError))
+    .limit(1);
+  return documentMoveIntent !== undefined;
 }
 
 /**

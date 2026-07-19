@@ -1,4 +1,5 @@
 import type { DomainScope } from "../data/domainScope";
+import { hasRecordedTerminalSyncFailures } from "../data/sqlite/documentPersistence";
 import { requestAllDomainSyncLanes } from "../data/sync/syncCoordinator";
 import {
   loadLocalOrganizationContainerGrants,
@@ -359,8 +360,16 @@ class OrganizationReadModelCoordinatorImpl
       logError: active.runtime.util.logError,
       organizationId: active.organizationId,
     })
-      .then((directoryAndGroups) => {
-        if (accessWasDenied && directoryAndGroups !== null) {
+      .then(async (directoryAndGroups) => {
+        // The evidence gate: re-arm only when some queued write actually
+        // recorded a terminal failure. A transient denial during bootstrap
+        // (e.g. a read-model 403 before grants propagate) also flips the
+        // denied flag, and re-arming then would race the startup sync passes.
+        if (
+          accessWasDenied &&
+          directoryAndGroups !== null &&
+          (await hasRecordedTerminalSyncFailures(active.runtime.infra.execSql))
+        ) {
           requestAllDomainSyncLanes(domainScope);
         }
         return directoryAndGroups;

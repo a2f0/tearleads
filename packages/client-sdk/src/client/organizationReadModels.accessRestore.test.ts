@@ -8,6 +8,7 @@ import {
 import type { BlobStore } from "../data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../data/documents/documentKinds";
 import { createDomainScope } from "../data/domainScope";
+import { recordDocumentSyncFailure } from "../data/sqlite/documentPersistence";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
 import {
   disposeDomainSyncCoordinator,
@@ -100,17 +101,31 @@ test("a reconcile that restores denied org access re-requests all sync lanes", a
     await expect(coordinator.reconcile()).resolves.not.toBeNull();
     expect(laneRuns).toBe(0);
 
-    // Simulate the denial a 403 read-model response records (the user was
-    // removed from the group), then reconcile successfully: the denied →
-    // restored edge is the retry signal for stranded write lanes.
-    denyOrganizationPresentationAccess(
+    const accessInput = {
+      execSql,
+      organizationId: organizationReadModelOrganizationId,
+      requesterUserId: organizationReadModelUserId,
+    };
+
+    // A denied → restored edge with no recorded terminal failures must not
+    // re-drive lanes either: transient denials happen during bootstrap, and
+    // there is nothing stranded to retry.
+    denyOrganizationPresentationAccess(accessInput, ["readModel", "usage"]);
+    await expect(coordinator.reconcile()).resolves.not.toBeNull();
+    expect(laneRuns).toBe(0);
+
+    // With a recorded denied write (the user was removed from the group while
+    // writes were syncing), the denied → restored edge is the retry signal.
+    await recordDocumentSyncFailure(
+      execSql,
+      { appKind: "documents", localId: "stranded-document" },
       {
-        execSql,
-        organizationId: organizationReadModelOrganizationId,
-        requesterUserId: organizationReadModelUserId,
+        attemptedAt: "2026-01-01T00:00:00.000Z",
+        message: "Write access denied by the server (403)",
+        status: 403,
       },
-      ["readModel", "usage"],
     );
+    denyOrganizationPresentationAccess(accessInput, ["readModel", "usage"]);
     await expect(coordinator.reconcile()).resolves.not.toBeNull();
     await laneRan;
     expect(laneRuns).toBe(1);

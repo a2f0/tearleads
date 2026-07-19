@@ -49,5 +49,6 @@ export {
 } from "./documentRecordPersistence";
 export {
   clearDocumentSyncFailure,
+  hasRecordedTerminalSyncFailures,
   recordDocumentSyncFailure,
 } from "./documentSyncFailurePersistence";
