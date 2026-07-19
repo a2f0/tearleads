@@ -80,7 +80,7 @@ function ThemeSwitcher({
   if (!nextTheme) {
     return null;
   }
-  const label = `Switch to ${themeLabel(nextTheme)} theme`;
+  const label = `Switch screenshots to ${themeLabel(nextTheme)} theme`;
 
   return (
     <button
