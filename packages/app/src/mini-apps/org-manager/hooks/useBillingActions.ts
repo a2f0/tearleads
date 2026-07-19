@@ -32,6 +32,8 @@ import { ORG_MANAGER_LABELS } from "../labels";
 export interface BillingActions {
   readonly purchaseAvailable: boolean;
   readonly canSubscribe: boolean;
+  /** Whether this platform embeds a cancellable checkout in the panel. */
+  readonly embeddedCheckout: boolean;
   readonly options: ReadonlyArray<SyncSubscriptionOption>;
   readonly busy: BillingBusyAction | null;
   readonly actionError: string | null;
@@ -351,6 +353,7 @@ export function useBillingActions({
   return {
     purchaseAvailable: purchases.isAvailable,
     canSubscribe,
+    embeddedCheckout: purchases.supportsEmbeddedCheckout === true,
     options,
     busy: actionStateMatches ? actionState.busy : null,
     actionError: actionStateMatches ? actionState.actionError : null,

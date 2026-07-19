@@ -39,6 +39,8 @@ export interface RevenueCatWebPurchases {
     metadata?: Record<string, string>;
   }): Promise<{ readonly customerInfo: CustomerInfo }>;
   setAttributes(attributes: Record<string, string | null>): Promise<void>;
+  /** Tears the SDK singleton down so a fresh `configure` builds a new one. */
+  close(): void;
 }
 
 const revenueCatWebSdk: RevenueCatWebSdk = {
@@ -80,11 +82,86 @@ async function currentPackages(
   return offerings?.current?.availablePackages ?? [];
 }
 
+/**
+ * Runs one SDK purchase. `isolateAbandonedPurchase` is invoked when the
+ * caller aborts while the purchase is still unsettled, so the backend can
+ * wall the abandoned purchase off from later retries (see
+ * {@link createWebRevenueCatBackend}).
+ */
+async function purchaseOnInstance({
+  abortSignal,
+  htmlTarget,
+  instance,
+  isolateAbandonedPurchase,
+  metadata,
+  packageId,
+}: {
+  abortSignal?: AbortSignal | undefined;
+  htmlTarget?: HTMLElement | undefined;
+  instance: RevenueCatWebPurchases;
+  isolateAbandonedPurchase: (abandoned: RevenueCatWebPurchases) => void;
+  metadata?: Record<string, string> | undefined;
+  packageId: string;
+}): Promise<RevenueCatCustomerInfo> {
+  const throwIfAborted = () => {
+    // The caller dismissed the flow while this purchase was still in its
+    // pre-checkout phase (offerings fetch etc.). Mounting now would put a
+    // checkout on screen that nothing controls — the embedded widget has no
+    // provider-side close button — so bail out as a cancellation before the
+    // SDK renders anything.
+    if (abortSignal?.aborted) {
+      throw new PurchaseCancelledError();
+    }
+  };
+
+  throwIfAborted();
+  const aPackage = (await currentPackages(instance)).find(
+    (entry) => entry.identifier === packageId,
+  );
+  if (!aPackage) {
+    throw new Error(`Unknown purchase package: ${packageId}`);
+  }
+  // Last chance to stop before purchase() mounts the checkout UI; the SDK has
+  // no abort API once it starts.
+  throwIfAborted();
+
+  let settled = false;
+  const onAbort = () => {
+    if (!settled) {
+      isolateAbandonedPurchase(instance);
+    }
+  };
+  abortSignal?.addEventListener("abort", onAbort, { once: true });
+
+  try {
+    const result = await instance.purchase({
+      rcPackage: aPackage,
+      ...(htmlTarget ? { htmlTarget } : {}),
+      ...(metadata ? { metadata } : {}),
+    });
+    return toRevenueCatCustomerInfo(result.customerInfo);
+  } catch (error) {
+    // Normalize the provider's cancel signal so the app can treat a dismissed
+    // checkout as a no-op instead of a failed purchase.
+    if (
+      error instanceof PurchasesError &&
+      error.errorCode === ErrorCode.UserCancelledError
+    ) {
+      throw new PurchaseCancelledError();
+    }
+    throw error;
+  } finally {
+    settled = true;
+    abortSignal?.removeEventListener("abort", onAbort);
+  }
+}
+
 export function createWebRevenueCatBackend(
   sdk: RevenueCatWebSdk = revenueCatWebSdk,
 ): RevenueCatBackend {
   let purchases: RevenueCatWebPurchases | null = null;
   let appUserId: string | null = null;
+  let apiKey: string | null = null;
 
   const requirePurchases = (): RevenueCatWebPurchases => {
     if (!purchases) {
@@ -94,7 +171,7 @@ export function createWebRevenueCatBackend(
   };
 
   const ensurePurchases = ({
-    apiKey,
+    apiKey: nextApiKey,
     appUserId: nextAppUserId,
   }: {
     apiKey: string;
@@ -106,9 +183,35 @@ export function createWebRevenueCatBackend(
 
     const configuredAppUserId =
       nextAppUserId ?? sdk.generateRevenueCatAnonymousAppUserId();
-    purchases = sdk.configure({ apiKey, appUserId: configuredAppUserId });
+    purchases = sdk.configure({
+      apiKey: nextApiKey,
+      appUserId: configuredAppUserId,
+    });
     appUserId = configuredAppUserId;
+    apiKey = nextApiKey;
     return purchases;
+  };
+
+  /**
+   * Walls off a purchase that was abandoned while still unsettled. The SDK
+   * keeps checkout-session state (`operationSessionId`) on ONE helper shared
+   * by every purchase of an instance, so a retry started while the abandoned
+   * purchase's checkout-start response is still in flight could have its
+   * session clobbered by that late response — completing the retry against
+   * the wrong checkout session. Closing the singleton and configuring a fresh
+   * instance gives the next purchase its own helper; the abandoned purchase's
+   * continuations stay bound to the old, now-isolated instance.
+   */
+  const isolateAbandonedPurchase = (abandoned: RevenueCatWebPurchases) => {
+    if (purchases !== abandoned || apiKey === null) {
+      // A newer isolation already replaced the instance; nothing to do.
+      return;
+    }
+    abandoned.close();
+    purchases = sdk.configure({
+      apiKey,
+      appUserId: appUserId ?? sdk.generateRevenueCatAnonymousAppUserId(),
+    });
   };
 
   return {
@@ -139,47 +242,15 @@ export function createWebRevenueCatBackend(
         toRevenueCatPackage,
       );
     },
-    async purchasePackage({ abortSignal, htmlTarget, metadata, packageId }) {
-      const throwIfAborted = () => {
-        // The caller dismissed the flow while this purchase was still in its
-        // pre-checkout phase (offerings fetch etc.). Mounting now would put a
-        // checkout on screen that nothing controls — the embedded widget has
-        // no provider-side close button — so bail out as a cancellation
-        // before the SDK renders anything.
-        if (abortSignal?.aborted) {
-          throw new PurchaseCancelledError();
-        }
-      };
-
-      throwIfAborted();
-      const aPackage = (await currentPackages(requirePurchases())).find(
-        (entry) => entry.identifier === packageId,
-      );
-      if (!aPackage) {
-        throw new Error(`Unknown purchase package: ${packageId}`);
-      }
-      // Last chance to stop before purchase() mounts the checkout UI; the SDK
-      // has no abort API once it starts.
-      throwIfAborted();
-
-      try {
-        const result = await requirePurchases().purchase({
-          rcPackage: aPackage,
-          ...(htmlTarget ? { htmlTarget } : {}),
-          ...(metadata ? { metadata } : {}),
-        });
-        return toRevenueCatCustomerInfo(result.customerInfo);
-      } catch (error) {
-        // Normalize the provider's cancel signal so the app can treat a
-        // dismissed checkout as a no-op instead of a failed purchase.
-        if (
-          error instanceof PurchasesError &&
-          error.errorCode === ErrorCode.UserCancelledError
-        ) {
-          throw new PurchaseCancelledError();
-        }
-        throw error;
-      }
+    purchasePackage({ abortSignal, htmlTarget, metadata, packageId }) {
+      return purchaseOnInstance({
+        abortSignal,
+        htmlTarget,
+        instance: requirePurchases(),
+        isolateAbandonedPurchase,
+        metadata,
+        packageId,
+      });
     },
     async getCustomerInfo() {
       return toRevenueCatCustomerInfo(
@@ -202,6 +273,9 @@ export function createWebPurchases(): PurchasesCapability {
 
   return createRevenueCatPurchases(createWebRevenueCatBackend(), {
     apiKey,
+    // Web Billing honors `checkoutHost`, so the billing panel offers its own
+    // in-app Cancel affordance for the embedded checkout.
+    supportsEmbeddedCheckout: true,
     syncEntitlementId:
       readEnvString(process.env.BUN_PUBLIC_REVENUECAT_SYNC_ENTITLEMENT) ??
       DEFAULT_SYNC_ENTITLEMENT_ID,

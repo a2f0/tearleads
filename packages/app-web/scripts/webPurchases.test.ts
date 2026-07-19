@@ -40,7 +40,10 @@ function packageWithProduct(input: {
   } as unknown as WebBillingPackage;
 }
 
-function createFakeSdk(options?: { purchaseError?: Error }) {
+function createFakeSdk(options?: {
+  purchaseError?: Error;
+  purchaseNeverSettles?: boolean;
+}) {
   const calls: string[] = [];
   const attributes: Record<string, string | null> = {};
   const purchaseInputs: Array<{
@@ -67,20 +70,28 @@ function createFakeSdk(options?: { purchaseError?: Error }) {
       calls.push("getOfferings");
       return { current: { availablePackages: [monthlyPackage] } };
     },
-    async purchase({ rcPackage, htmlTarget, metadata }) {
+    purchase({ rcPackage, htmlTarget, metadata }) {
       calls.push(`purchase:${rcPackage.identifier}`);
       purchaseInputs.push({
         ...(htmlTarget ? { htmlTarget } : {}),
         ...(metadata ? { metadata } : {}),
       });
-      if (options?.purchaseError) {
-        throw options.purchaseError;
+      if (options?.purchaseNeverSettles) {
+        // An embedded checkout waiting on the buyer: the SDK promise only
+        // settles through its UI callbacks.
+        return new Promise(() => undefined);
       }
-      return { customerInfo: customerInfo(["sync"]) };
+      if (options?.purchaseError) {
+        return Promise.reject(options.purchaseError);
+      }
+      return Promise.resolve({ customerInfo: customerInfo(["sync"]) });
     },
     async setAttributes(nextAttributes) {
       calls.push("setAttributes");
       Object.assign(attributes, nextAttributes);
+    },
+    close() {
+      calls.push("close");
     },
   };
   const sdk: RevenueCatWebSdk = {
@@ -147,6 +158,44 @@ test("web RevenueCat backend forwards embed target and metadata to the provider 
     { htmlTarget, metadata: { orgId: "org-1" } },
     {},
   ]);
+});
+
+test("abandoning a live purchase isolates it in a fresh SDK instance", async () => {
+  const { calls, sdk } = createFakeSdk({ purchaseNeverSettles: true });
+  const backend = createWebRevenueCatBackend(sdk);
+  const controller = new AbortController();
+
+  await backend.configure({ apiKey: "web-key", appUserId: "user-1" });
+  void backend.purchasePackage({
+    packageId: "monthly",
+    abortSignal: controller.signal,
+  });
+  // Let the pre-purchase phase (offerings fetch) run so purchase() starts.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(calls).toContain("purchase:monthly");
+
+  // The buyer dismisses the embedded checkout while the SDK purchase is still
+  // live: the singleton must be closed and reconfigured (same buyer) so a
+  // retried purchase cannot share checkout-session state with this one.
+  controller.abort();
+
+  expect(calls.indexOf("close")).toBeGreaterThan(-1);
+  expect(calls.at(-1)).toBe("configure:web-key:user-1");
+});
+
+test("an abort after the purchase settled does not reset the SDK", async () => {
+  const { calls, sdk } = createFakeSdk();
+  const backend = createWebRevenueCatBackend(sdk);
+  const controller = new AbortController();
+
+  await backend.configure({ apiKey: "web-key", appUserId: "user-1" });
+  await backend.purchasePackage({
+    packageId: "monthly",
+    abortSignal: controller.signal,
+  });
+  controller.abort();
+
+  expect(calls).not.toContain("close");
 });
 
 test("web RevenueCat backend refuses to mount a checkout for an aborted flow", async () => {

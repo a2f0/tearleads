@@ -33,6 +33,7 @@ export function createPurchases(
 ): PurchasesCapability {
   return {
     isAvailable: true,
+    supportsEmbeddedCheckout: true,
     identify: mock(() => Promise.resolve()),
     reset: mock(() => Promise.resolve()),
     listSyncOptions: mock(() => Promise.resolve([OPTION])),

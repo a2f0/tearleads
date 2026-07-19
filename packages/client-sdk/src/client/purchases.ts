@@ -37,6 +37,14 @@ export interface SyncPurchaseResult {
 export interface PurchasesCapability {
   /** False when purchasing is not supported on this platform (the stub). */
   readonly isAvailable: boolean;
+  /**
+   * True when {@link purchaseSync}'s `checkoutHost` embeds a checkout this
+   * platform can actually cancel from the app's own UI (Web Billing). Absent
+   * or false on platforms whose checkout is a native sheet with its own
+   * dismissal — billing UI uses this to decide whether to offer an in-app
+   * Cancel affordance.
+   */
+  readonly supportsEmbeddedCheckout?: boolean;
   /** Identify the buyer to the provider; the App User ID is the buyer's user id. */
   identify(input: { userId: string }): Promise<void>;
   /** Forget the identified buyer (e.g. on sign-out). */
@@ -138,6 +146,12 @@ export interface RevenueCatPurchasesConfig {
    * "orgId".
    */
   readonly organizationAttributeKey?: string;
+  /**
+   * Whether this platform's backend honors `checkoutHost` with a cancellable
+   * embedded checkout (Web Billing). Defaults to false — native store sheets
+   * carry their own dismissal.
+   */
+  readonly supportsEmbeddedCheckout?: boolean;
 }
 
 const DEFAULT_ORGANIZATION_ATTRIBUTE_KEY = "orgId";
@@ -180,6 +194,7 @@ export function createRevenueCatPurchases(
 
   return {
     isAvailable: true,
+    supportsEmbeddedCheckout: config.supportsEmbeddedCheckout ?? false,
     async identify(input) {
       await ensureConfigured(input.userId);
       await backend.logIn({ appUserId: input.userId });
@@ -242,6 +257,7 @@ export function createRevenueCatPurchases(
 export function createUnavailablePurchases(): PurchasesCapability {
   return {
     isAvailable: false,
+    supportsEmbeddedCheckout: false,
     identify() {
       return Promise.resolve();
     },

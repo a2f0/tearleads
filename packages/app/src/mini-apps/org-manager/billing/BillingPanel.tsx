@@ -67,6 +67,7 @@ export function BillingPanel({
         busy={actions.busy}
         canSubscribe={actions.canSubscribe}
         checkoutHostRef={checkoutHostRef}
+        embeddedCheckout={actions.embeddedCheckout}
         error={billing.error}
         isOrgAdmin={isOrgAdmin}
         loading={billing.loading}

@@ -22,19 +22,10 @@
   border-top: var(--border-strong);
 }
 
-/* The embedded checkout hides the provider's own close control, so the panel
-   supplies the exit path: a Cancel row that appears only while the provider
-   has content mounted in the host — driven by the DOM itself so it tracks the
-   checkout's actual lifecycle (and never shows for native purchase sheets,
-   whose host stays empty). */
-.org-manager-billing-checkout-cancel {
-  display: none;
-}
-
-.org-manager-billing-checkout:not(:empty)
-  + .org-manager-billing-checkout-cancel {
-  display: flex;
-}
+/* The Cancel row itself is rendered (and removed) by BillingView based on the
+   platform's embedded-checkout support and the in-flight purchase state, so it
+   is available for the whole embedded flow — including the pre-mount phase
+   where this host is still empty. */
 
 .org-manager-billing-checkout,
 .org-manager-billing-checkout * {

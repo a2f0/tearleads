@@ -53,14 +53,20 @@ missing the SDK falls back to its fullscreen modal, and native (Capacitor)
 flows ignore the option entirely.
 
 The SDK hides its own close control in embedded mode, so the panel provides
-the exit path: a Cancel row that CSS shows only while the checkout host has
-content. Cancelling (ours or the provider's) is normalized to
-`PurchaseCancelledError`, which the billing UI treats as a no-op rather than a
-failed purchase. Cancelling only dismisses the UI — a payment the provider had
-already taken can still land afterwards, and the flow honors that late success
-by running the normal activation refresh. A cancel that fires before the
-checkout has mounted aborts the purchase via an `AbortSignal` instead, so the
-SDK never renders a checkout nothing controls.
+the exit path: a Cancel row shown for the whole embedded purchase (platforms
+gate it via `PurchasesCapability.supportsEmbeddedCheckout`, so it never shows
+over a native store sheet). Cancelling (ours or the provider's) is normalized
+to `PurchaseCancelledError`, which the billing UI treats as a no-op rather
+than a failed purchase, and the host element cancels the purchase whenever it
+leaves the DOM (admin role revoked, billing view lost, panel closed).
+Cancelling only dismisses the UI — a payment the provider had already taken
+can still land afterwards, and the flow honors that late success by running
+the normal activation refresh. A cancel that fires before the checkout has
+mounted aborts the purchase via an `AbortSignal` instead, so the SDK never
+renders a checkout nothing controls; a cancel after the SDK purchase started
+additionally closes and reconfigures the SDK singleton, because the SDK keeps
+checkout-session state on one shared helper and a retry must not share it
+with the abandoned purchase.
 
 ### Org attribution
 

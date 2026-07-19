@@ -274,3 +274,69 @@ test("refresh is always available to an admin", () => {
   );
   expect(refreshed).toBe(1);
 });
+
+test("shows the Cancel row only during an embedded subscribe", () => {
+  const embeddedBusy = props({
+    purchaseAvailable: true,
+    embeddedCheckout: true,
+    busy: "subscribe:monthly",
+  });
+  const view = render(<BillingView {...embeddedBusy} />);
+  expect(
+    view.getByText(ORG_MANAGER_LABELS.billingCancelCheckout),
+  ).toBeDefined();
+
+  // Idle: no purchase to cancel.
+  view.rerender(
+    <BillingView
+      {...props({ purchaseAvailable: true, embeddedCheckout: true })}
+    />,
+  );
+  expect(view.queryByText(ORG_MANAGER_LABELS.billingCancelCheckout)).toBeNull();
+
+  // Native platforms present their own store sheet with its own dismissal —
+  // an in-app Cancel row there would mislead.
+  view.rerender(
+    <BillingView
+      {...props({ purchaseAvailable: true, busy: "subscribe:monthly" })}
+    />,
+  );
+  expect(view.queryByText(ORG_MANAGER_LABELS.billingCancelCheckout)).toBeNull();
+});
+
+test("clicking the Cancel row dismisses the embedded checkout", () => {
+  let cancelled = 0;
+  const view = render(
+    <BillingView
+      {...props({
+        purchaseAvailable: true,
+        embeddedCheckout: true,
+        busy: "subscribe:monthly",
+        onCancelCheckout: () => {
+          cancelled += 1;
+        },
+      })}
+    />,
+  );
+  fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingCancelCheckout));
+  expect(cancelled).toBe(1);
+});
+
+test("unmounting the checkout host dismisses the purchase", () => {
+  // Any path that removes the host must cancel the purchase riding in it —
+  // here the buyer's admin role is revoked mid-purchase.
+  let cancelled = 0;
+  const shared = {
+    purchaseAvailable: true,
+    embeddedCheckout: true,
+    busy: "subscribe:monthly",
+    onCancelCheckout: () => {
+      cancelled += 1;
+    },
+  };
+  const view = render(<BillingView {...props(shared)} />);
+  expect(cancelled).toBe(0);
+
+  view.rerender(<BillingView {...props({ ...shared, isOrgAdmin: false })} />);
+  expect(cancelled).toBe(1);
+});
