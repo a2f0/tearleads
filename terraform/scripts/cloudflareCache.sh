@@ -161,33 +161,52 @@ purge_cloudflare_cache_for_hosts() {
   purge_cloudflare_cache_for_urls "$domain" "${files[@]}"
 }
 
-# Best-effort Cloudflare purge of the website's screenshot gallery.
+# Best-effort Cloudflare purge of the website's non-content-addressed surface.
 # Usage:
-#   purge_cloudflare_screenshot_gallery <zone-domain> <host> <dist-dir>
+#   purge_cloudflare_website <zone-domain> <host> <dist-dir>
 #
-# The gallery is restaged on every build under stable, non content-hashed paths,
-# so a changed capture reuses its old URL and the edge keeps serving the old
-# bytes. URLs are enumerated from the built dist rather than hardcoded, so added
-# or removed captures need no change here.
-purge_cloudflare_screenshot_gallery() {
+# Purges exactly what a deploy can change without changing its URL:
+#
+#   * HTML pages — now edge-cacheable (see the cache ruleset in
+#     terraform/modules/cloudflare-website-cache), so without this the edge
+#     serves the previous build for the whole `s-maxage` window.
+#   * The screenshot gallery manifest — the indirection that publishes new
+#     image URLs.
+#
+# Everything else under dist is content-addressed — Astro's hashed `_astro/`
+# output, and gallery images keyed on a digest by buildScreenshots.ts — so a
+# change there is a new URL that nothing can have cached, and purging it would
+# spend request quota to no effect.
+purge_cloudflare_website() {
   local domain="$1"
   local host="$2"
   local dist_dir="${3%/}"
-  local gallery_dir="$dist_dir/screenshot-gallery"
+  local manifest="$dist_dir/screenshot-gallery/manifest.json"
   local urls=()
-  local file
+  local file relative route
 
-  if [[ ! -d "$gallery_dir" ]]; then
-    echo "Skipping screenshot gallery purge: $gallery_dir does not exist."
+  if [[ ! -d "$dist_dir" ]]; then
+    echo "Skipping website purge: $dist_dir does not exist."
     return 0
   fi
 
+  # Astro emits `<route>/index.html`. Purge both that path and the directory
+  # URL a visitor actually requests, since either can be the edge cache key.
   while IFS= read -r file; do
-    urls+=("https://${host}${file#"$dist_dir"}")
-  done < <(find "$gallery_dir" -type f | sort)
+    relative="${file#"$dist_dir"}"
+    urls+=("https://${host}${relative}")
+    route="${relative%index.html}"
+    if [[ "$route" != "$relative" ]]; then
+      urls+=("https://${host}${route}")
+    fi
+  done < <(find "$dist_dir" -type f -name '*.html' | sort)
+
+  if [[ -f "$manifest" ]]; then
+    urls+=("https://${host}/screenshot-gallery/manifest.json")
+  fi
 
   if [[ ${#urls[@]} -eq 0 ]]; then
-    echo "Skipping screenshot gallery purge: no gallery files were built."
+    echo "Skipping website purge: nothing cacheable was built."
     return 0
   fi
 
