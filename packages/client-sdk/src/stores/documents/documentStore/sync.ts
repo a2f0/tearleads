@@ -7,9 +7,7 @@ import {
   type DocumentRecord,
   type DocumentSyncLane,
   deletePersistedDocument,
-  describeDocumentSyncSubmitFailure,
   type PendingUpdateRecord,
-  recordDocumentSyncFailure,
   registerDocumentSyncLane,
   resolveDocumentCreateAuthor,
   settleOutgoingPassAndDecideReArm,
@@ -39,7 +37,10 @@ import {
 } from "./state";
 import { syncPendingAttachments } from "./syncAttachments";
 import { syncDetachedAttachmentBindings } from "./syncDetachedAttachments";
-import { ensureRemoteDocument } from "./syncShared";
+import {
+  documentTerminalSubmitFailureHandler,
+  ensureRemoteDocument,
+} from "./syncShared";
 import { importSyncedDocumentUpdates } from "./syncUpdateImport";
 
 function canRunScheduledSync(state: DocumentStoreState): boolean {
@@ -108,16 +109,7 @@ async function requestRemoteDocumentSync(input: {
     localVersionVector: encodeVersionVector(currentDoc),
     minLsn: currentRecord.lastCommitLsn ?? undefined,
     onRemoteDocumentDeleted: () => deleteUpstreamDeletedDocument(state),
-    onTerminalSubmitFailure: (failure) =>
-      recordDocumentSyncFailure(
-        state.runtime.infra.execSql,
-        { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
-        {
-          attemptedAt: new Date().toISOString(),
-          message: describeDocumentSyncSubmitFailure(failure),
-          status: failure.status,
-        },
-      ),
+    onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(state),
     pendingUpdates,
     persistedState: currentRecord,
     rekeyPendingUpdate: state.persistence.rekeyPendingUpdate,

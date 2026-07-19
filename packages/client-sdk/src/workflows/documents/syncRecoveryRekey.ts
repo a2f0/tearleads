@@ -107,6 +107,10 @@ export async function rekeyUnsettledRecoveryPendingUpdates(input: {
     if (settled.has(pendingUpdateId)) {
       continue;
     }
+    // Known multi-tab limitation: the count is the row as loaded at pass
+    // start, so a sibling tab that settle-deleted the row can make this
+    // record a failure for work that no longer exists. The stale failure is
+    // transient — the document's next clean pass clears it.
     if ((record.rekeyCount ?? 0) >= MAX_PENDING_UPDATE_REKEYS) {
       exhaustedPendingUpdateIds.push(pendingUpdateId);
       continue;

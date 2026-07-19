@@ -15,6 +15,30 @@ import type {
   EncapsulationKeyPair,
 } from "./state";
 
+/**
+ * Record a terminal submit failure on this document's write-queue row. Shared
+ * by every store pass that can submit (create, sync, rotation preflight), so
+ * re-key exhaustion and denial failures surface no matter which pass hits
+ * them first.
+ */
+export function documentTerminalSubmitFailureHandler(
+  state: DocumentStoreState,
+) {
+  return (failure: {
+    readonly message: string;
+    readonly status: number | null;
+  }) =>
+    recordDocumentSyncFailure(
+      state.runtime.infra.execSql,
+      { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+      {
+        attemptedAt: new Date().toISOString(),
+        message: describeDocumentSyncSubmitFailure(failure),
+        status: failure.status,
+      },
+    );
+}
+
 export async function ensureRemoteDocument(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -50,16 +74,7 @@ export async function ensureRemoteDocument(
     documentId: await deriveStableDocumentId(state.localId),
     execSql: state.runtime.infra.execSql,
     isRemoteSyncBlocked: state.runtime.util.isRemoteSyncBlocked,
-    onTerminalSubmitFailure: (failure) =>
-      recordDocumentSyncFailure(
-        state.runtime.infra.execSql,
-        { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
-        {
-          attemptedAt: new Date().toISOString(),
-          message: describeDocumentSyncSubmitFailure(failure),
-          status: failure.status,
-        },
-      ),
+    onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(state),
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
     warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
