@@ -90,6 +90,55 @@ test("matches this org's subscription by store identifier among several", async 
   ).toBe("https://ours");
 });
 
+test("returns the org's lapsed subscription over another customer's active one", async () => {
+  const { fetchImpl } = fakeFetch([
+    {
+      body: {
+        items: [
+          sub({
+            gives_access: false,
+            store_subscription_identifier: "txn-9",
+            management_url: "https://ours",
+          }),
+          sub({
+            store_subscription_identifier: "other",
+            management_url: "https://other",
+          }),
+        ],
+      },
+    },
+  ]);
+  expect(
+    await fetchRevenueCatManagementUrl(
+      "user-1",
+      { subscriptionId: "txn-9", transactionId: null },
+      { env: ENV, fetchImpl },
+    ),
+  ).toBe("https://ours");
+});
+
+test("returns null when the stored id is absent, never falling back", async () => {
+  const { fetchImpl } = fakeFetch([
+    {
+      body: {
+        items: [
+          sub({
+            store_subscription_identifier: "other",
+            management_url: "https://other",
+          }),
+        ],
+      },
+    },
+  ]);
+  expect(
+    await fetchRevenueCatManagementUrl(
+      "user-1",
+      { subscriptionId: "txn-9", transactionId: null },
+      { env: ENV, fetchImpl },
+    ),
+  ).toBeNull();
+});
+
 test("returns null when multiple subscriptions are ambiguous (no id match)", async () => {
   const { fetchImpl } = fakeFetch([
     {

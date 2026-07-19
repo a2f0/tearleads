@@ -85,40 +85,42 @@ function parseSubscriptionPage(body: unknown): {
 
 /**
  * Chooses the management URL for the organization's subscription among a
- * customer's subscriptions. Prefers the access-giving subscription whose store
- * identifier matches the org's stored subscription/transaction id; failing an
- * identifier match, uses the sole access-giving subscription (the common
- * one-org case). With multiple access-giving subscriptions and no match it
- * returns null rather than risk pointing an admin at another org's manage page.
+ * customer's subscriptions. When the org has a stored subscription/transaction
+ * id, it matches that id across ALL of the customer's subscriptions — active or
+ * lapsed — and returns only the matched one (a lapsed subscription still has a
+ * manage page to fix billing), never another org's. Only when the org has NO
+ * stored reference does it fall back to the sole access-giving subscription,
+ * returning null when several are ambiguous — so an admin is never sent to a
+ * different organization's manage page.
  */
 function pickManagementUrl(
   subscriptions: readonly ResolvedSubscription[],
   ref: OrganizationSubscriptionRef,
 ): string | null {
-  const accessGiving = subscriptions.filter(
-    (subscription) => subscription.givesAccess,
-  );
-
   const storeIds = [ref.subscriptionId, ref.transactionId].filter(
     (value): value is string => typeof value === "string" && value.length > 0,
   );
   if (storeIds.length > 0) {
-    const matched = accessGiving.find(
+    const matched = subscriptions.find(
       (subscription) =>
         subscription.storeIdentifier !== null &&
         storeIds.includes(subscription.storeIdentifier),
     );
-    // A match is definitive: return its URL (or null if that subscription has
-    // none) without falling through to a possibly-unrelated subscription.
-    if (matched) {
-      return matched.managementUrl;
-    }
+    // The stored id identifies this org's subscription exactly. Return its URL
+    // (or null if it has none / is absent) — never fall back to a subscription
+    // that could belong to a different organization.
+    return matched ? matched.managementUrl : null;
   }
 
-  if (accessGiving.length === 1) {
-    return accessGiving[0]?.managementUrl ?? null;
-  }
-  return null;
+  // No stored reference (e.g. a legacy billing row written before these ids
+  // were persisted): fall back to the sole access-giving subscription; with
+  // several and nothing to disambiguate, do not guess.
+  const accessGiving = subscriptions.filter(
+    (subscription) => subscription.givesAccess,
+  );
+  return accessGiving.length === 1
+    ? (accessGiving[0]?.managementUrl ?? null)
+    : null;
 }
 
 /** Fetches every subscription page for a customer (bounded, per-request timeout). */
