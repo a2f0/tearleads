@@ -1,4 +1,5 @@
-import { copyFile, mkdir, readdir, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { copyFile, mkdir, readdir, readFile, rm } from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -83,6 +84,21 @@ async function listDir(dir: string): Promise<string[]> {
   }
 }
 
+// Short content digest, appended to each image URL as `?v=…`.
+//
+// Screenshot files have stable names, so a recaptured screen reuses its URL. A
+// client that cached that URL under an earlier long-lived `Cache-Control` never
+// revalidates it, and no origin header change or CDN purge can reach a cache
+// that is not asking. Keying the URL on content sidesteps that entirely: a
+// changed capture is simply a different URL, and the gallery reaches images only
+// through this manifest, which is served revalidating.
+async function contentVersion(filePath: string): Promise<string> {
+  return createHash("sha256")
+    .update(await readFile(filePath))
+    .digest("hex")
+    .slice(0, 8);
+}
+
 function screenRank(name: string): number {
   const index = SCREEN_ORDER.indexOf(name);
   return index === -1 ? SCREEN_ORDER.length : index;
@@ -116,7 +132,9 @@ for (const project of PROJECTS) {
         project,
         theme,
         name,
-        src: `${IMG_URL_PREFIX}${project}/${theme}/${file}`,
+        src: `${IMG_URL_PREFIX}${project}/${theme}/${file}?v=${await contentVersion(
+          path.join(SCREENSHOTS_DIR, project, theme, file),
+        )}`,
       });
     }
   }
