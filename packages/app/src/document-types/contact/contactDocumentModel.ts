@@ -1,9 +1,14 @@
+import type { ContactAvatarRef } from "./contactAvatarSlot";
 import {
   type ContactDocumentFields,
   readContactFieldsFromRecord,
 } from "./contactDocumentDefinition";
 
 export interface ContactEntry {
+  // Present only when the contact's document store reports a bound avatar
+  // attachment. Entries loaded from the SQLite projection omit it (attachments
+  // live only in the document store); consumers render a silhouette either way.
+  avatar?: ContactAvatarRef | undefined;
   canWrite?: boolean | undefined;
   encapsulationPublicKey: string | null;
   firstName: string;
@@ -46,7 +51,10 @@ function readSelfField(value: string): boolean {
 export function contactFieldsToEntry(
   id: string,
   fields: ContactDocumentFields,
-  options: { canWrite?: boolean | undefined } = {},
+  options: {
+    avatar?: ContactAvatarRef | null | undefined;
+    canWrite?: boolean | undefined;
+  } = {},
 ): ContactEntry {
   const userId = normalizeOptionalString(fields.userId);
   const encapsulationPublicKey = normalizeOptionalString(
@@ -54,6 +62,7 @@ export function contactFieldsToEntry(
   );
 
   return {
+    ...(options.avatar ? { avatar: options.avatar } : {}),
     canWrite: options.canWrite ?? true,
     encapsulationPublicKey:
       encapsulationPublicKey.length > 0 ? encapsulationPublicKey : null,

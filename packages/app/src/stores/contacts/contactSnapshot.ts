@@ -1,3 +1,4 @@
+import { sameContactAvatarRef } from "../../document-types/contact/contactAvatarSlot";
 import type { ContactEntry } from "../../document-types/contact/contactDocumentModel";
 
 const contactCollator = new Intl.Collator(undefined, { sensitivity: "base" });
@@ -48,6 +49,7 @@ export function sameContactEntry(
     left.nickname === right.nickname &&
     left.userId === right.userId &&
     left.encapsulationPublicKey === right.encapsulationPublicKey &&
-    left.isSelf === right.isSelf
+    left.isSelf === right.isSelf &&
+    sameContactAvatarRef(left.avatar, right.avatar)
   );
 }

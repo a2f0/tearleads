@@ -6,6 +6,10 @@ import {
 } from "../../document-types/contact/contactDocumentModel";
 import { loadContactDocumentSummary } from "./contactDocumentSummary";
 import {
+  removeContactAvatarInStore,
+  setContactAvatarInStore,
+} from "./contactStoreAvatar";
+import {
   type ContactStoreOperationGuard,
   removeDuplicateSelfContacts,
 } from "./contactStoreDuplicateSelfCleanup";
@@ -21,6 +25,7 @@ import {
   hydrateLateSelfContactFallback,
 } from "./contactStoreLateSelfReconciliation";
 import {
+  canWriteContactEntry,
   contactEntryFromDocumentStore,
   findContactByUserId,
   findSelfContact,
@@ -91,19 +96,6 @@ async function writeContactPatch(
   if (entry) {
     upsertContactEntry(state, entry);
   }
-}
-
-function canWriteContactEntry(
-  state: ContactsStoreState,
-  contactId: string,
-): boolean {
-  const entry = state.entriesById.get(contactId);
-  if (entry && entry.canWrite === false) {
-    return false;
-  }
-
-  const trackedStore = state.contactDocumentStoresById.get(contactId);
-  return trackedStore ? trackedStore.store.getSnapshot().canWrite : true;
 }
 
 async function createContactFromRuntime(
@@ -370,6 +362,58 @@ async function removeContactFromRuntime(
   await state.writeChain;
 }
 
+function updateContactsStoreRuntime(
+  state: ContactsStoreState,
+  runtime: ContactsRuntime,
+): void {
+  const previousContainerId = state.runtime.documents.state.containerId;
+  const previousDbStatus = state.runtime.documents.infra.dbStatus;
+  const previousDomainScope = state.runtime.documents.state.domainScope;
+  const previousExecSql = state.runtime.documents.infra.execSql;
+  // The listener registry is domain-scoped. Its wrapper function is rebuilt
+  // with normal runtime snapshots, so function identity is not a stable
+  // subscription target; domain + availability are.
+  const previousCanSubscribe =
+    state.runtime.subscribeToPersistedDocuments !== undefined;
+  const nextContainerId = runtime.documents.state.containerId;
+  const subscriptionAvailabilityChanged =
+    previousCanSubscribe !==
+    (runtime.subscribeToPersistedDocuments !== undefined);
+  state.runtime = runtime;
+  let didReset = false;
+  if (
+    previousContainerId !== nextContainerId ||
+    previousDbStatus !== runtime.documents.infra.dbStatus ||
+    previousDomainScope !== runtime.documents.state.domainScope ||
+    previousExecSql !== runtime.documents.infra.execSql
+  ) {
+    resetContactsStore(state);
+    didReset = true;
+  }
+  for (const trackedStore of state.contactDocumentStoresById.values()) {
+    trackedStore.store.updateRuntime(runtime.documents);
+  }
+
+  if (
+    runtime.documents.infra.dbStatus !== "ready" ||
+    !hasContactsContainerRuntime(state)
+  ) {
+    if (state.snapshot.ready || state.initialized || state.initializePromise) {
+      resetContactsStore(state);
+    }
+    return;
+  }
+
+  if (
+    didReset ||
+    subscriptionAvailabilityChanged ||
+    !state.persistedDocumentsUnsubscribe
+  ) {
+    connectContactsStoreToPersistedDocuments(state);
+  }
+  ensureContactsInitialized(state);
+}
+
 export function createContactsStore(
   initialRuntime: ContactsRuntime,
   dependencies: ContactsStoreDependencies,
@@ -406,6 +450,10 @@ export function createContactsStore(
     getSnapshot: () => state.snapshot,
     importKey: (userId) => importKeyFromRuntime(state, userId),
     removeContact: (contactId) => removeContactFromRuntime(state, contactId),
+    removeContactAvatar: (contactId) =>
+      removeContactAvatarInStore(state, contactId),
+    setContactAvatar: (contactId, upload) =>
+      setContactAvatarInStore(state, contactId, upload),
     subscribe(listener) {
       state.listeners.add(listener);
       return () => {
@@ -414,58 +462,7 @@ export function createContactsStore(
     },
     updateContact: (contactId, patch) =>
       updateContactFromRuntime(state, contactId, patch),
-    updateRuntime(runtime) {
-      const previousContainerId = state.runtime.documents.state.containerId;
-      const previousDbStatus = state.runtime.documents.infra.dbStatus;
-      const previousDomainScope = state.runtime.documents.state.domainScope;
-      const previousExecSql = state.runtime.documents.infra.execSql;
-      // The listener registry is domain-scoped. Its wrapper function is rebuilt
-      // with normal runtime snapshots, so function identity is not a stable
-      // subscription target; domain + availability are.
-      const previousCanSubscribe =
-        state.runtime.subscribeToPersistedDocuments !== undefined;
-      const nextContainerId = runtime.documents.state.containerId;
-      const subscriptionAvailabilityChanged =
-        previousCanSubscribe !==
-        (runtime.subscribeToPersistedDocuments !== undefined);
-      state.runtime = runtime;
-      let didReset = false;
-      if (
-        previousContainerId !== nextContainerId ||
-        previousDbStatus !== runtime.documents.infra.dbStatus ||
-        previousDomainScope !== runtime.documents.state.domainScope ||
-        previousExecSql !== runtime.documents.infra.execSql
-      ) {
-        resetContactsStore(state);
-        didReset = true;
-      }
-      for (const trackedStore of state.contactDocumentStoresById.values()) {
-        trackedStore.store.updateRuntime(runtime.documents);
-      }
-
-      if (
-        runtime.documents.infra.dbStatus !== "ready" ||
-        !hasContactsContainerRuntime(state)
-      ) {
-        if (
-          state.snapshot.ready ||
-          state.initialized ||
-          state.initializePromise
-        ) {
-          resetContactsStore(state);
-        }
-        return;
-      }
-
-      if (
-        didReset ||
-        subscriptionAvailabilityChanged ||
-        !state.persistedDocumentsUnsubscribe
-      ) {
-        connectContactsStoreToPersistedDocuments(state);
-      }
-      ensureContactsInitialized(state);
-    },
+    updateRuntime: (runtime) => updateContactsStoreRuntime(state, runtime),
   };
 }
 

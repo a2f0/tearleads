@@ -1,3 +1,4 @@
+import type { DocumentAttachmentUpload } from "@tearleads/client-sdk";
 import type {
   ContactEntry,
   ContactEntryPatch,
@@ -10,5 +11,10 @@ export interface ContactsContextValue {
   importKey: (userId: string) => Promise<string | null>;
   ready: boolean;
   removeContact: (contactId: string) => Promise<void>;
+  removeContactAvatar: (contactId: string) => Promise<void>;
+  setContactAvatar: (
+    contactId: string,
+    upload: DocumentAttachmentUpload,
+  ) => Promise<void>;
   updateContact: (contactId: string, patch: ContactEntryPatch) => Promise<void>;
 }

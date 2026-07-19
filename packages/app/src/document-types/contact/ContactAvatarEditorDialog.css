@@ -1,0 +1,68 @@
+.contact-avatar-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  /* Landscape phones: let the dialog scroll instead of clipping actions. */
+  max-height: 100%;
+  overflow: auto;
+}
+
+.contact-avatar-editor h2 {
+  margin: 0;
+  font-size: var(--font-size-md);
+}
+
+.contact-avatar-editor-viewport {
+  position: relative;
+  align-self: center;
+  max-width: 100%;
+  overflow: hidden;
+  border: var(--border);
+  background: var(--color-dark);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  /* Suppress the iOS long-press save/copy callout while dragging. */
+  -webkit-touch-callout: none;
+}
+
+.contact-avatar-editor-viewport:active {
+  cursor: grabbing;
+}
+
+.contact-avatar-editor-image {
+  position: absolute;
+  max-width: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Circle crop guide: the inscribed circle stays clear while the oversized
+   box-shadow dims the square corners that will be cropped away. */
+.contact-avatar-editor-mask {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--color-light);
+  border-radius: 50%;
+  box-shadow: 0 0 0 9999px var(--overlay-background);
+  pointer-events: none;
+}
+
+.contact-avatar-editor-hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  opacity: 0.75;
+}
+
+.contact-avatar-editor-zoom {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-sm);
+}
+
+.contact-avatar-editor-zoom input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}

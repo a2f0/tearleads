@@ -380,6 +380,8 @@ export function useContacts(): ContactsContextValue {
       importKey: store.importKey,
       ready: snapshot.ready,
       removeContact: store.removeContact,
+      removeContactAvatar: store.removeContactAvatar,
+      setContactAvatar: store.setContactAvatar,
       updateContact: store.updateContact,
     }),
     [canWrite, snapshot, store],

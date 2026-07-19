@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import type { BlobStore } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   useWindowBackActionValue,
@@ -15,6 +16,14 @@ const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
   navigator,
   "clipboard",
 );
+
+const emptyBlobStore: BlobStore = {
+  deleteBytes: async () => undefined,
+  openByteSource: async () => null,
+  readBytes: async () => null,
+  writeByteSource: async () => undefined,
+  writeBytes: async () => undefined,
+};
 
 afterEach(() => {
   cleanup();
@@ -41,6 +50,7 @@ function createContactsDetailPanelProps(
   } = {},
 ): Parameters<typeof ContactsDetailPanel>[0] {
   return {
+    blobStore: emptyBlobStore,
     canCreate: false,
     canImport: false,
     createDraftContact: async () => undefined,
@@ -54,8 +64,10 @@ function createContactsDetailPanelProps(
     onAreaContextMenu: () => undefined,
     onBackToSelectionRoute: () => undefined,
     ready: true,
+    removeContactAvatar: () => undefined,
     route: "selection",
     selectedContactId: null,
+    setContactAvatar: () => undefined,
     setDraftFirstName: () => undefined,
     setDraftLastName: () => undefined,
     setDraftNickname: () => undefined,

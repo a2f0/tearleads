@@ -33,6 +33,7 @@ import {
 } from "./useContactImport";
 
 interface ContactsModel {
+  blobStore: ReturnType<typeof useTearleadsRuntime>["infra"]["blobStore"];
   canCreate: boolean;
   canImport: boolean;
   canWrite: boolean;
@@ -50,9 +51,11 @@ interface ContactsModel {
   openImportContactRoute: () => void;
   openNewContactRoute: () => void;
   ready: boolean;
+  removeContactAvatar: ReturnType<typeof useContacts>["removeContactAvatar"];
   route: ContactsRoute;
   selectContact: (contactId: string) => void;
   selectedContactId: string | null;
+  setContactAvatar: ReturnType<typeof useContacts>["setContactAvatar"];
   setDraftFirstName: Dispatch<SetStateAction<string>>;
   setDraftLastName: Dispatch<SetStateAction<string>>;
   setDraftNickname: Dispatch<SetStateAction<string>>;
@@ -374,6 +377,8 @@ export function useContactsModel(
     importKey,
     ready,
     removeContact,
+    removeContactAvatar,
+    setContactAvatar,
     updateContact,
   } = useContacts();
   const { isAuthenticated } = useCryptoSession();
@@ -413,6 +418,7 @@ export function useContactsModel(
   });
 
   useContactsSidebarPanel({
+    blobStore: appData.infra.blobStore,
     currentSigningFingerprint: appData.crypto.signingFingerprint,
     currentUserId: appData.auth.userId,
     entries,
@@ -427,6 +433,7 @@ export function useContactsModel(
   return {
     contextMenuState,
     ...drafts,
+    blobStore: appData.infra.blobStore,
     canWrite,
     currentSigningFingerprint: appData.crypto.signingFingerprint,
     currentUserId: appData.auth.userId,
@@ -435,9 +442,11 @@ export function useContactsModel(
     openImportContactRoute: routeState.openImportContactRoute,
     openNewContactRoute: routeState.openNewContactRoute,
     ready,
+    removeContactAvatar,
     route: routeState.route,
     selectContact: selectionState.selectContact,
     selectedContactId: selectionState.selectedContactId,
+    setContactAvatar,
     showCompactListHome:
       compactRoutedMode &&
       routeState.route === "selection" &&

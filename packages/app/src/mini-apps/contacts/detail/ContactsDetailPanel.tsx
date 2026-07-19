@@ -1,6 +1,10 @@
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import { UserPlusIcon } from "@phosphor-icons/react/dist/csr/UserPlus";
+import type {
+  BlobStore,
+  DocumentAttachmentUpload,
+} from "@tearleads/client-sdk";
 import { useEffect, useMemo, useState } from "react";
 import {
   MiniAppField,
@@ -21,12 +25,18 @@ import type {
 import { CONTACTS_LABELS } from "../labels";
 import type { ContactsRoute } from "../routes";
 import type { ContactEntries, ContactEntryPatch } from "../types";
+import { ContactsAvatarSection } from "./ContactsAvatarSection";
 import {
   type ContactsAreaContextMenuHandler,
   ContactsDetailContextTarget,
 } from "./ContactsDetailContextTarget";
 
 type UpdateContact = (contactId: string, patch: ContactEntryPatch) => void;
+type RemoveContactAvatar = (contactId: string) => void;
+type SetContactAvatar = (
+  contactId: string,
+  upload: DocumentAttachmentUpload,
+) => void;
 type SelectedContactEntry = ContactEntries[number];
 
 function toContactFieldValues(entry: SelectedContactEntry): ContactFieldValues {
@@ -47,14 +57,20 @@ function toContactEntryPatch(
 }
 
 function ContactsSelectionState({
+  blobStore,
   entries,
   ready,
+  removeContactAvatar,
   selectedContactId,
+  setContactAvatar,
   updateContact,
 }: {
+  blobStore: BlobStore;
   entries: ContactEntries;
   ready: boolean;
+  removeContactAvatar: RemoveContactAvatar;
   selectedContactId: string | null;
+  setContactAvatar: SetContactAvatar;
   updateContact: UpdateContact;
 }) {
   const selectedEntry = entries.find((entry) => entry.id === selectedContactId);
@@ -110,6 +126,13 @@ function ContactsSelectionState({
 
   return (
     <MiniAppPanel key={selectedEntry.id}>
+      <ContactsAvatarSection
+        blobStore={blobStore}
+        canEdit={isEditing && canEditSelectedEntry}
+        entry={selectedEntry}
+        removeContactAvatar={removeContactAvatar}
+        setContactAvatar={setContactAvatar}
+      />
       <ContactFields
         disabled={!canEditSelectedEntry}
         isEditing={isEditing && canEditSelectedEntry}
@@ -257,6 +280,7 @@ function ContactsImportContactPanel(params: {
 }
 
 export function ContactsDetailPanel(params: {
+  blobStore: BlobStore;
   canCreate: boolean;
   canImport: boolean;
   createDraftContact: () => Promise<void>;
@@ -270,8 +294,10 @@ export function ContactsDetailPanel(params: {
   onAreaContextMenu: ContactsAreaContextMenuHandler;
   onBackToSelectionRoute: () => void;
   ready: boolean;
+  removeContactAvatar: RemoveContactAvatar;
   route: ContactsRoute;
   selectedContactId: string | null;
+  setContactAvatar: SetContactAvatar;
   setDraftFirstName: (firstName: string) => void;
   setDraftLastName: (lastName: string) => void;
   setDraftNickname: (nickname: string) => void;
@@ -279,6 +305,7 @@ export function ContactsDetailPanel(params: {
   updateContact: UpdateContact;
 }) {
   const {
+    blobStore,
     canCreate,
     canImport,
     createDraftContact,
@@ -292,8 +319,10 @@ export function ContactsDetailPanel(params: {
     onAreaContextMenu,
     onBackToSelectionRoute,
     ready,
+    removeContactAvatar,
     route,
     selectedContactId,
+    setContactAvatar,
     setDraftFirstName,
     setDraftLastName,
     setDraftNickname,
@@ -343,9 +372,12 @@ export function ContactsDetailPanel(params: {
   return (
     <ContactsDetailContextTarget onAreaContextMenu={onAreaContextMenu}>
       <ContactsSelectionState
+        blobStore={blobStore}
         entries={entries}
         ready={ready}
+        removeContactAvatar={removeContactAvatar}
         selectedContactId={selectedContactId}
+        setContactAvatar={setContactAvatar}
         updateContact={updateContact}
       />
     </ContactsDetailContextTarget>
