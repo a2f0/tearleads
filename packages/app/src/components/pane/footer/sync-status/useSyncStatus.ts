@@ -49,10 +49,13 @@ export function useSyncStatus(): SyncStatusResult {
     billingNeedsAttention,
     ready: dbReady && queue.loaded,
     pendingWriteCount: queue.count,
+    failedWriteCount: queue.failedCount,
   });
   const title = describeSyncStatus({
     status,
     pendingWriteCount: queue.count,
+    failedWriteCount: queue.failedCount,
+    firstWriteError: queue.firstError,
     online,
     billingStatus: billing.view?.status ?? null,
   });

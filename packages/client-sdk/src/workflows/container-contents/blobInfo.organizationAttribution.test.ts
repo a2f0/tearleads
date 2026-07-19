@@ -120,6 +120,57 @@ test("listBlobInfo attributes blobs to their document container organizations", 
   }
 });
 
+test("listBlobInfo keeps org attribution after the container is removed", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "blob-info-organization-attribution-retention-test",
+  );
+
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveOrganizationContainer({
+      containerId: "shared-container",
+      execSql,
+      organizationId: "peer-org",
+    });
+    await saveDocument({
+      containerId: "shared-container",
+      execSql,
+      localId: "shared-document",
+    });
+    await saveLocalAttachment({
+      blobId: "shared-blob",
+      execSql,
+      localId: "shared-document",
+      slotId: "shared-slot",
+    });
+
+    // Access revocation tombstones the shared container; the blob row keeps
+    // its last-known org attribution instead of falling back to "-".
+    await defaultContainerContentsPersistence.deleteContainers(
+      execSql,
+      ["shared-container"],
+      { updatedAt: TEST_TIMESTAMP },
+    );
+
+    const info = await listBlobInfo({ execSql });
+    expect(
+      Object.fromEntries(
+        info.rows.map((row) => [row.blobId, row.organizationId]),
+      ),
+    ).toEqual({ "shared-blob": "peer-org" });
+    // Searching by the retained org must match the displayed attribution.
+    await expect(
+      listBlobInfo({ execSql, query: "PEER-ORG" }),
+    ).resolves.toMatchObject({
+      totalCount: 1,
+      rows: [{ organizationId: "peer-org" }],
+    });
+  } finally {
+    close();
+  }
+});
+
 test("listBlobInfo leaves missing and ambiguous organization attribution null", async () => {
   const { close, execSql } = await createTestExecSql(
     "blob-info-organization-attribution-boundary-test",

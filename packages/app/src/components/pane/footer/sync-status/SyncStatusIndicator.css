@@ -47,6 +47,12 @@
   color: var(--color-danger);
 }
 
+/* Terminal write failures (e.g. write access denied): the billing warning
+   glyph, but in the danger hue — stuck, not merely waiting. */
+.sync-status-indicator--error {
+  color: var(--color-danger);
+}
+
 .sync-status-indicator--billing {
   color: var(--sync-status-warning-color);
 }
