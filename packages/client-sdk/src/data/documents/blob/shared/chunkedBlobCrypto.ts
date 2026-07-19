@@ -86,6 +86,7 @@ async function createBlobEncryptionContext(
   const { contentKeyEpoch } = input.contentKeyBundle;
   const nonceSeed = new Uint8Array(input.nonceSeed ?? createAesGcmIv());
   const baseIv = await deriveBlobBaseIv({
+    chunkSize,
     nonceSeed,
     plaintextSha256: snapshot.sha256,
   });

@@ -21,13 +21,21 @@ import {
 
 const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/;
 
+// The chunk layout is part of the IV family: a persisted nonce seed can
+// outlive a chunk-size change (upload resume across an app update), and the
+// record key does not vary with the layout, so the same seed must never
+// yield the same per-chunk IVs over two different plaintext chunkings.
 export async function deriveBlobBaseIv(input: {
+  readonly chunkSize: number;
   readonly nonceSeed: Uint8Array;
   readonly plaintextSha256: string;
 }): Promise<Uint8Array<ArrayBuffer>> {
   assertAesGcmIv(input.nonceSeed, "Blob nonce seed is invalid");
   if (!SHA256_HEX_PATTERN.test(input.plaintextSha256)) {
     throw new Error("Blob plaintext SHA-256 is invalid");
+  }
+  if (!Number.isInteger(input.chunkSize) || input.chunkSize <= 0) {
+    throw new Error("Blob chunk size is invalid");
   }
 
   const digest = new Uint8Array(
@@ -37,6 +45,7 @@ export async function deriveBlobBaseIv(input: {
         serializeKeyingCanonicalJson({
           domain: BLOB_CONTENT_RECORD_NONCE_DOMAIN,
           payload: {
+            chunkSize: input.chunkSize,
             nonceSeed: bytesToBase64(input.nonceSeed),
             plaintextSha256: input.plaintextSha256,
           },

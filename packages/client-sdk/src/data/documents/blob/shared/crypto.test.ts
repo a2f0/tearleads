@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { bytesToHex, createAesGcmIv } from "@tearleads/crypto";
 import type { BlobContentKeyBundleRequest } from "@tearleads/validators/request";
 import { type BlobBytes, createBlobByteSource } from "../../../blobContracts";
+import { deriveBlobBaseIv } from "./blobRecordCrypto";
 import { DEFAULT_BLOB_CHUNK_SIZE_BYTES, prepareBlobEncryption } from "./crypto";
 import { parseBlobEncryptedBytes } from "./readers";
 
@@ -171,6 +172,40 @@ describe("prepareBlobEncryption", () => {
       }),
     ).rejects.toThrow("Blob chunk size must be exactly 5 MiB");
     expect(reads).toBe(0);
+  });
+});
+
+describe("deriveBlobBaseIv", () => {
+  const nonceSeed = new Uint8Array(12).fill(2);
+  const plaintextSha256 = "ab".repeat(32);
+
+  test("derives a different base IV for each chunk layout of one seed", async () => {
+    const first = await deriveBlobBaseIv({
+      chunkSize: DEFAULT_BLOB_CHUNK_SIZE_BYTES,
+      nonceSeed,
+      plaintextSha256,
+    });
+    const second = await deriveBlobBaseIv({
+      chunkSize: DEFAULT_BLOB_CHUNK_SIZE_BYTES * 2,
+      nonceSeed,
+      plaintextSha256,
+    });
+    const repeated = await deriveBlobBaseIv({
+      chunkSize: DEFAULT_BLOB_CHUNK_SIZE_BYTES,
+      nonceSeed,
+      plaintextSha256,
+    });
+
+    expect(second).not.toEqual(first);
+    expect(repeated).toEqual(first);
+  });
+
+  test("rejects an invalid chunk size", async () => {
+    for (const chunkSize of [0, -1, 1.5, Number.NaN]) {
+      await expect(
+        deriveBlobBaseIv({ chunkSize, nonceSeed, plaintextSha256 }),
+      ).rejects.toThrow("Blob chunk size is invalid");
+    }
   });
 });
 
