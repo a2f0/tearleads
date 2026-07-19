@@ -10,6 +10,7 @@ import {
 import { waitForCondition } from "../waitForCondition";
 import {
   interact,
+  openWindowMenuDialog,
   POST_SHARE_NETWORK_IDLE_QUIET_MS,
   POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
 } from "./dualPaneCore";
@@ -37,31 +38,12 @@ export async function importPeerIntoRoster(
   }
 
   // "Import User" is a window File-menu item, disabled until the directory and
-  // Members group have loaded (canImportRosterUser). Open the File menu once and
-  // wait for the item to enable — the open menu re-renders live as that state
-  // settles — then open the dialog.
-  await interact(() => {
-    fireEvent.click(within(pane).getByRole("menuitem", { name: "File" }));
-  });
-  const importUserItem = await within(pane).findByRole("menuitem", {
-    name: ORG_MANAGER_LABELS.importUserAction,
-  });
-  invariant(
-    importUserItem instanceof HTMLButtonElement,
-    "Expected Import User menu item.",
-  );
-  await waitFor(
-    () => {
-      expect(importUserItem.disabled).toBe(false);
-    },
-    { timeout: ORG_MANAGER_IMPORT_USER_TIMEOUT_MS },
-  );
-  await interact(() => {
-    fireEvent.click(importUserItem);
-  });
-
-  const dialog = await within(pane).findByRole("dialog", {
-    name: ORG_MANAGER_LABELS.importUserAction,
+  // Members group have loaded (canImportRosterUser).
+  const dialog = await openWindowMenuDialog({
+    dialogName: ORG_MANAGER_LABELS.importUserAction,
+    itemName: ORG_MANAGER_LABELS.importUserAction,
+    scope: pane,
+    timeoutMs: ORG_MANAGER_IMPORT_USER_TIMEOUT_MS,
   });
   const userIdInput = within(dialog).getByLabelText(ORG_MANAGER_LABELS.userId);
   invariant(
