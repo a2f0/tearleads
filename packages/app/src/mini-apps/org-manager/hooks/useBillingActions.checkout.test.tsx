@@ -148,6 +148,51 @@ test("a late success dismisses a newer checkout for the same scope", async () =>
   expect(refresh).toHaveBeenCalled();
 });
 
+test("a scope switch leaves a native purchase running", async () => {
+  const purchaseResolvers: Array<(value: SyncPurchaseResult) => void> = [];
+  const purchaseSync = mock(
+    () =>
+      new Promise<SyncPurchaseResult>((resolve) => {
+        purchaseResolvers.push(resolve);
+      }),
+  );
+  const purchases: PurchasesCapability = {
+    ...createPurchases({ syncEntitlementActive: true }),
+    // A native platform: the purchase runs in a store sheet the app cannot
+    // cancel, so lifecycle changes must not settle it as cancelled.
+    supportsEmbeddedCheckout: false,
+    purchaseSync,
+  };
+  const { result, rerender } = renderBillingActions({ purchases });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  act(() => result.current.subscribe(OPTION));
+  await waitFor(() => expect(purchaseSync).toHaveBeenCalledTimes(1));
+
+  rerender({
+    billingCanSync: false,
+    organizationId: "org-1",
+    userId: "user-2",
+  });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  act(() => result.current.subscribe(OPTION));
+  await waitFor(() => expect(purchaseSync).toHaveBeenCalledTimes(2));
+
+  // The first (uncancelled) native purchase settling must not retire the
+  // second flow — that retirement exists only for embedded checkouts whose
+  // teardown wipes a shared host.
+  await act(async () => {
+    purchaseResolvers[0]?.({ syncEntitlementActive: false });
+  });
+  expect(result.current.busy).toBe(`subscribe:${OPTION.packageId}`);
+
+  await act(async () => {
+    purchaseResolvers[1]?.({ syncEntitlementActive: true });
+  });
+  await waitFor(() => expect(result.current.busy).toBe(null));
+  expect(result.current.activationPending).toBe(true);
+});
+
 test("a scope switch cancels the in-flight embedded checkout", async () => {
   const purchases: PurchasesCapability = {
     ...createPurchases({ syncEntitlementActive: true }),

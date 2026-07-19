@@ -179,6 +179,40 @@ function useRestoreAction(
   }, [currentScope, purchases, refresh, scopeRef, updateActionState]);
 }
 
+/**
+ * Owns the cancel action for the purchase currently in flight. Also ties the
+ * embedded checkout to its host's lifetime: when the buyer scope changes,
+ * purchase eligibility is lost (e.g. the buyer's admin role is revoked
+ * mid-purchase, which unmounts the admin actions and the host with them), or
+ * the panel unmounts, the in-flight purchase is cancelled so an orphaned
+ * provider flow is not left running with no reachable UI. Embedded web only:
+ * a native purchase runs in a store sheet the app cannot cancel, so settling
+ * it as cancelled here would just desync the panel from a still-active sheet.
+ */
+function useCheckoutCancellation(
+  embeddedCheckout: boolean,
+  organizationId: string,
+  userId: string | null,
+  canSubscribe: boolean,
+): {
+  cancelPurchaseRef: RefObject<(() => void) | null>;
+  cancelCheckout: () => void;
+} {
+  const cancelPurchaseRef = useRef<(() => void) | null>(null);
+  const cancelCheckout = useCallback(() => {
+    cancelPurchaseRef.current?.();
+  }, []);
+  useEffect(() => {
+    if (!embeddedCheckout) {
+      return;
+    }
+    return () => {
+      cancelPurchaseRef.current?.();
+    };
+  }, [embeddedCheckout, organizationId, userId, canSubscribe]);
+  return { cancelPurchaseRef, cancelCheckout };
+}
+
 interface BillingActionStateController {
   readonly actionState: BillingActionState;
   readonly currentScope: BillingActionScope;
@@ -249,6 +283,19 @@ function useBillingActionState(
   };
 }
 
+interface UseBillingActionsInput {
+  /** Backoff schedule for post-purchase billing re-reads; injectable for tests. */
+  activationPollDelaysMs?: readonly number[];
+  billingCanSync: boolean;
+  /** Checkout embed host, read at purchase time; absent = full-page overlay. */
+  checkoutHostRef?: RefObject<HTMLElement | null>;
+  isOrgAdmin: boolean;
+  organizationId: string;
+  refresh: () => Promise<void>;
+  startTrial: () => Promise<boolean>;
+  userId: string | null;
+}
+
 /**
  * Owns the billing panel's in-flight action state and orchestrates the platform
  * purchases capability (list options, identify + purchase, restore), refetching
@@ -263,18 +310,7 @@ export function useBillingActions({
   refresh,
   startTrial: startTrialRequest,
   userId,
-}: {
-  /** Backoff schedule for post-purchase billing re-reads; injectable for tests. */
-  activationPollDelaysMs?: readonly number[];
-  billingCanSync: boolean;
-  /** Checkout embed host, read at purchase time; absent = full-page overlay. */
-  checkoutHostRef?: RefObject<HTMLElement | null>;
-  isOrgAdmin: boolean;
-  organizationId: string;
-  refresh: () => Promise<void>;
-  startTrial: () => Promise<boolean>;
-  userId: string | null;
-}): BillingActions {
+}: UseBillingActionsInput): BillingActions {
   const purchases = usePurchases();
   const canSubscribe = isOrgAdmin && purchases.isAvailable && userId !== null;
   const {
@@ -299,7 +335,12 @@ export function useBillingActions({
     startTrialRequest,
     updateActionState,
   );
-  const cancelPurchaseRef = useRef<(() => void) | null>(null);
+  const { cancelCheckout, cancelPurchaseRef } = useCheckoutCancellation(
+    purchases.supportsEmbeddedCheckout === true,
+    organizationId,
+    userId,
+    canSubscribe,
+  );
   const subscribe = useSubscribeAction({
     canSubscribe,
     cancelPurchaseRef,
@@ -311,19 +352,6 @@ export function useBillingActions({
     updateActionState,
     userId,
   });
-  const cancelCheckout = useCallback(() => {
-    cancelPurchaseRef.current?.();
-  }, []);
-  // An embedded checkout must not outlive its host: when the buyer scope
-  // changes, purchase eligibility is lost (e.g. the buyer's admin role is
-  // revoked mid-purchase, which unmounts the admin actions and the host with
-  // them), or the panel unmounts, cancel any in-flight purchase so an
-  // orphaned provider flow is not left running with no reachable UI.
-  useEffect(() => {
-    return () => {
-      cancelPurchaseRef.current?.();
-    };
-  }, [organizationId, userId, canSubscribe]);
   const restore = useRestoreAction(
     currentScope,
     purchases,
@@ -337,7 +365,6 @@ export function useBillingActions({
     currentScope.userId === userId;
   const actionStateMatches =
     scopeMatchesInputs && scopeMatches(actionState, currentScope);
-
   useActivationBillingPoll(
     actionStateMatches && actionState.activationPending,
     billingCanSync,
