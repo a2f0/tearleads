@@ -173,9 +173,17 @@
       "lines": 1211,
       "bytes": 40919
     },
+    "packages/app/src/mini-apps/explorer/Explorer.tsx": {
+      "lines": 500,
+      "bytes": 20034
+    },
     "packages/app/src/mini-apps/explorer/ExplorerTree.test.tsx": {
       "lines": 685,
-      "bytes": 19360
+      "bytes": 19632
+    },
+    "packages/app/src/mini-apps/explorer/detail/container/ExplorerContainerDetail.test.ts": {
+      "lines": 519,
+      "bytes": 15307
     },
     "packages/app/src/mini-apps/explorer/detail/document/ExplorerDocumentInfoSections.test.tsx": {
       "lines": 623,

@@ -14,6 +14,7 @@ import {
   MiniAppStatus,
 } from "../../components/mini-app/MiniAppLayout";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
+import type { AvatarUrlByContactId } from "../../document-types/contact/useContactAvatarUrls";
 import { ExplorerDatabaseErrorStatus } from "./ExplorerDatabaseErrorStatus";
 import type { ExplorerSidebarVirtualRow } from "./ExplorerSidebarRows";
 import {
@@ -96,6 +97,7 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
         ) : shouldShowTree ? (
           <ExplorerSidebarVirtualTree
             activeContainerId={props.activeContainerId}
+            contactAvatarUrlByLocalId={props.contactAvatarUrlByLocalId}
             currentSigningFingerprint={props.currentSigningFingerprint}
             currentSelfContactLocalId={props.currentSelfContactLocalId}
             currentUserId={props.currentUserId}
@@ -127,6 +129,7 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
 interface ExplorerSidebarPanelParams {
   activeContainerId: string | null;
   collapsedIds: ReadonlySet<string>;
+  contactAvatarUrlByLocalId: AvatarUrlByContactId;
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
@@ -192,6 +195,7 @@ function ExplorerSidebar(props: ExplorerSidebarPanelParams) {
     <ExplorerSidebarContent
       activeContainerId={props.activeContainerId}
       blankContextMenuContainerId={blankContextMenuContainerId}
+      contactAvatarUrlByLocalId={props.contactAvatarUrlByLocalId}
       currentSigningFingerprint={props.currentSigningFingerprint}
       currentSelfContactLocalId={props.currentSelfContactLocalId}
       currentUserId={props.currentUserId}
@@ -223,6 +227,7 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
     [
       params.activeContainerId,
       params.collapsedIds,
+      params.contactAvatarUrlByLocalId,
       params.currentSigningFingerprint,
       params.currentSelfContactLocalId,
       params.currentUserId,

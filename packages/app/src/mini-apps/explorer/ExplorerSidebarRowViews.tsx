@@ -6,6 +6,8 @@ import {
   MiniAppRowText,
 } from "../../components/mini-app/rows/MiniAppRow";
 import { MiniAppVirtualBlockSpacer } from "../../components/mini-app/virtual/MiniAppVirtual";
+import { ContactAvatar } from "../../document-types/contact/ContactAvatar";
+import type { AvatarUrlByContactId } from "../../document-types/contact/useContactAvatarUrls";
 import { getDocumentTypeIcon } from "../../document-types/registry";
 import { useTouchRowHeight } from "../../navigation/useTouchRowHeight";
 import { getViewerRelativeContactDocumentLabel } from "../../stores/contacts/contactLabels";
@@ -14,6 +16,7 @@ import {
   type ExplorerSidebarVirtualRow,
   getLoadedExplorerSidebarDocumentRow,
 } from "./ExplorerSidebarRows";
+import { getExplorerContactAvatarUrl } from "./explorerContactAvatar";
 import { getExplorerContainerIcon } from "./explorerContainerIcons";
 import {
   EXPLORER_SIDEBAR_ROW_HEIGHT,
@@ -22,6 +25,10 @@ import {
 
 export interface ExplorerSidebarRowProps {
   activeContainerId: string | null;
+  // Object URLs for contact avatars, keyed by the contact document's local id.
+  // Covers only contacts in the Explorer's contacts container; rows without an
+  // entry keep the document-kind glyph.
+  contactAvatarUrlByLocalId: AvatarUrlByContactId;
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
@@ -69,6 +76,11 @@ function ExplorerTreeDocumentRow(
     localId: row.localId,
   });
   const DocumentGlyph = getDocumentTypeIcon(row.documentKind);
+  const avatarUrl = getExplorerContactAvatarUrl(
+    row.documentKind,
+    row.localId,
+    props.contactAvatarUrlByLocalId,
+  );
 
   return (
     <div
@@ -88,14 +100,21 @@ function ExplorerTreeDocumentRow(
           props.activeContainerId === row.containerId
         }
       >
-        <DocumentGlyph
-          aria-hidden="true"
-          className="explorer-document-icon"
-          data-icon={row.documentKind}
-          focusable="false"
-          size={16}
-          weight="regular"
-        />
+        {avatarUrl ? (
+          // ContactAvatar already sizes and shrink-proofs itself, and it
+          // deliberately skips the glyph classes' icon opacity — a dimmed
+          // photograph reads as disabled rather than as a leading glyph.
+          <ContactAvatar imageUrl={avatarUrl} size="small" />
+        ) : (
+          <DocumentGlyph
+            aria-hidden="true"
+            className="explorer-document-icon"
+            data-icon={row.documentKind}
+            focusable="false"
+            size={16}
+            weight="regular"
+          />
+        )}
         <MiniAppRowText>{title}</MiniAppRowText>
       </MiniAppRowButton>
     </div>

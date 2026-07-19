@@ -17,6 +17,7 @@ import type {
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { MouseEvent } from "react";
 import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
+import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
@@ -107,6 +108,7 @@ interface ExplorerDetailPanelProps {
   canActivateLinkedContainer: boolean;
   canMutateDocumentLinks: boolean;
   canShareWithPeer: boolean;
+  contactAvatarUrlByLocalId: AvatarUrlByContactId;
   // The open row context menu's target, so the container listing can keep the
   // right-clicked row highlighted while the menu is open (it does not select).
   contextTarget: ExplorerContextMenuTarget | null;
@@ -395,6 +397,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
     return (
       <ExplorerContainerDetail
         containerNodes={params.nodes}
+        contactAvatarUrlByLocalId={params.contactAvatarUrlByLocalId}
         contextTarget={params.contextTarget}
         currentOrganizationId={params.currentOrganizationId}
         currentSigningFingerprint={params.currentSigningFingerprint}

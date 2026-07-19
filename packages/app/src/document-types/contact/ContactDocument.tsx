@@ -152,12 +152,6 @@ export function ContactDocument(params: {
 
   return (
     <StructuredDocument
-      attachments={
-        <ContactDocumentAvatar
-          displayName={displayName}
-          isEditing={isEditing}
-        />
-      }
       fields={
         <ContactDocumentFields
           isEditing={isEditing}
@@ -166,6 +160,14 @@ export function ContactDocument(params: {
           setEditing={setIsEditing}
           setStructuredFields={setStructuredFields}
           values={values}
+        />
+      }
+      // Heads the document, matching the Contacts mini-app's detail panel,
+      // which puts the avatar above the fields.
+      leading={
+        <ContactDocumentAvatar
+          displayName={displayName}
+          isEditing={isEditing}
         />
       }
       ready={ready}

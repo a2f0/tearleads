@@ -4,6 +4,7 @@ import type {
 } from "@tearleads/client-sdk";
 import type { ReactNode } from "react";
 import { useCallback, useMemo } from "react";
+import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
 import {
   type RuntimeSnapshot,
   useTearleads,
@@ -64,6 +65,7 @@ export function useExplorerPanelState(params: {
   documentLinkProjectionVersionByContainerId: ReadonlyMap<string, number>;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
+  contactAvatarUrlByLocalId: AvatarUrlByContactId;
   currentSelfContactLocalId: string | null;
   explorer: ExplorerModelExplorer;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
@@ -92,6 +94,7 @@ export function useExplorerPanelState(params: {
     documentLinkProjectionVersionByContainerId,
     documentListRevision,
     documentQueries,
+    contactAvatarUrlByLocalId,
     currentSelfContactLocalId,
     explorer,
     linkedContainerIdsByDocumentId,
@@ -191,6 +194,7 @@ export function useExplorerPanelState(params: {
   useExplorerSidebarPanel({
     activeContainerId: selection.activeContainerId,
     collapsedIds: selection.collapsedIds,
+    contactAvatarUrlByLocalId,
     currentSigningFingerprint: appData.crypto.signingFingerprint,
     currentSelfContactLocalId,
     currentUserId: appData.auth.userId,

@@ -99,6 +99,7 @@ function containerDetailElement(props: {
   return (
     <ExplorerContainerDetail
       containerNodes={[containerA, containerB]}
+      contactAvatarUrlByLocalId={{}}
       contextTarget={null}
       currentOrganizationId="org-1"
       currentSigningFingerprint={null}

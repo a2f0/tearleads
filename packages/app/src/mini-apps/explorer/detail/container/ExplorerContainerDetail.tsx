@@ -12,6 +12,7 @@ import {
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
 import { useMiniAppVirtualWindow } from "../../../../components/mini-app/virtual/MiniAppVirtual";
+import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
 import type { ImportExplorerDroppedFiles } from "../../../../stores/explorer/useExplorerDroppedFileImport";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
 import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
@@ -52,6 +53,7 @@ function ExplorerContainerDetailHeader(params: {
 
 interface ExplorerContainerDetailProps {
   containerNodes: ReadonlyArray<ContainerNode>;
+  contactAvatarUrlByLocalId: AvatarUrlByContactId;
   contextTarget: ExplorerContextMenuTarget | null;
   currentOrganizationId: string | null | undefined;
   currentSigningFingerprint: string | null | undefined;
@@ -120,6 +122,7 @@ function useExplorerContainerItems(
 
 export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
   const {
+    contactAvatarUrlByLocalId,
     contextTarget,
     currentSigningFingerprint,
     currentSelfContactLocalId,
@@ -164,6 +167,7 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
         </MiniAppStatus>
       ) : null}
       <ExplorerContainerItemTable
+        contactAvatarUrlByLocalId={contactAvatarUrlByLocalId}
         contextTarget={contextTarget}
         currentSigningFingerprint={currentSigningFingerprint}
         currentSelfContactLocalId={currentSelfContactLocalId}
