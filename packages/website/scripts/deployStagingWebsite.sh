@@ -42,4 +42,5 @@ echo "Website deployed."
 DOMAIN="${TF_VAR_domain:-}"
 if [ -n "$DOMAIN" ]; then
   purge_cloudflare_cache_for_hosts "$DOMAIN" "$DOMAIN"
+  purge_cloudflare_screenshot_gallery "$DOMAIN" "$DOMAIN" "$WEBSITE_DIR/dist"
 fi

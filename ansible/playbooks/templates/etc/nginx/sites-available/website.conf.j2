@@ -22,6 +22,20 @@ server {
     try_files $uri $uri/ =404;
   }
 
+  # Screenshot gallery assets are rebuilt on every deploy under stable, non
+  # content-hashed paths (/screenshot-gallery/img/<project>/<theme>/<name>.png,
+  # see packages/website/scripts/buildScreenshots.ts). The immutable rule below
+  # would freeze them at the edge for a year, so recaptured screenshots would
+  # never reach visitors. Serve them revalidating instead: nginx still answers
+  # 304 from etag/last-modified, so unchanged images cost no bandwidth.
+  # `^~` takes precedence over the regex location, so the .png rule never wins
+  # here.
+  location ^~ /screenshot-gallery/ {
+    try_files $uri $uri/ =404;
+    expires off;
+    add_header Cache-Control "public, no-cache, must-revalidate";
+  }
+
   location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
     expires 1y;
     add_header Cache-Control "public, immutable";

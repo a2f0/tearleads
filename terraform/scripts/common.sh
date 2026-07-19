@@ -138,26 +138,40 @@ validate_cloudflare_env() {
   fi
 }
 
-# Best-effort Cloudflare cache purge for a set of hosts in the given zone domain.
+# Resolve a Cloudflare zone id, echoing it on success and nothing on failure.
+# Callers treat an empty result as "skip the purge" — cache invalidation is
+# best-effort and must never fail a deploy.
+_resolve_cloudflare_zone_id() {
+  local domain="$1"
+
+  curl -sS -X GET "https://api.cloudflare.com/client/v4/zones?name=${domain}&account.id=${TF_VAR_cloudflare_account_id}" \
+    -H "Authorization: Bearer ${TF_VAR_cloudflare_api_token}" \
+    -H "Content-Type: application/json" |
+    jq -r '.result[0].id // empty'
+}
+
+# Best-effort Cloudflare cache purge for an explicit list of absolute URLs.
 # Usage:
-#   purge_cloudflare_cache_for_hosts <zone-domain> <host1> [host2 ...]
-# Example:
-#   purge_cloudflare_cache_for_hosts "tearleads.com" "tearleads.com" "app.tearleads.com"
-purge_cloudflare_cache_for_hosts() {
+#   purge_cloudflare_cache_for_urls <zone-domain> <url1> [url2 ...]
+#
+# Cloudflare caps single-file purges at 30 URLs per request outside Enterprise,
+# so the list is sent in batches of 30. A failing batch is reported but does not
+# abort the remaining batches or the deploy.
+purge_cloudflare_cache_for_urls() {
   local domain="$1"
   shift
-  local hosts=("$@")
-  local zone_id response payload
-  local files=()
-  local host
+  local urls=("$@")
+  local zone_id
+  local batch=()
+  local url
 
   if [[ -z "$domain" ]]; then
     echo "Skipping Cloudflare cache purge: zone domain is not set."
     return 0
   fi
 
-  if [[ ${#hosts[@]} -eq 0 ]]; then
-    echo "Skipping Cloudflare cache purge: no hosts were provided."
+  if [[ ${#urls[@]} -eq 0 ]]; then
+    echo "Skipping Cloudflare cache purge: no URLs were provided."
     return 0
   fi
 
@@ -172,15 +186,64 @@ purge_cloudflare_cache_for_hosts() {
   fi
 
   echo "Resolving Cloudflare zone for $domain..."
-  zone_id="$(
-    curl -sS -X GET "https://api.cloudflare.com/client/v4/zones?name=${domain}&account.id=${TF_VAR_cloudflare_account_id}" \
-      -H "Authorization: Bearer ${TF_VAR_cloudflare_api_token}" \
-      -H "Content-Type: application/json" |
-      jq -r '.result[0].id // empty'
-  )"
+  zone_id="$(_resolve_cloudflare_zone_id "$domain")"
 
   if [[ -z "$zone_id" ]]; then
     echo "Skipping Cloudflare cache purge: could not resolve zone id for $domain."
+    return 0
+  fi
+
+  echo "Purging Cloudflare cache for ${#urls[@]} URL(s) in $domain..."
+  for url in "${urls[@]}"; do
+    batch+=("$url")
+    if [[ ${#batch[@]} -lt 30 ]]; then
+      continue
+    fi
+    _purge_cloudflare_batch "$zone_id" "${batch[@]}"
+    batch=()
+  done
+
+  if [[ ${#batch[@]} -gt 0 ]]; then
+    _purge_cloudflare_batch "$zone_id" "${batch[@]}"
+  fi
+}
+
+_purge_cloudflare_batch() {
+  local zone_id="$1"
+  shift
+  local payload response
+
+  payload="$(printf '%s\n' "$@" | jq -R . | jq -cs '{files: .}')"
+  response="$(
+    curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${zone_id}/purge_cache" \
+      -H "Authorization: Bearer ${TF_VAR_cloudflare_api_token}" \
+      -H "Content-Type: application/json" \
+      --data "$payload"
+  )"
+
+  if jq -e '.success == true' <<< "$response" >/dev/null; then
+    echo "  Purged $# URL(s)."
+  else
+    echo "  Cloudflare cache purge failed for $# URL(s) (continuing):"
+    jq -c . <<< "$response"
+  fi
+}
+
+# Best-effort Cloudflare cache purge for a set of hosts in the given zone domain.
+# Covers the entry points whose contents change while their URLs stay stable.
+# Usage:
+#   purge_cloudflare_cache_for_hosts <zone-domain> <host1> [host2 ...]
+# Example:
+#   purge_cloudflare_cache_for_hosts "tearleads.com" "tearleads.com" "app.tearleads.com"
+purge_cloudflare_cache_for_hosts() {
+  local domain="$1"
+  shift
+  local hosts=("$@")
+  local files=()
+  local host
+
+  if [[ ${#hosts[@]} -eq 0 ]]; then
+    echo "Skipping Cloudflare cache purge: no hosts were provided."
     return 0
   fi
 
@@ -201,22 +264,40 @@ purge_cloudflare_cache_for_hosts() {
     fi
   done
 
-  payload="$(printf '%s\n' "${files[@]}" | jq -R . | jq -cs '{files: .}')"
+  purge_cloudflare_cache_for_urls "$domain" "${files[@]}"
+}
 
-  echo "Purging Cloudflare cache for hosts: ${hosts[*]}"
-  response="$(
-    curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${zone_id}/purge_cache" \
-      -H "Authorization: Bearer ${TF_VAR_cloudflare_api_token}" \
-      -H "Content-Type: application/json" \
-      --data "$payload"
-  )"
+# Best-effort Cloudflare purge of the website's screenshot gallery.
+# Usage:
+#   purge_cloudflare_screenshot_gallery <zone-domain> <host> <dist-dir>
+#
+# The gallery is restaged on every build under stable, non content-hashed paths,
+# so a changed capture reuses its old URL and the edge keeps serving the old
+# bytes. URLs are enumerated from the built dist rather than hardcoded, so added
+# or removed captures need no change here.
+purge_cloudflare_screenshot_gallery() {
+  local domain="$1"
+  local host="$2"
+  local dist_dir="${3%/}"
+  local gallery_dir="$dist_dir/screenshot-gallery"
+  local urls=()
+  local file
 
-  if jq -e '.success == true' <<< "$response" >/dev/null; then
-    echo "Cloudflare cache purge request submitted successfully."
-  else
-    echo "Cloudflare cache purge failed (continuing):"
-    jq -c . <<< "$response"
+  if [[ ! -d "$gallery_dir" ]]; then
+    echo "Skipping screenshot gallery purge: $gallery_dir does not exist."
+    return 0
   fi
+
+  while IFS= read -r file; do
+    urls+=("https://${host}${file#"$dist_dir"}")
+  done < <(find "$gallery_dir" -type f | sort)
+
+  if [[ ${#urls[@]} -eq 0 ]]; then
+    echo "Skipping screenshot gallery purge: no gallery files were built."
+    return 0
+  fi
+
+  purge_cloudflare_cache_for_urls "$domain" "${urls[@]}"
 }
 
 # Validate required environment variables for Tailscale stacks
