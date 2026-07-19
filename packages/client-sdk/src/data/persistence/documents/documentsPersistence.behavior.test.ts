@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { deriveStableDocumentId } from "../../documents/shared/stableDocumentId";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 
 const emptyDocumentState = {
@@ -116,6 +117,70 @@ test("upsertDiscoveredDocument reuses an existing local note bound to the remote
 
     await expect(
       sqlDocumentsPersistence.loadDocument(execSql, "remote-document"),
+    ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});
+
+test("upsertDiscoveredDocument adopts a pending-create row whose stable document id matches", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "documents-persistence-behavior-test",
+  );
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+
+    // A reload can lose a create response after the server committed the
+    // document: the local row still has documentId=null, but the interrupted
+    // create already sent deriveStableDocumentId(localId) to the server. When
+    // remote hydration lists that document before the replayed create adopts
+    // it, discovery must recognize the pending-create row instead of minting a
+    // second row under localId=documentId.
+    await sqlDocumentsPersistence.saveDocument(
+      execSql,
+      {
+        id: "self_contact_v1_fingerprint",
+        containerId: "contacts-container",
+        documentId: null,
+        text: "Peer 1",
+        loroSnapshot: "snapshot-1",
+        accessEpoch: 1,
+      },
+      {
+        updatedAt: "2026-04-05T00:00:00.000Z",
+      },
+    );
+    const stableDocumentId = await deriveStableDocumentId(
+      "self_contact_v1_fingerprint",
+    );
+
+    await expect(
+      sqlDocumentsPersistence.upsertDiscoveredDocument(execSql, {
+        accessEpoch: 1,
+        containerId: "contacts-container",
+        createdAt: "2026-04-06T00:00:00.000Z",
+        documentId: stableDocumentId,
+        linkedContainerIds: ["contacts-container"],
+      }),
+    ).resolves.toMatchObject({
+      id: "self_contact_v1_fingerprint",
+      containerId: "contacts-container",
+      documentId: stableDocumentId,
+      title: "Peer 1",
+    });
+
+    await expect(
+      sqlDocumentsPersistence.loadDocument(
+        execSql,
+        "self_contact_v1_fingerprint",
+      ),
+    ).resolves.toMatchObject({
+      documentId: stableDocumentId,
+      text: "Peer 1",
+    });
+    await expect(
+      sqlDocumentsPersistence.loadDocument(execSql, stableDocumentId),
     ).resolves.toBeNull();
   } finally {
     close();

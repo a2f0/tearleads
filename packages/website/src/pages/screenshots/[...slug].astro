@@ -29,14 +29,14 @@ const { slug } = Astro.params;
   title={slug
     ? `${titleCase(slug)} Screenshot | Tearleads`
     : "Screenshots | Tearleads"}
-  description="Browse Tearleads screenshots: windowed and mobile layouts in light and dark themes."
+  description="Browse Tearleads screenshots in Windowed, iPhone, and iPad layouts with light and dark themes."
 >
   <main class="website-main">
-    <section class="section" aria-labelledby="page-title">
+    <section class="section screenshots-page" aria-labelledby="page-title">
       <h1 id="page-title">Screenshots</h1>
       <p class="section-lede">
-        A look at Tearleads across windowed and mobile layouts, in light and
-        dark themes.
+        A look at Tearleads across Windowed, iPhone, and iPad layouts, in light
+        and dark themes.
       </p>
       <ScreenshotsBrowser client:load initialScreen={slug} />
     </section>

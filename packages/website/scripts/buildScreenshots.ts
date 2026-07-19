@@ -1,12 +1,12 @@
-import { cp, mkdir, readdir, rm } from "node:fs/promises";
+import { copyFile, mkdir, readdir, rm } from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 // Stages the captured screenshots as static site assets. The capture run writes
 // to `<repoRoot>/.screenshots/<project>/<theme>/<name>.png` (see
-// packages/app-web/screenshots/capture.spec.ts); this copies that tree plus a
-// scanned manifest into the Astro `public/` dir, which Astro serves at the site
-// root in dev and copies into `dist/` on build — the same gitignored,
+// packages/app-web/screenshots/capture.spec.ts); this copies canonical captures
+// plus a scanned manifest into the Astro `public/` dir, which Astro serves at
+// the site root in dev and copies into `dist/` on build — the same gitignored,
 // regenerated-on-every-build contract as the favicons (see buildWebImages.sh).
 //
 // A no-op-friendly empty manifest is written when `.screenshots/` is absent, so
@@ -32,23 +32,33 @@ const MANIFEST_PATH = path.join(OUTPUT_DIR, "manifest.json");
 
 // URL prefix the gallery UI loads images from (served from public/).
 const IMG_URL_PREFIX = "/screenshot-gallery/img/";
+const PROJECTS = ["web", "mobile", "ipad"];
 
-// Canonical screen order, mirroring the capture spec's screen lists so the
-// filmstrip reads top-to-bottom the way a person walks the app. Names not in
-// this list sort after it, alphabetically.
+// Canonical screen order and allowlist, mirroring the capture specs. Treating
+// this as an allowlist keeps removed or renamed themed files from a prior
+// filtered job out of the gallery while standard and blame jobs safely
+// preserve one another's current artifacts.
 const SCREEN_ORDER = [
   "home",
   "explorer",
   "contacts",
   "org-manager",
+  "org-manager-roster",
+  "org-manager-groups",
+  "org-manager-grants",
+  "org-manager-organization",
+  "org-manager-usage",
+  "org-manager-billing",
   "notes",
   "identity-manager",
   "backup-restore",
   "system-monitor",
   "note-detail",
+  "note-blame",
   "contact-detail",
   "drivers-license-detail",
 ];
+const CANONICAL_SCREENS = new Set(SCREEN_ORDER);
 const THEMES = ["light", "dark"];
 
 interface ScreenshotEntry {
@@ -83,24 +93,29 @@ function compareScreens(a: string, b: string): number {
   return rankDelta !== 0 ? rankDelta : a.localeCompare(b);
 }
 
-const projects = (await listDir(SCREENSHOTS_DIR)).sort();
 const entries: ScreenshotEntry[] = [];
 const themesPresent = new Set<string>();
 const screensPresent = new Set<string>();
 
-for (const project of projects) {
+for (const project of PROJECTS) {
   for (const theme of THEMES) {
-    const files = await listDir(path.join(SCREENSHOTS_DIR, project, theme));
+    const files = (
+      await listDir(path.join(SCREENSHOTS_DIR, project, theme))
+    ).sort();
     for (const file of files) {
       if (!file.endsWith(".png")) {
         continue;
       }
+      const name = file.slice(0, -".png".length);
+      if (!CANONICAL_SCREENS.has(name)) {
+        continue;
+      }
       themesPresent.add(theme);
-      screensPresent.add(file.slice(0, -".png".length));
+      screensPresent.add(name);
       entries.push({
         project,
         theme,
-        name: file.slice(0, -".png".length),
+        name,
         src: `${IMG_URL_PREFIX}${project}/${theme}/${file}`,
       });
     }
@@ -108,7 +123,7 @@ for (const project of projects) {
 }
 
 const manifest = {
-  projects: projects.filter((project) =>
+  projects: PROJECTS.filter((project) =>
     entries.some((entry) => entry.project === project),
   ),
   themes: THEMES.filter((theme) => themesPresent.has(theme)),
@@ -120,8 +135,16 @@ const manifest = {
 await rm(OUTPUT_DIR, { force: true, recursive: true });
 await mkdir(OUTPUT_DIR, { recursive: true });
 if (entries.length > 0) {
-  // The `.screenshots/` tree already matches the `IMG_URL_PREFIX` layout.
-  await cp(SCREENSHOTS_DIR, IMG_DIR, { recursive: true });
+  for (const entry of entries) {
+    const relativePath = path.join(
+      entry.project,
+      entry.theme,
+      `${entry.name}.png`,
+    );
+    const destination = path.join(IMG_DIR, relativePath);
+    await mkdir(path.dirname(destination), { recursive: true });
+    await copyFile(path.join(SCREENSHOTS_DIR, relativePath), destination);
+  }
 }
 await Bun.write(MANIFEST_PATH, JSON.stringify(manifest));
 

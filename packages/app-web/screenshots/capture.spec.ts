@@ -12,6 +12,12 @@ import {
   waitForBooted,
 } from "./appShell";
 import {
+  assertOrgManagerCaptureReady,
+  assertRoutedOrgManagerBaseCaptureReady,
+  captureRoutedOrgManagerSections,
+  ORG_MANAGER_SCREENS,
+} from "./orgManagerScreens";
+import {
   assertAuthenticatedOrgManager,
   authenticateOrRegisterScreenshotIdentity,
 } from "./screenshotAuth";
@@ -175,6 +181,9 @@ async function captureRouted(page: Page, outputDir: string): Promise<void> {
       await waitForBooted(page);
     }
     await disableAnimations(page);
+    if (screen.name === "org-manager") {
+      await assertRoutedOrgManagerBaseCaptureReady(page);
+    }
     await page.screenshot({
       path: path.join(outputDir, `${screen.name}.png`),
       fullPage: false,
@@ -217,7 +226,14 @@ async function captureOpenWindow(
 async function captureWindowed(page: Page, outputDir: string): Promise<void> {
   for (const app of WINDOWED_MENU_APPS) {
     await openWindowedApp(page, app.menuLabel);
-    await captureOpenWindow(page, outputDir, app.name);
+    await captureOpenWindow(
+      page,
+      outputDir,
+      app.name,
+      app.name === "org-manager"
+        ? (window) => assertOrgManagerCaptureReady(window, "directory")
+        : undefined,
+    );
   }
 
   // System Monitor lives in the footer tray, not the launcher menu.
@@ -225,6 +241,21 @@ async function captureWindowed(page: Page, outputDir: string): Promise<void> {
     .getByRole("button", { name: "System Monitor" })
     .click();
   await captureOpenWindow(page, outputDir, "system-monitor");
+}
+
+async function captureWindowedOrgManagerSections(
+  page: Page,
+  outputDir: string,
+): Promise<void> {
+  for (const screen of ORG_MANAGER_SCREENS) {
+    await openWindowedApp(page, "Org Manager");
+    await captureOpenWindow(page, outputDir, screen.name, async (window) => {
+      await window
+        .getByRole("button", { name: screen.label, exact: true })
+        .click();
+      await assertOrgManagerCaptureReady(window, screen.view);
+    });
+  }
 }
 
 // A detail screen is reached by clicking into a seeded item. Each `open` selects
@@ -413,13 +444,24 @@ test("capture screenshots", async ({ page }, testInfo) => {
   // populated app in the other theme.
   for (const theme of THEMES) {
     await applyTheme(page, theme);
+    // A theme reload is also a fresh auth boundary. Re-establish (or confirm)
+    // the session before every pass so both themes are captured from the same
+    // authenticated organization state.
+    await authenticateOrRegisterScreenshotIdentity(
+      screenshotApiBaseUrl,
+      page,
+      routed,
+    );
+    await assertAuthenticatedOrgManager(page, routed);
     const outputDir = path.join(projectDir, theme);
     await mkdir(outputDir, { recursive: true });
     if (routed) {
       await captureRouted(page, outputDir);
+      await captureRoutedOrgManagerSections(page, outputDir);
       await captureRoutedDetails(page, outputDir);
     } else {
       await captureWindowed(page, outputDir);
+      await captureWindowedOrgManagerSections(page, outputDir);
       await captureWindowedDetails(page, outputDir);
     }
   }

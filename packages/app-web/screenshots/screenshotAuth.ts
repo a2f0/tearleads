@@ -1,9 +1,59 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { openWindowedApp, visiblePane, waitForBooted } from "./appShell";
+import {
+  assertOrgManagerAuthGuardAbsent,
+  assertOrgManagerCaptureReady,
+} from "./orgManagerScreens";
 
 interface OpenIdentityManagerResult {
   readonly close: () => Promise<void>;
   readonly scope: Locator | Page;
+}
+
+const LOCAL_SESSION_STORAGE_PREFIX = "tearleads.local-session:";
+
+async function readPersistedSessionSnapshot(page: Page): Promise<string> {
+  return page.evaluate((prefix) => {
+    return JSON.stringify(
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith(prefix))
+        .sort()
+        .map((key) => [key, localStorage.getItem(key)]),
+    );
+  }, LOCAL_SESSION_STORAGE_PREFIX);
+}
+
+async function waitForPersistedSessionUpdate(
+  page: Page,
+  before: string,
+): Promise<void> {
+  let latest = before;
+  let sawUpdate = false;
+  let stablePolls = 0;
+
+  await expect
+    .poll(
+      async () => {
+        const current = await readPersistedSessionSnapshot(page);
+        if (current !== latest) {
+          latest = current;
+          sawUpdate = current !== before;
+          stablePolls = 0;
+          return false;
+        }
+        if (!sawUpdate) {
+          return false;
+        }
+        stablePolls += 1;
+        return stablePolls >= 3;
+      },
+      {
+        intervals: [500],
+        message: "authenticated screenshot session persisted",
+        timeout: 30_000,
+      },
+    )
+    .toBe(true);
 }
 
 async function openIdentityManager(
@@ -73,8 +123,10 @@ export async function authenticateOrRegisterScreenshotIdentity(
 ): Promise<void> {
   const { close, scope } = await openIdentityManager(page, routed);
   const authenticated = scope.getByText("Authenticated", { exact: true });
+  let persistedSessionBefore: string | null = null;
 
   if (!(await authenticated.isVisible())) {
+    persistedSessionBefore = await readPersistedSessionSnapshot(page);
     if (await identityIsRegistered(apiBaseUrl, page, scope)) {
       const login = scope.getByRole("button", { name: "Login", exact: true });
       await expect(login).toBeVisible({ timeout: 20_000 });
@@ -94,7 +146,22 @@ export async function authenticateOrRegisterScreenshotIdentity(
     .locator("dt", { hasText: "Organization ID" })
     .locator("xpath=following-sibling::dd[1]");
   await expect(organizationValue).not.toHaveText("None", { timeout: 20_000 });
+  if (persistedSessionBefore !== null) {
+    // Registration writes a non-authenticated identity context before the
+    // challenge login writes the token-bearing context. Wait until the queued
+    // encrypted local-session writes have both advanced and settled; otherwise
+    // an immediate navigation can reboot from the intermediate signed-out
+    // record even though Identity Manager already paints "Authenticated".
+    await waitForPersistedSessionUpdate(page, persistedSessionBefore);
+  }
   await close();
+
+  // Registration/login updates the live Identity Manager immediately, while
+  // other mini-app providers can still hold the signed-out snapshot from this
+  // boot. Reboot the shell across this auth boundary so Org Manager consumes
+  // the persisted authenticated session rather than racing that stale state.
+  await page.reload();
+  await waitForBooted(page);
 }
 
 /** Prove Org Manager is rendering its authenticated navigation, not its guard. */
@@ -125,13 +192,9 @@ export async function assertAuthenticatedOrgManager(
   await expect(
     scope.getByRole("button", { name: "Groups", exact: true }),
   ).toBeVisible({ timeout: 30_000 });
-  await expect(
-    scope.getByText("Authenticate to manage an organization."),
-  ).toHaveCount(0);
+  await assertOrgManagerAuthGuardAbsent(scope);
   await roster.click();
-  await expect(scope.getByText("You", { exact: true }).first()).toBeVisible({
-    timeout: 60_000,
-  });
+  await assertOrgManagerCaptureReady(scope, "directory");
   // A freshly registered identity can briefly render the local-cache miss while
   // the realtime interest handshake fetches the first remote read-model page.
   // Prove the hydrated roster first, then reject any error that survived it.
