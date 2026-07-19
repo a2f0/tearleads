@@ -55,6 +55,25 @@ export interface StripeCheckoutIntent {
   readonly clientSecret: string;
 }
 
+/**
+ * Outcome of asking for a checkout: `ready` carries the intent to confirm
+ * (new, or an existing incomplete subscription being resumed); `conflict`
+ * means Stripe already holds a live subscription for this org and creating
+ * another would double-bill it.
+ */
+export type StripeCheckoutOutcome =
+  | { kind: "ready"; intent: StripeCheckoutIntent }
+  | { kind: "conflict" };
+
+/** Subscription statuses that mean the org is (or may become) billed. */
+const LIVE_SUBSCRIPTION_STATUSES = new Set([
+  "active",
+  "trialing",
+  "past_due",
+  "unpaid",
+  "paused",
+]);
+
 function readEnv(env: NodeJS.ProcessEnv, key: string): string | null {
   const value = env[key]?.trim();
   return value ? value : null;
@@ -199,8 +218,58 @@ export async function findOrCreateCustomer(
     path: "/v1/customers",
     operation: "customer create",
     form,
+    // Search is eventually consistent, so a rapid retry can miss the customer
+    // it just created; the user-scoped key makes the create itself return the
+    // original instead — and beyond the idempotency window the search IS
+    // consistent.
+    idempotencyKey: `sync-customer:${userId}`,
   });
   return readString(prop(created, "id"));
+}
+
+function parseCheckoutIntent(body: unknown): StripeCheckoutIntent | null {
+  const subscriptionId = readString(prop(body, "id"));
+  const clientSecret = readString(
+    prop(prop(prop(body, "latest_invoice"), "payment_intent"), "client_secret"),
+  );
+  return subscriptionId && clientSecret
+    ? { subscriptionId, clientSecret }
+    : null;
+}
+
+/**
+ * Finds an existing subscription bound to this org (our checkout stamps the
+ * `orgId` metadata). This is the durable duplicate guard: the idempotency key
+ * only covers Stripe's retention window, but a paid subscription whose
+ * association webhooks were down for longer would otherwise be invisible to
+ * a later checkout — Stripe itself is the store of record here.
+ */
+async function findOrgSubscription(
+  organizationId: string,
+  request: { fetchImpl: typeof fetch; secretKey: string },
+): Promise<{ subscriptionId: string; status: string } | null> {
+  const query = encodeURIComponent(`metadata['orgId']:'${organizationId}'`);
+  const found = await stripeRequest({
+    ...request,
+    method: "GET",
+    path: `/v1/subscriptions/search?query=${query}&limit=20`,
+    operation: "subscription search",
+  });
+  const items = prop(found, "data");
+  if (!Array.isArray(items)) {
+    return null;
+  }
+  for (const item of items) {
+    const status = readString(prop(item, "status"));
+    const subscriptionId = readString(prop(item, "id"));
+    if (!status || !subscriptionId) {
+      continue;
+    }
+    if (LIVE_SUBSCRIPTION_STATUSES.has(status) || status === "incomplete") {
+      return { subscriptionId, status };
+    }
+  }
+  return null;
 }
 
 /**
@@ -213,11 +282,36 @@ export async function findOrCreateCustomer(
 export async function createSyncSubscription(
   input: { customerId: string; userId: string; organizationId: string },
   deps: StripeApiDeps = {},
-): Promise<StripeCheckoutIntent | null> {
+): Promise<StripeCheckoutOutcome | null> {
   const { fetchImpl, secretKey, syncPriceId } = resolveDeps(deps);
   if (!secretKey || !syncPriceId) {
     return null;
   }
+
+  const existing = await findOrgSubscription(input.organizationId, {
+    fetchImpl,
+    secretKey,
+  });
+  if (existing && existing.status !== "incomplete") {
+    return { kind: "conflict" };
+  }
+  if (existing) {
+    // Resume the pending checkout instead of creating a parallel one.
+    const pending = await stripeRequest({
+      fetchImpl,
+      secretKey,
+      method: "GET",
+      path:
+        `/v1/subscriptions/${encodeURIComponent(existing.subscriptionId)}` +
+        "?expand[]=latest_invoice.payment_intent",
+      operation: "subscription resume",
+    });
+    const intent = parseCheckoutIntent(pending);
+    // An incomplete subscription whose intent cannot be read is a pending
+    // checkout in an unknown state; refusing beats risking a duplicate.
+    return intent ? { kind: "ready", intent } : { kind: "conflict" };
+  }
+
   const form = new URLSearchParams();
   form.set("customer", input.customerId);
   form.set("items[0][price]", syncPriceId);
@@ -241,14 +335,8 @@ export async function createSyncSubscription(
     // on Stripe's side before the idempotency window does.
     idempotencyKey: `sync-sub:${input.organizationId}:${syncPriceId}`,
   });
-  const subscriptionId = readString(prop(body, "id"));
-  const clientSecret = readString(
-    prop(prop(prop(body, "latest_invoice"), "payment_intent"), "client_secret"),
-  );
-  if (!subscriptionId || !clientSecret) {
-    return null;
-  }
-  return { subscriptionId, clientSecret };
+  const intent = parseCheckoutIntent(body);
+  return intent ? { kind: "ready", intent } : null;
 }
 
 /** Reads a subscription's metadata (`userId`/`orgId`), status, and customer. */

@@ -102,6 +102,8 @@ test("customer lookup creates one with userId metadata when none exists", async 
 
 test("subscription create binds org metadata and returns the client secret", async () => {
   const { fetchImpl, requests } = fakeFetch([
+    // No existing subscription for the org, then the create.
+    { body: { data: [] } },
     {
       body: {
         id: "sub_1",
@@ -109,24 +111,73 @@ test("subscription create binds org metadata and returns the client secret", asy
       },
     },
   ]);
-  const intent = await createSyncSubscription(
+  const outcome = await createSyncSubscription(
     { customerId: "cus_1", userId: "user-1", organizationId: "org-1" },
     { env: ENV, fetchImpl },
   );
 
-  expect(intent).toEqual({
-    subscriptionId: "sub_1",
-    clientSecret: "pi_secret",
+  expect(outcome).toEqual({
+    kind: "ready",
+    intent: { subscriptionId: "sub_1", clientSecret: "pi_secret" },
   });
-  const body = requests[0]?.body ?? "";
+  expect(requests[0]?.url).toContain("/v1/subscriptions/search");
+  const body = requests[1]?.body ?? "";
   expect(body).toContain(`${encodeURIComponent("metadata[orgId]")}=org-1`);
   expect(body).toContain(`${encodeURIComponent("metadata[userId]")}=user-1`);
   expect(body).toContain("payment_behavior=default_incomplete");
   // Org-scoped: a retried checkout returns the SAME subscription, and two
   // admins racing produce conflicting bodies under one key, which Stripe
   // rejects — the org can never gain two parallel subscriptions.
-  expect(requests[0]?.headers.get("Idempotency-Key")).toBe(
+  expect(requests[1]?.headers.get("Idempotency-Key")).toBe(
     "sync-sub:org-1:price_sync",
+  );
+});
+
+test("an existing incomplete subscription is resumed, not duplicated", async () => {
+  const { fetchImpl, requests } = fakeFetch([
+    { body: { data: [{ id: "sub_pending", status: "incomplete" }] } },
+    {
+      body: {
+        id: "sub_pending",
+        latest_invoice: { payment_intent: { client_secret: "pi_resume" } },
+      },
+    },
+  ]);
+  const outcome = await createSyncSubscription(
+    { customerId: "cus_1", userId: "user-1", organizationId: "org-1" },
+    { env: ENV, fetchImpl },
+  );
+
+  expect(outcome).toEqual({
+    kind: "ready",
+    intent: { subscriptionId: "sub_pending", clientSecret: "pi_resume" },
+  });
+  // Search, then resume — never a create.
+  expect(requests).toHaveLength(2);
+  expect(requests[1]?.method).toBe("GET");
+});
+
+test("a live subscription for the org refuses a second checkout", async () => {
+  const { fetchImpl, requests } = fakeFetch([
+    { body: { data: [{ id: "sub_live", status: "active" }] } },
+  ]);
+  const outcome = await createSyncSubscription(
+    { customerId: "cus_1", userId: "user-1", organizationId: "org-1" },
+    { env: ENV, fetchImpl },
+  );
+
+  expect(outcome).toEqual({ kind: "conflict" });
+  expect(requests).toHaveLength(1);
+});
+
+test("customer creation is idempotency-keyed per user", async () => {
+  const { fetchImpl, requests } = fakeFetch([
+    { body: { data: [] } },
+    { body: { id: "cus_new" } },
+  ]);
+  await findOrCreateCustomer("user-1", { env: ENV, fetchImpl });
+  expect(requests[1]?.headers.get("Idempotency-Key")).toBe(
+    "sync-customer:user-1",
   );
 });
 

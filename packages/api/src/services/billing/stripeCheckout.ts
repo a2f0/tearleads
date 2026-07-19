@@ -24,6 +24,7 @@ import {
   runRequireCheckoutEligibleWorkflow,
   runResolveOrgSubscriptionForAdminWorkflow,
 } from "../../workflows/billing/stripeCheckout";
+import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
 
 /**
@@ -92,10 +93,20 @@ export async function createStripeCheckout(
   if (!customerId) {
     return null;
   }
-  return createSyncSubscription(
+  const outcome = await createSyncSubscription(
     { customerId, userId: sessionUserId, organizationId },
     deps.stripe ?? {},
   );
+  if (outcome?.kind === "conflict") {
+    // Stripe already holds a live (or unreadable pending) subscription for
+    // this org — even if our billing row has not caught up yet, e.g. after a
+    // long webhook outage. Creating another would double-bill the org.
+    throw new OrganizationManagerError(
+      "The organization already has an active subscription",
+      409,
+    );
+  }
+  return outcome ? outcome.intent : null;
 }
 
 /**
