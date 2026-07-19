@@ -1,6 +1,6 @@
 ---
 name: ship-pr
-description: Ship current work end-to-end — commit on a feature branch, cross-agent review and repair it, open or resume its PR with a single push after the review, squash-merge the exact reviewed commit, then return to the base branch and delete the merged branch
+description: Ship current work end-to-end — commit on a feature branch, cross-agent review and repair it, open or resume its PR with a single push after the review, squash-merge the exact reviewed commit, then return to the base branch, delete the merged branch, and reset the checkout
 ---
 
 # Ship PR
@@ -11,8 +11,9 @@ branch**, get a **cross-agent review** that repairs its own blocking findings,
 *after* the review, so a fresh branch is pushed **once** — through the pre-push
 hook once — instead of once at open time and again for each repair round.
 Delegate PR creation, the review-and-repair loop, and the final merge to the
-`open-pr`, `cross-agent-review`, and `squash-merge` skills. This skill owns the
-ordering and the merge gate; it does not re-implement the wrapped skills.
+`open-pr`, `cross-agent-review`, `squash-merge`, and `reset` skills. This skill
+owns the ordering and the merge gate; it does not re-implement the wrapped
+skills.
 
 The review gates the merge. `cross-agent-review` addresses actionable blocking
 findings and re-reviews every head it changes, then reports the final reviewed
@@ -20,9 +21,10 @@ SHA and verdict. This skill merges that exact SHA, and only on a non-blocking
 verdict. Never merge a commit that was not itself reviewed.
 
 A successful flow ends back on the PR's base branch — the default branch for a PR
-`open-pr` created — fast-forwarded, with the merged branch deleted. That cleanup
-belongs to `squash-merge`, which runs it only after GitHub confirms the PR is
-`MERGED` and that the base branch actually contains the merge commit.
+`open-pr` created — fast-forwarded, with the merged branch deleted, and with the
+repo's git hooks reinstalled. That cleanup belongs to `squash-merge`, which runs
+it only after GitHub confirms the PR is `MERGED` and that the base branch
+actually contains the merge commit; the final checkout reset belongs to `reset`.
 
 ## Arguments
 
@@ -236,19 +238,39 @@ loop, subject-only squash, and `MERGED`-state verification.
    `REVIEWED_SHA`) — do not report success in that case; re-review the new head
    instead.
 
-5. **Report results**: the PR URL, review agent and fallback status, repair rounds
+5. **Reset the checkout** — invoke the `reset` skill with no arguments, but only
+   when the merge landed and `--keep-branch` was **not** given. It puts the
+   checkout on the repository default branch, fast-forwards it, and reinstalls
+   the git hooks from `scripts/git/install-hooks.sh`.
+
+   After step 4 the checkout is normally already on the base branch and current,
+   so the branch half is a no-op; the hooks half is the point. Hook changes
+   arrive as ordinary commits under `scripts/git/hooks/` and do nothing until
+   they are copied into `.git/hooks`, so a flow that just merged one would
+   otherwise leave the stale hook installed until someone noticed. Running the
+   install *after* the fast-forward is what makes the freshly merged version the
+   one installed.
+
+   Skip it when `--keep-branch` was given — that flag exists to stay on the
+   feature branch, and resetting would undo it — and when the merge did not land,
+   since the branch and checkout must be left exactly as they are for the
+   re-review. A `reset` failure does not invalidate the merge: report it and
+   continue to step 6.
+
+6. **Report results**: the PR URL, review agent and fallback status, repair rounds
    performed, findings fixed or waived, and the final squash subject including
    its ` (#<pr>)` reference. Note that the branch was pushed once, at open time
    (or, on the resume path, that it was already open). Confirm the merge reached
-   `MERGED`, and state the branch returned to and that the merged branch was
-   deleted — or, when cleanup was skipped (`--keep-branch`, a dirty worktree, a
-   merge that did not land), say so and what was left behind.
+   `MERGED`, and state the branch returned to, that the merged branch was
+   deleted, and that the hooks were reinstalled — or, when cleanup or the reset
+   was skipped (`--keep-branch`, a dirty worktree, a merge that did not land),
+   say so and what was left behind.
 
 ## Notes
 
 - **Order is enforced**: commit → review-and-repair → open/resume → merge →
-  cleanup. A failure before the open step leaves committed local work and no PR;
-  a failure after it leaves the PR in a safe, open state. Either way it is
+  cleanup → reset. A failure before the open step leaves committed local work and
+  no PR; a failure after it leaves the PR in a safe, open state. Either way it is
   reported.
 - **One push, after the review** — on the fresh path the branch is pushed exactly
   once, when the PR is opened, so the pre-push hook runs once rather than at open
@@ -276,9 +298,15 @@ loop, subject-only squash, and `MERGED`-state verification.
   the PR title that `open-pr` set, so a single title argument (or none) suffices
   for both.
 - **Wrapped mechanics stay authoritative**: this skill coordinates, while
-  `open-pr`, `cross-agent-review`, and `squash-merge` retain ownership of their
-  validation and external operations — including the post-merge cleanup, which
-  lives in `squash-merge` because it must be gated on the merge landing.
+  `open-pr`, `cross-agent-review`, `squash-merge`, and `reset` retain ownership
+  of their validation and external operations — including the post-merge cleanup,
+  which lives in `squash-merge` because it must be gated on the merge landing.
+- **Cleanup and reset are different steps.** `squash-merge` returns to the PR's
+  *base* branch and deletes the merged branch, gated on the merge landing;
+  `reset` then re-asserts the checkout on the *default* branch and reinstalls the
+  hooks, knowing nothing about PRs and never deleting anything. The gated half
+  cannot move into `reset` without losing its gate, which is why `reset` runs
+  after rather than instead.
 - **Cleanup never runs on an unmerged branch** — it is gated on GitHub reporting
   `MERGED` *and* on the base branch verifiably containing the merge commit, and it
   is skipped on a dirty worktree so in-progress work is never carried onto the
