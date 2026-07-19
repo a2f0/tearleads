@@ -105,6 +105,40 @@ test("resolveOrganizationIdFromEvent reads the orgId subscriber attribute", () =
   expect(resolveOrganizationIdFromEvent(makeEvent())).toBe(ORG_ID);
 });
 
+test("resolveOrganizationIdFromEvent prefers the transaction metadata orgId", () => {
+  // The metadata is stamped per purchase and immutable, while the subscriber
+  // attribute is customer-level and rebindable by any later purchase — a late
+  // completion must be attributed to the org the purchase was started for.
+  const OTHER_ORG_ID = "22222222-2222-4222-8222-222222222222";
+  expect(
+    resolveOrganizationIdFromEvent(
+      makeEvent({
+        metadata: { orgId: ORG_ID },
+        subscriber_attributes: { orgId: { value: OTHER_ORG_ID } },
+      }),
+    ),
+  ).toBe(ORG_ID);
+});
+
+test("resolveOrganizationIdFromEvent falls back to the attribute on bad metadata", () => {
+  // Native purchases carry no metadata, and a malformed value must not mask a
+  // valid attribute binding.
+  expect(resolveOrganizationIdFromEvent(makeEvent({ metadata: null }))).toBe(
+    ORG_ID,
+  );
+  expect(resolveOrganizationIdFromEvent(makeEvent({ metadata: {} }))).toBe(
+    ORG_ID,
+  );
+  expect(
+    resolveOrganizationIdFromEvent(
+      makeEvent({ metadata: { orgId: "not-a-uuid" } }),
+    ),
+  ).toBe(ORG_ID);
+  expect(
+    resolveOrganizationIdFromEvent(makeEvent({ metadata: { orgId: 42 } })),
+  ).toBe(ORG_ID);
+});
+
 test("resolveOrganizationIdFromEvent rejects a missing or malformed org id", () => {
   expect(
     resolveOrganizationIdFromEvent({

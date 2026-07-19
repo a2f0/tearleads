@@ -2,98 +2,16 @@ import { afterEach, expect, mock, test } from "bun:test";
 import type {
   PurchasesCapability,
   SyncPurchaseResult,
-  SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
-import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import type { PropsWithChildren } from "react";
+import { act, cleanup, waitFor } from "@testing-library/react";
 import {
-  type CreatePurchasesFn,
-  createAppHostConfig,
-} from "../../../host/AppHostConfig";
-import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
-import { PurchasesProvider } from "../../../providers/purchases/PurchasesProvider";
+  createPurchases,
+  OPTION,
+  renderBillingActions,
+} from "../../../../test/helpers/billingActionsTestKit";
 import { ORG_MANAGER_LABELS } from "../labels";
-import { useBillingActions } from "./useBillingActions";
 
 afterEach(() => cleanup());
-
-/** Disables post-purchase polling by default so existing tests are unaffected. */
-const NO_POLL: readonly number[] = [];
-
-const OPTION: SyncSubscriptionOption = {
-  packageId: "monthly",
-  productId: "sync_monthly",
-  title: "Sync",
-  description: "Cloud sync",
-  priceLabel: "$4.99",
-};
-
-function createPurchases(
-  purchaseResult: SyncPurchaseResult,
-): PurchasesCapability {
-  return {
-    isAvailable: true,
-    identify: mock(() => Promise.resolve()),
-    reset: mock(() => Promise.resolve()),
-    listSyncOptions: mock(() => Promise.resolve([OPTION])),
-    purchaseSync: mock(() => Promise.resolve(purchaseResult)),
-    restore: mock(() => Promise.resolve()),
-    hasActiveSyncEntitlement: mock(() => Promise.resolve(false)),
-  };
-}
-
-function wrapper(createPurchasesFn: CreatePurchasesFn) {
-  const hostConfig = createAppHostConfig({
-    apiBaseUrl: "http://localhost",
-    createPurchases: createPurchasesFn,
-    wsUrl: "ws://localhost",
-  });
-
-  return function BillingActionsWrapper({ children }: PropsWithChildren) {
-    return (
-      <AppHostConfigProvider value={hostConfig}>
-        <PurchasesProvider>{children}</PurchasesProvider>
-      </AppHostConfigProvider>
-    );
-  };
-}
-
-function renderBillingActions(input: {
-  activationPollDelaysMs?: readonly number[];
-  billingCanSync?: boolean;
-  purchases: PurchasesCapability;
-  refresh?: () => Promise<void>;
-  startTrial?: () => Promise<boolean>;
-}) {
-  return renderHook(
-    ({
-      billingCanSync,
-      organizationId,
-      userId,
-    }: {
-      billingCanSync: boolean;
-      organizationId: string;
-      userId: string;
-    }) =>
-      useBillingActions({
-        activationPollDelaysMs: input.activationPollDelaysMs ?? NO_POLL,
-        billingCanSync,
-        isOrgAdmin: true,
-        organizationId,
-        refresh: input.refresh ?? (() => Promise.resolve()),
-        startTrial: input.startTrial ?? (() => Promise.resolve(true)),
-        userId,
-      }),
-    {
-      initialProps: {
-        billingCanSync: input.billingCanSync ?? false,
-        organizationId: "org-1",
-        userId: "user-1",
-      },
-      wrapper: wrapper(() => input.purchases),
-    },
-  );
-}
 
 test("identifies the buyer before loading subscription options", async () => {
   const calls: string[] = [];
@@ -244,32 +162,39 @@ test("an old purchase completion cannot commit into or clear the new org", async
   act(() => result.current.subscribe(OPTION));
   await waitFor(() => expect(purchaseSync).toHaveBeenCalledTimes(1));
 
+  // The switch abandons org-1's purchase. An org-2 purchase may start right
+  // away: each purchase carries its org in immutable transaction metadata
+  // (see client-sdk purchaseSync), so a late completion of org-1's purchase
+  // cannot be attributed to org-2.
   rerender({
     billingCanSync: false,
     organizationId: "org-2",
     userId: "user-1",
   });
   expect(result.current.busy).toBe(null);
-  expect(result.current.actionError).toBe(null);
   expect(result.current.activationPending).toBe(false);
 
   act(() => result.current.subscribe(OPTION));
   await waitFor(() => expect(purchaseSync).toHaveBeenCalledTimes(2));
-  expect(result.current.busy).toBe(`subscribe:${OPTION.packageId}`);
   expect(purchaseSync).toHaveBeenNthCalledWith(1, {
     organizationId: "org-1",
     packageId: OPTION.packageId,
+    abortSignal: expect.any(AbortSignal),
   });
   expect(purchaseSync).toHaveBeenNthCalledWith(2, {
     organizationId: "org-2",
     packageId: OPTION.packageId,
+    abortSignal: expect.any(AbortSignal),
   });
 
+  // Org-1's abandoned purchase settling without an entitlement must neither
+  // commit into org-2's state nor disturb org-2's still-running flow.
   await act(async () => {
     purchaseResolvers[0]?.({ syncEntitlementActive: false });
   });
   expect(result.current.busy).toBe(`subscribe:${OPTION.packageId}`);
   expect(result.current.actionError).toBe(null);
+  expect(result.current.activationPending).toBe(false);
   expect(refresh).not.toHaveBeenCalled();
 
   await act(async () => {

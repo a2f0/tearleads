@@ -43,6 +43,58 @@ BUN_PUBLIC_REVENUECAT_WEB_API_KEY=<key> bun run --filter=app-web dev
   product must have a **price** in the currency the SDK resolves for the visitor;
   Test Store product prices are set only at product-creation time in the dashboard.
 
+## Embedded checkout & styling (web)
+
+On web the Web Billing checkout renders **inside the org-manager billing
+panel** instead of a full-page overlay: `BillingPanel` passes a host element
+through `PurchasesCapability.purchaseSync({ checkoutHost })`, which the web
+backend forwards to the SDK's `purchase({ htmlTarget })`. Each purchase
+attempt actually mounts into its own child of that host, because the SDK
+empties its target element on teardown — a shared element would let an
+abandoned attempt settling late wipe a replacement checkout's UI. If the host
+is missing the SDK falls back to its fullscreen modal, and native (Capacitor)
+flows ignore the option entirely.
+
+The SDK hides its own close control in embedded mode, so the panel provides
+the exit path: a Cancel row shown for the whole embedded purchase (platforms
+gate it via `PurchasesCapability.supportsEmbeddedCheckout`, so it never shows
+over a native store sheet). Cancelling (ours or the provider's) is normalized
+to `PurchaseCancelledError`, which the billing UI treats as a no-op rather
+than a failed purchase, and the host element cancels the purchase whenever it
+leaves the DOM (admin role revoked, billing view lost, panel closed).
+Cancelling only dismisses the UI — a payment the provider had already taken
+can still land afterwards, and the flow honors that late success by running
+the normal activation refresh. A cancel that fires before the checkout has
+mounted aborts the purchase via an `AbortSignal` instead, so the SDK never
+renders a checkout nothing controls; a cancel after the SDK purchase started
+additionally closes and reconfigures the SDK singleton, because the SDK keeps
+checkout-session state on one shared helper and a retry must not share it
+with the abandoned purchase.
+
+### Org attribution
+
+Each web purchase carries its `orgId` in **transaction metadata**
+(`purchase({ metadata })`), which RevenueCat delivers back on
+`INITIAL_PURCHASE`/`NON_RENEWING_PURCHASE` webhook events. The webhook prefers
+that metadata over the `orgId` *subscriber attribute* because the attribute is
+customer-level and mutable — a later purchase for another org overwrites it,
+which would misattribute a purchase that completes after its checkout was
+dismissed. The attribute is still written before every purchase as the
+fallback for native store purchases, which carry no metadata. When verifying
+in staging, confirm a purchase's webhook event resolved the org even if you
+started another org's checkout in between.
+
+Styling comes from two layers:
+
+- **Dashboard branding** (RevenueCat → Web Billing app → Look & feel) sets the
+  base colors/font/shapes the SDK ships as `BrandingAppearance`. Keep it close
+  to the app so the unthemed flash and any fallback modal look right.
+- **`BillingCheckout.css`** re-themes the embedded widget with the app's theme
+  tokens by overriding the SDK's `--rc-*` custom properties (with
+  `!important`, since the SDK inlines its branding). This keeps the checkout
+  in sync with Light/Dark. The card inputs are Stripe-hosted iframes and keep
+  Stripe's own field styling.
+
 ## Webhook (server)
 
 RevenueCat posts subscription events to `POST {api}/billing/revenuecat/webhook`

@@ -2,6 +2,7 @@ import type {
   OrganizationBillingView,
   SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
+import { type Ref, useCallback } from "react";
 import {
   MiniAppSection,
   MiniAppSectionHeading,
@@ -22,6 +23,7 @@ import {
   getOrgManagerTrialEndsLabel,
   ORG_MANAGER_LABELS,
 } from "../labels";
+import "./BillingCheckout.css";
 
 /** Which action is currently in flight (`subscribe:<packageId>` while purchasing). */
 export type BillingBusyAction = "trial" | "restore" | "refresh" | string;
@@ -35,6 +37,26 @@ export interface BillingViewProps {
   readonly purchaseAvailable: boolean;
   /** Whether the admin can actually purchase (platform supports it and the buyer is known). */
   readonly canSubscribe: boolean;
+  /**
+   * Whether this platform embeds a cancellable checkout in the panel (Web
+   * Billing). Gates the in-app Cancel row so it never shows over a native
+   * store sheet, which has its own dismissal.
+   */
+  readonly embeddedCheckout?: boolean;
+  /**
+   * True while an embedded checkout can still be cancelled — from purchase
+   * start until it settles. Deliberately narrower than a `subscribe:*` busy
+   * state, which also spans the post-payment billing refresh, when a Cancel
+   * row would be a misleading no-op.
+   */
+  readonly checkoutActive?: boolean;
+  /**
+   * Host element the provider checkout renders into during a purchase (Web
+   * Billing). The div is always mounted (hidden while empty) so it exists by
+   * the time the purchase starts; without the ref the provider falls back to a
+   * full-page overlay.
+   */
+  readonly checkoutHostRef?: Ref<HTMLDivElement>;
   readonly options: ReadonlyArray<SyncSubscriptionOption>;
   /** Provider manage/cancel page for the active subscription, or null if none. */
   readonly managementUrl: string | null;
@@ -43,8 +65,40 @@ export interface BillingViewProps {
   readonly actionError: string | null;
   readonly onStartTrial: () => void;
   readonly onSubscribe: (option: SyncSubscriptionOption) => void;
+  /**
+   * Dismiss the in-flight embedded checkout. The embedded provider UI hides
+   * its own close control, so the panel renders the exit path — a Cancel row
+   * shown for the whole embedded purchase (including the pre-mount phase,
+   * where a hung provider request would otherwise leave no way out).
+   */
+  readonly onCancelCheckout?: () => void;
   readonly onRestore: () => void;
   readonly onRefresh: () => void;
+}
+
+/**
+ * Forwards the checkout host element to the parent's ref AND dismisses the
+ * in-flight purchase the moment the host leaves the DOM. Driving cancellation
+ * off the element's own lifecycle covers every unmount path at once — admin
+ * role revoked, billing view lost, panel closed — without enumerating them.
+ */
+function useCheckoutHostRef(
+  checkoutHostRef: Ref<HTMLDivElement> | undefined,
+  onCancelCheckout: (() => void) | undefined,
+) {
+  return useCallback(
+    (element: HTMLDivElement | null) => {
+      if (typeof checkoutHostRef === "function") {
+        checkoutHostRef(element);
+      } else if (checkoutHostRef) {
+        checkoutHostRef.current = element;
+      }
+      if (element === null) {
+        onCancelCheckout?.();
+      }
+    },
+    [checkoutHostRef, onCancelCheckout],
+  );
 }
 
 function resolveBillingPeriodLabel(
@@ -170,6 +224,10 @@ function BillingAdminActions({
 }: Omit<BillingViewProps, "view" | "loading"> & {
   readonly view: OrganizationBillingView;
 }) {
+  const checkoutHostRef = useCheckoutHostRef(
+    props.checkoutHostRef,
+    props.onCancelCheckout,
+  );
   return (
     <MiniAppSection>
       {view.status === "local" ? (
@@ -193,6 +251,26 @@ function BillingAdminActions({
             onSubscribe={props.onSubscribe}
             options={props.options}
           />
+          {/* The host (and its cancel-on-detach lifecycle) exists only where
+              the backend actually embeds into it. On native platforms the
+              purchase runs in a store sheet the app cannot cancel, so a
+              detaching host must not settle the flow as cancelled. */}
+          {props.embeddedCheckout ? (
+            <div
+              className="org-manager-billing-checkout"
+              ref={checkoutHostRef}
+            />
+          ) : null}
+          {props.embeddedCheckout && props.checkoutActive ? (
+            <MiniAppRowButton
+              className="org-manager-billing-checkout-cancel"
+              onClick={props.onCancelCheckout}
+            >
+              <MiniAppRowText>
+                {ORG_MANAGER_LABELS.billingCancelCheckout}
+              </MiniAppRowText>
+            </MiniAppRowButton>
+          ) : null}
           <MiniAppRowButton
             disabled={props.busy !== null}
             onClick={props.onRestore}

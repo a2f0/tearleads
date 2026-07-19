@@ -38,6 +38,10 @@ export interface RevenueCatSubscriberAttribute {
  * - `entitlement_ids`: Entitlement(s) the event concerns.
  * - `subscriber_attributes`: Custom attributes; the `orgId` attribute binds the
  *   purchase to the organization being paid for.
+ * - `metadata`: Developer-defined metadata RevenueCat attaches to Web Billing
+ *   transactions. The client stamps `orgId` here too; unlike the customer-level
+ *   subscriber attribute this is immutable per purchase, so it is the preferred
+ *   org binding. RevenueCat documents values as string/number/boolean/null.
  */
 export interface RevenueCatWebhookEvent {
   id: string;
@@ -51,6 +55,7 @@ export interface RevenueCatWebhookEvent {
   original_transaction_id?: string | null;
   entitlement_ids?: string[];
   subscriber_attributes?: Record<string, RevenueCatSubscriberAttribute>;
+  metadata?: Record<string, string | number | boolean | null> | null;
 }
 
 /**
@@ -127,6 +132,31 @@ function isAbsentOrSubscriberAttributeMap(
   return candidate === undefined || isSubscriberAttributeMap(candidate);
 }
 
+function isMetadataMap(
+  value: unknown,
+): value is Record<string, string | number | boolean | null> {
+  if (!isPlainObject(value)) {
+    return false;
+  }
+  return Object.values(value).every(
+    (entry) =>
+      entry === null ||
+      typeof entry === "string" ||
+      typeof entry === "number" ||
+      typeof entry === "boolean",
+  );
+}
+
+function isAbsentOrNullableMetadataMap(
+  value: Record<string, unknown>,
+  key: string,
+): boolean {
+  const candidate = value[key];
+  return (
+    candidate === undefined || candidate === null || isMetadataMap(candidate)
+  );
+}
+
 function isRevenueCatWebhookEvent(
   value: unknown,
 ): value is RevenueCatWebhookEvent {
@@ -142,7 +172,8 @@ function isRevenueCatWebhookEvent(
     isAbsentOrNullableString(value, "transaction_id") &&
     isAbsentOrNullableString(value, "original_transaction_id") &&
     isAbsentOrStringArray(value, "entitlement_ids") &&
-    isAbsentOrSubscriberAttributeMap(value, "subscriber_attributes")
+    isAbsentOrSubscriberAttributeMap(value, "subscriber_attributes") &&
+    isAbsentOrNullableMetadataMap(value, "metadata")
   );
 }
 

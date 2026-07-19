@@ -50,3 +50,27 @@ test("rejects invalid RevenueCat timestamps before they reach Date writes", () =
   ).toBe(false);
   expect(isRevenueCatWebhookRequest(webhook({ product_id: 123 }))).toBe(false);
 });
+
+test("accepts the transaction metadata shapes RevenueCat documents", () => {
+  expect(isRevenueCatWebhookRequest(webhook({ metadata: null }))).toBe(true);
+  expect(isRevenueCatWebhookRequest(webhook({ metadata: {} }))).toBe(true);
+  expect(
+    isRevenueCatWebhookRequest(
+      webhook({
+        metadata: { orgId: "org-1", seats: 3, trial: false, note: null },
+      }),
+    ),
+  ).toBe(true);
+});
+
+test("rejects metadata that is not a flat primitive map", () => {
+  expect(isRevenueCatWebhookRequest(webhook({ metadata: "orgId" }))).toBe(
+    false,
+  );
+  expect(
+    isRevenueCatWebhookRequest(webhook({ metadata: { orgId: { deep: 1 } } })),
+  ).toBe(false);
+  expect(
+    isRevenueCatWebhookRequest(webhook({ metadata: { orgId: ["org-1"] } })),
+  ).toBe(false);
+});
