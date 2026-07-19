@@ -300,9 +300,13 @@ async function prepareDeniedProjectionForApply(
     return null;
   }
   try {
+    // The apply that follows replaces the shared rows authoritatively, so
+    // only this requester's row is dropped: another local identity sharing
+    // the database keeps its access and reads the replacement.
     await purgeOrganizationReadModelProjection(
       input.execSql,
       input.organizationId,
+      { onlyRequesterUserId: input.currentUserId },
     );
   } catch (error) {
     input.logError?.("Failed to replace denied organization read model", error);

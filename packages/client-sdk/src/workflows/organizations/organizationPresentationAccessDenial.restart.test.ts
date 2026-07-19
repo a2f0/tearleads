@@ -228,18 +228,65 @@ test("a denied requester's purge keeps shared rows for another local identity", 
       }),
     ).resolves.not.toBeNull();
 
-    // The last requester's denial drops the organization-wide rows.
+    // Restoring user-2 rebuilds from a fresh snapshot without dropping
+    // user-1's surviving requester row alongside the replaced shared rows.
+    const base = organizationReadModelSnapshot({ cursor: "cursor-restored" });
+    const restoredAsUserTwo = {
+      ...base,
+      currentUser: { isOrgAdmin: false },
+      lanes: {
+        ...base.lanes,
+        directory: base.lanes.directory && {
+          ...base.lanes.directory,
+          users: base.lanes.directory.users.map((user) => ({
+            ...user,
+            isSelf: user.userId === otherUserId,
+          })),
+        },
+      },
+    };
     await expect(
       reconcileOrganizationDirectoryAndGroups({
         apiClient: {
-          getOrganizationReadModelResult: async () =>
-            organizationReadModelFailure({ kind: "http", status: 403 }),
+          getOrganizationReadModelResult: async () => ({
+            data: restoredAsUserTwo,
+            ok: true,
+          }),
         },
+        currentUserId: otherUserId,
+        execSql,
+        organizationId,
+      }),
+    ).resolves.not.toBeNull();
+    await expect(
+      loadLocalOrganizationDirectoryAndGroups({
         currentUserId: requesterUserId,
         execSql,
         organizationId,
       }),
-    ).resolves.toBeNull();
+    ).resolves.not.toBeNull();
+    await expect(
+      loadLocalOrganizationDirectoryAndGroups({
+        currentUserId: otherUserId,
+        execSql,
+        organizationId,
+      }),
+    ).resolves.not.toBeNull();
+
+    // Denying both requesters drops the organization-wide rows with the last.
+    for (const deniedUserId of [otherUserId, requesterUserId]) {
+      await expect(
+        reconcileOrganizationDirectoryAndGroups({
+          apiClient: {
+            getOrganizationReadModelResult: async () =>
+              organizationReadModelFailure({ kind: "http", status: 403 }),
+          },
+          currentUserId: deniedUserId,
+          execSql,
+          organizationId,
+        }),
+      ).resolves.toBeNull();
+    }
     await expect(
       loadOrganizationReadModelProjection(
         execSql,

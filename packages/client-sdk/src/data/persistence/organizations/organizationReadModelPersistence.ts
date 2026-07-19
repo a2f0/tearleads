@@ -4,6 +4,7 @@ import type {
   OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
+import { organizationDataUsageTables } from "../../sqlite/organizationDataUsageSchema";
 import {
   organizationReadModelDirectoryUsers,
   organizationReadModelGroups,
@@ -268,6 +269,31 @@ async function replaceResponseLanes(input: {
   }
 }
 
+async function applyResponseLanes(input: {
+  readonly currentUserId: string;
+  readonly memberGroupId: string;
+  readonly response: OrganizationReadModelResponse;
+  readonly tx: ClientSQLiteTransaction;
+}): Promise<void> {
+  await replaceResponseLanes({ response: input.response, tx: input.tx });
+  const directoryLane = input.response.lanes.directory;
+  if (directoryLane) {
+    await pruneRequestersForDirectoryLane({
+      currentUserId: input.currentUserId,
+      directory: directoryLane,
+      organizationId: input.response.organizationId,
+      tx: input.tx,
+    });
+  }
+  if (input.response.lanes.groups || input.response.lanes.groupMemberships) {
+    await assertStoredGroupMembershipBindings({
+      memberGroupId: input.memberGroupId,
+      organizationId: input.response.organizationId,
+      tx: input.tx,
+    });
+  }
+}
+
 function requireMemberGroupId(input: {
   readonly current: CurrentOrganizationReadModelState | null;
   readonly response: OrganizationReadModelResponse;
@@ -341,7 +367,11 @@ export async function applyOrganizationReadModelResponse(input: {
     currentUserId: input.currentUserId,
     response: input.response,
   });
-  await ensureSqlTables(input.execSql, organizationReadModelTables);
+  // The requester prune below also retires pruned users' usage projections.
+  await ensureSqlTables(input.execSql, [
+    ...organizationReadModelTables,
+    ...organizationDataUsageTables,
+  ]);
 
   return getClientSQLitePersistenceRuntime(input.execSql).transaction(
     async (tx) => {
@@ -379,29 +409,13 @@ export async function applyOrganizationReadModelResponse(input: {
         current,
         response: input.response,
       });
-      await replaceResponseLanes({
+      await applyResponseLanes({
+        currentUserId: input.currentUserId,
+        memberGroupId,
         response: input.response,
         tx,
       });
       const directoryLane = input.response.lanes.directory;
-      if (directoryLane) {
-        await pruneRequestersForDirectoryLane({
-          currentUserId: input.currentUserId,
-          directory: directoryLane,
-          organizationId: input.response.organizationId,
-          tx,
-        });
-      }
-      if (
-        input.response.lanes.groups ||
-        input.response.lanes.groupMemberships
-      ) {
-        await assertStoredGroupMembershipBindings({
-          memberGroupId,
-          organizationId: input.response.organizationId,
-          tx,
-        });
-      }
       const stateRow = {
         organizationId: input.response.organizationId,
         protocolVersion: input.response.version,
@@ -436,10 +450,12 @@ export async function applyOrganizationReadModelResponse(input: {
 export async function purgeOrganizationReadModelProjection(
   execSql: ExecSql,
   organizationId: string,
+  options: { readonly onlyRequesterUserId?: string } = {},
 ): Promise<void> {
   await ensureSqlTables(execSql, organizationReadModelTables);
   await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
     await purgeOrganizationReadModelProjectionInTransaction({
+      onlyRequesterUserId: options.onlyRequesterUserId,
       organizationId,
       tx,
     });

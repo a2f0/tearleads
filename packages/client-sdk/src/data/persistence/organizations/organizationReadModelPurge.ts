@@ -1,4 +1,8 @@
-import { and, eq, ne, notInArray } from "drizzle-orm";
+import { and, type Column, eq, ne, notInArray, type SQL } from "drizzle-orm";
+import {
+  organizationDataUsageCategories,
+  organizationDataUsageSnapshots,
+} from "../../sqlite/organizationDataUsageSchema";
 import {
   organizationReadModelContainerGrants,
   organizationReadModelDirectoryUsers,
@@ -11,12 +15,31 @@ import {
 } from "../../sqlite/organizationReadModelSchema";
 import type { ClientSQLiteTransaction } from "../../sqlite/sqlitePersistenceRuntime";
 
+function inactiveUserScope(
+  input: {
+    readonly activeUserIds: readonly string[];
+    readonly organizationId: string;
+    readonly retainUserId: string;
+  },
+  organizationIdColumn: Column,
+  userIdColumn: Column,
+): SQL | undefined {
+  const scope = and(
+    eq(organizationIdColumn, input.organizationId),
+    ne(userIdColumn, input.retainUserId),
+  );
+  return input.activeUserIds.length > 0
+    ? and(scope, notInArray(userIdColumn, [...input.activeUserIds]))
+    : scope;
+}
+
 /**
- * Retire requester rows for users the just-applied authoritative directory no
- * longer lists as active. Without this, a removed member whose identity
- * shares the database keeps presentation access until it personally sees a
- * 403. The applying requester's own row is never pruned here: the server
- * response that carried this directory already proved that user's access.
+ * Retire requester rows — and the requester-scoped usage projections beside
+ * them — for users the just-applied authoritative directory no longer lists as
+ * active. Without this, a removed member whose identity shares the database
+ * keeps presentation access until it personally sees a 403. The applying
+ * requester's own rows are never pruned here: the server response that
+ * carried this directory already proved that user's access.
  */
 export async function pruneInactiveOrganizationRequestersInTransaction(input: {
   readonly activeUserIds: readonly string[];
@@ -24,26 +47,47 @@ export async function pruneInactiveOrganizationRequestersInTransaction(input: {
   readonly retainUserId: string;
   readonly tx: ClientSQLiteTransaction;
 }): Promise<void> {
-  const scope = and(
-    eq(organizationReadModelRequesters.organizationId, input.organizationId),
-    ne(organizationReadModelRequesters.userId, input.retainUserId),
-  );
   await input.tx
     .delete(organizationReadModelRequesters)
     .where(
-      input.activeUserIds.length > 0
-        ? and(
-            scope,
-            notInArray(organizationReadModelRequesters.userId, [
-              ...input.activeUserIds,
-            ]),
-          )
-        : scope,
+      inactiveUserScope(
+        input,
+        organizationReadModelRequesters.organizationId,
+        organizationReadModelRequesters.userId,
+      ),
+    )
+    .run();
+  await input.tx
+    .delete(organizationDataUsageSnapshots)
+    .where(
+      inactiveUserScope(
+        input,
+        organizationDataUsageSnapshots.organizationId,
+        organizationDataUsageSnapshots.requesterUserId,
+      ),
+    )
+    .run();
+  await input.tx
+    .delete(organizationDataUsageCategories)
+    .where(
+      inactiveUserScope(
+        input,
+        organizationDataUsageCategories.organizationId,
+        organizationDataUsageCategories.requesterUserId,
+      ),
     )
     .run();
 }
 
+/**
+ * Delete the shared projection rows for one organization. By default every
+ * requester row falls with them; `onlyRequesterUserId` scopes the requester
+ * delete to that user for rebuilds where the shared rows are about to be
+ * replaced authoritatively — other local identities keep their rows and read
+ * the replacement instead of losing access until their own next reconcile.
+ */
 export async function purgeOrganizationReadModelProjectionInTransaction(input: {
+  readonly onlyRequesterUserId?: string | undefined;
   readonly organizationId: string;
   readonly tx: ClientSQLiteTransaction;
 }): Promise<void> {
@@ -96,7 +140,21 @@ export async function purgeOrganizationReadModelProjectionInTransaction(input: {
   await input.tx
     .delete(organizationReadModelRequesters)
     .where(
-      eq(organizationReadModelRequesters.organizationId, input.organizationId),
+      input.onlyRequesterUserId === undefined
+        ? eq(
+            organizationReadModelRequesters.organizationId,
+            input.organizationId,
+          )
+        : and(
+            eq(
+              organizationReadModelRequesters.organizationId,
+              input.organizationId,
+            ),
+            eq(
+              organizationReadModelRequesters.userId,
+              input.onlyRequesterUserId,
+            ),
+          ),
     )
     .run();
   await input.tx

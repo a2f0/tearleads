@@ -17,6 +17,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import { notifyOrganizationReadModelInvalidated } from "./organizationReadModelInvalidation";
 import {
   ORGANIZATION_READ_MODEL_PROTOCOL_VERSION,
   OrganizationReadModelIntegrityError,
@@ -178,52 +179,63 @@ export async function loadOrganizationReadModelGroupMembers(
   currentUserId: string,
 ): Promise<OrganizationGroupMembersResponse | null> {
   await ensureSqlTables(execSql, organizationReadModelTables);
-  return getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
-    const [state] = await tx
-      .select({ protocolVersion: organizationReadModelState.protocolVersion })
-      .from(organizationReadModelState)
-      .where(eq(organizationReadModelState.organizationId, organizationId))
-      .limit(1);
-    if (!state) {
-      return null;
-    }
-    if (state.protocolVersion !== ORGANIZATION_READ_MODEL_PROTOCOL_VERSION) {
-      await purgeOrganizationReadModelProjectionInTransaction({
-        organizationId,
-        tx,
-      });
-      return null;
-    }
-    const [requester] = await tx
-      .select({ userId: organizationReadModelRequesters.userId })
-      .from(organizationReadModelRequesters)
-      .where(
-        and(
-          eq(organizationReadModelRequesters.organizationId, organizationId),
-          eq(organizationReadModelRequesters.userId, currentUserId),
-        ),
-      )
-      .limit(1);
-    if (!requester) {
-      return null;
-    }
-    try {
-      return await loadOrganizationReadModelGroupMembersInTransaction({
-        groupId,
-        organizationId,
-        tx,
-      });
-    } catch (error) {
-      if (!(error instanceof OrganizationReadModelIntegrityError)) {
-        throw error;
+  let purgedInvalidRows = false;
+  const members = await getClientSQLitePersistenceRuntime(execSql).transaction(
+    async (tx) => {
+      const [state] = await tx
+        .select({ protocolVersion: organizationReadModelState.protocolVersion })
+        .from(organizationReadModelState)
+        .where(eq(organizationReadModelState.organizationId, organizationId))
+        .limit(1);
+      if (!state) {
+        return null;
       }
-      // Invalid stored rows self-heal like a protocol mismatch: purge so the
-      // next reconcile refetches a snapshot instead of failing every read.
-      await purgeOrganizationReadModelProjectionInTransaction({
-        organizationId,
-        tx,
-      });
-      return null;
-    }
-  });
+      if (state.protocolVersion !== ORGANIZATION_READ_MODEL_PROTOCOL_VERSION) {
+        await purgeOrganizationReadModelProjectionInTransaction({
+          organizationId,
+          tx,
+        });
+        purgedInvalidRows = true;
+        return null;
+      }
+      const [requester] = await tx
+        .select({ userId: organizationReadModelRequesters.userId })
+        .from(organizationReadModelRequesters)
+        .where(
+          and(
+            eq(organizationReadModelRequesters.organizationId, organizationId),
+            eq(organizationReadModelRequesters.userId, currentUserId),
+          ),
+        )
+        .limit(1);
+      if (!requester) {
+        return null;
+      }
+      try {
+        return await loadOrganizationReadModelGroupMembersInTransaction({
+          groupId,
+          organizationId,
+          tx,
+        });
+      } catch (error) {
+        if (!(error instanceof OrganizationReadModelIntegrityError)) {
+          throw error;
+        }
+        // Invalid stored rows self-heal like a protocol mismatch: purge so the
+        // next reconcile refetches a snapshot instead of failing every read.
+        await purgeOrganizationReadModelProjectionInTransaction({
+          organizationId,
+          tx,
+        });
+        purgedInvalidRows = true;
+        return null;
+      }
+    },
+  );
+  if (purgedInvalidRows) {
+    // Realtime consumers may hold a caught-up lease over rows that no longer
+    // exist; the notification lets them drop it and refetch authoritatively.
+    notifyOrganizationReadModelInvalidated(execSql, organizationId);
+  }
+  return members;
 }
