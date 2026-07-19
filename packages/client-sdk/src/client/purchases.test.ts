@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   createRevenueCatPurchases,
   createUnavailablePurchases,
+  PurchaseCancelledError,
   PurchasesUnavailableError,
   type RevenueCatBackend,
   type RevenueCatCustomerInfo,
@@ -182,6 +183,36 @@ test("purchaseSync forwards the checkout host and abort signal to the backend", 
   expect(backend.purchaseInputs[0]?.abortSignal).toBe(abortSignal);
   expect(backend.purchaseInputs[1]?.htmlTarget).toBeUndefined();
   expect(backend.purchaseInputs[1]?.abortSignal).toBeUndefined();
+});
+
+test("purchaseSync normalizes post-abort preparation failures to cancellation", async () => {
+  const failing: RevenueCatBackend = {
+    ...createFakeBackend(),
+    async setAttributes() {
+      throw new Error("network down");
+    },
+  };
+  const purchases = createRevenueCatPurchases(failing, CONFIG);
+  const aborted = new AbortController();
+  aborted.abort();
+
+  // Abandoned flow: the preparation failure is not a real outcome.
+  expect(
+    purchases.purchaseSync({
+      organizationId: "org-9",
+      packageId: "monthly",
+      abortSignal: aborted.signal,
+    }),
+  ).rejects.toBeInstanceOf(PurchaseCancelledError);
+
+  // Live flow: the real error must surface.
+  expect(
+    purchases.purchaseSync({
+      organizationId: "org-9",
+      packageId: "monthly",
+      abortSignal: new AbortController().signal,
+    }),
+  ).rejects.toThrow("network down");
 });
 
 test("purchaseSync stamps the org onto the transaction metadata", async () => {

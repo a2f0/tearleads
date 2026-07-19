@@ -1,4 +1,5 @@
 import {
+  PurchaseAbortedError,
   PurchaseCancelledError,
   type PurchasesCapability,
   type SyncSubscriptionOption,
@@ -134,7 +135,14 @@ async function purchaseForOrganization({
   };
   cancelPurchaseRef.current = cancelPurchase;
   try {
-    await purchases.identify({ userId });
+    // Raced so a hung identification cannot hold the panel busy with no way
+    // out — Cancel settles the flow immediately even in this phase.
+    const identify = purchases.identify({ userId });
+    identify.catch(() => {
+      // Outcome delivered through the race; without this handler a losing
+      // identify would surface as an unhandled rejection.
+    });
+    await Promise.race([identify, cancelSignal]);
     if (cancelled || !scopeMatches(scopeRef.current, scope)) {
       return;
     }
@@ -176,13 +184,16 @@ async function purchaseForOrganization({
           // the loser would surface as an unhandled rejection.
           return;
         }
-        // A late PurchaseCancelledError is the pre-mount abort path: the
-        // backend refused to mount, so no checkout UI ever existed and no
-        // teardown can wipe the shared host — a retry in flight must keep
-        // running. Any other rejection comes from a checkout that mounted,
-        // whose teardown empties the shared host (same hazard as the
-        // late-success path above), so retire the replacement flow.
-        if (error instanceof PurchaseCancelledError) {
+        // A late PurchaseAbortedError is the pre-mount abort path: the
+        // purchase layers raise it for every post-abort pre-mount failure
+        // (see client-sdk purchaseSync and the web backend), so it reliably
+        // means no checkout UI ever existed and no teardown can wipe the
+        // shared host — a retry in flight must keep running. Any other
+        // rejection (including the provider's own cancellation of a MOUNTED
+        // checkout) comes with a teardown that empties the shared host (same
+        // hazard as the late-success path above), so retire the replacement
+        // flow.
+        if (error instanceof PurchaseAbortedError) {
           return;
         }
         cancelPurchaseRef.current?.();

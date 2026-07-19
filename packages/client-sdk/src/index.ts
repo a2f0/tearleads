@@ -175,6 +175,7 @@ export {
   localKeyringScopeKey,
   Network,
   normalizeLocalKeyringScope,
+  PurchaseAbortedError,
   PurchaseCancelledError,
   type PurchasesCapability,
   PurchasesUnavailableError,

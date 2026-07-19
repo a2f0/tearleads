@@ -92,6 +92,19 @@ export class PurchaseCancelledError extends Error {
   }
 }
 
+/**
+ * A {@link PurchaseCancelledError} raised before any checkout UI mounted —
+ * the purchase was abandoned (aborted) while still preparing. Distinct from
+ * the base class so callers can tell "nothing ever existed on screen" apart
+ * from a mounted checkout that was cancelled and torn down.
+ */
+export class PurchaseAbortedError extends PurchaseCancelledError {
+  constructor(message = "The purchase was abandoned before checkout") {
+    super(message);
+    this.name = "PurchaseAbortedError";
+  }
+}
+
 /** A normalized purchasable package as returned by {@link RevenueCatBackend.getOfferings}. */
 export interface RevenueCatPackage {
   readonly identifier: string;
@@ -215,15 +228,26 @@ export function createRevenueCatPurchases(
       }));
     },
     async purchaseSync(input) {
-      await ensureConfigured();
-      // Bind the purchase to the org BEFORE buying so the resulting provider
-      // event carries the organization attribute the webhook resolves against.
-      // The attribute is customer-level and mutable — a later purchase for a
-      // different org overwrites it — so it alone cannot attribute a purchase
-      // that completes after another one started.
-      await backend.setAttributes({
-        [organizationAttributeKey]: input.organizationId,
-      });
+      try {
+        await ensureConfigured();
+        // Bind the purchase to the org BEFORE buying so the resulting
+        // provider event carries the organization attribute the webhook
+        // resolves against. The attribute is customer-level and mutable — a
+        // later purchase for a different org overwrites it — so it alone
+        // cannot attribute a purchase that completes after another started.
+        await backend.setAttributes({
+          [organizationAttributeKey]: input.organizationId,
+        });
+      } catch (error) {
+        // A failure while still preparing a purchase the caller has already
+        // abandoned is not a real outcome. Normalize it to the pre-checkout
+        // abort so callers can rely on PurchaseAbortedError meaning "no
+        // checkout ever mounted" (vs. a mounted checkout failing later).
+        if (input.abortSignal?.aborted) {
+          throw new PurchaseAbortedError();
+        }
+        throw error;
+      }
       const info = await backend.purchasePackage({
         packageId: input.packageId,
         // Also stamp the org onto the transaction itself (Web Billing

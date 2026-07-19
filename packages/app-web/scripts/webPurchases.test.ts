@@ -198,6 +198,41 @@ test("an abort after the purchase settled does not reset the SDK", async () => {
   expect(calls).not.toContain("close");
 });
 
+test("a pre-mount failure of an abandoned purchase reads as cancellation", async () => {
+  let rejectOfferings: ((error: Error) => void) | undefined;
+  const { sdk } = createFakeSdk();
+  const offeringsGate = new Promise<never>((_, reject) => {
+    rejectOfferings = reject;
+  });
+  const gatedSdk: RevenueCatWebSdk = {
+    ...sdk,
+    configure(input) {
+      const instance = sdk.configure(input);
+      return {
+        ...instance,
+        getOfferings() {
+          return offeringsGate;
+        },
+      };
+    },
+  };
+  const backend = createWebRevenueCatBackend(gatedSdk);
+  const controller = new AbortController();
+
+  await backend.configure({ apiKey: "web-key", appUserId: "user-1" });
+  const purchase = backend.purchasePackage({
+    packageId: "monthly",
+    abortSignal: controller.signal,
+  });
+  // The buyer cancels while the offerings fetch is in flight, then the fetch
+  // fails: no checkout ever mounted, so the flow must settle as the
+  // cancellation the abandonment asked for, not as a network failure.
+  controller.abort();
+  rejectOfferings?.(new Error("network down"));
+
+  expect(purchase).rejects.toBeInstanceOf(PurchaseCancelledError);
+});
+
 test("web RevenueCat backend refuses to mount a checkout for an aborted flow", async () => {
   const { calls, sdk } = createFakeSdk();
   const backend = createWebRevenueCatBackend(sdk);

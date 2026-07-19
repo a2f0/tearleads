@@ -8,6 +8,7 @@ import {
 import {
   createRevenueCatPurchases,
   createUnavailablePurchases,
+  PurchaseAbortedError,
   PurchaseCancelledError,
   type PurchasesCapability,
   type RevenueCatBackend,
@@ -108,16 +109,27 @@ async function purchaseOnInstance({
     // pre-checkout phase (offerings fetch etc.). Mounting now would put a
     // checkout on screen that nothing controls — the embedded widget has no
     // provider-side close button — so bail out as a cancellation before the
-    // SDK renders anything.
+    // SDK renders anything. PurchaseAbortedError (not the base cancellation)
+    // tells callers no checkout UI ever existed.
     if (abortSignal?.aborted) {
-      throw new PurchaseCancelledError();
+      throw new PurchaseAbortedError();
     }
   };
 
   throwIfAborted();
-  const aPackage = (await currentPackages(instance)).find(
-    (entry) => entry.identifier === packageId,
-  );
+  let aPackage: WebBillingPackage | undefined;
+  try {
+    aPackage = (await currentPackages(instance)).find(
+      (entry) => entry.identifier === packageId,
+    );
+  } catch (error) {
+    // A pre-mount failure of a purchase the caller already abandoned is not
+    // a real outcome — normalize it to the pre-checkout abort the
+    // abandonment asked for, so PurchaseAbortedError reliably means "no
+    // checkout ever mounted".
+    throwIfAborted();
+    throw error;
+  }
   if (!aPackage) {
     throw new Error(`Unknown purchase package: ${packageId}`);
   }
