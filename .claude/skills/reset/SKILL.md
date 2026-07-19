@@ -13,10 +13,18 @@ This is the step `ship-pr` runs last, but it stands on its own — run it any ti
 the checkout has drifted (left on a stale feature branch, or with hooks that
 predate a merged change to `scripts/git/hooks/`).
 
-**Order matters: branch first, hooks second.** The hooks are copied out of the
-worktree, so installing them before fast-forwarding would install whatever
-version the old checkout had. Reaching the default branch first means the hooks
-installed are the ones that just landed on it.
+**Order matters: branch first, hooks second — and the branch step is a
+precondition, not a preference.** `install-hooks.sh` copies hooks *out of*
+`scripts/git/hooks/` in the worktree into `.git/hooks`. The destination is
+outside the worktree, but the **source is not**, so what lands in `.git/hooks` is
+whatever revision the checkout currently holds. Installing before reaching the
+target branch would install the stale branch's hooks — or uncommitted edits to
+them — which is precisely the state this skill exists to correct.
+
+That makes the reset **all-or-nothing**: if the checkout cannot be moved to the
+target revision, the hooks are not installed either. Skipping the move but
+installing anyway is worse than doing nothing, because it reports a reset that
+did not happen and leaves `.git/hooks` holding an arbitrary revision.
 
 This skill never merges, pushes, or deletes anything. It moves the checkout,
 fast-forwards, and copies hook files.
@@ -50,33 +58,27 @@ TARGET_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name) 
 
 ## Workflow
 
-1. **Detect a dirty worktree — record it, do not exit.** Switching branches with
+1. **Stop on a dirty worktree — change nothing.** Switching branches with
    uncommitted tracked changes carries in-progress work onto the target branch or
-   strands it, so a dirty tree skips the branch move. It must **not** abort the
-   run: hooks live in `.git/hooks`, outside the worktree, so step 4 is still safe
-   and is usually the reason the reset was asked for. Set a flag instead of
-   exiting:
+   strands it, so the move cannot run. Because the hook install reads its source
+   from the worktree, it cannot run either: without the move, it would copy the
+   current branch's hooks (or uncommitted edits to them) into `.git/hooks` and
+   report a reset that never happened. Stop before touching anything:
 
    ```bash
-   WORKTREE_DIRTY=
-   if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-     WORKTREE_DIRTY=1
-     echo "Warning: worktree has uncommitted changes; skipping the branch move" >&2
-     git status --short
-   fi
+   [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "Error: worktree has uncommitted changes; nothing was reset" >&2; git status --short; exit 1; }
    ```
 
-   Report the dirty paths and **skip steps 2–3**, then go on to step 4.
-   Untracked files are excluded; they follow a `git switch` harmlessly, and the
-   `--ff-only` pull below still stops if one would be overwritten.
+   Report the dirty paths and say plainly that **neither** the branch nor the
+   hooks were touched, so the caller knows the checkout is unchanged rather than
+   half-reset. Commit or stash, then re-run. Untracked files are excluded; they
+   follow a `git switch` harmlessly, and the `--ff-only` pull below still stops if
+   one would be overwritten.
 
-2. **Switch to the target branch**, if not already on it — skipped entirely on a
-   dirty tree:
+2. **Switch to the target branch**, if not already on it:
 
    ```bash
-   if [ -z "$WORKTREE_DIRTY" ] && [ "$BRANCH" != "$TARGET_BRANCH" ]; then
-     git switch "$TARGET_BRANCH" || { echo "Error: could not switch to $TARGET_BRANCH" >&2; exit 1; }
-   fi
+   [ "$BRANCH" = "$TARGET_BRANCH" ] || git switch "$TARGET_BRANCH" || { echo "Error: could not switch to $TARGET_BRANCH" >&2; exit 1; }
    ```
 
    Already being on it is the common case after `ship-pr` — `squash-merge`
@@ -84,15 +86,12 @@ TARGET_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name) 
    as success, not a no-op to report as a problem.
 
 3. **Fast-forward it** from the remote the branch actually tracks — on a fork,
-   `origin` is the fork and a hardcoded remote pulls a stale branch. Also skipped
-   on a dirty tree:
+   `origin` is the fork and a hardcoded remote pulls a stale branch:
 
    ```bash
-   if [ -z "$WORKTREE_DIRTY" ]; then
-     REMOTE=$(git config "branch.$TARGET_BRANCH.remote" 2>/dev/null || echo origin)
-     git pull --ff-only "$REMOTE" "$TARGET_BRANCH" || { echo "Error: $TARGET_BRANCH could not fast-forward" >&2; exit 1; }
-     git fetch "$REMOTE" --prune || { echo "Error: prune failed" >&2; exit 1; }
-   fi
+   REMOTE=$(git config "branch.$TARGET_BRANCH.remote" 2>/dev/null || echo origin)
+   git pull --ff-only "$REMOTE" "$TARGET_BRANCH" || { echo "Error: $TARGET_BRANCH could not fast-forward; hooks not installed" >&2; exit 1; }
+   git fetch "$REMOTE" --prune || { echo "Error: prune failed" >&2; exit 1; }
    ```
 
    **`--ff-only`** — the target branch must never acquire a merge commit here. A
@@ -122,14 +121,19 @@ TARGET_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name) 
 
 5. **Report results**: the branch now checked out, whether it moved or was
    already there, whether it fast-forwarded (and to what), and which hooks were
-   installed. When a step was skipped — dirty worktree, `--skip-hooks` — say so
-   and what was left in place.
+   installed. When the run stopped early — a dirty worktree or a failed
+   fast-forward — say that **nothing** was reset and name what blocked it, rather
+   than reporting the steps that did run as a partial success.
 
 ## Notes
 
 - **Idempotent by design.** Running it on an already-clean, already-current
   default branch does nothing but reinstall hooks. That is what makes it safe to
   append to the end of `ship-pr` unconditionally.
+- **All-or-nothing.** Every abort path leaves the checkout untouched, because a
+  hook install that runs without the branch move would copy an arbitrary
+  revision's hooks into `.git/hooks`. The one deliberate partial is
+  `--skip-hooks`, where the caller asked for the branch move alone.
 - **It is not the post-merge cleanup.** Returning to the PR's base branch and
   deleting the merged branch belong to `squash-merge`, gated on GitHub reporting
   `MERGED` and on the base verifiably containing the merge commit. This skill
@@ -141,5 +145,3 @@ TARGET_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name) 
   default — pass the base as the branch argument if that is not wanted.
 - **`--ff-only` failure is a real signal**, not a nuisance: the default branch
   has local commits that were never pushed. Resolve that by hand; do not force.
-</content>
-</invoke>
