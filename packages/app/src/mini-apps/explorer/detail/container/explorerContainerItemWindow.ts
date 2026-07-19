@@ -36,6 +36,10 @@ export function getNextExplorerItemSort(
 interface ContainerItemWindowState {
   error: string | null;
   isLoading: boolean;
+  // The container the current rows/totalCount were fetched for (also set on a
+  // failed fetch, so the error renders instead of a stuck loading row). While it
+  // differs from the selected container the state is treated as not-yet-loaded.
+  loadedContainerId: string | null;
   offset: number;
   rows: ReadonlyArray<ContainerItemRow>;
   totalCount: number;
@@ -44,10 +48,62 @@ interface ContainerItemWindowState {
 const EMPTY_CONTAINER_ITEM_WINDOW_STATE: ContainerItemWindowState = {
   error: null,
   isLoading: false,
+  loadedContainerId: null,
   offset: 0,
   rows: [],
   totalCount: 0,
 };
+
+// Refetches for a container that already resolved (sync convergence, list
+// revision bumps, viewport-driven limit changes) must not flash the loading
+// row over settled content — an empty container would otherwise flicker
+// between "No items." and "Loading..." on every convergence event. Loading is
+// only surfaced before the container's first result, or when the requested
+// scroll window's rows are genuinely absent (totalCount > 0, rows off-window).
+function getContainerItemWindowView(
+  state: ContainerItemWindowState,
+  enabled: boolean,
+  selectedContainerId: string,
+) {
+  const hasLoadedSelectedContainer =
+    enabled && state.loadedContainerId === selectedContainerId;
+
+  return {
+    error: state.error,
+    isLoading: enabled
+      ? !hasLoadedSelectedContainer || (state.isLoading && state.totalCount > 0)
+      : false,
+    offset: state.offset,
+    rows: hasLoadedSelectedContainer
+      ? state.rows
+      : EMPTY_CONTAINER_ITEM_WINDOW_STATE.rows,
+    totalCount: hasLoadedSelectedContainer ? state.totalCount : 0,
+  };
+}
+
+// A refetch for the already-loaded container keeps the settled rows/count on
+// screen (stale-while-revalidate); only a container switch resets the window.
+function startContainerItemWindowLoad(
+  current: ContainerItemWindowState,
+  containerId: string,
+): ContainerItemWindowState {
+  return current.loadedContainerId === containerId
+    ? { ...current, error: null, isLoading: true }
+    : { ...EMPTY_CONTAINER_ITEM_WINDOW_STATE, isLoading: true };
+}
+
+function failContainerItemWindowLoad(
+  current: ContainerItemWindowState,
+  containerId: string,
+  error: unknown,
+): ContainerItemWindowState {
+  return {
+    ...current,
+    error: error instanceof Error ? error.message : String(error),
+    isLoading: false,
+    loadedContainerId: containerId,
+  };
+}
 
 interface ExplorerContainerItemWindowParams {
   // The current container nodes; its reference changes whenever the container
@@ -78,12 +134,9 @@ export function useExplorerContainerItemWindow(
     sort,
     visibleSystemSlots,
   } = params;
-  const [state, setState] = useState<ContainerItemWindowState>(() => ({
-    ...EMPTY_CONTAINER_ITEM_WINDOW_STATE,
-    // Start loading when a fetch is pending so the first render (before the load
-    // effect runs) shows "Loading..." instead of flashing the empty message.
-    isLoading: enabled,
-  }));
+  const [state, setState] = useState<ContainerItemWindowState>(
+    EMPTY_CONTAINER_ITEM_WINDOW_STATE,
+  );
   const serializedSystemSlots = Array.from(visibleSystemSlots)
     .sort()
     .join("\u0000");
@@ -108,16 +161,13 @@ export function useExplorerContainerItemWindow(
       return;
     }
 
+    const containerId = selectedNode.id;
     let cancelled = false;
-    setState((current) => ({
-      ...current,
-      error: null,
-      isLoading: true,
-    }));
+    setState((current) => startContainerItemWindowLoad(current, containerId));
 
     void documentQueries
       .listContainerItemWindow({
-        containerId: selectedNode.id,
+        containerId,
         currentOrganizationId: params.currentOrganizationId,
         limit,
         offset,
@@ -134,6 +184,7 @@ export function useExplorerContainerItemWindow(
         setState({
           error: null,
           isLoading: false,
+          loadedContainerId: containerId,
           offset,
           rows: window.rows,
           totalCount: window.totalCount,
@@ -144,11 +195,9 @@ export function useExplorerContainerItemWindow(
           return;
         }
 
-        setState((current) => ({
-          ...current,
-          error: error instanceof Error ? error.message : String(error),
-          isLoading: false,
-        }));
+        setState((current) =>
+          failContainerItemWindowLoad(current, containerId, error),
+        );
       });
 
     return () => {
@@ -168,5 +217,5 @@ export function useExplorerContainerItemWindow(
     serializedSystemSlots,
   ]);
 
-  return state;
+  return getContainerItemWindowView(state, enabled, selectedNode.id);
 }
