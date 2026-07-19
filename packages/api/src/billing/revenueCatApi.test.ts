@@ -6,78 +6,179 @@ const ENV = {
   REVENUECAT_PROJECT_ID: "proj_1",
 } as NodeJS.ProcessEnv;
 
-function jsonFetch(
-  body: unknown,
-  status = 200,
-): { fetchImpl: typeof fetch; calls: Array<{ url: string; auth: unknown }> } {
-  const calls: Array<{ url: string; auth: unknown }> = [];
+const NO_REF = { subscriptionId: null, transactionId: null };
+const SUBS_URL =
+  "https://api.revenuecat.com/v2/projects/proj_1/customers/user-1/subscriptions";
+
+function fakeFetch(pages: Array<{ body: unknown; status?: number }>) {
+  const calls: Array<{ url: string; auth: string | null; hasSignal: boolean }> =
+    [];
+  let index = 0;
   const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
     calls.push({
       url: String(input),
       auth: new Headers(init?.headers).get("Authorization"),
+      hasSignal: init?.signal != null,
     });
-    return new Response(JSON.stringify(body), { status });
+    const page = pages[Math.min(index, pages.length - 1)] ?? { body: {} };
+    index++;
+    return new Response(JSON.stringify(page.body), {
+      status: page.status ?? 200,
+    });
   }) as typeof fetch;
   return { fetchImpl, calls };
 }
 
+function sub(overrides: Record<string, unknown>) {
+  return {
+    status: "active",
+    gives_access: true,
+    management_url: null,
+    ...overrides,
+  };
+}
+
 test("returns null when unconfigured, without calling the API", async () => {
-  const { fetchImpl, calls } = jsonFetch({});
-  const url = await fetchRevenueCatManagementUrl("user-1", {
-    env: {} as NodeJS.ProcessEnv,
-    fetchImpl,
-  });
-  expect(url).toBeNull();
+  const { fetchImpl, calls } = fakeFetch([{ body: {} }]);
+  expect(
+    await fetchRevenueCatManagementUrl("user-1", NO_REF, {
+      env: {} as NodeJS.ProcessEnv,
+      fetchImpl,
+    }),
+  ).toBeNull();
   expect(calls).toHaveLength(0);
 });
 
-test("returns the access-giving subscription's management URL", async () => {
-  const { fetchImpl, calls } = jsonFetch({
-    items: [
-      { status: "expired", gives_access: false, management_url: "https://old" },
-      {
-        status: "active",
-        gives_access: true,
-        management_url: "https://manage.example/x",
-      },
-    ],
-  });
-  const url = await fetchRevenueCatManagementUrl("user-1", {
-    env: ENV,
-    fetchImpl,
-  });
-  expect(url).toBe("https://manage.example/x");
-  expect(calls[0]?.url).toBe(
-    "https://api.revenuecat.com/v2/projects/proj_1/customers/user-1/subscriptions",
-  );
+test("uses the sole access-giving subscription with auth and a timeout signal", async () => {
+  const { fetchImpl, calls } = fakeFetch([
+    { body: { items: [sub({ management_url: "https://manage/x" })] } },
+  ]);
+  expect(
+    await fetchRevenueCatManagementUrl("user-1", NO_REF, {
+      env: ENV,
+      fetchImpl,
+    }),
+  ).toBe("https://manage/x");
+  expect(calls[0]?.url).toBe(SUBS_URL);
   expect(calls[0]?.auth).toBe("Bearer sk_test");
+  expect(calls[0]?.hasSignal).toBe(true);
 });
 
-test("returns null when no subscription exposes a URL", async () => {
-  const { fetchImpl } = jsonFetch({
-    items: [{ status: "expired", gives_access: false, management_url: null }],
-  });
-  const url = await fetchRevenueCatManagementUrl("user-1", {
-    env: ENV,
-    fetchImpl,
-  });
-  expect(url).toBeNull();
+test("matches this org's subscription by store identifier among several", async () => {
+  const { fetchImpl } = fakeFetch([
+    {
+      body: {
+        items: [
+          sub({
+            store_subscription_identifier: "other",
+            management_url: "https://other",
+          }),
+          sub({
+            store_subscription_identifier: "txn-9",
+            management_url: "https://ours",
+          }),
+        ],
+      },
+    },
+  ]);
+  expect(
+    await fetchRevenueCatManagementUrl(
+      "user-1",
+      { subscriptionId: "txn-9", transactionId: null },
+      { env: ENV, fetchImpl },
+    ),
+  ).toBe("https://ours");
+});
+
+test("returns null when multiple subscriptions are ambiguous (no id match)", async () => {
+  const { fetchImpl } = fakeFetch([
+    {
+      body: {
+        items: [
+          sub({
+            store_subscription_identifier: "a",
+            management_url: "https://a",
+          }),
+          sub({
+            store_subscription_identifier: "b",
+            management_url: "https://b",
+          }),
+        ],
+      },
+    },
+  ]);
+  expect(
+    await fetchRevenueCatManagementUrl("user-1", NO_REF, {
+      env: ENV,
+      fetchImpl,
+    }),
+  ).toBeNull();
+});
+
+test("follows pagination to find the matching subscription", async () => {
+  const { fetchImpl, calls } = fakeFetch([
+    {
+      body: {
+        items: [
+          sub({
+            store_subscription_identifier: "a",
+            management_url: "https://a",
+          }),
+        ],
+        next_page:
+          "/v2/projects/proj_1/customers/user-1/subscriptions?starting_after=a",
+      },
+    },
+    {
+      body: {
+        items: [
+          sub({
+            store_subscription_identifier: "txn-9",
+            management_url: "https://ours",
+          }),
+        ],
+      },
+    },
+  ]);
+  expect(
+    await fetchRevenueCatManagementUrl(
+      "user-1",
+      { subscriptionId: "txn-9", transactionId: null },
+      { env: ENV, fetchImpl },
+    ),
+  ).toBe("https://ours");
+  expect(calls).toHaveLength(2);
+  expect(calls[1]?.url).toBe(`${SUBS_URL}?starting_after=a`);
+});
+
+test("returns null when nothing gives access or exposes a URL", async () => {
+  const { fetchImpl } = fakeFetch([
+    {
+      body: {
+        items: [sub({ gives_access: false, management_url: "https://x" })],
+      },
+    },
+  ]);
+  expect(
+    await fetchRevenueCatManagementUrl("user-1", NO_REF, {
+      env: ENV,
+      fetchImpl,
+    }),
+  ).toBeNull();
 });
 
 test("returns null for a missing customer (404) or a server error", async () => {
-  const notFound = jsonFetch({ message: "not found" }, 404);
   expect(
-    await fetchRevenueCatManagementUrl("user-1", {
+    await fetchRevenueCatManagementUrl("user-1", NO_REF, {
       env: ENV,
-      fetchImpl: notFound.fetchImpl,
+      fetchImpl: fakeFetch([{ body: { message: "not found" }, status: 404 }])
+        .fetchImpl,
     }),
   ).toBeNull();
-
-  const serverError = jsonFetch({}, 500);
   expect(
-    await fetchRevenueCatManagementUrl("user-1", {
+    await fetchRevenueCatManagementUrl("user-1", NO_REF, {
       env: ENV,
-      fetchImpl: serverError.fetchImpl,
+      fetchImpl: fakeFetch([{ body: {}, status: 500 }]).fetchImpl,
     }),
   ).toBeNull();
 });
@@ -86,9 +187,10 @@ test("returns null (never throws) when the request errors", async () => {
   const fetchImpl = (async () => {
     throw new Error("network down");
   }) as unknown as typeof fetch;
-  const url = await fetchRevenueCatManagementUrl("user-1", {
-    env: ENV,
-    fetchImpl,
-  });
-  expect(url).toBeNull();
+  expect(
+    await fetchRevenueCatManagementUrl("user-1", NO_REF, {
+      env: ENV,
+      fetchImpl,
+    }),
+  ).toBeNull();
 });

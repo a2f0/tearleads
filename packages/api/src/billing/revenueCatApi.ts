@@ -10,65 +10,167 @@ const REVENUECAT_V2_SECRET_ENV_KEY = "REVENUECAT_V2_SECRET_KEY";
 /** Environment variable holding the RevenueCat project id (`proj...`). */
 const REVENUECAT_PROJECT_ID_ENV_KEY = "REVENUECAT_PROJECT_ID";
 
-const REVENUECAT_API_V2_BASE = "https://api.revenuecat.com/v2";
+/** RevenueCat serves relative `next_page` paths (e.g. `/v2/…`) off this origin. */
+const REVENUECAT_API_ORIGIN = "https://api.revenuecat.com";
+/** Fail soft rather than hang if RevenueCat stalls mid-request. */
+const REQUEST_TIMEOUT_MS = 5000;
+/** Bound pagination — a sync customer has one or two subscriptions, never many. */
+const MAX_SUBSCRIPTION_PAGES = 10;
 
 interface RevenueCatApiDeps {
   readonly env?: NodeJS.ProcessEnv;
   readonly fetchImpl?: typeof fetch;
 }
 
+/**
+ * The org's stored provider identifiers, used to pick the subscription that
+ * belongs to THIS organization when a customer (one buyer/app-user) holds more
+ * than one — e.g. an admin who bought sync for several orgs under one account.
+ */
+interface OrganizationSubscriptionRef {
+  readonly subscriptionId: string | null;
+  readonly transactionId: string | null;
+}
+
 interface ResolvedSubscription {
   readonly givesAccess: boolean;
   readonly managementUrl: string | null;
+  readonly storeIdentifier: string | null;
+}
+
+function readNonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
 }
 
 /**
- * Reads the two fields this client needs off one RevenueCat v2 subscription
- * object, narrowing from `unknown` without a type assertion (the repo forbids
- * `as` in production sources).
+ * Reads the fields this client needs off one RevenueCat v2 subscription object,
+ * narrowing from `unknown` with the `in` operator — no type assertion (the repo
+ * forbids `as` in production sources).
  */
 function readSubscription(item: unknown): ResolvedSubscription {
   if (typeof item !== "object" || item === null) {
-    return { givesAccess: false, managementUrl: null };
+    return { givesAccess: false, managementUrl: null, storeIdentifier: null };
   }
-  const rawUrl = "management_url" in item ? item.management_url : null;
-  const managementUrl =
-    typeof rawUrl === "string" && rawUrl.length > 0 ? rawUrl : null;
-  const givesAccess = "gives_access" in item && item.gives_access === true;
-  return { givesAccess, managementUrl };
+  return {
+    givesAccess: "gives_access" in item && item.gives_access === true,
+    managementUrl: readNonEmptyString(
+      "management_url" in item ? item.management_url : null,
+    ),
+    storeIdentifier: readNonEmptyString(
+      "store_subscription_identifier" in item
+        ? item.store_subscription_identifier
+        : null,
+    ),
+  };
+}
+
+/** Extracts the subscriptions and the next-page path from one list response. */
+function parseSubscriptionPage(body: unknown): {
+  subscriptions: ResolvedSubscription[];
+  nextPage: string;
+} {
+  if (typeof body !== "object" || body === null) {
+    return { subscriptions: [], nextPage: "" };
+  }
+  const subscriptions =
+    "items" in body && Array.isArray(body.items)
+      ? body.items.map(readSubscription)
+      : [];
+  const nextPage =
+    "next_page" in body && typeof body.next_page === "string"
+      ? body.next_page
+      : "";
+  return { subscriptions, nextPage };
 }
 
 /**
- * Picks the management URL of the subscription that currently grants access.
- * A customer can carry several subscriptions (expired ones included); the one
- * with `gives_access` is the live subscription whose manage page we want. Falls
- * back to any subscription that exposes a URL so a just-lapsed subscriber can
- * still reach the provider to fix billing.
+ * Chooses the management URL for the organization's subscription among a
+ * customer's subscriptions. Prefers the access-giving subscription whose store
+ * identifier matches the org's stored subscription/transaction id; failing an
+ * identifier match, uses the sole access-giving subscription (the common
+ * one-org case). With multiple access-giving subscriptions and no match it
+ * returns null rather than risk pointing an admin at another org's manage page.
  */
-function pickManagementUrl(items: readonly unknown[]): string | null {
-  const subscriptions = items.map(readSubscription);
+function pickManagementUrl(
+  subscriptions: readonly ResolvedSubscription[],
+  ref: OrganizationSubscriptionRef,
+): string | null {
   const accessGiving = subscriptions.filter(
     (subscription) => subscription.givesAccess,
   );
-  const candidates = accessGiving.length > 0 ? accessGiving : subscriptions;
-  for (const subscription of candidates) {
-    if (subscription.managementUrl) {
-      return subscription.managementUrl;
+
+  const storeIds = [ref.subscriptionId, ref.transactionId].filter(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  );
+  if (storeIds.length > 0) {
+    const matched = accessGiving.find(
+      (subscription) =>
+        subscription.storeIdentifier !== null &&
+        storeIds.includes(subscription.storeIdentifier),
+    );
+    // A match is definitive: return its URL (or null if that subscription has
+    // none) without falling through to a possibly-unrelated subscription.
+    if (matched) {
+      return matched.managementUrl;
     }
   }
+
+  if (accessGiving.length === 1) {
+    return accessGiving[0]?.managementUrl ?? null;
+  }
   return null;
+}
+
+/** Fetches every subscription page for a customer (bounded, per-request timeout). */
+async function fetchCustomerSubscriptions(
+  appUserId: string,
+  projectId: string,
+  secretKey: string,
+  fetchImpl: typeof fetch,
+): Promise<ResolvedSubscription[]> {
+  const headers = {
+    Authorization: `Bearer ${secretKey}`,
+    Accept: "application/json",
+  };
+  let path =
+    `/v2/projects/${encodeURIComponent(projectId)}` +
+    `/customers/${encodeURIComponent(appUserId)}/subscriptions`;
+  const subscriptions: ResolvedSubscription[] = [];
+
+  for (let page = 0; page < MAX_SUBSCRIPTION_PAGES && path; page++) {
+    const response = await fetchImpl(`${REVENUECAT_API_ORIGIN}${path}`, {
+      headers,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+      // 404 = no such customer (nothing to manage). Any other non-2xx is an
+      // unexpected provider/auth error worth logging; either way, use only the
+      // pages already collected.
+      if (response.status !== 404) {
+        console.error(
+          `RevenueCat management URL lookup failed with status ${response.status}`,
+        );
+      }
+      break;
+    }
+    const parsed = parseSubscriptionPage(await response.json());
+    subscriptions.push(...parsed.subscriptions);
+    path = parsed.nextPage;
+  }
+  return subscriptions;
 }
 
 /**
  * Fetches the subscription-management URL for a RevenueCat customer, identified
  * by its App User ID (the org's stored `provider_customer_id`). Reads its
  * credentials from the environment and **never throws**: it returns null when
- * the integration is unconfigured, the customer or an access-giving subscription
- * is not found, or the request fails — so an unavailable manage link degrades to
- * a hidden button instead of erroring the billing panel.
+ * the integration is unconfigured, the customer or a matching subscription is
+ * not found, or a request fails/stalls — so an unavailable manage link degrades
+ * to a hidden button instead of erroring the billing panel.
  */
 export async function fetchRevenueCatManagementUrl(
   appUserId: string,
+  ref: OrganizationSubscriptionRef,
   deps: RevenueCatApiDeps = {},
 ): Promise<string | null> {
   const env = deps.env ?? process.env;
@@ -79,36 +181,14 @@ export async function fetchRevenueCatManagementUrl(
     return null;
   }
 
-  const endpoint =
-    `${REVENUECAT_API_V2_BASE}/projects/${encodeURIComponent(projectId)}` +
-    `/customers/${encodeURIComponent(appUserId)}/subscriptions`;
   try {
-    const response = await fetchImpl(endpoint, {
-      headers: {
-        Authorization: `Bearer ${secretKey}`,
-        Accept: "application/json",
-      },
-    });
-    if (!response.ok) {
-      // 404 = no such customer (nothing to manage). Any other non-2xx is an
-      // unexpected provider/auth error worth surfacing in logs; either way the
-      // manage link is simply unavailable for this request.
-      if (response.status !== 404) {
-        console.error(
-          `RevenueCat management URL lookup failed with status ${response.status}`,
-        );
-      }
-      return null;
-    }
-    const body: unknown = await response.json();
-    const items =
-      typeof body === "object" &&
-      body !== null &&
-      "items" in body &&
-      Array.isArray(body.items)
-        ? body.items
-        : [];
-    return pickManagementUrl(items);
+    const subscriptions = await fetchCustomerSubscriptions(
+      appUserId,
+      projectId,
+      secretKey,
+      fetchImpl,
+    );
+    return pickManagementUrl(subscriptions, ref);
   } catch (error) {
     console.error("RevenueCat management URL lookup errored:", error);
     return null;

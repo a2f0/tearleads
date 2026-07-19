@@ -277,6 +277,8 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
 ): Promise<{
   provider: OrganizationBillingProvider | null;
   providerCustomerId: string | null;
+  providerSubscriptionId: string | null;
+  providerTransactionId: string | null;
 }> {
   return db.transaction(async (tx) => {
     await requireDirectOrganizationAccess({
@@ -289,6 +291,8 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
       .select({
         provider: organizationBilling.provider,
         providerCustomerId: organizationBilling.providerCustomerId,
+        providerSubscriptionId: organizationBilling.providerSubscriptionId,
+        providerTransactionId: organizationBilling.providerTransactionId,
       })
       .from(organizationBilling)
       .where(eq(organizationBilling.organizationId, organizationId))
@@ -299,6 +303,8 @@ export async function runResolveOrganizationBillingCustomerWorkflow(
     return {
       provider: row.provider,
       providerCustomerId: row.providerCustomerId,
+      providerSubscriptionId: row.providerSubscriptionId,
+      providerTransactionId: row.providerTransactionId,
     };
   });
 }

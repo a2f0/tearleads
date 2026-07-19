@@ -56,17 +56,24 @@ export async function getOrganizationBillingManagementUrl(
   organizationId: string,
   sessionUserId: string,
 ): Promise<OrganizationBillingManagementUrlResponse> {
-  const { provider, providerCustomerId } =
-    await runResolveOrganizationBillingCustomerWorkflow(
-      runtime.db,
-      organizationId,
-      sessionUserId,
-    );
+  const {
+    provider,
+    providerCustomerId,
+    providerSubscriptionId,
+    providerTransactionId,
+  } = await runResolveOrganizationBillingCustomerWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
+  );
   if (provider !== "revenuecat" || !providerCustomerId) {
     return { managementUrl: null };
   }
   return {
-    managementUrl: await fetchRevenueCatManagementUrl(providerCustomerId),
+    managementUrl: await fetchRevenueCatManagementUrl(providerCustomerId, {
+      subscriptionId: providerSubscriptionId,
+      transactionId: providerTransactionId,
+    }),
   };
 }
 
