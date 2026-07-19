@@ -8,7 +8,7 @@ import "./SyncStatusIndicator.css";
 
 // Jumps to the Explorer's Write Queue view — the panel this indicator shares its
 // source of truth with (`pathSegments: ["writes"]`, see the routes module).
-const OPEN_WRITE_QUEUE_LABEL = "View write queue in Explorer";
+const OPEN_WRITE_QUEUE_LABEL = "View write queue";
 
 // Applied only while this popover is open: keep the trigger's own mousedown from
 // reaching Menu's document-level outside-click handler, so clicking the button
