@@ -169,6 +169,10 @@ export {
   type OrganizationBillingHistoryResponse,
 } from "./organizationBillingHistory";
 export {
+  isOrganizationBillingManagementUrlResponse,
+  type OrganizationBillingManagementUrlResponse,
+} from "./organizationBillingManagementUrl";
+export {
   isOrganizationDataUsageResponse,
   ORGANIZATION_DOCUMENT_USAGE_CATEGORIES,
   type OrganizationBlobDataUsageResponse,

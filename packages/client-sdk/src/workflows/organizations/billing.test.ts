@@ -3,6 +3,7 @@ import type { OrganizationBillingResponse } from "@tearleads/validators/response
 import {
   loadOrganizationBilling,
   loadOrganizationBillingHistory,
+  loadOrganizationBillingManagementUrl,
   type OrganizationBilling,
   type OrganizationBillingHistory,
   resolveOrganizationBillingView,
@@ -164,6 +165,21 @@ test("loadOrganizationBillingHistory passes the org id through to the api client
   });
   expect(calls).toEqual(["org-9"]);
   expect(result).toBe(history);
+});
+
+test("loadOrganizationBillingManagementUrl passes through the org id", async () => {
+  const calls: string[] = [];
+  const result = await loadOrganizationBillingManagementUrl({
+    apiClient: {
+      getOrganizationBillingManagementUrl: async (organizationId) => {
+        calls.push(organizationId);
+        return { managementUrl: "https://manage.example/x" };
+      },
+    },
+    organizationId: "org-9",
+  });
+  expect(calls).toEqual(["org-9"]);
+  expect(result).toEqual({ managementUrl: "https://manage.example/x" });
 });
 
 test("startOrganizationTrial posts for the given org", async () => {

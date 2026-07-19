@@ -22,6 +22,7 @@ export const ORG_MANAGER_LABELS = {
   billingHistoryTabsLabel: "Billing history sections",
   billingHistoryTitle: "Billing history",
   billingLocal: "Local only",
+  billingManageSubscription: "Manage subscription",
   billingNoOptions: "No subscription options are available right now.",
   billingPastDue: "Payment past due",
   billingPurchaseUnavailable: "Purchases aren't available right now.",

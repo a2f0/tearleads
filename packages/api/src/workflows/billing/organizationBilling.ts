@@ -3,6 +3,7 @@ import type {
   DatabaseSession,
 } from "@tearleads/api-shared/postgres";
 import {
+  type OrganizationBillingProvider,
   organizationBilling,
   revenuecatWebhookEvents,
 } from "@tearleads/api-shared/schema";
@@ -257,6 +258,54 @@ export async function runGetOrganizationBillingHistoryWorkflow(
       .orderBy(desc(revenuecatWebhookEvents.eventTimestamp))
       .limit(BILLING_HISTORY_EVENT_LIMIT);
     return events;
+  });
+}
+
+/**
+ * Reads the provider customer reference an organization's manage-subscription
+ * link needs — the billing provider and the provider-side customer id. Admin
+ * only, since managing/cancelling a subscription is an admin action (unlike the
+ * billing GET, which any direct member may read). Returns the raw ids so the
+ * service layer can perform the provider lookup OUTSIDE this transaction — an
+ * external HTTP call must never run while the DB transaction (and its locks) is
+ * open.
+ */
+export async function runResolveOrganizationBillingCustomerWorkflow(
+  db: ApiDatabase,
+  organizationId: string,
+  sessionUserId: string,
+): Promise<{
+  provider: OrganizationBillingProvider | null;
+  providerCustomerId: string | null;
+  providerSubscriptionId: string | null;
+  providerTransactionId: string | null;
+}> {
+  return db.transaction(async (tx) => {
+    await requireDirectOrganizationAccess({
+      executor: tx,
+      organizationId,
+      requireAdmin: true,
+      userId: sessionUserId,
+    });
+    const [row] = await tx
+      .select({
+        provider: organizationBilling.provider,
+        providerCustomerId: organizationBilling.providerCustomerId,
+        providerSubscriptionId: organizationBilling.providerSubscriptionId,
+        providerTransactionId: organizationBilling.providerTransactionId,
+      })
+      .from(organizationBilling)
+      .where(eq(organizationBilling.organizationId, organizationId))
+      .limit(1);
+    if (!row) {
+      throw new OrganizationManagerError("Organization billing not found", 404);
+    }
+    return {
+      provider: row.provider,
+      providerCustomerId: row.providerCustomerId,
+      providerSubscriptionId: row.providerSubscriptionId,
+      providerTransactionId: row.providerTransactionId,
+    };
   });
 }
 

@@ -43,6 +43,7 @@ function props(overrides: Partial<BillingViewProps>): BillingViewProps {
     purchaseAvailable: false,
     canSubscribe: false,
     options: [],
+    managementUrl: null,
     busy: null,
     activationPending: false,
     actionError: null,
@@ -208,6 +209,53 @@ test("platforms without purchases show the unavailable-purchases hint", () => {
   expect(
     view.getByText(ORG_MANAGER_LABELS.billingPurchaseUnavailable),
   ).toBeDefined();
+});
+
+test("an admin can open the provider manage page when a management URL exists", () => {
+  const opened: Array<string | undefined> = [];
+  const originalOpen = window.open;
+  window.open = ((url?: string | URL) => {
+    opened.push(url === undefined ? undefined : String(url));
+    return null;
+  }) as typeof window.open;
+  try {
+    const view = render(
+      <BillingView
+        {...props({
+          view: billingView({
+            status: "active",
+            isLocal: false,
+            isActive: true,
+          }),
+          managementUrl: "https://billing.example/manage",
+        })}
+      />,
+    );
+    fireEvent.click(
+      view.getByRole("button", {
+        name: ORG_MANAGER_LABELS.billingManageSubscription,
+      }),
+    );
+    expect(opened).toEqual(["https://billing.example/manage"]);
+  } finally {
+    window.open = originalOpen;
+  }
+});
+
+test("no manage button renders without a management URL", () => {
+  const view = render(
+    <BillingView
+      {...props({
+        view: billingView({ status: "active", isLocal: false, isActive: true }),
+        managementUrl: null,
+      })}
+    />,
+  );
+  expect(
+    view.queryByRole("button", {
+      name: ORG_MANAGER_LABELS.billingManageSubscription,
+    }),
+  ).toBeNull();
 });
 
 test("refresh is always available to an admin", () => {

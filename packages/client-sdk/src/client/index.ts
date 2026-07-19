@@ -164,6 +164,7 @@ export type {
   OrganizationBilling,
   OrganizationBillingHistory,
   OrganizationBillingHistoryEntry,
+  OrganizationBillingManagementUrl,
   OrganizationBillingView,
   OrganizationContainerGrant,
   OrganizationContainerGrants,

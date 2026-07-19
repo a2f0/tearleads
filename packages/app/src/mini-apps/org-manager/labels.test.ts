@@ -53,4 +53,7 @@ test("billing status and trial labels format correctly", () => {
   expect(getOrgManagerBillingStatusLabel("disabled")).toBe("Sync disabled");
   expect(getOrgManagerTrialDaysLabel(1)).toBe("1 day left");
   expect(getOrgManagerTrialDaysLabel(5)).toBe("5 days left");
+  expect(ORG_MANAGER_LABELS.billingManageSubscription).toBe(
+    "Manage subscription",
+  );
 });
