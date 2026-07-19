@@ -68,16 +68,21 @@ export function renderBillingActions(input: {
 }) {
   return renderHook<
     BillingActions,
-    { billingCanSync: boolean; organizationId: string; userId: string }
+    {
+      billingCanSync: boolean;
+      isOrgAdmin?: boolean;
+      organizationId: string;
+      userId: string;
+    }
   >(
-    ({ billingCanSync, organizationId, userId }) =>
+    ({ billingCanSync, isOrgAdmin, organizationId, userId }) =>
       useBillingActions({
         activationPollDelaysMs: input.activationPollDelaysMs ?? NO_POLL,
         billingCanSync,
         ...(input.checkoutHostRef
           ? { checkoutHostRef: input.checkoutHostRef }
           : {}),
-        isOrgAdmin: true,
+        isOrgAdmin: isOrgAdmin ?? true,
         organizationId,
         refresh: input.refresh ?? (() => Promise.resolve()),
         startTrial: input.startTrial ?? (() => Promise.resolve(true)),

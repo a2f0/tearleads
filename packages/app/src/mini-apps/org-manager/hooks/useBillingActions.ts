@@ -313,13 +313,15 @@ export function useBillingActions({
     cancelPurchaseRef.current?.();
   }, []);
   // An embedded checkout must not outlive its host: when the buyer scope
-  // changes or the panel unmounts, cancel any in-flight purchase so an
+  // changes, purchase eligibility is lost (e.g. the buyer's admin role is
+  // revoked mid-purchase, which unmounts the admin actions and the host with
+  // them), or the panel unmounts, cancel any in-flight purchase so an
   // orphaned provider flow is not left running with no reachable UI.
   useEffect(() => {
     return () => {
       cancelPurchaseRef.current?.();
     };
-  }, [organizationId, userId]);
+  }, [organizationId, userId, canSubscribe]);
   const restore = useRestoreAction(
     currentScope,
     purchases,

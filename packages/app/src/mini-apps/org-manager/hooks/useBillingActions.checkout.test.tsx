@@ -177,6 +177,39 @@ test("a scope switch cancels the in-flight embedded checkout", async () => {
   await waitFor(() => expect(replaceChildren).toHaveBeenCalledTimes(1));
 });
 
+test("losing purchase eligibility cancels the in-flight embedded checkout", async () => {
+  const purchases: PurchasesCapability = {
+    ...createPurchases({ syncEntitlementActive: true }),
+    purchaseSync: mock(() => new Promise<SyncPurchaseResult>(() => undefined)),
+  };
+  const replaceChildren = mock(() => undefined);
+  const checkoutHost = { replaceChildren } as unknown as HTMLElement;
+  const { result, rerender } = renderBillingActions({
+    purchases,
+    checkoutHostRef: { current: checkoutHost },
+  });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  await act(async () => {
+    result.current.subscribe(OPTION);
+  });
+  await waitFor(() =>
+    expect(result.current.busy).toBe(`subscribe:${OPTION.packageId}`),
+  );
+
+  // The buyer's admin role is revoked mid-purchase: the admin actions (and
+  // the checkout host inside them) unmount, so the purchase must be
+  // cancelled rather than left attached to a detached element.
+  rerender({
+    billingCanSync: false,
+    isOrgAdmin: false,
+    organizationId: "org-1",
+    userId: "user-1",
+  });
+
+  await waitFor(() => expect(replaceChildren).toHaveBeenCalledTimes(1));
+});
+
 test("unmounting the panel cancels the in-flight embedded checkout", async () => {
   const purchases: PurchasesCapability = {
     ...createPurchases({ syncEntitlementActive: true }),
