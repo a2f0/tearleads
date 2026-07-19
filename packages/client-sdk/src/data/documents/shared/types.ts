@@ -375,6 +375,12 @@ export interface MaterializedDocumentSyncPlan {
 export interface SyncRemoteDocumentResult {
   contentKey: Uint8Array;
   decryptedUpdates: DecryptedDocumentSyncUpdate[];
+  /**
+   * Pending updates whose persisted re-key bound is exhausted. Non-zero means
+   * a terminal failure was just recorded for them — callers must not treat
+   * the pass as clean and clear it.
+   */
+  exhaustedPendingUpdateCount: number;
   persistedState: PersistedDocumentSyncState;
   plan: DocumentSyncPlan;
   rekeyedPendingUpdateIds: readonly string[];

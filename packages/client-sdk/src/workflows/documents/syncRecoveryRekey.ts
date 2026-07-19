@@ -121,8 +121,10 @@ export async function rekeyUnsettledRecoveryPendingUpdates(input: {
 
 /**
  * Re-key what recovery could not settle and surface exhausted rows through
- * the caller's terminal-failure handler, returning only the fresh ids that
- * count as settlement-like progress.
+ * the caller's terminal-failure handler. The exhausted count is also
+ * returned so the sync result can carry it: a pass that recorded this
+ * failure must not read as clean to callers that clear recorded failures
+ * on success.
  */
 export async function rekeyAndReportUnsettledRecoveryPendingUpdates(
   input: Parameters<typeof rekeyUnsettledRecoveryPendingUpdates>[0] & {
@@ -130,7 +132,10 @@ export async function rekeyAndReportUnsettledRecoveryPendingUpdates(
       | ((failure: DocumentSyncSubmitFailure) => Promise<void> | void)
       | undefined;
   },
-): Promise<string[]> {
+): Promise<{
+  exhaustedPendingUpdateCount: number;
+  rekeyedPendingUpdateIds: string[];
+}> {
   const { exhaustedPendingUpdateIds, rekeyedPendingUpdateIds } =
     await rekeyUnsettledRecoveryPendingUpdates(input);
   if (exhaustedPendingUpdateIds.length > 0) {
@@ -138,7 +143,10 @@ export async function rekeyAndReportUnsettledRecoveryPendingUpdates(
       rekeyLimitSubmitFailure(exhaustedPendingUpdateIds.length),
     );
   }
-  return rekeyedPendingUpdateIds;
+  return {
+    exhaustedPendingUpdateCount: exhaustedPendingUpdateIds.length,
+    rekeyedPendingUpdateIds,
+  };
 }
 
 /**

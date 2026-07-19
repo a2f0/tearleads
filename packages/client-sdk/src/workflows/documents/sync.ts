@@ -336,7 +336,7 @@ async function syncRemoteDocumentResultFromResponse(input: {
     recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
     response: input.response,
   });
-  const rekeyedPendingUpdateIds =
+  const { exhaustedPendingUpdateCount, rekeyedPendingUpdateIds } =
     await rekeyAndReportUnsettledRecoveryPendingUpdates({
       execSql: input.execSql,
       onTerminalSubmitFailure: input.onTerminalSubmitFailure,
@@ -346,6 +346,7 @@ async function syncRemoteDocumentResultFromResponse(input: {
     });
 
   return {
+    exhaustedPendingUpdateCount,
     contentKey: input.materializedPlan.contentKey,
     decryptedUpdates,
     persistedState,
@@ -654,6 +655,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
       result: {
         contentKey: new Uint8Array(),
         decryptedUpdates: [],
+        exhaustedPendingUpdateCount: 0,
         persistedState,
         plan,
         rekeyedPendingUpdateIds: [],

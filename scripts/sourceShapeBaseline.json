@@ -246,8 +246,8 @@
       "bytes": 30522
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
-      "lines": 561,
-      "bytes": 17336
+      "lines": 562,
+      "bytes": 17417
     },
     "packages/client-sdk/src/workflows/container-contents/container-state/share.test.ts": {
       "lines": 722,
@@ -290,8 +290,8 @@
       "bytes": 44380
     },
     "packages/client-sdk/src/workflows/documents/sync.ts": {
-      "lines": 1068,
-      "bytes": 35594
+      "lines": 1070,
+      "bytes": 35700
     },
     "packages/client-sdk/src/workflows/organizations/principalPolicy.ts": {
       "lines": 992,

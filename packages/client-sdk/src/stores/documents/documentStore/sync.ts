@@ -141,11 +141,14 @@ async function requestRemoteDocumentSync(input: {
   }
 
   // The pass submitted successfully, so any recorded terminal failure for this
-  // document no longer describes reality (e.g. write access was restored).
-  await clearDocumentSyncFailure(state.runtime.infra.execSql, {
-    appKind: DOCUMENTS_APP_KIND,
-    localId: state.localId,
-  });
+  // document no longer describes reality (e.g. write access was restored) —
+  // unless the pass itself just recorded one for re-key-exhausted updates.
+  if (synced.exhaustedPendingUpdateCount === 0) {
+    await clearDocumentSyncFailure(state.runtime.infra.execSql, {
+      appKind: DOCUMENTS_APP_KIND,
+      localId: state.localId,
+    });
+  }
 
   return {
     outgoingUpdateCount: pendingUpdates.length,
