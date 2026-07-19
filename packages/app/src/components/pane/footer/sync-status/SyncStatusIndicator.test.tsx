@@ -98,7 +98,9 @@ test("reflects the expanded state and calls onToggle when clicked", () => {
 test("popover shows the status detail and no link when nothing is unflushed", () => {
   const { getByText, queryByRole } = render(
     <SyncStatusPopover
+      billingBlocked={false}
       hasUnflushed={false}
+      onOpenBilling={noop}
       onOpenWriteQueue={noop}
       title="All changes synced"
     />,
@@ -112,7 +114,9 @@ test("popover links to the write queue when there is unflushed data", () => {
   const onOpenWriteQueue = mock(() => {});
   const { getByRole } = render(
     <SyncStatusPopover
+      billingBlocked={false}
       hasUnflushed={true}
+      onOpenBilling={noop}
       onOpenWriteQueue={onOpenWriteQueue}
       title="3 changes not yet synced"
     />,
@@ -121,5 +125,45 @@ test("popover links to the write queue when there is unflushed data", () => {
   const action = getByRole("button");
   expect(action.textContent).toContain("write queue");
   fireEvent.click(action);
+  expect(onOpenWriteQueue).toHaveBeenCalledTimes(1);
+});
+
+test("popover links to billing when billing blocks sync", () => {
+  const onOpenBilling = mock(() => {});
+  const { getByRole } = render(
+    <SyncStatusPopover
+      billingBlocked={true}
+      hasUnflushed={false}
+      onOpenBilling={onOpenBilling}
+      onOpenWriteQueue={noop}
+      title="Payment past due — sync paused. Update billing to resume."
+    />,
+  );
+
+  const action = getByRole("button");
+  expect(action.textContent).toContain("Update billing");
+  fireEvent.click(action);
+  expect(onOpenBilling).toHaveBeenCalledTimes(1);
+});
+
+test("popover shows both links when billing is blocked and data is unflushed", () => {
+  const onOpenBilling = mock(() => {});
+  const onOpenWriteQueue = mock(() => {});
+  const { getAllByRole } = render(
+    <SyncStatusPopover
+      billingBlocked={true}
+      hasUnflushed={true}
+      onOpenBilling={onOpenBilling}
+      onOpenWriteQueue={onOpenWriteQueue}
+      title="Free trial ended — sync paused. Update billing to resume."
+    />,
+  );
+
+  const [billingAction, writeQueueAction] = getAllByRole("button");
+  expect(billingAction?.textContent).toContain("Update billing");
+  expect(writeQueueAction?.textContent).toContain("write queue");
+  fireEvent.click(billingAction as HTMLElement);
+  fireEvent.click(writeQueueAction as HTMLElement);
+  expect(onOpenBilling).toHaveBeenCalledTimes(1);
   expect(onOpenWriteQueue).toHaveBeenCalledTimes(1);
 });
