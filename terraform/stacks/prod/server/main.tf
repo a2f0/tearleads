@@ -99,6 +99,13 @@ data "cloudflare_zone" "extra_demo" {
   }
 }
 
+module "website_cache" {
+  source = "../../../modules/cloudflare-website-cache"
+
+  zone_id  = data.cloudflare_zone.production.id
+  hostname = var.domain
+}
+
 module "tunnel" {
   source = "../../../modules/cloudflare-tunnel"
 
