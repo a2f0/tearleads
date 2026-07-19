@@ -56,7 +56,9 @@ The SDK hides its own close control in embedded mode, so the panel provides
 the exit path: a Cancel row that CSS shows only while the checkout host has
 content. Cancelling (ours or the provider's) is normalized to
 `PurchaseCancelledError`, which the billing UI treats as a no-op rather than a
-failed purchase.
+failed purchase. Cancelling only dismisses the UI — a payment the provider had
+already taken can still land afterwards, and the flow honors that late success
+by running the normal activation refresh.
 
 Styling comes from two layers:
 

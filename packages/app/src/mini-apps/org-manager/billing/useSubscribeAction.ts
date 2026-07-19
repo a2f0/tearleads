@@ -101,15 +101,22 @@ async function purchaseForOrganization({
 }): Promise<void> {
   // The provider promise cannot be settled from outside once its checkout is
   // embedded, so cancellation is a race: the registered cancel action rejects
-  // this signal, the flow treats it as a dismissal, and the provider's now
-  // orphaned promise is silenced below.
+  // this signal and the flow treats it as a dismissal. The provider promise is
+  // deliberately left running — a payment already in flight can still complete.
   let cancelled = false;
+  let rejectCancelSignal: ((error: Error) => void) | undefined;
   const cancelSignal = new Promise<never>((_, reject) => {
-    cancelPurchaseRef.current = () => {
-      cancelled = true;
-      reject(new PurchaseCancelledError());
-    };
+    rejectCancelSignal = reject;
   });
+  cancelSignal.catch(() => {
+    // Cancellation before the race begins (during identify) must not surface
+    // as an unhandled rejection; the flow reads `cancelled` instead.
+  });
+  const cancelPurchase = () => {
+    cancelled = true;
+    rejectCancelSignal?.(new PurchaseCancelledError());
+  };
+  cancelPurchaseRef.current = cancelPurchase;
   try {
     await purchases.identify({ userId });
     if (cancelled || !scopeMatches(scopeRef.current, scope)) {
@@ -120,11 +127,31 @@ async function purchaseForOrganization({
       packageId: option.packageId,
       ...(checkoutHost ? { checkoutHost } : {}),
     });
-    purchase.catch(() => {
-      // Outcome already delivered through the race (or dropped after a
-      // cancellation); without this handler the loser would surface as an
-      // unhandled rejection.
-    });
+    purchase.then(
+      (lateResult) => {
+        // A cancellation only dismisses the checkout UI; a payment the
+        // provider had already taken can still land afterwards. Honor it —
+        // the entitlement is granted server-side regardless — by driving the
+        // same activation flow the un-cancelled path would have run.
+        if (
+          !cancelled ||
+          !lateResult.syncEntitlementActive ||
+          !scopeMatches(scopeRef.current, scope)
+        ) {
+          return;
+        }
+        updateActionState(scope, (current) => ({
+          ...current,
+          activationPending: true,
+        }));
+        void refresh();
+      },
+      () => {
+        // Outcome already delivered through the race (or dropped after a
+        // cancellation); without this handler the loser would surface as an
+        // unhandled rejection.
+      },
+    );
     const result = await Promise.race([purchase, cancelSignal]);
     if (!scopeMatches(scopeRef.current, scope)) {
       return;
@@ -159,7 +186,11 @@ async function purchaseForOrganization({
       actionError: ORG_MANAGER_LABELS.failedSubscribe,
     }));
   } finally {
-    cancelPurchaseRef.current = null;
+    // A newer flow may have installed its own cancel action (scope switched
+    // mid-purchase); only clear the ref while it still belongs to this flow.
+    if (cancelPurchaseRef.current === cancelPurchase) {
+      cancelPurchaseRef.current = null;
+    }
     updateActionState(scope, (current) => ({ ...current, busy: null }));
   }
 }
