@@ -24,6 +24,10 @@ import { routeApp } from "../../routeApp";
 // pglite the tests skip.
 const onPostgres = getDefaultApiDatabaseKind() === "postgres";
 
+const syncErrorCodes: readonly string[] = Object.values(
+  DOCUMENT_SYNC_ERROR_CODES,
+);
+
 const RACE_ROUNDS = 4;
 const CONCURRENT_SUBMISSIONS = 6;
 
@@ -72,7 +76,7 @@ test.skipIf(!onPostgres)(
         expect([200, 409]).toContain(response.status);
         if (response.status === 409) {
           const body = (await response.json()) as { code?: string };
-          expect(Object.values(DOCUMENT_SYNC_ERROR_CODES)).toContain(body.code);
+          expect(syncErrorCodes).toContain(body.code ?? "");
         }
       }
       expect(responses.some((response) => response.status === 200)).toBe(true);

@@ -27,7 +27,9 @@ if [ -z "${DATABASE_URL:-}${POSTGRES_URL:-}${POSTGRES_HOST:-}${POSTGRES_PORT:-}$
   DATABASE_URL=postgres://localhost:5432/tearleads_concurrency_test
   export DATABASE_URL
   if command -v createdb >/dev/null 2>&1; then
-    createdb tearleads_concurrency_test 2>/dev/null || true
+    # Pin createdb to the same local server as the injected URL — bare createdb
+    # follows inherited libpq PG* variables and could target a remote server.
+    createdb -h localhost -p 5432 tearleads_concurrency_test 2>/dev/null || true
   fi
 fi
 
