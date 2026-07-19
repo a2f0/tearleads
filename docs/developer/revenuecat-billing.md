@@ -51,7 +51,10 @@ through `PurchasesCapability.purchaseSync({ checkoutHost })`, which the web
 backend forwards to the SDK's `purchase({ htmlTarget })`. Each purchase
 attempt actually mounts into its own child of that host, because the SDK
 empties its target element on teardown — a shared element would let an
-abandoned attempt settling late wipe a replacement checkout's UI. If the host
+abandoned attempt settling late wipe a replacement checkout's UI. The host
+must have a **definite height** (`BillingCheckout.css`): the SDK's embedded
+layout root uses `container-type: size` with `height: 100%`, so it renders
+0px tall inside an auto-height container. If the host
 is missing the SDK falls back to its fullscreen modal, and native (Capacitor)
 flows ignore the option entirely.
 
