@@ -3,8 +3,17 @@ import { lockAccessManifestHeadsForShare } from "../../../access/read/accessMani
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import { documentSyncStateStale } from "./errors";
 
-/** Serialize an old-head sync write against a concurrent link-set rotation. */
+/**
+ * Serialize an old-head sync write against a concurrent link-set rotation.
+ * The lock set covers every authorizing ancestor head, not only the directly
+ * linked targets: the write-authorization proof walks full container paths,
+ * and an unlocked ancestor would let a concurrent access mutation (e.g. a
+ * root revoke) commit under an in-flight write it no longer authorizes.
+ * Container heads FOR SHARE before the document head keeps the global
+ * container->document lock order shared with the link-set mutation path.
+ */
 export async function lockSyncDocumentWriteFrontier(input: {
+  readonly authorizingContainerIds: readonly string[];
   readonly currentTargets: Awaited<
     ReturnType<typeof resolveCurrentDocumentKekTargets>
   >;
@@ -13,7 +22,10 @@ export async function lockSyncDocumentWriteFrontier(input: {
 }): Promise<Awaited<ReturnType<typeof resolveCurrentDocumentKekTargets>>> {
   await lockAccessManifestHeadsForShare(
     "container",
-    input.currentTargets.targets.map((target) => target.containerId),
+    [
+      ...input.currentTargets.targets.map((target) => target.containerId),
+      ...input.authorizingContainerIds,
+    ],
     input.tx,
   );
   await lockAccessManifestHeadsForShare(

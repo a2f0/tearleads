@@ -179,6 +179,12 @@ async function listMissingSyncUpdatesWithBundles(input: {
   };
 }
 
+function syncAuthorizingContainerIds(request: DocumentSyncRequest): string[] {
+  return (request.authorizingContainerPathRefs ?? []).flatMap((path) =>
+    path.map((ref) => ref.containerId),
+  );
+}
+
 async function syncDocumentTransaction(input: {
   readonly documentId: string;
   readonly enforceSyncEligibility: boolean;
@@ -213,6 +219,7 @@ async function syncDocumentTransaction(input: {
     // stale target set cannot land under a superseded container key epoch.
     // Empty read-only syncs write no content and take no lock.
     currentTargets = await lockSyncDocumentWriteFrontier({
+      authorizingContainerIds: syncAuthorizingContainerIds(input.request),
       currentTargets,
       documentId: input.documentId,
       tx: input.tx,
