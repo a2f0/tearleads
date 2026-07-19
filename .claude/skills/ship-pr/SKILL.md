@@ -201,21 +201,20 @@ loop, subject-only squash, and `MERGED`-state verification.
    reconcile and re-review before merging; never merge a head the review did not
    read.
 
-   **Sole exception — the pre-push co-author strip.** The hook's
-   `checkCommitTrust` rejects `Co-authored-by` trailers; the only remedy is a
-   message rewrite, which moves the head SHA without changing content. When
-   that strip is the only reason the head moved, do **not** re-review — the
-   diff is byte-identical. Verify and re-pin:
+   **Sole exception — the pre-push co-author strip.** `checkCommitTrust`
+   rejects `Co-authored-by` trailers; the only remedy is a message rewrite,
+   which moves the SHA but not the content. When that is the only reason the
+   head moved, do **not** re-review. Verify and re-pin:
 
    ```bash
    test "$(git rev-parse "$REVIEWED_SHA^{tree}")" = "$(git rev-parse "HEAD^{tree}")"
+   test "$(git merge-base "$REVIEWED_SHA" "origin/$DEFAULT_BRANCH")" = "$(git merge-base HEAD "origin/$DEFAULT_BRANCH")"
    REVIEWED_SHA=$(git rev-parse HEAD)
    ```
 
-   Identical trees mean the reviewed content is exactly what merges; the
-   message diff must remove only `Co-authored-by` lines. Anything else — a
-   content change, a stray commit, an edited subject — keeps the rule above.
-   Note the rewrite in the final report.
+   GitHub squashes from the merge base — changed ancestry could merge a diff
+   no review read even with equal trees. The message diff must remove only
+   `Co-authored-by` lines; anything else keeps the rule above.
 
 4. **Squash-merge and clean up (bound to the reviewed head)** — invoke the
    `squash-merge` skill, passing `REVIEWED_SHA` as its **second (head-SHA)
@@ -307,8 +306,8 @@ loop, subject-only squash, and `MERGED`-state verification.
   binds the merge with
   `--match-head-commit`. GitHub then rejects the merge outright if any commit
   landed after the review, so an unreviewed commit can never be merged. (A
-  message-only co-author strip keeps the guarantee: step 3 verifies tree
-  identity and re-pins `REVIEWED_SHA` — no re-review.) The lone
+  message-only co-author strip keeps it: step 3 checks tree and merge-base
+  identity, then re-pins `REVIEWED_SHA`.) The lone
   exception is an explicit `--merge-anyway` over a could-not-run verdict, where
   the bound head is a candidate that no review read — the merge is still pinned,
   but the reviewed-head guarantee is the thing the caller chose to waive.
