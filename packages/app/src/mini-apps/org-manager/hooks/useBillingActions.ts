@@ -1,9 +1,11 @@
-import type {
-  PurchasesCapability,
-  SyncSubscriptionOption,
+import {
+  PurchaseCancelledError,
+  type PurchasesCapability,
+  type SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
 import {
   type Dispatch,
+  type RefObject,
   type SetStateAction,
   useCallback,
   useEffect,
@@ -173,6 +175,7 @@ function useStartTrialAction(
 
 function useSubscribeAction({
   canSubscribe,
+  checkoutHostRef,
   currentScope,
   purchases,
   refresh,
@@ -181,6 +184,7 @@ function useSubscribeAction({
   userId,
 }: {
   canSubscribe: boolean;
+  checkoutHostRef: RefObject<HTMLElement | null> | undefined;
   currentScope: BillingActionScope;
   purchases: PurchasesCapability;
   refresh: () => Promise<void>;
@@ -200,6 +204,7 @@ function useSubscribeAction({
         actionError: null,
       }));
       void purchaseForOrganization({
+        checkoutHost: checkoutHostRef?.current ?? undefined,
         option,
         purchases,
         refresh,
@@ -211,6 +216,7 @@ function useSubscribeAction({
     },
     [
       canSubscribe,
+      checkoutHostRef,
       currentScope,
       purchases,
       refresh,
@@ -222,6 +228,7 @@ function useSubscribeAction({
 }
 
 async function purchaseForOrganization({
+  checkoutHost,
   option,
   purchases,
   refresh,
@@ -230,6 +237,7 @@ async function purchaseForOrganization({
   updateActionState,
   userId,
 }: {
+  checkoutHost: HTMLElement | undefined;
   option: SyncSubscriptionOption;
   purchases: PurchasesCapability;
   refresh: () => Promise<void>;
@@ -246,6 +254,7 @@ async function purchaseForOrganization({
     const result = await purchases.purchaseSync({
       organizationId: scope.organizationId,
       packageId: option.packageId,
+      ...(checkoutHost ? { checkoutHost } : {}),
     });
     if (!scopeMatches(scopeRef.current, scope)) {
       return;
@@ -263,10 +272,15 @@ async function purchaseForOrganization({
     }));
     await refresh();
   } catch (error) {
+    // Dismissing the checkout is a normal exit, not a failure — clear the busy
+    // state (finally) without surfacing an error.
+    if (error instanceof PurchaseCancelledError) {
+      return;
+    }
     // Previously swallowed silently, which made a rejected purchase
     // indistinguishable from a no-op. Log the real PurchasesError (e.g. a
-    // ConfigurationError from a key/offering mismatch, or a cancellation) so it
-    // is diagnosable, while still surfacing the generic label to the user.
+    // ConfigurationError from a key/offering mismatch) so it is diagnosable,
+    // while still surfacing the generic label to the user.
     console.error("Failed to complete the organization sync purchase:", error);
     updateActionState(scope, (current) => ({
       ...current,
@@ -390,6 +404,7 @@ function useBillingActionState(
 export function useBillingActions({
   activationPollDelaysMs = ACTIVATION_POLL_DELAYS_MS,
   billingCanSync,
+  checkoutHostRef,
   isOrgAdmin,
   organizationId,
   refresh,
@@ -399,6 +414,8 @@ export function useBillingActions({
   /** Backoff schedule for post-purchase billing re-reads; injectable for tests. */
   activationPollDelaysMs?: readonly number[];
   billingCanSync: boolean;
+  /** Checkout embed host, read at purchase time; absent = full-page overlay. */
+  checkoutHostRef?: RefObject<HTMLElement | null>;
   isOrgAdmin: boolean;
   organizationId: string;
   refresh: () => Promise<void>;
@@ -431,6 +448,7 @@ export function useBillingActions({
   );
   const subscribe = useSubscribeAction({
     canSubscribe,
+    checkoutHostRef,
     currentScope,
     purchases,
     refresh,

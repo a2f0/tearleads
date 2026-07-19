@@ -43,10 +43,16 @@ export interface PurchasesCapability {
   reset(): Promise<void>;
   /** Sync subscription options available to purchase. */
   listSyncOptions(): Promise<SyncSubscriptionOption[]>;
-  /** Purchase sync for one organization, binding the purchase to that org. */
+  /**
+   * Purchase sync for one organization, binding the purchase to that org.
+   * `checkoutHost` optionally embeds the provider's checkout UI inside the
+   * given element instead of a full-page overlay; providers whose checkout is
+   * native (Capacitor) ignore it.
+   */
   purchaseSync(input: {
     organizationId: string;
     packageId: string;
+    checkoutHost?: HTMLElement;
   }): Promise<SyncPurchaseResult>;
   /** Restore prior purchases (e.g. on a new device). */
   restore(): Promise<void>;
@@ -59,6 +65,17 @@ export class PurchasesUnavailableError extends Error {
   constructor(message = "Purchases are not available on this platform") {
     super(message);
     this.name = "PurchasesUnavailableError";
+  }
+}
+
+/**
+ * Thrown when the buyer dismisses the provider checkout without completing the
+ * purchase. Callers should treat it as a no-op, not a failure.
+ */
+export class PurchaseCancelledError extends Error {
+  constructor(message = "The purchase was cancelled") {
+    super(message);
+    this.name = "PurchaseCancelledError";
   }
 }
 
@@ -88,8 +105,13 @@ export interface RevenueCatBackend {
   logOut(): Promise<void>;
   setAttributes(attributes: Record<string, string | null>): Promise<void>;
   getCurrentPackages(): Promise<RevenueCatPackage[]>;
+  /**
+   * `htmlTarget` embeds the provider checkout in the given element (Web
+   * Billing); backends with a native checkout ignore it.
+   */
   purchasePackage(input: {
     packageId: string;
+    htmlTarget?: HTMLElement;
   }): Promise<RevenueCatCustomerInfo>;
   getCustomerInfo(): Promise<RevenueCatCustomerInfo>;
   restorePurchases(): Promise<RevenueCatCustomerInfo>;
@@ -176,6 +198,7 @@ export function createRevenueCatPurchases(
       });
       const info = await backend.purchasePackage({
         packageId: input.packageId,
+        ...(input.checkoutHost ? { htmlTarget: input.checkoutHost } : {}),
       });
       return { syncEntitlementActive: holdsSyncEntitlement(info) };
     },

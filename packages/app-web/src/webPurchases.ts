@@ -1,11 +1,14 @@
 import {
   type CustomerInfo,
+  ErrorCode,
   Purchases,
+  PurchasesError,
   type Package as WebBillingPackage,
 } from "@revenuecat/purchases-js";
 import {
   createRevenueCatPurchases,
   createUnavailablePurchases,
+  PurchaseCancelledError,
   type PurchasesCapability,
   type RevenueCatBackend,
   type RevenueCatCustomerInfo,
@@ -32,6 +35,7 @@ export interface RevenueCatWebPurchases {
   }>;
   purchase(input: {
     rcPackage: WebBillingPackage;
+    htmlTarget?: HTMLElement;
   }): Promise<{ readonly customerInfo: CustomerInfo }>;
   setAttributes(attributes: Record<string, string | null>): Promise<void>;
 }
@@ -134,7 +138,7 @@ export function createWebRevenueCatBackend(
         toRevenueCatPackage,
       );
     },
-    async purchasePackage({ packageId }) {
+    async purchasePackage({ packageId, htmlTarget }) {
       const aPackage = (await currentPackages(requirePurchases())).find(
         (entry) => entry.identifier === packageId,
       );
@@ -142,8 +146,23 @@ export function createWebRevenueCatBackend(
         throw new Error(`Unknown purchase package: ${packageId}`);
       }
 
-      const result = await requirePurchases().purchase({ rcPackage: aPackage });
-      return toRevenueCatCustomerInfo(result.customerInfo);
+      try {
+        const result = await requirePurchases().purchase({
+          rcPackage: aPackage,
+          ...(htmlTarget ? { htmlTarget } : {}),
+        });
+        return toRevenueCatCustomerInfo(result.customerInfo);
+      } catch (error) {
+        // Normalize the provider's cancel signal so the app can treat a
+        // dismissed checkout as a no-op instead of a failed purchase.
+        if (
+          error instanceof PurchasesError &&
+          error.errorCode === ErrorCode.UserCancelledError
+        ) {
+          throw new PurchaseCancelledError();
+        }
+        throw error;
+      }
     },
     async getCustomerInfo() {
       return toRevenueCatCustomerInfo(

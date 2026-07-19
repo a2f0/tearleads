@@ -43,6 +43,28 @@ BUN_PUBLIC_REVENUECAT_WEB_API_KEY=<key> bun run --filter=app-web dev
   product must have a **price** in the currency the SDK resolves for the visitor;
   Test Store product prices are set only at product-creation time in the dashboard.
 
+## Embedded checkout & styling (web)
+
+On web the Web Billing checkout renders **inside the org-manager billing
+panel** instead of a full-page overlay: `BillingPanel` passes a host element
+through `PurchasesCapability.purchaseSync({ checkoutHost })`, which the web
+backend forwards to the SDK's `purchase({ htmlTarget })`. If the host is
+missing the SDK falls back to its fullscreen modal, and native (Capacitor)
+flows ignore the option entirely. Dismissing the embedded checkout rejects
+with a normalized `PurchaseCancelledError`, which the billing UI treats as a
+no-op rather than a failed purchase.
+
+Styling comes from two layers:
+
+- **Dashboard branding** (RevenueCat → Web Billing app → Look & feel) sets the
+  base colors/font/shapes the SDK ships as `BrandingAppearance`. Keep it close
+  to the app so the unthemed flash and any fallback modal look right.
+- **`BillingCheckout.css`** re-themes the embedded widget with the app's theme
+  tokens by overriding the SDK's `--rc-*` custom properties (with
+  `!important`, since the SDK inlines its branding). This keeps the checkout
+  in sync with Light/Dark. The card inputs are Stripe-hosted iframes and keep
+  Stripe's own field styling.
+
 ## Webhook (server)
 
 RevenueCat posts subscription events to `POST {api}/billing/revenuecat/webhook`

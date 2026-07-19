@@ -2,6 +2,7 @@ import type {
   OrganizationBillingView,
   SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
+import type { Ref } from "react";
 import {
   MiniAppSection,
   MiniAppSectionHeading,
@@ -22,6 +23,7 @@ import {
   getOrgManagerTrialEndsLabel,
   ORG_MANAGER_LABELS,
 } from "../labels";
+import "./BillingCheckout.css";
 
 /** Which action is currently in flight (`subscribe:<packageId>` while purchasing). */
 export type BillingBusyAction = "trial" | "restore" | "refresh" | string;
@@ -35,6 +37,13 @@ export interface BillingViewProps {
   readonly purchaseAvailable: boolean;
   /** Whether the admin can actually purchase (platform supports it and the buyer is known). */
   readonly canSubscribe: boolean;
+  /**
+   * Host element the provider checkout renders into during a purchase (Web
+   * Billing). The div is always mounted (hidden while empty) so it exists by
+   * the time the purchase starts; without the ref the provider falls back to a
+   * full-page overlay.
+   */
+  readonly checkoutHostRef?: Ref<HTMLDivElement>;
   readonly options: ReadonlyArray<SyncSubscriptionOption>;
   /** Provider manage/cancel page for the active subscription, or null if none. */
   readonly managementUrl: string | null;
@@ -192,6 +201,10 @@ function BillingAdminActions({
             canSubscribe={props.canSubscribe}
             onSubscribe={props.onSubscribe}
             options={props.options}
+          />
+          <div
+            className="org-manager-billing-checkout"
+            ref={props.checkoutHostRef}
           />
           <MiniAppRowButton
             disabled={props.busy !== null}

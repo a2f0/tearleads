@@ -1,0 +1,56 @@
+/* biome-ignore-all lint/complexity/noImportantStyles: the RevenueCat SDK writes its branding as inline --rc-* styles, and !important is the only author-stylesheet mechanism that beats inline styles */
+/*
+ * Embedded RevenueCat Web Billing checkout (see BillingView's checkout host).
+ *
+ * The SDK renders the checkout into the host div in light DOM, but writes its
+ * dashboard branding as inline `--rc-*` custom properties on its own inner
+ * containers — so re-theming must set the same properties with !important on
+ * every descendant to win over the inline values. The app tokens referenced
+ * here already flip with `data-theme`, so the checkout follows Light/Dark
+ * automatically. (The card fields themselves are Stripe-hosted iframes and
+ * keep their own styling.)
+ */
+
+/* Mounted at all times so it exists when a purchase starts; the SDK empties it
+   again when the flow finishes or is dismissed. */
+.org-manager-billing-checkout:empty {
+  display: none;
+}
+
+.org-manager-billing-checkout {
+  margin-top: var(--space-sm);
+  border-top: var(--border-strong);
+}
+
+.org-manager-billing-checkout,
+.org-manager-billing-checkout * {
+  --rc-color-background: var(--color-light) !important;
+  --rc-color-input-background: var(--color-light) !important;
+  --rc-color-primary: var(--emphasis-surface) !important;
+  --rc-color-primary-text: var(--emphasis-text) !important;
+  --rc-color-primary-hover: var(--emphasis-surface) !important;
+  --rc-color-primary-pressed: var(--emphasis-surface) !important;
+  --rc-color-accent: var(--tearleads-accent) !important;
+  --rc-color-focus: var(--tearleads-accent) !important;
+  --rc-color-error: var(--color-danger) !important;
+  --rc-color-grey-text-dark: var(--color-dark) !important;
+  --rc-color-grey-text-light: color-mix(
+    in srgb,
+    var(--color-dark) 70%,
+    transparent
+  ) !important;
+  --rc-color-grey-ui-dark: color-mix(
+    in srgb,
+    var(--color-dark) 30%,
+    transparent
+  ) !important;
+  --rc-color-grey-ui-light: color-mix(
+    in srgb,
+    var(--color-dark) 10%,
+    transparent
+  ) !important;
+  /* The app is sharp-cornered (see packages/ui border-radius: 0). */
+  --rc-shape-input-border-radius: 0 !important;
+  --rc-shape-input-button-border-radius: 0 !important;
+  font-family: var(--tearleads-font-family) !important;
+}

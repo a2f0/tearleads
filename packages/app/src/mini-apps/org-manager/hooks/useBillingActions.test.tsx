@@ -1,11 +1,12 @@
 import { afterEach, expect, mock, test } from "bun:test";
-import type {
-  PurchasesCapability,
-  SyncPurchaseResult,
-  SyncSubscriptionOption,
+import {
+  PurchaseCancelledError,
+  type PurchasesCapability,
+  type SyncPurchaseResult,
+  type SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import type { PropsWithChildren } from "react";
+import type { PropsWithChildren, RefObject } from "react";
 import {
   type CreatePurchasesFn,
   createAppHostConfig,
@@ -61,6 +62,7 @@ function wrapper(createPurchasesFn: CreatePurchasesFn) {
 function renderBillingActions(input: {
   activationPollDelaysMs?: readonly number[];
   billingCanSync?: boolean;
+  checkoutHostRef?: RefObject<HTMLElement | null>;
   purchases: PurchasesCapability;
   refresh?: () => Promise<void>;
   startTrial?: () => Promise<boolean>;
@@ -78,6 +80,9 @@ function renderBillingActions(input: {
       useBillingActions({
         activationPollDelaysMs: input.activationPollDelaysMs ?? NO_POLL,
         billingCanSync,
+        ...(input.checkoutHostRef
+          ? { checkoutHostRef: input.checkoutHostRef }
+          : {}),
         isOrgAdmin: true,
         organizationId,
         refresh: input.refresh ?? (() => Promise.resolve()),
@@ -278,6 +283,45 @@ test("an old purchase completion cannot commit into or clear the new org", async
   await waitFor(() => expect(result.current.busy).toBe(null));
   expect(result.current.activationPending).toBe(true);
   expect(refresh).toHaveBeenCalledTimes(1);
+});
+
+test("subscribe embeds the checkout in the mounted host element", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: true });
+  const checkoutHost = { id: "checkout-host" } as unknown as HTMLElement;
+  const { result } = renderBillingActions({
+    purchases,
+    checkoutHostRef: { current: checkoutHost },
+  });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  await act(async () => {
+    result.current.subscribe(OPTION);
+  });
+
+  await waitFor(() =>
+    expect(purchases.purchaseSync).toHaveBeenCalledWith({
+      organizationId: "org-1",
+      packageId: OPTION.packageId,
+      checkoutHost,
+    }),
+  );
+});
+
+test("a cancelled checkout clears the busy state without an error", async () => {
+  const purchases: PurchasesCapability = {
+    ...createPurchases({ syncEntitlementActive: true }),
+    purchaseSync: mock(() => Promise.reject(new PurchaseCancelledError())),
+  };
+  const { result } = renderBillingActions({ purchases });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  await act(async () => {
+    result.current.subscribe(OPTION);
+  });
+
+  await waitFor(() => expect(result.current.busy).toBe(null));
+  expect(result.current.actionError).toBe(null);
+  expect(result.current.activationPending).toBe(false);
 });
 
 test("polls billing after a successful purchase until the org can sync", async () => {

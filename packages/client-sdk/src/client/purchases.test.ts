@@ -12,6 +12,7 @@ interface RecordingBackend extends RevenueCatBackend {
   readonly calls: string[];
   readonly configureAppUserIds: Array<string | undefined>;
   readonly attributes: Record<string, string | null>;
+  readonly purchaseHtmlTargets: Array<HTMLElement | undefined>;
 }
 
 function createFakeBackend(options?: {
@@ -22,6 +23,7 @@ function createFakeBackend(options?: {
   const calls: string[] = [];
   const configureAppUserIds: Array<string | undefined> = [];
   const attributes: Record<string, string | null> = {};
+  const purchaseHtmlTargets: Array<HTMLElement | undefined> = [];
   const purchaseInfo: RevenueCatCustomerInfo = {
     activeEntitlementIds: options?.entitlementsAfterPurchase ?? ["sync"],
   };
@@ -32,6 +34,7 @@ function createFakeBackend(options?: {
     calls,
     configureAppUserIds,
     attributes,
+    purchaseHtmlTargets,
     async configure(input) {
       calls.push("configure");
       configureAppUserIds.push(input.appUserId);
@@ -52,6 +55,7 @@ function createFakeBackend(options?: {
     },
     async purchasePackage(input) {
       calls.push(`purchasePackage:${input.packageId}`);
+      purchaseHtmlTargets.push(input.htmlTarget);
       return purchaseInfo;
     },
     async getCustomerInfo() {
@@ -150,6 +154,24 @@ test("purchaseSync binds the org attribute before buying and reports the entitle
   expect(backend.calls.indexOf("setAttributes")).toBeLessThan(
     backend.calls.indexOf("purchasePackage:monthly"),
   );
+});
+
+test("purchaseSync forwards the checkout host to the backend as htmlTarget", async () => {
+  const backend = createFakeBackend();
+  const purchases = createRevenueCatPurchases(backend, CONFIG);
+  const checkoutHost = { id: "checkout-host" } as unknown as HTMLElement;
+
+  await purchases.purchaseSync({
+    organizationId: "org-9",
+    packageId: "monthly",
+    checkoutHost,
+  });
+  await purchases.purchaseSync({
+    organizationId: "org-9",
+    packageId: "monthly",
+  });
+
+  expect(backend.purchaseHtmlTargets).toEqual([checkoutHost, undefined]);
 });
 
 test("purchaseSync reports an inactive entitlement when the purchase grants none", async () => {

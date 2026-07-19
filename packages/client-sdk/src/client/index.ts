@@ -189,6 +189,7 @@ export type {
 export {
   createRevenueCatPurchases,
   createUnavailablePurchases,
+  PurchaseCancelledError,
   type PurchasesCapability,
   PurchasesUnavailableError,
   type RevenueCatBackend,

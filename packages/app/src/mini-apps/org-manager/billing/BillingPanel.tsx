@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useOrganizationBilling } from "../../../providers/billing/BillingProvider";
 import { useBillingActions } from "../hooks/useBillingActions";
 import { BillingHistory } from "./BillingHistory";
@@ -24,9 +24,13 @@ export function BillingPanel({
 }) {
   const billing = useOrganizationBilling();
   const { refresh } = billing;
+  // Where the Web Billing checkout embeds so a purchase runs inside the panel
+  // (the view keeps the div mounted; the hook reads it at purchase time).
+  const checkoutHostRef = useRef<HTMLDivElement | null>(null);
   const actions = useBillingActions({
     isOrgAdmin,
     billingCanSync: billing.view?.canSync ?? false,
+    checkoutHostRef,
     organizationId,
     refresh,
     startTrial: billing.startTrial,
@@ -62,6 +66,7 @@ export function BillingPanel({
         activationPending={actions.activationPending}
         busy={actions.busy}
         canSubscribe={actions.canSubscribe}
+        checkoutHostRef={checkoutHostRef}
         error={billing.error}
         isOrgAdmin={isOrgAdmin}
         loading={billing.loading}
