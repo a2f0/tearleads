@@ -327,6 +327,7 @@ async function findOrgSubscription(
   });
   const items = prop(found, "data");
   let terminalAttemptId: string | null = null;
+  let terminalAttemptCreated = Number.NEGATIVE_INFINITY;
   if (!Array.isArray(items)) {
     return { candidate: null, terminalAttemptId };
   }
@@ -339,7 +340,15 @@ async function findOrgSubscription(
     if (LIVE_SUBSCRIPTION_STATUSES.has(status) || status === "incomplete") {
       return { candidate: { subscriptionId, status }, terminalAttemptId };
     }
-    terminalAttemptId = terminalAttemptId ?? subscriptionId;
+    // The NEWEST terminal attempt (search order is not creation order): an
+    // older one may itself be baked into a retained idempotency key, which
+    // would replay a dead subscription instead of creating a fresh one.
+    const created = prop(item, "created");
+    const createdAt = typeof created === "number" ? created : 0;
+    if (createdAt >= terminalAttemptCreated) {
+      terminalAttemptCreated = createdAt;
+      terminalAttemptId = subscriptionId;
+    }
   }
   return { candidate: null, terminalAttemptId };
 }

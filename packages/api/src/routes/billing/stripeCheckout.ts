@@ -1,6 +1,6 @@
 import { type Context, Hono } from "hono";
 import { StripeApiError } from "../../billing/stripeApi";
-import { readApiCorsOrigins } from "../../corsOrigins";
+import { type ApiCorsOrigins, readApiCorsOrigins } from "../../corsOrigins";
 import type { SessionEnv } from "../../middleware/session";
 import {
   createStripeCheckout,
@@ -28,7 +28,10 @@ import {
  * billing.stripe.com an open-redirect/phishing vector. The development
  * wildcard allowlist accepts any http(s) origin, matching the CORS policy.
  */
-function parseReturnUrl(value: unknown): string | null {
+function parseReturnUrl(
+  value: unknown,
+  allowedOrigins: ApiCorsOrigins,
+): string | null {
   if (typeof value !== "string") {
     return null;
   }
@@ -41,7 +44,6 @@ function parseReturnUrl(value: unknown): string | null {
   if (url.protocol !== "https:" && url.protocol !== "http:") {
     return null;
   }
-  const allowedOrigins = readApiCorsOrigins();
   if (allowedOrigins !== "*" && !allowedOrigins.includes(url.origin)) {
     return null;
   }
@@ -72,10 +74,14 @@ async function respondForOrganization(
 }
 
 export function createStripeCheckoutRoute({
+  corsOrigins,
   requireAuth,
   runtime,
 }: OrganizationsRouterDeps) {
   const route = new Hono<SessionEnv>();
+  // Prefer the origins the composition root resolved; fall back to the
+  // environment only when constructed without them (e.g. a bare test app).
+  const allowedOrigins = corsOrigins ?? readApiCorsOrigins();
 
   route.get("/billing/stripe/options", requireAuth, async (c) => {
     try {
@@ -120,6 +126,7 @@ export function createStripeCheckoutRoute({
         typeof body === "object" && body !== null && "returnUrl" in body
           ? body.returnUrl
           : null,
+        allowedOrigins,
       );
       if (!returnUrl) {
         return c.json({ error: "Invalid returnUrl" }, 400);

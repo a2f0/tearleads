@@ -270,8 +270,17 @@ test("a candidate that became active since the search is a conflict", async () =
 
 test("a terminal previous attempt rotates the subscription idempotency key", async () => {
   const { fetchImpl, requests } = fakeFetch([
-    // The abandoned attempt expired; a fresh checkout must not replay it.
-    { body: { data: [{ id: "sub_expired", status: "incomplete_expired" }] } },
+    // Two expired attempts, returned OLDEST-first: the key must rotate off
+    // the NEWEST one (search order is not creation order), because the older
+    // id may itself be baked into a still-retained idempotency key.
+    {
+      body: {
+        data: [
+          { id: "sub_older", status: "incomplete_expired", created: 100 },
+          { id: "sub_expired", status: "incomplete_expired", created: 200 },
+        ],
+      },
+    },
     {
       body: {
         id: "sub_2",

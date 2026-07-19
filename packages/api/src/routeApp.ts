@@ -161,6 +161,7 @@ export function createRouteApp(
   routeApp.route(
     "/",
     createBillingRouter({
+      corsOrigins,
       requireAuth: resolvedRequireAuth,
       runtime: resolvedRuntime,
     }),
