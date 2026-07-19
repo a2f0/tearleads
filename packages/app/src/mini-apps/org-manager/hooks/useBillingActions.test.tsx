@@ -162,18 +162,37 @@ test("an old purchase completion cannot commit into or clear the new org", async
   act(() => result.current.subscribe(OPTION));
   await waitFor(() => expect(purchaseSync).toHaveBeenCalledTimes(1));
 
+  // The switch abandons org-1's purchase, which could still complete under
+  // org-1's attribution — so an org-2 purchase is refused until it settles.
   rerender({
     billingCanSync: false,
     organizationId: "org-2",
     userId: "user-1",
   });
   expect(result.current.busy).toBe(null);
-  expect(result.current.actionError).toBe(null);
   expect(result.current.activationPending).toBe(false);
+  // Let the abandoned flow settle its cancellation and record the guard.
+  await act(async () => undefined);
+
+  act(() => result.current.subscribe(OPTION));
+  await waitFor(() =>
+    expect(result.current.actionError).toBe(
+      ORG_MANAGER_LABELS.billingCheckoutSettling,
+    ),
+  );
+  expect(purchaseSync).toHaveBeenCalledTimes(1);
+
+  // Org-1's abandoned purchase settling must not commit into org-2's state,
+  // and it lifts the guard.
+  await act(async () => {
+    purchaseResolvers[0]?.({ syncEntitlementActive: false });
+  });
+  expect(result.current.busy).toBe(null);
+  expect(result.current.activationPending).toBe(false);
+  expect(refresh).not.toHaveBeenCalled();
 
   act(() => result.current.subscribe(OPTION));
   await waitFor(() => expect(purchaseSync).toHaveBeenCalledTimes(2));
-  expect(result.current.busy).toBe(`subscribe:${OPTION.packageId}`);
   expect(purchaseSync).toHaveBeenNthCalledWith(1, {
     organizationId: "org-1",
     packageId: OPTION.packageId,
@@ -182,13 +201,6 @@ test("an old purchase completion cannot commit into or clear the new org", async
     organizationId: "org-2",
     packageId: OPTION.packageId,
   });
-
-  await act(async () => {
-    purchaseResolvers[0]?.({ syncEntitlementActive: false });
-  });
-  expect(result.current.busy).toBe(`subscribe:${OPTION.packageId}`);
-  expect(result.current.actionError).toBe(null);
-  expect(refresh).not.toHaveBeenCalled();
 
   await act(async () => {
     purchaseResolvers[1]?.({ syncEntitlementActive: true });

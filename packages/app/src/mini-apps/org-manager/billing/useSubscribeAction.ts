@@ -3,7 +3,7 @@ import {
   type PurchasesCapability,
   type SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
-import { type RefObject, useCallback } from "react";
+import { type RefObject, useCallback, useRef } from "react";
 import { ORG_MANAGER_LABELS } from "../labels";
 import {
   type BillingActionScope,
@@ -19,6 +19,28 @@ import {
  * the flow as a cancellation.
  */
 type CancelPurchaseRef = RefObject<(() => void) | null>;
+
+/**
+ * A cancelled purchase whose provider promise has not settled yet. The org
+ * binding is a mutable customer-level subscriber attribute, so a purchase for
+ * a *different* org must not rebind it while this one could still complete —
+ * the webhook would attribute the landed payment to the wrong org.
+ */
+interface OrphanedPurchase {
+  readonly organizationId: string;
+  readonly expiresAtMs: number;
+}
+
+/**
+ * How long a cancelled, unsettled purchase blocks purchases for other orgs.
+ * A purchase whose payment was already submitted settles within seconds (the
+ * provider polls its backend independently of the removed UI); one cancelled
+ * before payment can never complete but also never settles, so the guard
+ * expires rather than blocking forever.
+ */
+const ORPHAN_ATTRIBUTION_GRACE_MS = 30_000;
+
+type OrphanedPurchaseRef = RefObject<OrphanedPurchase | null>;
 
 export function useSubscribeAction({
   canSubscribe,
@@ -41,10 +63,23 @@ export function useSubscribeAction({
   updateActionState: UpdateActionState;
   userId: string | null;
 }): (option: SyncSubscriptionOption) => void {
+  const orphanedPurchaseRef = useRef<OrphanedPurchase | null>(null);
   return useCallback(
     (option) => {
       const scope = currentScope;
       if (!scopeMatches(scopeRef.current, scope) || !canSubscribe || !userId) {
+        return;
+      }
+      const orphan = orphanedPurchaseRef.current;
+      if (
+        orphan &&
+        orphan.organizationId !== scope.organizationId &&
+        Date.now() < orphan.expiresAtMs
+      ) {
+        updateActionState(scope, (current) => ({
+          ...current,
+          actionError: ORG_MANAGER_LABELS.billingCheckoutSettling,
+        }));
         return;
       }
       updateActionState(scope, (current) => ({
@@ -56,6 +91,7 @@ export function useSubscribeAction({
         cancelPurchaseRef,
         checkoutHost: checkoutHostRef?.current ?? undefined,
         option,
+        orphanedPurchaseRef,
         purchases,
         refresh,
         scope,
@@ -82,6 +118,7 @@ async function purchaseForOrganization({
   cancelPurchaseRef,
   checkoutHost,
   option,
+  orphanedPurchaseRef,
   purchases,
   refresh,
   scope,
@@ -92,6 +129,7 @@ async function purchaseForOrganization({
   cancelPurchaseRef: CancelPurchaseRef;
   checkoutHost: HTMLElement | undefined;
   option: SyncSubscriptionOption;
+  orphanedPurchaseRef: OrphanedPurchaseRef;
   purchases: PurchasesCapability;
   refresh: () => Promise<void>;
   scope: BillingActionScope;
@@ -117,33 +155,43 @@ async function purchaseForOrganization({
     rejectCancelSignal?.(new PurchaseCancelledError());
   };
   cancelPurchaseRef.current = cancelPurchase;
+  let purchase: Promise<{ syncEntitlementActive: boolean }> | undefined;
+  const clearOwnOrphan = () => {
+    if (orphanedPurchaseRef.current?.organizationId === scope.organizationId) {
+      orphanedPurchaseRef.current = null;
+    }
+  };
   try {
     await purchases.identify({ userId });
     if (cancelled || !scopeMatches(scopeRef.current, scope)) {
       return;
     }
-    const purchase = purchases.purchaseSync({
+    purchase = purchases.purchaseSync({
       organizationId: scope.organizationId,
       packageId: option.packageId,
       ...(checkoutHost ? { checkoutHost } : {}),
     });
     purchase.then(
       (lateResult) => {
+        clearOwnOrphan();
+        if (!cancelled) {
+          // Outcome already delivered through the race.
+          return;
+        }
+        // The provider's own late teardown empties the shared host, wiping a
+        // replacement checkout's UI — retire that flow so it does not sit
+        // busy and invisible. (No-op when none is in flight.)
+        cancelPurchaseRef.current?.();
         // A cancellation only dismisses the checkout UI; a payment the
         // provider had already taken can still land afterwards. Honor it —
         // the entitlement is granted server-side regardless — by driving the
         // same activation flow the un-cancelled path would have run.
         if (
-          !cancelled ||
           !lateResult.syncEntitlementActive ||
           !scopeMatches(scopeRef.current, scope)
         ) {
           return;
         }
-        // The scope just got its entitlement, so a checkout the buyer started
-        // in the meantime can only duplicate it — dismiss it before
-        // reflecting the landed purchase.
-        cancelPurchaseRef.current?.();
         updateActionState(scope, (current) => ({
           ...current,
           activationPending: true,
@@ -151,9 +199,14 @@ async function purchaseForOrganization({
         void refresh();
       },
       () => {
-        // Outcome already delivered through the race (or dropped after a
-        // cancellation); without this handler the loser would surface as an
-        // unhandled rejection.
+        clearOwnOrphan();
+        if (!cancelled) {
+          // Outcome already delivered through the race; without this handler
+          // the loser would surface as an unhandled rejection.
+          return;
+        }
+        // Same shared-host teardown hazard as the late-success path above.
+        cancelPurchaseRef.current?.();
       },
     );
     const result = await Promise.race([purchase, cancelSignal]);
@@ -177,6 +230,15 @@ async function purchaseForOrganization({
     // embedded checkout UI the provider left behind and clear the busy state
     // (finally) without surfacing an error.
     if (error instanceof PurchaseCancelledError) {
+      if (purchase) {
+        // The abandoned provider purchase may still complete; keep other
+        // orgs' purchases from rebinding the attribution until it settles
+        // (or can no longer land).
+        orphanedPurchaseRef.current = {
+          organizationId: scope.organizationId,
+          expiresAtMs: Date.now() + ORPHAN_ATTRIBUTION_GRACE_MS,
+        };
+      }
       checkoutHost?.replaceChildren();
       return;
     }

@@ -10,6 +10,7 @@ import {
   OPTION,
   renderBillingActions,
 } from "../../../../test/helpers/billingActionsTestKit";
+import { ORG_MANAGER_LABELS } from "../labels";
 
 afterEach(() => cleanup());
 
@@ -201,7 +202,7 @@ test("unmounting the panel cancels the in-flight embedded checkout", async () =>
   await waitFor(() => expect(replaceChildren).toHaveBeenCalledTimes(1));
 });
 
-test("a stale flow's cleanup keeps the newer flow cancellable", async () => {
+test("a stale flow's late settlement retires the newer flow cleanly", async () => {
   const purchaseResolvers: Array<(value: SyncPurchaseResult) => void> = [];
   const purchaseSync = mock(
     () =>
@@ -220,7 +221,7 @@ test("a stale flow's cleanup keeps the newer flow cancellable", async () => {
   await waitFor(() => expect(purchaseSync).toHaveBeenCalledTimes(1));
 
   // Scope switch abandons the first purchase; a second one starts for the new
-  // buyer while the first provider promise is still pending.
+  // buyer (same org) while the first provider promise is still pending.
   rerender({
     billingCanSync: false,
     organizationId: "org-1",
@@ -230,16 +231,114 @@ test("a stale flow's cleanup keeps the newer flow cancellable", async () => {
   act(() => result.current.subscribe(OPTION));
   await waitFor(() => expect(purchaseSync).toHaveBeenCalledTimes(2));
 
-  // The first flow settles (no entitlement) and runs its cleanup. It must not
-  // strip the second flow's cancel action.
+  // The first flow settles late: its provider teardown empties the shared
+  // host, so the second flow is retired silently rather than left busy with
+  // no visible checkout.
   await act(async () => {
     purchaseResolvers[0]?.({ syncEntitlementActive: false });
   });
-  expect(result.current.busy).toBe(`subscribe:${OPTION.packageId}`);
+  await waitFor(() => expect(result.current.busy).toBe(null));
+  expect(result.current.actionError).toBe(null);
 
+  // The panel is still usable: a fresh checkout starts and can be cancelled.
+  act(() => result.current.subscribe(OPTION));
+  await waitFor(() => expect(purchaseSync).toHaveBeenCalledTimes(3));
   await act(async () => {
     result.current.cancelCheckout();
   });
+  await waitFor(() => expect(result.current.busy).toBe(null));
+  expect(result.current.actionError).toBe(null);
+});
+
+test("an unsettled cancelled checkout blocks purchases for another org", async () => {
+  const purchaseResolvers: Array<(value: SyncPurchaseResult) => void> = [];
+  const purchaseSync = mock(
+    () =>
+      new Promise<SyncPurchaseResult>((resolve) => {
+        purchaseResolvers.push(resolve);
+      }),
+  );
+  const purchases: PurchasesCapability = {
+    ...createPurchases({ syncEntitlementActive: true }),
+    purchaseSync,
+  };
+  const { result, rerender } = renderBillingActions({ purchases });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  // Cancel org-1's checkout after the provider purchase has started.
+  act(() => result.current.subscribe(OPTION));
+  await waitFor(() => expect(purchaseSync).toHaveBeenCalledTimes(1));
+  await act(async () => {
+    result.current.cancelCheckout();
+  });
+  await waitFor(() => expect(result.current.busy).toBe(null));
+
+  // While it could still land, a purchase for another org must not rebind
+  // the customer-level org attribution.
+  rerender({
+    billingCanSync: false,
+    organizationId: "org-2",
+    userId: "user-1",
+  });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  act(() => result.current.subscribe(OPTION));
+  await waitFor(() =>
+    expect(result.current.actionError).toBe(
+      ORG_MANAGER_LABELS.billingCheckoutSettling,
+    ),
+  );
+  expect(purchaseSync).toHaveBeenCalledTimes(1);
+
+  // Once the orphan settles the guard lifts.
+  await act(async () => {
+    purchaseResolvers[0]?.({ syncEntitlementActive: false });
+  });
+  act(() => result.current.subscribe(OPTION));
+  await waitFor(() => expect(purchaseSync).toHaveBeenCalledTimes(2));
+});
+
+test("a late failure of a cancelled checkout retires its replacement", async () => {
+  const purchaseHandlers: Array<{
+    resolve: (value: SyncPurchaseResult) => void;
+    reject: (error: Error) => void;
+  }> = [];
+  const purchaseSync = mock(
+    () =>
+      new Promise<SyncPurchaseResult>((resolve, reject) => {
+        purchaseHandlers.push({ resolve, reject });
+      }),
+  );
+  const purchases: PurchasesCapability = {
+    ...createPurchases({ syncEntitlementActive: true }),
+    purchaseSync,
+  };
+  const replaceChildren = mock(() => undefined);
+  const checkoutHost = { replaceChildren } as unknown as HTMLElement;
+  const { result } = renderBillingActions({
+    purchases,
+    checkoutHostRef: { current: checkoutHost },
+  });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  // First checkout is cancelled, a replacement starts in the same host.
+  await act(async () => {
+    result.current.subscribe(OPTION);
+  });
+  await act(async () => {
+    result.current.cancelCheckout();
+  });
+  await waitFor(() => expect(result.current.busy).toBe(null));
+  await act(async () => {
+    result.current.subscribe(OPTION);
+  });
+  await waitFor(() => expect(purchaseSync).toHaveBeenCalledTimes(2));
+
+  // The first flow's late failure tears down the shared host; the
+  // replacement must settle instead of sitting busy with no visible UI.
+  await act(async () => {
+    purchaseHandlers[0]?.reject(new Error("payment failed after dismissal"));
+  });
+
   await waitFor(() => expect(result.current.busy).toBe(null));
   expect(result.current.actionError).toBe(null);
 });
