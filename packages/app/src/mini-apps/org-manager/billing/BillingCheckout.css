@@ -22,6 +22,20 @@
   border-top: var(--border-strong);
 }
 
+/* The embedded checkout hides the provider's own close control, so the panel
+   supplies the exit path: a Cancel row that appears only while the provider
+   has content mounted in the host — driven by the DOM itself so it tracks the
+   checkout's actual lifecycle (and never shows for native purchase sheets,
+   whose host stays empty). */
+.org-manager-billing-checkout-cancel {
+  display: none;
+}
+
+.org-manager-billing-checkout:not(:empty)
+  + .org-manager-billing-checkout-cancel {
+  display: flex;
+}
+
 .org-manager-billing-checkout,
 .org-manager-billing-checkout * {
   --rc-color-background: var(--color-light) !important;

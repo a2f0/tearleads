@@ -71,6 +71,7 @@ export function BillingPanel({
         isOrgAdmin={isOrgAdmin}
         loading={billing.loading}
         managementUrl={managementUrl}
+        onCancelCheckout={actions.cancelCheckout}
         onRefresh={handleRefresh}
         onRestore={actions.restore}
         onStartTrial={actions.startTrial}

@@ -307,6 +307,51 @@ test("subscribe embeds the checkout in the mounted host element", async () => {
   );
 });
 
+test("cancelCheckout settles a hung purchase silently and empties the host", async () => {
+  const purchases: PurchasesCapability = {
+    ...createPurchases({ syncEntitlementActive: true }),
+    // A purchase that never settles on its own — the embedded checkout is
+    // waiting for the buyer, and the SDK promise only resolves via its UI.
+    purchaseSync: mock(() => new Promise<SyncPurchaseResult>(() => undefined)),
+  };
+  const replaceChildren = mock(() => undefined);
+  const checkoutHost = { replaceChildren } as unknown as HTMLElement;
+  const { result } = renderBillingActions({
+    purchases,
+    checkoutHostRef: { current: checkoutHost },
+  });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  await act(async () => {
+    result.current.subscribe(OPTION);
+  });
+  await waitFor(() =>
+    expect(result.current.busy).toBe(`subscribe:${OPTION.packageId}`),
+  );
+
+  await act(async () => {
+    result.current.cancelCheckout();
+  });
+
+  await waitFor(() => expect(result.current.busy).toBe(null));
+  expect(result.current.actionError).toBe(null);
+  expect(result.current.activationPending).toBe(false);
+  expect(replaceChildren).toHaveBeenCalledTimes(1);
+});
+
+test("cancelCheckout is a no-op with no purchase in flight", async () => {
+  const purchases = createPurchases({ syncEntitlementActive: true });
+  const { result } = renderBillingActions({ purchases });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  act(() => {
+    result.current.cancelCheckout();
+  });
+
+  expect(result.current.busy).toBe(null);
+  expect(result.current.actionError).toBe(null);
+});
+
 test("a cancelled checkout clears the busy state without an error", async () => {
   const purchases: PurchasesCapability = {
     ...createPurchases({ syncEntitlementActive: true }),

@@ -52,6 +52,12 @@ export interface BillingViewProps {
   readonly actionError: string | null;
   readonly onStartTrial: () => void;
   readonly onSubscribe: (option: SyncSubscriptionOption) => void;
+  /**
+   * Dismiss the in-flight embedded checkout. The embedded provider UI hides
+   * its own close control, so the panel renders the exit path — a Cancel
+   * button that CSS shows only while the checkout host has content.
+   */
+  readonly onCancelCheckout?: () => void;
   readonly onRestore: () => void;
   readonly onRefresh: () => void;
 }
@@ -206,6 +212,14 @@ function BillingAdminActions({
             className="org-manager-billing-checkout"
             ref={props.checkoutHostRef}
           />
+          <MiniAppRowButton
+            className="org-manager-billing-checkout-cancel"
+            onClick={props.onCancelCheckout}
+          >
+            <MiniAppRowText>
+              {ORG_MANAGER_LABELS.billingCancelCheckout}
+            </MiniAppRowText>
+          </MiniAppRowButton>
           <MiniAppRowButton
             disabled={props.busy !== null}
             onClick={props.onRestore}

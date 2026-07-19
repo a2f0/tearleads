@@ -1,7 +1,6 @@
-import {
-  PurchaseCancelledError,
-  type PurchasesCapability,
-  type SyncSubscriptionOption,
+import type {
+  PurchasesCapability,
+  SyncSubscriptionOption,
 } from "@tearleads/client-sdk";
 import {
   type Dispatch,
@@ -16,9 +15,18 @@ import {
 import { usePurchases } from "../../../providers/purchases/PurchasesProvider";
 import type { BillingBusyAction } from "../billing/BillingView";
 import {
+  type BillingActionScope,
+  type BillingActionState,
+  type BillingScopeRef,
+  emptyActionState,
+  scopeMatches,
+  type UpdateActionState,
+} from "../billing/billingActionScope";
+import {
   ACTIVATION_POLL_DELAYS_MS,
   useActivationBillingPoll,
 } from "../billing/useActivationBillingPoll";
+import { useSubscribeAction } from "../billing/useSubscribeAction";
 import { ORG_MANAGER_LABELS } from "../labels";
 
 interface BillingActions {
@@ -30,57 +38,18 @@ interface BillingActions {
   readonly activationPending: boolean;
   readonly startTrial: () => void;
   readonly subscribe: (option: SyncSubscriptionOption) => void;
+  /** Dismiss the in-flight embedded checkout, if any; a no-op otherwise. */
+  readonly cancelCheckout: () => void;
   readonly restore: () => void;
-}
-
-interface BillingActionScope {
-  readonly organizationId: string;
-  readonly generation: number;
-  readonly userId: string | null;
-}
-
-interface BillingActionState extends BillingActionScope {
-  readonly busy: BillingBusyAction | null;
-  readonly actionError: string | null;
-  readonly activationPending: boolean;
 }
 
 interface BillingOptionsState extends BillingActionScope {
   readonly options: ReadonlyArray<SyncSubscriptionOption>;
 }
 
-function scopeMatches(
-  left: BillingActionScope,
-  right: BillingActionScope,
-): boolean {
-  return (
-    left.organizationId === right.organizationId &&
-    left.userId === right.userId &&
-    left.generation === right.generation
-  );
-}
-
-function emptyActionState(scope: BillingActionScope): BillingActionState {
-  return {
-    ...scope,
-    busy: null,
-    actionError: null,
-    activationPending: false,
-  };
-}
-
 function emptyOptionsState(scope: BillingActionScope): BillingOptionsState {
   return { ...scope, options: [] };
 }
-
-interface BillingScopeRef {
-  current: BillingActionScope;
-}
-
-type UpdateActionState = (
-  scope: BillingActionScope,
-  update: (current: BillingActionState) => BillingActionState,
-) => void;
 
 function useActionStateUpdater(
   scopeRef: BillingScopeRef,
@@ -171,124 +140,6 @@ function useStartTrialAction(
       updateActionState(scope, (current) => ({ ...current, busy: null }));
     });
   }, [currentScope, scopeRef, startTrialRequest, updateActionState]);
-}
-
-function useSubscribeAction({
-  canSubscribe,
-  checkoutHostRef,
-  currentScope,
-  purchases,
-  refresh,
-  scopeRef,
-  updateActionState,
-  userId,
-}: {
-  canSubscribe: boolean;
-  checkoutHostRef: RefObject<HTMLElement | null> | undefined;
-  currentScope: BillingActionScope;
-  purchases: PurchasesCapability;
-  refresh: () => Promise<void>;
-  scopeRef: BillingScopeRef;
-  updateActionState: UpdateActionState;
-  userId: string | null;
-}): (option: SyncSubscriptionOption) => void {
-  return useCallback(
-    (option) => {
-      const scope = currentScope;
-      if (!scopeMatches(scopeRef.current, scope) || !canSubscribe || !userId) {
-        return;
-      }
-      updateActionState(scope, (current) => ({
-        ...current,
-        busy: `subscribe:${option.packageId}`,
-        actionError: null,
-      }));
-      void purchaseForOrganization({
-        checkoutHost: checkoutHostRef?.current ?? undefined,
-        option,
-        purchases,
-        refresh,
-        scope,
-        scopeRef,
-        updateActionState,
-        userId,
-      });
-    },
-    [
-      canSubscribe,
-      checkoutHostRef,
-      currentScope,
-      purchases,
-      refresh,
-      scopeRef,
-      updateActionState,
-      userId,
-    ],
-  );
-}
-
-async function purchaseForOrganization({
-  checkoutHost,
-  option,
-  purchases,
-  refresh,
-  scope,
-  scopeRef,
-  updateActionState,
-  userId,
-}: {
-  checkoutHost: HTMLElement | undefined;
-  option: SyncSubscriptionOption;
-  purchases: PurchasesCapability;
-  refresh: () => Promise<void>;
-  scope: BillingActionScope;
-  scopeRef: BillingScopeRef;
-  updateActionState: UpdateActionState;
-  userId: string;
-}): Promise<void> {
-  try {
-    await purchases.identify({ userId });
-    if (!scopeMatches(scopeRef.current, scope)) {
-      return;
-    }
-    const result = await purchases.purchaseSync({
-      organizationId: scope.organizationId,
-      packageId: option.packageId,
-      ...(checkoutHost ? { checkoutHost } : {}),
-    });
-    if (!scopeMatches(scopeRef.current, scope)) {
-      return;
-    }
-    if (!result.syncEntitlementActive) {
-      updateActionState(scope, (current) => ({
-        ...current,
-        actionError: ORG_MANAGER_LABELS.failedSubscribe,
-      }));
-      return;
-    }
-    updateActionState(scope, (current) => ({
-      ...current,
-      activationPending: true,
-    }));
-    await refresh();
-  } catch (error) {
-    // Dismissing the checkout is a normal exit, not a failure — clear the busy
-    // state (finally) without surfacing an error.
-    if (error instanceof PurchaseCancelledError) {
-      return;
-    }
-    // Previously swallowed silently, which made a rejected purchase
-    // indistinguishable from a no-op. Log the real PurchasesError (e.g. a
-    // ConfigurationError from a key/offering mismatch) so it is diagnosable,
-    // while still surfacing the generic label to the user.
-    console.error("Failed to complete the organization sync purchase:", error);
-    updateActionState(scope, (current) => ({
-      ...current,
-      actionError: ORG_MANAGER_LABELS.failedSubscribe,
-    }));
-  } finally {
-    updateActionState(scope, (current) => ({ ...current, busy: null }));
-  }
 }
 
 function useRestoreAction(
@@ -446,8 +297,10 @@ export function useBillingActions({
     startTrialRequest,
     updateActionState,
   );
+  const cancelPurchaseRef = useRef<(() => void) | null>(null);
   const subscribe = useSubscribeAction({
     canSubscribe,
+    cancelPurchaseRef,
     checkoutHostRef,
     currentScope,
     purchases,
@@ -456,6 +309,9 @@ export function useBillingActions({
     updateActionState,
     userId,
   });
+  const cancelCheckout = useCallback(() => {
+    cancelPurchaseRef.current?.();
+  }, []);
   const restore = useRestoreAction(
     currentScope,
     purchases,
@@ -493,6 +349,7 @@ export function useBillingActions({
       : false,
     startTrial,
     subscribe,
+    cancelCheckout,
     restore,
   };
 }

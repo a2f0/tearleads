@@ -50,9 +50,13 @@ panel** instead of a full-page overlay: `BillingPanel` passes a host element
 through `PurchasesCapability.purchaseSync({ checkoutHost })`, which the web
 backend forwards to the SDK's `purchase({ htmlTarget })`. If the host is
 missing the SDK falls back to its fullscreen modal, and native (Capacitor)
-flows ignore the option entirely. Dismissing the embedded checkout rejects
-with a normalized `PurchaseCancelledError`, which the billing UI treats as a
-no-op rather than a failed purchase.
+flows ignore the option entirely.
+
+The SDK hides its own close control in embedded mode, so the panel provides
+the exit path: a Cancel row that CSS shows only while the checkout host has
+content. Cancelling (ours or the provider's) is normalized to
+`PurchaseCancelledError`, which the billing UI treats as a no-op rather than a
+failed purchase.
 
 Styling comes from two layers:
 
