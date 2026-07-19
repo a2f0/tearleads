@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import type { BlobStore } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   type MouseEvent as ReactMouseEvent,
@@ -8,6 +9,14 @@ import {
 } from "react";
 import type { ContactEntry } from "../../document-types/contact/contactDocumentModel";
 import { ContactsListHome, useContactsSidebarPanel } from "./ContactsSidebar";
+
+const emptyBlobStore: BlobStore = {
+  deleteBytes: async () => undefined,
+  openByteSource: async () => null,
+  readBytes: async () => null,
+  writeByteSource: async () => undefined,
+  writeBytes: async () => undefined,
+};
 
 afterEach(() => {
   cleanup();
@@ -104,6 +113,7 @@ function ContactsSidebarHarness(
   );
 
   useContactsSidebarPanel({
+    blobStore: emptyBlobStore,
     currentSigningFingerprint: params.currentSigningFingerprint,
     currentUserId: params.currentUserId,
     entries: contactEntries,
@@ -209,6 +219,7 @@ test("contacts list home shows contact metadata and drills into contacts", async
   const selectedContactIds: string[] = [];
   const view = render(
     <ContactsListHome
+      blobStore={emptyBlobStore}
       currentSigningFingerprint={null}
       currentUserId={null}
       entries={entries}

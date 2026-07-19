@@ -1,4 +1,5 @@
 import type {
+  DocumentAttachmentUpload,
   DocumentStore,
   DocumentSummary,
   DocumentsRuntime,
@@ -48,6 +49,11 @@ export interface ContactsStore {
   getSnapshot: () => ContactsSnapshot;
   importKey: (userId: string) => Promise<string | null>;
   removeContact: (contactId: string) => Promise<void>;
+  removeContactAvatar: (contactId: string) => Promise<void>;
+  setContactAvatar: (
+    contactId: string,
+    upload: DocumentAttachmentUpload,
+  ) => Promise<void>;
   subscribe: (listener: () => void) => () => void;
   updateContact: (contactId: string, patch: ContactEntryPatch) => Promise<void>;
   updateRuntime: (runtime: ContactsRuntime) => void;

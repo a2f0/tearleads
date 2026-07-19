@@ -18,6 +18,46 @@ export function Contacts() {
   );
 }
 
+function ContactsDetailRoute({
+  model,
+}: {
+  model: ReturnType<typeof useContactsModel>;
+}) {
+  return (
+    <ContactsDetailPanel
+      blobStore={model.blobStore}
+      canCreate={model.canCreate}
+      canImport={model.canImport}
+      createDraftContact={model.createDraftContact}
+      draftFirstName={model.draftFirstName}
+      draftLastName={model.draftLastName}
+      draftNickname={model.draftNickname}
+      draftUserId={model.draftUserId}
+      entries={model.entries}
+      importDraftContact={model.importDraftContact}
+      isAuthenticated={model.isAuthenticated}
+      onAreaContextMenu={model.contextMenuState.handleAreaContextMenu}
+      onBackToSelectionRoute={model.showSelectionRoute}
+      ready={model.ready}
+      removeContactAvatar={(contactId) => {
+        void model.removeContactAvatar(contactId);
+      }}
+      route={model.route}
+      selectedContactId={model.selectedContactId}
+      setContactAvatar={(contactId, upload) => {
+        void model.setContactAvatar(contactId, upload);
+      }}
+      setDraftFirstName={model.setDraftFirstName}
+      setDraftLastName={model.setDraftLastName}
+      setDraftNickname={model.setDraftNickname}
+      setDraftUserId={model.setDraftUserId}
+      updateContact={(contactId, patch) => {
+        void model.updateContact(contactId, patch);
+      }}
+    />
+  );
+}
+
 function ContactsContent() {
   const { setSidebar } = useWindowSidebar();
   const model = useContactsModel(setSidebar);
@@ -47,6 +87,7 @@ function ContactsContent() {
     <MiniAppRoot className="contacts">
       {model.showCompactListHome ? (
         <ContactsListHome
+          blobStore={model.blobStore}
           currentSigningFingerprint={model.currentSigningFingerprint}
           currentUserId={model.currentUserId}
           entries={model.entries}
@@ -57,30 +98,7 @@ function ContactsContent() {
           setSelectedContactId={model.selectContact}
         />
       ) : (
-        <ContactsDetailPanel
-          canCreate={model.canCreate}
-          canImport={model.canImport}
-          createDraftContact={model.createDraftContact}
-          draftFirstName={model.draftFirstName}
-          draftLastName={model.draftLastName}
-          draftNickname={model.draftNickname}
-          draftUserId={model.draftUserId}
-          entries={model.entries}
-          importDraftContact={model.importDraftContact}
-          isAuthenticated={model.isAuthenticated}
-          onAreaContextMenu={model.contextMenuState.handleAreaContextMenu}
-          onBackToSelectionRoute={model.showSelectionRoute}
-          ready={model.ready}
-          route={model.route}
-          selectedContactId={model.selectedContactId}
-          setDraftFirstName={model.setDraftFirstName}
-          setDraftLastName={model.setDraftLastName}
-          setDraftNickname={model.setDraftNickname}
-          setDraftUserId={model.setDraftUserId}
-          updateContact={(contactId, patch) => {
-            void model.updateContact(contactId, patch);
-          }}
-        />
+        <ContactsDetailRoute model={model} />
       )}
       <ContactsContextMenuLayer
         canRemoveContextMenuContact={

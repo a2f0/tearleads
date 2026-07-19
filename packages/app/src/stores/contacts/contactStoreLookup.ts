@@ -2,11 +2,13 @@ import type {
   DocumentStore,
   ResolvedUserIdentity,
 } from "@tearleads/client-sdk";
+import { getContactAvatarRef } from "../../document-types/contact/contactAvatarSlot";
 import {
   type ContactEntry,
   contactFieldsToEntry,
   readContactFields,
 } from "../../document-types/contact/contactDocumentModel";
+import type { ContactsStoreState } from "./contactStoreTypes";
 
 interface ContactKeyLookupDependencies {
   resolveUserIdentity: (userId: string) => Promise<ResolvedUserIdentity | null>;
@@ -53,6 +55,19 @@ export async function getUserIdentityForSelfContact(
   return localUserIdentity ?? dependencies.resolveUserIdentity(userId);
 }
 
+export function canWriteContactEntry(
+  state: ContactsStoreState,
+  contactId: string,
+): boolean {
+  const entry = state.entriesById.get(contactId);
+  if (entry && entry.canWrite === false) {
+    return false;
+  }
+
+  const trackedStore = state.contactDocumentStoresById.get(contactId);
+  return trackedStore ? trackedStore.store.getSnapshot().canWrite : true;
+}
+
 export function contactEntryFromDocumentStore(
   contactId: string,
   store: DocumentStore,
@@ -65,6 +80,12 @@ export function contactEntryFromDocumentStore(
   return contactFieldsToEntry(
     contactId,
     readContactFields(snapshot.structuredFields),
-    { canWrite: snapshot.canWrite },
+    {
+      avatar: getContactAvatarRef(
+        snapshot.attachments,
+        snapshot.attachmentStorageKeyBySlotId,
+      ),
+      canWrite: snapshot.canWrite,
+    },
   );
 }

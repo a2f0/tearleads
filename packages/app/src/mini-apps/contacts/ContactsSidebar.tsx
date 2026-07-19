@@ -1,3 +1,4 @@
+import type { BlobStore } from "@tearleads/client-sdk";
 import { type MouseEvent, type ReactNode, useMemo } from "react";
 import {
   MiniAppSidebar,
@@ -19,7 +20,9 @@ import {
 } from "../../components/mini-app/virtual/MiniAppVirtual";
 import { classNames } from "../../components/shared/classNames";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
+import { ContactAvatar } from "../../document-types/contact/ContactAvatar";
 import { getContactDisplayName } from "../../document-types/contact/contactDocumentModel";
+import { useContactAvatarUrls } from "../../document-types/contact/useContactAvatarUrls";
 import { useRoutedLayoutActive } from "../../navigation/useRoutedLayoutActive";
 import { getViewerRelativeContactLabel } from "../../stores/contacts/contactLabels";
 import { CONTACTS_LABELS } from "./labels";
@@ -29,6 +32,7 @@ interface ContactsListProps {
   // Bleed the list to the screen edges on the mobile list home (the narrow
   // sidebar stays inset).
   bleed?: boolean | undefined;
+  blobStore: BlobStore;
   currentSigningFingerprint: string | null | undefined;
   currentUserId: string | null | undefined;
   // Draw divider lines between entries (the mobile list home; the narrow
@@ -75,6 +79,7 @@ function getContactMetadataLabel(entry: ContactEntries[number]): string {
 
 function ContactsList({
   bleed = false,
+  blobStore,
   currentSigningFingerprint,
   currentUserId,
   divided = false,
@@ -91,6 +96,10 @@ function ContactsList({
     rowHeight,
     rows: entries,
   });
+  const avatarUrlByContactId = useContactAvatarUrls(entries, blobStore);
+  // The roomy list-home rows fit the larger thumbnail; the narrow sidebar
+  // keeps the small one.
+  const avatarSize = showMetadata ? "medium" : "small";
 
   if (!ready) {
     return <MiniAppStatus>Loading...</MiniAppStatus>;
@@ -154,6 +163,10 @@ function ContactsList({
                 onContextMenu={(event) => handleContextMenu(event, entry.id)}
                 selected={selectedContactId === entry.id}
               >
+                <ContactAvatar
+                  imageUrl={avatarUrlByContactId[entry.id]}
+                  size={avatarSize}
+                />
                 {showMetadata ? (
                   <MiniAppRowStack>
                     <MiniAppRowText>{name}</MiniAppRowText>
@@ -229,6 +242,7 @@ export function ContactsListHome(
 }
 
 export function useContactsSidebarPanel(params: {
+  blobStore: BlobStore;
   currentSigningFingerprint?: string | null | undefined;
   currentUserId?: string | null | undefined;
   entries: ContactEntries;
@@ -243,6 +257,7 @@ export function useContactsSidebarPanel(params: {
   setSidebar: (sidebar: ReactNode) => void;
 }) {
   const {
+    blobStore,
     currentSigningFingerprint,
     currentUserId,
     entries,
@@ -273,6 +288,7 @@ export function useContactsSidebarPanel(params: {
         }}
       >
         <ContactsList
+          blobStore={blobStore}
           currentSigningFingerprint={currentSigningFingerprint}
           currentUserId={currentUserId}
           entries={entries}
@@ -285,6 +301,7 @@ export function useContactsSidebarPanel(params: {
       </MiniAppSidebar>
     ),
     [
+      blobStore,
       currentSigningFingerprint,
       currentUserId,
       entries,

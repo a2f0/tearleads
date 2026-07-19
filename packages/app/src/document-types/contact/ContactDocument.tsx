@@ -2,6 +2,7 @@ import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import { useMemo } from "react";
 import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
+import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import {
   useDocument,
   useDocumentReadOnly,
@@ -10,8 +11,14 @@ import {
   StructuredDocument,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
+import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
 import "./ContactDocument.css";
+import { ContactAvatarControl } from "./ContactAvatarControl";
 import { ContactFields } from "./ContactFields";
+import {
+  CONTACT_AVATAR_SLOT_ID,
+  getContactAvatarRef,
+} from "./contactAvatarSlot";
 import { readContactFields } from "./contactDocumentModel";
 import type { ContactFieldValues } from "./contactFieldDescriptors";
 
@@ -88,6 +95,45 @@ export function ContactDocumentFields({
   );
 }
 
+// The avatar block rendered in the Explorer's contact document view. It talks
+// to the document attachment API directly (the Contacts mini-app instead goes
+// through the contacts store, which wraps the same slot).
+function ContactDocumentAvatar({
+  displayName,
+  isEditing,
+}: {
+  displayName: string;
+  isEditing: boolean;
+}) {
+  const {
+    attachments,
+    attachmentStorageKeyBySlotId,
+    canAttach,
+    canWrite,
+    removeAttachment,
+    setAttachment,
+  } = useDocument();
+  const readOnly = useDocumentReadOnly();
+  const { infra } = useTearleadsRuntime();
+  const imageUrlBySlotId = useAttachmentImageUrls(
+    attachments,
+    attachmentStorageKeyBySlotId,
+    infra.blobStore,
+  );
+  const avatar = getContactAvatarRef(attachments, attachmentStorageKeyBySlotId);
+
+  return (
+    <ContactAvatarControl
+      avatarUrl={imageUrlBySlotId[CONTACT_AVATAR_SLOT_ID]}
+      canEdit={isEditing && canAttach && canWrite && !readOnly}
+      displayName={displayName}
+      hasAvatar={Boolean(avatar)}
+      onApplyAvatar={(upload) => setAttachment(CONTACT_AVATAR_SLOT_ID, upload)}
+      onRemoveAvatar={() => removeAttachment(CONTACT_AVATAR_SLOT_ID)}
+    />
+  );
+}
+
 export function ContactDocument(params: {
   initialEditing?: boolean | undefined;
 }) {
@@ -101,9 +147,17 @@ export function ContactDocument(params: {
     () => toContactFieldValues(readContactFields(structuredFields)),
     [structuredFields],
   );
+  const displayName =
+    values.nickname.trim() || `${values.firstName} ${values.lastName}`.trim();
 
   return (
     <StructuredDocument
+      attachments={
+        <ContactDocumentAvatar
+          displayName={displayName}
+          isEditing={isEditing}
+        />
+      }
       fields={
         <ContactDocumentFields
           isEditing={isEditing}
