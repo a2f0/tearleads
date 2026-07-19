@@ -1,4 +1,5 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { isDatabaseUnavailableError } from "../../data/databaseUnavailable";
 import type { DocumentWriterPublicKeyResolver } from "../../data/documents/shared/types";
 import {
   requireTrustedUserIdentityResolver,
@@ -72,6 +73,14 @@ async function resolveWriterPublicKey(input: {
     return identity.signingPublicKey;
   } catch (error) {
     if (error instanceof KeyingVerificationError) {
+      throw error;
+    }
+    // A vanished database is infrastructure loss, not an unresolvable writer.
+    // Returning null here would surface downstream as a generic "writer public
+    // key missing" verification error that sync lanes cannot classify, so the
+    // lane would count a real failure for a routine runtime swap. Rethrow and
+    // let the lanes' shouldIgnoreError treat it as the benign signal it is.
+    if (isDatabaseUnavailableError(error)) {
       throw error;
     }
     input.util.log(

@@ -154,20 +154,28 @@ function getInfoRowTitle(pane: HTMLElement, label: string): string | null {
   );
 }
 
-export async function readPaneExplorerDocumentIdentity(
+async function openPaneExplorerDocumentInfo(
   pane: HTMLElement,
   itemLabel: string,
 ): Promise<PaneExplorerDocumentIdentity> {
-  const itemTable = within(pane).getByRole("table", {
-    name: /^Items in /u,
-  });
-  const itemButton = within(itemTable).getByRole("button", {
-    name: itemLabel,
-  });
-  const itemRow = itemButton.closest("tr");
-  if (!itemRow) {
-    throw new Error(`Expected an Explorer row for ${itemLabel}.`);
-  }
+  // Acquire the row inside waitFor: remote hydration re-renders can unmount
+  // the item table for a frame between the caller's checks and this read.
+  const itemRow = await waitFor(
+    () => {
+      const itemTable = within(pane).getByRole("table", {
+        name: /^Items in /u,
+      });
+      const itemButton = within(itemTable).getByRole("button", {
+        name: itemLabel,
+      });
+      const row = itemButton.closest("tr");
+      if (!row) {
+        throw new Error(`Expected an Explorer row for ${itemLabel}.`);
+      }
+      return row;
+    },
+    { timeout: 10_000 },
+  );
   await interact(() => {
     fireEvent.contextMenu(itemRow);
   });
@@ -209,4 +217,35 @@ export async function readPaneExplorerDocumentIdentity(
     },
     { timeout: 10_000 },
   );
+}
+
+export async function readPaneExplorerDocumentIdentity(
+  pane: HTMLElement,
+  itemLabel: string,
+  options: {
+    /**
+     * Re-open the Info panel until it shows this remote document id. The panel
+     * is a point-in-time read: without polling, the first render races a peer
+     * whose discovery adoption stamps the id onto the row moments later, and
+     * the already-open panel never refreshes to show it.
+     */
+    expectedDocumentId?: string | undefined;
+  } = {},
+): Promise<PaneExplorerDocumentIdentity> {
+  if (options.expectedDocumentId === undefined) {
+    return openPaneExplorerDocumentInfo(pane, itemLabel);
+  }
+
+  const deadline = Date.now() + 20_000;
+  while (true) {
+    const identity = await openPaneExplorerDocumentInfo(pane, itemLabel);
+    if (
+      identity.documentId === options.expectedDocumentId ||
+      Date.now() > deadline
+    ) {
+      // On timeout, return the mismatch so the caller's assertion reports it.
+      return identity;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
 }
