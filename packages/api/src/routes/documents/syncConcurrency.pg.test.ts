@@ -15,7 +15,10 @@ import {
   createDocument,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { lockAccessManifestHeadsForUpdate } from "../../access/read/accessManifestStore";
+import { resolveCurrentDocumentKekTargets } from "../../access/read/documentKekTargets";
 import { routeApp } from "../../routeApp";
+import { lockSyncDocumentWriteFrontier } from "../../workflows/documents/mutations/syncWriteFrontier";
 
 // These races only exist on a multi-connection backend: the default pglite
 // test database serializes every transaction, so every concurrency finding in
@@ -87,6 +90,99 @@ test.skipIf(!onPostgres)(
         .where(eq(documentUpdates.id, updateId));
       expect(storedUpdates).toHaveLength(1);
     }
+  },
+  30_000,
+);
+
+// The UUID guard on authorizing refs is code-level, so this pin runs on every
+// backend: a malformed container id must 400 before it reaches the uuid-typed
+// lock query, where it would surface as an uncaught SQLSTATE 22P02 500.
+test("sync rejects a malformed authorizing container id with 400", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const { request } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+
+  const response = await postDocumentSync(owner, created.id, {
+    ...request,
+    authorizingContainerPathRefs: [
+      [{ containerId: "not-a-uuid", manifestHash: "manifest-hash" }],
+    ],
+  });
+  expect(response.status).toBe(400);
+  expect(((await response.json()) as { error?: string }).error).toBe(
+    "Document container id is invalid",
+  );
+});
+
+// L2 regression (#1613): the sync write frontier must pin every authorizing
+// ancestor container head, not only the directly linked targets — an
+// unlocked ancestor lets a concurrent access mutation (e.g. a root revoke)
+// advance that head under an in-flight write it no longer authorizes. The
+// stand-in ancestor here is a second root container that is not in the
+// document's target set; before the fix the contender acquires its head
+// immediately and the blocked assertion fails.
+test.skipIf(!onPostgres)(
+  "sync write frontier blocks head updates on authorizing ancestors",
+  async () => {
+    const owner = createTestUser();
+    await registerUser(owner);
+    await authenticate(owner);
+    const root = await bootstrapRoot(owner);
+    const ancestor = await bootstrapRoot(owner);
+    const created = await createDocument({ owner, root });
+
+    let markHeld!: () => void;
+    const held = new Promise<void>((resolve) => {
+      markHeld = resolve;
+    });
+    let releaseHold!: () => void;
+    const hold = new Promise<void>((resolve) => {
+      releaseHold = resolve;
+    });
+
+    const holder = db.transaction(async (tx) => {
+      const currentTargets = await resolveCurrentDocumentKekTargets(
+        created.id,
+        tx,
+      );
+      await lockSyncDocumentWriteFrontier({
+        authorizingContainerIds: [ancestor.kekState.containerId],
+        currentTargets,
+        documentId: created.id,
+        tx,
+      });
+      markHeld();
+      await hold;
+    });
+
+    await held;
+    let contenderSettled = false;
+    const contender = db
+      .transaction(async (tx) => {
+        await lockAccessManifestHeadsForUpdate(
+          "container",
+          [ancestor.kekState.containerId],
+          tx,
+        );
+      })
+      .then(() => {
+        contenderSettled = true;
+      });
+
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(contenderSettled).toBe(false);
+
+    releaseHold();
+    await holder;
+    await contender;
+    expect(contenderSettled).toBe(true);
   },
   30_000,
 );
