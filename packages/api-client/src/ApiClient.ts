@@ -51,6 +51,7 @@ import {
   isListSessionsResponse,
   isMultipartBlobStageStatusResponse,
   isOrganizationBillingHistoryResponse,
+  isOrganizationBillingManagementUrlResponse,
   isOrganizationBillingResponse,
   isOrganizationDataUsageResponse,
   isOrganizationDirectoryUserResponse,
@@ -823,6 +824,14 @@ export class ApiClient {
     return this.request(
       `/organizations/${pathSegment(organizationId)}/billing/history`,
       isOrganizationBillingHistoryResponse,
+      "GET",
+    );
+  }
+
+  getOrganizationBillingManagementUrl(organizationId: string) {
+    return this.request(
+      `/organizations/${pathSegment(organizationId)}/billing/management-url`,
+      isOrganizationBillingManagementUrlResponse,
       "GET",
     );
   }

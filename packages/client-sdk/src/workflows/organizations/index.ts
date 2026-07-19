@@ -1,9 +1,11 @@
 export {
   loadOrganizationBilling,
   loadOrganizationBillingHistory,
+  loadOrganizationBillingManagementUrl,
   type OrganizationBilling,
   type OrganizationBillingHistory,
   type OrganizationBillingHistoryEntry,
+  type OrganizationBillingManagementUrl,
   type OrganizationBillingView,
   resolveOrganizationBillingView,
   startOrganizationTrial,

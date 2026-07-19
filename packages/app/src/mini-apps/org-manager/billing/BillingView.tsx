@@ -36,6 +36,8 @@ export interface BillingViewProps {
   /** Whether the admin can actually purchase (platform supports it and the buyer is known). */
   readonly canSubscribe: boolean;
   readonly options: ReadonlyArray<SyncSubscriptionOption>;
+  /** Provider manage/cancel page for the active subscription, or null if none. */
+  readonly managementUrl: string | null;
   readonly busy: BillingBusyAction | null;
   readonly activationPending: boolean;
   readonly actionError: string | null;
@@ -144,7 +146,25 @@ function BillingSubscribeList({
   );
 }
 
+// Opens the provider's manage/cancel page in a new tab. The URL is pre-loaded
+// into props, so window.open runs synchronously inside the click gesture (no
+// popup-blocker issue); `_blank` routes to the system browser on Capacitor.
+function BillingManageButton({ url }: { url: string }) {
+  return (
+    <MiniAppRowButton
+      onClick={() => {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }}
+    >
+      <MiniAppRowText>
+        {ORG_MANAGER_LABELS.billingManageSubscription}
+      </MiniAppRowText>
+    </MiniAppRowButton>
+  );
+}
+
 function BillingAdminActions({
+  managementUrl,
   view,
   ...props
 }: Omit<BillingViewProps, "view" | "loading"> & {
@@ -189,6 +209,8 @@ function BillingAdminActions({
           {ORG_MANAGER_LABELS.billingPurchaseUnavailable}
         </MiniAppStatus>
       )}
+
+      {managementUrl ? <BillingManageButton url={managementUrl} /> : null}
 
       <MiniAppRowButton
         disabled={props.busy !== null}

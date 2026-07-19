@@ -1,14 +1,17 @@
 import type {
   OrganizationBillingHistoryResponse,
+  OrganizationBillingManagementUrlResponse,
   OrganizationBillingResponse,
 } from "@tearleads/validators/response";
 import {
   serializeOrganizationBilling,
   serializeOrganizationBillingHistory,
 } from "../../billing/organizationBilling";
+import { fetchRevenueCatManagementUrl } from "../../billing/revenueCatApi";
 import {
   runGetOrganizationBillingHistoryWorkflow,
   runGetOrganizationBillingWorkflow,
+  runResolveOrganizationBillingCustomerWorkflow,
   runStartOrganizationTrialWorkflow,
 } from "../../workflows/billing/organizationBilling";
 import type { ApiServiceRuntime } from "../runtime";
@@ -40,6 +43,31 @@ export async function getOrganizationBillingHistory(
       sessionUserId,
     ),
   );
+}
+
+/**
+ * Resolves the organization's subscription-management URL from RevenueCat using
+ * its stored customer id (so any admin, not just the buyer, can reach it).
+ * Returns a null URL when the org has no RevenueCat-managed subscription; the
+ * provider lookup runs outside any DB transaction and fails soft to null.
+ */
+export async function getOrganizationBillingManagementUrl(
+  runtime: ApiServiceRuntime,
+  organizationId: string,
+  sessionUserId: string,
+): Promise<OrganizationBillingManagementUrlResponse> {
+  const { provider, providerCustomerId } =
+    await runResolveOrganizationBillingCustomerWorkflow(
+      runtime.db,
+      organizationId,
+      sessionUserId,
+    );
+  if (provider !== "revenuecat" || !providerCustomerId) {
+    return { managementUrl: null };
+  }
+  return {
+    managementUrl: await fetchRevenueCatManagementUrl(providerCustomerId),
+  };
 }
 
 export async function startOrganizationTrial(

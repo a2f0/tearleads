@@ -4,6 +4,7 @@ import { useBillingActions } from "../hooks/useBillingActions";
 import { BillingHistory } from "./BillingHistory";
 import { BillingView } from "./BillingView";
 import { useBillingHistory } from "./useBillingHistory";
+import { useBillingManagementUrl } from "./useBillingManagementUrl";
 
 /**
  * Container for the org-manager billing view: wires the billing snapshot
@@ -38,6 +39,18 @@ export function BillingPanel({
     isOrgAdmin,
     billing.billing,
   );
+  // Only fetch the manage link for an admin of an org with a provider-managed
+  // subscription (active or lapsed) — not a local or free-trial org, which has
+  // no provider customer to resolve. Reuse the billing snapshot as the reload
+  // token so a refresh re-resolves the link.
+  const managementUrl = useBillingManagementUrl(
+    organizationId,
+    isOrgAdmin &&
+      billing.view !== null &&
+      !billing.view.isLocal &&
+      !billing.view.isTrialing,
+    billing.billing,
+  );
   const handleRefresh = useCallback(() => {
     void refresh();
   }, [refresh]);
@@ -52,6 +65,7 @@ export function BillingPanel({
         error={billing.error}
         isOrgAdmin={isOrgAdmin}
         loading={billing.loading}
+        managementUrl={managementUrl}
         onRefresh={handleRefresh}
         onRestore={actions.restore}
         onStartTrial={actions.startTrial}
