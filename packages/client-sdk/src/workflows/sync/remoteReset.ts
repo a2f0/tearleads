@@ -33,6 +33,7 @@ import {
   documentPendingAttachments,
   documentPendingUpdates,
   documentProjection,
+  documentSyncFailures,
   documents,
   principalPolicies,
 } from "../../data/sqlite/schema";
@@ -254,6 +255,9 @@ async function clearRemoteDerivedRows(
   await tx.delete(containerSyncLaneChecks).run();
   await tx.delete(containerCreateIntents).run();
   await tx.delete(documentPendingUpdates).run();
+  // Recorded terminal failures describe pre-reset attempts; the rebuilt queue
+  // must not inherit them (nor keep the restore re-arm evidence gate armed).
+  await tx.delete(documentSyncFailures).run();
 }
 
 async function resetRemoteColumns(
@@ -273,7 +277,13 @@ async function resetRemoteColumns(
       updatedAt: now,
     })
     .run();
-  await tx.update(documentProjection).set({ documentId: null }).run();
+  // `organizationId` is the retained attribution for documents detached from a
+  // removed shared container; a reset clears every org binding, so it resets
+  // with them.
+  await tx
+    .update(documentProjection)
+    .set({ documentId: null, organizationId: null })
+    .run();
   await tx
     .update(containers)
     .set({
