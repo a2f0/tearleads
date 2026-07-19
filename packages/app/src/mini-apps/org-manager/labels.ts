@@ -15,8 +15,6 @@ export const ORG_MANAGER_LABELS = {
   billingActive: "Active subscription",
   billingAdminOnly: "Only an organization admin can manage billing.",
   billingCancelCheckout: "Cancel checkout",
-  billingCheckoutSettling:
-    "A cancelled checkout for another organization is still settling — try again in a moment.",
   billingDeleting: "Deleting remote data",
   billingDisabled: "Sync disabled",
   billingHistoryActivityTab: "Activity",

@@ -47,12 +47,17 @@ export interface PurchasesCapability {
    * Purchase sync for one organization, binding the purchase to that org.
    * `checkoutHost` optionally embeds the provider's checkout UI inside the
    * given element instead of a full-page overlay; providers whose checkout is
-   * native (Capacitor) ignore it.
+   * native (Capacitor) ignore it. `abortSignal` lets the caller withdraw a
+   * purchase that has not reached the provider checkout yet — an embedded
+   * checkout has no provider-side close control, so once the caller has
+   * dismissed its own UI the backend must not mount a new checkout for a flow
+   * nobody can see.
    */
   purchaseSync(input: {
     organizationId: string;
     packageId: string;
     checkoutHost?: HTMLElement;
+    abortSignal?: AbortSignal;
   }): Promise<SyncPurchaseResult>;
   /** Restore prior purchases (e.g. on a new device). */
   restore(): Promise<void>;
@@ -107,11 +112,16 @@ export interface RevenueCatBackend {
   getCurrentPackages(): Promise<RevenueCatPackage[]>;
   /**
    * `htmlTarget` embeds the provider checkout in the given element (Web
-   * Billing); backends with a native checkout ignore it.
+   * Billing); backends with a native checkout ignore it. `metadata` is
+   * attached to the provider transaction itself (Web Billing only) and
+   * `abortSignal` asks the backend to stop before mounting a checkout when the
+   * caller has already abandoned the flow; native backends ignore both.
    */
   purchasePackage(input: {
     packageId: string;
     htmlTarget?: HTMLElement;
+    metadata?: Record<string, string>;
+    abortSignal?: AbortSignal;
   }): Promise<RevenueCatCustomerInfo>;
   getCustomerInfo(): Promise<RevenueCatCustomerInfo>;
   restorePurchases(): Promise<RevenueCatCustomerInfo>;
@@ -193,12 +203,22 @@ export function createRevenueCatPurchases(
       await ensureConfigured();
       // Bind the purchase to the org BEFORE buying so the resulting provider
       // event carries the organization attribute the webhook resolves against.
+      // The attribute is customer-level and mutable — a later purchase for a
+      // different org overwrites it — so it alone cannot attribute a purchase
+      // that completes after another one started.
       await backend.setAttributes({
         [organizationAttributeKey]: input.organizationId,
       });
       const info = await backend.purchasePackage({
         packageId: input.packageId,
+        // Also stamp the org onto the transaction itself (Web Billing
+        // metadata). Unlike the subscriber attribute this is immutable per
+        // purchase, so the webhook can attribute a late-completing purchase
+        // to the org it was actually started for, no matter what was bought
+        // in between. Native backends ignore it and rely on the attribute.
+        metadata: { [organizationAttributeKey]: input.organizationId },
         ...(input.checkoutHost ? { htmlTarget: input.checkoutHost } : {}),
+        ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
       });
       return { syncEntitlementActive: holdsSyncEntitlement(info) };
     },

@@ -12,7 +12,12 @@ interface RecordingBackend extends RevenueCatBackend {
   readonly calls: string[];
   readonly configureAppUserIds: Array<string | undefined>;
   readonly attributes: Record<string, string | null>;
-  readonly purchaseHtmlTargets: Array<HTMLElement | undefined>;
+  readonly purchaseInputs: Array<{
+    packageId: string;
+    htmlTarget?: HTMLElement;
+    metadata?: Record<string, string>;
+    abortSignal?: AbortSignal;
+  }>;
 }
 
 function createFakeBackend(options?: {
@@ -23,7 +28,7 @@ function createFakeBackend(options?: {
   const calls: string[] = [];
   const configureAppUserIds: Array<string | undefined> = [];
   const attributes: Record<string, string | null> = {};
-  const purchaseHtmlTargets: Array<HTMLElement | undefined> = [];
+  const purchaseInputs: RecordingBackend["purchaseInputs"][number][] = [];
   const purchaseInfo: RevenueCatCustomerInfo = {
     activeEntitlementIds: options?.entitlementsAfterPurchase ?? ["sync"],
   };
@@ -34,7 +39,7 @@ function createFakeBackend(options?: {
     calls,
     configureAppUserIds,
     attributes,
-    purchaseHtmlTargets,
+    purchaseInputs,
     async configure(input) {
       calls.push("configure");
       configureAppUserIds.push(input.appUserId);
@@ -55,7 +60,7 @@ function createFakeBackend(options?: {
     },
     async purchasePackage(input) {
       calls.push(`purchasePackage:${input.packageId}`);
-      purchaseHtmlTargets.push(input.htmlTarget);
+      purchaseInputs.push(input);
       return purchaseInfo;
     },
     async getCustomerInfo() {
@@ -156,22 +161,56 @@ test("purchaseSync binds the org attribute before buying and reports the entitle
   );
 });
 
-test("purchaseSync forwards the checkout host to the backend as htmlTarget", async () => {
+test("purchaseSync forwards the checkout host and abort signal to the backend", async () => {
   const backend = createFakeBackend();
   const purchases = createRevenueCatPurchases(backend, CONFIG);
   const checkoutHost = { id: "checkout-host" } as unknown as HTMLElement;
+  const abortSignal = new AbortController().signal;
 
   await purchases.purchaseSync({
     organizationId: "org-9",
     packageId: "monthly",
     checkoutHost,
+    abortSignal,
   });
   await purchases.purchaseSync({
     organizationId: "org-9",
     packageId: "monthly",
   });
 
-  expect(backend.purchaseHtmlTargets).toEqual([checkoutHost, undefined]);
+  expect(backend.purchaseInputs[0]?.htmlTarget).toBe(checkoutHost);
+  expect(backend.purchaseInputs[0]?.abortSignal).toBe(abortSignal);
+  expect(backend.purchaseInputs[1]?.htmlTarget).toBeUndefined();
+  expect(backend.purchaseInputs[1]?.abortSignal).toBeUndefined();
+});
+
+test("purchaseSync stamps the org onto the transaction metadata", async () => {
+  const backend = createFakeBackend();
+  const purchases = createRevenueCatPurchases(backend, CONFIG);
+
+  await purchases.purchaseSync({
+    organizationId: "org-9",
+    packageId: "monthly",
+  });
+
+  // The metadata mirrors the subscriber attribute but is per-transaction and
+  // immutable, so a purchase that completes late is still attributed to the
+  // org it was started for.
+  expect(backend.purchaseInputs[0]?.metadata).toEqual({ orgId: "org-9" });
+});
+
+test("purchaseSync honors a custom attribute key in the metadata too", async () => {
+  const backend = createFakeBackend();
+  const purchases = createRevenueCatPurchases(backend, {
+    ...CONFIG,
+    organizationAttributeKey: "$organizationId",
+  });
+
+  await purchases.purchaseSync({ organizationId: "org-1", packageId: "p" });
+
+  expect(backend.purchaseInputs[0]?.metadata).toEqual({
+    $organizationId: "org-1",
+  });
 });
 
 test("purchaseSync reports an inactive entitlement when the purchase grants none", async () => {

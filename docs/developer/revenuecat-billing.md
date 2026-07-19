@@ -58,7 +58,22 @@ content. Cancelling (ours or the provider's) is normalized to
 `PurchaseCancelledError`, which the billing UI treats as a no-op rather than a
 failed purchase. Cancelling only dismisses the UI — a payment the provider had
 already taken can still land afterwards, and the flow honors that late success
-by running the normal activation refresh.
+by running the normal activation refresh. A cancel that fires before the
+checkout has mounted aborts the purchase via an `AbortSignal` instead, so the
+SDK never renders a checkout nothing controls.
+
+### Org attribution
+
+Each web purchase carries its `orgId` in **transaction metadata**
+(`purchase({ metadata })`), which RevenueCat delivers back on
+`INITIAL_PURCHASE`/`NON_RENEWING_PURCHASE` webhook events. The webhook prefers
+that metadata over the `orgId` *subscriber attribute* because the attribute is
+customer-level and mutable — a later purchase for another org overwrites it,
+which would misattribute a purchase that completes after its checkout was
+dismissed. The attribute is still written before every purchase as the
+fallback for native store purchases, which carry no metadata. When verifying
+in staging, confirm a purchase's webhook event resolved the org even if you
+started another org's checkout in between.
 
 Styling comes from two layers:
 

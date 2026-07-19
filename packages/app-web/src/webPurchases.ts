@@ -36,6 +36,7 @@ export interface RevenueCatWebPurchases {
   purchase(input: {
     rcPackage: WebBillingPackage;
     htmlTarget?: HTMLElement;
+    metadata?: Record<string, string>;
   }): Promise<{ readonly customerInfo: CustomerInfo }>;
   setAttributes(attributes: Record<string, string | null>): Promise<void>;
 }
@@ -138,18 +139,34 @@ export function createWebRevenueCatBackend(
         toRevenueCatPackage,
       );
     },
-    async purchasePackage({ packageId, htmlTarget }) {
+    async purchasePackage({ abortSignal, htmlTarget, metadata, packageId }) {
+      const throwIfAborted = () => {
+        // The caller dismissed the flow while this purchase was still in its
+        // pre-checkout phase (offerings fetch etc.). Mounting now would put a
+        // checkout on screen that nothing controls — the embedded widget has
+        // no provider-side close button — so bail out as a cancellation
+        // before the SDK renders anything.
+        if (abortSignal?.aborted) {
+          throw new PurchaseCancelledError();
+        }
+      };
+
+      throwIfAborted();
       const aPackage = (await currentPackages(requirePurchases())).find(
         (entry) => entry.identifier === packageId,
       );
       if (!aPackage) {
         throw new Error(`Unknown purchase package: ${packageId}`);
       }
+      // Last chance to stop before purchase() mounts the checkout UI; the SDK
+      // has no abort API once it starts.
+      throwIfAborted();
 
       try {
         const result = await requirePurchases().purchase({
           rcPackage: aPackage,
           ...(htmlTarget ? { htmlTarget } : {}),
+          ...(metadata ? { metadata } : {}),
         });
         return toRevenueCatCustomerInfo(result.customerInfo);
       } catch (error) {

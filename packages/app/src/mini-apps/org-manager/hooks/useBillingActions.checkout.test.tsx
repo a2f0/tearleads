@@ -10,7 +10,6 @@ import {
   OPTION,
   renderBillingActions,
 } from "../../../../test/helpers/billingActionsTestKit";
-import { ORG_MANAGER_LABELS } from "../labels";
 
 afterEach(() => cleanup());
 
@@ -32,6 +31,7 @@ test("subscribe embeds the checkout in the mounted host element", async () => {
       organizationId: "org-1",
       packageId: OPTION.packageId,
       checkoutHost,
+      abortSignal: expect.any(AbortSignal),
     }),
   );
 });
@@ -250,51 +250,35 @@ test("a stale flow's late settlement retires the newer flow cleanly", async () =
   expect(result.current.actionError).toBe(null);
 });
 
-test("an unsettled cancelled checkout blocks purchases for another org", async () => {
-  const purchaseResolvers: Array<(value: SyncPurchaseResult) => void> = [];
+test("a cancel before the checkout mounts aborts the purchase signal", async () => {
+  const purchaseSignals: Array<AbortSignal | undefined> = [];
   const purchaseSync = mock(
-    () =>
-      new Promise<SyncPurchaseResult>((resolve) => {
-        purchaseResolvers.push(resolve);
+    (input: { abortSignal?: AbortSignal }) =>
+      new Promise<SyncPurchaseResult>(() => {
+        purchaseSignals.push(input.abortSignal);
       }),
   );
   const purchases: PurchasesCapability = {
     ...createPurchases({ syncEntitlementActive: true }),
-    purchaseSync,
+    purchaseSync: purchaseSync as PurchasesCapability["purchaseSync"],
   };
-  const { result, rerender } = renderBillingActions({ purchases });
+  const { result } = renderBillingActions({ purchases });
   await waitFor(() => expect(result.current.options).toEqual([OPTION]));
 
-  // Cancel org-1's checkout after the provider purchase has started.
-  act(() => result.current.subscribe(OPTION));
-  await waitFor(() => expect(purchaseSync).toHaveBeenCalledTimes(1));
+  await act(async () => {
+    result.current.subscribe(OPTION);
+  });
+  await waitFor(() => expect(purchaseSignals).toHaveLength(1));
+  expect(purchaseSignals[0]?.aborted).toBe(false);
+
+  // Cancelling must abort the signal so a purchase still in its pre-checkout
+  // phase (offerings fetch etc.) never mounts a checkout nobody controls.
   await act(async () => {
     result.current.cancelCheckout();
   });
+
+  expect(purchaseSignals[0]?.aborted).toBe(true);
   await waitFor(() => expect(result.current.busy).toBe(null));
-
-  // While it could still land, a purchase for another org must not rebind
-  // the customer-level org attribution.
-  rerender({
-    billingCanSync: false,
-    organizationId: "org-2",
-    userId: "user-1",
-  });
-  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
-  act(() => result.current.subscribe(OPTION));
-  await waitFor(() =>
-    expect(result.current.actionError).toBe(
-      ORG_MANAGER_LABELS.billingCheckoutSettling,
-    ),
-  );
-  expect(purchaseSync).toHaveBeenCalledTimes(1);
-
-  // Once the orphan settles the guard lifts.
-  await act(async () => {
-    purchaseResolvers[0]?.({ syncEntitlementActive: false });
-  });
-  act(() => result.current.subscribe(OPTION));
-  await waitFor(() => expect(purchaseSync).toHaveBeenCalledTimes(2));
 });
 
 test("a late failure of a cancelled checkout retires its replacement", async () => {

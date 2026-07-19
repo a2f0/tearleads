@@ -43,7 +43,10 @@ function packageWithProduct(input: {
 function createFakeSdk(options?: { purchaseError?: Error }) {
   const calls: string[] = [];
   const attributes: Record<string, string | null> = {};
-  const purchaseHtmlTargets: Array<HTMLElement | undefined> = [];
+  const purchaseInputs: Array<{
+    htmlTarget?: HTMLElement;
+    metadata?: Record<string, string>;
+  }> = [];
   const monthlyPackage = packageWithProduct({
     packageId: "monthly",
     productId: "sync_monthly",
@@ -64,9 +67,12 @@ function createFakeSdk(options?: { purchaseError?: Error }) {
       calls.push("getOfferings");
       return { current: { availablePackages: [monthlyPackage] } };
     },
-    async purchase({ rcPackage, htmlTarget }) {
+    async purchase({ rcPackage, htmlTarget, metadata }) {
       calls.push(`purchase:${rcPackage.identifier}`);
-      purchaseHtmlTargets.push(htmlTarget);
+      purchaseInputs.push({
+        ...(htmlTarget ? { htmlTarget } : {}),
+        ...(metadata ? { metadata } : {}),
+      });
       if (options?.purchaseError) {
         throw options.purchaseError;
       }
@@ -87,7 +93,7 @@ function createFakeSdk(options?: { purchaseError?: Error }) {
       return "$RCAnonymousID:test";
     },
   };
-  return { attributes, calls, purchaseHtmlTargets, sdk };
+  return { attributes, calls, purchaseInputs, sdk };
 }
 
 test("web RevenueCat backend configures with the app user id and maps offerings", async () => {
@@ -124,16 +130,41 @@ test("web RevenueCat backend binds org attributes before purchase", async () => 
   );
 });
 
-test("web RevenueCat backend forwards the embed target to the provider purchase", async () => {
-  const { purchaseHtmlTargets, sdk } = createFakeSdk();
+test("web RevenueCat backend forwards embed target and metadata to the provider purchase", async () => {
+  const { purchaseInputs, sdk } = createFakeSdk();
   const backend = createWebRevenueCatBackend(sdk);
   const htmlTarget = { id: "checkout-host" } as unknown as HTMLElement;
 
   await backend.configure({ apiKey: "web-key", appUserId: "user-1" });
-  await backend.purchasePackage({ packageId: "monthly", htmlTarget });
+  await backend.purchasePackage({
+    packageId: "monthly",
+    htmlTarget,
+    metadata: { orgId: "org-1" },
+  });
   await backend.purchasePackage({ packageId: "monthly" });
 
-  expect(purchaseHtmlTargets).toEqual([htmlTarget, undefined]);
+  expect(purchaseInputs).toEqual([
+    { htmlTarget, metadata: { orgId: "org-1" } },
+    {},
+  ]);
+});
+
+test("web RevenueCat backend refuses to mount a checkout for an aborted flow", async () => {
+  const { calls, sdk } = createFakeSdk();
+  const backend = createWebRevenueCatBackend(sdk);
+  const controller = new AbortController();
+  controller.abort();
+
+  await backend.configure({ apiKey: "web-key", appUserId: "user-1" });
+  expect(
+    backend.purchasePackage({
+      packageId: "monthly",
+      abortSignal: controller.signal,
+    }),
+  ).rejects.toBeInstanceOf(PurchaseCancelledError);
+
+  // The purchase (and its checkout mount) must never have started.
+  expect(calls.filter((call) => call.startsWith("purchase:"))).toEqual([]);
 });
 
 test("web RevenueCat backend maps a cancelled checkout to PurchaseCancelledError", async () => {
