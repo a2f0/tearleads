@@ -1,5 +1,4 @@
 import {
-  PurchaseAbortedError,
   PurchaseCancelledError,
   type PurchasesCapability,
   type SyncSubscriptionOption,
@@ -135,6 +134,17 @@ async function purchaseForOrganization({
     rejectCancelSignal?.(new PurchaseCancelledError());
   };
   cancelPurchaseRef.current = cancelPurchase;
+  // Each attempt mounts into its own child of the panel's host. The SDK
+  // empties its target element when a purchase finishes or fails — with a
+  // shared element, an ABANDONED attempt settling late would wipe a
+  // replacement checkout's UI. A per-attempt child keeps that teardown scoped
+  // to the attempt's own (by then detached) element.
+  const attemptHost = checkoutHost
+    ? checkoutHost.ownerDocument.createElement("div")
+    : undefined;
+  if (checkoutHost && attemptHost) {
+    checkoutHost.appendChild(attemptHost);
+  }
   try {
     // Raced so a hung identification cannot hold the panel busy with no way
     // out — Cancel settles the flow immediately even in this phase.
@@ -151,53 +161,39 @@ async function purchaseForOrganization({
       organizationId: scope.organizationId,
       packageId: option.packageId,
       abortSignal: abortController.signal,
-      ...(checkoutHost ? { checkoutHost } : {}),
+      ...(attemptHost ? { checkoutHost: attemptHost } : {}),
     });
     purchase.then(
       (lateResult) => {
+        // Only a purchase that was cancelled and then landed anyway needs
+        // handling here; every live outcome is delivered through the race
+        // below.
         if (!cancelled) {
-          // Outcome already delivered through the race below.
           return;
         }
-        // The provider's own late teardown empties the shared host, wiping a
-        // replacement checkout's UI — retire that flow so it does not sit
-        // busy and invisible. (No-op when none is in flight.)
-        cancelPurchaseRef.current?.();
         // A cancellation only dismisses the checkout UI; a payment the
         // provider had already taken can still land afterwards. Honor it —
         // the entitlement is granted server-side regardless — by driving the
-        // same activation flow the un-cancelled path would have run.
+        // same activation flow the un-cancelled path would have run. A
+        // replacement checkout for this same scope could now only duplicate
+        // the entitlement, so retire it first.
         if (
           !lateResult.syncEntitlementActive ||
           !scopeMatches(scopeRef.current, scope)
         ) {
           return;
         }
+        cancelPurchaseRef.current?.();
         updateActionState(scope, (current) => ({
           ...current,
           activationPending: true,
         }));
         void refresh();
       },
-      (error) => {
-        if (!cancelled) {
-          // Outcome already delivered through the race; without this handler
-          // the loser would surface as an unhandled rejection.
-          return;
-        }
-        // A late PurchaseAbortedError is the pre-mount abort path: the
-        // purchase layers raise it for every post-abort pre-mount failure
-        // (see client-sdk purchaseSync and the web backend), so it reliably
-        // means no checkout UI ever existed and no teardown can wipe the
-        // shared host — a retry in flight must keep running. Any other
-        // rejection (including the provider's own cancellation of a MOUNTED
-        // checkout) comes with a teardown that empties the shared host (same
-        // hazard as the late-success path above), so retire the replacement
-        // flow.
-        if (error instanceof PurchaseAbortedError) {
-          return;
-        }
-        cancelPurchaseRef.current?.();
+      () => {
+        // A cancelled attempt failing late affects nothing outside its own
+        // (already detached) attempt host; this handler only keeps the loser
+        // of the race from surfacing as an unhandled rejection.
       },
     );
     const result = await Promise.race([purchase, cancelSignal]);
@@ -223,11 +219,10 @@ async function purchaseForOrganization({
     }));
     await refresh();
   } catch (error) {
-    // Dismissing the checkout is a normal exit, not a failure — remove the
-    // embedded checkout UI the provider left behind and clear the busy state
-    // (finally) without surfacing an error.
+    // Dismissing the checkout is a normal exit, not a failure — the attempt
+    // host is removed (finally) and the busy state cleared without surfacing
+    // an error.
     if (error instanceof PurchaseCancelledError) {
-      checkoutHost?.replaceChildren();
       return;
     }
     // Previously swallowed silently, which made a rejected purchase
@@ -240,6 +235,9 @@ async function purchaseForOrganization({
       actionError: ORG_MANAGER_LABELS.failedSubscribe,
     }));
   } finally {
+    // This attempt is settled from the panel's point of view; whatever the
+    // SDK does to the attempt host later happens off-DOM.
+    attemptHost?.remove();
     // A newer flow may have installed its own cancel action (scope switched
     // mid-purchase); only clear the ref while it still belongs to this flow.
     if (cancelPurchaseRef.current === cancelPurchase) {

@@ -13,9 +13,18 @@ import {
 
 afterEach(() => cleanup());
 
-test("subscribe embeds the checkout in the mounted host element", async () => {
-  const purchases = createPurchases({ syncEntitlementActive: true });
-  const checkoutHost = { id: "checkout-host" } as unknown as HTMLElement;
+test("subscribe embeds the checkout in a child of the host element", async () => {
+  let purchaseInput:
+    | { organizationId: string; checkoutHost?: HTMLElement }
+    | undefined;
+  const purchases: PurchasesCapability = {
+    ...createPurchases({ syncEntitlementActive: true }),
+    purchaseSync: mock((input: typeof purchaseInput & object) => {
+      purchaseInput = input;
+      return new Promise<SyncPurchaseResult>(() => undefined);
+    }) as PurchasesCapability["purchaseSync"],
+  };
+  const checkoutHost = document.createElement("div");
   const { result } = renderBillingActions({
     purchases,
     checkoutHostRef: { current: checkoutHost },
@@ -26,13 +35,12 @@ test("subscribe embeds the checkout in the mounted host element", async () => {
     result.current.subscribe(OPTION);
   });
 
-  await waitFor(() =>
-    expect(purchases.purchaseSync).toHaveBeenCalledWith({
-      organizationId: "org-1",
-      packageId: OPTION.packageId,
-      checkoutHost,
-      abortSignal: expect.any(AbortSignal),
-    }),
+  // The purchase mounts into a per-attempt child so an abandoned attempt's
+  // teardown can never wipe a replacement's UI.
+  await waitFor(() => expect(purchaseInput).toBeDefined());
+  expect(purchaseInput?.organizationId).toBe("org-1");
+  expect(purchaseInput?.checkoutHost).toBe(
+    checkoutHost.firstElementChild as HTMLElement,
   );
 });
 
@@ -43,8 +51,7 @@ test("cancelCheckout settles a hung purchase silently and empties the host", asy
     // waiting for the buyer, and the SDK promise only resolves via its UI.
     purchaseSync: mock(() => new Promise<SyncPurchaseResult>(() => undefined)),
   };
-  const replaceChildren = mock(() => undefined);
-  const checkoutHost = { replaceChildren } as unknown as HTMLElement;
+  const checkoutHost = document.createElement("div");
   const { result } = renderBillingActions({
     purchases,
     checkoutHostRef: { current: checkoutHost },
@@ -57,6 +64,8 @@ test("cancelCheckout settles a hung purchase silently and empties the host", asy
   await waitFor(() =>
     expect(result.current.busy).toBe(`subscribe:${OPTION.packageId}`),
   );
+  // The attempt got its own child host inside the panel's host element.
+  expect(checkoutHost.childElementCount).toBe(1);
 
   await act(async () => {
     result.current.cancelCheckout();
@@ -65,7 +74,7 @@ test("cancelCheckout settles a hung purchase silently and empties the host", asy
   await waitFor(() => expect(result.current.busy).toBe(null));
   expect(result.current.actionError).toBe(null);
   expect(result.current.activationPending).toBe(false);
-  expect(replaceChildren).toHaveBeenCalledTimes(1);
+  expect(checkoutHost.childElementCount).toBe(0);
 });
 
 test("a scope switch leaves a native purchase running", async () => {
@@ -118,8 +127,7 @@ test("a scope switch cancels the in-flight embedded checkout", async () => {
     ...createPurchases({ syncEntitlementActive: true }),
     purchaseSync: mock(() => new Promise<SyncPurchaseResult>(() => undefined)),
   };
-  const replaceChildren = mock(() => undefined);
-  const checkoutHost = { replaceChildren } as unknown as HTMLElement;
+  const checkoutHost = document.createElement("div");
   const { result, rerender } = renderBillingActions({
     purchases,
     checkoutHostRef: { current: checkoutHost },
@@ -139,7 +147,7 @@ test("a scope switch cancels the in-flight embedded checkout", async () => {
     userId: "user-2",
   });
 
-  await waitFor(() => expect(replaceChildren).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(checkoutHost.childElementCount).toBe(0));
 });
 
 test("losing purchase eligibility cancels the in-flight embedded checkout", async () => {
@@ -147,8 +155,7 @@ test("losing purchase eligibility cancels the in-flight embedded checkout", asyn
     ...createPurchases({ syncEntitlementActive: true }),
     purchaseSync: mock(() => new Promise<SyncPurchaseResult>(() => undefined)),
   };
-  const replaceChildren = mock(() => undefined);
-  const checkoutHost = { replaceChildren } as unknown as HTMLElement;
+  const checkoutHost = document.createElement("div");
   const { result, rerender } = renderBillingActions({
     purchases,
     checkoutHostRef: { current: checkoutHost },
@@ -172,7 +179,7 @@ test("losing purchase eligibility cancels the in-flight embedded checkout", asyn
     userId: "user-1",
   });
 
-  await waitFor(() => expect(replaceChildren).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(checkoutHost.childElementCount).toBe(0));
 });
 
 test("unmounting the panel cancels the in-flight embedded checkout", async () => {
@@ -180,8 +187,7 @@ test("unmounting the panel cancels the in-flight embedded checkout", async () =>
     ...createPurchases({ syncEntitlementActive: true }),
     purchaseSync: mock(() => new Promise<SyncPurchaseResult>(() => undefined)),
   };
-  const replaceChildren = mock(() => undefined);
-  const checkoutHost = { replaceChildren } as unknown as HTMLElement;
+  const checkoutHost = document.createElement("div");
   const { result, unmount } = renderBillingActions({
     purchases,
     checkoutHostRef: { current: checkoutHost },
@@ -197,7 +203,7 @@ test("unmounting the panel cancels the in-flight embedded checkout", async () =>
 
   unmount();
 
-  await waitFor(() => expect(replaceChildren).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(checkoutHost.childElementCount).toBe(0));
 });
 
 test("a cancel before the checkout mounts aborts the purchase signal", async () => {

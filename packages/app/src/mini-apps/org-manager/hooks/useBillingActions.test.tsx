@@ -187,23 +187,21 @@ test("an old purchase completion cannot commit into or clear the new org", async
     abortSignal: expect.any(AbortSignal),
   });
 
-  // Org-1's abandoned purchase settling without an entitlement retires the
-  // org-2 flow (the provider teardown empties their shared host) but must not
-  // set org-2's activation or error state.
+  // Org-1's abandoned purchase settling without an entitlement must neither
+  // commit into org-2's state nor disturb org-2's still-running flow.
   await act(async () => {
     purchaseResolvers[0]?.({ syncEntitlementActive: false });
   });
-  await waitFor(() => expect(result.current.busy).toBe(null));
+  expect(result.current.busy).toBe(`subscribe:${OPTION.packageId}`);
   expect(result.current.actionError).toBe(null);
   expect(result.current.activationPending).toBe(false);
   expect(refresh).not.toHaveBeenCalled();
 
-  // Org-2's purchase landing afterwards still activates org-2 through the
-  // late-outcome path.
   await act(async () => {
     purchaseResolvers[1]?.({ syncEntitlementActive: true });
   });
-  await waitFor(() => expect(result.current.activationPending).toBe(true));
+  await waitFor(() => expect(result.current.busy).toBe(null));
+  expect(result.current.activationPending).toBe(true);
   expect(refresh).toHaveBeenCalledTimes(1);
 });
 

@@ -48,8 +48,11 @@ BUN_PUBLIC_REVENUECAT_WEB_API_KEY=<key> bun run --filter=app-web dev
 On web the Web Billing checkout renders **inside the org-manager billing
 panel** instead of a full-page overlay: `BillingPanel` passes a host element
 through `PurchasesCapability.purchaseSync({ checkoutHost })`, which the web
-backend forwards to the SDK's `purchase({ htmlTarget })`. If the host is
-missing the SDK falls back to its fullscreen modal, and native (Capacitor)
+backend forwards to the SDK's `purchase({ htmlTarget })`. Each purchase
+attempt actually mounts into its own child of that host, because the SDK
+empties its target element on teardown — a shared element would let an
+abandoned attempt settling late wipe a replacement checkout's UI. If the host
+is missing the SDK falls back to its fullscreen modal, and native (Capacitor)
 flows ignore the option entirely.
 
 The SDK hides its own close control in embedded mode, so the panel provides
