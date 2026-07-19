@@ -286,6 +286,13 @@ export async function submitDocumentSyncAttemptIfAllowed(
 export async function resolveDocumentSyncWriterProjection(input: {
   apiClient: DocumentSyncApi;
   documentId: string;
+  /**
+   * Invoked when the projection fetch fails terminally. Write-bearing sync
+   * passes persist this: without a writer projection their queued writes can
+   * never submit, so the failure (e.g. a 403 after access revocation) is what
+   * the write queue should surface.
+   */
+  onTerminalFailure?: TerminalSubmitFailureHandler | undefined;
   reusableWriterProjection: DocumentWriterProjectionResponse | null;
 }): Promise<DocumentWriterProjectionResolution> {
   if (input.reusableWriterProjection) {
@@ -305,6 +312,7 @@ export async function resolveDocumentSyncWriterProjection(input: {
     }
 
     result.report();
+    await input.onTerminalFailure?.(result);
     return null;
   }
 

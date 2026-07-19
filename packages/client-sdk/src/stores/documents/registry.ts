@@ -109,21 +109,23 @@ export function requestDocumentStoreSync(state: {
   state.syncLane?.requestSync();
 }
 
-// Whether a live store is currently registered for this document. Callers that
-// tear down a document's persisted state outside the store (e.g. a write-queue
-// discard) must refuse while one is open: the store's next persist would
-// silently re-create the deleted rows.
-export function hasRegisteredDocumentStore(
+// The live store registered for this document, if any. Callers that tear down
+// a document's persisted state (e.g. a write-queue discard) must route through
+// it — `discardLocal` clears the in-memory state with the deletion — because a
+// registered store's next persist would otherwise re-create the deleted rows.
+export function getRegisteredDocumentStore(
   domainScope: DomainScope,
   localId: string,
   documentId: string | null,
-): boolean {
+): DocumentStoreFacade | null {
   const registry = documentStoreRegistriesByScope.get(domainScope);
   if (!registry) {
-    return false;
+    return null;
   }
-  return registry.storesByKey.has(
-    resolveDocumentStoreKey(registry, localId, documentId),
+  return (
+    registry.storesByKey.get(
+      resolveDocumentStoreKey(registry, localId, documentId),
+    ) ?? null
   );
 }
 
@@ -184,6 +186,7 @@ export function createDocumentStoreFacade(
     assertCanRotateContentKey: () => targetStore.assertCanRotateContentKey(),
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
       targetStore.attachFiles(files),
+    discardLocal: () => targetStore.discardLocal(),
     ensureInitialized: () => targetStore.ensureInitialized(),
     getSnapshot: () => targetStore.getSnapshot(),
     removeAttachment: (slotId: string) => targetStore.removeAttachment(slotId),

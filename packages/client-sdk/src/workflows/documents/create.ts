@@ -201,6 +201,17 @@ interface RemoteDocumentCreateInput {
   eventId?: string | undefined;
   execSql: ExecSql;
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
+  /**
+   * Invoked when the create submission fails terminally (not a benign
+   * adopt/stale-target conflict) — e.g. the server denies the write. Callers
+   * persist the failure so the write queue can surface it.
+   */
+  onTerminalSubmitFailure?:
+    | ((failure: {
+        readonly message: string;
+        readonly status: number | null;
+      }) => Promise<void> | void)
+    | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
@@ -357,6 +368,7 @@ export async function createRemoteDocument(
   }
 
   submission.report?.();
+  await input.onTerminalSubmitFailure?.(submission);
   return null;
 }
 

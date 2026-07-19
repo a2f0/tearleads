@@ -14,6 +14,7 @@ import {
   replaceAttachmentInDocumentStore,
   setAttachmentInDocumentStore,
 } from "./documentStore/attachments";
+import { discardDocumentStoreLocalState } from "./documentStore/discard";
 import {
   ensureDocumentStoreInitialized,
   ensureDocumentStoreReady,
@@ -153,6 +154,7 @@ function createBackingDocumentStore(
     },
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
       attachFilesToDocumentStore(state, scheduleSync, files),
+    discardLocal: () => discardDocumentStoreLocalState(state),
     ensureInitialized: () => ensureDocumentStoreReady(state, scheduleSync),
     getSnapshot: () => state.snapshot,
     removeAttachment: (slotId: string) =>

@@ -2,9 +2,6 @@ import { encodeVersionVector } from "@tearleads/loro";
 import { isDocumentUpdateCreatedEvent } from "../../../data/documentSync";
 import {
   clearDocumentSyncFailure,
-  recordDocumentSyncFailure,
-} from "../../../data/sqlite/documentPersistence";
-import {
   createDocumentWriterPublicKeyResolver,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
@@ -12,6 +9,7 @@ import {
   deletePersistedDocument,
   describeDocumentSyncSubmitFailure,
   type PendingUpdateRecord,
+  recordDocumentSyncFailure,
   registerDocumentSyncLane,
   resolveDocumentCreateAuthor,
   settleOutgoingPassAndDecideReArm,

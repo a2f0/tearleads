@@ -983,6 +983,10 @@ export async function syncRemoteDocument(
     const writerProjection = await resolveDocumentSyncWriterProjection({
       apiClient: input.apiClient,
       documentId: input.documentId,
+      // Only a write-bearing pass records the fetch failure: without queued
+      // writes a failed projection read blocks nothing durable.
+      onTerminalFailure:
+        pendingUpdates.length > 0 ? input.onTerminalSubmitFailure : undefined,
       reusableWriterProjection,
     });
     reusableWriterProjection = null;

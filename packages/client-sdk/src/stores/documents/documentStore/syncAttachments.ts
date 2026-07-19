@@ -3,8 +3,10 @@ import type { BlobSourceSnapshot } from "../../../data/documents/blob/shared/blo
 import { markOriginatedDocuments } from "../../../sync/reconciliation/originatedDocuments";
 import type { uploadPreparedDocumentAttachment as uploadDocumentAttachment } from "../../../workflows/blobs/upload";
 import {
+  DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type PendingAttachmentRecord,
+  recordDocumentSyncFailure,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
@@ -484,4 +486,15 @@ function reportAttachmentUploadFailure(input: {
   );
   input.uploadLane.fail(error);
   input.state.runtime.util.log(`Documents: ${error.message}`);
+  // Surface the stuck upload in the write queue; a later successful sync pass
+  // for the document clears the record.
+  void recordDocumentSyncFailure(
+    input.state.runtime.infra.execSql,
+    { appKind: DOCUMENTS_APP_KIND, localId: input.state.localId },
+    {
+      attemptedAt: new Date().toISOString(),
+      message: error.message,
+      status: null,
+    },
+  ).catch(() => undefined);
 }

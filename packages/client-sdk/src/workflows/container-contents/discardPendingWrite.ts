@@ -118,14 +118,17 @@ export async function discardPendingContainerWrite(
   return true;
 }
 
-// A synced document that is torn down locally must be re-discovered from the
-// server. Discovery is incremental per container, so the linked containers'
-// document-lane watermarks are reset first — otherwise the unchanged server
-// document is never re-listed and the discard hides it indefinitely.
-async function resetDiscoveryForSyncedDocument(
+/**
+ * The containers whose discovery must re-run for a synced document to
+ * re-materialize after its local copy is torn down: the document's linked
+ * containers. Empty for a never-synced document (there is no server copy to
+ * re-discover). Read this *before* the teardown — the link rows are deleted
+ * with the document.
+ */
+export async function listSyncedDocumentDiscoveryContainerIds(
   execSql: ExecSql,
   localId: string,
-): Promise<void> {
+): Promise<ReadonlyArray<string>> {
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const [stored] = await db
     .select({ documentId: documents.documentId })
@@ -138,15 +141,28 @@ async function resetDiscoveryForSyncedDocument(
     )
     .limit(1);
   if (!stored?.documentId) {
-    return;
+    return [];
   }
   const links = await db
     .select({ containerId: documentContainerProjection.containerId })
     .from(documentContainerProjection)
     .where(eq(documentContainerProjection.documentId, stored.documentId));
+  return links.map((link) => link.containerId);
+}
+
+// A synced document that is torn down locally must be re-discovered from the
+// server. Discovery is incremental per container, so the linked containers'
+// document-lane watermarks are reset first — otherwise the unchanged server
+// document is never re-listed and the discard hides it indefinitely. (Callers
+// with a live reconciler additionally force those containers to re-reconcile;
+// see `requestForcedContainerReconciliation`.)
+async function resetDiscoveryForSyncedDocument(
+  execSql: ExecSql,
+  localId: string,
+): Promise<void> {
   await sqlContainerSyncWatermarkPersistence.deleteDocumentLaneWatermarksForContainers(
     execSql,
-    links.map((link) => link.containerId),
+    await listSyncedDocumentDiscoveryContainerIds(execSql, localId),
   );
 }
 

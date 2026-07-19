@@ -7,6 +7,10 @@ export type {
   DocumentCreateAuthor,
   RelinkRemoteDocumentResult,
 } from "../../data/documents/shared/types";
+export {
+  clearDocumentSyncFailure,
+  recordDocumentSyncFailure,
+} from "../../data/sqlite/documentPersistence";
 export { settleOutgoingPassAndDecideReArm } from "../../data/sync/outgoingUpdateSettlement";
 export {
   didRegainSyncPrerequisites,
