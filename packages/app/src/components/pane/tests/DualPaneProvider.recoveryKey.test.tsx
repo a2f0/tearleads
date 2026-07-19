@@ -298,7 +298,7 @@ test(
     const secondarySelfIdentity = await readPaneExplorerDocumentIdentity(
       secondaryPane,
       "You",
-      { expectedDocumentId: primarySelfDocumentId },
+      { containerName: "Contacts", expectedDocumentId: primarySelfDocumentId },
     );
     expect(
       secondarySelfIdentity.documentId,
