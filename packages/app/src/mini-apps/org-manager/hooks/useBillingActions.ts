@@ -4,6 +4,7 @@ import type {
 } from "@tearleads/client-sdk";
 import {
   type Dispatch,
+  type RefObject,
   type SetStateAction,
   useCallback,
   useEffect,
@@ -14,71 +15,45 @@ import {
 import { usePurchases } from "../../../providers/purchases/PurchasesProvider";
 import type { BillingBusyAction } from "../billing/BillingView";
 import {
+  type BillingActionScope,
+  type BillingActionState,
+  type BillingScopeRef,
+  emptyActionState,
+  scopeMatches,
+  type UpdateActionState,
+} from "../billing/billingActionScope";
+import {
   ACTIVATION_POLL_DELAYS_MS,
   useActivationBillingPoll,
 } from "../billing/useActivationBillingPoll";
+import { useSubscribeAction } from "../billing/useSubscribeAction";
 import { ORG_MANAGER_LABELS } from "../labels";
 
-interface BillingActions {
+export interface BillingActions {
   readonly purchaseAvailable: boolean;
   readonly canSubscribe: boolean;
+  /** Whether this platform embeds a cancellable checkout in the panel. */
+  readonly embeddedCheckout: boolean;
+  /** True while an embedded checkout can still be cancelled (not the refresh tail). */
+  readonly checkoutActive: boolean;
   readonly options: ReadonlyArray<SyncSubscriptionOption>;
   readonly busy: BillingBusyAction | null;
   readonly actionError: string | null;
   readonly activationPending: boolean;
   readonly startTrial: () => void;
   readonly subscribe: (option: SyncSubscriptionOption) => void;
+  /** Dismiss the in-flight embedded checkout, if any; a no-op otherwise. */
+  readonly cancelCheckout: () => void;
   readonly restore: () => void;
-}
-
-interface BillingActionScope {
-  readonly organizationId: string;
-  readonly generation: number;
-  readonly userId: string | null;
-}
-
-interface BillingActionState extends BillingActionScope {
-  readonly busy: BillingBusyAction | null;
-  readonly actionError: string | null;
-  readonly activationPending: boolean;
 }
 
 interface BillingOptionsState extends BillingActionScope {
   readonly options: ReadonlyArray<SyncSubscriptionOption>;
 }
 
-function scopeMatches(
-  left: BillingActionScope,
-  right: BillingActionScope,
-): boolean {
-  return (
-    left.organizationId === right.organizationId &&
-    left.userId === right.userId &&
-    left.generation === right.generation
-  );
-}
-
-function emptyActionState(scope: BillingActionScope): BillingActionState {
-  return {
-    ...scope,
-    busy: null,
-    actionError: null,
-    activationPending: false,
-  };
-}
-
 function emptyOptionsState(scope: BillingActionScope): BillingOptionsState {
   return { ...scope, options: [] };
 }
-
-interface BillingScopeRef {
-  current: BillingActionScope;
-}
-
-type UpdateActionState = (
-  scope: BillingActionScope,
-  update: (current: BillingActionState) => BillingActionState,
-) => void;
 
 function useActionStateUpdater(
   scopeRef: BillingScopeRef,
@@ -171,112 +146,6 @@ function useStartTrialAction(
   }, [currentScope, scopeRef, startTrialRequest, updateActionState]);
 }
 
-function useSubscribeAction({
-  canSubscribe,
-  currentScope,
-  purchases,
-  refresh,
-  scopeRef,
-  updateActionState,
-  userId,
-}: {
-  canSubscribe: boolean;
-  currentScope: BillingActionScope;
-  purchases: PurchasesCapability;
-  refresh: () => Promise<void>;
-  scopeRef: BillingScopeRef;
-  updateActionState: UpdateActionState;
-  userId: string | null;
-}): (option: SyncSubscriptionOption) => void {
-  return useCallback(
-    (option) => {
-      const scope = currentScope;
-      if (!scopeMatches(scopeRef.current, scope) || !canSubscribe || !userId) {
-        return;
-      }
-      updateActionState(scope, (current) => ({
-        ...current,
-        busy: `subscribe:${option.packageId}`,
-        actionError: null,
-      }));
-      void purchaseForOrganization({
-        option,
-        purchases,
-        refresh,
-        scope,
-        scopeRef,
-        updateActionState,
-        userId,
-      });
-    },
-    [
-      canSubscribe,
-      currentScope,
-      purchases,
-      refresh,
-      scopeRef,
-      updateActionState,
-      userId,
-    ],
-  );
-}
-
-async function purchaseForOrganization({
-  option,
-  purchases,
-  refresh,
-  scope,
-  scopeRef,
-  updateActionState,
-  userId,
-}: {
-  option: SyncSubscriptionOption;
-  purchases: PurchasesCapability;
-  refresh: () => Promise<void>;
-  scope: BillingActionScope;
-  scopeRef: BillingScopeRef;
-  updateActionState: UpdateActionState;
-  userId: string;
-}): Promise<void> {
-  try {
-    await purchases.identify({ userId });
-    if (!scopeMatches(scopeRef.current, scope)) {
-      return;
-    }
-    const result = await purchases.purchaseSync({
-      organizationId: scope.organizationId,
-      packageId: option.packageId,
-    });
-    if (!scopeMatches(scopeRef.current, scope)) {
-      return;
-    }
-    if (!result.syncEntitlementActive) {
-      updateActionState(scope, (current) => ({
-        ...current,
-        actionError: ORG_MANAGER_LABELS.failedSubscribe,
-      }));
-      return;
-    }
-    updateActionState(scope, (current) => ({
-      ...current,
-      activationPending: true,
-    }));
-    await refresh();
-  } catch (error) {
-    // Previously swallowed silently, which made a rejected purchase
-    // indistinguishable from a no-op. Log the real PurchasesError (e.g. a
-    // ConfigurationError from a key/offering mismatch, or a cancellation) so it
-    // is diagnosable, while still surfacing the generic label to the user.
-    console.error("Failed to complete the organization sync purchase:", error);
-    updateActionState(scope, (current) => ({
-      ...current,
-      actionError: ORG_MANAGER_LABELS.failedSubscribe,
-    }));
-  } finally {
-    updateActionState(scope, (current) => ({ ...current, busy: null }));
-  }
-}
-
 function useRestoreAction(
   currentScope: BillingActionScope,
   purchases: PurchasesCapability,
@@ -310,6 +179,40 @@ function useRestoreAction(
       }
     })();
   }, [currentScope, purchases, refresh, scopeRef, updateActionState]);
+}
+
+/**
+ * Owns the cancel action for the purchase currently in flight. Also ties the
+ * embedded checkout to its host's lifetime: when the buyer scope changes,
+ * purchase eligibility is lost (e.g. the buyer's admin role is revoked
+ * mid-purchase, which unmounts the admin actions and the host with them), or
+ * the panel unmounts, the in-flight purchase is cancelled so an orphaned
+ * provider flow is not left running with no reachable UI. Embedded web only:
+ * a native purchase runs in a store sheet the app cannot cancel, so settling
+ * it as cancelled here would just desync the panel from a still-active sheet.
+ */
+function useCheckoutCancellation(
+  embeddedCheckout: boolean,
+  organizationId: string,
+  userId: string | null,
+  canSubscribe: boolean,
+): {
+  cancelPurchaseRef: RefObject<(() => void) | null>;
+  cancelCheckout: () => void;
+} {
+  const cancelPurchaseRef = useRef<(() => void) | null>(null);
+  const cancelCheckout = useCallback(() => {
+    cancelPurchaseRef.current?.();
+  }, []);
+  useEffect(() => {
+    if (!embeddedCheckout) {
+      return;
+    }
+    return () => {
+      cancelPurchaseRef.current?.();
+    };
+  }, [embeddedCheckout, organizationId, userId, canSubscribe]);
+  return { cancelPurchaseRef, cancelCheckout };
 }
 
 interface BillingActionStateController {
@@ -382,6 +285,19 @@ function useBillingActionState(
   };
 }
 
+interface UseBillingActionsInput {
+  /** Backoff schedule for post-purchase billing re-reads; injectable for tests. */
+  activationPollDelaysMs?: readonly number[];
+  billingCanSync: boolean;
+  /** Checkout embed host, read at purchase time; absent = full-page overlay. */
+  checkoutHostRef?: RefObject<HTMLElement | null>;
+  isOrgAdmin: boolean;
+  organizationId: string;
+  refresh: () => Promise<void>;
+  startTrial: () => Promise<boolean>;
+  userId: string | null;
+}
+
 /**
  * Owns the billing panel's in-flight action state and orchestrates the platform
  * purchases capability (list options, identify + purchase, restore), refetching
@@ -390,21 +306,13 @@ function useBillingActionState(
 export function useBillingActions({
   activationPollDelaysMs = ACTIVATION_POLL_DELAYS_MS,
   billingCanSync,
+  checkoutHostRef,
   isOrgAdmin,
   organizationId,
   refresh,
   startTrial: startTrialRequest,
   userId,
-}: {
-  /** Backoff schedule for post-purchase billing re-reads; injectable for tests. */
-  activationPollDelaysMs?: readonly number[];
-  billingCanSync: boolean;
-  isOrgAdmin: boolean;
-  organizationId: string;
-  refresh: () => Promise<void>;
-  startTrial: () => Promise<boolean>;
-  userId: string | null;
-}): BillingActions {
+}: UseBillingActionsInput): BillingActions {
   const purchases = usePurchases();
   const canSubscribe = isOrgAdmin && purchases.isAvailable && userId !== null;
   const {
@@ -429,8 +337,16 @@ export function useBillingActions({
     startTrialRequest,
     updateActionState,
   );
+  const { cancelCheckout, cancelPurchaseRef } = useCheckoutCancellation(
+    purchases.supportsEmbeddedCheckout === true,
+    organizationId,
+    userId,
+    canSubscribe,
+  );
   const subscribe = useSubscribeAction({
     canSubscribe,
+    cancelPurchaseRef,
+    checkoutHostRef,
     currentScope,
     purchases,
     refresh,
@@ -451,7 +367,6 @@ export function useBillingActions({
     currentScope.userId === userId;
   const actionStateMatches =
     scopeMatchesInputs && scopeMatches(actionState, currentScope);
-
   useActivationBillingPoll(
     actionStateMatches && actionState.activationPending,
     billingCanSync,
@@ -467,14 +382,15 @@ export function useBillingActions({
   return {
     purchaseAvailable: purchases.isAvailable,
     canSubscribe,
+    embeddedCheckout: purchases.supportsEmbeddedCheckout === true,
+    checkoutActive: actionStateMatches ? actionState.checkoutActive : false,
     options,
     busy: actionStateMatches ? actionState.busy : null,
     actionError: actionStateMatches ? actionState.actionError : null,
-    activationPending: actionStateMatches
-      ? actionState.activationPending
-      : false,
+    activationPending: actionStateMatches && actionState.activationPending,
     startTrial,
     subscribe,
+    cancelCheckout,
     restore,
   };
 }

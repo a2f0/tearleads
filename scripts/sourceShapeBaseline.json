@@ -389,6 +389,9 @@
     "packages/app/src/mini-apps/explorer/useExplorerSidebarWindows.ts": {
       "biomeIgnore": 1
     },
+    "packages/app/src/mini-apps/org-manager/billing/BillingCheckout.css": {
+      "biomeIgnore": 1
+    },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
       "biomeIgnore": 1
     },

@@ -18,24 +18,34 @@ server {
   root /var/www/website;
   index index.html;
 
+  # Cloudflare is configured to make this host cache-eligible and to respect
+  # these origin headers (see the cache ruleset in terraform/modules/
+  # cloudflare-website-cache), so per-path policy lives here rather than being
+  # split between nginx and the edge.
+
+  # HTML: cacheable at the edge, never in the browser. `s-maxage` lets the edge
+  # hold pages so a request from outside Europe does not cross the Atlantic to
+  # this origin, while `max-age=0, must-revalidate` keeps browsers asking — a
+  # deploy purges the edge, but it cannot reach a browser copy.
   location / {
     try_files $uri $uri/ =404;
+    add_header Cache-Control "public, max-age=0, s-maxage=3600, must-revalidate";
   }
 
-  # Screenshot gallery assets are rebuilt on every deploy under stable, non
-  # content-hashed paths (/screenshot-gallery/img/<project>/<theme>/<name>.png,
-  # see packages/website/scripts/buildScreenshots.ts). The immutable rule below
-  # would freeze them at the edge for a year, so recaptured screenshots would
-  # never reach visitors. Serve them revalidating instead: nginx still answers
-  # 304 from etag/last-modified, so unchanged images cost no bandwidth.
-  # `^~` takes precedence over the regex location, so the .png rule never wins
-  # here.
-  location ^~ /screenshot-gallery/ {
-    try_files $uri $uri/ =404;
+  # The gallery manifest carries the content-versioned image URLs, so it is the
+  # one file that must always revalidate: a stale manifest pins every image to
+  # its previous version, which is exactly the staleness the versioning exists
+  # to prevent. Stated explicitly rather than relying on `.json` being absent
+  # from the immutable regex below.
+  location = /screenshot-gallery/manifest.json {
     expires off;
     add_header Cache-Control "public, no-cache, must-revalidate";
   }
 
+  # Long-lived assets. Safe for the screenshot gallery too: buildScreenshots.ts
+  # keys each image URL on a digest of its bytes, so a recaptured screen is a
+  # new URL rather than new bytes at an old one — the same contract as Astro's
+  # hashed output.
   location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
     expires 1y;
     add_header Cache-Control "public, immutable";

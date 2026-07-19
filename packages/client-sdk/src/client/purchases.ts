@@ -37,16 +37,35 @@ export interface SyncPurchaseResult {
 export interface PurchasesCapability {
   /** False when purchasing is not supported on this platform (the stub). */
   readonly isAvailable: boolean;
+  /**
+   * True when {@link purchaseSync}'s `checkoutHost` embeds a checkout this
+   * platform can actually cancel from the app's own UI (Web Billing). Absent
+   * or false on platforms whose checkout is a native sheet with its own
+   * dismissal — billing UI uses this to decide whether to offer an in-app
+   * Cancel affordance.
+   */
+  readonly supportsEmbeddedCheckout?: boolean;
   /** Identify the buyer to the provider; the App User ID is the buyer's user id. */
   identify(input: { userId: string }): Promise<void>;
   /** Forget the identified buyer (e.g. on sign-out). */
   reset(): Promise<void>;
   /** Sync subscription options available to purchase. */
   listSyncOptions(): Promise<SyncSubscriptionOption[]>;
-  /** Purchase sync for one organization, binding the purchase to that org. */
+  /**
+   * Purchase sync for one organization, binding the purchase to that org.
+   * `checkoutHost` optionally embeds the provider's checkout UI inside the
+   * given element instead of a full-page overlay; providers whose checkout is
+   * native (Capacitor) ignore it. `abortSignal` lets the caller withdraw a
+   * purchase that has not reached the provider checkout yet — an embedded
+   * checkout has no provider-side close control, so once the caller has
+   * dismissed its own UI the backend must not mount a new checkout for a flow
+   * nobody can see.
+   */
   purchaseSync(input: {
     organizationId: string;
     packageId: string;
+    checkoutHost?: HTMLElement;
+    abortSignal?: AbortSignal;
   }): Promise<SyncPurchaseResult>;
   /** Restore prior purchases (e.g. on a new device). */
   restore(): Promise<void>;
@@ -59,6 +78,30 @@ export class PurchasesUnavailableError extends Error {
   constructor(message = "Purchases are not available on this platform") {
     super(message);
     this.name = "PurchasesUnavailableError";
+  }
+}
+
+/**
+ * Thrown when the buyer dismisses the provider checkout without completing the
+ * purchase. Callers should treat it as a no-op, not a failure.
+ */
+export class PurchaseCancelledError extends Error {
+  constructor(message = "The purchase was cancelled") {
+    super(message);
+    this.name = "PurchaseCancelledError";
+  }
+}
+
+/**
+ * A {@link PurchaseCancelledError} raised before any checkout UI mounted —
+ * the purchase was abandoned (aborted) while still preparing. Distinct from
+ * the base class so callers can tell "nothing ever existed on screen" apart
+ * from a mounted checkout that was cancelled and torn down.
+ */
+export class PurchaseAbortedError extends PurchaseCancelledError {
+  constructor(message = "The purchase was abandoned before checkout") {
+    super(message);
+    this.name = "PurchaseAbortedError";
   }
 }
 
@@ -88,8 +131,18 @@ export interface RevenueCatBackend {
   logOut(): Promise<void>;
   setAttributes(attributes: Record<string, string | null>): Promise<void>;
   getCurrentPackages(): Promise<RevenueCatPackage[]>;
+  /**
+   * `htmlTarget` embeds the provider checkout in the given element (Web
+   * Billing); backends with a native checkout ignore it. `metadata` is
+   * attached to the provider transaction itself (Web Billing only) and
+   * `abortSignal` asks the backend to stop before mounting a checkout when the
+   * caller has already abandoned the flow; native backends ignore both.
+   */
   purchasePackage(input: {
     packageId: string;
+    htmlTarget?: HTMLElement;
+    metadata?: Record<string, string>;
+    abortSignal?: AbortSignal;
   }): Promise<RevenueCatCustomerInfo>;
   getCustomerInfo(): Promise<RevenueCatCustomerInfo>;
   restorePurchases(): Promise<RevenueCatCustomerInfo>;
@@ -106,6 +159,12 @@ export interface RevenueCatPurchasesConfig {
    * "orgId".
    */
   readonly organizationAttributeKey?: string;
+  /**
+   * Whether this platform's backend honors `checkoutHost` with a cancellable
+   * embedded checkout (Web Billing). Defaults to false — native store sheets
+   * carry their own dismissal.
+   */
+  readonly supportsEmbeddedCheckout?: boolean;
 }
 
 const DEFAULT_ORGANIZATION_ATTRIBUTE_KEY = "orgId";
@@ -148,6 +207,7 @@ export function createRevenueCatPurchases(
 
   return {
     isAvailable: true,
+    supportsEmbeddedCheckout: config.supportsEmbeddedCheckout ?? false,
     async identify(input) {
       await ensureConfigured(input.userId);
       await backend.logIn({ appUserId: input.userId });
@@ -168,14 +228,36 @@ export function createRevenueCatPurchases(
       }));
     },
     async purchaseSync(input) {
-      await ensureConfigured();
-      // Bind the purchase to the org BEFORE buying so the resulting provider
-      // event carries the organization attribute the webhook resolves against.
-      await backend.setAttributes({
-        [organizationAttributeKey]: input.organizationId,
-      });
+      try {
+        await ensureConfigured();
+        // Bind the purchase to the org BEFORE buying so the resulting
+        // provider event carries the organization attribute the webhook
+        // resolves against. The attribute is customer-level and mutable — a
+        // later purchase for a different org overwrites it — so it alone
+        // cannot attribute a purchase that completes after another started.
+        await backend.setAttributes({
+          [organizationAttributeKey]: input.organizationId,
+        });
+      } catch (error) {
+        // A failure while still preparing a purchase the caller has already
+        // abandoned is not a real outcome. Normalize it to the pre-checkout
+        // abort so callers can rely on PurchaseAbortedError meaning "no
+        // checkout ever mounted" (vs. a mounted checkout failing later).
+        if (input.abortSignal?.aborted) {
+          throw new PurchaseAbortedError();
+        }
+        throw error;
+      }
       const info = await backend.purchasePackage({
         packageId: input.packageId,
+        // Also stamp the org onto the transaction itself (Web Billing
+        // metadata). Unlike the subscriber attribute this is immutable per
+        // purchase, so the webhook can attribute a late-completing purchase
+        // to the org it was actually started for, no matter what was bought
+        // in between. Native backends ignore it and rely on the attribute.
+        metadata: { [organizationAttributeKey]: input.organizationId },
+        ...(input.checkoutHost ? { htmlTarget: input.checkoutHost } : {}),
+        ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
       });
       return { syncEntitlementActive: holdsSyncEntitlement(info) };
     },
@@ -199,6 +281,7 @@ export function createRevenueCatPurchases(
 export function createUnavailablePurchases(): PurchasesCapability {
   return {
     isAvailable: false,
+    supportsEmbeddedCheckout: false,
     identify() {
       return Promise.resolve();
     },

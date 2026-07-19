@@ -131,13 +131,24 @@ AGENT_TOOL="$ROOT_DIR/packages/agent-tool/src/index.ts"
 
 3. **Commit and push**: Run the repository's relevant preflight, review the
    final diff, stage only intended paths, and commit any uncommitted work with a
-   valid conventional subject. Use separate commits for distinct changes when
-   useful. Confirm the branch has commits ahead of `origin/$DEFAULT_BRANCH`,
-   then push without force:
+   valid conventional subject — and never with a `Co-authored-by` trailer,
+   which the pre-push hook rejects. Use separate commits for distinct changes
+   when useful. Confirm the branch has commits ahead of
+   `origin/$DEFAULT_BRANCH`, then push without force:
 
    ```bash
    git push -u origin "$BRANCH"
    ```
+
+   If the push is rejected and `checkCommitTrust`'s co-author check is the
+   **only** failure, treat it as mechanical, not as a defect in the work:
+   rewrite the offending commit message(s) to delete the `Co-authored-by`
+   line(s) — `git commit --amend` for HEAD, a non-interactive reword for
+   earlier commits — without touching any tree, then push again. Report the
+   old and new head SHAs and state that the rewrite was message-only, so a
+   caller such as `ship-pr` can keep treating the content as reviewed instead
+   of triggering a re-review. Any other pre-push failure (missing signature,
+   failing checks) keeps its normal handling: fix it or stop and report.
 
 4. **Open the PR** (title single-quoted; body via a quoted heredoc):
 

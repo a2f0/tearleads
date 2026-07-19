@@ -92,17 +92,33 @@ export function readRevenueCatWebhookAuthToken(
 }
 
 /**
- * Resolves the organization a RevenueCat event is paying for from its `orgId`
- * subscriber attribute. Returns null when the attribute is missing or not a
- * valid organization id (which a caller treats as an ignorable event rather
- * than querying the database with a malformed id).
+ * Resolves the organization a RevenueCat event is paying for.
+ *
+ * Preferred source is the event's transaction `metadata` (Web Billing): the
+ * client stamps `orgId` onto each purchase there, and it is immutable per
+ * transaction — a purchase that completes late is still attributed to the org
+ * it was started for, even if the buyer began another org's purchase in the
+ * meantime. The `orgId` *subscriber attribute* is customer-level and mutable
+ * (each purchase overwrites it), so it is only the fallback for events that
+ * carry no metadata — native store purchases, and events emitted before the
+ * metadata stamping shipped.
+ *
+ * Returns null when neither source holds a valid organization id (which a
+ * caller treats as an ignorable event rather than querying the database with a
+ * malformed id).
  */
 export function resolveOrganizationIdFromEvent(
   event: RevenueCatWebhookEvent,
 ): string | null {
-  const value =
+  const metadataValue = event.metadata?.[ORGANIZATION_SUBSCRIBER_ATTRIBUTE];
+  if (typeof metadataValue === "string" && isUuidV4String(metadataValue)) {
+    return metadataValue;
+  }
+  const attributeValue =
     event.subscriber_attributes?.[ORGANIZATION_SUBSCRIBER_ATTRIBUTE]?.value;
-  return typeof value === "string" && isUuidV4String(value) ? value : null;
+  return typeof attributeValue === "string" && isUuidV4String(attributeValue)
+    ? attributeValue
+    : null;
 }
 
 function resolveEntitlementId(event: RevenueCatWebhookEvent): string | null {

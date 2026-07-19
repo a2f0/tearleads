@@ -14,6 +14,7 @@ export const ORG_MANAGER_LABELS = {
     "Activation can take a moment after purchase — refresh to check.",
   billingActive: "Active subscription",
   billingAdminOnly: "Only an organization admin can manage billing.",
+  billingCancelCheckout: "Cancel checkout",
   billingDeleting: "Deleting remote data",
   billingDisabled: "Sync disabled",
   billingHistoryActivityTab: "Activity",
