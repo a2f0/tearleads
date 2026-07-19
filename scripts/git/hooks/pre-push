@@ -42,7 +42,9 @@ done
 
 IFS=$old_ifs
 
-find "$REPO_ROOT/scripts/git/hooks" -name '*.sh' -exec shellcheck {} +
+# Git hooks are installed under their exact hook names, so they carry no .sh
+# extension — match every regular file here rather than a glob that never hits.
+find "$REPO_ROOT/scripts/git/hooks" -type f -exec shellcheck {} +
 
 echo "Running terraform linting..."
 "$REPO_ROOT/scripts/checks/checkTerraform.sh"
