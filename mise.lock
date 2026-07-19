@@ -72,16 +72,19 @@ url = "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
 url_api = "https://api.github.com/repos/tlaplus/tlaplus/releases/assets/184694200"
 
 [tools."github:tlaplus/tlaplus"."platforms.linux-x64-baseline"]
-url = "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/TLAToolbox-1.7.4-linux.gtk.x86_64.zip"
-url_api = "https://api.github.com/repos/tlaplus/tlaplus/releases/assets/184694203"
+checksum = "sha256:936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88"
+url = "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar"
+url_api = "https://api.github.com/repos/tlaplus/tlaplus/releases/assets/184694200"
 
 [tools."github:tlaplus/tlaplus"."platforms.linux-x64-musl"]
-url = "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/TLAToolbox-1.7.4-linux.gtk.x86_64.zip"
-url_api = "https://api.github.com/repos/tlaplus/tlaplus/releases/assets/184694203"
+checksum = "sha256:936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88"
+url = "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar"
+url_api = "https://api.github.com/repos/tlaplus/tlaplus/releases/assets/184694200"
 
 [tools."github:tlaplus/tlaplus"."platforms.linux-x64-musl-baseline"]
-url = "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/TLAToolbox-1.7.4-linux.gtk.x86_64.zip"
-url_api = "https://api.github.com/repos/tlaplus/tlaplus/releases/assets/184694203"
+checksum = "sha256:936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88"
+url = "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar"
+url_api = "https://api.github.com/repos/tlaplus/tlaplus/releases/assets/184694200"
 
 [tools."github:tlaplus/tlaplus"."platforms.macos-arm64"]
 checksum = "sha256:936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88"
