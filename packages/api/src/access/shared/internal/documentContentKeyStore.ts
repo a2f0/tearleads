@@ -513,10 +513,7 @@ export async function getLatestCurrentDocumentContentKeyBundle(
       return refreshedBundle;
     }
 
-    throw new DocumentContentKeyBundleError(
-      "Document content-key bundle is stale",
-      409,
-    );
+    throw staleBundle("Document content-key bundle is stale");
   }
   assertTargetsMatchCurrent({
     currentTargets: input.currentTargets,

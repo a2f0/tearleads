@@ -13,6 +13,7 @@ import type {
   AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
   DocumentNotFoundErrorCode,
+  DocumentSyncErrorCode,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
@@ -59,7 +60,10 @@ export class DocumentWriterProjectionError extends Error {
   constructor(
     message: string,
     readonly status: DocumentWriterProjectionStatus,
-    readonly code?: DocumentNotFoundErrorCode | undefined,
+    readonly code?:
+      | DocumentNotFoundErrorCode
+      | DocumentSyncErrorCode
+      | undefined,
   ) {
     super(message);
     this.name = "DocumentWriterProjectionError";
@@ -648,7 +652,7 @@ async function resolveDocumentWriterProjection(input: {
     );
   } catch (error) {
     if (error instanceof DocumentContentKeyBundleError) {
-      throw new DocumentWriterProjectionError(error.message, 409);
+      throw new DocumentWriterProjectionError(error.message, 409, error.code);
     }
     throw error;
   }
