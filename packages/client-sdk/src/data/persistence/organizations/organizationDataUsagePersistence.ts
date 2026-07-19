@@ -12,12 +12,14 @@ import {
   organizationDataUsageSnapshots,
   organizationDataUsageTables,
 } from "../../sqlite/organizationDataUsageSchema";
+import { organizationReadModelTables } from "../../sqlite/organizationReadModelTableRegistry";
 import {
   type ClientSQLiteTransaction,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { ensureSqlTables } from "../../sqlite/sqlTableSchema";
+import { clearOrganizationPresentationDenialInTransaction } from "./organizationPresentationDenialPersistence";
 
 type StoredCategory = typeof organizationDataUsageCategories.$inferSelect;
 type StoredSnapshot = typeof organizationDataUsageSnapshots.$inferSelect;
@@ -235,9 +237,20 @@ export async function saveOrganizationDataUsageProjection(input: {
 }): Promise<void> {
   const response = parseResponse(input.response);
   requireScope(response.organizationId, input.requesterUserId);
-  await ensureSqlTables(input.execSql, organizationDataUsageTables);
+  await ensureSqlTables(input.execSql, [
+    ...organizationDataUsageTables,
+    ...organizationReadModelTables,
+  ]);
   await getClientSQLitePersistenceRuntime(input.execSql).transaction(
     async (tx) => {
+      // Storing an authoritative usage response proves access: retire any
+      // durable denial marker for this scope in the same transaction.
+      await clearOrganizationPresentationDenialInTransaction({
+        organizationId: response.organizationId,
+        projection: "usage",
+        requesterUserId: input.requesterUserId,
+        tx,
+      });
       const scope = and(
         eq(
           organizationDataUsageCategories.organizationId,

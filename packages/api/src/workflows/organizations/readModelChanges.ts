@@ -15,6 +15,7 @@ import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { pruneOrganizationReadModelChangesInTransaction } from "./readModelRetention";
 
 export interface ObservedOrganizationReadModelChange {
+  readonly affectedUserIds: readonly string[];
   readonly cursor: bigint;
   readonly organizationId: string;
 }
@@ -24,9 +25,50 @@ export interface CommittedOrganizationReadModelChange
   readonly recipientUserIds: readonly string[];
 }
 
+interface ObservedOrganizationState {
+  readonly affectedUserIds: Set<string>;
+  cursor: bigint | null;
+}
+
 const organizationReadModelChangeScope = new AsyncLocalStorage<
-  Map<string, bigint>
+  Map<string, ObservedOrganizationState>
 >();
+
+function observedOrganizationState(
+  store: Map<string, ObservedOrganizationState>,
+  organizationId: string,
+): ObservedOrganizationState {
+  let state = store.get(organizationId);
+  if (!state) {
+    state = { affectedUserIds: new Set(), cursor: null };
+    store.set(organizationId, state);
+  }
+  return state;
+}
+
+/**
+ * Add users whose organization access this request's mutation transitioned to
+ * the hint audience. The post-commit audience query returns active roster
+ * rows only, so the one member a removal or disable affects would otherwise
+ * never be woken to discover the denial. Recorded users are published only
+ * when a read-model change for the organization is also observed and commits.
+ */
+export function recordOrganizationReadModelChangeAudience(
+  organizationId: string,
+  userIds: readonly string[],
+): void {
+  if (userIds.length === 0) {
+    return;
+  }
+  const store = organizationReadModelChangeScope.getStore();
+  if (!store) {
+    return;
+  }
+  const state = observedOrganizationState(store, organizationId);
+  for (const userId of userIds) {
+    state.affectedUserIds.add(userId);
+  }
+}
 
 /**
  * Collect the highest cursor observed for each organization while one HTTP
@@ -40,13 +82,23 @@ export async function collectOrganizationReadModelChanges<T>(
   readonly observedChanges: readonly ObservedOrganizationReadModelChange[];
   readonly result: T;
 }> {
-  const observedCursors = new Map<string, bigint>();
+  const observedStates = new Map<string, ObservedOrganizationState>();
   const result = await organizationReadModelChangeScope.run(
-    observedCursors,
+    observedStates,
     operation,
   );
-  const observedChanges = [...observedCursors]
-    .map(([organizationId, cursor]) => ({ cursor, organizationId }))
+  const observedChanges = [...observedStates]
+    .flatMap(([organizationId, state]) =>
+      state.cursor !== null
+        ? [
+            {
+              affectedUserIds: [...state.affectedUserIds].sort(),
+              cursor: state.cursor,
+              organizationId,
+            },
+          ]
+        : [],
+    )
     .sort((left, right) =>
       left.organizationId.localeCompare(right.organizationId),
     );
@@ -56,6 +108,9 @@ export async function collectOrganizationReadModelChanges<T>(
 /**
  * Keep only observations that are visible in committed cursor heads and attach
  * each organization's current active-roster audience in the same batched read.
+ * Users the observed mutation recorded as access-affected join that audience:
+ * a removed or disabled member is no longer an active roster row, yet is
+ * exactly the user who must be woken to discover the denial.
  *
  * If the observing transaction rolled back, its head increment rolled back as
  * well. If another transaction subsequently reaches the same or a later
@@ -115,14 +170,18 @@ export async function listCommittedOrganizationReadModelChanges(
     const recipientUserIds = recipientUserIdsByOrganizationId.get(
       change.organizationId,
     );
-    return recipientUserIds
-      ? [
-          {
-            ...change,
-            recipientUserIds: [...recipientUserIds].sort(),
-          },
-        ]
-      : [];
+    if (!recipientUserIds) {
+      return [];
+    }
+    for (const userId of change.affectedUserIds) {
+      recipientUserIds.add(userId);
+    }
+    return [
+      {
+        ...change,
+        recipientUserIds: [...recipientUserIds].sort(),
+      },
+    ];
   });
 }
 
@@ -213,10 +272,12 @@ export async function appendOrganizationReadModelChangeInTransaction(
     organizationId: input.organizationId,
     tx,
   });
-  const observedCursors = organizationReadModelChangeScope.getStore();
-  const observedCursor = observedCursors?.get(input.organizationId);
-  if (observedCursor === undefined || head.cursor > observedCursor) {
-    observedCursors?.set(input.organizationId, head.cursor);
+  const store = organizationReadModelChangeScope.getStore();
+  if (store) {
+    const observed = observedOrganizationState(store, input.organizationId);
+    if (observed.cursor === null || head.cursor > observed.cursor) {
+      observed.cursor = head.cursor;
+    }
   }
 
   return { cursor: head.cursor.toString() };

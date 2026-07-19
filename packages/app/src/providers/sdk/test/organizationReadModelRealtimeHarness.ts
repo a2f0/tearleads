@@ -7,6 +7,7 @@ const USER_A = "00000000-0000-4000-8000-00000000001a";
 export const USER_B = "00000000-0000-4000-8000-00000000001b";
 
 export function createRuntimeHarness(input?: {
+  readonly execSql?: (sql: string) => Promise<unknown[]>;
   readonly loadDirectoryAndGroups?: () => Promise<unknown>;
 }) {
   let auth = {
@@ -43,7 +44,15 @@ export function createRuntimeHarness(input?: {
       loadDirectoryAndGroupsAfterMutation: loadDirectoryAndGroups,
     },
     runtime: {
-      input: () => ({ auth, state: { domainScope, online } }),
+      // Invalidation subscriptions register only against a ready database;
+      // harness runs without one unless a test supplies an execSql stub.
+      input: () => ({
+        auth,
+        infra: input?.execSql
+          ? { dbStatus: "ready", execSql: input.execSql }
+          : { dbStatus: "idle" },
+        state: { domainScope, online },
+      }),
     },
   } as unknown as Tearleads;
 

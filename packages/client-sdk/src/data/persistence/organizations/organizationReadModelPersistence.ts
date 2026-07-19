@@ -16,7 +16,9 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import { clearOrganizationPresentationDenialInTransaction } from "./organizationPresentationDenialPersistence";
 import { applyOrganizationReadModelGrantsLane } from "./organizationReadModelGrantPersistence";
+import { notifyOrganizationReadModelInvalidated } from "./organizationReadModelInvalidation";
 import {
   applyGroupMembershipsLane,
   assertStoredGroupMembershipBindings,
@@ -33,7 +35,11 @@ import {
   ORGANIZATION_READ_MODEL_PROTOCOL_VERSION,
   OrganizationReadModelIntegrityError,
 } from "./organizationReadModelProtocol";
-import { purgeOrganizationReadModelProjectionInTransaction } from "./organizationReadModelPurge";
+import {
+  pruneInactiveOrganizationRequestersInTransaction,
+  purgeOrganizationReadModelProjectionInTransaction,
+} from "./organizationReadModelPurge";
+import { assertOrganizationReadModelResponse } from "./organizationReadModelResponseAssertions";
 
 export type { OrganizationReadModelProjection } from "./organizationReadModelProjection";
 
@@ -50,76 +56,6 @@ interface CurrentOrganizationReadModelState {
   readonly memberGroupId: string;
   readonly profileDocumentId: string | null;
   readonly protocolVersion: number;
-}
-
-function assertUniqueIds(values: ReadonlyArray<string>, label: string): void {
-  if (new Set(values).size !== values.length) {
-    throw new Error(`Organization read-model ${label} contains duplicate IDs`);
-  }
-}
-
-function assertResponse(input: {
-  readonly currentUserId: string;
-  readonly response: OrganizationReadModelResponse;
-}): void {
-  const { response } = input;
-  if (response.version !== ORGANIZATION_READ_MODEL_PROTOCOL_VERSION) {
-    throw new Error("Organization read-model protocol version is unsupported");
-  }
-  if (
-    response.lanes.directory?.organizationId !== undefined &&
-    response.lanes.directory.organizationId !== response.organizationId
-  ) {
-    throw new Error("Organization directory response scope does not match");
-  }
-  if (
-    response.lanes.groups?.organizationId !== undefined &&
-    response.lanes.groups.organizationId !== response.organizationId
-  ) {
-    throw new Error("Organization groups response scope does not match");
-  }
-  if (
-    response.lanes.groupMemberships?.organizationId !== undefined &&
-    response.lanes.groupMemberships.organizationId !== response.organizationId
-  ) {
-    throw new Error("Organization group memberships scope does not match");
-  }
-  if (
-    response.lanes.grants?.organizationId !== undefined &&
-    response.lanes.grants.organizationId !== response.organizationId
-  ) {
-    throw new Error("Organization grants response scope does not match");
-  }
-  if (
-    response.lanes.organizationPolicy?.organizationId !== undefined &&
-    response.lanes.organizationPolicy.organizationId !== response.organizationId
-  ) {
-    throw new Error("Organization policy response scope does not match");
-  }
-  if (
-    response.lanes.groups?.groups.some(
-      (group) => group.organizationId !== response.organizationId,
-    )
-  ) {
-    throw new Error("Organization group row scope does not match");
-  }
-
-  const directoryUsers = response.lanes.directory?.users ?? [];
-  assertUniqueIds(
-    directoryUsers.map((user) => user.userId),
-    "directory",
-  );
-  if (
-    directoryUsers.some(
-      (user) => user.isSelf !== (user.userId === input.currentUserId),
-    )
-  ) {
-    throw new Error("Organization directory requester flags do not match");
-  }
-  assertUniqueIds(
-    response.lanes.groups?.groups.map((group) => group.groupId) ?? [],
-    "groups",
-  );
 }
 
 async function replaceDirectoryLane(input: {
@@ -192,6 +128,32 @@ async function upsertRequester(input: {
       },
     })
     .run();
+  // Storing an authoritative response proves access: retire the durable
+  // denial marker for this scope in the same transaction.
+  await clearOrganizationPresentationDenialInTransaction({
+    organizationId: input.organizationId,
+    projection: "readModel",
+    requesterUserId: input.currentUserId,
+    tx: input.tx,
+  });
+}
+
+/** The directory lane is the authoritative roster: requester rows for users
+ * it no longer lists as active must fall with it. */
+async function pruneRequestersForDirectoryLane(input: {
+  readonly currentUserId: string;
+  readonly directory: OrganizationReadModelDirectoryResponse;
+  readonly organizationId: string;
+  readonly tx: ClientSQLiteTransaction;
+}): Promise<void> {
+  await pruneInactiveOrganizationRequestersInTransaction({
+    activeUserIds: input.directory.users
+      .filter((user) => user.status === "active")
+      .map((user) => user.userId),
+    organizationId: input.organizationId,
+    retainUserId: input.currentUserId,
+    tx: input.tx,
+  });
 }
 
 async function replaceGroupsLane(input: {
@@ -324,7 +286,10 @@ export async function loadOrganizationReadModelProjection(
   currentUserId: string,
 ): Promise<OrganizationReadModelProjection | null> {
   await ensureSqlTables(execSql, organizationReadModelTables);
-  return getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
+  let purgedInvalidRows = false;
+  const projection = await getClientSQLitePersistenceRuntime(
+    execSql,
+  ).transaction(async (tx) => {
     const current = await loadCurrentState(tx, organizationId);
     if (
       current &&
@@ -334,6 +299,7 @@ export async function loadOrganizationReadModelProjection(
         organizationId,
         tx,
       });
+      purgedInvalidRows = true;
       return null;
     }
     try {
@@ -353,9 +319,16 @@ export async function loadOrganizationReadModelProjection(
         organizationId,
         tx,
       });
+      purgedInvalidRows = true;
       return null;
     }
   });
+  if (purgedInvalidRows) {
+    // Realtime consumers may hold a caught-up lease over rows that no longer
+    // exist; the notification lets them drop it and refetch authoritatively.
+    notifyOrganizationReadModelInvalidated(execSql, organizationId);
+  }
+  return projection;
 }
 
 export async function applyOrganizationReadModelResponse(input: {
@@ -364,7 +337,7 @@ export async function applyOrganizationReadModelResponse(input: {
   readonly requestedCursor: string | null;
   readonly response: OrganizationReadModelResponse;
 }): Promise<ApplyOrganizationReadModelResponseResult> {
-  assertResponse({
+  assertOrganizationReadModelResponse({
     currentUserId: input.currentUserId,
     response: input.response,
   });
@@ -410,6 +383,15 @@ export async function applyOrganizationReadModelResponse(input: {
         response: input.response,
         tx,
       });
+      const directoryLane = input.response.lanes.directory;
+      if (directoryLane) {
+        await pruneRequestersForDirectoryLane({
+          currentUserId: input.currentUserId,
+          directory: directoryLane,
+          organizationId: input.response.organizationId,
+          tx,
+        });
+      }
       if (
         input.response.lanes.groups ||
         input.response.lanes.groupMemberships
@@ -420,15 +402,13 @@ export async function applyOrganizationReadModelResponse(input: {
           tx,
         });
       }
-      const directory = input.response.lanes.directory;
-
       const stateRow = {
         organizationId: input.response.organizationId,
         protocolVersion: input.response.version,
         cursor: input.response.nextCursor,
         profileDocumentId:
-          directory !== undefined
-            ? directory.profileDocumentId
+          directoryLane !== undefined
+            ? directoryLane.profileDocumentId
             : (current?.profileDocumentId ?? null),
         memberGroupId,
         updatedAt: now,

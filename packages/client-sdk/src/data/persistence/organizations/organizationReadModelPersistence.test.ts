@@ -8,6 +8,7 @@ import {
   organizationReadModelOrganizationPolicy as organizationPolicy,
   organizationReadModelSnapshot as snapshot,
 } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
+import { subscribeOrganizationReadModelInvalidation } from "./organizationReadModelInvalidation";
 import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,
@@ -407,6 +408,11 @@ test("an inexact persisted policy head purges the projection on load", async () 
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-policy-head-binding-test",
   );
+  const invalidations: string[] = [];
+  const unsubscribe = subscribeOrganizationReadModelInvalidation(
+    execSql,
+    (organizationId) => invalidations.push(organizationId),
+  );
 
   try {
     await applyOrganizationReadModelResponse({
@@ -423,10 +429,12 @@ test("an inexact persisted policy head purges the projection on load", async () 
 
     // Invalid stored rows self-heal: the load purges the projection so the
     // next reconcile requests a cursorless snapshot instead of failing every
-    // read and repair pass on the same row.
+    // read and repair pass on the same row, and notifies realtime consumers
+    // that their caught-up lease no longer covers stored rows.
     expect(
       await loadOrganizationReadModelProjection(execSql, "org-1", "user-1"),
     ).toBeNull();
+    expect(invalidations).toEqual(["org-1"]);
     const stateRows = await execSql(
       "SELECT COUNT(*) FROM organization_read_model_state WHERE organization_id = 'org-1'",
       undefined,
@@ -446,7 +454,10 @@ test("an inexact persisted policy head purges the projection on load", async () 
       "user-1",
     );
     expect(reapplied?.cursor).toBe("cursor-2");
+    // A clean load does not notify.
+    expect(invalidations).toEqual(["org-1"]);
   } finally {
+    unsubscribe();
     close();
   }
 });

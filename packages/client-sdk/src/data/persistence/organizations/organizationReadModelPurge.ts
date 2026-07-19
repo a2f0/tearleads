@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, ne, notInArray } from "drizzle-orm";
 import {
   organizationReadModelContainerGrants,
   organizationReadModelDirectoryUsers,
@@ -10,6 +10,38 @@ import {
   organizationReadModelState,
 } from "../../sqlite/organizationReadModelSchema";
 import type { ClientSQLiteTransaction } from "../../sqlite/sqlitePersistenceRuntime";
+
+/**
+ * Retire requester rows for users the just-applied authoritative directory no
+ * longer lists as active. Without this, a removed member whose identity
+ * shares the database keeps presentation access until it personally sees a
+ * 403. The applying requester's own row is never pruned here: the server
+ * response that carried this directory already proved that user's access.
+ */
+export async function pruneInactiveOrganizationRequestersInTransaction(input: {
+  readonly activeUserIds: readonly string[];
+  readonly organizationId: string;
+  readonly retainUserId: string;
+  readonly tx: ClientSQLiteTransaction;
+}): Promise<void> {
+  const scope = and(
+    eq(organizationReadModelRequesters.organizationId, input.organizationId),
+    ne(organizationReadModelRequesters.userId, input.retainUserId),
+  );
+  await input.tx
+    .delete(organizationReadModelRequesters)
+    .where(
+      input.activeUserIds.length > 0
+        ? and(
+            scope,
+            notInArray(organizationReadModelRequesters.userId, [
+              ...input.activeUserIds,
+            ]),
+          )
+        : scope,
+    )
+    .run();
+}
 
 export async function purgeOrganizationReadModelProjectionInTransaction(input: {
   readonly organizationId: string;

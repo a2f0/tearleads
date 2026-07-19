@@ -11,6 +11,7 @@ import {
   organizationDataUsageSnapshots,
 } from "../../data/sqlite/organizationDataUsageSchema";
 import {
+  organizationPresentationDenials,
   organizationReadModelContainerGrants,
   organizationReadModelDirectoryUsers,
   organizationReadModelGroupMembers,
@@ -247,6 +248,9 @@ async function clearRemoteDerivedRows(
   await tx.delete(organizationReadModelPolicyHeads).run();
   await tx.delete(organizationReadModelRequesters).run();
   await tx.delete(organizationReadModelState).run();
+  // A reset denial is a local lifecycle event, not a server verdict: the next
+  // session re-derives access, so durable denial markers must not survive.
+  await tx.delete(organizationPresentationDenials).run();
   await tx.delete(principalPolicies).run();
   await tx.delete(documentContainerProjection).run();
   await tx.delete(documentMoveIntents).run();

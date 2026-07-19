@@ -1,4 +1,7 @@
-import type { Tearleads } from "@tearleads/client-sdk";
+import {
+  subscribeOrganizationReadModelInvalidation,
+  type Tearleads,
+} from "@tearleads/client-sdk";
 import {
   activeDemandOrganizationId,
   activeDemandScope,
@@ -106,6 +109,36 @@ function syncOrganizationInterest(
   state.pendingDeclaration = { declarationId, organizationId, socket: ws };
 }
 
+/** A load-path purge (protocol mismatch or integrity failure) deletes the
+ * durable rows a consumer painted while the caught-up lease says nothing
+ * changed. Drop the lease and refetch authoritatively instead of leaving the
+ * stale paint in place until the next unrelated hint. */
+function subscribeProjectionInvalidation(
+  tearleads: Tearleads,
+  state: OrganizationRealtimeState,
+  organizationId: string,
+): (() => void) | null {
+  const runtimeInput = tearleads.runtime.input();
+  if (runtimeInput.infra.dbStatus !== "ready") {
+    return null;
+  }
+  return subscribeOrganizationReadModelInvalidation(
+    runtimeInput.infra.execSql,
+    (invalidatedOrganizationId) => {
+      if (invalidatedOrganizationId !== organizationId) {
+        return;
+      }
+      if (state.caughtUpScope?.organizationId === organizationId) {
+        state.caughtUpScope = null;
+      }
+      void scheduleOrganizationReadModelReconciliationAfterActivePass(
+        tearleads,
+        organizationId,
+      );
+    },
+  );
+}
+
 /** Register actual projection demand. No mounted consumer means no websocket
  * organization interest and therefore no background read-model request. */
 export function subscribeOrganizationReadModelRealtime(
@@ -135,6 +168,11 @@ export function subscribeOrganizationReadModelRealtime(
   listeners.add(subscription);
   state.listenersByOrganizationId.set(organizationId, listeners);
   syncOrganizationInterest(tearleads, state);
+  const unsubscribeInvalidation = subscribeProjectionInvalidation(
+    tearleads,
+    state,
+    organizationId,
+  );
   // The first active exact-scope consumer owns catch-up. A new declaration
   // waits for the server acknowledgement that authorization/indexing finished;
   // additional consumers share the pass and warm same-task route remounts keep
@@ -166,6 +204,7 @@ export function subscribeOrganizationReadModelRealtime(
       return;
     }
     subscription.active = false;
+    unsubscribeInvalidation?.();
     const deferredSelfHint =
       state.deferredSelfHintByOrganizationId.get(organizationId);
     const abandonedSelfHint =

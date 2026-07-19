@@ -8,6 +8,10 @@ import {
   purgeOrganizationDataUsageProjection,
   saveOrganizationDataUsageProjection,
 } from "../../data/persistence/organizations/organizationDataUsagePersistence";
+import {
+  hasOrganizationPresentationDenial,
+  recordOrganizationPresentationDenials,
+} from "../../data/persistence/organizations/organizationPresentationDenialPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   captureOrganizationPresentationAccessAttempt,
@@ -48,6 +52,11 @@ export async function loadLocalOrganizationDataUsage(
   if (!isOrganizationPresentationAccessReadable(input, "usage")) {
     return null;
   }
+  // Mirrors the read-model gate: a durable denial marker outlives the
+  // process, so a failed purge plus a restart cannot serve revoked usage.
+  if (await hasOrganizationPresentationDenial(input, "usage")) {
+    return null;
+  }
   const projection = await loadOrganizationDataUsageProjection(
     input.execSql,
     input.organizationId,
@@ -71,6 +80,18 @@ export async function reconcileOrganizationDataUsage(
   if (!result.ok) {
     if (result.status === 403 || result.status === 404) {
       denyOrganizationPresentationAccess(input, ["usage"]);
+      // Durable marker first: a failed purge plus a restart must not serve
+      // the revoked usage projection.
+      try {
+        await runOrganizationPresentationMutation(input.execSql, () =>
+          recordOrganizationPresentationDenials(input, ["usage"]),
+        );
+      } catch (error) {
+        input.logError?.(
+          "Failed to record denied organization data usage",
+          error,
+        );
+      }
       try {
         await runOrganizationPresentationMutation(input.execSql, () =>
           purgeOrganizationDataUsageProjection(

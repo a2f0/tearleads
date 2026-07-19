@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   organizationReadModelDelta as delta,
+  organizationReadModelDirectory as directory,
+  organizationReadModelDirectoryUser as directoryUser,
   organizationReadModelGroups as groups,
   organizationReadModelSnapshot as snapshot,
 } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
@@ -208,6 +210,74 @@ test("concurrent requester responses preserve both requester projections", async
     expect(userTwo?.requester).toEqual({ isOrgAdmin: false });
     expect(userOne?.groups).toEqual(groups("org-1", "concurrent"));
     expect(userTwo?.groups).toEqual(groups("org-1", "concurrent"));
+  } finally {
+    close();
+  }
+});
+
+test("directory replacement prunes requester rows for inactive users", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-requester-prune-test",
+  );
+
+  try {
+    await applyOrganizationReadModelResponse({
+      currentUserId: "user-1",
+      execSql,
+      requestedCursor: null,
+      response: snapshot("org-1", "cursor-1"),
+    });
+    const sharedDelta = delta({
+      groups: groups("org-1", "next"),
+      nextCursor: "cursor-2",
+      organizationId: "org-1",
+    });
+    await applyOrganizationReadModelResponse({
+      currentUserId: "user-1",
+      execSql,
+      requestedCursor: "cursor-1",
+      response: sharedDelta,
+    });
+    await applyOrganizationReadModelResponse({
+      currentUserId: "user-2",
+      execSql,
+      requestedCursor: "cursor-1",
+      response: { ...sharedDelta, currentUser: { isOrgAdmin: false } },
+    });
+    await expect(
+      loadOrganizationReadModelProjection(execSql, "org-1", "user-2"),
+    ).resolves.toMatchObject({ requester: { isOrgAdmin: false } });
+
+    // The authoritative directory now lists user-2 as disabled: the shared
+    // rows survive, but user-2's requester row must not.
+    await applyOrganizationReadModelResponse({
+      currentUserId: "user-1",
+      execSql,
+      requestedCursor: "cursor-2",
+      response: delta({
+        directory: directory("org-1", {
+          users: [
+            directoryUser("user-1", { isSelf: true }),
+            directoryUser("user-2", { status: "disabled" }),
+          ],
+        }),
+        nextCursor: "cursor-3",
+        organizationId: "org-1",
+      }),
+    });
+
+    const userTwo = await loadOrganizationReadModelProjection(
+      execSql,
+      "org-1",
+      "user-2",
+    );
+    expect(userTwo?.requester).toBeNull();
+    await expect(
+      loadOrganizationReadModelProjection(execSql, "org-1", "user-1"),
+    ).resolves.toMatchObject({
+      cursor: "cursor-3",
+      requester: { isOrgAdmin: true },
+    });
   } finally {
     close();
   }

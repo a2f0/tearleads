@@ -68,9 +68,11 @@ export interface OrganizationReadModelCoordinator {
   ): Promise<OrganizationUserDetail | null>;
   /**
    * Resolves `undefined` when the runtime declines without I/O (offline,
-   * database not ready, organization mismatch); `null` when the reconcile ran
-   * but produced nothing presentable — including an authoritative denial that
-   * purged the projection, which consumers must repaint.
+   * database not ready, organization mismatch) or when the feed failed with
+   * no locally retained projection — passes that must not count as caught
+   * up; `null` when the reconcile completed but produced nothing presentable
+   * — including an authoritative denial that purged the projection, which
+   * consumers must repaint.
    */
   reconcile(
     organizationId?: string | undefined,
@@ -106,7 +108,7 @@ class OrganizationReadModelCoordinatorImpl
 {
   private readonly reconciliationsByScope = new WeakMap<
     DomainScope,
-    Map<string, Promise<OrganizationDirectoryAndGroups | null>>
+    Map<string, Promise<OrganizationDirectoryAndGroups | null | undefined>>
   >();
   private readonly policyWarmersByScope = new WeakMap<
     DomainScope,
@@ -365,9 +367,12 @@ class OrganizationReadModelCoordinatorImpl
         // recorded a terminal failure. A transient denial during bootstrap
         // (e.g. a read-model 403 before grants propagate) also flips the
         // denied flag, and re-arming then would race the startup sync passes.
+        // A failed pass (`undefined`) proves nothing about restored access,
+        // so it must not re-arm either.
         if (
           accessWasDenied &&
           directoryAndGroups !== null &&
+          directoryAndGroups !== undefined &&
           (await hasRecordedTerminalSyncFailures(active.runtime.infra.execSql))
         ) {
           requestAllDomainSyncLanes(domainScope);

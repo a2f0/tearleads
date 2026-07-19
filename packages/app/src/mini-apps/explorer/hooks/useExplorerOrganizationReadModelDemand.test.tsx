@@ -49,7 +49,11 @@ function runtimeSnapshot(input: {
       organizationId: ORGANIZATION_ID,
       userId: input.userId ?? USER_A,
     },
-    infra: { dbStatus: input.dbStatus ?? "ready" },
+    // The real runtime always pairs a ready database with an ExecSql function.
+    infra: {
+      dbStatus: input.dbStatus ?? "ready",
+      execSql: async () => [],
+    },
     state: {
       domainScope: input.domainScope,
       online: input.online ?? true,

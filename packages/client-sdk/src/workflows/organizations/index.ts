@@ -1,4 +1,8 @@
 export {
+  type OrganizationReadModelInvalidationListener,
+  subscribeOrganizationReadModelInvalidation,
+} from "../../data/persistence/organizations/organizationReadModelInvalidation";
+export {
   loadOrganizationBilling,
   loadOrganizationBillingHistory,
   loadOrganizationBillingManagementUrl,
