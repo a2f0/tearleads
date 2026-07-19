@@ -341,9 +341,9 @@
       "lines": 531,
       "bytes": 18022
     },
-    "packages/app/src/mini-apps/explorer/Explorer.tsx": {
-      "lines": 493,
-      "bytes": 20022
+    "packages/client-sdk/src/stores/documents/documentStore/syncAttachments.ts": {
+      "lines": 510,
+      "bytes": 16056
     }
   },
   "categories": {

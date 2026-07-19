@@ -3,6 +3,7 @@ import type { BlobSourceSnapshot } from "../../../data/documents/blob/shared/blo
 import { markOriginatedDocuments } from "../../../sync/reconciliation/originatedDocuments";
 import type { uploadPreparedDocumentAttachment as uploadDocumentAttachment } from "../../../workflows/blobs/upload";
 import {
+  clearDocumentSyncFailure,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type PendingAttachmentRecord,
@@ -130,6 +131,15 @@ export async function syncPendingAttachments(
       remoteDocumentId,
     ]);
   }
+
+  // A settled attachment pass invalidates any recorded failure itself: a
+  // retried upload with no pending CRDT update never reaches the document
+  // submission that would otherwise clear it, and the stale row would flag the
+  // next unrelated edit as failed before it was attempted.
+  await clearDocumentSyncFailure(state.runtime.infra.execSql, {
+    appKind: DOCUMENTS_APP_KIND,
+    localId: state.localId,
+  });
 
   // The snapshot was already republished progressively inside the loop as each
   // attachment settled, so there is nothing left to publish here.

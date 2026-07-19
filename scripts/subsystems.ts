@@ -238,7 +238,6 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/stores/container-contents/`,
       `${sdk}/client/containerContents.ts`,
       `${sdk}/client/containerContentsTypes.ts`,
-      `${sdk}/client/discardPendingWriteAction.ts`,
     ],
   },
   {

@@ -54,13 +54,11 @@ import type {
   ContainerContents,
   ContainerDocumentLinks,
   ContainerInfoInput,
-  DiscardPendingWriteItemInput,
   DocumentInfoInput,
   MergeDocumentSummary,
   MoveDocumentToContainerInput,
   OpenContainerDocumentInput,
 } from "./containerContentsTypes";
-import { runDiscardPendingWrite } from "./discardPendingWriteAction";
 import {
   createOrganizationReadModelCoordinator,
   type OrganizationReadModelCoordinator,
@@ -436,21 +434,6 @@ class ContainerContentsService implements ContainerContents {
       ...input,
       execSql:
         runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
-    });
-  }
-
-  async discardPendingWrite(
-    input: DiscardPendingWriteItemInput,
-  ): Promise<boolean> {
-    const runtime = this.runtimeService.workflowInput();
-    if (runtime.infra.dbStatus !== "ready") {
-      return false;
-    }
-
-    return runDiscardPendingWrite({
-      item: input,
-      openTree: () => this.openTree(),
-      runtime,
     });
   }
 

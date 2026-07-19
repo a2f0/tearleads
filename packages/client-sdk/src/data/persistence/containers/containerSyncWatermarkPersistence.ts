@@ -349,42 +349,6 @@ export const sqlContainerSyncWatermarkPersistence = {
     });
   },
 
-  // Reset only the document-discovery lane for the given containers, so the
-  // next discovery pass re-lists their documents from scratch. Used when a
-  // synced document's local copy is discarded: an incremental pass would skip
-  // the unchanged server document and the discard would hide it indefinitely.
-  async deleteDocumentLaneWatermarksForContainers(
-    execSql: ExecSql,
-    containerIds: ReadonlyArray<string>,
-  ): Promise<void> {
-    const uniqueContainerIds = Array.from(new Set(containerIds));
-    if (uniqueContainerIds.length === 0) {
-      return;
-    }
-
-    await sqlContainerSyncWatermarkPersistence.ensureSchema(execSql);
-    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      await db
-        .delete(containerSyncWatermarks)
-        .where(
-          and(
-            eq(containerSyncWatermarks.laneKind, CONTAINER_DOCUMENTS_LANE),
-            inArray(containerSyncWatermarks.laneId, uniqueContainerIds),
-          ),
-        )
-        .run();
-      await db
-        .delete(containerSyncLaneChecks)
-        .where(
-          and(
-            eq(containerSyncLaneChecks.laneKind, CONTAINER_DOCUMENTS_LANE),
-            inArray(containerSyncLaneChecks.laneId, uniqueContainerIds),
-          ),
-        )
-        .run();
-    });
-  },
-
   async deleteWatermarksForContainers(
     execSql: ExecSql,
     containerIds: ReadonlyArray<string>,

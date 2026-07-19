@@ -30,9 +30,6 @@ import "./ExplorerWriteQueuePanel.css";
 
 interface ExplorerWriteQueuePanelProps {
   billingBlockedOrganizationId: string | null;
-  discardPendingWrite?:
-    | ((item: PendingWriteQueueItem) => Promise<boolean>)
-    | undefined;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   domainScope: DomainScope;
@@ -153,7 +150,6 @@ export function ExplorerWriteQueuePanelView(
       ) : (
         <ExplorerWriteQueueTable
           billingBlockedOrganizationId={params.billingBlockedOrganizationId}
-          discardPendingWrite={params.discardPendingWrite}
           items={params.items}
           nodes={params.nodes}
           openContainerInfoRoute={params.openContainerInfoRoute}
@@ -208,7 +204,6 @@ export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
   return (
     <ExplorerWriteQueuePanelView
       billingBlockedOrganizationId={params.billingBlockedOrganizationId}
-      discardPendingWrite={params.discardPendingWrite}
       error={state.error}
       isAuthenticated={params.isAuthenticated}
       items={state.items}

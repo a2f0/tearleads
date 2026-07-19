@@ -32,7 +32,6 @@ function createStore(onRemoteSync: () => void): DocumentStore {
     addRow: async () => "row-id",
     assertCanRotateContentKey: async () => new Uint8Array(),
     attachFiles: () => undefined,
-    discardLocal: async () => false,
     ensureInitialized: async () => true,
     getSnapshot: () => READY_SNAPSHOT,
     removeAttachment: () => undefined,

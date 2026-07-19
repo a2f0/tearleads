@@ -12,7 +12,6 @@ import type {
   DocumentSummary,
   DomainScope,
   OrganizationDirectoryAndGroups,
-  PendingWriteQueueItem,
   StoredDocumentKind,
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
@@ -118,9 +117,6 @@ interface ExplorerDetailPanelProps {
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
-  discardPendingWrite?:
-    | ((item: PendingWriteQueueItem) => Promise<boolean>)
-    | undefined;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   documentSummaries: ReadonlyArray<DocumentSummary>;
@@ -276,7 +272,6 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         blobPickTarget={params.blobPickTarget}
         blobStore={params.blobStore}
         billingBlockedOrganizationId={params.billingBlockedOrganizationId}
-        discardPendingWrite={params.discardPendingWrite}
         domainScope={params.domainScope}
         documentListRevision={params.documentListRevision}
         documentQueries={params.documentQueries}

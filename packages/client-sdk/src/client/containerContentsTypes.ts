@@ -68,16 +68,6 @@ export interface DocumentInfoInput {
 
 export type MergeDocumentSummary = (nextDocument: DocumentSummary) => void;
 
-/**
- * Selects the write-queue item to discard. Mirrors the identity fields of
- * `PendingWriteQueueItem` (`objectKind`, `namespace`, `localId`).
- */
-export interface DiscardPendingWriteItemInput {
-  localId: string;
-  namespace?: string | null | undefined;
-  objectKind: "container" | "document" | "unknown";
-}
-
 export interface OpenContainerDocumentInput {
   readonly containerId: string;
   readonly documentId?: string | null | undefined;
@@ -263,15 +253,6 @@ export interface ContainerContents {
    * then traverse matching blobs back to their owning local documents.
    */
   listBlobInfo(input?: BlobInfoInput | undefined): Promise<BlobInfoList>;
-
-  /**
-   * Discard one write-queue item by tearing down the object's local sync state
-   * (see the `discardPendingWrite` workflow for why queue rows are never
-   * deleted in isolation). Local-only objects are removed outright; synced
-   * objects are re-discovered from the server with their local edits reverted.
-   * Resolves `false` when the local database is not ready.
-   */
-  discardPendingWrite(input: DiscardPendingWriteItemInput): Promise<boolean>;
 
   /**
    * Load diagnostic information for one container.

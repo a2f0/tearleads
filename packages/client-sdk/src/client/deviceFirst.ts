@@ -26,10 +26,6 @@ import {
   type ReconciliationService,
 } from "../sync/reconciliation";
 import { createReconciledDocumentContentPuller } from "../sync/reconciliation/documentContentPull";
-import {
-  registerReconciliationService,
-  unregisterReconciliationService,
-} from "../sync/reconciliation/serviceRegistry";
 import { loadLocalContainerProjectionDocumentsFromRuntime } from "../workflows/container-contents/projectionView";
 import {
   type ContainerContentsWorkflowRuntime,
@@ -106,7 +102,6 @@ class DeviceFirstService implements DeviceFirst {
       entry.service.stop();
       entry.disconnectReconciliationTriggers();
       entry.unsubscribePersistedDocumentDeletions();
-      unregisterReconciliationService(domainScope, entry.service);
       disposeDomainSyncCoordinator(domainScope);
     }
     this.entriesByScope.clear();
@@ -147,9 +142,6 @@ class DeviceFirstService implements DeviceFirst {
       subscribeToPersistedDocumentDeletions(domainScope, (localId) => {
         store.removePersistedDocument(localId);
       });
-    // Registered so out-of-band flows (e.g. a write-queue discard of a synced
-    // document) can force re-discovery of specific containers.
-    registerReconciliationService(domainScope, service);
     service.start();
 
     const view: LocalProjectionView = {
