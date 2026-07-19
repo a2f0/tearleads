@@ -21,6 +21,7 @@ import { assertOrganizationCanSync } from "../../billing/organizationBilling";
 import { applyContainerRekeys } from "../../containers/mutations";
 import { appendDocumentUpdates } from "./appendOutgoingUpdates";
 import { DocumentMutationError, toMutationError } from "./errors";
+import { uniqueSortedContainerIds } from "./linkSetMutationLocks";
 import {
   ensureDocumentExists,
   touchDocumentAndLinkedContainers,
@@ -179,6 +180,18 @@ async function listMissingSyncUpdatesWithBundles(input: {
   };
 }
 
+// The wire schema deliberately accepts any non-empty container id, so the
+// refs are UUID-validated (mirroring the link-set lock plan) before they
+// reach the uuid-typed lock query, where a malformed id would surface as an
+// uncaught SQLSTATE 22P02 500 instead of a 400.
+function syncAuthorizingContainerIds(request: DocumentSyncRequest): string[] {
+  return uniqueSortedContainerIds(
+    (request.authorizingContainerPathRefs ?? []).flatMap((path) =>
+      path.map((ref) => ref.containerId),
+    ),
+  );
+}
+
 async function syncDocumentTransaction(input: {
   readonly documentId: string;
   readonly enforceSyncEligibility: boolean;
@@ -213,6 +226,7 @@ async function syncDocumentTransaction(input: {
     // stale target set cannot land under a superseded container key epoch.
     // Empty read-only syncs write no content and take no lock.
     currentTargets = await lockSyncDocumentWriteFrontier({
+      authorizingContainerIds: syncAuthorizingContainerIds(input.request),
       currentTargets,
       documentId: input.documentId,
       tx: input.tx,
