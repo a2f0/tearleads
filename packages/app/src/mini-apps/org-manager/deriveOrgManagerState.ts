@@ -57,6 +57,7 @@ function deriveScopedState(input: DeriveOrgManagerStateInput) {
   );
   const activeGroupPolicyHistory = scopeSelectedGroupPolicyHistory(
     input.groupPolicyHistory,
+    input.organizationId,
     input.selectedGroupId,
   );
   const activeOrganizationPolicyHistory = scopeOrganizationValue(

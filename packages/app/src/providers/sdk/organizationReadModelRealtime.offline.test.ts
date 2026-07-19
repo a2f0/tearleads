@@ -42,6 +42,7 @@ function createRuntimeHarness(input?: {
           organizationId: ORGANIZATION_ID,
           userId: USER_ID,
         },
+        infra: { dbStatus: "idle" },
         state: { domainScope, online },
       }),
     },

@@ -227,6 +227,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "shareRemoteContainer",
   "shareRemoteContainerWithGroup",
   "startOrganizationTrial",
+  "subscribeOrganizationReadModelInvalidation",
   "subscribeToContainerContentsStore",
   "subscribeToDomainSyncCoordinator",
   "subscribeToPersistedDocuments",

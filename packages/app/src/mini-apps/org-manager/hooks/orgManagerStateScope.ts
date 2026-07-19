@@ -76,9 +76,13 @@ export function scopeSelectedGroupValue<
 
 export function scopeSelectedGroupPolicyHistory(
   value: OrganizationGroupPolicyHistory | null,
+  organizationId: string | null,
   selectedGroupId: string | null,
 ): OrganizationGroupPolicyHistory | null {
-  return value?.groupId === selectedGroupId ? value : null;
+  return value?.organizationId === organizationId &&
+    value.groupId === selectedGroupId
+    ? value
+    : null;
 }
 
 export function scopeSelectedUserDetail(

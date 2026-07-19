@@ -1,10 +1,18 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { dataUsage } from "../../../../test/helpers/organizationReadModelFixtures";
 import {
   organizationReadModelDelta as delta,
+  organizationReadModelDirectory as directory,
+  organizationReadModelDirectoryUser as directoryUser,
   organizationReadModelGroups as groups,
   organizationReadModelSnapshot as snapshot,
 } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
+import {
+  loadOrganizationDataUsageProjection,
+  saveOrganizationDataUsageProjection,
+} from "./organizationDataUsagePersistence";
+import { subscribeOrganizationReadModelInvalidation } from "./organizationReadModelInvalidation";
 import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMemberLoad";
 import {
   applyOrganizationReadModelResponse,
@@ -209,6 +217,137 @@ test("concurrent requester responses preserve both requester projections", async
     expect(userOne?.groups).toEqual(groups("org-1", "concurrent"));
     expect(userTwo?.groups).toEqual(groups("org-1", "concurrent"));
   } finally {
+    close();
+  }
+});
+
+test("directory replacement prunes requester rows for inactive users", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-requester-prune-test",
+  );
+
+  try {
+    await applyOrganizationReadModelResponse({
+      currentUserId: "user-1",
+      execSql,
+      requestedCursor: null,
+      response: snapshot("org-1", "cursor-1"),
+    });
+    const sharedDelta = delta({
+      groups: groups("org-1", "next"),
+      nextCursor: "cursor-2",
+      organizationId: "org-1",
+    });
+    await applyOrganizationReadModelResponse({
+      currentUserId: "user-1",
+      execSql,
+      requestedCursor: "cursor-1",
+      response: sharedDelta,
+    });
+    await applyOrganizationReadModelResponse({
+      currentUserId: "user-2",
+      execSql,
+      requestedCursor: "cursor-1",
+      response: { ...sharedDelta, currentUser: { isOrgAdmin: false } },
+    });
+    await expect(
+      loadOrganizationReadModelProjection(execSql, "org-1", "user-2"),
+    ).resolves.toMatchObject({ requester: { isOrgAdmin: false } });
+    await saveOrganizationDataUsageProjection({
+      execSql,
+      requesterUserId: "user-1",
+      response: { ...dataUsage, organizationId: "org-1" },
+    });
+    await saveOrganizationDataUsageProjection({
+      execSql,
+      requesterUserId: "user-2",
+      response: { ...dataUsage, organizationId: "org-1" },
+    });
+
+    // The authoritative directory now lists user-2 as disabled: the shared
+    // rows survive, but user-2's requester row and usage projection must not.
+    await applyOrganizationReadModelResponse({
+      currentUserId: "user-1",
+      execSql,
+      requestedCursor: "cursor-2",
+      response: delta({
+        directory: directory("org-1", {
+          users: [
+            directoryUser("user-1", { isSelf: true }),
+            directoryUser("user-2", { status: "disabled" }),
+          ],
+        }),
+        nextCursor: "cursor-3",
+        organizationId: "org-1",
+      }),
+    });
+
+    const userTwo = await loadOrganizationReadModelProjection(
+      execSql,
+      "org-1",
+      "user-2",
+    );
+    expect(userTwo?.requester).toBeNull();
+    await expect(
+      loadOrganizationDataUsageProjection(execSql, "org-1", "user-2"),
+    ).resolves.toBeNull();
+    await expect(
+      loadOrganizationReadModelProjection(execSql, "org-1", "user-1"),
+    ).resolves.toMatchObject({
+      cursor: "cursor-3",
+      requester: { isOrgAdmin: true },
+    });
+    await expect(
+      loadOrganizationDataUsageProjection(execSql, "org-1", "user-1"),
+    ).resolves.toMatchObject({ organizationId: "org-1" });
+  } finally {
+    close();
+  }
+});
+
+test("a group-member load purge notifies invalidation subscribers", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-member-load-invalidation-test",
+  );
+  const invalidations: string[] = [];
+  const unsubscribe = subscribeOrganizationReadModelInvalidation(
+    execSql,
+    (organizationId) => invalidations.push(organizationId),
+  );
+
+  try {
+    await applyOrganizationReadModelResponse({
+      currentUserId: "user-1",
+      execSql,
+      requestedCursor: null,
+      response: snapshot("org-1", "cursor-1"),
+    });
+    await expect(
+      loadOrganizationReadModelGroupMembers(
+        execSql,
+        "org-1",
+        "admins-org-1",
+        "user-1",
+      ),
+    ).resolves.not.toBeNull();
+    expect(invalidations).toEqual([]);
+
+    await execSql(
+      `UPDATE organization_read_model_group_members
+       SET state_hash = 'corrupt-state'
+       WHERE organization_id = 'org-1'`,
+    );
+    await expect(
+      loadOrganizationReadModelGroupMembers(
+        execSql,
+        "org-1",
+        "admins-org-1",
+        "user-1",
+      ),
+    ).resolves.toBeNull();
+    expect(invalidations).toEqual(["org-1"]);
+  } finally {
+    unsubscribe();
     close();
   }
 });

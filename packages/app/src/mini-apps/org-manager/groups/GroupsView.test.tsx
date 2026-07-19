@@ -80,6 +80,7 @@ const groupPolicyHistory: OrganizationGroupPolicyHistory = {
     },
   ],
   groupId: group.groupId,
+  organizationId: directory.organizationId,
   principalId: group.groupId,
   principalType: "group",
 };

@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
+import type { RequestResult } from "@tearleads/api-client";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
 import {
+  organizationReadModelFailure,
   organizationReadModelOrganizationId,
   organizationReadModelSnapshot,
   organizationReadModelUserId,
@@ -8,11 +11,15 @@ import {
 import type { BlobStore } from "../data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../data/documents/documentKinds";
 import { createDomainScope } from "../data/domainScope";
-import { recordDocumentSyncFailure } from "../data/sqlite/documentPersistence";
+import {
+  ensureDocumentTables,
+  recordDocumentSyncFailure,
+} from "../data/sqlite/documentPersistence";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
 import {
   disposeDomainSyncCoordinator,
   getOrCreateDomainSyncCoordinator,
+  waitForDomainSyncCoordinatorToSettle,
 } from "../data/sync/syncCoordinator";
 import { denyOrganizationPresentationAccess } from "../workflows/organizations/organizationPresentationAccessState";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
@@ -21,14 +28,21 @@ import type {
   InternalWorkflowRuntimeInput,
 } from "./workflowRuntime";
 
-function createRuntime(execSql: ExecSql): {
+function createRuntime(
+  execSql: ExecSql,
+  getOrganizationReadModelResult?: () => Promise<
+    RequestResult<OrganizationReadModelResponse>
+  >,
+): {
   runtime: InternalRuntime;
   workflowInput: InternalWorkflowRuntimeInput;
 } {
   const apiClient = createMockApiClient({
-    async getOrganizationReadModelResult() {
-      return { data: organizationReadModelSnapshot(), ok: true };
-    },
+    getOrganizationReadModelResult:
+      getOrganizationReadModelResult ??
+      (async () => {
+        return { data: organizationReadModelSnapshot(), ok: true };
+      }),
   });
   const workflowInput = {
     apiClient,
@@ -128,6 +142,65 @@ test("a reconcile that restores denied org access re-requests all sync lanes", a
     denyOrganizationPresentationAccess(accessInput, ["readModel", "usage"]);
     await expect(coordinator.reconcile()).resolves.not.toBeNull();
     await laneRan;
+    expect(laneRuns).toBe(1);
+  } finally {
+    disposeDomainSyncCoordinator(domainScope);
+    close();
+  }
+});
+
+test("a failed reconcile after a denial does not re-arm sync lanes", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-access-restore-failed-feed-test",
+  );
+  let failFeed = false;
+  const { runtime, workflowInput } = createRuntime(execSql, async () =>
+    failFeed
+      ? organizationReadModelFailure({ kind: "http", status: 503 })
+      : { data: organizationReadModelSnapshot(), ok: true as const },
+  );
+  const domainScope = workflowInput.state.domainScope;
+  try {
+    let laneRuns = 0;
+    getOrCreateDomainSyncCoordinator(domainScope).registerLane(
+      "documents:stranded",
+      {
+        label: "Stranded write lane",
+        phase: "document",
+        run: async () => {
+          laneRuns += 1;
+        },
+      },
+    );
+    const coordinator = createOrganizationReadModelCoordinator(runtime);
+    const accessInput = {
+      execSql,
+      organizationId: organizationReadModelOrganizationId,
+      requesterUserId: organizationReadModelUserId,
+    };
+    await ensureDocumentTables(execSql);
+    await recordDocumentSyncFailure(
+      execSql,
+      { appKind: "documents", localId: "stranded-document" },
+      {
+        attemptedAt: "2026-01-01T00:00:00.000Z",
+        message: "Write access denied by the server (403)",
+        status: 403,
+      },
+    );
+
+    // A feed failure while denied proves nothing about restored access: the
+    // scope stays unreadable (null), and no lanes re-arm.
+    denyOrganizationPresentationAccess(accessInput, ["readModel", "usage"]);
+    failFeed = true;
+    await expect(coordinator.reconcile()).resolves.toBeNull();
+    expect(laneRuns).toBe(0);
+
+    // The next completed reconcile still observes the denied edge and
+    // re-arms on the recorded evidence.
+    failFeed = false;
+    await expect(coordinator.reconcile()).resolves.not.toBeNull();
+    await waitForDomainSyncCoordinatorToSettle(domainScope);
     expect(laneRuns).toBe(1);
   } finally {
     disposeDomainSyncCoordinator(domainScope);

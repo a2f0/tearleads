@@ -36,6 +36,7 @@ export interface OrganizationPrincipalPolicyHistory {
 export interface OrganizationGroupPolicyHistory
   extends OrganizationPrincipalPolicyHistory {
   readonly groupId: string;
+  readonly organizationId: string;
   readonly principalType: "group";
 }
 export interface OrganizationPolicyHistory
@@ -167,10 +168,12 @@ function buildPrincipalPolicyHistoryEntries(
 
 export function buildOrganizationGroupPolicyHistory(
   bundle: PrincipalPolicyBundleResponse,
+  organizationId: string,
 ): OrganizationGroupPolicyHistory {
   return {
     entries: buildPrincipalPolicyHistoryEntries(bundle),
     groupId: bundle.currentState.principalId,
+    organizationId,
     principalId: bundle.currentState.principalId,
     principalType: "group",
   };

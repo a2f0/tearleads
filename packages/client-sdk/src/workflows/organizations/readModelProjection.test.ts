@@ -68,7 +68,7 @@ test("cold reconciliation stores a snapshot from the read-model feed", async () 
         execSql,
         organizationId,
       }),
-    ).resolves.toEqual(projection);
+    ).resolves.toEqual(projection ?? null);
   } finally {
     close();
   }
@@ -378,6 +378,31 @@ test("a response for another organization retains the scoped projection", async 
         organizationId: "org-2",
       }),
     ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});
+
+test("a failed feed with no local projection resolves undefined", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-failed-cold-test",
+  );
+
+  try {
+    // Not a completed pass: consumers must not mark the scope caught up or
+    // repaint a loss, because nothing authoritative was learned.
+    await expect(
+      reconcileOrganizationDirectoryAndGroups({
+        apiClient: {
+          async getOrganizationReadModelResult() {
+            return organizationReadModelFailure({ kind: "http", status: 503 });
+          },
+        },
+        currentUserId,
+        execSql,
+        organizationId,
+      }),
+    ).resolves.toBeUndefined();
   } finally {
     close();
   }

@@ -135,6 +135,27 @@ export const organizationReadModelGroupMembers = sqliteTable(
   ],
 );
 
+/**
+ * Durable record of a server 403/404 for one requester's presentation
+ * projection. Written before the revoked rows are purged so a purge failure
+ * followed by an offline restart cannot serve the revoked projection; cleared
+ * only by a successful authoritative reconcile for the same scope.
+ */
+export const organizationPresentationDenials = sqliteTable(
+  "organization_presentation_denials",
+  {
+    organizationId: text("organization_id").notNull(),
+    requesterUserId: text("requester_user_id").notNull(),
+    projection: text("projection").notNull(),
+    deniedAt: text("denied_at").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.organizationId, table.requesterUserId, table.projection],
+    }),
+  ],
+);
+
 /** Whole-lane container grants used only by organization presentation reads. */
 export const organizationReadModelContainerGrants = sqliteTable(
   "organization_read_model_container_grants",

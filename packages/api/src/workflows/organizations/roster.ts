@@ -6,6 +6,7 @@ import {
 import type { OrganizationDirectoryUserResponse } from "@tearleads/validators/response";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { listUsersReachableFromCurrentGroup } from "./principalReachability";
+import { recordOrganizationReadModelChangeAudience } from "./readModelChanges";
 import type { UserKeyRow } from "./users";
 
 type OrganizationRosterEntryRow = typeof organizationRosterEntries.$inferSelect;
@@ -191,7 +192,17 @@ export async function syncOrganizationRosterFromMemberReachability(input: {
     userIds: disabledUserIds,
   });
 
-  return [...activatedUserIds, ...disabledUserIdsChanged].sort();
+  const changedUserIds = [
+    ...activatedUserIds,
+    ...disabledUserIdsChanged,
+  ].sort();
+  // The hint audience is otherwise the post-commit active roster; a member
+  // this pass just disabled must still be woken to discover the denial.
+  recordOrganizationReadModelChangeAudience(
+    input.organizationId,
+    changedUserIds,
+  );
+  return changedUserIds;
 }
 
 export async function isOrganizationProfileDocument(input: {

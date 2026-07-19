@@ -4,6 +4,7 @@ import type {
 } from "@tearleads/api-client";
 import type { OrganizationReadModelResponse } from "@tearleads/validators/response";
 import { purgeOrganizationAccessProjection } from "../../data/persistence/organizations/organizationAccessRevocationPersistence";
+import { recordOrganizationPresentationDenials } from "../../data/persistence/organizations/organizationPresentationDenialPersistence";
 import { loadOrganizationReadModelGroupMembers } from "../../data/persistence/organizations/organizationReadModelMemberLoad";
 import { OrganizationReadModelBindingError } from "../../data/persistence/organizations/organizationReadModelMembershipPersistence";
 import {
@@ -124,7 +125,7 @@ type ReconciliationStep =
   | { readonly kind: "continue" }
   | {
       readonly kind: "done";
-      readonly value: OrganizationDirectoryAndGroups | null;
+      readonly value: OrganizationDirectoryAndGroups | null | undefined;
     };
 
 type PageRequestStep =
@@ -137,6 +138,7 @@ type PageRequestStep =
 function localResult(
   input: ReconcileOrganizationDirectoryAndGroupsInput,
   state: ReconciliationState,
+  outcome: { readonly failed: boolean },
 ): ReconciliationStep {
   const accessInput = organizationPresentationAccessInput(input);
   const readable =
@@ -144,10 +146,17 @@ function localResult(
       accessInput,
       state.accessAttempt,
     ) && isOrganizationPresentationAccessReadable(accessInput, "readModel");
-  return {
-    kind: "done",
-    value: readable ? toDirectoryAndGroups(state.projection) : null,
-  };
+  if (!readable) {
+    return { kind: "done", value: null };
+  }
+  const value = toDirectoryAndGroups(state.projection);
+  // A failed pass that retained nothing must not read as a completed (null)
+  // pass: consumers mark a scope caught up only on completed passes, and this
+  // scope still needs a fresh catch-up.
+  if (value === null && outcome.failed) {
+    return { kind: "done", value: undefined };
+  }
+  return { kind: "done", value };
 }
 
 function resetRequestCursor(state: ReconciliationState): void {
@@ -170,6 +179,18 @@ async function requestReadModelPage(
   if (result.status === 403 || result.status === 404) {
     const accessInput = organizationPresentationAccessInput(input);
     denyOrganizationPresentationAccess(accessInput, ["readModel", "usage"]);
+    // The durable marker lands before the purge attempt: if the purge fails,
+    // an offline restart must still refuse to serve the revoked projection.
+    try {
+      await runOrganizationPresentationMutation(input.execSql, () =>
+        recordOrganizationPresentationDenials(accessInput, [
+          "readModel",
+          "usage",
+        ]),
+      );
+    } catch (error) {
+      input.logError?.("Failed to record denied organization access", error);
+    }
     try {
       await runOrganizationPresentationMutation(input.execSql, () =>
         purgeOrganizationAccessProjection({
@@ -194,7 +215,7 @@ async function requestReadModelPage(
   }
 
   reportRetainedFailure(result);
-  return localResult(input, state);
+  return localResult(input, state, { failed: true });
 }
 
 function responseMatchesRequest(
@@ -255,7 +276,7 @@ async function applyResponse(
       !(error instanceof OrganizationReadModelBindingError) ||
       state.retriedBindingFailure
     ) {
-      return localResult(input, state);
+      return localResult(input, state, { failed: true });
     }
     state.retriedBindingFailure = true;
     await purgeOrganizationReadModelProjection(
@@ -279,9 +300,13 @@ async function prepareDeniedProjectionForApply(
     return null;
   }
   try {
+    // The apply that follows replaces the shared rows authoritatively, so
+    // only this requester's row is dropped: another local identity sharing
+    // the database keeps its access and reads the replacement.
     await purgeOrganizationReadModelProjection(
       input.execSql,
       input.organizationId,
+      { onlyRequesterUserId: input.currentUserId },
     );
   } catch (error) {
     input.logError?.("Failed to replace denied organization read model", error);
@@ -302,7 +327,7 @@ async function applyReadModelPage(
   response: OrganizationReadModelResponse,
 ): Promise<ReconciliationStep> {
   if (!responseMatchesRequest(input, state, response)) {
-    return localResult(input, state);
+    return localResult(input, state, { failed: true });
   }
 
   const accessInput = organizationPresentationAccessInput(input);
@@ -326,7 +351,7 @@ async function applyReadModelPage(
     }
     if (applied.result === "stale") {
       if (state.staleRetries >= MAX_STALE_RETRIES) {
-        return localResult(input, state);
+        return localResult(input, state, { failed: true });
       }
       state.staleRetries += 1;
       resetRequestCursor(state);
@@ -339,7 +364,7 @@ async function applyReadModelPage(
         accessInput,
         state.accessAttempt,
       )
-        ? localResult(input, state)
+        ? localResult(input, state, { failed: false })
         : { kind: "done", value: null };
     }
     state.requestCursor = response.nextCursor;
@@ -368,9 +393,15 @@ export async function loadLocalOrganizationGroupMembers(
   );
 }
 
+/**
+ * Resolves the reconciled projection, `null` when the pass completed
+ * authoritatively with nothing presentable (including a denial that purged
+ * the projection), or `undefined` when the feed failed and no local
+ * projection was retained — a pass that must not count as caught up.
+ */
 export async function reconcileOrganizationDirectoryAndGroups(
   input: ReconcileOrganizationDirectoryAndGroupsInput,
-): Promise<OrganizationDirectoryAndGroups | null> {
+): Promise<OrganizationDirectoryAndGroups | null | undefined> {
   const accessInput = organizationPresentationAccessInput(input);
   const accessAttempt = captureOrganizationPresentationAccessAttempt(
     accessInput,
@@ -405,6 +436,6 @@ export async function reconcileOrganizationDirectoryAndGroups(
   input.logError?.(
     "Organization read-model reconciliation exceeded page limit",
   );
-  const retained = localResult(input, state);
+  const retained = localResult(input, state, { failed: true });
   return retained.kind === "done" ? retained.value : null;
 }

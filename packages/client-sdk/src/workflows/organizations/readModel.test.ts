@@ -14,9 +14,13 @@ import {
 } from "./readModel";
 
 test("buildOrganizationGroupPolicyHistory diffs policy projections", () => {
-  const history = buildOrganizationGroupPolicyHistory(principalPolicy);
+  const history = buildOrganizationGroupPolicyHistory(
+    principalPolicy,
+    organizationId,
+  );
 
   expect(history.groupId).toBe(groupId);
+  expect(history.organizationId).toBe(organizationId);
   expect(history.principalId).toBe(groupId);
   expect(history.principalType).toBe("group");
   expect(history.entries.map((entry) => entry.version)).toEqual([3, 2, 1]);

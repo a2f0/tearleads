@@ -217,7 +217,7 @@ export async function loadLocalOrganizationGroupPolicyHistory(
         input.groupId,
       );
       return policyBundleMatchesProjectedHead(bundle, projectedHead)
-        ? buildOrganizationGroupPolicyHistory(bundle)
+        ? buildOrganizationGroupPolicyHistory(bundle, input.organizationId)
         : null;
     },
   );

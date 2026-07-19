@@ -3,12 +3,14 @@ import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationReadModelChanges,
   organizationReadModelHeads,
+  organizationRosterEntries,
 } from "@tearleads/api-shared/schema";
 import { eq, inArray } from "drizzle-orm";
 import {
   appendOrganizationReadModelChangeInTransaction,
   collectOrganizationReadModelChanges,
   listCommittedOrganizationReadModelChanges,
+  recordOrganizationReadModelChangeAudience,
 } from "./readModelChanges";
 
 async function createOrganizationReadModelHead(
@@ -47,6 +49,7 @@ test("organization read-model changes receive ordered cursors", async () => {
 
   expect(observedChanges).toEqual([
     {
+      affectedUserIds: [],
       cursor: 2n,
       organizationId,
     },
@@ -124,7 +127,9 @@ test("rolled-back observed cursors are not considered committed", async () => {
     },
   );
 
-  expect(observedChanges).toEqual([{ cursor: 1n, organizationId }]);
+  expect(observedChanges).toEqual([
+    { affectedUserIds: [], cursor: 1n, organizationId },
+  ]);
   expect(
     await listCommittedOrganizationReadModelChanges(db, observedChanges),
   ).toEqual([]);
@@ -154,7 +159,65 @@ test("committed observed cursors survive a later request error", async () => {
 
   expect(
     await listCommittedOrganizationReadModelChanges(db, observedChanges),
-  ).toEqual([{ cursor: 1n, organizationId, recipientUserIds: [] }]);
+  ).toEqual([
+    { affectedUserIds: [], cursor: 1n, organizationId, recipientUserIds: [] },
+  ]);
+});
+
+test("hint audience unions recorded access-affected users with the active roster", async () => {
+  const organizationId = crypto.randomUUID();
+  const activeUserId = crypto.randomUUID();
+  const removedUserId = crypto.randomUUID();
+  await createOrganizationReadModelHead(organizationId);
+  await db.insert(organizationRosterEntries).values([
+    { organizationId, status: "active", userId: activeUserId },
+    { organizationId, status: "disabled", userId: removedUserId },
+  ]);
+
+  const { observedChanges } = await collectOrganizationReadModelChanges(
+    async () => {
+      await db.transaction((tx) =>
+        appendOrganizationReadModelChangeInTransaction(tx, {
+          organizationId,
+          lane: "directory",
+          entityId: organizationId,
+          operation: "replace",
+        }),
+      );
+      recordOrganizationReadModelChangeAudience(organizationId, [
+        removedUserId,
+      ]);
+    },
+  );
+
+  expect(observedChanges).toEqual([
+    { affectedUserIds: [removedUserId], cursor: 1n, organizationId },
+  ]);
+  expect(
+    await listCommittedOrganizationReadModelChanges(db, observedChanges),
+  ).toEqual([
+    {
+      affectedUserIds: [removedUserId],
+      cursor: 1n,
+      organizationId,
+      recipientUserIds: [activeUserId, removedUserId].sort(),
+    },
+  ]);
+});
+
+test("recorded audience without an observed change publishes nothing", async () => {
+  const organizationId = crypto.randomUUID();
+  await createOrganizationReadModelHead(organizationId);
+
+  const { observedChanges } = await collectOrganizationReadModelChanges(
+    async () => {
+      recordOrganizationReadModelChangeAudience(organizationId, [
+        crypto.randomUUID(),
+      ]);
+    },
+  );
+
+  expect(observedChanges).toEqual([]);
 });
 
 test("organization read-model cursors are independent per organization", async () => {

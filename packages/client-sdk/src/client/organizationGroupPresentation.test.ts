@@ -38,8 +38,10 @@ const projectedMembers: OrganizationGroupMembersResponse = {
   ],
 };
 
-const projectedPolicyHistory =
-  buildOrganizationGroupPolicyHistory(principalPolicy);
+const projectedPolicyHistory = buildOrganizationGroupPolicyHistory(
+  principalPolicy,
+  organizationId,
+);
 
 function runtimeWith(
   apiClient: InternalWorkflowRuntimeInput["apiClient"],

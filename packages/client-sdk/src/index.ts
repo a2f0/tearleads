@@ -396,6 +396,7 @@ export {
   resolveOrganizationBillingView,
   revokeOrganizationContainerGrant,
   startOrganizationTrial,
+  subscribeOrganizationReadModelInvalidation,
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "./workflows/organizations";
