@@ -361,7 +361,9 @@ export async function moveContainer(
     fireEvent.click(moveButton);
   });
 
-  const dialog = screen.getByRole("dialog");
+  // findByRole, not getByRole: the dialog mounts on a state update that can
+  // land a tick after the menu click under suite load.
+  const dialog = await screen.findByRole("dialog");
   const destinationSelect = within(dialog).getByRole("combobox", {
     name: "Destination container",
   });
