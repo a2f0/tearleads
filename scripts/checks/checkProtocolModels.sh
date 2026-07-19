@@ -28,6 +28,11 @@ DISCOVERED_CONFIGS=$CHECK_ROOT/discovered-configs.txt
 DUPLICATE_PAIRS=$CHECK_ROOT/duplicate-pairs.txt
 DUPLICATE_CONFIGS=$CHECK_ROOT/duplicate-configs.txt
 UNREGISTERED_CONFIGS=$CHECK_ROOT/unregistered-configs.txt
+RAW_REGISTERED_MODEL_PATHS=$CHECK_ROOT/raw-registered-model-paths.txt
+REGISTERED_MODEL_PATHS=$CHECK_ROOT/registered-model-paths.txt
+DISCOVERED_MODELS_UNSORTED=$CHECK_ROOT/discovered-models-unsorted.txt
+DISCOVERED_MODELS=$CHECK_ROOT/discovered-models.txt
+UNREGISTERED_MODELS=$CHECK_ROOT/unregistered-models.txt
 
 line_number=0
 while IFS= read -r registry_line || [ -n "$registry_line" ]; do
@@ -106,6 +111,23 @@ LC_ALL=C comm -23 "$DISCOVERED_CONFIGS" "$REGISTERED_CONFIGS" >"$UNREGISTERED_CO
 unregistered_config=$(sed -n '1p' "$UNREGISTERED_CONFIGS")
 [ -z "$unregistered_config" ] ||
   fail "$unregistered_config is not registered in $REGISTRY_PATH."
+
+# Reconcile .tla files too: with only the .cfg reconciliation above, deleting
+# a model's configuration (and its registry row) leaves the model on disk but
+# silently removes it from checking.
+cut -d '|' -f 1 "$REGISTERED_MODELS" >"$RAW_REGISTERED_MODEL_PATHS" ||
+  fail "could not read model paths from $REGISTRY_PATH."
+LC_ALL=C sort -u "$RAW_REGISTERED_MODEL_PATHS" >"$REGISTERED_MODEL_PATHS" ||
+  fail "could not sort registered model paths."
+find formal -type f -name '*.tla' -print >"$DISCOVERED_MODELS_UNSORTED" ||
+  fail "could not discover protocol models under formal/."
+LC_ALL=C sort "$DISCOVERED_MODELS_UNSORTED" >"$DISCOVERED_MODELS" ||
+  fail "could not sort discovered protocol models."
+LC_ALL=C comm -23 "$DISCOVERED_MODELS" "$REGISTERED_MODEL_PATHS" >"$UNREGISTERED_MODELS" ||
+  fail "could not compare discovered and registered protocol models."
+unregistered_model=$(sed -n '1p' "$UNREGISTERED_MODELS")
+[ -z "$unregistered_model" ] ||
+  fail "$unregistered_model is not registered in $REGISTRY_PATH; an unregistered model is never checked."
 
 mv "$SORTED_MODELS" "$REGISTERED_MODELS" ||
   fail "could not finalize the protocol model registry."
