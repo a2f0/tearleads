@@ -86,12 +86,16 @@ async function stripeRequest(input: {
   path: string;
   operation: string;
   form?: URLSearchParams;
+  idempotencyKey?: string;
 }): Promise<unknown> {
   const response = await input.fetchImpl(`${STRIPE_API_ORIGIN}${input.path}`, {
     method: input.method,
     headers: {
       Authorization: `Bearer ${input.secretKey}`,
       "Stripe-Version": STRIPE_API_VERSION,
+      ...(input.idempotencyKey
+        ? { "Idempotency-Key": input.idempotencyKey }
+        : {}),
       ...(input.form
         ? { "Content-Type": "application/x-www-form-urlencoded" }
         : {}),
@@ -229,6 +233,11 @@ export async function createSyncSubscription(
     path: "/v1/subscriptions",
     operation: "subscription create",
     form,
+    // A retried or double-submitted checkout must not create a second
+    // subscription: within Stripe's idempotency window this returns the
+    // original one, and an unconfirmed `default_incomplete` subscription
+    // expires on Stripe's side before the window does.
+    idempotencyKey: `sync-sub:${input.userId}:${input.organizationId}:${syncPriceId}`,
   });
   const subscriptionId = readString(prop(body, "id"));
   const clientSecret = readString(

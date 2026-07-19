@@ -1,6 +1,7 @@
 import { isUuidV4String } from "@tearleads/validators/util";
 import {
   associateStripeSubscription,
+  isRevenueCatAssociationConfigured,
   type RevenueCatAssociationDeps,
 } from "../../billing/revenueCatStripeAssociation";
 import {
@@ -19,7 +20,10 @@ import {
   readStripeWebhookSecret,
   verifyStripeSignature,
 } from "../../billing/stripeWebhook";
-import { runRequireBillingAdminWorkflow } from "../../workflows/billing/stripeCheckout";
+import {
+  runRequireBillingAdminWorkflow,
+  runRequireCheckoutEligibleWorkflow,
+} from "../../workflows/billing/stripeCheckout";
 import type { ApiServiceRuntime } from "../runtime";
 
 /**
@@ -33,11 +37,29 @@ interface StripeCheckoutServiceDeps {
   readonly revenueCat?: RevenueCatAssociationDeps;
 }
 
+/**
+ * Checkout may only be offered when the WHOLE Stripe-to-RevenueCat flow is
+ * configured. With only the Stripe half present a buyer could be charged for
+ * a subscription the webhook can never associate — no entitlement would ever
+ * be granted — so a partial configuration reads as "not configured".
+ */
+function isDirectCheckoutFullyConfigured(
+  deps: StripeCheckoutServiceDeps,
+): boolean {
+  const stripeEnv = deps.stripe?.env ?? process.env;
+  const revenueCatEnv = deps.revenueCat?.env ?? process.env;
+  return (
+    isStripeCheckoutConfigured(deps.stripe ?? {}) &&
+    readStripeWebhookSecret(stripeEnv) !== null &&
+    isRevenueCatAssociationConfigured(revenueCatEnv)
+  );
+}
+
 /** Options are empty (not an error) when the integration is unconfigured. */
 export async function getStripeCheckoutOptions(
   deps: StripeCheckoutServiceDeps = {},
 ): Promise<{ options: StripeSyncOption[] }> {
-  if (!isStripeCheckoutConfigured(deps.stripe ?? {})) {
+  if (!isDirectCheckoutFullyConfigured(deps)) {
     return { options: [] };
   }
   const option = await getStripeSyncOption(deps.stripe ?? {});
@@ -55,12 +77,12 @@ export async function createStripeCheckout(
   sessionUserId: string,
   deps: StripeCheckoutServiceDeps = {},
 ): Promise<StripeCheckoutIntent | null> {
-  await runRequireBillingAdminWorkflow(
+  await runRequireCheckoutEligibleWorkflow(
     runtime.db,
     organizationId,
     sessionUserId,
   );
-  if (!isStripeCheckoutConfigured(deps.stripe ?? {})) {
+  if (!isDirectCheckoutFullyConfigured(deps)) {
     return null;
   }
   const customerId = await findOrCreateCustomer(
@@ -108,6 +130,7 @@ export async function createStripePortalUrl(
 type StripeWebhookOutcome =
   | { status: "associated"; subscriptionId: string; organizationId: string }
   | { status: "ignored"; reason: string }
+  | { status: "retry"; reason: string }
   | { status: "unauthorized" }
   | { status: "unconfigured" };
 
@@ -145,6 +168,12 @@ export async function processStripeWebhook(
   const subscriptionId = extractPaidSubscriptionId(event);
   if (!subscriptionId) {
     return { status: "ignored", reason: "Not a newly paid subscription" };
+  }
+  // A paid subscription that cannot currently be looked up must NOT be
+  // acknowledged with a 2xx: Stripe would never redeliver, permanently
+  // stranding the purchase unassociated. Ask for redelivery instead.
+  if (!isStripeCheckoutConfigured(deps.stripe ?? {})) {
+    return { status: "retry", reason: "Stripe API is not configured" };
   }
 
   // Read the binding from Stripe rather than trusting the event body: the

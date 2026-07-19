@@ -5,6 +5,7 @@ import {
   classifyRevenueCatEvent,
   readRevenueCatWebhookAuthToken,
   resolveOrganizationIdFromEvent,
+  resolveStripeStoreOrganizationId,
 } from "./revenuecatWebhook";
 
 const ORG_ID = "11111111-1111-4111-8111-111111111111";
@@ -169,5 +170,68 @@ test("readRevenueCatWebhookAuthToken reads and trims the configured secret", () 
   expect(readRevenueCatWebhookAuthToken({})).toBeNull();
   expect(
     readRevenueCatWebhookAuthToken({ REVENUECAT_WEBHOOK_AUTH_HEADER: "  " }),
+  ).toBeNull();
+});
+
+test("Stripe-store events resolve their org from the subscription binding", async () => {
+  const OTHER_ORG_ID = "22222222-2222-4222-8222-222222222222";
+  const stripeEnv = {
+    STRIPE_SECRET_KEY: "sk_test",
+    STRIPE_SYNC_PRICE_ID: "price_sync",
+  };
+  const fetchImpl = (async (_input: RequestInfo | URL, _init?: RequestInit) =>
+    new Response(
+      JSON.stringify({
+        id: "sub_1",
+        status: "active",
+        metadata: { userId: "user-1", orgId: ORG_ID },
+      }),
+    )) as typeof fetch;
+
+  // The customer-level attribute was rebound to another org by a later
+  // purchase; the subscription's own metadata must win for Stripe events.
+  const resolved = await resolveStripeStoreOrganizationId(
+    makeEvent({
+      store: "STRIPE",
+      original_transaction_id: "sub_1",
+      subscriber_attributes: { orgId: { value: OTHER_ORG_ID } },
+    }),
+    { env: stripeEnv, fetchImpl },
+  );
+  expect(resolved).toBe(ORG_ID);
+
+  // Non-Stripe stores and events without a subscription id fall through to
+  // the ordinary resolution.
+  expect(
+    await resolveStripeStoreOrganizationId(
+      makeEvent({ store: "RC_BILLING", original_transaction_id: "sub_1" }),
+      { env: stripeEnv, fetchImpl },
+    ),
+  ).toBeNull();
+  expect(
+    await resolveStripeStoreOrganizationId(
+      makeEvent({
+        store: "STRIPE",
+        original_transaction_id: null,
+        transaction_id: null,
+      }),
+      { env: stripeEnv, fetchImpl },
+    ),
+  ).toBeNull();
+});
+
+test("a failed Stripe lookup falls back rather than blocking the event", async () => {
+  const failingFetch = (async (
+    _input: RequestInfo | URL,
+    _init?: RequestInit,
+  ) => new Response("{}", { status: 500 })) as typeof fetch;
+  expect(
+    await resolveStripeStoreOrganizationId(
+      makeEvent({ store: "STRIPE", original_transaction_id: "sub_1" }),
+      {
+        env: { STRIPE_SECRET_KEY: "sk", STRIPE_SYNC_PRICE_ID: "p" },
+        fetchImpl: failingFetch,
+      },
+    ),
   ).toBeNull();
 });

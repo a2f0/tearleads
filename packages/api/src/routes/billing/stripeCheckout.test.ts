@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
+import { organizationBilling, users } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
@@ -62,6 +62,24 @@ test("an unconfigured checkout answers 503 for an admin, not an empty body", asy
     { method: "POST", headers: authHeader(admin) },
   );
   expect(response.status).toBe(503);
+});
+
+test("an already-active organization cannot start another checkout", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  // A second confirmed checkout would create a second Stripe subscription for
+  // the same org — double billing — so eligibility is refused up front, before
+  // any Stripe configuration is even consulted.
+  await db
+    .update(organizationBilling)
+    .set({ status: "active" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/checkout`,
+    { method: "POST", headers: authHeader(admin) },
+  );
+  expect(response.status).toBe(409);
 });
 
 test("options answer an empty list when unconfigured", async () => {

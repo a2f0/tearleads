@@ -122,6 +122,10 @@ test("subscription create binds org metadata and returns the client secret", asy
   expect(body).toContain(`${encodeURIComponent("metadata[orgId]")}=org-1`);
   expect(body).toContain(`${encodeURIComponent("metadata[userId]")}=user-1`);
   expect(body).toContain("payment_behavior=default_incomplete");
+  // A retried checkout must return the SAME subscription, not create another.
+  expect(requests[0]?.headers.get("Idempotency-Key")).toBe(
+    "sync-sub:user-1:org-1:price_sync",
+  );
 });
 
 test("subscription binding reads metadata and status", async () => {

@@ -155,6 +155,10 @@ export function createStripeWebhookRoute(_runtime: ApiServiceRuntime) {
         return c.json({ error: "Webhook not configured" }, 503);
       case "unauthorized":
         return c.json({ error: "Invalid signature" }, 401);
+      case "retry":
+        // Non-2xx so Stripe redelivers once the configuration is restored.
+        console.error(`Stripe webhook deferred: ${outcome.reason}`);
+        return c.json({ error: outcome.reason }, 503);
       default:
         return c.json({ received: true, outcome: outcome.status });
     }

@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
-import { processStripeWebhook } from "./stripeCheckout";
+import {
+  getStripeCheckoutOptions,
+  processStripeWebhook,
+} from "./stripeCheckout";
 
 const ORG_ID = "11111111-1111-4111-8111-111111111111";
 const WEBHOOK_SECRET = "whsec_test";
@@ -129,6 +132,30 @@ test("renewal invoices are ignored — RevenueCat owns the lifecycle", async () 
     status: "ignored",
     reason: "Not a newly paid subscription",
   });
+});
+
+test("a paid invoice with no Stripe API config asks for redelivery", async () => {
+  const outcome = await processStripeWebhook(signedDelivery(PAID_EVENT), {
+    // Webhook secret present, Stripe API key absent: acknowledging with a 2xx
+    // would strand the paid subscription forever.
+    stripe: { env: { STRIPE_WEBHOOK_SECRET: WEBHOOK_SECRET } },
+  });
+  expect(outcome).toEqual({
+    status: "retry",
+    reason: "Stripe API is not configured",
+  });
+});
+
+test("options stay empty until the WHOLE flow is configured", async () => {
+  const urls: string[] = [];
+  // Stripe fully configured, RevenueCat association not: offering checkout
+  // would charge buyers for subscriptions that can never grant entitlements.
+  const result = await getStripeCheckoutOptions({
+    stripe: { env: STRIPE_ENV, fetchImpl: respondingFetch([], urls) },
+    revenueCat: { env: {} },
+  });
+  expect(result).toEqual({ options: [] });
+  expect(urls).toHaveLength(0);
 });
 
 test("a missing webhook secret fails closed", async () => {

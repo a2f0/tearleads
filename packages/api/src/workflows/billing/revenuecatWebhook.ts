@@ -13,7 +13,9 @@ import {
   classifyRevenueCatEvent,
   type RevenueCatBillingTransition,
   resolveOrganizationIdFromEvent,
+  resolveStripeStoreOrganizationId,
 } from "../../billing/revenuecatWebhook";
+import type { StripeApiDeps } from "../../billing/stripeApi";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
@@ -162,9 +164,15 @@ export async function runRevenueCatWebhookWorkflow(
   db: ApiDatabase,
   event: RevenueCatWebhookEvent,
   now: Date = new Date(),
+  deps: { stripe?: StripeApiDeps } = {},
 ): Promise<RevenueCatWebhookOutcome> {
   const transition = classifyRevenueCatEvent(event, now);
-  const organizationId = resolveOrganizationIdFromEvent(event);
+  // Stripe-store events prefer the immutable per-subscription org binding
+  // (the customer-level attribute could have been rebound by a later purchase
+  // for another org); everything else resolves from metadata/attributes.
+  const organizationId =
+    (await resolveStripeStoreOrganizationId(event, deps.stripe ?? {})) ??
+    resolveOrganizationIdFromEvent(event);
 
   return db.transaction(async (tx) => {
     const ignoredReason = await resolveIgnoredReason(

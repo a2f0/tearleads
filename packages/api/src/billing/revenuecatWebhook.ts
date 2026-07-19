@@ -5,6 +5,7 @@ import type {
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { isUuidV4String } from "@tearleads/validators/util";
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "./organizationBilling";
+import { getSubscriptionBinding, type StripeApiDeps } from "./stripeApi";
 
 /**
  * Environment variable holding the exact value RevenueCat must send in the
@@ -119,6 +120,45 @@ export function resolveOrganizationIdFromEvent(
   return typeof attributeValue === "string" && isUuidV4String(attributeValue)
     ? attributeValue
     : null;
+}
+
+/**
+ * Immutable org resolution for STRIPE-store events (direct checkout, issue
+ * #1654). RevenueCat forwards no transaction metadata for the Stripe store,
+ * and the `orgId` subscriber attribute is customer-level and mutable — a
+ * buyer admining several orgs would have every Stripe event resolve to
+ * whichever org they purchased for LAST. But these events carry the Stripe
+ * subscription id, and the subscription's own metadata (written by our
+ * checkout) binds the org immutably — so it is the preferred source for this
+ * store. Returns null (caller falls back to the attribute) when the event is
+ * not a Stripe-store event, carries no subscription id, the lookup is
+ * unconfigured, or the lookup fails — a lookup failure must not turn an
+ * otherwise-processable event into a hard error.
+ */
+export async function resolveStripeStoreOrganizationId(
+  event: RevenueCatWebhookEvent,
+  deps: StripeApiDeps = {},
+): Promise<string | null> {
+  if (event.store?.toUpperCase() !== "STRIPE") {
+    return null;
+  }
+  const subscriptionId =
+    event.original_transaction_id ?? event.transaction_id ?? null;
+  if (!subscriptionId) {
+    return null;
+  }
+  try {
+    const binding = await getSubscriptionBinding(subscriptionId, deps);
+    return binding?.organizationId && isUuidV4String(binding.organizationId)
+      ? binding.organizationId
+      : null;
+  } catch (error) {
+    console.error(
+      "Stripe subscription lookup for RevenueCat event failed:",
+      error,
+    );
+    return null;
+  }
 }
 
 function resolveEntitlementId(event: RevenueCatWebhookEvent): string | null {
