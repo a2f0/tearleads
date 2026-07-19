@@ -201,6 +201,22 @@ loop, subject-only squash, and `MERGED`-state verification.
    reconcile and re-review before merging; never merge a head the review did not
    read.
 
+   **Sole exception — the pre-push co-author strip.** The hook's
+   `checkCommitTrust` rejects `Co-authored-by` trailers; the only remedy is a
+   message rewrite, which moves the head SHA without changing content. When
+   that strip is the only reason the head moved, do **not** re-review — the
+   diff is byte-identical. Verify and re-pin:
+
+   ```bash
+   test "$(git rev-parse "$REVIEWED_SHA^{tree}")" = "$(git rev-parse "HEAD^{tree}")"
+   REVIEWED_SHA=$(git rev-parse HEAD)
+   ```
+
+   Identical trees mean the reviewed content is exactly what merges; the
+   message diff must remove only `Co-authored-by` lines. Anything else — a
+   content change, a stray commit, an edited subject — keeps the rule above.
+   Note the rewrite in the final report.
+
 4. **Squash-merge and clean up (bound to the reviewed head)** — invoke the
    `squash-merge` skill, passing `REVIEWED_SHA` as its **second (head-SHA)
    argument** so the merge runs with `--match-head-commit` and GitHub
@@ -290,7 +306,9 @@ loop, subject-only squash, and `MERGED`-state verification.
   the pushed head once the PR is open) and passes it to `squash-merge`, which
   binds the merge with
   `--match-head-commit`. GitHub then rejects the merge outright if any commit
-  landed after the review, so an unreviewed commit can never be merged. The lone
+  landed after the review, so an unreviewed commit can never be merged. (A
+  message-only co-author strip keeps the guarantee: step 3 verifies tree
+  identity and re-pins `REVIEWED_SHA` — no re-review.) The lone
   exception is an explicit `--merge-anyway` over a could-not-run verdict, where
   the bound head is a candidate that no review read — the merge is still pinned,
   but the reviewed-head guarantee is the thing the caller chose to waive.
