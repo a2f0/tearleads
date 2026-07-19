@@ -387,6 +387,28 @@ test("tablet container item table shows the actions kebab on the wide layout", (
   expect(rows).toEqual([archiveRow]);
 });
 
+test("tablet container item table keeps the columns menu on the trailing actions header", () => {
+  mockRoutedLayoutTier("tablet");
+  mockRoutedLayoutActive();
+  const view = renderContainerItemTable({
+    rows: [archiveRow],
+    totalCount: 1,
+  });
+  const lastHeaderCell = Array.from(
+    view.container.querySelectorAll("thead th"),
+  ).at(-1);
+  const columnsButton = view.getByRole("button", {
+    name: EXPLORER_LABELS.columnsMenuButton,
+  });
+
+  // The kebab column is the table's trailing edge here, so the trigger rides
+  // in its header instead of sitting one narrow column in from the edge.
+  expect(
+    lastHeaderCell?.classList.contains("mini-app-row-actions-column"),
+  ).toBe(true);
+  expect(lastHeaderCell?.contains(columnsButton)).toBe(true);
+});
+
 test("desktop container item table hides the actions kebab", () => {
   mockRoutedLayoutTier("tablet");
   const view = renderContainerItemTable({

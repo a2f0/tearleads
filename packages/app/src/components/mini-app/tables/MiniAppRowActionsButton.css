@@ -35,6 +35,16 @@
   text-align: right;
 }
 
+/*
+ * A column-menu trigger seated in the actions header (see
+ * miniAppRowActionsColumn's `action` param) hugs the same trailing edge as the
+ * kebab buttons below it. The doubled selector out-specifies the shared
+ * `.mini-app-table th` left alignment, which this class alone would lose to.
+ */
+.mini-app-table th.mini-app-row-actions-column {
+  text-align: right;
+}
+
 .mini-app-row-actions-heading {
   position: absolute;
   width: 1px;

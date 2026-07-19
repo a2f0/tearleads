@@ -304,37 +304,37 @@ function useExplorerContainerItemTableColumns({
     [compact, hiddenColumns, showActions],
   );
   const columns = useMemo(() => {
-    // Keep the column-menu button on the last DATA column and append the kebab
-    // column after it, so the menu never lands in the narrow actions header.
-    const dataColumnIds = columnIds.filter((id) => id !== "actions");
-    const dataColumns = addMiniAppTableHeaderAction(
-      getExplorerItemTableColumns({
-        columnIds: dataColumnIds,
-        compact,
-        onSort,
-        sort,
-      }),
-      compact ? null : (
-        <MiniAppColumnMenuButton
-          ariaLabel={EXPLORER_LABELS.columnsMenuButton}
-          hiddenColumns={hiddenColumns}
-          options={EXPLORER_COLUMN_MENU_OPTIONS}
-          stateLabels={{
-            off: EXPLORER_LABELS.columnsMenuStateOff,
-            on: EXPLORER_LABELS.columnsMenuStateOn,
-          }}
-          toggleColumn={toggleColumn}
-        />
-      ),
+    const columnMenu = compact ? null : (
+      <MiniAppColumnMenuButton
+        ariaLabel={EXPLORER_LABELS.columnsMenuButton}
+        hiddenColumns={hiddenColumns}
+        options={EXPLORER_COLUMN_MENU_OPTIONS}
+        stateLabels={{
+          off: EXPLORER_LABELS.columnsMenuStateOff,
+          on: EXPLORER_LABELS.columnsMenuStateOn,
+        }}
+        toggleColumn={toggleColumn}
+      />
     );
+    const dataColumnIds = columnIds.filter((id) => id !== "actions");
+    const dataColumns = getExplorerItemTableColumns({
+      columnIds: dataColumnIds,
+      compact,
+      onSort,
+      sort,
+    });
     if (dataColumnIds.length === columnIds.length) {
-      return dataColumns;
+      return addMiniAppTableHeaderAction(dataColumns, columnMenu);
     }
 
+    // The kebab column is the trailing edge on touch layouts, so the
+    // column-menu button rides in its header to stay flush right — on the last
+    // data column it would sit one narrow column in from the edge.
     return [
       ...dataColumns,
       ...getExplorerItemTableColumns({
         columnIds: ["actions"],
+        columnMenu,
         compact,
         onSort,
         sort,

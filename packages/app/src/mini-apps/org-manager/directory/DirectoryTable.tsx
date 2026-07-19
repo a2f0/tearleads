@@ -161,12 +161,7 @@ function useDirectoryTableColumns(showActions: boolean): {
     return showActions ? [...dataColumnIds, "actions"] : dataColumnIds;
   }, [columnVisibility.hiddenColumns, showActions]);
   const columns = useMemo(() => {
-    // Keep the column-menu trigger on the last data column; the kebab column is
-    // appended after so the menu never lands in the narrow actions header.
-    const dataColumns = addMiniAppTableHeaderAction(
-      DIRECTORY_TABLE_COLUMNS.filter(
-        (column) => !columnVisibility.hiddenColumns.has(column.id),
-      ),
+    const columnMenu = (
       <MiniAppColumnMenuButton
         ariaLabel={ORG_MANAGER_LABELS.columns}
         hiddenColumns={columnVisibility.hiddenColumns}
@@ -176,14 +171,23 @@ function useDirectoryTableColumns(showActions: boolean): {
           on: ORG_MANAGER_LABELS.columnsMenuStateOn,
         }}
         toggleColumn={columnVisibility.toggleColumn}
-      />,
+      />
     );
+    const dataColumns = DIRECTORY_TABLE_COLUMNS.filter(
+      (column) => !columnVisibility.hiddenColumns.has(column.id),
+    );
+    // When the touch kebab column trails the table it is the trailing edge, so
+    // the column-menu trigger rides in its header to stay flush right — on the
+    // last data column it would sit one narrow column in from the edge.
     return showActions
       ? [
           ...dataColumns,
-          miniAppRowActionsColumn(ORG_MANAGER_LABELS.rowActionsColumn),
+          miniAppRowActionsColumn(
+            ORG_MANAGER_LABELS.rowActionsColumn,
+            columnMenu,
+          ),
         ]
-      : dataColumns;
+      : addMiniAppTableHeaderAction(dataColumns, columnMenu);
   }, [
     columnVisibility.hiddenColumns,
     columnVisibility.toggleColumn,

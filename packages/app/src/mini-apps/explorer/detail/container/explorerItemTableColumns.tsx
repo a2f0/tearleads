@@ -12,6 +12,7 @@ import {
   MiniAppTableCell,
   type MiniAppTableColumn,
   MiniAppTableText,
+  miniAppRowActionsColumn,
 } from "../../../../components/mini-app/MiniAppTable";
 import { ContactAvatar } from "../../../../document-types/contact/ContactAvatar";
 import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
@@ -65,6 +66,7 @@ function ExplorerSortableTableHeader(params: {
 }
 
 interface ColumnBuildContext {
+  columnMenu?: ReactNode;
   compact: boolean;
   onSort: (key: ContainerItemSortKey) => void;
   sort: ContainerItemSort;
@@ -74,7 +76,7 @@ function buildExplorerItemColumn(
   id: ExplorerItemColumnId,
   ctx: ColumnBuildContext,
 ): MiniAppTableColumn {
-  const { compact, onSort, sort } = ctx;
+  const { columnMenu, compact, onSort, sort } = ctx;
   const sortableHeader = (key: ContainerItemSortKey, label: string) => (
     <ExplorerSortableTableHeader
       activeDirection={sort.key === key ? sort.direction : null}
@@ -85,16 +87,10 @@ function buildExplorerItemColumn(
 
   switch (id) {
     case "actions":
-      return {
-        className: "mini-app-row-actions-column",
-        header: (
-          <span className="mini-app-row-actions-heading">
-            {EXPLORER_LABELS.itemActionsColumn}
-          </span>
-        ),
-        id,
-        width: "var(--mini-app-row-actions-column-width, 2.25rem)",
-      };
+      return miniAppRowActionsColumn(
+        EXPLORER_LABELS.itemActionsColumn,
+        columnMenu,
+      );
     case "name":
       return {
         ariaSort: getSortAria(sort, "name"),
@@ -144,13 +140,14 @@ function buildExplorerItemColumn(
 
 export function getExplorerItemTableColumns(params: {
   columnIds: ReadonlyArray<ExplorerItemColumnId>;
+  columnMenu?: ReactNode;
   compact: boolean;
   onSort: (key: ContainerItemSortKey) => void;
   sort: ContainerItemSort;
 }): ReadonlyArray<MiniAppTableColumn> {
-  const { columnIds, compact, onSort, sort } = params;
+  const { columnIds, columnMenu, compact, onSort, sort } = params;
   return columnIds.map((id) =>
-    buildExplorerItemColumn(id, { compact, onSort, sort }),
+    buildExplorerItemColumn(id, { columnMenu, compact, onSort, sort }),
   );
 }
 

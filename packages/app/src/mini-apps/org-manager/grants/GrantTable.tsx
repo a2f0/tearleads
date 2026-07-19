@@ -212,17 +212,18 @@ function useGrantTableColumns(showActions: boolean): {
       />
     );
     if (showActions) {
-      // Keep the column-menu trigger on the last data column and append the
-      // kebab column, which stands in for the inline Revoke button on touch.
-      const dataColumns = addMiniAppTableHeaderAction(
-        GRANT_DATA_TABLE_COLUMNS.filter(
+      // The kebab column (touch stand-in for the inline Revoke button) is the
+      // trailing edge, so the column-menu trigger rides in its header to stay
+      // flush right — on the last data column it would sit one narrow column
+      // in from the edge.
+      return [
+        ...GRANT_DATA_TABLE_COLUMNS.filter(
           (column) => !columnVisibility.hiddenColumns.has(column.id),
         ),
-        columnMenu,
-      );
-      return [
-        ...dataColumns,
-        miniAppRowActionsColumn(ORG_MANAGER_LABELS.rowActionsColumn),
+        miniAppRowActionsColumn(
+          ORG_MANAGER_LABELS.rowActionsColumn,
+          columnMenu,
+        ),
       ];
     }
     return addMiniAppTableHeaderAction(
