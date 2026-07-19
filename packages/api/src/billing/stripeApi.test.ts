@@ -151,6 +151,7 @@ test("an existing incomplete subscription is resumed, not duplicated", async () 
     {
       body: {
         id: "sub_pending",
+        status: "incomplete",
         metadata: { userId: "user-1", orgId: "org-1" },
         items: { data: [{ price: { id: "price_sync" } }] },
         latest_invoice: { payment_intent: { client_secret: "pi_resume" } },
@@ -183,6 +184,7 @@ test("a stale pending checkout is a conflict, never cancelled", async () => {
     {
       body: {
         id: "sub_stale",
+        status: "incomplete",
         metadata: { userId: "user-gone", orgId: "org-1" },
         items: { data: [{ price: { id: "price_old" } }] },
         latest_invoice: { payment_intent: { client_secret: "pi_stale" } },
@@ -224,6 +226,46 @@ test("customer creation is idempotency-keyed per user", async () => {
   expect(requests[1]?.headers.get("Idempotency-Key")).toBe(
     "sync-customer:user-1:org-1",
   );
+});
+
+test("a candidate that expired since the search is recreated, not resumed", async () => {
+  // The search index still reported `incomplete`, but the authoritative GET
+  // shows the attempt expired — its old client secret is unusable, so a
+  // fresh subscription is created under a rotated key.
+  const { fetchImpl, requests } = fakeFetch([
+    { body: { data: [{ id: "sub_gone", status: "incomplete" }] } },
+    { body: { id: "sub_gone", status: "incomplete_expired" } },
+    {
+      body: {
+        id: "sub_next",
+        latest_invoice: { payment_intent: { client_secret: "pi_next" } },
+      },
+    },
+  ]);
+  const outcome = await createSyncSubscription(
+    { customerId: "cus_1", userId: "user-1", organizationId: "org-1" },
+    { env: ENV, fetchImpl },
+  );
+
+  expect(outcome).toEqual({
+    kind: "ready",
+    intent: { subscriptionId: "sub_next", clientSecret: "pi_next" },
+  });
+  expect(requests[2]?.headers.get("Idempotency-Key")).toBe(
+    "sync-sub:org-1:price_sync:sub_gone",
+  );
+});
+
+test("a candidate that became active since the search is a conflict", async () => {
+  const { fetchImpl } = fakeFetch([
+    { body: { data: [{ id: "sub_won", status: "incomplete" }] } },
+    { body: { id: "sub_won", status: "active" } },
+  ]);
+  const outcome = await createSyncSubscription(
+    { customerId: "cus_1", userId: "user-1", organizationId: "org-1" },
+    { env: ENV, fetchImpl },
+  );
+  expect(outcome).toEqual({ kind: "conflict" });
 });
 
 test("a terminal previous attempt rotates the subscription idempotency key", async () => {

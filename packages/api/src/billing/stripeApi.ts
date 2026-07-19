@@ -251,7 +251,9 @@ async function resumePendingSubscription(input: {
   fetchImpl: typeof fetch;
   secretKey: string;
 }): Promise<
-  { kind: "resumed"; intent: StripeCheckoutIntent } | { kind: "conflict" }
+  | { kind: "resumed"; intent: StripeCheckoutIntent }
+  | { kind: "conflict" }
+  | { kind: "expired" }
 > {
   const { fetchImpl, secretKey } = input;
   const pending = await stripeRequest({
@@ -263,6 +265,15 @@ async function resumePendingSubscription(input: {
       "?expand[]=latest_invoice.payment_intent",
     operation: "subscription resume",
   });
+  // The search index is eventually consistent; the GET is authoritative. A
+  // subscription that already left `incomplete` must not be resumed: live
+  // means conflict, terminal means this is a fresh attempt.
+  const fetchedStatus = readString(prop(pending, "status"));
+  if (fetchedStatus !== "incomplete") {
+    return fetchedStatus && LIVE_SUBSCRIPTION_STATUSES.has(fetchedStatus)
+      ? { kind: "conflict" }
+      : { kind: "expired" };
+  }
   const pendingUserId = readString(prop(prop(pending, "metadata"), "userId"));
   const items = prop(prop(pending, "items"), "data");
   const pendingPriceId = Array.isArray(items)
@@ -356,6 +367,7 @@ export async function createSyncSubscription(
   if (candidate && candidate.status !== "incomplete") {
     return { kind: "conflict" };
   }
+  let rotationMarker = terminalAttemptId;
   if (candidate) {
     const resumed = await resumePendingSubscription({
       subscriptionId: candidate.subscriptionId,
@@ -364,9 +376,15 @@ export async function createSyncSubscription(
       fetchImpl,
       secretKey,
     });
-    return resumed.kind === "resumed"
-      ? { kind: "ready", intent: resumed.intent }
-      : { kind: "conflict" };
+    if (resumed.kind === "resumed") {
+      return { kind: "ready", intent: resumed.intent };
+    }
+    if (resumed.kind === "conflict") {
+      return { kind: "conflict" };
+    }
+    // The candidate turned out terminal on the authoritative read: proceed to
+    // a fresh create, rotating the key off the dead attempt.
+    rotationMarker = candidate.subscriptionId;
   }
 
   const form = new URLSearchParams();
@@ -393,7 +411,7 @@ export async function createSyncSubscription(
     // subscription that Stripe's key retention still remembers.
     idempotencyKey:
       `sync-sub:${input.organizationId}:${syncPriceId}` +
-      `:${terminalAttemptId ?? "initial"}`,
+      `:${rotationMarker ?? "initial"}`,
   });
   const intent = parseCheckoutIntent(body);
   return intent ? { kind: "ready", intent } : null;

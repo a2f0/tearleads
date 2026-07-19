@@ -1,6 +1,7 @@
 import { Hono, type MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
+import { type ApiCorsOrigins, readApiCorsOrigins } from "./corsOrigins";
 import type { SessionEnv } from "./middleware/session";
 import {
   productionRouteAppOverrides,
@@ -23,15 +24,8 @@ import type { ApiServiceRuntime } from "./services/runtime";
 import { OrganizationSyncDisabledError } from "./workflows/billing/organizationBilling";
 import { collectOrganizationReadModelChanges } from "./workflows/organizations/readModelChanges";
 
-type ApiCorsOrigins = "*" | readonly string[];
-
 interface RouteAppOptions {
   readonly corsOrigins?: ApiCorsOrigins | undefined;
-}
-
-interface ApiCorsEnv {
-  readonly API_CORS_ORIGINS?: string | undefined;
-  readonly NODE_ENV?: string | undefined;
 }
 
 const API_CORS_ALLOW_HEADERS = [
@@ -51,39 +45,6 @@ const API_CORS_ALLOW_METHODS = [
   "PUT",
 ];
 const API_CORS_MAX_AGE_SECONDS = 86400;
-
-function parseConfiguredApiCorsOrigins(value: string): ApiCorsOrigins {
-  const origins = value
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter((origin) => origin.length > 0);
-
-  if (origins.length === 0) {
-    throw new Error("API_CORS_ORIGINS must include at least one origin");
-  }
-  if (origins.includes("*")) {
-    if (origins.length > 1) {
-      throw new Error("API_CORS_ORIGINS cannot mix * with explicit origins");
-    }
-    return "*";
-  }
-
-  return origins;
-}
-
-export function readApiCorsOrigins(
-  env: ApiCorsEnv = process.env,
-): ApiCorsOrigins {
-  const configured = env.API_CORS_ORIGINS?.trim();
-  if (configured) {
-    return parseConfiguredApiCorsOrigins(configured);
-  }
-  if (env.NODE_ENV?.trim() === "production") {
-    throw new Error("API_CORS_ORIGINS is required when NODE_ENV=production");
-  }
-
-  return "*";
-}
 
 function createApiCorsMiddleware(origins: ApiCorsOrigins) {
   return cors({

@@ -1,7 +1,7 @@
 import { type Context, Hono } from "hono";
 import { StripeApiError } from "../../billing/stripeApi";
+import { readApiCorsOrigins } from "../../corsOrigins";
 import type { SessionEnv } from "../../middleware/session";
-import { readApiCorsOrigins } from "../../routeApp";
 import {
   createStripeCheckout,
   createStripePortalUrl,

@@ -1,7 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { MiddlewareHandler } from "hono";
+import { readApiCorsOrigins } from "./corsOrigins";
 import type { SessionEnv } from "./middleware/session";
-import { createRouteApp, readApiCorsOrigins, routeApp } from "./routeApp";
+import { createRouteApp, routeApp } from "./routeApp";
 
 describe("GET /", () => {
   test("returns ok", async () => {
