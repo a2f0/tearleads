@@ -170,13 +170,21 @@ async function purchaseForOrganization({
         }));
         void refresh();
       },
-      () => {
+      (error) => {
         if (!cancelled) {
           // Outcome already delivered through the race; without this handler
           // the loser would surface as an unhandled rejection.
           return;
         }
-        // Same shared-host teardown hazard as the late-success path above.
+        // A late PurchaseCancelledError is the pre-mount abort path: the
+        // backend refused to mount, so no checkout UI ever existed and no
+        // teardown can wipe the shared host — a retry in flight must keep
+        // running. Any other rejection comes from a checkout that mounted,
+        // whose teardown empties the shared host (same hazard as the
+        // late-success path above), so retire the replacement flow.
+        if (error instanceof PurchaseCancelledError) {
+          return;
+        }
         cancelPurchaseRef.current?.();
       },
     );

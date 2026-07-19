@@ -314,6 +314,48 @@ test("a cancel before the checkout mounts aborts the purchase signal", async () 
   await waitFor(() => expect(result.current.busy).toBe(null));
 });
 
+test("a pre-mount abort settling late leaves the retry running", async () => {
+  const purchaseHandlers: Array<{
+    resolve: (value: SyncPurchaseResult) => void;
+    reject: (error: Error) => void;
+  }> = [];
+  const purchaseSync = mock(
+    () =>
+      new Promise<SyncPurchaseResult>((resolve, reject) => {
+        purchaseHandlers.push({ resolve, reject });
+      }),
+  );
+  const purchases: PurchasesCapability = {
+    ...createPurchases({ syncEntitlementActive: true }),
+    purchaseSync,
+  };
+  const { result } = renderBillingActions({ purchases });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  // Cancel during the first purchase's pre-mount phase, then retry.
+  await act(async () => {
+    result.current.subscribe(OPTION);
+  });
+  await act(async () => {
+    result.current.cancelCheckout();
+  });
+  await waitFor(() => expect(result.current.busy).toBe(null));
+  await act(async () => {
+    result.current.subscribe(OPTION);
+  });
+  await waitFor(() => expect(purchaseSync).toHaveBeenCalledTimes(2));
+
+  // The aborted purchase now rejects with the backend's cancellation: no
+  // checkout ever mounted, so nothing was torn down and the retry must keep
+  // running rather than being retired.
+  await act(async () => {
+    purchaseHandlers[0]?.reject(new PurchaseCancelledError());
+  });
+
+  expect(result.current.busy).toBe(`subscribe:${OPTION.packageId}`);
+  expect(result.current.actionError).toBe(null);
+});
+
 test("a late failure of a cancelled checkout retires its replacement", async () => {
   const purchaseHandlers: Array<{
     resolve: (value: SyncPurchaseResult) => void;

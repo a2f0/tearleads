@@ -244,7 +244,16 @@ function BillingAdminActions({
             onSubscribe={props.onSubscribe}
             options={props.options}
           />
-          <div className="org-manager-billing-checkout" ref={checkoutHostRef} />
+          {/* The host (and its cancel-on-detach lifecycle) exists only where
+              the backend actually embeds into it. On native platforms the
+              purchase runs in a store sheet the app cannot cancel, so a
+              detaching host must not settle the flow as cancelled. */}
+          {props.embeddedCheckout ? (
+            <div
+              className="org-manager-billing-checkout"
+              ref={checkoutHostRef}
+            />
+          ) : null}
           {props.embeddedCheckout &&
           typeof props.busy === "string" &&
           props.busy.startsWith("subscribe:") ? (

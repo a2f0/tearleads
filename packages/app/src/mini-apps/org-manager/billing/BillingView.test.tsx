@@ -340,3 +340,25 @@ test("unmounting the checkout host dismisses the purchase", () => {
   view.rerender(<BillingView {...props({ ...shared, isOrgAdmin: false })} />);
   expect(cancelled).toBe(1);
 });
+
+test("native purchases get no checkout host and no detach cancellation", () => {
+  // On Capacitor the purchase runs in a store sheet the app cannot cancel:
+  // there must be no embedded host whose unmount would settle the flow as
+  // cancelled while the sheet is still up.
+  let cancelled = 0;
+  const shared = {
+    purchaseAvailable: true,
+    embeddedCheckout: false,
+    busy: "subscribe:monthly",
+    onCancelCheckout: () => {
+      cancelled += 1;
+    },
+  };
+  const view = render(<BillingView {...props(shared)} />);
+  expect(
+    view.container.querySelector(".org-manager-billing-checkout"),
+  ).toBeNull();
+
+  view.rerender(<BillingView {...props({ ...shared, isOrgAdmin: false })} />);
+  expect(cancelled).toBe(0);
+});
