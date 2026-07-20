@@ -56,7 +56,7 @@ that already exist and may deliberately span several layers (`Containers` covers
 its routes, its service facade, and its transaction-orchestration workflows).
 Import direction stays enforced by the lanes/layers/planes in
 `dependency-cruiser.config.ts`. The registry lives in `scripts/subsystems.ts`
-and `docs/SUBSYSTEMS.md`; `bun run lint:architecture` fails if a production file
+and `docs/subsystems.md`; `bun run lint:architecture` fails if a production file
 maps to zero or more than one subsystem, or if the manifest and docs drift.
 Registered: `packages/api`, `packages/client-sdk`, and `packages/app`.
 
