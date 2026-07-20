@@ -171,10 +171,18 @@ export function useExplorerSidebarDocumentWindows(params: {
     [documentQueries],
   );
 
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     loadGenerationRef.current += 1;
     latestWindowLoadKeyByContainerIdRef.current.clear();
     pendingWindowLoadKeysRef.current.clear();
+    // A reload pass armed against the previous queries object must not fire
+    // into the freshly wiped scope; the next version bump re-arms it against
+    // the new one.
+    if (reloadTimerRef.current !== null) {
+      clearTimeout(reloadTimerRef.current);
+      reloadTimerRef.current = null;
+    }
     setDocumentWindowsByContainerId((currentWindows) =>
       currentWindows.size === 0 ? currentWindows : new Map(),
     );
@@ -182,9 +190,7 @@ export function useExplorerSidebarDocumentWindows(params: {
 
   const readyRef = useRef(ready);
   readyRef.current = ready;
-  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const runReloadPass = useCallback(() => {
-    reloadTimerRef.current = null;
     if (!readyRef.current) {
       return;
     }
@@ -201,6 +207,11 @@ export function useExplorerSidebarDocumentWindows(params: {
       );
     }
   }, [requestDocumentWindow]);
+  // The timer always invokes the LATEST pass closure: an armed timer can
+  // outlive the render that armed it, and firing a stale closure would issue
+  // loads against a superseded documentQueries object.
+  const runReloadPassRef = useRef(runReloadPass);
+  runReloadPassRef.current = runReloadPass;
   useEffect(() => {
     if (!ready) {
       return;
@@ -213,16 +224,11 @@ export function useExplorerSidebarDocumentWindows(params: {
     if (reloadTimerRef.current !== null) {
       return;
     }
-    reloadTimerRef.current = setTimeout(
-      runReloadPass,
-      EXPLORER_SIDEBAR_RELOAD_COALESCE_MS,
-    );
-  }, [
-    documentLinkProjectionVersionByContainerId,
-    documentListRevision,
-    ready,
-    runReloadPass,
-  ]);
+    reloadTimerRef.current = setTimeout(() => {
+      reloadTimerRef.current = null;
+      runReloadPassRef.current();
+    }, EXPLORER_SIDEBAR_RELOAD_COALESCE_MS);
+  }, [documentLinkProjectionVersionByContainerId, documentListRevision, ready]);
   useEffect(
     () => () => {
       if (reloadTimerRef.current !== null) {

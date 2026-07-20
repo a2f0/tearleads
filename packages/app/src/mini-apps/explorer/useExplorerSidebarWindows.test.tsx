@@ -193,23 +193,28 @@ test("sidebar link refresh keeps stale rows visible until the reload lands", asy
 // container, so a membership change in one org's container leaves both that
 // container's and the other org's rows on screen throughout the refresh.
 test("a version bump never blanks any expanded container's rows", async () => {
+  const calls: Array<{ containerId: string; limit: number; offset: number }> =
+    [];
   const queries = {
     listContainerDocumentSidebarWindow: async (input: {
       containerId: string;
       limit: number;
       offset: number;
-    }) => ({
-      rows:
-        input.limit > 0
-          ? [
-              documentRow({
-                containerId: input.containerId,
-                localId: `${input.containerId}-doc`,
-              }),
-            ]
-          : [],
-      totalCount: 1,
-    }),
+    }) => {
+      calls.push(input);
+      return {
+        rows:
+          input.limit > 0
+            ? [
+                documentRow({
+                  containerId: input.containerId,
+                  localId: `${input.containerId}-doc`,
+                }),
+              ]
+            : [],
+        totalCount: 1,
+      };
+    },
   } as unknown as ContainerDocumentQueries;
 
   const nodes = [
@@ -245,6 +250,8 @@ test("a version bump never blanks any expanded container's rows", async () => {
     ).toHaveLength(1);
   });
 
+  const callCountBeforeBump = calls.length;
+
   // A membership change in the custom org bumps ONLY its container's version.
   act(() => {
     view.rerender({ versions: new Map([["custom", 1]]) });
@@ -259,8 +266,17 @@ test("a version bump never blanks any expanded container's rows", async () => {
     view.result.current.documentWindowsByContainerId.get("personal")?.rows,
   ).toHaveLength(1);
 
-  // After the throttled pass fires and settles, the rows are still present:
-  // the refresh swapped in place rather than blanking and refilling.
+  // Wait for the throttled pass to actually fire (observed as fresh queries
+  // for both expanded containers) and settle, THEN assert retention: the
+  // refresh swapped in place rather than blanking and refilling.
+  await waitFor(() => {
+    expect(
+      calls
+        .slice(callCountBeforeBump)
+        .map((call) => call.containerId)
+        .sort(),
+    ).toEqual(["custom", "personal"]);
+  });
   await waitFor(() => {
     const custom =
       view.result.current.documentWindowsByContainerId.get("custom");
