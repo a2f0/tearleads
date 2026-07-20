@@ -112,6 +112,39 @@ The server does not turn that source frontier into a compare-and-set gate on
 accepted sync updates. A retained client that loses a rotate race adopts the
 canonical bundle and re-emits from local CRDT state if needed.
 
+### Declared Coverage Is Trusted, Not Verified
+
+Prune and redirect safety rest on the baseline's declared coverage: the server
+clears or stops serving older ciphertext only when a baseline satisfying the
+authenticated v2 checkpoint contract (`isAuthenticatedReplayableBaseline`)
+declares a coverage vector that dominates it. Under E2EE the server cannot open the baseline snapshot, so it
+cannot verify that the ciphertext actually contains the operations the
+coverage vector claims. A malicious authorized writer can therefore declare
+coverage its baseline does not carry and cause pruning of ciphertext the
+baseline cannot reproduce.
+
+This is an accepted design property (roadmap #1607), with these bounds:
+
+- the damage requires an authorized writer for the document, and the impact
+  is data loss, not disclosure. Note the writer need not be able to read what
+  it destroys: a writer added after a rotation holds only the current-epoch
+  DEK, yet can declare coverage over pre-rotation updates it could never
+  decrypt
+- the declaration is durable and attributable: checkpoint rows persist the
+  claimed frontier and signed baseline checkpoints commit it to the audit
+  ledger. A false claim is detectable by any current-epoch reader — who can
+  decrypt the baseline and compare its actual frontier to the claimed one —
+  and attributable through the checkpoint's actor columns; the server can
+  never make that determination, and the cleared payloads are not
+  recoverable
+
+Candidate mitigations, deliberately not adopted:
+
+- restrict `rotate_baseline` authorship by policy, narrowing which principals
+  can trigger pruning
+- never hard-clear payloads that only a non-highest-epoch baseline dominates,
+  keeping ciphertext recoverable at some storage cost
+
 ### There Must Be Only One Canonical Bundle Per Epoch
 
 Once a current-epoch document bundle exists, later writes for that same epoch
