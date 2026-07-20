@@ -47,13 +47,20 @@ function useDirectCheckoutWiring(input: {
   // Gate on `isActive`, NOT `canSync`. `canSync` folds in trialing, which would
   // hide the checkout for the whole trial; a trialing org has no subscription
   // yet (the trial is a local status, no Stripe sub) and its admin may want to
-  // commit before the trial ends. The server agrees — it refuses a checkout
-  // only for a genuinely `active` org — so this offers the checkout in every
-  // state where a paid subscription can start (local, trialing, lapsed) and
-  // hides it only once one exists. `enabled` is the render gate too: when it
-  // flips off mid-flow (the payment lands, the org becomes active) the hook
-  // tears the element down rather than having its host yanked out from under a
-  // live session.
+  // commit before the trial ends. So this offers the checkout in every state
+  // where a paid subscription can start (local, trialing, lapsed).
+  //
+  // This is close to, but not exactly, the server's checkout gate: the server
+  // refuses only a raw stored `status === "active"`, while `isActive` here also
+  // requires the current period not to have ended. They diverge only in a
+  // transient window — a still-`active` row whose period expired before the
+  // renewal/revoke webhook landed — where this offers a checkout the server
+  // then 409s. That window predates this gate (the old `!canSync` had it too)
+  // and self-heals on the next billing refresh, so it is left as-is.
+  //
+  // `enabled` is the render gate too: when it flips off mid-flow (the payment
+  // lands, the org becomes active) the hook tears the element down rather than
+  // having its host yanked out from under a live session.
   const checkoutEnabled = Boolean(
     input.isOrgAdmin && view !== null && !view.isActive,
   );
