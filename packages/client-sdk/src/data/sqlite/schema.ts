@@ -423,12 +423,20 @@ export const documentMoveIntents = sqliteTable(
  *   `containers` join source disappears. Read as a fallback only — a live
  *   container join always wins.
  * - `documentKind`: Stored document kind. Defaults to `note`.
- * - `text`: Plain projected text used to rebuild summaries/details.
  * - `title`: Plain projected title. Defaults to the note fallback title.
  * - `updatedAt`: Timestamp used for document list ordering.
  *
+ * The projected full text lives in `documentProjectionText`, keyed by the same
+ * `localId`. Keeping it out of this row keeps list/window scans narrow: the
+ * sidebar and summary queries read titles and placement from rows whose size
+ * does not grow with document content.
+ *
  * Indexes:
  * - `localId` is the primary key for document projection lookups.
+ * - `(containerId) where containerId is not null` serves container-scoped
+ *   window/count scans without walking the whole table.
+ * - `(documentId) where documentId is not null` serves the linked-placement
+ *   join from `documentContainerProjection` and server-id lookups.
  */
 export const documentProjection = sqliteTable(
   "document_projection",
@@ -438,9 +446,34 @@ export const documentProjection = sqliteTable(
     containerId: text("container_id"),
     organizationId: text("organization_id"),
     documentKind: text("document_kind").notNull().default("note"),
-    text: text("text").notNull(),
     title: text("title").notNull().default("Untitled note"),
     updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.localId] }),
+    index("document_projection_container_idx")
+      .on(table.containerId)
+      .where(sql`${table.containerId} IS NOT NULL`),
+    index("document_projection_document_idx")
+      .on(table.documentId)
+      .where(sql`${table.documentId} IS NOT NULL`),
+  ],
+);
+
+/**
+ * Projected document text, split from `documentProjection` so content size
+ * never bloats the rows that list/window queries scan. Loaded only by detail
+ * reads (`loadDocument`) and the save-timestamp change check.
+ *
+ * Columns:
+ * - `localId`: Stable local document id, matching `documentProjection.localId`.
+ * - `text`: Plain projected text used to rebuild summaries/details.
+ */
+export const documentProjectionText = sqliteTable(
+  "document_projection_text",
+  {
+    localId: text("local_id"),
+    text: text("text").notNull(),
   },
   (table) => [primaryKey({ columns: [table.localId] })],
 );
@@ -730,6 +763,7 @@ export const documentMoveIntentTables: ReadonlyArray<SqlTableSchema> = [
 
 export const documentProjectionTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(documentProjection),
+  defineSqlTableSchema(documentProjectionText),
   defineSqlTableSchema(documentPendingAttachments),
   defineSqlTableSchema(documentAttachmentBlobProjection),
 ];

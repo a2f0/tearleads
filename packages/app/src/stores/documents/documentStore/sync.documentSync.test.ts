@@ -167,7 +167,7 @@ test("large note edits remain a single pending update row before sync", async ()
       const projectionRows = await runtime.infra.execSql(
         `
  SELECT length(text) AS text_length
- FROM document_projection
+ FROM document_projection_text
  WHERE local_id = :localId
  `,
         {

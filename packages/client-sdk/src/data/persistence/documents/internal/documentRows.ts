@@ -6,7 +6,11 @@ import {
   type DocumentScope,
   mapSelectedDocumentRecord,
 } from "../../../sqlite/documentPersistence";
-import { documentProjection, documents } from "../../../sqlite/schema";
+import {
+  documentProjection,
+  documentProjectionText,
+  documents,
+} from "../../../sqlite/schema";
 import { deriveSnapshotEndVersion } from "../../../sqlite/snapshotEndVersion";
 import type { ClientSQLiteTransaction } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { StoredDocumentRecord } from "../types";
@@ -108,7 +112,6 @@ export async function saveDocumentRows(input: {
     documentId: document.documentId,
     containerId: document.containerId,
     documentKind: document.documentKind ?? DEFAULT_DOCUMENT_KIND,
-    text: document.text,
     title: document.title ?? deriveDocumentTitle(document.text),
     updatedAt,
   };
@@ -118,6 +121,19 @@ export async function saveDocumentRows(input: {
     .onConflictDoUpdate({
       target: documentProjection.localId,
       set: projectionRow,
+    })
+    .run();
+
+  const projectionTextRow = {
+    localId: document.id,
+    text: document.text,
+  };
+  await tx
+    .insert(documentProjectionText)
+    .values(projectionTextRow)
+    .onConflictDoUpdate({
+      target: documentProjectionText.localId,
+      set: projectionTextRow,
     })
     .run();
 }
@@ -159,11 +175,15 @@ export async function resolveDocumentSaveTimestamp(input: {
     tx
       .select({
         documentKind: documentProjection.documentKind,
-        text: documentProjection.text,
+        text: documentProjectionText.text,
         title: documentProjection.title,
         updatedAt: documentProjection.updatedAt,
       })
       .from(documentProjection)
+      .leftJoin(
+        documentProjectionText,
+        eq(documentProjectionText.localId, documentProjection.localId),
+      )
       .where(eq(documentProjection.localId, document.id))
       .limit(1),
   ]);

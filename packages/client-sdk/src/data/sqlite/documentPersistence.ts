@@ -1,5 +1,10 @@
 import { documentProjectionTables, documentTables } from "./schema";
-import { type ExecSql, ensureSqlColumns, ensureSqlTables } from "./sqlSchema";
+import {
+  type ExecSql,
+  ensureSqlColumns,
+  ensureSqlTables,
+  runSerializedSqlMutation,
+} from "./sqlSchema";
 
 export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
   await ensureSqlTables(execSql, documentTables);
@@ -25,6 +30,34 @@ export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
   ]);
 }
 
+// One-time destructive move for databases created before the projected text
+// was split into `document_projection_text`: copy the legacy column out, then
+// drop it so list/window scans stop paging past content-sized rows. Runs under
+// the shared mutation lock so the copy and the drop cannot interleave with
+// other writers.
+async function migrateLegacyProjectionTextColumn(
+  execSql: ExecSql,
+): Promise<void> {
+  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    const columns = await lockedExecSql(
+      'PRAGMA table_info("document_projection")',
+    );
+    const hasLegacyTextColumn = columns.some(
+      (column) => Reflect.get(column, "name") === "text",
+    );
+    if (!hasLegacyTextColumn) {
+      return;
+    }
+
+    await lockedExecSql(
+      `INSERT OR REPLACE INTO document_projection_text (local_id, text)
+       SELECT local_id, text FROM document_projection
+       WHERE local_id IS NOT NULL`,
+    );
+    await lockedExecSql('ALTER TABLE "document_projection" DROP COLUMN "text"');
+  });
+}
+
 export async function ensureDocumentProjectionTables(
   execSql: ExecSql,
 ): Promise<void> {
@@ -35,6 +68,7 @@ export async function ensureDocumentProjectionTables(
       definition: '"organization_id" TEXT',
     },
   ]);
+  await migrateLegacyProjectionTextColumn(execSql);
 }
 
 export {
