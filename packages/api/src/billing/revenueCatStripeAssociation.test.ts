@@ -46,7 +46,9 @@ test("association sets the org attribute BEFORE posting the receipt", async () =
   expect(requests[0]?.url).toContain("/v1/subscribers/user-1/attributes");
   expect(requests[0]?.headers.get("Authorization")).toBe("Bearer sk_rc_secret");
   expect(requests[0]?.body).toEqual({
-    attributes: { orgId: { value: "org-1" } },
+    attributes: {
+      orgId: { value: "org-1", updated_at_ms: expect.any(Number) },
+    },
   });
   expect(requests[1]?.url).toContain("/v1/receipts");
   expect(requests[1]?.headers.get("Authorization")).toBe("Bearer strp_public");

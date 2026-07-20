@@ -111,7 +111,12 @@ export async function associateStripeSubscription(
     operation: "attribute update",
     body: {
       attributes: {
-        [ORGANIZATION_SUBSCRIBER_ATTRIBUTE]: { value: input.organizationId },
+        [ORGANIZATION_SUBSCRIBER_ATTRIBUTE]: {
+          value: input.organizationId,
+          // Required by the v1 attributes endpoint; RevenueCat also uses it
+          // for last-write-wins conflict resolution between devices.
+          updated_at_ms: Date.now(),
+        },
       },
     },
   });
