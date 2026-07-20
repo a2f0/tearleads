@@ -23,6 +23,7 @@ import {
 } from "@tearleads/loro";
 import {
   loadLatestReadableBaselineCoverage,
+  selectServedSyncUpdateEntries,
   selectServedSyncUpdates,
 } from "./documentSyncBaselineRedirect";
 import { planDominatedUpdatePrune } from "./documentUpdatePrune";
@@ -163,19 +164,22 @@ test("a full-history rotation snapshot converges a fresh reader before and after
 async function insertBaselineCheckpoint(input: {
   baselineUpdateId: string;
   contentKeyEpoch: number;
+  corruptMetadataHash?: boolean;
   documentId: string;
   sourceVersionVector: string;
 }): Promise<void> {
   const partialStartVersionVector = emptyVersionVector();
-  const metadataHash = await computeDocumentContentRecordMetadataHash({
-    checkpointKind: "rotate_baseline",
-    checkpointPayloadKind: "full_history_snapshot",
-    documentId: input.documentId,
-    partialEndVersionVector: input.sourceVersionVector,
-    partialStartVersionVector,
-    sourceVersionVector: input.sourceVersionVector,
-    updateId: input.baselineUpdateId,
-  });
+  const metadataHash = input.corruptMetadataHash
+    ? `tampered-${input.baselineUpdateId}`
+    : await computeDocumentContentRecordMetadataHash({
+        checkpointKind: "rotate_baseline",
+        checkpointPayloadKind: "full_history_snapshot",
+        documentId: input.documentId,
+        partialEndVersionVector: input.sourceVersionVector,
+        partialStartVersionVector,
+        sourceVersionVector: input.sourceVersionVector,
+        updateId: input.baselineUpdateId,
+      });
   await db.insert(documentUpdates).values({
     id: input.baselineUpdateId,
     documentId: input.documentId,
@@ -248,4 +252,134 @@ test("loadLatestReadableBaselineCoverage returns the latest baseline under the r
       contentKeyEpoch: 3,
     }),
   ).toBeNull();
+});
+
+// The prune/redirect coverage induction (#1607 L3 remainder): every epoch
+// advance normally carries a rotate_baseline, but a sync-carried content-key
+// bundle can advance the epoch alone. With no current-epoch baseline the
+// redirect must be unable to fire — a prior-epoch baseline, however valid,
+// must not stand in — so nothing is ever dropped.
+test("an epoch advance with no current-epoch baseline serves everything", async () => {
+  const documentId = randomUUID();
+  const { vv1, vv2 } = await versionVectorTimeline();
+  await insertBaselineCheckpoint({
+    baselineUpdateId: randomUUID(),
+    contentKeyEpoch: 1,
+    documentId,
+    sourceVersionVector: vv2,
+  });
+
+  const entries = [entry(1, vv1), entry(2, vv2)];
+  const served = await selectServedSyncUpdateEntries({
+    currentContentKeyEpoch: 2,
+    documentId,
+    entries,
+    executor: db,
+  });
+  expect(served).toEqual(entries);
+});
+
+// The redirect gate is the authenticated v2 checkpoint contract, not row
+// presence: a current-epoch checkpoint whose metadata hash does not verify is
+// skipped, falling back to an earlier authenticated one — or to serving
+// everything when none survives.
+test("an unauthenticated current-epoch checkpoint cannot enable the redirect", async () => {
+  const documentId = randomUUID();
+  const { vv1, vv2, vv3 } = await versionVectorTimeline();
+  await insertBaselineCheckpoint({
+    baselineUpdateId: randomUUID(),
+    contentKeyEpoch: 2,
+    corruptMetadataHash: true,
+    documentId,
+    sourceVersionVector: vv3,
+  });
+
+  expect(
+    await loadLatestReadableBaselineCoverage(db, {
+      documentId,
+      contentKeyEpoch: 2,
+    }),
+  ).toBeNull();
+  const entries = [entry(1, vv1), entry(2, vv3)];
+  await expect(
+    selectServedSyncUpdateEntries({
+      currentContentKeyEpoch: 2,
+      documentId,
+      entries,
+      executor: db,
+    }),
+  ).resolves.toEqual(entries);
+
+  // A valid same-epoch baseline is found by scanning past tampered rows: the
+  // newest checkpoint below stays tampered, so returning vv2 requires the
+  // loop to skip a failed authentication and keep going rather than stop at
+  // the first row.
+  await insertBaselineCheckpoint({
+    baselineUpdateId: randomUUID(),
+    contentKeyEpoch: 2,
+    documentId,
+    sourceVersionVector: vv2,
+  });
+  await insertBaselineCheckpoint({
+    baselineUpdateId: randomUUID(),
+    contentKeyEpoch: 2,
+    corruptMetadataHash: true,
+    documentId,
+    sourceVersionVector: vv3,
+  });
+  expect(
+    await loadLatestReadableBaselineCoverage(db, {
+      documentId,
+      contentKeyEpoch: 2,
+    }),
+  ).toBe(vv2);
+  // With an authenticated baseline available the redirect now fires
+  // end-to-end within the same scenario: vv2 dominates the older entry.
+  await expect(
+    selectServedSyncUpdateEntries({
+      currentContentKeyEpoch: 2,
+      documentId,
+      entries,
+      executor: db,
+    }),
+  ).resolves.toEqual([entry(2, vv3)]);
+});
+
+// A lost-ack re-key of a durable rotate_baseline pending update resubmits the
+// same snapshot under a fresh update id, minting a second checkpoint row with
+// identical coverage (#1607 L6). Each row authenticates under its own id, so
+// the duplicate is benign: coverage resolution and the redirect behave as if
+// there were one.
+test("duplicate re-keyed baseline checkpoints resolve like a single one", async () => {
+  const documentId = randomUUID();
+  const { vv1, vv2 } = await versionVectorTimeline();
+  await insertBaselineCheckpoint({
+    baselineUpdateId: randomUUID(),
+    contentKeyEpoch: 2,
+    documentId,
+    sourceVersionVector: vv2,
+  });
+  await insertBaselineCheckpoint({
+    baselineUpdateId: randomUUID(),
+    contentKeyEpoch: 2,
+    documentId,
+    sourceVersionVector: vv2,
+  });
+
+  expect(
+    await loadLatestReadableBaselineCoverage(db, {
+      documentId,
+      contentKeyEpoch: 2,
+    }),
+  ).toBe(vv2);
+  const olderEntry = entry(1, vv1);
+  const currentEntry = entry(2, vv2);
+  await expect(
+    selectServedSyncUpdateEntries({
+      currentContentKeyEpoch: 2,
+      documentId,
+      entries: [olderEntry, currentEntry],
+      executor: db,
+    }),
+  ).resolves.toEqual([currentEntry]);
 });
