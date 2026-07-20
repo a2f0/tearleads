@@ -16,7 +16,6 @@ interface SelectedDocumentProjection {
   documentId: string | null;
   containerId: string | null;
   documentKind: StoredDocumentKind;
-  text: string;
   title: string;
   updatedAt: string;
   accessStateHash: string | null;
@@ -24,7 +23,7 @@ interface SelectedDocumentProjection {
 }
 
 interface SelectedDocumentProjectionDetail {
-  text: string;
+  text: string | null;
   containerId: string | null;
   documentKind: StoredDocumentKind;
   title: string;
@@ -32,17 +31,19 @@ interface SelectedDocumentProjectionDetail {
 
 interface SelectedDocumentProjectionTimestamp {
   documentKind?: StoredDocumentKind;
-  text?: string;
+  text?: string | null;
   title?: string;
   updatedAt: string;
 }
 
+// Deliberately excludes the projected text (`documentProjectionText`): the
+// title fallback is derived at write time, so summary listings never need to
+// haul content-sized values through the worker.
 export const documentSummarySelection = {
   localId: documentProjection.localId,
   documentId: documentProjection.documentId,
   containerId: documentProjection.containerId,
   documentKind: documentProjection.documentKind,
-  text: documentProjection.text,
   title: documentProjection.title,
   updatedAt: documentProjection.updatedAt,
   accessStateHash: documents.accessStateHash,

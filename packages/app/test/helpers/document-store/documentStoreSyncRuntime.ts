@@ -392,7 +392,7 @@ export async function waitForStoredDocumentText(
     const rows = await runtime.infra.execSql(
       `
  SELECT text
- FROM document_projection
+ FROM document_projection_text
  WHERE local_id = :localId
  `,
       {

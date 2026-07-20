@@ -115,6 +115,8 @@ test("client sqlite schema creates tables and indexes", async () => {
       "document_move_intents_status_created_idx",
       "document_pending_attachments_mime_type_idx",
       "document_pending_updates_scope_created_idx",
+      "document_projection_container_idx",
+      "document_projection_document_idx",
       "documents_app_document_idx",
     ]);
 
