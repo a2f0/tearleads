@@ -274,3 +274,22 @@ test("Stripe-store grants fall back to transaction_id for the subscription", () 
       appStoreGrant.fields.providerSubscriptionId,
   ).toBeNull();
 });
+
+test("a 404 subscription lookup reads as not-ours, never a retry loop", async () => {
+  // A STRIPE-store event whose transaction id is not a fetchable subscription
+  // (a purchase predating this checkout, a one-time token) must fall back to
+  // ordinary resolution — deferring it would redeliver forever.
+  const notFoundFetch = (async (
+    _input: RequestInfo | URL,
+    _init?: RequestInit,
+  ) => new Response("{}", { status: 404 })) as typeof fetch;
+  expect(
+    await resolveStripeStoreOrganizationId(
+      makeEvent({ store: "STRIPE", original_transaction_id: "sub_legacy" }),
+      {
+        env: { STRIPE_SECRET_KEY: "sk", STRIPE_SYNC_PRICE_ID: "p" },
+        fetchImpl: notFoundFetch,
+      },
+    ),
+  ).toEqual({ kind: "none" });
+});

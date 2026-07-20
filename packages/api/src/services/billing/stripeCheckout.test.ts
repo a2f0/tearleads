@@ -1,9 +1,30 @@
 import { expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
+import { db } from "@tearleads/api-shared/postgres";
+import { organizationBilling, users } from "@tearleads/api-shared/schema";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { eq } from "drizzle-orm";
+import invariant from "invariant";
+import { authenticate } from "../../../test/helpers/authenticate";
+import { registerUser } from "../../../test/helpers/registerUser";
+import { getDefaultApiServiceRuntime } from "../runtime";
 import {
+  createStripeCheckout,
+  createStripePortalUrl,
   getStripeCheckoutOptions,
   processStripeWebhook,
 } from "./stripeCheckout";
+
+async function registerAndAuthenticate(user: TestUser): Promise<string> {
+  await registerUser(user);
+  await authenticate(user);
+  const [row] = await db
+    .select({ organizationId: users.defaultOrganizationId })
+    .from(users)
+    .where(eq(users.id, user.userId));
+  invariant(row, "expected registered user row");
+  return row.organizationId;
+}
 
 const ORG_ID = "11111111-1111-4111-8111-111111111111";
 const WEBHOOK_SECRET = "whsec_test";
@@ -164,4 +185,77 @@ test("a missing webhook secret fails closed", async () => {
     { stripe: { env: {} } },
   );
   expect(outcome).toEqual({ status: "unconfigured" });
+});
+
+test("the portal refuses a subscription bound to another org", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await db
+    .update(organizationBilling)
+    .set({ providerSubscriptionId: "sub_org" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  const stripeEnv = {
+    STRIPE_SECRET_KEY: "sk_test",
+    STRIPE_SYNC_PRICE_ID: "price_sync",
+  };
+  const bindingFetch = (orgId: string) =>
+    (async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      new Response(
+        JSON.stringify({
+          id: "sub_org",
+          status: "active",
+          customer: "cus_org",
+          metadata: { userId: admin.userId, orgId },
+        }),
+      )) as typeof fetch;
+
+  // A legacy/foreign subscription (bound to a different org) must not yield
+  // a portal: its pooled customer could expose unrelated organizations.
+  const mismatched = await createStripePortalUrl(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+    "https://app.example/billing",
+    {
+      stripe: {
+        env: stripeEnv,
+        fetchImpl: bindingFetch("22222222-2222-4222-8222-222222222222"),
+      },
+    },
+  );
+  expect(mismatched).toBeNull();
+});
+
+test("a Stripe-side live subscription makes checkout a 409", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+
+  const fullEnv = {
+    STRIPE_SECRET_KEY: "sk_test",
+    STRIPE_SYNC_PRICE_ID: "price_sync",
+    STRIPE_WEBHOOK_SECRET: "whsec",
+    REVENUECAT_SECRET_API_KEY: "sk_rc",
+    REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp",
+  };
+  const responses = [
+    { data: [{ id: "cus_1" }] },
+    { data: [{ id: "sub_live", status: "active" }] },
+  ];
+  const conflictFetch = (async (_input: RequestInfo | URL) =>
+    new Response(JSON.stringify(responses.shift() ?? {}))) as typeof fetch;
+
+  // Our billing row may lag (e.g. webhook outage), but Stripe already holds
+  // a live subscription for the org — a second checkout would double-bill.
+  await expect(
+    createStripeCheckout(
+      getDefaultApiServiceRuntime(),
+      organizationId,
+      admin.userId,
+      {
+        stripe: { env: fullEnv, fetchImpl: conflictFetch },
+        revenueCat: { env: fullEnv },
+      },
+    ),
+  ).rejects.toMatchObject({ status: 409 });
 });

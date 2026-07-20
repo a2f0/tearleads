@@ -1,4 +1,5 @@
 import { type Context, Hono } from "hono";
+import { RevenueCatAssociationError } from "../../billing/revenueCatStripeAssociation";
 import { StripeApiError } from "../../billing/stripeApi";
 import { type ApiCorsOrigins, readApiCorsOrigins } from "../../corsOrigins";
 import type { SessionEnv } from "../../middleware/session";
@@ -158,10 +159,24 @@ export function createStripeWebhookRoute() {
   const route = new Hono<SessionEnv>();
 
   route.post("/billing/stripe/webhook", async (c) => {
-    const outcome = await processStripeWebhook({
-      payload: await c.req.text(),
-      signatureHeader: c.req.header("Stripe-Signature"),
-    });
+    let outcome: Awaited<ReturnType<typeof processStripeWebhook>>;
+    try {
+      outcome = await processStripeWebhook({
+        payload: await c.req.text(),
+        signatureHeader: c.req.header("Stripe-Signature"),
+      });
+    } catch (error) {
+      if (
+        error instanceof StripeApiError ||
+        error instanceof RevenueCatAssociationError
+      ) {
+        // Same semantics as the `retry` outcome: non-2xx so Stripe
+        // redelivers, with an explicit log instead of a generic 500.
+        console.error("Stripe webhook processing failed:", error.message);
+        return c.json({ error: "Provider request failed" }, 503);
+      }
+      throw error;
+    }
     switch (outcome.status) {
       case "unconfigured":
         console.error(

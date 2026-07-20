@@ -5,7 +5,11 @@ import type {
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { isUuidV4String } from "@tearleads/validators/util";
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "./organizationBilling";
-import { getSubscriptionBinding, type StripeApiDeps } from "./stripeApi";
+import {
+  getSubscriptionBinding,
+  type StripeApiDeps,
+  StripeApiError,
+} from "./stripeApi";
 
 /**
  * Environment variable holding the exact value RevenueCat must send in the
@@ -171,6 +175,13 @@ export async function resolveStripeStoreOrganizationId(
         // checkout; ordinary resolution applies.
         { kind: "none" };
   } catch (error) {
+    // A definitive 404 means the transaction id is not a fetchable
+    // subscription on our account — e.g. a purchase predating this checkout
+    // or a one-time purchase token. That is "not ours", not a transient
+    // failure: deferring it would retry-loop forever.
+    if (error instanceof StripeApiError && error.status === 404) {
+      return { kind: "none" };
+    }
     console.error(
       "Stripe subscription lookup for RevenueCat event failed:",
       error,

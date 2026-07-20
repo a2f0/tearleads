@@ -338,11 +338,11 @@ test("portal session returns the hosted url", async () => {
   expect(requests[0]?.body).toContain("customer=cus_1");
 });
 
-test("a failed Stripe request surfaces as StripeApiError with its status", () => {
+test("a failed Stripe request surfaces as StripeApiError with its status", async () => {
   const { fetchImpl } = fakeFetch([{ status: 500, body: {} }]);
-  expect(getStripeSyncOption({ env: ENV, fetchImpl })).rejects.toBeInstanceOf(
-    StripeApiError,
-  );
+  await expect(
+    getStripeSyncOption({ env: ENV, fetchImpl }),
+  ).rejects.toBeInstanceOf(StripeApiError);
 });
 
 test("unconfigured environments read as null, never a network call", async () => {
