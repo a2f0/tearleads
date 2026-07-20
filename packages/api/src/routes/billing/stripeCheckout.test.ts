@@ -177,6 +177,24 @@ test("checkout-session requires authentication", async () => {
   expect(response.status).toBe(401);
 });
 
+test("checkout-session wraps the service result in a 200 { url } body", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/checkout-session`,
+    {
+      method: "POST",
+      headers: { ...authHeader(admin), "Content-Type": "application/json" },
+      body: JSON.stringify({ returnUrl: "https://app.example/billing" }),
+    },
+  );
+  // Unconfigured in this env, so the URL is null — but the route still wraps it
+  // in { url } with a 200, the shape the client validator requires.
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ url: null });
+});
+
 test("checkout-session rejects a non-http returnUrl", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);

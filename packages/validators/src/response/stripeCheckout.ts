@@ -54,8 +54,8 @@ export function isStripeCancelResponse(
 
 /**
  * The hosted Stripe Checkout page URL, or null when the integration is
- * unconfigured or the org is not eligible (already active). The client opens
- * `url` in a new tab; a null simply offers no external-pay link.
+ * unconfigured or the org is not eligible (already active). The client
+ * navigates to `url`; a null simply offers no external-pay link.
  */
 export interface StripeCheckoutSessionResponse {
   url: string | null;

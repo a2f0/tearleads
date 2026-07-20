@@ -32,11 +32,6 @@ function readPublishableKey(): string | undefined {
 }
 
 /**
- * Maps the app's resolved theme tokens onto Stripe's Appearance API. Values
- * must be concrete CSS (not `var(--…)`) because the element renders in a
- * cross-origin iframe that cannot read this document's custom properties.
- */
-/**
  * Whether the resolved surface is dark, so the Payment Element's BASE theme can
  * match. `colorBackground` comes from the appearance probe as a computed color
  * (`rgb(...)`/`rgba(...)`), so a Rec. 601 luma threshold is reliable; anything
@@ -53,6 +48,11 @@ function isDarkSurface(colorBackground: string): boolean {
   return 0.299 * r + 0.587 * g + 0.114 * b < 128;
 }
 
+/**
+ * Maps the app's resolved theme tokens onto Stripe's Appearance API. Values
+ * must be concrete CSS (not `var(--…)`) because the element renders in a
+ * cross-origin iframe that cannot read this document's custom properties.
+ */
 function toStripeAppearance(appearance: DirectCheckoutAppearance) {
   return {
     // Base theme by mode. The Payment Element's built-in defaults — crucially
