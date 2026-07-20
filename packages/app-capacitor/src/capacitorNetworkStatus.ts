@@ -1,9 +1,22 @@
 import type { PluginListenerHandle } from "@capacitor/core";
-import { Network } from "@capacitor/network";
+import { type ConnectionStatus, Network } from "@capacitor/network";
 import type {
   NetworkListener,
   NetworkStatusSource,
 } from "@tearleads/client-sdk";
+
+// @capacitor/network derives `connected` from NET_CAPABILITY_VALIDATED — Android's
+// active internet-validation probe — so it reports false on networks Android has
+// not validated (captive portals, some VPN / corporate / regional networks) and
+// during the window before validation completes at cold start, even while the
+// device has a working connection. That false-offline is precisely the bug this
+// source exists to fix, so treat any active network (connectionType !== "none",
+// which the plugin sets from the transport regardless of validation) as online.
+// A network that is up but truly has no internet surfaces later as a sync
+// failure, not as a misleading "offline".
+function isConnected(status: ConnectionStatus): boolean {
+  return status.connected || status.connectionType !== "none";
+}
 
 /**
  * Capacitor-backed {@link NetworkStatusSource}. Reads connectivity from
@@ -42,10 +55,10 @@ export function createCapacitorNetworkStatus(): NetworkStatusSource {
     // Prime the cached value from the current native status, then keep it live
     // with the change listener.
     void Network.getStatus()
-      .then((status) => update(status.connected))
+      .then((status) => update(isConnected(status)))
       .catch(() => {});
     handlePromise = Network.addListener("networkStatusChange", (status) => {
-      update(status.connected);
+      update(isConnected(status));
     });
   }
 
