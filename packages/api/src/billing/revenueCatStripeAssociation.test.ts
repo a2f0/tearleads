@@ -114,3 +114,26 @@ test("configuration needs the v2 key, the project id, and the Stripe key", async
     ),
   ).rejects.toBeInstanceOf(RevenueCatAssociationError);
 });
+
+test("a failed receipt post surfaces after the customer and attribute writes", async () => {
+  const { fetchImpl, requests } = fakeFetch([200, 200, 500]);
+  await expect(
+    associateStripeSubscription(
+      { appUserId: "user-1", organizationId: "org-1", subscriptionId: "sub_1" },
+      { env: ENV, fetchImpl },
+    ),
+  ).rejects.toBeInstanceOf(RevenueCatAssociationError);
+  expect(requests).toHaveLength(3);
+});
+
+test("409 tolerance does not leak past the customer create", async () => {
+  // Only an already-existing CUSTOMER is benign; a 409 anywhere else is a
+  // real failure and must not be swallowed.
+  const { fetchImpl } = fakeFetch([200, 409]);
+  await expect(
+    associateStripeSubscription(
+      { appUserId: "user-1", organizationId: "org-1", subscriptionId: "sub_1" },
+      { env: ENV, fetchImpl },
+    ),
+  ).rejects.toBeInstanceOf(RevenueCatAssociationError);
+});

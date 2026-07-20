@@ -5,13 +5,11 @@
  * the org's stored customer id (rather than the buyer's device-local SDK state).
  */
 
-/** Environment variable holding the RevenueCat REST API v2 secret key (`sk_...`). */
-const REVENUECAT_V2_SECRET_ENV_KEY = "REVENUECAT_V2_SECRET_KEY";
-/** Environment variable holding the RevenueCat project id (`proj...`). */
-const REVENUECAT_PROJECT_ID_ENV_KEY = "REVENUECAT_PROJECT_ID";
+import {
+  REVENUECAT_API_ORIGIN,
+  readRevenueCatV2Credentials,
+} from "./revenueCatConfig";
 
-/** RevenueCat serves relative `next_page` paths (e.g. `/v2/…`) off this origin. */
-const REVENUECAT_API_ORIGIN = "https://api.revenuecat.com";
 /** Fail soft rather than hang if RevenueCat stalls mid-request. */
 const REQUEST_TIMEOUT_MS = 5000;
 /** Bound pagination — a sync customer has one or two subscriptions, never many. */
@@ -198,11 +196,11 @@ export async function fetchRevenueCatManagementUrl(
 ): Promise<string | null> {
   const env = deps.env ?? process.env;
   const fetchImpl = deps.fetchImpl ?? fetch;
-  const secretKey = env[REVENUECAT_V2_SECRET_ENV_KEY]?.trim();
-  const projectId = env[REVENUECAT_PROJECT_ID_ENV_KEY]?.trim();
-  if (!secretKey || !projectId) {
+  const credentials = readRevenueCatV2Credentials(env);
+  if (!credentials) {
     return null;
   }
+  const { secretKey, projectId } = credentials;
 
   try {
     const { subscriptions, complete } = await fetchCustomerSubscriptions(

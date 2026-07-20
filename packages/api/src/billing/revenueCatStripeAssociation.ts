@@ -26,19 +26,11 @@
  */
 
 /**
- * RevenueCat REST API v2 secret key (`sk_…`) and project id — the same pair
- * the management-URL lookup uses (see revenueCatApi.ts). v2 covers customer
- * creation and attributes, so no separate legacy v1 secret key is needed.
- */
-const REVENUECAT_V2_SECRET_KEY_ENV = "REVENUECAT_V2_SECRET_KEY";
-const REVENUECAT_PROJECT_ID_ENV = "REVENUECAT_PROJECT_ID";
-/**
  * The RevenueCat project's Stripe app PUBLIC API key (`strp_…`); the receipts
  * endpoint authenticates Stripe receipts with it.
  */
 const REVENUECAT_STRIPE_PUBLIC_API_KEY_ENV = "REVENUECAT_STRIPE_PUBLIC_API_KEY";
 
-const REVENUECAT_API_ORIGIN = "https://api.revenuecat.com";
 const REQUEST_TIMEOUT_MS = 10_000;
 
 /**
@@ -46,6 +38,11 @@ const REQUEST_TIMEOUT_MS = 10_000;
  * `ORGANIZATION_SUBSCRIBER_ATTRIBUTE` in revenuecatWebhook.ts (the reader).
  */
 const ORGANIZATION_SUBSCRIBER_ATTRIBUTE = "orgId";
+
+import {
+  REVENUECAT_API_ORIGIN,
+  readRevenueCatV2Credentials,
+} from "./revenueCatConfig";
 
 export interface RevenueCatAssociationDeps {
   readonly env?: NodeJS.ProcessEnv;
@@ -64,8 +61,7 @@ export function isRevenueCatAssociationConfigured(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
   return (
-    Boolean(env[REVENUECAT_V2_SECRET_KEY_ENV]?.trim()) &&
-    Boolean(env[REVENUECAT_PROJECT_ID_ENV]?.trim()) &&
+    readRevenueCatV2Credentials(env) !== null &&
     Boolean(env[REVENUECAT_STRIPE_PUBLIC_API_KEY_ENV]?.trim())
   );
 }
@@ -113,12 +109,12 @@ export async function associateStripeSubscription(
 ): Promise<void> {
   const env = deps.env ?? process.env;
   const fetchImpl = deps.fetchImpl ?? fetch;
-  const secretKey = env[REVENUECAT_V2_SECRET_KEY_ENV]?.trim();
-  const projectId = env[REVENUECAT_PROJECT_ID_ENV]?.trim();
+  const credentials = readRevenueCatV2Credentials(env);
   const stripePublicKey = env[REVENUECAT_STRIPE_PUBLIC_API_KEY_ENV]?.trim();
-  if (!secretKey || !projectId || !stripePublicKey) {
+  if (!credentials || !stripePublicKey) {
     throw new RevenueCatAssociationError("association (unconfigured)", 0);
   }
+  const { secretKey, projectId } = credentials;
   const customerPath =
     `/v2/projects/${encodeURIComponent(projectId)}` +
     `/customers/${encodeURIComponent(input.appUserId)}`;
