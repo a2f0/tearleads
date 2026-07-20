@@ -63,8 +63,16 @@ export function BillingPanel({
   // A confirmed payment grants the entitlement asynchronously (Stripe →
   // RevenueCat → our webhook), so reuse the existing refresh/activation poll
   // rather than assuming the org can sync immediately.
+  // `enabled` is the render gate too (below): when it flips off mid-flow —
+  // e.g. another admin's purchase lands and the org starts syncing — the hook
+  // tears the element down rather than having its host yanked out from under
+  // a live session.
+  const checkoutEnabled = Boolean(
+    isOrgAdmin && billing.view && !billing.view.canSync,
+  );
   const checkout = useDirectCheckoutFlow({
     canSubscribe: actions.canSubscribe,
+    enabled: checkoutEnabled,
     organizationId,
     onPaid: actions.markActivationPending,
   });
@@ -104,7 +112,7 @@ export function BillingPanel({
         Only offer a purchase the org can actually make: an org that already
         syncs would get a server 409 surfaced as a generic failure.
       */}
-      {isOrgAdmin && billing.view && !billing.view.canSync ? (
+      {checkoutEnabled ? (
         <BillingDirectCheckout
           checkout={checkout}
           disabled={actions.busy !== null}

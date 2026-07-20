@@ -109,7 +109,7 @@ test("a non-buyer error throws so the caller surfaces a real failure", async () 
     }),
   );
 
-  expect(session.confirm()).rejects.toThrow("Provider unavailable.");
+  await expect(session.confirm()).rejects.toThrow("Provider unavailable.");
 });
 
 test("confirming after unmount reports cancelled, never a live success", async () => {
@@ -143,7 +143,7 @@ test("a failed script load throws and does not cache the failure", async () => {
   }) as never;
   const capability = withKey(() => createWebDirectCheckout(loader));
 
-  expect(
+  await expect(
     capability.mount({
       host: host(),
       clientSecret: "pi_secret",

@@ -233,7 +233,7 @@ test("a pre-mount failure of an abandoned purchase reads as cancellation", async
   controller.abort();
   rejectOfferings?.(new Error("network down"));
 
-  expect(purchase).rejects.toBeInstanceOf(PurchaseCancelledError);
+  await expect(purchase).rejects.toBeInstanceOf(PurchaseCancelledError);
 });
 
 test("an aborted flow with a vanished package still reads as an abort", async () => {
@@ -270,7 +270,7 @@ test("an aborted flow with a vanished package still reads as an abort", async ()
   controller.abort();
   resolveOfferings?.({ current: { availablePackages: [] } });
 
-  expect(purchase).rejects.toBeInstanceOf(PurchaseAbortedError);
+  await expect(purchase).rejects.toBeInstanceOf(PurchaseAbortedError);
 });
 
 test("web RevenueCat backend refuses to mount a checkout for an aborted flow", async () => {
@@ -280,7 +280,7 @@ test("web RevenueCat backend refuses to mount a checkout for an aborted flow", a
   controller.abort();
 
   await backend.configure({ apiKey: "web-key", appUserId: "user-1" });
-  expect(
+  await expect(
     backend.purchasePackage({
       packageId: "monthly",
       abortSignal: controller.signal,
@@ -298,7 +298,7 @@ test("web RevenueCat backend maps a cancelled checkout to PurchaseCancelledError
   const backend = createWebRevenueCatBackend(sdk);
 
   await backend.configure({ apiKey: "web-key", appUserId: "user-1" });
-  expect(
+  await expect(
     backend.purchasePackage({ packageId: "monthly" }),
   ).rejects.toBeInstanceOf(PurchaseCancelledError);
 });
@@ -311,7 +311,7 @@ test("web RevenueCat backend rethrows non-cancel purchase errors unchanged", asy
   const backend = createWebRevenueCatBackend(sdk);
 
   await backend.configure({ apiKey: "web-key", appUserId: "user-1" });
-  expect(backend.purchasePackage({ packageId: "monthly" })).rejects.toBe(
+  await expect(backend.purchasePackage({ packageId: "monthly" })).rejects.toBe(
     providerError,
   );
 });

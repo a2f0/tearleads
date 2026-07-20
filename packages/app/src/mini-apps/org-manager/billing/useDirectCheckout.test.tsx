@@ -90,6 +90,7 @@ function renderFlow(
     () =>
       useDirectCheckoutFlow({
         canSubscribe: true,
+        enabled: true,
         organizationId,
         onPaid: onActivated,
       }),
@@ -249,6 +250,7 @@ test("switching organizations tears down an in-flight checkout", async () => {
     ({ organizationId }: { organizationId: string }) =>
       useDirectCheckoutFlow({
         canSubscribe: true,
+        enabled: true,
         organizationId,
         onPaid: () => undefined,
       }),
@@ -267,4 +269,59 @@ test("switching organizations tears down an in-flight checkout", async () => {
   // the switch would charge the wrong organization.
   expect(unmount).toHaveBeenCalledTimes(1);
   expect(result.current.phase.kind).toBe("idle");
+});
+
+test("disabling the checkout mid-flow tears the element down", async () => {
+  stubTearleads();
+  const unmount = mock(() => undefined);
+  const { capability } = capabilityWith({ unmount });
+  const hostConfig = createAppHostConfig({
+    apiBaseUrl: "http://localhost",
+    createDirectCheckout: () => capability,
+    wsUrl: "ws://localhost",
+  });
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <AppHostConfigProvider value={hostConfig}>
+      <DirectCheckoutProvider>{children}</DirectCheckoutProvider>
+    </AppHostConfigProvider>
+  );
+  const { result, rerender } = renderHook(
+    ({ enabled }: { enabled: boolean }) =>
+      useDirectCheckoutFlow({
+        canSubscribe: true,
+        enabled,
+        organizationId: "org-1",
+        onPaid: () => undefined,
+      }),
+    { wrapper, initialProps: { enabled: true } },
+  );
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  result.current.hostRef.current = host;
+  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+
+  // e.g. another admin's purchase lands and the org starts syncing: the panel
+  // stops rendering the checkout, so its host would vanish under a live
+  // session.
+  rerender({ enabled: false });
+
+  expect(unmount).toHaveBeenCalledTimes(1);
+  expect(result.current.phase.kind).toBe("idle");
+});
+
+test("begin is a no-op while a session is already mounted", async () => {
+  stubTearleads();
+  const { capability, mounted } = capabilityWith({});
+  const { result } = renderFlow(capability);
+  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+
+  // A second begin would otherwise overwrite sessionRef and strand the first
+  // element's iframe.
+  await act(async () => result.current.begin());
+
+  expect(mounted).toHaveLength(1);
 });

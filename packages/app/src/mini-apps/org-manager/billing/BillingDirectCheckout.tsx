@@ -18,7 +18,7 @@ import "./BillingCheckout.css";
  * div styled from the app's own theme tokens.
  */
 
-function formatPrice(
+export function formatPrice(
   unitAmount: number | null,
   currency: string,
   interval: string | null,
