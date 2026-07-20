@@ -138,10 +138,8 @@ interface ExplorerSectionsPanelProps {
   uploadManager: ExplorerUploadManager;
 }
 
-/**
- * The full-screen Explorer diagnostics hub: route-backed tabs for transient
- * sync-lane telemetry, local blob state, and durable pending writes.
- */
+// Renders the panel the current route selects; the hub component below owns
+// the tab bar around it.
 function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
   const { route } = params;
   if (route.view === "blob-browser") {
@@ -215,6 +213,11 @@ function getActiveExplorerSectionTab(
   return "sync";
 }
 
+/**
+ * The full-screen Explorer diagnostics hub: route-backed tabs for transient
+ * sync-lane telemetry, local blob state, durable pending writes, and the
+ * session upload queue.
+ */
 export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
   const idPrefix = useId();
   const {

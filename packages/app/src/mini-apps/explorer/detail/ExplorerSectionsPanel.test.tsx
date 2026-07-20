@@ -37,6 +37,7 @@ function renderSectionsPanel(
   } as unknown as ContainerDocumentQueries;
   const uploadManager: ExplorerUploadManager = {
     cancel: () => undefined,
+    cancelForContainer: () => undefined,
     isImporting: false,
     items: [],
     queuedFileCount: 0,

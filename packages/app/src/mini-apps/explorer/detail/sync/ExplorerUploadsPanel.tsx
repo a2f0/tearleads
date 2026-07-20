@@ -17,11 +17,11 @@ import {
   MiniAppTableText,
 } from "../../../../components/mini-app/MiniAppTable";
 import { formatByteLength } from "../../../../utils/formatByteLength";
-import type {
-  ExplorerUploadItem,
-  ExplorerUploadManager,
-} from "../../hooks/useExplorerUploadManager";
-import { getExplorerUploadStatusText } from "../../hooks/useExplorerUploadManager";
+import {
+  type ExplorerUploadItem,
+  getExplorerUploadStatusText,
+} from "../../hooks/explorerUploadState";
+import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager";
 import { EXPLORER_LABELS, getExplorerUploadsSummaryLabel } from "../../labels";
 import { useDomainSyncSnapshot } from "./useDomainSyncSnapshot";
 

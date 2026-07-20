@@ -1,10 +1,8 @@
 import type { ContainerNode } from "@tearleads/client-sdk";
 import { type DragEvent, useCallback, useRef, useState } from "react";
 import { EXPLORER_LABELS, getExplorerUploadsWaitingStatus } from "../labels";
-import {
-  type ExplorerUploadManager,
-  getExplorerUploadStatusText,
-} from "./useExplorerUploadManager";
+import { getExplorerUploadStatusText } from "./explorerUploadState";
+import type { ExplorerUploadManager } from "./useExplorerUploadManager";
 
 function isExplorerFileDragEvent(event: DragEvent<HTMLElement>): boolean {
   return Array.from(event.dataTransfer.types).includes("Files");
@@ -23,7 +21,7 @@ export function useExplorerContainerFileDropTarget(params: {
   uploadManager: ExplorerUploadManager;
 }) {
   const { selectedNode, uploadManager } = params;
-  const { startImport } = uploadManager;
+  const { cancelForContainer, startImport } = uploadManager;
   const dragDepthRef = useRef(0);
   const [dragActive, setDragActive] = useState(false);
 
@@ -96,9 +94,15 @@ export function useExplorerContainerFileDropTarget(params: {
   const scopedImporting = uploadManager.isImporting && scopedRun !== null;
   const scopedQueuedCount =
     uploadManager.queuedFileCounts.get(selectedNode.id) ?? 0;
+  // The button this gates cancels THIS container's uploads only, so it may
+  // appear whenever the folder has anything outstanding — queued or running.
+  const cancelImport = useCallback(() => {
+    cancelForContainer(selectedNode.id);
+  }, [cancelForContainer, selectedNode.id]);
 
   return {
     canCancelImport: scopedImporting || scopedQueuedCount > 0,
+    cancelImport,
     dragActive,
     handleDragEnter,
     handleDragLeave,

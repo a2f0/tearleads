@@ -2,10 +2,8 @@ import { afterEach, expect, test } from "bun:test";
 import type { SyncLaneSnapshot } from "@tearleads/client-sdk";
 import { createDomainScope } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import type {
-  ExplorerUploadItem,
-  ExplorerUploadManager,
-} from "../../hooks/useExplorerUploadManager";
+import type { ExplorerUploadItem } from "../../hooks/explorerUploadState";
+import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager";
 import { EXPLORER_LABELS } from "../../labels";
 import {
   deriveExplorerUploadItemStatus,
@@ -32,6 +30,7 @@ function manager(
 ): ExplorerUploadManager {
   return {
     cancel: () => undefined,
+    cancelForContainer: () => undefined,
     isImporting: false,
     items: [],
     queuedFileCount: 0,
