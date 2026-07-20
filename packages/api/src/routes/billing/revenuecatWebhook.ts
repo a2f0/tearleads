@@ -57,6 +57,11 @@ export function createRevenueCatWebhookRoute(runtime: ApiServiceRuntime) {
     }
 
     const outcome = await processRevenueCatWebhook(runtime, body.event);
+    if (outcome.status === "retry") {
+      // Non-2xx so RevenueCat redelivers once the event can be attributed.
+      console.error(`RevenueCat webhook deferred: ${outcome.reason}`);
+      return c.json({ error: outcome.reason }, 503);
+    }
     return c.json({ received: true, outcome: outcome.status });
   });
 

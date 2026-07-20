@@ -178,6 +178,7 @@ export const subsystems: readonly Subsystem[] = [
     paths: [
       `${api}/routeApp.ts`,
       `${api}/routeAppDeps.ts`,
+      `${api}/corsOrigins.ts`,
       `${api}/index.ts`,
       `${api}/appTestRuntime.ts`,
       `${api}/services/runtime.ts`,

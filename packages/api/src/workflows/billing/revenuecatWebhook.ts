@@ -13,7 +13,10 @@ import {
   classifyRevenueCatEvent,
   type RevenueCatBillingTransition,
   resolveOrganizationIdFromEvent,
+  resolveStripeStoreOrganizationId,
+  type StripeStoreOrgResolution,
 } from "../../billing/revenuecatWebhook";
+import type { StripeApiDeps } from "../../billing/stripeApi";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
@@ -33,7 +36,13 @@ export type RevenueCatWebhookOutcome =
       billingStatus: OrganizationBillingStatus;
     }
   | { status: "ignored"; reason: string }
-  | { status: "duplicate" };
+  | { status: "duplicate" }
+  /**
+   * The event could not be safely attributed right now (e.g. a Stripe-store
+   * event whose immutable subscription lookup failed). Nothing was recorded
+   * or claimed; the route answers non-2xx so RevenueCat redelivers.
+   */
+  | { status: "retry"; reason: string };
 
 async function isOrganizationAdmin(
   executor: DatabaseSession,
@@ -162,9 +171,30 @@ export async function runRevenueCatWebhookWorkflow(
   db: ApiDatabase,
   event: RevenueCatWebhookEvent,
   now: Date = new Date(),
+  deps: { stripe?: StripeApiDeps } = {},
 ): Promise<RevenueCatWebhookOutcome> {
   const transition = classifyRevenueCatEvent(event, now);
-  const organizationId = resolveOrganizationIdFromEvent(event);
+  // Stripe-store events use the immutable per-subscription org binding — the
+  // customer-level attribute could have been rebound by a later purchase for
+  // another org. A FAILED lookup on an event that would change billing must
+  // defer (never fall back to the attribute, never claim the event id) so a
+  // redelivery can attribute it correctly.
+  // Ignorable events never consult Stripe: their org is only recorded, and
+  // the mutable-attribute risk applies to billing CHANGES, not audit rows.
+  const stripeResolution =
+    transition.kind === "ignore"
+      ? ({ kind: "none" } satisfies StripeStoreOrgResolution)
+      : await resolveStripeStoreOrganizationId(event, deps.stripe ?? {});
+  if (stripeResolution.kind === "error") {
+    return {
+      status: "retry",
+      reason: "Stripe subscription lookup failed for a Stripe-store event",
+    };
+  }
+  const organizationId =
+    stripeResolution.kind === "resolved"
+      ? stripeResolution.organizationId
+      : resolveOrganizationIdFromEvent(event);
 
   return db.transaction(async (tx) => {
     const ignoredReason = await resolveIgnoredReason(

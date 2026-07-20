@@ -120,3 +120,34 @@ The route authenticates a shared secret sent in the `Authorization` header again
 - Register the endpoint in the RevenueCat dashboard, or via the v2 API
   (`POST /v2/projects/{project_id}/integrations/webhooks`), with the `Authorization`
   value set to match `REVENUECAT_WEBHOOK_AUTH_HEADER`.
+
+## Direct Stripe checkout (issue #1654, server side)
+
+An alternative web purchase path that processes subscriptions on **our own
+Stripe account** (the one already connected to RevenueCat) so the payment form
+can be fully styled, while RevenueCat remains the entitlement system:
+
+- `GET /billing/stripe/options`, `POST
+  /organizations/:id/billing/stripe/checkout` (admin-gated; returns the
+  PaymentIntent client secret for a Payment Element), and `POST
+  /organizations/:id/billing/stripe/portal` (Stripe Billing Portal link) live
+  in [`stripeCheckout.ts`](../../packages/api/src/routes/billing/stripeCheckout.ts).
+- `POST /billing/stripe/webhook` verifies Stripe's signature over the raw
+  body; on the FIRST paid invoice of a subscription it reads the
+  `userId`/`orgId` metadata our checkout wrote onto the subscription, sets the
+  buyer's `orgId` subscriber attribute in RevenueCat, then posts the receipt
+  (`fetch_token` = subscription id, `X-Platform: stripe`). RevenueCat then
+  owns the lifecycle and emits the same webhook events the org billing flow
+  already consumes.
+- Configuration (all required; routes answer 503 / fail closed otherwise):
+  `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SYNC_PRICE_ID`,
+  `REVENUECAT_SECRET_API_KEY` (v1, for subscriber attributes),
+  `REVENUECAT_STRIPE_PUBLIC_API_KEY` (the RC project's Stripe app public
+  key). Set in `.secrets/<tier>.env`; rendered by ansible into the API's
+  EnvironmentFile like the RevenueCat webhook secret.
+- One-time dashboard steps: register the Stripe product id in the RevenueCat
+  catalog and attach it to the `sync` entitlement; register the webhook
+  endpoint in Stripe (`invoice.paid` events suffice).
+
+The client half (Payment Element UI behind `BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY`)
+is tracked in issue #1654.

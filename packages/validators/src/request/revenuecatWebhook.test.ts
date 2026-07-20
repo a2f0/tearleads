@@ -74,3 +74,9 @@ test("rejects metadata that is not a flat primitive map", () => {
     isRevenueCatWebhookRequest(webhook({ metadata: { orgId: ["org-1"] } })),
   ).toBe(false);
 });
+
+test("accepts the store field as string, null, or absent", () => {
+  expect(isRevenueCatWebhookRequest(webhook({ store: "STRIPE" }))).toBe(true);
+  expect(isRevenueCatWebhookRequest(webhook({ store: null }))).toBe(true);
+  expect(isRevenueCatWebhookRequest(webhook({ store: 42 }))).toBe(false);
+});

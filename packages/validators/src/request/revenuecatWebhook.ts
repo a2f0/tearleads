@@ -38,6 +38,10 @@ export interface RevenueCatSubscriberAttribute {
  * - `entitlement_ids`: Entitlement(s) the event concerns.
  * - `subscriber_attributes`: Custom attributes; the `orgId` attribute binds the
  *   purchase to the organization being paid for.
+ * - `store`: Which store processed the purchase (e.g. `RC_BILLING`,
+ *   `STRIPE`, `APP_STORE`). Stripe-store events carry no transaction
+ *   metadata, so the server resolves their organization from the Stripe
+ *   subscription itself (see the api webhook workflow).
  * - `metadata`: Developer-defined metadata RevenueCat attaches to Web Billing
  *   transactions. The client stamps `orgId` here too; unlike the customer-level
  *   subscriber attribute this is immutable per purchase, so it is the preferred
@@ -54,6 +58,7 @@ export interface RevenueCatWebhookEvent {
   transaction_id?: string | null;
   original_transaction_id?: string | null;
   entitlement_ids?: string[];
+  store?: string | null;
   subscriber_attributes?: Record<string, RevenueCatSubscriberAttribute>;
   metadata?: Record<string, string | number | boolean | null> | null;
 }
@@ -172,6 +177,7 @@ function isRevenueCatWebhookEvent(
     isAbsentOrNullableString(value, "transaction_id") &&
     isAbsentOrNullableString(value, "original_transaction_id") &&
     isAbsentOrStringArray(value, "entitlement_ids") &&
+    isAbsentOrNullableString(value, "store") &&
     isAbsentOrSubscriberAttributeMap(value, "subscriber_attributes") &&
     isAbsentOrNullableMetadataMap(value, "metadata")
   );

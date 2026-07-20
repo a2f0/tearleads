@@ -5,6 +5,7 @@ import {
   classifyRevenueCatEvent,
   readRevenueCatWebhookAuthToken,
   resolveOrganizationIdFromEvent,
+  resolveStripeStoreOrganizationId,
 } from "./revenuecatWebhook";
 
 const ORG_ID = "11111111-1111-4111-8111-111111111111";
@@ -170,4 +171,128 @@ test("readRevenueCatWebhookAuthToken reads and trims the configured secret", () 
   expect(
     readRevenueCatWebhookAuthToken({ REVENUECAT_WEBHOOK_AUTH_HEADER: "  " }),
   ).toBeNull();
+});
+
+test("Stripe-store events resolve their org from the subscription binding", async () => {
+  const OTHER_ORG_ID = "22222222-2222-4222-8222-222222222222";
+  const stripeEnv = {
+    STRIPE_SECRET_KEY: "sk_test",
+    STRIPE_SYNC_PRICE_ID: "price_sync",
+  };
+  const fetchImpl = (async (_input: RequestInfo | URL, _init?: RequestInit) =>
+    new Response(
+      JSON.stringify({
+        id: "sub_1",
+        status: "active",
+        metadata: { userId: "user-1", orgId: ORG_ID },
+      }),
+    )) as typeof fetch;
+
+  // The customer-level attribute was rebound to another org by a later
+  // purchase; the subscription's own metadata must win for Stripe events.
+  const resolved = await resolveStripeStoreOrganizationId(
+    makeEvent({
+      store: "STRIPE",
+      original_transaction_id: "sub_1",
+      subscriber_attributes: { orgId: { value: OTHER_ORG_ID } },
+    }),
+    { env: stripeEnv, fetchImpl },
+  );
+  expect(resolved).toEqual({ kind: "resolved", organizationId: ORG_ID });
+
+  // Non-Stripe stores and events without a subscription id fall through to
+  // the ordinary resolution.
+  expect(
+    await resolveStripeStoreOrganizationId(
+      makeEvent({ store: "RC_BILLING", original_transaction_id: "sub_1" }),
+      { env: stripeEnv, fetchImpl },
+    ),
+  ).toEqual({ kind: "none" });
+  expect(
+    await resolveStripeStoreOrganizationId(
+      makeEvent({
+        store: "STRIPE",
+        original_transaction_id: null,
+        transaction_id: null,
+      }),
+      { env: stripeEnv, fetchImpl },
+    ),
+  ).toEqual({ kind: "none" });
+});
+
+test("a failed Stripe lookup defers; an unconfigured one falls back", async () => {
+  // Falling back to the mutable subscriber attribute could attribute a
+  // multi-org buyer's event to the wrong organization AND claim the event id,
+  // making the misattribution permanent — the caller defers instead.
+  const failingFetch = (async (
+    _input: RequestInfo | URL,
+    _init?: RequestInit,
+  ) => new Response("{}", { status: 500 })) as typeof fetch;
+  expect(
+    await resolveStripeStoreOrganizationId(
+      makeEvent({ store: "STRIPE", original_transaction_id: "sub_1" }),
+      {
+        env: { STRIPE_SECRET_KEY: "sk", STRIPE_SYNC_PRICE_ID: "p" },
+        fetchImpl: failingFetch,
+      },
+    ),
+  ).toEqual({ kind: "error" });
+  // Unconfigured is different from failed: with no STRIPE_SECRET_KEY this
+  // deployment's checkout cannot have created bound subscriptions, so the
+  // event falls back to ordinary (pre-checkout) resolution.
+  expect(
+    await resolveStripeStoreOrganizationId(
+      makeEvent({ store: "STRIPE", original_transaction_id: "sub_1" }),
+      { env: {}, fetchImpl: failingFetch },
+    ),
+  ).toEqual({ kind: "none" });
+});
+
+test("Stripe-store grants fall back to transaction_id for the subscription", () => {
+  const stripeGrant = classifyRevenueCatEvent(
+    makeEvent({
+      store: "STRIPE",
+      original_transaction_id: null,
+      transaction_id: "sub_only",
+    }),
+    ACTIVE_GRANT_NOW,
+  );
+  // Without the fallback the billing row would store no subscription id and
+  // the Billing Portal could never resolve this org's subscription.
+  expect(
+    stripeGrant.kind === "grant" && stripeGrant.fields.providerSubscriptionId,
+  ).toBe("sub_only");
+
+  // Other stores keep the canonical original transaction id semantics.
+  const appStoreGrant = classifyRevenueCatEvent(
+    makeEvent({
+      store: "APP_STORE",
+      original_transaction_id: null,
+      transaction_id: "1000000",
+    }),
+    ACTIVE_GRANT_NOW,
+  );
+  expect(
+    appStoreGrant.kind === "grant" &&
+      appStoreGrant.fields.providerSubscriptionId,
+  ).toBeNull();
+});
+
+test("a 404 subscription lookup reads as not-ours, never a retry loop", async () => {
+  // A STRIPE-store event whose transaction id is not a fetchable subscription
+  // (a purchase predating this checkout, a one-time token) must fall back to
+  // ordinary resolution — deferring it would redeliver forever.
+  const notFoundFetch = (async (
+    _input: RequestInfo | URL,
+    _init?: RequestInit,
+  ) => new Response("{}", { status: 404 })) as typeof fetch;
+  expect(
+    await resolveStripeStoreOrganizationId(
+      makeEvent({ store: "STRIPE", original_transaction_id: "sub_legacy" }),
+      {
+        env: { STRIPE_SECRET_KEY: "sk", STRIPE_SYNC_PRICE_ID: "p" },
+        fetchImpl: notFoundFetch,
+      },
+    ),
+  ).toEqual({ kind: "none" });
 });

@@ -5,6 +5,11 @@ import type {
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { isUuidV4String } from "@tearleads/validators/util";
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "./organizationBilling";
+import {
+  getSubscriptionBinding,
+  type StripeApiDeps,
+  StripeApiError,
+} from "./stripeApi";
 
 /**
  * Environment variable holding the exact value RevenueCat must send in the
@@ -121,6 +126,75 @@ export function resolveOrganizationIdFromEvent(
     : null;
 }
 
+/**
+ * The outcome of the immutable org resolution for one event: `resolved`
+ * carries the org bound to the Stripe subscription; `none` means the event
+ * has no such binding to consult (not a Stripe-store event, no subscription
+ * id, or a subscription our checkout did not create) and ordinary resolution
+ * applies; `error` means the binding EXISTS in principle but could not be
+ * read (lookup unconfigured or failed) — the caller must defer the event
+ * rather than fall back to the mutable attribute, which for a multi-org
+ * buyer can point at the wrong organization.
+ */
+export type StripeStoreOrgResolution =
+  | { kind: "resolved"; organizationId: string }
+  | { kind: "none" }
+  | { kind: "error" };
+
+/**
+ * Immutable org resolution for STRIPE-store events (direct checkout, issue
+ * #1654). RevenueCat forwards no transaction metadata for the Stripe store,
+ * and the `orgId` subscriber attribute is customer-level and mutable — a
+ * buyer admining several orgs would have every Stripe event resolve to
+ * whichever org they purchased for LAST. But these events carry the Stripe
+ * subscription id, and the subscription's own metadata (written by our
+ * checkout) binds the org immutably — so it is the authoritative source for
+ * this store.
+ */
+export async function resolveStripeStoreOrganizationId(
+  event: RevenueCatWebhookEvent,
+  deps: StripeApiDeps = {},
+): Promise<StripeStoreOrgResolution> {
+  if (event.store?.toUpperCase() !== "STRIPE") {
+    return { kind: "none" };
+  }
+  const subscriptionId =
+    event.original_transaction_id ?? event.transaction_id ?? null;
+  if (!subscriptionId) {
+    return { kind: "none" };
+  }
+  try {
+    const binding = await getSubscriptionBinding(subscriptionId, deps);
+    if (binding === null) {
+      // Unconfigured lookup (no STRIPE_SECRET_KEY): our checkout cannot have
+      // created any bound subscriptions in this deployment, so Stripe-store
+      // events here are from a pre-existing integration and ordinary
+      // resolution is the pre-PR behavior. (Removing the key while direct-
+      // checkout subscriptions exist is an operator error: their renewals
+      // would fall back to the mutable attribute until it is restored.)
+      return { kind: "none" };
+    }
+    return binding.organizationId && isUuidV4String(binding.organizationId)
+      ? { kind: "resolved", organizationId: binding.organizationId }
+      : // A Stripe subscription without our metadata was not created by this
+        // checkout; ordinary resolution applies.
+        { kind: "none" };
+  } catch (error) {
+    // A definitive 404 means the transaction id is not a fetchable
+    // subscription on our account — e.g. a purchase predating this checkout
+    // or a one-time purchase token. That is "not ours", not a transient
+    // failure: deferring it would retry-loop forever.
+    if (error instanceof StripeApiError && error.status === 404) {
+      return { kind: "none" };
+    }
+    console.error(
+      "Stripe subscription lookup for RevenueCat event failed:",
+      error,
+    );
+    return { kind: "error" };
+  }
+}
+
 function resolveEntitlementId(event: RevenueCatWebhookEvent): string | null {
   return event.entitlement_ids?.[0] ?? null;
 }
@@ -156,7 +230,15 @@ export function classifyRevenueCatEvent(
         status: "active",
         provider: REVENUECAT_PROVIDER,
         providerCustomerId: event.app_user_id,
-        providerSubscriptionId: event.original_transaction_id ?? null,
+        // Stripe-store events may carry the subscription id only in
+        // `transaction_id`; without the fallback the billing row would store
+        // no subscription id and the Billing Portal could never resolve the
+        // org's subscription. Other stores keep the canonical original id.
+        providerSubscriptionId:
+          event.original_transaction_id ??
+          (event.store?.toUpperCase() === "STRIPE"
+            ? (event.transaction_id ?? null)
+            : null),
         providerProductId: event.product_id ?? null,
         providerTransactionId: event.transaction_id ?? null,
         entitlementId: resolveEntitlementId(event),
