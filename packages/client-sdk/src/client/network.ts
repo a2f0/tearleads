@@ -35,6 +35,13 @@ export interface NetworkStatusSource {
   subscribe(listener: NetworkListener): () => void;
   /** Release any platform resources (event handlers, native listeners). */
   dispose?(): void;
+  /**
+   * Optional one-line diagnostic snapshot for the support log — how the source
+   * is reading connectivity (e.g. which native plugin, the raw status, the
+   * WebView's `navigator.onLine`). Purely informational; a source that has
+   * nothing platform-specific to report omits it.
+   */
+  diagnose?(): Promise<string>;
 }
 
 /**

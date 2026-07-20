@@ -115,10 +115,25 @@ function createLocalKeyringBlobStoreFactory(input: {
 function useNetworkStatusBinding(
   tearleads: Tearleads,
   createNetworkStatus: CreateNetworkStatusFn | undefined,
+  log: (message: string) => void,
 ): void {
   useEffect(() => {
+    let cancelled = false;
     const source =
       createNetworkStatus?.() ?? createBrowserNetworkStatusSource();
+
+    // Record how the source reads connectivity, so a support log shows whether
+    // (e.g.) the native connectivity plugin is active or the shell fell back to
+    // navigator.onLine — the difference between a real offline and a false one.
+    // Guarded so a resolve after unmount (or a StrictMode remount) does not log.
+    source
+      .diagnose?.()
+      .then((snapshot) => {
+        if (!cancelled) {
+          log(`Network source: ${snapshot}`);
+        }
+      })
+      .catch(() => {});
 
     // Seed from the source before subscribing, replacing the SDK constructor's
     // navigator.onLine read (wrong on Capacitor Android). An async native
@@ -130,10 +145,11 @@ function useNetworkStatusBinding(
     });
 
     return () => {
+      cancelled = true;
       unsubscribe();
       source.dispose?.();
     };
-  }, [createNetworkStatus, tearleads]);
+  }, [createNetworkStatus, log, tearleads]);
 }
 
 // `tearleads` is created once per provider via useState and never changes, so
@@ -255,7 +271,7 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
     tearleads.session.setSyncEnabled(syncEnabled);
   }, [syncEnabled, tearleads]);
 
-  useNetworkStatusBinding(tearleads, hostConfig.createNetworkStatus);
+  useNetworkStatusBinding(tearleads, hostConfig.createNetworkStatus, log);
   useNetworkTransitionLog(tearleads);
   useTearleadsDisposeOnUnmount(tearleads);
   useServerEventsBinding(
