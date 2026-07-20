@@ -104,8 +104,8 @@ function useHostedCheckout(): {
           await tearleads.organizations.createStripeCheckoutSession(
             globalThis.location?.href ?? "",
           );
-        if (result?.url) {
-          globalThis.location?.assign(result.url);
+        if (result?.url && globalThis.location) {
+          globalThis.location.assign(result.url);
           return; // navigating away — leave `busy` set
         }
         // Unconfigured, not eligible, or a checkout already in progress.

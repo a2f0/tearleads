@@ -78,8 +78,8 @@
       "bytes": 18809
     },
     "packages/api/src/billing/stripeApi.test.ts": {
-      "lines": 533,
-      "bytes": 17787
+      "lines": 563,
+      "bytes": 18887
     },
     "packages/api/src/billing/stripeApi.ts": {
       "lines": 607,

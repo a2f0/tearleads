@@ -491,13 +491,12 @@ test("createCheckoutSession stamps org metadata onto the subscription", async ()
   expect(url).toBe("https://checkout.stripe.com/pay/cs_1");
   const body = requests[0]?.body ?? "";
   expect(requests[0]?.url).toContain("/v1/checkout/sessions");
-  // Org+returnUrl-scoped idempotency: a retry / second tab with the same
-  // return URL reuses the session; a different URL keys a fresh one (Stripe
-  // rejects key reuse with changed params).
-  const key = requests[0]?.headers.get("Idempotency-Key");
-  expect(key?.startsWith("checkout-session:org-1:")).toBe(true);
-  // The return URL is canonicalized (query dropped) so the key is stable
-  // across transient client state.
+  // Purely org-scoped: an org's attempts collapse onto one session.
+  expect(requests[0]?.headers.get("Idempotency-Key")).toBe(
+    "checkout-session:org-1",
+  );
+  // The return URL is canonicalized (query dropped) so the stable success_url
+  // params match the reused org key.
   expect(body).toContain(
     `success_url=${encodeURIComponent("https://app.example/billing")}`,
   );
@@ -529,4 +528,26 @@ test("createCheckoutSession is null without price/secret config", async () => {
     ),
   ).toBeNull();
   expect(requests).toHaveLength(0);
+});
+
+test("createCheckoutSession passes an unparseable return url through unchanged", async () => {
+  const { fetchImpl, requests } = fakeFetch([
+    { body: { url: "https://checkout.stripe.com/pay/cs_2" } },
+  ]);
+
+  await createCheckoutSession(
+    {
+      customerId: "cus_1",
+      userId: "user-1",
+      organizationId: "org-1",
+      returnUrl: "not a url",
+    },
+    { env: ENV, fetchImpl },
+  );
+
+  // Canonicalization cannot parse it, so it falls back to the raw value rather
+  // than throwing (the value is origin-validated upstream anyway).
+  // URLSearchParams encodes the space as "+"; the point is the raw value
+  // passed through rather than the canonicalizer throwing.
+  expect(requests[0]?.body ?? "").toContain("success_url=not+a+url");
 });

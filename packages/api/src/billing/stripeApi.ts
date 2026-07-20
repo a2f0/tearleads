@@ -9,7 +9,6 @@
  * unit-testable without network. HTTP plumbing lives in stripeHttp.ts.
  */
 
-import { createHash } from "node:crypto";
 import {
   escapeSearchValue,
   prop,
@@ -549,17 +548,21 @@ function canonicalizeReturnUrl(returnUrl: string): string {
  * resolver (`findLiveOrgSubscription`) can later find it — exactly like the
  * inline flow. Returns null when Stripe is unconfigured.
  *
- * The return URL is CANONICALIZED (origin + path, query/hash dropped) and used
- * for both success and cancel, so the idempotency key
- * `checkout-session:<org>:<canonical>` is stable across an org's attempts from
- * the billing page. For the SAME buyer this collapses double-clicks onto ONE
- * session. A DIFFERENT admin sends the same key with a different `customer=`
- * (customers are per-(user, org)), so Stripe rejects the reused key and this
- * throws — a 502, never a second parallel session: fail-safe against
- * double-billing, and the same behavior the inline `createSyncSubscription`
- * flow has (it is org-keyed too). The pre-create `findLiveOrgSubscription` guard
- * turns the common case — a co-admin who is already subscribed — into a clean
- * 409 well before this.
+ * Idempotency is ORG-scoped (`checkout-session:<org>`). The return URL is
+ * CANONICALIZED (origin + path, query/hash dropped) for both success and
+ * cancel, so the request PARAMS are stable across an org's attempts too — every
+ * hosted-checkout click comes from the one billing page. For the SAME buyer
+ * this collapses double-clicks onto ONE session. A DIFFERENT admin sends the
+ * same key with a different `customer=` (customers are per-(user, org)), so
+ * Stripe rejects the reused key and this throws — a 502, never a second
+ * parallel session: fail-safe against double-billing, the same way the inline
+ * `createSyncSubscription` flow (also org-keyed, per-user customer) is. The
+ * pre-create `findLiveOrgSubscription` guard turns the common case — a co-admin
+ * who is already subscribed — into a clean 409 well before this.
+ *
+ * Canonicalizing the return URL costs the buyer their transient query/hash on
+ * return (they land on the bare billing page); that trade buys the stable
+ * params the org-scoped key needs.
  */
 export async function createCheckoutSession(
   input: {
@@ -591,12 +594,7 @@ export async function createCheckoutSession(
     path: "/v1/checkout/sessions",
     operation: "checkout session create",
     form,
-    idempotencyKey: `checkout-session:${input.organizationId}:${createHash(
-      "sha256",
-    )
-      .update(canonicalReturnUrl)
-      .digest("hex")
-      .slice(0, 16)}`,
+    idempotencyKey: `checkout-session:${input.organizationId}`,
   });
   return readString(prop(body, "url"));
 }
