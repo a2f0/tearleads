@@ -1,19 +1,18 @@
-import { base64ToBytes } from "@tearleads/encoding";
-import {
-  getImportBlobMetadata,
-  mergeVersionVectors,
-  satisfiesVersionVector,
-} from "@tearleads/loro";
+import { mergeVersionVectors, satisfiesVersionVector } from "@tearleads/loro";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { PendingWriteQueueObjectKind } from "../pendingWritesTypes";
 import type { PendingWriteCandidate } from "./aggregation";
 
+// Deliberately never selects (or filters on) `loro_snapshot`: the diagnostic
+// listing runs repeatedly while sync drains, and materializing every snapshot
+// blob made the scan O(total document content). `snapshot_end_version` is the
+// write-time-derived end version vector of the stored snapshot.
 const DEFERRED_TAIL_CANDIDATE_SQL = `
   SELECT
     stored.app_kind AS app_kind,
     stored.local_id AS local_id,
     stored.document_id AS stored_remote_id,
-    stored.loro_snapshot AS loro_snapshot,
+    stored.snapshot_end_version AS snapshot_end_version,
     stored.pending_base_version AS pending_base_version,
     stored.updated_at AS updated_at,
     (
@@ -51,7 +50,7 @@ const DEFERRED_TAIL_CANDIDATE_SQL = `
     AND metadata_container.id = stored.local_id
   LEFT JOIN container_projection
     ON container_projection.container_id = metadata_container.id
-  WHERE stored.loro_snapshot <> ''
+  WHERE stored.snapshot_end_version <> ''
     AND (
       stored.pending_base_version IS NOT NULL
       OR EXISTS (
@@ -66,15 +65,6 @@ const DEFERRED_TAIL_CANDIDATE_SQL = `
 function readString(row: Record<string, unknown>, key: string): string | null {
   const value = row[key];
   return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-function readSnapshotVersionVector(snapshot: string): string | null {
-  try {
-    return getImportBlobMetadata(base64ToBytes(snapshot))
-      .partialEndVersionVector;
-  } catch {
-    return null;
-  }
 }
 
 function hasUncoveredTail(input: {
@@ -119,13 +109,11 @@ function mapDeferredTailCandidate(
 ): PendingWriteCandidate | null {
   const appKind = readString(row, "app_kind");
   const localId = readString(row, "local_id");
-  const snapshot = readString(row, "loro_snapshot");
-  if (!appKind || !localId || !snapshot) {
+  const currentVersion = readString(row, "snapshot_end_version");
+  if (!appKind || !localId || !currentVersion) {
     return null;
   }
-  const currentVersion = readSnapshotVersionVector(snapshot);
   if (
-    !currentVersion ||
     !hasUncoveredTail({
       currentVersion,
       latestPendingEndVersion: readString(row, "latest_pending_end_version"),

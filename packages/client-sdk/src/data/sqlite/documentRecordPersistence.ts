@@ -9,6 +9,7 @@ import type {
   SelectedDocumentRecordRow,
 } from "./documentPersistenceTypes";
 import { documents } from "./schema";
+import { deriveSnapshotEndVersion } from "./snapshotEndVersion";
 import { getClientSQLitePersistenceRuntime } from "./sqlitePersistenceRuntime";
 import type { ExecSql } from "./sqlSchema";
 
@@ -53,6 +54,7 @@ function toDocumentRow(input: {
     localId: scope.localId,
     documentId: record.documentId,
     loroSnapshot: record.loroSnapshot,
+    snapshotEndVersion: deriveSnapshotEndVersion(record.loroSnapshot),
     accessEpoch: record.accessEpoch,
     accessStateHash: record.accessStateHash ?? null,
     effectiveAccessLevel:
