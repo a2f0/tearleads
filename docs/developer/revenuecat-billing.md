@@ -229,7 +229,21 @@ own theme tokens.
   reading back the **computed** values: an iframe cannot dereference
   `var(--color-dark)`, and custom properties compute to their authored token
   (`1rem`, an unevaluated `color-mix(...)`) rather than a used value. Reading
-  through the live panel means new themes work without touching this code.
+  through the live panel means new themes work without touching this code. The
+  Payment Element's BASE theme is also picked by mode — `night` on a dark
+  surface, `stripe` on light (`webDirectCheckout.ts`, from the resolved
+  background's luma) — because its built-in defaults, like the card icon inside
+  the number field, come from that base and our variable overrides only refine
+  on top; a light base on a dark surface left that icon dark-on-dark.
+- **Hosted-page alternative**: a "Pay on Stripe instead" link creates a hosted
+  Stripe **Checkout Session** (`POST …/billing/stripe/checkout-session`) and
+  navigates to it in the same tab, for buyers who would rather not type their
+  card into the inline form. It reuses everything: the same admin gate and
+  eligibility guard, the same per-(user, org) customer, and `orgId`/`userId`
+  stamped onto the subscription via `subscription_data[metadata]` so the same
+  `invoice.paid` webhook associates it and `findLiveOrgSubscription` can cancel
+  it. The success/cancel URLs are the origin-validated `returnUrl`, sharing the
+  portal's `withReturnUrl` guard.
 - **Flow** (`useDirectCheckoutFlow`): load option → create checkout on the
   server → mount the element into the panel's host → confirm → hand off to the
   existing activation poll, because the entitlement arrives asynchronously via

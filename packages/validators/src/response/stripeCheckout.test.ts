@@ -3,6 +3,7 @@ import {
   isStripeCancelResponse,
   isStripeCheckoutIntentResponse,
   isStripeCheckoutOptionsResponse,
+  isStripeCheckoutSessionResponse,
 } from "./stripeCheckout";
 
 const OPTION = {
@@ -73,4 +74,17 @@ test("accepts and rejects cancellation responses", () => {
   expect(isStripeCancelResponse({})).toBe(false);
   expect(isStripeCancelResponse({ cancelAt: "soon" })).toBe(false);
   expect(isStripeCancelResponse(null)).toBe(false);
+});
+
+test("accepts and rejects checkout-session responses", () => {
+  expect(
+    isStripeCheckoutSessionResponse({
+      url: "https://checkout.stripe.com/x",
+    }),
+  ).toBe(true);
+  // Null is meaningful: unconfigured, or the org is not eligible.
+  expect(isStripeCheckoutSessionResponse({ url: null })).toBe(true);
+  expect(isStripeCheckoutSessionResponse({})).toBe(false);
+  expect(isStripeCheckoutSessionResponse({ url: 5 })).toBe(false);
+  expect(isStripeCheckoutSessionResponse(null)).toBe(false);
 });

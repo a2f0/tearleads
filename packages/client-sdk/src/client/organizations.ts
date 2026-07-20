@@ -5,6 +5,7 @@ import {
   cancelStripeSubscription,
   createOrganizationGroup,
   createStripeCheckout,
+  createStripeCheckoutSession,
   importOrganizationUser,
   type LocalOrganizationSummary,
   listLocalOrganizations,
@@ -119,6 +120,9 @@ export interface Organizations {
   /** Direct Stripe checkout (issue #1654): options, start, and cancel. */
   loadStripeCheckoutOptions: () => ReturnType<typeof loadStripeCheckoutOptions>;
   createStripeCheckout: () => ReturnType<typeof createStripeCheckout>;
+  createStripeCheckoutSession: (
+    returnUrl: string,
+  ) => ReturnType<typeof createStripeCheckoutSession>;
   cancelStripeSubscription: () => ReturnType<typeof cancelStripeSubscription>;
   loadDataUsage: () => ReturnType<
     OrganizationDataUsageCoordinator["reconcile"]
@@ -368,6 +372,18 @@ class OrganizationsService implements Organizations {
       ? createStripeCheckout({
           apiClient: runtime.apiClient,
           organizationId,
+        })
+      : Promise.resolve(null);
+  }
+
+  createStripeCheckoutSession(returnUrl: string) {
+    const runtime = this.runtimeService.workflowInput();
+    const organizationId = authenticatedOrganizationId(runtime);
+    return organizationId
+      ? createStripeCheckoutSession({
+          apiClient: runtime.apiClient,
+          organizationId,
+          returnUrl,
         })
       : Promise.resolve(null);
   }

@@ -52,6 +52,21 @@ export function isStripeCancelResponse(
   return isPlainObject(value) && hasNullableNumberProperty(value, "cancelAt");
 }
 
+/**
+ * The hosted Stripe Checkout page URL, or null when the integration is
+ * unconfigured or the org is not eligible (already active). The client
+ * navigates to `url`; a null simply offers no external-pay link.
+ */
+export interface StripeCheckoutSessionResponse {
+  url: string | null;
+}
+
+export function isStripeCheckoutSessionResponse(
+  value: unknown,
+): value is StripeCheckoutSessionResponse {
+  return isPlainObject(value) && hasNullableStringProperty(value, "url");
+}
+
 function isStripeSyncOption(value: unknown): value is StripeSyncOptionResponse {
   return (
     isPlainObject(value) &&

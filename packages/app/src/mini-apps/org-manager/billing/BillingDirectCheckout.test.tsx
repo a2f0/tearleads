@@ -1,11 +1,32 @@
-import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { afterEach, expect, mock, spyOn, test } from "bun:test";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { createRef } from "react";
+import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { BillingDirectCheckout, formatPrice } from "./BillingDirectCheckout";
 import type { DirectCheckoutState } from "./useDirectCheckout";
 
-afterEach(() => cleanup());
+const spies: { mockRestore: () => void }[] = [];
+
+afterEach(() => {
+  cleanup();
+  while (spies.length > 0) {
+    spies.pop()?.mockRestore();
+  }
+});
+
+/** The idle checkout renders the hosted-link, which reads the SDK facade. */
+function stubTearleads(
+  createStripeCheckoutSession: () => Promise<{
+    url: string | null;
+  } | null> = () => Promise.resolve({ url: null }),
+) {
+  spies.push(
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+      organizations: { createStripeCheckoutSession },
+    } as never),
+  );
+}
 
 const OPTION = {
   priceId: "price_1",
@@ -89,6 +110,7 @@ test("renders nothing when the platform or option is unavailable", () => {
 });
 
 test("idle offers the priced subscribe row and hides the element host", () => {
+  stubTearleads();
   const view = render(
     <BillingDirectCheckout checkout={state({})} disabled={false} />,
   );
@@ -152,4 +174,71 @@ test("an error renders in the error tone", () => {
     />,
   );
   expect(view.getByText("Card declined.")).toBeDefined();
+});
+
+test("the hosted-checkout link opens a Stripe session and navigates to it", async () => {
+  const createStripeCheckoutSession = mock(() =>
+    Promise.resolve({ url: "https://checkout.stripe.com/pay/x" }),
+  );
+  stubTearleads(createStripeCheckoutSession);
+  const assign = spyOn(globalThis.location, "assign").mockImplementation(
+    () => undefined,
+  );
+  spies.push(assign);
+
+  const view = render(
+    <BillingDirectCheckout checkout={state({})} disabled={false} />,
+  );
+  fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe));
+
+  await waitFor(() =>
+    expect(createStripeCheckoutSession).toHaveBeenCalledTimes(1),
+  );
+  await waitFor(() =>
+    expect(assign).toHaveBeenCalledWith("https://checkout.stripe.com/pay/x"),
+  );
+});
+
+test("a null hosted session leaves the buyer on the page", async () => {
+  // Unconfigured / not eligible: nothing opens, and the link becomes usable
+  // again rather than stranding the buyer on a spinner.
+  const createStripeCheckoutSession = mock(() =>
+    Promise.resolve({ url: null }),
+  );
+  stubTearleads(createStripeCheckoutSession);
+  const assign = spyOn(globalThis.location, "assign").mockImplementation(
+    () => undefined,
+  );
+  spies.push(assign);
+
+  const view = render(
+    <BillingDirectCheckout checkout={state({})} disabled={false} />,
+  );
+  fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe));
+
+  await waitFor(() =>
+    expect(createStripeCheckoutSession).toHaveBeenCalledTimes(1),
+  );
+  expect(assign).not.toHaveBeenCalled();
+  expect(
+    view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe).closest("button")
+      ?.disabled,
+  ).toBe(false);
+  // A null result surfaces a notice rather than a silent dead click.
+  await waitFor(() =>
+    expect(
+      view.getByText(ORG_MANAGER_LABELS.billingPayOnStripeUnavailable),
+    ).toBeDefined(),
+  );
+});
+
+test("the hosted-checkout link is not offered once the inline flow starts", () => {
+  stubTearleads();
+  const view = render(
+    <BillingDirectCheckout
+      checkout={state({ phase: { kind: "collecting" } })}
+      disabled={false}
+    />,
+  );
+  expect(view.queryByText(ORG_MANAGER_LABELS.billingPayOnStripe)).toBeNull();
 });

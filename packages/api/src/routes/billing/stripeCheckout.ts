@@ -6,6 +6,7 @@ import type { SessionEnv } from "../../middleware/session";
 import {
   cancelStripeSubscription,
   createStripeCheckout,
+  createStripeCheckoutSession,
   createStripePortalUrl,
   getStripeCheckoutOptions,
   processStripeWebhook,
@@ -49,6 +50,42 @@ function parseReturnUrl(
     return null;
   }
   return url.toString();
+}
+
+/**
+ * Wraps a route that takes an origin-validated `returnUrl` body (the portal and
+ * the hosted checkout session): parse the body, reject a missing/foreign URL
+ * with 400, then run the org-admin-gated handler.
+ */
+function withReturnUrl(
+  allowedOrigins: ApiCorsOrigins,
+  respond: (
+    c: Context<SessionEnv>,
+    organizationId: string,
+    sessionUserId: string,
+    returnUrl: string,
+  ) => Promise<Response>,
+) {
+  return async (c: Context<SessionEnv>) => {
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const returnUrl = parseReturnUrl(
+      typeof body === "object" && body !== null && "returnUrl" in body
+        ? body.returnUrl
+        : null,
+      allowedOrigins,
+    );
+    if (!returnUrl) {
+      return c.json({ error: "Invalid returnUrl" }, 400);
+    }
+    return respondForOrganization(c, (organizationId, sessionUserId) =>
+      respond(c, organizationId, sessionUserId, returnUrl),
+    );
+  };
 }
 
 async function respondForOrganization(
@@ -116,35 +153,34 @@ export function createStripeCheckoutRoute({
   route.post(
     "/organizations/:organizationId/billing/stripe/portal",
     requireAuth,
-    async (c) => {
-      let body: unknown;
-      try {
-        body = await c.req.json();
-      } catch {
-        return c.json({ error: "Invalid JSON body" }, 400);
-      }
-      const returnUrl = parseReturnUrl(
-        typeof body === "object" && body !== null && "returnUrl" in body
-          ? body.returnUrl
-          : null,
-        allowedOrigins,
+    withReturnUrl(allowedOrigins, async (c, orgId, userId, returnUrl) => {
+      const url = await createStripePortalUrl(
+        runtime,
+        orgId,
+        userId,
+        returnUrl,
       );
-      if (!returnUrl) {
-        return c.json({ error: "Invalid returnUrl" }, 400);
-      }
-      return respondForOrganization(
-        c,
-        async (organizationId, sessionUserId) => {
-          const url = await createStripePortalUrl(
-            runtime,
-            organizationId,
-            sessionUserId,
-            returnUrl,
-          );
-          return c.json({ portalUrl: url });
-        },
+      return c.json({ portalUrl: url });
+    }),
+  );
+
+  // The hosted-page alternative to the inline checkout. success/cancel URLs
+  // are the same origin-validated `returnUrl` — an unvalidated value would be a
+  // post-checkout open-redirect. Deliberately answers `200 { url: null }` (not
+  // the inline `/checkout`'s 503) when unconfigured: the client validator
+  // expects the `{ url }` shape, and a null just offers no external-pay link.
+  route.post(
+    "/organizations/:organizationId/billing/stripe/checkout-session",
+    requireAuth,
+    withReturnUrl(allowedOrigins, async (c, orgId, userId, returnUrl) => {
+      const url = await createStripeCheckoutSession(
+        runtime,
+        orgId,
+        userId,
+        returnUrl,
       );
-    },
+      return c.json({ url });
+    }),
   );
 
   route.post(

@@ -520,3 +520,81 @@ export async function createPortalSession(
   });
   return readString(prop(body, "url"));
 }
+
+/**
+ * Reduces a return URL to origin + path (dropping query and hash) so the hosted
+ * checkout's `success_url`/`cancel_url` — and therefore its idempotency key —
+ * are stable across an org's attempts even when transient client state varies
+ * the full URL. Falls back to the input if it does not parse (already
+ * origin-validated upstream). The buyer still lands on the billing page.
+ */
+function canonicalizeReturnUrl(returnUrl: string): string {
+  try {
+    const url = new URL(returnUrl);
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return returnUrl;
+  }
+}
+
+/**
+ * Creates a hosted Stripe Checkout Session for the sync subscription and
+ * returns its URL. This is the off-site alternative to the inline Payment
+ * Element: same product, same customer, and the SAME `orgId`/`userId` stamped
+ * onto the resulting subscription (via `subscription_data[metadata]`) so the
+ * `invoice.paid` webhook associates it with RevenueCat and the cancel/portal
+ * resolver (`findLiveOrgSubscription`) can later find it — exactly like the
+ * inline flow. Returns null when Stripe is unconfigured.
+ *
+ * Idempotency is ORG-scoped (`checkout-session:<org>`). The return URL is
+ * CANONICALIZED (origin + path, query/hash dropped) for both success and
+ * cancel, so the request PARAMS are stable across an org's attempts too — every
+ * hosted-checkout click comes from the one billing page. For the SAME buyer
+ * this collapses double-clicks onto ONE session. A DIFFERENT admin sends the
+ * same key with a different `customer=` (customers are per-(user, org)), so
+ * Stripe rejects the reused key and this throws — a 502, never a second
+ * parallel session: fail-safe against double-billing, the same way the inline
+ * `createSyncSubscription` flow (also org-keyed, per-user customer) is. The
+ * pre-create `findLiveOrgSubscription` guard turns the common case — a co-admin
+ * who is already subscribed — into a clean 409 well before this.
+ *
+ * Canonicalizing the return URL costs the buyer their transient query/hash on
+ * return (they land on the bare billing page); that trade buys the stable
+ * params the org-scoped key needs.
+ */
+export async function createCheckoutSession(
+  input: {
+    customerId: string;
+    userId: string;
+    organizationId: string;
+    returnUrl: string;
+  },
+  deps: StripeApiDeps = {},
+): Promise<string | null> {
+  const { fetchImpl, secretKey, syncPriceId } = resolveDeps(deps);
+  if (!secretKey || !syncPriceId) {
+    return null;
+  }
+  const canonicalReturnUrl = canonicalizeReturnUrl(input.returnUrl);
+  const form = new URLSearchParams();
+  form.set("mode", "subscription");
+  form.set("line_items[0][price]", syncPriceId);
+  form.set("line_items[0][quantity]", "1");
+  form.set("customer", input.customerId);
+  form.set("success_url", canonicalReturnUrl);
+  form.set("cancel_url", canonicalReturnUrl);
+  form.set("subscription_data[metadata][userId]", input.userId);
+  form.set("subscription_data[metadata][orgId]", input.organizationId);
+  const body = await stripeRequest({
+    fetchImpl,
+    secretKey,
+    method: "POST",
+    path: "/v1/checkout/sessions",
+    operation: "checkout session create",
+    form,
+    idempotencyKey: `checkout-session:${input.organizationId}`,
+  });
+  return readString(prop(body, "url"));
+}

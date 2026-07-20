@@ -6,6 +6,7 @@ import {
 } from "../../billing/revenueCatStripeAssociation";
 import {
   cancelSubscriptionAtPeriodEnd,
+  createCheckoutSession,
   createPortalSession,
   createSyncSubscription,
   findLiveOrgSubscription,
@@ -110,6 +111,64 @@ export async function createStripeCheckout(
     );
   }
   return outcome ? outcome.intent : null;
+}
+
+/**
+ * The off-site alternative to {@link createStripeCheckout}: returns a hosted
+ * Stripe Checkout page URL for a buyer who does not want the inline form. Same
+ * admin gate, same local-status eligibility guard, and the same Stripe-side
+ * duplicate guard (an already-subscribed org is a 409), same full-configuration
+ * requirement (the resulting subscription flows through the same webhook →
+ * RevenueCat association), and the same per-(user, org) customer. Null when
+ * unconfigured.
+ */
+export async function createStripeCheckoutSession(
+  runtime: ApiServiceRuntime,
+  organizationId: string,
+  sessionUserId: string,
+  returnUrl: string,
+  deps: StripeCheckoutServiceDeps = {},
+): Promise<string | null> {
+  await runRequireCheckoutEligibleWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
+  );
+  if (!isDirectCheckoutFullyConfigured(deps)) {
+    return null;
+  }
+  // Stripe-side duplicate guard, mirroring the inline flow. The local billing
+  // status the eligibility workflow reads can lag Stripe (e.g. a webhook
+  // outage), so a session minted here could complete into a SECOND billing
+  // subscription and double-bill. `createSyncSubscription` closes this window
+  // for the inline path via its own search; the hosted path has no such create,
+  // so check here. This matches LIVE subscriptions only — an `incomplete`
+  // abandoned inline attempt never bills, so it is not a double-bill and does
+  // not block a fresh hosted checkout.
+  const existing = await findLiveOrgSubscription(
+    organizationId,
+    deps.stripe ?? {},
+  );
+  if (existing) {
+    throw new OrganizationManagerError(
+      "The organization already has an active subscription",
+      409,
+    );
+  }
+  const customerId = await findOrCreateCustomer(
+    { userId: sessionUserId, organizationId },
+    deps.stripe ?? {},
+  );
+  if (!customerId) {
+    return null;
+  }
+  // One origin-validated URL for both outcomes: the buyer lands back on the
+  // billing panel whether they paid or backed out, and a paid return reads as
+  // activation-pending until the webhook grants the entitlement.
+  return createCheckoutSession(
+    { customerId, userId: sessionUserId, organizationId, returnUrl },
+    deps.stripe ?? {},
+  );
 }
 
 /**

@@ -1,3 +1,4 @@
+import { useCallback, useState } from "react";
 import {
   MiniAppSection,
   MiniAppStatus,
@@ -7,6 +8,7 @@ import {
   MiniAppRowStack,
   MiniAppRowText,
 } from "../../../components/mini-app/rows/MiniAppRow";
+import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import type { DirectCheckoutState } from "./useDirectCheckout";
 import "./BillingCheckout.css";
@@ -72,6 +74,76 @@ export function formatPrice(
   return interval ? `${amount}/${interval}` : amount;
 }
 
+/**
+ * The off-site alternative to the inline form: mints a hosted Stripe Checkout
+ * session and navigates to it in the SAME tab. Same-tab (not a new window)
+ * because the buyer explicitly chose to leave the inline form, and it sidesteps
+ * pop-up blockers, which reject a `window.open` that happens after the `await`.
+ * The session's success/cancel URLs both return to this page.
+ */
+function useHostedCheckout(): {
+  readonly open: () => void;
+  readonly busy: boolean;
+  readonly unavailable: boolean;
+} {
+  const tearleads = useTearleads();
+  const [busy, setBusy] = useState(false);
+  // A null/failed result would otherwise reset the link silently, leaving a
+  // dead-feeling click — e.g. a co-admin whose org is already checking out, or
+  // an unconfigured integration. Surface a brief notice instead.
+  const [unavailable, setUnavailable] = useState(false);
+  const open = useCallback(() => {
+    if (busy) {
+      return;
+    }
+    setBusy(true);
+    setUnavailable(false);
+    void (async () => {
+      try {
+        const result =
+          await tearleads.organizations.createStripeCheckoutSession(
+            globalThis.location?.href ?? "",
+          );
+        if (result?.url && globalThis.location) {
+          globalThis.location.assign(result.url);
+          return; // navigating away — leave `busy` set
+        }
+        // Unconfigured, not eligible, or a checkout already in progress.
+        setUnavailable(true);
+        setBusy(false);
+      } catch (error) {
+        console.error("Failed to open the hosted Stripe checkout:", error);
+        setUnavailable(true);
+        setBusy(false);
+      }
+    })();
+  }, [busy, tearleads]);
+  return { open, busy, unavailable };
+}
+
+function HostedCheckoutLink({ disabled }: { readonly disabled: boolean }) {
+  const hosted = useHostedCheckout();
+  return (
+    <>
+      <MiniAppRowButton
+        disabled={disabled || hosted.busy}
+        onClick={hosted.open}
+      >
+        <MiniAppRowText muted>
+          {hosted.busy
+            ? ORG_MANAGER_LABELS.billingPayOnStripeStarting
+            : ORG_MANAGER_LABELS.billingPayOnStripe}
+        </MiniAppRowText>
+      </MiniAppRowButton>
+      {hosted.unavailable ? (
+        <MiniAppStatus className="org-manager-hint">
+          {ORG_MANAGER_LABELS.billingPayOnStripeUnavailable}
+        </MiniAppStatus>
+      ) : null}
+    </>
+  );
+}
+
 export function BillingDirectCheckout({
   checkout,
   disabled,
@@ -92,15 +164,26 @@ export function BillingDirectCheckout({
   return (
     <MiniAppSection>
       {idle ? (
-        <MiniAppRowButton disabled={disabled} onClick={checkout.begin}>
-          <MiniAppRowStack>
-            <strong>{option.productName}</strong>
-            <MiniAppRowText muted>
-              {formatPrice(option.unitAmount, option.currency, option.interval)}
+        <>
+          <MiniAppRowButton disabled={disabled} onClick={checkout.begin}>
+            <MiniAppRowStack>
+              <strong>{option.productName}</strong>
+              <MiniAppRowText muted>
+                {formatPrice(
+                  option.unitAmount,
+                  option.currency,
+                  option.interval,
+                )}
+              </MiniAppRowText>
+            </MiniAppRowStack>
+            <MiniAppRowText>
+              {ORG_MANAGER_LABELS.billingSubscribe}
             </MiniAppRowText>
-          </MiniAppRowStack>
-          <MiniAppRowText>{ORG_MANAGER_LABELS.billingSubscribe}</MiniAppRowText>
-        </MiniAppRowButton>
+          </MiniAppRowButton>
+          {/* The hosted-page escape hatch for buyers who prefer not to type
+              their card into our inline form. */}
+          <HostedCheckoutLink disabled={disabled} />
+        </>
       ) : null}
 
       {starting ? (

@@ -42,6 +42,10 @@ export const ORG_MANAGER_LABELS = {
   billingManageSubscription: "Manage subscription",
   billingNoOptions: "No subscription options are available right now.",
   billingPastDue: "Payment past due",
+  billingPayOnStripe: "Prefer Stripe's page? Pay on Stripe instead",
+  billingPayOnStripeStarting: "Opening Stripe...",
+  billingPayOnStripeUnavailable:
+    "Couldn't open Stripe checkout right now. Try again.",
   billingPurchaseUnavailable: "Purchases aren't available right now.",
   billingPurged: "Remote data purged",
   billingRestore: "Restore purchases",

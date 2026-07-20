@@ -225,9 +225,11 @@ export {
   isStripeCancelResponse,
   isStripeCheckoutIntentResponse,
   isStripeCheckoutOptionsResponse,
+  isStripeCheckoutSessionResponse,
   type StripeCancelResponse,
   type StripeCheckoutIntentResponse,
   type StripeCheckoutOptionsResponse,
+  type StripeCheckoutSessionResponse,
   type StripeSyncOptionResponse,
 } from "./stripeCheckout";
 export { isSyncWatermark, type SyncWatermark } from "./syncWatermark";

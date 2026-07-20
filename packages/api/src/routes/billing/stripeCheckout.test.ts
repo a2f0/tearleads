@@ -165,6 +165,75 @@ test("cancel answers 404 for an admin with no cancellable subscription", async (
   expect(response.status).toBe(404);
 });
 
+test("checkout-session requires authentication", async () => {
+  const response = await routeApp.request(
+    "/organizations/11111111-1111-4111-8111-111111111111/billing/stripe/checkout-session",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ returnUrl: "https://app.example/billing" }),
+    },
+  );
+  expect(response.status).toBe(401);
+});
+
+test("checkout-session wraps the service result in a 200 { url } body", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/checkout-session`,
+    {
+      method: "POST",
+      headers: { ...authHeader(admin), "Content-Type": "application/json" },
+      body: JSON.stringify({ returnUrl: "https://app.example/billing" }),
+    },
+  );
+  // Unconfigured in this env, so the URL is null — but the route still wraps it
+  // in { url } with a 200, the shape the client validator requires.
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ url: null });
+});
+
+test("checkout-session 409s for an already-active organization", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  // The eligibility guard runs before any Stripe call and propagates its 409
+  // through withReturnUrl/respondForOrganization — a second subscription would
+  // double-bill.
+  await db
+    .update(organizationBilling)
+    .set({ status: "active" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/checkout-session`,
+    {
+      method: "POST",
+      headers: { ...authHeader(admin), "Content-Type": "application/json" },
+      body: JSON.stringify({ returnUrl: "https://app.example/billing" }),
+    },
+  );
+  expect(response.status).toBe(409);
+});
+
+test("checkout-session rejects a non-http returnUrl", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+
+  // The success/cancel URLs are redirect targets, so only http(s) is accepted
+  // — this guard holds even under the dev wildcard origin allowlist.
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/checkout-session`,
+    {
+      method: "POST",
+      headers: { ...authHeader(admin), "Content-Type": "application/json" },
+      body: JSON.stringify({ returnUrl: "ftp://app.example/billing" }),
+    },
+  );
+  expect(response.status).toBe(400);
+});
+
 test("options answer an empty list when unconfigured", async () => {
   const user = createTestUser();
   await registerAndAuthenticate(user);
