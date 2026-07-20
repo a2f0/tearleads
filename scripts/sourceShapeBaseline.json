@@ -234,16 +234,16 @@
       "bytes": 39373
     },
     "packages/client-sdk/src/data/persistence/container-contents/containerContentsPersistence.ts": {
-      "lines": 1370,
-      "bytes": 42812
+      "lines": 1372,
+      "bytes": 42959
     },
     "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
       "lines": 815,
       "bytes": 26057
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
-      "lines": 783,
-      "bytes": 30522
+      "lines": 789,
+      "bytes": 30980
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
       "lines": 562,

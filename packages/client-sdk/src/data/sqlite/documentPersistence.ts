@@ -18,6 +18,10 @@ export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
       name: "pending_base_version",
       definition: '"pending_base_version" TEXT',
     },
+    {
+      name: "snapshot_end_version",
+      definition: "\"snapshot_end_version\" TEXT NOT NULL DEFAULT ''",
+    },
   ]);
 }
 

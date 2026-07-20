@@ -61,6 +61,11 @@ const accessLevelColumn = "effective_access_level";
  *   `loroSnapshot` is already enqueued or synced. Persisted so a restart
  *   restores the outgoing-delta marker instead of re-seeding it past a
  *   device-first `deferRemoteSync` write's un-advanced op. `null` when unset.
+ * - `snapshotEndVersion`: Encoded end version vector of `loroSnapshot`,
+ *   derived at write time. Lets the pending-write queue's deferred-tail scan
+ *   compare version coverage without selecting or decoding the snapshot blob.
+ *   Empty string when no snapshot is stored (or a legacy row has not been
+ *   re-persisted yet), which readers treat as "no deferred tail claimable".
  * - `updatedAt`: Local timestamp for the last persisted runtime-state update.
  *
  * Indexes:
@@ -83,6 +88,7 @@ export const documents = sqliteTable(
     contentKeyBundle: text("content_key_bundle"),
     documentKekTargets: text("document_kek_targets"),
     pendingBaseVersion: text("pending_base_version"),
+    snapshotEndVersion: text("snapshot_end_version").notNull().default(""),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
