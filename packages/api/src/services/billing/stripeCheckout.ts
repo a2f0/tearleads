@@ -139,9 +139,12 @@ export async function createStripeCheckoutSession(
   }
   // Stripe-side duplicate guard, mirroring the inline flow. The local billing
   // status the eligibility workflow reads can lag Stripe (e.g. a webhook
-  // outage), so a session minted here could complete into a SECOND subscription
-  // and double-bill. `createSyncSubscription` closes this window for the inline
-  // path via its own search; the hosted path has no such create, so check here.
+  // outage), so a session minted here could complete into a SECOND billing
+  // subscription and double-bill. `createSyncSubscription` closes this window
+  // for the inline path via its own search; the hosted path has no such create,
+  // so check here. This matches LIVE subscriptions only — an `incomplete`
+  // abandoned inline attempt never bills, so it is not a double-bill and does
+  // not block a fresh hosted checkout.
   const existing = await findLiveOrgSubscription(
     organizationId,
     deps.stripe ?? {},

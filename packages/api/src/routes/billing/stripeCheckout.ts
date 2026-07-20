@@ -166,7 +166,9 @@ export function createStripeCheckoutRoute({
 
   // The hosted-page alternative to the inline checkout. success/cancel URLs
   // are the same origin-validated `returnUrl` — an unvalidated value would be a
-  // post-checkout open-redirect.
+  // post-checkout open-redirect. Deliberately answers `200 { url: null }` (not
+  // the inline `/checkout`'s 503) when unconfigured: the client validator
+  // expects the `{ url }` shape, and a null just offers no external-pay link.
   route.post(
     "/organizations/:organizationId/billing/stripe/checkout-session",
     requireAuth,

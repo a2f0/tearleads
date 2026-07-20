@@ -195,6 +195,28 @@ test("checkout-session wraps the service result in a 200 { url } body", async ()
   expect(await response.json()).toEqual({ url: null });
 });
 
+test("checkout-session 409s for an already-active organization", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  // The eligibility guard runs before any Stripe call and propagates its 409
+  // through withReturnUrl/respondForOrganization — a second subscription would
+  // double-bill.
+  await db
+    .update(organizationBilling)
+    .set({ status: "active" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/checkout-session`,
+    {
+      method: "POST",
+      headers: { ...authHeader(admin), "Content-Type": "application/json" },
+      body: JSON.stringify({ returnUrl: "https://app.example/billing" }),
+    },
+  );
+  expect(response.status).toBe(409);
+});
+
 test("checkout-session rejects a non-http returnUrl", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);

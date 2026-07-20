@@ -9,6 +9,7 @@
  * unit-testable without network. HTTP plumbing lives in stripeHttp.ts.
  */
 
+import { createHash } from "node:crypto";
 import {
   escapeSearchValue,
   prop,
@@ -530,10 +531,12 @@ export async function createPortalSession(
  * resolver (`findLiveOrgSubscription`) can later find it — exactly like the
  * inline flow. Returns null when Stripe is unconfigured.
  *
- * ORG-scoped idempotency: a double-clicked link or a second tab within Stripe's
- * key-retention window returns the SAME session rather than a fresh one, so the
- * org cannot end up with two parallel sessions that each complete into a
- * subscription.
+ * Idempotency is keyed on the org AND the return URL: a double-clicked link
+ * returns the SAME session, so the org cannot spawn two parallel sessions that
+ * each complete into a subscription. The return URL is folded in because it
+ * IS a request parameter (`success_url`/`cancel_url`) — Stripe rejects a key
+ * reused with changed params, and the app's URL can differ between attempts, so
+ * a fixed key would 502 the second attempt.
  */
 export async function createCheckoutSession(
   input: {
@@ -565,7 +568,12 @@ export async function createCheckoutSession(
     path: "/v1/checkout/sessions",
     operation: "checkout session create",
     form,
-    idempotencyKey: `checkout-session:${input.organizationId}`,
+    idempotencyKey: `checkout-session:${input.organizationId}:${createHash(
+      "sha256",
+    )
+      .update(input.successUrl)
+      .digest("hex")
+      .slice(0, 16)}`,
   });
   return readString(prop(body, "url"));
 }
