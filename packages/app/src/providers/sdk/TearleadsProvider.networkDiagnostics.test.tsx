@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import type { NetworkStatusSource, Tearleads } from "@tearleads/client-sdk";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 import { AppHostConfig } from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../host/AppHostConfigProvider";
@@ -89,6 +89,36 @@ test("logs the network source diagnostic snapshot when the source provides one",
       ),
     ).toBe(true);
   });
+
+  view.unmount();
+});
+
+test("logs no diagnostic when the source omits diagnose (browser default)", async () => {
+  const source: NetworkStatusSource = {
+    getOnline: () => true,
+    subscribe: () => () => {},
+  };
+  let messages: ReadonlyArray<string> = [];
+  const view = render(
+    <Harness
+      hostConfig={new AppHostConfig(
+        "http://api.example.test",
+        "ws://events.example.test/no-diagnose",
+      ).withOverrides({ createNetworkStatus: () => source })}
+      onLogEntries={(next) => {
+        messages = next;
+      }}
+    />,
+  );
+
+  // Flush the microtask window a diagnose() would have logged in; the optional
+  // chaining must short-circuit (no throw) and add no "Network source:" entry.
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(messages.some((message) => message.includes("Network source:"))).toBe(
+    false,
+  );
 
   view.unmount();
 });

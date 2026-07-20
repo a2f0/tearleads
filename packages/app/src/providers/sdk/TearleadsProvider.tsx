@@ -118,15 +118,21 @@ function useNetworkStatusBinding(
   log: (message: string) => void,
 ): void {
   useEffect(() => {
+    let cancelled = false;
     const source =
       createNetworkStatus?.() ?? createBrowserNetworkStatusSource();
 
     // Record how the source reads connectivity, so a support log shows whether
     // (e.g.) the native connectivity plugin is active or the shell fell back to
     // navigator.onLine — the difference between a real offline and a false one.
+    // Guarded so a resolve after unmount (or a StrictMode remount) does not log.
     source
       .diagnose?.()
-      .then((snapshot) => log(`Network source: ${snapshot}`))
+      .then((snapshot) => {
+        if (!cancelled) {
+          log(`Network source: ${snapshot}`);
+        }
+      })
       .catch(() => {});
 
     // Seed from the source before subscribing, replacing the SDK constructor's
@@ -139,6 +145,7 @@ function useNetworkStatusBinding(
     });
 
     return () => {
+      cancelled = true;
       unsubscribe();
       source.dispose?.();
     };

@@ -27,7 +27,8 @@
     "ios:build:testflight": "bundle exec fastlane ios build_testflight_release",
     "ios:upload:testflight": "bundle exec fastlane ios upload_testflight_release",
     "store:build-numbers": "bundle exec fastlane store_build_numbers",
-    "lint:rubocop": "bundle exec rubocop"
+    "lint:rubocop": "bundle exec rubocop",
+    "test": "bun test src --pass-with-no-tests"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "8.1.0",
