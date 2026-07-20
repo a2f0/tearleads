@@ -110,6 +110,7 @@ function renderExplorerDetailPanelWithBlobPick(
 ) {
   const { appData, blobPick, model, onOpenGrant, resolveAttributionUserLabel } =
     params;
+  const { routeState } = model;
 
   return (
     <ExplorerDetailPanel
@@ -151,29 +152,30 @@ function renderExplorerDetailPanelWithBlobPick(
       onCancelBlobPick={blobPick.cancelBlobPick}
       onContainerContextMenu={model.contextMenuState.handleContainerContextMenu}
       onItemContextMenu={model.contextMenuState.handleItemContextMenu}
-      onBackToSelectionRoute={model.routeState.showSelectionRoute}
-      openSyncLanesRoute={model.routeState.openSyncLanesRoute}
+      onBackToSelectionRoute={routeState.showSelectionRoute}
+      openSyncLanesRoute={routeState.openSyncLanesRoute}
       onOpenGrant={onOpenGrant}
-      onOpenSyncLaneDetailRoute={model.routeState.openSyncLaneDetailRoute}
+      onOpenSyncLaneDetailRoute={routeState.openSyncLaneDetailRoute}
       onPickBlob={blobPick.resolveBlobPick}
       openInlineDocument={model.openInlineDocument}
       onInitialEditingSelectedDocumentConsumed={
         model.consumeInitialDocumentEditing
       }
-      openBlobBrowserRoute={model.routeState.openBlobBrowserRoute}
-      openContainerInfoRoute={model.routeState.openContainerInfoRoute}
-      openDocumentInfoRoute={model.routeState.openDocumentInfoRoute}
-      openWriteQueueRoute={model.routeState.openWriteQueueRoute}
+      openBlobBrowserRoute={routeState.openBlobBrowserRoute}
+      openContainerInfoRoute={routeState.openContainerInfoRoute}
+      openDocumentInfoRoute={routeState.openDocumentInfoRoute}
+      openUploadsRoute={routeState.openUploadsRoute}
+      openWriteQueueRoute={routeState.openWriteQueueRoute}
       peerUserId={model.peerUserId}
       ready={model.explorer.ready}
       refreshError={model.refreshError}
-      route={model.routeState.route}
+      route={routeState.route}
       selectDocumentProjection={model.selectDocumentProjection}
       selectedNode={model.selection.selectedNode}
       selectedDocument={model.selection.selectedDocument}
       setContainerIcon={model.explorer.setContainerIcon}
       trashSystemSlot={model.explorer.trashSystemSlot}
-      setSelectedId={model.routeState.selectExplorerItem}
+      setSelectedId={routeState.selectExplorerItem}
       showLinkedDocumentActivationControls={
         params.showLinkedDocumentActivationControls
       }
@@ -242,9 +244,10 @@ function ExplorerContent() {
     peerUserId,
     retryDatabaseBoot,
   );
+  const { routeState } = model;
   const organizationPresentation = useExplorerOrganizationPresentation({
     appData,
-    view: model.routeState.route.view,
+    view: routeState.route.view,
   });
   const catchupScope = appData.state.domainScope;
   useEffect(() => {
@@ -280,19 +283,19 @@ function ExplorerContent() {
       activeContainerId &&
       model.canCreateStructuredDocumentInActiveContainer
     ) {
-      model.routeState.openNewStructuredDocumentRoute(activeContainerId);
+      routeState.openNewStructuredDocumentRoute(activeContainerId);
     }
   }, [
     activeContainerId,
     model.canCreateStructuredDocumentInActiveContainer,
-    model.routeState.openNewStructuredDocumentRoute,
+    routeState.openNewStructuredDocumentRoute,
   ]);
   const openBlobBrowser = useCallback(() => {
-    model.routeState.openBlobBrowserRoute();
-  }, [model.routeState.openBlobBrowserRoute]);
+    routeState.openBlobBrowserRoute();
+  }, [routeState.openBlobBrowserRoute]);
   const openSyncLanes = useCallback(() => {
-    model.routeState.openSyncLanesRoute();
-  }, [model.routeState.openSyncLanesRoute]);
+    routeState.openSyncLanesRoute();
+  }, [routeState.openSyncLanesRoute]);
   const returnToDocumentFromBlobPick = useCallback(
     (localId: string, containerId: string) => {
       // The blob picker navigates away and remounts the document, discarding its
@@ -300,12 +303,9 @@ function ExplorerContent() {
       // re-arm edit mode for the returning document — otherwise attaching a blob
       // silently drops the user back to read mode mid-attach.
       model.markDocumentStartsInEditMode(localId);
-      model.routeState.selectExplorerDocument(localId, containerId);
+      routeState.selectExplorerDocument(localId, containerId);
     },
-    [
-      model.markDocumentStartsInEditMode,
-      model.routeState.selectExplorerDocument,
-    ],
+    [model.markDocumentStartsInEditMode, routeState.selectExplorerDocument],
   );
   const toolbarUpload = useExplorerToolbarUpload(model.uploadManager);
   useExplorerRoutedChromeActions({
@@ -396,7 +396,7 @@ function ExplorerContent() {
       {toolbarUpload.input}
       <BlobPickProvider
         loadBlobInfo={model.loadBlobInfo}
-        openBlobBrowserRoute={model.routeState.openBlobBrowserRoute}
+        openBlobBrowserRoute={routeState.openBlobBrowserRoute}
         returnToDocumentRoute={returnToDocumentFromBlobPick}
       >
         <ExplorerDetailPanelWithBlobPick
@@ -452,14 +452,14 @@ function ExplorerContent() {
         downloadDocument={downloadDocument}
         startImport={model.uploadManager.startImport}
         moveContainerToTrash={model.moveContainerToTrash}
-        openDocumentInfoRoute={model.routeState.openDocumentInfoRoute}
-        openContainerInfoRoute={model.routeState.openContainerInfoRoute}
+        openDocumentInfoRoute={routeState.openDocumentInfoRoute}
+        openContainerInfoRoute={routeState.openContainerInfoRoute}
         openCreateChildModal={model.modalState.openCreateChildModal}
         openLinkDocumentModal={model.modalState.openLinkDocumentModal}
         openMoveModal={model.modalState.openMoveModal}
         openMoveDocumentModal={model.modalState.openMoveDocumentModal}
         openNewStructuredDocumentRoute={
-          model.routeState.openNewStructuredDocumentRoute
+          routeState.openNewStructuredDocumentRoute
         }
         openNewContactDocument={openNewContactDocument}
         openEmptyTrashModal={model.modalState.openEmptyTrashModal}

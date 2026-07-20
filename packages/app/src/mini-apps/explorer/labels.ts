@@ -405,6 +405,27 @@ export function getExplorerUploadQueuedSuffix(queuedFileCount: number): string {
   return ` ${queuedFileCount} more file${queuedFileCount === 1 ? "" : "s"} queued.`;
 }
 
+// The Uploads panel subtitle: total tracked files this session, plus how many
+// are still moving (importing, waiting, or syncing).
+export function getExplorerUploadsSummaryLabel(input: {
+  outstandingCount: number;
+  totalCount: number;
+}): string {
+  const files = formatExplorerCountLabel(input.totalCount, {
+    one: EXPLORER_LABELS.uploadsFileCountOne,
+    other: EXPLORER_LABELS.uploadsFileCountOther,
+  });
+  return input.outstandingCount > 0
+    ? `${files} · ${input.outstandingCount} ${EXPLORER_LABELS.uploadsInProgressLabel}`
+    : files;
+}
+
+// Shown in a container detail whose folder has files waiting in the upload
+// queue behind another container's active run.
+export function getExplorerUploadsWaitingStatus(queuedCount: number): string {
+  return `${queuedCount} file${queuedCount === 1 ? "" : "s"} waiting to upload.`;
+}
+
 export function getExplorerFileImportPartialStatus(input: {
   importedCount: number;
   totalCount: number;

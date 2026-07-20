@@ -119,6 +119,9 @@ function ExplorerRouteSelectionHarness() {
       <button type="button" onClick={routeState.openWriteQueueRoute}>
         Open Writes
       </button>
+      <button type="button" onClick={routeState.openUploadsRoute}>
+        Open Uploads
+      </button>
       <button
         type="button"
         onClick={() =>
@@ -176,6 +179,17 @@ test("write queue opener updates the routed path", async () => {
   await waitFor(() => {
     expect(view.getByTestId("route-view").textContent).toBe("write-queue");
     expect(window.location.pathname).toBe("/app/explorer/writes");
+  });
+});
+
+test("uploads opener updates the routed path", async () => {
+  const view = renderExplorerRouteSelectionHarness("routed");
+
+  fireEvent.click(view.getByRole("button", { name: "Open Uploads" }));
+
+  await waitFor(() => {
+    expect(view.getByTestId("route-view").textContent).toBe("uploads");
+    expect(window.location.pathname).toBe("/app/explorer/uploads");
   });
 });
 

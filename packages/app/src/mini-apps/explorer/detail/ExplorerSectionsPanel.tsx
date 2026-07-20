@@ -14,13 +14,15 @@ import {
 } from "react";
 import { MiniAppButton } from "../../../components/mini-app/MiniAppLayout";
 import type { BlobPickTarget } from "../../shared/blob-pick/BlobPickProvider";
+import type { ExplorerUploadManager } from "../hooks/useExplorerUploadManager";
 import { EXPLORER_LABELS } from "../labels";
 import type { ExplorerRoute } from "../routes";
 import { ExplorerBlobBrowserPanel } from "./blob/ExplorerBlobBrowserPanel";
 import { ExplorerSyncLanesPanel } from "./sync/ExplorerSyncLanesPanel";
+import { ExplorerUploadsPanel } from "./sync/ExplorerUploadsPanel";
 import { ExplorerWriteQueuePanel } from "./sync/ExplorerWriteQueuePanel";
 
-type ExplorerSectionTabId = "sync" | "blobs" | "writes";
+type ExplorerSectionTabId = "sync" | "blobs" | "writes" | "uploads";
 
 const EXPLORER_SECTION_TABS: ReadonlyArray<{
   id: ExplorerSectionTabId;
@@ -29,6 +31,7 @@ const EXPLORER_SECTION_TABS: ReadonlyArray<{
   { id: "sync", label: EXPLORER_LABELS.syncLanesAction },
   { id: "blobs", label: EXPLORER_LABELS.blobBrowserAction },
   { id: "writes", label: EXPLORER_LABELS.writeQueueAction },
+  { id: "uploads", label: EXPLORER_LABELS.uploadsAction },
 ];
 
 // Roving tabindex per the WAI-ARIA tab pattern (mirrors SystemMonitorTabs): only
@@ -126,31 +129,105 @@ interface ExplorerSectionsPanelProps {
   }) => void;
   openContainerInfoRoute: (containerId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
+  openUploadsRoute: () => void;
   openWriteQueueRoute: () => void;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
   blobPickTarget: BlobPickTarget | null;
   onCancelBlobPick: () => void;
   onPickBlob: (blob: BlobInfo) => void;
+  uploadManager: ExplorerUploadManager;
+}
+
+// Renders the panel the current route selects; the hub component below owns
+// the tab bar around it.
+function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
+  const { route } = params;
+  if (route.view === "blob-browser") {
+    return (
+      <ExplorerBlobBrowserPanel
+        blobStore={params.blobStore}
+        domainScope={params.domainScope}
+        loadBlobInfo={params.loadBlobInfo}
+        nodes={params.nodes}
+        online={params.online}
+        onCancelBlobPick={params.onCancelBlobPick}
+        onPickBlob={params.onPickBlob}
+        openDocumentInfoRoute={params.openDocumentInfoRoute}
+        organizationNamesById={params.organizationNamesById}
+        pickTarget={params.blobPickTarget}
+        route={route}
+        selectDocumentProjection={params.selectDocumentProjection}
+      />
+    );
+  }
+  if (route.view === "uploads") {
+    return (
+      <ExplorerUploadsPanel
+        domainScope={params.domainScope}
+        uploadManager={params.uploadManager}
+      />
+    );
+  }
+  if (route.view === "write-queue") {
+    return (
+      <ExplorerWriteQueuePanel
+        billingBlockedOrganizationId={params.billingBlockedOrganizationId}
+        documentListRevision={params.documentListRevision}
+        documentQueries={params.documentQueries}
+        domainScope={params.domainScope}
+        isAuthenticated={params.isAuthenticated}
+        nodes={params.nodes}
+        online={params.online}
+        openContainerInfoRoute={params.openContainerInfoRoute}
+        openDocumentInfoRoute={params.openDocumentInfoRoute}
+        organizationNamesById={params.organizationNamesById}
+      />
+    );
+  }
+  return (
+    <ExplorerSyncLanesPanel
+      embedded
+      domainScope={params.domainScope}
+      onBackToSelectionRoute={params.openSyncLanesRoute}
+      onOpenBlobDetail={(storageKey) => {
+        params.openBlobBrowserRoute({ storageKey });
+      }}
+      onOpenLaneDetail={params.onOpenSyncLaneDetailRoute}
+      selectedLaneKey={route.view === "sync-lane-detail" ? route.laneKey : null}
+    />
+  );
+}
+
+function getActiveExplorerSectionTab(
+  route: ExplorerSectionsPanelProps["route"],
+): ExplorerSectionTabId {
+  if (route.view === "blob-browser") {
+    return "blobs";
+  }
+  if (route.view === "write-queue") {
+    return "writes";
+  }
+  if (route.view === "uploads") {
+    return "uploads";
+  }
+  return "sync";
 }
 
 /**
  * The full-screen Explorer diagnostics hub: route-backed tabs for transient
- * sync-lane telemetry, local blob state, and durable pending writes.
+ * sync-lane telemetry, local blob state, durable pending writes, and the
+ * session upload queue.
  */
 export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
   const idPrefix = useId();
   const {
     openBlobBrowserRoute,
     openSyncLanesRoute,
+    openUploadsRoute,
     openWriteQueueRoute,
     route,
   } = params;
-  const activeTab: ExplorerSectionTabId =
-    route.view === "blob-browser"
-      ? "blobs"
-      : route.view === "write-queue"
-        ? "writes"
-        : "sync";
+  const activeTab = getActiveExplorerSectionTab(route);
 
   const selectTab = useCallback(
     (tab: ExplorerSectionTabId) => {
@@ -162,9 +239,18 @@ export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
         openWriteQueueRoute();
         return;
       }
+      if (tab === "uploads") {
+        openUploadsRoute();
+        return;
+      }
       openSyncLanesRoute();
     },
-    [openBlobBrowserRoute, openSyncLanesRoute, openWriteQueueRoute],
+    [
+      openBlobBrowserRoute,
+      openSyncLanesRoute,
+      openUploadsRoute,
+      openWriteQueueRoute,
+    ],
   );
 
   return (
@@ -180,48 +266,7 @@ export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
         id={`${idPrefix}-${activeTab}-panel`}
         role="tabpanel"
       >
-        {route.view === "blob-browser" ? (
-          <ExplorerBlobBrowserPanel
-            blobStore={params.blobStore}
-            domainScope={params.domainScope}
-            loadBlobInfo={params.loadBlobInfo}
-            nodes={params.nodes}
-            online={params.online}
-            onCancelBlobPick={params.onCancelBlobPick}
-            onPickBlob={params.onPickBlob}
-            openDocumentInfoRoute={params.openDocumentInfoRoute}
-            organizationNamesById={params.organizationNamesById}
-            pickTarget={params.blobPickTarget}
-            route={route}
-            selectDocumentProjection={params.selectDocumentProjection}
-          />
-        ) : route.view === "write-queue" ? (
-          <ExplorerWriteQueuePanel
-            billingBlockedOrganizationId={params.billingBlockedOrganizationId}
-            documentListRevision={params.documentListRevision}
-            documentQueries={params.documentQueries}
-            domainScope={params.domainScope}
-            isAuthenticated={params.isAuthenticated}
-            nodes={params.nodes}
-            online={params.online}
-            openContainerInfoRoute={params.openContainerInfoRoute}
-            openDocumentInfoRoute={params.openDocumentInfoRoute}
-            organizationNamesById={params.organizationNamesById}
-          />
-        ) : (
-          <ExplorerSyncLanesPanel
-            embedded
-            domainScope={params.domainScope}
-            onBackToSelectionRoute={openSyncLanesRoute}
-            onOpenBlobDetail={(storageKey) => {
-              openBlobBrowserRoute({ storageKey });
-            }}
-            onOpenLaneDetail={params.onOpenSyncLaneDetailRoute}
-            selectedLaneKey={
-              route.view === "sync-lane-detail" ? route.laneKey : null
-            }
-          />
-        )}
+        <ExplorerSectionsActivePanel {...params} />
       </div>
     </div>
   );

@@ -5,10 +5,8 @@ import type {
   ExplorerDroppedFileImportRunOptions,
   ImportExplorerDroppedFiles,
 } from "../../../stores/explorer/useExplorerDroppedFileImport";
-import {
-  getExplorerUploadStatusText,
-  useExplorerUploadManager,
-} from "./useExplorerUploadManager";
+import { getExplorerUploadStatusText } from "./explorerUploadState";
+import { useExplorerUploadManager } from "./useExplorerUploadManager";
 
 afterEach(() => cleanup());
 
@@ -190,6 +188,68 @@ test("cancel drops queued selections and aborts the active one", async () => {
     "cancelled",
     "cancelled",
   ]);
+});
+
+test("per-container tallies and cancelForContainer scope to one folder", async () => {
+  const startedContainerIds: string[] = [];
+  let capturedSignal: AbortSignal | undefined;
+  let resolveImport: (result: ExplorerDroppedFileImportResult) => void = () =>
+    undefined;
+  const importDroppedFiles: ImportExplorerDroppedFiles = (
+    containerId,
+    _files,
+    options,
+  ) => {
+    startedContainerIds.push(containerId);
+    capturedSignal = options?.signal;
+    return new Promise((resolve) => {
+      resolveImport = resolve;
+    });
+  };
+  const { result } = renderManager(importDroppedFiles);
+
+  act(() => result.current.startImport("folder-1", TWO_FILES));
+  act(() =>
+    result.current.startImport("folder-2", [
+      new File(["Gamma"], "c.txt", { type: "text/plain" }),
+    ]),
+  );
+  act(() =>
+    result.current.startImport("folder-3", [
+      new File(["Delta"], "d.txt", { type: "text/plain" }),
+      new File(["Epsilon"], "e.txt", { type: "text/plain" }),
+    ]),
+  );
+  expect(result.current.queuedFileCount).toBe(3);
+  expect(result.current.queuedFileCounts.get("folder-2")).toBe(1);
+  expect(result.current.queuedFileCounts.get("folder-3")).toBe(2);
+
+  // Cancelling folder-2 drops only its queued selection — the active folder-1
+  // run and folder-3's queue are untouched.
+  act(() => result.current.cancelForContainer("folder-2"));
+  expect(capturedSignal?.aborted).toBe(false);
+  expect(result.current.queuedFileCounts.get("folder-2")).toBeUndefined();
+  expect(result.current.queuedFileCounts.get("folder-3")).toBe(2);
+  expect(
+    result.current.items
+      .filter((item) => item.containerId === "folder-2")
+      .map((item) => item.status),
+  ).toEqual(["cancelled"]);
+
+  // Cancelling the active container aborts its run; folder-3 stays queued and
+  // drains next.
+  act(() => result.current.cancelForContainer("folder-1"));
+  expect(capturedSignal?.aborted).toBe(true);
+  expect(result.current.queuedFileCounts.get("folder-3")).toBe(2);
+
+  await act(async () => {
+    resolveImport(
+      importResult({ aborted: true, completedCount: 0, importedCount: 0 }),
+    );
+  });
+  await waitFor(() =>
+    expect(startedContainerIds).toEqual(["folder-1", "folder-3"]),
+  );
 });
 
 test("a whole-run rejection fails the selection and its items", async () => {

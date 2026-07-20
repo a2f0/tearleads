@@ -78,9 +78,11 @@ function createDeferredDocumentQueries() {
 
 const idleUploadManager: ExplorerUploadManager = {
   cancel: () => undefined,
+  cancelForContainer: () => undefined,
   isImporting: false,
   items: [],
   queuedFileCount: 0,
+  queuedFileCounts: new Map(),
   run: null,
   startImport: () => undefined,
 };
@@ -223,11 +225,11 @@ test("a failed initial load shows the error instead of a stuck loading row", asy
 
 test("an active import in this container shows the status line and a working cancel", async () => {
   const { documentQueries, pending } = createDeferredDocumentQueries();
-  let cancelCount = 0;
+  const cancelledContainerIds: string[] = [];
   const runningUploadManager: ExplorerUploadManager = {
     ...idleUploadManager,
-    cancel: () => {
-      cancelCount += 1;
+    cancelForContainer: (containerId) => {
+      cancelledContainerIds.push(containerId);
     },
     isImporting: true,
     run: {
@@ -252,7 +254,8 @@ test("an active import in this container shows the status line and a working can
   fireEvent.click(
     view.getByRole("button", { name: EXPLORER_LABELS.fileImportCancelAction }),
   );
-  expect(cancelCount).toBe(1);
+  // The button cancels for THIS container, never the global queue.
+  expect(cancelledContainerIds).toEqual([containerA.id]);
 
   // The same run must NOT surface in a different container's detail panel.
   view.rerender(

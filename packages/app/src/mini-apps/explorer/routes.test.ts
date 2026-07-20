@@ -80,6 +80,10 @@ test("explorer sync-lane detail route does not require a selected container", ()
   ).toBe(true);
 });
 
+test("explorer uploads route does not require a selected container", () => {
+  expect(isExplorerRouteAvailable({ view: "uploads" }, [])).toBe(true);
+});
+
 test("explorer write-queue route does not require a selected container", () => {
   expect(isExplorerRouteAvailable({ view: "write-queue" }, [])).toBe(true);
 });
@@ -133,6 +137,9 @@ test("explorer route segments cover selection and detail routes", () => {
       view: "sync-lanes",
     },
   });
+  expect(parseExplorerRouteSegments(["uploads"])).toEqual({
+    route: { view: "uploads" },
+  });
   expect(parseExplorerRouteSegments(["writes"])).toEqual({
     route: { view: "write-queue" },
   });
@@ -162,6 +169,7 @@ test("explorer route segments cover selection and detail routes", () => {
     formatExplorerRouteSegments({ view: "selection" }, "document-1"),
   ).toEqual(["items", "document-1"]);
   expect(formatExplorerRouteSegments({ view: "sync-lanes" })).toEqual(["sync"]);
+  expect(formatExplorerRouteSegments({ view: "uploads" })).toEqual(["uploads"]);
   expect(formatExplorerRouteSegments({ view: "write-queue" })).toEqual([
     "writes",
   ]);

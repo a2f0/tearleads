@@ -168,7 +168,10 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
         >
           {fileDropTarget.importStatus}
           {fileDropTarget.canCancelImport ? (
-            <MiniAppButton onClick={uploadManager.cancel} variant="ghost">
+            <MiniAppButton
+              onClick={fileDropTarget.cancelImport}
+              variant="ghost"
+            >
               {EXPLORER_LABELS.fileImportCancelAction}
             </MiniAppButton>
           ) : null}
