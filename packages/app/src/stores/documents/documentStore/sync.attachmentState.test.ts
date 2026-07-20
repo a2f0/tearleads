@@ -231,17 +231,19 @@ test("document store uploads attachments without a pre-upload document sync prob
   store.updateRuntime(runtime);
 
   await waitForCondition(
-    () => store.getSnapshot().ready,
-    "Attachment probe document store did not become ready.",
+    () =>
+      syncCalls.length === 1 &&
+      persistence.getState().document?.documentId != null &&
+      !store.getSnapshot().syncing,
+    "Untouched store did not settle its initial create flush.",
   );
 
   store.setText("remote attachment note");
 
   await waitForCondition(
     () =>
-      persistence.getState().document?.documentId !== null &&
       persistence.getState().pendingUpdates.length === 0 &&
-      syncCalls.length === 1,
+      syncCalls.length === 2,
     "Attachment probe note was not synced before uploading.",
   );
 
@@ -265,6 +267,10 @@ test("document store uploads attachments without a pre-upload document sync prob
   expect(syncCalls).toEqual([
     {
       minLsn: null,
+      outgoingUpdateCount: 0,
+    },
+    {
+      minLsn: "0/10",
       outgoingUpdateCount: 1,
     },
   ]);

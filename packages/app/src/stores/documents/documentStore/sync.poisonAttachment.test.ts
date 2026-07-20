@@ -22,9 +22,13 @@ test("a pending attachment with missing local bytes does not block document sync
   // Accepts writes but always reports bytes as missing on read — the "poison"
   // pending attachment whose blob can never be uploaded.
   const baseBlobStore = createMemoryBlobStore();
+  let poisonReadAttempts = 0;
   const blobStore: typeof baseBlobStore = {
     deleteBytes: (storageKey) => baseBlobStore.deleteBytes(storageKey),
-    openByteSource: async () => null,
+    openByteSource: async () => {
+      poisonReadAttempts += 1;
+      return null;
+    },
     readBytes: async () => null,
     writeByteSource: (storageKey, source) =>
       baseBlobStore.writeByteSource(storageKey, source),
@@ -58,8 +62,13 @@ test("a pending attachment with missing local bytes does not block document sync
 
   // The unuploadable attachment is dropped, and the document's own updates sync
   // instead of being blocked behind it. (Before the fix this never drains.)
+  // Gate on the poison read attempt: the attach write chain persists its row
+  // asynchronously, and the eager remote create satisfies the documentId check
+  // well before that, so without the gate this wait can sample "all drained"
+  // before the poison row even lands.
   await waitForCondition(
     () =>
+      poisonReadAttempts >= 1 &&
       persistence.getState().pendingAttachments.length === 0 &&
       persistence.getState().pendingUpdates.length === 0 &&
       persistence.getState().document?.documentId != null &&

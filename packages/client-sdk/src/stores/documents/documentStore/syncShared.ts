@@ -4,10 +4,12 @@ import {
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
   describeDocumentSyncSubmitFailure,
+  type PendingUpdateRecord,
   recordDocumentSyncFailure,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
+import { chainIdentityWrite } from "./identityWriteChain";
 import { persistDocument } from "./persistence";
 import type {
   DocumentState,
@@ -37,6 +39,56 @@ export function documentTerminalSubmitFailureHandler(
         status: failure.status,
       },
     );
+}
+
+function hasPersistedRemoteDocumentSyncState(record: DocumentRecord): boolean {
+  return (
+    record.lastCommitLsn !== null &&
+    record.contentKeyBundle !== null &&
+    record.documentKekTargets !== null &&
+    record.documentManifestBundle !== null
+  );
+}
+
+export function shouldSkipCleanScheduledDocumentSync(input: {
+  currentRecord: DocumentRecord;
+  pendingUpdates: readonly PendingUpdateRecord[];
+  state: DocumentStoreState;
+}): boolean {
+  return (
+    input.pendingUpdates.length === 0 &&
+    input.state.pendingAttachments.length === 0 &&
+    !input.state.remoteUpdatePending &&
+    hasPersistedRemoteDocumentSyncState(input.currentRecord)
+  );
+}
+
+/**
+ * True when the store's container exists locally but has not been created on
+ * the server yet (its own create intent is still pending). Creating a document
+ * inside it would 404 on the container writer projection and surface a
+ * spurious sync error; the container-contents lane re-arms document sync once
+ * the container lands. An unknown or unqueryable container resolves false so
+ * store-level consumers without container persistence keep creating eagerly.
+ */
+export async function isContainerAwaitingRemoteCreate(
+  state: DocumentStoreState,
+): Promise<boolean> {
+  const containerId = state.runtime.state.containerId;
+  if (!containerId) {
+    return false;
+  }
+
+  try {
+    const rows = await state.runtime.infra.execSql(
+      "SELECT server_created_at FROM containers WHERE id = :containerId",
+      { ":containerId": containerId },
+    );
+    const row = rows[0];
+    return row !== undefined && Reflect.get(row, "server_created_at") == null;
+  } catch {
+    return false;
+  }
 }
 
 export async function ensureRemoteDocument(
@@ -85,24 +137,36 @@ export async function ensureRemoteDocument(
     return nextRecord;
   }
 
-  state.runtime.util.log(`Created document: ${created.documentId}`);
-  state.writerProjection = created.writerProjection;
+  return chainIdentityWrite(state, async () => {
+    // A concurrent relink (e.g. live duplicate-facade resolution) may have
+    // assigned this store a different remote identity while the create round
+    // trip was in flight. That identity wins: persisting the created one here
+    // would clobber the relink. The just-created remote document is left an
+    // orphan, the same benign outcome as a lost create response.
+    const liveDocumentId = state.record?.documentId;
+    if (liveDocumentId && liveDocumentId !== created.documentId) {
+      return state.record;
+    }
 
-  // This persist is a remote-identity write (documentId + content keys), not a
-  // content change. It runs after a network round trip, during which the user
-  // may have kept typing into a brand-new note. The Loro doc is mutated
-  // asynchronously on the write chain, so it can lag the optimistic snapshot;
-  // re-deriving text/structured fields from the doc here would republish that
-  // stale read over the live editor value and drop the just-typed characters
-  // (the new-note "type immediately" race). Preserve the optimistic snapshot —
-  // documentId/keys still propagate via state.record, independent of the
-  // snapshot text — matching finalizeDocumentSync and the keystroke writes.
-  return (
-    await persistDocument(
-      state,
-      currentDoc,
-      { ...created.persistedState },
-      { preserveSnapshotStructuredFields: true, preserveSnapshotText: true },
-    )
-  ).record;
+    state.runtime.util.log(`Created document: ${created.documentId}`);
+    state.writerProjection = created.writerProjection;
+
+    // This persist is a remote-identity write (documentId + content keys), not a
+    // content change. It runs after a network round trip, during which the user
+    // may have kept typing into a brand-new note. The Loro doc is mutated
+    // asynchronously on the write chain, so it can lag the optimistic snapshot;
+    // re-deriving text/structured fields from the doc here would republish that
+    // stale read over the live editor value and drop the just-typed characters
+    // (the new-note "type immediately" race). Preserve the optimistic snapshot —
+    // documentId/keys still propagate via state.record, independent of the
+    // snapshot text — matching finalizeDocumentSync and the keystroke writes.
+    return (
+      await persistDocument(
+        state,
+        currentDoc,
+        { ...created.persistedState },
+        { preserveSnapshotStructuredFields: true, preserveSnapshotText: true },
+      )
+    ).record;
+  });
 }

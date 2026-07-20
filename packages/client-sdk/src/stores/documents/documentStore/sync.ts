@@ -19,6 +19,7 @@ import {
 } from "../../../workflows/documents/syncLane";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { requestDocumentStoreSync } from "../registry";
+import { chainIdentityWrite } from "./identityWriteChain";
 import { awaitInitializationForSync } from "./initialization";
 import {
   advancePendingBaseVersion,
@@ -40,6 +41,8 @@ import { syncDetachedAttachmentBindings } from "./syncDetachedAttachments";
 import {
   documentTerminalSubmitFailureHandler,
   ensureRemoteDocument,
+  isContainerAwaitingRemoteCreate,
+  shouldSkipCleanScheduledDocumentSync,
 } from "./syncShared";
 import { importSyncedDocumentUpdates } from "./syncUpdateImport";
 
@@ -51,25 +54,6 @@ function canRunScheduledSync(state: DocumentStoreState): boolean {
     state.runtime.auth.isAuthenticated &&
     state.runtime.crypto.encapsulationKeyPair !== null &&
     resolveDocumentCreateAuthor(state.runtime) !== null
-  );
-}
-
-async function ensureDocumentRecordForSync(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  nextRecord: DocumentRecord,
-  pendingUpdates: PendingUpdateRecord[],
-  encapsulationKeyPair: EncapsulationKeyPair,
-): Promise<DocumentRecord | null> {
-  if (nextRecord.documentId || pendingUpdates.length === 0) {
-    return nextRecord;
-  }
-
-  return ensureRemoteDocument(
-    state,
-    currentDoc,
-    nextRecord,
-    encapsulationKeyPair,
   );
 }
 
@@ -158,28 +142,6 @@ async function deleteUpstreamDeletedDocument(state: DocumentStoreState) {
   markDocumentStoreRemoved(state);
   state.runtime.util.log(
     `Documents: removed local document ${state.localId} after remote deletion.`,
-  );
-}
-
-function hasPersistedRemoteDocumentSyncState(record: DocumentRecord): boolean {
-  return (
-    record.lastCommitLsn !== null &&
-    record.contentKeyBundle !== null &&
-    record.documentKekTargets !== null &&
-    record.documentManifestBundle !== null
-  );
-}
-
-function shouldSkipCleanScheduledDocumentSync(input: {
-  currentRecord: DocumentRecord;
-  pendingUpdates: readonly PendingUpdateRecord[];
-  state: DocumentStoreState;
-}): boolean {
-  return (
-    input.pendingUpdates.length === 0 &&
-    input.state.pendingAttachments.length === 0 &&
-    !input.state.remoteUpdatePending &&
-    hasPersistedRemoteDocumentSyncState(input.currentRecord)
   );
 }
 
@@ -331,27 +293,42 @@ async function finalizeDocumentSync(
   }
   state.writerProjection = resolveSyncedDocumentWriterProjection(state, synced);
 
-  const { record: nextRecord } = await persistDocument(
-    state,
-    mergedDoc,
-    {
-      ...synced.persistedState,
-      lastCommitLsn:
-        synced.response.commitLsn ?? currentRecord.lastCommitLsn ?? null,
-    },
-    {
-      acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
-      // This is a BACKGROUND metadata persist (commit LSN, accepted-update
-      // bookkeeping), not a content change: any genuinely-new remote text was
-      // already folded into the snapshot by applyIncomingSyncedUpdates above.
-      // Re-deriving text/structured fields from the doc here is exactly what let
-      // a sync pass republish a stale CRDT read over an in-flight optimistic
-      // keystroke — regressing the controlled editor value and jumping the
-      // caret. Preserve the live snapshot so the latest keystroke always wins.
-      preserveSnapshotStructuredFields: true,
-      preserveSnapshotText: true,
-    },
-  );
+  // Persist on the identity-write chain: synced.persistedState carries this
+  // pass's documentId, so it would clobber a relink that landed mid-pass. If
+  // the identity moved, the response describes the OLD document — skip the
+  // persist and let the new identity's own sync pass take over.
+  const { record: nextRecord } = await chainIdentityWrite(state, async () => {
+    const liveRecord = state.record;
+    if (
+      liveRecord?.documentId &&
+      liveRecord.documentId !== currentRecord.documentId
+    ) {
+      return { record: liveRecord };
+    }
+
+    return persistDocument(
+      state,
+      mergedDoc,
+      {
+        ...synced.persistedState,
+        lastCommitLsn:
+          synced.response.commitLsn ?? currentRecord.lastCommitLsn ?? null,
+      },
+      {
+        acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
+        // This is a BACKGROUND metadata persist (commit LSN, accepted-update
+        // bookkeeping), not a content change: any genuinely-new remote text was
+        // already folded into the snapshot by applyIncomingSyncedUpdates above.
+        // Re-deriving text/structured fields from the doc here is exactly what
+        // let a sync pass republish a stale CRDT read over an in-flight
+        // optimistic keystroke — regressing the controlled editor value and
+        // jumping the caret. Preserve the live snapshot so the latest keystroke
+        // always wins.
+        preserveSnapshotStructuredFields: true,
+        preserveSnapshotText: true,
+      },
+    );
+  });
   // Clear the remote-update signal ONLY if no new remote event arrived while
   // this pass was awaiting the network GET and persist. If the sequence moved,
   // a peer update (E2) committed and was signalled mid-pass but is not in this
@@ -392,11 +369,21 @@ async function syncDocumentState(
   // finalizeDocumentSync must not clear the signal if this sequence has moved.
   const consumedRemoteUpdateSignalSeq = state.remoteUpdateSignalSeq;
   const pendingUpdates = await listPendingUpdates(state);
-  const nextRemoteRecord = await ensureDocumentRecordForSync(
+  // Create the remote document even when nothing is queued to send: a note
+  // created and never edited enqueues no updates, but its local row is still a
+  // pending create the write queue reports — it must flush, not sit. Defer
+  // only while the container itself still awaits its remote create.
+  if (
+    !nextRecord.documentId &&
+    pendingUpdates.length === 0 &&
+    (await isContainerAwaitingRemoteCreate(state))
+  ) {
+    return nextRecord;
+  }
+  const nextRemoteRecord = await ensureRemoteDocument(
     state,
     currentDoc,
     nextRecord,
-    pendingUpdates,
     encapsulationKeyPair,
   );
   if (!nextRemoteRecord?.documentId) {

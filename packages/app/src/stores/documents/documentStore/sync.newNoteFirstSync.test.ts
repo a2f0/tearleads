@@ -4,6 +4,7 @@ import {
   getOrCreateDomainSyncCoordinator,
 } from "@tearleads/client-sdk";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import { cloneDocumentsTestRuntime } from "../../../../test/helpers/document-store/documentStoreSyncFixtures";
 import { createDocumentsPersistence } from "../../../../test/helpers/document-store/documentStoreSyncPersistence";
 import { createSyncRuntime } from "../../../../test/helpers/document-store/documentStoreSyncRuntime";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
@@ -25,6 +26,14 @@ import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 // the second write cannot start while the first is parked), then drive the sync.
 // ensureRemoteDocument reads the lagging doc ("a") and parks at its own persist.
 // On release, the buggy code republishes "a" over "abcdef".
+//
+// The store starts OFFLINE so the create is still pending when the burst begins:
+// online, the eager pending-create flush would otherwise race the gate and can
+// create the document before the first keystroke, dissolving the scenario (and
+// the settle path uses saveDocumentAndDeletePendingUpdates, which this gate
+// deliberately does not intercept). Flipping online mid-burst pins the original
+// regression shape: the first online sync runs ensureRemoteDocument against the
+// lagging doc.
 test("new note first sync preserves the optimistic text while typing (online)", async () => {
   const basePersistence = createDocumentsPersistence();
   let blockSaves = false;
@@ -51,9 +60,16 @@ test("new note first sync preserves the optimistic text while typing (online)", 
     encapsulationKeyPair,
     "root-container",
   );
+  const offlineRuntime = cloneDocumentsTestRuntime(runtime, {
+    state: { online: false },
+  });
 
-  const store = createDocumentStore("fast-typed-note", runtime, persistence);
-  store.updateRuntime(runtime);
+  const store = createDocumentStore(
+    "fast-typed-note",
+    offlineRuntime,
+    persistence,
+  );
+  store.updateRuntime(offlineRuntime);
 
   await waitForCondition(
     () => store.getSnapshot().ready,
@@ -82,9 +98,10 @@ test("new note first sync preserves the optimistic text while typing (online)", 
   store.setText("abcdef");
   expect(store.getSnapshot().text).toBe("abcdef");
 
-  // Drive the first sync. It sees a pending update and no documentId, so it runs
-  // ensureRemoteDocument, which reads the lagging doc ("a") and parks at its own
-  // create persist.
+  // Go online, driving the first sync. It sees a pending update and no
+  // documentId, so it runs ensureRemoteDocument, which reads the lagging doc
+  // ("a") and parks at its own create persist.
+  store.updateRuntime(runtime);
   store.requestSync();
   await waitForCondition(
     () => gatedSaveCount >= 2,
