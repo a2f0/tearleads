@@ -133,7 +133,7 @@ function renderExplorerDetailPanelWithBlobPick(
       documentQueries={model.documentQueries}
       documentSummaries={model.documentSummaries}
       domainScope={appData.state.domainScope}
-      fileImportRun={model.fileImportRun}
+      uploadManager={model.uploadManager}
       initialEditingSelectedDocument={model.selectedDocumentStartsInEditMode}
       isAuthenticated={appData.auth.isAuthenticated}
       linkedContainerIdsByDocumentId={model.linkedContainerIdsByDocumentId}
@@ -307,7 +307,7 @@ function ExplorerContent() {
       model.routeState.selectExplorerDocument,
     ],
   );
-  const toolbarUpload = useExplorerToolbarUpload(model.fileImportRun);
+  const toolbarUpload = useExplorerToolbarUpload(model.uploadManager);
   useExplorerRoutedChromeActions({
     historyCanGoBack: history.canGoBack,
     model,
@@ -450,7 +450,7 @@ function ExplorerContent() {
         contextMenu={model.contextMenuState.contextMenu}
         deleteDocument={model.deleteDocument}
         downloadDocument={downloadDocument}
-        startImport={model.fileImportRun.startImport}
+        startImport={model.uploadManager.startImport}
         moveContainerToTrash={model.moveContainerToTrash}
         openDocumentInfoRoute={model.routeState.openDocumentInfoRoute}
         openContainerInfoRoute={model.routeState.openContainerInfoRoute}

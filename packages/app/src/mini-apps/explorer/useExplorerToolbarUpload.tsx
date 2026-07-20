@@ -1,11 +1,11 @@
 import { type ChangeEvent, useCallback, useRef } from "react";
-import type { ExplorerFileImportRun } from "./hooks/useExplorerFileImportRun";
+import type { ExplorerUploadManager } from "./hooks/useExplorerUploadManager";
 
 // The hidden file <input> behind Explorer's Upload toolbar action, plus the
 // trigger that opens the picker for a given container. Kept as a standalone hook
 // so ExplorerRoutedChrome stays focused on registering toolbar/menu actions.
-export function useExplorerToolbarUpload(fileImportRun: ExplorerFileImportRun) {
-  const { startImport } = fileImportRun;
+export function useExplorerToolbarUpload(uploadManager: ExplorerUploadManager) {
+  const { startImport } = uploadManager;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadContainerIdRef = useRef<string | null>(null);
 

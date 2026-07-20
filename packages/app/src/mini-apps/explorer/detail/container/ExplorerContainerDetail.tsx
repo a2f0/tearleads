@@ -17,7 +17,7 @@ import type { AvatarUrlByContactId } from "../../../../document-types/contact/us
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
 import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
 import { useExplorerContainerFileDropTarget } from "../../hooks/useExplorerContainerFileDropTarget";
-import type { ExplorerFileImportRun } from "../../hooks/useExplorerFileImportRun";
+import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerContainerItemTable } from "./ExplorerContainerItemTable";
 import {
@@ -63,7 +63,7 @@ interface ExplorerContainerDetailProps {
   currentUserId: string | null | undefined;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
-  fileImportRun: ExplorerFileImportRun;
+  uploadManager: ExplorerUploadManager;
   online: boolean;
   onContainerContextMenu: (
     event: MouseEvent<HTMLElement>,
@@ -129,8 +129,8 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
     currentSigningFingerprint,
     currentSelfContactLocalId,
     currentUserId,
-    fileImportRun,
     online,
+    uploadManager,
     onContainerContextMenu,
     onItemContextMenu,
     refreshError,
@@ -142,8 +142,8 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
     useExplorerContainerItems(params);
   const columnVisibility = useExplorerColumnVisibility();
   const fileDropTarget = useExplorerContainerFileDropTarget({
-    fileImportRun,
     selectedNode,
+    uploadManager,
   });
 
   return (
@@ -167,8 +167,8 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
           tone={fileDropTarget.importStatusIsError ? "error" : "muted"}
         >
           {fileDropTarget.importStatus}
-          {fileImportRun.isImporting ? (
-            <MiniAppButton onClick={fileImportRun.cancel} variant="ghost">
+          {fileDropTarget.canCancelImport ? (
+            <MiniAppButton onClick={uploadManager.cancel} variant="ghost">
               {EXPLORER_LABELS.fileImportCancelAction}
             </MiniAppButton>
           ) : null}

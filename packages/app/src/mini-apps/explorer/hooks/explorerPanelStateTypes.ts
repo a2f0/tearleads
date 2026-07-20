@@ -15,8 +15,8 @@ import type { ExplorerPurgeRun } from "../purge-progress/useExplorerPurgeRun";
 import type { MoveTargetOption } from "../targetOptions";
 import type { ExplorerDocumentMutationAction } from "./explorerModelTypes";
 import type { ExplorerDocumentModalState } from "./useExplorerDocumentModalState";
-import type { ExplorerFileImportRun } from "./useExplorerFileImportRun";
 import type { ExplorerRouteState } from "./useExplorerRoute";
+import type { ExplorerUploadManager } from "./useExplorerUploadManager";
 import type { OpenInlineDocument } from "./useInlineDocumentAction";
 
 export interface ExplorerContextMenuModel {
@@ -56,7 +56,7 @@ export interface ExplorerPanelState {
   canMutateDocumentLinks: boolean;
   contextMenuState: ExplorerContextMenuModel;
   deleteDocument: ExplorerDocumentMutationAction;
-  fileImportRun: ExplorerFileImportRun;
+  uploadManager: ExplorerUploadManager;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
   loadDocumentAttributionRanges: ExplorerDocumentAttributionRangesLoader;

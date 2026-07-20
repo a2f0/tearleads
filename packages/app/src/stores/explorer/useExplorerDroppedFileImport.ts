@@ -57,11 +57,19 @@ interface ExplorerDroppedFileImportInput {
     input: ExplorerDroppedFileImportStoreInput,
   ) => ExplorerDroppedFileDocumentStore;
   createLocalId: () => string;
+  deferRequestSync?: boolean;
   files: ReadonlyArray<File>;
   labels: ExplorerDroppedFileImportLabels;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   logError?: (message: string, cause?: unknown) => void;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
+  onFileFailed?: (fileIndex: number, error: unknown) => void;
+  onFileImported?: (input: {
+    fileIndex: number;
+    localId: string;
+    requestSync: () => void;
+  }) => void;
+  onFileStart?: (fileIndex: number) => void;
   onProgress?: (progress: ExplorerDroppedFileImportProgress) => void;
   signal?: AbortSignal;
 }
@@ -76,6 +84,18 @@ export interface ExplorerDroppedFileImportLabels {
 }
 
 export interface ExplorerDroppedFileImportRunOptions {
+  // Skip the per-file store.requestSync(): the caller kicks sync itself once
+  // the run settles, so ingest and sync stop contending for the database's
+  // single serialized queue. The onFileImported callback carries the deferred
+  // requestSync for each imported file.
+  deferRequestSync?: boolean;
+  onFileFailed?: (fileIndex: number, error: unknown) => void;
+  onFileImported?: (input: {
+    fileIndex: number;
+    localId: string;
+    requestSync: () => void;
+  }) => void;
+  onFileStart?: (fileIndex: number) => void;
   onProgress?: (progress: ExplorerDroppedFileImportProgress) => void;
   // Cancels between batches, never mid-file: the batch in flight settles, then
   // no further batch starts (mirrors PurgeOptions' unit-boundary semantics).
@@ -124,10 +144,15 @@ async function importExplorerDroppedFile(input: {
   containerId: string;
   createDocumentStore: ExplorerDroppedFileImportInput["createDocumentStore"];
   createLocalId: () => string;
+  deferRequestSync: boolean;
   file: File;
+  fileIndex: number;
   labels: ExplorerDroppedFileImportLabels;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
+  onFileImported: ExplorerDroppedFileImportInput["onFileImported"];
+  onFileStart: ExplorerDroppedFileImportInput["onFileStart"];
 }): Promise<DocumentSummary> {
+  input.onFileStart?.(input.fileIndex);
   const importer = getDocumentFileImporter(input.file);
   assertExplorerDroppedFileCanBeImported(
     input.file,
@@ -162,16 +187,24 @@ async function importExplorerDroppedFile(input: {
   if (importedFile.attachment) {
     await store.attachFiles([importedFile.attachment]);
   }
-  store.requestSync();
+  if (!input.deferRequestSync) {
+    store.requestSync();
+  }
 
-  return (
+  const summary =
     (await input.loadDocumentSummary(localId)) ??
     buildFallbackImportedDocumentSummary({
       containerId: input.containerId,
       localId,
       store,
-    })
-  );
+    });
+  input.onFileImported?.({
+    fileIndex: input.fileIndex,
+    localId,
+    requestSync: () => store.requestSync(),
+  });
+
+  return summary;
 }
 
 function emitProgress(
@@ -194,12 +227,16 @@ export async function importExplorerDroppedFiles(
   };
   emitProgress(input, progress);
 
+  // True only when the signal actually cut files from the run — a cancel that
+  // lands while the final batch settles changes nothing and stays un-aborted.
+  let aborted = false;
   for (
     let index = 0;
     index < files.length;
     index += EXPLORER_DROPPED_FILE_IMPORT_BATCH_SIZE
   ) {
     if (input.signal?.aborted) {
+      aborted = true;
       break;
     }
 
@@ -208,14 +245,18 @@ export async function importExplorerDroppedFiles(
       index + EXPLORER_DROPPED_FILE_IMPORT_BATCH_SIZE,
     );
     const batchResults = await Promise.allSettled(
-      batch.map((file) =>
+      batch.map((file, batchIndex) =>
         importExplorerDroppedFile({
           containerId: input.containerId,
           createDocumentStore: input.createDocumentStore,
           createLocalId: input.createLocalId,
+          deferRequestSync: input.deferRequestSync ?? false,
           file,
+          fileIndex: index + batchIndex,
           labels: input.labels,
           loadDocumentSummary: input.loadDocumentSummary,
+          onFileImported: input.onFileImported,
+          onFileStart: input.onFileStart,
         }),
       ),
     );
@@ -228,6 +269,7 @@ export async function importExplorerDroppedFiles(
         input.mergeDocumentSummary(result.value);
       } else {
         progress.failedCount += 1;
+        input.onFileFailed?.(index + batchIndex, result.reason);
         input.logError?.(
           input.labels.getFileImportFailureLog(
             batch[batchIndex]?.name ?? "file",
@@ -241,7 +283,7 @@ export async function importExplorerDroppedFiles(
 
   return {
     ...progress,
-    aborted: input.signal?.aborted ?? false,
+    aborted,
     importedDocuments,
   };
 }
@@ -278,6 +320,18 @@ export function useExplorerDroppedFileImport(params: {
         loadDocumentSummary: documentQueries.loadDocumentSummary,
         logError,
         mergeDocumentSummary,
+        ...(options?.deferRequestSync === undefined
+          ? {}
+          : { deferRequestSync: options.deferRequestSync }),
+        ...(options?.onFileFailed === undefined
+          ? {}
+          : { onFileFailed: options.onFileFailed }),
+        ...(options?.onFileImported === undefined
+          ? {}
+          : { onFileImported: options.onFileImported }),
+        ...(options?.onFileStart === undefined
+          ? {}
+          : { onFileStart: options.onFileStart }),
         ...(options?.onProgress === undefined
           ? {}
           : { onProgress: options.onProgress }),
