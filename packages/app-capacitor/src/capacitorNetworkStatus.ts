@@ -19,11 +19,14 @@ import type {
  */
 export function createCapacitorNetworkStatus(): NetworkStatusSource {
   let online = true;
+  let disposed = false;
   const listeners = new Set<NetworkListener>();
   let handlePromise: Promise<PluginListenerHandle> | null = null;
 
   function update(nextOnline: boolean): void {
-    if (nextOnline === online) {
+    // A getStatus() promise can still resolve after dispose(); ignore it so a
+    // torn-down source never mutates state or notifies removed listeners.
+    if (disposed || nextOnline === online) {
       return;
     }
     online = nextOnline;
@@ -56,6 +59,7 @@ export function createCapacitorNetworkStatus(): NetworkStatusSource {
       };
     },
     dispose(): void {
+      disposed = true;
       const pending = handlePromise;
       handlePromise = null;
       listeners.clear();
