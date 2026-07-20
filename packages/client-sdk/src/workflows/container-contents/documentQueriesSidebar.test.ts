@@ -566,3 +566,55 @@ test("primeDocumentsForContainerSubtree skips settled documents", async () => {
     close();
   }
 });
+
+// Covers the chunked open path: more prime targets than PRIME_OPEN_CHUNK_SIZE
+// (8) must all still prime, with the pass yielding between chunks.
+test("primeDocumentsForContainerSubtree primes a backlog larger than one chunk", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-document-subtree-prime-chunked",
+  );
+  try {
+    const runtime = { infra: { execSql } };
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+
+    const expectedLocalIds: string[] = [];
+    for (let index = 0; index < 10; index += 1) {
+      const localId = `backlog-${String(index).padStart(2, "0")}`;
+      expectedLocalIds.push(localId);
+      // Local-only creates (no remote id, empty snapshot): always prime.
+      await saveTestDocument({
+        containerId: "shared-root",
+        documentId: null,
+        execSql,
+        id: localId,
+        title: `Backlog ${index}`,
+        updatedAt: `2026-07-20T00:01:${String(index).padStart(2, "0")}.000Z`,
+      });
+    }
+
+    const primedLocalIds: string[] = [];
+    const primedCount = await primeDocumentsForContainerSubtree({
+      containersById: new Map([
+        ["shared-root", { container: { id: "shared-root", parentId: null } }],
+      ]),
+      host: {
+        documentWorkflowRuntime: (containerId) => ({ containerId }),
+        openDocumentStore: (input) => {
+          primedLocalIds.push(input.localId);
+          return {
+            getSnapshot: () => ({ ready: true }),
+            requestSync: () => undefined,
+          };
+        },
+      },
+      rootContainerId: "shared-root",
+      runtime,
+    });
+
+    expect(primedLocalIds.sort()).toEqual(expectedLocalIds);
+    expect(primedCount).toBe(10);
+  } finally {
+    close();
+  }
+});

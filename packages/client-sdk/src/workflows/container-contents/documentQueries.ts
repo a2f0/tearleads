@@ -529,10 +529,14 @@ const PENDING_PRIME_LOCAL_ID_SQL = `
     )
 `;
 
-async function listPrimeRequiredLocalIds(
-  execSql: ExecSql,
+// Note: a row with content but a NULL outgoing-delta marker (condition 3 with
+// COALESCE '') is deliberately treated as unsettled — the store persist path
+// always sets the marker, so a null marker means the row never finished a
+// store-mediated persist and over-priming it is the safe direction.
+export async function listPrimeRequiredLocalIdsFromRuntime(
+  runtime: ContainerDocumentQueriesRuntime,
 ): Promise<ReadonlySet<string>> {
-  const rows = await execSql(PENDING_PRIME_LOCAL_ID_SQL);
+  const rows = await runtime.infra.execSql(PENDING_PRIME_LOCAL_ID_SQL);
   return new Set(
     rows.flatMap((row) => {
       const localId = Reflect.get(row, "local_id");
@@ -551,6 +555,10 @@ const PRIME_OPEN_CHUNK_SIZE = 8;
 export async function primeDocumentsForContainerSubtree<TRuntime>(input: {
   containersById: ReadonlyMap<string, ContainerContentsContainerSubtreeState>;
   host: ContainerDocumentPrimeHost<TRuntime>;
+  // The identity-wide prime-required scan is root-agnostic; a caller priming
+  // several roots computes it once and passes it in so N roots do not repeat
+  // the same scan concurrently.
+  primeRequiredLocalIds?: ReadonlySet<string>;
   rootContainerId: string;
   runtime: ContainerDocumentQueriesRuntime;
 }): Promise<number> {
@@ -560,7 +568,8 @@ export async function primeDocumentsForContainerSubtree<TRuntime>(input: {
       rootContainerId: input.rootContainerId,
       runtime: input.runtime,
     }),
-    listPrimeRequiredLocalIds(input.runtime.infra.execSql),
+    input.primeRequiredLocalIds ??
+      listPrimeRequiredLocalIdsFromRuntime(input.runtime),
   ]);
   const primeTargets = targets.filter((target) =>
     primeRequiredLocalIds.has(target.localId),
