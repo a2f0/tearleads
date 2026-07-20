@@ -391,6 +391,10 @@ export async function findLiveOrgSubscription(
   const query = encodeURIComponent(
     `metadata['orgId']:'${escapeSearchValue(organizationId)}'`,
   );
+  // Stripe subscription search is eventually consistent, so a cancel/portal
+  // fired in the seconds right after checkout may transiently find nothing and
+  // no-op. That is strictly better than the stale-id 404 this replaced, and it
+  // self-heals on the next attempt once the index catches up.
   const found = await stripeRequest({
     fetchImpl,
     secretKey,
@@ -402,6 +406,9 @@ export async function findLiveOrgSubscription(
   if (!Array.isArray(items)) {
     return null;
   }
+  // The first live subscription wins. An org holds at most one at a time — the
+  // checkout conflict guard refuses a second — so there is nothing to
+  // disambiguate; search order (not creation order) does not matter here.
   for (const item of items) {
     const status = readString(prop(item, "status"));
     const subscriptionId = readString(prop(item, "id"));
