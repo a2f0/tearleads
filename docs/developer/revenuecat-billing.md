@@ -134,17 +134,26 @@ can be fully styled, while RevenueCat remains the entitlement system:
   in [`stripeCheckout.ts`](../../packages/api/src/routes/billing/stripeCheckout.ts).
 - `POST /billing/stripe/webhook` verifies Stripe's signature over the raw
   body; on the FIRST paid invoice of a subscription it reads the
-  `userId`/`orgId` metadata our checkout wrote onto the subscription, sets the
-  buyer's `orgId` subscriber attribute in RevenueCat, then posts the receipt
-  (`fetch_token` = subscription id, `X-Platform: stripe`). RevenueCat then
-  owns the lifecycle and emits the same webhook events the org billing flow
-  already consumes.
+  `userId`/`orgId` metadata our checkout wrote onto the subscription, then
+  runs a three-step association: **create the RevenueCat customer** (v2;
+  an existing one answers 409, which is success), **set its `orgId`
+  attribute** (v2 — unlike v1 this does not upsert the customer, hence the
+  create first), and **post the receipt** (v1, `fetch_token` = subscription
+  id, `X-Platform: stripe`, authenticated with the Stripe app public key).
+  RevenueCat then owns the lifecycle and emits the same webhook events the
+  org billing flow already consumes. The attribute is belt-and-braces: for
+  Stripe-store events the authoritative org binding is the Stripe
+  subscription's own immutable metadata.
 - Configuration (all required; routes answer 503 / fail closed otherwise):
   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SYNC_PRICE_ID`,
-  `REVENUECAT_SECRET_API_KEY` (v1, for subscriber attributes),
   `REVENUECAT_STRIPE_PUBLIC_API_KEY` (the RC project's Stripe app public
-  key). Set in `.secrets/<tier>.env`; rendered by ansible into the API's
-  EnvironmentFile like the RevenueCat webhook secret.
+  key). The customer/attribute half of the association reuses the
+  `REVENUECAT_V2_SECRET_KEY` + `REVENUECAT_PROJECT_ID` pair already
+  configured for the management-URL lookup (shared via
+  [`revenueCatConfig.ts`](../../packages/api/src/billing/revenueCatConfig.ts))
+  — no separate legacy v1 secret key. Set in `.secrets/<tier>.env`; rendered
+  by ansible into the API's EnvironmentFile like the RevenueCat webhook
+  secret.
 - One-time dashboard steps: register the Stripe product id in the RevenueCat
   catalog and attach it to the `sync` entitlement; register the webhook
   endpoint in Stripe (`invoice.paid` events suffice).

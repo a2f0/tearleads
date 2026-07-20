@@ -6,7 +6,8 @@ import {
 } from "./revenueCatStripeAssociation";
 
 const ENV = {
-  REVENUECAT_SECRET_API_KEY: "sk_rc_secret",
+  REVENUECAT_V2_SECRET_KEY: "sk_rc_secret",
+  REVENUECAT_PROJECT_ID: "proj_1",
   REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp_public",
 };
 
@@ -33,33 +34,52 @@ function fakeFetch(statuses: number[] = []): {
   return { fetchImpl, requests };
 }
 
-test("association sets the org attribute BEFORE posting the receipt", async () => {
+test("association creates the customer, attributes it, then posts the receipt", async () => {
   const { fetchImpl, requests } = fakeFetch();
   await associateStripeSubscription(
     { appUserId: "user-1", organizationId: "org-1", subscriptionId: "sub_1" },
     { env: ENV, fetchImpl },
   );
 
-  expect(requests).toHaveLength(2);
-  // Attribute first: the receipt creates the INITIAL_PURCHASE event, whose org
-  // resolution reads the subscriber attributes at event time.
-  expect(requests[0]?.url).toContain("/v1/subscribers/user-1/attributes");
+  expect(requests).toHaveLength(3);
+  // Customer first: the v2 attributes endpoint 404s for an unknown customer
+  // (v1 upserted one), so it cannot be the opening call.
+  expect(requests[0]?.url).toContain("/v2/projects/proj_1/customers");
+  expect(requests[0]?.body).toEqual({ id: "user-1" });
   expect(requests[0]?.headers.get("Authorization")).toBe("Bearer sk_rc_secret");
-  expect(requests[0]?.body).toEqual({
-    attributes: {
-      orgId: { value: "org-1", updated_at_ms: expect.any(Number) },
-    },
-  });
-  expect(requests[1]?.url).toContain("/v1/receipts");
-  expect(requests[1]?.headers.get("Authorization")).toBe("Bearer strp_public");
-  expect(requests[1]?.headers.get("X-Platform")).toBe("stripe");
+
+  expect(requests[1]?.url).toContain(
+    "/v2/projects/proj_1/customers/user-1/attributes",
+  );
+  // v2 takes an array of {name, value}, not v1's keyed object.
   expect(requests[1]?.body).toEqual({
+    attributes: [{ name: "orgId", value: "org-1" }],
+  });
+  // The SECRET key authenticates this step — not the Stripe public key.
+  expect(requests[1]?.headers.get("Authorization")).toBe("Bearer sk_rc_secret");
+
+  // The receipt has no v2 equivalent and uses the Stripe app PUBLIC key.
+  expect(requests[2]?.url).toContain("/v1/receipts");
+  expect(requests[2]?.headers.get("Authorization")).toBe("Bearer strp_public");
+  expect(requests[2]?.headers.get("X-Platform")).toBe("stripe");
+  expect(requests[2]?.body).toEqual({
     app_user_id: "user-1",
     fetch_token: "sub_1",
   });
 });
 
-test("a failed attribute write stops the flow before the receipt", async () => {
+test("an already-existing customer (409) is success, not a failure", async () => {
+  // A redelivered webhook — or a buyer whose app session already created the
+  // customer — must not abort the association.
+  const { fetchImpl, requests } = fakeFetch([409]);
+  await associateStripeSubscription(
+    { appUserId: "user-1", organizationId: "org-1", subscriptionId: "sub_1" },
+    { env: ENV, fetchImpl },
+  );
+  expect(requests).toHaveLength(3);
+});
+
+test("a failed customer create stops the flow before anything else", async () => {
   const { fetchImpl, requests } = fakeFetch([500]);
   await expect(
     associateStripeSubscription(
@@ -70,14 +90,52 @@ test("a failed attribute write stops the flow before the receipt", async () => {
   expect(requests).toHaveLength(1);
 });
 
-test("unconfigured association throws instead of silently dropping", async () => {
+test("a failed attribute write stops the flow before the receipt", async () => {
+  const { fetchImpl, requests } = fakeFetch([200, 500]);
+  await expect(
+    associateStripeSubscription(
+      { appUserId: "user-1", organizationId: "org-1", subscriptionId: "sub_1" },
+      { env: ENV, fetchImpl },
+    ),
+  ).rejects.toBeInstanceOf(RevenueCatAssociationError);
+  expect(requests).toHaveLength(2);
+});
+
+test("configuration needs the v2 key, the project id, and the Stripe key", async () => {
   const { fetchImpl } = fakeFetch();
   expect(isRevenueCatAssociationConfigured(ENV)).toBe(true);
   expect(isRevenueCatAssociationConfigured({})).toBe(false);
+  // A missing project id is as disabling as a missing key: the v2 paths are
+  // project-scoped.
+  const { REVENUECAT_PROJECT_ID: _omitted, ...noProject } = ENV;
+  expect(isRevenueCatAssociationConfigured(noProject)).toBe(false);
   await expect(
     associateStripeSubscription(
       { appUserId: "u", organizationId: "o", subscriptionId: "s" },
       { env: {}, fetchImpl },
+    ),
+  ).rejects.toBeInstanceOf(RevenueCatAssociationError);
+});
+
+test("a failed receipt post surfaces after the customer and attribute writes", async () => {
+  const { fetchImpl, requests } = fakeFetch([200, 200, 500]);
+  await expect(
+    associateStripeSubscription(
+      { appUserId: "user-1", organizationId: "org-1", subscriptionId: "sub_1" },
+      { env: ENV, fetchImpl },
+    ),
+  ).rejects.toBeInstanceOf(RevenueCatAssociationError);
+  expect(requests).toHaveLength(3);
+});
+
+test("409 tolerance does not leak past the customer create", async () => {
+  // Only an already-existing CUSTOMER is benign; a 409 anywhere else is a
+  // real failure and must not be swallowed.
+  const { fetchImpl } = fakeFetch([200, 409]);
+  await expect(
+    associateStripeSubscription(
+      { appUserId: "user-1", organizationId: "org-1", subscriptionId: "sub_1" },
+      { env: ENV, fetchImpl },
     ),
   ).rejects.toBeInstanceOf(RevenueCatAssociationError);
 });
