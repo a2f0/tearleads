@@ -79,3 +79,18 @@
   --rc-shape-input-button-border-radius: 0 !important;
   font-family: var(--tearleads-font-family) !important;
 }
+
+/*
+ * Host for the DIRECT Stripe checkout (issue #1654) — deliberately a separate
+ * class from `.org-manager-billing-checkout` above. That block exists to beat
+ * the RevenueCat SDK's inline `--rc-*` branding with !important on every
+ * descendant; none of it applies to a Stripe Payment Element, which we theme
+ * through the Appearance API instead (see checkoutAppearance.ts). Sharing the
+ * class would cascade those overrides into an element that never needed them.
+ *
+ * No `:empty { display: none }` here: this host must be laid out at the moment
+ * the element mounts, because Stripe sizes its iframe from the host box.
+ */
+.org-manager-direct-checkout {
+  margin-top: var(--space-sm);
+}

@@ -10,6 +10,7 @@ import {
   prepareControllingServiceWorker,
   registerServiceWorkerAfterLoad,
 } from "./serviceWorkerRegistration";
+import { createWebDirectCheckout } from "./webDirectCheckout";
 import { createWebPurchases } from "./webPurchases";
 
 const elem = document.getElementById("root");
@@ -33,6 +34,7 @@ const hostConfig = createAppHostConfig({
     version: process.env.BUN_PUBLIC_APP_VERSION,
   }),
   createPurchases: createWebPurchases,
+  createDirectCheckout: createWebDirectCheckout,
   wsUrl,
   profile: resolveAppHostProfile(process.env.BUN_PUBLIC_APP_VARIANT),
 });

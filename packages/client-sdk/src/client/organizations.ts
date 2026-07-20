@@ -3,12 +3,14 @@ import type { DeleteOrganizationGroupResponse } from "@tearleads/validators/resp
 import {
   addOrganizationGroupUser,
   createOrganizationGroup,
+  createStripeCheckout,
   importOrganizationUser,
   type LocalOrganizationSummary,
   listLocalOrganizations,
   loadOrganizationBilling,
   loadOrganizationBillingHistory,
   loadOrganizationBillingManagementUrl,
+  loadStripeCheckoutOptions,
   removeOrganizationGroupUser,
   revokeOrganizationContainerGrant,
   startOrganizationTrial,
@@ -113,6 +115,9 @@ export interface Organizations {
   loadBillingManagementUrl: () => ReturnType<
     typeof loadOrganizationBillingManagementUrl
   >;
+  /** Direct Stripe checkout (issue #1654): options, start, and manage link. */
+  loadStripeCheckoutOptions: () => ReturnType<typeof loadStripeCheckoutOptions>;
+  createStripeCheckout: () => ReturnType<typeof createStripeCheckout>;
   loadDataUsage: () => ReturnType<
     OrganizationDataUsageCoordinator["reconcile"]
   >;
@@ -339,6 +344,26 @@ class OrganizationsService implements Organizations {
     const organizationId = authenticatedOrganizationId(runtime);
     return organizationId
       ? loadOrganizationBillingManagementUrl({
+          apiClient: runtime.apiClient,
+          organizationId,
+        })
+      : Promise.resolve(null);
+  }
+
+  loadStripeCheckoutOptions() {
+    const runtime = this.runtimeService.workflowInput();
+    // Options are org-independent (one sync price), but stay behind auth so
+    // an unauthenticated shell never shows a purchasable list.
+    return authenticatedOrganizationId(runtime)
+      ? loadStripeCheckoutOptions({ apiClient: runtime.apiClient })
+      : Promise.resolve(null);
+  }
+
+  createStripeCheckout() {
+    const runtime = this.runtimeService.workflowInput();
+    const organizationId = authenticatedOrganizationId(runtime);
+    return organizationId
+      ? createStripeCheckout({
           apiClient: runtime.apiClient,
           organizationId,
         })

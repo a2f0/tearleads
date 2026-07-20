@@ -38,8 +38,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 486,
-      "bytes": 21849
+      "lines": 510,
+      "bytes": 23000
     },
     "docs/document-rekey-and-audit-history.md": {
       "lines": 526,
@@ -218,8 +218,8 @@
       "bytes": 50400
     },
     "packages/client-sdk/src/client/organizations.ts": {
-      "lines": 514,
-      "bytes": 16927
+      "lines": 549,
+      "bytes": 18413
     },
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
       "lines": 1041,
@@ -346,8 +346,8 @@
       "bytes": 33792
     },
     "scripts/subsystems.ts": {
-      "lines": 713,
-      "bytes": 25818
+      "lines": 723,
+      "bytes": 26489
     },
     "packages/client-sdk/src/workflows/containers/child/create.ts": {
       "lines": 531,

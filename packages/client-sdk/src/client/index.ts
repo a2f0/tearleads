@@ -64,6 +64,14 @@ export {
   type DatabaseStatus,
 } from "./database";
 export type { DeviceFirst, LocalProjectionView } from "./deviceFirst";
+export {
+  createUnavailableDirectCheckout,
+  type DirectCheckoutAppearance,
+  type DirectCheckoutCapability,
+  type DirectCheckoutConfirmation,
+  type DirectCheckoutSession,
+  DirectCheckoutUnavailableError,
+} from "./directCheckout";
 export type {
   DocumentAttachmentStatus,
   DocumentAttachmentUpload,

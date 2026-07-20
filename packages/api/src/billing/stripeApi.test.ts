@@ -137,6 +137,12 @@ test("subscription create binds org metadata and returns the client secret", asy
   expect(body).toContain(`${encodeURIComponent("metadata[orgId]")}=org-1`);
   expect(body).toContain(`${encodeURIComponent("metadata[userId]")}=user-1`);
   expect(body).toContain("payment_behavior=default_incomplete");
+  // Pinned to card: the Payment Element offers exactly the methods the
+  // subscription allows, and any redirect-based method the dashboard happens
+  // to enable would break the client's `redirect: "if_required"` confirm.
+  expect(body).toContain(
+    `${encodeURIComponent("payment_settings[payment_method_types][]")}=card`,
+  );
   // Org-scoped: a retried checkout returns the SAME subscription, and two
   // admins racing produce conflicting bodies under one key, which Stripe
   // rejects — the org can never gain two parallel subscriptions.

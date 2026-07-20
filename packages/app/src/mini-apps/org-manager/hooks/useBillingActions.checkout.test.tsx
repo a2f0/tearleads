@@ -289,3 +289,55 @@ test("a cancelled checkout clears the busy state without an error", async () => 
   expect(result.current.actionError).toBe(null);
   expect(result.current.activationPending).toBe(false);
 });
+
+/**
+ * `markActivationPending` is the hand-off the in-app card checkout (issue
+ * #1654) calls once Stripe confirms a payment: the entitlement still has to
+ * travel Stripe -> RevenueCat -> our webhook, so the panel must show
+ * activation-pending and start the shared backoff poll rather than refresh
+ * once and appear stuck.
+ */
+test("marking activation pending flags the org and starts the poll", async () => {
+  const refresh = mock(() => Promise.resolve());
+  const { result } = renderBillingActions({
+    purchases: createPurchases({ syncEntitlementActive: false }),
+    // A single delay so the poll runs one extra pass and then gives up.
+    activationPollDelaysMs: [0],
+    refresh,
+  });
+  const refreshesBefore = refresh.mock.calls.length;
+
+  await act(async () => {
+    result.current.markActivationPending();
+  });
+
+  expect(result.current.activationPending).toBe(true);
+  await waitFor(() =>
+    expect(refresh.mock.calls.length).toBeGreaterThan(refreshesBefore),
+  );
+});
+
+test("marking activation pending clears a previous action error", async () => {
+  // A retry after a failed attempt must not leave the old error under the
+  // activation-pending status.
+  const purchases: PurchasesCapability = {
+    ...createPurchases({ syncEntitlementActive: false }),
+    purchaseSync: mock(() =>
+      Promise.reject(new Error("card declined")),
+    ) as PurchasesCapability["purchaseSync"],
+  };
+  const { result } = renderBillingActions({ purchases });
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+
+  await act(async () => {
+    await result.current.subscribe(OPTION);
+  });
+  await waitFor(() => expect(result.current.actionError).not.toBeNull());
+
+  await act(async () => {
+    result.current.markActivationPending();
+  });
+
+  expect(result.current.actionError).toBeNull();
+  expect(result.current.activationPending).toBe(true);
+});

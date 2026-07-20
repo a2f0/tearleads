@@ -1,10 +1,12 @@
 import { useCallback, useRef } from "react";
 import { useOrganizationBilling } from "../../../providers/billing/BillingProvider";
 import { useBillingActions } from "../hooks/useBillingActions";
+import { BillingDirectCheckout } from "./BillingDirectCheckout";
 import { BillingHistory } from "./BillingHistory";
 import { BillingView } from "./BillingView";
 import { useBillingHistory } from "./useBillingHistory";
 import { useBillingManagementUrl } from "./useBillingManagementUrl";
+import { useDirectCheckoutFlow } from "./useDirectCheckout";
 
 /**
  * Container for the org-manager billing view: wires the billing snapshot
@@ -58,13 +60,43 @@ export function BillingPanel({
   const handleRefresh = useCallback(() => {
     void refresh();
   }, [refresh]);
+  // A confirmed payment grants the entitlement asynchronously (Stripe →
+  // RevenueCat → our webhook), so reuse the existing refresh/activation poll
+  // rather than assuming the org can sync immediately.
+  // `enabled` is the render gate too (below): when it flips off mid-flow —
+  // e.g. another admin's purchase lands and the org starts syncing — the hook
+  // tears the element down rather than having its host yanked out from under
+  // a live session.
+  const checkoutEnabled = Boolean(
+    isOrgAdmin && billing.view && !billing.view.canSync,
+  );
+  const checkout = useDirectCheckoutFlow({
+    // Deliberately NOT `actions.canSubscribe`: that folds in
+    // `purchases.isAvailable`, which is false without a RevenueCat web key.
+    // This checkout runs against our own Stripe account and needs only the
+    // publishable key — which the hook already gates on via the capability's
+    // `isAvailable`. Reusing `canSubscribe` would silently hide the form on a
+    // build configured for Stripe alone.
+    canSubscribe: isOrgAdmin && userId !== null,
+    enabled: checkoutEnabled,
+    organizationId,
+    onPaid: actions.markActivationPending,
+  });
+
+  // While our own checkout is collecting or confirming, the provider-hosted
+  // subscribe/trial/restore actions must not start a competing purchase — the
+  // same cross-lock `busy` already provides among those actions.
+  const checkoutActive =
+    checkout.phase.kind === "collecting" ||
+    checkout.phase.kind === "confirming" ||
+    checkout.phase.kind === "starting";
 
   return (
     <div>
       <BillingView
         actionError={actions.actionError}
         activationPending={actions.activationPending}
-        busy={actions.busy}
+        busy={checkoutActive ? "checkout" : actions.busy}
         canSubscribe={actions.canSubscribe}
         checkoutActive={actions.checkoutActive}
         checkoutHostRef={checkoutHostRef}
@@ -82,6 +114,19 @@ export function BillingPanel({
         purchaseAvailable={actions.purchaseAvailable}
         view={billing.view}
       />
+      {/*
+        Only offer a purchase the org can actually make: an org that already
+        syncs would get a server 409 surfaced as a generic failure.
+      */}
+      {checkoutEnabled ? (
+        <BillingDirectCheckout
+          checkout={checkout}
+          // `activationPending` too: after a payment the org still cannot
+          // sync until the webhook lands, so the Subscribe row would come
+          // back and a second checkout would 409 into a generic failure.
+          disabled={actions.busy !== null || actions.activationPending}
+        />
+      ) : null}
       {isOrgAdmin ? (
         <BillingHistory
           entries={history.entries}
