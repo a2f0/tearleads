@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { prop, readString } from "./stripeHttp";
 
 /**
  * Stripe webhook verification and event extraction for the direct web
@@ -69,23 +70,6 @@ export function verifyStripeSignature(input: {
       timingSafeEqual(presented, expected)
     );
   });
-}
-
-function readString(value: unknown): string | null {
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-/**
- * Reads one property from an unknown value when it is a plain object; the
- * variable key keeps tsc's index-signature rule and biome's literal-key rule
- * both satisfied.
- */
-function prop(value: unknown, key: string): unknown {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return undefined;
-  }
-  const record: Record<string, unknown> = { ...value };
-  return record[key];
 }
 
 /**

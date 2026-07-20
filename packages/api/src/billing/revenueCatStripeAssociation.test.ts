@@ -61,21 +61,20 @@ test("association sets the org attribute BEFORE posting the receipt", async () =
 
 test("a failed attribute write stops the flow before the receipt", async () => {
   const { fetchImpl, requests } = fakeFetch([500]);
-  expect(
+  await expect(
     associateStripeSubscription(
       { appUserId: "user-1", organizationId: "org-1", subscriptionId: "sub_1" },
       { env: ENV, fetchImpl },
     ),
   ).rejects.toBeInstanceOf(RevenueCatAssociationError);
-  await Promise.resolve();
   expect(requests).toHaveLength(1);
 });
 
-test("unconfigured association throws instead of silently dropping", () => {
+test("unconfigured association throws instead of silently dropping", async () => {
   const { fetchImpl } = fakeFetch();
   expect(isRevenueCatAssociationConfigured(ENV)).toBe(true);
   expect(isRevenueCatAssociationConfigured({})).toBe(false);
-  expect(
+  await expect(
     associateStripeSubscription(
       { appUserId: "u", organizationId: "o", subscriptionId: "s" },
       { env: {}, fetchImpl },

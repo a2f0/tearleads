@@ -245,7 +245,9 @@ async function findOrgSubscription(
   const found = await stripeRequest({
     ...request,
     method: "GET",
-    path: `/v1/subscriptions/search?query=${query}&limit=20`,
+    // Stripe's max page size; an org would need >100 checkout attempts for
+    // a live subscription to hide beyond this page.
+    path: `/v1/subscriptions/search?query=${query}&limit=100`,
     operation: "subscription search",
   });
   const items = prop(found, "data");

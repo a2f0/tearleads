@@ -67,7 +67,35 @@ export async function stripeRequest(input: {
   form?: URLSearchParams;
   idempotencyKey?: string;
 }): Promise<unknown> {
-  const response = await input.fetchImpl(`${STRIPE_API_ORIGIN}${input.path}`, {
+  let response: Response;
+  try {
+    response = await performStripeFetch(input);
+  } catch (error) {
+    if (error instanceof StripeApiError) {
+      throw error;
+    }
+    // Timeouts and network failures are provider failures too: callers map
+    // StripeApiError to 502 uniformly instead of a generic 500. Status 0
+    // marks "no HTTP response".
+    console.error(`Stripe ${input.operation} transport failure:`, error);
+    throw new StripeApiError(`${input.operation} (transport)`, 0);
+  }
+  if (!response.ok) {
+    throw new StripeApiError(input.operation, response.status);
+  }
+  return response.json();
+}
+
+async function performStripeFetch(input: {
+  fetchImpl: typeof fetch;
+  secretKey: string;
+  method: "GET" | "POST";
+  path: string;
+  operation: string;
+  form?: URLSearchParams;
+  idempotencyKey?: string;
+}): Promise<Response> {
+  return input.fetchImpl(`${STRIPE_API_ORIGIN}${input.path}`, {
     method: input.method,
     headers: {
       Authorization: `Bearer ${input.secretKey}`,
@@ -82,10 +110,6 @@ export async function stripeRequest(input: {
     ...(input.form ? { body: input.form.toString() } : {}),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
-  if (!response.ok) {
-    throw new StripeApiError(input.operation, response.status);
-  }
-  return response.json();
 }
 
 export function readString(value: unknown): string | null {
@@ -102,8 +126,9 @@ export function prop(value: unknown, key: string): unknown {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return undefined;
   }
-  const record: Record<string, unknown> = { ...value };
-  return record[key];
+  // Reflect.get reads without copying the object (these parses chain many
+  // reads) and without the type assertion the repo forbids.
+  return Reflect.get(value, key);
 }
 
 /**
