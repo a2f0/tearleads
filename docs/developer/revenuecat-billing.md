@@ -160,3 +160,38 @@ can be fully styled, while RevenueCat remains the entitlement system:
 
 The client half (Payment Element UI behind `BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY`)
 is tracked in issue #1654.
+
+## Direct Stripe checkout (client side)
+
+The web client can run the card form **itself** rather than embedding the
+provider's checkout, which is what makes the fields styleable from the app's
+own theme tokens.
+
+- `DirectCheckoutCapability`
+  ([`directCheckout.ts`](../../packages/client-sdk/src/client/directCheckout.ts))
+  is the provider-agnostic seam, injected through
+  `AppHostConfig.createDirectCheckout` exactly like `createPurchases`. The web
+  shell supplies a Stripe implementation
+  ([`webDirectCheckout.ts`](../../packages/app-web/src/webDirectCheckout.ts));
+  every other shell gets `createUnavailableDirectCheckout`, so billing UI
+  gates on `isAvailable` instead of branching per platform.
+- Enabled by `BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY` (inlined at build time by
+  `deployAppWeb.sh` — the `BUN_PUBLIC_` prefix is required). Absent, the
+  capability is the unavailable stub and the panel simply shows nothing extra.
+- **Styling**: the payment fields are still Stripe-hosted iframes (that is what
+  keeps us in PCI SAQ A), but on our own account Stripe's Appearance API
+  accepts far more than RevenueCat exposes — font family, font size, input
+  padding, and per-theme colors.
+  [`checkoutAppearance.ts`](../../packages/app/src/mini-apps/org-manager/billing/checkoutAppearance.ts)
+  resolves the app's tokens by applying them to a throwaway probe element and
+  reading back the **computed** values: an iframe cannot dereference
+  `var(--color-dark)`, and custom properties compute to their authored token
+  (`1rem`, an unevaluated `color-mix(...)`) rather than a used value. Reading
+  through the live panel means new themes work without touching this code.
+- **Flow** (`useDirectCheckoutFlow`): load option → create checkout on the
+  server → mount the element into the panel's host → confirm → hand off to the
+  existing activation poll, because the entitlement arrives asynchronously via
+  Stripe → RevenueCat → our webhook. A decline keeps the element mounted so
+  the buyer can correct their card; cancel is just an unmount. None of the
+  abort/orphan machinery the provider-hosted flow needs applies here, since we
+  own the element's lifecycle.

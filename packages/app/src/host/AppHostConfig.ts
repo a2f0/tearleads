@@ -1,5 +1,6 @@
 import type {
   BlobStoreFactory,
+  DirectCheckoutCapability,
   LocalKeyring,
   PurchasesCapability,
 } from "@tearleads/client-sdk";
@@ -13,6 +14,13 @@ export type CreateSQLiteRuntimeFn = () => SQLiteRuntime;
 /** @public */
 export type CreateLocalKeyringFn = () => LocalKeyring;
 export type CreatePurchasesFn = () => PurchasesCapability;
+
+/**
+ * Builds the platform's direct card-checkout capability (issue #1654). Only
+ * the web shell supplies one; elsewhere billing falls back to the
+ * provider-hosted purchase flow.
+ */
+type CreateDirectCheckoutFn = () => DirectCheckoutCapability;
 
 export type PaneRuntimePolicy = "shared" | "isolated";
 
@@ -175,6 +183,7 @@ export interface AppHostConfigOptions {
   readonly createBlobStore?: BlobStoreFactory | undefined;
   readonly createLocalKeyring?: CreateLocalKeyringFn | undefined;
   readonly createPurchases?: CreatePurchasesFn | undefined;
+  readonly createDirectCheckout?: CreateDirectCheckoutFn | undefined;
   readonly createSQLiteRuntime?: CreateSQLiteRuntimeFn | undefined;
   readonly disableLocalIdentityPersistence?: boolean | undefined;
   readonly localIdentityNamespace?: string | undefined;
@@ -215,6 +224,7 @@ export class AppHostConfig {
      * from a build that simply has no version.
      */
     readonly buildInfo?: AppBuildInfo | undefined,
+    readonly createDirectCheckout?: CreateDirectCheckoutFn | undefined,
   ) {}
 
   /**
@@ -237,6 +247,7 @@ export class AppHostConfig {
       profile: this.profile,
       createPurchases: this.createPurchases,
       buildInfo: this.buildInfo,
+      createDirectCheckout: this.createDirectCheckout,
       ...overrides,
     });
   }
@@ -258,6 +269,7 @@ export function createAppHostConfig(
     options.profile,
     options.createPurchases,
     options.buildInfo,
+    options.createDirectCheckout,
   );
 }
 

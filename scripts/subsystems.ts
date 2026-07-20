@@ -349,9 +349,9 @@ export const subsystems: readonly Subsystem[] = [
     name: "Client Purchases",
     package: "client-sdk",
     responsibility:
-      "Provider-agnostic in-app-purchase capability for org sync billing: the PurchasesCapability interface, the RevenueCat mapping core over an injectable backend, and the unavailable stub.",
-    seam: "createRevenueCatPurchases / createUnavailablePurchases exports",
-    paths: [`${sdk}/client/purchases.ts`],
+      "Provider-agnostic purchase capabilities for org sync billing: the PurchasesCapability interface (provider-hosted flows) with the RevenueCat mapping core over an injectable backend, the DirectCheckoutCapability interface (an in-app payment element the app styles itself), and the unavailable stubs for both.",
+    seam: "createRevenueCatPurchases / createUnavailablePurchases / createUnavailableDirectCheckout exports",
+    paths: [`${sdk}/client/purchases.ts`, `${sdk}/client/directCheckout.ts`],
   },
   {
     name: "SQLite Runtime",

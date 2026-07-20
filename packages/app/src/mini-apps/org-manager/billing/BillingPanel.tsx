@@ -1,10 +1,12 @@
 import { useCallback, useRef } from "react";
 import { useOrganizationBilling } from "../../../providers/billing/BillingProvider";
 import { useBillingActions } from "../hooks/useBillingActions";
+import { BillingDirectCheckout } from "./BillingDirectCheckout";
 import { BillingHistory } from "./BillingHistory";
 import { BillingView } from "./BillingView";
 import { useBillingHistory } from "./useBillingHistory";
 import { useBillingManagementUrl } from "./useBillingManagementUrl";
+import { useDirectCheckoutFlow } from "./useDirectCheckout";
 
 /**
  * Container for the org-manager billing view: wires the billing snapshot
@@ -58,6 +60,14 @@ export function BillingPanel({
   const handleRefresh = useCallback(() => {
     void refresh();
   }, [refresh]);
+  // A confirmed payment grants the entitlement asynchronously (Stripe →
+  // RevenueCat → our webhook), so reuse the existing refresh/activation poll
+  // rather than assuming the org can sync immediately.
+  const checkout = useDirectCheckoutFlow({
+    canSubscribe: actions.canSubscribe,
+    organizationId,
+    onActivated: handleRefresh,
+  });
 
   return (
     <div>
@@ -82,6 +92,12 @@ export function BillingPanel({
         purchaseAvailable={actions.purchaseAvailable}
         view={billing.view}
       />
+      {isOrgAdmin ? (
+        <BillingDirectCheckout
+          checkout={checkout}
+          disabled={actions.busy !== null}
+        />
+      ) : null}
       {isOrgAdmin ? (
         <BillingHistory
           entries={history.entries}

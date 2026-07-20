@@ -60,6 +60,9 @@ import {
   isOrganizationReadModelResponse,
   isPrincipalPolicyBundleResponse,
   isRegistrationResponse,
+  isStripeCheckoutIntentResponse,
+  isStripeCheckoutOptionsResponse,
+  isStripePortalResponse,
   isUploadMultipartBlobPartResponse,
   isUserIdentityResponse,
   isVerifyResponse,
@@ -833,6 +836,45 @@ export class ApiClient {
       `/organizations/${pathSegment(organizationId)}/billing/management-url`,
       isOrganizationBillingManagementUrlResponse,
       "GET",
+    );
+  }
+
+  /**
+   * Purchasable sync options for the direct Stripe checkout. Answers an empty
+   * list (not an error) when the integration is unconfigured, so the billing
+   * panel can simply fall back to the provider-hosted flow.
+   */
+  getStripeCheckoutOptions() {
+    return this.request(
+      "/billing/stripe/options",
+      isStripeCheckoutOptionsResponse,
+      "GET",
+    );
+  }
+
+  /**
+   * Starts (or resumes) a checkout for the organization and returns what the
+   * Payment Element needs to confirm it. The server refuses with 409 when the
+   * org already has a live subscription.
+   */
+  createStripeCheckout(organizationId: string) {
+    return this.request(
+      `/organizations/${pathSegment(organizationId)}/billing/stripe/checkout`,
+      isStripeCheckoutIntentResponse,
+      "POST",
+    );
+  }
+
+  /**
+   * Stripe Billing Portal link for the ORGANIZATION's subscription. The return
+   * URL must be one of the API's allowed origins or the server rejects it.
+   */
+  createStripePortalUrl(organizationId: string, returnUrl: string) {
+    return this.request(
+      `/organizations/${pathSegment(organizationId)}/billing/stripe/portal`,
+      isStripePortalResponse,
+      "POST",
+      JSON.stringify({ returnUrl }),
     );
   }
 

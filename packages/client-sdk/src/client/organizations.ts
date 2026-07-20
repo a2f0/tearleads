@@ -3,12 +3,15 @@ import type { DeleteOrganizationGroupResponse } from "@tearleads/validators/resp
 import {
   addOrganizationGroupUser,
   createOrganizationGroup,
+  createStripeCheckout,
+  createStripePortalUrl,
   importOrganizationUser,
   type LocalOrganizationSummary,
   listLocalOrganizations,
   loadOrganizationBilling,
   loadOrganizationBillingHistory,
   loadOrganizationBillingManagementUrl,
+  loadStripeCheckoutOptions,
   removeOrganizationGroupUser,
   revokeOrganizationContainerGrant,
   startOrganizationTrial,
@@ -113,6 +116,12 @@ export interface Organizations {
   loadBillingManagementUrl: () => ReturnType<
     typeof loadOrganizationBillingManagementUrl
   >;
+  /** Direct Stripe checkout (issue #1654): options, start, and manage link. */
+  loadStripeCheckoutOptions: () => ReturnType<typeof loadStripeCheckoutOptions>;
+  createStripeCheckout: () => ReturnType<typeof createStripeCheckout>;
+  createStripePortalUrl: (
+    returnUrl: string,
+  ) => ReturnType<typeof createStripePortalUrl>;
   loadDataUsage: () => ReturnType<
     OrganizationDataUsageCoordinator["reconcile"]
   >;
@@ -341,6 +350,38 @@ class OrganizationsService implements Organizations {
       ? loadOrganizationBillingManagementUrl({
           apiClient: runtime.apiClient,
           organizationId,
+        })
+      : Promise.resolve(null);
+  }
+
+  loadStripeCheckoutOptions() {
+    const runtime = this.runtimeService.workflowInput();
+    // Options are org-independent (one sync price), but stay behind auth so
+    // an unauthenticated shell never shows a purchasable list.
+    return authenticatedOrganizationId(runtime)
+      ? loadStripeCheckoutOptions({ apiClient: runtime.apiClient })
+      : Promise.resolve(null);
+  }
+
+  createStripeCheckout() {
+    const runtime = this.runtimeService.workflowInput();
+    const organizationId = authenticatedOrganizationId(runtime);
+    return organizationId
+      ? createStripeCheckout({
+          apiClient: runtime.apiClient,
+          organizationId,
+        })
+      : Promise.resolve(null);
+  }
+
+  createStripePortalUrl(returnUrl: string) {
+    const runtime = this.runtimeService.workflowInput();
+    const organizationId = authenticatedOrganizationId(runtime);
+    return organizationId
+      ? createStripePortalUrl({
+          apiClient: runtime.apiClient,
+          organizationId,
+          returnUrl,
         })
       : Promise.resolve(null);
   }

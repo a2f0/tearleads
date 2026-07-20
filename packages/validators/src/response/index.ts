@@ -221,4 +221,13 @@ export {
   isRegistrationResponse,
   type RegistrationResponse,
 } from "./registration";
+export {
+  isStripeCheckoutIntentResponse,
+  isStripeCheckoutOptionsResponse,
+  isStripePortalResponse,
+  type StripeCheckoutIntentResponse,
+  type StripeCheckoutOptionsResponse,
+  type StripePortalResponse,
+  type StripeSyncOptionResponse,
+} from "./stripeCheckout";
 export { isSyncWatermark, type SyncWatermark } from "./syncWatermark";

@@ -3,6 +3,9 @@ import type {
   OrganizationBillingManagementUrlResponse,
   OrganizationBillingResponse,
   OrganizationBillingStatus,
+  StripeCheckoutIntentResponse,
+  StripeCheckoutOptionsResponse,
+  StripePortalResponse,
 } from "@tearleads/validators/response";
 
 /** Per-organization sync-billing snapshot (the server wire shape). */
@@ -19,6 +22,15 @@ export type OrganizationBillingHistoryEntry =
 export type OrganizationBillingManagementUrl =
   OrganizationBillingManagementUrlResponse;
 
+/** Purchasable sync options for the direct Stripe checkout (the wire shape). */
+export type StripeCheckoutOptions = StripeCheckoutOptionsResponse;
+
+/** What the Payment Element needs to confirm a purchase (the wire shape). */
+export type StripeCheckoutIntent = StripeCheckoutIntentResponse;
+
+/** The organization's Stripe Billing Portal link (the wire shape). */
+export type StripePortal = StripePortalResponse;
+
 /** The billing methods these workflows need from the api client. */
 interface OrganizationBillingApi {
   readonly getOrganizationBilling: (
@@ -33,6 +45,14 @@ interface OrganizationBillingApi {
   readonly startOrganizationTrial: (
     organizationId: string,
   ) => Promise<OrganizationBillingResponse | null>;
+  readonly getStripeCheckoutOptions: () => Promise<StripeCheckoutOptionsResponse | null>;
+  readonly createStripeCheckout: (
+    organizationId: string,
+  ) => Promise<StripeCheckoutIntentResponse | null>;
+  readonly createStripePortalUrl: (
+    organizationId: string,
+    returnUrl: string,
+  ) => Promise<StripePortalResponse | null>;
 }
 
 export async function loadOrganizationBilling(input: {
@@ -69,6 +89,30 @@ export async function startOrganizationTrial(input: {
   readonly organizationId: string;
 }): Promise<OrganizationBilling | null> {
   return input.apiClient.startOrganizationTrial(input.organizationId);
+}
+
+export async function loadStripeCheckoutOptions(input: {
+  readonly apiClient: Pick<OrganizationBillingApi, "getStripeCheckoutOptions">;
+}): Promise<StripeCheckoutOptions | null> {
+  return input.apiClient.getStripeCheckoutOptions();
+}
+
+export async function createStripeCheckout(input: {
+  readonly apiClient: Pick<OrganizationBillingApi, "createStripeCheckout">;
+  readonly organizationId: string;
+}): Promise<StripeCheckoutIntent | null> {
+  return input.apiClient.createStripeCheckout(input.organizationId);
+}
+
+export async function createStripePortalUrl(input: {
+  readonly apiClient: Pick<OrganizationBillingApi, "createStripePortalUrl">;
+  readonly organizationId: string;
+  readonly returnUrl: string;
+}): Promise<StripePortal | null> {
+  return input.apiClient.createStripePortalUrl(
+    input.organizationId,
+    input.returnUrl,
+  );
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;

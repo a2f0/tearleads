@@ -15,6 +15,11 @@ export const ORG_MANAGER_LABELS = {
   billingActive: "Active subscription",
   billingAdminOnly: "Only an organization admin can manage billing.",
   billingCancelCheckout: "Cancel checkout",
+  billingCheckoutPay: "Pay and subscribe",
+  billingCheckoutPaying: "Processing payment...",
+  billingCheckoutStarting: "Preparing checkout...",
+  billingCheckoutUnavailable:
+    "The payment form could not be started. Try again in a moment.",
   billingDeleting: "Deleting remote data",
   billingDisabled: "Sync disabled",
   billingHistoryActivityTab: "Activity",

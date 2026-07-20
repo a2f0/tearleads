@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@revenuecat/purchases-js": "1.47.0",
+    "@stripe/stripe-js": "8.0.0",
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
     "app": "workspace:*",
