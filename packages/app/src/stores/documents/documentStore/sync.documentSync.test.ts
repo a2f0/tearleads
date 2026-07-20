@@ -54,6 +54,32 @@ test("document store creates a document linked to the configured container", asy
   );
 });
 
+// Regression: a note created and never edited enqueues no pending updates, so
+// the sync pass used to skip the remote create entirely — the note sat in the
+// write queue as a pending create until its first edit.
+test("an untouched new note still creates its remote document", async () => {
+  const persistence = createDocumentsPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const runtime = await createSyncRuntime(
+    encapsulationKeyPair,
+    "root-container",
+  );
+
+  const store = createDocumentStore("untouched-note", runtime, persistence);
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () =>
+      persistence.getState().document?.documentId != null &&
+      persistence.getState().document?.contentKeyBundle !== null &&
+      persistence.getState().document?.documentKekTargets !== null &&
+      persistence.getState().document?.documentManifestBundle !== null &&
+      !store.getSnapshot().syncing,
+    "Untouched note did not flush its pending create.",
+  );
+  expect(persistence.getState().pendingUpdates).toHaveLength(0);
+});
+
 test("document store clears document state when access epoch changes", async () => {
   const persistence = createDocumentsPersistence();
   const runtime = createRuntime();
@@ -203,6 +229,7 @@ test("document store persists commitLsn and reuses it as minLsn on the next sync
     encapsulationKeyPair,
     "root-container",
     {
+      commitLsnForSyncCount: (syncCount) => `0/${syncCount * 10}`,
       syncCalls: syncDocumentCalls,
     },
   );
@@ -210,17 +237,20 @@ test("document store persists commitLsn and reuses it as minLsn on the next sync
   store.updateRuntime(runtime);
 
   await waitForCondition(
-    () => store.getSnapshot().ready,
-    "Document sync store did not become ready.",
+    () =>
+      syncDocumentCalls.length === 1 &&
+      persistence.getState().document?.lastCommitLsn === "0/10" &&
+      !store.getSnapshot().syncing,
+    "Untouched store did not settle its initial create flush.",
   );
 
   store.setText("hello");
 
   await waitForCondition(
     () =>
-      syncDocumentCalls.length === 1 &&
+      syncDocumentCalls.length === 2 &&
       persistence.getState().pendingUpdates.length === 0 &&
-      persistence.getState().document?.lastCommitLsn === "0/10",
+      persistence.getState().document?.lastCommitLsn === "0/20",
     "Initial note document sync did not persist the returned commitLsn.",
   );
 
@@ -228,19 +258,23 @@ test("document store persists commitLsn and reuses it as minLsn on the next sync
 
   await waitForCondition(
     () =>
-      syncDocumentCalls.length === 2 &&
+      syncDocumentCalls.length === 3 &&
       persistence.getState().pendingUpdates.length === 0 &&
-      persistence.getState().document?.lastCommitLsn === "0/20",
+      persistence.getState().document?.lastCommitLsn === "0/30",
     "Follow-up note sync did not reuse and refresh the persisted commitLsn.",
   );
 
   expect(syncDocumentCalls).toEqual([
     {
       minLsn: null,
-      outgoingUpdateCount: 1,
+      outgoingUpdateCount: 0,
     },
     {
       minLsn: "0/10",
+      outgoingUpdateCount: 1,
+    },
+    {
+      minLsn: "0/20",
       outgoingUpdateCount: 1,
     },
   ]);
@@ -257,6 +291,7 @@ test("document store skips clean read-only syncs until a remote update event arr
     encapsulationKeyPair,
     "root-container",
     {
+      commitLsnForSyncCount: (syncCount) => `0/${syncCount * 10}`,
       syncCalls: syncDocumentCalls,
     },
   );
@@ -264,17 +299,20 @@ test("document store skips clean read-only syncs until a remote update event arr
   store.updateRuntime(runtime);
 
   await waitForCondition(
-    () => store.getSnapshot().ready,
-    "Clean sync store did not become ready.",
+    () =>
+      syncDocumentCalls.length === 1 &&
+      persistence.getState().document?.lastCommitLsn === "0/10" &&
+      !store.getSnapshot().syncing,
+    "Untouched store did not settle its initial create flush.",
   );
 
   store.setText("hello");
 
   await waitForCondition(
     () =>
-      syncDocumentCalls.length === 1 &&
+      syncDocumentCalls.length === 2 &&
       persistence.getState().pendingUpdates.length === 0 &&
-      persistence.getState().document?.lastCommitLsn === "0/10" &&
+      persistence.getState().document?.lastCommitLsn === "0/20" &&
       !store.getSnapshot().syncing,
     "Initial clean-sync document write did not settle.",
   );
@@ -287,7 +325,7 @@ test("document store skips clean read-only syncs until a remote update event arr
     },
   );
 
-  expect(syncDocumentCalls).toHaveLength(1);
+  expect(syncDocumentCalls).toHaveLength(2);
 
   const remoteDocumentId = store.getSnapshot().documentId;
   expect(remoteDocumentId).toBeString();
@@ -307,8 +345,8 @@ test("document store skips clean read-only syncs until a remote update event arr
 
   await waitForCondition(
     () =>
-      syncDocumentCalls.length === 2 &&
-      persistence.getState().document?.lastCommitLsn === "0/20" &&
+      syncDocumentCalls.length === 3 &&
+      persistence.getState().document?.lastCommitLsn === "0/30" &&
       !store.getSnapshot().syncing,
     "Remote update event did not trigger a read-only document sync.",
   );
@@ -316,10 +354,14 @@ test("document store skips clean read-only syncs until a remote update event arr
   expect(syncDocumentCalls).toEqual([
     {
       minLsn: null,
-      outgoingUpdateCount: 1,
+      outgoingUpdateCount: 0,
     },
     {
       minLsn: "0/10",
+      outgoingUpdateCount: 1,
+    },
+    {
+      minLsn: "0/20",
       outgoingUpdateCount: 0,
     },
   ]);
@@ -336,6 +378,7 @@ test("document store forced remote sync pulls a clean remote document without an
     encapsulationKeyPair,
     "root-container",
     {
+      commitLsnForSyncCount: (syncCount) => `0/${syncCount * 10}`,
       syncCalls: syncDocumentCalls,
     },
   );
@@ -343,17 +386,20 @@ test("document store forced remote sync pulls a clean remote document without an
   store.updateRuntime(runtime);
 
   await waitForCondition(
-    () => store.getSnapshot().ready,
-    "Forced clean sync store did not become ready.",
+    () =>
+      syncDocumentCalls.length === 1 &&
+      persistence.getState().document?.lastCommitLsn === "0/10" &&
+      !store.getSnapshot().syncing,
+    "Untouched store did not settle its initial create flush.",
   );
 
   store.setText("hello");
 
   await waitForCondition(
     () =>
-      syncDocumentCalls.length === 1 &&
+      syncDocumentCalls.length === 2 &&
       persistence.getState().pendingUpdates.length === 0 &&
-      persistence.getState().document?.lastCommitLsn === "0/10" &&
+      persistence.getState().document?.lastCommitLsn === "0/20" &&
       !store.getSnapshot().syncing,
     "Initial forced-clean-sync document write did not settle.",
   );
@@ -362,8 +408,8 @@ test("document store forced remote sync pulls a clean remote document without an
 
   await waitForCondition(
     () =>
-      syncDocumentCalls.length === 2 &&
-      persistence.getState().document?.lastCommitLsn === "0/20" &&
+      syncDocumentCalls.length === 3 &&
+      persistence.getState().document?.lastCommitLsn === "0/30" &&
       !store.getSnapshot().syncing,
     "Forced remote sync did not perform a clean read-only document pull.",
   );
@@ -371,10 +417,14 @@ test("document store forced remote sync pulls a clean remote document without an
   expect(syncDocumentCalls).toEqual([
     {
       minLsn: null,
-      outgoingUpdateCount: 1,
+      outgoingUpdateCount: 0,
     },
     {
       minLsn: "0/10",
+      outgoingUpdateCount: 1,
+    },
+    {
+      minLsn: "0/20",
       outgoingUpdateCount: 0,
     },
   ]);
@@ -404,16 +454,19 @@ test("document store ignores update events for locally accepted writes", async (
   store.updateRuntime(runtime);
 
   await waitForCondition(
-    () => store.getSnapshot().ready,
-    "Local event sync store did not become ready.",
+    () =>
+      syncDocumentCalls.length === 1 &&
+      persistence.getState().document?.documentId != null &&
+      !store.getSnapshot().syncing,
+    "Untouched store did not settle its initial create flush.",
   );
 
   store.setText("hello");
 
   await waitForCondition(
     () =>
-      syncDocumentCalls.length === 1 &&
-      acceptedUpdateIdsBySync[0]?.length === 1 &&
+      syncDocumentCalls.length === 2 &&
+      acceptedUpdateIdsBySync[1]?.length === 1 &&
       persistence.getState().pendingUpdates.length === 0 &&
       !store.getSnapshot().syncing,
     "Initial local-event document write did not settle.",
@@ -429,7 +482,7 @@ test("document store ignores update events for locally accepted writes", async (
             documentId: remoteDocumentId,
             id: "event-1",
             type: "document_update_created",
-            updateIds: acceptedUpdateIdsBySync[0],
+            updateIds: acceptedUpdateIdsBySync[1],
           },
         ],
       },
@@ -443,5 +496,5 @@ test("document store ignores update events for locally accepted writes", async (
     },
   );
 
-  expect(syncDocumentCalls).toHaveLength(1);
+  expect(syncDocumentCalls).toHaveLength(2);
 });

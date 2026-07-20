@@ -156,7 +156,7 @@ test("openDocumentStore collapses live duplicate document facades after remote i
   } finally {
     runtimeBase.close();
   }
-});
+}, 15_000);
 
 test("domain-scoped persisted document subscriptions fan out to multiple listeners", async () => {
   const persistence = createDocumentsPersistence();

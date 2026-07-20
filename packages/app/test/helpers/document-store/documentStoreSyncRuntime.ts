@@ -188,7 +188,9 @@ export async function documentWorkflowRuntimePatch(input: {
       getContainerWriterProjection: () => getProjection(),
       getDocumentWriterProjection: async (documentId) => {
         input.documentWriterProjectionCalls?.push(documentId);
-        if (!storedDocument) {
+        // Serve only the document this mock actually stores; a real server
+        // never answers a projection request with a different document.
+        if (!storedDocument || storedDocument.id !== documentId) {
           return null;
         }
         const projection = {
