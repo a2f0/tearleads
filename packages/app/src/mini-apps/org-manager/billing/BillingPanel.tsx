@@ -71,7 +71,13 @@ export function BillingPanel({
     isOrgAdmin && billing.view && !billing.view.canSync,
   );
   const checkout = useDirectCheckoutFlow({
-    canSubscribe: actions.canSubscribe,
+    // Deliberately NOT `actions.canSubscribe`: that folds in
+    // `purchases.isAvailable`, which is false without a RevenueCat web key.
+    // This checkout runs against our own Stripe account and needs only the
+    // publishable key — which the hook already gates on via the capability's
+    // `isAvailable`. Reusing `canSubscribe` would silently hide the form on a
+    // build configured for Stripe alone.
+    canSubscribe: isOrgAdmin && userId !== null,
     enabled: checkoutEnabled,
     organizationId,
     onPaid: actions.markActivationPending,
@@ -115,7 +121,10 @@ export function BillingPanel({
       {checkoutEnabled ? (
         <BillingDirectCheckout
           checkout={checkout}
-          disabled={actions.busy !== null}
+          // `activationPending` too: after a payment the org still cannot
+          // sync until the webhook lands, so the Subscribe row would come
+          // back and a second checkout would 409 into a generic failure.
+          disabled={actions.busy !== null || actions.activationPending}
         />
       ) : null}
       {isOrgAdmin ? (

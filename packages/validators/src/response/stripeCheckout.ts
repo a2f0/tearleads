@@ -4,7 +4,6 @@ import {
   hasNonEmptyStringProperty,
   hasNullableNumberProperty,
   hasNullableStringProperty,
-  hasStringProperty,
 } from "../util";
 
 /**
@@ -50,7 +49,7 @@ function isStripeSyncOption(value: unknown): value is StripeSyncOptionResponse {
   return (
     isPlainObject(value) &&
     hasNonEmptyStringProperty(value, "priceId") &&
-    hasStringProperty(value, "productName") &&
+    hasNonEmptyStringProperty(value, "productName") &&
     hasNonEmptyStringProperty(value, "currency") &&
     hasNullableNumberProperty(value, "unitAmount") &&
     hasNullableStringProperty(value, "interval")

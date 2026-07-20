@@ -121,6 +121,12 @@ interface CheckoutRefs {
    * batch would both read the pre-render phase and charge the card twice.
    */
   readonly confirmingRef: React.RefObject<boolean>;
+  /**
+   * True from the moment `begin` fires until the element mounts or the
+   * attempt fails. `sessionRef` alone leaves the `starting` window open, so
+   * two clicks in one React batch would both reach the server.
+   */
+  readonly startingRef: React.RefObject<boolean>;
   readonly setPhase: (phase: DirectCheckoutPhase) => void;
   readonly setError: (error: string | null) => void;
 }
@@ -148,10 +154,13 @@ function useBeginCheckout(
     }
     // Re-entrancy guard: a second begin would bump the token and overwrite
     // sessionRef, stranding the previous element's iframe. The UI prevents
-    // this today; the hook must not depend on that.
-    if (refs.sessionRef.current) {
+    // this today; the hook must not depend on that. Both refs are needed —
+    // `sessionRef` covers a mounted element, `startingRef` the window before
+    // it mounts, where state has not re-rendered yet.
+    if (refs.sessionRef.current || refs.startingRef.current) {
       return;
     }
+    refs.startingRef.current = true;
     refs.setPhase({ kind: "starting" });
     refs.setError(null);
     refs.startTokenRef.current += 1;
@@ -169,6 +178,7 @@ function useBeginCheckout(
         }
         const host = refs.hostRef.current;
         if (!intent || !host) {
+          refs.startingRef.current = false;
           refs.setPhase({ kind: "idle" });
           refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
           return;
@@ -185,6 +195,7 @@ function useBeginCheckout(
           session.unmount();
           return;
         }
+        refs.startingRef.current = false;
         refs.sessionRef.current = session;
         refs.setPhase({ kind: "collecting" });
       } catch (mountError) {
@@ -194,6 +205,7 @@ function useBeginCheckout(
         if (refs.startTokenRef.current !== token) {
           return;
         }
+        refs.startingRef.current = false;
         refs.sessionRef.current = null;
         refs.setPhase({ kind: "idle" });
         refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
@@ -294,6 +306,7 @@ export function useDirectCheckoutFlow(input: {
   /** Bumped by every begin/teardown so a late mount can detect it lost. */
   const startTokenRef = useRef(0);
   const confirmingRef = useRef(false);
+  const startingRef = useRef(false);
   const [phase, setPhase] = useState<DirectCheckoutPhase>({ kind: "idle" });
   const [error, setError] = useState<string | null>(null);
   const available = capability.isAvailable;
@@ -302,6 +315,7 @@ export function useDirectCheckoutFlow(input: {
   const teardown = useCallback(() => {
     startTokenRef.current += 1;
     confirmingRef.current = false;
+    startingRef.current = false;
     sessionRef.current?.unmount();
     sessionRef.current = null;
   }, []);
@@ -326,6 +340,7 @@ export function useDirectCheckoutFlow(input: {
       sessionRef,
       startTokenRef,
       confirmingRef,
+      startingRef,
       setPhase,
       setError,
     }),

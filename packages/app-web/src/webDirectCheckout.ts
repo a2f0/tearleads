@@ -116,9 +116,17 @@ function createSession(
         // webhook has already recorded the outcome by the time they land.
         ...(returnUrl ? { confirmParams: { return_url: returnUrl } } : {}),
       });
-      // A confirm that resolves after the caller tore the element down must
-      // not be reported as a live success.
-      return unmounted ? { kind: "cancelled" } : toConfirmation(error);
+      const outcome = toConfirmation(error);
+      // An unmount racing a confirm normally means the buyer walked away, so
+      // report cancellation. But a confirm that already CHARGED the card is
+      // not cancellable — saying so would be a lie about money. Report the
+      // success; the caller's own staleness check may still drop it, which is
+      // safe because the webhook, not this return value, is what grants the
+      // entitlement.
+      if (unmounted && outcome.kind !== "succeeded") {
+        return { kind: "cancelled" };
+      }
+      return outcome;
     },
     unmount() {
       unmounted = true;

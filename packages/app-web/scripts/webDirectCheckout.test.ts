@@ -224,3 +224,22 @@ test("confirm omits the return url where there is no page to return to", async (
   const [input] = confirmInputs as [{ confirmParams?: unknown }];
   expect("confirmParams" in input).toBe(false);
 });
+
+test("a charge that lands during an unmount is reported, not swallowed", async () => {
+  // Reporting `cancelled` for a payment that actually succeeded would be a
+  // lie about money; the caller decides what to do with a late success.
+  const { stripe } = fakeStripe();
+  const capability = withKey(() =>
+    createWebDirectCheckout(() => Promise.resolve(stripe as never)),
+  );
+  const session = await capability.mount({
+    host: host(),
+    clientSecret: "pi_secret",
+    appearance: APPEARANCE,
+  });
+
+  const confirmed = session.confirm();
+  session.unmount();
+
+  expect(await confirmed).toEqual({ kind: "succeeded" });
+});
