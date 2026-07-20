@@ -66,6 +66,27 @@ test("environment tab reports build identity from the host config", async () => 
   expect(view.getByText("web")).toBeTruthy();
   expect(view.getByText("9.9.9")).toBeTruthy();
   expect(view.getByText("abc1234")).toBeTruthy();
+  // The native build number row is always present; with no reader on the web
+  // test host config it stays unknown rather than dropping the row.
+  expect(view.getByText(ENVIRONMENT_LABELS.buildNumber)).toBeTruthy();
+
+  view.unmount();
+});
+
+test("environment tab reports the native build number from the host config reader", async () => {
+  const view = renderPane({
+    hostConfig: createTestHostConfig().withOverrides({
+      buildInfo: TEST_BUILD_INFO,
+      readNativeBuildNumber: () => Promise.resolve("1042"),
+    }),
+    pinSystemMonitor: false,
+  });
+  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+  fireEvent.click(await view.findByRole("tab", { name: "Environment" }));
+
+  expect(view.getByText(ENVIRONMENT_LABELS.buildNumber)).toBeTruthy();
+  // The reader resolves after mount, so the row updates in place.
+  expect(await view.findByText("1042")).toBeTruthy();
 
   view.unmount();
 });

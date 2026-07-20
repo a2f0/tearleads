@@ -1,3 +1,4 @@
+import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { renderApp } from "app/client";
@@ -14,6 +15,16 @@ import { syncStatusBarWithTheme } from "./statusBar";
 function createCapacitorSQLiteRuntime() {
   const workerUrl = "./worker.js";
   return createSQLiteRuntime({ workerUrl });
+}
+
+// The native build number (Android versionCode / iOS CFBundleVersion) is stamped
+// into the native project by fastlane at release, not inlined into this bundle,
+// so it is read at runtime from @capacitor/app rather than injected as build
+// info. Only wired up under isNativePlatform(): App.getInfo() is unimplemented in
+// the browser dev shell, where the Environment tab falls back to "unknown".
+async function readNativeBuildNumber(): Promise<string> {
+  const { build } = await App.getInfo();
+  return build;
 }
 
 const elem = document.getElementById("root");
@@ -43,6 +54,9 @@ const hostConfig = createAppHostConfig({
   createPurchases: createCapacitorPurchases,
   createSQLiteRuntime: createCapacitorSQLiteRuntime,
   navigationMode: Capacitor.isNativePlatform() ? "routed" : undefined,
+  readNativeBuildNumber: Capacitor.isNativePlatform()
+    ? readNativeBuildNumber
+    : undefined,
   wsUrl,
 });
 

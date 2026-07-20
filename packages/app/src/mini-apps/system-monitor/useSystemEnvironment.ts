@@ -18,6 +18,7 @@ import {
   readTouchSupport,
   readUserAgent,
   useHighEntropyHints,
+  useNativeBuildNumber,
   useOsColorScheme,
   useReducedMotion,
   useStorageEstimateLabel,
@@ -34,6 +35,7 @@ export const ENVIRONMENT_LABELS = {
   os: "OS",
   platform: "Platform",
   appVersion: "App Version",
+  buildNumber: "Build Number",
   buildCommit: "Build Commit",
   appTheme: "App Theme",
   osColorScheme: "OS Color Scheme",
@@ -64,6 +66,7 @@ export function useSystemEnvironment(): ReadonlyArray<EnvironmentRow> {
   const reducedMotion = useReducedMotion();
   const viewport = useViewportLabel();
   const storage = useStorageEstimateLabel();
+  const buildNumber = useNativeBuildNumber(hostConfig.readNativeBuildNumber);
   const highEntropyHints = useHighEntropyHints();
 
   const buildInfo = hostConfig.buildInfo;
@@ -88,6 +91,11 @@ export function useSystemEnvironment(): ReadonlyArray<EnvironmentRow> {
         label: ENVIRONMENT_LABELS.appVersion,
         value: buildInfo?.version ?? UNKNOWN_ENVIRONMENT_VALUE,
       },
+      // The native build number (Android versionCode / iOS CFBundleVersion),
+      // distinct from App Version above: fastlane bumps it per store upload while
+      // the marketing version holds steady, so it is what pins a bug report to an
+      // exact build. Only the native shells can read it; elsewhere it is unknown.
+      { label: ENVIRONMENT_LABELS.buildNumber, value: buildNumber },
       {
         label: ENVIRONMENT_LABELS.buildCommit,
         value: buildInfo?.commit ?? UNKNOWN_ENVIRONMENT_VALUE,
@@ -118,6 +126,7 @@ export function useSystemEnvironment(): ReadonlyArray<EnvironmentRow> {
   }, [
     activeTheme,
     buildInfo,
+    buildNumber,
     osColorScheme,
     platformVersion,
     reducedMotion,

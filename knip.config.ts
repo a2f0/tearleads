@@ -13,7 +13,6 @@ const rootToolingWorkspace = {
 
 const capacitorNativePluginDependencies = [
   "@capacitor-community/sqlite",
-  "@capacitor/app",
   "@capacitor/filesystem",
   "@capacitor/ios",
   "@capacitor/keyboard",

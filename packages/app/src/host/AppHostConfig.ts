@@ -32,6 +32,17 @@ export type CreateNetworkStatusFn = () => NetworkStatusSource;
  */
 type CreateDirectCheckoutFn = () => DirectCheckoutCapability;
 
+/**
+ * Reads the native application's build number at runtime — Android's
+ * `versionCode`, iOS's `CFBundleVersion`. Unlike {@link AppBuildInfo}'s
+ * `version` and `commit`, the build number is not a build-time value a bundler
+ * can inline: the release tooling (fastlane) stamps it into the native project,
+ * so only the native shells know it and only at runtime. Capacitor supplies one
+ * backed by `@capacitor/app`'s `App.getInfo()`; when omitted (web, electrobun,
+ * tests) the Environment tab reports the build number as unknown.
+ */
+export type ReadNativeBuildNumberFn = () => Promise<string>;
+
 export type PaneRuntimePolicy = "shared" | "isolated";
 
 type AppBuildTarget = "capacitor" | "electrobun" | "web";
@@ -200,6 +211,7 @@ export interface AppHostConfigOptions {
   readonly localIdentityNamespace?: string | undefined;
   readonly navigationMode?: AppNavigationMode | undefined;
   readonly profile?: AppHostProfile | undefined;
+  readonly readNativeBuildNumber?: ReadNativeBuildNumberFn | undefined;
   readonly storagePersistence?: StoragePersistencePolicy | undefined;
   readonly wsUrl: string;
 }
@@ -243,6 +255,12 @@ export class AppHostConfig {
      * source (see {@link CreateNetworkStatusFn}).
      */
     readonly createNetworkStatus?: CreateNetworkStatusFn | undefined,
+    /**
+     * Reads the native build number (Android `versionCode` / iOS
+     * `CFBundleVersion`) for the Environment tab. Only native shells inject one
+     * (see {@link ReadNativeBuildNumberFn}); elsewhere the row stays unknown.
+     */
+    readonly readNativeBuildNumber?: ReadNativeBuildNumberFn | undefined,
   ) {}
 
   /**
@@ -267,6 +285,7 @@ export class AppHostConfig {
       buildInfo: this.buildInfo,
       createDirectCheckout: this.createDirectCheckout,
       createNetworkStatus: this.createNetworkStatus,
+      readNativeBuildNumber: this.readNativeBuildNumber,
       ...overrides,
     });
   }
@@ -290,6 +309,7 @@ export function createAppHostConfig(
     options.buildInfo,
     options.createDirectCheckout,
     options.createNetworkStatus,
+    options.readNativeBuildNumber,
   );
 }
 
