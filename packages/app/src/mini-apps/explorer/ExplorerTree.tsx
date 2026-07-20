@@ -32,11 +32,12 @@ interface ExplorerSidebarContentProps extends ExplorerSidebarRowProps {
   blankContextMenuContainerId: string | null;
   // True when the SQLite boot failed; surfaces the error instead of "Loading...".
   databaseError: boolean;
-  // Monotonic link-projection version. Each increment triggers at most one
-  // DESTRUCTIVE (preserveRows:false) sidebar reload pass across the expanded
-  // containers (see useExplorerSidebarWindows). Stamped on the viewport purely so
-  // an integration canary can bound it after bootstrap settles — the cold-bootstrap
-  // flicker was this counter climbing ~once per sync tick. Not read by runtime code.
+  // Monotonic link-projection version. Increments schedule a coalesced,
+  // non-destructive sidebar reload pass across the expanded containers (see
+  // useExplorerSidebarWindows — stale rows stay rendered and swap in place).
+  // Stamped on the viewport purely so an integration canary can bound it after
+  // bootstrap settles — the cold-bootstrap flicker was this counter climbing
+  // ~once per sync tick. Not read by runtime code.
   documentLinkProjectionVersion: number;
   frameRef: (nextFrame: HTMLDivElement | null) => void;
   nodesLength: number;

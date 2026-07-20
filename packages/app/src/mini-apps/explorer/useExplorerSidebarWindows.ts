@@ -20,9 +20,14 @@ import {
   listExpandedExplorerTreeContainerIds,
 } from "./explorerTreeModel";
 
-interface RequestDocumentWindowOptions {
-  preserveRows?: boolean | undefined;
-}
+// Minimum spacing between link-refresh reload passes. During a bulk import the
+// target container's link-projection version bumps once per imported batch;
+// firing a reload pass per bump would stack window queries behind the import's
+// writes on the shared SQLite worker. Trailing throttle: the first bump arms
+// the timer, further bumps within the window are absorbed, and the pass that
+// fires reads the latest state — so the final reload always observes the
+// settled membership.
+const EXPLORER_SIDEBAR_RELOAD_COALESCE_MS = 150;
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The sidebar window hook owns paging, reload, and pruning state for a single UI surface.
 export function useExplorerSidebarDocumentWindows(params: {
@@ -69,23 +74,22 @@ export function useExplorerSidebarDocumentWindows(params: {
   );
 
   const requestDocumentWindow = useCallback(
-    (
-      containerId: string,
-      offset: number,
-      limit: number,
-      options: RequestDocumentWindowOptions = {},
-    ) => {
+    (containerId: string, offset: number, limit: number) => {
       const generation = loadGenerationRef.current;
       const loadKey = `${generation}\u0000${containerId}\u0000${offset}\u0000${limit}`;
       if (pendingWindowLoadKeysRef.current.has(loadKey)) {
         return;
       }
-      const preserveRows = options.preserveRows ?? true;
 
       pendingWindowLoadKeysRef.current.add(loadKey);
       if (limit > 0) {
         latestWindowLoadKeyByContainerIdRef.current.set(containerId, loadKey);
       }
+      // Reloads are never destructive: the stale rows stay rendered while the
+      // replacement window loads and are swapped in place when it lands, so a
+      // link refresh during a bulk import cannot flash a populated container
+      // back to an empty/loading state. The cost is that a just-unlinked row
+      // stays visible for the reload's flight time.
       setDocumentWindowsByContainerId((currentWindows) => {
         const currentWindow = currentWindows.get(containerId);
         const nextWindows = new Map(currentWindows);
@@ -93,10 +97,8 @@ export function useExplorerSidebarDocumentWindows(params: {
           error: null,
           isLoading: true,
           offset: currentWindow?.offset ?? offset,
-          rows: preserveRows ? (currentWindow?.rows ?? []) : [],
-          showLoadingStatus:
-            preserveRows && currentWindow?.showLoadingStatus !== false,
-          totalCount: preserveRows ? (currentWindow?.totalCount ?? null) : null,
+          rows: currentWindow?.rows ?? [],
+          totalCount: currentWindow?.totalCount ?? null,
         });
         return nextWindows;
       });
@@ -129,7 +131,6 @@ export function useExplorerSidebarDocumentWindows(params: {
               offset: limit === 0 ? (currentWindow?.offset ?? 0) : offset,
               rows:
                 limit === 0 ? (currentWindow?.rows ?? []) : documentWindow.rows,
-              showLoadingStatus: true,
               totalCount: documentWindow.totalCount,
             });
             return nextWindows;
@@ -161,7 +162,6 @@ export function useExplorerSidebarDocumentWindows(params: {
               isLoading: false,
               offset: currentWindow?.offset ?? offset,
               rows: currentWindow?.rows ?? [],
-              showLoadingStatus: true,
               totalCount: currentWindow?.totalCount ?? null,
             });
             return nextWindows;
@@ -180,47 +180,58 @@ export function useExplorerSidebarDocumentWindows(params: {
     );
   }, [documentQueries]);
 
-  const lastVersionByContainerIdRef = useRef<ReadonlyMap<string, number>>(
-    documentLinkProjectionVersionByContainerId,
-  );
-  useEffect(() => {
-    if (!ready) {
-      lastVersionByContainerIdRef.current =
-        documentLinkProjectionVersionByContainerId;
+  const readyRef = useRef(ready);
+  readyRef.current = ready;
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const runReloadPass = useCallback(() => {
+    reloadTimerRef.current = null;
+    if (!readyRef.current) {
       return;
     }
-
-    const previousVersions = lastVersionByContainerIdRef.current;
-    lastVersionByContainerIdRef.current =
-      documentLinkProjectionVersionByContainerId;
     loadGenerationRef.current += 1;
     latestWindowLoadKeyByContainerIdRef.current.clear();
     pendingWindowLoadKeysRef.current.clear();
     for (const containerId of expandedContainerIdsRef.current) {
       const currentWindow =
         documentWindowsByContainerIdRef.current.get(containerId);
-      // preserveRows:false is the DESTRUCTIVE reload (blanks rows to a loading
-      // state). Fire it only for containers whose OWN membership version changed:
-      // a bump for one org's container must not blank another org's expanded rows
-      // (the cross-org flicker), and a content-only refresh (documentListRevision,
-      // which leaves every version untouched) must not blank at all. The
-      // sidebarReloadBudget canary bounds these destructive reloads.
-      const containerMembershipChanged =
-        (documentLinkProjectionVersionByContainerId.get(containerId) ?? 0) !==
-        (previousVersions.get(containerId) ?? 0);
       requestDocumentWindow(
         containerId,
         currentWindow?.offset ?? 0,
         currentWindow?.rows.length ?? 0,
-        { preserveRows: !containerMembershipChanged },
       );
     }
+  }, [requestDocumentWindow]);
+  useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
+    // Trailing throttle, not debounce: continuous bumps during a long import
+    // must still refresh once per window rather than starving until the churn
+    // stops. An armed timer absorbs further bumps; the pass reads the latest
+    // expanded/window state from refs when it fires.
+    if (reloadTimerRef.current !== null) {
+      return;
+    }
+    reloadTimerRef.current = setTimeout(
+      runReloadPass,
+      EXPLORER_SIDEBAR_RELOAD_COALESCE_MS,
+    );
   }, [
     documentLinkProjectionVersionByContainerId,
     documentListRevision,
-    requestDocumentWindow,
     ready,
+    runReloadPass,
   ]);
+  useEffect(
+    () => () => {
+      if (reloadTimerRef.current !== null) {
+        clearTimeout(reloadTimerRef.current);
+        reloadTimerRef.current = null;
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!ready) {

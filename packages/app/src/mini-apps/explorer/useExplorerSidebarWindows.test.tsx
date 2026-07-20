@@ -59,7 +59,10 @@ function documentRow(
 
 afterEach(() => cleanup());
 
-test("sidebar document link refresh hides stale rows without loading status", async () => {
+// A link refresh must never blank a populated container: the stale rows stay
+// rendered while the replacement window loads and swap in place when it lands.
+// A burst of membership bumps (bulk import) coalesces into one reload pass.
+test("sidebar link refresh keeps stale rows visible until the reload lands", async () => {
   const reload = createDeferred<{
     rows: ReadonlyArray<ContainerDocumentSidebarRow>;
     totalCount: number;
@@ -120,6 +123,8 @@ test("sidebar document link refresh hides stale rows without loading status", as
     ).toEqual(["contact-1"]);
   });
 
+  // Two rapid membership bumps: the trailing throttle coalesces them into one
+  // reload pass, so exactly one further query fires.
   view.rerender({
     documentListRevision: 0,
     documentLinkProjectionVersionByContainerId: new Map([
@@ -127,16 +132,31 @@ test("sidebar document link refresh hides stale rows without loading status", as
     ]),
     ready: true,
   });
+  view.rerender({
+    documentListRevision: 0,
+    documentLinkProjectionVersionByContainerId: new Map([
+      [CONTACTS_CONTAINER_ID, 2],
+    ]),
+    ready: true,
+  });
 
   await waitFor(() => {
-    const window = view.result.current.documentWindowsByContainerId.get(
-      CONTACTS_CONTAINER_ID,
-    );
-    expect(window?.isLoading).toBe(true);
-    expect(window?.rows).toEqual([]);
-    expect(window?.showLoadingStatus).toBe(false);
-    expect(window?.totalCount).toBeNull();
+    expect(calls.length).toBe(2);
   });
+  expect(calls[1]).toEqual({
+    containerId: CONTACTS_CONTAINER_ID,
+    limit: 1,
+    offset: 0,
+  });
+
+  // While the reload is in flight the stale row stays rendered — no blank, no
+  // placeholder flash.
+  const inFlightWindow = view.result.current.documentWindowsByContainerId.get(
+    CONTACTS_CONTAINER_ID,
+  );
+  expect(inFlightWindow?.isLoading).toBe(true);
+  expect(inFlightWindow?.rows.map((row) => row.localId)).toEqual(["contact-1"]);
+  expect(inFlightWindow?.totalCount).toBe(1);
   const sections = buildExplorerSidebarSections({
     collapsedIds: new Set(),
     documentWindowsByContainerId:
@@ -151,47 +171,10 @@ test("sidebar document link refresh hides stale rows without loading status", as
     offset: 0,
     sections,
   });
-  expect(sidebarRows.map((row) => row.kind)).toEqual(["container"]);
-  expect(calls).toEqual([
-    { containerId: CONTACTS_CONTAINER_ID, limit: 1, offset: 0 },
-    { containerId: CONTACTS_CONTAINER_ID, limit: 1, offset: 0 },
-  ]);
+  expect(sidebarRows.map((row) => row.kind)).toEqual(["container", "document"]);
 
-  view.rerender({
-    documentListRevision: 1,
-    documentLinkProjectionVersionByContainerId: new Map([
-      [CONTACTS_CONTAINER_ID, 1],
-    ]),
-    ready: true,
-  });
-
-  await waitFor(() => {
-    expect(calls).toEqual([
-      { containerId: CONTACTS_CONTAINER_ID, limit: 1, offset: 0 },
-      { containerId: CONTACTS_CONTAINER_ID, limit: 1, offset: 0 },
-      { containerId: CONTACTS_CONTAINER_ID, limit: 0, offset: 0 },
-    ]);
-  });
-  const refreshSections = buildExplorerSidebarSections({
-    collapsedIds: new Set(),
-    documentWindowsByContainerId:
-      view.result.current.documentWindowsByContainerId,
-    entries: treeEntries,
-    organizationNamesById: new Map(),
-    primaryOrganizationId: null,
-  });
-  const refreshSidebarRows = getExplorerSidebarRowsInRange({
-    collapsedIds: new Set(),
-    limit: 10,
-    offset: 0,
-    sections: refreshSections,
-  });
-  expect(
-    view.result.current.documentWindowsByContainerId.get(CONTACTS_CONTAINER_ID)
-      ?.showLoadingStatus,
-  ).toBe(false);
-  expect(refreshSidebarRows.map((row) => row.kind)).toEqual(["container"]);
-
+  // The swap lands in place: the fresh (now empty) membership replaces the
+  // stale rows only when the reload resolves.
   act(() => {
     reload.resolve({ rows: [], totalCount: 0 });
   });
@@ -206,11 +189,10 @@ test("sidebar document link refresh hides stale rows without loading status", as
   });
 });
 
-// The cross-org flicker: two containers from different orgs are expanded at once.
-// A membership change in ONE org's container bumps only that container's version,
-// so the sidebar must blank only that container and leave the other org's rows
-// alone. Before the per-container gate, any bump blanked EVERY expanded container.
-test("a per-container version bump blanks only that container, not another org's", async () => {
+// The cross-org flicker, upgraded: reload passes are non-destructive for EVERY
+// container, so a membership change in one org's container leaves both that
+// container's and the other org's rows on screen throughout the refresh.
+test("a version bump never blanks any expanded container's rows", async () => {
   const queries = {
     listContainerDocumentSidebarWindow: async (input: {
       containerId: string;
@@ -268,21 +250,24 @@ test("a per-container version bump blanks only that container, not another org's
     view.rerender({ versions: new Map([["custom", 1]]) });
   });
 
-  // Synchronously after the reload effect: the custom container blanked (its
-  // membership changed) but the personal container kept its rows — no cross-org
-  // flicker. (Both then re-query and refill, so assert before awaiting.)
+  // Synchronously after the bump: nothing blanked — both containers keep their
+  // rows while the coalesced reload pass is pending.
   expect(
     view.result.current.documentWindowsByContainerId.get("custom")?.rows,
-  ).toEqual([]);
+  ).toHaveLength(1);
   expect(
     view.result.current.documentWindowsByContainerId.get("personal")?.rows,
   ).toHaveLength(1);
 
-  // Let the custom container's re-query settle so its state update lands inside
-  // act(): it refills to one row, confirming the blank was a transient reload.
+  // After the throttled pass fires and settles, the rows are still present:
+  // the refresh swapped in place rather than blanking and refilling.
   await waitFor(() => {
-    expect(
-      view.result.current.documentWindowsByContainerId.get("custom")?.rows,
-    ).toHaveLength(1);
+    const custom =
+      view.result.current.documentWindowsByContainerId.get("custom");
+    expect(custom?.isLoading).toBe(false);
+    expect(custom?.rows).toHaveLength(1);
   });
+  expect(
+    view.result.current.documentWindowsByContainerId.get("personal")?.rows,
+  ).toHaveLength(1);
 });
