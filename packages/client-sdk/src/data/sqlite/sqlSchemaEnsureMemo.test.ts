@@ -9,6 +9,10 @@ import {
 } from "./sqlExec";
 import { ensureSqlColumns, ensureSqlTables } from "./sqlTableSchema";
 
+// The spy is a distinct function identity, so the memo (and mutation lock)
+// under test keys on the spy itself rather than the wrapped executor. That is
+// deliberate: it gives each test an isolated memo universe. Unwrapping the spy
+// would silently change what these assertions exercise.
 function createSpyExecSql(execSql: ExecSql): {
   calls: string[];
   spyExecSql: ExecSql;

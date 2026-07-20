@@ -83,6 +83,9 @@ export function markCompletedConnectionOnce(
   completedConnectionOnceKeys.set(canonical, keys);
 }
 
+// Callers must not invoke this inside an explicit SQL transaction that can
+// roll back: completion is recorded as soon as `run` resolves, so a later
+// ROLLBACK would leave the memo asserting schema that no longer exists.
 export async function runOncePerConnection(
   execSql: ExecSql,
   key: string,
