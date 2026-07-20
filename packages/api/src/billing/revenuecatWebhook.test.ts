@@ -220,7 +220,7 @@ test("Stripe-store events resolve their org from the subscription binding", asyn
   ).toEqual({ kind: "none" });
 });
 
-test("a failed or unconfigured Stripe lookup reads as an error, not a fallback", async () => {
+test("a failed Stripe lookup defers; an unconfigured one falls back", async () => {
   // Falling back to the mutable subscriber attribute could attribute a
   // multi-org buyer's event to the wrong organization AND claim the event id,
   // making the misattribution permanent — the caller defers instead.
@@ -237,12 +237,15 @@ test("a failed or unconfigured Stripe lookup reads as an error, not a fallback",
       },
     ),
   ).toEqual({ kind: "error" });
+  // Unconfigured is different from failed: with no STRIPE_SECRET_KEY this
+  // deployment's checkout cannot have created bound subscriptions, so the
+  // event falls back to ordinary (pre-checkout) resolution.
   expect(
     await resolveStripeStoreOrganizationId(
       makeEvent({ store: "STRIPE", original_transaction_id: "sub_1" }),
       { env: {}, fetchImpl: failingFetch },
     ),
-  ).toEqual({ kind: "error" });
+  ).toEqual({ kind: "none" });
 });
 
 test("Stripe-store grants fall back to transaction_id for the subscription", () => {

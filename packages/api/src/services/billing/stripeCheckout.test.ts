@@ -259,3 +259,22 @@ test("a Stripe-side live subscription makes checkout a 409", async () => {
     ),
   ).rejects.toMatchObject({ status: 409 });
 });
+
+test("a 404 subscription on the Stripe webhook is acknowledged as ignored", async () => {
+  const urls: string[] = [];
+  const notFoundFetch = (async (input: RequestInfo | URL) => {
+    urls.push(String(input));
+    return new Response("{}", { status: 404 });
+  }) as typeof fetch;
+  const outcome = await processStripeWebhook(signedDelivery(PAID_EVENT), {
+    stripe: { env: STRIPE_ENV, fetchImpl: notFoundFetch },
+    revenueCat: { env: REVENUECAT_ENV },
+  });
+  // Redelivery cannot make an unfetchable subscription appear; acknowledge
+  // instead of looping Stripe's retries forever.
+  expect(outcome).toEqual({
+    status: "ignored",
+    reason: "Subscription not found",
+  });
+  expect(urls).toHaveLength(1);
+});

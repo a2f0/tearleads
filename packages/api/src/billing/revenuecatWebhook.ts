@@ -166,8 +166,13 @@ export async function resolveStripeStoreOrganizationId(
   try {
     const binding = await getSubscriptionBinding(subscriptionId, deps);
     if (binding === null) {
-      // Unconfigured lookup: the binding exists but cannot be read now.
-      return { kind: "error" };
+      // Unconfigured lookup (no STRIPE_SECRET_KEY): our checkout cannot have
+      // created any bound subscriptions in this deployment, so Stripe-store
+      // events here are from a pre-existing integration and ordinary
+      // resolution is the pre-PR behavior. (Removing the key while direct-
+      // checkout subscriptions exist is an operator error: their renewals
+      // would fall back to the mutable attribute until it is restored.)
+      return { kind: "none" };
     }
     return binding.organizationId && isUuidV4String(binding.organizationId)
       ? { kind: "resolved", organizationId: binding.organizationId }

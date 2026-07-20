@@ -12,6 +12,7 @@ import {
   getSubscriptionBinding,
   isStripeCheckoutConfigured,
   type StripeApiDeps,
+  StripeApiError,
   type StripeCheckoutIntent,
   type StripeSyncOption,
 } from "../../billing/stripeApi";
@@ -203,10 +204,18 @@ export async function processStripeWebhook(
 
   // Read the binding from Stripe rather than trusting the event body: the
   // subscription's metadata is what OUR server wrote at checkout time.
-  const binding = await getSubscriptionBinding(
-    subscriptionId,
-    deps.stripe ?? {},
-  );
+  let binding: Awaited<ReturnType<typeof getSubscriptionBinding>>;
+  try {
+    binding = await getSubscriptionBinding(subscriptionId, deps.stripe ?? {});
+  } catch (error) {
+    // A definitive 404 will never become fetchable: acknowledge it instead
+    // of making Stripe redeliver forever (mirrors the RevenueCat-side
+    // resolution). Transient failures still propagate for redelivery.
+    if (error instanceof StripeApiError && error.status === 404) {
+      return { status: "ignored", reason: "Subscription not found" };
+    }
+    throw error;
+  }
   if (
     !binding?.userId ||
     !binding.organizationId ||

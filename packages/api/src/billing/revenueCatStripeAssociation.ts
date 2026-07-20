@@ -14,7 +14,11 @@
  * 2. Post the receipt: `fetch_token` is the Stripe subscription id.
  *
  * Both calls are idempotent, so a retried Stripe webhook delivery can safely
- * run the association again.
+ * run the association again. Note the attribute write is customer-level: a
+ * replayed delivery re-stamps `orgId` with a fresh timestamp, which is
+ * harmless for Stripe-store events (the immutable subscription binding wins
+ * at resolution time) but is why that binding — not the attribute — is the
+ * authoritative source for this store.
  */
 
 /** RevenueCat v1 secret API key (`sk_…`), used for the attributes call. */
