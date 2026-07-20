@@ -200,6 +200,15 @@ own theme tokens.
   the entitlement through the same webhook path a lapsed renewal takes — which
   is why the client refreshes the billing snapshot rather than assuming
   `canSync` changed.
+  - **Resolving the `sub_…` to cancel** (and the Billing Portal, if wired):
+    both search Stripe by the org's `orgId` metadata (`findLiveOrgSubscription`)
+    rather than reading the billing row's `providerSubscriptionId`. That column
+    is written only by the RevenueCat webhook, and for a Stripe purchase
+    RevenueCat reports the subscription **item** id (`si_…`), never the `sub_…`
+    that Stripe's cancel/portal APIs need. Searching Stripe is authoritative and
+    self-heals subscriptions bought before this resolver existed. The `orgId`
+    match is re-checked on the result so a pooled customer can never leak
+    another org's billing.
 - **Default flow**: where the direct checkout can run (web with a publishable
   key), it *replaces* the RevenueCat subscribe list rather than rendering
   alongside it — `BillingPanel` gates `purchaseAvailable` on

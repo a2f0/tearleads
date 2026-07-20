@@ -195,73 +195,72 @@ test("a missing webhook secret fails closed", async () => {
   expect(outcome).toEqual({ status: "unconfigured" });
 });
 
-test("the portal refuses a subscription bound to another org", async () => {
+test("the portal ignores a subscription whose metadata names another org", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
-  await db
-    .update(organizationBilling)
-    .set({ providerSubscriptionId: "sub_org" })
-    .where(eq(organizationBilling.organizationId, organizationId));
-
   const stripeEnv = {
     STRIPE_SECRET_KEY: "sk_test",
     STRIPE_SYNC_PRICE_ID: "price_sync",
   };
-  const bindingFetch = (orgId: string) =>
-    (async (_input: RequestInfo | URL, _init?: RequestInit) =>
-      new Response(
-        JSON.stringify({
-          id: "sub_org",
-          status: "active",
-          customer: "cus_org",
-          metadata: { userId: admin.userId, orgId },
-        }),
-      )) as typeof fetch;
+  // The subscription is resolved by searching Stripe on our `orgId` metadata.
+  // A result whose metadata does NOT match must never yield a portal, so a
+  // pooled customer can't expose an unrelated organization's billing.
+  const searchFetch = (async (_input: RequestInfo | URL) =>
+    new Response(
+      JSON.stringify({
+        data: [
+          {
+            id: "sub_other",
+            status: "active",
+            customer: "cus_other",
+            metadata: {
+              userId: admin.userId,
+              orgId: "22222222-2222-4222-8222-222222222222",
+            },
+          },
+        ],
+      }),
+    )) as typeof fetch;
 
-  // A legacy/foreign subscription (bound to a different org) must not yield
-  // a portal: its pooled customer could expose unrelated organizations.
-  const mismatched = await createStripePortalUrl(
+  const url = await createStripePortalUrl(
     getDefaultApiServiceRuntime(),
     organizationId,
     admin.userId,
     "https://app.example/billing",
-    {
-      stripe: {
-        env: stripeEnv,
-        fetchImpl: bindingFetch("22222222-2222-4222-8222-222222222222"),
-      },
-    },
+    { stripe: { env: stripeEnv, fetchImpl: searchFetch } },
   );
-  expect(mismatched).toBeNull();
+  expect(url).toBeNull();
 });
 
-test("cancel schedules the period end for a subscription bound to the org", async () => {
+test("cancel schedules the period end for the org's live subscription", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
-  await db
-    .update(organizationBilling)
-    .set({ providerSubscriptionId: "sub_org" })
-    .where(eq(organizationBilling.organizationId, organizationId));
-
   const stripeEnv = {
     STRIPE_SECRET_KEY: "sk_test",
     STRIPE_SYNC_PRICE_ID: "price_sync",
   };
-  // First call reads the binding (must match THIS org), second performs the
-  // cancel and returns the scheduled end.
-  let call = 0;
-  const cancelFetch = (async (_input: RequestInfo | URL) => {
-    call += 1;
-    return call === 1
-      ? new Response(
-          JSON.stringify({
-            id: "sub_org",
-            status: "active",
-            customer: "cus_org",
-            metadata: { userId: admin.userId, orgId: organizationId },
-          }),
-        )
-      : new Response(JSON.stringify({ id: "sub_org", cancel_at: 1893456000 }));
+  // 1st call: search resolves the org's live sub. 2nd: the cancel POST.
+  const paths: string[] = [];
+  const cancelFetch = (async (input: RequestInfo | URL) => {
+    const path = String(input);
+    paths.push(path);
+    if (path.includes("/subscriptions/search")) {
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: "sub_org",
+              status: "active",
+              customer: "cus_org",
+              metadata: { userId: admin.userId, orgId: organizationId },
+            },
+          ],
+        }),
+      );
+    }
+    return new Response(
+      JSON.stringify({ id: "sub_org", cancel_at: 1893456000 }),
+    );
   }) as typeof fetch;
 
   const result = await cancelStripeSubscription(
@@ -271,35 +270,78 @@ test("cancel schedules the period end for a subscription bound to the org", asyn
     { stripe: { env: stripeEnv, fetchImpl: cancelFetch } },
   );
   expect(result).toEqual({ cancelAt: 1893456000 });
+  // The cancel POST targeted the sub_ id found by the search.
+  expect(paths.some((path) => path.endsWith("/subscriptions/sub_org"))).toBe(
+    true,
+  );
 });
 
-test("cancel refuses a subscription bound to another org", async () => {
+test("cancel resolves the Stripe sub_ even when the billing row holds an si_ id", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
+  // Reproduce the staging state: the RevenueCat webhook wrote the Stripe
+  // subscription ITEM id (si_…) to the billing row, not the sub_… . The old
+  // resolver read that column and 404'd; the search-based resolver recovers.
   await db
     .update(organizationBilling)
-    .set({ providerSubscriptionId: "sub_org" })
+    .set({ providerSubscriptionId: "si_item123", status: "active" })
     .where(eq(organizationBilling.organizationId, organizationId));
-
   const stripeEnv = {
     STRIPE_SECRET_KEY: "sk_test",
     STRIPE_SYNC_PRICE_ID: "price_sync",
   };
-  // The binding names a DIFFERENT org: cancelling would end an unrelated
-  // organization's billing on a pooled customer. Must never reach the cancel
-  // request — the same guard the portal enforces.
-  let cancelCalls = 0;
-  const foreignFetch = (async (_input: RequestInfo | URL) => {
-    cancelCalls += 1;
+  const fetchImpl = (async (input: RequestInfo | URL) => {
+    const path = String(input);
+    if (path.includes("/subscriptions/search")) {
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: "sub_real",
+              status: "active",
+              customer: "cus_real",
+              metadata: { userId: admin.userId, orgId: organizationId },
+            },
+          ],
+        }),
+      );
+    }
+    return new Response(
+      JSON.stringify({ id: "sub_real", cancel_at: 1893456000 }),
+    );
+  }) as typeof fetch;
+
+  const result = await cancelStripeSubscription(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+    { stripe: { env: stripeEnv, fetchImpl } },
+  );
+  expect(result).toEqual({ cancelAt: 1893456000 });
+});
+
+test("cancel does nothing when the org has only an incomplete subscription", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const stripeEnv = {
+    STRIPE_SECRET_KEY: "sk_test",
+    STRIPE_SYNC_PRICE_ID: "price_sync",
+  };
+  // An abandoned checkout leaves an `incomplete` subscription: nothing is
+  // billing, so there is nothing to cancel and no POST must fire.
+  const paths: string[] = [];
+  const incompleteFetch = (async (input: RequestInfo | URL) => {
+    paths.push(String(input));
     return new Response(
       JSON.stringify({
-        id: "sub_org",
-        status: "active",
-        customer: "cus_org",
-        metadata: {
-          userId: admin.userId,
-          orgId: "22222222-2222-4222-8222-222222222222",
-        },
+        data: [
+          {
+            id: "sub_incomplete",
+            status: "incomplete",
+            customer: "cus_1",
+            metadata: { userId: admin.userId, orgId: organizationId },
+          },
+        ],
       }),
     );
   }) as typeof fetch;
@@ -308,11 +350,12 @@ test("cancel refuses a subscription bound to another org", async () => {
     getDefaultApiServiceRuntime(),
     organizationId,
     admin.userId,
-    { stripe: { env: stripeEnv, fetchImpl: foreignFetch } },
+    { stripe: { env: stripeEnv, fetchImpl: incompleteFetch } },
   );
   expect(result).toBeNull();
-  // Exactly one request (the binding read); the cancel POST never fired.
-  expect(cancelCalls).toBe(1);
+  expect(paths.every((path) => path.includes("/subscriptions/search"))).toBe(
+    true,
+  );
 });
 
 test("a Stripe-side live subscription makes checkout a 409", async () => {

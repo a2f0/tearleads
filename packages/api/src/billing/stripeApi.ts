@@ -366,6 +366,62 @@ export async function createSyncSubscription(
 }
 
 /** Reads a subscription's metadata (`userId`/`orgId`), status, and customer. */
+/**
+ * Finds the organization's LIVE Stripe subscription by searching on the
+ * `orgId` metadata set at creation, returning the ids cancel/portal need.
+ *
+ * This is the authoritative resolver, NOT the billing row's
+ * `providerSubscriptionId`: that column is written only by the RevenueCat
+ * webhook, and for a Stripe purchase RevenueCat reports the subscription ITEM
+ * id (`si_…`), never the `sub_…` that Stripe's cancel and Billing Portal APIs
+ * require. Searching Stripe directly also self-heals subscriptions bought
+ * before this resolver existed.
+ *
+ * `incomplete` does not count — nothing is billing yet, so there is nothing to
+ * cancel or manage. Returns null when unconfigured or no live subscription
+ * belongs to the org.
+ */
+export async function findLiveOrgSubscription(
+  organizationId: string,
+  deps: StripeApiDeps = {},
+): Promise<{ subscriptionId: string; customerId: string } | null> {
+  const { fetchImpl, secretKey } = resolveDeps(deps);
+  if (!secretKey) {
+    return null;
+  }
+  const query = encodeURIComponent(
+    `metadata['orgId']:'${escapeSearchValue(organizationId)}'`,
+  );
+  const found = await stripeRequest({
+    fetchImpl,
+    secretKey,
+    method: "GET",
+    path: `/v1/subscriptions/search?query=${query}&limit=100`,
+    operation: "subscription search",
+  });
+  const items = prop(found, "data");
+  if (!Array.isArray(items)) {
+    return null;
+  }
+  for (const item of items) {
+    const status = readString(prop(item, "status"));
+    const subscriptionId = readString(prop(item, "id"));
+    if (!status || !subscriptionId || !LIVE_SUBSCRIPTION_STATUSES.has(status)) {
+      continue;
+    }
+    const customer = prop(item, "customer");
+    const customerId = readString(customer) ?? readString(prop(customer, "id"));
+    // The search already filters on our own `orgId` metadata; re-confirm it
+    // before returning a customer whose Billing Portal exposes ALL its
+    // subscriptions, so a pooled customer can never leak another org's billing.
+    const orgId = readString(prop(prop(item, "metadata"), "orgId"));
+    if (customerId && orgId === organizationId) {
+      return { subscriptionId, customerId };
+    }
+  }
+  return null;
+}
+
 export async function getSubscriptionBinding(
   subscriptionId: string,
   deps: StripeApiDeps = {},

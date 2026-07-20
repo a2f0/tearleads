@@ -8,6 +8,7 @@ import {
   cancelSubscriptionAtPeriodEnd,
   createPortalSession,
   createSyncSubscription,
+  findLiveOrgSubscription,
   findOrCreateCustomer,
   getStripeSyncOption,
   getSubscriptionBinding,
@@ -112,12 +113,13 @@ export async function createStripeCheckout(
 }
 
 /**
- * Resolves the Billing Portal URL for THE ORGANIZATION'S subscription: the
- * customer is read from the org's stored Stripe subscription, never from the
- * caller — a co-admin manages the org's subscription, and a multi-org
- * purchaser is never handed a portal spanning other organizations. Null when
- * unconfigured or when the org has no Stripe-store subscription (Web Billing
- * subscriptions use the RevenueCat management URL route instead).
+ * Resolves the Billing Portal URL for THE ORGANIZATION'S subscription. The
+ * customer is read from the org's live Stripe subscription (found by `orgId`
+ * metadata), never from the caller — a co-admin manages the org's
+ * subscription, and a multi-org purchaser is never handed a portal spanning
+ * other organizations. Null when unconfigured or when the org has no live
+ * Stripe subscription (a RevenueCat/store subscription uses the RevenueCat
+ * management URL route instead).
  */
 export async function createStripePortalUrl(
   runtime: ApiServiceRuntime,
@@ -126,30 +128,27 @@ export async function createStripePortalUrl(
   returnUrl: string,
   deps: StripeCheckoutServiceDeps = {},
 ): Promise<string | null> {
-  const { providerSubscriptionId } =
-    await runResolveOrgSubscriptionForAdminWorkflow(
-      runtime.db,
-      organizationId,
-      sessionUserId,
-    );
+  // Admin gate. The resolved id is intentionally ignored: the billing row's
+  // `providerSubscriptionId` is the RevenueCat-reported Stripe item id
+  // (`si_…`), not the `sub_…` the portal needs, so Stripe itself is the source
+  // of truth for the subscription (see findLiveOrgSubscription).
+  await runResolveOrgSubscriptionForAdminWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
+  );
   if (!isStripeCheckoutConfigured(deps.stripe ?? {})) {
     return null;
   }
-  if (!providerSubscriptionId?.startsWith("sub_")) {
-    return null;
-  }
-  const binding = await getSubscriptionBinding(
-    providerSubscriptionId,
+  const found = await findLiveOrgSubscription(
+    organizationId,
     deps.stripe ?? {},
   );
-  // The subscription must be explicitly bound to THIS org: a legacy or
-  // foreign subscription (no/other orgId metadata) may live on a pooled
-  // customer whose portal would expose unrelated organizations' billing.
-  if (!binding?.customerId || binding.organizationId !== organizationId) {
+  if (!found) {
     return null;
   }
   return createPortalSession(
-    { customerId: binding.customerId, returnUrl },
+    { customerId: found.customerId, returnUrl },
     deps.stripe ?? {},
   );
 }
@@ -157,11 +156,10 @@ export async function createStripePortalUrl(
 /**
  * Cancels the org's sync subscription at the end of the paid period.
  *
- * Guards mirror {@link createStripePortalUrl} exactly, and for the same
- * reason: the subscription must be resolvable for THIS admin and its `orgId`
- * metadata must name THIS org. A legacy or foreign subscription may sit on a
- * pooled customer, and cancelling it would end an unrelated organization's
- * billing.
+ * Guards mirror {@link createStripePortalUrl}: the caller must be an admin, and
+ * the subscription is resolved from Stripe by the org's `orgId` metadata — so a
+ * legacy or foreign subscription on a pooled customer can never be cancelled
+ * for the wrong organization.
  *
  * Returns null when Stripe is unconfigured or no cancellable subscription
  * belongs to the org — the caller renders no cancel affordance either way.
@@ -172,29 +170,25 @@ export async function cancelStripeSubscription(
   sessionUserId: string,
   deps: StripeCheckoutServiceDeps = {},
 ): Promise<{ cancelAt: number | null } | null> {
-  const { providerSubscriptionId } =
-    await runResolveOrgSubscriptionForAdminWorkflow(
-      runtime.db,
-      organizationId,
-      sessionUserId,
-    );
+  // Admin gate; the resolved id is intentionally ignored (see
+  // createStripePortalUrl and findLiveOrgSubscription — Stripe is the source
+  // of truth, not the RevenueCat-reported `si_…` in the billing row).
+  await runResolveOrgSubscriptionForAdminWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
+  );
   if (!isStripeCheckoutConfigured(deps.stripe ?? {})) {
     return null;
   }
-  if (!providerSubscriptionId?.startsWith("sub_")) {
-    return null;
-  }
-  const binding = await getSubscriptionBinding(
-    providerSubscriptionId,
+  const found = await findLiveOrgSubscription(
+    organizationId,
     deps.stripe ?? {},
   );
-  if (!binding?.customerId || binding.organizationId !== organizationId) {
+  if (!found) {
     return null;
   }
-  return cancelSubscriptionAtPeriodEnd(
-    providerSubscriptionId,
-    deps.stripe ?? {},
-  );
+  return cancelSubscriptionAtPeriodEnd(found.subscriptionId, deps.stripe ?? {});
 }
 
 type StripeWebhookOutcome =

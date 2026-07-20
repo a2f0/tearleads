@@ -3,6 +3,7 @@ import {
   cancelSubscriptionAtPeriodEnd,
   createPortalSession,
   createSyncSubscription,
+  findLiveOrgSubscription,
   findOrCreateCustomer,
   getStripeSyncOption,
   getSubscriptionBinding,
@@ -389,5 +390,84 @@ test("unconfigured environments read as null, never a network call", async () =>
       { env: {}, fetchImpl },
     ),
   ).toBeNull();
+  expect(requests).toHaveLength(0);
+});
+
+test("findLiveOrgSubscription returns the live sub_ and its customer", async () => {
+  const { fetchImpl, requests } = fakeFetch([
+    {
+      body: {
+        data: [
+          {
+            id: "sub_live",
+            status: "active",
+            customer: "cus_1",
+            metadata: { orgId: "org-1", userId: "user-1" },
+          },
+        ],
+      },
+    },
+  ]);
+
+  const found = await findLiveOrgSubscription("org-1", { env: ENV, fetchImpl });
+
+  expect(found).toEqual({ subscriptionId: "sub_live", customerId: "cus_1" });
+  // Resolved by searching on our own orgId metadata, not a stored id.
+  expect(requests[0]?.url).toContain("/v1/subscriptions/search");
+  expect(requests[0]?.url).toContain(encodeURIComponent("metadata['orgId']"));
+});
+
+test("findLiveOrgSubscription ignores an incomplete-only result", async () => {
+  // An abandoned checkout: nothing is billing, so there is nothing to manage.
+  const { fetchImpl } = fakeFetch([
+    {
+      body: {
+        data: [
+          {
+            id: "sub_incomplete",
+            status: "incomplete",
+            customer: "cus_1",
+            metadata: { orgId: "org-1" },
+          },
+        ],
+      },
+    },
+  ]);
+
+  expect(
+    await findLiveOrgSubscription("org-1", { env: ENV, fetchImpl }),
+  ).toBeNull();
+});
+
+test("findLiveOrgSubscription rejects a result whose metadata names another org", async () => {
+  // Defense-in-depth over the metadata search: never hand back a customer
+  // whose Billing Portal would expose an unrelated org's subscriptions.
+  const { fetchImpl } = fakeFetch([
+    {
+      body: {
+        data: [
+          {
+            id: "sub_other",
+            status: "active",
+            customer: "cus_other",
+            metadata: { orgId: "org-2" },
+          },
+        ],
+      },
+    },
+  ]);
+
+  expect(
+    await findLiveOrgSubscription("org-1", { env: ENV, fetchImpl }),
+  ).toBeNull();
+});
+
+test("findLiveOrgSubscription is null without a secret key", async () => {
+  const { fetchImpl, requests } = fakeFetch([]);
+
+  expect(
+    await findLiveOrgSubscription("org-1", { env: {}, fetchImpl }),
+  ).toBeNull();
+  // Never reached Stripe.
   expect(requests).toHaveLength(0);
 });

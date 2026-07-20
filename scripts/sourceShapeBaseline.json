@@ -73,6 +73,10 @@
       "lines": 541,
       "bytes": 15169
     },
+    "packages/api/src/billing/stripeApi.ts": {
+      "lines": 525,
+      "bytes": 19926
+    },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
       "bytes": 18015
