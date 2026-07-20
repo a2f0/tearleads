@@ -116,8 +116,8 @@ canonical bundle and re-emits from local CRDT state if needed.
 
 Prune and redirect safety rest on the baseline's declared coverage: the server
 clears or stops serving older ciphertext only when a baseline satisfying the
-authenticated replayable-checkpoint contract declares a coverage vector that
-dominates it. Under E2EE the server cannot open the baseline snapshot, so it
+authenticated v2 checkpoint contract (`isAuthenticatedReplayableBaseline`)
+declares a coverage vector that dominates it. Under E2EE the server cannot open the baseline snapshot, so it
 cannot verify that the ciphertext actually contains the operations the
 coverage vector claims. A malicious authorized writer can therefore declare
 coverage its baseline does not carry and cause pruning of ciphertext the
@@ -132,8 +132,11 @@ This is an accepted design property (roadmap #1607), with these bounds:
   decrypt
 - the declaration is durable and attributable: checkpoint rows persist the
   claimed frontier and signed baseline checkpoints commit it to the audit
-  ledger, so a false claim is evident after the fact even though the cleared
-  payloads are not recoverable
+  ledger. A false claim is detectable by any current-epoch reader — who can
+  decrypt the baseline and compare its actual frontier to the claimed one —
+  and attributable through the checkpoint's actor columns; the server can
+  never make that determination, and the cleared payloads are not
+  recoverable
 
 Candidate mitigations, deliberately not adopted:
 
