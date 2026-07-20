@@ -550,11 +550,16 @@ function canonicalizeReturnUrl(returnUrl: string): string {
  * inline flow. Returns null when Stripe is unconfigured.
  *
  * The return URL is CANONICALIZED (origin + path, query/hash dropped) and used
- * for both success and cancel, which is what makes the idempotency key
- * `checkout-session:<org>:<canonical>` stable: every hosted-checkout click
- * comes from the billing page, so all of an org's attempts collapse onto ONE
- * session (no two parallel sessions each completing into a subscription), while
- * the request params stay identical so Stripe never rejects the reused key.
+ * for both success and cancel, so the idempotency key
+ * `checkout-session:<org>:<canonical>` is stable across an org's attempts from
+ * the billing page. For the SAME buyer this collapses double-clicks onto ONE
+ * session. A DIFFERENT admin sends the same key with a different `customer=`
+ * (customers are per-(user, org)), so Stripe rejects the reused key and this
+ * throws — a 502, never a second parallel session: fail-safe against
+ * double-billing, and the same behavior the inline `createSyncSubscription`
+ * flow has (it is org-keyed too). The pre-create `findLiveOrgSubscription` guard
+ * turns the common case — a co-admin who is already subscribed — into a clean
+ * 409 well before this.
  */
 export async function createCheckoutSession(
   input: {
