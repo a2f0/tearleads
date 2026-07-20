@@ -332,3 +332,35 @@ test("a surface color with too few channels uses the light base theme", async ()
   const [opts] = elementsOptions as [{ appearance: { theme: string } }];
   expect(opts.appearance.theme).toBe("stripe");
 });
+
+test("a non-rgb color form falls back to the light base theme", async () => {
+  // color()/oklch() etc. are not the computed rgb() the probe yields; they must
+  // fall through to light, not be misread by the numeric channel extraction.
+  const { elementsOptions, stripe } = fakeStripe();
+  const capability = withKey(() =>
+    createWebDirectCheckout(() => Promise.resolve(stripe as never)),
+  );
+  await capability.mount({
+    host: host(),
+    clientSecret: "pi_secret",
+    appearance: { ...APPEARANCE, colorBackground: "color(srgb 0 0 0)" },
+  });
+
+  const [opts] = elementsOptions as [{ appearance: { theme: string } }];
+  expect(opts.appearance.theme).toBe("stripe");
+});
+
+test("a partially-transparent dark surface still classifies as night", async () => {
+  const { elementsOptions, stripe } = fakeStripe();
+  const capability = withKey(() =>
+    createWebDirectCheckout(() => Promise.resolve(stripe as never)),
+  );
+  await capability.mount({
+    host: host(),
+    clientSecret: "pi_secret",
+    appearance: { ...APPEARANCE, colorBackground: "rgba(17, 17, 17, 0.9)" },
+  });
+
+  const [opts] = elementsOptions as [{ appearance: { theme: string } }];
+  expect(opts.appearance.theme).toBe("night");
+});

@@ -33,12 +33,16 @@ function readPublishableKey(): string | undefined {
 
 /**
  * Whether the resolved surface is dark, so the Payment Element's BASE theme can
- * match. `colorBackground` is normally a computed `rgb(...)`/`rgba(...)` from
- * the appearance probe, so a Rec. 601 luma threshold is reliable; anything that
- * does not parse (e.g. the `#ffffff` fallback, or a future `color(...)` form)
- * falls back to light.
+ * match. Classifies only the computed `rgb(...)`/`rgba(...)` form the appearance
+ * probe yields, via a Rec. 601 luma threshold. Any other serialization — the
+ * `#ffffff` fallback, or a future `color(...)`/`oklch(...)` form — is NOT
+ * parsed and falls back to light, rather than being misread by the numeric
+ * channel extraction.
  */
 function isDarkSurface(colorBackground: string): boolean {
+  if (!/^rgba?\(/i.test(colorBackground.trim())) {
+    return false;
+  }
   const channels = colorBackground.match(/[\d.]+/g);
   if (!channels || channels.length < 3) {
     return false;
