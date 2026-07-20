@@ -53,6 +53,13 @@ export interface DirectCheckoutState {
  * confirming it after an org switch would charge the previous organization
  * while the panel shows the new one — the same scope invalidation
  * `useBillingActions` performs for the provider-hosted flow.
+ *
+ * Note the panel's `organizationId` and the org the SDK charges cannot
+ * disagree: both read `appData.auth.organizationId` (OrgManager passes it
+ * down; `createStripeCheckout` resolves it through `authenticatedOrganizationId`).
+ * The scope key is still required — switching orgs changes that one value, and
+ * this teardown is what stops a secret minted for the old org from being
+ * confirmed under the new one.
  */
 function useCheckoutLifecycle(
   scopeKey: string,

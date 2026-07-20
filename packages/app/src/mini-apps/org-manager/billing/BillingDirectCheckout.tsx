@@ -18,6 +18,29 @@ import "./BillingCheckout.css";
  * div styled from the app's own theme tokens.
  */
 
+/**
+ * Whether this runtime knows the currency well enough to place the decimal
+ * point. `Intl.supportedValuesOf` is the only way to ask; a code missing from
+ * it formats with a default exponent that may not be the currency's own.
+ */
+function isKnownCurrency(currencyCode: string): boolean {
+  try {
+    return Intl.supportedValuesOf("currency").includes(currencyCode);
+  } catch {
+    // No `supportedValuesOf` in this runtime: fall back to the malformed-code
+    // check alone rather than refusing to price anything.
+    try {
+      new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: currencyCode,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
 export function formatPrice(
   unitAmount: number | null,
   currency: string,
@@ -27,18 +50,20 @@ export function formatPrice(
     return "";
   }
   const currencyCode = currency.toUpperCase();
-  let formatter: Intl.NumberFormat;
-  try {
-    formatter = new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: currencyCode,
-    });
-  } catch {
-    // An unknown code would throw. Showing the raw minor-unit figure would be
-    // a WRONG price (100x for most currencies), so name the currency without
-    // an amount and let the provider's own form state it.
+  // `Intl` throws only on a MALFORMED code — it accepts any well-formed
+  // three-letter code and silently formats it with 2 fraction digits. That is
+  // the dangerous case: an unrecognized zero-decimal currency would render at
+  // 1/100 of its true price. So check that the runtime actually knows the
+  // code, and treat "well-formed but unknown" the same as malformed.
+  if (!isKnownCurrency(currencyCode)) {
+    // Name the currency without an amount rather than state a wrong price;
+    // the provider's own form shows the authoritative figure.
     return currencyCode;
   }
+  const formatter = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: currencyCode,
+  });
   // Stripe reports MINOR units, and the minor-unit exponent is per currency —
   // 2 for USD/EUR but 0 for JPY/KRW. Intl formats, it does not convert, so
   // read the exponent from the resolved options rather than assuming 100.

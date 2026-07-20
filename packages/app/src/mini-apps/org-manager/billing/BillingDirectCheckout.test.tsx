@@ -53,12 +53,21 @@ test("omits the interval for a non-recurring price and handles no amount", () =>
   expect(formatPrice(null, "usd", "month")).toBe("");
 });
 
-test("an unknown currency code degrades without showing a wrong amount", () => {
+test("a malformed currency code degrades without showing a wrong amount", () => {
   // Rendering the raw minor units would state a price 100x off for most
   // currencies; naming the currency alone is the safe degradation.
   const formatted = formatPrice(99, "notacurrency", "month");
   expect(formatted).toBe("NOTACURRENCY");
   expect(formatted).not.toContain("99");
+});
+
+test("a well-formed but unknown currency degrades the same way", () => {
+  // The dangerous case: `Intl` does NOT throw on an unrecognized three-letter
+  // code, it formats with 2 fraction digits. If that code were a zero-decimal
+  // currency, the buyer would be shown 1/100 of the real price.
+  const formatted = formatPrice(99, "xqz", "month");
+  expect(formatted).toBe("XQZ");
+  expect(formatted).not.toContain("0.99");
 });
 
 test("renders nothing when the platform or option is unavailable", () => {
