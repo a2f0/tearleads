@@ -391,14 +391,14 @@ const architectureChecks: ArchitectureCheck[] = [
         ? `${violation.filePath}: not claimed by any subsystem`
         : `${violation.filePath}: claimed by multiple subsystems (${violation.matchedSubsystems.join(", ")})`,
     message:
-      "Every production source file in a registered package should map to exactly one subsystem in scripts/subsystems.ts. Add the file to the owning subsystem's paths (or a new subsystem) and document it in docs/SUBSYSTEMS.md.",
+      "Every production source file in a registered package should map to exactly one subsystem in scripts/subsystems.ts. Add the file to the owning subsystem's paths (or a new subsystem) and document it in docs/subsystems.md.",
     name: "subsystem-registry-covers-every-source-file",
   }),
   createListCheck({
     findItems: findSubsystemDocsViolations,
     formatItem: (violation) => `${violation.name} ${violation.detail}`,
     message:
-      "The docs/SUBSYSTEMS.md registry table and scripts/subsystems.ts should list the same subsystems.",
+      "The docs/subsystems.md registry table and scripts/subsystems.ts should list the same subsystems.",
     name: "subsystem-registry-matches-docs",
   }),
 ];
