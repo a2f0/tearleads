@@ -81,6 +81,7 @@ const idleUploadManager: ExplorerUploadManager = {
   isImporting: false,
   items: [],
   queuedFileCount: 0,
+  queuedFileCounts: new Map(),
   run: null,
   startImport: () => undefined,
 };

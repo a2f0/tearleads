@@ -5,6 +5,7 @@ import type {
 } from "@tearleads/client-sdk";
 import { createDomainScope } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import type { ExplorerUploadManager } from "../hooks/useExplorerUploadManager";
 import { EXPLORER_LABELS } from "../labels";
 import type { ExplorerRoute } from "../routes";
 import { ExplorerSectionsPanel } from "./ExplorerSectionsPanel";
@@ -27,12 +28,22 @@ function renderSectionsPanel(
     onOpenSyncLaneDetailRoute?: (laneKey: string) => void;
     openBlobBrowserRoute?: () => void;
     openSyncLanesRoute?: () => void;
+    openUploadsRoute?: () => void;
     openWriteQueueRoute?: () => void;
   } = {},
 ) {
   const documentQueries = {
     listPendingWrites: async () => [],
   } as unknown as ContainerDocumentQueries;
+  const uploadManager: ExplorerUploadManager = {
+    cancel: () => undefined,
+    isImporting: false,
+    items: [],
+    queuedFileCount: 0,
+    queuedFileCounts: new Map(),
+    run: null,
+    startImport: () => undefined,
+  };
   return render(
     <ExplorerSectionsPanel
       billingBlockedOrganizationId={null}
@@ -55,9 +66,11 @@ function renderSectionsPanel(
       openContainerInfoRoute={() => undefined}
       openDocumentInfoRoute={() => undefined}
       openSyncLanesRoute={overrides.openSyncLanesRoute ?? (() => undefined)}
+      openUploadsRoute={overrides.openUploadsRoute ?? (() => undefined)}
       openWriteQueueRoute={overrides.openWriteQueueRoute ?? (() => undefined)}
       route={route}
       selectDocumentProjection={() => undefined}
+      uploadManager={uploadManager}
     />,
   );
 }
@@ -150,18 +163,44 @@ test("arrow keys move the active tab and navigate", () => {
   expect(opened).toEqual(["blobs"]);
 });
 
-test("End moves selection to the Write Queue tab", () => {
+test("End moves selection to the last tab (Uploads)", () => {
   const opened: string[] = [];
   const view = renderSectionsPanel(
     { view: "sync-lanes" },
-    { openWriteQueueRoute: () => opened.push("writes") },
+    { openUploadsRoute: () => opened.push("uploads") },
   );
 
   fireEvent.keyDown(
     view.getByRole("tab", { name: EXPLORER_LABELS.syncLanesAction }),
     { key: "End" },
   );
-  expect(opened).toEqual(["writes"]);
+  expect(opened).toEqual(["uploads"]);
+});
+
+test("the uploads route marks the Uploads tab active and shows the panel", async () => {
+  const view = renderSectionsPanel({ view: "uploads" });
+
+  await waitFor(() => {
+    expect(
+      view
+        .getByRole("tab", { name: EXPLORER_LABELS.uploadsAction })
+        .getAttribute("aria-selected"),
+    ).toBe("true");
+  });
+  expect(view.getByText(EXPLORER_LABELS.uploadsEmpty)).toBeTruthy();
+});
+
+test("tapping the Uploads tab navigates via its route opener", () => {
+  const opened: string[] = [];
+  const view = renderSectionsPanel(
+    { view: "sync-lanes" },
+    { openUploadsRoute: () => opened.push("uploads") },
+  );
+
+  fireEvent.click(
+    view.getByRole("tab", { name: EXPLORER_LABELS.uploadsAction }),
+  );
+  expect(opened).toEqual(["uploads"]);
 });
 
 test("the embedded Sync Lanes panel drops the back-to-Explorer action", () => {

@@ -190,21 +190,23 @@ async function importExplorerDroppedFile(input: {
   if (!input.deferRequestSync) {
     store.requestSync();
   }
-
-  const summary =
-    (await input.loadDocumentSummary(localId)) ??
-    buildFallbackImportedDocumentSummary({
-      containerId: input.containerId,
-      localId,
-      store,
-    });
+  // Hand the deferred sync kick over BEFORE the summary load: the document is
+  // already durable at this point, so even if the summary query rejects (and
+  // the file is counted failed), its sync must not be lost.
   input.onFileImported?.({
     fileIndex: input.fileIndex,
     localId,
     requestSync: () => store.requestSync(),
   });
 
-  return summary;
+  return (
+    (await input.loadDocumentSummary(localId)) ??
+    buildFallbackImportedDocumentSummary({
+      containerId: input.containerId,
+      localId,
+      store,
+    })
+  );
 }
 
 function emitProgress(

@@ -176,6 +176,7 @@ interface ExplorerDetailPanelProps {
   }) => void;
   openContainerInfoRoute: (containerId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
+  openUploadsRoute: () => void;
   openWriteQueueRoute: () => void;
   peerUserId: string | null;
   ready: boolean;
@@ -267,7 +268,8 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
     route.view === "sync-lanes" ||
     route.view === "sync-lane-detail" ||
     route.view === "blob-browser" ||
-    route.view === "write-queue"
+    route.view === "write-queue" ||
+    route.view === "uploads"
   ) {
     return (
       <ExplorerSectionsPanel
@@ -289,9 +291,11 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         openContainerInfoRoute={params.openContainerInfoRoute}
         openDocumentInfoRoute={params.openDocumentInfoRoute}
         openSyncLanesRoute={params.openSyncLanesRoute}
+        openUploadsRoute={params.openUploadsRoute}
         openWriteQueueRoute={params.openWriteQueueRoute}
         route={route}
         selectDocumentProjection={params.selectDocumentProjection}
+        uploadManager={params.uploadManager}
       />
     );
   }

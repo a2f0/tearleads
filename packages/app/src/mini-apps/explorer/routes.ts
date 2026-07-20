@@ -6,6 +6,7 @@ export type ExplorerRoute =
   | { view: "sync-lanes" }
   | { view: "sync-lane-detail"; laneKey: string }
   | { view: "write-queue" }
+  | { view: "uploads" }
   | { view: "new-structured-document"; containerId: string }
   | { view: "container-info"; containerId: string }
   | { view: "document-selection"; containerId: string; localId: string }
@@ -123,6 +124,10 @@ export function parseExplorerRouteSegments(
     return { route: { view: "write-queue" } };
   }
 
+  if (first === "uploads") {
+    return { route: { view: "uploads" } };
+  }
+
   if (first === "containers") {
     return parseExplorerContainerRoute(pathSegments);
   }
@@ -158,6 +163,10 @@ export function formatExplorerRouteSegments(
 
   if (route.view === "write-queue") {
     return ["writes"];
+  }
+
+  if (route.view === "uploads") {
+    return ["uploads"];
   }
 
   if (route.view === "container-info") {
@@ -196,6 +205,10 @@ export function isExplorerRouteAvailable(
   }
 
   if (route.view === "write-queue") {
+    return true;
+  }
+
+  if (route.view === "uploads") {
     return true;
   }
 

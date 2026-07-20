@@ -8,6 +8,7 @@
 .explorer-detail--blob-browser,
 .explorer-detail--new-structured-document,
 .explorer-detail--sync-lanes,
+.explorer-detail--uploads,
 .explorer-detail--write-queue {
   flex: 1;
   min-height: 0;

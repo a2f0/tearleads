@@ -1,6 +1,6 @@
 import type { ContainerNode } from "@tearleads/client-sdk";
 import { type DragEvent, useCallback, useRef, useState } from "react";
-import { EXPLORER_LABELS } from "../labels";
+import { EXPLORER_LABELS, getExplorerUploadsWaitingStatus } from "../labels";
 import {
   type ExplorerUploadManager,
   getExplorerUploadStatusText,
@@ -23,7 +23,7 @@ export function useExplorerContainerFileDropTarget(params: {
   uploadManager: ExplorerUploadManager;
 }) {
   const { selectedNode, uploadManager } = params;
-  const { isImporting, startImport } = uploadManager;
+  const { startImport } = uploadManager;
   const dragDepthRef = useRef(0);
   const [dragActive, setDragActive] = useState(false);
 
@@ -86,15 +86,19 @@ export function useExplorerContainerFileDropTarget(params: {
     [resetDragState, selectedNode.id, startImport],
   );
 
-  // Scope the status line to the run targeting THIS container, so another
-  // folder's detail never shows a foreign import's progress or stale result.
+  // Scope everything to THIS container: another folder's detail never shows a
+  // foreign import's progress or stale result, and a folder with files waiting
+  // behind another container's active run still reports them.
   const scopedRun =
     uploadManager.run?.containerId === selectedNode.id
       ? uploadManager.run
       : null;
+  const scopedImporting = uploadManager.isImporting && scopedRun !== null;
+  const scopedQueuedCount =
+    uploadManager.queuedFileCounts.get(selectedNode.id) ?? 0;
 
   return {
-    canCancelImport: isImporting && scopedRun !== null,
+    canCancelImport: scopedImporting || scopedQueuedCount > 0,
     dragActive,
     handleDragEnter,
     handleDragLeave,
@@ -102,8 +106,11 @@ export function useExplorerContainerFileDropTarget(params: {
     handleDrop,
     importStatus: dragActive
       ? EXPLORER_LABELS.fileDropHint
-      : getExplorerUploadStatusText(scopedRun, uploadManager.queuedFileCount),
+      : (getExplorerUploadStatusText(scopedRun, scopedQueuedCount) ??
+        (scopedQueuedCount > 0
+          ? getExplorerUploadsWaitingStatus(scopedQueuedCount)
+          : null)),
     importStatusIsError: scopedRun?.status === "failed",
-    isImporting,
+    isImporting: scopedImporting,
   };
 }

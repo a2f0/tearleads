@@ -99,6 +99,74 @@ test("dropped file import resolves un-aborted when no signal is given", async ()
   expect(createdStores.map((store) => store.syncRequests)).toEqual([1]);
 });
 
+test("an abort landing during the final batch reports an un-aborted run", async () => {
+  const createdStores: CountingStore[] = [];
+  const controller = new AbortController();
+  let nextLocalId = 0;
+  // 8 files = exactly one batch: the abort fires after it settles, when no
+  // further batch exists to cut — nothing was cancelled, so the run is done.
+  const files = Array.from(
+    { length: 8 },
+    (_, index) =>
+      new File([`Body ${index}`], `file-${index}.txt`, { type: "text/plain" }),
+  );
+
+  const result = await importExplorerDroppedFiles({
+    containerId: "folder-1",
+    createDocumentStore: createCountingStoreFactory(createdStores),
+    createLocalId: () => `local-${++nextLocalId}`,
+    files,
+    labels: testImportLabels,
+    loadDocumentSummary: async () => null,
+    mergeDocumentSummary: () => undefined,
+    onProgress: (progress) => {
+      if (progress.completedCount === 8) {
+        controller.abort();
+      }
+    },
+    signal: controller.signal,
+  });
+
+  expect(result.aborted).toBe(false);
+  expect(result.importedCount).toBe(8);
+});
+
+test("a failed summary load still hands over the deferred sync kick", async () => {
+  const createdStores: CountingStore[] = [];
+  const deferredKicks: Array<() => void> = [];
+  const failedFileIndexes: number[] = [];
+  let nextLocalId = 0;
+
+  const result = await importExplorerDroppedFiles({
+    containerId: "folder-1",
+    createDocumentStore: createCountingStoreFactory(createdStores),
+    createLocalId: () => `local-${++nextLocalId}`,
+    deferRequestSync: true,
+    files: [new File(["Alpha"], "a.txt", { type: "text/plain" })],
+    labels: testImportLabels,
+    loadDocumentSummary: async () => {
+      throw new Error("summary query exploded");
+    },
+    mergeDocumentSummary: () => undefined,
+    onFileFailed: (fileIndex) => {
+      failedFileIndexes.push(fileIndex);
+    },
+    onFileImported: ({ requestSync }) => {
+      deferredKicks.push(requestSync);
+    },
+  });
+
+  // The document is durable even though the file counts as failed, so the
+  // deferred kick must survive the summary-load rejection.
+  expect(result.failedCount).toBe(1);
+  expect(failedFileIndexes).toEqual([0]);
+  expect(deferredKicks).toHaveLength(1);
+  for (const kick of deferredKicks) {
+    kick();
+  }
+  expect(createdStores.map((store) => store.syncRequests)).toEqual([1]);
+});
+
 test("deferRequestSync skips per-file sync and hands back working kicks", async () => {
   const createdStores: CountingStore[] = [];
   const deferredKicks: Array<() => void> = [];

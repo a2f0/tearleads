@@ -63,6 +63,9 @@ export interface ExplorerUploadManager {
   items: ReadonlyArray<ExplorerUploadItem>;
   // Files in selections that have not started importing yet.
   queuedFileCount: number;
+  // The same, broken down by target container (absent key = 0), so a container
+  // detail can report what is waiting for THAT folder specifically.
+  queuedFileCounts: ReadonlyMap<string, number>;
   // The ACTIVE selection's run (or the last terminal one when idle).
   run: ExplorerFileImportRunState | null;
   startImport: (containerId: string, files: ReadonlyArray<File>) => void;
@@ -180,6 +183,33 @@ function isOutstandingUploadItem(item: ExplorerUploadItem): boolean {
 
 function countQueuedFiles(queue: ReadonlyArray<UploadSelection>): number {
   return queue.reduce((total, selection) => total + selection.files.length, 0);
+}
+
+function countQueuedFilesByContainer(
+  queue: ReadonlyArray<UploadSelection>,
+): ReadonlyMap<string, number> {
+  const counts = new Map<string, number>();
+  for (const selection of queue) {
+    counts.set(
+      selection.containerId,
+      (counts.get(selection.containerId) ?? 0) + selection.files.length,
+    );
+  }
+  return counts;
+}
+
+// The published queued-file tallies (global and per-container), re-derived
+// from the selection queue at every mutation point.
+function useQueuedFileCounts(queueRef: { current: UploadSelection[] }) {
+  const [queuedFileCount, setQueuedFileCount] = useState(0);
+  const [queuedFileCounts, setQueuedFileCounts] = useState<
+    ReadonlyMap<string, number>
+  >(new Map());
+  const syncQueuedFileCount = useCallback(() => {
+    setQueuedFileCount(countQueuedFiles(queueRef.current));
+    setQueuedFileCounts(countQueuedFilesByContainer(queueRef.current));
+  }, [queueRef]);
+  return { queuedFileCount, queuedFileCounts, syncQueuedFileCount };
 }
 
 function trimRetainedUploadItems(
@@ -365,8 +395,9 @@ export function useExplorerUploadManager(params: {
   const { importDroppedFiles } = params;
   const [run, setRun] = useState<ExplorerFileImportRunState | null>(null);
   const [items, setItems] = useState<ReadonlyArray<ExplorerUploadItem>>([]);
-  const [queuedFileCount, setQueuedFileCount] = useState(0);
   const selectionQueueRef = useRef<UploadSelection[]>([]);
+  const { queuedFileCount, queuedFileCounts, syncQueuedFileCount } =
+    useQueuedFileCounts(selectionQueueRef);
   const drainingRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const itemSeqRef = useRef(0);
@@ -379,10 +410,6 @@ export function useExplorerUploadManager(params: {
     },
     [],
   );
-
-  const syncQueuedFileCount = useCallback(() => {
-    setQueuedFileCount(countQueuedFiles(selectionQueueRef.current));
-  }, []);
 
   const drainNextSelection = useCallback(() => {
     const selection = selectionQueueRef.current.shift();
@@ -455,6 +482,7 @@ export function useExplorerUploadManager(params: {
     isImporting: run?.status === "running",
     items,
     queuedFileCount,
+    queuedFileCounts,
     run,
     startImport,
   };
