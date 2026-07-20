@@ -302,3 +302,33 @@ test("an unparseable surface color falls back to the light base theme", async ()
   const [opts] = elementsOptions as [{ appearance: { theme: string } }];
   expect(opts.appearance.theme).toBe("stripe");
 });
+
+test("a transparent surface (unresolved token) uses the light base theme", async () => {
+  const { elementsOptions, stripe } = fakeStripe();
+  const capability = withKey(() =>
+    createWebDirectCheckout(() => Promise.resolve(stripe as never)),
+  );
+  await capability.mount({
+    host: host(),
+    clientSecret: "pi_secret",
+    appearance: { ...APPEARANCE, colorBackground: "rgba(0, 0, 0, 0)" },
+  });
+
+  const [opts] = elementsOptions as [{ appearance: { theme: string } }];
+  expect(opts.appearance.theme).toBe("stripe");
+});
+
+test("a surface color with too few channels uses the light base theme", async () => {
+  const { elementsOptions, stripe } = fakeStripe();
+  const capability = withKey(() =>
+    createWebDirectCheckout(() => Promise.resolve(stripe as never)),
+  );
+  await capability.mount({
+    host: host(),
+    clientSecret: "pi_secret",
+    appearance: { ...APPEARANCE, colorBackground: "rgb(0)" },
+  });
+
+  const [opts] = elementsOptions as [{ appearance: { theme: string } }];
+  expect(opts.appearance.theme).toBe("stripe");
+});
