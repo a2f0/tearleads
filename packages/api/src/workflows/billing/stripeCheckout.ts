@@ -5,11 +5,15 @@ import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
 
 /**
- * Admin-gated read of the organization's stored provider subscription id
- * (issue #1654). The Billing Portal must manage THE ORGANIZATION'S
- * subscription — resolving from the caller instead would hand a co-admin a
- * fresh empty customer, or hand a multi-org purchaser a portal spanning
- * other organizations' subscriptions.
+ * The org-admin gate for the cancel and Billing Portal operations (issue
+ * #1654). It also returns the billing row's stored `providerSubscriptionId`,
+ * but cancel/portal deliberately ignore it: that column is the
+ * RevenueCat-reported Stripe *item* id (`si_…`), not the `sub_…` those APIs
+ * need, so they resolve the subscription from Stripe instead (see
+ * `findLiveOrgSubscription`). The value is retained for any caller that wants
+ * the stored id, and this workflow's real job is the admin check —
+ * `requireDirectOrganizationAccess` throws for a non-admin, which is what keeps
+ * a co-admin or multi-org purchaser from managing another org's billing.
  */
 export async function runResolveOrgSubscriptionForAdminWorkflow(
   db: ApiDatabase,
