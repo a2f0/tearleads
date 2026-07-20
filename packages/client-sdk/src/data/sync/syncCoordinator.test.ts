@@ -474,3 +474,106 @@ test("sync coordinator subscriptions snapshot listeners before notifying", () =>
   expect(firstNotifications).toBe(1);
   expect(secondNotifications).toBe(1);
 });
+
+async function waitForCondition(
+  condition: () => boolean,
+  timeoutMs = 2000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() > deadline) {
+      throw new Error("Timed out waiting for condition.");
+    }
+    await delay(5);
+  }
+}
+
+test("a run exceeding its watchdog frees the queue instead of blocking it", async () => {
+  const domainScope = createDomainScope();
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  let releaseStuckRun: () => void = () => {};
+  const stuckRelease = new Promise<void>((resolve) => {
+    releaseStuckRun = resolve;
+  });
+  let nextRan = false;
+
+  const stuckLane = coordinator.registerLane("stuck", {
+    run: () => stuckRelease,
+    watchdogMs: 20,
+  });
+  const nextLane = coordinator.registerLane("next", {
+    run: async () => {
+      nextRan = true;
+    },
+  });
+
+  stuckLane.requestSync();
+  nextLane.requestSync();
+
+  // The stuck lane is selected first (registration order) and holds the pump
+  // only until its watchdog fires; the queue then drains past it.
+  await waitForCondition(() => nextRan);
+
+  const snapshot = getDomainSyncCoordinatorSnapshot(domainScope);
+  const stuckSnapshot = snapshot.lanes.find((lane) => lane.key === "stuck");
+  expect(stuckSnapshot?.status).toBe("error");
+  expect(stuckSnapshot?.lastError).toContain("watchdog");
+  expect(snapshot.lanes.find((lane) => lane.key === "next")?.status).toBe(
+    "complete",
+  );
+
+  // The abandoned run's late settle overwrites the transient watchdog verdict
+  // with the real outcome.
+  releaseStuckRun();
+  await waitForCondition(() => {
+    const settled = getDomainSyncCoordinatorSnapshot(domainScope).lanes.find(
+      (lane) => lane.key === "stuck",
+    );
+    return settled?.status === "complete" && settled.lastError === null;
+  });
+});
+
+test("a timed-out lane never runs concurrently with its abandoned run and resumes after it settles", async () => {
+  const domainScope = createDomainScope();
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  let runEntries = 0;
+  let releaseFirstRun: () => void = () => {};
+  const firstRelease = new Promise<void>((resolve) => {
+    releaseFirstRun = resolve;
+  });
+
+  const lane = coordinator.registerLane("re-requested", {
+    run: async () => {
+      runEntries += 1;
+      if (runEntries === 1) {
+        await firstRelease;
+      }
+    },
+    watchdogMs: 20,
+  });
+
+  lane.requestSync();
+  // Wait for the watchdog to abandon the first run...
+  await waitForCondition(
+    () =>
+      getDomainSyncCoordinatorSnapshot(domainScope)
+        .lanes.find((candidate) => candidate.key === "re-requested")
+        ?.lastError?.includes("watchdog") === true,
+  );
+
+  // ...then re-request while the abandoned run is still live: selection must
+  // hold the lane back rather than running it concurrently with itself.
+  lane.requestSync();
+  await delay(50);
+  expect(runEntries).toBe(1);
+
+  // Once the abandoned run settles, the queued re-request runs.
+  releaseFirstRun();
+  await waitForCondition(() => runEntries === 2);
+  await waitForCondition(() => {
+    const settled = getDomainSyncCoordinatorSnapshot(domainScope).lanes.find(
+      (candidate) => candidate.key === "re-requested",
+    );
+    return settled?.status === "complete";
+  });
+});

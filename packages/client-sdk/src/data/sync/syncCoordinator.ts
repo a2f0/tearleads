@@ -83,6 +83,16 @@ const FAILED_LANE_REARM_BACKOFF_MS = 1000;
 // loop. Comfortably above a normal multi-lane convergence burst so steady-state
 // sync pays no extra macrotask hops.
 const SYNC_PUMP_MACROTASK_YIELD_INTERVAL = 16;
+// Per-lane run liveness bound. The pump awaits one lane at a time, so without
+// a bound a single run stuck on a local await freezes every queued lane with
+// no recovery path (scheduleCoordinatorPump no-ops while the pump promise is
+// alive). When a run exceeds this, the pump records a watchdog failure and
+// moves on; the run is NOT cancelled — the lane stays unselectable until it
+// settles, and the settle overwrites the watchdog verdict with the real
+// outcome. Generous enough that only pathological runs hit it (a legitimately
+// slow run that does is abandoned-but-corrected, trading strict
+// structural-before-document ordering for queue liveness in that edge).
+const SYNC_LANE_WATCHDOG_MS = 120_000;
 
 type SyncLaneRunResult =
   | { status: "completed" }
@@ -114,9 +124,14 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Requested work the pump can actually select. A lane whose abandoned run is
+// still live (activeRunToken set) is requested-but-unrunnable; counting it
+// would make the pump's finally reschedule a pump that selects nothing,
+// re-entering finally — an event-loop-starving reschedule spin. Its
+// late-settle continuation re-pumps once the token clears.
 function hasRequestedLaneWork(lanes: Iterable<SyncLaneState>): boolean {
   for (const lane of lanes) {
-    if (lane.pumpDriven && lane.requested) {
+    if (lane.pumpDriven && lane.requested && lane.activeRunToken === null) {
       return true;
     }
   }
@@ -133,6 +148,12 @@ function selectNextRequestedLane(
     if (!lane.pumpDriven || !lane.requested) {
       continue;
     }
+    // A lane with a live (possibly watchdog-abandoned) run is never selected,
+    // so a lane cannot run concurrently with itself; its late-settle
+    // continuation re-pumps when the old run finally lands.
+    if (lane.activeRunToken !== null) {
+      continue;
+    }
 
     if (!selectedLane || compareSyncLaneOrder(lane, selectedLane) < 0) {
       selectedLane = lane;
@@ -140,6 +161,47 @@ function selectNextRequestedLane(
   }
 
   return selectedLane;
+}
+
+function recordSyncLaneRunResult(
+  lane: SyncLaneState,
+  runResult: SyncLaneRunResult,
+): void {
+  lane.lastActionAt = createSyncTimestamp();
+  if (runResult.status === "failed") {
+    lane.errorCount += 1;
+    lane.lastAction = "failed";
+    lane.lastError = describeSyncLaneError(runResult.error);
+    lane.lastFailedAt = lane.lastActionAt;
+  } else {
+    lane.lastAction = "completed";
+    lane.lastCompletedAt = lane.lastActionAt;
+    lane.lastError = null;
+  }
+}
+
+// A watchdog-abandoned run settled after the pump moved on: release the lane,
+// overwrite the transient watchdog verdict with the real outcome, and re-pump
+// if work is queued (including this lane's own re-request, which selection
+// held back while the old run was live).
+function settleAbandonedSyncLaneRun(
+  coordinatorState: DomainSyncCoordinatorState,
+  lane: SyncLaneState,
+  runToken: object,
+  runResult: SyncLaneRunResult,
+): void {
+  if (lane.activeRunToken !== runToken) {
+    return;
+  }
+  lane.activeRunToken = null;
+  recordSyncLaneRunResult(lane, runResult);
+  publishSyncCoordinatorSnapshot(coordinatorState);
+  if (
+    !coordinatorState.disposed &&
+    hasRequestedLaneWork(coordinatorState.lanes.values())
+  ) {
+    scheduleCoordinatorPump(coordinatorState);
+  }
 }
 
 async function runRequestedSyncLanes(
@@ -163,41 +225,69 @@ async function runRequestedSyncLanes(
     lane.lastAction = "started";
     lane.lastActionAt = createSyncTimestamp();
     lane.lastStartedAt = lane.lastActionAt;
+    const runToken = {};
+    lane.activeRunToken = runToken;
     publishSyncCoordinatorSnapshot(coordinatorState);
-    let runResult: SyncLaneRunResult | null = null;
-    try {
-      runResult = await runSyncLane(lane);
-    } catch (error: unknown) {
-      // Do not clear lane.requested here. A lane's run() can arm a self
-      // follow-up (requestLaneSync) before it throws; the `requested` flag is
-      // owned by request/selection logic and the success path's finally
-      // deliberately leaves it untouched. Clearing it on throw would silently
-      // drop a queued structural follow-up — breaking the phase-ordering
-      // guarantee in docs/client-sync-ordering.md for any lane without an
-      // onUnexpectedError handler (e.g. the structural container-contents lane).
-      // The tight-loop risk a re-armed failure would create is handled by the
-      // backoff after the finally block below.
-      runResult = { status: "failed", error };
-      reportUnexpectedSyncLaneError(lane, error);
-    } finally {
-      lane.running = false;
-      lane.lastActionAt = createSyncTimestamp();
-      if (runResult?.status === "failed") {
-        lane.errorCount += 1;
-        lane.lastAction = "failed";
-        lane.lastError = describeSyncLaneError(runResult.error);
-        lane.lastFailedAt = lane.lastActionAt;
-      } else {
-        lane.lastAction = "completed";
-        lane.lastCompletedAt = lane.lastActionAt;
-        lane.lastError = null;
-      }
-      publishSyncCoordinatorSnapshot(coordinatorState);
+
+    // Normalize the run into a result. Rejection reaches here only for lanes
+    // without an onUnexpectedError handler (runSyncLane re-throws for those).
+    // lane.requested is deliberately never cleared on failure: a run can arm a
+    // self follow-up (requestLaneSync) before it throws, and clearing it would
+    // silently drop a queued structural follow-up — breaking the
+    // phase-ordering guarantee in docs/client-sync-ordering.md. The tight-loop
+    // risk a re-armed failure creates is handled by the backoff below.
+    const runResultPromise: Promise<SyncLaneRunResult> = runSyncLane(lane).then(
+      (result) => result,
+      (error: unknown) => {
+        reportUnexpectedSyncLaneError(lane, error);
+        return { status: "failed", error };
+      },
+    );
+
+    // Watchdog: bound how long this lane may hold the serial pump. On timeout
+    // the run is abandoned (not cancelled) — the lane records a transient
+    // watchdog failure, stays unselectable via its run token, and the pump
+    // moves on so one stuck lane costs itself rather than the whole queue.
+    const watchdogMs = lane.config.watchdogMs ?? SYNC_LANE_WATCHDOG_MS;
+    let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
+    const raceOutcome = await Promise.race([
+      runResultPromise.then((result) => ({
+        kind: "settled" as const,
+        result,
+      })),
+      new Promise<{ kind: "timed-out" }>((resolve) => {
+        watchdogTimer = setTimeout(
+          () => resolve({ kind: "timed-out" }),
+          watchdogMs,
+        );
+      }),
+    ]);
+    if (watchdogTimer !== null) {
+      clearTimeout(watchdogTimer);
     }
+
+    lane.running = false;
+    let runResult: SyncLaneRunResult;
+    if (raceOutcome.kind === "settled") {
+      lane.activeRunToken = null;
+      runResult = raceOutcome.result;
+    } else {
+      runResult = {
+        status: "failed",
+        error: new Error(
+          `Sync lane watchdog: run exceeded ${watchdogMs}ms; continuing with other lanes`,
+        ),
+      };
+      void runResultPromise.then((result) =>
+        settleAbandonedSyncLaneRun(coordinatorState, lane, runToken, result),
+      );
+    }
+    recordSyncLaneRunResult(lane, runResult);
+    publishSyncCoordinatorSnapshot(coordinatorState);
 
     runsSinceMacrotaskYield += 1;
 
-    if (runResult?.status === "failed" && lane.requested) {
+    if (runResult.status === "failed" && lane.requested) {
       // A persistently failing lane that re-armed itself backs off before it can
       // run again, so it cannot tight-loop. delay() is a setTimeout (macrotask),
       // so this also yields the event loop.
@@ -369,6 +459,7 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
 
       const registeredAt = createSyncTimestamp();
       const nextLane: SyncLaneState = {
+        activeRunToken: null,
         blobStorageKey: null,
         config,
         errorCount: 0,

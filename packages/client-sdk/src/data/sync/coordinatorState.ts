@@ -7,6 +7,11 @@ import type {
 import { createDomainSyncSnapshot } from "./syncTelemetry";
 
 export interface SyncLaneState {
+  // Identity of the lane's live run, set for the duration of a run INCLUDING
+  // after a watchdog timeout abandons it. Selection skips lanes whose token is
+  // set, so a lane can never run concurrently with its own abandoned run; the
+  // late-settle continuation clears it (matching on identity) and re-pumps.
+  activeRunToken: object | null;
   blobStorageKey: string | null;
   config: SyncLaneConfig;
   errorCount: number;
