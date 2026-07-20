@@ -141,9 +141,10 @@ can be fully styled, while RevenueCat remains the entitlement system:
   already consumes.
 - Configuration (all required; routes answer 503 / fail closed otherwise):
   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SYNC_PRICE_ID`,
-  `REVENUECAT_SECRET_API_KEY` (v1, for subscriber attributes),
   `REVENUECAT_STRIPE_PUBLIC_API_KEY` (the RC project's Stripe app public
-  key). Set in `.secrets/<tier>.env`; rendered by ansible into the API's
+  key). The customer/attribute half of the association reuses the
+  `REVENUECAT_V2_SECRET_KEY` + `REVENUECAT_PROJECT_ID` pair already configured
+  for the management-URL lookup — no separate legacy v1 secret key. Set in `.secrets/<tier>.env`; rendered by ansible into the API's
   EnvironmentFile like the RevenueCat webhook secret.
 - One-time dashboard steps: register the Stripe product id in the RevenueCat
   catalog and attach it to the `sync` entitlement; register the webhook

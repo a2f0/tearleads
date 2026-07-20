@@ -34,7 +34,8 @@ const STRIPE_ENV = {
   STRIPE_WEBHOOK_SECRET: WEBHOOK_SECRET,
 };
 const REVENUECAT_ENV = {
-  REVENUECAT_SECRET_API_KEY: "sk_rc",
+  REVENUECAT_V2_SECRET_KEY: "sk_rc",
+  REVENUECAT_PROJECT_ID: "proj_1",
   REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp_pub",
 };
 
@@ -90,7 +91,10 @@ test("a paid first invoice is associated with RevenueCat", async () => {
     },
     revenueCat: {
       env: REVENUECAT_ENV,
-      fetchImpl: respondingFetch([{ body: {} }, { body: {} }], urls),
+      fetchImpl: respondingFetch(
+        [{ body: {} }, { body: {} }, { body: {} }],
+        urls,
+      ),
     },
   });
 
@@ -99,9 +103,12 @@ test("a paid first invoice is associated with RevenueCat", async () => {
     subscriptionId: "sub_1",
     organizationId: ORG_ID,
   });
+  // The customer must exist before v2 attributes accepts a write, and the
+  // receipt (v1, Stripe app key) closes the association.
   expect(urls).toEqual([
     "GET https://api.stripe.com/v1/subscriptions/sub_1",
-    "POST https://api.revenuecat.com/v1/subscribers/user-1/attributes",
+    "POST https://api.revenuecat.com/v2/projects/proj_1/customers",
+    "POST https://api.revenuecat.com/v2/projects/proj_1/customers/user-1/attributes",
     "POST https://api.revenuecat.com/v1/receipts",
   ]);
 });
@@ -235,7 +242,8 @@ test("a Stripe-side live subscription makes checkout a 409", async () => {
     STRIPE_SECRET_KEY: "sk_test",
     STRIPE_SYNC_PRICE_ID: "price_sync",
     STRIPE_WEBHOOK_SECRET: "whsec",
-    REVENUECAT_SECRET_API_KEY: "sk_rc",
+    REVENUECAT_V2_SECRET_KEY: "sk_rc",
+    REVENUECAT_PROJECT_ID: "proj_1",
     REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp",
   };
   const responses = [

@@ -4,25 +4,34 @@
  * ingests renewals/cancellations from the connected Stripe account and emits
  * the same webhook events the rest of org sync billing already consumes.
  *
- * Two ordered calls, both against RevenueCat's v1 API:
+ * Three calls, in this order:
  *
- * 1. Set the buyer's `orgId` subscriber attribute. RevenueCat's webhook
- *    events for Stripe-store purchases carry subscriber attributes (not
- *    transaction metadata), and our webhook resolves the organization from
- *    that attribute — so it MUST be in place before the receipt creates the
- *    INITIAL_PURCHASE event.
- * 2. Post the receipt: `fetch_token` is the Stripe subscription id.
+ * 1. Create the customer (v2). Idempotent in effect: an existing customer
+ *    answers 409, which is success for our purposes.
+ * 2. Set the buyer's `orgId` attribute (v2). Unlike the v1 attributes
+ *    endpoint this does NOT upsert the customer — it 404s when the customer
+ *    is absent, which is why step 1 precedes it.
+ * 3. Post the receipt (v1): `fetch_token` is the Stripe subscription id.
+ *    RevenueCat has no v2 equivalent, and it authenticates with the project's
+ *    Stripe app PUBLIC key rather than a secret key.
  *
- * Both calls are idempotent, so a retried Stripe webhook delivery can safely
- * run the association again. Note the attribute write is customer-level: a
- * replayed delivery re-stamps `orgId` with a fresh timestamp, which is
- * harmless for Stripe-store events (the immutable subscription binding wins
- * at resolution time) but is why that binding — not the attribute — is the
- * authoritative source for this store.
+ * The attribute is deliberately belt-and-braces: it is customer-level and
+ * mutable, so a buyer purchasing for several organizations overwrites it. The
+ * authoritative binding for Stripe-store events is the Stripe subscription's
+ * own immutable metadata (see `resolveStripeStoreOrganizationId`); this
+ * attribute only serves deployments where that lookup is unconfigured.
+ *
+ * Every call is safe to repeat, so a redelivered Stripe webhook can re-run
+ * the association.
  */
 
-/** RevenueCat v1 secret API key (`sk_…`), used for the attributes call. */
-const REVENUECAT_SECRET_API_KEY_ENV = "REVENUECAT_SECRET_API_KEY";
+/**
+ * RevenueCat REST API v2 secret key (`sk_…`) and project id — the same pair
+ * the management-URL lookup uses (see revenueCatApi.ts). v2 covers customer
+ * creation and attributes, so no separate legacy v1 secret key is needed.
+ */
+const REVENUECAT_V2_SECRET_KEY_ENV = "REVENUECAT_V2_SECRET_KEY";
+const REVENUECAT_PROJECT_ID_ENV = "REVENUECAT_PROJECT_ID";
 /**
  * The RevenueCat project's Stripe app PUBLIC API key (`strp_…`); the receipts
  * endpoint authenticates Stripe receipts with it.
@@ -55,7 +64,8 @@ export function isRevenueCatAssociationConfigured(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
   return (
-    Boolean(env[REVENUECAT_SECRET_API_KEY_ENV]?.trim()) &&
+    Boolean(env[REVENUECAT_V2_SECRET_KEY_ENV]?.trim()) &&
+    Boolean(env[REVENUECAT_PROJECT_ID_ENV]?.trim()) &&
     Boolean(env[REVENUECAT_STRIPE_PUBLIC_API_KEY_ENV]?.trim())
   );
 }
@@ -67,6 +77,8 @@ async function postJson(input: {
   operation: string;
   body: Record<string, unknown>;
   headers?: Record<string, string>;
+  /** Statuses to treat as success besides 2xx (e.g. 409 already-exists). */
+  tolerateStatuses?: readonly number[];
 }): Promise<void> {
   const response = await input.fetchImpl(
     `${REVENUECAT_API_ORIGIN}${input.path}`,
@@ -81,14 +93,15 @@ async function postJson(input: {
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     },
   );
-  if (!response.ok) {
-    throw new RevenueCatAssociationError(input.operation, response.status);
+  if (response.ok || input.tolerateStatuses?.includes(response.status)) {
+    return;
   }
+  throw new RevenueCatAssociationError(input.operation, response.status);
 }
 
 /**
- * Runs the two-step association. Throws when unconfigured or when either call
- * fails, so the Stripe webhook responds non-2xx and Stripe redelivers.
+ * Runs the association. Throws when unconfigured or when any call fails, so
+ * the Stripe webhook responds non-2xx and Stripe redelivers.
  */
 export async function associateStripeSubscription(
   input: {
@@ -100,28 +113,43 @@ export async function associateStripeSubscription(
 ): Promise<void> {
   const env = deps.env ?? process.env;
   const fetchImpl = deps.fetchImpl ?? fetch;
-  const secretKey = env[REVENUECAT_SECRET_API_KEY_ENV]?.trim();
+  const secretKey = env[REVENUECAT_V2_SECRET_KEY_ENV]?.trim();
+  const projectId = env[REVENUECAT_PROJECT_ID_ENV]?.trim();
   const stripePublicKey = env[REVENUECAT_STRIPE_PUBLIC_API_KEY_ENV]?.trim();
-  if (!secretKey || !stripePublicKey) {
+  if (!secretKey || !projectId || !stripePublicKey) {
     throw new RevenueCatAssociationError("association (unconfigured)", 0);
   }
+  const customerPath =
+    `/v2/projects/${encodeURIComponent(projectId)}` +
+    `/customers/${encodeURIComponent(input.appUserId)}`;
 
-  // Attribute FIRST: the receipt below creates the INITIAL_PURCHASE event,
-  // whose org resolution reads the subscriber attributes at event time.
+  // The v2 attributes endpoint 404s for an unknown customer (unlike v1, which
+  // upserts), so ensure the customer exists first. A customer created by an
+  // earlier delivery — or by the buyer's own app session — answers 409, which
+  // is the desired end state, not a failure.
   await postJson({
     fetchImpl,
-    path: `/v1/subscribers/${encodeURIComponent(input.appUserId)}/attributes`,
+    path: `/v2/projects/${encodeURIComponent(projectId)}/customers`,
+    apiKey: secretKey,
+    operation: "customer create",
+    body: { id: input.appUserId },
+    tolerateStatuses: [409],
+  });
+
+  await postJson({
+    fetchImpl,
+    path: `${customerPath}/attributes`,
     apiKey: secretKey,
     operation: "attribute update",
+    // v2 takes an ARRAY of {name, value} — not v1's keyed object with
+    // `updated_at_ms`.
     body: {
-      attributes: {
-        [ORGANIZATION_SUBSCRIBER_ATTRIBUTE]: {
+      attributes: [
+        {
+          name: ORGANIZATION_SUBSCRIBER_ATTRIBUTE,
           value: input.organizationId,
-          // Required by the v1 attributes endpoint; RevenueCat also uses it
-          // for last-write-wins conflict resolution between devices.
-          updated_at_ms: Date.now(),
         },
-      },
+      ],
     },
   });
 
