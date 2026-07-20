@@ -115,6 +115,12 @@ interface CheckoutRefs {
   readonly sessionRef: React.RefObject<DirectCheckoutSession | null>;
   /** Bumped by every begin/teardown so a late mount can detect it lost. */
   readonly startTokenRef: React.RefObject<number>;
+  /**
+   * True while a confirm is in flight. A ref, not the `confirming` phase:
+   * state writes are asynchronous, so two clicks landing in the same React
+   * batch would both read the pre-render phase and charge the card twice.
+   */
+  readonly confirmingRef: React.RefObject<boolean>;
   readonly setPhase: (phase: DirectCheckoutPhase) => void;
   readonly setError: (error: string | null) => void;
 }
@@ -208,9 +214,13 @@ function useConfirmCheckout(
 ): () => void {
   return useCallback(() => {
     const session = refs.sessionRef.current;
-    if (!session) {
+    // Re-entrancy guard. The Pay button disables itself while confirming, but
+    // that only takes effect after a re-render; the hook must not depend on
+    // the UI to prevent a double charge.
+    if (!session || refs.confirmingRef.current) {
       return;
     }
+    refs.confirmingRef.current = true;
     refs.setPhase({ kind: "confirming" });
     refs.setError(null);
     const token = refs.startTokenRef.current;
@@ -224,6 +234,7 @@ function useConfirmCheckout(
         if (refs.startTokenRef.current !== token) {
           return;
         }
+        refs.confirmingRef.current = false;
         if (outcome.kind === "declined") {
           // The element stays mounted so the buyer can correct their input.
           refs.setPhase({ kind: "collecting" });
@@ -231,6 +242,12 @@ function useConfirmCheckout(
           return;
         }
         if (outcome.kind === "cancelled") {
+          // Tear down rather than only resetting the phase: the session is
+          // spent, and leaving `sessionRef` populated would make the
+          // re-entrancy guard in `begin` reject every later attempt. The web
+          // capability does not return this today, but the contract permits
+          // it, so a conforming implementation must not strand the panel.
+          teardown();
           refs.setPhase({ kind: "idle" });
           return;
         }
@@ -246,6 +263,7 @@ function useConfirmCheckout(
         onPaid();
       } catch (confirmError) {
         console.error("Failed to confirm the direct checkout:", confirmError);
+        refs.confirmingRef.current = false;
         if (refs.startTokenRef.current !== token) {
           return;
         }
@@ -275,6 +293,7 @@ export function useDirectCheckoutFlow(input: {
   const sessionRef = useRef<DirectCheckoutSession | null>(null);
   /** Bumped by every begin/teardown so a late mount can detect it lost. */
   const startTokenRef = useRef(0);
+  const confirmingRef = useRef(false);
   const [phase, setPhase] = useState<DirectCheckoutPhase>({ kind: "idle" });
   const [error, setError] = useState<string | null>(null);
   const available = capability.isAvailable;
@@ -282,6 +301,7 @@ export function useDirectCheckoutFlow(input: {
 
   const teardown = useCallback(() => {
     startTokenRef.current += 1;
+    confirmingRef.current = false;
     sessionRef.current?.unmount();
     sessionRef.current = null;
   }, []);
@@ -301,7 +321,14 @@ export function useDirectCheckoutFlow(input: {
   // render would give `begin`/`confirm` a new identity every time and defeat
   // the memoization their consumers rely on.
   const refs = useMemo<CheckoutRefs>(
-    () => ({ hostRef, sessionRef, startTokenRef, setPhase, setError }),
+    () => ({
+      hostRef,
+      sessionRef,
+      startTokenRef,
+      confirmingRef,
+      setPhase,
+      setError,
+    }),
     [],
   );
   const deps = useMemo<BeginCheckoutDeps>(

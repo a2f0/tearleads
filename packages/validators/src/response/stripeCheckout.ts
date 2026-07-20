@@ -51,7 +51,7 @@ function isStripeSyncOption(value: unknown): value is StripeSyncOptionResponse {
     isPlainObject(value) &&
     hasNonEmptyStringProperty(value, "priceId") &&
     hasStringProperty(value, "productName") &&
-    hasStringProperty(value, "currency") &&
+    hasNonEmptyStringProperty(value, "currency") &&
     hasNullableNumberProperty(value, "unitAmount") &&
     hasNullableStringProperty(value, "interval")
   );

@@ -373,3 +373,57 @@ test("a begin that fails after a newer one started does not disturb it", async (
   expect(result.current.phase.kind).toBe("collecting");
   expect(result.current.error).toBeNull();
 });
+
+test("a double-clicked Pay confirms exactly once", async () => {
+  // The Pay button disables itself while confirming, but that only lands on a
+  // re-render — two clicks in one batch must not reach the provider twice.
+  let settle: ((outcome: { kind: "succeeded" }) => void) | undefined;
+  let confirms = 0;
+  stubTearleads();
+  const { capability } = capabilityWith({
+    confirm: () => {
+      confirms += 1;
+      return new Promise((resolve) => {
+        settle = resolve;
+      });
+    },
+  });
+  const { result } = renderFlow(capability);
+  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+
+  act(() => {
+    result.current.confirm();
+    result.current.confirm();
+  });
+  expect(confirms).toBe(1);
+
+  await act(async () => {
+    settle?.({ kind: "succeeded" });
+  });
+  expect(confirms).toBe(1);
+});
+
+test("a cancelled confirmation releases the session so begin works again", async () => {
+  // The web capability does not return `cancelled` today, but the contract
+  // permits it; a stale sessionRef would make begin a permanent no-op.
+  const unmount = mock(() => undefined);
+  stubTearleads();
+  const { capability, mounted } = capabilityWith({
+    confirm: () => Promise.resolve({ kind: "cancelled" }),
+    unmount,
+  });
+  const { result } = renderFlow(capability);
+  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+
+  await act(async () => result.current.confirm());
+  await waitFor(() => expect(result.current.phase.kind).toBe("idle"));
+  expect(unmount).toHaveBeenCalledTimes(1);
+
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+  expect(mounted).toHaveLength(2);
+});

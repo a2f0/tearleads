@@ -92,8 +92,12 @@ export function BillingDirectCheckout({
         className="org-manager-billing-checkout"
         ref={checkout.hostRef}
         // Hidden rather than unmounted between attempts: unmounting would
-        // destroy the node the provider element is attached to.
-        hidden={idle || starting}
+        // destroy the node the provider element is attached to. Visible from
+        // `starting` on, because that is exactly when the element mounts and
+        // providers size their iframe off the host — mounting into a
+        // display:none node yields a collapsed or unsized form. It is empty
+        // until the element attaches, so it occupies nothing meanwhile.
+        hidden={idle}
       />
 
       {collecting || confirming ? (

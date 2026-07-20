@@ -33,6 +33,10 @@ test("rejects malformed options", () => {
   expect(
     isStripeCheckoutOptionsResponse({ options: [OPTION, { priceId: "p" }] }),
   ).toBe(false);
+  // An empty currency code formats as an empty price label.
+  expect(
+    isStripeCheckoutOptionsResponse({ options: [{ ...OPTION, currency: "" }] }),
+  ).toBe(false);
   // An amount as a string would format as garbage in the UI.
   expect(
     isStripeCheckoutOptionsResponse({
