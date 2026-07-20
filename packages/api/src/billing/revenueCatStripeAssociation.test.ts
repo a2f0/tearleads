@@ -55,6 +55,8 @@ test("association creates the customer, attributes it, then posts the receipt", 
   expect(requests[1]?.body).toEqual({
     attributes: [{ name: "orgId", value: "org-1" }],
   });
+  // The SECRET key authenticates this step — not the Stripe public key.
+  expect(requests[1]?.headers.get("Authorization")).toBe("Bearer sk_rc_secret");
 
   // The receipt has no v2 equivalent and uses the Stripe app PUBLIC key.
   expect(requests[2]?.url).toContain("/v1/receipts");

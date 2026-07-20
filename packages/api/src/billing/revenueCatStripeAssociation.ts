@@ -25,6 +25,11 @@
  * the association.
  */
 
+import {
+  REVENUECAT_API_ORIGIN,
+  readRevenueCatV2Credentials,
+} from "./revenueCatConfig";
+
 /**
  * The RevenueCat project's Stripe app PUBLIC API key (`strp_…`); the receipts
  * endpoint authenticates Stripe receipts with it.
@@ -38,11 +43,6 @@ const REQUEST_TIMEOUT_MS = 10_000;
  * `ORGANIZATION_SUBSCRIBER_ATTRIBUTE` in revenuecatWebhook.ts (the reader).
  */
 const ORGANIZATION_SUBSCRIBER_ATTRIBUTE = "orgId";
-
-import {
-  REVENUECAT_API_ORIGIN,
-  readRevenueCatV2Credentials,
-} from "./revenueCatConfig";
 
 export interface RevenueCatAssociationDeps {
   readonly env?: NodeJS.ProcessEnv;
