@@ -218,8 +218,8 @@
       "bytes": 50400
     },
     "packages/client-sdk/src/client/organizations.ts": {
-      "lines": 560,
-      "bytes": 18600
+      "lines": 549,
+      "bytes": 18413
     },
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
       "lines": 1041,
@@ -234,12 +234,12 @@
       "bytes": 39373
     },
     "packages/client-sdk/src/data/persistence/container-contents/containerContentsPersistence.ts": {
-      "lines": 1372,
-      "bytes": 42959
+      "lines": 1378,
+      "bytes": 43292
     },
     "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
-      "lines": 824,
-      "bytes": 26371
+      "lines": 830,
+      "bytes": 26687
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 823,
@@ -346,8 +346,8 @@
       "bytes": 33792
     },
     "scripts/subsystems.ts": {
-      "lines": 715,
-      "bytes": 26200
+      "lines": 723,
+      "bytes": 26489
     },
     "packages/client-sdk/src/workflows/containers/child/create.ts": {
       "lines": 531,

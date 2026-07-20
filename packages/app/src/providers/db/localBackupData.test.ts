@@ -6,9 +6,15 @@ import {
   createBlobByteSource,
   readBlobByteSource,
 } from "@tearleads/client-sdk";
-import type { ExecSql } from "@tearleads/client-sdk/sqlite";
+import {
+  type ExecSql,
+  ensureSqlTables,
+  runSerializedSqlMutation,
+  type SqlTableSchema,
+} from "@tearleads/client-sdk/sqlite";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createBackupPayload, restoreBackupPayload } from "./localBackupData";
+import { restoreBackupDatabase } from "./localBackupDatabase";
 import {
   type BackupPayload,
   decodeBackupFile,
@@ -246,5 +252,53 @@ test("backup export and restore preserves SQLite rows, indexes, and blob bytes",
   } finally {
     source.close();
     target.close();
+  }
+});
+
+test("restore resets the schema-ensure memo through a locked executor", async () => {
+  const { close, execSql } = await createTestExecSql("backup-memo-reset");
+  try {
+    const memoProbeTable: SqlTableSchema = {
+      name: "memo_probe",
+      createSql:
+        'CREATE TABLE IF NOT EXISTS "memo_probe" ("id" TEXT PRIMARY KEY)',
+    };
+    const calls: string[] = [];
+    const spyExecSql = ((
+      sql: string,
+      bind?: Parameters<ExecSql>[1],
+      options?: { rowMode?: "object" | "array" },
+    ) => {
+      calls.push(sql);
+      return execSql(sql, bind, options);
+    }) as ExecSql;
+
+    await ensureSqlTables(spyExecSql, [memoProbeTable]);
+    const callsAfterFirstEnsure = calls.length;
+    expect(callsAfterFirstEnsure).toBeGreaterThan(0);
+    await ensureSqlTables(spyExecSql, [memoProbeTable]);
+    expect(calls.length).toBe(callsAfterFirstEnsure);
+
+    // Production wiring: restoreBackupDatabase runs under restoreBackupPayload's
+    // outer mutation lock and receives the LOCKED executor, so the memo reset
+    // inside it must resolve that wrapper back to the canonical connection.
+    await runSerializedSqlMutation(spyExecSql, async (lockedExecSql) => {
+      await restoreBackupDatabase({
+        execSql: lockedExecSql,
+        indexes: [],
+        tables: [],
+      });
+    });
+
+    // The restore dropped every user table; the memo must be forgotten so the
+    // next ensure actually recreates the table instead of no-opping.
+    const callsBeforeReEnsure = calls.length;
+    await ensureSqlTables(spyExecSql, [memoProbeTable]);
+    expect(calls.length).toBeGreaterThan(callsBeforeReEnsure);
+    expect(await spyExecSql('SELECT count(*) AS n FROM "memo_probe"')).toEqual([
+      { n: 0 },
+    ]);
+  } finally {
+    close();
   }
 });

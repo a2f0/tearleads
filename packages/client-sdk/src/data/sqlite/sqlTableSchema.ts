@@ -8,7 +8,11 @@ import {
   type SQLiteTable,
 } from "drizzle-orm/sqlite-core";
 import type { ExecSql } from "./sqlExec";
-import { runSerializedSqlMutation } from "./sqlExec";
+import {
+  hasCompletedConnectionOnce,
+  markCompletedConnectionOnce,
+  runSerializedSqlMutation,
+} from "./sqlExec";
 
 export interface SqlTableSchema {
   name: string;
@@ -152,18 +156,38 @@ export function defineSqlTableSchema(table: SQLiteTable): SqlTableSchema {
   };
 }
 
+function getTableEnsureKey(table: SqlTableSchema): string {
+  return `sql-table:${table.name}`;
+}
+
+// Table/column ensures run on every query path, so completed ones are
+// remembered per connection: a re-ensure of an already-ensured table skips the
+// DDL round-trips AND the serialized mutation lock, keeping diagnostic reads
+// from queueing behind bulk-import writes just to re-issue CREATE IF NOT
+// EXISTS no-ops. `resetConnectionSchemaMemo` forgets the memo when the schema
+// is rebuilt out from under the runtime (local backup restore).
 export async function ensureSqlTables(
   execSql: ExecSql,
   tables: ReadonlyArray<SqlTableSchema>,
 ): Promise<void> {
+  const pendingTables = tables.filter(
+    (table) => !hasCompletedConnectionOnce(execSql, getTableEnsureKey(table)),
+  );
+  if (pendingTables.length === 0) {
+    return;
+  }
+
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    for (const table of tables) {
+    for (const table of pendingTables) {
       await lockedExecSql(table.createSql);
       for (const indexSql of table.indexes ?? []) {
         await lockedExecSql(indexSql);
       }
     }
   });
+  for (const table of pendingTables) {
+    markCompletedConnectionOnce(execSql, getTableEnsureKey(table));
+  }
 }
 
 export async function ensureSqlColumns(
@@ -171,6 +195,13 @@ export async function ensureSqlColumns(
   tableName: string,
   columns: ReadonlyArray<SqlColumnMigration>,
 ): Promise<void> {
+  const ensureKey = `sql-columns:${tableName}:${columns
+    .map((column) => column.name)
+    .join(",")}`;
+  if (hasCompletedConnectionOnce(execSql, ensureKey)) {
+    return;
+  }
+
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     const rows = await lockedExecSql(
       `PRAGMA table_info(${renderIdentifier(tableName)})`,
@@ -190,4 +221,5 @@ export async function ensureSqlColumns(
       }
     }
   });
+  markCompletedConnectionOnce(execSql, ensureKey);
 }

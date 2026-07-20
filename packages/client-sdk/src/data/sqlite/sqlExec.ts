@@ -46,6 +46,68 @@ const serializedSqlExecs = new WeakSet<ExecSql>();
 // connection share the same serialized mutation queue.
 const clientExecSqls = new WeakMap<ExecSqlClientLike, ExecSql>();
 
+// Maps each locked executor back to the canonical executor whose lock it runs
+// under, so per-connection caches key on one stable identity no matter which
+// wrapper a caller holds.
+const serializedSqlExecCanonicals = new WeakMap<ExecSql, ExecSql>();
+
+function resolveCanonicalExecSql(execSql: ExecSql): ExecSql {
+  return serializedSqlExecCanonicals.get(execSql) ?? execSql;
+}
+
+// Completed once-per-connection keys (schema ensures, one-time migrations).
+// Only COMPLETED runs are recorded — never in-flight promises — so two lock
+// contexts racing the same key both run the (idempotent) work instead of one
+// awaiting a promise that can only settle after the lock the other context is
+// already holding.
+const completedConnectionOnceKeys = new WeakMap<ExecSql, Set<string>>();
+
+export function hasCompletedConnectionOnce(
+  execSql: ExecSql,
+  key: string,
+): boolean {
+  return (
+    completedConnectionOnceKeys
+      .get(resolveCanonicalExecSql(execSql))
+      ?.has(key) ?? false
+  );
+}
+
+export function markCompletedConnectionOnce(
+  execSql: ExecSql,
+  key: string,
+): void {
+  const canonical = resolveCanonicalExecSql(execSql);
+  const keys = completedConnectionOnceKeys.get(canonical) ?? new Set<string>();
+  keys.add(key);
+  completedConnectionOnceKeys.set(canonical, keys);
+}
+
+// Callers must not invoke this inside an explicit SQL transaction that can
+// roll back: completion is recorded as soon as `run` resolves, so a later
+// ROLLBACK would leave the memo asserting schema that no longer exists.
+export async function runOncePerConnection(
+  execSql: ExecSql,
+  key: string,
+  run: () => Promise<void>,
+): Promise<void> {
+  if (hasCompletedConnectionOnce(execSql, key)) {
+    return;
+  }
+  await run();
+  markCompletedConnectionOnce(execSql, key);
+}
+
+/**
+ * Forget every completed once-per-connection key for this connection. Required
+ * after an operation that rebuilds the schema out from under the runtime — the
+ * local backup restore drops and recreates all user tables, possibly to an
+ * older shape — so the next query re-runs its schema ensures and migrations.
+ */
+export function resetConnectionSchemaMemo(execSql: ExecSql): void {
+  completedConnectionOnceKeys.delete(resolveCanonicalExecSql(execSql));
+}
+
 function defineExecSql(
   run: (
     sql: string,
@@ -109,6 +171,10 @@ function createSerializedSqlExec(execSql: ExecSql): ExecSql {
 
   const serializedExecSql = defineExecSql(execSql);
   serializedSqlExecs.add(serializedExecSql);
+  serializedSqlExecCanonicals.set(
+    serializedExecSql,
+    resolveCanonicalExecSql(execSql),
+  );
   return serializedExecSql;
 }
 

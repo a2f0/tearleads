@@ -45,6 +45,7 @@ import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenc
 import {
   type ExecSql,
   ensureSqlTables,
+  runOncePerConnection,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
 import {
@@ -434,11 +435,16 @@ async function listDocumentsByContainerIdsOrDocumentIds(
 
 const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   async ensureSchema(execSql) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await ensureDocumentTables(lockedExecSql);
-      await ensureDocumentProjectionTables(lockedExecSql);
-      await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
-    });
+    // Once ensured on this connection, skip the outer mutation lock entirely:
+    // ensureSchema runs on every query path, and re-acquiring the lock just to
+    // no-op would queue reads behind unrelated writes.
+    await runOncePerConnection(execSql, "ensure:documents", () =>
+      runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+        await ensureDocumentTables(lockedExecSql);
+        await ensureDocumentProjectionTables(lockedExecSql);
+        await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
+      }),
+    );
   },
   async listDocuments(execSql) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);
