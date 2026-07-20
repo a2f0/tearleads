@@ -190,6 +190,7 @@ test("dropped file import initializes notes and merges persisted summaries", asy
 
   expect(result.importedCount).toBe(2);
   expect(result.failedCount).toBe(0);
+  expect(result.aborted).toBe(false);
   expect(result.importedDocuments.map((document) => document.id)).toEqual([
     "local-a",
     "local-b",

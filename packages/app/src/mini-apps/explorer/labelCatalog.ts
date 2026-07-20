@@ -242,7 +242,7 @@ export const EXPLORER_LABELS = {
   emptyTrashProgressTitle: "Emptying Trash",
   fileDropHint: "Drop files to import documents.",
   fileImportBlockedByContainer: "This folder does not accept uploads.",
-  fileImportFailedStatus: "Some files could not be imported.",
+  fileImportCancelAction: "Cancel upload",
   fileImportGenericFailure: "Failed to import files.",
   fileImportStoreNotReady: "Document store was not ready.",
   folderType: "Folder",

@@ -38,6 +38,9 @@ export interface ExplorerDroppedFileImportProgress {
 
 export interface ExplorerDroppedFileImportResult
   extends ExplorerDroppedFileImportProgress {
+  // True when the run's signal aborted before every file was attempted; the
+  // files already imported stay (they are durable documents, not rolled back).
+  aborted: boolean;
   importedDocuments: ReadonlyArray<DocumentSummary>;
 }
 
@@ -60,6 +63,7 @@ interface ExplorerDroppedFileImportInput {
   logError?: (message: string, cause?: unknown) => void;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   onProgress?: (progress: ExplorerDroppedFileImportProgress) => void;
+  signal?: AbortSignal;
 }
 
 export interface ExplorerDroppedFileImportLabels {
@@ -71,10 +75,17 @@ export interface ExplorerDroppedFileImportLabels {
   }) => string;
 }
 
+export interface ExplorerDroppedFileImportRunOptions {
+  onProgress?: (progress: ExplorerDroppedFileImportProgress) => void;
+  // Cancels between batches, never mid-file: the batch in flight settles, then
+  // no further batch starts (mirrors PurgeOptions' unit-boundary semantics).
+  signal?: AbortSignal;
+}
+
 export type ImportExplorerDroppedFiles = (
   containerId: string,
   files: ReadonlyArray<File>,
-  onProgress?: (progress: ExplorerDroppedFileImportProgress) => void,
+  options?: ExplorerDroppedFileImportRunOptions,
 ) => Promise<ExplorerDroppedFileImportResult>;
 
 function buildFallbackImportedDocumentSummary(input: {
@@ -188,6 +199,10 @@ export async function importExplorerDroppedFiles(
     index < files.length;
     index += EXPLORER_DROPPED_FILE_IMPORT_BATCH_SIZE
   ) {
+    if (input.signal?.aborted) {
+      break;
+    }
+
     const batch = files.slice(
       index,
       index + EXPLORER_DROPPED_FILE_IMPORT_BATCH_SIZE,
@@ -226,6 +241,7 @@ export async function importExplorerDroppedFiles(
 
   return {
     ...progress,
+    aborted: input.signal?.aborted ?? false,
     importedDocuments,
   };
 }
@@ -241,7 +257,7 @@ export function useExplorerDroppedFileImport(params: {
     params;
 
   return useCallback(
-    (containerId, files, onProgress) =>
+    (containerId, files, options) =>
       importExplorerDroppedFiles({
         containerId,
         createDocumentStore: ({
@@ -262,7 +278,10 @@ export function useExplorerDroppedFileImport(params: {
         loadDocumentSummary: documentQueries.loadDocumentSummary,
         logError,
         mergeDocumentSummary,
-        ...(onProgress === undefined ? {} : { onProgress }),
+        ...(options?.onProgress === undefined
+          ? {}
+          : { onProgress: options.onProgress }),
+        ...(options?.signal === undefined ? {} : { signal: options.signal }),
       }),
     [appData, documentQueries, labels, logError, mergeDocumentSummary],
   );
