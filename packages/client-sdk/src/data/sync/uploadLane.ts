@@ -67,6 +67,7 @@ export function beginUploadLane(
     lane.blobStorageKey = options.blobStorageKey ?? null;
   } else {
     lane = {
+      activeRunToken: null,
       blobStorageKey: options.blobStorageKey ?? null,
       config: { label: options.label, phase: "blob", run: noopLaneRun },
       errorCount: 0,

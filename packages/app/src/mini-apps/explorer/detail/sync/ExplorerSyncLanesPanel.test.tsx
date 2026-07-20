@@ -344,7 +344,7 @@ test("ExplorerSyncLanesPanel triggers a manual sync from the toolbar action", as
   expect(runCount).toBe(1);
 });
 
-test("ExplorerSyncLanesPanel disables the toolbar action while syncing", async () => {
+test("ExplorerSyncLanesPanel keeps the toolbar action enabled while syncing", async () => {
   const domainScope = createDomainScope();
   const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
   let releaseLane: () => void = () => undefined;
@@ -362,8 +362,11 @@ test("ExplorerSyncLanesPanel disables the toolbar action while syncing", async (
   const button = (await view.findByRole("button", {
     name: EXPLORER_LABELS.syncLanesSyncNowAction,
   })) as HTMLButtonElement;
+  // The action stays ENABLED with work in flight: re-requesting is idempotent,
+  // and a queue that looks stuck with pending work is exactly when the manual
+  // escape hatch must remain usable (issue #1672).
   await waitFor(() => {
-    expect(button.disabled).toBe(true);
+    expect(button.disabled).toBe(false);
   });
 
   releaseLane();

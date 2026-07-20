@@ -7,6 +7,11 @@ import type {
 import { createDomainSyncSnapshot } from "./syncTelemetry";
 
 export interface SyncLaneState {
+  // Identity of the lane's live run, set for the duration of a run INCLUDING
+  // after a watchdog timeout abandons it. Selection skips lanes whose token is
+  // set, so a lane can never run concurrently with its own abandoned run; the
+  // late-settle continuation clears it (matching on identity) and re-pumps.
+  activeRunToken: object | null;
   blobStorageKey: string | null;
   config: SyncLaneConfig;
   errorCount: number;
@@ -88,6 +93,10 @@ export function noopLaneRun(): Promise<void> {
   return Promise.resolve();
 }
 
+// Deliberately ignores activeRunToken (unlike the pump's hasRequestedLaneWork):
+// a watchdog-abandoned run is detached background work, and idle/pending-work
+// reporting must not block on a hung run that may never settle. Its late
+// settle still publishes a snapshot and re-pumps any queued re-request.
 export function hasPendingLaneWork(lanes: Iterable<SyncLaneState>): boolean {
   for (const lane of lanes) {
     if (lane.requested || lane.running) {

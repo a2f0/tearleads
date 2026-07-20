@@ -189,6 +189,10 @@
       "lines": 623,
       "bytes": 18029
     },
+    "packages/app/src/mini-apps/explorer/detail/sync/ExplorerSyncLanesPanel.test.tsx": {
+      "lines": 502,
+      "bytes": 15988
+    },
     "packages/app/src/mini-apps/identity-manager/IdentityManager.test.tsx": {
       "lines": 565,
       "bytes": 17315
@@ -244,6 +248,14 @@
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 823,
       "bytes": 32350
+    },
+    "packages/client-sdk/src/data/sync/syncCoordinator.test.ts": {
+      "lines": 579,
+      "bytes": 16859
+    },
+    "packages/client-sdk/src/data/sync/syncCoordinator.ts": {
+      "lines": 602,
+      "bytes": 20518
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
       "lines": 562,
