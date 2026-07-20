@@ -166,13 +166,7 @@ export async function createStripeCheckoutSession(
   // billing panel whether they paid or backed out, and a paid return reads as
   // activation-pending until the webhook grants the entitlement.
   return createCheckoutSession(
-    {
-      customerId,
-      userId: sessionUserId,
-      organizationId,
-      successUrl: returnUrl,
-      cancelUrl: returnUrl,
-    },
+    { customerId, userId: sessionUserId, organizationId, returnUrl },
     deps.stripe ?? {},
   );
 }

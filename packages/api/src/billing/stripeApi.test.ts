@@ -483,8 +483,7 @@ test("createCheckoutSession stamps org metadata onto the subscription", async ()
       customerId: "cus_1",
       userId: "user-1",
       organizationId: "org-1",
-      successUrl: "https://app.example/billing",
-      cancelUrl: "https://app.example/billing",
+      returnUrl: "https://app.example/billing?tab=events",
     },
     { env: ENV, fetchImpl },
   );
@@ -497,6 +496,12 @@ test("createCheckoutSession stamps org metadata onto the subscription", async ()
   // rejects key reuse with changed params).
   const key = requests[0]?.headers.get("Idempotency-Key");
   expect(key?.startsWith("checkout-session:org-1:")).toBe(true);
+  // The return URL is canonicalized (query dropped) so the key is stable
+  // across transient client state.
+  expect(body).toContain(
+    `success_url=${encodeURIComponent("https://app.example/billing")}`,
+  );
+  expect(body).not.toContain("tab%3Devents");
   expect(body).toContain("mode=subscription");
   expect(body).toContain("customer=cus_1");
   // The subscription MUST carry orgId/userId so the webhook can associate it
@@ -518,8 +523,7 @@ test("createCheckoutSession is null without price/secret config", async () => {
         customerId: "cus_1",
         userId: "user-1",
         organizationId: "org-1",
-        successUrl: "https://app.example/billing",
-        cancelUrl: "https://app.example/billing",
+        returnUrl: "https://app.example/billing",
       },
       { env: {}, fetchImpl },
     ),

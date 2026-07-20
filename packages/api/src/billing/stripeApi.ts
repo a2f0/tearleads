@@ -523,6 +523,24 @@ export async function createPortalSession(
 }
 
 /**
+ * Reduces a return URL to origin + path (dropping query and hash) so the hosted
+ * checkout's `success_url`/`cancel_url` — and therefore its idempotency key —
+ * are stable across an org's attempts even when transient client state varies
+ * the full URL. Falls back to the input if it does not parse (already
+ * origin-validated upstream). The buyer still lands on the billing page.
+ */
+function canonicalizeReturnUrl(returnUrl: string): string {
+  try {
+    const url = new URL(returnUrl);
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return returnUrl;
+  }
+}
+
+/**
  * Creates a hosted Stripe Checkout Session for the sync subscription and
  * returns its URL. This is the off-site alternative to the inline Payment
  * Element: same product, same customer, and the SAME `orgId`/`userId` stamped
@@ -531,20 +549,19 @@ export async function createPortalSession(
  * resolver (`findLiveOrgSubscription`) can later find it — exactly like the
  * inline flow. Returns null when Stripe is unconfigured.
  *
- * Idempotency is keyed on the org AND the return URL: a double-clicked link
- * returns the SAME session, so the org cannot spawn two parallel sessions that
- * each complete into a subscription. The return URL is folded in because it
- * IS a request parameter (`success_url`/`cancel_url`) — Stripe rejects a key
- * reused with changed params, and the app's URL can differ between attempts, so
- * a fixed key would 502 the second attempt.
+ * The return URL is CANONICALIZED (origin + path, query/hash dropped) and used
+ * for both success and cancel, which is what makes the idempotency key
+ * `checkout-session:<org>:<canonical>` stable: every hosted-checkout click
+ * comes from the billing page, so all of an org's attempts collapse onto ONE
+ * session (no two parallel sessions each completing into a subscription), while
+ * the request params stay identical so Stripe never rejects the reused key.
  */
 export async function createCheckoutSession(
   input: {
     customerId: string;
     userId: string;
     organizationId: string;
-    successUrl: string;
-    cancelUrl: string;
+    returnUrl: string;
   },
   deps: StripeApiDeps = {},
 ): Promise<string | null> {
@@ -552,13 +569,14 @@ export async function createCheckoutSession(
   if (!secretKey || !syncPriceId) {
     return null;
   }
+  const canonicalReturnUrl = canonicalizeReturnUrl(input.returnUrl);
   const form = new URLSearchParams();
   form.set("mode", "subscription");
   form.set("line_items[0][price]", syncPriceId);
   form.set("line_items[0][quantity]", "1");
   form.set("customer", input.customerId);
-  form.set("success_url", input.successUrl);
-  form.set("cancel_url", input.cancelUrl);
+  form.set("success_url", canonicalReturnUrl);
+  form.set("cancel_url", canonicalReturnUrl);
   form.set("subscription_data[metadata][userId]", input.userId);
   form.set("subscription_data[metadata][orgId]", input.organizationId);
   const body = await stripeRequest({
@@ -571,7 +589,7 @@ export async function createCheckoutSession(
     idempotencyKey: `checkout-session:${input.organizationId}:${createHash(
       "sha256",
     )
-      .update(input.successUrl)
+      .update(canonicalReturnUrl)
       .digest("hex")
       .slice(0, 16)}`,
   });
