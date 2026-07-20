@@ -185,8 +185,9 @@ export function BillingPanel({
         view={billing.view}
       />
       {/*
-        Only offer a purchase the org can actually make: an org that already
-        syncs would get a server 409 surfaced as a generic failure.
+        Only offer a purchase the org can actually make: an already-ACTIVE org
+        (not merely one that syncs — a trial syncs too) would get a server 409
+        on a second checkout, surfaced as a generic failure. See the gate above.
       */}
       {checkoutEnabled ? (
         <BillingDirectCheckout
