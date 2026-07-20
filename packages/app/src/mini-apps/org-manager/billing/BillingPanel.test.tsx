@@ -160,11 +160,12 @@ test("the direct checkout does not surface the 'purchases unavailable' notice", 
   ).toBeNull();
 });
 
-test("an org that already syncs is not offered a second subscription", async () => {
-  // The same gate also tears down a live element when it flips off, which is
-  // why the panel must not render the checkout at all in this state — a
-  // purchase here would be a server 409 shown as a generic failure.
-  stubEnvironment(true);
+test("an active org is not offered a second subscription", async () => {
+  // `isActive` (not a trial): a second checkout would create a second Stripe
+  // subscription — a server 409 shown as a generic failure — so the panel must
+  // not render the checkout at all. The same gate also tears a live element
+  // down when the payment lands and the org becomes active.
+  stubEnvironment(true, { isActive: true });
 
   const view = render(
     <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
@@ -236,9 +237,10 @@ test("cancelling is offered for an active org with no provider-managed link", as
   );
 });
 
-test("a trialing org is never offered inline cancel", async () => {
-  // canSync is true during a trial, but there is no subscription to cancel —
-  // the old gate on canSync showed a Cancel button that could only 404.
+test("a trialing org can pay before the trial ends", async () => {
+  // A trial is a local status with no subscription yet, so the admin may want
+  // to commit early. The checkout is offered (gate is `isActive`, not the
+  // trial-inclusive `canSync`), and the server allows it.
   stubEnvironment(true, { isActive: false, isTrialing: true });
 
   const view = render(
@@ -246,7 +248,21 @@ test("a trialing org is never offered inline cancel", async () => {
     { wrapper },
   );
 
-  await waitFor(() => expect(view.queryByText("Sync")).toBeNull());
+  await waitFor(() => expect(view.getByText("Sync")).toBeDefined());
+  expect(view.getByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeDefined();
+});
+
+test("a trialing org is offered the checkout but no inline cancel", async () => {
+  // It can subscribe (above), but there is no subscription to cancel yet — the
+  // cancel gate stays on `isActive`, so no Cancel button that could only 404.
+  stubEnvironment(true, { isActive: false, isTrialing: true });
+
+  const view = render(
+    <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
+    { wrapper },
+  );
+
+  await waitFor(() => expect(view.getByText("Sync")).toBeDefined());
   expect(
     view.queryByText(ORG_MANAGER_LABELS.billingCancelSubscription),
   ).toBeNull();

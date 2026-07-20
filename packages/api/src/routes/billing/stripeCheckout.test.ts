@@ -112,6 +112,25 @@ test("an already-active organization cannot start another checkout", async () =>
   expect(response.status).toBe(409);
 });
 
+test("a trialing organization may start a checkout (pay before the trial ends)", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  // A trial is a local status with no subscription yet, so committing early is
+  // not a duplicate purchase. Eligibility must pass — the request reaches the
+  // Stripe layer and fails only on this test env's missing config (503), NOT
+  // the 409 an active org gets.
+  await db
+    .update(organizationBilling)
+    .set({ status: "trialing" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/checkout`,
+    { method: "POST", headers: authHeader(admin) },
+  );
+  expect(response.status).toBe(503);
+});
+
 test("cancel requires authentication", async () => {
   const response = await routeApp.request(
     "/organizations/11111111-1111-4111-8111-111111111111/billing/stripe/cancel",
