@@ -91,6 +91,19 @@ test("environment tab reports the native build number from the host config reade
   view.unmount();
 });
 
+test("environment tab reports the backend api and websocket urls", async () => {
+  const view = await openEnvironmentTab();
+
+  // The configured endpoints, so a release that fell back to the localhost dev
+  // default (unreachable from a device) is diagnosable at a glance rather than
+  // reading as an unexplained "offline".
+  expect(view.getByText(ENVIRONMENT_LABELS.apiUrl)).toBeTruthy();
+  expect(view.getByText(ENVIRONMENT_LABELS.wsUrl)).toBeTruthy();
+  expect(view.getByText("http://localhost:3001")).toBeTruthy();
+
+  view.unmount();
+});
+
 test("environment tab reports the app theme and the os color scheme separately", async () => {
   const view = await openEnvironmentTab();
 
