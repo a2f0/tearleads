@@ -84,14 +84,20 @@ export function formatPrice(
 function useHostedCheckout(): {
   readonly open: () => void;
   readonly busy: boolean;
+  readonly unavailable: boolean;
 } {
   const tearleads = useTearleads();
   const [busy, setBusy] = useState(false);
+  // A null/failed result would otherwise reset the link silently, leaving a
+  // dead-feeling click — e.g. a co-admin whose org is already checking out, or
+  // an unconfigured integration. Surface a brief notice instead.
+  const [unavailable, setUnavailable] = useState(false);
   const open = useCallback(() => {
     if (busy) {
       return;
     }
     setBusy(true);
+    setUnavailable(false);
     void (async () => {
       try {
         const result =
@@ -102,27 +108,39 @@ function useHostedCheckout(): {
           globalThis.location?.assign(result.url);
           return; // navigating away — leave `busy` set
         }
-        // Unconfigured or not eligible: nothing to open.
+        // Unconfigured, not eligible, or a checkout already in progress.
+        setUnavailable(true);
         setBusy(false);
       } catch (error) {
         console.error("Failed to open the hosted Stripe checkout:", error);
+        setUnavailable(true);
         setBusy(false);
       }
     })();
   }, [busy, tearleads]);
-  return { open, busy };
+  return { open, busy, unavailable };
 }
 
 function HostedCheckoutLink({ disabled }: { readonly disabled: boolean }) {
   const hosted = useHostedCheckout();
   return (
-    <MiniAppRowButton disabled={disabled || hosted.busy} onClick={hosted.open}>
-      <MiniAppRowText muted>
-        {hosted.busy
-          ? ORG_MANAGER_LABELS.billingPayOnStripeStarting
-          : ORG_MANAGER_LABELS.billingPayOnStripe}
-      </MiniAppRowText>
-    </MiniAppRowButton>
+    <>
+      <MiniAppRowButton
+        disabled={disabled || hosted.busy}
+        onClick={hosted.open}
+      >
+        <MiniAppRowText muted>
+          {hosted.busy
+            ? ORG_MANAGER_LABELS.billingPayOnStripeStarting
+            : ORG_MANAGER_LABELS.billingPayOnStripe}
+        </MiniAppRowText>
+      </MiniAppRowButton>
+      {hosted.unavailable ? (
+        <MiniAppStatus className="org-manager-hint">
+          {ORG_MANAGER_LABELS.billingPayOnStripeUnavailable}
+        </MiniAppStatus>
+      ) : null}
+    </>
   );
 }
 

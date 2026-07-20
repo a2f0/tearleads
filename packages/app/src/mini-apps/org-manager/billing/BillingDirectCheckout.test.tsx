@@ -224,6 +224,12 @@ test("a null hosted session leaves the buyer on the page", async () => {
     view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe).closest("button")
       ?.disabled,
   ).toBe(false);
+  // A null result surfaces a notice rather than a silent dead click.
+  await waitFor(() =>
+    expect(
+      view.getByText(ORG_MANAGER_LABELS.billingPayOnStripeUnavailable),
+    ).toBeDefined(),
+  );
 });
 
 test("the hosted-checkout link is not offered once the inline flow starts", () => {
