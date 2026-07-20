@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import type { ReadNativeBuildNumberFn } from "../../host/AppHostConfig";
 import { useTearleadsExternalValue } from "../../providers/sdk/useTearleadsSubscription";
 import { formatByteSize } from "../../utils/formatByteSize";
 import { UNKNOWN_ENVIRONMENT_VALUE } from "./environment";
@@ -173,6 +174,42 @@ export function useStorageEstimateLabel(): string {
   }, []);
 
   return label;
+}
+
+/**
+ * The native app build number (Android `versionCode` / iOS `CFBundleVersion`),
+ * read at runtime through the host config's reader. Native shells inject one;
+ * elsewhere (web, electrobun, tests) there is no reader and the row stays
+ * unknown. Async like the storage estimate — it resolves after mount and the
+ * row updates in place — because the value comes from a native bridge call
+ * rather than a value inlined into the bundle.
+ */
+export function useNativeBuildNumber(
+  read: ReadNativeBuildNumberFn | undefined,
+): string {
+  const [buildNumber, setBuildNumber] = useState(UNKNOWN_ENVIRONMENT_VALUE);
+
+  useEffect(() => {
+    if (!read) {
+      return;
+    }
+
+    let cancelled = false;
+    read()
+      .then((value) => {
+        if (!cancelled) {
+          setBuildNumber(value === "" ? UNKNOWN_ENVIRONMENT_VALUE : value);
+        }
+      })
+      // A failed read is not worth surfacing as an error; the row stays unknown.
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [read]);
+
+  return buildNumber;
 }
 
 /**
