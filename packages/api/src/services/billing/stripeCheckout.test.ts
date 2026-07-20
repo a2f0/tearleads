@@ -9,6 +9,7 @@ import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { getDefaultApiServiceRuntime } from "../runtime";
 import {
+  cancelStripeSubscription,
   createStripeCheckout,
   createStripePortalUrl,
   getStripeCheckoutOptions,
@@ -232,6 +233,86 @@ test("the portal refuses a subscription bound to another org", async () => {
     },
   );
   expect(mismatched).toBeNull();
+});
+
+test("cancel schedules the period end for a subscription bound to the org", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await db
+    .update(organizationBilling)
+    .set({ providerSubscriptionId: "sub_org" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  const stripeEnv = {
+    STRIPE_SECRET_KEY: "sk_test",
+    STRIPE_SYNC_PRICE_ID: "price_sync",
+  };
+  // First call reads the binding (must match THIS org), second performs the
+  // cancel and returns the scheduled end.
+  let call = 0;
+  const cancelFetch = (async (_input: RequestInfo | URL) => {
+    call += 1;
+    return call === 1
+      ? new Response(
+          JSON.stringify({
+            id: "sub_org",
+            status: "active",
+            customer: "cus_org",
+            metadata: { userId: admin.userId, orgId: organizationId },
+          }),
+        )
+      : new Response(JSON.stringify({ id: "sub_org", cancel_at: 1893456000 }));
+  }) as typeof fetch;
+
+  const result = await cancelStripeSubscription(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+    { stripe: { env: stripeEnv, fetchImpl: cancelFetch } },
+  );
+  expect(result).toEqual({ cancelAt: 1893456000 });
+});
+
+test("cancel refuses a subscription bound to another org", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await db
+    .update(organizationBilling)
+    .set({ providerSubscriptionId: "sub_org" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  const stripeEnv = {
+    STRIPE_SECRET_KEY: "sk_test",
+    STRIPE_SYNC_PRICE_ID: "price_sync",
+  };
+  // The binding names a DIFFERENT org: cancelling would end an unrelated
+  // organization's billing on a pooled customer. Must never reach the cancel
+  // request — the same guard the portal enforces.
+  let cancelCalls = 0;
+  const foreignFetch = (async (_input: RequestInfo | URL) => {
+    cancelCalls += 1;
+    return new Response(
+      JSON.stringify({
+        id: "sub_org",
+        status: "active",
+        customer: "cus_org",
+        metadata: {
+          userId: admin.userId,
+          orgId: "22222222-2222-4222-8222-222222222222",
+        },
+      }),
+    );
+  }) as typeof fetch;
+
+  const result = await cancelStripeSubscription(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+    { stripe: { env: stripeEnv, fetchImpl: foreignFetch } },
+  );
+  expect(result).toBeNull();
+  // Exactly one request (the binding read); the cancel POST never fired.
+  expect(cancelCalls).toBe(1);
 });
 
 test("a Stripe-side live subscription makes checkout a 409", async () => {

@@ -3,6 +3,7 @@ import type {
   OrganizationBillingManagementUrlResponse,
   OrganizationBillingResponse,
   OrganizationBillingStatus,
+  StripeCancelResponse,
   StripeCheckoutIntentResponse,
   StripeCheckoutOptionsResponse,
 } from "@tearleads/validators/response";
@@ -45,6 +46,9 @@ interface OrganizationBillingApi {
   readonly createStripeCheckout: (
     organizationId: string,
   ) => Promise<StripeCheckoutIntentResponse | null>;
+  readonly cancelStripeSubscription: (
+    organizationId: string,
+  ) => Promise<StripeCancelResponse | null>;
 }
 
 export async function loadOrganizationBilling(input: {
@@ -94,6 +98,13 @@ export async function createStripeCheckout(input: {
   readonly organizationId: string;
 }): Promise<StripeCheckoutIntent | null> {
   return input.apiClient.createStripeCheckout(input.organizationId);
+}
+
+export async function cancelStripeSubscription(input: {
+  readonly apiClient: Pick<OrganizationBillingApi, "cancelStripeSubscription">;
+  readonly organizationId: string;
+}): Promise<StripeCancelResponse | null> {
+  return input.apiClient.cancelStripeSubscription(input.organizationId);
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;

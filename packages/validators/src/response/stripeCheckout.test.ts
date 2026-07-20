@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  isStripeCancelResponse,
   isStripeCheckoutIntentResponse,
   isStripeCheckoutOptionsResponse,
 } from "./stripeCheckout";
@@ -62,4 +63,14 @@ test("accepts and rejects checkout intents", () => {
     }),
   ).toBe(false);
   expect(isStripeCheckoutIntentResponse(null)).toBe(false);
+});
+
+test("accepts and rejects cancellation responses", () => {
+  expect(isStripeCancelResponse({ cancelAt: 1893456000 })).toBe(true);
+  // Null is meaningful: an already-cancelling subscription reports no date,
+  // and the cancellation still took effect.
+  expect(isStripeCancelResponse({ cancelAt: null })).toBe(true);
+  expect(isStripeCancelResponse({})).toBe(false);
+  expect(isStripeCancelResponse({ cancelAt: "soon" })).toBe(false);
+  expect(isStripeCancelResponse(null)).toBe(false);
 });

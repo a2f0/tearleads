@@ -191,12 +191,26 @@ own theme tokens.
   `redirect: "if_required"` confirm — the buyer would see only a generic
   failure. Pinning keeps the offered methods matched to the flow we implement,
   whatever the dashboard says.
-- **Managing a subscription** is still RevenueCat-only. An org that buys
-  through this checkout has no RevenueCat customer, so it gets no manage/cancel
-  link yet; wiring the Stripe billing portal is tracked as follow-up work on
-  issue #1654. It needs the portal session minted **on click** — Stripe portal
-  URLs expire in minutes, so resolving one at panel load would hand the admin
-  an expired link.
+- **Cancelling** is inline, like the checkout — `POST
+  /organizations/:id/billing/stripe/cancel` sets `cancel_at_period_end` on the
+  subscription, and a confirm row in the panel drives it. No card entry, so no
+  iframe and no off-site page: an org that bought here does not get sent to
+  Stripe's hosted portal to leave. Cancellation takes effect at the **end of
+  the paid period**, so the org keeps the sync it paid for and RevenueCat flips
+  the entitlement through the same webhook path a lapsed renewal takes — which
+  is why the client refreshes the billing snapshot rather than assuming
+  `canSync` changed.
+- **Default flow**: where the direct checkout can run (web with a publishable
+  key), it *replaces* the RevenueCat subscribe list rather than rendering
+  alongside it — `BillingPanel` gates `purchaseAvailable` on
+  `!checkout.available`. Native shells have no direct-checkout capability, so
+  they keep the provider-hosted store sheet automatically.
+- **The Stripe billing portal** route (`/billing/stripe/portal`) stays as an
+  escape hatch for card updates and invoice history, but is not wired into the
+  panel UI. If it ever is, the session must be minted **on click** — Stripe
+  portal URLs expire in minutes, so resolving one at panel load would hand the
+  admin an expired link. Card update (SetupIntent + Payment Element) and
+  invoice history are the inline alternatives when those are wanted.
 - **Styling**: the payment fields are still Stripe-hosted iframes (that is what
   keeps us in PCI SAQ A), but on our own account Stripe's Appearance API
   accepts far more than RevenueCat exposes — font family, font size, input

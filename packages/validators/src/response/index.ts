@@ -222,8 +222,10 @@ export {
   type RegistrationResponse,
 } from "./registration";
 export {
+  isStripeCancelResponse,
   isStripeCheckoutIntentResponse,
   isStripeCheckoutOptionsResponse,
+  type StripeCancelResponse,
   type StripeCheckoutIntentResponse,
   type StripeCheckoutOptionsResponse,
   type StripeSyncOptionResponse,

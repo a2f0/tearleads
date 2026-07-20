@@ -3,6 +3,7 @@ export {
   subscribeOrganizationReadModelInvalidation,
 } from "../../data/persistence/organizations/organizationReadModelInvalidation";
 export {
+  cancelStripeSubscription,
   createStripeCheckout,
   loadOrganizationBilling,
   loadOrganizationBillingHistory,
