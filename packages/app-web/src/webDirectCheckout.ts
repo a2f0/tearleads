@@ -1,8 +1,11 @@
-import {
-  loadStripe,
-  type Stripe,
-  type StripeElements,
-} from "@stripe/stripe-js";
+import type { Stripe, StripeElements } from "@stripe/stripe-js";
+// The `/pure` entry is deliberate: importing the main entry downloads
+// Stripe.js (and its fraud-signal beacons) as an import side effect, which
+// would run at app startup for every visitor since this module is imported
+// from the web shell's entry point. `/pure` defers the fetch to the first
+// `loadStripe` call, i.e. the first time a buyer opens the checkout. The type
+// import above has no runtime cost and stays on the main entry.
+import { loadStripe } from "@stripe/stripe-js/pure";
 import {
   createUnavailableDirectCheckout,
   type DirectCheckoutAppearance,
@@ -116,6 +119,13 @@ function createSession(
         // webhook has already recorded the outcome by the time they land.
         ...(returnUrl ? { confirmParams: { return_url: returnUrl } } : {}),
       });
+      // Check the unmount BEFORE mapping: `toConfirmation` throws for a
+      // non-buyer error, which would reject instead of honoring the
+      // cancelled-on-unmount contract. A succeeded confirm is the one case
+      // that still has to be reported (see below) — it charged the card.
+      if (unmounted && error) {
+        return { kind: "cancelled" };
+      }
       const outcome = toConfirmation(error);
       // An unmount racing a confirm normally means the buyer walked away, so
       // report cancellation. But a confirm that already CHARGED the card is
@@ -137,26 +147,46 @@ function createSession(
   };
 }
 
+/**
+ * Just the call signature of `loadStripe`, so tests can inject a plain
+ * function: the `/pure` entry's export also carries `setLoadParameters`,
+ * which this capability never calls.
+ */
+type LoadStripeFn = (publishableKey: string) => Promise<Stripe | null>;
+
 export function createWebDirectCheckout(
-  loadStripeImpl: typeof loadStripe = loadStripe,
+  loadStripeImpl: LoadStripeFn = loadStripe,
 ): DirectCheckoutCapability {
   const publishableKey = readPublishableKey();
   if (!publishableKey) {
     return createUnavailableDirectCheckout();
   }
 
-  // Load once per capability, not per mount: the script is cached by Stripe's
-  // loader, but the promise keeps concurrent mounts from racing it.
+  // Load once per capability, not per mount: the promise keeps concurrent
+  // mounts from racing the script fetch.
   let stripePromise: Promise<Stripe | null> | undefined;
 
   return {
     isAvailable: true,
     async mount({ host, clientSecret, appearance }) {
       stripePromise = stripePromise ?? loadStripeImpl(publishableKey);
-      const stripe = await stripePromise;
+      // `loadStripe` REJECTS when the script cannot be fetched (blocked by an
+      // extension, offline) and resolves null only where there is no `window`.
+      // Both must become the same buyer-facing failure rather than an
+      // unhandled rejection. Clearing the cached promise lets this capability
+      // try again, though stripe-js memoizes its own script load internally,
+      // so a retry within the same page will usually replay the failure — a
+      // reload is the real remedy, and the message says "could not be loaded"
+      // rather than promising a retry will work.
+      let stripe: Stripe | null;
+      try {
+        stripe = await stripePromise;
+      } catch (loadError) {
+        stripePromise = undefined;
+        console.error("Failed to load the Stripe script:", loadError);
+        throw new Error("The payment form could not be loaded.");
+      }
       if (!stripe) {
-        // A failed load is transient (blocked script, offline); clear the
-        // cached promise so a retry can load again.
         stripePromise = undefined;
         throw new Error("The payment form could not be loaded.");
       }

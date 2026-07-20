@@ -77,11 +77,15 @@ function useCheckoutLifecycle(
 function useCheckoutOption(
   available: boolean,
   canSubscribe: boolean,
+  /** The panel is offering the checkout; false for an org that already syncs. */
+  enabled: boolean,
   tearleads: ReturnType<typeof useTearleads>,
 ): StripeSyncOptionResponse | null {
   const [option, setOption] = useState<StripeSyncOptionResponse | null>(null);
   useEffect(() => {
-    if (!available || !canSubscribe) {
+    // `enabled` too: an admin of an already-syncing org would otherwise fire
+    // this request on every billing-panel mount for an option they cannot buy.
+    if (!available || !canSubscribe || !enabled) {
       setOption(null);
       return;
     }
@@ -105,7 +109,7 @@ function useCheckoutOption(
     return () => {
       cancelled = true;
     };
-  }, [available, canSubscribe, tearleads]);
+  }, [available, canSubscribe, enabled, tearleads]);
   return option;
 }
 
@@ -310,7 +314,12 @@ export function useDirectCheckoutFlow(input: {
   const [phase, setPhase] = useState<DirectCheckoutPhase>({ kind: "idle" });
   const [error, setError] = useState<string | null>(null);
   const available = capability.isAvailable;
-  const option = useCheckoutOption(available, input.canSubscribe, tearleads);
+  const option = useCheckoutOption(
+    available,
+    input.canSubscribe,
+    input.enabled,
+    tearleads,
+  );
 
   const teardown = useCallback(() => {
     startTokenRef.current += 1;

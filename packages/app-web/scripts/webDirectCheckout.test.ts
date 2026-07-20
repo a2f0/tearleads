@@ -136,13 +136,14 @@ test("confirming after unmount reports cancelled, never a live success", async (
   expect(confirmed).toBe(false);
 });
 
-test("a failed script load throws and does not cache the failure", async () => {
-  let loads = 0;
-  const loader = (() => {
-    loads += 1;
-    // First attempt fails to load (blocked script / offline).
-    return Promise.resolve(loads === 1 ? null : fakeStripe().stripe);
-  }) as never;
+test("a rejected script load surfaces the buyer-facing failure", async () => {
+  // The real `loadStripe` REJECTS when the script cannot be fetched (blocked
+  // by an extension, offline) — it resolves null only where there is no
+  // `window`. Both must reach the buyer as the same message rather than an
+  // unhandled rejection. stripe-js memoizes its own script load, so a retry
+  // in the same page usually replays the failure; the message promises only
+  // that it could not be loaded, not that retrying will help.
+  const loader = () => Promise.reject(new Error("blocked by extension"));
   const capability = withKey(() => createWebDirectCheckout(loader));
 
   await expect(
@@ -152,16 +153,21 @@ test("a failed script load throws and does not cache the failure", async () => {
       appearance: APPEARANCE,
     }),
   ).rejects.toThrow("could not be loaded");
+});
 
-  // A retry must load again rather than replay the cached failure.
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  const session = await capability.mount({
-    host: host(),
-    clientSecret: "pi_secret",
-    appearance: APPEARANCE,
-  });
-  expect(session).toBeDefined();
-  expect(loads).toBe(2);
+test("a null script load surfaces the same buyer-facing failure", async () => {
+  // `loadStripe` resolves null where there is no `window` (SSR).
+  const capability = withKey(() =>
+    createWebDirectCheckout(() => Promise.resolve(null)),
+  );
+
+  await expect(
+    capability.mount({
+      host: host(),
+      clientSecret: "pi_secret",
+      appearance: APPEARANCE,
+    }),
+  ).rejects.toThrow("could not be loaded");
 });
 
 test("confirm supplies a return url for a redirect-requiring 3-D Secure step", async () => {

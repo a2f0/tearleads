@@ -178,6 +178,24 @@ own theme tokens.
 - Enabled by `BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY` (inlined at build time by
   `deployAppWeb.sh` — the `BUN_PUBLIC_` prefix is required). Absent, the
   capability is the unavailable stub and the panel simply shows nothing extra.
+- The script itself loads from `@stripe/stripe-js/pure`, not the package's main
+  entry. Importing the main entry downloads Stripe.js — and its fraud-signal
+  beacons — as an import side effect, which would run at startup for every
+  visitor because the web shell imports this module from its entry point.
+  `/pure` defers the fetch to the first `loadStripe()` call, i.e. the first
+  time someone actually opens the checkout.
+- The subscription is pinned server-side to `card`
+  (`payment_settings[payment_method_types][]`). The Payment Element otherwise
+  offers whatever the Stripe dashboard has enabled, and any redirect-based
+  method (Amazon Pay, Cash App, iDEAL) breaks the client's
+  `redirect: "if_required"` confirm — the buyer would see only a generic
+  failure. Pinning keeps the offered methods matched to the flow we implement,
+  whatever the dashboard says.
+- **Managing a subscription**: `useBillingManagementUrl` asks RevenueCat first
+  and falls back to the Stripe billing portal, so an org that bought through
+  this checkout still gets a manage/cancel link. Both resolve server-side from
+  the org's stored customer id, so either works for any admin — not just the
+  buyer.
 - **Styling**: the payment fields are still Stripe-hosted iframes (that is what
   keeps us in PCI SAQ A), but on our own account Stripe's Appearance API
   accepts far more than RevenueCat exposes — font family, font size, input
