@@ -33,6 +33,15 @@ test("the trash slug is preserved for the app-managed trash folder", () => {
   );
 });
 
+test("the contacts slug resolves to the address-book glyph regardless of open state", () => {
+  expect(
+    getExplorerContainerIcon({ icon: "contacts", isOpen: false }).name,
+  ).toBe("contacts");
+  expect(
+    getExplorerContainerIcon({ icon: "contacts", isOpen: true }).name,
+  ).toBe("contacts");
+});
+
 test("stored icon values map to the picker slugs, defaulting to folder", () => {
   expect(toSelectableContainerIconSlug(null)).toBe("folder");
   expect(toSelectableContainerIconSlug(undefined)).toBe("folder");
@@ -41,6 +50,8 @@ test("stored icon values map to the picker slugs, defaulting to folder", () => {
   expect(toSelectableContainerIconSlug("album")).toBe("album");
   // trash is app-managed and not a user-selectable option, so it reads as folder.
   expect(toSelectableContainerIconSlug("trash")).toBe("folder");
+  // contacts is likewise app-managed and not user-selectable.
+  expect(toSelectableContainerIconSlug("contacts")).toBe("folder");
 });
 
 test("the folder slug persists as null while others persist verbatim", () => {
