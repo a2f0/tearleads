@@ -1,11 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import { EXPLORER_LABELS } from "../labels";
 import type { ExplorerContextMenuState } from "./ExplorerContextMenu";
 import {
   ExplorerContextMenuLayerHarness,
-  noopImportDroppedFiles,
+  noopStartImport,
   rootNode,
 } from "./ExplorerContextMenuLayer.testUtils";
 
@@ -19,22 +18,12 @@ test("container upload uses the target captured before opening the file picker",
     containerId: string;
     files: ReadonlyArray<File>;
   }> = [];
-  const importDroppedFiles: ImportExplorerDroppedFiles = async (
-    containerId,
-    files,
-  ) => {
+  const startImport = (containerId: string, files: ReadonlyArray<File>) => {
     imports.push({ containerId, files });
-    return {
-      completedCount: files.length,
-      failedCount: 0,
-      importedCount: files.length,
-      importedDocuments: [],
-      totalCount: files.length,
-    };
   };
 
   const view = render(
-    <ExplorerContextMenuLayerHarness importDroppedFiles={importDroppedFiles} />,
+    <ExplorerContextMenuLayerHarness startImport={startImport} />,
   );
   const fileInput = view.container.querySelector<HTMLInputElement>(
     "input.explorer-file-input",
@@ -59,41 +48,10 @@ test("container upload is hidden for upload-protected containers", () => {
   const view = render(
     <ExplorerContextMenuLayerHarness
       canUploadToContextMenuNode={false}
-      importDroppedFiles={noopImportDroppedFiles}
+      startImport={noopStartImport}
     />,
   );
 
-  expect(view.queryByRole("button", { name: "Upload" })).toBeNull();
-});
-
-test("container upload handles rejected import promises", async () => {
-  const uploadedFiles = [
-    new File(["hello"], "hello.txt", { type: "text/plain" }),
-  ];
-  const attemptedContainerIds: string[] = [];
-  const importDroppedFiles: ImportExplorerDroppedFiles = async (
-    containerId,
-  ) => {
-    attemptedContainerIds.push(containerId);
-    throw new Error("failed upload");
-  };
-  const view = render(
-    <ExplorerContextMenuLayerHarness importDroppedFiles={importDroppedFiles} />,
-  );
-  const fileInput = view.container.querySelector<HTMLInputElement>(
-    "input.explorer-file-input",
-  );
-  expect(fileInput).toBeTruthy();
-  if (!fileInput) {
-    return;
-  }
-
-  fireEvent.click(view.getByRole("button", { name: "Upload" }));
-  fireEvent.change(fileInput, { target: { files: uploadedFiles } });
-
-  await waitFor(() => {
-    expect(attemptedContainerIds).toEqual([rootNode.id]);
-  });
   expect(view.queryByRole("button", { name: "Upload" })).toBeNull();
 });
 
@@ -101,7 +59,7 @@ test("container context menu opens a new structured document in the target", () 
   const openedContainerIds: string[] = [];
   const view = render(
     <ExplorerContextMenuLayerHarness
-      importDroppedFiles={noopImportDroppedFiles}
+      startImport={noopStartImport}
       openNewStructuredDocumentRoute={(containerId) =>
         openedContainerIds.push(containerId)
       }
@@ -127,7 +85,7 @@ test("container context menu hides creation actions for protected containers", (
     <ExplorerContextMenuLayerHarness
       canCreateChildContextMenuNode={false}
       canCreateStructuredDocumentContextMenuNode={false}
-      importDroppedFiles={noopImportDroppedFiles}
+      startImport={noopStartImport}
     />,
   );
 
@@ -145,9 +103,7 @@ test("container context menu hides creation actions for protected containers", (
 
 test("container context menu hides Delete Forever for non-purgeable folders", () => {
   const view = render(
-    <ExplorerContextMenuLayerHarness
-      importDroppedFiles={noopImportDroppedFiles}
-    />,
+    <ExplorerContextMenuLayerHarness startImport={noopStartImport} />,
   );
 
   expect(
@@ -162,7 +118,7 @@ test("container context menu purges a folder under trash via Delete Forever", ()
   const view = render(
     <ExplorerContextMenuLayerHarness
       canPurgeContextMenuNode
-      importDroppedFiles={noopImportDroppedFiles}
+      startImport={noopStartImport}
       openPurgeModal={(containerId) => purgedContainerIds.push(containerId)}
     />,
   );
@@ -182,7 +138,7 @@ test("container context menu moves a folder to trash via Move to Trash", async (
   const view = render(
     <ExplorerContextMenuLayerHarness
       canMoveToTrashContextMenuNode
-      importDroppedFiles={noopImportDroppedFiles}
+      startImport={noopStartImport}
       moveContainerToTrash={async (containerId) => {
         trashedContainerIds.push(containerId);
         return null;
@@ -208,9 +164,7 @@ test("container context menu moves a folder to trash via Move to Trash", async (
 
 test("container context menu hides Move to Trash for non-trashable folders", () => {
   const view = render(
-    <ExplorerContextMenuLayerHarness
-      importDroppedFiles={noopImportDroppedFiles}
-    />,
+    <ExplorerContextMenuLayerHarness startImport={noopStartImport} />,
   );
 
   expect(
@@ -225,7 +179,7 @@ test("contacts container context menu only shows get info and new contact", () =
   const view = render(
     <ExplorerContextMenuLayerHarness
       containerContextMenuVariant="contacts"
-      importDroppedFiles={noopImportDroppedFiles}
+      startImport={noopStartImport}
       openNewContactDocument={(containerId) =>
         openedContactContainers.push(containerId)
       }
@@ -254,7 +208,7 @@ test("contacts container context menu opens container info", () => {
   const view = render(
     <ExplorerContextMenuLayerHarness
       containerContextMenuVariant="contacts"
-      importDroppedFiles={noopImportDroppedFiles}
+      startImport={noopStartImport}
       openContainerInfoRoute={(containerId) =>
         openedInfoContainers.push(containerId)
       }
@@ -282,7 +236,7 @@ test("system container context menu hides unavailable actions", () => {
       canCreateStructuredDocumentContextMenuNode={false}
       canUploadToContextMenuNode={false}
       containerContextMenuVariant="system"
-      importDroppedFiles={noopImportDroppedFiles}
+      startImport={noopStartImport}
     />,
   );
 
@@ -326,7 +280,7 @@ test("document context menu deletes the selected document", async () => {
         deletes.push({ containerId, localId });
         return null;
       }}
-      importDroppedFiles={noopImportDroppedFiles}
+      startImport={noopStartImport}
     />,
   );
 
@@ -361,7 +315,7 @@ test("document context menu hides unavailable actions", () => {
   const view = render(
     <ExplorerContextMenuLayerHarness
       contextMenu={documentContextMenu}
-      importDroppedFiles={noopImportDroppedFiles}
+      startImport={noopStartImport}
     />,
   );
 
@@ -396,7 +350,7 @@ test("document context menu downloads a file-backed document", () => {
       canDownloadSelectedDocument
       contextMenu={documentContextMenu}
       downloadDocument={(localId) => downloads.push(localId)}
-      importDroppedFiles={noopImportDroppedFiles}
+      startImport={noopStartImport}
     />,
   );
   fireEvent.click(
@@ -411,7 +365,7 @@ test("document context menu purges the selected document forever", async () => {
     <ExplorerContextMenuLayerHarness
       canPurgeSelectedDocument
       contextMenu={documentContextMenu}
-      importDroppedFiles={noopImportDroppedFiles}
+      startImport={noopStartImport}
       purgeDocument={async (localId, containerId) => {
         purges.push({ containerId, localId });
         return null;

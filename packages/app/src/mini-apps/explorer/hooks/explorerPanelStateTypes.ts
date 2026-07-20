@@ -7,7 +7,6 @@ import type {
 } from "@tearleads/client-sdk";
 import type { MouseEvent } from "react";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";
-import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import type {
   ExplorerContainerContextMenuVariant,
   ExplorerContextMenuState,
@@ -16,6 +15,7 @@ import type { ExplorerPurgeRun } from "../purge-progress/useExplorerPurgeRun";
 import type { MoveTargetOption } from "../targetOptions";
 import type { ExplorerDocumentMutationAction } from "./explorerModelTypes";
 import type { ExplorerDocumentModalState } from "./useExplorerDocumentModalState";
+import type { ExplorerFileImportRun } from "./useExplorerFileImportRun";
 import type { ExplorerRouteState } from "./useExplorerRoute";
 import type { OpenInlineDocument } from "./useInlineDocumentAction";
 
@@ -56,7 +56,7 @@ export interface ExplorerPanelState {
   canMutateDocumentLinks: boolean;
   contextMenuState: ExplorerContextMenuModel;
   deleteDocument: ExplorerDocumentMutationAction;
-  importDroppedFiles: ImportExplorerDroppedFiles;
+  fileImportRun: ExplorerFileImportRun;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
   loadDocumentAttributionRanges: ExplorerDocumentAttributionRangesLoader;

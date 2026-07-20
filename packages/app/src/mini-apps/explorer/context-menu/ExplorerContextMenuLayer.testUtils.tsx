@@ -3,7 +3,6 @@ import {
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
 import { useState } from "react";
-import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import type {
   ExplorerContainerContextMenuVariant,
   ExplorerContextMenuState,
@@ -19,13 +18,10 @@ export const rootNode: ContainerNode = {
   syncState: syncedContainerDocumentObjectSyncState,
 };
 
-export const noopImportDroppedFiles: ImportExplorerDroppedFiles = async () => ({
-  completedCount: 0,
-  failedCount: 0,
-  importedCount: 0,
-  importedDocuments: [],
-  totalCount: 0,
-});
+export const noopStartImport: (
+  containerId: string,
+  files: ReadonlyArray<File>,
+) => void = () => undefined;
 
 export function ExplorerContextMenuLayerHarness(params: {
   canCreateChildContextMenuNode?: boolean;
@@ -41,7 +37,7 @@ export function ExplorerContextMenuLayerHarness(params: {
   contextMenu?: ExplorerContextMenuState | null;
   deleteDocument?: (localId: string, containerId: string) => Promise<unknown>;
   downloadDocument?: (localId: string) => void;
-  importDroppedFiles: ImportExplorerDroppedFiles;
+  startImport: (containerId: string, files: ReadonlyArray<File>) => void;
   moveContainerToTrash?: (containerId: string) => Promise<unknown>;
   openContainerInfoRoute?: (containerId: string) => void;
   openNewContactDocument?: (containerId: string) => void;
@@ -88,7 +84,7 @@ export function ExplorerContextMenuLayerHarness(params: {
       contextMenu={contextMenu}
       deleteDocument={params.deleteDocument ?? (async () => null)}
       downloadDocument={params.downloadDocument ?? (() => {})}
-      importDroppedFiles={params.importDroppedFiles}
+      startImport={params.startImport}
       moveContainerToTrash={params.moveContainerToTrash ?? (async () => null)}
       openContainerInfoRoute={params.openContainerInfoRoute ?? (() => {})}
       openCreateChildModal={() => {}}

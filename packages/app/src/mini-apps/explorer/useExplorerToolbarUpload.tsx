@@ -1,12 +1,11 @@
 import { type ChangeEvent, useCallback, useRef } from "react";
-import type { ImportExplorerDroppedFiles } from "../../stores/explorer/useExplorerDroppedFileImport";
+import type { ExplorerFileImportRun } from "./hooks/useExplorerFileImportRun";
 
 // The hidden file <input> behind Explorer's Upload toolbar action, plus the
 // trigger that opens the picker for a given container. Kept as a standalone hook
 // so ExplorerRoutedChrome stays focused on registering toolbar/menu actions.
-export function useExplorerToolbarUpload(
-  importDroppedFiles: ImportExplorerDroppedFiles,
-) {
+export function useExplorerToolbarUpload(fileImportRun: ExplorerFileImportRun) {
+  const { startImport } = fileImportRun;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadContainerIdRef = useRef<string | null>(null);
 
@@ -21,10 +20,7 @@ export function useExplorerToolbarUpload(
       const uploadContainerId = uploadContainerIdRef.current;
       try {
         if (files.length > 0 && uploadContainerId) {
-          void importDroppedFiles(uploadContainerId, files).catch(() => {
-            // The importer logs per-file failures; keep toolbar uploads from
-            // surfacing exceptional rejections as unhandled.
-          });
+          startImport(uploadContainerId, files);
         }
       } finally {
         if (fileInputRef.current) {
@@ -33,7 +29,7 @@ export function useExplorerToolbarUpload(
         uploadContainerIdRef.current = null;
       }
     },
-    [importDroppedFiles],
+    [startImport],
   );
 
   return {

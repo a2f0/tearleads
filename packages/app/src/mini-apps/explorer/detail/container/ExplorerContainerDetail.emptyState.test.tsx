@@ -6,7 +6,7 @@ import {
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
 import { act, cleanup, render } from "@testing-library/react";
-import type { ImportExplorerDroppedFiles } from "../../../../stores/explorer/useExplorerDroppedFileImport";
+import type { ExplorerFileImportRun } from "../../hooks/useExplorerFileImportRun";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerContainerDetail } from "./ExplorerContainerDetail";
 
@@ -76,8 +76,12 @@ function createDeferredDocumentQueries() {
   return { documentQueries, pending };
 }
 
-const importDroppedFiles: ImportExplorerDroppedFiles = () =>
-  Promise.reject(new Error("not under test"));
+const fileImportRun: ExplorerFileImportRun = {
+  cancel: () => undefined,
+  isImporting: false,
+  run: null,
+  startImport: () => undefined,
+};
 
 function renderContainerDetail(params: {
   documentQueries: ContainerDocumentQueries;
@@ -107,7 +111,7 @@ function containerDetailElement(props: {
       currentUserId={null}
       documentListRevision={props.documentListRevision}
       documentQueries={props.documentQueries}
-      importDroppedFiles={importDroppedFiles}
+      fileImportRun={fileImportRun}
       online
       onContainerContextMenu={() => undefined}
       onItemContextMenu={() => undefined}

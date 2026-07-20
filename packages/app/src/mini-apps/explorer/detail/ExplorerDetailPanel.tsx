@@ -20,7 +20,6 @@ import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
-import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import type { BlobPickTarget } from "../../shared/blob-pick/BlobPickProvider";
 import {
   canAdminContainerNode,
@@ -29,6 +28,7 @@ import {
 import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextMenu";
 import { getDocumentByLocalId } from "../documentSummaries";
 import { ExplorerDatabaseErrorStatus } from "../ExplorerDatabaseErrorStatus";
+import type { ExplorerFileImportRun } from "../hooks/useExplorerFileImportRun";
 import type { ExplorerRoute } from "../routes";
 import type { MiniAppWindowPosition } from "../types";
 import type { ExplorerAttributionUserLabelResolver } from "./attributionDisplay";
@@ -123,7 +123,7 @@ interface ExplorerDetailPanelProps {
   documentQueries: ContainerDocumentQueries;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   domainScope: DomainScope;
-  importDroppedFiles: ImportExplorerDroppedFiles;
+  fileImportRun: ExplorerFileImportRun;
   initialEditingSelectedDocument: boolean;
   isAuthenticated: boolean;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
@@ -405,7 +405,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         currentUserId={params.currentUserId}
         documentListRevision={params.documentListRevision}
         documentQueries={params.documentQueries}
-        importDroppedFiles={params.importDroppedFiles}
+        fileImportRun={params.fileImportRun}
         online={params.online}
         onContainerContextMenu={params.onContainerContextMenu}
         onItemContextMenu={params.onItemContextMenu}

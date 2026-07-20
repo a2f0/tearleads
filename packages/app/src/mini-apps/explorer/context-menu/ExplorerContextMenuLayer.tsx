@@ -14,7 +14,6 @@ import type { ReactNode } from "react";
 import { useCallback, useRef } from "react";
 import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
-import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import { EXPLORER_LABELS } from "../labels";
 import type {
   ExplorerContainerContextMenuVariant,
@@ -406,7 +405,7 @@ export function ExplorerContextMenuLayer(params: {
   contextMenu: ExplorerContextMenuState | null;
   deleteDocument: (localId: string, containerId: string) => Promise<unknown>;
   downloadDocument: (localId: string) => void;
-  importDroppedFiles: ImportExplorerDroppedFiles;
+  startImport: (containerId: string, files: ReadonlyArray<File>) => void;
   moveContainerToTrash: (containerId: string) => Promise<unknown>;
   openEmptyTrashModal: (containerId: string) => void;
   openCreateChildModal: (containerId: string) => void;
@@ -463,12 +462,7 @@ export function ExplorerContextMenuLayer(params: {
           const uploadContainerId = uploadContainerIdRef.current;
           try {
             if (files.length > 0 && uploadContainerId) {
-              void params
-                .importDroppedFiles(uploadContainerId, files)
-                .catch(() => {
-                  // The importer logs per-file failures; prevent menu uploads
-                  // from surfacing any exceptional rejection as unhandled.
-                });
+              params.startImport(uploadContainerId, files);
             }
           } finally {
             if (fileInputRef.current) {

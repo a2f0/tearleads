@@ -42,6 +42,7 @@ import type { ExplorerModelExplorer } from "./explorerModelTypes";
 import type { ExplorerPanelState } from "./explorerPanelStateTypes";
 import { useExplorerContainerTrashActions } from "./useExplorerContainerTrashActions";
 import { useExplorerDocumentModalState } from "./useExplorerDocumentModalState";
+import { useExplorerFileImportRun } from "./useExplorerFileImportRun";
 import { useExplorerOrganizationNames } from "./useExplorerOrganizationNames";
 import { useExplorerRoute } from "./useExplorerRoute";
 import type { ExplorerSelectionState } from "./useExplorerSelection";
@@ -269,7 +270,7 @@ export function useExplorerPanelState(params: {
   // would bypass the protection and land files in e.g. the Trash. Throwing
   // surfaces the reason in the drop target's import status.
   const importDroppedFiles = useCallback<ImportExplorerDroppedFiles>(
-    (containerId, files, onProgress) => {
+    (containerId, files, options) => {
       if (
         !canUploadToContainerIdByRules(
           rulesContext,
@@ -282,10 +283,11 @@ export function useExplorerPanelState(params: {
         );
       }
 
-      return importDroppedFilesUnguarded(containerId, files, onProgress);
+      return importDroppedFilesUnguarded(containerId, files, options);
     },
     [explorer.nodes, importDroppedFilesUnguarded, rulesContext],
   );
+  const fileImportRun = useExplorerFileImportRun({ importDroppedFiles });
   const deleteDocument = useCallback(
     async (documentId: string, currentContainerId: string) => {
       try {
@@ -408,7 +410,7 @@ export function useExplorerPanelState(params: {
     canMutateDocumentLinks: explorerDocumentLinks.canMutateDocumentLinks,
     contextMenuState,
     deleteDocument,
-    importDroppedFiles,
+    fileImportRun,
     loadBlobInfo,
     loadContainerInfo,
     loadDocumentAttributionRanges,

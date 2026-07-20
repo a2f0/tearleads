@@ -6,6 +6,7 @@ import type {
 } from "@tearleads/client-sdk";
 import { type MouseEvent, useCallback, useState } from "react";
 import {
+  MiniAppButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
   MiniAppPanel,
@@ -13,10 +14,10 @@ import {
 } from "../../../../components/mini-app/MiniAppLayout";
 import { useMiniAppVirtualWindow } from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
-import type { ImportExplorerDroppedFiles } from "../../../../stores/explorer/useExplorerDroppedFileImport";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
 import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
 import { useExplorerContainerFileDropTarget } from "../../hooks/useExplorerContainerFileDropTarget";
+import type { ExplorerFileImportRun } from "../../hooks/useExplorerFileImportRun";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerContainerItemTable } from "./ExplorerContainerItemTable";
 import {
@@ -25,6 +26,7 @@ import {
   useExplorerContainerItemWindow,
 } from "./explorerContainerItemWindow";
 import { useExplorerColumnVisibility } from "./useExplorerColumnVisibility";
+import "./ExplorerContainerDetail.css";
 
 export { getNextExplorerItemSort } from "./explorerContainerItemWindow";
 
@@ -61,7 +63,7 @@ interface ExplorerContainerDetailProps {
   currentUserId: string | null | undefined;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
-  importDroppedFiles: ImportExplorerDroppedFiles;
+  fileImportRun: ExplorerFileImportRun;
   online: boolean;
   onContainerContextMenu: (
     event: MouseEvent<HTMLElement>,
@@ -127,7 +129,7 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
     currentSigningFingerprint,
     currentSelfContactLocalId,
     currentUserId,
-    importDroppedFiles,
+    fileImportRun,
     online,
     onContainerContextMenu,
     onItemContextMenu,
@@ -140,7 +142,7 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
     useExplorerContainerItems(params);
   const columnVisibility = useExplorerColumnVisibility();
   const fileDropTarget = useExplorerContainerFileDropTarget({
-    importDroppedFiles,
+    fileImportRun,
     selectedNode,
   });
 
@@ -161,9 +163,15 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
       {fileDropTarget.importStatus ? (
         <MiniAppStatus
           as="span"
+          className="explorer-detail-import-status"
           tone={fileDropTarget.importStatusIsError ? "error" : "muted"}
         >
           {fileDropTarget.importStatus}
+          {fileImportRun.isImporting ? (
+            <MiniAppButton onClick={fileImportRun.cancel} variant="ghost">
+              {EXPLORER_LABELS.fileImportCancelAction}
+            </MiniAppButton>
+          ) : null}
         </MiniAppStatus>
       ) : null}
       <ExplorerContainerItemTable

@@ -390,6 +390,15 @@ export function getExplorerFileImportCompletedStatus(
   return `Imported ${importedCount} ${importedCount === 1 ? "file" : "files"}.`;
 }
 
+// Terminal line for an upload the user stopped mid-run: the already-imported
+// prefix stays (documents are durable, not rolled back), so name its size.
+export function getExplorerFileImportCancelledStatus(input: {
+  importedCount: number;
+  totalCount: number;
+}): string {
+  return `Upload cancelled. Imported ${input.importedCount} of ${input.totalCount} files.`;
+}
+
 export function getExplorerFileImportPartialStatus(input: {
   importedCount: number;
   totalCount: number;
