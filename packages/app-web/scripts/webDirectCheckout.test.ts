@@ -24,18 +24,22 @@ function fakeStripe(options?: {
     mount: () => undefined,
     destroy: () => destroyed.push("payment"),
   };
+  const elementsOptions: unknown[] = [];
   const stripe = {
-    elements: () => ({
-      create: () => element,
-      getElement: () => element,
-    }),
+    elements: (opts: unknown) => {
+      elementsOptions.push(opts);
+      return {
+        create: () => element,
+        getElement: () => element,
+      };
+    },
     confirmPayment: async (input: unknown) => {
       confirmInputs.push(input);
       options?.onConfirm?.();
       return { error: options?.confirmError };
     },
   };
-  return { confirmInputs, stripe, destroyed };
+  return { confirmInputs, elementsOptions, stripe, destroyed };
 }
 
 const APPEARANCE = {
@@ -248,4 +252,53 @@ test("a charge that lands during an unmount is reported, not swallowed", async (
   session.unmount();
 
   expect(await confirmed).toEqual({ kind: "succeeded" });
+});
+
+test("a dark surface mounts the Payment Element on the night base theme", async () => {
+  // The base theme drives the Payment Element's built-in card icon; a light
+  // base on a dark surface renders it dark-on-dark.
+  const { elementsOptions, stripe } = fakeStripe();
+  const capability = withKey(() =>
+    createWebDirectCheckout(() => Promise.resolve(stripe as never)),
+  );
+  await capability.mount({
+    host: host(),
+    clientSecret: "pi_secret",
+    appearance: { ...APPEARANCE, colorBackground: "rgb(17, 17, 17)" },
+  });
+
+  const [opts] = elementsOptions as [{ appearance: { theme: string } }];
+  expect(opts.appearance.theme).toBe("night");
+});
+
+test("a light surface mounts the Payment Element on the stripe base theme", async () => {
+  const { elementsOptions, stripe } = fakeStripe();
+  const capability = withKey(() =>
+    createWebDirectCheckout(() => Promise.resolve(stripe as never)),
+  );
+  await capability.mount({
+    host: host(),
+    clientSecret: "pi_secret",
+    appearance: { ...APPEARANCE, colorBackground: "rgb(255, 255, 255)" },
+  });
+
+  const [opts] = elementsOptions as [{ appearance: { theme: string } }];
+  expect(opts.appearance.theme).toBe("stripe");
+});
+
+test("an unparseable surface color falls back to the light base theme", async () => {
+  // The probe yields computed rgb(), but if that invariant ever changes a
+  // non-rgb value must not misclassify as dark — it falls back to light.
+  const { elementsOptions, stripe } = fakeStripe();
+  const capability = withKey(() =>
+    createWebDirectCheckout(() => Promise.resolve(stripe as never)),
+  );
+  await capability.mount({
+    host: host(),
+    clientSecret: "pi_secret",
+    appearance: { ...APPEARANCE, colorBackground: "not-a-color" },
+  });
+
+  const [opts] = elementsOptions as [{ appearance: { theme: string } }];
+  expect(opts.appearance.theme).toBe("stripe");
 });
