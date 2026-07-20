@@ -1,4 +1,5 @@
 import type { Icon } from "@phosphor-icons/react";
+import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
 import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
 import { FolderOpenIcon } from "@phosphor-icons/react/dist/csr/FolderOpen";
 import { ImagesIcon } from "@phosphor-icons/react/dist/csr/Images";
@@ -52,6 +53,14 @@ export function getExplorerContainerIcon(params: {
       Component: TrashIcon,
       containerIcon,
       name: "trash",
+    };
+  }
+
+  if (containerIcon === "contacts") {
+    return {
+      Component: AddressBookIcon,
+      containerIcon,
+      name: "contacts",
     };
   }
 

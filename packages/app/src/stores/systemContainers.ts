@@ -8,6 +8,13 @@ import { deriveContainerSystemSlot } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 
 export const CONTACTS_CONTAINER_NAME = "Contacts";
+// Icon slug for the Contacts system folder, resolved to a glyph by
+// getExplorerContainerIcon. Matches the address-book glyph the Contacts mini app
+// uses (see MINI_APP_ICONS) so the folder and the app read as the same thing.
+// Only consumed within this module (the container definition below), so it is
+// module-local; the Trash counterpart is exported because provider ensure-calls
+// reference it directly.
+const CONTACTS_CONTAINER_ICON = "contacts";
 const CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION: ContainerSystemSlotDefinition =
   {
     namespace: "tearleads.contacts",
@@ -107,7 +114,7 @@ export interface UserSystemContainer {
 export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefinition[] =
   [
     {
-      icon: null,
+      icon: CONTACTS_CONTAINER_ICON,
       kind: "contacts",
       name: CONTACTS_CONTAINER_NAME,
       // Contacts stays device-first: created locally at bootstrap and promoted
