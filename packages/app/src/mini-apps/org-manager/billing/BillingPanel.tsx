@@ -171,6 +171,11 @@ export function BillingPanel({
         // shells have no direct checkout, so `available` is false there and
         // they keep the provider-hosted store sheet.
         purchaseAvailable={actions.purchaseAvailable && !checkout.available}
+        // Suppress the "purchases unavailable" notice when the direct checkout
+        // IS the purchase path (it renders below). Without this, turning the RC
+        // list off above would surface that notice on every web build with a
+        // Stripe key.
+        directCheckoutAvailable={checkout.available}
         view={billing.view}
       />
       {/*

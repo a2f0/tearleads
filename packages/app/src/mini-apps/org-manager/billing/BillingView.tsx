@@ -33,8 +33,21 @@ export interface BillingViewProps {
   readonly loading: boolean;
   readonly error: string | null;
   readonly isOrgAdmin: boolean;
-  /** Whether in-app purchases can run on this platform (false → web/desktop stub). */
+  /**
+   * Whether to offer the provider-hosted (RevenueCat) subscribe list. The
+   * container turns this OFF where the direct card checkout is the purchase
+   * path, so the two flows never both render.
+   */
   readonly purchaseAvailable: boolean;
+  /**
+   * Whether the direct card checkout is the purchase path here (web + a Stripe
+   * key). When true, this view renders NEITHER the subscribe list NOR the
+   * "purchases unavailable" notice — the checkout, mounted by the container
+   * below this view, is the purchase UI. Without this, turning
+   * `purchaseAvailable` off to hide the RC list would wrongly surface the
+   * unavailable notice even though a purchase path exists.
+   */
+  readonly directCheckoutAvailable?: boolean;
   /** Whether the admin can actually purchase (platform supports it and the buyer is known). */
   readonly canSubscribe: boolean;
   /**
@@ -217,6 +230,65 @@ function BillingManageButton({ url }: { url: string }) {
   );
 }
 
+/**
+ * The purchase slot: the provider-hosted subscribe list, or nothing when the
+ * direct card checkout is the path (it mounts below this view), or the
+ * "unavailable" notice only when NEITHER path exists.
+ */
+function BillingPurchaseSection({
+  checkoutHostRef,
+  ...props
+}: Omit<BillingViewProps, "view" | "loading" | "managementUrl"> & {
+  readonly checkoutHostRef: Ref<HTMLDivElement>;
+}) {
+  if (!props.purchaseAvailable) {
+    // Direct checkout is the path → render nothing (it mounts below); only a
+    // total absence of any purchase path shows the notice.
+    return props.directCheckoutAvailable ? null : (
+      <MiniAppStatus className="org-manager-hint">
+        {ORG_MANAGER_LABELS.billingPurchaseUnavailable}
+      </MiniAppStatus>
+    );
+  }
+  return (
+    <>
+      <BillingSubscribeList
+        busy={props.busy}
+        canSubscribe={props.canSubscribe}
+        onSubscribe={props.onSubscribe}
+        options={props.options}
+      />
+      {/* The host (and its cancel-on-detach lifecycle) exists only where the
+          backend actually embeds into it. On native platforms the purchase
+          runs in a store sheet the app cannot cancel, so a detaching host must
+          not settle the flow as cancelled. */}
+      {props.embeddedCheckout ? (
+        <div className="org-manager-billing-checkout" ref={checkoutHostRef} />
+      ) : null}
+      {props.embeddedCheckout && props.checkoutActive ? (
+        <MiniAppRowButton
+          className="org-manager-billing-checkout-cancel"
+          onClick={props.onCancelCheckout}
+        >
+          <MiniAppRowText>
+            {ORG_MANAGER_LABELS.billingCancelCheckout}
+          </MiniAppRowText>
+        </MiniAppRowButton>
+      ) : null}
+      <MiniAppRowButton
+        disabled={props.busy !== null}
+        onClick={props.onRestore}
+      >
+        <MiniAppRowText>
+          {props.busy === "restore"
+            ? ORG_MANAGER_LABELS.billingRestoring
+            : ORG_MANAGER_LABELS.billingRestore}
+        </MiniAppRowText>
+      </MiniAppRowButton>
+    </>
+  );
+}
+
 function BillingAdminActions({
   managementUrl,
   view,
@@ -243,50 +315,7 @@ function BillingAdminActions({
         </MiniAppRowButton>
       ) : null}
 
-      {props.purchaseAvailable ? (
-        <>
-          <BillingSubscribeList
-            busy={props.busy}
-            canSubscribe={props.canSubscribe}
-            onSubscribe={props.onSubscribe}
-            options={props.options}
-          />
-          {/* The host (and its cancel-on-detach lifecycle) exists only where
-              the backend actually embeds into it. On native platforms the
-              purchase runs in a store sheet the app cannot cancel, so a
-              detaching host must not settle the flow as cancelled. */}
-          {props.embeddedCheckout ? (
-            <div
-              className="org-manager-billing-checkout"
-              ref={checkoutHostRef}
-            />
-          ) : null}
-          {props.embeddedCheckout && props.checkoutActive ? (
-            <MiniAppRowButton
-              className="org-manager-billing-checkout-cancel"
-              onClick={props.onCancelCheckout}
-            >
-              <MiniAppRowText>
-                {ORG_MANAGER_LABELS.billingCancelCheckout}
-              </MiniAppRowText>
-            </MiniAppRowButton>
-          ) : null}
-          <MiniAppRowButton
-            disabled={props.busy !== null}
-            onClick={props.onRestore}
-          >
-            <MiniAppRowText>
-              {props.busy === "restore"
-                ? ORG_MANAGER_LABELS.billingRestoring
-                : ORG_MANAGER_LABELS.billingRestore}
-            </MiniAppRowText>
-          </MiniAppRowButton>
-        </>
-      ) : (
-        <MiniAppStatus className="org-manager-hint">
-          {ORG_MANAGER_LABELS.billingPurchaseUnavailable}
-        </MiniAppStatus>
-      )}
+      <BillingPurchaseSection {...props} checkoutHostRef={checkoutHostRef} />
 
       {managementUrl ? <BillingManageButton url={managementUrl} /> : null}
 

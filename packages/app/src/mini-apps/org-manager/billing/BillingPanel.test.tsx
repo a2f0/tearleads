@@ -139,6 +139,27 @@ test("an org that cannot sync is offered the in-app card checkout", async () => 
   expect(view.getByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeDefined();
 });
 
+test("the direct checkout does not surface the 'purchases unavailable' notice", async () => {
+  // Regression: gating the RC subscribe list off (to avoid two Subscribe rows)
+  // must NOT trip BillingView's fallback notice. With a Stripe key present the
+  // checkout IS the purchase path, so "Purchases aren't available right now" is
+  // wrong — this shipped in #1679 and showed on every staging load.
+  //
+  // RevenueCat AVAILABLE so `purchaseAvailable` is only turned off by the
+  // direct-checkout gate, which is the exact path that regressed.
+  stubEnvironment(false);
+
+  const view = render(
+    <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
+    { wrapper: wrapperWith(true) },
+  );
+
+  await waitFor(() => expect(view.getByText("Sync")).toBeDefined());
+  expect(
+    view.queryByText(ORG_MANAGER_LABELS.billingPurchaseUnavailable),
+  ).toBeNull();
+});
+
 test("an org that already syncs is not offered a second subscription", async () => {
   // The same gate also tears down a live element when it flips off, which is
   // why the panel must not render the checkout at all in this state — a
