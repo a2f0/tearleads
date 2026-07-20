@@ -118,23 +118,24 @@ export function ExplorerSyncLanesPanel(params: {
   );
 
   // The manual "Sync now" trigger lives on the window toolbar, registered here
-  // beside the snapshot it needs. It stays disabled while a sync is already in
-  // flight (re-requesting then is redundant) and is dropped in lane detail —
-  // the same rules the former in-panel button followed.
-  const hasPendingWork = snapshot.hasPendingWork;
+  // beside the snapshot it needs. It stays ENABLED even while work is pending:
+  // re-requesting is idempotent and cheap, and the moment the user most needs
+  // the escape hatch is exactly when the queue looks stuck with pending work
+  // (issue #1672 — the old disabled-while-pending rule made a wedged queue
+  // unrecoverable from the UI). Dropped in lane detail as before.
   const syncNowAction = useMemo(
     () =>
       selectedLaneKey !== null
         ? null
         : {
-            disabled: hasPendingWork,
+            disabled: false,
             icon: <ArrowsClockwiseIcon aria-hidden size={18} />,
             id: "explorer-sync-now",
             label: EXPLORER_LABELS.syncLanesSyncNowAction,
             onClick: handleSyncNow,
             priority: 150,
           },
-    [handleSyncNow, hasPendingWork, selectedLaneKey],
+    [handleSyncNow, selectedLaneKey],
   );
   useWindowTitleBarAction(syncNowAction);
 

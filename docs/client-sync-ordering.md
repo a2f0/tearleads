@@ -28,6 +28,17 @@ for queued work on one client runtime and one domain scope; other devices and
 other domain scopes still synchronize independently and are validated by the
 server protocol.
 
+**Watchdog exception.** Each run is bounded by a per-lane watchdog
+(`SyncLaneConfig.watchdogMs`, default 120s). A run exceeding it is abandoned —
+not cancelled — and the pump moves on, so one stuck lane costs itself rather
+than freezing the whole queue (issue #1672). During that window the abandoned
+run executes concurrently with later lanes, including document lanes running
+while a stuck structural run's tail is still in flight. This deliberately
+trades strict serialization for liveness in the pathological case only: the
+abandoned lane can never run concurrently with itself (a run token holds it
+out of selection until the old run settles), and any late writes the abandoned
+run makes are validated server-side exactly like writes from another device.
+
 ## Structural Phase
 
 The `container-contents` lane owns local container topology and container
