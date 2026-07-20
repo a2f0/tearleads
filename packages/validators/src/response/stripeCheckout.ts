@@ -37,6 +37,21 @@ export interface StripeCheckoutIntentResponse {
   clientSecret: string;
 }
 
+/**
+ * The moment the org's sync access ends, as Unix seconds. Null is a normal
+ * answer: Stripe omits `cancel_at` for an already-cancelling subscription, and
+ * the cancellation still took effect.
+ */
+export interface StripeCancelResponse {
+  cancelAt: number | null;
+}
+
+export function isStripeCancelResponse(
+  value: unknown,
+): value is StripeCancelResponse {
+  return isPlainObject(value) && hasNullableNumberProperty(value, "cancelAt");
+}
+
 function isStripeSyncOption(value: unknown): value is StripeSyncOptionResponse {
   return (
     isPlainObject(value) &&

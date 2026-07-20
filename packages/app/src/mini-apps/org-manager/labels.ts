@@ -15,6 +15,17 @@ export const ORG_MANAGER_LABELS = {
   billingActive: "Active subscription",
   billingAdminOnly: "Only an organization admin can manage billing.",
   billingCancelCheckout: "Cancel checkout",
+  billingCancelFailed: "Could not cancel the subscription. Try again.",
+  billingCancelScheduled:
+    "Cancellation scheduled — sync stays active until the period ends.",
+  billingCancelScheduledOn: (date: string) =>
+    `Cancellation scheduled — sync stays active until ${date}.`,
+  billingCancelSubscription: "Cancel subscription",
+  billingCancelSubscriptionConfirm: "Yes, cancel at period end",
+  billingCancelSubscriptionHint:
+    "Sync stays active until the end of the period you've paid for.",
+  billingCancelSubscriptionKeep: "Keep subscription",
+  billingCancelling: "Cancelling…",
   billingCheckoutPay: "Pay and subscribe",
   billingCheckoutPaying: "Processing payment...",
   billingCheckoutStarting: "Preparing checkout...",

@@ -5,6 +5,7 @@ import {
   type RevenueCatAssociationDeps,
 } from "../../billing/revenueCatStripeAssociation";
 import {
+  cancelSubscriptionAtPeriodEnd,
   createPortalSession,
   createSyncSubscription,
   findOrCreateCustomer,
@@ -149,6 +150,49 @@ export async function createStripePortalUrl(
   }
   return createPortalSession(
     { customerId: binding.customerId, returnUrl },
+    deps.stripe ?? {},
+  );
+}
+
+/**
+ * Cancels the org's sync subscription at the end of the paid period.
+ *
+ * Guards mirror {@link createStripePortalUrl} exactly, and for the same
+ * reason: the subscription must be resolvable for THIS admin and its `orgId`
+ * metadata must name THIS org. A legacy or foreign subscription may sit on a
+ * pooled customer, and cancelling it would end an unrelated organization's
+ * billing.
+ *
+ * Returns null when Stripe is unconfigured or no cancellable subscription
+ * belongs to the org — the caller renders no cancel affordance either way.
+ */
+export async function cancelStripeSubscription(
+  runtime: ApiServiceRuntime,
+  organizationId: string,
+  sessionUserId: string,
+  deps: StripeCheckoutServiceDeps = {},
+): Promise<{ cancelAt: number | null } | null> {
+  const { providerSubscriptionId } =
+    await runResolveOrgSubscriptionForAdminWorkflow(
+      runtime.db,
+      organizationId,
+      sessionUserId,
+    );
+  if (!isStripeCheckoutConfigured(deps.stripe ?? {})) {
+    return null;
+  }
+  if (!providerSubscriptionId?.startsWith("sub_")) {
+    return null;
+  }
+  const binding = await getSubscriptionBinding(
+    providerSubscriptionId,
+    deps.stripe ?? {},
+  );
+  if (!binding?.customerId || binding.organizationId !== organizationId) {
+    return null;
+  }
+  return cancelSubscriptionAtPeriodEnd(
+    providerSubscriptionId,
     deps.stripe ?? {},
   );
 }

@@ -112,6 +112,40 @@ test("an already-active organization cannot start another checkout", async () =>
   expect(response.status).toBe(409);
 });
 
+test("cancel requires authentication", async () => {
+  const response = await routeApp.request(
+    "/organizations/11111111-1111-4111-8111-111111111111/billing/stripe/cancel",
+    { method: "POST" },
+  );
+  expect(response.status).toBe(401);
+});
+
+test("cancel rejects a non-admin of the organization", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const outsider = createTestUser();
+  await registerAndAuthenticate(outsider);
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/cancel`,
+    { method: "POST", headers: authHeader(outsider) },
+  );
+  expect([403, 404]).toContain(response.status);
+});
+
+test("cancel answers 404 for an admin with no cancellable subscription", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/stripe/cancel`,
+    { method: "POST", headers: authHeader(admin) },
+  );
+  // Unconfigured / no Stripe subscription: an admin-actionable "nothing to
+  // cancel", not an empty 200.
+  expect(response.status).toBe(404);
+});
+
 test("options answer an empty list when unconfigured", async () => {
   const user = createTestUser();
   await registerAndAuthenticate(user);
