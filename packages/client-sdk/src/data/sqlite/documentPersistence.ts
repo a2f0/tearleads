@@ -3,6 +3,7 @@ import {
   type ExecSql,
   ensureSqlColumns,
   ensureSqlTables,
+  runOncePerConnection,
   runSerializedSqlMutation,
 } from "./sqlSchema";
 
@@ -36,6 +37,16 @@ export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
 // the shared mutation lock so the copy and the drop cannot interleave with
 // other writers.
 async function migrateLegacyProjectionTextColumn(
+  execSql: ExecSql,
+): Promise<void> {
+  await runOncePerConnection(
+    execSql,
+    "migration:document-projection-text",
+    () => runMigrateLegacyProjectionTextColumn(execSql),
+  );
+}
+
+async function runMigrateLegacyProjectionTextColumn(
   execSql: ExecSql,
 ): Promise<void> {
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {

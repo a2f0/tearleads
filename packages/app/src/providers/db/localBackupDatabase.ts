@@ -1,5 +1,6 @@
 import {
   type ExecSql,
+  resetConnectionSchemaMemo,
   runSerializedSqlMutation,
   type SqlRow,
   type SqlRowValue,
@@ -268,6 +269,10 @@ export async function restoreBackupDatabase(input: {
       if (wasForeignKeysEnabled) {
         await execSql("PRAGMA foreign_keys = ON").catch(() => undefined);
       }
+      // The restore rebuilt every user table, possibly to the backup's older
+      // shape, so completed ensure/migration memos for this connection are
+      // stale — forget them so the next query re-runs its schema ensures.
+      resetConnectionSchemaMemo(input.execSql);
     }
   });
 }

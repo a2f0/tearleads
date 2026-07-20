@@ -39,7 +39,7 @@
     },
     "docs/developer/client-sdk.md": {
       "lines": 486,
-      "bytes": 21679
+      "bytes": 21849
     },
     "docs/document-rekey-and-audit-history.md": {
       "lines": 526,
@@ -234,12 +234,12 @@
       "bytes": 39373
     },
     "packages/client-sdk/src/data/persistence/container-contents/containerContentsPersistence.ts": {
-      "lines": 1372,
-      "bytes": 42959
+      "lines": 1378,
+      "bytes": 43292
     },
     "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
-      "lines": 824,
-      "bytes": 26371
+      "lines": 830,
+      "bytes": 26687
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 823,
