@@ -80,6 +80,51 @@ test("identity generation stays in flight until registry persistence finishes", 
   tearleads.dispose();
 });
 
+test("generates an identity key pair with the network down (offline)", async () => {
+  // Key generation is purely local — seed -> key pair -> fingerprint -> local DB
+  // -> local persistence — so it must succeed with no connectivity. Registration
+  // is the only networked step and is deliberately separate. Guard that by
+  // running the real generation with fetch forced to fail like an offline
+  // WebView, asserting a key pair is produced and that generation makes no
+  // network request at all.
+  let fetchCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (() => {
+    fetchCalls += 1;
+    return Promise.reject(new TypeError("Failed to fetch"));
+    // `typeof fetch` carries extra members (e.g. preconnect); cast through
+    // unknown since this arg-ignoring stub only needs to be callable.
+  }) as unknown as typeof globalThis.fetch;
+
+  try {
+    const generationIdRef = { current: 0 };
+    const generationInFlight = { current: false };
+    const tearleads = createTestTearleads();
+    Reflect.set(tearleads.session, "bootstrapLocalRootContainer", async () => ({
+      containerId: "root",
+      created: true,
+    }));
+
+    const view = renderHook(() =>
+      useGenerateKey({
+        ensureIdentityDatabaseReady: async () => undefined,
+        generationIdRef,
+        generationInFlight,
+        persistLocalIdentity: async () => undefined,
+        tearleads,
+      }),
+    );
+
+    expect(await view.result.current()).toBe(true);
+    expect(tearleads.identity.signingKeyPair).not.toBeNull();
+    expect(tearleads.identity.encapsulationKeyPair).not.toBeNull();
+    expect(fetchCalls).toBe(0);
+    tearleads.dispose();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("persisted identity restore completes after its key import rerenders", async () => {
   const repository = new LocalIdentityRepository({
     keyring: createSharedMemoryLocalKeyringFactory()(),
