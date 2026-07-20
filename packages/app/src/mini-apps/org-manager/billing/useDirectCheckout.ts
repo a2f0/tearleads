@@ -32,8 +32,7 @@ export type DirectCheckoutPhase =
   | { readonly kind: "idle" }
   | { readonly kind: "starting" }
   | { readonly kind: "collecting" }
-  | { readonly kind: "confirming" }
-  | { readonly kind: "activating" };
+  | { readonly kind: "confirming" };
 
 export interface DirectCheckoutState {
   /** Whether this platform can run the in-app form at all. */
@@ -61,6 +60,9 @@ function useCheckoutLifecycle(
   reset: () => void,
 ): void {
   useEffect(() => {
+    // `scopeKey` is intentionally a dependency without appearing in the body:
+    // React runs the CLEANUP when a dependency changes, which is exactly the
+    // teardown-on-scope-change this needs (plus teardown on unmount).
     return () => {
       teardown();
       reset();
@@ -152,6 +154,13 @@ function useBeginCheckout(
       try {
         const intent =
           await deps.tearleads.organizations.createStripeCheckout();
+        // Every continuation re-checks the token: teardown (cancel, org
+        // switch, disable, unmount) bumps it, and a losing attempt must
+        // neither write state onto the panel it no longer owns nor cancel the
+        // attempt that replaced it.
+        if (refs.startTokenRef.current !== token) {
+          return;
+        }
         const host = refs.hostRef.current;
         if (!intent || !host) {
           refs.setPhase({ kind: "idle" });
@@ -174,7 +183,12 @@ function useBeginCheckout(
         refs.setPhase({ kind: "collecting" });
       } catch (mountError) {
         console.error("Failed to start the direct checkout:", mountError);
-        deps.teardown();
+        // Same guard: calling the shared teardown here would bump the token
+        // and cancel a newer attempt started after this one failed.
+        if (refs.startTokenRef.current !== token) {
+          return;
+        }
+        refs.sessionRef.current = null;
         refs.setPhase({ kind: "idle" });
         refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
       }
@@ -223,7 +237,12 @@ function useConfirmCheckout(
         // Paid. The entitlement arrives via Stripe → RevenueCat → our webhook,
         // so hand off to the shared activation poll rather than assuming.
         teardown();
-        refs.setPhase({ kind: "activating" });
+        // Back to idle, not a checkout-owned "activating" state: the shared
+        // billing view already renders activation-pending from the flag
+        // `onPaid` sets, and a phase parked here would have no exit if the
+        // poll gave up.
+        refs.setPhase({ kind: "idle" });
+        refs.setError(null);
         onPaid();
       } catch (confirmError) {
         console.error("Failed to confirm the direct checkout:", confirmError);

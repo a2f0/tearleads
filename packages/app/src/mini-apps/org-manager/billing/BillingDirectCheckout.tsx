@@ -34,9 +34,10 @@ export function formatPrice(
       currency: currencyCode,
     });
   } catch {
-    // An unknown code would throw; show the bare minor-unit amount rather
-    // than crashing the panel.
-    return `${unitAmount} ${currencyCode}`;
+    // An unknown code would throw. Showing the raw minor-unit figure would be
+    // a WRONG price (100x for most currencies), so name the currency without
+    // an amount and let the provider's own form state it.
+    return currencyCode;
   }
   // Stripe reports MINOR units, and the minor-unit exponent is per currency —
   // 2 for USD/EUR but 0 for JPY/KRW. Intl formats, it does not convert, so
@@ -92,12 +93,15 @@ export function BillingDirectCheckout({
         ref={checkout.hostRef}
         // Hidden rather than unmounted between attempts: unmounting would
         // destroy the node the provider element is attached to.
-        hidden={idle || starting || phase.kind === "activating"}
+        hidden={idle || starting}
       />
 
       {collecting || confirming ? (
         <>
-          <MiniAppRowButton disabled={confirming} onClick={checkout.confirm}>
+          <MiniAppRowButton
+            disabled={confirming || disabled}
+            onClick={checkout.confirm}
+          >
             <MiniAppRowText>
               {confirming
                 ? ORG_MANAGER_LABELS.billingCheckoutPaying
@@ -112,11 +116,6 @@ export function BillingDirectCheckout({
         </>
       ) : null}
 
-      {phase.kind === "activating" ? (
-        <MiniAppStatus className="org-manager-hint">
-          {ORG_MANAGER_LABELS.billingActivationPending}
-        </MiniAppStatus>
-      ) : null}
       {checkout.error ? (
         <MiniAppStatus tone="error">{checkout.error}</MiniAppStatus>
       ) : null}

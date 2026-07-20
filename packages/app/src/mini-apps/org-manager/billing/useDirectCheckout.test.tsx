@@ -163,7 +163,9 @@ test("a successful payment tears down and hands off to activation", async () => 
 
   await act(async () => result.current.confirm());
 
-  await waitFor(() => expect(result.current.phase.kind).toBe("activating"));
+  // Back to idle — the shared billing view owns the activation-pending
+  // display, so the checkout does not park in a state with no exit.
+  await waitFor(() => expect(result.current.phase.kind).toBe("idle"));
   expect(unmount).toHaveBeenCalledTimes(1);
   // The entitlement arrives via the webhook, so the panel must re-read billing
   // rather than assume the org can sync.
@@ -324,4 +326,50 @@ test("begin is a no-op while a session is already mounted", async () => {
   await act(async () => result.current.begin());
 
   expect(mounted).toHaveLength(1);
+});
+
+test("a begin that fails after a newer one started does not disturb it", async () => {
+  // The losing attempt must neither write its error onto the panel nor call
+  // the shared teardown, which would cancel the attempt that replaced it.
+  let rejectFirst: ((error: Error) => void) | undefined;
+  let calls = 0;
+  const organizations = {
+    loadStripeCheckoutOptions: mock(() =>
+      Promise.resolve({ options: [OPTION] }),
+    ),
+    createStripeCheckout: mock(() => {
+      calls += 1;
+      return calls === 1
+        ? new Promise((_resolve, reject) => {
+            rejectFirst = reject;
+          })
+        : Promise.resolve({
+            subscriptionId: "sub_2",
+            clientSecret: "pi_2",
+          });
+    }),
+  };
+  spies.push(
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+      organizations,
+    } as never),
+  );
+  const unmount = mock(() => undefined);
+  const { capability } = capabilityWith({ unmount });
+  const { result } = renderFlow(capability);
+  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+
+  await act(async () => result.current.begin());
+  // Cancel bumps the token, then a fresh attempt succeeds.
+  act(() => result.current.cancel());
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+
+  await act(async () => {
+    rejectFirst?.(new Error("stale failure"));
+  });
+
+  // The new checkout survives the stale rejection.
+  expect(result.current.phase.kind).toBe("collecting");
+  expect(result.current.error).toBeNull();
 });
