@@ -120,6 +120,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "createBlobStore",
   "createBrowserLocalKeyring",
   "createBrowserLocalKeyringManifestStore",
+  "createBrowserNetworkStatusSource",
   "createContainerContentsDocumentsRuntime",
   "createContainerContentsProjectionUserKeyResolver",
   "createContainerContentsStore",

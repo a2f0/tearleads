@@ -1,5 +1,6 @@
 import {
   type BlobStoreFactory,
+  createBrowserNetworkStatusSource,
   createEncryptedBlobStore,
   createLazyEncryptedBlobStore,
   type LocalKeyPurpose,
@@ -16,6 +17,7 @@ import {
   useState,
 } from "react";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";
+import type { CreateNetworkStatusFn } from "../../host/AppHostConfig";
 import { PROVISIONED_SYSTEM_CONTAINER_SPECS } from "../../stores/systemContainers";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
@@ -105,19 +107,33 @@ function createLocalKeyringBlobStoreFactory(input: {
     );
 }
 
-function useBrowserNetworkBinding(tearleads: Tearleads): void {
+// Binds the SDK's connectivity state to the host's network source. The source
+// is the browser default (navigator.onLine + window online/offline events)
+// unless the shell injects one — Capacitor does, backed by @capacitor/network,
+// because the Android WebView's navigator.onLine reports offline while the
+// device is genuinely connected.
+function useNetworkStatusBinding(
+  tearleads: Tearleads,
+  createNetworkStatus: CreateNetworkStatusFn | undefined,
+): void {
   useEffect(() => {
-    const goOnline = () => tearleads.network.setOnline(true);
-    const goOffline = () => tearleads.network.setOnline(false);
+    const source =
+      createNetworkStatus?.() ?? createBrowserNetworkStatusSource();
 
-    window.addEventListener("online", goOnline);
-    window.addEventListener("offline", goOffline);
+    // Seed from the source before subscribing, replacing the SDK constructor's
+    // navigator.onLine read (wrong on Capacitor Android). An async native
+    // source seeds optimistically here and corrects via the first emission.
+    tearleads.network.setOnline(source.getOnline());
+
+    const unsubscribe = source.subscribe((online) => {
+      tearleads.network.setOnline(online);
+    });
 
     return () => {
-      window.removeEventListener("online", goOnline);
-      window.removeEventListener("offline", goOffline);
+      unsubscribe();
+      source.dispose?.();
     };
-  }, [tearleads]);
+  }, [createNetworkStatus, tearleads]);
 }
 
 // `tearleads` is created once per provider via useState and never changes, so
@@ -239,7 +255,7 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
     tearleads.session.setSyncEnabled(syncEnabled);
   }, [syncEnabled, tearleads]);
 
-  useBrowserNetworkBinding(tearleads);
+  useNetworkStatusBinding(tearleads, hostConfig.createNetworkStatus);
   useNetworkTransitionLog(tearleads);
   useTearleadsDisposeOnUnmount(tearleads);
   useServerEventsBinding(

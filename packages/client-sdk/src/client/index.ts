@@ -161,9 +161,11 @@ export {
 } from "./localKeyringPinCode";
 export type { Logger } from "./logger";
 export {
+  createBrowserNetworkStatusSource,
   Network,
   type NetworkListener,
   type NetworkMode,
+  type NetworkStatusSource,
 } from "./network";
 export type {
   AddOrganizationGroupUserInput,
