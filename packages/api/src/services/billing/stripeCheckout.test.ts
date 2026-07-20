@@ -232,6 +232,55 @@ test("the portal ignores a subscription whose metadata names another org", async
   expect(url).toBeNull();
 });
 
+test("the portal returns a session for the org's live subscription", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const stripeEnv = {
+    STRIPE_SECRET_KEY: "sk_test",
+    STRIPE_SYNC_PRICE_ID: "price_sync",
+  };
+  // 1st call: search resolves the org's live sub + customer. 2nd: the portal
+  // session POST, which must target THAT customer.
+  const paths: string[] = [];
+  const bodies: string[] = [];
+  const portalFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    paths.push(path);
+    if (path.includes("/subscriptions/search")) {
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: "sub_org",
+              status: "active",
+              customer: "cus_org",
+              metadata: { userId: admin.userId, orgId: organizationId },
+            },
+          ],
+        }),
+      );
+    }
+    bodies.push(String(init?.body ?? ""));
+    return new Response(
+      JSON.stringify({ url: "https://billing.stripe.com/p/session" }),
+    );
+  }) as typeof fetch;
+
+  const url = await createStripePortalUrl(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+    "https://app.example/billing",
+    { stripe: { env: stripeEnv, fetchImpl: portalFetch } },
+  );
+  expect(url).toBe("https://billing.stripe.com/p/session");
+  // The portal was opened for the customer the search resolved, not the caller.
+  expect(paths.some((path) => path.includes("/billing_portal/sessions"))).toBe(
+    true,
+  );
+  expect(bodies.some((body) => body.includes("customer=cus_org"))).toBe(true);
+});
+
 test("cancel schedules the period end for the org's live subscription", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);

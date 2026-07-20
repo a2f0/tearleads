@@ -365,7 +365,6 @@ export async function createSyncSubscription(
   return { kind: "ready", intent };
 }
 
-/** Reads a subscription's metadata (`userId`/`orgId`), status, and customer. */
 /**
  * Finds the organization's LIVE Stripe subscription by searching on the
  * `orgId` metadata set at creation, returning the ids cancel/portal need.
@@ -422,6 +421,7 @@ export async function findLiveOrgSubscription(
   return null;
 }
 
+/** Reads a subscription's metadata (`userId`/`orgId`), status, and customer. */
 export async function getSubscriptionBinding(
   subscriptionId: string,
   deps: StripeApiDeps = {},
