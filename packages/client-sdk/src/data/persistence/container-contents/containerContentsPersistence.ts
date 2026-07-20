@@ -27,6 +27,7 @@ import {
   documentSyncFailures,
   documents,
 } from "../../sqlite/schema";
+import { deriveSnapshotEndVersion } from "../../sqlite/snapshotEndVersion";
 import {
   type ClientSQLiteTransaction,
   getClientSQLitePersistenceRuntime,
@@ -344,6 +345,7 @@ async function saveContainerMetadataRecord(input: {
     localId: containerId,
     documentId: record.documentId,
     loroSnapshot: record.loroSnapshot,
+    snapshotEndVersion: deriveSnapshotEndVersion(record.loroSnapshot),
     accessEpoch: record.accessEpoch,
     accessStateHash: record.accessStateHash ?? null,
     lastCommitLsn: record.lastCommitLsn ?? null,

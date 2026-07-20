@@ -7,6 +7,7 @@ import {
   mapSelectedDocumentRecord,
 } from "../../../sqlite/documentPersistence";
 import { documentProjection, documents } from "../../../sqlite/schema";
+import { deriveSnapshotEndVersion } from "../../../sqlite/snapshotEndVersion";
 import type { ClientSQLiteTransaction } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { StoredDocumentRecord } from "../types";
 import { DOCUMENTS_APP_KIND } from "./constants";
@@ -66,6 +67,7 @@ function toDocumentRecordRow(input: {
     localId: document.id,
     documentId: document.documentId,
     loroSnapshot: document.loroSnapshot,
+    snapshotEndVersion: deriveSnapshotEndVersion(document.loroSnapshot),
     accessEpoch: document.accessEpoch,
     accessStateHash: document.accessStateHash ?? null,
     effectiveAccessLevel: normalizeEffectiveAccessLevel(
