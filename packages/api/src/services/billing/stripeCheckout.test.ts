@@ -11,6 +11,7 @@ import { getDefaultApiServiceRuntime } from "../runtime";
 import {
   cancelStripeSubscription,
   createStripeCheckout,
+  createStripeCheckoutSession,
   createStripePortalUrl,
   getStripeCheckoutOptions,
   processStripeWebhook,
@@ -405,6 +406,60 @@ test("cancel does nothing when the org has only an incomplete subscription", asy
   expect(paths.every((path) => path.includes("/subscriptions/search"))).toBe(
     true,
   );
+});
+
+test("the hosted checkout session returns the Stripe page URL", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  const urls: string[] = [];
+
+  const url = await createStripeCheckoutSession(
+    getDefaultApiServiceRuntime(),
+    organizationId,
+    admin.userId,
+    "https://app.example/billing",
+    {
+      stripe: {
+        env: STRIPE_ENV,
+        fetchImpl: respondingFetch(
+          [
+            { body: { data: [] } }, // no existing customer
+            { body: { id: "cus_new" } }, // customer create
+            { body: { url: "https://checkout.stripe.com/pay/cs_1" } },
+          ],
+          urls,
+        ),
+      },
+      revenueCat: { env: REVENUECAT_ENV },
+    },
+  );
+
+  expect(url).toBe("https://checkout.stripe.com/pay/cs_1");
+  expect(urls.some((u) => u.includes("/v1/checkout/sessions"))).toBe(true);
+});
+
+test("the hosted checkout refuses an already-active organization", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  // Same eligibility guard as the inline checkout — a second subscription
+  // would double-bill — and it runs before any Stripe call.
+  await db
+    .update(organizationBilling)
+    .set({ status: "active" })
+    .where(eq(organizationBilling.organizationId, organizationId));
+
+  await expect(
+    createStripeCheckoutSession(
+      getDefaultApiServiceRuntime(),
+      organizationId,
+      admin.userId,
+      "https://app.example/billing",
+      {
+        stripe: { env: STRIPE_ENV, fetchImpl: respondingFetch([], []) },
+        revenueCat: { env: REVENUECAT_ENV },
+      },
+    ),
+  ).rejects.toMatchObject({ status: 409 });
 });
 
 test("a Stripe-side live subscription makes checkout a 409", async () => {

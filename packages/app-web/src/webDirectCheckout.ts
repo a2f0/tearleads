@@ -36,9 +36,33 @@ function readPublishableKey(): string | undefined {
  * must be concrete CSS (not `var(--…)`) because the element renders in a
  * cross-origin iframe that cannot read this document's custom properties.
  */
+/**
+ * Whether the resolved surface is dark, so the Payment Element's BASE theme can
+ * match. `colorBackground` comes from the appearance probe as a computed color
+ * (`rgb(...)`/`rgba(...)`), so a Rec. 601 luma threshold is reliable; anything
+ * unparseable falls back to light.
+ */
+function isDarkSurface(colorBackground: string): boolean {
+  const channels = colorBackground.match(/[\d.]+/g);
+  if (!channels || channels.length < 3) {
+    return false;
+  }
+  const r = Number(channels[0]);
+  const g = Number(channels[1]);
+  const b = Number(channels[2]);
+  return 0.299 * r + 0.587 * g + 0.114 * b < 128;
+}
+
 function toStripeAppearance(appearance: DirectCheckoutAppearance) {
   return {
-    theme: "stripe" as const,
+    // Base theme by mode. The Payment Element's built-in defaults — crucially
+    // the card icon inside the number field — come from this base, and our
+    // variable overrides only refine on top. Keeping "stripe" (a LIGHT base) on
+    // a dark surface left that icon dark-on-dark; "night" gives it the
+    // light-tuned defaults a dark surface needs.
+    theme: isDarkSurface(appearance.colorBackground)
+      ? ("night" as const)
+      : ("stripe" as const),
     variables: {
       colorBackground: appearance.colorBackground,
       colorText: appearance.colorText,

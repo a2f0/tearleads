@@ -73,9 +73,17 @@
       "lines": 541,
       "bytes": 15169
     },
+    "packages/api/src/services/billing/stripeCheckout.test.ts": {
+      "lines": 526,
+      "bytes": 17444
+    },
+    "packages/api/src/billing/stripeApi.test.ts": {
+      "lines": 533,
+      "bytes": 17787
+    },
     "packages/api/src/billing/stripeApi.ts": {
-      "lines": 525,
-      "bytes": 19926
+      "lines": 575,
+      "bytes": 22002
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
@@ -226,8 +234,8 @@
       "bytes": 50400
     },
     "packages/client-sdk/src/client/organizations.ts": {
-      "lines": 562,
-      "bytes": 18842
+      "lines": 578,
+      "bytes": 19455
     },
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
       "lines": 1041,

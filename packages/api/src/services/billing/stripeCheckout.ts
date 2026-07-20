@@ -6,6 +6,7 @@ import {
 } from "../../billing/revenueCatStripeAssociation";
 import {
   cancelSubscriptionAtPeriodEnd,
+  createCheckoutSession,
   createPortalSession,
   createSyncSubscription,
   findLiveOrgSubscription,
@@ -110,6 +111,51 @@ export async function createStripeCheckout(
     );
   }
   return outcome ? outcome.intent : null;
+}
+
+/**
+ * The off-site alternative to {@link createStripeCheckout}: returns a hosted
+ * Stripe Checkout page URL for a buyer who does not want the inline form. Same
+ * admin gate and eligibility guard (an already-active org is a 409), same
+ * full-configuration requirement (the resulting subscription flows through the
+ * same webhook → RevenueCat association), and the same per-(user, org)
+ * customer. Null when unconfigured.
+ */
+export async function createStripeCheckoutSession(
+  runtime: ApiServiceRuntime,
+  organizationId: string,
+  sessionUserId: string,
+  returnUrl: string,
+  deps: StripeCheckoutServiceDeps = {},
+): Promise<string | null> {
+  await runRequireCheckoutEligibleWorkflow(
+    runtime.db,
+    organizationId,
+    sessionUserId,
+  );
+  if (!isDirectCheckoutFullyConfigured(deps)) {
+    return null;
+  }
+  const customerId = await findOrCreateCustomer(
+    { userId: sessionUserId, organizationId },
+    deps.stripe ?? {},
+  );
+  if (!customerId) {
+    return null;
+  }
+  // One origin-validated URL for both outcomes: the buyer lands back on the
+  // billing panel whether they paid or backed out, and a paid return reads as
+  // activation-pending until the webhook grants the entitlement.
+  return createCheckoutSession(
+    {
+      customerId,
+      userId: sessionUserId,
+      organizationId,
+      successUrl: returnUrl,
+      cancelUrl: returnUrl,
+    },
+    deps.stripe ?? {},
+  );
 }
 
 /**

@@ -520,3 +520,46 @@ export async function createPortalSession(
   });
   return readString(prop(body, "url"));
 }
+
+/**
+ * Creates a hosted Stripe Checkout Session for the sync subscription and
+ * returns its URL. This is the off-site alternative to the inline Payment
+ * Element: same product, same customer, and the SAME `orgId`/`userId` stamped
+ * onto the resulting subscription (via `subscription_data[metadata]`) so the
+ * `invoice.paid` webhook associates it with RevenueCat and the cancel/portal
+ * resolver (`findLiveOrgSubscription`) can later find it — exactly like the
+ * inline flow. Returns null when Stripe is unconfigured.
+ */
+export async function createCheckoutSession(
+  input: {
+    customerId: string;
+    userId: string;
+    organizationId: string;
+    successUrl: string;
+    cancelUrl: string;
+  },
+  deps: StripeApiDeps = {},
+): Promise<string | null> {
+  const { fetchImpl, secretKey, syncPriceId } = resolveDeps(deps);
+  if (!secretKey || !syncPriceId) {
+    return null;
+  }
+  const form = new URLSearchParams();
+  form.set("mode", "subscription");
+  form.set("line_items[0][price]", syncPriceId);
+  form.set("line_items[0][quantity]", "1");
+  form.set("customer", input.customerId);
+  form.set("success_url", input.successUrl);
+  form.set("cancel_url", input.cancelUrl);
+  form.set("subscription_data[metadata][userId]", input.userId);
+  form.set("subscription_data[metadata][orgId]", input.organizationId);
+  const body = await stripeRequest({
+    fetchImpl,
+    secretKey,
+    method: "POST",
+    path: "/v1/checkout/sessions",
+    operation: "checkout session create",
+    form,
+  });
+  return readString(prop(body, "url"));
+}

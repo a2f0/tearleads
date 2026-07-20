@@ -63,6 +63,7 @@ import {
   isStripeCancelResponse,
   isStripeCheckoutIntentResponse,
   isStripeCheckoutOptionsResponse,
+  isStripeCheckoutSessionResponse,
   isUploadMultipartBlobPartResponse,
   isUserIdentityResponse,
   isVerifyResponse,
@@ -862,6 +863,21 @@ export class ApiClient {
       `/organizations/${pathSegment(organizationId)}/billing/stripe/checkout`,
       isStripeCheckoutIntentResponse,
       "POST",
+    );
+  }
+
+  /**
+   * Opens a hosted Stripe Checkout page (the off-site alternative to the inline
+   * form). `returnUrl` is where Stripe sends the buyer back and is validated
+   * server-side against the app's origins. Resolves `{ url: null }` when the
+   * integration is unconfigured or the org is not eligible.
+   */
+  createStripeCheckoutSession(organizationId: string, returnUrl: string) {
+    return this.request(
+      `/organizations/${pathSegment(organizationId)}/billing/stripe/checkout-session`,
+      isStripeCheckoutSessionResponse,
+      "POST",
+      JSON.stringify({ returnUrl }),
     );
   }
 

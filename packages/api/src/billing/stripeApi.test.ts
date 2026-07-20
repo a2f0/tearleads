@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   cancelSubscriptionAtPeriodEnd,
+  createCheckoutSession,
   createPortalSession,
   createSyncSubscription,
   findLiveOrgSubscription,
@@ -469,5 +470,54 @@ test("findLiveOrgSubscription is null without a secret key", async () => {
     await findLiveOrgSubscription("org-1", { env: {}, fetchImpl }),
   ).toBeNull();
   // Never reached Stripe.
+  expect(requests).toHaveLength(0);
+});
+
+test("createCheckoutSession stamps org metadata onto the subscription", async () => {
+  const { fetchImpl, requests } = fakeFetch([
+    { body: { url: "https://checkout.stripe.com/pay/cs_1" } },
+  ]);
+
+  const url = await createCheckoutSession(
+    {
+      customerId: "cus_1",
+      userId: "user-1",
+      organizationId: "org-1",
+      successUrl: "https://app.example/billing",
+      cancelUrl: "https://app.example/billing",
+    },
+    { env: ENV, fetchImpl },
+  );
+
+  expect(url).toBe("https://checkout.stripe.com/pay/cs_1");
+  const body = requests[0]?.body ?? "";
+  expect(requests[0]?.url).toContain("/v1/checkout/sessions");
+  expect(body).toContain("mode=subscription");
+  expect(body).toContain("customer=cus_1");
+  // The subscription MUST carry orgId/userId so the webhook can associate it
+  // and findLiveOrgSubscription can later resolve it for cancel/portal.
+  expect(body).toContain(
+    `${encodeURIComponent("subscription_data[metadata][orgId]")}=org-1`,
+  );
+  expect(body).toContain(
+    `${encodeURIComponent("subscription_data[metadata][userId]")}=user-1`,
+  );
+});
+
+test("createCheckoutSession is null without price/secret config", async () => {
+  const { fetchImpl, requests } = fakeFetch([]);
+
+  expect(
+    await createCheckoutSession(
+      {
+        customerId: "cus_1",
+        userId: "user-1",
+        organizationId: "org-1",
+        successUrl: "https://app.example/billing",
+        cancelUrl: "https://app.example/billing",
+      },
+      { env: {}, fetchImpl },
+    ),
+  ).toBeNull();
   expect(requests).toHaveLength(0);
 });

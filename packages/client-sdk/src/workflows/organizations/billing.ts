@@ -6,6 +6,7 @@ import type {
   StripeCancelResponse,
   StripeCheckoutIntentResponse,
   StripeCheckoutOptionsResponse,
+  StripeCheckoutSessionResponse,
 } from "@tearleads/validators/response";
 
 /** Per-organization sync-billing snapshot (the server wire shape). */
@@ -46,6 +47,10 @@ interface OrganizationBillingApi {
   readonly createStripeCheckout: (
     organizationId: string,
   ) => Promise<StripeCheckoutIntentResponse | null>;
+  readonly createStripeCheckoutSession: (
+    organizationId: string,
+    returnUrl: string,
+  ) => Promise<StripeCheckoutSessionResponse | null>;
   readonly cancelStripeSubscription: (
     organizationId: string,
   ) => Promise<StripeCancelResponse | null>;
@@ -98,6 +103,20 @@ export async function createStripeCheckout(input: {
   readonly organizationId: string;
 }): Promise<StripeCheckoutIntent | null> {
   return input.apiClient.createStripeCheckout(input.organizationId);
+}
+
+export async function createStripeCheckoutSession(input: {
+  readonly apiClient: Pick<
+    OrganizationBillingApi,
+    "createStripeCheckoutSession"
+  >;
+  readonly organizationId: string;
+  readonly returnUrl: string;
+}): Promise<StripeCheckoutSessionResponse | null> {
+  return input.apiClient.createStripeCheckoutSession(
+    input.organizationId,
+    input.returnUrl,
+  );
 }
 
 export async function cancelStripeSubscription(input: {

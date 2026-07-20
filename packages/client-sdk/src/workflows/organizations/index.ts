@@ -5,6 +5,7 @@ export {
 export {
   cancelStripeSubscription,
   createStripeCheckout,
+  createStripeCheckoutSession,
   loadOrganizationBilling,
   loadOrganizationBillingHistory,
   loadOrganizationBillingManagementUrl,
