@@ -1,4 +1,4 @@
-import type { PluginListenerHandle } from "@capacitor/core";
+import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { type ConnectionStatus, Network } from "@capacitor/network";
 import type {
   NetworkListener,
@@ -31,6 +31,14 @@ function isConnected(status: ConnectionStatus): boolean {
  * result and every subsequent `networkStatusChange` event.
  */
 export function createCapacitorNetworkStatus(): NetworkStatusSource {
+  // When the native Network plugin is not registered (e.g. stripped from a
+  // minified release build), @capacitor/network silently falls back to its web
+  // implementation, whose getStatus() is just the WebView's `navigator.onLine`
+  // — the very value that reports offline while an Android device is connected.
+  // Detect that and refuse to trust it: hold the optimistic "online" seed rather
+  // than let a false navigator.onLine strand the app offline. A genuinely
+  // unreachable backend still surfaces as a sync/request failure, not "offline".
+  const nativePlugin = Capacitor.isPluginAvailable("Network");
   let online = true;
   let disposed = false;
   const listeners = new Set<NetworkListener>();
@@ -49,7 +57,11 @@ export function createCapacitorNetworkStatus(): NetworkStatusSource {
   }
 
   function ensureNativeBinding(): void {
-    if (handlePromise) {
+    // Only bind when the native plugin is present. Without it, getStatus() and
+    // networkStatusChange come from the web fallback (navigator.onLine), so
+    // subscribing would reintroduce the false-offline; the optimistic seed holds
+    // instead.
+    if (handlePromise || !nativePlugin) {
       return;
     }
     // Prime the cached value from the current native status, then keep it live
@@ -62,6 +74,15 @@ export function createCapacitorNetworkStatus(): NetworkStatusSource {
     });
   }
 
+  async function readStatusText(): Promise<string> {
+    try {
+      const status = await Network.getStatus();
+      return `connected=${status.connected} type=${status.connectionType}`;
+    } catch (error) {
+      return `getStatus error: ${String(error)}`;
+    }
+  }
+
   return {
     getOnline: () => online,
     subscribe(listener: NetworkListener): () => void {
@@ -70,6 +91,16 @@ export function createCapacitorNetworkStatus(): NetworkStatusSource {
       return () => {
         listeners.delete(listener);
       };
+    },
+    async diagnose(): Promise<string> {
+      const navigatorOnline =
+        typeof navigator === "object" ? String(navigator.onLine) : "n/a";
+      return [
+        `platform=${Capacitor.getPlatform()}`,
+        `nativePlugin=${nativePlugin}`,
+        await readStatusText(),
+        `navigator.onLine=${navigatorOnline}`,
+      ].join(" ");
     },
     dispose(): void {
       disposed = true;
