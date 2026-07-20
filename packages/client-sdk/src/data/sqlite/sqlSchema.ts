@@ -9,6 +9,8 @@ export type {
 } from "./sqlExec";
 export {
   createExecSql,
+  resetConnectionSchemaMemo,
+  runOncePerConnection,
   runSerializedSqlMutation,
   unavailableExecSql,
 } from "./sqlExec";

@@ -35,6 +35,7 @@ import {
 import {
   type ExecSql,
   ensureSqlTables,
+  runOncePerConnection,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
 import {
@@ -956,15 +957,20 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
     });
   },
   async ensureSchema(execSql) {
-    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await ensureContainerTables(lockedExecSql);
-      await ensureDocumentTables(lockedExecSql);
-      await ensureSqlTables(lockedExecSql, containerCreateIntentTables);
-      await ensureSqlTables(lockedExecSql, containerMoveIntentTables);
-      await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
-      await ensureDocumentProjectionTables(lockedExecSql);
-      await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
-    });
+    // Once ensured on this connection, skip the outer mutation lock entirely:
+    // ensureSchema runs on every query path, and re-acquiring the lock just to
+    // no-op would queue reads behind unrelated writes.
+    await runOncePerConnection(execSql, "ensure:container-contents", () =>
+      runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+        await ensureContainerTables(lockedExecSql);
+        await ensureDocumentTables(lockedExecSql);
+        await ensureSqlTables(lockedExecSql, containerCreateIntentTables);
+        await ensureSqlTables(lockedExecSql, containerMoveIntentTables);
+        await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
+        await ensureDocumentProjectionTables(lockedExecSql);
+        await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
+      }),
+    );
   },
   async enqueuePendingUpdate(execSql, input) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {

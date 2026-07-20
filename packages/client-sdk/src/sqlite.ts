@@ -74,6 +74,7 @@ export {
   type ExecSqlClientLike,
   ensureSqlColumns,
   ensureSqlTables,
+  resetConnectionSchemaMemo,
   runSerializedSqlMutation,
   type SqlArrayRow,
   type SqlBind,
