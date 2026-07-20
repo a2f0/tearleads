@@ -191,11 +191,12 @@ own theme tokens.
   `redirect: "if_required"` confirm — the buyer would see only a generic
   failure. Pinning keeps the offered methods matched to the flow we implement,
   whatever the dashboard says.
-- **Managing a subscription**: `useBillingManagementUrl` asks RevenueCat first
-  and falls back to the Stripe billing portal, so an org that bought through
-  this checkout still gets a manage/cancel link. Both resolve server-side from
-  the org's stored customer id, so either works for any admin — not just the
-  buyer.
+- **Managing a subscription** is still RevenueCat-only. An org that buys
+  through this checkout has no RevenueCat customer, so it gets no manage/cancel
+  link yet; wiring the Stripe billing portal is tracked as follow-up work on
+  issue #1654. It needs the portal session minted **on click** — Stripe portal
+  URLs expire in minutes, so resolving one at panel load would hand the admin
+  an expired link.
 - **Styling**: the payment fields are still Stripe-hosted iframes (that is what
   keeps us in PCI SAQ A), but on our own account Stripe's Appearance API
   accepts far more than RevenueCat exposes — font family, font size, input

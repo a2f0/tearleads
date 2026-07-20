@@ -37,14 +37,6 @@ export interface StripeCheckoutIntentResponse {
   clientSecret: string;
 }
 
-/**
- * The Stripe Billing Portal URL for an organization's subscription, or null
- * when the org has no Stripe-store subscription to manage.
- */
-export interface StripePortalResponse {
-  portalUrl: string | null;
-}
-
 function isStripeSyncOption(value: unknown): value is StripeSyncOptionResponse {
   return (
     isPlainObject(value) &&
@@ -76,10 +68,4 @@ export function isStripeCheckoutIntentResponse(
     hasNonEmptyStringProperty(value, "subscriptionId") &&
     hasNonEmptyStringProperty(value, "clientSecret")
   );
-}
-
-export function isStripePortalResponse(
-  value: unknown,
-): value is StripePortalResponse {
-  return isPlainObject(value) && hasNullableStringProperty(value, "portalUrl");
 }

@@ -62,7 +62,6 @@ import {
   isRegistrationResponse,
   isStripeCheckoutIntentResponse,
   isStripeCheckoutOptionsResponse,
-  isStripePortalResponse,
   isUploadMultipartBlobPartResponse,
   isUserIdentityResponse,
   isVerifyResponse,
@@ -862,19 +861,6 @@ export class ApiClient {
       `/organizations/${pathSegment(organizationId)}/billing/stripe/checkout`,
       isStripeCheckoutIntentResponse,
       "POST",
-    );
-  }
-
-  /**
-   * Stripe Billing Portal link for the ORGANIZATION's subscription. The return
-   * URL must be one of the API's allowed origins or the server rejects it.
-   */
-  createStripePortalUrl(organizationId: string, returnUrl: string) {
-    return this.request(
-      `/organizations/${pathSegment(organizationId)}/billing/stripe/portal`,
-      isStripePortalResponse,
-      "POST",
-      JSON.stringify({ returnUrl }),
     );
   }
 

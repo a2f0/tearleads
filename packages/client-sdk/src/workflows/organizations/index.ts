@@ -4,7 +4,6 @@ export {
 } from "../../data/persistence/organizations/organizationReadModelInvalidation";
 export {
   createStripeCheckout,
-  createStripePortalUrl,
   loadOrganizationBilling,
   loadOrganizationBillingHistory,
   loadOrganizationBillingManagementUrl,
@@ -17,7 +16,6 @@ export {
   resolveOrganizationBillingView,
   type StripeCheckoutIntent,
   type StripeCheckoutOptions,
-  type StripePortal,
   startOrganizationTrial,
 } from "./billing";
 export { revokeOrganizationContainerGrant } from "./containerGrantRevocation";

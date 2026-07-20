@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import {
   isStripeCheckoutIntentResponse,
   isStripeCheckoutOptionsResponse,
-  isStripePortalResponse,
 } from "./stripeCheckout";
 
 const OPTION = {
@@ -63,14 +62,4 @@ test("accepts and rejects checkout intents", () => {
     }),
   ).toBe(false);
   expect(isStripeCheckoutIntentResponse(null)).toBe(false);
-});
-
-test("accepts and rejects portal responses", () => {
-  expect(
-    isStripePortalResponse({ portalUrl: "https://billing.stripe.com/x" }),
-  ).toBe(true);
-  // Null is meaningful: no Stripe-store subscription to manage.
-  expect(isStripePortalResponse({ portalUrl: null })).toBe(true);
-  expect(isStripePortalResponse({})).toBe(false);
-  expect(isStripePortalResponse({ portalUrl: 42 })).toBe(false);
 });

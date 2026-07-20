@@ -20,42 +20,20 @@ function stubOrganizations(organizations: Record<string, unknown>) {
   );
 }
 
-test("a RevenueCat-managed subscription never asks Stripe", async () => {
-  const createStripePortalUrl = mock(() =>
-    Promise.resolve({ portalUrl: "https://billing.stripe.com/x" }),
-  );
+test("a managed subscription resolves to its provider URL", async () => {
   stubOrganizations({
     loadBillingManagementUrl: () =>
       Promise.resolve({ managementUrl: "https://rc.example/manage" }),
-    createStripePortalUrl,
   });
 
   const { result } = renderHook(() => useBillingManagementUrl("org-1", true));
 
   await waitFor(() => expect(result.current).toBe("https://rc.example/manage"));
-  expect(createStripePortalUrl).not.toHaveBeenCalled();
 });
 
-test("a subscription RevenueCat does not know falls back to the Stripe portal", async () => {
-  // An org that bought through the in-app card checkout has no RevenueCat
-  // customer, so without this fallback it would get no manage/cancel link.
+test("no managed subscription hides the link rather than erroring", async () => {
   stubOrganizations({
     loadBillingManagementUrl: () => Promise.resolve({ managementUrl: null }),
-    createStripePortalUrl: () =>
-      Promise.resolve({ portalUrl: "https://billing.stripe.com/session" }),
-  });
-
-  const { result } = renderHook(() => useBillingManagementUrl("org-1", true));
-
-  await waitFor(() =>
-    expect(result.current).toBe("https://billing.stripe.com/session"),
-  );
-});
-
-test("neither provider managing the subscription hides the link", async () => {
-  stubOrganizations({
-    loadBillingManagementUrl: () => Promise.resolve({ managementUrl: null }),
-    createStripePortalUrl: () => Promise.resolve({ portalUrl: null }),
   });
 
   const { result } = renderHook(() => useBillingManagementUrl("org-1", true));
@@ -63,11 +41,10 @@ test("neither provider managing the subscription hides the link", async () => {
   await waitFor(() => expect(result.current).toBeNull());
 });
 
-test("a failing Stripe portal lookup degrades instead of surfacing", async () => {
-  // The manage link is a convenience; an error here must not break the panel.
+test("a failed lookup degrades to no link", async () => {
+  // The manage link is a convenience; a failure must not break the panel.
   stubOrganizations({
-    loadBillingManagementUrl: () => Promise.resolve({ managementUrl: null }),
-    createStripePortalUrl: () => Promise.reject(new Error("500")),
+    loadBillingManagementUrl: () => Promise.reject(new Error("500")),
   });
 
   const { result } = renderHook(() => useBillingManagementUrl("org-1", true));
@@ -75,18 +52,32 @@ test("a failing Stripe portal lookup degrades instead of surfacing", async () =>
   await waitFor(() => expect(result.current).toBeNull());
 });
 
-test("a disabled hook asks neither provider", async () => {
+test("a disabled hook never asks", async () => {
   const loadBillingManagementUrl = mock(() =>
     Promise.resolve({ managementUrl: "https://rc.example/manage" }),
   );
-  const createStripePortalUrl = mock(() =>
-    Promise.resolve({ portalUrl: "https://billing.stripe.com/x" }),
-  );
-  stubOrganizations({ loadBillingManagementUrl, createStripePortalUrl });
+  stubOrganizations({ loadBillingManagementUrl });
 
   const { result } = renderHook(() => useBillingManagementUrl("org-1", false));
 
   expect(result.current).toBeNull();
   expect(loadBillingManagementUrl).not.toHaveBeenCalled();
-  expect(createStripePortalUrl).not.toHaveBeenCalled();
+});
+
+test("a URL fetched for a previous org never leaks across a switch", async () => {
+  // The scope check is what keeps a stale value from showing under a new org
+  // before its own fetch resolves.
+  stubOrganizations({
+    loadBillingManagementUrl: () =>
+      Promise.resolve({ managementUrl: "https://rc.example/org-1" }),
+  });
+
+  const { result, rerender } = renderHook(
+    ({ organizationId }) => useBillingManagementUrl(organizationId, true),
+    { initialProps: { organizationId: "org-1" } },
+  );
+  await waitFor(() => expect(result.current).toBe("https://rc.example/org-1"));
+
+  rerender({ organizationId: "org-2" });
+  expect(result.current).toBeNull();
 });

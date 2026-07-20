@@ -17,33 +17,7 @@ interface ManagementUrlState {
  * "no managed subscription" resolve to a null URL, which hides the manage button
  * rather than surfacing an error for what is only a convenience link.
  *
- * Two providers can own a subscription now (issue #1654): one bought through
- * RevenueCat, one bought through the in-app card checkout on our own Stripe
- * account. RevenueCat is asked first because it still fronts the store
- * purchases; the Stripe billing portal is the fallback for a subscription it
- * does not know about. Both resolve server-side from the org's stored customer
- * id, so either works for any admin.
  */
-/**
- * Resolves the Stripe billing portal for an org whose subscription RevenueCat
- * does not manage. A null here is the ordinary answer (no Stripe customer, or
- * the integration is unconfigured), so it degrades to no manage button rather
- * than an error.
- */
-async function resolveStripePortalUrl(
-  tearleads: ReturnType<typeof useTearleads>,
-): Promise<string | null> {
-  try {
-    const portal = await tearleads.organizations.createStripePortalUrl(
-      globalThis.location?.href ?? "",
-    );
-    return portal?.portalUrl ?? null;
-  } catch (portalError) {
-    console.error("Failed to load the Stripe billing portal:", portalError);
-    return null;
-  }
-}
-
 export function useBillingManagementUrl(
   organizationId: string,
   enabled: boolean,
@@ -69,16 +43,10 @@ export function useBillingManagementUrl(
         if (requestIdRef.current !== requestId) {
           return;
         }
-        const managementUrl =
-          result?.managementUrl ??
-          // No RevenueCat-managed subscription: the org may have bought
-          // through our own Stripe checkout instead. Return here so the
-          // portal session lands the admin back on this page.
-          (await resolveStripePortalUrl(tearleads));
-        if (requestIdRef.current !== requestId) {
-          return;
-        }
-        setState({ organizationId, managementUrl });
+        setState({
+          organizationId,
+          managementUrl: result?.managementUrl ?? null,
+        });
       } catch (loadError) {
         if (requestIdRef.current !== requestId) {
           return;

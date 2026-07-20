@@ -4,7 +4,6 @@ import {
   addOrganizationGroupUser,
   createOrganizationGroup,
   createStripeCheckout,
-  createStripePortalUrl,
   importOrganizationUser,
   type LocalOrganizationSummary,
   listLocalOrganizations,
@@ -119,9 +118,6 @@ export interface Organizations {
   /** Direct Stripe checkout (issue #1654): options, start, and manage link. */
   loadStripeCheckoutOptions: () => ReturnType<typeof loadStripeCheckoutOptions>;
   createStripeCheckout: () => ReturnType<typeof createStripeCheckout>;
-  createStripePortalUrl: (
-    returnUrl: string,
-  ) => ReturnType<typeof createStripePortalUrl>;
   loadDataUsage: () => ReturnType<
     OrganizationDataUsageCoordinator["reconcile"]
   >;
@@ -370,18 +366,6 @@ class OrganizationsService implements Organizations {
       ? createStripeCheckout({
           apiClient: runtime.apiClient,
           organizationId,
-        })
-      : Promise.resolve(null);
-  }
-
-  createStripePortalUrl(returnUrl: string) {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    return organizationId
-      ? createStripePortalUrl({
-          apiClient: runtime.apiClient,
-          organizationId,
-          returnUrl,
         })
       : Promise.resolve(null);
   }
