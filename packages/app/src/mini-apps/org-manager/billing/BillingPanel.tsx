@@ -66,15 +66,23 @@ export function BillingPanel({
   const checkout = useDirectCheckoutFlow({
     canSubscribe: actions.canSubscribe,
     organizationId,
-    onActivated: handleRefresh,
+    onPaid: actions.markActivationPending,
   });
+
+  // While our own checkout is collecting or confirming, the provider-hosted
+  // subscribe/trial/restore actions must not start a competing purchase — the
+  // same cross-lock `busy` already provides among those actions.
+  const checkoutActive =
+    checkout.phase.kind === "collecting" ||
+    checkout.phase.kind === "confirming" ||
+    checkout.phase.kind === "starting";
 
   return (
     <div>
       <BillingView
         actionError={actions.actionError}
         activationPending={actions.activationPending}
-        busy={actions.busy}
+        busy={checkoutActive ? "checkout" : actions.busy}
         canSubscribe={actions.canSubscribe}
         checkoutActive={actions.checkoutActive}
         checkoutHostRef={checkoutHostRef}
@@ -92,7 +100,11 @@ export function BillingPanel({
         purchaseAvailable={actions.purchaseAvailable}
         view={billing.view}
       />
-      {isOrgAdmin ? (
+      {/*
+        Only offer a purchase the org can actually make: an org that already
+        syncs would get a server 409 surfaced as a generic failure.
+      */}
+      {isOrgAdmin && billing.view && !billing.view.canSync ? (
         <BillingDirectCheckout
           checkout={checkout}
           disabled={actions.busy !== null}

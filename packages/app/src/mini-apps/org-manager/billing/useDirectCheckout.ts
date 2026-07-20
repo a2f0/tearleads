@@ -1,3 +1,7 @@
+import type {
+  DirectCheckoutCapability,
+  DirectCheckoutSession,
+} from "@tearleads/client-sdk";
 import type { StripeSyncOptionResponse } from "@tearleads/validators/response";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDirectCheckout as useDirectCheckoutCapability } from "../../../providers/direct-checkout/DirectCheckoutProvider";
@@ -8,7 +12,14 @@ import { readCheckoutAppearance } from "./checkoutAppearance";
 /**
  * Orchestrates the in-app card checkout (issue #1654): load the option, start
  * a checkout on the server, mount the payment element into the panel, confirm,
- * then hand off to the existing activation poll.
+ * then hand off to the shared activation poll.
+ *
+ * The hand-off matters: a confirmed payment does NOT mean the org can sync
+ * yet — the entitlement travels Stripe → RevenueCat → our webhook, which
+ * typically lands after a single refresh would have read the old status. So
+ * success calls `onPaid`, which the panel wires to the SAME
+ * `activationPending` flag `useBillingActions` uses, re-using its backoff
+ * poll rather than refreshing once and appearing stuck.
  *
  * Deliberately NOT modelled on `useBillingActions`' purchases flow: there the
  * provider owned an uncancellable UI, which forced the abort/orphan machinery.
@@ -37,9 +48,24 @@ export interface DirectCheckoutState {
   readonly cancel: () => void;
 }
 
-interface DirectCheckoutSessionHandle {
-  confirm(): Promise<{ kind: string; message?: string }>;
-  unmount(): void;
+/**
+ * Ties the mounted element's lifetime to the panel AND to the organization it
+ * was started for. The client secret is bound to one org's subscription, so
+ * confirming it after an org switch would charge the previous organization
+ * while the panel shows the new one — the same scope invalidation
+ * `useBillingActions` performs for the provider-hosted flow.
+ */
+function useCheckoutLifecycle(
+  organizationId: string,
+  teardown: () => void,
+  reset: () => void,
+): void {
+  useEffect(() => {
+    return () => {
+      teardown();
+      reset();
+    };
+  }, [organizationId, teardown, reset]);
 }
 
 /**
@@ -65,7 +91,10 @@ function useCheckoutOption(
         if (!cancelled) {
           setOption(result?.options[0] ?? null);
         }
-      } catch {
+      } catch (loadError) {
+        // A misconfigured integration is otherwise invisible here — the panel
+        // just renders nothing.
+        console.warn("Failed to load Stripe checkout options:", loadError);
         if (!cancelled) {
           setOption(null);
         }
@@ -78,63 +107,126 @@ function useCheckoutOption(
   return option;
 }
 
+/** Refs the begin/confirm actions share with the flow hook. */
+interface CheckoutRefs {
+  readonly hostRef: React.RefObject<HTMLDivElement | null>;
+  readonly sessionRef: React.RefObject<DirectCheckoutSession | null>;
+  /** Bumped by every begin/teardown so a late mount can detect it lost. */
+  readonly startTokenRef: React.RefObject<number>;
+  readonly setPhase: (phase: DirectCheckoutPhase) => void;
+  readonly setError: (error: string | null) => void;
+}
+
+interface BeginCheckoutDeps {
+  readonly available: boolean;
+  readonly canSubscribe: boolean;
+  readonly capability: DirectCheckoutCapability;
+  readonly tearleads: ReturnType<typeof useTearleads>;
+  readonly teardown: () => void;
+}
+
+/**
+ * Starts a checkout on the server and mounts the payment element into the
+ * panel's host.
+ */
+function useBeginCheckout(
+  refs: CheckoutRefs,
+  deps: BeginCheckoutDeps,
+): () => void {
+  return useCallback(() => {
+    if (!deps.available || !deps.canSubscribe) {
+      return;
+    }
+    refs.setPhase({ kind: "starting" });
+    refs.setError(null);
+    refs.startTokenRef.current += 1;
+    const token = refs.startTokenRef.current;
+    void (async () => {
+      try {
+        const intent =
+          await deps.tearleads.organizations.createStripeCheckout();
+        const host = refs.hostRef.current;
+        if (!intent || !host) {
+          refs.setPhase({ kind: "idle" });
+          refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
+          return;
+        }
+        const session = await deps.capability.mount({
+          host,
+          clientSecret: intent.clientSecret,
+          appearance: readCheckoutAppearance(host),
+        });
+        // The panel may have unmounted (or the flow been cancelled) while the
+        // provider script loaded; keeping this session would strand its
+        // iframe with nothing able to destroy it.
+        if (refs.startTokenRef.current !== token) {
+          session.unmount();
+          return;
+        }
+        refs.sessionRef.current = session;
+        refs.setPhase({ kind: "collecting" });
+      } catch (mountError) {
+        console.error("Failed to start the direct checkout:", mountError);
+        deps.teardown();
+        refs.setPhase({ kind: "idle" });
+        refs.setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
+      }
+    })();
+  }, [deps, refs]);
+}
+
 export function useDirectCheckoutFlow(input: {
   readonly canSubscribe: boolean;
+  /** Scope key: a change tears down any in-flight checkout (see below). */
   readonly organizationId: string;
-  readonly onActivated: () => void;
+  /** Marks activation pending and starts the shared billing poll. */
+  readonly onPaid: () => void;
 }): DirectCheckoutState {
   const capability = useDirectCheckoutCapability();
   const tearleads = useTearleads();
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const sessionRef = useRef<DirectCheckoutSessionHandle | null>(null);
+  const sessionRef = useRef<DirectCheckoutSession | null>(null);
+  /** Bumped by every begin/teardown so a late mount can detect it lost. */
+  const startTokenRef = useRef(0);
   const [phase, setPhase] = useState<DirectCheckoutPhase>({ kind: "idle" });
   const [error, setError] = useState<string | null>(null);
   const available = capability.isAvailable;
   const option = useCheckoutOption(available, input.canSubscribe, tearleads);
 
   const teardown = useCallback(() => {
+    startTokenRef.current += 1;
     sessionRef.current?.unmount();
     sessionRef.current = null;
   }, []);
 
-  // The element must never outlive the panel that hosts it.
-  useEffect(() => teardown, [teardown]);
+  const reset = useCallback(() => {
+    setPhase({ kind: "idle" });
+    setError(null);
+  }, []);
+
+  useCheckoutLifecycle(input.organizationId, teardown, reset);
+
+  const refs: CheckoutRefs = {
+    hostRef,
+    sessionRef,
+    startTokenRef,
+    setPhase,
+    setError,
+  };
+  const deps: BeginCheckoutDeps = {
+    available,
+    canSubscribe: input.canSubscribe,
+    capability,
+    tearleads,
+    teardown,
+  };
 
   const cancel = useCallback(() => {
     teardown();
-    setPhase({ kind: "idle" });
-    setError(null);
-  }, [teardown]);
+    reset();
+  }, [reset, teardown]);
 
-  const begin = useCallback(() => {
-    if (!available || !input.canSubscribe) {
-      return;
-    }
-    setPhase({ kind: "starting" });
-    setError(null);
-    void (async () => {
-      try {
-        const intent = await tearleads.organizations.createStripeCheckout();
-        const host = hostRef.current;
-        if (!intent || !host) {
-          setPhase({ kind: "idle" });
-          setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
-          return;
-        }
-        sessionRef.current = await capability.mount({
-          host,
-          clientSecret: intent.clientSecret,
-          appearance: readCheckoutAppearance(host),
-        });
-        setPhase({ kind: "collecting" });
-      } catch (mountError) {
-        console.error("Failed to start the direct checkout:", mountError);
-        teardown();
-        setPhase({ kind: "idle" });
-        setError(ORG_MANAGER_LABELS.billingCheckoutUnavailable);
-      }
-    })();
-  }, [available, capability, input.canSubscribe, tearleads, teardown]);
+  const begin = useBeginCheckout(refs, deps);
 
   const confirm = useCallback(() => {
     const session = sessionRef.current;
@@ -157,10 +249,10 @@ export function useDirectCheckoutFlow(input: {
           return;
         }
         // Paid. The entitlement arrives via Stripe → RevenueCat → our webhook,
-        // so hand off to the existing activation poll rather than assuming.
+        // so hand off to the shared activation poll rather than assuming.
         teardown();
         setPhase({ kind: "activating" });
-        input.onActivated();
+        input.onPaid();
       } catch (confirmError) {
         console.error("Failed to confirm the direct checkout:", confirmError);
         setPhase({ kind: "collecting" });

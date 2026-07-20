@@ -73,7 +73,8 @@ function capabilityWith(session: Partial<DirectCheckoutSession>): {
 
 function renderFlow(
   capability: DirectCheckoutCapability,
-  onActivated = () => undefined,
+  onActivated: () => void = () => undefined,
+  organizationId = "org-1",
 ) {
   const hostConfig = createAppHostConfig({
     apiBaseUrl: "http://localhost",
@@ -89,8 +90,8 @@ function renderFlow(
     () =>
       useDirectCheckoutFlow({
         canSubscribe: true,
-        organizationId: "org-1",
-        onActivated,
+        organizationId,
+        onPaid: onActivated,
       }),
     { wrapper },
   );
@@ -209,5 +210,61 @@ test("a failed checkout start surfaces an error and stays idle", async () => {
   await act(async () => result.current.begin());
 
   await waitFor(() => expect(result.current.error).not.toBeNull());
+  expect(result.current.phase.kind).toBe("idle");
+});
+
+test("a paid checkout marks activation pending rather than a lone refresh", async () => {
+  stubTearleads();
+  const onPaid = mock(() => undefined);
+  const { capability } = capabilityWith({
+    confirm: () => Promise.resolve({ kind: "succeeded" }),
+  });
+  const { result } = renderFlow(capability, onPaid);
+  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+
+  await act(async () => result.current.confirm());
+
+  // The entitlement lands asynchronously via the provider webhook, so the
+  // panel must poll — a single refresh would usually read the old status.
+  await waitFor(() => expect(onPaid).toHaveBeenCalledTimes(1));
+});
+
+test("switching organizations tears down an in-flight checkout", async () => {
+  stubTearleads();
+  const unmount = mock(() => undefined);
+  const { capability } = capabilityWith({ unmount });
+  const hostConfig = createAppHostConfig({
+    apiBaseUrl: "http://localhost",
+    createDirectCheckout: () => capability,
+    wsUrl: "ws://localhost",
+  });
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <AppHostConfigProvider value={hostConfig}>
+      <DirectCheckoutProvider>{children}</DirectCheckoutProvider>
+    </AppHostConfigProvider>
+  );
+  const { result, rerender } = renderHook(
+    ({ organizationId }: { organizationId: string }) =>
+      useDirectCheckoutFlow({
+        canSubscribe: true,
+        organizationId,
+        onPaid: () => undefined,
+      }),
+    { wrapper, initialProps: { organizationId: "org-1" } },
+  );
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  result.current.hostRef.current = host;
+  await waitFor(() => expect(result.current.option).toEqual(OPTION));
+  await act(async () => result.current.begin());
+  await waitFor(() => expect(result.current.phase.kind).toBe("collecting"));
+
+  rerender({ organizationId: "org-2" });
+
+  // The client secret belongs to org-1's subscription; confirming it after
+  // the switch would charge the wrong organization.
+  expect(unmount).toHaveBeenCalledTimes(1);
   expect(result.current.phase.kind).toBe("idle");
 });

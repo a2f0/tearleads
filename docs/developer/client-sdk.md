@@ -437,7 +437,7 @@ Supported package entry points are:
 
 | Entry point | Use for |
 | --- | --- |
-| `@tearleads/client-sdk` | `Tearleads`, SDK service types, local keyring helpers, document contracts, sync diagnostics, stores, and public workflow symbols |
+| `@tearleads/client-sdk` | `Tearleads`, SDK service types, local keyring helpers, document contracts, sync diagnostics, stores, purchase capabilities, and public workflow symbols |
 | `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, and adapter helpers |
 | `@tearleads/client-sdk/testing` | Nominal trusted-identity fixtures for lower-level repository integration tests; never production code |
 
@@ -457,6 +457,24 @@ root meaning stays stable and the lower-level name is exposed under a distinct
 alias. For example, root `ContainerDocumentLinkInput` is the high-level client
 document-link input, while the lower-level container query link input is
 `ContainerDocumentQueriesLinkInput`.
+
+### Purchase capabilities
+
+Org sync billing is sold two ways, and the SDK exposes a platform-agnostic
+capability for each so host code never branches per platform:
+
+| Capability | Who owns the payment UI | Injected by |
+| --- | --- | --- |
+| `PurchasesCapability` | The provider (RevenueCat Web Billing, App Store, Play) | `AppHostConfig.createPurchases` |
+| `DirectCheckoutCapability` | **The app** — the provider element mounts into an element we supply, so the surrounding form and the element's appearance are ours to style | `AppHostConfig.createDirectCheckout` |
+
+Both ship an "unavailable" stub (`createUnavailablePurchases`,
+`createUnavailableDirectCheckout`) so a shell without an implementation still
+satisfies the interface and callers gate on `isAvailable`. Neither capability
+references a payment provider's types; the concrete implementations live in the
+platform shells (`packages/app-web`, `packages/app-capacitor`). See
+[revenuecat-billing.md](./revenuecat-billing.md) for the end-to-end billing
+flow.
 
 ## Package Contract
 

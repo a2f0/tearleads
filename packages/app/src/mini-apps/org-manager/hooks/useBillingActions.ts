@@ -44,6 +44,13 @@ export interface BillingActions {
   readonly subscribe: (option: SyncSubscriptionOption) => void;
   /** Dismiss the in-flight embedded checkout, if any; a no-op otherwise. */
   readonly cancelCheckout: () => void;
+  /**
+   * Marks the org as awaiting activation and starts the backoff poll. Used by
+   * the in-app checkout (issue #1654), whose payment grants the entitlement
+   * asynchronously through the provider webhook — a single refresh would
+   * usually still read the pre-purchase status.
+   */
+  readonly markActivationPending: () => void;
   readonly restore: () => void;
 }
 
@@ -215,6 +222,108 @@ function useCheckoutCancellation(
   return { cancelPurchaseRef, cancelCheckout };
 }
 
+/**
+ * The provider-hosted purchase actions (trial, subscribe, restore) plus the
+ * embedded-checkout cancellation they share. Grouped so the top-level hook
+ * reads as state → options → actions → poll → projection.
+ */
+function usePurchaseActions(input: {
+  canSubscribe: boolean;
+  checkoutHostRef?: RefObject<HTMLElement | null> | undefined;
+  currentScope: BillingActionScope;
+  organizationId: string;
+  purchases: PurchasesCapability;
+  refresh: () => Promise<void>;
+  scopeRef: BillingScopeRef;
+  startTrialRequest: () => Promise<boolean>;
+  updateActionState: UpdateActionState;
+  userId: string | null;
+}) {
+  const startTrial = useStartTrialAction(
+    input.currentScope,
+    input.scopeRef,
+    input.startTrialRequest,
+    input.updateActionState,
+  );
+  const { cancelCheckout, cancelPurchaseRef } = useCheckoutCancellation(
+    input.purchases.supportsEmbeddedCheckout === true,
+    input.organizationId,
+    input.userId,
+    input.canSubscribe,
+  );
+  const subscribe = useSubscribeAction({
+    canSubscribe: input.canSubscribe,
+    cancelPurchaseRef,
+    checkoutHostRef: input.checkoutHostRef,
+    currentScope: input.currentScope,
+    purchases: input.purchases,
+    refresh: input.refresh,
+    scopeRef: input.scopeRef,
+    updateActionState: input.updateActionState,
+    userId: input.userId,
+  });
+  const restore = useRestoreAction(
+    input.currentScope,
+    input.purchases,
+    input.refresh,
+    input.scopeRef,
+    input.updateActionState,
+  );
+  const markActivationPending = useMarkActivationPending(
+    input.currentScope,
+    input.refresh,
+    input.updateActionState,
+  );
+  return {
+    cancelCheckout,
+    markActivationPending,
+    restore,
+    startTrial,
+    subscribe,
+  };
+}
+
+/**
+ * Whether the live scope still matches the caller's inputs, and whether the
+ * held action state belongs to it. Both gate every value the hook returns, so
+ * a stale scope reports neutral rather than another org's state.
+ */
+function resolveScopeMatches(input: {
+  actionState: BillingActionState;
+  currentScope: BillingActionScope;
+  organizationId: string;
+  userId: string | null;
+}): { scopeMatchesInputs: boolean; actionStateMatches: boolean } {
+  const scopeMatchesInputs =
+    input.currentScope.organizationId === input.organizationId &&
+    input.currentScope.userId === input.userId;
+  return {
+    scopeMatchesInputs,
+    actionStateMatches:
+      scopeMatchesInputs && scopeMatches(input.actionState, input.currentScope),
+  };
+}
+
+/**
+ * Marks the org as awaiting activation and kicks the shared backoff poll —
+ * the hand-off point for a payment whose entitlement is granted
+ * asynchronously by the provider webhook (issue #1654).
+ */
+function useMarkActivationPending(
+  currentScope: BillingActionScope,
+  refresh: () => Promise<void>,
+  updateActionState: UpdateActionState,
+): () => void {
+  return useCallback(() => {
+    updateActionState(currentScope, (current) => ({
+      ...current,
+      activationPending: true,
+      actionError: null,
+    }));
+    void refresh();
+  }, [currentScope, refresh, updateActionState]);
+}
+
 interface BillingActionStateController {
   readonly actionState: BillingActionState;
   readonly currentScope: BillingActionScope;
@@ -331,42 +440,25 @@ export function useBillingActions({
     setOptionsState,
     userId,
   );
-  const startTrial = useStartTrialAction(
+  const actions = usePurchaseActions({
+    canSubscribe,
+    checkoutHostRef,
     currentScope,
+    organizationId,
+    purchases,
+    refresh,
     scopeRef,
     startTrialRequest,
     updateActionState,
-  );
-  const { cancelCheckout, cancelPurchaseRef } = useCheckoutCancellation(
-    purchases.supportsEmbeddedCheckout === true,
-    organizationId,
-    userId,
-    canSubscribe,
-  );
-  const subscribe = useSubscribeAction({
-    canSubscribe,
-    cancelPurchaseRef,
-    checkoutHostRef,
-    currentScope,
-    purchases,
-    refresh,
-    scopeRef,
-    updateActionState,
     userId,
   });
-  const restore = useRestoreAction(
-    currentScope,
-    purchases,
-    refresh,
-    scopeRef,
-    updateActionState,
-  );
 
-  const scopeMatchesInputs =
-    currentScope.organizationId === organizationId &&
-    currentScope.userId === userId;
-  const actionStateMatches =
-    scopeMatchesInputs && scopeMatches(actionState, currentScope);
+  const { scopeMatchesInputs, actionStateMatches } = resolveScopeMatches({
+    actionState,
+    currentScope,
+    organizationId,
+    userId,
+  });
   useActivationBillingPoll(
     actionStateMatches && actionState.activationPending,
     billingCanSync,
@@ -388,9 +480,10 @@ export function useBillingActions({
     busy: actionStateMatches ? actionState.busy : null,
     actionError: actionStateMatches ? actionState.actionError : null,
     activationPending: actionStateMatches && actionState.activationPending,
-    startTrial,
-    subscribe,
-    cancelCheckout,
-    restore,
+    startTrial: actions.startTrial,
+    subscribe: actions.subscribe,
+    cancelCheckout: actions.cancelCheckout,
+    markActivationPending: actions.markActivationPending,
+    restore: actions.restore,
   };
 }

@@ -26,11 +26,23 @@ function formatPrice(
   if (unitAmount === null) {
     return "";
   }
-  // Stripe reports minor units; Intl applies the currency's own exponent.
-  const amount = new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: currency.toUpperCase(),
-  }).format(unitAmount / 100);
+  const currencyCode = currency.toUpperCase();
+  let formatter: Intl.NumberFormat;
+  try {
+    formatter = new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currencyCode,
+    });
+  } catch {
+    // An unknown code would throw; show the bare minor-unit amount rather
+    // than crashing the panel.
+    return `${unitAmount} ${currencyCode}`;
+  }
+  // Stripe reports MINOR units, and the minor-unit exponent is per currency —
+  // 2 for USD/EUR but 0 for JPY/KRW. Intl formats, it does not convert, so
+  // read the exponent from the resolved options rather than assuming 100.
+  const exponent = formatter.resolvedOptions().maximumFractionDigits ?? 2;
+  const amount = formatter.format(unitAmount / 10 ** exponent);
   return interval ? `${amount}/${interval}` : amount;
 }
 
@@ -80,7 +92,7 @@ export function BillingDirectCheckout({
         ref={checkout.hostRef}
         // Hidden rather than unmounted between attempts: unmounting would
         // destroy the node the provider element is attached to.
-        hidden={idle || starting}
+        hidden={idle || starting || phase.kind === "activating"}
       />
 
       {collecting || confirming ? (
