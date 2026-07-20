@@ -496,21 +496,85 @@ export function listDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
   });
 }
 
+// Documents that still NEED a store opened at prime time: local-only creates,
+// queued outbound updates/attachments, an outgoing-delta marker behind the
+// stored snapshot's end version (a deferred tail; encoding inequality
+// over-approximates, which only re-primes a store the old behavior always
+// primed), or a never-hydrated snapshot (a freshly discovered share whose
+// content pull the primed lane performs). Fully-synced hydrated documents are
+// deliberately absent: priming exists to re-drive durable work, and opening a
+// store (Loro import on the main thread + serialized SQLite reads + a sync
+// probe) per settled document is what made a 1000-document boot a storm
+// (issue #1672 fix 4). Remote-change pulls for settled documents stay owned by
+// reconciliation/remote hydration, which open stores on demand.
+const PENDING_PRIME_LOCAL_ID_SQL = `
+  SELECT stored.local_id AS local_id
+  FROM documents stored
+  WHERE stored.app_kind = 'documents'
+    AND (
+      stored.document_id IS NULL
+      OR stored.snapshot_end_version = ''
+      OR COALESCE(stored.pending_base_version, '') <> stored.snapshot_end_version
+      OR EXISTS (
+        SELECT 1
+        FROM document_pending_updates pending
+        WHERE pending.app_kind = 'documents'
+          AND pending.local_id = stored.local_id
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM document_pending_attachments attachment
+        WHERE attachment.local_id = stored.local_id
+      )
+    )
+`;
+
+async function listPrimeRequiredLocalIds(
+  execSql: ExecSql,
+): Promise<ReadonlySet<string>> {
+  const rows = await execSql(PENDING_PRIME_LOCAL_ID_SQL);
+  return new Set(
+    rows.flatMap((row) => {
+      const localId = Reflect.get(row, "local_id");
+      return typeof localId === "string" ? [localId] : [];
+    }),
+  );
+}
+
+// Stores opened per macrotask during a prime pass. Opening is fire-and-forget
+// (initialization runs async), so an unbounded loop launches every store's
+// Loro import and SQLite reads at once; yielding between chunks keeps the main
+// thread and the serialized SQLite queue breathable while a real backlog
+// primes.
+const PRIME_OPEN_CHUNK_SIZE = 8;
+
 export async function primeDocumentsForContainerSubtree<TRuntime>(input: {
   containersById: ReadonlyMap<string, ContainerContentsContainerSubtreeState>;
   host: ContainerDocumentPrimeHost<TRuntime>;
   rootContainerId: string;
   runtime: ContainerDocumentQueriesRuntime;
 }): Promise<number> {
-  const targets =
-    await listDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
+  const [targets, primeRequiredLocalIds] = await Promise.all([
+    listDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
       containersById: input.containersById,
       rootContainerId: input.rootContainerId,
       runtime: input.runtime,
-    });
+    }),
+    listPrimeRequiredLocalIds(input.runtime.infra.execSql),
+  ]);
+  const primeTargets = targets.filter((target) =>
+    primeRequiredLocalIds.has(target.localId),
+  );
 
   const runtimesByContainerId = new Map<string, TRuntime>();
-  for (const target of targets) {
+  for (let index = 0; index < primeTargets.length; index += 1) {
+    if (index > 0 && index % PRIME_OPEN_CHUNK_SIZE === 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
+    const target = primeTargets[index];
+    if (!target) {
+      continue;
+    }
     let runtime = runtimesByContainerId.get(target.runtimeContainerId);
     if (runtime === undefined) {
       runtime = input.host.documentWorkflowRuntime(target.runtimeContainerId);
@@ -527,7 +591,7 @@ export async function primeDocumentsForContainerSubtree<TRuntime>(input: {
     }
   }
 
-  return targets.length;
+  return primeTargets.length;
 }
 
 async function listContainerContentsLinkedContainerIdsByDocumentIds(
