@@ -423,7 +423,14 @@ export async function createSyncSubscription(
       `:${rotationMarker ?? "initial"}`,
   });
   const intent = parseCheckoutIntent(body);
-  return intent ? { kind: "ready", intent } : null;
+  if (!intent) {
+    // The subscription EXISTS (the create succeeded) but its intent could not
+    // be read — and the idempotency key would replay this same response on a
+    // retry. Surface it as a provider failure (502), never as "unconfigured",
+    // so it is diagnosed rather than silently retried forever.
+    throw new StripeApiError("subscription create (unreadable intent)", 502);
+  }
+  return { kind: "ready", intent };
 }
 
 /** Reads a subscription's metadata (`userId`/`orgId`), status, and customer. */

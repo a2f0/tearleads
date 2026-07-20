@@ -8,7 +8,6 @@ import {
   getStripeCheckoutOptions,
   processStripeWebhook,
 } from "../../services/billing/stripeCheckout";
-import type { ApiServiceRuntime } from "../../services/runtime";
 import {
   type OrganizationsRouterDeps,
   parseOrganizationId,
@@ -155,7 +154,7 @@ export function createStripeCheckoutRoute({
  * before verification). Non-2xx responses make Stripe redeliver, which is the
  * retry mechanism for transient RevenueCat association failures.
  */
-export function createStripeWebhookRoute(_runtime: ApiServiceRuntime) {
+export function createStripeWebhookRoute() {
   const route = new Hono<SessionEnv>();
 
   route.post("/billing/stripe/webhook", async (c) => {

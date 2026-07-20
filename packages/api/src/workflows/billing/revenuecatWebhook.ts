@@ -14,6 +14,7 @@ import {
   type RevenueCatBillingTransition,
   resolveOrganizationIdFromEvent,
   resolveStripeStoreOrganizationId,
+  type StripeStoreOrgResolution,
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
@@ -178,11 +179,13 @@ export async function runRevenueCatWebhookWorkflow(
   // another org. A FAILED lookup on an event that would change billing must
   // defer (never fall back to the attribute, never claim the event id) so a
   // redelivery can attribute it correctly.
-  const stripeResolution = await resolveStripeStoreOrganizationId(
-    event,
-    deps.stripe ?? {},
-  );
-  if (stripeResolution.kind === "error" && transition.kind !== "ignore") {
+  // Ignorable events never consult Stripe: their org is only recorded, and
+  // the mutable-attribute risk applies to billing CHANGES, not audit rows.
+  const stripeResolution =
+    transition.kind === "ignore"
+      ? ({ kind: "none" } satisfies StripeStoreOrgResolution)
+      : await resolveStripeStoreOrganizationId(event, deps.stripe ?? {});
+  if (stripeResolution.kind === "error") {
     return {
       status: "retry",
       reason: "Stripe subscription lookup failed for a Stripe-store event",

@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { organizationBilling, users } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
@@ -14,6 +14,35 @@ import { createRouteApp, routeApp } from "../../routeApp";
  * admin / fail-closed edges — the Stripe and RevenueCat interactions are unit
  * tested in billing/ and services/billing/ with injected fetch.
  */
+
+// These tests exercise the UNCONFIGURED edges; a developer shell exporting
+// real Stripe/RevenueCat credentials must not make them hit live APIs.
+const ISOLATED_ENV_KEYS = [
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
+  "STRIPE_SYNC_PRICE_ID",
+  "REVENUECAT_SECRET_API_KEY",
+  "REVENUECAT_STRIPE_PUBLIC_API_KEY",
+];
+const savedEnv = new Map<string, string | undefined>();
+
+beforeAll(() => {
+  for (const key of ISOLATED_ENV_KEYS) {
+    savedEnv.set(key, process.env[key]);
+    delete process.env[key];
+  }
+});
+
+afterAll(() => {
+  for (const key of ISOLATED_ENV_KEYS) {
+    const value = savedEnv.get(key);
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+});
 
 async function registerAndAuthenticate(user: TestUser): Promise<string> {
   await registerUser(user);

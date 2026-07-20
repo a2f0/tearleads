@@ -132,7 +132,7 @@ export function resolveOrganizationIdFromEvent(
  * rather than fall back to the mutable attribute, which for a multi-org
  * buyer can point at the wrong organization.
  */
-type StripeStoreOrgResolution =
+export type StripeStoreOrgResolution =
   | { kind: "resolved"; organizationId: string }
   | { kind: "none" }
   | { kind: "error" };

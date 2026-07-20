@@ -12,6 +12,7 @@ import { authenticate } from "../../../test/helpers/authenticate";
 import { setTestOrganizationBillingLocal } from "../../../test/helpers/organizationBilling";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
+import { runRevenueCatWebhookWorkflow } from "../../workflows/billing/revenuecatWebhook";
 
 const WEBHOOK_SECRET = "Bearer test-revenuecat-secret";
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -421,4 +422,47 @@ test("the webhook fails closed when the shared secret is not configured", async 
   } finally {
     process.env[AUTH_ENV_KEY] = previous;
   }
+});
+
+test("a Stripe-store grant defers end-to-end when the lookup fails", async () => {
+  const user = createTestUser();
+  const organizationId = await registerAndAuthenticate(user);
+
+  const failingFetch = (async (
+    _input: RequestInfo | URL,
+    _init?: RequestInit,
+  ) => new Response("{}", { status: 500 })) as typeof fetch;
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    {
+      app_user_id: user.userId,
+      entitlement_ids: ["sync"],
+      event_timestamp_ms: Date.now(),
+      expiration_at_ms: Date.now() + THIRTY_DAYS_MS,
+      id: crypto.randomUUID(),
+      store: "STRIPE",
+      original_transaction_id: "sub_defer",
+      subscriber_attributes: { orgId: { value: organizationId } },
+      type: "INITIAL_PURCHASE",
+    },
+    new Date(),
+    {
+      stripe: {
+        env: { STRIPE_SECRET_KEY: "sk", STRIPE_SYNC_PRICE_ID: "p" },
+        fetchImpl: failingFetch,
+      },
+    },
+  );
+
+  // The immutable binding could not be read: the event must be deferred —
+  // never resolved via the mutable attribute, never claimed.
+  expect(outcome).toEqual({
+    status: "retry",
+    reason: "Stripe subscription lookup failed for a Stripe-store event",
+  });
+  const [claimed] = await db
+    .select({ id: revenuecatWebhookEvents.id })
+    .from(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.eventId, "sub_defer"));
+  expect(claimed).toBeUndefined();
 });
