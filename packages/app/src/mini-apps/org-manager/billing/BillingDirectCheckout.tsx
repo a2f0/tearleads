@@ -89,14 +89,13 @@ export function BillingDirectCheckout({
         to attach to; the payment fields render inside it.
       */}
       <div
-        className="org-manager-billing-checkout"
+        className="org-manager-direct-checkout"
         ref={checkout.hostRef}
         // Hidden rather than unmounted between attempts: unmounting would
         // destroy the node the provider element is attached to. Visible from
         // `starting` on, because that is exactly when the element mounts and
         // providers size their iframe off the host — mounting into a
-        // display:none node yields a collapsed or unsized form. It is empty
-        // until the element attaches, so it occupies nothing meanwhile.
+        // display:none node yields a collapsed or unsized form.
         hidden={idle}
       />
 

@@ -83,6 +83,16 @@ function toConfirmation(
   throw new Error(error.message ?? "The payment could not be completed.");
 }
 
+/**
+ * Where Stripe sends the buyer back if a 3-D Secure step insists on a
+ * full-page redirect rather than the usual modal. Read at confirm time, not
+ * at mount: the panel's URL can change while the form is open, and there is
+ * no `location` outside a browser.
+ */
+function currentReturnUrl(): string | undefined {
+  return globalThis.location?.href;
+}
+
 function createSession(
   stripe: Stripe,
   elements: StripeElements,
@@ -93,11 +103,18 @@ function createSession(
       if (unmounted) {
         return { kind: "cancelled" };
       }
+      const returnUrl = currentReturnUrl();
       const { error } = await stripe.confirmPayment({
         elements,
         // Stay in the panel: only redirect for payment methods that require
-        // it, which the card element does not.
+        // it, which a card does not — the server pins the subscription to
+        // card, so nothing redirect-based can be offered here.
         redirect: "if_required",
+        // Stripe.js rejects the confirm outright if a redirect DOES become
+        // necessary and no return_url was given, which the buyer would see
+        // as a generic failure. Returning to the current page is right: the
+        // webhook has already recorded the outcome by the time they land.
+        ...(returnUrl ? { confirmParams: { return_url: returnUrl } } : {}),
       });
       // A confirm that resolves after the caller tore the element down must
       // not be reported as a live success.

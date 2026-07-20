@@ -19,6 +19,7 @@ function fakeStripe(options?: {
   onConfirm?: () => void;
 }) {
   const destroyed: string[] = [];
+  const confirmInputs: unknown[] = [];
   const element: FakeElement = {
     mount: () => undefined,
     destroy: () => destroyed.push("payment"),
@@ -28,12 +29,13 @@ function fakeStripe(options?: {
       create: () => element,
       getElement: () => element,
     }),
-    confirmPayment: async () => {
+    confirmPayment: async (input: unknown) => {
+      confirmInputs.push(input);
       options?.onConfirm?.();
       return { error: options?.confirmError };
     },
   };
-  return { stripe, destroyed };
+  return { confirmInputs, stripe, destroyed };
 }
 
 const APPEARANCE = {
@@ -160,4 +162,65 @@ test("a failed script load throws and does not cache the failure", async () => {
   });
   expect(session).toBeDefined();
   expect(loads).toBe(2);
+});
+
+test("confirm supplies a return url for a redirect-requiring 3-D Secure step", async () => {
+  // `redirect: "if_required"` normally keeps the buyer in the panel, but
+  // Stripe.js rejects the confirm outright if a redirect DOES become
+  // necessary and no return_url was given — which would surface to the buyer
+  // as the generic failure label rather than a completed payment.
+  const { confirmInputs, stripe } = fakeStripe();
+  const capability = withKey(() =>
+    createWebDirectCheckout(() => Promise.resolve(stripe as never)),
+  );
+  const session = await capability.mount({
+    host: host(),
+    clientSecret: "pi_secret",
+    appearance: APPEARANCE,
+  });
+
+  const previous = globalThis.location;
+  Object.defineProperty(globalThis, "location", {
+    configurable: true,
+    value: { href: "https://app.example/org/billing" },
+  });
+  try {
+    await session.confirm();
+  } finally {
+    if (previous === undefined) {
+      Reflect.deleteProperty(globalThis, "location");
+    } else {
+      Object.defineProperty(globalThis, "location", {
+        configurable: true,
+        value: previous,
+      });
+    }
+  }
+
+  const [input] = confirmInputs as [
+    { redirect: string; confirmParams: { return_url: string } },
+  ];
+  expect(input.redirect).toBe("if_required");
+  expect(input.confirmParams.return_url).toBe(
+    "https://app.example/org/billing",
+  );
+});
+
+test("confirm omits the return url where there is no page to return to", async () => {
+  // Outside a browser there is no `location`; sending `return_url: undefined`
+  // would be an explicit malformed parameter rather than an absent one.
+  const { confirmInputs, stripe } = fakeStripe();
+  const capability = withKey(() =>
+    createWebDirectCheckout(() => Promise.resolve(stripe as never)),
+  );
+  const session = await capability.mount({
+    host: host(),
+    clientSecret: "pi_secret",
+    appearance: APPEARANCE,
+  });
+
+  await session.confirm();
+
+  const [input] = confirmInputs as [{ confirmParams?: unknown }];
+  expect("confirmParams" in input).toBe(false);
 });

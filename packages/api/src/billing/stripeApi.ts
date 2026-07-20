@@ -326,6 +326,13 @@ export async function createSyncSubscription(
   form.set("items[0][price]", syncPriceId);
   form.set("payment_behavior", "default_incomplete");
   form.set("payment_settings[save_default_payment_method]", "on_subscription");
+  // Pin the subscription to cards. Without this the Payment Element offers
+  // whatever the Stripe dashboard has enabled, and any redirect-based method
+  // (Amazon Pay, Cash App, iDEAL) makes the client's `redirect: "if_required"`
+  // confirm fail — the buyer would just see the generic failure label. Pinning
+  // server-side keeps the offered methods matched to the flow we implement,
+  // regardless of how the dashboard is configured.
+  form.append("payment_settings[payment_method_types][]", "card");
   form.set("metadata[userId]", input.userId);
   form.set("metadata[orgId]", input.organizationId);
   form.append("expand[]", "latest_invoice.payment_intent");

@@ -85,7 +85,7 @@ test("idle offers the priced subscribe row and hides the element host", () => {
   );
   expect(view.getByText("Sync")).toBeDefined();
   expect(view.getByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeDefined();
-  const host = view.container.querySelector(".org-manager-billing-checkout");
+  const host = view.container.querySelector(".org-manager-direct-checkout");
   expect(host?.hasAttribute("hidden")).toBe(true);
 });
 
@@ -106,7 +106,7 @@ test("collecting shows Pay and Cancel over a visible element host", () => {
       disabled={false}
     />,
   );
-  const host = view.container.querySelector(".org-manager-billing-checkout");
+  const host = view.container.querySelector(".org-manager-direct-checkout");
   expect(host?.hasAttribute("hidden")).toBe(false);
 
   fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingCheckoutPay));

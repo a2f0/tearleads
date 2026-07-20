@@ -159,7 +159,7 @@ can be fully styled, while RevenueCat remains the entitlement system:
   endpoint in Stripe (`invoice.paid` events suffice).
 
 The client half (Payment Element UI behind `BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY`)
-is tracked in issue #1654.
+is described in the next section.
 
 ## Direct Stripe checkout (client side)
 
