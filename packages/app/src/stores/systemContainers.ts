@@ -303,3 +303,25 @@ export function isTrashSystemContainerNode(
     }) && getSharedSystemContainerRulesByName(node.name) === trashRules
   );
 }
+
+// Whether a container node is the viewer's OWN Contacts system folder, matched by
+// its derived system slot rather than by a resolved container id. The slot is
+// derived from the signing key (see deriveUserSystemContainers), so this holds
+// offline and before the first sync — unlike the org-scoped Contacts container id
+// resolution, which returns null until an organization id is assigned (an account
+// bootstrapped device-first offline has none yet). Unlike isTrashSystemContainerNode
+// this intentionally does NOT match a peer's shared Contacts folder: that carries
+// the owner's opaque HMAC slot, and creating a contact is only meaningful in your
+// own Contacts. The narrower contract is why it takes just the slot, not the
+// organization/name fallback the Trash classifier needs for its rules gating.
+export function isContactsSystemContainerNode(
+  node: Pick<ContainerNode, "systemSlot"> | null | undefined,
+  contactsSystemSlot: ContainerSystemSlot | null,
+): boolean {
+  return (
+    node != null &&
+    node.systemSlot != null &&
+    contactsSystemSlot != null &&
+    node.systemSlot === contactsSystemSlot
+  );
+}

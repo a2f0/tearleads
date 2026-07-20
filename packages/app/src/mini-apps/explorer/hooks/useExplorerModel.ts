@@ -12,7 +12,10 @@ import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTea
 import { findCurrentSelfContactLocalId } from "../../../stores/contacts/contactLabels";
 import { useContactsStoreForContainer } from "../../../stores/contacts/useContactsStoreForContainer";
 import { useExplorerDocumentQueries } from "../../../stores/explorer/documentQueries";
-import { EXPLORER_TRASH_CONTAINER_ICON } from "../../../stores/systemContainers";
+import {
+  EXPLORER_TRASH_CONTAINER_ICON,
+  isContactsSystemContainerNode,
+} from "../../../stores/systemContainers";
 import {
   canCreateChildContainerByRules,
   canCreateStructuredDocumentInContainerByRules,
@@ -302,10 +305,16 @@ export function useExplorerModel(
   const canUploadToActiveContainer =
     selection.activeContainerId !== null &&
     canUploadToContainerByRules(rulesContext, activeContainerNode);
-  const isActiveContactsContainer =
-    selection.activeContainerId !== null &&
-    contactsContainerId !== null &&
-    selection.activeContainerId === contactsContainerId;
+  // Detect the active Contacts folder by its system slot, not by the
+  // primary-org-resolved contactsContainerId: that id is null until an
+  // organization id is assigned, so an account created offline and not yet
+  // synced would fall through to the greyed standard toolbar instead of the New
+  // Contact button. The slot is derived from the signing key and is available
+  // offline, mirroring how Trash is detected (see isTrashSystemContainerNode).
+  const isActiveContactsContainer = isContactsSystemContainerNode(
+    activeContainerNode,
+    explorer.contactsSystemSlot,
+  );
   const canCreateContactInActiveContainer =
     isActiveContactsContainer &&
     activeContainerNode !== undefined &&
