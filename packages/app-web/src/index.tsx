@@ -3,7 +3,7 @@ import {
   createAppBuildInfo,
   createAppHostConfig,
   resolveAppHostProfile,
-  resolveEventsWebSocketUrl,
+  resolveAppHostRuntimeConfig,
 } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
 import {
@@ -18,12 +18,10 @@ if (!elem) {
   throw new Error("Root element not found");
 }
 
-const apiBaseUrl =
-  process.env.BUN_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
-const wsUrl = resolveEventsWebSocketUrl(
-  apiBaseUrl,
-  process.env.BUN_PUBLIC_WS_URL,
-);
+const { apiBaseUrl, wsUrl } = resolveAppHostRuntimeConfig({
+  apiBaseUrl: process.env.BUN_PUBLIC_API_BASE_URL,
+  wsUrl: process.env.BUN_PUBLIC_WS_URL,
+});
 
 const hostConfig = createAppHostConfig({
   apiBaseUrl,

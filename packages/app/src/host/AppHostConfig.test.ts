@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import {
   APP_HOST_PROFILES,
   resolveAppHostProfile,
+  resolveAppHostRuntimeConfig,
   resolveEventsWebSocketUrl,
 } from "./AppHostConfig";
 
@@ -121,4 +122,50 @@ test("resolveEventsWebSocketUrl preserves explicit relative websocket paths", ()
   expect(resolveEventsWebSocketUrl("/api", "/ws")).toBe(
     "wss://app.tearleads.test/ws",
   );
+});
+
+test("resolveAppHostRuntimeConfig falls back to the localhost dev backend when unset", () => {
+  // The three shells inline env through three different bundlers, and each emits
+  // undefined or "" for an unset var; both must collapse to the one shared dev
+  // default rather than crash a shell that forgot to set it.
+  for (const apiBaseUrl of [undefined, "", "   "]) {
+    expect(resolveAppHostRuntimeConfig({ apiBaseUrl })).toEqual({
+      apiBaseUrl: "http://localhost:3001",
+      wsUrl: "ws://localhost:3001/events",
+    });
+  }
+});
+
+test("resolveAppHostRuntimeConfig derives the websocket URL from an explicit API URL", () => {
+  expect(
+    resolveAppHostRuntimeConfig({ apiBaseUrl: "https://api.tearleads.com" }),
+  ).toEqual({
+    apiBaseUrl: "https://api.tearleads.com",
+    wsUrl: "wss://api.tearleads.com/events",
+  });
+});
+
+test("resolveAppHostRuntimeConfig honours an explicit websocket override", () => {
+  expect(
+    resolveAppHostRuntimeConfig({
+      apiBaseUrl: "https://api.tearleads.com",
+      wsUrl: "wss://events.tearleads.com/socket",
+    }),
+  ).toEqual({
+    apiBaseUrl: "https://api.tearleads.com",
+    wsUrl: "wss://events.tearleads.com/socket",
+  });
+});
+
+test("resolveAppHostRuntimeConfig trims surrounding whitespace before resolving", () => {
+  // A blank-but-present websocket override must not win over the derived URL.
+  expect(
+    resolveAppHostRuntimeConfig({
+      apiBaseUrl: "  https://api.tearleads.com  ",
+      wsUrl: "   ",
+    }),
+  ).toEqual({
+    apiBaseUrl: "https://api.tearleads.com",
+    wsUrl: "wss://api.tearleads.com/events",
+  });
 });

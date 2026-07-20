@@ -8,6 +8,7 @@ import {
   APP_HOST_PROFILES,
   createAppBuildInfo,
   createAppHostConfig,
+  resolveAppHostRuntimeConfig,
 } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
 
@@ -30,9 +31,18 @@ if (!elem) {
   throw new Error("Root element not found");
 }
 
+// Shared with web/capacitor via resolveAppHostRuntimeConfig. Defaults to
+// localhost:3001 when unset (the desktop dev shell's usual target); reads
+// BUN_PUBLIC_API_BASE_URL so a packaged build can point elsewhere, which the
+// old hardcoded URL could not.
+const { apiBaseUrl, wsUrl } = resolveAppHostRuntimeConfig({
+  apiBaseUrl: process.env.BUN_PUBLIC_API_BASE_URL,
+  wsUrl: process.env.BUN_PUBLIC_WS_URL,
+});
+
 renderApp(createRoot(elem), {
   hostConfig: createAppHostConfig({
-    apiBaseUrl: "http://localhost:3001",
+    apiBaseUrl,
     // Stamped by scripts/withBuildInfoEnv.sh and inlined by the `env` passthrough
     // this view declares in electrobun.config.ts.
     buildInfo: createAppBuildInfo({
@@ -51,6 +61,6 @@ renderApp(createRoot(elem), {
     // navigator.storage.getDirectory on the renderer main thread. The default
     // auto-detect path would fall back to ephemeral memory storage.
     storagePersistence: PERSISTENT_STORAGE_POLICY,
-    wsUrl: "ws://localhost:3001",
+    wsUrl,
   }),
 });
