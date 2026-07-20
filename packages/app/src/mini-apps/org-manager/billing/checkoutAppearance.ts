@@ -62,7 +62,6 @@ export function readCheckoutAppearance(
   probe.style.fontFamily = "var(--tearleads-font-family)";
   probe.style.fontSize = "var(--font-size-md)";
   probe.style.paddingTop = "var(--control-padding-block)";
-  probe.style.borderTopLeftRadius = "0";
   host.appendChild(probe);
 
   try {

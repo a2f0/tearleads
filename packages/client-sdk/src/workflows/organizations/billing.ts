@@ -27,8 +27,6 @@ export type StripeCheckoutOptions = StripeCheckoutOptionsResponse;
 /** What the Payment Element needs to confirm a purchase (the wire shape). */
 export type StripeCheckoutIntent = StripeCheckoutIntentResponse;
 
-/** The organization's Stripe Billing Portal link (the wire shape). */
-
 /** The billing methods these workflows need from the api client. */
 interface OrganizationBillingApi {
   readonly getOrganizationBilling: (

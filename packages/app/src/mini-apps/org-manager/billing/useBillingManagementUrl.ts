@@ -16,7 +16,6 @@ interface ManagementUrlState {
  * snapshot so a billing refresh keeps the link current. Both a load error and a
  * "no managed subscription" resolve to a null URL, which hides the manage button
  * rather than surfacing an error for what is only a convenience link.
- *
  */
 export function useBillingManagementUrl(
   organizationId: string,
