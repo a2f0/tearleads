@@ -4,5 +4,5 @@ source 'https://rubygems.org'
 
 ruby file: '../../.ruby-version'
 
-gem 'fastlane', '~> 2.230'
+gem 'fastlane', '~> 2.237'
 gem 'rubocop', '~> 1.82'
