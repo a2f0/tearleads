@@ -51,7 +51,8 @@ function stubEnvironment(canSync: boolean) {
         loadStripeCheckoutOptions: () => Promise.resolve({ options: [OPTION] }),
         loadBillingManagementUrl: () =>
           Promise.resolve({ managementUrl: null }),
-        loadOrganizationBillingHistory: () => Promise.resolve(null),
+        loadBillingHistory: () => Promise.resolve(null),
+        cancelStripeSubscription: () => Promise.resolve({ cancelAt: null }),
       },
     } as never),
   );
@@ -62,35 +63,54 @@ function stubEnvironment(canSync: boolean) {
  * uses in production. `createPurchases` is deliberately UNAVAILABLE: the card
  * checkout must not depend on the RevenueCat capability being configured.
  */
-function wrapper({ children }: PropsWithChildren) {
-  const hostConfig = createAppHostConfig({
-    apiBaseUrl: "http://localhost",
-    createDirectCheckout: () =>
-      ({
-        isAvailable: true,
-        mount: () => new Promise(() => undefined),
-      }) as never,
-    createPurchases: () =>
-      ({
-        isAvailable: false,
-        supportsEmbeddedCheckout: false,
-        identify: () => Promise.resolve(),
-        reset: () => Promise.resolve(),
-        listSyncOptions: () => Promise.resolve([]),
-        purchaseSync: () => new Promise(() => undefined),
-        restore: () => Promise.resolve(),
-        hasActiveSyncEntitlement: () => Promise.resolve(false),
-      }) as never,
-    wsUrl: "ws://localhost",
-  });
-  return (
-    <AppHostConfigProvider value={hostConfig}>
-      <PurchasesProvider>
-        <DirectCheckoutProvider>{children}</DirectCheckoutProvider>
-      </PurchasesProvider>
-    </AppHostConfigProvider>
-  );
+function purchases(isAvailable: boolean) {
+  return {
+    isAvailable,
+    supportsEmbeddedCheckout: isAvailable,
+    identify: () => Promise.resolve(),
+    reset: () => Promise.resolve(),
+    // A RevenueCat option whose row is indistinguishable from the direct
+    // checkout's — which is exactly what made the two-row state confusing.
+    listSyncOptions: () =>
+      Promise.resolve([
+        {
+          packageId: "monthly",
+          productId: "sync_monthly",
+          title: "Sync",
+          description: "Cloud sync",
+          priceLabel: "$4.99",
+        },
+      ]),
+    purchaseSync: () => new Promise(() => undefined),
+    restore: () => Promise.resolve(),
+    hasActiveSyncEntitlement: () => Promise.resolve(false),
+  } as never;
 }
+
+function wrapperWith(revenueCatAvailable: boolean) {
+  return function Wrapper({ children }: PropsWithChildren) {
+    const hostConfig = createAppHostConfig({
+      apiBaseUrl: "http://localhost",
+      createDirectCheckout: () =>
+        ({
+          isAvailable: true,
+          mount: () => new Promise(() => undefined),
+        }) as never,
+      createPurchases: () => purchases(revenueCatAvailable),
+      wsUrl: "ws://localhost",
+    });
+    return (
+      <AppHostConfigProvider value={hostConfig}>
+        <PurchasesProvider>
+          <DirectCheckoutProvider>{children}</DirectCheckoutProvider>
+        </PurchasesProvider>
+      </AppHostConfigProvider>
+    );
+  };
+}
+
+/** RevenueCat unavailable: the card checkout stands on its own. */
+const wrapper = wrapperWith(false);
 
 test("an org that cannot sync is offered the in-app card checkout", async () => {
   stubEnvironment(false);
@@ -144,4 +164,69 @@ test("a signed-out user is never offered the checkout", async () => {
   );
 
   await waitFor(() => expect(view.queryByText("Sync")).toBeNull());
+});
+
+test("the card checkout replaces RevenueCat's subscribe list, not adds to it", async () => {
+  // Regression guard for the two-row state: both flows offer a "Sync /
+  // Subscribe" row, and rendering both put two near-identical buttons in the
+  // panel — clicking the top one gave the old unstyled hosted form.
+  //
+  // RevenueCat is AVAILABLE here on purpose: with it unavailable its list
+  // would not render anyway and this test would pass without proving the gate.
+  stubEnvironment(false);
+
+  const view = render(
+    <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
+    { wrapper: wrapperWith(true) },
+  );
+
+  await waitFor(() =>
+    expect(view.getAllByText(ORG_MANAGER_LABELS.billingSubscribe)).toHaveLength(
+      1,
+    ),
+  );
+});
+
+test("cancelling is offered only for an org syncing on our own checkout", async () => {
+  stubEnvironment(true);
+
+  const view = render(
+    <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
+    { wrapper },
+  );
+
+  await waitFor(() =>
+    expect(
+      view.getByText(ORG_MANAGER_LABELS.billingCancelSubscription),
+    ).toBeDefined(),
+  );
+});
+
+test("an org that is not syncing is offered nothing to cancel", async () => {
+  stubEnvironment(false);
+
+  const view = render(
+    <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
+    { wrapper },
+  );
+
+  await waitFor(() => expect(view.getByText("Sync")).toBeDefined());
+  expect(
+    view.queryByText(ORG_MANAGER_LABELS.billingCancelSubscription),
+  ).toBeNull();
+});
+
+test("a non-admin cannot cancel", async () => {
+  stubEnvironment(true);
+
+  const view = render(
+    <BillingPanel isOrgAdmin={false} organizationId="org-1" userId="user-1" />,
+    { wrapper },
+  );
+
+  await waitFor(() =>
+    expect(
+      view.queryByText(ORG_MANAGER_LABELS.billingCancelSubscription),
+    ).toBeNull(),
+  );
 });

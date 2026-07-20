@@ -400,6 +400,39 @@ export async function getSubscriptionBinding(
 }
 
 /**
+ * Schedules a subscription to end when the paid period closes.
+ *
+ * `cancel_at_period_end` rather than an immediate delete: the buyer keeps the
+ * sync they already paid for, and RevenueCat's lifecycle tracking flips the
+ * entitlement when the period actually closes — through the same webhook path
+ * a lapsed renewal takes, so no separate revocation logic is needed.
+ *
+ * Returns the resulting cancellation timestamp (Unix seconds) so the panel can
+ * say when access ends, or null when Stripe is unconfigured.
+ */
+export async function cancelSubscriptionAtPeriodEnd(
+  subscriptionId: string,
+  deps: StripeApiDeps = {},
+): Promise<{ cancelAt: number | null } | null> {
+  const { fetchImpl, secretKey } = resolveDeps(deps);
+  if (!secretKey) {
+    return null;
+  }
+  const form = new URLSearchParams();
+  form.set("cancel_at_period_end", "true");
+  const body = await stripeRequest({
+    fetchImpl,
+    secretKey,
+    method: "POST",
+    path: `/v1/subscriptions/${encodeURIComponent(subscriptionId)}`,
+    operation: "subscription cancel",
+    form,
+  });
+  const cancelAt = prop(body, "cancel_at");
+  return { cancelAt: typeof cancelAt === "number" ? cancelAt : null };
+}
+
+/**
  * Creates a Billing Portal session for a customer; the caller supplies the
  * return URL (the billing panel's origin). Returns the hosted portal URL.
  */

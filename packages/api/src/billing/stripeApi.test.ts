@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  cancelSubscriptionAtPeriodEnd,
   createPortalSession,
   createSyncSubscription,
   findOrCreateCustomer,
@@ -342,6 +343,34 @@ test("portal session returns the hosted url", async () => {
 
   expect(url).toBe("https://billing.stripe.com/p/session");
   expect(requests[0]?.body).toContain("customer=cus_1");
+});
+
+test("cancelling schedules the end of the paid period, not an instant stop", async () => {
+  // `cancel_at_period_end` keeps the sync the buyer already paid for, and lets
+  // RevenueCat flip the entitlement through the same path a lapsed renewal
+  // takes — an immediate delete would revoke access mid-period.
+  const { fetchImpl, requests } = fakeFetch([
+    { body: { id: "sub_1", cancel_at: 1893456000 } },
+  ]);
+  const result = await cancelSubscriptionAtPeriodEnd("sub_1", {
+    env: ENV,
+    fetchImpl,
+  });
+
+  expect(result).toEqual({ cancelAt: 1893456000 });
+  expect(requests[0]?.url).toContain("/v1/subscriptions/sub_1");
+  expect(requests[0]?.body).toContain("cancel_at_period_end=true");
+  expect(requests[0]?.body ?? "").not.toContain("cancel_at_period_end=false");
+});
+
+test("a cancellation without a resolved date still reports success", async () => {
+  // Stripe omits `cancel_at` on an already-cancelling subscription; the panel
+  // must treat that as cancelled rather than as a failure.
+  const { fetchImpl } = fakeFetch([{ body: { id: "sub_1" } }]);
+
+  expect(
+    await cancelSubscriptionAtPeriodEnd("sub_1", { env: ENV, fetchImpl }),
+  ).toEqual({ cancelAt: null });
 });
 
 test("a failed Stripe request surfaces as StripeApiError with its status", async () => {

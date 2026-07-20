@@ -2,6 +2,7 @@ import type { ContainerGrantSubjectType } from "@tearleads/crypto";
 import type { DeleteOrganizationGroupResponse } from "@tearleads/validators/response";
 import {
   addOrganizationGroupUser,
+  cancelStripeSubscription,
   createOrganizationGroup,
   createStripeCheckout,
   importOrganizationUser,
@@ -115,9 +116,10 @@ export interface Organizations {
   loadBillingManagementUrl: () => ReturnType<
     typeof loadOrganizationBillingManagementUrl
   >;
-  /** Direct Stripe checkout (issue #1654): options, start, and manage link. */
+  /** Direct Stripe checkout (issue #1654): options, start, and cancel. */
   loadStripeCheckoutOptions: () => ReturnType<typeof loadStripeCheckoutOptions>;
   createStripeCheckout: () => ReturnType<typeof createStripeCheckout>;
+  cancelStripeSubscription: () => ReturnType<typeof cancelStripeSubscription>;
   loadDataUsage: () => ReturnType<
     OrganizationDataUsageCoordinator["reconcile"]
   >;
@@ -364,6 +366,17 @@ class OrganizationsService implements Organizations {
     const organizationId = authenticatedOrganizationId(runtime);
     return organizationId
       ? createStripeCheckout({
+          apiClient: runtime.apiClient,
+          organizationId,
+        })
+      : Promise.resolve(null);
+  }
+
+  cancelStripeSubscription() {
+    const runtime = this.runtimeService.workflowInput();
+    const organizationId = authenticatedOrganizationId(runtime);
+    return organizationId
+      ? cancelStripeSubscription({
           apiClient: runtime.apiClient,
           organizationId,
         })

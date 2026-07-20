@@ -4,6 +4,7 @@ import { StripeApiError } from "../../billing/stripeApi";
 import { type ApiCorsOrigins, readApiCorsOrigins } from "../../corsOrigins";
 import type { SessionEnv } from "../../middleware/session";
 import {
+  cancelStripeSubscription,
   createStripeCheckout,
   createStripePortalUrl,
   getStripeCheckoutOptions,
@@ -144,6 +145,25 @@ export function createStripeCheckoutRoute({
         },
       );
     },
+  );
+
+  route.post(
+    "/organizations/:organizationId/billing/stripe/cancel",
+    requireAuth,
+    (c) =>
+      respondForOrganization(c, async (organizationId, sessionUserId) => {
+        const result = await cancelStripeSubscription(
+          runtime,
+          organizationId,
+          sessionUserId,
+        );
+        if (!result) {
+          // Unconfigured, or no Stripe subscription bound to this org. Not an
+          // error the admin can act on — the panel simply offers no cancel.
+          return c.json({ error: "No cancellable subscription" }, 404);
+        }
+        return c.json({ cancelAt: result.cancelAt });
+      }),
   );
 
   return route;

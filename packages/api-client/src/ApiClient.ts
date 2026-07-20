@@ -60,6 +60,7 @@ import {
   isOrganizationReadModelResponse,
   isPrincipalPolicyBundleResponse,
   isRegistrationResponse,
+  isStripeCancelResponse,
   isStripeCheckoutIntentResponse,
   isStripeCheckoutOptionsResponse,
   isUploadMultipartBlobPartResponse,
@@ -860,6 +861,19 @@ export class ApiClient {
     return this.request(
       `/organizations/${pathSegment(organizationId)}/billing/stripe/checkout`,
       isStripeCheckoutIntentResponse,
+      "POST",
+    );
+  }
+
+  /**
+   * Ends the organization's sync subscription when the paid period closes.
+   * Returns null when the org has no cancellable Stripe subscription (404),
+   * which the panel treats as "offer no cancel" rather than as an error.
+   */
+  cancelStripeSubscription(organizationId: string) {
+    return this.request(
+      `/organizations/${pathSegment(organizationId)}/billing/stripe/cancel`,
+      isStripeCancelResponse,
       "POST",
     );
   }
