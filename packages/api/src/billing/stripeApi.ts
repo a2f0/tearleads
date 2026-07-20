@@ -4,39 +4,26 @@
  * Portal session on OUR Stripe account, while RevenueCat stays the entitlement
  * system via receipt association (see revenueCatStripeAssociation.ts).
  *
- * Deliberately SDK-free, mirroring revenueCatApi.ts: the four calls used here
- * are plain form-encoded HTTP, and an injectable fetch keeps every caller
- * unit-testable without network.
+ * Deliberately SDK-free, mirroring revenueCatApi.ts: the calls used here are
+ * plain form-encoded HTTP, and an injectable fetch keeps every caller
+ * unit-testable without network. HTTP plumbing lives in stripeHttp.ts.
  */
 
-/** Environment variable holding the Stripe secret key (`sk_test_…`/`sk_live_…`). */
-const STRIPE_SECRET_KEY_ENV = "STRIPE_SECRET_KEY";
-/** Environment variable holding the sync subscription's Stripe price id. */
-const STRIPE_SYNC_PRICE_ID_ENV = "STRIPE_SYNC_PRICE_ID";
+import {
+  escapeSearchValue,
+  prop,
+  readString,
+  resolveDeps,
+  type StripeApiDeps,
+  StripeApiError,
+  stripeRequest,
+} from "./stripeHttp";
 
-const STRIPE_API_ORIGIN = "https://api.stripe.com";
-/**
- * Pin the API version on every outbound call so response shapes do not change
- * under us when the Stripe account's default version is upgraded.
- */
-const STRIPE_API_VERSION = "2024-06-20";
-/** Fail rather than hang if Stripe stalls mid-request. */
-const REQUEST_TIMEOUT_MS = 10_000;
-
-export interface StripeApiDeps {
-  readonly env?: NodeJS.ProcessEnv;
-  readonly fetchImpl?: typeof fetch;
-}
-
-/** A Stripe request failed; `status` is the HTTP status Stripe returned. */
-export class StripeApiError extends Error {
-  readonly status: number;
-  constructor(operation: string, status: number) {
-    super(`Stripe ${operation} failed with status ${status}`);
-    this.name = "StripeApiError";
-    this.status = status;
-  }
-}
+export {
+  isStripeCheckoutConfigured,
+  type StripeApiDeps,
+  StripeApiError,
+} from "./stripeHttp";
 
 /** The sync subscription option shaped for display in the billing panel. */
 export interface StripeSyncOption {
@@ -73,78 +60,6 @@ const LIVE_SUBSCRIPTION_STATUSES = new Set([
   "unpaid",
   "paused",
 ]);
-
-function readEnv(env: NodeJS.ProcessEnv, key: string): string | null {
-  const value = env[key]?.trim();
-  return value ? value : null;
-}
-
-function resolveDeps(deps: StripeApiDeps): {
-  fetchImpl: typeof fetch;
-  secretKey: string | null;
-  syncPriceId: string | null;
-} {
-  const env = deps.env ?? process.env;
-  return {
-    fetchImpl: deps.fetchImpl ?? fetch,
-    secretKey: readEnv(env, STRIPE_SECRET_KEY_ENV),
-    syncPriceId: readEnv(env, STRIPE_SYNC_PRICE_ID_ENV),
-  };
-}
-
-/** True when both the secret key and the sync price are configured. */
-export function isStripeCheckoutConfigured(deps: StripeApiDeps = {}): boolean {
-  const { secretKey, syncPriceId } = resolveDeps(deps);
-  return secretKey !== null && syncPriceId !== null;
-}
-
-async function stripeRequest(input: {
-  fetchImpl: typeof fetch;
-  secretKey: string;
-  method: "GET" | "POST";
-  path: string;
-  operation: string;
-  form?: URLSearchParams;
-  idempotencyKey?: string;
-}): Promise<unknown> {
-  const response = await input.fetchImpl(`${STRIPE_API_ORIGIN}${input.path}`, {
-    method: input.method,
-    headers: {
-      Authorization: `Bearer ${input.secretKey}`,
-      "Stripe-Version": STRIPE_API_VERSION,
-      ...(input.idempotencyKey
-        ? { "Idempotency-Key": input.idempotencyKey }
-        : {}),
-      ...(input.form
-        ? { "Content-Type": "application/x-www-form-urlencoded" }
-        : {}),
-    },
-    ...(input.form ? { body: input.form.toString() } : {}),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
-  if (!response.ok) {
-    throw new StripeApiError(input.operation, response.status);
-  }
-  return response.json();
-}
-
-function readString(value: unknown): string | null {
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-
-/**
- * Reads one property from an unknown value when it is a plain object. The key
- * is a parameter, which keeps both tsc's no-index-signature-dot-access rule
- * and biome's prefer-dot-access rule satisfied (neither fires on a variable
- * key).
- */
-function prop(value: unknown, key: string): unknown {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return undefined;
-  }
-  const record: Record<string, unknown> = { ...value };
-  return record[key];
-}
 
 /**
  * Fetches the configured sync price (with its product expanded) shaped for
@@ -196,8 +111,8 @@ export async function findOrCreateCustomer(
     return null;
   }
   const query = encodeURIComponent(
-    `metadata['userId']:'${input.userId}' AND ` +
-      `metadata['orgId']:'${input.organizationId}'`,
+    `metadata['userId']:'${escapeSearchValue(input.userId)}' AND ` +
+      `metadata['orgId']:'${escapeSearchValue(input.organizationId)}'`,
   );
   const found = await stripeRequest({
     fetchImpl,
@@ -230,7 +145,13 @@ export async function findOrCreateCustomer(
     // consistent.
     idempotencyKey: `sync-customer:${input.userId}:${input.organizationId}`,
   });
-  return readString(prop(created, "id"));
+  const customerId = readString(prop(created, "id"));
+  if (!customerId) {
+    // The create succeeded but the id could not be read: a provider failure
+    // (502), never "unconfigured" — mirrors the subscription-create handling.
+    throw new StripeApiError("customer create (unreadable id)", 502);
+  }
+  return customerId;
 }
 
 /**
@@ -318,7 +239,9 @@ async function findOrgSubscription(
    */
   terminalAttemptId: string | null;
 }> {
-  const query = encodeURIComponent(`metadata['orgId']:'${organizationId}'`);
+  const query = encodeURIComponent(
+    `metadata['orgId']:'${escapeSearchValue(organizationId)}'`,
+  );
   const found = await stripeRequest({
     ...request,
     method: "GET",
