@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'dotenv'
+require 'json'
 
 STORE_APP_IDENTIFIER = 'com.tearleads.app'
 STORE_REPO_ROOT = File.expand_path('../../..', __dir__)
@@ -11,6 +12,34 @@ GOOGLE_PLAY_DEFAULT_TRACKS = %w[production beta alpha internal].freeze
 
 def load_store_secrets_env
   Dotenv.load(STORE_ROOT_ENV_PATH) if File.file?(STORE_ROOT_ENV_PATH)
+end
+
+# Returns why a generated capacitor.config.json is not a shippable release
+# config, or nil when it is fully bundled. Debug syncs leave CapacitorHttp
+# enabled; `cap run --live-reload` leaves a server.url pointing the WebView at a
+# LAN dev server (e.g. 10.0.1.10:8085), which shows "the webpage at <ip> is not
+# available" once installed. `cap:sync:release` clears both.
+def capacitor_release_problem(config)
+  return 'has CapacitorHttp enabled (a debug sync)' if config.dig('plugins', 'CapacitorHttp', 'enabled')
+
+  server_url = config.dig('server', 'url').to_s
+  return "sets server.url=#{server_url} (usually a leftover live-reload URL)" unless server_url.empty?
+
+  nil
+end
+
+# Fails the build unless the native config at config_path is a fully bundled
+# release config. Shared by the Android and iOS release lanes.
+def ensure_bundled_release_capacitor_config!(config_path, label, sync_command)
+  problem = capacitor_release_problem(JSON.parse(File.read(config_path)))
+  return if problem.nil?
+
+  UI.user_error!(
+    "Release #{label} builds must be fully bundled, but capacitor.config.json #{problem}. " \
+    "Run `#{sync_command}` first."
+  )
+rescue Errno::ENOENT, Errno::EACCES, JSON::ParserError => e
+  UI.user_error!("Could not load #{config_path}: #{e.message}")
 end
 
 def lane_option(options, key, env_name, default_value = nil)

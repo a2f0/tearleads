@@ -116,15 +116,11 @@ def install_android_apk(apk_path)
 end
 
 def ensure_release_capacitor_sync!
-  config_path = File.join(ANDROID_ASSETS_DIR, 'capacitor.config.json')
-  config = JSON.parse(File.read(config_path))
-  return unless config.dig('plugins', 'CapacitorHttp', 'enabled')
-
-  UI.user_error!(
-    'Release Android builds require a release Capacitor sync. Run `bun run cap:sync:release android` first.'
+  ensure_bundled_release_capacitor_config!(
+    File.join(ANDROID_ASSETS_DIR, 'capacitor.config.json'),
+    'Android',
+    'bun run cap:sync:release android'
   )
-rescue Errno::ENOENT, Errno::EACCES, JSON::ParserError => e
-  UI.user_error!("Could not load #{config_path}: #{e.message}")
 end
 
 def load_android_release_secrets_env

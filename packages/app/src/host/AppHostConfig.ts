@@ -292,3 +292,52 @@ export function resolveEventsWebSocketUrl(
   url.pathname = `${url.pathname.replace(/\/$/u, "")}/events`;
   return url.toString();
 }
+
+/**
+ * Backend URL used when no target inlines one. Each shell resolves to this in
+ * dev so `bun run dev` works against a local API with no env setup.
+ */
+const DEV_API_BASE_URL = "http://localhost:3001";
+
+/** @public */
+export interface AppHostRuntimeInput {
+  /** Raw, possibly-unset backend URL inlined by the target's bundler. */
+  readonly apiBaseUrl: string | undefined;
+  /** Raw, possibly-unset websocket override; defaults to the events path of {@link apiBaseUrl}. */
+  readonly wsUrl?: string | undefined;
+}
+
+/** @public */
+export interface ResolvedAppHostRuntime {
+  readonly apiBaseUrl: string;
+  readonly wsUrl: string;
+}
+
+/**
+ * The one place every platform shell turns its inlined env into the backend
+ * `{ apiBaseUrl, wsUrl }` pair. The three targets each read env through a
+ * different bundler — Vite `import.meta.env.VITE_*` for capacitor, `bun build
+ * --env` for web and electrobun — so the raw read has to stay at each entry
+ * point, but the *policy* (the shared dev default and the websocket derivation)
+ * lives here so the targets cannot drift. It replaces three divergent inline
+ * resolutions: capacitor threw on an unset URL, web fell back to localhost, and
+ * electrobun hardcoded localhost with no way to point elsewhere.
+ *
+ * A blank value (bundlers emit `""` as often as `undefined` for an unset var)
+ * collapses to the dev default. Release safety — refusing to ship a build aimed
+ * at a laptop's LAN address like `10.0.1.10:8085` — is enforced at build time by
+ * the store-release scripts (`scripts/*Release.sh`, via `rejectDevOnlyUrl.sh`)
+ * and the fastlane `ensure_release_*_capacitor_sync!` server.url guards, not
+ * here, because the web bundle is byte-identical across a capacitor debug and
+ * release build and so cannot tell at runtime which one it is.
+ */
+export function resolveAppHostRuntimeConfig(
+  input: AppHostRuntimeInput,
+): ResolvedAppHostRuntime {
+  const apiBaseUrl = (input.apiBaseUrl ?? "").trim() || DEV_API_BASE_URL;
+  const configuredWsUrl = (input.wsUrl ?? "").trim() || undefined;
+  return {
+    apiBaseUrl,
+    wsUrl: resolveEventsWebSocketUrl(apiBaseUrl, configuredWsUrl),
+  };
+}

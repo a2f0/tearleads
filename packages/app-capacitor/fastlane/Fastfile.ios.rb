@@ -381,14 +381,11 @@ def ios_export_options(team_id)
 end
 
 def ensure_release_ios_capacitor_sync!
-  config = JSON.parse(File.read(IOS_CAPACITOR_CONFIG_PATH))
-  return unless config.dig('plugins', 'CapacitorHttp', 'enabled')
-
-  UI.user_error!(
-    'Release iOS builds require a release Capacitor sync. Run `bun run cap:sync:release ios` first.'
+  ensure_bundled_release_capacitor_config!(
+    IOS_CAPACITOR_CONFIG_PATH,
+    'iOS',
+    'bun run cap:sync:release ios'
   )
-rescue Errno::ENOENT, Errno::EACCES, JSON::ParserError => e
-  UI.user_error!("Could not load #{IOS_CAPACITOR_CONFIG_PATH}: #{e.message}")
 end
 
 def ios_testflight_asset_paths(ipa_path)
