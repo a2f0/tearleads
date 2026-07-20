@@ -26,6 +26,7 @@ import {
   documentPendingAttachments,
   documentPendingUpdates,
   documentProjection,
+  documentProjectionText,
   documents,
   principalPolicies,
   trustedUserIdentityPins,
@@ -112,9 +113,12 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         documentId: "doc-remote-old",
         containerId: "child",
         documentKind: "note",
-        text: "keep this note",
         title: "Note",
         updatedAt: stale,
+      });
+      await tx.insert(documentProjectionText).values({
+        localId: "doc-1",
+        text: "keep this note",
       });
       await tx.insert(documentAttachmentBlobProjection).values({
         localId: "doc-1",
@@ -382,6 +386,9 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         localId: "doc-1",
       }),
     );
+    expect(await db.select().from(documentProjectionText)).toEqual([
+      { localId: "doc-1", text: "keep this note" },
+    ]);
 
     const resetContainers = await db
       .select()

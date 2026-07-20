@@ -38,6 +38,7 @@ import {
   documentPendingAttachments,
   documentPendingUpdates,
   documentProjection,
+  documentProjectionText,
   documents,
 } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
@@ -489,11 +490,15 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       db
         .select({
           documentKind: documentProjection.documentKind,
-          text: documentProjection.text,
+          text: documentProjectionText.text,
           title: documentProjection.title,
           containerId: documentProjection.containerId,
         })
         .from(documentProjection)
+        .leftJoin(
+          documentProjectionText,
+          eq(documentProjectionText.localId, documentProjection.localId),
+        )
         .where(eq(documentProjection.localId, localId))
         .limit(1),
     ]);
@@ -599,6 +604,10 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
           await tx
             .delete(documentProjection)
             .where(eq(documentProjection.localId, localId))
+            .run();
+          await tx
+            .delete(documentProjectionText)
+            .where(eq(documentProjectionText.localId, localId))
             .run();
           await tx
             .delete(documentPendingAttachments)
