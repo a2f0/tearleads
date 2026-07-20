@@ -93,6 +93,10 @@ export function noopLaneRun(): Promise<void> {
   return Promise.resolve();
 }
 
+// Deliberately ignores activeRunToken (unlike the pump's hasRequestedLaneWork):
+// a watchdog-abandoned run is detached background work, and idle/pending-work
+// reporting must not block on a hung run that may never settle. Its late
+// settle still publishes a snapshot and re-pumps any queued re-request.
 export function hasPendingLaneWork(lanes: Iterable<SyncLaneState>): boolean {
   for (const lane of lanes) {
     if (lane.requested || lane.running) {

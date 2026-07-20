@@ -254,8 +254,8 @@
       "bytes": 16859
     },
     "packages/client-sdk/src/data/sync/syncCoordinator.ts": {
-      "lines": 589,
-      "bytes": 20023
+      "lines": 602,
+      "bytes": 20518
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
       "lines": 562,

@@ -248,7 +248,12 @@ async function runRequestedSyncLanes(
     // the run is abandoned (not cancelled) — the lane records a transient
     // watchdog failure, stays unselectable via its run token, and the pump
     // moves on so one stuck lane costs itself rather than the whole queue.
-    const watchdogMs = lane.config.watchdogMs ?? SYNC_LANE_WATCHDOG_MS;
+    // Floor at 1ms: a zero/negative override would instantly abandon every
+    // run, turning the escape hatch into a self-inflicted outage.
+    const watchdogMs = Math.max(
+      1,
+      lane.config.watchdogMs ?? SYNC_LANE_WATCHDOG_MS,
+    );
     let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
     const raceOutcome = await Promise.race([
       runResultPromise.then((result) => ({
@@ -287,7 +292,15 @@ async function runRequestedSyncLanes(
 
     runsSinceMacrotaskYield += 1;
 
-    if (runResult.status === "failed" && lane.requested) {
+    // The re-arm backoff exists to stop a failing lane from tight-looping; a
+    // watchdog-abandoned lane cannot tight-loop (its run token holds it out of
+    // selection), so a timed-out run must not delay the OTHER lanes it just
+    // freed the pump for.
+    if (
+      runResult.status === "failed" &&
+      lane.requested &&
+      raceOutcome.kind === "settled"
+    ) {
       // A persistently failing lane that re-armed itself backs off before it can
       // run again, so it cannot tight-loop. delay() is a setTimeout (macrotask),
       // so this also yields the event loop.
