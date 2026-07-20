@@ -19,9 +19,10 @@ import {
 import { waitForPaneRuntimeToSettle } from "../../../../test/helpers/paneTestUtils";
 
 // Integration regression canary for the cold-bootstrap sidebar flicker (PR #1401,
-// then hardened by PR #1403's hook-level test). The sidebar's DESTRUCTIVE reload
-// (preserveRows:false — blanks rows to a loading state) fires once per
-// documentLinkProjectionVersion bump, and each bump is a membership-gated
+// then hardened by PR #1403's hook-level test). Each documentLinkProjectionVersion
+// bump schedules a coalesced, NON-destructive sidebar reload pass (stale rows stay
+// rendered and swap in place — issue #1672 fix 6 removed the preserveRows:false
+// blank), and each bump is a membership-gated
 // onDocumentLinksChanged(changedContainerIds) call in useExplorerViewProjectionSync.
 // Pre-fix the view
 // fired that on EVERY reconciled delta, so the counter climbed ~15x over bootstrap
@@ -30,14 +31,16 @@ import { waitForPaneRuntimeToSettle } from "../../../../test/helpers/paneTestUti
 //
 // This asserts the whole real stack end-to-end (view -> reconciler -> SDK ->
 // sidebar), which the Tier-1 fake-view test cannot: after a full cold bootstrap
-// settles, the destructive-reload counter (stamped on the sidebar viewport as
+// settles, the reload-pass counter (stamped on the sidebar viewport as
 // data-document-link-projection-version) must stay within a small bound.
 //
 // SCOPE: this bounds the fix's trigger signal (documentLinkProjectionVersion),
-// which is the ONLY source of a preserveRows:false destructive reload
-// (useExplorerSidebarWindows.ts). It does not police hypothetical future blanking
-// via other paths (a ready-gate thrash or documentQueries churn wholesale-clearing
-// the window map); those are separate mechanisms. Single-pane matches the reported
+// which is the ONLY scheduler of a link-refresh reload pass
+// (useExplorerSidebarWindows.ts). Reload passes no longer blank rows, but each
+// still costs window re-queries, so an unbounded counter would still mean churn.
+// It does not police hypothetical future blanking via other paths (a ready-gate
+// thrash or documentQueries churn wholesale-clearing the window map); those are
+// separate mechanisms. Single-pane matches the reported
 // bug (cold bootstrap of one identity); the two-pane explorer re-render loop is a
 // separate, documented issue.
 
@@ -45,7 +48,7 @@ const SIDEBAR_RELOAD_VIEWPORT_SELECTOR = ".explorer-sidebar-viewport";
 const SETTLE_TIMEOUT_MS = 45_000;
 const ROW_DISCOVERY_TIMEOUT_MS = 20_000;
 
-// Upper bound on destructive sidebar reloads across a single-pane cold bootstrap.
+// Upper bound on link-refresh reload passes across a single-pane cold bootstrap.
 // Measured a STABLE 1 across 5 fixed-main runs locally (zero variance): the first
 // membership transition as documents appear under their containers. Reverting the
 // #1401 membership gate to an unconditional bump measured 9 and trips this test.
@@ -57,7 +60,7 @@ const ROW_DISCOVERY_TIMEOUT_MS = 20_000;
 // bound=6 tolerates that while still failing hard on the ~9 regression. If the
 // observed value climbs toward the bound on CI, INVESTIGATE a partial regression
 // rather than raising the bound.
-const MAX_SIDEBAR_DESTRUCTIVE_RELOADS = 6;
+const MAX_SIDEBAR_LINK_RELOAD_PASSES = 6;
 
 afterEach(async () => {
   cleanup();
@@ -88,7 +91,7 @@ function readSidebarReloadCount(pane: HTMLElement): number {
 }
 
 test(
-  "cold bootstrap keeps sidebar destructive reloads within budget",
+  "cold bootstrap keeps sidebar link reload passes within budget",
   async () => {
     useTestApiAppHandlers();
     const view = renderSinglePane();
@@ -137,16 +140,14 @@ test(
 
     // readSidebarReloadCount invariants that the seam is present and numeric, so a
     // missing/garbled attribute fails there with a clear message (not as NaN <= 6).
-    const destructiveReloads = readSidebarReloadCount(pane);
+    const reloadPasses = readSidebarReloadCount(pane);
 
     // The You-row guard above proves the projection applied, so a zero here is
     // a broken seam (the attribute stopped tracking applies), not a race.
-    expect(destructiveReloads).toBeGreaterThan(0);
+    expect(reloadPasses).toBeGreaterThan(0);
 
-    // The clamp: content-only sync churn must NOT drive destructive reloads.
-    expect(destructiveReloads).toBeLessThanOrEqual(
-      MAX_SIDEBAR_DESTRUCTIVE_RELOADS,
-    );
+    // The clamp: content-only sync churn must NOT drive link reload passes.
+    expect(reloadPasses).toBeLessThanOrEqual(MAX_SIDEBAR_LINK_RELOAD_PASSES);
 
     // Liveness matching the reported symptom: the "You" self-contact document row
     // — the exact row that re-blanked ~15x — is actually present after settle, so
