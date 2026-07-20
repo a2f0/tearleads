@@ -37,6 +37,8 @@ export const ENVIRONMENT_LABELS = {
   appVersion: "App Version",
   buildNumber: "Build Number",
   buildCommit: "Build Commit",
+  apiUrl: "API URL",
+  wsUrl: "WebSocket URL",
   appTheme: "App Theme",
   osColorScheme: "OS Color Scheme",
   reducedMotion: "Reduced Motion",
@@ -70,6 +72,7 @@ export function useSystemEnvironment(): ReadonlyArray<EnvironmentRow> {
   const highEntropyHints = useHighEntropyHints();
 
   const buildInfo = hostConfig.buildInfo;
+  const { apiBaseUrl, wsUrl } = hostConfig;
   const activeTheme = theme?.activeTheme;
   const { platformVersion } = highEntropyHints;
 
@@ -100,6 +103,14 @@ export function useSystemEnvironment(): ReadonlyArray<EnvironmentRow> {
         label: ENVIRONMENT_LABELS.buildCommit,
         value: buildInfo?.commit ?? UNKNOWN_ENVIRONMENT_VALUE,
       },
+      // The backend endpoints the shell was built to reach. Both are inlined at
+      // build time (VITE_API_BASE_URL and friends), so a release built without
+      // them silently falls back to the localhost dev default — which on a
+      // device is the phone itself, so every request and the events socket fail
+      // and the app reads as offline. Surfacing them turns that misconfiguration
+      // from an invisible failure into a one-glance diagnosis.
+      { label: ENVIRONMENT_LABELS.apiUrl, value: apiBaseUrl },
+      { label: ENVIRONMENT_LABELS.wsUrl, value: wsUrl },
       // The app's own theme and the OS preference are reported separately
       // because they disagree routinely — the app theme is a stored user choice,
       // not a mirror of the OS — and "the app is dark but the OS is light" is
@@ -125,6 +136,7 @@ export function useSystemEnvironment(): ReadonlyArray<EnvironmentRow> {
     ];
   }, [
     activeTheme,
+    apiBaseUrl,
     buildInfo,
     buildNumber,
     osColorScheme,
@@ -132,5 +144,6 @@ export function useSystemEnvironment(): ReadonlyArray<EnvironmentRow> {
     reducedMotion,
     storage,
     viewport,
+    wsUrl,
   ]);
 }
