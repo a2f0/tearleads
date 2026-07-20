@@ -2,6 +2,7 @@ import type {
   BlobStoreFactory,
   DirectCheckoutCapability,
   LocalKeyring,
+  NetworkStatusSource,
   PurchasesCapability,
 } from "@tearleads/client-sdk";
 import type {
@@ -14,6 +15,15 @@ export type CreateSQLiteRuntimeFn = () => SQLiteRuntime;
 /** @public */
 export type CreateLocalKeyringFn = () => LocalKeyring;
 export type CreatePurchasesFn = () => PurchasesCapability;
+
+/**
+ * Builds the platform's connectivity source. Only shells whose runtime cannot
+ * trust `navigator.onLine` supply one — chiefly Capacitor, whose Android
+ * WebView routinely reports offline while the device is connected. When
+ * omitted the app falls back to the browser source (`navigator.onLine` plus
+ * the window `online`/`offline` events).
+ */
+export type CreateNetworkStatusFn = () => NetworkStatusSource;
 
 /**
  * Builds the platform's direct card-checkout capability (issue #1654). Only
@@ -184,6 +194,7 @@ export interface AppHostConfigOptions {
   readonly createLocalKeyring?: CreateLocalKeyringFn | undefined;
   readonly createPurchases?: CreatePurchasesFn | undefined;
   readonly createDirectCheckout?: CreateDirectCheckoutFn | undefined;
+  readonly createNetworkStatus?: CreateNetworkStatusFn | undefined;
   readonly createSQLiteRuntime?: CreateSQLiteRuntimeFn | undefined;
   readonly disableLocalIdentityPersistence?: boolean | undefined;
   readonly localIdentityNamespace?: string | undefined;
@@ -225,6 +236,13 @@ export class AppHostConfig {
      */
     readonly buildInfo?: AppBuildInfo | undefined,
     readonly createDirectCheckout?: CreateDirectCheckoutFn | undefined,
+    /**
+     * Connectivity source. Capacitor injects one backed by `@capacitor/network`
+     * so Android reads the native connectivity state instead of the WebView's
+     * unreliable `navigator.onLine`; when omitted the app uses the browser
+     * source (see {@link CreateNetworkStatusFn}).
+     */
+    readonly createNetworkStatus?: CreateNetworkStatusFn | undefined,
   ) {}
 
   /**
@@ -248,6 +266,7 @@ export class AppHostConfig {
       createPurchases: this.createPurchases,
       buildInfo: this.buildInfo,
       createDirectCheckout: this.createDirectCheckout,
+      createNetworkStatus: this.createNetworkStatus,
       ...overrides,
     });
   }
@@ -270,6 +289,7 @@ export function createAppHostConfig(
     options.createPurchases,
     options.buildInfo,
     options.createDirectCheckout,
+    options.createNetworkStatus,
   );
 }
 

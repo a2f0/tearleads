@@ -5,6 +5,8 @@ import type {
   LocalKeyring,
   LocalKeyringScope,
   LocalKeyringSession,
+  NetworkListener,
+  NetworkStatusSource,
   Tearleads,
 } from "@tearleads/client-sdk";
 import { act, cleanup, render } from "@testing-library/react";
@@ -279,6 +281,92 @@ test("applies a persisted local-only preference before the first runtime input",
   // reports online (which would let the reconciler/upload paths run).
   expect(tearleads.session.syncEnabled).toBe(false);
   expect(tearleads.runtime.input().state.online).toBe(false);
+
+  view.unmount();
+});
+
+test("seeds and tracks SDK connectivity from an injected network status source", () => {
+  const listeners = new Set<NetworkListener>();
+  // The source reports offline while happy-dom's navigator.onLine is true: this
+  // is the Capacitor Android case, where the native source must win over the
+  // WebView's navigator.onLine seed.
+  let sourceOnline = false;
+  let disposed = false;
+  const source: NetworkStatusSource = {
+    getOnline: () => sourceOnline,
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    dispose() {
+      disposed = true;
+    },
+  };
+
+  const state: { tearleads?: Tearleads } = {};
+  const view = render(
+    <Harness
+      hostConfig={new AppHostConfig(
+        "http://api.example.test",
+        "ws://events.example.test/network",
+      ).withOverrides({ createNetworkStatus: () => source })}
+      wsUrl="ws://events.example.test/network"
+      onReady={(nextTearleads) => {
+        state.tearleads = nextTearleads;
+      }}
+    />,
+  );
+
+  const tearleads = state.tearleads;
+  if (!tearleads) {
+    throw new Error("Expected the Tearleads SDK to initialize.");
+  }
+
+  // Seeded from the source, overriding the constructor's navigator.onLine read.
+  expect(tearleads.network.online).toBe(false);
+
+  // A later native connectivity change propagates to the SDK.
+  act(() => {
+    sourceOnline = true;
+    for (const listener of listeners) {
+      listener(true);
+    }
+  });
+  expect(tearleads.network.online).toBe(true);
+
+  view.unmount();
+  expect(disposed).toBe(true);
+  expect(listeners.size).toBe(0);
+});
+
+test("falls back to window online/offline events when no source is injected", () => {
+  const state: { tearleads?: Tearleads } = {};
+  const view = render(
+    <Harness
+      wsUrl="ws://events.example.test/browser-network"
+      onReady={(nextTearleads) => {
+        state.tearleads = nextTearleads;
+      }}
+    />,
+  );
+
+  const tearleads = state.tearleads;
+  if (!tearleads) {
+    throw new Error("Expected the Tearleads SDK to initialize.");
+  }
+
+  // happy-dom seeds navigator.onLine as true.
+  expect(tearleads.network.online).toBe(true);
+
+  act(() => {
+    window.dispatchEvent(new Event("offline"));
+  });
+  expect(tearleads.network.online).toBe(false);
+
+  act(() => {
+    window.dispatchEvent(new Event("online"));
+  });
+  expect(tearleads.network.online).toBe(true);
 
   view.unmount();
 });

@@ -7,6 +7,7 @@ import {
   resolveAppHostRuntimeConfig,
 } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
+import { createCapacitorNetworkStatus } from "./capacitorNetworkStatus";
 import { createCapacitorPurchases } from "./capacitorPurchases";
 import { syncStatusBarWithTheme } from "./statusBar";
 
@@ -36,6 +37,9 @@ const hostConfig = createAppHostConfig({
     target: "capacitor",
     version: import.meta.env.VITE_APP_VERSION,
   }),
+  // Native connectivity via @capacitor/network — the Android WebView's
+  // navigator.onLine reports offline while genuinely connected.
+  createNetworkStatus: createCapacitorNetworkStatus,
   createPurchases: createCapacitorPurchases,
   createSQLiteRuntime: createCapacitorSQLiteRuntime,
   navigationMode: Capacitor.isNativePlatform() ? "routed" : undefined,
