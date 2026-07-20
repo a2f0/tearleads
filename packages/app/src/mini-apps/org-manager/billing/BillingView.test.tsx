@@ -211,6 +211,25 @@ test("platforms without purchases show the unavailable-purchases hint", () => {
   ).toBeDefined();
 });
 
+test("the direct-checkout path shows no subscribe list and no unavailable hint", () => {
+  // `purchaseAvailable` is off (the container hides the RC list where the card
+  // checkout is the path), but a purchase path DOES exist — the checkout mounts
+  // below this view — so the "unavailable" hint must stay hidden.
+  const view = render(
+    <BillingView
+      {...props({
+        view: billingView({ status: "disabled", isLocal: false }),
+        purchaseAvailable: false,
+        directCheckoutAvailable: true,
+      })}
+    />,
+  );
+  expect(
+    view.queryByText(ORG_MANAGER_LABELS.billingPurchaseUnavailable),
+  ).toBeNull();
+  expect(view.queryByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeNull();
+});
+
 test("an admin can open the provider manage page when a management URL exists", () => {
   const opened: Array<string | undefined> = [];
   const originalOpen = window.open;
