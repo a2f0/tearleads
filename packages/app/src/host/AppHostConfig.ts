@@ -326,10 +326,10 @@ export interface ResolvedAppHostRuntime {
  * A blank value (bundlers emit `""` as often as `undefined` for an unset var)
  * collapses to the dev default. Release safety — refusing to ship a build aimed
  * at a laptop's LAN address like `10.0.1.10:8085` — is enforced at build time by
- * `scripts/uploadAndroidRelease.sh` and the fastlane
- * `ensure_release_*_capacitor_sync!` guards, not here, because the web bundle is
- * byte-identical across a capacitor debug and release build and so cannot tell
- * at runtime which one it is.
+ * the store-release scripts (`scripts/*Release.sh`, via `rejectDevOnlyUrl.sh`)
+ * and the fastlane `ensure_release_*_capacitor_sync!` server.url guards, not
+ * here, because the web bundle is byte-identical across a capacitor debug and
+ * release build and so cannot tell at runtime which one it is.
  */
 export function resolveAppHostRuntimeConfig(
   input: AppHostRuntimeInput,

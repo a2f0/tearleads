@@ -58,30 +58,8 @@ if [ ! -f "$WRAPPER_JAR" ]; then
   fi
 fi
 
-# Reject a dev-only backend URL before it is inlined into a store bundle. The
-# `:-` defaults above intentionally keep an explicitly-exported public URL, but
-# must not pass through a laptop's LAN address (10.x, 192.168.x, 172.16-31.x),
-# loopback, or a `.local` name: those are only reachable from the build machine,
-# so shipping one bakes the "webpage at 10.0.1.10:8085 is not available" failure
-# into the uploaded build. A LAN-pointed release for local testing belongs in
-# `bun run android:sideload:release`, not this upload lane.
-reject_dev_only_url() {
-  reject_name="$1"
-  reject_url="$2"
-  [ -n "$reject_url" ] || return 0
-  reject_host="${reject_url#*://}"
-  reject_host="${reject_host%%/*}"
-  reject_host="${reject_host%%:*}"
-  case "$reject_host" in
-    localhost | 0.0.0.0 | 127.* | 10.* | 192.168.* | \
-      172.1[6-9].* | 172.2[0-9].* | 172.3[01].* | *.local)
-      echo "Error: $reject_name=$reject_url points at a dev-only host ($reject_host)." >&2
-      echo "A Google Play release must use a public API URL (e.g. https://api.tearleads.com)." >&2
-      echo "Unset $reject_name (or set it to a public URL) and re-run." >&2
-      exit 1
-      ;;
-  esac
-}
+# shellcheck source=scripts/rejectDevOnlyUrl.sh
+. "$SCRIPT_DIR/rejectDevOnlyUrl.sh"
 
 export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api.tearleads.com}"
 reject_dev_only_url VITE_API_BASE_URL "$VITE_API_BASE_URL"

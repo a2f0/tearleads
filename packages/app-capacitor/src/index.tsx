@@ -21,8 +21,8 @@ if (!elem) throw new Error("Root element not found");
 // Shared across web/electrobun/capacitor via resolveAppHostRuntimeConfig; the
 // VITE_ read stays here because only Vite inlines it. The bundle is byte-
 // identical for capacitor debug and release, so a release aimed at a laptop
-// (10.0.1.10:8085) is caught at build time by uploadAndroidRelease.sh and the
-// fastlane server.url guard, not here.
+// (10.0.1.10:8085) is caught at build time by the store-release scripts
+// (scripts/*Release.sh) and the fastlane server.url guard, not here.
 const { apiBaseUrl, wsUrl } = resolveAppHostRuntimeConfig({
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL,
   wsUrl: import.meta.env.VITE_WS_URL,
