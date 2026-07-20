@@ -310,13 +310,22 @@ test("an unauthenticated current-epoch checkpoint cannot enable the redirect", a
     }),
   ).resolves.toEqual(entries);
 
-  // A valid earlier same-epoch baseline is still found behind the tampered
-  // latest one.
+  // A valid same-epoch baseline is found by scanning past tampered rows: the
+  // newest checkpoint below stays tampered, so returning vv2 requires the
+  // loop to skip a failed authentication and keep going rather than stop at
+  // the first row.
   await insertBaselineCheckpoint({
     baselineUpdateId: randomUUID(),
     contentKeyEpoch: 2,
     documentId,
     sourceVersionVector: vv2,
+  });
+  await insertBaselineCheckpoint({
+    baselineUpdateId: randomUUID(),
+    contentKeyEpoch: 2,
+    corruptMetadataHash: true,
+    documentId,
+    sourceVersionVector: vv3,
   });
   expect(
     await loadLatestReadableBaselineCoverage(db, {
@@ -324,6 +333,16 @@ test("an unauthenticated current-epoch checkpoint cannot enable the redirect", a
       contentKeyEpoch: 2,
     }),
   ).toBe(vv2);
+  // With an authenticated baseline available the redirect now fires
+  // end-to-end within the same scenario: vv2 dominates the older entry.
+  await expect(
+    selectServedSyncUpdateEntries({
+      currentContentKeyEpoch: 2,
+      documentId,
+      entries,
+      executor: db,
+    }),
+  ).resolves.toEqual([entry(2, vv3)]);
 });
 
 // A lost-ack re-key of a durable rotate_baseline pending update resubmits the
