@@ -32,13 +32,48 @@ function readPublishableKey(): string | undefined {
 }
 
 /**
+ * Whether the resolved surface is dark, so the Payment Element's BASE theme can
+ * match. Classifies only the computed `rgb(...)`/`rgba(...)` form the appearance
+ * probe yields, via a Rec. 601 luma threshold. Any other serialization — the
+ * `#ffffff` fallback, or a future `color(...)`/`oklch(...)` form — is NOT
+ * parsed and falls back to light, rather than being misread by the numeric
+ * channel extraction.
+ */
+function isDarkSurface(colorBackground: string): boolean {
+  if (!/^rgba?\(/i.test(colorBackground.trim())) {
+    return false;
+  }
+  const channels = colorBackground.match(/[\d.]+/g);
+  if (!channels || channels.length < 3) {
+    return false;
+  }
+  // A fully transparent surface (`rgba(0, 0, 0, 0)`, e.g. an unresolved token)
+  // has no colour of its own; reading its r/g/b would misread it as black-dark,
+  // so treat alpha 0 as light.
+  if (channels.length >= 4 && Number(channels[3]) === 0) {
+    return false;
+  }
+  const r = Number(channels[0]);
+  const g = Number(channels[1]);
+  const b = Number(channels[2]);
+  return 0.299 * r + 0.587 * g + 0.114 * b < 128;
+}
+
+/**
  * Maps the app's resolved theme tokens onto Stripe's Appearance API. Values
  * must be concrete CSS (not `var(--…)`) because the element renders in a
  * cross-origin iframe that cannot read this document's custom properties.
  */
 function toStripeAppearance(appearance: DirectCheckoutAppearance) {
   return {
-    theme: "stripe" as const,
+    // Base theme by mode. The Payment Element's built-in defaults — crucially
+    // the card icon inside the number field — come from this base, and our
+    // variable overrides only refine on top. Keeping "stripe" (a LIGHT base) on
+    // a dark surface left that icon dark-on-dark; "night" gives it the
+    // light-tuned defaults a dark surface needs.
+    theme: isDarkSurface(appearance.colorBackground)
+      ? ("night" as const)
+      : ("stripe" as const),
     variables: {
       colorBackground: appearance.colorBackground,
       colorText: appearance.colorText,
