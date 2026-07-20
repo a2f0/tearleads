@@ -116,10 +116,11 @@ export async function createStripeCheckout(
 /**
  * The off-site alternative to {@link createStripeCheckout}: returns a hosted
  * Stripe Checkout page URL for a buyer who does not want the inline form. Same
- * admin gate and eligibility guard (an already-active org is a 409), same
- * full-configuration requirement (the resulting subscription flows through the
- * same webhook → RevenueCat association), and the same per-(user, org)
- * customer. Null when unconfigured.
+ * admin gate, same local-status eligibility guard, and the same Stripe-side
+ * duplicate guard (an already-subscribed org is a 409), same full-configuration
+ * requirement (the resulting subscription flows through the same webhook →
+ * RevenueCat association), and the same per-(user, org) customer. Null when
+ * unconfigured.
  */
 export async function createStripeCheckoutSession(
   runtime: ApiServiceRuntime,
@@ -135,6 +136,21 @@ export async function createStripeCheckoutSession(
   );
   if (!isDirectCheckoutFullyConfigured(deps)) {
     return null;
+  }
+  // Stripe-side duplicate guard, mirroring the inline flow. The local billing
+  // status the eligibility workflow reads can lag Stripe (e.g. a webhook
+  // outage), so a session minted here could complete into a SECOND subscription
+  // and double-bill. `createSyncSubscription` closes this window for the inline
+  // path via its own search; the hosted path has no such create, so check here.
+  const existing = await findLiveOrgSubscription(
+    organizationId,
+    deps.stripe ?? {},
+  );
+  if (existing) {
+    throw new OrganizationManagerError(
+      "The organization already has an active subscription",
+      409,
+    );
   }
   const customerId = await findOrCreateCustomer(
     { userId: sessionUserId, organizationId },

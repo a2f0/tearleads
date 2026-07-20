@@ -423,6 +423,7 @@ test("the hosted checkout session returns the Stripe page URL", async () => {
         env: STRIPE_ENV,
         fetchImpl: respondingFetch(
           [
+            { body: { data: [] } }, // Stripe-side duplicate guard: none
             { body: { data: [] } }, // no existing customer
             { body: { id: "cus_new" } }, // customer create
             { body: { url: "https://checkout.stripe.com/pay/cs_1" } },
@@ -436,6 +437,47 @@ test("the hosted checkout session returns the Stripe page URL", async () => {
 
   expect(url).toBe("https://checkout.stripe.com/pay/cs_1");
   expect(urls.some((u) => u.includes("/v1/checkout/sessions"))).toBe(true);
+});
+
+test("the hosted checkout 409s when Stripe already holds a live subscription", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  // The local status can lag Stripe (webhook outage); the Stripe-side search
+  // must still catch the live subscription and refuse a second one. The session
+  // create must never fire.
+  const urls: string[] = [];
+  await expect(
+    createStripeCheckoutSession(
+      getDefaultApiServiceRuntime(),
+      organizationId,
+      admin.userId,
+      "https://app.example/billing",
+      {
+        stripe: {
+          env: STRIPE_ENV,
+          fetchImpl: respondingFetch(
+            [
+              {
+                body: {
+                  data: [
+                    {
+                      id: "sub_live",
+                      status: "active",
+                      customer: "cus_live",
+                      metadata: { orgId: organizationId, userId: admin.userId },
+                    },
+                  ],
+                },
+              },
+            ],
+            urls,
+          ),
+        },
+        revenueCat: { env: REVENUECAT_ENV },
+      },
+    ),
+  ).rejects.toMatchObject({ status: 409 });
+  expect(urls.some((u) => u.includes("/v1/checkout/sessions"))).toBe(false);
 });
 
 test("the hosted checkout refuses an already-active organization", async () => {

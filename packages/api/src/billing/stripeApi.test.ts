@@ -492,6 +492,10 @@ test("createCheckoutSession stamps org metadata onto the subscription", async ()
   expect(url).toBe("https://checkout.stripe.com/pay/cs_1");
   const body = requests[0]?.body ?? "";
   expect(requests[0]?.url).toContain("/v1/checkout/sessions");
+  // Org-scoped idempotency: a retry / second tab returns the same session.
+  expect(requests[0]?.headers.get("Idempotency-Key")).toBe(
+    "checkout-session:org-1",
+  );
   expect(body).toContain("mode=subscription");
   expect(body).toContain("customer=cus_1");
   // The subscription MUST carry orgId/userId so the webhook can associate it

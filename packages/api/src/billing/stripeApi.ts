@@ -529,6 +529,11 @@ export async function createPortalSession(
  * `invoice.paid` webhook associates it with RevenueCat and the cancel/portal
  * resolver (`findLiveOrgSubscription`) can later find it — exactly like the
  * inline flow. Returns null when Stripe is unconfigured.
+ *
+ * ORG-scoped idempotency: a double-clicked link or a second tab within Stripe's
+ * key-retention window returns the SAME session rather than a fresh one, so the
+ * org cannot end up with two parallel sessions that each complete into a
+ * subscription.
  */
 export async function createCheckoutSession(
   input: {
@@ -560,6 +565,7 @@ export async function createCheckoutSession(
     path: "/v1/checkout/sessions",
     operation: "checkout session create",
     form,
+    idempotencyKey: `checkout-session:${input.organizationId}`,
   });
   return readString(prop(body, "url"));
 }

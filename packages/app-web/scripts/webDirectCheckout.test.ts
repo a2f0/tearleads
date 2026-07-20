@@ -285,3 +285,20 @@ test("a light surface mounts the Payment Element on the stripe base theme", asyn
   const [opts] = elementsOptions as [{ appearance: { theme: string } }];
   expect(opts.appearance.theme).toBe("stripe");
 });
+
+test("an unparseable surface color falls back to the light base theme", async () => {
+  // The probe yields computed rgb(), but if that invariant ever changes a
+  // non-rgb value must not misclassify as dark — it falls back to light.
+  const { elementsOptions, stripe } = fakeStripe();
+  const capability = withKey(() =>
+    createWebDirectCheckout(() => Promise.resolve(stripe as never)),
+  );
+  await capability.mount({
+    host: host(),
+    clientSecret: "pi_secret",
+    appearance: { ...APPEARANCE, colorBackground: "not-a-color" },
+  });
+
+  const [opts] = elementsOptions as [{ appearance: { theme: string } }];
+  expect(opts.appearance.theme).toBe("stripe");
+});
