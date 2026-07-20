@@ -867,8 +867,11 @@ export class ApiClient {
 
   /**
    * Ends the organization's sync subscription when the paid period closes.
-   * Returns null when the org has no cancellable Stripe subscription (404),
-   * which the panel treats as "offer no cancel" rather than as an error.
+   * Resolves null on ANY non-2xx (like every method here) — a 404 with no
+   * cancellable subscription, but also a transient 502/network error — so the
+   * caller cannot tell "nothing to cancel" from "try again later". The panel
+   * only renders the cancel action when a cancellable sub is expected (active,
+   * no provider-managed link), so in practice a null is the transient case.
    */
   cancelStripeSubscription(organizationId: string) {
     return this.request(

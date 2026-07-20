@@ -34,7 +34,18 @@ const OPTION = {
   interval: "month",
 };
 
-function stubEnvironment(canSync: boolean) {
+function stubEnvironment(
+  canSync: boolean,
+  overrides: {
+    isActive?: boolean;
+    isTrialing?: boolean;
+    managementUrl?: string | null;
+  } = {},
+) {
+  // Default `isActive` to `canSync` for the common active case; tests that
+  // exercise the trialing / provider-managed distinctions pass it explicitly.
+  const isActive = overrides.isActive ?? canSync;
+  const isTrialing = overrides.isTrialing ?? false;
   spies.push(
     spyOn(BillingProvider, "useOrganizationBilling").mockReturnValue({
       billing: null,
@@ -42,7 +53,7 @@ function stubEnvironment(canSync: boolean) {
       loading: false,
       refresh: () => Promise.resolve(),
       startTrial: () => Promise.resolve(true),
-      view: { canSync, isLocal: false, isTrialing: false },
+      view: { canSync, isActive, isLocal: false, isTrialing },
     } as never),
   );
   spies.push(
@@ -50,7 +61,7 @@ function stubEnvironment(canSync: boolean) {
       organizations: {
         loadStripeCheckoutOptions: () => Promise.resolve({ options: [OPTION] }),
         loadBillingManagementUrl: () =>
-          Promise.resolve({ managementUrl: null }),
+          Promise.resolve({ managementUrl: overrides.managementUrl ?? null }),
         loadBillingHistory: () => Promise.resolve(null),
         cancelStripeSubscription: () => Promise.resolve({ cancelAt: null }),
       },
@@ -187,8 +198,10 @@ test("the card checkout replaces RevenueCat's subscribe list, not adds to it", a
   );
 });
 
-test("cancelling is offered only for an org syncing on our own checkout", async () => {
-  stubEnvironment(true);
+test("cancelling is offered for an active org with no provider-managed link", async () => {
+  // A Stripe-direct subscription: active, and RevenueCat resolves no manage
+  // URL because there is no RC customer.
+  stubEnvironment(true, { isActive: true, managementUrl: null });
 
   const view = render(
     <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
@@ -200,6 +213,46 @@ test("cancelling is offered only for an org syncing on our own checkout", async 
       view.getByText(ORG_MANAGER_LABELS.billingCancelSubscription),
     ).toBeDefined(),
   );
+});
+
+test("a trialing org is never offered inline cancel", async () => {
+  // canSync is true during a trial, but there is no subscription to cancel —
+  // the old gate on canSync showed a Cancel button that could only 404.
+  stubEnvironment(true, { isActive: false, isTrialing: true });
+
+  const view = render(
+    <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
+    { wrapper },
+  );
+
+  await waitFor(() => expect(view.queryByText("Sync")).toBeNull());
+  expect(
+    view.queryByText(ORG_MANAGER_LABELS.billingCancelSubscription),
+  ).toBeNull();
+});
+
+test("a provider-managed subscription shows Manage, not inline cancel", async () => {
+  // Bought through RevenueCat (e.g. a store purchase opened on web): the org
+  // is active AND resolves a provider manage link, so cancelling belongs to
+  // the store, not to us. Offering inline cancel here would only 404.
+  stubEnvironment(true, {
+    isActive: true,
+    managementUrl: "https://rc.example/manage",
+  });
+
+  const view = render(
+    <BillingPanel isOrgAdmin organizationId="org-1" userId="user-1" />,
+    { wrapper },
+  );
+
+  await waitFor(() =>
+    expect(
+      view.getByText(ORG_MANAGER_LABELS.billingManageSubscription),
+    ).toBeDefined(),
+  );
+  expect(
+    view.queryByText(ORG_MANAGER_LABELS.billingCancelSubscription),
+  ).toBeNull();
 });
 
 test("an org that is not syncing is offered nothing to cancel", async () => {
@@ -217,7 +270,7 @@ test("an org that is not syncing is offered nothing to cancel", async () => {
 });
 
 test("a non-admin cannot cancel", async () => {
-  stubEnvironment(true);
+  stubEnvironment(true, { isActive: true, managementUrl: null });
 
   const view = render(
     <BillingPanel isOrgAdmin={false} organizationId="org-1" userId="user-1" />,

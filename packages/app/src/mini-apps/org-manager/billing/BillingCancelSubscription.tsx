@@ -32,7 +32,12 @@ export function BillingCancelSubscription({
     return (
       <MiniAppSection>
         <MiniAppStatus className="org-manager-hint">
-          {ORG_MANAGER_LABELS.billingCancelScheduled}
+          {phase.cancelAt !== null
+            ? ORG_MANAGER_LABELS.billingCancelScheduledOn(
+                // Seconds → a plain local date; the exact time is noise here.
+                new Date(phase.cancelAt * 1000).toLocaleDateString(),
+              )
+            : ORG_MANAGER_LABELS.billingCancelScheduled}
         </MiniAppStatus>
       </MiniAppSection>
     );
@@ -55,7 +60,7 @@ export function BillingCancelSubscription({
       {/* Say what cancelling actually does before asking them to confirm it:
           access continues to the end of the period they already paid for. */}
       <MiniAppStatus className="org-manager-hint">
-        {ORG_MANAGER_LABELS.billingCancelScheduled}
+        {ORG_MANAGER_LABELS.billingCancelSubscriptionHint}
       </MiniAppStatus>
       <MiniAppRowButton
         disabled={disabled || cancelling}

@@ -22,8 +22,12 @@ export type CancelPhase =
   /** Confirming — a cancellation is not something to trigger on one click. */
   | { readonly kind: "confirming" }
   | { readonly kind: "cancelling" }
-  /** Scheduled; access continues until the period closes. */
-  | { readonly kind: "scheduled" };
+  /**
+   * Scheduled; access continues until the period closes. `cancelAt` is the
+   * Unix-seconds end when Stripe reports one (null for an already-cancelling
+   * subscription).
+   */
+  | { readonly kind: "scheduled"; readonly cancelAt: number | null };
 
 export interface CancelSubscriptionState {
   readonly phase: CancelPhase;
@@ -66,15 +70,23 @@ export function useCancelSubscription(input: {
           setError(ORG_MANAGER_LABELS.billingCancelFailed);
           return;
         }
-        setPhase({ kind: "scheduled" });
-        // Access continues to period end, so the panel must re-read rather
-        // than assume anything flipped.
-        await refresh();
+        // Cancelled. Move to the terminal state BEFORE refreshing: the
+        // cancellation has already succeeded, so a failing refresh (a read)
+        // must not fall into the catch and report the cancel as failed.
+        setPhase({ kind: "scheduled", cancelAt: result.cancelAt });
       } catch (cancelError) {
         console.error("Failed to cancel the subscription:", cancelError);
         // Stay on the confirm step so the button they pressed is still there.
         setPhase({ kind: "confirming" });
         setError(ORG_MANAGER_LABELS.billingCancelFailed);
+        return;
+      }
+      // Access continues to period end, so the panel must re-read to reflect
+      // the scheduled end; its failure is not the cancel's failure.
+      try {
+        await refresh();
+      } catch (refreshError) {
+        console.error("Failed to refresh after cancelling:", refreshError);
       }
     })();
   }, [refresh, tearleads]);
