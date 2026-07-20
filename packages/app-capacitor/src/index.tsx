@@ -1,6 +1,10 @@
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
-import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import { createWebViewLocalKeyring } from "@tearleads/client-sdk";
+import {
+  createSQLiteRuntime,
+  PERSISTENT_STORAGE_POLICY,
+} from "@tearleads/client-sdk/sqlite";
 import { renderApp } from "app/client";
 import {
   createAppBuildInfo,
@@ -48,6 +52,16 @@ const hostConfig = createAppHostConfig({
     target: "capacitor",
     version: import.meta.env.VITE_APP_VERSION,
   }),
+  // Capacitor runs inside a WebView (Android System WebView / iOS WKWebView).
+  // The default browser keyring persists its wrapping key as a live,
+  // non-extractable CryptoKey via IndexedDB structured clone; a WKWebView cannot
+  // do that without keychain access and throws DataCloneError, which takes down
+  // keyring init (SQLite cipher key, identity persistence, crypto session) on
+  // boot and leaves the app keyless — identity auto-provisioning silently fails
+  // and every gated pane shows "Local keys required". Use the raw-bytes WebView
+  // keyring (the same fix the Electrobun shell uses, client-sdk #1185) so keyring
+  // init works across both WebViews.
+  createLocalKeyring: () => createWebViewLocalKeyring(),
   // Native connectivity via @capacitor/network — the Android WebView's
   // navigator.onLine reports offline while genuinely connected.
   createNetworkStatus: createCapacitorNetworkStatus,
@@ -57,6 +71,11 @@ const hostConfig = createAppHostConfig({
   readNativeBuildNumber: Capacitor.isNativePlatform()
     ? readNativeBuildNumber
     : undefined,
+  // Force OPFS persistence: iOS WKWebView does not expose
+  // navigator.storage.getDirectory on the main thread, so the auto-detect path
+  // would fall back to ephemeral memory storage. Android's Chromium WebView
+  // already resolves to this, so it is a no-op there.
+  storagePersistence: PERSISTENT_STORAGE_POLICY,
   wsUrl,
 });
 
