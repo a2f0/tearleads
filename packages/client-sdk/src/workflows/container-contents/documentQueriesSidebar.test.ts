@@ -1,4 +1,10 @@
 import { expect, test } from "bun:test";
+import { bytesToBase64 } from "@tearleads/encoding";
+import {
+  createDocument,
+  encodeVersionVector,
+  exportShallowSnapshot,
+} from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
@@ -463,6 +469,151 @@ test("primeDocumentsForContainerSubtree lets initializing document stores schedu
 
     expect(primedCount).toBe(1);
     expect(syncRequests).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+// Priming must skip settled documents (hydrated snapshot, marker caught up, no
+// queued outbound work): re-opening a store per settled document is what made
+// a 1000-document boot a storm (issue #1672 fix 4). Documents with durable
+// work — or a never-hydrated discovered snapshot — still prime.
+test("primeDocumentsForContainerSubtree skips settled documents", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-document-subtree-prime-settled",
+  );
+  try {
+    const runtime = { infra: { execSql } };
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+
+    const settledDoc = await createDocument("prime-settled-doc");
+    settledDoc.getText("text").update("settled");
+    settledDoc.commit();
+    await sqlDocumentsPersistence.saveDocument(
+      execSql,
+      {
+        accessEpoch: 1,
+        containerId: "shared-root",
+        documentId: "remote-settled",
+        documentKind: "note",
+        id: "settled-document",
+        loroSnapshot: bytesToBase64(exportShallowSnapshot(settledDoc)),
+        pendingBaseVersion: encodeVersionVector(settledDoc),
+        text: "settled",
+        title: "Settled",
+      },
+      { updatedAt: "2026-07-20T00:00:00.000Z" },
+    );
+
+    const pendingDoc = await createDocument("prime-pending-doc");
+    pendingDoc.getText("text").update("baseline");
+    pendingDoc.commit();
+    const pendingBaseVersion = encodeVersionVector(pendingDoc);
+    pendingDoc.getText("text").update("deferred tail");
+    pendingDoc.commit();
+    await sqlDocumentsPersistence.saveDocument(
+      execSql,
+      {
+        accessEpoch: 1,
+        containerId: "shared-root",
+        documentId: "remote-pending",
+        documentKind: "note",
+        id: "pending-document",
+        loroSnapshot: bytesToBase64(exportShallowSnapshot(pendingDoc)),
+        pendingBaseVersion,
+        text: "deferred tail",
+        title: "Pending",
+      },
+      { updatedAt: "2026-07-20T00:00:01.000Z" },
+    );
+
+    // Never-hydrated discovered document: empty snapshot, remote id known.
+    await saveTestDocument({
+      containerId: "shared-root",
+      documentId: "remote-discovered",
+      execSql,
+      id: "discovered-document",
+      title: "Discovered",
+      updatedAt: "2026-07-20T00:00:02.000Z",
+    });
+
+    const primedLocalIds: string[] = [];
+    const primedCount = await primeDocumentsForContainerSubtree({
+      containersById: new Map([
+        ["shared-root", { container: { id: "shared-root", parentId: null } }],
+      ]),
+      host: {
+        documentWorkflowRuntime: (containerId) => ({ containerId }),
+        openDocumentStore: (input) => {
+          primedLocalIds.push(input.localId);
+          return {
+            getSnapshot: () => ({ ready: true }),
+            requestSync: () => undefined,
+          };
+        },
+      },
+      rootContainerId: "shared-root",
+      runtime,
+    });
+
+    expect(primedLocalIds.sort()).toEqual([
+      "discovered-document",
+      "pending-document",
+    ]);
+    expect(primedCount).toBe(2);
+  } finally {
+    close();
+  }
+});
+
+// Covers the chunked open path: more prime targets than PRIME_OPEN_CHUNK_SIZE
+// (8) must all still prime, with the pass yielding between chunks.
+test("primeDocumentsForContainerSubtree primes a backlog larger than one chunk", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-document-subtree-prime-chunked",
+  );
+  try {
+    const runtime = { infra: { execSql } };
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+
+    const expectedLocalIds: string[] = [];
+    for (let index = 0; index < 10; index += 1) {
+      const localId = `backlog-${String(index).padStart(2, "0")}`;
+      expectedLocalIds.push(localId);
+      // Local-only creates (no remote id, empty snapshot): always prime.
+      await saveTestDocument({
+        containerId: "shared-root",
+        documentId: null,
+        execSql,
+        id: localId,
+        title: `Backlog ${index}`,
+        updatedAt: `2026-07-20T00:01:${String(index).padStart(2, "0")}.000Z`,
+      });
+    }
+
+    const primedLocalIds: string[] = [];
+    const primedCount = await primeDocumentsForContainerSubtree({
+      containersById: new Map([
+        ["shared-root", { container: { id: "shared-root", parentId: null } }],
+      ]),
+      host: {
+        documentWorkflowRuntime: (containerId) => ({ containerId }),
+        openDocumentStore: (input) => {
+          primedLocalIds.push(input.localId);
+          return {
+            getSnapshot: () => ({ ready: true }),
+            requestSync: () => undefined,
+          };
+        },
+      },
+      rootContainerId: "shared-root",
+      runtime,
+    });
+
+    expect(primedLocalIds.sort()).toEqual(expectedLocalIds);
+    expect(primedCount).toBe(10);
   } finally {
     close();
   }

@@ -9,6 +9,7 @@ import {
 import {
   type ContainerDocumentPrimeHost,
   type ContainerDocumentPrimeStore,
+  listPrimeRequiredLocalIdsFromRuntime,
   primeDocumentsForContainerSubtree,
 } from "../../workflows/container-contents/documentQueries";
 import { loadLocalContainerStates } from "../../workflows/container-contents/localState";
@@ -181,10 +182,12 @@ function createContainerContentsStoreDocumentMoveHost(
 async function primeDocumentsForSharedSubtree(
   state: ContainerContentsStoreSyncState,
   rootContainerId: string,
+  primeRequiredLocalIds?: ReadonlySet<string>,
 ) {
   await primeDocumentsForContainerSubtree({
     containersById: state.containersById,
     host: createContainerContentsStoreDocumentPrimeHost(state),
+    ...(primeRequiredLocalIds === undefined ? {} : { primeRequiredLocalIds }),
     rootContainerId,
     runtime: state.runtime,
   });
@@ -200,9 +203,18 @@ async function primeDocumentsForSharedRoots(
         : [],
   );
 
+  // One identity-wide prime-required scan shared by every root's pass, rather
+  // than each root repeating the same scan concurrently.
+  const primeRequiredLocalIds = await listPrimeRequiredLocalIdsFromRuntime(
+    state.runtime,
+  );
   await Promise.all(
     rootContainerIds.map((rootContainerId) =>
-      primeDocumentsForSharedSubtree(state, rootContainerId),
+      primeDocumentsForSharedSubtree(
+        state,
+        rootContainerId,
+        primeRequiredLocalIds,
+      ),
     ),
   );
 }

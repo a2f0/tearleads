@@ -278,16 +278,20 @@
       "bytes": 17839
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueries.ts": {
-      "lines": 670,
-      "bytes": 20614
+      "lines": 738,
+      "bytes": 23854
+    },
+    "packages/client-sdk/src/workflows/container-contents/documentQueriesSidebar.test.ts": {
+      "lines": 620,
+      "bytes": 18523
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 592,
       "bytes": 19608
     },
     "packages/client-sdk/src/stores/container-contents/syncAgent.ts": {
-      "lines": 505,
-      "bytes": 17135
+      "lines": 517,
+      "bytes": 17594
     },
     "packages/client-sdk/src/workflows/container-contents/remoteHydration.ts": {
       "lines": 986,
