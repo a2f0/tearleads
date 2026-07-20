@@ -42,10 +42,10 @@ import type { ExplorerModelExplorer } from "./explorerModelTypes";
 import type { ExplorerPanelState } from "./explorerPanelStateTypes";
 import { useExplorerContainerTrashActions } from "./useExplorerContainerTrashActions";
 import { useExplorerDocumentModalState } from "./useExplorerDocumentModalState";
-import { useExplorerFileImportRun } from "./useExplorerFileImportRun";
 import { useExplorerOrganizationNames } from "./useExplorerOrganizationNames";
 import { useExplorerRoute } from "./useExplorerRoute";
 import type { ExplorerSelectionState } from "./useExplorerSelection";
+import { useExplorerUploadManager } from "./useExplorerUploadManager";
 import { useInitialDocumentEditing } from "./useInitialDocumentEditing";
 import { useInlineDocumentAction } from "./useInlineDocumentAction";
 import {
@@ -287,7 +287,7 @@ export function useExplorerPanelState(params: {
     },
     [explorer.nodes, importDroppedFilesUnguarded, rulesContext],
   );
-  const fileImportRun = useExplorerFileImportRun({ importDroppedFiles });
+  const uploadManager = useExplorerUploadManager({ importDroppedFiles });
   const deleteDocument = useCallback(
     async (documentId: string, currentContainerId: string) => {
       try {
@@ -410,7 +410,7 @@ export function useExplorerPanelState(params: {
     canMutateDocumentLinks: explorerDocumentLinks.canMutateDocumentLinks,
     contextMenuState,
     deleteDocument,
-    fileImportRun,
+    uploadManager,
     loadBlobInfo,
     loadContainerInfo,
     loadDocumentAttributionRanges,

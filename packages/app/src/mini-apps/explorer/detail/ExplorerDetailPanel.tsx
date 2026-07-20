@@ -28,7 +28,7 @@ import {
 import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextMenu";
 import { getDocumentByLocalId } from "../documentSummaries";
 import { ExplorerDatabaseErrorStatus } from "../ExplorerDatabaseErrorStatus";
-import type { ExplorerFileImportRun } from "../hooks/useExplorerFileImportRun";
+import type { ExplorerUploadManager } from "../hooks/useExplorerUploadManager";
 import type { ExplorerRoute } from "../routes";
 import type { MiniAppWindowPosition } from "../types";
 import type { ExplorerAttributionUserLabelResolver } from "./attributionDisplay";
@@ -123,7 +123,7 @@ interface ExplorerDetailPanelProps {
   documentQueries: ContainerDocumentQueries;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   domainScope: DomainScope;
-  fileImportRun: ExplorerFileImportRun;
+  uploadManager: ExplorerUploadManager;
   initialEditingSelectedDocument: boolean;
   isAuthenticated: boolean;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
@@ -405,7 +405,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         currentUserId={params.currentUserId}
         documentListRevision={params.documentListRevision}
         documentQueries={params.documentQueries}
-        fileImportRun={params.fileImportRun}
+        uploadManager={params.uploadManager}
         online={params.online}
         onContainerContextMenu={params.onContainerContextMenu}
         onItemContextMenu={params.onItemContextMenu}

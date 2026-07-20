@@ -399,6 +399,12 @@ export function getExplorerFileImportCancelledStatus(input: {
   return `Upload cancelled. Imported ${input.importedCount} of ${input.totalCount} files.`;
 }
 
+// Appended to the status line while further selections wait behind the active
+// one in the upload queue.
+export function getExplorerUploadQueuedSuffix(queuedFileCount: number): string {
+  return ` ${queuedFileCount} more file${queuedFileCount === 1 ? "" : "s"} queued.`;
+}
+
 export function getExplorerFileImportPartialStatus(input: {
   importedCount: number;
   totalCount: number;

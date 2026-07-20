@@ -5,8 +5,8 @@ import {
   type ContainerNode,
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
-import { act, cleanup, render } from "@testing-library/react";
-import type { ExplorerFileImportRun } from "../../hooks/useExplorerFileImportRun";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerContainerDetail } from "./ExplorerContainerDetail";
 
@@ -76,9 +76,11 @@ function createDeferredDocumentQueries() {
   return { documentQueries, pending };
 }
 
-const fileImportRun: ExplorerFileImportRun = {
+const idleUploadManager: ExplorerUploadManager = {
   cancel: () => undefined,
   isImporting: false,
+  items: [],
+  queuedFileCount: 0,
   run: null,
   startImport: () => undefined,
 };
@@ -99,6 +101,7 @@ function containerDetailElement(props: {
   documentQueries: ContainerDocumentQueries;
   documentListRevision: number;
   selectedNode: ContainerNode;
+  uploadManager?: ExplorerUploadManager;
 }) {
   return (
     <ExplorerContainerDetail
@@ -111,7 +114,7 @@ function containerDetailElement(props: {
       currentUserId={null}
       documentListRevision={props.documentListRevision}
       documentQueries={props.documentQueries}
-      fileImportRun={fileImportRun}
+      uploadManager={props.uploadManager ?? idleUploadManager}
       online
       onContainerContextMenu={() => undefined}
       onItemContextMenu={() => undefined}
@@ -216,4 +219,53 @@ test("a failed initial load shows the error instead of a stuck loading row", asy
 
   expect(view.queryByText("Loading...")).toBeNull();
   expect(view.getByText("query exploded")).toBeTruthy();
+});
+
+test("an active import in this container shows the status line and a working cancel", async () => {
+  const { documentQueries, pending } = createDeferredDocumentQueries();
+  let cancelCount = 0;
+  const runningUploadManager: ExplorerUploadManager = {
+    ...idleUploadManager,
+    cancel: () => {
+      cancelCount += 1;
+    },
+    isImporting: true,
+    run: {
+      containerId: containerA.id,
+      error: null,
+      progress: {
+        completedCount: 1,
+        failedCount: 0,
+        importedCount: 1,
+        totalCount: 3,
+      },
+      status: "running",
+    },
+  };
+  const props = renderContainerDetail({ documentQueries });
+  const view = render(
+    containerDetailElement({ ...props, uploadManager: runningUploadManager }),
+  );
+  await settlePendingItemWindow(pending, { rows: [], totalCount: 0 });
+
+  expect(view.getByText("Importing 1/3 files...")).toBeTruthy();
+  fireEvent.click(
+    view.getByRole("button", { name: EXPLORER_LABELS.fileImportCancelAction }),
+  );
+  expect(cancelCount).toBe(1);
+
+  // The same run must NOT surface in a different container's detail panel.
+  view.rerender(
+    containerDetailElement({
+      ...props,
+      selectedNode: containerB,
+      uploadManager: runningUploadManager,
+    }),
+  );
+  expect(view.queryByText("Importing 1/3 files...")).toBeNull();
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.fileImportCancelAction,
+    }),
+  ).toBeNull();
 });

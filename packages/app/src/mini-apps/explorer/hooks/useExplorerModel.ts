@@ -64,7 +64,7 @@ interface ExplorerModel {
   explorer: ExplorerModelExplorer;
   handleOpenCatchup: () => Promise<boolean>;
   handleRefresh: () => Promise<boolean>;
-  fileImportRun: ExplorerPanelState["fileImportRun"];
+  uploadManager: ExplorerPanelState["uploadManager"];
   isActiveContactsContainer: boolean;
   loadBlobInfo: ExplorerPanelState["loadBlobInfo"];
   isRefreshing: boolean;
@@ -186,7 +186,7 @@ export function useExplorerModel(
     consumeInitialDocumentEditing,
     contextMenuState,
     deleteDocument,
-    fileImportRun,
+    uploadManager,
     loadBlobInfo,
     loadContainerInfo,
     loadDocumentAttributionRanges,
@@ -342,7 +342,7 @@ export function useExplorerModel(
     explorer,
     handleOpenCatchup,
     handleRefresh,
-    fileImportRun,
+    uploadManager,
     isActiveContactsContainer,
     loadBlobInfo,
     isRefreshing,
