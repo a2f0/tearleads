@@ -26,6 +26,14 @@ const OWNER_OBSERVE_INTERVAL_MS = 50;
 
 interface CrossTabDatabaseWorker extends WorkerLike {
   close(): void;
+  /**
+   * Abrupt teardown for a runtime that could not close gracefully — its worker
+   * went silent, so the `close` round-trip never came back to stop the owner via
+   * {@link CrossTabOwner.stop}. Unregisters this client and, when safe, force-stops
+   * the owner so the next boot re-contends and builds a fresh owner instead of
+   * routing into the dead one. See {@link CrossTabCoordinator.forceStopOwnerFor}.
+   */
+  forceStopOwner(): void;
 }
 
 interface LocalClient {
@@ -106,7 +114,52 @@ class CrossTabCoordinator {
       close: () => {
         this.unregisterLocalClient(clientId);
       },
+      forceStopOwner: () => {
+        this.forceStopOwnerFor(clientId);
+      },
     };
+  }
+
+  /**
+   * Tear down a possibly-wedged owner on abrupt runtime teardown.
+   *
+   * `this.owner` is normally cleared only when the dedicated worker answers a
+   * `close`/`delete` (→ {@link CrossTabOwner.stop} via `handleWorkerResponse`). A
+   * worker hung inside OPFS never answers, so that path never runs and the plain
+   * client `close()` (just {@link unregisterLocalClient}) leaves `this.owner`
+   * pinned to the dead worker — every later boot then routes its `init` straight
+   * into it over the untimed local path and hangs. Because the coordinator is a
+   * per-URL module singleton, that pins EVERY database, not just the one that
+   * wedged.
+   *
+   * So on abrupt teardown, after unregistering the client, stop the owner —
+   * `stop()` terminates the worker, releases the owner lock, and (via the release
+   * callback) nulls `this.owner` + resets the gate, so the next `createWorker()`
+   * re-contends and constructs a fresh owner. Gated to stay multi-tab-safe: only
+   * when this tab has no other open local client AND the owner serves no other
+   * (remote) client, so it can never strand a sibling tab still routing here.
+   *
+   * The remote-client half of the gate reads the owner's `activeClientIds`, which
+   * is coarse: a wedged local client that was force-torn-down without a close
+   * response leaves a *stale* id there (only a close-response or the liveness sweep
+   * removes it). So if TWO local clients on one coordinator were wedged and torn
+   * down in the same tick, the second would see the first's stale id and decline to
+   * stop — leaving the wedge unhealed. That cannot happen here: the app drives a
+   * single runtime at a time (`useManagedSQLiteRuntime` holds one runtimeRef and
+   * defers each spawn on the prior release), so a coordinator never has two live
+   * local clients. The gate therefore errs, at worst, toward NOT stopping — which
+   * only ever risks a missed heal, never wrongly stranding a real remote tab.
+   */
+  private forceStopOwnerFor(clientId: string): void {
+    this.unregisterLocalClient(clientId);
+    if (this.hasOpenLocalClients()) {
+      return;
+    }
+
+    const owner = this.owner;
+    if (owner && !owner.hasActiveClientsExcept(clientId)) {
+      owner.stop();
+    }
   }
 
   private route(clientId: string, request: unknown): void {

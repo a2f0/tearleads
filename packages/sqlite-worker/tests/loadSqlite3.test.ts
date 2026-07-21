@@ -8,6 +8,7 @@ import {
   loadSqlite3,
   persistentSahPoolStorageForDbName,
 } from "../src/loadSqlite3";
+import { SahPoolStepTimeoutError } from "../src/sahPoolHangTimeout";
 
 type SahPoolUtil = Awaited<ReturnType<Sqlite3Static["installOpfsSAHPoolVfs"]>>;
 
@@ -282,4 +283,82 @@ test("installSahPoolVfsWithRetry gives up once its wall-clock budget is exhauste
   // Bounded: it stops once the budget is spent instead of retrying forever.
   expect(attempts()).toBeGreaterThanOrEqual(1);
   expect(attempts()).toBeLessThanOrEqual(4);
+});
+
+// Regression for the Android new-identity boot hang: on Android WebView, under
+// per-origin SyncAccessHandle pressure (a previous identity's worker still
+// releasing its handles when the next identity's worker boots),
+// `createSyncAccessHandle` inside installOpfsSAHPoolVfs can HANG — never resolving
+// and never rejecting. The retry loop only reacts to a *thrown* contention error,
+// so a hung attempt left initDatabase unsettled forever; the worker went silent
+// and the ONLY timer that ever fired was the app's 15s boot-round-trip timeout,
+// after which a fresh worker hit the exact same hang. A per-step hang timeout must
+// turn that silent hang into a fast, surfaced rejection.
+test("installSahPoolVfsWithRetry surfaces a hung install as a bounded rejection", async () => {
+  // An install that never settles — models a hung createSyncAccessHandle.
+  const { sqlite3, attempts } = fakeSqlite3WithInstall(
+    () => new Promise<never>(() => {}),
+  );
+
+  const startedAt = Date.now();
+  let caught: unknown;
+  try {
+    await installSahPoolVfsWithRetry(sqlite3, {
+      // A large budget on purpose: the hang timeout — not the budget — is what must
+      // bound this. If the hang were not caught, this would never settle.
+      totalBudgetMs: 60_000,
+      initialDelayMs: 1,
+      maxDelayMs: 1,
+      stepHangTimeoutMs: 50,
+    });
+  } catch (error) {
+    caught = error;
+  }
+  const elapsedMs = Date.now() - startedAt;
+
+  // It rejects (does not hang) with the hang-timeout signature, promptly.
+  expect(caught).toBeInstanceOf(SahPoolStepTimeoutError);
+  expect(elapsedMs).toBeLessThan(2_000);
+  // A hang is surfaced, NOT retried in place: a second concurrent install would
+  // only pile more half-open handles onto the already-saturated origin. Exactly
+  // one attempt is made; the app re-boots on a fresh worker instead.
+  expect(attempts()).toBe(1);
+});
+
+// The complementary half: a healthy install that resolves normally must not be
+// tripped by the hang guard, and a *thrown* contention error is still retried in
+// place (desktop behaviour) rather than being mistaken for a hang.
+test("installSahPoolVfsWithRetry does not trip the hang guard on a healthy or throwing install", async () => {
+  const poolUtil = { vfsName: "tearleads-opfs-sahpool" } as SahPoolUtil;
+
+  // Healthy: resolves immediately, well within the hang timeout.
+  const healthy = fakeSqlite3WithInstall(async () => poolUtil);
+  await expect(
+    installSahPoolVfsWithRetry(healthy.sqlite3, {
+      stepHangTimeoutMs: 1_000,
+      totalBudgetMs: 10_000,
+      initialDelayMs: 1,
+      maxDelayMs: 1,
+    }),
+  ).resolves.toBe(poolUtil);
+  expect(healthy.attempts()).toBe(1);
+
+  // Transient throw: still retried in place and succeeds — a throw is not a hang.
+  let remainingFailures = 2;
+  const throwing = fakeSqlite3WithInstall(async () => {
+    if (remainingFailures > 0) {
+      remainingFailures -= 1;
+      throw accessHandleContentionError();
+    }
+    return poolUtil;
+  });
+  await expect(
+    installSahPoolVfsWithRetry(throwing.sqlite3, {
+      stepHangTimeoutMs: 1_000,
+      totalBudgetMs: 10_000,
+      initialDelayMs: 1,
+      maxDelayMs: 1,
+    }),
+  ).resolves.toBe(poolUtil);
+  expect(throwing.attempts()).toBe(3);
 });
