@@ -4,7 +4,10 @@ import type {
   SQLiteRuntime,
 } from "@tearleads/client-sdk/sqlite";
 import type { RefObject } from "react";
-import { bootSQLiteRuntime } from "./bootSQLiteRuntime";
+import {
+  bootSQLiteRuntime,
+  isBootRoundTripTimeoutError,
+} from "./bootSQLiteRuntime";
 import type { ResolveSqliteCipherKey } from "./sqliteCipherKey";
 
 type SQLiteRuntimeStatus = DatabaseStatus;
@@ -121,6 +124,16 @@ interface StartSQLiteRuntimeBootParams {
    * does not flip to "error". Omitted for in-memory runtimes (never key-mismatched).
    */
   onUnreadableDatabase?: (dbName: string) => void;
+  /**
+   * Invoked when a boot round-trip never answered (a teardown/respawn race, see
+   * {@link isBootRoundTripTimeoutError}) rather than a real init failure. Tears
+   * the stuck worker down and re-spawns a fresh one; returns `true` when it did
+   * (this boot is handled) and `false` once the re-spawn budget is exhausted, in
+   * which case the boot flips to "error" through the normal path.
+   */
+  onTransientBootFailure?: (dbName: string) => boolean;
+  /** Invoked when the boot succeeds, so recovery can reset its re-spawn budget. */
+  onBootSucceeded?: (dbName: string) => void;
   persistence: DatabasePersistenceMode;
   resolveCipherKey: ResolveSqliteCipherKey;
   runtimeRef: RefObject<SQLiteRuntime | null>;
@@ -137,6 +150,8 @@ export function startSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
     log,
     nextDbName,
     onUnreadableDatabase,
+    onTransientBootFailure,
+    onBootSucceeded,
     persistence,
     resolveCipherKey,
     runtimeRef,
@@ -174,6 +189,9 @@ export function startSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
           dbName: nextDbName,
           log,
         });
+        // The boot resolved without throwing, so clear any transient-failure
+        // budget accrued for this db name before its next race.
+        onBootSucceeded?.(nextDbName);
       })
       .catch((error) => {
         // A persisted db that cannot be decrypted with the resolved key is not a
@@ -194,6 +212,22 @@ export function startSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
             }); wiping and recreating ${nextDbName}.`,
           );
           onUnreadableDatabase(nextDbName);
+          return;
+        }
+
+        // A boot round-trip that never answered is the teardown/respawn race, not
+        // a real init failure. Hand off to recovery (tear the stuck worker down +
+        // re-spawn, bounded) instead of flipping to "error" and stranding the app
+        // keyless. Once the budget is exhausted the handler returns false and we
+        // fall through to the normal error path — which, unlike the recovery's own
+        // teardown, keeps the db name set so a waiting ensureIdentityReady rejects.
+        if (
+          runtimeRef.current === runtime &&
+          onTransientBootFailure &&
+          isBootRoundTripTimeoutError(error) &&
+          onTransientBootFailure(nextDbName)
+        ) {
+          bootingRef.current = false;
           return;
         }
 
