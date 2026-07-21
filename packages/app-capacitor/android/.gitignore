@@ -99,3 +99,9 @@ app/src/main/assets/public
 app/src/main/assets/capacitor.config.json
 app/src/main/assets/capacitor.plugins.json
 app/src/main/res/xml/config.xml
+
+# Generated image assets (built from assets/logo.svg by scripts/buildAndroidImages.sh)
+app/src/main/res/mipmap-*/ic_launcher.png
+app/src/main/res/mipmap-*/ic_launcher_round.png
+app/src/main/res/mipmap-*/ic_launcher_foreground.png
+app/src/main/res/drawable*/splash.png
