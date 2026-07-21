@@ -81,7 +81,10 @@ function toStripeColor(value: string): string {
   if (!srgb) {
     return trimmed;
   }
-  const channel = (raw: string): number =>
+  // A successful match guarantees groups 1–3, so `raw` is never actually
+  // undefined; the `| undefined` only satisfies noUncheckedIndexedAccess (an
+  // absent group would clamp to NaN, which no serialization produces).
+  const channel = (raw: string | undefined): number =>
     Math.round(Math.min(1, Math.max(0, Number(raw))) * 255);
   const r = channel(srgb[1]);
   const g = channel(srgb[2]);
