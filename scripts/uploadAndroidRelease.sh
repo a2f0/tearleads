@@ -66,19 +66,36 @@ reject_dev_only_url VITE_API_BASE_URL "$VITE_API_BASE_URL"
 reject_dev_only_url VITE_WS_URL "${VITE_WS_URL:-}"
 echo "Building and uploading Android release with VITE_API_BASE_URL=$VITE_API_BASE_URL"
 
-# Default to auto-incrementing from the latest Google Play version code unless
-# the caller already chose a build number themselves. The fastlane lane rejects
-# combining next_google_play with an explicit build_number/version_code, so only
-# inject it when none of those are present.
+# Default to auto-incrementing from the latest Google Play version code, but
+# only when the caller has not already selected a build number some other way.
+# The fastlane lane reads that selection from both environment variables and CLI
+# options (see packages/app-capacitor/fastlane/Fastfile.android.rb), and it
+# hard-fails when next_google_play is combined with an explicit
+# build_number/version_code. So skip the injection whenever any build-number
+# signal is already present, in either form.
 build_number_chosen=false
-for arg in "$@"; do
-  case "$arg" in
-    build_number:* | version_code:* | next_google_play:*)
-      build_number_chosen=true
-      break
-      ;;
-  esac
-done
+
+# Environment overrides the lane honors for build-number selection.
+if [ -n "${ANDROID_BUILD_NUMBER:-}" ] \
+  || [ -n "${ANDROID_VERSION_CODE:-}" ] \
+  || [ -n "${ANDROID_RELEASE_NEXT_GOOGLE_PLAY:-}" ] \
+  || [ -n "${ANDROID_RELEASE_MERGED_PR_NUMBER:-}" ] \
+  || [ -n "${ANDROID_RELEASE_PR_NUMBER:-}" ] \
+  || [ -n "${ANDROID_RELEASE_MERGED_DATE:-}" ]; then
+  build_number_chosen=true
+fi
+
+# CLI options the lane honors for build-number selection.
+if [ "$build_number_chosen" = false ]; then
+  for arg in "$@"; do
+    case "$arg" in
+      build_number:* | version_code:* | next_google_play:* | merged_pr_number:* | pr_number:* | merged_date:*)
+        build_number_chosen=true
+        break
+        ;;
+    esac
+  done
+fi
 
 if [ "$build_number_chosen" = false ]; then
   set -- "$@" next_google_play:true
