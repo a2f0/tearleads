@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useFileSaver } from "../../providers/file-saver/FileSaverProvider";
 import { useLog } from "../../providers/logging/LogProvider";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import {
@@ -139,6 +140,7 @@ function useNoteAttachmentActions({
   logError: (message: string, error: unknown) => void;
   removeAttachment: (slotId: string) => void;
 }) {
+  const fileSaver = useFileSaver();
   const handleSelectedFiles = useCallback(
     (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0) {
@@ -176,7 +178,7 @@ function useNoteAttachmentActions({
 
       void blobStore
         .readBytes(storageKey)
-        .then((bytes) => {
+        .then(async (bytes) => {
           if (!bytes) {
             logError(
               "Failed to download note attachment",
@@ -184,7 +186,7 @@ function useNoteAttachmentActions({
             );
             return;
           }
-          downloadBytesAsFile({
+          await downloadBytesAsFile(fileSaver, {
             bytes,
             fileName: attachment.name,
             mimeType: attachment.mimeType,
@@ -194,7 +196,7 @@ function useNoteAttachmentActions({
           logError("Failed to download note attachment", error);
         });
     },
-    [attachments, attachmentStorageKeyBySlotId, blobStore, logError],
+    [attachments, attachmentStorageKeyBySlotId, blobStore, fileSaver, logError],
   );
 
   return {

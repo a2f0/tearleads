@@ -1,6 +1,7 @@
-import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
+import type { BlobInfo, BlobStore, FileSaver } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useContextMenuState } from "../../../../components/shared/useContextMenuState";
+import { useFileSaver } from "../../../../providers/file-saver/FileSaverProvider";
 import { downloadBytesAsFile } from "../../../../utils/downloadFile";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 import { EXPLORER_LABELS } from "../../labels";
@@ -18,12 +19,13 @@ function getBlobDownloadFileName(blob: BlobInfo): string {
 async function downloadBlobBytes(input: {
   blob: BlobInfo;
   blobStore: BlobStore;
+  fileSaver: FileSaver;
 }): Promise<boolean> {
   const bytes = await input.blobStore.readBytes(input.blob.storageKey);
   if (!bytes) {
     return false;
   }
-  downloadBytesAsFile({
+  await downloadBytesAsFile(input.fileSaver, {
     bytes,
     fileName: getBlobDownloadFileName(input.blob),
     mimeType: input.blob.mimeType,
@@ -40,6 +42,7 @@ export function useBlobBrowserContextMenu(params: {
   selectedBlob: BlobInfo | null;
 }) {
   const { blobStore, query, selectedBlob } = params;
+  const fileSaver = useFileSaver();
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
   // Monotonic id of the most recently started download. A slower earlier read
   // that resolves after a newer one must not overwrite the newer one's status.
@@ -67,7 +70,11 @@ export function useBlobBrowserContextMenu(params: {
       const requestId = downloadRequestRef.current;
       void (async () => {
         try {
-          const downloaded = await downloadBlobBytes({ blob, blobStore });
+          const downloaded = await downloadBlobBytes({
+            blob,
+            blobStore,
+            fileSaver,
+          });
           if (downloadRequestRef.current === requestId) {
             setDownloadMessage(
               downloaded ? null : EXPLORER_LABELS.blobBrowserLocalBytesMissing,
@@ -81,7 +88,7 @@ export function useBlobBrowserContextMenu(params: {
         }
       })();
     },
-    [blobStore],
+    [blobStore, fileSaver],
   );
 
   return {

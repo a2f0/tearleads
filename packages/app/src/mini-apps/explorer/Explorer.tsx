@@ -13,7 +13,6 @@ import {
   useWindowRefreshMenuItem,
 } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
-import { downloadResolvedAttachment } from "../../document-types/shared/fileDownload";
 import { useAppNavigationState } from "../../navigation/AppNavigationProvider";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
@@ -34,6 +33,7 @@ import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenuLaye
 import type { ExplorerAttributionUserLabelResolver } from "./detail/attributionDisplay";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
 import { useExplorerRoutedChromeActions } from "./ExplorerRoutedChrome";
+import { useExplorerDocumentDownload } from "./hooks/useExplorerDocumentDownload";
 import { useExplorerModel } from "./hooks/useExplorerModel";
 import { useExplorerOrganizationPresentation } from "./hooks/useExplorerOrganizationPresentation";
 import { EXPLORER_LABELS } from "./labels";
@@ -321,42 +321,10 @@ function ExplorerContent() {
     },
     [model.openInlineDocument],
   );
-  const blobStore = appData.infra.blobStore;
-  const loadDocumentInfo = model.loadDocumentInfo;
-  const downloadDocument = useCallback(
-    (localId: string) => {
-      // Resolve the file's most recent attachment that has local bytes, then
-      // hand them to the browser. loadDocumentInfo with the panel's mode reads
-      // only local state when offline, so a context-menu download never blocks
-      // on the network.
-      void (async () => {
-        try {
-          const info = await loadDocumentInfo(localId);
-          const attachment = [...info.attachments]
-            .reverse()
-            .find((candidate) => candidate.storageKey.length > 0);
-          if (!attachment) {
-            return;
-          }
-          await downloadResolvedAttachment({
-            attachment: {
-              mimeType: attachment.mimeType,
-              name: attachment.name,
-              storageKey: attachment.storageKey,
-            },
-            blobStore,
-            fallbackFileName: attachment.name?.trim() || localId,
-          });
-        } catch (error) {
-          // A failed info load / blob read must not surface as an unhandled
-          // rejection; the detail-pane Download button carries the visible
-          // error affordance for the same failure.
-          console.error("Failed to download document:", error);
-        }
-      })();
-    },
-    [blobStore, loadDocumentInfo],
-  );
+  const downloadDocument = useExplorerDocumentDownload({
+    blobStore: appData.infra.blobStore,
+    loadDocumentInfo: model.loadDocumentInfo,
+  });
   useWindowFileMenuItem({
     disabled:
       !model.explorer.ready ||

@@ -13,10 +13,8 @@ const rootToolingWorkspace = {
 
 const capacitorNativePluginDependencies = [
   "@capacitor-community/sqlite",
-  "@capacitor/filesystem",
   "@capacitor/ios",
   "@capacitor/keyboard",
-  "@capacitor/share",
   "@capawesome/capacitor-file-picker",
   "@capgo/capacitor-native-biometric",
 ];

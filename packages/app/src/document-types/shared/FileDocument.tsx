@@ -10,6 +10,7 @@ import {
   MiniAppRowStack,
   MiniAppRowText,
 } from "../../components/mini-app/rows/MiniAppRow";
+import { useFileSaver } from "../../providers/file-saver/FileSaverProvider";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import {
   useDocument,
@@ -225,6 +226,7 @@ function useFileDocument(params: {
 }) {
   const { extraFieldLabels, initialEditing, title } = params;
   const { infra } = useTearleadsRuntime();
+  const fileSaver = useFileSaver();
   const {
     attachments,
     attachmentStorageKeyBySlotId,
@@ -278,6 +280,7 @@ function useFileDocument(params: {
       attachment: downloadable,
       blobStore: infra.blobStore,
       fallbackFileName: fileName.trim() || title,
+      fileSaver,
     })
       .then((succeeded) => {
         if (!succeeded) {
@@ -292,7 +295,7 @@ function useFileDocument(params: {
         console.error("Failed to download attachment:", error);
         setDownloadError("Couldn't download this file.");
       });
-  }, [downloadable, fileName, infra.blobStore, title]);
+  }, [downloadable, fileName, fileSaver, infra.blobStore, title]);
 
   const toggleEditing = useCallback(
     () => setIsEditing((editing) => !editing),
