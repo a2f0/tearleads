@@ -40,7 +40,10 @@ fi
 
 # Read the password with echo disabled so it never lands on screen. Passing it
 # via -k (rather than omitting it) avoids the cascade of per-key GUI approval
-# dialogs that set-key-partition-list otherwise triggers.
+# dialogs that set-key-partition-list otherwise triggers; the trade-off is that
+# the password is briefly visible in `ps` to other local users while `security`
+# runs. `security` has no stdin form for it, so this matches what fastlane match
+# does and is acceptable on a single-user Mac.
 printf 'macOS login password (for %s): ' "$LOGIN_KEYCHAIN" >&2
 saved_stty="$(stty -g 2> /dev/null || true)"
 stty -echo 2> /dev/null || true
