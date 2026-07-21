@@ -8,10 +8,10 @@ Usage: $(basename "$0") [fastlane-options...]
 Build the signed Android App Bundle and upload it to Google Play.
 
 Build number:
-  By default, Fastlane uses the larger of today's merged PR number and the
-  latest Google Play version code plus one. Pass next_google_play:true to build
-  strictly latest Google Play version code plus one, or build_number:<number>
-  to set an explicit version code.
+  By default, this script builds the next version code automatically: the
+  latest Google Play version code plus one (next_google_play:true). Pass
+  build_number:<number> or version_code:<number> to set an explicit version
+  code instead.
 
 Upload options:
   google_track:<track>       Play track to upload to. Defaults to internal.
@@ -27,7 +27,7 @@ Environment:
 
 Any arguments are passed through to the app-capacitor
 android:upload:google-play script, for example:
-  $(basename "$0") next_google_play:true
+  $(basename "$0") build_number:1700
   $(basename "$0") google_track:internal validate_only:true
 EOF
 }
@@ -65,5 +65,23 @@ export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api.tearleads.com}"
 reject_dev_only_url VITE_API_BASE_URL "$VITE_API_BASE_URL"
 reject_dev_only_url VITE_WS_URL "${VITE_WS_URL:-}"
 echo "Building and uploading Android release with VITE_API_BASE_URL=$VITE_API_BASE_URL"
+
+# Default to auto-incrementing from the latest Google Play version code unless
+# the caller already chose a build number themselves. The fastlane lane rejects
+# combining next_google_play with an explicit build_number/version_code, so only
+# inject it when none of those are present.
+build_number_chosen=false
+for arg in "$@"; do
+  case "$arg" in
+    build_number:* | version_code:* | next_google_play:*)
+      build_number_chosen=true
+      break
+      ;;
+  esac
+done
+
+if [ "$build_number_chosen" = false ]; then
+  set -- "$@" next_google_play:true
+fi
 
 exec bun run android:upload:google-play "$@"
