@@ -9,6 +9,7 @@ import {
   enqueuePendingContainerUpdate,
 } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
+import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
 import { loadContainerWriterProjectionForState } from "./projectionCache";
 import { createRemoteContainer } from "./remote";
 import type {
@@ -88,7 +89,11 @@ async function buildRemoteContainerContentsChildContainerState(input: {
     runtime,
   });
 
-  if (!created) {
+  if (!created || created === CONTAINER_ALREADY_COMMITTED) {
+    // A benign manifest-exists conflict means the container is already committed
+    // remotely (a lost create response). This eager path cannot rebuild its
+    // committed metadata state, so leave the create intent to reconcile it via
+    // hydration rather than fabricating a local record from a missing response.
     return null;
   }
 

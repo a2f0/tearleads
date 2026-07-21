@@ -17,7 +17,10 @@ import {
   resolveDocumentCreateAuthor,
 } from "../../documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
-import { createRemoteContainerWithMetadataDocument } from "./createWithMetadata";
+import {
+  type ContainerAlreadyCommitted,
+  createRemoteContainerWithMetadataDocument,
+} from "./createWithMetadata";
 import type {
   ContainerWorkflowRuntime,
   CreatedRemoteContainerState,
@@ -99,7 +102,7 @@ export async function createRemoteContainer(input: {
   parentProjection?: ContainerWriterProjectionResponse | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
-}): Promise<CreatedRemoteContainerState | null> {
+}): Promise<CreatedRemoteContainerState | ContainerAlreadyCommitted | null> {
   if (input.runtime.apiClient.createContainerWithMetadataDocument) {
     return createRemoteContainerWithMetadataDocument(input);
   }
