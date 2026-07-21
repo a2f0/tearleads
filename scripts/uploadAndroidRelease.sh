@@ -66,4 +66,16 @@ reject_dev_only_url VITE_API_BASE_URL "$VITE_API_BASE_URL"
 reject_dev_only_url VITE_WS_URL "${VITE_WS_URL:-}"
 echo "Building and uploading Android release with VITE_API_BASE_URL=$VITE_API_BASE_URL"
 
-exec bun run android:upload:google-play "$@"
+# Fastlane writes the resolved version code (build number) to this file so we can
+# report it once the upload finishes.
+BUILD_NUMBER_FILE="$(mktemp "${TMPDIR:-/tmp}/android-build-number.XXXXXX")"
+trap 'rm -f "$BUILD_NUMBER_FILE"' EXIT
+export ANDROID_RELEASE_BUILD_NUMBER_FILE="$BUILD_NUMBER_FILE"
+
+bun run android:upload:google-play "$@"
+
+if [ -s "$BUILD_NUMBER_FILE" ]; then
+  echo "Build number: $(cat "$BUILD_NUMBER_FILE")"
+else
+  echo "Build number: unknown (Fastlane did not report one)"
+fi
