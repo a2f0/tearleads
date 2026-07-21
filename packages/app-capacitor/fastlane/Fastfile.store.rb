@@ -2,6 +2,7 @@
 
 require 'dotenv'
 require 'json'
+require 'shellwords'
 
 STORE_APP_IDENTIFIER = 'com.tearleads.app'
 STORE_REPO_ROOT = File.expand_path('../../..', __dir__)
@@ -40,6 +41,15 @@ def ensure_bundled_release_capacitor_config!(config_path, label, sync_command)
   )
 rescue Errno::ENOENT, Errno::EACCES, JSON::ParserError => e
   UI.user_error!("Could not load #{config_path}: #{e.message}")
+end
+
+# Regenerate the native app icon and splash images from assets/logo.svg before a
+# release build so the shipped assets match the source art. On iOS the AppIcon is
+# a gitignored artifact the App Store upload requires (CFBundleIconName / the
+# 120x120 icon); on Android it refreshes the launcher and splash raster densities.
+# Shared by the iOS and Android release lanes.
+def generate_capacitor_image_assets!(script_path)
+  sh("sh #{Shellwords.escape(script_path)}")
 end
 
 def lane_option(options, key, env_name, default_value = nil)

@@ -11,6 +11,7 @@ ANDROID_APP_ID = 'com.tearleads.app'
 ANDROID_REPO_ROOT = File.expand_path('../../..', __dir__)
 ANDROID_DIR = File.expand_path('../android', __dir__)
 ANDROID_ASSETS_DIR = File.join(ANDROID_DIR, 'app/src/main/assets')
+ANDROID_BUILD_IMAGES_SCRIPT = File.expand_path('../scripts/buildAndroidImages.sh', __dir__)
 ANDROID_SECRETS_DIR = File.join(ANDROID_REPO_ROOT, '.secrets')
 ANDROID_ROOT_ENV_PATH = File.join(ANDROID_SECRETS_DIR, 'root.env')
 ANDROID_RELEASE_KEYSTORE_PATH = File.join(ANDROID_SECRETS_DIR, 'tearleads-release.keystore')
@@ -445,6 +446,7 @@ platform :android do
     sh('bun run build')
     sh('bun run cap:sync:release android')
     ensure_release_capacitor_sync!
+    generate_capacitor_image_assets!(ANDROID_BUILD_IMAGES_SCRIPT)
     run_android_gradle(
       'bundleRelease',
       "-P#{ANDROID_RELEASE_VERSION_CODE_PROPERTY}=#{release_build.fetch(:build_number)}"
