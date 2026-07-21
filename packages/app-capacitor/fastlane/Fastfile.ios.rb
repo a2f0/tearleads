@@ -19,6 +19,7 @@ IOS_OUTPUT_DIR = File.join(IOS_APP_DIR, 'output')
 IOS_IPA_NAME = 'Tearleads.ipa'
 IOS_ARCHIVE_PATH = File.join(IOS_OUTPUT_DIR, 'Tearleads.xcarchive')
 IOS_CAPACITOR_CONFIG_PATH = File.join(IOS_APP_DIR, 'App/capacitor.config.json')
+IOS_BUILD_IMAGES_SCRIPT = File.join(IOS_PACKAGE_DIR, 'scripts/buildIosImages.sh')
 IOS_ROOT_ENV_PATH = File.join(IOS_REPO_ROOT, '.secrets/root.env')
 IOS_MERGED_GITHUB_PRS_COMMAND = [
   'gh',
@@ -320,7 +321,8 @@ def ios_team_id(options)
   lane_option(options, :team_id, 'IOS_TEAM_ID') ||
     lane_option(options, :apple_team_id, 'APPLE_TEAM_ID') ||
     lane_option(options, :development_team, 'DEVELOPMENT_TEAM') ||
-    lane_option(options, :fastlane_team_id, 'FASTLANE_TEAM_ID')
+    lane_option(options, :fastlane_team_id, 'FASTLANE_TEAM_ID') ||
+    lane_option(options, :root_team_id, 'TEAM_ID')
 end
 
 def require_ios_team_id!(options)
@@ -329,52 +331,59 @@ def require_ios_team_id!(options)
 
   UI.user_error!(
     'iOS release signing requires IOS_TEAM_ID, APPLE_TEAM_ID, DEVELOPMENT_TEAM, ' \
-    'FASTLANE_TEAM_ID, or the team_id:<id> Fastlane option.'
+    'FASTLANE_TEAM_ID, TEAM_ID, or the team_id:<id> Fastlane option.'
   )
-end
-
-def ios_allow_provisioning_updates?(options)
-  lane_boolean_option(options, :allow_provisioning_updates, 'IOS_ALLOW_PROVISIONING_UPDATES', true)
-end
-
-def ios_app_store_connect_xcode_authentication_args
-  key_id = ENV.fetch('APP_STORE_CONNECT_KEY_ID', nil)
-  issuer_id = ENV.fetch('APP_STORE_CONNECT_ISSUER_ID', nil)
-  return [] if key_id.to_s.empty? || issuer_id.to_s.empty?
-
-  key_path = app_store_connect_key_filepath(key_id)
-  return [] if key_path.to_s.empty? || !File.file?(key_path)
-
-  [
-    "-authenticationKeyPath #{Shellwords.escape(key_path)}",
-    "-authenticationKeyID #{Shellwords.escape(key_id)}",
-    "-authenticationKeyIssuerID #{Shellwords.escape(issuer_id)}"
-  ]
 end
 
 def ios_xcodebuild_setting(name, value)
   "#{name}=#{Shellwords.escape(value.to_s)}"
 end
 
-def ios_xcodebuild_xcargs(release_build, team_id, options)
-  args = [
+def ios_build_xcargs(release_build, team_id)
+  [
     ios_xcodebuild_setting('CURRENT_PROJECT_VERSION', release_build.fetch(:build_number)),
     ios_xcodebuild_setting('MARKETING_VERSION', release_build.fetch(:version)),
     ios_xcodebuild_setting('DEVELOPMENT_TEAM', team_id)
-  ]
-
-  if ios_allow_provisioning_updates?(options)
-    args << '-allowProvisioningUpdates'
-    args.concat(ios_app_store_connect_xcode_authentication_args)
-  end
-
-  args.join(' ')
+  ].join(' ')
 end
 
-def ios_export_options(team_id)
+# Pin manual App Store signing on the App target's Release configuration only.
+# The profile must not be forced globally via xcargs: that leaks onto the Swift
+# Package Manager dependency targets (ZIPFoundation, RevenueCat, ...), which do
+# not support provisioning profiles and fail the archive. Scoping to the App
+# target leaves those library targets on their default signing.
+def configure_ios_manual_signing!(profile_name, team_id)
+  update_code_signing_settings(
+    path: IOS_PROJECT_PATH,
+    use_automatic_signing: false,
+    team_id: team_id,
+    code_sign_identity: 'Apple Distribution',
+    profile_name: profile_name,
+    targets: [IOS_SCHEME],
+    build_configurations: [IOS_CONFIGURATION]
+  )
+end
+
+# Install the App Store distribution certificate and provisioning profile from
+# the match git repo. readonly: true so it only fetches existing assets and
+# never creates or mutates portal state (the App Store Connect API key is a
+# Developer-role key without cloud-signing permission). Returns the installed
+# profile name to pin manual signing to.
+def install_ios_appstore_signing_assets!
+  match(
+    type: 'appstore',
+    app_identifier: IOS_APP_ID,
+    readonly: true
+  )
+  ENV.fetch("sigh_#{IOS_APP_ID}_appstore_profile-name", "match AppStore #{IOS_APP_ID}")
+end
+
+def ios_export_options(team_id, profile_name)
   {
     manageAppVersionAndBuildNumber: false,
-    signingStyle: 'automatic',
+    method: 'app-store',
+    provisioningProfiles: { IOS_APP_ID => profile_name },
+    signingStyle: 'manual',
     teamID: team_id,
     uploadSymbols: true
   }
@@ -386,6 +395,14 @@ def ensure_release_ios_capacitor_sync!
     'iOS',
     'bun run cap:sync:release ios'
   )
+end
+
+# Regenerate the app icon and splash images from assets/logo.svg. They are build
+# artifacts (gitignored, never committed); actool compiles the single 1024x1024
+# icon into every required size. Without it the App Store upload fails validation
+# for a missing CFBundleIconName / 120x120 icon.
+def generate_ios_image_assets!
+  sh("sh #{Shellwords.escape(IOS_BUILD_IMAGES_SCRIPT)}")
 end
 
 def ios_testflight_asset_paths(ipa_path)
@@ -419,6 +436,14 @@ def ios_testflight_release_result(release_build, ipa_path, assets)
 end
 
 platform :ios do
+  desc 'Install the App Store distribution cert and provisioning profile via match'
+  lane :fetch_appstore_profile do
+    load_ios_release_secrets_env
+    profile_name = install_ios_appstore_signing_assets!
+    UI.success("Installed App Store provisioning profile: #{profile_name}")
+    profile_name
+  end
+
   desc 'Build signed iOS IPA for TestFlight'
   lane :build_testflight_release do |options|
     load_ios_release_secrets_env
@@ -429,19 +454,28 @@ platform :ios do
       sh('bun run cap:sync:release ios')
     end
     ensure_release_ios_capacitor_sync!
-    ipa_path = build_app(
-      archive_path: IOS_ARCHIVE_PATH,
-      clean: true,
-      configuration: IOS_CONFIGURATION,
-      export_method: 'app-store',
-      export_options: ios_export_options(team_id),
-      include_symbols: true,
-      output_directory: IOS_OUTPUT_DIR,
-      output_name: IOS_IPA_NAME,
-      project: IOS_PROJECT_PATH,
-      scheme: IOS_SCHEME,
-      xcargs: ios_xcodebuild_xcargs(release_build, team_id, options)
-    )
+    generate_ios_image_assets!
+    profile_name = install_ios_appstore_signing_assets!
+    pbxproj_path = File.join(IOS_PROJECT_PATH, 'project.pbxproj')
+    original_pbxproj = File.read(pbxproj_path)
+    begin
+      configure_ios_manual_signing!(profile_name, team_id)
+      ipa_path = build_app(
+        archive_path: IOS_ARCHIVE_PATH,
+        clean: true,
+        configuration: IOS_CONFIGURATION,
+        export_method: 'app-store',
+        export_options: ios_export_options(team_id, profile_name),
+        include_symbols: true,
+        output_directory: IOS_OUTPUT_DIR,
+        output_name: IOS_IPA_NAME,
+        project: IOS_PROJECT_PATH,
+        scheme: IOS_SCHEME,
+        xcargs: ios_build_xcargs(release_build, team_id)
+      )
+    ensure
+      File.write(pbxproj_path, original_pbxproj)
+    end
     assets = require_ios_testflight_assets!(ipa_path)
     print_ios_testflight_assets(assets)
     ios_testflight_release_result(release_build, ipa_path, assets)
