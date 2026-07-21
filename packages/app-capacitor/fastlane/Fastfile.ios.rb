@@ -400,14 +400,6 @@ def ensure_release_ios_capacitor_sync!
   )
 end
 
-# Regenerate the app icon and splash images from assets/logo.svg. They are build
-# artifacts (gitignored, never committed); actool compiles the single 1024x1024
-# icon into every required size. Without it the App Store upload fails validation
-# for a missing CFBundleIconName / 120x120 icon.
-def generate_ios_image_assets!
-  sh("sh #{Shellwords.escape(IOS_BUILD_IMAGES_SCRIPT)}")
-end
-
 def ios_testflight_asset_paths(ipa_path)
   [
     ipa_path,
@@ -457,7 +449,7 @@ platform :ios do
       sh('bun run cap:sync:release ios')
     end
     ensure_release_ios_capacitor_sync!
-    generate_ios_image_assets!
+    generate_capacitor_image_assets!(IOS_BUILD_IMAGES_SCRIPT)
     profile_name = install_ios_appstore_signing_assets!
     pbxproj_path = File.join(IOS_PROJECT_PATH, 'project.pbxproj')
     original_pbxproj = File.read(pbxproj_path)
