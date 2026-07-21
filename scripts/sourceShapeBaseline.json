@@ -386,8 +386,8 @@
       "bytes": 16056
     },
     "packages/sqlite-worker/src/crossTabRuntime.ts": {
-      "lines": 560,
-      "bytes": 19000
+      "lines": 555,
+      "bytes": 19200
     }
   },
   "categories": {

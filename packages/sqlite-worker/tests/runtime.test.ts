@@ -311,3 +311,15 @@ test("shared runtime destroy does NOT force-stop the owner on a healthy close", 
   expect(worker.closed).toBe(true);
   expect(worker.forceStopped).toBe(false);
 });
+
+test("shared runtime deleteData force-stops the owner when the delete is rejected", async () => {
+  // deleteData (forget-local-data) also takes the forceClose path when its wipe
+  // request comes back as an error, so a wedged owner cannot survive the teardown.
+  const worker = new MockCrossTabWorker(() => false); // acks delete with an error
+  const runtime = createSharedDatabaseRuntime(worker);
+
+  await runtime.deleteData();
+
+  expect(worker.forceStopped).toBe(true);
+  expect(worker.closed).toBe(true);
+});

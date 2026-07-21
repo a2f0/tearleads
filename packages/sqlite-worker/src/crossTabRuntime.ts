@@ -138,6 +138,17 @@ class CrossTabCoordinator {
    * re-contends and constructs a fresh owner. Gated to stay multi-tab-safe: only
    * when this tab has no other open local client AND the owner serves no other
    * (remote) client, so it can never strand a sibling tab still routing here.
+   *
+   * The remote-client half of the gate reads the owner's `activeClientIds`, which
+   * is coarse: a wedged local client that was force-torn-down without a close
+   * response leaves a *stale* id there (only a close-response or the liveness sweep
+   * removes it). So if TWO local clients on one coordinator were wedged and torn
+   * down in the same tick, the second would see the first's stale id and decline to
+   * stop — leaving the wedge unhealed. That cannot happen here: the app drives a
+   * single runtime at a time (`useManagedSQLiteRuntime` holds one runtimeRef and
+   * defers each spawn on the prior release), so a coordinator never has two live
+   * local clients. The gate therefore errs, at worst, toward NOT stopping — which
+   * only ever risks a missed heal, never wrongly stranding a real remote tab.
    */
   private forceStopOwnerFor(clientId: string): void {
     this.unregisterLocalClient(clientId);
