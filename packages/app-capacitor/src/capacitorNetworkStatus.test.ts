@@ -59,6 +59,16 @@ function flushAsync(): Promise<void> {
   });
 }
 
+test("marks itself as the authoritative connectivity source", () => {
+  // The native OS connectivity API is the device's connectivity truth, so a
+  // failed backend request must never override it (see reportReachability). The
+  // flag holds regardless of native plugin availability.
+  expect(createCapacitorNetworkStatus().authoritative).toBe(true);
+
+  fixture.pluginAvailable = false;
+  expect(createCapacitorNetworkStatus().authoritative).toBe(true);
+});
+
 test("holds online and never binds the plugin when the native plugin is absent", async () => {
   fixture.pluginAvailable = false;
   fixture.status = { connected: false, connectionType: "none" };

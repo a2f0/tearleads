@@ -84,6 +84,15 @@ export function createCapacitorNetworkStatus(): NetworkStatusSource {
   }
 
   return {
+    // The native OS connectivity API is the authoritative truth for this device
+    // — more trustworthy than any request outcome. Marking the source
+    // authoritative stops a failed backend request from flipping the SDK offline
+    // (which a native shell can never recover from: no OS `online` event fires
+    // because the device never disconnected). An unreachable backend surfaces as
+    // a sync/request failure instead. Holds even when the native plugin is
+    // absent and this source pins the optimistic "online" seed (see above) —
+    // that seed must not be undone by a request failure either.
+    authoritative: true,
     getOnline: () => online,
     subscribe(listener: NetworkListener): () => void {
       listeners.add(listener);
