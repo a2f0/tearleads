@@ -12,6 +12,7 @@ import {
   resolveAppHostRuntimeConfig,
 } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
+import { createCapacitorFileSaver } from "./capacitorFileSaver";
 import { createCapacitorNetworkStatus } from "./capacitorNetworkStatus";
 import { createCapacitorPurchases } from "./capacitorPurchases";
 import { syncStatusBarWithTheme } from "./statusBar";
@@ -62,6 +63,9 @@ const hostConfig = createAppHostConfig({
   // keyring (the same fix the Electrobun shell uses, client-sdk #1185) so keyring
   // init works across both WebViews.
   createLocalKeyring: () => createWebViewLocalKeyring(),
+  // The WebView has no browser download destination, so the default anchor
+  // saver is a no-op; write the bytes and open the native share sheet instead.
+  createFileSaver: createCapacitorFileSaver,
   // Native connectivity via @capacitor/network — the Android WebView's
   // navigator.onLine reports offline while genuinely connected.
   createNetworkStatus: createCapacitorNetworkStatus,

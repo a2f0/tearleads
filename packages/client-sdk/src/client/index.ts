@@ -95,6 +95,7 @@ export {
   type EventsListener,
   type EventsSnapshot,
 } from "./events";
+export type { FileSaver, SaveFileRequest } from "./fileSaver";
 export type {
   Identity,
   IdentityGenerationResult,

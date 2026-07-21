@@ -7,6 +7,7 @@ import { BillingProvider } from "./billing/BillingProvider";
 import { CryptoSessionProvider } from "./crypto/CryptoSessionProvider";
 import { DatabaseProvider } from "./db/DatabaseProvider";
 import { DirectCheckoutProvider } from "./direct-checkout/DirectCheckoutProvider";
+import { FileSaverProvider } from "./file-saver/FileSaverProvider";
 import { AppHostConfigProvider } from "./host/AppHostConfigProvider";
 import { IdentityProvider } from "./identity/IdentityProvider";
 import { LocalKeyringLockProvider } from "./local-keyring/LocalKeyringLockProvider";
@@ -33,37 +34,42 @@ export function AppRuntimeProvider({
 }: AppRuntimeProviderProps) {
   return (
     <AppHostConfigProvider value={hostConfig}>
-      <PurchasesProvider>
-        <DirectCheckoutProvider>
-          <LocalKeyringLockProvider>
-            <LogProvider>
-              <SyncModeProvider>
-                <TearleadsProvider>
-                  <DatabaseProvider>
-                    <IdentityProvider>
-                      <CryptoSessionProvider>
-                        <DeviceFirstProvider>
-                          <SystemBootstrapProvider
-                            enabled={autoProvisionEnabled}
-                          >
-                            <IdentityAutopilot enabled={autoProvisionEnabled} />
-                            {hostConfig.profile.features.seedPeerIdentities && (
-                              <DemoPeerBootstrap
+      <FileSaverProvider>
+        <PurchasesProvider>
+          <DirectCheckoutProvider>
+            <LocalKeyringLockProvider>
+              <LogProvider>
+                <SyncModeProvider>
+                  <TearleadsProvider>
+                    <DatabaseProvider>
+                      <IdentityProvider>
+                        <CryptoSessionProvider>
+                          <DeviceFirstProvider>
+                            <SystemBootstrapProvider
+                              enabled={autoProvisionEnabled}
+                            >
+                              <IdentityAutopilot
                                 enabled={autoProvisionEnabled}
                               />
-                            )}
-                            <BillingProvider>{children}</BillingProvider>
-                          </SystemBootstrapProvider>
-                        </DeviceFirstProvider>
-                      </CryptoSessionProvider>
-                    </IdentityProvider>
-                  </DatabaseProvider>
-                </TearleadsProvider>
-              </SyncModeProvider>
-            </LogProvider>
-          </LocalKeyringLockProvider>
-        </DirectCheckoutProvider>
-      </PurchasesProvider>
+                              {hostConfig.profile.features
+                                .seedPeerIdentities && (
+                                <DemoPeerBootstrap
+                                  enabled={autoProvisionEnabled}
+                                />
+                              )}
+                              <BillingProvider>{children}</BillingProvider>
+                            </SystemBootstrapProvider>
+                          </DeviceFirstProvider>
+                        </CryptoSessionProvider>
+                      </IdentityProvider>
+                    </DatabaseProvider>
+                  </TearleadsProvider>
+                </SyncModeProvider>
+              </LogProvider>
+            </LocalKeyringLockProvider>
+          </DirectCheckoutProvider>
+        </PurchasesProvider>
+      </FileSaverProvider>
     </AppHostConfigProvider>
   );
 }

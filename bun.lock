@@ -128,6 +128,7 @@
         "@capgo/capacitor-native-biometric": "8.4.5",
         "@revenuecat/purchases-capacitor": "13.2.1",
         "@tearleads/client-sdk": "workspace:*",
+        "@tearleads/encoding": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
         "app": "workspace:*",
         "react": "catalog:react",

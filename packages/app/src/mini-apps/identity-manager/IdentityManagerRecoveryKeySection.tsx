@@ -15,6 +15,7 @@ import {
   parseSeedPhraseFileText,
 } from "../../identity/seedPhraseBackup";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
+import { useFileSaver } from "../../providers/file-saver/FileSaverProvider";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../../providers/logging/LogProvider";
@@ -119,6 +120,7 @@ function RecoveryKeyRestoreForm({
 export function IdentityManagerRecoveryKeySection() {
   const { seedPhrase, signingFingerprint, restoreSeedPhrase } = useIdentity();
   const { login } = useCryptoSession();
+  const fileSaver = useFileSaver();
   const localKeyringLock = useLocalKeyringLock();
   const { log, logError } = useLog();
   const [restorePassphrase, setRestorePassphrase] = useState("");
@@ -128,7 +130,7 @@ export function IdentityManagerRecoveryKeySection() {
   const hasRecoveryKey = seedPhrase !== null;
   const canRestore = !localKeyringLock.isLocked;
 
-  const downloadRecoveryKey = () => {
+  const downloadRecoveryKey = async () => {
     setError(null);
     setStatus(null);
     try {
@@ -136,7 +138,7 @@ export function IdentityManagerRecoveryKeySection() {
         throw new Error("No recovery key is available for this identity.");
       }
 
-      downloadSeedPhraseFile({
+      await downloadSeedPhraseFile(fileSaver, {
         fileName: createSeedPhraseFileName({ signingFingerprint }),
         seedPhrase,
       });

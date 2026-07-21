@@ -1,6 +1,7 @@
 import type {
   BlobStoreFactory,
   DirectCheckoutCapability,
+  FileSaver,
   LocalKeyring,
   NetworkStatusSource,
   PurchasesCapability,
@@ -15,6 +16,15 @@ export type CreateSQLiteRuntimeFn = () => SQLiteRuntime;
 /** @public */
 export type CreateLocalKeyringFn = () => LocalKeyring;
 export type CreatePurchasesFn = () => PurchasesCapability;
+
+/**
+ * Builds the platform's file-saver — the "download" action. Only shells whose
+ * WebView has no browser download destination supply one: Capacitor writes the
+ * bytes and opens the native share sheet, Electrobun writes to the user's
+ * Downloads folder. When omitted (web, tests) the app falls back to the browser
+ * saver (a hidden `<a download>` click). See {@link FileSaver}.
+ */
+type CreateFileSaverFn = () => FileSaver;
 
 /**
  * Builds the platform's connectivity source. Only shells whose runtime cannot
@@ -205,6 +215,7 @@ export interface AppHostConfigOptions {
   readonly createLocalKeyring?: CreateLocalKeyringFn | undefined;
   readonly createPurchases?: CreatePurchasesFn | undefined;
   readonly createDirectCheckout?: CreateDirectCheckoutFn | undefined;
+  readonly createFileSaver?: CreateFileSaverFn | undefined;
   readonly createNetworkStatus?: CreateNetworkStatusFn | undefined;
   readonly createSQLiteRuntime?: CreateSQLiteRuntimeFn | undefined;
   readonly disableLocalIdentityPersistence?: boolean | undefined;
@@ -261,6 +272,13 @@ export class AppHostConfig {
      * (see {@link ReadNativeBuildNumberFn}); elsewhere the row stays unknown.
      */
     readonly readNativeBuildNumber?: ReadNativeBuildNumberFn | undefined,
+    /**
+     * File-saver capability backing the app's download action. Native WebView
+     * shells inject one because the browser anchor download is a no-op there
+     * (see {@link CreateFileSaverFn}); when omitted the app uses the browser
+     * saver.
+     */
+    readonly createFileSaver?: CreateFileSaverFn | undefined,
   ) {}
 
   /**
@@ -286,6 +304,7 @@ export class AppHostConfig {
       createDirectCheckout: this.createDirectCheckout,
       createNetworkStatus: this.createNetworkStatus,
       readNativeBuildNumber: this.readNativeBuildNumber,
+      createFileSaver: this.createFileSaver,
       ...overrides,
     });
   }
@@ -310,6 +329,7 @@ export function createAppHostConfig(
     options.createDirectCheckout,
     options.createNetworkStatus,
     options.readNativeBuildNumber,
+    options.createFileSaver,
   );
 }
 

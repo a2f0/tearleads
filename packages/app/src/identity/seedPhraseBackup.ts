@@ -1,3 +1,4 @@
+import type { FileSaver } from "@tearleads/client-sdk";
 import { downloadBytesAsFile } from "../utils/downloadFile";
 
 const TEXT_ENCODER = new TextEncoder();
@@ -15,11 +16,14 @@ export function createSeedPhraseFileName(input: {
     .replaceAll(":", "-")}.txt`;
 }
 
-export function downloadSeedPhraseFile(input: {
-  readonly fileName: string;
-  readonly seedPhrase: string;
-}): void {
-  downloadBytesAsFile({
+export function downloadSeedPhraseFile(
+  fileSaver: FileSaver,
+  input: {
+    readonly fileName: string;
+    readonly seedPhrase: string;
+  },
+): Promise<void> {
+  return downloadBytesAsFile(fileSaver, {
     bytes: TEXT_ENCODER.encode(`${input.seedPhrase.trim()}\n`),
     fileName: input.fileName,
     mimeType: "text/plain",
