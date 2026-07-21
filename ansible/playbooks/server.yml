@@ -64,7 +64,9 @@
     blob_s3_access_key_id: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID') | default('', true) }}"
     blob_s3_secret_access_key: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY') | default('', true) }}"
     blob_s3_key_prefix: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_KEY_PREFIX') | default('', true) }}"
-    api_default_cors_origins: "{{ ([app_hostname] + app_demo_hostnames) | map('regex_replace', '^(.*)$', 'https://\\1') | join(',') }}"
+    # The Capacitor Android/iOS WebView serves the app from https://localhost; release builds fetch the API cross-origin, so allow it.
+    api_web_cors_origins: "{{ ([app_hostname] + app_demo_hostnames) | map('regex_replace', '^(.*)$', 'https://\\1') | list }}"
+    api_default_cors_origins: "{{ (api_web_cors_origins + ['https://localhost']) | join(',') }}"
     api_cors_origins: "{{ lookup('env', 'API_CORS_ORIGINS') | default(api_default_cors_origins, true) }}"
     revenuecat_webhook_auth_header: "{{ lookup('env', 'REVENUECAT_WEBHOOK_AUTH_HEADER') | default('', true) }}"
     revenuecat_v2_secret_key: "{{ lookup('env', 'REVENUECAT_V2_SECRET_KEY') | default('', true) }}"
