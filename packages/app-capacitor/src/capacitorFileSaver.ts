@@ -13,11 +13,15 @@ import { bytesToBase64 } from "@tearleads/encoding";
 
 // The cache path is relative to the app's cache directory. A blob's name can be
 // a raw storage key containing slashes; collapse path separators so we write a
-// single flat file rather than accidental subdirectories, and never an empty
-// name.
+// single flat file rather than accidental subdirectories. Reject a bare
+// `.`/`..`/empty name (which the native Filesystem plugin could resolve outside
+// the cache dir), mirroring the Electrobun handler's guard.
 function sanitizeFileName(fileName: string): string {
   const flattened = fileName.trim().replace(/[/\\]+/gu, "_");
-  return flattened.length > 0 ? flattened : "download";
+  if (flattened.length === 0 || flattened === "." || flattened === "..") {
+    return "download";
+  }
+  return flattened;
 }
 
 // The user dismissing the share sheet rejects with a cancellation, which is a

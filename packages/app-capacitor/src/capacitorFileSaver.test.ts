@@ -110,6 +110,23 @@ test("flattens path separators in the file name so the write stays flat", async 
   expect(fixture.writeCalls[0]?.path).toBe("blobs_2026_report.pdf");
 });
 
+test("rejects a bare dot/dot-dot name so the write cannot escape the cache dir", async () => {
+  const saver = createCapacitorFileSaver();
+
+  for (const fileName of ["..", ".", "   "]) {
+    await saver.saveFile({
+      data: new Uint8Array([0]) as Uint8Array<ArrayBuffer>,
+      fileName,
+    });
+  }
+
+  expect(fixture.writeCalls.map((call) => call.path)).toEqual([
+    "download",
+    "download",
+    "download",
+  ]);
+});
+
 test("removes the staged cache copy after the share completes", async () => {
   const saver = createCapacitorFileSaver();
 
