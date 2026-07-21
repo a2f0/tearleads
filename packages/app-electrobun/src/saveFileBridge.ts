@@ -7,5 +7,5 @@
 export const ELECTROBUN_SAVE_FILE_PATH = "/__electrobun/save-file";
 
 // The file name travels in a header (URL-encoded) so the request body stays the
-// raw file bytes, streamed straight to disk without a JSON/base64 envelope.
+// raw file bytes, written as-is with no JSON/base64 envelope.
 export const ELECTROBUN_FILE_NAME_HEADER = "x-electrobun-file-name";

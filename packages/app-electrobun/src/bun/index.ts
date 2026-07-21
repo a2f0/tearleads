@@ -1,22 +1,10 @@
-import { existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
-import {
-  basename,
-  extname,
-  isAbsolute,
-  join,
-  relative,
-  resolve,
-  sep,
-} from "node:path";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getSqliteWasmAssetUrl } from "@tearleads/sqlite-worker/assets";
 import { serve } from "bun";
 import { BrowserWindow, Utils } from "electrobun/bun";
-import {
-  ELECTROBUN_FILE_NAME_HEADER,
-  ELECTROBUN_SAVE_FILE_PATH,
-} from "../saveFileBridge";
+import { planSaveFileRequest } from "../saveFileHandler";
 
 const packageDirEnvName = "TEARLEADS_ELECTROBUN_PACKAGE_DIR";
 const isDev = process.env.NODE_ENV !== "production";
@@ -24,63 +12,24 @@ const isDev = process.env.NODE_ENV !== "production";
 // workers cannot control the desktop dev renderer.
 const devServerPort = 3002;
 
-// A downloaded file's name arrives from the renderer and could contain path
-// separators (a blob's name can be a raw storage key); reduce it to a single
-// flat base name so a download can never escape the Downloads folder.
-function sanitizeDownloadFileName(fileName: string): string {
-  const base = basename(fileName.replace(/[/\\]+/gu, "/")).trim();
-  if (base.length === 0 || base === "." || base === "..") {
-    return "download";
-  }
-  return base;
-}
-
-// Never silently overwrite an existing download: "report.pdf" that already
-// exists becomes "report (1).pdf", matching how a browser deconflicts repeated
-// downloads.
-function resolveUniqueDownloadPath(
-  directory: string,
-  fileName: string,
-): string {
-  const extension = extname(fileName);
-  const stem = fileName.slice(0, fileName.length - extension.length);
-  let candidate = join(directory, fileName);
-  let counter = 1;
-  while (existsSync(candidate)) {
-    candidate = join(directory, `${stem} (${counter})${extension}`);
-    counter += 1;
-  }
-  return candidate;
-}
-
 // The renderer's WKWebView has no browser download destination, so the app posts
 // a file's bytes here (same origin, see src/renderer/electrobunFileSaver.ts) and
 // the main process writes them to the user's Downloads folder and reveals the
-// result. Requiring the file-name header rejects cross-origin simple POSTs,
-// which cannot set a custom header.
+// result. The routing, CSRF gate, and path resolution live in ../saveFileHandler
+// (unit-tested); this wrapper performs the disk write and reveal it plans.
 async function handleSaveFileRequest(req: Request): Promise<Response | null> {
-  const { pathname } = new URL(req.url);
-  if (req.method !== "POST" || pathname !== ELECTROBUN_SAVE_FILE_PATH) {
+  const plan = await planSaveFileRequest(req, {
+    downloadsDir: Utils.paths.downloads,
+  });
+  if (plan.kind === "ignore") {
     return null;
   }
-
-  const rawName = req.headers.get(ELECTROBUN_FILE_NAME_HEADER);
-  if (rawName === null) {
-    return new Response("Missing file name", { status: 400 });
+  if (plan.kind === "reject") {
+    return new Response(plan.message, { status: plan.status });
   }
 
-  let decodedName: string;
   try {
-    decodedName = decodeURIComponent(rawName);
-  } catch {
-    decodedName = "";
-  }
-  const fileName = sanitizeDownloadFileName(decodedName);
-  const targetPath = resolveUniqueDownloadPath(Utils.paths.downloads, fileName);
-
-  try {
-    const bytes = new Uint8Array(await req.arrayBuffer());
-    await Bun.write(targetPath, bytes);
+    await Bun.write(plan.path, plan.bytes);
   } catch (error) {
     console.error("electrobun: failed to save downloaded file", error);
     return new Response("Failed to save file", { status: 500 });
@@ -89,12 +38,12 @@ async function handleSaveFileRequest(req: Request): Promise<Response | null> {
   // Reveal where the download landed. A reveal failure must not fail the save,
   // whose bytes are already on disk.
   try {
-    Utils.showItemInFolder(targetPath);
+    Utils.showItemInFolder(plan.path);
   } catch (error) {
     console.error("electrobun: failed to reveal downloaded file", error);
   }
 
-  return Response.json({ path: targetPath });
+  return Response.json({ path: plan.path });
 }
 
 function getPackageSourcePath(
