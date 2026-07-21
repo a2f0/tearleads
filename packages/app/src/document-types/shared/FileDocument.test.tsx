@@ -1,6 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import type { DocumentAttachment } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  useWindowTitleBarActions,
+  WindowMenuProvider,
+} from "../../components/window/WindowMenuContext";
 import { FileDocumentFields } from "./FileDocument";
 import {
   isRenderableFileDocumentMediaMimeType,
@@ -8,6 +12,27 @@ import {
 } from "./FileDocumentPreview";
 
 afterEach(cleanup);
+
+// Edit and Download register into the pane's toolbar rather than the body, so
+// tests render this probe to surface the registered actions as buttons — the
+// same way WindowToolBar / RoutedPaneAppBar render them in the app.
+function ToolbarProbe() {
+  const actions = useWindowTitleBarActions();
+
+  return (
+    <div aria-label="Toolbar" role="toolbar">
+      {actions.map((action) => (
+        <button
+          aria-label={action.label}
+          disabled={action.disabled}
+          key={action.id}
+          type="button"
+          onClick={action.onClick}
+        />
+      ))}
+    </div>
+  );
+}
 
 const readFields = [
   { label: "MIME Type", value: "image/png" },
@@ -43,19 +68,22 @@ function renderFields(
   overrides: Partial<Parameters<typeof FileDocumentFields>[0]> = {},
 ) {
   return render(
-    <FileDocumentFields
-      canWrite
-      downloadDisabled={false}
-      downloadError={null}
-      editDisabled={false}
-      fileName="report.png"
-      isEditing={false}
-      onCommitFileName={() => undefined}
-      onDownload={() => undefined}
-      onToggleEditing={() => undefined}
-      readFields={readFields}
-      {...overrides}
-    />,
+    <WindowMenuProvider>
+      <ToolbarProbe />
+      <FileDocumentFields
+        canWrite
+        downloadDisabled={false}
+        downloadError={null}
+        editDisabled={false}
+        fileName="report.png"
+        isEditing={false}
+        onCommitFileName={() => undefined}
+        onDownload={() => undefined}
+        onToggleEditing={() => undefined}
+        readFields={readFields}
+        {...overrides}
+      />
+    </WindowMenuProvider>,
   );
 }
 
@@ -71,13 +99,43 @@ test("view mode renders metadata as text with no editable inputs", () => {
   expect(view.getByText("—")).toBeTruthy();
 });
 
-test("read-only (trashed) files hide the edit button but keep download", () => {
+test("edit and download live in the toolbar, not the body", async () => {
+  const view = renderFields();
+
+  await waitFor(() => {
+    expect(view.getByRole("button", { name: "Edit" })).toBeTruthy();
+  });
+  expect(view.getByRole("button", { name: "Download" })).toBeTruthy();
+  // The actions moved to the pane toolbar; no in-body action row remains.
+  expect(view.container.querySelector(".mini-app-actions")).toBeNull();
+});
+
+test("clicking the toolbar edit action toggles editing", async () => {
+  const toggles: number[] = [];
+  const view = renderFields({ onToggleEditing: () => toggles.push(1) });
+
+  fireEvent.click(await view.findByRole("button", { name: "Edit" }));
+  expect(toggles).toEqual([1]);
+});
+
+test("editing surfaces a Done action instead of Edit", async () => {
+  const view = renderFields({ isEditing: true });
+
+  await waitFor(() => {
+    expect(view.getByRole("button", { name: "Done" })).toBeTruthy();
+  });
+  expect(view.queryByRole("button", { name: "Edit" })).toBeNull();
+});
+
+test("read-only (trashed) files hide the edit button but keep download", async () => {
   const view = renderFields({ hideEdit: true });
 
   // The edit affordance is removed entirely for a trashed document, not merely
   // disabled; downloading (a read action) stays available.
+  await waitFor(() => {
+    expect(view.getByRole("button", { name: "Download" })).toBeTruthy();
+  });
   expect(view.queryByRole("button", { name: "Edit" })).toBeNull();
-  expect(view.getByRole("button", { name: "Download" })).toBeTruthy();
 });
 
 test("edit mode exposes only the file name as an editable input", () => {
@@ -136,18 +194,18 @@ test("an empty rename reverts instead of committing", () => {
   expect(nameInput.value).toBe("report.png");
 });
 
-test("download button invokes onDownload and disables when unavailable", () => {
+test("download button invokes onDownload and disables when unavailable", async () => {
   const downloads: number[] = [];
   const view = renderFields({ onDownload: () => downloads.push(1) });
 
-  fireEvent.click(view.getByRole("button", { name: "Download" }));
+  fireEvent.click(await view.findByRole("button", { name: "Download" }));
   expect(downloads).toEqual([1]);
 
   cleanup();
   const disabledView = renderFields({ downloadDisabled: true });
-  const disabledButton = disabledView.getByRole("button", {
+  const disabledButton = (await disabledView.findByRole("button", {
     name: "Download",
-  }) as HTMLButtonElement;
+  })) as HTMLButtonElement;
   expect(disabledButton.disabled).toBe(true);
 });
 
