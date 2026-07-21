@@ -173,8 +173,17 @@ export class Tearleads {
     });
 
     this.apiClient.setOnError((message) => this.logError(message));
-    this.apiClient.setOnNetworkError(() => this.network.setOnline(false));
-    this.apiClient.setOnNetworkSuccess(() => this.network.setOnline(true));
+    // Report request outcomes as connectivity hints rather than forcing them:
+    // when a native shell has bound an authoritative OS connectivity source, a
+    // request that fails to reach the backend means the backend is unreachable,
+    // not that the device is offline, so reportReachability leaves `online`
+    // alone. Without such a source (browser) it drives `online` as before.
+    this.apiClient.setOnNetworkError(() =>
+      this.network.reportReachability(false),
+    );
+    this.apiClient.setOnNetworkSuccess(() =>
+      this.network.reportReachability(true),
+    );
     this.apiClient.setOnSessionExpired(() => this.loginAfterSessionExpired());
     this.apiClient.setOnPaymentRequired((organizationId) =>
       this.syncBillingGate.notifyPaymentRequired(organizationId),

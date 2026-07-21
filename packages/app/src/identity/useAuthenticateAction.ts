@@ -5,11 +5,15 @@ import { useTearleads } from "../providers/sdk/TearleadsProvider";
 
 /**
  * Human-facing reason for a failed authentication attempt. A lost connection is
- * the one cause worth calling out on its own: the API client flips the network
- * store offline the moment a request fails to reach the server (its `kind:
- * "network"` path), so an offline store after a failed login means the request
- * never landed rather than that the server rejected the identity. Everything else
- * is reported as a plain authentication failure.
+ * the one cause worth calling out on its own: on a browser shell the API client
+ * flips the network store offline the moment a request fails to reach the server
+ * (its `kind: "network"` path), so an offline store after a failed login means
+ * the request never landed rather than that the server rejected the identity.
+ * Everything else is reported as a plain authentication failure. Native shells
+ * bind an authoritative OS connectivity source, so a login that fails to reach a
+ * reachable-device's backend keeps the store online and reports the generic
+ * reason — the device genuinely has a network, so "no network connection" would
+ * be misleading; the unreachable backend is a server problem, not the device's.
  */
 export function describeAuthenticationFailure(input: {
   readonly online: boolean;

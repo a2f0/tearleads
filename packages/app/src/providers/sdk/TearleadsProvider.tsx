@@ -135,6 +135,15 @@ function useNetworkStatusBinding(
       })
       .catch(() => {});
 
+    // Tell the SDK whether this source is the authoritative connectivity truth.
+    // A native OS-backed source (Capacitor) is: once bound, a failed backend
+    // request must not flip connectivity offline, because the OS — not a request
+    // outcome — knows whether the device is connected. The browser source omits
+    // the flag, keeping the fetch-failure-drives-offline behavior it relies on.
+    tearleads.network.setConnectivityAuthoritative(
+      source.authoritative ?? false,
+    );
+
     // Seed from the source before subscribing, replacing the SDK constructor's
     // navigator.onLine read (wrong on Capacitor Android). An async native
     // source seeds optimistically here and corrects via the first emission.
