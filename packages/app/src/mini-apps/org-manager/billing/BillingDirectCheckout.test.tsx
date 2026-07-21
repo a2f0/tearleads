@@ -176,11 +176,72 @@ test("an error renders in the error tone", () => {
   expect(view.getByText("Card declined.")).toBeDefined();
 });
 
-test("the hosted-checkout link opens a Stripe session and navigates to it", async () => {
+function fakeTab() {
+  return {
+    opener: {} as unknown,
+    location: { href: "" },
+    close: mock(() => undefined),
+  };
+}
+
+/**
+ * Stubs `globalThis.open` through a configurable property rather than `spyOn`,
+ * which tears down the happy-dom window binding and strips `document` /
+ * `location` from every later test. Restored in `afterEach` via `spies`.
+ */
+function stubOpen(impl: () => unknown) {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, "open");
+  Object.defineProperty(globalThis, "open", {
+    configurable: true,
+    writable: true,
+    value: impl,
+  });
+  spies.push({
+    mockRestore: () => {
+      if (previous) {
+        Object.defineProperty(globalThis, "open", previous);
+      } else {
+        Reflect.deleteProperty(globalThis, "open");
+      }
+    },
+  });
+}
+
+test("the hosted-checkout link opens the Stripe session in a new tab", async () => {
   const createStripeCheckoutSession = mock(() =>
     Promise.resolve({ url: "https://checkout.stripe.com/pay/x" }),
   );
   stubTearleads(createStripeCheckoutSession);
+  const tab = fakeTab();
+  const openMock = mock(() => tab);
+  stubOpen(openMock);
+
+  const view = render(
+    <BillingDirectCheckout checkout={state({})} disabled={false} />,
+  );
+  fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe));
+
+  await waitFor(() =>
+    expect(createStripeCheckoutSession).toHaveBeenCalledTimes(1),
+  );
+  // Opened synchronously on the click (before the await), then pointed at the
+  // minted URL once it resolves.
+  expect(openMock).toHaveBeenCalledWith("about:blank", "_blank");
+  await waitFor(() =>
+    expect(tab.location.href).toBe("https://checkout.stripe.com/pay/x"),
+  );
+  // The child's back-reference is severed to prevent reverse tabnabbing.
+  expect(tab.opener).toBeNull();
+});
+
+test("a blocked pop-up falls back to same-tab navigation", async () => {
+  // No tab handle means the pop-up was blocked; navigate the current tab rather
+  // than leave the click dead.
+  const createStripeCheckoutSession = mock(() =>
+    Promise.resolve({ url: "https://checkout.stripe.com/pay/x" }),
+  );
+  stubTearleads(createStripeCheckoutSession);
+  stubOpen(() => null);
   const assign = spyOn(globalThis.location, "assign").mockImplementation(
     () => undefined,
   );
@@ -192,20 +253,19 @@ test("the hosted-checkout link opens a Stripe session and navigates to it", asyn
   fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe));
 
   await waitFor(() =>
-    expect(createStripeCheckoutSession).toHaveBeenCalledTimes(1),
-  );
-  await waitFor(() =>
     expect(assign).toHaveBeenCalledWith("https://checkout.stripe.com/pay/x"),
   );
 });
 
-test("a null hosted session leaves the buyer on the page", async () => {
-  // Unconfigured / not eligible: nothing opens, and the link becomes usable
-  // again rather than stranding the buyer on a spinner.
+test("a null hosted session closes the tab and leaves the buyer on the page", async () => {
+  // Unconfigured / not eligible: the blank tab is closed, and the link becomes
+  // usable again rather than stranding the buyer on a spinner.
   const createStripeCheckoutSession = mock(() =>
     Promise.resolve({ url: null }),
   );
   stubTearleads(createStripeCheckoutSession);
+  const tab = fakeTab();
+  stubOpen(() => tab);
   const assign = spyOn(globalThis.location, "assign").mockImplementation(
     () => undefined,
   );
@@ -220,11 +280,38 @@ test("a null hosted session leaves the buyer on the page", async () => {
     expect(createStripeCheckoutSession).toHaveBeenCalledTimes(1),
   );
   expect(assign).not.toHaveBeenCalled();
+  expect(tab.close).toHaveBeenCalledTimes(1);
   expect(
     view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe).closest("button")
       ?.disabled,
   ).toBe(false);
   // A null result surfaces a notice rather than a silent dead click.
+  await waitFor(() =>
+    expect(
+      view.getByText(ORG_MANAGER_LABELS.billingPayOnStripeUnavailable),
+    ).toBeDefined(),
+  );
+});
+
+test("a thrown hosted session closes the tab and surfaces the notice", async () => {
+  // A rejected mint must not strand the blank tab; it is closed and the notice
+  // shown, mirroring the null-result path.
+  const createStripeCheckoutSession = mock(() =>
+    Promise.reject(new Error("boom")),
+  );
+  stubTearleads(createStripeCheckoutSession);
+  const tab = fakeTab();
+  stubOpen(() => tab);
+  // The component logs the rejection; silence it so the run output stays clean.
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  spies.push(errorSpy);
+
+  const view = render(
+    <BillingDirectCheckout checkout={state({})} disabled={false} />,
+  );
+  fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe));
+
+  await waitFor(() => expect(tab.close).toHaveBeenCalledTimes(1));
   await waitFor(() =>
     expect(
       view.getByText(ORG_MANAGER_LABELS.billingPayOnStripeUnavailable),

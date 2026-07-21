@@ -76,10 +76,14 @@ export function formatPrice(
 
 /**
  * The off-site alternative to the inline form: mints a hosted Stripe Checkout
- * session and navigates to it in the SAME tab. Same-tab (not a new window)
- * because the buyer explicitly chose to leave the inline form, and it sidesteps
- * pop-up blockers, which reject a `window.open` that happens after the `await`.
- * The session's success/cancel URLs both return to this page.
+ * session and opens it in a NEW tab, so the buyer keeps this billing panel open
+ * behind it. The session's success/cancel URLs return to this page.
+ *
+ * The tab is opened SYNCHRONOUSLY on the click — before the `await` — because a
+ * `window.open` issued after an await is treated as programmatic and blocked by
+ * pop-up blockers. The blank tab holds the user gesture and is pointed at the
+ * minted URL once it resolves; if the pop-up was blocked (no handle), the
+ * current tab navigates instead so the buyer is never stranded.
  */
 function useHostedCheckout(): {
   readonly open: () => void;
@@ -98,21 +102,35 @@ function useHostedCheckout(): {
     }
     setBusy(true);
     setUnavailable(false);
+    const tab = globalThis.open?.("about:blank", "_blank");
     void (async () => {
       try {
         const result =
           await tearleads.organizations.createStripeCheckoutSession(
             globalThis.location?.href ?? "",
           );
-        if (result?.url && globalThis.location) {
-          globalThis.location.assign(result.url);
-          return; // navigating away — leave `busy` set
+        if (result?.url) {
+          if (tab) {
+            // Sever the child's back-reference before it navigates
+            // cross-origin, so the Stripe page cannot reach into this window
+            // (reverse tabnabbing); the blank tab is still same-origin here.
+            tab.opener = null;
+            tab.location.href = result.url;
+          } else {
+            // The pop-up was blocked: fall back to same-tab navigation rather
+            // than leaving the click dead.
+            globalThis.location?.assign(result.url);
+          }
+          setBusy(false);
+          return;
         }
         // Unconfigured, not eligible, or a checkout already in progress.
+        tab?.close();
         setUnavailable(true);
         setBusy(false);
       } catch (error) {
         console.error("Failed to open the hosted Stripe checkout:", error);
+        tab?.close();
         setUnavailable(true);
         setBusy(false);
       }

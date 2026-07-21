@@ -333,9 +333,10 @@ test("a surface color with too few channels uses the light base theme", async ()
   expect(opts.appearance.theme).toBe("stripe");
 });
 
-test("a non-rgb color form falls back to the light base theme", async () => {
-  // color()/oklch() etc. are not the computed rgb() the probe yields; they must
-  // fall through to light, not be misread by the numeric channel extraction.
+test("a colour space we do not convert falls back to the light base theme", async () => {
+  // oklch()/lab() are not sRGB, so toStripeColor passes them through untouched;
+  // they are not the rgb() isDarkSurface reads and must fall through to light
+  // rather than be misread by the numeric channel extraction.
   const { elementsOptions, stripe } = fakeStripe();
   const capability = withKey(() =>
     createWebDirectCheckout(() => Promise.resolve(stripe as never)),
@@ -343,11 +344,76 @@ test("a non-rgb color form falls back to the light base theme", async () => {
   await capability.mount({
     host: host(),
     clientSecret: "pi_secret",
-    appearance: { ...APPEARANCE, colorBackground: "color(srgb 0 0 0)" },
+    appearance: { ...APPEARANCE, colorBackground: "oklch(0.2 0 0)" },
   });
 
   const [opts] = elementsOptions as [{ appearance: { theme: string } }];
   expect(opts.appearance.theme).toBe("stripe");
+});
+
+test("an sRGB color() dark surface is normalized and classifies as night", async () => {
+  // Recent browsers serialize color-mix()/color() tokens as `color(srgb …)`;
+  // toStripeColor converts that to rgb() so the surface classifies correctly
+  // instead of falling back to the light base theme.
+  const { elementsOptions, stripe } = fakeStripe();
+  const capability = withKey(() =>
+    createWebDirectCheckout(() => Promise.resolve(stripe as never)),
+  );
+  await capability.mount({
+    host: host(),
+    clientSecret: "pi_secret",
+    appearance: { ...APPEARANCE, colorBackground: "color(srgb 0.1 0.1 0.1)" },
+  });
+
+  const [opts] = elementsOptions as [
+    { appearance: { theme: string; variables: { colorBackground: string } } },
+  ];
+  expect(opts.appearance.theme).toBe("night");
+  expect(opts.appearance.variables.colorBackground).toBe("rgb(26, 26, 26)");
+});
+
+test("a color(srgb …) border is normalized to rgba for the input rule", async () => {
+  // color-mix() tokens (e.g. --color-hairline) serialize to
+  // `color(srgb r g b / a)`, which Stripe's Appearance API rejects outright;
+  // convert to rgba() so the input border survives.
+  const { elementsOptions, stripe } = fakeStripe();
+  const capability = withKey(() =>
+    createWebDirectCheckout(() => Promise.resolve(stripe as never)),
+  );
+  await capability.mount({
+    host: host(),
+    clientSecret: "pi_secret",
+    appearance: {
+      ...APPEARANCE,
+      colorBorder: "color(srgb 0.898039 0.898039 0.898039 / 0.12)",
+    },
+  });
+
+  const [opts] = elementsOptions as [
+    { appearance: { rules: { ".Input": { border: string } } } },
+  ];
+  expect(opts.appearance.rules[".Input"].border).toBe(
+    "1px solid rgba(229, 229, 229, 0.12)",
+  );
+});
+
+test("the card icon colour is pinned to the text colour", async () => {
+  // The base theme left the card-number icon dark even on "night"; pinning
+  // colorIcon to the text colour makes it track the surface in both modes.
+  const { elementsOptions, stripe } = fakeStripe();
+  const capability = withKey(() =>
+    createWebDirectCheckout(() => Promise.resolve(stripe as never)),
+  );
+  await capability.mount({
+    host: host(),
+    clientSecret: "pi_secret",
+    appearance: { ...APPEARANCE, colorText: "rgb(229, 229, 229)" },
+  });
+
+  const [opts] = elementsOptions as [
+    { appearance: { variables: { colorIcon: string } } },
+  ];
+  expect(opts.appearance.variables.colorIcon).toBe("rgb(229, 229, 229)");
 });
 
 test("a partially-transparent dark surface still classifies as night", async () => {
