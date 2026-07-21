@@ -83,6 +83,7 @@ interface OrganizationReloadOptions {
   latestRequestIdRef: { current: number };
   listLocalOrganizations: () => Promise<LocalOrganizationSummary[]>;
   mountedRef: { current: boolean };
+  organizationsRef: { current: readonly LocalOrganizationSummary[] };
   retainedOrganizationsRef: {
     current: Map<string, LocalOrganizationSummary>;
   };
@@ -99,6 +100,7 @@ function useOrganizationReload(input: OrganizationReloadOptions) {
     latestRequestIdRef,
     listLocalOrganizations,
     mountedRef,
+    organizationsRef,
     retainedOrganizationsRef,
     scopeKey,
     setOrganizations,
@@ -112,7 +114,14 @@ function useOrganizationReload(input: OrganizationReloadOptions) {
 
     const requestId = latestRequestIdRef.current + 1;
     latestRequestIdRef.current = requestId;
-    setOrganizationsLoading(true);
+    // Only surface the loading status when there is nothing to show yet.
+    // Refresh-key churn (e.g. organization-profile document emissions on the
+    // organizations screen) re-runs this reload repeatedly; blinking the status
+    // while a usable list is already on screen reads as flicker, and the list
+    // itself is unchanged by those refreshes.
+    if (organizationsRef.current.length === 0) {
+      setOrganizationsLoading(true);
+    }
     setOrganizationsError(null);
 
     try {
@@ -144,6 +153,7 @@ function useOrganizationReload(input: OrganizationReloadOptions) {
     latestRequestIdRef,
     listLocalOrganizations,
     mountedRef,
+    organizationsRef,
     retainedOrganizationsRef,
     scopeKey,
     setOrganizations,
@@ -323,6 +333,10 @@ export function useLocalOrganizations(input: {
   const [organizationsLoading, setOrganizationsLoading] = useState(
     input.enabled,
   );
+  // Mirror the committed list so reload() can decide whether a refresh needs to
+  // blink the loading status without re-creating the callback on every change.
+  const organizationsRef = useRef(organizations);
+  organizationsRef.current = organizations;
   const latestRequestIdRef = useRef(0);
   const mountedRef = useRef(true);
   const retainedOrganizationsRef = useRef<
@@ -344,6 +358,7 @@ export function useLocalOrganizations(input: {
     ...input,
     latestRequestIdRef,
     mountedRef,
+    organizationsRef,
     retainedOrganizationsRef,
     setOrganizations,
     setOrganizationsError,
