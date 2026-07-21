@@ -5,6 +5,7 @@ import {
   runConfirmedLogout,
   useLogoutConfirmationDialogState,
 } from "../../components/shared/useLogoutConfirmation";
+import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
 import {
   type RegisterCurrentIdentityResult,
   useRegisterCurrentIdentity,
@@ -198,7 +199,6 @@ function useIdentityManagerIdentityMutations({
   destroyKey,
   logError,
   logout,
-  login,
   registerCurrentIdentity,
 }: {
   clearSessionError: () => void;
@@ -206,45 +206,49 @@ function useIdentityManagerIdentityMutations({
   destroyKey: IdentityContextValue["destroyKey"];
   logError: LogContextValue["logError"];
   logout: CryptoSessionContextValue["logout"];
-  login: CryptoSessionContextValue["login"];
   registerCurrentIdentity: () => Promise<boolean>;
 }) {
-  const [identityError, setIdentityError] = useState<string | null>(null);
-  const [identityBusy, setIdentityBusy] = useState<IdentityBusyState>(null);
+  // Authentication (with its network-aware failure reason) is shared with the
+  // Org Manager gate; registration stays local to this view. Merge the two into
+  // the single busy/error the layout renders.
+  // Destructure the stable action fns rather than depending on the hook's
+  // result object, whose identity changes every render and would defeat the
+  // useCallback memoization below.
+  const {
+    authenticate: runAuthenticate,
+    authenticating,
+    clearError: clearAuthError,
+    error: authError,
+  } = useAuthenticateAction();
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  const [registering, setRegistering] = useState(false);
   const [isDestroyKeyPackageDialogOpen, setDestroyKeyPackageDialogOpen] =
     useState(false);
 
+  // Registration and authentication share one error line, so each clears the
+  // other's on start — otherwise a stale "Could not register key." would win the
+  // `??` below and mask a later authenticate outcome.
   const handleRegisterIdentity = useCallback(async () => {
-    setIdentityBusy("register");
-    setIdentityError(null);
+    setRegistering(true);
+    setRegisterError(null);
+    clearAuthError();
     try {
       const registered = await registerCurrentIdentity();
       if (!registered) {
-        setIdentityError("Could not register key.");
+        setRegisterError("Could not register key.");
       }
     } catch (error: unknown) {
       logError("Failed to register key", error);
-      setIdentityError("Could not register key.");
+      setRegisterError("Could not register key.");
     } finally {
-      setIdentityBusy(null);
+      setRegistering(false);
     }
-  }, [logError, registerCurrentIdentity]);
+  }, [clearAuthError, logError, registerCurrentIdentity]);
 
   const authenticate = useCallback(async () => {
-    setIdentityBusy("authenticate");
-    setIdentityError(null);
-    try {
-      const authenticated = await login();
-      if (!authenticated) {
-        setIdentityError("Authentication failed.");
-      }
-    } catch (error: unknown) {
-      logError("Authentication failed", error);
-      setIdentityError("Authentication failed.");
-    } finally {
-      setIdentityBusy(null);
-    }
-  }, [logError, login]);
+    setRegisterError(null);
+    await runAuthenticate();
+  }, [runAuthenticate]);
 
   const requestDestroyKeyPackage = useCallback(() => {
     setDestroyKeyPackageDialogOpen(true);
@@ -258,10 +262,18 @@ function useIdentityManagerIdentityMutations({
     logout();
     destroyKey();
     clearSessions();
-    setIdentityError(null);
+    setRegisterError(null);
+    clearAuthError();
     clearSessionError();
     setDestroyKeyPackageDialogOpen(false);
-  }, [clearSessionError, clearSessions, destroyKey, logout]);
+  }, [clearAuthError, clearSessionError, clearSessions, destroyKey, logout]);
+
+  const identityBusy: IdentityBusyState = registering
+    ? "register"
+    : authenticating
+      ? "authenticate"
+      : null;
+  const identityError = registerError ?? authError;
 
   return {
     authenticate,
@@ -372,7 +384,6 @@ export function useIdentityManager() {
     destroyKey: identity.destroyKey,
     logError,
     logout: session.logout,
-    login: session.login,
     registerCurrentIdentity: registration.registerCurrentIdentity,
   });
   const switcherBusy =

@@ -4,5 +4,6 @@
 }
 
 .mini-app-status--error {
+  color: var(--color-danger);
   opacity: 1;
 }

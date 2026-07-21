@@ -4,15 +4,19 @@ import type {
 } from "@tearleads/client-sdk";
 import { type MouseEvent, useCallback, useMemo, useState } from "react";
 import {
+  MiniAppButton,
   MiniAppRoot,
   MiniAppStatus,
+  MiniAppToolbar,
 } from "../../components/mini-app/MiniAppLayout";
 import {
   useWindowFileMenuItem,
   useWindowRefreshMenuItem,
 } from "../../components/window/WindowMenuContext";
+import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
 import { useAppNavigationState } from "../../navigation/AppNavigationProvider";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
+import { useIdentity } from "../../providers/identity/IdentityProvider";
 import { BillingPanel } from "./billing/BillingPanel";
 import { DataUsageView } from "./billing/DataUsageView";
 import { OrgManagerContextMenuLayer } from "./context-menu/OrgManagerContextMenu";
@@ -383,11 +387,25 @@ function useOrgManagerChrome(model: OrgManagerModel) {
 }
 
 function OrgManagerAuthenticationRequired() {
+  const { signingKeyPair } = useIdentity();
+  const { authenticate, authenticating, error } = useAuthenticateAction();
+
   return (
     <MiniAppRoot centered>
       <MiniAppStatus className="org-manager-hint">
         {ORG_MANAGER_LABELS.authenticate}
       </MiniAppStatus>
+      {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
+      {signingKeyPair !== null && (
+        <MiniAppToolbar>
+          <MiniAppButton
+            disabled={authenticating}
+            onClick={() => void authenticate()}
+          >
+            {authenticating ? "Logging in..." : "Login"}
+          </MiniAppButton>
+        </MiniAppToolbar>
+      )}
     </MiniAppRoot>
   );
 }
