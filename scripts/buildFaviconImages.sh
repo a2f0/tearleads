@@ -48,16 +48,19 @@ echo "Generating favicons from $SVG_SOURCE into $OUTPUT_DIR"
 cp "$SVG_SOURCE" "$OUTPUT_DIR/favicon.svg"
 echo "  Created $OUTPUT_DIR/favicon.svg"
 
-# Render the logo centered (with padding) at one size. With opaque=true the
-# logo is flattened onto BACKGROUND_COLOR (required for the apple-touch icon,
-# which does not support transparency); otherwise transparency is preserved so
-# the icon adapts to light/dark browser tabs.
+# Render the logo centered at one size. `fill_percent` (default 80) sets how
+# much of the canvas the logo spans: browser favicons fill the whole icon so
+# the mark stays legible at 16px in a tab, while the apple-touch icon keeps a
+# margin. With opaque=true the logo is flattened onto BACKGROUND_COLOR (required
+# for the apple-touch icon, which does not support transparency); otherwise
+# transparency is preserved so the icon adapts to light/dark browser tabs.
 render_png() {
   size=$1
   output=$2
   opaque=${3:-false}
+  fill_percent=${4:-80}
 
-  logo_size=$((size * 80 / 100))
+  logo_size=$((size * fill_percent / 100))
   density=$((logo_size * 72 / SVG_VIEWBOX))
 
   if [ "$opaque" = "true" ]; then
@@ -76,10 +79,11 @@ render_png() {
   fi
 }
 
-# Legacy multi-resolution ICO: render a crisp transparent master, then pack
-# 16/32/48 so the icon stays transparent (no white box in dark-mode tabs).
+# Legacy multi-resolution ICO: render a crisp transparent master that fills the
+# canvas (matching favicon.svg), then pack 16/32/48 so the icon stays
+# transparent (no white box in dark-mode tabs) and reads large in the tab.
 ico_master="$OUTPUT_DIR/.favicon-master.png"
-render_png 256 "$ico_master"
+render_png 256 "$ico_master" false 100
 $MAGICK_CMD "$ico_master" -define icon:auto-resize=48,32,16 "$OUTPUT_DIR/favicon.ico"
 rm -f "$ico_master"
 echo "  Created $OUTPUT_DIR/favicon.ico (16/32/48)"
