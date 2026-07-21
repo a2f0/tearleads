@@ -150,7 +150,11 @@ section_end
 
 echo "Generating splash screens..."
 section_start
-generate_splash "drawable" 480 320
+# The base drawable/splash is the committed drawable/splash.xml layer-list
+# (binary-free). Do NOT generate drawable/splash.png here: it would define
+# @drawable/splash twice in the same config folder and fail the aapt2 build
+# with a duplicate-resource error. Only density/orientation-qualified splash
+# PNGs (different config folders) are generated.
 generate_splash "drawable-land-mdpi" 480 320
 generate_splash "drawable-land-hdpi" 800 480
 generate_splash "drawable-land-xhdpi" 1280 720
