@@ -16,11 +16,14 @@
  * fresh worker as the origin drains — the desktop behaviour, where the same
  * contention throws promptly instead of hanging.
  *
- * Comfortably below the 15s app boot timeout (so the worker rejects first) and far
- * above a healthy step (a fresh pool installs in well under a second), so a valid
- * slow-but-progressing boot is never tripped.
+ * Sized so the worst-case worker-side settle — up to the ~3s SAHPool install
+ * contention-retry budget followed by one hung step — still rejects several
+ * seconds below the 15s app boot timeout (see bootSQLiteRuntime.ts), so the
+ * worker's error reliably wins that race. Far above a healthy step (a fresh pool
+ * installs in well under a second), so a valid slow-but-progressing boot is never
+ * tripped.
  */
-export const SAHPOOL_STEP_HANG_TIMEOUT_MS = 10_000;
+export const SAHPOOL_STEP_HANG_TIMEOUT_MS = 8_000;
 
 /**
  * Marks a SAHPool acquiring step that did not settle within

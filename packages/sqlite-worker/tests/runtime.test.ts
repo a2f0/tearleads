@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { createModuleDatabaseRuntime } from "../src/runtime";
+import {
+  createModuleDatabaseRuntime,
+  createSharedDatabaseRuntime,
+} from "../src/runtime";
 
 type WorkerMessage = {
   id: number;
@@ -222,4 +225,89 @@ test("createModuleDatabaseRuntime terminates even if the worker never confirms c
     method: "close",
     params: undefined,
   });
+});
+
+// A cross-tab worker handle: like createCrossTabDatabaseWorker's return, it exposes
+// forceStopOwner() alongside close(). `ackClose` controls whether it answers a
+// close request — with `false` it models a wedged/silent worker whose graceful
+// close never comes back.
+class MockCrossTabWorker extends EventTarget {
+  closed = false;
+  forceStopped = false;
+  readonly messages: WorkerMessage[] = [];
+
+  constructor(
+    private readonly ackClose: (message: WorkerMessage) => boolean | undefined,
+  ) {
+    super();
+  }
+
+  postMessage(message: WorkerMessage) {
+    this.messages.push(message);
+    if (message.method !== "close" && message.method !== "delete") {
+      return;
+    }
+    const ack = this.ackClose(message);
+    if (ack === undefined) {
+      return; // silent: never answers, so the graceful close never resolves
+    }
+    queueMicrotask(() => {
+      this.dispatchEvent(
+        new MessageEvent("message", {
+          data: {
+            id: message.id,
+            result: ack ? { ok: true } : { ok: false, message: "close failed" },
+          },
+        }),
+      );
+    });
+  }
+
+  close() {
+    this.closed = true;
+  }
+
+  forceStopOwner() {
+    this.forceStopped = true;
+  }
+}
+
+test("shared runtime terminateNow force-stops a possibly-wedged owner", async () => {
+  // terminateNow() is the app's recovery/teardown entry point (releaseSQLiteRuntime).
+  // It must force-stop the owner so a wedged (silent) worker cannot stay pinned to
+  // the singleton coordinator and hang every later boot.
+  const worker = new MockCrossTabWorker(() => undefined); // silent
+  const runtime = createSharedDatabaseRuntime(worker);
+
+  runtime.terminateNow();
+
+  expect(worker.forceStopped).toBe(true);
+  expect(worker.closed).toBe(true);
+});
+
+test("shared runtime destroy force-stops the owner when the close is rejected", async () => {
+  // A close that comes back as an error (or never comes back) means the owner may
+  // be wedged, so destroy() takes the forceClose path.
+  const worker = new MockCrossTabWorker(() => false); // acks close with an error
+  const runtime = createSharedDatabaseRuntime(worker);
+
+  runtime.destroy();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  expect(worker.forceStopped).toBe(true);
+  expect(worker.closed).toBe(true);
+});
+
+test("shared runtime destroy does NOT force-stop the owner on a healthy close", async () => {
+  // When the worker acks the graceful close it has already stopped the owner
+  // itself, so destroy() uses a plain close() and must not force-stop — otherwise
+  // it would tear down an owner that another client (or tab) may still be using.
+  const worker = new MockCrossTabWorker(() => true); // acks close successfully
+  const runtime = createSharedDatabaseRuntime(worker);
+
+  runtime.destroy();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  expect(worker.closed).toBe(true);
+  expect(worker.forceStopped).toBe(false);
 });
