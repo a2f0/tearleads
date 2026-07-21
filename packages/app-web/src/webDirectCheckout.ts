@@ -33,11 +33,12 @@ function readPublishableKey(): string | undefined {
 
 /**
  * Whether the resolved surface is dark, so the Payment Element's BASE theme can
- * match. Classifies only the computed `rgb(...)`/`rgba(...)` form the appearance
- * probe yields, via a Rec. 601 luma threshold. Any other serialization — the
- * `#ffffff` fallback, or a future `color(...)`/`oklch(...)` form — is NOT
- * parsed and falls back to light, rather than being misread by the numeric
- * channel extraction.
+ * match. Classifies the computed `rgb(...)`/`rgba(...)` form via a Rec. 601 luma
+ * threshold. Callers pass the value through {@link toStripeColor} first, so an
+ * sRGB `color(srgb …)` surface arrives here already converted to `rgb(...)`; any
+ * form that conversion leaves untouched — the `#ffffff` fallback, or a non-sRGB
+ * `oklch(...)`/`lab(...)` — does not match and falls back to light rather than
+ * being misread by the numeric channel extraction.
  */
 function isDarkSurface(colorBackground: string): boolean {
   if (!/^rgba?\(/i.test(colorBackground.trim())) {

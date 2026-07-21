@@ -293,6 +293,32 @@ test("a null hosted session closes the tab and leaves the buyer on the page", as
   );
 });
 
+test("a thrown hosted session closes the tab and surfaces the notice", async () => {
+  // A rejected mint must not strand the blank tab; it is closed and the notice
+  // shown, mirroring the null-result path.
+  const createStripeCheckoutSession = mock(() =>
+    Promise.reject(new Error("boom")),
+  );
+  stubTearleads(createStripeCheckoutSession);
+  const tab = fakeTab();
+  stubOpen(() => tab);
+  // The component logs the rejection; silence it so the run output stays clean.
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  spies.push(errorSpy);
+
+  const view = render(
+    <BillingDirectCheckout checkout={state({})} disabled={false} />,
+  );
+  fireEvent.click(view.getByText(ORG_MANAGER_LABELS.billingPayOnStripe));
+
+  await waitFor(() => expect(tab.close).toHaveBeenCalledTimes(1));
+  await waitFor(() =>
+    expect(
+      view.getByText(ORG_MANAGER_LABELS.billingPayOnStripeUnavailable),
+    ).toBeDefined(),
+  );
+});
+
 test("the hosted-checkout link is not offered once the inline flow starts", () => {
   stubTearleads();
   const view = render(
