@@ -28,6 +28,10 @@ Environment:
   id (TEAM_ID) from .secrets/root.env, and the App Store Connect API key from
   .secrets/AuthKey_<APP_STORE_CONNECT_KEY_ID>.p8.
 
+  The release regenerates the app icon and splash from assets/logo.svg during
+  the build, so ImageMagick must be installed (the magick command, or legacy
+  convert).
+
 Any arguments are passed through to the app-capacitor ios:upload:testflight
 script, for example:
   $(basename "$0") build_number:1700
