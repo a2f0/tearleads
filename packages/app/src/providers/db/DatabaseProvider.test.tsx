@@ -7,6 +7,7 @@ import {
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 import {
+  createBootTimeoutSQLiteRuntimeFactory,
   createDeferred,
   createRecordingSQLiteRuntimeFactory,
   createRestartSensitiveSQLiteRuntimeFactory,
@@ -161,6 +162,65 @@ test("ensureIdentityReady retries a failed identity database initialization", as
       destroyCount: 1,
       initCount: 2,
     });
+  } finally {
+    console.error = originalConsoleError;
+    view.unmount();
+  }
+});
+
+test("a transient boot round-trip timeout auto-recovers by re-spawning", async () => {
+  // The teardown/respawn race: a boot worker round-trip never answers. Unlike the
+  // manual retry above, no consumer re-call is needed — the managed runtime tears
+  // the stuck worker down and re-spawns a fresh one, which boots cleanly.
+  const runtimeFactory = createBootTimeoutSQLiteRuntimeFactory(1);
+  const originalConsoleError = console.error;
+  const view = renderDatabaseProvider({
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+  });
+
+  try {
+    console.error = () => {};
+    await view.controlsReady.promise;
+    await act(async () => {
+      await view.getControls().ensureIdentityReady(TEST_SIGNING_FINGERPRINT);
+    });
+    await waitFor(() => {
+      expect(view.getControls().status).toBe("ready");
+    });
+    // Initial spawn (init times out) + one recovery re-spawn (init succeeds).
+    expect(runtimeFactory.getStats().createCount).toBe(2);
+  } finally {
+    console.error = originalConsoleError;
+    view.unmount();
+  }
+});
+
+test("a persistent boot round-trip timeout surfaces an error after the cap", async () => {
+  const runtimeFactory = createBootTimeoutSQLiteRuntimeFactory(
+    Number.POSITIVE_INFINITY,
+  );
+  const originalConsoleError = console.error;
+  const view = renderDatabaseProvider({
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+  });
+
+  try {
+    console.error = () => {};
+    await view.controlsReady.promise;
+    let readyError: unknown;
+    await act(async () => {
+      try {
+        await view.getControls().ensureIdentityReady(TEST_SIGNING_FINGERPRINT);
+      } catch (error: unknown) {
+        readyError = error;
+      }
+    });
+    expect(readyError).toBeInstanceOf(Error);
+    await waitFor(() => {
+      expect(view.getControls().status).toBe("error");
+    });
+    // Initial spawn + 3 bounded re-spawns, all timing out, before surfacing.
+    expect(runtimeFactory.getStats().createCount).toBe(4);
   } finally {
     console.error = originalConsoleError;
     view.unmount();

@@ -8,6 +8,70 @@ import {
 import { dumpDatabaseCharacteristics } from "./dumpDatabaseCharacteristics";
 import type { ResolveSqliteCipherKey } from "./sqliteCipherKey";
 
+/**
+ * Upper bound on a single boot worker round-trip (database init and the
+ * readability probe).
+ *
+ * Every runtime *teardown* path is already time-bounded, but the *boot*
+ * round-trips were not — so when a new identity's database is spawned right after
+ * the previous one is torn down, a teardown/respawn race in the cross-tab worker
+ * layer can leave the owner worker never answering `init`. The boot promise then
+ * settles to neither "ready" nor "error", `waitForReadySQLiteRuntime` waits
+ * forever, and the app hangs keyless with no recovery — the Android
+ * identity-creation hang (initial identity boots, creating a second stalls
+ * silently). Racing each worker round-trip against this timeout turns that silent
+ * hang into an ordinary boot rejection, which the managed runtime already
+ * recovers from by tearing the stuck worker down and re-spawning a fresh one.
+ *
+ * Generous on purpose: a fresh database normally boots in well under a second, so
+ * 15s never trips a slow-but-valid cold boot yet still bounds a true hang.
+ */
+const SQLITE_BOOT_ROUNDTRIP_TIMEOUT_MS = 15_000;
+
+// Stable marker on the thrown message so recovery can tell a transient boot
+// timeout (retryable — tear the stuck worker down and re-spawn) apart from a
+// genuine init failure.
+const BOOT_ROUNDTRIP_TIMEOUT_ERROR_PREFIX = "SQLite boot round-trip";
+
+/**
+ * Whether a boot error is one of the {@link withBootRoundTripTimeout} timeouts —
+ * i.e. a worker round-trip that never answered, the signature of the
+ * teardown/respawn race — rather than a real init/decrypt failure.
+ */
+export function isBootRoundTripTimeoutError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.startsWith(BOOT_ROUNDTRIP_TIMEOUT_ERROR_PREFIX);
+}
+
+/**
+ * Reject if `operation` has not settled within {@link SQLITE_BOOT_ROUNDTRIP_TIMEOUT_MS}.
+ * The abandoned operation stays pending — harmless, the stuck worker is torn down
+ * on the recovery re-spawn — while the timer is always cleared so a fast success
+ * leaves nothing behind.
+ */
+async function withBootRoundTripTimeout<T>(
+  operation: Promise<T>,
+  step: string,
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_resolve, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(
+            new Error(
+              `${BOOT_ROUNDTRIP_TIMEOUT_ERROR_PREFIX}: ${step} timed out after ${SQLITE_BOOT_ROUNDTRIP_TIMEOUT_MS}ms.`,
+            ),
+          );
+        }, SQLITE_BOOT_ROUNDTRIP_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 // Forces a read of page 1 (the encrypted SQLite header page) so a wrong/rotated
 // cipher key surfaces NOW as SQLITE_NOTADB, while the boot promise can still
 // react to it (wipe + recreate). dumpDatabaseCharacteristics below is best-effort
@@ -90,12 +154,15 @@ export async function bootSQLiteRuntime(
   }
 
   try {
-    await runtime.client.init({
-      dbName,
-      cipher: "chacha20",
-      key,
-      persistence,
-    });
+    await withBootRoundTripTimeout(
+      runtime.client.init({
+        dbName,
+        cipher: "chacha20",
+        key,
+        persistence,
+      }),
+      "database initialization",
+    );
   } catch (error) {
     log(`Failed to initialize SQLite client: ${describeBootError(error)}`);
     throw error;
@@ -107,7 +174,10 @@ export async function bootSQLiteRuntime(
   // freshly created and cannot be key-mismatched, so skip the probe.
   if (persistence !== "memory") {
     try {
-      await assertDatabaseReadable(runtime.client);
+      await withBootRoundTripTimeout(
+        assertDatabaseReadable(runtime.client),
+        "database readability check",
+      );
     } catch (error) {
       log(`Failed to verify SQLite database: ${describeBootError(error)}`);
       throw error;

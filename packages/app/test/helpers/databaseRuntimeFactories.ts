@@ -54,6 +54,57 @@ export function createRetryableSQLiteRuntimeFactory() {
   };
 }
 
+/**
+ * Fails `init` with a boot round-trip *timeout* error (the marker
+ * `isBootRoundTripTimeoutError` matches) the first `failureCount` times, then
+ * succeeds. Exercises the transient-boot-failure auto-recovery: the managed
+ * runtime should tear the stuck worker down and re-spawn a fresh one instead of
+ * surfacing an error. Pass `Number.POSITIVE_INFINITY` to always fail and exercise
+ * the re-spawn cap.
+ */
+export function createBootTimeoutSQLiteRuntimeFactory(failureCount: number) {
+  let createCount = 0;
+  let initCount = 0;
+  let destroyCount = 0;
+
+  return {
+    createSQLiteRuntime: (): SQLiteRuntime => {
+      createCount += 1;
+      const runtimeId = `runtime-${createCount}`;
+      const client: SQLiteRuntime["client"] = {
+        close: async () => ({ ok: true }),
+        delete: async () => ({ ok: true }),
+        destroy() {
+          destroyCount += 1;
+        },
+        exec: async () => ({ ok: true, rows: [] }),
+        init: async () => {
+          initCount += 1;
+          if (initCount <= failureCount) {
+            // Starts with the "SQLite boot round-trip" marker so the managed
+            // runtime treats it as a transient teardown/respawn race.
+            throw new Error(
+              "SQLite boot round-trip: database initialization timed out after 15000ms.",
+            );
+          }
+
+          return { ok: true };
+        },
+        ping: async () => ({ ok: true, message: "pong" }),
+      };
+
+      return {
+        client,
+        deleteData: async () => client.destroy(),
+        destroy: () => client.destroy(),
+        id: runtimeId,
+        terminateNow: () => client.destroy(),
+      };
+    },
+    getStats: () => ({ createCount, destroyCount, initCount }),
+  };
+}
+
 /** Records the options each init() is called with (cipher key, persistence). */
 export function createRecordingSQLiteRuntimeFactory() {
   const initOptions: Array<Parameters<SQLiteRuntime["client"]["init"]>[0]> = [];

@@ -18,7 +18,9 @@ import {
   startSQLiteRuntimeBoot,
 } from "./sqliteRuntimeLifecycle";
 import { useReleaseRuntimeOnPageHide } from "./useReleaseRuntimeOnPageHide";
+import { useTransientBootFailureRecovery } from "./useTransientBootFailureRecovery";
 import { useUnreadableDatabaseRecovery } from "./useUnreadableDatabaseRecovery";
+import { waitForReadySQLiteRuntime } from "./waitForReadySQLiteRuntime";
 
 type SQLiteRuntimeStatus = DatabaseStatus;
 interface SQLiteRuntimeRelease {
@@ -96,49 +98,6 @@ async function purgeRuntime(
   }
 
   tearleads.database.clear("idle");
-}
-
-function waitForReadySQLiteRuntime(
-  tearleads: Tearleads,
-  currentDbNameRef: RefObject<string | null>,
-  dbName: string,
-  spawnRuntime: () => void,
-): Promise<void> {
-  if (
-    tearleads.database.status === "ready" &&
-    tearleads.database.client &&
-    currentDbNameRef.current === dbName
-  ) {
-    return Promise.resolve();
-  }
-
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    let unsubscribe: (() => void) | null = null;
-    const finish = () => {
-      if (settled) {
-        return;
-      }
-
-      const { client, status } = tearleads.database.snapshot;
-      if (status === "ready" && client && currentDbNameRef.current === dbName) {
-        settled = true;
-        unsubscribe?.();
-        resolve();
-      } else if (status === "error" && currentDbNameRef.current === dbName) {
-        settled = true;
-        unsubscribe?.();
-        reject(new Error("SQLite database failed to initialize."));
-      }
-    };
-
-    unsubscribe = tearleads.database.subscribe(finish);
-    finish();
-    if (!settled) {
-      spawnRuntime();
-      finish();
-    }
-  });
 }
 
 function useDestroySQLiteRuntime(params: {
@@ -226,6 +185,8 @@ function useSpawnSQLiteRuntimeForDbName(params: {
   killedRef: RefObject<boolean>;
   log: (message: string) => void;
   onUnreadableDatabase: (dbName: string) => void;
+  onTransientBootFailure: (dbName: string) => boolean;
+  onBootSucceeded: (dbName: string) => void;
   persistence: DatabasePersistenceMode;
   resolveCipherKey: ResolveSqliteCipherKey;
   runtimeReleaseRef: RefObject<SQLiteRuntimeRelease | null>;
@@ -240,6 +201,8 @@ function useSpawnSQLiteRuntimeForDbName(params: {
     killedRef,
     log,
     onUnreadableDatabase,
+    onTransientBootFailure,
+    onBootSucceeded,
     persistence,
     resolveCipherKey,
     runtimeReleaseRef,
@@ -270,6 +233,8 @@ function useSpawnSQLiteRuntimeForDbName(params: {
         log,
         nextDbName,
         onUnreadableDatabase,
+        onTransientBootFailure,
+        onBootSucceeded,
         persistence,
         resolveCipherKey,
         runtimeRef,
@@ -284,6 +249,8 @@ function useSpawnSQLiteRuntimeForDbName(params: {
       killedRef,
       log,
       onUnreadableDatabase,
+      onTransientBootFailure,
+      onBootSucceeded,
       persistence,
       resolveCipherKey,
       runtimeRef,
@@ -454,6 +421,12 @@ export function useManagedSQLiteRuntime(
     purgeCurrentRuntime,
     spawnRuntimeForDbName: spawnRuntimeRef,
   });
+  const { clearBudget: onBootSucceeded, recoverFromBootTimeout } =
+    useTransientBootFailureRecovery({
+      destroyCurrentRuntime,
+      log,
+      spawnRuntimeForDbName: spawnRuntimeRef,
+    });
   const spawnRuntimeForDbName = useSpawnSQLiteRuntimeForDbName({
     bootingRef,
     createSQLiteRuntime,
@@ -461,6 +434,8 @@ export function useManagedSQLiteRuntime(
     killedRef,
     log,
     onUnreadableDatabase,
+    onTransientBootFailure: recoverFromBootTimeout,
+    onBootSucceeded,
     persistence: persistencePolicy.databasePersistence,
     resolveCipherKey,
     runtimeReleaseRef,
