@@ -60,43 +60,88 @@ function isDarkSurface(colorBackground: string): boolean {
 }
 
 /**
+ * Stripe's Appearance API parses only the legacy colour forms — hex, `rgb()`,
+ * `rgba()`. Recent browsers serialize `color-mix()` / `color()` tokens as
+ * `color(srgb r g b[ / a])` with 0–1 channels, and Stripe rejects that value
+ * outright: it dropped the input border AND knocked the card-number icon back
+ * onto the light base theme despite `theme: "night"` (dark-on-dark). Our tokens
+ * all resolve in the sRGB space (`color-mix(in srgb, …)` over hex), so convert
+ * that one modern form back to `rgb()` / `rgba()`. Anything already in a legacy
+ * form, or in a colour space we do not convert (oklch, lab, display-p3), passes
+ * through untouched — Stripe would still reject the latter, but no token
+ * produces it today.
+ */
+function toStripeColor(value: string): string {
+  const trimmed = value.trim();
+  const srgb =
+    /^color\(\s*srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*(?:\/\s*([\d.]+)\s*)?\)$/i.exec(
+      trimmed,
+    );
+  if (!srgb) {
+    return trimmed;
+  }
+  const channel = (raw: string): number =>
+    Math.round(Math.min(1, Math.max(0, Number(raw))) * 255);
+  const r = channel(srgb[1]);
+  const g = channel(srgb[2]);
+  const b = channel(srgb[3]);
+  if (srgb[4] === undefined) {
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+  const alpha = Math.min(1, Math.max(0, Number(srgb[4])));
+  return `rgba(${r}, ${g}, ${b}, ${Math.round(alpha * 100) / 100})`;
+}
+
+/**
  * Maps the app's resolved theme tokens onto Stripe's Appearance API. Values
  * must be concrete CSS (not `var(--…)`) because the element renders in a
- * cross-origin iframe that cannot read this document's custom properties.
+ * cross-origin iframe that cannot read this document's custom properties, and
+ * every colour is run through {@link toStripeColor} so a `color(srgb …)` token
+ * never reaches Stripe as an unparseable value.
  */
 function toStripeAppearance(appearance: DirectCheckoutAppearance) {
+  const colorBackground = toStripeColor(appearance.colorBackground);
+  const colorText = toStripeColor(appearance.colorText);
+  const colorTextSecondary = toStripeColor(appearance.colorTextSecondary);
+  const colorDanger = toStripeColor(appearance.colorDanger);
+  const colorPrimary = toStripeColor(appearance.colorPrimary);
+  const colorBorder = toStripeColor(appearance.colorBorder);
   return {
-    // Base theme by mode. The Payment Element's built-in defaults — crucially
-    // the card icon inside the number field — come from this base, and our
-    // variable overrides only refine on top. Keeping "stripe" (a LIGHT base) on
-    // a dark surface left that icon dark-on-dark; "night" gives it the
-    // light-tuned defaults a dark surface needs.
-    theme: isDarkSurface(appearance.colorBackground)
+    // Base theme by mode. The Payment Element's built-in defaults come from
+    // this base, and our variable overrides only refine on top. Keeping
+    // "stripe" (a LIGHT base) on a dark surface left the card icon dark-on-dark;
+    // "night" gives it the light-tuned defaults a dark surface needs.
+    theme: isDarkSurface(colorBackground)
       ? ("night" as const)
       : ("stripe" as const),
     variables: {
-      colorBackground: appearance.colorBackground,
-      colorText: appearance.colorText,
-      colorTextSecondary: appearance.colorTextSecondary,
-      colorDanger: appearance.colorDanger,
-      colorPrimary: appearance.colorPrimary,
+      colorBackground,
+      colorText,
+      colorTextSecondary,
+      colorDanger,
+      colorPrimary,
+      // Pin the icon colour explicitly. The card-number field's icon comes from
+      // the base theme, and it stayed dark even under "night"; tying it to the
+      // text colour makes it track the surface in both modes rather than
+      // trusting the theme default.
+      colorIcon: colorText,
       fontFamily: appearance.fontFamily,
       fontSizeBase: appearance.fontSizeBase,
       borderRadius: appearance.borderRadius,
     },
     rules: {
       ".Input": {
-        border: `1px solid ${appearance.colorBorder}`,
+        border: `1px solid ${colorBorder}`,
         paddingTop: appearance.inputPaddingBlock,
         paddingBottom: appearance.inputPaddingBlock,
         boxShadow: "none",
       },
       ".Input:focus": {
-        border: `1px solid ${appearance.colorPrimary}`,
+        border: `1px solid ${colorPrimary}`,
         outline: "none",
         boxShadow: "none",
       },
-      ".Label": { color: appearance.colorTextSecondary },
+      ".Label": { color: colorTextSecondary },
     },
   };
 }
