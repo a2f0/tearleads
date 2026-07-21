@@ -16,13 +16,18 @@ def load_store_secrets_env
 end
 
 # Returns why a generated capacitor.config.json is not a shippable release
-# config, or nil when it is fully bundled. Debug syncs leave CapacitorHttp
-# enabled; `cap run --live-reload` leaves a server.url pointing the WebView at a
-# LAN dev server (e.g. 10.0.1.10:8085), which shows "the webpage at <ip> is not
-# available" once installed. `cap:sync:release` clears both.
+# config, or nil when it is fully bundled. `cap run --live-reload` leaves a
+# server.url pointing the WebView at a LAN dev server (e.g. 10.0.1.10:8085),
+# which shows "the webpage at <ip> is not available" once installed;
+# `cap:sync:release` clears it.
+#
+# CapacitorHttp is intentionally enabled on EVERY build (see capacitor.config.ts):
+# routing requests through native HTTP is what lets the release WebView reach the
+# API at all — the WKWebView's own cross-origin fetch from the app's
+# https://localhost origin fails. So `CapacitorHttp.enabled: true` is no longer a
+# debug-leftover signal and must not fail the release guard; only a stray
+# server.url does.
 def capacitor_release_problem(config)
-  return 'has CapacitorHttp enabled (a debug sync)' if config.dig('plugins', 'CapacitorHttp', 'enabled')
-
   server_url = config.dig('server', 'url').to_s
   return "sets server.url=#{server_url} (usually a leftover live-reload URL)" unless server_url.empty?
 
