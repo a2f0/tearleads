@@ -101,4 +101,17 @@ if [ "$build_number_chosen" = false ]; then
   set -- "$@" next_google_play:true
 fi
 
-exec bun run android:upload:google-play "$@"
+# Fastlane writes the resolved version code (build number) to this file so we can
+# report it once the upload finishes. Run (not exec) so the reporting block below
+# still executes after the upload.
+BUILD_NUMBER_FILE="$(mktemp "${TMPDIR:-/tmp}/android-build-number.XXXXXX")"
+trap 'rm -f "$BUILD_NUMBER_FILE"' EXIT
+export ANDROID_RELEASE_BUILD_NUMBER_FILE="$BUILD_NUMBER_FILE"
+
+bun run android:upload:google-play "$@"
+
+if [ -s "$BUILD_NUMBER_FILE" ]; then
+  echo "Build number: $(cat "$BUILD_NUMBER_FILE")"
+else
+  echo "Build number: unknown (Fastlane did not report one)"
+fi

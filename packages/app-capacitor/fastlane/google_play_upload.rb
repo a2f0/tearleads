@@ -42,6 +42,14 @@ def upload_android_play_release_options(options, release_result)
   )
 end
 
+def record_android_release_build_number(build_number)
+  UI.success("Android release build number: #{build_number}")
+  output_path = ENV.fetch('ANDROID_RELEASE_BUILD_NUMBER_FILE', nil)
+  return if output_path.to_s.empty?
+
+  File.write(output_path, "#{build_number}\n")
+end
+
 def upload_android_play_release_result(options, release_result)
   {
     build_number: release_result.fetch(:build_number),
@@ -59,6 +67,7 @@ platform :android do
   lane :upload_google_play_release do |options|
     release_result = build_google_play_release(options)
     upload_to_play_store(upload_android_play_release_options(options, release_result))
+    record_android_release_build_number(release_result.fetch(:build_number))
     upload_android_play_release_result(options, release_result)
   end
 end
