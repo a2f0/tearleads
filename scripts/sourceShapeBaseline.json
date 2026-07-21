@@ -384,6 +384,10 @@
     "packages/client-sdk/src/stores/documents/documentStore/syncAttachments.ts": {
       "lines": 510,
       "bytes": 16056
+    },
+    "packages/sqlite-worker/src/crossTabRuntime.ts": {
+      "lines": 560,
+      "bytes": 19000
     }
   },
   "categories": {
