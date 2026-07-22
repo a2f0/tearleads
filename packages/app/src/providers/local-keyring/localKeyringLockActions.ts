@@ -2,6 +2,7 @@ import type {
   LocalKeyring,
   LocalKeyringManifestStore,
   LocalKeyringScope,
+  WrappingKeyMaterialStorage,
 } from "@tearleads/client-sdk";
 import {
   type Dispatch,
@@ -12,7 +13,7 @@ import {
   useRef,
 } from "react";
 import {
-  createBrowserLocalKeyringForPinCode,
+  browserLocalKeyringFactory,
   createDynamicLocalKeyring,
   createPinKeystore,
   createPlainKeystore,
@@ -25,6 +26,7 @@ import {
   rewrapExistingManifests,
   verifyPinCode,
 } from "./localKeyringLockSupport";
+import { pinCodePolicyError } from "./pinCodePolicy";
 
 export interface LocalKeyringLockContextValue {
   readonly canManagePinCode: boolean;
@@ -41,17 +43,29 @@ export interface LocalKeyringLockContextValue {
 }
 
 async function rewrapExistingManifestsWithPin(input: {
+  readonly keyMaterialStorage: WrappingKeyMaterialStorage | undefined;
   readonly manifestStore: LocalKeyringManifestStore;
   readonly pinCode: string;
   readonly scopes: readonly LocalKeyringScope[];
   readonly sourcePinCode: string | null;
 }): Promise<boolean> {
-  await rewrapExistingManifests({
-    manifestStore: input.manifestStore,
-    scopes: input.scopes,
-    sourcePinCode: input.sourcePinCode,
-    targetKeystore: createPinKeystore(input.pinCode),
+  // Spans every scope, so rewrapExistingManifests cannot close it; this owner
+  // does, to keep the WebView shells from accumulating IndexedDB connections.
+  const targetKeystore = createPinKeystore({
+    keyMaterialStorage: input.keyMaterialStorage,
+    pinCode: input.pinCode,
   });
+  try {
+    await rewrapExistingManifests({
+      keyMaterialStorage: input.keyMaterialStorage,
+      manifestStore: input.manifestStore,
+      scopes: input.scopes,
+      sourcePinCode: input.sourcePinCode,
+      targetKeystore,
+    });
+  } finally {
+    targetKeystore.close?.();
+  }
 
   return hasPinWrappedManifest({
     manifestStore: input.manifestStore,
@@ -148,9 +162,18 @@ export function useDynamicLocalKeyringFactory(input: {
   readonly lockState: LockState;
   readonly unlockedPinCode: string | null;
 }): LocalKeyringFactory {
+  // Memoized so the shell's key-material mode is baked in once. The cached
+  // keyring's identity compares this by reference, so minting a fresh closure
+  // per render would drop the cached keyring on every render — exactly the
+  // IndexedDB connection churn the cache below exists to prevent.
+  const browserCreateLocalKeyring = useMemo(
+    () =>
+      input.createBrowserLocalKeyring ??
+      browserLocalKeyringFactory(input.environment.keyMaterialStorage),
+    [input.createBrowserLocalKeyring, input.environment.keyMaterialStorage],
+  );
   const stateRef = useRef<DynamicKeyringState>({
-    browserCreateLocalKeyring:
-      input.createBrowserLocalKeyring ?? createBrowserLocalKeyringForPinCode,
+    browserCreateLocalKeyring,
     canManagePinCode: input.environment.canManagePinCode,
     hostCreateLocalKeyring: input.environment.hostCreateLocalKeyring,
     pinCodeEnabled: input.lockState.pinCodeEnabled,
@@ -158,8 +181,7 @@ export function useDynamicLocalKeyringFactory(input: {
     unlockedPinCode: input.unlockedPinCode,
   });
   stateRef.current = {
-    browserCreateLocalKeyring:
-      input.createBrowserLocalKeyring ?? createBrowserLocalKeyringForPinCode,
+    browserCreateLocalKeyring,
     canManagePinCode: input.environment.canManagePinCode,
     hostCreateLocalKeyring: input.environment.hostCreateLocalKeyring,
     pinCodeEnabled: input.lockState.pinCodeEnabled,
@@ -204,8 +226,8 @@ export function useDynamicLocalKeyringFactory(input: {
       closeCachedKeyring();
     }
   }, [
+    browserCreateLocalKeyring,
     closeCachedKeyring,
-    input.createBrowserLocalKeyring,
     input.environment.canManagePinCode,
     input.environment.hostCreateLocalKeyring,
     input.lockState.pinCodeEnabled,
@@ -264,6 +286,7 @@ export function useUnlockAction(input: {
       let verified = false;
       try {
         verified = await verifyPinCode({
+          keyMaterialStorage: environment.keyMaterialStorage,
           manifestStore: environment.manifestStore,
           pinCode,
           scopes: environment.scopes,
@@ -331,7 +354,10 @@ export function useSetPinCodeAction(input: {
         !environment.canManagePinCode ||
         !environment.manifestStore ||
         !environment.pinCodeConfigNamespace ||
-        !pinCode
+        !pinCode ||
+        // Enforced here as well as in the form so the strength policy holds for
+        // any caller, not just the one that renders the validation message.
+        pinCodePolicyError(pinCode) !== null
       ) {
         return false;
       }
@@ -339,6 +365,7 @@ export function useSetPinCodeAction(input: {
       let protectedAnyManifest = false;
       try {
         protectedAnyManifest = await rewrapExistingManifestsWithPin({
+          keyMaterialStorage: environment.keyMaterialStorage,
           manifestStore: environment.manifestStore,
           pinCode,
           scopes: environment.scopes,
@@ -387,15 +414,21 @@ export function useClearPinCodeAction(input: {
         return false;
       }
 
+      const targetKeystore = createPlainKeystore(
+        environment.keyMaterialStorage,
+      );
       try {
         await rewrapExistingManifests({
+          keyMaterialStorage: environment.keyMaterialStorage,
           manifestStore: environment.manifestStore,
           scopes: environment.scopes,
           sourcePinCode: pinCode,
-          targetKeystore: createPlainKeystore(),
+          targetKeystore,
         });
       } catch {
         return false;
+      } finally {
+        targetKeystore.close?.();
       }
 
       environment.storage?.removeItem(

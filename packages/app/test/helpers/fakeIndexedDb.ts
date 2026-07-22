@@ -137,11 +137,35 @@ function createFakeIndexedDbTransaction(
   ) as unknown as IDBTransaction;
 }
 
+/**
+ * Counts databases handed out by `open` and given back by `close`, so a test can
+ * assert a code path releases its connections. A real WKWebView can hang on a
+ * later `indexedDB.open()` when earlier connections were leaked, which this fake
+ * cannot reproduce; counting is the observable stand-in.
+ */
+interface FakeIndexedDbConnectionCounter {
+  open: number;
+}
+
 function createFakeIndexedDbDatabase(
   stores: Map<string, FakeIndexedDbStore>,
+  counter?: FakeIndexedDbConnectionCounter,
 ): IDBDatabase {
+  let closed = false;
+  if (counter) {
+    counter.open += 1;
+  }
+
   return {
-    close: () => undefined,
+    close: () => {
+      // Real IDBDatabase.close() is idempotent; double-counting a repeated
+      // close would mask a leak elsewhere.
+      if (closed || !counter) {
+        return;
+      }
+      closed = true;
+      counter.open -= 1;
+    },
     createObjectStore: (name: string, options?: { keyPath?: string }) => {
       const store: FakeIndexedDbStore = {
         keyPath: options?.keyPath ?? "keyId",
@@ -169,7 +193,9 @@ function createFakeIndexedDbDatabase(
   } as unknown as IDBDatabase;
 }
 
-export function createFakeIndexedDb(): IDBFactory {
+export function createFakeIndexedDb(
+  counter?: FakeIndexedDbConnectionCounter,
+): IDBFactory {
   const databases = new Map<string, Map<string, FakeIndexedDbStore>>();
 
   return {
@@ -191,7 +217,7 @@ export function createFakeIndexedDb(): IDBFactory {
           stores = new Map();
           databases.set(name, stores);
         }
-        request.result = createFakeIndexedDbDatabase(stores);
+        request.result = createFakeIndexedDbDatabase(stores, counter);
         if (needsUpgrade) {
           request.onupgradeneeded?.({} as IDBVersionChangeEvent);
         }
@@ -201,4 +227,18 @@ export function createFakeIndexedDb(): IDBFactory {
       return request as unknown as IDBOpenDBRequest;
     },
   } as unknown as IDBFactory;
+}
+
+/**
+ * A fake IndexedDB plus a live count of connections opened but not yet closed.
+ */
+export function createTrackedFakeIndexedDb(): {
+  readonly indexedDB: IDBFactory;
+  readonly openConnectionCount: () => number;
+} {
+  const counter: FakeIndexedDbConnectionCounter = { open: 0 };
+  return {
+    indexedDB: createFakeIndexedDb(counter),
+    openConnectionCount: () => counter.open,
+  };
 }

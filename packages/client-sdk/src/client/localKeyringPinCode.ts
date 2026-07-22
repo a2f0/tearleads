@@ -234,6 +234,13 @@ export function createPinCodeBrowserLocalKeyring(
       innerKeystore: createIndexedDbWrappingKeyKeystore({
         databaseName: options.databaseName,
         indexedDB: options.indexedDB,
+        // Must match the non-PIN keyring's mode for the same shell. The inner
+        // keystore reads the wrapping-key record written by whichever keyring
+        // ran first, and a "raw-bytes" keystore refuses a legacy CryptoKey
+        // record (and vice versa). WKWebView shells (Capacitor/Electrobun)
+        // cannot structured-clone a CryptoKey at all, so without this the PIN
+        // keyring would throw DataCloneError where the plain one works.
+        keyMaterialStorage: options.keyMaterialStorage,
         objectStoreName: options.objectStoreName,
         provider: options.wrappingKeyProvider,
       }),

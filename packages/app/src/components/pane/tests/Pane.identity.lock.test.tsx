@@ -62,9 +62,10 @@ async function persistUnlockableBlobStoreManifest(
   namespace: string,
   pinCode: string,
 ): Promise<void> {
-  const session = await createBrowserLocalKeyringForPinCode(
+  const session = await createBrowserLocalKeyringForPinCode({
+    keyMaterialStorage: undefined,
     pinCode,
-  ).getOrCreateSession({
+  }).getOrCreateSession({
     namespace: LOCAL_BLOB_STORE_SCOPE_NAMESPACE,
   });
   session.dispose();

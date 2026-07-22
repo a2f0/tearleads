@@ -10,6 +10,7 @@ import {
   type LocalKeyringScope,
   type LocalSecretContext,
   type WrappingKeyKeystore,
+  type WrappingKeyMaterialStorage,
 } from "@tearleads/client-sdk";
 
 export type LocalKeyringLockStatus = "unavailable" | "unlocked" | "locked";
@@ -35,6 +36,13 @@ export type LocalKeyringFactory = (() => LocalKeyring) & {
 export interface LocalKeyringLockEnvironment {
   readonly canManagePinCode: boolean;
   readonly hostCreateLocalKeyring: (() => LocalKeyring) | undefined;
+  /**
+   * How this shell persists the IndexedDB wrapping key. WKWebView shells
+   * (Capacitor/Electrobun) must use "raw-bytes"; browsers use the default
+   * non-extractable CryptoKey. Every keystore built here threads it through so
+   * the PIN and non-PIN keyrings agree on the record shape they read and write.
+   */
+  readonly keyMaterialStorage: WrappingKeyMaterialStorage | undefined;
   readonly manifestStore: LocalKeyringManifestStore | null;
   readonly pinCodeConfigNamespace: string | null;
   readonly scopes: readonly LocalKeyringScope[];
@@ -72,14 +80,19 @@ function localSecretContext(
   };
 }
 
-export function createPlainKeystore(): WrappingKeyKeystore {
-  return createIndexedDbWrappingKeyKeystore();
+export function createPlainKeystore(
+  keyMaterialStorage: WrappingKeyMaterialStorage | undefined,
+): WrappingKeyKeystore {
+  return createIndexedDbWrappingKeyKeystore({ keyMaterialStorage });
 }
 
-export function createPinKeystore(pinCode: string): WrappingKeyKeystore {
+export function createPinKeystore(input: {
+  readonly keyMaterialStorage: WrappingKeyMaterialStorage | undefined;
+  readonly pinCode: string;
+}): WrappingKeyKeystore {
   return createPinCodeWrappingKeyKeystore({
-    innerKeystore: createPlainKeystore(),
-    pinCode,
+    innerKeystore: createPlainKeystore(input.keyMaterialStorage),
+    pinCode: input.pinCode,
   });
 }
 
@@ -126,12 +139,26 @@ export function createDynamicLocalKeyring(
   };
 }
 
-export function createBrowserLocalKeyringForPinCode(
-  pinCode: string | null,
-): LocalKeyring {
+export function createBrowserLocalKeyringForPinCode(input: {
+  readonly keyMaterialStorage: WrappingKeyMaterialStorage | undefined;
+  readonly pinCode: string | null;
+}): LocalKeyring {
+  const { keyMaterialStorage, pinCode } = input;
   return pinCode
-    ? createPinCodeBrowserLocalKeyring({ pinCode })
-    : createBrowserLocalKeyring();
+    ? createPinCodeBrowserLocalKeyring({ keyMaterialStorage, pinCode })
+    : createBrowserLocalKeyring({ keyMaterialStorage });
+}
+
+/**
+ * Binds a shell's key-material mode into the `(pinCode) => LocalKeyring` shape
+ * the dynamic keyring factory caches on. Kept referentially stable by the
+ * caller so the cached keyring survives renders that change nothing.
+ */
+export function browserLocalKeyringFactory(
+  keyMaterialStorage: WrappingKeyMaterialStorage | undefined,
+): (pinCode: string | null) => LocalKeyring {
+  return (pinCode) =>
+    createBrowserLocalKeyringForPinCode({ keyMaterialStorage, pinCode });
 }
 
 export function initialLockSnapshot(input: {
@@ -201,21 +228,26 @@ async function rewrapManifest(input: {
   }
 }
 
-function sourceKeystoreForManifest(
-  manifest: LocalKeyringManifest,
-  pinCode: string | null,
-): WrappingKeyKeystore {
-  if (!isPinCodeWrappedLocalSecretEnvelope(manifest.rootKeyEnvelope)) {
-    return createPlainKeystore();
+function sourceKeystoreForManifest(input: {
+  readonly keyMaterialStorage: WrappingKeyMaterialStorage | undefined;
+  readonly manifest: LocalKeyringManifest;
+  readonly pinCode: string | null;
+}): WrappingKeyKeystore {
+  if (!isPinCodeWrappedLocalSecretEnvelope(input.manifest.rootKeyEnvelope)) {
+    return createPlainKeystore(input.keyMaterialStorage);
   }
-  if (!pinCode) {
+  if (!input.pinCode) {
     throw new Error("Current PIN code is required.");
   }
 
-  return createPinKeystore(pinCode);
+  return createPinKeystore({
+    keyMaterialStorage: input.keyMaterialStorage,
+    pinCode: input.pinCode,
+  });
 }
 
 export async function rewrapExistingManifests(input: {
+  readonly keyMaterialStorage: WrappingKeyMaterialStorage | undefined;
   readonly manifestStore: LocalKeyringManifestStore;
   readonly scopes: readonly LocalKeyringScope[];
   readonly sourcePinCode: string | null;
@@ -227,44 +259,68 @@ export async function rewrapExistingManifests(input: {
       continue;
     }
 
-    await rewrapManifest({
+    // One source keystore per manifest, each holding its own IDBDatabase until
+    // closed. Leaking them matters most on the WKWebView shells this PIN path
+    // newly reaches, where a later indexedDB.open() can hang outright rather
+    // than merely wasting a handle. The target keystore spans every scope, so
+    // its owner closes it, not this loop.
+    const sourceKeystore = sourceKeystoreForManifest({
+      keyMaterialStorage: input.keyMaterialStorage,
       manifest,
-      manifestStore: input.manifestStore,
-      sourceKeystore: sourceKeystoreForManifest(manifest, input.sourcePinCode),
-      targetKeystore: input.targetKeystore,
+      pinCode: input.sourcePinCode,
     });
+    try {
+      await rewrapManifest({
+        manifest,
+        manifestStore: input.manifestStore,
+        sourceKeystore,
+        targetKeystore: input.targetKeystore,
+      });
+    } finally {
+      sourceKeystore.close?.();
+    }
   }
 }
 
 export async function verifyPinCode(input: {
+  readonly keyMaterialStorage: WrappingKeyMaterialStorage | undefined;
   readonly manifestStore: LocalKeyringManifestStore;
   readonly pinCode: string;
   readonly scopes: readonly LocalKeyringScope[];
 }): Promise<boolean> {
-  const pinKeystore = createPinKeystore(input.pinCode);
-  let verifiedAnyManifest = false;
-  for (const scope of input.scopes) {
-    const manifest = await input.manifestStore.loadManifest(scope);
-    if (
-      !manifest ||
-      !isPinCodeWrappedLocalSecretEnvelope(manifest.rootKeyEnvelope)
-    ) {
-      continue;
+  // Verification runs on every unlock attempt, so a leaked connection here
+  // accumulates once per wrong PIN.
+  const pinKeystore = createPinKeystore({
+    keyMaterialStorage: input.keyMaterialStorage,
+    pinCode: input.pinCode,
+  });
+  try {
+    let verifiedAnyManifest = false;
+    for (const scope of input.scopes) {
+      const manifest = await input.manifestStore.loadManifest(scope);
+      if (
+        !manifest ||
+        !isPinCodeWrappedLocalSecretEnvelope(manifest.rootKeyEnvelope)
+      ) {
+        continue;
+      }
+
+      let rootKey: Uint8Array<ArrayBuffer> | null = null;
+      try {
+        rootKey = await pinKeystore.unwrapSecret({
+          context: localSecretContext(manifest),
+          envelope: manifest.rootKeyEnvelope,
+        });
+      } catch {
+        return false;
+      } finally {
+        rootKey?.fill(0);
+      }
+      verifiedAnyManifest = true;
     }
 
-    let rootKey: Uint8Array<ArrayBuffer> | null = null;
-    try {
-      rootKey = await pinKeystore.unwrapSecret({
-        context: localSecretContext(manifest),
-        envelope: manifest.rootKeyEnvelope,
-      });
-    } catch {
-      return false;
-    } finally {
-      rootKey?.fill(0);
-    }
-    verifiedAnyManifest = true;
+    return verifiedAnyManifest;
+  } finally {
+    pinKeystore.close?.();
   }
-
-  return verifiedAnyManifest;
 }

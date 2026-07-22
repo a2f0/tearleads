@@ -1,6 +1,5 @@
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
-import { createWebViewLocalKeyring } from "@tearleads/client-sdk";
 import {
   createSQLiteRuntime,
   PERSISTENT_STORAGE_POLICY,
@@ -71,10 +70,16 @@ const hostConfig = createAppHostConfig({
   // do that without keychain access and throws DataCloneError, which takes down
   // keyring init (SQLite cipher key, identity persistence, crypto session) on
   // boot and leaves the app keyless — identity auto-provisioning silently fails
-  // and every gated pane shows "Local keys required". Use the raw-bytes WebView
-  // keyring (the same fix the Electrobun shell uses, client-sdk #1185) so keyring
-  // init works across both WebViews.
-  createLocalKeyring: () => createWebViewLocalKeyring(),
+  // and every gated pane shows "Local keys required". Persist raw bytes instead
+  // (the same fix the Electrobun shell uses, client-sdk #1185) so keyring init
+  // works across both WebViews.
+  //
+  // Declared as a mode rather than by overriding createLocalKeyring: the
+  // override made the keyring host-managed, which disabled PIN locking on
+  // mobile ("Unavailable" in Identity Manager). The mode produces a
+  // byte-identical wrapping-key record — same database, store, and provider —
+  // so existing installs keep reading the keyring they already wrote.
+  localKeyringKeyMaterialStorage: "raw-bytes",
   // The WebView has no browser download destination, so the default anchor
   // saver is a no-op; write the bytes and open the native share sheet instead.
   createFileSaver: createCapacitorFileSaver,

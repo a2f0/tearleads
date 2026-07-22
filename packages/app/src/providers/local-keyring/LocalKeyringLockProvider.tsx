@@ -49,6 +49,11 @@ function useLocalKeyringLockEnvironment(): LocalKeyringLockEnvironment {
   const storage = useMemo(() => getBrowserStorage(), []);
   const localIdentityNamespace = hostConfig.localIdentityNamespace ?? null;
   const hostCreateLocalKeyring = hostConfig.createLocalKeyring;
+  const keyMaterialStorage = hostConfig.localKeyringKeyMaterialStorage;
+  // A host that supplies its own keyring owns wrapping entirely, so this
+  // provider has nothing to re-wrap and PIN locking cannot apply. A host that
+  // only declares a key-material mode (the WebView shells) still gets its
+  // keyring built here, so it keeps PIN locking.
   const hostManaged = hostCreateLocalKeyring !== undefined;
   const canManagePinCode = !hostManaged && isBrowserKeyringSupported(storage);
   const pinCodeConfigNamespace = canManagePinCode
@@ -67,6 +72,7 @@ function useLocalKeyringLockEnvironment(): LocalKeyringLockEnvironment {
     () => ({
       canManagePinCode,
       hostCreateLocalKeyring,
+      keyMaterialStorage,
       manifestStore,
       pinCodeConfigNamespace,
       scopes,
@@ -75,6 +81,7 @@ function useLocalKeyringLockEnvironment(): LocalKeyringLockEnvironment {
     [
       canManagePinCode,
       hostCreateLocalKeyring,
+      keyMaterialStorage,
       manifestStore,
       pinCodeConfigNamespace,
       scopes,

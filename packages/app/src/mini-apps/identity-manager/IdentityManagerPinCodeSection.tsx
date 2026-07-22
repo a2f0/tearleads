@@ -10,6 +10,7 @@ import {
 } from "../../components/mini-app/MiniAppLayout";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
+import { pinCodePolicyError } from "../../providers/local-keyring/pinCodePolicy";
 
 type PinAction = "clear" | "set" | "unlock" | null;
 type LocalKeyringLock = ReturnType<typeof useLocalKeyringLock>;
@@ -181,6 +182,11 @@ function PinManagementForms({ lock }: { readonly lock: LocalKeyringLock }) {
       setError("PIN codes must be non-empty and match.");
       return;
     }
+    const policyError = pinCodePolicyError(pinCode);
+    if (policyError) {
+      setError(policyError);
+      return;
+    }
 
     setBusy("set");
     setError(null);
@@ -261,7 +267,8 @@ export function IdentityManagerPinCodeSection() {
       </MiniAppSectionHeading>
       {!lock.canManagePinCode ? (
         <MiniAppStatus>
-          PIN locking is available for browser-managed local keychains.
+          PIN locking is unavailable here — the local keychain is managed by the
+          platform shell, or browser storage is unavailable.
         </MiniAppStatus>
       ) : lock.isLocked ? (
         <PinUnlockForm lock={lock} />
