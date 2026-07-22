@@ -28,7 +28,6 @@ async function registerAndAuthenticate(user: TestUser): Promise<string> {
   return row.organizationId;
 }
 
-const ORG_ID = "11111111-1111-4111-8111-111111111111";
 const WEBHOOK_SECRET = "whsec_test";
 const STRIPE_ENV = {
   STRIPE_SECRET_KEY: "sk_test_123",
@@ -40,18 +39,6 @@ const REVENUECAT_ENV = {
   REVENUECAT_PROJECT_ID: "proj_1",
   REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp_pub",
 };
-
-function signedDelivery(event: unknown): {
-  payload: string;
-  signatureHeader: string;
-} {
-  const payload = JSON.stringify(event);
-  const timestamp = Math.floor(Date.now() / 1000);
-  const signature = createHmac("sha256", WEBHOOK_SECRET)
-    .update(`${timestamp}.${payload}`)
-    .digest("hex");
-  return { payload, signatureHeader: `t=${timestamp},v1=${signature}` };
-}
 
 function respondingFetch(
   responses: Array<{ status?: number; body: unknown }>,
@@ -66,6 +53,18 @@ function respondingFetch(
   }) as typeof fetch;
 }
 
+function signedDelivery(event: unknown): {
+  payload: string;
+  signatureHeader: string;
+} {
+  const payload = JSON.stringify(event);
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signature = createHmac("sha256", WEBHOOK_SECRET)
+    .update(`${timestamp}.${payload}`)
+    .digest("hex");
+  return { payload, signatureHeader: `t=${timestamp},v1=${signature}` };
+}
+
 const PAID_EVENT = {
   type: "invoice.paid",
   data: {
@@ -73,51 +72,10 @@ const PAID_EVENT = {
   },
 };
 
-test("a paid first invoice is associated with RevenueCat", async () => {
-  const urls: string[] = [];
-  const outcome = await processStripeWebhook(signedDelivery(PAID_EVENT), {
-    stripe: {
-      env: STRIPE_ENV,
-      fetchImpl: respondingFetch(
-        [
-          {
-            body: {
-              id: "sub_1",
-              status: "active",
-              metadata: { userId: "user-1", orgId: ORG_ID },
-            },
-          },
-        ],
-        urls,
-      ),
-    },
-    revenueCat: {
-      env: REVENUECAT_ENV,
-      fetchImpl: respondingFetch(
-        [{ body: {} }, { body: {} }, { body: {} }],
-        urls,
-      ),
-    },
-  });
-
-  expect(outcome).toEqual({
-    status: "associated",
-    subscriptionId: "sub_1",
-    organizationId: ORG_ID,
-  });
-  // The customer must exist before v2 attributes accepts a write, and the
-  // receipt (v1, Stripe app key) closes the association.
-  expect(urls).toEqual([
-    "GET https://api.stripe.com/v1/subscriptions/sub_1",
-    "POST https://api.revenuecat.com/v2/projects/proj_1/customers",
-    "POST https://api.revenuecat.com/v2/projects/proj_1/customers/user-1/attributes",
-    "POST https://api.revenuecat.com/v1/receipts",
-  ]);
-});
-
 test("an unsigned delivery is unauthorized and touches nothing", async () => {
   const urls: string[] = [];
   const outcome = await processStripeWebhook(
+    getDefaultApiServiceRuntime(),
     { payload: JSON.stringify(PAID_EVENT), signatureHeader: undefined },
     { stripe: { env: STRIPE_ENV, fetchImpl: respondingFetch([], urls) } },
   );
@@ -127,19 +85,23 @@ test("an unsigned delivery is unauthorized and touches nothing", async () => {
 
 test("a subscription without an org binding is recorded as ignored", async () => {
   const urls: string[] = [];
-  const outcome = await processStripeWebhook(signedDelivery(PAID_EVENT), {
-    stripe: {
-      env: STRIPE_ENV,
-      fetchImpl: respondingFetch(
-        [{ body: { id: "sub_1", status: "active", metadata: {} } }],
-        urls,
-      ),
+  const outcome = await processStripeWebhook(
+    getDefaultApiServiceRuntime(),
+    signedDelivery(PAID_EVENT),
+    {
+      stripe: {
+        env: STRIPE_ENV,
+        fetchImpl: respondingFetch(
+          [{ body: { id: "sub_1", status: "active", metadata: {} } }],
+          urls,
+        ),
+      },
+      revenueCat: {
+        env: REVENUECAT_ENV,
+        fetchImpl: respondingFetch([], urls),
+      },
     },
-    revenueCat: {
-      env: REVENUECAT_ENV,
-      fetchImpl: respondingFetch([], urls),
-    },
-  });
+  );
   expect(outcome).toEqual({
     status: "ignored",
     reason: "Subscription carries no org binding",
@@ -148,28 +110,16 @@ test("a subscription without an org binding is recorded as ignored", async () =>
   expect(urls).toHaveLength(1);
 });
 
-test("renewal invoices are ignored — RevenueCat owns the lifecycle", async () => {
-  const outcome = await processStripeWebhook(
-    signedDelivery({
-      type: "invoice.paid",
-      data: {
-        object: { billing_reason: "subscription_cycle", subscription: "sub_1" },
-      },
-    }),
-    { stripe: { env: STRIPE_ENV, fetchImpl: respondingFetch([], []) } },
-  );
-  expect(outcome).toEqual({
-    status: "ignored",
-    reason: "Not a newly paid subscription",
-  });
-});
-
 test("a paid invoice with no Stripe API config asks for redelivery", async () => {
-  const outcome = await processStripeWebhook(signedDelivery(PAID_EVENT), {
-    // Webhook secret present, Stripe API key absent: acknowledging with a 2xx
-    // would strand the paid subscription forever.
-    stripe: { env: { STRIPE_WEBHOOK_SECRET: WEBHOOK_SECRET } },
-  });
+  const outcome = await processStripeWebhook(
+    getDefaultApiServiceRuntime(),
+    signedDelivery(PAID_EVENT),
+    {
+      // Webhook secret present, Stripe API key absent: acknowledging with a 2xx
+      // would strand the paid subscription forever.
+      stripe: { env: { STRIPE_WEBHOOK_SECRET: WEBHOOK_SECRET } },
+    },
+  );
   expect(outcome).toEqual({
     status: "retry",
     reason: "Stripe API is not configured",
@@ -190,6 +140,7 @@ test("options stay empty until the WHOLE flow is configured", async () => {
 
 test("a missing webhook secret fails closed", async () => {
   const outcome = await processStripeWebhook(
+    getDefaultApiServiceRuntime(),
     { payload: "{}", signatureHeader: "t=1,v1=abc" },
     { stripe: { env: {} } },
   );
@@ -544,10 +495,14 @@ test("a 404 subscription on the Stripe webhook is acknowledged as ignored", asyn
     urls.push(String(input));
     return new Response("{}", { status: 404 });
   }) as typeof fetch;
-  const outcome = await processStripeWebhook(signedDelivery(PAID_EVENT), {
-    stripe: { env: STRIPE_ENV, fetchImpl: notFoundFetch },
-    revenueCat: { env: REVENUECAT_ENV },
-  });
+  const outcome = await processStripeWebhook(
+    getDefaultApiServiceRuntime(),
+    signedDelivery(PAID_EVENT),
+    {
+      stripe: { env: STRIPE_ENV, fetchImpl: notFoundFetch },
+      revenueCat: { env: REVENUECAT_ENV },
+    },
+  );
   // Redelivery cannot make an unfetchable subscription appear; acknowledge
   // instead of looping Stripe's retries forever.
   expect(outcome).toEqual({

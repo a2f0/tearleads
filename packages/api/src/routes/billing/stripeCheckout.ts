@@ -211,13 +211,15 @@ export function createStripeCheckoutRoute({
  * before verification). Non-2xx responses make Stripe redeliver, which is the
  * retry mechanism for transient RevenueCat association failures.
  */
-export function createStripeWebhookRoute() {
+export function createStripeWebhookRoute(
+  runtime: OrganizationsRouterDeps["runtime"],
+) {
   const route = new Hono<SessionEnv>();
 
   route.post("/billing/stripe/webhook", async (c) => {
     let outcome: Awaited<ReturnType<typeof processStripeWebhook>>;
     try {
-      outcome = await processStripeWebhook({
+      outcome = await processStripeWebhook(runtime, {
         payload: await c.req.text(),
         signatureHeader: c.req.header("Stripe-Signature"),
       });

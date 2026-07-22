@@ -59,7 +59,7 @@ function state(overrides: Partial<DirectCheckoutState>): DirectCheckoutState {
 test("formats a two-decimal currency from its minor unit", () => {
   const formatted = formatPrice(99, "usd", "month");
   expect(formatted).toContain("0.99");
-  expect(formatted).toContain("/month");
+  expect(formatted).toContain("/seat/month");
 });
 
 test("formats a ZERO-decimal currency without dividing by 100", () => {
@@ -69,8 +69,8 @@ test("formats a ZERO-decimal currency without dividing by 100", () => {
   expect(formatted).not.toContain("5.00");
 });
 
-test("omits the interval for a non-recurring price and handles no amount", () => {
-  expect(formatPrice(99, "usd", null)).not.toContain("/");
+test("keeps the per-seat unit for a non-recurring price and handles no amount", () => {
+  expect(formatPrice(99, "usd", null)).toContain("/seat");
   expect(formatPrice(null, "usd", "month")).toBe("");
 });
 
@@ -78,7 +78,7 @@ test("a malformed currency code degrades without showing a wrong amount", () => 
   // Rendering the raw minor units would state a price 100x off for most
   // currencies; naming the currency alone is the safe degradation.
   const formatted = formatPrice(99, "notacurrency", "month");
-  expect(formatted).toBe("NOTACURRENCY");
+  expect(formatted).toBe("NOTACURRENCY/seat/month");
   expect(formatted).not.toContain("99");
 });
 
@@ -87,7 +87,7 @@ test("a well-formed but unknown currency degrades the same way", () => {
   // code, it formats with 2 fraction digits. If that code were a zero-decimal
   // currency, the buyer would be shown 1/100 of the real price.
   const formatted = formatPrice(99, "xqz", "month");
-  expect(formatted).toBe("XQZ");
+  expect(formatted).toBe("XQZ/seat/month");
   expect(formatted).not.toContain("0.99");
 });
 

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun scripts/buildApiExecutable.ts && bun scripts/buildBlobGcExecutable.ts",
+    "build": "bun scripts/buildApiExecutable.ts && bun scripts/buildBlobGcExecutable.ts && bun scripts/buildStripeSeatSyncExecutable.ts",
     "db:generate": "bun run --cwd ../api-shared db:generate",
     "db:generate:sqlite": "bun run --cwd ../api-shared db:generate:sqlite",
     "db:migrate": "bun run --cwd ../api-cli migrate",

@@ -1,8 +1,9 @@
 /**
  * Associates a paid Stripe subscription (direct web checkout, issue #1654)
- * with RevenueCat, which then owns the subscription lifecycle: RevenueCat
- * ingests renewals/cancellations from the connected Stripe account and emits
- * the same webhook events the rest of org sync billing already consumes.
+ * with RevenueCat, which mirrors the entitlement lifecycle: RevenueCat ingests
+ * renewals/cancellations from the connected Stripe account and emits the same
+ * webhook events the rest of org sync billing already consumes. Stripe remains
+ * authoritative for the web subscription's seat quantity and billing period.
  *
  * Three calls, in this order:
  *

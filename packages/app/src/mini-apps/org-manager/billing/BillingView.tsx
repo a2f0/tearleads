@@ -129,9 +129,9 @@ function resolveBillingPeriodLabel(
 }
 
 function BillingSummary({ view }: { view: OrganizationBillingView }) {
-  // Only an active paid subscription has *billed* seats (seatCount is the derived
-  // active-member count for the paid period); a free trial is not billed, and a
-  // local org has neither seats nor a period date.
+  // `seatCount` is licensed capacity for this paid period, not the number of
+  // members currently occupying those seats. A free trial is not billed, and
+  // a local org has neither licensed seats nor a period date.
   const seatsLabel =
     view.isActive && view.seatCount > 0
       ? getOrgManagerSeatsLabel(view.seatCount)

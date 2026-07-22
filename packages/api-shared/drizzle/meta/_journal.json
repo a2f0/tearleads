@@ -127,6 +127,20 @@
       "when": 1784301403645,
       "tag": "0017_goofy_doctor_strange",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1784725028993,
+      "tag": "0018_broken_kat_farrell",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1784727489371,
+      "tag": "0019_wise_steel_serpent",
+      "breakpoints": true
     }
   ]
 }

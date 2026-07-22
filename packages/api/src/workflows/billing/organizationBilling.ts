@@ -14,6 +14,7 @@ import {
   type OrganizationBilling,
   type OrganizationBillingHistoryEvent,
   organizationCanSync,
+  organizationSeatPeriodKey,
 } from "../../billing/organizationBilling";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
@@ -179,9 +180,15 @@ async function startOrganizationTrialInTransaction(input: {
   }
 
   const { status, trialEndsAt } = createTrialBillingFields(input.now);
+  const seatPeriodKey = organizationSeatPeriodKey({
+    currentPeriodEndsAt: null,
+    currentPeriodStartsAt: null,
+    status,
+    trialEndsAt,
+  });
   const [updated] = await input.executor
     .update(organizationBilling)
-    .set({ status, trialEndsAt, updatedAt: input.now })
+    .set({ status, trialEndsAt, seatPeriodKey, updatedAt: input.now })
     .where(
       and(
         eq(organizationBilling.organizationId, input.organizationId),

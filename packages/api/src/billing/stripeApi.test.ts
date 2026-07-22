@@ -7,7 +7,6 @@ import {
   findLiveOrgSubscription,
   findOrCreateCustomer,
   getStripeSyncOption,
-  getSubscriptionBinding,
   isStripeCheckoutConfigured,
   StripeApiError,
 } from "./stripeApi";
@@ -15,6 +14,14 @@ import {
 const ENV = {
   STRIPE_SECRET_KEY: "sk_test_123",
   STRIPE_SYNC_PRICE_ID: "price_sync",
+};
+
+const SYNC_SUBSCRIPTION_INPUT = {
+  checkoutAttemptId: "attempt-1",
+  customerId: "cus_1",
+  userId: "user-1",
+  organizationId: "org-1",
+  seatQuantity: 2,
 };
 
 interface RecordedRequest {
@@ -126,10 +133,10 @@ test("subscription create binds org metadata and returns the client secret", asy
       },
     },
   ]);
-  const outcome = await createSyncSubscription(
-    { customerId: "cus_1", userId: "user-1", organizationId: "org-1" },
-    { env: ENV, fetchImpl },
-  );
+  const outcome = await createSyncSubscription(SYNC_SUBSCRIPTION_INPUT, {
+    env: ENV,
+    fetchImpl,
+  });
 
   expect(outcome).toEqual({
     kind: "ready",
@@ -150,7 +157,7 @@ test("subscription create binds org metadata and returns the client secret", asy
   // admins racing produce conflicting bodies under one key, which Stripe
   // rejects — the org can never gain two parallel subscriptions.
   expect(requests[1]?.headers.get("Idempotency-Key")).toBe(
-    "sync-sub:org-1:price_sync:initial",
+    "sync-sub:org-1:attempt-1",
   );
 });
 
@@ -161,16 +168,20 @@ test("an existing incomplete subscription is resumed, not duplicated", async () 
       body: {
         id: "sub_pending",
         status: "incomplete",
-        metadata: { userId: "user-1", orgId: "org-1" },
-        items: { data: [{ price: { id: "price_sync" } }] },
+        metadata: {
+          checkoutAttemptId: "attempt-1",
+          userId: "user-1",
+          orgId: "org-1",
+        },
+        items: { data: [{ price: { id: "price_sync" }, quantity: 2 }] },
         latest_invoice: { payment_intent: { client_secret: "pi_resume" } },
       },
     },
   ]);
-  const outcome = await createSyncSubscription(
-    { customerId: "cus_1", userId: "user-1", organizationId: "org-1" },
-    { env: ENV, fetchImpl },
-  );
+  const outcome = await createSyncSubscription(SYNC_SUBSCRIPTION_INPUT, {
+    env: ENV,
+    fetchImpl,
+  });
 
   expect(outcome).toEqual({
     kind: "ready",
@@ -200,10 +211,10 @@ test("a stale pending checkout is a conflict, never cancelled", async () => {
       },
     },
   ]);
-  const outcome = await createSyncSubscription(
-    { customerId: "cus_1", userId: "user-1", organizationId: "org-1" },
-    { env: ENV, fetchImpl },
-  );
+  const outcome = await createSyncSubscription(SYNC_SUBSCRIPTION_INPUT, {
+    env: ENV,
+    fetchImpl,
+  });
 
   expect(outcome).toEqual({ kind: "conflict" });
   // Search and inspect only — no cancel, no create.
@@ -214,10 +225,10 @@ test("a live subscription for the org refuses a second checkout", async () => {
   const { fetchImpl, requests } = fakeFetch([
     { body: { data: [{ id: "sub_live", status: "active" }] } },
   ]);
-  const outcome = await createSyncSubscription(
-    { customerId: "cus_1", userId: "user-1", organizationId: "org-1" },
-    { env: ENV, fetchImpl },
-  );
+  const outcome = await createSyncSubscription(SYNC_SUBSCRIPTION_INPUT, {
+    env: ENV,
+    fetchImpl,
+  });
 
   expect(outcome).toEqual({ kind: "conflict" });
   expect(requests).toHaveLength(1);
@@ -243,7 +254,13 @@ test("a candidate that expired since the search is recreated, not resumed", asyn
   // fresh subscription is created under a rotated key.
   const { fetchImpl, requests } = fakeFetch([
     { body: { data: [{ id: "sub_gone", status: "incomplete" }] } },
-    { body: { id: "sub_gone", status: "incomplete_expired" } },
+    {
+      body: {
+        id: "sub_gone",
+        status: "incomplete_expired",
+        metadata: { checkoutAttemptId: "attempt-old" },
+      },
+    },
     {
       body: {
         id: "sub_next",
@@ -251,17 +268,17 @@ test("a candidate that expired since the search is recreated, not resumed", asyn
       },
     },
   ]);
-  const outcome = await createSyncSubscription(
-    { customerId: "cus_1", userId: "user-1", organizationId: "org-1" },
-    { env: ENV, fetchImpl },
-  );
+  const outcome = await createSyncSubscription(SYNC_SUBSCRIPTION_INPUT, {
+    env: ENV,
+    fetchImpl,
+  });
 
   expect(outcome).toEqual({
     kind: "ready",
     intent: { subscriptionId: "sub_next", clientSecret: "pi_next" },
   });
   expect(requests[2]?.headers.get("Idempotency-Key")).toBe(
-    "sync-sub:org-1:price_sync:sub_gone",
+    "sync-sub:org-1:attempt-1",
   );
 });
 
@@ -270,23 +287,24 @@ test("a candidate that became active since the search is a conflict", async () =
     { body: { data: [{ id: "sub_won", status: "incomplete" }] } },
     { body: { id: "sub_won", status: "active" } },
   ]);
-  const outcome = await createSyncSubscription(
-    { customerId: "cus_1", userId: "user-1", organizationId: "org-1" },
-    { env: ENV, fetchImpl },
-  );
+  const outcome = await createSyncSubscription(SYNC_SUBSCRIPTION_INPUT, {
+    env: ENV,
+    fetchImpl,
+  });
   expect(outcome).toEqual({ kind: "conflict" });
 });
 
-test("a terminal previous attempt rotates the subscription idempotency key", async () => {
+test("a durable checkout attempt supplies the rotated idempotency key", async () => {
   const { fetchImpl, requests } = fakeFetch([
-    // Two expired attempts, returned OLDEST-first: the key must rotate off
-    // the NEWEST one (search order is not creation order), because the older
-    // id may itself be baked into a still-retained idempotency key.
+    // Expired attempts from older durable tokens do not affect the new token.
     {
       body: {
         data: [
-          { id: "sub_older", status: "incomplete_expired", created: 100 },
-          { id: "sub_expired", status: "incomplete_expired", created: 200 },
+          {
+            id: "sub_older",
+            status: "incomplete_expired",
+            metadata: { checkoutAttemptId: "attempt-old" },
+          },
         ],
       },
     },
@@ -297,41 +315,18 @@ test("a terminal previous attempt rotates the subscription idempotency key", asy
       },
     },
   ]);
-  const outcome = await createSyncSubscription(
-    { customerId: "cus_1", userId: "user-1", organizationId: "org-1" },
-    { env: ENV, fetchImpl },
-  );
+  const outcome = await createSyncSubscription(SYNC_SUBSCRIPTION_INPUT, {
+    env: ENV,
+    fetchImpl,
+  });
 
   expect(outcome).toEqual({
     kind: "ready",
     intent: { subscriptionId: "sub_2", clientSecret: "pi_2" },
   });
   expect(requests[1]?.headers.get("Idempotency-Key")).toBe(
-    "sync-sub:org-1:price_sync:sub_expired",
+    "sync-sub:org-1:attempt-1",
   );
-});
-
-test("subscription binding reads metadata and status", async () => {
-  const { fetchImpl } = fakeFetch([
-    {
-      body: {
-        id: "sub_1",
-        status: "active",
-        metadata: { userId: "user-1", orgId: "org-1" },
-      },
-    },
-  ]);
-  const binding = await getSubscriptionBinding("sub_1", {
-    env: ENV,
-    fetchImpl,
-  });
-
-  expect(binding).toEqual({
-    userId: "user-1",
-    organizationId: "org-1",
-    status: "active",
-    customerId: null,
-  });
 });
 
 test("portal session returns the hosted url", async () => {
@@ -480,10 +475,13 @@ test("createCheckoutSession stamps org metadata onto the subscription", async ()
 
   const url = await createCheckoutSession(
     {
+      checkoutAttemptId: "attempt-hosted-1",
       customerId: "cus_1",
+      expiresAt: new Date("2030-01-01T00:45:00.000Z"),
       userId: "user-1",
       organizationId: "org-1",
       returnUrl: "https://app.example/billing?tab=events",
+      seatQuantity: 2,
     },
     { env: ENV, fetchImpl },
   );
@@ -493,7 +491,7 @@ test("createCheckoutSession stamps org metadata onto the subscription", async ()
   expect(requests[0]?.url).toContain("/v1/checkout/sessions");
   // Purely org-scoped: an org's attempts collapse onto one session.
   expect(requests[0]?.headers.get("Idempotency-Key")).toBe(
-    "checkout-session:org-1",
+    "checkout-session:org-1:attempt-hosted-1",
   );
   // The return URL is canonicalized (query dropped) so the stable success_url
   // params match the reused org key.
@@ -519,10 +517,13 @@ test("createCheckoutSession is null without price/secret config", async () => {
   expect(
     await createCheckoutSession(
       {
+        checkoutAttemptId: "attempt-hosted-1",
         customerId: "cus_1",
+        expiresAt: new Date("2030-01-01T00:45:00.000Z"),
         userId: "user-1",
         organizationId: "org-1",
         returnUrl: "https://app.example/billing",
+        seatQuantity: 1,
       },
       { env: {}, fetchImpl },
     ),
@@ -537,10 +538,13 @@ test("createCheckoutSession passes an unparseable return url through unchanged",
 
   await createCheckoutSession(
     {
+      checkoutAttemptId: "attempt-hosted-2",
       customerId: "cus_1",
+      expiresAt: new Date("2030-01-01T00:45:00.000Z"),
       userId: "user-1",
       organizationId: "org-1",
       returnUrl: "not a url",
+      seatQuantity: 1,
     },
     { env: ENV, fetchImpl },
   );

@@ -5,10 +5,11 @@ import type {
 import {
   type OrganizationBillingStatus,
   organizationBilling,
+  organizationBillingStripeSeats,
   revenuecatWebhookEvents,
 } from "@tearleads/api-shared/schema";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, inArray, or } from "drizzle-orm";
 import {
   classifyRevenueCatEvent,
   type RevenueCatBillingTransition,
@@ -63,6 +64,73 @@ async function isOrganizationAdmin(
     }
     throw error;
   }
+}
+
+function stripeEventIdentifiers(event: RevenueCatWebhookEvent): string[] {
+  return [event.original_transaction_id, event.transaction_id].filter(
+    (value): value is string => typeof value === "string",
+  );
+}
+
+/** Resolves Stripe transaction ids against the immutable local seat binding. */
+async function resolveDurableStripeStoreOrganizationId(
+  db: ApiDatabase,
+  event: RevenueCatWebhookEvent,
+): Promise<StripeStoreOrgResolution> {
+  if (event.store?.toUpperCase() !== "STRIPE") {
+    return { kind: "none" };
+  }
+  const identifiers = stripeEventIdentifiers(event);
+  if (identifiers.length === 0) {
+    return { kind: "error" };
+  }
+  const rows = await db
+    .select({
+      organizationId: organizationBillingStripeSeats.organizationId,
+      subscriptionId: organizationBillingStripeSeats.subscriptionId,
+      subscriptionItemId: organizationBillingStripeSeats.subscriptionItemId,
+    })
+    .from(organizationBillingStripeSeats)
+    .where(
+      or(
+        inArray(organizationBillingStripeSeats.subscriptionId, identifiers),
+        inArray(organizationBillingStripeSeats.subscriptionItemId, identifiers),
+      ),
+    )
+    .limit(2);
+  if (rows.length === 0) {
+    return { kind: "none" };
+  }
+  const binding = rows[0];
+  if (rows.length !== 1 || !binding) {
+    return { kind: "error" };
+  }
+  const eventSubscriptionIds = identifiers.filter((value) =>
+    value.startsWith("sub_"),
+  );
+  const eventItemIds = identifiers.filter((value) => value.startsWith("si_"));
+  if (
+    eventSubscriptionIds.some((value) => value !== binding.subscriptionId) ||
+    eventItemIds.some((value) => value !== binding.subscriptionItemId)
+  ) {
+    return { kind: "error" };
+  }
+  return { kind: "resolved", organizationId: binding.organizationId };
+}
+
+async function resolveImmutableStripeStoreOrganizationId(
+  db: ApiDatabase,
+  event: RevenueCatWebhookEvent,
+  deps: StripeApiDeps,
+): Promise<StripeStoreOrgResolution> {
+  const durableResolution = await resolveDurableStripeStoreOrganizationId(
+    db,
+    event,
+  );
+  return durableResolution.kind === "none" &&
+    event.store?.toUpperCase() === "STRIPE"
+    ? resolveStripeStoreOrganizationId(event, deps)
+    : durableResolution;
 }
 
 /**
@@ -160,12 +228,13 @@ async function resolveIgnoredReason(
  *
  * Idempotent on the provider event id: the event is claimed by inserting its id
  * (a duplicate delivery inserts nothing and re-applies nothing). The billing
- * effect is computed purely by {@link classifyRevenueCatEvent}; the target org
- * comes from the event's `orgId` subscriber attribute. Binding a new RevenueCat
- * customer to an org additionally requires the buyer (App User ID) to be an org
- * admin — a non-admin buyer is recorded and ignored rather than granted. All
- * work happens in one transaction so the idempotency claim gates the billing
- * write.
+ * effect is computed purely by {@link classifyRevenueCatEvent}. Stripe-store
+ * transitions use the durable subscription binding (or an exact Stripe
+ * subscription lookup); other stores use transaction metadata or the `orgId`
+ * subscriber attribute. Binding a new RevenueCat customer to an org additionally
+ * requires the buyer (App User ID) to be an org admin — a non-admin buyer is
+ * recorded and ignored rather than granted. All writes happen in one
+ * transaction so the idempotency claim gates the billing write.
  */
 export async function runRevenueCatWebhookWorkflow(
   db: ApiDatabase,
@@ -179,12 +248,16 @@ export async function runRevenueCatWebhookWorkflow(
   // another org. A FAILED lookup on an event that would change billing must
   // defer (never fall back to the attribute, never claim the event id) so a
   // redelivery can attribute it correctly.
-  // Ignorable events never consult Stripe: their org is only recorded, and
-  // the mutable-attribute risk applies to billing CHANGES, not audit rows.
+  // Ignorable events never consult Stripe. They cannot change billing, and a
+  // Stripe-store audit row is recorded without attributing the mutable orgId.
   const stripeResolution =
     transition.kind === "ignore"
       ? ({ kind: "none" } satisfies StripeStoreOrgResolution)
-      : await resolveStripeStoreOrganizationId(event, deps.stripe ?? {});
+      : await resolveImmutableStripeStoreOrganizationId(
+          db,
+          event,
+          deps.stripe ?? {},
+        );
   if (stripeResolution.kind === "error") {
     return {
       status: "retry",
@@ -194,7 +267,9 @@ export async function runRevenueCatWebhookWorkflow(
   const organizationId =
     stripeResolution.kind === "resolved"
       ? stripeResolution.organizationId
-      : resolveOrganizationIdFromEvent(event);
+      : event.store?.toUpperCase() === "STRIPE"
+        ? null
+        : resolveOrganizationIdFromEvent(event);
 
   return db.transaction(async (tx) => {
     const ignoredReason = await resolveIgnoredReason(

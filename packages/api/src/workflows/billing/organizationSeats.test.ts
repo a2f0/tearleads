@@ -4,6 +4,7 @@ import {
   organizationBilling,
   organizationBillingSeatAssignments,
   organizationBillingSeatEvents,
+  organizationBillingStripeSeats,
   organizations,
   principalMembershipProjection,
   principalStates,
@@ -170,4 +171,103 @@ test("seat accounting reuses released seats and only increases concurrent capaci
   expect(await readSeatEventTypes(organizationId)).toContain(
     "licensed_seat_count_increased",
   );
+});
+
+test("an empty roster resets capacity when the explicit billing period changes", async () => {
+  const { memberGroupId, organizationId } = await createBillableOrganization();
+  const userId = crypto.randomUUID();
+  await insertMemberGroupState({
+    groupId: memberGroupId,
+    signerUserId: userId,
+    stateHash: "state-1",
+    userIds: [userId],
+    version: 1,
+  });
+  await reconcileOrganizationBillingSeats({
+    executor: db,
+    now: NOW,
+    organizationId,
+    source: { sourceId: "state-1", sourceType: "principal_state" },
+  });
+
+  await insertMemberGroupState({
+    groupId: memberGroupId,
+    signerUserId: userId,
+    stateHash: "state-2",
+    userIds: [],
+    version: 2,
+  });
+  await reconcileOrganizationBillingSeats({
+    executor: db,
+    now: NOW,
+    organizationId,
+    source: { sourceId: "state-2", sourceType: "principal_state" },
+  });
+  expect(await readSeatCount(organizationId)).toBe(1);
+  expect(await readOpenAssignmentUserIds(organizationId)).toEqual([]);
+
+  const nextStart = PERIOD_END;
+  const nextEnd = new Date("2026-09-01T00:00:00.000Z");
+  await db
+    .update(organizationBilling)
+    .set({
+      currentPeriodStartsAt: nextStart,
+      currentPeriodEndsAt: nextEnd,
+    })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  await reconcileOrganizationBillingSeats({
+    executor: db,
+    now: new Date("2026-08-02T00:00:00.000Z"),
+    organizationId,
+    source: { sourceId: "renewal-1", sourceType: "provider_event" },
+  });
+
+  expect(await readSeatCount(organizationId)).toBe(1);
+  const [stripeSeats] = await db
+    .select()
+    .from(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  expect(stripeSeats).toMatchObject({
+    // A live Stripe subscription retains one billable seat even while its
+    // effective Members group is empty.
+    desiredPaidCapacity: 1,
+    desiredRenewalQuantity: 1,
+  });
+});
+
+test("a migrated row initializes its period key without losing paid capacity", async () => {
+  const { memberGroupId, organizationId } = await createBillableOrganization();
+  const userA = crypto.randomUUID();
+  const userB = crypto.randomUUID();
+  await db
+    .update(organizationBilling)
+    .set({ seatCount: 3, seatPeriodKey: null })
+    .where(eq(organizationBilling.organizationId, organizationId));
+  await insertMemberGroupState({
+    groupId: memberGroupId,
+    signerUserId: userA,
+    stateHash: "migrated-state-1",
+    userIds: [userA, userB],
+    version: 1,
+  });
+
+  await reconcileOrganizationBillingSeats({
+    executor: db,
+    now: NOW,
+    organizationId,
+    source: { sourceId: "migrated-state-1", sourceType: "principal_state" },
+  });
+
+  expect(await readSeatCount(organizationId)).toBe(3);
+  expect(await readOpenAssignmentUserIds(organizationId)).toEqual(
+    [userA, userB].sort(),
+  );
+  const [stripeSeats] = await db
+    .select()
+    .from(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  expect(stripeSeats).toMatchObject({
+    desiredPaidCapacity: 3,
+    desiredRenewalQuantity: 2,
+  });
 });

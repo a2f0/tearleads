@@ -99,7 +99,9 @@ function createFakeSdk(options?: {
   };
   const sdk: RevenueCatWebSdk = {
     configure(input) {
-      calls.push(`configure:${input.apiKey}:${input.appUserId}`);
+      calls.push(
+        `configure:${input.apiKey}:${input.appUserId}:analytics=${String(input.flags.collectAnalyticsEvents)}`,
+      );
       return purchases;
     },
     generateRevenueCatAnonymousAppUserId() {
@@ -117,7 +119,7 @@ test("web RevenueCat backend configures with the app user id and maps offerings"
   await backend.configure({ apiKey: "web-key", appUserId: "user-1" });
   const packages = await backend.getCurrentPackages();
 
-  expect(calls[0]).toBe("configure:web-key:user-1");
+  expect(calls[0]).toBe("configure:web-key:user-1:analytics=false");
   expect(packages).toEqual([
     {
       identifier: "monthly",
@@ -183,7 +185,7 @@ test("abandoning a live purchase isolates it in a fresh SDK instance", async () 
   controller.abort();
 
   expect(calls.indexOf("close")).toBeGreaterThan(-1);
-  expect(calls.at(-1)).toBe("configure:web-key:user-1");
+  expect(calls.at(-1)).toBe("configure:web-key:user-1:analytics=false");
 });
 
 test("an abort after the purchase settled does not reset the SDK", async () => {
@@ -324,7 +326,9 @@ test("web RevenueCat backend can identify after anonymous configuration", async 
   await backend.logIn({ appUserId: "user-1" });
   await backend.logOut();
 
-  expect(calls).toContain("configure:web-key:$RCAnonymousID:test");
+  expect(calls).toContain(
+    "configure:web-key:$RCAnonymousID:test:analytics=false",
+  );
   expect(calls).toContain("changeUser:user-1");
   expect(calls.at(-2)).toBe("anonymousId");
   expect(calls.at(-1)).toBe("changeUser:$RCAnonymousID:test");

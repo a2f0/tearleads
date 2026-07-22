@@ -1,12 +1,7 @@
 /**
- * Minimal outbound Stripe REST client for the direct web checkout path
- * (issue #1654): the server creates the customer/subscription and the Billing
- * Portal session on OUR Stripe account, while RevenueCat stays the entitlement
- * system via receipt association (see revenueCatStripeAssociation.ts).
- *
- * Deliberately SDK-free, mirroring revenueCatApi.ts: the calls used here are
- * plain form-encoded HTTP, and an injectable fetch keeps every caller
- * unit-testable without network. HTTP plumbing lives in stripeHttp.ts.
+ * SDK-free Stripe REST calls for direct web checkout. The server creates
+ * customers, subscriptions, and Portal sessions while RevenueCat mirrors the
+ * entitlement through receipt association. HTTP plumbing is in stripeHttp.ts.
  */
 
 import {
@@ -18,6 +13,7 @@ import {
   StripeApiError,
   stripeRequest,
 } from "./stripeHttp";
+import { serializeStripeSeatQuantity } from "./stripeSeatQuantity";
 
 export {
   isStripeCheckoutConfigured,
@@ -40,6 +36,14 @@ export interface StripeCheckoutIntent {
   readonly subscriptionId: string;
   /** PaymentIntent client secret the Payment Element confirms client-side. */
   readonly clientSecret: string;
+}
+
+interface StripeSubscriptionCheckoutInput {
+  checkoutAttemptId: string;
+  customerId: string;
+  userId: string;
+  organizationId: string;
+  seatQuantity: number;
 }
 
 /**
@@ -155,26 +159,23 @@ export async function findOrCreateCustomer(
 }
 
 /**
- * Resolves an org's pending (incomplete) checkout: resumed when it still
- * belongs to THIS buyer and the CURRENT price — a pending attempt by a since-
- * removed admin would otherwise be paid by someone else and then fail its
- * entitlement grant, and a pre-price-change attempt would charge the old
- * amount. A MISMATCHED pending attempt is a conflict, never cancelled: its
- * client secret may be mid-payment in another admin's browser, and Stripe
- * cancelling a subscription that just became paid would not refund it. The
- * conflict self-resolves when the attempt is paid (live) or expires
- * (terminal, at which point the search skips it and the create key rotates).
+ * Resumes an incomplete checkout only for the same buyer, current price, and
+ * requested seat quantity. A mismatch conflicts rather than risk paying a
+ * removed admin's attempt, charging stale terms, or cancelling an in-flight
+ * payment. The conflict clears when that attempt is paid or expires.
  */
 async function resumePendingSubscription(input: {
+  checkoutAttemptId: string;
   subscriptionId: string;
   userId: string;
   syncPriceId: string;
+  seatQuantity: number;
   fetchImpl: typeof fetch;
   secretKey: string;
 }): Promise<
   | { kind: "resumed"; intent: StripeCheckoutIntent }
   | { kind: "conflict" }
-  | { kind: "expired" }
+  | { kind: "expired"; checkoutAttemptId: string | null }
 > {
   const { fetchImpl, secretKey } = input;
   const pending = await stripeRequest({
@@ -190,17 +191,24 @@ async function resumePendingSubscription(input: {
   // subscription that already left `incomplete` must not be resumed: live
   // means conflict, terminal means this is a fresh attempt.
   const fetchedStatus = readString(prop(pending, "status"));
+  const metadata = prop(pending, "metadata");
+  const pendingAttemptId = readString(prop(metadata, "checkoutAttemptId"));
   if (fetchedStatus !== "incomplete") {
     return fetchedStatus && LIVE_SUBSCRIPTION_STATUSES.has(fetchedStatus)
       ? { kind: "conflict" }
-      : { kind: "expired" };
+      : { kind: "expired", checkoutAttemptId: pendingAttemptId };
   }
-  const pendingUserId = readString(prop(prop(pending, "metadata"), "userId"));
+  const pendingUserId = readString(prop(metadata, "userId"));
   const items = prop(prop(pending, "items"), "data");
-  const pendingPriceId = Array.isArray(items)
-    ? readString(prop(prop(items[0], "price"), "id"))
-    : null;
-  if (pendingUserId === input.userId && pendingPriceId === input.syncPriceId) {
+  const pendingItem = Array.isArray(items) ? items[0] : null;
+  const pendingPriceId = readString(prop(prop(pendingItem, "price"), "id"));
+  const pendingQuantity = prop(pendingItem, "quantity");
+  if (
+    pendingAttemptId === input.checkoutAttemptId &&
+    pendingUserId === input.userId &&
+    pendingPriceId === input.syncPriceId &&
+    pendingQuantity === input.seatQuantity
+  ) {
     const intent = parseCheckoutIntent(pending);
     // A matching pending checkout whose intent cannot be read is in an
     // unknown state; refusing beats risking a duplicate.
@@ -229,15 +237,10 @@ function parseCheckoutIntent(body: unknown): StripeCheckoutIntent | null {
 async function findOrgSubscription(
   organizationId: string,
   request: { fetchImpl: typeof fetch; secretKey: string },
+  checkoutAttemptId?: string,
 ): Promise<{
   candidate: { subscriptionId: string; status: string } | null;
-  /**
-   * Newest terminal (expired/canceled) attempt, used to rotate the create
-   * idempotency key: without it, a create within Stripe's key-retention
-   * window but after the previous attempt expired would replay the DEAD
-   * subscription and its unusable client secret.
-   */
-  terminalAttemptId: string | null;
+  terminalAttemptWasUsed: boolean;
 }> {
   const query = encodeURIComponent(
     `metadata['orgId']:'${escapeSearchValue(organizationId)}'`,
@@ -251,31 +254,72 @@ async function findOrgSubscription(
     operation: "subscription search",
   });
   const items = prop(found, "data");
-  let terminalAttemptId: string | null = null;
-  let terminalAttemptCreated = Number.NEGATIVE_INFINITY;
   if (!Array.isArray(items)) {
-    return { candidate: null, terminalAttemptId };
+    return { candidate: null, terminalAttemptWasUsed: false };
   }
+  let terminalAttemptWasUsed = false;
+  let pendingCandidate: { subscriptionId: string; status: string } | null =
+    null;
   for (const item of items) {
     const status = readString(prop(item, "status"));
     const subscriptionId = readString(prop(item, "id"));
     if (!status || !subscriptionId) {
       continue;
     }
-    if (LIVE_SUBSCRIPTION_STATUSES.has(status) || status === "incomplete") {
-      return { candidate: { subscriptionId, status }, terminalAttemptId };
+    if (LIVE_SUBSCRIPTION_STATUSES.has(status)) {
+      return { candidate: { subscriptionId, status }, terminalAttemptWasUsed };
     }
-    // The NEWEST terminal attempt (search order is not creation order): an
-    // older one may itself be baked into a retained idempotency key, which
-    // would replay a dead subscription instead of creating a fresh one.
-    const created = prop(item, "created");
-    const createdAt = typeof created === "number" ? created : 0;
-    if (createdAt >= terminalAttemptCreated) {
-      terminalAttemptCreated = createdAt;
-      terminalAttemptId = subscriptionId;
+    if (status === "incomplete") {
+      if (pendingCandidate !== null) {
+        // Multiple payable intents are already anomalous. Fail closed rather
+        // than choosing one and creating alongside the other.
+        return {
+          candidate: { ...pendingCandidate, status: "ambiguous" },
+          terminalAttemptWasUsed,
+        };
+      }
+      pendingCandidate = { subscriptionId, status };
+      continue;
+    }
+    const itemAttemptId = readString(
+      prop(prop(item, "metadata"), "checkoutAttemptId"),
+    );
+    if (
+      checkoutAttemptId !== undefined &&
+      itemAttemptId === checkoutAttemptId
+    ) {
+      terminalAttemptWasUsed = true;
     }
   }
-  return { candidate: null, terminalAttemptId };
+  return { candidate: pendingCandidate, terminalAttemptWasUsed };
+}
+
+/** True for a live or still-incomplete org subscription. */
+export async function hasOpenOrgSubscription(
+  organizationId: string,
+  deps: StripeApiDeps = {},
+): Promise<boolean> {
+  const { fetchImpl, secretKey } = resolveDeps(deps);
+  if (!secretKey) return false;
+  const { candidate } = await findOrgSubscription(organizationId, {
+    fetchImpl,
+    secretKey,
+  });
+  if (!candidate || candidate.status !== "incomplete") {
+    return candidate !== null;
+  }
+  const body = await stripeRequest({
+    fetchImpl,
+    secretKey,
+    method: "GET",
+    path: `/v1/subscriptions/${encodeURIComponent(candidate.subscriptionId)}`,
+    operation: "subscription inspect",
+  });
+  const status = readString(prop(body, "status"));
+  return (
+    status === "incomplete" ||
+    (status !== null && LIVE_SUBSCRIPTION_STATUSES.has(status))
+  );
 }
 
 /**
@@ -286,27 +330,33 @@ async function findOrgSubscription(
  * customer and organization (see revenueCatStripeAssociation.ts).
  */
 export async function createSyncSubscription(
-  input: { customerId: string; userId: string; organizationId: string },
+  input: StripeSubscriptionCheckoutInput,
   deps: StripeApiDeps = {},
 ): Promise<StripeCheckoutOutcome | null> {
+  const seatQuantity = serializeStripeSeatQuantity(input.seatQuantity);
   const { fetchImpl, secretKey, syncPriceId } = resolveDeps(deps);
   if (!secretKey || !syncPriceId) {
     return null;
   }
 
-  const { candidate, terminalAttemptId } = await findOrgSubscription(
+  const { candidate, terminalAttemptWasUsed } = await findOrgSubscription(
     input.organizationId,
     { fetchImpl, secretKey },
+    input.checkoutAttemptId,
   );
+  if (terminalAttemptWasUsed) {
+    return { kind: "conflict" };
+  }
   if (candidate && candidate.status !== "incomplete") {
     return { kind: "conflict" };
   }
-  let rotationMarker = terminalAttemptId;
   if (candidate) {
     const resumed = await resumePendingSubscription({
+      checkoutAttemptId: input.checkoutAttemptId,
       subscriptionId: candidate.subscriptionId,
       userId: input.userId,
       syncPriceId,
+      seatQuantity: input.seatQuantity,
       fetchImpl,
       secretKey,
     });
@@ -316,14 +366,15 @@ export async function createSyncSubscription(
     if (resumed.kind === "conflict") {
       return { kind: "conflict" };
     }
-    // The candidate turned out terminal on the authoritative read: proceed to
-    // a fresh create, rotating the key off the dead attempt.
-    rotationMarker = candidate.subscriptionId;
+    if (resumed.checkoutAttemptId === input.checkoutAttemptId) {
+      return { kind: "conflict" };
+    }
   }
 
   const form = new URLSearchParams();
   form.set("customer", input.customerId);
   form.set("items[0][price]", syncPriceId);
+  form.set("items[0][quantity]", seatQuantity);
   form.set("payment_behavior", "default_incomplete");
   form.set("payment_settings[save_default_payment_method]", "on_subscription");
   // Pin the subscription to cards. Without this the Payment Element offers
@@ -335,6 +386,7 @@ export async function createSyncSubscription(
   form.append("payment_settings[payment_method_types][]", "card");
   form.set("metadata[userId]", input.userId);
   form.set("metadata[orgId]", input.organizationId);
+  form.set("metadata[checkoutAttemptId]", input.checkoutAttemptId);
   form.append("expand[]", "latest_invoice.payment_intent");
   const body = await stripeRequest({
     fetchImpl,
@@ -343,16 +395,9 @@ export async function createSyncSubscription(
     path: "/v1/subscriptions",
     operation: "subscription create",
     form,
-    // ORG-scoped (no user in the key): a retried or double-submitted
-    // checkout returns the original subscription, and two admins racing to
-    // buy for the same org produce different request bodies under the same
-    // key — which Stripe rejects — so the org can never gain two parallel
-    // subscriptions. The terminal-attempt suffix rotates the key once a
-    // previous attempt expired, so a fresh checkout never replays a dead
-    // subscription that Stripe's key retention still remembers.
-    idempotencyKey:
-      `sync-sub:${input.organizationId}:${syncPriceId}` +
-      `:${rotationMarker ?? "initial"}`,
+    // The database-issued token is shared with hosted checkout. Retries reuse
+    // it; an expired local/provider attempt rotates it.
+    idempotencyKey: `sync-sub:${input.organizationId}:${input.checkoutAttemptId}`,
   });
   const intent = parseCheckoutIntent(body);
   if (!intent) {
@@ -426,40 +471,6 @@ export async function findLiveOrgSubscription(
     }
   }
   return null;
-}
-
-/** Reads a subscription's metadata (`userId`/`orgId`), status, and customer. */
-export async function getSubscriptionBinding(
-  subscriptionId: string,
-  deps: StripeApiDeps = {},
-): Promise<{
-  userId: string | null;
-  organizationId: string | null;
-  status: string | null;
-  customerId: string | null;
-} | null> {
-  const { fetchImpl, secretKey } = resolveDeps(deps);
-  if (!secretKey) {
-    return null;
-  }
-  const body = await stripeRequest({
-    fetchImpl,
-    secretKey,
-    method: "GET",
-    path: `/v1/subscriptions/${encodeURIComponent(subscriptionId)}`,
-    operation: "subscription lookup",
-  });
-  if (typeof body !== "object" || body === null) {
-    return null;
-  }
-  const metadata = prop(body, "metadata");
-  const customer = prop(body, "customer");
-  return {
-    userId: readString(prop(metadata, "userId")),
-    organizationId: readString(prop(metadata, "orgId")),
-    status: readString(prop(body, "status")),
-    customerId: readString(customer) ?? readString(prop(customer, "id")),
-  };
 }
 
 /**
@@ -548,45 +559,41 @@ function canonicalizeReturnUrl(returnUrl: string): string {
  * resolver (`findLiveOrgSubscription`) can later find it — exactly like the
  * inline flow. Returns null when Stripe is unconfigured.
  *
- * Idempotency is ORG-scoped (`checkout-session:<org>`). The return URL is
- * CANONICALIZED (origin + path, query/hash dropped) for both success and
- * cancel, so the request PARAMS are stable across an org's attempts too — every
- * hosted-checkout click comes from the one billing page. For the SAME buyer
- * this collapses double-clicks onto ONE session. A DIFFERENT admin sends the
- * same key with a different `customer=` (customers are per-(user, org)), so
- * Stripe rejects the reused key and this throws — a 502, never a second
- * parallel session: fail-safe against double-billing, the same way the inline
- * `createSyncSubscription` flow (also org-keyed, per-user customer) is. The
- * pre-create `findLiveOrgSubscription` guard turns the common case — a co-admin
- * who is already subscribed — into a clean 409 well before this.
- *
- * Canonicalizing the return URL costs the buyer their transient query/hash on
- * return (they land on the bare billing page); that trade buys the stable
- * params the org-scoped key needs.
+ * The durable database attempt token scopes idempotency and rotates after the
+ * Session expires. Return URLs are canonicalized so same-attempt retries keep
+ * identical provider parameters.
  */
 export async function createCheckoutSession(
-  input: {
-    customerId: string;
-    userId: string;
-    organizationId: string;
+  input: StripeSubscriptionCheckoutInput & {
+    expiresAt: Date;
     returnUrl: string;
   },
   deps: StripeApiDeps = {},
 ): Promise<string | null> {
+  const seatQuantity = serializeStripeSeatQuantity(input.seatQuantity);
   const { fetchImpl, secretKey, syncPriceId } = resolveDeps(deps);
   if (!secretKey || !syncPriceId) {
     return null;
+  }
+  const expiresAt = Math.floor(input.expiresAt.getTime() / 1_000);
+  if (!Number.isSafeInteger(expiresAt) || expiresAt <= 0) {
+    throw new Error("Stripe Checkout expiration must be a valid date");
   }
   const canonicalReturnUrl = canonicalizeReturnUrl(input.returnUrl);
   const form = new URLSearchParams();
   form.set("mode", "subscription");
   form.set("line_items[0][price]", syncPriceId);
-  form.set("line_items[0][quantity]", "1");
+  form.set("line_items[0][quantity]", seatQuantity);
   form.set("customer", input.customerId);
+  form.set("expires_at", String(expiresAt));
   form.set("success_url", canonicalReturnUrl);
   form.set("cancel_url", canonicalReturnUrl);
   form.set("subscription_data[metadata][userId]", input.userId);
   form.set("subscription_data[metadata][orgId]", input.organizationId);
+  form.set(
+    "subscription_data[metadata][checkoutAttemptId]",
+    input.checkoutAttemptId,
+  );
   const body = await stripeRequest({
     fetchImpl,
     secretKey,
@@ -594,7 +601,7 @@ export async function createCheckoutSession(
     path: "/v1/checkout/sessions",
     operation: "checkout session create",
     form,
-    idempotencyKey: `checkout-session:${input.organizationId}`,
+    idempotencyKey: `checkout-session:${input.organizationId}:${input.checkoutAttemptId}`,
   });
   return readString(prop(body, "url"));
 }

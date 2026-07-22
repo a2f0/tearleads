@@ -427,6 +427,7 @@ test("the webhook fails closed when the shared secret is not configured", async 
 test("a Stripe-store grant defers end-to-end when the lookup fails", async () => {
   const user = createTestUser();
   const organizationId = await registerAndAuthenticate(user);
+  const eventId = crypto.randomUUID();
 
   const failingFetch = (async (
     _input: RequestInfo | URL,
@@ -439,7 +440,7 @@ test("a Stripe-store grant defers end-to-end when the lookup fails", async () =>
       entitlement_ids: ["sync"],
       event_timestamp_ms: Date.now(),
       expiration_at_ms: Date.now() + THIRTY_DAYS_MS,
-      id: crypto.randomUUID(),
+      id: eventId,
       store: "STRIPE",
       original_transaction_id: "sub_defer",
       subscriber_attributes: { orgId: { value: organizationId } },
@@ -463,6 +464,6 @@ test("a Stripe-store grant defers end-to-end when the lookup fails", async () =>
   const [claimed] = await db
     .select({ id: revenuecatWebhookEvents.id })
     .from(revenuecatWebhookEvents)
-    .where(eq(revenuecatWebhookEvents.eventId, "sub_defer"));
+    .where(eq(revenuecatWebhookEvents.eventId, eventId));
   expect(claimed).toBeUndefined();
 });

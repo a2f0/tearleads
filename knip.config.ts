@@ -32,15 +32,16 @@ const baseConfig = {
     },
     "packages/api": {
       // The package test script launches Bun from `scripts/testAllDatabases.ts`;
-      // `test/preload.ts` is loaded by Bun from `bunfig.toml`. `scripts/blobGc.ts`
-      // is a standalone operator entrypoint (cron/systemd), not wired via
-      // package.json, so it must be declared explicitly.
+      // `test/preload.ts` is loaded by Bun from `bunfig.toml`. Operator scripts
+      // are standalone cron/systemd entrypoints rather than package scripts, so
+      // they must be declared explicitly.
       entry: [
         "src/appTestRuntime.ts",
         "src/**/*.test.ts",
         "test/preload.ts",
         "scripts/blobGc.ts",
         "scripts/documentCompaction.ts",
+        "scripts/stripeSeatSync.ts",
       ],
       project: ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"],
     },
