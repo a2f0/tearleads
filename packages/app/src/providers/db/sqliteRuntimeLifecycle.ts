@@ -283,6 +283,21 @@ function settleSQLiteRuntimeBoot(params: {
         tearleads,
         error,
       });
+
+      // Same superseded-target race as the success branch: a transition may have
+      // moved the target off this (now failed) database while it booted. Its
+      // spawn no-op'd on bootingRef, and this terminal "error" names the OLD
+      // database, so the waiting ensureReady — gated on the target name — would
+      // ignore it and hang. Boot the still-current reused worker onto the pending
+      // target instead. (A pre-init failure such as a cipher-key timeout leaves
+      // the worker healthy; a genuinely wedged one is caught by the next boot's
+      // round-trip timeout + recovery.)
+      if (
+        runtimeRef.current === runtime &&
+        targetDbNameRef.current !== dbName
+      ) {
+        rebootForDbName(targetDbNameRef.current);
+      }
     });
 }
 

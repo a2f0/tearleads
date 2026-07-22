@@ -431,21 +431,21 @@ function useSQLiteRuntimeControls(params: {
   }, [destroyCurrentRuntime]);
 
   // Used when an identity transition is about to open a DIFFERENT database.
-  // Under worker reuse, keep a HEALTHY worker so the imminent ensureReady reuses
-  // it (close + re-init on the same worker) instead of constructing a new one —
-  // the second-identity provisioning hang. An errored runtime, or a non-reuse
-  // host, still tears down here so the next spawn starts clean.
+  // Under worker reuse, keep the worker so the imminent ensureReady reuses it
+  // (close + re-init on the same worker) instead of constructing a new one — the
+  // second-identity provisioning hang. Keep it even when the current boot ended
+  // in "error": a pre-init failure (e.g. a cipher-key timeout) leaves the worker
+  // itself healthy, so it must stay reusable — restoring the previous identity
+  // must not have to build a second worker (which fails on a WebView, leaving the
+  // app keyless). A genuinely wedged worker is torn down by the boot-timeout
+  // recovery on the reuse re-init, not here. A non-reuse host still tears down.
   const clearWorkerForIdentitySwitch = useCallback(() => {
-    if (
-      reuseWorker &&
-      runtimeRef.current &&
-      tearleads.database.status !== "error"
-    ) {
+    if (reuseWorker && runtimeRef.current) {
       return;
     }
 
     destroyCurrentRuntime("idle");
-  }, [destroyCurrentRuntime, reuseWorker, runtimeRef, tearleads]);
+  }, [destroyCurrentRuntime, reuseWorker, runtimeRef]);
 
   const killWorker = useCallback(() => {
     if (!runtimeRef.current) {
