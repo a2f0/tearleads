@@ -1,6 +1,6 @@
 import type { SQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 
-interface Deferred<T = void> {
+export interface Deferred<T = void> {
   promise: Promise<T>;
   resolve: (value: T | PromiseLike<T>) => void;
 }
@@ -51,6 +51,108 @@ export function createRetryableSQLiteRuntimeFactory() {
       };
     },
     getStats: () => ({ createCount, destroyCount, initCount }),
+  };
+}
+
+/** One reusable worker whose first init can be held to exercise target races. */
+export function createReusableSQLiteRuntimeFactory(options?: {
+  deferFirstInit?: boolean;
+  firstInitError?: Error;
+}) {
+  const firstInit = createDeferred();
+  let createCount = 0;
+  let renewCount = 0;
+  let initCount = 0;
+  let closeCount = 0;
+  let deleteDataCount = 0;
+  let clientDestroyCount = 0;
+  let terminateCount = 0;
+  let clientGeneration = 0;
+  const initializedDbNames: string[] = [];
+
+  if (!options?.deferFirstInit) {
+    firstInit.resolve();
+  }
+
+  return {
+    createSQLiteRuntime: (): SQLiteRuntime => {
+      createCount += 1;
+      let terminated = false;
+      let runtimeId = "";
+      let client: SQLiteRuntime["client"];
+
+      const createClient = (): SQLiteRuntime["client"] => {
+        clientGeneration += 1;
+        runtimeId = `reusable-${clientGeneration}`;
+        return {
+          close: async () => {
+            closeCount += 1;
+            return { ok: true };
+          },
+          delete: async () => ({ ok: true }),
+          destroy() {
+            clientDestroyCount += 1;
+          },
+          exec: async () => ({ ok: true, rows: [] }),
+          init: async ({ dbName }) => {
+            initCount += 1;
+            initializedDbNames.push(dbName);
+            if (initCount === 1) {
+              await firstInit.promise;
+              if (options?.firstInitError) {
+                throw options.firstInitError;
+              }
+            }
+            return { ok: true };
+          },
+          ping: async () => ({ ok: true, message: "pong" }),
+        };
+      };
+
+      client = createClient();
+      const terminate = () => {
+        if (terminated) {
+          return;
+        }
+        terminated = true;
+        terminateCount += 1;
+        client.destroy();
+      };
+
+      return {
+        get client() {
+          return client;
+        },
+        deleteData: async () => {
+          deleteDataCount += 1;
+          terminate();
+        },
+        destroy: terminate,
+        get id() {
+          return runtimeId;
+        },
+        renewClient() {
+          if (terminated) {
+            return;
+          }
+          renewCount += 1;
+          client.destroy();
+          client = createClient();
+        },
+        terminateNow: terminate,
+      };
+    },
+    getStats: () => ({
+      clientDestroyCount,
+      closeCount,
+      createCount,
+      deleteDataCount,
+      initCount,
+      initializedDbNames: [...initializedDbNames],
+      renewCount,
+      terminateCount,
+    }),
+    releaseFirstInit: () => firstInit.resolve(),
   };
 }
 

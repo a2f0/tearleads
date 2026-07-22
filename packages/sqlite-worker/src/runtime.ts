@@ -4,6 +4,13 @@ import {
   type WorkerLike,
 } from "./client";
 import { createCrossTabDatabaseWorker } from "./crossTabRuntime";
+import {
+  availableMessageChannelConstructor,
+  closeMessagePort,
+  createRenewedDatabaseClient,
+  type DatabaseRuntimeMessageChannelConstructor,
+  type DatabaseRuntimeMessagePort,
+} from "./renewedClientTransport";
 
 const DEFAULT_DATABASE_WORKER_URL = "/worker.js";
 const DEFAULT_SHARED_DATABASE_WORKER_NAME = "tearleads-sqlite-worker";
@@ -88,6 +95,12 @@ export interface CreateModuleDatabaseRuntimeOptions {
    */
   sharedWorkerConstructor?: ModuleSharedWorkerConstructor | null;
   sharedWorkerName?: string;
+  /**
+   * Overrides the channel used to give a renewed client fresh worker-side
+   * connection state. Pass `null` in hosts without transferable message ports;
+   * the returned runtime then omits its optional renewal capability.
+   */
+  messageChannelConstructor?: DatabaseRuntimeMessageChannelConstructor | null;
   workerUrl?: string | URL;
 }
 
@@ -166,15 +179,14 @@ const GRACEFUL_CLOSE_TIMEOUT_MS = 1_000;
 
 export function createDatabaseRuntime(
   worker: TerminableWorkerLike,
+  messageChannelConstructor = availableMessageChannelConstructor(),
 ): DatabaseRuntime {
-  // Mutable so renewClient() can swap in a fresh client/id on the same worker;
-  // the teardown closures below read the current `client`, and `id`/`client` are
-  // exposed as getters so consumers always see the live values. The request-id
-  // sequence is shared across client generations so a renewed client never
-  // reuses an in-flight id from the client it replaced (see client.ts).
+  // Client/id stay mutable for same-worker renewal; one request-id sequence spans
+  // generations so a late old response cannot match a replacement request.
   const requestIdSequence = { current: 1 };
   let client = createDatabaseWorkerClient(worker, requestIdSequence);
-  let id = crypto.randomUUID();
+  let activeClientPort: DatabaseRuntimeMessagePort | null = null;
+  let id: string = crypto.randomUUID();
   let torndown = false;
 
   // Terminate exactly once, tearing down the client first so its pending-request
@@ -185,28 +197,17 @@ export function createDatabaseRuntime(
     }
     torndown = true;
     client.destroy();
+    closeMessagePort(activeClientPort);
+    activeClientPort = null;
     worker.terminate();
   };
 
-  return {
+  const runtime: DatabaseRuntime = {
     get id() {
       return id;
     },
     get client() {
       return client;
-    },
-    renewClient() {
-      if (torndown) {
-        return;
-      }
-      // Destroy the old client (removes its worker listeners, rejects any pending
-      // requests) then wrap the same worker in a fresh client with a fresh id, so
-      // the SDK's client-keyed caches start clean for the next database. The
-      // shared request-id sequence continues (does not restart at 1) so a delayed
-      // response to the old client can never match a new client's request id.
-      client.destroy();
-      client = createDatabaseWorkerClient(worker, requestIdSequence);
-      id = crypto.randomUUID();
     },
     destroy() {
       if (torndown) {
@@ -260,6 +261,42 @@ export function createDatabaseRuntime(
       terminate();
     },
   };
+
+  if (messageChannelConstructor) {
+    runtime.renewClient = () => {
+      if (torndown) {
+        return;
+      }
+
+      let renewed: ReturnType<typeof createRenewedDatabaseClient>;
+      try {
+        renewed = createRenewedDatabaseClient({
+          messageChannelConstructor,
+          requestIdSequence,
+          worker,
+        });
+      } catch (error) {
+        // MessageChannel existence does not guarantee this Worker accepts a
+        // transferred port. Retire the capability so the app's next retry uses
+        // its safe teardown/new-runtime fallback instead of looping this failure.
+        delete runtime.renewClient;
+        throw error;
+      }
+
+      const previousClient = client;
+      const previousPort = activeClientPort;
+      client = renewed.client;
+      activeClientPort = renewed.port;
+      id = renewed.id;
+
+      // Only retire the previous generation after the worker accepted the new
+      // port. A failed transfer therefore leaves the old client fully usable.
+      previousClient.destroy();
+      closeMessagePort(previousPort);
+    };
+  }
+
+  return runtime;
 }
 
 function postCloseWithoutWaiting(worker: WorkerLike): void {
@@ -395,5 +432,6 @@ export function createModuleDatabaseRuntime(
       options.workerUrl ?? DEFAULT_DATABASE_WORKER_URL,
       options.workerConstructor,
     ),
+    availableMessageChannelConstructor(options.messageChannelConstructor),
   );
 }

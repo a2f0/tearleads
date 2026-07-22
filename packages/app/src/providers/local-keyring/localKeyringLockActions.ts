@@ -17,6 +17,7 @@ import {
   createPinKeystore,
   createPlainKeystore,
   hasPinWrappedManifest,
+  type LocalKeyringFactory,
   type LocalKeyringLockEnvironment,
   type LocalKeyringLockStatus,
   type LockState,
@@ -27,7 +28,7 @@ import {
 
 export interface LocalKeyringLockContextValue {
   readonly canManagePinCode: boolean;
-  readonly createLocalKeyring: (() => LocalKeyring) | undefined;
+  readonly createLocalKeyring: LocalKeyringFactory | undefined;
   readonly isLocked: boolean;
   readonly pinCodeEnabled: boolean;
   readonly revision: number;
@@ -59,25 +60,43 @@ async function rewrapExistingManifestsWithPin(input: {
 }
 
 interface DynamicKeyringState {
+  readonly browserCreateLocalKeyring: (pinCode: string | null) => LocalKeyring;
   readonly canManagePinCode: boolean;
   readonly hostCreateLocalKeyring: (() => LocalKeyring) | undefined;
   readonly pinCodeEnabled: boolean;
+  readonly revision: number;
   readonly unlockedPinCode: string | null;
 }
 
+type DynamicKeyringCapability = "host" | "pin" | "plain";
+
+interface DynamicKeyringIdentity {
+  readonly capability: DynamicKeyringCapability;
+  readonly factory:
+    | (() => LocalKeyring)
+    | ((pinCode: string | null) => LocalKeyring);
+  readonly revision: number;
+}
+
 interface DynamicKeyringPlan {
-  /**
-   * Stable identity of the keyring configuration the current state resolves to.
-   * Equal signatures mean the same underlying keyring can be reused; a change
-   * (lock/unlock, PIN rotation) mints a fresh one.
-   */
-  readonly signature: string;
   readonly create: () => LocalKeyring;
+  readonly identity: DynamicKeyringIdentity;
+}
+
+function sameDynamicKeyringIdentity(
+  left: DynamicKeyringIdentity,
+  right: DynamicKeyringIdentity,
+): boolean {
+  return (
+    left.capability === right.capability &&
+    left.factory === right.factory &&
+    left.revision === right.revision
+  );
 }
 
 /**
  * Maps the current lock/PIN/host state to the keyring it should produce, plus a
- * signature identifying that configuration. Returns null when no keyring is
+ * secret-free identity for that configuration. Returns null when no keyring is
  * available (locked, or PIN management unsupported), which the dynamic keyring
  * surfaces as a locked keyring.
  */
@@ -86,15 +105,26 @@ function planDynamicLocalKeyring(
 ): DynamicKeyringPlan | null {
   if (state.hostCreateLocalKeyring) {
     const hostCreateLocalKeyring = state.hostCreateLocalKeyring;
-    return { create: () => hostCreateLocalKeyring(), signature: "host" };
+    return {
+      create: () => hostCreateLocalKeyring(),
+      identity: {
+        capability: "host",
+        factory: hostCreateLocalKeyring,
+        revision: state.revision,
+      },
+    };
   }
   if (!state.canManagePinCode) {
     return null;
   }
   if (!state.pinCodeEnabled) {
     return {
-      create: () => createBrowserLocalKeyringForPinCode(null),
-      signature: "plain",
+      create: () => state.browserCreateLocalKeyring(null),
+      identity: {
+        capability: "plain",
+        factory: state.browserCreateLocalKeyring,
+        revision: state.revision,
+      },
     };
   }
   if (!state.unlockedPinCode) {
@@ -103,26 +133,37 @@ function planDynamicLocalKeyring(
 
   const pinCode = state.unlockedPinCode;
   return {
-    create: () => createBrowserLocalKeyringForPinCode(pinCode),
-    signature: `pin:${pinCode}`,
+    create: () => state.browserCreateLocalKeyring(pinCode),
+    identity: {
+      capability: "pin",
+      factory: state.browserCreateLocalKeyring,
+      revision: state.revision,
+    },
   };
 }
 
 export function useDynamicLocalKeyringFactory(input: {
+  readonly createBrowserLocalKeyring?: (pinCode: string | null) => LocalKeyring;
   readonly environment: LocalKeyringLockEnvironment;
   readonly lockState: LockState;
   readonly unlockedPinCode: string | null;
-}): () => LocalKeyring {
+}): LocalKeyringFactory {
   const stateRef = useRef<DynamicKeyringState>({
+    browserCreateLocalKeyring:
+      input.createBrowserLocalKeyring ?? createBrowserLocalKeyringForPinCode,
     canManagePinCode: input.environment.canManagePinCode,
     hostCreateLocalKeyring: input.environment.hostCreateLocalKeyring,
     pinCodeEnabled: input.lockState.pinCodeEnabled,
+    revision: input.lockState.revision,
     unlockedPinCode: input.unlockedPinCode,
   });
   stateRef.current = {
+    browserCreateLocalKeyring:
+      input.createBrowserLocalKeyring ?? createBrowserLocalKeyringForPinCode,
     canManagePinCode: input.environment.canManagePinCode,
     hostCreateLocalKeyring: input.environment.hostCreateLocalKeyring,
     pinCodeEnabled: input.lockState.pinCodeEnabled,
+    revision: input.lockState.revision,
     unlockedPinCode: input.unlockedPinCode,
   };
   // Cache the resolved underlying keyring across calls. The dynamic keyring's
@@ -137,46 +178,62 @@ export function useDynamicLocalKeyringFactory(input: {
   // identity's SQLite cipher-key resolution wedging forever ("Creating
   // identity..." never completing). Reusing one keyring per configuration keeps
   // a single connection set alive and reused; a new one is minted only when the
-  // configuration signature changes (lock/unlock, PIN rotation).
+  // configuration identity changes (lock/unlock, PIN rotation).
   const cacheRef = useRef<{
+    readonly identity: DynamicKeyringIdentity;
     readonly keyring: LocalKeyring;
-    readonly signature: string;
   } | null>(null);
 
   // Drop the cached keyring EAGERLY when the configuration changes, not only
   // lazily on the next keyring call. Otherwise locking (unlockedPinCode -> null)
   // while no keyring op runs would keep the PIN-bearing keyring cached, so
-  // unlocking with the same PIN would match its signature and reuse the stale
-  // keyring — leaving the PIN resident and skipping the fresh mint. Clearing here
-  // on any signature change drops that secret at lock time.
+  // unlocking with the same PIN could otherwise reuse the stale keyring. The
+  // revision distinguishes those configurations without retaining the PIN in a
+  // cache key, while capability and factory identity cover environment changes.
   useEffect(() => {
-    const signature =
-      planDynamicLocalKeyring(stateRef.current)?.signature ?? null;
-    if (cacheRef.current && cacheRef.current.signature !== signature) {
+    const identity = planDynamicLocalKeyring(stateRef.current)?.identity;
+    if (
+      cacheRef.current &&
+      (!identity ||
+        !sameDynamicKeyringIdentity(cacheRef.current.identity, identity))
+    ) {
       cacheRef.current = null;
     }
   }, [
+    input.createBrowserLocalKeyring,
     input.environment.canManagePinCode,
     input.environment.hostCreateLocalKeyring,
     input.lockState.pinCodeEnabled,
+    input.lockState.revision,
     input.unlockedPinCode,
   ]);
 
-  return useCallback((): LocalKeyring => {
-    return createDynamicLocalKeyring(() => {
-      const plan = planDynamicLocalKeyring(stateRef.current);
-      if (!plan) {
-        cacheRef.current = null;
-        return null;
-      }
-      const cached = cacheRef.current;
-      if (cached && cached.signature === plan.signature) {
-        return cached.keyring;
-      }
-      const keyring = plan.create();
-      cacheRef.current = { keyring, signature: plan.signature };
-      return keyring;
-    });
+  return useMemo((): LocalKeyringFactory => {
+    return Object.assign(
+      (): LocalKeyring =>
+        createDynamicLocalKeyring(() => {
+          const plan = planDynamicLocalKeyring(stateRef.current);
+          if (!plan) {
+            cacheRef.current = null;
+            return null;
+          }
+          const cached = cacheRef.current;
+          if (
+            cached &&
+            sameDynamicKeyringIdentity(cached.identity, plan.identity)
+          ) {
+            return cached.keyring;
+          }
+          const keyring = plan.create();
+          cacheRef.current = { identity: plan.identity, keyring };
+          return keyring;
+        }),
+      {
+        invalidateCachedKeyring: () => {
+          cacheRef.current = null;
+        },
+      },
+    );
   }, []);
 }
 

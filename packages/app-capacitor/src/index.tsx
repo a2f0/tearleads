@@ -28,6 +28,7 @@ function createCapacitorSQLiteRuntime() {
   // avoids ever constructing a second worker, which fails on a WebView and
   // wedged provisioning of a second local identity.
   return createSQLiteRuntime({
+    sharedWorkerConstructor: null,
     workerConstructor: globalThis.Worker,
     workerUrl,
   });

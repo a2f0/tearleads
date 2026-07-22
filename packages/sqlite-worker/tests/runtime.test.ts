@@ -3,6 +3,7 @@ import {
   createModuleDatabaseRuntime,
   createSharedDatabaseRuntime,
 } from "../src/runtime";
+import { MockMessageChannel, StatefulMockWorker } from "./runtimeTestHarness";
 
 type WorkerMessage = {
   id: number;
@@ -137,6 +138,132 @@ test("createModuleDatabaseRuntime creates a module worker and destroys it", asyn
     "Database worker client has been destroyed.",
   );
   expect(worker?.terminated).toBe(true);
+});
+
+test("renewClient gives a reused worker fresh port-side connection state", async () => {
+  MockMessageChannel.reset();
+  StatefulMockWorker.reset();
+  const runtime = createModuleDatabaseRuntime({
+    messageChannelConstructor: MockMessageChannel,
+    workerConstructor: StatefulMockWorker,
+    workerUrl: "/custom-worker.js",
+  });
+  const worker = StatefulMockWorker.lastConstructed;
+  const oldClient = runtime.client;
+  const oldRuntimeId = runtime.id;
+  const oldPendingInit = oldClient.init({
+    cipher: "aes256cbc",
+    dbName: "database-a",
+    key: "key-a",
+  });
+
+  expect(worker?.connections[0]).toMatchObject({
+    initializing: true,
+    dbName: null,
+  });
+  await expect(oldClient.close()).resolves.toEqual({ ok: true });
+  expect(worker?.connections[0]).toMatchObject({
+    closed: true,
+    initializing: true,
+  });
+
+  expect(runtime.renewClient).toBeFunction();
+  runtime.renewClient?.();
+
+  expect(runtime.client).not.toBe(oldClient);
+  expect(runtime.id).not.toBe(oldRuntimeId);
+  expect(StatefulMockWorker.constructionCount).toBe(1);
+  expect(worker?.terminated).toBe(false);
+  expect(worker?.connections).toHaveLength(2);
+  expect(MockMessageChannel.instances[0]?.port1.started).toBe(true);
+  await expect(oldPendingInit).rejects.toThrow(
+    "Database worker client has been destroyed.",
+  );
+
+  await expect(
+    runtime.client.init({
+      cipher: "aes256cbc",
+      dbName: "database-b",
+      key: "key-b",
+    }),
+  ).resolves.toEqual({ ok: true });
+  expect(worker?.connections[1]).toMatchObject({
+    dbName: "database-b",
+    initializing: false,
+  });
+  expect(worker?.connections[0]?.requests.map(({ id }) => id)).toEqual([1, 2]);
+  expect(worker?.connections[1]?.requests.map(({ id }) => id)).toEqual([3]);
+
+  runtime.renewClient?.();
+  expect(MockMessageChannel.instances[0]?.port1.closed).toBe(true);
+  expect(worker?.connections).toHaveLength(3);
+  await expect(runtime.client.ping()).resolves.toEqual({
+    message: "pong",
+    ok: true,
+  });
+  expect(worker?.connections[2]?.requests.map(({ id }) => id)).toEqual([4]);
+
+  const pendingAfterRenew = runtime.client.ping();
+  worker?.dispatchEvent(
+    new ErrorEvent("error", { message: "renewed worker crashed" }),
+  );
+  await expect(pendingAfterRenew).rejects.toThrow("renewed worker crashed");
+
+  runtime.terminateNow();
+  const terminatedClient = runtime.client;
+  const terminatedRuntimeId = runtime.id;
+
+  expect(MockMessageChannel.instances[1]?.port1.closed).toBe(true);
+  expect(worker?.terminated).toBe(true);
+
+  runtime.renewClient?.();
+
+  expect(runtime.client).toBe(terminatedClient);
+  expect(runtime.id).toBe(terminatedRuntimeId);
+  expect(MockMessageChannel.instances).toHaveLength(2);
+  await expect(runtime.client.ping()).rejects.toThrow(
+    "Database worker client has been destroyed.",
+  );
+});
+
+test("renewClient preserves the old client when port transfer fails", async () => {
+  MockMessageChannel.reset();
+  StatefulMockWorker.reset();
+  const runtime = createModuleDatabaseRuntime({
+    messageChannelConstructor: MockMessageChannel,
+    workerConstructor: StatefulMockWorker,
+  });
+  const oldClient = runtime.client;
+  const oldRuntimeId = runtime.id;
+  const worker = StatefulMockWorker.lastConstructed;
+
+  if (worker) {
+    worker.rejectTransfers = true;
+  }
+
+  expect(() => runtime.renewClient?.()).toThrow(
+    "Failed to transfer database client port.",
+  );
+  expect(runtime.client).toBe(oldClient);
+  expect(runtime.id).toBe(oldRuntimeId);
+  expect(runtime.renewClient).toBeUndefined();
+  expect(MockMessageChannel.instances[0]?.port1.closed).toBe(true);
+  expect(MockMessageChannel.instances[0]?.port2.closed).toBe(true);
+  await expect(oldClient.ping()).resolves.toEqual({
+    message: "pong",
+    ok: true,
+  });
+  runtime.terminateNow();
+});
+
+test("dedicated runtime omits renewal without MessageChannel support", () => {
+  const runtime = createModuleDatabaseRuntime({
+    messageChannelConstructor: null,
+    workerConstructor: MockWorker,
+  });
+
+  expect(runtime.renewClient).toBeUndefined();
+  runtime.terminateNow();
 });
 
 test("createModuleDatabaseRuntime creates a shared module worker when supplied", async () => {

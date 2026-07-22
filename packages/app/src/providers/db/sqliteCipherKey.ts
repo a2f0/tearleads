@@ -1,4 +1,5 @@
 import type { LocalKeyring } from "@tearleads/client-sdk";
+import type { LocalKeyringFactory } from "../local-keyring/localKeyringLockSupport";
 import { LOCAL_SQLITE_SCOPE_NAMESPACE } from "../local-keyring/localKeyringScopes";
 
 // Upper bound on a single keyring cipher-key derivation. Generous: a keyring
@@ -36,7 +37,8 @@ export type ResolveSqliteCipherKey = () => Promise<string>;
  * reproduce. Failing hard surfaces the missing keyring loudly instead.
  */
 export function createSqliteCipherKeyResolver(
-  createLocalKeyring: (() => LocalKeyring) | undefined,
+  createLocalKeyring: LocalKeyringFactory | undefined,
+  derivationTimeoutMs = CIPHER_KEY_DERIVATION_TIMEOUT_MS,
 ): ResolveSqliteCipherKey {
   if (!createLocalKeyring) {
     return async () => {
@@ -51,9 +53,10 @@ export function createSqliteCipherKeyResolver(
   let keyring: LocalKeyring | null = null;
   let keyDerivationQueue: Promise<void> = Promise.resolve();
 
-  const deriveSqliteKey = async (): Promise<string> => {
-    keyring ??= createLocalKeyring();
-    const session = await keyring.getOrCreateSession({
+  const deriveSqliteKey = async (
+    activeKeyring: LocalKeyring,
+  ): Promise<string> => {
+    const session = await activeKeyring.getOrCreateSession({
       namespace: LOCAL_SQLITE_SCOPE_NAMESPACE,
     });
     // Guard before the finally: a nullish session would otherwise make
@@ -74,24 +77,38 @@ export function createSqliteCipherKeyResolver(
     // serializes every call: a stuck operation would otherwise block the rollback
     // to the previous identity and all later retries behind it (each then timing
     // out at the boot layer), leaving the app keyless until reload. On timeout the
-    // operation rejects, the queue advances (the `.then(_, _)` below clears it),
-    // and a later retry can succeed once the keyring recovers. The message is not
-    // a worker round-trip marker, so a timeout fails the boot rather than
-    // respawning the (healthy) worker.
-    const operation = keyDerivationQueue.then(() => {
+    // operation rejects, its cached keyring is retired, and the queue advances
+    // (the `.then(_, _)` below clears it), allowing a later retry to mint a clean
+    // keyring. The message is not a worker round-trip marker, so a timeout fails
+    // the boot rather than respawning the (healthy) worker.
+    const operation = keyDerivationQueue.then(async () => {
+      const activeKeyring = keyring ?? createLocalKeyring();
+      keyring = activeKeyring;
+      let timedOut = false;
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
-      return Promise.race([
-        deriveSqliteKey(),
-        new Promise<never>((_resolve, reject) => {
-          timeoutId = setTimeout(() => {
-            reject(
-              new Error(
-                `SQLite cipher key resolution timed out after ${CIPHER_KEY_DERIVATION_TIMEOUT_MS}ms.`,
-              ),
-            );
-          }, CIPHER_KEY_DERIVATION_TIMEOUT_MS);
-        }),
-      ]).finally(() => clearTimeout(timeoutId));
+      try {
+        return await Promise.race([
+          deriveSqliteKey(activeKeyring),
+          new Promise<never>((_resolve, reject) => {
+            timeoutId = setTimeout(() => {
+              timedOut = true;
+              reject(
+                new Error(
+                  `SQLite cipher key resolution timed out after ${derivationTimeoutMs}ms.`,
+                ),
+              );
+            }, derivationTimeoutMs);
+          }),
+        ]);
+      } catch (error) {
+        if (timedOut && keyring === activeKeyring) {
+          keyring = null;
+          createLocalKeyring.invalidateCachedKeyring?.();
+        }
+        throw error;
+      } finally {
+        clearTimeout(timeoutId);
+      }
     });
 
     keyDerivationQueue = operation.then(

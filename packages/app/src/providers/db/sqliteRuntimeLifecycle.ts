@@ -11,29 +11,16 @@ import {
 import type { ResolveSqliteCipherKey } from "./sqliteCipherKey";
 
 type SQLiteRuntimeStatus = DatabaseStatus;
-/**
- * How long to wait for a runtime's graceful close before force-terminating it.
- *
- * The graceful close matters on an identity switch: releasing identity 1's
- * runtime must finish before identity 2's worker opens its database. The worker
- * posts its `close` acknowledgement only *after* `pauseVfs()` → `ah.close()` has
- * released that database's OPFS SAHPool access handles (see
- * `@tearleads/sqlite-worker` closeDatabase/teardownDatabase), so awaiting the
- * close is what guarantees the per-origin handle slots are free for identity 2 —
- * and, on the cross-tab transport, that identity 1's client was cleanly removed
- * from the shared owner rather than force-stopped, which otherwise strands the
- * owner "dead but pinned" so identity 2's `init` round-trip is never answered
- * (the second-identity provisioning hang). `Worker.terminate()` alone defers
- * handle release to GC of the dead thread — the exact window that wedges the
- * next boot — so we terminate only after the close settles, or after this
- * fallback bound if the close never answers.
- *
- * Kept comfortably under the boot round-trip timeout (15s, see
- * {@link bootSQLiteRuntime}) so a genuinely wedged teardown still yields to a
- * fresh boot instead of compounding. A normal idle close acks in well under a
- * second, so this larger bound never adds latency to the common path.
- */
-const SQLITE_RUNTIME_RELEASE_TIMEOUT_MS = 10_000;
+const SQLITE_RUNTIME_RELEASE_TIMEOUT_MS = 1_000;
+
+type ReusableSQLiteRuntime = SQLiteRuntime & { renewClient(): void };
+
+export function canReuseSQLiteRuntime(
+  enabled: boolean,
+  runtime: SQLiteRuntime | null,
+): runtime is ReusableSQLiteRuntime {
+  return enabled && typeof runtime?.renewClient === "function";
+}
 
 /**
  * Whether a boot error is "the persisted database could not be decrypted with the
@@ -129,7 +116,7 @@ function failSQLiteRuntimeBoot(params: {
 
   bootingRef.current = false;
   console.error("Failed to initialize database worker:", error);
-  configureSdkSQLiteRuntime(tearleads, runtime, "error");
+  tearleads.database.clear("error");
 }
 
 interface StartSQLiteRuntimeBootParams {
@@ -183,7 +170,6 @@ function settleSQLiteRuntimeBoot(params: {
   runtime: SQLiteRuntime;
   runtimeRef: RefObject<SQLiteRuntime | null>;
   bootingRef: RefObject<boolean>;
-  currentDbNameRef: RefObject<string | null>;
   targetDbNameRef: RefObject<string>;
   tearleads: Tearleads;
   dbName: string;
@@ -214,6 +200,18 @@ function settleSQLiteRuntimeBoot(params: {
 
   bootPromise
     .then(() => {
+      if (runtimeRef.current !== runtime) {
+        return;
+      }
+
+      onBootSucceeded?.(dbName);
+      if (targetDbNameRef.current !== dbName) {
+        bootingRef.current = false;
+        tearleads.database.clear("idle");
+        rebootForDbName(targetDbNameRef.current);
+        return;
+      }
+
       completeSQLiteRuntimeBoot({
         runtime,
         runtimeRef,
@@ -222,23 +220,23 @@ function settleSQLiteRuntimeBoot(params: {
         dbName,
         log,
       });
-      // The boot resolved without throwing, so clear any transient-failure
-      // budget accrued for this db name before its next race.
-      onBootSucceeded?.(dbName);
-      // An identity transition can start while this boot is still in flight; its
-      // spawn no-ops because bootingRef is set. If the target moved on while we
-      // booted `dbName`, boot the worker onto that target now that it is free —
-      // otherwise the waiting ensureReady would hang, since this completion names
-      // the wrong database. Guarded on the runtime still being current (a reused,
-      // not torn-down, worker) so a superseded boot never re-drives it.
-      if (
-        runtimeRef.current === runtime &&
-        targetDbNameRef.current !== dbName
-      ) {
-        rebootForDbName(targetDbNameRef.current);
-      }
     })
     .catch((error) => {
+      if (runtimeRef.current !== runtime) {
+        return;
+      }
+
+      // Never publish or recover an obsolete database after the identity target
+      // has moved. Re-drive the worker directly onto the latest target; renewing
+      // its client also creates a fresh worker-side connection, so even a timed-
+      // out init cannot pin the replacement connection in "initializing" state.
+      if (targetDbNameRef.current !== dbName) {
+        bootingRef.current = false;
+        tearleads.database.clear("idle");
+        rebootForDbName(targetDbNameRef.current);
+        return;
+      }
+
       // A persisted db that cannot be decrypted with the resolved key is not a
       // retryable boot flake — the ciphertext is unrecoverable without the lost
       // key. Hand off to recovery (wipe + recreate once), which owns the status,
@@ -283,21 +281,6 @@ function settleSQLiteRuntimeBoot(params: {
         tearleads,
         error,
       });
-
-      // Same superseded-target race as the success branch: a transition may have
-      // moved the target off this (now failed) database while it booted. Its
-      // spawn no-op'd on bootingRef, and this terminal "error" names the OLD
-      // database, so the waiting ensureReady — gated on the target name — would
-      // ignore it and hang. Boot the still-current reused worker onto the pending
-      // target instead. (A pre-init failure such as a cipher-key timeout leaves
-      // the worker healthy; a genuinely wedged one is caught by the next boot's
-      // round-trip timeout + recovery.)
-      if (
-        runtimeRef.current === runtime &&
-        targetDbNameRef.current !== dbName
-      ) {
-        rebootForDbName(targetDbNameRef.current);
-      }
     });
 }
 
@@ -342,7 +325,7 @@ function closeReusedRuntimeDatabase(runtime: SQLiteRuntime): Promise<void> {
 // new one (which fails on a WebView — the second-identity provisioning hang).
 function reuseSQLiteRuntimeForDbName(
   params: StartSQLiteRuntimeBootParams,
-  existingRuntime: SQLiteRuntime,
+  existingRuntime: ReusableSQLiteRuntime,
 ) {
   const {
     bootingRef,
@@ -364,9 +347,8 @@ function reuseSQLiteRuntimeForDbName(
   bootingRef.current = true;
   targetDbNameRef.current = nextDbName;
   currentDbNameRef.current = nextDbName;
-  // Not-ready while the worker swaps databases so a waiter never mistakes the
-  // outgoing database's "ready" for the incoming one.
-  configureSdkSQLiteRuntime(tearleads, existingRuntime, "idle");
+  // Detach the outgoing client while retaining the worker privately for reuse.
+  tearleads.database.clear("idle");
 
   // Close (bounded, best-effort) releases the outgoing database's OPFS handles;
   // then repurpose the SAME worker for the new database with a FRESH client. The
@@ -377,7 +359,7 @@ function reuseSQLiteRuntimeForDbName(
   // "no such table". renewClient swaps in a fresh client/id on the same worker.
   const bootPromise = closeReusedRuntimeDatabase(existingRuntime)
     .then(() => {
-      existingRuntime.renewClient?.();
+      existingRuntime.renewClient();
     })
     .then(() =>
       bootSQLiteRuntime(
@@ -394,7 +376,6 @@ function reuseSQLiteRuntimeForDbName(
     runtime: existingRuntime,
     runtimeRef,
     bootingRef,
-    currentDbNameRef,
     targetDbNameRef,
     tearleads,
     dbName: nextDbName,
@@ -433,9 +414,27 @@ export function startSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
 
   const existingRuntime = runtimeRef.current;
   if (existingRuntime) {
+    // An identity transition detaches the outgoing database from the SDK before
+    // the next identity is known. If provisioning fails and rolls back to that
+    // same identity, the still-open database is already the requested target;
+    // reattach it instead of waiting forever for a boot that is unnecessary.
+    if (currentDbNameRef.current === nextDbName) {
+      if (
+        !bootingRef.current &&
+        (tearleads.database.status !== "ready" ||
+          tearleads.database.client !== existingRuntime.client)
+      ) {
+        configureSdkSQLiteRuntime(tearleads, existingRuntime);
+      }
+      return;
+    }
+
     // A live worker exists. Reuse it for a database switch when the host opts in
     // (dedicated worker); otherwise leave it to the caller's teardown path.
-    if (reuseWorker && currentDbNameRef.current !== nextDbName) {
+    if (
+      canReuseSQLiteRuntime(Boolean(reuseWorker), existingRuntime) &&
+      currentDbNameRef.current !== nextDbName
+    ) {
       reuseSQLiteRuntimeForDbName(params, existingRuntime);
     }
     return;
@@ -449,7 +448,7 @@ export function startSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
   try {
     const runtime = createSQLiteRuntime();
     runtimeRef.current = runtime;
-    configureSdkSQLiteRuntime(tearleads, runtime, "idle");
+    tearleads.database.clear("idle");
 
     settleSQLiteRuntimeBoot({
       bootPromise: bootSQLiteRuntime(
@@ -462,7 +461,6 @@ export function startSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
       runtime,
       runtimeRef,
       bootingRef,
-      currentDbNameRef,
       targetDbNameRef,
       tearleads,
       dbName: nextDbName,

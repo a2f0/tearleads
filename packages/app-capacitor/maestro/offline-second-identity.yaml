@@ -33,11 +33,22 @@ appId: com.tearleads.app
     timeout: 20000
 
 # Remember the first identity (the switcher shows the active fingerprint).
-- copyTextFrom: "Identities"
+- copyTextFrom:
+    text: '[0-9a-f]{12}\.\.\.[0-9a-f]{8}'
 - evalScript: ${output.firstIdentity = maestro.copiedText}
 
 # Provision a SECOND identity from the identity switcher.
-- tapOn: "Identities"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "Identities"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          text: '[0-9a-f]{12}\.\.\.[0-9a-f]{8}'
 - tapOn: "New Identity"
 
 # The second identity must provision offline. The bug wedged the app in the
@@ -53,6 +64,7 @@ appId: com.tearleads.app
 # ...and that the active identity is a genuinely NEW one — not the first identity
 # restored by the create-failure fallback. The switcher's active fingerprint must
 # differ from the one captured before.
-- copyTextFrom: "Identities"
+- copyTextFrom:
+    text: '[0-9a-f]{12}\.\.\.[0-9a-f]{8}'
 - evalScript: ${output.secondIdentity = maestro.copiedText}
 - assertTrue: ${output.secondIdentity != output.firstIdentity}

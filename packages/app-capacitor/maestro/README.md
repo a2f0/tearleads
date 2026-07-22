@@ -33,7 +33,7 @@ xcodebuild -project ios/App/App.xcodeproj -scheme App \
   -derivedDataPath build -destination 'generic/platform=iOS Simulator' \
   CODE_SIGNING_ALLOWED=NO build
 xcrun simctl boot 'iPhone 16' || true
-xcrun simctl install booted "$(find build/Build/Products/Debug-iphonesimulator -name App.app -maxdepth 2)"
+xcrun simctl install booted build/Build/Products/Debug-iphonesimulator/App.app
 
 # Run the flows
 maestro --platform ios test maestro/offline-second-identity.yaml

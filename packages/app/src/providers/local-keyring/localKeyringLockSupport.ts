@@ -27,6 +27,11 @@ export interface LockState extends LockSnapshot {
   readonly revision: number;
 }
 
+/** A keyring factory whose implementation cache can be retired after a hang. */
+export type LocalKeyringFactory = (() => LocalKeyring) & {
+  readonly invalidateCachedKeyring?: () => void;
+};
+
 export interface LocalKeyringLockEnvironment {
   readonly canManagePinCode: boolean;
   readonly hostCreateLocalKeyring: (() => LocalKeyring) | undefined;

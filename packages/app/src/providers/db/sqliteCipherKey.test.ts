@@ -54,6 +54,51 @@ test("throws a clear error when the keyring yields no session", async () => {
   await expect(resolve()).rejects.toThrow(/keyring session/i);
 });
 
+test("recreates the keyring after a timed-out queued derivation", async () => {
+  const stuckKeyring: LocalKeyring = {
+    deleteSession: async () => {},
+    loadSession: async () => null,
+    getOrCreateSession: () => new Promise(() => {}),
+  };
+  let disposed = 0;
+  const healthyKeyring: LocalKeyring = {
+    deleteSession: async () => {},
+    loadSession: async () => null,
+    getOrCreateSession: async () =>
+      ({
+        dispose: () => {
+          disposed += 1;
+        },
+        sqliteKey: "recovered-sqlite-key",
+      }) as unknown as LocalKeyringSession,
+  };
+  let cachedKeyring: LocalKeyring | null = null;
+  let createdKeyrings = 0;
+  let invalidations = 0;
+  const createLocalKeyring = Object.assign(
+    (): LocalKeyring => {
+      cachedKeyring ??= ++createdKeyrings === 1 ? stuckKeyring : healthyKeyring;
+      return cachedKeyring;
+    },
+    {
+      invalidateCachedKeyring: () => {
+        invalidations += 1;
+        cachedKeyring = null;
+      },
+    },
+  );
+  const resolve = createSqliteCipherKeyResolver(createLocalKeyring, 5);
+
+  const stuck = resolve();
+  const queuedRetry = resolve();
+
+  await expect(stuck).rejects.toThrow(/timed out after 5ms/i);
+  await expect(queuedRetry).resolves.toBe("recovered-sqlite-key");
+  expect(createdKeyrings).toBe(2);
+  expect(invalidations).toBe(1);
+  expect(disposed).toBe(1);
+});
+
 test("fails hard when no keyring is available (no development-key fallback)", async () => {
   // No keyring => no key. We must NOT silently encrypt with a development key
   // (which would later fail to decrypt once a keyring exists) and must NOT
