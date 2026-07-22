@@ -29,6 +29,7 @@ const OPTION = {
   currency: "usd",
   unitAmount: 99,
   interval: "month",
+  intervalCount: 1,
 };
 
 function stubTearleads(overrides?: {

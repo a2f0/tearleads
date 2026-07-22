@@ -32,6 +32,7 @@ const OPTION = {
   currency: "usd",
   unitAmount: 499,
   interval: "month",
+  intervalCount: 1,
 };
 
 function stubEnvironment(

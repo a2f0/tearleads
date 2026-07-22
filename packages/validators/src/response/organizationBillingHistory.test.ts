@@ -5,11 +5,28 @@ import {
 } from "./organizationBillingHistory";
 
 const ENTRY = {
+  id: "event-1",
+  category: "lifecycle",
+  provider: "revenuecat",
   eventType: "INITIAL_PURCHASE",
   outcome: "applied",
   occurredAt: "2026-07-01T00:00:00.000Z",
   productId: "sync_monthly",
   transactionId: "transaction-1",
+  invoiceId: null,
+  subscriptionId: null,
+  billingReason: null,
+  seatCount: 4,
+  seatDelta: 1,
+  activeSeatCount: 3,
+  priceId: null,
+  unitAmount: null,
+  currency: null,
+  interval: null,
+  intervalCount: null,
+  totalAmount: null,
+  periodStartsAt: "2026-07-01T00:00:00.000Z",
+  periodEndsAt: "2026-08-01T00:00:00.000Z",
 };
 
 const HISTORY_RESPONSE = {
@@ -17,6 +34,8 @@ const HISTORY_RESPONSE = {
   entries: [
     ENTRY,
     {
+      ...ENTRY,
+      id: "event-2",
       eventType: "CANCELLATION",
       outcome: "ignored",
       occurredAt: "2026-06-01T00:00:00.000Z",
@@ -81,6 +100,103 @@ test("isOrganizationBillingHistoryEntry allows null product and transaction ids"
   ).toBe(true);
 });
 
+test("isOrganizationBillingHistoryEntry accepts lifecycle, seat, and invoice metadata", () => {
+  expect(
+    isOrganizationBillingHistoryEntry({
+      ...ENTRY,
+      category: "seat",
+      provider: "internal",
+      eventType: "licensed_seat_count_increased",
+      productId: null,
+      transactionId: null,
+      seatDelta: -1,
+    }),
+  ).toBe(true);
+  expect(
+    isOrganizationBillingHistoryEntry({
+      ...ENTRY,
+      category: "invoice",
+      provider: "stripe",
+      eventType: "INVOICE_PAID",
+      invoiceId: "in_1",
+      subscriptionId: "sub_1",
+      billingReason: "subscription_cycle",
+      seatCount: 4,
+      seatDelta: null,
+      activeSeatCount: null,
+      priceId: "price_1",
+      unitAmount: 1_200,
+      currency: "usd",
+      interval: "month",
+      intervalCount: 3,
+      totalAmount: 4_800,
+    }),
+  ).toBe(true);
+});
+
+test("isOrganizationBillingHistoryEntry rejects unknown categories and providers", () => {
+  expect(
+    isOrganizationBillingHistoryEntry({ ...ENTRY, category: "charge" }),
+  ).toBe(false);
+  expect(
+    isOrganizationBillingHistoryEntry({ ...ENTRY, provider: "paypal" }),
+  ).toBe(false);
+});
+
+test("isOrganizationBillingHistoryEntry requires nullable snapshot fields", () => {
+  const { invoiceId: _invoiceId, ...withoutInvoiceId } = ENTRY;
+  expect(isOrganizationBillingHistoryEntry(withoutInvoiceId)).toBe(false);
+  expect(
+    isOrganizationBillingHistoryEntry({ ...ENTRY, periodStartsAt: 1 }),
+  ).toBe(false);
+  expect(
+    isOrganizationBillingHistoryEntry({ ...ENTRY, billingReason: 1 }),
+  ).toBe(false);
+});
+
+test("isOrganizationBillingHistoryEntry requires safe integer snapshots", () => {
+  for (const key of [
+    "seatCount",
+    "seatDelta",
+    "activeSeatCount",
+    "unitAmount",
+    "intervalCount",
+    "totalAmount",
+  ] as const) {
+    expect(isOrganizationBillingHistoryEntry({ ...ENTRY, [key]: 1.5 })).toBe(
+      false,
+    );
+    expect(
+      isOrganizationBillingHistoryEntry({
+        ...ENTRY,
+        [key]: Number.MAX_SAFE_INTEGER + 1,
+      }),
+    ).toBe(false);
+    expect(isOrganizationBillingHistoryEntry({ ...ENTRY, [key]: null })).toBe(
+      true,
+    );
+  }
+});
+
+test("isOrganizationBillingHistoryEntry rejects negative counts and amounts", () => {
+  for (const key of [
+    "seatCount",
+    "activeSeatCount",
+    "unitAmount",
+    "totalAmount",
+  ] as const) {
+    expect(isOrganizationBillingHistoryEntry({ ...ENTRY, [key]: -1 })).toBe(
+      false,
+    );
+  }
+  expect(
+    isOrganizationBillingHistoryEntry({ ...ENTRY, intervalCount: 0 }),
+  ).toBe(false);
+  expect(isOrganizationBillingHistoryEntry({ ...ENTRY, seatDelta: -1 })).toBe(
+    true,
+  );
+});
+
 test("isOrganizationBillingHistoryEntry rejects non-string ids and outcomes", () => {
   expect(isOrganizationBillingHistoryEntry({ ...ENTRY, productId: 1 })).toBe(
     false,
@@ -91,4 +207,5 @@ test("isOrganizationBillingHistoryEntry rejects non-string ids and outcomes", ()
   expect(isOrganizationBillingHistoryEntry({ ...ENTRY, eventType: 1 })).toBe(
     false,
   );
+  expect(isOrganizationBillingHistoryEntry({ ...ENTRY, id: 1 })).toBe(false);
 });

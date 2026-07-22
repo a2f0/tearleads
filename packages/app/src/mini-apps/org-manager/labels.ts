@@ -258,6 +258,7 @@ const ORG_MANAGER_BILLING_EVENT_LABELS: Readonly<Record<string, string>> = {
   CANCELLATION: "Cancellation scheduled",
   EXPIRATION: "Expired",
   INITIAL_PURCHASE: "Subscription started",
+  INVOICE_PAID: "Invoice paid",
   NON_RENEWING_PURCHASE: "Purchased",
   PRODUCT_CHANGE: "Plan changed",
   RENEWAL: "Renewed",
@@ -265,6 +266,9 @@ const ORG_MANAGER_BILLING_EVENT_LABELS: Readonly<Record<string, string>> = {
   SUBSCRIPTION_PAUSED: "Paused",
   TEMPORARY_ENTITLEMENT_GRANT: "Access granted",
   UNCANCELLATION: "Resumed",
+  licensed_seat_count_increased: "Licensed seats increased",
+  licensed_seat_count_initialized: "Licensed seats initialized",
+  licensed_seat_count_reset: "Licensed seats reset",
 };
 
 /**

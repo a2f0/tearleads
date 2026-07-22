@@ -9,17 +9,27 @@ import {
 export interface StripeSubscriptionBinding {
   readonly billingPeriodEndsAt: Date | null;
   readonly billingPeriodStartsAt: Date | null;
+  readonly currency: string | null;
   readonly customerId: string | null;
+  readonly interval: string | null;
+  readonly intervalCount: number | null;
   readonly organizationId: string | null;
   readonly priceId: string | null;
   readonly seatQuantity: number | null;
   readonly status: string | null;
   readonly subscriptionItemId: string | null;
+  readonly unitAmount: number | null;
   readonly userId: string | null;
 }
 
 function readPositiveInteger(value: unknown): number | null {
   return Number.isSafeInteger(value) && Number(value) >= 1
+    ? Number(value)
+    : null;
+}
+
+function readNonnegativeInteger(value: unknown): number | null {
+  return Number.isSafeInteger(value) && Number(value) >= 0
     ? Number(value)
     : null;
 }
@@ -65,17 +75,24 @@ export async function getSubscriptionBinding(
   const metadata = prop(body, "metadata");
   const customer = prop(body, "customer");
   const item = resolveSyncItem(body, syncPriceId);
+  const price = prop(item, "price");
   return {
     billingPeriodEndsAt: readUnixTimestamp(prop(body, "current_period_end")),
     billingPeriodStartsAt: readUnixTimestamp(
       prop(body, "current_period_start"),
     ),
+    currency: readString(prop(price, "currency")),
     customerId: readString(customer) ?? readString(prop(customer, "id")),
+    interval: readString(prop(prop(price, "recurring"), "interval")),
+    intervalCount: readPositiveInteger(
+      prop(prop(price, "recurring"), "interval_count"),
+    ),
     organizationId: readString(prop(metadata, "orgId")),
-    priceId: readString(prop(prop(item, "price"), "id")),
+    priceId: readString(prop(price, "id")),
     seatQuantity: readPositiveInteger(prop(item, "quantity")),
     status: readString(prop(body, "status")),
     subscriptionItemId: readString(prop(item, "id")),
+    unitAmount: readNonnegativeInteger(prop(price, "unit_amount")),
     userId: readString(prop(metadata, "userId")),
   };
 }

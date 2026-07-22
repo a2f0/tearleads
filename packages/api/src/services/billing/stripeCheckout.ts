@@ -30,6 +30,7 @@ import {
   runRequireCheckoutEligibleWorkflow,
   runResolveOrgSubscriptionForAdminWorkflow,
 } from "../../workflows/billing/stripeCheckout";
+import { runRecordStripeInvoiceAuditWorkflow } from "../../workflows/billing/stripeInvoiceAudit";
 import {
   runBindOrganizationStripeSeatsWorkflow,
   runRecordStripeSeatRenewalWorkflow,
@@ -37,6 +38,7 @@ import {
 } from "../../workflows/billing/stripeSeatState";
 import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
+import { resolveStripeInvoiceAuditInput } from "./stripeInvoiceAudit";
 
 /**
  * Direct Stripe checkout services (issue #1654). The org-admin gate runs
@@ -302,6 +304,25 @@ async function applyPaidSubscriptionInvoice(input: {
   readonly runtime: ApiServiceRuntime;
 }): Promise<StripeWebhookOutcome> {
   const { binding, invoice } = input;
+  const auditInput = await resolveStripeInvoiceAuditInput({
+    binding,
+    invoice,
+    organizationId: input.organizationId,
+    stripeDeps: input.deps.stripe ?? {},
+  });
+  if (!auditInput) {
+    return { status: "retry", reason: "Paid invoice details are incomplete" };
+  }
+  await runRecordStripeInvoiceAuditWorkflow(input.runtime.db, auditInput);
+  if (
+    auditInput.billingReason !== "subscription_create" &&
+    auditInput.billingReason !== "subscription_cycle"
+  ) {
+    return {
+      status: "ignored",
+      reason: "Paid invoice requires no seat-period reconciliation",
+    };
+  }
   if (
     !binding.priceId ||
     !binding.subscriptionItemId ||
@@ -319,13 +340,10 @@ async function applyPaidSubscriptionInvoice(input: {
     subscriptionId: invoice.subscriptionId,
     subscriptionItemId: binding.subscriptionItemId,
   };
-  if (invoice.billingReason === "subscription_cycle") {
-    if (!invoice.invoiceId) {
-      return { status: "ignored", reason: "Renewal invoice carries no id" };
-    }
+  if (auditInput.billingReason === "subscription_cycle") {
     const outcome = await runRecordStripeSeatRenewalWorkflow(input.runtime.db, {
       ...seatBinding,
-      invoiceId: invoice.invoiceId,
+      invoiceId: auditInput.invoiceId,
     });
     if (outcome.status === "retry") {
       return {

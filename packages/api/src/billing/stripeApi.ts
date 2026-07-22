@@ -20,17 +20,7 @@ export {
   type StripeApiDeps,
   StripeApiError,
 } from "./stripeHttp";
-
-/** The sync subscription option shaped for display in the billing panel. */
-export interface StripeSyncOption {
-  readonly priceId: string;
-  readonly productName: string;
-  readonly currency: string;
-  /** Amount in the currency's minor unit (e.g. cents), as Stripe reports it. */
-  readonly unitAmount: number | null;
-  /** Billing interval (`month`/`year`…), null for a non-recurring price. */
-  readonly interval: string | null;
-}
+export { getStripeSyncOption, type StripeSyncOption } from "./stripePrice";
 
 export interface StripeCheckoutIntent {
   readonly subscriptionId: string;
@@ -64,39 +54,6 @@ const LIVE_SUBSCRIPTION_STATUSES = new Set([
   "unpaid",
   "paused",
 ]);
-
-/**
- * Fetches the configured sync price (with its product expanded) shaped for
- * display. Returns null when the integration is not configured; throws
- * {@link StripeApiError} on a failed request so a route can 502 rather than
- * show an empty option list for a transient failure.
- */
-export async function getStripeSyncOption(
-  deps: StripeApiDeps = {},
-): Promise<StripeSyncOption | null> {
-  const { fetchImpl, secretKey, syncPriceId } = resolveDeps(deps);
-  if (!secretKey || !syncPriceId) {
-    return null;
-  }
-  const body = await stripeRequest({
-    fetchImpl,
-    secretKey,
-    method: "GET",
-    path: `/v1/prices/${encodeURIComponent(syncPriceId)}?expand[]=product`,
-    operation: "price lookup",
-  });
-  if (typeof body !== "object" || body === null) {
-    return null;
-  }
-  const unitAmount = prop(body, "unit_amount");
-  return {
-    priceId: readString(prop(body, "id")) ?? syncPriceId,
-    productName: readString(prop(prop(body, "product"), "name")) ?? "Sync",
-    currency: readString(prop(body, "currency")) ?? "usd",
-    unitAmount: typeof unitAmount === "number" ? unitAmount : null,
-    interval: readString(prop(prop(body, "recurring"), "interval")),
-  };
-}
 
 /**
  * Finds the Stripe customer previously created for this buyer AND

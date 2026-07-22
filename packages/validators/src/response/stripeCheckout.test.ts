@@ -12,6 +12,7 @@ const OPTION = {
   currency: "usd",
   unitAmount: 99,
   interval: "month",
+  intervalCount: 3,
 };
 
 test("accepts a well-formed options response, including an empty list", () => {
@@ -21,7 +22,9 @@ test("accepts a well-formed options response, including an empty list", () => {
   // Unpriced / non-recurring prices are representable.
   expect(
     isStripeCheckoutOptionsResponse({
-      options: [{ ...OPTION, unitAmount: null, interval: null }],
+      options: [
+        { ...OPTION, unitAmount: null, interval: null, intervalCount: null },
+      ],
     }),
   ).toBe(true);
 });
@@ -42,6 +45,16 @@ test("rejects malformed options", () => {
   expect(
     isStripeCheckoutOptionsResponse({
       options: [{ ...OPTION, unitAmount: "99" }],
+    }),
+  ).toBe(false);
+  expect(
+    isStripeCheckoutOptionsResponse({
+      options: [{ ...OPTION, intervalCount: 0 }],
+    }),
+  ).toBe(false);
+  expect(
+    isStripeCheckoutOptionsResponse({
+      options: [{ ...OPTION, intervalCount: 1.5 }],
     }),
   ).toBe(false);
 });

@@ -38,6 +38,10 @@ export {
 export { groups, organizationGroupTombstones } from "./groups";
 export { documents, documentUpdateSpans, documentUpdates } from "./loro";
 export {
+  type OrganizationBillingInvoiceReason,
+  organizationBillingInvoiceEvents,
+} from "./organizationBillingInvoiceEvents";
+export {
   organizationReadModelChanges,
   organizationReadModelHeads,
 } from "./organizationReadModels";

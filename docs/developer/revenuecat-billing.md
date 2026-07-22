@@ -160,8 +160,8 @@ for mirroring the resulting entitlement lifecycle:
   `invoice.paid` enabled. Both initial and renewal paid invoices are required
   for correct seat-period accounting.
 
-The client half (Payment Element UI behind `BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY`)
-is described in the next section.
+The client half is described below. Reporting details live in
+[billing-history.md](./billing-history.md).
 
 ## Per-seat behavior
 

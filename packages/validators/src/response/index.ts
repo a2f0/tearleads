@@ -164,8 +164,10 @@ export {
 } from "./organizationBilling";
 export {
   isOrganizationBillingHistoryResponse,
+  type OrganizationBillingHistoryCategory,
   type OrganizationBillingHistoryEntry,
   type OrganizationBillingHistoryOutcome,
+  type OrganizationBillingHistoryProvider,
   type OrganizationBillingHistoryResponse,
 } from "./organizationBillingHistory";
 export {
