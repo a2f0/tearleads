@@ -43,11 +43,7 @@ import {
   resolveAndRecordStripeInvoiceAudit,
 } from "./stripeInvoiceAudit";
 
-/**
- * Direct Stripe checkout services (issue #1654). The org-admin gate runs
- * first on every user-facing operation; Stripe/RevenueCat calls go through
- * the injectable clients so routes stay unit-testable.
- */
+/** Direct Stripe checkout services; user-facing calls enforce org-admin access. */
 
 interface StripeCheckoutServiceDeps {
   readonly stripe?: StripeApiDeps;
@@ -387,6 +383,9 @@ async function applyPaidSubscriptionInvoice(
   input: PaidSubscriptionInvoiceInput,
 ): Promise<StripeWebhookOutcome> {
   const { invoice } = input;
+  if (invoice.billingReason === "subscription_cycle" && !invoice.invoiceId) {
+    return { status: "ignored", reason: "Renewal invoice carries no id" };
+  }
   const requiresSeatPeriod = reconcilesSeatPeriod(invoice.billingReason);
   const auditOutcome = await resolveAndRecordStripeInvoiceAudit({
     binding: input.binding,

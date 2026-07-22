@@ -12,7 +12,16 @@ import {
   type StripeInvoiceAuditInput,
 } from "../../workflows/billing/stripeInvoiceAudit";
 
-const COMPLETE_INVOICE_DETAIL_SCORE = 7;
+const INVOICE_AUDIT_DETAIL_FIELDS = [
+  "interval",
+  "intervalCount",
+  "periodEndsAt",
+  "periodStartsAt",
+  "priceId",
+  "seatCount",
+  "unitAmount",
+] as const;
+const COMPLETE_INVOICE_DETAIL_SCORE = INVOICE_AUDIT_DETAIL_FIELDS.length;
 
 export function reconcilesSeatPeriod(
   billingReason: StripeInvoiceBillingReason,
@@ -27,18 +36,19 @@ function selectHistoricalSeatLine(
   invoice: StripePaidSubscriptionInvoice,
   binding: StripeSubscriptionBinding,
 ) {
-  const candidates = invoice.lines.filter(
-    (line) =>
+  const candidates = invoice.lines.filter((line) => {
+    const isAttributable =
+      line.subscriptionId === invoice.subscriptionId ||
+      (line.subscriptionId === null && line.subscriptionItemId !== null);
+    return (
       line.proration === false &&
-      (line.subscriptionId === null ||
-        line.subscriptionId === invoice.subscriptionId) &&
-      (line.subscriptionId === invoice.subscriptionId ||
-        line.subscriptionItemId !== null) &&
+      isAttributable &&
       line.quantity !== null &&
       line.priceId !== null &&
       line.periodStartsAt !== null &&
-      line.periodEndsAt !== null,
-  );
+      line.periodEndsAt !== null
+    );
+  });
   if (binding.subscriptionItemId !== null) {
     const itemMatches = candidates.filter(
       (line) => line.subscriptionItemId === binding.subscriptionItemId,
@@ -121,15 +131,8 @@ function createStripeInvoiceAuditInput(input: {
 }
 
 function auditDetailScore(audit: StripeInvoiceAuditInput): number {
-  return [
-    audit.interval,
-    audit.intervalCount,
-    audit.periodEndsAt,
-    audit.periodStartsAt,
-    audit.priceId,
-    audit.seatCount,
-    audit.unitAmount,
-  ].filter((value) => value !== null).length;
+  return INVOICE_AUDIT_DETAIL_FIELDS.filter((field) => audit[field] !== null)
+    .length;
 }
 
 /** Resolves a complete, immutable invoice snapshot before the audit insert. */

@@ -278,3 +278,44 @@ test("a transient non-seat invoice lookup still asks Stripe to redeliver", async
     );
   expect(rows).toHaveLength(0);
 });
+
+test("a renewal without an invoice id is terminally acknowledged", async () => {
+  const organizationId = crypto.randomUUID();
+  const subscriptionId = `sub_${organizationId}`;
+  const subscription = stripeSubscriptionBody(
+    2,
+    1_783_036_800,
+    1_785_715_200,
+    subscriptionId,
+    `si_${organizationId}`,
+    organizationId,
+  );
+  const event = paidInvoiceEvent({
+    billingReason: "subscription_cycle",
+    invoiceId: `in_${organizationId}`,
+    subscription,
+  });
+  Reflect.deleteProperty(event.data.object, "id");
+  await createWebhookBillingOrganization(organizationId);
+
+  const outcome = await processStripeWebhook(
+    getDefaultApiServiceRuntime(),
+    signedStripeWebhookDelivery(event),
+    {
+      stripe: {
+        env: STRIPE_WEBHOOK_ENV,
+        fetchImpl: createRespondingFetch([{ body: subscription }], []),
+      },
+    },
+  );
+
+  expect(outcome).toEqual({
+    status: "ignored",
+    reason: "Renewal invoice carries no id",
+  });
+  const rows = await db
+    .select()
+    .from(organizationBillingInvoiceEvents)
+    .where(eq(organizationBillingInvoiceEvents.organizationId, organizationId));
+  expect(rows).toHaveLength(0);
+});

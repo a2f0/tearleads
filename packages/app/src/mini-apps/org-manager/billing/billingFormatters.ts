@@ -63,6 +63,10 @@ function stripeFractionDigits(currencyCode: string): number {
   if (STRIPE_TWO_DECIMAL_SPECIAL_CASES.has(currencyCode)) {
     return 2;
   }
+  // Stripe API amounts are two-decimal unless Stripe lists the currency as
+  // zero-decimal. Do not substitute Intl's ISO exponent (for example, KWD is
+  // three-decimal in Intl but two-decimal in Stripe payment requests).
+  // https://docs.stripe.com/currencies#minor-units-in-api-amounts
   return STRIPE_ZERO_DECIMAL_CURRENCIES.has(currencyCode) ? 0 : 2;
 }
 

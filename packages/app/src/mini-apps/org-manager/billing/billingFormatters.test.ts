@@ -19,10 +19,12 @@ test("uses Stripe's two-decimal API special cases for ISK and UGX", () => {
   expect(formatBillingAmount(499, "ugx")).toMatch(/4[.,]99/);
 });
 
-test("does not adopt a nonstandard exponent from Intl", () => {
-  const formatted = formatBillingAmount(499, "kwd");
-  expect(formatted).toMatch(/4[.,]99/);
-  expect(formatted).not.toMatch(/0[.,]499|4[.,]990/);
+test("uses Stripe's two-decimal API exponent for ISO three-decimal currencies", () => {
+  for (const currency of ["bhd", "jod", "kwd", "omr", "tnd"]) {
+    const formatted = formatBillingAmount(4_990, currency);
+    expect(formatted).toMatch(/49[.,]90/);
+    expect(formatted).not.toMatch(/4[.,]990/);
+  }
 });
 
 test("preserves unknown currencies as unconverted minor units", () => {
