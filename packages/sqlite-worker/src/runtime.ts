@@ -63,6 +63,17 @@ export interface DatabaseRuntime {
    * can acquire them instead of racing a leaked handle from the discarded page.
    */
   terminateNow(): void;
+  /**
+   * Replace this runtime's main-thread client (and its `id`) with a fresh one on
+   * the SAME worker, without tearing the worker down. Used when the worker is
+   * reused for a different database (see the app's `reuseDatabaseWorker` path):
+   * the SDK keys per-connection caches — schema/projection ensures, mutation
+   * queues, persistence runtimes — off the client object, so a new database MUST
+   * see a fresh client or it inherits the previous database's "schema already
+   * ensured" state and then queries/writes missing tables. Only the dedicated
+   * runtime implements this; the cross-tab runtime omits it (it is never reused).
+   */
+  renewClient?(): void;
 }
 
 export interface CreateModuleDatabaseRuntimeOptions {
@@ -156,7 +167,11 @@ const GRACEFUL_CLOSE_TIMEOUT_MS = 1_000;
 export function createDatabaseRuntime(
   worker: TerminableWorkerLike,
 ): DatabaseRuntime {
-  const client = createDatabaseWorkerClient(worker);
+  // Mutable so renewClient() can swap in a fresh client/id on the same worker;
+  // the teardown closures below read the current `client`, and `id`/`client` are
+  // exposed as getters so consumers always see the live values.
+  let client = createDatabaseWorkerClient(worker);
+  let id = crypto.randomUUID();
   let torndown = false;
 
   // Terminate exactly once, tearing down the client first so its pending-request
@@ -171,8 +186,23 @@ export function createDatabaseRuntime(
   };
 
   return {
-    id: crypto.randomUUID(),
-    client,
+    get id() {
+      return id;
+    },
+    get client() {
+      return client;
+    },
+    renewClient() {
+      if (torndown) {
+        return;
+      }
+      // Destroy the old client (removes its worker listeners, rejects any pending
+      // requests) then wrap the same worker in a fresh client with a fresh id, so
+      // the SDK's client-keyed caches start clean for the next database.
+      client.destroy();
+      client = createDatabaseWorkerClient(worker);
+      id = crypto.randomUUID();
+    },
     destroy() {
       if (torndown) {
         return;

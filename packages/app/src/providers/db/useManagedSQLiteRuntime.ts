@@ -305,6 +305,61 @@ function useSpawnSQLiteRuntimeForDbName(params: {
   );
 }
 
+function useEnsureReadyForDbName(params: {
+  currentDbNameRef: RefObject<string | null>;
+  destroyCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void;
+  reuseWorker: boolean;
+  spawnRuntimeForDbName: (nextDbName: string) => void;
+  targetDbNameRef: RefObject<string>;
+  tearleads: Tearleads;
+}) {
+  const {
+    currentDbNameRef,
+    destroyCurrentRuntime,
+    reuseWorker,
+    spawnRuntimeForDbName,
+    targetDbNameRef,
+    tearleads,
+  } = params;
+  return useCallback(
+    (nextDbName: string) => {
+      targetDbNameRef.current = nextDbName;
+      if (
+        // Under reuse a database change is applied in-place by
+        // spawnRuntimeForDbName (close + re-init on the same worker); tearing the
+        // runtime down here would force a new worker on the next spawn instead.
+        !reuseWorker &&
+        currentDbNameRef.current &&
+        currentDbNameRef.current !== nextDbName
+      ) {
+        destroyCurrentRuntime("idle");
+      }
+      // A failed init pins the target DB in error; retry with a fresh worker even
+      // under reuse — the worker may be wedged, so a clean respawn is safer.
+      if (
+        currentDbNameRef.current === nextDbName &&
+        tearleads.database.status === "error"
+      ) {
+        destroyCurrentRuntime("idle");
+      }
+
+      return waitForReadySQLiteRuntime(
+        tearleads,
+        currentDbNameRef,
+        nextDbName,
+        () => spawnRuntimeForDbName(nextDbName),
+      );
+    },
+    [
+      currentDbNameRef,
+      destroyCurrentRuntime,
+      reuseWorker,
+      spawnRuntimeForDbName,
+      tearleads,
+    ],
+  );
+}
+
 function useSQLiteRuntimeControls(params: {
   currentDbNameRef: RefObject<string | null>;
   destroyCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void;
@@ -329,45 +384,14 @@ function useSQLiteRuntimeControls(params: {
     targetDbNameRef,
     tearleads,
   } = params;
-  const ensureReadyForDbName = useCallback(
-    (nextDbName: string) => {
-      targetDbNameRef.current = nextDbName;
-      if (
-        // When reusing the worker, a database change is handled in-place by
-        // spawnRuntimeForDbName (close current db + re-init on the same worker),
-        // so do NOT tear the runtime down here — tearing it down would construct
-        // a new worker on the next spawn, the exact thing reuse avoids.
-        !reuseWorker &&
-        currentDbNameRef.current &&
-        currentDbNameRef.current !== nextDbName
-      ) {
-        destroyCurrentRuntime("idle");
-      }
-      // A failed init leaves the target DB pinned in error; retry with a fresh
-      // worker even under reuse — the worker may be wedged, so a clean respawn is
-      // the safer recovery than reusing it.
-      if (
-        currentDbNameRef.current === nextDbName &&
-        tearleads.database.status === "error"
-      ) {
-        destroyCurrentRuntime("idle");
-      }
-
-      return waitForReadySQLiteRuntime(
-        tearleads,
-        currentDbNameRef,
-        nextDbName,
-        () => spawnRuntimeForDbName(nextDbName),
-      );
-    },
-    [
-      currentDbNameRef,
-      destroyCurrentRuntime,
-      reuseWorker,
-      spawnRuntimeForDbName,
-      tearleads,
-    ],
-  );
+  const ensureReadyForDbName = useEnsureReadyForDbName({
+    currentDbNameRef,
+    destroyCurrentRuntime,
+    reuseWorker,
+    spawnRuntimeForDbName,
+    targetDbNameRef,
+    tearleads,
+  });
 
   const spawnRuntime = useCallback(() => {
     spawnRuntimeForDbName(targetDbNameRef.current);
@@ -387,23 +411,23 @@ function useSQLiteRuntimeControls(params: {
   );
 
   const clearWorker = useCallback(() => {
-    // Under worker reuse, an identity switch closes the current database and
-    // re-inits the SAME worker onto the next one (via ensureReadyForDbName).
-    // Identity transitions call clearWorker() before that ensureReady, so tearing
-    // the worker down here would force a brand-new worker on the next spawn — the
-    // exact second-identity provisioning hang (a WebView cannot boot a second
-    // worker). Keep the worker running and leave its current database in place;
-    // the imminent ensureReady closes it (releasing its OPFS handles) and re-inits
-    // the same worker onto the next database in a single serialized close→init,
-    // avoiding a double-close race with a close issued here. The window where the
-    // outgoing database stays open is brief and only while the identity is null
-    // (its sync coordinator already disposed), so nothing queries it.
-    if (reuseWorker && runtimeRef.current) {
+    // Under worker reuse an identity switch reuses the SAME worker (close +
+    // re-init via ensureReadyForDbName), and transitions call clearWorker() first,
+    // so tearing a HEALTHY worker down here would force a new worker on the next
+    // spawn — the second-identity provisioning hang. Keep it. But an ERRORED
+    // runtime must still be torn down: Explorer's Retry calls clearWorker() to
+    // reset it to idle so the boot effect re-spawns; skipping teardown there
+    // leaves the worker pinned in error and Retry inert.
+    if (
+      reuseWorker &&
+      runtimeRef.current &&
+      tearleads.database.status !== "error"
+    ) {
       return;
     }
 
     destroyCurrentRuntime("idle");
-  }, [destroyCurrentRuntime, reuseWorker, runtimeRef]);
+  }, [destroyCurrentRuntime, reuseWorker, runtimeRef, tearleads]);
 
   const killWorker = useCallback(() => {
     if (!runtimeRef.current) {

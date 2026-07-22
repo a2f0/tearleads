@@ -218,8 +218,8 @@
       "bytes": 30269
     },
     "packages/app/src/providers/db/useManagedSQLiteRuntime.ts": {
-      "lines": 527,
-      "bytes": 15407
+      "lines": 551,
+      "bytes": 15630
     },
     "packages/app/test/helpers/paneTestUtils.tsx": {
       "lines": 530,

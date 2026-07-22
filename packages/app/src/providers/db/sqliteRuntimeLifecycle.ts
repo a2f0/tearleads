@@ -1,9 +1,7 @@
 import type { DatabaseStatus, Tearleads } from "@tearleads/client-sdk";
-import {
-  createExecSql,
-  type DatabasePersistenceMode,
-  resetConnectionSchemaMemo,
-  type SQLiteRuntime,
+import type {
+  DatabasePersistenceMode,
+  SQLiteRuntime,
 } from "@tearleads/client-sdk/sqlite";
 import type { RefObject } from "react";
 import {
@@ -270,6 +268,41 @@ function settleSQLiteRuntimeBoot(params: {
     });
 }
 
+// Bound the outgoing database's graceful close when a worker is reused. The
+// close releases that database's OPFS handles inside the worker, but a wedged
+// worker can leave close() unanswered; without a bound the reuse chain would
+// never reach bootSQLiteRuntime — whose own round-trip timeouts and transient
+// recovery heal a wedged worker — so bootingRef would stay true and the identity
+// switch would hang. Race the close against this timeout and proceed regardless:
+// a normal close acks in well under a second, and a hung one falls through to the
+// boot timeout. Kept under the boot round-trip timeout for the same reason
+// SQLITE_RUNTIME_RELEASE_TIMEOUT_MS is.
+const SQLITE_RUNTIME_REUSE_CLOSE_TIMEOUT_MS = 5_000;
+
+function closeReusedRuntimeDatabase(runtime: SQLiteRuntime): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const finish = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      resolve();
+    };
+
+    timeoutId = setTimeout(finish, SQLITE_RUNTIME_REUSE_CLOSE_TIMEOUT_MS);
+    try {
+      runtime.client.close().then(finish, finish);
+    } catch {
+      finish();
+    }
+  });
+}
+
 // Reuse a live worker for a database switch: close its current database (which
 // releases that database's OPFS handles inside the worker) then re-init the SAME
 // worker onto the new database, instead of tearing the worker down and building a
@@ -302,22 +335,16 @@ function reuseSQLiteRuntimeForDbName(
   // outgoing database's "ready" for the incoming one.
   configureSdkSQLiteRuntime(tearleads, existingRuntime, "idle");
 
-  // Close is best-effort: a failed close still leaves the worker able to open the
-  // new database, and boot's readability probe catches a genuinely broken state.
-  const bootPromise = Promise.resolve()
-    .then(() => existingRuntime.client.close())
-    .then(
-      () => undefined,
-      () => undefined,
-    )
+  // Close (bounded, best-effort) releases the outgoing database's OPFS handles;
+  // then repurpose the SAME worker for the new database with a FRESH client. The
+  // SDK keys per-connection caches — schema/projection ensures, mutation queues,
+  // persistence runtimes — off the client object, so without a fresh client the
+  // new database would inherit the previous one's "schema already ensured" state
+  // and its tables would never be created, and the first query or write would hit
+  // "no such table". renewClient swaps in a fresh client/id on the same worker.
+  const bootPromise = closeReusedRuntimeDatabase(existingRuntime)
     .then(() => {
-      // The connection is being repurposed for a DIFFERENT database. The
-      // once-per-connection schema/migration memo is keyed to the connection, not
-      // the database, so forget it — otherwise the new database inherits the
-      // previous one's "schema already ensured" record and its tables are never
-      // created, and the first query (e.g. bootstrapping the root container)
-      // fails with "no such table".
-      resetConnectionSchemaMemo(createExecSql(existingRuntime.client));
+      existingRuntime.renewClient?.();
     })
     .then(() =>
       bootSQLiteRuntime(
