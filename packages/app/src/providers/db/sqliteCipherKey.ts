@@ -101,9 +101,18 @@ export function createSqliteCipherKeyResolver(
           }),
         ]);
       } catch (error) {
-        if (timedOut && keyring === activeKeyring) {
-          keyring = null;
-          createLocalKeyring.invalidateCachedKeyring?.();
+        if (timedOut) {
+          try {
+            activeKeyring.close();
+          } catch {
+            // Preserve the derivation timeout. Cache retirement below ensures a
+            // replacement does not reuse this partially closed keyring.
+          } finally {
+            if (keyring === activeKeyring) {
+              keyring = null;
+              createLocalKeyring.invalidateCachedKeyring?.();
+            }
+          }
         }
         throw error;
       } finally {

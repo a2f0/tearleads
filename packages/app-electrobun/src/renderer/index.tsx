@@ -61,6 +61,11 @@ renderApp(createRoot(elem), {
     createFileSaver: createElectrobunFileSaver,
     createSQLiteRuntime: createElectrobunSQLiteRuntime,
     profile: APP_HOST_PROFILES.app,
+    // Electrobun is also a single WKWebView backed by one dedicated worker.
+    // Reinitialize that worker across identity switches instead of constructing
+    // a replacement, which has the same WebKit worker-startup failure mode as
+    // Capacitor's iOS shell.
+    reuseDatabaseWorker: true,
     // Electrobun has OPFS in its worker, but WKWebView does not expose
     // navigator.storage.getDirectory on the renderer main thread. The default
     // auto-detect path would fall back to ephemeral memory storage.

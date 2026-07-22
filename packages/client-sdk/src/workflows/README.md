@@ -44,7 +44,8 @@ chunk size instead of materializing the whole object.
 Local keyring variants, including WebView and PIN-code wrapping helpers, are
 client-facade exports rather than workflow facades. Keep platform keychain
 composition in `client/*` so workflow modules stay focused on domain
-operations.
+operations. Hosts close a retired keyring through its public `close()` lifecycle
+contract so browser-backed variants can release their IndexedDB connections.
 
 Seed phrase generation/import lives on the `tearleads.identity` client facade.
 The phrase derives identity key pairs only; product backup/restore UX and any

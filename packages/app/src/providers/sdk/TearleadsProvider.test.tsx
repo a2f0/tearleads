@@ -200,8 +200,10 @@ function localKeyForPurpose(purpose: LocalKeyPurpose): BlobBytes {
 
 function createSerialTestLocalKeyring(observedEvents: string[]): LocalKeyring {
   let activeSession = false;
-
   return {
+    close() {
+      activeSession = false;
+    },
     async deleteSession() {
       activeSession = false;
     },

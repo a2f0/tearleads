@@ -85,6 +85,7 @@ export function createPinKeystore(pinCode: string): WrappingKeyKeystore {
 
 function createLockedLocalKeyring(): LocalKeyring {
   return {
+    close() {},
     async deleteSession() {
       throw new Error("Local keyring is locked.");
     },
@@ -99,13 +100,26 @@ function createLockedLocalKeyring(): LocalKeyring {
 
 export function createDynamicLocalKeyring(
   resolveLocalKeyring: () => LocalKeyring | null,
+  closeLocalKeyring: () => void,
 ): LocalKeyring {
+  let closed = false;
+
   function currentKeyring(): LocalKeyring {
+    if (closed) {
+      throw new Error("Local keyring is closed.");
+    }
     const keyring = resolveLocalKeyring();
     return keyring ?? createLockedLocalKeyring();
   }
 
   return {
+    close: () => {
+      if (closed) {
+        return;
+      }
+      closed = true;
+      closeLocalKeyring();
+    },
     deleteSession: (scope) => currentKeyring().deleteSession(scope),
     getOrCreateSession: (scope) => currentKeyring().getOrCreateSession(scope),
     loadSession: (scope) => currentKeyring().loadSession(scope),

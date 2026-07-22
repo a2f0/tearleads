@@ -3,7 +3,11 @@ import {
   type DatabaseWorkerClient,
   type WorkerLike,
 } from "./client";
-import { WORKER_CONNECT_PORT_MESSAGE_TYPE } from "./types";
+import {
+  WORKER_CONNECT_PORT_MESSAGE_TYPE,
+  WORKER_DISCONNECT_PORT_MESSAGE_TYPE,
+  WORKER_PORT_DISCONNECTED_MESSAGE_TYPE,
+} from "./types";
 
 export type DatabaseRuntimeMessagePort = MessagePort;
 
@@ -30,6 +34,48 @@ export function closeMessagePort(
     port?.close();
   } catch {
     // Closing a transferred or already-closed port is best-effort teardown.
+  }
+}
+
+const PORT_DISCONNECT_TIMEOUT_MS = 1_000;
+
+export function disconnectMessagePort(
+  port: DatabaseRuntimeMessagePort | null,
+): void {
+  if (!port) {
+    return;
+  }
+
+  let settled = false;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const finish = () => {
+    if (settled) {
+      return;
+    }
+    settled = true;
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+    port.removeEventListener("message", handleMessage);
+    closeMessagePort(port);
+  };
+  const handleMessage = (event: MessageEvent<unknown>) => {
+    const data = event.data;
+    if (
+      typeof data === "object" &&
+      data !== null &&
+      Reflect.get(data, "type") === WORKER_PORT_DISCONNECTED_MESSAGE_TYPE
+    ) {
+      finish();
+    }
+  };
+
+  port.addEventListener("message", handleMessage);
+  timeoutId = setTimeout(finish, PORT_DISCONNECT_TIMEOUT_MS);
+  try {
+    port.postMessage({ type: WORKER_DISCONNECT_PORT_MESSAGE_TYPE });
+  } catch {
+    finish();
   }
 }
 

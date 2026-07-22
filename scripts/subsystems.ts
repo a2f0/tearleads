@@ -340,6 +340,7 @@ export const subsystems: readonly Subsystem[] = [
       "The on-device keyring (manifest storage, scopes, sessions) and its PIN-code unlock support.",
     seam: "createLocalKeyring / createBrowserLocalKeyring exports",
     paths: [
+      `${sdk}/client/indexedDbStoreConnection.ts`,
       `${sdk}/client/localKeyring.ts`,
       `${sdk}/client/localKeyringPinCode.ts`,
       `${sdk}/client/localKeyringPinCodeSupport.ts`,

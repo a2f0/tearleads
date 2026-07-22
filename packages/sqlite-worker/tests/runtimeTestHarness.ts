@@ -1,4 +1,8 @@
-import { WORKER_CONNECT_PORT_MESSAGE_TYPE } from "../src/types";
+import {
+  WORKER_CONNECT_PORT_MESSAGE_TYPE,
+  WORKER_DISCONNECT_PORT_MESSAGE_TYPE,
+  WORKER_PORT_DISCONNECTED_MESSAGE_TYPE,
+} from "../src/types";
 
 type RequestMessage = {
   id: number;
@@ -11,6 +15,7 @@ type MockConnectionState = {
   readonly requests: RequestMessage[];
   closed: boolean;
   dbName: string | null;
+  disconnected: boolean;
   initializing: boolean;
 };
 
@@ -102,11 +107,25 @@ export class StatefulMockWorker extends EventTarget {
       const connection = this.createConnection(port);
       this.connections.push(connection);
       port.start();
-      port.addEventListener("message", (event) => {
-        if (event instanceof MessageEvent) {
-          this.handleRequest(connection, event.data);
+      const handleMessage = (event: MessageEvent<unknown>) => {
+        const data = event.data;
+        if (
+          typeof data === "object" &&
+          data !== null &&
+          Reflect.get(data, "type") === WORKER_DISCONNECT_PORT_MESSAGE_TYPE
+        ) {
+          connection.closed = true;
+          connection.dbName = null;
+          connection.disconnected = true;
+          port.removeEventListener("message", handleMessage);
+          port.postMessage({ type: WORKER_PORT_DISCONNECTED_MESSAGE_TYPE });
+          port.close();
+          return;
         }
-      });
+
+        this.handleRequest(connection, data);
+      };
+      port.addEventListener("message", handleMessage);
       return;
     }
 
@@ -117,6 +136,7 @@ export class StatefulMockWorker extends EventTarget {
     return {
       closed: false,
       dbName: null,
+      disconnected: false,
       initializing: false,
       port,
       requests: [],

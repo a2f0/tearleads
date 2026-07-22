@@ -56,14 +56,23 @@ export function createRetryableSQLiteRuntimeFactory() {
 
 /** One reusable worker whose first init can be held to exercise target races. */
 export function createReusableSQLiteRuntimeFactory(options?: {
+  closeError?: Error;
+  deferClose?: boolean;
+  deferDelete?: boolean;
   deferFirstInit?: boolean;
+  deleteError?: Error;
+  firstExecError?: Error;
   firstInitError?: Error;
 }) {
   const firstInit = createDeferred();
+  const closeGate = createDeferred();
+  const deleteGate = createDeferred();
   let createCount = 0;
   let renewCount = 0;
   let initCount = 0;
+  let execCount = 0;
   let closeCount = 0;
+  let clientDeleteCount = 0;
   let deleteDataCount = 0;
   let clientDestroyCount = 0;
   let terminateCount = 0;
@@ -73,9 +82,15 @@ export function createReusableSQLiteRuntimeFactory(options?: {
   if (!options?.deferFirstInit) {
     firstInit.resolve();
   }
+  if (!options?.deferClose) {
+    closeGate.resolve();
+  }
+  if (!options?.deferDelete) {
+    deleteGate.resolve();
+  }
 
   return {
-    createSQLiteRuntime: (): SQLiteRuntime => {
+    createSQLiteRuntime: (): SQLiteRuntime & { renewClient(): void } => {
       createCount += 1;
       let terminated = false;
       let runtimeId = "";
@@ -87,13 +102,30 @@ export function createReusableSQLiteRuntimeFactory(options?: {
         return {
           close: async () => {
             closeCount += 1;
+            await closeGate.promise;
+            if (options?.closeError) {
+              throw options.closeError;
+            }
             return { ok: true };
           },
-          delete: async () => ({ ok: true }),
+          delete: async () => {
+            clientDeleteCount += 1;
+            await deleteGate.promise;
+            if (options?.deleteError) {
+              throw options.deleteError;
+            }
+            return { ok: true };
+          },
           destroy() {
             clientDestroyCount += 1;
           },
-          exec: async () => ({ ok: true, rows: [] }),
+          exec: async () => {
+            execCount += 1;
+            if (execCount === 1 && options?.firstExecError) {
+              throw options.firstExecError;
+            }
+            return { ok: true, rows: [] };
+          },
           init: async ({ dbName }) => {
             initCount += 1;
             initializedDbNames.push(dbName);
@@ -144,6 +176,7 @@ export function createReusableSQLiteRuntimeFactory(options?: {
     },
     getStats: () => ({
       clientDestroyCount,
+      clientDeleteCount,
       closeCount,
       createCount,
       deleteDataCount,
@@ -152,6 +185,8 @@ export function createReusableSQLiteRuntimeFactory(options?: {
       renewCount,
       terminateCount,
     }),
+    releaseClose: () => closeGate.resolve(),
+    releaseDelete: () => deleteGate.resolve(),
     releaseFirstInit: () => firstInit.resolve(),
   };
 }

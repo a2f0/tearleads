@@ -6,6 +6,11 @@ provisioning depends on the WebView's real SQLite worker + OPFS, which the
 in-process test doubles do not exercise. Provisioning a local identity is
 purely local, so these run with **no backend running**.
 
+These are manual native gates. The repository's build-and-test CI jobs are
+currently workflow-dispatch-only to conserve Actions credits, and no hosted
+Android/iOS simulator job invokes Maestro yet. Run both flows on both platforms
+before shipping a change to native database or identity lifecycle behavior.
+
 ## Flows
 
 - `first-identity-offline.yaml` — a fresh install auto-generates the first

@@ -22,7 +22,9 @@ import { type RefObject, useEffect } from "react";
 // the residual race where even this does not land before the new page boots.
 export function useReleaseRuntimeOnPageHide(
   runtimeRef: RefObject<SQLiteRuntime | null>,
-  runtimeReleaseRef?: RefObject<{ readonly runtime: SQLiteRuntime } | null>,
+  runtimeReleaseRef?: RefObject<{
+    readonly runtime: SQLiteRuntime | null;
+  } | null>,
 ) {
   useEffect(() => {
     if (typeof window === "undefined") {

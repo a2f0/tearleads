@@ -364,12 +364,12 @@ Browser hosts can use the built-in durable wiring:
 const keyring = createBrowserLocalKeyring();
 ```
 
-`createBrowserLocalKeyring()` stores the JSON manifest in `localStorage` and
-stores the wrapping-key handle as a non-extractable AES-GCM `CryptoKey` in
-IndexedDB. The wrapped account-root secret and the browser `CryptoKey` survive
-same-origin app restarts; `keyring.deleteSession(scope)` removes both. Hosts
-that need custom storage can use `createIndexedDbWrappingKeyKeystore(...)` and
-`createLocalStorageLocalKeyringManifestStore(...)` separately.
+`createBrowserLocalKeyring()` stores both the JSON manifest and the wrapping-key
+handle in IndexedDB; the wrapping key is a non-extractable AES-GCM `CryptoKey`.
+The wrapped account-root secret and browser `CryptoKey` survive same-origin app
+restarts; `keyring.deleteSession(scope)` removes both. Hosts that need custom
+storage can compose `createIndexedDbWrappingKeyKeystore(...)` with an explicit
+manifest store.
 
 WKWebView-based shells that cannot structured-clone `CryptoKey` objects into
 IndexedDB can use `createWebViewLocalKeyring()`. It uses the same manifest and
@@ -416,6 +416,8 @@ unlock can use `createPinCodeWrappingKeyKeystore`, passphrases, OS keychains,
 or secure enclaves.
 Call `session.dispose()` when a host is done with a local keyring session; it
 zeroes the in-memory root and derived byte keys owned by that session.
+Call `keyring.close()` when done. This disposes cached sessions and
+releases both IndexedDB connections; closed keyrings cannot be reused.
 `keyring.deleteSession(scope)` removes both the manifest and the wrapping-key
 handle for the scope.
 

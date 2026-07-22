@@ -14,6 +14,7 @@ const DB_B = "identity-b";
 interface LifecycleHarness {
   boot: (dbName: string) => void;
   dispose: () => void;
+  invalidateBoot: () => void;
   readyRuntimeIds: string[];
   tearleads: Tearleads;
 }
@@ -37,10 +38,10 @@ function createLifecycleHarness(params: {
     online: false,
   });
   const runtimeRef: { current: SQLiteRuntime | null } = { current: null };
+  const bootGenerationRef = { current: 0 };
   const bootingRef = { current: false };
   const currentDbNameRef: { current: string | null } = { current: null };
   const targetDbNameRef = { current: DB_A };
-  const killedRef = { current: false };
   const readyRuntimeIds: string[] = [];
   const unsubscribe = tearleads.database.subscribe(() => {
     const snapshot = tearleads.database.snapshot;
@@ -54,10 +55,10 @@ function createLifecycleHarness(params: {
     // to startSQLiteRuntimeBoot, including while another boot is still pending.
     targetDbNameRef.current = dbName;
     startSQLiteRuntimeBoot({
+      bootGenerationRef,
       bootingRef,
       createSQLiteRuntime: params.createSQLiteRuntime,
       currentDbNameRef,
-      killedRef,
       log() {},
       nextDbName: dbName,
       onTransientBootFailure: params.onTransientBootFailure ?? (() => false),
@@ -77,6 +78,11 @@ function createLifecycleHarness(params: {
       unsubscribe();
       runtimeRef.current?.terminateNow();
       tearleads.dispose();
+    },
+    invalidateBoot: () => {
+      bootGenerationRef.current += 1;
+      bootingRef.current = false;
+      tearleads.database.clear("idle");
     },
     readyRuntimeIds,
     tearleads,
@@ -168,4 +174,35 @@ test("a superseded timeout reboots the latest target on a fresh connection", asy
   expect(recoveredDbNames).toEqual([]);
   expect(harness.readyRuntimeIds).toEqual(["reusable-2"]);
   expect(runtimeFactory.getStats().renewCount).toBe(1);
+});
+
+test("an invalidated boot cannot settle over a newer reusable connection", async () => {
+  const runtimeFactory = createReusableSQLiteRuntimeFactory({
+    deferFirstInit: true,
+  });
+  const harness = createLifecycleHarness({
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+  });
+
+  harness.boot(DB_A);
+  harness.invalidateBoot();
+  harness.boot(DB_B);
+
+  await waitFor(() => {
+    expect(harness.tearleads.database.status).toBe("ready");
+    expect(runtimeFactory.getStats().initializedDbNames).toEqual([DB_A, DB_B]);
+  });
+  expect(harness.readyRuntimeIds).toEqual(["reusable-2"]);
+
+  runtimeFactory.releaseFirstInit();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  expect(harness.tearleads.database.status).toBe("ready");
+  expect(harness.readyRuntimeIds).toEqual(["reusable-2"]);
+  expect(runtimeFactory.getStats()).toMatchObject({
+    createCount: 1,
+    initCount: 2,
+    renewCount: 1,
+    terminateCount: 0,
+  });
 });

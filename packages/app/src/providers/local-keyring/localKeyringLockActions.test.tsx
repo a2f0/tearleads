@@ -26,12 +26,16 @@ interface DynamicKeyringHookProps {
 afterEach(cleanup);
 
 test("reuses a config and remints after same-PIN unlock, factory, or capability changes", async () => {
+  const closedKeyrings: number[] = [];
   const usedKeyrings: number[] = [];
   let createdKeyrings = 0;
   const createFactory = () => {
     return (_pinCode: string | null): LocalKeyring => {
       const keyringId = ++createdKeyrings;
       return {
+        close: () => {
+          closedKeyrings.push(keyringId);
+        },
         deleteSession: async () => {},
         getOrCreateSession: async () => {
           throw new Error("Unexpected getOrCreateSession call.");
@@ -85,6 +89,7 @@ test("reuses a config and remints after same-PIN unlock, factory, or capability 
 
   await view.result.current().loadSession(SCOPE);
   expect(createdKeyrings).toBe(2);
+  expect(closedKeyrings).toEqual([1]);
   expect(usedKeyrings).toEqual([1, 1, 2]);
 
   const replacementFactory = createFactory();
@@ -95,6 +100,7 @@ test("reuses a config and remints after same-PIN unlock, factory, or capability 
   });
   await view.result.current().loadSession(SCOPE);
   expect(createdKeyrings).toBe(3);
+  expect(closedKeyrings).toEqual([1, 2]);
   expect(usedKeyrings).toEqual([1, 1, 2, 3]);
 
   view.rerender({
@@ -104,10 +110,12 @@ test("reuses a config and remints after same-PIN unlock, factory, or capability 
   });
   await view.result.current().loadSession(SCOPE);
   expect(createdKeyrings).toBe(4);
+  expect(closedKeyrings).toEqual([1, 2, 3]);
   expect(usedKeyrings).toEqual([1, 1, 2, 3, 4]);
 
   view.result.current.invalidateCachedKeyring?.();
   await view.result.current().loadSession(SCOPE);
   expect(createdKeyrings).toBe(5);
+  expect(closedKeyrings).toEqual([1, 2, 3, 4]);
   expect(usedKeyrings).toEqual([1, 1, 2, 3, 4, 5]);
 });

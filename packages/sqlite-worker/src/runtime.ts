@@ -10,6 +10,7 @@ import {
   createRenewedDatabaseClient,
   type DatabaseRuntimeMessageChannelConstructor,
   type DatabaseRuntimeMessagePort,
+  disconnectMessagePort,
 } from "./renewedClientTransport";
 
 const DEFAULT_DATABASE_WORKER_URL = "/worker.js";
@@ -292,7 +293,7 @@ export function createDatabaseRuntime(
       // Only retire the previous generation after the worker accepted the new
       // port. A failed transfer therefore leaves the old client fully usable.
       previousClient.destroy();
-      closeMessagePort(previousPort);
+      disconnectMessagePort(previousPort);
     };
   }
 

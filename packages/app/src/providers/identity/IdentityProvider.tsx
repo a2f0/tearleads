@@ -70,11 +70,11 @@ export interface IdentityContextValue {
 const IdentityContext = createContext<IdentityContextValue | null>(null);
 
 interface IdentityProviderActionsInput {
-  /** Tears the runtime down. For Destroy Key Pair (terminate, don't reuse). */
+  /** Closes the database. A capable native host retains its physical worker. */
   readonly clearDatabase: () => void;
   /**
-   * Release the current database ahead of a transition to a DIFFERENT one; keeps
-   * a healthy worker alive under host reuse. For create/switch/import.
+   * Close the current database ahead of a transition to a different one while
+   * keeping a healthy physical worker alive under host reuse.
    */
   readonly clearDatabaseForIdentitySwitch: () => void;
   readonly ensureIdentityDatabaseReady: (

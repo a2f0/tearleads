@@ -196,16 +196,33 @@ test("renewClient gives a reused worker fresh port-side connection state", async
   expect(worker?.connections[0]?.requests.map(({ id }) => id)).toEqual([1, 2]);
   expect(worker?.connections[1]?.requests.map(({ id }) => id)).toEqual([3]);
 
+  await expect(runtime.client.close()).resolves.toEqual({ ok: true });
   runtime.renewClient?.();
+  await Bun.sleep(10);
+
   expect(
     MockMessageChannel.isClosed(MockMessageChannel.instances[0]?.port1),
   ).toBe(true);
+  expect(
+    MockMessageChannel.isClosed(MockMessageChannel.instances[0]?.port2),
+  ).toBe(true);
   expect(worker?.connections).toHaveLength(3);
+  expect(worker?.connections[1]).toMatchObject({
+    closed: true,
+    dbName: null,
+    disconnected: true,
+  });
+  expect(worker?.connections[1]?.requests.map(({ id }) => id)).toEqual([3, 4]);
+  expect(
+    worker?.connections.filter(
+      ({ disconnected, port }) => port !== null && !disconnected,
+    ),
+  ).toHaveLength(1);
   await expect(runtime.client.ping()).resolves.toEqual({
     message: "pong",
     ok: true,
   });
-  expect(worker?.connections[2]?.requests.map(({ id }) => id)).toEqual([4]);
+  expect(worker?.connections[2]?.requests.map(({ id }) => id)).toEqual([5]);
 
   const pendingAfterRenew = runtime.client.ping();
   worker?.dispatchEvent(

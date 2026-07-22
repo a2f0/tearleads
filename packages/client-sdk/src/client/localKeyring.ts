@@ -1,4 +1,5 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { IndexedDbStoreConnection } from "./indexedDbStoreConnection";
 
 export const LOCAL_KEYRING_MANIFEST_FORMAT = "tearleads.local-keyring.manifest";
 export const WRAPPED_LOCAL_SECRET_FORMAT = "tearleads.wrapped-local-secret";
@@ -60,6 +61,7 @@ export interface UnwrapLocalSecretInput {
 
 export interface WrappingKeyKeystore {
   readonly provider: string;
+  close?(): void;
   deleteWrappingKey(scope: LocalKeyringScope): Promise<void>;
   getOrCreateWrappingKey(scope: LocalKeyringScope): Promise<WrappingKeyHandle>;
   unwrapSecret(input: UnwrapLocalSecretInput): Promise<Uint8Array<ArrayBuffer>>;
@@ -76,6 +78,7 @@ export interface LocalKeyringManifest {
 }
 
 export interface LocalKeyringManifestStore {
+  close?(): void;
   deleteManifest(scope: LocalKeyringScope): Promise<void>;
   loadManifest(scope: LocalKeyringScope): Promise<LocalKeyringManifest | null>;
   saveManifest(manifest: LocalKeyringManifest): Promise<void>;
@@ -92,6 +95,7 @@ export interface LocalKeyringSession {
 }
 
 export interface LocalKeyring {
+  close(): void;
   deleteSession(scope: LocalKeyringScope): Promise<void>;
   getOrCreateSession(scope: LocalKeyringScope): Promise<LocalKeyringSession>;
   loadSession(scope: LocalKeyringScope): Promise<LocalKeyringSession | null>;
@@ -622,19 +626,25 @@ function readManifestRecordValue(record: unknown): string | null {
  * runs in.
  */
 class IndexedDbLocalKeyringManifestStore implements LocalKeyringManifestStore {
-  private readonly databaseName: string;
-  private readonly objectStoreName: string;
-  private readonly indexedDB: IDBFactory;
-  private databasePromise: Promise<IDBDatabase> | null = null;
+  private readonly connection: IndexedDbStoreConnection;
 
   constructor(options: IndexedDbLocalKeyringManifestStoreOptions = {}) {
-    this.databaseName =
+    const databaseName =
       options.databaseName ?? BROWSER_KEYRING_MANIFEST_DATABASE_NAME;
-    this.objectStoreName =
+    const objectStoreName =
       options.objectStoreName ?? BROWSER_KEYRING_MANIFEST_STORE_NAME;
-    assertNonEmptyString(this.databaseName, "IndexedDB database name");
-    assertNonEmptyString(this.objectStoreName, "IndexedDB object store name");
-    this.indexedDB = options.indexedDB ?? getDefaultIndexedDb();
+    assertNonEmptyString(databaseName, "IndexedDB database name");
+    assertNonEmptyString(objectStoreName, "IndexedDB object store name");
+    this.connection = new IndexedDbStoreConnection({
+      databaseName,
+      indexedDB: options.indexedDB ?? getDefaultIndexedDb(),
+      keyPath: "scopeKey",
+      objectStoreName,
+    });
+  }
+
+  close(): void {
+    this.connection.close();
   }
 
   async deleteManifest(scope: LocalKeyringScope): Promise<void> {
@@ -659,51 +669,13 @@ class IndexedDbLocalKeyringManifestStore implements LocalKeyringManifestStore {
   }
 
   private async read(scopeKey: string): Promise<unknown> {
-    const database = await this.openDatabase();
-    const transaction = database.transaction(this.objectStoreName, "readonly");
-    const store = transaction.objectStore(this.objectStoreName);
-    return runIndexedDbRequest(transaction, store.get(scopeKey));
+    return this.connection.request("readonly", (store) => store.get(scopeKey));
   }
 
   private async write<T>(
     operation: (store: IDBObjectStore) => IDBRequest<T>,
   ): Promise<T> {
-    const database = await this.openDatabase();
-    const transaction = database.transaction(this.objectStoreName, "readwrite");
-    const store = transaction.objectStore(this.objectStoreName);
-    return runIndexedDbRequest(transaction, operation(store));
-  }
-
-  private async openDatabase(): Promise<IDBDatabase> {
-    if (this.databasePromise) {
-      return this.databasePromise;
-    }
-
-    this.databasePromise = new Promise((resolve, reject) => {
-      const request = this.indexedDB.open(this.databaseName, 1);
-      request.onerror = () => {
-        this.databasePromise = null;
-        reject(request.error ?? new Error("IndexedDB open failed."));
-      };
-      request.onupgradeneeded = () => {
-        const database = request.result;
-        if (!database.objectStoreNames.contains(this.objectStoreName)) {
-          database.createObjectStore(this.objectStoreName, {
-            keyPath: "scopeKey",
-          });
-        }
-      };
-      request.onsuccess = () => {
-        const database = request.result;
-        database.onversionchange = () => {
-          database.close();
-          this.databasePromise = null;
-        };
-        resolve(database);
-      };
-    });
-
-    return this.databasePromise;
+    return this.connection.request("readwrite", operation);
   }
 }
 
@@ -717,46 +689,6 @@ interface IndexedDbWrappingKeyRecord {
   readonly keyId: string;
   readonly keyMaterial?: Uint8Array;
   readonly provider: string;
-}
-
-function indexedDbRequest<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onerror = () => {
-      reject(request.error ?? new Error("IndexedDB request failed."));
-    };
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
-  });
-}
-
-function indexedDbTransactionDone(transaction: IDBTransaction): Promise<void> {
-  return new Promise((resolve, reject) => {
-    transaction.onabort = () => {
-      reject(transaction.error ?? new Error("IndexedDB transaction aborted."));
-    };
-    transaction.onerror = () => {
-      reject(transaction.error ?? new Error("IndexedDB transaction failed."));
-    };
-    transaction.oncomplete = () => {
-      resolve();
-    };
-  });
-}
-
-async function runIndexedDbRequest<T>(
-  transaction: IDBTransaction,
-  request: IDBRequest<T>,
-): Promise<T> {
-  const transactionDone = indexedDbTransactionDone(transaction);
-  try {
-    const result = await indexedDbRequest(request);
-    await transactionDone;
-    return result;
-  } catch (error) {
-    await transactionDone.catch(() => undefined);
-    throw error;
-  }
 }
 
 function hasErrorName(error: unknown, expectedName: string): boolean {
@@ -893,24 +825,30 @@ function getDefaultIndexedDbFactory(): IDBFactory {
 
 class IndexedDbWrappingKeyKeystore implements WrappingKeyKeystore {
   readonly provider: string;
-  private readonly databaseName: string;
-  private readonly indexedDB: IDBFactory;
+  private readonly connection: IndexedDbStoreConnection;
   private readonly keyMaterialStorage: WrappingKeyMaterialStorage;
-  private readonly objectStoreName: string;
-  private databasePromise: Promise<IDBDatabase> | null = null;
 
   constructor(options: IndexedDbWrappingKeyKeystoreOptions | undefined) {
-    this.databaseName = options?.databaseName ?? BROWSER_KEYRING_DATABASE_NAME;
-    this.indexedDB = options?.indexedDB ?? getDefaultIndexedDbFactory();
+    const databaseName = options?.databaseName ?? BROWSER_KEYRING_DATABASE_NAME;
     this.keyMaterialStorage =
       options?.keyMaterialStorage ?? DEFAULT_WRAPPING_KEY_MATERIAL_STORAGE;
-    this.objectStoreName =
+    const objectStoreName =
       options?.objectStoreName ?? BROWSER_WRAPPING_KEYS_STORE_NAME;
     this.provider = options?.provider ?? BROWSER_INDEXED_DB_PROVIDER;
 
-    assertNonEmptyString(this.databaseName, "IndexedDB database name");
-    assertNonEmptyString(this.objectStoreName, "IndexedDB object store name");
+    assertNonEmptyString(databaseName, "IndexedDB database name");
+    assertNonEmptyString(objectStoreName, "IndexedDB object store name");
     assertNonEmptyString(this.provider, "IndexedDB wrapping key provider");
+    this.connection = new IndexedDbStoreConnection({
+      databaseName,
+      indexedDB: options?.indexedDB ?? getDefaultIndexedDbFactory(),
+      keyPath: "keyId",
+      objectStoreName,
+    });
+  }
+
+  close(): void {
+    this.connection.close();
   }
 
   async deleteWrappingKey(scope: LocalKeyringScope): Promise<void> {
@@ -1095,52 +1033,14 @@ class IndexedDbWrappingKeyKeystore implements WrappingKeyKeystore {
     }
   }
 
-  private async openDatabase(): Promise<IDBDatabase> {
-    if (this.databasePromise) {
-      return this.databasePromise;
-    }
-
-    this.databasePromise = new Promise((resolve, reject) => {
-      const request = this.indexedDB.open(this.databaseName, 1);
-      request.onerror = () => {
-        this.databasePromise = null;
-        reject(request.error ?? new Error("IndexedDB open failed."));
-      };
-      request.onupgradeneeded = () => {
-        const database = request.result;
-        if (!database.objectStoreNames.contains(this.objectStoreName)) {
-          database.createObjectStore(this.objectStoreName, {
-            keyPath: "keyId",
-          });
-        }
-      };
-      request.onsuccess = () => {
-        const database = request.result;
-        database.onversionchange = () => {
-          database.close();
-          this.databasePromise = null;
-        };
-        resolve(database);
-      };
-    });
-
-    return this.databasePromise;
-  }
-
   private async readStoredKey(keyId: string): Promise<unknown | undefined> {
-    const database = await this.openDatabase();
-    const transaction = database.transaction(this.objectStoreName, "readonly");
-    const store = transaction.objectStore(this.objectStoreName);
-    return runIndexedDbRequest(transaction, store.get(keyId));
+    return this.connection.request("readonly", (store) => store.get(keyId));
   }
 
   private async writeStoredKey<T>(
     operation: (store: IDBObjectStore) => IDBRequest<T>,
   ): Promise<T> {
-    const database = await this.openDatabase();
-    const transaction = database.transaction(this.objectStoreName, "readwrite");
-    const store = transaction.objectStore(this.objectStoreName);
-    return runIndexedDbRequest(transaction, operation(store));
+    return this.connection.request("readwrite", operation);
   }
 
   private async wrappingKeyId(scope: LocalKeyringScope): Promise<string> {
@@ -1358,10 +1258,33 @@ class LocalKeyringService implements LocalKeyring {
     string,
     Promise<LocalKeyringSession>
   >();
+  private closed = false;
 
   constructor(private readonly options: LocalKeyringServiceOptions) {}
 
+  close(): void {
+    if (this.closed) {
+      return;
+    }
+
+    this.closed = true;
+    const operations = Array.from(this.sessionOperationsByScopeKey.values());
+    this.sessionOperationsByScopeKey.clear();
+    for (const operation of operations) {
+      void operation.then(
+        (session) => session.dispose(),
+        () => undefined,
+      );
+    }
+    try {
+      this.options.manifestStore.close?.();
+    } finally {
+      this.options.keystore.close?.();
+    }
+  }
+
   async deleteSession(scope: LocalKeyringScope): Promise<void> {
+    this.assertOpen();
     const scopeKey = localKeyringScopeKey(scope);
     const currentOperation = this.sessionOperationsByScopeKey.get(scopeKey);
     this.sessionOperationsByScopeKey.delete(scopeKey);
@@ -1374,6 +1297,7 @@ class LocalKeyringService implements LocalKeyring {
   async getOrCreateSession(
     scope: LocalKeyringScope,
   ): Promise<LocalKeyringSession> {
+    this.assertOpen();
     const scopeKey = localKeyringScopeKey(scope);
     const currentOperation = this.sessionOperationsByScopeKey.get(scopeKey);
     if (currentOperation) {
@@ -1403,6 +1327,7 @@ class LocalKeyringService implements LocalKeyring {
   async loadSession(
     scope: LocalKeyringScope,
   ): Promise<LocalKeyringSession | null> {
+    this.assertOpen();
     const manifest = await this.options.manifestStore.loadManifest(scope);
     if (!manifest) {
       return null;
@@ -1452,6 +1377,12 @@ class LocalKeyringService implements LocalKeyring {
     });
 
     return LocalKeyringSessionImpl.create({ manifest, rootKey });
+  }
+
+  private assertOpen(): void {
+    if (this.closed) {
+      throw new Error("Local keyring is closed.");
+    }
   }
 }
 

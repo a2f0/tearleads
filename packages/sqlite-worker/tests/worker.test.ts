@@ -1,4 +1,9 @@
 import { expect, test } from "bun:test";
+import {
+  WORKER_CONNECT_PORT_MESSAGE_TYPE,
+  WORKER_DISCONNECT_PORT_MESSAGE_TYPE,
+  WORKER_PORT_DISCONNECTED_MESSAGE_TYPE,
+} from "../src/types";
 
 // Wait for exactly one worker response so each assertion can pair a request
 // with its next message without leaving persistent listeners behind.
@@ -8,6 +13,15 @@ function onceMessage(worker: Worker): Promise<unknown> {
       once: true,
     });
     worker.addEventListener("error", reject, { once: true });
+  });
+}
+
+function oncePortMessage(port: MessagePort): Promise<unknown> {
+  return new Promise((resolve) => {
+    port.addEventListener("message", (event) => resolve(event.data), {
+      once: true,
+    });
+    port.start();
   });
 }
 
@@ -130,6 +144,31 @@ test("worker responds to close", async () => {
     },
   });
 
+  worker.terminate();
+});
+
+test("worker disconnects a renewed port after its graceful close", async () => {
+  const worker = new Worker(new URL("./testWorker.ts", import.meta.url).href);
+  const channel = new MessageChannel();
+  channel.port1.start();
+  worker.postMessage({ type: WORKER_CONNECT_PORT_MESSAGE_TYPE }, [
+    channel.port2,
+  ]);
+
+  const closed = oncePortMessage(channel.port1);
+  channel.port1.postMessage({ id: 9, method: "close", params: undefined });
+  expect(await closed).toEqual({
+    id: 9,
+    result: { ok: true },
+  });
+
+  const disconnected = oncePortMessage(channel.port1);
+  channel.port1.postMessage({ type: WORKER_DISCONNECT_PORT_MESSAGE_TYPE });
+  expect(await disconnected).toEqual({
+    type: WORKER_PORT_DISCONNECTED_MESSAGE_TYPE,
+  });
+
+  channel.port1.close();
   worker.terminate();
 });
 

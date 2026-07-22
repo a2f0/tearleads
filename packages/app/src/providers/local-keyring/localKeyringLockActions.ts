@@ -169,20 +169,24 @@ export function useDynamicLocalKeyringFactory(input: {
   // Cache the resolved underlying keyring across calls. The dynamic keyring's
   // methods (getOrCreateSession/loadSession/deleteSession) each resolve the
   // underlying keyring, and every distinct keyring instance opens its own
-  // IndexedDB connections (the wrapping-key + manifest stores) that are never
-  // explicitly closed. Minting a fresh keyring per call therefore leaks a
-  // growing set of open IndexedDB connections to the same databases — and on a
-  // WKWebView (Capacitor/Electrobun) a subsequent `indexedDB.open()` of a
-  // database that already has open connections can hang indefinitely (no
-  // success/error/blocked event fires). That surfaced as the second local
-  // identity's SQLite cipher-key resolution wedging forever ("Creating
-  // identity..." never completing). Reusing one keyring per configuration keeps
-  // a single connection set alive and reused; a new one is minted only when the
-  // configuration identity changes (lock/unlock, PIN rotation).
+  // IndexedDB connections (the wrapping-key + manifest stores). Minting a fresh
+  // keyring per call therefore churns connections to the same databases, and on
+  // a WKWebView (Capacitor/Electrobun) a subsequent `indexedDB.open()` can hang
+  // indefinitely (no success/error/blocked event fires). That surfaced as the
+  // second local identity's SQLite cipher-key resolution wedging forever
+  // ("Creating identity..." never completing). Reusing one keyring per
+  // configuration keeps a single connection set alive and reused; a new one is
+  // minted only when the configuration identity changes (lock/unlock, PIN
+  // rotation).
   const cacheRef = useRef<{
     readonly identity: DynamicKeyringIdentity;
     readonly keyring: LocalKeyring;
   } | null>(null);
+  const closeCachedKeyring = useCallback(() => {
+    const cached = cacheRef.current;
+    cacheRef.current = null;
+    cached?.keyring.close();
+  }, []);
 
   // Drop the cached keyring EAGERLY when the configuration changes, not only
   // lazily on the next keyring call. Otherwise locking (unlockedPinCode -> null)
@@ -197,9 +201,10 @@ export function useDynamicLocalKeyringFactory(input: {
       (!identity ||
         !sameDynamicKeyringIdentity(cacheRef.current.identity, identity))
     ) {
-      cacheRef.current = null;
+      closeCachedKeyring();
     }
   }, [
+    closeCachedKeyring,
     input.createBrowserLocalKeyring,
     input.environment.canManagePinCode,
     input.environment.hostCreateLocalKeyring,
@@ -207,6 +212,7 @@ export function useDynamicLocalKeyringFactory(input: {
     input.lockState.revision,
     input.unlockedPinCode,
   ]);
+  useEffect(() => closeCachedKeyring, [closeCachedKeyring]);
 
   return useMemo((): LocalKeyringFactory => {
     return Object.assign(
@@ -214,7 +220,7 @@ export function useDynamicLocalKeyringFactory(input: {
         createDynamicLocalKeyring(() => {
           const plan = planDynamicLocalKeyring(stateRef.current);
           if (!plan) {
-            cacheRef.current = null;
+            closeCachedKeyring();
             return null;
           }
           const cached = cacheRef.current;
@@ -224,17 +230,18 @@ export function useDynamicLocalKeyringFactory(input: {
           ) {
             return cached.keyring;
           }
+          closeCachedKeyring();
           const keyring = plan.create();
           cacheRef.current = { identity: plan.identity, keyring };
           return keyring;
-        }),
+        }, closeCachedKeyring),
       {
         invalidateCachedKeyring: () => {
-          cacheRef.current = null;
+          closeCachedKeyring();
         },
       },
     );
-  }, []);
+  }, [closeCachedKeyring]);
 }
 
 export function useUnlockAction(input: {
