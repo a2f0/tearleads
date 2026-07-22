@@ -155,6 +155,57 @@ test("lock clears only the in-memory PIN unlock state", async () => {
   }
 });
 
+test("a no-op refresh preserves the active keyring configuration", async () => {
+  const originalIndexedDB = globalThis.indexedDB;
+  const hadIndexedDB = "indexedDB" in globalThis;
+  const lockRef: { current: LocalKeyringLock | null } = { current: null };
+
+  try {
+    Reflect.set(globalThis, "indexedDB", createFakeIndexedDb());
+    globalThis.localStorage.clear();
+
+    render(
+      <AppHostConfigProvider
+        value={
+          new AppHostConfig(
+            "http://api.example.test",
+            "ws://events.example.test",
+          )
+        }
+      >
+        <LocalKeyringLockProvider>
+          <LockProbe
+            onReady={(lock) => {
+              lockRef.current = lock;
+            }}
+          />
+        </LocalKeyringLockProvider>
+      </AppHostConfigProvider>,
+    );
+
+    await waitFor(() => {
+      expect(lockRef.current?.canManagePinCode).toBe(true);
+      expect(lockRef.current?.status).toBe("unlocked");
+    });
+    await act(async () => {
+      await lockRef.current?.refresh();
+    });
+
+    expect(lockRef.current?.revision).toBe(0);
+    const keyring = lockRef.current?.createLocalKeyring?.();
+    const session = await keyring?.getOrCreateSession(BLOB_STORE_SCOPE);
+    expect(session).toBeTruthy();
+    session?.dispose();
+  } finally {
+    globalThis.localStorage.clear();
+    if (hadIndexedDB) {
+      Reflect.set(globalThis, "indexedDB", originalIndexedDB);
+    } else {
+      Reflect.deleteProperty(globalThis, "indexedDB");
+    }
+  }
+});
+
 test("PIN verification requires every PIN-wrapped managed scope", async () => {
   const originalIndexedDB = globalThis.indexedDB;
   const hadIndexedDB = "indexedDB" in globalThis;
