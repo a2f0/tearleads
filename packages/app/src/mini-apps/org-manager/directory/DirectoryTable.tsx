@@ -26,7 +26,6 @@ import {
 } from "../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
-  MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
   MiniAppVirtualTableSpacerRow,
   useMiniAppVirtualRows,
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
@@ -34,6 +33,12 @@ import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { compactFingerprint, isKeyboardActivationKey } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
+import {
+  OrgManagerCompactTableCell,
+  type OrgManagerCompactTableField,
+  OrgManagerCompactTableHeader,
+  useOrgManagerListTableLayout,
+} from "../organization/OrgManagerCompactTable";
 
 export type DirectoryContextMenuHandler = (
   event: MouseEvent<HTMLElement>,
@@ -44,8 +49,6 @@ export type RosterUserContextMenuHandler = (
 ) => void;
 
 type DirectoryTableColumnId = "user" | "status" | "joined";
-// Adds the trailing touch-only kebab column to the toggleable data columns.
-type DirectoryVisibleColumnId = DirectoryTableColumnId | "actions";
 
 const DIRECTORY_TABLE_COLUMN_IDS: ReadonlyArray<DirectoryTableColumnId> = [
   "user",
@@ -80,6 +83,14 @@ const DIRECTORY_TABLE_COLUMNS = [
     width: "8rem",
   },
 ] satisfies ReadonlyArray<MiniAppTableColumn & { id: DirectoryTableColumnId }>;
+
+const DIRECTORY_COLUMN_LABELS: Readonly<
+  Record<DirectoryTableColumnId, string>
+> = {
+  joined: ORG_MANAGER_LABELS.joined,
+  status: ORG_MANAGER_LABELS.status,
+  user: ORG_MANAGER_LABELS.user,
+};
 
 function getDirectoryUserDisplayName(
   user: Pick<OrganizationDirectoryUser, "isSelf" | "userId">,
@@ -143,23 +154,60 @@ function renderDirectoryUserCell(
   }
 }
 
-function useDirectoryTableColumns(showActions: boolean): {
+function getDirectoryCompactField(
+  columnId: DirectoryTableColumnId,
+  params: {
+    profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
+    user: OrganizationDirectoryUser;
+  },
+): OrgManagerCompactTableField {
+  const { profileDisplayNamesByUserId, user } = params;
+  switch (columnId) {
+    case "user":
+      return {
+        id: columnId,
+        label: DIRECTORY_COLUMN_LABELS[columnId],
+        text: getDirectoryUserDisplayName(user, profileDisplayNamesByUserId),
+        title: user.userId,
+      };
+    case "status":
+      return {
+        id: columnId,
+        label: DIRECTORY_COLUMN_LABELS[columnId],
+        text:
+          user.status === "disabled"
+            ? ORG_MANAGER_LABELS.disabled
+            : ORG_MANAGER_LABELS.active,
+      };
+    case "joined":
+      return {
+        id: columnId,
+        label: DIRECTORY_COLUMN_LABELS[columnId],
+        text: formatMiniAppDate(user.joinedAt),
+        title: user.joinedAt,
+      };
+  }
+}
+
+function useDirectoryTableColumns(
+  showActions: boolean,
+  compact: boolean,
+): {
   columns: ReadonlyArray<MiniAppTableColumn>;
-  visibleColumnIds: ReadonlyArray<DirectoryVisibleColumnId>;
+  visibleColumnIds: ReadonlyArray<DirectoryTableColumnId>;
 } {
   const columnVisibility = useMiniAppColumnVisibility<DirectoryTableColumnId>({
     storageKey: "tearleads.org-manager.directory:hidden-columns",
     toggleableColumnIds: DIRECTORY_TOGGLEABLE_COLUMN_IDS,
   });
-  const visibleColumnIds = useMemo<
-    ReadonlyArray<DirectoryVisibleColumnId>
-  >(() => {
-    const dataColumnIds = getVisibleMiniAppTableColumnIds(
-      DIRECTORY_TABLE_COLUMN_IDS,
-      columnVisibility.hiddenColumns,
-    );
-    return showActions ? [...dataColumnIds, "actions"] : dataColumnIds;
-  }, [columnVisibility.hiddenColumns, showActions]);
+  const visibleColumnIds = useMemo(
+    () =>
+      getVisibleMiniAppTableColumnIds(
+        DIRECTORY_TABLE_COLUMN_IDS,
+        columnVisibility.hiddenColumns,
+      ),
+    [columnVisibility.hiddenColumns],
+  );
   const columns = useMemo(() => {
     const columnMenu = (
       <MiniAppColumnMenuButton
@@ -176,6 +224,33 @@ function useDirectoryTableColumns(showActions: boolean): {
     const dataColumns = DIRECTORY_TABLE_COLUMNS.filter(
       (column) => !columnVisibility.hiddenColumns.has(column.id),
     );
+    if (compact) {
+      const compactColumn = {
+        header: (
+          <OrgManagerCompactTableHeader
+            primary={visibleColumnIds.slice(0, 1).map((id) => ({
+              id,
+              text: DIRECTORY_COLUMN_LABELS[id],
+            }))}
+            secondary={visibleColumnIds.slice(1).map((id) => ({
+              id,
+              text: DIRECTORY_COLUMN_LABELS[id],
+            }))}
+          />
+        ),
+        id: "summary",
+      } satisfies MiniAppTableColumn;
+
+      return showActions
+        ? [
+            compactColumn,
+            miniAppRowActionsColumn(
+              ORG_MANAGER_LABELS.rowActionsColumn,
+              columnMenu,
+            ),
+          ]
+        : addMiniAppTableHeaderAction([compactColumn], columnMenu);
+    }
     // When the touch kebab column trails the table it is the trailing edge, so
     // the column-menu trigger rides in its header to stay flush right — on the
     // last data column it would sit one narrow column in from the edge.
@@ -189,12 +264,88 @@ function useDirectoryTableColumns(showActions: boolean): {
         ]
       : addMiniAppTableHeaderAction(dataColumns, columnMenu);
   }, [
+    compact,
     columnVisibility.hiddenColumns,
     columnVisibility.toggleColumn,
     showActions,
+    visibleColumnIds,
   ]);
 
   return { columns, visibleColumnIds };
+}
+
+function DirectoryUserRow({
+  compact,
+  openRosterUserContextMenu,
+  profileDisplayNamesByUserId,
+  selectedUserId,
+  selectUser,
+  showActions,
+  user,
+  visibleColumnIds,
+}: {
+  compact: boolean;
+  openRosterUserContextMenu?: RosterUserContextMenuHandler | undefined;
+  profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
+  selectedUserId?: string | null | undefined;
+  selectUser?: ((userId: string) => void) | undefined;
+  showActions: boolean;
+  user: OrganizationDirectoryUser;
+  visibleColumnIds: ReadonlyArray<DirectoryTableColumnId>;
+}) {
+  const isSelected = selectedUserId === user.userId;
+  const openUserDetail = () => selectUser?.(user.userId);
+  const compactFields = visibleColumnIds.map((columnId) =>
+    getDirectoryCompactField(columnId, {
+      profileDisplayNamesByUserId,
+      user,
+    }),
+  );
+  const handleUserRowKeyDown = (event: KeyboardEvent<HTMLTableRowElement>) => {
+    if (selectUser && isKeyboardActivationKey(event.key)) {
+      event.preventDefault();
+      openUserDetail();
+    }
+  };
+
+  return (
+    <MiniAppTableRow
+      aria-selected={selectUser ? isSelected : undefined}
+      interactive={Boolean(selectUser)}
+      onClick={selectUser ? openUserDetail : undefined}
+      onContextMenu={
+        openRosterUserContextMenu
+          ? (event) => openRosterUserContextMenu(event, user.userId)
+          : undefined
+      }
+      onKeyDown={selectUser ? handleUserRowKeyDown : undefined}
+      selected={isSelected}
+      tabIndex={selectUser ? 0 : undefined}
+    >
+      {compact ? (
+        <OrgManagerCompactTableCell
+          primary={compactFields.slice(0, 1)}
+          secondary={compactFields.slice(1)}
+        />
+      ) : (
+        visibleColumnIds.map((columnId) =>
+          renderDirectoryUserCell(columnId, {
+            profileDisplayNamesByUserId,
+            user,
+          }),
+        )
+      )}
+      {showActions ? (
+        <MiniAppRowActionsCell
+          label={`${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${getDirectoryUserDisplayName(
+            user,
+            profileDisplayNamesByUserId,
+          )}`}
+          onOpen={(event) => openRosterUserContextMenu?.(event, user.userId)}
+        />
+      ) : null}
+    </MiniAppTableRow>
+  );
 }
 
 export function DirectoryTable({
@@ -213,15 +364,19 @@ export function DirectoryTable({
   selectUser?: ((userId: string) => void) | undefined;
 }) {
   const users = directory?.users ?? [];
+  const { compact, rowHeight } = useOrgManagerListTableLayout();
   const virtualUsers = useMiniAppVirtualRows({
-    rowHeight: MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
+    rowHeight,
     rows: users,
   });
   // Touch layouts have no right-click; add the kebab wherever the row context
   // menu is wired.
   const showActions =
     useRoutedLayoutActive() && Boolean(openRosterUserContextMenu);
-  const { columns, visibleColumnIds } = useDirectoryTableColumns(showActions);
+  const { columns, visibleColumnIds } = useDirectoryTableColumns(
+    showActions,
+    compact,
+  );
 
   if (!directory) {
     return (
@@ -243,70 +398,32 @@ export function DirectoryTable({
 
   return (
     <MiniAppTableFrame
-      className="mini-app-table-frame--virtual mini-app-table-frame--compact org-manager-virtual-table"
+      className={`mini-app-table-frame--virtual mini-app-table-frame--compact org-manager-virtual-table${
+        compact ? " org-manager-virtual-table--two-line" : ""
+      }`}
       ref={virtualUsers.frameRef}
-      style={getMiniAppVirtualFrameStyle(
-        MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
-      )}
+      style={getMiniAppVirtualFrameStyle(rowHeight)}
     >
       <MiniAppTable aria-label={ORG_MANAGER_LABELS.directory} columns={columns}>
         <MiniAppVirtualTableSpacerRow
-          colSpan={visibleColumnIds.length}
+          colSpan={columns.length}
           height={virtualUsers.topPadding}
         />
-        {virtualUsers.rows.map((user) => {
-          const isSelected = selectedUserId === user.userId;
-          const openUserDetail = () => {
-            selectUser?.(user.userId);
-          };
-          const handleUserRowKeyDown = (
-            event: KeyboardEvent<HTMLTableRowElement>,
-          ) => {
-            if (selectUser && isKeyboardActivationKey(event.key)) {
-              event.preventDefault();
-              openUserDetail();
-            }
-          };
-
-          return (
-            <MiniAppTableRow
-              aria-selected={selectUser ? isSelected : undefined}
-              interactive={Boolean(selectUser)}
-              key={user.userId}
-              onClick={selectUser ? openUserDetail : undefined}
-              onContextMenu={
-                openRosterUserContextMenu
-                  ? (event) => openRosterUserContextMenu(event, user.userId)
-                  : undefined
-              }
-              onKeyDown={selectUser ? handleUserRowKeyDown : undefined}
-              selected={isSelected}
-              tabIndex={selectUser ? 0 : undefined}
-            >
-              {visibleColumnIds.map((columnId) =>
-                columnId === "actions" ? (
-                  <MiniAppRowActionsCell
-                    key="actions"
-                    label={`${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${getDirectoryUserDisplayName(
-                      user,
-                      profileDisplayNamesByUserId,
-                    )}`}
-                    onOpen={(event) =>
-                      openRosterUserContextMenu?.(event, user.userId)
-                    }
-                  />
-                ) : (
-                  renderDirectoryUserCell(columnId, {
-                    profileDisplayNamesByUserId,
-                    user,
-                  })
-                ),
-              )}
-            </MiniAppTableRow>
-          );
-        })}
+        {virtualUsers.rows.map((user) => (
+          <DirectoryUserRow
+            compact={compact}
+            key={user.userId}
+            openRosterUserContextMenu={openRosterUserContextMenu}
+            profileDisplayNamesByUserId={profileDisplayNamesByUserId}
+            selectedUserId={selectedUserId}
+            selectUser={selectUser}
+            showActions={showActions}
+            user={user}
+            visibleColumnIds={visibleColumnIds}
+          />
+        ))}
         <MiniAppVirtualTableSpacerRow
-          colSpan={visibleColumnIds.length}
+          colSpan={columns.length}
           height={virtualUsers.bottomPadding}
         />
       </MiniAppTable>

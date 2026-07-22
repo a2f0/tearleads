@@ -16,7 +16,6 @@ import {
 } from "../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
-  MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
   MiniAppVirtualTableSpacerRow,
   useMiniAppVirtualRows,
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
@@ -27,6 +26,12 @@ import {
   getContainerDisplayTitle,
 } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
+import {
+  OrgManagerCompactTableCell,
+  type OrgManagerCompactTableField,
+  OrgManagerCompactTableHeader,
+  useOrgManagerListTableLayout,
+} from "../organization/OrgManagerCompactTable";
 
 type GroupContainerTableColumnId = "container" | "access" | "updated";
 
@@ -61,6 +66,14 @@ const GROUP_CONTAINER_TABLE_COLUMNS = [
   MiniAppTableColumn & { id: GroupContainerTableColumnId }
 >;
 
+const GROUP_CONTAINER_COLUMN_LABELS: Readonly<
+  Record<GroupContainerTableColumnId, string>
+> = {
+  access: ORG_MANAGER_LABELS.access,
+  container: ORG_MANAGER_LABELS.container,
+  updated: ORG_MANAGER_LABELS.updated,
+};
+
 function renderGroupContainerCell(
   columnId: GroupContainerTableColumnId,
   container: OrganizationGroupContainer,
@@ -93,15 +106,38 @@ function renderGroupContainerCell(
   }
 }
 
-export function GroupContainers({
-  containers,
-}: {
-  containers: ReadonlyArray<OrganizationGroupContainer>;
-}) {
-  const virtualContainers = useMiniAppVirtualRows({
-    rowHeight: MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
-    rows: containers,
-  });
+function getGroupContainerCompactField(
+  columnId: GroupContainerTableColumnId,
+  container: OrganizationGroupContainer,
+): OrgManagerCompactTableField {
+  switch (columnId) {
+    case "container":
+      return {
+        id: columnId,
+        label: GROUP_CONTAINER_COLUMN_LABELS[columnId],
+        text: getContainerDisplayLabel(container),
+        title: getContainerDisplayTitle(container),
+      };
+    case "access":
+      return {
+        id: columnId,
+        label: GROUP_CONTAINER_COLUMN_LABELS[columnId],
+        text: getAccessLabel(container.accessLevel),
+      };
+    case "updated":
+      return {
+        id: columnId,
+        label: GROUP_CONTAINER_COLUMN_LABELS[columnId],
+        text: formatMiniAppDate(container.updatedAt),
+        title: container.updatedAt,
+      };
+  }
+}
+
+function useGroupContainerTableColumns(compact: boolean): {
+  columns: ReadonlyArray<MiniAppTableColumn>;
+  visibleColumnIds: ReadonlyArray<GroupContainerTableColumnId>;
+} {
   const columnVisibility =
     useMiniAppColumnVisibility<GroupContainerTableColumnId>({
       storageKey: "tearleads.org-manager.group-containers:hidden-columns",
@@ -115,25 +151,69 @@ export function GroupContainers({
       ),
     [columnVisibility.hiddenColumns],
   );
-  const columns = useMemo(
-    () =>
-      addMiniAppTableHeaderAction(
+  const columns = useMemo(() => {
+    const columnMenu = (
+      <MiniAppColumnMenuButton
+        ariaLabel={ORG_MANAGER_LABELS.columns}
+        hiddenColumns={columnVisibility.hiddenColumns}
+        options={GROUP_CONTAINER_COLUMN_MENU_OPTIONS}
+        stateLabels={{
+          off: ORG_MANAGER_LABELS.columnsMenuStateOff,
+          on: ORG_MANAGER_LABELS.columnsMenuStateOn,
+        }}
+        toggleColumn={columnVisibility.toggleColumn}
+      />
+    );
+    if (!compact) {
+      return addMiniAppTableHeaderAction(
         GROUP_CONTAINER_TABLE_COLUMNS.filter(
           (column) => !columnVisibility.hiddenColumns.has(column.id),
         ),
-        <MiniAppColumnMenuButton
-          ariaLabel={ORG_MANAGER_LABELS.columns}
-          hiddenColumns={columnVisibility.hiddenColumns}
-          options={GROUP_CONTAINER_COLUMN_MENU_OPTIONS}
-          stateLabels={{
-            off: ORG_MANAGER_LABELS.columnsMenuStateOff,
-            on: ORG_MANAGER_LABELS.columnsMenuStateOn,
-          }}
-          toggleColumn={columnVisibility.toggleColumn}
-        />,
-      ),
-    [columnVisibility.hiddenColumns, columnVisibility.toggleColumn],
-  );
+        columnMenu,
+      );
+    }
+
+    return addMiniAppTableHeaderAction(
+      [
+        {
+          header: (
+            <OrgManagerCompactTableHeader
+              primary={visibleColumnIds.slice(0, 1).map((id) => ({
+                id,
+                text: GROUP_CONTAINER_COLUMN_LABELS[id],
+              }))}
+              secondary={visibleColumnIds.slice(1).map((id) => ({
+                id,
+                text: GROUP_CONTAINER_COLUMN_LABELS[id],
+              }))}
+            />
+          ),
+          id: "summary",
+        },
+      ],
+      columnMenu,
+    );
+  }, [
+    compact,
+    columnVisibility.hiddenColumns,
+    columnVisibility.toggleColumn,
+    visibleColumnIds,
+  ]);
+
+  return { columns, visibleColumnIds };
+}
+
+export function GroupContainers({
+  containers,
+}: {
+  containers: ReadonlyArray<OrganizationGroupContainer>;
+}) {
+  const { compact, rowHeight } = useOrgManagerListTableLayout();
+  const virtualContainers = useMiniAppVirtualRows({
+    rowHeight,
+    rows: containers,
+  });
+  const { columns, visibleColumnIds } = useGroupContainerTableColumns(compact);
 
   if (containers.length === 0) {
     return (
@@ -145,29 +225,44 @@ export function GroupContainers({
 
   return (
     <MiniAppTableFrame
-      className="mini-app-table-frame--virtual mini-app-table-frame--compact org-manager-virtual-table"
+      className={`mini-app-table-frame--virtual mini-app-table-frame--compact org-manager-virtual-table${
+        compact ? " org-manager-virtual-table--two-line" : ""
+      }`}
       ref={virtualContainers.frameRef}
-      style={getMiniAppVirtualFrameStyle(
-        MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
-      )}
+      style={getMiniAppVirtualFrameStyle(rowHeight)}
     >
       <MiniAppTable
         aria-label={ORG_MANAGER_LABELS.directContainerLinks}
         columns={columns}
       >
         <MiniAppVirtualTableSpacerRow
-          colSpan={visibleColumnIds.length}
+          colSpan={columns.length}
           height={virtualContainers.topPadding}
         />
         {virtualContainers.rows.map((container) => (
           <MiniAppTableRow key={container.containerId}>
-            {visibleColumnIds.map((columnId) =>
-              renderGroupContainerCell(columnId, container),
+            {compact ? (
+              <OrgManagerCompactTableCell
+                primary={visibleColumnIds
+                  .slice(0, 1)
+                  .map((columnId) =>
+                    getGroupContainerCompactField(columnId, container),
+                  )}
+                secondary={visibleColumnIds
+                  .slice(1)
+                  .map((columnId) =>
+                    getGroupContainerCompactField(columnId, container),
+                  )}
+              />
+            ) : (
+              visibleColumnIds.map((columnId) =>
+                renderGroupContainerCell(columnId, container),
+              )
             )}
           </MiniAppTableRow>
         ))}
         <MiniAppVirtualTableSpacerRow
-          colSpan={visibleColumnIds.length}
+          colSpan={columns.length}
           height={virtualContainers.bottomPadding}
         />
       </MiniAppTable>

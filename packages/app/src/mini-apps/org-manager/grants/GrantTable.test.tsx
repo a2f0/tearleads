@@ -1,16 +1,45 @@
 import { afterEach, expect, test } from "bun:test";
 import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
+import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { getGrantPrincipalLabel } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
 import type { OrgManagerGrantRouteRef } from "../routes";
 import { GrantTable } from "./GrantTable";
 
+const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis.window ?? {},
+  "matchMedia",
+);
+
 afterEach(() => {
   cleanup();
   document.documentElement.removeAttribute("data-navigation-mode");
   globalThis.localStorage.clear();
+
+  if (originalMatchMediaDescriptor) {
+    Object.defineProperty(window, "matchMedia", originalMatchMediaDescriptor);
+  } else {
+    Reflect.deleteProperty(window, "matchMedia");
+  }
 });
+
+function mockPhoneRoutedLayout() {
+  document.documentElement.setAttribute("data-navigation-mode", "routed");
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: (query: string) => ({
+      addEventListener: () => undefined,
+      addListener: () => undefined,
+      dispatchEvent: () => false,
+      matches: false,
+      media: query,
+      onchange: null,
+      removeEventListener: () => undefined,
+      removeListener: () => undefined,
+    }),
+  });
+}
 
 const grant: OrganizationContainerGrant = {
   accessLevel: "admin",
@@ -49,6 +78,77 @@ function renderGrantTable(
     />,
   );
 }
+
+test("org manager grant table renders two-line rows on phones", () => {
+  mockPhoneRoutedLayout();
+  const view = render(
+    <GrantTable
+      canRevokeGrants
+      emptyLabel={ORG_MANAGER_LABELS.noDirectContainerLinks}
+      grants={[grant]}
+      label={ORG_MANAGER_LABELS.grants}
+      mutating={false}
+      openGrantContextMenu={() => undefined}
+      openGrantRoute={() => undefined}
+      revokeGrant={() => undefined}
+    />,
+  );
+  const table = view.getByRole("table", { name: ORG_MANAGER_LABELS.grants });
+  const headerLines = Array.from(
+    table.querySelectorAll("thead .org-manager-compact-table-line"),
+  );
+  const bodyLines = Array.from(
+    table.querySelectorAll("tbody .org-manager-compact-table-line"),
+  );
+
+  expect(headerLines).toHaveLength(2);
+  expect(bodyLines).toHaveLength(2);
+  expect(
+    headerLines.map((line) =>
+      Array.from(
+        line.querySelectorAll(".org-manager-compact-table-field"),
+        (field) => field.textContent,
+      ),
+    ),
+  ).toEqual([
+    [ORG_MANAGER_LABELS.principal, ORG_MANAGER_LABELS.container],
+    [ORG_MANAGER_LABELS.access, ORG_MANAGER_LABELS.updated],
+  ]);
+  expect(
+    bodyLines.map((line) =>
+      Array.from(
+        line.querySelectorAll(".org-manager-compact-table-field"),
+        (field) => field.textContent,
+      ),
+    ),
+  ).toEqual([
+    [
+      `${ORG_MANAGER_LABELS.principal}: Admins`,
+      `${ORG_MANAGER_LABELS.container}: Root`,
+    ],
+    [
+      `${ORG_MANAGER_LABELS.access}: ${ORG_MANAGER_LABELS.accessAdmin}`,
+      `${ORG_MANAGER_LABELS.updated}: ${formatMiniAppDate(grant.updatedAt)}`,
+    ],
+  ]);
+
+  const columnsButton = view.getByRole("button", {
+    name: ORG_MANAGER_LABELS.columns,
+  });
+  const actionsButton = view.getByRole("button", {
+    name: `${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${getGrantPrincipalLabel(grant)}`,
+  });
+  expect(table.querySelector("thead")?.contains(columnsButton)).toBe(true);
+  expect(table.querySelector("tbody")?.contains(actionsButton)).toBe(true);
+
+  const frame = table.parentElement;
+  expect(frame?.classList.contains("org-manager-virtual-table--two-line")).toBe(
+    true,
+  );
+  expect(frame?.style.getPropertyValue("--mini-app-virtual-row-height")).toBe(
+    "56px",
+  );
+});
 
 test("org manager grant table renders built-in grants as plain text", () => {
   const view = renderGrantTable([grant]);
