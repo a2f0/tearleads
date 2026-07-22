@@ -45,6 +45,25 @@ export class SyncBillingGate {
     );
   }
 
+  /**
+   * The identified organizations *other than* `organizationId` that are
+   * currently blocked — the footer sync indicator's "some other org cannot
+   * sync" signal, since the shared billing snapshot only covers the active
+   * organization. Passing `null` (no active org) lists every identified block.
+   *
+   * Unknown-org wildcard blocks are deliberately omitted: a caller that needs
+   * to tell a lapsed organization apart from a free `local` one has to resolve
+   * the org's billing, which an anonymous block gives it no way to do. Use
+   * {@link isBlocked} for the conservative gate-everything reading.
+   */
+  listBlocksOutsideOrganization(
+    organizationId: string | null,
+  ): readonly string[] {
+    return Array.from(this.blockedOrganizationIds).filter(
+      (blockedId) => blockedId !== organizationId,
+    );
+  }
+
   notifyPaymentRequired(organizationId: string | null): void {
     if (organizationId === null) {
       if (
