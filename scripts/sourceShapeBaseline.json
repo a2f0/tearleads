@@ -221,10 +221,6 @@
       "lines": 570,
       "bytes": 16806
     },
-    "packages/app/test/helpers/paneTestUtils.tsx": {
-      "lines": 530,
-      "bytes": 16305
-    },
     "packages/client-sdk/src/Tearleads.test.ts": {
       "lines": 1001,
       "bytes": 31624

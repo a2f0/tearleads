@@ -6,12 +6,52 @@ import type {
   WorkerRequest,
   WorkerResponse,
 } from "@tearleads/sqlite-worker/types";
+import { WORKER_CONNECT_PORT_MESSAGE_TYPE } from "@tearleads/sqlite-worker/types";
 import { handleRequest } from "@tearleads/sqlite-worker/worker-core";
 
 type TestDatabase = InstanceType<
   Awaited<ReturnType<typeof loadSqlite3>>["oo1"]["DB"]
 >;
 type TestSqlite3 = Awaited<ReturnType<typeof loadSqlite3>>;
+
+interface MockWorkerConnection {
+  db: TestDatabase | null;
+  readonly port: MessagePort | null;
+}
+
+class MockMessagePort extends EventTarget {
+  closed = false;
+  peer: MockMessagePort | null = null;
+
+  close() {
+    this.closed = true;
+  }
+
+  postMessage(message: unknown) {
+    const peer = this.peer;
+    if (this.closed || !peer || peer.closed) {
+      return;
+    }
+
+    queueMicrotask(() => {
+      if (!this.closed && !peer.closed) {
+        peer.dispatchEvent(new MessageEvent("message", { data: message }));
+      }
+    });
+  }
+
+  start() {}
+}
+
+export class MockMessageChannel {
+  readonly port1 = new MockMessagePort();
+  readonly port2 = new MockMessagePort();
+
+  constructor() {
+    this.port1.peer = this.port2;
+    this.port2.peer = this.port1;
+  }
+}
 
 let sqlite3ForTestPromise: Promise<TestSqlite3> | null = null;
 
@@ -56,10 +96,52 @@ async function initTestDatabase(): Promise<TestDatabase> {
   return new sqlite3.oo1.DB(":memory:");
 }
 
+function isWorkerRequest(value: unknown): value is WorkerRequest {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const id = Reflect.get(value, "id");
+  const method = Reflect.get(value, "method");
+  return (
+    typeof id === "number" &&
+    (method === "ping" ||
+      method === "init" ||
+      method === "exec" ||
+      method === "close" ||
+      method === "delete")
+  );
+}
+
+function isConnectPortMessage(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Reflect.get(value, "type") === WORKER_CONNECT_PORT_MESSAGE_TYPE
+  );
+}
+
+function isMessagePort(value: unknown): value is MessagePort {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof Reflect.get(value, "addEventListener") === "function" &&
+    typeof Reflect.get(value, "close") === "function" &&
+    typeof Reflect.get(value, "postMessage") === "function" &&
+    typeof Reflect.get(value, "start") === "function"
+  );
+}
+
 // Minimal worker test double for App.tsx. It uses the shared sqlite worker
 // protocol so test behavior stays aligned with the real worker contract.
 export class MockWorker extends EventTarget {
-  db: TestDatabase | null = null;
+  private readonly directConnection: MockWorkerConnection = {
+    db: null,
+    port: null,
+  };
+  private readonly connections = new Set<MockWorkerConnection>([
+    this.directConnection,
+  ]);
   terminated = false;
 
   constructor(_scriptURL?: string | URL, _options?: WorkerOptions) {
@@ -67,36 +149,66 @@ export class MockWorker extends EventTarget {
   }
 
   terminate() {
-    this.db?.close();
-    this.db = null;
+    for (const connection of this.connections) {
+      connection.db?.close();
+      connection.db = null;
+      connection.port?.close();
+    }
+    this.connections.clear();
     this.terminated = true;
   }
 
-  postMessage(message: WorkerRequest) {
+  postMessage(message: unknown, transfer?: Transferable[]) {
+    if (isConnectPortMessage(message)) {
+      const port = transfer?.[0];
+      if (!isMessagePort(port)) {
+        throw new Error("Expected a transferred database client port.");
+      }
+
+      const connection: MockWorkerConnection = { db: null, port };
+      this.connections.add(connection);
+      port.addEventListener("message", (event) => {
+        this.handleMessage(connection, Reflect.get(event, "data"));
+      });
+      port.start();
+      return;
+    }
+
+    this.handleMessage(this.directConnection, message);
+  }
+
+  protected onRequest(_message: WorkerRequest) {}
+
+  private handleMessage(connection: MockWorkerConnection, message: unknown) {
+    if (!isWorkerRequest(message)) {
+      return;
+    }
+    this.onRequest(message);
+
     queueMicrotask(async () => {
       let response: WorkerResponse;
       try {
         response = await handleRequest(message, {
           onInit: async (_options) => {
-            if (this.db) {
+            if (connection.db) {
               throw new Error("Database has already been initialized.");
             }
 
-            this.db = await initTestDatabase();
+            connection.db = await initTestDatabase();
           },
           onExec: async (options) => {
-            if (!this.db) {
+            if (!connection.db) {
               throw new Error("Database has not been initialized.");
             }
 
-            return execDatabaseStatement(this.db, options);
+            return execDatabaseStatement(connection.db, options);
           },
           // Mirror the real worker's graceful close so the runtime's close→terminate
           // teardown path is exercised in app tests too. The in-memory test db has no
           // OPFS handles to release; closing it is the meaningful part.
           onClose: () => {
-            this.db?.close();
-            this.db = null;
+            connection.db?.close();
+            connection.db = null;
           },
         });
       } catch (error) {
@@ -109,11 +221,15 @@ export class MockWorker extends EventTarget {
         };
       }
 
-      this.dispatchEvent(
-        new MessageEvent<WorkerResponse>("message", {
-          data: response,
-        }),
-      );
+      if (connection.port) {
+        connection.port.postMessage(response);
+      } else {
+        this.dispatchEvent(
+          new MessageEvent<WorkerResponse>("message", {
+            data: response,
+          }),
+        );
+      }
     });
   }
 }

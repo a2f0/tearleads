@@ -33,11 +33,10 @@ class RecordingMockWorker extends MockWorker {
     workerConstructionCount += 1;
   }
 
-  override postMessage(message: WorkerRequest) {
+  protected override onRequest(message: WorkerRequest) {
     if (message.method === "init") {
       initializedDatabaseNames.push(message.params.dbName);
     }
-    super.postMessage(message);
   }
 }
 

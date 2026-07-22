@@ -1,12 +1,5 @@
 import { expect } from "bun:test";
-import {
-  createMemoryBlobStore,
-  type LocalKeyring,
-} from "@tearleads/client-sdk";
-import {
-  type CreateSQLiteRuntimeOptions,
-  createSQLiteRuntime,
-} from "@tearleads/client-sdk/sqlite";
+import type { LocalKeyring } from "@tearleads/client-sdk";
 import {
   act,
   cleanup,
@@ -23,7 +16,7 @@ import {
 } from "../../src/components/pane/dual-pane";
 import { PaneProvider } from "../../src/components/pane/runtime/PaneProvider";
 import { Pane } from "../../src/components/pane/shell/Pane";
-import { AppHostConfig } from "../../src/host/AppHostConfig";
+import type { AppHostConfig } from "../../src/host/AppHostConfig";
 import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
@@ -32,12 +25,11 @@ import {
   AppTestRuntimeScopeProbe,
   waitForAppTestRuntimeToSettle,
 } from "./appRuntimeIdle";
-import { resolveTestHostProfile } from "./manualIdentityProfile";
-import { MockWorker } from "./mockWorker";
-import { listProxiedApiRequests, resetMockServer, wsUrl } from "./mswServer";
-import { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyring";
+import { listProxiedApiRequests, resetMockServer } from "./mswServer";
+import { createTestHostConfig } from "./paneTestHostConfig";
 
 export { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyring";
+export { createTestHostConfig };
 export const PANE_ASYNC_TEST_TIMEOUT_MS = 15_000;
 export const PANE_LONG_ASYNC_TEST_TIMEOUT_MS = 30_000;
 export async function cleanupPaneTestEnvironment(): Promise<void> {
@@ -51,39 +43,6 @@ export async function cleanupPaneTestEnvironment(): Promise<void> {
   await resetMockServer();
 }
 
-export function createTestHostConfig(
-  options: {
-    readonly autoProvisionIdentity?: boolean | undefined;
-    readonly createLocalKeyring?: (() => LocalKeyring) | null | undefined;
-    readonly localIdentityNamespace?: string | undefined;
-    readonly profile?: AppHostConfig["profile"] | undefined;
-    readonly reuseDatabaseWorker?: boolean | undefined;
-    readonly workerConstructor?: CreateSQLiteRuntimeOptions["workerConstructor"];
-  } = {},
-) {
-  const createLocalKeyring =
-    options.createLocalKeyring === null
-      ? undefined
-      : (options.createLocalKeyring ?? createSharedMemoryLocalKeyringFactory());
-  const config = new AppHostConfig(
-    "http://localhost:3001",
-    wsUrl,
-    () =>
-      createSQLiteRuntime({
-        workerConstructor: options.workerConstructor ?? MockWorker,
-      }),
-    () => createMemoryBlobStore(),
-    options.localIdentityNamespace,
-    createLocalKeyring,
-    options.localIdentityNamespace === undefined,
-    undefined,
-    undefined,
-    resolveTestHostProfile(options),
-  );
-  return options.reuseDatabaseWorker
-    ? config.withOverrides({ reuseDatabaseWorker: true })
-    : config;
-}
 function createDeferred<T = void>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
   const promise = new Promise<T>((promiseResolve) => {
