@@ -11,6 +11,7 @@ const SCOPE = { namespace: "test" };
 const ENVIRONMENT: LocalKeyringLockEnvironment = {
   canManagePinCode: true,
   hostCreateLocalKeyring: undefined,
+  keyMaterialStorage: undefined,
   manifestStore: null,
   pinCodeConfigNamespace: "test",
   scopes: [SCOPE],

@@ -5,6 +5,7 @@ import type {
   LocalKeyring,
   NetworkStatusSource,
   PurchasesCapability,
+  WrappingKeyMaterialStorage,
 } from "@tearleads/client-sdk";
 import type {
   SQLiteRuntime,
@@ -220,6 +221,21 @@ export interface AppHostConfigOptions {
   readonly createSQLiteRuntime?: CreateSQLiteRuntimeFn | undefined;
   readonly disableLocalIdentityPersistence?: boolean | undefined;
   readonly localIdentityNamespace?: string | undefined;
+  /**
+   * How the local keyring's IndexedDB wrapping key is persisted. WebView shells
+   * (Capacitor, Electrobun) pass `"raw-bytes"` because WKWebView cannot
+   * structured-clone a CryptoKey; browsers leave it unset for the default
+   * non-extractable CryptoKey.
+   *
+   * Prefer this over supplying {@link AppHostConfigOptions.createLocalKeyring}
+   * for that purpose. Overriding the whole factory takes keyring construction
+   * away from `LocalKeyringLockProvider`, which disables PIN locking outright;
+   * declaring only the mode leaves the provider in charge, so a WebView shell
+   * keeps PIN locking while still getting the record shape it needs.
+   */
+  readonly localKeyringKeyMaterialStorage?:
+    | WrappingKeyMaterialStorage
+    | undefined;
   readonly navigationMode?: AppNavigationMode | undefined;
   readonly profile?: AppHostProfile | undefined;
   readonly readNativeBuildNumber?: ReadNativeBuildNumberFn | undefined;
@@ -297,6 +313,14 @@ export class AppHostConfig {
      * set this; the web shell leaves it unset.
      */
     readonly reuseDatabaseWorker?: boolean | undefined,
+    /**
+     * Wrapping-key persistence mode for the local keyring (see
+     * {@link AppHostConfigOptions.localKeyringKeyMaterialStorage}). WebView
+     * shells set `"raw-bytes"`; the web shell leaves it unset.
+     */
+    readonly localKeyringKeyMaterialStorage?:
+      | WrappingKeyMaterialStorage
+      | undefined,
   ) {}
 
   /**
@@ -324,6 +348,7 @@ export class AppHostConfig {
       readNativeBuildNumber: this.readNativeBuildNumber,
       createFileSaver: this.createFileSaver,
       reuseDatabaseWorker: this.reuseDatabaseWorker,
+      localKeyringKeyMaterialStorage: this.localKeyringKeyMaterialStorage,
       ...overrides,
     });
   }
@@ -350,6 +375,7 @@ export function createAppHostConfig(
     options.readNativeBuildNumber,
     options.createFileSaver,
     options.reuseDatabaseWorker,
+    options.localKeyringKeyMaterialStorage,
   );
 }
 
