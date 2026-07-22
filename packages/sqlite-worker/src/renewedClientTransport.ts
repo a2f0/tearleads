@@ -5,18 +5,10 @@ import {
 } from "./client";
 import { WORKER_CONNECT_PORT_MESSAGE_TYPE } from "./types";
 
-export interface DatabaseRuntimeMessagePort extends WorkerLike {
-  close(): void;
-  start(): void;
-}
-
-interface DatabaseRuntimeMessageChannel {
-  readonly port1: DatabaseRuntimeMessagePort;
-  readonly port2: DatabaseRuntimeMessagePort;
-}
+export type DatabaseRuntimeMessagePort = MessagePort;
 
 export interface DatabaseRuntimeMessageChannelConstructor {
-  new (): DatabaseRuntimeMessageChannel;
+  new (): MessageChannel;
 }
 
 export function availableMessageChannelConstructor(
@@ -28,9 +20,7 @@ export function availableMessageChannelConstructor(
   if (configured) {
     return configured;
   }
-  return typeof MessageChannel === "undefined"
-    ? null
-    : (MessageChannel as unknown as DatabaseRuntimeMessageChannelConstructor);
+  return typeof MessageChannel === "undefined" ? null : MessageChannel;
 }
 
 export function closeMessagePort(
@@ -49,13 +39,25 @@ function clientTransportForMessagePort(
 ): WorkerLike {
   return {
     addEventListener(type, listener) {
-      (type === "error" ? worker : port).addEventListener(type, listener);
+      if (type === "error") {
+        worker.addEventListener(type, listener);
+      } else {
+        port.addEventListener(type, listener);
+      }
     },
     postMessage(message, transfer) {
-      port.postMessage(message, transfer);
+      if (transfer) {
+        port.postMessage(message, transfer);
+      } else {
+        port.postMessage(message);
+      }
     },
     removeEventListener(type, listener) {
-      (type === "error" ? worker : port).removeEventListener(type, listener);
+      if (type === "error") {
+        worker.removeEventListener(type, listener);
+      } else {
+        port.removeEventListener(type, listener);
+      }
     },
   };
 }
@@ -73,7 +75,7 @@ export function createRenewedDatabaseClient(params: {
   try {
     channel.port1.start();
     params.worker.postMessage({ type: WORKER_CONNECT_PORT_MESSAGE_TYPE }, [
-      channel.port2 as Transferable,
+      channel.port2,
     ]);
     return {
       client: createDatabaseWorkerClient(

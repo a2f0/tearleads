@@ -175,7 +175,9 @@ test("renewClient gives a reused worker fresh port-side connection state", async
   expect(StatefulMockWorker.constructionCount).toBe(1);
   expect(worker?.terminated).toBe(false);
   expect(worker?.connections).toHaveLength(2);
-  expect(MockMessageChannel.instances[0]?.port1.started).toBe(true);
+  expect(
+    MockMessageChannel.isStarted(MockMessageChannel.instances[0]?.port1),
+  ).toBe(true);
   await expect(oldPendingInit).rejects.toThrow(
     "Database worker client has been destroyed.",
   );
@@ -195,7 +197,9 @@ test("renewClient gives a reused worker fresh port-side connection state", async
   expect(worker?.connections[1]?.requests.map(({ id }) => id)).toEqual([3]);
 
   runtime.renewClient?.();
-  expect(MockMessageChannel.instances[0]?.port1.closed).toBe(true);
+  expect(
+    MockMessageChannel.isClosed(MockMessageChannel.instances[0]?.port1),
+  ).toBe(true);
   expect(worker?.connections).toHaveLength(3);
   await expect(runtime.client.ping()).resolves.toEqual({
     message: "pong",
@@ -213,7 +217,9 @@ test("renewClient gives a reused worker fresh port-side connection state", async
   const terminatedClient = runtime.client;
   const terminatedRuntimeId = runtime.id;
 
-  expect(MockMessageChannel.instances[1]?.port1.closed).toBe(true);
+  expect(
+    MockMessageChannel.isClosed(MockMessageChannel.instances[1]?.port1),
+  ).toBe(true);
   expect(worker?.terminated).toBe(true);
 
   runtime.renewClient?.();
@@ -247,8 +253,12 @@ test("renewClient preserves the old client when port transfer fails", async () =
   expect(runtime.client).toBe(oldClient);
   expect(runtime.id).toBe(oldRuntimeId);
   expect(runtime.renewClient).toBeUndefined();
-  expect(MockMessageChannel.instances[0]?.port1.closed).toBe(true);
-  expect(MockMessageChannel.instances[0]?.port2.closed).toBe(true);
+  expect(
+    MockMessageChannel.isClosed(MockMessageChannel.instances[0]?.port1),
+  ).toBe(true);
+  expect(
+    MockMessageChannel.isClosed(MockMessageChannel.instances[0]?.port2),
+  ).toBe(true);
   await expect(oldClient.ping()).resolves.toEqual({
     message: "pong",
     ok: true,

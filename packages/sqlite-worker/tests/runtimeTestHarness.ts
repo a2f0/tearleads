@@ -7,7 +7,7 @@ type RequestMessage = {
 };
 
 export type MockConnectionState = {
-  readonly port: MockMessagePort | null;
+  readonly port: MessagePort | null;
   readonly requests: RequestMessage[];
   closed: boolean;
   dbName: string | null;
@@ -23,47 +23,40 @@ function isRequestMessage(value: unknown): value is RequestMessage {
   );
 }
 
-export class MockMessagePort extends EventTarget {
-  closed = false;
-  peer: MockMessagePort | null = null;
-  started = false;
-
-  start() {
-    this.started = true;
-  }
-
-  close() {
-    this.closed = true;
-  }
-
-  postMessage(message: unknown) {
-    const peer = this.peer;
-    if (this.closed || !peer || peer.closed) {
-      return;
-    }
-
-    queueMicrotask(() => {
-      if (!this.closed && !peer.closed) {
-        peer.dispatchEvent(new MessageEvent("message", { data: message }));
-      }
-    });
-  }
-}
-
-export class MockMessageChannel {
+export class MockMessageChannel extends MessageChannel {
   static instances: MockMessageChannel[] = [];
-
-  readonly port1 = new MockMessagePort();
-  readonly port2 = new MockMessagePort();
+  static closedPorts = new WeakSet<MessagePort>();
+  static startedPorts = new WeakSet<MessagePort>();
 
   constructor() {
-    this.port1.peer = this.port2;
-    this.port2.peer = this.port1;
+    super();
+    for (const port of [this.port1, this.port2]) {
+      const close = port.close.bind(port);
+      const start = port.start.bind(port);
+      port.close = () => {
+        MockMessageChannel.closedPorts.add(port);
+        close();
+      };
+      port.start = () => {
+        MockMessageChannel.startedPorts.add(port);
+        start();
+      };
+    }
     MockMessageChannel.instances.push(this);
   }
 
   static reset() {
     MockMessageChannel.instances = [];
+    MockMessageChannel.closedPorts = new WeakSet();
+    MockMessageChannel.startedPorts = new WeakSet();
+  }
+
+  static isClosed(port: MessagePort | undefined): boolean {
+    return port !== undefined && MockMessageChannel.closedPorts.has(port);
+  }
+
+  static isStarted(port: MessagePort | undefined): boolean {
+    return port !== undefined && MockMessageChannel.startedPorts.has(port);
   }
 }
 
@@ -101,8 +94,8 @@ export class StatefulMockWorker extends EventTarget {
         throw new Error("Failed to transfer database client port.");
       }
 
-      const port = transfer?.[0] as unknown;
-      if (!(port instanceof MockMessagePort)) {
+      const port = transfer?.[0];
+      if (!(port instanceof MessagePort)) {
         throw new Error("Expected a database client port.");
       }
 
@@ -120,7 +113,7 @@ export class StatefulMockWorker extends EventTarget {
     this.handleRequest(this.directConnection, message);
   }
 
-  private createConnection(port: MockMessagePort | null): MockConnectionState {
+  private createConnection(port: MessagePort | null): MockConnectionState {
     return {
       closed: false,
       dbName: null,
