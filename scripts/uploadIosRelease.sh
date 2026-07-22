@@ -19,6 +19,13 @@ Upload options:
   groups:<name,name>          External TestFlight groups to distribute to.
   skip_submission:true        Upload the build without submitting it for review.
 
+Signing keychain:
+  Before building, this script runs scripts/keychain/unlockLoginKeychain.sh and
+  scripts/keychain/authorizeCodesignPartitionList.sh so codesign can use the
+  iOS signing key without a GUI prompt mid-archive. Both prompt for your macOS
+  login password on the terminal (input hidden), so run this from a real
+  Terminal in a GUI login session.
+
 Environment:
   VITE_API_BASE_URL           API URL inlined into the Capacitor bundle.
                               Defaults to https://api.tearleads.com.
@@ -56,6 +63,12 @@ export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api.tearleads.com}"
 reject_dev_only_url VITE_API_BASE_URL "$VITE_API_BASE_URL"
 reject_dev_only_url VITE_WS_URL "${VITE_WS_URL:-}"
 echo "Building and uploading iOS release with VITE_API_BASE_URL=$VITE_API_BASE_URL"
+
+# Prepare the signing keychain up front so the password prompts happen now,
+# rather than as a GUI dialog partway through the archive. Both scripts read the
+# password interactively from this terminal, so they inherit our stdin/tty.
+"$SCRIPT_DIR/keychain/unlockLoginKeychain.sh"
+"$SCRIPT_DIR/keychain/authorizeCodesignPartitionList.sh"
 
 # Default to auto-incrementing from the latest TestFlight build number, but only
 # when the caller has not already selected a build number some other way. The
