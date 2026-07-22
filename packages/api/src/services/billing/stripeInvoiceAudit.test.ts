@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { organizationBillingInvoiceEvents } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
@@ -396,18 +396,34 @@ test("conflicting redelivery leaves the first immutable snapshot", async () => {
     status: "ignored",
     reason: "Paid invoice requires no seat-period reconciliation",
   });
-  await expect(
-    processStripeWebhook(
-      getDefaultApiServiceRuntime(),
-      signedDelivery(conflictingEvent),
-      {
-        stripe: {
-          env: STRIPE_ENV,
-          fetchImpl: respondingFetch(responses, []),
+  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    expect(
+      await processStripeWebhook(
+        getDefaultApiServiceRuntime(),
+        signedDelivery(conflictingEvent),
+        {
+          stripe: {
+            env: STRIPE_ENV,
+            fetchImpl: respondingFetch(responses, []),
+          },
         },
+      ),
+    ).toEqual({
+      status: "ignored",
+      reason: "Conflicting paid invoice snapshot",
+    });
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Conflicting Stripe invoice audit snapshot; preserving the first snapshot",
+      {
+        invoiceId,
+        organizationId,
+        providerEventId: `evt_${invoiceId}`,
       },
-    ),
-  ).rejects.toThrow("Conflicting Stripe invoice audit snapshot");
+    );
+  } finally {
+    errorSpy.mockRestore();
+  }
 
   const rows = await findInvoiceRows(invoiceId);
   expect(rows).toHaveLength(1);

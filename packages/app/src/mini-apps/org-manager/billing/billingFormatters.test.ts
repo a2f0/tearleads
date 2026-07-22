@@ -42,17 +42,15 @@ test("preserves totals whose currency is unavailable", () => {
   );
 });
 
-test("falls back to raw minor units when currency discovery is unavailable", () => {
+test("formats known currencies when modern discovery is unavailable", () => {
   const descriptor = Object.getOwnPropertyDescriptor(Intl, "supportedValuesOf");
   Object.defineProperty(Intl, "supportedValuesOf", {
     configurable: true,
     value: undefined,
   });
   try {
-    expect(formatBillingAmount(499, "usd")).toBe("499 USD minor units");
-    expect(formatPrice(499, "usd", "month", 1)).toBe(
-      "499 USD minor units/seat/month",
-    );
+    expect(formatBillingAmount(499, "usd")).toMatch(/4[.,]99/);
+    expect(formatPrice(499, "usd", "month", 1)).toMatch(/4[.,]99\/seat\/month/);
   } finally {
     if (descriptor) {
       Object.defineProperty(Intl, "supportedValuesOf", descriptor);

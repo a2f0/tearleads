@@ -30,7 +30,6 @@ import {
   runRequireCheckoutEligibleWorkflow,
   runResolveOrgSubscriptionForAdminWorkflow,
 } from "../../workflows/billing/stripeCheckout";
-import { runRecordStripeInvoiceAuditWorkflow } from "../../workflows/billing/stripeInvoiceAudit";
 import {
   runBindOrganizationStripeSeatsWorkflow,
   runRecordStripeSeatRenewalWorkflow,
@@ -38,7 +37,7 @@ import {
 } from "../../workflows/billing/stripeSeatState";
 import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
-import { resolveStripeInvoiceAuditInput } from "./stripeInvoiceAudit";
+import { resolveAndRecordStripeInvoiceAudit } from "./stripeInvoiceAudit";
 
 /**
  * Direct Stripe checkout services (issue #1654). The org-admin gate runs
@@ -292,7 +291,7 @@ type StripeWebhookOutcome =
   | { status: "unauthorized" }
   | { status: "unconfigured" };
 
-async function applyPaidSubscriptionInvoice(input: {
+interface PaidSubscriptionInvoiceInput {
   readonly binding: NonNullable<
     Awaited<ReturnType<typeof getSubscriptionBinding>>
   >;
@@ -302,22 +301,34 @@ async function applyPaidSubscriptionInvoice(input: {
   >;
   readonly organizationId: string;
   readonly runtime: ApiServiceRuntime;
-}): Promise<StripeWebhookOutcome> {
+}
+
+function reconcilesSeatPeriod(billingReason: string): boolean {
+  return (
+    billingReason === "subscription_create" ||
+    billingReason === "subscription_cycle"
+  );
+}
+
+async function applyPaidSubscriptionInvoice(
+  input: PaidSubscriptionInvoiceInput,
+): Promise<StripeWebhookOutcome> {
   const { binding, invoice } = input;
-  const auditInput = await resolveStripeInvoiceAuditInput({
-    binding,
-    invoice,
+  const auditOutcome = await resolveAndRecordStripeInvoiceAudit({
+    binding: input.binding,
+    db: input.runtime.db,
+    invoice: input.invoice,
     organizationId: input.organizationId,
     stripeDeps: input.deps.stripe ?? {},
   });
-  if (!auditInput) {
+  if (auditOutcome.status === "incomplete") {
     return { status: "retry", reason: "Paid invoice details are incomplete" };
   }
-  await runRecordStripeInvoiceAuditWorkflow(input.runtime.db, auditInput);
-  if (
-    auditInput.billingReason !== "subscription_create" &&
-    auditInput.billingReason !== "subscription_cycle"
-  ) {
+  if (auditOutcome.status === "conflict") {
+    return { status: "ignored", reason: "Conflicting paid invoice snapshot" };
+  }
+  const auditInput = auditOutcome.audit;
+  if (!reconcilesSeatPeriod(auditInput.billingReason)) {
     return {
       status: "ignored",
       reason: "Paid invoice requires no seat-period reconciliation",

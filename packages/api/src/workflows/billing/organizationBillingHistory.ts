@@ -122,7 +122,8 @@ async function loadLifecycleSeatHistory(
     .orderBy(
       desc(organizationBillingSeatEvents.createdAt),
       desc(organizationBillingSeatEvents.id),
-    );
+    )
+    .limit(BILLING_HISTORY_EVENT_LIMIT);
 }
 
 async function loadInvoiceHistory(
@@ -306,19 +307,12 @@ export async function runGetOrganizationBillingHistoryWorkflow(
       organizationId,
       [...lifecycleProviderEventIds],
     );
-    const seatsById = new Map(
-      [...seatRows, ...lifecycleSeatRows].map((row) => [row.id, row]),
-    );
-    const mergedSeatRows = [...seatsById.values()];
     const seatsByProviderEventId = correlatedSeatRows(lifecycleSeatRows);
     const lifecycleEvents = projectLifecycleHistory(
       lifecycleRows,
       seatsByProviderEventId,
     );
-    const seatEvents = projectSeatHistory(
-      mergedSeatRows,
-      lifecycleProviderEventIds,
-    );
+    const seatEvents = projectSeatHistory(seatRows, lifecycleProviderEventIds);
     const invoiceEvents = projectInvoiceHistory(invoiceRows);
 
     return [...lifecycleEvents, ...seatEvents, ...invoiceEvents]

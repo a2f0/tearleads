@@ -23,6 +23,8 @@ export interface StripeInvoiceAuditInput {
   readonly unitAmount: number | null;
 }
 
+type StripeInvoiceAuditRecordOutcome = "accepted" | "conflict";
+
 function equalDates(left: Date | null, right: Date | null): boolean {
   return left?.getTime() === right?.getTime();
 }
@@ -52,8 +54,8 @@ function isEquivalentSnapshot(
 export async function runRecordStripeInvoiceAuditWorkflow(
   db: ApiDatabase,
   input: StripeInvoiceAuditInput,
-): Promise<void> {
-  await db.transaction(async (tx) => {
+): Promise<StripeInvoiceAuditRecordOutcome> {
+  return db.transaction(async (tx) => {
     const [inserted] = await tx
       .insert(organizationBillingInvoiceEvents)
       .values(input)
@@ -62,7 +64,7 @@ export async function runRecordStripeInvoiceAuditWorkflow(
       })
       .returning({ id: organizationBillingInvoiceEvents.id });
     if (inserted) {
-      return;
+      return "accepted";
     }
     const [existing] = await tx
       .select({
@@ -84,10 +86,11 @@ export async function runRecordStripeInvoiceAuditWorkflow(
       })
       .from(organizationBillingInvoiceEvents)
       .where(eq(organizationBillingInvoiceEvents.invoiceId, input.invoiceId));
-    if (!existing || !isEquivalentSnapshot(existing, input)) {
+    if (!existing) {
       throw new Error(
-        `Conflicting Stripe invoice audit snapshot for ${input.invoiceId}`,
+        `Stripe invoice audit snapshot disappeared for ${input.invoiceId}`,
       );
     }
+    return isEquivalentSnapshot(existing, input) ? "accepted" : "conflict";
   });
 }

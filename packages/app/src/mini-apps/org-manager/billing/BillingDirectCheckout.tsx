@@ -14,8 +14,6 @@ import { formatPrice } from "./billingFormatters";
 import type { DirectCheckoutState } from "./useDirectCheckout";
 import "./BillingCheckout.css";
 
-export { formatPrice } from "./billingFormatters";
-
 /**
  * The in-app card checkout (issue #1654). Unlike the provider-hosted flow,
  * every control here is ours: the price row, the Pay button, and the Cancel

@@ -3,7 +3,8 @@ import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { createRef } from "react";
 import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
-import { BillingDirectCheckout, formatPrice } from "./BillingDirectCheckout";
+import { BillingDirectCheckout } from "./BillingDirectCheckout";
+import { formatPrice } from "./billingFormatters";
 import type { DirectCheckoutState } from "./useDirectCheckout";
 
 const spies: { mockRestore: () => void }[] = [];

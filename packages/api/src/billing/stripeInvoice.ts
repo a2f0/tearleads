@@ -7,6 +7,7 @@ import {
 } from "./stripeWebhook";
 
 const INVOICE_LINE_PAGE_LIMIT = 100;
+const INVOICE_LINE_MAX_PAGES = 100;
 
 async function getCompleteInvoiceLines(input: {
   readonly fetchImpl: typeof fetch;
@@ -18,7 +19,11 @@ async function getCompleteInvoiceLines(input: {
   const cursors = new Set<string>();
   let startingAfter: string | null = null;
 
-  while (true) {
+  for (
+    let pageNumber = 0;
+    pageNumber < INVOICE_LINE_MAX_PAGES;
+    pageNumber += 1
+  ) {
     const cursorQuery = startingAfter
       ? `&starting_after=${encodeURIComponent(startingAfter)}`
       : "";
@@ -44,6 +49,7 @@ async function getCompleteInvoiceLines(input: {
     cursors.add(cursor);
     startingAfter = cursor;
   }
+  return null;
 }
 
 /** Retrieves one invoice with the server-pinned Stripe API version. */

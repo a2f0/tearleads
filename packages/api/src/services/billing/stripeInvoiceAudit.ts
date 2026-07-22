@@ -1,8 +1,12 @@
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { getPaidSubscriptionInvoice } from "../../billing/stripeInvoice";
 import type { StripeSubscriptionBinding } from "../../billing/stripeSubscriptionBinding";
 import type { StripePaidSubscriptionInvoice } from "../../billing/stripeWebhook";
-import type { StripeInvoiceAuditInput } from "../../workflows/billing/stripeInvoiceAudit";
+import {
+  runRecordStripeInvoiceAuditWorkflow,
+  type StripeInvoiceAuditInput,
+} from "../../workflows/billing/stripeInvoiceAudit";
 
 function selectHistoricalSeatLine(
   invoice: StripePaidSubscriptionInvoice,
@@ -62,24 +66,18 @@ function createStripeInvoiceAuditInput(input: {
     subscriptionId: invoice.subscriptionId,
     totalAmount: invoice.amountPaid,
   };
+  const totalOnlySnapshot: StripeInvoiceAuditInput = {
+    ...base,
+    interval: null,
+    intervalCount: null,
+    periodEndsAt: null,
+    periodStartsAt: null,
+    priceId: null,
+    seatCount: null,
+    unitAmount: null,
+  };
   if (!line) {
-    if (
-      invoice.linesHasMore !== false ||
-      invoice.billingReason === "subscription_create" ||
-      invoice.billingReason === "subscription_cycle"
-    ) {
-      return null;
-    }
-    return {
-      ...base,
-      interval: null,
-      intervalCount: null,
-      periodEndsAt: null,
-      periodStartsAt: null,
-      priceId: null,
-      seatCount: null,
-      unitAmount: null,
-    };
+    return totalOnlySnapshot;
   }
   if (
     line.quantity === null ||
@@ -88,7 +86,7 @@ function createStripeInvoiceAuditInput(input: {
     !line.periodEndsAt ||
     (line.currency !== null && line.currency !== invoice.currency)
   ) {
-    return null;
+    return totalOnlySnapshot;
   }
   return {
     ...base,
@@ -127,4 +125,31 @@ export async function resolveStripeInvoiceAuditInput(input: {
       providerEventId: input.invoice.providerEventId ?? fetched.providerEventId,
     },
   });
+}
+
+/** Resolves and append-only records one paid invoice delivery. */
+export async function resolveAndRecordStripeInvoiceAudit(input: {
+  readonly binding: StripeSubscriptionBinding;
+  readonly db: ApiDatabase;
+  readonly invoice: StripePaidSubscriptionInvoice;
+  readonly organizationId: string;
+  readonly stripeDeps: StripeApiDeps;
+}) {
+  const audit = await resolveStripeInvoiceAuditInput(input);
+  if (!audit) {
+    return { status: "incomplete" } as const;
+  }
+  const outcome = await runRecordStripeInvoiceAuditWorkflow(input.db, audit);
+  if (outcome === "conflict") {
+    console.error(
+      "Conflicting Stripe invoice audit snapshot; preserving the first snapshot",
+      {
+        invoiceId: audit.invoiceId,
+        organizationId: input.organizationId,
+        providerEventId: audit.providerEventId,
+      },
+    );
+    return { status: "conflict" } as const;
+  }
+  return { status: "accepted", audit } as const;
 }

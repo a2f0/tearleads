@@ -32,11 +32,21 @@ function isValidMinorAmount(amount: number | null): amount is number {
 
 /** Whether this runtime recognizes the code as an ISO currency. */
 function isKnownCurrency(currencyCode: string): boolean {
-  if (typeof Intl.supportedValuesOf !== "function") {
-    return false;
+  if (typeof Intl.supportedValuesOf === "function") {
+    try {
+      return Intl.supportedValuesOf("currency").includes(currencyCode);
+    } catch {
+      return false;
+    }
   }
+  // Older WebViews lack supportedValuesOf. Their NumberFormat constructor is
+  // still the best available capability probe and preserves ordinary prices.
   try {
-    return Intl.supportedValuesOf("currency").includes(currencyCode);
+    new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currencyCode,
+    });
+    return true;
   } catch {
     return false;
   }

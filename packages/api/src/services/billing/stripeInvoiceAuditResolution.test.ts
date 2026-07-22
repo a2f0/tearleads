@@ -135,3 +135,44 @@ test("missing historical cadence and rate stay stable across binding changes", a
   });
   expect(replay).toEqual(first);
 });
+
+test("a complete invoice with invalid line attribution keeps its exact total", async () => {
+  const body = invoiceBody({
+    hasMore: false,
+    price: {
+      id: "price_sync",
+      recurring: { interval: "month", interval_count: 1 },
+      unit_amount: 499,
+    },
+  });
+  const [line] = body.lines.data;
+  if (!line) {
+    throw new Error("expected invoice line");
+  }
+  line.currency = "eur";
+
+  const audit = await resolveStripeInvoiceAuditInput({
+    binding: BINDING,
+    invoice: parseInvoice(body),
+    organizationId: "org-1",
+    stripeDeps: {},
+  });
+
+  expect(audit).toEqual({
+    billingReason: "subscription_cycle",
+    currency: "usd",
+    interval: null,
+    intervalCount: null,
+    invoiceId: "in_1",
+    occurredAt: new Date(1_783_123_456 * 1000),
+    organizationId: "org-1",
+    periodEndsAt: null,
+    periodStartsAt: null,
+    priceId: null,
+    providerEventId: "evt_1",
+    seatCount: null,
+    subscriptionId: "sub_1",
+    totalAmount: 1_497,
+    unitAmount: null,
+  });
+});

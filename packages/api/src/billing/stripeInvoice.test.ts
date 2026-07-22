@@ -147,3 +147,19 @@ test("rejects a repeated line-page cursor", async () => {
   ).toBeNull();
   expect(urls).toHaveLength(3);
 });
+
+test("bounds pathological invoice line pagination", async () => {
+  const pages = Array.from({ length: 100 }, (_, index) => ({
+    data: [{ id: `il_page_${index}` }],
+    has_more: true,
+  }));
+  const { fetchImpl, urls } = fakeFetch([
+    invoiceBody({ data: [], has_more: true }),
+    ...pages,
+  ]);
+
+  expect(
+    await getPaidSubscriptionInvoice("in_paged", { env: ENV, fetchImpl }),
+  ).toBeNull();
+  expect(urls).toHaveLength(101);
+});
