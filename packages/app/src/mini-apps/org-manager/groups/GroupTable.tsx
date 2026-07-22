@@ -23,7 +23,6 @@ import {
 } from "../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
-  MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
   MiniAppVirtualTableSpacerRow,
   useMiniAppVirtualRows,
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
@@ -31,10 +30,14 @@ import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { isKeyboardActivationKey } from "../display";
 import { getOrgManagerMemberCountLabel, ORG_MANAGER_LABELS } from "../labels";
+import {
+  OrgManagerCompactTableCell,
+  type OrgManagerCompactTableField,
+  OrgManagerCompactTableHeader,
+  useOrgManagerListTableLayout,
+} from "../organization/OrgManagerCompactTable";
 
 type GroupTableColumnId = "group" | "members" | "status" | "created";
-// Adds the trailing touch-only kebab column to the toggleable data columns.
-type GroupVisibleColumnId = GroupTableColumnId | "actions";
 
 const GROUP_TABLE_COLUMN_IDS: ReadonlyArray<GroupTableColumnId> = [
   "group",
@@ -78,6 +81,13 @@ const GROUP_TABLE_COLUMNS = [
   },
 ] satisfies ReadonlyArray<MiniAppTableColumn & { id: GroupTableColumnId }>;
 
+const GROUP_COLUMN_LABELS: Readonly<Record<GroupTableColumnId, string>> = {
+  created: ORG_MANAGER_LABELS.created,
+  group: ORG_MANAGER_LABELS.group,
+  members: ORG_MANAGER_LABELS.members,
+  status: ORG_MANAGER_LABELS.status,
+};
+
 function renderGroupCell(
   columnId: GroupTableColumnId,
   group: OrganizationGroupSummary,
@@ -120,21 +130,61 @@ function renderGroupCell(
   }
 }
 
-function useGroupTableColumns(showActions: boolean): {
+function getGroupCompactField(
+  columnId: GroupTableColumnId,
+  group: OrganizationGroupSummary,
+): OrgManagerCompactTableField {
+  switch (columnId) {
+    case "group":
+      return {
+        id: columnId,
+        label: GROUP_COLUMN_LABELS[columnId],
+        text: group.name,
+        title: group.groupId,
+      };
+    case "members":
+      return {
+        id: columnId,
+        label: GROUP_COLUMN_LABELS[columnId],
+        text: group.currentState
+          ? getOrgManagerMemberCountLabel(group.currentState.memberCount)
+          : ORG_MANAGER_LABELS.uninitialized,
+      };
+    case "status":
+      return {
+        id: columnId,
+        label: GROUP_COLUMN_LABELS[columnId],
+        text: group.isBuiltin ? ORG_MANAGER_LABELS.builtIn : "",
+      };
+    case "created":
+      return {
+        id: columnId,
+        label: GROUP_COLUMN_LABELS[columnId],
+        text: formatMiniAppDate(group.createdAt),
+        title: group.createdAt,
+      };
+  }
+}
+
+function useGroupTableColumns(
+  showActions: boolean,
+  compact: boolean,
+): {
   columns: ReadonlyArray<MiniAppTableColumn>;
-  visibleColumnIds: ReadonlyArray<GroupVisibleColumnId>;
+  visibleColumnIds: ReadonlyArray<GroupTableColumnId>;
 } {
   const columnVisibility = useMiniAppColumnVisibility<GroupTableColumnId>({
     storageKey: "tearleads.org-manager.groups:hidden-columns",
     toggleableColumnIds: GROUP_TOGGLEABLE_COLUMN_IDS,
   });
-  const visibleColumnIds = useMemo<ReadonlyArray<GroupVisibleColumnId>>(() => {
-    const dataColumnIds = getVisibleMiniAppTableColumnIds(
-      GROUP_TABLE_COLUMN_IDS,
-      columnVisibility.hiddenColumns,
-    );
-    return showActions ? [...dataColumnIds, "actions"] : dataColumnIds;
-  }, [columnVisibility.hiddenColumns, showActions]);
+  const visibleColumnIds = useMemo(
+    () =>
+      getVisibleMiniAppTableColumnIds(
+        GROUP_TABLE_COLUMN_IDS,
+        columnVisibility.hiddenColumns,
+      ),
+    [columnVisibility.hiddenColumns],
+  );
   const columns = useMemo(() => {
     const columnMenu = (
       <MiniAppColumnMenuButton
@@ -151,6 +201,33 @@ function useGroupTableColumns(showActions: boolean): {
     const dataColumns = GROUP_TABLE_COLUMNS.filter(
       (column) => !columnVisibility.hiddenColumns.has(column.id),
     );
+    if (compact) {
+      const compactColumn = {
+        header: (
+          <OrgManagerCompactTableHeader
+            primary={visibleColumnIds.slice(0, 1).map((id) => ({
+              id,
+              text: GROUP_COLUMN_LABELS[id],
+            }))}
+            secondary={visibleColumnIds.slice(1).map((id) => ({
+              id,
+              text: GROUP_COLUMN_LABELS[id],
+            }))}
+          />
+        ),
+        id: "summary",
+      } satisfies MiniAppTableColumn;
+
+      return showActions
+        ? [
+            compactColumn,
+            miniAppRowActionsColumn(
+              ORG_MANAGER_LABELS.rowActionsColumn,
+              columnMenu,
+            ),
+          ]
+        : addMiniAppTableHeaderAction([compactColumn], columnMenu);
+    }
     // When the touch kebab column trails the table it is the trailing edge, so
     // the column-menu trigger rides in its header to stay flush right — on the
     // last data column it would sit one narrow column in from the edge.
@@ -164,9 +241,11 @@ function useGroupTableColumns(showActions: boolean): {
         ]
       : addMiniAppTableHeaderAction(dataColumns, columnMenu);
   }, [
+    compact,
     columnVisibility.hiddenColumns,
     columnVisibility.toggleColumn,
     showActions,
+    visibleColumnIds,
   ]);
 
   return { columns, visibleColumnIds };
@@ -186,13 +265,17 @@ function GroupTable({
   selectedGroupId: string | null;
   setSelectedGroupId: (groupId: string) => void;
 }) {
+  const { compact, rowHeight } = useOrgManagerListTableLayout();
   const virtualGroups = useMiniAppVirtualRows({
-    rowHeight: MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
+    rowHeight,
     rows: groups,
   });
   // Touch layouts have no right-click; add the kebab as the touch stand-in.
   const showActions = useRoutedLayoutActive();
-  const { columns, visibleColumnIds } = useGroupTableColumns(showActions);
+  const { columns, visibleColumnIds } = useGroupTableColumns(
+    showActions,
+    compact,
+  );
 
   if (groups.length === 0) {
     return (
@@ -204,7 +287,9 @@ function GroupTable({
 
   return (
     <MiniAppTableFrame
-      className="mini-app-table-frame--virtual mini-app-table-frame--compact org-manager-virtual-table"
+      className={`mini-app-table-frame--virtual mini-app-table-frame--compact org-manager-virtual-table${
+        compact ? " org-manager-virtual-table--two-line" : ""
+      }`}
       onContextMenu={(event) => {
         if (event.defaultPrevented) {
           return;
@@ -213,18 +298,19 @@ function GroupTable({
         openGroupContextMenu(event, null);
       }}
       ref={virtualGroups.frameRef}
-      style={getMiniAppVirtualFrameStyle(
-        MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
-      )}
+      style={getMiniAppVirtualFrameStyle(rowHeight)}
     >
       <MiniAppTable aria-label={ORG_MANAGER_LABELS.groups} columns={columns}>
         <MiniAppVirtualTableSpacerRow
-          colSpan={visibleColumnIds.length}
+          colSpan={columns.length}
           height={virtualGroups.topPadding}
         />
         {virtualGroups.rows.map((group) => {
           const isSelected = selectedGroupId === group.groupId;
           const openGroupDetail = () => setSelectedGroupId(group.groupId);
+          const compactFields = visibleColumnIds.map((columnId) =>
+            getGroupCompactField(columnId, group),
+          );
           const handleGroupRowKeyDown = (
             event: KeyboardEvent<HTMLTableRowElement>,
           ) => {
@@ -247,24 +333,28 @@ function GroupTable({
               selected={isSelected}
               tabIndex={0}
             >
-              {visibleColumnIds.map((columnId) =>
-                columnId === "actions" ? (
-                  <MiniAppRowActionsCell
-                    key="actions"
-                    label={`${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${group.name}`}
-                    onOpen={(event) =>
-                      openGroupContextMenu(event, group.groupId)
-                    }
-                  />
-                ) : (
-                  renderGroupCell(columnId, group)
-                ),
+              {compact ? (
+                <OrgManagerCompactTableCell
+                  primary={compactFields.slice(0, 1)}
+                  secondary={compactFields.slice(1)}
+                />
+              ) : (
+                visibleColumnIds.map((columnId) =>
+                  renderGroupCell(columnId, group),
+                )
               )}
+              {showActions ? (
+                <MiniAppRowActionsCell
+                  key="actions"
+                  label={`${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${group.name}`}
+                  onOpen={(event) => openGroupContextMenu(event, group.groupId)}
+                />
+              ) : null}
             </MiniAppTableRow>
           );
         })}
         <MiniAppVirtualTableSpacerRow
-          colSpan={visibleColumnIds.length}
+          colSpan={columns.length}
           height={virtualGroups.bottomPadding}
         />
       </MiniAppTable>

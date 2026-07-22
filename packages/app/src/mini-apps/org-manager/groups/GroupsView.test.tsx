@@ -6,14 +6,33 @@ import type {
   OrganizationGroupSummary,
 } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { compactFingerprint } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { GroupsView } from "./GroupsView";
 
+const originalMatchMedia = window.matchMedia;
+
 afterEach(() => {
   cleanup();
   document.documentElement.removeAttribute("data-navigation-mode");
+  globalThis.localStorage.clear();
+  window.matchMedia = originalMatchMedia;
 });
+
+function usePhoneLayout() {
+  window.matchMedia = ((query: string) => ({
+    addEventListener: () => undefined,
+    addListener: () => undefined,
+    dispatchEvent: () => true,
+    matches: query !== "(min-width: 760px)",
+    media: query,
+    onchange: null,
+    removeEventListener: () => undefined,
+    removeListener: () => undefined,
+  })) as unknown as typeof window.matchMedia;
+  document.documentElement.setAttribute("data-navigation-mode", "routed");
+}
 
 const group: OrganizationGroupSummary = {
   createdAt: "2026-05-20T12:00:00.000Z",
@@ -397,6 +416,67 @@ test("org manager groups view shows a touch kebab that opens the group menu", ()
   );
 
   expect(deletedGroupIds).toEqual([customGroup.groupId]);
+});
+
+test("org manager groups view uses two-line summaries on phone layouts", () => {
+  usePhoneLayout();
+  const view = renderGroupsView({
+    selectedGroup: null,
+    selectedGroupId: null,
+  });
+  const table = view.getByRole("table", { name: ORG_MANAGER_LABELS.groups });
+  const summaries = table.querySelectorAll<HTMLElement>(
+    ".org-manager-compact-table-lines",
+  );
+
+  expect(summaries).toHaveLength(2);
+  const headerSummary = summaries.item(0);
+  const headerLines = headerSummary.querySelectorAll<HTMLElement>(
+    ".org-manager-compact-table-line",
+  );
+  expect(headerLines).toHaveLength(2);
+  expect(
+    within(headerLines.item(0)).getByText(ORG_MANAGER_LABELS.group),
+  ).toBeTruthy();
+  expect(
+    within(headerLines.item(1)).getByText(ORG_MANAGER_LABELS.members),
+  ).toBeTruthy();
+  expect(
+    within(headerLines.item(1)).getByText(ORG_MANAGER_LABELS.status),
+  ).toBeTruthy();
+  expect(
+    within(headerLines.item(1)).getByText(ORG_MANAGER_LABELS.created),
+  ).toBeTruthy();
+
+  const rowSummary = summaries.item(1);
+  const rowLines = rowSummary.querySelectorAll<HTMLElement>(
+    ".org-manager-compact-table-line",
+  );
+  expect(rowLines).toHaveLength(2);
+  expect(
+    within(rowLines.item(0)).getByText(group.name).getAttribute("title"),
+  ).toBe(group.groupId);
+  expect(within(rowLines.item(1)).getByText("1 member")).toBeTruthy();
+  expect(
+    within(rowLines.item(1)).getByText(ORG_MANAGER_LABELS.builtIn),
+  ).toBeTruthy();
+  expect(
+    within(rowLines.item(1))
+      .getByText(formatMiniAppDate(group.createdAt))
+      .getAttribute("title"),
+  ).toBe(group.createdAt);
+  view.getByRole("button", { name: ORG_MANAGER_LABELS.columns });
+  view.getByRole("button", {
+    name: `${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${group.name}`,
+  });
+
+  const frame = table.closest<HTMLElement>(".mini-app-table-frame");
+  expect(frame?.classList.contains("org-manager-virtual-table--two-line")).toBe(
+    true,
+  );
+  expect(frame?.style.getPropertyValue("--mini-app-virtual-row-height")).toBe(
+    "56px",
+  );
 });
 
 test("org manager groups view opens roster detail from a group member", () => {

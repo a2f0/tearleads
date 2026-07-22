@@ -26,7 +26,6 @@ import {
 } from "../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
-  MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
   MiniAppVirtualTableSpacerRow,
   useMiniAppVirtualRows,
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
@@ -40,6 +39,12 @@ import {
   isKeyboardActivationKey,
 } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
+import {
+  OrgManagerCompactTableCell,
+  type OrgManagerCompactTableField,
+  OrgManagerCompactTableHeader,
+  useOrgManagerListTableLayout,
+} from "../organization/OrgManagerCompactTable";
 import type { OrgManagerGrantRouteRef } from "../routes";
 
 type GrantTableColumnId =
@@ -48,21 +53,20 @@ type GrantTableColumnId =
   | "access"
   | "updated"
   | "action";
-// On touch the inline "action" (Revoke) column is swapped for the kebab column.
-type GrantVisibleColumnId = GrantTableColumnId | "actions";
 
-const GRANT_TABLE_COLUMN_IDS: ReadonlyArray<GrantTableColumnId> = [
-  "principal",
-  "container",
-  "access",
-  "updated",
-  "action",
-];
 // The data columns without the trailing inline "action" (Revoke) column, used
 // when the touch kebab replaces it.
 const GRANT_DATA_COLUMN_IDS: ReadonlyArray<GrantTableColumnId> = [
   "principal",
   "container",
+  "access",
+  "updated",
+];
+const GRANT_COMPACT_PRIMARY_COLUMN_IDS: ReadonlyArray<GrantTableColumnId> = [
+  "principal",
+  "container",
+];
+const GRANT_COMPACT_SECONDARY_COLUMN_IDS: ReadonlyArray<GrantTableColumnId> = [
   "access",
   "updated",
 ];
@@ -78,6 +82,12 @@ const GRANT_COLUMN_MENU_OPTIONS: ReadonlyArray<
   { id: "access", label: ORG_MANAGER_LABELS.access },
   { id: "updated", label: ORG_MANAGER_LABELS.updated },
 ];
+
+const GRANT_ACTION_TABLE_COLUMN = {
+  id: "action",
+  header: ORG_MANAGER_LABELS.action,
+  width: "6rem",
+} satisfies MiniAppTableColumn & { id: GrantTableColumnId };
 
 const GRANT_TABLE_COLUMNS = [
   {
@@ -100,16 +110,20 @@ const GRANT_TABLE_COLUMNS = [
     header: ORG_MANAGER_LABELS.updated,
     width: "8rem",
   },
-  {
-    id: "action",
-    header: ORG_MANAGER_LABELS.action,
-    width: "6rem",
-  },
+  GRANT_ACTION_TABLE_COLUMN,
 ] satisfies ReadonlyArray<MiniAppTableColumn & { id: GrantTableColumnId }>;
 
 const GRANT_DATA_TABLE_COLUMNS = GRANT_TABLE_COLUMNS.filter(
   (column) => column.id !== "action",
 );
+
+const GRANT_COLUMN_LABELS: Readonly<Record<GrantTableColumnId, string>> = {
+  access: ORG_MANAGER_LABELS.access,
+  action: ORG_MANAGER_LABELS.action,
+  container: ORG_MANAGER_LABELS.container,
+  principal: ORG_MANAGER_LABELS.principal,
+  updated: ORG_MANAGER_LABELS.updated,
+};
 
 function renderGrantCell(
   columnId: GrantTableColumnId,
@@ -177,27 +191,66 @@ function renderGrantCell(
   }
 }
 
-function useGrantTableColumns(showActions: boolean): {
+function getGrantCompactField(
+  columnId: GrantTableColumnId,
+  grant: OrganizationContainerGrant,
+): OrgManagerCompactTableField {
+  switch (columnId) {
+    case "principal":
+      return {
+        id: columnId,
+        label: GRANT_COLUMN_LABELS[columnId],
+        text: getGrantPrincipalLabel(grant),
+        title: grant.subjectId,
+      };
+    case "container":
+      return {
+        id: columnId,
+        label: GRANT_COLUMN_LABELS[columnId],
+        text: getContainerDisplayLabel(grant),
+        title: getContainerDisplayTitle(grant),
+      };
+    case "access":
+      return {
+        id: columnId,
+        label: GRANT_COLUMN_LABELS[columnId],
+        text: getAccessLabel(grant.accessLevel),
+      };
+    case "updated":
+      return {
+        id: columnId,
+        label: GRANT_COLUMN_LABELS[columnId],
+        text: formatMiniAppDate(grant.updatedAt),
+        title: grant.updatedAt,
+      };
+    case "action":
+      return {
+        id: columnId,
+        label: GRANT_COLUMN_LABELS[columnId],
+        text: grant.isBuiltin ? ORG_MANAGER_LABELS.builtIn : "",
+      };
+  }
+}
+
+function useGrantTableColumns(
+  showActions: boolean,
+  compact: boolean,
+): {
   columns: ReadonlyArray<MiniAppTableColumn>;
-  visibleColumnIds: ReadonlyArray<GrantVisibleColumnId>;
+  visibleColumnIds: ReadonlyArray<GrantTableColumnId>;
 } {
   const columnVisibility = useMiniAppColumnVisibility<GrantTableColumnId>({
     storageKey: "tearleads.org-manager.grants:hidden-columns",
     toggleableColumnIds: GRANT_TOGGLEABLE_COLUMN_IDS,
   });
-  const visibleColumnIds = useMemo<ReadonlyArray<GrantVisibleColumnId>>(() => {
-    if (showActions) {
-      const dataColumnIds = getVisibleMiniAppTableColumnIds(
+  const visibleColumnIds = useMemo(
+    () =>
+      getVisibleMiniAppTableColumnIds(
         GRANT_DATA_COLUMN_IDS,
         columnVisibility.hiddenColumns,
-      );
-      return [...dataColumnIds, "actions"];
-    }
-    return getVisibleMiniAppTableColumnIds(
-      GRANT_TABLE_COLUMN_IDS,
-      columnVisibility.hiddenColumns,
-    );
-  }, [columnVisibility.hiddenColumns, showActions]);
+      ),
+    [columnVisibility.hiddenColumns],
+  );
   const columns = useMemo(() => {
     const columnMenu = (
       <MiniAppColumnMenuButton
@@ -211,6 +264,34 @@ function useGrantTableColumns(showActions: boolean): {
         toggleColumn={columnVisibility.toggleColumn}
       />
     );
+    if (compact) {
+      const compactColumn = {
+        header: (
+          <OrgManagerCompactTableHeader
+            primary={GRANT_COMPACT_PRIMARY_COLUMN_IDS.filter((id) =>
+              visibleColumnIds.includes(id),
+            ).map((id) => ({ id, text: GRANT_COLUMN_LABELS[id] }))}
+            secondary={GRANT_COMPACT_SECONDARY_COLUMN_IDS.filter((id) =>
+              visibleColumnIds.includes(id),
+            ).map((id) => ({ id, text: GRANT_COLUMN_LABELS[id] }))}
+          />
+        ),
+        id: "summary",
+      } satisfies MiniAppTableColumn;
+
+      return showActions
+        ? [
+            compactColumn,
+            miniAppRowActionsColumn(
+              ORG_MANAGER_LABELS.rowActionsColumn,
+              columnMenu,
+            ),
+          ]
+        : addMiniAppTableHeaderAction(
+            [compactColumn, GRANT_ACTION_TABLE_COLUMN],
+            columnMenu,
+          );
+    }
     if (showActions) {
       // The kebab column (touch stand-in for the inline Revoke button) is the
       // trailing edge, so the column-menu trigger rides in its header to stay
@@ -233,12 +314,100 @@ function useGrantTableColumns(showActions: boolean): {
       columnMenu,
     );
   }, [
+    compact,
     columnVisibility.hiddenColumns,
     columnVisibility.toggleColumn,
     showActions,
+    visibleColumnIds,
   ]);
 
   return { columns, visibleColumnIds };
+}
+
+interface GrantTableRowProps {
+  canRevokeGrants: boolean;
+  compact: boolean;
+  grant: OrganizationContainerGrant;
+  mutating: boolean;
+  openGrantContextMenu?:
+    | ((
+        event: MouseEvent<HTMLElement>,
+        grant: OrganizationContainerGrant,
+      ) => void)
+    | undefined;
+  openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
+  revokeGrant: (grant: OrganizationContainerGrant) => void;
+  showActions: boolean;
+  visibleColumnIds: ReadonlyArray<GrantTableColumnId>;
+}
+
+function GrantTableRow({
+  canRevokeGrants,
+  compact,
+  grant,
+  mutating,
+  openGrantContextMenu,
+  openGrantRoute,
+  revokeGrant,
+  showActions,
+  visibleColumnIds,
+}: GrantTableRowProps) {
+  const canRevokeGrant = canRevokeGrants && !grant.isBuiltin;
+  const openGrantDetailRoute = () =>
+    openGrantRoute({
+      containerId: grant.containerId,
+      subjectId: grant.subjectId,
+      subjectType: grant.subjectType,
+    });
+  const handleGrantRowKeyDown = (event: KeyboardEvent<HTMLTableRowElement>) => {
+    if (isKeyboardActivationKey(event.key)) {
+      event.preventDefault();
+      openGrantDetailRoute();
+    }
+  };
+  const renderCell = (columnId: GrantTableColumnId) =>
+    renderGrantCell(columnId, {
+      canRevokeGrant,
+      grant,
+      mutating,
+      revokeGrant,
+    });
+
+  return (
+    <MiniAppTableRow
+      interactive
+      onClick={openGrantDetailRoute}
+      onContextMenu={
+        openGrantContextMenu
+          ? (event) => openGrantContextMenu(event, grant)
+          : undefined
+      }
+      onKeyDown={handleGrantRowKeyDown}
+      role="button"
+      tabIndex={0}
+    >
+      {compact ? (
+        <OrgManagerCompactTableCell
+          primary={GRANT_COMPACT_PRIMARY_COLUMN_IDS.filter((id) =>
+            visibleColumnIds.includes(id),
+          ).map((id) => getGrantCompactField(id, grant))}
+          secondary={GRANT_COMPACT_SECONDARY_COLUMN_IDS.filter((id) =>
+            visibleColumnIds.includes(id),
+          ).map((id) => getGrantCompactField(id, grant))}
+        />
+      ) : (
+        visibleColumnIds.map(renderCell)
+      )}
+      {showActions ? (
+        <MiniAppRowActionsCell
+          label={`${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${getGrantPrincipalLabel(grant)}`}
+          onOpen={(event) => openGrantContextMenu?.(event, grant)}
+        />
+      ) : (
+        renderCell("action")
+      )}
+    </MiniAppTableRow>
+  );
 }
 
 export function GrantTable({
@@ -265,14 +434,18 @@ export function GrantTable({
   openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
+  const { compact, rowHeight } = useOrgManagerListTableLayout();
   const virtualGrants = useMiniAppVirtualRows({
-    rowHeight: MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
+    rowHeight,
     rows: grants,
   });
   // Touch layouts have no right-click; the kebab replaces the inline Revoke
   // button and opens the same Open / Revoke menu right-click / long-press does.
   const showActions = useRoutedLayoutActive() && Boolean(openGrantContextMenu);
-  const { columns, visibleColumnIds } = useGrantTableColumns(showActions);
+  const { columns, visibleColumnIds } = useGrantTableColumns(
+    showActions,
+    compact,
+  );
 
   if (grants.length === 0) {
     return (
@@ -282,70 +455,33 @@ export function GrantTable({
 
   return (
     <MiniAppTableFrame
-      className="mini-app-table-frame--virtual mini-app-table-frame--compact org-manager-virtual-table"
+      className={`mini-app-table-frame--virtual mini-app-table-frame--compact org-manager-virtual-table${
+        compact ? " org-manager-virtual-table--two-line" : ""
+      }`}
       ref={virtualGrants.frameRef}
-      style={getMiniAppVirtualFrameStyle(
-        MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
-      )}
+      style={getMiniAppVirtualFrameStyle(rowHeight)}
     >
       <MiniAppTable aria-label={label} columns={columns}>
         <MiniAppVirtualTableSpacerRow
-          colSpan={visibleColumnIds.length}
+          colSpan={columns.length}
           height={virtualGrants.topPadding}
         />
-        {virtualGrants.rows.map((grant) => {
-          const canRevokeGrant = canRevokeGrants && !grant.isBuiltin;
-          const openGrantDetailRoute = () => {
-            openGrantRoute({
-              containerId: grant.containerId,
-              subjectId: grant.subjectId,
-              subjectType: grant.subjectType,
-            });
-          };
-          const handleGrantRowKeyDown = (
-            event: KeyboardEvent<HTMLTableRowElement>,
-          ) => {
-            if (isKeyboardActivationKey(event.key)) {
-              event.preventDefault();
-              openGrantDetailRoute();
-            }
-          };
-
-          return (
-            <MiniAppTableRow
-              interactive
-              key={`${grant.subjectType}:${grant.subjectId}:${grant.containerId}:${grant.accessLevel}`}
-              onClick={openGrantDetailRoute}
-              onContextMenu={
-                openGrantContextMenu
-                  ? (event) => openGrantContextMenu(event, grant)
-                  : undefined
-              }
-              onKeyDown={handleGrantRowKeyDown}
-              role="button"
-              tabIndex={0}
-            >
-              {visibleColumnIds.map((columnId) =>
-                columnId === "actions" ? (
-                  <MiniAppRowActionsCell
-                    key="actions"
-                    label={`${ORG_MANAGER_LABELS.rowActionsButtonPrefix} ${getGrantPrincipalLabel(grant)}`}
-                    onOpen={(event) => openGrantContextMenu?.(event, grant)}
-                  />
-                ) : (
-                  renderGrantCell(columnId, {
-                    canRevokeGrant,
-                    grant,
-                    mutating,
-                    revokeGrant,
-                  })
-                ),
-              )}
-            </MiniAppTableRow>
-          );
-        })}
+        {virtualGrants.rows.map((grant) => (
+          <GrantTableRow
+            canRevokeGrants={canRevokeGrants}
+            compact={compact}
+            grant={grant}
+            key={`${grant.subjectType}:${grant.subjectId}:${grant.containerId}:${grant.accessLevel}`}
+            mutating={mutating}
+            openGrantContextMenu={openGrantContextMenu}
+            openGrantRoute={openGrantRoute}
+            revokeGrant={revokeGrant}
+            showActions={showActions}
+            visibleColumnIds={visibleColumnIds}
+          />
+        ))}
         <MiniAppVirtualTableSpacerRow
-          colSpan={visibleColumnIds.length}
+          colSpan={columns.length}
           height={virtualGrants.bottomPadding}
         />
       </MiniAppTable>
