@@ -7,6 +7,7 @@ import {
   type Dispatch,
   type SetStateAction,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
 } from "react";
@@ -141,6 +142,25 @@ export function useDynamicLocalKeyringFactory(input: {
     readonly keyring: LocalKeyring;
     readonly signature: string;
   } | null>(null);
+
+  // Drop the cached keyring EAGERLY when the configuration changes, not only
+  // lazily on the next keyring call. Otherwise locking (unlockedPinCode -> null)
+  // while no keyring op runs would keep the PIN-bearing keyring cached, so
+  // unlocking with the same PIN would match its signature and reuse the stale
+  // keyring — leaving the PIN resident and skipping the fresh mint. Clearing here
+  // on any signature change drops that secret at lock time.
+  useEffect(() => {
+    const signature =
+      planDynamicLocalKeyring(stateRef.current)?.signature ?? null;
+    if (cacheRef.current && cacheRef.current.signature !== signature) {
+      cacheRef.current = null;
+    }
+  }, [
+    input.environment.canManagePinCode,
+    input.environment.hostCreateLocalKeyring,
+    input.lockState.pinCodeEnabled,
+    input.unlockedPinCode,
+  ]);
 
   return useCallback((): LocalKeyring => {
     return createDynamicLocalKeyring(() => {
