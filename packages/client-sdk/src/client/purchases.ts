@@ -133,10 +133,12 @@ export interface RevenueCatBackend {
   getCurrentPackages(): Promise<RevenueCatPackage[]>;
   /**
    * `htmlTarget` embeds the provider checkout in the given element (Web
-   * Billing); backends with a native checkout ignore it. `metadata` is
-   * attached to the provider transaction itself (Web Billing only) and
-   * `abortSignal` asks the backend to stop before mounting a checkout when the
-   * caller has already abandoned the flow; native backends ignore both.
+   * Billing); backends with a native checkout ignore it, as they do
+   * `metadata`, which is attached to the provider transaction itself (Web
+   * Billing only). `abortSignal` asks the backend to stop before presenting a
+   * checkout the caller has already abandoned — honored by every backend,
+   * since neither an embedded widget nor a native store sheet can be
+   * dismissed programmatically once it is up.
    */
   purchasePackage(input: {
     packageId: string;

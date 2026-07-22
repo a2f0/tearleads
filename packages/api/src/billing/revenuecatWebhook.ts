@@ -26,6 +26,51 @@ const REVENUECAT_PROVIDER: OrganizationBillingProvider = "revenuecat";
 const ORGANIZATION_SUBSCRIBER_ATTRIBUTE = "orgId";
 
 /**
+ * The `environment` value RevenueCat sends for a purchase made against a store
+ * sandbox (StoreKit sandbox, TestFlight, Play internal testing).
+ */
+const SANDBOX_ENVIRONMENT = "SANDBOX";
+
+/** RevenueCat's `store` value for a purchase processed by Stripe. */
+const STRIPE_STORE = "STRIPE";
+
+/**
+ * Ignore reason for an event dropped by the sandbox gate. Exported so callers
+ * can recognize *this* ignore among the many ordinary ones (an unhandled type,
+ * a cancellation without lapse) rather than re-deriving it from the event.
+ */
+export const SANDBOX_IGNORED_REASON =
+  "Sandbox environment event ignored on a production-only tier";
+
+/**
+ * Whether the event is a store-sandbox purchase this server must not apply.
+ *
+ * Absent `environment` is treated as production: RevenueCat has not always sent
+ * the field, and a redelivered old event must keep its original (paid) meaning
+ * rather than being discarded.
+ *
+ * **Stripe-store events are deliberately exempt.** RevenueCat marks Stripe
+ * *test-mode* transactions `SANDBOX` too, so gating on the field alone would
+ * stop a tier that exercises direct Stripe checkout with test-mode keys from
+ * applying its own web billing — the documented way to test per-seat
+ * enrollment. What stands in for the guard is Stripe's own attribution: a
+ * foreign-mode subscription cannot be resolved through the durable binding or
+ * the exact `sub_…` lookup, both of which run against that tier's own Stripe
+ * key and fail closed (`resolveImmutableStripeStoreOrganizationId`). The one
+ * path that skips Stripe entirely is the legacy single-`si_`-plus-metadata
+ * branch, which can only bind an org whose id the event already carries — a
+ * cross-tier v4 UUID it would have to guess. The mutable `orgId` subscriber
+ * attribute the native lane falls back on has no equivalent protection, which
+ * is exactly why the guard exists there.
+ */
+function isGuardedSandboxEvent(event: RevenueCatWebhookEvent): boolean {
+  if (event.store?.toUpperCase() === STRIPE_STORE) {
+    return false;
+  }
+  return event.environment?.toUpperCase() === SANDBOX_ENVIRONMENT;
+}
+
+/**
  * Event types that assert the entitlement is currently granted. RevenueCat
  * keeps the entitlement (and the `expiration_at_ms` it reports) valid through
  * billing-issue grace periods, so any of these transitions the org to `active`.
@@ -163,7 +208,7 @@ export async function resolveStripeStoreOrganizationId(
   event: RevenueCatWebhookEvent,
   deps: StripeApiDeps = {},
 ): Promise<StripeStoreOrgResolution> {
-  if (event.store?.toUpperCase() !== "STRIPE") {
+  if (event.store?.toUpperCase() !== STRIPE_STORE) {
     return { kind: "none" };
   }
   const identifiers = [
@@ -217,11 +262,22 @@ function timestampMsToDate(value: number | null | undefined): Date | null {
  * independent of any database state. Grants activate sync and record the
  * provider/customer/entitlement; revokes disable sync and start the purge
  * grace window; everything else is ignored.
+ *
+ * `allowSandboxEvents` defaults to false so a tier that has not opted in
+ * ignores store-sandbox purchases entirely — including their revokes, since
+ * applying only half of a sandbox lifecycle could disable sync an org actually
+ * paid for. Ignoring still records and acknowledges the event, so RevenueCat
+ * stops redelivering it.
  */
 export function classifyRevenueCatEvent(
   event: RevenueCatWebhookEvent,
   now: Date = new Date(),
+  options: { allowSandboxEvents?: boolean } = {},
 ): RevenueCatBillingTransition {
+  if (isGuardedSandboxEvent(event) && options.allowSandboxEvents !== true) {
+    return { kind: "ignore", reason: SANDBOX_IGNORED_REASON };
+  }
+
   if (GRANT_EVENT_TYPES.has(event.type)) {
     if (
       event.expiration_at_ms != null &&
@@ -245,7 +301,7 @@ export function classifyRevenueCatEvent(
         // org's subscription. Other stores keep the canonical original id.
         providerSubscriptionId:
           event.original_transaction_id ??
-          (event.store?.toUpperCase() === "STRIPE"
+          (event.store?.toUpperCase() === STRIPE_STORE
             ? (event.transaction_id ?? null)
             : null),
         providerProductId: event.product_id ?? null,

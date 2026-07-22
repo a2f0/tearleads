@@ -80,3 +80,14 @@ test("accepts the store field as string, null, or absent", () => {
   expect(isRevenueCatWebhookRequest(webhook({ store: null }))).toBe(true);
   expect(isRevenueCatWebhookRequest(webhook({ store: 42 }))).toBe(false);
 });
+
+test("accepts the environment field as string, null, or absent", () => {
+  expect(isRevenueCatWebhookRequest(webhook({ environment: "SANDBOX" }))).toBe(
+    true,
+  );
+  expect(
+    isRevenueCatWebhookRequest(webhook({ environment: "PRODUCTION" })),
+  ).toBe(true);
+  expect(isRevenueCatWebhookRequest(webhook({ environment: null }))).toBe(true);
+  expect(isRevenueCatWebhookRequest(webhook({ environment: 1 }))).toBe(false);
+});

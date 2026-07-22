@@ -71,6 +71,7 @@
     revenuecat_webhook_auth_header: "{{ lookup('env', 'REVENUECAT_WEBHOOK_AUTH_HEADER') | default('', true) }}"
     revenuecat_v2_secret_key: "{{ lookup('env', 'REVENUECAT_V2_SECRET_KEY') | default('', true) }}"
     revenuecat_project_id: "{{ lookup('env', 'REVENUECAT_PROJECT_ID') | default('', true) }}"
+    revenuecat_allow_sandbox_events: "{{ lookup('env', 'REVENUECAT_ALLOW_SANDBOX_EVENTS') | default('', true) }}"
     stripe_secret_key: "{{ lookup('env', 'STRIPE_SECRET_KEY') | default('', true) }}"
     stripe_webhook_secret: "{{ lookup('env', 'STRIPE_WEBHOOK_SECRET') | default('', true) }}"
     stripe_sync_price_id: "{{ lookup('env', 'STRIPE_SYNC_PRICE_ID') | default('', true) }}"

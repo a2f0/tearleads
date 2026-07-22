@@ -42,6 +42,12 @@ export interface RevenueCatSubscriberAttribute {
  *   `STRIPE`, `APP_STORE`). Stripe-store events carry no transaction
  *   metadata, so the server resolves their organization from the Stripe
  *   subscription itself (see the api webhook workflow).
+ * - `environment`: `SANDBOX` or `PRODUCTION`. Native store testing (StoreKit
+ *   sandbox, TestFlight, Play internal testing) emits real webhook events that
+ *   are indistinguishable from paid ones apart from this field, so the server
+ *   must read it to keep a tester's free purchase from provisioning real
+ *   billing. Optional because RevenueCat has not always sent it and a missing
+ *   value must not fail the request; the server treats absent as production.
  * - `metadata`: Developer-defined metadata RevenueCat attaches to Web Billing
  *   transactions. The client stamps `orgId` here too; unlike the customer-level
  *   subscriber attribute this is immutable per purchase, so it is the preferred
@@ -59,6 +65,7 @@ export interface RevenueCatWebhookEvent {
   original_transaction_id?: string | null;
   entitlement_ids?: string[];
   store?: string | null;
+  environment?: string | null;
   subscriber_attributes?: Record<string, RevenueCatSubscriberAttribute>;
   metadata?: Record<string, string | number | boolean | null> | null;
 }
@@ -178,6 +185,7 @@ function isRevenueCatWebhookEvent(
     isAbsentOrNullableString(value, "original_transaction_id") &&
     isAbsentOrStringArray(value, "entitlement_ids") &&
     isAbsentOrNullableString(value, "store") &&
+    isAbsentOrNullableString(value, "environment") &&
     isAbsentOrSubscriberAttributeMap(value, "subscriber_attributes") &&
     isAbsentOrNullableMetadataMap(value, "metadata")
   );

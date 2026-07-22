@@ -9,10 +9,12 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { and, eq, gt } from "drizzle-orm";
+import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
 import {
   classifyRevenueCatEvent,
   type RevenueCatBillingTransition,
   resolveOrganizationIdFromEvent,
+  SANDBOX_IGNORED_REASON,
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
@@ -325,7 +327,9 @@ async function runRevenueCatWebhookTransaction(input: {
  *
  * Idempotent on the provider event id: the event is claimed by inserting its id
  * (a duplicate delivery inserts nothing and re-applies nothing). The billing
- * effect is computed purely by {@link classifyRevenueCatEvent}. Stripe-store
+ * effect is computed purely by {@link classifyRevenueCatEvent}, which ignores
+ * store-sandbox events unless the tier sets
+ * `REVENUECAT_ALLOW_SANDBOX_EVENTS=true`. Stripe-store
  * transitions use the durable subscription binding, an exact Stripe
  * subscription lookup, or narrowly validated immutable legacy transaction
  * metadata; other stores use transaction metadata or the `orgId` subscriber
@@ -338,9 +342,28 @@ export async function runRevenueCatWebhookWorkflow(
   db: ApiDatabase,
   event: RevenueCatWebhookEvent,
   now: Date = new Date(),
-  deps: { stripe?: StripeApiDeps } = {},
+  deps: { stripe?: StripeApiDeps; env?: NodeJS.ProcessEnv } = {},
 ): Promise<RevenueCatWebhookOutcome> {
-  const transition = classifyRevenueCatEvent(event, now);
+  const transition = classifyRevenueCatEvent(event, now, {
+    // A store-sandbox purchase (StoreKit sandbox, TestFlight, Play internal
+    // testing) is free to the tester but emits an event otherwise identical to
+    // a paid one, so only a tier that opts in applies it.
+    allowSandboxEvents: allowsRevenueCatSandboxEvents(deps.env ?? process.env),
+  });
+  if (
+    transition.kind === "ignore" &&
+    transition.reason === SANDBOX_IGNORED_REASON
+  ) {
+    // Otherwise the only trace of a dropped sandbox event is a database row,
+    // which reads exactly like the "webhook that silently does nothing" a
+    // tester hits when the tier has not opted in. Gated on the sandbox reason
+    // specifically, not on "ignored while carrying an environment": routine
+    // production ignores (an unhandled type, a cancellation without lapse)
+    // are ordinary traffic and must not warn.
+    console.warn(
+      `RevenueCat event ${event.id} (${event.type}, store=${event.store ?? "unknown"}, environment=${event.environment}) ignored: ${transition.reason}`,
+    );
+  }
   // Stripe-store events use the immutable per-subscription org binding — the
   // customer-level attribute could have been rebound by a later purchase for
   // another org. A FAILED lookup on an event that would change billing must
