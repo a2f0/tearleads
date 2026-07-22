@@ -49,16 +49,23 @@ async function rewrapExistingManifestsWithPin(input: {
   readonly scopes: readonly LocalKeyringScope[];
   readonly sourcePinCode: string | null;
 }): Promise<boolean> {
-  await rewrapExistingManifests({
+  // Spans every scope, so rewrapExistingManifests cannot close it; this owner
+  // does, to keep the WebView shells from accumulating IndexedDB connections.
+  const targetKeystore = createPinKeystore({
     keyMaterialStorage: input.keyMaterialStorage,
-    manifestStore: input.manifestStore,
-    scopes: input.scopes,
-    sourcePinCode: input.sourcePinCode,
-    targetKeystore: createPinKeystore({
-      keyMaterialStorage: input.keyMaterialStorage,
-      pinCode: input.pinCode,
-    }),
+    pinCode: input.pinCode,
   });
+  try {
+    await rewrapExistingManifests({
+      keyMaterialStorage: input.keyMaterialStorage,
+      manifestStore: input.manifestStore,
+      scopes: input.scopes,
+      sourcePinCode: input.sourcePinCode,
+      targetKeystore,
+    });
+  } finally {
+    targetKeystore.close?.();
+  }
 
   return hasPinWrappedManifest({
     manifestStore: input.manifestStore,
@@ -407,16 +414,21 @@ export function useClearPinCodeAction(input: {
         return false;
       }
 
+      const targetKeystore = createPlainKeystore(
+        environment.keyMaterialStorage,
+      );
       try {
         await rewrapExistingManifests({
           keyMaterialStorage: environment.keyMaterialStorage,
           manifestStore: environment.manifestStore,
           scopes: environment.scopes,
           sourcePinCode: pinCode,
-          targetKeystore: createPlainKeystore(environment.keyMaterialStorage),
+          targetKeystore,
         });
       } catch {
         return false;
+      } finally {
+        targetKeystore.close?.();
       }
 
       environment.storage?.removeItem(

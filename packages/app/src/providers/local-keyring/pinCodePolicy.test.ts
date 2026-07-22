@@ -31,3 +31,15 @@ test("a mixed PIN at or above the minimum length is accepted", () => {
   expect(pinCodePolicyError("824913")).toBeNull();
   expect(pinCodePolicyError("correct horse")).toBeNull();
 });
+
+// "😀".length is 2, so counting UTF-16 units would score these three and four
+// code points as six and eight characters; indexing would compare lone
+// surrogate halves and never detect the repetition either.
+test("astral characters are counted as single characters", () => {
+  expect(pinCodePolicyError("😀😀😀")).toContain(String(MIN_PIN_CODE_LENGTH));
+  expect(pinCodePolicyError("😀😀😀😀")).toContain(String(MIN_PIN_CODE_LENGTH));
+  expect(pinCodePolicyError("😀😀😀😀😀😀")).toBe(
+    "PIN code must not repeat a single character.",
+  );
+  expect(pinCodePolicyError("😀😁😂🤣😃😄")).toBeNull();
+});

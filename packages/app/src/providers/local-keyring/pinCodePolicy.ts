@@ -19,16 +19,16 @@
  */
 export const MIN_PIN_CODE_LENGTH = 6;
 
-function isSingleRepeatedCharacter(pinCode: string): boolean {
-  return [...pinCode].every((character) => character === pinCode[0]);
+function isSingleRepeatedCharacter(characters: readonly string[]): boolean {
+  return characters.every((character) => character === characters[0]);
 }
 
 /**
  * True for a straight run in either direction ("123456", "987654"). Compares
  * code points, so it catches digit and letter runs alike.
  */
-function isSequentialRun(pinCode: string): boolean {
-  const codePoints = [...pinCode].map((character) => character.codePointAt(0));
+function isSequentialRun(characters: readonly string[]): boolean {
+  const codePoints = characters.map((character) => character.codePointAt(0));
   const step = (codePoints[1] ?? 0) - (codePoints[0] ?? 0);
   if (step !== 1 && step !== -1) {
     return false;
@@ -46,13 +46,18 @@ function isSequentialRun(pinCode: string): boolean {
  * action (so the policy cannot be bypassed by a caller that skips the form).
  */
 export function pinCodePolicyError(pinCode: string): string | null {
-  if (pinCode.length < MIN_PIN_CODE_LENGTH) {
+  // Split into code points, not UTF-16 units. `"😀".length` is 2, so a
+  // three-emoji PIN would otherwise measure as six characters and clear the
+  // length bar; indexing would also compare lone surrogate halves, which never
+  // match a full code point and so silently disabled the repetition check.
+  const characters = [...pinCode];
+  if (characters.length < MIN_PIN_CODE_LENGTH) {
     return `PIN code must be at least ${MIN_PIN_CODE_LENGTH} characters.`;
   }
-  if (isSingleRepeatedCharacter(pinCode)) {
+  if (isSingleRepeatedCharacter(characters)) {
     return "PIN code must not repeat a single character.";
   }
-  if (isSequentialRun(pinCode)) {
+  if (isSequentialRun(characters)) {
     return "PIN code must not be a sequential run of characters.";
   }
 

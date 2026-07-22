@@ -259,16 +259,26 @@ export async function rewrapExistingManifests(input: {
       continue;
     }
 
-    await rewrapManifest({
+    // One source keystore per manifest, each holding its own IDBDatabase until
+    // closed. Leaking them matters most on the WKWebView shells this PIN path
+    // newly reaches, where a later indexedDB.open() can hang outright rather
+    // than merely wasting a handle. The target keystore spans every scope, so
+    // its owner closes it, not this loop.
+    const sourceKeystore = sourceKeystoreForManifest({
+      keyMaterialStorage: input.keyMaterialStorage,
       manifest,
-      manifestStore: input.manifestStore,
-      sourceKeystore: sourceKeystoreForManifest({
-        keyMaterialStorage: input.keyMaterialStorage,
-        manifest,
-        pinCode: input.sourcePinCode,
-      }),
-      targetKeystore: input.targetKeystore,
+      pinCode: input.sourcePinCode,
     });
+    try {
+      await rewrapManifest({
+        manifest,
+        manifestStore: input.manifestStore,
+        sourceKeystore,
+        targetKeystore: input.targetKeystore,
+      });
+    } finally {
+      sourceKeystore.close?.();
+    }
   }
 }
 
@@ -278,33 +288,39 @@ export async function verifyPinCode(input: {
   readonly pinCode: string;
   readonly scopes: readonly LocalKeyringScope[];
 }): Promise<boolean> {
+  // Verification runs on every unlock attempt, so a leaked connection here
+  // accumulates once per wrong PIN.
   const pinKeystore = createPinKeystore({
     keyMaterialStorage: input.keyMaterialStorage,
     pinCode: input.pinCode,
   });
-  let verifiedAnyManifest = false;
-  for (const scope of input.scopes) {
-    const manifest = await input.manifestStore.loadManifest(scope);
-    if (
-      !manifest ||
-      !isPinCodeWrappedLocalSecretEnvelope(manifest.rootKeyEnvelope)
-    ) {
-      continue;
+  try {
+    let verifiedAnyManifest = false;
+    for (const scope of input.scopes) {
+      const manifest = await input.manifestStore.loadManifest(scope);
+      if (
+        !manifest ||
+        !isPinCodeWrappedLocalSecretEnvelope(manifest.rootKeyEnvelope)
+      ) {
+        continue;
+      }
+
+      let rootKey: Uint8Array<ArrayBuffer> | null = null;
+      try {
+        rootKey = await pinKeystore.unwrapSecret({
+          context: localSecretContext(manifest),
+          envelope: manifest.rootKeyEnvelope,
+        });
+      } catch {
+        return false;
+      } finally {
+        rootKey?.fill(0);
+      }
+      verifiedAnyManifest = true;
     }
 
-    let rootKey: Uint8Array<ArrayBuffer> | null = null;
-    try {
-      rootKey = await pinKeystore.unwrapSecret({
-        context: localSecretContext(manifest),
-        envelope: manifest.rootKeyEnvelope,
-      });
-    } catch {
-      return false;
-    } finally {
-      rootKey?.fill(0);
-    }
-    verifiedAnyManifest = true;
+    return verifiedAnyManifest;
+  } finally {
+    pinKeystore.close?.();
   }
-
-  return verifiedAnyManifest;
 }
