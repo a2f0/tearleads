@@ -89,7 +89,7 @@ export function renderDatabaseProvider(props: {
   );
 
   return {
-    controlsReady,
+    controlsReady: { promise: controlsReady.promise },
     getControls,
     unmount: () => {
       view.unmount();
