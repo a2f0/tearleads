@@ -17,6 +17,8 @@ type BlockedBillingResolution = "lapsed" | "syncable";
 
 type BlockedBillingResolutions = ReadonlyMap<string, BlockedBillingResolution>;
 
+const EMPTY_BLOCKED_ORGANIZATION_IDS: readonly string[] = [];
+
 function resolveBlockedBilling(
   billing: OrganizationBilling,
   nowMs: number,
@@ -62,15 +64,22 @@ function retainBlockedResolutions(
  * does not notify subscribers; the subscription only exists to re-render on a
  * *new* block, while a recovery is picked up by the re-render its own billing
  * refetch causes.
+ *
+ * `identityKey` scopes all of it to one authenticated session. The gate outlives
+ * a logout — it belongs to the SDK client, not the session — so without this a
+ * previous identity's block would still be listed (every block is "outside" once
+ * no organization is active) and would keep warning from a stale resolution.
  */
 export function useOtherOrganizationBillingBlocked(input: {
   readonly gate: SyncBillingGate;
   readonly activeOrganizationId: string | null;
+  /** Identifies the authenticated session; `null` while signed out. */
+  readonly identityKey: string | null;
   readonly loadBilling: (
     organizationId: string,
   ) => Promise<OrganizationBilling | null>;
 }): boolean {
-  const { activeOrganizationId, gate, loadBilling } = input;
+  const { activeOrganizationId, gate, identityKey, loadBilling } = input;
   const [, setBlockRevision] = useState(0);
   const [resolutions, setResolutions] = useState<BlockedBillingResolutions>(
     () => new Map(),
@@ -81,8 +90,15 @@ export function useOtherOrganizationBillingBlocked(input: {
     [gate],
   );
 
+  // Drop every verdict when the session changes, so a new identity re-resolves
+  // rather than inheriting the previous one's. Declared before the resolving
+  // effect so the clear lands first when both run.
+  useEffect(() => setResolutions(new Map()), [identityKey]);
+
   const blockedOrganizationIds =
-    gate.listBlocksOutsideOrganization(activeOrganizationId);
+    identityKey === null
+      ? EMPTY_BLOCKED_ORGANIZATION_IDS
+      : gate.listBlocksOutsideOrganization(activeOrganizationId);
   // Identity of the blocked set, so the resolving effect re-runs when an
   // organization is blocked or recovers but not on unrelated re-renders.
   const blockedKey = blockedOrganizationIds.join(",");
@@ -115,7 +131,7 @@ export function useOtherOrganizationBillingBlocked(input: {
     return () => {
       cancelled = true;
     };
-  }, [blockedKey, loadBilling]);
+  }, [blockedKey, identityKey, loadBilling]);
 
   return blockedOrganizationIds.some(
     (organizationId) => resolutions.get(organizationId) === "lapsed",

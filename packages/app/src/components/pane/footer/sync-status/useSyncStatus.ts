@@ -58,6 +58,9 @@ export function useSyncStatus(): SyncStatusResult {
   const otherOrganizationBillingBlocked = useOtherOrganizationBillingBlocked({
     activeOrganizationId: appData.auth.organizationId,
     gate: syncBillingGate,
+    // The gate outlives a logout, so its blocks are scoped to the session that
+    // earned them rather than leaking into the next identity.
+    identityKey: appData.auth.isAuthenticated ? appData.auth.userId : null,
     loadBilling: loadBlockedOrganizationBilling,
   });
   const status = resolveSyncStatus({

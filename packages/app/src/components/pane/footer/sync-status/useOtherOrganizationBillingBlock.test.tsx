@@ -30,13 +30,17 @@ function billing(
 function renderBlocked(
   gate: SyncBillingGate,
   loadBilling: (organizationId: string) => Promise<OrganizationBilling | null>,
+  identityKey: string | null = "user-1",
 ) {
-  return renderHook(() =>
-    useOtherOrganizationBillingBlocked({
-      activeOrganizationId: "personal-org",
-      gate,
-      loadBilling,
-    }),
+  return renderHook(
+    (props: { identityKey: string | null }) =>
+      useOtherOrganizationBillingBlocked({
+        activeOrganizationId: "personal-org",
+        gate,
+        identityKey: props.identityKey,
+        loadBilling,
+      }),
+    { initialProps: { identityKey } },
   );
 }
 
@@ -94,7 +98,7 @@ test("stops warning once the blocked organization recovers", async () => {
   // Recovery deliberately does not notify subscribers, so the cleared block is
   // observed on the next render rather than through the subscription.
   gate.clearBlock("custom-org");
-  rerender();
+  rerender({ identityKey: "user-1" });
 
   expect(result.current).toBe(false);
 });
@@ -109,6 +113,38 @@ test("does not warn while a blocked organization's billing is unreadable", async
 
   await waitFor(() => expect(gate.isBlocked).toBe(true));
   expect(result.current).toBe(false);
+});
+
+test("stops warning when the session ends", async () => {
+  // The gate belongs to the SDK client and outlives a logout, so a signed-out
+  // shell would otherwise keep warning from the previous identity's block —
+  // and with no active org, every block counts as an outside one.
+  const gate = new SyncBillingGate();
+  const { result, rerender } = renderBlocked(gate, async (organizationId) =>
+    billing(organizationId, "disabled"),
+  );
+  act(() => gate.notifyPaymentRequired("custom-org"));
+  await waitFor(() => expect(result.current).toBe(true));
+
+  rerender({ identityKey: null });
+
+  expect(result.current).toBe(false);
+});
+
+test("re-resolves a carried-over block for the next identity", async () => {
+  const gate = new SyncBillingGate();
+  const statuses: OrganizationBilling["status"][] = ["disabled", "local"];
+  const { result, rerender } = renderBlocked(gate, async (organizationId) =>
+    billing(organizationId, statuses.shift() ?? "local"),
+  );
+  act(() => gate.notifyPaymentRequired("custom-org"));
+  await waitFor(() => expect(result.current).toBe(true));
+
+  // Same still-blocked org, new identity: the cached "lapsed" verdict belonged
+  // to the previous session and must not carry over.
+  rerender({ identityKey: "user-2" });
+
+  await waitFor(() => expect(result.current).toBe(false));
 });
 
 test("treats an expired trial on another organization as lapsed", async () => {
