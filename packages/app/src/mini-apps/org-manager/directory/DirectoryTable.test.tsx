@@ -133,6 +133,37 @@ test("org manager directory table renders two-line rows on phones", () => {
   );
 });
 
+test("org manager directory table stays single-line in narrow windowed mode", () => {
+  mockPhoneRoutedLayout();
+  document.documentElement.setAttribute("data-navigation-mode", "windowed");
+  const view = render(
+    <DirectoryTable
+      directory={directory}
+      loading={false}
+      openRosterUserContextMenu={() => undefined}
+      selectedUserId={null}
+      selectUser={() => undefined}
+    />,
+  );
+  const table = view.getByRole("table", {
+    name: ORG_MANAGER_LABELS.directory,
+  });
+
+  expect(table.querySelector(".org-manager-compact-table-lines")).toBeNull();
+  expect(
+    table.querySelectorAll(
+      "tbody .mini-app-table-row:not(.mini-app-virtual-table-spacer-row) td",
+    ),
+  ).toHaveLength(3);
+  const frame = table.parentElement;
+  expect(frame?.classList.contains("org-manager-virtual-table--two-line")).toBe(
+    false,
+  );
+  expect(frame?.style.getPropertyValue("--mini-app-virtual-row-height")).toBe(
+    "36px",
+  );
+});
+
 test("org manager directory table has no kebab on the desktop layout", () => {
   const view = render(
     <DirectoryTable

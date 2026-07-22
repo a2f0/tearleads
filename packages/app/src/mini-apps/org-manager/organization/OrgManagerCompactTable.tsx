@@ -1,5 +1,6 @@
 import { MiniAppTableCell } from "../../../components/mini-app/MiniAppTable";
 import { MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT } from "../../../components/mini-app/virtual/MiniAppVirtual";
+import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive";
 import { useRoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 
 /** Fixed phone-row pitch shared by the DOM height and virtualization math. */
@@ -40,7 +41,7 @@ function OrgManagerCompactTableLine({
           key={field.id}
           title={field.title}
         >
-          {accessibleLabels && field.label ? (
+          {accessibleLabels && field.label && field.text ? (
             <span className="org-manager-compact-table-field-label">
               {field.label}:{" "}
             </span>
@@ -98,7 +99,9 @@ export function useOrgManagerListTableLayout(): {
 } {
   // Phone rows fold the visible data columns into two summary lines. Keep the
   // wider desktop/tablet tables at their existing single-line density.
-  const compact = useRoutedLayoutTier() === "mobile";
+  const routedLayoutActive = useRoutedLayoutActive();
+  const routedLayoutTier = useRoutedLayoutTier();
+  const compact = routedLayoutActive && routedLayoutTier === "mobile";
   return {
     compact,
     rowHeight: compact

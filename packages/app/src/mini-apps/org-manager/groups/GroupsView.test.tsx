@@ -6,6 +6,7 @@ import type {
   OrganizationGroupSummary,
 } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import { ROUTED_TABLET_QUERY } from "../../../navigation/breakpoints";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { compactFingerprint } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -25,7 +26,7 @@ function usePhoneLayout() {
     addEventListener: () => undefined,
     addListener: () => undefined,
     dispatchEvent: () => true,
-    matches: query !== "(min-width: 760px)",
+    matches: query !== ROUTED_TABLET_QUERY,
     media: query,
     onchange: null,
     removeEventListener: () => undefined,

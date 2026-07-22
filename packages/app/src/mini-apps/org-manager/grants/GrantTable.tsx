@@ -53,20 +53,21 @@ type GrantTableColumnId =
   | "access"
   | "updated"
   | "action";
+type GrantDataColumnId = Exclude<GrantTableColumnId, "action">;
 
 // The data columns without the trailing inline "action" (Revoke) column, used
 // when the touch kebab replaces it.
-const GRANT_DATA_COLUMN_IDS: ReadonlyArray<GrantTableColumnId> = [
+const GRANT_DATA_COLUMN_IDS: ReadonlyArray<GrantDataColumnId> = [
   "principal",
   "container",
   "access",
   "updated",
 ];
-const GRANT_COMPACT_PRIMARY_COLUMN_IDS: ReadonlyArray<GrantTableColumnId> = [
+const GRANT_COMPACT_PRIMARY_COLUMN_IDS: ReadonlyArray<GrantDataColumnId> = [
   "principal",
   "container",
 ];
-const GRANT_COMPACT_SECONDARY_COLUMN_IDS: ReadonlyArray<GrantTableColumnId> = [
+const GRANT_COMPACT_SECONDARY_COLUMN_IDS: ReadonlyArray<GrantDataColumnId> = [
   "access",
   "updated",
 ];
@@ -192,7 +193,7 @@ function renderGrantCell(
 }
 
 function getGrantCompactField(
-  columnId: GrantTableColumnId,
+  columnId: GrantDataColumnId,
   grant: OrganizationContainerGrant,
 ): OrgManagerCompactTableField {
   switch (columnId) {
@@ -222,12 +223,6 @@ function getGrantCompactField(
         label: GRANT_COLUMN_LABELS[columnId],
         text: formatMiniAppDate(grant.updatedAt),
         title: grant.updatedAt,
-      };
-    case "action":
-      return {
-        id: columnId,
-        label: GRANT_COLUMN_LABELS[columnId],
-        text: grant.isBuiltin ? ORG_MANAGER_LABELS.builtIn : "",
       };
   }
 }

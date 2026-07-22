@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import type { OrganizationGroupContainer } from "@tearleads/client-sdk";
 import { cleanup, render, within } from "@testing-library/react";
+import { ROUTED_TABLET_QUERY } from "../../../navigation/breakpoints";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { GroupContainers } from "./GroupContainers";
@@ -19,7 +20,7 @@ function usePhoneLayout() {
     addEventListener: () => undefined,
     addListener: () => undefined,
     dispatchEvent: () => true,
-    matches: query !== "(min-width: 760px)",
+    matches: query !== ROUTED_TABLET_QUERY,
     media: query,
     onchange: null,
     removeEventListener: () => undefined,
