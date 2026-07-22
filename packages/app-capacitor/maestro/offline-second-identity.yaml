@@ -1,0 +1,58 @@
+# Provisioning a SECOND local identity must work offline (no backend).
+#
+# Regression test for the second-identity provisioning hang: on a WebView shell
+# (Capacitor Android / iOS), creating a second identity tore down the first
+# identity's SQLite worker and tried to construct a new one — which a WebView
+# cannot do (a cross-tab owner re-election never answers `init`; a fresh
+# dedicated module Worker errors on construction). The app wedged in the keyless
+# "No key pair" state ("Creating identity..." never completing), or — once the
+# teardown was made graceful — silently reverted to the first identity.
+#
+# The app reuses ONE dedicated SQLite worker across identity switches, so this
+# now provisions a genuinely new second identity with no backend running.
+#
+# Run (iOS simulator):   maestro test packages/app-capacitor/maestro/offline-second-identity.yaml
+# Run (Android emulator): same command; Maestro targets the booted device.
+# See packages/app-capacitor/maestro/README.md for building/installing the app.
+appId: com.tearleads.app
+---
+# Fresh install: the FIRST local identity auto-generates offline (key generation
+# is purely local) and the app becomes usable — the Explorer shows the local
+# Contacts system folder. No backend is required to reach this state.
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Explorer"
+    timeout: 40000
+
+# Open the Identity Manager from the routed nav menu.
+- tapOn: "Menu"
+- tapOn: "Identity Manager"
+- extendedWaitUntil:
+    visible: "Register"
+    timeout: 20000
+
+# Remember the first identity (the switcher shows the active fingerprint).
+- copyTextFrom: "Identities"
+- evalScript: ${output.firstIdentity = maestro.copiedText}
+
+# Provision a SECOND identity from the identity switcher.
+- tapOn: "Identities"
+- tapOn: "New Identity"
+
+# The second identity must provision offline. The bug wedged the app in the
+# keyless state — the "Generate Key Pair" button visible, Register/Login hidden —
+# and never recovered. Assert we return to a keyed identity instead.
+- extendedWaitUntil:
+    notVisible: "Generate Key Pair"
+    timeout: 45000
+- extendedWaitUntil:
+    visible: "Register"
+    timeout: 20000
+
+# ...and that the active identity is a genuinely NEW one — not the first identity
+# restored by the create-failure fallback. The switcher's active fingerprint must
+# differ from the one captured before.
+- copyTextFrom: "Identities"
+- evalScript: ${output.secondIdentity = maestro.copiedText}
+- assertTrue: ${output.secondIdentity != output.firstIdentity}

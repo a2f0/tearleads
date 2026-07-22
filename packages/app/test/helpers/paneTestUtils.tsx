@@ -57,6 +57,7 @@ export function createTestHostConfig(
     readonly createLocalKeyring?: (() => LocalKeyring) | null | undefined;
     readonly localIdentityNamespace?: string | undefined;
     readonly profile?: AppHostConfig["profile"] | undefined;
+    readonly reuseDatabaseWorker?: boolean | undefined;
     readonly workerConstructor?: CreateSQLiteRuntimeOptions["workerConstructor"];
   } = {},
 ) {
@@ -64,7 +65,7 @@ export function createTestHostConfig(
     options.createLocalKeyring === null
       ? undefined
       : (options.createLocalKeyring ?? createSharedMemoryLocalKeyringFactory());
-  return new AppHostConfig(
+  const config = new AppHostConfig(
     "http://localhost:3001",
     wsUrl,
     () =>
@@ -79,6 +80,9 @@ export function createTestHostConfig(
     undefined,
     resolveTestHostProfile(options),
   );
+  return options.reuseDatabaseWorker
+    ? config.withOverrides({ reuseDatabaseWorker: true })
+    : config;
 }
 function createDeferred<T = void>() {
   let resolve!: (value: T | PromiseLike<T>) => void;

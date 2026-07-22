@@ -163,13 +163,29 @@ function useSQLiteRuntimeLifecycle(
   targetDbNameRef: RefObject<string>,
   currentDbNameRef: RefObject<string | null>,
   destroyCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void,
+  reuseWorker: boolean,
 ) {
   useEffect(() => {
     targetDbNameRef.current = dbName;
-    if (currentDbNameRef.current && currentDbNameRef.current !== dbName) {
+    if (
+      // Under worker reuse a database change is applied in-place (close + re-init
+      // on the same worker) by the imperative ensureReady path, so a reactive
+      // dbName change must NOT tear the runtime down — doing so would force a new
+      // worker on the next spawn. The imperative reboot targets the final
+      // database directly, so intermediate reactive values are simply ignored.
+      !reuseWorker &&
+      currentDbNameRef.current &&
+      currentDbNameRef.current !== dbName
+    ) {
       destroyCurrentRuntime("idle");
     }
-  }, [currentDbNameRef, dbName, destroyCurrentRuntime, targetDbNameRef]);
+  }, [
+    currentDbNameRef,
+    dbName,
+    destroyCurrentRuntime,
+    reuseWorker,
+    targetDbNameRef,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -189,6 +205,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
   onBootSucceeded: (dbName: string) => void;
   persistence: DatabasePersistenceMode;
   resolveCipherKey: ResolveSqliteCipherKey;
+  reuseWorker: boolean;
   runtimeReleaseRef: RefObject<SQLiteRuntimeRelease | null>;
   runtimeRef: RefObject<SQLiteRuntime | null>;
   targetDbNameRef: RefObject<string>;
@@ -205,6 +222,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
     onBootSucceeded,
     persistence,
     resolveCipherKey,
+    reuseWorker,
     runtimeReleaseRef,
     runtimeRef,
     targetDbNameRef,
@@ -219,12 +237,10 @@ function useSpawnSQLiteRuntimeForDbName(params: {
     };
   }, []);
 
+  // Callers (the returned spawner, and its pending-release continuation) already
+  // gate on mountedRef before invoking this.
   const spawnRuntime = useCallback(
     (nextDbName: string) => {
-      if (!mountedRef.current) {
-        return;
-      }
-
       startSQLiteRuntimeBoot({
         bootingRef,
         createSQLiteRuntime,
@@ -237,6 +253,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
         onBootSucceeded,
         persistence,
         resolveCipherKey,
+        reuseWorker,
         runtimeRef,
         targetDbNameRef,
         tearleads,
@@ -253,6 +270,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
       onBootSucceeded,
       persistence,
       resolveCipherKey,
+      reuseWorker,
       runtimeRef,
       targetDbNameRef,
       tearleads,
@@ -269,17 +287,14 @@ function useSpawnSQLiteRuntimeForDbName(params: {
       const pendingRelease = runtimeReleaseRef.current?.promise ?? null;
       if (pendingRelease) {
         void pendingRelease.then(() => {
-          if (!mountedRef.current) {
-            return;
+          if (
+            mountedRef.current &&
+            targetDbNameRef.current === nextDbName &&
+            !runtimeRef.current &&
+            !bootingRef.current
+          ) {
+            spawnRuntime(nextDbName);
           }
-          if (targetDbNameRef.current !== nextDbName) {
-            return;
-          }
-          if (runtimeRef.current || bootingRef.current) {
-            return;
-          }
-
-          spawnRuntime(nextDbName);
         });
         return;
       }
@@ -296,6 +311,7 @@ function useSQLiteRuntimeControls(params: {
   killedRef: RefObject<boolean>;
   log: (message: string) => void;
   purgeCurrentRuntime: () => Promise<void>;
+  reuseWorker: boolean;
   runtimeRef: RefObject<SQLiteRuntime | null>;
   spawnRuntimeForDbName: (nextDbName: string) => void;
   targetDbNameRef: RefObject<string>;
@@ -307,6 +323,7 @@ function useSQLiteRuntimeControls(params: {
     killedRef,
     log,
     purgeCurrentRuntime,
+    reuseWorker,
     runtimeRef,
     spawnRuntimeForDbName,
     targetDbNameRef,
@@ -315,10 +332,20 @@ function useSQLiteRuntimeControls(params: {
   const ensureReadyForDbName = useCallback(
     (nextDbName: string) => {
       targetDbNameRef.current = nextDbName;
-      if (currentDbNameRef.current && currentDbNameRef.current !== nextDbName) {
+      if (
+        // When reusing the worker, a database change is handled in-place by
+        // spawnRuntimeForDbName (close current db + re-init on the same worker),
+        // so do NOT tear the runtime down here — tearing it down would construct
+        // a new worker on the next spawn, the exact thing reuse avoids.
+        !reuseWorker &&
+        currentDbNameRef.current &&
+        currentDbNameRef.current !== nextDbName
+      ) {
         destroyCurrentRuntime("idle");
       }
-      // A failed init leaves the target DB pinned in error; retry with a fresh worker.
+      // A failed init leaves the target DB pinned in error; retry with a fresh
+      // worker even under reuse — the worker may be wedged, so a clean respawn is
+      // the safer recovery than reusing it.
       if (
         currentDbNameRef.current === nextDbName &&
         tearleads.database.status === "error"
@@ -333,7 +360,13 @@ function useSQLiteRuntimeControls(params: {
         () => spawnRuntimeForDbName(nextDbName),
       );
     },
-    [currentDbNameRef, destroyCurrentRuntime, spawnRuntimeForDbName, tearleads],
+    [
+      currentDbNameRef,
+      destroyCurrentRuntime,
+      reuseWorker,
+      spawnRuntimeForDbName,
+      tearleads,
+    ],
   );
 
   const spawnRuntime = useCallback(() => {
@@ -354,8 +387,23 @@ function useSQLiteRuntimeControls(params: {
   );
 
   const clearWorker = useCallback(() => {
+    // Under worker reuse, an identity switch closes the current database and
+    // re-inits the SAME worker onto the next one (via ensureReadyForDbName).
+    // Identity transitions call clearWorker() before that ensureReady, so tearing
+    // the worker down here would force a brand-new worker on the next spawn — the
+    // exact second-identity provisioning hang (a WebView cannot boot a second
+    // worker). Keep the worker running and leave its current database in place;
+    // the imminent ensureReady closes it (releasing its OPFS handles) and re-inits
+    // the same worker onto the next database in a single serialized close→init,
+    // avoiding a double-close race with a close issued here. The window where the
+    // outgoing database stays open is brief and only while the identity is null
+    // (its sync coordinator already disposed), so nothing queries it.
+    if (reuseWorker && runtimeRef.current) {
+      return;
+    }
+
     destroyCurrentRuntime("idle");
-  }, [destroyCurrentRuntime]);
+  }, [destroyCurrentRuntime, reuseWorker, runtimeRef]);
 
   const killWorker = useCallback(() => {
     if (!runtimeRef.current) {
@@ -390,6 +438,7 @@ export function useManagedSQLiteRuntime(
   resolveCipherKey: ResolveSqliteCipherKey,
   log: (message: string) => void,
   tearleads: Tearleads,
+  reuseWorker = false,
 ): DatabaseContextValue {
   const snapshot = useTearleadsStoreSnapshot(tearleads.database);
   const runtimeRef = useRef<SQLiteRuntime | null>(null);
@@ -438,6 +487,7 @@ export function useManagedSQLiteRuntime(
     onBootSucceeded,
     persistence: persistencePolicy.databasePersistence,
     resolveCipherKey,
+    reuseWorker,
     runtimeReleaseRef,
     runtimeRef,
     targetDbNameRef,
@@ -452,6 +502,7 @@ export function useManagedSQLiteRuntime(
     killedRef,
     log,
     purgeCurrentRuntime,
+    reuseWorker,
     runtimeRef,
     spawnRuntimeForDbName,
     targetDbNameRef,
@@ -463,6 +514,7 @@ export function useManagedSQLiteRuntime(
     targetDbNameRef,
     currentDbNameRef,
     destroyCurrentRuntime,
+    reuseWorker,
   );
   useReleaseRuntimeOnPageHide(runtimeRef, runtimeReleaseRef);
 

@@ -57,12 +57,62 @@ async function rewrapExistingManifestsWithPin(input: {
   });
 }
 
+interface DynamicKeyringState {
+  readonly canManagePinCode: boolean;
+  readonly hostCreateLocalKeyring: (() => LocalKeyring) | undefined;
+  readonly pinCodeEnabled: boolean;
+  readonly unlockedPinCode: string | null;
+}
+
+interface DynamicKeyringPlan {
+  /**
+   * Stable identity of the keyring configuration the current state resolves to.
+   * Equal signatures mean the same underlying keyring can be reused; a change
+   * (lock/unlock, PIN rotation) mints a fresh one.
+   */
+  readonly signature: string;
+  readonly create: () => LocalKeyring;
+}
+
+/**
+ * Maps the current lock/PIN/host state to the keyring it should produce, plus a
+ * signature identifying that configuration. Returns null when no keyring is
+ * available (locked, or PIN management unsupported), which the dynamic keyring
+ * surfaces as a locked keyring.
+ */
+function planDynamicLocalKeyring(
+  state: DynamicKeyringState,
+): DynamicKeyringPlan | null {
+  if (state.hostCreateLocalKeyring) {
+    const hostCreateLocalKeyring = state.hostCreateLocalKeyring;
+    return { create: () => hostCreateLocalKeyring(), signature: "host" };
+  }
+  if (!state.canManagePinCode) {
+    return null;
+  }
+  if (!state.pinCodeEnabled) {
+    return {
+      create: () => createBrowserLocalKeyringForPinCode(null),
+      signature: "plain",
+    };
+  }
+  if (!state.unlockedPinCode) {
+    return null;
+  }
+
+  const pinCode = state.unlockedPinCode;
+  return {
+    create: () => createBrowserLocalKeyringForPinCode(pinCode),
+    signature: `pin:${pinCode}`,
+  };
+}
+
 export function useDynamicLocalKeyringFactory(input: {
   readonly environment: LocalKeyringLockEnvironment;
   readonly lockState: LockState;
   readonly unlockedPinCode: string | null;
 }): () => LocalKeyring {
-  const stateRef = useRef({
+  const stateRef = useRef<DynamicKeyringState>({
     canManagePinCode: input.environment.canManagePinCode,
     hostCreateLocalKeyring: input.environment.hostCreateLocalKeyring,
     pinCodeEnabled: input.lockState.pinCodeEnabled,
@@ -74,24 +124,38 @@ export function useDynamicLocalKeyringFactory(input: {
     pinCodeEnabled: input.lockState.pinCodeEnabled,
     unlockedPinCode: input.unlockedPinCode,
   };
+  // Cache the resolved underlying keyring across calls. The dynamic keyring's
+  // methods (getOrCreateSession/loadSession/deleteSession) each resolve the
+  // underlying keyring, and every distinct keyring instance opens its own
+  // IndexedDB connections (the wrapping-key + manifest stores) that are never
+  // explicitly closed. Minting a fresh keyring per call therefore leaks a
+  // growing set of open IndexedDB connections to the same databases — and on a
+  // WKWebView (Capacitor/Electrobun) a subsequent `indexedDB.open()` of a
+  // database that already has open connections can hang indefinitely (no
+  // success/error/blocked event fires). That surfaced as the second local
+  // identity's SQLite cipher-key resolution wedging forever ("Creating
+  // identity..." never completing). Reusing one keyring per configuration keeps
+  // a single connection set alive and reused; a new one is minted only when the
+  // configuration signature changes (lock/unlock, PIN rotation).
+  const cacheRef = useRef<{
+    readonly keyring: LocalKeyring;
+    readonly signature: string;
+  } | null>(null);
 
   return useCallback((): LocalKeyring => {
     return createDynamicLocalKeyring(() => {
-      const current = stateRef.current;
-      if (current.hostCreateLocalKeyring) {
-        return current.hostCreateLocalKeyring();
-      }
-      if (!current.canManagePinCode) {
+      const plan = planDynamicLocalKeyring(stateRef.current);
+      if (!plan) {
+        cacheRef.current = null;
         return null;
       }
-      if (!current.pinCodeEnabled) {
-        return createBrowserLocalKeyringForPinCode(null);
+      const cached = cacheRef.current;
+      if (cached && cached.signature === plan.signature) {
+        return cached.keyring;
       }
-      if (!current.unlockedPinCode) {
-        return null;
-      }
-
-      return createBrowserLocalKeyringForPinCode(current.unlockedPinCode);
+      const keyring = plan.create();
+      cacheRef.current = { keyring, signature: plan.signature };
+      return keyring;
     });
   }, []);
 }

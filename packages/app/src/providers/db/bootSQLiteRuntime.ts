@@ -147,7 +147,18 @@ export async function bootSQLiteRuntime(
 
   let key: string;
   try {
-    key = await resolveCipherKey();
+    // Bound cipher-key resolution the same way as the worker round-trips below.
+    // It runs before the worker `init` and reaches into the local keyring
+    // (IndexedDB on WebView shells); a keyring/IndexedDB stall here would
+    // otherwise leave the boot promise pending forever — `waitForReadySQLiteRuntime`
+    // waits with no timeout, so a hung resolve wedges the app keyless with no
+    // recovery (the second-identity provisioning hang). Racing it against the
+    // boot-round-trip timeout turns that into an ordinary, recoverable boot
+    // rejection the managed runtime already retries and ultimately surfaces.
+    key = await withBootRoundTripTimeout(
+      resolveCipherKey(),
+      "cipher key resolution",
+    );
   } catch (error) {
     log(`Failed to resolve SQLite cipher key: ${describeBootError(error)}`);
     throw error;

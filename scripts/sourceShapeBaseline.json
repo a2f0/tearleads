@@ -217,9 +217,13 @@
       "lines": 1023,
       "bytes": 30269
     },
+    "packages/app/src/providers/db/useManagedSQLiteRuntime.ts": {
+      "lines": 527,
+      "bytes": 15407
+    },
     "packages/app/test/helpers/paneTestUtils.tsx": {
       "lines": 530,
-      "bytes": 16140
+      "bytes": 16305
     },
     "packages/client-sdk/src/Tearleads.test.ts": {
       "lines": 1001,

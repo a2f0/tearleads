@@ -19,6 +19,7 @@ import { compactIdentityFingerprint } from "./IdentitySwitcher";
 
 const initializedDatabaseNames: string[] = [];
 const initializedBlobNamespaces: string[] = [];
+let workerConstructionCount = 0;
 const userIdPattern =
   /userId:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u;
 
@@ -27,6 +28,11 @@ function collapseConsecutiveDuplicates(values: readonly string[]): string[] {
 }
 
 class RecordingMockWorker extends MockWorker {
+  constructor(...args: ConstructorParameters<typeof MockWorker>) {
+    super(...args);
+    workerConstructionCount += 1;
+  }
+
   override postMessage(message: WorkerRequest) {
     if (message.method === "init") {
       initializedDatabaseNames.push(message.params.dbName);
@@ -70,6 +76,7 @@ async function waitForPersistedSession(
 afterEach(async () => {
   initializedDatabaseNames.length = 0;
   initializedBlobNamespaces.length = 0;
+  workerConstructionCount = 0;
   await cleanupPaneTestEnvironment();
 });
 
@@ -149,6 +156,58 @@ test(
       identityB,
       identityA,
     ]);
+    view.unmount();
+  },
+  PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 2,
+);
+
+test(
+  "reuseDatabaseWorker reuses one worker across an identity switch",
+  async () => {
+    // On a WebView shell constructing a SECOND worker fails, so switching to a
+    // new identity must reuse the first identity's worker (close its database +
+    // re-init the same worker onto the new one) rather than tearing it down and
+    // building a new one. Assert exactly that: creating a second identity opens a
+    // second database but does NOT construct a second worker.
+    const localIdentityNamespace = `identity-reuse-${crypto.randomUUID()}`;
+    const hostConfig = createTestHostConfig({
+      createLocalKeyring: createSharedMemoryLocalKeyringFactory(),
+      localIdentityNamespace,
+      reuseDatabaseWorker: true,
+      workerConstructor: RecordingMockWorker,
+    }).withOverrides({ createBlobStore: () => createMemoryBlobStore() });
+    const view = renderPane({ hostConfig });
+
+    await generateIdentityAndWaitForDb(view);
+    await waitForPersistedPaneLocalIdentity(localIdentityNamespace);
+    const identityA = getPanePublicKey(view);
+    const workerCountAfterFirstIdentity = workerConstructionCount;
+    expect(workerCountAfterFirstIdentity).toBeGreaterThan(0);
+
+    const identityManagerWindow = await openIdentityManagerFromPane(view);
+    const identityManager = within(identityManagerWindow);
+    fireEvent.click(
+      identityManager.getByRole("combobox", { name: "Identities" }),
+    );
+    fireEvent.click(identityManager.getByText("New Identity"));
+
+    let identityB = "";
+    await waitFor(
+      () => {
+        expect(getPaneStatusText(view)).toMatch(/sqlite worker:\s*ready/u);
+        identityB = getPanePublicKey(view);
+        expect(identityB).not.toBe(identityA);
+      },
+      { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+    );
+
+    // The second identity opened its own database on the SAME worker...
+    expect(collapseConsecutiveDuplicates(initializedDatabaseNames)).toEqual([
+      `/app-identity-${identityA}.db`,
+      `/app-identity-${identityB}.db`,
+    ]);
+    // ...and no additional worker was constructed for it.
+    expect(workerConstructionCount).toBe(workerCountAfterFirstIdentity);
     view.unmount();
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 2,

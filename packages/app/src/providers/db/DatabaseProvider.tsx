@@ -27,6 +27,7 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
   const {
     createSQLiteRuntime = createDefaultSQLiteRuntime,
     localIdentityNamespace,
+    reuseDatabaseWorker = false,
     storagePersistence,
   } = useAppHostConfig();
   const { createLocalKeyring } = useLocalKeyringLock();
@@ -52,6 +53,7 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
     resolveCipherKey,
     log,
     tearleads,
+    reuseDatabaseWorker,
   );
 
   return (
