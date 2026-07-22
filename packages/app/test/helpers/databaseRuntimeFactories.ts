@@ -1,6 +1,6 @@
 import type { SQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 
-export interface Deferred<T = void> {
+interface Deferred<T = void> {
   promise: Promise<T>;
   resolve: (value: T | PromiseLike<T>) => void;
 }

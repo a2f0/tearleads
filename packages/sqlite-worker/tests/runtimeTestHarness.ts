@@ -6,7 +6,7 @@ type RequestMessage = {
   params: unknown;
 };
 
-export type MockConnectionState = {
+type MockConnectionState = {
   readonly port: MessagePort | null;
   readonly requests: RequestMessage[];
   closed: boolean;
