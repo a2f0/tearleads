@@ -20,6 +20,9 @@ const LICENSED_SEAT_EVENT_TYPES = [
   "licensed_seat_count_reset",
 ] as const;
 
+const LIFECYCLE_SEAT_CORRELATION_LIMIT =
+  BILLING_HISTORY_EVENT_LIMIT * LICENSED_SEAT_EVENT_TYPES.length;
+
 async function loadLifecycleHistory(
   executor: DatabaseSession,
   organizationId: string,
@@ -123,7 +126,7 @@ async function loadLifecycleSeatHistory(
       desc(organizationBillingSeatEvents.createdAt),
       desc(organizationBillingSeatEvents.id),
     )
-    .limit(BILLING_HISTORY_EVENT_LIMIT);
+    .limit(LIFECYCLE_SEAT_CORRELATION_LIMIT);
 }
 
 async function loadInvoiceHistory(

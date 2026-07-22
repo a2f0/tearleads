@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import type { StripeSubscriptionBinding } from "../../billing/stripeSubscriptionBinding";
 import { extractPaidSubscriptionInvoice } from "../../billing/stripeWebhook";
 import { resolveStripeInvoiceAuditInput } from "./stripeInvoiceAudit";
@@ -175,4 +175,87 @@ test("a complete invoice with invalid line attribution keeps its exact total", a
     totalAmount: 1_497,
     unitAmount: null,
   });
+});
+
+test("pinned line details enrich a signed total without replacing it", async () => {
+  const embeddedBody = invoiceBody({
+    hasMore: false,
+    price: { id: "price_sync" },
+  });
+  const [embeddedLine] = embeddedBody.lines.data;
+  if (!embeddedLine) {
+    throw new Error("expected embedded invoice line");
+  }
+  embeddedLine.currency = "eur";
+  const fetchedBody = {
+    ...invoiceBody({
+      hasMore: false,
+      price: {
+        id: "price_sync",
+        recurring: { interval: "month", interval_count: 3 },
+        unit_amount: 499,
+      },
+    }),
+    amount_paid: 9_999,
+    status_transitions: {},
+  };
+  const urls: string[] = [];
+
+  const audit = await resolveStripeInvoiceAuditInput({
+    binding: BINDING,
+    invoice: parseInvoice(embeddedBody),
+    organizationId: "org-1",
+    stripeDeps: {
+      env: { STRIPE_SECRET_KEY: "sk_test_123" },
+      fetchImpl: respondingFetch([fetchedBody], urls),
+    },
+  });
+
+  expect(urls).toEqual(["https://api.stripe.com/v1/invoices/in_1"]);
+  expect(audit).toMatchObject({
+    interval: "month",
+    intervalCount: 3,
+    occurredAt: new Date(1_783_123_456 * 1000),
+    providerEventId: "evt_1",
+    seatCount: 3,
+    totalAmount: 1_497,
+    unitAmount: 499,
+  });
+});
+
+test("optional pinned enrichment cannot block an exact total-only audit", async () => {
+  const body = invoiceBody({
+    hasMore: false,
+    price: { id: "price_sync" },
+  });
+  const [line] = body.lines.data;
+  if (!line) {
+    throw new Error("expected invoice line");
+  }
+  line.currency = "eur";
+  const warningSpy = spyOn(console, "warn").mockImplementation(() => undefined);
+  try {
+    const audit = await resolveStripeInvoiceAuditInput({
+      binding: BINDING,
+      invoice: parseInvoice(body),
+      organizationId: "org-1",
+      stripeDeps: {
+        env: { STRIPE_SECRET_KEY: "sk_test_123" },
+        fetchImpl: (async (_input: RequestInfo | URL) =>
+          new Response("", { status: 503 })) as typeof fetch,
+      },
+    });
+
+    expect(audit).toMatchObject({
+      seatCount: null,
+      totalAmount: 1_497,
+      unitAmount: null,
+    });
+    expect(warningSpy).toHaveBeenCalledWith(
+      "Stripe invoice detail enrichment failed; preserving the signed snapshot",
+      { invoiceId: "in_1", status: 503 },
+    );
+  } finally {
+    warningSpy.mockRestore();
+  }
 });

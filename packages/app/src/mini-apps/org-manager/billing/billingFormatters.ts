@@ -20,6 +20,7 @@ const STRIPE_ZERO_DECIMAL_CURRENCIES = new Set([
 // Stripe's API represents both currencies with two decimal places even though
 // cash amounts in them do not use fractional units. The amount must end in 00.
 const STRIPE_TWO_DECIMAL_SPECIAL_CASES = new Set(["ISK", "UGX"]);
+const KNOWN_CURRENCY_CACHE = new Map<string, boolean>();
 
 function normalizeCurrency(currency: string | null): string | null {
   const currencyCode = currency?.trim().toUpperCase();
@@ -32,24 +33,30 @@ function isValidMinorAmount(amount: number | null): amount is number {
 
 /** Whether this runtime recognizes the code as an ISO currency. */
 function isKnownCurrency(currencyCode: string): boolean {
+  const cached = KNOWN_CURRENCY_CACHE.get(currencyCode);
+  if (cached !== undefined) {
+    return cached;
+  }
+  let known = false;
   if (typeof Intl.supportedValuesOf === "function") {
     try {
-      return Intl.supportedValuesOf("currency").includes(currencyCode);
+      known = Intl.supportedValuesOf("currency").includes(currencyCode);
     } catch {
-      return false;
+      known = false;
+    }
+  } else if (typeof Intl.DisplayNames === "function") {
+    try {
+      const displayNames = new Intl.DisplayNames(["en"], {
+        type: "currency",
+        fallback: "none",
+      });
+      known = displayNames.of(currencyCode) !== undefined;
+    } catch {
+      known = false;
     }
   }
-  // Older WebViews lack supportedValuesOf. Their NumberFormat constructor is
-  // still the best available capability probe and preserves ordinary prices.
-  try {
-    new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: currencyCode,
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  KNOWN_CURRENCY_CACHE.set(currencyCode, known);
+  return known;
 }
 
 function stripeFractionDigits(currencyCode: string): number {

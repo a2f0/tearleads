@@ -8,9 +8,11 @@ Stripe invoice totals preserve the provider's exact `amount_paid` in currency
 minor units. Seat quantity, per-seat rate, recurring interval and interval
 count, price, and billing period come from the matching non-proration invoice
 line—not mutable current subscription state—so delayed webhooks cannot rewrite
-older charges. The line list must be explicitly complete before a snapshot is
-accepted. Paid subscription update and threshold invoices are audited too; only
-creation and cycle invoices advance seat-period state.
+older charges. Creation and cycle invoices use a pinned-API lookup when the
+signed webhook's line details are incomplete or could be enriched; only those
+reasons advance seat-period state. Paid subscription update and threshold
+invoices are audited too, but they never make fulfillment retry solely for
+missing reporting details.
 
 If an invoice has no unambiguous recurring seat line (for example, a
 proration-only update), its exact total is still recorded while seat and rate
@@ -18,8 +20,18 @@ fields stay `null`.
 
 Fields not captured for legacy records, or not applicable to a category, stay
 `null` instead of being reconstructed. Incomplete paid-invoice deliveries are
-retried, using a pinned-API invoice lookup when possible, before an append-only
-snapshot is accepted.
+retried when creation or renewal fulfillment depends on them. Other billing
+reasons preserve an exact total-only snapshot when their signed invoice-level
+facts are available, without paginating a potentially large line history.
+If those core facts are absent but the invoice id is present, one pinned
+resolution attempt recovers them; a definitive 404 is acknowledged, while
+transient provider failures remain retryable.
+
+The first snapshot for an invoice id remains immutable. A redelivery whose
+organization, subscription, billing reason, currency, or paid total changes is
+treated as a hard conflict. Differences limited to line attribution or event
+metadata preserve the first snapshot while allowing idempotent seat and
+RevenueCat fulfillment to finish after a downstream partial failure.
 
 Never derive an invoice total from seats multiplied by unit price. The paid
 total can include prorations, taxes, discounts, credits, and other adjustments;

@@ -56,6 +56,7 @@ async function getCompleteInvoiceLines(input: {
 export async function getPaidSubscriptionInvoice(
   invoiceId: string,
   deps: StripeApiDeps = {},
+  processingTime: Date = new Date(),
 ): Promise<StripePaidSubscriptionInvoice | null> {
   const { fetchImpl, secretKey } = resolveDeps(deps);
   if (!secretKey) {
@@ -68,10 +69,13 @@ export async function getPaidSubscriptionInvoice(
     path: `/v1/invoices/${encodeURIComponent(invoiceId)}`,
     operation: "invoice lookup",
   });
-  const invoice = extractPaidSubscriptionInvoice({
-    type: "invoice.paid",
-    data: { object: body },
-  });
+  const invoice = extractPaidSubscriptionInvoice(
+    {
+      type: "invoice.paid",
+      data: { object: body },
+    },
+    processingTime,
+  );
   if (!invoice || invoice.invoiceId !== invoiceId) {
     return null;
   }

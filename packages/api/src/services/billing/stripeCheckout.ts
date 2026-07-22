@@ -30,6 +30,7 @@ import {
   runRequireCheckoutEligibleWorkflow,
   runResolveOrgSubscriptionForAdminWorkflow,
 } from "../../workflows/billing/stripeCheckout";
+import type { StripeInvoiceAuditInput } from "../../workflows/billing/stripeInvoiceAudit";
 import {
   runBindOrganizationStripeSeatsWorkflow,
   runRecordStripeSeatRenewalWorkflow,
@@ -37,7 +38,10 @@ import {
 } from "../../workflows/billing/stripeSeatState";
 import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
-import { resolveAndRecordStripeInvoiceAudit } from "./stripeInvoiceAudit";
+import {
+  reconcilesSeatPeriod,
+  resolveAndRecordStripeInvoiceAudit,
+} from "./stripeInvoiceAudit";
 
 /**
  * Direct Stripe checkout services (issue #1654). The org-admin gate runs
@@ -303,37 +307,11 @@ interface PaidSubscriptionInvoiceInput {
   readonly runtime: ApiServiceRuntime;
 }
 
-function reconcilesSeatPeriod(billingReason: string): boolean {
-  return (
-    billingReason === "subscription_create" ||
-    billingReason === "subscription_cycle"
-  );
-}
-
-async function applyPaidSubscriptionInvoice(
+async function fulfillSeatPeriodInvoice(
   input: PaidSubscriptionInvoiceInput,
+  audit: StripeInvoiceAuditInput,
 ): Promise<StripeWebhookOutcome> {
   const { binding, invoice } = input;
-  const auditOutcome = await resolveAndRecordStripeInvoiceAudit({
-    binding: input.binding,
-    db: input.runtime.db,
-    invoice: input.invoice,
-    organizationId: input.organizationId,
-    stripeDeps: input.deps.stripe ?? {},
-  });
-  if (auditOutcome.status === "incomplete") {
-    return { status: "retry", reason: "Paid invoice details are incomplete" };
-  }
-  if (auditOutcome.status === "conflict") {
-    return { status: "ignored", reason: "Conflicting paid invoice snapshot" };
-  }
-  const auditInput = auditOutcome.audit;
-  if (!reconcilesSeatPeriod(auditInput.billingReason)) {
-    return {
-      status: "ignored",
-      reason: "Paid invoice requires no seat-period reconciliation",
-    };
-  }
   if (
     !binding.priceId ||
     !binding.subscriptionItemId ||
@@ -351,10 +329,10 @@ async function applyPaidSubscriptionInvoice(
     subscriptionId: invoice.subscriptionId,
     subscriptionItemId: binding.subscriptionItemId,
   };
-  if (auditInput.billingReason === "subscription_cycle") {
+  if (audit.billingReason === "subscription_cycle") {
     const outcome = await runRecordStripeSeatRenewalWorkflow(input.runtime.db, {
       ...seatBinding,
-      invoiceId: auditInput.invoiceId,
+      invoiceId: audit.invoiceId,
     });
     if (outcome.status === "retry") {
       return {
@@ -363,10 +341,7 @@ async function applyPaidSubscriptionInvoice(
       };
     }
     if (outcome.status === "stale") {
-      return {
-        status: "ignored",
-        reason: "Stale Stripe subscription invoice",
-      };
+      return { status: "ignored", reason: "Stale Stripe subscription invoice" };
     }
     return {
       status: "reconciled",
@@ -391,10 +366,7 @@ async function applyPaidSubscriptionInvoice(
     };
   }
   if (outcome.status === "stale") {
-    return {
-      status: "ignored",
-      reason: "Stale Stripe subscription invoice",
-    };
+    return { status: "ignored", reason: "Stale Stripe subscription invoice" };
   }
   await associateStripeSubscription(
     {
@@ -409,6 +381,45 @@ async function applyPaidSubscriptionInvoice(
     subscriptionId: invoice.subscriptionId,
     organizationId: input.organizationId,
   };
+}
+
+async function applyPaidSubscriptionInvoice(
+  input: PaidSubscriptionInvoiceInput,
+): Promise<StripeWebhookOutcome> {
+  const { invoice } = input;
+  const requiresSeatPeriod = reconcilesSeatPeriod(invoice.billingReason);
+  const auditOutcome = await resolveAndRecordStripeInvoiceAudit({
+    binding: input.binding,
+    db: input.runtime.db,
+    invoice: input.invoice,
+    organizationId: input.organizationId,
+    stripeDeps: input.deps.stripe ?? {},
+  });
+  if (auditOutcome.status === "incomplete") {
+    if (requiresSeatPeriod) {
+      return { status: "retry", reason: "Paid invoice details are incomplete" };
+    }
+    console.warn("Paid invoice audit details are unavailable", {
+      invoiceId: invoice.invoiceId,
+      organizationId: input.organizationId,
+      providerEventId: invoice.providerEventId,
+    });
+    return {
+      status: "ignored",
+      reason: "Paid invoice audit details unavailable",
+    };
+  }
+  if (auditOutcome.status === "conflict") {
+    return { status: "ignored", reason: "Conflicting paid invoice snapshot" };
+  }
+  const auditInput = auditOutcome.audit;
+  if (!reconcilesSeatPeriod(auditInput.billingReason)) {
+    return {
+      status: "ignored",
+      reason: "Paid invoice requires no seat-period reconciliation",
+    };
+  }
+  return fulfillSeatPeriodInvoice(input, auditInput);
 }
 
 /**

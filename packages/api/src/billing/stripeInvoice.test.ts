@@ -57,6 +57,19 @@ test("uses an explicitly complete embedded invoice line list", async () => {
   expect(urls).toEqual(["https://api.stripe.com/v1/invoices/in_paged"]);
 });
 
+test("uses the webhook occurrence as the pinned lookup fallback", async () => {
+  const { fetchImpl } = fakeFetch([invoiceBody({ data: [], has_more: false })]);
+  const occurredAt = new Date("2026-07-01T12:34:56.000Z");
+
+  const invoice = await getPaidSubscriptionInvoice(
+    "in_paged",
+    { env: ENV, fetchImpl },
+    occurredAt,
+  );
+
+  expect(invoice?.occurredAt).toEqual(occurredAt);
+});
+
 test("replaces a truncated embed with every paginated invoice line", async () => {
   const firstPage = Array.from({ length: 100 }, (_, index) =>
     prorationLine(index + 1),

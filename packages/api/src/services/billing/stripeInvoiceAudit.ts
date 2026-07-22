@@ -1,12 +1,27 @@
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import type { StripeApiDeps } from "../../billing/stripeApi";
+import { StripeApiError } from "../../billing/stripeHttp";
 import { getPaidSubscriptionInvoice } from "../../billing/stripeInvoice";
 import type { StripeSubscriptionBinding } from "../../billing/stripeSubscriptionBinding";
-import type { StripePaidSubscriptionInvoice } from "../../billing/stripeWebhook";
+import type {
+  StripeInvoiceBillingReason,
+  StripePaidSubscriptionInvoice,
+} from "../../billing/stripeWebhook";
 import {
   runRecordStripeInvoiceAuditWorkflow,
   type StripeInvoiceAuditInput,
 } from "../../workflows/billing/stripeInvoiceAudit";
+
+const COMPLETE_INVOICE_DETAIL_SCORE = 7;
+
+export function reconcilesSeatPeriod(
+  billingReason: StripeInvoiceBillingReason,
+): boolean {
+  return (
+    billingReason === "subscription_create" ||
+    billingReason === "subscription_cycle"
+  );
+}
 
 function selectHistoricalSeatLine(
   invoice: StripePaidSubscriptionInvoice,
@@ -43,39 +58,44 @@ function selectHistoricalSeatLine(
   return candidates.length === 1 ? candidates[0] : null;
 }
 
+function createTotalOnlyAuditInput(input: {
+  readonly binding: StripeSubscriptionBinding;
+  readonly invoice: StripePaidSubscriptionInvoice;
+  readonly organizationId: string;
+}): StripeInvoiceAuditInput | null {
+  const { invoice } = input;
+  if (!invoice.invoiceId || invoice.amountPaid === null || !invoice.currency) {
+    return null;
+  }
+  return {
+    billingReason: invoice.billingReason,
+    currency: invoice.currency,
+    interval: null,
+    intervalCount: null,
+    invoiceId: invoice.invoiceId,
+    occurredAt: invoice.occurredAt,
+    organizationId: input.organizationId,
+    periodEndsAt: null,
+    periodStartsAt: null,
+    priceId: null,
+    providerEventId: invoice.providerEventId,
+    seatCount: null,
+    subscriptionId: invoice.subscriptionId,
+    totalAmount: invoice.amountPaid,
+    unitAmount: null,
+  };
+}
+
 function createStripeInvoiceAuditInput(input: {
   readonly binding: StripeSubscriptionBinding;
   readonly invoice: StripePaidSubscriptionInvoice;
   readonly organizationId: string;
 }): StripeInvoiceAuditInput | null {
-  const { binding, invoice } = input;
-  if (!invoice.invoiceId || invoice.amountPaid === null || !invoice.currency) {
+  const totalOnlySnapshot = createTotalOnlyAuditInput(input);
+  if (!totalOnlySnapshot || input.invoice.linesHasMore !== false) {
     return null;
   }
-  if (invoice.linesHasMore !== false) {
-    return null;
-  }
-  const line = selectHistoricalSeatLine(invoice, binding);
-  const base = {
-    billingReason: invoice.billingReason,
-    currency: invoice.currency,
-    invoiceId: invoice.invoiceId,
-    occurredAt: invoice.occurredAt,
-    organizationId: input.organizationId,
-    providerEventId: invoice.providerEventId,
-    subscriptionId: invoice.subscriptionId,
-    totalAmount: invoice.amountPaid,
-  };
-  const totalOnlySnapshot: StripeInvoiceAuditInput = {
-    ...base,
-    interval: null,
-    intervalCount: null,
-    periodEndsAt: null,
-    periodStartsAt: null,
-    priceId: null,
-    seatCount: null,
-    unitAmount: null,
-  };
+  const line = selectHistoricalSeatLine(input.invoice, input.binding);
   if (!line) {
     return totalOnlySnapshot;
   }
@@ -84,12 +104,12 @@ function createStripeInvoiceAuditInput(input: {
     !line.priceId ||
     !line.periodStartsAt ||
     !line.periodEndsAt ||
-    (line.currency !== null && line.currency !== invoice.currency)
+    (line.currency !== null && line.currency !== totalOnlySnapshot.currency)
   ) {
     return totalOnlySnapshot;
   }
   return {
-    ...base,
+    ...totalOnlySnapshot,
     interval: line.interval,
     intervalCount: line.intervalCount,
     periodEndsAt: line.periodEndsAt,
@@ -100,6 +120,18 @@ function createStripeInvoiceAuditInput(input: {
   };
 }
 
+function auditDetailScore(audit: StripeInvoiceAuditInput): number {
+  return [
+    audit.interval,
+    audit.intervalCount,
+    audit.periodEndsAt,
+    audit.periodStartsAt,
+    audit.priceId,
+    audit.seatCount,
+    audit.unitAmount,
+  ].filter((value) => value !== null).length;
+}
+
 /** Resolves a complete, immutable invoice snapshot before the audit insert. */
 export async function resolveStripeInvoiceAuditInput(input: {
   readonly binding: StripeSubscriptionBinding;
@@ -108,15 +140,56 @@ export async function resolveStripeInvoiceAuditInput(input: {
   readonly stripeDeps: StripeApiDeps;
 }): Promise<StripeInvoiceAuditInput | null> {
   const direct = createStripeInvoiceAuditInput(input);
-  if (direct || !input.invoice.invoiceId) {
+  const directTotal = createTotalOnlyAuditInput(input);
+  const requiresSeatPeriod = reconcilesSeatPeriod(input.invoice.billingReason);
+  if (!requiresSeatPeriod && directTotal) {
+    return direct ?? directTotal;
+  }
+  if (direct && auditDetailScore(direct) === COMPLETE_INVOICE_DETAIL_SCORE) {
     return direct;
   }
-  const fetched = await getPaidSubscriptionInvoice(
-    input.invoice.invoiceId,
-    input.stripeDeps,
-  );
+  if (!input.invoice.invoiceId) {
+    return direct;
+  }
+  let fetched: StripePaidSubscriptionInvoice | null;
+  try {
+    fetched = await getPaidSubscriptionInvoice(
+      input.invoice.invoiceId,
+      input.stripeDeps,
+      input.invoice.occurredAt,
+    );
+  } catch (error) {
+    if (direct && error instanceof StripeApiError) {
+      console.warn(
+        "Stripe invoice detail enrichment failed; preserving the signed snapshot",
+        { invoiceId: input.invoice.invoiceId, status: error.status },
+      );
+      return direct;
+    }
+    if (
+      !requiresSeatPeriod &&
+      error instanceof StripeApiError &&
+      error.status === 404
+    ) {
+      return null;
+    }
+    throw error;
+  }
   if (!fetched || fetched.subscriptionId !== input.invoice.subscriptionId) {
-    return null;
+    return direct;
+  }
+  const enriched = createStripeInvoiceAuditInput({
+    ...input,
+    invoice: {
+      ...input.invoice,
+      lines: fetched.lines,
+      linesHasMore: fetched.linesHasMore,
+    },
+  });
+  if (enriched) {
+    return !direct || auditDetailScore(enriched) > auditDetailScore(direct)
+      ? enriched
+      : direct;
   }
   return createStripeInvoiceAuditInput({
     ...input,
@@ -140,7 +213,7 @@ export async function resolveAndRecordStripeInvoiceAudit(input: {
     return { status: "incomplete" } as const;
   }
   const outcome = await runRecordStripeInvoiceAuditWorkflow(input.db, audit);
-  if (outcome === "conflict") {
+  if (outcome.status === "conflict") {
     console.error(
       "Conflicting Stripe invoice audit snapshot; preserving the first snapshot",
       {
@@ -151,5 +224,15 @@ export async function resolveAndRecordStripeInvoiceAudit(input: {
     );
     return { status: "conflict" } as const;
   }
-  return { status: "accepted", audit } as const;
+  if (outcome.status === "compatible") {
+    console.warn(
+      "Compatible Stripe invoice audit redelivery differs; preserving the first snapshot and continuing fulfillment",
+      {
+        invoiceId: audit.invoiceId,
+        organizationId: input.organizationId,
+        providerEventId: audit.providerEventId,
+      },
+    );
+  }
+  return { status: "accepted", audit: outcome.audit } as const;
 }

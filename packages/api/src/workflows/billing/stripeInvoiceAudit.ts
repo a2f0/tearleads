@@ -23,7 +23,10 @@ export interface StripeInvoiceAuditInput {
   readonly unitAmount: number | null;
 }
 
-type StripeInvoiceAuditRecordOutcome = "accepted" | "conflict";
+type StripeInvoiceAuditRecordOutcome =
+  | { readonly status: "accepted"; readonly audit: StripeInvoiceAuditInput }
+  | { readonly status: "compatible"; readonly audit: StripeInvoiceAuditInput }
+  | { readonly status: "conflict" };
 
 function equalDates(left: Date | null, right: Date | null): boolean {
   return left?.getTime() === right?.getTime();
@@ -39,14 +42,30 @@ function isEquivalentSnapshot(
     existing.interval === incoming.interval &&
     existing.intervalCount === incoming.intervalCount &&
     existing.invoiceId === incoming.invoiceId &&
+    equalDates(existing.occurredAt, incoming.occurredAt) &&
     existing.organizationId === incoming.organizationId &&
     equalDates(existing.periodEndsAt, incoming.periodEndsAt) &&
     equalDates(existing.periodStartsAt, incoming.periodStartsAt) &&
     existing.priceId === incoming.priceId &&
+    existing.providerEventId === incoming.providerEventId &&
     existing.seatCount === incoming.seatCount &&
     existing.subscriptionId === incoming.subscriptionId &&
     existing.totalAmount === incoming.totalAmount &&
     existing.unitAmount === incoming.unitAmount
+  );
+}
+
+function isCompatibleSnapshot(
+  existing: StripeInvoiceAuditInput,
+  incoming: StripeInvoiceAuditInput,
+): boolean {
+  return (
+    existing.billingReason === incoming.billingReason &&
+    existing.currency === incoming.currency &&
+    existing.invoiceId === incoming.invoiceId &&
+    existing.organizationId === incoming.organizationId &&
+    existing.subscriptionId === incoming.subscriptionId &&
+    existing.totalAmount === incoming.totalAmount
   );
 }
 
@@ -64,7 +83,7 @@ export async function runRecordStripeInvoiceAuditWorkflow(
       })
       .returning({ id: organizationBillingInvoiceEvents.id });
     if (inserted) {
-      return "accepted";
+      return { status: "accepted", audit: input };
     }
     const [existing] = await tx
       .select({
@@ -91,6 +110,11 @@ export async function runRecordStripeInvoiceAuditWorkflow(
         `Stripe invoice audit snapshot disappeared for ${input.invoiceId}`,
       );
     }
-    return isEquivalentSnapshot(existing, input) ? "accepted" : "conflict";
+    if (isEquivalentSnapshot(existing, input)) {
+      return { status: "accepted", audit: existing };
+    }
+    return isCompatibleSnapshot(existing, input)
+      ? { status: "compatible", audit: existing }
+      : { status: "conflict" };
   });
 }
