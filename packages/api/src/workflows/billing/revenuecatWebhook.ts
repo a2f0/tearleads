@@ -9,6 +9,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { and, eq, gt } from "drizzle-orm";
+import { allowsRevenueCatSandboxEvents } from "../../billing/revenueCatConfig";
 import {
   classifyRevenueCatEvent,
   type RevenueCatBillingTransition,
@@ -325,7 +326,9 @@ async function runRevenueCatWebhookTransaction(input: {
  *
  * Idempotent on the provider event id: the event is claimed by inserting its id
  * (a duplicate delivery inserts nothing and re-applies nothing). The billing
- * effect is computed purely by {@link classifyRevenueCatEvent}. Stripe-store
+ * effect is computed purely by {@link classifyRevenueCatEvent}, which ignores
+ * store-sandbox events unless the tier sets
+ * `REVENUECAT_ALLOW_SANDBOX_EVENTS=true`. Stripe-store
  * transitions use the durable subscription binding, an exact Stripe
  * subscription lookup, or narrowly validated immutable legacy transaction
  * metadata; other stores use transaction metadata or the `orgId` subscriber
@@ -338,9 +341,14 @@ export async function runRevenueCatWebhookWorkflow(
   db: ApiDatabase,
   event: RevenueCatWebhookEvent,
   now: Date = new Date(),
-  deps: { stripe?: StripeApiDeps } = {},
+  deps: { stripe?: StripeApiDeps; env?: NodeJS.ProcessEnv } = {},
 ): Promise<RevenueCatWebhookOutcome> {
-  const transition = classifyRevenueCatEvent(event, now);
+  const transition = classifyRevenueCatEvent(event, now, {
+    // A store-sandbox purchase (StoreKit sandbox, TestFlight, Play internal
+    // testing) is free to the tester but emits an event otherwise identical to
+    // a paid one, so only a tier that opts in applies it.
+    allowSandboxEvents: allowsRevenueCatSandboxEvents(deps.env ?? process.env),
+  });
   // Stripe-store events use the immutable per-subscription org binding — the
   // customer-level attribute could have been rebound by a later purchase for
   // another org. A FAILED lookup on an event that would change billing must

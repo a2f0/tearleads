@@ -22,9 +22,10 @@ New web purchases must use direct Stripe checkout. A RevenueCat Web Billing or
 Test Store package cannot carry the server-authoritative seat quantity, so
 [`createWebPurchases`](../../packages/app-web/src/webPurchases.ts) configures the
 RevenueCat capability with `purchasesEnabled: false`: identification and
-entitlement reads remain available, while package listing returns no options
-and purchase attempts fail closed. Keep RevenueCat's provider-hosted flow for
-native stores and legacy subscriptions only.
+entitlement reads remain available, while package listing returns no options and
+purchase attempts fail closed. Keep RevenueCat's provider-hosted flow for
+native stores ([revenuecat-native-stores.md](./revenuecat-native-stores.md)) and
+legacy subscriptions only.
 
 ## Entitlement
 
@@ -91,6 +92,9 @@ quantities never update Stripe seats.
 - Register the endpoint in the RevenueCat dashboard, or via the v2 API
   (`POST /v2/projects/{project_id}/integrations/webhooks`), with the `Authorization`
   value set to match `REVENUECAT_WEBHOOK_AUTH_HEADER`.
+- Store-sandbox events are ignored unless the tier sets
+  `REVENUECAT_ALLOW_SANDBOX_EVENTS=true` —
+  [revenuecat-native-stores.md](./revenuecat-native-stores.md#sandbox-events).
 
 ## Direct Stripe checkout (server side)
 

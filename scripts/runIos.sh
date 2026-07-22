@@ -12,6 +12,14 @@ cd "$SCRIPT_DIR/../packages/app-capacitor" || exit 1
 export VITE_API_BASE_URL="${VITE_API_BASE_URL:-http://localhost:3001}"
 echo "Building with VITE_API_BASE_URL=$VITE_API_BASE_URL"
 
+# Store releases get the RevenueCat public SDK key from fastlane's Dotenv.load;
+# this script has no fastlane in the path, so read the same file directly.
+# Without it the build inlines no key and billing degrades to the unavailable
+# stub — a purchase cannot be exercised on the simulator or a device at all.
+. "$SCRIPT_DIR/exportRevenueCatKeys.sh"
+export_revenuecat_keys "$SCRIPT_DIR/../.secrets/root.env"
+report_revenuecat_key VITE_REVENUECAT_IOS_API_KEY
+
 bun run build
 bun run cap:sync
 exec bun run cap:run:ios

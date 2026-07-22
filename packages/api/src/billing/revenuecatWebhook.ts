@@ -26,6 +26,21 @@ const REVENUECAT_PROVIDER: OrganizationBillingProvider = "revenuecat";
 const ORGANIZATION_SUBSCRIBER_ATTRIBUTE = "orgId";
 
 /**
+ * The `environment` value RevenueCat sends for a purchase made against a store
+ * sandbox (StoreKit sandbox, TestFlight, Play internal testing).
+ */
+const SANDBOX_ENVIRONMENT = "SANDBOX";
+
+/**
+ * Whether the event came from a store sandbox. Absent is treated as production:
+ * RevenueCat has not always sent the field, and an old event that reaches a
+ * redelivery must keep its original (paid) meaning rather than being discarded.
+ */
+function isSandboxEvent(event: RevenueCatWebhookEvent): boolean {
+  return event.environment?.toUpperCase() === SANDBOX_ENVIRONMENT;
+}
+
+/**
  * Event types that assert the entitlement is currently granted. RevenueCat
  * keeps the entitlement (and the `expiration_at_ms` it reports) valid through
  * billing-issue grace periods, so any of these transitions the org to `active`.
@@ -217,11 +232,25 @@ function timestampMsToDate(value: number | null | undefined): Date | null {
  * independent of any database state. Grants activate sync and record the
  * provider/customer/entitlement; revokes disable sync and start the purge
  * grace window; everything else is ignored.
+ *
+ * `allowSandboxEvents` defaults to false so a tier that has not opted in
+ * ignores store-sandbox purchases entirely — including their revokes, since
+ * applying only half of a sandbox lifecycle could disable sync an org actually
+ * paid for. Ignoring still records and acknowledges the event, so RevenueCat
+ * stops redelivering it.
  */
 export function classifyRevenueCatEvent(
   event: RevenueCatWebhookEvent,
   now: Date = new Date(),
+  options: { allowSandboxEvents?: boolean } = {},
 ): RevenueCatBillingTransition {
+  if (isSandboxEvent(event) && options.allowSandboxEvents !== true) {
+    return {
+      kind: "ignore",
+      reason: "Sandbox environment event ignored on a production-only tier",
+    };
+  }
+
   if (GRANT_EVENT_TYPES.has(event.type)) {
     if (
       event.expiration_at_ms != null &&

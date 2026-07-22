@@ -1,0 +1,206 @@
+import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  organizationBilling,
+  revenuecatWebhookEvents,
+  users,
+} from "@tearleads/api-shared/schema";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
+import { eq } from "drizzle-orm";
+import invariant from "invariant";
+import { registerUser } from "../../../test/helpers/registerUser";
+import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";
+
+/**
+ * A store-sandbox purchase — StoreKit sandbox, TestFlight, Play internal
+ * testing — costs the tester nothing but reaches this webhook as an event
+ * indistinguishable from a paid one apart from `environment`. These cover the
+ * native-store lane specifically, since sandbox purchases are how mobile
+ * billing is exercised at all.
+ */
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+async function registerOrganizationAdmin(): Promise<{
+  organizationId: string;
+  user: TestUser;
+}> {
+  const user = createTestUser();
+  await registerUser(user);
+  const [registered] = await db
+    .select({ organizationId: users.defaultOrganizationId })
+    .from(users)
+    .where(eq(users.id, user.userId));
+  invariant(registered, "expected registered user");
+  return { organizationId: registered.organizationId, user };
+}
+
+function appStorePurchase(input: {
+  readonly appUserId: string;
+  readonly environment?: string;
+  readonly eventId: string;
+  readonly organizationId: string;
+}): RevenueCatWebhookEvent {
+  const now = Date.now();
+  return {
+    app_user_id: input.appUserId,
+    entitlement_ids: ["sync"],
+    event_timestamp_ms: now,
+    expiration_at_ms: now + THIRTY_DAYS_MS,
+    id: input.eventId,
+    original_transaction_id: "2000000000000001",
+    product_id: "com.tearleads.sync.monthly",
+    purchased_at_ms: now,
+    store: "APP_STORE",
+    // A native store purchase carries no transaction metadata, so the org is
+    // bound through the subscriber attribute the client sets before buying.
+    subscriber_attributes: { orgId: { value: input.organizationId } },
+    type: "INITIAL_PURCHASE",
+    ...(input.environment === undefined
+      ? {}
+      : { environment: input.environment }),
+  };
+}
+
+async function readBillingStatus(organizationId: string) {
+  const [billing] = await db
+    .select({
+      providerCustomerId: organizationBilling.providerCustomerId,
+      status: organizationBilling.status,
+    })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  invariant(billing, "expected organization billing");
+  return billing;
+}
+
+async function readEventOutcome(eventId: string): Promise<string | undefined> {
+  const [claimed] = await db
+    .select({ outcome: revenuecatWebhookEvents.outcome })
+    .from(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.eventId, eventId));
+  return claimed?.outcome;
+}
+
+test("a sandbox store purchase does not activate sync on a production tier", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+  const eventId = crypto.randomUUID();
+
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    appStorePurchase({
+      appUserId: user.userId,
+      environment: "SANDBOX",
+      eventId,
+      organizationId,
+    }),
+    new Date(),
+    { env: {} },
+  );
+
+  expect(outcome).toEqual({
+    status: "ignored",
+    reason: "Sandbox environment event ignored on a production-only tier",
+  });
+  expect(await readBillingStatus(organizationId)).toMatchObject({
+    providerCustomerId: null,
+  });
+});
+
+test("a sandbox event is still claimed so RevenueCat stops redelivering it", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+  const eventId = crypto.randomUUID();
+  const event = appStorePurchase({
+    appUserId: user.userId,
+    environment: "SANDBOX",
+    eventId,
+    organizationId,
+  });
+
+  await runRevenueCatWebhookWorkflow(db, event, new Date(), { env: {} });
+
+  // Recorded and acknowledged rather than dropped: an unclaimed event would be
+  // retried by RevenueCat forever, and an unrecorded one leaves no audit trail
+  // of a tester's purchase reaching production.
+  expect(await readEventOutcome(eventId)).toBe("ignored");
+
+  const redelivered = await runRevenueCatWebhookWorkflow(
+    db,
+    event,
+    new Date(),
+    { env: {} },
+  );
+  expect(redelivered).toEqual({ status: "duplicate" });
+});
+
+test("a sandbox store purchase activates sync on a tier that opts in", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    appStorePurchase({
+      appUserId: user.userId,
+      environment: "SANDBOX",
+      eventId: crypto.randomUUID(),
+      organizationId,
+    }),
+    new Date(),
+    { env: { REVENUECAT_ALLOW_SANDBOX_EVENTS: "true" } },
+  );
+
+  expect(outcome).toEqual({
+    billingStatus: "active",
+    organizationId,
+    status: "applied",
+  });
+  expect(await readBillingStatus(organizationId)).toMatchObject({
+    providerCustomerId: user.userId,
+    status: "active",
+  });
+});
+
+test("a production store purchase still activates sync", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    appStorePurchase({
+      appUserId: user.userId,
+      environment: "PRODUCTION",
+      eventId: crypto.randomUUID(),
+      organizationId,
+    }),
+    new Date(),
+    { env: {} },
+  );
+
+  expect(outcome).toEqual({
+    billingStatus: "active",
+    organizationId,
+    status: "applied",
+  });
+});
+
+test("a store purchase with no environment is treated as production", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    appStorePurchase({
+      appUserId: user.userId,
+      eventId: crypto.randomUUID(),
+      organizationId,
+    }),
+    new Date(),
+    { env: {} },
+  );
+
+  // RevenueCat has not always sent the field; a redelivered old event must keep
+  // its original paid meaning rather than being discarded.
+  expect(outcome).toEqual({
+    billingStatus: "active",
+    organizationId,
+    status: "applied",
+  });
+});

@@ -333,3 +333,62 @@ test("a missing Stripe subscription fails closed", async () => {
     ),
   ).toEqual({ kind: "error" });
 });
+
+test("a sandbox purchase is ignored on a production-only tier", () => {
+  // StoreKit sandbox / TestFlight / Play internal testing emit an event that is
+  // identical to a paid one apart from `environment`, so without this a tester
+  // provisions real sync and real seats for free.
+  const transition = classifyRevenueCatEvent(
+    makeEvent({ environment: "SANDBOX" }),
+    ACTIVE_GRANT_NOW,
+  );
+  expect(transition).toEqual({
+    kind: "ignore",
+    reason: "Sandbox environment event ignored on a production-only tier",
+  });
+});
+
+test("a sandbox revoke is ignored too, not applied one-sidedly", () => {
+  // Applying only the revoke half of a sandbox lifecycle would disable sync an
+  // organization actually paid for.
+  const transition = classifyRevenueCatEvent(
+    makeEvent({ type: "EXPIRATION", environment: "SANDBOX" }),
+    ACTIVE_GRANT_NOW,
+  );
+  expect(transition.kind).toBe("ignore");
+});
+
+test("a sandbox purchase grants on a tier that opts in", () => {
+  const transition = classifyRevenueCatEvent(
+    makeEvent({ environment: "SANDBOX" }),
+    ACTIVE_GRANT_NOW,
+    { allowSandboxEvents: true },
+  );
+  expect(transition.kind).toBe("grant");
+});
+
+test("the sandbox environment is matched case-insensitively", () => {
+  expect(
+    classifyRevenueCatEvent(
+      makeEvent({ environment: "sandbox" }),
+      ACTIVE_GRANT_NOW,
+    ).kind,
+  ).toBe("ignore");
+});
+
+test("a production event grants without opting into sandbox", () => {
+  expect(
+    classifyRevenueCatEvent(
+      makeEvent({ environment: "PRODUCTION" }),
+      ACTIVE_GRANT_NOW,
+    ).kind,
+  ).toBe("grant");
+});
+
+test("an event with no environment is treated as production", () => {
+  // RevenueCat has not always sent the field; a redelivered old event must keep
+  // its original paid meaning rather than being discarded.
+  expect(classifyRevenueCatEvent(makeEvent(), ACTIVE_GRANT_NOW).kind).toBe(
+    "grant",
+  );
+});

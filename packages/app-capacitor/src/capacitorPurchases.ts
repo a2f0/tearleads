@@ -1,12 +1,15 @@
 import { Capacitor } from "@capacitor/core";
 import {
   type CustomerInfo,
+  PURCHASES_ERROR_CODE,
   Purchases,
   type PurchasesPackage,
 } from "@revenuecat/purchases-capacitor";
 import {
   createRevenueCatPurchases,
   createUnavailablePurchases,
+  PurchaseAbortedError,
+  PurchaseCancelledError,
   type PurchasesCapability,
   type RevenueCatBackend,
   type RevenueCatCustomerInfo,
@@ -42,13 +45,46 @@ async function currentPackages(): Promise<PurchasesPackage[]> {
 }
 
 /**
+ * True when the native SDK rejected because the buyer dismissed the store
+ * sheet rather than because the purchase failed.
+ *
+ * The Capacitor bridge serializes RevenueCat's `PurchasesError` across the
+ * native boundary, so what arrives is a plain object — not an `Error` instance
+ * — which is why this reads the shape instead of using `instanceof` the way
+ * the web adapter can. `code` is the documented signal; the deprecated
+ * `userCancelled` flag is still accepted because the iOS and Android bridges
+ * have historically differed on which they populate.
+ */
+function isUserCancelledPurchase(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+  // Narrowed with `in` rather than a cast: production package sources may not
+  // contain type assertions (lint:package-assertions).
+  const hasCancelledCode =
+    "code" in error &&
+    error.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR;
+  return (
+    hasCancelledCode ||
+    ("userCancelled" in error && error.userCancelled === true)
+  );
+}
+
+/**
  * Adapts the native `@revenuecat/purchases-capacitor` plugin to the client-sdk
  * {@link RevenueCatBackend}. Only the normalized surface the sdk consumes is
  * exposed; the sdk owns the configure-once / entitlement-mapping logic.
  */
 const capacitorRevenueCatBackend: RevenueCatBackend = {
-  async configure({ apiKey }) {
-    await Purchases.configure({ apiKey });
+  async configure({ apiKey, appUserId }) {
+    // Configure straight onto the known buyer when the sdk has one. Dropping
+    // it configures anonymously and lets the following logIn alias that
+    // throwaway anonymous id onto the real user, which leaves a stray
+    // anonymous customer in RevenueCat for every fresh install.
+    await Purchases.configure({
+      apiKey,
+      ...(appUserId === undefined ? {} : { appUserID: appUserId }),
+    });
   },
   async logIn({ appUserId }) {
     await Purchases.logIn({ appUserID: appUserId });
@@ -62,15 +98,38 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
   async getCurrentPackages() {
     return (await currentPackages()).map(toRevenueCatPackage);
   },
-  async purchasePackage({ packageId }) {
+  async purchasePackage({ packageId, abortSignal }) {
+    if (abortSignal?.aborted) {
+      throw new PurchaseAbortedError();
+    }
     const aPackage = (await currentPackages()).find(
       (entry) => entry?.identifier === packageId,
     );
+    // The offerings fetch above is the last await before the store sheet goes
+    // up, and a presented StoreKit / Play sheet has no programmatic dismissal.
+    // A caller that abandoned the flow while offerings were loading must not
+    // get a modal purchase sheet for a flow nobody is waiting on any more.
+    // Aborted takes precedence over a missing package so an abandoned flow's
+    // outcome stays a pre-sheet abort, matching webPurchases.ts.
+    if (abortSignal?.aborted) {
+      throw new PurchaseAbortedError();
+    }
     if (!aPackage) {
       throw new Error(`Unknown purchase package: ${packageId}`);
     }
-    const result = await Purchases.purchasePackage({ aPackage });
-    return toRevenueCatCustomerInfo(result?.customerInfo);
+    try {
+      const result = await Purchases.purchasePackage({ aPackage });
+      return toRevenueCatCustomerInfo(result?.customerInfo);
+    } catch (error) {
+      // Backing out of the store sheet is a normal exit, not a failure.
+      // Without this the panel surfaces "Failed to subscribe" and logs an
+      // error every time a buyer dismisses the sheet, because
+      // useSubscribeAction only treats PurchaseCancelledError as a no-op.
+      if (isUserCancelledPurchase(error)) {
+        throw new PurchaseCancelledError();
+      }
+      throw error;
+    }
   },
   async getCustomerInfo() {
     const result = await Purchases.getCustomerInfo();
