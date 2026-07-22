@@ -61,7 +61,7 @@ async function discoverClaim(
     throw new Error("Stripe subscription has no valid organization seat item");
   }
 
-  await runBindOrganizationStripeSeatsWorkflow(
+  const outcome = await runBindOrganizationStripeSeatsWorkflow(
     runtime.db,
     {
       billingPeriodEndsAt: binding.billingPeriodEndsAt,
@@ -75,6 +75,9 @@ async function discoverClaim(
     },
     now,
   );
+  if (outcome.status === "retry") {
+    throw new Error("Stripe subscription replacement order is ambiguous");
+  }
   await completeOrganizationStripeSeatDiscovery({
     claim,
     executor: runtime.db,

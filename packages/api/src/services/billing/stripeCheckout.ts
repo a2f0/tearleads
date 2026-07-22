@@ -323,10 +323,22 @@ async function applyPaidSubscriptionInvoice(input: {
     if (!invoice.invoiceId) {
       return { status: "ignored", reason: "Renewal invoice carries no id" };
     }
-    await runRecordStripeSeatRenewalWorkflow(input.runtime.db, {
+    const outcome = await runRecordStripeSeatRenewalWorkflow(input.runtime.db, {
       ...seatBinding,
       invoiceId: invoice.invoiceId,
     });
+    if (outcome.status === "retry") {
+      return {
+        status: "retry",
+        reason: "Stripe subscription ordering is ambiguous",
+      };
+    }
+    if (outcome.status === "stale") {
+      return {
+        status: "ignored",
+        reason: "Stale Stripe subscription invoice",
+      };
+    }
     return {
       status: "reconciled",
       subscriptionId: invoice.subscriptionId,
@@ -339,7 +351,22 @@ async function applyPaidSubscriptionInvoice(input: {
       reason: "Subscription carries no user binding",
     };
   }
-  await runBindOrganizationStripeSeatsWorkflow(input.runtime.db, seatBinding);
+  const outcome = await runBindOrganizationStripeSeatsWorkflow(
+    input.runtime.db,
+    seatBinding,
+  );
+  if (outcome.status === "retry") {
+    return {
+      status: "retry",
+      reason: "Stripe subscription ordering is ambiguous",
+    };
+  }
+  if (outcome.status === "stale") {
+    return {
+      status: "ignored",
+      reason: "Stale Stripe subscription invoice",
+    };
+  }
   await associateStripeSubscription(
     {
       appUserId: binding.userId,

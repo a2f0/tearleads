@@ -41,9 +41,11 @@ function paidPeriodKey(startsAt: Date, endsAt: Date): string {
 function stripeBinding(input: {
   readonly organizationId: string;
   readonly quantity: number;
+  readonly subscriptionName?: string;
   readonly startsAt: Date;
   readonly endsAt: Date;
 }): StripeSeatBindingInput {
+  const subscriptionName = input.subscriptionName ?? input.organizationId;
   return {
     billingPeriodEndsAt: input.endsAt,
     billingPeriodStartsAt: input.startsAt,
@@ -51,8 +53,8 @@ function stripeBinding(input: {
     organizationId: input.organizationId,
     priceId: "price_sync",
     seatQuantity: input.quantity,
-    subscriptionId: `sub_${input.organizationId}`,
-    subscriptionItemId: `si_${input.organizationId}`,
+    subscriptionId: `sub_${subscriptionName}`,
+    subscriptionItemId: `si_${subscriptionName}`,
   };
 }
 
@@ -204,6 +206,178 @@ test("a same-period invoice cannot erase paid capacity", async () => {
     appliedPaidCapacity: 3,
     desiredPaidCapacity: 3,
     lastInvoiceId: "in_delayed_same_period",
+  });
+});
+
+test("a newer replacement rejects a delayed predecessor invoice", async () => {
+  const organizationId = crypto.randomUUID();
+  const subscriptionNameA = `${organizationId}_a`;
+  const subscriptionNameB = `${organizationId}_b`;
+  await db.insert(organizationBilling).values({
+    currentPeriodEndsAt: OLD_END,
+    currentPeriodStartsAt: OLD_START,
+    organizationId,
+    provider: "revenuecat",
+    providerSubscriptionId: `sub_${subscriptionNameA}`,
+    seatCount: 2,
+    seatPeriodKey: paidPeriodKey(OLD_START, OLD_END),
+    status: "active",
+  });
+  const bindingA = stripeBinding({
+    endsAt: OLD_END,
+    organizationId,
+    quantity: 2,
+    startsAt: OLD_START,
+    subscriptionName: subscriptionNameA,
+  });
+  const bindingB = stripeBinding({
+    endsAt: NEW_END,
+    organizationId,
+    quantity: 2,
+    startsAt: NEW_START,
+    subscriptionName: subscriptionNameB,
+  });
+
+  expect(
+    await runBindOrganizationStripeSeatsWorkflow(db, bindingA, NOW),
+  ).toEqual({ status: "accepted" });
+  expect(
+    await runBindOrganizationStripeSeatsWorkflow(db, bindingB, NOW),
+  ).toEqual({ status: "accepted" });
+  expect(
+    await runRecordStripeSeatRenewalWorkflow(
+      db,
+      { ...bindingB, invoiceId: "in_b" },
+      NOW,
+    ),
+  ).toEqual({ status: "accepted" });
+  expect(
+    await runRecordStripeSeatRenewalWorkflow(
+      db,
+      { ...bindingA, invoiceId: "in_stale_a" },
+      NOW,
+    ),
+  ).toEqual({ status: "stale" });
+
+  expect(await readStripeSeats(organizationId)).toMatchObject({
+    appliedSeatPeriodKey: paidPeriodKey(NEW_START, NEW_END),
+    lastInvoiceId: "in_b",
+    subscriptionId: bindingB.subscriptionId,
+    subscriptionItemId: bindingB.subscriptionItemId,
+  });
+});
+
+test("a concurrent renewal cannot stamp a successor binding", async () => {
+  const organizationId = crypto.randomUUID();
+  const bindingA = stripeBinding({
+    endsAt: OLD_END,
+    organizationId,
+    quantity: 2,
+    startsAt: OLD_START,
+    subscriptionName: `${organizationId}_race_a`,
+  });
+  const bindingB = stripeBinding({
+    endsAt: NEW_END,
+    organizationId,
+    quantity: 2,
+    startsAt: NEW_START,
+    subscriptionName: `${organizationId}_race_b`,
+  });
+  await db.insert(organizationBilling).values({
+    currentPeriodEndsAt: OLD_END,
+    currentPeriodStartsAt: OLD_START,
+    organizationId,
+    provider: "revenuecat",
+    providerSubscriptionId: bindingA.subscriptionId,
+    seatCount: 2,
+    seatPeriodKey: paidPeriodKey(OLD_START, OLD_END),
+    status: "active",
+  });
+  await runBindOrganizationStripeSeatsWorkflow(db, bindingA, NOW);
+
+  const start = Promise.withResolvers<void>();
+  const renewal = (async () => {
+    await start.promise;
+    return runRecordStripeSeatRenewalWorkflow(
+      db,
+      { ...bindingA, invoiceId: "in_racing_a" },
+      NOW,
+    );
+  })();
+  const replacement = (async () => {
+    await start.promise;
+    return runBindOrganizationStripeSeatsWorkflow(db, bindingB, NOW);
+  })();
+  start.resolve();
+  const [renewalOutcome, replacementOutcome] = await Promise.all([
+    renewal,
+    replacement,
+  ]);
+
+  expect(replacementOutcome).toEqual({ status: "accepted" });
+  expect(["accepted", "stale"]).toContain(renewalOutcome.status);
+  expect(await readStripeSeats(organizationId)).toMatchObject({
+    lastInvoiceId: null,
+    subscriptionId: bindingB.subscriptionId,
+    subscriptionItemId: bindingB.subscriptionItemId,
+  });
+});
+
+test("provider item identity tie-breaks an equal-period replacement", async () => {
+  const organizationId = crypto.randomUUID();
+  const subscriptionNameA = `${organizationId}_a`;
+  const subscriptionNameB = `${organizationId}_b`;
+  await db.insert(organizationBilling).values({
+    currentPeriodEndsAt: OLD_END,
+    currentPeriodStartsAt: OLD_START,
+    organizationId,
+    provider: "revenuecat",
+    providerSubscriptionId: `si_${subscriptionNameB}`,
+    seatCount: 2,
+    seatPeriodKey: paidPeriodKey(OLD_START, OLD_END),
+    status: "active",
+  });
+  const bindingA = stripeBinding({
+    endsAt: OLD_END,
+    organizationId,
+    quantity: 2,
+    startsAt: OLD_START,
+    subscriptionName: subscriptionNameA,
+  });
+  const bindingB = stripeBinding({
+    endsAt: OLD_END,
+    organizationId,
+    quantity: 2,
+    startsAt: OLD_START,
+    subscriptionName: subscriptionNameB,
+  });
+
+  // Seed the predecessor as if it predated the provider-identity update.
+  await db.insert(organizationBillingStripeSeats).values({
+    appliedPaidCapacity: 2,
+    appliedSeatPeriodKey: paidPeriodKey(OLD_START, OLD_END),
+    billingPeriodEndsAt: OLD_END,
+    billingPeriodStartsAt: OLD_START,
+    desiredPaidCapacity: 2,
+    desiredRenewalQuantity: 2,
+    desiredRevision: 1,
+    desiredSeatPeriodKey: paidPeriodKey(OLD_START, OLD_END),
+    nextAttemptAt: NOW,
+    organizationId,
+    priceId: bindingA.priceId,
+    subscriptionId: bindingA.subscriptionId,
+    subscriptionItemId: bindingA.subscriptionItemId,
+  });
+
+  expect(
+    await runBindOrganizationStripeSeatsWorkflow(db, bindingB, NOW),
+  ).toEqual({ status: "accepted" });
+  expect(
+    await runBindOrganizationStripeSeatsWorkflow(db, bindingA, NOW),
+  ).toEqual({ status: "stale" });
+  expect(await readStripeSeats(organizationId)).toMatchObject({
+    subscriptionId: bindingB.subscriptionId,
+    subscriptionItemId: bindingB.subscriptionItemId,
   });
 });
 

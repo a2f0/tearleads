@@ -6,10 +6,11 @@ import {
   organizationBilling,
   organizationBillingStripeSeats,
 } from "@tearleads/api-shared/schema";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { organizationSeatPeriodKey } from "../../billing/organizationBilling";
 import { normalizeStripeSeatQuantity } from "../../billing/stripeSeatQuantity";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
+import { resolveStripeSeatBindingOrder } from "./stripeSeatBindingOrder";
 
 export interface StripeSeatBindingInput {
   readonly billingPeriodEndsAt: Date | null;
@@ -22,6 +23,11 @@ export interface StripeSeatBindingInput {
   readonly subscriptionItemId: string;
 }
 
+type StripeSeatBindingOutcome =
+  | { readonly status: "accepted" }
+  | { readonly status: "retry" }
+  | { readonly status: "stale" };
+
 type StripeSeatStateRow = typeof organizationBillingStripeSeats.$inferSelect;
 
 function resolveBindingState(
@@ -31,9 +37,9 @@ function resolveBindingState(
   },
   current: StripeSeatStateRow | undefined,
   binding: StripeSeatBindingInput,
+  bindingPeriodKey: string,
 ) {
   const bindingQuantity = normalizeStripeSeatQuantity(binding.seatQuantity);
-  const bindingPeriodKey = paidSeatPeriodKey(binding);
   const sameSubscription = current?.subscriptionId === binding.subscriptionId;
   const sameAppliedPeriod =
     sameSubscription && current?.appliedSeatPeriodKey === bindingPeriodKey;
@@ -177,81 +183,104 @@ export async function requestOrganizationStripeSeatSync(input: {
     });
 }
 
+async function bindOrganizationStripeSeatsInTransaction(
+  executor: DatabaseSession,
+  binding: StripeSeatBindingInput,
+  now: Date,
+): Promise<StripeSeatBindingOutcome> {
+  const billingQuery = executor
+    .select({
+      providerSubscriptionId: organizationBilling.providerSubscriptionId,
+      seatCount: organizationBilling.seatCount,
+      seatPeriodKey: organizationBilling.seatPeriodKey,
+    })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, binding.organizationId))
+    .limit(1);
+  const [billing] = isSqliteApiDatabase()
+    ? await billingQuery
+    : await billingQuery.for("update", { of: organizationBilling });
+  if (!billing) {
+    throw new Error("Organization billing not found for Stripe subscription");
+  }
+
+  const [current] = await executor
+    .select()
+    .from(organizationBillingStripeSeats)
+    .where(
+      eq(organizationBillingStripeSeats.organizationId, binding.organizationId),
+    )
+    .limit(1);
+  const bindingPeriodKey = paidSeatPeriodKey(binding);
+  const bindingOrder = resolveStripeSeatBindingOrder({
+    billingProviderSubscriptionId: billing.providerSubscriptionId,
+    candidate: binding,
+    current,
+  });
+  if (bindingOrder !== "accepted") {
+    return { status: bindingOrder };
+  }
+  const state = resolveBindingState(
+    billing,
+    current,
+    binding,
+    bindingPeriodKey,
+  );
+
+  if (!current) {
+    await executor.insert(organizationBillingStripeSeats).values({
+      ...binding,
+      appliedPaidCapacity: state.appliedPaidCapacity,
+      desiredPaidCapacity: state.desiredPaidCapacity,
+      desiredRenewalQuantity: state.desiredRenewalQuantity,
+      desiredRevision: 1,
+      desiredSeatPeriodKey: state.bindingPeriodKey,
+      nextAttemptAt: now,
+      observedQuantity: state.bindingQuantity,
+      appliedSeatPeriodKey: state.bindingPeriodKey,
+      updatedAt: now,
+    });
+    return { status: "accepted" };
+  }
+
+  const sameSubscription = current.subscriptionId === binding.subscriptionId;
+  await executor
+    .update(organizationBillingStripeSeats)
+    .set({
+      appliedPaidCapacity: state.appliedPaidCapacity,
+      billingPeriodEndsAt: binding.billingPeriodEndsAt,
+      billingPeriodStartsAt: binding.billingPeriodStartsAt,
+      customerId: binding.customerId,
+      desiredPaidCapacity: state.desiredPaidCapacity,
+      desiredRenewalQuantity: state.desiredRenewalQuantity,
+      desiredRevision: current.desiredRevision + 1,
+      desiredSeatPeriodKey: state.bindingPeriodKey,
+      inFlightOperationId: state.inFlightOperationId,
+      inFlightTargetCapacity: state.inFlightTargetCapacity,
+      lastInvoiceId: sameSubscription ? current.lastInvoiceId : null,
+      leaseExpiresAt: state.leaseExpiresAt,
+      leaseId: state.leaseId,
+      nextAttemptAt: now,
+      observedQuantity: state.bindingQuantity,
+      priceId: binding.priceId,
+      appliedSeatPeriodKey: state.bindingPeriodKey,
+      subscriptionId: binding.subscriptionId,
+      subscriptionItemId: binding.subscriptionItemId,
+      updatedAt: now,
+    })
+    .where(eq(organizationBillingStripeSeats.id, current.id));
+  return { status: "accepted" };
+}
+
 /** Persists the exact Stripe subscription item before RevenueCat association. */
 export async function runBindOrganizationStripeSeatsWorkflow(
   db: ApiDatabase,
   binding: StripeSeatBindingInput,
   now: Date = new Date(),
-): Promise<void> {
-  await db.transaction(async (tx) => {
-    const billingQuery = tx
-      .select({
-        seatCount: organizationBilling.seatCount,
-        seatPeriodKey: organizationBilling.seatPeriodKey,
-      })
-      .from(organizationBilling)
-      .where(eq(organizationBilling.organizationId, binding.organizationId))
-      .limit(1);
-    const [billing] = isSqliteApiDatabase()
-      ? await billingQuery
-      : await billingQuery.for("update", { of: organizationBilling });
-    if (!billing) {
-      throw new Error("Organization billing not found for Stripe subscription");
-    }
-
-    const [current] = await tx
-      .select()
-      .from(organizationBillingStripeSeats)
-      .where(
-        eq(
-          organizationBillingStripeSeats.organizationId,
-          binding.organizationId,
-        ),
-      )
-      .limit(1);
-    const state = resolveBindingState(billing, current, binding);
-
-    if (!current) {
-      await tx.insert(organizationBillingStripeSeats).values({
-        ...binding,
-        appliedPaidCapacity: state.appliedPaidCapacity,
-        desiredPaidCapacity: state.desiredPaidCapacity,
-        desiredRenewalQuantity: state.desiredRenewalQuantity,
-        desiredRevision: 1,
-        desiredSeatPeriodKey: state.bindingPeriodKey,
-        nextAttemptAt: now,
-        observedQuantity: state.bindingQuantity,
-        appliedSeatPeriodKey: state.bindingPeriodKey,
-        updatedAt: now,
-      });
-      return;
-    }
-
-    await tx
-      .update(organizationBillingStripeSeats)
-      .set({
-        appliedPaidCapacity: state.appliedPaidCapacity,
-        billingPeriodEndsAt: binding.billingPeriodEndsAt,
-        billingPeriodStartsAt: binding.billingPeriodStartsAt,
-        customerId: binding.customerId,
-        desiredPaidCapacity: state.desiredPaidCapacity,
-        desiredRenewalQuantity: state.desiredRenewalQuantity,
-        desiredRevision: current.desiredRevision + 1,
-        desiredSeatPeriodKey: state.bindingPeriodKey,
-        inFlightOperationId: state.inFlightOperationId,
-        inFlightTargetCapacity: state.inFlightTargetCapacity,
-        leaseExpiresAt: state.leaseExpiresAt,
-        leaseId: state.leaseId,
-        nextAttemptAt: now,
-        observedQuantity: state.bindingQuantity,
-        priceId: binding.priceId,
-        appliedSeatPeriodKey: state.bindingPeriodKey,
-        subscriptionId: binding.subscriptionId,
-        subscriptionItemId: binding.subscriptionItemId,
-        updatedAt: now,
-      })
-      .where(eq(organizationBillingStripeSeats.id, current.id));
-  });
+): Promise<StripeSeatBindingOutcome> {
+  return db.transaction((tx) =>
+    bindOrganizationStripeSeatsInTransaction(tx, binding, now),
+  );
 }
 
 /** Records the invoice after the binding establishes its provider period. */
@@ -259,22 +288,35 @@ export async function runRecordStripeSeatRenewalWorkflow(
   db: ApiDatabase,
   input: StripeSeatBindingInput & { readonly invoiceId: string },
   now: Date = new Date(),
-): Promise<void> {
-  await runBindOrganizationStripeSeatsWorkflow(db, input, now);
-  await db.transaction(async (tx) => {
-    const [current] = await tx
-      .select()
-      .from(organizationBillingStripeSeats)
-      .where(
-        eq(organizationBillingStripeSeats.organizationId, input.organizationId),
-      )
-      .limit(1);
-    if (!current || current.lastInvoiceId === input.invoiceId) {
-      return;
+): Promise<StripeSeatBindingOutcome> {
+  return db.transaction(async (tx) => {
+    const outcome = await bindOrganizationStripeSeatsInTransaction(
+      tx,
+      input,
+      now,
+    );
+    if (outcome.status !== "accepted") {
+      return outcome;
     }
     await tx
       .update(organizationBillingStripeSeats)
       .set({ lastInvoiceId: input.invoiceId, updatedAt: now })
-      .where(eq(organizationBillingStripeSeats.id, current.id));
+      .where(
+        and(
+          eq(
+            organizationBillingStripeSeats.organizationId,
+            input.organizationId,
+          ),
+          eq(
+            organizationBillingStripeSeats.subscriptionId,
+            input.subscriptionId,
+          ),
+          eq(
+            organizationBillingStripeSeats.subscriptionItemId,
+            input.subscriptionItemId,
+          ),
+        ),
+      );
+    return outcome;
   });
 }

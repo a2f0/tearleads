@@ -13,6 +13,11 @@ import type { StripeApiDeps } from "../../billing/stripeApi";
 
 type StripeResolutionSource = "durable" | "legacy_metadata" | "provider";
 
+export type StripeStoreTransitionIntent =
+  | "continuing_grant"
+  | "initial_grant"
+  | "revoke";
+
 export type ImmutableStripeStoreOrgResolution =
   | {
       kind: "resolved";
@@ -180,6 +185,7 @@ export async function validateLockedStripeStoreOrganizationId(input: {
   readonly billing: LockedBillingIdentity;
   readonly event: RevenueCatWebhookEvent;
   readonly executor: DatabaseSession;
+  readonly intent: StripeStoreTransitionIntent;
   readonly resolution: Extract<
     ImmutableStripeStoreOrgResolution,
     { kind: "resolved" }
@@ -208,10 +214,14 @@ export async function validateLockedStripeStoreOrganizationId(input: {
     return false;
   }
   if (input.resolution.source === "legacy_metadata") {
-    return (
+    const matchesCurrentIdentity =
       input.billing.providerSubscriptionId === identifier &&
-      input.billing.providerCustomerId === input.event.app_user_id
-    );
+      input.billing.providerCustomerId === input.event.app_user_id;
+    const isUnboundInitialGrant =
+      input.intent === "initial_grant" &&
+      input.billing.providerSubscriptionId === null &&
+      input.billing.providerCustomerId === null;
+    return matchesCurrentIdentity || isUnboundInitialGrant;
   }
   return (
     (input.billing.providerSubscriptionId === null ||

@@ -97,7 +97,7 @@ async function rebindAdvancedPeriod(
   binding: ValidSeatBinding,
   now: Date,
 ): Promise<never> {
-  await runBindOrganizationStripeSeatsWorkflow(
+  const outcome = await runBindOrganizationStripeSeatsWorkflow(
     runtime.db,
     {
       billingPeriodEndsAt: binding.billingPeriodEndsAt,
@@ -111,6 +111,9 @@ async function rebindAdvancedPeriod(
     },
     now,
   );
+  if (outcome.status === "retry") {
+    throw new Error("Stripe subscription replacement order is ambiguous");
+  }
   await releaseOrganizationStripeSeatSyncClaim({
     claim,
     executor: runtime.db,

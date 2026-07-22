@@ -77,11 +77,11 @@ The route authenticates a shared secret sent in the `Authorization` header again
 Grant events update the organization's active billing period and reconcile its
 effective Members roster; revoke events disable sync. For Stripe-store events,
 the webhook first resolves exact `sub_…`/`si_…` IDs through the durable seat
-binding, with exact Stripe subscription metadata as the `sub_…` fallback. An
-unbound legacy event with one `si_…` may use immutable UUID transaction
-`metadata.orgId`. Mutable customer attributes are never trusted; other
-unresolved state changes return 503 unclaimed for retry. Event quantities never
-update Stripe seats.
+binding, with exact Stripe subscription metadata as the `sub_…` fallback. A
+lone legacy `si_…` may use immutable UUID `metadata.orgId` only for a matching
+identity or an unbound admin's initial purchase. Mutable attributes are never
+trusted; other unresolved state changes return 503 unclaimed for retry. Event
+quantities never update Stripe seats.
 
 - The server value comes from `.secrets/root.env` and is rendered into the API
   server's systemd `EnvironmentFile` by the ansible playbook

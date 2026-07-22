@@ -23,11 +23,13 @@ const REVENUECAT_ENV = {
   REVENUECAT_STRIPE_PUBLIC_API_KEY: "strp_pub",
 };
 
-async function createWebhookBillingOrganization(): Promise<void> {
+async function createWebhookBillingOrganization(
+  organizationId: string = ORG_ID,
+): Promise<void> {
   await db
     .insert(organizations)
     .values({
-      id: ORG_ID,
+      id: organizationId,
       adminGroupId: "22222222-2222-4222-8222-222222222222",
       memberGroupId: "33333333-3333-4333-8333-333333333333",
       name: "Webhook organization",
@@ -36,7 +38,7 @@ async function createWebhookBillingOrganization(): Promise<void> {
   await db
     .insert(organizationBilling)
     .values({
-      organizationId: ORG_ID,
+      organizationId,
       seatCount: 2,
       status: "trialing",
       trialEndsAt: new Date("2026-08-01T00:00:00.000Z"),
@@ -48,18 +50,21 @@ function stripeSubscriptionBody(
   quantity = 2,
   periodStart = 1_783_036_800,
   periodEnd = 1_785_715_200,
+  subscriptionId = "sub_1",
+  subscriptionItemId = "si_1",
+  organizationId = ORG_ID,
 ) {
   return {
-    id: "sub_1",
+    id: subscriptionId,
     status: "active",
     customer: "cus_1",
     current_period_start: periodStart,
     current_period_end: periodEnd,
-    metadata: { userId: "user-1", orgId: ORG_ID },
+    metadata: { userId: "user-1", orgId: organizationId },
     items: {
       data: [
         {
-          id: "si_1",
+          id: subscriptionItemId,
           quantity,
           price: { id: "price_sync" },
         },
@@ -188,4 +193,187 @@ test("renewal invoices reset the Stripe paid-capacity baseline", async () => {
     .where(eq(organizationBillingStripeSeats.organizationId, ORG_ID));
   expect(stripeSeats?.appliedPaidCapacity).toBe(1);
   expect(stripeSeats?.lastInvoiceId).toBe("in_renewal");
+});
+
+test("a delayed predecessor cannot replace or associate after its successor", async () => {
+  const organizationId = crypto.randomUUID();
+  await createWebhookBillingOrganization(organizationId);
+  const urls: string[] = [];
+  async function deliver(
+    event: unknown,
+    subscriptionBody: ReturnType<typeof stripeSubscriptionBody>,
+  ) {
+    return processStripeWebhook(
+      getDefaultApiServiceRuntime(),
+      signedDelivery(event),
+      {
+        stripe: {
+          env: STRIPE_ENV,
+          fetchImpl: respondingFetch([{ body: subscriptionBody }], urls),
+        },
+        revenueCat: {
+          env: REVENUECAT_ENV,
+          fetchImpl: respondingFetch(
+            [{ body: {} }, { body: {} }, { body: {} }],
+            urls,
+          ),
+        },
+      },
+    );
+  }
+
+  const subscriptionIdA = `sub_${organizationId}_a`;
+  const subscriptionItemIdA = `si_${organizationId}_a`;
+  const subscriptionIdB = `sub_${organizationId}_b`;
+  const subscriptionItemIdB = `si_${organizationId}_b`;
+  const subscriptionIdC = `sub_${organizationId}_c`;
+  const subscriptionItemIdC = `si_${organizationId}_c`;
+  const subscriptionA = stripeSubscriptionBody(
+    2,
+    1_783_036_800,
+    1_785_715_200,
+    subscriptionIdA,
+    subscriptionItemIdA,
+    organizationId,
+  );
+  const subscriptionB = stripeSubscriptionBody(
+    2,
+    1_785_715_200,
+    1_788_393_600,
+    subscriptionIdB,
+    subscriptionItemIdB,
+    organizationId,
+  );
+  const subscriptionC = stripeSubscriptionBody(
+    2,
+    1_785_715_200,
+    1_788_393_600,
+    subscriptionIdC,
+    subscriptionItemIdC,
+    organizationId,
+  );
+  expect(
+    await deliver(
+      {
+        type: "invoice.paid",
+        data: {
+          object: {
+            billing_reason: "subscription_create",
+            subscription: subscriptionIdA,
+          },
+        },
+      },
+      subscriptionA,
+    ),
+  ).toEqual({
+    status: "associated",
+    subscriptionId: subscriptionIdA,
+    organizationId,
+  });
+  expect(
+    await deliver(
+      {
+        type: "invoice.paid",
+        data: {
+          object: {
+            billing_reason: "subscription_create",
+            subscription: subscriptionIdB,
+          },
+        },
+      },
+      subscriptionB,
+    ),
+  ).toEqual({
+    status: "associated",
+    subscriptionId: subscriptionIdB,
+    organizationId,
+  });
+  expect(
+    await deliver(
+      {
+        type: "invoice.paid",
+        data: {
+          object: {
+            billing_reason: "subscription_cycle",
+            id: "in_b",
+            subscription: subscriptionIdB,
+          },
+        },
+      },
+      subscriptionB,
+    ),
+  ).toEqual({
+    status: "reconciled",
+    subscriptionId: subscriptionIdB,
+    organizationId,
+  });
+
+  expect(
+    await deliver(
+      {
+        type: "invoice.paid",
+        data: {
+          object: {
+            billing_reason: "subscription_create",
+            subscription: subscriptionIdC,
+          },
+        },
+      },
+      subscriptionC,
+    ),
+  ).toEqual({
+    status: "retry",
+    reason: "Stripe subscription ordering is ambiguous",
+  });
+  const revenueCatCallsBeforeStale = urls.filter((url) =>
+    url.includes("api.revenuecat.com"),
+  ).length;
+
+  const staleInitial = await deliver(
+    {
+      type: "invoice.paid",
+      data: {
+        object: {
+          billing_reason: "subscription_create",
+          subscription: subscriptionIdA,
+        },
+      },
+    },
+    subscriptionA,
+  );
+  const staleRenewal = await deliver(
+    {
+      type: "invoice.paid",
+      data: {
+        object: {
+          billing_reason: "subscription_cycle",
+          id: "in_stale_a",
+          subscription: subscriptionIdA,
+        },
+      },
+    },
+    subscriptionA,
+  );
+  expect(staleInitial).toEqual({
+    status: "ignored",
+    reason: "Stale Stripe subscription invoice",
+  });
+  expect(staleRenewal).toEqual({
+    status: "ignored",
+    reason: "Stale Stripe subscription invoice",
+  });
+
+  const [stripeSeats] = await db
+    .select()
+    .from(organizationBillingStripeSeats)
+    .where(eq(organizationBillingStripeSeats.organizationId, organizationId));
+  expect(stripeSeats).toMatchObject({
+    lastInvoiceId: "in_b",
+    subscriptionId: subscriptionIdB,
+    subscriptionItemId: subscriptionItemIdB,
+  });
+  expect(revenueCatCallsBeforeStale).toBe(6);
+  expect(urls.filter((url) => url.includes("api.revenuecat.com"))).toHaveLength(
+    revenueCatCallsBeforeStale,
+  );
 });
