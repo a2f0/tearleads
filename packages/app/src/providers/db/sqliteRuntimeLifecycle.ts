@@ -9,9 +9,16 @@ import {
   isBootRoundTripTimeoutError,
 } from "./bootSQLiteRuntime";
 import type { ResolveSqliteCipherKey } from "./sqliteCipherKey";
+import {
+  canReuseSQLiteRuntime,
+  logSQLiteRuntimeReuseUnavailable,
+  type ReusableSQLiteRuntime,
+  renewReusableSQLiteRuntime,
+  resetReusableSQLiteRuntimeDatabase,
+  SQLiteRuntimeResetError,
+} from "./sqliteRuntimeRetention";
 
 type SQLiteRuntimeStatus = DatabaseStatus;
-const SQLITE_RUNTIME_RELEASE_TIMEOUT_MS = 1_000;
 
 /**
  * Whether a boot error is "the persisted database could not be decrypted with the
@@ -29,35 +36,6 @@ function isUnreadableDatabaseError(error: unknown): boolean {
     message.includes("file is not a database") ||
     /result code 26\b/.test(message)
   );
-}
-
-export function releaseSQLiteRuntime(runtime: SQLiteRuntime): Promise<void> {
-  return new Promise((resolve) => {
-    let settled = false;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    const finish = () => {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      try {
-        runtime.terminateNow();
-      } finally {
-        resolve();
-      }
-    };
-
-    timeoutId = setTimeout(finish, SQLITE_RUNTIME_RELEASE_TIMEOUT_MS);
-    try {
-      runtime.client.close().then(finish, finish);
-    } catch {
-      finish();
-    }
-  });
 }
 
 function configureSdkSQLiteRuntime(
@@ -107,14 +85,14 @@ function failSQLiteRuntimeBoot(params: {
 
   bootingRef.current = false;
   console.error("Failed to initialize database worker:", error);
-  configureSdkSQLiteRuntime(tearleads, runtime, "error");
+  tearleads.database.clear("error");
 }
 
 interface StartSQLiteRuntimeBootParams {
+  bootGenerationRef: RefObject<number>;
   bootingRef: RefObject<boolean>;
   createSQLiteRuntime: () => SQLiteRuntime;
   currentDbNameRef: RefObject<string | null>;
-  killedRef: RefObject<boolean>;
   log: (message: string) => void;
   nextDbName: string;
   /**
@@ -139,14 +117,159 @@ interface StartSQLiteRuntimeBootParams {
   runtimeRef: RefObject<SQLiteRuntime | null>;
   targetDbNameRef: RefObject<string>;
   tearleads: Tearleads;
+  /**
+   * Reuse an already-running worker for a database-name change instead of
+   * tearing it down and constructing a new one. When a live runtime exists and
+   * its database differs from `nextDbName`, close the current database (which
+   * releases its OPFS SAHPool handles inside the worker) and re-init the SAME
+   * worker onto the new database. Only safe for a dedicated worker: a cross-tab
+   * client's `close` stops the shared owner, so this must stay off there. Native
+   * WebView shells set it because constructing a *second* worker fails on a
+   * WebView (a cross-tab owner re-election never answers `init`; a fresh
+   * dedicated module Worker errors on construction) — the second-identity
+   * provisioning hang.
+   */
+  reuseWorker?: boolean;
 }
 
-export function startSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
+// Wires a boot promise (a fresh runtime's boot, or a reused runtime's
+// close+re-init) to the shared completion/recovery handling.
+interface SettleSQLiteRuntimeBootParams {
+  bootGeneration: number;
+  bootGenerationRef: RefObject<number>;
+  bootPromise: Promise<void>;
+  runtime: SQLiteRuntime;
+  runtimeRef: RefObject<SQLiteRuntime | null>;
+  bootingRef: RefObject<boolean>;
+  targetDbNameRef: RefObject<string>;
+  tearleads: Tearleads;
+  dbName: string;
+  persistence: DatabasePersistenceMode;
+  log: (message: string) => void;
+  onUnreadableDatabase?: ((dbName: string) => void) | undefined;
+  onTransientBootFailure?: ((dbName: string) => boolean) | undefined;
+  onBootSucceeded?: ((dbName: string) => void) | undefined;
+  // Re-run a boot for `dbName` on the reused worker. Called after this boot
+  // settles if the target changed while it was in flight (see below).
+  rebootForDbName: (dbName: string) => void;
+}
+
+function isCurrentSQLiteRuntimeBoot(
+  params: SettleSQLiteRuntimeBootParams,
+): boolean {
+  return (
+    params.runtimeRef.current === params.runtime &&
+    params.bootGenerationRef.current === params.bootGeneration
+  );
+}
+
+function handleSQLiteRuntimeBootFailure(
+  params: SettleSQLiteRuntimeBootParams,
+  error: unknown,
+): void {
+  if (!isCurrentSQLiteRuntimeBoot(params)) {
+    return;
+  }
+
+  if (error instanceof SQLiteRuntimeResetError) {
+    params.runtimeRef.current = null;
+    params.bootingRef.current = false;
+    console.error("Failed to reset reusable database worker:", error);
+    if (params.targetDbNameRef.current !== params.dbName) {
+      params.tearleads.database.clear("idle");
+      params.rebootForDbName(params.targetDbNameRef.current);
+    } else {
+      params.tearleads.database.clear("error");
+    }
+    return;
+  }
+
+  if (params.targetDbNameRef.current !== params.dbName) {
+    params.bootingRef.current = false;
+    params.tearleads.database.clear("idle");
+    params.rebootForDbName(params.targetDbNameRef.current);
+    return;
+  }
+
+  if (
+    params.persistence !== "memory" &&
+    params.onUnreadableDatabase &&
+    isUnreadableDatabaseError(error)
+  ) {
+    params.bootingRef.current = false;
+    params.log(
+      `Database is unreadable with the resolved cipher key (${
+        error instanceof Error ? error.message : String(error)
+      }); wiping and recreating ${params.dbName}.`,
+    );
+    params.onUnreadableDatabase(params.dbName);
+    return;
+  }
+
+  if (
+    params.onTransientBootFailure &&
+    isBootRoundTripTimeoutError(error) &&
+    params.onTransientBootFailure(params.dbName)
+  ) {
+    params.bootingRef.current = false;
+    return;
+  }
+
+  failSQLiteRuntimeBoot({
+    runtime: params.runtime,
+    runtimeRef: params.runtimeRef,
+    bootingRef: params.bootingRef,
+    tearleads: params.tearleads,
+    error,
+  });
+}
+
+function settleSQLiteRuntimeBoot(params: SettleSQLiteRuntimeBootParams) {
   const {
+    bootPromise,
+    runtime,
+    runtimeRef,
+    bootingRef,
+    targetDbNameRef,
+    tearleads,
+    dbName,
+    log,
+    onBootSucceeded,
+    rebootForDbName,
+  } = params;
+
+  bootPromise
+    .then(() => {
+      if (!isCurrentSQLiteRuntimeBoot(params)) {
+        return;
+      }
+
+      onBootSucceeded?.(dbName);
+      if (targetDbNameRef.current !== dbName) {
+        bootingRef.current = false;
+        tearleads.database.clear("idle");
+        rebootForDbName(targetDbNameRef.current);
+        return;
+      }
+
+      completeSQLiteRuntimeBoot({
+        runtime,
+        runtimeRef,
+        bootingRef,
+        tearleads,
+        dbName,
+        log,
+      });
+    })
+    .catch((error) => handleSQLiteRuntimeBootFailure(params, error));
+}
+
+function startFreshSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
+  const {
+    bootGenerationRef,
     bootingRef,
     createSQLiteRuntime,
     currentDbNameRef,
-    killedRef,
     log,
     nextDbName,
     onUnreadableDatabase,
@@ -159,11 +282,6 @@ export function startSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
     tearleads,
   } = params;
 
-  if (runtimeRef.current || bootingRef.current) {
-    return;
-  }
-
-  killedRef.current = false;
   bootingRef.current = true;
   targetDbNameRef.current = nextDbName;
   currentDbNameRef.current = nextDbName;
@@ -171,77 +289,163 @@ export function startSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
   try {
     const runtime = createSQLiteRuntime();
     runtimeRef.current = runtime;
-    configureSdkSQLiteRuntime(tearleads, runtime, "idle");
+    tearleads.database.clear("idle");
 
-    void bootSQLiteRuntime(
+    settleSQLiteRuntimeBoot({
+      bootGeneration: bootGenerationRef.current,
+      bootGenerationRef,
+      bootPromise: bootSQLiteRuntime(
+        runtime,
+        nextDbName,
+        persistence,
+        resolveCipherKey,
+        log,
+      ),
       runtime,
-      nextDbName,
+      runtimeRef,
+      bootingRef,
+      targetDbNameRef,
+      tearleads,
+      dbName: nextDbName,
       persistence,
-      resolveCipherKey,
       log,
-    )
-      .then(() => {
-        completeSQLiteRuntimeBoot({
-          runtime,
-          runtimeRef,
-          bootingRef,
-          tearleads,
-          dbName: nextDbName,
-          log,
-        });
-        // The boot resolved without throwing, so clear any transient-failure
-        // budget accrued for this db name before its next race.
-        onBootSucceeded?.(nextDbName);
-      })
-      .catch((error) => {
-        // A persisted db that cannot be decrypted with the resolved key is not a
-        // retryable boot flake — the ciphertext is unrecoverable without the lost
-        // key. Hand off to recovery (wipe + recreate once), which owns the status,
-        // instead of flipping to "error" (which would flash an error in the UI and
-        // strand the user on an unreadable database forever).
-        if (
-          runtimeRef.current === runtime &&
-          persistence !== "memory" &&
-          onUnreadableDatabase &&
-          isUnreadableDatabaseError(error)
-        ) {
-          bootingRef.current = false;
-          log(
-            `Database is unreadable with the resolved cipher key (${
-              error instanceof Error ? error.message : String(error)
-            }); wiping and recreating ${nextDbName}.`,
-          );
-          onUnreadableDatabase(nextDbName);
-          return;
-        }
-
-        // A boot round-trip that never answered is the teardown/respawn race, not
-        // a real init failure. Hand off to recovery (tear the stuck worker down +
-        // re-spawn, bounded) instead of flipping to "error" and stranding the app
-        // keyless. Once the budget is exhausted the handler returns false and we
-        // fall through to the normal error path — which, unlike the recovery's own
-        // teardown, keeps the db name set so a waiting ensureIdentityReady rejects.
-        if (
-          runtimeRef.current === runtime &&
-          onTransientBootFailure &&
-          isBootRoundTripTimeoutError(error) &&
-          onTransientBootFailure(nextDbName)
-        ) {
-          bootingRef.current = false;
-          return;
-        }
-
-        failSQLiteRuntimeBoot({
-          runtime,
-          runtimeRef,
-          bootingRef,
-          tearleads,
-          error,
-        });
-      });
+      onUnreadableDatabase,
+      onTransientBootFailure,
+      onBootSucceeded,
+      rebootForDbName: (next) =>
+        startSQLiteRuntimeBoot({ ...params, nextDbName: next }),
+    });
   } catch (error) {
     bootingRef.current = false;
     console.error("Failed to create database worker:", error);
     tearleads.database.clear("error");
   }
+}
+
+// Boot a retained worker onto a database. An identity switch closes the outgoing
+// database first; an explicit clear has already closed it and renewed the client,
+// so that path can boot the fresh connection directly.
+function bootReusableSQLiteRuntimeForDbName(
+  params: StartSQLiteRuntimeBootParams,
+  existingRuntime: ReusableSQLiteRuntime,
+  resetDatabase: boolean,
+) {
+  const {
+    bootGenerationRef,
+    bootingRef,
+    currentDbNameRef,
+    log,
+    nextDbName,
+    onUnreadableDatabase,
+    onTransientBootFailure,
+    onBootSucceeded,
+    persistence,
+    resolveCipherKey,
+    runtimeRef,
+    targetDbNameRef,
+    tearleads,
+  } = params;
+
+  bootingRef.current = true;
+  targetDbNameRef.current = nextDbName;
+  currentDbNameRef.current = nextDbName;
+  // Detach the outgoing client while retaining the worker privately for reuse.
+  tearleads.database.clear("idle");
+
+  const bootPromise = (async () => {
+    if (resetDatabase) {
+      // Never proceed after a rejected or timed-out close: that could leave the
+      // decrypted outgoing database open beside the replacement connection.
+      await resetReusableSQLiteRuntimeDatabase(existingRuntime, "close");
+      if (runtimeRef.current !== existingRuntime) {
+        return;
+      }
+      renewReusableSQLiteRuntime(existingRuntime);
+    }
+    if (runtimeRef.current !== existingRuntime) {
+      return;
+    }
+    await bootSQLiteRuntime(
+      existingRuntime,
+      nextDbName,
+      persistence,
+      resolveCipherKey,
+      log,
+    );
+  })();
+
+  settleSQLiteRuntimeBoot({
+    bootGeneration: bootGenerationRef.current,
+    bootGenerationRef,
+    bootPromise,
+    runtime: existingRuntime,
+    runtimeRef,
+    bootingRef,
+    targetDbNameRef,
+    tearleads,
+    dbName: nextDbName,
+    persistence,
+    log,
+    onUnreadableDatabase,
+    onTransientBootFailure,
+    onBootSucceeded,
+    rebootForDbName: (next) =>
+      startSQLiteRuntimeBoot({ ...params, nextDbName: next }),
+  });
+}
+
+export function startSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
+  const {
+    bootGenerationRef,
+    bootingRef,
+    currentDbNameRef,
+    log,
+    nextDbName,
+    runtimeRef,
+    tearleads,
+    reuseWorker,
+  } = params;
+
+  if (bootingRef.current) {
+    return;
+  }
+
+  bootGenerationRef.current += 1;
+
+  const existingRuntime = runtimeRef.current;
+  if (existingRuntime) {
+    // If the SDK was detached without resetting a runtime that still owns this
+    // database, reattach it instead of waiting for an unnecessary boot.
+    if (currentDbNameRef.current === nextDbName) {
+      if (
+        !bootingRef.current &&
+        (tearleads.database.status !== "ready" ||
+          tearleads.database.client !== existingRuntime.client)
+      ) {
+        configureSdkSQLiteRuntime(tearleads, existingRuntime);
+      }
+      return;
+    }
+
+    if (canReuseSQLiteRuntime(Boolean(reuseWorker), existingRuntime)) {
+      bootReusableSQLiteRuntimeForDbName(
+        params,
+        existingRuntime,
+        currentDbNameRef.current !== null,
+      );
+      return;
+    }
+
+    if (reuseWorker) {
+      logSQLiteRuntimeReuseUnavailable(true, existingRuntime, log);
+      existingRuntime.terminateNow();
+      runtimeRef.current = null;
+      currentDbNameRef.current = null;
+      tearleads.database.clear("idle");
+      startSQLiteRuntimeBoot(params);
+    }
+    return;
+  }
+
+  startFreshSQLiteRuntimeBoot(params);
 }

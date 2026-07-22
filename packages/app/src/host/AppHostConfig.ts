@@ -223,6 +223,17 @@ export interface AppHostConfigOptions {
   readonly navigationMode?: AppNavigationMode | undefined;
   readonly profile?: AppHostProfile | undefined;
   readonly readNativeBuildNumber?: ReadNativeBuildNumberFn | undefined;
+  /**
+   * Reuse one long-lived SQLite worker across identity (database) switches by
+   * closing the current database and re-initializing the same worker onto the
+   * next one, instead of tearing the worker down and constructing a new one.
+   * Only native WebView shells (Capacitor) set this, and only alongside a
+   * dedicated worker: constructing a *second* worker fails on a WebView (a
+   * cross-tab owner re-election never answers `init`; a fresh dedicated module
+   * Worker errors on construction), which wedged provisioning of a second local
+   * identity. The multi-tab web shell keeps the default cross-tab teardown.
+   */
+  readonly reuseDatabaseWorker?: boolean | undefined;
   readonly storagePersistence?: StoragePersistencePolicy | undefined;
   readonly wsUrl: string;
 }
@@ -279,6 +290,13 @@ export class AppHostConfig {
      * saver.
      */
     readonly createFileSaver?: CreateFileSaverFn | undefined,
+    /**
+     * Reuse one long-lived SQLite worker across identity/database switches
+     * instead of tearing it down and constructing a new one (see
+     * {@link AppHostConfigOptions.reuseDatabaseWorker}). Native WebView shells
+     * set this; the web shell leaves it unset.
+     */
+    readonly reuseDatabaseWorker?: boolean | undefined,
   ) {}
 
   /**
@@ -305,6 +323,7 @@ export class AppHostConfig {
       createNetworkStatus: this.createNetworkStatus,
       readNativeBuildNumber: this.readNativeBuildNumber,
       createFileSaver: this.createFileSaver,
+      reuseDatabaseWorker: this.reuseDatabaseWorker,
       ...overrides,
     });
   }
@@ -330,6 +349,7 @@ export function createAppHostConfig(
     options.createNetworkStatus,
     options.readNativeBuildNumber,
     options.createFileSaver,
+    options.reuseDatabaseWorker,
   );
 }
 

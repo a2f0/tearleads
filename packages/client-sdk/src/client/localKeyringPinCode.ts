@@ -68,6 +68,10 @@ class PinCodeWrappingKeyKeystore implements WrappingKeyKeystore {
     assertNonEmptyString(this.provider, "PIN code wrapping key provider");
   }
 
+  close(): void {
+    this.innerKeystore.close?.();
+  }
+
   async deleteWrappingKey(scope: LocalKeyringScope): Promise<void> {
     await this.innerKeystore.deleteWrappingKey(scope);
   }

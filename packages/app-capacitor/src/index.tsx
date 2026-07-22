@@ -19,7 +19,19 @@ import { syncStatusBarWithTheme } from "./statusBar";
 
 function createCapacitorSQLiteRuntime() {
   const workerUrl = "./worker.js";
-  return createSQLiteRuntime({ workerUrl });
+  // Dedicated worker (not the cross-tab shared-owner coordinator). A Capacitor
+  // WebView is a single tab, so cross-tab coordination buys nothing; and the
+  // app reuses ONE dedicated worker across identity switches (see
+  // AppHostConfig.reuseDatabaseWorker) by closing the current database and
+  // re-initializing the same worker onto the next one — which requires a
+  // dedicated worker (a cross-tab client's `close` stops the shared owner). This
+  // avoids ever constructing a second worker, which fails on a WebView and
+  // wedged provisioning of a second local identity.
+  return createSQLiteRuntime({
+    sharedWorkerConstructor: null,
+    workerConstructor: globalThis.Worker,
+    workerUrl,
+  });
 }
 
 // The native build number (Android versionCode / iOS CFBundleVersion) is stamped
@@ -75,6 +87,10 @@ const hostConfig = createAppHostConfig({
   readNativeBuildNumber: Capacitor.isNativePlatform()
     ? readNativeBuildNumber
     : undefined,
+  // Reuse one dedicated SQLite worker across identity switches instead of
+  // tearing it down and constructing a new one (which fails on a WebView and
+  // wedged provisioning of a second local identity).
+  reuseDatabaseWorker: true,
   // Force OPFS persistence: iOS WKWebView does not expose
   // navigator.storage.getDirectory on the main thread, so the auto-detect path
   // would fall back to ephemeral memory storage. Android's Chromium WebView

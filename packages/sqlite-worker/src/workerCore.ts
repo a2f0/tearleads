@@ -9,7 +9,11 @@ import type {
 export interface DatabaseWorkerScope {
   addEventListener(
     type: "message",
-    listener: (event: MessageEvent<WorkerRequest>) => void | Promise<void>,
+    listener: (event: MessageEvent<unknown>) => void | Promise<void>,
+  ): void;
+  removeEventListener?(
+    type: "message",
+    listener: (event: MessageEvent<unknown>) => void | Promise<void>,
   ): void;
   postMessage(message: WorkerResponse): void;
 }
@@ -27,7 +31,7 @@ export interface RegisterDatabaseWorkerOptions {
   onDelete?: () => Promise<void> | void;
 }
 
-function isWorkerRequest(value: unknown): value is WorkerRequest {
+export function isWorkerRequest(value: unknown): value is WorkerRequest {
   if (typeof value !== "object" || value === null) {
     return false;
   }
@@ -48,28 +52,29 @@ function isWorkerRequest(value: unknown): value is WorkerRequest {
 export function registerDatabaseWorker(
   scope: DatabaseWorkerScope,
   options: RegisterDatabaseWorkerOptions = {},
-): void {
-  scope.addEventListener(
-    "message",
-    async (event: MessageEvent<WorkerRequest>) => {
-      if (!isWorkerRequest(event.data)) {
-        return;
-      }
+): () => void {
+  const handleMessage = async (event: MessageEvent<unknown>) => {
+    const request = event.data;
+    if (!isWorkerRequest(request)) {
+      return;
+    }
 
-      try {
-        const response = await handleRequest(event.data, options);
-        scope.postMessage(response);
-      } catch (error) {
-        scope.postMessage({
-          id: event.data.id,
-          result: {
-            ok: false,
-            message: error instanceof Error ? error.message : String(error),
-          },
-        });
-      }
-    },
-  );
+    try {
+      const response = await handleRequest(request, options);
+      scope.postMessage(response);
+    } catch (error) {
+      scope.postMessage({
+        id: request.id,
+        result: {
+          ok: false,
+          message: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
+  };
+
+  scope.addEventListener("message", handleMessage);
+  return () => scope.removeEventListener?.("message", handleMessage);
 }
 
 export async function handleRequest(

@@ -3,173 +3,84 @@ import type {
   DatabaseStatus,
   Tearleads,
 } from "@tearleads/client-sdk";
-import {
-  type DatabasePersistenceMode,
-  purgeOpfsSqliteDatabase,
-  type SQLiteRuntime,
-  type StoragePersistencePolicy,
+import type {
+  DatabasePersistenceMode,
+  SQLiteRuntime,
+  StoragePersistencePolicy,
 } from "@tearleads/client-sdk/sqlite";
 import { type RefObject, useCallback, useEffect, useRef } from "react";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
 import type { ResolveSqliteCipherKey } from "./sqliteCipherKey";
 import { sqliteDbNameForSigningFingerprint } from "./sqliteDbName";
+import { startSQLiteRuntimeBoot } from "./sqliteRuntimeLifecycle";
 import {
-  releaseSQLiteRuntime,
-  startSQLiteRuntimeBoot,
-} from "./sqliteRuntimeLifecycle";
+  canReuseSQLiteRuntime,
+  logSQLiteRuntimeReuseUnavailable,
+} from "./sqliteRuntimeRetention";
 import { useReleaseRuntimeOnPageHide } from "./useReleaseRuntimeOnPageHide";
+import {
+  type SQLiteRuntimeOperation,
+  useSQLiteRuntimeActions,
+} from "./useSQLiteRuntimeActions";
 import { useTransientBootFailureRecovery } from "./useTransientBootFailureRecovery";
 import { useUnreadableDatabaseRecovery } from "./useUnreadableDatabaseRecovery";
 import { waitForReadySQLiteRuntime } from "./waitForReadySQLiteRuntime";
 
 type SQLiteRuntimeStatus = DatabaseStatus;
-interface SQLiteRuntimeRelease {
-  readonly promise: Promise<void>;
-  readonly runtime: SQLiteRuntime;
-}
 
 export interface DatabaseContextValue {
   id: string | null;
   client: DatabaseSnapshot["client"];
   status: SQLiteRuntimeStatus;
+  /**
+   * Clear the current database (→ idle). A reusable host closes it and renews
+   * the connection while retaining the physical worker; other hosts terminate.
+   */
   clearWorker: () => void;
+  /**
+   * Close the database for an identity transition while retaining a reusable
+   * physical worker when the host supports it.
+   */
+  clearWorkerForIdentitySwitch: () => void;
   ensureIdentityReady: (signingFingerprint: string) => Promise<void>;
   ensureReady: () => Promise<void>;
   killWorker: () => void;
   /**
-   * Permanently wipe the current database's persisted OPFS files, then tear the
-   * worker down. Use when discarding local data on logout. Resolves once the
-   * wipe + teardown completes.
+   * Wipe the persisted database. Reusable hosts renew the connection afterward;
+   * other hosts terminate the worker.
    */
   purgeWorker: () => Promise<void>;
   spawnWorker: () => void;
-}
-
-function destroyRuntime(
-  runtimeRef: RefObject<SQLiteRuntime | null>,
-  bootingRef: RefObject<boolean>,
-  currentDbNameRef: RefObject<string | null>,
-  runtimeReleaseRef: RefObject<SQLiteRuntimeRelease | null>,
-  tearleads: Tearleads,
-  nextStatus: SQLiteRuntimeStatus,
-) {
-  const runtime = runtimeRef.current;
-  if (runtime) {
-    runtimeRef.current = null;
-    const release = releaseSQLiteRuntime(runtime);
-    const runtimeRelease = { promise: release, runtime };
-    runtimeReleaseRef.current = runtimeRelease;
-    void release.then(() => {
-      if (runtimeReleaseRef.current === runtimeRelease) {
-        runtimeReleaseRef.current = null;
-      }
-    });
-  }
-
-  bootingRef.current = false;
-  currentDbNameRef.current = null;
-  tearleads.database.clear(nextStatus);
-}
-
-async function purgeRuntime(
-  runtimeRef: RefObject<SQLiteRuntime | null>,
-  bootingRef: RefObject<boolean>,
-  currentDbNameRef: RefObject<string | null>,
-  targetDbNameRef: RefObject<string>,
-  tearleads: Tearleads,
-) {
-  const runtime = runtimeRef.current;
-  // The db name to wipe: the live runtime's db, else the target we would boot.
-  const dbName = currentDbNameRef.current ?? targetDbNameRef.current;
-  runtimeRef.current = null;
-  bootingRef.current = false;
-  currentDbNameRef.current = null;
-
-  if (runtime) {
-    // Wipe the persisted OPFS files (not just release the handles) before the
-    // worker terminates. deleteData() awaits the worker's confirmation.
-    await runtime.deleteData();
-  } else if (dbName) {
-    // No live worker (cleared/killed/failed to boot), so deleteData() cannot
-    // run. Fall back to deleting the database's SAHPool OPFS directory from the
-    // main thread so opting out of keeping local data still wipes SQLite. Safe
-    // because no worker holds the access handles here.
-    await purgeOpfsSqliteDatabase(dbName);
-  }
-
-  tearleads.database.clear("idle");
-}
-
-function useDestroySQLiteRuntime(params: {
-  runtimeRef: RefObject<SQLiteRuntime | null>;
-  bootingRef: RefObject<boolean>;
-  currentDbNameRef: RefObject<string | null>;
-  runtimeReleaseRef: RefObject<SQLiteRuntimeRelease | null>;
-  tearleads: Tearleads;
-}) {
-  const {
-    runtimeRef,
-    bootingRef,
-    currentDbNameRef,
-    runtimeReleaseRef,
-    tearleads,
-  } = params;
-
-  return useCallback(
-    (nextStatus: SQLiteRuntimeStatus) => {
-      destroyRuntime(
-        runtimeRef,
-        bootingRef,
-        currentDbNameRef,
-        runtimeReleaseRef,
-        tearleads,
-        nextStatus,
-      );
-    },
-    [bootingRef, currentDbNameRef, runtimeRef, runtimeReleaseRef, tearleads],
-  );
-}
-
-function usePurgeSQLiteRuntime(params: {
-  runtimeRef: RefObject<SQLiteRuntime | null>;
-  bootingRef: RefObject<boolean>;
-  currentDbNameRef: RefObject<string | null>;
-  targetDbNameRef: RefObject<string>;
-  tearleads: Tearleads;
-}) {
-  const {
-    runtimeRef,
-    bootingRef,
-    currentDbNameRef,
-    targetDbNameRef,
-    tearleads,
-  } = params;
-
-  return useCallback(
-    () =>
-      purgeRuntime(
-        runtimeRef,
-        bootingRef,
-        currentDbNameRef,
-        targetDbNameRef,
-        tearleads,
-      ),
-    [bootingRef, currentDbNameRef, runtimeRef, targetDbNameRef, tearleads],
-  );
 }
 
 function useSQLiteRuntimeLifecycle(
   dbName: string,
   targetDbNameRef: RefObject<string>,
   currentDbNameRef: RefObject<string | null>,
+  runtimeRef: RefObject<SQLiteRuntime | null>,
   destroyCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void,
+  log: (message: string) => void,
+  reuseWorker: boolean,
 ) {
   useEffect(() => {
     targetDbNameRef.current = dbName;
-    if (currentDbNameRef.current && currentDbNameRef.current !== dbName) {
+    if (
+      !canReuseSQLiteRuntime(reuseWorker, runtimeRef.current) &&
+      currentDbNameRef.current &&
+      currentDbNameRef.current !== dbName
+    ) {
+      logSQLiteRuntimeReuseUnavailable(reuseWorker, runtimeRef.current, log);
       destroyCurrentRuntime("idle");
     }
-  }, [currentDbNameRef, dbName, destroyCurrentRuntime, targetDbNameRef]);
+  }, [
+    currentDbNameRef,
+    dbName,
+    destroyCurrentRuntime,
+    log,
+    reuseWorker,
+    runtimeRef,
+    targetDbNameRef,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -179,33 +90,35 @@ function useSQLiteRuntimeLifecycle(
 }
 
 function useSpawnSQLiteRuntimeForDbName(params: {
+  bootGenerationRef: RefObject<number>;
   bootingRef: RefObject<boolean>;
   createSQLiteRuntime: () => SQLiteRuntime;
   currentDbNameRef: RefObject<string | null>;
-  killedRef: RefObject<boolean>;
   log: (message: string) => void;
   onUnreadableDatabase: (dbName: string) => void;
   onTransientBootFailure: (dbName: string) => boolean;
   onBootSucceeded: (dbName: string) => void;
   persistence: DatabasePersistenceMode;
   resolveCipherKey: ResolveSqliteCipherKey;
-  runtimeReleaseRef: RefObject<SQLiteRuntimeRelease | null>;
+  reuseWorker: boolean;
+  runtimeOperationRef: RefObject<SQLiteRuntimeOperation | null>;
   runtimeRef: RefObject<SQLiteRuntime | null>;
   targetDbNameRef: RefObject<string>;
   tearleads: Tearleads;
 }) {
   const {
+    bootGenerationRef,
     bootingRef,
     createSQLiteRuntime,
     currentDbNameRef,
-    killedRef,
     log,
     onUnreadableDatabase,
     onTransientBootFailure,
     onBootSucceeded,
     persistence,
     resolveCipherKey,
-    runtimeReleaseRef,
+    reuseWorker,
+    runtimeOperationRef,
     runtimeRef,
     targetDbNameRef,
     tearleads,
@@ -219,17 +132,14 @@ function useSpawnSQLiteRuntimeForDbName(params: {
     };
   }, []);
 
+  // Callers already gate on mountedRef before invoking this.
   const spawnRuntime = useCallback(
     (nextDbName: string) => {
-      if (!mountedRef.current) {
-        return;
-      }
-
       startSQLiteRuntimeBoot({
+        bootGenerationRef,
         bootingRef,
         createSQLiteRuntime,
         currentDbNameRef,
-        killedRef,
         log,
         nextDbName,
         onUnreadableDatabase,
@@ -237,22 +147,24 @@ function useSpawnSQLiteRuntimeForDbName(params: {
         onBootSucceeded,
         persistence,
         resolveCipherKey,
+        reuseWorker,
         runtimeRef,
         targetDbNameRef,
         tearleads,
       });
     },
     [
+      bootGenerationRef,
       bootingRef,
       createSQLiteRuntime,
       currentDbNameRef,
-      killedRef,
       log,
       onUnreadableDatabase,
       onTransientBootFailure,
       onBootSucceeded,
       persistence,
       resolveCipherKey,
+      reuseWorker,
       runtimeRef,
       targetDbNameRef,
       tearleads,
@@ -266,64 +178,60 @@ function useSpawnSQLiteRuntimeForDbName(params: {
       }
 
       targetDbNameRef.current = nextDbName;
-      const pendingRelease = runtimeReleaseRef.current?.promise ?? null;
-      if (pendingRelease) {
-        void pendingRelease.then(() => {
-          if (!mountedRef.current) {
-            return;
-          }
-          if (targetDbNameRef.current !== nextDbName) {
-            return;
-          }
-          if (runtimeRef.current || bootingRef.current) {
-            return;
-          }
-
+      const spawnAfterOperation = () => {
+        const pendingOperation = runtimeOperationRef.current?.promise ?? null;
+        if (pendingOperation) {
+          void pendingOperation.then(spawnAfterOperation);
+          return;
+        }
+        if (
+          mountedRef.current &&
+          targetDbNameRef.current === nextDbName &&
+          !bootingRef.current
+        ) {
           spawnRuntime(nextDbName);
-        });
-        return;
-      }
-
-      spawnRuntime(nextDbName);
+        }
+      };
+      spawnAfterOperation();
     },
-    [bootingRef, runtimeRef, runtimeReleaseRef, spawnRuntime, targetDbNameRef],
+    [bootingRef, runtimeOperationRef, spawnRuntime, targetDbNameRef],
   );
 }
 
-function useSQLiteRuntimeControls(params: {
+function useEnsureReadyForDbName(params: {
+  clearCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void;
   currentDbNameRef: RefObject<string | null>;
-  destroyCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void;
-  killedRef: RefObject<boolean>;
-  log: (message: string) => void;
-  purgeCurrentRuntime: () => Promise<void>;
+  reuseWorker: boolean;
   runtimeRef: RefObject<SQLiteRuntime | null>;
   spawnRuntimeForDbName: (nextDbName: string) => void;
   targetDbNameRef: RefObject<string>;
   tearleads: Tearleads;
 }) {
   const {
+    clearCurrentRuntime,
     currentDbNameRef,
-    destroyCurrentRuntime,
-    killedRef,
-    log,
-    purgeCurrentRuntime,
+    reuseWorker,
     runtimeRef,
     spawnRuntimeForDbName,
     targetDbNameRef,
     tearleads,
   } = params;
-  const ensureReadyForDbName = useCallback(
+  return useCallback(
     (nextDbName: string) => {
       targetDbNameRef.current = nextDbName;
-      if (currentDbNameRef.current && currentDbNameRef.current !== nextDbName) {
-        destroyCurrentRuntime("idle");
+      const canReuse = canReuseSQLiteRuntime(reuseWorker, runtimeRef.current);
+      if (
+        !canReuse &&
+        currentDbNameRef.current &&
+        currentDbNameRef.current !== nextDbName
+      ) {
+        clearCurrentRuntime("idle");
       }
-      // A failed init leaves the target DB pinned in error; retry with a fresh worker.
       if (
         currentDbNameRef.current === nextDbName &&
         tearleads.database.status === "error"
       ) {
-        destroyCurrentRuntime("idle");
+        clearCurrentRuntime("idle");
       }
 
       return waitForReadySQLiteRuntime(
@@ -333,8 +241,50 @@ function useSQLiteRuntimeControls(params: {
         () => spawnRuntimeForDbName(nextDbName),
       );
     },
-    [currentDbNameRef, destroyCurrentRuntime, spawnRuntimeForDbName, tearleads],
+    [
+      clearCurrentRuntime,
+      currentDbNameRef,
+      reuseWorker,
+      runtimeRef,
+      spawnRuntimeForDbName,
+      tearleads,
+    ],
   );
+}
+
+function useSQLiteRuntimeControls(params: {
+  clearCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void;
+  currentDbNameRef: RefObject<string | null>;
+  destroyCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void;
+  log: (message: string) => void;
+  purgeCurrentRuntime: () => Promise<void>;
+  reuseWorker: boolean;
+  runtimeRef: RefObject<SQLiteRuntime | null>;
+  spawnRuntimeForDbName: (nextDbName: string) => void;
+  targetDbNameRef: RefObject<string>;
+  tearleads: Tearleads;
+}) {
+  const {
+    clearCurrentRuntime,
+    currentDbNameRef,
+    destroyCurrentRuntime,
+    log,
+    purgeCurrentRuntime,
+    reuseWorker,
+    runtimeRef,
+    spawnRuntimeForDbName,
+    targetDbNameRef,
+    tearleads,
+  } = params;
+  const ensureReadyForDbName = useEnsureReadyForDbName({
+    clearCurrentRuntime,
+    currentDbNameRef,
+    reuseWorker,
+    runtimeRef,
+    spawnRuntimeForDbName,
+    targetDbNameRef,
+    tearleads,
+  });
 
   const spawnRuntime = useCallback(() => {
     spawnRuntimeForDbName(targetDbNameRef.current);
@@ -353,28 +303,35 @@ function useSQLiteRuntimeControls(params: {
     [ensureReadyForDbName],
   );
 
+  // Detach SDK consumers, close the decrypted database, and retain a capable
+  // physical worker for the next boot.
   const clearWorker = useCallback(() => {
-    destroyCurrentRuntime("idle");
-  }, [destroyCurrentRuntime]);
+    clearCurrentRuntime("idle");
+  }, [clearCurrentRuntime]);
+
+  // Identity changes use the same safe close-and-renew path. In particular, a
+  // failed creation with no rollback target cannot leave the old DB open.
+  const clearWorkerForIdentitySwitch = useCallback(() => {
+    clearCurrentRuntime("idle");
+  }, [clearCurrentRuntime]);
 
   const killWorker = useCallback(() => {
     if (!runtimeRef.current) {
       return;
     }
 
-    killedRef.current = true;
     destroyCurrentRuntime("terminated");
     log("Worker killed");
   }, [destroyCurrentRuntime, log]);
 
   const purgeWorker = useCallback(async () => {
-    killedRef.current = true;
     await purgeCurrentRuntime();
     log("Local database wiped");
   }, [log, purgeCurrentRuntime]);
 
   return {
     clearWorker,
+    clearWorkerForIdentitySwitch,
     ensureIdentityReady,
     ensureReady,
     killWorker,
@@ -390,31 +347,29 @@ export function useManagedSQLiteRuntime(
   resolveCipherKey: ResolveSqliteCipherKey,
   log: (message: string) => void,
   tearleads: Tearleads,
+  reuseWorker = false,
 ): DatabaseContextValue {
   const snapshot = useTearleadsStoreSnapshot(tearleads.database);
   const runtimeRef = useRef<SQLiteRuntime | null>(null);
+  const bootGenerationRef = useRef(0);
   const bootingRef = useRef(false);
   const targetDbNameRef = useRef(dbName);
   const currentDbNameRef = useRef<string | null>(null);
-  const killedRef = useRef(false);
-  const runtimeReleaseRef = useRef<SQLiteRuntimeRelease | null>(null);
-  // Spawn is indirected through a ref to break the cycle with recovery: spawn
-  // needs the unreadable-database handler, and the handler needs spawn.
+  const runtimeOperationRef = useRef<SQLiteRuntimeOperation | null>(null);
+  // Indirection breaks the cycle between spawn and its recovery handlers.
   const spawnRuntimeRef = useRef<(dbName: string) => void>(() => {});
-  const destroyCurrentRuntime = useDestroySQLiteRuntime({
-    runtimeRef,
-    bootingRef,
-    currentDbNameRef,
-    runtimeReleaseRef,
-    tearleads,
-  });
-  const purgeCurrentRuntime = usePurgeSQLiteRuntime({
-    runtimeRef,
-    bootingRef,
-    currentDbNameRef,
-    targetDbNameRef,
-    tearleads,
-  });
+  const { clearCurrentRuntime, destroyCurrentRuntime, purgeCurrentRuntime } =
+    useSQLiteRuntimeActions({
+      bootGenerationRef,
+      bootingRef,
+      currentDbNameRef,
+      log,
+      reuseWorker,
+      runtimeOperationRef,
+      runtimeRef,
+      targetDbNameRef,
+      tearleads,
+    });
   const onUnreadableDatabase = useUnreadableDatabaseRecovery({
     destroyCurrentRuntime,
     log,
@@ -428,17 +383,18 @@ export function useManagedSQLiteRuntime(
       spawnRuntimeForDbName: spawnRuntimeRef,
     });
   const spawnRuntimeForDbName = useSpawnSQLiteRuntimeForDbName({
+    bootGenerationRef,
     bootingRef,
     createSQLiteRuntime,
     currentDbNameRef,
-    killedRef,
     log,
     onUnreadableDatabase,
     onTransientBootFailure: recoverFromBootTimeout,
     onBootSucceeded,
     persistence: persistencePolicy.databasePersistence,
     resolveCipherKey,
-    runtimeReleaseRef,
+    reuseWorker,
+    runtimeOperationRef,
     runtimeRef,
     targetDbNameRef,
     tearleads,
@@ -447,11 +403,12 @@ export function useManagedSQLiteRuntime(
     spawnRuntimeRef.current = spawnRuntimeForDbName;
   }, [spawnRuntimeForDbName]);
   const controls = useSQLiteRuntimeControls({
+    clearCurrentRuntime,
     currentDbNameRef,
     destroyCurrentRuntime,
-    killedRef,
     log,
     purgeCurrentRuntime,
+    reuseWorker,
     runtimeRef,
     spawnRuntimeForDbName,
     targetDbNameRef,
@@ -462,9 +419,12 @@ export function useManagedSQLiteRuntime(
     dbName,
     targetDbNameRef,
     currentDbNameRef,
+    runtimeRef,
     destroyCurrentRuntime,
+    log,
+    reuseWorker,
   );
-  useReleaseRuntimeOnPageHide(runtimeRef, runtimeReleaseRef);
+  useReleaseRuntimeOnPageHide(runtimeRef, runtimeOperationRef);
 
   return {
     id: snapshot.id,

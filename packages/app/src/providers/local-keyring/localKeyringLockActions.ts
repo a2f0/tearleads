@@ -7,6 +7,7 @@ import {
   type Dispatch,
   type SetStateAction,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
 } from "react";
@@ -16,6 +17,7 @@ import {
   createPinKeystore,
   createPlainKeystore,
   hasPinWrappedManifest,
+  type LocalKeyringFactory,
   type LocalKeyringLockEnvironment,
   type LocalKeyringLockStatus,
   type LockState,
@@ -26,7 +28,7 @@ import {
 
 export interface LocalKeyringLockContextValue {
   readonly canManagePinCode: boolean;
-  readonly createLocalKeyring: (() => LocalKeyring) | undefined;
+  readonly createLocalKeyring: LocalKeyringFactory | undefined;
   readonly isLocked: boolean;
   readonly pinCodeEnabled: boolean;
   readonly revision: number;
@@ -57,43 +59,189 @@ async function rewrapExistingManifestsWithPin(input: {
   });
 }
 
+interface DynamicKeyringState {
+  readonly browserCreateLocalKeyring: (pinCode: string | null) => LocalKeyring;
+  readonly canManagePinCode: boolean;
+  readonly hostCreateLocalKeyring: (() => LocalKeyring) | undefined;
+  readonly pinCodeEnabled: boolean;
+  readonly revision: number;
+  readonly unlockedPinCode: string | null;
+}
+
+type DynamicKeyringCapability = "host" | "pin" | "plain";
+
+interface DynamicKeyringIdentity {
+  readonly capability: DynamicKeyringCapability;
+  readonly factory:
+    | (() => LocalKeyring)
+    | ((pinCode: string | null) => LocalKeyring);
+  readonly revision: number;
+}
+
+interface DynamicKeyringPlan {
+  readonly create: () => LocalKeyring;
+  readonly identity: DynamicKeyringIdentity;
+}
+
+function sameDynamicKeyringIdentity(
+  left: DynamicKeyringIdentity,
+  right: DynamicKeyringIdentity,
+): boolean {
+  return (
+    left.capability === right.capability &&
+    left.factory === right.factory &&
+    left.revision === right.revision
+  );
+}
+
+/**
+ * Maps the current lock/PIN/host state to the keyring it should produce, plus a
+ * secret-free identity for that configuration. Returns null when no keyring is
+ * available (locked, or PIN management unsupported), which the dynamic keyring
+ * surfaces as a locked keyring.
+ */
+function planDynamicLocalKeyring(
+  state: DynamicKeyringState,
+): DynamicKeyringPlan | null {
+  if (state.hostCreateLocalKeyring) {
+    const hostCreateLocalKeyring = state.hostCreateLocalKeyring;
+    return {
+      create: () => hostCreateLocalKeyring(),
+      identity: {
+        capability: "host",
+        factory: hostCreateLocalKeyring,
+        revision: state.revision,
+      },
+    };
+  }
+  if (!state.canManagePinCode) {
+    return null;
+  }
+  if (!state.pinCodeEnabled) {
+    return {
+      create: () => state.browserCreateLocalKeyring(null),
+      identity: {
+        capability: "plain",
+        factory: state.browserCreateLocalKeyring,
+        revision: state.revision,
+      },
+    };
+  }
+  if (!state.unlockedPinCode) {
+    return null;
+  }
+
+  const pinCode = state.unlockedPinCode;
+  return {
+    create: () => state.browserCreateLocalKeyring(pinCode),
+    identity: {
+      capability: "pin",
+      factory: state.browserCreateLocalKeyring,
+      revision: state.revision,
+    },
+  };
+}
+
 export function useDynamicLocalKeyringFactory(input: {
+  readonly createBrowserLocalKeyring?: (pinCode: string | null) => LocalKeyring;
   readonly environment: LocalKeyringLockEnvironment;
   readonly lockState: LockState;
   readonly unlockedPinCode: string | null;
-}): () => LocalKeyring {
-  const stateRef = useRef({
+}): LocalKeyringFactory {
+  const stateRef = useRef<DynamicKeyringState>({
+    browserCreateLocalKeyring:
+      input.createBrowserLocalKeyring ?? createBrowserLocalKeyringForPinCode,
     canManagePinCode: input.environment.canManagePinCode,
     hostCreateLocalKeyring: input.environment.hostCreateLocalKeyring,
     pinCodeEnabled: input.lockState.pinCodeEnabled,
+    revision: input.lockState.revision,
     unlockedPinCode: input.unlockedPinCode,
   });
   stateRef.current = {
+    browserCreateLocalKeyring:
+      input.createBrowserLocalKeyring ?? createBrowserLocalKeyringForPinCode,
     canManagePinCode: input.environment.canManagePinCode,
     hostCreateLocalKeyring: input.environment.hostCreateLocalKeyring,
     pinCodeEnabled: input.lockState.pinCodeEnabled,
+    revision: input.lockState.revision,
     unlockedPinCode: input.unlockedPinCode,
   };
-
-  return useCallback((): LocalKeyring => {
-    return createDynamicLocalKeyring(() => {
-      const current = stateRef.current;
-      if (current.hostCreateLocalKeyring) {
-        return current.hostCreateLocalKeyring();
-      }
-      if (!current.canManagePinCode) {
-        return null;
-      }
-      if (!current.pinCodeEnabled) {
-        return createBrowserLocalKeyringForPinCode(null);
-      }
-      if (!current.unlockedPinCode) {
-        return null;
-      }
-
-      return createBrowserLocalKeyringForPinCode(current.unlockedPinCode);
-    });
+  // Cache the resolved underlying keyring across calls. The dynamic keyring's
+  // methods (getOrCreateSession/loadSession/deleteSession) each resolve the
+  // underlying keyring, and every distinct keyring instance opens its own
+  // IndexedDB connections (the wrapping-key + manifest stores). Minting a fresh
+  // keyring per call therefore churns connections to the same databases, and on
+  // a WKWebView (Capacitor/Electrobun) a subsequent `indexedDB.open()` can hang
+  // indefinitely (no success/error/blocked event fires). That surfaced as the
+  // second local identity's SQLite cipher-key resolution wedging forever
+  // ("Creating identity..." never completing). Reusing one keyring per
+  // configuration keeps a single connection set alive and reused; a new one is
+  // minted only when the configuration identity changes (lock/unlock, PIN
+  // rotation).
+  const cacheRef = useRef<{
+    readonly identity: DynamicKeyringIdentity;
+    readonly keyring: LocalKeyring;
+  } | null>(null);
+  const closeCachedKeyring = useCallback(() => {
+    const cached = cacheRef.current;
+    cacheRef.current = null;
+    cached?.keyring.close?.();
   }, []);
+
+  // Drop the cached keyring EAGERLY when the configuration changes, not only
+  // lazily on the next keyring call. Otherwise locking (unlockedPinCode -> null)
+  // while no keyring op runs would keep the PIN-bearing keyring cached, so
+  // unlocking with the same PIN could otherwise reuse the stale keyring. The
+  // revision distinguishes those configurations without retaining the PIN in a
+  // cache key, while capability and factory identity cover environment changes.
+  useEffect(() => {
+    const identity = planDynamicLocalKeyring(stateRef.current)?.identity;
+    if (
+      cacheRef.current &&
+      (!identity ||
+        !sameDynamicKeyringIdentity(cacheRef.current.identity, identity))
+    ) {
+      closeCachedKeyring();
+    }
+  }, [
+    closeCachedKeyring,
+    input.createBrowserLocalKeyring,
+    input.environment.canManagePinCode,
+    input.environment.hostCreateLocalKeyring,
+    input.lockState.pinCodeEnabled,
+    input.lockState.revision,
+    input.unlockedPinCode,
+  ]);
+  useEffect(() => closeCachedKeyring, [closeCachedKeyring]);
+
+  return useMemo((): LocalKeyringFactory => {
+    return Object.assign(
+      (): LocalKeyring =>
+        createDynamicLocalKeyring(() => {
+          const plan = planDynamicLocalKeyring(stateRef.current);
+          if (!plan) {
+            closeCachedKeyring();
+            return null;
+          }
+          const cached = cacheRef.current;
+          if (
+            cached &&
+            sameDynamicKeyringIdentity(cached.identity, plan.identity)
+          ) {
+            return cached.keyring;
+          }
+          closeCachedKeyring();
+          const keyring = plan.create();
+          cacheRef.current = { identity: plan.identity, keyring };
+          return keyring;
+        }, closeCachedKeyring),
+      {
+        invalidateCachedKeyring: () => {
+          closeCachedKeyring();
+        },
+      },
+    );
+  }, [closeCachedKeyring]);
 }
 
 export function useUnlockAction(input: {

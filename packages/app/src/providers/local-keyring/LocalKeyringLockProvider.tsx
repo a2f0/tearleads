@@ -101,16 +101,23 @@ function useLocalKeyringLockRuntime(
     const refreshId = latestRefreshId.current + 1;
     latestRefreshId.current = refreshId;
 
+    // Revision is also the cache identity for the live keyring. Advancing it
+    // for an unchanged refresh would close IndexedDB underneath concurrent
+    // startup work such as identity restore and SQLite key derivation.
     if (
       !environment.canManagePinCode ||
       !environment.manifestStore ||
       !environment.pinCodeConfigNamespace
     ) {
-      setLockState((current) => ({
-        pinCodeEnabled: false,
-        revision: current.revision + 1,
-        status: "unavailable",
-      }));
+      setLockState((current) =>
+        !current.pinCodeEnabled && current.status === "unavailable"
+          ? current
+          : {
+              pinCodeEnabled: false,
+              revision: current.revision + 1,
+              status: "unavailable",
+            },
+      );
       return;
     }
 
@@ -128,11 +135,16 @@ function useLocalKeyringLockRuntime(
       );
     }
 
-    setLockState((current) => ({
-      pinCodeEnabled: enabled,
-      revision: current.revision + 1,
-      status: enabled && !unlockedPinCode ? "locked" : "unlocked",
-    }));
+    const status = enabled && !unlockedPinCode ? "locked" : "unlocked";
+    setLockState((current) =>
+      current.pinCodeEnabled === enabled && current.status === status
+        ? current
+        : {
+            pinCodeEnabled: enabled,
+            revision: current.revision + 1,
+            status,
+          },
+    );
   }, [environment, unlockedPinCode]);
 
   useEffect(() => {

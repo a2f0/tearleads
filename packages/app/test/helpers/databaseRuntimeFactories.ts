@@ -54,6 +54,143 @@ export function createRetryableSQLiteRuntimeFactory() {
   };
 }
 
+/** One reusable worker whose first init can be held to exercise target races. */
+export function createReusableSQLiteRuntimeFactory(options?: {
+  closeError?: Error;
+  deferClose?: boolean;
+  deferDelete?: boolean;
+  deferFirstInit?: boolean;
+  deleteError?: Error;
+  firstExecError?: Error;
+  firstInitError?: Error;
+}) {
+  const firstInit = createDeferred();
+  const closeGate = createDeferred();
+  const deleteGate = createDeferred();
+  let createCount = 0;
+  let renewCount = 0;
+  let initCount = 0;
+  let execCount = 0;
+  let closeCount = 0;
+  let clientDeleteCount = 0;
+  let deleteDataCount = 0;
+  let clientDestroyCount = 0;
+  let terminateCount = 0;
+  let clientGeneration = 0;
+  const initializedDbNames: string[] = [];
+
+  if (!options?.deferFirstInit) {
+    firstInit.resolve();
+  }
+  if (!options?.deferClose) {
+    closeGate.resolve();
+  }
+  if (!options?.deferDelete) {
+    deleteGate.resolve();
+  }
+
+  return {
+    createSQLiteRuntime: (): SQLiteRuntime & { renewClient(): void } => {
+      createCount += 1;
+      let terminated = false;
+      let runtimeId = "";
+      let client: SQLiteRuntime["client"];
+
+      const createClient = (): SQLiteRuntime["client"] => {
+        clientGeneration += 1;
+        runtimeId = `reusable-${clientGeneration}`;
+        return {
+          close: async () => {
+            closeCount += 1;
+            await closeGate.promise;
+            if (options?.closeError) {
+              throw options.closeError;
+            }
+            return { ok: true };
+          },
+          delete: async () => {
+            clientDeleteCount += 1;
+            await deleteGate.promise;
+            if (options?.deleteError) {
+              throw options.deleteError;
+            }
+            return { ok: true };
+          },
+          destroy() {
+            clientDestroyCount += 1;
+          },
+          exec: async () => {
+            execCount += 1;
+            if (execCount === 1 && options?.firstExecError) {
+              throw options.firstExecError;
+            }
+            return { ok: true, rows: [] };
+          },
+          init: async ({ dbName }) => {
+            initCount += 1;
+            initializedDbNames.push(dbName);
+            if (initCount === 1) {
+              await firstInit.promise;
+              if (options?.firstInitError) {
+                throw options.firstInitError;
+              }
+            }
+            return { ok: true };
+          },
+          ping: async () => ({ ok: true, message: "pong" }),
+        };
+      };
+
+      client = createClient();
+      const terminate = () => {
+        if (terminated) {
+          return;
+        }
+        terminated = true;
+        terminateCount += 1;
+        client.destroy();
+      };
+
+      return {
+        get client() {
+          return client;
+        },
+        deleteData: async () => {
+          deleteDataCount += 1;
+          terminate();
+        },
+        destroy: terminate,
+        get id() {
+          return runtimeId;
+        },
+        renewClient() {
+          if (terminated) {
+            return;
+          }
+          renewCount += 1;
+          client.destroy();
+          client = createClient();
+        },
+        terminateNow: terminate,
+      };
+    },
+    getStats: () => ({
+      clientDestroyCount,
+      clientDeleteCount,
+      closeCount,
+      createCount,
+      deleteDataCount,
+      initCount,
+      initializedDbNames: [...initializedDbNames],
+      renewCount,
+      terminateCount,
+    }),
+    releaseClose: () => closeGate.resolve(),
+    releaseDelete: () => deleteGate.resolve(),
+    releaseFirstInit: () => firstInit.resolve(),
+  };
+}
+
 /**
  * Fails `init` with a boot round-trip *timeout* error (the marker
  * `isBootRoundTripTimeoutError` matches) the first `failureCount` times, then

@@ -10,6 +10,7 @@ function createStubKeyring(sqliteKey: string): {
   let created = 0;
   let disposed = 0;
   const keyring: LocalKeyring = {
+    close: () => {},
     deleteSession: async () => {},
     loadSession: async () => null,
     getOrCreateSession: async () => {
@@ -43,6 +44,7 @@ test("resolves the keyring session sqliteKey when a keyring is available", async
 
 test("throws a clear error when the keyring yields no session", async () => {
   const keyring: LocalKeyring = {
+    close: () => {},
     deleteSession: async () => {},
     loadSession: async () => null,
     getOrCreateSession: async () =>
@@ -52,6 +54,62 @@ test("throws a clear error when the keyring yields no session", async () => {
   };
   const resolve = createSqliteCipherKeyResolver(() => keyring);
   await expect(resolve()).rejects.toThrow(/keyring session/i);
+});
+
+test("recreates the keyring after a timed-out queued derivation", async () => {
+  let closedStuckKeyrings = 0;
+  const stuckKeyring: LocalKeyring = {
+    close: () => {
+      closedStuckKeyrings += 1;
+      throw new Error("planned close failure");
+    },
+    deleteSession: async () => {},
+    loadSession: async () => null,
+    getOrCreateSession: () => new Promise(() => {}),
+  };
+  let disposed = 0;
+  const healthyKeyring: LocalKeyring = {
+    close: () => {},
+    deleteSession: async () => {},
+    loadSession: async () => null,
+    getOrCreateSession: async () => {
+      if (closedStuckKeyrings === 0) {
+        throw new Error("Replacement keyring is blocked by the stale keyring.");
+      }
+      return {
+        dispose: () => {
+          disposed += 1;
+        },
+        sqliteKey: "recovered-sqlite-key",
+      } as unknown as LocalKeyringSession;
+    },
+  };
+  let cachedKeyring: LocalKeyring | null = null;
+  let createdKeyrings = 0;
+  let invalidations = 0;
+  const createLocalKeyring = Object.assign(
+    (): LocalKeyring => {
+      cachedKeyring ??= ++createdKeyrings === 1 ? stuckKeyring : healthyKeyring;
+      return cachedKeyring;
+    },
+    {
+      invalidateCachedKeyring: () => {
+        invalidations += 1;
+        cachedKeyring = null;
+      },
+    },
+  );
+  const resolve = createSqliteCipherKeyResolver(createLocalKeyring, 5);
+
+  const stuck = resolve();
+  const queuedRetry = resolve();
+
+  await expect(stuck).rejects.toThrow(/timed out after 5ms/i);
+  await expect(queuedRetry).resolves.toBe("recovered-sqlite-key");
+  expect(createdKeyrings).toBe(2);
+  expect(invalidations).toBe(1);
+  expect(closedStuckKeyrings).toBe(1);
+  expect(disposed).toBe(1);
 });
 
 test("fails hard when no keyring is available (no development-key fallback)", async () => {

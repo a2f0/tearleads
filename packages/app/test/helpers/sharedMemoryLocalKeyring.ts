@@ -13,6 +13,7 @@ export function createSharedMemoryLocalKeyringFactory(): () => LocalKeyring {
   const identityKeysByScopeKey = new Map<string, Uint8Array>();
 
   return () => ({
+    close() {},
     async deleteSession(scope) {
       identityKeysByScopeKey.delete(localKeyringScopeKey(scope));
     },

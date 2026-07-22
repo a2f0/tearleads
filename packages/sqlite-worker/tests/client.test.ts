@@ -45,6 +45,47 @@ test("destroy rejects pending requests and detaches listeners", async () => {
   );
 });
 
+test("shared request sequence stays unique across client generations", async () => {
+  const worker = new MockWorker();
+  const requestIdSequence = { current: 7 };
+  const oldClient = createDatabaseWorkerClient(worker, requestIdSequence);
+
+  const oldPendingPing = oldClient.ping();
+  oldClient.destroy();
+
+  await expect(oldPendingPing).rejects.toThrow(
+    "Database worker client has been destroyed.",
+  );
+
+  const newClient = createDatabaseWorkerClient(worker, requestIdSequence);
+  const newPendingPing = newClient.ping();
+
+  expect(worker.messages.map(({ id }) => id)).toEqual([7, 8]);
+
+  worker.dispatchEvent(
+    new MessageEvent("message", {
+      data: {
+        id: 7,
+        result: { ok: true, message: "pong" },
+      },
+    }),
+  );
+  worker.dispatchEvent(
+    new MessageEvent("message", {
+      data: {
+        id: 8,
+        result: { ok: true, message: "pong" },
+      },
+    }),
+  );
+
+  await expect(newPendingPing).resolves.toEqual({
+    ok: true,
+    message: "pong",
+  });
+  newClient.destroy();
+});
+
 test("exec posts query requests", async () => {
   const worker = new MockWorker();
   const client = createDatabaseWorkerClient(worker);

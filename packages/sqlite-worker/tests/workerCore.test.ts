@@ -21,6 +21,15 @@ class MockWorkerScope implements DatabaseWorkerScope {
     }
   }
 
+  removeEventListener(
+    type: "message",
+    listener: (event: MessageEvent<WorkerRequest>) => void | Promise<void>,
+  ): void {
+    if (type === "message" && this.listener === listener) {
+      this.listener = undefined;
+    }
+  }
+
   postMessage(message: WorkerResponse): void {
     this.messages.push(message);
   }
@@ -79,6 +88,16 @@ test("registerDatabaseWorker posts error responses for thrown init handlers", as
       },
     },
   ]);
+});
+
+test("registerDatabaseWorker unregisters its request listener", async () => {
+  const scope = new MockWorkerScope();
+  const unregister = registerDatabaseWorker(scope);
+
+  unregister();
+  await scope.dispatch({ id: 20, method: "ping", params: undefined });
+
+  expect(scope.messages).toEqual([]);
 });
 
 test("handleRequest returns exec rows", async () => {

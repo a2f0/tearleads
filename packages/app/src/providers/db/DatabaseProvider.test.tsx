@@ -1,14 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
-import type { LocalKeyring } from "@tearleads/client-sdk";
-import {
-  PERSISTENT_STORAGE_POLICY,
-  type StoragePersistencePolicy,
-} from "@tearleads/client-sdk/sqlite";
-import { act, cleanup, render, waitFor } from "@testing-library/react";
-import { useEffect } from "react";
+import { PERSISTENT_STORAGE_POLICY } from "@tearleads/client-sdk/sqlite";
+import { act, cleanup, waitFor } from "@testing-library/react";
+import { renderDatabaseProvider } from "../../../test/helpers/databaseProviderTestHarness";
 import {
   createBootTimeoutSQLiteRuntimeFactory,
-  createDeferred,
   createRecordingSQLiteRuntimeFactory,
   createRestartSensitiveSQLiteRuntimeFactory,
   createRetryableSQLiteRuntimeFactory,
@@ -16,119 +11,20 @@ import {
   createUnreadableUnwipeableSQLiteRuntimeFactory,
 } from "../../../test/helpers/databaseRuntimeFactories";
 import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sharedMemoryLocalKeyring";
-import {
-  AppHostConfig,
-  type CreateSQLiteRuntimeFn,
-} from "../../host/AppHostConfig";
-import { AppHostConfigProvider } from "../host/AppHostConfigProvider";
-import { LocalKeyringLockProvider } from "../local-keyring/LocalKeyringLockProvider";
-import { LogProvider } from "../logging/LogProvider";
-import { TearleadsProvider } from "../sdk/TearleadsProvider";
-import { SyncModeProvider } from "../sync-mode/SyncModeProvider";
-import { DatabaseProvider, useDatabase } from "./DatabaseProvider";
 
 const TEST_SIGNING_FINGERPRINT =
   "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
-type DatabaseControls = ReturnType<typeof useDatabase>;
-
 afterEach(() => {
   cleanup();
 });
-
-class SilentWebSocket extends EventTarget {
-  constructor(_url: string | URL) {
-    super();
-  }
-
-  close() {}
-}
-
-function DatabaseProbe({
-  onControls,
-}: {
-  onControls: (controls: DatabaseControls) => void;
-}) {
-  const controls = useDatabase();
-  useEffect(() => {
-    onControls(controls);
-  }, [controls, onControls]);
-
-  return <div>sqlite worker: {controls.status}</div>;
-}
-
-function renderDatabaseProvider(props: {
-  readonly createLocalKeyring?: () => LocalKeyring;
-  readonly createSQLiteRuntime: CreateSQLiteRuntimeFn;
-  readonly storagePersistence?: StoragePersistencePolicy;
-}) {
-  // The persistent SQLite database is always encrypted with a keyring-derived key
-  // (there is no development-key fallback), so a keyring must be present for boot
-  // to resolve a cipher key. Default to a shared-memory keyring, matching a real
-  // IndexedDB-capable browser; individual tests can still pass their own.
-  const createLocalKeyring =
-    props.createLocalKeyring ?? createSharedMemoryLocalKeyringFactory();
-  const originalWebSocket = globalThis.WebSocket;
-  const controlsReady = createDeferred();
-  let controls: DatabaseControls | null = null;
-  const getControls = () => {
-    if (!controls) {
-      throw new Error("Database controls were not rendered.");
-    }
-
-    return controls;
-  };
-  Reflect.set(globalThis, "WebSocket", SilentWebSocket);
-  const view = render(
-    <AppHostConfigProvider
-      value={
-        new AppHostConfig(
-          "http://localhost:3001",
-          "ws://localhost:3002",
-          props.createSQLiteRuntime,
-          undefined,
-          undefined,
-          createLocalKeyring,
-          undefined,
-          undefined,
-          props.storagePersistence,
-        )
-      }
-    >
-      <LocalKeyringLockProvider>
-        <LogProvider>
-          <SyncModeProvider>
-            <TearleadsProvider>
-              <DatabaseProvider>
-                <DatabaseProbe
-                  onControls={(nextControls) => {
-                    controls = nextControls;
-                    controlsReady.resolve();
-                  }}
-                />
-              </DatabaseProvider>
-            </TearleadsProvider>
-          </SyncModeProvider>
-        </LogProvider>
-      </LocalKeyringLockProvider>
-    </AppHostConfigProvider>,
-  );
-
-  return {
-    controlsReady,
-    getControls,
-    unmount: () => {
-      view.unmount();
-      Reflect.set(globalThis, "WebSocket", originalWebSocket);
-    },
-  };
-}
 
 test("ensureIdentityReady retries a failed identity database initialization", async () => {
   const runtimeFactory = createRetryableSQLiteRuntimeFactory();
   const originalConsoleError = console.error;
   const view = renderDatabaseProvider({
     createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+    reuseDatabaseWorker: true,
   });
 
   try {

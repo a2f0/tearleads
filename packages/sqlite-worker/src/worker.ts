@@ -1,4 +1,9 @@
-import { WORKER_CONNECT_PORT_MESSAGE_TYPE } from "./types";
+import {
+  WORKER_CONNECT_PORT_MESSAGE_TYPE,
+  WORKER_DISCONNECT_PORT_MESSAGE_TYPE,
+  WORKER_PORT_DISCONNECTED_MESSAGE_TYPE,
+  type WorkerResponse,
+} from "./types";
 import {
   type DatabaseWorkerScope,
   type RegisterDatabaseWorkerOptions,
@@ -23,7 +28,17 @@ interface DedicatedWorkerScope extends EventTargetScope {
   postMessage(message: unknown): void;
 }
 
-interface PortWorkerScope extends DatabaseWorkerScope {
+interface PortWorkerScope {
+  addEventListener(
+    type: "message",
+    listener: (event: MessageEvent<unknown>) => void | Promise<void>,
+  ): void;
+  close(): void;
+  postMessage(message: unknown): void;
+  removeEventListener(
+    type: "message",
+    listener: (event: MessageEvent<unknown>) => void | Promise<void>,
+  ): void;
   start?: () => void;
 }
 
@@ -72,6 +87,101 @@ function scopeForDedicatedWorker(
   };
 }
 
+function databaseScopeForPort(port: PortWorkerScope): DatabaseWorkerScope {
+  const listenerMap = new Map<
+    (event: MessageEvent<unknown>) => void | Promise<void>,
+    (event: MessageEvent<unknown>) => void | Promise<void>
+  >();
+
+  return {
+    addEventListener(type, listener) {
+      const portListener = (event: MessageEvent<unknown>) => {
+        void listener(event);
+      };
+      listenerMap.set(listener, portListener);
+      port.addEventListener(type, portListener);
+    },
+    postMessage(message: WorkerResponse) {
+      port.postMessage(message);
+    },
+    removeEventListener(type, listener) {
+      const portListener = listenerMap.get(listener);
+      if (!portListener) {
+        return;
+      }
+      listenerMap.delete(listener);
+      port.removeEventListener(type, portListener);
+    },
+  };
+}
+
+function isDisconnectPortMessage(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Reflect.get(value, "type") === WORKER_DISCONNECT_PORT_MESSAGE_TYPE
+  );
+}
+
+function registerDatabaseWorkerPort(
+  port: PortWorkerScope,
+  options: RegisterDatabaseWorkerOptions,
+): void {
+  let disconnecting = false;
+  let connectionClosed = false;
+  const initConnection: NonNullable<
+    RegisterDatabaseWorkerOptions["onInit"]
+  > = async (initOptions) => {
+    await options.onInit?.(initOptions);
+    connectionClosed = false;
+  };
+  const closeConnection = () => {
+    if (connectionClosed) {
+      return;
+    }
+    connectionClosed = true;
+    return options.onClose?.();
+  };
+  const unregister = registerDatabaseWorkerRuntime(databaseScopeForPort(port), {
+    ...options,
+    onInit: initConnection,
+    onClose: closeConnection,
+  });
+  const handleDisconnect = (event: MessageEvent<unknown>) => {
+    if (disconnecting || !isDisconnectPortMessage(event.data)) {
+      return;
+    }
+
+    disconnecting = true;
+    unregister();
+    port.removeEventListener("message", handleDisconnect);
+
+    // Renewed clients normally send this after their graceful `close` response.
+    // The idempotent close wrapper also covers a caller that retires early,
+    // without invoking custom connection cleanup twice. Once it settles,
+    // acknowledge and close the worker-side port; with both listeners removed,
+    // its per-client state becomes collectible instead of accumulating.
+    const acknowledgeAndClose = () => {
+      try {
+        port.postMessage({ type: WORKER_PORT_DISCONNECTED_MESSAGE_TYPE });
+      } catch {
+        // The main-thread endpoint may already be gone; still release this end.
+      }
+      try {
+        port.close();
+      } catch {
+        // Closing an already-disconnected port is best-effort teardown.
+      }
+    };
+    void Promise.resolve()
+      .then(closeConnection)
+      .then(acknowledgeAndClose, acknowledgeAndClose);
+  };
+
+  port.addEventListener("message", handleDisconnect);
+  port.start?.();
+}
+
 function connectedPortFromEvent(event: MessageEvent): PortWorkerScope | null {
   const data = event.data;
   if (
@@ -104,8 +214,7 @@ export function registerDatabaseWorker(
         return;
       }
 
-      port.start?.();
-      registerDatabaseWorkerRuntime(port, createOptions());
+      registerDatabaseWorkerPort(port, createOptions());
     });
     registerDatabaseWorkerRuntime(
       scopeForDedicatedWorker(workerScope),
@@ -124,7 +233,6 @@ export function registerDatabaseWorker(
       return;
     }
 
-    port.start?.();
-    registerDatabaseWorkerRuntime(port, createOptions());
+    registerDatabaseWorkerPort(port, createOptions());
   });
 }

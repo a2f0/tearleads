@@ -147,6 +147,12 @@ export async function bootSQLiteRuntime(
 
   let key: string;
   try {
+    // resolveCipherKey bounds its own keyring derivation (see
+    // createSqliteCipherKeyResolver) and rejects with a plain, non-round-trip
+    // error on a keyring/IndexedDB hang — so a timeout fails the boot (the caller
+    // restores the previous identity, reusing the worker) rather than triggering a
+    // worker respawn, and the resolver's serialized queue advances instead of
+    // stranding rollback and retries behind an abandoned operation.
     key = await resolveCipherKey();
   } catch (error) {
     log(`Failed to resolve SQLite cipher key: ${describeBootError(error)}`);
