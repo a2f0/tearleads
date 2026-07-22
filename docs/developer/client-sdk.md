@@ -416,8 +416,8 @@ unlock can use `createPinCodeWrappingKeyKeystore`, passphrases, OS keychains,
 or secure enclaves.
 Call `session.dispose()` when a host is done with a local keyring session; it
 zeroes the in-memory root and derived byte keys owned by that session.
-Call `keyring.close()` when done. This disposes cached sessions and
-releases both IndexedDB connections; closed keyrings cannot be reused.
+Built-in keyrings implement optional `close()` for resource release. Caller-held
+sessions remain valid until `session.dispose()`.
 `keyring.deleteSession(scope)` removes both the manifest and the wrapping-key
 handle for the scope.
 

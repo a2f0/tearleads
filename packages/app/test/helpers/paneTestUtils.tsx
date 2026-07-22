@@ -70,7 +70,7 @@ export function createDelayedLoadLocalKeyringFactory(
       const keyring = createBaseLocalKeyring();
 
       return {
-        close: () => keyring.close(),
+        close: () => keyring.close?.(),
         deleteSession: (scope) => keyring.deleteSession(scope),
         getOrCreateSession: (scope) => keyring.getOrCreateSession(scope),
         loadSession: async (scope) => {

@@ -95,7 +95,11 @@ export interface LocalKeyringSession {
 }
 
 export interface LocalKeyring {
-  close(): void;
+  /**
+   * Releases resources owned by the keyring service. Sessions already returned
+   * to callers remain valid until their holder calls `dispose()`.
+   */
+  close?(): void;
   deleteSession(scope: LocalKeyringScope): Promise<void>;
   getOrCreateSession(scope: LocalKeyringScope): Promise<LocalKeyringSession>;
   loadSession(scope: LocalKeyringScope): Promise<LocalKeyringSession | null>;
@@ -1268,14 +1272,9 @@ class LocalKeyringService implements LocalKeyring {
     }
 
     this.closed = true;
-    const operations = Array.from(this.sessionOperationsByScopeKey.values());
+    // The cache is non-owning: callers may still be using returned sessions,
+    // including sessions produced by operations that are currently in flight.
     this.sessionOperationsByScopeKey.clear();
-    for (const operation of operations) {
-      void operation.then(
-        (session) => session.dispose(),
-        () => undefined,
-      );
-    }
     try {
       this.options.manifestStore.close?.();
     } finally {

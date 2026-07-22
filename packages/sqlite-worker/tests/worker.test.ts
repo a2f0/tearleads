@@ -172,6 +172,54 @@ test("worker disconnects a renewed port after its graceful close", async () => {
   worker.terminate();
 });
 
+test("worker closes each initialization on a renewed port", async () => {
+  const worker = new Worker(new URL("./testWorker.ts", import.meta.url).href);
+  const channel = new MessageChannel();
+  channel.port1.start();
+  worker.postMessage({ type: WORKER_CONNECT_PORT_MESSAGE_TYPE }, [
+    channel.port2,
+  ]);
+
+  for (const id of [10, 12]) {
+    const initialized = oncePortMessage(channel.port1);
+    channel.port1.postMessage({
+      id,
+      method: "init",
+      params: {
+        dbName: "renewed-port.db",
+        cipher: "sqlcipher",
+        key: "secret",
+      },
+    });
+    expect(await initialized).toEqual({ id, result: { ok: true } });
+
+    const closed = oncePortMessage(channel.port1);
+    channel.port1.postMessage({
+      id: id + 1,
+      method: "close",
+      params: undefined,
+    });
+    expect(await closed).toEqual({ id: id + 1, result: { ok: true } });
+  }
+
+  const executed = oncePortMessage(channel.port1);
+  channel.port1.postMessage({
+    id: 14,
+    method: "exec",
+    params: { sql: "SELECT 1", rowMode: "array" },
+  });
+  expect(await executed).toEqual({
+    id: 14,
+    result: {
+      ok: false,
+      message: "Database has not been initialized.",
+    },
+  });
+
+  channel.port1.close();
+  worker.terminate();
+});
+
 test("worker rejects repeat init", async () => {
   const worker = new Worker(new URL("./testWorker.ts", import.meta.url).href);
 

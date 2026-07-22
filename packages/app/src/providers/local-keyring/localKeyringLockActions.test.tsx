@@ -23,6 +23,10 @@ interface DynamicKeyringHookProps {
   readonly unlockedPinCode: string | null;
 }
 
+interface HostKeyringHookProps extends DynamicKeyringHookProps {
+  readonly environment: LocalKeyringLockEnvironment;
+}
+
 afterEach(cleanup);
 
 test("reuses a config and remints after same-PIN unlock, factory, or capability changes", async () => {
@@ -118,4 +122,100 @@ test("reuses a config and remints after same-PIN unlock, factory, or capability 
   expect(createdKeyrings).toBe(5);
   expect(closedKeyrings).toEqual([1, 2, 3, 4]);
   expect(usedKeyrings).toEqual([1, 1, 2, 3, 4, 5]);
+});
+
+test("reuses a host keyring and remints only when its factory changes", async () => {
+  const closedKeyrings: string[] = [];
+  const createdKeyrings: string[] = [];
+  const usedKeyrings: string[] = [];
+  let nextKeyringId = 0;
+  const createHostFactory = (host: string) => {
+    return (): LocalKeyring => {
+      const keyringId = `${host}-${++nextKeyringId}`;
+      createdKeyrings.push(keyringId);
+      return {
+        close: () => {
+          closedKeyrings.push(keyringId);
+        },
+        deleteSession: async () => {},
+        getOrCreateSession: async () => {
+          throw new Error("Unexpected getOrCreateSession call.");
+        },
+        loadSession: async () => {
+          usedKeyrings.push(keyringId);
+          return null;
+        },
+      };
+    };
+  };
+  const createBrowserLocalKeyring = (_pinCode: string | null): LocalKeyring => {
+    throw new Error("The browser keyring factory must not run in host mode.");
+  };
+  const createEnvironment = (
+    hostCreateLocalKeyring: () => LocalKeyring,
+  ): LocalKeyringLockEnvironment => ({
+    ...ENVIRONMENT,
+    canManagePinCode: false,
+    hostCreateLocalKeyring,
+  });
+  const firstHostFactory = createHostFactory("first");
+  const secondHostFactory = createHostFactory("second");
+  const lockState: LockState = {
+    pinCodeEnabled: false,
+    revision: 1,
+    status: "unavailable",
+  };
+  const view = renderHook(
+    (props: HostKeyringHookProps) =>
+      useDynamicLocalKeyringFactory({
+        createBrowserLocalKeyring: props.createBrowserLocalKeyring,
+        environment: props.environment,
+        lockState: props.lockState,
+        unlockedPinCode: props.unlockedPinCode,
+      }),
+    {
+      initialProps: {
+        createBrowserLocalKeyring,
+        environment: createEnvironment(firstHostFactory),
+        lockState,
+        unlockedPinCode: null,
+      },
+    },
+  );
+
+  await view.result.current().loadSession(SCOPE);
+  await view.result.current().loadSession(SCOPE);
+  expect(createdKeyrings).toEqual(["first-1"]);
+  expect(closedKeyrings).toEqual([]);
+  expect(usedKeyrings).toEqual(["first-1", "first-1"]);
+
+  view.rerender({
+    createBrowserLocalKeyring,
+    environment: createEnvironment(firstHostFactory),
+    lockState: { ...lockState },
+    unlockedPinCode: null,
+  });
+  await view.result.current().loadSession(SCOPE);
+  expect(createdKeyrings).toEqual(["first-1"]);
+  expect(closedKeyrings).toEqual([]);
+  expect(usedKeyrings).toEqual(["first-1", "first-1", "first-1"]);
+
+  view.rerender({
+    createBrowserLocalKeyring,
+    environment: createEnvironment(secondHostFactory),
+    lockState: { ...lockState },
+    unlockedPinCode: null,
+  });
+  expect(closedKeyrings).toEqual(["first-1"]);
+
+  await view.result.current().loadSession(SCOPE);
+  await view.result.current().loadSession(SCOPE);
+  expect(createdKeyrings).toEqual(["first-1", "second-2"]);
+  expect(usedKeyrings).toEqual([
+    "first-1",
+    "first-1",
+    "first-1",
+    "second-2",
+    "second-2",
+  ]);
 });

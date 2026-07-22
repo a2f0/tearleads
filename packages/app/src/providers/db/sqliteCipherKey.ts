@@ -103,7 +103,7 @@ export function createSqliteCipherKeyResolver(
       } catch (error) {
         if (timedOut) {
           try {
-            activeKeyring.close();
+            activeKeyring.close?.();
           } catch {
             // Preserve the derivation timeout. Cache retirement below ensures a
             // replacement does not reuse this partially closed keyring.

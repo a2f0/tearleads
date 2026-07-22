@@ -129,6 +129,12 @@ function registerDatabaseWorkerPort(
 ): void {
   let disconnecting = false;
   let connectionClosed = false;
+  const initConnection: NonNullable<
+    RegisterDatabaseWorkerOptions["onInit"]
+  > = async (initOptions) => {
+    await options.onInit?.(initOptions);
+    connectionClosed = false;
+  };
   const closeConnection = () => {
     if (connectionClosed) {
       return;
@@ -138,6 +144,7 @@ function registerDatabaseWorkerPort(
   };
   const unregister = registerDatabaseWorkerRuntime(databaseScopeForPort(port), {
     ...options,
+    onInit: initConnection,
     onClose: closeConnection,
   });
   const handleDisconnect = (event: MessageEvent<unknown>) => {

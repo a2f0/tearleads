@@ -185,7 +185,7 @@ export function useDynamicLocalKeyringFactory(input: {
   const closeCachedKeyring = useCallback(() => {
     const cached = cacheRef.current;
     cacheRef.current = null;
-    cached?.keyring.close();
+    cached?.keyring.close?.();
   }, []);
 
   // Drop the cached keyring EAGERLY when the configuration changes, not only
