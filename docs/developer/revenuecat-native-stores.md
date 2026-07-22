@@ -73,9 +73,12 @@ entitlement, same subscriber attributes. The only difference is the event's
 Stripe-store events are exempt from the guard: RevenueCat marks Stripe
 *test-mode* transactions `SANDBOX` too, and gating them would stop a tier that
 tests direct Stripe checkout with test-mode keys from applying its own web
-billing. They do not need it — a Stripe event is attributed through the exact
-subscription binding looked up against that tier's own Stripe key, which cannot
-resolve a subscription from the other mode and fails closed.
+billing. What stands in for the guard there is Stripe's own attribution — a
+foreign-mode subscription resolves through neither the durable binding nor the
+exact `sub_…` lookup, both of which run against that tier's own Stripe key and
+fail closed. The one path that skips Stripe entirely is the legacy
+single-`si_`-plus-metadata branch, which can only bind an organization whose id
+the event already carries, so a cross-tier event would have to guess a v4 UUID.
 
 `classifyRevenueCatEvent` therefore ignores sandbox events unless the tier sets
 `REVENUECAT_ALLOW_SANDBOX_EVENTS=true`. It fails closed, so production simply
@@ -85,9 +88,11 @@ sandbox testing there will look like a webhook that silently does nothing.
 - Both halves are ignored, not just grants. Applying a sandbox *revoke* against
   a production tier could disable sync an organization actually paid for.
 - An ignored sandbox event is still recorded and acknowledged, so RevenueCat
-  stops redelivering it and the audit trail shows a tester's purchase arriving.
-  It is claimed by event id, so flipping the flag on afterwards does **not**
-  reprocess it — make a fresh purchase.
+  stops redelivering it, and the drop is logged with the event's type, store,
+  and environment. The stored row records the ignore but not the environment, so
+  the log line is what identifies it as a sandbox drop. It is claimed by event
+  id, so flipping the flag on afterwards does **not** reprocess it — make a
+  fresh purchase.
 - An event with **no** `environment` is treated as production: RevenueCat has not
   always sent the field, and a redelivered old event must keep its paid meaning.
 

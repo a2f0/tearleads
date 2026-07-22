@@ -14,6 +14,7 @@ import {
   classifyRevenueCatEvent,
   type RevenueCatBillingTransition,
   resolveOrganizationIdFromEvent,
+  SANDBOX_IGNORED_REASON,
 } from "../../billing/revenuecatWebhook";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
@@ -349,11 +350,16 @@ export async function runRevenueCatWebhookWorkflow(
     // a paid one, so only a tier that opts in applies it.
     allowSandboxEvents: allowsRevenueCatSandboxEvents(deps.env ?? process.env),
   });
-  if (transition.kind === "ignore" && event.environment !== undefined) {
+  if (
+    transition.kind === "ignore" &&
+    transition.reason === SANDBOX_IGNORED_REASON
+  ) {
     // Otherwise the only trace of a dropped sandbox event is a database row,
     // which reads exactly like the "webhook that silently does nothing" a
-    // tester hits when the tier has not opted in. Logged rather than counted:
-    // sandbox traffic is a testing session, not a production volume.
+    // tester hits when the tier has not opted in. Gated on the sandbox reason
+    // specifically, not on "ignored while carrying an environment": routine
+    // production ignores (an unhandled type, a cancellation without lapse)
+    // are ordinary traffic and must not warn.
     console.warn(
       `RevenueCat event ${event.id} (${event.type}, store=${event.store ?? "unknown"}, environment=${event.environment}) ignored: ${transition.reason}`,
     );

@@ -340,7 +340,7 @@ test("propagates a genuine store failure unchanged", async () => {
   });
 });
 
-test("does not present a sheet for a purchase abandoned while offerings loaded", async () => {
+test("does not present a sheet for a purchase abandoned before it began", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
   const controller = new AbortController();

@@ -204,3 +204,65 @@ test("a store purchase with no environment is treated as production", async () =
     status: "applied",
   });
 });
+
+test("an ordinary production ignore does not warn as a sandbox drop", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+  const warnings: unknown[][] = [];
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args);
+  };
+
+  try {
+    // CANCELLATION only turns off auto-renew, so it is ignored — routine live
+    // traffic that happens to carry an environment. Warning on every such event
+    // would drown the signal the sandbox log exists to provide.
+    const outcome = await runRevenueCatWebhookWorkflow(
+      db,
+      {
+        ...appStorePurchase({
+          appUserId: user.userId,
+          environment: "PRODUCTION",
+          eventId: crypto.randomUUID(),
+          organizationId,
+        }),
+        type: "CANCELLATION",
+      },
+      new Date(),
+      { env: {} },
+    );
+    expect(outcome.status).toBe("ignored");
+    expect(warnings).toEqual([]);
+  } finally {
+    console.warn = originalWarn;
+  }
+});
+
+test("an ignored sandbox event is logged so the drop is visible", async () => {
+  const { organizationId, user } = await registerOrganizationAdmin();
+  const warnings: string[] = [];
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args.map(String).join(" "));
+  };
+
+  try {
+    await runRevenueCatWebhookWorkflow(
+      db,
+      appStorePurchase({
+        appUserId: user.userId,
+        environment: "SANDBOX",
+        eventId: crypto.randomUUID(),
+        organizationId,
+      }),
+      new Date(),
+      { env: {} },
+    );
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  expect(warnings).toHaveLength(1);
+  expect(warnings[0]).toContain("SANDBOX");
+  expect(warnings[0]).toContain("APP_STORE");
+});
