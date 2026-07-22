@@ -72,6 +72,40 @@ async function withBootRoundTripTimeout<T>(
   }
 }
 
+/**
+ * Bound cipher-key resolution — deliberately WITHOUT the round-trip marker.
+ *
+ * A worker round-trip timeout is retryable: recovery tears the worker down and
+ * re-spawns it. But cipher-key resolution is a main-thread keyring/IndexedDB
+ * step, not a worker call — the worker is healthy, so respawning it is wrong, and
+ * on a WebView shell that reuses one worker (it cannot construct a second) that
+ * respawn would permanently lose the only worker. A plain timeout error is not
+ * {@link isBootRoundTripTimeoutError}, so it surfaces as an ordinary boot failure
+ * the managed runtime resolves by failing the boot (the caller then restores the
+ * previous identity, reusing the worker) rather than by respawning.
+ */
+async function withCipherKeyResolutionTimeout<T>(
+  operation: Promise<T>,
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_resolve, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(
+            new Error(
+              `SQLite cipher key resolution timed out after ${SQLITE_BOOT_ROUNDTRIP_TIMEOUT_MS}ms.`,
+            ),
+          );
+        }, SQLITE_BOOT_ROUNDTRIP_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 // Forces a read of page 1 (the encrypted SQLite header page) so a wrong/rotated
 // cipher key surfaces NOW as SQLITE_NOTADB, while the boot promise can still
 // react to it (wipe + recreate). dumpDatabaseCharacteristics below is best-effort
@@ -147,18 +181,14 @@ export async function bootSQLiteRuntime(
 
   let key: string;
   try {
-    // Bound cipher-key resolution the same way as the worker round-trips below.
-    // It runs before the worker `init` and reaches into the local keyring
-    // (IndexedDB on WebView shells); a keyring/IndexedDB stall here would
-    // otherwise leave the boot promise pending forever — `waitForReadySQLiteRuntime`
-    // waits with no timeout, so a hung resolve wedges the app keyless with no
-    // recovery (the second-identity provisioning hang). Racing it against the
-    // boot-round-trip timeout turns that into an ordinary, recoverable boot
-    // rejection the managed runtime already retries and ultimately surfaces.
-    key = await withBootRoundTripTimeout(
-      resolveCipherKey(),
-      "cipher key resolution",
-    );
+    // Bound cipher-key resolution. It runs before the worker `init` and reaches
+    // into the local keyring (IndexedDB on WebView shells); a keyring/IndexedDB
+    // stall here would otherwise leave the boot promise pending forever —
+    // waitForReadySQLiteRuntime has no timeout, so a hung resolve wedges the app
+    // keyless. Use a NON-round-trip timeout: this is a main-thread step, not a
+    // worker call, so a timeout must fail the boot (→ the caller reuses the worker
+    // by restoring the previous identity) rather than trigger a worker respawn.
+    key = await withCipherKeyResolutionTimeout(resolveCipherKey());
   } catch (error) {
     log(`Failed to resolve SQLite cipher key: ${describeBootError(error)}`);
     throw error;

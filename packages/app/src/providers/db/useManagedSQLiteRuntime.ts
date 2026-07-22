@@ -32,7 +32,18 @@ export interface DatabaseContextValue {
   id: string | null;
   client: DatabaseSnapshot["client"];
   status: SQLiteRuntimeStatus;
+  /**
+   * Tear the current runtime down (→ idle). Use where terminating the worker is
+   * the intent: Explorer's Retry, a PIN lock, Destroy Key Pair. Never leaves a
+   * decrypted database open with its key resident in the worker.
+   */
   clearWorker: () => void;
+  /**
+   * Release the current database ahead of an identity transition that opens a
+   * DIFFERENT one. Under host worker reuse this keeps a healthy worker alive so
+   * the switch reuses it; otherwise (or on an errored runtime) it tears down.
+   */
+  clearWorkerForIdentitySwitch: () => void;
   ensureIdentityReady: (signingFingerprint: string) => Promise<void>;
   ensureReady: () => Promise<void>;
   killWorker: () => void;
@@ -410,14 +421,21 @@ function useSQLiteRuntimeControls(params: {
     [ensureReadyForDbName],
   );
 
+  // Always tears the runtime down. Used where terminating the worker is the
+  // point — Explorer's Retry (reset an errored runtime to idle so it re-spawns),
+  // a PIN lock, and Destroy Key Pair — which must not leave the decrypted
+  // database open with its key resident in the worker. Distinct from
+  // clearWorkerForIdentitySwitch, which reuses the worker.
   const clearWorker = useCallback(() => {
-    // Under worker reuse an identity switch reuses the SAME worker (close +
-    // re-init via ensureReadyForDbName), and transitions call clearWorker() first,
-    // so tearing a HEALTHY worker down here would force a new worker on the next
-    // spawn — the second-identity provisioning hang. Keep it. But an ERRORED
-    // runtime must still be torn down: Explorer's Retry calls clearWorker() to
-    // reset it to idle so the boot effect re-spawns; skipping teardown there
-    // leaves the worker pinned in error and Retry inert.
+    destroyCurrentRuntime("idle");
+  }, [destroyCurrentRuntime]);
+
+  // Used when an identity transition is about to open a DIFFERENT database.
+  // Under worker reuse, keep a HEALTHY worker so the imminent ensureReady reuses
+  // it (close + re-init on the same worker) instead of constructing a new one —
+  // the second-identity provisioning hang. An errored runtime, or a non-reuse
+  // host, still tears down here so the next spawn starts clean.
+  const clearWorkerForIdentitySwitch = useCallback(() => {
     if (
       reuseWorker &&
       runtimeRef.current &&
@@ -447,6 +465,7 @@ function useSQLiteRuntimeControls(params: {
 
   return {
     clearWorker,
+    clearWorkerForIdentitySwitch,
     ensureIdentityReady,
     ensureReady,
     killWorker,

@@ -104,11 +104,20 @@ function makeErrorHandler(pending: Map<number, PendingRequest>) {
   };
 }
 
-// Runs on the main thread
+// Runs on the main thread.
+//
+// `requestIdSequence` is a caller-owned monotonic counter. When a worker is
+// reused across clients (see DatabaseRuntime.renewClient), the replacement client
+// must NOT restart request ids at 1: a delayed response to the previous client's
+// in-flight request (its listeners already removed) would otherwise arrive at the
+// new client and match a new pending request by its bare numeric id, falsely
+// completing it — potentially returning the old database's rows to a new-database
+// query. Sharing one ever-increasing sequence keeps every generation's ids
+// disjoint. Defaults to a private sequence for the common single-client case.
 export function createDatabaseWorkerClient(
   worker: WorkerLike,
+  requestIdSequence: { current: number } = { current: 1 },
 ): DatabaseWorkerClient {
-  let nextId = 1;
   const pending = new Map<number, PendingRequest>();
   let isDestroyed = false;
 
@@ -148,7 +157,7 @@ export function createDatabaseWorkerClient(
       );
     }
 
-    const id = nextId++;
+    const id = requestIdSequence.current++;
     const message = { id, method, params };
 
     return new Promise((resolve, reject) => {

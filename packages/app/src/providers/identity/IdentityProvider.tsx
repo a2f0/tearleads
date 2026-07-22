@@ -70,7 +70,13 @@ export interface IdentityContextValue {
 const IdentityContext = createContext<IdentityContextValue | null>(null);
 
 interface IdentityProviderActionsInput {
+  /** Tears the runtime down. For Destroy Key Pair (terminate, don't reuse). */
   readonly clearDatabase: () => void;
+  /**
+   * Release the current database ahead of a transition to a DIFFERENT one; keeps
+   * a healthy worker alive under host reuse. For create/switch/import.
+   */
+  readonly clearDatabaseForIdentitySwitch: () => void;
   readonly ensureIdentityDatabaseReady: (
     signingFingerprint: string,
   ) => Promise<void>;
@@ -93,7 +99,7 @@ function useLocalIdentitySwitcherActions(
   },
 ) {
   const switchIdentity = useSwitchLocalIdentity({
-    clearDatabase: input.clearDatabase,
+    clearDatabase: input.clearDatabaseForIdentitySwitch,
     ensureIdentityDatabaseReady: input.ensureIdentityDatabaseReady,
     generationIdRef: input.generationIdRef,
     generationInFlight: input.generationInFlight,
@@ -106,7 +112,7 @@ function useLocalIdentitySwitcherActions(
     transitionInFlightRef: input.transitionInFlightRef,
   });
   const importIdentityPackage = useImportLocalIdentity({
-    clearDatabase: input.clearDatabase,
+    clearDatabase: input.clearDatabaseForIdentitySwitch,
     ensureIdentityDatabaseReady: input.ensureIdentityDatabaseReady,
     generationIdRef: input.generationIdRef,
     generationInFlight: input.generationInFlight,
@@ -119,7 +125,7 @@ function useLocalIdentitySwitcherActions(
     transitionInFlightRef: input.transitionInFlightRef,
   });
   const createIdentity = useCreateLocalIdentity({
-    clearDatabase: input.clearDatabase,
+    clearDatabase: input.clearDatabaseForIdentitySwitch,
     generateKey: input.generateKey,
     generationInFlight: input.generationInFlight,
     persistSessionBeforeIdentityTransition:
@@ -252,6 +258,7 @@ export function IdentityProvider({ children }: PropsWithChildren) {
   const hostConfig = useAppHostConfig();
   const {
     clearWorker: clearDatabase,
+    clearWorkerForIdentitySwitch: clearDatabaseForIdentitySwitch,
     ensureIdentityReady: ensureIdentityDatabaseReady,
   } = useDatabase();
   const tearleads = useTearleads();
@@ -309,6 +316,7 @@ export function IdentityProvider({ children }: PropsWithChildren) {
   });
   const identityActions = useIdentityProviderActions({
     clearDatabase,
+    clearDatabaseForIdentitySwitch,
     ensureIdentityDatabaseReady,
     generationIdRef,
     generationInFlight,

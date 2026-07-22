@@ -169,8 +169,11 @@ export function createDatabaseRuntime(
 ): DatabaseRuntime {
   // Mutable so renewClient() can swap in a fresh client/id on the same worker;
   // the teardown closures below read the current `client`, and `id`/`client` are
-  // exposed as getters so consumers always see the live values.
-  let client = createDatabaseWorkerClient(worker);
+  // exposed as getters so consumers always see the live values. The request-id
+  // sequence is shared across client generations so a renewed client never
+  // reuses an in-flight id from the client it replaced (see client.ts).
+  const requestIdSequence = { current: 1 };
+  let client = createDatabaseWorkerClient(worker, requestIdSequence);
   let id = crypto.randomUUID();
   let torndown = false;
 
@@ -198,9 +201,11 @@ export function createDatabaseRuntime(
       }
       // Destroy the old client (removes its worker listeners, rejects any pending
       // requests) then wrap the same worker in a fresh client with a fresh id, so
-      // the SDK's client-keyed caches start clean for the next database.
+      // the SDK's client-keyed caches start clean for the next database. The
+      // shared request-id sequence continues (does not restart at 1) so a delayed
+      // response to the old client can never match a new client's request id.
       client.destroy();
-      client = createDatabaseWorkerClient(worker);
+      client = createDatabaseWorkerClient(worker, requestIdSequence);
       id = crypto.randomUUID();
     },
     destroy() {
