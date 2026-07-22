@@ -4,6 +4,7 @@ import type {
   OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
+import { ROUTED_TABLET_QUERY } from "../../../navigation/breakpoints";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { compactFingerprint } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
@@ -26,7 +27,7 @@ afterEach(() => {
   }
 });
 
-function mockPhoneRoutedLayout() {
+function mockRoutedLayout(tablet = false) {
   document.documentElement.setAttribute("data-navigation-mode", "routed");
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
@@ -34,7 +35,7 @@ function mockPhoneRoutedLayout() {
       addEventListener: () => undefined,
       addListener: () => undefined,
       dispatchEvent: () => false,
-      matches: false,
+      matches: query === ROUTED_TABLET_QUERY && tablet,
       media: query,
       onchange: null,
       removeEventListener: () => undefined,
@@ -67,7 +68,7 @@ const directory: OrganizationDirectory = {
 };
 
 test("org manager directory table renders two-line rows on phones", () => {
-  mockPhoneRoutedLayout();
+  mockRoutedLayout();
   const view = render(
     <DirectoryTable
       directory={directory}
@@ -134,7 +135,7 @@ test("org manager directory table renders two-line rows on phones", () => {
 });
 
 test("org manager directory table stays single-line in narrow windowed mode", () => {
-  mockPhoneRoutedLayout();
+  mockRoutedLayout();
   document.documentElement.setAttribute("data-navigation-mode", "windowed");
   const view = render(
     <DirectoryTable
@@ -155,6 +156,31 @@ test("org manager directory table stays single-line in narrow windowed mode", ()
       "tbody .mini-app-table-row:not(.mini-app-virtual-table-spacer-row) td",
     ),
   ).toHaveLength(3);
+  const frame = table.parentElement;
+  expect(frame?.classList.contains("org-manager-virtual-table--two-line")).toBe(
+    false,
+  );
+  expect(frame?.style.getPropertyValue("--mini-app-virtual-row-height")).toBe(
+    "36px",
+  );
+});
+
+test("org manager directory table stays single-line on routed tablets", () => {
+  mockRoutedLayout(true);
+  const view = render(
+    <DirectoryTable
+      directory={directory}
+      loading={false}
+      openRosterUserContextMenu={() => undefined}
+      selectedUserId={null}
+      selectUser={() => undefined}
+    />,
+  );
+  const table = view.getByRole("table", {
+    name: ORG_MANAGER_LABELS.directory,
+  });
+
+  expect(table.querySelector(".org-manager-compact-table-lines")).toBeNull();
   const frame = table.parentElement;
   expect(frame?.classList.contains("org-manager-virtual-table--two-line")).toBe(
     false,

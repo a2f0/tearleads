@@ -98,7 +98,10 @@ export function useOrgManagerListTableLayout(): {
   rowHeight: number;
 } {
   // Phone rows fold the visible data columns into two summary lines. Keep the
-  // wider desktop/tablet tables at their existing single-line density.
+  // wider desktop/tablet tables at their existing single-line density. Read the
+  // stamped DOM mode (instead of provider-only useCompactRoutedMode) so this
+  // predicate stays in lockstep with routed-only table CSS and remains usable
+  // by isolated table renders that do not mount AppNavigationProvider.
   const routedLayoutActive = useRoutedLayoutActive();
   const routedLayoutTier = useRoutedLayoutTier();
   const compact = routedLayoutActive && routedLayoutTier === "mobile";
