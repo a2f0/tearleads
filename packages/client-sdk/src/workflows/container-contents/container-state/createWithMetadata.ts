@@ -5,7 +5,10 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { locallyAcknowledgedContainerMutationHead } from "../../../data/containers/shared/mutationAcknowledgement";
-import { isStaleParentContainerPathFailure } from "../../../data/containers/shared/mutationFailures";
+import {
+  isContainerManifestAlreadyExistsConflict,
+  isStaleParentContainerPathFailure,
+} from "../../../data/containers/shared/mutationFailures";
 import type { ContainerMutationSubmitFailure } from "../../../data/containers/shared/types";
 import { locallyAcknowledgedDocumentMutationHead } from "../../../data/documents/shared/mutationAcknowledgement";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
@@ -29,6 +32,18 @@ import type {
   ContainerWorkflowRuntime,
   CreatedRemoteContainerState,
 } from "./types";
+
+/**
+ * Sentinel outcome for a container-with-metadata create whose response was lost:
+ * the re-submit reports the container (or its metadata document) manifest already
+ * exists, so the object is committed remotely. Callers treat this as a benign
+ * idempotent-retry conflict — they neither surface it as an error nor create a
+ * duplicate. The committed container's metadata state (documentId +
+ * accessStateHash) lands when the parent's contents are next hydrated, which
+ * marks the pending create intent synced.
+ */
+export const CONTAINER_ALREADY_COMMITTED = Symbol("containerAlreadyCommitted");
+export type ContainerAlreadyCommitted = typeof CONTAINER_ALREADY_COMMITTED;
 
 async function submitContainerWithMetadataDocument(input: {
   readonly request: ContainerCreateWithMetadataDocumentRequest;
@@ -307,7 +322,7 @@ async function createContainerWithMetadataWithRepairs(
   >[0] & {
     readonly parentContainerId: string;
   },
-): Promise<CreatedRemoteContainerState | null> {
+): Promise<CreatedRemoteContainerState | ContainerAlreadyCommitted | null> {
   const { apiClient } = input.runtime;
   let parentProjection = input.parentProjection;
   let didRepairStaleParent = false;
@@ -350,6 +365,14 @@ async function createContainerWithMetadataWithRepairs(
       parentProjection = refreshedProjection;
       continue;
     }
+    if (isContainerManifestAlreadyExistsConflict(submitted)) {
+      // A create whose response was lost re-sends the same stable ids; the server
+      // reports the manifest already exists. The container is committed remotely,
+      // so this is the benign outcome of an idempotent retry — do not report it as
+      // an error. It reconciles via hydration, matching createRemoteDocument's
+      // manifest-exists handling on the document create path.
+      return CONTAINER_ALREADY_COMMITTED;
+    }
     submitted.report();
     return null;
   }
@@ -362,7 +385,7 @@ export async function createRemoteContainerWithMetadataDocument(input: {
   parentProjection?: ContainerWriterProjectionResponse | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
-}): Promise<CreatedRemoteContainerState | null> {
+}): Promise<CreatedRemoteContainerState | ContainerAlreadyCommitted | null> {
   const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
   const parentSecretKey = input.runtime.crypto.encapsulationKeyPair?.secretKey;

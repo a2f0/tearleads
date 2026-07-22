@@ -1,5 +1,10 @@
 import type { Sqlite3Static } from "@tearleads/sqlite-instance";
 import { runWithBunFetchLock } from "./bunFetchLock";
+import {
+  SAHPOOL_STEP_HANG_TIMEOUT_MS,
+  SahPoolStepTimeoutError,
+  withSahPoolStepHangTimeout,
+} from "./sahPoolHangTimeout";
 import { loadSqlite3WithFilteredWarnings } from "./sqliteBootstrapWarnings";
 import type {
   DatabasePersistenceMode,
@@ -240,6 +245,7 @@ export async function installSahPoolVfsWithRetry(
     totalBudgetMs?: number;
     initialDelayMs?: number;
     maxDelayMs?: number;
+    stepHangTimeoutMs?: number;
     now?: () => number;
     vfsName?: string;
   },
@@ -249,6 +255,8 @@ export async function installSahPoolVfsWithRetry(
   const totalBudgetMs =
     overrides?.totalBudgetMs ?? SAHPOOL_INSTALL_TOTAL_BUDGET_MS;
   const maxDelayMs = overrides?.maxDelayMs ?? SAHPOOL_INSTALL_MAX_DELAY_MS;
+  const stepHangTimeoutMs =
+    overrides?.stepHangTimeoutMs ?? SAHPOOL_STEP_HANG_TIMEOUT_MS;
   const now = overrides?.now ?? (() => Date.now());
 
   const startedAt = now();
@@ -257,13 +265,26 @@ export async function installSahPoolVfsWithRetry(
 
   for (;;) {
     try {
-      return await s.installOpfsSAHPoolVfs({
-        name: vfsName,
-        directory,
-        // Preserve existing files across sessions — this is the whole point.
-        clearOnInit: false,
-      });
+      return await withSahPoolStepHangTimeout(
+        s.installOpfsSAHPoolVfs({
+          name: vfsName,
+          directory,
+          // Preserve existing files across sessions — this is the whole point.
+          clearOnInit: false,
+        }),
+        stepHangTimeoutMs,
+      );
     } catch (error: unknown) {
+      // A hung install (Android WebView can leave createSyncAccessHandle pending
+      // forever under handle-cap contention) is surfaced, NOT retried in place: a
+      // second concurrent install would only pile more half-acquired handles onto
+      // the already-saturated origin. Surfacing it lets `initDatabase` reject
+      // (instead of hanging past the app boot timeout), so the worker answers and is
+      // torn down — releasing its handles — and the app re-attempts boot on a fresh
+      // worker as the origin drains. See SAHPOOL_STEP_HANG_TIMEOUT_MS.
+      if (error instanceof SahPoolStepTimeoutError) {
+        throw error;
+      }
       // A non-contention failure will never clear by waiting — rethrow now so the
       // app reaches its boot-error state immediately instead of after the budget.
       if (!isAccessHandleContentionError(error)) {
@@ -321,7 +342,13 @@ async function loadPersistentVfs(
       directory: storage.directory,
       vfsName: storage.vfsName,
     });
-    await poolUtil.reserveMinimumCapacity(SAHPOOL_MINIMUM_CAPACITY);
+    // reserveMinimumCapacity also opens SyncAccessHandles, so it can hang under
+    // the same Android handle-cap contention; bound it too so a stalled
+    // reservation rejects instead of leaving the worker silent forever.
+    await withSahPoolStepHangTimeout(
+      poolUtil.reserveMinimumCapacity(SAHPOOL_MINIMUM_CAPACITY),
+      SAHPOOL_STEP_HANG_TIMEOUT_MS,
+    );
     const cipherVfsName = createCipherVfs(s, poolUtil.vfsName);
     const resolved: PersistentVfs = { poolUtil, cipherVfsName };
     return resolved;

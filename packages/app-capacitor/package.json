@@ -26,6 +26,7 @@
     "android:sideload:release": "bundle exec fastlane android install_release",
     "ios:build:testflight": "bundle exec fastlane ios build_testflight_release",
     "ios:upload:testflight": "bundle exec fastlane ios upload_testflight_release",
+    "ios:fetch:appstore-profile": "bundle exec fastlane ios fetch_appstore_profile",
     "store:build-numbers": "bundle exec fastlane store_build_numbers",
     "lint:rubocop": "bundle exec rubocop",
     "test": "bun test src --pass-with-no-tests"
@@ -43,6 +44,7 @@
     "@capgo/capacitor-native-biometric": "8.4.5",
     "@revenuecat/purchases-capacitor": "13.2.1",
     "@tearleads/client-sdk": "workspace:*",
+    "@tearleads/encoding": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
     "app": "workspace:*",
     "react": "catalog:react",

@@ -7,7 +7,8 @@
     "dev:reset": "sh scripts/runElectronbun.sh dev --reset",
     "dev:watch": "sh scripts/runElectronbun.sh dev --watch",
     "build": "sh scripts/buildElectrobun.sh",
-    "build:dev": "sh scripts/buildElectrobun.sh --env dev"
+    "build:dev": "sh scripts/buildElectrobun.sh --env dev",
+    "test": "bun test src --pass-with-no-tests"
   },
   "dependencies": {
     "@tearleads/client-sdk": "workspace:*",

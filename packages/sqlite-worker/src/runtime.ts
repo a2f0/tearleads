@@ -14,6 +14,13 @@ interface TerminableWorkerLike extends WorkerLike {
 
 interface CloseableWorkerLike extends WorkerLike {
   close(): void;
+  /**
+   * Cross-tab worker only: force-stop a possibly-wedged owner (its worker went
+   * silent and never answered the graceful `close`) so the next boot builds a
+   * fresh owner. Absent on a real SharedWorker port, where the browser reclaims
+   * the port/owner itself; called optionally.
+   */
+  forceStopOwner?(): void;
 }
 
 export interface ModuleWorkerLike extends TerminableWorkerLike {}
@@ -245,6 +252,23 @@ export function createSharedDatabaseRuntime(
     worker.close();
   };
 
+  // Abrupt teardown: the graceful `close`/`delete` never came back (the worker is
+  // wedged) or there was no time to wait for it, so the owner was never stopped
+  // via its close-response. Also force-stop a possibly-wedged owner so the next
+  // boot re-contends and builds a fresh owner instead of routing into the dead
+  // one. Idempotent and no-ops when the owner already stopped itself (healthy
+  // close) or this tab is not the owner.
+  const forceClose = () => {
+    if (torndown) {
+      return;
+    }
+
+    torndown = true;
+    client.destroy();
+    worker.forceStopOwner?.();
+    worker.close();
+  };
+
   return {
     id: crypto.randomUUID(),
     client,
@@ -253,7 +277,10 @@ export function createSharedDatabaseRuntime(
         return;
       }
 
-      const timeoutId = setTimeout(close, GRACEFUL_CLOSE_TIMEOUT_MS);
+      // The worker acked the graceful close within the budget → it already stopped
+      // the owner itself, so a plain close() suffices. If it did NOT ack (timeout
+      // or rejection), it may be wedged → force-stop the owner.
+      const timeoutId = setTimeout(forceClose, GRACEFUL_CLOSE_TIMEOUT_MS);
       client.close().then(
         () => {
           clearTimeout(timeoutId);
@@ -261,7 +288,7 @@ export function createSharedDatabaseRuntime(
         },
         () => {
           clearTimeout(timeoutId);
-          close();
+          forceClose();
         },
       );
     },
@@ -272,7 +299,7 @@ export function createSharedDatabaseRuntime(
 
       await new Promise<void>((resolve) => {
         const timeoutId = setTimeout(() => {
-          close();
+          forceClose();
           resolve();
         }, GRACEFUL_CLOSE_TIMEOUT_MS);
         const finish = () => {
@@ -280,7 +307,12 @@ export function createSharedDatabaseRuntime(
           close();
           resolve();
         };
-        client.delete().then(finish, finish);
+        const fail = () => {
+          clearTimeout(timeoutId);
+          forceClose();
+          resolve();
+        };
+        client.delete().then(finish, fail);
       });
     },
     terminateNow() {
@@ -289,7 +321,7 @@ export function createSharedDatabaseRuntime(
       }
 
       postCloseWithoutWaiting(worker);
-      close();
+      forceClose();
     },
   };
 }

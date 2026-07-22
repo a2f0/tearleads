@@ -1426,11 +1426,27 @@ export class ApiClient {
     partNumber: number,
     input: UploadMultipartBlobPartBytesRequest,
   ) {
+    // Send the encrypted part as a File — not a raw Uint8Array and not a plain
+    // Blob. CapacitorHttp (enabled on the native builds so API requests bypass the
+    // WKWebView's broken cross-origin fetch) serializes request bodies across the
+    // JS->native bridge in its convertBody(): a Uint8Array octet-stream body is
+    // `TextDecoder().decode()`d to UTF-8 there — which corrupts encrypted
+    // ciphertext (arbitrary, non-UTF-8 bytes) — and a plain Blob is not recognized
+    // at all, falling through as JSON (`{}`). Only a File is read byte-for-byte
+    // (readAsBinaryString -> base64), so the ciphertext survives the bridge intact
+    // and the server's byte-length/SHA-256 validation passes. A File is a Blob, so
+    // it is equally valid on the plain web fetch path (the explicit Content-Type
+    // header below still wins).
+    const encryptedBody = new File(
+      [input.encryptedBytes],
+      "encrypted-blob-part",
+      { type: "application/octet-stream" },
+    );
     return this.request(
       `/blobs/stages/multipart/${pathSegment(stageId)}/parts/${pathSegment(partNumber)}/bytes`,
       isUploadMultipartBlobPartResponse,
       "PUT",
-      input.encryptedBytes,
+      encryptedBody,
       {
         headers: {
           "Content-Type": "application/octet-stream",

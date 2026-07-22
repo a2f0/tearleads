@@ -155,7 +155,20 @@
 }
 
 .routed-pane-toolbar {
-  flex: 0 0 auto;
+  /* Shrink and scroll rather than pushing trailing actions off-screen. A
+     mini-app can register more fixed 44px touch targets than a narrow phone can
+     lay out beside the nav controls — e.g. a file document in the Explorer
+     stacks Get Info / Link / Move on top of its own Edit / Download. The
+     buttons keep their touch size and the row scrolls horizontally instead of
+     overflowing the app bar (which does not clip). The scrollbar is hidden
+     since a touch swipe is the affordance. */
+  flex: 0 1 auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.routed-pane-toolbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* === Main === */

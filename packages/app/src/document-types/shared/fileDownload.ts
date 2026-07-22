@@ -1,4 +1,4 @@
-import type { BlobStore } from "@tearleads/client-sdk";
+import type { BlobStore, FileSaver } from "@tearleads/client-sdk";
 import { downloadBytesAsFile } from "../../utils/downloadFile";
 
 interface DownloadableAttachment {
@@ -46,12 +46,13 @@ export async function downloadResolvedAttachment(input: {
   attachment: DownloadableAttachment;
   blobStore: BlobStore;
   fallbackFileName: string;
+  fileSaver: FileSaver;
 }): Promise<boolean> {
   const bytes = await input.blobStore.readBytes(input.attachment.storageKey);
   if (!bytes) {
     return false;
   }
-  downloadBytesAsFile({
+  await downloadBytesAsFile(input.fileSaver, {
     bytes,
     fileName: input.attachment.name?.trim() || input.fallbackFileName,
     mimeType: input.attachment.mimeType,

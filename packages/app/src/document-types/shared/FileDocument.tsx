@@ -1,7 +1,8 @@
+import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
+import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
+import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
-  MiniAppActions,
-  MiniAppButton,
   MiniAppInput,
   MiniAppStatus,
 } from "../../components/mini-app/MiniAppLayout";
@@ -10,6 +11,8 @@ import {
   MiniAppRowStack,
   MiniAppRowText,
 } from "../../components/mini-app/rows/MiniAppRow";
+import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
+import { useFileSaver } from "../../providers/file-saver/FileSaverProvider";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import {
   useDocument,
@@ -123,7 +126,24 @@ function FileDocumentNameRow(params: {
   );
 }
 
-export function FileDocumentFields(params: {
+const FILE_DOCUMENT_EDIT_LABEL = "Edit";
+const FILE_DOCUMENT_DONE_LABEL = "Done";
+const FILE_DOCUMENT_DOWNLOAD_LABEL = "Download";
+
+export function FileDocumentFields({
+  canWrite,
+  downloadDisabled,
+  downloadError,
+  editDisabled,
+  fileName,
+  hideEdit = false,
+  isEditing,
+  mediaPreview,
+  onCommitFileName,
+  onDownload,
+  onToggleEditing,
+  readFields,
+}: {
   canWrite: boolean;
   downloadDisabled: boolean;
   downloadError: string | null;
@@ -139,46 +159,63 @@ export function FileDocumentFields(params: {
   onToggleEditing: () => void;
   readFields: ReadonlyArray<FileDocumentField>;
 }) {
+  // Edit and Download are pane-header toolbar actions (rendered in the window
+  // and routed chrome), not body buttons — mirroring the Contact document's
+  // edit toggle. Edit sits left of Download via the higher priority.
+  const editAction = useMemo(
+    () => ({
+      disabled: editDisabled,
+      icon: isEditing ? (
+        <CheckIcon aria-hidden size={18} />
+      ) : (
+        <PencilSimpleIcon aria-hidden size={18} />
+      ),
+      id: "file-document-toggle-edit",
+      label: isEditing ? FILE_DOCUMENT_DONE_LABEL : FILE_DOCUMENT_EDIT_LABEL,
+      onClick: onToggleEditing,
+      priority: 100,
+    }),
+    [editDisabled, isEditing, onToggleEditing],
+  );
+  useWindowTitleBarAction(hideEdit ? null : editAction);
+
+  const downloadAction = useMemo(
+    () => ({
+      disabled: downloadDisabled,
+      icon: <DownloadSimpleIcon aria-hidden size={18} />,
+      id: "file-document-download",
+      label: FILE_DOCUMENT_DOWNLOAD_LABEL,
+      onClick: onDownload,
+      priority: 90,
+    }),
+    [downloadDisabled, onDownload],
+  );
+  useWindowTitleBarAction(downloadAction);
+
   return (
     <div className="file-document-fields">
-      {/* For media, the preview is the point of the view: render it above
-          the actions and metadata so it lands on top without a scroll. */}
-      {params.mediaPreview ? (
-        <FileDocumentMediaPreviewPanel preview={params.mediaPreview} />
+      {/* For media, the preview is the point of the view: render it above the
+          metadata so it lands on top without a scroll. */}
+      {mediaPreview ? (
+        <FileDocumentMediaPreviewPanel preview={mediaPreview} />
       ) : null}
-      <MiniAppActions>
-        {params.hideEdit ? null : (
-          <MiniAppButton
-            disabled={params.editDisabled}
-            onClick={params.onToggleEditing}
-          >
-            {params.isEditing ? "Done" : "Edit"}
-          </MiniAppButton>
-        )}
-        <MiniAppButton
-          disabled={params.downloadDisabled}
-          onClick={params.onDownload}
-        >
-          Download
-        </MiniAppButton>
-      </MiniAppActions>
-      {params.downloadError ? (
+      {downloadError ? (
         <MiniAppStatus as="span" tone="error">
-          {params.downloadError}
+          {downloadError}
         </MiniAppStatus>
       ) : null}
       <FileDocumentNameRow
-        disabled={!params.canWrite}
-        isEditing={params.isEditing}
+        disabled={!canWrite}
+        isEditing={isEditing}
         label="File Name"
-        onCommit={params.onCommitFileName}
-        value={params.fileName}
+        onCommit={onCommitFileName}
+        value={fileName}
       />
       {/* Metadata rows are single-line label/value pairs; flow them into a
           responsive multi-column grid so short fields sit side by side instead
           of stacking into a tall column. */}
       <div className="file-document-metadata">
-        {params.readFields.map((field) => (
+        {readFields.map((field) => (
           <FileDocumentReadRow
             key={field.label}
             label={field.label}
@@ -225,6 +262,7 @@ function useFileDocument(params: {
 }) {
   const { extraFieldLabels, initialEditing, title } = params;
   const { infra } = useTearleadsRuntime();
+  const fileSaver = useFileSaver();
   const {
     attachments,
     attachmentStorageKeyBySlotId,
@@ -278,6 +316,7 @@ function useFileDocument(params: {
       attachment: downloadable,
       blobStore: infra.blobStore,
       fallbackFileName: fileName.trim() || title,
+      fileSaver,
     })
       .then((succeeded) => {
         if (!succeeded) {
@@ -292,7 +331,7 @@ function useFileDocument(params: {
         console.error("Failed to download attachment:", error);
         setDownloadError("Couldn't download this file.");
       });
-  }, [downloadable, fileName, infra.blobStore, title]);
+  }, [downloadable, fileName, fileSaver, infra.blobStore, title]);
 
   const toggleEditing = useCallback(
     () => setIsEditing((editing) => !editing),

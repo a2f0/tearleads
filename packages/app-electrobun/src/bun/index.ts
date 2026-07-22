@@ -3,13 +3,48 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getSqliteWasmAssetUrl } from "@tearleads/sqlite-worker/assets";
 import { serve } from "bun";
-import { BrowserWindow } from "electrobun/bun";
+import { BrowserWindow, Utils } from "electrobun/bun";
+import { planSaveFileRequest } from "../saveFileHandler";
 
 const packageDirEnvName = "TEARLEADS_ELECTROBUN_PACKAGE_DIR";
 const isDev = process.env.NODE_ENV !== "production";
 // Keep Electrobun off app-web's default :3000 origin so stale app-web service
 // workers cannot control the desktop dev renderer.
 const devServerPort = 3002;
+
+// The renderer's WKWebView has no browser download destination, so the app posts
+// a file's bytes here (same origin, see src/renderer/electrobunFileSaver.ts) and
+// the main process writes them to the user's Downloads folder and reveals the
+// result. The routing, CSRF gate, and path resolution live in ../saveFileHandler
+// (unit-tested); this wrapper performs the disk write and reveal it plans.
+async function handleSaveFileRequest(req: Request): Promise<Response | null> {
+  const plan = await planSaveFileRequest(req, {
+    downloadsDir: Utils.paths.downloads,
+  });
+  if (plan.kind === "ignore") {
+    return null;
+  }
+  if (plan.kind === "reject") {
+    return new Response(plan.message, { status: plan.status });
+  }
+
+  try {
+    await Bun.write(plan.path, plan.bytes);
+  } catch (error) {
+    console.error("electrobun: failed to save downloaded file", error);
+    return new Response("Failed to save file", { status: 500 });
+  }
+
+  // Reveal where the download landed. A reveal failure must not fail the save,
+  // whose bytes are already on disk.
+  try {
+    Utils.showItemInFolder(plan.path);
+  } catch (error) {
+    console.error("electrobun: failed to reveal downloaded file", error);
+  }
+
+  return Response.json({ path: plan.path });
+}
 
 function getPackageSourcePath(
   packageRelativePath: string,
@@ -86,6 +121,11 @@ function createPackagedServerConfig() {
 
   return {
     async fetch(req: Request) {
+      const saveResponse = await handleSaveFileRequest(req);
+      if (saveResponse) {
+        return saveResponse;
+      }
+
       const { pathname } = new URL(req.url);
       const assetPath = getPackagedViewAssetPath(viewDir, pathname);
 
@@ -164,7 +204,12 @@ async function createDevServerConfig() {
   }
 
   return {
-    fetch(req: Request) {
+    async fetch(req: Request) {
+      const saveResponse = await handleSaveFileRequest(req);
+      if (saveResponse) {
+        return saveResponse;
+      }
+
       const { pathname } = new URL(req.url);
 
       if (pathname === "/worker.js") {

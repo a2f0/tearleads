@@ -6,11 +6,13 @@ type ChangeListener = (status: ConnectionStatus) => void;
 // Mutable fixture the mocked native modules read, so each test configures the
 // plugin availability and reported status before building a source.
 const fixture: {
+  nativePlatform: boolean;
   pluginAvailable: boolean;
   status: ConnectionStatus;
   listeners: ChangeListener[];
   removed: number;
 } = {
+  nativePlatform: true,
   pluginAvailable: true,
   status: { connected: false, connectionType: "cellular" },
   listeners: [],
@@ -19,6 +21,7 @@ const fixture: {
 
 mock.module("@capacitor/core", () => ({
   Capacitor: {
+    isNativePlatform: () => fixture.nativePlatform,
     isPluginAvailable: () => fixture.pluginAvailable,
     getPlatform: () => "android",
   },
@@ -46,6 +49,7 @@ const { createCapacitorNetworkStatus } = await import(
 );
 
 afterEach(() => {
+  fixture.nativePlatform = true;
   fixture.pluginAvailable = true;
   fixture.status = { connected: false, connectionType: "cellular" };
   fixture.listeners = [];
@@ -58,6 +62,24 @@ function flushAsync(): Promise<void> {
     setTimeout(resolve, 0);
   });
 }
+
+test("is authoritative on a native platform but not in the web dev target", () => {
+  // On a real device getStatus() reads the OS connectivity API — the device's
+  // connectivity truth — so a failed backend request must never override it (see
+  // reportReachability). Authoritative regardless of native plugin availability;
+  // a stripped plugin still pins the optimistic online seed.
+  fixture.nativePlatform = true;
+  expect(createCapacitorNetworkStatus().authoritative).toBe(true);
+  fixture.pluginAvailable = false;
+  expect(createCapacitorNetworkStatus().authoritative).toBe(true);
+
+  // In the Capacitor web dev target the source is just navigator.onLine (the
+  // plugin's web implementation), no better than the browser source, so it must
+  // not be authoritative — a failed fetch should still drive offline.
+  fixture.nativePlatform = false;
+  fixture.pluginAvailable = true;
+  expect(createCapacitorNetworkStatus().authoritative).toBe(false);
+});
 
 test("holds online and never binds the plugin when the native plugin is absent", async () => {
   fixture.pluginAvailable = false;

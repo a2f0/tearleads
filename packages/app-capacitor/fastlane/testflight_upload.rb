@@ -93,11 +93,20 @@ def upload_ios_testflight_release_result(options, release_result)
   )
 end
 
+def record_ios_release_build_number(build_number)
+  UI.success("iOS release build number: #{build_number}")
+  output_path = ENV.fetch('IOS_RELEASE_BUILD_NUMBER_FILE', nil)
+  return if output_path.to_s.empty?
+
+  File.write(output_path, "#{build_number}\n")
+end
+
 platform :ios do
   desc 'Build signed iOS IPA and upload it to TestFlight'
   lane :upload_testflight_release do |options|
     release_result = build_testflight_release(options)
     upload_to_testflight(upload_ios_testflight_options(options, release_result))
+    record_ios_release_build_number(release_result.fetch(:build_number))
     upload_ios_testflight_release_result(options, release_result)
   end
 end

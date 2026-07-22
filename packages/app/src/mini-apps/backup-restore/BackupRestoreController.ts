@@ -1,3 +1,4 @@
+import type { FileSaver } from "@tearleads/client-sdk";
 import {
   type ChangeEvent,
   type RefObject,
@@ -13,6 +14,7 @@ import {
   type BackupSummary,
   useLocalBackupOperations,
 } from "../../providers/db/useLocalBackupOperations";
+import { useFileSaver } from "../../providers/file-saver/FileSaverProvider";
 import { useLog } from "../../providers/logging/LogProvider";
 import { downloadTextAsFile } from "../../utils/downloadFile";
 
@@ -58,6 +60,7 @@ function useExportBackupAction({
   backupPassword,
   confirmBackupPassword,
   exportLocalBackup,
+  fileSaver,
   log,
   logError,
   state,
@@ -65,6 +68,7 @@ function useExportBackupAction({
   readonly backupPassword: string;
   readonly confirmBackupPassword: string;
   readonly exportLocalBackup: ExportLocalBackup;
+  readonly fileSaver: FileSaver;
   readonly log: (message: string) => void;
   readonly logError: (message: string | Error, cause?: unknown) => void;
   readonly state: BackupRestoreOperationState;
@@ -97,7 +101,7 @@ function useExportBackupAction({
         onProgress: setProgress,
         password: backupPassword,
       });
-      downloadTextAsFile({
+      await downloadTextAsFile(fileSaver, {
         fileName: result.fileName,
         mimeType: "application/json",
         text: result.text,
@@ -118,6 +122,7 @@ function useExportBackupAction({
     backupPassword,
     confirmBackupPassword,
     exportLocalBackup,
+    fileSaver,
     log,
     logError,
     resetOperationState,
@@ -340,6 +345,7 @@ function useBackupRestoreState() {
 
 export function useBackupRestore() {
   const database = useDatabase();
+  const fileSaver = useFileSaver();
   const { log, logError } = useLog();
   const { exportLocalBackup, restoreLocalBackup } = useLocalBackupOperations();
   const state = useBackupRestoreState();
@@ -347,6 +353,7 @@ export function useBackupRestore() {
     backupPassword: state.backupPassword,
     confirmBackupPassword: state.confirmBackupPassword,
     exportLocalBackup,
+    fileSaver,
     log,
     logError,
     state: state.operationState,

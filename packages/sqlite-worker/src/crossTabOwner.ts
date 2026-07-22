@@ -58,6 +58,22 @@ export class CrossTabOwner {
     }, CROSS_TAB_CLIENT_SWEEP_INTERVAL_MS);
   }
 
+  /**
+   * Whether this owner is currently serving any client other than `clientId` —
+   * e.g. a remote client routed from another tab. Used to gate a force-stop so
+   * tearing down one wedged local runtime cannot terminate the owner out from
+   * under a sibling tab that is still routing requests here.
+   */
+  hasActiveClientsExcept(clientId: string): boolean {
+    for (const id of this.activeClientIds) {
+      if (id !== clientId) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   route(
     clientId: string,
     request: unknown,

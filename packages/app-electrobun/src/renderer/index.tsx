@@ -11,6 +11,7 @@ import {
   resolveAppHostRuntimeConfig,
 } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
+import { createElectrobunFileSaver } from "./electrobunFileSaver";
 
 function createElectrobunSQLiteRuntime() {
   const workerUrl =
@@ -55,6 +56,9 @@ renderApp(createRoot(elem), {
     // unsigned dev app lacks; use the raw-bytes WebView keyring so keyring init
     // (SQLite cipher key, identity persistence, crypto session) works on boot.
     createLocalKeyring: () => createWebViewLocalKeyring(),
+    // The desktop WKWebView has no browser download destination; route the
+    // download through the Bun main process, which writes to ~/Downloads.
+    createFileSaver: createElectrobunFileSaver,
     createSQLiteRuntime: createElectrobunSQLiteRuntime,
     profile: APP_HOST_PROFILES.app,
     // Electrobun has OPFS in its worker, but WKWebView does not expose

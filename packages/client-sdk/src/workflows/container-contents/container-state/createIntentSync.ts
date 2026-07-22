@@ -1,5 +1,6 @@
 import { rethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import type { ContainerState } from "../remoteHydration";
+import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
 import { createRemoteContainer, deleteRemoteContainer } from "./remote";
 import type {
   ContainerCreateIntentSyncHost,
@@ -154,6 +155,20 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
       `Remote container create failed: ${message}`,
     );
     return "failed";
+  }
+
+  if (created === CONTAINER_ALREADY_COMMITTED) {
+    // The container's create response was lost but the server committed it; the
+    // re-submit reported the manifest already exists. This is not a failure — the
+    // remote container is real. Its metadata state lands when the parent's
+    // contents are next hydrated, which marks this intent synced via the
+    // hasRemoteContainerMetadataState check above. Leave the intent pending
+    // without recording an error so it reconciles quietly instead of surfacing a
+    // spurious write-queue failure.
+    state.runtime.util.log(
+      `Container contents: deferred create intent for ${intent.containerId}; container already committed remotely, awaiting hydration.`,
+    );
+    return "blocked";
   }
 
   if (!created) {
