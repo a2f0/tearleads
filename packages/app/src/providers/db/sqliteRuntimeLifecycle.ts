@@ -184,6 +184,7 @@ function settleSQLiteRuntimeBoot(params: {
   runtimeRef: RefObject<SQLiteRuntime | null>;
   bootingRef: RefObject<boolean>;
   currentDbNameRef: RefObject<string | null>;
+  targetDbNameRef: RefObject<string>;
   tearleads: Tearleads;
   dbName: string;
   persistence: DatabasePersistenceMode;
@@ -191,12 +192,16 @@ function settleSQLiteRuntimeBoot(params: {
   onUnreadableDatabase?: ((dbName: string) => void) | undefined;
   onTransientBootFailure?: ((dbName: string) => boolean) | undefined;
   onBootSucceeded?: ((dbName: string) => void) | undefined;
+  // Re-run a boot for `dbName` on the reused worker. Called after this boot
+  // settles if the target changed while it was in flight (see below).
+  rebootForDbName: (dbName: string) => void;
 }) {
   const {
     bootPromise,
     runtime,
     runtimeRef,
     bootingRef,
+    targetDbNameRef,
     tearleads,
     dbName,
     persistence,
@@ -204,6 +209,7 @@ function settleSQLiteRuntimeBoot(params: {
     onUnreadableDatabase,
     onTransientBootFailure,
     onBootSucceeded,
+    rebootForDbName,
   } = params;
 
   bootPromise
@@ -219,6 +225,18 @@ function settleSQLiteRuntimeBoot(params: {
       // The boot resolved without throwing, so clear any transient-failure
       // budget accrued for this db name before its next race.
       onBootSucceeded?.(dbName);
+      // An identity transition can start while this boot is still in flight; its
+      // spawn no-ops because bootingRef is set. If the target moved on while we
+      // booted `dbName`, boot the worker onto that target now that it is free —
+      // otherwise the waiting ensureReady would hang, since this completion names
+      // the wrong database. Guarded on the runtime still being current (a reused,
+      // not torn-down, worker) so a superseded boot never re-drives it.
+      if (
+        runtimeRef.current === runtime &&
+        targetDbNameRef.current !== dbName
+      ) {
+        rebootForDbName(targetDbNameRef.current);
+      }
     })
     .catch((error) => {
       // A persisted db that cannot be decrypted with the resolved key is not a
@@ -362,6 +380,7 @@ function reuseSQLiteRuntimeForDbName(
     runtimeRef,
     bootingRef,
     currentDbNameRef,
+    targetDbNameRef,
     tearleads,
     dbName: nextDbName,
     persistence,
@@ -369,6 +388,8 @@ function reuseSQLiteRuntimeForDbName(
     onUnreadableDatabase,
     onTransientBootFailure,
     onBootSucceeded,
+    rebootForDbName: (next) =>
+      startSQLiteRuntimeBoot({ ...params, nextDbName: next }),
   });
 }
 
@@ -427,6 +448,7 @@ export function startSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
       runtimeRef,
       bootingRef,
       currentDbNameRef,
+      targetDbNameRef,
       tearleads,
       dbName: nextDbName,
       persistence,
@@ -434,6 +456,8 @@ export function startSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
       onUnreadableDatabase,
       onTransientBootFailure,
       onBootSucceeded,
+      rebootForDbName: (next) =>
+        startSQLiteRuntimeBoot({ ...params, nextDbName: next }),
     });
   } catch (error) {
     bootingRef.current = false;
