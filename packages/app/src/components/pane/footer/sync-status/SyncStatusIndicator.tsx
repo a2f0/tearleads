@@ -12,6 +12,9 @@ const OPEN_WRITE_QUEUE_LABEL = "View write queue";
 
 // Jumps to the Org Manager's Billing view — where the "Update billing to
 // resume" instruction in the billing-paused status text can actually be done.
+// That view bills the *active* org; when the block is another organization's,
+// the same destination is still the right one — its org switcher is how the
+// lapsed org is reached.
 const OPEN_BILLING_LABEL = "Update billing";
 
 // Applied only while this popover is open: keep the trigger's own mousedown from

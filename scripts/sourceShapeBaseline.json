@@ -234,8 +234,8 @@
       "bytes": 50400
     },
     "packages/client-sdk/src/client/organizations.ts": {
-      "lines": 578,
-      "bytes": 19455
+      "lines": 586,
+      "bytes": 19667
     },
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
       "lines": 1041,

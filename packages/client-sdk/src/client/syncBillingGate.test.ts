@@ -128,6 +128,47 @@ test("isBlocked is true after a block with an unknown (null) org", () => {
   expect(gate.isBlockedForOrganization("org-2")).toBe(true);
 });
 
+test("listBlocksOutsideOrganization omits the active organization's own block", () => {
+  const gate = new SyncBillingGate();
+  expect(gate.listBlocksOutsideOrganization("personal-org")).toEqual([]);
+
+  gate.notifyPaymentRequired("personal-org");
+
+  expect(gate.listBlocksOutsideOrganization("personal-org")).toEqual([]);
+  expect(gate.listBlocksOutsideOrganization("custom-org")).toEqual([
+    "personal-org",
+  ]);
+  expect(gate.listBlocksOutsideOrganization(null)).toEqual(["personal-org"]);
+});
+
+test("listBlocksOutsideOrganization drops an organization once recovered", () => {
+  const gate = new SyncBillingGate();
+  gate.notifyPaymentRequired("custom-org-a");
+  gate.notifyPaymentRequired("custom-org-b");
+
+  expect(gate.listBlocksOutsideOrganization("personal-org")).toEqual([
+    "custom-org-a",
+    "custom-org-b",
+  ]);
+
+  gate.clearBlock("custom-org-a");
+
+  expect(gate.listBlocksOutsideOrganization("personal-org")).toEqual([
+    "custom-org-b",
+  ]);
+});
+
+test("listBlocksOutsideOrganization omits an unknown-org block", () => {
+  const gate = new SyncBillingGate();
+
+  // An anonymous 402 names no organization, so its billing cannot be resolved
+  // to tell a lapse apart from a free `local` org. isBlocked still reports it.
+  gate.notifyPaymentRequired(null);
+
+  expect(gate.listBlocksOutsideOrganization("personal-org")).toEqual([]);
+  expect(gate.isBlocked).toBe(true);
+});
+
 test("a named recovery only exempts that organization from an unknown block", () => {
   const gate = new SyncBillingGate();
   gate.notifyPaymentRequired("org-1");

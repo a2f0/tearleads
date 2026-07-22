@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useOrganizationBilling } from "../../../../providers/billing/BillingProvider";
 import {
   useTearleads,
@@ -9,6 +9,7 @@ import {
   resolveSyncStatus,
   type SyncStatus,
 } from "./syncStatusModel";
+import { useOtherOrganizationBillingBlocked } from "./useOtherOrganizationBillingBlock";
 import { usePendingWriteCount } from "./usePendingWriteCount";
 
 interface SyncStatusResult {
@@ -24,12 +25,16 @@ interface SyncStatusResult {
  * .listPendingWrites()` (see `usePendingWriteCount`) — treating a non-empty queue
  * as unflushed local data, and takes billing from the shared
  * `useOrganizationBilling` snapshot, so the widget agrees with the Explorer and
- * the billing banner about whether the org can sync.
+ * the billing banner about whether the org can sync. That snapshot is scoped to
+ * the active organization while the queue is identity-wide, so the sync billing
+ * gate covers the rest (see `useOtherOrganizationBillingBlocked`): an
+ * organization whose billing lapsed raises the warning even when it is not the
+ * one currently switched to.
  */
 export function useSyncStatus(): SyncStatusResult {
   const appData = useTearleadsRuntime();
   const billing = useOrganizationBilling();
-  const { containerContents } = useTearleads();
+  const { containerContents, organizations, syncBillingGate } = useTearleads();
   const domainScope = appData.state.domainScope;
   const dbStatus = appData.infra.dbStatus;
   const dbReady = dbStatus === "ready";
@@ -44,9 +49,20 @@ export function useSyncStatus(): SyncStatusResult {
 
   const queue = usePendingWriteCount(documentQueries, domainScope, dbReady);
 
+  const loadBlockedOrganizationBilling = useCallback(
+    (organizationId: string) =>
+      organizations.loadBillingForOrganization(organizationId),
+    [organizations],
+  );
   const billingNeedsAttention = billing.view?.needsAttention ?? false;
+  const otherOrganizationBillingBlocked = useOtherOrganizationBillingBlocked({
+    activeOrganizationId: appData.auth.organizationId,
+    gate: syncBillingGate,
+    loadBilling: loadBlockedOrganizationBilling,
+  });
   const status = resolveSyncStatus({
     billingNeedsAttention,
+    otherOrganizationBillingBlocked,
     ready: dbReady && queue.loaded,
     pendingWriteCount: queue.count,
     failedWriteCount: queue.failedCount,
@@ -58,6 +74,9 @@ export function useSyncStatus(): SyncStatusResult {
     firstWriteError: queue.firstError,
     online,
     billingStatus: billing.view?.status ?? null,
+    // The active org's own lapse is the more specific reason, so it names the
+    // status whenever both are blocked.
+    billingBlockScope: billingNeedsAttention ? "active" : "other",
   });
 
   return { status, title, pendingWriteCount: queue.count };

@@ -66,6 +66,13 @@ export function summarizePendingWrites(
   };
 }
 
+/**
+ * Which organization's billing paused sync. The shared billing snapshot only
+ * covers the active org, so a block on any other org is known only from its 402
+ * (see `SyncBillingGate`) and cannot name a billing status.
+ */
+type BillingBlockScope = "active" | "other";
+
 interface SyncStatusInput {
   /**
    * Billing lapsed for the active org (expired trial / past due / disabled) so
@@ -73,6 +80,13 @@ interface SyncStatusInput {
    * and must not raise a warning. Mirrors `OrganizationBillingView.needsAttention`.
    */
   readonly billingNeedsAttention: boolean;
+  /**
+   * A non-active organization's sync is billing-blocked. The write queue is
+   * identity-wide, so that org's writes strand in the same queue this indicator
+   * counts — without this the block would surface as an unexplained red
+   * "pending" dot, since the billing snapshot only sees the active org.
+   */
+  readonly otherOrganizationBillingBlocked: boolean;
   /** The local write queue has been read at least once (database ready + settled). */
   readonly ready: boolean;
   /** Aggregate count of unflushed write operations (see `countPendingWrites`). */
@@ -82,7 +96,7 @@ interface SyncStatusInput {
 }
 
 export function resolveSyncStatus(input: SyncStatusInput): SyncStatus {
-  if (input.billingNeedsAttention) {
+  if (input.billingNeedsAttention || input.otherOrganizationBillingBlocked) {
     return "billing";
   }
   if (!input.ready) {
@@ -111,6 +125,8 @@ const SYNC_STATUS_LABELS = {
   billingDisabled:
     "Subscription disabled — sync paused. Update billing to resume.",
   billingGeneric: "Sync paused — billing needs attention.",
+  billingOtherOrganization:
+    "Sync paused for another organization — billing needs attention.",
 } as const;
 
 function describeBillingBlock(status: BillingStatus | null): string {
@@ -135,6 +151,8 @@ interface SyncStatusDescriptionInput {
   readonly firstWriteError: string | null;
   readonly online: boolean;
   readonly billingStatus: BillingStatus | null;
+  /** Whose billing paused sync; only read when `status` is `billing`. */
+  readonly billingBlockScope: BillingBlockScope;
 }
 
 /** Human-readable tooltip / accessible label for the current status. */
@@ -145,7 +163,9 @@ export function describeSyncStatus(input: SyncStatusDescriptionInput): string {
     case "synced":
       return SYNC_STATUS_LABELS.synced;
     case "billing":
-      return describeBillingBlock(input.billingStatus);
+      return input.billingBlockScope === "other"
+        ? SYNC_STATUS_LABELS.billingOtherOrganization
+        : describeBillingBlock(input.billingStatus);
     case "error": {
       const base =
         input.failedWriteCount === 1
