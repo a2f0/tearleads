@@ -1,4 +1,3 @@
-import { createWebViewLocalKeyring } from "@tearleads/client-sdk";
 import {
   createSQLiteRuntime,
   PERSISTENT_STORAGE_POLICY,
@@ -53,9 +52,13 @@ renderApp(createRoot(elem), {
     }),
     // WKWebView cannot structured-clone a non-extractable CryptoKey into
     // IndexedDB (the default browser keyring) without keychain access, which an
-    // unsigned dev app lacks; use the raw-bytes WebView keyring so keyring init
-    // (SQLite cipher key, identity persistence, crypto session) works on boot.
-    createLocalKeyring: () => createWebViewLocalKeyring(),
+    // unsigned dev app lacks; persist raw bytes so keyring init (SQLite cipher
+    // key, identity persistence, crypto session) works on boot.
+    //
+    // Declared as a mode rather than by overriding createLocalKeyring, which
+    // would make the keyring host-managed and disable PIN locking. The record
+    // written is byte-identical, so existing installs are unaffected.
+    localKeyringKeyMaterialStorage: "raw-bytes",
     // The desktop WKWebView has no browser download destination; route the
     // download through the Bun main process, which writes to ~/Downloads.
     createFileSaver: createElectrobunFileSaver,
