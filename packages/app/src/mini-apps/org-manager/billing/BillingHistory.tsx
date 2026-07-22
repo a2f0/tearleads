@@ -18,6 +18,7 @@ import {
 } from "../../../components/mini-app/rows/MiniAppRow";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import { getOrgManagerBillingEventLabel, ORG_MANAGER_LABELS } from "../labels";
+import { BillingHistoryEntryDetails } from "./BillingHistoryEntryDetails";
 import "./BillingHistory.css";
 
 type BillingHistoryTabId = "activity" | "events";
@@ -34,10 +35,6 @@ interface BillingHistoryProps {
   readonly entries: ReadonlyArray<OrganizationBillingHistoryEntry> | null;
   readonly loading: boolean;
   readonly error: string | null;
-}
-
-function entryKey(entry: OrganizationBillingHistoryEntry, index: number) {
-  return `${entry.eventType}-${entry.occurredAt}-${index}`;
 }
 
 // Roving tabindex per the WAI-ARIA tab pattern (mirrors BackupRestoreTabBar):
@@ -132,10 +129,11 @@ function BillingActivityList({
   }
   return (
     <>
-      {applied.map((entry, index) => (
-        <MiniAppRow density="roomy" key={entryKey(entry, index)}>
+      {applied.map((entry) => (
+        <MiniAppRow density="roomy" key={entry.id}>
           <MiniAppRowStack>
             <strong>{getOrgManagerBillingEventLabel(entry.eventType)}</strong>
+            <BillingHistoryEntryDetails entry={entry} />
             <MiniAppRowText muted>
               {formatMiniAppDateTime(entry.occurredAt)}
             </MiniAppRowText>
@@ -146,8 +144,8 @@ function BillingActivityList({
   );
 }
 
-// Events: every recorded webhook event with its raw type and outcome — a
-// debug view of the audit trail behind the friendly activity list.
+// Events: every normalized audit record with its raw type and outcome — a
+// diagnostic view of the durable sources behind the friendly activity list.
 function BillingEventList({
   entries,
 }: {
@@ -162,15 +160,15 @@ function BillingEventList({
   }
   return (
     <>
-      {entries.map((entry, index) => (
-        <MiniAppRow density="roomy" key={entryKey(entry, index)}>
+      {entries.map((entry) => (
+        <MiniAppRow density="roomy" key={entry.id}>
           <MiniAppRowStack>
             <strong>{entry.eventType}</strong>
+            <BillingHistoryEntryDetails entry={entry} includeAuditFields />
             <MiniAppRowText muted>
               {formatMiniAppDateTime(entry.occurredAt)}
             </MiniAppRowText>
           </MiniAppRowStack>
-          <MiniAppRowText>{entry.outcome}</MiniAppRowText>
         </MiniAppRow>
       ))}
     </>
@@ -178,10 +176,10 @@ function BillingEventList({
 }
 
 /**
- * The organization's RevenueCat billing lifecycle history in a two-tab split:
- * a friendly Activity feed of applied events and a raw Events debug view of
- * everything the webhook recorded. Prop-driven; {@link BillingPanel} loads the
- * entries through the SDK for org admins.
+ * The organization's lifecycle, licensed-seat, and paid-invoice history in a
+ * two-tab split: a friendly Activity feed of applied events and a raw Events
+ * audit view. Prop-driven; {@link BillingPanel} loads the entries through the
+ * SDK for org admins.
  */
 export function BillingHistory({
   entries,

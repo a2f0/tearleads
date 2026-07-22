@@ -1,11 +1,17 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { revenuecatWebhookEvents, users } from "@tearleads/api-shared/schema";
+import {
+  organizationBillingInvoiceEvents,
+  organizationBillingSeatEvents,
+  revenuecatWebhookEvents,
+  users,
+} from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import { isOrganizationBillingHistoryResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { addMemberGroupUser } from "../../../test/helpers/organizationMember";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
@@ -26,18 +32,35 @@ function authHeader(user: TestUser): { Authorization: string } {
   return { Authorization: `Bearer ${user.token}` };
 }
 
+async function clearBillingHistory(organizationId: string): Promise<void> {
+  await db
+    .delete(organizationBillingInvoiceEvents)
+    .where(eq(organizationBillingInvoiceEvents.organizationId, organizationId));
+  await db
+    .delete(organizationBillingSeatEvents)
+    .where(eq(organizationBillingSeatEvents.organizationId, organizationId));
+  await db
+    .delete(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.organizationId, organizationId));
+}
+
 /** Inserts one audit row like the webhook workflow records after processing. */
 async function insertWebhookEvent(input: {
   appUserId: string;
   eventTimestamp: Date;
+  eventId?: string;
   eventType: string;
+  id?: string;
   organizationId: string;
   outcome: "applied" | "ignored";
+  periodEndsAt?: Date | null;
+  periodStartsAt?: Date | null;
   productId?: string | null;
   transactionId?: string | null;
 }): Promise<void> {
   await db.insert(revenuecatWebhookEvents).values({
-    eventId: crypto.randomUUID(),
+    id: input.id,
+    eventId: input.eventId ?? crypto.randomUUID(),
     eventType: input.eventType,
     appUserId: input.appUserId,
     productId: input.productId ?? null,
@@ -46,50 +69,168 @@ async function insertWebhookEvent(input: {
     organizationId: input.organizationId,
     outcome: input.outcome,
     eventTimestamp: input.eventTimestamp,
-    purchasedAt: null,
-    expirationAt: null,
+    purchasedAt: input.periodStartsAt ?? null,
+    expirationAt: input.periodEndsAt ?? null,
   });
 }
 
-test("an org member reads billing history newest-first, scoped to the org", async () => {
+async function insertSeatEvent(input: {
+  activeSeatCount: number;
+  createdAt: Date;
+  eventType:
+    | "seat_assigned"
+    | "licensed_seat_count_initialized"
+    | "licensed_seat_count_increased"
+    | "licensed_seat_count_reset";
+  id?: string;
+  organizationId: string;
+  periodEndsAt?: Date | null;
+  periodStartsAt?: Date | null;
+  seatCount: number;
+  seatDelta: number;
+  sourceId: string;
+  sourceType: "provider_event" | "principal_state";
+}): Promise<void> {
+  await db.insert(organizationBillingSeatEvents).values({
+    id: input.id,
+    activeSeatCount: input.activeSeatCount,
+    billingPeriodEndsAt: input.periodEndsAt ?? null,
+    billingPeriodStartsAt: input.periodStartsAt ?? null,
+    createdAt: input.createdAt,
+    eventType: input.eventType,
+    licensedSeatCount: input.seatCount,
+    organizationId: input.organizationId,
+    quantityDelta: input.seatDelta,
+    sourceId: input.sourceId,
+    sourceType: input.sourceType,
+  });
+}
+
+async function insertInvoiceEvent(input: {
+  id?: string;
+  invoiceId: string;
+  occurredAt: Date;
+  organizationId: string;
+  periodEndsAt?: Date | null;
+  periodStartsAt?: Date | null;
+  seatCount: number;
+}): Promise<void> {
+  await db.insert(organizationBillingInvoiceEvents).values({
+    id: input.id,
+    billingReason: "subscription_cycle",
+    currency: "usd",
+    interval: "month",
+    intervalCount: 3,
+    invoiceId: input.invoiceId,
+    occurredAt: input.occurredAt,
+    organizationId: input.organizationId,
+    periodEndsAt: input.periodEndsAt ?? null,
+    periodStartsAt: input.periodStartsAt ?? null,
+    priceId: "price_monthly",
+    providerEventId: `evt_${input.invoiceId}`,
+    seatCount: input.seatCount,
+    subscriptionId: "sub_1",
+    totalAmount: input.seatCount * 1_200,
+    unitAmount: 1_200,
+  });
+}
+
+test("an org admin reads meaningful mixed billing history newest-first", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   const other = createTestUser();
   const otherOrganizationId = await registerAndAuthenticate(other);
+  await clearBillingHistory(organizationId);
+  await clearBillingHistory(otherOrganizationId);
   const base = Date.parse("2026-07-01T00:00:00.000Z");
+  const periodStartsAt = new Date(base);
+  const periodEndsAt = new Date("2026-08-01T00:00:00.000Z");
+  const providerEventId = "rc-renewal-1";
 
   await insertWebhookEvent({
     appUserId: admin.userId,
-    eventTimestamp: new Date(base),
-    eventType: "INITIAL_PURCHASE",
+    eventTimestamp: new Date(base + 60_000),
+    eventId: providerEventId,
+    eventType: "RENEWAL",
+    id: "00000000-0000-4000-8000-000000000010",
     organizationId,
     outcome: "applied",
     productId: "sync_monthly",
     transactionId: "transaction-1",
+    periodStartsAt,
+    periodEndsAt,
   });
-  await insertWebhookEvent({
-    appUserId: admin.userId,
-    eventTimestamp: new Date(base + 60_000),
-    eventType: "CANCELLATION",
+  // Provider-triggered capacity is folded into the lifecycle event.
+  await insertSeatEvent({
+    activeSeatCount: 3,
+    createdAt: new Date(base + 60_000),
+    eventType: "licensed_seat_count_increased",
+    id: "00000000-0000-4000-8000-000000000011",
     organizationId,
-    outcome: "ignored",
+    periodEndsAt,
+    periodStartsAt,
+    seatCount: 4,
+    seatDelta: 2,
+    sourceId: providerEventId,
+    sourceType: "provider_event",
   });
-  await insertWebhookEvent({
-    appUserId: admin.userId,
-    eventTimestamp: new Date(base + 120_000),
-    eventType: "RENEWAL",
+  await insertSeatEvent({
+    activeSeatCount: 5,
+    createdAt: new Date(base + 120_000),
+    eventType: "licensed_seat_count_increased",
+    id: "00000000-0000-4000-8000-000000000020",
     organizationId,
-    outcome: "applied",
-    productId: "sync_monthly",
-    transactionId: "transaction-2",
+    periodEndsAt,
+    periodStartsAt,
+    seatCount: 5,
+    seatDelta: 1,
+    sourceId: "principal-change-1",
+    sourceType: "principal_state",
   });
-  // Another org's event must never appear in this org's history.
+  // Equal timestamps are resolved by descending stable id across sources.
+  await insertInvoiceEvent({
+    id: "00000000-0000-4000-8000-000000000030",
+    invoiceId: "in_1",
+    occurredAt: new Date(base + 120_000),
+    organizationId,
+    periodEndsAt,
+    periodStartsAt,
+    seatCount: 5,
+  });
+  // Assignment/release noise is intentionally excluded.
+  await insertSeatEvent({
+    activeSeatCount: 5,
+    createdAt: new Date(base + 180_000),
+    eventType: "seat_assigned",
+    organizationId,
+    seatCount: 5,
+    seatDelta: 0,
+    sourceId: "principal-change-2",
+    sourceType: "principal_state",
+  });
+  // Rows from every source are organization-scoped.
   await insertWebhookEvent({
     appUserId: other.userId,
-    eventTimestamp: new Date(base + 180_000),
+    eventTimestamp: new Date(base + 240_000),
     eventType: "INITIAL_PURCHASE",
     organizationId: otherOrganizationId,
     outcome: "applied",
+  });
+  await insertSeatEvent({
+    activeSeatCount: 9,
+    createdAt: new Date(base + 240_000),
+    eventType: "licensed_seat_count_initialized",
+    organizationId: otherOrganizationId,
+    seatCount: 9,
+    seatDelta: 9,
+    sourceId: "other-principal-change",
+    sourceType: "principal_state",
+  });
+  await insertInvoiceEvent({
+    invoiceId: "in_other",
+    occurredAt: new Date(base + 240_000),
+    organizationId: otherOrganizationId,
+    seatCount: 9,
   });
 
   const response = await routeApp.request(
@@ -103,28 +244,184 @@ test("an org member reads billing history newest-first, scoped to the org", asyn
     "expected billing history response",
   );
   expect(history.organizationId).toBe(organizationId);
-  expect(history.entries.map((entry) => entry.eventType)).toEqual([
-    "RENEWAL",
-    "CANCELLATION",
-    "INITIAL_PURCHASE",
+  expect(history.entries).toEqual([
+    {
+      id: "00000000-0000-4000-8000-000000000030",
+      category: "invoice",
+      provider: "stripe",
+      eventType: "INVOICE_PAID",
+      outcome: "applied",
+      occurredAt: new Date(base + 120_000).toISOString(),
+      productId: null,
+      transactionId: null,
+      invoiceId: "in_1",
+      subscriptionId: "sub_1",
+      billingReason: "subscription_cycle",
+      seatCount: 5,
+      seatDelta: null,
+      activeSeatCount: null,
+      priceId: "price_monthly",
+      unitAmount: 1_200,
+      currency: "usd",
+      interval: "month",
+      intervalCount: 3,
+      totalAmount: 6_000,
+      periodStartsAt: periodStartsAt.toISOString(),
+      periodEndsAt: periodEndsAt.toISOString(),
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000020",
+      category: "seat",
+      provider: "internal",
+      eventType: "licensed_seat_count_increased",
+      outcome: "applied",
+      occurredAt: new Date(base + 120_000).toISOString(),
+      productId: null,
+      transactionId: null,
+      invoiceId: null,
+      subscriptionId: null,
+      billingReason: null,
+      seatCount: 5,
+      seatDelta: 1,
+      activeSeatCount: 5,
+      priceId: null,
+      unitAmount: null,
+      currency: null,
+      interval: null,
+      intervalCount: null,
+      totalAmount: null,
+      periodStartsAt: periodStartsAt.toISOString(),
+      periodEndsAt: periodEndsAt.toISOString(),
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000010",
+      category: "lifecycle",
+      provider: "revenuecat",
+      eventType: "RENEWAL",
+      outcome: "applied",
+      occurredAt: new Date(base + 60_000).toISOString(),
+      productId: "sync_monthly",
+      transactionId: "transaction-1",
+      invoiceId: null,
+      subscriptionId: null,
+      billingReason: null,
+      seatCount: 4,
+      seatDelta: 2,
+      activeSeatCount: 3,
+      priceId: null,
+      unitAmount: null,
+      currency: null,
+      interval: null,
+      intervalCount: null,
+      totalAmount: null,
+      periodStartsAt: periodStartsAt.toISOString(),
+      periodEndsAt: periodEndsAt.toISOString(),
+    },
   ]);
-  expect(history.entries.map((entry) => entry.outcome)).toEqual([
-    "applied",
-    "ignored",
-    "applied",
-  ]);
-  expect(history.entries[0]?.occurredAt).toBe(
-    new Date(base + 120_000).toISOString(),
+});
+
+test("an unmatched provider seat event remains visible as seat activity", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await clearBillingHistory(organizationId);
+  const id = "00000000-0000-4000-8000-000000000040";
+
+  await insertSeatEvent({
+    activeSeatCount: 3,
+    createdAt: new Date("2026-07-02T00:00:00.000Z"),
+    eventType: "licensed_seat_count_increased",
+    id,
+    organizationId,
+    seatCount: 3,
+    seatDelta: 1,
+    sourceId: "missing-lifecycle-event",
+    sourceType: "provider_event",
+  });
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/history`,
+    { headers: authHeader(admin) },
   );
-  expect(history.entries[0]?.productId).toBe("sync_monthly");
-  expect(history.entries[0]?.transactionId).toBe("transaction-2");
-  expect(history.entries[1]?.productId).toBeNull();
-  expect(history.entries[1]?.transactionId).toBeNull();
+  const history = await response.json();
+  invariant(
+    isOrganizationBillingHistoryResponse(history),
+    "expected billing history response",
+  );
+  expect(history.entries).toHaveLength(1);
+  expect(history.entries[0]).toMatchObject({
+    id,
+    category: "seat",
+    provider: "internal",
+    seatCount: 3,
+    seatDelta: 1,
+  });
+});
+
+test("a lifecycle event is enriched beyond the recent seat window", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await clearBillingHistory(organizationId);
+  const base = Date.parse("2026-07-03T00:00:00.000Z");
+  const lifecycleId = "00000000-0000-4000-8000-000000000050";
+  const seatId = "00000000-0000-4000-8000-000000000051";
+  const providerEventId = "older-seat-snapshot";
+
+  await insertSeatEvent({
+    activeSeatCount: 6,
+    createdAt: new Date(base),
+    eventType: "licensed_seat_count_reset",
+    id: seatId,
+    organizationId,
+    seatCount: 7,
+    seatDelta: 2,
+    sourceId: providerEventId,
+    sourceType: "provider_event",
+  });
+  for (let index = 1; index <= 50; index += 1) {
+    await insertSeatEvent({
+      activeSeatCount: index,
+      createdAt: new Date(base + index * 1_000),
+      eventType: "licensed_seat_count_increased",
+      organizationId,
+      seatCount: index,
+      seatDelta: 1,
+      sourceId: `principal-${index}`,
+      sourceType: "principal_state",
+    });
+  }
+  await insertWebhookEvent({
+    appUserId: admin.userId,
+    eventId: providerEventId,
+    eventTimestamp: new Date(base + 60_000),
+    eventType: "RENEWAL",
+    id: lifecycleId,
+    organizationId,
+    outcome: "applied",
+  });
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/history`,
+    { headers: authHeader(admin) },
+  );
+  const history = await response.json();
+  invariant(
+    isOrganizationBillingHistoryResponse(history),
+    "expected billing history response",
+  );
+  expect(history.entries).toHaveLength(50);
+  expect(history.entries[0]).toMatchObject({
+    id: lifecycleId,
+    seatCount: 7,
+    seatDelta: 2,
+    activeSeatCount: 6,
+  });
+  expect(history.entries.some((entry) => entry.id === seatId)).toBe(false);
 });
 
 test("an organization with no billing events returns an empty history", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
+  await clearBillingHistory(organizationId);
 
   const response = await routeApp.request(
     `/organizations/${organizationId}/billing/history`,
@@ -149,6 +446,24 @@ test("a non-member cannot read another org's billing history", async () => {
   const response = await routeApp.request(
     `/organizations/${organizationId}/billing/history`,
     { headers: authHeader(intruder) },
+  );
+  expect(response.status).toBe(403);
+});
+
+test("a direct organization member cannot read admin-only billing history", async () => {
+  const owner = createTestUser();
+  const organizationId = await registerAndAuthenticate(owner);
+  const member = createTestUser();
+  await registerAndAuthenticate(member);
+  await addMemberGroupUser({
+    actor: owner,
+    memberUserId: member.userId,
+    organizationId,
+  });
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/billing/history`,
+    { headers: authHeader(member) },
   );
   expect(response.status).toBe(403);
 });

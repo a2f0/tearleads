@@ -37,12 +37,12 @@ import {
 } from "../../workflows/billing/stripeSeatState";
 import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
+import {
+  reconcilesSeatPeriod,
+  resolveAndRecordStripeInvoiceAudit,
+} from "./stripeInvoiceAudit";
 
-/**
- * Direct Stripe checkout services (issue #1654). The org-admin gate runs
- * first on every user-facing operation; Stripe/RevenueCat calls go through
- * the injectable clients so routes stay unit-testable.
- */
+/** Direct Stripe checkout services; user-facing calls enforce org-admin access. */
 
 interface StripeCheckoutServiceDeps {
   readonly stripe?: StripeApiDeps;
@@ -290,7 +290,7 @@ type StripeWebhookOutcome =
   | { status: "unauthorized" }
   | { status: "unconfigured" };
 
-async function applyPaidSubscriptionInvoice(input: {
+interface PaidSubscriptionInvoiceInput {
   readonly binding: NonNullable<
     Awaited<ReturnType<typeof getSubscriptionBinding>>
   >;
@@ -300,7 +300,12 @@ async function applyPaidSubscriptionInvoice(input: {
   >;
   readonly organizationId: string;
   readonly runtime: ApiServiceRuntime;
-}): Promise<StripeWebhookOutcome> {
+}
+
+async function fulfillSeatPeriodInvoice(
+  input: PaidSubscriptionInvoiceInput,
+  renewalInvoiceId: string | null,
+): Promise<StripeWebhookOutcome> {
   const { binding, invoice } = input;
   if (
     !binding.priceId ||
@@ -319,13 +324,10 @@ async function applyPaidSubscriptionInvoice(input: {
     subscriptionId: invoice.subscriptionId,
     subscriptionItemId: binding.subscriptionItemId,
   };
-  if (invoice.billingReason === "subscription_cycle") {
-    if (!invoice.invoiceId) {
-      return { status: "ignored", reason: "Renewal invoice carries no id" };
-    }
+  if (renewalInvoiceId !== null) {
     const outcome = await runRecordStripeSeatRenewalWorkflow(input.runtime.db, {
       ...seatBinding,
-      invoiceId: invoice.invoiceId,
+      invoiceId: renewalInvoiceId,
     });
     if (outcome.status === "retry") {
       return {
@@ -334,10 +336,7 @@ async function applyPaidSubscriptionInvoice(input: {
       };
     }
     if (outcome.status === "stale") {
-      return {
-        status: "ignored",
-        reason: "Stale Stripe subscription invoice",
-      };
+      return { status: "ignored", reason: "Stale Stripe subscription invoice" };
     }
     return {
       status: "reconciled",
@@ -362,10 +361,7 @@ async function applyPaidSubscriptionInvoice(input: {
     };
   }
   if (outcome.status === "stale") {
-    return {
-      status: "ignored",
-      reason: "Stale Stripe subscription invoice",
-    };
+    return { status: "ignored", reason: "Stale Stripe subscription invoice" };
   }
   await associateStripeSubscription(
     {
@@ -382,12 +378,57 @@ async function applyPaidSubscriptionInvoice(input: {
   };
 }
 
-/**
- * Handles one raw Stripe webhook delivery: verify the signature, extract the
- * newly paid subscription, read its authoritative binding from Stripe, then
- * associate it with RevenueCat. Association failures propagate (route: 500)
- * so Stripe redelivers; everything the flow does not care about is `ignored`.
- */
+async function applyPaidSubscriptionInvoice(
+  input: PaidSubscriptionInvoiceInput,
+): Promise<StripeWebhookOutcome> {
+  const { invoice } = input;
+  if (invoice.billingReason === "subscription_cycle" && !invoice.invoiceId) {
+    return { status: "ignored", reason: "Renewal invoice carries no id" };
+  }
+  const requiresSeatPeriod = reconcilesSeatPeriod(invoice.billingReason);
+  const auditOutcome = await resolveAndRecordStripeInvoiceAudit({
+    binding: input.binding,
+    db: input.runtime.db,
+    invoice: input.invoice,
+    organizationId: input.organizationId,
+    stripeDeps: input.deps.stripe ?? {},
+  });
+  if (auditOutcome.status === "incomplete") {
+    if (invoice.billingReason === "subscription_create" && !invoice.invoiceId) {
+      return fulfillSeatPeriodInvoice(input, null);
+    }
+    if (requiresSeatPeriod) {
+      return { status: "retry", reason: "Paid invoice details are incomplete" };
+    }
+    console.warn("Paid invoice audit details are unavailable", {
+      invoiceId: invoice.invoiceId,
+      organizationId: input.organizationId,
+      providerEventId: invoice.providerEventId,
+    });
+    return {
+      status: "ignored",
+      reason: "Paid invoice audit details unavailable",
+    };
+  }
+  if (auditOutcome.status === "conflict") {
+    return { status: "ignored", reason: "Conflicting paid invoice snapshot" };
+  }
+  const auditInput = auditOutcome.audit;
+  if (!reconcilesSeatPeriod(auditInput.billingReason)) {
+    return {
+      status: "ignored",
+      reason: "Paid invoice requires no seat-period reconciliation",
+    };
+  }
+  return fulfillSeatPeriodInvoice(
+    input,
+    auditInput.billingReason === "subscription_cycle"
+      ? auditInput.invoiceId
+      : null,
+  );
+}
+
+/** Verifies and fulfills one paid Stripe webhook delivery. */
 export async function processStripeWebhook(
   runtime: ApiServiceRuntime,
   input: { payload: string; signatureHeader: string | undefined },
@@ -418,9 +459,8 @@ export async function processStripeWebhook(
   if (!invoice) {
     return { status: "ignored", reason: "Not a paid subscription invoice" };
   }
-  // A paid subscription that cannot currently be looked up must NOT be
-  // acknowledged with a 2xx: Stripe would never redeliver, permanently
-  // stranding the purchase unassociated. Ask for redelivery instead.
+  // Ask for redelivery when the subscription cannot be looked up; a 2xx could
+  // permanently strand the purchase unassociated.
   if (!isStripeCheckoutConfigured(deps.stripe ?? {})) {
     return { status: "retry", reason: "Stripe API is not configured" };
   }

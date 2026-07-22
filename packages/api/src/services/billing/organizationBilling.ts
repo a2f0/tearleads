@@ -9,11 +9,11 @@ import {
 } from "../../billing/organizationBilling";
 import { fetchRevenueCatManagementUrl } from "../../billing/revenueCatApi";
 import {
-  runGetOrganizationBillingHistoryWorkflow,
   runGetOrganizationBillingWorkflow,
   runResolveOrganizationBillingCustomerWorkflow,
   runStartOrganizationTrialWorkflow,
 } from "../../workflows/billing/organizationBilling";
+import { runGetOrganizationBillingHistoryWorkflow } from "../../workflows/billing/organizationBillingHistory";
 import type { ApiServiceRuntime } from "../runtime";
 
 export async function getOrganizationBilling(

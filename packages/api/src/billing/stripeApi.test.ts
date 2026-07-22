@@ -66,7 +66,7 @@ test("sync option maps the price with its product, pinned API version", async ()
         id: "price_sync",
         currency: "usd",
         unit_amount: 499,
-        recurring: { interval: "month" },
+        recurring: { interval: "month", interval_count: 3 },
         product: { name: "Sync" },
       },
     },
@@ -79,6 +79,7 @@ test("sync option maps the price with its product, pinned API version", async ()
     currency: "usd",
     unitAmount: 499,
     interval: "month",
+    intervalCount: 3,
   });
   expect(requests[0]?.url).toContain("/v1/prices/price_sync");
   expect(requests[0]?.headers.get("Stripe-Version")).not.toBeNull();

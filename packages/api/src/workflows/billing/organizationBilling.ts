@@ -5,14 +5,12 @@ import type {
 import {
   type OrganizationBillingProvider,
   organizationBilling,
-  revenuecatWebhookEvents,
 } from "@tearleads/api-shared/schema";
-import { and, desc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   createTrialBillingFields,
   LAPSED_BILLING_PURGE_GRACE_MS,
   type OrganizationBilling,
-  type OrganizationBillingHistoryEvent,
   organizationCanSync,
   organizationSeatPeriodKey,
 } from "../../billing/organizationBilling";
@@ -227,44 +225,6 @@ export async function runGetOrganizationBillingWorkflow(
       userId: sessionUserId,
     });
     return resolveOrganizationBilling(tx, organizationId, now);
-  });
-}
-
-/** Newest events a history read returns; older audit rows stay server-side. */
-const BILLING_HISTORY_EVENT_LIMIT = 50;
-
-/**
- * Reads an organization's RevenueCat billing lifecycle history from the webhook
- * audit table, newest first. Authorized exactly like the billing GET: any
- * direct organization member may read it.
- */
-export async function runGetOrganizationBillingHistoryWorkflow(
-  db: ApiDatabase,
-  organizationId: string,
-  sessionUserId: string,
-): Promise<OrganizationBillingHistoryEvent[]> {
-  return db.transaction(async (tx) => {
-    await requireDirectOrganizationAccess({
-      executor: tx,
-      organizationId,
-      userId: sessionUserId,
-    });
-    // Await inside the callback (never return the raw builder): the sqlite
-    // adapter resolves a returned builder outside the transaction's serialized
-    // unit, where its execute queues behind the open transaction and deadlocks.
-    const events = await tx
-      .select({
-        eventType: revenuecatWebhookEvents.eventType,
-        outcome: revenuecatWebhookEvents.outcome,
-        eventTimestamp: revenuecatWebhookEvents.eventTimestamp,
-        productId: revenuecatWebhookEvents.productId,
-        transactionId: revenuecatWebhookEvents.transactionId,
-      })
-      .from(revenuecatWebhookEvents)
-      .where(eq(revenuecatWebhookEvents.organizationId, organizationId))
-      .orderBy(desc(revenuecatWebhookEvents.eventTimestamp))
-      .limit(BILLING_HISTORY_EVENT_LIMIT);
-    return events;
   });
 }
 

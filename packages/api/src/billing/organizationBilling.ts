@@ -108,17 +108,30 @@ export function serializeOrganizationBilling(
   };
 }
 
-/**
- * One `revenuecat_webhook_events` audit row projected for the history read:
- * what happened (`eventType`), whether it changed billing (`outcome`), and
- * when the provider says it happened (`eventTimestamp`).
- */
+/** One normalized billing audit row before dates are serialized for the wire. */
 export interface OrganizationBillingHistoryEvent {
+  readonly id: string;
+  readonly category: "lifecycle" | "seat" | "invoice";
+  readonly provider: "revenuecat" | "stripe" | "internal";
   readonly eventType: string;
   readonly outcome: string;
   readonly eventTimestamp: Date;
   readonly productId: string | null;
   readonly transactionId: string | null;
+  readonly invoiceId: string | null;
+  readonly subscriptionId: string | null;
+  readonly billingReason: string | null;
+  readonly seatCount: number | null;
+  readonly seatDelta: number | null;
+  readonly activeSeatCount: number | null;
+  readonly priceId: string | null;
+  readonly unitAmount: number | null;
+  readonly currency: string | null;
+  readonly interval: string | null;
+  readonly intervalCount: number | null;
+  readonly totalAmount: number | null;
+  readonly periodStartsAt: Date | null;
+  readonly periodEndsAt: Date | null;
 }
 
 export function serializeOrganizationBillingHistory(
@@ -128,13 +141,30 @@ export function serializeOrganizationBillingHistory(
   return {
     organizationId,
     entries: events.map((event) => ({
+      id: event.id,
+      category: event.category,
+      provider: event.provider,
       eventType: event.eventType,
-      // The webhook only ever records `applied`/`ignored`; anything else in the
-      // audit column is surfaced as `ignored` rather than failing the read.
+      // Audit writers only record `applied`/`ignored`; anything else is
+      // surfaced as `ignored` rather than making the history unreadable.
       outcome: event.outcome === "applied" ? "applied" : "ignored",
       occurredAt: event.eventTimestamp.toISOString(),
       productId: event.productId,
       transactionId: event.transactionId,
+      invoiceId: event.invoiceId,
+      subscriptionId: event.subscriptionId,
+      billingReason: event.billingReason,
+      seatCount: event.seatCount,
+      seatDelta: event.seatDelta,
+      activeSeatCount: event.activeSeatCount,
+      priceId: event.priceId,
+      unitAmount: event.unitAmount,
+      currency: event.currency,
+      interval: event.interval,
+      intervalCount: event.intervalCount,
+      totalAmount: event.totalAmount,
+      periodStartsAt: event.periodStartsAt?.toISOString() ?? null,
+      periodEndsAt: event.periodEndsAt?.toISOString() ?? null,
     })),
   };
 }

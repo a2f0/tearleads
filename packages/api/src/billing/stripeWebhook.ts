@@ -89,34 +89,256 @@ export function extractPaidSubscriptionId(event: unknown): string | null {
     : null;
 }
 
-interface StripePaidSubscriptionInvoice {
-  readonly billingReason: "subscription_create" | "subscription_cycle";
+export type StripeInvoiceBillingReason =
+  | "automatic_pending_invoice_item_invoice"
+  | "manual"
+  | "quote_accept"
+  | "subscription"
+  | "subscription_create"
+  | "subscription_cycle"
+  | "subscription_threshold"
+  | "subscription_update"
+  | "upcoming";
+
+export interface StripePaidInvoiceLineSnapshot {
+  readonly currency: string | null;
+  readonly id: string | null;
+  readonly interval: string | null;
+  readonly intervalCount: number | null;
+  readonly periodEndsAt: Date | null;
+  readonly periodStartsAt: Date | null;
+  readonly priceId: string | null;
+  readonly proration: boolean | null;
+  readonly quantity: number | null;
+  readonly subscriptionId: string | null;
+  readonly subscriptionItemId: string | null;
+  readonly unitAmount: number | null;
+}
+
+export interface StripePaidSubscriptionInvoice {
+  readonly amountPaid: number | null;
+  readonly billingReason: StripeInvoiceBillingReason;
+  readonly currency: string | null;
   readonly invoiceId: string | null;
+  readonly lines: readonly StripePaidInvoiceLineSnapshot[];
+  readonly linesHasMore: boolean | null;
+  readonly occurredAt: Date;
+  readonly providerEventId: string | null;
   readonly subscriptionId: string;
 }
 
-/** Extracts initial and renewal paid invoices for direct Stripe billing. */
+interface StripePaidInvoiceLineListSnapshot {
+  readonly hasMore: boolean | null;
+  readonly lines: readonly StripePaidInvoiceLineSnapshot[];
+}
+
+function readNonnegativeInteger(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+    ? value
+    : null;
+}
+
+function readPositiveInteger(value: unknown): number | null {
+  const integer = readNonnegativeInteger(value);
+  return integer !== null && integer > 0 ? integer : null;
+}
+
+function readUnitAmount(value: unknown): number | null {
+  if (typeof value === "number") {
+    return readNonnegativeInteger(value);
+  }
+  if (typeof value !== "string" || !/^\d+(?:\.0+)?$/.test(value)) {
+    return null;
+  }
+  return readNonnegativeInteger(Number(value));
+}
+
+function readBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
+function readResourceId(value: unknown): string | null {
+  return readString(value) ?? readString(prop(value, "id"));
+}
+
+function readBillingReason(value: unknown): StripeInvoiceBillingReason | null {
+  switch (readString(value)) {
+    case "automatic_pending_invoice_item_invoice":
+      return "automatic_pending_invoice_item_invoice";
+    case "manual":
+      return "manual";
+    case "quote_accept":
+      return "quote_accept";
+    case "subscription":
+      return "subscription";
+    case "subscription_create":
+      return "subscription_create";
+    case "subscription_cycle":
+      return "subscription_cycle";
+    case "subscription_threshold":
+      return "subscription_threshold";
+    case "subscription_update":
+      return "subscription_update";
+    case "upcoming":
+      return "upcoming";
+    default:
+      return null;
+  }
+}
+
+function readUnixTimestamp(value: unknown): Date | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+  const date = new Date(value * 1000);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function firstPresent<T>(
+  values: readonly unknown[],
+  reader: (value: unknown) => T | null,
+): T | null {
+  for (const value of values) {
+    const parsed = reader(value);
+    if (parsed !== null) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function readIntervalCount(recurringPrices: readonly unknown[]): number | null {
+  return firstPresent(
+    recurringPrices.map((recurring) => prop(recurring, "interval_count")),
+    readPositiveInteger,
+  );
+}
+
+function extractPaidInvoiceLine(line: unknown): StripePaidInvoiceLineSnapshot {
+  const oldPrice = prop(line, "price");
+  const pricing = prop(line, "pricing");
+  const priceDetails = prop(pricing, "price_details");
+  const currentPrice = prop(priceDetails, "price");
+  const parent = prop(line, "parent");
+  const subscriptionItemDetails = prop(parent, "subscription_item_details");
+  const invoiceItemDetails = prop(parent, "invoice_item_details");
+  const oldRecurring = prop(oldPrice, "recurring");
+  const currentRecurring = prop(currentPrice, "recurring");
+  const priceDetailsRecurring = prop(priceDetails, "recurring");
+  const period = prop(line, "period");
+
+  return {
+    currency: firstPresent(
+      [
+        prop(line, "currency"),
+        prop(oldPrice, "currency"),
+        prop(currentPrice, "currency"),
+        prop(priceDetails, "currency"),
+      ],
+      readString,
+    ),
+    id: readString(prop(line, "id")),
+    interval: firstPresent(
+      [
+        prop(oldRecurring, "interval"),
+        prop(currentRecurring, "interval"),
+        prop(priceDetailsRecurring, "interval"),
+      ],
+      readString,
+    ),
+    intervalCount: readIntervalCount([
+      oldRecurring,
+      currentRecurring,
+      priceDetailsRecurring,
+    ]),
+    periodEndsAt: readUnixTimestamp(prop(period, "end")),
+    periodStartsAt: readUnixTimestamp(prop(period, "start")),
+    priceId: firstPresent([oldPrice, currentPrice], readResourceId),
+    proration: firstPresent(
+      [
+        prop(line, "proration"),
+        prop(subscriptionItemDetails, "proration"),
+        prop(invoiceItemDetails, "proration"),
+      ],
+      readBoolean,
+    ),
+    quantity: readPositiveInteger(prop(line, "quantity")),
+    subscriptionId: firstPresent(
+      [
+        prop(line, "subscription"),
+        prop(subscriptionItemDetails, "subscription"),
+        prop(invoiceItemDetails, "subscription"),
+      ],
+      readResourceId,
+    ),
+    subscriptionItemId: firstPresent(
+      [
+        prop(line, "subscription_item"),
+        prop(subscriptionItemDetails, "subscription_item"),
+        prop(invoiceItemDetails, "subscription_item"),
+      ],
+      readResourceId,
+    ),
+    unitAmount: firstPresent(
+      [
+        prop(oldPrice, "unit_amount"),
+        prop(oldPrice, "unit_amount_decimal"),
+        prop(pricing, "unit_amount_decimal"),
+        prop(priceDetails, "unit_amount_decimal"),
+        prop(currentPrice, "unit_amount"),
+        prop(currentPrice, "unit_amount_decimal"),
+      ],
+      readUnitAmount,
+    ),
+  };
+}
+
+/** Parses either an invoice's embedded `lines` or a Stripe line-list page. */
+export function extractPaidInvoiceLineList(
+  value: unknown,
+): StripePaidInvoiceLineListSnapshot {
+  const embeddedLines = prop(value, "lines");
+  const lineList = embeddedLines === undefined ? value : embeddedLines;
+  const data = prop(lineList, "data");
+  return {
+    hasMore: readBoolean(prop(lineList, "has_more")),
+    lines: Array.isArray(data) ? data.map(extractPaidInvoiceLine) : [],
+  };
+}
+
+/** Extracts a paid invoice tied to a direct Stripe subscription. */
 export function extractPaidSubscriptionInvoice(
   event: unknown,
+  processingTime: Date = new Date(),
 ): StripePaidSubscriptionInvoice | null {
   if (readString(prop(event, "type")) !== "invoice.paid") {
     return null;
   }
   const invoice = prop(prop(event, "data"), "object");
-  const billingReason = readString(prop(invoice, "billing_reason"));
-  if (
-    billingReason !== "subscription_create" &&
-    billingReason !== "subscription_cycle"
-  ) {
+  const billingReason = readBillingReason(prop(invoice, "billing_reason"));
+  if (!billingReason) {
     return null;
   }
+  const lineList = extractPaidInvoiceLineList(invoice);
+  const shared: Omit<StripePaidSubscriptionInvoice, "subscriptionId"> = {
+    amountPaid: readNonnegativeInteger(prop(invoice, "amount_paid")),
+    billingReason,
+    currency: readString(prop(invoice, "currency")),
+    invoiceId: readString(prop(invoice, "id")),
+    lines: lineList.lines,
+    linesHasMore: lineList.hasMore,
+    occurredAt:
+      readUnixTimestamp(prop(prop(invoice, "status_transitions"), "paid_at")) ??
+      readUnixTimestamp(prop(event, "created")) ??
+      processingTime,
+    providerEventId: readString(prop(event, "id")),
+  };
   const subscription = prop(invoice, "subscription");
   const direct =
     readString(subscription) ?? readString(prop(subscription, "id"));
   if (direct) {
     return {
-      billingReason,
-      invoiceId: readString(prop(invoice, "id")),
+      ...shared,
       subscriptionId: direct,
     };
   }
@@ -125,8 +347,7 @@ export function extractPaidSubscriptionInvoice(
   const subscriptionId = readString(nested) ?? readString(prop(nested, "id"));
   return subscriptionId
     ? {
-        billingReason,
-        invoiceId: readString(prop(invoice, "id")),
+        ...shared,
         subscriptionId,
       }
     : null;

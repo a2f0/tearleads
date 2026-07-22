@@ -3,7 +3,8 @@ import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { createRef } from "react";
 import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
-import { BillingDirectCheckout, formatPrice } from "./BillingDirectCheckout";
+import { BillingDirectCheckout } from "./BillingDirectCheckout";
+import { formatPrice } from "./billingFormatters";
 import type { DirectCheckoutState } from "./useDirectCheckout";
 
 const spies: { mockRestore: () => void }[] = [];
@@ -34,6 +35,7 @@ const OPTION = {
   currency: "usd",
   unitAmount: 99,
   interval: "month",
+  intervalCount: 1,
 };
 
 function state(overrides: Partial<DirectCheckoutState>): DirectCheckoutState {
@@ -57,38 +59,36 @@ function state(overrides: Partial<DirectCheckoutState>): DirectCheckoutState {
  */
 
 test("formats a two-decimal currency from its minor unit", () => {
-  const formatted = formatPrice(99, "usd", "month");
+  const formatted = formatPrice(99, "usd", "month", 1);
   expect(formatted).toContain("0.99");
   expect(formatted).toContain("/seat/month");
 });
 
 test("formats a ZERO-decimal currency without dividing by 100", () => {
   // ¥500 is reported as 500 minor units, not 50000.
-  const formatted = formatPrice(500, "jpy", "month");
+  const formatted = formatPrice(500, "jpy", "month", 1);
   expect(formatted).toContain("500");
   expect(formatted).not.toContain("5.00");
 });
 
 test("keeps the per-seat unit for a non-recurring price and handles no amount", () => {
-  expect(formatPrice(99, "usd", null)).toContain("/seat");
-  expect(formatPrice(null, "usd", "month")).toBe("");
+  expect(formatPrice(99, "usd", null, null)).toContain("/seat");
+  expect(formatPrice(null, "usd", "month", 1)).toBe("");
 });
 
-test("a malformed currency code degrades without showing a wrong amount", () => {
-  // Rendering the raw minor units would state a price 100x off for most
-  // currencies; naming the currency alone is the safe degradation.
-  const formatted = formatPrice(99, "notacurrency", "month");
-  expect(formatted).toBe("NOTACURRENCY/seat/month");
-  expect(formatted).not.toContain("99");
+test("a malformed currency code preserves the raw provider amount", () => {
+  // Raw minor units are truthful even when no display exponent can be
+  // verified; never invent a decimal conversion.
+  const formatted = formatPrice(99, "notacurrency", "month", 1);
+  expect(formatted).toBe("99 NOTACURRENCY minor units/seat/month");
 });
 
-test("a well-formed but unknown currency degrades the same way", () => {
+test("a well-formed but unknown currency uses the same raw fallback", () => {
   // The dangerous case: `Intl` does NOT throw on an unrecognized three-letter
   // code, it formats with 2 fraction digits. If that code were a zero-decimal
   // currency, the buyer would be shown 1/100 of the real price.
-  const formatted = formatPrice(99, "xqz", "month");
-  expect(formatted).toBe("XQZ/seat/month");
-  expect(formatted).not.toContain("0.99");
+  const formatted = formatPrice(99, "xqz", "month", 1);
+  expect(formatted).toBe("99 XQZ minor units/seat/month");
 });
 
 test("renders nothing when the platform or option is unavailable", () => {

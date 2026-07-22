@@ -22,6 +22,8 @@ export interface StripeSyncOptionResponse {
   unitAmount: number | null;
   /** Billing interval (`month`/`year`…); null for a non-recurring price. */
   interval: string | null;
+  /** Number of intervals in one billing period; null when Stripe omits it. */
+  intervalCount: number | null;
 }
 
 export interface StripeCheckoutOptionsResponse {
@@ -68,13 +70,20 @@ export function isStripeCheckoutSessionResponse(
 }
 
 function isStripeSyncOption(value: unknown): value is StripeSyncOptionResponse {
+  if (!isPlainObject(value)) {
+    return false;
+  }
+  const { intervalCount } = value;
   return (
-    isPlainObject(value) &&
     hasNonEmptyStringProperty(value, "priceId") &&
     hasNonEmptyStringProperty(value, "productName") &&
     hasNonEmptyStringProperty(value, "currency") &&
     hasNullableNumberProperty(value, "unitAmount") &&
-    hasNullableStringProperty(value, "interval")
+    hasNullableStringProperty(value, "interval") &&
+    (intervalCount === null ||
+      (typeof intervalCount === "number" &&
+        Number.isSafeInteger(intervalCount) &&
+        intervalCount > 0))
   );
 }
 

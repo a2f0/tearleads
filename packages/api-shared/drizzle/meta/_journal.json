@@ -141,6 +141,13 @@
       "when": 1784727489371,
       "tag": "0019_wise_steel_serpent",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1784741661861,
+      "tag": "0020_cuddly_mister_sinister",
+      "breakpoints": true
     }
   ]
 }

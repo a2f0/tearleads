@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  getOrgManagerBillingEventLabel,
   getOrgManagerBillingStatusLabel,
   getOrgManagerEpochLabel,
   getOrgManagerMemberCountLabel,
@@ -58,5 +59,18 @@ test("billing status and trial labels format correctly", () => {
   expect(getOrgManagerTrialDaysLabel(5)).toBe("5 days left");
   expect(ORG_MANAGER_LABELS.billingManageSubscription).toBe(
     "Manage subscription",
+  );
+});
+
+test("billing history labels cover invoice and licensed-seat events", () => {
+  expect(getOrgManagerBillingEventLabel("INVOICE_PAID")).toBe("Invoice paid");
+  expect(
+    getOrgManagerBillingEventLabel("licensed_seat_count_initialized"),
+  ).toBe("Licensed seats initialized");
+  expect(getOrgManagerBillingEventLabel("licensed_seat_count_increased")).toBe(
+    "Licensed seats increased",
+  );
+  expect(getOrgManagerBillingEventLabel("licensed_seat_count_reset")).toBe(
+    "Licensed seats reset",
   );
 });
