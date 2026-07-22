@@ -112,14 +112,25 @@ export function readRevenueCatWebhookAuthToken(
 export function resolveOrganizationIdFromEvent(
   event: RevenueCatWebhookEvent,
 ): string | null {
-  const metadataValue = event.metadata?.[ORGANIZATION_SUBSCRIBER_ATTRIBUTE];
-  if (typeof metadataValue === "string" && isUuidV4String(metadataValue)) {
-    return metadataValue;
+  const metadataOrganizationId =
+    resolveOrganizationIdFromTransactionMetadata(event);
+  if (metadataOrganizationId) {
+    return metadataOrganizationId;
   }
   const attributeValue =
     event.subscriber_attributes?.[ORGANIZATION_SUBSCRIBER_ATTRIBUTE]?.value;
   return typeof attributeValue === "string" && isUuidV4String(attributeValue)
     ? attributeValue
+    : null;
+}
+
+/** Reads only the immutable per-transaction organization metadata. */
+export function resolveOrganizationIdFromTransactionMetadata(
+  event: RevenueCatWebhookEvent,
+): string | null {
+  const metadataValue = event.metadata?.[ORGANIZATION_SUBSCRIBER_ATTRIBUTE];
+  return typeof metadataValue === "string" && isUuidV4String(metadataValue)
+    ? metadataValue
     : null;
 }
 
@@ -131,15 +142,15 @@ export function resolveOrganizationIdFromEvent(
  * an unresolved Stripe event rather than fall back to the mutable subscriber
  * attribute, which can point at the wrong organization for a multi-org buyer.
  */
-export type StripeStoreOrgResolution =
+type StripeStoreOrgResolution =
   | { kind: "resolved"; organizationId: string }
   | { kind: "none" }
   | { kind: "error" };
 
 /**
  * Immutable org resolution for STRIPE-store events (direct checkout, issue
- * #1654). RevenueCat forwards no transaction metadata for the Stripe store,
- * and the `orgId` subscriber attribute is customer-level and mutable — a
+ * #1654). Stripe-store events do not always carry transaction metadata, and
+ * the `orgId` subscriber attribute is customer-level and mutable — a
  * buyer admining several orgs would have every Stripe event resolve to
  * whichever org they purchased for LAST. But these events carry the Stripe
  * subscription or subscription-item id. A `sub_…` id can be looked up exactly

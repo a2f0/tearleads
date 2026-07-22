@@ -29,6 +29,35 @@ CREATE TABLE "organization_billing_stripe_seats" (
 );
 --> statement-breakpoint
 ALTER TABLE "organization_billing" ADD COLUMN "seat_period_key" text;--> statement-breakpoint
+UPDATE "organization_billing"
+SET "seat_period_key" = CASE
+	WHEN "status" = 'trialing'
+		OR (
+			"provider" IS NULL
+			AND "current_period_starts_at" IS NULL
+			AND "current_period_ends_at" IS NULL
+			AND "trial_ends_at" IS NOT NULL
+		)
+	THEN 'trial:' || COALESCE(
+		to_char("trial_ends_at", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+		'open'
+	)
+	ELSE 'paid:' || COALESCE(
+		to_char("current_period_starts_at", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+		'open'
+	) || ':' || COALESCE(
+		to_char("current_period_ends_at", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+		'open'
+	)
+END
+WHERE "seat_period_key" IS NULL
+	AND (
+		"status" IN ('trialing', 'active')
+		OR "provider" IS NOT NULL
+		OR "trial_ends_at" IS NOT NULL
+		OR "current_period_starts_at" IS NOT NULL
+		OR "current_period_ends_at" IS NOT NULL
+	);--> statement-breakpoint
 CREATE UNIQUE INDEX "organization_billing_stripe_seats_org_idx" ON "organization_billing_stripe_seats" USING btree ("organization_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "organization_billing_stripe_seats_subscription_idx" ON "organization_billing_stripe_seats" USING btree ("subscription_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "organization_billing_stripe_seats_item_idx" ON "organization_billing_stripe_seats" USING btree ("subscription_item_id");--> statement-breakpoint

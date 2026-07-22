@@ -32,4 +32,33 @@ CREATE UNIQUE INDEX `organization_billing_stripe_seats_org_idx` ON `organization
 CREATE UNIQUE INDEX `organization_billing_stripe_seats_subscription_idx` ON `organization_billing_stripe_seats` (`subscription_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `organization_billing_stripe_seats_item_idx` ON `organization_billing_stripe_seats` (`subscription_item_id`);--> statement-breakpoint
 CREATE INDEX `organization_billing_stripe_seats_due_idx` ON `organization_billing_stripe_seats` (`next_attempt_at`,`lease_expires_at`,`organization_id`);--> statement-breakpoint
-ALTER TABLE `organization_billing` ADD `seat_period_key` text;
+ALTER TABLE `organization_billing` ADD `seat_period_key` text;--> statement-breakpoint
+UPDATE `organization_billing`
+SET `seat_period_key` = CASE
+	WHEN `status` = 'trialing'
+		OR (
+			`provider` IS NULL
+			AND `current_period_starts_at` IS NULL
+			AND `current_period_ends_at` IS NULL
+			AND `trial_ends_at` IS NOT NULL
+		)
+	THEN 'trial:' || COALESCE(
+		strftime('%Y-%m-%dT%H:%M:%fZ', `trial_ends_at` / 1000.0, 'unixepoch'),
+		'open'
+	)
+	ELSE 'paid:' || COALESCE(
+		strftime('%Y-%m-%dT%H:%M:%fZ', `current_period_starts_at` / 1000.0, 'unixepoch'),
+		'open'
+	) || ':' || COALESCE(
+		strftime('%Y-%m-%dT%H:%M:%fZ', `current_period_ends_at` / 1000.0, 'unixepoch'),
+		'open'
+	)
+END
+WHERE `seat_period_key` IS NULL
+	AND (
+		`status` IN ('trialing', 'active')
+		OR `provider` IS NOT NULL
+		OR `trial_ends_at` IS NOT NULL
+		OR `current_period_starts_at` IS NOT NULL
+		OR `current_period_ends_at` IS NOT NULL
+	);
