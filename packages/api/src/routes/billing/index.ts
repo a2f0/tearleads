@@ -24,7 +24,7 @@ export function createBillingRouter(deps: OrganizationsRouterDeps) {
   billingRouter.route("/", createOrganizationBillingRoute(deps));
   billingRouter.route("/", createRevenueCatWebhookRoute(deps.runtime));
   billingRouter.route("/", createStripeCheckoutRoute(deps));
-  billingRouter.route("/", createStripeWebhookRoute());
+  billingRouter.route("/", createStripeWebhookRoute(deps.runtime));
 
   return billingRouter;
 }

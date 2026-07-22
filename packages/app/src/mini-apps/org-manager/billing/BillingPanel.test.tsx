@@ -135,7 +135,7 @@ test("an org that cannot sync is offered the in-app card checkout", async () => 
   // renders even though the RevenueCat capability is unavailable, which is the
   // point: this checkout runs on our own Stripe account.
   await waitFor(() => expect(view.getByText("Sync")).toBeDefined());
-  expect(view.getByText("$4.99/month")).toBeDefined();
+  expect(view.getByText("$4.99/seat/month")).toBeDefined();
   expect(view.getByText(ORG_MANAGER_LABELS.billingSubscribe)).toBeDefined();
 });
 

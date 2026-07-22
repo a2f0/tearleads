@@ -200,8 +200,8 @@ test("Stripe-store events resolve their org from the subscription binding", asyn
   );
   expect(resolved).toEqual({ kind: "resolved", organizationId: ORG_ID });
 
-  // Non-Stripe stores and events without a subscription id fall through to
-  // the ordinary resolution.
+  // Non-Stripe stores fall through to ordinary resolution. A Stripe event
+  // without an immutable identifier fails closed.
   expect(
     await resolveStripeStoreOrganizationId(
       makeEvent({ store: "RC_BILLING", original_transaction_id: "sub_1" }),
@@ -217,10 +217,10 @@ test("Stripe-store events resolve their org from the subscription binding", asyn
       }),
       { env: stripeEnv, fetchImpl },
     ),
-  ).toEqual({ kind: "none" });
+  ).toEqual({ kind: "error" });
 });
 
-test("a failed Stripe lookup defers; an unconfigured one falls back", async () => {
+test("failed and unconfigured Stripe lookups both defer", async () => {
   // Falling back to the mutable subscriber attribute could attribute a
   // multi-org buyer's event to the wrong organization AND claim the event id,
   // making the misattribution permanent — the caller defers instead.
@@ -237,15 +237,55 @@ test("a failed Stripe lookup defers; an unconfigured one falls back", async () =
       },
     ),
   ).toEqual({ kind: "error" });
-  // Unconfigured is different from failed: with no STRIPE_SECRET_KEY this
-  // deployment's checkout cannot have created bound subscriptions, so the
-  // event falls back to ordinary (pre-checkout) resolution.
+  // Missing configuration must not turn the mutable customer attribute into
+  // an identity source either.
   expect(
     await resolveStripeStoreOrganizationId(
       makeEvent({ store: "STRIPE", original_transaction_id: "sub_1" }),
       { env: {}, fetchImpl: failingFetch },
     ),
-  ).toEqual({ kind: "none" });
+  ).toEqual({ kind: "error" });
+});
+
+test("an si_ identifier is verified by an accompanying exact subscription", async () => {
+  const fetchImpl = (async (_input: RequestInfo | URL, _init?: RequestInit) =>
+    new Response(
+      JSON.stringify({
+        id: "sub_1",
+        items: {
+          data: [{ id: "si_1", price: { id: "price_sync" }, quantity: 1 }],
+        },
+        metadata: { orgId: ORG_ID },
+      }),
+    )) as typeof fetch;
+  const deps = {
+    env: {
+      STRIPE_SECRET_KEY: "sk_test",
+      STRIPE_SYNC_PRICE_ID: "price_sync",
+    },
+    fetchImpl,
+  };
+
+  expect(
+    await resolveStripeStoreOrganizationId(
+      makeEvent({
+        original_transaction_id: "si_1",
+        store: "STRIPE",
+        transaction_id: "sub_1",
+      }),
+      deps,
+    ),
+  ).toEqual({ kind: "resolved", organizationId: ORG_ID });
+  expect(
+    await resolveStripeStoreOrganizationId(
+      makeEvent({
+        original_transaction_id: "si_other",
+        store: "STRIPE",
+        transaction_id: "sub_1",
+      }),
+      deps,
+    ),
+  ).toEqual({ kind: "error" });
 });
 
 test("Stripe-store grants fall back to transaction_id for the subscription", () => {
@@ -278,10 +318,7 @@ test("Stripe-store grants fall back to transaction_id for the subscription", () 
   ).toBeNull();
 });
 
-test("a 404 subscription lookup reads as not-ours, never a retry loop", async () => {
-  // A STRIPE-store event whose transaction id is not a fetchable subscription
-  // (a purchase predating this checkout, a one-time token) must fall back to
-  // ordinary resolution — deferring it would redeliver forever.
+test("a missing Stripe subscription fails closed", async () => {
   const notFoundFetch = (async (
     _input: RequestInfo | URL,
     _init?: RequestInit,
@@ -294,5 +331,5 @@ test("a 404 subscription lookup reads as not-ours, never a retry loop", async ()
         fetchImpl: notFoundFetch,
       },
     ),
-  ).toEqual({ kind: "none" });
+  ).toEqual({ kind: "error" });
 });

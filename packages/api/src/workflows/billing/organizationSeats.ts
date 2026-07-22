@@ -9,9 +9,13 @@ import {
   organizations,
 } from "@tearleads/api-shared/schema";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { organizationCanSync } from "../../billing/organizationBilling";
+import {
+  organizationCanSync,
+  organizationSeatPeriodKey,
+} from "../../billing/organizationBilling";
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { listUsersReachableFromCurrentGroup } from "../organizations/principalReachability";
+import { requestOrganizationStripeSeatSync } from "./stripeSeatState";
 
 type SeatAssignmentInsert =
   typeof organizationBillingSeatAssignments.$inferInsert;
@@ -32,27 +36,21 @@ interface BillingSeatState {
   readonly currentPeriodStartsAt: Date | null;
   readonly currentPeriodEndsAt: Date | null;
   readonly seatCount: number;
+  readonly seatPeriodKey: string | null;
 }
 
 interface OpenSeatAssignment {
   readonly id: string;
   readonly userId: string;
-  readonly billingPeriodStartsAt: Date | null;
-  readonly billingPeriodEndsAt: Date | null;
 }
 
-function sameTime(left: Date | null, right: Date | null): boolean {
-  return left?.getTime() === right?.getTime();
-}
-
-function assignmentMatchesBillingPeriod(
-  assignment: OpenSeatAssignment,
+function requiredLicensedSeatCount(
   billing: BillingSeatState,
-): boolean {
-  return (
-    sameTime(assignment.billingPeriodStartsAt, billing.currentPeriodStartsAt) &&
-    sameTime(assignment.billingPeriodEndsAt, billing.currentPeriodEndsAt)
-  );
+  activeSeatCount: number,
+): number {
+  return billing.status === "active"
+    ? Math.max(1, activeSeatCount)
+    : activeSeatCount;
 }
 
 function buildSeatEvent(input: {
@@ -93,6 +91,7 @@ async function loadBillingSeatState(input: {
       currentPeriodStartsAt: organizationBilling.currentPeriodStartsAt,
       currentPeriodEndsAt: organizationBilling.currentPeriodEndsAt,
       seatCount: organizationBilling.seatCount,
+      seatPeriodKey: organizationBilling.seatPeriodKey,
     })
     .from(organizationBilling)
     .innerJoin(
@@ -116,10 +115,6 @@ async function listOpenSeatAssignments(input: {
     .select({
       id: organizationBillingSeatAssignments.id,
       userId: organizationBillingSeatAssignments.userId,
-      billingPeriodStartsAt:
-        organizationBillingSeatAssignments.billingPeriodStartsAt,
-      billingPeriodEndsAt:
-        organizationBillingSeatAssignments.billingPeriodEndsAt,
     })
     .from(organizationBillingSeatAssignments)
     .where(
@@ -270,14 +265,12 @@ async function rotateOpenAssignmentsToBillingPeriod(input: {
   readonly now: Date;
   readonly openAssignments: readonly OpenSeatAssignment[];
   readonly source: BillingSeatSource;
+  readonly periodChanged: boolean;
 }): Promise<{
   readonly currentAssignments: readonly OpenSeatAssignment[];
   readonly licensedSeatCount: number;
 }> {
-  const periodChanged = input.openAssignments.some(
-    (assignment) => !assignmentMatchesBillingPeriod(assignment, input.billing),
-  );
-  if (!periodChanged) {
+  if (!input.periodChanged) {
     return {
       currentAssignments: input.openAssignments,
       licensedSeatCount: input.billing.seatCount,
@@ -295,7 +288,10 @@ async function rotateOpenAssignmentsToBillingPeriod(input: {
     source: input.source,
   });
 
-  const licensedSeatCount = input.activeUserIds.length;
+  const licensedSeatCount = requiredLicensedSeatCount(
+    input.billing,
+    input.activeUserIds.length,
+  );
   await updateLicensedSeatCount({
     activeSeatCount: input.activeUserIds.length,
     billing: input.billing,
@@ -361,17 +357,18 @@ async function reconcileLicensedCapacity(input: {
   readonly openAssignments: readonly OpenSeatAssignment[];
   readonly source: BillingSeatSource;
 }): Promise<void> {
+  const requiredSeatCount = requiredLicensedSeatCount(
+    input.billing,
+    input.activeUserIds.length,
+  );
   const shouldInitialize =
     input.billing.seatCount === 0 &&
     input.openAssignments.length === 0 &&
-    input.activeUserIds.length > 0;
+    requiredSeatCount > 0;
   const eventType = shouldInitialize
     ? "licensed_seat_count_initialized"
     : "licensed_seat_count_increased";
-  if (
-    !shouldInitialize &&
-    input.activeUserIds.length <= input.licensedSeatCount
-  ) {
+  if (!shouldInitialize && requiredSeatCount <= input.licensedSeatCount) {
     return;
   }
 
@@ -381,7 +378,7 @@ async function reconcileLicensedCapacity(input: {
     eventType,
     events: input.events,
     executor: input.executor,
-    nextSeatCount: input.activeUserIds.length,
+    nextSeatCount: requiredSeatCount,
     now: input.now,
     source: input.source,
   });
@@ -416,6 +413,7 @@ export async function reconcileOrganizationBillingSeats(input: {
     executor: input.executor,
     organizationId: input.organizationId,
   });
+  const nextSeatPeriodKey = organizationSeatPeriodKey(billing);
   const events: SeatEventInsert[] = [];
   const { currentAssignments, licensedSeatCount } =
     await rotateOpenAssignmentsToBillingPeriod({
@@ -425,6 +423,11 @@ export async function reconcileOrganizationBillingSeats(input: {
       executor: input.executor,
       now,
       openAssignments,
+      // A null key is a pre-column row being lazily initialized, not proof of a
+      // renewal. Preserve its current-period paid high-water on first touch.
+      periodChanged:
+        billing.seatPeriodKey !== null &&
+        billing.seatPeriodKey !== nextSeatPeriodKey,
       source: input.source,
     });
 
@@ -447,6 +450,19 @@ export async function reconcileOrganizationBillingSeats(input: {
     now,
     openAssignments,
     source: input.source,
+  });
+
+  await input.executor
+    .update(organizationBilling)
+    .set({ seatPeriodKey: nextSeatPeriodKey, updatedAt: now })
+    .where(eq(organizationBilling.organizationId, input.organizationId));
+  await requestOrganizationStripeSeatSync({
+    desiredPaidCapacity: Math.max(licensedSeatCount, activeUserIds.length),
+    desiredRenewalQuantity: activeUserIds.length,
+    desiredSeatPeriodKey: nextSeatPeriodKey,
+    executor: input.executor,
+    now,
+    organizationId: input.organizationId,
   });
 
   await insertSeatEvents(input.executor, events);

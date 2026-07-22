@@ -154,6 +154,11 @@ export interface RevenueCatPurchasesConfig {
   /** Entitlement id that grants sync (e.g. "sync"). */
   readonly syncEntitlementId: string;
   /**
+   * Whether this platform may start RevenueCat purchases. Defaults to true.
+   * Set false when RevenueCat is retained only for entitlement observation.
+   */
+  readonly purchasesEnabled?: boolean;
+  /**
    * Subscriber attribute key that binds a purchase to an organization. The
    * server webhook reads this to resolve the org being paid for. Defaults to
    * "orgId".
@@ -178,6 +183,7 @@ export function createRevenueCatPurchases(
   backend: RevenueCatBackend,
   config: RevenueCatPurchasesConfig,
 ): PurchasesCapability {
+  const purchasesEnabled = config.purchasesEnabled ?? true;
   const organizationAttributeKey =
     config.organizationAttributeKey ?? DEFAULT_ORGANIZATION_ATTRIBUTE_KEY;
   let configured: Promise<void> | undefined;
@@ -206,8 +212,9 @@ export function createRevenueCatPurchases(
     info.activeEntitlementIds.includes(config.syncEntitlementId);
 
   return {
-    isAvailable: true,
-    supportsEmbeddedCheckout: config.supportsEmbeddedCheckout ?? false,
+    isAvailable: purchasesEnabled,
+    supportsEmbeddedCheckout:
+      purchasesEnabled && (config.supportsEmbeddedCheckout ?? false),
     async identify(input) {
       await ensureConfigured(input.userId);
       await backend.logIn({ appUserId: input.userId });
@@ -217,6 +224,9 @@ export function createRevenueCatPurchases(
       await backend.logOut();
     },
     async listSyncOptions() {
+      if (!purchasesEnabled) {
+        return [];
+      }
       await ensureConfigured();
       const packages = await backend.getCurrentPackages();
       return packages.map((entry) => ({
@@ -228,6 +238,11 @@ export function createRevenueCatPurchases(
       }));
     },
     async purchaseSync(input) {
+      if (!purchasesEnabled) {
+        throw new PurchasesUnavailableError(
+          "RevenueCat purchases are disabled on this platform",
+        );
+      }
       try {
         await ensureConfigured();
         // Bind the purchase to the org BEFORE buying so the resulting

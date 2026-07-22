@@ -45,6 +45,7 @@ export {
   organizationBilling,
   organizationBillingSeatAssignments,
   organizationBillingSeatEvents,
+  organizationBillingStripeSeats,
   organizationRosterEntries,
   organizations,
 } from "./organizations";

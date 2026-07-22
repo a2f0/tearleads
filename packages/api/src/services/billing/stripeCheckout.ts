@@ -12,22 +12,29 @@ import {
   findLiveOrgSubscription,
   findOrCreateCustomer,
   getStripeSyncOption,
-  getSubscriptionBinding,
+  hasOpenOrgSubscription,
   isStripeCheckoutConfigured,
   type StripeApiDeps,
   StripeApiError,
   type StripeCheckoutIntent,
   type StripeSyncOption,
 } from "../../billing/stripeApi";
+import { getSubscriptionBinding } from "../../billing/stripeSubscriptionBinding";
 import {
-  extractPaidSubscriptionId,
+  extractPaidSubscriptionInvoice,
   readStripeWebhookSecret,
   verifyStripeSignature,
 } from "../../billing/stripeWebhook";
 import {
+  runAcquireStripeCheckoutAttemptWorkflow,
   runRequireCheckoutEligibleWorkflow,
   runResolveOrgSubscriptionForAdminWorkflow,
 } from "../../workflows/billing/stripeCheckout";
+import {
+  runBindOrganizationStripeSeatsWorkflow,
+  runRecordStripeSeatRenewalWorkflow,
+  type StripeSeatBindingInput,
+} from "../../workflows/billing/stripeSeatState";
 import { OrganizationManagerError } from "../../workflows/organizations/errors";
 import type { ApiServiceRuntime } from "../runtime";
 
@@ -82,14 +89,20 @@ export async function createStripeCheckout(
   sessionUserId: string,
   deps: StripeCheckoutServiceDeps = {},
 ): Promise<StripeCheckoutIntent | null> {
-  await runRequireCheckoutEligibleWorkflow(
+  if (!isDirectCheckoutFullyConfigured(deps)) {
+    await runRequireCheckoutEligibleWorkflow(
+      runtime.db,
+      organizationId,
+      sessionUserId,
+    );
+    return null;
+  }
+  const attempt = await runAcquireStripeCheckoutAttemptWorkflow(
     runtime.db,
     organizationId,
     sessionUserId,
+    "inline",
   );
-  if (!isDirectCheckoutFullyConfigured(deps)) {
-    return null;
-  }
   const customerId = await findOrCreateCustomer(
     { userId: sessionUserId, organizationId },
     deps.stripe ?? {},
@@ -98,7 +111,13 @@ export async function createStripeCheckout(
     return null;
   }
   const outcome = await createSyncSubscription(
-    { customerId, userId: sessionUserId, organizationId },
+    {
+      checkoutAttemptId: attempt.attemptId,
+      customerId,
+      userId: sessionUserId,
+      organizationId,
+      seatQuantity: attempt.seatQuantity,
+    },
     deps.stripe ?? {},
   );
   if (outcome?.kind === "conflict") {
@@ -129,23 +148,28 @@ export async function createStripeCheckoutSession(
   returnUrl: string,
   deps: StripeCheckoutServiceDeps = {},
 ): Promise<string | null> {
-  await runRequireCheckoutEligibleWorkflow(
+  if (!isDirectCheckoutFullyConfigured(deps)) {
+    await runRequireCheckoutEligibleWorkflow(
+      runtime.db,
+      organizationId,
+      sessionUserId,
+    );
+    return null;
+  }
+  const attempt = await runAcquireStripeCheckoutAttemptWorkflow(
     runtime.db,
     organizationId,
     sessionUserId,
+    "hosted",
   );
-  if (!isDirectCheckoutFullyConfigured(deps)) {
-    return null;
-  }
   // Stripe-side duplicate guard, mirroring the inline flow. The local billing
   // status the eligibility workflow reads can lag Stripe (e.g. a webhook
   // outage), so a session minted here could complete into a SECOND billing
   // subscription and double-bill. `createSyncSubscription` closes this window
-  // for the inline path via its own search; the hosted path has no such create,
-  // so check here. This matches LIVE subscriptions only — an `incomplete`
-  // abandoned inline attempt never bills, so it is not a double-bill and does
-  // not block a fresh hosted checkout.
-  const existing = await findLiveOrgSubscription(
+  // for inline checkout via its own search; check explicitly here before
+  // minting a hosted Session. A still-incomplete inline subscription blocks as
+  // well because its payment could complete while the hosted page is open.
+  const existing = await hasOpenOrgSubscription(
     organizationId,
     deps.stripe ?? {},
   );
@@ -166,7 +190,15 @@ export async function createStripeCheckoutSession(
   // billing panel whether they paid or backed out, and a paid return reads as
   // activation-pending until the webhook grants the entitlement.
   return createCheckoutSession(
-    { customerId, userId: sessionUserId, organizationId, returnUrl },
+    {
+      checkoutAttemptId: attempt.attemptId,
+      customerId,
+      expiresAt: attempt.providerExpiresAt ?? attempt.expiresAt,
+      userId: sessionUserId,
+      organizationId,
+      returnUrl,
+      seatQuantity: attempt.seatQuantity,
+    },
     deps.stripe ?? {},
   );
 }
@@ -252,10 +284,103 @@ export async function cancelStripeSubscription(
 
 type StripeWebhookOutcome =
   | { status: "associated"; subscriptionId: string; organizationId: string }
+  | { status: "reconciled"; subscriptionId: string; organizationId: string }
   | { status: "ignored"; reason: string }
   | { status: "retry"; reason: string }
   | { status: "unauthorized" }
   | { status: "unconfigured" };
+
+async function applyPaidSubscriptionInvoice(input: {
+  readonly binding: NonNullable<
+    Awaited<ReturnType<typeof getSubscriptionBinding>>
+  >;
+  readonly deps: StripeCheckoutServiceDeps;
+  readonly invoice: NonNullable<
+    ReturnType<typeof extractPaidSubscriptionInvoice>
+  >;
+  readonly organizationId: string;
+  readonly runtime: ApiServiceRuntime;
+}): Promise<StripeWebhookOutcome> {
+  const { binding, invoice } = input;
+  if (
+    !binding.priceId ||
+    !binding.subscriptionItemId ||
+    binding.seatQuantity === null
+  ) {
+    return { status: "retry", reason: "Subscription carries no seat item" };
+  }
+  const seatBinding: StripeSeatBindingInput = {
+    billingPeriodEndsAt: binding.billingPeriodEndsAt,
+    billingPeriodStartsAt: binding.billingPeriodStartsAt,
+    customerId: binding.customerId,
+    organizationId: input.organizationId,
+    priceId: binding.priceId,
+    seatQuantity: binding.seatQuantity,
+    subscriptionId: invoice.subscriptionId,
+    subscriptionItemId: binding.subscriptionItemId,
+  };
+  if (invoice.billingReason === "subscription_cycle") {
+    if (!invoice.invoiceId) {
+      return { status: "ignored", reason: "Renewal invoice carries no id" };
+    }
+    const outcome = await runRecordStripeSeatRenewalWorkflow(input.runtime.db, {
+      ...seatBinding,
+      invoiceId: invoice.invoiceId,
+    });
+    if (outcome.status === "retry") {
+      return {
+        status: "retry",
+        reason: "Stripe subscription ordering is ambiguous",
+      };
+    }
+    if (outcome.status === "stale") {
+      return {
+        status: "ignored",
+        reason: "Stale Stripe subscription invoice",
+      };
+    }
+    return {
+      status: "reconciled",
+      subscriptionId: invoice.subscriptionId,
+      organizationId: input.organizationId,
+    };
+  }
+  if (!binding.userId) {
+    return {
+      status: "ignored",
+      reason: "Subscription carries no user binding",
+    };
+  }
+  const outcome = await runBindOrganizationStripeSeatsWorkflow(
+    input.runtime.db,
+    seatBinding,
+  );
+  if (outcome.status === "retry") {
+    return {
+      status: "retry",
+      reason: "Stripe subscription ordering is ambiguous",
+    };
+  }
+  if (outcome.status === "stale") {
+    return {
+      status: "ignored",
+      reason: "Stale Stripe subscription invoice",
+    };
+  }
+  await associateStripeSubscription(
+    {
+      appUserId: binding.userId,
+      organizationId: input.organizationId,
+      subscriptionId: invoice.subscriptionId,
+    },
+    input.deps.revenueCat ?? {},
+  );
+  return {
+    status: "associated",
+    subscriptionId: invoice.subscriptionId,
+    organizationId: input.organizationId,
+  };
+}
 
 /**
  * Handles one raw Stripe webhook delivery: verify the signature, extract the
@@ -264,6 +389,7 @@ type StripeWebhookOutcome =
  * so Stripe redelivers; everything the flow does not care about is `ignored`.
  */
 export async function processStripeWebhook(
+  runtime: ApiServiceRuntime,
   input: { payload: string; signatureHeader: string | undefined },
   deps: StripeCheckoutServiceDeps = {},
 ): Promise<StripeWebhookOutcome> {
@@ -288,9 +414,9 @@ export async function processStripeWebhook(
   } catch {
     return { status: "ignored", reason: "Invalid JSON payload" };
   }
-  const subscriptionId = extractPaidSubscriptionId(event);
-  if (!subscriptionId) {
-    return { status: "ignored", reason: "Not a newly paid subscription" };
+  const invoice = extractPaidSubscriptionInvoice(event);
+  if (!invoice) {
+    return { status: "ignored", reason: "Not a paid subscription invoice" };
   }
   // A paid subscription that cannot currently be looked up must NOT be
   // acknowledged with a 2xx: Stripe would never redeliver, permanently
@@ -303,7 +429,10 @@ export async function processStripeWebhook(
   // subscription's metadata is what OUR server wrote at checkout time.
   let binding: Awaited<ReturnType<typeof getSubscriptionBinding>>;
   try {
-    binding = await getSubscriptionBinding(subscriptionId, deps.stripe ?? {});
+    binding = await getSubscriptionBinding(
+      invoice.subscriptionId,
+      deps.stripe ?? {},
+    );
   } catch (error) {
     // A definitive 404 will never become fetchable: acknowledge it instead
     // of making Stripe redeliver forever (mirrors the RevenueCat-side
@@ -314,24 +443,18 @@ export async function processStripeWebhook(
     throw error;
   }
   if (
-    !binding?.userId ||
+    !binding ||
     !binding.organizationId ||
     !isUuidV4String(binding.organizationId)
   ) {
     return { status: "ignored", reason: "Subscription carries no org binding" };
   }
 
-  await associateStripeSubscription(
-    {
-      appUserId: binding.userId,
-      organizationId: binding.organizationId,
-      subscriptionId,
-    },
-    deps.revenueCat ?? {},
-  );
-  return {
-    status: "associated",
-    subscriptionId,
+  return applyPaidSubscriptionInvoice({
+    binding,
+    deps,
+    invoice,
     organizationId: binding.organizationId,
-  };
+    runtime,
+  });
 }

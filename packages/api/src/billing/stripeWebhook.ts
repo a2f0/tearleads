@@ -3,10 +3,9 @@ import { prop, readString } from "./stripeHttp";
 
 /**
  * Stripe webhook verification and event extraction for the direct web
- * checkout (issue #1654). Only one event matters here: the FIRST invoice of a
- * subscription being paid, which triggers the RevenueCat association. All
- * later lifecycle (renewals, cancellations) reaches us through RevenueCat's
- * own webhook once the subscription is associated.
+ * checkout (issue #1654). Initial paid invoices trigger the RevenueCat
+ * association; renewal invoices advance the durable Stripe seat period.
+ * RevenueCat still mirrors entitlement lifecycle events after association.
  */
 
 /** Environment variable holding the Stripe webhook signing secret (`whsec_…`). */
@@ -84,20 +83,51 @@ export function verifyStripeSignature(input: {
  * `getSubscriptionBinding`) rather than trusted from the event.
  */
 export function extractPaidSubscriptionId(event: unknown): string | null {
+  const invoice = extractPaidSubscriptionInvoice(event);
+  return invoice?.billingReason === "subscription_create"
+    ? invoice.subscriptionId
+    : null;
+}
+
+interface StripePaidSubscriptionInvoice {
+  readonly billingReason: "subscription_create" | "subscription_cycle";
+  readonly invoiceId: string | null;
+  readonly subscriptionId: string;
+}
+
+/** Extracts initial and renewal paid invoices for direct Stripe billing. */
+export function extractPaidSubscriptionInvoice(
+  event: unknown,
+): StripePaidSubscriptionInvoice | null {
   if (readString(prop(event, "type")) !== "invoice.paid") {
     return null;
   }
   const invoice = prop(prop(event, "data"), "object");
-  if (readString(prop(invoice, "billing_reason")) !== "subscription_create") {
+  const billingReason = readString(prop(invoice, "billing_reason"));
+  if (
+    billingReason !== "subscription_create" &&
+    billingReason !== "subscription_cycle"
+  ) {
     return null;
   }
   const subscription = prop(invoice, "subscription");
   const direct =
     readString(subscription) ?? readString(prop(subscription, "id"));
   if (direct) {
-    return direct;
+    return {
+      billingReason,
+      invoiceId: readString(prop(invoice, "id")),
+      subscriptionId: direct,
+    };
   }
   const details = prop(prop(invoice, "parent"), "subscription_details");
   const nested = prop(details, "subscription");
-  return readString(nested) ?? readString(prop(nested, "id"));
+  const subscriptionId = readString(nested) ?? readString(prop(nested, "id"));
+  return subscriptionId
+    ? {
+        billingReason,
+        invoiceId: readString(prop(invoice, "id")),
+        subscriptionId,
+      }
+    : null;
 }

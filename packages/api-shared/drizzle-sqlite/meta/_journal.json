@@ -127,6 +127,20 @@
       "when": 1784301403999,
       "tag": "0017_white_lionheart",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1784725029360,
+      "tag": "0018_smiling_ultimo",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1784727489722,
+      "tag": "0019_neat_bug",
+      "breakpoints": true
     }
   ]
 }

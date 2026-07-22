@@ -137,6 +137,13 @@ export const organizationRosterEntries = pgTable(
  *   lapses if it passes without renewal.
  * - `seatCount`: Licensed seats for the current paid billing period. Seat
  *   switches are reconciled by `organization_billing_seat_assignments`.
+ * - `seatPeriodKey`: Explicit identity of the trial/paid period represented by
+ *   `seatCount`. This cannot be inferred from open assignments because an
+ *   organization can legitimately have none at period rollover.
+ * - `checkoutAttempt*`: Durable, organization-scoped ownership of an unpaid
+ *   Stripe checkout. Inline and hosted checkout share this guard so they
+ *   cannot race into two subscriptions. The captured seat quantity remains
+ *   fixed for an idempotent retry and the token rotates after expiry.
  * - `disabledAt` / `purgeAfter`: Set when sync lapses. The purge job may delete
  *   the organization's remote sync data after `purgeAfter`.
  * - `purgeStartedAt` / `purgedAt`: Purge job progress markers.
@@ -161,6 +168,15 @@ export const organizationBilling = pgTable(
     currentPeriodStartsAt: timestamp("current_period_starts_at"),
     currentPeriodEndsAt: timestamp("current_period_ends_at"),
     seatCount: integer("seat_count").default(0).notNull(),
+    seatPeriodKey: text("seat_period_key"),
+    checkoutAttemptId: text("checkout_attempt_id"),
+    checkoutAttemptMode: text("checkout_attempt_mode").$type<
+      "inline" | "hosted"
+    >(),
+    checkoutAttemptUserId: uuid("checkout_attempt_user_id"),
+    checkoutAttemptSeatQuantity: integer("checkout_attempt_seat_quantity"),
+    checkoutAttemptStartedAt: timestamp("checkout_attempt_started_at"),
+    checkoutAttemptExpiresAt: timestamp("checkout_attempt_expires_at"),
     disabledAt: timestamp("disabled_at"),
     purgeAfter: timestamp("purge_after"),
     purgeStartedAt: timestamp("purge_started_at"),
@@ -179,6 +195,65 @@ export const organizationBilling = pgTable(
       table.status,
       table.purgeAfter,
       table.purgeStartedAt,
+      table.organizationId,
+    ),
+  ],
+);
+
+/**
+ * Durable Stripe binding and coalescing seat-sync outbox for one organization.
+ *
+ * `desiredPaidCapacity` is the current period's licensed high-water mark;
+ * `desiredRenewalQuantity` is the active roster quantity Stripe should carry
+ * into the next invoice. An in-flight capacity target is sticky across retries
+ * so the same Stripe idempotency key is replayed after a crash.
+ */
+export const organizationBillingStripeSeats = pgTable(
+  "organization_billing_stripe_seats",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").notNull(),
+    customerId: text("customer_id"),
+    subscriptionId: text("subscription_id"),
+    subscriptionItemId: text("subscription_item_id"),
+    priceId: text("price_id"),
+    desiredPaidCapacity: integer("desired_paid_capacity").default(0).notNull(),
+    desiredRenewalQuantity: integer("desired_renewal_quantity")
+      .default(0)
+      .notNull(),
+    appliedPaidCapacity: integer("applied_paid_capacity").default(0).notNull(),
+    observedQuantity: integer("observed_quantity"),
+    desiredSeatPeriodKey: text("desired_seat_period_key"),
+    appliedSeatPeriodKey: text("applied_seat_period_key"),
+    billingPeriodStartsAt: timestamp("billing_period_starts_at"),
+    billingPeriodEndsAt: timestamp("billing_period_ends_at"),
+    desiredRevision: integer("desired_revision").default(0).notNull(),
+    appliedRevision: integer("applied_revision").default(0).notNull(),
+    inFlightOperationId: text("in_flight_operation_id"),
+    inFlightTargetCapacity: integer("in_flight_target_capacity"),
+    nextAttemptAt: timestamp("next_attempt_at"),
+    attemptCount: integer("attempt_count").default(0).notNull(),
+    leaseId: text("lease_id"),
+    leaseExpiresAt: timestamp("lease_expires_at"),
+    lastError: text("last_error"),
+    lastSyncedAt: timestamp("last_synced_at"),
+    lastInvoiceId: text("last_invoice_id"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("organization_billing_stripe_seats_org_idx").on(
+      table.organizationId,
+    ),
+    uniqueIndex("organization_billing_stripe_seats_subscription_idx").on(
+      table.subscriptionId,
+    ),
+    uniqueIndex("organization_billing_stripe_seats_item_idx").on(
+      table.subscriptionItemId,
+    ),
+    index("organization_billing_stripe_seats_due_idx").on(
+      table.nextAttemptAt,
+      table.leaseExpiresAt,
       table.organizationId,
     ),
   ],

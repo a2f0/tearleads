@@ -294,7 +294,7 @@ export function getOrgManagerMemberCountLabel(memberCount: number): string {
 }
 
 export function getOrgManagerSeatsLabel(seats: number): string {
-  return `${seats} seat${seats === 1 ? "" : "s"} billed`;
+  return `${seats} licensed seat${seats === 1 ? "" : "s"}`;
 }
 
 export function getOrgManagerPeriodEndsLabel(dateLabel: string): string {

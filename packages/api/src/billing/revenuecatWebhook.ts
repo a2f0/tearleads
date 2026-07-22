@@ -5,11 +5,8 @@ import type {
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { isUuidV4String } from "@tearleads/validators/util";
 import { LAPSED_BILLING_PURGE_GRACE_MS } from "./organizationBilling";
-import {
-  getSubscriptionBinding,
-  type StripeApiDeps,
-  StripeApiError,
-} from "./stripeApi";
+import type { StripeApiDeps } from "./stripeApi";
+import { getSubscriptionBinding } from "./stripeSubscriptionBinding";
 
 /**
  * Environment variable holding the exact value RevenueCat must send in the
@@ -115,9 +112,10 @@ export function readRevenueCatWebhookAuthToken(
 export function resolveOrganizationIdFromEvent(
   event: RevenueCatWebhookEvent,
 ): string | null {
-  const metadataValue = event.metadata?.[ORGANIZATION_SUBSCRIBER_ATTRIBUTE];
-  if (typeof metadataValue === "string" && isUuidV4String(metadataValue)) {
-    return metadataValue;
+  const metadataOrganizationId =
+    resolveOrganizationIdFromTransactionMetadata(event);
+  if (metadataOrganizationId) {
+    return metadataOrganizationId;
   }
   const attributeValue =
     event.subscriber_attributes?.[ORGANIZATION_SUBSCRIBER_ATTRIBUTE]?.value;
@@ -126,30 +124,40 @@ export function resolveOrganizationIdFromEvent(
     : null;
 }
 
+/** Reads only the immutable per-transaction organization metadata. */
+export function resolveOrganizationIdFromTransactionMetadata(
+  event: RevenueCatWebhookEvent,
+): string | null {
+  const metadataValue = event.metadata?.[ORGANIZATION_SUBSCRIBER_ATTRIBUTE];
+  return typeof metadataValue === "string" && isUuidV4String(metadataValue)
+    ? metadataValue
+    : null;
+}
+
 /**
  * The outcome of the immutable org resolution for one event: `resolved`
- * carries the org bound to the Stripe subscription; `none` means the event
- * has no such binding to consult (not a Stripe-store event, no subscription
- * id, or a subscription our checkout did not create) and ordinary resolution
- * applies; `error` means the binding EXISTS in principle but could not be
- * read (lookup unconfigured or failed) — the caller must defer the event
- * rather than fall back to the mutable attribute, which for a multi-org
- * buyer can point at the wrong organization.
+ * carries the org bound to the Stripe subscription; `none` means the event is
+ * not from Stripe and ordinary store resolution applies; `error` means a
+ * Stripe-store event could not be attributed immutably. The caller must defer
+ * an unresolved Stripe event rather than fall back to the mutable subscriber
+ * attribute, which can point at the wrong organization for a multi-org buyer.
  */
-export type StripeStoreOrgResolution =
+type StripeStoreOrgResolution =
   | { kind: "resolved"; organizationId: string }
   | { kind: "none" }
   | { kind: "error" };
 
 /**
  * Immutable org resolution for STRIPE-store events (direct checkout, issue
- * #1654). RevenueCat forwards no transaction metadata for the Stripe store,
- * and the `orgId` subscriber attribute is customer-level and mutable — a
+ * #1654). Stripe-store events do not always carry transaction metadata, and
+ * the `orgId` subscriber attribute is customer-level and mutable — a
  * buyer admining several orgs would have every Stripe event resolve to
  * whichever org they purchased for LAST. But these events carry the Stripe
- * subscription id, and the subscription's own metadata (written by our
- * checkout) binds the org immutably — so it is the authoritative source for
- * this store.
+ * subscription or subscription-item id. A `sub_…` id can be looked up exactly
+ * and the subscription's own metadata (written by our checkout) binds the org
+ * immutably. An `si_…` id cannot be passed to the subscription endpoint; the
+ * workflow resolves it through the durable local item binding before calling
+ * this fallback.
  */
 export async function resolveStripeStoreOrganizationId(
   event: RevenueCatWebhookEvent,
@@ -158,35 +166,36 @@ export async function resolveStripeStoreOrganizationId(
   if (event.store?.toUpperCase() !== "STRIPE") {
     return { kind: "none" };
   }
-  const subscriptionId =
-    event.original_transaction_id ?? event.transaction_id ?? null;
-  if (!subscriptionId) {
-    return { kind: "none" };
+  const identifiers = [
+    event.original_transaction_id,
+    event.transaction_id,
+  ].filter((value): value is string => typeof value === "string");
+  const subscriptionIds = [
+    ...new Set(identifiers.filter((value) => value.startsWith("sub_"))),
+  ];
+  const subscriptionId = subscriptionIds[0];
+  if (subscriptionIds.length !== 1 || !subscriptionId) {
+    return { kind: "error" };
   }
   try {
     const binding = await getSubscriptionBinding(subscriptionId, deps);
     if (binding === null) {
-      // Unconfigured lookup (no STRIPE_SECRET_KEY): our checkout cannot have
-      // created any bound subscriptions in this deployment, so Stripe-store
-      // events here are from a pre-existing integration and ordinary
-      // resolution is the pre-PR behavior. (Removing the key while direct-
-      // checkout subscriptions exist is an operator error: their renewals
-      // would fall back to the mutable attribute until it is restored.)
-      return { kind: "none" };
+      return { kind: "error" };
+    }
+    const subscriptionItemIds = [
+      ...new Set(identifiers.filter((value) => value.startsWith("si_"))),
+    ];
+    if (
+      subscriptionItemIds.length > 1 ||
+      (subscriptionItemIds.length === 1 &&
+        binding.subscriptionItemId !== subscriptionItemIds[0])
+    ) {
+      return { kind: "error" };
     }
     return binding.organizationId && isUuidV4String(binding.organizationId)
       ? { kind: "resolved", organizationId: binding.organizationId }
-      : // A Stripe subscription without our metadata was not created by this
-        // checkout; ordinary resolution applies.
-        { kind: "none" };
+      : { kind: "error" };
   } catch (error) {
-    // A definitive 404 means the transaction id is not a fetchable
-    // subscription on our account — e.g. a purchase predating this checkout
-    // or a one-time purchase token. That is "not ours", not a transient
-    // failure: deferring it would retry-loop forever.
-    if (error instanceof StripeApiError && error.status === 404) {
-      return { kind: "none" };
-    }
     console.error(
       "Stripe subscription lookup for RevenueCat event failed:",
       error,

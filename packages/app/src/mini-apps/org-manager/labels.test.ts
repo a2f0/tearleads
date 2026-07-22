@@ -12,6 +12,7 @@ import {
   getOrgManagerPolicyRoleTransitionLabel,
   getOrgManagerPolicySignatureLabel,
   getOrgManagerPolicyVersionLabel,
+  getOrgManagerSeatsLabel,
   getOrgManagerTrialDaysLabel,
   ORG_MANAGER_LABELS,
 } from "./labels";
@@ -21,6 +22,8 @@ test("org manager labels format variable display text", () => {
   expect(ORG_MANAGER_LABELS.policyHistory).toBe("Policy history");
   expect(getOrgManagerMemberCountLabel(1)).toBe("1 member");
   expect(getOrgManagerMemberCountLabel(2)).toBe("2 members");
+  expect(getOrgManagerSeatsLabel(1)).toBe("1 licensed seat");
+  expect(getOrgManagerSeatsLabel(2)).toBe("2 licensed seats");
   expect(getOrgManagerEpochLabel(3)).toBe("Epoch 3");
   expect(getOrgManagerPolicyAddedLabel("Alice", "admin")).toBe(
     "Alice added as admin",

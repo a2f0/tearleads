@@ -10,6 +10,22 @@ import type {
 export const FREE_TRIAL_MS = 7 * 24 * 60 * 60 * 1000;
 export const LAPSED_BILLING_PURGE_GRACE_MS = 30 * 24 * 60 * 60 * 1000;
 
+/** Stable identity for the trial/paid interval represented by seat capacity. */
+export function organizationSeatPeriodKey(input: {
+  readonly currentPeriodEndsAt: Date | null;
+  readonly currentPeriodStartsAt: Date | null;
+  readonly status: OrganizationBillingStatus;
+  readonly trialEndsAt: Date | null;
+}): string {
+  if (input.status === "trialing") {
+    return `trial:${input.trialEndsAt?.toISOString() ?? "open"}`;
+  }
+  return (
+    `paid:${input.currentPeriodStartsAt?.toISOString() ?? "open"}:` +
+    (input.currentPeriodEndsAt?.toISOString() ?? "open")
+  );
+}
+
 export interface OrganizationBilling {
   readonly organizationId: string;
   readonly status: OrganizationBillingStatus;

@@ -7,7 +7,6 @@ import { cleanup, fireEvent, render } from "@testing-library/react";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import {
   getOrgManagerPeriodEndsLabel,
-  getOrgManagerSeatsLabel,
   getOrgManagerTrialEndsLabel,
   ORG_MANAGER_LABELS,
 } from "../labels";
@@ -118,7 +117,7 @@ test("a trialing organization shows the days remaining and can sync", () => {
   ).toBeNull();
 });
 
-test("an active subscription shows seats billed and the period end date", () => {
+test("an active subscription shows licensed capacity and the period end date", () => {
   const endsAtMs = Date.parse("2026-08-15T12:00:00Z");
   const view = render(
     <BillingView
@@ -134,13 +133,13 @@ test("an active subscription shows seats billed and the period end date", () => 
       })}
     />,
   );
-  expect(view.getByText(getOrgManagerSeatsLabel(3))).toBeDefined();
+  expect(view.getByText("3 licensed seats")).toBeDefined();
   expect(
     view.getByText(getOrgManagerPeriodEndsLabel(formatMiniAppDate(endsAtMs))),
   ).toBeDefined();
 });
 
-test("a trialing organization shows the trial end date, not billed seats", () => {
+test("a trialing organization shows the trial end date, not licensed seats", () => {
   const trialEndsAtMs = Date.parse("2026-07-25T12:00:00Z");
   const view = render(
     <BillingView
@@ -162,13 +161,13 @@ test("a trialing organization shows the trial end date, not billed seats", () =>
       getOrgManagerTrialEndsLabel(formatMiniAppDate(trialEndsAtMs)),
     ),
   ).toBeDefined();
-  // A free trial is not billed, so no "seats billed" label appears.
-  expect(view.queryByText(/billed/)).toBeNull();
+  // A free trial is not billed, so no licensed-capacity label appears.
+  expect(view.queryByText(/licensed seat/)).toBeNull();
 });
 
 test("a local organization shows no seats or period date", () => {
   const view = render(<BillingView {...props({})} />);
-  expect(view.queryByText(/billed/)).toBeNull();
+  expect(view.queryByText(/licensed seat/)).toBeNull();
   expect(view.queryByText(/Current period ends/)).toBeNull();
 });
 

@@ -58,9 +58,11 @@ export function formatPrice(
   // 1/100 of its true price. So check that the runtime actually knows the
   // code, and treat "well-formed but unknown" the same as malformed.
   if (!isKnownCurrency(currencyCode)) {
-    // Name the currency without an amount rather than state a wrong price;
-    // the provider's own form shows the authoritative figure.
-    return currencyCode;
+    // Name the currency and billing unit without an amount rather than state a
+    // wrong price; the provider's own form shows the authoritative figure.
+    return interval
+      ? `${currencyCode}/seat/${interval}`
+      : `${currencyCode}/seat`;
   }
   const formatter = new Intl.NumberFormat(undefined, {
     style: "currency",
@@ -71,7 +73,7 @@ export function formatPrice(
   // read the exponent from the resolved options rather than assuming 100.
   const exponent = formatter.resolvedOptions().maximumFractionDigits ?? 2;
   const amount = formatter.format(unitAmount / 10 ** exponent);
-  return interval ? `${amount}/${interval}` : amount;
+  return interval ? `${amount}/seat/${interval}` : `${amount}/seat`;
 }
 
 /**

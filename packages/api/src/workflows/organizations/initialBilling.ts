@@ -6,6 +6,7 @@ import {
 import {
   createLocalBillingFields,
   createTrialBillingFields,
+  organizationSeatPeriodKey,
 } from "../../billing/organizationBilling";
 
 export type InitialOrganizationBilling = "local" | "trial";
@@ -26,8 +27,17 @@ export async function createInitialOrganizationBillingRow(
   organizationId: string,
   initialBilling: InitialOrganizationBilling,
 ): Promise<void> {
+  const fields = createInitialOrganizationBillingFields(initialBilling);
   await executor.insert(organizationBilling).values({
     organizationId,
-    ...createInitialOrganizationBillingFields(initialBilling),
+    ...fields,
+    seatPeriodKey:
+      fields.status === "trialing"
+        ? organizationSeatPeriodKey({
+            currentPeriodEndsAt: null,
+            currentPeriodStartsAt: null,
+            ...fields,
+          })
+        : null,
   });
 }

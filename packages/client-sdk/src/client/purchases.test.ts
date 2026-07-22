@@ -277,6 +277,26 @@ test("hasActiveSyncEntitlement reflects the current customer entitlements", asyn
   expect(await withoutSync.hasActiveSyncEntitlement()).toBe(false);
 });
 
+test("observation-only RevenueCat disables purchases but preserves entitlement reads", async () => {
+  const backend = createFakeBackend({ entitlementsNow: ["sync"] });
+  const purchases = createRevenueCatPurchases(backend, {
+    ...CONFIG,
+    purchasesEnabled: false,
+    supportsEmbeddedCheckout: true,
+  });
+
+  expect(purchases.isAvailable).toBe(false);
+  expect(purchases.supportsEmbeddedCheckout).toBe(false);
+  expect(await purchases.listSyncOptions()).toEqual([]);
+  await expect(
+    purchases.purchaseSync({ organizationId: "org-1", packageId: "monthly" }),
+  ).rejects.toBeInstanceOf(PurchasesUnavailableError);
+  expect(await purchases.hasActiveSyncEntitlement()).toBe(true);
+  expect(backend.calls).not.toContain("getCurrentPackages");
+  expect(backend.calls).not.toContain("setAttributes");
+  expect(backend.calls).not.toContain("purchasePackage:monthly");
+});
+
 test("the unavailable stub degrades reads and rejects purchases", async () => {
   const purchases = createUnavailablePurchases();
   expect(purchases.isAvailable).toBe(false);

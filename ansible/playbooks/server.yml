@@ -330,30 +330,8 @@
         daemon_reload: true
         enabled: true
 
-    - name: Deploy blob GC systemd service
-      ansible.builtin.template:
-        src: etc/systemd/system/tearleads-blob-gc.service.j2
-        dest: /etc/systemd/system/tearleads-blob-gc.service
-        owner: root
-        group: root
-        mode: "0644"
-      notify: Reload systemd
-
-    - name: Deploy blob GC systemd timer
-      ansible.builtin.template:
-        src: etc/systemd/system/tearleads-blob-gc.timer.j2
-        dest: /etc/systemd/system/tearleads-blob-gc.timer
-        owner: root
-        group: root
-        mode: "0644"
-      notify: Reload systemd
-
-    - name: Enable blob GC systemd timer
-      ansible.builtin.systemd:
-        name: tearleads-blob-gc.timer
-        daemon_reload: true
-        enabled: true
-        state: started
+    - name: Configure API maintenance timers
+      ansible.builtin.import_tasks: tasks/apiMaintenance.yml
 
     - name: Configure tearleads-code-assist
       ansible.builtin.import_tasks: tasks/codeAssist.yml

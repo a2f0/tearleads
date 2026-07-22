@@ -1,0 +1,298 @@
+import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  organizationBilling,
+  organizationBillingStripeSeats,
+  revenuecatWebhookEvents,
+} from "@tearleads/api-shared/schema";
+import { eq } from "drizzle-orm";
+import {
+  type RevenueCatWebhookOutcome,
+  runRevenueCatWebhookWorkflow,
+} from "./revenuecatWebhook";
+
+interface BillingIdentityInput {
+  readonly providerCustomerId?: string;
+  readonly providerSubscriptionId?: string;
+}
+
+async function createActiveBilling(
+  input: BillingIdentityInput = {},
+): Promise<string> {
+  const organizationId = crypto.randomUUID();
+  await db.insert(organizationBilling).values({
+    organizationId,
+    ...input,
+    status: "active",
+  });
+  return organizationId;
+}
+
+async function readBillingStatus(organizationId: string): Promise<string> {
+  const [billing] = await db
+    .select({ status: organizationBilling.status })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  return billing?.status ?? "missing";
+}
+
+async function expectLockedRetry(
+  outcome: RevenueCatWebhookOutcome,
+  eventId: string,
+): Promise<void> {
+  expect(outcome).toEqual({
+    status: "retry",
+    reason: "Stripe binding changed before RevenueCat event application",
+  });
+  const [claimed] = await db
+    .select({ id: revenuecatWebhookEvents.id })
+    .from(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.eventId, eventId));
+  expect(claimed).toBeUndefined();
+}
+
+test("a Stripe si_ event uses its durable binding, not mutable orgId", async () => {
+  const boundOrganizationId = await createActiveBilling();
+  const mutableOrganizationId = await createActiveBilling();
+  await db.insert(organizationBillingStripeSeats).values({
+    organizationId: boundOrganizationId,
+    subscriptionId: "sub_bound",
+    subscriptionItemId: "si_bound",
+  });
+
+  const outcome = await runRevenueCatWebhookWorkflow(db, {
+    app_user_id: crypto.randomUUID(),
+    event_timestamp_ms: Date.now(),
+    id: crypto.randomUUID(),
+    original_transaction_id: "si_bound",
+    store: "STRIPE",
+    subscriber_attributes: {
+      orgId: { value: mutableOrganizationId },
+    },
+    type: "EXPIRATION",
+  });
+
+  expect(outcome).toEqual({
+    billingStatus: "disabled",
+    organizationId: boundOrganizationId,
+    status: "applied",
+  });
+  expect(await readBillingStatus(boundOrganizationId)).toBe("disabled");
+  expect(await readBillingStatus(mutableOrganizationId)).toBe("active");
+});
+
+test("an unbound legacy si_ event uses immutable transaction metadata", async () => {
+  const appUserId = crypto.randomUUID();
+  const metadataOrganizationId = await createActiveBilling({
+    providerCustomerId: appUserId,
+    providerSubscriptionId: "si_legacy_metadata",
+  });
+  const mutableOrganizationId = await createActiveBilling();
+
+  const outcome = await runRevenueCatWebhookWorkflow(db, {
+    app_user_id: appUserId,
+    event_timestamp_ms: Date.now(),
+    id: crypto.randomUUID(),
+    metadata: { orgId: metadataOrganizationId },
+    original_transaction_id: "si_legacy_metadata",
+    store: "STRIPE",
+    subscriber_attributes: {
+      orgId: { value: mutableOrganizationId },
+    },
+    type: "EXPIRATION",
+  });
+
+  expect(outcome).toEqual({
+    billingStatus: "disabled",
+    organizationId: metadataOrganizationId,
+    status: "applied",
+  });
+  expect(await readBillingStatus(metadataOrganizationId)).toBe("disabled");
+  expect(await readBillingStatus(mutableOrganizationId)).toBe("active");
+});
+
+test("legacy metadata cannot override a different current Stripe item", async () => {
+  const appUserId = crypto.randomUUID();
+  const organizationId = await createActiveBilling({
+    providerCustomerId: appUserId,
+    providerSubscriptionId: "si_old_item",
+  });
+  const eventId = crypto.randomUUID();
+  await db.insert(organizationBillingStripeSeats).values({
+    organizationId,
+    subscriptionId: "sub_new_item",
+    subscriptionItemId: "si_new_item",
+  });
+
+  const outcome = await runRevenueCatWebhookWorkflow(db, {
+    app_user_id: appUserId,
+    event_timestamp_ms: Date.now(),
+    id: eventId,
+    metadata: { orgId: organizationId },
+    original_transaction_id: "si_old_item",
+    store: "STRIPE",
+    type: "EXPIRATION",
+  });
+
+  await expectLockedRetry(outcome, eventId);
+  expect(await readBillingStatus(organizationId)).toBe("active");
+});
+
+test("legacy metadata must match the billing subscription without an outbox", async () => {
+  const appUserId = crypto.randomUUID();
+  const organizationId = await createActiveBilling({
+    providerCustomerId: appUserId,
+    providerSubscriptionId: "si_new_billing",
+  });
+  const eventId = crypto.randomUUID();
+
+  const outcome = await runRevenueCatWebhookWorkflow(db, {
+    app_user_id: appUserId,
+    event_timestamp_ms: Date.now(),
+    id: eventId,
+    metadata: { orgId: organizationId },
+    original_transaction_id: "si_old_billing",
+    store: "STRIPE",
+    type: "EXPIRATION",
+  });
+
+  await expectLockedRetry(outcome, eventId);
+  expect(await readBillingStatus(organizationId)).toBe("active");
+});
+
+test("legacy metadata revoke must match the bound provider customer", async () => {
+  const organizationId = await createActiveBilling({
+    providerCustomerId: crypto.randomUUID(),
+    providerSubscriptionId: "si_customer_bound",
+  });
+  const eventId = crypto.randomUUID();
+
+  const outcome = await runRevenueCatWebhookWorkflow(db, {
+    app_user_id: crypto.randomUUID(),
+    event_timestamp_ms: Date.now(),
+    id: eventId,
+    metadata: { orgId: organizationId },
+    original_transaction_id: "si_customer_bound",
+    store: "STRIPE",
+    type: "EXPIRATION",
+  });
+
+  await expectLockedRetry(outcome, eventId);
+  expect(await readBillingStatus(organizationId)).toBe("active");
+});
+
+test("exact provider lookup cannot override a newer outbox subscription", async () => {
+  const appUserId = crypto.randomUUID();
+  const organizationId = await createActiveBilling({
+    providerCustomerId: appUserId,
+    providerSubscriptionId: "sub_new_provider",
+  });
+  const eventId = crypto.randomUUID();
+  await db.insert(organizationBillingStripeSeats).values({
+    organizationId,
+    subscriptionId: "sub_new_provider",
+    subscriptionItemId: "si_new_provider",
+  });
+  const fetchImpl = (async (_input: RequestInfo | URL, _init?: RequestInit) =>
+    new Response(
+      JSON.stringify({
+        id: "sub_old_provider",
+        items: {
+          data: [
+            {
+              id: "si_old_provider",
+              price: { id: "price_sync" },
+              quantity: 1,
+            },
+          ],
+        },
+        metadata: { orgId: organizationId },
+      }),
+    )) as typeof fetch;
+
+  const outcome = await runRevenueCatWebhookWorkflow(
+    db,
+    {
+      app_user_id: appUserId,
+      event_timestamp_ms: Date.now(),
+      id: eventId,
+      original_transaction_id: "sub_old_provider",
+      store: "STRIPE",
+      type: "EXPIRATION",
+    },
+    new Date(),
+    {
+      stripe: {
+        env: {
+          STRIPE_SECRET_KEY: "sk_test",
+          STRIPE_SYNC_PRICE_ID: "price_sync",
+        },
+        fetchImpl,
+      },
+    },
+  );
+
+  await expectLockedRetry(outcome, eventId);
+  expect(await readBillingStatus(organizationId)).toBe("active");
+});
+
+test("unsafe Stripe si_ metadata never falls back to mutable orgId", async () => {
+  const mutableOrganizationId = await createActiveBilling();
+  const eventId = crypto.randomUUID();
+
+  const outcome = await runRevenueCatWebhookWorkflow(db, {
+    app_user_id: crypto.randomUUID(),
+    event_timestamp_ms: Date.now(),
+    id: eventId,
+    metadata: { orgId: "not-a-uuid" },
+    original_transaction_id: "si_unresolved",
+    store: "STRIPE",
+    subscriber_attributes: {
+      orgId: { value: mutableOrganizationId },
+    },
+    type: "EXPIRATION",
+  });
+
+  expect(outcome).toEqual({
+    status: "retry",
+    reason: "Stripe subscription lookup failed for a Stripe-store event",
+  });
+  expect(await readBillingStatus(mutableOrganizationId)).toBe("active");
+  const [claimed] = await db
+    .select({ id: revenuecatWebhookEvents.id })
+    .from(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.eventId, eventId));
+  expect(claimed).toBeUndefined();
+});
+
+test("an exact durable binding is authoritative over stale metadata", async () => {
+  const boundOrganizationId = await createActiveBilling();
+  const metadataOrganizationId = await createActiveBilling();
+  const eventId = crypto.randomUUID();
+  await db.insert(organizationBillingStripeSeats).values({
+    organizationId: boundOrganizationId,
+    subscriptionId: "sub_metadata_mismatch",
+    subscriptionItemId: "si_metadata_mismatch",
+  });
+
+  const outcome = await runRevenueCatWebhookWorkflow(db, {
+    app_user_id: crypto.randomUUID(),
+    event_timestamp_ms: Date.now(),
+    id: eventId,
+    metadata: { orgId: metadataOrganizationId },
+    original_transaction_id: "si_metadata_mismatch",
+    store: "STRIPE",
+    subscriber_attributes: {
+      orgId: { value: boundOrganizationId },
+    },
+    type: "EXPIRATION",
+  });
+
+  expect(outcome).toEqual({
+    billingStatus: "disabled",
+    organizationId: boundOrganizationId,
+    status: "applied",
+  });
+  expect(await readBillingStatus(boundOrganizationId)).toBe("disabled");
+  expect(await readBillingStatus(metadataOrganizationId)).toBe("active");
+});
