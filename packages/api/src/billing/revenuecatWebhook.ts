@@ -31,12 +31,31 @@ const ORGANIZATION_SUBSCRIBER_ATTRIBUTE = "orgId";
  */
 const SANDBOX_ENVIRONMENT = "SANDBOX";
 
+/** RevenueCat's `store` value for a purchase processed by Stripe. */
+const STRIPE_STORE = "STRIPE";
+
 /**
- * Whether the event came from a store sandbox. Absent is treated as production:
- * RevenueCat has not always sent the field, and an old event that reaches a
- * redelivery must keep its original (paid) meaning rather than being discarded.
+ * Whether the event is a store-sandbox purchase this server must not apply.
+ *
+ * Absent `environment` is treated as production: RevenueCat has not always sent
+ * the field, and a redelivered old event must keep its original (paid) meaning
+ * rather than being discarded.
+ *
+ * **Stripe-store events are deliberately exempt.** RevenueCat marks Stripe
+ * *test-mode* transactions `SANDBOX` too, so gating on the field alone would
+ * stop a tier that exercises direct Stripe checkout with test-mode keys from
+ * applying its own web billing — the documented way to test per-seat
+ * enrollment. Stripe events do not need this guard: they are attributed through
+ * the exact `sub_…`/`si_…` binding looked up against that tier's own Stripe
+ * key, which cannot resolve a subscription from the other mode and fails closed
+ * (see `resolveImmutableStripeStoreOrganizationId`). The mutable `orgId`
+ * subscriber attribute the native lane falls back on has no such protection,
+ * which is exactly why the guard exists.
  */
-function isSandboxEvent(event: RevenueCatWebhookEvent): boolean {
+function isGuardedSandboxEvent(event: RevenueCatWebhookEvent): boolean {
+  if (event.store?.toUpperCase() === STRIPE_STORE) {
+    return false;
+  }
   return event.environment?.toUpperCase() === SANDBOX_ENVIRONMENT;
 }
 
@@ -178,7 +197,7 @@ export async function resolveStripeStoreOrganizationId(
   event: RevenueCatWebhookEvent,
   deps: StripeApiDeps = {},
 ): Promise<StripeStoreOrgResolution> {
-  if (event.store?.toUpperCase() !== "STRIPE") {
+  if (event.store?.toUpperCase() !== STRIPE_STORE) {
     return { kind: "none" };
   }
   const identifiers = [
@@ -244,7 +263,7 @@ export function classifyRevenueCatEvent(
   now: Date = new Date(),
   options: { allowSandboxEvents?: boolean } = {},
 ): RevenueCatBillingTransition {
-  if (isSandboxEvent(event) && options.allowSandboxEvents !== true) {
+  if (isGuardedSandboxEvent(event) && options.allowSandboxEvents !== true) {
     return {
       kind: "ignore",
       reason: "Sandbox environment event ignored on a production-only tier",
@@ -274,7 +293,7 @@ export function classifyRevenueCatEvent(
         // org's subscription. Other stores keep the canonical original id.
         providerSubscriptionId:
           event.original_transaction_id ??
-          (event.store?.toUpperCase() === "STRIPE"
+          (event.store?.toUpperCase() === STRIPE_STORE
             ? (event.transaction_id ?? null)
             : null),
         providerProductId: event.product_id ?? null,

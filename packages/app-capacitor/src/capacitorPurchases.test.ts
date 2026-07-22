@@ -16,6 +16,7 @@ const fixture: {
   packages: PurchasesPackage[];
   purchaseRejection: unknown;
   customerInfo: unknown;
+  onGetOfferings: (() => void) | null;
 } = {
   platform: "ios",
   configureCalls: [],
@@ -24,6 +25,7 @@ const fixture: {
   packages: [],
   purchaseRejection: null,
   customerInfo: { entitlements: { active: { sync: {} } } },
+  onGetOfferings: null,
 };
 
 // A package shaped like the native bridge returns one. Cast at the boundary:
@@ -41,10 +43,15 @@ function nativePackage(identifier: string, productId: string) {
   } as unknown as PurchasesPackage;
 }
 
+// `mock.module` is process-global, so this and the sibling adapter tests share
+// one @capacitor/core. Supply the whole surface the siblings stub
+// (capacitorNetworkStatus.test.ts adds isPluginAvailable) rather than relying on
+// which file bun loads first.
 mock.module("@capacitor/core", () => ({
   Capacitor: {
     getPlatform: () => fixture.platform,
     isNativePlatform: () => fixture.platform !== "web",
+    isPluginAvailable: () => fixture.platform !== "web",
   },
 }));
 
@@ -64,8 +71,14 @@ mock.module("@revenuecat/purchases-capacitor", () => ({
       fixture.attributeCalls.push(attributes);
       return Promise.resolve();
     },
-    getOfferings: () =>
-      Promise.resolve({ current: { availablePackages: fixture.packages } }),
+    getOfferings: () => {
+      // Hook so a test can abort *during* the offerings fetch — the window the
+      // post-fetch abort check exists to cover.
+      fixture.onGetOfferings?.();
+      return Promise.resolve({
+        current: { availablePackages: fixture.packages },
+      });
+    },
     purchasePackage: ({ aPackage }: { aPackage: PurchasesPackage }) => {
       fixture.purchaseCalls.push({ identifier: aPackage.identifier });
       if (fixture.purchaseRejection !== null) {
@@ -111,6 +124,7 @@ afterEach(() => {
   fixture.packages = [];
   fixture.purchaseRejection = null;
   fixture.customerInfo = { entitlements: { active: { sync: {} } } };
+  fixture.onGetOfferings = null;
   clearEnv();
 });
 
@@ -344,11 +358,32 @@ test("does not present a sheet for a purchase abandoned while offerings loaded",
   expect(fixture.purchaseCalls).toEqual([]);
 });
 
+test("does not present a sheet when abandoned while offerings loaded", async () => {
+  setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
+  fixture.packages = [nativePackage("monthly", "com.tearleads.sync.monthly")];
+  const controller = new AbortController();
+  // Abort during the fetch, not before it: this is the real window, since a
+  // caller can only cancel while something is still on screen to cancel.
+  fixture.onGetOfferings = () => controller.abort();
+
+  await expect(
+    createCapacitorPurchases().purchaseSync({
+      organizationId: "org-1",
+      packageId: "monthly",
+      abortSignal: controller.signal,
+    }),
+  ).rejects.toBeInstanceOf(PurchaseAbortedError);
+  expect(fixture.purchaseCalls).toEqual([]);
+});
+
 test("prefers the pre-sheet abort over an unknown package", async () => {
   setEnv("VITE_REVENUECAT_IOS_API_KEY", "ios-key");
   fixture.packages = [];
   const controller = new AbortController();
-  controller.abort();
+  // Aborted during the fetch so the precedence is decided at the post-fetch
+  // check; a pre-aborted signal would short-circuit before the lookup and the
+  // ordering would go untested.
+  fixture.onGetOfferings = () => controller.abort();
 
   // An abandoned flow's outcome stays a pre-sheet abort so callers can rely on
   // PurchaseAbortedError meaning "nothing was ever shown".

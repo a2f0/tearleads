@@ -349,6 +349,15 @@ export async function runRevenueCatWebhookWorkflow(
     // a paid one, so only a tier that opts in applies it.
     allowSandboxEvents: allowsRevenueCatSandboxEvents(deps.env ?? process.env),
   });
+  if (transition.kind === "ignore" && event.environment !== undefined) {
+    // Otherwise the only trace of a dropped sandbox event is a database row,
+    // which reads exactly like the "webhook that silently does nothing" a
+    // tester hits when the tier has not opted in. Logged rather than counted:
+    // sandbox traffic is a testing session, not a production volume.
+    console.warn(
+      `RevenueCat event ${event.id} (${event.type}, store=${event.store ?? "unknown"}, environment=${event.environment}) ignored: ${transition.reason}`,
+    );
+  }
   // Stripe-store events use the immutable per-subscription org binding — the
   // customer-level attribute could have been rebound by a later purchase for
   // another org. A FAILED lookup on an event that would change billing must

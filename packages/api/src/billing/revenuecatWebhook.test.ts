@@ -392,3 +392,34 @@ test("an event with no environment is treated as production", () => {
     "grant",
   );
 });
+
+test("a Stripe test-mode event is exempt from the sandbox gate", () => {
+  // RevenueCat marks Stripe test-mode transactions SANDBOX too. Gating them
+  // would stop a tier that exercises direct Stripe checkout with test-mode keys
+  // from applying its own web billing — the documented way to test per-seat
+  // enrollment. Stripe attribution is protected instead by the exact
+  // subscription binding, which cannot resolve across Stripe modes.
+  const transition = classifyRevenueCatEvent(
+    makeEvent({ store: "STRIPE", environment: "SANDBOX" }),
+    ACTIVE_GRANT_NOW,
+  );
+  expect(transition.kind).toBe("grant");
+});
+
+test("a non-Stripe sandbox event is still gated when Stripe is exempt", () => {
+  // The exemption is scoped to the store, not to the environment value, so the
+  // native lane keeps its guard.
+  expect(
+    classifyRevenueCatEvent(
+      makeEvent({ store: "APP_STORE", environment: "SANDBOX" }),
+      ACTIVE_GRANT_NOW,
+    ).kind,
+  ).toBe("ignore");
+  // A store-less sandbox event fails closed rather than being treated as Stripe.
+  expect(
+    classifyRevenueCatEvent(
+      makeEvent({ environment: "SANDBOX" }),
+      ACTIVE_GRANT_NOW,
+    ).kind,
+  ).toBe("ignore");
+});

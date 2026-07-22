@@ -35,15 +35,23 @@ export_revenuecat_keys() {
         sed -e 's/^[[:space:]]*//' -e 's/^export[[:space:]]*//' -e "s/^${revenuecat_key}=//"
     )"
     # dotenv permits quoting the value; the shell must not carry the quotes into
-    # the inlined string.
+    # the inlined string. An UNQUOTED value ends at the first whitespace, and
+    # anything past it is a trailing comment — without that trim,
+    # `KEY=appl_x # ios` inlines the comment too and RevenueCat rejects the key
+    # with no obvious cause. A quoted value keeps whatever is inside the quotes.
+    # Matched on the OPENING quote only: a quoted value may still be followed by
+    # a comment, so it does not necessarily end with its closing quote.
     case "$revenuecat_value" in
-      \"*\")
+      \"*)
         revenuecat_value="${revenuecat_value#\"}"
-        revenuecat_value="${revenuecat_value%\"}"
+        revenuecat_value="${revenuecat_value%%\"*}"
         ;;
-      \'*\')
+      \'*)
         revenuecat_value="${revenuecat_value#\'}"
-        revenuecat_value="${revenuecat_value%\'}"
+        revenuecat_value="${revenuecat_value%%\'*}"
+        ;;
+      *)
+        revenuecat_value="${revenuecat_value%%[[:space:]]*}"
         ;;
     esac
     [ -n "$revenuecat_value" ] || continue

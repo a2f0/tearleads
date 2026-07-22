@@ -70,6 +70,13 @@ an event otherwise **indistinguishable** from a paid one: same type, same
 entitlement, same subscriber attributes. The only difference is the event's
 `environment` field (`SANDBOX` / `PRODUCTION`).
 
+Stripe-store events are exempt from the guard: RevenueCat marks Stripe
+*test-mode* transactions `SANDBOX` too, and gating them would stop a tier that
+tests direct Stripe checkout with test-mode keys from applying its own web
+billing. They do not need it — a Stripe event is attributed through the exact
+subscription binding looked up against that tier's own Stripe key, which cannot
+resolve a subscription from the other mode and fails closed.
+
 `classifyRevenueCatEvent` therefore ignores sandbox events unless the tier sets
 `REVENUECAT_ALLOW_SANDBOX_EVENTS=true`. It fails closed, so production simply
 omits the variable; set it on the tier where native purchases are exercised, or
@@ -79,6 +86,8 @@ sandbox testing there will look like a webhook that silently does nothing.
   a production tier could disable sync an organization actually paid for.
 - An ignored sandbox event is still recorded and acknowledged, so RevenueCat
   stops redelivering it and the audit trail shows a tester's purchase arriving.
+  It is claimed by event id, so flipping the flag on afterwards does **not**
+  reprocess it — make a fresh purchase.
 - An event with **no** `environment` is treated as production: RevenueCat has not
   always sent the field, and a redelivered old event must keep its paid meaning.
 
@@ -94,8 +103,8 @@ is unrecorded — there is no store product, no RevenueCat offering, and no seat
 semantics for a store purchase. Until that is settled:
 
 - A store subscription carries no quantity. Stripe is the seat-quantity authority
-  for web (see [revenuecat-billing.md](./revenuecat-billing.md#per-seat
-  behavior)), and neither the App Store nor Play Billing can carry the
+  for web (see [revenuecat-billing.md](./revenuecat-billing.md#per-seat-behavior)),
+  and neither the App Store nor Play Billing can carry the
   server-authoritative Members count the way a Stripe subscription item does.
 - Cancel is provider-managed. The panel's inline cancel is Stripe-only; a store
   subscription surfaces the RevenueCat management URL instead, which resolves to
