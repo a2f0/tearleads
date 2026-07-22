@@ -3,7 +3,7 @@ import type {
   SyncBillingGate,
 } from "@tearleads/client-sdk";
 import { resolveOrganizationBillingView } from "@tearleads/client-sdk";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * How a 402-blocked organization's billing resolved. `lapsed` is the only state
@@ -84,6 +84,14 @@ export function useOtherOrganizationBillingBlocked(input: {
   const [resolutions, setResolutions] = useState<BlockedBillingResolutions>(
     () => new Map(),
   );
+  // Organizations already read or being read right now. Held in a ref, not
+  // state, so it survives the effect's own cleanup: a re-run triggered by an
+  // unrelated organization's block must not re-read this one, and StrictMode's
+  // double invoke must not double-read any of them.
+  const requestedRef = useRef<Set<string>>(new Set());
+  // The session a read was started under, so a result arriving after a logout
+  // or an identity switch is dropped rather than applied to the next session.
+  const identityRef = useRef(identityKey);
 
   useEffect(
     () => gate.subscribe(() => setBlockRevision((revision) => revision + 1)),
@@ -93,7 +101,11 @@ export function useOtherOrganizationBillingBlocked(input: {
   // Drop every verdict when the session changes, so a new identity re-resolves
   // rather than inheriting the previous one's. Declared before the resolving
   // effect so the clear lands first when both run.
-  useEffect(() => setResolutions(new Map()), [identityKey]);
+  useEffect(() => {
+    identityRef.current = identityKey;
+    requestedRef.current = new Set();
+    setResolutions(new Map());
+  }, [identityKey]);
 
   const blockedOrganizationIds =
     identityKey === null
@@ -105,19 +117,34 @@ export function useOtherOrganizationBillingBlocked(input: {
 
   useEffect(() => {
     const organizationIds = blockedKey.length > 0 ? blockedKey.split(",") : [];
+    const blocked = new Set(organizationIds);
+    // Forget recovered organizations so a later block on one reads it afresh.
+    for (const organizationId of requestedRef.current) {
+      if (!blocked.has(organizationId)) {
+        requestedRef.current.delete(organizationId);
+      }
+    }
     setResolutions((current) =>
       retainBlockedResolutions(current, organizationIds),
     );
-    let cancelled = false;
+
+    const unread = organizationIds.filter(
+      (organizationId) => !requestedRef.current.has(organizationId),
+    );
+    for (const organizationId of unread) {
+      requestedRef.current.add(organizationId);
+    }
+    const identity = identityKey;
     void (async () => {
-      for (const organizationId of organizationIds) {
+      for (const organizationId of unread) {
         const billing = await loadBilling(organizationId).catch(() => null);
-        if (cancelled) {
+        if (identityRef.current !== identity) {
           return;
         }
         // A read that fails or names another organization stays unresolved, so
         // it is retried on the next block change and never warns meanwhile.
         if (billing?.organizationId !== organizationId) {
+          requestedRef.current.delete(organizationId);
           continue;
         }
         const resolution = resolveBlockedBilling(billing, Date.now());
@@ -128,9 +155,6 @@ export function useOtherOrganizationBillingBlocked(input: {
         );
       }
     })();
-    return () => {
-      cancelled = true;
-    };
   }, [blockedKey, identityKey, loadBilling]);
 
   return blockedOrganizationIds.some(

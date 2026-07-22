@@ -147,6 +147,41 @@ test("re-resolves a carried-over block for the next identity", async () => {
   await waitFor(() => expect(result.current).toBe(false));
 });
 
+test("reads each blocked organization's billing once", async () => {
+  const gate = new SyncBillingGate();
+  const reads: string[] = [];
+  const { result } = renderBlocked(gate, async (organizationId) => {
+    reads.push(organizationId);
+    return billing(organizationId, "disabled");
+  });
+
+  act(() => gate.notifyPaymentRequired("custom-org-a"));
+  await waitFor(() => expect(result.current).toBe(true));
+  // A second organization's block re-runs the resolving effect; the first one
+  // is already read and must not be requested again.
+  act(() => gate.notifyPaymentRequired("custom-org-b"));
+  await waitFor(() => expect(reads).toContain("custom-org-b"));
+
+  expect(reads).toEqual(["custom-org-a", "custom-org-b"]);
+});
+
+test("re-reads an organization that was blocked, recovered, then blocked again", async () => {
+  const gate = new SyncBillingGate();
+  const reads: string[] = [];
+  const { result, rerender } = renderBlocked(gate, async (organizationId) => {
+    reads.push(organizationId);
+    return billing(organizationId, "disabled");
+  });
+  act(() => gate.notifyPaymentRequired("custom-org"));
+  await waitFor(() => expect(result.current).toBe(true));
+
+  gate.clearBlock("custom-org");
+  rerender({ identityKey: "user-1" });
+  act(() => gate.notifyPaymentRequired("custom-org"));
+
+  await waitFor(() => expect(reads).toEqual(["custom-org", "custom-org"]));
+});
+
 test("treats an expired trial on another organization as lapsed", async () => {
   const gate = new SyncBillingGate();
   const { result } = renderBlocked(gate, async (organizationId) =>
