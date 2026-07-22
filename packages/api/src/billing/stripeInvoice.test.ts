@@ -15,6 +15,16 @@ function fakeFetch(responses: unknown[]): {
   return { fetchImpl, urls };
 }
 
+type InvoiceLookup = Awaited<ReturnType<typeof getPaidSubscriptionInvoice>>;
+
+function requireCompleteInvoice(lookup: InvoiceLookup) {
+  expect(lookup.status).toBe("complete");
+  if (lookup.status !== "complete") {
+    throw new Error("Expected a complete invoice lookup");
+  }
+  return lookup.invoice;
+}
+
 function invoiceBody(lines: unknown): unknown {
   return {
     id: "in_paged",
@@ -47,13 +57,15 @@ test("uses an explicitly complete embedded invoice line list", async () => {
     }),
   ]);
 
-  const invoice = await getPaidSubscriptionInvoice("in_paged", {
-    env: ENV,
-    fetchImpl,
-  });
+  const invoice = requireCompleteInvoice(
+    await getPaidSubscriptionInvoice("in_paged", {
+      env: ENV,
+      fetchImpl,
+    }),
+  );
 
-  expect(invoice?.lines.map((line) => line.id)).toEqual(["il_embedded"]);
-  expect(invoice?.linesHasMore).toBe(false);
+  expect(invoice.lines.map((line) => line.id)).toEqual(["il_embedded"]);
+  expect(invoice.linesHasMore).toBe(false);
   expect(urls).toEqual(["https://api.stripe.com/v1/invoices/in_paged"]);
 });
 
@@ -61,13 +73,15 @@ test("uses the webhook occurrence as the pinned lookup fallback", async () => {
   const { fetchImpl } = fakeFetch([invoiceBody({ data: [], has_more: false })]);
   const occurredAt = new Date("2026-07-01T12:34:56.000Z");
 
-  const invoice = await getPaidSubscriptionInvoice(
-    "in_paged",
-    { env: ENV, fetchImpl },
-    occurredAt,
+  const invoice = requireCompleteInvoice(
+    await getPaidSubscriptionInvoice(
+      "in_paged",
+      { env: ENV, fetchImpl },
+      occurredAt,
+    ),
   );
 
-  expect(invoice?.occurredAt).toEqual(occurredAt);
+  expect(invoice.occurredAt).toEqual(occurredAt);
 });
 
 test("replaces a truncated embed with every paginated invoice line", async () => {
@@ -98,13 +112,15 @@ test("replaces a truncated embed with every paginated invoice line", async () =>
     { data: [historicalSeatLine], has_more: false },
   ]);
 
-  const invoice = await getPaidSubscriptionInvoice("in_paged", {
-    env: ENV,
-    fetchImpl,
-  });
+  const invoice = requireCompleteInvoice(
+    await getPaidSubscriptionInvoice("in_paged", {
+      env: ENV,
+      fetchImpl,
+    }),
+  );
 
-  expect(invoice?.lines).toHaveLength(101);
-  expect(invoice?.lines[100]).toMatchObject({
+  expect(invoice.lines).toHaveLength(101);
+  expect(invoice.lines[100]).toMatchObject({
     id: "il_historical_seat",
     priceId: "price_sync",
     proration: false,
@@ -112,7 +128,7 @@ test("replaces a truncated embed with every paginated invoice line", async () =>
     subscriptionId: "sub_paged",
     subscriptionItemId: "si_paged",
   });
-  expect(invoice?.linesHasMore).toBe(false);
+  expect(invoice.linesHasMore).toBe(false);
   expect(urls).toEqual([
     "https://api.stripe.com/v1/invoices/in_paged",
     "https://api.stripe.com/v1/invoices/in_paged/lines?limit=100",
@@ -120,15 +136,18 @@ test("replaces a truncated embed with every paginated invoice line", async () =>
   ]);
 });
 
-test("rejects a continued line page without a cursor", async () => {
+test("reports a continued line page without a cursor", async () => {
   const { fetchImpl, urls } = fakeFetch([
     invoiceBody({ data: [], has_more: true }),
     { data: [{ quantity: 1 }], has_more: true },
   ]);
 
-  expect(
-    await getPaidSubscriptionInvoice("in_paged", { env: ENV, fetchImpl }),
-  ).toBeNull();
+  const lookup = await getPaidSubscriptionInvoice("in_paged", {
+    env: ENV,
+    fetchImpl,
+  });
+
+  expect(lookup.status).toBe("line_details_unavailable");
   expect(urls).toHaveLength(2);
 });
 
@@ -138,26 +157,31 @@ test("fetches the line endpoint when embedded pagination is indeterminate", asyn
     { data: [{ id: "il_complete", quantity: 2 }], has_more: false },
   ]);
 
-  const invoice = await getPaidSubscriptionInvoice("in_paged", {
-    env: ENV,
-    fetchImpl,
-  });
+  const invoice = requireCompleteInvoice(
+    await getPaidSubscriptionInvoice("in_paged", {
+      env: ENV,
+      fetchImpl,
+    }),
+  );
 
-  expect(invoice?.lines.map((line) => line.id)).toEqual(["il_complete"]);
-  expect(invoice?.linesHasMore).toBe(false);
+  expect(invoice.lines.map((line) => line.id)).toEqual(["il_complete"]);
+  expect(invoice.linesHasMore).toBe(false);
   expect(urls).toHaveLength(2);
 });
 
-test("rejects a repeated line-page cursor", async () => {
+test("reports a repeated line-page cursor", async () => {
   const { fetchImpl, urls } = fakeFetch([
     invoiceBody({ data: [], has_more: true }),
     { data: [{ id: "il_repeat" }], has_more: true },
     { data: [{ id: "il_repeat" }], has_more: true },
   ]);
 
-  expect(
-    await getPaidSubscriptionInvoice("in_paged", { env: ENV, fetchImpl }),
-  ).toBeNull();
+  const lookup = await getPaidSubscriptionInvoice("in_paged", {
+    env: ENV,
+    fetchImpl,
+  });
+
+  expect(lookup.status).toBe("line_details_unavailable");
   expect(urls).toHaveLength(3);
 });
 
@@ -171,8 +195,29 @@ test("bounds pathological invoice line pagination", async () => {
     ...pages,
   ]);
 
-  expect(
-    await getPaidSubscriptionInvoice("in_paged", { env: ENV, fetchImpl }),
-  ).toBeNull();
+  const lookup = await getPaidSubscriptionInvoice("in_paged", {
+    env: ENV,
+    fetchImpl,
+  });
+
+  expect(lookup.status).toBe("line_details_unavailable");
   expect(urls).toHaveLength(101);
+});
+
+test("rejects a subscription mismatch before optional pagination", async () => {
+  const mismatched = {
+    ...(invoiceBody({ data: [], has_more: true }) as Record<string, unknown>),
+    subscription: "sub_other",
+  };
+  const { fetchImpl, urls } = fakeFetch([mismatched]);
+
+  const lookup = await getPaidSubscriptionInvoice(
+    "in_paged",
+    { env: ENV, fetchImpl },
+    new Date(),
+    "sub_paged",
+  );
+
+  expect(lookup.status).toBe("identity_mismatch");
+  expect(urls).toEqual(["https://api.stripe.com/v1/invoices/in_paged"]);
 });

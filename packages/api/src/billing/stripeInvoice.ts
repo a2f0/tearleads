@@ -9,6 +9,14 @@ import {
 const INVOICE_LINE_PAGE_LIMIT = 100;
 const INVOICE_LINE_MAX_PAGES = 100;
 
+export type StripePaidSubscriptionInvoiceLookup =
+  | {
+      readonly status: "complete" | "line_details_unavailable";
+      readonly invoice: StripePaidSubscriptionInvoice;
+    }
+  | { readonly status: "identity_mismatch" }
+  | { readonly status: "invalid" };
+
 async function getCompleteInvoiceLines(input: {
   readonly fetchImpl: typeof fetch;
   readonly invoiceId: string;
@@ -57,10 +65,11 @@ export async function getPaidSubscriptionInvoice(
   invoiceId: string,
   deps: StripeApiDeps = {},
   processingTime: Date = new Date(),
-): Promise<StripePaidSubscriptionInvoice | null> {
+  expectedSubscriptionId?: string,
+): Promise<StripePaidSubscriptionInvoiceLookup> {
   const { fetchImpl, secretKey } = resolveDeps(deps);
   if (!secretKey) {
-    return null;
+    return { status: "invalid" };
   }
   const body = await stripeRequest({
     fetchImpl,
@@ -76,11 +85,18 @@ export async function getPaidSubscriptionInvoice(
     },
     processingTime,
   );
-  if (!invoice || invoice.invoiceId !== invoiceId) {
-    return null;
+  if (!invoice) {
+    return { status: "invalid" };
+  }
+  if (
+    invoice.invoiceId !== invoiceId ||
+    (expectedSubscriptionId !== undefined &&
+      invoice.subscriptionId !== expectedSubscriptionId)
+  ) {
+    return { status: "identity_mismatch" };
   }
   if (invoice.linesHasMore === false) {
-    return invoice;
+    return { status: "complete", invoice };
   }
   const lines = await getCompleteInvoiceLines({
     fetchImpl,
@@ -89,9 +105,12 @@ export async function getPaidSubscriptionInvoice(
   });
   return lines
     ? {
-        ...invoice,
-        lines,
-        linesHasMore: false,
+        status: "complete",
+        invoice: {
+          ...invoice,
+          lines,
+          linesHasMore: false,
+        },
       }
-    : null;
+    : { status: "line_details_unavailable", invoice };
 }

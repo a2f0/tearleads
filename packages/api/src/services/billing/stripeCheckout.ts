@@ -30,7 +30,6 @@ import {
   runRequireCheckoutEligibleWorkflow,
   runResolveOrgSubscriptionForAdminWorkflow,
 } from "../../workflows/billing/stripeCheckout";
-import type { StripeInvoiceAuditInput } from "../../workflows/billing/stripeInvoiceAudit";
 import {
   runBindOrganizationStripeSeatsWorkflow,
   runRecordStripeSeatRenewalWorkflow,
@@ -305,7 +304,7 @@ interface PaidSubscriptionInvoiceInput {
 
 async function fulfillSeatPeriodInvoice(
   input: PaidSubscriptionInvoiceInput,
-  audit: StripeInvoiceAuditInput,
+  renewalInvoiceId: string | null,
 ): Promise<StripeWebhookOutcome> {
   const { binding, invoice } = input;
   if (
@@ -325,10 +324,10 @@ async function fulfillSeatPeriodInvoice(
     subscriptionId: invoice.subscriptionId,
     subscriptionItemId: binding.subscriptionItemId,
   };
-  if (audit.billingReason === "subscription_cycle") {
+  if (renewalInvoiceId !== null) {
     const outcome = await runRecordStripeSeatRenewalWorkflow(input.runtime.db, {
       ...seatBinding,
-      invoiceId: audit.invoiceId,
+      invoiceId: renewalInvoiceId,
     });
     if (outcome.status === "retry") {
       return {
@@ -395,6 +394,9 @@ async function applyPaidSubscriptionInvoice(
     stripeDeps: input.deps.stripe ?? {},
   });
   if (auditOutcome.status === "incomplete") {
+    if (invoice.billingReason === "subscription_create" && !invoice.invoiceId) {
+      return fulfillSeatPeriodInvoice(input, null);
+    }
     if (requiresSeatPeriod) {
       return { status: "retry", reason: "Paid invoice details are incomplete" };
     }
@@ -418,15 +420,15 @@ async function applyPaidSubscriptionInvoice(
       reason: "Paid invoice requires no seat-period reconciliation",
     };
   }
-  return fulfillSeatPeriodInvoice(input, auditInput);
+  return fulfillSeatPeriodInvoice(
+    input,
+    auditInput.billingReason === "subscription_cycle"
+      ? auditInput.invoiceId
+      : null,
+  );
 }
 
-/**
- * Handles one raw Stripe webhook delivery: verify the signature, extract the
- * newly paid subscription, read its authoritative binding from Stripe, then
- * associate it with RevenueCat. Association failures propagate (route: 500)
- * so Stripe redelivers; everything the flow does not care about is `ignored`.
- */
+/** Verifies and fulfills one paid Stripe webhook delivery. */
 export async function processStripeWebhook(
   runtime: ApiServiceRuntime,
   input: { payload: string; signatureHeader: string | undefined },
@@ -457,9 +459,8 @@ export async function processStripeWebhook(
   if (!invoice) {
     return { status: "ignored", reason: "Not a paid subscription invoice" };
   }
-  // A paid subscription that cannot currently be looked up must NOT be
-  // acknowledged with a 2xx: Stripe would never redeliver, permanently
-  // stranding the purchase unassociated. Ask for redelivery instead.
+  // Ask for redelivery when the subscription cannot be looked up; a 2xx could
+  // permanently strand the purchase unassociated.
   if (!isStripeCheckoutConfigured(deps.stripe ?? {})) {
     return { status: "retry", reason: "Stripe API is not configured" };
   }

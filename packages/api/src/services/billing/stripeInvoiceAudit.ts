@@ -1,7 +1,10 @@
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import type { StripeApiDeps } from "../../billing/stripeApi";
 import { StripeApiError } from "../../billing/stripeHttp";
-import { getPaidSubscriptionInvoice } from "../../billing/stripeInvoice";
+import {
+  getPaidSubscriptionInvoice,
+  type StripePaidSubscriptionInvoiceLookup,
+} from "../../billing/stripeInvoice";
 import type { StripeSubscriptionBinding } from "../../billing/stripeSubscriptionBinding";
 import type {
   StripeInvoiceBillingReason,
@@ -135,51 +138,38 @@ function auditDetailScore(audit: StripeInvoiceAuditInput): number {
     .length;
 }
 
-/** Resolves a complete, immutable invoice snapshot before the audit insert. */
-export async function resolveStripeInvoiceAuditInput(input: {
+interface StripeInvoiceAuditResolutionInput {
   readonly binding: StripeSubscriptionBinding;
   readonly invoice: StripePaidSubscriptionInvoice;
   readonly organizationId: string;
   readonly stripeDeps: StripeApiDeps;
-}): Promise<StripeInvoiceAuditInput | null> {
-  const direct = createStripeInvoiceAuditInput(input);
-  const directTotal = createTotalOnlyAuditInput(input);
-  const requiresSeatPeriod = reconcilesSeatPeriod(input.invoice.billingReason);
-  if (!requiresSeatPeriod && directTotal) {
+}
+
+function resolveFetchedInvoiceAudit(
+  input: StripeInvoiceAuditResolutionInput,
+  direct: StripeInvoiceAuditInput | null,
+  directTotal: StripeInvoiceAuditInput | null,
+  lookup: StripePaidSubscriptionInvoiceLookup,
+): StripeInvoiceAuditInput | null {
+  if (lookup.status === "identity_mismatch") {
+    return null;
+  }
+  if (lookup.status === "invalid") {
     return direct ?? directTotal;
   }
-  if (direct && auditDetailScore(direct) === COMPLETE_INVOICE_DETAIL_SCORE) {
-    return direct;
+  const fetched = lookup.invoice;
+  if (fetched.subscriptionId !== input.invoice.subscriptionId) {
+    return null;
   }
-  if (!input.invoice.invoiceId) {
-    return direct;
-  }
-  let fetched: StripePaidSubscriptionInvoice | null;
-  try {
-    fetched = await getPaidSubscriptionInvoice(
-      input.invoice.invoiceId,
-      input.stripeDeps,
-      input.invoice.occurredAt,
-    );
-  } catch (error) {
-    if (direct && error instanceof StripeApiError) {
-      console.warn(
-        "Stripe invoice detail enrichment failed; preserving the signed snapshot",
-        { invoiceId: input.invoice.invoiceId, status: error.status },
-      );
-      return direct;
-    }
-    if (
-      !requiresSeatPeriod &&
-      error instanceof StripeApiError &&
-      error.status === 404
-    ) {
-      return null;
-    }
-    throw error;
-  }
-  if (!fetched || fetched.subscriptionId !== input.invoice.subscriptionId) {
-    return direct;
+  const fetchedInput = {
+    ...input,
+    invoice: {
+      ...fetched,
+      providerEventId: input.invoice.providerEventId ?? fetched.providerEventId,
+    },
+  };
+  if (lookup.status === "line_details_unavailable") {
+    return direct ?? directTotal ?? createTotalOnlyAuditInput(fetchedInput);
   }
   const enriched = createStripeInvoiceAuditInput({
     ...input,
@@ -194,13 +184,51 @@ export async function resolveStripeInvoiceAuditInput(input: {
       ? enriched
       : direct;
   }
-  return createStripeInvoiceAuditInput({
-    ...input,
-    invoice: {
-      ...fetched,
-      providerEventId: input.invoice.providerEventId ?? fetched.providerEventId,
-    },
-  });
+  return createStripeInvoiceAuditInput(fetchedInput);
+}
+
+/** Resolves a complete, immutable invoice snapshot before the audit insert. */
+export async function resolveStripeInvoiceAuditInput(
+  input: StripeInvoiceAuditResolutionInput,
+): Promise<StripeInvoiceAuditInput | null> {
+  const direct = createStripeInvoiceAuditInput(input);
+  const directTotal = createTotalOnlyAuditInput(input);
+  const requiresSeatPeriod = reconcilesSeatPeriod(input.invoice.billingReason);
+  if (!requiresSeatPeriod && directTotal) {
+    return direct ?? directTotal;
+  }
+  if (direct && auditDetailScore(direct) === COMPLETE_INVOICE_DETAIL_SCORE) {
+    return direct;
+  }
+  if (!input.invoice.invoiceId) {
+    return direct;
+  }
+  let lookup: StripePaidSubscriptionInvoiceLookup;
+  try {
+    lookup = await getPaidSubscriptionInvoice(
+      input.invoice.invoiceId,
+      input.stripeDeps,
+      input.invoice.occurredAt,
+      input.invoice.subscriptionId,
+    );
+  } catch (error) {
+    if ((direct || directTotal) && error instanceof StripeApiError) {
+      console.warn(
+        "Stripe invoice detail enrichment failed; preserving the signed snapshot",
+        { invoiceId: input.invoice.invoiceId, status: error.status },
+      );
+      return direct ?? directTotal;
+    }
+    if (
+      !requiresSeatPeriod &&
+      error instanceof StripeApiError &&
+      error.status === 404
+    ) {
+      return null;
+    }
+    throw error;
+  }
+  return resolveFetchedInvoiceAudit(input, direct, directTotal, lookup);
 }
 
 /** Resolves and append-only records one paid invoice delivery. */

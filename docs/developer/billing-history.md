@@ -16,7 +16,11 @@ missing reporting details.
 
 If an invoice has no unambiguous recurring seat line (for example, a
 proration-only update), its exact total is still recorded while seat and rate
-fields stay `null`.
+fields stay `null`. The same total-only fallback applies when Stripe's complete
+line list cannot be resolved, so reporting detail never strands a paid seat
+period. An initial purchase without an invoice id still fulfills from its
+authoritative subscription binding without fabricating an audit row; an id-less
+renewal is acknowledged without changing the renewal baseline.
 
 Fields not captured for legacy records, or not applicable to a category, stay
 `null` instead of being reconstructed. Incomplete paid-invoice deliveries are
