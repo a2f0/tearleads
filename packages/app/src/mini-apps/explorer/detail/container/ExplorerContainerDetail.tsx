@@ -4,7 +4,7 @@ import type {
   ContainerItemSort,
   ContainerNode,
 } from "@tearleads/client-sdk";
-import { type MouseEvent, useCallback, useState } from "react";
+import { type MouseEvent, useCallback, useEffect, useState } from "react";
 import {
   MiniAppButton,
   MiniAppHeader,
@@ -12,6 +12,7 @@ import {
   MiniAppPanel,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
+import { shouldFoldCompactRows } from "../../../../components/mini-app/MiniAppTable";
 import { useMiniAppVirtualWindow } from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
@@ -96,14 +97,24 @@ function useExplorerContainerItems(
     key: "name",
   });
   const resetKey = `${params.selectedNode.id}:${sort.key}:${sort.direction}`;
-  // The item table derives the same pitch from the same hook; a tier flip
-  // refetches the window rather than resetting the scroll position, so the
-  // settled rows stay on screen while the new window loads.
-  const { rowHeight } = useExplorerItemTableLayout();
-  const { frameRef, limit, offset } = useMiniAppVirtualWindow({
+  // This pane owns the scroll frame, so it is the only place that can measure
+  // it — the pitch is then handed to the item table as a prop rather than
+  // re-derived there, because two derivations that disagree would leave the
+  // requested and served offsets apart and blank the list.
+  //
+  // The measured width only ever crosses a threshold, never feeds the pitch
+  // continuously, so a drag re-issues the window query at most once per fold
+  // rather than once per pixel.
+  const [narrowFrame, setNarrowFrame] = useState(false);
+  const { compact, rowHeight } = useExplorerItemTableLayout(narrowFrame);
+  const { frameRef, frameWidth, limit, offset } = useMiniAppVirtualWindow({
     resetKey,
     rowHeight,
   });
+
+  useEffect(() => {
+    setNarrowFrame((current) => shouldFoldCompactRows(frameWidth, current));
+  }, [frameWidth]);
   const itemWindow = useExplorerContainerItemWindow({
     ...params,
     enabled: true,
@@ -117,13 +128,40 @@ function useExplorerContainerItems(
   }, []);
 
   return {
+    compact,
     frameRef,
     handleSort,
     itemWindow,
+    rowHeight,
     rowOffset: isShowingRequestedWindow ? itemWindow.offset : offset,
     rows: isShowingRequestedWindow ? itemWindow.rows : [],
     sort,
   };
+}
+
+function ExplorerContainerImportStatus({
+  fileDropTarget,
+}: {
+  fileDropTarget: ReturnType<typeof useExplorerContainerFileDropTarget>;
+}) {
+  if (!fileDropTarget.importStatus) {
+    return null;
+  }
+
+  return (
+    <MiniAppStatus
+      as="span"
+      className="explorer-detail-import-status"
+      tone={fileDropTarget.importStatusIsError ? "error" : "muted"}
+    >
+      {fileDropTarget.importStatus}
+      {fileDropTarget.canCancelImport ? (
+        <MiniAppButton onClick={fileDropTarget.cancelImport} variant="ghost">
+          {EXPLORER_LABELS.fileImportCancelAction}
+        </MiniAppButton>
+      ) : null}
+    </MiniAppStatus>
+  );
 }
 
 export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
@@ -142,8 +180,16 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
     selectedNode,
     setSelectedId,
   } = params;
-  const { frameRef, handleSort, itemWindow, rowOffset, rows, sort } =
-    useExplorerContainerItems(params);
+  const {
+    compact,
+    frameRef,
+    handleSort,
+    itemWindow,
+    rowHeight,
+    rowOffset,
+    rows,
+    sort,
+  } = useExplorerContainerItems(params);
   const columnVisibility = useExplorerColumnVisibility();
   const fileDropTarget = useExplorerContainerFileDropTarget({
     selectedNode,
@@ -164,24 +210,9 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
           {refreshError}
         </MiniAppStatus>
       ) : null}
-      {fileDropTarget.importStatus ? (
-        <MiniAppStatus
-          as="span"
-          className="explorer-detail-import-status"
-          tone={fileDropTarget.importStatusIsError ? "error" : "muted"}
-        >
-          {fileDropTarget.importStatus}
-          {fileDropTarget.canCancelImport ? (
-            <MiniAppButton
-              onClick={fileDropTarget.cancelImport}
-              variant="ghost"
-            >
-              {EXPLORER_LABELS.fileImportCancelAction}
-            </MiniAppButton>
-          ) : null}
-        </MiniAppStatus>
-      ) : null}
+      <ExplorerContainerImportStatus fileDropTarget={fileDropTarget} />
       <ExplorerContainerItemTable
+        compact={compact}
         contactAvatarUrlByLocalId={contactAvatarUrlByLocalId}
         contextTarget={contextTarget}
         currentSigningFingerprint={currentSigningFingerprint}
@@ -201,6 +232,7 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
         onBlankContextMenu={onContainerContextMenu}
         onItemContextMenu={onItemContextMenu}
         onSort={handleSort}
+        rowHeight={rowHeight}
         rowOffset={rowOffset}
         rows={rows}
         selectedNode={selectedNode}

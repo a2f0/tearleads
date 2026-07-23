@@ -159,7 +159,12 @@ function useCompactTableTier(): boolean {
   return routedLayoutActive && routedLayoutTier === "mobile";
 }
 
-function getCompactTableRowHeight(compact: boolean): number {
+/**
+ * The row pitch a compact list table renders at. Exported so a table that folds
+ * on something other than its own frame — the explorer, whose frame belongs to
+ * its detail pane — resolves the same two heights rather than restating them.
+ */
+export function getMiniAppCompactTableRowHeight(compact: boolean): number {
   return compact
     ? MINI_APP_COMPACT_TABLE_ROW_HEIGHT
     : MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT;
@@ -176,7 +181,7 @@ export function useMiniAppCompactTableLayout(): {
   rowHeight: number;
 } {
   const compact = useCompactTableTier();
-  return { compact, rowHeight: getCompactTableRowHeight(compact) };
+  return { compact, rowHeight: getMiniAppCompactTableRowHeight(compact) };
 }
 
 /**
@@ -198,7 +203,7 @@ export function useMiniAppCompactTableRows<TItem>(params: {
   const tierCompact = useCompactTableTier();
   const [narrowFrame, setNarrowFrame] = useState(false);
   const compact = tierCompact || narrowFrame;
-  const rowHeight = getCompactTableRowHeight(compact);
+  const rowHeight = getMiniAppCompactTableRowHeight(compact);
   const virtualRows = useMiniAppVirtualRows({ rowHeight, rows: params.rows });
   const { frameWidth } = virtualRows;
 

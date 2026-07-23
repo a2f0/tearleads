@@ -18,17 +18,14 @@ const WIDE_COLUMN_ORDER: ReadonlyArray<ExplorerItemColumnId> = [
   "sync",
 ];
 
-// Phone-tier explorer folds the data columns into a single two-line summary
-// column so the name gets the full width instead of competing with a date: line
-// one is the name (with its leading glyph and row button), line two is the muted
-// Type + Modified pair. The kebab stays its own trailing column.
-// Column-visibility preferences do not apply: the columns menu is off on the
-// phone tier, so a desktop choice to hide Type or Modified would leave a blank
-// second line with no on-device way to bring it back.
-const COMPACT_COLUMN_ORDER: ReadonlyArray<ExplorerItemColumnId> = [
-  "summary",
-  "actions",
-];
+// A folded list — a phone, or any pane too narrow for the columns — puts the
+// data columns into a single two-line summary column so the name gets the full
+// width instead of competing with a date: line one is the name (with its
+// leading glyph and row button), line two is the muted Type + Modified pair.
+// Column-visibility preferences do not apply: the columns menu is off while
+// folded, so a wide-layout choice to hide Type or Modified would leave a blank
+// second line with no way to bring it back.
+const COMPACT_COLUMN_ORDER: ReadonlyArray<ExplorerItemColumnId> = ["summary"];
 
 // The data columns folded into the compact summary's second line, in order.
 export const COMPACT_SUMMARY_SECONDARY_COLUMN_IDS: ReadonlyArray<ExplorerItemColumnId> =
@@ -45,19 +42,16 @@ export const TOGGLEABLE_COLUMN_IDS: ReadonlyArray<ExplorerItemColumnId> = [
 export function getVisibleExplorerItemColumnIds(params: {
   compact: boolean;
   hiddenColumns: ReadonlySet<ExplorerItemColumnId>;
-  // Append the trailing actions ("kebab") column on the wide layout. The phone
-  // tier already carries `actions` in its fixed set, so this only matters for
-  // the tablet/iPad touch layout, where the wide columns stay but the kebab is
-  // the touch stand-in for right-click. Desktop leaves it off.
+  // Append the trailing actions ("kebab") column. It is the touch stand-in for
+  // right-click, so it follows the routed layout rather than the fold: a phone
+  // and a touch tablet get it, and a narrow desktop pane does not — that pane
+  // still has right-click, and the kebab would eat width exactly where width is
+  // scarcest.
   showActions?: boolean | undefined;
 }): ReadonlyArray<ExplorerItemColumnId> {
   const { compact, hiddenColumns, showActions = false } = params;
-  if (compact) {
-    return COMPACT_COLUMN_ORDER;
-  }
-
-  const wide = WIDE_COLUMN_ORDER.filter(
-    (id) => id === "name" || !hiddenColumns.has(id),
-  );
-  return showActions ? [...wide, "actions"] : wide;
+  const columnIds = compact
+    ? COMPACT_COLUMN_ORDER
+    : WIDE_COLUMN_ORDER.filter((id) => id === "name" || !hiddenColumns.has(id));
+  return showActions ? [...columnIds, "actions"] : columnIds;
 }

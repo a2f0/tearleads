@@ -111,6 +111,7 @@ function renderContainerItemTable(
 ) {
   return render(
     createElement(ExplorerContainerItemTable, {
+      compact: false,
       contactAvatarUrlByLocalId: {},
       contextTarget: null,
       currentSigningFingerprint: null,
@@ -131,6 +132,7 @@ function renderContainerItemTable(
       onItemContextMenu: () => undefined,
       onSort: () => undefined,
       rows: [],
+      rowHeight: 36,
       rowOffset: 0,
       selectedNode,
       selectDocumentProjection: () => undefined,
@@ -143,6 +145,20 @@ function renderContainerItemTable(
   );
 }
 
+// The detail pane resolves compact/rowHeight and hands them down, so a folded
+// render is expressed by passing them rather than by faking a viewport. The
+// routed mock stays: it still drives the touch-only kebab column.
+function renderFoldedItemTable(
+  overrides: Partial<ExplorerContainerItemTableProps> = {},
+) {
+  mockPhoneLayout();
+  return renderContainerItemTable({
+    compact: true,
+    rowHeight: 56,
+    ...overrides,
+  });
+}
+
 function getItemTableFrame(view: ReturnType<typeof render>): HTMLElement {
   const frame = view.container.querySelector(".explorer-item-table-wrap");
   if (!(frame instanceof HTMLElement)) {
@@ -153,8 +169,7 @@ function getItemTableFrame(view: ReturnType<typeof render>): HTMLElement {
 }
 
 test("phone container item table folds the row into a summary and a kebab", () => {
-  mockPhoneLayout();
-  const view = renderContainerItemTable({
+  const view = renderFoldedItemTable({
     rows: [archiveRow],
     totalCount: 1,
   });
@@ -171,8 +186,7 @@ test("phone container item table folds the row into a summary and a kebab", () =
 });
 
 test("phone container item table keeps the name button on the first line", () => {
-  mockPhoneLayout();
-  const view = renderContainerItemTable({
+  const view = renderFoldedItemTable({
     rows: [noteRow],
     totalCount: 1,
   });
@@ -195,8 +209,7 @@ test("phone container item table keeps the name button on the first line", () =>
 });
 
 test("phone container item table labels the secondary fields for screen readers", () => {
-  mockPhoneLayout();
-  const view = renderContainerItemTable({
+  const view = renderFoldedItemTable({
     rows: [archiveRow],
     totalCount: 1,
   });
@@ -224,8 +237,7 @@ test("phone container item table labels the secondary fields for screen readers"
 });
 
 test("phone container item table names the row button by the item name alone", () => {
-  mockPhoneLayout();
-  const view = renderContainerItemTable({
+  const view = renderFoldedItemTable({
     rows: [archiveRow],
     totalCount: 1,
   });
@@ -241,8 +253,7 @@ test("phone container item table names the row button by the item name alone", (
 });
 
 test("phone container item table sets the two-line modifier and the 56px pitch", () => {
-  mockPhoneLayout();
-  const view = renderContainerItemTable({
+  const view = renderFoldedItemTable({
     rows: [archiveRow],
     totalCount: 1,
   });
@@ -255,8 +266,7 @@ test("phone container item table sets the two-line modifier and the 56px pitch",
 });
 
 test("phone container item table sizes the virtual spacer from the same pitch", () => {
-  mockPhoneLayout();
-  const view = renderContainerItemTable({
+  const view = renderFoldedItemTable({
     rowOffset: 3,
     rows: [archiveRow],
     totalCount: 50,
@@ -273,8 +283,7 @@ test("phone container item table sizes the virtual spacer from the same pitch", 
 });
 
 test("phone container item table spans the empty row across both columns", () => {
-  mockPhoneLayout();
-  const view = renderContainerItemTable({ rows: [], totalCount: 0 });
+  const view = renderFoldedItemTable({ rows: [], totalCount: 0 });
 
   expect(view.getByText(EXPLORER_LABELS.itemTableEmpty)).toBeTruthy();
   expect(
@@ -285,9 +294,8 @@ test("phone container item table spans the empty row across both columns", () =>
 });
 
 test("phone container item table sorts from the summary header", () => {
-  mockPhoneLayout();
   const sortKeys: Array<ContainerItemSort["key"]> = [];
-  const view = renderContainerItemTable({
+  const view = renderFoldedItemTable({
     onSort: (key) => {
       sortKeys.push(key);
     },
@@ -308,8 +316,7 @@ test("phone container item table sorts from the summary header", () => {
 });
 
 test("phone container item table announces the active sort on its control", () => {
-  mockPhoneLayout();
-  const view = renderContainerItemTable({
+  const view = renderFoldedItemTable({
     rows: [archiveRow],
     sort: { direction: "desc", key: "modified" },
     totalCount: 1,
@@ -334,7 +341,7 @@ test("phone container item table announces the active sort on its control", () =
   ).toBeTruthy();
 
   cleanup();
-  const createdSortView = renderContainerItemTable({
+  const createdSortView = renderFoldedItemTable({
     rows: [archiveRow],
     sort: { direction: "asc", key: "created" },
     totalCount: 1,
@@ -349,10 +356,9 @@ test("phone container item table announces the active sort on its control", () =
 });
 
 test("phone container item table opens the per-item menu from the actions kebab", () => {
-  mockPhoneLayout();
   const rows: ContainerItemRow[] = [];
   const selectedIds: Array<string | null> = [];
-  const view = renderContainerItemTable({
+  const view = renderFoldedItemTable({
     onItemContextMenu: (event, row) => {
       event.preventDefault();
       event.stopPropagation();
@@ -375,9 +381,13 @@ test("phone container item table opens the per-item menu from the actions kebab"
   expect(selectedIds).toEqual([]);
 });
 
-test("routed tablet container item table keeps the wide columns at the touch pitch", () => {
+test("unfolded container item table keeps its wide columns and pitch", () => {
+  // The detail pane decides the fold; the table renders what it is handed. Its
+  // half of the contract is that an unfolded render keeps every data column and
+  // the pitch it was given.
   mockLayout({ navigationMode: "routed", tier: "tablet" });
   const view = renderContainerItemTable({
+    rowHeight: 44,
     rows: [archiveRow],
     totalCount: 1,
   });
@@ -392,28 +402,7 @@ test("routed tablet container item table keeps the wide columns at the touch pit
   expect(frame.classList.contains("mini-app-table-frame--two-line")).toBe(
     false,
   );
-  // The window hook already bumps its own pitch to the 44px touch target; the
-  // rendered pitch has to match it or the served offsets drift from the layout.
   expect(frame.style.getPropertyValue("--mini-app-virtual-row-height")).toBe(
     "44px",
-  );
-});
-
-test("narrow windowed container item table stays single-line", () => {
-  mockLayout({ navigationMode: "windowed", tier: "mobile" });
-  const view = renderContainerItemTable({
-    rows: [archiveRow],
-    totalCount: 1,
-  });
-  const frame = getItemTableFrame(view);
-
-  expect(
-    view.container.querySelector(".mini-app-compact-table-lines"),
-  ).toBeNull();
-  expect(frame.classList.contains("mini-app-table-frame--two-line")).toBe(
-    false,
-  );
-  expect(frame.style.getPropertyValue("--mini-app-virtual-row-height")).toBe(
-    "36px",
   );
 });
