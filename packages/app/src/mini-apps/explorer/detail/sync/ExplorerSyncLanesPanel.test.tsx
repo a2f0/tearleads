@@ -289,6 +289,38 @@ test("ExplorerSyncLanesPanelView opens lane details from the compact list", () =
   expect(openedLaneKeys).toEqual(["documents:local-1"]);
 });
 
+test("ExplorerSyncLanesPanelView opens lane details from a tap on the row body", () => {
+  const snapshot = createSnapshot([
+    createLaneSnapshot({
+      key: "documents:local-1",
+      label: "Document local-1",
+      phase: "document",
+      status: "running",
+    }),
+  ]);
+  const openedLaneKeys: string[] = [];
+
+  const view = renderSyncLanesPanelOnPhone({
+    onOpenLaneDetail: (laneKey) => {
+      openedLaneKeys.push(laneKey);
+    },
+    snapshot,
+  });
+
+  // Tapping a non-interactive part of the row (the status cell, outside the lane
+  // button) still opens the lane. The row's JS onActivate handler owns the hit
+  // area instead of a full-row overlay button, so iOS keeps its scroll gesture.
+  const statusCell = view.container.querySelector(
+    ".explorer-sync-lane-table-row .mini-app-table-cell:last-child",
+  );
+  if (!(statusCell instanceof HTMLElement)) {
+    throw new Error("Expected a status cell in the sync lane row.");
+  }
+  fireEvent.click(statusCell);
+
+  expect(openedLaneKeys).toEqual(["documents:local-1"]);
+});
+
 test("ExplorerSyncLanesPanelView places the column menu in the rightmost status header", () => {
   const snapshot = createSnapshot([
     createLaneSnapshot({

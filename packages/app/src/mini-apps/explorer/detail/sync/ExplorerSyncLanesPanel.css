@@ -48,22 +48,6 @@
   min-width: 0;
 }
 
-.explorer-sync-lane-table-row {
-  position: relative;
-}
-
-.explorer-sync-lane-row-button {
-  overflow: visible;
-  white-space: normal;
-}
-
-.explorer-sync-lane-row-button::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-}
-
 .explorer-sync-lane-list-primary,
 .explorer-sync-lane-last-action,
 .explorer-sync-lane-progress-stack {

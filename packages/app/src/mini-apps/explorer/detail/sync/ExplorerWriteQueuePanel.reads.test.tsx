@@ -77,8 +77,10 @@ test("coalesces a revision-bump burst and keeps stale rows while re-reading", as
       nodes={[ARCHIVE_NODE]}
       online={true}
       openContainerInfoRoute={() => undefined}
-      openDocumentInfoRoute={() => undefined}
+      openDocument={() => undefined}
+      openWriteQueueEntryRoute={() => undefined}
       organizationNamesById={new Map()}
+      selectedEntryLocalId={null}
     />
   );
 

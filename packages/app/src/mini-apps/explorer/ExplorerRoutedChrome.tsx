@@ -174,6 +174,13 @@ function useExplorerRoutedBackAction({
       };
     }
 
+    if (route.view === "write-queue-entry") {
+      return {
+        label: EXPLORER_LABELS.writeQueueBackToListAction,
+        onBack: model.routeState.openWriteQueueRoute,
+      };
+    }
+
     if (
       route.view === "sync-lanes" ||
       route.view === "write-queue" ||
@@ -208,6 +215,7 @@ function useExplorerRoutedBackAction({
     historyCanGoBack,
     model.routeState.navigateBackFromBlobBrowser,
     model.routeState.openSyncLanesRoute,
+    model.routeState.openWriteQueueRoute,
     model.routeState.showSelectionRoute,
     model.selectDocumentProjection,
     navigationMode,

@@ -131,6 +131,7 @@ interface ExplorerSectionsPanelProps {
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openUploadsRoute: () => void;
   openWriteQueueRoute: () => void;
+  openWriteQueueEntryRoute: (localId: string) => void;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
   blobPickTarget: BlobPickTarget | null;
   onCancelBlobPick: () => void;
@@ -168,7 +169,7 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
       />
     );
   }
-  if (route.view === "write-queue") {
+  if (route.view === "write-queue" || route.view === "write-queue-entry") {
     return (
       <ExplorerWriteQueuePanel
         billingBlockedOrganizationId={params.billingBlockedOrganizationId}
@@ -179,8 +180,12 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
         nodes={params.nodes}
         online={params.online}
         openContainerInfoRoute={params.openContainerInfoRoute}
-        openDocumentInfoRoute={params.openDocumentInfoRoute}
+        openDocument={params.selectDocumentProjection}
+        openWriteQueueEntryRoute={params.openWriteQueueEntryRoute}
         organizationNamesById={params.organizationNamesById}
+        selectedEntryLocalId={
+          route.view === "write-queue-entry" ? route.localId : null
+        }
       />
     );
   }
@@ -204,7 +209,7 @@ function getActiveExplorerSectionTab(
   if (route.view === "blob-browser") {
     return "blobs";
   }
-  if (route.view === "write-queue") {
+  if (route.view === "write-queue" || route.view === "write-queue-entry") {
     return "writes";
   }
   if (route.view === "uploads") {

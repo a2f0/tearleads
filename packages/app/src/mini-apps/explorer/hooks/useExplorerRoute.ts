@@ -25,6 +25,7 @@ export interface ExplorerRouteState {
   openSyncLanesRoute: () => void;
   openUploadsRoute: () => void;
   openWriteQueueRoute: () => void;
+  openWriteQueueEntryRoute: (localId: string) => void;
   selectCreatedExplorerItem: (id: string) => void;
   selectExplorerDocument: (localId: string, containerId: string) => void;
   selectExplorerItem: (id: string | null) => void;
@@ -206,6 +207,45 @@ function useExplorerBlobBrowserRouteActions(params: {
   return { navigateBackFromBlobBrowser, openBlobBrowserRoute };
 }
 
+// The full-screen diagnostics hub's route openers (sync lanes, blob/upload
+// queues, durable writes). Grouped into their own hook so the main actions hook
+// stays small.
+function useExplorerSectionRouteActions(setRoute: ExplorerRouteSetter) {
+  const openSyncLanesRoute = useCallback(() => {
+    setRoute({ view: "sync-lanes" }, undefined);
+  }, [setRoute]);
+
+  const openSyncLaneDetailRoute = useCallback(
+    (laneKey: string) => {
+      setRoute({ laneKey, view: "sync-lane-detail" }, undefined);
+    },
+    [setRoute],
+  );
+
+  const openWriteQueueRoute = useCallback(() => {
+    setRoute({ view: "write-queue" }, undefined);
+  }, [setRoute]);
+
+  const openWriteQueueEntryRoute = useCallback(
+    (localId: string) => {
+      setRoute({ localId, view: "write-queue-entry" }, undefined);
+    },
+    [setRoute],
+  );
+
+  const openUploadsRoute = useCallback(() => {
+    setRoute({ view: "uploads" }, undefined);
+  }, [setRoute]);
+
+  return {
+    openSyncLaneDetailRoute,
+    openSyncLanesRoute,
+    openUploadsRoute,
+    openWriteQueueEntryRoute,
+    openWriteQueueRoute,
+  };
+}
+
 function useExplorerRouteActions(params: {
   routeSnapshot: ExplorerRouteSnapshot;
   route: ExplorerRoute;
@@ -219,6 +259,7 @@ function useExplorerRouteActions(params: {
     routeSnapshot,
     setRoute,
   });
+  const sectionActions = useExplorerSectionRouteActions(setRoute);
 
   const showSelectionRoute = useCallback(() => {
     setRoute(DEFAULT_EXPLORER_ROUTE);
@@ -262,25 +303,6 @@ function useExplorerRouteActions(params: {
     [selectDocument, setRoute],
   );
 
-  const openSyncLanesRoute = useCallback(() => {
-    setRoute({ view: "sync-lanes" }, undefined);
-  }, [setRoute]);
-
-  const openSyncLaneDetailRoute = useCallback(
-    (laneKey: string) => {
-      setRoute({ laneKey, view: "sync-lane-detail" }, undefined);
-    },
-    [setRoute],
-  );
-
-  const openWriteQueueRoute = useCallback(() => {
-    setRoute({ view: "write-queue" }, undefined);
-  }, [setRoute]);
-
-  const openUploadsRoute = useCallback(() => {
-    setRoute({ view: "uploads" }, undefined);
-  }, [setRoute]);
-
   const openContainerInfoRoute = useCallback(
     (containerId: string) => {
       setSelectedId(containerId);
@@ -306,13 +328,10 @@ function useExplorerRouteActions(params: {
 
   return {
     ...blobBrowserActions,
+    ...sectionActions,
     openContainerInfoRoute,
     openDocumentInfoRoute,
     openNewStructuredDocumentRoute,
-    openSyncLaneDetailRoute,
-    openSyncLanesRoute,
-    openUploadsRoute,
-    openWriteQueueRoute,
     route,
     selectCreatedExplorerItem,
     selectExplorerDocument,

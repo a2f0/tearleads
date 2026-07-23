@@ -69,6 +69,7 @@ function renderSectionsPanel(
       openSyncLanesRoute={overrides.openSyncLanesRoute ?? (() => undefined)}
       openUploadsRoute={overrides.openUploadsRoute ?? (() => undefined)}
       openWriteQueueRoute={overrides.openWriteQueueRoute ?? (() => undefined)}
+      openWriteQueueEntryRoute={() => undefined}
       route={route}
       selectDocumentProjection={() => undefined}
       uploadManager={uploadManager}

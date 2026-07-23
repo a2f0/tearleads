@@ -150,7 +150,6 @@ function renderSyncLaneCell(params: {
         <MiniAppTableCell key="lane" title={`${lane.label}\n${lane.key}`}>
           <MiniAppTableActionButton
             aria-label={`${EXPLORER_LABELS.syncLanesOpenLaneAction}: ${lane.label}`}
-            className="explorer-sync-lane-row-button"
             onClick={() => onOpenLaneDetail(lane.key)}
             title={lane.lastError ?? undefined}
           >
@@ -284,6 +283,7 @@ export function ExplorerSyncLaneList(params: {
               className="explorer-sync-lane-table-row"
               interactive
               key={lane.key}
+              onActivate={() => params.onOpenLaneDetail(lane.key)}
             >
               {visibleColumnIds.map((columnId) =>
                 renderSyncLaneCell({
