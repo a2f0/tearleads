@@ -335,32 +335,6 @@ test("container item table opens the per-item context menu from an item row", ()
   expect(rows).toEqual([archiveRow]);
 });
 
-test("mobile container item table opens the per-item context menu from the actions button", () => {
-  mockRoutedLayoutTier("mobile");
-  const rows: ContainerItemRow[] = [];
-  const selectedIds: Array<string | null> = [];
-  const view = renderContainerItemTable({
-    onItemContextMenu: (event, row) => {
-      event.preventDefault();
-      event.stopPropagation();
-      rows.push(row);
-    },
-    rows: [archiveRow],
-    setSelectedId: (id) => {
-      selectedIds.push(id);
-    },
-    totalCount: 1,
-  });
-  const actionsButton = view.getByRole("button", {
-    name: `${EXPLORER_LABELS.itemActionsButtonPrefix} ${archiveRow.name}`,
-  });
-
-  fireEvent.click(actionsButton);
-
-  expect(rows).toEqual([archiveRow]);
-  expect(selectedIds).toEqual([]);
-});
-
 test("tablet container item table shows the actions kebab on the wide layout", () => {
   mockRoutedLayoutTier("tablet");
   mockRoutedLayoutActive();

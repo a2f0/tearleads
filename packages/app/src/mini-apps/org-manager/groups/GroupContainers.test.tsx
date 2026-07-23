@@ -50,13 +50,13 @@ test("org manager group containers use two-line summaries on phone layouts", () 
     name: ORG_MANAGER_LABELS.directContainerLinks,
   });
   const summaries = table.querySelectorAll<HTMLElement>(
-    ".org-manager-compact-table-lines",
+    ".mini-app-compact-table-lines",
   );
 
   expect(summaries).toHaveLength(2);
   const headerSummary = summaries.item(0);
   const headerLines = headerSummary.querySelectorAll<HTMLElement>(
-    ".org-manager-compact-table-line",
+    ".mini-app-compact-table-line",
   );
   expect(headerLines).toHaveLength(2);
   expect(
@@ -71,12 +71,12 @@ test("org manager group containers use two-line summaries on phone layouts", () 
 
   const rowSummary = summaries.item(1);
   const rowLines = rowSummary.querySelectorAll<HTMLElement>(
-    ".org-manager-compact-table-line",
+    ".mini-app-compact-table-line",
   );
   expect(rowLines).toHaveLength(2);
   expect(
     Array.from(
-      rowSummary.querySelectorAll(".org-manager-compact-table-field-label"),
+      rowSummary.querySelectorAll(".mini-app-compact-table-field-label"),
       (label) => label.textContent?.trim(),
     ),
   ).toEqual(["Container:", "Access:", "Updated:"]);
@@ -101,9 +101,7 @@ test("org manager group containers use two-line summaries on phone layouts", () 
   if (!(frame instanceof HTMLElement)) {
     throw new Error("Expected the group containers virtual table frame.");
   }
-  expect(frame.classList.contains("org-manager-virtual-table--two-line")).toBe(
-    true,
-  );
+  expect(frame.classList.contains("mini-app-table-frame--two-line")).toBe(true);
   expect(frame.style.getPropertyValue("--mini-app-virtual-row-height")).toBe(
     "56px",
   );

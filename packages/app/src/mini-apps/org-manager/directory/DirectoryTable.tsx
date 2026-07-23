@@ -14,6 +14,9 @@ import {
   getVisibleMiniAppTableColumnIds,
   MiniAppColumnMenuButton,
   type MiniAppColumnMenuOption,
+  MiniAppCompactTableCell,
+  type MiniAppCompactTableField,
+  MiniAppCompactTableHeader,
   MiniAppRowActionsCell,
   MiniAppTable,
   MiniAppTableCell,
@@ -23,6 +26,7 @@ import {
   MiniAppTableText,
   miniAppRowActionsColumn,
   useMiniAppColumnVisibility,
+  useMiniAppCompactTableLayout,
 } from "../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
@@ -33,12 +37,6 @@ import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { compactFingerprint, isKeyboardActivationKey } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
-import {
-  OrgManagerCompactTableCell,
-  type OrgManagerCompactTableField,
-  OrgManagerCompactTableHeader,
-  useOrgManagerListTableLayout,
-} from "../organization/OrgManagerCompactTable";
 
 export type DirectoryContextMenuHandler = (
   event: MouseEvent<HTMLElement>,
@@ -160,7 +158,7 @@ function getDirectoryCompactField(
     profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
     user: OrganizationDirectoryUser;
   },
-): OrgManagerCompactTableField {
+): MiniAppCompactTableField {
   const { profileDisplayNamesByUserId, user } = params;
   switch (columnId) {
     case "user":
@@ -227,7 +225,7 @@ function useDirectoryTableColumns(
     if (compact) {
       const compactColumn = {
         header: (
-          <OrgManagerCompactTableHeader
+          <MiniAppCompactTableHeader
             primary={visibleColumnIds.slice(0, 1).map((id) => ({
               id,
               text: DIRECTORY_COLUMN_LABELS[id],
@@ -323,7 +321,7 @@ function DirectoryUserRow({
       tabIndex={selectUser ? 0 : undefined}
     >
       {compact ? (
-        <OrgManagerCompactTableCell
+        <MiniAppCompactTableCell
           primary={compactFields.slice(0, 1)}
           secondary={compactFields.slice(1)}
         />
@@ -364,7 +362,7 @@ export function DirectoryTable({
   selectUser?: ((userId: string) => void) | undefined;
 }) {
   const users = directory?.users ?? [];
-  const { compact, rowHeight } = useOrgManagerListTableLayout();
+  const { compact, rowHeight } = useMiniAppCompactTableLayout();
   const virtualUsers = useMiniAppVirtualRows({
     rowHeight,
     rows: users,
@@ -399,7 +397,7 @@ export function DirectoryTable({
   return (
     <MiniAppTableFrame
       className={`mini-app-table-frame--virtual mini-app-table-frame--compact org-manager-virtual-table${
-        compact ? " org-manager-virtual-table--two-line" : ""
+        compact ? " mini-app-table-frame--two-line" : ""
       }`}
       ref={virtualUsers.frameRef}
       style={getMiniAppVirtualFrameStyle(rowHeight)}

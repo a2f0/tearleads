@@ -82,10 +82,10 @@ test("org manager directory table renders two-line rows on phones", () => {
     name: ORG_MANAGER_LABELS.directory,
   });
   const headerLines = Array.from(
-    table.querySelectorAll("thead .org-manager-compact-table-line"),
+    table.querySelectorAll("thead .mini-app-compact-table-line"),
   );
   const bodyLines = Array.from(
-    table.querySelectorAll("tbody .org-manager-compact-table-line"),
+    table.querySelectorAll("tbody .mini-app-compact-table-line"),
   );
 
   expect(headerLines).toHaveLength(2);
@@ -93,7 +93,7 @@ test("org manager directory table renders two-line rows on phones", () => {
   expect(
     headerLines.map((line) =>
       Array.from(
-        line.querySelectorAll(".org-manager-compact-table-field"),
+        line.querySelectorAll(".mini-app-compact-table-field"),
         (field) => field.textContent,
       ),
     ),
@@ -104,7 +104,7 @@ test("org manager directory table renders two-line rows on phones", () => {
   expect(
     bodyLines.map((line) =>
       Array.from(
-        line.querySelectorAll(".org-manager-compact-table-field"),
+        line.querySelectorAll(".mini-app-compact-table-field"),
         (field) => field.textContent,
       ),
     ),
@@ -126,7 +126,7 @@ test("org manager directory table renders two-line rows on phones", () => {
   expect(table.querySelector("tbody")?.contains(actionsButton)).toBe(true);
 
   const frame = table.parentElement;
-  expect(frame?.classList.contains("org-manager-virtual-table--two-line")).toBe(
+  expect(frame?.classList.contains("mini-app-table-frame--two-line")).toBe(
     true,
   );
   expect(frame?.style.getPropertyValue("--mini-app-virtual-row-height")).toBe(
@@ -150,14 +150,14 @@ test("org manager directory table stays single-line in narrow windowed mode", ()
     name: ORG_MANAGER_LABELS.directory,
   });
 
-  expect(table.querySelector(".org-manager-compact-table-lines")).toBeNull();
+  expect(table.querySelector(".mini-app-compact-table-lines")).toBeNull();
   expect(
     table.querySelectorAll(
       "tbody .mini-app-table-row:not(.mini-app-virtual-table-spacer-row) td",
     ),
   ).toHaveLength(3);
   const frame = table.parentElement;
-  expect(frame?.classList.contains("org-manager-virtual-table--two-line")).toBe(
+  expect(frame?.classList.contains("mini-app-table-frame--two-line")).toBe(
     false,
   );
   expect(frame?.style.getPropertyValue("--mini-app-virtual-row-height")).toBe(
@@ -180,9 +180,9 @@ test("org manager directory table stays single-line on routed tablets", () => {
     name: ORG_MANAGER_LABELS.directory,
   });
 
-  expect(table.querySelector(".org-manager-compact-table-lines")).toBeNull();
+  expect(table.querySelector(".mini-app-compact-table-lines")).toBeNull();
   const frame = table.parentElement;
-  expect(frame?.classList.contains("org-manager-virtual-table--two-line")).toBe(
+  expect(frame?.classList.contains("mini-app-table-frame--two-line")).toBe(
     false,
   );
   expect(frame?.style.getPropertyValue("--mini-app-virtual-row-height")).toBe(

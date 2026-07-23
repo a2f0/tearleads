@@ -427,13 +427,13 @@ test("org manager groups view uses two-line summaries on phone layouts", () => {
   });
   const table = view.getByRole("table", { name: ORG_MANAGER_LABELS.groups });
   const summaries = table.querySelectorAll<HTMLElement>(
-    ".org-manager-compact-table-lines",
+    ".mini-app-compact-table-lines",
   );
 
   expect(summaries).toHaveLength(2);
   const headerSummary = summaries.item(0);
   const headerLines = headerSummary.querySelectorAll<HTMLElement>(
-    ".org-manager-compact-table-line",
+    ".mini-app-compact-table-line",
   );
   expect(headerLines).toHaveLength(2);
   expect(
@@ -451,7 +451,7 @@ test("org manager groups view uses two-line summaries on phone layouts", () => {
 
   const rowSummary = summaries.item(1);
   const rowLines = rowSummary.querySelectorAll<HTMLElement>(
-    ".org-manager-compact-table-line",
+    ".mini-app-compact-table-line",
   );
   expect(rowLines).toHaveLength(2);
   expect(
@@ -472,7 +472,7 @@ test("org manager groups view uses two-line summaries on phone layouts", () => {
   });
 
   const frame = table.closest<HTMLElement>(".mini-app-table-frame");
-  expect(frame?.classList.contains("org-manager-virtual-table--two-line")).toBe(
+  expect(frame?.classList.contains("mini-app-table-frame--two-line")).toBe(
     true,
   );
   expect(frame?.style.getPropertyValue("--mini-app-virtual-row-height")).toBe(

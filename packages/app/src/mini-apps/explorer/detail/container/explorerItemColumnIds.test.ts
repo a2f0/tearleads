@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  COMPACT_SUMMARY_SECONDARY_COLUMN_IDS,
   type ExplorerItemColumnId,
   getVisibleExplorerItemColumnIds,
   TOGGLEABLE_COLUMN_IDS,
@@ -50,26 +51,32 @@ test("wide touch layout appends the actions column after the data columns", () =
   ).toEqual(["name", "type", "modified", "actions"]);
 });
 
-test("compact layout uses a fixed trimmed set and ignores hidden preferences", () => {
+test("compact layout uses a fixed summary set and ignores hidden preferences", () => {
   expect(
     getVisibleExplorerItemColumnIds({
       compact: true,
       hiddenColumns: new Set(["type", "modified"]),
     }),
-  ).toEqual(["name", "modified", "actions"]);
+  ).toEqual(["summary", "actions"]);
 });
 
-test("compact layout drops the type column (icon conveys kind)", () => {
-  expect(
-    getVisibleExplorerItemColumnIds({
-      compact: true,
-      hiddenColumns: new Set(),
-    }),
-  ).not.toContain("type");
+test("compact layout folds every data column into the summary column", () => {
+  const compactColumnIds = getVisibleExplorerItemColumnIds({
+    compact: true,
+    hiddenColumns: new Set(),
+  });
+
+  for (const dataColumnId of ["name", "type", "created", "modified", "sync"]) {
+    expect(compactColumnIds).not.toContain(dataColumnId);
+  }
+
+  expect(COMPACT_SUMMARY_SECONDARY_COLUMN_IDS).toEqual(["type", "modified"]);
 });
 
 test("Name is not user-toggleable", () => {
   expect(TOGGLEABLE_COLUMN_IDS).not.toContain("name");
+  // The summary column is structural too — it is never persisted or toggled.
+  expect(TOGGLEABLE_COLUMN_IDS).not.toContain("summary");
   expect([...TOGGLEABLE_COLUMN_IDS].sort()).toEqual([
     "created",
     "modified",
