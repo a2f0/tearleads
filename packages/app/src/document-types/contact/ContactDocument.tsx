@@ -1,7 +1,9 @@
-import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
-import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
-import { useMemo } from "react";
-import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useMemo,
+} from "react";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import {
   useDocument,
@@ -9,6 +11,7 @@ import {
 } from "../../stores/documents/DocumentsProvider";
 import {
   StructuredDocument,
+  useStructuredDocumentEditAction,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
@@ -25,9 +28,6 @@ import type { ContactFieldValues } from "./contactFieldDescriptors";
 type ContactStructuredFieldSetter = ReturnType<
   typeof useDocument
 >["setStructuredFields"];
-
-const CONTACT_DOCUMENT_DONE_ACTION = "Done";
-const CONTACT_DOCUMENT_EDIT_ACTION = "Edit";
 
 function toContactFieldValues(
   fields: ReturnType<typeof readContactFields>,
@@ -52,32 +52,22 @@ export function ContactDocumentFields({
   isEditing: boolean;
   ready: boolean;
   canWrite: boolean;
-  setEditing: (editing: boolean) => void;
+  setEditing: Dispatch<SetStateAction<boolean>>;
   setStructuredFields: ContactStructuredFieldSetter;
   values: ContactFieldValues;
 }) {
-  // When the contact is host-forced read-only (e.g. in the Trash) the edit
-  // affordance is removed entirely, not just disabled.
-  const readOnly = useDocumentReadOnly();
-  const editAction = useMemo(
-    () => ({
-      disabled: !ready || !canWrite,
-      icon: isEditing ? (
-        <CheckIcon aria-hidden size={18} />
-      ) : (
-        <PencilSimpleIcon aria-hidden size={18} />
-      ),
-      id: "contact-document-toggle-edit",
-      label: isEditing
-        ? CONTACT_DOCUMENT_DONE_ACTION
-        : CONTACT_DOCUMENT_EDIT_ACTION,
-      onClick: () => setEditing(!isEditing),
-      priority: 100,
-    }),
-    [canWrite, isEditing, ready, setEditing],
+  // Kept reference-stable so the toolbar action it feeds does not re-register
+  // on every render.
+  const toggleEditing = useCallback(
+    () => setEditing((editing) => !editing),
+    [setEditing],
   );
-
-  useWindowTitleBarAction(readOnly ? null : editAction);
+  useStructuredDocumentEditAction({
+    disabled: !ready || !canWrite,
+    id: "contact-document-toggle-edit",
+    isEditing,
+    onToggleEditing: toggleEditing,
+  });
 
   return (
     <div className="contact-document-fields">

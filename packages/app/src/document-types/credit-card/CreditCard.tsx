@@ -1,16 +1,16 @@
 import { EyeIcon } from "@phosphor-icons/react/dist/csr/Eye";
 import { EyeSlashIcon } from "@phosphor-icons/react/dist/csr/EyeSlash";
-import { useId, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
   StructuredDocument,
-  StructuredDocumentEditActions,
   StructuredDocumentField,
   StructuredDocumentFields,
   StructuredDocumentReadFields,
+  useStructuredDocumentEditAction,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
@@ -266,35 +266,35 @@ export function CreditCardFields(params: {
   );
 }
 
-function CreditCardDocumentFieldsPane(params: {
+export function CreditCardDocumentFieldsPane(params: {
   canWrite: boolean;
   fields: CreditCardDocumentFields;
   inputIds: CreditCardInputIds;
   isEditing: boolean;
+  onToggleEditing: () => void;
   ready: boolean;
-  setEditing: (editing: boolean) => void;
   setStructuredFields: CreditCardStructuredFieldSetter;
 }) {
+  useStructuredDocumentEditAction({
+    disabled: !params.ready || !params.canWrite,
+    id: "credit-card-toggle-edit",
+    isEditing: params.isEditing,
+    onToggleEditing: params.onToggleEditing,
+  });
+
   return (
-    <>
-      <StructuredDocumentEditActions
-        disabled={!params.ready || !params.canWrite}
-        isEditing={params.isEditing}
-        onToggleEditing={() => params.setEditing(!params.isEditing)}
-      />
-      <CreditCardFields
-        disabled={!params.ready || !params.canWrite}
-        fields={params.fields}
-        inputIds={params.inputIds}
-        isEditing={params.isEditing && params.canWrite}
-        onChange={(patch) => {
-          if (params.canWrite) {
-            params.setStructuredFields("credit_card", patch);
-          }
-        }}
-        ready={params.ready}
-      />
-    </>
+    <CreditCardFields
+      disabled={!params.ready || !params.canWrite}
+      fields={params.fields}
+      inputIds={params.inputIds}
+      isEditing={params.isEditing && params.canWrite}
+      onChange={(patch) => {
+        if (params.canWrite) {
+          params.setStructuredFields("credit_card", patch);
+        }
+      }}
+      ready={params.ready}
+    />
   );
 }
 
@@ -330,6 +330,12 @@ export function CreditCard(params: CreditCardProps) {
   const [isEditing, setIsEditing] = useStructuredDocumentEditing(
     canWrite,
     params.initialEditing,
+  );
+  // Kept reference-stable so the toolbar action it feeds does not re-register
+  // on every render.
+  const toggleEditing = useCallback(
+    () => setIsEditing((editing) => !editing),
+    [setIsEditing],
   );
   const inputIds = {
     cardNumber: useId(),
@@ -375,8 +381,8 @@ export function CreditCard(params: CreditCardProps) {
           fields={fields}
           inputIds={inputIds}
           isEditing={isEditing}
+          onToggleEditing={toggleEditing}
           ready={ready}
-          setEditing={setIsEditing}
           setStructuredFields={setStructuredFields}
         />
       }

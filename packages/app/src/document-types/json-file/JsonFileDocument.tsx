@@ -10,10 +10,10 @@ import {
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
   StructuredDocument,
-  StructuredDocumentEditActions,
   StructuredDocumentField,
   StructuredDocumentFields,
   StructuredDocumentReadFields,
+  useStructuredDocumentEditAction,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import {
@@ -194,6 +194,7 @@ export function JsonFileFields(params: {
   isEditing?: boolean | undefined;
   onChangeFields: (patch: JsonFilePatch) => void;
   onChangeText: (value: string) => void;
+  onToggleEditing: () => void;
   ready: boolean;
   text: string | null | undefined;
 }) {
@@ -205,10 +206,17 @@ export function JsonFileFields(params: {
     isEditing = false,
     onChangeFields,
     onChangeText,
+    onToggleEditing,
     ready,
     text,
   } = params;
   const controlsDisabled = disabled || !ready;
+  useStructuredDocumentEditAction({
+    disabled: controlsDisabled,
+    id: "json-file-document-toggle-edit",
+    isEditing,
+    onToggleEditing,
+  });
   const safeText = text ?? "";
 
   if (!isEditing) {
@@ -251,22 +259,23 @@ export function JsonFileDocument(params: {
     canWrite,
     params.initialEditing,
   );
-
+  // Kept reference-stable so the toolbar action it feeds does not re-register
+  // on every render.
+  const toggleEditing = useCallback(
+    () => setIsEditing((editing) => !editing),
+    [setIsEditing],
+  );
   return (
     <StructuredDocument
       fields={
         <>
-          <StructuredDocumentEditActions
-            disabled={!ready || !canWrite}
-            isEditing={isEditing}
-            onToggleEditing={() => setIsEditing(!isEditing)}
-          />
           <JsonFileFields
             contentInputId={contentInputId}
             disabled={!ready || !canWrite}
             fields={fields}
             fileNameInputId={fileNameInputId}
             isEditing={isEditing && canWrite}
+            onToggleEditing={toggleEditing}
             onChangeFields={(patch) => {
               if (canWrite) {
                 void setStructuredFields(JSON_FILE_DOCUMENT_KIND, patch);

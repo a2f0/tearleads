@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
+import { WithWindowToolbar } from "../../../test/helpers/windowToolbarProbe";
 import { EnvFileFields } from "./EnvFile";
 import { ENV_FILE_VARIABLE_NAME_PATTERN } from "./envFileDocumentDefinition";
 import type { EnvVariableRow } from "./envFileVariables";
@@ -41,6 +42,7 @@ function renderEnvFileFields(params?: {
   onAddVariable?: () => void;
   onRemoveVariable?: (id: string) => void;
   onRenameFile?: (value: string) => void;
+  onToggleEditing?: () => void;
   onUpdateVariable?: (id: string, field: string, value: string) => void;
   ready?: boolean;
   resolveRowWriter?: (updatedByPeer: string | null) => string | null;
@@ -55,6 +57,7 @@ function renderEnvFileFields(params?: {
       onAddVariable={params?.onAddVariable ?? (() => undefined)}
       onRemoveVariable={params?.onRemoveVariable ?? (() => undefined)}
       onRenameFile={params?.onRenameFile ?? (() => undefined)}
+      onToggleEditing={params?.onToggleEditing ?? (() => undefined)}
       onUpdateVariable={params?.onUpdateVariable ?? (() => undefined)}
       ready={params?.ready ?? true}
       resolveRowWriter={params?.resolveRowWriter}
@@ -268,4 +271,54 @@ test("disables controls while the document is loading", () => {
     (view.getByRole("button", { name: "Add Variable" }) as HTMLButtonElement)
       .disabled,
   ).toBe(true);
+});
+
+test("edit toggle lives in the toolbar, not the document body", () => {
+  let toggles = 0;
+  const view = render(
+    <WithWindowToolbar>
+      <EnvFileFields
+        currentAuthorId={null}
+        fileName=".env.local"
+        fileNameInputId="env-file-name"
+        isEditing={false}
+        onAddVariable={() => undefined}
+        onRemoveVariable={() => undefined}
+        onRenameFile={() => undefined}
+        onToggleEditing={() => {
+          toggles += 1;
+        }}
+        onUpdateVariable={() => undefined}
+        ready
+        variables={variables}
+      />
+    </WithWindowToolbar>,
+  );
+
+  expect(view.queryByRole("button", { name: "Edit" })).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Toolbar Edit" }));
+
+  expect(toggles).toBe(1);
+});
+
+test("toolbar edit action reads Done while editing", () => {
+  const view = render(
+    <WithWindowToolbar>
+      <EnvFileFields
+        currentAuthorId={null}
+        fileName=".env.local"
+        fileNameInputId="env-file-name"
+        isEditing
+        onAddVariable={() => undefined}
+        onRemoveVariable={() => undefined}
+        onRenameFile={() => undefined}
+        onToggleEditing={() => undefined}
+        onUpdateVariable={() => undefined}
+        ready
+        variables={variables}
+      />
+    </WithWindowToolbar>,
+  );
+
+  expect(view.getByRole("button", { name: "Toolbar Done" })).toBeTruthy();
 });

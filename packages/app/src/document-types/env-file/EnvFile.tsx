@@ -1,6 +1,6 @@
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
-import { useId } from "react";
+import { useCallback, useId } from "react";
 import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
@@ -9,10 +9,10 @@ import {
 } from "../../stores/documents/useDocumentRowWriters";
 import {
   StructuredDocument,
-  StructuredDocumentEditActions,
   StructuredDocumentField,
   StructuredDocumentFields,
   StructuredDocumentReadFields,
+  useStructuredDocumentEditAction,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
@@ -242,6 +242,7 @@ export function EnvFileFields(params: {
   onAddVariable: () => void;
   onRemoveVariable: (id: string) => void;
   onRenameFile: (value: string) => void;
+  onToggleEditing: () => void;
   onUpdateVariable: (
     id: string,
     field: EnvVariableField,
@@ -260,12 +261,19 @@ export function EnvFileFields(params: {
     onAddVariable,
     onRemoveVariable,
     onRenameFile,
+    onToggleEditing,
     onUpdateVariable,
     ready,
     resolveRowWriter,
     variables,
   } = params;
   const controlsDisabled = disabled || !ready;
+  useStructuredDocumentEditAction({
+    disabled: controlsDisabled,
+    id: "env-file-toggle-edit",
+    isEditing,
+    onToggleEditing,
+  });
 
   if (!isEditing) {
     return (
@@ -311,6 +319,12 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
     canWrite,
     params.initialEditing,
   );
+  // Kept reference-stable so the toolbar action it feeds does not re-register
+  // on every render.
+  const toggleEditing = useCallback(
+    () => setIsEditing((editing) => !editing),
+    [setIsEditing],
+  );
   const { clearRow, readCell, stageCell } = useDocumentRowEditing(rows);
   // Only resolve verified writers for the read view (attribution is not shown
   // while editing) of a non-empty file.
@@ -336,11 +350,6 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
     <StructuredDocument
       fields={
         <>
-          <StructuredDocumentEditActions
-            disabled={!ready || !canWrite}
-            isEditing={isEditing}
-            onToggleEditing={() => setIsEditing(!isEditing)}
-          />
           <EnvFileFields
             currentAuthorId={currentAuthorId}
             disabled={!ready || !canWrite}
@@ -362,6 +371,7 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
               }
               clearRow(id);
             }}
+            onToggleEditing={toggleEditing}
             onRenameFile={(value) => {
               if (canWrite) {
                 void setStructuredFields(ENV_FILE_DOCUMENT_KIND, {
