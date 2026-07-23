@@ -27,9 +27,11 @@ import { useRegisteredWindowSidebar } from "../../components/window/WindowSideba
 import { useRoutedLayoutActive } from "../../navigation/useRoutedLayoutActive";
 import { formatMiniAppDateTime } from "../../utils/formatMiniAppDate";
 import { NOTES_LABELS } from "./labels";
+import { NotesEmptyTile } from "./NotesEmptyTile";
 import type { NotesSetSidebar } from "./types";
 
 interface NotesSidebarProps {
+  createNote: () => void;
   handleAreaContextMenu: (event: MouseEvent<HTMLElement>) => void;
   handleNoteContextMenu: (
     event: MouseEvent<HTMLElement>,
@@ -75,6 +77,7 @@ function isNotesSidebarAreaContextMenuTarget(
 
 function NotesList({
   bleed = false,
+  createNote,
   divided = false,
   handleNoteContextMenu,
   notes,
@@ -93,13 +96,17 @@ function NotesList({
   return (
     <>
       {!ready ? (
-        <MiniAppStatus className="notes-sidebar-empty">
+        <MiniAppStatus className="notes-sidebar-status">
           {NOTES_LABELS.sidebarLoading}
         </MiniAppStatus>
       ) : notes.length === 0 ? (
-        <MiniAppStatus className="notes-sidebar-empty">
-          {NOTES_LABELS.sidebarEmpty}
-        </MiniAppStatus>
+        <NotesEmptyTile
+          createNote={createNote}
+          rowHeight={rowHeight}
+          // The roomy list home has the width for the full sentence; the
+          // sidebar rail (160px by default) does not.
+          showFullLabel={showMetadata}
+        />
       ) : (
         <MiniAppVirtualListFrame
           className={classNames(
@@ -221,6 +228,7 @@ export function useNotesSidebarPanel(
   },
 ) {
   const {
+    createNote,
     handleAreaContextMenu,
     handleNoteContextMenu,
     notes,
@@ -235,6 +243,7 @@ export function useNotesSidebarPanel(
   const sidebar = useMemo(
     () => (
       <NotesSidebar
+        createNote={createNote}
         handleAreaContextMenu={handleAreaContextMenu}
         handleNoteContextMenu={handleNoteContextMenu}
         notes={notes}
@@ -245,6 +254,7 @@ export function useNotesSidebarPanel(
       />
     ),
     [
+      createNote,
       handleAreaContextMenu,
       handleNoteContextMenu,
       notes,

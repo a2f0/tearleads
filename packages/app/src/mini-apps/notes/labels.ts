@@ -3,7 +3,8 @@ export const NOTES_LABELS = {
   emptyStateLoading: "Loading notes...",
   newNoteAction: "New Note",
   rowActionsButtonPrefix: "Actions for",
-  sidebarEmpty: "No notes.",
+  sidebarEmptyCreate: "No notes. Create one",
+  sidebarEmptyCreateShort: "Create one",
   sidebarLoading: "Loading...",
   modifiedPrefix: "Modified",
 } as const;

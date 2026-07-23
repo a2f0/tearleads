@@ -1,0 +1,34 @@
+/*
+ * The zero-note call to action. Chrome comes from the shared MiniAppRowButton;
+ * only the per-surface deltas live here.
+ *
+ * The tile renders outside MiniAppVirtualListFrame, so it carries the frame's
+ * row-height property itself (set inline from the surface's own list pitch)
+ * rather than inheriting it. An empty list then keeps the same row rhythm as a
+ * populated one.
+ */
+.notes-empty-tile {
+  height: var(--mini-app-virtual-row-height);
+  /* Dashed reads as a slot waiting to be filled — the same idiom as the
+     structured-document attachment placeholder. Use the themeable border color
+     rather than a raw currentColor so the outline doesn't glare as a near-white
+     line in Dark; see .mini-app-row--framed. */
+  border-color: var(--border-color);
+  border-style: dashed;
+  opacity: var(--opacity-muted);
+}
+
+/* Keep the plus at its intrinsic size when the label eats the remaining room. */
+.notes-empty-tile > svg {
+  flex: 0 0 auto;
+}
+
+/*
+ * Hover/focus materializes the tile into a real row: the outline goes solid
+ * while the shared .mini-app-row--button rules supply the emphasis fill and
+ * restore full opacity.
+ */
+.notes-empty-tile:hover:not(:disabled),
+.notes-empty-tile:focus-visible:not(:disabled) {
+  border-style: solid;
+}
