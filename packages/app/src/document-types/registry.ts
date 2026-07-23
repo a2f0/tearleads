@@ -30,6 +30,7 @@ import {
 import type { DocumentTypeAppProps } from "./types";
 import { VideoDocumentApp } from "./video/VideoDocumentApp";
 import { VIDEO_DOCUMENT_KIND } from "./video/videoDocumentDefinition";
+import { WeightDocumentApp } from "./weight/WeightApp";
 
 interface DocumentTypeDefinition {
   App: ComponentType<DocumentTypeAppProps>;
@@ -49,6 +50,7 @@ const documentTypeAppsByKind = new Map<
   ["passport", PassportDocumentApp],
   ["env_file", EnvFileDocumentApp],
   ["blood_pressure", BloodPressureDocumentApp],
+  ["weight", WeightDocumentApp],
   ["json_file", JsonFileDocumentApp],
   ["image", ImageDocumentApp],
   ["audio", AudioDocumentApp],

@@ -12,6 +12,7 @@ import { passportDocumentProjectorDefinition } from "../document-types/passport/
 import { pdfDocumentProjectorDefinition } from "../document-types/pdf/pdfDocumentDefinition";
 import type { AppDocumentProjectorDefinition } from "../document-types/types";
 import { videoDocumentProjectorDefinition } from "../document-types/video/videoDocumentDefinition";
+import { weightDocumentProjectorDefinition } from "../document-types/weight/weightDocumentDefinition";
 import { contactClientProjection } from "./contactClientProjection";
 import { creditCardClientProjection } from "./creditCardClientProjection";
 import { driverLicenseClientProjection } from "./driverLicenseClientProjection";
@@ -38,6 +39,7 @@ export const APP_DOCUMENT_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentProjec
     },
     envFileDocumentProjectorDefinition,
     bloodPressureDocumentProjectorDefinition,
+    weightDocumentProjectorDefinition,
     jsonFileDocumentProjectorDefinition,
     imageDocumentProjectorDefinition,
     audioDocumentProjectorDefinition,
