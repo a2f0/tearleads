@@ -15,6 +15,9 @@ type ReadRowCell = (id: string, field: string, storeValue: string) => string;
 export interface WeightEntryRow {
   id: string;
   weight: string;
+  // The unit this entry was recorded in, kept on the entry itself so a merge
+  // between peers that chose different units can never restate a weight.
+  unit: WeightUnit;
   measuredAt: string;
   notes: string;
   createdAt: string;
@@ -37,7 +40,9 @@ export function readTrackerNameField(
   return typeof value === "string" ? value : "";
 }
 
-export function readUnitField(
+// The unit new entries are seeded with. Unlike an entry's own unit, this is only
+// a default: a peer overwriting it never changes what an existing entry means.
+export function readTrackerUnitField(
   structuredFields: Readonly<Record<string, string>>,
 ): WeightUnit {
   const value = structuredFields[WEIGHT_UNIT_FIELD];
@@ -49,9 +54,13 @@ export function readUnitField(
 export function toWeightEntryRows(
   rows: ReadonlyArray<DocumentRow>,
   readCell: ReadRowCell,
+  trackerUnit: WeightUnit,
 ): WeightEntryRow[] {
   return rows.map((row) => ({
     id: row.id,
+    // A row written before this document type carried per-entry units, or by a
+    // client that omitted it, reads as the tracker's unit.
+    unit: toWeightUnit(row.fields[WEIGHT_UNIT_FIELD] ?? trackerUnit),
     weight: readCell(
       row.id,
       WEIGHT_MEASUREMENT_FIELD,
@@ -77,9 +86,9 @@ export function toWeightEntryRows(
   }));
 }
 
-export function formatWeight(entry: WeightEntryRow, unit: WeightUnit): string {
+export function formatWeight(entry: WeightEntryRow): string {
   const weight = entry.weight.trim();
-  return weight.length > 0 ? `${weight} ${unit}` : WEIGHT_EMPTY_VALUE;
+  return weight.length > 0 ? `${weight} ${entry.unit}` : WEIGHT_EMPTY_VALUE;
 }
 
 // datetime-local values look like "2026-07-16T08:30"; swap the "T" for a space
@@ -100,9 +109,10 @@ export function formatMeasuredAt(entry: WeightEntryRow): string {
 export function formatWeightChange(
   entry: WeightEntryRow,
   previous: WeightEntryRow | undefined,
-  unit: WeightUnit,
 ): string | null {
-  if (!previous) {
+  // Entries recorded in different units are not comparable without converting
+  // one of them, which would put a number on screen that nobody weighed.
+  if (!previous || previous.unit !== entry.unit) {
     return null;
   }
 
@@ -120,8 +130,8 @@ export function formatWeightChange(
   // never leaks into the label.
   const rounded = Math.round(delta * 100) / 100;
   if (rounded === 0) {
-    return `±0 ${unit}`;
+    return `±0 ${entry.unit}`;
   }
 
-  return `${rounded > 0 ? "+" : "−"}${Math.abs(rounded)} ${unit}`;
+  return `${rounded > 0 ? "+" : "−"}${Math.abs(rounded)} ${entry.unit}`;
 }

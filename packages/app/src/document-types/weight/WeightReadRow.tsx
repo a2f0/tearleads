@@ -14,7 +14,6 @@ import {
   WEIGHT_MEASURED_AT_FIELD,
   WEIGHT_MEASUREMENT_FIELD,
   WEIGHT_NOTES_FIELD,
-  type WeightUnit,
 } from "./weightDocumentDefinition";
 import {
   formatMeasuredAt,
@@ -28,7 +27,6 @@ import {
 // not synced) so the overlay can omit it.
 function toEntryDetailFields(
   entry: WeightEntryRow,
-  unit: WeightUnit,
   resolveRowWriter?: RowWriterResolver | undefined,
 ): RowDetailField[] {
   const fieldWriter = (field: string): string | null =>
@@ -36,7 +34,7 @@ function toEntryDetailFields(
   return [
     {
       label: "Weight",
-      value: formatWeight(entry, unit),
+      value: formatWeight(entry),
       writerUserId: fieldWriter(WEIGHT_MEASUREMENT_FIELD),
     },
     {
@@ -140,7 +138,6 @@ export function WeightEntryReadRow(params: {
   onEnterEdit?: (() => void) | undefined;
   previous: WeightEntryRow | undefined;
   resolveRowWriter?: RowWriterResolver | undefined;
-  unit: WeightUnit;
 }) {
   const {
     currentAuthorId,
@@ -149,7 +146,6 @@ export function WeightEntryReadRow(params: {
     onEnterEdit,
     previous,
     resolveRowWriter,
-    unit,
   } = params;
   const [detailOpen, setDetailOpen] = useState(false);
   const notes = entry.notes.trim();
@@ -162,17 +158,15 @@ export function WeightEntryReadRow(params: {
     updatedAt: entry.updatedAt,
     updatedBy,
   });
-  const change = formatWeightChange(entry, previous, unit);
-  const detailFields = toEntryDetailFields(entry, unit, resolveRowWriter);
+  const change = formatWeightChange(entry, previous);
+  const detailFields = toEntryDetailFields(entry, resolveRowWriter);
 
   return (
     <>
       <div className="weight-entry-read-row">
         <span className="weight-entry-read-cell">
           <strong>Weight</strong>
-          <span className="weight-entry-read-value">
-            {formatWeight(entry, unit)}
-          </span>
+          <span className="weight-entry-read-value">{formatWeight(entry)}</span>
         </span>
         <span className="weight-entry-read-cell">
           <strong>Change</strong>

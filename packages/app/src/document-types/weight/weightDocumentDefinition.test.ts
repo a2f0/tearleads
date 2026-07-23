@@ -119,3 +119,20 @@ test("an unrecognized unit surfaces as a validation issue", () => {
     },
   ]);
 });
+
+test("an entry's own unit is validated too", () => {
+  // Entries carry the unit they were recorded in, so a peer writing a bogus one
+  // is reported per row rather than silently read as the tracker default.
+  const projection = project({ trackerName: "" }, [
+    entry("e1", { weight: "180", unit: "kg" }),
+    entry("e2", { weight: "82", unit: "stone" }),
+  ]);
+
+  expect(projection.fieldValidationIssues).toEqual([
+    {
+      field: "rows[1].unit",
+      message: "Expected one of lb, kg.",
+      value: "stone",
+    },
+  ]);
+});

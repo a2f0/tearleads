@@ -41,6 +41,7 @@ function makeEntry(
 ): WeightEntryRow {
   return {
     weight: "",
+    unit: "lb",
     measuredAt: "",
     notes: "",
     createdAt: "",
@@ -148,9 +149,9 @@ test("renders entries as editable rows", () => {
   expect(
     (view.getByLabelText("Weight tracker name") as HTMLInputElement).value,
   ).toBe("Morning weigh-ins");
-  expect((view.getByLabelText("Weight unit") as HTMLSelectElement).value).toBe(
-    "lb",
-  );
+  expect(
+    (view.getByLabelText("New entry unit") as HTMLSelectElement).value,
+  ).toBe("lb");
   expect(
     (view.getByLabelText("Entry 1 weight") as HTMLInputElement).value,
   ).toBe("180.5");
@@ -162,11 +163,16 @@ test("renders entries as editable rows", () => {
   ).toBe("179");
 });
 
-test("the weight input is labelled with the tracker's unit", () => {
-  const view = renderWeightFields({ unit: "kg" });
+test("each weight input is labelled with its own entry's unit", () => {
+  const view = renderWeightFields({
+    entries: [
+      makeEntry({ id: "e1", weight: "180" }),
+      makeEntry({ id: "e2", unit: "kg", weight: "82" }),
+    ],
+  });
 
-  expect(view.getAllByText("Weight (kg)").length).toBeGreaterThan(0);
-  expect(view.queryByText("Weight (lb)")).toBeNull();
+  expect(view.getByText("Weight (lb)")).toBeTruthy();
+  expect(view.getByText("Weight (kg)")).toBeTruthy();
 });
 
 test("toggles editing from the toolbar, not a body button", async () => {
@@ -346,29 +352,21 @@ test("edits tracker name and entry cells through callbacks", () => {
   ]);
 });
 
-test("the unit can be chosen while the tracker is empty", () => {
+test("the new-entry unit stays changeable once the tracker holds entries", () => {
+  // It only seeds the next entry; the ones already recorded keep their own unit,
+  // so changing it never restates them.
   const unitCalls: WeightUnit[] = [];
   const view = renderWeightFields({
-    entries: [],
     onChangeUnit: (unit) => unitCalls.push(unit),
   });
 
-  const select = view.getByLabelText("Weight unit") as HTMLSelectElement;
+  const select = view.getByLabelText("New entry unit") as HTMLSelectElement;
   expect(select.disabled).toBe(false);
   fireEvent.change(select, { target: { value: "kg" } });
 
   expect(unitCalls).toEqual(["kg"]);
-});
-
-test("the unit locks once the tracker holds entries", () => {
-  // Changing it afterwards would reinterpret every recorded weight — 180 lb
-  // would start reading as 180 kg — and the store cannot convert the rows and
-  // the unit in one atomic write.
-  const view = renderWeightFields();
-
-  const select = view.getByLabelText("Weight unit") as HTMLSelectElement;
-  expect(select.disabled).toBe(true);
-  expect(select.title).toBe("The unit is fixed once the tracker has entries");
+  // The existing lb entries are untouched by the change.
+  expect(view.getAllByText("Weight (lb)").length).toBe(2);
 });
 
 test("marks out-of-range weights invalid without blocking edits", () => {
@@ -405,7 +403,7 @@ test("disables controls while the document is loading", () => {
     (view.getByLabelText("Weight tracker name") as HTMLInputElement).disabled,
   ).toBe(true);
   expect(
-    (view.getByLabelText("Weight unit") as HTMLSelectElement).disabled,
+    (view.getByLabelText("New entry unit") as HTMLSelectElement).disabled,
   ).toBe(true);
   expect(
     (view.getByLabelText("Entry 1 weight") as HTMLInputElement).disabled,

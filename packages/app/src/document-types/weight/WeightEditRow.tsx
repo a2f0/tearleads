@@ -5,7 +5,6 @@ import {
   WEIGHT_MEASURED_AT_FIELD,
   WEIGHT_MEASUREMENT_FIELD,
   WEIGHT_NOTES_FIELD,
-  type WeightUnit,
 } from "./weightDocumentDefinition";
 import type { WeightEntryRow } from "./weightEntries";
 
@@ -28,9 +27,8 @@ export function WeightEntryEditRow(params: {
   onRemoveEntry: (id: string) => void;
   onUpdateEntry: UpdateEntry;
   entry: WeightEntryRow;
-  unit: WeightUnit;
 }) {
-  const { controlsDisabled, entry, index, onRemoveEntry, onUpdateEntry, unit } =
+  const { controlsDisabled, entry, index, onRemoveEntry, onUpdateEntry } =
     params;
   const isInvalid =
     entry.weight.length > 0 && !isValidWeightMeasurement(entry.weight);
@@ -38,7 +36,7 @@ export function WeightEntryEditRow(params: {
   return (
     <div className="weight-entry-row">
       <label className="weight-entry-field weight-entry-field-weight">
-        {`Weight (${unit})`}
+        {`Weight (${entry.unit})`}
         <input
           aria-invalid={isInvalid ? "true" : undefined}
           aria-label={`Entry ${index + 1} weight`}
@@ -52,7 +50,7 @@ export function WeightEntryEditRow(params: {
           }
           inputMode="decimal"
           pattern="\d*(\.\d{1,2})?"
-          placeholder={unit === "kg" ? "82.5" : "180.5"}
+          placeholder={entry.unit === "kg" ? "82.5" : "180.5"}
           disabled={controlsDisabled}
           autoComplete="off"
         />

@@ -7,14 +7,22 @@ import {
 import type { AppDocumentProjectorDefinition } from "../types";
 
 export const WEIGHT_DOCUMENT_KIND = "weight";
-// The tracker name and its unit live in flat structured fields (not the row
-// list): both describe the tracker as a whole rather than a single entry.
+// The tracker name lives in a flat structured field (not the row list).
 export const WEIGHT_TRACKER_NAME_FIELD = "trackerName";
-export const WEIGHT_UNIT_FIELD = "unit";
 // Row-field keys for a weight entry in the document's first-class row list.
 export const WEIGHT_MEASUREMENT_FIELD = "weight";
 export const WEIGHT_MEASURED_AT_FIELD = "measuredAt";
 export const WEIGHT_NOTES_FIELD = "notes";
+// Each entry records the unit it was captured in, and the tracker carries the
+// unit new entries are seeded with. They share a key because they are separate
+// namespaces (structured fields vs. row fields) holding the same kind of value.
+//
+// The unit belongs on the entry, not only on the tracker: a tracker-wide unit is
+// an invariant no client can hold. Two peers editing offline can each pick a
+// unit and log entries; the merge keeps both rows but only one winning unit
+// field, and the losing peer's weights would silently change meaning. An entry
+// that carries its own unit always reads as what was recorded.
+export const WEIGHT_UNIT_FIELD = "unit";
 // Shown for a tracker that was never named — the document type's own name rather
 // than a generic "Untitled …" placeholder.
 const WEIGHT_DEFAULT_TITLE = "Weight Tracker";
@@ -78,6 +86,7 @@ function deriveWeightTitle(
 
 function validateUnitField(
   unit: string,
+  field: string,
   issues: DocumentFieldValidationIssue[],
 ): void {
   if (unit.trim().length === 0 || isWeightUnit(unit.trim())) {
@@ -85,7 +94,7 @@ function validateUnitField(
   }
 
   issues.push({
-    field: WEIGHT_UNIT_FIELD,
+    field,
     message: `Expected one of ${WEIGHT_UNITS.join(", ")}.`,
     value: unit,
   });
@@ -97,15 +106,19 @@ function validateWeightRows(
 ): void {
   (rows ?? []).forEach((row, index) => {
     const value = row.fields[WEIGHT_MEASUREMENT_FIELD] ?? "";
-    if (value.trim().length === 0 || isValidWeightMeasurement(value)) {
-      return;
+    if (value.trim().length > 0 && !isValidWeightMeasurement(value)) {
+      issues.push({
+        field: `rows[${index}].${WEIGHT_MEASUREMENT_FIELD}`,
+        message: `Expected a weight between ${WEIGHT_MEASUREMENT_MIN} and ${WEIGHT_MEASUREMENT_MAX}.`,
+        value,
+      });
     }
 
-    issues.push({
-      field: `rows[${index}].${WEIGHT_MEASUREMENT_FIELD}`,
-      message: `Expected a weight between ${WEIGHT_MEASUREMENT_MIN} and ${WEIGHT_MEASUREMENT_MAX}.`,
-      value,
-    });
+    validateUnitField(
+      row.fields[WEIGHT_UNIT_FIELD] ?? "",
+      `rows[${index}].${WEIGHT_UNIT_FIELD}`,
+      issues,
+    );
   });
 }
 
@@ -127,7 +140,7 @@ export const weightDocumentProjectorDefinition: AppDocumentProjectorDefinition =
         WEIGHT_UNIT_FIELD,
         issues,
       );
-      validateUnitField(unit, issues);
+      validateUnitField(unit, WEIGHT_UNIT_FIELD, issues);
       validateWeightRows(rows, issues);
       return {
         fieldValidationIssues: issues,

@@ -39,7 +39,7 @@ import {
 } from "./weightDocumentDefinition";
 import {
   readTrackerNameField,
-  readUnitField,
+  readTrackerUnitField,
   toWeightEntryRows,
   type WeightEntryRow,
 } from "./weightEntries";
@@ -56,6 +56,8 @@ function WeightReadFields(params: {
   trackerName: string;
   unit: WeightUnit;
 }) {
+  // `unit` here is the tracker's default for new entries; each row renders its
+  // own recorded unit.
   const {
     currentAuthorId,
     entries,
@@ -79,7 +81,7 @@ function WeightReadFields(params: {
             displayValue:
               trackerName.trim().length > 0 ? undefined : "Weight Tracker",
           },
-          { label: "Unit", value: unit },
+          { label: "New Entry Unit", value: unit },
         ]}
       />
       <section className="weight-entry-list">
@@ -101,7 +103,6 @@ function WeightReadFields(params: {
               onEnterEdit={onEnterEdit}
               previous={entries[index - 1]}
               resolveRowWriter={resolveRowWriter}
-              unit={unit}
             />
           ))
         )}
@@ -138,7 +139,6 @@ function WeightEditFields(params: {
     unit,
     unitInputId,
   } = params;
-  const unitLocked = entries.length > 0;
 
   return (
     <div className="weight-document-fields">
@@ -157,23 +157,15 @@ function WeightEditFields(params: {
             autoComplete="off"
           />
         </StructuredDocumentField>
-        <StructuredDocumentField inputId={unitInputId} label="Unit">
-          {/* The unit is fixed once the tracker holds entries. Changing it later
-              would silently reinterpret every recorded weight (180 lb reading as
-              180 kg), and converting them instead cannot be done atomically —
-              the store commits each field and row separately, so an interrupted
-              conversion would leave the history mixing units. */}
+        {/* Seeds new entries only. Each entry keeps the unit it was recorded
+            in, so changing this never restates the weights already logged. */}
+        <StructuredDocumentField inputId={unitInputId} label="New Entry Unit">
           <select
             id={unitInputId}
-            aria-label="Weight unit"
+            aria-label="New entry unit"
             value={unit}
             onChange={(event) => onChangeUnit(toWeightUnit(event.target.value))}
-            disabled={controlsDisabled || unitLocked}
-            title={
-              unitLocked
-                ? "The unit is fixed once the tracker has entries"
-                : undefined
-            }
+            disabled={controlsDisabled}
           >
             {WEIGHT_UNITS.map((option) => (
               <option key={option} value={option}>
@@ -210,7 +202,6 @@ function WeightEditFields(params: {
               index={index}
               onRemoveEntry={onRemoveEntry}
               onUpdateEntry={onUpdateEntry}
-              unit={unit}
             />
           ))
         )}
@@ -345,8 +336,8 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
   );
 
   const trackerName = readTrackerNameField(structuredFields);
-  const unit = readUnitField(structuredFields);
-  const entries = toWeightEntryRows(rows, readCell);
+  const unit = readTrackerUnitField(structuredFields);
+  const entries = toWeightEntryRows(rows, readCell, unit);
 
   function handleUpdateEntry(id: string, field: WeightField, value: string) {
     stageCell(id, field, value);
@@ -371,13 +362,12 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
             if (canWrite) {
               void addRow({
                 [WEIGHT_MEASUREMENT_FIELD]: "",
+                [WEIGHT_UNIT_FIELD]: unit,
                 [WEIGHT_MEASURED_AT_FIELD]: "",
                 [WEIGHT_NOTES_FIELD]: "",
               });
             }
           }}
-          // Only reachable while the tracker is empty; the editor locks the unit
-          // once it holds entries, so this never reinterprets recorded weights.
           onChangeUnit={(nextUnit) => {
             if (canWrite) {
               void setStructuredFields(WEIGHT_DOCUMENT_KIND, {
