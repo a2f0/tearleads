@@ -255,7 +255,7 @@ export function useExplorerPanelState(params: {
     expandNode: selection.expandNode,
     mergeDocumentSummary,
     onCreateDocument: initialDocumentEditing.trackCreatedDocument,
-    setSelectedId: routeState.selectExplorerItem,
+    setSelectedId: routeState.selectCreatedExplorerItem,
   });
   const importDroppedFilesUnguarded = useExplorerDroppedFileImport({
     appData: explorerDocumentLinks,
