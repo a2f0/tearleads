@@ -1,18 +1,18 @@
+import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
+import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import {
   type PropsWithChildren,
   type ReactNode,
   useEffect,
+  useMemo,
   useState,
 } from "react";
-import {
-  MiniAppActions,
-  MiniAppButton,
-} from "../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRow,
   MiniAppRowStack,
   MiniAppRowText,
 } from "../../components/mini-app/rows/MiniAppRow";
+import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
 import { useDocumentReadOnly } from "../../stores/documents/DocumentsProvider";
 import "./StructuredDocument.css";
 
@@ -98,28 +98,51 @@ export function StructuredDocument(params: StructuredDocumentProps) {
   );
 }
 
-export function StructuredDocumentEditActions(params: {
+const STRUCTURED_DOCUMENT_EDIT_ACTION = "Edit";
+const STRUCTURED_DOCUMENT_DONE_ACTION = "Done";
+
+/**
+ * Register a document's edit toggle as a pane-header toolbar action (the
+ * pencil, becoming a check while editing) rather than a body button.
+ *
+ * Every structured document places this control identically, so the toolbar
+ * registration lives here instead of being repeated per document type. Pass a
+ * reference-stable `onToggleEditing` — the action is memoized on it, and a new
+ * closure each render would re-register the toolbar action on every render.
+ *
+ * A host-forced read-only document (e.g. one opened from the Trash) drops the
+ * affordance entirely rather than showing it disabled: the whole document is
+ * read-only, not merely un-editable right now. `hidden` does the same for a
+ * host that supplies its own edit control.
+ */
+export function useStructuredDocumentEditAction(params: {
   disabled: boolean;
+  hidden?: boolean | undefined;
+  id: string;
   isEditing: boolean;
   onToggleEditing: () => void;
-}) {
-  // A host-forced read-only document (e.g. in the Trash) hides the edit control
-  // entirely rather than showing it disabled — the whole document is read-only.
+}): void {
+  const { disabled, hidden = false, id, isEditing, onToggleEditing } = params;
   const readOnly = useDocumentReadOnly();
-  if (readOnly) {
-    return null;
-  }
-
-  return (
-    <MiniAppActions>
-      <MiniAppButton
-        disabled={params.disabled}
-        onClick={params.onToggleEditing}
-      >
-        {params.isEditing ? "Done" : "Edit"}
-      </MiniAppButton>
-    </MiniAppActions>
+  const editAction = useMemo(
+    () => ({
+      disabled,
+      icon: isEditing ? (
+        <CheckIcon aria-hidden size={18} />
+      ) : (
+        <PencilSimpleIcon aria-hidden size={18} />
+      ),
+      id,
+      label: isEditing
+        ? STRUCTURED_DOCUMENT_DONE_ACTION
+        : STRUCTURED_DOCUMENT_EDIT_ACTION,
+      onClick: onToggleEditing,
+      priority: 100,
+    }),
+    [disabled, id, isEditing, onToggleEditing],
   );
+
+  useWindowTitleBarAction(readOnly || hidden ? null : editAction);
 }
 
 function StructuredDocumentReadField(

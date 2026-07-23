@@ -1,13 +1,7 @@
-import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
-import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
-import { useCallback, useId, useMemo } from "react";
+import { useCallback, useId } from "react";
 import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
-import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
-import {
-  useDocument,
-  useDocumentReadOnly,
-} from "../../stores/documents/DocumentsProvider";
+import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
   type RowWriterResolver,
   useDocumentRowWriters,
@@ -17,6 +11,7 @@ import {
   StructuredDocumentField,
   StructuredDocumentFields,
   StructuredDocumentReadFields,
+  useStructuredDocumentEditAction,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
@@ -40,9 +35,6 @@ import {
   toBloodPressureReadingRows,
 } from "./bloodPressureReadings";
 import "./BloodPressure.css";
-
-const BLOOD_PRESSURE_DONE_ACTION = "Done";
-const BLOOD_PRESSURE_EDIT_ACTION = "Edit";
 
 function BloodPressureReadFields(params: {
   currentAuthorId: string | null;
@@ -212,29 +204,12 @@ export function BloodPressureFields(params: {
     trackerNameInputId,
   } = params;
   const controlsDisabled = disabled || !ready;
-  // The edit toggle is a pane-header toolbar action (the pencil), not a body
-  // button — mirroring the Contact document. A host-forced read-only tracker
-  // (e.g. in the Trash) drops the affordance entirely rather than disabling it.
-  const readOnly = useDocumentReadOnly();
-  const editAction = useMemo(
-    () => ({
-      disabled: controlsDisabled,
-      icon: isEditing ? (
-        <CheckIcon aria-hidden size={18} />
-      ) : (
-        <PencilSimpleIcon aria-hidden size={18} />
-      ),
-      id: "blood-pressure-toggle-edit",
-      label: isEditing
-        ? BLOOD_PRESSURE_DONE_ACTION
-        : BLOOD_PRESSURE_EDIT_ACTION,
-      onClick: onToggleEditing,
-      priority: 100,
-    }),
-    [controlsDisabled, isEditing, onToggleEditing],
-  );
-
-  useWindowTitleBarAction(readOnly ? null : editAction);
+  useStructuredDocumentEditAction({
+    disabled: controlsDisabled,
+    id: "blood-pressure-toggle-edit",
+    isEditing,
+    onToggleEditing,
+  });
 
   if (!isEditing) {
     return (

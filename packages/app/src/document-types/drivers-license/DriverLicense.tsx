@@ -1,13 +1,13 @@
-import { useId, useMemo } from "react";
+import { useCallback, useId, useMemo } from "react";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
   StructuredDocument,
-  StructuredDocumentEditActions,
   StructuredDocumentField,
   StructuredDocumentFields,
   StructuredDocumentReadFields,
+  useStructuredDocumentEditAction,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
@@ -86,7 +86,7 @@ export function DriverLicenseFields(params: {
   );
 }
 
-function DriverLicenseDocumentFieldsPane(params: {
+export function DriverLicenseDocumentFieldsPane(params: {
   canWrite: boolean;
   fields: DriverLicenseDocumentFields;
   inputIds: {
@@ -94,30 +94,30 @@ function DriverLicenseDocumentFieldsPane(params: {
     licenseId: string;
   };
   isEditing: boolean;
+  onToggleEditing: () => void;
   ready: boolean;
-  setEditing: (editing: boolean) => void;
   setStructuredFields: DriverLicenseStructuredFieldSetter;
 }) {
+  useStructuredDocumentEditAction({
+    disabled: !params.ready || !params.canWrite,
+    id: "driver-license-toggle-edit",
+    isEditing: params.isEditing,
+    onToggleEditing: params.onToggleEditing,
+  });
+
   return (
-    <>
-      <StructuredDocumentEditActions
-        disabled={!params.ready || !params.canWrite}
-        isEditing={params.isEditing}
-        onToggleEditing={() => params.setEditing(!params.isEditing)}
-      />
-      <DriverLicenseFields
-        disabled={!params.ready || !params.canWrite}
-        fields={params.fields}
-        inputIds={params.inputIds}
-        isEditing={params.isEditing && params.canWrite}
-        onChange={(patch) => {
-          if (params.canWrite) {
-            params.setStructuredFields("drivers_license", patch);
-          }
-        }}
-        ready={params.ready}
-      />
-    </>
+    <DriverLicenseFields
+      disabled={!params.ready || !params.canWrite}
+      fields={params.fields}
+      inputIds={params.inputIds}
+      isEditing={params.isEditing && params.canWrite}
+      onChange={(patch) => {
+        if (params.canWrite) {
+          params.setStructuredFields("drivers_license", patch);
+        }
+      }}
+      ready={params.ready}
+    />
   );
 }
 
@@ -152,6 +152,12 @@ export function DriverLicense(params: {
   const [isEditing, setIsEditing] = useStructuredDocumentEditing(
     canWrite,
     params.initialEditing,
+  );
+  // Kept reference-stable so the toolbar action it feeds does not re-register
+  // on every render.
+  const toggleEditing = useCallback(
+    () => setIsEditing((editing) => !editing),
+    [setIsEditing],
   );
   const inputIds = {
     expirationDate: useId(),
@@ -196,8 +202,8 @@ export function DriverLicense(params: {
           fields={fields}
           inputIds={inputIds}
           isEditing={isEditing}
+          onToggleEditing={toggleEditing}
           ready={ready}
-          setEditing={setIsEditing}
           setStructuredFields={setStructuredFields}
         />
       }

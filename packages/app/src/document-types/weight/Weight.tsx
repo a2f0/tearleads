@@ -1,13 +1,7 @@
-import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
-import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
-import { useCallback, useId, useMemo } from "react";
+import { useCallback, useId } from "react";
 import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
-import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
-import {
-  useDocument,
-  useDocumentReadOnly,
-} from "../../stores/documents/DocumentsProvider";
+import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
   type RowWriterResolver,
   useDocumentRowWriters,
@@ -17,6 +11,7 @@ import {
   StructuredDocumentField,
   StructuredDocumentFields,
   StructuredDocumentReadFields,
+  useStructuredDocumentEditAction,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
@@ -44,9 +39,6 @@ import {
   type WeightEntryRow,
 } from "./weightEntries";
 import "./Weight.css";
-
-const WEIGHT_DONE_ACTION = "Done";
-const WEIGHT_EDIT_ACTION = "Edit";
 
 function WeightReadFields(params: {
   currentAuthorId: string | null;
@@ -249,28 +241,12 @@ export function WeightFields(params: {
     unitInputId,
   } = params;
   const controlsDisabled = disabled || !ready;
-  // The edit toggle is a pane-header toolbar action (the pencil), not a body
-  // button — mirroring the Contact and Blood Pressure documents. A host-forced
-  // read-only tracker (e.g. in the Trash) drops the affordance entirely rather
-  // than showing it disabled.
-  const readOnly = useDocumentReadOnly();
-  const editAction = useMemo(
-    () => ({
-      disabled: controlsDisabled,
-      icon: isEditing ? (
-        <CheckIcon aria-hidden size={18} />
-      ) : (
-        <PencilSimpleIcon aria-hidden size={18} />
-      ),
-      id: "weight-toggle-edit",
-      label: isEditing ? WEIGHT_DONE_ACTION : WEIGHT_EDIT_ACTION,
-      onClick: onToggleEditing,
-      priority: 100,
-    }),
-    [controlsDisabled, isEditing, onToggleEditing],
-  );
-
-  useWindowTitleBarAction(readOnly ? null : editAction);
+  useStructuredDocumentEditAction({
+    disabled: controlsDisabled,
+    id: "weight-toggle-edit",
+    isEditing,
+    onToggleEditing,
+  });
 
   if (!isEditing) {
     return (

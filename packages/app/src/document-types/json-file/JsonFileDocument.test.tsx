@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
+import { WithWindowToolbar } from "../../../test/helpers/windowToolbarProbe";
 import { JsonFileFields } from "./JsonFileDocument";
 import type { JsonFileDocumentFields } from "./jsonFileDocumentDefinition";
 
@@ -20,6 +21,7 @@ function renderJsonFileFields(
       fileNameInputId="json-file-name"
       onChangeFields={() => undefined}
       onChangeText={() => undefined}
+      onToggleEditing={() => undefined}
       ready
       text={jsonText}
       {...overrides}
@@ -89,4 +91,50 @@ test("edit mode updates raw JSON content independently", () => {
   fireEvent.blur(contentInput);
 
   expect(textChanges).toEqual(['{"renamed":true}']);
+});
+
+test("edit toggle lives in the toolbar, not the document body", () => {
+  let toggles = 0;
+  const view = render(
+    <WithWindowToolbar>
+      <JsonFileFields
+        contentInputId="json-content"
+        fields={jsonFields}
+        fileNameInputId="json-file-name"
+        isEditing={false}
+        onChangeFields={() => undefined}
+        onChangeText={() => undefined}
+        onToggleEditing={() => {
+          toggles += 1;
+        }}
+        ready
+        text={jsonText}
+      />
+    </WithWindowToolbar>,
+  );
+
+  expect(view.queryByRole("button", { name: "Edit" })).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Toolbar Edit" }));
+
+  expect(toggles).toBe(1);
+});
+
+test("toolbar edit action reads Done while editing", () => {
+  const view = render(
+    <WithWindowToolbar>
+      <JsonFileFields
+        contentInputId="json-content"
+        fields={jsonFields}
+        fileNameInputId="json-file-name"
+        isEditing
+        onChangeFields={() => undefined}
+        onChangeText={() => undefined}
+        onToggleEditing={() => undefined}
+        ready
+        text={jsonText}
+      />
+    </WithWindowToolbar>,
+  );
+
+  expect(view.getByRole("button", { name: "Toolbar Done" })).toBeTruthy();
 });

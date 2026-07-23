@@ -44,7 +44,13 @@ test("contact document edits from the toolbar", async () => {
         canWrite={true}
         isEditing={false}
         ready={true}
-        setEditing={(editing) => editingStates.push(editing)}
+        // The fields component toggles through the state dispatch, so resolve
+        // an updater against the rendered `isEditing` before recording it.
+        setEditing={(editing) =>
+          editingStates.push(
+            typeof editing === "function" ? editing(false) : editing,
+          )
+        }
         setStructuredFields={async () => undefined}
         values={values}
       />

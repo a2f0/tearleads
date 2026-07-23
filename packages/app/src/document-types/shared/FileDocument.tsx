@@ -1,6 +1,4 @@
-import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
-import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   MiniAppInput,
@@ -31,6 +29,7 @@ import {
 } from "./fileDownload";
 import {
   StructuredDocument,
+  useStructuredDocumentEditAction,
   useStructuredDocumentEditing,
 } from "./StructuredDocument";
 
@@ -126,8 +125,6 @@ function FileDocumentNameRow(params: {
   );
 }
 
-const FILE_DOCUMENT_EDIT_LABEL = "Edit";
-const FILE_DOCUMENT_DONE_LABEL = "Done";
 const FILE_DOCUMENT_DOWNLOAD_LABEL = "Download";
 
 export function FileDocumentFields({
@@ -160,24 +157,15 @@ export function FileDocumentFields({
   readFields: ReadonlyArray<FileDocumentField>;
 }) {
   // Edit and Download are pane-header toolbar actions (rendered in the window
-  // and routed chrome), not body buttons — mirroring the Contact document's
-  // edit toggle. Edit sits left of Download via the higher priority.
-  const editAction = useMemo(
-    () => ({
-      disabled: editDisabled,
-      icon: isEditing ? (
-        <CheckIcon aria-hidden size={18} />
-      ) : (
-        <PencilSimpleIcon aria-hidden size={18} />
-      ),
-      id: "file-document-toggle-edit",
-      label: isEditing ? FILE_DOCUMENT_DONE_LABEL : FILE_DOCUMENT_EDIT_LABEL,
-      onClick: onToggleEditing,
-      priority: 100,
-    }),
-    [editDisabled, isEditing, onToggleEditing],
-  );
-  useWindowTitleBarAction(hideEdit ? null : editAction);
+  // and routed chrome), not body buttons. Edit sits left of Download via the
+  // higher priority the shared edit action registers with.
+  useStructuredDocumentEditAction({
+    disabled: editDisabled,
+    hidden: hideEdit,
+    id: "file-document-toggle-edit",
+    isEditing,
+    onToggleEditing,
+  });
 
   const downloadAction = useMemo(
     () => ({
