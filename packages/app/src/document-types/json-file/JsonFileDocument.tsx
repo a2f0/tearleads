@@ -246,7 +246,6 @@ export function JsonFileDocument(params: {
     setStructuredFields,
     setText,
     structuredFields,
-    syncing,
     text,
   } = useDocument();
   const fields = useMemo(
@@ -291,9 +290,6 @@ export function JsonFileDocument(params: {
           />
         </>
       }
-      ready={ready}
-      syncing={syncing}
-      title="JSON File"
     />
   );
 }

@@ -1,14 +1,9 @@
-import { getStoredDocumentTypeLabel } from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import {
   DEFAULT_DOCUMENT_ID,
   DocumentsProvider,
   useDocument,
 } from "../../stores/documents/DocumentsProvider";
-import {
-  APP_DEFAULT_DOCUMENT_KIND,
-  APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-} from "../projectors";
 import {
   StructuredDocument,
   StructuredDocumentReadFields,
@@ -20,16 +15,6 @@ interface DefaultLoroDocumentSnapshot {
   documentKind: string;
   fields: Record<string, string>;
   text: string;
-}
-
-function formatDefaultLoroDocumentTitle(documentKind: string): string {
-  const label =
-    getStoredDocumentTypeLabel(
-      documentKind,
-      APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-    ) || documentKind;
-
-  return label ? `${label.slice(0, 1).toUpperCase()}${label.slice(1)}` : "";
 }
 
 function sortedFields(
@@ -57,8 +42,7 @@ export function serializeDefaultLoroDocument(input: {
 }
 
 function DefaultLoroDocument() {
-  const { documentKind, ready, structuredFields, syncing, text } =
-    useDocument();
+  const { documentKind, structuredFields, text } = useDocument();
   const snapshot = useMemo(
     () =>
       serializeDefaultLoroDocument({
@@ -94,11 +78,6 @@ function DefaultLoroDocument() {
           </section>
         </div>
       }
-      ready={ready}
-      syncing={syncing}
-      title={formatDefaultLoroDocumentTitle(
-        snapshot.documentKind || APP_DEFAULT_DOCUMENT_KIND,
-      )}
     />
   );
 }

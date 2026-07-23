@@ -259,7 +259,6 @@ function useFileDocument(params: {
     ready,
     setStructuredFields,
     structuredFields,
-    syncing,
   } = useDocument();
   const [isEditing, setIsEditing] = useStructuredDocumentEditing(
     ready && canWrite,
@@ -337,7 +336,6 @@ function useFileDocument(params: {
     mediaPreview,
     readFields,
     ready,
-    syncing,
     toggleEditing,
   };
 }
@@ -369,9 +367,6 @@ export function FileDocument(params: {
           readFields={model.readFields}
         />
       }
-      ready={model.ready}
-      syncing={model.syncing}
-      title={title}
     />
   );
 }

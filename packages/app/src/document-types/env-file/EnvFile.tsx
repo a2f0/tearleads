@@ -311,7 +311,6 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
     rows,
     setStructuredFields,
     structuredFields,
-    syncing,
     updateRowFields,
   } = useDocument();
   const fileNameInputId = useId();
@@ -385,9 +384,6 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
           />
         </>
       }
-      ready={ready}
-      syncing={syncing}
-      title=".env File"
     />
   );
 }

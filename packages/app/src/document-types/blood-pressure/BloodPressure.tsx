@@ -250,7 +250,6 @@ export function BloodPressure(params: {
     rows,
     setStructuredFields,
     structuredFields,
-    syncing,
     updateRowFields,
   } = useDocument();
   const trackerNameInputId = useId();
@@ -328,9 +327,6 @@ export function BloodPressure(params: {
           trackerNameInputId={trackerNameInputId}
         />
       }
-      ready={ready}
-      syncing={syncing}
-      title="Blood Pressure Tracker"
     />
   );
 }

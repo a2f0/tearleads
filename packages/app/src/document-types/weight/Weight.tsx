@@ -289,7 +289,6 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
     rows,
     setStructuredFields,
     structuredFields,
-    syncing,
     updateRowFields,
   } = useDocument();
   const trackerNameInputId = useId();
@@ -373,9 +372,6 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
           unitInputId={unitInputId}
         />
       }
-      ready={ready}
-      syncing={syncing}
-      title="Weight Tracker"
     />
   );
 }

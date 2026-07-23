@@ -176,7 +176,6 @@ export function Passport(params: PassportProps) {
     setAttachment,
     setStructuredFields,
     structuredFields,
-    syncing,
   } = useDocument();
   const fields = useMemo(
     () => readPassportFields(structuredFields),
@@ -241,9 +240,6 @@ export function Passport(params: PassportProps) {
           setStructuredFields={setStructuredFields}
         />
       }
-      ready={ready}
-      syncing={syncing}
-      title="Passport"
     />
   );
 }

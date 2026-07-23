@@ -32,9 +32,6 @@ interface StructuredDocumentProps {
   // Distinct from `attachments` so it keeps the leading position the Contacts
   // mini-app's detail panel gives it.
   leading?: ReactNode;
-  ready: boolean;
-  syncing: boolean;
-  title: string;
 }
 
 const STRUCTURED_DOCUMENT_EMPTY_VALUE = "None";
@@ -78,19 +75,14 @@ export function useStructuredDocumentEditing(
   return [isEditing, setIsEditing] as const;
 }
 
+// The type label and load/sync status this once rendered duplicated the host
+// chrome above it (the Explorer detail header already shows the document title
+// and a durable sync badge), so the document owns only its own body now.
 export function StructuredDocument(params: StructuredDocumentProps) {
-  const { attachments, fields, leading, ready, syncing, title } = params;
+  const { attachments, fields, leading } = params;
 
   return (
     <div className="structured-document">
-      <div className="structured-document-header">
-        <div className="structured-document-title">
-          <strong>{title}</strong>
-          <span className="structured-document-status">
-            {!ready ? "Loading..." : syncing ? "Syncing..." : "Ready"}
-          </span>
-        </div>
-      </div>
       {leading ?? null}
       {fields}
       {attachments ?? null}

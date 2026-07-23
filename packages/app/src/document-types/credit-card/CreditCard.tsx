@@ -321,7 +321,6 @@ export function CreditCard(params: CreditCardProps) {
     setAttachment,
     setStructuredFields,
     structuredFields,
-    syncing,
   } = useDocument();
   const fields = useMemo(
     () => readCreditCardFields(structuredFields),
@@ -386,9 +385,6 @@ export function CreditCard(params: CreditCardProps) {
           setStructuredFields={setStructuredFields}
         />
       }
-      ready={ready}
-      syncing={syncing}
-      title="Credit Card"
     />
   );
 }
