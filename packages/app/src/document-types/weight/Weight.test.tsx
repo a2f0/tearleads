@@ -321,21 +321,16 @@ test("writer's kebab menu offers Edit and Attribution", () => {
   expect(editCalls).toBe(1);
 });
 
-test("edits tracker name, unit, and entry cells through callbacks", () => {
+test("edits tracker name and entry cells through callbacks", () => {
   const renameCalls: string[] = [];
-  const unitCalls: WeightUnit[] = [];
   const updateCalls: Array<[string, string, string]> = [];
   const view = renderWeightFields({
-    onChangeUnit: (unit) => unitCalls.push(unit),
     onRenameTracker: (value) => renameCalls.push(value),
     onUpdateEntry: (id, field, value) => updateCalls.push([id, field, value]),
   });
 
   fireEvent.change(view.getByLabelText("Weight tracker name"), {
     target: { value: "Cut 2026" },
-  });
-  fireEvent.change(view.getByLabelText("Weight unit"), {
-    target: { value: "kg" },
   });
   fireEvent.change(view.getByLabelText("Entry 1 weight"), {
     target: { value: "181" },
@@ -345,11 +340,35 @@ test("edits tracker name, unit, and entry cells through callbacks", () => {
   });
 
   expect(renameCalls).toEqual(["Cut 2026"]);
-  expect(unitCalls).toEqual(["kg"]);
   expect(updateCalls).toEqual([
     ["e1", "weight", "181"],
     ["e2", "notes", "After run"],
   ]);
+});
+
+test("the unit can be chosen while the tracker is empty", () => {
+  const unitCalls: WeightUnit[] = [];
+  const view = renderWeightFields({
+    entries: [],
+    onChangeUnit: (unit) => unitCalls.push(unit),
+  });
+
+  const select = view.getByLabelText("Weight unit") as HTMLSelectElement;
+  expect(select.disabled).toBe(false);
+  fireEvent.change(select, { target: { value: "kg" } });
+
+  expect(unitCalls).toEqual(["kg"]);
+});
+
+test("the unit locks once the tracker holds entries", () => {
+  // Changing it afterwards would reinterpret every recorded weight — 180 lb
+  // would start reading as 180 kg — and the store cannot convert the rows and
+  // the unit in one atomic write.
+  const view = renderWeightFields();
+
+  const select = view.getByLabelText("Weight unit") as HTMLSelectElement;
+  expect(select.disabled).toBe(true);
+  expect(select.title).toBe("The unit is fixed once the tracker has entries");
 });
 
 test("marks out-of-range weights invalid without blocking edits", () => {

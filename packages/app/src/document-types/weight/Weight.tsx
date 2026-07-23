@@ -20,8 +20,11 @@ import {
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
-import { useWeightEntryWriters } from "./useWeightEntryWriters";
-import { type UpdateEntry, WeightEntryEditRow } from "./WeightEditRow";
+import {
+  type UpdateEntry,
+  WeightEntryEditRow,
+  type WeightField,
+} from "./WeightEditRow";
 import { WeightEntryReadRow } from "./WeightReadRow";
 import {
   toWeightUnit,
@@ -30,6 +33,7 @@ import {
   WEIGHT_MEASUREMENT_FIELD,
   WEIGHT_NOTES_FIELD,
   WEIGHT_TRACKER_NAME_FIELD,
+  WEIGHT_UNIT_FIELD,
   WEIGHT_UNITS,
   type WeightUnit,
 } from "./weightDocumentDefinition";
@@ -134,6 +138,7 @@ function WeightEditFields(params: {
     unit,
     unitInputId,
   } = params;
+  const unitLocked = entries.length > 0;
 
   return (
     <div className="weight-document-fields">
@@ -153,12 +158,22 @@ function WeightEditFields(params: {
           />
         </StructuredDocumentField>
         <StructuredDocumentField inputId={unitInputId} label="Unit">
+          {/* The unit is fixed once the tracker holds entries. Changing it later
+              would silently reinterpret every recorded weight (180 lb reading as
+              180 kg), and converting them instead cannot be done atomically —
+              the store commits each field and row separately, so an interrupted
+              conversion would leave the history mixing units. */}
           <select
             id={unitInputId}
             aria-label="Weight unit"
             value={unit}
             onChange={(event) => onChangeUnit(toWeightUnit(event.target.value))}
-            disabled={controlsDisabled}
+            disabled={controlsDisabled || unitLocked}
+            title={
+              unitLocked
+                ? "The unit is fixed once the tracker has entries"
+                : undefined
+            }
           >
             {WEIGHT_UNITS.map((option) => (
               <option key={option} value={option}>
@@ -333,14 +348,12 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
   const unit = readUnitField(structuredFields);
   const entries = toWeightEntryRows(rows, readCell);
 
-  const { changeUnit, updateEntry } = useWeightEntryWriters({
-    canWrite,
-    entries,
-    setStructuredFields,
-    stageCell,
-    unit,
-    updateRowFields,
-  });
+  function handleUpdateEntry(id: string, field: WeightField, value: string) {
+    stageCell(id, field, value);
+    if (canWrite) {
+      void updateRowFields(id, { [field]: value });
+    }
+  }
 
   return (
     <StructuredDocument
@@ -363,7 +376,15 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
               });
             }
           }}
-          onChangeUnit={changeUnit}
+          // Only reachable while the tracker is empty; the editor locks the unit
+          // once it holds entries, so this never reinterprets recorded weights.
+          onChangeUnit={(nextUnit) => {
+            if (canWrite) {
+              void setStructuredFields(WEIGHT_DOCUMENT_KIND, {
+                [WEIGHT_UNIT_FIELD]: nextUnit,
+              });
+            }
+          }}
           onRemoveEntry={(id) => {
             if (canWrite) {
               void removeRow(id);
@@ -378,7 +399,7 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
             }
           }}
           onToggleEditing={toggleEditing}
-          onUpdateEntry={updateEntry}
+          onUpdateEntry={handleUpdateEntry}
           ready={ready}
           trackerName={trackerName}
           trackerNameInputId={trackerNameInputId}

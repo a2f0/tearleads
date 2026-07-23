@@ -77,33 +77,6 @@ export function toWeightEntryRows(
   }));
 }
 
-const POUNDS_PER_KILOGRAM = 2.2046226218;
-
-// Restate a stored measurement in another unit, so switching a tracker's unit
-// keeps its history meaning the same physical weight instead of silently
-// reinterpreting 180 lb as 180 kg. Returns null — meaning "leave this cell
-// alone" — when the units match or the cell is blank, half-typed, or otherwise
-// not a valid measurement: a value the document would flag as invalid is the
-// user's to fix, not this function's to rewrite into something else.
-export function convertWeightValue(
-  value: string,
-  from: WeightUnit,
-  to: WeightUnit,
-): string | null {
-  const trimmed = value.trim();
-  if (from === to || !isValidWeightMeasurement(trimmed)) {
-    return null;
-  }
-
-  const parsed = Number.parseFloat(trimmed);
-  const converted =
-    to === "kg" ? parsed / POUNDS_PER_KILOGRAM : parsed * POUNDS_PER_KILOGRAM;
-  // Round to the two decimals the input itself accepts. Round-tripping a unit
-  // twice can therefore land a hundredth off the original; that is preferable to
-  // storing precision the editor cannot display or re-enter.
-  return String(Math.round(converted * 100) / 100);
-}
-
 export function formatWeight(entry: WeightEntryRow, unit: WeightUnit): string {
   const weight = entry.weight.trim();
   return weight.length > 0 ? `${weight} ${unit}` : WEIGHT_EMPTY_VALUE;
