@@ -6,7 +6,10 @@ import {
 } from "./NavigationModeOverrideProvider";
 import { NavigationModeSwitch } from "./NavigationModeSwitch";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  delete window.Capacitor;
+});
 
 // Surfaces the current override alongside the switch so a test can read what the
 // click set on the shared (in-memory) override.
@@ -35,6 +38,19 @@ test("the windowed switch offers (and selects) the iPad/mobile layout", () => {
   fireEvent.click(button);
 
   expect(view.getByText("routed")).toBeTruthy();
+  view.unmount();
+});
+
+test("hides itself in the native capacitor app", () => {
+  window.Capacitor = { isNativePlatform: () => true };
+
+  const view = render(
+    <NavigationModeOverrideProvider>
+      <NavigationModeSwitch mode="routed" />
+    </NavigationModeOverrideProvider>,
+  );
+
+  expect(view.container.querySelector("button")).toBeNull();
   view.unmount();
 });
 
