@@ -20,11 +20,8 @@ import {
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
-import {
-  type UpdateEntry,
-  WeightEntryEditRow,
-  type WeightField,
-} from "./WeightEditRow";
+import { useWeightEntryWriters } from "./useWeightEntryWriters";
+import { type UpdateEntry, WeightEntryEditRow } from "./WeightEditRow";
 import { WeightEntryReadRow } from "./WeightReadRow";
 import {
   toWeightUnit,
@@ -33,7 +30,6 @@ import {
   WEIGHT_MEASUREMENT_FIELD,
   WEIGHT_NOTES_FIELD,
   WEIGHT_TRACKER_NAME_FIELD,
-  WEIGHT_UNIT_FIELD,
   WEIGHT_UNITS,
   type WeightUnit,
 } from "./weightDocumentDefinition";
@@ -337,12 +333,14 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
   const unit = readUnitField(structuredFields);
   const entries = toWeightEntryRows(rows, readCell);
 
-  function handleUpdateEntry(id: string, field: WeightField, value: string) {
-    stageCell(id, field, value);
-    if (canWrite) {
-      void updateRowFields(id, { [field]: value });
-    }
-  }
+  const { changeUnit, updateEntry } = useWeightEntryWriters({
+    canWrite,
+    entries,
+    setStructuredFields,
+    stageCell,
+    unit,
+    updateRowFields,
+  });
 
   return (
     <StructuredDocument
@@ -365,13 +363,7 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
               });
             }
           }}
-          onChangeUnit={(nextUnit) => {
-            if (canWrite) {
-              void setStructuredFields(WEIGHT_DOCUMENT_KIND, {
-                [WEIGHT_UNIT_FIELD]: nextUnit,
-              });
-            }
-          }}
+          onChangeUnit={changeUnit}
           onRemoveEntry={(id) => {
             if (canWrite) {
               void removeRow(id);
@@ -386,7 +378,7 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
             }
           }}
           onToggleEditing={toggleEditing}
-          onUpdateEntry={handleUpdateEntry}
+          onUpdateEntry={updateEntry}
           ready={ready}
           trackerName={trackerName}
           trackerNameInputId={trackerNameInputId}
