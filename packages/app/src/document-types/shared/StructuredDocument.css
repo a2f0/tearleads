@@ -9,23 +9,13 @@
   min-height: 0;
   overflow-y: auto;
   scrollbar-gutter: var(--scrollbar-gutter);
-}
-
-.structured-document-header {
-  display: grid;
-  gap: var(--space-sm);
-}
-
-.structured-document-title {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-md);
-}
-
-.structured-document-status {
-  font-size: var(--font-size-sm);
-  opacity: var(--opacity-muted);
+  /* Pack the rows at the block start. Grid's initial `align-content: normal`
+     behaves as `stretch`, and because the host pane gives this grid a definite
+     height, a document shorter than the pane had its free space divided evenly
+     between the rows — which is where the empty band above the first field of a
+     preview-less document (a tracker, a card) came from. Collect the slack at
+     the foot instead. */
+  align-content: start;
 }
 
 .structured-document-read-fields {
@@ -38,12 +28,24 @@
   display: grid;
   gap: var(--space-md);
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  /* Every field in a row shares the row's height, so a label that wraps to two
+     columns-worth of lines would otherwise leave its neighbours' controls
+     floating. Align the fields to the row end so the controls — always the last
+     thing in a field — stay on one line across the row. */
+  align-items: end;
 }
 
 .structured-document-field {
   display: grid;
   gap: var(--space-sm);
   font-size: var(--font-size-sm);
+  /* Terminate the same stretch cascade guarded against above: a field handed
+     more height than it needs must not hand it to its control. Without this the
+     plain fields' inputs grew to fill while the fields carrying a trailing
+     action kept their `--control-height` (their control sits in a centered flex
+     row), so the two halves of a card's field row rendered at different
+     heights. */
+  align-content: start;
 }
 
 .structured-document-field-control {

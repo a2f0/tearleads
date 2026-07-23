@@ -127,7 +127,7 @@ function ContactDocumentAvatar({
 export function ContactDocument(params: {
   initialEditing?: boolean | undefined;
 }) {
-  const { canWrite, ready, setStructuredFields, structuredFields, syncing } =
+  const { canWrite, ready, setStructuredFields, structuredFields } =
     useDocument();
   const [isEditing, setIsEditing] = useStructuredDocumentEditing(
     canWrite,
@@ -160,9 +160,6 @@ export function ContactDocument(params: {
           isEditing={isEditing}
         />
       }
-      ready={ready}
-      syncing={syncing}
-      title="Contact"
     />
   );
 }

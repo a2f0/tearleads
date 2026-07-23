@@ -143,7 +143,6 @@ export function DriverLicense(params: {
     setAttachment,
     setStructuredFields,
     structuredFields,
-    syncing,
   } = useDocument();
   const fields = useMemo(
     () => readDriverLicenseFields(structuredFields),
@@ -207,9 +206,6 @@ export function DriverLicense(params: {
           setStructuredFields={setStructuredFields}
         />
       }
-      ready={ready}
-      syncing={syncing}
-      title="Driver's License"
     />
   );
 }

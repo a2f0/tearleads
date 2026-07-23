@@ -26,6 +26,21 @@
  *      touch chrome (see the compact type ramp below).
  */
 :root[data-navigation-mode="routed"] {
+  /*
+   * Anchor the rem to 16px. The app's root `font-family` is the bare
+   * `monospace` generic (styles.css), which trips the browsers' monospace
+   * quirk: with no explicit root `font-size`, Chromium and WebKit fall back to
+   * their ~13px *default fixed font* size rather than the 16px default, so
+   * `1rem` resolves to ~13px everywhere. Every rem-based control token below
+   * therefore rendered ~19% short of the pixel sizes this file documents —
+   * `--control-height: 2.75rem` came out at ~35.75px, not the 44px HIG hit
+   * target the comments claim. Setting an explicit `font-size` disables the
+   * quirk (it applies only to the initial `medium` keyword), so this one
+   * declaration makes the 44px target and the 16px type ramp below real. Scoped
+   * to the routed tier; the windowed layout keeps its existing dense rem.
+   */
+  font-size: 16px;
+
   --control-height: 2.75rem;
 
   /*
@@ -39,9 +54,7 @@
    * Re-anchor the ramp so the body step (`sm`) meets the same 16px floor, and
    * scale the neighbouring steps with it so the desktop hierarchy
    * (2xs < xs < sm < md < lg) is preserved at touch proportions — same ratios,
-   * anchored to 1rem = 16px instead of 0.9rem. Deliberately overrides the
-   * tokens (not the root font-size) so `--control-height` and the virtualized
-   * row pitch stay pinned at 44px.
+   * anchored to 1rem = 16px.
    */
   --font-size-2xs: 0.8rem; /* 12.8px */
   --font-size-xs: 0.85rem; /* 13.6px */
