@@ -4,7 +4,6 @@ interface OrgManagerScopeResetInput {
   readonly closeContextMenu: () => void;
   readonly resetDirectoryState: () => void;
   readonly scopeKey: string;
-  readonly setDirectorySettled: (value: false) => void;
   readonly setError: (value: null) => void;
   readonly setGrants: (value: null) => void;
   readonly setLoading: (value: false) => void;
@@ -24,9 +23,6 @@ export function useOrgManagerScopeReset(
     }
     previousScopeKeyRef.current = input.scopeKey;
     input.resetDirectoryState();
-    // The new scope has not been looked at yet, so its empty state is
-    // "not fetched" rather than "nothing there".
-    input.setDirectorySettled(false);
     input.setOrganizationPolicyHistory(null);
     input.setGrants(null);
     input.setError(null);

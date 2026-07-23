@@ -64,9 +64,10 @@ function createRefresherHarness(input: {
     setGroupContainers: noop,
     setGroupPolicyHistory: noop,
     setGroups: noop,
-    setDirectorySettled: (value: boolean) => {
-      settledValues.push(value);
+    markDirectorySettled: () => {
+      settledValues.push(true);
     },
+    markSettled: noop,
     setLoading: noop,
     setLoadingUserDetail: noop,
     setMemberGroupId: noop,

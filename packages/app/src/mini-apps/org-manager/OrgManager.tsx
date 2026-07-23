@@ -208,7 +208,7 @@ function OrgManagerGroupsContent({ model }: { model: OrgManagerModel }) {
       members={model.members}
       memberUserIds={model.memberUserIds}
       mutating={model.mutating}
-      pending={model.dataPending}
+      pending={model.groupDetailsPending}
       openCreateGroupDialog={model.openCreateGroupDialog}
       openRosterUser={model.openRosterUser}
       profileDisplayNamesByUserId={model.profileDisplayNamesByUserId}

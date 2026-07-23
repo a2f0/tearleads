@@ -55,6 +55,7 @@ function DetailProbe(input: {
       auth: { isAuthenticated: true, organizationId: "org-a" },
     } as ReturnType<typeof useTearleadsRuntime>,
     beginRequest,
+    markSettled: () => undefined,
     orgManagerActions: {
       loadGroupPresentationDetails: input.loadDetails,
     } as ReturnType<typeof useOrgManagerActions>,

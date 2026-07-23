@@ -117,7 +117,8 @@ interface OrgManagerRefreshersParams {
     SetStateAction<OrganizationGroupPolicyHistory | null>
   >;
   setGroups: Dispatch<SetStateAction<ReadonlyArray<OrganizationGroupSummary>>>;
-  setDirectorySettled: Dispatch<SetStateAction<boolean>>;
+  markDirectorySettled: () => void;
+  markSettled: (resource: "groupDetails", key: string | null) => void;
   setLoading: Dispatch<SetStateAction<boolean>>;
   setLoadingUserDetail: Dispatch<SetStateAction<boolean>>;
   setMemberGroupId: Dispatch<SetStateAction<string | null>>;
@@ -153,7 +154,8 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setGroupContainers,
     setGroupPolicyHistory,
     setGroups,
-    setDirectorySettled,
+    markDirectorySettled,
+    markSettled,
     setLoading,
     setLoadingUserDetail,
     setMemberGroupId,
@@ -167,6 +169,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
   } = params;
 
   const refreshSelectedGroupDetails = useOrgManagerGroupDetailsRefresher({
+    markSettled,
     appData,
     beginRequest,
     orgManagerActions,
@@ -358,15 +361,15 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
           // produced or whether it managed the loading flag: from here on an
           // empty projection is a real answer rather than a not-yet-fetched
           // one, so the views may say so.
-          setDirectorySettled(true);
+          markDirectorySettled();
         }
       }
     },
     [
       beginRequest,
       loadDirectoryAndGroups,
+      markDirectorySettled,
       selectedGroupIdRef,
-      setDirectorySettled,
       setError,
       setLoading,
     ],
