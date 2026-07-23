@@ -100,12 +100,20 @@ test("a row-pitch change keeps the same row at the top of the viewport", () => {
   // Row 100 sits at the top: 100 * 36px.
   frame.scrollTop = 3600;
   fireEvent.scroll(frame);
-  const beforeOffset = offsets.at(-1);
+  const settledOffset = offsets.at(-1);
+  expect(settledOffset).toBe(92);
 
+  const rendersBeforePitchChange = offsets.length;
   view.rerender(<Probe rowHeight={56} />);
 
-  // The pixel offset is rescaled to 100 * 56px, so the derived row offset — and
-  // therefore the fetched window — is unchanged.
+  // The pixel offset is rescaled to 100 * 56px, so the row at the top is the
+  // same one.
   expect(frame.scrollTop).toBe(5600);
-  expect(offsets.at(-1)).toBe(beforeOffset);
+  // And no render in between ever exposed a different window: a consumer that
+  // fetches from the offset (the explorer item list) would have issued a query
+  // for a transient offset and blanked itself before the correction landed.
+  expect(offsets.slice(rendersBeforePitchChange)).not.toContain(0);
+  expect(
+    offsets.slice(rendersBeforePitchChange).every((o) => o === settledOffset),
+  ).toBe(true);
 });

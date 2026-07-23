@@ -4,6 +4,7 @@ import {
   type HTMLAttributes,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -184,25 +185,35 @@ export function useMiniAppVirtualWindow<
   // the top of the viewport exactly where it was — and, because the derived
   // offset is then unchanged, avoids both a refetch and the blank frame the
   // detail pane would otherwise show while it lands.
-  useEffect(() => {
-    const previousRowHeight = previousRowHeightRef.current;
+  //
+  // Derived during render rather than in an effect: an effect runs after the
+  // render that already computed a range from the old pixel offset at the new
+  // pitch, and a consumer that fetches from that range (the explorer item
+  // window) would issue a query for the transient offset and blank its list
+  // before the correction arrived.
+  const previousRowHeight = previousRowHeightRef.current;
+  const rescaledScrollTop =
+    previousRowHeight === rowHeight || scrollTop <= 0
+      ? scrollTop
+      : Math.round((scrollTop * rowHeight) / previousRowHeight);
+
+  useLayoutEffect(() => {
     previousRowHeightRef.current = rowHeight;
-    if (previousRowHeight === rowHeight || !frame || frame.scrollTop <= 0) {
+    if (rescaledScrollTop === scrollTop) {
       return;
     }
 
-    const rescaled = Math.round(
-      (frame.scrollTop * rowHeight) / previousRowHeight,
-    );
-    frame.scrollTop = rescaled;
-    setScrollTop(rescaled);
-  }, [frame, rowHeight, setScrollTop]);
+    if (frame) {
+      frame.scrollTop = rescaledScrollTop;
+    }
+    setScrollTop(rescaledScrollTop);
+  }, [frame, rescaledScrollTop, rowHeight, scrollTop, setScrollTop]);
 
   const range = getMiniAppVirtualWindowRange({
     minWindowRows,
     overscanRows,
     rowHeight,
-    scrollTop: shouldReset ? 0 : scrollTop,
+    scrollTop: shouldReset ? 0 : rescaledScrollTop,
     viewportHeight,
   });
 
@@ -212,7 +223,7 @@ export function useMiniAppVirtualWindow<
     frameWidth,
     limit: range.limit,
     offset: range.offset,
-    scrollTop: shouldReset ? 0 : scrollTop,
+    scrollTop: shouldReset ? 0 : rescaledScrollTop,
     viewportHeight,
   };
 }
