@@ -230,6 +230,41 @@ test("a save that lands after the draft is abandoned does not replace", async ()
   }
 });
 
+test("a save that lands on the other draft route does not replace it", async () => {
+  const view = renderContactsRouteStateHarness();
+  const history = spyHistory();
+
+  try {
+    fireEvent.click(view.getByRole("button", { name: "New Contact" }));
+    await waitFor(() => {
+      expect(view.getByTestId("route").textContent).toBe("new-contact");
+    });
+    fireEvent.click(view.getByRole("button", { name: "Begin Save" }));
+
+    // Both draft actions stay reachable from the File menu, so the user can
+    // open the import form while the create is still in flight.
+    fireEvent.click(view.getByRole("button", { name: "Import Contact" }));
+    await waitFor(() => {
+      expect(view.getByTestId("route").textContent).toBe("import-contact");
+    });
+
+    fireEvent.click(view.getByRole("button", { name: "Finish Save" }));
+
+    await waitFor(() => {
+      expect(view.getByTestId("selected-contact-id").textContent).toBe("ada");
+    });
+    // Only the new-contact entry that started the save was prunable, and it is
+    // no longer current, so the import route the user opened survives.
+    expect(history.pushedUrls).toEqual([
+      "/app/contacts/new",
+      "/app/contacts/import",
+      "/app/contacts/contact/ada",
+    ]);
+  } finally {
+    history.restore();
+  }
+});
+
 test("selecting an existing contact from the list pushes", async () => {
   const view = renderContactsRouteStateHarness();
   const history = spyHistory();

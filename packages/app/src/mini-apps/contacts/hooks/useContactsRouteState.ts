@@ -57,11 +57,10 @@ export function useContactsRouteState(compactRoutedMode: boolean) {
       ),
     [setRouteSnapshot],
   );
-  // Creating and importing both await storage, and the user can route away
-  // while the write is in flight. Read the route the caller is actually on when
-  // it lands, not the one that was current when the write started — otherwise a
-  // late replace would overwrite whatever entry the user moved to and strand the
-  // draft form in history anyway.
+  // The live route, for callbacks that resolve after a later render. Creating
+  // and importing both await storage, and the File menu keeps both draft
+  // actions reachable throughout, so the user can route away — to a contact or
+  // to the other draft form — before the write lands.
   const currentRouteRef = useRef(routeSnapshot.route);
   useEffect(() => {
     currentRouteRef.current = routeSnapshot.route;
@@ -72,12 +71,20 @@ export function useContactsRouteState(compactRoutedMode: boolean) {
   // the draft was started from, not re-open the blank form. A message-driven
   // import (org-manager's "Import Into Contacts") arrives on the selection
   // route, which has nothing transient to prune and still pushes.
+  //
+  // Only the draft entry that started this save may be pruned, so replace only
+  // while that same entry is still current. A save that lands after the user
+  // moved on pushes instead — replacing then would delete whatever they moved
+  // to and leave the draft in history regardless.
+  const initiatingRoute = routeSnapshot.route;
   const selectCreatedContactRoute = useCallback(
     (contactId: string) =>
       selectContactRoute(contactId, {
-        replace: currentRouteRef.current !== "selection",
+        replace:
+          initiatingRoute !== "selection" &&
+          currentRouteRef.current === initiatingRoute,
       }),
-    [selectContactRoute],
+    [initiatingRoute, selectContactRoute],
   );
 
   return {
