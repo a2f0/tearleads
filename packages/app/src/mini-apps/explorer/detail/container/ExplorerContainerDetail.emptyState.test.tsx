@@ -14,6 +14,21 @@ const resizeObserverGlobal = globalThis as unknown as {
   ResizeObserver?: unknown;
 };
 const originalResizeObserver = resizeObserverGlobal.ResizeObserver;
+const originalClientWidthDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis.HTMLElement?.prototype ?? {},
+  "clientWidth",
+);
+
+// happy-dom has no layout engine, so every clientWidth is 0 — which the fold
+// predicate reads as "not measured" and ignores. Stand in for the layout a
+// browser would do. The initial measurement is a direct clientWidth read, so
+// this works even with the ResizeObserver disabled above.
+function mockFrameWidth(width: number) {
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+    configurable: true,
+    get: () => width,
+  });
+}
 
 // Without a ResizeObserver the virtual window's limit stays fixed, keeping the
 // fetch sequence deterministic (one listContainerItemWindow call per trigger).
@@ -24,6 +39,13 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   resizeObserverGlobal.ResizeObserver = originalResizeObserver;
+  if (originalClientWidthDescriptor) {
+    Object.defineProperty(
+      HTMLElement.prototype,
+      "clientWidth",
+      originalClientWidthDescriptor,
+    );
+  }
 });
 
 const containerA: ContainerNode = {
@@ -271,4 +293,83 @@ test("an active import in this container shows the status line and a working can
       name: EXPLORER_LABELS.fileImportCancelAction,
     }),
   ).toBeNull();
+});
+
+test("a narrow item list frame folds the rows onto two lines", async () => {
+  // A wide viewport in the windowed layout: only the frame's own width is
+  // narrow, which is the case a viewport media query cannot see.
+  mockFrameWidth(320);
+  const { documentQueries, pending } = createDeferredDocumentQueries();
+  const props = renderContainerDetail({ documentQueries });
+  const view = render(containerDetailElement(props));
+
+  await settlePendingItemWindow(pending, {
+    rows: [alphaNoteRow],
+    totalCount: 1,
+  });
+
+  const frame = view.container.querySelector(".explorer-item-table-wrap");
+  if (!(frame instanceof HTMLElement)) {
+    throw new Error("Expected the explorer item table frame.");
+  }
+
+  expect(frame.classList.contains("mini-app-table-frame--two-line")).toBe(true);
+  expect(frame.style.getPropertyValue("--mini-app-virtual-row-height")).toBe(
+    "56px",
+  );
+  expect(
+    view.container.querySelector("tbody .mini-app-compact-table-lines"),
+  ).not.toBeNull();
+  // The name button — the selector the screenshot and dual-pane suites rely on
+  // — survives the fold.
+  expect(view.getByRole("button", { name: alphaNoteRow.name })).toBeTruthy();
+});
+
+test("a wide item list frame keeps the single-line columns", async () => {
+  mockFrameWidth(900);
+  const { documentQueries, pending } = createDeferredDocumentQueries();
+  const props = renderContainerDetail({ documentQueries });
+  const view = render(containerDetailElement(props));
+
+  await settlePendingItemWindow(pending, {
+    rows: [alphaNoteRow],
+    totalCount: 1,
+  });
+
+  const frame = view.container.querySelector(".explorer-item-table-wrap");
+  if (!(frame instanceof HTMLElement)) {
+    throw new Error("Expected the explorer item table frame.");
+  }
+
+  expect(frame.classList.contains("mini-app-table-frame--two-line")).toBe(
+    false,
+  );
+  expect(frame.style.getPropertyValue("--mini-app-virtual-row-height")).toBe(
+    "36px",
+  );
+  expect(
+    view.container.querySelector("tbody .mini-app-compact-table-lines"),
+  ).toBeNull();
+});
+
+test("an unmeasured frame leaves the pitch alone, so the window query runs once", async () => {
+  // The guard that keeps this change inert wherever there is no layout: a width
+  // of 0 must not fold, and must not move the pitch and re-issue the query.
+  const { documentQueries, pending } = createDeferredDocumentQueries();
+  const props = renderContainerDetail({ documentQueries });
+  const view = render(containerDetailElement(props));
+
+  await settlePendingItemWindow(pending, {
+    rows: [alphaNoteRow],
+    totalCount: 1,
+  });
+
+  expect(pending.length).toBe(0);
+  const frame = view.container.querySelector(".explorer-item-table-wrap");
+  if (!(frame instanceof HTMLElement)) {
+    throw new Error("Expected the explorer item table frame.");
+  }
+  expect(frame.classList.contains("mini-app-table-frame--two-line")).toBe(
+    false,
+  );
 });

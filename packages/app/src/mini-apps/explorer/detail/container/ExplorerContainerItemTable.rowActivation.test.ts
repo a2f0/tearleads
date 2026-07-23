@@ -102,6 +102,7 @@ function renderContainerItemTable(
 ) {
   return render(
     createElement(ExplorerContainerItemTable, {
+      compact: false,
       contactAvatarUrlByLocalId: {},
       contextTarget: null,
       currentSigningFingerprint: null,
@@ -122,6 +123,7 @@ function renderContainerItemTable(
       onItemContextMenu: () => undefined,
       onSort: () => undefined,
       rows: [],
+      rowHeight: 36,
       rowOffset: 0,
       selectedNode,
       selectDocumentProjection: () => undefined,
