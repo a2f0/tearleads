@@ -18,7 +18,7 @@ export function useInlineDocumentAction(params: {
     localId: string,
     documentKind: StoredDocumentKind,
   ) => void;
-  setSelectedId: (id: string | null) => void;
+  setSelectedId: (id: string) => void;
 }): OpenInlineDocument {
   const { expandNode, mergeDocumentSummary, onCreateDocument, setSelectedId } =
     params;

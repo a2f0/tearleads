@@ -25,6 +25,7 @@ export interface ExplorerRouteState {
   openSyncLanesRoute: () => void;
   openUploadsRoute: () => void;
   openWriteQueueRoute: () => void;
+  selectCreatedExplorerItem: (id: string) => void;
   selectExplorerDocument: (localId: string, containerId: string) => void;
   selectExplorerItem: (id: string | null) => void;
   showSelectionRoute: () => void;
@@ -231,6 +232,21 @@ function useExplorerRouteActions(params: {
     [setRoute, setSelectedId],
   );
 
+  // Lands on a document that was just created. The "New Document" type picker is
+  // a transient step on the way there, so replace it instead of pushing the new
+  // document on top of it: navigating back should return to wherever the user
+  // opened the picker from, not re-open the blank picker. Creating from anywhere
+  // else (the Explorer's "New Contact" shortcut) has nothing to prune and pushes.
+  const selectCreatedExplorerItem = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      setRoute(DEFAULT_EXPLORER_ROUTE, id, {
+        replace: route.view === "new-structured-document",
+      });
+    },
+    [route.view, setRoute, setSelectedId],
+  );
+
   const selectExplorerDocument = useCallback(
     (localId: string, containerId: string) => {
       selectDocument(localId, containerId);
@@ -298,6 +314,7 @@ function useExplorerRouteActions(params: {
     openUploadsRoute,
     openWriteQueueRoute,
     route,
+    selectCreatedExplorerItem,
     selectExplorerDocument,
     selectExplorerItem,
     showSelectionRoute,

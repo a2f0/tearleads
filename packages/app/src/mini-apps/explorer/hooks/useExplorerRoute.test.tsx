@@ -116,6 +116,20 @@ function ExplorerRouteSelectionHarness() {
       <button type="button" onClick={routeState.navigateBackFromBlobBrowser}>
         Blob Back
       </button>
+      <button
+        type="button"
+        onClick={() =>
+          routeState.openNewStructuredDocumentRoute("contacts-container")
+        }
+      >
+        New Document
+      </button>
+      <button
+        type="button"
+        onClick={() => routeState.selectCreatedExplorerItem("new-document")}
+      >
+        Create Document
+      </button>
       <button type="button" onClick={routeState.openWriteQueueRoute}>
         Open Writes
       </button>
@@ -328,6 +342,91 @@ test("routed direct blob link falls back without creating a history loop", async
     expect(window.location.pathname).toBe("/app/explorer");
     expect(view.getByTestId("route-view").textContent).toBe("selection");
   });
+});
+
+function spyHistory() {
+  const pushedUrls: Array<string | URL | null | undefined> = [];
+  const replacedUrls: Array<string | URL | null | undefined> = [];
+  const originalPushState = window.history.pushState;
+  const originalReplaceState = window.history.replaceState;
+  window.history.pushState = function pushStateSpy(
+    data: unknown,
+    unused: string,
+    url?: string | URL | null,
+  ) {
+    pushedUrls.push(url);
+    return originalPushState.call(window.history, data, unused, url);
+  };
+  window.history.replaceState = function replaceStateSpy(
+    data: unknown,
+    unused: string,
+    url?: string | URL | null,
+  ) {
+    if (url !== undefined) {
+      replacedUrls.push(url);
+    }
+    return originalReplaceState.call(window.history, data, unused, url);
+  };
+
+  return {
+    pushedUrls,
+    replacedUrls,
+    restore: () => {
+      window.history.pushState = originalPushState;
+      window.history.replaceState = originalReplaceState;
+    },
+  };
+}
+
+test("creating a document replaces the blank document-type picker", async () => {
+  const view = renderExplorerRouteSelectionHarness("routed");
+  const history = spyHistory();
+
+  try {
+    fireEvent.click(view.getByRole("button", { name: "New Document" }));
+    await waitFor(() => {
+      expect(view.getByTestId("route-view").textContent).toBe(
+        "new-structured-document",
+      );
+      expect(window.location.pathname).toBe(
+        "/app/explorer/containers/contacts-container/new",
+      );
+    });
+
+    fireEvent.click(view.getByRole("button", { name: "Create Document" }));
+
+    await waitFor(() => {
+      expect(view.getByTestId("route-view").textContent).toBe("selection");
+      expect(view.getByTestId("selected-id").textContent).toBe("new-document");
+    });
+    // Only opening the picker pushed; the document took the picker's place.
+    expect(history.pushedUrls).toEqual([
+      "/app/explorer/containers/contacts-container/new",
+    ]);
+    expect(history.replacedUrls.at(-1)).toBe(
+      "/app/explorer/items/new-document",
+    );
+  } finally {
+    history.restore();
+  }
+});
+
+test("creating a document outside the picker pushes", async () => {
+  const view = renderExplorerRouteSelectionHarness("routed");
+  const history = spyHistory();
+
+  try {
+    // The Explorer's "New Contact" shortcut skips the picker, so there is no
+    // transient entry to prune and the new document pushes as usual.
+    fireEvent.click(view.getByRole("button", { name: "Create Document" }));
+
+    await waitFor(() => {
+      expect(view.getByTestId("selected-id").textContent).toBe("new-document");
+    });
+    expect(history.pushedUrls).toEqual(["/app/explorer/items/new-document"]);
+  } finally {
+    history.restore();
+  }
 });
 
 test("an abandoned blob visit cannot leak its origin into a later deep link", async () => {
