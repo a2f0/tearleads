@@ -119,7 +119,9 @@ interface OrgManagerRefreshersParams {
   setGroups: Dispatch<SetStateAction<ReadonlyArray<OrganizationGroupSummary>>>;
   markDataUsageSettled: () => void;
   markDirectorySettled: () => void;
+  markGrantsSettled: () => void;
   markGroupDetailsSettled: (groupId: string | null) => void;
+  markOrganizationPolicyHistorySettled: () => void;
   setLoading: Dispatch<SetStateAction<boolean>>;
   setLoadingUserDetail: Dispatch<SetStateAction<boolean>>;
   setMemberGroupId: Dispatch<SetStateAction<string | null>>;
@@ -157,7 +159,9 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setGroups,
     markDataUsageSettled,
     markDirectorySettled,
+    markGrantsSettled,
     markGroupDetailsSettled,
+    markOrganizationPolicyHistorySettled,
     setLoading,
     setLoadingUserDetail,
     setMemberGroupId,
@@ -409,12 +413,14 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
       } finally {
         if (isCurrentRequest()) {
           setLoadingIfManaged(shouldManageLoading, setLoading, false);
+          markGrantsSettled();
         }
       }
     },
     [
       canLoadAuthenticatedOrgData,
       beginRequest,
+      markGrantsSettled,
       orgManagerActions,
       setError,
       setGrants,
@@ -448,12 +454,14 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
       } finally {
         if (isCurrentRequest()) {
           setLoadingIfManaged(shouldManageLoading, setLoading, false);
+          markOrganizationPolicyHistorySettled();
         }
       }
     },
     [
       canLoadAuthenticatedOrgData,
       beginRequest,
+      markOrganizationPolicyHistorySettled,
       orgManagerActions,
       setError,
       setLoading,

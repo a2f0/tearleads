@@ -156,3 +156,20 @@ test("returning to a scope re-pends what that scope had settled", () => {
   expect(view.result.current.dataPending).toBe(true);
   expect(view.result.current.dataUsagePending).toBe(true);
 });
+
+test("grants and org policy history each settle on their own pass", () => {
+  // Both run their own managed refresh on view entry, so neither can ride on the
+  // directory's settlement.
+  const view = renderPendingState();
+  act(() => view.result.current.markDirectorySettled());
+
+  expect(view.result.current.dataPending).toBe(false);
+  expect(view.result.current.grantsPending).toBe(true);
+  expect(view.result.current.organizationPolicyHistoryPending).toBe(true);
+
+  act(() => view.result.current.markGrantsSettled());
+  act(() => view.result.current.markOrganizationPolicyHistorySettled());
+
+  expect(view.result.current.grantsPending).toBe(false);
+  expect(view.result.current.organizationPolicyHistoryPending).toBe(false);
+});

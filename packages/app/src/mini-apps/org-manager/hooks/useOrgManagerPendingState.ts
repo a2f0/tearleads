@@ -1,7 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
 
 /** A resource whose first fetch the views must not mistake for an empty one. */
-type OrgManagerSettledResource = "dataUsage" | "directory" | "groupDetails";
+type OrgManagerSettledResource =
+  | "dataUsage"
+  | "directory"
+  | "grants"
+  | "groupDetails"
+  | "organizationPolicyHistory";
 
 const EMPTY_SETTLED_RESOURCES: Readonly<
   Partial<Record<OrgManagerSettledResource, string>>
@@ -99,10 +104,14 @@ export function useOrgManagerPendingState(input: {
 }): {
   readonly dataPending: boolean;
   readonly dataUsagePending: boolean;
+  readonly grantsPending: boolean;
   readonly groupDetailsPending: boolean;
   readonly markDataUsageSettled: () => void;
   readonly markDirectorySettled: () => void;
+  readonly markGrantsSettled: () => void;
   readonly markGroupDetailsSettled: (groupId: string | null) => void;
+  readonly markOrganizationPolicyHistorySettled: () => void;
+  readonly organizationPolicyHistoryPending: boolean;
 } {
   const { databaseStarting, loading, scopeKey, selectedGroupId } = input;
   const { isSettled, markSettled } = useOrgManagerSettledKeys(scopeKey);
@@ -112,6 +121,14 @@ export function useOrgManagerPendingState(input: {
   );
   const markDataUsageSettled = useCallback(
     () => markSettled("dataUsage", scopeKey),
+    [markSettled, scopeKey],
+  );
+  const markGrantsSettled = useCallback(
+    () => markSettled("grants", scopeKey),
+    [markSettled, scopeKey],
+  );
+  const markOrganizationPolicyHistorySettled = useCallback(
+    () => markSettled("organizationPolicyHistory", scopeKey),
     [markSettled, scopeKey],
   );
   // Keyed by scope *and* group: re-selecting the same group after the runtime
@@ -127,21 +144,29 @@ export function useOrgManagerPendingState(input: {
   return useMemo(
     () => ({
       dataPending: unsettledBase || !isSettled("directory", scopeKey),
-      // Usage and group details both run refreshes that never touch `loading`,
-      // so neither can be derived from the directory's settlement.
+      // Every view-specific resource runs its own refresh, so none of them can
+      // be derived from the directory's settlement: each is pending until its
+      // own first pass lands.
       dataUsagePending: unsettledBase || !isSettled("dataUsage", scopeKey),
+      grantsPending: unsettledBase || !isSettled("grants", scopeKey),
+      organizationPolicyHistoryPending:
+        unsettledBase || !isSettled("organizationPolicyHistory", scopeKey),
       groupDetailsPending:
         unsettledBase ||
         !isSettled("groupDetails", groupDetailsKey(scopeKey, selectedGroupId)),
       markDataUsageSettled,
       markDirectorySettled,
+      markGrantsSettled,
       markGroupDetailsSettled,
+      markOrganizationPolicyHistorySettled,
     }),
     [
       isSettled,
       markDataUsageSettled,
       markDirectorySettled,
+      markGrantsSettled,
       markGroupDetailsSettled,
+      markOrganizationPolicyHistorySettled,
       scopeKey,
       selectedGroupId,
       unsettledBase,

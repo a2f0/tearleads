@@ -136,7 +136,7 @@ function OrgManagerContent({
       <GrantsView
         canRevokeGrants={model.canRevokeGrants}
         grants={model.grants}
-        pending={model.dataPending}
+        pending={model.grantsPending}
         mutating={model.mutating}
         openGrantRoute={model.openGrantRoute}
         openGroupRoute={model.openGroupRoute}
@@ -154,6 +154,7 @@ function OrgManagerContent({
         groups={model.groups}
         organizationId={organizationId}
         pending={model.dataPending}
+        policyHistoryPending={model.organizationPolicyHistoryPending}
         policyHistory={model.organizationPolicyHistory}
         profileDisplayNamesByUserId={model.profileDisplayNamesByUserId}
       />

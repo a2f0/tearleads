@@ -64,10 +64,13 @@ function createRefresherHarness(input: {
     setGroupContainers: noop,
     setGroupPolicyHistory: noop,
     setGroups: noop,
+    markDataUsageSettled: noop,
     markDirectorySettled: () => {
       settledValues.push(true);
     },
-    markSettled: noop,
+    markGrantsSettled: noop,
+    markGroupDetailsSettled: noop,
+    markOrganizationPolicyHistorySettled: noop,
     setLoading: noop,
     setLoadingUserDetail: noop,
     setMemberGroupId: noop,

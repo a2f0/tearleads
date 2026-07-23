@@ -19,15 +19,18 @@ export function OrganizationView({
   organizationId,
   pending,
   policyHistory,
+  policyHistoryPending,
   profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
 }: {
   directory: OrganizationDirectory | null;
   groups: ReadonlyArray<OrganizationGroupSummary>;
   organizationId: string;
-  // The organization's own data has not settled yet, so neither the profile nor
-  // the policy history may report itself as unavailable.
+  // The directory (which the profile editor derives `canEdit` from) has not
+  // settled yet.
   pending: boolean;
   policyHistory: OrganizationPolicyHistory | null;
+  // Policy history runs its own refresh, so it settles separately.
+  policyHistoryPending: boolean;
   profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
 }) {
   const [organizationName, setOrganizationName] = useState<string | null>(null);
@@ -58,7 +61,7 @@ export function OrganizationView({
         groups={groups}
         heading={ORG_MANAGER_LABELS.organizationPolicyHistory}
         history={policyHistory}
-        pending={pending}
+        pending={policyHistoryPending}
         profileDisplayNamesByUserId={profileDisplayNamesByUserId}
       />
     </div>
