@@ -50,9 +50,7 @@ export function OrganizationView({
         canEdit={directory?.currentUser.isOrgAdmin ?? false}
         onNameChange={setOrganizationName}
         organizationId={organizationId}
-        // Until the directory lands, `canEdit` is false only because nothing is
-        // known yet — the editor must not read that as "no profile".
-        pending={pending || directory === null}
+        pending={pending}
         profileDocumentId={directory?.profileDocumentId ?? null}
       />
       <PolicyHistorySection

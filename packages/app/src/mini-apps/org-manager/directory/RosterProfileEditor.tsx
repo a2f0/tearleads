@@ -25,6 +25,11 @@ import {
 } from "../../../stores/org-manager/profileDocuments";
 import { ORG_MANAGER_LABELS } from "../labels";
 
+// Matches the org switcher's index catch-up: ~20s of retries before the editor
+// concludes the container is genuinely unavailable.
+const ROSTER_PROFILE_CONTAINER_RETRY_DELAY_MS = 500;
+const ROSTER_PROFILE_CONTAINER_RETRY_LIMIT = 40;
+
 export {
   getRosterProfileDisplayName,
   getRosterProfileDocumentRelinkInput,
@@ -291,30 +296,50 @@ export function RosterProfileEditor({
       return;
     }
 
+    let attempts = 0;
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     setProfileContainerId(null);
     setProfileContainerUnavailable(false);
-    void ensureRosterProfileContainer()
-      .then((container) => {
-        if (cancelled || !container?.id) {
-          // A null container means the org-manager operation scope is not
-          // active yet (session, database, or organization still settling), not
-          // that the profile container is missing. Stay on the loading copy and
-          // let the ensure re-run when the scope activates; only a rejection
-          // below is evidence of a real failure.
-          return;
-        }
 
-        setProfileContainerId(container.id);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setProfileContainerUnavailable(true);
-        }
-      });
+    // A null container is ambiguous: usually the org-manager operation scope is
+    // not active yet (session, database, or organization still settling), but it
+    // can also be a container-contents snapshot that never arrives or a create
+    // that failed. Reporting the first null as unavailable showed an error for
+    // what is normally a startup race; never reporting it would strand the
+    // editor on "Loading" forever, since nothing else re-runs this effect. Retry
+    // on a bounded schedule, then say it is unavailable.
+    const attempt = () => {
+      void ensureRosterProfileContainer()
+        .then((container) => {
+          if (cancelled) {
+            return;
+          }
+          if (container?.id) {
+            setProfileContainerId(container.id);
+            return;
+          }
+          if (attempts >= ROSTER_PROFILE_CONTAINER_RETRY_LIMIT) {
+            setProfileContainerUnavailable(true);
+            return;
+          }
+
+          attempts += 1;
+          timer = setTimeout(attempt, ROSTER_PROFILE_CONTAINER_RETRY_DELAY_MS);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setProfileContainerUnavailable(true);
+          }
+        });
+    };
+    attempt();
 
     return () => {
       cancelled = true;
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
     };
   }, [ensureRosterProfileContainer, user.profileDocumentId]);
 
