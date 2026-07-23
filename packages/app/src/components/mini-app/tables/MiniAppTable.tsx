@@ -43,8 +43,23 @@ type MiniAppTableTextProps = HTMLAttributes<HTMLSpanElement> & {
 
 type MiniAppTableRowProps = HTMLAttributes<HTMLTableRowElement> & {
   interactive?: boolean | undefined;
+  onActivate?: ((event: MouseEvent<HTMLTableRowElement>) => void) | undefined;
   selected?: boolean | undefined;
 };
+
+/**
+ * Descendants that own their activation: a click on one of these belongs to it,
+ * not to the row.
+ */
+const MINI_APP_ROW_CONTROL_SELECTOR =
+  "a, button, input, label, select, textarea";
+
+function isMiniAppRowControlTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    target.closest(MINI_APP_ROW_CONTROL_SELECTOR) !== null
+  );
+}
 
 type MiniAppInfoTableRowProps = HTMLAttributes<HTMLTableRowElement> & {
   interactive?: boolean | undefined;
@@ -192,11 +207,33 @@ export function MiniAppInfoRow({
   );
 }
 
+/**
+ * `onActivate` makes the *whole* row a click target for its primary action —
+ * the row's own controls (the name button, the kebab, links) keep their clicks,
+ * and everything else in the row falls through to `onActivate`. Pair it with a
+ * real cell button that carries the same action so keyboard and screen-reader
+ * users still have a focusable, labelled control.
+ *
+ * This deliberately does the row-wide hit area in JS rather than with an
+ * absolutely positioned overlay anchored to the `<tr>`: WebKit does not make a
+ * relatively positioned table row a containing block, so such an overlay
+ * resolves against the scroll frame instead of the row. Every row's overlay
+ * then covers the entire list and the last one wins hit-testing, so on iOS
+ * (including the Capacitor WKWebView) every tap activated the bottom row.
+ */
 export const MiniAppTableRow = forwardRef<
   HTMLTableRowElement,
   MiniAppTableRowProps
 >(function MiniAppTableRow(
-  { className, interactive = false, onContextMenu, selected = false, ...props },
+  {
+    className,
+    interactive = false,
+    onActivate,
+    onClick,
+    onContextMenu,
+    selected = false,
+    ...props
+  },
   ref,
 ) {
   // Touch devices have no right-click; long-press an interactive row to reach
@@ -204,11 +241,20 @@ export const MiniAppTableRow = forwardRef<
   // native `contextmenu` event). Non-interactive rows keep their handler for
   // desktop right-click but skip the touch synthesis.
   const longPress = useLongPress(interactive && Boolean(onContextMenu));
+  const handleClick = onActivate
+    ? (event: MouseEvent<HTMLTableRowElement>) => {
+        onClick?.(event);
+        if (!isMiniAppRowControlTarget(event.target)) {
+          onActivate(event);
+        }
+      }
+    : onClick;
 
   return (
     <tr
       {...props}
       {...longPress}
+      onClick={handleClick}
       onContextMenu={onContextMenu}
       className={classNames(
         "mini-app-table-row",

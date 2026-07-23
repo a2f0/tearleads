@@ -57,12 +57,6 @@
   white-space: nowrap;
 }
 
-/* z-index keeps the button clickable above a full-row click overlay. */
-.mini-app-row-actions-cell {
-  position: relative;
-  z-index: 2;
-}
-
 /*
  * Keep a small, even inset regardless of table density. The doubled cell class
  * (and the compact-scoped variants) out-specify the compact frame's cell/header

@@ -14,10 +14,12 @@
   min-height: 0;
 }
 
-.explorer-blob-browser-table-row {
-  position: relative;
-}
-
+/* The identity-cell button keeps real button semantics; the row-wide hit area is
+   the row's own `onActivate` click handler (see MiniAppTableRow) rather than an
+   absolutely positioned ::after overlay — WebKit does not make a relatively
+   positioned table row a containing block, so such an overlay resolved against
+   the scroll frame and the last row's covered the whole list, sending every iOS
+   tap to the bottom row. */
 .explorer-blob-browser-row-button {
   display: block;
   width: 100%;
@@ -29,13 +31,6 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-}
-
-.explorer-blob-browser-row-button::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;
 }
 
 /* Blob identity cell: a compact thumbnail (image blobs) or file-type icon

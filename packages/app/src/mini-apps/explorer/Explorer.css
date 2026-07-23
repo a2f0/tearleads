@@ -335,18 +335,12 @@
   min-height: 0;
 }
 
-/* The name-cell button keeps real button semantics, while its ::after overlay
-   stretches its hit area across the whole row so any click on the row navigates.
-   The row is the positioning context for that overlay. */
-.explorer-item-table-row {
-  position: relative;
-}
-
-.explorer-blob-browser-table-row,
-.explorer-blob-reference-table-row {
-  position: relative;
-}
-
+/* The name-cell button keeps real button semantics; the row-wide hit area is the
+   row's own `onActivate` click handler (see MiniAppTableRow). It is deliberately
+   not an absolutely positioned ::after overlay anchored to the `<tr>` — WebKit
+   does not make a relatively positioned table row a containing block, so every
+   row's overlay resolved against the scroll frame and the last row's covered the
+   whole list, sending every iOS tap to the bottom item. */
 .explorer-item-row-button,
 .explorer-blob-browser-row-button,
 .explorer-blob-reference-row-button {
@@ -372,15 +366,6 @@
 .explorer-item-icon {
   flex: 0 0 auto;
   opacity: var(--opacity-icon);
-}
-
-.explorer-item-row-button::after,
-.explorer-blob-browser-row-button::after,
-.explorer-blob-reference-row-button::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;
 }
 
 .explorer-table-sort-button {
