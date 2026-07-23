@@ -14,6 +14,7 @@ export {
   type MiniAppCompactTableField,
   MiniAppCompactTableHeader,
   useMiniAppCompactTableLayout,
+  useMiniAppCompactTableRows,
 } from "./tables/MiniAppCompactTable";
 export { MiniAppRowActionsButton } from "./tables/MiniAppRowActionsButton";
 export {

@@ -42,13 +42,23 @@
   white-space: nowrap;
 }
 
-/* The shared routed-table rule floors compact rows at 44px (see
-   `mini-app-table-frame--compact` in MiniAppTable.css). Two-line rows use a
-   taller virtual pitch, so restore that exact pitch without affecting spacer
-   rows (whose inline heights represent the offscreen window). */
-:root[data-navigation-mode="routed"]
-  .mini-app-table-frame--two-line
-  .mini-app-table
+/* Two-line rows use a taller virtual pitch than any of the row-height rules a
+   compact frame is otherwise subject to, so restore that exact pitch — without
+   affecting spacer rows, whose inline heights represent the offscreen window.
+
+   This has to out-specify three rules at once, hence the doubled frame class
+   (0,5,1). Every compact list frame carries both classes:
+     - `:root[data-navigation-mode="routed"] .mini-app-table-frame--compact
+        .mini-app-table-row` (0,4,0) floors routed rows at the 44px touch target
+     - `.mini-app-table-frame--compact .mini-app-table-row` (0,2,0) — 36px
+     - `.mini-app-table-frame--virtual .mini-app-table-row` (0,2,0)
+   The last two tie, and today resolve to the same 36px so the tie is invisible;
+   at the two-line pitch it would be decided by bundle order. Winning on
+   specificity here settles it either way.
+
+   Deliberately not gated on routed mode: the fold is also driven by the frame's
+   own width, so it fires in a narrow desktop window too. */
+.mini-app-table-frame--compact.mini-app-table-frame--two-line .mini-app-table
   tbody
   .mini-app-table-row:not(.mini-app-virtual-table-spacer-row) {
   height: var(--mini-app-virtual-row-height);

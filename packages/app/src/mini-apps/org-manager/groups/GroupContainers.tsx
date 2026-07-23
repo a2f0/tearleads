@@ -16,12 +16,11 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
   useMiniAppColumnVisibility,
-  useMiniAppCompactTableLayout,
+  useMiniAppCompactTableRows,
 } from "../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
   MiniAppVirtualTableSpacerRow,
-  useMiniAppVirtualRows,
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import {
@@ -206,11 +205,8 @@ export function GroupContainers({
 }: {
   containers: ReadonlyArray<OrganizationGroupContainer>;
 }) {
-  const { compact, rowHeight } = useMiniAppCompactTableLayout();
-  const virtualContainers = useMiniAppVirtualRows({
-    rowHeight,
-    rows: containers,
-  });
+  const virtualContainers = useMiniAppCompactTableRows({ rows: containers });
+  const { compact, rowHeight } = virtualContainers;
   const { columns, visibleColumnIds } = useGroupContainerTableColumns(compact);
 
   if (containers.length === 0) {
