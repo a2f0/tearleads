@@ -1,9 +1,39 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import {
+  useWindowTitleBarActions,
+  WindowMenuProvider,
+} from "../../components/window/WindowMenuContext";
 import { BloodPressureFields } from "./BloodPressure";
 import type { BloodPressureReadingRow } from "./bloodPressureReadings";
 
 afterEach(cleanup);
+
+// Stands in for the pane header's toolbar. Labels are prefixed so a toolbar
+// action never collides with a same-named body/menu control in queries.
+function ToolbarProbe() {
+  const actions = useWindowTitleBarActions();
+
+  return (
+    <div aria-label="Toolbar" role="toolbar">
+      {actions.map((action) => (
+        <button
+          aria-label={`Toolbar ${action.label}`}
+          disabled={action.disabled}
+          key={action.id}
+          type="button"
+          onClick={action.onClick}
+        />
+      ))}
+    </div>
+  );
+}
 
 function makeReading(
   overrides: Partial<BloodPressureReadingRow> & { id: string },
@@ -86,6 +116,7 @@ function renderBloodPressureFields(params?: {
   onEnterEdit?: (() => void) | undefined;
   onRemoveReading?: (id: string) => void;
   onRenameTracker?: (value: string) => void;
+  onToggleEditing?: () => void;
   onUpdateReading?: (id: string, field: string, value: string) => void;
   readings?: BloodPressureReadingRow[];
   ready?: boolean;
@@ -93,20 +124,24 @@ function renderBloodPressureFields(params?: {
   trackerName?: string;
 }) {
   return render(
-    <BloodPressureFields
-      currentAuthorId={params?.currentAuthorId ?? null}
-      isEditing={params?.isEditing}
-      onAddReading={params?.onAddReading ?? (() => undefined)}
-      onEnterEdit={params?.onEnterEdit}
-      onRemoveReading={params?.onRemoveReading ?? (() => undefined)}
-      onRenameTracker={params?.onRenameTracker ?? (() => undefined)}
-      onUpdateReading={params?.onUpdateReading ?? (() => undefined)}
-      readings={params?.readings ?? readings}
-      ready={params?.ready ?? true}
-      resolveRowWriter={params?.resolveRowWriter}
-      trackerName={params?.trackerName ?? "Home log"}
-      trackerNameInputId="blood-pressure-name"
-    />,
+    <WindowMenuProvider>
+      <ToolbarProbe />
+      <BloodPressureFields
+        currentAuthorId={params?.currentAuthorId ?? null}
+        isEditing={params?.isEditing}
+        onAddReading={params?.onAddReading ?? (() => undefined)}
+        onEnterEdit={params?.onEnterEdit}
+        onRemoveReading={params?.onRemoveReading ?? (() => undefined)}
+        onRenameTracker={params?.onRenameTracker ?? (() => undefined)}
+        onToggleEditing={params?.onToggleEditing ?? (() => undefined)}
+        onUpdateReading={params?.onUpdateReading ?? (() => undefined)}
+        readings={params?.readings ?? readings}
+        ready={params?.ready ?? true}
+        resolveRowWriter={params?.resolveRowWriter}
+        trackerName={params?.trackerName ?? "Home log"}
+        trackerNameInputId="blood-pressure-name"
+      />
+    </WindowMenuProvider>,
   );
 }
 
@@ -132,6 +167,46 @@ test("renders readings as editable measurement rows", () => {
   expect(
     view.container.querySelector(".blood-pressure-reading-row"),
   ).toBeTruthy();
+});
+
+test("toggles editing from the toolbar, not a body button", async () => {
+  let toggleCalls = 0;
+  const view = renderBloodPressureFields({
+    isEditing: false,
+    onToggleEditing: () => {
+      toggleCalls += 1;
+    },
+    readings: [],
+  });
+
+  await waitFor(() => {
+    expect(view.getByRole("button", { name: "Toolbar Edit" })).toBeTruthy();
+  });
+  // The tracker body no longer carries its own Edit control.
+  expect(view.queryByRole("button", { name: "Edit" })).toBeNull();
+
+  fireEvent.click(view.getByRole("button", { name: "Toolbar Edit" }));
+  expect(toggleCalls).toBe(1);
+});
+
+test("toolbar action becomes Done while editing", async () => {
+  const view = renderBloodPressureFields({ isEditing: true, readings: [] });
+
+  await waitFor(() => {
+    expect(view.getByRole("button", { name: "Toolbar Done" })).toBeTruthy();
+  });
+  expect(view.queryByRole("button", { name: "Toolbar Edit" })).toBeNull();
+});
+
+test("toolbar action is disabled while the document is loading", async () => {
+  const view = renderBloodPressureFields({ isEditing: false, ready: false });
+
+  await waitFor(() => {
+    expect(
+      (view.getByRole("button", { name: "Toolbar Edit" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
 });
 
 test("read mode renders formatted measurements and attribution", () => {
