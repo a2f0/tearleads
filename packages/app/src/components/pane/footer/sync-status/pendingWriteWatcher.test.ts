@@ -4,7 +4,8 @@ import type {
   PendingWriteQueueOperation,
 } from "@tearleads/client-sdk";
 import { createPendingWriteWatcher } from "./pendingWriteWatcher";
-import type { PendingWriteQueueSummary } from "./syncStatusModel";
+
+type WatchedItems = ReadonlyArray<PendingWriteQueueItem>;
 
 const THROTTLE_MS = 5;
 
@@ -51,10 +52,11 @@ function deferred<T>() {
 const settle = () =>
   new Promise((resolve) => setTimeout(resolve, THROTTLE_MS * 4));
 
-test("reads once immediately and reports the summed count", async () => {
-  const onSnapshot = mock((_snapshot: PendingWriteQueueSummary) => {});
+test("reads once immediately and reports the items verbatim", async () => {
+  const onSnapshot = mock((_items: WatchedItems) => {});
+  const items = [item(2), item(3)];
   const watcher = createPendingWriteWatcher({
-    listPendingWrites: async () => [item(2), item(3)],
+    listPendingWrites: async () => items,
     subscribe: () => () => {},
     onSnapshot,
     throttleMs: THROTTLE_MS,
@@ -62,11 +64,8 @@ test("reads once immediately and reports the summed count", async () => {
 
   await settle();
   expect(onSnapshot).toHaveBeenCalledTimes(1);
-  expect(onSnapshot.mock.calls[0]?.[0]).toEqual({
-    count: 5,
-    failedCount: 0,
-    firstError: null,
-  });
+  // The watcher hands the raw items to the caller, which projects them.
+  expect(onSnapshot.mock.calls[0]?.[0]).toEqual(items);
   watcher.stop();
 });
 
@@ -161,7 +160,7 @@ test("serializes: a change mid-read queues exactly one follow-up", async () => {
 
 test("reports nothing after stop(), even for an in-flight read", async () => {
   const gate = deferred<PendingWriteQueueItem[]>();
-  const onSnapshot = mock((_snapshot: PendingWriteQueueSummary) => {});
+  const onSnapshot = mock((_items: WatchedItems) => {});
   const watcher = createPendingWriteWatcher({
     listPendingWrites: () => gate.promise,
     subscribe: () => () => {},
@@ -178,7 +177,7 @@ test("reports nothing after stop(), even for an in-flight read", async () => {
 test("a failed read reports nothing and a later change still reads", async () => {
   let calls = 0;
   let notify = () => {};
-  const onSnapshot = mock((_snapshot: PendingWriteQueueSummary) => {});
+  const onSnapshot = mock((_items: WatchedItems) => {});
   const watcher = createPendingWriteWatcher({
     listPendingWrites: () => {
       calls += 1;
@@ -199,7 +198,7 @@ test("a failed read reports nothing and a later change still reads", async () =>
   notify();
   await settle();
   expect(onSnapshot).toHaveBeenCalledTimes(1);
-  expect(onSnapshot.mock.calls[0]?.[0]?.count).toBe(4);
+  expect(onSnapshot.mock.calls[0]?.[0]?.[0]?.operations[0]?.count).toBe(4);
   watcher.stop();
 });
 

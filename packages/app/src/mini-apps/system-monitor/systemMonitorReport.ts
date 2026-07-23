@@ -1,3 +1,8 @@
+import type {
+  DomainSyncSnapshot,
+  PendingWriteQueueItem,
+  SyncLaneSnapshot,
+} from "@tearleads/client-sdk";
 import {
   formatPaneLogLine,
   type PaneLogEntry,
@@ -24,6 +29,20 @@ export interface SystemMonitorReportFlag {
   readonly value: string;
 }
 
+/**
+ * The durable write queue as the report sees it.
+ *
+ * `available` is false while the local database is still booting, so the report
+ * can distinguish "the queue could not be read" from "the queue is empty". The
+ * items are the SDK's already payload-free projection (`PendingWriteQueueItem`):
+ * serialized Loro updates, storage keys, and encryption material are never part
+ * of it, so serializing every field here cannot leak decrypted content.
+ */
+export interface SystemMonitorWriteQueueReport {
+  readonly available: boolean;
+  readonly items: ReadonlyArray<PendingWriteQueueItem>;
+}
+
 interface SystemMonitorReportInput {
   readonly capturedAt: string;
   readonly environment: ReadonlyArray<EnvironmentRow>;
@@ -31,6 +50,16 @@ interface SystemMonitorReportInput {
   readonly featureFlags?: ReadonlyArray<SystemMonitorReportFlag> | undefined;
   readonly logEntries: ReadonlyArray<PaneLogEntry>;
   readonly status: SystemStatusSnapshot;
+  /**
+   * Identity-wide durable write queue. Omitted entirely (`undefined`) when the
+   * caller does not gather it; a present-but-unavailable value renders as such.
+   */
+  readonly writeQueue?: SystemMonitorWriteQueueReport | undefined;
+  /**
+   * The active domain scope's sync coordinator snapshot (lanes and failures).
+   * `undefined` omits the section; `null` renders it as unavailable.
+   */
+  readonly syncLanes?: DomainSyncSnapshot | null | undefined;
 }
 
 /**
@@ -48,17 +77,18 @@ function escapeTableCell(value: string): string {
   return value.replaceAll("|", "\\|").replaceAll("\n", " ");
 }
 
+function formatTableRow(cells: ReadonlyArray<string>): string {
+  return `| ${cells.map(escapeTableCell).join(" | ")} |`;
+}
+
 function formatTable(
-  headers: readonly [string, string],
-  rows: ReadonlyArray<readonly [string, string]>,
+  headers: ReadonlyArray<string>,
+  rows: ReadonlyArray<ReadonlyArray<string>>,
 ): string {
   const lines = [
-    `| ${headers[0]} | ${headers[1]} |`,
-    "| --- | --- |",
-    ...rows.map(
-      ([label, value]) =>
-        `| ${escapeTableCell(label)} | ${escapeTableCell(value)} |`,
-    ),
+    formatTableRow(headers),
+    `| ${headers.map(() => "---").join(" | ")} |`,
+    ...rows.map(formatTableRow),
   ];
   return lines.join("\n");
 }
@@ -133,6 +163,199 @@ function formatLogSection(
   return ["## Logs", "", ...truncationNote, `${fence}text`, ...lines, fence];
 }
 
+/**
+ * Write-queue objects are capped like the log so a busy import (which can queue
+ * hundreds of objects) keeps the report pasteable. A truncated section says so.
+ */
+export const MAX_REPORT_WRITE_QUEUE_ITEMS = 100;
+
+/** A missing timestamp or free-text value renders as a dash, never a blank cell. */
+function formatMetadataValue(value: string | null): string {
+  return value !== null && value.trim().length > 0 ? value : "-";
+}
+
+/** Collapses newlines so a multiline value cannot break a Markdown heading. */
+function formatHeadingText(value: string): string {
+  return value.replaceAll("\n", " ").trim();
+}
+
+function formatWriteQueueItemName(item: PendingWriteQueueItem): string {
+  const name = item.name?.trim() ?? "";
+  return name.length > 0 ? name : item.localId;
+}
+
+function countWriteQueueOperations(
+  items: ReadonlyArray<PendingWriteQueueItem>,
+): number {
+  return items.reduce(
+    (total, item) =>
+      total +
+      item.operations.reduce(
+        (operationTotal, operation) => operationTotal + operation.count,
+        0,
+      ),
+    0,
+  );
+}
+
+function formatWriteQueueItem(
+  item: PendingWriteQueueItem,
+): ReadonlyArray<string> {
+  const details = formatTable(
+    ["Field", "Value"],
+    [
+      ["Status", item.status],
+      ["Object Kind", item.objectKind],
+      ["Namespace", formatMetadataValue(item.namespace)],
+      ["Local ID", item.localId],
+      ["Remote ID", formatMetadataValue(item.remoteId)],
+      ["Container ID", formatMetadataValue(item.containerId)],
+      ["Organization ID", formatMetadataValue(item.organizationId)],
+      ["Created", formatMetadataValue(item.createdAt)],
+      ["Updated", formatMetadataValue(item.updatedAt)],
+    ],
+  );
+
+  const heading = `### ${formatHeadingText(formatWriteQueueItemName(item))}`;
+
+  if (item.operations.length === 0) {
+    return [heading, "", details, "", "_No operations._"];
+  }
+
+  const operations = formatTable(
+    [
+      "Operation",
+      "Status",
+      "Count",
+      "Bytes",
+      "Created",
+      "Updated",
+      "Last Attempted",
+      "Target Container",
+      "Last Error",
+    ],
+    item.operations.map((operation) => [
+      operation.kind,
+      operation.status,
+      String(operation.count),
+      String(operation.byteLength),
+      formatMetadataValue(operation.createdAt),
+      formatMetadataValue(operation.updatedAt),
+      formatMetadataValue(operation.lastAttemptedAt),
+      formatMetadataValue(operation.targetContainerId),
+      formatMetadataValue(operation.lastError),
+    ]),
+  );
+
+  return [heading, "", details, "", "**Operations**", "", operations];
+}
+
+function formatWriteQueueSection(
+  writeQueue: SystemMonitorWriteQueueReport,
+): ReadonlyArray<string> {
+  const heading = "## Write Queue";
+  if (!writeQueue.available) {
+    return [
+      heading,
+      "",
+      "_The local database is not ready, so the write queue is unavailable._",
+    ];
+  }
+
+  const { items } = writeQueue;
+  if (items.length === 0) {
+    return [heading, "", "_No pending writes._"];
+  }
+
+  const summary = `_${items.length} queued object(s), ${countWriteQueueOperations(
+    items,
+  )} pending write operation(s)._`;
+  const visible = items.slice(0, MAX_REPORT_WRITE_QUEUE_ITEMS);
+  const truncationNote =
+    visible.length < items.length
+      ? [
+          `_Showing the first ${visible.length} of ${items.length} queued objects._`,
+          "",
+        ]
+      : [];
+
+  const itemSections = visible.flatMap((item) => [
+    ...formatWriteQueueItem(item),
+    "",
+  ]);
+
+  return [heading, "", summary, "", ...truncationNote, ...itemSections];
+}
+
+function formatSyncLaneProgress(
+  progress: SyncLaneSnapshot["progress"],
+): string {
+  if (!progress) {
+    return "-";
+  }
+  return `${progress.bytesUploaded} / ${progress.bytesTotal} bytes, ${progress.partsCompleted} / ${progress.partsTotal} parts`;
+}
+
+function formatSyncLane(lane: SyncLaneSnapshot): ReadonlyArray<string> {
+  const details = formatTable(
+    ["Field", "Value"],
+    [
+      ["Phase", lane.phase],
+      ["Status", lane.status],
+      ["Requested", lane.requested ? "yes" : "no"],
+      ["Running", lane.running ? "yes" : "no"],
+      ["Last Action", lane.lastAction],
+      ["Last Action At", formatMetadataValue(lane.lastActionAt)],
+      ["Last Requested", formatMetadataValue(lane.lastRequestedAt)],
+      ["Last Started", formatMetadataValue(lane.lastStartedAt)],
+      ["Last Completed", formatMetadataValue(lane.lastCompletedAt)],
+      ["Last Failed", formatMetadataValue(lane.lastFailedAt)],
+      ["Last Error", formatMetadataValue(lane.lastError)],
+      ["Error Count", String(lane.errorCount)],
+      ["Request Count", String(lane.requestCount)],
+      ["Run Count", String(lane.runCount)],
+      ["Registration Index", String(lane.registrationIndex)],
+      ["Progress", formatSyncLaneProgress(lane.progress)],
+      ["Blob Storage Key", formatMetadataValue(lane.blobStorageKey)],
+    ],
+  );
+
+  return [`### ${formatHeadingText(lane.label)}`, "", details];
+}
+
+function formatSyncLanesSection(
+  snapshot: DomainSyncSnapshot | null,
+): ReadonlyArray<string> {
+  const heading = "## Sync Lanes";
+  if (!snapshot) {
+    return [
+      heading,
+      "",
+      "_The local database is not ready, so sync lanes are unavailable._",
+    ];
+  }
+
+  const coordinator = formatTable(
+    ["Field", "Value"],
+    [
+      ["Pending Work", snapshot.hasPendingWork ? "yes" : "no"],
+      ["Pump Active", snapshot.pumpActive ? "yes" : "no"],
+      ["Snapshot Updated", formatMetadataValue(snapshot.updatedAt)],
+    ],
+  );
+
+  if (snapshot.lanes.length === 0) {
+    return [heading, "", coordinator, "", "_No active sync lanes._"];
+  }
+
+  const laneSections = snapshot.lanes.flatMap((lane) => [
+    ...formatSyncLane(lane),
+    "",
+  ]);
+
+  return [heading, "", coordinator, "", ...laneSections];
+}
+
 export function formatSystemMonitorReport(
   input: SystemMonitorReportInput,
 ): string {
@@ -164,6 +387,14 @@ export function formatSystemMonitorReport(
       ),
       "",
     );
+  }
+
+  if (input.writeQueue !== undefined) {
+    sections.push(...formatWriteQueueSection(input.writeQueue), "");
+  }
+
+  if (input.syncLanes !== undefined) {
+    sections.push(...formatSyncLanesSection(input.syncLanes), "");
   }
 
   sections.push(...formatLogSection(input.logEntries), "");
