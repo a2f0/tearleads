@@ -103,6 +103,8 @@ const ARCHIVE_NODE = {
   syncState: syncedContainerDocumentObjectSyncState,
 } satisfies ContainerNode;
 
+const EMPTY_SNAPSHOT = getDomainSyncCoordinatorSnapshot(createDomainScope());
+
 type ViewProps = ComponentProps<typeof ExplorerWriteQueuePanelView>;
 
 function renderPanel(overrides: Partial<ViewProps> = {}) {
@@ -115,11 +117,14 @@ function renderPanel(overrides: Partial<ViewProps> = {}) {
     nodes: [ARCHIVE_NODE],
     online: true,
     openContainerInfoRoute: () => undefined,
-    openDocumentInfoRoute: () => undefined,
+    openDocument: () => undefined,
+    openWriteQueueEntryRoute: () => undefined,
     organizationNamesById: new Map([
       ["custom-org", "Acme"],
       ["personal-org", "Personal"],
     ]),
+    selectedEntryKey: null,
+    snapshot: EMPTY_SNAPSHOT,
     ...overrides,
   };
 
@@ -140,8 +145,10 @@ function renderPanelLoader(
       nodes={[ARCHIVE_NODE]}
       online={true}
       openContainerInfoRoute={() => undefined}
-      openDocumentInfoRoute={() => undefined}
+      openDocument={() => undefined}
+      openWriteQueueEntryRoute={() => undefined}
       organizationNamesById={new Map()}
+      selectedEntryKey={null}
     />,
   );
 }
@@ -283,7 +290,7 @@ test("shows offline, signed-out, and organization-scoped billing blockers", () =
   );
 });
 
-test("opens document and container details from object buttons", () => {
+test("opens the document and container from the row's primary tap", () => {
   const openedContainers: string[] = [];
   const openedDocuments: Array<[string, string]> = [];
   const view = renderPanel({
@@ -301,7 +308,7 @@ test("opens document and container details from object buttons", () => {
     openContainerInfoRoute: (containerId) => {
       openedContainers.push(containerId);
     },
-    openDocumentInfoRoute: (localId, containerId) => {
+    openDocument: (localId, containerId) => {
       openedDocuments.push([localId, containerId]);
     },
   });
@@ -315,6 +322,86 @@ test("opens document and container details from object buttons", () => {
     ["document-local-id", "documents-container"],
   ]);
   expect(openedContainers).toEqual(["projects-container"]);
+});
+
+test("drills into an entry's sync detail from the row kebab", () => {
+  const openedEntries: string[] = [];
+  const view = renderPanel({
+    items: [item()],
+    openWriteQueueEntryRoute: (entryKey) => {
+      openedEntries.push(entryKey);
+    },
+  });
+
+  // The kebab names its row so screen readers can tell the rows apart.
+  fireEvent.click(
+    view.getByRole("button", {
+      name: `${EXPLORER_LABELS.writeQueueRowActionsLabel}: Offline note`,
+    }),
+  );
+  fireEvent.click(
+    view.getByRole("button", {
+      name: EXPLORER_LABELS.writeQueueEntryInfoAction,
+    }),
+  );
+
+  // Routes by the full (objectKind, namespace, localId) key, not the localId.
+  expect(openedEntries).toEqual(["document::document-local-id"]);
+});
+
+test("explains why an errored entry is stuck in its detail view", () => {
+  const view = renderPanel({
+    items: [
+      item({
+        operations: [
+          operation({
+            kind: "update",
+            lastAttemptedAt: CREATED_AT,
+            lastError: "Manifest write rejected",
+          }),
+        ],
+        status: "error",
+      }),
+    ],
+    selectedEntryKey: "document::document-local-id",
+  });
+
+  expect(
+    view.getByText(EXPLORER_LABELS.writeQueueEntryReasonHeading),
+  ).toBeTruthy();
+  expect(
+    view.getByText(
+      `${EXPLORER_LABELS.writeQueueEntryReasonErrorPrefix} Manifest write rejected`,
+    ),
+  ).toBeTruthy();
+  expect(
+    view.getByText(EXPLORER_LABELS.writeQueueEntryOperationsHeading),
+  ).toBeTruthy();
+  // The list summary is replaced by the entry title while drilled in.
+  expect(
+    view.getByText(EXPLORER_LABELS.writeQueueEntryDetailTitle),
+  ).toBeTruthy();
+});
+
+test("reports an entry that has left the queue", () => {
+  const view = renderPanel({
+    items: [],
+    selectedEntryKey: "document::document-local-id",
+  });
+
+  expect(view.getByText(EXPLORER_LABELS.writeQueueEntryNotQueued)).toBeTruthy();
+});
+
+test("surfaces a read failure instead of claiming the entry finished", () => {
+  const view = renderPanel({
+    error: true,
+    items: [],
+    selectedEntryKey: "document::document-local-id",
+  });
+
+  expect(view.getByText(EXPLORER_LABELS.writeQueueFailedToLoad)).toBeTruthy();
+  expect(view.getByRole("alert")).toBeTruthy();
+  expect(view.queryByText(EXPLORER_LABELS.writeQueueEntryNotQueued)).toBeNull();
 });
 
 test("uses a compact object and status table on phones", () => {
@@ -331,6 +418,7 @@ test("uses a compact object and status table on phones", () => {
   expect(headers.map((header) => header.textContent)).toEqual([
     EXPLORER_LABELS.writeQueueObjectColumn,
     EXPLORER_LABELS.writeQueueStatusColumn,
+    EXPLORER_LABELS.writeQueueRowActionsLabel,
   ]);
   expect(
     view.getByText(getExplorerWriteQueueAttachmentLabel(1, 2_048)),

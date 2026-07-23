@@ -2,13 +2,15 @@ import type {
   ContainerDocumentQueries,
   ContainerNode,
   DomainScope,
+  DomainSyncSnapshot,
   PendingWriteQueueItem,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   MiniAppHeader,
   MiniAppHeaderCopy,
   MiniAppPanel,
+  MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppTable,
@@ -20,8 +22,11 @@ import {
   EXPLORER_LABELS,
   getExplorerWriteQueueSummaryLabel,
 } from "../../labels";
+import { ExplorerWriteQueueEntryDetail } from "./ExplorerWriteQueueEntryDetail";
 import {
   ExplorerWriteQueueTable,
+  getWriteQueueItemKey,
+  getWriteQueueItemName,
   WRITE_QUEUE_COLUMNS,
   WRITE_QUEUE_COMPACT_COLUMNS,
 } from "./ExplorerWriteQueueTable";
@@ -37,8 +42,13 @@ interface ExplorerWriteQueuePanelProps {
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
   openContainerInfoRoute: (containerId: string) => void;
-  openDocumentInfoRoute: (localId: string, containerId: string) => void;
+  openDocument: (localId: string, containerId: string) => void;
+  openWriteQueueEntryRoute: (entryKey: string) => void;
   organizationNamesById: ReadonlyMap<string, string>;
+  // When set (the full (objectKind, namespace, localId) key), the panel shows the
+  // drill-in detail for that pending-write entry instead of the list. Null
+  // renders the list.
+  selectedEntryKey: string | null;
 }
 
 interface ExplorerWriteQueuePanelViewProps
@@ -49,6 +59,7 @@ interface ExplorerWriteQueuePanelViewProps
   error: boolean;
   items: ReadonlyArray<PendingWriteQueueItem>;
   loading: boolean;
+  snapshot: DomainSyncSnapshot;
 }
 
 function WriteQueueBlockers(params: {
@@ -105,9 +116,65 @@ function WriteQueueEmptyState(params: { error: boolean; loading: boolean }) {
   );
 }
 
+function WriteQueueEntryBody(params: ExplorerWriteQueuePanelViewProps) {
+  const selectedEntry =
+    params.selectedEntryKey === null
+      ? null
+      : (params.items.find(
+          (item) => getWriteQueueItemKey(item) === params.selectedEntryKey,
+        ) ?? null);
+  const containerNamesById = useMemo(
+    () => new Map(params.nodes.map((node) => [node.id, node.name])),
+    [params.nodes],
+  );
+
+  if (selectedEntry) {
+    return (
+      <ExplorerWriteQueueEntryDetail
+        billingBlockedOrganizationId={params.billingBlockedOrganizationId}
+        containerNamesById={containerNamesById}
+        isAuthenticated={params.isAuthenticated}
+        item={selectedEntry}
+        online={params.online}
+        organizationNamesById={params.organizationNamesById}
+        snapshot={params.snapshot}
+      />
+    );
+  }
+
+  // The list is still loading, so the entry may just not have arrived yet; keep
+  // the loading affordance rather than claiming it is gone.
+  if (params.loading) {
+    return <MiniAppStatus>{EXPLORER_LABELS.writeQueueLoading}</MiniAppStatus>;
+  }
+
+  // The read failed, so an empty list is a query failure, not an empty queue.
+  // Surface the error instead of falsely claiming the change finished syncing.
+  if (params.error) {
+    return (
+      <MiniAppStatus>
+        <span role="alert">{EXPLORER_LABELS.writeQueueFailedToLoad}</span>
+      </MiniAppStatus>
+    );
+  }
+
+  return (
+    <MiniAppStatus>
+      {EXPLORER_LABELS.writeQueueEntryNotQueued}{" "}
+      <code>{params.selectedEntryKey}</code>
+    </MiniAppStatus>
+  );
+}
+
 export function ExplorerWriteQueuePanelView(
   params: ExplorerWriteQueuePanelViewProps,
 ) {
+  const showingEntryDetail = params.selectedEntryKey !== null;
+  const selectedEntry = showingEntryDetail
+    ? (params.items.find(
+        (item) => getWriteQueueItemKey(item) === params.selectedEntryKey,
+      ) ?? null)
+    : null;
   const writeCount = params.items.reduce(
     (total, item) =>
       total +
@@ -121,12 +188,20 @@ export function ExplorerWriteQueuePanelView(
     objectCount: params.items.length,
     writeCount,
   });
-  const subtitle =
+  const listSubtitle =
     params.loading && params.items.length === 0
       ? EXPLORER_LABELS.writeQueueSummaryLoading
       : params.error
         ? EXPLORER_LABELS.writeQueueSummaryUnavailable
         : summary;
+  const title = showingEntryDetail
+    ? EXPLORER_LABELS.writeQueueEntryDetailTitle
+    : EXPLORER_LABELS.writeQueueTitle;
+  const subtitle = showingEntryDetail
+    ? selectedEntry
+      ? getWriteQueueItemName(selectedEntry)
+      : (params.selectedEntryKey ?? "")
+    : listSubtitle;
 
   return (
     <MiniAppPanel
@@ -135,27 +210,37 @@ export function ExplorerWriteQueuePanelView(
     >
       <MiniAppHeader>
         <MiniAppHeaderCopy>
-          <strong>{EXPLORER_LABELS.writeQueueTitle}</strong>
+          <strong>{title}</strong>
           <span>{subtitle}</span>
         </MiniAppHeaderCopy>
       </MiniAppHeader>
-      <WriteQueueBlockers
-        billingBlockedOrganizationId={params.billingBlockedOrganizationId}
-        isAuthenticated={params.isAuthenticated}
-        online={params.online}
-        organizationNamesById={params.organizationNamesById}
-      />
-      {params.error || params.items.length === 0 ? (
-        <WriteQueueEmptyState error={params.error} loading={params.loading} />
+      {showingEntryDetail ? (
+        <WriteQueueEntryBody {...params} />
       ) : (
-        <ExplorerWriteQueueTable
-          billingBlockedOrganizationId={params.billingBlockedOrganizationId}
-          items={params.items}
-          nodes={params.nodes}
-          openContainerInfoRoute={params.openContainerInfoRoute}
-          openDocumentInfoRoute={params.openDocumentInfoRoute}
-          organizationNamesById={params.organizationNamesById}
-        />
+        <>
+          <WriteQueueBlockers
+            billingBlockedOrganizationId={params.billingBlockedOrganizationId}
+            isAuthenticated={params.isAuthenticated}
+            online={params.online}
+            organizationNamesById={params.organizationNamesById}
+          />
+          {params.error || params.items.length === 0 ? (
+            <WriteQueueEmptyState
+              error={params.error}
+              loading={params.loading}
+            />
+          ) : (
+            <ExplorerWriteQueueTable
+              billingBlockedOrganizationId={params.billingBlockedOrganizationId}
+              items={params.items}
+              nodes={params.nodes}
+              openContainerInfoRoute={params.openContainerInfoRoute}
+              openDocument={params.openDocument}
+              openWriteQueueEntryRoute={params.openWriteQueueEntryRoute}
+              organizationNamesById={params.organizationNamesById}
+            />
+          )}
+        </>
       )}
     </MiniAppPanel>
   );
@@ -292,8 +377,11 @@ export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
       nodes={params.nodes}
       online={params.online}
       openContainerInfoRoute={params.openContainerInfoRoute}
-      openDocumentInfoRoute={params.openDocumentInfoRoute}
+      openDocument={params.openDocument}
+      openWriteQueueEntryRoute={params.openWriteQueueEntryRoute}
       organizationNamesById={params.organizationNamesById}
+      selectedEntryKey={params.selectedEntryKey}
+      snapshot={syncSnapshot}
     />
   );
 }

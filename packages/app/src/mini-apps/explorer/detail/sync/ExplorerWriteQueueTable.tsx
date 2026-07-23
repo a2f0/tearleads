@@ -1,11 +1,19 @@
+import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
 import type {
   ContainerNode,
   PendingWriteQueueItem,
   PendingWriteQueueOperation,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { MiniAppButton } from "../../../../components/mini-app/MiniAppLayout";
 import {
+  MiniAppRowActionsButton,
   MiniAppTable,
   MiniAppTableActionButton,
   MiniAppTableCell,
@@ -13,7 +21,10 @@ import {
   MiniAppTableFrame,
   MiniAppTableRow,
   MiniAppTableText,
+  miniAppRowActionsColumn,
 } from "../../../../components/mini-app/MiniAppTable";
+import { Menu, type MenuPosition } from "../../../../components/shared/Menu";
+import { MenuItem } from "../../../../components/shared/MenuItem";
 import { useRoutedLayoutTier } from "../../../../navigation/useRoutedLayoutTier";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import {
@@ -49,6 +60,7 @@ export const WRITE_QUEUE_COLUMNS: ReadonlyArray<MiniAppTableColumn> = [
     id: "status",
     width: "8rem",
   },
+  miniAppRowActionsColumn(EXPLORER_LABELS.writeQueueRowActionsLabel),
 ];
 
 export const WRITE_QUEUE_COMPACT_COLUMNS: ReadonlyArray<MiniAppTableColumn> = [
@@ -58,11 +70,12 @@ export const WRITE_QUEUE_COMPACT_COLUMNS: ReadonlyArray<MiniAppTableColumn> = [
     id: "status",
     width: "8rem",
   },
+  miniAppRowActionsColumn(EXPLORER_LABELS.writeQueueRowActionsLabel),
 ];
 
 const WRITE_QUEUE_PAGE_SIZE = 100;
 
-function getOperationLabel(
+export function getOperationLabel(
   operation: PendingWriteQueueOperation,
   item: PendingWriteQueueItem,
   containerNamesById: ReadonlyMap<string, string>,
@@ -103,7 +116,7 @@ function getOperationsLabel(
     .join(" · ");
 }
 
-function getObjectTypeLabel(
+export function getObjectTypeLabel(
   objectKind: PendingWriteQueueItem["objectKind"],
 ): string {
   if (objectKind === "container") {
@@ -115,7 +128,9 @@ function getObjectTypeLabel(
   return EXPLORER_LABELS.writeQueueUnknownObjectType;
 }
 
-function getStatusLabel(status: PendingWriteQueueItem["status"]): string {
+export function getStatusLabel(
+  status: PendingWriteQueueItem["status"],
+): string {
   if (status === "error") {
     return EXPLORER_LABELS.writeQueueErrorStatus;
   }
@@ -125,30 +140,27 @@ function getStatusLabel(status: PendingWriteQueueItem["status"]): string {
   return EXPLORER_LABELS.writeQueuePendingStatus;
 }
 
-function getWriteQueueItemName(item: PendingWriteQueueItem): string {
+export function getWriteQueueItemName(item: PendingWriteQueueItem): string {
   const displayName = item.name?.trim() ?? "";
   return displayName.length > 0 ? displayName : item.localId;
 }
 
+// The entry's full identity: pending writes are grouped by
+// (objectKind, namespace, localId), so a localId alone can be ambiguous (e.g.
+// two unrecognized namespaces). This same key backs the row key, the detail
+// route, and the detail lookup so they can never disagree about which entry is
+// meant.
+export function getWriteQueueItemKey(item: PendingWriteQueueItem): string {
+  return `${item.objectKind}:${item.namespace ?? ""}:${item.localId}`;
+}
+
 function WriteQueueObjectCell(params: {
+  canOpen: boolean;
   item: PendingWriteQueueItem;
+  onOpenObject: () => void;
   operationLabel: string | null;
-  openContainerInfoRoute: (containerId: string) => void;
-  openDocumentInfoRoute: (localId: string, containerId: string) => void;
 }) {
-  const { item } = params;
-  const openObject = useCallback(() => {
-    if (item.objectKind === "container") {
-      params.openContainerInfoRoute(item.localId);
-      return;
-    }
-    if (item.objectKind === "document" && item.containerId) {
-      params.openDocumentInfoRoute(item.localId, item.containerId);
-    }
-  }, [item, params.openContainerInfoRoute, params.openDocumentInfoRoute]);
-  const canOpen =
-    item.objectKind === "container" ||
-    (item.objectKind === "document" && item.containerId !== null);
+  const { canOpen, item } = params;
   const name = getWriteQueueItemName(item);
   const typeLabel =
     item.objectKind === "unknown" && item.namespace
@@ -173,13 +185,66 @@ function WriteQueueObjectCell(params: {
       {canOpen ? (
         <MiniAppTableActionButton
           aria-label={`${EXPLORER_LABELS.writeQueueOpenObjectAction}: ${name}`}
-          onClick={openObject}
+          onClick={params.onOpenObject}
         >
           {content}
         </MiniAppTableActionButton>
       ) : (
         content
       )}
+    </MiniAppTableCell>
+  );
+}
+
+// The row's overflow ("kebab") menu. Its one action drills into the write-queue
+// entry detail — a diagnostics view that surfaces why the change is still
+// queued. Kept separate from the row's primary tap (which opens the object) so
+// inspecting a stuck write never navigates away to the document.
+function WriteQueueRowActionsCell(params: {
+  entryName: string;
+  onOpenEntryInfo: () => void;
+}) {
+  const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
+  const closeMenu = useCallback(() => setMenuPosition(null), []);
+  const toggleMenu = useCallback((event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setMenuPosition((current) => {
+      if (current !== null) {
+        return null;
+      }
+      // Anchor to the button's box (not the pointer) so keyboard activation,
+      // which reports 0,0 client coordinates, still opens the menu under it.
+      const rect = event.currentTarget.getBoundingClientRect();
+      return { x: rect.left, y: rect.bottom };
+    });
+  }, []);
+  // Name the entry in the trigger so a screen reader reading a column of
+  // otherwise-identical kebabs can tell which row's actions each one opens.
+  const label = `${EXPLORER_LABELS.writeQueueRowActionsLabel}: ${params.entryName}`;
+
+  return (
+    <MiniAppTableCell className="mini-app-row-actions-cell">
+      <MiniAppRowActionsButton
+        aria-expanded={menuPosition !== null}
+        aria-label={label}
+        onClick={toggleMenu}
+        // Keep the trigger's mousedown from reaching the Menu's document-level
+        // outside-click handler, so re-clicking the trigger can toggle it shut.
+        onMouseDown={(event) => event.stopPropagation()}
+        title={label}
+      />
+      {menuPosition ? (
+        <Menu direction="down" onClose={closeMenu} position={menuPosition}>
+          <MenuItem
+            icon={InfoIcon}
+            label={EXPLORER_LABELS.writeQueueEntryInfoAction}
+            onClick={() => {
+              closeMenu();
+              params.onOpenEntryInfo();
+            }}
+          />
+        </Menu>
+      ) : null}
     </MiniAppTableCell>
   );
 }
@@ -218,7 +283,8 @@ interface WriteQueueTableProps {
   items: ReadonlyArray<PendingWriteQueueItem>;
   nodes: ReadonlyArray<ContainerNode>;
   openContainerInfoRoute: (containerId: string) => void;
-  openDocumentInfoRoute: (localId: string, containerId: string) => void;
+  openDocument: (localId: string, containerId: string) => void;
+  openWriteQueueEntryRoute: (entryKey: string) => void;
   organizationNamesById: ReadonlyMap<string, string>;
 }
 
@@ -230,6 +296,19 @@ function WriteQueueRow(
   },
 ) {
   const { item } = params;
+  const { openContainerInfoRoute, openDocument } = params;
+  const openObject = useCallback(() => {
+    if (item.objectKind === "container") {
+      openContainerInfoRoute(item.localId);
+      return;
+    }
+    if (item.objectKind === "document" && item.containerId) {
+      openDocument(item.localId, item.containerId);
+    }
+  }, [item, openContainerInfoRoute, openDocument]);
+  const canOpen =
+    item.objectKind === "container" ||
+    (item.objectKind === "document" && item.containerId !== null);
   const organizationLabel = item.organizationId
     ? (params.organizationNamesById.get(item.organizationId) ??
       item.organizationId)
@@ -237,12 +316,15 @@ function WriteQueueRow(
   const operationsLabel = getOperationsLabel(item, params.containerNamesById);
 
   return (
-    <MiniAppTableRow>
+    <MiniAppTableRow
+      interactive={canOpen}
+      onActivate={canOpen ? openObject : undefined}
+    >
       <WriteQueueObjectCell
+        canOpen={canOpen}
         item={item}
+        onOpenObject={openObject}
         operationLabel={params.compact ? operationsLabel : null}
-        openContainerInfoRoute={params.openContainerInfoRoute}
-        openDocumentInfoRoute={params.openDocumentInfoRoute}
       />
       {params.compact ? null : (
         <>
@@ -265,6 +347,12 @@ function WriteQueueRow(
           item.organizationId === params.billingBlockedOrganizationId
         }
         item={item}
+      />
+      <WriteQueueRowActionsCell
+        entryName={getWriteQueueItemName(item)}
+        onOpenEntryInfo={() =>
+          params.openWriteQueueEntryRoute(getWriteQueueItemKey(item))
+        }
       />
     </MiniAppTableRow>
   );
@@ -297,9 +385,10 @@ export function ExplorerWriteQueueTable(params: WriteQueueTableProps) {
               compact={compact}
               containerNamesById={containerNamesById}
               item={item}
-              key={`${item.objectKind}:${item.namespace ?? ""}:${item.localId}`}
+              key={getWriteQueueItemKey(item)}
               openContainerInfoRoute={params.openContainerInfoRoute}
-              openDocumentInfoRoute={params.openDocumentInfoRoute}
+              openDocument={params.openDocument}
+              openWriteQueueEntryRoute={params.openWriteQueueEntryRoute}
               organizationNamesById={params.organizationNamesById}
             />
           ))}

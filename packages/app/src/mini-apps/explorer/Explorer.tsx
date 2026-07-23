@@ -165,6 +165,7 @@ function renderExplorerDetailPanelWithBlobPick(
       openDocumentInfoRoute={routeState.openDocumentInfoRoute}
       openUploadsRoute={routeState.openUploadsRoute}
       openWriteQueueRoute={routeState.openWriteQueueRoute}
+      openWriteQueueEntryRoute={routeState.openWriteQueueEntryRoute}
       peerUserId={model.peerUserId}
       ready={model.explorer.ready}
       refreshError={model.refreshError}

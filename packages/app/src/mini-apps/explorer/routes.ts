@@ -6,6 +6,7 @@ export type ExplorerRoute =
   | { view: "sync-lanes" }
   | { view: "sync-lane-detail"; laneKey: string }
   | { view: "write-queue" }
+  | { view: "write-queue-entry"; entryKey: string }
   | { view: "uploads" }
   | { view: "new-structured-document"; containerId: string }
   | { view: "container-info"; containerId: string }
@@ -121,7 +122,9 @@ export function parseExplorerRouteSegments(
   }
 
   if (first === "writes") {
-    return { route: { view: "write-queue" } };
+    return second
+      ? { route: { view: "write-queue-entry", entryKey: second } }
+      : { route: { view: "write-queue" } };
   }
 
   if (first === "uploads") {
@@ -165,6 +168,10 @@ export function formatExplorerRouteSegments(
     return ["writes"];
   }
 
+  if (route.view === "write-queue-entry") {
+    return ["writes", route.entryKey];
+  }
+
   if (route.view === "uploads") {
     return ["uploads"];
   }
@@ -205,6 +212,10 @@ export function isExplorerRouteAvailable(
   }
 
   if (route.view === "write-queue") {
+    return true;
+  }
+
+  if (route.view === "write-queue-entry") {
     return true;
   }
 
