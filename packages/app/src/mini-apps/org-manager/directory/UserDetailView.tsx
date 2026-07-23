@@ -94,7 +94,7 @@ export function UserDetailView({
   canEditRosterProfile,
   canRevokeGrants,
   detail,
-  loading,
+  pending,
   onRosterProfileDisplayNameChange,
   rosterProfileEditRequestKey,
   openGrantRoute,
@@ -108,7 +108,7 @@ export function UserDetailView({
   canEditRosterProfile: boolean;
   canRevokeGrants: boolean;
   detail: OrganizationUserDetail | null;
-  loading: boolean;
+  pending: boolean;
   onRosterProfileDisplayNameChange: (displayName: string | null) => void;
   rosterProfileEditRequestKey?: number | null | undefined;
   mutating: boolean;
@@ -151,14 +151,14 @@ export function UserDetailView({
         <MiniAppHeader className="org-manager-detail-header">
           <MiniAppHeaderCopy>
             <strong>
-              {loading
+              {pending
                 ? ORG_MANAGER_LABELS.loadingUserDetail
                 : ORG_MANAGER_LABELS.userDetailUnavailable}
             </strong>
           </MiniAppHeaderCopy>
         </MiniAppHeader>
         <MiniAppStatus className="org-manager-hint">
-          {loading
+          {pending
             ? ORG_MANAGER_LABELS.loadingUserDetail
             : ORG_MANAGER_LABELS.userDetailUnavailable}
         </MiniAppStatus>

@@ -22,7 +22,28 @@ interface OrgManagerDataUsageRefresherInput {
   readonly orgManagerActions: ReturnType<typeof useOrgManagerActions>;
   readonly setDataUsage: Dispatch<SetStateAction<OrganizationDataUsage | null>>;
   readonly setError: Dispatch<SetStateAction<string | null>>;
+  // Usage refreshes on view entry run with `manageLoading: false`, so `loading`
+  // never covers them; this mark is how the view learns the fetch happened.
+  readonly markDataUsageSettled: () => void;
   readonly setLoading: Dispatch<SetStateAction<boolean>>;
+}
+
+/**
+ * Records that usage has been looked at — but not for an empty `localOnly` pass.
+ *
+ * Entering the usage view paints the local cache first and then reconciles.
+ * Settling on a local pass that found nothing would report "hasn't synced yet"
+ * while the real request is still in flight; settling on one that found
+ * something is correct, since there is data on screen either way.
+ */
+function settleDataUsageIfAnswered(input: {
+  readonly hasUsage: boolean;
+  readonly localOnly: boolean;
+  readonly markDataUsageSettled: () => void;
+}): void {
+  if (!input.localOnly || input.hasUsage) {
+    input.markDataUsageSettled();
+  }
 }
 
 export function useOrgManagerDataUsageRefresher(
@@ -35,6 +56,7 @@ export function useOrgManagerDataUsageRefresher(
     orgManagerActions,
     setDataUsage,
     setError,
+    markDataUsageSettled,
     setLoading,
   } = input;
   const organizationId = input.appData.auth.organizationId;
@@ -82,6 +104,11 @@ export function useOrgManagerDataUsageRefresher(
       } finally {
         if (isCurrentRequest()) {
           setLoadingIfManaged(shouldManageLoading, setLoading, false);
+          settleDataUsageIfAnswered({
+            hasUsage: dataUsageRef.current !== null,
+            localOnly: options.localOnly ?? false,
+            markDataUsageSettled,
+          });
         }
       }
     },
@@ -89,6 +116,7 @@ export function useOrgManagerDataUsageRefresher(
       beginRequest,
       canLoadAuthenticatedOrgData,
       dataUsageRef,
+      markDataUsageSettled,
       organizationId,
       orgManagerActions,
       setDataUsage,

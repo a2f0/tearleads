@@ -95,7 +95,7 @@ test("org manager directory table renders two-line rows on phones", () => {
   const view = render(
     <DirectoryTable
       directory={directory}
-      loading={false}
+      pending={false}
       openRosterUserContextMenu={() => undefined}
       selectedUserId={null}
       selectUser={() => undefined}
@@ -163,7 +163,7 @@ test("org manager directory table stays single-line in narrow windowed mode", ()
   const view = render(
     <DirectoryTable
       directory={directory}
-      loading={false}
+      pending={false}
       openRosterUserContextMenu={() => undefined}
       selectedUserId={null}
       selectUser={() => undefined}
@@ -196,7 +196,7 @@ test("org manager directory table folds when its own frame is narrow", () => {
   const view = render(
     <DirectoryTable
       directory={directory}
-      loading={false}
+      pending={false}
       openRosterUserContextMenu={() => undefined}
       selectedUserId={null}
       selectUser={() => undefined}
@@ -227,7 +227,7 @@ test("org manager directory table stays single-line in a wide frame", () => {
   const view = render(
     <DirectoryTable
       directory={directory}
-      loading={false}
+      pending={false}
       openRosterUserContextMenu={() => undefined}
       selectedUserId={null}
       selectUser={() => undefined}
@@ -252,7 +252,7 @@ test("org manager directory table stays single-line on routed tablets", () => {
   const view = render(
     <DirectoryTable
       directory={directory}
-      loading={false}
+      pending={false}
       openRosterUserContextMenu={() => undefined}
       selectedUserId={null}
       selectUser={() => undefined}
@@ -276,7 +276,7 @@ test("org manager directory table has no kebab on the desktop layout", () => {
   const view = render(
     <DirectoryTable
       directory={directory}
-      loading={false}
+      pending={false}
       openRosterUserContextMenu={() => undefined}
       selectedUserId={null}
       selectUser={() => undefined}
@@ -296,7 +296,7 @@ test("org manager directory table opens the row context menu from the touch keba
   const view = render(
     <DirectoryTable
       directory={directory}
-      loading={false}
+      pending={false}
       openRosterUserContextMenu={(event, userId) => {
         event.preventDefault();
         contextMenuUserIds.push(userId);
@@ -320,7 +320,7 @@ test("org manager directory columns menu rides the touch actions header", () => 
   const view = render(
     <DirectoryTable
       directory={directory}
-      loading={false}
+      pending={false}
       openRosterUserContextMenu={() => undefined}
       selectedUserId={null}
       selectUser={() => undefined}
@@ -349,7 +349,7 @@ test("org manager directory kebab keeps keyboard activation off the row", () => 
   const view = render(
     <DirectoryTable
       directory={directory}
-      loading={false}
+      pending={false}
       openRosterUserContextMenu={() => undefined}
       selectedUserId={null}
       selectUser={(userId) => selectedUserIds.push(userId)}
@@ -363,4 +363,20 @@ test("org manager directory kebab keeps keyboard activation off the row", () => 
   fireEvent.keyDown(actionsButton, { key: " " });
 
   expect(selectedUserIds).toEqual([]);
+});
+
+test("an unfetched roster reads as loading rather than unavailable", () => {
+  // Before the first directory pass settles there is no projection to show.
+  // Reporting that as "unavailable" told the user the roster was missing when
+  // it had simply not been fetched yet.
+  const view = render(<DirectoryTable directory={null} pending={true} />);
+
+  expect(view.getByText(ORG_MANAGER_LABELS.loadingDirectory)).toBeTruthy();
+  expect(view.queryByText(ORG_MANAGER_LABELS.directoryUnavailable)).toBeNull();
+});
+
+test("a settled empty roster reports itself as unavailable", () => {
+  const view = render(<DirectoryTable directory={null} pending={false} />);
+
+  expect(view.getByText(ORG_MANAGER_LABELS.directoryUnavailable)).toBeTruthy();
 });

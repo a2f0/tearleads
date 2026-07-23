@@ -35,6 +35,7 @@ import {
 } from "./orgManagerStateScope";
 import { useEnsureRosterProfileDocument } from "./useEnsureRosterProfileDocument";
 import { useOrgManagerMutations } from "./useOrgManagerMutations";
+import { useOrgManagerPendingState } from "./useOrgManagerPendingState";
 import { useOrgManagerProfileDisplayNames } from "./useOrgManagerProfileDisplayNames";
 import { useOrgManagerRefreshers } from "./useOrgManagerRefreshers";
 import { useOrgManagerRequestGuard } from "./useOrgManagerRequestGuard";
@@ -120,6 +121,25 @@ export function useOrgManagerModel() {
   const canLoadAuthenticatedOrgData = Boolean(
     organizationId && appData.auth.isAuthenticated,
   );
+  const databaseReady = appData.infra.dbStatus === "ready";
+  const databaseStarting = appData.infra.dbStatus === "idle";
+  const {
+    dataPending,
+    dataUsagePending,
+    grantsPending,
+    groupDetailsPending,
+    markDataUsageSettled,
+    markDirectorySettled,
+    markGrantsSettled,
+    markGroupDetailsSettled,
+    markOrganizationPolicyHistorySettled,
+    organizationPolicyHistoryPending,
+  } = useOrgManagerPendingState({
+    databaseStarting,
+    loading,
+    scopeKey: orgManagerScopeKey,
+    selectedGroupId,
+  });
   const {
     activeDataUsage,
     activeGrants,
@@ -150,7 +170,7 @@ export function useOrgManagerModel() {
       hasSigningKeyPair: Boolean(appData.crypto.signingKeyPair),
     },
     dataUsage,
-    databaseReady: appData.infra.dbStatus === "ready",
+    databaseReady,
     grants,
     groupContainers,
     groupPolicyHistory,
@@ -274,6 +294,11 @@ export function useOrgManagerModel() {
     selectedGroupStateHashRef,
     selectedUserIdRef,
     skippedGroupDetailsEffectRef,
+    markDataUsageSettled,
+    markDirectorySettled,
+    markGrantsSettled,
+    markGroupDetailsSettled,
+    markOrganizationPolicyHistorySettled,
     setDataUsage,
     setDirectory,
     setError,
@@ -311,6 +336,7 @@ export function useOrgManagerModel() {
     refreshDataUsage,
     refreshGrants,
     refreshOrganizationPolicyHistory,
+    scopeKey: orgManagerScopeKey,
     view,
   });
   useOrgManagerDirectorySync({
@@ -398,7 +424,7 @@ export function useOrgManagerModel() {
   const orgSwitcher = useOrgSwitcher({
     activeContainerId: appData.state.containerId,
     activeOrganizationId: appData.auth.organizationId,
-    databaseReady: appData.infra.dbStatus === "ready",
+    databaseReady,
     enabled: Boolean(appData.auth.isAuthenticated),
     interactionDisabled: loading || mutating,
     operationScopeKey: orgManagerScopeKey,
@@ -448,6 +474,11 @@ export function useOrgManagerModel() {
     isImportUserDialogOpen,
     isAuthenticated: appData.auth.isAuthenticated,
     isOrgAdmin: activeDirectory?.currentUser.isOrgAdmin ?? false,
+    dataPending,
+    dataUsagePending,
+    grantsPending,
+    groupDetailsPending,
+    organizationPolicyHistoryPending,
     loading,
     loadingUserDetail,
     members: activeMembers,

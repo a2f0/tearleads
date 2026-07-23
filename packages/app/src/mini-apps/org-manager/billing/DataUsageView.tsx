@@ -73,16 +73,16 @@ function UsageMetric({
 export function DataUsageView({
   canSync,
   dataUsage,
-  loading,
+  pending,
 }: {
   canSync: boolean | null;
   dataUsage: OrganizationDataUsage | null;
-  loading: boolean;
+  pending: boolean;
 }) {
   if (!dataUsage) {
     return (
       <MiniAppStatus className="org-manager-hint">
-        {loading
+        {pending
           ? ORG_MANAGER_LABELS.loadingDataUsage
           : ORG_MANAGER_LABELS.usageUnavailable}
       </MiniAppStatus>

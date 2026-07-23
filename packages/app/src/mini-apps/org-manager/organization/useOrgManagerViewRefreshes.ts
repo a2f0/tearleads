@@ -6,6 +6,7 @@ import type { OrgManagerView } from "../routes";
 interface OrgManagerViewRefreshesInput {
   readonly enabled: boolean;
   readonly readModelCursor: string | null;
+  readonly scopeKey: string;
   readonly refreshDataUsage: () => Promise<void>;
   readonly refreshGrants: () => Promise<void>;
   readonly refreshOrganizationPolicyHistory: () => Promise<void>;
@@ -25,6 +26,7 @@ export function useOrgManagerViewRefreshes(
     enabled: input.enabled,
     readModelCursor: input.readModelCursor,
     refreshGrants: input.refreshGrants,
+    scopeKey: input.scopeKey,
     visible: input.view === "grants",
   });
 

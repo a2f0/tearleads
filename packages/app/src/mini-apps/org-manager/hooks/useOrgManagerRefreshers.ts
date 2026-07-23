@@ -117,6 +117,11 @@ interface OrgManagerRefreshersParams {
     SetStateAction<OrganizationGroupPolicyHistory | null>
   >;
   setGroups: Dispatch<SetStateAction<ReadonlyArray<OrganizationGroupSummary>>>;
+  markDataUsageSettled: () => void;
+  markDirectorySettled: () => void;
+  markGrantsSettled: () => void;
+  markGroupDetailsSettled: (groupId: string | null) => void;
+  markOrganizationPolicyHistorySettled: () => void;
   setLoading: Dispatch<SetStateAction<boolean>>;
   setLoadingUserDetail: Dispatch<SetStateAction<boolean>>;
   setMemberGroupId: Dispatch<SetStateAction<string | null>>;
@@ -152,6 +157,11 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setGroupContainers,
     setGroupPolicyHistory,
     setGroups,
+    markDataUsageSettled,
+    markDirectorySettled,
+    markGrantsSettled,
+    markGroupDetailsSettled,
+    markOrganizationPolicyHistorySettled,
     setLoading,
     setLoadingUserDetail,
     setMemberGroupId,
@@ -165,6 +175,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
   } = params;
 
   const refreshSelectedGroupDetails = useOrgManagerGroupDetailsRefresher({
+    markGroupDetailsSettled,
     appData,
     beginRequest,
     orgManagerActions,
@@ -183,6 +194,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setGroupContainers,
   });
   const refreshDataUsage = useOrgManagerDataUsageRefresher({
+    markDataUsageSettled,
     appData,
     beginRequest,
     canLoadAuthenticatedOrgData,
@@ -352,12 +364,16 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
       } finally {
         if (isCurrentRequest()) {
           setLoadingIfManaged(shouldManageLoading, setLoading, false);
+          // Settled means "this scope has been looked at", whatever the pass
+          // produced: from here on an empty projection is a real answer.
+          markDirectorySettled();
         }
       }
     },
     [
       beginRequest,
       loadDirectoryAndGroups,
+      markDirectorySettled,
       selectedGroupIdRef,
       setError,
       setLoading,
@@ -397,12 +413,14 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
       } finally {
         if (isCurrentRequest()) {
           setLoadingIfManaged(shouldManageLoading, setLoading, false);
+          markGrantsSettled();
         }
       }
     },
     [
       canLoadAuthenticatedOrgData,
       beginRequest,
+      markGrantsSettled,
       orgManagerActions,
       setError,
       setGrants,
@@ -436,12 +454,14 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
       } finally {
         if (isCurrentRequest()) {
           setLoadingIfManaged(shouldManageLoading, setLoading, false);
+          markOrganizationPolicyHistorySettled();
         }
       }
     },
     [
       canLoadAuthenticatedOrgData,
       beginRequest,
+      markOrganizationPolicyHistorySettled,
       orgManagerActions,
       setError,
       setLoading,

@@ -18,7 +18,7 @@ import {
 } from "../../../components/mini-app/MiniAppLayout";
 import { compactFingerprint, EMPTY_PROFILE_DISPLAY_NAMES } from "../display";
 import { getOrgManagerEpochLabel, ORG_MANAGER_LABELS } from "../labels";
-import { PolicyHistorySection } from "../PolicyHistory";
+import { PolicyHistorySection } from "../policy-history/PolicyHistory";
 import { GroupContainers } from "./GroupContainers";
 import { GroupMembers } from "./GroupMembers";
 
@@ -67,6 +67,7 @@ export function GroupDetailSection({
   members,
   memberUserIds,
   mutating,
+  pending,
   openGroupContextMenu,
   openRosterUser,
   profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
@@ -87,6 +88,7 @@ export function GroupDetailSection({
   members: OrganizationGroupMembers | null;
   memberUserIds: ReadonlySet<string>;
   mutating: boolean;
+  pending: boolean;
   openGroupContextMenu: (
     event: MouseEvent<HTMLElement>,
     groupId: string | null,
@@ -153,6 +155,7 @@ export function GroupDetailSection({
         groups={groups}
         heading={ORG_MANAGER_LABELS.policyHistory}
         history={groupPolicyHistory}
+        pending={pending}
         profileDisplayNamesByUserId={profileDisplayNamesByUserId}
       />
       <MiniAppSection>

@@ -33,7 +33,7 @@ test("org manager grant detail links group grants to their group", () => {
     <GrantsView
       canRevokeGrants
       grants={{ grants: [grant], organizationId: "org-1" }}
-      loading={false}
+      pending={false}
       mutating={false}
       openGrantRoute={() => undefined}
       openGroupRoute={(groupId) => openedGroupIds.push(groupId)}

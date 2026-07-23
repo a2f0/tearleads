@@ -81,8 +81,8 @@ function OrgManagerDirectoryContent({
       importRosterUser={model.importRosterUser}
       importUserIdDraft={model.importUserIdDraft}
       isImportUserDialogOpen={model.isImportUserDialogOpen}
-      loading={model.loading}
       loadingUserDetail={model.loadingUserDetail}
+      pending={model.dataPending}
       mutating={model.mutating}
       openDirectoryContextMenu={(event) =>
         model.contextMenuState.handleSidebarContextMenu(event, "directory")
@@ -136,7 +136,7 @@ function OrgManagerContent({
       <GrantsView
         canRevokeGrants={model.canRevokeGrants}
         grants={model.grants}
-        loading={model.loading}
+        pending={model.grantsPending}
         mutating={model.mutating}
         openGrantRoute={model.openGrantRoute}
         openGroupRoute={model.openGroupRoute}
@@ -153,6 +153,8 @@ function OrgManagerContent({
         directory={model.directory}
         groups={model.groups}
         organizationId={organizationId}
+        pending={model.dataPending}
+        policyHistoryPending={model.organizationPolicyHistoryPending}
         policyHistory={model.organizationPolicyHistory}
         profileDisplayNamesByUserId={model.profileDisplayNamesByUserId}
       />
@@ -166,7 +168,7 @@ function OrgManagerContent({
           billingMatchesOrganization ? (billing.view?.canSync ?? null) : null
         }
         dataUsage={model.dataUsage}
-        loading={model.loading}
+        pending={model.dataUsagePending}
       />
     );
   }
@@ -207,6 +209,7 @@ function OrgManagerGroupsContent({ model }: { model: OrgManagerModel }) {
       members={model.members}
       memberUserIds={model.memberUserIds}
       mutating={model.mutating}
+      pending={model.groupDetailsPending}
       openCreateGroupDialog={model.openCreateGroupDialog}
       openRosterUser={model.openRosterUser}
       profileDisplayNamesByUserId={model.profileDisplayNamesByUserId}

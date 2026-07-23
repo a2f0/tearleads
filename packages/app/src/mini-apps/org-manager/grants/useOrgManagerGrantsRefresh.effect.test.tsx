@@ -15,6 +15,7 @@ test("grants entry and re-entry repaint only from the local projection", async (
     enabled: true,
     readModelCursor: "cursor-1",
     refreshGrants,
+    scopeKey: "scope-a",
     visible: false,
   } satisfies GrantsRefreshInput;
   const view = render(<GrantsRefreshProbe input={baseInput} />);
@@ -78,4 +79,26 @@ test("grants entry and re-entry repaint only from the local projection", async (
     expect(replacementLocalRefresh).toHaveBeenCalledTimes(2);
   });
   expect(refreshGrants).toHaveBeenCalledTimes(1);
+});
+
+test("an organization switch with an unchanged cursor still refetches grants", () => {
+  // Two organizations that both have a null read-model cursor: the switch clears
+  // the projection, so grants must repaint even though the cursor did not move.
+  const refreshGrants = mock(async () => {});
+  const baseInput = {
+    enabled: true,
+    readModelCursor: null,
+    refreshGrants,
+    scopeKey: "scope-a",
+    visible: true,
+  } satisfies GrantsRefreshInput;
+  const view = render(<GrantsRefreshProbe input={baseInput} />);
+
+  expect(refreshGrants).toHaveBeenCalledTimes(1);
+
+  view.rerender(
+    <GrantsRefreshProbe input={{ ...baseInput, scopeKey: "scope-b" }} />,
+  );
+
+  expect(refreshGrants).toHaveBeenCalledTimes(2);
 });

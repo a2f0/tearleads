@@ -10,20 +10,27 @@ import {
 } from "../../../components/mini-app/MiniAppLayout";
 import { compactFingerprint, EMPTY_PROFILE_DISPLAY_NAMES } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
-import { PolicyHistorySection } from "../PolicyHistory";
+import { PolicyHistorySection } from "../policy-history/PolicyHistory";
 import { OrganizationProfileEditor } from "./OrganizationProfileEditor";
 
 export function OrganizationView({
   directory,
   groups,
   organizationId,
+  pending,
   policyHistory,
+  policyHistoryPending,
   profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
 }: {
   directory: OrganizationDirectory | null;
   groups: ReadonlyArray<OrganizationGroupSummary>;
   organizationId: string;
+  // The directory (which the profile editor derives `canEdit` from) has not
+  // settled yet.
+  pending: boolean;
   policyHistory: OrganizationPolicyHistory | null;
+  // Policy history runs its own refresh, so it settles separately.
+  policyHistoryPending: boolean;
   profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
 }) {
   const [organizationName, setOrganizationName] = useState<string | null>(null);
@@ -46,6 +53,7 @@ export function OrganizationView({
         canEdit={directory?.currentUser.isOrgAdmin ?? false}
         onNameChange={setOrganizationName}
         organizationId={organizationId}
+        pending={pending}
         profileDocumentId={directory?.profileDocumentId ?? null}
       />
       <PolicyHistorySection
@@ -53,6 +61,7 @@ export function OrganizationView({
         groups={groups}
         heading={ORG_MANAGER_LABELS.organizationPolicyHistory}
         history={policyHistory}
+        pending={policyHistoryPending}
         profileDisplayNamesByUserId={profileDisplayNamesByUserId}
       />
     </div>

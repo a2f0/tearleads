@@ -41,7 +41,7 @@ function renderUserDetailView(
       canEditRosterProfile={false}
       canRevokeGrants={false}
       detail={detail}
-      loading={false}
+      pending={false}
       mutating={false}
       onRosterProfileDisplayNameChange={() => undefined}
       openGrantRoute={() => undefined}

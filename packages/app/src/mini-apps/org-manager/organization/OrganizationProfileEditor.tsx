@@ -161,11 +161,17 @@ export function OrganizationProfileEditor({
   canEdit,
   onNameChange,
   organizationId,
+  pending,
   profileDocumentId,
 }: {
   canEdit: boolean;
   onNameChange: (name: string | null) => void;
   organizationId: string;
+  // The organization data this editor derives its inputs from has not settled
+  // yet. While that holds, an unresolved profile reads as loading: `canEdit` is
+  // false merely because the directory has not landed, so the ensure below
+  // legitimately resolves nothing.
+  pending: boolean;
   profileDocumentId: string | null;
 }) {
   const {
@@ -225,6 +231,10 @@ export function OrganizationProfileEditor({
     return () => {
       cancelled = true;
     };
+    // Deliberately not keyed on `pending`: a managed refresh flips it while the
+    // editor is mounted, and re-running here would clear the resolved container
+    // and unmount the document store mid-edit. `pending` only decides which
+    // message a still-unresolved editor shows.
   }, [
     canEdit,
     ensureOrganizationMetadataContainer,
@@ -235,7 +245,7 @@ export function OrganizationProfileEditor({
   if (!activeProfileDocumentId || !profileContainerId) {
     return (
       <MiniAppStatus>
-        {profileUnavailable
+        {profileUnavailable && !pending
           ? ORG_MANAGER_LABELS.organizationProfileUnavailable
           : ORG_MANAGER_LABELS.loadingOrganizationProfile}
       </MiniAppStatus>

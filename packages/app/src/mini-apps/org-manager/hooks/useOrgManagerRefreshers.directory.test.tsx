@@ -29,6 +29,7 @@ function createRefresherHarness(input: {
 }) {
   const directoryValues: unknown[] = [];
   const errors: Array<string | null> = [];
+  const settledValues: boolean[] = [];
   const noop = () => undefined;
   const params = {
     appData: {
@@ -63,6 +64,13 @@ function createRefresherHarness(input: {
     setGroupContainers: noop,
     setGroupPolicyHistory: noop,
     setGroups: noop,
+    markDataUsageSettled: noop,
+    markDirectorySettled: () => {
+      settledValues.push(true);
+    },
+    markGrantsSettled: noop,
+    markGroupDetailsSettled: noop,
+    markOrganizationPolicyHistorySettled: noop,
     setLoading: noop,
     setLoadingUserDetail: noop,
     setMemberGroupId: noop,
@@ -78,6 +86,7 @@ function createRefresherHarness(input: {
   return {
     directoryValues,
     errors,
+    settledValues,
     refreshDirectoryAndGroups: (
       options?: DirectoryRefreshOptions,
     ): Promise<DirectoryRefreshResult> =>
@@ -143,4 +152,29 @@ test("a missing local projection on a local-only pass is not an error", async ()
   expect(harness.errors).not.toContain(
     ORG_MANAGER_LABELS.failedLoadDirectoryGroups,
   );
+});
+
+test("a completed pass marks the scope settled even when it found nothing", async () => {
+  // "Settled" is what lets the views distinguish an empty organization from one
+  // that has not been fetched yet, so a pass that produces no directory must
+  // still record that it looked.
+  const harness = createRefresherHarness({
+    loadDirectoryAndGroups: async () => undefined,
+    loadLocalDirectoryAndGroups: async () => undefined,
+  });
+
+  await harness.refreshDirectoryAndGroups();
+
+  expect(harness.settledValues).toEqual([true]);
+});
+
+test("a pass that does not manage the loading flag still settles the scope", async () => {
+  const harness = createRefresherHarness({
+    loadDirectoryAndGroups: async () => localDirectoryState,
+    loadLocalDirectoryAndGroups: async () => localDirectoryState,
+  });
+
+  await harness.refreshDirectoryAndGroups({ manageLoading: false });
+
+  expect(harness.settledValues).toEqual([true]);
 });

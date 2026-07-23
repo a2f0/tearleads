@@ -24,7 +24,7 @@ ls:
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3
 
   packages/app/src/mini-apps/org-manager/*:
-    .dir: regex:(billing|context-menu|directory|grants|groups|hooks|organization)
+    .dir: regex:(billing|context-menu|directory|grants|groups|hooks|organization|policy-history)
     .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-22
     .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-14
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3
