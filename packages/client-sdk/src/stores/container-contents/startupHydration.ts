@@ -3,6 +3,7 @@ import {
   createContainerParentSyncLane,
   loadContainerSyncLaneCheckRecords,
 } from "../../workflows/container-contents/containerPersistence";
+import { hasStartupDocumentSyncWork } from "../../workflows/container-contents/documentQueries";
 import { isDatabaseUnavailableError } from "../../workflows/container-contents/syncLane";
 
 const STARTUP_REMOTE_HYDRATION_FRESH_MS = 15 * 60_000;
@@ -129,6 +130,16 @@ export async function hasStartupContainerSyncWork(state: {
     state.persistence.listPendingMoveIntents(execSql),
   ]);
   if (createIntents.length > 0 || moveIntents.length > 0) {
+    return true;
+  }
+
+  // Durable document-level work (pending creates, queued Loro updates or
+  // attachments, pending document move intents) is drained by lane passes too:
+  // the pass primes the owning document stores, which register and request
+  // their own sync lanes. Without this probe, a relaunch whose only pending
+  // work is document-level never schedules any lane and the write queue sits
+  // unattempted forever.
+  if (await hasStartupDocumentSyncWork(execSql)) {
     return true;
   }
 

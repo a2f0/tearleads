@@ -12,6 +12,7 @@ import { applyContainerRekeys } from "../../containers/mutations";
 import {
   appendAtomicRotationBaseline,
   assertAtomicRotationBaselineCoversCommittedFrontier,
+  assertBaselinelessUnlinkHasEmptyCommittedFrontier,
 } from "./atomicRotationBaseline";
 import { DocumentMutationError, toMutationError } from "./errors";
 import { lockDocumentLinkSetMutationHeads } from "./linkSetMutationLocks";
@@ -53,13 +54,10 @@ function requireMutationRotationBaseline(input: {
     }
     return null;
   }
-  if (!baseline) {
-    throw new DocumentMutationError(
-      "Document unlink requires a rotation baseline",
-      400,
-    );
-  }
-  return baseline;
+  // An unlink may omit its rotation baseline only when the document has no
+  // committed updates; advanceDocumentLinkSet proves that emptiness under the
+  // manifest-head lock before replacing the link set.
+  return baseline ?? null;
 }
 
 function toDocumentLinkSetMutationResult(input: {
@@ -86,6 +84,7 @@ function toDocumentLinkSetMutationResult(input: {
 async function advanceDocumentLinkSet(input: {
   readonly baseline: DocumentLinkSetMutationRequest["rotationBaseline"];
   readonly documentId: string;
+  readonly eventType: "document.link" | "document.unlink";
   readonly executor: DatabaseTransaction;
   readonly manifest: Parameters<typeof documentManifestBundleRecord>[0];
   readonly previousManifest: Parameters<typeof documentManifestBundleRecord>[0];
@@ -101,11 +100,15 @@ async function advanceDocumentLinkSet(input: {
       baseline: input.baseline,
       documentId: input.documentId,
     });
+  } else if (input.eventType === "document.unlink") {
+    await assertBaselinelessUnlinkHasEmptyCommittedFrontier(input.executor, {
+      documentId: input.documentId,
+    });
   }
   await replaceDocumentContainerLinks({
     documentId: input.documentId,
     executor: input.executor,
-    incrementAttributionRevision: input.baseline !== undefined,
+    incrementAttributionRevision: input.eventType === "document.unlink",
     linkedContainerIds: input.manifest.state.linkedContainerIds,
   });
   return storeDocumentContentKeyBundleInTransaction(
@@ -185,6 +188,7 @@ async function mutateDocumentLinkSetWithExecutor(input: {
     const contentKeyBundle = await advanceDocumentLinkSet({
       baseline: rotationBaseline ?? undefined,
       documentId: input.documentId,
+      eventType: input.eventType,
       executor: input.executor,
       manifest,
       previousManifest,

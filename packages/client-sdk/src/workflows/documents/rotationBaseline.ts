@@ -9,8 +9,40 @@ import {
   encryptDocumentPendingUpdate,
   importDocumentContentKeyMaterial,
 } from "../../data/documents/shared/crypto";
-import type { DocumentCreateAuthor } from "../../data/documents/shared/types";
+import type {
+  DocumentCreateAuthor,
+  DocumentLinkSetMutationOperation,
+  MaterializedDocumentLinkSetMutationPlan,
+} from "../../data/documents/shared/types";
 import { signDocumentOutgoingUpdate } from "./sync";
+
+// A zero-span snapshot (empty document) yields no baseline; the unlink is
+// sent without one and the server verifies the committed frontier is empty.
+export async function completeLinkSetMutationRequest(input: {
+  author: DocumentCreateAuthor;
+  materializedPlan: MaterializedDocumentLinkSetMutationPlan;
+  operation: DocumentLinkSetMutationOperation;
+  rotationSnapshot: Uint8Array | undefined;
+  signedAt: string;
+}) {
+  const rotationBaseline =
+    input.operation === "unlink" && input.rotationSnapshot
+      ? await buildDocumentRotationBaseline({
+          author: input.author,
+          contentKey: input.materializedPlan.contentKey,
+          contentKeyEpoch: input.materializedPlan.plan.contentKeyEpoch,
+          documentId: input.materializedPlan.plan.documentId,
+          expectedLinkSetManifestHash: input.materializedPlan.plan.manifestHash,
+          expectedTargetHash: input.materializedPlan.plan.targetHash,
+          organizationId: input.materializedPlan.plan.state.organizationId,
+          signedAt: input.signedAt,
+          snapshot: input.rotationSnapshot,
+        })
+      : null;
+  return rotationBaseline
+    ? { ...input.materializedPlan.plan.request, rotationBaseline }
+    : input.materializedPlan.plan.request;
+}
 
 export async function buildDocumentRotationBaseline(input: {
   readonly author: DocumentCreateAuthor;
@@ -22,7 +54,7 @@ export async function buildDocumentRotationBaseline(input: {
   readonly organizationId: string;
   readonly signedAt: string;
   readonly snapshot: Uint8Array;
-}): Promise<DocumentOutgoingUpdate> {
+}): Promise<DocumentOutgoingUpdate | null> {
   const metadata = getImportBlobMetadata(input.snapshot);
   if (
     metadata.mode !== "snapshot" ||
@@ -40,7 +72,11 @@ export async function buildDocumentRotationBaseline(input: {
     metadata.partialEndVersionVector,
   );
   if (!pendingFields) {
-    throw new Error("Document unlink rotation snapshot is empty");
+    // A document with no history serializes to a zero-span full-history
+    // snapshot. There is nothing for a rotation baseline to cover, so the
+    // unlink is submitted without one; the server independently proves the
+    // committed frontier is empty before accepting it.
+    return null;
   }
   const pendingUpdate = {
     id: crypto.randomUUID(),

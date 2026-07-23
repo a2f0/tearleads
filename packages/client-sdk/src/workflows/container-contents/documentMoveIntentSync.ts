@@ -295,7 +295,12 @@ export async function syncPendingDocumentMoveIntents<TRuntime>(input: {
       intent,
       state: input.state,
     });
-    if (result === "moved" || result === "partial") {
+    // A "partial" result (link applied, unlink still pending) must not count:
+    // the caller re-arms this same structural lane whenever the count is
+    // positive, so a deterministically failing unlink hot-looped the pump
+    // (issue #1744). The intent row stays pending; event-driven, manual, and
+    // startup lane requests retry it.
+    if (result === "moved") {
       movedCount += 1;
     }
   }

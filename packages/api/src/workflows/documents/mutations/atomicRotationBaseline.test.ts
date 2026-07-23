@@ -12,7 +12,10 @@ import {
   encodeVersionVector,
 } from "@tearleads/loro";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
-import { assertAtomicRotationBaselineCoversCommittedFrontier } from "./atomicRotationBaseline";
+import {
+  assertAtomicRotationBaselineCoversCommittedFrontier,
+  assertBaselinelessUnlinkHasEmptyCommittedFrontier,
+} from "./atomicRotationBaseline";
 
 async function rotationBaseline(input: {
   documentId: string;
@@ -107,6 +110,40 @@ test("atomic rotation baseline must cover the complete committed frontier", asyn
       documentId,
     }),
   ).resolves.toBeUndefined();
+});
+
+test("baseline-less unlink is allowed only for an empty committed frontier", async () => {
+  const documentId = crypto.randomUUID();
+  await db.insert(documents).values({
+    id: documentId,
+    createdByFingerprint: "baselineless-unlink-test",
+  });
+
+  await expect(
+    assertBaselinelessUnlinkHasEmptyCommittedFrontier(db, { documentId }),
+  ).resolves.toBeUndefined();
+
+  const document = await createDocument("baselineless-unlink-peer");
+  document.getText("text").update("committed content");
+  document.commit();
+  await db.insert(documentUpdates).values({
+    id: crypto.randomUUID(),
+    documentId,
+    accessEpoch: 1,
+    authorFingerprint: "baselineless-unlink-writer",
+    encryptedData: "encrypted-committed-update",
+    byteLength: 17,
+    partialStartVersionVector: emptyVersionVector(),
+    partialEndVersionVector: encodeVersionVector(document),
+  });
+
+  await expect(
+    assertBaselinelessUnlinkHasEmptyCommittedFrontier(db, { documentId }),
+  ).rejects.toMatchObject({
+    message:
+      "Document unlink requires a rotation baseline covering committed updates",
+    status: 409,
+  });
 });
 
 test("atomic rotation baseline rejects unauthenticated checkpoint metadata", async () => {

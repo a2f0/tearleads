@@ -73,10 +73,9 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   handleUpstreamDeletedDocumentSyncFailure,
   projectionIntegrityErrorCode,
-  REMOTE_DOCUMENT_DELETED,
   type RemoteDocumentDeletionHandler,
-  resolveDocumentSyncWriterProjection,
-  retrySyncPlan,
+  resolveSyncAttemptWriterProjection,
+  retrySyncPlanOrAbandon,
   submitDocumentSyncAttemptIfAllowed,
   type TerminalSubmitFailureHandler,
 } from "./syncFailures";
@@ -838,6 +837,9 @@ interface SyncRemoteDocumentInput {
   localVersionVector: string | null;
   minLsn?: string | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
+  // Receives the reason whenever this sync returns null, so callers that
+  // convert a null result into their own error can name the real cause.
+  onSyncAbandoned?: ((reason: string) => void) | undefined;
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;
@@ -985,24 +987,22 @@ export async function syncRemoteDocument(
   }
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const writerProjection = await resolveDocumentSyncWriterProjection({
+    const writerProjection = await resolveSyncAttemptWriterProjection({
       apiClient: input.apiClient,
       documentId: input.documentId,
-      // Only a write-bearing pass records the fetch failure: without queued
-      // writes a failed projection read blocks nothing durable.
+      onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
+      onSyncAbandoned: input.onSyncAbandoned,
+      // Write-bearing passes only: without queued writes a failed projection
+      // read blocks nothing durable, so the failure is not recorded.
       onTerminalFailure:
         pendingUpdates.length > 0 ? input.onTerminalSubmitFailure : undefined,
       reusableWriterProjection,
     });
     reusableWriterProjection = null;
-    if (writerProjection === REMOTE_DOCUMENT_DELETED) {
-      await input.onRemoteDocumentDeleted?.({ documentId: input.documentId });
-      return null;
-    }
     if (!writerProjection) {
       return null;
     }
-    const planned = await retrySyncPlan({
+    const planned = await retrySyncPlanOrAbandon({
       apiClient: input.apiClient,
       buildWithProjection: (projection) =>
         buildRemoteDocumentSyncPlan({
@@ -1012,13 +1012,13 @@ export async function syncRemoteDocument(
         }),
       documentId: input.documentId,
       onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
+      onSyncAbandoned: input.onSyncAbandoned,
       writerProjection,
     });
     if (!planned) {
       return null;
     }
     const [materializedPlan, plannedWriterProjection] = planned;
-    const plan = materializedPlan.plan;
     const submitted = await submitDocumentSyncAttemptIfAllowed({
       apiClient: input.apiClient,
       attempt,
@@ -1028,7 +1028,7 @@ export async function syncRemoteDocument(
       onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
       onTerminalSubmitFailure: input.onTerminalSubmitFailure,
       pendingUpdates,
-      plan,
+      plan: materializedPlan.plan,
     });
     if (submitted === "retry") {
       // A retryable stale-projection conflict (stale KEK targets / content-key
@@ -1047,6 +1047,7 @@ export async function syncRemoteDocument(
       continue;
     }
     if (submitted === "stop") {
+      input.onSyncAbandoned?.("the sync submit failed terminally");
       return null;
     }
 
@@ -1066,5 +1067,6 @@ export async function syncRemoteDocument(
     });
   }
 
+  input.onSyncAbandoned?.("every sync attempt hit a retryable conflict");
   return null;
 }

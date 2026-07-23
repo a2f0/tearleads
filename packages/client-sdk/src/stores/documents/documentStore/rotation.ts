@@ -93,6 +93,7 @@ async function pullVerifiedHistoryForRotation(input: {
   }
 
   let synced: Awaited<ReturnType<typeof syncRemoteDocument>>;
+  let abandonReason: string | null = null;
   try {
     synced = await syncRemoteDocument({
       apiClient: input.state.runtime.apiClient,
@@ -102,6 +103,9 @@ async function pullVerifiedHistoryForRotation(input: {
       isRemoteSyncBlocked: input.state.runtime.util.isRemoteSyncBlocked,
       localVersionVector: input.localVersionVector,
       minLsn: input.currentRecord.lastCommitLsn ?? undefined,
+      onSyncAbandoned: (reason) => {
+        abandonReason = reason;
+      },
       onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
         input.state,
       ),
@@ -130,7 +134,7 @@ async function pullVerifiedHistoryForRotation(input: {
   if (!synced) {
     reconcileSentUpdateIds(input.state, sentUpdateIds, new Set());
     throw new Error(
-      "Rotation full-history recovery could not complete; key rotation was not started",
+      `Rotation full-history recovery could not complete (${abandonReason ?? "sync did not finish"}); key rotation was not started`,
     );
   }
   reconcileSentUpdateIds(

@@ -288,6 +288,16 @@ principal policies, derives the document link-set manifest, stores the manifest
 head, and validates the submitted content-key bundle against derived document
 KEK targets.
 
+An unlink rotates the document content key and must carry a `rotationBaseline`
+— a signed `rotate_baseline` full-history snapshot whose source version vector
+covers the complete committed update frontier — with one exception: a document
+with **no committed updates** may be unlinked without a baseline. The server
+proves that emptiness inside the mutation transaction under the document
+manifest-head write lock (sync writers hold the corresponding shared lock, so
+no update can commit between the emptiness proof and the unlink); a baseline-
+less unlink against a non-empty committed frontier is rejected as a conflict.
+A link must not carry a rotation baseline.
+
 Encrypted Loro sync uses `POST /documents/{documentId}/sync`.
 `DocumentSyncRequest` carries:
 
