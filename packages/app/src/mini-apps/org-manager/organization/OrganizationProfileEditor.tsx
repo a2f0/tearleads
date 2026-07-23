@@ -168,8 +168,10 @@ export function OrganizationProfileEditor({
   organizationId: string;
   profileDocumentId: string | null;
 }) {
-  const { ensureOrganizationProfileDocument, ensureRosterProfileContainer } =
-    useOrgManagerActions();
+  const {
+    ensureOrganizationMetadataContainer,
+    ensureOrganizationProfileDocument,
+  } = useOrgManagerActions();
   const [activeProfileDocumentId, setActiveProfileDocumentId] = useState<
     string | null
   >(profileDocumentId);
@@ -202,7 +204,11 @@ export function OrganizationProfileEditor({
           return null;
         }
 
-        return ensureRosterProfileContainer();
+        // The organization profile document lives in the org-wide metadata
+        // container (where provisioning creates it and where the Members group
+        // has read), so bind the editor's store to that container rather than
+        // the Admins-only roster-profile container.
+        return ensureOrganizationMetadataContainer();
       })
       .then((container) => {
         if (cancelled || !container) {
@@ -221,8 +227,8 @@ export function OrganizationProfileEditor({
     };
   }, [
     canEdit,
+    ensureOrganizationMetadataContainer,
     ensureOrganizationProfileDocument,
-    ensureRosterProfileContainer,
     profileDocumentId,
   ]);
 

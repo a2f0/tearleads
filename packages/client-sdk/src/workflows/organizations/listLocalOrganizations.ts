@@ -7,6 +7,8 @@ import {
   DOCUMENTS_APP_KIND,
   sqlDocumentsPersistence,
 } from "../../data/persistence/documents/documentsPersistence";
+import { loadOrganizationProfileDocumentIds } from "../../data/persistence/organizations/organizationReadModelPersistence";
+import { findLocalIdByDocumentId } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   getOrganizationProfileDocumentLocalId,
@@ -65,29 +67,36 @@ async function readOrganizationNameFromDocument(
 /**
  * Resolves an organization's decrypted display name from local state.
  *
- * The same organization_profile document is addressed by two different local-id
- * conventions depending on how it arrived, so one lookup by id is not enough:
+ * The same organization_profile document is addressed by several different
+ * local-id conventions depending on how it arrived, so one lookup by id is not
+ * enough:
  *
  *  - The org's own **provisioner** (and any admin who later edits the name)
  *    writes the document under the deterministic alias
  *    `org-profile:<organizationId>` — resolved by the fast path below.
- *  - A **member of another org** never runs that write. They receive the very
- *    same document by *syncing* the Members-granted metadata container, and the
- *    sync ingest keys it under the server documentId (there is no local alias to
- *    reuse — see `upsertDiscoveredDocumentWithExec`). The alias lookup therefore
- *    misses for every foreign org, which is why cross-org display names never
- *    surfaced before this fallback.
+ *  - A **device that only synced it** — a member of another org, or this same
+ *    user's freshly re-hydrated device after an identity restore — never runs
+ *    that write. The sync ingest keys the document under the server documentId
+ *    (there is no local alias to reuse — see `upsertDiscoveredDocumentWithExec`),
+ *    so the alias lookup misses.
  *
- * The fallback bridges the gap without relying on the provisioner-only alias: it
- * locates the org's metadata container by its deterministic system slot and
- * reads whichever profile document is linked there. Keying on the system slot
- * (rather than the document kind) keeps it correct even before the projected
- * document kind has been rebuilt from a freshly-synced snapshot.
+ * Two fallbacks cover the synced case, in order of authority:
+ *
+ *  1. The **organization read model** records the org's `profileDocumentId`.
+ *     That pointer is container-independent, so it resolves the name wherever
+ *     the document happens to be linked — including a profile document created
+ *     by an admin through the org-manager editor rather than by provisioning.
+ *  2. Failing that, locate the org's metadata container by its deterministic
+ *     system slot and read whichever profile document is linked there. Keying on
+ *     the system slot (rather than the document kind) keeps it correct even
+ *     before the projected document kind has been rebuilt from a freshly-synced
+ *     snapshot, and it still works before the read model has been projected.
  */
 async function readLocalOrganizationName(
   execSql: ExecSql,
   organizationId: string,
   organizationContainers: ReadonlyArray<LocalContainerForNameLookup>,
+  profileDocumentId: string | null,
 ): Promise<string | null> {
   const aliasName = await readOrganizationNameFromDocument(
     execSql,
@@ -95,6 +104,22 @@ async function readLocalOrganizationName(
   );
   if (aliasName !== null) {
     return aliasName;
+  }
+
+  if (profileDocumentId) {
+    // Reach the row wherever it landed: a device that only synced the document
+    // keys it under the server documentId rather than any local alias.
+    const syncedLocalId = await findLocalIdByDocumentId(
+      execSql,
+      DOCUMENTS_APP_KIND,
+      profileDocumentId,
+    );
+    const syncedName = syncedLocalId
+      ? await readOrganizationNameFromDocument(execSql, syncedLocalId)
+      : null;
+    if (syncedName !== null) {
+      return syncedName;
+    }
   }
 
   const metadataSystemSlot =
@@ -135,6 +160,12 @@ export async function listLocalOrganizations(input: {
   const containers = await sqlContainerContentsPersistence.loadContainers(
     input.execSql,
   );
+  // A projected read model is not a precondition for listing organizations, so
+  // an unreadable one degrades to the container-derived lookups below.
+  const profileDocumentIdsByOrganizationId =
+    await loadOrganizationProfileDocumentIds(input.execSql).catch(
+      () => new Map<string, string>(),
+    );
 
   // Group every persisted container by org so name resolution can locate an
   // org's metadata container (a non-root child) without a second DB scan.
@@ -183,6 +214,8 @@ export async function listLocalOrganizations(input: {
         input.execSql,
         container.organizationId,
         containersByOrganizationId.get(container.organizationId) ?? [],
+        profileDocumentIdsByOrganizationId.get(container.organizationId) ??
+          null,
       ),
       organizationId: container.organizationId,
       rootContainerId: container.id,

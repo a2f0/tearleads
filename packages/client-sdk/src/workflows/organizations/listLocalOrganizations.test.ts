@@ -7,7 +7,15 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
-import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
+import { ORGANIZATION_READ_MODEL_PROTOCOL_VERSION } from "../../data/persistence/organizations/organizationReadModelProtocol";
+import { organizationReadModelState } from "../../data/sqlite/organizationReadModelSchema";
+import { organizationReadModelTables } from "../../data/sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
+import {
+  type ExecSql,
+  type ExecSqlClientLike,
+  ensureSqlTables,
+} from "../../data/sqlite/sqlSchema";
 import { createOrganization } from "./createOrganization";
 import { listLocalOrganizations } from "./listLocalOrganizations";
 import { getOrganizationProfileDocumentLocalId } from "./organizationProfile";
@@ -169,6 +177,69 @@ test("listLocalOrganizations resolves a foreign org name from its metadata conta
       (candidate) => candidate.organizationId === org.organizationId,
     );
     expect(summary?.rootContainerId).toBe(org.rootContainerId);
+    expect(summary?.name).toBe("Acme");
+  } finally {
+    close();
+  }
+});
+
+test("listLocalOrganizations resolves an org name from the read model's profile pointer when the synced profile doc is linked outside the metadata container", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organizations-list-local-read-model-pointer-test",
+  );
+  const dbClient = createClient(execSql);
+
+  try {
+    const org = await createOrganization({
+      apiClient: { createOrganization: respondToOrganizationProvisioning },
+      dbClient,
+      encapsulationKeyPair: generateKemSeedAndKeyPair(),
+      organizationProfileName: "Acme",
+      signingKeyPair: generateSigningSeedAndKeyPair(),
+      userId: crypto.randomUUID(),
+    });
+    if (!org) {
+      throw new Error("Expected the organization to be created");
+    }
+
+    // Model a re-hydrated device whose profile document arrived by sync and is
+    // linked to a container other than the organization-metadata one — what the
+    // org-manager profile editor produces when it binds the document to the
+    // roster-profile container. Neither the provisioner-only alias nor the
+    // metadata-container scan can reach it; only the read model's pointer can.
+    const aliasLocalId = getOrganizationProfileDocumentLocalId({
+      organizationId: org.organizationId,
+    });
+    const aliasRecord = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      aliasLocalId,
+    );
+    if (!aliasRecord?.documentId) {
+      throw new Error("Expected a persisted organization profile document");
+    }
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      ...aliasRecord,
+      containerId: "some-other-container",
+      id: aliasRecord.documentId,
+    });
+    await sqlDocumentsPersistence.deleteDocument(execSql, aliasLocalId);
+
+    await ensureSqlTables(execSql, organizationReadModelTables);
+    await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
+      await tx.insert(organizationReadModelState).values({
+        organizationId: org.organizationId,
+        protocolVersion: ORGANIZATION_READ_MODEL_PROTOCOL_VERSION,
+        cursor: "opaque-cursor",
+        profileDocumentId: aliasRecord.documentId,
+        memberGroupId: "members-group",
+        updatedAt: "2026-07-01T00:00:00.000Z",
+      });
+    });
+
+    const organizations = await listLocalOrganizations({ execSql });
+    const summary = organizations.find(
+      (candidate) => candidate.organizationId === org.organizationId,
+    );
     expect(summary?.name).toBe("Acme");
   } finally {
     close();

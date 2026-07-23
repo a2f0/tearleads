@@ -49,6 +49,7 @@ function createActions(
     captureOperationScope: () => null,
     createGroup: unusedAsync,
     deleteGroup: unusedAsync,
+    ensureOrganizationMetadataContainer: unusedAsync,
     ensureOrganizationProfileDocument: unusedAsync,
     ensureRosterProfileContainer: unusedAsync,
     ensureRosterProfileDocument: unusedAsync,
