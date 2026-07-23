@@ -1,8 +1,4 @@
 import type { PendingWriteQueueItem } from "@tearleads/client-sdk";
-import {
-  type PendingWriteQueueSummary,
-  summarizePendingWrites,
-} from "./syncStatusModel";
 
 interface PendingWriteWatcherDeps {
   /** Read the durable write queue for the active domain. */
@@ -11,8 +7,12 @@ interface PendingWriteWatcherDeps {
   >;
   /** Subscribe to every signal that can change the queue; returns an unsubscribe. */
   readonly subscribe: (onChange: () => void) => () => void;
-  /** Report a freshly read queue summary; not called on a failed read. */
-  readonly onSnapshot: (snapshot: PendingWriteQueueSummary) => void;
+  /**
+   * Report a freshly read queue; not called on a failed read. Callers project
+   * it as they need (a count for the footer indicator, the items themselves for
+   * the System Monitor report), so the watcher stays a generic read machine.
+   */
+  readonly onSnapshot: (items: ReadonlyArray<PendingWriteQueueItem>) => void;
   /** Trailing-throttle window (ms) collapsing a burst of changes into one scan. */
   readonly throttleMs: number;
 }
@@ -65,7 +65,7 @@ export function createPendingWriteWatcher(
     listPendingWrites()
       .then((items) => {
         if (active) {
-          onSnapshot(summarizePendingWrites(items));
+          onSnapshot(items);
         }
       })
       // A failed read leaves the true state unknown; report nothing so the caller

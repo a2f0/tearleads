@@ -4,14 +4,17 @@ import { formatSystemMonitorReport } from "./systemMonitorReport";
 import { useSystemEnvironment } from "./useSystemEnvironment";
 import { useSystemMonitorFeatureFlagRows } from "./useSystemMonitorFeatureFlagRows";
 import { useSystemMonitorLogEntries } from "./useSystemMonitorLogEntries";
+import { useSystemMonitorQueueMetadata } from "./useSystemMonitorQueueMetadata";
 
 /**
  * Builds the support report covering every System Monitor tab.
  *
  * Every tab's data is read here, in the monitor's root, rather than in the tabs
  * themselves: the copy button sits in the tab bar and must capture all of them
- * no matter which one is mounted. These are all context reads, so gathering
- * them unconditionally costs nothing.
+ * no matter which one is mounted. Most of these are free context reads; the
+ * write-queue/sync-lane metadata is the exception — it keeps a throttled
+ * subscription alive while the monitor is open (see `useSystemMonitorQueueMetadata`)
+ * so the report can capture it synchronously on click.
  *
  * Returns a builder rather than the report string, so the (potentially large)
  * log serialization runs on click instead of on every render — and so the
@@ -26,6 +29,7 @@ export function useSystemMonitorReport({
   const status = useSystemStatusSnapshot();
   const logEntries = useSystemMonitorLogEntries();
   const featureFlags = useSystemMonitorFeatureFlagRows();
+  const { syncLanes, writeQueue } = useSystemMonitorQueueMetadata();
 
   return useCallback(
     () =>
@@ -36,7 +40,17 @@ export function useSystemMonitorReport({
         featureFlags: includeFeatureFlags ? featureFlags : undefined,
         logEntries,
         status,
+        syncLanes,
+        writeQueue,
       }),
-    [environment, featureFlags, includeFeatureFlags, logEntries, status],
+    [
+      environment,
+      featureFlags,
+      includeFeatureFlags,
+      logEntries,
+      status,
+      syncLanes,
+      writeQueue,
+    ],
   );
 }

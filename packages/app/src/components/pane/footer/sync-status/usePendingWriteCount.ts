@@ -8,6 +8,7 @@ import {
 } from "@tearleads/client-sdk";
 import { useEffect, useState } from "react";
 import { createPendingWriteWatcher } from "./pendingWriteWatcher";
+import { summarizePendingWrites } from "./syncStatusModel";
 
 // `listPendingWrites()` is an identity-wide scan (multiple tables plus deferred
 // Loro tails), and this indicator is always mounted (two panes in the windowed
@@ -77,7 +78,8 @@ export function usePendingWriteCount(
           unsubscribeDocuments();
         };
       },
-      onSnapshot: (snapshot) => setState({ loaded: true, ...snapshot }),
+      onSnapshot: (items) =>
+        setState({ loaded: true, ...summarizePendingWrites(items) }),
       throttleMs: READ_THROTTLE_MS,
     });
     return () => watcher.stop();
