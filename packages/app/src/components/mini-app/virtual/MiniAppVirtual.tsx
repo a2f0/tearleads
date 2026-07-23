@@ -70,6 +70,10 @@ function useMiniAppVirtualViewport<TFrame extends HTMLElement>() {
   const [frame, setFrame] = useState<TFrame | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+  // 0 means "not measured yet" — the frame is unmounted, or the observer has
+  // not run. Consumers deciding a layout from the width must treat 0 as
+  // unknown rather than as narrow.
+  const [frameWidth, setFrameWidth] = useState(0);
   const frameRef = useCallback((nextFrame: TFrame | null) => {
     setFrame(nextFrame);
   }, []);
@@ -94,10 +98,12 @@ function useMiniAppVirtualViewport<TFrame extends HTMLElement>() {
   useEffect(() => {
     if (!frame) {
       setViewportHeight(0);
+      setFrameWidth(0);
       return;
     }
 
     setViewportHeight(frame.clientHeight);
+    setFrameWidth(frame.clientWidth);
     if (typeof ResizeObserver !== "function") {
       return;
     }
@@ -106,6 +112,7 @@ function useMiniAppVirtualViewport<TFrame extends HTMLElement>() {
       const [entry] = entries;
       if (entry) {
         setViewportHeight(entry.target.clientHeight);
+        setFrameWidth(entry.target.clientWidth);
       }
     });
     resizeObserver.observe(frame);
@@ -115,7 +122,14 @@ function useMiniAppVirtualViewport<TFrame extends HTMLElement>() {
     };
   }, [frame]);
 
-  return { frame, frameRef, scrollTop, setScrollTop, viewportHeight };
+  return {
+    frame,
+    frameRef,
+    frameWidth,
+    scrollTop,
+    setScrollTop,
+    viewportHeight,
+  };
 }
 
 export function useMiniAppVirtualWindow<
@@ -128,6 +142,7 @@ export function useMiniAppVirtualWindow<
 }): {
   frame: TFrame | null;
   frameRef: (nextFrame: TFrame | null) => void;
+  frameWidth: number;
   limit: number;
   offset: number;
   scrollTop: number;
@@ -138,8 +153,14 @@ export function useMiniAppVirtualWindow<
   // target. Bumping the pitch here — the single place the window math reads it —
   // keeps the rendered row height (driven off the same value) in lockstep.
   const rowHeight = useTouchRowHeight(params.rowHeight);
-  const { frame, frameRef, scrollTop, setScrollTop, viewportHeight } =
-    useMiniAppVirtualViewport<TFrame>();
+  const {
+    frame,
+    frameRef,
+    frameWidth,
+    scrollTop,
+    setScrollTop,
+    viewportHeight,
+  } = useMiniAppVirtualViewport<TFrame>();
   const [activeResetKey, setActiveResetKey] = useState(resetKey);
   const shouldReset = activeResetKey !== resetKey;
 
@@ -166,6 +187,7 @@ export function useMiniAppVirtualWindow<
   return {
     frame,
     frameRef,
+    frameWidth,
     limit: range.limit,
     offset: range.offset,
     scrollTop: shouldReset ? 0 : scrollTop,
@@ -183,6 +205,7 @@ export function useMiniAppVirtualRows<TItem>(params: {
   bottomPadding: number;
   frame: HTMLDivElement | null;
   frameRef: (nextFrame: HTMLDivElement | null) => void;
+  frameWidth: number;
   limit: number;
   offset: number;
   rows: ReadonlyArray<TItem>;
@@ -214,6 +237,7 @@ export function useMiniAppVirtualRows<TItem>(params: {
       Math.max(0, rows.length - offset - visibleRows.length) * rowHeight,
     frame: virtualWindow.frame,
     frameRef: virtualWindow.frameRef,
+    frameWidth: virtualWindow.frameWidth,
     limit: virtualWindow.limit,
     offset,
     rows: visibleRows,

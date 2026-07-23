@@ -1,12 +1,54 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive";
 import { useRoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
-import { MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT } from "../virtual/MiniAppVirtual";
+import {
+  MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
+  useMiniAppVirtualRows,
+} from "../virtual/MiniAppVirtual";
 import { MiniAppTableCell } from "./MiniAppTable";
 import "./MiniAppCompactTable.css";
 
 /** Fixed phone-row pitch shared by the DOM height and virtualization math. */
 const MINI_APP_COMPACT_TABLE_ROW_HEIGHT = 56;
+
+/**
+ * The frame widths at which a list table folds its columns into two lines.
+ *
+ * Two thresholds, not one: a table whose frame is being dragged across a single
+ * boundary would otherwise re-fold on every pixel while the pointer sits on it.
+ * Folding below `ENTER` and unfolding only above `LEAVE` gives the drag a band
+ * to rest in. These are frame widths, not viewport widths — the frame excludes
+ * the window sidebar and the panel padding — so they sit well below the
+ * viewport-level breakpoints in navigation/breakpoints.ts.
+ */
+const MINI_APP_COMPACT_TABLE_FOLD_ENTER_WIDTH = 440;
+const MINI_APP_COMPACT_TABLE_FOLD_LEAVE_WIDTH = 480;
+
+/**
+ * Whether a table frame of this width should fold its rows onto two lines.
+ *
+ * A width of 0 means "not measured yet" — an unmounted frame, a render before
+ * the observer has run, or any environment without layout (jsdom/happy-dom).
+ * Unmeasured holds the current decision rather than reporting narrow, so a
+ * table never folds on the strength of a measurement that never happened.
+ *
+ * The fold is monotone with respect to its own side effects: folding raises the
+ * row pitch, which can only make the content taller, which can only add a
+ * vertical scrollbar, which can only make the frame narrower still. So a fold
+ * can never un-fold itself, on any scrollbar behaviour.
+ */
+export function shouldFoldCompactRows(
+  frameWidth: number,
+  wasCompact: boolean,
+): boolean {
+  if (!(frameWidth > 0)) {
+    return wasCompact;
+  }
+
+  return wasCompact
+    ? frameWidth < MINI_APP_COMPACT_TABLE_FOLD_LEAVE_WIDTH
+    : frameWidth < MINI_APP_COMPACT_TABLE_FOLD_ENTER_WIDTH;
+}
 
 export type MiniAppCompactTableField = {
   // An escape hatch for fields that are not plain text — the explorer's item
@@ -106,10 +148,7 @@ export function MiniAppCompactTableCell(props: MiniAppCompactTableFieldsProps) {
   );
 }
 
-export function useMiniAppCompactTableLayout(): {
-  compact: boolean;
-  rowHeight: number;
-} {
+function useCompactTableTier(): boolean {
   // Phone rows fold the visible data columns into two summary lines. Keep the
   // wider desktop/tablet tables at their existing single-line density. Read the
   // stamped DOM mode (instead of provider-only useCompactRoutedMode) so this
@@ -117,11 +156,55 @@ export function useMiniAppCompactTableLayout(): {
   // by isolated table renders that do not mount AppNavigationProvider.
   const routedLayoutActive = useRoutedLayoutActive();
   const routedLayoutTier = useRoutedLayoutTier();
-  const compact = routedLayoutActive && routedLayoutTier === "mobile";
-  return {
-    compact,
-    rowHeight: compact
-      ? MINI_APP_COMPACT_TABLE_ROW_HEIGHT
-      : MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
-  };
+  return routedLayoutActive && routedLayoutTier === "mobile";
+}
+
+function getCompactTableRowHeight(compact: boolean): number {
+  return compact
+    ? MINI_APP_COMPACT_TABLE_ROW_HEIGHT
+    : MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT;
+}
+
+/**
+ * The viewport-only fold decision, for a table whose scroll frame is measured
+ * somewhere else (the explorer item list, whose frame belongs to its detail
+ * pane). Tables that own their frame should use {@link useMiniAppCompactTableRows},
+ * which folds on the frame's own width as well.
+ */
+export function useMiniAppCompactTableLayout(): {
+  compact: boolean;
+  rowHeight: number;
+} {
+  const compact = useCompactTableTier();
+  return { compact, rowHeight: getCompactTableRowHeight(compact) };
+}
+
+/**
+ * Virtualizes `rows` and decides the fold from the phone tier **or** the
+ * frame's own measured width, so a table folds in a narrow window or beside a
+ * dragged-open sidebar the same way it does on a phone.
+ *
+ * The frame width arrives a render late (it is measured after mount), so the
+ * first paint is single-line and the fold follows. That ordering is deliberate:
+ * the row pitch feeds the virtualization math, so guessing narrow before
+ * measuring would size the spacers against a pitch the DOM does not have.
+ */
+export function useMiniAppCompactTableRows<TItem>(params: {
+  rows: ReadonlyArray<TItem>;
+}): ReturnType<typeof useMiniAppVirtualRows<TItem>> & {
+  compact: boolean;
+  rowHeight: number;
+} {
+  const tierCompact = useCompactTableTier();
+  const [narrowFrame, setNarrowFrame] = useState(false);
+  const compact = tierCompact || narrowFrame;
+  const rowHeight = getCompactTableRowHeight(compact);
+  const virtualRows = useMiniAppVirtualRows({ rowHeight, rows: params.rows });
+  const { frameWidth } = virtualRows;
+
+  useEffect(() => {
+    setNarrowFrame((current) => shouldFoldCompactRows(frameWidth, current));
+  }, [frameWidth]);
+
+  return { ...virtualRows, compact, rowHeight };
 }

@@ -26,12 +26,11 @@ import {
   MiniAppTableText,
   miniAppRowActionsColumn,
   useMiniAppColumnVisibility,
-  useMiniAppCompactTableLayout,
+  useMiniAppCompactTableRows,
 } from "../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
   MiniAppVirtualTableSpacerRow,
-  useMiniAppVirtualRows,
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
@@ -427,11 +426,8 @@ export function GrantTable({
   openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
-  const { compact, rowHeight } = useMiniAppCompactTableLayout();
-  const virtualGrants = useMiniAppVirtualRows({
-    rowHeight,
-    rows: grants,
-  });
+  const virtualGrants = useMiniAppCompactTableRows({ rows: grants });
+  const { compact, rowHeight } = virtualGrants;
   // Touch layouts have no right-click; the kebab replaces the inline Revoke
   // button and opens the same Open / Revoke menu right-click / long-press does.
   const showActions = useRoutedLayoutActive() && Boolean(openGrantContextMenu);

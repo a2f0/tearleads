@@ -14,11 +14,23 @@ const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(
   globalThis.window ?? {},
   "matchMedia",
 );
+const originalClientWidthDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis.HTMLElement?.prototype ?? {},
+  "clientWidth",
+);
 
 afterEach(() => {
   cleanup();
   document.documentElement.removeAttribute("data-navigation-mode");
   globalThis.localStorage.clear();
+
+  if (originalClientWidthDescriptor) {
+    Object.defineProperty(
+      HTMLElement.prototype,
+      "clientWidth",
+      originalClientWidthDescriptor,
+    );
+  }
 
   if (originalMatchMediaDescriptor) {
     Object.defineProperty(window, "matchMedia", originalMatchMediaDescriptor);
@@ -26,6 +38,17 @@ afterEach(() => {
     Reflect.deleteProperty(window, "matchMedia");
   }
 });
+
+// happy-dom has no layout engine, so every clientWidth is 0 — which the fold
+// predicate reads as "not measured" and ignores. Stand in for the layout the
+// browser would do, which is the only way to exercise the width-driven fold
+// outside Playwright.
+function mockFrameWidth(width: number) {
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+    configurable: true,
+    get: () => width,
+  });
+}
 
 function mockRoutedLayout(tablet = false) {
   document.documentElement.setAttribute("data-navigation-mode", "routed");
@@ -156,6 +179,65 @@ test("org manager directory table stays single-line in narrow windowed mode", ()
       "tbody .mini-app-table-row:not(.mini-app-virtual-table-spacer-row) td",
     ),
   ).toHaveLength(3);
+  const frame = table.parentElement;
+  expect(frame?.classList.contains("mini-app-table-frame--two-line")).toBe(
+    false,
+  );
+  expect(frame?.style.getPropertyValue("--mini-app-virtual-row-height")).toBe(
+    "36px",
+  );
+});
+
+test("org manager directory table folds when its own frame is narrow", () => {
+  // A desktop window squeezed narrow, or a table beside a dragged-open sidebar:
+  // the viewport is wide and windowed, but the table's frame is not.
+  document.documentElement.setAttribute("data-navigation-mode", "windowed");
+  mockFrameWidth(320);
+  const view = render(
+    <DirectoryTable
+      directory={directory}
+      loading={false}
+      openRosterUserContextMenu={() => undefined}
+      selectedUserId={null}
+      selectUser={() => undefined}
+    />,
+  );
+  const table = view.getByRole("table", {
+    name: ORG_MANAGER_LABELS.directory,
+  });
+
+  expect(table.querySelector(".mini-app-compact-table-lines")).not.toBeNull();
+  const frame = table.parentElement;
+  expect(frame?.classList.contains("mini-app-table-frame--two-line")).toBe(
+    true,
+  );
+  expect(frame?.style.getPropertyValue("--mini-app-virtual-row-height")).toBe(
+    "56px",
+  );
+  // The columns menu survives the fold on a pane-driven table — unlike a phone,
+  // a desktop user can still reach it.
+  expect(
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.columns }),
+  ).toBeTruthy();
+});
+
+test("org manager directory table stays single-line in a wide frame", () => {
+  document.documentElement.setAttribute("data-navigation-mode", "windowed");
+  mockFrameWidth(900);
+  const view = render(
+    <DirectoryTable
+      directory={directory}
+      loading={false}
+      openRosterUserContextMenu={() => undefined}
+      selectedUserId={null}
+      selectUser={() => undefined}
+    />,
+  );
+  const table = view.getByRole("table", {
+    name: ORG_MANAGER_LABELS.directory,
+  });
+
+  expect(table.querySelector(".mini-app-compact-table-lines")).toBeNull();
   const frame = table.parentElement;
   expect(frame?.classList.contains("mini-app-table-frame--two-line")).toBe(
     false,

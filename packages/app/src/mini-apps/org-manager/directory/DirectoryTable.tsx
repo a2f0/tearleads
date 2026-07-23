@@ -26,12 +26,11 @@ import {
   MiniAppTableText,
   miniAppRowActionsColumn,
   useMiniAppColumnVisibility,
-  useMiniAppCompactTableLayout,
+  useMiniAppCompactTableRows,
 } from "../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
   MiniAppVirtualTableSpacerRow,
-  useMiniAppVirtualRows,
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
@@ -362,11 +361,8 @@ export function DirectoryTable({
   selectUser?: ((userId: string) => void) | undefined;
 }) {
   const users = directory?.users ?? [];
-  const { compact, rowHeight } = useMiniAppCompactTableLayout();
-  const virtualUsers = useMiniAppVirtualRows({
-    rowHeight,
-    rows: users,
-  });
+  const virtualUsers = useMiniAppCompactTableRows({ rows: users });
+  const { compact, rowHeight } = virtualUsers;
   // Touch layouts have no right-click; add the kebab wherever the row context
   // menu is wired.
   const showActions =

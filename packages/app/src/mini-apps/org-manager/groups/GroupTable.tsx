@@ -23,12 +23,11 @@ import {
   MiniAppTableText,
   miniAppRowActionsColumn,
   useMiniAppColumnVisibility,
-  useMiniAppCompactTableLayout,
+  useMiniAppCompactTableRows,
 } from "../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
   MiniAppVirtualTableSpacerRow,
-  useMiniAppVirtualRows,
 } from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
@@ -263,11 +262,8 @@ function GroupTable({
   selectedGroupId: string | null;
   setSelectedGroupId: (groupId: string) => void;
 }) {
-  const { compact, rowHeight } = useMiniAppCompactTableLayout();
-  const virtualGroups = useMiniAppVirtualRows({
-    rowHeight,
-    rows: groups,
-  });
+  const virtualGroups = useMiniAppCompactTableRows({ rows: groups });
+  const { compact, rowHeight } = virtualGroups;
   // Touch layouts have no right-click; add the kebab as the touch stand-in.
   const showActions = useRoutedLayoutActive();
   const { columns, visibleColumnIds } = useGroupTableColumns(
