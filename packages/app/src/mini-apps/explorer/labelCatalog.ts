@@ -122,6 +122,11 @@ export const EXPLORER_LABELS = {
   containerMoveToTrashAction: "Move to Trash",
   createChildFolderAction: "Create Child Folder",
   databaseLoadError: "Couldn't open the local database.",
+  // Suffixes for the phone summary header's sort controls. There the three
+  // controls share one <th>, so its aria-sort can only name a direction — not
+  // which key it applies to. The active control carries the state instead.
+  columnSortedAscending: "sorted ascending",
+  columnSortedDescending: "sorted descending",
   dateCreatedColumn: "Date created",
   dateModifiedColumn: "Date modified",
   // Phone-tier header: the narrow column can only fit one word on a line.

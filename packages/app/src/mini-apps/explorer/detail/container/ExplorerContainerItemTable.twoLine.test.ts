@@ -307,7 +307,7 @@ test("phone container item table sorts from the summary header", () => {
   expect(sortKeys).toEqual(["modified", "type"]);
 });
 
-test("phone container item table announces the active summary sort", () => {
+test("phone container item table announces the active sort on its control", () => {
   mockPhoneLayout();
   const view = renderContainerItemTable({
     rows: [archiveRow],
@@ -315,9 +315,23 @@ test("phone container item table announces the active summary sort", () => {
     totalCount: 1,
   });
 
+  // The summary <th> heads three sort keys at once, so a direction on the cell
+  // would name one without saying which; the active control carries it instead.
   expect(
     view.container.querySelector("thead th")?.getAttribute("aria-sort"),
-  ).toBe("descending");
+  ).toBe("none");
+  expect(
+    view.getByRole("button", {
+      name: `${EXPLORER_LABELS.dateModifiedColumnCompact}, ${EXPLORER_LABELS.columnSortedDescending}`,
+    }),
+  ).toBeTruthy();
+  // The inactive controls keep their bare label.
+  expect(
+    view.getByRole("button", { name: EXPLORER_LABELS.itemTypeColumn }),
+  ).toBeTruthy();
+  expect(
+    view.getByRole("button", { name: EXPLORER_LABELS.itemNameColumn }),
+  ).toBeTruthy();
 
   cleanup();
   const createdSortView = renderContainerItemTable({
@@ -326,13 +340,12 @@ test("phone container item table announces the active summary sort", () => {
     totalCount: 1,
   });
 
-  // Created is not one of the folded sort controls, so the summary column has
-  // no sort state to announce.
+  // Created is not one of the folded controls, so none of them is active.
   expect(
-    createdSortView.container
-      .querySelector("thead th")
-      ?.getAttribute("aria-sort"),
-  ).toBe("none");
+    createdSortView.getByRole("button", {
+      name: EXPLORER_LABELS.dateModifiedColumnCompact,
+    }),
+  ).toBeTruthy();
 });
 
 test("phone container item table opens the per-item menu from the actions kebab", () => {

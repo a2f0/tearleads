@@ -46,15 +46,33 @@ function getSortAria(
   return sort.direction === "asc" ? "ascending" : "descending";
 }
 
+function getExplorerSortStateLabel(
+  direction: ContainerItemSortDirection,
+): string {
+  return direction === "asc"
+    ? EXPLORER_LABELS.columnSortedAscending
+    : EXPLORER_LABELS.columnSortedDescending;
+}
+
 function ExplorerSortableTableHeader(params: {
   activeDirection: ContainerItemSortDirection | null;
+  // Set on the phone summary header, where all three controls share one <th>:
+  // that cell's aria-sort can name a direction but not the key it belongs to,
+  // so the active control announces the state itself. The wide layout leaves
+  // this off — each column owns its own <th aria-sort>, which already says it.
+  announceSortState?: boolean | undefined;
   label: string;
   onClick: () => void;
 }) {
-  const { activeDirection, label, onClick } = params;
+  const { activeDirection, announceSortState, label, onClick } = params;
 
   return (
     <button
+      aria-label={
+        announceSortState && activeDirection
+          ? `${label}, ${getExplorerSortStateLabel(activeDirection)}`
+          : undefined
+      }
       type="button"
       className="explorer-table-sort-button"
       onClick={onClick}
@@ -98,9 +116,14 @@ function buildExplorerItemColumn(
   ctx: ColumnBuildContext,
 ): MiniAppTableColumn {
   const { columnMenu, onSort, sort } = ctx;
-  const sortableHeader = (key: ContainerItemSortKey, label: string) => (
+  const sortableHeader = (
+    key: ContainerItemSortKey,
+    label: string,
+    announceSortState = false,
+  ) => (
     <ExplorerSortableTableHeader
       activeDirection={sort.key === key ? sort.direction : null}
+      announceSortState={announceSortState}
       label={label}
       onClick={() => onSort(key)}
     />
@@ -152,14 +175,16 @@ function buildExplorerItemColumn(
         // stack two: each `.explorer-table-sort-button` is floored at the 44px
         // touch target on routed layouts, so stacking them would double the
         // sticky header's height on the tier with the least room for it.
-        ariaSort: SUMMARY_SORT_KEYS.includes(sort.key)
-          ? getSortAria(sort, sort.key)
-          : "none",
+        //
+        // The cell stays aria-sort="none": it heads three sort keys at once, so
+        // a direction here would name one without saying which. Each control
+        // announces its own state instead (see `announceSortState`).
+        ariaSort: "none",
         id,
         header: (
           <MiniAppCompactTableHeader
             primary={SUMMARY_SORT_KEYS.map((key) => ({
-              content: sortableHeader(key, SUMMARY_SORT_LABELS[key]),
+              content: sortableHeader(key, SUMMARY_SORT_LABELS[key], true),
               id: key,
             }))}
             secondary={[]}
