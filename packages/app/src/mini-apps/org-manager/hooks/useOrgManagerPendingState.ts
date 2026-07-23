@@ -38,13 +38,22 @@ function useOrgManagerSettledKeys(scopeKey: string): {
   // switch to another organization and back, and usage would claim to be
   // fetched while its state has been recreated as null and its fetch is only
   // just starting. Stamping the whole record with its scope drops every stale
-  // entry at once, during render.
+  // entry at once.
   const [settled, setSettled] = useState<{
     readonly resources: Readonly<
       Partial<Record<OrgManagerSettledResource, string>>
     >;
     readonly scopeKey: string;
   }>(() => ({ resources: {}, scopeKey }));
+  // Reset on the scope transition itself, not merely when reading. A pure
+  // read-time substitution left the stored stamp on the old scope, so an
+  // A -> B -> A cycle with no B fetch returned to A and revived A's stale
+  // settlements. Rewriting the stamp the moment the scope changes (React's
+  // adjust-state-during-render pattern) makes the reset durable, with no stale
+  // frame and no effect ordering to get right.
+  if (settled.scopeKey !== scopeKey) {
+    setSettled({ resources: {}, scopeKey });
+  }
   const resources =
     settled.scopeKey === scopeKey ? settled.resources : EMPTY_SETTLED_RESOURCES;
 

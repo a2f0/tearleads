@@ -218,8 +218,8 @@
       "bytes": 15751
     },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
-      "lines": 520,
-      "bytes": 16672
+      "lines": 521,
+      "bytes": 16706
     },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerRefreshers.ts": {
       "lines": 508,

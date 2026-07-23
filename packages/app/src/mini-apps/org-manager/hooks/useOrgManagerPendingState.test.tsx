@@ -173,3 +173,23 @@ test("grants and org policy history each settle on their own pass", () => {
   expect(view.result.current.grantsPending).toBe(false);
   expect(view.result.current.organizationPolicyHistoryPending).toBe(false);
 });
+
+test("an abandoned intermediate scope cannot revive prior settlements", () => {
+  // A -> B -> A before B fetches anything: A's projections were cleared on the
+  // A->B switch, so returning to A must not resurrect A's old settlement.
+  const view = renderPendingState();
+  act(() => view.result.current.markDataUsageSettled());
+  act(() => view.result.current.markDirectorySettled());
+
+  const at = (scopeKey: string) => ({
+    databaseStarting: false,
+    loading: false,
+    scopeKey,
+    selectedGroupId: null,
+  });
+  view.rerender(at("scope-b"));
+  view.rerender(at("scope-a"));
+
+  expect(view.result.current.dataPending).toBe(true);
+  expect(view.result.current.dataUsagePending).toBe(true);
+});

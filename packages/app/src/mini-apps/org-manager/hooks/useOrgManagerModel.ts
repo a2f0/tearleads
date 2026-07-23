@@ -336,6 +336,7 @@ export function useOrgManagerModel() {
     refreshDataUsage,
     refreshGrants,
     refreshOrganizationPolicyHistory,
+    scopeKey: orgManagerScopeKey,
     view,
   });
   useOrgManagerDirectorySync({
