@@ -28,6 +28,24 @@ interface OrgManagerDataUsageRefresherInput {
   readonly setLoading: Dispatch<SetStateAction<boolean>>;
 }
 
+/**
+ * Records that usage has been looked at — but not for an empty `localOnly` pass.
+ *
+ * Entering the usage view paints the local cache first and then reconciles.
+ * Settling on a local pass that found nothing would report "hasn't synced yet"
+ * while the real request is still in flight; settling on one that found
+ * something is correct, since there is data on screen either way.
+ */
+function settleDataUsageIfAnswered(input: {
+  readonly hasUsage: boolean;
+  readonly localOnly: boolean;
+  readonly markDataUsageSettled: () => void;
+}): void {
+  if (!input.localOnly || input.hasUsage) {
+    input.markDataUsageSettled();
+  }
+}
+
 export function useOrgManagerDataUsageRefresher(
   input: OrgManagerDataUsageRefresherInput,
 ) {
@@ -86,7 +104,11 @@ export function useOrgManagerDataUsageRefresher(
       } finally {
         if (isCurrentRequest()) {
           setLoadingIfManaged(shouldManageLoading, setLoading, false);
-          markDataUsageSettled();
+          settleDataUsageIfAnswered({
+            hasUsage: dataUsageRef.current !== null,
+            localOnly: options.localOnly ?? false,
+            markDataUsageSettled,
+          });
         }
       }
     },
