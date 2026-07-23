@@ -134,3 +134,25 @@ test("a scope cycle re-pends the same selected group", () => {
 
   expect(view.result.current.groupDetailsPending).toBe(true);
 });
+
+test("returning to a scope re-pends what that scope had settled", () => {
+  // Settlements are stamped with the scope that produced them: coming back to
+  // organization A must not reuse A's old settlement, because A's state has
+  // been recreated as null and its fetch is only just starting.
+  const view = renderPendingState();
+  act(() => view.result.current.markDataUsageSettled());
+  act(() => view.result.current.markDirectorySettled());
+
+  const scopeB = {
+    databaseStarting: false,
+    loading: false,
+    scopeKey: "scope-b",
+    selectedGroupId: null,
+  };
+  view.rerender(scopeB);
+  act(() => view.result.current.markDirectorySettled());
+  view.rerender({ ...scopeB, scopeKey: "scope-a" });
+
+  expect(view.result.current.dataPending).toBe(true);
+  expect(view.result.current.dataUsagePending).toBe(true);
+});

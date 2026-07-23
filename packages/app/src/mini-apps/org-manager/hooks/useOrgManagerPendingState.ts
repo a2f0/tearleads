@@ -3,6 +3,10 @@ import { useCallback, useMemo, useState } from "react";
 /** A resource whose first fetch the views must not mistake for an empty one. */
 type OrgManagerSettledResource = "dataUsage" | "directory" | "groupDetails";
 
+const EMPTY_SETTLED_RESOURCES: Readonly<
+  Partial<Record<OrgManagerSettledResource, string>>
+> = {};
+
 /**
  * Tracks which *key* each resource was last fetched for — the organization
  * scope for the shared directory pass, the selected group id for group details.
@@ -14,7 +18,7 @@ type OrgManagerSettledResource = "dataUsage" | "directory" | "groupDetails";
  * decided during render instead, so a switch is pending immediately, with no
  * effect ordering to get right.
  */
-function useOrgManagerSettledKeys(): {
+function useOrgManagerSettledKeys(scopeKey: string): {
   isSettled: (
     resource: OrgManagerSettledResource,
     key: string | null,
@@ -24,16 +28,27 @@ function useOrgManagerSettledKeys(): {
     key: string | null,
   ) => void;
 } {
-  const [settledKeys, setSettledKeys] = useState<
-    Readonly<Partial<Record<OrgManagerSettledResource, string>>>
-  >({});
+  // Settlements belong to the scope that produced them. Keeping them in a map
+  // keyed only by resource would let a revisited scope reuse its old entry —
+  // switch to another organization and back, and usage would claim to be
+  // fetched while its state has been recreated as null and its fetch is only
+  // just starting. Stamping the whole record with its scope drops every stale
+  // entry at once, during render.
+  const [settled, setSettled] = useState<{
+    readonly resources: Readonly<
+      Partial<Record<OrgManagerSettledResource, string>>
+    >;
+    readonly scopeKey: string;
+  }>(() => ({ resources: {}, scopeKey }));
+  const resources =
+    settled.scopeKey === scopeKey ? settled.resources : EMPTY_SETTLED_RESOURCES;
 
   const isSettled = useCallback(
     (resource: OrgManagerSettledResource, key: string | null) =>
       // A null key is "nothing selected", which is settled by definition: there
       // is no fetch outstanding for it.
-      key === null || settledKeys[resource] === key,
-    [settledKeys],
+      key === null || resources[resource] === key,
+    [resources],
   );
 
   const markSettled = useCallback(
@@ -42,11 +57,18 @@ function useOrgManagerSettledKeys(): {
         return;
       }
 
-      setSettledKeys((current) =>
-        current[resource] === key ? current : { ...current, [resource]: key },
+      setSettled((current) =>
+        current.scopeKey === scopeKey
+          ? current.resources[resource] === key
+            ? current
+            : {
+                resources: { ...current.resources, [resource]: key },
+                scopeKey,
+              }
+          : { resources: { [resource]: key }, scopeKey },
       );
     },
-    [],
+    [scopeKey],
   );
 
   return useMemo(() => ({ isSettled, markSettled }), [isSettled, markSettled]);
@@ -83,7 +105,7 @@ export function useOrgManagerPendingState(input: {
   readonly markGroupDetailsSettled: (groupId: string | null) => void;
 } {
   const { databaseStarting, loading, scopeKey, selectedGroupId } = input;
-  const { isSettled, markSettled } = useOrgManagerSettledKeys();
+  const { isSettled, markSettled } = useOrgManagerSettledKeys(scopeKey);
   const markDirectorySettled = useCallback(
     () => markSettled("directory", scopeKey),
     [markSettled, scopeKey],
