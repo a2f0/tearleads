@@ -14,8 +14,8 @@ import {
 import { ORG_MANAGER_LABELS } from "../labels";
 import type { LocalOrganizationsState } from "./orgSwitcherTypes";
 
-const ACTIVE_ORGANIZATION_RETRY_DELAY_MS = 500;
-const ACTIVE_ORGANIZATION_RETRY_LIMIT = 40;
+const ORGANIZATION_INDEX_RETRY_DELAY_MS = 500;
+const ORGANIZATION_INDEX_RETRY_LIMIT = 40;
 
 type OrganizationsSetter = Dispatch<
   SetStateAction<readonly LocalOrganizationSummary[]>
@@ -234,10 +234,32 @@ function useOrganizationListLifecycle(input: OrganizationListLifecycleOptions) {
   ]);
 }
 
-function useActiveOrganizationIndexRetry(input: {
+/**
+ * Re-read the index on a bounded schedule while it is still catching up.
+ *
+ * Two things can lag behind the container tree the switcher already renders:
+ *
+ *  - the **active organization's own index row**, when the session context
+ *    already points at an organization whose persisted root has not landed yet;
+ *  - an organization's **display name**, which comes from its
+ *    organization-profile document. That document's body can finish syncing well
+ *    after the roots do — most visibly on a device that just re-hydrated an
+ *    identity, where every document arrives after the container tree. The
+ *    refresh key covers the profile emissions it can see, but a name that lands
+ *    through another lane (or between the reload's query and its commit) would
+ *    otherwise leave the switcher pinned to "Untitled organization" for the rest
+ *    of the session.
+ *
+ * Both resolve by re-reading local state, so one retry loop serves them and
+ * stops as soon as neither is outstanding. Only a missing active-organization
+ * row is an error worth surfacing when the budget runs out: an organization can
+ * legitimately have no name.
+ */
+function useOrganizationIndexCatchUpRetry(input: {
   activeOrganization: LocalOrganizationSummary | null;
   databaseReady: boolean;
   enabled: boolean;
+  organizations: readonly LocalOrganizationSummary[];
   reload: () => Promise<boolean>;
   retainedOrganizationsRef: {
     current: Map<string, LocalOrganizationSummary>;
@@ -245,8 +267,15 @@ function useActiveOrganizationIndexRetry(input: {
   setOrganizationsError: Dispatch<SetStateAction<string | null>>;
 }) {
   const activeOrganizationId = input.activeOrganization?.organizationId;
+  const hasUnnamedOrganization = input.organizations.some(
+    (organization) => organization.name === null,
+  );
   useEffect(() => {
-    if (!input.enabled || !input.databaseReady || !activeOrganizationId) {
+    if (
+      !input.enabled ||
+      !input.databaseReady ||
+      (!activeOrganizationId && !hasUnnamedOrganization)
+    ) {
       return;
     }
 
@@ -255,16 +284,18 @@ function useActiveOrganizationIndexRetry(input: {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
       timer = setTimeout(() => {
-        if (
-          cancelled ||
-          !input.retainedOrganizationsRef.current.has(activeOrganizationId)
-        ) {
+        const awaitingActiveIndex =
+          activeOrganizationId !== undefined &&
+          input.retainedOrganizationsRef.current.has(activeOrganizationId);
+        if (cancelled || (!awaitingActiveIndex && !hasUnnamedOrganization)) {
           return;
         }
-        if (attempts >= ACTIVE_ORGANIZATION_RETRY_LIMIT) {
-          input.setOrganizationsError(
-            ORG_MANAGER_LABELS.failedLoadOrganizations,
-          );
+        if (attempts >= ORGANIZATION_INDEX_RETRY_LIMIT) {
+          if (awaitingActiveIndex) {
+            input.setOrganizationsError(
+              ORG_MANAGER_LABELS.failedLoadOrganizations,
+            );
+          }
           return;
         }
         attempts += 1;
@@ -273,7 +304,7 @@ function useActiveOrganizationIndexRetry(input: {
             schedule();
           }
         });
-      }, ACTIVE_ORGANIZATION_RETRY_DELAY_MS);
+      }, ORGANIZATION_INDEX_RETRY_DELAY_MS);
     };
     schedule();
     return () => {
@@ -284,6 +315,7 @@ function useActiveOrganizationIndexRetry(input: {
     };
   }, [
     activeOrganizationId,
+    hasUnnamedOrganization,
     input.databaseReady,
     input.enabled,
     input.reload,
@@ -392,10 +424,11 @@ export function useLocalOrganizations(input: {
     input.scopeKey,
     retainOrganization,
   ]);
-  useActiveOrganizationIndexRetry({
+  useOrganizationIndexCatchUpRetry({
     activeOrganization: input.activeOrganization,
     databaseReady: input.databaseReady,
     enabled: input.enabled,
+    organizations,
     reload,
     retainedOrganizationsRef,
     setOrganizationsError,
