@@ -33,6 +33,7 @@ import {
 import {
   type ExplorerItemCellContext,
   getExplorerItemTableColumns,
+  openExplorerItem,
   renderExplorerItemCell,
 } from "./explorerItemTableColumns";
 
@@ -138,6 +139,7 @@ function ExplorerContainerItemTableRow(params: {
     <MiniAppTableRow
       className="explorer-item-table-row"
       interactive
+      onActivate={() => openExplorerItem(cellContext)}
       onContextMenu={(event) => onItemContextMenu(event, row)}
       selected={selected}
     >

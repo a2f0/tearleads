@@ -135,11 +135,20 @@ function BlobReferenceRow(params: {
   const contextMenuTarget = getBlobReferenceContextTarget(reference);
   const canOpenDocument = contextMenuTarget !== null;
   const documentLabel = reference.documentTitle ?? compactId(reference.localId);
+  const openDocument = contextMenuTarget
+    ? () => {
+        params.selectDocumentProjection(
+          reference.localId,
+          contextMenuTarget.containerId,
+        );
+      }
+    : undefined;
 
   return (
     <MiniAppTableRow
       className="explorer-blob-reference-table-row"
       interactive={canOpenDocument}
+      onActivate={openDocument}
       onContextMenu={
         contextMenuTarget
           ? (event) => onContextMenu(event, contextMenuTarget)
@@ -151,14 +160,7 @@ function BlobReferenceRow(params: {
         <MiniAppTableActionButton
           className="explorer-blob-reference-row-button"
           disabled={!canOpenDocument}
-          onClick={() => {
-            if (contextMenuTarget) {
-              params.selectDocumentProjection(
-                reference.localId,
-                contextMenuTarget.containerId,
-              );
-            }
-          }}
+          onClick={openDocument}
         >
           <MiniAppTableText title={documentLabel}>
             {documentLabel}

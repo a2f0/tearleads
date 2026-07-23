@@ -294,6 +294,9 @@ function BlobInfoTableContent(params: {
               className="explorer-blob-browser-table-row"
               interactive
               key={blob.key}
+              onActivate={
+                selectable ? () => params.onSelectBlob(blob) : undefined
+              }
               onContextMenu={
                 params.onRowContextMenu
                   ? (event) => params.onRowContextMenu?.(event, blob)

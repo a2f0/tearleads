@@ -225,6 +225,24 @@ function getExplorerItemIcon(row: ContainerItemRow): {
   };
 }
 
+// Opening an item: containers become the pane's selection, documents route to
+// their projection. Shared by the name cell's button and the row-wide click
+// target (see `onActivate` on MiniAppTableRow) so both do exactly the same thing.
+export function openExplorerItem(
+  ctx: Pick<
+    ExplorerItemCellContext,
+    "row" | "selectDocumentProjection" | "setSelectedId"
+  >,
+): void {
+  const { row } = ctx;
+  if (row.itemKind === "container") {
+    ctx.setSelectedId(row.id);
+    return;
+  }
+
+  ctx.selectDocumentProjection(row.localId, row.containerId);
+}
+
 function ExplorerItemNameCell(ctx: ExplorerItemCellContext): ReactNode {
   const { row } = ctx;
   const name = getExplorerContainerItemName(ctx);
@@ -239,17 +257,12 @@ function ExplorerItemNameCell(ctx: ExplorerItemCellContext): ReactNode {
         )
       : undefined;
   const openItem = () => {
-    if (row.itemKind === "container") {
-      ctx.setSelectedId(row.id);
-      return;
-    }
-
-    ctx.selectDocumentProjection(row.localId, row.containerId);
+    openExplorerItem(ctx);
   };
 
   // Keep standard table-row semantics: a native button in the name cell carries
-  // the click/keyboard behaviour, and a CSS ::after overlay (see Explorer.css)
-  // stretches its hit area across the whole row so the entire row is clickable.
+  // the click/keyboard behaviour, and the row itself carries the same action for
+  // clicks that land anywhere else in the row.
   //
   // On the phone tier the Type column is dropped and the leading icon is
   // aria-hidden, so fold the item kind into the button's accessible name to keep
