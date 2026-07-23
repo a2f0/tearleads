@@ -1,4 +1,5 @@
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
+import type { MouseEvent } from "react";
 import {
   MiniAppRowButton,
   MiniAppRowText,
@@ -21,10 +22,16 @@ import "./NotesEmptyTile.css";
  */
 export function NotesEmptyTile({
   createNote,
+  onContextMenu,
   rowHeight,
   showFullLabel,
 }: {
   createNote: () => void;
+  // The tile covers the surface's whole empty area, and the list's area
+  // context-menu handler ignores events over a `.mini-app-row`. Taking the
+  // handler directly keeps the area menu (and, via useLongPress, its touch
+  // long-press) reachable rather than leaving a dead zone.
+  onContextMenu: (event: MouseEvent<HTMLElement>) => void;
   rowHeight: number;
   showFullLabel: boolean;
 }) {
@@ -40,6 +47,7 @@ export function NotesEmptyTile({
       aria-label={NOTES_LABELS.sidebarEmptyCreate}
       className="notes-empty-tile"
       onClick={createNote}
+      onContextMenu={onContextMenu}
       style={getMiniAppVirtualFrameStyle(touchRowHeight)}
     >
       <PlusIcon aria-hidden size={16} />

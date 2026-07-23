@@ -54,6 +54,9 @@ interface NotesListProps extends NotesSidebarProps {
   // Render a trailing kebab that opens the row's context menu (the mobile list
   // home; the sidebar relies on right-click / long-press).
   showActions?: boolean | undefined;
+  // Give the empty-state tile its full sentence. Only the wide list home has
+  // room; the sidebar rail (160px by default) truncates it mid-word.
+  showFullLabel?: boolean | undefined;
   showMetadata?: boolean | undefined;
 }
 
@@ -79,6 +82,7 @@ function NotesList({
   bleed = false,
   createNote,
   divided = false,
+  handleAreaContextMenu,
   handleNoteContextMenu,
   notes,
   ready,
@@ -86,6 +90,7 @@ function NotesList({
   selectNote,
   selectedNoteId,
   showActions = false,
+  showFullLabel = false,
   showMetadata = false,
 }: NotesListProps) {
   const virtualNotes = useMiniAppVirtualRows({
@@ -100,12 +105,14 @@ function NotesList({
           {NOTES_LABELS.sidebarLoading}
         </MiniAppStatus>
       ) : notes.length === 0 ? (
+        // Deliberately not bled like the populated list below: a dashed tile
+        // reads as a placed object, so it keeps the surface's own inset rather
+        // than running edge-to-edge.
         <NotesEmptyTile
           createNote={createNote}
+          onContextMenu={handleAreaContextMenu}
           rowHeight={rowHeight}
-          // The roomy list home has the width for the full sentence; the
-          // sidebar rail (160px by default) does not.
-          showFullLabel={showMetadata}
+          showFullLabel={showFullLabel}
         />
       ) : (
         <MiniAppVirtualListFrame
@@ -196,6 +203,7 @@ export function NotesListHome(props: NotesSidebarProps) {
         divided
         rowHeight={MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT}
         showActions
+        showFullLabel
         showMetadata
       />
     </section>

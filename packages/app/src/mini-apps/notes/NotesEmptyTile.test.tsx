@@ -18,26 +18,62 @@ function rowHeightOf(tile: HTMLElement): string {
 }
 
 test("empty tile keeps the full sentence as its accessible name in both surfaces", () => {
-  const view = render(
+  const rail = render(
     <NotesEmptyTile
       createNote={() => {}}
+      onContextMenu={() => {}}
       rowHeight={MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT}
       showFullLabel={false}
     />,
   );
 
-  const tile = view.getByRole("button", {
-    name: NOTES_LABELS.sidebarEmptyCreate,
-  });
   // The narrow rail shows the action alone, but still announces the sentence —
   // which contains the visible label.
-  expect(tile.textContent).toBe(NOTES_LABELS.sidebarEmptyCreateShort);
+  expect(
+    rail.getByRole("button", { name: NOTES_LABELS.sidebarEmptyCreate })
+      .textContent,
+  ).toBe(NOTES_LABELS.sidebarEmptyCreateShort);
+
+  cleanup();
+
+  const listHome = render(
+    <NotesEmptyTile
+      createNote={() => {}}
+      onContextMenu={() => {}}
+      rowHeight={MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT}
+      showFullLabel
+    />,
+  );
+
+  expect(
+    listHome.getByRole("button", { name: NOTES_LABELS.sidebarEmptyCreate })
+      .textContent,
+  ).toBe(NOTES_LABELS.sidebarEmptyCreate);
+});
+
+test("empty tile opens the area context menu rather than swallowing it", () => {
+  let areaMenus = 0;
+  const view = render(
+    <NotesEmptyTile
+      createNote={() => {}}
+      onContextMenu={() => {
+        areaMenus += 1;
+      }}
+      rowHeight={MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT}
+      showFullLabel
+    />,
+  );
+
+  fireEvent.contextMenu(view.getByRole("button"));
+
+  expect(areaMenus).toBe(1);
 });
 
 test("empty tile matches the row pitch of the list it stands in for", () => {
   const view = render(
     <NotesEmptyTile
       createNote={() => {}}
+      onContextMenu={() => {}}
       rowHeight={MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT}
       showFullLabel={false}
     />,
@@ -51,6 +87,7 @@ test("empty tile matches the row pitch of the list it stands in for", () => {
   const roomy = render(
     <NotesEmptyTile
       createNote={() => {}}
+      onContextMenu={() => {}}
       rowHeight={MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT}
       showFullLabel
     />,
@@ -65,6 +102,7 @@ test("empty tile takes the touch row height in the routed layout", () => {
   const view = render(
     <NotesEmptyTile
       createNote={() => {}}
+      onContextMenu={() => {}}
       rowHeight={MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT}
       showFullLabel={false}
     />,
@@ -80,6 +118,7 @@ test("empty tile creates a note when clicked", () => {
       createNote={() => {
         created += 1;
       }}
+      onContextMenu={() => {}}
       rowHeight={MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT}
       showFullLabel
     />,

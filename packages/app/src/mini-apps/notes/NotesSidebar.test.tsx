@@ -47,12 +47,16 @@ test("notes list home shows note metadata and drills into a note", () => {
 
 test("notes list home offers an empty-state tile that creates the first note", () => {
   let created = 0;
+  let areaMenus = 0;
   const view = render(
     <NotesListHome
       createNote={() => {
         created += 1;
       }}
-      handleAreaContextMenu={(event) => event.preventDefault()}
+      handleAreaContextMenu={(event) => {
+        event.preventDefault();
+        areaMenus += 1;
+      }}
       handleNoteContextMenu={(event) => event.preventDefault()}
       notes={[]}
       ready
@@ -71,6 +75,12 @@ test("notes list home offers an empty-state tile that creates the first note", (
   fireEvent.click(emptyTile);
 
   expect(created).toBe(1);
+
+  // The tile covers the whole empty area, so it must not swallow the area
+  // context menu the surrounding surface would otherwise open.
+  fireEvent.contextMenu(emptyTile);
+
+  expect(areaMenus).toBe(1);
 });
 
 test("notes list home shows loading rather than the empty tile before notes load", () => {
