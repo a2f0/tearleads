@@ -316,11 +316,16 @@ textarea {
 }
 
 /*
- * Touch / routed-layout sizing (Apple HIG) lives in the companion stylesheet
- * styles.routed.css, imported immediately after this file. It is split out only
- * to keep each stylesheet within the source-shape size budget; the rules there
- * are scoped to `:root[data-navigation-mode="routed"]` and outrank the base
- * `:root` tokens above by specificity regardless of load order.
+ * Two companion stylesheets are imported immediately after this file (see
+ * TearleadsFrame), split out only to keep each stylesheet within the
+ * source-shape size budget:
+ *
+ *   - styles.routed.css — touch / routed-layout sizing (Apple HIG). Scoped to
+ *     `:root[data-navigation-mode="routed"]`, so it outranks the base `:root`
+ *     tokens above by specificity regardless of load order.
+ *   - styles.links.css — the base anchor reset (`color: inherit`, no
+ *     underline) plus the iOS data-detector neutralizer. Rules below that style
+ *     an anchor rely on it rather than repeating the reset.
  */
 
 .tearleads-frame {
@@ -371,13 +376,13 @@ textarea {
   );
 }
 
+/* Renders as either an <a> or a <div>; both take the header's color, the
+   anchor's underline reset coming from styles.links.css. */
 .tearleads-brand {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   min-width: 0;
-  color: inherit;
-  text-decoration: none;
 }
 
 .tearleads-brand-logo {

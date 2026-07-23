@@ -37,10 +37,10 @@
   gap: var(--space-md);
 }
 
+/* Color and the underline reset come from the base anchor rule in
+   @tearleads/ui styles.links.css; the hover state below re-adds the underline. */
 .site-nav-link {
-  color: inherit;
   font-size: var(--font-size-lg);
-  text-decoration: none;
   white-space: nowrap;
 }
 
@@ -64,7 +64,6 @@
   align-items: center;
   margin-left: var(--space-sm);
   padding: var(--control-padding-block) var(--control-padding-inline);
-  text-decoration: none;
   white-space: nowrap;
 }
 
@@ -77,9 +76,7 @@
 }
 
 .site-footer-link {
-  color: inherit;
   font-size: var(--font-size-md);
-  text-decoration: none;
   white-space: nowrap;
 }
 

@@ -40,10 +40,11 @@
   padding: var(--space-xs) var(--space-sm);
   border: var(--border);
   background: transparent;
+  /* The <button> members need this; the <a> gets it (and its underline reset)
+     from the base anchor rule in @tearleads/ui styles.links.css. */
   color: inherit;
   font: inherit;
   text-align: left;
-  text-decoration: none;
   cursor: pointer;
 }
 
@@ -223,10 +224,8 @@
   padding: var(--space-sm);
   border: var(--border);
   background: transparent;
-  color: inherit;
   font: inherit;
   text-align: center;
-  text-decoration: none;
   cursor: pointer;
 }
 

@@ -1,0 +1,33 @@
+/*
+ * === Link normalization ===
+ *
+ * Companion to styles.css, imported immediately after it (see TearleadsFrame).
+ * Split out for the same reason styles.routed.css is: to keep each stylesheet
+ * within the source-shape size budget.
+ *
+ * Every anchor this codebase renders is chrome — the brand mark, a nav row, a
+ * launcher tile, a footer link — never prose hypertext. So they all take the
+ * color of the text around them and carry no underline, and each one used to
+ * repeat that pair of declarations locally. Declaring it once here is what
+ * makes the shells agree: an anchor that forgets the reset falls through to the
+ * UA stylesheet's `-webkit-link`, which WebKit paints a saturated system blue.
+ * That reads as a foreign control against the monochrome chrome anywhere, but
+ * it is loudest in the Capacitor iOS WebView, where it is the platform's own
+ * link blue. Components now declare `color` only where a state (hover, active,
+ * selected) genuinely changes it — those rules are class-based and still
+ * outrank this one.
+ *
+ * This also catches the anchors the app never wrote. iOS data detectors rewrite
+ * plain text that merely *looks* like a phone number, date, address, or
+ * tracking number into a live blue underlined link inside the WebView: a
+ * table's timestamp column or a contact's phone field turns tappable with no
+ * markup of ours involved, which is why only *some* links looked blue. Those
+ * injected elements are ordinary `<a>` in the DOM styled by the UA stylesheet,
+ * so this author rule outranks their blue whatever their specificity. The
+ * `format-detection` meta in each WebKit-hosted shell's index.html is the other
+ * half — it asks the engine not to do the rewrite at all.
+ */
+a {
+  color: inherit;
+  text-decoration: none;
+}

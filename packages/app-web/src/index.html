@@ -9,6 +9,13 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
+    <!-- Matches the Capacitor shell: iOS Safari runs the same data detectors as
+         the WebView, rewriting text that looks like a phone number or date into
+         a blue link the app never wrote. See packages/app-capacitor/index.html. -->
+    <meta
+      name="format-detection"
+      content="telephone=no, date=no, address=no, email=no"
+    />
     <title>App</title>
     <!--
       Favicon <link> tags are injected into dist/index.html at build time by

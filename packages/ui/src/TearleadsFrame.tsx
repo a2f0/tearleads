@@ -3,6 +3,8 @@ import { classNames } from "./classNames";
 import "./styles.css";
 // Touch/routed-layout overrides; must load after styles.css (see that file).
 import "./styles.routed.css";
+// Base anchor reset, shared by every shell (see that file).
+import "./styles.links.css";
 
 export interface TearleadsHeaderProps {
   readonly actions?: ReactNode;
