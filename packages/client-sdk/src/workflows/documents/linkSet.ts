@@ -58,7 +58,7 @@ import { throwKeyingVerificationErrorWithContext } from "../../data/keyingProjec
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { persistAcknowledgedLinkSetState } from "./linkSetAcknowledgement";
 import { seedLinkSetWriterProjection } from "./linkSetProjectionSeed";
-import { buildDocumentRotationBaseline } from "./rotationBaseline";
+import { completeLinkSetMutationRequest } from "./rotationBaseline";
 
 function deriveDocumentLinkSetTargetState(input: {
   operation: DocumentLinkSetMutationOperation;
@@ -433,23 +433,13 @@ export async function relinkRemoteDocument(input: {
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     writerProjection,
   });
-  const request =
-    input.operation === "unlink" && input.rotationSnapshot
-      ? {
-          ...materializedPlan.plan.request,
-          rotationBaseline: await buildDocumentRotationBaseline({
-            author: input.author,
-            contentKey: materializedPlan.contentKey,
-            contentKeyEpoch: materializedPlan.plan.contentKeyEpoch,
-            documentId: materializedPlan.plan.documentId,
-            expectedLinkSetManifestHash: materializedPlan.plan.manifestHash,
-            expectedTargetHash: materializedPlan.plan.targetHash,
-            organizationId: materializedPlan.plan.state.organizationId,
-            signedAt,
-            snapshot: input.rotationSnapshot,
-          }),
-        }
-      : materializedPlan.plan.request;
+  const request = await completeLinkSetMutationRequest({
+    author: input.author,
+    materializedPlan,
+    operation: input.operation,
+    rotationSnapshot: input.rotationSnapshot,
+    signedAt,
+  });
   const completedPlan = { ...materializedPlan.plan, request };
   const response =
     input.operation === "link"

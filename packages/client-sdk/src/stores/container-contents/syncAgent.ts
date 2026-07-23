@@ -261,6 +261,9 @@ async function initializeContainerContentsStore(input: {
     state.containersById.size > 0 &&
     (await hasStartupContainerSyncWork(state))
   ) {
+    state.runtime.util.log(
+      `${getContainerContentsStoreLogLabel(state)}: startup detected durable sync work; scheduling lane pass`,
+    );
     scheduleSync();
   }
 }

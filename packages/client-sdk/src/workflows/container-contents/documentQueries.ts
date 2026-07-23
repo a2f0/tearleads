@@ -15,7 +15,12 @@ import {
   sqlDocumentsPersistence,
   upsertDiscoveredDocuments,
 } from "../../data/persistence/documents/documentsPersistence";
-import { containerCreateIntentTables } from "../../data/sqlite/schema";
+import {
+  containerCreateIntentTables,
+  documentMoveIntentTables,
+  documentProjectionTables,
+  documentTables,
+} from "../../data/sqlite/schema";
 import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import {
   compareContainerContentsDocumentSummaries,
@@ -528,6 +533,36 @@ const PENDING_PRIME_LOCAL_ID_SQL = `
       )
     )
 `;
+
+// Startup work probe: does any durable document-level write work exist that a
+// container-contents lane pass would drive? Reuses the priming predicate so
+// the startup trigger and the priming worker can never disagree about what
+// counts as pending, and adds pending document move intents, which the lane
+// replays itself rather than through a primed store (issue #1744: a relaunch
+// whose only outstanding work was document-level never scheduled the lane, so
+// pending creates/updates sat unattempted forever).
+const STARTUP_DOCUMENT_SYNC_WORK_SQL = `
+  SELECT 1 AS present
+  WHERE EXISTS (${PENDING_PRIME_LOCAL_ID_SQL})
+    OR EXISTS (
+      SELECT 1
+      FROM document_move_intents intent
+      WHERE intent.sync_status = 'pending'
+    )
+  LIMIT 1
+`;
+
+export async function hasStartupDocumentSyncWork(
+  execSql: ExecSql,
+): Promise<boolean> {
+  await ensureSqlTables(execSql, [
+    ...documentTables,
+    ...documentProjectionTables,
+    ...documentMoveIntentTables,
+  ]);
+  const rows = await execSql(STARTUP_DOCUMENT_SYNC_WORK_SQL);
+  return rows.length > 0;
+}
 
 // Note: a row with content but a NULL outgoing-delta marker (condition 3 with
 // COALESCE '') is deliberately treated as unsettled — the store persist path

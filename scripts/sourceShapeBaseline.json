@@ -66,8 +66,8 @@
       "bytes": 34161
     },
     "docs/protocol-specification.md": {
-      "lines": 501,
-      "bytes": 21595
+      "lines": 511,
+      "bytes": 22264
     },
     "packages/api-client/src/ApiClient.core.test.ts": {
       "lines": 541,
@@ -142,8 +142,8 @@
       "bytes": 43277
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2164,
-      "bytes": 70218
+      "lines": 2240,
+      "bytes": 72694
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 1169,
@@ -294,8 +294,8 @@
       "bytes": 19608
     },
     "packages/client-sdk/src/stores/container-contents/syncAgent.ts": {
-      "lines": 517,
-      "bytes": 17594
+      "lines": 520,
+      "bytes": 17740
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
       "lines": 562,
@@ -322,8 +322,8 @@
       "bytes": 17839
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueries.ts": {
-      "lines": 738,
-      "bytes": 23854
+      "lines": 773,
+      "bytes": 25007
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueriesSidebar.test.ts": {
       "lines": 620,
@@ -346,8 +346,8 @@
       "bytes": 44380
     },
     "packages/client-sdk/src/workflows/documents/sync.ts": {
-      "lines": 1070,
-      "bytes": 35700
+      "lines": 1072,
+      "bytes": 36021
     },
     "packages/client-sdk/src/workflows/organizations/principalPolicy.ts": {
       "lines": 992,

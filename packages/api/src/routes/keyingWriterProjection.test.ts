@@ -13,6 +13,7 @@ import {
   documentContentKeyTargets,
   documents,
   documentUpdateAuditEvents,
+  documentUpdates,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type {
@@ -1992,9 +1993,10 @@ test("POST /documents/:documentId/unlink advances a signed link-set manifest", a
       body: JSON.stringify(missingBaselineRequest),
     },
   );
-  expect(missingBaselineResponse.status).toBe(400);
+  expect(missingBaselineResponse.status).toBe(409);
   expect(await missingBaselineResponse.json()).toEqual({
-    error: "Document unlink requires a rotation baseline",
+    error:
+      "Document unlink requires a rotation baseline covering committed updates",
   });
 
   await expectStaleAtomicUnlinkRollsBack({
@@ -2095,6 +2097,80 @@ test("POST /documents/:documentId/unlink advances a signed link-set manifest", a
     documentId: createdDocument.id,
     updatedAt: documentRow.updatedAt,
   });
+});
+
+test("POST /documents/:documentId/unlink accepts a baseline-less unlink for an empty committed frontier", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const child = await createChildContainer({ parent: root, signer: owner });
+  const createdDocument = await createDocument({ owner, root });
+  const linkRequest = await buildDocumentLinkRequest({
+    child,
+    createdDocument,
+    owner,
+    root,
+  });
+  const linkResponse = await routeApp.request(
+    `/documents/${createdDocument.id}/link`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(linkRequest),
+    },
+  );
+  expect(linkResponse.status).toBe(200);
+  const linkedDocument = await linkResponse.json();
+  expect(isDocumentLinkSetMutationResponse(linkedDocument)).toBe(true);
+
+  const unlinkRequest = await buildDocumentUnlinkRequest({
+    child,
+    linkedDocument,
+    owner,
+    root,
+  });
+  // A document with no committed updates has nothing for a rotation baseline
+  // to cover, so the unlink may omit it entirely.
+  delete unlinkRequest.rotationBaseline;
+  const unlinkResponse = await routeApp.request(
+    `/documents/${createdDocument.id}/unlink`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(unlinkRequest),
+    },
+  );
+
+  expect(unlinkResponse.status).toBe(200);
+  const unlinked = await unlinkResponse.json();
+  expect(isDocumentLinkSetMutationResponse(unlinked)).toBe(true);
+  expect(unlinked.accessManifest.manifestHash).toBe(
+    unlinkRequest.expectedManifestHash,
+  );
+  expect(unlinked.contentKeyBundle.contentKeyEpoch).toBe(
+    linkedDocument.contentKeyBundle.contentKeyEpoch + 1,
+  );
+
+  const rows = await db
+    .select({ containerId: documentContainerLinks.containerId })
+    .from(documentContainerLinks)
+    .where(eq(documentContainerLinks.documentId, createdDocument.id));
+  expect(rows.map((row) => row.containerId)).toEqual([
+    root.kekState.containerId,
+  ]);
+
+  const baselineRows = await db
+    .select({ id: documentUpdates.id })
+    .from(documentUpdates)
+    .where(eq(documentUpdates.documentId, createdDocument.id));
+  expect(baselineRows).toHaveLength(0);
 });
 
 test("POST /documents/:documentId/unlink rejects removing the final signed link", async () => {

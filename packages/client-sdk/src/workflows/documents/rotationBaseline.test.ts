@@ -39,6 +39,9 @@ test("buildDocumentRotationBaseline encrypts and signs against the new access bo
     signedAt: "2026-07-14T00:00:00.000Z",
     snapshot,
   });
+  if (!baseline) {
+    throw new Error("Expected a rotation baseline for populated history");
+  }
 
   expect(baseline.checkpointKind).toBe("rotate_baseline");
   expect(baseline.checkpointPayloadKind).toBe("full_history_snapshot");
@@ -89,4 +92,23 @@ test("buildDocumentRotationBaseline encrypts and signs against the new access bo
   const freshReader = await createDocument("atomic-baseline-reader");
   importSnapshot(freshReader, decrypted.updateData);
   expect(getTextValue(freshReader)).toBe("atomic baseline state");
+});
+
+test("buildDocumentRotationBaseline returns null for a zero-span empty document", async () => {
+  const { author } = await createAuthor();
+  const document = await createDocument("empty-rotation-baseline");
+  const snapshot = exportFullHistorySnapshot(document);
+  const baseline = await buildDocumentRotationBaseline({
+    author,
+    contentKey: crypto.getRandomValues(new Uint8Array(32)),
+    contentKeyEpoch: 2,
+    documentId: crypto.randomUUID(),
+    expectedLinkSetManifestHash: await fixtureHash("empty-link-set-manifest"),
+    expectedTargetHash: await fixtureHash("empty-target-hash"),
+    organizationId: author.organizationId,
+    signedAt: "2026-07-14T00:00:00.000Z",
+    snapshot,
+  });
+
+  expect(baseline).toBeNull();
 });

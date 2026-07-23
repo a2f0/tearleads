@@ -89,3 +89,33 @@ this first model. Cryptographic authenticity, database transactions, SQL
 ordering, and Loro's own CRDT correctness also remain outside the abstraction. A
 future TLAPS or theorem-prover layer could prove the parameterized invariant
 after this model has stabilized.
+
+## Empty-Frontier Baseline-less Unlink
+
+[`document-sync/EmptyFrontierUnlink.tla`](./document-sync/EmptyFrontierUnlink.tla)
+models the acceptance gate for a document unlink submitted without a rotation
+baseline. An unlink rotates the document content key, so a committed update no
+accepted baseline covers becomes unreadable under the new epoch. A document
+with an empty committed frontier cannot produce a baseline at all — a
+zero-span full-history snapshot encodes no replayable history — so the server
+accepts a baseline-less unlink only after proving the committed frontier is
+empty inside the mutation transaction, under the document manifest-head write
+lock that sync writers take in shared mode.
+
+The abstraction maps to production at these seams:
+
+| Model action or predicate | Production implementation |
+| --- | --- |
+| `BeginBaselinelessUnlink` / `CommitBaselinelessUnlink` | `assertBaselinelessUnlinkHasEmptyCommittedFrontier` inside `mutateDocumentLinkSetWithExecutor` |
+| `CommitCoveringUnlink` | `assertAtomicRotationBaselineCoversCommittedFrontier` + `appendAtomicRotationBaseline` |
+| `WriterMayCommit` | the manifest-head write lock in `lockDocumentLinkSetMutationFrontier` versus the sync writers' shared lock |
+| the client never sending an empty baseline | `buildDocumentRotationBaseline` returning null for a zero-span snapshot |
+
+The checked configuration sets `LockedUnlink = TRUE`, matching production, and
+the invariants require that no rotation ever orphans an uncovered committed
+update and that the emptiness observation stays true through the commit
+window. Setting `LockedUnlink = FALSE` (a writer allowed to commit between the
+emptiness proof and the unlink commit) makes TLC report the `NoDataLoss`
+violation immediately — the lock discipline is load-bearing, not incidental.
+The bounds stay small (`MaxUpdates = 3`); the state space is tiny because the
+model tracks only the uncovered-update count and the unlink transaction phase.

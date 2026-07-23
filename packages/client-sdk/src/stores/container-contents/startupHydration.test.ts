@@ -1,0 +1,120 @@
+import { expect, test } from "bun:test";
+import { bytesToBase64 } from "@tearleads/encoding";
+import {
+  createDocument,
+  encodeVersionVector,
+  exportShallowSnapshot,
+} from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
+import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
+import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
+import { saveTestDocument } from "../../workflows/container-contents/documentQueries.testFixtures";
+import { hasStartupContainerSyncWork } from "./startupHydration";
+
+async function createStartupWorkFixture(testDbName: string) {
+  const { close, execSql } = await createTestExecSql(testDbName);
+  await defaultContainerContentsPersistence.ensureSchema(execSql);
+  await sqlDocumentsPersistence.ensureSchema(execSql);
+  await sqlDocumentMoveIntentPersistence.ensureSchema(execSql);
+  const state = {
+    containersById: new Map([["root-container", {}]]),
+    persistence: defaultContainerContentsPersistence,
+    runtime: { infra: { execSql } },
+  };
+  return { close, execSql, state };
+}
+
+async function saveSettledTestDocument(input: {
+  execSql: Parameters<typeof sqlDocumentsPersistence.saveDocument>[0];
+  id: string;
+  seed: string;
+}) {
+  const settledDoc = await createDocument(input.seed);
+  settledDoc.getText("text").update("settled");
+  settledDoc.commit();
+  await sqlDocumentsPersistence.saveDocument(
+    input.execSql,
+    {
+      accessEpoch: 1,
+      containerId: "root-container",
+      documentId: `remote-${input.id}`,
+      documentKind: "note",
+      id: input.id,
+      loroSnapshot: bytesToBase64(exportShallowSnapshot(settledDoc)),
+      pendingBaseVersion: encodeVersionVector(settledDoc),
+      text: "settled",
+      title: "Settled",
+    },
+    { updatedAt: "2026-07-20T00:00:00.000Z" },
+  );
+}
+
+test("hasStartupContainerSyncWork is false when every document is settled", async () => {
+  const { close, execSql, state } = await createStartupWorkFixture(
+    "startup-work-settled",
+  );
+  try {
+    await saveSettledTestDocument({ execSql, id: "settled-doc", seed: "s1" });
+    await expect(hasStartupContainerSyncWork(state)).resolves.toBe(false);
+  } finally {
+    close();
+  }
+});
+
+test("hasStartupContainerSyncWork detects a durable pending document create", async () => {
+  const { close, execSql, state } = await createStartupWorkFixture(
+    "startup-work-pending-create",
+  );
+  try {
+    // A never-synced local document: no remote id, create not yet attempted.
+    await saveTestDocument({
+      containerId: "root-container",
+      documentId: null,
+      execSql,
+      id: "local-only-doc",
+      title: "Pending create",
+      updatedAt: "2026-07-23T14:19:12.658Z",
+    });
+    await expect(hasStartupContainerSyncWork(state)).resolves.toBe(true);
+  } finally {
+    close();
+  }
+});
+
+test("hasStartupContainerSyncWork detects durable pending document updates", async () => {
+  const { close, execSql, state } = await createStartupWorkFixture(
+    "startup-work-pending-updates",
+  );
+  try {
+    await saveSettledTestDocument({ execSql, id: "updated-doc", seed: "s2" });
+    await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
+      localId: "updated-doc",
+      partialEndVersionVector: "{}",
+      partialStartVersionVector: "{}",
+      sourceVersionVector: null,
+      updateData: "queued-update",
+    });
+    await expect(hasStartupContainerSyncWork(state)).resolves.toBe(true);
+  } finally {
+    close();
+  }
+});
+
+test("hasStartupContainerSyncWork detects a pending document move intent", async () => {
+  const { close, execSql, state } = await createStartupWorkFixture(
+    "startup-work-pending-move-intent",
+  );
+  try {
+    await saveSettledTestDocument({ execSql, id: "moved-doc", seed: "s3" });
+    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+      documentId: "remote-moved-doc",
+      localId: "moved-doc",
+      sourceContainerId: "root-container",
+      targetContainerId: "target-container",
+    });
+    await expect(hasStartupContainerSyncWork(state)).resolves.toBe(true);
+  } finally {
+    close();
+  }
+});

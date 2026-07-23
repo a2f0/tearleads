@@ -91,6 +91,32 @@ export async function assertAtomicRotationBaselineCoversCommittedFrontier(
   }
 }
 
+/**
+ * A baseline-less unlink is sound only when the document has no committed
+ * updates at all: with an empty committed frontier there is no old-epoch
+ * payload a rotation baseline would need to dominate, so rotating the content
+ * key without a replayable baseline cannot orphan history. The caller must
+ * hold the document manifest-head write lock through this read and the
+ * link-set replacement; sync writers take the corresponding shared lock, so no
+ * update can commit between this emptiness proof and the unlink.
+ */
+export async function assertBaselinelessUnlinkHasEmptyCommittedFrontier(
+  executor: DatabaseSession,
+  input: { readonly documentId: string },
+): Promise<void> {
+  const [committedUpdate] = await executor
+    .select({ id: documentUpdates.id })
+    .from(documentUpdates)
+    .where(eq(documentUpdates.documentId, input.documentId))
+    .limit(1);
+  if (committedUpdate) {
+    throw new DocumentMutationError(
+      "Document unlink requires a rotation baseline covering committed updates",
+      409,
+    );
+  }
+}
+
 export async function appendAtomicRotationBaseline(input: {
   readonly baseline: DocumentOutgoingUpdate;
   readonly documentId: string;

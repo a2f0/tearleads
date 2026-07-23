@@ -18,7 +18,7 @@ import type {
 import { isKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 
-export const REMOTE_DOCUMENT_DELETED = Symbol("remoteDocumentDeleted");
+const REMOTE_DOCUMENT_DELETED = Symbol("remoteDocumentDeleted");
 
 export type RemoteDocumentDeletionHandler = (input: {
   readonly documentId: string;
@@ -283,7 +283,7 @@ export async function submitDocumentSyncAttemptIfAllowed(
   });
 }
 
-export async function resolveDocumentSyncWriterProjection(input: {
+async function resolveDocumentSyncWriterProjection(input: {
   apiClient: DocumentSyncApi;
   documentId: string;
   /**
@@ -362,4 +362,55 @@ export async function retrySyncPlan(input: {
   }
 
   return [await input.buildWithProjection(writerProjection), writerProjection];
+}
+
+/**
+ * Resolves the writer projection for one sync attempt, converting the two
+ * unrecoverable outcomes into an abandoned (null) result with a named reason
+ * so callers that turn a null sync into their own error can surface the real
+ * cause.
+ */
+export async function resolveSyncAttemptWriterProjection(input: {
+  apiClient: DocumentSyncApi;
+  documentId: string;
+  onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
+  onSyncAbandoned?: ((reason: string) => void) | undefined;
+  onTerminalFailure?: TerminalSubmitFailureHandler | undefined;
+  reusableWriterProjection: DocumentWriterProjectionResponse | null;
+}): Promise<DocumentWriterProjectionResponse | null> {
+  const writerProjection = await resolveDocumentSyncWriterProjection(input);
+  if (writerProjection === REMOTE_DOCUMENT_DELETED) {
+    await input.onRemoteDocumentDeleted?.({ documentId: input.documentId });
+    input.onSyncAbandoned?.("the remote document was deleted");
+    return null;
+  }
+  if (!writerProjection) {
+    input.onSyncAbandoned?.(
+      "the document writer projection could not be fetched",
+    );
+    return null;
+  }
+  return writerProjection;
+}
+
+export async function retrySyncPlanOrAbandon(input: {
+  apiClient: DocumentSyncApi;
+  buildWithProjection: (
+    projection: DocumentWriterProjectionResponse,
+  ) => Promise<MaterializedDocumentSyncPlan>;
+  documentId: string;
+  onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
+  onSyncAbandoned?: ((reason: string) => void) | undefined;
+  writerProjection: DocumentWriterProjectionResponse;
+}): Promise<
+  | readonly [MaterializedDocumentSyncPlan, DocumentWriterProjectionResponse]
+  | null
+> {
+  const planned = await retrySyncPlan(input);
+  if (!planned) {
+    input.onSyncAbandoned?.(
+      "a sync plan could not be built against the current projection",
+    );
+  }
+  return planned;
 }

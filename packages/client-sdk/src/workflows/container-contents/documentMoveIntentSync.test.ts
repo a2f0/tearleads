@@ -53,10 +53,11 @@ function remoteContainerState(input: {
   };
 }
 
-test("pending document move intents replay signed link-set mutations and clear after success", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "containerContents-document-move-intent-sync",
-  );
+async function runQueuedDocumentMoveFixture(input: {
+  testDbName: string;
+  unlinkAvailable: boolean;
+}) {
+  const { close, execSql } = await createTestExecSql(input.testDbName);
 
   try {
     const { author, signingPublicKey } = await createAuthor();
@@ -199,6 +200,9 @@ test("pending document move intents replay signed link-set mutations and clear a
           request: DocumentLinkSetMutationRequest,
         ) => {
           submittedOperations.push("unlink");
+          if (!input.unlinkAvailable) {
+            return null;
+          }
           const response = await createLinkSetResponseFromRequest(
             documentId,
             request,
@@ -293,26 +297,62 @@ test("pending document move intents replay signed link-set mutations and clear a
       },
     });
 
-    expect(syncedCount).toBe(1);
-    expect(submittedOperations).toEqual(["preflight", "link", "unlink"]);
-    expect(relinkInputs).toHaveLength(1);
-    expect(relinkInputs[0]).toMatchObject({
-      containerId: trashProjection.containerId,
-      documentId: writerProjection.documentId,
-      localId: "queued-move-local",
-    });
-    await expect(
-      sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
+    const pendingIntents =
+      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
+    const linkedContainerIds =
+      await sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
         execSql,
         writerProjection.documentId,
-      ),
-    ).resolves.toEqual([trashProjection.containerId]);
-    await expect(
-      sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql),
-    ).resolves.toEqual([]);
+      );
+    return {
+      documentId: writerProjection.documentId,
+      linkedContainerIds,
+      pendingIntents,
+      relinkInputs,
+      submittedOperations,
+      syncedCount,
+      trashContainerId: trashProjection.containerId,
+    };
   } finally {
     close();
   }
+}
+
+test("pending document move intents replay signed link-set mutations and clear after success", async () => {
+  const fixture = await runQueuedDocumentMoveFixture({
+    testDbName: "containerContents-document-move-intent-sync",
+    unlinkAvailable: true,
+  });
+
+  expect(fixture.syncedCount).toBe(1);
+  expect(fixture.submittedOperations).toEqual(["preflight", "link", "unlink"]);
+  expect(fixture.relinkInputs).toHaveLength(1);
+  expect(fixture.relinkInputs[0]).toMatchObject({
+    containerId: fixture.trashContainerId,
+    documentId: fixture.documentId,
+    localId: "queued-move-local",
+  });
+  expect(fixture.linkedContainerIds).toEqual([fixture.trashContainerId]);
+  expect(fixture.pendingIntents).toEqual([]);
+});
+
+// A partial replay (link applied, unlink still pending) must not report
+// progress: the structural lane re-arms itself on a positive count, so a
+// deterministically failing unlink would hot-loop the pump (issue #1744).
+test("a partially applied document move stays pending without reporting progress", async () => {
+  const fixture = await runQueuedDocumentMoveFixture({
+    testDbName: "containerContents-document-move-intent-partial",
+    unlinkAvailable: false,
+  });
+
+  expect(fixture.syncedCount).toBe(0);
+  expect(fixture.submittedOperations).toEqual(["preflight", "link", "unlink"]);
+  expect(fixture.pendingIntents).toHaveLength(1);
+  expect(fixture.pendingIntents[0]).toMatchObject({
+    documentId: fixture.documentId,
+    lastError: "Remote document move partially applied; retry required",
+    syncStatus: "pending",
+  });
 });
 
 test("document move sync propagates identity failures without recording a retry", async () => {
