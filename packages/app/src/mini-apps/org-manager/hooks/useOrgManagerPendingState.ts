@@ -62,7 +62,11 @@ function useOrgManagerSettledKeys(): {
  * therefore told the user data was unavailable while it was still on its way.
  */
 export function useOrgManagerPendingState(input: {
-  readonly databaseReady: boolean;
+  // Only a database that is still coming up counts as pending. A terminal
+  // `error`/`terminated` status never becomes ready, so treating "not ready" as
+  // pending would leave every view on "Loading..." forever instead of letting
+  // the settled-but-empty copy (and the surfaced database error) through.
+  readonly databaseStarting: boolean;
   readonly loading: boolean;
   readonly scopeKey: string;
   readonly selectedGroupId: string | null;
@@ -72,13 +76,13 @@ export function useOrgManagerPendingState(input: {
   readonly markDirectorySettled: () => void;
   readonly markSettled: (resource: "groupDetails", key: string | null) => void;
 } {
-  const { databaseReady, loading, scopeKey, selectedGroupId } = input;
+  const { databaseStarting, loading, scopeKey, selectedGroupId } = input;
   const { isSettled, markSettled } = useOrgManagerSettledKeys();
   const markDirectorySettled = useCallback(
     () => markSettled("directory", scopeKey),
     [markSettled, scopeKey],
   );
-  const unsettledBase = loading || !databaseReady;
+  const unsettledBase = loading || databaseStarting;
 
   return useMemo(
     () => ({

@@ -12,7 +12,7 @@ function renderPendingState(
       useOrgManagerPendingState(props),
     {
       initialProps: {
-        databaseReady: true,
+        databaseStarting: false,
         loading: false,
         scopeKey: "scope-a",
         selectedGroupId: null,
@@ -32,18 +32,27 @@ test("data is pending until the directory settles for this scope", () => {
   expect(view.result.current.dataPending).toBe(false);
 });
 
-test("an unready database keeps data pending even once settled", () => {
+test("a starting database keeps data pending even once settled", () => {
   const view = renderPendingState();
   act(() => view.result.current.markDirectorySettled());
 
   view.rerender({
-    databaseReady: false,
+    databaseStarting: true,
     loading: false,
     scopeKey: "scope-a",
     selectedGroupId: null,
   });
 
   expect(view.result.current.dataPending).toBe(true);
+});
+
+test("a terminal database failure settles rather than spinning forever", () => {
+  // `error`/`terminated` never become ready. Treating them as pending would
+  // leave the views on "Loading..." for good, hiding the real failure.
+  const view = renderPendingState({ databaseStarting: false });
+  act(() => view.result.current.markDirectorySettled());
+
+  expect(view.result.current.dataPending).toBe(false);
 });
 
 test("switching scope reads as pending immediately, with no reset effect", () => {
@@ -54,7 +63,7 @@ test("switching scope reads as pending immediately, with no reset effect", () =>
   act(() => view.result.current.markDirectorySettled());
 
   view.rerender({
-    databaseReady: true,
+    databaseStarting: false,
     loading: false,
     scopeKey: "scope-b",
     selectedGroupId: null,
@@ -77,7 +86,7 @@ test("a selected group is pending until its own details settle", () => {
   expect(view.result.current.groupDetailsPending).toBe(false);
 
   view.rerender({
-    databaseReady: true,
+    databaseStarting: false,
     loading: false,
     scopeKey: "scope-a",
     selectedGroupId: "group-2",

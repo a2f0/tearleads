@@ -122,13 +122,14 @@ export function useOrgManagerModel() {
     organizationId && appData.auth.isAuthenticated,
   );
   const databaseReady = appData.infra.dbStatus === "ready";
+  const databaseStarting = appData.infra.dbStatus === "idle";
   const {
     dataPending,
     groupDetailsPending,
     markDirectorySettled,
     markSettled,
   } = useOrgManagerPendingState({
-    databaseReady,
+    databaseStarting,
     loading,
     scopeKey: orgManagerScopeKey,
     selectedGroupId,
