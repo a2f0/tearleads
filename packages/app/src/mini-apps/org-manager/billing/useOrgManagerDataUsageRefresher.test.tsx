@@ -47,6 +47,7 @@ function RefreshProbe(input: {
     beginRequest,
     canLoadAuthenticatedOrgData: true,
     dataUsageRef,
+    markDataUsageSettled: () => undefined,
     orgManagerActions: {
       loadDataUsage: input.loadDataUsage,
     } as ReturnType<typeof useOrgManagerActions>,

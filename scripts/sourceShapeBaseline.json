@@ -214,8 +214,8 @@
       "bytes": 17315
     },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
-      "lines": 508,
-      "bytes": 16308
+      "lines": 512,
+      "bytes": 16428
     },
     "packages/app/src/mini-apps/system-monitor/SystemMonitor.test.tsx": {
       "lines": 519,

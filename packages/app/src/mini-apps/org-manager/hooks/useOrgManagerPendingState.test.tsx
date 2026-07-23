@@ -81,7 +81,7 @@ test("a selected group is pending until its own details settle", () => {
   expect(view.result.current.dataPending).toBe(false);
   expect(view.result.current.groupDetailsPending).toBe(true);
 
-  act(() => view.result.current.markSettled("groupDetails", "group-1"));
+  act(() => view.result.current.markGroupDetailsSettled("group-1"));
 
   expect(view.result.current.groupDetailsPending).toBe(false);
 
@@ -100,4 +100,37 @@ test("no selected group has nothing outstanding to wait for", () => {
   act(() => view.result.current.markDirectorySettled());
 
   expect(view.result.current.groupDetailsPending).toBe(false);
+});
+
+test("usage settles on its own, not on the directory's pass", () => {
+  // Entering Usage refreshes with `manageLoading: false`, so neither `loading`
+  // nor the directory's settlement says anything about that fetch.
+  const view = renderPendingState();
+  act(() => view.result.current.markDirectorySettled());
+
+  expect(view.result.current.dataPending).toBe(false);
+  expect(view.result.current.dataUsagePending).toBe(true);
+
+  act(() => view.result.current.markDataUsageSettled());
+
+  expect(view.result.current.dataUsagePending).toBe(false);
+});
+
+test("a scope cycle re-pends the same selected group", () => {
+  // A database ready -> idle -> ready cycle re-keys the runtime scope and clears
+  // the group's details, so the previously settled group id must not still read
+  // as fetched.
+  const view = renderPendingState({ selectedGroupId: "group-1" });
+  act(() => view.result.current.markGroupDetailsSettled("group-1"));
+
+  expect(view.result.current.groupDetailsPending).toBe(false);
+
+  view.rerender({
+    databaseStarting: false,
+    loading: false,
+    scopeKey: "scope-b",
+    selectedGroupId: "group-1",
+  });
+
+  expect(view.result.current.groupDetailsPending).toBe(true);
 });

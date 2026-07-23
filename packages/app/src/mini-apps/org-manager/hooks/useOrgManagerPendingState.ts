@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 /** A resource whose first fetch the views must not mistake for an empty one. */
-type OrgManagerSettledResource = "directory" | "groupDetails";
+type OrgManagerSettledResource = "dataUsage" | "directory" | "groupDetails";
 
 /**
  * Tracks which *key* each resource was last fetched for — the organization
@@ -52,6 +52,10 @@ function useOrgManagerSettledKeys(): {
   return useMemo(() => ({ isSettled, markSettled }), [isSettled, markSettled]);
 }
 
+function groupDetailsKey(scopeKey: string, groupId: string | null) {
+  return groupId === null ? null : `${scopeKey}:${groupId}`;
+}
+
 /**
  * The pending flags the org-manager views read instead of `loading`.
  *
@@ -72,9 +76,11 @@ export function useOrgManagerPendingState(input: {
   readonly selectedGroupId: string | null;
 }): {
   readonly dataPending: boolean;
+  readonly dataUsagePending: boolean;
   readonly groupDetailsPending: boolean;
+  readonly markDataUsageSettled: () => void;
   readonly markDirectorySettled: () => void;
-  readonly markSettled: (resource: "groupDetails", key: string | null) => void;
+  readonly markGroupDetailsSettled: (groupId: string | null) => void;
 } {
   const { databaseStarting, loading, scopeKey, selectedGroupId } = input;
   const { isSettled, markSettled } = useOrgManagerSettledKeys();
@@ -82,22 +88,38 @@ export function useOrgManagerPendingState(input: {
     () => markSettled("directory", scopeKey),
     [markSettled, scopeKey],
   );
+  const markDataUsageSettled = useCallback(
+    () => markSettled("dataUsage", scopeKey),
+    [markSettled, scopeKey],
+  );
+  // Keyed by scope *and* group: re-selecting the same group after the runtime
+  // scope cycles (a database ready -> idle -> ready, an organization switch)
+  // has to re-fetch, and a bare group id would still read as settled.
+  const markGroupDetailsSettled = useCallback(
+    (groupId: string | null) =>
+      markSettled("groupDetails", groupDetailsKey(scopeKey, groupId)),
+    [markSettled, scopeKey],
+  );
   const unsettledBase = loading || databaseStarting;
 
   return useMemo(
     () => ({
       dataPending: unsettledBase || !isSettled("directory", scopeKey),
-      // Group details carry no loading flag of their own, so the selected
-      // group's own fetch needs its own settle key.
+      // Usage and group details both run refreshes that never touch `loading`,
+      // so neither can be derived from the directory's settlement.
+      dataUsagePending: unsettledBase || !isSettled("dataUsage", scopeKey),
       groupDetailsPending:
-        unsettledBase || !isSettled("groupDetails", selectedGroupId),
+        unsettledBase ||
+        !isSettled("groupDetails", groupDetailsKey(scopeKey, selectedGroupId)),
+      markDataUsageSettled,
       markDirectorySettled,
-      markSettled,
+      markGroupDetailsSettled,
     }),
     [
       isSettled,
+      markDataUsageSettled,
       markDirectorySettled,
-      markSettled,
+      markGroupDetailsSettled,
       scopeKey,
       selectedGroupId,
       unsettledBase,

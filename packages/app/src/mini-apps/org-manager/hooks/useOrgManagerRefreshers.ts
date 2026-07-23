@@ -117,8 +117,9 @@ interface OrgManagerRefreshersParams {
     SetStateAction<OrganizationGroupPolicyHistory | null>
   >;
   setGroups: Dispatch<SetStateAction<ReadonlyArray<OrganizationGroupSummary>>>;
+  markDataUsageSettled: () => void;
   markDirectorySettled: () => void;
-  markSettled: (resource: "groupDetails", key: string | null) => void;
+  markGroupDetailsSettled: (groupId: string | null) => void;
   setLoading: Dispatch<SetStateAction<boolean>>;
   setLoadingUserDetail: Dispatch<SetStateAction<boolean>>;
   setMemberGroupId: Dispatch<SetStateAction<string | null>>;
@@ -154,8 +155,9 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setGroupContainers,
     setGroupPolicyHistory,
     setGroups,
+    markDataUsageSettled,
     markDirectorySettled,
-    markSettled,
+    markGroupDetailsSettled,
     setLoading,
     setLoadingUserDetail,
     setMemberGroupId,
@@ -169,7 +171,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
   } = params;
 
   const refreshSelectedGroupDetails = useOrgManagerGroupDetailsRefresher({
-    markSettled,
+    markGroupDetailsSettled,
     appData,
     beginRequest,
     orgManagerActions,
@@ -188,6 +190,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setGroupContainers,
   });
   const refreshDataUsage = useOrgManagerDataUsageRefresher({
+    markDataUsageSettled,
     appData,
     beginRequest,
     canLoadAuthenticatedOrgData,
@@ -358,9 +361,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
         if (isCurrentRequest()) {
           setLoadingIfManaged(shouldManageLoading, setLoading, false);
           // Settled means "this scope has been looked at", whatever the pass
-          // produced or whether it managed the loading flag: from here on an
-          // empty projection is a real answer rather than a not-yet-fetched
-          // one, so the views may say so.
+          // produced: from here on an empty projection is a real answer.
           markDirectorySettled();
         }
       }

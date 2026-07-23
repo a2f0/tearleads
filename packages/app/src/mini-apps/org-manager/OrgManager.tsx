@@ -167,7 +167,7 @@ function OrgManagerContent({
           billingMatchesOrganization ? (billing.view?.canSync ?? null) : null
         }
         dataUsage={model.dataUsage}
-        pending={model.dataPending}
+        pending={model.dataUsagePending}
       />
     );
   }

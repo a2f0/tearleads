@@ -125,9 +125,11 @@ export function useOrgManagerModel() {
   const databaseStarting = appData.infra.dbStatus === "idle";
   const {
     dataPending,
+    dataUsagePending,
     groupDetailsPending,
+    markDataUsageSettled,
     markDirectorySettled,
-    markSettled,
+    markGroupDetailsSettled,
   } = useOrgManagerPendingState({
     databaseStarting,
     loading,
@@ -288,8 +290,9 @@ export function useOrgManagerModel() {
     selectedGroupStateHashRef,
     selectedUserIdRef,
     skippedGroupDetailsEffectRef,
+    markDataUsageSettled,
     markDirectorySettled,
-    markSettled,
+    markGroupDetailsSettled,
     setDataUsage,
     setDirectory,
     setError,
@@ -465,6 +468,7 @@ export function useOrgManagerModel() {
     isAuthenticated: appData.auth.isAuthenticated,
     isOrgAdmin: activeDirectory?.currentUser.isOrgAdmin ?? false,
     dataPending,
+    dataUsagePending,
     groupDetailsPending,
     loading,
     loadingUserDetail,

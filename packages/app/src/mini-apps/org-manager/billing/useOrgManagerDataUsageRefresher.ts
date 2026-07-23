@@ -22,6 +22,9 @@ interface OrgManagerDataUsageRefresherInput {
   readonly orgManagerActions: ReturnType<typeof useOrgManagerActions>;
   readonly setDataUsage: Dispatch<SetStateAction<OrganizationDataUsage | null>>;
   readonly setError: Dispatch<SetStateAction<string | null>>;
+  // Usage refreshes on view entry run with `manageLoading: false`, so `loading`
+  // never covers them; this mark is how the view learns the fetch happened.
+  readonly markDataUsageSettled: () => void;
   readonly setLoading: Dispatch<SetStateAction<boolean>>;
 }
 
@@ -35,6 +38,7 @@ export function useOrgManagerDataUsageRefresher(
     orgManagerActions,
     setDataUsage,
     setError,
+    markDataUsageSettled,
     setLoading,
   } = input;
   const organizationId = input.appData.auth.organizationId;
@@ -82,6 +86,7 @@ export function useOrgManagerDataUsageRefresher(
       } finally {
         if (isCurrentRequest()) {
           setLoadingIfManaged(shouldManageLoading, setLoading, false);
+          markDataUsageSettled();
         }
       }
     },
@@ -89,6 +94,7 @@ export function useOrgManagerDataUsageRefresher(
       beginRequest,
       canLoadAuthenticatedOrgData,
       dataUsageRef,
+      markDataUsageSettled,
       organizationId,
       orgManagerActions,
       setDataUsage,

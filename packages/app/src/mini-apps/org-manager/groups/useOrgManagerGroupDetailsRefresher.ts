@@ -16,7 +16,7 @@ export function useOrgManagerGroupDetailsRefresher(input: {
   beginRequest: ReturnType<typeof useOrgManagerRequestGuard>;
   // These details carry no loading flag of their own, so the views learn that a
   // selected group has been fetched from this mark rather than from `loading`.
-  markSettled: (resource: "groupDetails", key: string | null) => void;
+  markGroupDetailsSettled: (groupId: string | null) => void;
   orgManagerActions: ReturnType<typeof useOrgManagerActions>;
   setError: Dispatch<SetStateAction<string | null>>;
   setGroupPolicyHistory: Dispatch<
@@ -27,7 +27,7 @@ export function useOrgManagerGroupDetailsRefresher(input: {
   const {
     appData,
     beginRequest,
-    markSettled,
+    markGroupDetailsSettled,
     orgManagerActions,
     setError,
     setGroupPolicyHistory,
@@ -79,7 +79,7 @@ export function useOrgManagerGroupDetailsRefresher(input: {
         }
       } finally {
         if (isCurrentRequest()) {
-          markSettled("groupDetails", groupId);
+          markGroupDetailsSettled(groupId);
         }
       }
     },
@@ -87,7 +87,7 @@ export function useOrgManagerGroupDetailsRefresher(input: {
       appData.auth.isAuthenticated,
       appData.auth.organizationId,
       beginRequest,
-      markSettled,
+      markGroupDetailsSettled,
       orgManagerActions,
       setError,
       setGroupPolicyHistory,
