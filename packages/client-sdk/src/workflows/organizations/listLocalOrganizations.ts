@@ -7,7 +7,7 @@ import {
   DOCUMENTS_APP_KIND,
   sqlDocumentsPersistence,
 } from "../../data/persistence/documents/documentsPersistence";
-import { loadOrganizationProfileDocumentIds } from "../../data/persistence/organizations/organizationReadModelPersistence";
+import { loadOrganizationProfileDocumentIds } from "../../data/persistence/organizations/organizationProfileDocumentPointers";
 import { findLocalIdByDocumentId } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {

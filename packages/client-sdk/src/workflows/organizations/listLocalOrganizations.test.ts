@@ -246,6 +246,67 @@ test("listLocalOrganizations resolves an org name from the read model's profile 
   }
 });
 
+test("listLocalOrganizations ignores a profile pointer written by an older read-model protocol version", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organizations-list-local-stale-protocol-test",
+  );
+  const dbClient = createClient(execSql);
+
+  try {
+    const org = await createOrganization({
+      apiClient: { createOrganization: respondToOrganizationProvisioning },
+      dbClient,
+      encapsulationKeyPair: generateKemSeedAndKeyPair(),
+      organizationProfileName: "Acme",
+      signingKeyPair: generateSigningSeedAndKeyPair(),
+      userId: crypto.randomUUID(),
+    });
+    if (!org) {
+      throw new Error("Expected the organization to be created");
+    }
+
+    // Rows from a superseded protocol version survive until a projection load
+    // validates and purges them. This read runs outside that path, so it must
+    // skip them rather than resolve a name through their stale pointer.
+    const aliasLocalId = getOrganizationProfileDocumentLocalId({
+      organizationId: org.organizationId,
+    });
+    const aliasRecord = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      aliasLocalId,
+    );
+    if (!aliasRecord?.documentId) {
+      throw new Error("Expected a persisted organization profile document");
+    }
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      ...aliasRecord,
+      containerId: "some-other-container",
+      id: aliasRecord.documentId,
+    });
+    await sqlDocumentsPersistence.deleteDocument(execSql, aliasLocalId);
+
+    await ensureSqlTables(execSql, organizationReadModelTables);
+    await getClientSQLitePersistenceRuntime(execSql).transaction(async (tx) => {
+      await tx.insert(organizationReadModelState).values({
+        organizationId: org.organizationId,
+        protocolVersion: ORGANIZATION_READ_MODEL_PROTOCOL_VERSION - 1,
+        cursor: "opaque-cursor",
+        profileDocumentId: aliasRecord.documentId,
+        memberGroupId: "members-group",
+        updatedAt: "2026-07-01T00:00:00.000Z",
+      });
+    });
+
+    const organizations = await listLocalOrganizations({ execSql });
+    const summary = organizations.find(
+      (candidate) => candidate.organizationId === org.organizationId,
+    );
+    expect(summary?.name).toBeNull();
+  } finally {
+    close();
+  }
+});
+
 test("listLocalOrganizations returns a null name for a foreign org whose profile doc has not synced yet", async () => {
   const { close, execSql } = await createTestExecSql(
     "organizations-list-local-foreign-pending-test",
