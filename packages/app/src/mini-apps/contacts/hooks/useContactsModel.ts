@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
 import { useCompactRoutedMode } from "../../../navigation/useCompactRoutedMode";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
@@ -18,19 +17,13 @@ import {
   type ContactsContextMenuModel,
   useContactsContextMenu,
 } from "../context-menu/ContactsContextMenu";
-import {
-  type ContactsRoute,
-  type ContactsRouteSnapshot,
-  createContactsSelectionRouteSnapshot,
-  DEFAULT_CONTACTS_ROUTE_SNAPSHOT,
-  formatContactsRouteSegments,
-  parseContactsRouteSegments,
-} from "../routes";
+import type { ContactsRoute } from "../routes";
 import type { ContactEntries } from "../types";
 import {
   useImportContactByUserId,
   useImportContactMessage,
 } from "./useContactImport";
+import { useContactsRouteState } from "./useContactsRouteState";
 
 interface ContactsModel {
   blobStore: ReturnType<typeof useTearleadsRuntime>["infra"]["blobStore"];
@@ -63,66 +56,6 @@ interface ContactsModel {
   showCompactListHome: boolean;
   showSelectionRoute: () => void;
   updateContact: ReturnType<typeof useContacts>["updateContact"];
-}
-
-function useContactsRouteState(compactRoutedMode: boolean) {
-  const { isRouted, pathSegments, setPathSegments } =
-    useMiniAppRouteSegments("contacts");
-  const [localRoute, setLocalRoute] = useState<ContactsRouteSnapshot>(
-    DEFAULT_CONTACTS_ROUTE_SNAPSHOT,
-  );
-  const routeSnapshot = isRouted
-    ? parseContactsRouteSegments(pathSegments)
-    : localRoute;
-  const setRouteSnapshot = useCallback(
-    (
-      nextRoute: ContactsRouteSnapshot,
-      options: { replace?: boolean | undefined } = {},
-    ) => {
-      if (isRouted) {
-        setPathSegments(formatContactsRouteSegments(nextRoute), options);
-        return;
-      }
-      setLocalRoute(nextRoute);
-    },
-    [isRouted, setPathSegments],
-  );
-  const showSelectionRoute = useCallback(
-    () =>
-      setRouteSnapshot(
-        createContactsSelectionRouteSnapshot(
-          compactRoutedMode,
-          routeSnapshot.selectedContactId,
-        ),
-      ),
-    [compactRoutedMode, routeSnapshot.selectedContactId, setRouteSnapshot],
-  );
-  const openNewContactRoute = useCallback(
-    () => setRouteSnapshot({ route: "new-contact", selectedContactId: null }),
-    [setRouteSnapshot],
-  );
-  const openImportContactRoute = useCallback(
-    () =>
-      setRouteSnapshot({ route: "import-contact", selectedContactId: null }),
-    [setRouteSnapshot],
-  );
-  const selectContactRoute = useCallback(
-    (contactId: string, options: { replace?: boolean | undefined } = {}) =>
-      setRouteSnapshot(
-        { route: "selection", selectedContactId: contactId },
-        options,
-      ),
-    [setRouteSnapshot],
-  );
-
-  return {
-    openImportContactRoute,
-    openNewContactRoute,
-    route: routeSnapshot.route,
-    selectContactRoute,
-    selectedContactId: routeSnapshot.selectedContactId,
-    showSelectionRoute,
-  };
 }
 
 function useContactsSelectionState(
@@ -392,7 +325,7 @@ export function useContactsModel(
     isAuthenticated,
     logError,
     ready,
-    setSelectedContactId: selectionState.selectContact,
+    setSelectedContactId: routeState.selectCreatedContactRoute,
   });
 
   const contextMenuState = useContactsContextMenu({

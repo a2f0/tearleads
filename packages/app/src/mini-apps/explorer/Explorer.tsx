@@ -152,7 +152,6 @@ function renderExplorerDetailPanelWithBlobPick(
       onCancelBlobPick={blobPick.cancelBlobPick}
       onContainerContextMenu={model.contextMenuState.handleContainerContextMenu}
       onItemContextMenu={model.contextMenuState.handleItemContextMenu}
-      onBackToSelectionRoute={routeState.showSelectionRoute}
       openSyncLanesRoute={routeState.openSyncLanesRoute}
       onOpenGrant={onOpenGrant}
       onOpenSyncLaneDetailRoute={routeState.openSyncLaneDetailRoute}

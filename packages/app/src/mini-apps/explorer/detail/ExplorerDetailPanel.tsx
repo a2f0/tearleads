@@ -12,7 +12,6 @@ import type {
   DocumentSummary,
   DomainScope,
   OrganizationDirectoryAndGroups,
-  StoredDocumentKind,
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { MouseEvent } from "react";
@@ -29,6 +28,7 @@ import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextM
 import { getDocumentByLocalId } from "../documentSummaries";
 import { ExplorerDatabaseErrorStatus } from "../ExplorerDatabaseErrorStatus";
 import type { ExplorerUploadManager } from "../hooks/useExplorerUploadManager";
+import type { OpenInlineDocument } from "../hooks/useInlineDocumentAction";
 import type { ExplorerRoute } from "../routes";
 import type { MiniAppWindowPosition } from "../types";
 import type { ExplorerAttributionUserLabelResolver } from "./attributionDisplay";
@@ -67,17 +67,11 @@ type ExplorerNewStructuredDocumentRouteState = Extract<
 
 function ExplorerNewStructuredDocumentRoutePanel(params: {
   nodes: ReadonlyArray<ContainerNode>;
-  onBackToSelectionRoute: () => void;
-  openInlineDocument: (
-    containerId: string,
-    documentKind: StoredDocumentKind,
-    localId?: string,
-  ) => void;
+  openInlineDocument: OpenInlineDocument;
   ready: boolean;
   route: ExplorerNewStructuredDocumentRouteState;
 }) {
-  const { nodes, onBackToSelectionRoute, openInlineDocument, ready, route } =
-    params;
+  const { nodes, openInlineDocument, ready, route } = params;
   const creationNode = nodes.find((node) => node.id === route.containerId);
 
   if (!creationNode || !canWriteContainerNode(creationNode)) {
@@ -86,10 +80,13 @@ function ExplorerNewStructuredDocumentRoutePanel(params: {
 
   return (
     <ExplorerNewStructuredDocumentPanel
-      onCreateDocument={(documentKind) => {
-        onBackToSelectionRoute();
-        openInlineDocument(route.containerId, documentKind);
-      }}
+      // Creating the document routes straight to it. Do not step back through
+      // the selection route first: that would push a history entry, leaving the
+      // blank document-type picker behind for the back button to land on
+      // (useExplorerRoute replaces the picker when the new document opens).
+      onCreateDocument={(documentKind) =>
+        openInlineDocument(route.containerId, documentKind)
+      }
       selectedNode={creationNode}
     />
   );
@@ -151,7 +148,6 @@ interface ExplorerDetailPanelProps {
     event: MouseEvent<HTMLElement>,
     row: ContainerItemRow,
   ) => void;
-  onBackToSelectionRoute: () => void;
   onInitialEditingSelectedDocumentConsumed: (localId: string) => void;
   onOpenSyncLaneDetailRoute: (laneKey: string) => void;
   openSyncLanesRoute: () => void;
@@ -165,11 +161,7 @@ interface ExplorerDetailPanelProps {
   ) => void;
   // Re-attempts the SQLite worker boot after a failure (the Retry action).
   onRetryDatabase: () => void;
-  openInlineDocument: (
-    containerId: string,
-    documentKind: StoredDocumentKind,
-    localId?: string,
-  ) => void;
+  openInlineDocument: OpenInlineDocument;
   openBlobBrowserRoute: (input?: {
     blobId?: string | null | undefined;
     storageKey?: string | null | undefined;
@@ -217,7 +209,6 @@ function renderExplorerNewStructuredDocumentRoute(
   return (
     <ExplorerNewStructuredDocumentRoutePanel
       nodes={params.nodes}
-      onBackToSelectionRoute={params.onBackToSelectionRoute}
       openInlineDocument={params.openInlineDocument}
       ready={params.ready}
       route={route}
