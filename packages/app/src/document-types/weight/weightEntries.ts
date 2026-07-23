@@ -1,0 +1,120 @@
+import type { DocumentRow } from "@tearleads/client-sdk";
+import {
+  toWeightUnit,
+  WEIGHT_MEASURED_AT_FIELD,
+  WEIGHT_MEASUREMENT_FIELD,
+  WEIGHT_NOTES_FIELD,
+  WEIGHT_TRACKER_NAME_FIELD,
+  WEIGHT_UNIT_FIELD,
+  type WeightUnit,
+} from "./weightDocumentDefinition";
+
+type ReadRowCell = (id: string, field: string, storeValue: string) => string;
+
+export interface WeightEntryRow {
+  id: string;
+  weight: string;
+  measuredAt: string;
+  notes: string;
+  createdAt: string;
+  createdBy: string;
+  createdByPeer: string | null;
+  updatedAt: string;
+  updatedBy: string;
+  updatedByPeer: string | null;
+  // Per-cell last-editor peers, keyed by the row's field keys, for field-level
+  // attribution in the row detail.
+  fieldEditors: Record<string, string | null>;
+}
+
+const WEIGHT_EMPTY_VALUE = "None";
+
+export function readTrackerNameField(
+  structuredFields: Readonly<Record<string, string>>,
+): string {
+  const value = structuredFields[WEIGHT_TRACKER_NAME_FIELD];
+  return typeof value === "string" ? value : "";
+}
+
+export function readUnitField(
+  structuredFields: Readonly<Record<string, string>>,
+): WeightUnit {
+  const value = structuredFields[WEIGHT_UNIT_FIELD];
+  return toWeightUnit(typeof value === "string" ? value : undefined);
+}
+
+// Fold the store's generic rows into typed entry views, applying the caller's
+// optimistic in-flight cell overlay so controlled inputs stay smooth.
+export function toWeightEntryRows(
+  rows: ReadonlyArray<DocumentRow>,
+  readCell: ReadRowCell,
+): WeightEntryRow[] {
+  return rows.map((row) => ({
+    id: row.id,
+    weight: readCell(
+      row.id,
+      WEIGHT_MEASUREMENT_FIELD,
+      row.fields[WEIGHT_MEASUREMENT_FIELD] ?? "",
+    ),
+    measuredAt: readCell(
+      row.id,
+      WEIGHT_MEASURED_AT_FIELD,
+      row.fields[WEIGHT_MEASURED_AT_FIELD] ?? "",
+    ),
+    notes: readCell(
+      row.id,
+      WEIGHT_NOTES_FIELD,
+      row.fields[WEIGHT_NOTES_FIELD] ?? "",
+    ),
+    createdAt: row.createdAt,
+    createdBy: row.createdBy,
+    createdByPeer: row.createdByPeer,
+    updatedAt: row.updatedAt,
+    updatedBy: row.updatedBy,
+    updatedByPeer: row.updatedByPeer,
+    fieldEditors: row.fieldEditors,
+  }));
+}
+
+export function formatWeight(entry: WeightEntryRow, unit: WeightUnit): string {
+  const weight = entry.weight.trim();
+  return weight.length > 0 ? `${weight} ${unit}` : WEIGHT_EMPTY_VALUE;
+}
+
+// datetime-local values look like "2026-07-16T08:30"; swap the "T" for a space
+// so the read view is legible without pulling in locale-dependent Date parsing.
+export function formatMeasuredAt(entry: WeightEntryRow): string {
+  const measuredAt = entry.measuredAt.trim();
+  return measuredAt.length > 0
+    ? measuredAt.replace("T", " ")
+    : WEIGHT_EMPTY_VALUE;
+}
+
+// The signed difference from the previous entry in list order, formatted for the
+// read row (e.g. "-1.5 lb"). Null when either side is missing or unparseable, so
+// the first entry — and a tracker with gaps — simply shows no delta.
+export function formatWeightChange(
+  entry: WeightEntryRow,
+  previous: WeightEntryRow | undefined,
+  unit: WeightUnit,
+): string | null {
+  if (!previous) {
+    return null;
+  }
+
+  const current = Number.parseFloat(entry.weight.trim());
+  const prior = Number.parseFloat(previous.weight.trim());
+  if (!Number.isFinite(current) || !Number.isFinite(prior)) {
+    return null;
+  }
+
+  const delta = current - prior;
+  // Round to the two decimals the input itself accepts, so floating-point noise
+  // never leaks into the label.
+  const rounded = Math.round(delta * 100) / 100;
+  if (rounded === 0) {
+    return `±0 ${unit}`;
+  }
+
+  return `${rounded > 0 ? "+" : "−"}${Math.abs(rounded)} ${unit}`;
+}

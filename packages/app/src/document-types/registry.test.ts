@@ -19,6 +19,7 @@ test("document type registry covers the supported inline document kinds", () => 
     "passport",
     "env_file",
     "blood_pressure",
+    "weight",
     "json_file",
     "image",
     "audio",
@@ -44,6 +45,7 @@ test("document type registry covers the supported inline document kinds", () => 
   expect(getDocumentTypeDefinition("blood_pressure").createLabel).toBe(
     "Blood Pressure",
   );
+  expect(getDocumentTypeDefinition("weight").createLabel).toBe("Weight");
   expect(getDocumentTypeDefinition("json_file").createLabel).toBe("JSON File");
   expect(getDocumentTypeDefinition("image").createLabel).toBe("Image");
   expect(getDocumentTypeDefinition("audio").createLabel).toBe("Audio");
@@ -69,6 +71,7 @@ test("creatable document types exclude upload-only file kinds", () => {
     "passport",
     "env_file",
     "blood_pressure",
+    "weight",
   ]);
 });
 
