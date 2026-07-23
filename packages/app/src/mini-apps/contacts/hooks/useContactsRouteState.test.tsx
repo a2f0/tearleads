@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { useRef } from "react";
 import { WindowStateProvider } from "../../../components/window/WindowStateProvider";
 import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
 import type { MiniAppDefinition, MiniAppId } from "../../types";
@@ -35,11 +36,26 @@ afterEach(() => {
 
 function ContactsRouteStateHarness() {
   const routeState = useContactsRouteState(false);
+  // Stands in for a create/import whose storage write is still in flight: the
+  // callback is captured on the draft route and only invoked once the user has
+  // routed elsewhere.
+  const inFlightSave = useRef<((contactId: string) => void) | null>(null);
 
   return (
     <>
       <button type="button" onClick={routeState.openNewContactRoute}>
         New Contact
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          inFlightSave.current = routeState.selectCreatedContactRoute;
+        }}
+      >
+        Begin Save
+      </button>
+      <button type="button" onClick={() => inFlightSave.current?.("ada")}>
+        Finish Save
       </button>
       <button type="button" onClick={routeState.openImportContactRoute}>
         Import Contact
@@ -173,6 +189,42 @@ test("a contact created from the selection route still pushes", async () => {
       expect(view.getByTestId("selected-contact-id").textContent).toBe("ada");
     });
     expect(history.pushedUrls).toEqual(["/app/contacts/contact/ada"]);
+  } finally {
+    history.restore();
+  }
+});
+
+test("a save that lands after the draft is abandoned does not replace", async () => {
+  const view = renderContactsRouteStateHarness();
+  const history = spyHistory();
+
+  try {
+    fireEvent.click(view.getByRole("button", { name: "New Contact" }));
+    await waitFor(() => {
+      expect(view.getByTestId("route").textContent).toBe("new-contact");
+    });
+    fireEvent.click(view.getByRole("button", { name: "Begin Save" }));
+
+    // The user leaves the draft form while the write is still in flight.
+    fireEvent.click(view.getByRole("button", { name: "Select Hopper" }));
+    await waitFor(() => {
+      expect(view.getByTestId("selected-contact-id").textContent).toBe(
+        "hopper",
+      );
+    });
+
+    fireEvent.click(view.getByRole("button", { name: "Finish Save" }));
+
+    await waitFor(() => {
+      expect(view.getByTestId("selected-contact-id").textContent).toBe("ada");
+    });
+    // The draft entry is no longer current, so the created contact must not
+    // overwrite the entry the user moved to.
+    expect(history.pushedUrls).toEqual([
+      "/app/contacts/new",
+      "/app/contacts/contact/hopper",
+      "/app/contacts/contact/ada",
+    ]);
   } finally {
     history.restore();
   }

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
 import {
   type ContactsRouteSnapshot,
@@ -57,6 +57,15 @@ export function useContactsRouteState(compactRoutedMode: boolean) {
       ),
     [setRouteSnapshot],
   );
+  // Creating and importing both await storage, and the user can route away
+  // while the write is in flight. Read the route the caller is actually on when
+  // it lands, not the one that was current when the write started — otherwise a
+  // late replace would overwrite whatever entry the user moved to and strand the
+  // draft form in history anyway.
+  const currentRouteRef = useRef(routeSnapshot.route);
+  useEffect(() => {
+    currentRouteRef.current = routeSnapshot.route;
+  }, [routeSnapshot.route]);
   // Lands on a contact that was just created or imported. new-contact and
   // import-contact are transient draft routes, so replace them instead of
   // pushing: navigating back from the saved contact should return to wherever
@@ -66,9 +75,9 @@ export function useContactsRouteState(compactRoutedMode: boolean) {
   const selectCreatedContactRoute = useCallback(
     (contactId: string) =>
       selectContactRoute(contactId, {
-        replace: routeSnapshot.route !== "selection",
+        replace: currentRouteRef.current !== "selection",
       }),
-    [routeSnapshot.route, selectContactRoute],
+    [selectContactRoute],
   );
 
   return {
