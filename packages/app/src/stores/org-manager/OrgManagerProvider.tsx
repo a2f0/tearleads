@@ -12,10 +12,6 @@ import type {
   OrganizationProfile,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
-import {
-  deriveOrganizationRosterProfileContainerSystemSlot,
-  ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
-} from "@tearleads/client-sdk";
 import type {
   ContainerMutationResponse,
   DeleteOrganizationGroupResponse,
@@ -35,6 +31,7 @@ import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
+import { useOrganizationProfileContainers } from "./organizationProfileContainers";
 import {
   captureOrgManagerOperationScope,
   isOrgManagerOperationScopeActive,
@@ -63,6 +60,7 @@ interface OrgManagerContextValue {
     profileDocumentId: string | null,
   ) => Promise<string | null>;
   ensureRosterProfileContainer: () => Promise<ContainerNode | null>;
+  ensureOrganizationMetadataContainer: () => Promise<ContainerNode | null>;
   importUserById: (userId: string) => Promise<ImportedOrganizationUser | null>;
   isOperationScopeActive: (scope: OrgManagerOperationScope) => boolean;
   loadDataUsage: () => Promise<OrganizationDataUsage | null | undefined>;
@@ -291,32 +289,12 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     [organizations],
   );
 
-  const ensureRosterProfileContainer = useCallback(async () => {
-    const operationScope = captureOperationScope();
-    if (!operationScope || !isOperationScopeActive(operationScope)) {
-      return null;
-    }
-
-    const systemSlot = await deriveOrganizationRosterProfileContainerSystemSlot(
-      {
-        organizationId: operationScope.organizationId,
-      },
-    );
-    if (!isOperationScopeActive(operationScope)) {
-      return null;
-    }
-    const existingContainer = containerContentsStore
-      .getSnapshot()
-      .nodes.find((node) => node.systemSlot === systemSlot);
-
-    return (
-      existingContainer ??
-      containerContentsStore.ensureSystemContainer(
-        systemSlot,
-        ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
-      )
-    );
-  }, [captureOperationScope, containerContentsStore, isOperationScopeActive]);
+  const { ensureOrganizationMetadataContainer, ensureRosterProfileContainer } =
+    useOrganizationProfileContainers({
+      captureOperationScope,
+      containerContentsStore,
+      isOperationScopeActive,
+    });
 
   const ensureRosterProfileDocument = useCallback(
     async (user: OrganizationDirectoryUser, nickname?: string) => {
@@ -372,7 +350,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
         return null;
       }
 
-      const ensuredContainer = await ensureRosterProfileContainer();
+      const ensuredContainer = await ensureOrganizationMetadataContainer();
       if (!ensuredContainer?.id || !isOperationScopeActive(operationScope)) {
         return null;
       }
@@ -392,7 +370,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     [
       captureOperationScope,
       documents,
-      ensureRosterProfileContainer,
+      ensureOrganizationMetadataContainer,
       isOperationScopeActive,
       organizations,
     ],
@@ -404,6 +382,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       captureOperationScope,
       createGroup,
       deleteGroup,
+      ensureOrganizationMetadataContainer,
       ensureOrganizationProfileDocument,
       ensureRosterProfileContainer,
       ensureRosterProfileDocument,
@@ -430,6 +409,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       captureOperationScope,
       createGroup,
       deleteGroup,
+      ensureOrganizationMetadataContainer,
       ensureOrganizationProfileDocument,
       ensureRosterProfileContainer,
       ensureRosterProfileDocument,

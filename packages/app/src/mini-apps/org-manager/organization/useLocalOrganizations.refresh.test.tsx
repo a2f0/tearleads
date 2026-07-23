@@ -90,3 +90,41 @@ test("refreshes a populated list without blinking the loading status", async () 
     expect(view.result.current.organizationsLoading).toBe(false);
   });
 });
+
+test("retries until a late organization profile name resolves", async () => {
+  // A re-hydrated identity lists its organizations before their profile
+  // documents finish syncing, so the first read has no name to show. Nothing
+  // else re-triggers the read here (the refresh key never changes), so the hook
+  // has to catch the name up on its own instead of leaving the switcher pinned
+  // to the unnamed label for the rest of the session.
+  let attempt = 0;
+  const listLocalOrganizations = mock(async () => {
+    attempt += 1;
+    return attempt === 1
+      ? [{ ...ORGANIZATION_A, name: null }]
+      : [ORGANIZATION_A];
+  });
+  const scopeKey = createDomainScope();
+  const view = renderHook(() =>
+    useLocalOrganizations({
+      activeOrganization: null,
+      databaseReady: true,
+      enabled: true,
+      listLocalOrganizations,
+      refreshKey: "organization-index-a",
+      scopeKey,
+    }),
+  );
+
+  await waitFor(() => {
+    expect(view.result.current.organizations).toEqual([
+      { ...ORGANIZATION_A, name: null },
+    ]);
+  });
+  await waitFor(
+    () => {
+      expect(view.result.current.organizations).toEqual([ORGANIZATION_A]);
+    },
+    { timeout: 1_500 },
+  );
+});
