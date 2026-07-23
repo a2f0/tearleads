@@ -203,10 +203,18 @@ export function useMiniAppVirtualWindow<
       return;
     }
 
-    if (frame) {
-      frame.scrollTop = rescaledScrollTop;
+    if (!frame) {
+      setScrollTop(rescaledScrollTop);
+      return;
     }
-    setScrollTop(rescaledScrollTop);
+
+    // Read back rather than storing what was asked for. Unfolding near the end
+    // of a list scales the offset down but not the viewport, so the request can
+    // exceed the shorter content's maximum and the browser clamps it. Storing
+    // the unclamped value would leave the state describing a window the frame
+    // is not showing until the queued scroll event corrected it.
+    frame.scrollTop = rescaledScrollTop;
+    setScrollTop(frame.scrollTop);
   }, [frame, rescaledScrollTop, rowHeight, scrollTop, setScrollTop]);
 
   const range = getMiniAppVirtualWindowRange({
