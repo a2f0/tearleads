@@ -9,14 +9,14 @@ import {
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
-} from "../../components/mini-app/MiniAppLayout";
+} from "../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRow,
   MiniAppRowStack,
   MiniAppRowText,
-} from "../../components/mini-app/rows/MiniAppRow";
-import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
-import { compactFingerprint, EMPTY_PROFILE_DISPLAY_NAMES } from "./display";
+} from "../../../components/mini-app/rows/MiniAppRow";
+import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
+import { compactFingerprint, EMPTY_PROFILE_DISPLAY_NAMES } from "../display";
 import {
   getOrgManagerEpochLabel,
   getOrgManagerPolicyAddedLabel,
@@ -29,7 +29,7 @@ import {
   getOrgManagerPolicySignatureLabel,
   getOrgManagerPolicyVersionLabel,
   ORG_MANAGER_LABELS,
-} from "./labels";
+} from "../labels";
 
 type OrgManagerGroupPolicyHistoryEntry =
   OrganizationGroupPolicyHistory["entries"][number];
@@ -235,17 +235,21 @@ function PolicyHistory({
   directory,
   groups,
   history,
+  pending,
   profileDisplayNamesByUserId,
 }: {
   directory: OrganizationDirectory | null;
   groups: ReadonlyArray<OrganizationGroupSummary>;
   history: OrganizationGroupPolicyHistory | OrganizationPolicyHistory | null;
+  pending: boolean;
   profileDisplayNamesByUserId: ReadonlyMap<string, string>;
 }) {
   if (!history) {
     return (
       <MiniAppStatus className="org-manager-hint">
-        {ORG_MANAGER_LABELS.policyHistoryUnavailable}
+        {pending
+          ? ORG_MANAGER_LABELS.loadingPolicyHistory
+          : ORG_MANAGER_LABELS.policyHistoryUnavailable}
       </MiniAppStatus>
     );
   }
@@ -278,12 +282,16 @@ export function PolicyHistorySection({
   groups,
   heading,
   history,
+  pending = false,
   profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
 }: {
   directory: OrganizationDirectory | null;
   groups: ReadonlyArray<OrganizationGroupSummary>;
   heading: string;
   history: OrganizationGroupPolicyHistory | OrganizationPolicyHistory | null;
+  // History arrives on its own refresh, well after the section first renders,
+  // so an absent history is only reportable as unavailable once it has settled.
+  pending?: boolean | undefined;
   profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
 }) {
   return (
@@ -293,6 +301,7 @@ export function PolicyHistorySection({
         directory={directory}
         groups={groups}
         history={history}
+        pending={pending}
         profileDisplayNamesByUserId={profileDisplayNamesByUserId}
       />
     </MiniAppSection>

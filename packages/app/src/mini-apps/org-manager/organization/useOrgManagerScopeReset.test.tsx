@@ -15,6 +15,7 @@ function createScopeResetHarness() {
         closeContextMenu: record("closeContextMenu"),
         resetDirectoryState: record("resetDirectoryState"),
         scopeKey,
+        setDirectorySettled: record("setDirectorySettled"),
         setError: record("setError"),
         setGrants: record("setGrants"),
         setLoading: record("setLoading"),
@@ -37,6 +38,9 @@ test("a scope change releases busy flags an abandoned refresh left set", () => {
   expect(calls).toContain("setLoadingUserDetail");
   expect(calls).toContain("setMutating");
   expect(calls).toContain("resetDirectoryState");
+  // The new scope has not been fetched yet, so its views must read as pending
+  // rather than reporting the previous scope's settled emptiness.
+  expect(calls).toContain("setDirectorySettled");
 });
 
 test("an unchanged scope never resets view state", () => {

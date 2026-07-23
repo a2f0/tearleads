@@ -34,6 +34,7 @@ interface GroupsViewProps {
   members: OrganizationGroupMembers | null;
   memberUserIds: ReadonlySet<string>;
   mutating: boolean;
+  pending: boolean;
   openCreateGroupDialog: () => void;
   openRosterUser: (userId: string) => void;
   profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
@@ -67,6 +68,7 @@ export function GroupsView({
   members,
   memberUserIds,
   mutating,
+  pending,
   openCreateGroupDialog,
   openRosterUser,
   profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
@@ -128,6 +130,7 @@ export function GroupsView({
   return (
     <>
       <GroupDetailSection
+        pending={pending}
         addUser={addUser}
         addUserId={addUserId}
         addUserListId={addUserListId}

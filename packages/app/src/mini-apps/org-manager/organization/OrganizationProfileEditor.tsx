@@ -161,11 +161,15 @@ export function OrganizationProfileEditor({
   canEdit,
   onNameChange,
   organizationId,
+  pending,
   profileDocumentId,
 }: {
   canEdit: boolean;
   onNameChange: (name: string | null) => void;
   organizationId: string;
+  // The organization data this editor derives its inputs from has not settled
+  // yet, so a missing profile document means "not known yet", not "absent".
+  pending: boolean;
   profileDocumentId: string | null;
 }) {
   const {
@@ -186,6 +190,13 @@ export function OrganizationProfileEditor({
     setActiveProfileDocumentId(profileDocumentId);
     setProfileContainerId(null);
     setProfileUnavailable(false);
+
+    if (pending) {
+      // Nothing to ensure against yet: `canEdit` is still false because the
+      // directory has not landed, and creating a profile document off that
+      // would be acting on unknown state.
+      return;
+    }
 
     const ensureDocument = profileDocumentId
       ? Promise.resolve(profileDocumentId)
@@ -229,13 +240,14 @@ export function OrganizationProfileEditor({
     canEdit,
     ensureOrganizationMetadataContainer,
     ensureOrganizationProfileDocument,
+    pending,
     profileDocumentId,
   ]);
 
   if (!activeProfileDocumentId || !profileContainerId) {
     return (
       <MiniAppStatus>
-        {profileUnavailable
+        {profileUnavailable && !pending
           ? ORG_MANAGER_LABELS.organizationProfileUnavailable
           : ORG_MANAGER_LABELS.loadingOrganizationProfile}
       </MiniAppStatus>

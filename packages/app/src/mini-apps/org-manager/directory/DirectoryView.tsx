@@ -28,8 +28,8 @@ export function DirectoryView({
   importRosterUser = () => undefined,
   importUserIdDraft = "",
   isImportUserDialogOpen = false,
-  loading,
   loadingUserDetail,
+  pending,
   mutating,
   openDirectoryContextMenu,
   openRosterUserContextMenu,
@@ -54,8 +54,8 @@ export function DirectoryView({
   importRosterUser?: (() => void) | undefined;
   importUserIdDraft?: string | undefined;
   isImportUserDialogOpen?: boolean | undefined;
-  loading: boolean;
   loadingUserDetail: boolean;
+  pending: boolean;
   mutating: boolean;
   openDirectoryContextMenu?: DirectoryContextMenuHandler | undefined;
   openRosterUserContextMenu?: RosterUserContextMenuHandler | undefined;
@@ -88,7 +88,7 @@ export function DirectoryView({
   if (!directory) {
     return (
       <>
-        <DirectoryTable directory={directory} loading={loading} />
+        <DirectoryTable directory={directory} pending={pending} />
         {importUserDialog}
       </>
     );
@@ -99,7 +99,7 @@ export function DirectoryView({
       <>
         <DirectoryListSection
           directory={directory}
-          loading={loading}
+          pending={pending}
           openDirectoryContextMenu={openDirectoryContextMenu}
           openRosterUserContextMenu={openRosterUserContextMenu}
           profileDisplayNamesByUserId={profileDisplayNamesByUserId}
@@ -119,7 +119,7 @@ export function DirectoryView({
           canRevokeGrants={canRevokeGrants}
           detail={detail}
           key={selectedUserId}
-          loading={loadingUserDetail}
+          pending={loadingUserDetail || pending}
           mutating={mutating}
           onRosterProfileDisplayNameChange={setSelectedProfileDisplayName}
           openGrantRoute={openGrantRoute}

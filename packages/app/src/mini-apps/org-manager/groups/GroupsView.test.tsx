@@ -167,6 +167,7 @@ function renderGroupsView(input: {
       members={input.members ?? null}
       memberUserIds={new Set<string>()}
       mutating={false}
+      pending={false}
       openCreateGroupDialog={input.openCreateGroupDialog ?? (() => undefined)}
       openRosterUser={input.openRosterUser ?? (() => undefined)}
       profileDisplayNamesByUserId={input.profileDisplayNamesByUserId}

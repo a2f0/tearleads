@@ -44,7 +44,7 @@ const EMPTY_USAGE = {
 
 test("usage explains the synced-only zero for a local organization", () => {
   const view = render(
-    <DataUsageView canSync={false} dataUsage={EMPTY_USAGE} loading={false} />,
+    <DataUsageView canSync={false} dataUsage={EMPTY_USAGE} pending={false} />,
   );
 
   expect(view.getByText(ORG_MANAGER_LABELS.usageDefinition)).toBeTruthy();
@@ -54,7 +54,7 @@ test("usage explains the synced-only zero for a local organization", () => {
 
 test("usage does not claim sync is off before billing resolves", () => {
   const view = render(
-    <DataUsageView canSync={null} dataUsage={EMPTY_USAGE} loading={false} />,
+    <DataUsageView canSync={null} dataUsage={EMPTY_USAGE} pending={false} />,
   );
 
   expect(view.queryByText(ORG_MANAGER_LABELS.usageSyncOff)).toBeNull();

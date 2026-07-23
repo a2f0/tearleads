@@ -109,6 +109,9 @@ export function useOrgManagerModel() {
   const [isImportUserDialogOpen, setIsImportUserDialogOpen] = useState(false);
   const [addUserId, setAddUserId] = useState("");
   const [loading, setLoading] = useState(false);
+  // Whether the shared directory pass has completed once for this scope: until
+  // it has, "no data" means "not fetched yet" rather than "nothing to show".
+  const [directorySettled, setDirectorySettled] = useState(false);
   const [loadingUserDetail, setLoadingUserDetail] = useState(false);
   const [mutating, setMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +123,7 @@ export function useOrgManagerModel() {
   const canLoadAuthenticatedOrgData = Boolean(
     organizationId && appData.auth.isAuthenticated,
   );
+  const databaseReady = appData.infra.dbStatus === "ready";
   const {
     activeDataUsage,
     activeGrants,
@@ -150,7 +154,7 @@ export function useOrgManagerModel() {
       hasSigningKeyPair: Boolean(appData.crypto.signingKeyPair),
     },
     dataUsage,
-    databaseReady: appData.infra.dbStatus === "ready",
+    databaseReady,
     grants,
     groupContainers,
     groupPolicyHistory,
@@ -276,6 +280,7 @@ export function useOrgManagerModel() {
     skippedGroupDetailsEffectRef,
     setDataUsage,
     setDirectory,
+    setDirectorySettled,
     setError,
     setGrants,
     setGroupContainers,
@@ -298,6 +303,7 @@ export function useOrgManagerModel() {
     closeContextMenu: contextMenuState.closeContextMenu,
     resetDirectoryState,
     scopeKey: orgManagerScopeKey,
+    setDirectorySettled,
     setError,
     setGrants,
     setLoading,
@@ -398,7 +404,7 @@ export function useOrgManagerModel() {
   const orgSwitcher = useOrgSwitcher({
     activeContainerId: appData.state.containerId,
     activeOrganizationId: appData.auth.organizationId,
-    databaseReady: appData.infra.dbStatus === "ready",
+    databaseReady,
     enabled: Boolean(appData.auth.isAuthenticated),
     interactionDisabled: loading || mutating,
     operationScopeKey: orgManagerScopeKey,
@@ -448,6 +454,10 @@ export function useOrgManagerModel() {
     isImportUserDialogOpen,
     isAuthenticated: appData.auth.isAuthenticated,
     isOrgAdmin: activeDirectory?.currentUser.isOrgAdmin ?? false,
+    // Not just `loading`: the window before the first pass settles (mount, an
+    // organization switch, SQLite still starting) has no projection and no
+    // request either, and read as "unavailable" until this covered it.
+    dataPending: loading || !databaseReady || !directorySettled,
     loading,
     loadingUserDetail,
     members: activeMembers,

@@ -34,7 +34,7 @@ function grantsBySubjectType(
 export function GrantsView({
   canRevokeGrants,
   grants,
-  loading,
+  pending,
   mutating,
   openGrantRoute,
   openGroupRoute,
@@ -44,7 +44,7 @@ export function GrantsView({
 }: {
   canRevokeGrants: boolean;
   grants: OrganizationContainerGrants | null;
-  loading: boolean;
+  pending: boolean;
   mutating: boolean;
   openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
   openGroupRoute: (groupId: string) => void;
@@ -65,7 +65,7 @@ export function GrantsView({
         canRevokeGrants={canRevokeGrants}
         grant={selectedGrant}
         grants={grants}
-        loading={loading}
+        pending={pending}
         mutating={mutating}
         openGroupRoute={openGroupRoute}
         revokeGrant={revokeGrant}
@@ -76,7 +76,7 @@ export function GrantsView({
   if (!grants) {
     return (
       <MiniAppStatus className="org-manager-hint">
-        {loading
+        {pending
           ? ORG_MANAGER_LABELS.loadingGrants
           : ORG_MANAGER_LABELS.grantsUnavailable}
       </MiniAppStatus>
@@ -143,7 +143,7 @@ function GrantDetailView({
   canRevokeGrants,
   grant,
   grants,
-  loading,
+  pending,
   mutating,
   openGroupRoute,
   revokeGrant,
@@ -151,7 +151,7 @@ function GrantDetailView({
   canRevokeGrants: boolean;
   grant: OrganizationContainerGrant | null;
   grants: OrganizationContainerGrants | null;
-  loading: boolean;
+  pending: boolean;
   mutating: boolean;
   openGroupRoute: (groupId: string) => void;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
@@ -161,7 +161,7 @@ function GrantDetailView({
       <section className="org-manager-panel">
         <GrantDetailHeader />
         <MiniAppStatus className="org-manager-hint">
-          {loading
+          {pending
             ? ORG_MANAGER_LABELS.loadingGrants
             : ORG_MANAGER_LABELS.grantsUnavailable}
         </MiniAppStatus>

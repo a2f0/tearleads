@@ -117,6 +117,7 @@ interface OrgManagerRefreshersParams {
     SetStateAction<OrganizationGroupPolicyHistory | null>
   >;
   setGroups: Dispatch<SetStateAction<ReadonlyArray<OrganizationGroupSummary>>>;
+  setDirectorySettled: Dispatch<SetStateAction<boolean>>;
   setLoading: Dispatch<SetStateAction<boolean>>;
   setLoadingUserDetail: Dispatch<SetStateAction<boolean>>;
   setMemberGroupId: Dispatch<SetStateAction<string | null>>;
@@ -152,6 +153,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setGroupContainers,
     setGroupPolicyHistory,
     setGroups,
+    setDirectorySettled,
     setLoading,
     setLoadingUserDetail,
     setMemberGroupId,
@@ -352,6 +354,11 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
       } finally {
         if (isCurrentRequest()) {
           setLoadingIfManaged(shouldManageLoading, setLoading, false);
+          // Settled means "this scope has been looked at", whatever the pass
+          // produced or whether it managed the loading flag: from here on an
+          // empty projection is a real answer rather than a not-yet-fetched
+          // one, so the views may say so.
+          setDirectorySettled(true);
         }
       }
     },
@@ -359,6 +366,7 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
       beginRequest,
       loadDirectoryAndGroups,
       selectedGroupIdRef,
+      setDirectorySettled,
       setError,
       setLoading,
     ],

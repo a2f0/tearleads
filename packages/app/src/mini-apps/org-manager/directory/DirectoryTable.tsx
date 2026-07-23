@@ -347,14 +347,16 @@ function DirectoryUserRow({
 
 export function DirectoryTable({
   directory,
-  loading,
+  pending,
   profileDisplayNamesByUserId,
   selectedUserId,
   openRosterUserContextMenu,
   selectUser,
 }: {
   directory: OrganizationDirectory | null;
-  loading: boolean;
+  // The roster is still being fetched (or has not been fetched yet), so an
+  // absent directory is not evidence that there is nothing to show.
+  pending: boolean;
   openRosterUserContextMenu?: RosterUserContextMenuHandler | undefined;
   profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
   selectedUserId?: string | null;
@@ -375,7 +377,7 @@ export function DirectoryTable({
   if (!directory) {
     return (
       <MiniAppStatus className="org-manager-hint">
-        {loading
+        {pending
           ? ORG_MANAGER_LABELS.loadingDirectory
           : ORG_MANAGER_LABELS.directoryUnavailable}
       </MiniAppStatus>
@@ -427,7 +429,7 @@ export function DirectoryTable({
 
 export function DirectoryListSection({
   directory,
-  loading,
+  pending,
   openDirectoryContextMenu,
   openRosterUserContextMenu,
   profileDisplayNamesByUserId,
@@ -435,7 +437,7 @@ export function DirectoryListSection({
   selectUser,
 }: {
   directory: OrganizationDirectory;
-  loading: boolean;
+  pending: boolean;
   openDirectoryContextMenu?: DirectoryContextMenuHandler | undefined;
   openRosterUserContextMenu?: RosterUserContextMenuHandler | undefined;
   profileDisplayNamesByUserId: ReadonlyMap<string, string>;
@@ -459,7 +461,7 @@ export function DirectoryListSection({
     >
       <DirectoryTable
         directory={directory}
-        loading={loading}
+        pending={pending}
         openRosterUserContextMenu={openRosterUserContextMenu}
         profileDisplayNamesByUserId={profileDisplayNamesByUserId}
         selectedUserId={selectedUserId}

@@ -296,15 +296,16 @@ export function RosterProfileEditor({
     setProfileContainerUnavailable(false);
     void ensureRosterProfileContainer()
       .then((container) => {
-        if (cancelled) {
-          return;
-        }
-        if (container?.id) {
-          setProfileContainerId(container.id);
+        if (cancelled || !container?.id) {
+          // A null container means the org-manager operation scope is not
+          // active yet (session, database, or organization still settling), not
+          // that the profile container is missing. Stay on the loading copy and
+          // let the ensure re-run when the scope activates; only a rejection
+          // below is evidence of a real failure.
           return;
         }
 
-        setProfileContainerUnavailable(true);
+        setProfileContainerId(container.id);
       })
       .catch(() => {
         if (!cancelled) {

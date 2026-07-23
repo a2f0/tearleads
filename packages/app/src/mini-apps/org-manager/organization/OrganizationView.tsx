@@ -10,19 +10,23 @@ import {
 } from "../../../components/mini-app/MiniAppLayout";
 import { compactFingerprint, EMPTY_PROFILE_DISPLAY_NAMES } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
-import { PolicyHistorySection } from "../PolicyHistory";
+import { PolicyHistorySection } from "../policy-history/PolicyHistory";
 import { OrganizationProfileEditor } from "./OrganizationProfileEditor";
 
 export function OrganizationView({
   directory,
   groups,
   organizationId,
+  pending,
   policyHistory,
   profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
 }: {
   directory: OrganizationDirectory | null;
   groups: ReadonlyArray<OrganizationGroupSummary>;
   organizationId: string;
+  // The organization's own data has not settled yet, so neither the profile nor
+  // the policy history may report itself as unavailable.
+  pending: boolean;
   policyHistory: OrganizationPolicyHistory | null;
   profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
 }) {
@@ -46,6 +50,9 @@ export function OrganizationView({
         canEdit={directory?.currentUser.isOrgAdmin ?? false}
         onNameChange={setOrganizationName}
         organizationId={organizationId}
+        // Until the directory lands, `canEdit` is false only because nothing is
+        // known yet — the editor must not read that as "no profile".
+        pending={pending || directory === null}
         profileDocumentId={directory?.profileDocumentId ?? null}
       />
       <PolicyHistorySection
@@ -53,6 +60,7 @@ export function OrganizationView({
         groups={groups}
         heading={ORG_MANAGER_LABELS.organizationPolicyHistory}
         history={policyHistory}
+        pending={pending}
         profileDisplayNamesByUserId={profileDisplayNamesByUserId}
       />
     </div>
