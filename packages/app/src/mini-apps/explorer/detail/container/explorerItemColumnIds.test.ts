@@ -57,7 +57,27 @@ test("compact layout uses a fixed summary set and ignores hidden preferences", (
       compact: true,
       hiddenColumns: new Set(["type", "modified"]),
     }),
+  ).toEqual(["summary"]);
+});
+
+test("the folded kebab follows the touch layout, not the fold", () => {
+  // A phone folds AND is routed, so it keeps the kebab.
+  expect(
+    getVisibleExplorerItemColumnIds({
+      compact: true,
+      hiddenColumns: new Set(),
+      showActions: true,
+    }),
   ).toEqual(["summary", "actions"]);
+
+  // A narrow desktop pane folds but still has right-click, so the kebab would
+  // only eat width where width is scarcest.
+  expect(
+    getVisibleExplorerItemColumnIds({
+      compact: true,
+      hiddenColumns: new Set(),
+    }),
+  ).not.toContain("actions");
 });
 
 test("compact layout folds every data column into the summary column", () => {

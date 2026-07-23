@@ -323,6 +323,14 @@ test("a narrow item list frame folds the rows onto two lines", async () => {
   // The name button — the selector the screenshot and dual-pane suites rely on
   // — survives the fold.
   expect(view.getByRole("button", { name: alphaNoteRow.name })).toBeTruthy();
+  // The kebab is the touch stand-in for right-click, so a windowed pane does
+  // not gain one just by folding — it would eat width where width is scarcest.
+  expect(
+    view.queryByRole("button", {
+      name: `${EXPLORER_LABELS.itemActionsButtonPrefix} ${alphaNoteRow.name}`,
+    }),
+  ).toBeNull();
+  expect(view.container.querySelectorAll("thead th")).toHaveLength(1);
 });
 
 test("a wide item list frame keeps the single-line columns", async () => {
