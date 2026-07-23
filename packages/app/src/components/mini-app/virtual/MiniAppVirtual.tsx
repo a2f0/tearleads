@@ -4,7 +4,9 @@ import {
   type HTMLAttributes,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useTouchRowHeight } from "../../../navigation/useTouchRowHeight";
@@ -163,6 +165,7 @@ export function useMiniAppVirtualWindow<
   } = useMiniAppVirtualViewport<TFrame>();
   const [activeResetKey, setActiveResetKey] = useState(resetKey);
   const shouldReset = activeResetKey !== resetKey;
+  const previousRowHeightRef = useRef(rowHeight);
 
   useEffect(() => {
     if (!shouldReset) {
@@ -176,11 +179,49 @@ export function useMiniAppVirtualWindow<
     }
   }, [frame, resetKey, setScrollTop, shouldReset]);
 
+  // `scrollTop` is pixels but the window range is rows, so a pitch change with
+  // the pixel offset left alone silently scrolls the list: the same pixel
+  // resolves to a different row. Rescale by the ratio, which keeps the row at
+  // the top of the viewport exactly where it was — and, because the derived
+  // offset is then unchanged, avoids both a refetch and the blank frame the
+  // detail pane would otherwise show while it lands.
+  //
+  // Derived during render rather than in an effect: an effect runs after the
+  // render that already computed a range from the old pixel offset at the new
+  // pitch, and a consumer that fetches from that range (the explorer item
+  // window) would issue a query for the transient offset and blank its list
+  // before the correction arrived.
+  const previousRowHeight = previousRowHeightRef.current;
+  const rescaledScrollTop =
+    previousRowHeight === rowHeight || scrollTop <= 0
+      ? scrollTop
+      : Math.round((scrollTop * rowHeight) / previousRowHeight);
+
+  useLayoutEffect(() => {
+    previousRowHeightRef.current = rowHeight;
+    if (rescaledScrollTop === scrollTop) {
+      return;
+    }
+
+    if (!frame) {
+      setScrollTop(rescaledScrollTop);
+      return;
+    }
+
+    // Read back rather than storing what was asked for. Unfolding near the end
+    // of a list scales the offset down but not the viewport, so the request can
+    // exceed the shorter content's maximum and the browser clamps it. Storing
+    // the unclamped value would leave the state describing a window the frame
+    // is not showing until the queued scroll event corrected it.
+    frame.scrollTop = rescaledScrollTop;
+    setScrollTop(frame.scrollTop);
+  }, [frame, rescaledScrollTop, rowHeight, scrollTop, setScrollTop]);
+
   const range = getMiniAppVirtualWindowRange({
     minWindowRows,
     overscanRows,
     rowHeight,
-    scrollTop: shouldReset ? 0 : scrollTop,
+    scrollTop: shouldReset ? 0 : rescaledScrollTop,
     viewportHeight,
   });
 
@@ -190,7 +231,7 @@ export function useMiniAppVirtualWindow<
     frameWidth,
     limit: range.limit,
     offset: range.offset,
-    scrollTop: shouldReset ? 0 : scrollTop,
+    scrollTop: shouldReset ? 0 : rescaledScrollTop,
     viewportHeight,
   };
 }

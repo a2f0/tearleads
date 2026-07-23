@@ -6,7 +6,10 @@ import type {
   ContainerNode,
 } from "@tearleads/client-sdk";
 import { useEffect, useMemo, useState } from "react";
-import { useMiniAppCompactTableLayout } from "../../../../components/mini-app/MiniAppTable";
+import {
+  getMiniAppCompactTableRowHeight,
+  useMiniAppCompactTableLayout,
+} from "../../../../components/mini-app/MiniAppTable";
 import { useTouchRowHeight } from "../../../../navigation/useTouchRowHeight";
 import { SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES } from "../../../../stores/systemContainers";
 
@@ -18,20 +21,24 @@ import { SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES } from "../../../../stores/system
  * derives the fetched limit/offset in ExplorerContainerDetail), the spacer
  * padding, and the frame's `--mini-app-virtual-row-height` — or the requested
  * and served offsets diverge and the detail pane blanks the table (see
- * `isShowingRequestedWindow`).
+ * `isShowingRequestedWindow`). That is why this takes `narrowFrame` as an
+ * argument rather than measuring: only the detail pane owns the scroll frame,
+ * so it measures once and hands the result down, and the item table cannot
+ * derive a second, disagreeing answer.
  *
  * `useTouchRowHeight` mirrors the bump `useMiniAppVirtualWindow` already
  * applies internally, so the rendered pitch and the window math also agree on
  * routed tablets (44px), not just on phones (56px) and desktop (36px). It is
  * `Math.max`-based, so it is a no-op at the two-line pitch.
  */
-export function useExplorerItemTableLayout(): {
+export function useExplorerItemTableLayout(narrowFrame: boolean): {
   compact: boolean;
   rowHeight: number;
 } {
-  const { compact, rowHeight } = useMiniAppCompactTableLayout();
-  const touchRowHeight = useTouchRowHeight(rowHeight);
-  return { compact, rowHeight: touchRowHeight };
+  const { compact: tierCompact } = useMiniAppCompactTableLayout();
+  const compact = tierCompact || narrowFrame;
+  const rowHeight = useTouchRowHeight(getMiniAppCompactTableRowHeight(compact));
+  return { compact, rowHeight };
 }
 
 const EXPLORER_SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES = Array.from(

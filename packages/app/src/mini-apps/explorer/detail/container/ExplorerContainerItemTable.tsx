@@ -24,7 +24,6 @@ import type { AvatarUrlByContactId } from "../../../../document-types/contact/us
 import { useRoutedLayoutActive } from "../../../../navigation/useRoutedLayoutActive";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../../labels";
-import { useExplorerItemTableLayout } from "./explorerContainerItemWindow";
 import {
   type ExplorerItemColumnId,
   getVisibleExplorerItemColumnIds,
@@ -253,6 +252,10 @@ function ExplorerContainerItemTableBody(params: {
 }
 
 interface ItemTableProps {
+  // Both resolved by ExplorerContainerDetail, which owns the scroll frame and
+  // therefore the only measurement of it. Deriving either here would risk a
+  // second answer that disagrees with the one the window query already used.
+  compact: boolean;
   contactAvatarUrlByLocalId: AvatarUrlByContactId;
   contextTarget: ExplorerContextMenuTarget | null;
   currentSigningFingerprint: string | null | undefined;
@@ -279,6 +282,7 @@ interface ItemTableProps {
   ) => void;
   onSort: (key: ContainerItemSortKey) => void;
   rows: ReadonlyArray<ContainerItemRow>;
+  rowHeight: number;
   rowOffset: number;
   selectedNode: ContainerNode;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
@@ -289,15 +293,18 @@ interface ItemTableProps {
 }
 
 function useExplorerContainerItemTableColumns({
+  compact,
   hiddenColumns,
   onSort,
   sort,
   toggleColumn,
-}: Pick<ItemTableProps, "hiddenColumns" | "onSort" | "sort" | "toggleColumn">) {
-  // The phone tier folds the data columns into one two-line summary column; the
+}: Pick<
+  ItemTableProps,
+  "compact" | "hiddenColumns" | "onSort" | "sort" | "toggleColumn"
+>) {
+  // `compact` folds the data columns into one two-line summary column; the
   // touch (routed) layout — phone AND tablet/iPad — adds the trailing kebab,
   // the stand-in for right-click.
-  const { compact, rowHeight } = useExplorerItemTableLayout();
   const showActions = useRoutedLayoutActive();
   const columnIds = useMemo(
     () =>
@@ -341,7 +348,7 @@ function useExplorerContainerItemTableColumns({
     ];
   }, [compact, columnIds, hiddenColumns, onSort, sort, toggleColumn]);
 
-  return { columnIds, columns, compact, rowHeight };
+  return { columnIds, columns };
 }
 
 function getExplorerItemTableFrameClassName(params: {
@@ -365,6 +372,7 @@ function getExplorerItemTableFrameClassName(params: {
 
 export function ExplorerContainerItemTable(params: ItemTableProps) {
   const {
+    compact,
     contactAvatarUrlByLocalId,
     contextTarget,
     currentSigningFingerprint,
@@ -385,6 +393,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
     onItemContextMenu,
     onSort,
     rows,
+    rowHeight,
     rowOffset,
     selectedNode,
     selectDocumentProjection,
@@ -393,13 +402,13 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
     toggleColumn,
     totalCount,
   } = params;
-  const { columnIds, columns, compact, rowHeight } =
-    useExplorerContainerItemTableColumns({
-      hiddenColumns,
-      onSort,
-      sort,
-      toggleColumn,
-    });
+  const { columnIds, columns } = useExplorerContainerItemTableColumns({
+    compact,
+    hiddenColumns,
+    onSort,
+    sort,
+    toggleColumn,
+  });
 
   return (
     <MiniAppTableFrame

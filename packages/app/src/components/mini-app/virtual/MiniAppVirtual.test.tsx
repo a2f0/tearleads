@@ -7,6 +7,7 @@ import {
   MiniAppVirtualListFrame,
   MiniAppVirtualListRow,
   useMiniAppVirtualRows,
+  useMiniAppVirtualWindow,
 } from "./MiniAppVirtual";
 
 const resizeObserverGlobal = globalThis as unknown as {
@@ -79,4 +80,40 @@ test("mini app virtual rows render a scroll-driven slice", async () => {
     expect(view.getByText("row-23")).toBeTruthy();
   });
   expect(view.queryByText("row-1")).toBeNull();
+});
+
+test("a row-pitch change keeps the same row at the top of the viewport", () => {
+  // The pitch is dynamic now (a pane narrow enough to fold its rows uses a
+  // taller one), and scrollTop is pixels while the window range is rows. Without
+  // rescaling, the same pixel offset resolves to a different row and the list
+  // silently jumps.
+  const offsets: number[] = [];
+
+  function Probe({ rowHeight }: { rowHeight: number }) {
+    const { frameRef, offset } = useMiniAppVirtualWindow({ rowHeight });
+    offsets.push(offset);
+    return <div data-testid="frame" ref={frameRef} />;
+  }
+
+  const view = render(<Probe rowHeight={36} />);
+  const frame = view.getByTestId("frame");
+  // Row 100 sits at the top: 100 * 36px.
+  frame.scrollTop = 3600;
+  fireEvent.scroll(frame);
+  const settledOffset = offsets.at(-1);
+  expect(settledOffset).toBe(92);
+
+  const rendersBeforePitchChange = offsets.length;
+  view.rerender(<Probe rowHeight={56} />);
+
+  // The pixel offset is rescaled to 100 * 56px, so the row at the top is the
+  // same one.
+  expect(frame.scrollTop).toBe(5600);
+  // And no render in between ever exposed a different window: a consumer that
+  // fetches from the offset (the explorer item list) would have issued a query
+  // for a transient offset and blanked itself before the correction landed.
+  expect(offsets.slice(rendersBeforePitchChange)).not.toContain(0);
+  expect(
+    offsets.slice(rendersBeforePitchChange).every((o) => o === settledOffset),
+  ).toBe(true);
 });
