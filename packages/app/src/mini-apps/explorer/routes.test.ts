@@ -88,22 +88,24 @@ test("explorer write-queue route does not require a selected container", () => {
   expect(isExplorerRouteAvailable({ view: "write-queue" }, [])).toBe(true);
   expect(
     isExplorerRouteAvailable(
-      { localId: "document-1", view: "write-queue-entry" },
+      { entryKey: "document::document-1", view: "write-queue-entry" },
       [],
     ),
   ).toBe(true);
 });
 
-test("explorer write-queue entry route round-trips its local id", () => {
-  expect(parseExplorerRouteSegments(["writes", "document-1"])).toEqual({
-    route: { localId: "document-1", view: "write-queue-entry" },
+test("explorer write-queue entry route round-trips its entry key", () => {
+  expect(
+    parseExplorerRouteSegments(["writes", "document::document-1"]),
+  ).toEqual({
+    route: { entryKey: "document::document-1", view: "write-queue-entry" },
   });
   expect(
     formatExplorerRouteSegments({
-      localId: "document-1",
+      entryKey: "document::document-1",
       view: "write-queue-entry",
     }),
-  ).toEqual(["writes", "document-1"]);
+  ).toEqual(["writes", "document::document-1"]);
 });
 
 test("explorer route segments cover selection and detail routes", () => {

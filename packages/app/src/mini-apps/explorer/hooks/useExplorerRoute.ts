@@ -25,7 +25,7 @@ export interface ExplorerRouteState {
   openSyncLanesRoute: () => void;
   openUploadsRoute: () => void;
   openWriteQueueRoute: () => void;
-  openWriteQueueEntryRoute: (localId: string) => void;
+  openWriteQueueEntryRoute: (entryKey: string) => void;
   selectCreatedExplorerItem: (id: string) => void;
   selectExplorerDocument: (localId: string, containerId: string) => void;
   selectExplorerItem: (id: string | null) => void;
@@ -227,8 +227,8 @@ function useExplorerSectionRouteActions(setRoute: ExplorerRouteSetter) {
   }, [setRoute]);
 
   const openWriteQueueEntryRoute = useCallback(
-    (localId: string) => {
-      setRoute({ localId, view: "write-queue-entry" }, undefined);
+    (entryKey: string) => {
+      setRoute({ entryKey, view: "write-queue-entry" }, undefined);
     },
     [setRoute],
   );

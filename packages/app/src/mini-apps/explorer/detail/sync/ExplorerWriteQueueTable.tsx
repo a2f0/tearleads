@@ -145,6 +145,15 @@ export function getWriteQueueItemName(item: PendingWriteQueueItem): string {
   return displayName.length > 0 ? displayName : item.localId;
 }
 
+// The entry's full identity: pending writes are grouped by
+// (objectKind, namespace, localId), so a localId alone can be ambiguous (e.g.
+// two unrecognized namespaces). This same key backs the row key, the detail
+// route, and the detail lookup so they can never disagree about which entry is
+// meant.
+export function getWriteQueueItemKey(item: PendingWriteQueueItem): string {
+  return `${item.objectKind}:${item.namespace ?? ""}:${item.localId}`;
+}
+
 function WriteQueueObjectCell(params: {
   canOpen: boolean;
   item: PendingWriteQueueItem;
@@ -191,7 +200,10 @@ function WriteQueueObjectCell(params: {
 // entry detail — a diagnostics view that surfaces why the change is still
 // queued. Kept separate from the row's primary tap (which opens the object) so
 // inspecting a stuck write never navigates away to the document.
-function WriteQueueRowActionsCell(params: { onOpenEntryInfo: () => void }) {
+function WriteQueueRowActionsCell(params: {
+  entryName: string;
+  onOpenEntryInfo: () => void;
+}) {
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
   const closeMenu = useCallback(() => setMenuPosition(null), []);
   const toggleMenu = useCallback((event: MouseEvent<HTMLButtonElement>) => {
@@ -206,17 +218,20 @@ function WriteQueueRowActionsCell(params: { onOpenEntryInfo: () => void }) {
       return { x: rect.left, y: rect.bottom };
     });
   }, []);
+  // Name the entry in the trigger so a screen reader reading a column of
+  // otherwise-identical kebabs can tell which row's actions each one opens.
+  const label = `${EXPLORER_LABELS.writeQueueRowActionsLabel}: ${params.entryName}`;
 
   return (
     <MiniAppTableCell className="mini-app-row-actions-cell">
       <MiniAppRowActionsButton
         aria-expanded={menuPosition !== null}
-        aria-label={EXPLORER_LABELS.writeQueueRowActionsLabel}
+        aria-label={label}
         onClick={toggleMenu}
         // Keep the trigger's mousedown from reaching the Menu's document-level
         // outside-click handler, so re-clicking the trigger can toggle it shut.
         onMouseDown={(event) => event.stopPropagation()}
-        title={EXPLORER_LABELS.writeQueueRowActionsLabel}
+        title={label}
       />
       {menuPosition ? (
         <Menu direction="down" onClose={closeMenu} position={menuPosition}>
@@ -269,7 +284,7 @@ interface WriteQueueTableProps {
   nodes: ReadonlyArray<ContainerNode>;
   openContainerInfoRoute: (containerId: string) => void;
   openDocument: (localId: string, containerId: string) => void;
-  openWriteQueueEntryRoute: (localId: string) => void;
+  openWriteQueueEntryRoute: (entryKey: string) => void;
   organizationNamesById: ReadonlyMap<string, string>;
 }
 
@@ -334,7 +349,10 @@ function WriteQueueRow(
         item={item}
       />
       <WriteQueueRowActionsCell
-        onOpenEntryInfo={() => params.openWriteQueueEntryRoute(item.localId)}
+        entryName={getWriteQueueItemName(item)}
+        onOpenEntryInfo={() =>
+          params.openWriteQueueEntryRoute(getWriteQueueItemKey(item))
+        }
       />
     </MiniAppTableRow>
   );
@@ -367,7 +385,7 @@ export function ExplorerWriteQueueTable(params: WriteQueueTableProps) {
               compact={compact}
               containerNamesById={containerNamesById}
               item={item}
-              key={`${item.objectKind}:${item.namespace ?? ""}:${item.localId}`}
+              key={getWriteQueueItemKey(item)}
               openContainerInfoRoute={params.openContainerInfoRoute}
               openDocument={params.openDocument}
               openWriteQueueEntryRoute={params.openWriteQueueEntryRoute}

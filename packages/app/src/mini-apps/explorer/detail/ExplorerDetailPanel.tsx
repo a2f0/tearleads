@@ -170,7 +170,7 @@ interface ExplorerDetailPanelProps {
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openUploadsRoute: () => void;
   openWriteQueueRoute: () => void;
-  openWriteQueueEntryRoute: (localId: string) => void;
+  openWriteQueueEntryRoute: (entryKey: string) => void;
   peerUserId: string | null;
   ready: boolean;
   refreshError: string | null;

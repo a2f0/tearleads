@@ -123,7 +123,7 @@ function renderPanel(overrides: Partial<ViewProps> = {}) {
       ["custom-org", "Acme"],
       ["personal-org", "Personal"],
     ]),
-    selectedEntryLocalId: null,
+    selectedEntryKey: null,
     snapshot: EMPTY_SNAPSHOT,
     ...overrides,
   };
@@ -148,7 +148,7 @@ function renderPanelLoader(
       openDocument={() => undefined}
       openWriteQueueEntryRoute={() => undefined}
       organizationNamesById={new Map()}
-      selectedEntryLocalId={null}
+      selectedEntryKey={null}
     />,
   );
 }
@@ -328,14 +328,15 @@ test("drills into an entry's sync detail from the row kebab", () => {
   const openedEntries: string[] = [];
   const view = renderPanel({
     items: [item()],
-    openWriteQueueEntryRoute: (localId) => {
-      openedEntries.push(localId);
+    openWriteQueueEntryRoute: (entryKey) => {
+      openedEntries.push(entryKey);
     },
   });
 
+  // The kebab names its row so screen readers can tell the rows apart.
   fireEvent.click(
     view.getByRole("button", {
-      name: EXPLORER_LABELS.writeQueueRowActionsLabel,
+      name: `${EXPLORER_LABELS.writeQueueRowActionsLabel}: Offline note`,
     }),
   );
   fireEvent.click(
@@ -344,7 +345,8 @@ test("drills into an entry's sync detail from the row kebab", () => {
     }),
   );
 
-  expect(openedEntries).toEqual(["document-local-id"]);
+  // Routes by the full (objectKind, namespace, localId) key, not the localId.
+  expect(openedEntries).toEqual(["document::document-local-id"]);
 });
 
 test("explains why an errored entry is stuck in its detail view", () => {
@@ -361,7 +363,7 @@ test("explains why an errored entry is stuck in its detail view", () => {
         status: "error",
       }),
     ],
-    selectedEntryLocalId: "document-local-id",
+    selectedEntryKey: "document::document-local-id",
   });
 
   expect(
@@ -384,10 +386,22 @@ test("explains why an errored entry is stuck in its detail view", () => {
 test("reports an entry that has left the queue", () => {
   const view = renderPanel({
     items: [],
-    selectedEntryLocalId: "document-local-id",
+    selectedEntryKey: "document::document-local-id",
   });
 
   expect(view.getByText(EXPLORER_LABELS.writeQueueEntryNotQueued)).toBeTruthy();
+});
+
+test("surfaces a read failure instead of claiming the entry finished", () => {
+  const view = renderPanel({
+    error: true,
+    items: [],
+    selectedEntryKey: "document::document-local-id",
+  });
+
+  expect(view.getByText(EXPLORER_LABELS.writeQueueFailedToLoad)).toBeTruthy();
+  expect(view.getByRole("alert")).toBeTruthy();
+  expect(view.queryByText(EXPLORER_LABELS.writeQueueEntryNotQueued)).toBeNull();
 });
 
 test("uses a compact object and status table on phones", () => {

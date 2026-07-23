@@ -25,6 +25,7 @@ import {
 import { ExplorerWriteQueueEntryDetail } from "./ExplorerWriteQueueEntryDetail";
 import {
   ExplorerWriteQueueTable,
+  getWriteQueueItemKey,
   getWriteQueueItemName,
   WRITE_QUEUE_COLUMNS,
   WRITE_QUEUE_COMPACT_COLUMNS,
@@ -42,11 +43,12 @@ interface ExplorerWriteQueuePanelProps {
   online: boolean;
   openContainerInfoRoute: (containerId: string) => void;
   openDocument: (localId: string, containerId: string) => void;
-  openWriteQueueEntryRoute: (localId: string) => void;
+  openWriteQueueEntryRoute: (entryKey: string) => void;
   organizationNamesById: ReadonlyMap<string, string>;
-  // When set, the panel shows the drill-in detail for that pending-write entry
-  // instead of the list. Null renders the list.
-  selectedEntryLocalId: string | null;
+  // When set (the full (objectKind, namespace, localId) key), the panel shows the
+  // drill-in detail for that pending-write entry instead of the list. Null
+  // renders the list.
+  selectedEntryKey: string | null;
 }
 
 interface ExplorerWriteQueuePanelViewProps
@@ -116,10 +118,10 @@ function WriteQueueEmptyState(params: { error: boolean; loading: boolean }) {
 
 function WriteQueueEntryBody(params: ExplorerWriteQueuePanelViewProps) {
   const selectedEntry =
-    params.selectedEntryLocalId === null
+    params.selectedEntryKey === null
       ? null
       : (params.items.find(
-          (item) => item.localId === params.selectedEntryLocalId,
+          (item) => getWriteQueueItemKey(item) === params.selectedEntryKey,
         ) ?? null);
   const containerNamesById = useMemo(
     () => new Map(params.nodes.map((node) => [node.id, node.name])),
@@ -146,10 +148,20 @@ function WriteQueueEntryBody(params: ExplorerWriteQueuePanelViewProps) {
     return <MiniAppStatus>{EXPLORER_LABELS.writeQueueLoading}</MiniAppStatus>;
   }
 
+  // The read failed, so an empty list is a query failure, not an empty queue.
+  // Surface the error instead of falsely claiming the change finished syncing.
+  if (params.error) {
+    return (
+      <MiniAppStatus>
+        <span role="alert">{EXPLORER_LABELS.writeQueueFailedToLoad}</span>
+      </MiniAppStatus>
+    );
+  }
+
   return (
     <MiniAppStatus>
       {EXPLORER_LABELS.writeQueueEntryNotQueued}{" "}
-      <code>{params.selectedEntryLocalId}</code>
+      <code>{params.selectedEntryKey}</code>
     </MiniAppStatus>
   );
 }
@@ -157,10 +169,10 @@ function WriteQueueEntryBody(params: ExplorerWriteQueuePanelViewProps) {
 export function ExplorerWriteQueuePanelView(
   params: ExplorerWriteQueuePanelViewProps,
 ) {
-  const showingEntryDetail = params.selectedEntryLocalId !== null;
+  const showingEntryDetail = params.selectedEntryKey !== null;
   const selectedEntry = showingEntryDetail
     ? (params.items.find(
-        (item) => item.localId === params.selectedEntryLocalId,
+        (item) => getWriteQueueItemKey(item) === params.selectedEntryKey,
       ) ?? null)
     : null;
   const writeCount = params.items.reduce(
@@ -188,7 +200,7 @@ export function ExplorerWriteQueuePanelView(
   const subtitle = showingEntryDetail
     ? selectedEntry
       ? getWriteQueueItemName(selectedEntry)
-      : (params.selectedEntryLocalId ?? "")
+      : (params.selectedEntryKey ?? "")
     : listSubtitle;
 
   return (
@@ -368,7 +380,7 @@ export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
       openDocument={params.openDocument}
       openWriteQueueEntryRoute={params.openWriteQueueEntryRoute}
       organizationNamesById={params.organizationNamesById}
-      selectedEntryLocalId={params.selectedEntryLocalId}
+      selectedEntryKey={params.selectedEntryKey}
       snapshot={syncSnapshot}
     />
   );

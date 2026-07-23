@@ -80,7 +80,7 @@ test("coalesces a revision-bump burst and keeps stale rows while re-reading", as
       openDocument={() => undefined}
       openWriteQueueEntryRoute={() => undefined}
       organizationNamesById={new Map()}
-      selectedEntryLocalId={null}
+      selectedEntryKey={null}
     />
   );
 

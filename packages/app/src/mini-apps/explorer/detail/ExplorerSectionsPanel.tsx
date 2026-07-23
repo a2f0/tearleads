@@ -131,7 +131,7 @@ interface ExplorerSectionsPanelProps {
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openUploadsRoute: () => void;
   openWriteQueueRoute: () => void;
-  openWriteQueueEntryRoute: (localId: string) => void;
+  openWriteQueueEntryRoute: (entryKey: string) => void;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
   blobPickTarget: BlobPickTarget | null;
   onCancelBlobPick: () => void;
@@ -183,8 +183,8 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
         openDocument={params.selectDocumentProjection}
         openWriteQueueEntryRoute={params.openWriteQueueEntryRoute}
         organizationNamesById={params.organizationNamesById}
-        selectedEntryLocalId={
-          route.view === "write-queue-entry" ? route.localId : null
+        selectedEntryKey={
+          route.view === "write-queue-entry" ? route.entryKey : null
         }
       />
     );
