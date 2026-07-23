@@ -1,21 +1,30 @@
+import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
+import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
-import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
-import { useId } from "react";
+import { useCallback, useId, useMemo } from "react";
 import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
-import { useDocument } from "../../stores/documents/DocumentsProvider";
+import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
+import {
+  useDocument,
+  useDocumentReadOnly,
+} from "../../stores/documents/DocumentsProvider";
 import {
   type RowWriterResolver,
   useDocumentRowWriters,
 } from "../../stores/documents/useDocumentRowWriters";
 import {
   StructuredDocument,
-  StructuredDocumentEditActions,
   StructuredDocumentField,
   StructuredDocumentFields,
   StructuredDocumentReadFields,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useDocumentRowEditing } from "../shared/useDocumentRowEditing";
+import {
+  type BloodPressureField,
+  BloodPressureReadingEditRow,
+  type UpdateReading,
+} from "./BloodPressureEditRow";
 import { BloodPressureReadingReadRow } from "./BloodPressureReadRow";
 import {
   BLOOD_PRESSURE_DIASTOLIC_FIELD,
@@ -24,7 +33,6 @@ import {
   BLOOD_PRESSURE_NOTES_FIELD,
   BLOOD_PRESSURE_PULSE_FIELD,
   BLOOD_PRESSURE_SYSTOLIC_FIELD,
-  isValidBloodPressureMeasurement,
 } from "./bloodPressureDocumentDefinition";
 import {
   type BloodPressureReadingRow,
@@ -33,23 +41,8 @@ import {
 } from "./bloodPressureReadings";
 import "./BloodPressure.css";
 
-type BloodPressureField =
-  | typeof BLOOD_PRESSURE_SYSTOLIC_FIELD
-  | typeof BLOOD_PRESSURE_DIASTOLIC_FIELD
-  | typeof BLOOD_PRESSURE_PULSE_FIELD
-  | typeof BLOOD_PRESSURE_MEASURED_AT_FIELD
-  | typeof BLOOD_PRESSURE_NOTES_FIELD;
-
-type BloodPressureMeasurementField =
-  | typeof BLOOD_PRESSURE_SYSTOLIC_FIELD
-  | typeof BLOOD_PRESSURE_DIASTOLIC_FIELD
-  | typeof BLOOD_PRESSURE_PULSE_FIELD;
-
-type UpdateReading = (
-  id: string,
-  field: BloodPressureField,
-  value: string,
-) => void;
+const BLOOD_PRESSURE_DONE_ACTION = "Done";
+const BLOOD_PRESSURE_EDIT_ACTION = "Edit";
 
 function BloodPressureReadFields(params: {
   currentAuthorId: string | null;
@@ -106,136 +99,6 @@ function BloodPressureReadFields(params: {
           ))
         )}
       </section>
-    </div>
-  );
-}
-
-function BloodPressureMeasurementInput(params: {
-  className: string;
-  controlsDisabled: boolean;
-  index: number;
-  label: string;
-  onUpdateReading: UpdateReading;
-  placeholder: string;
-  property: BloodPressureMeasurementField;
-  reading: BloodPressureReadingRow;
-}) {
-  const {
-    className,
-    controlsDisabled,
-    index,
-    label,
-    onUpdateReading,
-    placeholder,
-    property,
-    reading,
-  } = params;
-  const value = reading[property];
-  const isInvalid = value.length > 0 && !isValidBloodPressureMeasurement(value);
-
-  return (
-    <label className={`blood-pressure-reading-field ${className}`}>
-      {label}
-      <input
-        aria-invalid={isInvalid ? "true" : undefined}
-        aria-label={`Reading ${index + 1} ${label.toLowerCase()}`}
-        value={value}
-        onChange={(event) =>
-          onUpdateReading(reading.id, property, event.target.value)
-        }
-        inputMode="numeric"
-        pattern="\d*"
-        placeholder={placeholder}
-        disabled={controlsDisabled}
-        autoComplete="off"
-      />
-    </label>
-  );
-}
-
-function BloodPressureReadingEditRow(params: {
-  controlsDisabled: boolean;
-  index: number;
-  onRemoveReading: (id: string) => void;
-  onUpdateReading: UpdateReading;
-  reading: BloodPressureReadingRow;
-}) {
-  const { controlsDisabled, index, onRemoveReading, onUpdateReading, reading } =
-    params;
-  const measurementProps = {
-    controlsDisabled,
-    index,
-    onUpdateReading,
-    reading,
-  };
-
-  return (
-    <div className="blood-pressure-reading-row">
-      <BloodPressureMeasurementInput
-        {...measurementProps}
-        className="blood-pressure-reading-field-systolic"
-        label="Systolic"
-        placeholder="120"
-        property={BLOOD_PRESSURE_SYSTOLIC_FIELD}
-      />
-      <BloodPressureMeasurementInput
-        {...measurementProps}
-        className="blood-pressure-reading-field-diastolic"
-        label="Diastolic"
-        placeholder="80"
-        property={BLOOD_PRESSURE_DIASTOLIC_FIELD}
-      />
-      <BloodPressureMeasurementInput
-        {...measurementProps}
-        className="blood-pressure-reading-field-pulse"
-        label="Pulse"
-        placeholder="72"
-        property={BLOOD_PRESSURE_PULSE_FIELD}
-      />
-      <label className="blood-pressure-reading-field blood-pressure-reading-field-measured">
-        Measured At
-        <input
-          aria-label={`Reading ${index + 1} measured at`}
-          type="datetime-local"
-          value={reading.measuredAt}
-          onChange={(event) =>
-            onUpdateReading(
-              reading.id,
-              BLOOD_PRESSURE_MEASURED_AT_FIELD,
-              event.target.value,
-            )
-          }
-          disabled={controlsDisabled}
-        />
-      </label>
-      <label className="blood-pressure-reading-field blood-pressure-reading-notes-field">
-        Notes
-        <input
-          aria-label={`Reading ${index + 1} notes`}
-          value={reading.notes}
-          onChange={(event) =>
-            onUpdateReading(
-              reading.id,
-              BLOOD_PRESSURE_NOTES_FIELD,
-              event.target.value,
-            )
-          }
-          placeholder="After walk"
-          disabled={controlsDisabled}
-          autoComplete="off"
-        />
-      </label>
-      <MiniAppButton
-        aria-label={`Remove reading ${index + 1}`}
-        className="blood-pressure-remove-button"
-        withIcon
-        disabled={controlsDisabled}
-        onClick={() => onRemoveReading(reading.id)}
-        title={`Remove reading ${index + 1}`}
-      >
-        <TrashIcon aria-hidden size={14} />
-        Remove
-      </MiniAppButton>
     </div>
   );
 }
@@ -324,6 +187,7 @@ export function BloodPressureFields(params: {
   onEnterEdit?: (() => void) | undefined;
   onRemoveReading: (id: string) => void;
   onRenameTracker: (value: string) => void;
+  onToggleEditing: () => void;
   onUpdateReading: UpdateReading;
   readings: ReadonlyArray<BloodPressureReadingRow>;
   ready: boolean;
@@ -339,6 +203,7 @@ export function BloodPressureFields(params: {
     onEnterEdit,
     onRemoveReading,
     onRenameTracker,
+    onToggleEditing,
     onUpdateReading,
     readings,
     ready,
@@ -347,6 +212,29 @@ export function BloodPressureFields(params: {
     trackerNameInputId,
   } = params;
   const controlsDisabled = disabled || !ready;
+  // The edit toggle is a pane-header toolbar action (the pencil), not a body
+  // button — mirroring the Contact document. A host-forced read-only tracker
+  // (e.g. in the Trash) drops the affordance entirely rather than disabling it.
+  const readOnly = useDocumentReadOnly();
+  const editAction = useMemo(
+    () => ({
+      disabled: controlsDisabled,
+      icon: isEditing ? (
+        <CheckIcon aria-hidden size={18} />
+      ) : (
+        <PencilSimpleIcon aria-hidden size={18} />
+      ),
+      id: "blood-pressure-toggle-edit",
+      label: isEditing
+        ? BLOOD_PRESSURE_DONE_ACTION
+        : BLOOD_PRESSURE_EDIT_ACTION,
+      onClick: onToggleEditing,
+      priority: 100,
+    }),
+    [controlsDisabled, isEditing, onToggleEditing],
+  );
+
+  useWindowTitleBarAction(readOnly ? null : editAction);
 
   if (!isEditing) {
     return (
@@ -395,6 +283,12 @@ export function BloodPressure(params: {
     canWrite,
     params.initialEditing,
   );
+  // Kept reference-stable so the toolbar action it feeds does not re-register
+  // on every render.
+  const toggleEditing = useCallback(
+    () => setIsEditing((editing) => !editing),
+    [setIsEditing],
+  );
   const { clearRow, readCell, stageCell } = useDocumentRowEditing(rows);
   // Only resolve verified writers for the read view (attribution is not shown
   // while editing) of a non-empty tracker.
@@ -419,51 +313,45 @@ export function BloodPressure(params: {
   return (
     <StructuredDocument
       fields={
-        <>
-          <StructuredDocumentEditActions
-            disabled={!ready || !canWrite}
-            isEditing={isEditing}
-            onToggleEditing={() => setIsEditing(!isEditing)}
-          />
-          <BloodPressureFields
-            currentAuthorId={currentAuthorId}
-            disabled={!ready || !canWrite}
-            isEditing={isEditing && canWrite}
-            resolveRowWriter={resolveRowWriter}
-            // The read-row "Edit" action switches the whole tracker into edit
-            // mode; only offer it when the viewer can actually write.
-            onEnterEdit={canWrite ? () => setIsEditing(true) : undefined}
-            onAddReading={() => {
-              if (canWrite) {
-                void addRow({
-                  [BLOOD_PRESSURE_SYSTOLIC_FIELD]: "",
-                  [BLOOD_PRESSURE_DIASTOLIC_FIELD]: "",
-                  [BLOOD_PRESSURE_PULSE_FIELD]: "",
-                  [BLOOD_PRESSURE_MEASURED_AT_FIELD]: "",
-                  [BLOOD_PRESSURE_NOTES_FIELD]: "",
-                });
-              }
-            }}
-            onRemoveReading={(id) => {
-              if (canWrite) {
-                void removeRow(id);
-              }
-              clearRow(id);
-            }}
-            onRenameTracker={(value) => {
-              if (canWrite) {
-                void setStructuredFields(BLOOD_PRESSURE_DOCUMENT_KIND, {
-                  trackerName: value,
-                });
-              }
-            }}
-            onUpdateReading={handleUpdateReading}
-            readings={readings}
-            ready={ready}
-            trackerName={trackerName}
-            trackerNameInputId={trackerNameInputId}
-          />
-        </>
+        <BloodPressureFields
+          currentAuthorId={currentAuthorId}
+          disabled={!ready || !canWrite}
+          isEditing={isEditing && canWrite}
+          resolveRowWriter={resolveRowWriter}
+          // The read-row "Edit" action switches the whole tracker into edit
+          // mode; only offer it when the viewer can actually write.
+          onEnterEdit={canWrite ? () => setIsEditing(true) : undefined}
+          onAddReading={() => {
+            if (canWrite) {
+              void addRow({
+                [BLOOD_PRESSURE_SYSTOLIC_FIELD]: "",
+                [BLOOD_PRESSURE_DIASTOLIC_FIELD]: "",
+                [BLOOD_PRESSURE_PULSE_FIELD]: "",
+                [BLOOD_PRESSURE_MEASURED_AT_FIELD]: "",
+                [BLOOD_PRESSURE_NOTES_FIELD]: "",
+              });
+            }
+          }}
+          onRemoveReading={(id) => {
+            if (canWrite) {
+              void removeRow(id);
+            }
+            clearRow(id);
+          }}
+          onRenameTracker={(value) => {
+            if (canWrite) {
+              void setStructuredFields(BLOOD_PRESSURE_DOCUMENT_KIND, {
+                trackerName: value,
+              });
+            }
+          }}
+          onToggleEditing={toggleEditing}
+          onUpdateReading={handleUpdateReading}
+          readings={readings}
+          ready={ready}
+          trackerName={trackerName}
+          trackerNameInputId={trackerNameInputId}
+        />
       }
       ready={ready}
       syncing={syncing}
