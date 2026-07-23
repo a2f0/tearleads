@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useTouchRowHeight } from "../../../navigation/useTouchRowHeight";
@@ -163,6 +164,7 @@ export function useMiniAppVirtualWindow<
   } = useMiniAppVirtualViewport<TFrame>();
   const [activeResetKey, setActiveResetKey] = useState(resetKey);
   const shouldReset = activeResetKey !== resetKey;
+  const previousRowHeightRef = useRef(rowHeight);
 
   useEffect(() => {
     if (!shouldReset) {
@@ -175,6 +177,26 @@ export function useMiniAppVirtualWindow<
       frame.scrollTop = 0;
     }
   }, [frame, resetKey, setScrollTop, shouldReset]);
+
+  // `scrollTop` is pixels but the window range is rows, so a pitch change with
+  // the pixel offset left alone silently scrolls the list: the same pixel
+  // resolves to a different row. Rescale by the ratio, which keeps the row at
+  // the top of the viewport exactly where it was — and, because the derived
+  // offset is then unchanged, avoids both a refetch and the blank frame the
+  // detail pane would otherwise show while it lands.
+  useEffect(() => {
+    const previousRowHeight = previousRowHeightRef.current;
+    previousRowHeightRef.current = rowHeight;
+    if (previousRowHeight === rowHeight || !frame || frame.scrollTop <= 0) {
+      return;
+    }
+
+    const rescaled = Math.round(
+      (frame.scrollTop * rowHeight) / previousRowHeight,
+    );
+    frame.scrollTop = rescaled;
+    setScrollTop(rescaled);
+  }, [frame, rowHeight, setScrollTop]);
 
   const range = getMiniAppVirtualWindowRange({
     minWindowRows,
