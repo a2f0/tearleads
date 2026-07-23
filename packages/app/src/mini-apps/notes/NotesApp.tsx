@@ -164,6 +164,7 @@ function NotesAppContent(props: NotesAppProps) {
         </DocumentsProvider>
       ) : model.showCompactListHome ? (
         <NotesListHome
+          createNote={model.createNote}
           handleAreaContextMenu={model.contextMenu.handleAreaContextMenu}
           handleNoteContextMenu={model.contextMenu.handleNoteContextMenu}
           notes={model.notes}

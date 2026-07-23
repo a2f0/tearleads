@@ -78,6 +78,7 @@ export function useNotesAppModel(
   const contextMenu = useNotesContextMenu({ deleteNote });
 
   useNotesSidebarPanel({
+    createNote,
     handleAreaContextMenu: contextMenu.handleAreaContextMenu,
     handleNoteContextMenu: contextMenu.handleNoteContextMenu,
     notes,
