@@ -8,6 +8,9 @@ import type {
 import { getStoredDocumentTypeLabel } from "@tearleads/client-sdk";
 import type { MouseEvent, ReactNode } from "react";
 import {
+  MiniAppCompactTableCell,
+  type MiniAppCompactTableField,
+  MiniAppCompactTableHeader,
   MiniAppRowActionsButton,
   MiniAppTableCell,
   type MiniAppTableColumn,
@@ -27,7 +30,10 @@ import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
 import { getExplorerContactAvatarUrl } from "../../explorerContactAvatar";
 import { getExplorerContainerIcon } from "../../explorerContainerIcons";
 import { EXPLORER_LABELS } from "../../labels";
-import type { ExplorerItemColumnId } from "./explorerItemColumnIds";
+import {
+  COMPACT_SUMMARY_SECONDARY_COLUMN_IDS,
+  type ExplorerItemColumnId,
+} from "./explorerItemColumnIds";
 
 function getSortAria(
   sort: ContainerItemSort,
@@ -40,15 +46,33 @@ function getSortAria(
   return sort.direction === "asc" ? "ascending" : "descending";
 }
 
+function getExplorerSortStateLabel(
+  direction: ContainerItemSortDirection,
+): string {
+  return direction === "asc"
+    ? EXPLORER_LABELS.columnSortedAscending
+    : EXPLORER_LABELS.columnSortedDescending;
+}
+
 function ExplorerSortableTableHeader(params: {
   activeDirection: ContainerItemSortDirection | null;
+  // Set on the phone summary header, where all three controls share one <th>:
+  // that cell's aria-sort can name a direction but not the key it belongs to,
+  // so the active control announces the state itself. The wide layout leaves
+  // this off — each column owns its own <th aria-sort>, which already says it.
+  announceSortState?: boolean | undefined;
   label: string;
   onClick: () => void;
 }) {
-  const { activeDirection, label, onClick } = params;
+  const { activeDirection, announceSortState, label, onClick } = params;
 
   return (
     <button
+      aria-label={
+        announceSortState && activeDirection
+          ? `${label}, ${getExplorerSortStateLabel(activeDirection)}`
+          : undefined
+      }
       type="button"
       className="explorer-table-sort-button"
       onClick={onClick}
@@ -65,9 +89,24 @@ function ExplorerSortableTableHeader(params: {
   );
 }
 
+// The sortable data columns the phone summary folds together. `type` is not
+// sortable on the wide layout's phone predecessor, but it is shown on line two
+// now, so its header earns a sort control alongside the two that already had one.
+const SUMMARY_SORT_KEYS: ReadonlyArray<ContainerItemSortKey> = [
+  "name",
+  "type",
+  "modified",
+];
+
+const SUMMARY_SORT_LABELS: Readonly<Record<ContainerItemSortKey, string>> = {
+  created: EXPLORER_LABELS.dateCreatedColumn,
+  modified: EXPLORER_LABELS.dateModifiedColumnCompact,
+  name: EXPLORER_LABELS.itemNameColumn,
+  type: EXPLORER_LABELS.itemTypeColumn,
+};
+
 interface ColumnBuildContext {
   columnMenu?: ReactNode;
-  compact: boolean;
   onSort: (key: ContainerItemSortKey) => void;
   sort: ContainerItemSort;
 }
@@ -76,10 +115,15 @@ function buildExplorerItemColumn(
   id: ExplorerItemColumnId,
   ctx: ColumnBuildContext,
 ): MiniAppTableColumn {
-  const { columnMenu, compact, onSort, sort } = ctx;
-  const sortableHeader = (key: ContainerItemSortKey, label: string) => (
+  const { columnMenu, onSort, sort } = ctx;
+  const sortableHeader = (
+    key: ContainerItemSortKey,
+    label: string,
+    announceSortState = false,
+  ) => (
     <ExplorerSortableTableHeader
       activeDirection={sort.key === key ? sort.direction : null}
+      announceSortState={announceSortState}
       label={label}
       onClick={() => onSort(key)}
     />
@@ -96,16 +140,14 @@ function buildExplorerItemColumn(
         ariaSort: getSortAria(sort, "name"),
         id,
         header: sortableHeader("name", EXPLORER_LABELS.itemNameColumn),
-        // On the phone tier the name leads and flexes to fill whatever space the
-        // trimmed columns leave; on wider layouts it keeps a fixed share.
-        width: compact ? undefined : "40%",
+        width: "40%",
       };
     case "type":
       return {
         ariaSort: getSortAria(sort, "type"),
         id,
         header: sortableHeader("type", EXPLORER_LABELS.itemTypeColumn),
-        width: compact ? "5.5rem" : "8rem",
+        width: "8rem",
       };
     case "created":
       return {
@@ -118,16 +160,8 @@ function buildExplorerItemColumn(
       return {
         ariaSort: getSortAria(sort, "modified"),
         id,
-        // On the phone tier the header shrinks to one word and the column is
-        // sized to hold the date-only value (see the cell renderer) on a single
-        // line, so the row keeps its fixed height and the virtual pitch holds.
-        header: sortableHeader(
-          "modified",
-          compact
-            ? EXPLORER_LABELS.dateModifiedColumnCompact
-            : EXPLORER_LABELS.dateModifiedColumn,
-        ),
-        width: compact ? "9rem" : "11rem",
+        header: sortableHeader("modified", EXPLORER_LABELS.dateModifiedColumn),
+        width: "11rem",
       };
     case "sync":
       return {
@@ -135,19 +169,40 @@ function buildExplorerItemColumn(
         header: EXPLORER_LABELS.itemSyncColumn,
         width: "7rem",
       };
+    case "summary":
+      return {
+        // The header is one line of sort controls even though the cells below
+        // stack two: each `.explorer-table-sort-button` is floored at the 44px
+        // touch target on routed layouts, so stacking them would double the
+        // sticky header's height on the tier with the least room for it.
+        //
+        // The cell stays aria-sort="none": it heads three sort keys at once, so
+        // a direction here would name one without saying which. Each control
+        // announces its own state instead (see `announceSortState`).
+        ariaSort: "none",
+        id,
+        header: (
+          <MiniAppCompactTableHeader
+            primary={SUMMARY_SORT_KEYS.map((key) => ({
+              content: sortableHeader(key, SUMMARY_SORT_LABELS[key], true),
+              id: key,
+            }))}
+            secondary={[]}
+          />
+        ),
+      };
   }
 }
 
 export function getExplorerItemTableColumns(params: {
   columnIds: ReadonlyArray<ExplorerItemColumnId>;
   columnMenu?: ReactNode;
-  compact: boolean;
   onSort: (key: ContainerItemSortKey) => void;
   sort: ContainerItemSort;
 }): ReadonlyArray<MiniAppTableColumn> {
-  const { columnIds, columnMenu, compact, onSort, sort } = params;
+  const { columnIds, columnMenu, onSort, sort } = params;
   return columnIds.map((id) =>
-    buildExplorerItemColumn(id, { columnMenu, compact, onSort, sort }),
+    buildExplorerItemColumn(id, { columnMenu, onSort, sort }),
   );
 }
 
@@ -163,9 +218,6 @@ function getExplorerContainerItemTypeLabel(row: ContainerItemRow): string {
 }
 
 export interface ExplorerItemCellContext {
-  // Phone tier (useRoutedLayoutTier() === "mobile"): drives the date-only,
-  // single-line rendering of the modified cell so the row height stays fixed.
-  compact: boolean;
   // Object URLs for contact avatars, keyed by the contact document's local id.
   // Covers only contacts in the Explorer's contacts container; rows without an
   // entry keep the document-kind glyph.
@@ -243,7 +295,12 @@ export function openExplorerItem(
   ctx.selectDocumentProjection(row.localId, row.containerId);
 }
 
-function ExplorerItemNameCell(ctx: ExplorerItemCellContext): ReactNode {
+// Keep standard table-row semantics: a native button carries the
+// click/keyboard behaviour, and the row itself carries the same action for
+// clicks that land anywhere else in the row. Shared by the wide layout's Name
+// cell and the phone summary's first line, so both render the identical
+// element — the screenshot and integration suites locate rows through it.
+function ExplorerItemNameButton(ctx: ExplorerItemCellContext): ReactNode {
   const { row } = ctx;
   const name = getExplorerContainerItemName(ctx);
   const itemIcon = getExplorerItemIcon(row);
@@ -260,49 +317,96 @@ function ExplorerItemNameCell(ctx: ExplorerItemCellContext): ReactNode {
     openExplorerItem(ctx);
   };
 
-  // Keep standard table-row semantics: a native button in the name cell carries
-  // the click/keyboard behaviour, and the row itself carries the same action for
-  // clicks that land anywhere else in the row.
-  //
-  // On the phone tier the Type column is dropped and the leading icon is
-  // aria-hidden, so fold the item kind into the button's accessible name to keep
-  // it announced to screen readers ("Contacts, Folder"). The wide layout leaves
-  // this off — the visible Type column already exposes the kind as table text.
-  const accessibleName = ctx.compact
-    ? `${name}, ${getExplorerContainerItemTypeLabel(row)}`
-    : undefined;
+  return (
+    <button
+      className="explorer-item-row-button"
+      data-document-local-id={
+        row.itemKind === "document" ? row.localId : undefined
+      }
+      onClick={openItem}
+      type="button"
+    >
+      <span className="explorer-item-name">
+        {avatarUrl ? (
+          // ContactAvatar already sizes and shrink-proofs itself, and it
+          // deliberately skips the glyph classes' icon opacity — a dimmed
+          // photograph reads as disabled rather than as a leading glyph.
+          <ContactAvatar imageUrl={avatarUrl} size="small" />
+        ) : (
+          <ItemIcon
+            aria-hidden="true"
+            className="explorer-item-icon"
+            data-container-icon={itemIcon.containerIcon ?? undefined}
+            data-icon={itemIcon.name}
+            focusable="false"
+            size={16}
+            weight="regular"
+          />
+        )}
+        <MiniAppTableText title={name}>{name}</MiniAppTableText>
+      </span>
+    </button>
+  );
+}
+
+function ExplorerItemNameCell(ctx: ExplorerItemCellContext): ReactNode {
   return (
     <MiniAppTableCell key="name">
-      <button
-        aria-label={accessibleName}
-        className="explorer-item-row-button"
-        data-document-local-id={
-          row.itemKind === "document" ? row.localId : undefined
-        }
-        onClick={openItem}
-        type="button"
-      >
-        <span className="explorer-item-name">
-          {avatarUrl ? (
-            // ContactAvatar already sizes and shrink-proofs itself, and it
-            // deliberately skips the glyph classes' icon opacity — a dimmed
-            // photograph reads as disabled rather than as a leading glyph.
-            <ContactAvatar imageUrl={avatarUrl} size="small" />
-          ) : (
-            <ItemIcon
-              aria-hidden="true"
-              className="explorer-item-icon"
-              data-container-icon={itemIcon.containerIcon ?? undefined}
-              data-icon={itemIcon.name}
-              focusable="false"
-              size={16}
-              weight="regular"
-            />
-          )}
-          <MiniAppTableText title={name}>{name}</MiniAppTableText>
-        </span>
-      </button>
+      {ExplorerItemNameButton(ctx)}
     </MiniAppTableCell>
+  );
+}
+
+function getExplorerItemSummaryField(
+  columnId: ExplorerItemColumnId,
+  ctx: ExplorerItemCellContext,
+): MiniAppCompactTableField | null {
+  const { row } = ctx;
+  switch (columnId) {
+    case "type":
+      return {
+        id: columnId,
+        label: EXPLORER_LABELS.itemTypeColumn,
+        text: getExplorerContainerItemTypeLabel(row),
+      };
+    case "modified":
+      return {
+        id: columnId,
+        label: EXPLORER_LABELS.dateModifiedColumnCompact,
+        // Date-only so the line never wraps: the row has to stay exactly at the
+        // virtual pitch. The full timestamp stays on the field's title and in
+        // the item's Get Info panel.
+        text: formatMiniAppDate(row.updatedAt, {
+          emptyFallback: EXPLORER_LABELS.unknownDate,
+        }),
+        title: row.updatedAt ?? undefined,
+      };
+    default:
+      return null;
+  }
+}
+
+function ExplorerItemSummaryCell(ctx: ExplorerItemCellContext): ReactNode {
+  // The first line carries no `label`, so the shared visually-hidden prefix is
+  // skipped and the row button's accessible name stays the bare item name. The
+  // kind is announced by the second line's "Type: " prefix instead.
+  //
+  // The second line leads with an empty gutter field so its tracks line up with
+  // the header's: the lines share one equal-track grid, so without it Type
+  // would sit under the Name header rather than under Type. The name itself is
+  // the sole field on line one, so it still spans the full width.
+  return (
+    <MiniAppCompactTableCell
+      key="summary"
+      primary={[{ content: ExplorerItemNameButton(ctx), id: "name" }]}
+      secondary={[
+        { id: "name-gutter" },
+        ...COMPACT_SUMMARY_SECONDARY_COLUMN_IDS.flatMap((columnId) => {
+          const field = getExplorerItemSummaryField(columnId, ctx);
+          return field ? [field] : [];
+        }),
+      ]}
+    />
   );
 }
 
@@ -337,6 +441,8 @@ export function renderExplorerItemCell(
       return ExplorerItemActionsCell(ctx);
     case "name":
       return ExplorerItemNameCell(ctx);
+    case "summary":
+      return ExplorerItemSummaryCell(ctx);
     case "type":
       return (
         <MiniAppTableCell key="type">
@@ -361,25 +467,13 @@ export function renderExplorerItemCell(
           })}
         </MiniAppTableCell>
       );
-    case "modified": {
-      const modifiedValue = (
-        ctx.compact ? formatMiniAppDate : formatMiniAppDateTime
-      )(row.updatedAt, { emptyFallback: EXPLORER_LABELS.unknownDate });
+    case "modified":
       return (
         <MiniAppTableCell key="modified" title={row.updatedAt ?? undefined}>
-          {/* Date-only on phone so the value fits the narrow column. Wrap it in
-              MiniAppTableText (single-line, ellipsis) so even a locale whose
-              medium date is wider than the column clips instead of wrapping —
-              keeping the row at its fixed height and the virtual pitch intact.
-              The full timestamp stays available via the cell's title attribute
-              and the item's Get Info panel. */}
-          {ctx.compact ? (
-            <MiniAppTableText>{modifiedValue}</MiniAppTableText>
-          ) : (
-            modifiedValue
-          )}
+          {formatMiniAppDateTime(row.updatedAt, {
+            emptyFallback: EXPLORER_LABELS.unknownDate,
+          })}
         </MiniAppTableCell>
       );
-    }
   }
 }

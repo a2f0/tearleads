@@ -11,6 +11,9 @@ import {
   getVisibleMiniAppTableColumnIds,
   MiniAppColumnMenuButton,
   type MiniAppColumnMenuOption,
+  MiniAppCompactTableCell,
+  type MiniAppCompactTableField,
+  MiniAppCompactTableHeader,
   MiniAppRowActionsCell,
   MiniAppTable,
   MiniAppTableCell,
@@ -20,6 +23,7 @@ import {
   MiniAppTableText,
   miniAppRowActionsColumn,
   useMiniAppColumnVisibility,
+  useMiniAppCompactTableLayout,
 } from "../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
@@ -30,12 +34,6 @@ import { useRoutedLayoutActive } from "../../../navigation/useRoutedLayoutActive
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { isKeyboardActivationKey } from "../display";
 import { getOrgManagerMemberCountLabel, ORG_MANAGER_LABELS } from "../labels";
-import {
-  OrgManagerCompactTableCell,
-  type OrgManagerCompactTableField,
-  OrgManagerCompactTableHeader,
-  useOrgManagerListTableLayout,
-} from "../organization/OrgManagerCompactTable";
 
 type GroupTableColumnId = "group" | "members" | "status" | "created";
 
@@ -133,7 +131,7 @@ function renderGroupCell(
 function getGroupCompactField(
   columnId: GroupTableColumnId,
   group: OrganizationGroupSummary,
-): OrgManagerCompactTableField {
+): MiniAppCompactTableField {
   switch (columnId) {
     case "group":
       return {
@@ -204,7 +202,7 @@ function useGroupTableColumns(
     if (compact) {
       const compactColumn = {
         header: (
-          <OrgManagerCompactTableHeader
+          <MiniAppCompactTableHeader
             primary={visibleColumnIds.slice(0, 1).map((id) => ({
               id,
               text: GROUP_COLUMN_LABELS[id],
@@ -265,7 +263,7 @@ function GroupTable({
   selectedGroupId: string | null;
   setSelectedGroupId: (groupId: string) => void;
 }) {
-  const { compact, rowHeight } = useOrgManagerListTableLayout();
+  const { compact, rowHeight } = useMiniAppCompactTableLayout();
   const virtualGroups = useMiniAppVirtualRows({
     rowHeight,
     rows: groups,
@@ -288,7 +286,7 @@ function GroupTable({
   return (
     <MiniAppTableFrame
       className={`mini-app-table-frame--virtual mini-app-table-frame--compact org-manager-virtual-table${
-        compact ? " org-manager-virtual-table--two-line" : ""
+        compact ? " mini-app-table-frame--two-line" : ""
       }`}
       onContextMenu={(event) => {
         if (event.defaultPrevented) {
@@ -334,7 +332,7 @@ function GroupTable({
               tabIndex={0}
             >
               {compact ? (
-                <OrgManagerCompactTableCell
+                <MiniAppCompactTableCell
                   primary={compactFields.slice(0, 1)}
                   secondary={compactFields.slice(1)}
                 />

@@ -30,6 +30,8 @@ afterEach(() => {
     return;
   }
 
+  document.documentElement.removeAttribute("data-navigation-mode");
+
   if (originalMatchMediaDescriptor) {
     Object.defineProperty(window, "matchMedia", originalMatchMediaDescriptor);
     return;
@@ -195,6 +197,9 @@ test("container item table opens an item once when its name button is clicked", 
 });
 
 test("container item table does not open the item from the actions kebab", () => {
+  // The kebab is a touch-layout affordance, so the routed mode has to be
+  // stamped alongside the phone tier for it to render at all.
+  document.documentElement.setAttribute("data-navigation-mode", "routed");
   mockRoutedLayoutTier("mobile");
   const selectedIds: Array<string | null> = [];
   const view = renderContainerItemTable({

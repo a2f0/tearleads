@@ -21,9 +21,9 @@ import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerContainerItemTable } from "./ExplorerContainerItemTable";
 import {
-  EXPLORER_VIRTUAL_ROW_HEIGHT,
   getNextExplorerItemSort,
   useExplorerContainerItemWindow,
+  useExplorerItemTableLayout,
 } from "./explorerContainerItemWindow";
 import { useExplorerColumnVisibility } from "./useExplorerColumnVisibility";
 import "./ExplorerContainerDetail.css";
@@ -96,9 +96,13 @@ function useExplorerContainerItems(
     key: "name",
   });
   const resetKey = `${params.selectedNode.id}:${sort.key}:${sort.direction}`;
+  // The item table derives the same pitch from the same hook; a tier flip
+  // refetches the window rather than resetting the scroll position, so the
+  // settled rows stay on screen while the new window loads.
+  const { rowHeight } = useExplorerItemTableLayout();
   const { frameRef, limit, offset } = useMiniAppVirtualWindow({
     resetKey,
-    rowHeight: EXPLORER_VIRTUAL_ROW_HEIGHT,
+    rowHeight,
   });
   const itemWindow = useExplorerContainerItemWindow({
     ...params,

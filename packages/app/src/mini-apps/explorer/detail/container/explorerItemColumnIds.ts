@@ -1,6 +1,7 @@
 export type ExplorerItemColumnId =
   | "actions"
   | "name"
+  | "summary"
   | "type"
   | "created"
   | "modified"
@@ -17,15 +18,21 @@ const WIDE_COLUMN_ORDER: ReadonlyArray<ExplorerItemColumnId> = [
   "sync",
 ];
 
-// Phone-tier explorer keeps a trimmed, fixed set so the file name leads and the
-// row fits on one line without a horizontal scroll. Type is dropped here — the
-// per-row icon already conveys folder-vs-document kind — which frees the width
-// the name needs to stop truncating. Column-visibility preferences do not apply.
+// Phone-tier explorer folds the data columns into a single two-line summary
+// column so the name gets the full width instead of competing with a date: line
+// one is the name (with its leading glyph and row button), line two is the muted
+// Type + Modified pair. The kebab stays its own trailing column.
+// Column-visibility preferences do not apply: the columns menu is off on the
+// phone tier, so a desktop choice to hide Type or Modified would leave a blank
+// second line with no on-device way to bring it back.
 const COMPACT_COLUMN_ORDER: ReadonlyArray<ExplorerItemColumnId> = [
-  "name",
-  "modified",
+  "summary",
   "actions",
 ];
+
+// The data columns folded into the compact summary's second line, in order.
+export const COMPACT_SUMMARY_SECONDARY_COLUMN_IDS: ReadonlyArray<ExplorerItemColumnId> =
+  ["type", "modified"];
 
 // Columns the user can show/hide. Name is structural and always visible.
 export const TOGGLEABLE_COLUMN_IDS: ReadonlyArray<ExplorerItemColumnId> = [

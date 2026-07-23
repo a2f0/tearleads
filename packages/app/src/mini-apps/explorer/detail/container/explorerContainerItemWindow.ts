@@ -6,11 +6,33 @@ import type {
   ContainerNode,
 } from "@tearleads/client-sdk";
 import { useEffect, useMemo, useState } from "react";
-import { MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT } from "../../../../components/mini-app/virtual/MiniAppVirtual";
+import { useMiniAppCompactTableLayout } from "../../../../components/mini-app/MiniAppTable";
+import { useTouchRowHeight } from "../../../../navigation/useTouchRowHeight";
 import { SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES } from "../../../../stores/systemContainers";
 
-export const EXPLORER_VIRTUAL_ROW_HEIGHT =
-  MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT;
+/**
+ * The one row pitch for the explorer item list, and whether the row folds into
+ * a two-line summary.
+ *
+ * Three places have to agree on the pitch — the virtual window math (which
+ * derives the fetched limit/offset in ExplorerContainerDetail), the spacer
+ * padding, and the frame's `--mini-app-virtual-row-height` — or the requested
+ * and served offsets diverge and the detail pane blanks the table (see
+ * `isShowingRequestedWindow`).
+ *
+ * `useTouchRowHeight` mirrors the bump `useMiniAppVirtualWindow` already
+ * applies internally, so the rendered pitch and the window math also agree on
+ * routed tablets (44px), not just on phones (56px) and desktop (36px). It is
+ * `Math.max`-based, so it is a no-op at the two-line pitch.
+ */
+export function useExplorerItemTableLayout(): {
+  compact: boolean;
+  rowHeight: number;
+} {
+  const { compact, rowHeight } = useMiniAppCompactTableLayout();
+  const touchRowHeight = useTouchRowHeight(rowHeight);
+  return { compact, rowHeight: touchRowHeight };
+}
 
 const EXPLORER_SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES = Array.from(
   SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES,

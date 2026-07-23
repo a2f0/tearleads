@@ -10,6 +10,7 @@ import {
   MiniAppColumnMenuButton,
   type MiniAppColumnMenuOption,
   MiniAppTable,
+  type MiniAppTableColumn,
   MiniAppTableEmptyRow,
   MiniAppTableFrame,
   MiniAppTableRow,
@@ -21,10 +22,9 @@ import {
 import { classNames } from "../../../../components/shared/classNames";
 import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
 import { useRoutedLayoutActive } from "../../../../navigation/useRoutedLayoutActive";
-import { useRoutedLayoutTier } from "../../../../navigation/useRoutedLayoutTier";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../../labels";
-import { EXPLORER_VIRTUAL_ROW_HEIGHT } from "./explorerContainerItemWindow";
+import { useExplorerItemTableLayout } from "./explorerContainerItemWindow";
 import {
   type ExplorerItemColumnId,
   getVisibleExplorerItemColumnIds,
@@ -48,6 +48,7 @@ function getExplorerItemColumnLabel(id: ExplorerItemColumnId): string {
     case "actions":
       return EXPLORER_LABELS.itemActionsColumn;
     case "name":
+    case "summary":
       return EXPLORER_LABELS.itemNameColumn;
     case "type":
       return EXPLORER_LABELS.itemTypeColumn;
@@ -93,7 +94,6 @@ function isExplorerContainerItemContextTarget(
 
 function ExplorerContainerItemTableRow(params: {
   columnIds: ReadonlyArray<ExplorerItemColumnId>;
-  compact: boolean;
   contactAvatarUrlByLocalId: AvatarUrlByContactId;
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
@@ -110,7 +110,6 @@ function ExplorerContainerItemTableRow(params: {
 }) {
   const {
     columnIds,
-    compact,
     contactAvatarUrlByLocalId,
     currentSigningFingerprint,
     currentSelfContactLocalId,
@@ -123,7 +122,6 @@ function ExplorerContainerItemTableRow(params: {
     setSelectedId,
   } = params;
   const cellContext: ExplorerItemCellContext = {
-    compact,
     contactAvatarUrlByLocalId,
     currentSigningFingerprint,
     currentSelfContactLocalId,
@@ -163,7 +161,7 @@ function isExplorerItemTableBlankContextTarget(
 
 function ExplorerContainerItemTableBody(params: {
   columnIds: ReadonlyArray<ExplorerItemColumnId>;
-  compact: boolean;
+  columns: ReadonlyArray<MiniAppTableColumn>;
   contactAvatarUrlByLocalId: AvatarUrlByContactId;
   contextTarget: ExplorerContextMenuTarget | null;
   currentSigningFingerprint: string | null | undefined;
@@ -177,6 +175,7 @@ function ExplorerContainerItemTableBody(params: {
     row: ContainerItemRow,
   ) => void;
   rows: ReadonlyArray<ContainerItemRow>;
+  rowHeight: number;
   rowOffset: number;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
@@ -184,7 +183,7 @@ function ExplorerContainerItemTableBody(params: {
 }) {
   const {
     columnIds,
-    compact,
+    columns,
     contactAvatarUrlByLocalId,
     contextTarget,
     currentSigningFingerprint,
@@ -195,21 +194,21 @@ function ExplorerContainerItemTableBody(params: {
     online,
     onItemContextMenu,
     rows,
+    rowHeight,
     rowOffset,
     selectDocumentProjection,
     setSelectedId,
     totalCount,
   } = params;
-  const topPadding = rowOffset * EXPLORER_VIRTUAL_ROW_HEIGHT;
+  const topPadding = rowOffset * rowHeight;
   const bottomPadding =
-    Math.max(0, totalCount - rowOffset - rows.length) *
-    EXPLORER_VIRTUAL_ROW_HEIGHT;
+    Math.max(0, totalCount - rowOffset - rows.length) * rowHeight;
 
   return (
     <>
       {topPadding > 0 ? (
         <MiniAppVirtualTableSpacerRow
-          colSpan={columnIds.length}
+          colSpan={columns.length}
           height={topPadding}
         />
       ) : null}
@@ -218,7 +217,6 @@ function ExplorerContainerItemTableBody(params: {
           <ExplorerContainerItemTableRow
             key={getExplorerContainerItemRowKey(row)}
             columnIds={columnIds}
-            compact={compact}
             contactAvatarUrlByLocalId={contactAvatarUrlByLocalId}
             currentSigningFingerprint={currentSigningFingerprint}
             currentSelfContactLocalId={currentSelfContactLocalId}
@@ -232,21 +230,21 @@ function ExplorerContainerItemTableBody(params: {
           />
         ))
       ) : isLoading ? (
-        <MiniAppTableEmptyRow colSpan={columnIds.length}>
+        <MiniAppTableEmptyRow colSpan={columns.length}>
           Loading...
         </MiniAppTableEmptyRow>
       ) : error ? (
-        <MiniAppTableEmptyRow colSpan={columnIds.length}>
+        <MiniAppTableEmptyRow colSpan={columns.length}>
           {error}
         </MiniAppTableEmptyRow>
       ) : totalCount === 0 ? (
-        <MiniAppTableEmptyRow colSpan={columnIds.length}>
+        <MiniAppTableEmptyRow colSpan={columns.length}>
           {EXPLORER_LABELS.itemTableEmpty}
         </MiniAppTableEmptyRow>
       ) : null}
       {bottomPadding > 0 ? (
         <MiniAppVirtualTableSpacerRow
-          colSpan={columnIds.length}
+          colSpan={columns.length}
           height={bottomPadding}
         />
       ) : null}
@@ -296,9 +294,10 @@ function useExplorerContainerItemTableColumns({
   sort,
   toggleColumn,
 }: Pick<ItemTableProps, "hiddenColumns" | "onSort" | "sort" | "toggleColumn">) {
-  // The phone tier trims the columns; the touch (routed) layout — phone AND
-  // tablet/iPad — adds the trailing kebab, the stand-in for right-click.
-  const compact = useRoutedLayoutTier() === "mobile";
+  // The phone tier folds the data columns into one two-line summary column; the
+  // touch (routed) layout — phone AND tablet/iPad — adds the trailing kebab,
+  // the stand-in for right-click.
+  const { compact, rowHeight } = useExplorerItemTableLayout();
   const showActions = useRoutedLayoutActive();
   const columnIds = useMemo(
     () =>
@@ -321,7 +320,6 @@ function useExplorerContainerItemTableColumns({
     const dataColumnIds = columnIds.filter((id) => id !== "actions");
     const dataColumns = getExplorerItemTableColumns({
       columnIds: dataColumnIds,
-      compact,
       onSort,
       sort,
     });
@@ -337,14 +335,32 @@ function useExplorerContainerItemTableColumns({
       ...getExplorerItemTableColumns({
         columnIds: ["actions"],
         columnMenu,
-        compact,
         onSort,
         sort,
       }),
     ];
   }, [compact, columnIds, hiddenColumns, onSort, sort, toggleColumn]);
 
-  return { columnIds, columns, compact };
+  return { columnIds, columns, compact, rowHeight };
+}
+
+function getExplorerItemTableFrameClassName(params: {
+  compact: boolean;
+  dragActive: boolean;
+}): string | undefined {
+  return classNames(
+    "explorer-item-table-wrap",
+    "mini-app-table-frame--virtual",
+    "mini-app-table-frame--compact",
+    "mini-app-table-frame--bleed",
+    // The item list fills its route, so it also bleeds its bottom edge to sit
+    // flush against the mobile task bar.
+    "mini-app-table-frame--bleed-block-end",
+    // Phone rows fold onto two lines and take the taller pitch; the shared
+    // modifier restores it over the routed 44px floor.
+    params.compact && "mini-app-table-frame--two-line",
+    params.dragActive && "explorer-item-table-wrap--drop-active",
+  );
 }
 
 export function ExplorerContainerItemTable(params: ItemTableProps) {
@@ -377,26 +393,18 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
     toggleColumn,
     totalCount,
   } = params;
-  const { columnIds, columns, compact } = useExplorerContainerItemTableColumns({
-    hiddenColumns,
-    onSort,
-    sort,
-    toggleColumn,
-  });
+  const { columnIds, columns, compact, rowHeight } =
+    useExplorerContainerItemTableColumns({
+      hiddenColumns,
+      onSort,
+      sort,
+      toggleColumn,
+    });
 
   return (
     <MiniAppTableFrame
       aria-busy={isImporting}
-      className={classNames(
-        "explorer-item-table-wrap",
-        "mini-app-table-frame--virtual",
-        "mini-app-table-frame--compact",
-        "mini-app-table-frame--bleed",
-        // The item list fills its route, so it also bleeds its bottom edge to
-        // sit flush against the mobile task bar.
-        "mini-app-table-frame--bleed-block-end",
-        dragActive && "explorer-item-table-wrap--drop-active",
-      )}
+      className={getExplorerItemTableFrameClassName({ compact, dragActive })}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
@@ -407,7 +415,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
       }}
       onDrop={handleDrop}
       ref={frameRef}
-      style={getMiniAppVirtualFrameStyle(EXPLORER_VIRTUAL_ROW_HEIGHT)}
+      style={getMiniAppVirtualFrameStyle(rowHeight)}
     >
       <MiniAppTable
         aria-label={getExplorerItemTableLabel(selectedNode.name)}
@@ -415,7 +423,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
       >
         <ExplorerContainerItemTableBody
           columnIds={columnIds}
-          compact={compact}
+          columns={columns}
           contactAvatarUrlByLocalId={contactAvatarUrlByLocalId}
           contextTarget={contextTarget}
           currentSigningFingerprint={currentSigningFingerprint}
@@ -426,6 +434,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
           online={online}
           onItemContextMenu={onItemContextMenu}
           rows={rows}
+          rowHeight={rowHeight}
           rowOffset={rowOffset}
           selectDocumentProjection={selectDocumentProjection}
           setSelectedId={setSelectedId}

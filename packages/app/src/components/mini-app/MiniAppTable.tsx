@@ -9,6 +9,12 @@ export {
   saveMiniAppHiddenColumns,
   useMiniAppColumnVisibility,
 } from "./tables/MiniAppColumnVisibility";
+export {
+  MiniAppCompactTableCell,
+  type MiniAppCompactTableField,
+  MiniAppCompactTableHeader,
+  useMiniAppCompactTableLayout,
+} from "./tables/MiniAppCompactTable";
 export { MiniAppRowActionsButton } from "./tables/MiniAppRowActionsButton";
 export {
   addMiniAppTableHeaderAction,

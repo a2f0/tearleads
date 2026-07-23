@@ -14,6 +14,9 @@ import {
   getVisibleMiniAppTableColumnIds,
   MiniAppColumnMenuButton,
   type MiniAppColumnMenuOption,
+  MiniAppCompactTableCell,
+  type MiniAppCompactTableField,
+  MiniAppCompactTableHeader,
   MiniAppRowActionsCell,
   MiniAppTable,
   MiniAppTableCell,
@@ -23,6 +26,7 @@ import {
   MiniAppTableText,
   miniAppRowActionsColumn,
   useMiniAppColumnVisibility,
+  useMiniAppCompactTableLayout,
 } from "../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
@@ -39,12 +43,6 @@ import {
   isKeyboardActivationKey,
 } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
-import {
-  OrgManagerCompactTableCell,
-  type OrgManagerCompactTableField,
-  OrgManagerCompactTableHeader,
-  useOrgManagerListTableLayout,
-} from "../organization/OrgManagerCompactTable";
 import type { OrgManagerGrantRouteRef } from "../routes";
 
 type GrantTableColumnId =
@@ -195,7 +193,7 @@ function renderGrantCell(
 function getGrantCompactField(
   columnId: GrantDataColumnId,
   grant: OrganizationContainerGrant,
-): OrgManagerCompactTableField {
+): MiniAppCompactTableField {
   switch (columnId) {
     case "principal":
       return {
@@ -262,7 +260,7 @@ function useGrantTableColumns(
     if (compact) {
       const compactColumn = {
         header: (
-          <OrgManagerCompactTableHeader
+          <MiniAppCompactTableHeader
             primary={GRANT_COMPACT_PRIMARY_COLUMN_IDS.filter((id) =>
               visibleColumnIds.includes(id),
             ).map((id) => ({ id, text: GRANT_COLUMN_LABELS[id] }))}
@@ -382,7 +380,7 @@ function GrantTableRow({
       tabIndex={0}
     >
       {compact ? (
-        <OrgManagerCompactTableCell
+        <MiniAppCompactTableCell
           primary={GRANT_COMPACT_PRIMARY_COLUMN_IDS.filter((id) =>
             visibleColumnIds.includes(id),
           ).map((id) => getGrantCompactField(id, grant))}
@@ -429,7 +427,7 @@ export function GrantTable({
   openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
-  const { compact, rowHeight } = useOrgManagerListTableLayout();
+  const { compact, rowHeight } = useMiniAppCompactTableLayout();
   const virtualGrants = useMiniAppVirtualRows({
     rowHeight,
     rows: grants,
@@ -451,7 +449,7 @@ export function GrantTable({
   return (
     <MiniAppTableFrame
       className={`mini-app-table-frame--virtual mini-app-table-frame--compact org-manager-virtual-table${
-        compact ? " org-manager-virtual-table--two-line" : ""
+        compact ? " mini-app-table-frame--two-line" : ""
       }`}
       ref={virtualGrants.frameRef}
       style={getMiniAppVirtualFrameStyle(rowHeight)}

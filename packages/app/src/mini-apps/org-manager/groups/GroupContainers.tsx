@@ -6,6 +6,9 @@ import {
   getVisibleMiniAppTableColumnIds,
   MiniAppColumnMenuButton,
   type MiniAppColumnMenuOption,
+  MiniAppCompactTableCell,
+  type MiniAppCompactTableField,
+  MiniAppCompactTableHeader,
   MiniAppTable,
   MiniAppTableCell,
   type MiniAppTableColumn,
@@ -13,6 +16,7 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
   useMiniAppColumnVisibility,
+  useMiniAppCompactTableLayout,
 } from "../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
@@ -26,12 +30,6 @@ import {
   getContainerDisplayTitle,
 } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
-import {
-  OrgManagerCompactTableCell,
-  type OrgManagerCompactTableField,
-  OrgManagerCompactTableHeader,
-  useOrgManagerListTableLayout,
-} from "../organization/OrgManagerCompactTable";
 
 type GroupContainerTableColumnId = "container" | "access" | "updated";
 
@@ -109,7 +107,7 @@ function renderGroupContainerCell(
 function getGroupContainerCompactField(
   columnId: GroupContainerTableColumnId,
   container: OrganizationGroupContainer,
-): OrgManagerCompactTableField {
+): MiniAppCompactTableField {
   switch (columnId) {
     case "container":
       return {
@@ -177,7 +175,7 @@ function useGroupContainerTableColumns(compact: boolean): {
       [
         {
           header: (
-            <OrgManagerCompactTableHeader
+            <MiniAppCompactTableHeader
               primary={visibleColumnIds.slice(0, 1).map((id) => ({
                 id,
                 text: GROUP_CONTAINER_COLUMN_LABELS[id],
@@ -208,7 +206,7 @@ export function GroupContainers({
 }: {
   containers: ReadonlyArray<OrganizationGroupContainer>;
 }) {
-  const { compact, rowHeight } = useOrgManagerListTableLayout();
+  const { compact, rowHeight } = useMiniAppCompactTableLayout();
   const virtualContainers = useMiniAppVirtualRows({
     rowHeight,
     rows: containers,
@@ -226,7 +224,7 @@ export function GroupContainers({
   return (
     <MiniAppTableFrame
       className={`mini-app-table-frame--virtual mini-app-table-frame--compact org-manager-virtual-table${
-        compact ? " org-manager-virtual-table--two-line" : ""
+        compact ? " mini-app-table-frame--two-line" : ""
       }`}
       ref={virtualContainers.frameRef}
       style={getMiniAppVirtualFrameStyle(rowHeight)}
@@ -242,7 +240,7 @@ export function GroupContainers({
         {virtualContainers.rows.map((container) => (
           <MiniAppTableRow key={container.containerId}>
             {compact ? (
-              <OrgManagerCompactTableCell
+              <MiniAppCompactTableCell
                 primary={visibleColumnIds
                   .slice(0, 1)
                   .map((columnId) =>
