@@ -87,6 +87,8 @@ export interface DocumentStoreState {
   initializePromise: Promise<void> | null;
   initialized: boolean;
   lastEventCount: number;
+  /** Invalidates queued local-write closures when this store is cleared. */
+  localWriteGeneration: number;
   locallyAcceptedUpdateIds: Set<string>;
   localId: string;
   listeners: Set<() => void>;
@@ -102,15 +104,10 @@ export interface DocumentStoreState {
    */
   pendingBaseVersion: string | null;
   /**
-   * Count of local text/structured writes that have been queued onto
-   * `writeChain` but have not yet drained. Incremented synchronously when a write
-   * is enqueued and decremented when it settles. While this is > 0 the user is
-   * actively editing, so a concurrent sync pass MUST NOT republish doc- or
-   * server-derived text/structured fields over the live optimistic snapshot: the
-   * doc can momentarily lag the latest keystroke, and re-deriving from it would
-   * regress the controlled editor value and jump the caret. Remote merges are
-   * still imported into the doc; they only surface in the snapshot once typing is
-   * quiescent (counter back to 0) on a trailing coalesced pass.
+   * Local text/structured writes queued on `writeChain` but not yet drained.
+   * While positive, sync MUST preserve the optimistic text/fields because `doc`
+   * can lag the latest keystroke. Remote merges remain in `doc` and publish when
+   * the final write settles.
    */
   pendingLocalWrites: number;
   persistence: DocumentsPersistence;
@@ -224,6 +221,7 @@ export function createDocumentStoreState(
     initializePromise: null,
     initialized: false,
     lastEventCount: 0,
+    localWriteGeneration: 0,
     locallyAcceptedUpdateIds: new Set(),
     localId,
     listeners: new Set(),
@@ -297,6 +295,7 @@ function clearDocumentStoreState(
   { initialized }: { initialized: boolean },
 ) {
   state.doc = null;
+  state.localWriteGeneration += 1;
   state.record = null;
   state.pendingAttachments = [];
   state.pendingBaseVersion = null;

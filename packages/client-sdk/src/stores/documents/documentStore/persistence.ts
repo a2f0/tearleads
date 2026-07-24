@@ -33,7 +33,7 @@ import {
 } from "./state";
 import {
   type DocumentStoreSyncGeneration,
-  isDocumentStoreSyncGenerationCurrent,
+  isDocumentStoreSyncGenerationCurrent as isSyncGenerationCurrent,
 } from "./syncGeneration";
 
 function documentSummaryFromRecord(
@@ -112,7 +112,7 @@ export async function saveDocumentRecord(
         // immediately claims the executor mutation queue. A reset before that
         // point aborts; a reset afterward cannot let replacement writes overtake.
         canStartDurableMutation: () =>
-          isDocumentStoreSyncGenerationCurrent(state, expectedGeneration),
+          isSyncGenerationCurrent(state, expectedGeneration),
       })
     : await persistDocumentState(persistenceInput);
   if (!persistedDocumentState) {
@@ -121,7 +121,7 @@ export async function saveDocumentRecord(
   const { record: nextRecord, updatedAt } = persistedDocumentState;
   if (
     expectedGeneration &&
-    !isDocumentStoreSyncGenerationCurrent(state, expectedGeneration)
+    !isSyncGenerationCurrent(state, expectedGeneration)
   ) {
     return null;
   }
@@ -178,6 +178,8 @@ export async function persistDocument(
       )
     : await saveDocumentRecord(state, currentDoc, patch, options);
   if (!persistedRecord) return null;
+  if (expectedGeneration && !isSyncGenerationCurrent(state, expectedGeneration))
+    return null;
 
   setReadySnapshot(
     state,
@@ -327,7 +329,7 @@ async function saveLocalAttachmentRecords(
   });
   if (
     expectedGeneration &&
-    !isDocumentStoreSyncGenerationCurrent(state, expectedGeneration)
+    !isSyncGenerationCurrent(state, expectedGeneration)
   ) {
     return;
   }
@@ -366,8 +368,7 @@ export async function hydrateAttachmentBlobs(
   expectedGeneration?: DocumentStoreSyncGeneration,
 ) {
   const generationIsCurrent = () =>
-    !expectedGeneration ||
-    isDocumentStoreSyncGenerationCurrent(state, expectedGeneration);
+    !expectedGeneration || isSyncGenerationCurrent(state, expectedGeneration);
   if (!generationIsCurrent()) return;
 
   const runtime = state.runtime;
