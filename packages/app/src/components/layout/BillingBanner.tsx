@@ -1,6 +1,5 @@
 import type { OrganizationBillingView } from "@tearleads/client-sdk";
-import { useCallback } from "react";
-import { useMiniAppBusActions } from "../../mini-apps/bus";
+import { buildMiniAppPath } from "../../navigation/AppRoutePaths";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import {
   BILLING_LABELS,
@@ -8,6 +7,12 @@ import {
   getBillingTrialBannerLabel,
 } from "../../providers/billing/billingLabels";
 import "./BillingBanner.css";
+
+// Deep link into the Org Manager's Billing view, where a trial converts to a
+// paid subscription. buildMiniAppPath is a pure helper, so this app-shell banner
+// — mounted above the panes, outside the pane-scoped navigation/bus providers —
+// links there with a plain anchor instead of a provider-backed navigate hook.
+const BILLING_ENROLL_HREF = buildMiniAppPath("org-manager", ["billing"]);
 
 function needsAttentionMessage(
   status: OrganizationBillingView["status"],
@@ -31,10 +36,8 @@ function needsAttentionMessage(
  */
 export function BillingBannerView({
   view,
-  onEnroll,
 }: {
   view: OrganizationBillingView | null;
-  onEnroll: () => void;
 }) {
   if (!view) {
     return null;
@@ -53,13 +56,9 @@ export function BillingBannerView({
     return (
       <div className="billing-banner billing-banner--info" role="status">
         {getBillingTrialBannerLabel(view.trialDaysRemaining)}{" "}
-        <button
-          className="billing-banner-enroll"
-          onClick={onEnroll}
-          type="button"
-        >
+        <a className="billing-banner-enroll" href={BILLING_ENROLL_HREF}>
           {BILLING_TRIAL_ENROLL_LABEL}
-        </button>
+        </a>
       </div>
     );
   }
@@ -69,9 +68,5 @@ export function BillingBannerView({
 /** Connects {@link BillingBannerView} to the shared billing snapshot. */
 export function BillingBanner() {
   const { view } = useOrganizationBilling();
-  const { openMiniApp } = useMiniAppBusActions();
-  const openBilling = useCallback(() => {
-    openMiniApp({ appId: "org-manager", pathSegments: ["billing"] });
-  }, [openMiniApp]);
-  return <BillingBannerView onEnroll={openBilling} view={view} />;
+  return <BillingBannerView view={view} />;
 }
