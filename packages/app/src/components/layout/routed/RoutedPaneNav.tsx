@@ -1,6 +1,10 @@
 import type { Icon } from "@phosphor-icons/react";
 import { SidebarSimpleIcon } from "@phosphor-icons/react/dist/csr/SidebarSimple";
-import { type MouseEvent as ReactMouseEvent, useCallback } from "react";
+import {
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  useCallback,
+} from "react";
 import {
   MINI_APPS,
   ROUTED_MINI_APP_NAV_ITEMS,
@@ -11,6 +15,7 @@ import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import { classNames } from "../../shared/classNames";
 import { PaneSystemMenuItems } from "../../shared/PaneSystemMenuItems";
 import type { WindowMenuItem } from "../../window/WindowMenuBar";
+import { useMobileSheetDrag } from "./useMobileSheetDrag";
 import "./RoutedPaneNav.css";
 
 export const ROUTED_PANE_NAV_PANEL_ID = "routed-pane-nav-panel";
@@ -221,6 +226,29 @@ function RoutedPaneMobileNav({
   );
 }
 
+function RoutedPaneMobileSheetHandle({
+  dragging,
+  onClick,
+  onPointerDown,
+}: {
+  dragging: boolean;
+  onClick: (event: ReactMouseEvent<HTMLButtonElement>) => void;
+  onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+}) {
+  return (
+    <button
+      aria-label="Dismiss menu"
+      className="routed-pane-sheet-handle"
+      data-dragging={dragging ? "true" : "false"}
+      type="button"
+      onClick={onClick}
+      onPointerDown={onPointerDown}
+    >
+      <span aria-hidden="true" />
+    </button>
+  );
+}
+
 /**
  * The navigation surface in its tier-appropriate container: a persistent
  * `<aside>` rail on tablet, or a bottom sheet of launcher tiles (plus dismiss
@@ -251,6 +279,11 @@ export function RoutedPaneNav({
   showDeveloperControls: boolean;
   tier: RoutedLayoutTier;
 }) {
+  const mobileSheetDrag = useMobileSheetDrag({
+    drawerOpen: tier === "mobile" && drawerOpen,
+    onClose: onCloseDrawer,
+  });
+
   if (tier === "tablet") {
     return (
       <aside
@@ -290,9 +323,20 @@ export function RoutedPaneNav({
       <aside
         aria-hidden={!drawerOpen}
         className="routed-pane-sheet"
+        data-dragging={mobileSheetDrag.dragging ? "true" : "false"}
         data-open={drawerOpen ? "true" : "false"}
         id="routed-pane-sheet"
+        style={
+          drawerOpen && mobileSheetDrag.dragOffset > 0
+            ? { transform: `translateY(${mobileSheetDrag.dragOffset}px)` }
+            : undefined
+        }
       >
+        <RoutedPaneMobileSheetHandle
+          dragging={mobileSheetDrag.dragging}
+          onClick={mobileSheetDrag.handleClick}
+          onPointerDown={mobileSheetDrag.handlePointerDown}
+        />
         <RoutedPaneMobileNav
           activeAppId={activeAppId}
           onNavigate={onCloseDrawer}

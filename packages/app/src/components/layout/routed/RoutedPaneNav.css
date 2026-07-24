@@ -195,6 +195,46 @@
     visibility 0s;
 }
 
+.routed-pane-sheet-handle {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: var(--control-height);
+  padding: var(--space-xs) 0;
+  border: 0;
+  background: var(--color-muted);
+  color: inherit;
+  cursor: grab;
+  touch-action: none;
+}
+
+.routed-pane-sheet-handle:active,
+.routed-pane-sheet-handle[data-dragging="true"] {
+  cursor: grabbing;
+}
+
+.routed-pane-sheet-handle span {
+  display: block;
+  width: 2.5rem;
+  height: 0.25rem;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: var(--opacity-muted);
+}
+
+.routed-pane-sheet-handle:hover span,
+.routed-pane-sheet-handle:focus-visible span {
+  opacity: 1;
+}
+
+.routed-pane-sheet[data-dragging="true"] {
+  transition: none;
+}
+
 /*
  * Launcher tiles — square icon-and-label cells (mirrors Explorer's New Document
  * grid) so the sheet reads as an app launcher rather than a menu list.

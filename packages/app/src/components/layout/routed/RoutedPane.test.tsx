@@ -148,6 +148,143 @@ test("mobile routed shell opens the nav sheet from the bottom menu bar", () => {
   }
 });
 
+test("mobile nav sheet handle tap dismisses the menu", () => {
+  const restoreMatchMedia = forceMobileRoutedTier();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
+
+  try {
+    view = renderRoutedPane();
+    fireEvent.click(view.getByRole("button", { name: "Menu" }));
+    const handle = view.container.querySelector(
+      ".routed-pane-sheet-handle",
+    ) as HTMLButtonElement;
+
+    fireEvent.pointerDown(handle, { button: 0, clientY: 600, pointerId: 1 });
+    fireEvent.pointerMove(document, { clientY: 602, pointerId: 1 });
+    fireEvent.pointerUp(document, { clientY: 602, pointerId: 1 });
+    fireEvent.click(handle);
+
+    expect(
+      view.container
+        .querySelector(".routed-pane-sheet")
+        ?.getAttribute("data-open"),
+    ).toBe("false");
+  } finally {
+    view?.unmount();
+    restoreMatchMedia();
+  }
+});
+
+test("mobile nav sheet handle snaps back after a short drag", () => {
+  const restoreMatchMedia = forceMobileRoutedTier();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
+
+  try {
+    view = renderRoutedPane();
+    fireEvent.click(view.getByRole("button", { name: "Menu" }));
+    const handle = view.container.querySelector(
+      ".routed-pane-sheet-handle",
+    ) as HTMLButtonElement;
+    const sheet = view.container.querySelector(".routed-pane-sheet");
+
+    fireEvent.pointerDown(handle, { button: 0, clientY: 600, pointerId: 1 });
+    fireEvent.pointerMove(document, { clientY: 650, pointerId: 1 });
+    expect((sheet as HTMLElement).style.transform).toBe("translateY(50px)");
+    fireEvent.pointerUp(document, { clientY: 650, pointerId: 1 });
+    fireEvent.click(handle);
+
+    expect(sheet?.getAttribute("data-open")).toBe("true");
+    expect((sheet as HTMLElement).style.transform).toBe("");
+  } finally {
+    view?.unmount();
+    restoreMatchMedia();
+  }
+});
+
+test("mobile nav sheet dismisses when its handle is dragged down", () => {
+  const restoreMatchMedia = forceMobileRoutedTier();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
+
+  try {
+    view = renderRoutedPane();
+    const menuButton = view.getByRole("button", { name: "Menu" });
+    const sheet = view.container.querySelector(".routed-pane-sheet");
+
+    fireEvent.click(menuButton);
+    const handle = view.container.querySelector(
+      ".routed-pane-sheet-handle",
+    ) as HTMLButtonElement;
+    fireEvent.pointerDown(handle, {
+      button: 0,
+      clientY: 600,
+      pointerId: 1,
+    });
+    fireEvent.pointerMove(document, {
+      clientY: 700,
+      pointerId: 1,
+    });
+    fireEvent.pointerUp(document, {
+      clientY: 700,
+      pointerId: 1,
+    });
+    expect(sheet?.getAttribute("data-open")).toBe("false");
+    fireEvent.click(menuButton);
+
+    expect(sheet?.getAttribute("data-open")).toBe("true");
+  } finally {
+    view?.unmount();
+    restoreMatchMedia();
+  }
+});
+
+test("mobile nav sheet pointer cancellation does not suppress the next tap", () => {
+  const restoreMatchMedia = forceMobileRoutedTier();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
+
+  try {
+    view = renderRoutedPane();
+    fireEvent.click(view.getByRole("button", { name: "Menu" }));
+    const handle = view.container.querySelector(
+      ".routed-pane-sheet-handle",
+    ) as HTMLButtonElement;
+    const sheet = view.container.querySelector(".routed-pane-sheet");
+
+    fireEvent.pointerDown(handle, { button: 0, clientY: 600, pointerId: 1 });
+    fireEvent.pointerMove(document, { clientY: 650, pointerId: 1 });
+    fireEvent.pointerCancel(document, { clientY: 650, pointerId: 1 });
+    fireEvent.click(handle);
+
+    expect(sheet?.getAttribute("data-open")).toBe("false");
+  } finally {
+    view?.unmount();
+    restoreMatchMedia();
+  }
+});
+
+test("mobile nav sheet keeps its menu open after an upward drag", () => {
+  const restoreMatchMedia = forceMobileRoutedTier();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
+
+  try {
+    view = renderRoutedPane();
+    fireEvent.click(view.getByRole("button", { name: "Menu" }));
+    const handle = view.container.querySelector(
+      ".routed-pane-sheet-handle",
+    ) as HTMLButtonElement;
+    const sheet = view.container.querySelector(".routed-pane-sheet");
+
+    fireEvent.pointerDown(handle, { button: 0, clientY: 600, pointerId: 1 });
+    fireEvent.pointerMove(document, { clientY: 550, pointerId: 1 });
+    fireEvent.pointerUp(document, { clientY: 550, pointerId: 1 });
+    fireEvent.click(handle);
+
+    expect(sheet?.getAttribute("data-open")).toBe("true");
+  } finally {
+    view?.unmount();
+    restoreMatchMedia();
+  }
+});
+
 test("tablet routed shell starts with the navigation rail collapsed", () => {
   const restoreMatchMedia = forceTabletRoutedTier();
   let view: ReturnType<typeof renderRoutedPane> | undefined;
