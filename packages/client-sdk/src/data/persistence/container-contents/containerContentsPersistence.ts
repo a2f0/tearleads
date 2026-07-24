@@ -21,6 +21,7 @@ import {
   containers,
   documentContainerProjection,
   documentContainerProjectionTables,
+  documentMoveIntentTables,
   documentPendingUpdates,
   documentProjection,
   documentProjectionTables,
@@ -51,6 +52,7 @@ import {
   containerSyncWatermarkLaneKey,
   sqlContainerSyncWatermarkPersistence,
 } from "../containers/containerSyncWatermarkPersistence";
+import { reassignContainerDocumentsInTransaction } from "./containerDocumentReassignment";
 
 export const CONTAINER_METADATA_APP_KIND = "container-metadata";
 const CONTAINER_CREATE_INTENT_TYPE = "container.create";
@@ -657,58 +659,6 @@ async function repairDocumentsForRemovedContainers(input: {
   });
 }
 
-async function reassignDocumentLinksForContainer(input: {
-  fromContainerId: string;
-  toContainerId: string;
-  tx: ClientSQLiteTransaction;
-  updatedAt: string;
-}): Promise<void> {
-  const { fromContainerId, toContainerId, tx, updatedAt } = input;
-  await tx.run(sql`
-    INSERT INTO ${documentContainerProjection} (
-      ${sql.raw("document_id")},
-      ${sql.raw("container_id")},
-      ${sql.raw("updated_at")}
-    )
-    SELECT
-      ${documentContainerProjection.documentId},
-      ${toContainerId},
-      max(${documentContainerProjection.updatedAt}, ${updatedAt})
-    FROM ${documentContainerProjection}
-    WHERE ${documentContainerProjection.containerId} = ${fromContainerId}
-    ON CONFLICT (
-      ${sql.raw("document_id")},
-      ${sql.raw("container_id")}
-    ) DO UPDATE SET
-      ${sql.raw("updated_at")} = max(
-        ${sql.raw("updated_at")},
-        excluded.${sql.raw("updated_at")}
-      )
-  `);
-
-  await tx
-    .delete(documentContainerProjection)
-    .where(eq(documentContainerProjection.containerId, fromContainerId))
-    .run();
-}
-
-async function reassignPrimaryDocumentsForContainer(input: {
-  fromContainerId: string;
-  toContainerId: string;
-  tx: ClientSQLiteTransaction;
-  updatedAt: string;
-}): Promise<void> {
-  const { fromContainerId, toContainerId, tx, updatedAt } = input;
-  await tx
-    .update(documentProjection)
-    .set({
-      containerId: toContainerId,
-      updatedAt: sql`max(${documentProjection.updatedAt}, ${updatedAt})`,
-    })
-    .where(eq(documentProjection.containerId, fromContainerId))
-    .run();
-}
-
 async function updateReparentedDescendantContainers(input: {
   descendantReparents: ReadonlyArray<LocalRootDescendantReparentInput>;
   remoteOrganizationId: string;
@@ -1137,17 +1087,12 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
       const updatedAt = input.updatedAt ?? new Date().toISOString();
       await ensureSqlTables(lockedExecSql, [
         ...documentContainerProjectionTables,
+        ...documentMoveIntentTables,
         ...documentProjectionTables,
       ]);
       await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
         async (tx) => {
-          await reassignDocumentLinksForContainer({
-            fromContainerId: input.fromContainerId,
-            toContainerId: input.toContainerId,
-            tx,
-            updatedAt,
-          });
-          await reassignPrimaryDocumentsForContainer({
+          await reassignContainerDocumentsInTransaction({
             fromContainerId: input.fromContainerId,
             toContainerId: input.toContainerId,
             tx,
@@ -1168,6 +1113,7 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
         ...containerCreateIntentTables,
         ...containerMoveIntentTables,
         ...documentContainerProjectionTables,
+        ...documentMoveIntentTables,
         ...documentProjectionTables,
       ]);
       await ensureContainerTables(lockedExecSql);
@@ -1181,13 +1127,7 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
             tx,
             updatedAt,
           });
-          await reassignDocumentLinksForContainer({
-            fromContainerId: input.localRootContainerId,
-            toContainerId: input.remoteRootContainerId,
-            tx,
-            updatedAt,
-          });
-          await reassignPrimaryDocumentsForContainer({
+          await reassignContainerDocumentsInTransaction({
             fromContainerId: input.localRootContainerId,
             toContainerId: input.remoteRootContainerId,
             tx,
@@ -1212,6 +1152,7 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
         ...containerCreateIntentTables,
         ...containerMoveIntentTables,
         ...documentContainerProjectionTables,
+        ...documentMoveIntentTables,
         ...documentProjectionTables,
       ]);
       await ensureContainerTables(lockedExecSql);
@@ -1226,13 +1167,7 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
             tx,
             updatedAt,
           });
-          await reassignDocumentLinksForContainer({
-            fromContainerId: input.localContainerId,
-            toContainerId: input.remoteContainerId,
-            tx,
-            updatedAt,
-          });
-          await reassignPrimaryDocumentsForContainer({
+          await reassignContainerDocumentsInTransaction({
             fromContainerId: input.localContainerId,
             toContainerId: input.remoteContainerId,
             tx,

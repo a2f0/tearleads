@@ -121,6 +121,7 @@ async function reconciliationFixture() {
 test("local system reconciliation converges regardless of remote page ordering", async () => {
   for (const remoteSystemFirst of [true, false]) {
     const fixture = await reconciliationFixture();
+    let documentPrimingRequests = 0;
     if (remoteSystemFirst) {
       fixture.state.containersById.set(
         fixture.remoteSystem.container.id,
@@ -130,6 +131,9 @@ test("local system reconciliation converges regardless of remote page ordering",
 
     await reconcileLocalOnlyRootContainers({
       remoteRootState: fixture.remoteRoot,
+      requestDocumentPriming: () => {
+        documentPrimingRequests += 1;
+      },
       state: fixture.state,
     });
 
@@ -139,6 +143,9 @@ test("local system reconciliation converges regardless of remote page ordering",
         fixture.remoteSystem,
       );
       await reconcileLocalOnlySystemContainers({
+        requestDocumentPriming: () => {
+          documentPrimingRequests += 1;
+        },
         remoteSystemState: fixture.remoteSystem,
         state: fixture.state,
       });
@@ -155,6 +162,7 @@ test("local system reconciliation converges regardless of remote page ordering",
       "remote-root",
     ]);
     expect(fixture.rootReconciliations).toHaveLength(1);
+    expect(documentPrimingRequests).toBe(remoteSystemFirst ? 1 : 2);
     expect(fixture.systemReconciliations).toHaveLength(1);
     expect(fixture.rootReconciliations[0]).toMatchObject({
       descendantReparents: [
@@ -173,6 +181,49 @@ test("local system reconciliation converges regardless of remote page ordering",
       remoteOrganizationId: ORGANIZATION_ID,
     });
   }
+});
+
+test("root reconciliation requests priming after known system twins converge", async () => {
+  const fixture = await reconciliationFixture();
+  fixture.state.containersById.set(
+    fixture.remoteSystem.container.id,
+    fixture.remoteSystem,
+  );
+  const events: string[] = [];
+  fixture.state.persistence.reconcileLocalSystemContainer = async () => {
+    events.push("system-reconciled");
+  };
+
+  await reconcileLocalOnlyRootContainers({
+    remoteRootState: fixture.remoteRoot,
+    requestDocumentPriming: () => {
+      events.push("priming-requested");
+    },
+    state: fixture.state,
+  });
+
+  expect(events).toEqual(["system-reconciled", "priming-requested"]);
+});
+
+test("system-only reconciliation requests document priming", async () => {
+  const fixture = await reconciliationFixture();
+  fixture.state.containersById.delete(fixture.localRoot.container.id);
+  fixture.localSystem.container = {
+    ...fixture.localSystem.container,
+    parentId: "deleted-local-root",
+  };
+  let documentPrimingRequests = 0;
+
+  await reconcileLocalOnlySystemContainers({
+    requestDocumentPriming: () => {
+      documentPrimingRequests += 1;
+    },
+    remoteSystemState: fixture.remoteSystem,
+    state: fixture.state,
+  });
+
+  expect(fixture.systemReconciliations).toHaveLength(1);
+  expect(documentPrimingRequests).toBe(1);
 });
 
 test("home system reconciliation heals pre-auth candidates with stale parents", async () => {
@@ -223,6 +274,7 @@ test("orphan healing never adopts a foreign candidate or remote target", async (
   const foreignOrganizationId = "foreign-organization";
   for (const foreignSide of ["candidate", "target"] as const) {
     const fixture = await reconciliationFixture();
+    let documentPrimingRequests = 0;
     fixture.state.containersById.clear();
     fixture.localSystem.container = {
       ...fixture.localSystem.container,
@@ -244,6 +296,9 @@ test("orphan healing never adopts a foreign candidate or remote target", async (
     );
 
     await reconcileLocalOnlySystemContainers({
+      requestDocumentPriming: () => {
+        documentPrimingRequests += 1;
+      },
       remoteSystemState: fixture.remoteSystem,
       state: fixture.state,
     });
@@ -252,5 +307,6 @@ test("orphan healing never adopts a foreign candidate or remote target", async (
       fixture.state.containersById.has(fixture.localSystem.container.id),
     ).toBe(true);
     expect(fixture.systemReconciliations).toHaveLength(0);
+    expect(documentPrimingRequests).toBe(0);
   }
 });

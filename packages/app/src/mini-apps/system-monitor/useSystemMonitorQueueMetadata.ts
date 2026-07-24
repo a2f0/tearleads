@@ -1,4 +1,4 @@
-import type { DomainSyncSnapshot } from "@tearleads/client-sdk";
+import type { DomainScope, DomainSyncSnapshot } from "@tearleads/client-sdk";
 import {
   getDomainSyncCoordinatorSnapshot,
   subscribeToDomainSyncCoordinator,
@@ -27,6 +27,21 @@ const UNAVAILABLE_WRITE_QUEUE: SystemMonitorWriteQueueReport = {
   available: false,
   items: [],
 };
+
+interface ScopedWriteQueueReport {
+  readonly domainScope: DomainScope | null;
+  readonly report: SystemMonitorWriteQueueReport;
+}
+
+export function selectSystemMonitorWriteQueue(input: {
+  readonly dbReady: boolean;
+  readonly domainScope: DomainScope;
+  readonly observed: ScopedWriteQueueReport;
+}): SystemMonitorWriteQueueReport {
+  return input.dbReady && input.observed.domainScope === input.domainScope
+    ? input.observed.report
+    : UNAVAILABLE_WRITE_QUEUE;
+}
 
 /**
  * Gathers the durable write queue and the active domain scope's sync-lane
@@ -58,17 +73,21 @@ export function useSystemMonitorQueueMetadata(): SystemMonitorQueueMetadata {
     [containerContents, dbStatus, domainScope],
   );
 
-  const [writeQueue, setWriteQueue] = useState<SystemMonitorWriteQueueReport>(
-    UNAVAILABLE_WRITE_QUEUE,
-  );
+  const [observedWriteQueue, setObservedWriteQueue] =
+    useState<ScopedWriteQueueReport>({
+      domainScope: null,
+      report: UNAVAILABLE_WRITE_QUEUE,
+    });
 
   useEffect(() => {
     if (!dbReady) {
       // Idempotent reset: keep the same object when already unavailable so a
       // re-render with unchanged not-ready inputs cannot loop.
-      setWriteQueue((prev) =>
-        prev.available || prev.items.length > 0
-          ? UNAVAILABLE_WRITE_QUEUE
+      setObservedWriteQueue((prev) =>
+        prev.domainScope !== null ||
+        prev.report.available ||
+        prev.report.items.length > 0
+          ? { domainScope: null, report: UNAVAILABLE_WRITE_QUEUE }
           : prev,
       );
       return;
@@ -93,7 +112,11 @@ export function useSystemMonitorQueueMetadata(): SystemMonitorQueueMetadata {
           unsubscribeDocuments();
         };
       },
-      onSnapshot: (items) => setWriteQueue({ available: true, items }),
+      onSnapshot: (items) =>
+        setObservedWriteQueue({
+          domainScope,
+          report: { available: true, items },
+        }),
       throttleMs: WRITE_QUEUE_READ_THROTTLE_MS,
     });
     return () => watcher.stop();
@@ -117,6 +140,11 @@ export function useSystemMonitorQueueMetadata(): SystemMonitorQueueMetadata {
   // unavailable until the database is ready rather than as a live-but-empty
   // coordinator.
   const syncLanes = dbReady ? syncSnapshot : null;
+  const writeQueue = selectSystemMonitorWriteQueue({
+    dbReady,
+    domainScope,
+    observed: observedWriteQueue,
+  });
 
   return { writeQueue, syncLanes };
 }

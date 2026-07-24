@@ -15,12 +15,7 @@ import {
   sqlDocumentsPersistence,
   upsertDiscoveredDocuments,
 } from "../../data/persistence/documents/documentsPersistence";
-import {
-  containerCreateIntentTables,
-  documentMoveIntentTables,
-  documentProjectionTables,
-  documentTables,
-} from "../../data/sqlite/schema";
+import { containerCreateIntentTables } from "../../data/sqlite/schema";
 import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import {
   compareContainerContentsDocumentSummaries,
@@ -46,7 +41,6 @@ import type {
   ContainerContentsDocumentRuntimeTarget,
   ContainerContentsSharedDocumentSummaries,
   ContainerDocumentLinkInput,
-  ContainerDocumentPrimeHost,
   ContainerDocumentQueriesRuntime,
   ContainerDocumentSidebarWindow as ContainerDocumentSidebarWindowContract,
   ContainerDocumentTombstone,
@@ -58,8 +52,6 @@ import type { ContainerDocumentObjectSyncState } from "./syncState";
 
 export type {
   ContainerDocumentLinkInput,
-  ContainerDocumentPrimeHost,
-  ContainerDocumentPrimeStore,
   ContainerDocumentSidebarRow,
   ContainerDocumentTombstone,
   ContainerItemRow,
@@ -499,143 +491,6 @@ export function listDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
     ...input,
     execSql: runtime.infra.execSql,
   });
-}
-
-// Documents that still NEED a store opened at prime time: local-only creates,
-// queued outbound updates/attachments, an outgoing-delta marker behind the
-// stored snapshot's end version (a deferred tail; encoding inequality
-// over-approximates, which only re-primes a store the old behavior always
-// primed), or a never-hydrated snapshot (a freshly discovered share whose
-// content pull the primed lane performs). Fully-synced hydrated documents are
-// deliberately absent: priming exists to re-drive durable work, and opening a
-// store (Loro import on the main thread + serialized SQLite reads + a sync
-// probe) per settled document is what made a 1000-document boot a storm
-// (issue #1672 fix 4). Remote-change pulls for settled documents stay owned by
-// reconciliation/remote hydration, which open stores on demand.
-const PENDING_PRIME_LOCAL_ID_SQL = `
-  SELECT stored.local_id AS local_id
-  FROM documents stored
-  WHERE stored.app_kind = 'documents'
-    AND (
-      stored.document_id IS NULL
-      OR stored.snapshot_end_version = ''
-      OR COALESCE(stored.pending_base_version, '') <> stored.snapshot_end_version
-      OR EXISTS (
-        SELECT 1
-        FROM document_pending_updates pending
-        WHERE pending.app_kind = 'documents'
-          AND pending.local_id = stored.local_id
-      )
-      OR EXISTS (
-        SELECT 1
-        FROM document_pending_attachments attachment
-        WHERE attachment.local_id = stored.local_id
-      )
-    )
-`;
-
-// Startup work probe: does any durable document-level write work exist that a
-// container-contents lane pass would drive? Reuses the priming predicate so
-// the startup trigger and the priming worker can never disagree about what
-// counts as pending, and adds pending document move intents, which the lane
-// replays itself rather than through a primed store (issue #1744: a relaunch
-// whose only outstanding work was document-level never scheduled the lane, so
-// pending creates/updates sat unattempted forever).
-const STARTUP_DOCUMENT_SYNC_WORK_SQL = `
-  SELECT 1 AS present
-  WHERE EXISTS (${PENDING_PRIME_LOCAL_ID_SQL})
-    OR EXISTS (
-      SELECT 1
-      FROM document_move_intents intent
-      WHERE intent.sync_status = 'pending'
-    )
-  LIMIT 1
-`;
-
-export async function hasStartupDocumentSyncWork(
-  execSql: ExecSql,
-): Promise<boolean> {
-  await ensureSqlTables(execSql, [
-    ...documentTables,
-    ...documentProjectionTables,
-    ...documentMoveIntentTables,
-  ]);
-  const rows = await execSql(STARTUP_DOCUMENT_SYNC_WORK_SQL);
-  return rows.length > 0;
-}
-
-// Note: a row with content but a NULL outgoing-delta marker (condition 3 with
-// COALESCE '') is deliberately treated as unsettled — the store persist path
-// always sets the marker, so a null marker means the row never finished a
-// store-mediated persist and over-priming it is the safe direction.
-export async function listPrimeRequiredLocalIdsFromRuntime(
-  runtime: ContainerDocumentQueriesRuntime,
-): Promise<ReadonlySet<string>> {
-  const rows = await runtime.infra.execSql(PENDING_PRIME_LOCAL_ID_SQL);
-  return new Set(
-    rows.flatMap((row) => {
-      const localId = Reflect.get(row, "local_id");
-      return typeof localId === "string" ? [localId] : [];
-    }),
-  );
-}
-
-// Stores opened per macrotask during a prime pass. Opening is fire-and-forget
-// (initialization runs async), so an unbounded loop launches every store's
-// Loro import and SQLite reads at once; yielding between chunks keeps the main
-// thread and the serialized SQLite queue breathable while a real backlog
-// primes.
-const PRIME_OPEN_CHUNK_SIZE = 8;
-
-export async function primeDocumentsForContainerSubtree<TRuntime>(input: {
-  containersById: ReadonlyMap<string, ContainerContentsContainerSubtreeState>;
-  host: ContainerDocumentPrimeHost<TRuntime>;
-  // The identity-wide prime-required scan is root-agnostic; a caller priming
-  // several roots computes it once and passes it in so N roots do not repeat
-  // the same scan concurrently.
-  primeRequiredLocalIds?: ReadonlySet<string>;
-  rootContainerId: string;
-  runtime: ContainerDocumentQueriesRuntime;
-}): Promise<number> {
-  const [targets, primeRequiredLocalIds] = await Promise.all([
-    listDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
-      containersById: input.containersById,
-      rootContainerId: input.rootContainerId,
-      runtime: input.runtime,
-    }),
-    input.primeRequiredLocalIds ??
-      listPrimeRequiredLocalIdsFromRuntime(input.runtime),
-  ]);
-  const primeTargets = targets.filter((target) =>
-    primeRequiredLocalIds.has(target.localId),
-  );
-
-  const runtimesByContainerId = new Map<string, TRuntime>();
-  for (let index = 0; index < primeTargets.length; index += 1) {
-    if (index > 0 && index % PRIME_OPEN_CHUNK_SIZE === 0) {
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
-    }
-    const target = primeTargets[index];
-    if (!target) {
-      continue;
-    }
-    let runtime = runtimesByContainerId.get(target.runtimeContainerId);
-    if (runtime === undefined) {
-      runtime = input.host.documentWorkflowRuntime(target.runtimeContainerId);
-      runtimesByContainerId.set(target.runtimeContainerId, runtime);
-    }
-
-    const store = input.host.openDocumentStore({
-      documentId: target.documentId,
-      localId: target.localId,
-      runtime,
-    });
-    if (store.getSnapshot?.().ready ?? true) {
-      store.requestSync();
-    }
-  }
-
-  return primeTargets.length;
 }
 
 async function listContainerContentsLinkedContainerIdsByDocumentIds(

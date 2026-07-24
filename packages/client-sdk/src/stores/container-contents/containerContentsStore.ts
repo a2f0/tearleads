@@ -83,6 +83,9 @@ function createContainerContentsStoreSyncHost(
         updateView,
         saveOptions,
       ),
+    requestDocumentPriming: () => {
+      state.documentStoresNeedPriming = true;
+    },
     updateSnapshot: () => updateContainerContentsSnapshot(state),
   };
 }

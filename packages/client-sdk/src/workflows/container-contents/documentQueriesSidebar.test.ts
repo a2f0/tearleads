@@ -8,10 +8,10 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
+import { primeDocumentsForContainerSubtree } from "./documentPriming";
 import {
   createContainerDocumentQueriesFromRuntime,
   listDocumentRuntimeTargetsForContainerSubtreeFromRuntime,
-  primeDocumentsForContainerSubtree,
 } from "./documentQueries";
 import { saveTestDocument } from "./documentQueries.testFixtures";
 import {
@@ -474,10 +474,7 @@ test("primeDocumentsForContainerSubtree lets initializing document stores schedu
   }
 });
 
-// Priming must skip settled documents (hydrated snapshot, marker caught up, no
-// queued outbound work): re-opening a store per settled document is what made
-// a 1000-document boot a storm (issue #1672 fix 4). Documents with durable
-// work — or a never-hydrated discovered snapshot — still prime.
+// Settled documents stay closed; durable work and new shares still prime.
 test("primeDocumentsForContainerSubtree skips settled documents", async () => {
   const { close, execSql } = await createTestExecSql(
     "containerContents-document-subtree-prime-settled",

@@ -3,7 +3,7 @@ import {
   createContainerParentSyncLane,
   loadContainerSyncLaneCheckRecords,
 } from "../../workflows/container-contents/containerPersistence";
-import { hasStartupDocumentSyncWork } from "../../workflows/container-contents/documentQueries";
+import { hasStartupDocumentSyncWork } from "../../workflows/container-contents/documentPriming";
 import { isDatabaseUnavailableError } from "../../workflows/container-contents/syncLane";
 
 const STARTUP_REMOTE_HYDRATION_FRESH_MS = 15 * 60_000;

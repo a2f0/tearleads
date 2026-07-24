@@ -440,6 +440,7 @@ class ContainerContentsService implements ContainerContents {
   workflowRuntime(): ContainerContentsWorkflowRuntime {
     return createContainerContentsWorkflowRuntime(
       this.runtimeService.workflowInput(),
+      { adoptRootContainer: this.runtimeService.adoptRootContainer },
     );
   }
 }
