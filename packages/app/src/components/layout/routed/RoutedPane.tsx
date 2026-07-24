@@ -37,6 +37,7 @@ import {
   WindowSidebarProvider,
 } from "../../window/WindowSidebarContext";
 import "./RoutedPane.css";
+import { usePublishMobileAppTitle } from "../MobileAppTitleContext";
 import { RoutedPaneAppBar } from "./RoutedPaneAppBar";
 import { ROUTED_PANE_NAV_PANEL_ID, RoutedPaneNav } from "./RoutedPaneNav";
 import { RoutedPaneSidebar } from "./RoutedPaneSidebar";
@@ -249,6 +250,7 @@ function RoutedPaneSurface({
         hasSidebar={hasSidebar}
         onToggleSidebar={toggleSidebar}
         sidebarExpanded={sidebarExpanded}
+        tier={tier}
       />
       <RoutedPaneNav
         activeAppId={activeAppId}
@@ -344,6 +346,9 @@ export function RoutedPane() {
   const ActiveMiniApp = useMemo(
     () => MINI_APPS[activeAppId].createComponent(),
     [activeAppId],
+  );
+  usePublishMobileAppTitle(
+    tier === "mobile" ? MINI_APPS[activeAppId].title : null,
   );
   const toggleNavigationRail = useCallback(
     () => setNavigationRailExpanded(invertBoolean),
