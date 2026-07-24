@@ -21,8 +21,10 @@ import {
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { readStoredDocumentState } from "../../data/documents/documentKinds";
 import { decryptDocumentSyncUpdates } from "../../data/documents/shared/crypto";
+import { deriveStableDocumentId } from "../../data/documents/shared/stableDocumentId";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
+import { getOrganizationProfileDocumentLocalId } from "../organizations/organizationProfile";
 import { getRosterProfileDocumentLocalId } from "../organizations/rosterProfileContainer";
 import {
   buildOrganizationProvisioningArtifacts,
@@ -153,6 +155,36 @@ test("atomic profile initial syncs import cleanly into a fresh peer", async () =
   }
 });
 
+test("organization provisioning shares profile idempotency keys with later ensures", async () => {
+  const artifacts = await buildOrganizationProvisioningArtifacts({
+    encapsulationKeyPair: generateKemSeedAndKeyPair(),
+    rootContainerId: crypto.randomUUID(),
+    signingKeyPair: generateSigningSeedAndKeyPair(),
+    userId: crypto.randomUUID(),
+  });
+  const localId = getOrganizationProfileDocumentLocalId({
+    organizationId: artifacts.organizationId,
+  });
+  const rosterLocalId = getRosterProfileDocumentLocalId({
+    organizationId: artifacts.organizationId,
+    userId: artifacts.rootContainer.plan.event.signerUserId,
+  });
+
+  expect(
+    Reflect.get(
+      artifacts.organizationMetadataBootstrap.organizationProfileDocumentRequest
+        .event,
+      "objectId",
+    ),
+  ).toBe(await deriveStableDocumentId(localId));
+  expect(
+    Reflect.get(
+      artifacts.rosterProfileBootstrap.profileDocumentRequest.event,
+      "objectId",
+    ),
+  ).toBe(await deriveStableDocumentId(rosterLocalId));
+});
+
 test("registerIdentity settles acknowledged profiles", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
@@ -258,7 +290,9 @@ test("registerIdentity settles acknowledged profiles", async () => {
       documentKind: "organization_profile",
       expectedFields: { name: "Personal Org" },
       execSql,
-      localId: `org-profile:${request.organizationId}`,
+      localId: getOrganizationProfileDocumentLocalId({
+        organizationId: request.organizationId,
+      }),
       request: organizationRequest,
     });
     await expectSettledProfile({

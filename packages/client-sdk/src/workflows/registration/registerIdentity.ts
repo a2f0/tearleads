@@ -20,6 +20,7 @@ import type {
 import type { RegistrationResponse } from "@tearleads/validators/response";
 import { createInitializedContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
+import { deriveStableDocumentId } from "../../data/documents/shared/stableDocumentId";
 import { encodeOrganizationAuthorityDescriptor } from "../../data/organizationAuthorityDescriptor";
 import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import type { LocalUserIdentityCandidate } from "../../data/trustedUserIdentity";
@@ -38,6 +39,7 @@ import {
 import { resolveDocumentCreateAuthor } from "../documents/author";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
 import { buildInitialDocumentSyncRequest } from "../documents/initialSync";
+import { getOrganizationProfileDocumentLocalId } from "../organizations/organizationProfile";
 import {
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,
@@ -45,6 +47,7 @@ import {
 import {
   deriveOrganizationMetadataContainerSystemSlot,
   deriveOrganizationRosterProfileContainerSystemSlot,
+  getRosterProfileDocumentLocalId,
   ORGANIZATION_METADATA_CONTAINER_NAME,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
 } from "../organizations/rosterProfileContainer";
@@ -122,6 +125,17 @@ interface InitialOrganizationMetadataBootstrapInput {
   organizationProfileName?: string | undefined;
   rootContainer: InitialRootContainerCreatePlan;
   rootContainerProjection: InitialRootContainerProjection;
+  targetSecretKey: Uint8Array;
+}
+
+interface InitialRosterProfileInput {
+  author: InitialOrganizationMetadataBootstrapInput["author"];
+  containerProjection: ReturnType<
+    typeof childContainerWriterProjectionFromCreatePlan
+  >;
+  encapsulationPublicKey: Uint8Array;
+  knownContainerKeks: ReadonlyMap<string, Uint8Array>;
+  rosterProfileNickname?: string | undefined;
   targetSecretKey: Uint8Array;
 }
 
@@ -451,19 +465,13 @@ async function buildInitialRosterProfileBootstrap(input: {
     initialUpdate,
     materializedDocument: containerMetadataDocument,
   });
-  const rosterProfileDocument = await buildMaterializedDocumentCreatePlan({
-    author: input.author,
-    containerProjection,
-    knownContainerKeks,
-    targetSecretKey: input.targetSecretKey,
-    trustedLocalProjection: true,
-  });
-  const rosterProfile = await buildProvisionedRosterProfile({
+  const { profile, rosterProfileDocument } = await buildInitialRosterProfile({
     author: input.author,
     containerProjection,
     encapsulationPublicKey: input.encapsulationPublicKey,
-    materializedDocument: rosterProfileDocument,
-    nickname: input.rosterProfileNickname,
+    knownContainerKeks,
+    rosterProfileNickname: input.rosterProfileNickname,
+    targetSecretKey: input.targetSecretKey,
   });
   return {
     containerId,
@@ -477,10 +485,34 @@ async function buildInitialRosterProfileBootstrap(input: {
       metadataDocument: containerMetadataDocument.plan.request,
     },
     profileDocument: rosterProfileDocument,
-    profileDocumentInitialUpdate: rosterProfile.initialUpdate,
-    profileDocumentRequest: rosterProfile.request,
+    profileDocumentInitialUpdate: profile.initialUpdate,
+    profileDocumentRequest: profile.request,
     systemSlot,
   };
+}
+
+async function buildInitialRosterProfile(input: InitialRosterProfileInput) {
+  const rosterProfileDocument = await buildMaterializedDocumentCreatePlan({
+    author: input.author,
+    containerProjection: input.containerProjection,
+    documentId: await deriveStableDocumentId(
+      getRosterProfileDocumentLocalId({
+        organizationId: input.author.organizationId,
+        userId: input.author.signerUserId,
+      }),
+    ),
+    knownContainerKeks: input.knownContainerKeks,
+    targetSecretKey: input.targetSecretKey,
+    trustedLocalProjection: true,
+  });
+  const profile = await buildProvisionedRosterProfile({
+    author: input.author,
+    containerProjection: input.containerProjection,
+    encapsulationPublicKey: input.encapsulationPublicKey,
+    materializedDocument: rosterProfileDocument,
+    nickname: input.rosterProfileNickname,
+  });
+  return { profile, rosterProfileDocument };
 }
 
 async function buildInitialSystemContainerBootstrap(input: {
@@ -572,6 +604,42 @@ async function referencedPrincipalHeadFromInitialGroupRequest(
   };
 }
 
+function stableOrganizationProfileId(organizationId: string): Promise<string> {
+  return deriveStableDocumentId(
+    getOrganizationProfileDocumentLocalId({ organizationId }),
+  );
+}
+
+async function buildInitialOrganizationProfile(input: {
+  author: InitialOrganizationMetadataBootstrapInput["author"];
+  containerProjection: ReturnType<
+    typeof childContainerWriterProjectionFromCreatePlan
+  >;
+  knownContainerKeks: ReadonlyMap<string, Uint8Array>;
+  organizationProfileName?: string | undefined;
+  targetSecretKey: Uint8Array;
+}) {
+  const organizationProfileDocument = await buildMaterializedDocumentCreatePlan(
+    {
+      author: input.author,
+      containerProjection: input.containerProjection,
+      documentId: await stableOrganizationProfileId(
+        input.author.organizationId,
+      ),
+      knownContainerKeks: input.knownContainerKeks,
+      targetSecretKey: input.targetSecretKey,
+      trustedLocalProjection: true,
+    },
+  );
+  const profile = await buildProvisionedOrganizationProfile({
+    author: input.author,
+    containerProjection: input.containerProjection,
+    materializedDocument: organizationProfileDocument,
+    name: input.organizationProfileName,
+  });
+  return { organizationProfileDocument, profile };
+}
+
 /**
  * Builds the org public metadata container and links the encrypted organization
  * profile document (the display name) into it. The container is a child of root
@@ -637,21 +705,14 @@ async function buildInitialOrganizationMetadataBootstrap(
     targetSecretKey: input.targetSecretKey,
     trustedLocalProjection: true,
   });
-  const organizationProfileDocument = await buildMaterializedDocumentCreatePlan(
-    {
+  const { organizationProfileDocument, profile } =
+    await buildInitialOrganizationProfile({
       author: input.author,
       containerProjection,
       knownContainerKeks,
+      organizationProfileName: input.organizationProfileName,
       targetSecretKey: input.targetSecretKey,
-      trustedLocalProjection: true,
-    },
-  );
-  const orgProfile = await buildProvisionedOrganizationProfile({
-    author: input.author,
-    containerProjection,
-    materializedDocument: organizationProfileDocument,
-    name: input.organizationProfileName,
-  });
+    });
   return {
     containerId,
     containerMetadataDocument,
@@ -669,8 +730,8 @@ async function buildInitialOrganizationMetadataBootstrap(
       metadataDocument: containerMetadataDocument.plan.request,
     },
     organizationProfileDocument,
-    organizationProfileDocumentRequest: orgProfile.request,
-    organizationProfileSnapshot: orgProfile.snapshot,
+    organizationProfileDocumentRequest: profile.request,
+    organizationProfileSnapshot: profile.snapshot,
     systemSlot,
   };
 }
