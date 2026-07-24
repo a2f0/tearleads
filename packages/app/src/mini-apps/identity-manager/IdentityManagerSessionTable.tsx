@@ -1,6 +1,8 @@
 import type { UserSession } from "@tearleads/client-sdk";
 import type { KeyboardEvent, MouseEvent } from "react";
 import {
+  MiniAppCompactTableCell,
+  type MiniAppCompactTableField,
   MiniAppRowActionsButton,
   MiniAppTableCell,
   MiniAppTableEmptyRow,
@@ -9,7 +11,13 @@ import {
 } from "../../components/mini-app/MiniAppTable";
 import { MiniAppVirtualTableSpacerRow } from "../../components/mini-app/virtual/MiniAppVirtual";
 import { formatMiniAppDateTime } from "../../utils/formatMiniAppDate";
-import type { SessionTableColumnId } from "./IdentityManagerSessionColumns";
+import {
+  SESSION_COLUMN_LABELS,
+  SESSION_COMPACT_PRIMARY_COLUMN_IDS,
+  SESSION_COMPACT_SECONDARY_COLUMN_IDS,
+  type SessionDataColumnId,
+  type SessionTableColumnId,
+} from "./IdentityManagerSessionColumns";
 import {
   compactIdentifier,
   formatSessionIpAddresses,
@@ -115,7 +123,59 @@ function renderSessionTableCell(
   }
 }
 
+function getSessionCompactField(
+  columnId: SessionDataColumnId,
+  session: UserSession,
+): MiniAppCompactTableField {
+  const label = SESSION_COLUMN_LABELS[columnId];
+  switch (columnId) {
+    case "status":
+      return { id: columnId, label, text: getSessionStatusLabel(session) };
+    case "last-active":
+      return {
+        id: columnId,
+        label,
+        text: formatMiniAppDateTime(session.lastActiveAt),
+      };
+    case "last-ip":
+      return {
+        id: columnId,
+        label,
+        text: session.lastActiveIp ?? "None",
+        title: session.lastActiveIp ?? "No recorded IP",
+      };
+    case "ip-addresses":
+      return {
+        id: columnId,
+        label,
+        text: formatSessionIpAddresses(session.ipAddresses),
+        title: sessionIpAddressesTitle(session.ipAddresses),
+      };
+    case "created":
+      return {
+        id: columnId,
+        label,
+        text: formatMiniAppDateTime(session.createdAt),
+      };
+    case "signing-key":
+      return {
+        id: columnId,
+        label,
+        text: compactIdentifier(session.signingKeyFingerprint),
+        title: session.signingKeyFingerprint,
+      };
+    case "session-id":
+      return {
+        id: columnId,
+        label,
+        text: compactIdentifier(session.id),
+        title: session.id,
+      };
+  }
+}
+
 function SessionTableRow({
+  compact,
   mutatingSessionId,
   onOpenSessionDetail,
   openSessionContextMenu,
@@ -123,6 +183,7 @@ function SessionTableRow({
   session,
   visibleColumnIds,
 }: {
+  compact: boolean;
   mutatingSessionId: string | null;
   onOpenSessionDetail: (sessionId: string) => void;
   openSessionContextMenu: (
@@ -157,19 +218,38 @@ function SessionTableRow({
       selected={selected}
       tabIndex={0}
     >
-      {visibleColumnIds.map((columnId) =>
-        renderSessionTableCell(columnId, {
-          mutatingSessionId,
-          openSessionContextMenu,
-          session,
-        }),
+      {compact ? (
+        <MiniAppCompactTableCell
+          primary={SESSION_COMPACT_PRIMARY_COLUMN_IDS.filter((id) =>
+            visibleColumnIds.includes(id),
+          ).map((id) => getSessionCompactField(id, session))}
+          secondary={SESSION_COMPACT_SECONDARY_COLUMN_IDS.filter((id) =>
+            visibleColumnIds.includes(id),
+          ).map((id) => getSessionCompactField(id, session))}
+        />
+      ) : (
+        visibleColumnIds
+          .filter((columnId) => columnId !== "action")
+          .map((columnId) =>
+            renderSessionTableCell(columnId, {
+              mutatingSessionId,
+              openSessionContextMenu,
+              session,
+            }),
+          )
       )}
+      {renderSessionTableCell("action", {
+        mutatingSessionId,
+        openSessionContextMenu,
+        session,
+      })}
     </MiniAppTableRow>
   );
 }
 
 export function SessionTableBody({
   bottomPadding,
+  compact,
   loadingSessions,
   mutatingSessionId,
   onOpenSessionDetail,
@@ -181,6 +261,7 @@ export function SessionTableBody({
   visibleColumnIds,
 }: {
   bottomPadding: number;
+  compact: boolean;
   loadingSessions: boolean;
   mutatingSessionId: string | null;
   onOpenSessionDetail: (sessionId: string) => void;
@@ -210,6 +291,7 @@ export function SessionTableBody({
       />
       {sessions.map((session) => (
         <SessionTableRow
+          compact={compact}
           key={session.id}
           mutatingSessionId={mutatingSessionId}
           onOpenSessionDetail={onOpenSessionDetail}
