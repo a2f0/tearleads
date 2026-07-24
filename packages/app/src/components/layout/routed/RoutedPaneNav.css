@@ -202,15 +202,21 @@
  * Use a two-column phone layout with tracks wide enough for the longest app
  * name. Android WebView can inflate an individual text node for the system
  * "Font size" setting without changing its grid container's `em` size, so an
- * auto-fit grid cannot reliably reduce its column count as text grows. Two
- * roomy columns leave Explorer intact at enlarged text sizes, while wider
- * routed layouts still gain columns naturally.
+ * auto-fit grid cannot reliably reduce its column count as text grows. Keep
+ * narrow phones explicitly two columns, including the supported 320px viewport;
+ * wider routed layouts gain columns naturally.
  */
 .routed-pane-sheet-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-sm);
   padding: var(--space-sm);
+}
+
+@media (min-width: 30rem) {
+  .routed-pane-sheet-grid {
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  }
 }
 
 .routed-pane-sheet-tile {
