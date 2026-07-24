@@ -20,7 +20,9 @@ export function PaneStatus({ pinned = false }: { pinned?: boolean } = {}) {
       onContextMenu={networkContextMenu.handleContextMenu}
     >
       <MiniAppInfoTable
-        className={pinned ? "mini-app-info-table--pinned" : undefined}
+        className={
+          pinned ? "mini-app-info-table--pinned" : "system-monitor-status-table"
+        }
       >
         <tbody>
           <MiniAppInfoRow label={STATUS_LABELS.sqliteWorker}>
