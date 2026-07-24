@@ -108,7 +108,9 @@ export class Tearleads {
     this.documentProjectors = resolveDocumentProjectorRegistry(
       options.documentProjectors,
     );
-    this.events = new Events(options.events);
+    this.events = new Events(options.events, () =>
+      this.apiClient.clearWriterProjectionCaches(),
+    );
     this.logHandler = options.logger?.log ?? (() => undefined);
     this.logErrorHandler = options.logger?.logError ?? logErrorToConsole;
     this.network = new Network(options.online);

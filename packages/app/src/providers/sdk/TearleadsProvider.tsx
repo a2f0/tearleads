@@ -290,6 +290,7 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
     log,
     syncEnabled,
     runtimeInput.state.online,
+    hostConfig.subscribeConnectionRefresh,
   );
 
   return (

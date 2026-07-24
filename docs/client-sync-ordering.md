@@ -94,6 +94,15 @@ persisting it for a later reconnect. Until that acknowledgement arrives, a cold
 `ready=false` tree cannot remove the restored baseline and the SDK continues to
 report server events as disconnected.
 
+On every acknowledged reconnect, the client also clears cached writer
+projections and runs one full reconciliation after the live interest set is in
+place. That sweep refreshes container/access structure and force-revalidates
+registered document stores, closing the lossy interval for access changes and
+key-epoch rotations even when the affected container or document was not open
+when the socket dropped. Native app resume and network-path changes deliberately
+replace the socket first, because WKWebView can retain an `OPEN` WebSocket whose
+underlying connection is no longer usable.
+
 The coordinator coalesces repeated requests. A successful probe imports and
 persists remote Loro updates before hydrating the active attachment bindings and
 encrypted blob bytes. A lane reported as complete therefore means its callback

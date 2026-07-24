@@ -37,6 +37,13 @@ type CreateFileSaverFn = () => FileSaver;
 export type CreateNetworkStatusFn = () => NetworkStatusSource;
 
 /**
+ * Subscribes to native connection-validity boundaries. Capacitor supplies this
+ * for app resumes and transport changes because an iOS WebView can retain a
+ * WebSocket that reports `OPEN` after its underlying path has died.
+ */
+export type SubscribeConnectionRefreshFn = (listener: () => void) => () => void;
+
+/**
  * Builds the platform's direct card-checkout capability (issue #1654). Only
  * the web shell supplies one; elsewhere billing falls back to the
  * provider-hosted purchase flow.
@@ -218,6 +225,9 @@ export interface AppHostConfigOptions {
   readonly createDirectCheckout?: CreateDirectCheckoutFn | undefined;
   readonly createFileSaver?: CreateFileSaverFn | undefined;
   readonly createNetworkStatus?: CreateNetworkStatusFn | undefined;
+  readonly subscribeConnectionRefresh?:
+    | SubscribeConnectionRefreshFn
+    | undefined;
   readonly createSQLiteRuntime?: CreateSQLiteRuntimeFn | undefined;
   readonly disableLocalIdentityPersistence?: boolean | undefined;
   readonly localIdentityNamespace?: string | undefined;
@@ -321,6 +331,13 @@ export class AppHostConfig {
     readonly localKeyringKeyMaterialStorage?:
       | WrappingKeyMaterialStorage
       | undefined,
+    /**
+     * Native resume/transport-change signal. The events binding uses it to
+     * replace a possibly half-open WebSocket and mint a fresh one-time ticket.
+     */
+    readonly subscribeConnectionRefresh?:
+      | SubscribeConnectionRefreshFn
+      | undefined,
   ) {}
 
   /**
@@ -349,6 +366,7 @@ export class AppHostConfig {
       createFileSaver: this.createFileSaver,
       reuseDatabaseWorker: this.reuseDatabaseWorker,
       localKeyringKeyMaterialStorage: this.localKeyringKeyMaterialStorage,
+      subscribeConnectionRefresh: this.subscribeConnectionRefresh,
       ...overrides,
     });
   }
@@ -376,6 +394,7 @@ export function createAppHostConfig(
     options.createFileSaver,
     options.reuseDatabaseWorker,
     options.localKeyringKeyMaterialStorage,
+    options.subscribeConnectionRefresh,
   );
 }
 

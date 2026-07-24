@@ -216,3 +216,98 @@ test("a stable connection resets reconnect backoff", async () => {
 
   stop();
 });
+
+test("retries when ticket minting never settles", async () => {
+  const reconnectTimers: Array<{ callback: () => void; delayMs: number }> = [];
+  const watchdogs: Array<{ callback: () => void; delayMs: number }> = [];
+  let ticketRequests = 0;
+
+  const stop = startServerEventsConnectionLoop(
+    {
+      onDisconnect: () => undefined,
+      onMessage: () => undefined,
+      onOpen: () => undefined,
+      requestTicket: () => {
+        ticketRequests += 1;
+        return new Promise(() => {});
+      },
+      wsUrl: "ws://events.example.test/events",
+    },
+    {
+      random: () => 0.5,
+      scheduleTimer: (callback, delayMs) => {
+        reconnectTimers.push({ callback, delayMs });
+        return reconnectTimers.length as unknown as ReturnType<
+          typeof setTimeout
+        >;
+      },
+      scheduleWatchdog: (callback, delayMs) => {
+        watchdogs.push({ callback, delayMs });
+        return watchdogs.length as unknown as ReturnType<typeof setTimeout>;
+      },
+    },
+  );
+
+  expect(ticketRequests).toBe(1);
+  expect(watchdogs[0]?.delayMs).toBe(15_000);
+  watchdogs[0]?.callback();
+  await flushAsyncWork();
+
+  expect(reconnectTimers).toHaveLength(1);
+  expect(reconnectTimers[0]?.delayMs).toBe(500);
+  reconnectTimers[0]?.callback();
+  await flushAsyncWork();
+  expect(ticketRequests).toBe(2);
+
+  stop();
+});
+
+test("closes and retries a socket whose opening handshake stalls", async () => {
+  const sockets: FakeSocket[] = [];
+  const reconnectTimers: Array<{ callback: () => void; delayMs: number }> = [];
+  const watchdogs: Array<{ callback: () => void; delayMs: number }> = [];
+  let disconnects = 0;
+
+  const stop = startServerEventsConnectionLoop(
+    {
+      onDisconnect: () => {
+        disconnects += 1;
+      },
+      onMessage: () => undefined,
+      onOpen: () => undefined,
+      requestTicket: async () => "ticket",
+      wsUrl: "ws://events.example.test/events",
+    },
+    {
+      createSocket: (url) => {
+        const socket = new FakeSocket(url);
+        sockets.push(socket);
+        return socket as unknown as WebSocket;
+      },
+      random: () => 0.5,
+      scheduleTimer: (callback, delayMs) => {
+        reconnectTimers.push({ callback, delayMs });
+        return reconnectTimers.length as unknown as ReturnType<
+          typeof setTimeout
+        >;
+      },
+      scheduleWatchdog: (callback, delayMs) => {
+        watchdogs.push({ callback, delayMs });
+        return watchdogs.length as unknown as ReturnType<typeof setTimeout>;
+      },
+    },
+  );
+
+  await flushAsyncWork();
+  // The first watchdog guarded ticket minting and was cleared; the second owns
+  // the WebSocket opening handshake.
+  expect(watchdogs).toHaveLength(2);
+  expect(watchdogs[1]?.delayMs).toBe(15_000);
+  watchdogs[1]?.callback();
+
+  expect(sockets[0]?.closeCalls).toBe(1);
+  expect(disconnects).toBe(1);
+  expect(reconnectTimers[0]?.delayMs).toBe(500);
+
+  stop();
+});
