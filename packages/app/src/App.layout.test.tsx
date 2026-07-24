@@ -38,6 +38,37 @@ test("normal App is single-pane with no split toggle", () => {
   view.unmount();
 });
 
+test("mobile routed App moves the active app name into the frame header", () => {
+  const originalMatchMedia = window.matchMedia;
+
+  try {
+    window.matchMedia = ((query: string) => ({
+      addEventListener: () => {},
+      addListener: () => {},
+      dispatchEvent: () => false,
+      matches: false,
+      media: query,
+      onchange: null,
+      removeEventListener: () => {},
+      removeListener: () => {},
+    })) as unknown as typeof window.matchMedia;
+
+    const view = render(
+      <App
+        hostConfig={createTestAppHostConfig({ navigationMode: "routed" })}
+      />,
+    );
+
+    expect(
+      view.container.querySelector(".tearleads-brand-mark")?.textContent,
+    ).toBe("Tearleads - Explorer");
+    expect(view.container.querySelector(".routed-pane-title")).toBeNull();
+    view.unmount();
+  } finally {
+    window.matchMedia = originalMatchMedia;
+  }
+});
+
 test("demo App starts split", () => {
   const view = render(
     <App

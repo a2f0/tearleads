@@ -148,6 +148,28 @@ test("mobile routed shell opens the nav sheet from the bottom menu bar", () => {
   }
 });
 
+test("mobile moves the active app title into the Tearleads header", () => {
+  const restoreMatchMedia = forceMobileRoutedTier();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
+
+  try {
+    view = renderRoutedPane({ withHeader: true });
+    const brand = view.container.querySelector(".tearleads-brand-mark");
+
+    expect(brand?.textContent).toBe("Tearleads - Explorer");
+    expect(view.container.querySelector(".routed-pane-title")).toBeNull();
+
+    fireEvent.click(view.getByRole("button", { name: "Menu" }));
+    fireEvent.click(view.getByRole("link", { name: "Contacts" }));
+
+    expect(brand?.textContent).toBe("Tearleads - Contacts");
+    expect(view.container.querySelector(".routed-pane-title")).toBeNull();
+  } finally {
+    view?.unmount();
+    restoreMatchMedia();
+  }
+});
+
 test("mobile nav sheet handle tap dismisses the menu", () => {
   const restoreMatchMedia = forceMobileRoutedTier();
   let view: ReturnType<typeof renderRoutedPane> | undefined;
@@ -290,7 +312,14 @@ test("tablet routed shell starts with the navigation rail collapsed", () => {
   let view: ReturnType<typeof renderRoutedPane> | undefined;
 
   try {
-    view = renderRoutedPane();
+    view = renderRoutedPane({ withHeader: true });
+
+    expect(
+      view.container.querySelector(".tearleads-brand-mark")?.textContent,
+    ).toBe("Tearleads");
+    expect(
+      view.container.querySelector(".routed-pane-title")?.textContent,
+    ).toBe("Explorer");
 
     // The tablet/iPad tier now carries the same bottom taskbar as mobile
     // (centered logo + mode switch) in addition to its persistent rail.
