@@ -21,8 +21,10 @@ import {
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { readStoredDocumentState } from "../../data/documents/documentKinds";
 import { decryptDocumentSyncUpdates } from "../../data/documents/shared/crypto";
+import { deriveStableDocumentId } from "../../data/documents/shared/stableDocumentId";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
+import { getOrganizationProfileDocumentLocalId } from "../organizations/organizationProfile";
 import { getRosterProfileDocumentLocalId } from "../organizations/rosterProfileContainer";
 import {
   buildOrganizationProvisioningArtifacts,
@@ -151,6 +153,23 @@ test("atomic profile initial syncs import cleanly into a fresh peer", async () =
       expect.objectContaining(profile.expectedFields),
     );
   }
+});
+
+test("organization provisioning shares the profile idempotency key with later ensures", async () => {
+  const artifacts = await buildOrganizationProvisioningArtifacts({
+    encapsulationKeyPair: generateKemSeedAndKeyPair(),
+    rootContainerId: crypto.randomUUID(),
+    signingKeyPair: generateSigningSeedAndKeyPair(),
+    userId: crypto.randomUUID(),
+  });
+  const localId = getOrganizationProfileDocumentLocalId({
+    organizationId: artifacts.organizationId,
+  });
+
+  expect(
+    artifacts.organizationMetadataBootstrap.organizationProfileDocument.plan
+      .documentId,
+  ).toBe(await deriveStableDocumentId(localId));
 });
 
 test("registerIdentity settles acknowledged profiles", async () => {
