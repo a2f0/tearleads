@@ -11,12 +11,20 @@ type MobileAppTitleSetter = Dispatch<SetStateAction<string | null>>;
 
 const MobileAppTitleContext = createContext<MobileAppTitleSetter | null>(null);
 
+export function formatMobileBrandLabel(
+  title: string | null,
+): string | undefined {
+  return title ? `Tearleads - ${title}` : undefined;
+}
+
 export function MobileAppTitleProvider({
   children,
   setTitle,
 }: PropsWithChildren<{ setTitle: MobileAppTitleSetter }>) {
   return (
-    <MobileAppTitleContext value={setTitle}>{children}</MobileAppTitleContext>
+    <MobileAppTitleContext.Provider value={setTitle}>
+      {children}
+    </MobileAppTitleContext.Provider>
   );
 }
 

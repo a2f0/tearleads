@@ -18,7 +18,10 @@ import { AppFeatureFlagsProvider } from "../../providers/feature-flags/AppFeatur
 import { ThemeProvider } from "../../theme/ThemeProvider";
 import { BillingBanner } from "./BillingBanner";
 import "./Layout.css";
-import { MobileAppTitleProvider } from "./MobileAppTitleContext";
+import {
+  formatMobileBrandLabel,
+  MobileAppTitleProvider,
+} from "./MobileAppTitleContext";
 import { Workspace } from "./workspace/Workspace";
 import {
   SINGLE_WORKSPACE_IDS,
@@ -144,9 +147,7 @@ function LayoutInner({ hostConfig }: LayoutProps) {
               ? "layout layout--split"
               : "layout"
       }
-      brandLabel={
-        mobileAppTitle ? `Tearleads - ${mobileAppTitle}` : "Tearleads"
-      }
+      brandLabel={formatMobileBrandLabel(mobileAppTitle)}
       headerActions={headerActions}
     >
       <MobileAppTitleProvider setTitle={setMobileAppTitle}>

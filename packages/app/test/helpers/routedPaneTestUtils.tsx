@@ -1,7 +1,10 @@
 import { TearleadsHeader } from "@tearleads/ui";
 import { type RenderResult, render } from "@testing-library/react";
 import { type PropsWithChildren, useState } from "react";
-import { MobileAppTitleProvider } from "../../src/components/layout/MobileAppTitleContext";
+import {
+  formatMobileBrandLabel,
+  MobileAppTitleProvider,
+} from "../../src/components/layout/MobileAppTitleContext";
 import {
   DualPaneProvider,
   PaneSideProvider,
@@ -19,9 +22,7 @@ function MobileTitleTestShell({
   return (
     <>
       {withHeader && (
-        <TearleadsHeader
-          brandLabel={title ? `Tearleads - ${title}` : "Tearleads"}
-        />
+        <TearleadsHeader brandLabel={formatMobileBrandLabel(title)} />
       )}
       <MobileAppTitleProvider setTitle={setTitle}>
         {children}

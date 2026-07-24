@@ -73,7 +73,7 @@ export function RoutedPaneAppBar({
             <SidebarSimpleIcon aria-hidden size={18} />
           </button>
         )}
-        {tier === "tablet" && (
+        {tier !== "mobile" && (
           <div className="routed-pane-title">
             {MINI_APPS[activeAppId].title}
           </div>
