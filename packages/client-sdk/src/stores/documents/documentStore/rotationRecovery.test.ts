@@ -32,6 +32,7 @@ import {
   ensureDocumentStoreReady,
   relinkDocumentStore,
 } from "./initialization";
+import { setDocumentText } from "./mutations";
 import {
   advancePendingBaseVersion,
   enqueuePendingUpdate,
@@ -41,6 +42,11 @@ import {
 } from "./persistence";
 import { assertDocumentStoreCanRotateContentKey } from "./rotation";
 import { createDocumentStoreState } from "./state";
+
+const ignoredPersistenceEffects = {
+  emitPersistedDocument: () => undefined,
+  registerDocumentIdentity: () => undefined,
+};
 
 async function createRemoteHistoryFixture() {
   const materialized = await createMaterializedSyncFixture();
@@ -190,10 +196,7 @@ test("a shallow restart heals before unlink and emits a fresh-reader baseline", 
       localId,
       runtime,
       sqlDocumentsPersistence,
-      {
-        emitPersistedDocument: () => undefined,
-        registerDocumentIdentity: () => undefined,
-      },
+      ignoredPersistenceEffects,
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
@@ -253,10 +256,7 @@ test("a full-history preflight settles pending writes before returning its basel
       localId,
       runtime,
       sqlDocumentsPersistence,
-      {
-        emitPersistedDocument: () => undefined,
-        registerDocumentIdentity: () => undefined,
-      },
+      ignoredPersistenceEffects,
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
@@ -308,10 +308,7 @@ test("a clean full-history preflight pulls a newer committed remote frontier", a
       localId,
       createRuntime({ execSql, fixture, syncCalls }),
       sqlDocumentsPersistence,
-      {
-        emitPersistedDocument: () => undefined,
-        registerDocumentIdentity: () => undefined,
-      },
+      ignoredPersistenceEffects,
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
@@ -322,6 +319,54 @@ test("a clean full-history preflight pulls a newer committed remote frontier", a
     const freshReader = await createDocument("remote-ahead-rotation-reader");
     importSnapshot(freshReader, baseline);
     expect(getTextValue(freshReader)).toBe("survives key rotation");
+  } finally {
+    close();
+  }
+});
+
+test("a text edit queued during rotation applies to the rebuilt document", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "rotation-recovery-queued-edit",
+  );
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const fixture = await createRemoteHistoryFixture();
+    const localId = "rotation-recovery-queued-edit-local";
+    const behindReader = await createDocument("rotation-queued-edit-behind");
+    importSnapshot(behindReader, fixture.behindSnapshot);
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      id: localId,
+      containerId: "source-container",
+      documentId: fixture.writerProjection.documentId,
+      text: getTextValue(behindReader),
+      loroSnapshot: bytesToBase64(fixture.behindSnapshot),
+      accessEpoch: 1,
+      effectiveAccessLevel: "admin",
+      pendingBaseVersion: encodeVersionVector(behindReader),
+    });
+
+    const state = createDocumentStoreState(
+      localId,
+      createRuntime({ execSql, fixture }),
+      sqlDocumentsPersistence,
+      ignoredPersistenceEffects,
+      fixture.writerProjection.documentId,
+    );
+    expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
+
+    const recovery = assertDocumentStoreCanRotateContentKey(state);
+    const localText = "queued local edit";
+    const localWrite = setDocumentText(state, () => undefined, localText);
+
+    await recovery;
+    await localWrite;
+    if (!state.doc) {
+      throw new Error("Expected rebuilt document after rotation recovery");
+    }
+
+    expect(getTextValue(state.doc)).toBe(localText);
+    expect(state.snapshot.text).toBe(getTextValue(state.doc));
+    expect(state.pendingLocalWrites).toBe(0);
   } finally {
     close();
   }
@@ -359,10 +404,7 @@ test("rotation preflight fails closed offline and can retry once online", async 
       localId,
       runtime,
       sqlDocumentsPersistence,
-      {
-        emitPersistedDocument: () => undefined,
-        registerDocumentIdentity: () => undefined,
-      },
+      ignoredPersistenceEffects,
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
@@ -410,10 +452,7 @@ test("an edit after preflight remains replayable after the new key metadata is p
       localId,
       createRuntime({ execSql, fixture }),
       sqlDocumentsPersistence,
-      {
-        emitPersistedDocument: () => undefined,
-        registerDocumentIdentity: () => undefined,
-      },
+      ignoredPersistenceEffects,
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
