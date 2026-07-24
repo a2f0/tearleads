@@ -21,9 +21,43 @@ import {
 } from "./persistence";
 import {
   canWriteDocument,
+  type DocumentState,
   type DocumentStoreState,
   setDocumentSnapshot,
+  setReadySnapshot,
 } from "./state";
+import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
+
+function isDocumentLocalWriteCurrent(
+  state: DocumentStoreState,
+  writeGeneration: number,
+  writeDoc: DocumentState,
+): boolean {
+  return (
+    state.localWriteGeneration === writeGeneration && state.doc === writeDoc
+  );
+}
+
+function settleDocumentLocalWrite(
+  state: DocumentStoreState,
+  writeGeneration: number,
+): void {
+  // Reset/reinitialization owns the new generation's counter. A write queued
+  // against the prior document must touch neither it nor the replacement doc.
+  if (state.localWriteGeneration !== writeGeneration) {
+    return;
+  }
+
+  state.pendingLocalWrites = Math.max(0, state.pendingLocalWrites - 1);
+  if (state.pendingLocalWrites !== 0 || !state.doc) {
+    return;
+  }
+
+  // A sync pass or rotation may merge remote content while preserving the
+  // controlled editor value. Publish the authoritative doc once typing drains;
+  // setReadySnapshot is a no-op when the optimistic projection already matches.
+  setReadySnapshot(state, state.doc, state.snapshot.syncing);
+}
 
 function publishDocumentTextSnapshot(
   state: DocumentStoreState,
@@ -64,6 +98,11 @@ function queueDocumentTextWrite(
   state: DocumentStoreState,
   value: string,
 ): Promise<void> {
+  if (!state.doc) {
+    return Promise.resolve();
+  }
+  const writeGeneration = state.localWriteGeneration;
+
   // Mark a local edit as in flight SYNCHRONOUSLY, before chaining, so a sync
   // pass that runs during this burst sees pendingLocalWrites > 0 and preserves
   // the optimistic snapshot instead of regressing it to a stale doc read.
@@ -71,37 +110,57 @@ function queueDocumentTextWrite(
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => {
-      if (!state.doc || !canWriteDocument(state)) {
+      if (
+        state.localWriteGeneration !== writeGeneration ||
+        !state.doc ||
+        !canWriteDocument(state)
+      ) {
+        return;
+      }
+      const writeDoc = state.doc;
+      const syncGeneration = captureDocumentStoreSyncGeneration(
+        state,
+        writeDoc,
+      );
+      if (!syncGeneration) {
         return;
       }
 
-      if (getTextValue(state.doc) === value) {
+      if (getTextValue(writeDoc) === value) {
         return;
       }
 
-      state.doc.getText("text").update(value);
-      const update = pendingDeltaSinceBase(state, state.doc);
+      writeDoc.getText("text").update(value);
+      const update = pendingDeltaSinceBase(state, writeDoc);
 
       await enqueuePendingUpdate(state, update);
-      await persistDocument(
+      if (!isDocumentLocalWriteCurrent(state, writeGeneration, writeDoc)) {
+        return;
+      }
+      const persisted = await persistDocument(
         state,
-        state.doc,
-        { text: value },
+        writeDoc,
+        {},
         { preserveSnapshotText: true },
+        syncGeneration,
       );
-      advancePendingBaseVersion(state, state.doc);
+      if (
+        !persisted ||
+        !isDocumentLocalWriteCurrent(state, writeGeneration, writeDoc)
+      ) {
+        return;
+      }
+      advancePendingBaseVersion(state, writeDoc);
       requestDocumentStoreSync(state);
     })
     .catch((error: unknown) => {
       console.error("Failed to persist document changes:", error);
     })
-    // Always decrement, even on the value-equality short-circuit or a throw, so
-    // the counter can never stick non-zero and permanently suppress remote text.
-    // Clamp at 0: clearDocumentStoreState resets the counter to 0 while writes
-    // may still be in flight, and their trailing settle must not drive it
-    // negative (which would read as "quiescent" mid-edit on the next write).
+    // Always settle, even on the value-equality short-circuit or a throw, so the
+    // current document's counter cannot stick non-zero. The generation guard
+    // keeps a reset write from decrementing a replacement generation.
     .finally(() => {
-      state.pendingLocalWrites = Math.max(0, state.pendingLocalWrites - 1);
+      settleDocumentLocalWrite(state, writeGeneration);
     });
   return state.writeChain;
 }
@@ -160,51 +219,78 @@ function queueDocumentStructuredFieldWrite(
   patch: DocumentStructuredFieldPatch,
   options: DocumentMutationOptions = {},
 ): Promise<void> {
+  if (!state.doc) {
+    return Promise.resolve();
+  }
+  const writeGeneration = state.localWriteGeneration;
+
   // See queueDocumentTextWrite: gate sync-lane text/field republish on the same
   // in-flight-write counter so structured edits get the identical protection.
   state.pendingLocalWrites += 1;
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => {
-      if (!state.doc || !canWriteDocument(state)) {
+      if (
+        state.localWriteGeneration !== writeGeneration ||
+        !state.doc ||
+        !canWriteDocument(state)
+      ) {
+        return;
+      }
+      const writeDoc = state.doc;
+      const syncGeneration = captureDocumentStoreSyncGeneration(
+        state,
+        writeDoc,
+      );
+      if (!syncGeneration) {
         return;
       }
 
       writeStoredDocumentFields(
-        state.doc,
+        writeDoc,
         kind,
         patch,
         state.runtime.infra.documentProjectors,
       );
-      const update = pendingDeltaSinceBase(state, state.doc);
+      const update = pendingDeltaSinceBase(state, writeDoc);
       if (update.byteLength === 0) {
         return;
       }
 
       if (!options.deferRemoteSync) {
         await enqueuePendingUpdate(state, update);
+        if (!isDocumentLocalWriteCurrent(state, writeGeneration, writeDoc)) {
+          return;
+        }
       }
-      await persistDocument(
+      const persisted = await persistDocument(
         state,
-        state.doc,
+        writeDoc,
         {},
         {
           preserveSnapshotStructuredFields: true,
           preserveSnapshotText: true,
         },
+        syncGeneration,
       );
+      if (
+        !persisted ||
+        !isDocumentLocalWriteCurrent(state, writeGeneration, writeDoc)
+      ) {
+        return;
+      }
       if (!options.deferRemoteSync) {
-        advancePendingBaseVersion(state, state.doc);
+        advancePendingBaseVersion(state, writeDoc);
         requestDocumentStoreSync(state);
       }
     })
     .catch((error: unknown) => {
       console.error("Failed to persist structured document changes:", error);
     })
-    // Clamp at 0 — see queueDocumentTextWrite: a reset mid-write must not drive
-    // the counter negative.
+    // See queueDocumentTextWrite: the final current-generation write also
+    // republishes any remote content that was held during the optimistic burst.
     .finally(() => {
-      state.pendingLocalWrites = Math.max(0, state.pendingLocalWrites - 1);
+      settleDocumentLocalWrite(state, writeGeneration);
     });
   return state.writeChain;
 }

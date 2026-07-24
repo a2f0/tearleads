@@ -95,6 +95,64 @@ test("document store does not replay intermediate persisted text during queued e
   expect(persistence.getState().document?.text).toBe("ab");
 });
 
+test("a reset write cannot publish over replacement-generation text", async () => {
+  const persistence = createDocumentStorePersistence();
+  const runtime = createDocumentStoreRuntime();
+  const store = createDocumentStore("reset-write-note", runtime, persistence);
+
+  store.updateRuntime(runtime);
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Document store did not become ready.",
+  );
+
+  const originalSaveDocument = persistence.saveDocument;
+  const oldSaveStarted = createDeferred();
+  const releaseOldSave = createDeferred();
+  const replacementSaveStarted = createDeferred();
+  const releaseReplacementSave = createDeferred();
+  let editSaveCount = 0;
+  persistence.saveDocument = async (...args) => {
+    editSaveCount += 1;
+    if (editSaveCount === 1) {
+      oldSaveStarted.resolve();
+      await releaseOldSave.promise;
+    } else if (editSaveCount === 2) {
+      replacementSaveStarted.resolve();
+      await releaseReplacementSave.promise;
+    }
+    return originalSaveDocument(...args);
+  };
+
+  const oldWrite = store.setText("old generation");
+  await oldSaveStarted.promise;
+
+  store.updateRuntime({
+    ...runtime,
+    infra: { ...runtime.infra, dbStatus: "terminated" },
+  });
+  store.updateRuntime(runtime);
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Document store did not reinitialize.",
+  );
+
+  const replacementWrite = store.setText("replacement generation");
+  expect(store.getSnapshot().text).toBe("replacement generation");
+
+  releaseOldSave.resolve();
+  await replacementSaveStarted.promise;
+
+  expect(store.getSnapshot().text).toBe("replacement generation");
+  expect(persistence.getState().document?.text).toBe("old generation");
+
+  releaseReplacementSave.resolve();
+  await Promise.all([oldWrite, replacementWrite]);
+
+  expect(store.getSnapshot().text).toBe("replacement generation");
+  expect(persistence.getState().document?.text).toBe("replacement generation");
+});
+
 test("document store publishes structured field edits synchronously for controlled editors", async () => {
   const persistence = createDocumentStorePersistence();
   const runtime = createDocumentStoreRuntime();
