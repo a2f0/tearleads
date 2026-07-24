@@ -8,12 +8,9 @@ import {
 import {
   MiniAppTable,
   MiniAppTableFrame,
+  useMiniAppCompactTableRows,
 } from "../../components/mini-app/MiniAppTable";
-import {
-  getMiniAppVirtualFrameStyle,
-  MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
-  useMiniAppVirtualRows,
-} from "../../components/mini-app/virtual/MiniAppVirtual";
+import { getMiniAppVirtualFrameStyle } from "../../components/mini-app/virtual/MiniAppVirtual";
 import { useContextMenuState } from "../../components/shared/useContextMenuState";
 import { useSessionTableColumns } from "./IdentityManagerSessionColumns";
 import { SessionContextMenu } from "./IdentityManagerSessionContextMenu";
@@ -38,11 +35,9 @@ export function SessionsSection({
   sessionError: string | null;
   sessions: ReadonlyArray<UserSession>;
 }) {
-  const { columns, visibleColumnIds } = useSessionTableColumns();
-  const virtualSessions = useMiniAppVirtualRows({
-    rowHeight: MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
-    rows: sessions,
-  });
+  const virtualSessions = useMiniAppCompactTableRows({ rows: sessions });
+  const { compact, rowHeight } = virtualSessions;
+  const { columns, visibleColumnIds } = useSessionTableColumns(compact);
   const contextMenuState = useContextMenuState<string>();
   const contextMenuSession =
     sessions.find(
@@ -71,15 +66,16 @@ export function SessionsSection({
           <MiniAppStatus>Login to manage sessions.</MiniAppStatus>
         ) : (
           <MiniAppTableFrame
-            className="identity-manager-session-table mini-app-table-frame--virtual mini-app-table-frame--compact mini-app-table-frame--bleed"
+            className={`identity-manager-session-table mini-app-table-frame--virtual mini-app-table-frame--compact mini-app-table-frame--bleed${
+              compact ? " mini-app-table-frame--two-line" : ""
+            }`}
             ref={virtualSessions.frameRef}
-            style={getMiniAppVirtualFrameStyle(
-              MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
-            )}
+            style={getMiniAppVirtualFrameStyle(rowHeight)}
           >
             <MiniAppTable columns={columns}>
               <SessionTableBody
                 bottomPadding={virtualSessions.bottomPadding}
+                compact={compact}
                 loadingSessions={loadingSessions}
                 mutatingSessionId={mutatingSessionId}
                 onOpenSessionDetail={onOpenSessionDetail}
