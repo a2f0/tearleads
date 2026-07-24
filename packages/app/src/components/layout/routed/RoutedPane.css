@@ -210,8 +210,12 @@
   background: var(--color-muted);
 }
 
-.routed-pane--mobile .routed-pane-taskbar[hidden] {
+.routed-pane-taskbar[hidden] {
   display: none;
+}
+
+.routed-pane--mobile[data-keyboard="open"] .routed-pane-main {
+  padding-block-end: var(--safe-area-bottom);
 }
 
 /* Same tier scoping as the app bar: only mobile's taskbar reaches the

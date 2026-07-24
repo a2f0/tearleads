@@ -40,7 +40,7 @@ import "./RoutedPane.css";
 import { RoutedPaneAppBar } from "./RoutedPaneAppBar";
 import { ROUTED_PANE_NAV_PANEL_ID, RoutedPaneNav } from "./RoutedPaneNav";
 import { RoutedPaneSidebar } from "./RoutedPaneSidebar";
-import { useTextInputFocused } from "./useTextInputFocused";
+import { useMobileKeyboardVisible } from "./useMobileKeyboardVisible";
 
 const ROUTED_ROOT_MINI_APP_ID: MiniAppId = "explorer";
 
@@ -218,7 +218,7 @@ function RoutedPaneSurface({
   const destroyKeyPackageDialog = useDestroyKeyPackageConfirmation(destroyKey);
   const hasSidebar =
     sidebar !== null && sidebar !== undefined && sidebar !== false;
-  const textInputFocused = useTextInputFocused(tier === "mobile");
+  const mobileKeyboardVisible = useMobileKeyboardVisible(tier === "mobile");
 
   const fileMenuItems = useWindowFileMenuItems();
   const viewMenuItems = useWindowViewMenuItems();
@@ -247,6 +247,7 @@ function RoutedPaneSurface({
   return (
     <section
       className={`routed-pane routed-pane--${tier}`}
+      data-keyboard={mobileKeyboardVisible ? "open" : "closed"}
       data-sidebar={sidebarVisible ? "open" : "closed"}
       role="application"
     >
@@ -285,7 +286,7 @@ function RoutedPaneSurface({
       </main>
       <RoutedPaneTaskBar
         drawerOpen={drawerOpen}
-        hidden={textInputFocused}
+        hidden={mobileKeyboardVisible}
         onToggleDrawer={toggleDrawer}
         onToggleRail={onToggleNavigationRail}
         railExpanded={navigationRailExpanded}
