@@ -199,17 +199,16 @@
  * Launcher tiles — square icon-and-label cells (mirrors Explorer's New Document
  * grid) so the sheet reads as an app launcher rather than a menu list.
  *
- * The min track is `em`, not `rem`, on purpose. Android's WebView applies the
- * system "Font size" accessibility setting as text inflation that scales an
- * element's used font-size but not the root `rem`, so a `rem` track leaves the
- * column count moving backwards from the tile size (enlarged font packed *more*
- * tiles per row). `em` tracks the same inflated font-size as the labels, so a
- * larger font yields wider tiles and fewer columns. At the default font size
- * `6.5em` resolves to the same width as `6.5rem`, so desktop is unchanged.
+ * Use a two-column phone layout with tracks wide enough for the longest app
+ * name. Android WebView can inflate an individual text node for the system
+ * "Font size" setting without changing its grid container's `em` size, so an
+ * auto-fit grid cannot reliably reduce its column count as text grows. Two
+ * roomy columns leave Explorer intact at enlarged text sizes, while wider
+ * routed layouts still gain columns naturally.
  */
 .routed-pane-sheet-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(6.5em, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
   gap: var(--space-sm);
   padding: var(--space-sm);
 }
