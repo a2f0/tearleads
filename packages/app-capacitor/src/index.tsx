@@ -11,6 +11,7 @@ import {
   resolveAppHostRuntimeConfig,
 } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
+import { subscribeCapacitorConnectionRefresh } from "./capacitorConnectionRefresh";
 import { createCapacitorFileSaver } from "./capacitorFileSaver";
 import { createCapacitorNetworkStatus } from "./capacitorNetworkStatus";
 import { createCapacitorPurchases } from "./capacitorPurchases";
@@ -101,6 +102,9 @@ const hostConfig = createAppHostConfig({
   // would fall back to ephemeral memory storage. Android's Chromium WebView
   // already resolves to this, so it is a no-op there.
   storagePersistence: PERSISTENT_STORAGE_POLICY,
+  subscribeConnectionRefresh: Capacitor.isNativePlatform()
+    ? subscribeCapacitorConnectionRefresh
+    : undefined,
   wsUrl,
 });
 
