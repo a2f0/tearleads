@@ -1,6 +1,9 @@
 import type { OrganizationBillingView } from "@tearleads/client-sdk";
 import { useCallback } from "react";
-import { useMiniAppLauncher } from "../../mini-apps/miniAppLauncher";
+import {
+  useActiveMiniAppRoute,
+  useMiniAppLauncher,
+} from "../../mini-apps/miniAppLauncher";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import {
   BILLING_LABELS,
@@ -33,11 +36,13 @@ function needsAttentionMessage(
 export function BillingBannerView({
   view,
   onEnroll,
+  isBillingScreen = false,
 }: {
   view: OrganizationBillingView | null;
   onEnroll: () => void;
+  isBillingScreen?: boolean | undefined;
 }) {
-  if (!view) {
+  if (!view || isBillingScreen) {
     return null;
   }
   // A warning takes precedence over the trial countdown. These are mutually
@@ -67,17 +72,39 @@ export function BillingBannerView({
   return null;
 }
 
+const BILLING_ROUTE = {
+  appId: "org-manager",
+  pathSegments: ["billing"],
+} as const;
+
 /**
- * Connects {@link BillingBannerView} to the shared billing snapshot, and routes
- * enrollment into the Org Manager's Billing view. The banner is app-shell chrome
- * mounted above the panes, so it opens the mini-app through the launcher bridge
- * ({@link useMiniAppLauncher}) rather than a pane-scoped navigation hook.
+ * Connects {@link BillingBannerView} to the active pane route and sends its
+ * enrollment action through the shell launcher bridge.
  */
+export function ActiveRouteBillingBanner({
+  view,
+}: {
+  view: OrganizationBillingView | null;
+}) {
+  const launch = useMiniAppLauncher();
+  const activeRoute = useActiveMiniAppRoute();
+  // Billing sub-routes retain the same leading segment and hide the banner too.
+  const isBillingScreen =
+    activeRoute?.appId === BILLING_ROUTE.appId &&
+    activeRoute.pathSegments[0] === BILLING_ROUTE.pathSegments[0];
+  const openBilling = useCallback(() => {
+    launch(BILLING_ROUTE);
+  }, [launch]);
+  return (
+    <BillingBannerView
+      isBillingScreen={isBillingScreen}
+      onEnroll={openBilling}
+      view={view}
+    />
+  );
+}
+
 export function BillingBanner() {
   const { view } = useOrganizationBilling();
-  const launch = useMiniAppLauncher();
-  const openBilling = useCallback(() => {
-    launch({ appId: "org-manager", pathSegments: ["billing"] });
-  }, [launch]);
-  return <BillingBannerView onEnroll={openBilling} view={view} />;
+  return <ActiveRouteBillingBanner view={view} />;
 }

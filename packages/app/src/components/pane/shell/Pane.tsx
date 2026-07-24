@@ -11,6 +11,7 @@ import { SystemMonitorProvider } from "../../../mini-apps/system-monitor/SystemM
 import type { AppNavigationMode } from "../../../navigation/AppNavigationMode";
 import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
 import { NavigationModeSwitch } from "../../../navigation/NavigationModeSwitch";
+import { useActiveAppRoute } from "../../../navigation/useActiveAppRoute";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { AppFeatureFlagsProvider } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
@@ -105,7 +106,8 @@ function PaneInner({
 // read the bus; renders nothing.
 function PaneMiniAppLauncherBridge({ active }: { active: boolean }) {
   const { openMiniApp } = useMiniAppBusActions();
-  useRegisterMiniAppLauncher(openMiniApp, active);
+  const activeRoute = useActiveAppRoute();
+  useRegisterMiniAppLauncher(openMiniApp, active, activeRoute);
   return null;
 }
 
