@@ -8,17 +8,16 @@ import {
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { type ComponentProps, createElement } from "react";
 import { ROUTED_TABLET_QUERY } from "../../../../navigation/breakpoints";
-import { formatMiniAppDate } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerContainerItemTable } from "./ExplorerContainerItemTable";
 import type { ExplorerItemColumnId } from "./explorerItemColumnIds";
 
 /**
  * The phone tier folds the explorer item row into a two-line summary column:
- * line one is the name button, line two is the muted Type + Modified pair. The
- * pitch that the rendered row, the virtual spacers and the frame's CSS variable
- * all agree on is asserted here, because a mismatch shows up as blank bands
- * while scrolling rather than as a visibly broken row.
+ * line one is the name button, line two is the muted type, and a larger visual
+ * spans both. The pitch that the rendered row, the virtual spacers and the
+ * frame's CSS variable all agree on is asserted here, because a mismatch shows
+ * up as blank bands while scrolling rather than as a visibly broken row.
  */
 
 const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(
@@ -185,55 +184,40 @@ test("phone container item table folds the row into a summary and a kebab", () =
   ).toBeNull();
 });
 
-test("phone container item table keeps the name button on the first line", () => {
+test("phone container item table spans a large visual beside name and type", () => {
   const view = renderFoldedItemTable({
     rows: [noteRow],
     totalCount: 1,
   });
-  const lines = view.container.querySelectorAll(
-    "tbody .mini-app-compact-table-line",
-  );
-
-  expect(lines).toHaveLength(2);
-  const nameButton = lines.item(0).querySelector(".explorer-item-row-button");
+  const summary = view.container.querySelector(".explorer-item-summary");
+  const nameButton = summary?.querySelector(".explorer-item-row-button");
   if (!nameButton) {
-    throw new Error("Expected the item name button on the first line.");
+    throw new Error("Expected the item name button in the summary.");
   }
 
   // The screenshot and dual-pane suites locate rows through this button and its
-  // document id, so the fold must not move either out of it.
-  expect(nameButton.querySelector(".explorer-item-icon")).not.toBeNull();
+  // document id, so the fold must preserve both.
   expect(nameButton.getAttribute("data-document-local-id")).toBe(
     noteRow.localId,
   );
+  const icon = summary?.querySelector(".explorer-item-summary-visual svg");
+  expect(icon?.getAttribute("width")).toBe("32");
+  expect(icon?.getAttribute("height")).toBe("32");
 });
 
-test("phone container item table labels the secondary fields for screen readers", () => {
+test("phone container item table puts only type beneath the name", () => {
   const view = renderFoldedItemTable({
     rows: [archiveRow],
     totalCount: 1,
   });
-  const secondaryLine = view.container
-    .querySelectorAll("tbody .mini-app-compact-table-line")
-    .item(1);
+  const type = view.container.querySelector(".explorer-item-summary-type");
 
-  expect(
-    Array.from(
-      secondaryLine.querySelectorAll(".mini-app-compact-table-field"),
-      (field) => field.textContent,
-    ),
-  ).toEqual([
-    // The leading empty gutter keeps this line's tracks under the header's.
-    "",
+  expect(type?.textContent).toBe(
     `${EXPLORER_LABELS.itemTypeColumn}: ${EXPLORER_LABELS.folderType}`,
-    `${EXPLORER_LABELS.dateModifiedColumnCompact}: ${formatMiniAppDate(
-      archiveRow.updatedAt,
-      { emptyFallback: EXPLORER_LABELS.unknownDate },
-    )}`,
-  ]);
-  expect(
-    secondaryLine.classList.contains("mini-app-compact-table-line--muted"),
-  ).toBe(true);
+  );
+  expect(view.container.textContent).not.toContain(
+    EXPLORER_LABELS.dateModifiedColumnCompact,
+  );
 });
 
 test("phone container item table names the row button by the item name alone", () => {
@@ -303,42 +287,44 @@ test("phone container item table sorts from the summary header", () => {
     totalCount: 1,
   });
 
+  const triggerName = `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.itemNameColumn}, ${EXPLORER_LABELS.columnSortedAscending}`;
+  fireEvent.click(view.getByRole("combobox", { name: triggerName }));
   fireEvent.click(
-    view.getByRole("button", {
+    view.getByRole("option", {
       name: EXPLORER_LABELS.dateModifiedColumnCompact,
     }),
   );
+  fireEvent.click(view.getByRole("combobox", { name: triggerName }));
   fireEvent.click(
-    view.getByRole("button", { name: EXPLORER_LABELS.itemTypeColumn }),
+    view.getByRole("option", { name: EXPLORER_LABELS.itemTypeColumn }),
   );
 
   expect(sortKeys).toEqual(["modified", "type"]);
 });
 
-test("phone container item table announces the active sort on its control", () => {
+test("phone container item table displays only the active sort field", () => {
   const view = renderFoldedItemTable({
     rows: [archiveRow],
     sort: { direction: "desc", key: "modified" },
     totalCount: 1,
   });
 
-  // The summary <th> heads three sort keys at once, so a direction on the cell
-  // would name one without saying which; the active control carries it instead.
   expect(
     view.container.querySelector("thead th")?.getAttribute("aria-sort"),
-  ).toBe("none");
+  ).toBe("descending");
   expect(
-    view.getByRole("button", {
-      name: `${EXPLORER_LABELS.dateModifiedColumnCompact}, ${EXPLORER_LABELS.columnSortedDescending}`,
+    view.getByRole("combobox", {
+      name: `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.dateModifiedColumnCompact}, ${EXPLORER_LABELS.columnSortedDescending}`,
     }),
   ).toBeTruthy();
-  // The inactive controls keep their bare label.
   expect(
-    view.getByRole("button", { name: EXPLORER_LABELS.itemTypeColumn }),
+    view.getByText(`${EXPLORER_LABELS.dateModifiedColumnCompact} ↓`),
   ).toBeTruthy();
-  expect(
-    view.getByRole("button", { name: EXPLORER_LABELS.itemNameColumn }),
-  ).toBeTruthy();
+  expect(view.queryByText(EXPLORER_LABELS.itemTypeColumn)).toBeNull();
+  expect(view.queryByText(EXPLORER_LABELS.itemNameColumn)).toBeNull();
+
+  fireEvent.click(view.getByRole("combobox"));
+  expect(view.getAllByRole("option")).toHaveLength(4);
 
   cleanup();
   const createdSortView = renderFoldedItemTable({
@@ -347,11 +333,13 @@ test("phone container item table announces the active sort on its control", () =
     totalCount: 1,
   });
 
-  // Created is not one of the folded controls, so none of them is active.
   expect(
-    createdSortView.getByRole("button", {
-      name: EXPLORER_LABELS.dateModifiedColumnCompact,
+    createdSortView.getByRole("combobox", {
+      name: `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.dateCreatedColumn}, ${EXPLORER_LABELS.columnSortedAscending}`,
     }),
+  ).toBeTruthy();
+  expect(
+    createdSortView.getByText(`${EXPLORER_LABELS.dateCreatedColumn} ↑`),
   ).toBeTruthy();
 });
 

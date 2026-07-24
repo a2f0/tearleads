@@ -3,3 +3,47 @@
   align-items: center;
   gap: var(--space-sm);
 }
+
+.explorer-item-summary {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.explorer-item-summary-visual {
+  display: flex;
+  grid-row: 1 / span 2;
+  align-items: center;
+  justify-content: center;
+}
+
+.explorer-item-summary-copy {
+  display: grid;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.explorer-item-summary-type {
+  min-width: 0;
+  overflow: hidden;
+  opacity: var(--opacity-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-compact-sort-menu {
+  width: min(12rem, 100%);
+}
+
+.explorer-compact-sort-menu .mini-app-select-menu-trigger {
+  min-height: var(--control-height);
+  padding: 0;
+  border: 0;
+  font-weight: inherit;
+}
+
+.explorer-compact-sort-menu .mini-app-select-menu-popover {
+  min-width: 11rem;
+}

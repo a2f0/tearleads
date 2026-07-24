@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import {
-  COMPACT_SUMMARY_SECONDARY_COLUMN_IDS,
   type ExplorerItemColumnId,
   getVisibleExplorerItemColumnIds,
   TOGGLEABLE_COLUMN_IDS,
@@ -89,8 +88,6 @@ test("compact layout folds every data column into the summary column", () => {
   for (const dataColumnId of ["name", "type", "created", "modified", "sync"]) {
     expect(compactColumnIds).not.toContain(dataColumnId);
   }
-
-  expect(COMPACT_SUMMARY_SECONDARY_COLUMN_IDS).toEqual(["type", "modified"]);
 });
 
 test("Name is not user-toggleable", () => {
