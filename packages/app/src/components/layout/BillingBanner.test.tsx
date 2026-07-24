@@ -1,7 +1,12 @@
 import { afterEach, expect, mock, test } from "bun:test";
 import type { OrganizationBillingView } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { BillingBannerView } from "./BillingBanner";
+import {
+  MiniAppLauncherProvider,
+  useRegisterMiniAppLauncher,
+} from "../../mini-apps/miniAppLauncher";
+import type { AppRouteState } from "../../navigation/AppRoutePaths";
+import { ActiveRouteBillingBanner, BillingBannerView } from "./BillingBanner";
 
 afterEach(() => cleanup());
 
@@ -115,7 +120,7 @@ test("enroll button invokes onEnroll while trialing", () => {
 test("renders nothing on the enrollment screen", () => {
   const { container } = render(
     <BillingBannerView
-      isEnrollmentScreen={true}
+      isBillingScreen={true}
       onEnroll={noop}
       view={view({
         status: "trialing",
@@ -127,6 +132,41 @@ test("renders nothing on the enrollment screen", () => {
     />,
   );
   expect(container.firstChild).toBe(null);
+});
+
+function BannerAtRoute({ route }: { route: AppRouteState }) {
+  useRegisterMiniAppLauncher(noop, true, route);
+  return (
+    <ActiveRouteBillingBanner
+      view={view({
+        status: "trialing",
+        isLocal: false,
+        isTrialing: true,
+        canSync: true,
+        trialDaysRemaining: 3,
+      })}
+    />
+  );
+}
+
+test("hides the active-route banner only on org manager billing", () => {
+  const rendered = render(
+    <MiniAppLauncherProvider>
+      <BannerAtRoute
+        route={{ appId: "org-manager", pathSegments: ["billing"] }}
+      />
+    </MiniAppLauncherProvider>,
+  );
+  expect(rendered.container.firstChild).toBe(null);
+
+  rendered.rerender(
+    <MiniAppLauncherProvider>
+      <BannerAtRoute
+        route={{ appId: "org-manager", pathSegments: ["groups"] }}
+      />
+    </MiniAppLauncherProvider>,
+  );
+  expect(rendered.getByRole("status").textContent).toContain("Free trial ends");
 });
 
 test("warns when sync is disabled", () => {

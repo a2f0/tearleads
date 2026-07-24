@@ -36,13 +36,13 @@ function needsAttentionMessage(
 export function BillingBannerView({
   view,
   onEnroll,
-  isEnrollmentScreen = false,
+  isBillingScreen = false,
 }: {
   view: OrganizationBillingView | null;
   onEnroll: () => void;
-  isEnrollmentScreen?: boolean | undefined;
+  isBillingScreen?: boolean | undefined;
 }) {
-  if (!view || isEnrollmentScreen) {
+  if (!view || isBillingScreen) {
     return null;
   }
   // A warning takes precedence over the trial countdown. These are mutually
@@ -78,21 +78,34 @@ export function BillingBannerView({
  * mounted above the panes, so it opens the mini-app through the launcher bridge
  * ({@link useMiniAppLauncher}) rather than a pane-scoped navigation hook.
  */
-export function BillingBanner() {
-  const { view } = useOrganizationBilling();
+const BILLING_ROUTE = {
+  appId: "org-manager",
+  pathSegments: ["billing"],
+} as const;
+
+export function ActiveRouteBillingBanner({
+  view,
+}: {
+  view: OrganizationBillingView | null;
+}) {
   const launch = useMiniAppLauncher();
   const activeRoute = useActiveMiniAppRoute();
-  const isEnrollmentScreen =
-    activeRoute?.appId === "org-manager" &&
-    activeRoute.pathSegments[0] === "billing";
+  const isBillingScreen =
+    activeRoute?.appId === BILLING_ROUTE.appId &&
+    activeRoute.pathSegments[0] === BILLING_ROUTE.pathSegments[0];
   const openBilling = useCallback(() => {
-    launch({ appId: "org-manager", pathSegments: ["billing"] });
+    launch(BILLING_ROUTE);
   }, [launch]);
   return (
     <BillingBannerView
-      isEnrollmentScreen={isEnrollmentScreen}
+      isBillingScreen={isBillingScreen}
       onEnroll={openBilling}
       view={view}
     />
   );
+}
+
+export function BillingBanner() {
+  const { view } = useOrganizationBilling();
+  return <ActiveRouteBillingBanner view={view} />;
 }
