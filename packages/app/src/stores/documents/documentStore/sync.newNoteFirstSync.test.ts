@@ -20,12 +20,13 @@ import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 // doc read, regressing the controlled <textarea> and dropping characters. Only
 // online, because ensureRemoteDocument only runs inside an online sync pass.
 //
-// We reproduce the lag deterministically by gating saveDocument: the first
-// keystroke's write chain parks at its persist (doc frozen at "a", a pending
-// update already enqueued), we type ahead to "abcdef" (optimistic snapshot only,
-// the second write cannot start while the first is parked), then drive the sync.
-// ensureRemoteDocument reads the lagging doc ("a") and parks at its own persist.
-// On release, the buggy code republishes "a" over "abcdef".
+// We reproduce the lag deterministically by gating enqueuePendingUpdate after
+// it stores the first pending row: the first keystroke's write chain parks with
+// the doc frozen at "a", we type ahead to "abcdef" (optimistic snapshot only,
+// because the second write cannot start), then drive the sync. The pending row
+// is already visible, so ensureRemoteDocument reads the lagging doc ("a") and
+// persists the remote identity while the optimistic snapshot is ahead. The
+// buggy code republishes "a" over "abcdef" before the local chain resumes.
 //
 // The store starts OFFLINE so the create is still pending when the burst begins:
 // online, the eager pending-create flush would otherwise race the gate and can
@@ -33,25 +34,25 @@ import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 // the settle path uses saveDocumentAndDeletePendingUpdates, which this gate
 // deliberately does not intercept). Flipping online mid-burst pins the original
 // regression shape: the first online sync runs ensureRemoteDocument against the
-// lagging doc.
+// lagging doc while the durable mutation queue itself remains available.
 test("new note first sync preserves the optimistic text while typing (online)", async () => {
   const basePersistence = createDocumentsPersistence();
-  let blockSaves = false;
-  let gatedSaveCount = 0;
-  let releaseSaves: () => void = () => {};
-  const saveGate = new Promise<void>((resolve) => {
-    releaseSaves = resolve;
+  let blockEnqueues = false;
+  let gatedEnqueueCount = 0;
+  let releaseEnqueue: () => void = () => {};
+  const enqueueGate = new Promise<void>((resolve) => {
+    releaseEnqueue = resolve;
   });
   const persistence = {
     ...basePersistence,
-    saveDocument: async (
-      ...args: Parameters<typeof basePersistence.saveDocument>
+    enqueuePendingUpdate: async (
+      ...args: Parameters<typeof basePersistence.enqueuePendingUpdate>
     ) => {
-      if (blockSaves) {
-        gatedSaveCount += 1;
-        await saveGate;
+      await basePersistence.enqueuePendingUpdate(...args);
+      if (blockEnqueues) {
+        gatedEnqueueCount += 1;
+        await enqueueGate;
       }
-      return basePersistence.saveDocument(...args);
     },
   };
 
@@ -82,15 +83,16 @@ test("new note first sync preserves the optimistic text while typing (online)", 
     publishedTexts.push(store.getSnapshot().text);
   });
 
-  // From here on, freeze the write chain at its persist so the Loro doc lags.
-  blockSaves = true;
+  // From here on, freeze the write chain after its pending row is durable so the
+  // Loro doc lags without holding the serialized SQL mutation queue.
+  blockEnqueues = true;
 
-  // First keystroke: enqueues a pending update, then parks at saveDocument with
-  // the doc frozen at "a".
+  // First keystroke: stores a pending update, then parks with the doc frozen at
+  // "a" before its local document-record persist.
   store.setText("a");
   await waitForCondition(
-    () => gatedSaveCount >= 1,
-    "First keystroke persist did not reach the gated save.",
+    () => gatedEnqueueCount >= 1,
+    "First keystroke did not reach the pending-update gate.",
   );
 
   // Type ahead while the doc is frozen: the optimistic snapshot jumps to
@@ -99,18 +101,17 @@ test("new note first sync preserves the optimistic text while typing (online)", 
   expect(store.getSnapshot().text).toBe("abcdef");
 
   // Go online, driving the first sync. It sees a pending update and no
-  // documentId, so it runs ensureRemoteDocument, which reads the lagging doc
-  // ("a") and parks at its own create persist.
+  // documentId, so it runs ensureRemoteDocument against the lagging doc.
   store.updateRuntime(runtime);
   store.requestSync();
   await waitForCondition(
-    () => gatedSaveCount >= 2,
-    "First sync did not reach the new-document create persist.",
+    () => store.getSnapshot().documentId !== null,
+    "First sync did not persist the remote document identity.",
   );
 
-  // Release everything and let the store settle.
-  blockSaves = false;
-  releaseSaves();
+  // Release the local write chain and let the store settle.
+  blockEnqueues = false;
+  releaseEnqueue();
 
   await waitForCondition(
     () =>

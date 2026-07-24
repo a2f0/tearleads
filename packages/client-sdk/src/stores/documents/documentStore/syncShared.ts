@@ -16,6 +16,10 @@ import type {
   DocumentStoreState,
   EncapsulationKeyPair,
 } from "./state";
+import {
+  type DocumentStoreSyncGeneration,
+  isDocumentStoreSyncGenerationCurrent,
+} from "./syncGeneration";
 
 /**
  * Record a terminal submit failure on this document's write-queue row. Shared
@@ -25,13 +29,21 @@ import type {
  */
 export function documentTerminalSubmitFailureHandler(
   state: DocumentStoreState,
+  generation?: DocumentStoreSyncGeneration,
 ) {
-  return (failure: {
+  return async (failure: {
     readonly message: string;
     readonly status: number | null;
-  }) =>
-    recordDocumentSyncFailure(
-      state.runtime.infra.execSql,
+  }) => {
+    if (
+      generation &&
+      !isDocumentStoreSyncGenerationCurrent(state, generation)
+    ) {
+      return;
+    }
+
+    await recordDocumentSyncFailure(
+      generation?.execSql ?? state.runtime.infra.execSql,
       { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
       {
         attemptedAt: new Date().toISOString(),
@@ -39,6 +51,7 @@ export function documentTerminalSubmitFailureHandler(
         status: failure.status,
       },
     );
+  };
 }
 
 function hasPersistedRemoteDocumentSyncState(record: DocumentRecord): boolean {
@@ -96,48 +109,62 @@ export async function ensureRemoteDocument(
   currentDoc: DocumentState,
   nextRecord: DocumentRecord | null,
   encapsulationKeyPair: EncapsulationKeyPair,
+  generation?: DocumentStoreSyncGeneration,
 ): Promise<DocumentRecord | null> {
+  const generationIsCurrent = () =>
+    !generation || isDocumentStoreSyncGenerationCurrent(state, generation);
+  if (!generationIsCurrent()) return state.record ?? nextRecord;
+
   if (nextRecord?.documentId) {
     return nextRecord;
   }
 
-  if (!state.runtime.state.containerId) {
-    state.runtime.util.log(
+  const runtime = state.runtime;
+  if (!runtime.state.containerId) {
+    runtime.util.log(
       "Documents: cannot create a remote document without a container.",
     );
     return nextRecord;
   }
 
-  const author = resolveDocumentCreateAuthor(state.runtime);
+  const author = resolveDocumentCreateAuthor(runtime);
   if (!author) {
-    state.runtime.util.log(
+    runtime.util.log(
       "Documents: skipped remote create because the writer context is unavailable.",
     );
     return nextRecord;
   }
 
+  const documentId = await deriveStableDocumentId(state.localId);
+  if (!generationIsCurrent()) return state.record ?? nextRecord;
+
   const created = await createRemoteDocument({
-    apiClient: state.runtime.apiClient,
+    apiClient: runtime.apiClient,
     author,
-    containerId: state.runtime.state.containerId,
+    containerId: runtime.state.containerId,
     // Derive the remote id from the stable local id so a retry after a lost
     // create response re-sends the same id and adopts the existing remote
     // document instead of creating a duplicate.
-    documentId: await deriveStableDocumentId(state.localId),
-    execSql: state.runtime.infra.execSql,
-    isRemoteSyncBlocked: state.runtime.util.isRemoteSyncBlocked,
-    onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(state),
+    documentId,
+    execSql: runtime.infra.execSql,
+    isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
+    onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(
+      state,
+      generation,
+    ),
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      state.runtime,
-    ),
+    warmReferencedPrincipalPolicies:
+      createRuntimePrincipalPolicyWarmer(runtime),
   });
+  if (!generationIsCurrent()) return state.record ?? nextRecord;
   if (!created) {
     return nextRecord;
   }
 
   return chainIdentityWrite(state, async () => {
+    if (!generationIsCurrent()) return state.record ?? nextRecord;
+
     // A concurrent relink (e.g. live duplicate-facade resolution) may have
     // assigned this store a different remote identity while the create round
     // trip was in flight. That identity wins: persisting the created one here
@@ -148,7 +175,7 @@ export async function ensureRemoteDocument(
       return state.record;
     }
 
-    state.runtime.util.log(`Created document: ${created.documentId}`);
+    runtime.util.log(`Created document: ${created.documentId}`);
     state.writerProjection = created.writerProjection;
 
     // This persist is a remote-identity write (documentId + content keys), not a
@@ -160,13 +187,22 @@ export async function ensureRemoteDocument(
     // (the new-note "type immediately" race). Preserve the optimistic snapshot —
     // documentId/keys still propagate via state.record, independent of the
     // snapshot text — matching finalizeDocumentSync and the keystroke writes.
-    return (
-      await persistDocument(
-        state,
-        currentDoc,
-        { ...created.persistedState },
-        { preserveSnapshotStructuredFields: true, preserveSnapshotText: true },
-      )
-    ).record;
+    const persistPatch = { ...created.persistedState };
+    const persistOptions = {
+      preserveSnapshotStructuredFields: true,
+      preserveSnapshotText: true,
+    };
+    const persisted = generation
+      ? await persistDocument(
+          state,
+          currentDoc,
+          persistPatch,
+          persistOptions,
+          generation,
+        )
+      : await persistDocument(state, currentDoc, persistPatch, persistOptions);
+    return persisted.appliedToStore
+      ? persisted.record
+      : (state.record ?? nextRecord);
   });
 }

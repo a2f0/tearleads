@@ -11,6 +11,11 @@ import type {
   DocumentStoreState,
   PendingMutationSyncResult,
 } from "./state";
+import {
+  type DocumentStoreSyncGeneration,
+  isDocumentStoreSyncGenerationCurrent,
+} from "./syncGeneration";
+import { documentSyncContextMatches } from "./syncUpdateImport";
 
 interface DetachedAttachmentMarker {
   slotId: string;
@@ -20,9 +25,13 @@ interface DetachedAttachmentMarker {
 export async function syncDetachedAttachmentBindings(
   state: DocumentStoreState,
   nextRecord: DocumentRecord,
+  generation: DocumentStoreSyncGeneration,
 ): Promise<PendingMutationSyncResult> {
-  const currentDoc = state.doc;
-  if (!currentDoc) {
+  const currentDoc = generation.currentDoc;
+  if (
+    !currentDoc ||
+    !detachedSyncContextIsCurrent(state, generation, nextRecord)
+  ) {
     return { completed: false, nextRecord };
   }
 
@@ -32,14 +41,23 @@ export async function syncDetachedAttachmentBindings(
   }
 
   if (!nextRecord.documentId) {
-    await cleanupDetachedAttachmentMarkers(state, currentDoc, detachedMarkers);
-    return { completed: true, nextRecord };
+    const completed = await cleanupDetachedAttachmentMarkers(
+      state,
+      currentDoc,
+      nextRecord,
+      detachedMarkers,
+      generation,
+    );
+    return { completed, nextRecord };
   }
 
-  const remoteBindings = await state.runtime.apiClient.listDocumentAttachments(
-    nextRecord.documentId,
-  );
-  if (!remoteBindings) {
+  const remoteDocumentId = nextRecord.documentId;
+  const remoteBindings =
+    await state.runtime.apiClient.listDocumentAttachments(remoteDocumentId);
+  if (
+    !remoteBindings ||
+    !detachedSyncContextIsCurrent(state, generation, nextRecord)
+  ) {
     return { completed: false, nextRecord };
   }
 
@@ -49,11 +67,16 @@ export async function syncDetachedAttachmentBindings(
   );
 
   for (const marker of detachedMarkers) {
+    if (!detachedSyncContextIsCurrent(state, generation, nextRecord)) {
+      return { completed, nextRecord };
+    }
     const activeBinding = activeBindingBySlotId.get(marker.slotId);
     if (activeBinding) {
       const detached = await syncDetachedAttachmentBinding({
         binding: activeBinding,
-        remoteDocumentId: nextRecord.documentId,
+        generation,
+        remoteDocumentId,
+        requestRecord: nextRecord,
         state,
       });
       if (!detached) {
@@ -61,11 +84,35 @@ export async function syncDetachedAttachmentBindings(
       }
     }
 
-    await cleanupDetachedAttachmentMarker(state, currentDoc, marker);
+    const cleaned = await cleanupDetachedAttachmentMarker(
+      state,
+      currentDoc,
+      nextRecord,
+      marker,
+      generation,
+    );
+    if (!cleaned) {
+      return { completed, nextRecord };
+    }
     completed = true;
   }
 
   return { completed, nextRecord };
+}
+
+function detachedSyncContextIsCurrent(
+  state: DocumentStoreState,
+  generation: DocumentStoreSyncGeneration,
+  requestRecord: DocumentRecord,
+): boolean {
+  return (
+    isDocumentStoreSyncGenerationCurrent(state, generation) &&
+    documentSyncContextMatches(
+      state.record,
+      requestRecord,
+      requestRecord.documentId,
+    )
+  );
 }
 
 function listDetachedAttachmentMarkers(
@@ -85,33 +132,61 @@ function listDetachedAttachmentMarkers(
 async function cleanupDetachedAttachmentMarkers(
   state: DocumentStoreState,
   currentDoc: DocumentState,
+  requestRecord: DocumentRecord,
   markers: readonly DetachedAttachmentMarker[],
-) {
+  generation: DocumentStoreSyncGeneration,
+): Promise<boolean> {
   for (const marker of markers) {
-    await cleanupDetachedAttachmentMarker(state, currentDoc, marker);
+    if (
+      !(await cleanupDetachedAttachmentMarker(
+        state,
+        currentDoc,
+        requestRecord,
+        marker,
+        generation,
+      ))
+    ) {
+      return false;
+    }
   }
+  return true;
 }
 
 async function cleanupDetachedAttachmentMarker(
   state: DocumentStoreState,
   currentDoc: DocumentState,
+  requestRecord: DocumentRecord,
   marker: DetachedAttachmentMarker,
-) {
+  generation: DocumentStoreSyncGeneration,
+): Promise<boolean> {
+  if (!detachedSyncContextIsCurrent(state, generation, requestRecord)) {
+    return false;
+  }
   await deleteLocalAttachmentRecord(
     state,
     marker.slotId,
     marker.storageKey,
     currentDoc,
   );
+  if (!detachedSyncContextIsCurrent(state, generation, requestRecord)) {
+    return false;
+  }
   await state.runtime.infra.blobStore.deleteBytes(marker.storageKey);
+  return detachedSyncContextIsCurrent(state, generation, requestRecord);
 }
 
 async function syncDetachedAttachmentBinding(input: {
   binding: DocumentAttachmentBinding;
+  generation: DocumentStoreSyncGeneration;
   remoteDocumentId: string;
+  requestRecord: DocumentRecord;
   state: DocumentStoreState;
 }): Promise<boolean> {
-  const { binding, state } = input;
+  const { binding, generation, requestRecord, state } = input;
+  const contextIsCurrent = () =>
+    detachedSyncContextIsCurrent(state, generation, requestRecord);
+  if (!contextIsCurrent()) return false;
+
   const author = resolveDocumentCreateAuthor(state.runtime);
   if (!author) {
     state.runtime.util.log(
@@ -131,22 +206,24 @@ async function syncDetachedAttachmentBinding(input: {
     bindingId: binding.bindingId,
     blobId: binding.blobId,
     documentId: input.remoteDocumentId,
-    execSql: state.runtime.infra.execSql,
+    execSql: generation.execSql,
     isRemoteSyncBlocked: (organizationId: string) => {
       remoteSyncBlocked =
         state.runtime.util.isRemoteSyncBlocked?.(organizationId) ?? false;
       return remoteSyncBlocked;
     },
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
+    resolveProjectionUserKey: generation.resolveProjectionUserKey,
     slotId: binding.slotId,
   };
   let detached = await detachDocumentAttachment({
     ...baseDetachInput,
     writerProjection: writerProjection ?? undefined,
   });
+  if (!contextIsCurrent()) return false;
   if (!detached && writerProjection && !remoteSyncBlocked) {
     state.writerProjection = null;
     detached = await detachDocumentAttachment(baseDetachInput);
+    if (!contextIsCurrent()) return false;
   }
   if (!detached) {
     return false;

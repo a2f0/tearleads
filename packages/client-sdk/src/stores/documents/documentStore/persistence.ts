@@ -31,6 +31,15 @@ import {
   type SaveDocumentRecordOptions,
   setReadySnapshot,
 } from "./state";
+import {
+  type DocumentStoreSyncGeneration,
+  isDocumentStoreSyncGenerationCurrent,
+} from "./syncGeneration";
+
+type AppliedPersistedDocumentRecord = PersistedDocumentRecord & {
+  appliedToStore: true;
+  updatedAt: string;
+};
 
 function documentSummaryFromRecord(
   record: DocumentRecord,
@@ -65,9 +74,15 @@ export async function saveDocumentRecord(
   currentDoc: DocumentState,
   patch: Partial<DocumentRecord> = {},
   options: SaveDocumentRecordOptions = {},
+  expectedGeneration?: DocumentStoreSyncGeneration,
 ): Promise<PersistedDocumentRecord> {
   const previousDocumentId = state.record?.documentId ?? null;
-  const persistedDocumentState = await persistDocumentState({
+  const recordBeforePersist = state.record;
+  const pendingBaseVersion =
+    options.pendingBaseVersionOverride === undefined
+      ? state.pendingBaseVersion
+      : options.pendingBaseVersionOverride;
+  const persistenceInput = {
     acceptedPendingUpdateIds: options.acceptedPendingUpdateIds,
     containerId: state.runtime.state.containerId,
     currentDoc,
@@ -80,10 +95,37 @@ export async function saveDocumentRecord(
     // deferRemoteSync write leaves it BEHIND the snapshot version on purpose;
     // capturing state.pendingBaseVersion here is what lets the next edit
     // re-derive that deferred op after a restart instead of dropping it.
-    patch: { ...patch, pendingBaseVersion: state.pendingBaseVersion },
+    patch: { ...patch, pendingBaseVersion },
     persistence: state.persistence,
-  });
+  };
+  const persistedDocumentState = expectedGeneration
+    ? await persistDocumentState({
+        ...persistenceInput,
+        // persistDocumentState rechecks after its own pre-save awaits and then
+        // immediately claims the executor mutation queue. A reset before that
+        // point aborts; a reset afterward cannot let replacement writes overtake.
+        canStartDurableMutation: () =>
+          isDocumentStoreSyncGenerationCurrent(state, expectedGeneration),
+      })
+    : await persistDocumentState(persistenceInput);
+  if (!persistedDocumentState) {
+    const fallbackRecord = state.record ?? recordBeforePersist;
+    if (!fallbackRecord) {
+      throw new Error("Guarded document persistence lost its record");
+    }
+    return { appliedToStore: false, record: fallbackRecord };
+  }
   const { record: nextRecord, updatedAt } = persistedDocumentState;
+  if (
+    expectedGeneration &&
+    !isDocumentStoreSyncGenerationCurrent(state, expectedGeneration)
+  ) {
+    return {
+      appliedToStore: false,
+      record: nextRecord,
+    };
+  }
+
   state.record = persistedDocumentState.record;
   if (previousDocumentId !== nextRecord.documentId) {
     state.effects.registerDocumentIdentity(
@@ -101,23 +143,41 @@ export async function saveDocumentRecord(
     ),
   );
   return {
+    appliedToStore: true,
     record: nextRecord,
     updatedAt,
   };
 }
 
+export function persistDocument(
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  patch?: Partial<DocumentRecord>,
+  options?: SaveDocumentRecordOptions,
+): Promise<AppliedPersistedDocumentRecord>;
+export function persistDocument(
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  patch: Partial<DocumentRecord>,
+  options: SaveDocumentRecordOptions,
+  expectedGeneration: DocumentStoreSyncGeneration,
+): Promise<PersistedDocumentRecord>;
 export async function persistDocument(
   state: DocumentStoreState,
   currentDoc: DocumentState,
   patch: Partial<DocumentRecord> = {},
   options: SaveDocumentRecordOptions = {},
+  expectedGeneration?: DocumentStoreSyncGeneration,
 ): Promise<PersistedDocumentRecord> {
   const persistedRecord = await saveDocumentRecord(
     state,
     currentDoc,
     patch,
     options,
+    expectedGeneration,
   );
+  if (!persistedRecord.appliedToStore) return persistedRecord;
+
   setReadySnapshot(
     state,
     currentDoc,
@@ -253,6 +313,7 @@ async function saveLocalAttachmentRecords(
   state: DocumentStoreState,
   attachments: ReadonlyArray<LocalAttachmentRecord>,
   currentDoc: DocumentState | null = state.doc,
+  expectedGeneration?: DocumentStoreSyncGeneration,
 ) {
   if (attachments.length === 0) {
     return;
@@ -263,6 +324,12 @@ async function saveLocalAttachmentRecords(
     execSql: state.runtime.infra.execSql,
     persistence: state.persistence,
   });
+  if (
+    expectedGeneration &&
+    !isDocumentStoreSyncGenerationCurrent(state, expectedGeneration)
+  ) {
+    return;
+  }
 
   state.attachmentBlobIdBySlotId = {
     ...state.attachmentBlobIdBySlotId,
@@ -295,12 +362,19 @@ export async function hydrateAttachmentBlobs(
   state: DocumentStoreState,
   currentDoc: DocumentState,
   currentRecord: DocumentRecord | null,
+  expectedGeneration?: DocumentStoreSyncGeneration,
 ) {
-  const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
+  const generationIsCurrent = () =>
+    !expectedGeneration ||
+    isDocumentStoreSyncGenerationCurrent(state, expectedGeneration);
+  if (!generationIsCurrent()) return;
+
+  const runtime = state.runtime;
+  const encapsulationKeyPair = runtime.crypto.encapsulationKeyPair;
   if (
     !encapsulationKeyPair ||
-    !state.runtime.auth.isAuthenticated ||
-    !state.runtime.state.online ||
+    !runtime.auth.isAuthenticated ||
+    !runtime.state.online ||
     !currentRecord?.documentId
   ) {
     return;
@@ -312,16 +386,19 @@ export async function hydrateAttachmentBlobs(
   }
 
   const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
-    apiClient: state.runtime.apiClient,
+    apiClient: runtime.apiClient,
     attachments,
     documentId: currentRecord.documentId,
-    execSql: state.runtime.infra.execSql,
+    execSql: runtime.infra.execSql,
     localBlobIdBySlotId: state.attachmentBlobIdBySlotId,
     localStorageKeyBySlotId: state.attachmentStorageKeyBySlotId,
-    log: state.runtime.util.log,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
+    log: runtime.util.log,
+    resolveProjectionUserKey:
+      expectedGeneration?.resolveProjectionUserKey ??
+      state.resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
+  if (!generationIsCurrent()) return;
   if (!hydratedBlobs) {
     return;
   }
@@ -331,10 +408,11 @@ export async function hydrateAttachmentBlobs(
   for (const hydratedBlob of hydratedBlobs) {
     const previousStorageKey =
       state.attachmentStorageKeyBySlotId[hydratedBlob.attachment.slotId];
-    await state.runtime.infra.blobStore.writeBytes(
+    await runtime.infra.blobStore.writeBytes(
       hydratedBlob.storageKey,
       hydratedBlob.bytes,
     );
+    if (!generationIsCurrent()) return;
     if (previousStorageKey && previousStorageKey !== hydratedBlob.storageKey) {
       replacedStorageKeys.push(previousStorageKey);
     }
@@ -348,10 +426,17 @@ export async function hydrateAttachmentBlobs(
     });
   }
 
-  await saveLocalAttachmentRecords(state, localAttachmentRecords, currentDoc);
+  await saveLocalAttachmentRecords(
+    state,
+    localAttachmentRecords,
+    currentDoc,
+    expectedGeneration,
+  );
+  if (!generationIsCurrent()) return;
+
   await Promise.allSettled(
     replacedStorageKeys.map((storageKey) =>
-      state.runtime.infra.blobStore.deleteBytes(storageKey),
+      runtime.infra.blobStore.deleteBytes(storageKey),
     ),
   );
 }
