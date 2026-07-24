@@ -47,6 +47,7 @@ import {
 import {
   deriveOrganizationMetadataContainerSystemSlot,
   deriveOrganizationRosterProfileContainerSystemSlot,
+  getRosterProfileDocumentLocalId,
   ORGANIZATION_METADATA_CONTAINER_NAME,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
 } from "../organizations/rosterProfileContainer";
@@ -124,6 +125,17 @@ interface InitialOrganizationMetadataBootstrapInput {
   organizationProfileName?: string | undefined;
   rootContainer: InitialRootContainerCreatePlan;
   rootContainerProjection: InitialRootContainerProjection;
+  targetSecretKey: Uint8Array;
+}
+
+interface InitialRosterProfileInput {
+  author: InitialOrganizationMetadataBootstrapInput["author"];
+  containerProjection: ReturnType<
+    typeof childContainerWriterProjectionFromCreatePlan
+  >;
+  encapsulationPublicKey: Uint8Array;
+  knownContainerKeks: ReadonlyMap<string, Uint8Array>;
+  rosterProfileNickname?: string | undefined;
   targetSecretKey: Uint8Array;
 }
 
@@ -453,19 +465,13 @@ async function buildInitialRosterProfileBootstrap(input: {
     initialUpdate,
     materializedDocument: containerMetadataDocument,
   });
-  const rosterProfileDocument = await buildMaterializedDocumentCreatePlan({
-    author: input.author,
-    containerProjection,
-    knownContainerKeks,
-    targetSecretKey: input.targetSecretKey,
-    trustedLocalProjection: true,
-  });
-  const rosterProfile = await buildProvisionedRosterProfile({
+  const { profile, rosterProfileDocument } = await buildInitialRosterProfile({
     author: input.author,
     containerProjection,
     encapsulationPublicKey: input.encapsulationPublicKey,
-    materializedDocument: rosterProfileDocument,
-    nickname: input.rosterProfileNickname,
+    knownContainerKeks,
+    rosterProfileNickname: input.rosterProfileNickname,
+    targetSecretKey: input.targetSecretKey,
   });
   return {
     containerId,
@@ -479,10 +485,34 @@ async function buildInitialRosterProfileBootstrap(input: {
       metadataDocument: containerMetadataDocument.plan.request,
     },
     profileDocument: rosterProfileDocument,
-    profileDocumentInitialUpdate: rosterProfile.initialUpdate,
-    profileDocumentRequest: rosterProfile.request,
+    profileDocumentInitialUpdate: profile.initialUpdate,
+    profileDocumentRequest: profile.request,
     systemSlot,
   };
+}
+
+async function buildInitialRosterProfile(input: InitialRosterProfileInput) {
+  const rosterProfileDocument = await buildMaterializedDocumentCreatePlan({
+    author: input.author,
+    containerProjection: input.containerProjection,
+    documentId: await deriveStableDocumentId(
+      getRosterProfileDocumentLocalId({
+        organizationId: input.author.organizationId,
+        userId: input.author.signerUserId,
+      }),
+    ),
+    knownContainerKeks: input.knownContainerKeks,
+    targetSecretKey: input.targetSecretKey,
+    trustedLocalProjection: true,
+  });
+  const profile = await buildProvisionedRosterProfile({
+    author: input.author,
+    containerProjection: input.containerProjection,
+    encapsulationPublicKey: input.encapsulationPublicKey,
+    materializedDocument: rosterProfileDocument,
+    nickname: input.rosterProfileNickname,
+  });
+  return { profile, rosterProfileDocument };
 }
 
 async function buildInitialSystemContainerBootstrap(input: {

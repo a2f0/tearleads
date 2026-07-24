@@ -155,7 +155,7 @@ test("atomic profile initial syncs import cleanly into a fresh peer", async () =
   }
 });
 
-test("organization provisioning shares the profile idempotency key with later ensures", async () => {
+test("organization provisioning shares profile idempotency keys with later ensures", async () => {
   const artifacts = await buildOrganizationProvisioningArtifacts({
     encapsulationKeyPair: generateKemSeedAndKeyPair(),
     rootContainerId: crypto.randomUUID(),
@@ -165,11 +165,24 @@ test("organization provisioning shares the profile idempotency key with later en
   const localId = getOrganizationProfileDocumentLocalId({
     organizationId: artifacts.organizationId,
   });
+  const rosterLocalId = getRosterProfileDocumentLocalId({
+    organizationId: artifacts.organizationId,
+    userId: artifacts.rootContainer.plan.event.signerUserId,
+  });
 
   expect(
-    artifacts.organizationMetadataBootstrap.organizationProfileDocument.plan
-      .documentId,
+    Reflect.get(
+      artifacts.organizationMetadataBootstrap.organizationProfileDocumentRequest
+        .event,
+      "objectId",
+    ),
   ).toBe(await deriveStableDocumentId(localId));
+  expect(
+    Reflect.get(
+      artifacts.rosterProfileBootstrap.profileDocumentRequest.event,
+      "objectId",
+    ),
+  ).toBe(await deriveStableDocumentId(rosterLocalId));
 });
 
 test("registerIdentity settles acknowledged profiles", async () => {
@@ -277,7 +290,9 @@ test("registerIdentity settles acknowledged profiles", async () => {
       documentKind: "organization_profile",
       expectedFields: { name: "Personal Org" },
       execSql,
-      localId: `org-profile:${request.organizationId}`,
+      localId: getOrganizationProfileDocumentLocalId({
+        organizationId: request.organizationId,
+      }),
       request: organizationRequest,
     });
     await expectSettledProfile({
