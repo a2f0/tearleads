@@ -105,6 +105,8 @@ export function useRegisterMiniAppLauncher(
   const publishActiveRoute = useContext(
     MiniAppLauncherContext,
   )?.publishActiveRoute;
+  // Layout effects publish before paint so shell chrome cannot flash stale
+  // visibility while the active pane mounts or changes routes.
   useLayoutEffect(() => {
     if (!active || !register) {
       return;

@@ -111,6 +111,52 @@ test("the active pane publishes its current mini-app route", () => {
   expect(getByText("explorer:")).toBeDefined();
 });
 
+test("a stale pane cannot replace the active pane route", () => {
+  const staleLaunch = mock((_request: OpenMiniAppRequest) => {});
+  const activeLaunch = mock((_request: OpenMiniAppRequest) => {});
+  const activeRoute: AppRouteState = { appId: "explorer", pathSegments: [] };
+  const rendered = render(
+    <MiniAppLauncherProvider>
+      <Registrar active={true} launch={staleLaunch} route={BILLING_REQUEST} />
+      <Registrar active={true} launch={activeLaunch} route={activeRoute} />
+      <ActiveRoute />
+    </MiniAppLauncherProvider>,
+  );
+  expect(rendered.getByText("explorer:")).toBeDefined();
+
+  rendered.rerender(
+    <MiniAppLauncherProvider>
+      <Registrar
+        active={true}
+        launch={staleLaunch}
+        route={{ appId: "notes", pathSegments: [] }}
+      />
+      <Registrar active={true} launch={activeLaunch} route={activeRoute} />
+      <ActiveRoute />
+    </MiniAppLauncherProvider>,
+  );
+  expect(rendered.getByText("explorer:")).toBeDefined();
+});
+
+test("unregistering the active pane clears its route", () => {
+  const launch = mock((_request: OpenMiniAppRequest) => {});
+  const rendered = render(
+    <MiniAppLauncherProvider>
+      <Registrar active={true} launch={launch} route={BILLING_REQUEST} />
+      <ActiveRoute />
+    </MiniAppLauncherProvider>,
+  );
+  expect(rendered.getByText("org-manager:billing")).toBeDefined();
+
+  rendered.rerender(
+    <MiniAppLauncherProvider>
+      <Registrar active={false} launch={launch} route={BILLING_REQUEST} />
+      <ActiveRoute />
+    </MiniAppLauncherProvider>,
+  );
+  expect(rendered.getByText("none")).toBeDefined();
+});
+
 test("launch is a no-op when no provider is mounted", () => {
   const { getByRole } = render(<LaunchButton />);
   // Must not throw: app-shell chrome may render before a pane registers.

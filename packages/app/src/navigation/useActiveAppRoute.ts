@@ -19,6 +19,8 @@ export function resolveActiveAppRoute(
     return route;
   }
 
+  // Shell chrome follows the foremost visible mini-app; utility windows without
+  // an app route do not change which mini-app the pane is presenting.
   const topWindow = windows.reduce<WindowEntry | null>(
     (top, candidate) =>
       !candidate.minimized &&

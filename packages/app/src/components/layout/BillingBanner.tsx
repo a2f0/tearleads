@@ -72,17 +72,15 @@ export function BillingBannerView({
   return null;
 }
 
-/**
- * Connects {@link BillingBannerView} to the shared billing snapshot, and routes
- * enrollment into the Org Manager's Billing view. The banner is app-shell chrome
- * mounted above the panes, so it opens the mini-app through the launcher bridge
- * ({@link useMiniAppLauncher}) rather than a pane-scoped navigation hook.
- */
 const BILLING_ROUTE = {
   appId: "org-manager",
   pathSegments: ["billing"],
 } as const;
 
+/**
+ * Connects {@link BillingBannerView} to the active pane route and sends its
+ * enrollment action through the shell launcher bridge.
+ */
 export function ActiveRouteBillingBanner({
   view,
 }: {
@@ -90,6 +88,7 @@ export function ActiveRouteBillingBanner({
 }) {
   const launch = useMiniAppLauncher();
   const activeRoute = useActiveMiniAppRoute();
+  // Billing sub-routes retain the same leading segment and hide the banner too.
   const isBillingScreen =
     activeRoute?.appId === BILLING_ROUTE.appId &&
     activeRoute.pathSegments[0] === BILLING_ROUTE.pathSegments[0];
