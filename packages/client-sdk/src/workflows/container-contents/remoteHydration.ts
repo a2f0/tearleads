@@ -234,6 +234,7 @@ async function updateExistingRemoteContainerState(input: {
   await reconcileLocalOnlyRootContainers({
     childIdsByParentId,
     remoteRootState: existingState,
+    requestDocumentPriming: host.requestDocumentPriming,
     state,
   });
   return existingState;
@@ -241,10 +242,11 @@ async function updateExistingRemoteContainerState(input: {
 
 async function insertRemoteContainerState(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
+  host: RemoteContainerHydrationHost;
   remoteContainer: RemoteContainer;
   state: RemoteContainerHydrationState;
 }): Promise<ContainerState> {
-  const { childIdsByParentId, remoteContainer, state } = input;
+  const { childIdsByParentId, host, remoteContainer, state } = input;
   const doc = await createContainerMetadataDocument(remoteContainer.id);
   const initialSnapshot = bytesToBase64(exportAllUpdates(doc));
   const execSql = state.runtime.infra.execSql;
@@ -294,6 +296,7 @@ async function insertRemoteContainerState(input: {
   await reconcileLocalOnlyRootContainers({
     childIdsByParentId,
     remoteRootState: containerState,
+    requestDocumentPriming: host.requestDocumentPriming,
     state,
   });
   return containerState;
@@ -324,11 +327,13 @@ async function upsertRemoteContainerState(input: {
       })
     : await insertRemoteContainerState({
         childIdsByParentId: input.childIdsByParentId,
+        host: input.host,
         remoteContainer: input.remoteContainer,
         state: input.state,
       });
   await reconcileLocalOnlySystemContainers({
     childIdsByParentId: input.childIdsByParentId,
+    requestDocumentPriming: input.host.requestDocumentPriming,
     remoteSystemState: remoteState,
     state: input.state,
   });

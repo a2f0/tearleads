@@ -6,12 +6,6 @@ import {
   type DocumentMoveIntentSyncHost,
   syncPendingDocumentMoveIntents,
 } from "../../workflows/container-contents/documentMoveIntentSync";
-import {
-  type ContainerDocumentPrimeHost,
-  type ContainerDocumentPrimeStore,
-  listPrimeRequiredLocalIdsFromRuntime,
-  primeDocumentsForContainerSubtree,
-} from "../../workflows/container-contents/documentQueries";
 import { loadLocalContainerStates } from "../../workflows/container-contents/localState";
 import {
   listContainerMetadataDocumentUpdateIds,
@@ -34,6 +28,11 @@ import {
   registerContainerContentsSyncLane,
 } from "../../workflows/container-contents/syncLane";
 import { openDocumentStore, requestDomainDocumentSync } from "../documents";
+import {
+  primeStoreDocumentSubtree,
+  primeStoreDocuments,
+  recoverStoreStaleRoot,
+} from "./documentRecovery";
 import { refreshLocalContainerStates } from "./localRefresh";
 import {
   bumpMetadataSyncSeq,
@@ -143,26 +142,6 @@ function isRemoteSyncBlocked(
   return state.runtime.util.isRemoteSyncBlocked?.(organizationId) ?? false;
 }
 
-function createContainerContentsStoreDocumentPrimeHost(
-  state: ContainerContentsStoreSyncState,
-): ContainerDocumentPrimeHost<ContainerContentsStorePrimeDocumentRuntime> {
-  return {
-    documentWorkflowRuntime: (containerId) =>
-      createContainerContentsDocumentsRuntime(state.runtime, containerId),
-    openDocumentStore: ({
-      documentId,
-      localId,
-      runtime,
-    }): ContainerDocumentPrimeStore =>
-      openDocumentStore(
-        state.runtime.state.domainScope,
-        localId,
-        runtime,
-        documentId,
-      ),
-  };
-}
-
 function createContainerContentsStoreDocumentMoveHost(
   state: ContainerContentsStoreSyncState,
 ): DocumentMoveIntentSyncHost<ContainerContentsStorePrimeDocumentRuntime> {
@@ -179,44 +158,19 @@ function createContainerContentsStoreDocumentMoveHost(
   };
 }
 
-async function primeDocumentsForSharedSubtree(
-  state: ContainerContentsStoreSyncState,
-  rootContainerId: string,
-  primeRequiredLocalIds?: ReadonlySet<string>,
-) {
-  await primeDocumentsForContainerSubtree({
-    containersById: state.containersById,
-    host: createContainerContentsStoreDocumentPrimeHost(state),
-    ...(primeRequiredLocalIds === undefined ? {} : { primeRequiredLocalIds }),
-    rootContainerId,
-    runtime: state.runtime,
-  });
-}
-
-async function primeDocumentsForSharedRoots(
-  state: ContainerContentsStoreSyncState,
-) {
-  const rootContainerIds = Array.from(state.containersById.values()).flatMap(
-    (containerState) =>
-      containerState.container.parentId === null
-        ? [containerState.container.id]
-        : [],
-  );
-
-  // One identity-wide prime-required scan shared by every root's pass, rather
-  // than each root repeating the same scan concurrently.
-  const primeRequiredLocalIds = await listPrimeRequiredLocalIdsFromRuntime(
-    state.runtime,
-  );
-  await Promise.all(
-    rootContainerIds.map((rootContainerId) =>
-      primeDocumentsForSharedSubtree(
-        state,
-        rootContainerId,
-        primeRequiredLocalIds,
-      ),
-    ),
-  );
+function createSchedulingRemoteContainerIngestor(input: {
+  host: ContainerContentsStoreSyncHost;
+  scheduleSync: () => void;
+  state: ContainerContentsStoreSyncState;
+}): ContainerContentsStoreSyncAgent["ingestRemoteContainer"] {
+  const { host, scheduleSync, state } = input;
+  const ingestRemoteContainer = createRemoteContainerIngestor({ host, state });
+  return async (remoteContainer) => {
+    await ingestRemoteContainer(remoteContainer);
+    if (state.documentStoresNeedPriming) {
+      scheduleSync();
+    }
+  };
 }
 
 async function initializeContainerContentsStore(input: {
@@ -258,7 +212,8 @@ async function initializeContainerContentsStore(input: {
   );
 
   if (
-    state.containersById.size > 0 &&
+    state.runtime.auth.isAuthenticated &&
+    state.runtime.state.online &&
     (await hasStartupContainerSyncWork(state))
   ) {
     state.runtime.util.log(
@@ -414,9 +369,15 @@ async function runContainerContentsStoreSyncIteration(input: {
     });
   }
 
+  // Root adoption notifies session consumers synchronously. Let container
+  // metadata converge first so a recovered system container is never exposed
+  // under its placeholder name when the active root changes.
+  if (!(await recoverStoreStaleRoot(state))) {
+    return;
+  }
+
   if (state.documentStoresNeedPriming) {
-    await primeDocumentsForSharedRoots(state);
-    state.documentStoresNeedPriming = false;
+    await primeStoreDocuments(state);
   }
 }
 
@@ -431,8 +392,9 @@ export function createContainerContentsStoreSyncAgent(input: {
     run: () => runContainerContentsStoreSyncIteration({ host, state }),
   });
   const scheduleSync = () => requestContainerContentsStoreSync(state);
-  const ingestRemoteContainer = createRemoteContainerIngestor({
+  const ingestRemoteContainer = createSchedulingRemoteContainerIngestor({
     host,
+    scheduleSync,
     state,
   });
 
@@ -497,7 +459,7 @@ export function createContainerContentsStoreSyncAgent(input: {
     },
     ingestRemoteContainer,
     primeDocumentsForSharedSubtree: (rootContainerId: string) =>
-      primeDocumentsForSharedSubtree(state, rootContainerId),
+      primeStoreDocumentSubtree(state, rootContainerId),
     refreshLocalContainers: () => refreshLocalContainerStates({ host, state }),
     refresh: () =>
       refreshAllRemoteHydration({

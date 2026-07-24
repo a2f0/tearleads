@@ -1,0 +1,238 @@
+import {
+  documentMoveIntentTables,
+  documentProjectionTables,
+  documentTables,
+} from "../../data/sqlite/schema";
+import { ensureSqlTables } from "../../data/sqlite/sqlSchema";
+import { listDocumentRuntimeTargetsForContainerSubtreeFromRuntime } from "./documentQueries";
+import type {
+  ContainerContentsContainerSubtreeState,
+  ContainerContentsDocumentRuntimeTarget,
+  ContainerDocumentPrimeHost,
+  ContainerDocumentQueriesRuntime,
+} from "./documentQueries/types";
+
+interface PrimeRequiredDocumentCandidate {
+  readonly localId: string;
+}
+
+interface LoadedRootDocumentPrimeResult {
+  readonly candidateCount: number;
+  readonly primedCount: number;
+  readonly rootCount: number;
+  readonly unroutableCount: number;
+}
+
+// Documents that still NEED a store opened at prime time: local-only creates,
+// queued outbound updates/attachments, an outgoing-delta marker behind the
+// stored snapshot's end version (a deferred tail; encoding inequality
+// over-approximates, which only re-primes a store the old behavior always
+// primed), or a never-hydrated snapshot (a freshly discovered share whose
+// content pull the primed lane performs). Fully-synced hydrated documents are
+// deliberately absent: priming exists to re-drive durable work, and opening a
+// store per settled document is what made a 1000-document boot a storm.
+const PENDING_PRIME_LOCAL_ID_SQL = `
+  SELECT stored.local_id AS local_id
+  FROM documents stored
+  WHERE stored.app_kind = 'documents'
+    AND (
+      stored.document_id IS NULL
+      OR stored.snapshot_end_version = ''
+      OR COALESCE(stored.pending_base_version, '') <> stored.snapshot_end_version
+      OR EXISTS (
+        SELECT 1
+        FROM document_pending_updates pending
+        WHERE pending.app_kind = 'documents'
+          AND pending.local_id = stored.local_id
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM document_pending_attachments attachment
+        WHERE attachment.local_id = stored.local_id
+      )
+    )
+`;
+
+const PENDING_PRIME_DOCUMENT_CANDIDATE_SQL = `
+  SELECT pending.local_id AS local_id
+  FROM (${PENDING_PRIME_LOCAL_ID_SQL}) pending
+  ORDER BY pending.local_id ASC
+`;
+
+// The structural startup probe and the priming worker share the same durable
+// predicate so they cannot disagree about what counts as document work.
+const STARTUP_DOCUMENT_SYNC_WORK_SQL = `
+  SELECT 1 AS present
+  WHERE EXISTS (${PENDING_PRIME_LOCAL_ID_SQL})
+    OR EXISTS (
+      SELECT 1
+      FROM document_move_intents intent
+      WHERE intent.sync_status = 'pending'
+    )
+  LIMIT 1
+`;
+
+export async function hasStartupDocumentSyncWork(
+  runtimeOrExecSql:
+    | ContainerDocumentQueriesRuntime
+    | ContainerDocumentQueriesRuntime["infra"]["execSql"],
+): Promise<boolean> {
+  const execSql =
+    typeof runtimeOrExecSql === "function"
+      ? runtimeOrExecSql
+      : runtimeOrExecSql.infra.execSql;
+  await ensureSqlTables(execSql, [
+    ...documentTables,
+    ...documentProjectionTables,
+    ...documentMoveIntentTables,
+  ]);
+  const rows = await execSql(STARTUP_DOCUMENT_SYNC_WORK_SQL);
+  return rows.length > 0;
+}
+
+async function listPrimeRequiredDocumentCandidatesFromRuntime(
+  runtime: ContainerDocumentQueriesRuntime,
+): Promise<PrimeRequiredDocumentCandidate[]> {
+  await ensureSqlTables(runtime.infra.execSql, [
+    ...documentTables,
+    ...documentProjectionTables,
+  ]);
+  const rows = await runtime.infra.execSql(
+    PENDING_PRIME_DOCUMENT_CANDIDATE_SQL,
+  );
+
+  return rows.flatMap((row) => {
+    const localId = Reflect.get(row, "local_id");
+    if (typeof localId !== "string") {
+      return [];
+    }
+    return [{ localId }];
+  });
+}
+
+// A row with content but a NULL outgoing-delta marker is deliberately treated
+// as unsettled: the store persist path always sets the marker, so over-priming
+// is the safe direction.
+async function listPrimeRequiredLocalIdsFromRuntime(
+  runtime: ContainerDocumentQueriesRuntime,
+): Promise<ReadonlySet<string>> {
+  const candidates =
+    await listPrimeRequiredDocumentCandidatesFromRuntime(runtime);
+  return new Set(candidates.map((candidate) => candidate.localId));
+}
+
+// Stores opened per macrotask during a prime pass. Opening is fire-and-forget,
+// so yielding between chunks keeps the main thread and serialized SQLite queue
+// responsive while a real backlog primes.
+const PRIME_OPEN_CHUNK_SIZE = 8;
+
+async function primeDocumentRuntimeTargets<TRuntime>(input: {
+  readonly host: ContainerDocumentPrimeHost<TRuntime>;
+  readonly targets: ReadonlyArray<ContainerContentsDocumentRuntimeTarget>;
+}): Promise<ReadonlySet<string>> {
+  const primedLocalIds = new Set<string>();
+  const runtimesByContainerId = new Map<string, TRuntime>();
+  for (const target of input.targets) {
+    if (primedLocalIds.has(target.localId)) {
+      continue;
+    }
+    if (
+      primedLocalIds.size > 0 &&
+      primedLocalIds.size % PRIME_OPEN_CHUNK_SIZE === 0
+    ) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
+
+    let runtime = runtimesByContainerId.get(target.runtimeContainerId);
+    if (runtime === undefined) {
+      runtime = input.host.documentWorkflowRuntime(target.runtimeContainerId);
+      runtimesByContainerId.set(target.runtimeContainerId, runtime);
+    }
+
+    const store = input.host.openDocumentStore({
+      documentId: target.documentId,
+      localId: target.localId,
+      runtime,
+    });
+    primedLocalIds.add(target.localId);
+    if (store.getSnapshot?.().ready ?? true) {
+      store.requestSync();
+    }
+  }
+
+  return primedLocalIds;
+}
+
+export async function primeDocumentsForContainerSubtree<TRuntime>(input: {
+  containersById: ReadonlyMap<string, ContainerContentsContainerSubtreeState>;
+  host: ContainerDocumentPrimeHost<TRuntime>;
+  primeRequiredLocalIds?: ReadonlySet<string>;
+  rootContainerId: string;
+  runtime: ContainerDocumentQueriesRuntime;
+}): Promise<number> {
+  const [targets, primeRequiredLocalIds] = await Promise.all([
+    listDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
+      containersById: input.containersById,
+      rootContainerId: input.rootContainerId,
+      runtime: input.runtime,
+    }),
+    input.primeRequiredLocalIds ??
+      listPrimeRequiredLocalIdsFromRuntime(input.runtime),
+  ]);
+  const primed = await primeDocumentRuntimeTargets({
+    host: input.host,
+    targets: targets.filter((target) =>
+      primeRequiredLocalIds.has(target.localId),
+    ),
+  });
+  return primed.size;
+}
+
+export async function primeDocumentsForLoadedRoots<TRuntime>(input: {
+  containersById: ReadonlyMap<string, ContainerContentsContainerSubtreeState>;
+  host: ContainerDocumentPrimeHost<TRuntime>;
+  runtime: ContainerDocumentQueriesRuntime;
+}): Promise<LoadedRootDocumentPrimeResult> {
+  const candidates = await listPrimeRequiredDocumentCandidatesFromRuntime(
+    input.runtime,
+  );
+  const rootContainerIds = Array.from(input.containersById.values()).flatMap(
+    (containerState) =>
+      containerState.container.parentId === null
+        ? [containerState.container.id]
+        : [],
+  );
+  const requiredLocalIds = new Set(
+    candidates.map((candidate) => candidate.localId),
+  );
+  const primedLocalIds = new Set<string>();
+
+  for (const rootContainerId of rootContainerIds) {
+    const targets =
+      await listDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
+        containersById: input.containersById,
+        rootContainerId,
+        runtime: input.runtime,
+      });
+    const primed = await primeDocumentRuntimeTargets({
+      host: input.host,
+      targets: targets.filter(
+        (target) =>
+          requiredLocalIds.has(target.localId) &&
+          !primedLocalIds.has(target.localId),
+      ),
+    });
+    for (const localId of primed) {
+      primedLocalIds.add(localId);
+    }
+  }
+
+  return {
+    candidateCount: candidates.length,
+    primedCount: primedLocalIds.size,
+    rootCount: rootContainerIds.length,
+    unroutableCount: candidates.filter(
+      (candidate) => !primedLocalIds.has(candidate.localId),
+    ).length,
+  };
+}

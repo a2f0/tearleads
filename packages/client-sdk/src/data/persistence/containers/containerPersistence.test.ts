@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence } from "../container-contents/containerContentsPersistence";
+import { sqlDocumentMoveIntentPersistence } from "../container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../documents/documentsPersistence";
 import {
   loadContainerDisplayNamesByIds,
@@ -141,6 +142,25 @@ test("containerContents document reassignment folds duplicate links into the tar
       "document-1",
       ["local-root", "remote-root"],
     );
+    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+      documentId: "source-document",
+      localId: "source-local",
+      sourceContainerId: "local-root",
+      targetContainerId: "other-container",
+    });
+    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+      documentId: "target-document",
+      localId: "target-local",
+      sourceContainerId: "other-container",
+      targetContainerId: "local-root",
+    });
+    for (const documentId of ["source-document", "target-document"]) {
+      await sqlDocumentMoveIntentPersistence.recordMoveIntentError(execSql, {
+        blocked: true,
+        documentId,
+        message: "stale root",
+      });
+    }
 
     await sqlContainerContentsPersistence.reassignContainerDocuments(execSql, {
       fromContainerId: "local-root",
@@ -154,6 +174,31 @@ test("containerContents document reassignment folds duplicate links into the tar
         "document-1",
       ),
     ).resolves.toEqual(["remote-root"]);
+    await expect(
+      execSql(
+        `SELECT document_id, source_container_id, target_container_id,
+                sync_status, last_error, last_attempted_at
+         FROM document_move_intents
+         ORDER BY document_id ASC`,
+      ),
+    ).resolves.toEqual([
+      {
+        document_id: "source-document",
+        last_attempted_at: null,
+        last_error: null,
+        source_container_id: "remote-root",
+        sync_status: "pending",
+        target_container_id: "other-container",
+      },
+      {
+        document_id: "target-document",
+        last_attempted_at: null,
+        last_error: null,
+        source_container_id: "other-container",
+        sync_status: "pending",
+        target_container_id: "remote-root",
+      },
+    ]);
   } finally {
     close();
   }

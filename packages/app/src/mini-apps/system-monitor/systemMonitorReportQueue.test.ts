@@ -12,6 +12,10 @@ import {
 } from "./systemMonitorReport";
 
 const CAPTURED_AT = "2026-07-17T14:32:11.000Z";
+const LOCAL_ID = "11111111-1111-4111-8111-111111111111";
+const REMOTE_ID = "22222222-2222-4222-8222-222222222222";
+const CONTAINER_ID = "33333333-3333-4333-8333-333333333333";
+const ORGANIZATION_ID = "44444444-4444-4444-8444-444444444444";
 
 // The write-queue and sync-lane sections do not read the status, so a minimal
 // valid snapshot is enough for these cases; the status rendering itself is
@@ -51,15 +55,15 @@ function createWriteItem(
   overrides: Partial<PendingWriteQueueItem> = {},
 ): PendingWriteQueueItem {
   return {
-    containerId: "container-1",
+    containerId: CONTAINER_ID,
     createdAt: "2026-07-17T10:00:00.000Z",
-    localId: "local-1",
+    localId: LOCAL_ID,
     name: "Quarterly Plan",
     namespace: null,
     objectKind: "document",
     operations: [createOperation()],
-    organizationId: "org-1",
-    remoteId: "remote-1",
+    organizationId: ORGANIZATION_ID,
+    remoteId: REMOTE_ID,
     status: "pending",
     updatedAt: "2026-07-17T11:00:00.000Z",
     ...overrides,
@@ -147,17 +151,18 @@ test("report serializes write-queue item and operation detail", () => {
   expect(report).toContain(
     "_1 queued object(s), 4 pending write operation(s)._",
   );
-  expect(report).toContain("### Quarterly Plan");
+  expect(report).toContain(`### document ${LOCAL_ID}`);
+  expect(report).not.toContain("Quarterly Plan");
   expect(report).toContain("| Status | error |");
-  expect(report).toContain("| Local ID | local-1 |");
-  expect(report).toContain("| Organization ID | org-1 |");
-  // Operation row surfaces the failure detail support needs.
+  expect(report).toContain(`| Local ID | ${LOCAL_ID} |`);
+  expect(report).toContain(`| Organization ID | ${ORGANIZATION_ID} |`);
+  expect(report).not.toContain("upload rejected");
   expect(report).toContain(
-    "| attachment | blocked | 4 | 2048 | - | - | 2026-07-17T11:30:00.000Z | - | upload rejected |",
+    "| attachment | blocked | 4 | 2048 | - | - | 2026-07-17T11:30:00.000Z | - | [redacted] |",
   );
 });
 
-test("report falls back to the local id when a queued object is unnamed", () => {
+test("report identifies unnamed queued objects by opaque id", () => {
   const report = formatSystemMonitorReport({
     capturedAt: CAPTURED_AT,
     environment: [],
@@ -165,14 +170,47 @@ test("report falls back to the local id when a queued object is unnamed", () => 
     status: createStatus(),
     writeQueue: {
       available: true,
-      items: [createWriteItem({ name: null, localId: "local-42" })],
+      items: [createWriteItem({ name: null })],
     },
   });
 
-  expect(report).toContain("### local-42");
+  expect(report).toContain(`### document ${LOCAL_ID}`);
 });
 
-test("report escapes a pipe in a queued operation's error", () => {
+test("report redacts caller-controlled queue identifiers and namespaces", () => {
+  const privateText = "PRIVATE cardiology scan.pdf";
+  const report = formatSystemMonitorReport({
+    capturedAt: CAPTURED_AT,
+    environment: [],
+    logEntries: [],
+    status: createStatus(),
+    writeQueue: {
+      available: true,
+      items: [
+        createWriteItem({
+          containerId: `${privateText} container`,
+          localId: `${privateText}\r\nheading`,
+          namespace: `${privateText} namespace`,
+          operations: [
+            createOperation({ targetContainerId: `${privateText} target` }),
+          ],
+          organizationId: `${privateText} organization`,
+          remoteId: `${privateText} remote`,
+        }),
+      ],
+    },
+  });
+
+  expect(report).not.toContain(privateText);
+  expect(report).toContain("### document [redacted]");
+  expect(report).toContain("| Namespace | [redacted] |");
+  expect(report).toContain("| Local ID | [redacted] |");
+  expect(report).toContain(
+    "| update | pending | 1 | 0 | - | - | - | [redacted] | - |",
+  );
+});
+
+test("report redacts a queued operation's free-text error", () => {
   const report = formatSystemMonitorReport({
     capturedAt: CAPTURED_AT,
     environment: [],
@@ -188,7 +226,8 @@ test("report escapes a pipe in a queued operation's error", () => {
     },
   });
 
-  expect(report).toContain("429 \\| rate limited");
+  expect(report).not.toContain("429 | rate limited");
+  expect(report).toContain("| [redacted] |");
 });
 
 test("report distinguishes an unavailable write queue from an empty one", () => {
@@ -218,7 +257,11 @@ test("report caps the write queue and says so rather than truncating silently", 
     { length: MAX_REPORT_WRITE_QUEUE_ITEMS + 5 },
     // Unnamed so the heading falls back to the (unique) local id, letting the
     // assertions below tell the surviving items from the dropped ones.
-    (_, index) => createWriteItem({ name: null, localId: `local-${index}` }),
+    (_, index) =>
+      createWriteItem({
+        name: null,
+        localId: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+      }),
   );
 
   const report = formatSystemMonitorReport({
@@ -233,11 +276,13 @@ test("report caps the write queue and says so rather than truncating silently", 
     `_Showing the first ${MAX_REPORT_WRITE_QUEUE_ITEMS} of ${items.length} queued objects._`,
   );
   // The first items survive; the ones past the cap are dropped.
-  expect(report).toContain("### local-0");
-  expect(report).not.toContain(`### local-${MAX_REPORT_WRITE_QUEUE_ITEMS}`);
+  expect(report).toContain("### document 00000000-0000-4000-8000-000000000000");
+  expect(report).not.toContain(
+    `### document 00000000-0000-4000-8000-${String(MAX_REPORT_WRITE_QUEUE_ITEMS).padStart(12, "0")}`,
+  );
 });
 
-test("report serializes sync-lane detail including failures", () => {
+test("report serializes sync-lane state without free-text diagnostics", () => {
   const report = formatSystemMonitorReport({
     capturedAt: CAPTURED_AT,
     environment: [],
@@ -247,10 +292,10 @@ test("report serializes sync-lane detail including failures", () => {
       hasPendingWork: true,
       lanes: [
         createLane({
-          blobStorageKey: "blob-key-1",
+          blobStorageKey: "PRIVATE cardiology scan.pdf storage key",
           errorCount: 2,
-          label: "Blob upload",
-          lastError: "network unreachable",
+          label: "Upload PRIVATE cardiology scan.pdf",
+          lastError: "Attachment upload failed for PRIVATE cardiology scan.pdf",
           lastFailedAt: "2026-07-17T12:01:00.000Z",
           phase: "blob",
           progress: {
@@ -267,12 +312,13 @@ test("report serializes sync-lane detail including failures", () => {
 
   expect(report).toContain("## Sync Lanes");
   expect(report).toContain("| Pending Work | yes |");
-  expect(report).toContain("### Blob upload");
+  expect(report).toContain("### blob lane 0");
+  expect(report).not.toContain("PRIVATE cardiology scan.pdf");
   expect(report).toContain("| Status | error |");
-  expect(report).toContain("| Last Error | network unreachable |");
+  expect(report).toContain("| Last Error | [redacted] |");
   expect(report).toContain("| Error Count | 2 |");
   expect(report).toContain("| Progress | 10 / 100 bytes, 1 / 4 parts |");
-  expect(report).toContain("| Blob Storage Key | blob-key-1 |");
+  expect(report).toContain("| Blob Storage Key | [redacted] |");
 });
 
 test("report distinguishes unavailable sync lanes from an empty coordinator", () => {

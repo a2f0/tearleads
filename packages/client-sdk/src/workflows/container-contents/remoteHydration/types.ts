@@ -98,6 +98,7 @@ export interface RemoteContainerHydrationHost {
     updateView?: boolean,
     saveOptions?: SaveContainerOptions,
   ) => Promise<ContainerDocumentRecord>;
+  requestDocumentPriming?: (() => void) | undefined;
   updateSnapshot: () => void;
 }
 

@@ -206,6 +206,7 @@ async function reconcileLocalOnlyRootContainer(input: {
 
 export async function reconcileLocalOnlyRootContainers(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
+  requestDocumentPriming?: (() => void) | undefined;
   remoteRootState: ContainerState;
   state: RemoteContainerHydrationState;
 }): Promise<number> {
@@ -233,12 +234,12 @@ export async function reconcileLocalOnlyRootContainers(input: {
       state,
     });
   }
-
   // A remote system child can be applied before its remote root (for example,
   // from an earlier page/pass). Its local twin does not match while it is still
   // parented to the pre-auth root. Root reconciliation fixes the parent and
   // organization, so retry every already-known remote system sibling now. The
   // normal root-first ordering still reconciles when the remote system arrives.
+  let reconciledSystemContainerCount = 0;
   for (const knownRemoteSystemState of Array.from(
     state.containersById.values(),
   )) {
@@ -246,12 +247,16 @@ export async function reconcileLocalOnlyRootContainers(input: {
       (knownRemoteSystemState.container.systemSlot ?? null) !== null &&
       hasRemoteContainerMetadataState(knownRemoteSystemState)
     ) {
-      await reconcileLocalOnlySystemContainers({
-        childIdsByParentId,
-        remoteSystemState: knownRemoteSystemState,
-        state,
-      });
+      reconciledSystemContainerCount +=
+        await reconcileLocalOnlySystemContainers({
+          childIdsByParentId,
+          remoteSystemState: knownRemoteSystemState,
+          state,
+        });
     }
+  }
+  if (localRootStates.length + reconciledSystemContainerCount > 0) {
+    input.requestDocumentPriming?.();
   }
 
   return localRootStates.length;
@@ -400,6 +405,7 @@ async function reconcileLocalOnlySystemContainer(input: {
 
 export async function reconcileLocalOnlySystemContainers(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
+  requestDocumentPriming?: (() => void) | undefined;
   remoteSystemState: ContainerState;
   state: RemoteContainerHydrationState;
 }): Promise<number> {
@@ -416,6 +422,9 @@ export async function reconcileLocalOnlySystemContainers(input: {
       remoteSystemState,
       state,
     });
+  }
+  if (localSystemStates.length > 0) {
+    input.requestDocumentPriming?.();
   }
 
   return localSystemStates.length;

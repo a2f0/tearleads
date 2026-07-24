@@ -34,9 +34,10 @@ export interface SystemMonitorReportFlag {
  *
  * `available` is false while the local database is still booting, so the report
  * can distinguish "the queue could not be read" from "the queue is empty". The
- * items are the SDK's already payload-free projection (`PendingWriteQueueItem`):
- * serialized Loro updates, storage keys, and encryption material are never part
- * of it, so serializing every field here cannot leak decrypted content.
+ * items are the SDK's payload-free projection (`PendingWriteQueueItem`). The
+ * report omits decrypted display names and redacts every free-text diagnostic;
+ * serialized Loro updates, storage keys, encryption material, titles, names,
+ * errors, and content are never copied into the clipboard report.
  */
 export interface SystemMonitorWriteQueueReport {
   readonly available: boolean;
@@ -63,18 +64,33 @@ interface SystemMonitorReportInput {
 }
 
 /**
- * The log is capped so a report stays pasteable; the provider retains up to
- * 1000 entries, and the newest are the ones that explain a live problem. A
- * truncated report says so rather than looking complete.
+ * Only count/status telemetry with an anchored shape is copied. Arbitrary log
+ * messages can contain decrypted names or content, so they fail closed and are
+ * omitted. The safe subset is capped so a report stays pasteable.
  */
 export const MAX_REPORT_LOG_ENTRIES = 200;
+
+const CLIPBOARD_SAFE_LOG_PATTERNS = [
+  /(?:^|: )(document priming candidates=\d+ roots=\d+ primed=\d+ unroutable=\d+)$/u,
+  /(?:^|: )(stale root recovery status=(?:ambiguous|context-changed|reassigned|unsupported) candidates=\d+)$/u,
+] as const;
+
+function getClipboardSafeLogMessage(message: string): string | null {
+  for (const pattern of CLIPBOARD_SAFE_LOG_PATTERNS) {
+    const match = pattern.exec(message);
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+  return null;
+}
 
 /**
  * Escapes a value for a Markdown table cell. A stray `|` would otherwise split
  * a cell into two and silently corrupt the row.
  */
 function escapeTableCell(value: string): string {
-  return value.replaceAll("|", "\\|").replaceAll("\n", " ");
+  return value.replaceAll("|", "\\|").replace(/[\r\n]+/gu, " ");
 }
 
 function formatTableRow(cells: ReadonlyArray<string>): string {
@@ -117,7 +133,7 @@ function formatStatusRows(
       STATUS_LABELS.events,
       status.events.length === 0
         ? NO_STATUS_VALUE
-        : status.events.map((event) => event.label).join(", "),
+        : `${status.events.length} event${status.events.length === 1 ? "" : "s"}`,
     ],
   );
 
@@ -144,15 +160,32 @@ function fenceForContent(content: string): string {
 function formatLogSection(
   logEntries: ReadonlyArray<PaneLogEntry>,
 ): ReadonlyArray<string> {
-  if (logEntries.length === 0) {
-    return ["## Logs", "", "_No log entries._"];
+  const safeEntries = logEntries.flatMap((entry) => {
+    const message = getClipboardSafeLogMessage(entry.message);
+    return message ? [{ ...entry, message }] : [];
+  });
+  const omittedCount = logEntries.length - safeEntries.length;
+  const omissionNote =
+    omittedCount > 0
+      ? [
+          `_Omitted ${omittedCount} free-form log entr${omittedCount === 1 ? "y" : "ies"} to protect decrypted customer data._`,
+          "",
+        ]
+      : [];
+  if (safeEntries.length === 0) {
+    return [
+      "## Logs",
+      "",
+      ...omissionNote,
+      "_No content-free telemetry entries._",
+    ];
   }
 
-  const visible = logEntries.slice(-MAX_REPORT_LOG_ENTRIES);
+  const visible = safeEntries.slice(-MAX_REPORT_LOG_ENTRIES);
   const truncationNote =
-    visible.length < logEntries.length
+    visible.length < safeEntries.length
       ? [
-          `_Showing the last ${visible.length} of ${logEntries.length} entries._`,
+          `_Showing the last ${visible.length} of ${safeEntries.length} content-free telemetry entries._`,
           "",
         ]
       : [];
@@ -160,7 +193,15 @@ function formatLogSection(
   const lines = visible.map(formatPaneLogLine);
   const fence = fenceForContent(lines.join("\n"));
 
-  return ["## Logs", "", ...truncationNote, `${fence}text`, ...lines, fence];
+  return [
+    "## Logs",
+    "",
+    ...omissionNote,
+    ...truncationNote,
+    `${fence}text`,
+    ...lines,
+    fence,
+  ];
 }
 
 /**
@@ -174,14 +215,27 @@ function formatMetadataValue(value: string | null): string {
   return value !== null && value.trim().length > 0 ? value : "-";
 }
 
-/** Collapses newlines so a multiline value cannot break a Markdown heading. */
-function formatHeadingText(value: string): string {
-  return value.replaceAll("\n", " ").trim();
+function formatRedactedPresence(value: string | null): string {
+  return value !== null && value.trim().length > 0 ? "[redacted]" : "-";
 }
 
-function formatWriteQueueItemName(item: PendingWriteQueueItem): string {
-  const name = item.name?.trim() ?? "";
-  return name.length > 0 ? name : item.localId;
+const OPAQUE_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+
+function formatOpaqueIdentifier(value: string | null): string {
+  if (value === null || value.trim().length === 0) {
+    return "-";
+  }
+  return OPAQUE_UUID_PATTERN.test(value.trim()) ? value.trim() : "[redacted]";
+}
+
+/** Collapses newlines so a multiline value cannot break a Markdown heading. */
+function formatHeadingText(value: string): string {
+  return value.replace(/[\r\n]+/gu, " ").trim();
+}
+
+function formatWriteQueueItemHeading(item: PendingWriteQueueItem): string {
+  return `${item.objectKind} ${formatOpaqueIdentifier(item.localId)}`;
 }
 
 function countWriteQueueOperations(
@@ -206,17 +260,17 @@ function formatWriteQueueItem(
     [
       ["Status", item.status],
       ["Object Kind", item.objectKind],
-      ["Namespace", formatMetadataValue(item.namespace)],
-      ["Local ID", item.localId],
-      ["Remote ID", formatMetadataValue(item.remoteId)],
-      ["Container ID", formatMetadataValue(item.containerId)],
-      ["Organization ID", formatMetadataValue(item.organizationId)],
+      ["Namespace", formatRedactedPresence(item.namespace)],
+      ["Local ID", formatOpaqueIdentifier(item.localId)],
+      ["Remote ID", formatOpaqueIdentifier(item.remoteId)],
+      ["Container ID", formatOpaqueIdentifier(item.containerId)],
+      ["Organization ID", formatOpaqueIdentifier(item.organizationId)],
       ["Created", formatMetadataValue(item.createdAt)],
       ["Updated", formatMetadataValue(item.updatedAt)],
     ],
   );
 
-  const heading = `### ${formatHeadingText(formatWriteQueueItemName(item))}`;
+  const heading = `### ${formatHeadingText(formatWriteQueueItemHeading(item))}`;
 
   if (item.operations.length === 0) {
     return [heading, "", details, "", "_No operations._"];
@@ -242,8 +296,8 @@ function formatWriteQueueItem(
       formatMetadataValue(operation.createdAt),
       formatMetadataValue(operation.updatedAt),
       formatMetadataValue(operation.lastAttemptedAt),
-      formatMetadataValue(operation.targetContainerId),
-      formatMetadataValue(operation.lastError),
+      formatOpaqueIdentifier(operation.targetContainerId),
+      formatRedactedPresence(operation.lastError),
     ]),
   );
 
@@ -310,17 +364,17 @@ function formatSyncLane(lane: SyncLaneSnapshot): ReadonlyArray<string> {
       ["Last Started", formatMetadataValue(lane.lastStartedAt)],
       ["Last Completed", formatMetadataValue(lane.lastCompletedAt)],
       ["Last Failed", formatMetadataValue(lane.lastFailedAt)],
-      ["Last Error", formatMetadataValue(lane.lastError)],
+      ["Last Error", formatRedactedPresence(lane.lastError)],
       ["Error Count", String(lane.errorCount)],
       ["Request Count", String(lane.requestCount)],
       ["Run Count", String(lane.runCount)],
       ["Registration Index", String(lane.registrationIndex)],
       ["Progress", formatSyncLaneProgress(lane.progress)],
-      ["Blob Storage Key", formatMetadataValue(lane.blobStorageKey)],
+      ["Blob Storage Key", formatRedactedPresence(lane.blobStorageKey)],
     ],
   );
 
-  return [`### ${formatHeadingText(lane.label)}`, "", details];
+  return [`### ${lane.phase} lane ${lane.registrationIndex}`, "", details];
 }
 
 function formatSyncLanesSection(

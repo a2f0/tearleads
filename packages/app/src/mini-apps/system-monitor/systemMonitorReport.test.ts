@@ -60,7 +60,10 @@ test("report includes every section a support ticket needs", () => {
   expect(report).toContain("| SQLite Worker | ready |");
   expect(report).toContain("| Web Socket | connected |");
   expect(report).toContain("## Logs");
-  expect(report).toContain("entry 1");
+  expect(report).not.toContain("entry 1");
+  expect(report).toContain(
+    "_Omitted 1 free-form log entry to protect decrypted customer data._",
+  );
 });
 
 test("report omits the feature flags section outside developer mode", () => {
@@ -98,20 +101,22 @@ test("report drops the peer user id row when the feature is off", () => {
   expect(withPeer).toContain("| Peer User ID | peer-9 |");
 });
 
-test("report flattens the event list into its cell", () => {
+test("report copies only the event count, never caller-controlled labels", () => {
   const report = formatSystemMonitorReport({
     capturedAt: CAPTURED_AT,
     environment: [],
     logEntries: [],
     status: createStatus({
       events: [
-        { id: "1", label: "user.created (u1)" },
-        { id: "2", label: "doc.updated" },
+        { id: "1", label: "PRIVATE cardiology scan.pdf" },
+        { id: "2", label: "document_update_created" },
       ],
     }),
   });
 
-  expect(report).toContain("| Events | user.created (u1), doc.updated |");
+  expect(report).toContain("| Events | 2 events |");
+  expect(report).not.toContain("PRIVATE cardiology scan.pdf");
+  expect(report).not.toContain("document_update_created");
 });
 
 test("report escapes pipes so a value cannot break out of its table cell", () => {
@@ -138,21 +143,51 @@ test("report collapses newlines that would otherwise end a table row early", () 
   expect(report).toContain("| Note | line one line two |");
 });
 
-test("report marks an error log line the way the Logs tab does", () => {
+test("report retains only anchored content-free telemetry", () => {
   const report = formatSystemMonitorReport({
     capturedAt: CAPTURED_AT,
     environment: [],
-    logEntries: [createLogEntry(1, { level: "error", message: "boom" })],
+    logEntries: [
+      createLogEntry(1, { message: "PRIVATE cardiology scan.pdf" }),
+      createLogEntry(2, {
+        level: "error",
+        message:
+          "PRIVATE prefix: document priming candidates=4 roots=1 primed=3 unroutable=1",
+      }),
+      createLogEntry(3, {
+        message:
+          "Container contents: stale root recovery status=reassigned candidates=1",
+      }),
+      createLogEntry(4, {
+        message:
+          "Container contents: document priming candidates=4 roots=1 primed=3 unroutable=1 title=PRIVATE cardiology scan.pdf",
+      }),
+    ],
     status: createStatus(),
   });
 
-  expect(report).toContain("ERROR: boom");
+  expect(report).toContain(
+    "ERROR: document priming candidates=4 roots=1 primed=3 unroutable=1",
+  );
+  expect(report).toContain(
+    "stale root recovery status=reassigned candidates=1",
+  );
+  expect(report).not.toContain("PRIVATE");
+  expect(report).toContain(
+    "_Omitted 2 free-form log entries to protect decrypted customer data._",
+  );
 });
 
-test("report caps the log and says so rather than truncating silently", () => {
+test("report caps content-free telemetry after filtering", () => {
   const logEntries = Array.from(
     { length: MAX_REPORT_LOG_ENTRIES + 50 },
-    (_, i) => createLogEntry(i),
+    (_, i) =>
+      createLogEntry(i, {
+        message: `Container contents: document priming candidates=${i} roots=1 primed=1 unroutable=0`,
+      }),
+  );
+  logEntries.unshift(
+    createLogEntry(-1, { message: "PRIVATE cardiology scan.pdf" }),
   );
 
   const report = formatSystemMonitorReport({
@@ -163,18 +198,30 @@ test("report caps the log and says so rather than truncating silently", () => {
   });
 
   expect(report).toContain(
-    `_Showing the last ${MAX_REPORT_LOG_ENTRIES} of ${logEntries.length} entries._`,
+    `_Showing the last ${MAX_REPORT_LOG_ENTRIES} of ${logEntries.length - 1} content-free telemetry entries._`,
   );
   // The newest entries survive; the oldest are the ones dropped.
-  expect(report).toContain(`entry ${logEntries.length - 1}`);
-  expect(report).not.toContain("entry 0\n");
+  expect(report).toContain(
+    `document priming candidates=${logEntries.length - 2} roots=1`,
+  );
+  expect(report).not.toContain("document priming candidates=0 roots=1");
+  expect(report).not.toContain("PRIVATE");
 });
 
-test("report leaves an uncapped log unannotated", () => {
+test("report leaves uncapped content-free telemetry unannotated", () => {
   const report = formatSystemMonitorReport({
     capturedAt: CAPTURED_AT,
     environment: [],
-    logEntries: [createLogEntry(1), createLogEntry(2)],
+    logEntries: [
+      createLogEntry(1, {
+        message:
+          "Container contents: document priming candidates=1 roots=1 primed=1 unroutable=0",
+      }),
+      createLogEntry(2, {
+        message:
+          "Container contents: stale root recovery status=ambiguous candidates=2",
+      }),
+    ],
     status: createStatus(),
   });
 
@@ -182,7 +229,7 @@ test("report leaves an uncapped log unannotated", () => {
   expect(report).toContain("```text");
 });
 
-test("report states an empty log instead of emitting a blank code fence", () => {
+test("report states when no content-free telemetry is available", () => {
   const report = formatSystemMonitorReport({
     capturedAt: CAPTURED_AT,
     environment: [],
@@ -190,46 +237,23 @@ test("report states an empty log instead of emitting a blank code fence", () => 
     status: createStatus(),
   });
 
-  expect(report).toContain("_No log entries._");
+  expect(report).toContain("_No content-free telemetry entries._");
   expect(report).not.toContain("```text");
 });
 
-test("report widens the log fence so a backtick line cannot close it early", () => {
-  // A multiline log message (e.g. an error's stack trace) containing a line of
-  // three backticks would otherwise close the ```text fence and spill the rest
-  // of the log into rendered Markdown.
+test("report omits arbitrary multiline and fenced log content", () => {
   const report = formatSystemMonitorReport({
     capturedAt: CAPTURED_AT,
     environment: [],
     logEntries: [
-      createLogEntry(1, { message: "before\n```\nafter" }),
-      createLogEntry(2, { message: "tail" }),
+      createLogEntry(1, {
+        message: "PRIVATE before\n```\ncardiology scan.pdf",
+      }),
     ],
     status: createStatus(),
   });
 
-  // The fence is one backtick longer than the content's longest run, so it
-  // opens with ````text and closes with ````.
-  expect(report).toContain("````text");
-  expect(report).toContain("\n````\n");
-  // The embedded ``` is quoted content, not a closing fence, so the later entry
-  // stays inside the block.
-  expect(report).toContain("tail");
-  const openIndex = report.indexOf("````text");
-  const tailIndex = report.indexOf("tail");
-  const closeIndex = report.indexOf("\n````\n");
-  expect(openIndex).toBeLessThan(tailIndex);
-  expect(tailIndex).toBeLessThan(closeIndex);
-});
-
-test("report escalates the fence past longer backtick runs too", () => {
-  const report = formatSystemMonitorReport({
-    capturedAt: CAPTURED_AT,
-    environment: [],
-    logEntries: [createLogEntry(1, { message: "````` five" })],
-    status: createStatus(),
-  });
-
-  // Longest run is five backticks, so the fence must be at least six.
-  expect(report).toContain("``````text");
+  expect(report).not.toContain("PRIVATE");
+  expect(report).not.toContain("cardiology scan.pdf");
+  expect(report).not.toContain("```text");
 });
