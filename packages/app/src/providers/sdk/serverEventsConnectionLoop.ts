@@ -16,11 +16,18 @@ interface ServerEventsConnectionLoopDeps {
   readonly scheduleTimer?:
     | ((callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>)
     | undefined;
+  readonly clearWatchdog?:
+    | ((timer: ReturnType<typeof setTimeout>) => void)
+    | undefined;
+  readonly scheduleWatchdog?:
+    | ((callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>)
+    | undefined;
 }
 
 const INITIAL_RECONNECT_DELAY_MS = 500;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 const STABLE_CONNECTION_MS = 10_000;
+const CONNECTION_WATCHDOG_MS = 15_000;
 
 function appendTicketToWsUrl(wsUrl: string, ticket: string): string {
   const url = new URL(wsUrl);
@@ -33,16 +40,25 @@ class ServerEventsConnectionLoop {
   private connecting = false;
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private socketWatchdog: ReturnType<typeof setTimeout> | null = null;
+  private settleTicketRequest: (() => void) | null = null;
   private settleSocket: (() => void) | null = null;
   private socket: WebSocket | null = null;
 
   constructor(
     private readonly input: ServerEventsConnectionLoopInput,
     private readonly clearTimer: (timer: ReturnType<typeof setTimeout>) => void,
+    private readonly clearWatchdog: (
+      timer: ReturnType<typeof setTimeout>,
+    ) => void,
     private readonly createSocket: (url: string) => WebSocket,
     private readonly now: () => number,
     private readonly random: () => number,
     private readonly scheduleTimer: (
+      callback: () => void,
+      delayMs: number,
+    ) => ReturnType<typeof setTimeout>,
+    private readonly scheduleWatchdog: (
       callback: () => void,
       delayMs: number,
     ) => ReturnType<typeof setTimeout>,
@@ -58,6 +74,8 @@ class ServerEventsConnectionLoop {
       this.clearTimer(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.clearSocketWatchdog();
+    this.settleTicketRequest?.();
     const socket = this.socket;
     const settle = this.settleSocket;
     this.socket = null;
@@ -95,12 +113,27 @@ class ServerEventsConnectionLoop {
   }
 
   private async requestTicket(): Promise<string | null> {
-    try {
-      return await this.input.requestTicket();
-    } catch {
-      // A transient ticket failure uses the same bounded retry as a close.
-      return null;
-    }
+    return new Promise((resolve) => {
+      let settled = false;
+      let watchdog: ReturnType<typeof setTimeout> | null = null;
+      const finish = (ticket: string | null): void => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        if (watchdog) {
+          this.clearWatchdog(watchdog);
+        }
+        if (this.settleTicketRequest === cancel) {
+          this.settleTicketRequest = null;
+        }
+        resolve(ticket);
+      };
+      const cancel = () => finish(null);
+      this.settleTicketRequest = cancel;
+      watchdog = this.scheduleWatchdog(cancel, CONNECTION_WATCHDOG_MS);
+      void this.input.requestTicket().then(finish, cancel);
+    });
   }
 
   private bindSocket(ws: WebSocket): void {
@@ -112,6 +145,7 @@ class ServerEventsConnectionLoop {
         return;
       }
       settled = true;
+      this.clearSocketWatchdog();
       if (this.socket === ws) {
         this.socket = null;
       }
@@ -128,9 +162,17 @@ class ServerEventsConnectionLoop {
       this.scheduleReconnect();
     };
     this.settleSocket = disconnect;
+    this.socketWatchdog = this.scheduleWatchdog(() => {
+      try {
+        ws.close();
+      } finally {
+        disconnect();
+      }
+    }, CONNECTION_WATCHDOG_MS);
 
     ws.addEventListener("open", () => {
       if (!this.cancelled && this.socket === ws) {
+        this.clearSocketWatchdog();
         openedAtMs = this.now();
         this.input.onOpen(ws);
       }
@@ -148,6 +190,13 @@ class ServerEventsConnectionLoop {
         disconnect();
       }
     });
+  }
+
+  private clearSocketWatchdog(): void {
+    if (this.socketWatchdog) {
+      this.clearWatchdog(this.socketWatchdog);
+      this.socketWatchdog = null;
+    }
   }
 
   private scheduleReconnect(): void {
@@ -174,7 +223,8 @@ class ServerEventsConnectionLoop {
 
 /**
  * Keep the lossy event channel connected. Every retry mints a fresh one-time
- * ticket; one settled guard coalesces the browser's usual error+close pair.
+ * ticket; watchdogs bound a hung ticket request or opening handshake; and one
+ * settled guard coalesces the browser's usual error+close pair.
  */
 export function startServerEventsConnectionLoop(
   input: ServerEventsConnectionLoopInput,
@@ -183,10 +233,12 @@ export function startServerEventsConnectionLoop(
   const loop = new ServerEventsConnectionLoop(
     input,
     deps.clearTimer ?? clearTimeout,
+    deps.clearWatchdog ?? clearTimeout,
     deps.createSocket ?? ((url) => new WebSocket(url)),
     deps.now ?? Date.now,
     deps.random ?? Math.random,
     deps.scheduleTimer ?? setTimeout,
+    deps.scheduleWatchdog ?? setTimeout,
   );
   loop.start();
   return () => loop.stop();

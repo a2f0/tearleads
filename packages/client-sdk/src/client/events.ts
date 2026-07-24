@@ -11,7 +11,10 @@ export class Events {
   private readonly listeners = new Set<EventsListener>();
   private snapshotValue: EventsSnapshot;
 
-  constructor(events: ReadonlyArray<unknown> = []) {
+  constructor(
+    events: ReadonlyArray<unknown> = [],
+    private readonly invalidateAccessCaches: () => void = () => undefined,
+  ) {
     this.snapshotValue = { connected: this.connectedValue, events };
   }
 
@@ -37,6 +40,15 @@ export class Events {
 
   push(event: unknown): void {
     this.setEvents([...this.events, event]);
+  }
+
+  /**
+   * Drop HTTP writer projections after an access/keying control signal or an
+   * event-stream gap. A peer re-key can make an otherwise-valid cached
+   * projection stale even when no local mutation touched the cache.
+   */
+  invalidateAccessState(): void {
+    this.invalidateAccessCaches();
   }
 
   setConnected(connected: boolean): void {

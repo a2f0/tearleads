@@ -1,7 +1,8 @@
 import type { Tearleads } from "@tearleads/client-sdk";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { hasStringProperty, isUuidV4String } from "@tearleads/validators/util";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import type { SubscribeConnectionRefreshFn } from "../../host/AppHostConfig";
 import {
   type ContainerInterestDeclaration,
   startContainerInterestDeclaration,
@@ -279,6 +280,47 @@ export function routeIncomingWsMessage(
 
 let nextEventId = 0;
 
+function useRefreshGeneration(
+  subscribeRefresh: SubscribeConnectionRefreshFn | undefined,
+): number {
+  const [generation, setGeneration] = useState(0);
+  useEffect(() => {
+    if (!subscribeRefresh) {
+      return;
+    }
+    return subscribeRefresh(() => {
+      // Re-run even if connectivity stayed online. A suspended iOS socket or a
+      // Wi-Fi/cellular path switch can leave readyState OPEN on a dead path.
+      setGeneration((current) => current + 1);
+    });
+  }, [subscribeRefresh]);
+  return generation;
+}
+
+function markServerEventsConnected(
+  tearleads: Tearleads,
+  log: (message: string) => void,
+): void {
+  const reconnecting = tearleads.events.connectionGeneration > 0;
+  if (reconnecting) {
+    // A missed access_changed may represent a revoke, move, or container key
+    // epoch change. Drop cached writer projections before the HTTP sweep.
+    tearleads.events.invalidateAccessState();
+  }
+  tearleads.events.setConnected(true);
+  if (reconnecting) {
+    // The declaration acknowledgement is the ordering barrier: routing is live
+    // before this sweep closes the lossy interval. This also catches re-keys in
+    // unopened containers, which open-document reconnect probes cannot.
+    void tearleads.deviceFirst
+      .reconciler()
+      .reconcileNow()
+      .catch(() => log("WebSocket: reconnect catch-up unavailable"));
+  }
+  log("WebSocket: interest declaration acknowledged");
+  log("WebSocket connected");
+}
+
 export function useServerEventsBinding(
   tearleads: Tearleads,
   wsUrl: string,
@@ -286,7 +328,10 @@ export function useServerEventsBinding(
   log: (message: string) => void,
   syncEnabled: boolean,
   online: boolean,
+  subscribeConnectionRefresh?: SubscribeConnectionRefreshFn | undefined,
 ): void {
+  const refreshGeneration = useRefreshGeneration(subscribeConnectionRefresh);
+
   useEffect(() => {
     // In local-only mode the events WebSocket stays closed: no server
     // invalidations, interest declarations, or resync signals. The reconciler
@@ -314,9 +359,7 @@ export function useServerEventsBinding(
             if (!interestHandle?.acknowledge(declarationId)) {
               return;
             }
-            tearleads.events.setConnected(true);
-            log("WebSocket: interest declaration acknowledged");
-            log("WebSocket connected");
+            markServerEventsConnected(tearleads, log);
           },
           onInterestState: (baseline) => {
             interestHandle?.stop();
@@ -355,15 +398,14 @@ export function useServerEventsBinding(
             );
           },
           onResyncRequired: (containerId) => {
+            tearleads.events.invalidateAccessState();
             const handle = interestHandle;
             handle?.invalidate(containerId);
             void resyncContainerAccess(tearleads, containerId).finally(() => {
               handle?.sync();
             });
           },
-          onSharedWithYou: () => {
-            void resyncRootContainers(tearleads);
-          },
+          onSharedWithYou: () => void resyncRootContainers(tearleads),
           onServerEvent: (data) => {
             tearleads.events.push({ ...data, id: String(nextEventId++) });
           },
@@ -379,5 +421,13 @@ export function useServerEventsBinding(
       requestTicket: () => tearleads.requestWebSocketTicket(),
       wsUrl,
     });
-  }, [authToken, log, online, syncEnabled, tearleads, wsUrl]);
+  }, [
+    authToken,
+    log,
+    online,
+    refreshGeneration,
+    syncEnabled,
+    tearleads,
+    wsUrl,
+  ]);
 }
