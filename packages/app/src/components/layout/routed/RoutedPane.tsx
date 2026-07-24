@@ -40,6 +40,7 @@ import "./RoutedPane.css";
 import { RoutedPaneAppBar } from "./RoutedPaneAppBar";
 import { ROUTED_PANE_NAV_PANEL_ID, RoutedPaneNav } from "./RoutedPaneNav";
 import { RoutedPaneSidebar } from "./RoutedPaneSidebar";
+import { useTextInputFocused } from "./useTextInputFocused";
 
 const ROUTED_ROOT_MINI_APP_ID: MiniAppId = "explorer";
 
@@ -213,6 +214,7 @@ function RoutedPaneSurface({
   const destroyKeyPackageDialog = useDestroyKeyPackageConfirmation(destroyKey);
   const hasSidebar =
     sidebar !== null && sidebar !== undefined && sidebar !== false;
+  const textInputFocused = useTextInputFocused(tier === "mobile");
 
   const fileMenuItems = useWindowFileMenuItems();
   const viewMenuItems = useWindowViewMenuItems();
@@ -277,13 +279,15 @@ function RoutedPaneSurface({
         <SystemMonitorPinned />
         {showUnlockPanel ? <LocalKeyringUnlockWindow /> : <ActiveMiniApp />}
       </main>
-      <RoutedPaneTaskBar
-        drawerOpen={drawerOpen}
-        onToggleDrawer={toggleDrawer}
-        onToggleRail={onToggleNavigationRail}
-        railExpanded={navigationRailExpanded}
-        tier={tier}
-      />
+      {!textInputFocused && (
+        <RoutedPaneTaskBar
+          drawerOpen={drawerOpen}
+          onToggleDrawer={toggleDrawer}
+          onToggleRail={onToggleNavigationRail}
+          railExpanded={navigationRailExpanded}
+          tier={tier}
+        />
+      )}
       <RoutedPaneConfirmationDialogs
         destroyKeyPackageDialog={destroyKeyPackageDialog}
         logoutDialog={logoutDialog}

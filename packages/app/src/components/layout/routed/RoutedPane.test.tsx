@@ -148,6 +148,49 @@ test("mobile routed shell opens the nav sheet from the bottom menu bar", () => {
   }
 });
 
+test("mobile routed shell hides the taskbar while a text input is focused", () => {
+  const restoreMatchMedia = forceMobileRoutedTier();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
+
+  try {
+    view = renderRoutedPane();
+    const input = document.createElement("input");
+    view.container.querySelector(".routed-pane-main")?.append(input);
+
+    fireEvent.focusIn(input);
+    expect(view.container.querySelector(".routed-pane-taskbar")).toBeNull();
+
+    fireEvent.focusOut(input, { relatedTarget: document.body });
+    expect(view.container.querySelector(".routed-pane-taskbar")).toBeTruthy();
+
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    view.container.querySelector(".routed-pane-main")?.append(fileInput);
+    fireEvent.focusIn(fileInput);
+    expect(view.container.querySelector(".routed-pane-taskbar")).toBeTruthy();
+  } finally {
+    view?.unmount();
+    restoreMatchMedia();
+  }
+});
+
+test("tablet routed shell keeps the taskbar while a text input is focused", () => {
+  const restoreMatchMedia = forceTabletRoutedTier();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
+
+  try {
+    view = renderRoutedPane();
+    const input = document.createElement("input");
+    view.container.querySelector(".routed-pane-main")?.append(input);
+
+    fireEvent.focusIn(input);
+    expect(view.container.querySelector(".routed-pane-taskbar")).toBeTruthy();
+  } finally {
+    view?.unmount();
+    restoreMatchMedia();
+  }
+});
+
 test("mobile nav sheet handle tap dismisses the menu", () => {
   const restoreMatchMedia = forceMobileRoutedTier();
   let view: ReturnType<typeof renderRoutedPane> | undefined;
