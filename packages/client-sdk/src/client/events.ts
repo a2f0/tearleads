@@ -7,6 +7,7 @@ export type EventsListener = () => void;
 
 export class Events {
   private connectedValue = false;
+  private connectionGenerationValue = 0;
   private readonly listeners = new Set<EventsListener>();
   private snapshotValue: EventsSnapshot;
 
@@ -16,6 +17,10 @@ export class Events {
 
   get connected(): boolean {
     return this.connectedValue;
+  }
+
+  get connectionGeneration(): number {
+    return this.connectionGenerationValue;
   }
 
   get events(): ReadonlyArray<unknown> {
@@ -40,6 +45,9 @@ export class Events {
     }
 
     this.connectedValue = connected;
+    if (connected) {
+      this.connectionGenerationValue += 1;
+    }
     this.updateSnapshot(this.events);
   }
 

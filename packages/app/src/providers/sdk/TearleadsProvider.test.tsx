@@ -17,6 +17,10 @@ import { LogProvider } from "../logging/LogProvider";
 import { SyncModeProvider } from "../sync-mode/SyncModeProvider";
 import { SYNC_MODE_STORAGE_KEY } from "../sync-mode/syncModePreference";
 import { TearleadsProvider, useTearleads } from "./TearleadsProvider";
+import {
+  readyEmptyContainerTree,
+  ServerEventsTestWebSocket as TestWebSocket,
+} from "./test/serverEventsTestWebSocket";
 
 afterEach(() => {
   cleanup();
@@ -126,23 +130,6 @@ function installFakeOpfs(): () => void {
       Reflect.deleteProperty(globalThis.navigator, "storage");
     }
   };
-}
-
-class TestWebSocket extends EventTarget {
-  static instances: TestWebSocket[] = [];
-
-  closeCalls = 0;
-  readonly url: string;
-
-  constructor(url: string | URL) {
-    super();
-    this.url = String(url);
-    TestWebSocket.instances.push(this);
-  }
-
-  close() {
-    this.closeCalls += 1;
-  }
 }
 
 function TearleadsProbe({
@@ -394,8 +381,6 @@ test("marks SDK events disconnected when the WebSocket binding changes URL", asy
       throw new Error("Expected the Tearleads SDK to initialize.");
     }
 
-    // The socket only connects once authenticated, and the handshake fetches a
-    // single-use ticket first — stub both so the binding builds a socket.
     spyOn(tearleads, "requestWebSocketTicket").mockResolvedValue("test-ticket");
     await act(async () => {
       tearleads.session.setAuthToken("test-token");
@@ -407,10 +392,22 @@ test("marks SDK events disconnected when the WebSocket binding changes URL", asy
       throw new Error("Expected the WebSocket to initialize.");
     }
 
+    act(() => firstSocket.dispatchEvent(new Event("open")));
+    expect(tearleads.events.connected).toBe(false);
+    expect(tearleads.events.connectionGeneration).toBe(0);
+
+    spyOn(tearleads.containerContents, "openTree").mockReturnValue(
+      readyEmptyContainerTree as never,
+    );
+    act(() => firstSocket.dispatchInterestState([]));
+    expect(tearleads.events.connected).toBe(false);
+    expect(tearleads.events.connectionGeneration).toBe(0);
+
     act(() => {
-      firstSocket.dispatchEvent(new Event("open"));
+      firstSocket.acknowledgeLastContainerInterest();
     });
     expect(tearleads.events.connected).toBe(true);
+    expect(tearleads.events.connectionGeneration).toBe(1);
 
     await act(async () => {
       view.rerender(
@@ -426,6 +423,7 @@ test("marks SDK events disconnected when the WebSocket binding changes URL", asy
 
     expect(firstSocket.closeCalls).toBe(1);
     expect(tearleads.events.connected).toBe(false);
+    expect(tearleads.events.connectionGeneration).toBe(1);
     expect(TestWebSocket.instances).toHaveLength(2);
 
     view.unmount();

@@ -158,6 +158,42 @@ Scheduling policy (active-first, then idle backfill):
    are best-effort after commit: a broker failure never changes the successful
    HTTP mutation result, and later HTTP reconciliation remains authoritative.
 
+#### Document content pull policy
+
+The reconciliation service owns discovery scheduling; registered document
+stores own encrypted content sync and attachment hydration. A forced targeted
+container reconciliation carries `force` through `reconcileOneContainer` into
+the document-content puller. For ordinary documents, the puller requests remote
+sync only from stores already registered in that `DomainScope`; it does not open
+every discovered document. System-container documents are opened eagerly once
+per observed remote version because their derived projections cannot depend on
+a document window.
+
+Two one-shot probes close gaps that container discovery cannot observe:
+
+- opening a persisted remote document arms an initialization probe. Websocket
+  invalidations live only in process memory, so a clean cached snapshot cannot
+  prove that no peer committed an update before restart;
+- an already-open remote document arms a reconnect probe when it observes a
+  newer server-events connection generation. The generation advances only after
+  a ready local tree sends its authoritative container-interest declaration and
+  the server acknowledges installing it in the live router. It therefore
+  survives coalesced connection notifications and retained stores that missed
+  the intermediate disconnect, while ordering the probe after interest
+  restoration rather than raw socket open.
+
+The reconnect handshake retains the server's persisted baseline while the local
+container tree is `ready=false`; its placeholder empty node list is never treated
+as an authoritative removal. `known_containers_ack` is sent after in-memory
+routing changes and before best-effort persistence, so a later event is either
+delivered or causes the in-flight probe's signal sequence to arm a trailing pass.
+
+Both probes use the normal HTTP document-sync response: verified incoming Loro
+updates are merged and projected first, then current attachment bindings and
+blob bytes are hydrated. Ordinary documents that have never been opened remain
+lazy until a document window, explicit registered-store revalidation, or other
+owning workflow opens them.
+
 Remote document discovery requires a current metadata document for every
 container. Local-first roots, regular folders, and system slots are never sent
 to `/containers/:id/documents` before their remote create commits; the document
@@ -284,3 +320,12 @@ container happens in the background.
   sync lane. Layer B only primes content that cannot rely on a document window
   opening it (remote system-container projections), while it reconciles the
   container tree plus document summaries/links for every known lane.
+
+## Privacy-safe reconciliation diagnostics
+
+The System Monitor clipboard allowlist exposes only bounded states and counts
+for this recovery path: `interest baseline containers=<count>`, revalidation
+scheduled for `startup` or `reconnect`, and revalidation result `applied` with
+incoming-update/attachment-slot counts or `unavailable`. It deliberately omits
+document and attachment identifiers, titles, names, structured fields, blob
+bytes, keys, and all decrypted customer content.

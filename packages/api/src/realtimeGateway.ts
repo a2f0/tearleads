@@ -345,6 +345,15 @@ function createWebsocketHandler(input: {
         await input.organizationInterest.apply(ws, action);
         return;
       }
+      if (action.declarationId) {
+        sendSafely(
+          ws,
+          JSON.stringify({
+            type: "known_containers_ack",
+            declarationId: action.declarationId,
+          }),
+        );
+      }
       input.persistInterest(ws.data.userId, ws.data.sessionId, action);
     },
   };

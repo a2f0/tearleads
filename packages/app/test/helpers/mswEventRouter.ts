@@ -316,6 +316,17 @@ export function createMswEventRouter(
         socketInterestByClient.set(client, current);
         break;
     }
+    const declarationId = readOrganizationDeclarationId(
+      Reflect.get(message, "declarationId"),
+    );
+    if (declarationId) {
+      // Production acknowledges only after the process-local router has
+      // synchronously installed this exact declaration.
+      sendSocketEvent(client, {
+        type: "known_containers_ack",
+        declarationId,
+      });
+    }
   };
 
   const handleAccessChangedEvent = (event: Record<string, unknown>): void => {

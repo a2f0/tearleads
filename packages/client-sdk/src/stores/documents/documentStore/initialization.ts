@@ -39,6 +39,7 @@ import {
   persistDocument,
   saveDocumentRecord,
 } from "./persistence";
+import { logRevalidationScheduled } from "./remoteRevalidationTelemetry";
 import {
   type DocumentState,
   type DocumentStoreState,
@@ -222,6 +223,17 @@ async function initializeDocumentStore(
   state.initialized = true;
   state.initializePromise = null;
   setReadySnapshot(state, nextDoc, false);
+
+  if (existing?.documentId) {
+    // Websocket invalidations are intentionally session-local. A process can
+    // stop before receiving a peer device's update event, and no event survives
+    // the restart to distinguish a clean local snapshot from a stale one. Probe
+    // each opened remote document once after loading it; unopened documents stay
+    // lazy, while body and attachment state for a restored window converges.
+    state.remoteUpdatePending = true;
+    state.remoteUpdateSignalSeq += 1;
+    logRevalidationScheduled(state.runtime, "startup");
+  }
   scheduleSync();
 }
 

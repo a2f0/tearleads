@@ -3,11 +3,17 @@ import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { hasStringProperty, isUuidV4String } from "@tearleads/validators/util";
 import { useEffect } from "react";
 import {
+  type ContainerInterestDeclaration,
+  startContainerInterestDeclaration,
+} from "./containerInterest";
+import {
   attachOrganizationReadModelSocket,
   handleOrganizationReadModelHint,
   handleOrganizationReadModelInterestAcknowledgement,
 } from "./organizationReadModelRealtime";
 import { startServerEventsConnectionLoop } from "./serverEventsConnectionLoop";
+
+export { startContainerInterestDeclaration } from "./containerInterest";
 
 function isServerEvent(value: unknown): value is {
   type: string;
@@ -27,6 +33,18 @@ function readInterestStateContainerIds(value: unknown): string[] | null {
     return [];
   }
   return containerIds.filter((id): id is string => typeof id === "string");
+}
+
+function readContainerInterestAcknowledgement(value: unknown): string | null {
+  if (!isServerEvent(value) || value.type !== "known_containers_ack") {
+    return null;
+  }
+  const declarationId = Reflect.get(value, "declarationId");
+  return typeof declarationId === "string" &&
+    declarationId.length > 0 &&
+    declarationId.length <= 128
+    ? declarationId
+    : null;
 }
 
 // The server's "a container's access changed, resync it" signal.
@@ -184,6 +202,7 @@ async function resyncRootContainers(tearleads: Tearleads): Promise<void> {
 export function routeIncomingWsMessage(
   rawData: string,
   handlers: {
+    onContainerInterestAcknowledged: (declarationId: string) => void;
     onInterestState: (baseline: string[]) => void;
     onOrganizationInterestAcknowledged: (
       declarationId: string,
@@ -209,6 +228,13 @@ export function routeIncomingWsMessage(
   const baseline = readInterestStateContainerIds(data);
   if (baseline !== null) {
     handlers.onInterestState(baseline);
+    return;
+  }
+  if (isServerEvent(data) && data.type === "known_containers_ack") {
+    const declarationId = readContainerInterestAcknowledgement(data);
+    if (declarationId !== null) {
+      handlers.onContainerInterestAcknowledged(declarationId);
+    }
     return;
   }
   if (isServerEvent(data) && data.type === "known_organizations_ack") {
@@ -251,94 +277,6 @@ export function routeIncomingWsMessage(
   }
 }
 
-// Single pass over each set so only the changed ids are allocated, not a full
-// array copy of a possibly-thousands-strong known set on every change.
-function diffContainerInterest(
-  current: ReadonlySet<string>,
-  declared: ReadonlySet<string>,
-): { added: string[]; removed: string[] } {
-  const added: string[] = [];
-  for (const id of current) {
-    if (!declared.has(id)) {
-      added.push(id);
-    }
-  }
-  const removed: string[] = [];
-  for (const id of declared) {
-    if (!current.has(id)) {
-      removed.push(id);
-    }
-  }
-  return { added, removed };
-}
-
-/**
- * Declare the containers this client cares about so the server only routes their
- * invalidations here. Seeds from the (passively shared) container tree and pushes
- * add/remove deltas as it changes, rather than re-sending the whole set. Interest
- * is not authorization; the server still enforces access, and missed events are
- * recovered over HTTP sync.
- */
-interface ContainerInterestDeclaration {
-  readonly stop: () => void;
-  readonly sync: () => void;
-  readonly invalidate: (containerId: string) => void;
-}
-
-export function startContainerInterestDeclaration(
-  tearleads: Tearleads,
-  ws: WebSocket,
-  baseline: ReadonlySet<string>,
-): ContainerInterestDeclaration {
-  let store: ReturnType<Tearleads["containerContents"]["openTree"]>;
-  try {
-    store = tearleads.containerContents.openTree();
-  } catch {
-    return {
-      invalidate: () => undefined,
-      stop: () => undefined,
-      sync: () => undefined,
-    };
-  }
-
-  let declared = new Set(baseline);
-  let stopped = false;
-
-  const send = (message: Record<string, unknown>): void => {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(message));
-    }
-  };
-
-  const syncInterest = (): void => {
-    if (stopped) {
-      return;
-    }
-    const current = new Set(store.getSnapshot().nodes.map((node) => node.id));
-    const { added, removed } = diffContainerInterest(current, declared);
-    if (added.length > 0) {
-      send({ type: "known_containers.add", containerIds: added });
-    }
-    if (removed.length > 0) {
-      send({ type: "known_containers.remove", containerIds: removed });
-    }
-    declared = current;
-  };
-
-  syncInterest();
-  const unsubscribe = store.subscribe(syncInterest);
-  return {
-    invalidate: (containerId: string) => {
-      declared.delete(containerId);
-    },
-    stop: () => {
-      stopped = true;
-      unsubscribe();
-    },
-    sync: syncInterest,
-  };
-}
-
 let nextEventId = 0;
 
 export function useServerEventsBinding(
@@ -372,6 +310,14 @@ export function useServerEventsBinding(
       },
       onMessage: (ws, event) => {
         routeIncomingWsMessage(String(event.data), {
+          onContainerInterestAcknowledged: (declarationId) => {
+            if (!interestHandle?.acknowledge(declarationId)) {
+              return;
+            }
+            tearleads.events.setConnected(true);
+            log("WebSocket: interest declaration acknowledged");
+            log("WebSocket connected");
+          },
           onInterestState: (baseline) => {
             interestHandle?.stop();
             interestHandle = startContainerInterestDeclaration(
@@ -379,6 +325,11 @@ export function useServerEventsBinding(
               ws,
               new Set(baseline),
             );
+            // Transport open and the persisted baseline are not enough: the
+            // ready local tree may add containers missing from that baseline.
+            // The matching acknowledgement is the ordering barrier after the
+            // server has synchronously installed the authoritative current set.
+            log(`WebSocket: interest baseline containers=${baseline.length}`);
           },
           onOrganizationInterestAcknowledged: (
             declarationId,
@@ -419,13 +370,11 @@ export function useServerEventsBinding(
         });
       },
       onOpen: (ws) => {
-        tearleads.events.setConnected(true);
         detachOrganizationSocket?.();
         detachOrganizationSocket = attachOrganizationReadModelSocket(
           tearleads,
           ws,
         );
-        log("WebSocket connected");
       },
       requestTicket: () => tearleads.requestWebSocketTicket(),
       wsUrl,

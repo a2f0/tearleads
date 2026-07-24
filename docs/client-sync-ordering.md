@@ -63,6 +63,43 @@ work is part of that document lane; there is no independent pump-driven blob
 sync lane. A separate blob row in diagnostics is only a view of the upload that
 the document lane already owns.
 
+### Remote pull eligibility
+
+Scheduling a document lane and probing the remote document head are separate
+decisions. A clean ordinary document skips HTTP unless it has outgoing work or
+a remote-revalidation signal. The following signals require a probe:
+
+- initializing an opened store from a persisted record with a remote
+  `documentId` arms one startup probe, because websocket hints are volatile and
+  do not survive process restart;
+- after a server-events disconnect, the client waits for the local container
+  tree to be ready, sends its authoritative interest set, and advances a
+  monotonic connection generation only after the server acknowledges that it
+  installed the declaration. Each already-open remote document that observes a
+  newer generation arms one reconnect probe; a boolean edge or raw socket
+  `open` can be missed and is too early to close the event-loss window;
+- a matching remote event, explicit document revalidation, or forced
+  reconciliation requests a probe through the registered document store.
+
+Ordinary unopened documents remain lazy: container reconciliation updates their
+local summaries and links but does not instantiate every document store. Forced
+targeted reconciliation must propagate its force flag into document-content
+pull policy; that policy revalidates registered ordinary stores, while returning
+without opening unregistered ones. System-container documents remain the eager
+exception because their projections may have no document window to open them.
+
+The server sends `known_containers_ack` immediately after installing the
+declaration in its process-local event router and before asynchronously
+persisting it for a later reconnect. Until that acknowledgement arrives, a cold
+`ready=false` tree cannot remove the restored baseline and the SDK continues to
+report server events as disconnected.
+
+The coordinator coalesces repeated requests. A successful probe imports and
+persists remote Loro updates before hydrating the active attachment bindings and
+encrypted blob bytes. A lane reported as complete therefore means its callback
+returned; it does not, by itself, prove that an HTTP probe was eligible or
+successful.
+
 A document pass runs in this order:
 
 1. If the document already exists remotely and has pending attachment
@@ -131,6 +168,12 @@ state, credentials, network, or local input changes.
 An upload telemetry row becomes complete only when the actual upload workflow
 settles it. Re-running the document owner through Manual Sync cannot directly
 clear a blob error or turn partial part counts into a synthetic completion.
+
+System Monitor clipboard reports allowlist only content-free revalidation
+telemetry: interest-baseline container counts, `startup`/`reconnect` scheduling
+reasons, applied incoming-update and attachment-slot counts, and an
+`unavailable` outcome. These entries never include document text, structured
+fields, attachment names, blob bytes, keys, or decrypted payloads.
 
 ## Orchestration Boundary
 

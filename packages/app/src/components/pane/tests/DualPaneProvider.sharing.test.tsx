@@ -51,16 +51,14 @@ import {
 } from "../../../../test/helpers/proxiedApiRequestBudget";
 
 const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  // Ten serial profiles after the strict parent-lane cutover measured total
-  // min/median/max 87/87/88. Phase ranges were provisioning 19/20/22, note +
-  // attachment creation 29/30/30, and root-share settle 35/36/37. The dominant
-  // request kinds were invariant in all ten runs: 24 read-only document probes,
-  // 14 container-document reads, 10 document writer projections, and 9 bounded
-  // parent-lane batches. Keep the deleted singular endpoint pinned to zero.
-  total: 88,
+  // Startup recovery deliberately adds two read-only document probes; one may
+  // also warm a writer projection. Four post-change profiles measured 90-91
+  // total requests, with 26 document syncs and at most 11 document writer
+  // projections. Keep the deleted singular endpoint pinned to zero.
+  total: 91,
   byRequest: {
-    "GET /documents/:documentId/writer-projection": 10,
-    "POST /documents/:documentId/sync": 24,
+    "GET /documents/:documentId/writer-projection": 11,
+    "POST /documents/:documentId/sync": 26,
     "GET /containers/:containerId/documents": 14,
     "GET /containers": 0,
     "POST /containers/parent-lanes/query": 9,

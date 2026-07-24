@@ -212,7 +212,9 @@ async function runReconcileLane(
   if (shouldForce || !state.discoveredContainerIds.has(containerId)) {
     state.discoveredContainerIds.add(containerId);
     try {
-      const reconciled = await reconcileOneContainer(host, containerId);
+      const reconciled = await reconcileOneContainer(host, containerId, {
+        forceDocumentContentPull: shouldForce,
+      });
       if (!reconciled) {
         state.discoveredContainerIds.delete(containerId);
       }

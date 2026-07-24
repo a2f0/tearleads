@@ -208,6 +208,8 @@ function createRuntimeInputFactory(
       // connectivity signal for host/UI. See Session.syncEnabled.
       online: dependencies.network.online && dependencies.session.syncEnabled,
       peerScope: dependencies.peerScope ?? null,
+      serverEventsConnectionGeneration:
+        dependencies.events.connectionGeneration,
     });
     if (
       !util ||
@@ -315,7 +317,9 @@ function reuseWorkflowRuntimeState(
     current.domainScope === next.domainScope &&
     current.events === next.events &&
     current.online === next.online &&
-    current.peerScope === next.peerScope
+    current.peerScope === next.peerScope &&
+    current.serverEventsConnectionGeneration ===
+      next.serverEventsConnectionGeneration
     ? current
     : next;
 }

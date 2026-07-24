@@ -4,6 +4,7 @@ import { startContainerInterestDeclaration } from "./serverEventsBinding";
 
 function createFakeStore(initialIds: string[]) {
   let ids = initialIds;
+  let ready = true;
   const listeners = new Set<() => void>();
   return {
     setNodes(next: string[]) {
@@ -12,14 +13,31 @@ function createFakeStore(initialIds: string[]) {
         listener();
       }
     },
+    setReady(next: boolean) {
+      ready = next;
+      for (const listener of listeners) {
+        listener();
+      }
+    },
     store: {
-      getSnapshot: () => ({ nodes: ids.map((id) => ({ id })) }),
+      getSnapshot: () => ({ nodes: ids.map((id) => ({ id })), ready }),
       subscribe: (listener: () => void) => {
         listeners.add(listener);
         return () => listeners.delete(listener);
       },
     },
   };
+}
+
+function acknowledgeInitialDeclaration(
+  handle: ReturnType<typeof startContainerInterestDeclaration>,
+  sent: string[],
+): void {
+  const declaration = JSON.parse(sent.at(-1) ?? "null") as {
+    declarationId?: unknown;
+  };
+  expect(typeof declaration.declarationId).toBe("string");
+  expect(handle.acknowledge(String(declaration.declarationId))).toBe(true);
 }
 
 function tearleadsWithStore(openTree: () => unknown): Tearleads {
@@ -39,7 +57,7 @@ function fakeSocket(readyState: number) {
   };
 }
 
-test("declares the full known set against an empty baseline, then deltas", () => {
+test("declares the authoritative ready set, waits for its ack, then sends deltas", () => {
   const fakeStore = createFakeStore(["c1", "c2"]);
   const { sent, ws } = fakeSocket(WebSocket.OPEN);
 
@@ -50,9 +68,11 @@ test("declares the full known set against an empty baseline, then deltas", () =>
   );
 
   expect(JSON.parse(sent[0] ?? "null")).toEqual({
-    type: "known_containers.add",
+    type: "known_containers",
     containerIds: ["c1", "c2"],
+    declarationId: expect.any(String),
   });
+  acknowledgeInitialDeclaration(handle, sent);
 
   fakeStore.setNodes(["c1", "c2", "c3"]);
   expect(JSON.parse(sent[1] ?? "null")).toEqual({
@@ -83,7 +103,8 @@ test("re-declares an invalidated container on the next tree change", () => {
     ws,
     new Set(["a", "b"]),
   );
-  expect(sent).toEqual([]);
+  acknowledgeInitialDeclaration(handle, sent);
+  sent.length = 0;
 
   handle.invalidate("b");
   // No immediate re-add; only the next tree change re-evaluates.
@@ -105,7 +126,8 @@ test("re-declares an invalidated container after an unchanged access recheck", (
     ws,
     new Set(["a", "b"]),
   );
-  expect(sent).toEqual([]);
+  acknowledgeInitialDeclaration(handle, sent);
+  sent.length = 0;
 
   handle.invalidate("b");
   handle.sync();
@@ -116,8 +138,7 @@ test("re-declares an invalidated container after an unchanged access recheck", (
   });
 });
 
-test("declares only the delta against a hydrated baseline (no full resend)", () => {
-  // The server already holds {a, b}; the current tree adds c. Only c is sent.
+test("replaces a hydrated baseline with the authoritative ready tree", () => {
   const fakeStore = createFakeStore(["a", "b", "c"]);
   const { sent, ws } = fakeSocket(WebSocket.OPEN);
 
@@ -128,24 +149,52 @@ test("declares only the delta against a hydrated baseline (no full resend)", () 
   );
 
   expect(JSON.parse(sent[0] ?? "null")).toEqual({
-    type: "known_containers.add",
-    containerIds: ["c"],
+    type: "known_containers",
+    containerIds: ["a", "b", "c"],
+    declarationId: expect.any(String),
   });
-  // a and b are not re-declared.
   expect(sent).toHaveLength(1);
 });
 
-test("sends nothing when the tree already matches the baseline", () => {
+test("acknowledges an authoritative declaration even when baseline matches", () => {
   const fakeStore = createFakeStore(["a", "b"]);
   const { sent, ws } = fakeSocket(WebSocket.OPEN);
 
-  startContainerInterestDeclaration(
+  const handle = startContainerInterestDeclaration(
+    tearleadsWithStore(() => fakeStore.store),
+    ws,
+    new Set(["a", "b"]),
+  );
+
+  expect(JSON.parse(sent[0] ?? "null")).toEqual({
+    type: "known_containers",
+    containerIds: ["a", "b"],
+    declarationId: expect.any(String),
+  });
+  acknowledgeInitialDeclaration(handle, sent);
+  expect(handle.acknowledge("stale")).toBe(false);
+});
+
+test("retains the hydrated baseline until the local tree is ready", () => {
+  const fakeStore = createFakeStore([]);
+  fakeStore.setReady(false);
+  const { sent, ws } = fakeSocket(WebSocket.OPEN);
+  const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
     new Set(["a", "b"]),
   );
 
   expect(sent).toEqual([]);
+  fakeStore.setNodes(["a", "b"]);
+  expect(sent).toEqual([]);
+  fakeStore.setReady(true);
+  expect(JSON.parse(sent[0] ?? "null")).toEqual({
+    type: "known_containers",
+    containerIds: ["a", "b"],
+    declarationId: expect.any(String),
+  });
+  acknowledgeInitialDeclaration(handle, sent);
 });
 
 test("skips interest when the container tree cannot be opened", () => {

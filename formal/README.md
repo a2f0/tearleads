@@ -233,6 +233,16 @@ A current-schema local database with already-reconciled canonical root
 identities is the runtime cutover boundary; migration of retired pre-cutover
 backups is outside both the model and the supported protocol.
 
+## Opened-Document Recovery Probes
+
+[`document-sync/RestartProbeConvergence.tla`](./document-sync/RestartProbeConvergence.tla)
+models startup and acknowledged-reconnect probes, peer writes during the
+handshake or an in-flight pull, and signal-sequence coalescing for encrypted Loro
+body and attachment-slot state. Its bounded run explores 6,757 generated states,
+1,912 distinct states, and depth 15. See the
+[production mapping and model boundary](./document-sync/RestartProbeConvergence.md)
+for the action seams, fairness assumptions, and excluded blob-hydration layer.
+
 ## Empty-Frontier Baseline-less Unlink
 
 [`document-sync/EmptyFrontierUnlink.tla`](./document-sync/EmptyFrontierUnlink.tla)

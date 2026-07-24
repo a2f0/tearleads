@@ -19,12 +19,22 @@ import {
   persistDocument,
 } from "./persistence";
 import {
+  logRevalidationApplied as logApplied,
+  logRevalidationUnavailable as logUnavailable,
+} from "./remoteRevalidationTelemetry";
+import {
   type DocumentState,
   type DocumentStoreState,
   type DocumentSyncAttempt,
   type EncapsulationKeyPair,
   setDocumentSyncing,
 } from "./state";
+import {
+  cleanupPreRegisteredUpdateIdsOnFailure,
+  discardPreRegisteredUpdateIds,
+  discardUnacceptedPreRegisteredUpdateIds,
+  preRegisterUpdateIds,
+} from "./syncAcceptedUpdateIds";
 import { syncPendingAttachments } from "./syncAttachments";
 import { syncDetachedAttachmentBindings } from "./syncDetachedAttachments";
 import {
@@ -139,25 +149,19 @@ function resolveSyncedDocumentWriterProjection(
  */
 export const canClearRemoteUpdateSignalAfterSync = sequenceUnchanged;
 
-function discardPreRegisteredUpdateIds(
+function clearConsumedRemoteUpdateSignal(
   state: DocumentStoreState,
-  sentUpdateIds: readonly string[],
-) {
-  for (const sentUpdateId of sentUpdateIds) {
-    state.locallyAcceptedUpdateIds.delete(sentUpdateId);
-  }
-}
-
-async function cleanupPreRegisteredUpdateIdsOnFailure<T>(
-  state: DocumentStoreState,
-  sentUpdateIds: readonly string[],
-  task: () => Promise<T>,
-): Promise<T> {
-  try {
-    return await task();
-  } catch (error) {
-    discardPreRegisteredUpdateIds(state, sentUpdateIds);
-    throw error;
+  consumedSignalSequence: number,
+): void {
+  // A peer event can arrive while the HTTP request is in flight. Clear only
+  // the sequence this pass consumed so the newer event survives for a re-run.
+  if (
+    canClearRemoteUpdateSignalAfterSync(
+      state.remoteUpdateSignalSeq,
+      consumedSignalSequence,
+    )
+  ) {
+    state.remoteUpdatePending = false;
   }
 }
 
@@ -169,6 +173,7 @@ async function finalizeDocumentSync(
   consumedRemoteUpdateSignalSeq: number,
   generation: DocumentStoreSyncGeneration,
   sentUpdateIds: readonly string[],
+  wasRemoteProbe: boolean,
 ): Promise<DocumentRecord> {
   const { synced } = syncAttempt;
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
@@ -183,12 +188,11 @@ async function finalizeDocumentSync(
   // accepted: an ID we sent but the server did not accept will never be echoed,
   // so drop it to keep locallyAcceptedUpdateIds from leaking. Accepted IDs (a
   // subset of what we sent) stay registered until their echo consumes them.
-  const acceptedOutgoing = new Set(synced.response.acceptedOutgoingUpdateIds);
-  for (const sentUpdateId of sentUpdateIds) {
-    if (!acceptedOutgoing.has(sentUpdateId)) {
-      state.locallyAcceptedUpdateIds.delete(sentUpdateId);
-    }
-  }
+  discardUnacceptedPreRegisteredUpdateIds(
+    state,
+    sentUpdateIds,
+    synced.response.acceptedOutgoingUpdateIds,
+  );
   // Persist on the identity-write chain: synced.persistedState carries this
   // pass's documentId, so it would clobber a relink that landed mid-pass. If
   // the identity moved, the response describes the OLD document — skip every
@@ -265,19 +269,7 @@ async function finalizeDocumentSync(
     return state.record ?? nextRecord;
   }
 
-  // Clear the remote-update signal ONLY if no new remote event arrived while
-  // this pass was awaiting the network GET and persist. If the sequence moved,
-  // a peer update (E2) committed and was signalled mid-pass but is not in this
-  // pass's response, so we must leave the signal set for the coalesced re-run
-  // to fetch it. Clearing unconditionally here is exactly what dropped E2.
-  if (
-    canClearRemoteUpdateSignalAfterSync(
-      state.remoteUpdateSignalSeq,
-      consumedRemoteUpdateSignalSeq,
-    )
-  ) {
-    state.remoteUpdatePending = false;
-  }
+  clearConsumedRemoteUpdateSignal(state, consumedRemoteUpdateSignalSeq);
 
   if (
     settleOutgoingPassAndDecideReArm(state, {
@@ -290,6 +282,7 @@ async function finalizeDocumentSync(
   }
 
   await hydrateAttachmentBlobs(state, mergedDoc, nextRecord, generation);
+  logApplied(state, mergedDoc, synced.decryptedUpdates.length, wasRemoteProbe);
   return nextRecord;
 }
 
@@ -305,6 +298,7 @@ async function syncDocumentState(
   // after this point describes an update that may not be in that response, so
   // finalizeDocumentSync must not clear the signal if this sequence has moved.
   const consumedRemoteUpdateSignalSeq = state.remoteUpdateSignalSeq;
+  const wasRemoteProbe = state.remoteUpdatePending;
   let pendingUpdates = await listPendingUpdates(state);
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
     requestDocumentStoreSync(state);
@@ -333,9 +327,7 @@ async function syncDocumentState(
     requestDocumentStoreSync(state);
     return state.record ?? nextRecord;
   }
-  if (!nextRemoteRecord?.documentId) {
-    return nextRecord;
-  }
+  if (!nextRemoteRecord?.documentId) return nextRecord;
 
   const preparedCoverage = await prepareDocumentOutgoingCoverage({
     currentDoc,
@@ -366,10 +358,7 @@ async function syncDocumentState(
   // network await closes the race where the echo lands before
   // finalizeDocumentSync records the accepted IDs — the gap that turned every
   // fast keystroke into an extra self-triggered sync.
-  const sentUpdateIds = pendingUpdates.map((pendingUpdate) => pendingUpdate.id);
-  for (const sentUpdateId of sentUpdateIds) {
-    state.locallyAcceptedUpdateIds.add(sentUpdateId);
-  }
+  const sentUpdateIds = preRegisterUpdateIds(state, pendingUpdates);
 
   const syncAttempt = await cleanupPreRegisteredUpdateIdsOnFailure(
     state,
@@ -393,6 +382,7 @@ async function syncDocumentState(
   }
   if (!syncAttempt) {
     discardPreRegisteredUpdateIds(state, sentUpdateIds);
+    logUnavailable(state, wasRemoteProbe);
     return nextRemoteRecord;
   }
 
@@ -405,6 +395,7 @@ async function syncDocumentState(
       consumedRemoteUpdateSignalSeq,
       generation,
       sentUpdateIds,
+      wasRemoteProbe,
     ),
   );
 }
