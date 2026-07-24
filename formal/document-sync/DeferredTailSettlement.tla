@@ -21,18 +21,15 @@ VARIABLES snapshot, durableSnapshot, durableBase, workingBase, queued, remote,
           liveIdentity, liveGeneration,
           responseIdentity, responseGeneration, responseIncoming,
           responseAccepted, responseDeletes, responsePending,
-          durableOp, staleDurableCompletions,
-          lastMarkerPublishMatched, lastResponseApplyMatched,
-          lastDeletionApplyMatched
+          durableOp, allPublicationsMatchedContext
 coverageVars == << snapshot, durableSnapshot, durableBase, workingBase,
                   queued, remote >>
 captureVars == << capturedFrontier, capturedCoverage, capturedGeneration,
                   capturedIdentity, rerunRequested >>
 responseVars == << responseIdentity, responseGeneration, responseIncoming,
                    responseAccepted, responseDeletes, responsePending >>
-durableOpVars == << durableOp, staleDurableCompletions >>
-auditVars == << lastMarkerPublishMatched, lastResponseApplyMatched,
-                lastDeletionApplyMatched >>
+durableOpVars == << durableOp >>
+auditVars == << allPublicationsMatchedContext >>
 presenceVars == << localPresent, durablePresent, authoritativelyDeleted >>
 livePublicationVars == << snapshot, workingBase, localPresent,
                           authoritativelyDeleted, liveIdentity, liveGeneration >>
@@ -72,9 +69,7 @@ TypeOK ==
   /\ responseIncoming \subseteq Ops /\ responseAccepted \subseteq Ops
   /\ responseDeletes \in BOOLEAN /\ responsePending \in BOOLEAN
   /\ durableOp \in {"none", "marker", "response", "delete"}
-  /\ staleDurableCompletions \subseteq 0..MaxGeneration
-  /\ lastMarkerPublishMatched \in BOOLEAN /\ lastResponseApplyMatched \in BOOLEAN
-  /\ lastDeletionApplyMatched \in BOOLEAN
+  /\ allPublicationsMatchedContext \in BOOLEAN
 Init ==
   /\ snapshot = {} /\ durableSnapshot = {} /\ durableBase = {}
   /\ workingBase = {} /\ queued = {} /\ remote = {}
@@ -87,9 +82,7 @@ Init ==
   /\ responseIdentity = liveIdentity /\ responseGeneration = 0
   /\ responseIncoming = {} /\ responseAccepted = {}
   /\ responseDeletes = FALSE /\ responsePending = FALSE
-  /\ durableOp = "none" /\ staleDurableCompletions = {}
-  /\ lastMarkerPublishMatched = TRUE /\ lastResponseApplyMatched = TRUE
-  /\ lastDeletionApplyMatched = TRUE
+  /\ durableOp = "none" /\ allPublicationsMatchedContext = TRUE
 QueueEdit(op) ==
   /\ localPresent
   /\ op \in Ops \ snapshot
@@ -134,19 +127,6 @@ CapturePreparation ==
 MaterializeCapturedTail ==
   /\ localPresent
   /\ lane = "captured"
-  /\ CaptureIsLive
-  /\ ~(capturedFrontier \subseteq capturedCoverage)
-  /\ queued' = queued \cup (capturedFrontier \ capturedCoverage)
-  /\ capturedCoverage' = capturedFrontier
-  /\ lane' = "materialized"
-  /\ UNCHANGED << snapshot, durableSnapshot, durableBase, workingBase, remote,
-                  capturedFrontier, capturedGeneration, capturedIdentity,
-                  rerunRequested, presenceVars, liveIdentity, liveGeneration,
-                  responseVars, durableOpVars, auditVars >>
-MaterializeStaleCapturedTail ==
-  /\ localPresent
-  /\ lane = "captured"
-  /\ StaleCapture
   /\ ~(capturedFrontier \subseteq capturedCoverage)
   /\ queued' = queued \cup (capturedFrontier \ capturedCoverage)
   /\ capturedCoverage' = capturedFrontier
@@ -157,6 +137,18 @@ MaterializeStaleCapturedTail ==
                   responseVars, durableOpVars, auditVars >>
 CapturedCoverageIsComplete ==
   capturedFrontier \subseteq capturedCoverage
+
+ResetCapturedPass ==
+  /\ lane' = IF HasDurableWork THEN "running" ELSE "idle"
+  /\ capturedFrontier' = {}
+  /\ capturedCoverage' = {}
+  /\ capturedGeneration' = liveGeneration
+  /\ capturedIdentity' = liveIdentity
+  /\ rerunRequested' = FALSE
+
+RecordPublication(matched) ==
+  allPublicationsMatchedContext' =
+    allPublicationsMatchedContext /\ matched
 
 PlanMarkerPersist ==
   /\ localPresent /\ NoDurableOp
@@ -175,31 +167,22 @@ StartMarkerPersist ==
   /\ durableOp' = "marker"
   /\ UNCHANGED << snapshot, durableSnapshot, workingBase, queued, remote,
                   captureVars, presenceVars, liveIdentity, liveGeneration,
-                  responseVars, staleDurableCompletions, auditVars >>
+                  responseVars, auditVars >>
 CompleteLiveMarkerPersist ==
   /\ durableOp = "marker"
   /\ CaptureIsLive
   /\ workingBase' = workingBase \cup capturedCoverage
   /\ lane' = "prepared"
   /\ durableOp' = "none"
-  /\ lastMarkerPublishMatched' = CaptureIsLive
+  /\ RecordPublication(CaptureIsLive)
   /\ UNCHANGED << snapshot, durableSnapshot, durableBase, queued, remote,
                   captureVars, presenceVars,
-                  liveIdentity, liveGeneration, responseVars,
-                  staleDurableCompletions, lastResponseApplyMatched,
-                  lastDeletionApplyMatched >>
+                  liveIdentity, liveGeneration, responseVars >>
 CompleteStaleMarkerPersist ==
   /\ durableOp = "marker"
   /\ StaleCapture
-  /\ lane' = IF HasDurableWork THEN "running" ELSE "idle"
-  /\ capturedFrontier' = {}
-  /\ capturedCoverage' = {}
-  /\ capturedGeneration' = liveGeneration
-  /\ capturedIdentity' = liveIdentity
-  /\ rerunRequested' = FALSE
+  /\ ResetCapturedPass
   /\ durableOp' = "none"
-  /\ staleDurableCompletions' =
-       staleDurableCompletions \cup {capturedGeneration}
   /\ UNCHANGED << coverageVars, presenceVars, liveIdentity, liveGeneration,
                   responseVars, auditVars >>
 BeginSyncResponse(incoming, accepted, deletes) ==
@@ -251,12 +234,7 @@ AbortStalePreparation ==
   /\ NoDurableOp
   /\ lane \in {"captured", "materialized", "planned", "prepared"}
   /\ StaleCapture
-  /\ lane' = IF HasDurableWork THEN "running" ELSE "idle"
-  /\ capturedFrontier' = {}
-  /\ capturedCoverage' = {}
-  /\ capturedGeneration' = liveGeneration
-  /\ capturedIdentity' = liveIdentity
-  /\ rerunRequested' = FALSE
+  /\ ResetCapturedPass
   /\ UNCHANGED << coverageVars, presenceVars, liveIdentity, liveGeneration,
                   responseVars, durableOpVars, auditVars >>
 
@@ -279,7 +257,7 @@ StartResponseDurableOp ==
   /\ durableOp' = IF responseDeletes THEN "delete" ELSE "response"
   /\ UNCHANGED << snapshot, workingBase, lane, captureVars, localPresent,
                   authoritativelyDeleted, liveIdentity, liveGeneration,
-                  responseVars, staleDurableCompletions, auditVars >>
+                  responseVars, auditVars >>
 
 CompleteLiveResponsePersist ==
   /\ durableOp = "response"
@@ -288,12 +266,10 @@ CompleteLiveResponsePersist ==
   /\ workingBase' = workingBase \cup responseIncoming
   /\ ClearResponse
   /\ durableOp' = "none"
-  /\ lastResponseApplyMatched' = ResponseIsLive
+  /\ RecordPublication(ResponseIsLive)
   /\ UNCHANGED << durableSnapshot, durableBase, queued, remote, lane,
                   captureVars, presenceVars, liveIdentity,
-                  liveGeneration, responseIdentity, responseGeneration,
-                  staleDurableCompletions, lastMarkerPublishMatched,
-                  lastDeletionApplyMatched >>
+                  liveGeneration, responseIdentity, responseGeneration >>
 
 CompleteLiveDeletion ==
   /\ durableOp = "delete"
@@ -302,35 +278,21 @@ CompleteLiveDeletion ==
   /\ authoritativelyDeleted' = TRUE
   /\ ClearResponse
   /\ durableOp' = "none"
-  /\ lastResponseApplyMatched' = ResponseIsLive
-  /\ lastDeletionApplyMatched' = ResponseIsLive
+  /\ RecordPublication(ResponseIsLive)
   /\ UNCHANGED << coverageVars, lane, captureVars, liveIdentity,
                   liveGeneration, responseIdentity, responseGeneration,
-                  durablePresent, staleDurableCompletions,
-                  lastMarkerPublishMatched >>
+                  durablePresent >>
 
 CompleteStaleResponseDurableOp ==
   /\ durableOp \in {"response", "delete"}
   /\ ~ResponseIsLive
   /\ ClearResponse
   /\ durableOp' = "none"
-  /\ staleDurableCompletions' =
-       staleDurableCompletions \cup {responseGeneration}
   /\ UNCHANGED << coverageVars, lane, captureVars, presenceVars,
                   liveIdentity, liveGeneration, responseIdentity,
                   responseGeneration, auditVars >>
 
-IgnoreStaleResponse ==
-  /\ localPresent
-  /\ responsePending
-  /\ NoDurableOp
-  /\ ~ResponseIsLive
-  /\ ClearResponse
-  /\ UNCHANGED << coverageVars, lane, captureVars, presenceVars,
-                  liveIdentity, liveGeneration, responseIdentity,
-                  responseGeneration, durableOpVars, auditVars >>
-
-CancelResponse ==
+CancelOrIgnoreResponse ==
   /\ responsePending
   /\ NoDurableOp
   /\ ClearResponse
@@ -357,12 +319,7 @@ Restart ==
   /\ ~responsePending
   /\ snapshot' = durableSnapshot
   /\ workingBase' = durableBase
-  /\ lane' = IF HasDurableWork THEN "running" ELSE "idle"
-  /\ capturedFrontier' = {}
-  /\ capturedCoverage' = {}
-  /\ capturedGeneration' = liveGeneration
-  /\ capturedIdentity' = liveIdentity
-  /\ rerunRequested' = FALSE
+  /\ ResetCapturedPass
   /\ UNCHANGED << durableSnapshot, durableBase, queued, remote, presenceVars,
                   liveIdentity, liveGeneration, responseVars, durableOpVars,
                   auditVars >>
@@ -379,15 +336,12 @@ DiscardSettledLocal ==
                   liveGeneration, responseVars, durableOpVars, auditVars,
                   authoritativelyDeleted >>
 
-Remain == UNCHANGED vars
-
 Next ==
   \/ \E op \in Ops : QueueEdit(op)
   \/ \E op \in Ops : DeferEdit(op)
   \/ Prime
   \/ CapturePreparation
   \/ MaterializeCapturedTail
-  \/ MaterializeStaleCapturedTail
   \/ PlanMarkerPersist
   \/ StartMarkerPersist
   \/ CompleteLiveMarkerPersist
@@ -403,12 +357,11 @@ Next ==
   \/ CompleteLiveResponsePersist
   \/ CompleteLiveDeletion
   \/ CompleteStaleResponseDurableOp
-  \/ IgnoreStaleResponse
-  \/ CancelResponse
+  \/ CancelOrIgnoreResponse
   \/ CompleteCapturedPass
   \/ Restart
   \/ DiscardSettledLocal
-  \/ Remain
+  \/ UNCHANGED vars
 
 Spec == Init /\ [][Next]_vars
 DurableAccountingSound == durableBase \subseteq (remote \cup queued)
@@ -424,12 +377,7 @@ PreparedCaptureHasNoTail ==
 CleanCaptureIsMaterialized ==
   lane # "complete" \/ capturedFrontier \subseteq remote
 
-AppliedResponseMatchedContext ==
-  lastResponseApplyMatched
-
-DeletionAppliedOnlyToMatchingContext == lastDeletionApplyMatched
-
-MarkerPublicationMatchedCapture == lastMarkerPublishMatched
+AllPublicationsMatchContext == allPublicationsMatchedContext
 
 AuthoritativeDeletionIsTerminal ==
   ~authoritativelyDeleted \/ ~localPresent

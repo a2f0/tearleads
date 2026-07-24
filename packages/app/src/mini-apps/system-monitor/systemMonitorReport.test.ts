@@ -156,10 +156,6 @@ test("report retains only anchored content-free telemetry", () => {
       }),
       createLogEntry(3, {
         message:
-          "Container contents: stale root recovery status=reassigned candidates=1",
-      }),
-      createLogEntry(4, {
-        message:
           "Container contents: document priming candidates=4 roots=1 primed=3 unroutable=1 title=PRIVATE cardiology scan.pdf",
       }),
     ],
@@ -168,9 +164,6 @@ test("report retains only anchored content-free telemetry", () => {
 
   expect(report).toContain(
     "ERROR: document priming candidates=4 roots=1 primed=3 unroutable=1",
-  );
-  expect(report).toContain(
-    "stale root recovery status=reassigned candidates=1",
   );
   expect(report).not.toContain("PRIVATE");
   expect(report).toContain(
@@ -219,7 +212,7 @@ test("report leaves uncapped content-free telemetry unannotated", () => {
       }),
       createLogEntry(2, {
         message:
-          "Container contents: stale root recovery status=ambiguous candidates=2",
+          "Container contents: document priming candidates=2 roots=1 primed=2 unroutable=0",
       }),
     ],
     status: createStatus(),

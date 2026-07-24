@@ -36,11 +36,6 @@ import {
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
 
-type AppliedPersistedDocumentRecord = PersistedDocumentRecord & {
-  appliedToStore: true;
-  updatedAt: string;
-};
-
 function documentSummaryFromRecord(
   record: DocumentRecord,
   updatedAt: string,
@@ -69,15 +64,27 @@ function documentSummaryFromRecord(
   };
 }
 
+export function saveDocumentRecord(
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  patch?: Partial<DocumentRecord>,
+  options?: SaveDocumentRecordOptions,
+): Promise<PersistedDocumentRecord>;
+export function saveDocumentRecord(
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  patch: Partial<DocumentRecord>,
+  options: SaveDocumentRecordOptions,
+  expectedGeneration: DocumentStoreSyncGeneration,
+): Promise<PersistedDocumentRecord | null>;
 export async function saveDocumentRecord(
   state: DocumentStoreState,
   currentDoc: DocumentState,
   patch: Partial<DocumentRecord> = {},
   options: SaveDocumentRecordOptions = {},
   expectedGeneration?: DocumentStoreSyncGeneration,
-): Promise<PersistedDocumentRecord> {
+): Promise<PersistedDocumentRecord | null> {
   const previousDocumentId = state.record?.documentId ?? null;
-  const recordBeforePersist = state.record;
   const pendingBaseVersion =
     options.pendingBaseVersionOverride === undefined
       ? state.pendingBaseVersion
@@ -109,21 +116,14 @@ export async function saveDocumentRecord(
       })
     : await persistDocumentState(persistenceInput);
   if (!persistedDocumentState) {
-    const fallbackRecord = state.record ?? recordBeforePersist;
-    if (!fallbackRecord) {
-      throw new Error("Guarded document persistence lost its record");
-    }
-    return { appliedToStore: false, record: fallbackRecord };
+    return null;
   }
   const { record: nextRecord, updatedAt } = persistedDocumentState;
   if (
     expectedGeneration &&
     !isDocumentStoreSyncGenerationCurrent(state, expectedGeneration)
   ) {
-    return {
-      appliedToStore: false,
-      record: nextRecord,
-    };
+    return null;
   }
 
   state.record = persistedDocumentState.record;
@@ -143,7 +143,6 @@ export async function saveDocumentRecord(
     ),
   );
   return {
-    appliedToStore: true,
     record: nextRecord,
     updatedAt,
   };
@@ -154,29 +153,31 @@ export function persistDocument(
   currentDoc: DocumentState,
   patch?: Partial<DocumentRecord>,
   options?: SaveDocumentRecordOptions,
-): Promise<AppliedPersistedDocumentRecord>;
+): Promise<PersistedDocumentRecord>;
 export function persistDocument(
   state: DocumentStoreState,
   currentDoc: DocumentState,
   patch: Partial<DocumentRecord>,
   options: SaveDocumentRecordOptions,
   expectedGeneration: DocumentStoreSyncGeneration,
-): Promise<PersistedDocumentRecord>;
+): Promise<PersistedDocumentRecord | null>;
 export async function persistDocument(
   state: DocumentStoreState,
   currentDoc: DocumentState,
   patch: Partial<DocumentRecord> = {},
   options: SaveDocumentRecordOptions = {},
   expectedGeneration?: DocumentStoreSyncGeneration,
-): Promise<PersistedDocumentRecord> {
-  const persistedRecord = await saveDocumentRecord(
-    state,
-    currentDoc,
-    patch,
-    options,
-    expectedGeneration,
-  );
-  if (!persistedRecord.appliedToStore) return persistedRecord;
+): Promise<PersistedDocumentRecord | null> {
+  const persistedRecord = expectedGeneration
+    ? await saveDocumentRecord(
+        state,
+        currentDoc,
+        patch,
+        options,
+        expectedGeneration,
+      )
+    : await saveDocumentRecord(state, currentDoc, patch, options);
+  if (!persistedRecord) return null;
 
   setReadySnapshot(
     state,

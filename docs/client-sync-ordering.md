@@ -28,16 +28,11 @@ for queued work on one client runtime and one domain scope; other devices and
 other domain scopes still synchronize independently and are validated by the
 server protocol.
 
-**Watchdog exception.** Each run is bounded by a per-lane watchdog
-(`SyncLaneConfig.watchdogMs`, default 120s). A run exceeding it is abandoned —
-not cancelled — and the pump moves on, so one stuck lane costs itself rather
-than freezing the whole queue (issue #1672). During that window the abandoned
-run executes concurrently with later lanes, including document lanes running
-while a stuck structural run's tail is still in flight. This deliberately
-trades strict serialization for liveness in the pathological case only: the
-abandoned lane can never run concurrently with itself (a run token holds it
-out of selection until the old run settles), and any late writes the abandoned
-run makes are validated server-side exactly like writes from another device.
+**Watchdog exception.** A lane exceeding its watchdog is abandoned, not
+cancelled, so the pump may advance while its tail remains in flight. Its run
+token prevents same-lane overlap until that tail settles; later lanes may
+overlap it, and the server validates any late writes like concurrent writes
+from another device.
 
 ## Structural Phase
 
@@ -115,18 +110,10 @@ detect mutation between passes.
 
 ## Blob Synchronization
 
-Blob synchronization comes into play only inside the document phase.
-
-Pending attachment bytes stay in the local blob store until their owning
-document lane runs. At upload time the client asks the server for the current
-document writer projection, verifies it locally, derives blob targets from that
-projection, stages encrypted bytes, and submits the signed attachment bind. The
-blob bind therefore observes structural work that drained earlier in the same
-domain coordinator.
-
-This is why blob work should not be moved to a separate lane unless that lane
-can preserve the same prerequisites: structural work first, remote document
-exists, current document writer projection verified, then blob stage and bind.
+Blob work remains inside its owning document lane because that lane preserves
+its prerequisites: structural work drains first, the remote document exists,
+the current writer projection is verified, and only then are encrypted bytes
+staged and bound.
 
 ## Failure And Retry Semantics
 

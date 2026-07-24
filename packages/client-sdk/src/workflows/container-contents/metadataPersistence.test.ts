@@ -80,7 +80,6 @@ function createPersistence(): ContainerContentsPersistence {
     },
     async markCreateIntentSynced() {},
     async markMoveIntentSynced() {},
-    async reassignContainerDocuments() {},
     async reconcileLocalRootContainer() {},
     async reconcileLocalSystemContainer() {},
     async recordCreateIntentError() {},

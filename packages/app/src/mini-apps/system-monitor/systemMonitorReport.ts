@@ -70,19 +70,11 @@ interface SystemMonitorReportInput {
  */
 export const MAX_REPORT_LOG_ENTRIES = 200;
 
-const CLIPBOARD_SAFE_LOG_PATTERNS = [
-  /(?:^|: )(document priming candidates=\d+ roots=\d+ primed=\d+ unroutable=\d+)$/u,
-  /(?:^|: )(stale root recovery status=(?:ambiguous|context-changed|reassigned|unsupported) candidates=\d+)$/u,
-] as const;
+const CLIPBOARD_SAFE_LOG_PATTERN =
+  /(?:^|: )(document priming candidates=\d+ roots=\d+ primed=\d+ unroutable=\d+)$/u;
 
 function getClipboardSafeLogMessage(message: string): string | null {
-  for (const pattern of CLIPBOARD_SAFE_LOG_PATTERNS) {
-    const match = pattern.exec(message);
-    if (match?.[1]) {
-      return match[1];
-    }
-  }
-  return null;
+  return CLIPBOARD_SAFE_LOG_PATTERN.exec(message)?.[1] ?? null;
 }
 
 /**

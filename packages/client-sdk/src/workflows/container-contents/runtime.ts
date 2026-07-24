@@ -53,18 +53,6 @@ export interface ContainerContentsWorkflowRuntimeState
 export interface ContainerContentsWorkflowRuntimeUtil
   extends ContainerContentsWorkflowRuntimeUtilInput {}
 
-export interface ContainerContentsRootAdoptionInput {
-  readonly domainScope: ContainerContentsWorkflowRuntimeState["domainScope"];
-  readonly expectedContainerId: string;
-  readonly nextContainerId: string;
-  readonly organizationId: string;
-  readonly userId: string;
-}
-
-export type ContainerContentsRootAdopter = (
-  input: ContainerContentsRootAdoptionInput,
-) => boolean;
-
 export interface ContainerContentsWorkflowRuntimeGroups {
   readonly auth: ContainerContentsWorkflowRuntimeAuth;
   readonly crypto: ContainerContentsWorkflowRuntimeCrypto;
@@ -90,7 +78,6 @@ export interface ContainerContentsWorkflowRuntimeInput
 export interface ContainerContentsWorkflowRuntime
   extends ContainerContentsWorkflowRuntimeGroups,
     Pick<ContainerContentsWorkflowRuntimeInput, "apiClient"> {
-  readonly adoptRootContainer?: ContainerContentsRootAdopter | undefined;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }
 
@@ -126,9 +113,6 @@ export function createContainerContentsDocumentsRuntime(
 
 export function createContainerContentsWorkflowRuntime(
   input: ContainerContentsWorkflowRuntimeInput,
-  options: {
-    readonly adoptRootContainer?: ContainerContentsRootAdopter | undefined;
-  } = {},
 ): ContainerContentsWorkflowRuntime {
   const documentProjectors = resolveDocumentProjectorRegistry(
     input.infra.documentProjectors,
@@ -139,9 +123,6 @@ export function createContainerContentsWorkflowRuntime(
   };
 
   return {
-    ...(options.adoptRootContainer
-      ? { adoptRootContainer: options.adoptRootContainer }
-      : {}),
     apiClient: input.apiClient,
     auth: input.auth,
     crypto: input.crypto,

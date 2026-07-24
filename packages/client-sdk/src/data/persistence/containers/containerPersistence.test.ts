@@ -130,7 +130,7 @@ test("containerContents pending update lookup batches requested container ids", 
   }
 });
 
-test("containerContents document reassignment folds duplicate links into the target container", async () => {
+test("root reconciliation folds duplicate document links into the remote root", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-document-reassignment-conflict-test",
   );
@@ -162,9 +162,11 @@ test("containerContents document reassignment folds duplicate links into the tar
       });
     }
 
-    await sqlContainerContentsPersistence.reassignContainerDocuments(execSql, {
-      fromContainerId: "local-root",
-      toContainerId: "remote-root",
+    await sqlContainerContentsPersistence.reconcileLocalRootContainer(execSql, {
+      descendantReparents: [],
+      localRootContainerId: "local-root",
+      remoteOrganizationId: "remote-org",
+      remoteRootContainerId: "remote-root",
       updatedAt: "2026-05-21T00:00:00.000Z",
     });
 

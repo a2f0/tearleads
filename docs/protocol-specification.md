@@ -15,9 +15,9 @@ The executable contract is layered:
   response verification.
 
 For document sync, `DocumentSyncRequestSchema` and `DocumentSyncResponseSchema`
-are normative wire grammar and derive TS types. `documentSyncOperation` owns
-method, auth, parameters, statuses, and the canonical server/client path. Legacy
-predicates stay schema-backed; parsing never coerces, defaults, strips, or
+are normative wire grammar and derive TS types; request and response predicates
+delegate to them. `documentSyncOperation` owns method, auth, parameters,
+statuses, and the canonical path. Parsing never coerces, defaults, strips, or
 replaces signed input.
 
 [`openapi.json`](./openapi.json) and checked generated TypeScript are structural
@@ -219,8 +219,8 @@ sizes: 1568-byte public keys/ciphertexts and a 3184-byte wrapped secret plus
 AES-GCM tag. Envelopes cover the direct projection one-to-one and bind each
 member id, recipient fingerprint, ciphertext, active state, and key epoch.
 
-`memberEnvelopesRoot` is mandatory. States in an older shape and any missing
-policy or envelope material fail closed.
+`memberEnvelopesRoot` is mandatory; a state missing it, required policy
+material, or envelope material fails closed.
 
 ## Container Access And KEK Protocol
 

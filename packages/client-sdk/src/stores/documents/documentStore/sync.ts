@@ -244,7 +244,7 @@ async function finalizeDocumentSync(
       generation,
     );
     if (
-      !persisted.appliedToStore ||
+      !persisted ||
       !isDocumentStoreSyncGenerationCurrent(state, generation)
     ) {
       return { record: state.record ?? currentRecord };
