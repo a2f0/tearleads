@@ -9,7 +9,6 @@ export const CONTACTS_LABELS = {
   firstNameField: "First name",
   metadataImportedKey: "Imported key",
   metadataLocalContact: "Local contact",
-  metadataUserPrefix: "User",
   importContactAction: "Import Contact",
   importContactSubmitAction: "Import",
   lastNameField: "Last name",
