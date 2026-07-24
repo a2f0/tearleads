@@ -1,7 +1,10 @@
 import type { OrganizationBillingView } from "@tearleads/client-sdk";
+import { useCallback } from "react";
+import { useMiniAppBusActions } from "../../mini-apps/bus";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import {
   BILLING_LABELS,
+  BILLING_TRIAL_ENROLL_LABEL,
   getBillingTrialBannerLabel,
 } from "../../providers/billing/billingLabels";
 import "./BillingBanner.css";
@@ -28,8 +31,10 @@ function needsAttentionMessage(
  */
 export function BillingBannerView({
   view,
+  onEnroll,
 }: {
   view: OrganizationBillingView | null;
+  onEnroll: () => void;
 }) {
   if (!view) {
     return null;
@@ -47,7 +52,14 @@ export function BillingBannerView({
   if (view.isTrialing && view.trialDaysRemaining !== null) {
     return (
       <div className="billing-banner billing-banner--info" role="status">
-        {getBillingTrialBannerLabel(view.trialDaysRemaining)}
+        {getBillingTrialBannerLabel(view.trialDaysRemaining)}{" "}
+        <button
+          className="billing-banner-enroll"
+          onClick={onEnroll}
+          type="button"
+        >
+          {BILLING_TRIAL_ENROLL_LABEL}
+        </button>
       </div>
     );
   }
@@ -57,5 +69,9 @@ export function BillingBannerView({
 /** Connects {@link BillingBannerView} to the shared billing snapshot. */
 export function BillingBanner() {
   const { view } = useOrganizationBilling();
-  return <BillingBannerView view={view} />;
+  const { openMiniApp } = useMiniAppBusActions();
+  const openBilling = useCallback(() => {
+    openMiniApp({ appId: "org-manager", pathSegments: ["billing"] });
+  }, [openMiniApp]);
+  return <BillingBannerView onEnroll={openBilling} view={view} />;
 }

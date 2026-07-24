@@ -1,9 +1,11 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, mock, test } from "bun:test";
 import type { OrganizationBillingView } from "@tearleads/client-sdk";
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import { BillingBannerView } from "./BillingBanner";
 
 afterEach(() => cleanup());
+
+const noop = () => {};
 
 function view(
   overrides: Partial<OrganizationBillingView>,
@@ -25,13 +27,18 @@ function view(
 }
 
 test("renders nothing without a view", () => {
-  const { container } = render(<BillingBannerView view={null} />);
+  const { container } = render(
+    <BillingBannerView onEnroll={noop} view={null} />,
+  );
   expect(container.firstChild).toBe(null);
 });
 
 test("renders nothing for a free/local org", () => {
   const { container } = render(
-    <BillingBannerView view={view({ status: "local", isLocal: true })} />,
+    <BillingBannerView
+      onEnroll={noop}
+      view={view({ status: "local", isLocal: true })}
+    />,
   );
   expect(container.firstChild).toBe(null);
 });
@@ -39,6 +46,7 @@ test("renders nothing for a free/local org", () => {
 test("renders nothing for an active subscription", () => {
   const { container } = render(
     <BillingBannerView
+      onEnroll={noop}
       view={view({
         status: "active",
         isLocal: false,
@@ -53,6 +61,7 @@ test("renders nothing for an active subscription", () => {
 test("shows the trial countdown while trialing", () => {
   const { getByRole } = render(
     <BillingBannerView
+      onEnroll={noop}
       view={view({
         status: "trialing",
         isLocal: false,
@@ -62,12 +71,15 @@ test("shows the trial countdown while trialing", () => {
       })}
     />,
   );
-  expect(getByRole("status").textContent).toContain("3 days left");
+  expect(getByRole("status").textContent).toContain(
+    "Free trial ends in 3 days.",
+  );
 });
 
 test("uses the singular day at one day left", () => {
   const { getByRole } = render(
     <BillingBannerView
+      onEnroll={noop}
       view={view({
         status: "trialing",
         isLocal: false,
@@ -77,12 +89,33 @@ test("uses the singular day at one day left", () => {
       })}
     />,
   );
-  expect(getByRole("status").textContent).toContain("1 day left");
+  expect(getByRole("status").textContent).toContain(
+    "Free trial ends in 1 day.",
+  );
+});
+
+test("enroll link invokes onEnroll while trialing", () => {
+  const onEnroll = mock(() => {});
+  const { getByRole } = render(
+    <BillingBannerView
+      onEnroll={onEnroll}
+      view={view({
+        status: "trialing",
+        isLocal: false,
+        isTrialing: true,
+        canSync: true,
+        trialDaysRemaining: 3,
+      })}
+    />,
+  );
+  fireEvent.click(getByRole("button", { name: "Enroll here" }));
+  expect(onEnroll).toHaveBeenCalledTimes(1);
 });
 
 test("warns when sync is disabled", () => {
   const { getByRole } = render(
     <BillingBannerView
+      onEnroll={noop}
       view={view({ status: "disabled", isLocal: false, needsAttention: true })}
     />,
   );
@@ -92,6 +125,7 @@ test("warns when sync is disabled", () => {
 test("warns with the past-due message", () => {
   const { getByRole } = render(
     <BillingBannerView
+      onEnroll={noop}
       view={view({ status: "past_due", isLocal: false, needsAttention: true })}
     />,
   );
