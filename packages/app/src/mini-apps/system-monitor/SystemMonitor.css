@@ -49,6 +49,22 @@
   scrollbar-gutter: var(--scrollbar-gutter);
 }
 
+/*
+ * Routed panes already own a single viewport-height scroller. Let it carry the
+ * monitor's tab content too: nested touch scrollers prevent a small iPhone
+ * from reaching content below the initial viewport. Windowed and pinned
+ * monitors retain the panel scroller above, where it is the only scroller.
+ */
+:root[data-navigation-mode="routed"] .system-monitor {
+  height: auto;
+  min-height: 100%;
+}
+
+:root[data-navigation-mode="routed"] .system-monitor-tab-panel {
+  flex: none;
+  overflow: visible;
+}
+
 /* The user-agent row is one long unbroken token; without this it forces the
    whole info table wider than the pane. */
 .system-monitor-environment-value {
