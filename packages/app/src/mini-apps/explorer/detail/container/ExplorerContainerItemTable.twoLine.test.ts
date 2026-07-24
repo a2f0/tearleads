@@ -101,6 +101,14 @@ const noteRow: ContainerItemRow = {
   updatedAt: null,
 };
 
+const contactRow: ContainerItemRow = {
+  ...noteRow,
+  documentId: "contact-doc",
+  documentKind: "contact",
+  localId: "contact-local",
+  name: "Ada Lovelace",
+};
+
 type ExplorerContainerItemTableProps = ComponentProps<
   typeof ExplorerContainerItemTable
 >;
@@ -205,6 +213,27 @@ test("phone container item table spans a large visual beside name and type", () 
   expect(icon?.getAttribute("height")).toBe("32");
 });
 
+test("phone container item table spans a medium contact avatar beside both lines", () => {
+  const view = renderFoldedItemTable({
+    contactAvatarUrlByLocalId: { [contactRow.localId]: "blob:ada" },
+    rows: [contactRow],
+    totalCount: 1,
+  });
+
+  const summary = view.container.querySelector(".explorer-item-summary");
+  const avatar = summary?.querySelector(".contact-avatar");
+
+  expect(avatar?.classList.contains("contact-avatar--medium")).toBe(true);
+  expect(
+    avatar?.querySelector(".contact-avatar-image")?.getAttribute("src"),
+  ).toBe("blob:ada");
+  expect(
+    view
+      .getByRole("button", { name: contactRow.name })
+      .contains(avatar ?? null),
+  ).toBe(false);
+});
+
 test("phone container item table puts only type beneath the name", () => {
   const view = renderFoldedItemTable({
     rows: [archiveRow],
@@ -287,7 +316,7 @@ test("phone container item table sorts from the summary header", () => {
     totalCount: 1,
   });
 
-  const triggerName = `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.itemNameColumn}, ${EXPLORER_LABELS.columnSortedAscending}`;
+  const triggerName = `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.itemNameColumn}, ${EXPLORER_LABELS.columnSortedAscending}. ${EXPLORER_LABELS.itemSortReverseAction}`;
   fireEvent.click(view.getByRole("combobox", { name: triggerName }));
   fireEvent.click(
     view.getByRole("option", {
@@ -302,6 +331,27 @@ test("phone container item table sorts from the summary header", () => {
   expect(sortKeys).toEqual(["modified", "type"]);
 });
 
+test("phone sort menu announces and repeats the active key to reverse it", () => {
+  const sortKeys: Array<ContainerItemSort["key"]> = [];
+  const view = renderFoldedItemTable({
+    onSort: (key) => sortKeys.push(key),
+    rows: [archiveRow],
+    totalCount: 1,
+  });
+  const triggerName = `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.itemNameColumn}, ${EXPLORER_LABELS.columnSortedAscending}. ${EXPLORER_LABELS.itemSortReverseAction}`;
+
+  for (let index = 0; index < 2; index += 1) {
+    fireEvent.click(view.getByRole("combobox", { name: triggerName }));
+    fireEvent.click(
+      view.getByRole("option", {
+        name: `${EXPLORER_LABELS.itemNameColumn} ↑ ${EXPLORER_LABELS.itemSortReverseAction}`,
+      }),
+    );
+  }
+
+  expect(sortKeys).toEqual(["name", "name"]);
+});
+
 test("phone container item table displays only the active sort field", () => {
   const view = renderFoldedItemTable({
     rows: [archiveRow],
@@ -311,10 +361,10 @@ test("phone container item table displays only the active sort field", () => {
 
   expect(
     view.container.querySelector("thead th")?.getAttribute("aria-sort"),
-  ).toBe("descending");
+  ).toBe("none");
   expect(
     view.getByRole("combobox", {
-      name: `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.dateModifiedColumnCompact}, ${EXPLORER_LABELS.columnSortedDescending}`,
+      name: `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.dateModifiedColumnCompact}, ${EXPLORER_LABELS.columnSortedDescending}. ${EXPLORER_LABELS.itemSortReverseAction}`,
     }),
   ).toBeTruthy();
   expect(
@@ -335,7 +385,7 @@ test("phone container item table displays only the active sort field", () => {
 
   expect(
     createdSortView.getByRole("combobox", {
-      name: `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.dateCreatedColumn}, ${EXPLORER_LABELS.columnSortedAscending}`,
+      name: `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.dateCreatedColumn}, ${EXPLORER_LABELS.columnSortedAscending}. ${EXPLORER_LABELS.itemSortReverseAction}`,
     }),
   ).toBeTruthy();
   expect(

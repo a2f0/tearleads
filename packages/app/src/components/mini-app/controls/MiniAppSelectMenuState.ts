@@ -14,6 +14,8 @@ export interface MiniAppSelectMenuOption {
   icon?: ReactNode;
   id: string;
   label: string;
+  /** Extra option-only copy; it is omitted from the closed trigger. */
+  secondaryLabel?: string | undefined;
 }
 
 interface MiniAppSelectMenuControllerParams {

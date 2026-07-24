@@ -14,7 +14,6 @@
 
 .explorer-item-summary-visual {
   display: flex;
-  grid-row: 1 / span 2;
   align-items: center;
   justify-content: center;
 }
@@ -30,6 +29,18 @@
   overflow: hidden;
   opacity: var(--opacity-muted);
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-item-summary-type-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
   white-space: nowrap;
 }
 

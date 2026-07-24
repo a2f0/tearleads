@@ -99,7 +99,7 @@ function ExplorerCompactSortHeader(params: {
 
   return (
     <MiniAppSelectMenu
-      ariaLabel={`${EXPLORER_LABELS.itemSortMenuLabel}: ${COMPACT_SORT_LABELS[sort.key]}, ${stateLabel}`}
+      ariaLabel={`${EXPLORER_LABELS.itemSortMenuLabel}: ${COMPACT_SORT_LABELS[sort.key]}, ${stateLabel}. ${EXPLORER_LABELS.itemSortReverseAction}`}
       className="explorer-compact-sort-menu"
       onChange={(value) => {
         if (isContainerItemSortKey(value)) {
@@ -109,6 +109,8 @@ function ExplorerCompactSortHeader(params: {
       options={COMPACT_SORT_KEYS.map((key) => ({
         id: key,
         label: `${COMPACT_SORT_LABELS[key]}${key === sort.key ? ` ${directionIndicator}` : ""}`,
+        secondaryLabel:
+          key === sort.key ? EXPLORER_LABELS.itemSortReverseAction : undefined,
       }))}
       value={sort.key}
     />
@@ -176,7 +178,10 @@ function buildExplorerItemColumn(
       };
     case "summary":
       return {
-        ariaSort: sort.direction === "asc" ? "ascending" : "descending",
+        // The selector identifies both the active field and direction. The
+        // summary cell itself represents multiple fields, so announcing a
+        // direction on the <th> would duplicate an incomplete sort state.
+        ariaSort: "none",
         id,
         header: <ExplorerCompactSortHeader onSort={onSort} sort={sort} />,
       };
@@ -284,14 +289,9 @@ export function openExplorerItem(
   ctx.selectDocumentProjection(row.localId, row.containerId);
 }
 
-// Keep standard table-row semantics: a native button carries the
-// click/keyboard behaviour, and the row itself carries the same action for
-// clicks that land anywhere else in the row. Shared by the wide layout's Name
-// cell and the phone summary's first line, so both render the identical
-// element — the screenshot and integration suites locate rows through it.
 function getExplorerItemVisual(
   ctx: ExplorerItemCellContext,
-  compact: boolean,
+  options: { compact: boolean },
 ): ReactNode {
   const { row } = ctx;
   const itemIcon = getExplorerItemIcon(row);
@@ -306,7 +306,10 @@ function getExplorerItemVisual(
       : undefined;
 
   return avatarUrl ? (
-    <ContactAvatar imageUrl={avatarUrl} size={compact ? "medium" : "small"} />
+    <ContactAvatar
+      imageUrl={avatarUrl}
+      size={options.compact ? "medium" : "small"}
+    />
   ) : (
     <ItemIcon
       aria-hidden="true"
@@ -314,7 +317,7 @@ function getExplorerItemVisual(
       data-container-icon={itemIcon.containerIcon ?? undefined}
       data-icon={itemIcon.name}
       focusable="false"
-      size={compact ? 32 : 16}
+      size={options.compact ? 32 : 16}
       weight="regular"
     />
   );
@@ -322,7 +325,7 @@ function getExplorerItemVisual(
 
 function ExplorerItemNameButton(
   ctx: ExplorerItemCellContext,
-  showVisual = true,
+  options: { showVisual: boolean } = { showVisual: true },
 ): ReactNode {
   const { row } = ctx;
   const name = getExplorerContainerItemName(ctx);
@@ -337,7 +340,9 @@ function ExplorerItemNameButton(
       type="button"
     >
       <span className="explorer-item-name">
-        {showVisual ? getExplorerItemVisual(ctx, false) : null}
+        {options.showVisual
+          ? getExplorerItemVisual(ctx, { compact: false })
+          : null}
         <MiniAppTableText title={name}>{name}</MiniAppTableText>
       </span>
     </button>
@@ -356,15 +361,15 @@ function ExplorerItemSummaryCell(ctx: ExplorerItemCellContext): ReactNode {
   const type = getExplorerContainerItemTypeLabel(ctx.row);
 
   return (
-    <MiniAppTableCell className="explorer-item-summary-cell" key="summary">
+    <MiniAppTableCell key="summary">
       <span className="explorer-item-summary">
         <span className="explorer-item-summary-visual">
-          {getExplorerItemVisual(ctx, true)}
+          {getExplorerItemVisual(ctx, { compact: true })}
         </span>
         <span className="explorer-item-summary-copy">
-          {ExplorerItemNameButton(ctx, false)}
+          {ExplorerItemNameButton(ctx, { showVisual: false })}
           <span className="explorer-item-summary-type" title={type}>
-            <span className="mini-app-compact-table-field-label">
+            <span className="explorer-item-summary-type-label">
               {EXPLORER_LABELS.itemTypeColumn}:{" "}
             </span>
             {type}

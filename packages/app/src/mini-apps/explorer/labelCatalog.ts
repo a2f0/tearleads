@@ -122,7 +122,7 @@ export const EXPLORER_LABELS = {
   containerMoveToTrashAction: "Move to Trash",
   createChildFolderAction: "Create Child Folder",
   databaseLoadError: "Couldn't open the local database.",
-  // Suffixes for sortable column controls and the compact sort selector.
+  // Suffixes for the compact sort selector's accessible state.
   columnSortedAscending: "sorted ascending",
   columnSortedDescending: "sorted descending",
   dateCreatedColumn: "Date created",
@@ -253,6 +253,7 @@ export const EXPLORER_LABELS = {
   itemActionsColumn: "Actions",
   itemNameColumn: "Name",
   itemSortMenuLabel: "Sort items",
+  itemSortReverseAction: "Reverse order",
   itemSyncColumn: "Sync",
   itemTableEmpty: "No items.",
   uploadAction: "Upload",

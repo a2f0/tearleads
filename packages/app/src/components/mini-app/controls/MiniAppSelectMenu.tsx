@@ -110,6 +110,11 @@ function MiniAppSelectMenuOptionButton(params: {
     >
       {params.option.icon}
       <span className="mini-app-select-menu-label">{params.option.label}</span>
+      {params.option.secondaryLabel ? (
+        <span className="mini-app-select-menu-option-secondary">
+          {params.option.secondaryLabel}
+        </span>
+      ) : null}
     </button>
   );
 }
