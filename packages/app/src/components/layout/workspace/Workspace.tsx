@@ -63,6 +63,7 @@ function PaneSurface({
 
   return (
     <Pane
+      active={isLeft && active}
       className={className}
       desktopLabel={desktopLabel}
       navigationMode={navigationMode}

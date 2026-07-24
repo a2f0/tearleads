@@ -1,6 +1,7 @@
 import { TearleadsFrame } from "@tearleads/ui";
 import { type PropsWithChildren, useCallback, useMemo, useState } from "react";
 import type { AppHostConfig } from "../../host/AppHostConfig";
+import { MiniAppLauncherProvider } from "../../mini-apps/miniAppLauncher";
 import {
   SystemMonitorDeveloperModeProvider,
   useSystemMonitorDeveloperMode,
@@ -70,8 +71,10 @@ function WorkspaceRuntimeHost({
 
   return (
     <AppRuntimeProvider hostConfig={sharedHostConfig}>
-      <BillingBanner />
-      {children}
+      <MiniAppLauncherProvider>
+        <BillingBanner />
+        {children}
+      </MiniAppLauncherProvider>
     </AppRuntimeProvider>
   );
 }
