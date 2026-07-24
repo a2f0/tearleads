@@ -112,6 +112,23 @@ test("enroll button invokes onEnroll while trialing", () => {
   expect(onEnroll).toHaveBeenCalledTimes(1);
 });
 
+test("renders nothing on the enrollment screen", () => {
+  const { container } = render(
+    <BillingBannerView
+      isEnrollmentScreen={true}
+      onEnroll={noop}
+      view={view({
+        status: "trialing",
+        isLocal: false,
+        isTrialing: true,
+        canSync: true,
+        trialDaysRemaining: 3,
+      })}
+    />,
+  );
+  expect(container.firstChild).toBe(null);
+});
+
 test("warns when sync is disabled", () => {
   const { getByRole } = render(
     <BillingBannerView

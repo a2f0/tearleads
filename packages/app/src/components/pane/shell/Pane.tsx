@@ -1,4 +1,10 @@
-import { type MouseEvent, type ReactNode, useCallback, useState } from "react";
+import {
+  type MouseEvent,
+  type ReactNode,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import {
   MiniAppBusProvider,
   useMiniAppBusActions,
@@ -9,7 +15,10 @@ import { SystemMonitorLauncherButton } from "../../../mini-apps/system-monitor/S
 import { SystemMonitorPinned } from "../../../mini-apps/system-monitor/SystemMonitorPinned";
 import { SystemMonitorProvider } from "../../../mini-apps/system-monitor/SystemMonitorProvider";
 import type { AppNavigationMode } from "../../../navigation/AppNavigationMode";
-import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
+import {
+  AppNavigationProvider,
+  useAppNavigationState,
+} from "../../../navigation/AppNavigationProvider";
 import { NavigationModeSwitch } from "../../../navigation/NavigationModeSwitch";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { AppFeatureFlagsProvider } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
@@ -105,7 +114,28 @@ function PaneInner({
 // read the bus; renders nothing.
 function PaneMiniAppLauncherBridge({ active }: { active: boolean }) {
   const { openMiniApp } = useMiniAppBusActions();
-  useRegisterMiniAppLauncher(openMiniApp, active);
+  const { mode, route } = useAppNavigationState();
+  const { windows } = useWindowStateData();
+  const activeRoute = useMemo(() => {
+    if (mode === "routed") {
+      return route;
+    }
+
+    const topWindow = windows.reduce<(typeof windows)[number] | null>(
+      (top, candidate) =>
+        !candidate.minimized &&
+        candidate.appId &&
+        (!top || candidate.zIndex > top.zIndex)
+          ? candidate
+          : top,
+      null,
+    );
+    return {
+      appId: topWindow?.appId ?? null,
+      pathSegments: topWindow?.miniAppPathSegments ?? [],
+    };
+  }, [mode, route, windows]);
+  useRegisterMiniAppLauncher(openMiniApp, active, activeRoute);
   return null;
 }
 

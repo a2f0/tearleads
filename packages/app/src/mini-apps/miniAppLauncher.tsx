@@ -6,14 +6,17 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
+import type { AppRouteState } from "../navigation/AppRoutePaths";
 import type { OpenMiniAppRequest } from "./types";
 
 type LaunchMiniApp = (request: OpenMiniAppRequest) => void;
 
 interface MiniAppLauncherContextValue {
+  activeRoute: AppRouteState | null;
   launch: LaunchMiniApp;
-  registerLauncher: (launch: LaunchMiniApp) => () => void;
+  registerLauncher: (launch: LaunchMiniApp, route: AppRouteState) => () => void;
 }
 
 const MiniAppLauncherContext =
@@ -35,22 +38,28 @@ const NOOP_LAUNCH: LaunchMiniApp = () => {};
  */
 export function MiniAppLauncherProvider({ children }: PropsWithChildren) {
   const launcherRef = useRef<LaunchMiniApp | null>(null);
+  const [activeRoute, setActiveRoute] = useState<AppRouteState | null>(null);
   const launch = useCallback<LaunchMiniApp>((request) => {
     launcherRef.current?.(request);
   }, []);
-  const registerLauncher = useCallback((next: LaunchMiniApp) => {
-    launcherRef.current = next;
-    return () => {
-      // Clear only while still the active launcher, so a newly-active pane that
-      // registered before the previous pane's effect cleanup ran is preserved.
-      if (launcherRef.current === next) {
-        launcherRef.current = null;
-      }
-    };
-  }, []);
+  const registerLauncher = useCallback(
+    (next: LaunchMiniApp, route: AppRouteState) => {
+      launcherRef.current = next;
+      setActiveRoute(route);
+      return () => {
+        // Clear only while still the active launcher, so a newly-active pane that
+        // registered before the previous pane's effect cleanup ran is preserved.
+        if (launcherRef.current === next) {
+          launcherRef.current = null;
+          setActiveRoute(null);
+        }
+      };
+    },
+    [],
+  );
   const value = useMemo(
-    () => ({ launch, registerLauncher }),
-    [launch, registerLauncher],
+    () => ({ activeRoute, launch, registerLauncher }),
+    [activeRoute, launch, registerLauncher],
   );
   return (
     <MiniAppLauncherContext.Provider value={value}>
@@ -64,6 +73,11 @@ export function useMiniAppLauncher(): LaunchMiniApp {
   return useContext(MiniAppLauncherContext)?.launch ?? NOOP_LAUNCH;
 }
 
+/** The active pane's routed mini-app, or null before a pane registers. */
+export function useActiveMiniAppRoute(): AppRouteState | null {
+  return useContext(MiniAppLauncherContext)?.activeRoute ?? null;
+}
+
 /**
  * Publishes `launch` as the shell launcher while `active`, so app-shell chrome
  * opens mini-apps in the calling (visible) pane. A no-op without a provider.
@@ -71,12 +85,13 @@ export function useMiniAppLauncher(): LaunchMiniApp {
 export function useRegisterMiniAppLauncher(
   launch: LaunchMiniApp,
   active: boolean,
+  route: AppRouteState,
 ): void {
   const register = useContext(MiniAppLauncherContext)?.registerLauncher;
   useEffect(() => {
     if (!active || !register) {
       return;
     }
-    return register(launch);
-  }, [active, launch, register]);
+    return register(launch, route);
+  }, [active, launch, register, route]);
 }

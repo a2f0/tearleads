@@ -1,6 +1,9 @@
 import type { OrganizationBillingView } from "@tearleads/client-sdk";
 import { useCallback } from "react";
-import { useMiniAppLauncher } from "../../mini-apps/miniAppLauncher";
+import {
+  useActiveMiniAppRoute,
+  useMiniAppLauncher,
+} from "../../mini-apps/miniAppLauncher";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import {
   BILLING_LABELS,
@@ -33,11 +36,13 @@ function needsAttentionMessage(
 export function BillingBannerView({
   view,
   onEnroll,
+  isEnrollmentScreen = false,
 }: {
   view: OrganizationBillingView | null;
   onEnroll: () => void;
+  isEnrollmentScreen?: boolean | undefined;
 }) {
-  if (!view) {
+  if (!view || isEnrollmentScreen) {
     return null;
   }
   // A warning takes precedence over the trial countdown. These are mutually
@@ -76,8 +81,18 @@ export function BillingBannerView({
 export function BillingBanner() {
   const { view } = useOrganizationBilling();
   const launch = useMiniAppLauncher();
+  const activeRoute = useActiveMiniAppRoute();
+  const isEnrollmentScreen =
+    activeRoute?.appId === "org-manager" &&
+    activeRoute.pathSegments[0] === "billing";
   const openBilling = useCallback(() => {
     launch({ appId: "org-manager", pathSegments: ["billing"] });
   }, [launch]);
-  return <BillingBannerView onEnroll={openBilling} view={view} />;
+  return (
+    <BillingBannerView
+      isEnrollmentScreen={isEnrollmentScreen}
+      onEnroll={openBilling}
+      view={view}
+    />
+  );
 }

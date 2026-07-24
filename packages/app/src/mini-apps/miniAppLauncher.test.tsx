@@ -1,7 +1,9 @@
 import { afterEach, expect, mock, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
+import type { AppRouteState } from "../navigation/AppRoutePaths";
 import {
   MiniAppLauncherProvider,
+  useActiveMiniAppRoute,
   useMiniAppLauncher,
   useRegisterMiniAppLauncher,
 } from "./miniAppLauncher";
@@ -9,20 +11,32 @@ import type { OpenMiniAppRequest } from "./types";
 
 afterEach(() => cleanup());
 
-const BILLING_REQUEST: OpenMiniAppRequest = {
+const BILLING_REQUEST = {
   appId: "org-manager",
   pathSegments: ["billing"],
-};
+} as const satisfies AppRouteState;
+const EMPTY_ROUTE: AppRouteState = { appId: null, pathSegments: [] };
 
 function Registrar({
   active,
   launch,
+  route = EMPTY_ROUTE,
 }: {
   active: boolean;
   launch: (request: OpenMiniAppRequest) => void;
+  route?: AppRouteState | undefined;
 }) {
-  useRegisterMiniAppLauncher(launch, active);
+  useRegisterMiniAppLauncher(launch, active, route);
   return null;
+}
+
+function ActiveRoute() {
+  const route = useActiveMiniAppRoute();
+  return (
+    <span>
+      {route ? `${route.appId}:${route.pathSegments.join("/")}` : "none"}
+    </span>
+  );
 }
 
 function LaunchButton() {
@@ -72,6 +86,29 @@ test("only the active launcher receives launches when panes coexist", () => {
   fireEvent.click(getByRole("button", { name: "launch" }));
   expect(activeLaunch).toHaveBeenCalledTimes(1);
   expect(inactiveLaunch).not.toHaveBeenCalled();
+});
+
+test("the active pane publishes its current mini-app route", () => {
+  const launch = mock((_request: OpenMiniAppRequest) => {});
+  const { getByText, rerender } = render(
+    <MiniAppLauncherProvider>
+      <Registrar active={true} launch={launch} route={BILLING_REQUEST} />
+      <ActiveRoute />
+    </MiniAppLauncherProvider>,
+  );
+  expect(getByText("org-manager:billing")).toBeDefined();
+
+  rerender(
+    <MiniAppLauncherProvider>
+      <Registrar
+        active={true}
+        launch={launch}
+        route={{ appId: "explorer", pathSegments: [] }}
+      />
+      <ActiveRoute />
+    </MiniAppLauncherProvider>,
+  );
+  expect(getByText("explorer:")).toBeDefined();
 });
 
 test("launch is a no-op when no provider is mounted", () => {
