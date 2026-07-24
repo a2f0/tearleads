@@ -17,6 +17,7 @@
   padding: var(--menu-item-padding);
   border: none;
   background: none;
+  color: inherit;
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
