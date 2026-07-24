@@ -50,13 +50,23 @@ export function useTextInputFocused(enabled: boolean): boolean {
         event.type === "focusout" ? event.relatedTarget : event.target;
       setFocused(isTextInputElement(target));
     };
+    const updateFromActiveElement = () => {
+      setFocused(isTextInputElement(document.activeElement));
+    };
 
-    setFocused(isTextInputElement(document.activeElement));
+    updateFromActiveElement();
     document.addEventListener("focusin", updateFromTarget);
     document.addEventListener("focusout", updateFromTarget);
+    window.addEventListener("resize", updateFromActiveElement);
+    window.visualViewport?.addEventListener("resize", updateFromActiveElement);
     return () => {
       document.removeEventListener("focusin", updateFromTarget);
       document.removeEventListener("focusout", updateFromTarget);
+      window.removeEventListener("resize", updateFromActiveElement);
+      window.visualViewport?.removeEventListener(
+        "resize",
+        updateFromActiveElement,
+      );
     };
   }, [enabled]);
 

@@ -87,16 +87,20 @@ export function menuPositionBelow(anchor: HTMLElement): MenuPosition {
  * pane footer. Present in both tiers: the centered Tearleads logo is the menu
  * affordance (opening the launcher sheet on mobile, revealing the rail on
  * tablet) and the corner hosts the windowed/routed switch so the layout can be
- * flipped back to windows from inside the routed shell.
+ * flipped back to windows from inside the routed shell. On mobile it is hidden
+ * while a text-editing control has focus to leave room for the software
+ * keyboard.
  */
 function RoutedPaneTaskBar({
   tier,
+  hidden,
   drawerOpen,
   onToggleDrawer,
   railExpanded,
   onToggleRail,
 }: {
   tier: RoutedLayoutTier;
+  hidden: boolean;
   drawerOpen: boolean;
   onToggleDrawer: () => void;
   railExpanded: boolean;
@@ -115,7 +119,7 @@ function RoutedPaneTaskBar({
       : undefined;
 
   return (
-    <footer className="routed-pane-taskbar">
+    <footer className="routed-pane-taskbar" hidden={hidden}>
       <button
         aria-controls={controls}
         aria-expanded={expanded}
@@ -279,15 +283,14 @@ function RoutedPaneSurface({
         <SystemMonitorPinned />
         {showUnlockPanel ? <LocalKeyringUnlockWindow /> : <ActiveMiniApp />}
       </main>
-      {!textInputFocused && (
-        <RoutedPaneTaskBar
-          drawerOpen={drawerOpen}
-          onToggleDrawer={toggleDrawer}
-          onToggleRail={onToggleNavigationRail}
-          railExpanded={navigationRailExpanded}
-          tier={tier}
-        />
-      )}
+      <RoutedPaneTaskBar
+        drawerOpen={drawerOpen}
+        hidden={textInputFocused}
+        onToggleDrawer={toggleDrawer}
+        onToggleRail={onToggleNavigationRail}
+        railExpanded={navigationRailExpanded}
+        tier={tier}
+      />
       <RoutedPaneConfirmationDialogs
         destroyKeyPackageDialog={destroyKeyPackageDialog}
         logoutDialog={logoutDialog}

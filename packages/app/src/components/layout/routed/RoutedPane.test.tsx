@@ -16,6 +16,14 @@ function fakeButton(rect: { left: number; bottom: number }): HTMLElement {
   } as HTMLElement;
 }
 
+function getRoutedMain(container: HTMLElement): HTMLElement {
+  const main = container.querySelector(".routed-pane-main");
+  if (!(main instanceof HTMLElement)) {
+    throw new Error("Expected routed pane main content.");
+  }
+  return main;
+}
+
 function forceMobileRoutedTier(): () => void {
   const originalMatchMedia = window.matchMedia;
 
@@ -155,19 +163,31 @@ test("mobile routed shell hides the taskbar while a text input is focused", () =
   try {
     view = renderRoutedPane();
     const input = document.createElement("input");
-    view.container.querySelector(".routed-pane-main")?.append(input);
+    getRoutedMain(view.container).append(input);
 
     fireEvent.focusIn(input);
-    expect(view.container.querySelector(".routed-pane-taskbar")).toBeNull();
+    expect(
+      view.container
+        .querySelector(".routed-pane-taskbar")
+        ?.hasAttribute("hidden"),
+    ).toBe(true);
 
-    fireEvent.focusOut(input, { relatedTarget: document.body });
-    expect(view.container.querySelector(".routed-pane-taskbar")).toBeTruthy();
+    fireEvent.focusOut(input);
+    expect(
+      view.container
+        .querySelector(".routed-pane-taskbar")
+        ?.hasAttribute("hidden"),
+    ).toBe(false);
 
     const fileInput = document.createElement("input");
     fileInput.type = "file";
-    view.container.querySelector(".routed-pane-main")?.append(fileInput);
+    getRoutedMain(view.container).append(fileInput);
     fireEvent.focusIn(fileInput);
-    expect(view.container.querySelector(".routed-pane-taskbar")).toBeTruthy();
+    expect(
+      view.container
+        .querySelector(".routed-pane-taskbar")
+        ?.hasAttribute("hidden"),
+    ).toBe(false);
   } finally {
     view?.unmount();
     restoreMatchMedia();
@@ -181,10 +201,14 @@ test("tablet routed shell keeps the taskbar while a text input is focused", () =
   try {
     view = renderRoutedPane();
     const input = document.createElement("input");
-    view.container.querySelector(".routed-pane-main")?.append(input);
+    getRoutedMain(view.container).append(input);
 
     fireEvent.focusIn(input);
-    expect(view.container.querySelector(".routed-pane-taskbar")).toBeTruthy();
+    expect(
+      view.container
+        .querySelector(".routed-pane-taskbar")
+        ?.hasAttribute("hidden"),
+    ).toBe(false);
   } finally {
     view?.unmount();
     restoreMatchMedia();
