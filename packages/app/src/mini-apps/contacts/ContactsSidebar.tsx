@@ -66,10 +66,6 @@ function getContactMetadataLabel(entry: ContactEntries[number]): string {
     return fullName;
   }
 
-  if (entry.userId) {
-    return `${CONTACTS_LABELS.metadataUserPrefix} ${entry.userId.slice(0, 8)}`;
-  }
-
   if (entry.encapsulationPublicKey) {
     return CONTACTS_LABELS.metadataImportedKey;
   }
