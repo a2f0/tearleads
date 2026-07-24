@@ -64,7 +64,7 @@ ML-KEM-wrapped out to users and principals.
 | DEK wrapping under a KEM shared secret | `packages/crypto/src/encapsulation/wrapDek.ts` |
 | Local keyring root-key wrapping (`account-root` envelope) | `packages/client-sdk/src/client/localKeyring.ts` |
 | Local identity package at rest | `packages/app/src/providers/identity/localIdentityPackageCrypto.ts` |
-| Local OPFS blob store at rest | `packages/client-sdk/src/data/blobs/encryptedBlobStore.ts` |
+| Local OPFS blob store at rest (authenticated 5 MiB chunks) | `packages/client-sdk/src/data/blobs/encryptedBlobStore.ts`, `.../encryptedBlobByteSource.ts` |
 
 Core helpers: `packages/crypto/src/symmetric.ts` (32-byte key, 12-byte IV, 16-byte tag).
 
@@ -107,6 +107,33 @@ PIN-code wrap suite: `pin-code-pbkdf2-sha256-aes-256-gcm`.
 | SQLCipher / AES-CBC / Ascon-128 (supported, unused) | Alternate codecs the lower-level worker API accepts but the app does not select | `packages/sqlite-worker/src/{types,loadSqlite3}.ts` |
 
 The SQLite cipher key is an HKDF-derived key from the local keyring (`sqliteKey`).
+
+### OPFS local storage
+
+OPFS (the Origin Private File System) is a browser storage backend, not a
+cipher suite. Tearleads encrypts the data it writes there; OPFS itself does not
+provide an additional application-managed encryption layer.
+
+| OPFS data | Protection | Location |
+| --- | --- | --- |
+| SQLite database | SQLite3MultipleCiphers with the active ChaCha20 codec; its key is the HKDF-derived `sqlite` local-keyring key | `packages/app/src/providers/db/bootSQLiteRuntime.ts`, `packages/client-sdk/src/client/localKeyring.ts` |
+| Blob files | Encrypted-blob-store v2: AES-256-GCM in authenticated 5 MiB chunks, with the namespace, storage key, chunk index, and serialized envelope bound as additional authenticated data | `packages/client-sdk/src/data/blobs/{encryptedBlobStore,encryptedBlobEnvelope,encryptedBlobByteSource}.ts` |
+
+Each encrypted blob has a fresh 96-bit base IV. Chunk IVs are derived from that
+base IV and the chunk index, and each ciphertext chunk includes the 16-byte
+GCM authentication tag. The persisted envelope records the format, version,
+chunk shape, base IV, and (when a string passphrase is used) a
+PBKDF2-SHA-256 salt and iteration count. Raw 32-byte/AES-GCM keys, including
+the production local-keyring-derived blob key, do not use this PBKDF2 envelope.
+
+On supported platforms, SQLite uses the OPFS SyncAccessHandle Pool VFS and
+blob files are placed under an identity-namespaced `tearleads` OPFS directory.
+The app requests durable browser storage before the first persistent database
+write; this is best effort, so a browser can still deny it. Without OPFS the
+automatic storage policy selects in-memory SQLite; an explicitly requested
+persistent SQLite backend hard-fails instead. Encrypted OPFS blob-store
+factories likewise fail closed rather than silently writing unencrypted files
+elsewhere.
 
 ## Libraries
 
