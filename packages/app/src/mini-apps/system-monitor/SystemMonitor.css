@@ -72,17 +72,19 @@
 }
 
 /*
- * Same shape as the pinned status table: the value column absorbs the slack so
- * the label column shrinks to its content, and labels stay on one line. Without
- * the nowrap the shared cell rule's word breaks let the long User Agent value
+ * Match the pinned status table's key/value sizing: the value column absorbs
+ * the slack so the label column shrinks to its content, and labels stay on one
+ * line. Without the nowrap the shared cell rule's word breaks let long values
  * squeeze the label column until multi-word keys ("OS Color Scheme", "Reduced
- * Motion") wrap mid-word on a phone.
+ * Motion", "SQLite Worker") wrap mid-word on a phone.
  */
-.system-monitor-environment-table th {
+.system-monitor-environment-table th,
+.system-monitor-status-table th {
   white-space: nowrap;
 }
 
-.system-monitor-environment-table td {
+.system-monitor-environment-table td,
+.system-monitor-status-table td {
   width: 100%;
 }
 
