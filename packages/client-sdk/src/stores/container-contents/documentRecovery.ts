@@ -66,18 +66,23 @@ export async function primeStoreDocumentSubtree(
 export async function primeStoreDocuments(
   state: DocumentRecoveryStoreState,
 ): Promise<void> {
-  const result = await primeDocumentsForLoadedRoots({
-    containersById: state.containersById,
-    host: createPrimeHost(state),
-    runtime: state.runtime,
-  });
-  state.runtime.util.log(
-    `${logLabel(state)}: document priming candidates=${result.candidateCount} roots=${result.rootCount} primed=${result.primedCount} unroutable=${result.unroutableCount}`,
-  );
-  // A later topology/root reconciliation explicitly re-arms priming. Keeping
-  // this set for intentionally hidden projections would hot-loop the same
-  // visible root stores during ordinary bootstrap.
+  // Consume the current signal before scanning. A topology/root reconciliation
+  // that lands during an awaited query can then re-arm the next pass without
+  // this pass erasing that newer signal when it completes.
   state.documentStoresNeedPriming = false;
+  try {
+    const result = await primeDocumentsForLoadedRoots({
+      containersById: state.containersById,
+      host: createPrimeHost(state),
+      runtime: state.runtime,
+    });
+    state.runtime.util.log(
+      `${logLabel(state)}: document priming candidates=${result.candidateCount} roots=${result.rootCount} primed=${result.primedCount} unroutable=${result.unroutableCount}`,
+    );
+  } catch (error) {
+    state.documentStoresNeedPriming = true;
+    throw error;
+  }
 }
 
 export async function recoverStoreStaleRoot(

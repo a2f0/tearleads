@@ -347,19 +347,6 @@ async function runContainerContentsStoreSyncIteration(input: {
     requestContainerContentsStoreSync(state);
   }
 
-  // Document move intents live in the structural phase because they may target
-  // containers created locally in the same session, such as Trash. Running them
-  // here lets container create/move intents settle before document lanes sync.
-  const movedDocumentCount = await syncPendingDocumentMoveIntents({
-    host: createContainerContentsStoreDocumentMoveHost(state),
-    isRemoteSyncBlocked: isOrganizationBlocked,
-    state,
-  });
-  if (movedDocumentCount > 0) {
-    requestDomainDocumentSync(state.runtime.state.domainScope);
-    requestContainerContentsStoreSync(state);
-  }
-
   for (const containerState of Array.from(state.containersById.values())) {
     await syncSingleContainerMetadata({
       containerState,
@@ -374,6 +361,20 @@ async function runContainerContentsStoreSyncIteration(input: {
   // under its placeholder name when the active root changes.
   if (!(await recoverStoreStaleRoot(state))) {
     return;
+  }
+
+  // Document move intents live in the structural phase because they may target
+  // containers created locally in the same session, such as Trash. Root
+  // recovery also rewrites stale endpoints and returns their intents to pending,
+  // so replay must follow recovery to consume that work in this same pass.
+  const movedDocumentCount = await syncPendingDocumentMoveIntents({
+    host: createContainerContentsStoreDocumentMoveHost(state),
+    isRemoteSyncBlocked: isOrganizationBlocked,
+    state,
+  });
+  if (movedDocumentCount > 0) {
+    requestDomainDocumentSync(state.runtime.state.domainScope);
+    requestContainerContentsStoreSync(state);
   }
 
   if (state.documentStoresNeedPriming) {
