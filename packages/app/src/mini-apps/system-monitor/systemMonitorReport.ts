@@ -71,7 +71,7 @@ interface SystemMonitorReportInput {
 export const MAX_REPORT_LOG_ENTRIES = 200;
 
 const CLIPBOARD_SAFE_LOG_PATTERN =
-  /(?:^|: )(document priming candidates=\d+ roots=\d+ primed=\d+ unroutable=\d+)$/u;
+  /(?:^|: )((?:document priming candidates=\d+ roots=\d+ primed=\d+ unroutable=\d+)|(?:interest baseline containers=\d+)|(?:interest declaration acknowledged)|(?:remote revalidation scheduled reason=(?:reconnect|startup))|(?:remote revalidation result=(?:applied incomingUpdates=\d+ attachmentSlots=\d+|unavailable)))$/u;
 
 function getClipboardSafeLogMessage(message: string): string | null {
   return CLIPBOARD_SAFE_LOG_PATTERN.exec(message)?.[1] ?? null;

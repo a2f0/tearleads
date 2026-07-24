@@ -23,6 +23,7 @@ import {
   setDocumentStructuredFields,
   setDocumentText,
 } from "./documentStore/mutations";
+import { logRevalidationScheduled } from "./documentStore/remoteRevalidationTelemetry";
 import { assertDocumentStoreCanRotateContentKey } from "./documentStore/rotation";
 import {
   addRowToDocumentStore,
@@ -67,6 +68,9 @@ function updateDocumentStoreRuntime(
   scheduleSync: () => void,
 ) {
   const previousRuntime = state.runtime;
+  const serverEventsReconnected =
+    (nextRuntime.state.serverEventsConnectionGeneration ?? 0) >
+    (previousRuntime.state.serverEventsConnectionGeneration ?? 0);
   const domainScopeChanged =
     previousRuntime.state.domainScope !== nextRuntime.state.domainScope;
   const projectionKeyRuntimeChanged = didDocumentProjectionKeyRuntimeChange(
@@ -98,11 +102,18 @@ function updateDocumentStoreRuntime(
   ensureDocumentStoreInitialized(state, scheduleSync);
   handleDocumentRemoteEvents(state, scheduleSync);
 
-  if (
-    state.snapshot.ready &&
-    didRegainSyncPrerequisites(previousRuntime, state.runtime)
-  ) {
-    scheduleSync();
+  if (state.snapshot.ready) {
+    if (serverEventsReconnected) {
+      // The invalidation stream is lossy while disconnected. Once the server
+      // has restored this session's interest baseline, every already-open
+      // remote document needs one HTTP probe to cover peer writes made during
+      // the gap. This also closes iOS background/resume reconnects where the
+      // native network source remained online throughout.
+      requestRemoteDocumentStoreSync(state, scheduleSync);
+      logRevalidationScheduled(state.runtime, "reconnect");
+    } else if (didRegainSyncPrerequisites(previousRuntime, state.runtime)) {
+      scheduleSync();
+    }
   }
 }
 

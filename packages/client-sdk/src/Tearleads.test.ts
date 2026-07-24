@@ -294,6 +294,7 @@ describe("Tearleads", () => {
   test("notifies event subscribers with stable snapshots", () => {
     const sdk = new Tearleads({ logger: quietLogger });
     const snapshots: ReadonlyArray<unknown>[] = [];
+    expect(sdk.runtime.input().state.serverEventsConnectionGeneration).toBe(0);
     const unsubscribe = sdk.events.subscribe(() => {
       snapshots.push(sdk.events.snapshot.events);
     });
@@ -301,14 +302,20 @@ describe("Tearleads", () => {
     sdk.events.push({ type: "document.updated" });
     sdk.events.setConnected(true);
     sdk.events.setConnected(true);
+    sdk.events.setConnected(false);
+    sdk.events.setConnected(true);
     unsubscribe();
     sdk.events.push({ type: "ignored" });
 
     expect(snapshots).toEqual([
       [{ type: "document.updated" }],
       [{ type: "document.updated" }],
+      [{ type: "document.updated" }],
+      [{ type: "document.updated" }],
     ]);
     expect(sdk.events.connected).toBe(true);
+    expect(sdk.events.connectionGeneration).toBe(2);
+    expect(sdk.runtime.input().state.serverEventsConnectionGeneration).toBe(2);
   });
 
   test("continues notifying event subscribers after listener failure", () => {

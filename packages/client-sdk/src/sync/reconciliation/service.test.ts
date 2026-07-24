@@ -211,10 +211,14 @@ test("service retries a container after a failed reconciliation", async () => {
 
 test("service force-reconciles a discovered container", async () => {
   const attempts: string[] = [];
+  const contentPulls: boolean[] = [];
   const host = createHost({
     knownContainerIds: ["c-1"],
     discoverContainerDocuments: async (containerId) => {
       attempts.push(containerId);
+    },
+    requestDocumentContentPull: (_containerId, _documents, force) => {
+      contentPulls.push(force);
     },
   });
   const service = createReconciliationService(host);
@@ -231,6 +235,7 @@ test("service force-reconciles a discovered container", async () => {
     () => attempts.length === 2,
     "Expected forced reconciliation to refetch a discovered container",
   );
+  expect(contentPulls).toEqual([false, true]);
 });
 
 test("service retries a container that failed during explicit refresh", async () => {

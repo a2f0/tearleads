@@ -1,0 +1,58 @@
+# Restart Probe Convergence Mapping
+
+[`RestartProbeConvergence.tla`](./RestartProbeConvergence.tla) models catch-up
+for an opened, persisted remote document across process restart and an iOS
+server-events disconnect. Remote and local body versions and attachment-slot
+metadata versions represent encrypted Loro state. Attachment bindings, blob
+bytes, and hydration are outside this model.
+
+Restart destroys queued and in-flight process-local work; reopening the row arms
+a startup HTTP probe. A retained disconnect preserves work already accepted by
+the document store, while peer hints emitted during the disconnected interval
+may be missed.
+
+Raw socket open and `interest_state` do not establish readiness. The model waits
+for a ready container tree, sends an authoritative `known_containers`
+declaration covering the document, and accepts only its matching acknowledgement.
+That acknowledgement proves the server installed the interest before the SDK
+increments its connection generation and queues a reconnect probe. Peer writes
+may occur while stopped, before the tree or acknowledgement, or while a probe is
+in flight. The acknowledgement captures the body and slot targets that gap
+recovery must cover.
+
+A probe has separate begin and finish actions. Begin consumes the coalesced
+queued bit and captures one server snapshot. A delivered peer hint or matching
+acknowledgement arriving in flight queues newer work. Finish applies only the
+captured versions and cannot clear that newer request; a fair follow-up probe
+must cover its target. This abstracts the runtime remote-update signal sequence.
+
+| Model action | Production seam |
+| --- | --- |
+| `RemoteBodyAdvance` | peer `document_update_created` commit, whether or not its websocket hint arrives |
+| `RemoteSlotAdvance` | peer Loro update changing attachment-slot metadata and emitting the ordinary lossy invalidation |
+| `Restart` | document-store and in-memory event teardown across process restart |
+| `InitializeOpenedPersistedDocument` | `initializeDocumentStore` arming `remoteUpdatePending` for a loaded remote record |
+| `DisconnectEvents` | server-events disconnect while retaining accepted document work |
+| `ReceiveInterestBaseline` | `interest_state` starting restoration without marking events connected |
+| `MarkContainerTreeReady` | container-tree store publishing its ready, hydrated node set |
+| `DeclareKnownContainers` | authoritative current set sent with a fresh declaration id |
+| `AcknowledgeKnownContainers` | matching `known_containers_ack` proving coverage, advancing the connection generation, and requesting revalidation |
+| `BeginProbe` | document lane captures `remoteUpdateSignalSeq` and starts `requestRemoteDocumentSync` |
+| `FinishProbe` | captured updates are applied and persisted; `canClearRemoteUpdateSignalAfterSync` preserves a newer sequence |
+
+Weak fairness requires initialization, tree readiness, baseline/declaration/ack
+restoration, and continuously enabled probe actions to run. TLC checks that a
+raw baseline cannot arm reconnect, declaration requires a ready tree, ack proves
+coverage before the reconnect request, begin captures one body-plus-slot
+snapshot, and finish preserves newer work. Every accepted request eventually
+covers its recorded target, and restart/reconnect recovery covers the versions
+observed at its acknowledgement barrier.
+
+The bounded configuration uses versions zero and one, at most one restart, and
+at most one retained-process disconnect. TLC explores 6,757 generated states,
+1,912 distinct states, and depth 15. The document is assumed to remain opened,
+persisted, authorized, and present in the authoritative tree; a matching ack and
+an armed probe eventually succeed. A dropped hint after acknowledged readiness
+may remain stale until a later recovery trigger. Unopened-document policy,
+HTTP failure/backoff, encrypted payload integrity, attachment binding/blob
+hydration, SQLite transactionality, and Loro merge correctness are out of scope.

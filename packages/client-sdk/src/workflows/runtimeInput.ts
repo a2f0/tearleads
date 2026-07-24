@@ -30,6 +30,12 @@ export interface WorkflowRuntimeStateInput {
   readonly events: ReadonlyArray<unknown>;
   readonly online: boolean;
   /**
+   * Increments after each restored server-events interest baseline. Unlike a
+   * boolean connection edge, this survives coalesced runtime notifications and
+   * document stores retained while their host provider is unmounted.
+   */
+  readonly serverEventsConnectionGeneration?: number | undefined;
+  /**
    * Per-pane CRDT peer-seed discriminator (e.g. the pane's local identity
    * namespace). Documents in distinct panes must derive distinct Loro peer ids;
    * absent/`null` means single-pane (bare scope). The document runtime factory

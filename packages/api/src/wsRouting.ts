@@ -34,14 +34,14 @@ const SESSION_REVOKED_CLOSE_CODE = 1008;
 const SESSION_REVOKED_CLOSE_REASON = "Session revoked";
 export const MAX_CLIENT_MESSAGE_BYTES = 1_000_000;
 const MAX_INTEREST_CONTAINER_IDS = 10_000;
-const MAX_ORGANIZATION_DECLARATION_ID_LENGTH = 128;
+const MAX_DECLARATION_ID_LENGTH = 128;
 
 /**
  * The interest change a client message applied, returned to the impure shell so
- * it can mirror the change into the Redis per-session interest set. Null when the
- * message was malformed or not an interest declaration.
+ * it can mirror the change into Redis. Null for malformed or unrelated messages.
  */
 export type AppliedInterest = {
+  readonly declarationId?: string | undefined;
   readonly kind: "replace" | "add" | "remove";
   readonly containerIds: string[];
 } | null;
@@ -91,12 +91,26 @@ function readStringField(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
-function readOrganizationDeclarationId(value: unknown): string | null {
+function readDeclarationId(value: unknown): string | null {
   return typeof value === "string" &&
     value.length > 0 &&
-    value.length <= MAX_ORGANIZATION_DECLARATION_ID_LENGTH
+    value.length <= MAX_DECLARATION_ID_LENGTH
     ? value
     : null;
+}
+
+function readOptionalDeclarationId(value: unknown): string | null | undefined {
+  return value === undefined ? undefined : readDeclarationId(value);
+}
+
+function containerInterestAction(
+  kind: Exclude<AppliedInterest, null>["kind"],
+  containerIds: string[],
+  declarationId: string | undefined,
+): Exclude<AppliedInterest, null> {
+  return declarationId
+    ? { containerIds, declarationId, kind }
+    : { containerIds, kind };
 }
 
 /**
@@ -201,6 +215,12 @@ export class WsEventRouter {
     if (!parsed) {
       return null;
     }
+    const declarationId = readOptionalDeclarationId(
+      Reflect.get(parsed, "declarationId"),
+    );
+    if (declarationId === null) {
+      return null;
+    }
     switch (Reflect.get(parsed, "type")) {
       case KNOWN_CONTAINERS_REPLACE: {
         const containerIds = readContainerIdArray(
@@ -210,7 +230,7 @@ export class WsEventRouter {
           return null;
         }
         this.replaceInterest(ws, containerIds);
-        return { containerIds, kind: "replace" };
+        return containerInterestAction("replace", containerIds, declarationId);
       }
       case KNOWN_CONTAINERS_ADD: {
         const containerIds = readContainerIdArray(
@@ -220,7 +240,7 @@ export class WsEventRouter {
           return null;
         }
         this.addInterest(ws, containerIds);
-        return { containerIds, kind: "add" };
+        return containerInterestAction("add", containerIds, declarationId);
       }
       case KNOWN_CONTAINERS_REMOVE: {
         const containerIds = readContainerIdArray(
@@ -230,12 +250,9 @@ export class WsEventRouter {
           return null;
         }
         this.removeInterest(ws, containerIds);
-        return { containerIds, kind: "remove" };
+        return containerInterestAction("remove", containerIds, declarationId);
       }
       case KNOWN_ORGANIZATIONS_REPLACE: {
-        const declarationId = readOrganizationDeclarationId(
-          Reflect.get(parsed, "declarationId"),
-        );
         const organizationId = readOrganizationInterest(
           Reflect.get(parsed, "organizationIds"),
         );
