@@ -8,6 +8,7 @@ import { createDocument } from "@tearleads/loro";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createDocumentProjectorRegistry } from "../../documents";
 import {
+  deletePersistedDocument,
   loadPersistedDocumentStoreState,
   persistDocumentState,
   savePendingDocumentAttachment,
@@ -162,4 +163,61 @@ test("persistDocumentState ensures client projection tables once per executor an
       ),
     ),
   ).toHaveLength(1);
+});
+
+test("guarded persistence aborts before claiming or reading the durable row", async () => {
+  const currentDoc = await createDocument("guarded-persist-abort");
+  let loads = 0;
+  let saves = 0;
+  const persistence = {
+    loadDocumentContainer: async () => {
+      loads += 1;
+      return undefined;
+    },
+    saveDocument: async () => {
+      saves += 1;
+      return "2026-07-24T00:00:00.000Z";
+    },
+  } as unknown as DocumentsPersistence;
+
+  const result = await persistDocumentState({
+    canStartDurableMutation: () => false,
+    currentDoc,
+    currentRecord: null,
+    documentProjectors: createDocumentProjectorRegistry([]),
+    execSql: createNoopExecSql(),
+    localId: "local-document",
+    persistence,
+  });
+
+  expect(result).toBeNull();
+  expect(loads).toBe(0);
+  expect(saves).toBe(0);
+});
+
+test("guarded deletion aborts before reading or deleting the durable row", async () => {
+  let loads = 0;
+  let deletes = 0;
+  const persistence = {
+    deleteDocument: async () => {
+      deletes += 1;
+    },
+    ensureSchema: async () => undefined,
+    loadDocument: async () => {
+      loads += 1;
+      return null;
+    },
+  } as unknown as DocumentsPersistence;
+
+  const deleted = await deletePersistedDocument({
+    canStartDurableMutation: () => false,
+    documentProjectors: createDocumentProjectorRegistry([]),
+    execSql: createNoopExecSql(),
+    localId: "local-document",
+    persistence,
+  });
+
+  expect(deleted).toBe(false);
+  expect(loads).toBe(0);
+  expect(deletes).toBe(0);
 });

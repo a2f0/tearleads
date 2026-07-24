@@ -50,11 +50,13 @@ export type PendingMutationSyncResult = {
   nextRecord: DocumentRecord;
 };
 export interface PersistedDocumentRecord {
+  appliedToStore: boolean;
   record: DocumentRecord;
-  updatedAt: string;
+  updatedAt?: string;
 }
 export interface SaveDocumentRecordOptions {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
+  pendingBaseVersionOverride?: string | null | undefined;
   preserveSnapshotStructuredFields?: boolean | undefined;
   preserveSnapshotText?: boolean | undefined;
 }

@@ -1,28 +1,19 @@
-import { encodeVersionVector } from "@tearleads/loro";
 import { isDocumentUpdateCreatedEvent } from "../../../data/documentSync";
 import {
-  clearDocumentSyncFailure,
-  createDocumentWriterPublicKeyResolver,
-  DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type DocumentSyncLane,
-  deletePersistedDocument,
-  type PendingUpdateRecord,
   registerDocumentSyncLane,
   resolveDocumentCreateAuthor,
   settleOutgoingPassAndDecideReArm,
-  syncRemoteDocument,
 } from "../../../workflows/documents";
 import {
   isDatabaseUnavailableError,
   sequenceUnchanged,
 } from "../../../workflows/documents/syncLane";
-import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { requestDocumentStoreSync } from "../registry";
 import { chainIdentityWrite } from "./identityWriteChain";
 import { awaitInitializationForSync } from "./initialization";
 import {
-  advancePendingBaseVersion,
   hydrateAttachmentBlobs,
   listPendingUpdates,
   persistDocument,
@@ -32,19 +23,26 @@ import {
   type DocumentStoreState,
   type DocumentSyncAttempt,
   type EncapsulationKeyPair,
-  markDocumentStoreRemoved,
   setDocumentSyncing,
-  setReadySnapshot,
 } from "./state";
 import { syncPendingAttachments } from "./syncAttachments";
 import { syncDetachedAttachmentBindings } from "./syncDetachedAttachments";
 import {
-  documentTerminalSubmitFailureHandler,
+  captureDocumentStoreSyncGeneration,
+  type DocumentStoreSyncGeneration,
+  isDocumentStoreSyncGenerationCurrent,
+} from "./syncGeneration";
+import { prepareDocumentOutgoingCoverage } from "./syncOutgoingCoverage";
+import { requestRemoteDocumentSync } from "./syncRequest";
+import {
   ensureRemoteDocument,
   isContainerAwaitingRemoteCreate,
   shouldSkipCleanScheduledDocumentSync,
 } from "./syncShared";
-import { importSyncedDocumentUpdates } from "./syncUpdateImport";
+import {
+  applyIncomingSyncedUpdates,
+  documentSyncContextMatches,
+} from "./syncUpdateImport";
 
 function canRunScheduledSync(state: DocumentStoreState): boolean {
   return (
@@ -54,94 +52,6 @@ function canRunScheduledSync(state: DocumentStoreState): boolean {
     state.runtime.auth.isAuthenticated &&
     state.runtime.crypto.encapsulationKeyPair !== null &&
     resolveDocumentCreateAuthor(state.runtime) !== null
-  );
-}
-
-async function requestRemoteDocumentSync(input: {
-  currentDoc: DocumentState;
-  currentRecord: DocumentRecord;
-  encapsulationKeyPair: EncapsulationKeyPair;
-  pendingUpdates: PendingUpdateRecord[];
-  state: DocumentStoreState;
-  unavailableWriterLogMessage: string;
-}): Promise<DocumentSyncAttempt | null> {
-  const {
-    currentDoc,
-    currentRecord,
-    encapsulationKeyPair,
-    pendingUpdates,
-    state,
-    unavailableWriterLogMessage,
-  } = input;
-
-  if (!currentRecord.documentId) {
-    return null;
-  }
-
-  const author = resolveDocumentCreateAuthor(state.runtime);
-  if (!author) {
-    state.runtime.util.log(unavailableWriterLogMessage);
-    return null;
-  }
-
-  const synced = await syncRemoteDocument({
-    apiClient: state.runtime.apiClient,
-    author,
-    documentId: currentRecord.documentId,
-    execSql: state.runtime.infra.execSql,
-    isRemoteSyncBlocked: state.runtime.util.isRemoteSyncBlocked,
-    localVersionVector: encodeVersionVector(currentDoc),
-    minLsn: currentRecord.lastCommitLsn ?? undefined,
-    onRemoteDocumentDeleted: () => deleteUpstreamDeletedDocument(state),
-    onTerminalSubmitFailure: documentTerminalSubmitFailureHandler(state),
-    pendingUpdates,
-    persistedState: currentRecord,
-    rekeyPendingUpdate: state.persistence.rekeyPendingUpdate,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
-      logPrefix: "Documents",
-      runtime: state.runtime,
-      writerKeyLabel: "writer key",
-    }),
-    targetSecretKey: encapsulationKeyPair.secretKey,
-    warmReferencedPrincipalPolicies: createRuntimePrincipalPolicyWarmer(
-      state.runtime,
-    ),
-    writerProjection:
-      state.writerProjection?.documentId === currentRecord.documentId
-        ? state.writerProjection
-        : undefined,
-  });
-  if (!synced) {
-    return null;
-  }
-
-  // The pass submitted successfully, so any recorded terminal failure for this
-  // document no longer describes reality (e.g. write access was restored) —
-  // unless the pass itself just recorded one for re-key-exhausted updates.
-  if (synced.exhaustedPendingUpdateCount === 0) {
-    await clearDocumentSyncFailure(state.runtime.infra.execSql, {
-      appKind: DOCUMENTS_APP_KIND,
-      localId: state.localId,
-    });
-  }
-
-  return {
-    outgoingUpdateCount: pendingUpdates.length,
-    synced,
-  };
-}
-
-async function deleteUpstreamDeletedDocument(state: DocumentStoreState) {
-  await deletePersistedDocument({
-    documentProjectors: state.runtime.infra.documentProjectors,
-    execSql: state.runtime.infra.execSql,
-    localId: state.localId,
-    persistence: state.persistence,
-  });
-  markDocumentStoreRemoved(state);
-  state.runtime.util.log(
-    `Documents: removed local document ${state.localId} after remote deletion.`,
   );
 }
 
@@ -188,42 +98,6 @@ export function hasRemoteDocumentUpdateEvent(
   return remoteUpdateFound;
 }
 
-async function applyIncomingSyncedUpdates(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  syncAttempt: DocumentSyncAttempt,
-): Promise<DocumentState> {
-  if (syncAttempt.synced.decryptedUpdates.length === 0) {
-    return currentDoc;
-  }
-
-  const mergedDoc = importSyncedDocumentUpdates(
-    currentDoc,
-    syncAttempt.synced.decryptedUpdates,
-  );
-  // Remote ops are now in the doc and already on the server, so fold them into
-  // the durable marker; a later local edit must not re-export them as outgoing.
-  advancePendingBaseVersion(state, mergedDoc);
-
-  // Surface the merged text/fields only when the user is not mid-edit. While
-  // local writes are in flight the doc can lag the latest keystroke, so reading
-  // it here would regress the controlled editor and jump the caret; preserve the
-  // optimistic snapshot; merged remote text surfaces once typing drains.
-  if (state.pendingLocalWrites > 0) {
-    setReadySnapshot(
-      state,
-      mergedDoc,
-      true,
-      state.snapshot.text,
-      state.snapshot.structuredFields,
-    );
-    return mergedDoc;
-  }
-
-  setReadySnapshot(state, mergedDoc, true);
-  return mergedDoc;
-}
-
 function documentWriterProjectionMatchesSyncResponse(
   writerProjection: NonNullable<
     DocumentSyncAttempt["synced"]["writerProjection"]
@@ -265,21 +139,45 @@ function resolveSyncedDocumentWriterProjection(
  */
 export const canClearRemoteUpdateSignalAfterSync = sequenceUnchanged;
 
+function discardPreRegisteredUpdateIds(
+  state: DocumentStoreState,
+  sentUpdateIds: readonly string[],
+) {
+  for (const sentUpdateId of sentUpdateIds) {
+    state.locallyAcceptedUpdateIds.delete(sentUpdateId);
+  }
+}
+
+async function cleanupPreRegisteredUpdateIdsOnFailure<T>(
+  state: DocumentStoreState,
+  sentUpdateIds: readonly string[],
+  task: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await task();
+  } catch (error) {
+    discardPreRegisteredUpdateIds(state, sentUpdateIds);
+    throw error;
+  }
+}
+
 async function finalizeDocumentSync(
   state: DocumentStoreState,
   currentDoc: DocumentState,
   currentRecord: DocumentRecord,
   syncAttempt: DocumentSyncAttempt,
   consumedRemoteUpdateSignalSeq: number,
+  generation: DocumentStoreSyncGeneration,
   sentUpdateIds: readonly string[],
 ): Promise<DocumentRecord> {
   const { synced } = syncAttempt;
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    discardPreRegisteredUpdateIds(state, sentUpdateIds);
+    requestDocumentStoreSync(state);
+    return state.record ?? currentRecord;
+  }
 
-  const mergedDoc = await applyIncomingSyncedUpdates(
-    state,
-    currentDoc,
-    syncAttempt,
-  );
+  let mergedDoc = currentDoc;
   // The sent IDs were pre-registered as self-authored before the network call so
   // the redis echo can never beat us. Reconcile against what the server actually
   // accepted: an ID we sent but the server did not accept will never be echoed,
@@ -291,22 +189,37 @@ async function finalizeDocumentSync(
       state.locallyAcceptedUpdateIds.delete(sentUpdateId);
     }
   }
-  state.writerProjection = resolveSyncedDocumentWriterProjection(state, synced);
-
   // Persist on the identity-write chain: synced.persistedState carries this
   // pass's documentId, so it would clobber a relink that landed mid-pass. If
-  // the identity moved, the response describes the OLD document — skip the
-  // persist and let the new identity's own sync pass take over.
+  // the identity moved, the response describes the OLD document — skip every
+  // response-derived in-memory mutation and let the new identity's own sync
+  // pass take over.
+  let responseApplied = false;
   const { record: nextRecord } = await chainIdentityWrite(state, async () => {
     const liveRecord = state.record;
     if (
-      liveRecord?.documentId &&
-      liveRecord.documentId !== currentRecord.documentId
+      !isDocumentStoreSyncGenerationCurrent(state, generation) ||
+      !documentSyncContextMatches(
+        liveRecord,
+        currentRecord,
+        synced.plan.documentId,
+      )
     ) {
-      return { record: liveRecord };
+      return { record: liveRecord ?? currentRecord };
     }
 
-    return persistDocument(
+    mergedDoc = applyIncomingSyncedUpdates(
+      state,
+      currentDoc,
+      currentRecord,
+      syncAttempt,
+      generation,
+    );
+    state.writerProjection = resolveSyncedDocumentWriterProjection(
+      state,
+      synced,
+    );
+    const persisted = await persistDocument(
       state,
       mergedDoc,
       {
@@ -318,7 +231,8 @@ async function finalizeDocumentSync(
         acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
         // This is a BACKGROUND metadata persist (commit LSN, accepted-update
         // bookkeeping), not a content change: any genuinely-new remote text was
-        // already folded into the snapshot by applyIncomingSyncedUpdates above.
+        // already folded into the snapshot by applyIncomingSyncedUpdates inside
+        // this serialized identity guard.
         // Re-deriving text/structured fields from the doc here is exactly what
         // let a sync pass republish a stale CRDT read over an in-flight
         // optimistic keystroke — regressing the controlled editor value and
@@ -327,8 +241,30 @@ async function finalizeDocumentSync(
         preserveSnapshotStructuredFields: true,
         preserveSnapshotText: true,
       },
+      generation,
     );
+    if (
+      !persisted.appliedToStore ||
+      !isDocumentStoreSyncGenerationCurrent(state, generation)
+    ) {
+      return { record: state.record ?? currentRecord };
+    }
+
+    responseApplied = true;
+    return persisted;
   });
+  if (!responseApplied) {
+    discardPreRegisteredUpdateIds(state, sentUpdateIds);
+    requestDocumentStoreSync(state);
+    return nextRecord;
+  }
+
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    discardPreRegisteredUpdateIds(state, sentUpdateIds);
+    requestDocumentStoreSync(state);
+    return state.record ?? nextRecord;
+  }
+
   // Clear the remote-update signal ONLY if no new remote event arrived while
   // this pass was awaiting the network GET and persist. If the sequence moved,
   // a peer update (E2) committed and was signalled mid-pass but is not in this
@@ -353,7 +289,7 @@ async function finalizeDocumentSync(
     requestDocumentStoreSync(state);
   }
 
-  await hydrateAttachmentBlobs(state, mergedDoc, nextRecord);
+  await hydrateAttachmentBlobs(state, mergedDoc, nextRecord, generation);
   return nextRecord;
 }
 
@@ -362,33 +298,57 @@ async function syncDocumentState(
   currentDoc: DocumentState,
   nextRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
+  generation: DocumentStoreSyncGeneration,
 ): Promise<DocumentRecord> {
   // Snapshot the remote-update signal sequence before any await. The GET below
   // fetches server state as of its own snapshot; any remote event delivered
   // after this point describes an update that may not be in that response, so
   // finalizeDocumentSync must not clear the signal if this sequence has moved.
   const consumedRemoteUpdateSignalSeq = state.remoteUpdateSignalSeq;
-  const pendingUpdates = await listPendingUpdates(state);
+  let pendingUpdates = await listPendingUpdates(state);
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    requestDocumentStoreSync(state);
+    return state.record ?? nextRecord;
+  }
   // Create the remote document even when nothing is queued to send: a note
   // created and never edited enqueues no updates, but its local row is still a
   // pending create the write queue reports — it must flush, not sit. Defer
   // only while the container itself still awaits its remote create.
-  if (
-    !nextRecord.documentId &&
-    pendingUpdates.length === 0 &&
-    (await isContainerAwaitingRemoteCreate(state))
-  ) {
-    return nextRecord;
+  if (!nextRecord.documentId && pendingUpdates.length === 0) {
+    const containerAwaitsCreate = await isContainerAwaitingRemoteCreate(state);
+    if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
+      requestDocumentStoreSync(state);
+      return state.record ?? nextRecord;
+    }
+    if (containerAwaitsCreate) return nextRecord;
   }
-  const nextRemoteRecord = await ensureRemoteDocument(
+  let nextRemoteRecord = await ensureRemoteDocument(
     state,
     currentDoc,
     nextRecord,
     encapsulationKeyPair,
+    generation,
   );
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    requestDocumentStoreSync(state);
+    return state.record ?? nextRecord;
+  }
   if (!nextRemoteRecord?.documentId) {
     return nextRecord;
   }
+
+  const preparedCoverage = await prepareDocumentOutgoingCoverage({
+    currentDoc,
+    generation,
+    pendingUpdates,
+    state,
+  });
+  if (!preparedCoverage) {
+    requestDocumentStoreSync(state);
+    return state.record ?? nextRemoteRecord;
+  }
+  nextRemoteRecord = preparedCoverage.record;
+  pendingUpdates = preparedCoverage.pendingUpdates;
 
   if (
     shouldSkipCleanScheduledDocumentSync({
@@ -411,26 +371,41 @@ async function syncDocumentState(
     state.locallyAcceptedUpdateIds.add(sentUpdateId);
   }
 
-  const syncAttempt = await requestRemoteDocumentSync({
+  const syncAttempt = await cleanupPreRegisteredUpdateIdsOnFailure(
     state,
-    currentDoc,
-    currentRecord: nextRemoteRecord,
-    pendingUpdates,
-    encapsulationKeyPair,
-    unavailableWriterLogMessage:
-      "Documents: skipped sync because the writer context is unavailable.",
-  });
+    sentUpdateIds,
+    () =>
+      requestRemoteDocumentSync({
+        state,
+        currentDoc,
+        currentRecord: nextRemoteRecord,
+        pendingUpdates,
+        encapsulationKeyPair,
+        generation,
+        unavailableWriterLogMessage:
+          "Documents: skipped sync because the writer context is unavailable.",
+      }),
+  );
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    discardPreRegisteredUpdateIds(state, sentUpdateIds);
+    requestDocumentStoreSync(state);
+    return state.record ?? nextRemoteRecord;
+  }
   if (!syncAttempt) {
+    discardPreRegisteredUpdateIds(state, sentUpdateIds);
     return nextRemoteRecord;
   }
 
-  return finalizeDocumentSync(
-    state,
-    currentDoc,
-    nextRemoteRecord,
-    syncAttempt,
-    consumedRemoteUpdateSignalSeq,
-    sentUpdateIds,
+  return cleanupPreRegisteredUpdateIdsOnFailure(state, sentUpdateIds, () =>
+    finalizeDocumentSync(
+      state,
+      currentDoc,
+      nextRemoteRecord,
+      syncAttempt,
+      consumedRemoteUpdateSignalSeq,
+      generation,
+      sentUpdateIds,
+    ),
   );
 }
 
@@ -457,22 +432,40 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
     return;
   }
 
+  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  if (!generation) {
+    requestDocumentStoreSync(state);
+    return;
+  }
+
   nextRecord = await syncDocumentState(
     state,
     currentDoc,
     nextRecord,
     encapsulationKeyPair,
+    generation,
   );
 
-  if (
-    !state.doc ||
-    !state.record ||
-    (await listPendingUpdates(state)).length > 0
-  ) {
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    requestDocumentStoreSync(state);
     return;
   }
 
-  await syncDetachedAttachmentBindings(state, nextRecord);
+  if (!state.doc || !state.record) return;
+
+  const pendingUpdates = await listPendingUpdates(state);
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    requestDocumentStoreSync(state);
+    return;
+  }
+  if (pendingUpdates.length > 0) {
+    return;
+  }
+
+  await syncDetachedAttachmentBindings(state, nextRecord, generation);
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    requestDocumentStoreSync(state);
+  }
 }
 
 async function runScheduledSyncIteration(state: DocumentStoreState) {
@@ -497,6 +490,10 @@ async function runScheduledSyncIteration(state: DocumentStoreState) {
 }
 
 async function runScheduledSyncLoop(state: DocumentStoreState) {
+  const syncingGeneration = captureDocumentStoreSyncGeneration(
+    state,
+    state.doc,
+  );
   setDocumentSyncing(state, true);
 
   try {
@@ -505,7 +502,12 @@ async function runScheduledSyncLoop(state: DocumentStoreState) {
       return;
     }
   } finally {
-    setDocumentSyncing(state, false);
+    if (
+      syncingGeneration &&
+      isDocumentStoreSyncGenerationCurrent(state, syncingGeneration)
+    ) {
+      setDocumentSyncing(state, false);
+    }
   }
 }
 

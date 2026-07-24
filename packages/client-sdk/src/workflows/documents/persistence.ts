@@ -19,7 +19,10 @@ import type {
   StoredDocumentRecord,
 } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { ensureSqlTables } from "../../data/sqlite/sqlSchema";
+import {
+  ensureSqlTables,
+  runSerializedSqlMutation,
+} from "../../data/sqlite/sqlSchema";
 
 export type {
   DocumentsPersistence,
@@ -278,8 +281,9 @@ async function saveDocumentClientProjection(input: {
   });
 }
 
-export async function persistDocumentState(input: {
+interface PersistDocumentStateInput {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
+  canStartDurableMutation?: (() => boolean) | undefined;
   containerId?: string | null | undefined;
   currentDoc: DocumentContentState;
   currentRecord: StoredDocumentRecord | null;
@@ -288,60 +292,73 @@ export async function persistDocumentState(input: {
   localId: string;
   patch?: Partial<StoredDocumentRecord> | undefined;
   persistence: DocumentsPersistence;
-}): Promise<PersistedDocumentState> {
+}
+
+export function persistDocumentState(
+  input: PersistDocumentStateInput & {
+    canStartDurableMutation: () => boolean;
+  },
+): Promise<PersistedDocumentState | null>;
+export function persistDocumentState(
+  input: PersistDocumentStateInput,
+): Promise<PersistedDocumentState>;
+export async function persistDocumentState(
+  input: PersistDocumentStateInput,
+): Promise<PersistedDocumentState | null> {
   const { currentDoc, currentRecord, execSql, localId, persistence } = input;
   const documentProjectors = resolveDocumentProjectorRegistry(
     input.documentProjectors,
   );
   const patch = input.patch ?? {};
-  // A persist that does not manage container placement (a background document
-  // sync ships content-key/manifest metadata with no container) must not let the
-  // store's in-memory record re-assert a container. That record goes stale the
-  // moment the reconcile/tombstone layer moves the document in SQLite behind the
-  // living store's back — the exact path by which a contact moved to Trash on one
-  // peer resurfaced in its source folder on a recovery peer. Pin such a write to
-  // the authoritative document_projection container so it can only echo the
-  // current placement, never resurrect a stale one; create/relink patches carry
-  // an explicit container and are left untouched.
-  const authoritativeContainer = patchSpecifiesContainer(patch)
-    ? undefined
-    : await persistence.loadDocumentContainer(execSql, localId);
-  const resolvedPatch =
-    authoritativeContainer === undefined
-      ? patch
-      : { ...patch, containerId: authoritativeContainer.containerId };
   const acceptedPendingUpdateIds = input.acceptedPendingUpdateIds ?? [];
-  const { documentState, record } = buildStoredDocumentRecord({
-    containerId: input.containerId,
-    currentDoc,
-    currentRecord,
-    documentProjectors,
-    localId,
-    patch: resolvedPatch,
-  });
 
   await ensureDocumentClientProjectionTables({ documentProjectors, execSql });
+  // This check is intentionally adjacent to the serialized mutation claim.
+  // Earlier awaits may let a store reset/reinitialize; once the call below
+  // starts, same-executor replacement writes queue behind this operation.
+  if (input.canStartDurableMutation && !input.canStartDurableMutation()) {
+    return null;
+  }
 
-  const updatedAt = await saveDocumentRecord({
-    acceptedPendingUpdateIds,
-    execSql,
-    persistence,
-    record,
+  return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    // A persist that does not manage container placement (a background
+    // document sync ships content-key/manifest metadata with no container)
+    // must not let an in-memory record re-assert a stale container. Read the
+    // authoritative placement and build the complete row only after claiming
+    // the mutation queue, so a concurrent local/deferred edit cannot commit a
+    // newer snapshot and then be overwritten by this prebuilt row.
+    const authoritativeContainer = patchSpecifiesContainer(patch)
+      ? undefined
+      : await persistence.loadDocumentContainer(lockedExecSql, localId);
+    const resolvedPatch =
+      authoritativeContainer === undefined
+        ? patch
+        : { ...patch, containerId: authoritativeContainer.containerId };
+    const { documentState, record } = buildStoredDocumentRecord({
+      containerId: input.containerId,
+      currentDoc,
+      currentRecord,
+      documentProjectors,
+      localId,
+      patch: resolvedPatch,
+    });
+    const savedAt = await saveDocumentRecord({
+      acceptedPendingUpdateIds,
+      execSql: lockedExecSql,
+      persistence,
+      record,
+    });
+    await saveDocumentClientProjection({
+      currentRecord,
+      documentProjectors,
+      documentState,
+      execSql: lockedExecSql,
+      localId,
+      record,
+      updatedAt: savedAt,
+    });
+    return { record, updatedAt: savedAt };
   });
-  await saveDocumentClientProjection({
-    currentRecord,
-    documentProjectors,
-    documentState,
-    execSql,
-    localId,
-    record,
-    updatedAt,
-  });
-
-  return {
-    record,
-    updatedAt,
-  };
 }
 
 export async function loadPersistedDocumentStoreState(input: {
@@ -365,29 +382,37 @@ export async function loadPersistedDocumentStoreState(input: {
 }
 
 export async function deletePersistedDocument(input: {
+  canStartDurableMutation?: (() => boolean) | undefined;
   documentProjectors: DocumentProjectorRegistryInput;
   execSql: ExecSql;
   localId: string;
   persistence: DocumentsPersistence;
-}): Promise<void> {
+}): Promise<boolean> {
   const documentProjectors = resolveDocumentProjectorRegistry(
     input.documentProjectors,
   );
   await input.persistence.ensureSchema(input.execSql);
-  const existing = await input.persistence.loadDocument(
-    input.execSql,
-    input.localId,
-  );
   await ensureDocumentClientProjectionTables({
     documentProjectors,
     execSql: input.execSql,
   });
-  await input.persistence.deleteDocument(input.execSql, input.localId);
-  await documentProjectors.deleteStoredDocumentClientProjection({
-    documentKind: existing?.documentKind ?? DEFAULT_DOCUMENT_KIND,
-    execSql: input.execSql,
-    localId: input.localId,
+  if (input.canStartDurableMutation && !input.canStartDurableMutation()) {
+    return false;
+  }
+
+  await runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
+    const existing = await input.persistence.loadDocument(
+      lockedExecSql,
+      input.localId,
+    );
+    await input.persistence.deleteDocument(lockedExecSql, input.localId);
+    await documentProjectors.deleteStoredDocumentClientProjection({
+      documentKind: existing?.documentKind ?? DEFAULT_DOCUMENT_KIND,
+      execSql: lockedExecSql,
+      localId: input.localId,
+    });
   });
+  return true;
 }
 
 export async function listPendingDocumentUpdates(input: {
