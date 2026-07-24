@@ -1,5 +1,6 @@
 import type { OrganizationBillingView } from "@tearleads/client-sdk";
-import { buildMiniAppPath } from "../../navigation/AppRoutePaths";
+import { useCallback } from "react";
+import { useMiniAppLauncher } from "../../mini-apps/miniAppLauncher";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import {
   BILLING_LABELS,
@@ -7,12 +8,6 @@ import {
   getBillingTrialBannerLabel,
 } from "../../providers/billing/billingLabels";
 import "./BillingBanner.css";
-
-// Deep link into the Org Manager's Billing view, where a trial converts to a
-// paid subscription. buildMiniAppPath is a pure helper, so this app-shell banner
-// — mounted above the panes, outside the pane-scoped navigation/bus providers —
-// links there with a plain anchor instead of a provider-backed navigate hook.
-const BILLING_ENROLL_HREF = buildMiniAppPath("org-manager", ["billing"]);
 
 function needsAttentionMessage(
   status: OrganizationBillingView["status"],
@@ -30,14 +25,17 @@ function needsAttentionMessage(
 }
 
 /**
- * Presentational billing banner: a trial countdown while trialing, a warning
- * while sync needs attention (lapsed/disabled/past due), and nothing when the
- * org is active or free/local. Prop-driven so it is unit-testable.
+ * Presentational billing banner: a trial countdown with an enrollment link while
+ * trialing, a warning while sync needs attention (lapsed/disabled/past due), and
+ * nothing when the org is active or free/local. Prop-driven so it is
+ * unit-testable without the navigation stack.
  */
 export function BillingBannerView({
   view,
+  onEnroll,
 }: {
   view: OrganizationBillingView | null;
+  onEnroll: () => void;
 }) {
   if (!view) {
     return null;
@@ -56,17 +54,30 @@ export function BillingBannerView({
     return (
       <div className="billing-banner billing-banner--info" role="status">
         {getBillingTrialBannerLabel(view.trialDaysRemaining)}{" "}
-        <a className="billing-banner-enroll" href={BILLING_ENROLL_HREF}>
+        <button
+          className="billing-banner-enroll"
+          onClick={onEnroll}
+          type="button"
+        >
           {BILLING_TRIAL_ENROLL_LABEL}
-        </a>
+        </button>
       </div>
     );
   }
   return null;
 }
 
-/** Connects {@link BillingBannerView} to the shared billing snapshot. */
+/**
+ * Connects {@link BillingBannerView} to the shared billing snapshot, and routes
+ * enrollment into the Org Manager's Billing view. The banner is app-shell chrome
+ * mounted above the panes, so it opens the mini-app through the launcher bridge
+ * ({@link useMiniAppLauncher}) rather than a pane-scoped navigation hook.
+ */
 export function BillingBanner() {
   const { view } = useOrganizationBilling();
-  return <BillingBannerView view={view} />;
+  const launch = useMiniAppLauncher();
+  const openBilling = useCallback(() => {
+    launch({ appId: "org-manager", pathSegments: ["billing"] });
+  }, [launch]);
+  return <BillingBannerView onEnroll={openBilling} view={view} />;
 }
