@@ -1,5 +1,9 @@
 import { type MouseEvent, type ReactNode, useCallback, useState } from "react";
-import { MiniAppBusProvider } from "../../../mini-apps/bus";
+import {
+  MiniAppBusProvider,
+  useMiniAppBusActions,
+} from "../../../mini-apps/bus";
+import { useRegisterMiniAppLauncher } from "../../../mini-apps/miniAppLauncher";
 import { MINI_APPS } from "../../../mini-apps/registry";
 import { SystemMonitorLauncherButton } from "../../../mini-apps/system-monitor/SystemMonitorLauncherButton";
 import { SystemMonitorPinned } from "../../../mini-apps/system-monitor/SystemMonitorPinned";
@@ -95,12 +99,24 @@ function PaneInner({
   );
 }
 
+// Publishes this pane's `openMiniApp` as the app-shell launcher while the pane
+// is the active (visible) one, so shell chrome above the panes (the billing
+// banner) can open a mini-app in it. Lives inside MiniAppBusProvider so it can
+// read the bus; renders nothing.
+function PaneMiniAppLauncherBridge({ active }: { active: boolean }) {
+  const { openMiniApp } = useMiniAppBusActions();
+  useRegisterMiniAppLauncher(openMiniApp, active);
+  return null;
+}
+
 export function Pane({
+  active = false,
   className,
   desktopLabel,
   navigationMode = "windowed",
   routedVisible = false,
 }: {
+  active?: boolean | undefined;
   className: string;
   desktopLabel?: string | undefined;
   navigationMode?: AppNavigationMode | undefined;
@@ -125,7 +141,10 @@ export function Pane({
     <AppFeatureFlagsProvider>
       <WindowStateProvider>
         <AppNavigationProvider mode={navigationMode} miniApps={MINI_APPS}>
-          <MiniAppBusProvider>{surface}</MiniAppBusProvider>
+          <MiniAppBusProvider>
+            <PaneMiniAppLauncherBridge active={active} />
+            {surface}
+          </MiniAppBusProvider>
         </AppNavigationProvider>
       </WindowStateProvider>
     </AppFeatureFlagsProvider>

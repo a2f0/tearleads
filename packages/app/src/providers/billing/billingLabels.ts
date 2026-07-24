@@ -10,8 +10,11 @@ export const BILLING_LABELS = {
   bannerPurged: "This organization's synced data has been purged.",
 } as const;
 
-/** Trial countdown line for the banner, e.g. "3 days left in your free trial." */
+/** Trial countdown line for the banner, e.g. "Free trial ends in 3 days." */
 export function getBillingTrialBannerLabel(days: number): string {
   const unit = days === 1 ? "day" : "days";
-  return `${days} ${unit} left in your free trial.`;
+  return `Free trial ends in ${days} ${unit}.`;
 }
+
+/** Call to action after the trial countdown; links to Organization → Billing. */
+export const BILLING_TRIAL_ENROLL_LABEL = "Enroll here";
