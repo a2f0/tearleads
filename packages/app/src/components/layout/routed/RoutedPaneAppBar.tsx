@@ -7,6 +7,7 @@ import {
   useAppNavigationActions,
   useAppNavigationState,
 } from "../../../navigation/AppNavigationProvider";
+import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import {
   useWindowBackActionValue,
   useWindowTitleBarActions,
@@ -17,11 +18,13 @@ export function RoutedPaneAppBar({
   hasSidebar,
   onToggleSidebar,
   sidebarExpanded,
+  tier,
 }: {
   activeAppId: MiniAppId;
   hasSidebar: boolean;
   onToggleSidebar: () => void;
   sidebarExpanded: boolean;
+  tier: RoutedLayoutTier;
 }) {
   const { goBack, goForward } = useAppNavigationActions();
   const { history } = useAppNavigationState();
@@ -70,7 +73,11 @@ export function RoutedPaneAppBar({
             <SidebarSimpleIcon aria-hidden size={18} />
           </button>
         )}
-        <div className="routed-pane-title">{MINI_APPS[activeAppId].title}</div>
+        {tier === "tablet" && (
+          <div className="routed-pane-title">
+            {MINI_APPS[activeAppId].title}
+          </div>
+        )}
       </div>
       <div className="routed-pane-appbar-spacer" />
       {showToolbar && (
