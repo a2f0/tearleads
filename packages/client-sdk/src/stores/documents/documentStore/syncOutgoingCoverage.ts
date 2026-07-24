@@ -105,10 +105,7 @@ export async function prepareDocumentOutgoingCoverage(input: {
       generation,
     );
   });
-  if (
-    !persisted?.appliedToStore ||
-    !isDocumentStoreSyncGenerationCurrent(state, generation)
-  ) {
+  if (!persisted || !isDocumentStoreSyncGenerationCurrent(state, generation)) {
     return null;
   }
 

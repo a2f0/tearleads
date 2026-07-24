@@ -31,7 +31,6 @@ import { openDocumentStore, requestDomainDocumentSync } from "../documents";
 import {
   primeStoreDocumentSubtree,
   primeStoreDocuments,
-  recoverStoreStaleRoot,
 } from "./documentRecovery";
 import { refreshLocalContainerStates } from "./localRefresh";
 import {
@@ -356,17 +355,8 @@ async function runContainerContentsStoreSyncIteration(input: {
     });
   }
 
-  // Root adoption notifies session consumers synchronously. Let container
-  // metadata converge first so a recovered system container is never exposed
-  // under its placeholder name when the active root changes.
-  if (!(await recoverStoreStaleRoot(state))) {
-    return;
-  }
-
   // Document move intents live in the structural phase because they may target
-  // containers created locally in the same session, such as Trash. Root
-  // recovery also rewrites stale endpoints and returns their intents to pending,
-  // so replay must follow recovery to consume that work in this same pass.
+  // containers created locally in the same session, such as Trash.
   const movedDocumentCount = await syncPendingDocumentMoveIntents({
     host: createContainerContentsStoreDocumentMoveHost(state),
     isRemoteSyncBlocked: isOrganizationBlocked,

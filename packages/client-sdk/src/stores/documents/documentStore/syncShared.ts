@@ -201,8 +201,6 @@ export async function ensureRemoteDocument(
           generation,
         )
       : await persistDocument(state, currentDoc, persistPatch, persistOptions);
-    return persisted.appliedToStore
-      ? persisted.record
-      : (state.record ?? nextRecord);
+    return persisted?.record ?? state.record ?? nextRecord;
   });
 }

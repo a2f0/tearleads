@@ -345,7 +345,7 @@ test("guarded persistence cannot publish into a replacement generation", async (
     releasePersist();
     const [persisted] = await Promise.all([persistPromise, replacementWrite]);
 
-    expect(persisted.appliedToStore).toBe(false);
+    expect(persisted).toBeNull();
     expect(replacementWriteCompleted).toBe(true);
     expect(fixture.state.doc).toBe(replacementDoc);
     expect(fixture.state.record?.text).toBe("replacement snapshot");

@@ -136,9 +136,9 @@ executor, and projection-key resolver. Reset/reinitialize may replace that
 generation during any await. An enqueue, marker persist, response persist, or
 deletion that claimed its durable queue position may still complete. The model
 updates durable snapshot, marker, settlement, and presence at guarded start,
-tracks post-reset return in `staleDurableCompletions`, and separates durable
-presence from live in-memory presence. Reset may load those ordered durable
-effects; the later stale completion publishes nothing further.
+keeps post-reset returns as explicit stale-completion transitions, and
+separates durable presence from live in-memory presence. Reset may load those
+ordered durable effects; the later stale completion publishes nothing further.
 
 The abstraction coalesces `applyIncomingSyncedUpdates` into live response
 completion. Production performs that synchronous import before the persistence
@@ -160,17 +160,17 @@ The abstraction maps to production at these seams:
 | --- | --- |
 | `QueueEdit` / `DeferEdit` | `pendingDeltaSinceBase`, `enqueuePendingUpdate`, `persistDocument`, and `advancePendingBaseVersion` |
 | `CapturePreparation` | `prepareDocumentOutgoingCoverage` using `extendDocumentVersionCoverage` before its first await |
-| `MaterializeCapturedTail` | `prepareDocumentOutgoingCoverage` exporting and durably enqueuing an uncovered captured delta |
-| `MaterializeStaleCapturedTail` / `AbortStalePreparation` | post-enqueue generation checks returning without marker publication; an enqueue already submitted to persistence may still finish |
-| `PlanMarkerPersist` / `StartMarkerPersist` / `CompleteLiveMarkerPersist` | freezing `nextBaseVersion` before adapter awaits, the later successful `canStartDurableMutation` check and mutation claim, and post-await `appliedToStore` publication in `prepareDocumentOutgoingCoverage` |
-| `CompleteStaleMarkerPersist` | a claimed marker mutation returning after reset, with `appliedToStore: false` suppressing replacement-store publication and effects |
+| `MaterializeCapturedTail` | `prepareDocumentOutgoingCoverage` exporting and durably enqueuing an uncovered captured delta, whether its capture stays live or becomes stale |
+| `AbortStalePreparation` | post-enqueue generation checks returning without marker publication; an enqueue already submitted to persistence may still finish |
+| `PlanMarkerPersist` / `StartMarkerPersist` / `CompleteLiveMarkerPersist` | freezing `nextBaseVersion` before adapter awaits, the later successful `canStartDurableMutation` check and mutation claim, and post-await non-null persistence result in `prepareDocumentOutgoingCoverage` |
+| `CompleteStaleMarkerPersist` | a claimed marker mutation returning after reset, with a null persistence result suppressing replacement-store publication and effects |
 | `ResetReinitialize` | replacement of any `DocumentStoreSyncGeneration` identity: `currentDoc`, `domainScope`, `execSql`, or `resolveProjectionUserKey` |
 | `BeginSyncResponse` | `captureDocumentStoreSyncGeneration` plus the sync attempt's plan and captured `currentRecord` identity/access/keying context |
 | `Relink` / `StartedDurableOpSerializesRelink` | document-id, container, access, and keying-context writes sharing `chainIdentityWrite`, so none can overtake a durable operation that already started there |
 | `StartResponseDurableOp` | `canStartDurableMutation` rechecking generation and `documentSyncContextMatches` immediately before `runSerializedSqlMutation` claims the persistence or deletion queue |
 | `CompleteLiveResponsePersist` / `CompleteLiveDeletion` | the post-await generation check allowing response publication or `markDocumentStoreRemoved` only into the still-matching generation |
 | `CompleteStaleResponseDurableOp` | a claimed response persist or deletion returning after reset, followed by no additional in-memory publication or effect callback on the replacement store |
-| `IgnoreStaleResponse` | `finalizeDocumentSync` returning and re-arming without response-derived snapshot, marker, or queue mutation |
+| `CancelOrIgnoreResponse` | response cancellation or `finalizeDocumentSync` returning and re-arming without response-derived snapshot, marker, or queue mutation |
 | `CompleteCapturedPass` | `shouldSkipCleanScheduledDocumentSync` after outgoing coverage preparation |
 
 TLC explores restarts before and after both durable preparation steps, every
@@ -194,8 +194,8 @@ require that:
 - every marker or response publication matched the captured generation and
   identity/access context at its post-await publication check;
 - every durable mutation start passed its adjacent generation/context guard;
-- a stale completion records that return but cannot publish into replacement
-  snapshot, marker, presence, identity, or effects;
+- a stale completion returns but cannot publish into replacement snapshot,
+  marker, presence, identity, or effects;
 - same-generation relink cannot overtake an active identity-chain operation;
 - an authoritative deletion can remove only the store whose live generation
   and full identity/access context match the deletion request;
@@ -207,18 +207,18 @@ require that:
 
 Relaxing the durable queue-claim guard violates
 `DurableStartRequiresLiveContext`; relaxing the publication guard violates
-`AppliedResponseMatchedContext` or `MarkerPublicationMatchedCapture`. Publishing
-from a stale completion violates `StaleDurableCompletionCannotPublish`, while
-letting relink overtake a claimed chain task violates
+`AllPublicationsMatchContext`. Publishing from a stale completion violates
+`StaleDurableCompletionCannotPublish`, while letting relink overtake a claimed
+chain task violates
 `StartedDurableOpSerializesRelink`. Relaxing either
-deletion publication guard violates `DeletionAppliedOnlyToMatchingContext`, and
-letting a stale deletion remove the live store violates
+deletion publication guard violates `AllPublicationsMatchContext`, and letting
+a stale deletion remove the live store violates
 `StaleDeletionCannotRemoveLiveDocument`. These checks are independent from the
 tail-accounting invariants.
 
 The checked configuration uses two abstract operations, two document
 identity/access contexts, and two non-reused store generations, exploring
-1,037,680 generated and 203,984 distinct states at depth 37. Set union stands in
+720,722 generated and 151,330 distinct states at depth 37. Set union stands in
 for semantic version-vector merge, and each queued operation stands in for the
 coverage carried by one or more durable pending rows. A same-document key
 rotation is a new model identity even when its remote UUID is unchanged; key
@@ -229,6 +229,9 @@ server deletion semantics. The production tests remain responsible for Loro
 version-vector decoding, partial-start/end continuity, full-history checkpoint
 coverage, SQL transactionality, update payload bytes, and sync-coordinator
 scheduling. This is exhaustive bounded model checking, not an unbounded proof.
+A current-schema local database with already-reconciled canonical root
+identities is the runtime cutover boundary; migration of retired pre-cutover
+backups is outside both the model and the supported protocol.
 
 ## Empty-Frontier Baseline-less Unlink
 

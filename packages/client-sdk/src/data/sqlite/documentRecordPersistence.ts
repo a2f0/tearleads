@@ -1,15 +1,11 @@
 import { and, eq } from "drizzle-orm";
-import {
-  DEFAULT_EFFECTIVE_ACCESS_LEVEL,
-  normalizeEffectiveAccessLevel,
-} from "../accessLevel";
+import { normalizeEffectiveAccessLevel } from "../accessLevel";
 import type {
   DocumentRecord,
   DocumentScope,
   SelectedDocumentRecordRow,
 } from "./documentPersistenceTypes";
 import { documents } from "./schema";
-import { deriveSnapshotEndVersion } from "./snapshotEndVersion";
 import { getClientSQLitePersistenceRuntime } from "./sqlitePersistenceRuntime";
 import type { ExecSql } from "./sqlSchema";
 
@@ -41,36 +37,6 @@ export function mapSelectedDocumentRecord(
   }
 
   return record;
-}
-
-function toDocumentRow(input: {
-  record: DocumentRecord;
-  scope: DocumentScope;
-  updatedAt: string;
-}) {
-  const { record, scope, updatedAt } = input;
-  return {
-    appKind: scope.appKind,
-    localId: scope.localId,
-    documentId: record.documentId,
-    loroSnapshot: record.loroSnapshot,
-    snapshotEndVersion: deriveSnapshotEndVersion(record.loroSnapshot),
-    accessEpoch: record.accessEpoch,
-    accessStateHash: record.accessStateHash ?? null,
-    effectiveAccessLevel:
-      record.effectiveAccessLevel ?? DEFAULT_EFFECTIVE_ACCESS_LEVEL,
-    lastCommitLsn: record.lastCommitLsn ?? null,
-    documentManifestBundle: record.documentManifestBundle ?? null,
-    contentKeyBundle: record.contentKeyBundle ?? null,
-    documentKekTargets: record.documentKekTargets ?? null,
-    // Only touch the outgoing-delta marker when the caller manages it. Callers
-    // that leave it undefined (e.g. discovery upserts) must not clobber a marker
-    // a device-first deferRemoteSync write persisted on this row.
-    ...(record.pendingBaseVersion === undefined
-      ? {}
-      : { pendingBaseVersion: record.pendingBaseVersion }),
-    updatedAt,
-  };
 }
 
 export async function loadDocumentRecord(
@@ -119,26 +85,6 @@ export async function findLocalIdByDocumentId(
     .limit(1);
 
   return rows[0]?.localId ?? null;
-}
-
-export async function saveDocumentRecord(
-  execSql: ExecSql,
-  scope: DocumentScope,
-  record: DocumentRecord,
-  updatedAt: string,
-): Promise<void> {
-  const nextRow = toDocumentRow({ record, scope, updatedAt });
-
-  await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    await db
-      .insert(documents)
-      .values(nextRow)
-      .onConflictDoUpdate({
-        target: [documents.appKind, documents.localId],
-        set: nextRow,
-      })
-      .run();
-  });
 }
 
 export async function deleteDocumentRecord(

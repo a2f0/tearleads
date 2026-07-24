@@ -9,7 +9,6 @@ import type {
   DocumentAttachmentBinding,
   DocumentState,
   DocumentStoreState,
-  PendingMutationSyncResult,
 } from "./state";
 import {
   type DocumentStoreSyncGeneration,
@@ -26,29 +25,29 @@ export async function syncDetachedAttachmentBindings(
   state: DocumentStoreState,
   nextRecord: DocumentRecord,
   generation: DocumentStoreSyncGeneration,
-): Promise<PendingMutationSyncResult> {
+): Promise<void> {
   const currentDoc = generation.currentDoc;
   if (
     !currentDoc ||
     !detachedSyncContextIsCurrent(state, generation, nextRecord)
   ) {
-    return { completed: false, nextRecord };
+    return;
   }
 
   const detachedMarkers = listDetachedAttachmentMarkers(state, currentDoc);
   if (detachedMarkers.length === 0) {
-    return { completed: false, nextRecord };
+    return;
   }
 
   if (!nextRecord.documentId) {
-    const completed = await cleanupDetachedAttachmentMarkers(
+    await cleanupDetachedAttachmentMarkers(
       state,
       currentDoc,
       nextRecord,
       detachedMarkers,
       generation,
     );
-    return { completed, nextRecord };
+    return;
   }
 
   const remoteDocumentId = nextRecord.documentId;
@@ -58,17 +57,16 @@ export async function syncDetachedAttachmentBindings(
     !remoteBindings ||
     !detachedSyncContextIsCurrent(state, generation, nextRecord)
   ) {
-    return { completed: false, nextRecord };
+    return;
   }
 
-  let completed = false;
   const activeBindingBySlotId = new Map(
     remoteBindings.map((binding) => [binding.slotId, binding]),
   );
 
   for (const marker of detachedMarkers) {
     if (!detachedSyncContextIsCurrent(state, generation, nextRecord)) {
-      return { completed, nextRecord };
+      return;
     }
     const activeBinding = activeBindingBySlotId.get(marker.slotId);
     if (activeBinding) {
@@ -80,7 +78,7 @@ export async function syncDetachedAttachmentBindings(
         state,
       });
       if (!detached) {
-        return { completed, nextRecord };
+        return;
       }
     }
 
@@ -92,12 +90,9 @@ export async function syncDetachedAttachmentBindings(
       generation,
     );
     if (!cleaned) {
-      return { completed, nextRecord };
+      return;
     }
-    completed = true;
   }
-
-  return { completed, nextRecord };
 }
 
 function detachedSyncContextIsCurrent(
@@ -135,7 +130,7 @@ async function cleanupDetachedAttachmentMarkers(
   requestRecord: DocumentRecord,
   markers: readonly DetachedAttachmentMarker[],
   generation: DocumentStoreSyncGeneration,
-): Promise<boolean> {
+): Promise<void> {
   for (const marker of markers) {
     if (
       !(await cleanupDetachedAttachmentMarker(
@@ -146,10 +141,9 @@ async function cleanupDetachedAttachmentMarkers(
         generation,
       ))
     ) {
-      return false;
+      return;
     }
   }
-  return true;
 }
 
 async function cleanupDetachedAttachmentMarker(
