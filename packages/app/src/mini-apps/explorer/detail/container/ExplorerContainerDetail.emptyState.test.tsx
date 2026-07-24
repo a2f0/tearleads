@@ -356,7 +356,7 @@ test("a wide item list frame keeps the single-line columns", async () => {
     "36px",
   );
   expect(
-    view.container.querySelector("tbody .mini-app-compact-table-lines"),
+    view.container.querySelector("tbody .explorer-item-summary"),
   ).toBeNull();
 });
 

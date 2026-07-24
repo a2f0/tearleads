@@ -316,16 +316,23 @@ test("phone container item table sorts from the summary header", () => {
     totalCount: 1,
   });
 
-  const triggerName = `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.itemNameColumn}, ${EXPLORER_LABELS.columnSortedAscending}. ${EXPLORER_LABELS.itemSortReverseAction}`;
-  fireEvent.click(view.getByRole("combobox", { name: triggerName }));
+  const triggerName = `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.itemNameColumn}, ${EXPLORER_LABELS.columnSortedAscending}`;
+  fireEvent.click(view.getByRole("button", { name: triggerName }));
+  const menu = view.getByRole("menu", {
+    name: EXPLORER_LABELS.itemSortMenuLabel,
+  });
+  expect(getItemTableFrame(view).contains(menu)).toBe(false);
+  expect(document.body.contains(menu)).toBe(true);
   fireEvent.click(
-    view.getByRole("option", {
+    view.getByRole("menuitemradio", {
       name: EXPLORER_LABELS.dateModifiedColumnCompact,
     }),
   );
-  fireEvent.click(view.getByRole("combobox", { name: triggerName }));
+  fireEvent.click(view.getByRole("button", { name: triggerName }));
   fireEvent.click(
-    view.getByRole("option", { name: EXPLORER_LABELS.itemTypeColumn }),
+    view.getByRole("menuitemradio", {
+      name: EXPLORER_LABELS.itemTypeColumn,
+    }),
   );
 
   expect(sortKeys).toEqual(["modified", "type"]);
@@ -338,13 +345,13 @@ test("phone sort menu announces and repeats the active key to reverse it", () =>
     rows: [archiveRow],
     totalCount: 1,
   });
-  const triggerName = `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.itemNameColumn}, ${EXPLORER_LABELS.columnSortedAscending}. ${EXPLORER_LABELS.itemSortReverseAction}`;
+  const triggerName = `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.itemNameColumn}, ${EXPLORER_LABELS.columnSortedAscending}`;
 
   for (let index = 0; index < 2; index += 1) {
-    fireEvent.click(view.getByRole("combobox", { name: triggerName }));
+    fireEvent.click(view.getByRole("button", { name: triggerName }));
     fireEvent.click(
-      view.getByRole("option", {
-        name: `${EXPLORER_LABELS.itemNameColumn} ↑ ${EXPLORER_LABELS.itemSortReverseAction}`,
+      view.getByRole("menuitemradio", {
+        name: `${EXPLORER_LABELS.itemNameColumn}, ${EXPLORER_LABELS.columnSortedAscending}, ${EXPLORER_LABELS.itemSortReverseAction}`,
       }),
     );
   }
@@ -363,18 +370,22 @@ test("phone container item table displays only the active sort field", () => {
     view.container.querySelector("thead th")?.getAttribute("aria-sort"),
   ).toBe("none");
   expect(
-    view.getByRole("combobox", {
-      name: `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.dateModifiedColumnCompact}, ${EXPLORER_LABELS.columnSortedDescending}. ${EXPLORER_LABELS.itemSortReverseAction}`,
+    view.getByRole("button", {
+      name: `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.dateModifiedColumnCompact}, ${EXPLORER_LABELS.columnSortedDescending}`,
     }),
   ).toBeTruthy();
   expect(
-    view.getByText(`${EXPLORER_LABELS.dateModifiedColumnCompact} ↓`),
+    view.getByText(EXPLORER_LABELS.dateModifiedColumnCompact),
   ).toBeTruthy();
   expect(view.queryByText(EXPLORER_LABELS.itemTypeColumn)).toBeNull();
   expect(view.queryByText(EXPLORER_LABELS.itemNameColumn)).toBeNull();
 
-  fireEvent.click(view.getByRole("combobox"));
-  expect(view.getAllByRole("option")).toHaveLength(4);
+  fireEvent.click(
+    view.getByRole("button", {
+      name: `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.dateModifiedColumnCompact}, ${EXPLORER_LABELS.columnSortedDescending}`,
+    }),
+  );
+  expect(view.getAllByRole("menuitemradio")).toHaveLength(4);
 
   cleanup();
   const createdSortView = renderFoldedItemTable({
@@ -384,12 +395,12 @@ test("phone container item table displays only the active sort field", () => {
   });
 
   expect(
-    createdSortView.getByRole("combobox", {
-      name: `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.dateCreatedColumn}, ${EXPLORER_LABELS.columnSortedAscending}. ${EXPLORER_LABELS.itemSortReverseAction}`,
+    createdSortView.getByRole("button", {
+      name: `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.dateCreatedColumn}, ${EXPLORER_LABELS.columnSortedAscending}`,
     }),
   ).toBeTruthy();
   expect(
-    createdSortView.getByText(`${EXPLORER_LABELS.dateCreatedColumn} ↑`),
+    createdSortView.getByText(EXPLORER_LABELS.dateCreatedColumn),
   ).toBeTruthy();
 });
 
@@ -431,9 +442,7 @@ test("unfolded container item table keeps its wide columns and pitch", () => {
   });
   const frame = getItemTableFrame(view);
 
-  expect(
-    view.container.querySelector(".mini-app-compact-table-lines"),
-  ).toBeNull();
+  expect(view.container.querySelector(".explorer-item-summary")).toBeNull();
   expect(
     view.queryByRole("columnheader", { name: EXPLORER_LABELS.itemSyncColumn }),
   ).not.toBeNull();

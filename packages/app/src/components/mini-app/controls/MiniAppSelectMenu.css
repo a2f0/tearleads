@@ -69,13 +69,6 @@
   font-weight: 700;
 }
 
-.mini-app-select-menu-option-secondary {
-  flex: 0 0 auto;
-  opacity: var(--opacity-muted);
-  font-size: var(--font-size-xs);
-  font-weight: 400;
-}
-
 .mini-app-select-menu-icon,
 .mini-app-select-menu-caret {
   flex: 0 0 auto;

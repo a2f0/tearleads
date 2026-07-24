@@ -23,8 +23,8 @@ const WIDE_COLUMN_ORDER: ReadonlyArray<ExplorerItemColumnId> = [
 // width instead of competing with a date: line one is the name and line two is
 // the muted type. A larger leading glyph spans both lines.
 // Column-visibility preferences do not apply: the columns menu is off while
-// folded, so a wide-layout choice to hide Type or Modified would leave a blank
-// second line with no way to bring it back.
+// folded, so a wide-layout choice to hide Type would leave a blank second line
+// with no way to bring it back.
 const COMPACT_COLUMN_ORDER: ReadonlyArray<ExplorerItemColumnId> = ["summary"];
 
 // Columns the user can show/hide. Name is structural and always visible.
