@@ -22,9 +22,13 @@
   gap: var(--space-xs);
 }
 
-.weight-entry-list-title span {
+.weight-entry-list-footer {
   font-size: var(--font-size-sm);
   opacity: var(--opacity-muted);
+}
+
+.weight-entry-list-footer {
+  text-align: end;
 }
 
 /* Two lines in the windowed view: weight and measured-at share the top line,
@@ -55,6 +59,17 @@
 
 .weight-remove-button {
   grid-area: remove;
+}
+
+.weight-quick-add-actions {
+  display: grid;
+  grid-area: remove;
+  gap: var(--space-xs);
+}
+
+.weight-quick-add-row {
+  padding: var(--space-sm);
+  border: var(--border);
 }
 
 .weight-entry-read-row {
@@ -182,5 +197,10 @@
   .weight-remove-button {
     width: 100%;
     justify-self: stretch;
+  }
+
+  .weight-quick-add-actions {
+    grid-area: remove;
+    grid-template-columns: 1fr 1fr;
   }
 }

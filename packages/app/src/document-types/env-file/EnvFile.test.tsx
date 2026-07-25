@@ -97,7 +97,7 @@ test("read mode renders text rows, masks passwords, and shows attribution", () =
     isEditing: false,
   });
 
-  expect(view.getByText(".env.local")).toBeTruthy();
+  expect(view.queryByText(".env.local")).toBeNull();
   expect(view.getByText("API_URL")).toBeTruthy();
   expect(view.getByText("https://api.example.test")).toBeTruthy();
   expect(view.getByText("DATABASE_PASSWORD")).toBeTruthy();
@@ -107,6 +107,17 @@ test("read mode renders text rows, masks passwords, and shows attribution", () =
   expect(view.getByText("Updated 2026-07-16 08:30 by you")).toBeTruthy();
   expect(view.getByText("Updated 2026-07-16 09:00 by user-bob")).toBeTruthy();
   expect(view.queryByLabelText(".env file name")).toBeNull();
+});
+
+test("variable count follows the rows", () => {
+  const view = renderEnvFileFields({ isEditing: false });
+  const rows = view.container.querySelectorAll(".env-file-variable-read-row");
+  const footer = view.container.querySelector(".env-file-variable-list-footer");
+  const position =
+    rows[rows.length - 1]?.compareDocumentPosition(footer as Node) ?? 0;
+
+  expect(footer?.textContent).toBe("2 entries");
+  expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
 test("read mode tolerates missing variable values", () => {

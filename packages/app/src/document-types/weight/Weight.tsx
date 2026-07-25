@@ -10,7 +10,6 @@ import {
   StructuredDocument,
   StructuredDocumentField,
   StructuredDocumentFields,
-  StructuredDocumentReadFields,
   useStructuredDocumentEditAction,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
@@ -20,6 +19,7 @@ import {
   WeightEntryEditRow,
   type WeightField,
 } from "./WeightEditRow";
+import { WeightQuickAdd, type WeightQuickEntry } from "./WeightQuickAdd";
 import { WeightEntryReadRow } from "./WeightReadRow";
 import {
   toWeightUnit,
@@ -42,46 +42,37 @@ import "./Weight.css";
 
 function WeightReadFields(params: {
   currentAuthorId: string | null;
+  controlsDisabled: boolean;
   entries: ReadonlyArray<WeightEntryRow>;
+  onAddEntry: (entry?: WeightQuickEntry) => void;
   onEnterEdit?: (() => void) | undefined;
   resolveRowWriter?: RowWriterResolver | undefined;
-  trackerName: string;
   unit: WeightUnit;
 }) {
   // `unit` here is the tracker's default for new entries; each row renders its
   // own recorded unit.
   const {
     currentAuthorId,
+    controlsDisabled,
     entries,
+    onAddEntry,
     onEnterEdit,
     resolveRowWriter,
-    trackerName,
     unit,
   } = params;
 
   return (
     <div className="weight-document-fields">
-      <StructuredDocumentReadFields
-        fields={[
-          {
-            label: "Tracker Name",
-            value: trackerName,
-            // Fall back to the document type's name rather than the generic
-            // "None" placeholder when the tracker was never named. Only override
-            // the empty case — leaving displayValue undefined for a real name
-            // keeps its hover-title tooltip when the name is truncated.
-            displayValue:
-              trackerName.trim().length > 0 ? undefined : "Weight Tracker",
-          },
-          { label: "New Entry Unit", value: unit },
-        ]}
-      />
       <section className="weight-entry-list">
         <div className="weight-entry-list-header">
-          <div className="weight-entry-list-title">
-            <strong>Entries</strong>
-            <span>{entries.length} entries</span>
-          </div>
+          <strong>Entries</strong>
+          {onEnterEdit ? (
+            <WeightQuickAdd
+              controlsDisabled={controlsDisabled}
+              onAddEntry={onAddEntry}
+              unit={unit}
+            />
+          ) : null}
         </div>
         {entries.length === 0 ? (
           <div className="weight-empty-state">No entries</div>
@@ -98,6 +89,7 @@ function WeightReadFields(params: {
             />
           ))
         )}
+        <div className="weight-entry-list-footer">{entries.length} entries</div>
       </section>
     </div>
   );
@@ -171,7 +163,6 @@ function WeightEditFields(params: {
         <div className="weight-entry-list-header">
           <div className="weight-entry-list-title">
             <strong>Entries</strong>
-            <span>{entries.length} entries</span>
           </div>
           <MiniAppButton
             className="weight-add-button"
@@ -197,6 +188,7 @@ function WeightEditFields(params: {
             />
           ))
         )}
+        <div className="weight-entry-list-footer">{entries.length} entries</div>
       </section>
     </div>
   );
@@ -207,7 +199,7 @@ export function WeightFields(params: {
   disabled?: boolean | undefined;
   entries: ReadonlyArray<WeightEntryRow>;
   isEditing?: boolean | undefined;
-  onAddEntry: () => void;
+  onAddEntry: (entry?: WeightQuickEntry) => void;
   onChangeUnit: (unit: WeightUnit) => void;
   onEnterEdit?: (() => void) | undefined;
   onRemoveEntry: (id: string) => void;
@@ -252,10 +244,11 @@ export function WeightFields(params: {
     return (
       <WeightReadFields
         currentAuthorId={currentAuthorId}
+        controlsDisabled={controlsDisabled}
         entries={entries}
+        onAddEntry={onAddEntry}
         onEnterEdit={onEnterEdit}
         resolveRowWriter={resolveRowWriter}
-        trackerName={trackerName}
         unit={unit}
       />
     );
@@ -333,13 +326,13 @@ export function Weight(params: { initialEditing?: boolean | undefined }) {
           // The read-row "Edit" action switches the whole tracker into edit
           // mode; only offer it when the viewer can actually write.
           onEnterEdit={canWrite ? () => setIsEditing(true) : undefined}
-          onAddEntry={() => {
+          onAddEntry={(entry) => {
             if (canWrite) {
               void addRow({
-                [WEIGHT_MEASUREMENT_FIELD]: "",
+                [WEIGHT_MEASUREMENT_FIELD]: entry?.weight ?? "",
                 [WEIGHT_UNIT_FIELD]: unit,
-                [WEIGHT_MEASURED_AT_FIELD]: "",
-                [WEIGHT_NOTES_FIELD]: "",
+                [WEIGHT_MEASURED_AT_FIELD]: entry?.measuredAt ?? "",
+                [WEIGHT_NOTES_FIELD]: entry?.notes ?? "",
               });
             }
           }}
