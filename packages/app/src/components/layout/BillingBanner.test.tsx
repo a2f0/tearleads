@@ -64,7 +64,7 @@ test("renders nothing for an active subscription", () => {
 });
 
 test("shows the trial countdown while trialing", () => {
-  const { getByRole, getByText } = render(
+  const { getByRole } = render(
     <BillingBannerView
       onEnroll={noop}
       view={view({
@@ -76,12 +76,11 @@ test("shows the trial countdown while trialing", () => {
       })}
     />,
   );
-  expect(getByRole("status")).toBeTruthy();
-  expect(getByText("3 days in free trial")).toBeTruthy();
+  expect(getByRole("status").textContent).toContain("3 days in free trial");
 });
 
 test("uses the singular day at one day left", () => {
-  const { getByText } = render(
+  const { getByRole } = render(
     <BillingBannerView
       onEnroll={noop}
       view={view({
@@ -93,7 +92,7 @@ test("uses the singular day at one day left", () => {
       })}
     />,
   );
-  expect(getByText("1 day in free trial")).toBeTruthy();
+  expect(getByRole("status").textContent).toContain("1 day in free trial");
 });
 
 test("enroll button invokes onEnroll while trialing", () => {
@@ -163,7 +162,9 @@ test("hides the active-route banner only on org manager billing", () => {
       />
     </MiniAppLauncherProvider>,
   );
-  expect(rendered.getByText("3 days in free trial")).toBeTruthy();
+  expect(rendered.getByRole("status").textContent).toContain(
+    "3 days in free trial",
+  );
 });
 
 test("warns when sync is disabled", () => {

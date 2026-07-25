@@ -5,11 +5,13 @@ import {
 } from "@tearleads/client-sdk";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "./appDocumentProjectors";
 
-function projectOrganizationProfile(name: unknown) {
+function projectOrganizationProfile(
+  structuredFields: Readonly<Record<string, unknown>>,
+) {
   return projectStoredDocumentState(
     {
       documentKind: ORGANIZATION_PROFILE_DOCUMENT_KIND,
-      structuredFields: { name },
+      structuredFields,
       text: "",
     },
     APP_DOCUMENT_PROJECTOR_DEFINITIONS,
@@ -17,15 +19,17 @@ function projectOrganizationProfile(name: unknown) {
 }
 
 test("organization profile title comes from its embedded name", () => {
-  expect(projectOrganizationProfile("  Personal Org  ")).toMatchObject({
+  expect(
+    projectOrganizationProfile({ name: "  Personal Org  ", tier: "personal" }),
+  ).toMatchObject({
     fieldValidationIssues: [],
-    structuredFields: { name: "  Personal Org  " },
+    structuredFields: { name: "  Personal Org  ", tier: "personal" },
     title: "Personal Org",
   });
 });
 
 test("organization profile title falls back when its name is unavailable", () => {
-  expect(projectOrganizationProfile(42)).toMatchObject({
+  expect(projectOrganizationProfile({ name: 42 })).toMatchObject({
     fieldValidationIssues: [
       {
         field: "name",

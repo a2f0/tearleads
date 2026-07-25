@@ -5,6 +5,8 @@ import {
   type StoredDocumentKind,
 } from "@tearleads/client-sdk";
 
+// Keep this stable wire value local: importing the organization workflow export
+// through the SDK barrel creates a browser module-initialization cycle here.
 const ORGANIZATION_PROFILE_DOCUMENT_KIND =
   "organization_profile" satisfies StoredDocumentKind;
 const ORGANIZATION_PROFILE_FALLBACK_TITLE = "Organization Profile";
@@ -15,11 +17,18 @@ export const organizationProfileDocumentProjectorDefinition: DocumentProjectorDe
     label: "organization profile",
     project: ({ structuredFields }) => {
       const issues: DocumentFieldValidationIssue[] = [];
-      const name = readStringDocumentField(structuredFields, "name", issues);
+      const fields: Record<string, string> & { name?: string } =
+        Object.fromEntries(
+          Object.keys(structuredFields).map((field) => [
+            field,
+            readStringDocumentField(structuredFields, field, issues),
+          ]),
+        );
+      const name = fields.name ?? "";
 
       return {
         fieldValidationIssues: issues,
-        structuredFields: { name },
+        structuredFields: fields,
         title: name.trim() || ORGANIZATION_PROFILE_FALLBACK_TITLE,
       };
     },

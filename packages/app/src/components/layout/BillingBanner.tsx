@@ -60,7 +60,7 @@ export function BillingBannerView({
       <div className="billing-banner billing-banner--info" role="status">
         <span className="billing-banner-trial-copy">
           {getBillingTrialBannerLabel(view.trialDaysRemaining)}
-        </span>
+        </span>{" "}
         <button
           className="billing-banner-enroll"
           onClick={onEnroll}

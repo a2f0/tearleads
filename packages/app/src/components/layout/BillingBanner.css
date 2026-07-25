@@ -36,16 +36,18 @@
   cursor: pointer;
 }
 
-.routed-pane--mobile .billing-banner-enroll {
-  padding: var(--space-2xs) var(--space-sm);
-  border: var(--border);
-  background: transparent;
-  color: inherit;
-  text-decoration: none;
-}
+@media (max-width: 759px) {
+  :root[data-navigation-mode="routed"] .billing-banner-enroll {
+    padding: var(--space-2xs) var(--space-sm);
+    border: var(--border);
+    background: transparent;
+    color: inherit;
+    text-decoration: none;
+  }
 
-.routed-pane--mobile .billing-banner-enroll:hover,
-.routed-pane--mobile .billing-banner-enroll:focus-visible {
-  background: var(--emphasis-surface);
-  color: var(--emphasis-text);
+  :root[data-navigation-mode="routed"] .billing-banner-enroll:hover,
+  :root[data-navigation-mode="routed"] .billing-banner-enroll:focus-visible {
+    background: var(--emphasis-surface);
+    color: var(--emphasis-text);
+  }
 }
