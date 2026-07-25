@@ -173,10 +173,6 @@
   opacity: var(--opacity-icon);
 }
 
-.explorer-sidebar-item--note {
-  font-style: italic;
-}
-
 .explorer-sidebar-item--more {
   opacity: var(--opacity-muted);
 }
