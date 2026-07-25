@@ -76,6 +76,7 @@ interface RemoteContainerHydrationRuntime
   extends Pick<
     ContainerContentsWorkflowRuntime,
     | "auth"
+    | "adoptRootContainer"
     | "crypto"
     | "infra"
     | "resolveTrustedUserIdentity"
@@ -88,6 +89,7 @@ interface RemoteContainerHydrationRuntime
 export interface RemoteContainerHydrationState {
   containersById: Map<string, ContainerState>;
   persistence: ContainerContentsPersistence;
+  rootLaneHydrated?: boolean | undefined;
   runtime: RemoteContainerHydrationRuntime;
 }
 

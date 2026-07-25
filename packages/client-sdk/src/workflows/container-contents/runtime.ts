@@ -52,6 +52,8 @@ export interface ContainerContentsWorkflowRuntimeState
 
 export interface ContainerContentsWorkflowRuntimeUtil
   extends ContainerContentsWorkflowRuntimeUtilInput {
+  // Store recovery is best-effort, so hosts may retain the causal error without
+  // making structured error logging mandatory for general workflow runtimes.
   readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
 }
 

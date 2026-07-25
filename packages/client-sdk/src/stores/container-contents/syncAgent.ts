@@ -88,6 +88,8 @@ export interface ContainerContentsStoreSyncState {
   persistence: ContainerContentsPersistence;
   remoteHydrationPromise: Promise<void> | null;
   resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
+  /** True after this store has fully applied an authoritative root lane. */
+  rootLaneHydrated: boolean;
   runtime: ContainerContentsStoreRuntime;
   snapshot: {
     ready: boolean;

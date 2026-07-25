@@ -16,6 +16,7 @@ export type StaleRootRecoveryStatus =
 
 interface StaleRootRecoveryResult {
   readonly candidateCount: number;
+  readonly reassigned: boolean;
   readonly status: StaleRootRecoveryStatus;
 }
 
@@ -25,6 +26,7 @@ interface StaleRootRecoveryState {
     ContainerContentsPersistence,
     "containerExists" | "reassignContainerDocuments"
   >;
+  readonly rootLaneHydrated: boolean;
   readonly runtime: {
     readonly adoptRootContainer?: ContainerContentsRootAdopter | undefined;
     readonly auth: Pick<
@@ -82,7 +84,10 @@ function listAuthoritativeRootCandidates(
  * route them. Recovery is intentionally narrow: the stale id must be absent
  * from both the loaded topology and durable storage, and the active
  * organization must have exactly one owner-administered, non-system,
- * remote-backed top-level root. This compatibility path only repairs document
+ * remote-backed top-level root after the authoritative root lane has hydrated.
+ * As in normal root reconciliation, the authenticated API topology is the
+ * account authority here; root ownership is not independently corroborated by
+ * a client-held signature. This compatibility path only repairs document
  * references; structural container descendants remain owned by normal root
  * reconciliation. Durable reassignment deliberately precedes live session
  * adoption so consumers never observe the new root before its documents move.
@@ -105,9 +110,10 @@ export async function recoverStaleSessionRoot(
     !organizationId ||
     !userId ||
     organizationId !== defaultOrganizationId ||
+    !state.rootLaneHydrated ||
     state.containersById.has(staleContainerId)
   ) {
-    return { candidateCount: 0, status: "not-needed" };
+    return { candidateCount: 0, reassigned: false, status: "not-needed" };
   }
 
   const storedContainerExists = await state.persistence.containerExists(
@@ -115,7 +121,7 @@ export async function recoverStaleSessionRoot(
     staleContainerId,
   );
   if (storedContainerExists) {
-    return { candidateCount: 0, status: "not-needed" };
+    return { candidateCount: 0, reassigned: false, status: "not-needed" };
   }
   if (
     !hasSameRecoveryContext(state, {
@@ -126,10 +132,10 @@ export async function recoverStaleSessionRoot(
       userId,
     })
   ) {
-    return { candidateCount: 0, status: "context-changed" };
+    return { candidateCount: 0, reassigned: false, status: "context-changed" };
   }
   if (state.containersById.has(staleContainerId)) {
-    return { candidateCount: 0, status: "not-needed" };
+    return { candidateCount: 0, reassigned: false, status: "not-needed" };
   }
 
   const candidates = listAuthoritativeRootCandidates(
@@ -138,10 +144,14 @@ export async function recoverStaleSessionRoot(
   );
   const [remoteRootState] = candidates;
   if (!remoteRootState || candidates.length > 1) {
-    return { candidateCount: candidates.length, status: "ambiguous" };
+    return {
+      candidateCount: candidates.length,
+      reassigned: false,
+      status: "ambiguous",
+    };
   }
   if (!state.runtime.adoptRootContainer) {
-    return { candidateCount: 1, status: "unsupported" };
+    return { candidateCount: 1, reassigned: false, status: "unsupported" };
   }
   if (
     !hasSameRecoveryContext(state, {
@@ -152,7 +162,7 @@ export async function recoverStaleSessionRoot(
       userId,
     })
   ) {
-    return { candidateCount: 0, status: "context-changed" };
+    return { candidateCount: 0, reassigned: false, status: "context-changed" };
   }
 
   await state.persistence.reassignContainerDocuments(
@@ -172,6 +182,7 @@ export async function recoverStaleSessionRoot(
 
   return {
     candidateCount: 1,
+    reassigned: true,
     status:
       adoptionResult === "already-adopted"
         ? "already-adopted"

@@ -79,6 +79,7 @@ export function createContainerContentsStoreState(
     remoteHydrationPromise: null,
     resolveProjectionUserKey:
       createContainerContentsProjectionUserKeyResolver(initialRuntime),
+    rootLaneHydrated: false,
     runtime: initialRuntime,
     snapshot: {
       nodes: [],
@@ -129,6 +130,7 @@ function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.localContainersNeedRefresh = false;
   state.metadataDocumentIdsNeedingSync = new Set();
   state.remoteHydrationPromise = null;
+  state.rootLaneHydrated = false;
   state.writeChain = Promise.resolve<ContainerNode | null>(null);
   setContainerContentsSnapshot(state, {
     nodes: [],

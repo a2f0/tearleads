@@ -62,13 +62,23 @@ test("root adoption accepts an already-adopted session without notifying again",
   expect(fixture.setContainerIds).toEqual([]);
 });
 
+test("root adoption accepts the active secondary organization", () => {
+  const fixture = createFixture({
+    defaultOrganizationId: "personal-organization",
+  });
+
+  expect(adoptSessionRootContainer(fixture.dependencies, fixture.input)).toBe(
+    true,
+  );
+  expect(fixture.setContainerIds).toEqual(["remote-root"]);
+});
+
 const rejectedContexts: ReadonlyArray<
   readonly [name: string, options: FixtureOptions]
 > = [
   ["domain scope", { actualDomainScope: createDomainScope() }],
   ["authentication", { isAuthenticated: false }],
   ["current root", { containerId: "other-root" }],
-  ["default organization", { defaultOrganizationId: "organization-2" }],
   ["organization", { organizationId: "organization-2" }],
   ["user", { userId: "user-2" }],
 ];

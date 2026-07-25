@@ -60,6 +60,7 @@ test("a priming signal raised mid-pass survives for the next pass", async () => 
       documentStoresNeedPriming: true,
       persistence:
         defaultContainerContentsPersistence as ContainerContentsPersistence,
+      rootLaneHydrated: true,
       runtime: {
         adoptRootContainer: () => false,
         infra: { execSql },
@@ -107,6 +108,7 @@ test("stale root recovery logs the result and re-arms document priming", async (
         reassignmentCount += 1;
       },
     },
+    rootLaneHydrated: true,
     runtime: {
       adoptRootContainer: () => {
         adoptionCount += 1;
@@ -136,7 +138,7 @@ test("stale root recovery logs the result and re-arms document priming", async (
 
   state.documentStoresNeedPriming = false;
   await expect(recoverStoreStaleRoot(state)).resolves.toBe("already-adopted");
-  expect(state.documentStoresNeedPriming).toBe(false);
+  expect(state.documentStoresNeedPriming).toBe(true);
   expect(logs).toEqual([
     "Container contents: stale root recovery status=reassigned candidates=1",
     "Container contents: stale root recovery status=already-adopted candidates=1",
@@ -155,6 +157,7 @@ test("stale root recovery logs status or candidate-count changes", async () => {
       ...defaultContainerContentsPersistence,
       containerExists: async () => false,
     },
+    rootLaneHydrated: true,
     runtime: {
       adoptRootContainer: () => true,
       auth: {
@@ -194,6 +197,7 @@ test("stale root recovery contains transient persistence failures", async () => 
       ...defaultContainerContentsPersistence,
       containerExists: async () => Promise.reject(error),
     },
+    rootLaneHydrated: true,
     runtime: {
       adoptRootContainer: () => true,
       auth: {
@@ -225,6 +229,38 @@ test("stale root recovery contains transient persistence failures", async () => 
   ]);
 });
 
+test("stale root recovery falls back to plain logging", async () => {
+  const logs: string[] = [];
+  const state = {
+    containersById: new Map<string, ContainerState>(),
+    documentStoresNeedPriming: false,
+    persistence: {
+      ...defaultContainerContentsPersistence,
+      containerExists: async () =>
+        Promise.reject(new Error("temporary failure")),
+    },
+    rootLaneHydrated: true,
+    runtime: {
+      adoptRootContainer: () => true,
+      auth: {
+        defaultOrganizationId: "organization-1",
+        isAuthenticated: true,
+        organizationId: "organization-1",
+        userId: "user-1",
+      },
+      infra: { execSql: (() => Promise.resolve([])) as ExecSql },
+      state: {
+        containerId: "stale-root",
+        domainScope: createDomainScope(),
+      },
+      util: { log: (message: string) => logs.push(message) },
+    } as unknown as ContainerContentsStoreWorkflowRuntime,
+  };
+
+  await expect(recoverStoreStaleRoot(state)).resolves.toBe("not-needed");
+  expect(logs).toEqual(["Container contents: stale root recovery failed"]);
+});
+
 test("stale root recovery rethrows database-unavailable failures", async () => {
   const error = new Error("DB has been closed.");
   const loggedErrors: unknown[] = [];
@@ -235,6 +271,7 @@ test("stale root recovery rethrows database-unavailable failures", async () => {
       ...defaultContainerContentsPersistence,
       containerExists: async () => Promise.reject(error),
     },
+    rootLaneHydrated: true,
     runtime: {
       adoptRootContainer: () => true,
       auth: {
@@ -288,10 +325,12 @@ test("stale root recovery retries a rejected adoption only after a runtime updat
         reassignmentCount += 1;
       },
     },
+    rootLaneHydrated: true,
     runtime,
   };
 
   await expect(recoverStoreStaleRoot(state)).resolves.toBe("context-changed");
+  expect(state.documentStoresNeedPriming).toBe(true);
   await expect(recoverStoreStaleRoot(state)).resolves.toBe("not-needed");
   expect(reassignmentCount).toBe(1);
 

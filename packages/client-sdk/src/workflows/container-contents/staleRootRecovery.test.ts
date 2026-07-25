@@ -76,6 +76,7 @@ function createFixture() {
       ContainerContentsPersistence,
       "containerExists" | "reassignContainerDocuments"
     >,
+    rootLaneHydrated: true,
     runtime: {
       adoptRootContainer,
       auth: {
@@ -111,6 +112,7 @@ test("stale root recovery rehomes documents and adopts the remote root", async (
 
   await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
     candidateCount: 1,
+    reassigned: true,
     status: "reassigned",
   });
   expect(fixture.reassignments).toEqual([
@@ -143,6 +145,7 @@ test("stale root recovery refuses ambiguous or foreign roots", async () => {
 
   await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
     candidateCount: 2,
+    reassigned: false,
     status: "ambiguous",
   });
   expect(fixture.reassignments).toEqual([]);
@@ -163,6 +166,7 @@ test("stale root recovery refuses granted and system roots", async () => {
 
   await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
     candidateCount: 0,
+    reassigned: false,
     status: "ambiguous",
   });
   expect(fixture.reassignments).toEqual([]);
@@ -175,6 +179,20 @@ test("stale root recovery only runs in the personal organization", async () => {
 
   await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
     candidateCount: 0,
+    reassigned: false,
+    status: "not-needed",
+  });
+  expect(fixture.reassignments).toEqual([]);
+  expect(fixture.adoptions).toEqual([]);
+});
+
+test("stale root recovery waits for the authoritative root lane", async () => {
+  const fixture = createFixture();
+  fixture.state.rootLaneHydrated = false;
+
+  await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
+    candidateCount: 0,
+    reassigned: false,
     status: "not-needed",
   });
   expect(fixture.reassignments).toEqual([]);
@@ -187,6 +205,7 @@ test("stale root recovery reports when no authoritative root is loaded", async (
 
   await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
     candidateCount: 0,
+    reassigned: false,
     status: "ambiguous",
   });
   expect(fixture.reassignments).toEqual([]);
@@ -199,6 +218,7 @@ test("stale root recovery reports a missing adoption capability", async () => {
 
   await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
     candidateCount: 1,
+    reassigned: false,
     status: "unsupported",
   });
   expect(fixture.reassignments).toEqual([]);
@@ -214,6 +234,7 @@ test("stale root recovery does nothing while the session root is live", async ()
 
   await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
     candidateCount: 0,
+    reassigned: false,
     status: "not-needed",
   });
   expect(fixture.reassignments).toEqual([]);
@@ -225,6 +246,7 @@ test("stale root recovery ignores a durable root missing from a partial topology
 
   await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
     candidateCount: 0,
+    reassigned: false,
     status: "not-needed",
   });
   expect(fixture.reassignments).toEqual([]);
@@ -262,6 +284,7 @@ for (const [name, mutate] of changedRecoveryContexts) {
 
     await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
       candidateCount: 0,
+      reassigned: false,
       status: "context-changed",
     });
     expect(fixture.reassignments).toEqual([]);
@@ -281,6 +304,7 @@ test("stale root recovery rechecks context after candidate selection", async () 
 
   await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
     candidateCount: 0,
+    reassigned: false,
     status: "context-changed",
   });
   expect(fixture.reassignments).toEqual([]);
@@ -293,6 +317,7 @@ test("stale root recovery reports a context change after reassignment", async ()
 
   await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
     candidateCount: 1,
+    reassigned: true,
     status: "context-changed",
   });
   expect(fixture.reassignments).toHaveLength(1);
@@ -304,6 +329,7 @@ test("stale root recovery distinguishes an already-adopted session", async () =>
 
   await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
     candidateCount: 1,
+    reassigned: true,
     status: "already-adopted",
   });
   expect(fixture.reassignments).toHaveLength(1);
@@ -344,6 +370,7 @@ test("durable orphan recovery makes the document primeable on relaunch", async (
     const recovery = await recoverStaleSessionRoot({
       containersById,
       persistence: defaultContainerContentsPersistence,
+      rootLaneHydrated: true,
       runtime: {
         adoptRootContainer: () => true,
         auth: {

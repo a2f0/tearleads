@@ -13,6 +13,7 @@ type RemoteHydrationRequestState = RemoteContainerHydrationState &
   LocalContainerRefreshState & {
     containerParentIdsNeedingHydration: Set<string | null>;
     remoteHydrationPromise: Promise<void> | null;
+    rootLaneHydrated: boolean;
     snapshot: {
       ready: boolean;
     };
@@ -56,6 +57,7 @@ export function requestContainerContentsRemoteHydration(input: {
   state.containerParentIdsNeedingHydration.clear();
 
   let appliedRemoteContainerChange = false;
+  const rootLaneHydratedBeforeRequest = state.rootLaneHydrated;
   state.remoteHydrationPromise = refreshLocalContainerStates({ host, state })
     .then(() =>
       hydrateRemoteContainers({
@@ -80,7 +82,9 @@ export function requestContainerContentsRemoteHydration(input: {
       state.remoteHydrationPromise = null;
 
       if (
-        (appliedRemoteContainerChange || input.scheduleSyncAfterHydration) &&
+        (appliedRemoteContainerChange ||
+          (!rootLaneHydratedBeforeRequest && state.rootLaneHydrated) ||
+          input.scheduleSyncAfterHydration) &&
         state.snapshot.ready &&
         state.runtime.auth.isAuthenticated &&
         state.runtime.state.online

@@ -158,6 +158,37 @@ function applyLocalRootDescendantReparents(input: {
   }
 }
 
+function adoptReconciledSessionRoot(input: {
+  localRootState: ContainerState;
+  remoteRootState: ContainerState;
+  state: RemoteContainerHydrationState;
+}): void {
+  const { localRootState, remoteRootState, state } = input;
+  const adopter = state.runtime.adoptRootContainer;
+  const defaultOrganizationId = state.runtime.auth.defaultOrganizationId;
+  const userId = state.runtime.auth.userId;
+  if (
+    !adopter ||
+    !defaultOrganizationId ||
+    defaultOrganizationId === remoteRootState.container.organizationId ||
+    !userId
+  ) {
+    return;
+  }
+
+  // Personal-org adoption waits for the complete root lane so hydration cannot
+  // re-enter the store before its child lanes are applied. The heuristic is
+  // intentionally personal-only, so use this exact durable identity pair to
+  // close the corresponding recovery gap for an active secondary organization.
+  adopter({
+    domainScope: state.runtime.state.domainScope,
+    expectedContainerId: localRootState.container.id,
+    nextContainerId: remoteRootState.container.id,
+    organizationId: remoteRootState.container.organizationId,
+    userId,
+  });
+}
+
 async function reconcileLocalOnlyRootContainer(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
   localRootState: ContainerState;
@@ -199,6 +230,7 @@ async function reconcileLocalOnlyRootContainer(input: {
     childIdsByParentId.delete(localRootState.container.id);
   }
   state.containersById.delete(localRootState.container.id);
+  adoptReconciledSessionRoot({ localRootState, remoteRootState, state });
   state.runtime.util.log(
     `Container contents: reconciled local root ${localRootState.container.id} into remote root ${remoteRootState.container.id}`,
   );

@@ -148,7 +148,8 @@ capabilities only.
 host stores and includes root adoption. Custom hosts assembling a store directly
 must use `createContainerContentsStoreWorkflowRuntime(input, adopter)`; the
 adopter atomically validates and updates the session root. The general workflow
-factory is query-only. Most product code should use the higher-level helpers.
+factory has no root-adoption capability. Most product code should use the
+higher-level helpers.
 
 `tearleads.containerContents.documentQueries().listPendingWrites()` returns an
 identity-wide, locally derived view of durable writes that have not converged.

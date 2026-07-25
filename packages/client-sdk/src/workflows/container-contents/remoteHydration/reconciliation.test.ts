@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
+import { createDomainScope } from "../../../data/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { ContainerContentsPersistence } from "../containerPersistence";
+import type { ContainerContentsRootAdoptionInput } from "../runtime";
 import {
   reconcileLocalOnlyRootContainers,
   reconcileLocalOnlySystemContainers,
@@ -53,6 +55,7 @@ async function reconciliationFixture() {
   const systemReconciliations: Array<
     Parameters<ContainerContentsPersistence["reconcileLocalSystemContainer"]>[1]
   > = [];
+  const rootAdoptions: ContainerContentsRootAdoptionInput[] = [];
   const persistence = {
     reconcileLocalRootContainer: async (
       _execSql: ExecSql,
@@ -71,8 +74,21 @@ async function reconciliationFixture() {
     containersById: new Map<string, ContainerState>(),
     persistence,
     runtime: {
-      auth: { organizationId: ORGANIZATION_ID },
+      adoptRootContainer: (input: ContainerContentsRootAdoptionInput) => {
+        rootAdoptions.push(input);
+        return true;
+      },
+      auth: {
+        defaultOrganizationId: "personal-organization",
+        isAuthenticated: true,
+        organizationId: ORGANIZATION_ID,
+        userId: "user-1",
+      },
       infra: { execSql: (() => Promise.resolve([])) as ExecSql },
+      state: {
+        containerId: "local-root",
+        domainScope: createDomainScope(),
+      },
       util: { log: () => undefined },
     },
   } as unknown as RemoteContainerHydrationState;
@@ -112,6 +128,7 @@ async function reconciliationFixture() {
     localSystem,
     remoteRoot,
     remoteSystem,
+    rootAdoptions,
     rootReconciliations,
     state,
     systemReconciliations,
@@ -203,6 +220,25 @@ test("root reconciliation requests priming after known system twins converge", a
   });
 
   expect(events).toEqual(["system-reconciled", "priming-requested"]);
+});
+
+test("root reconciliation adopts the exact active secondary-org root", async () => {
+  const fixture = await reconciliationFixture();
+
+  await reconcileLocalOnlyRootContainers({
+    remoteRootState: fixture.remoteRoot,
+    state: fixture.state,
+  });
+
+  expect(fixture.rootAdoptions).toEqual([
+    {
+      domainScope: fixture.state.runtime.state.domainScope,
+      expectedContainerId: "local-root",
+      nextContainerId: "remote-root",
+      organizationId: ORGANIZATION_ID,
+      userId: "user-1",
+    },
+  ]);
 });
 
 test("system-only reconciliation requests document priming", async () => {

@@ -26,6 +26,7 @@ interface DocumentRecoveryStoreState {
   documentStoresNeedPriming: boolean;
   readonly logLabel?: string | undefined;
   readonly persistence: ContainerContentsPersistence;
+  readonly rootLaneHydrated: boolean;
   readonly runtime: ContainerContentsStoreWorkflowRuntime;
 }
 
@@ -143,7 +144,7 @@ export async function recoverStoreStaleRoot(
   } else {
     rejectedAdoptionRuntime.delete(state);
   }
-  if (result.status === "reassigned") {
+  if (result.reassigned) {
     state.documentStoresNeedPriming = true;
   }
   return result.status;

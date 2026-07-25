@@ -10,7 +10,6 @@ interface RootContainerAdoptionDependencies {
   readonly session: Pick<
     Session,
     | "containerId"
-    | "defaultOrganizationId"
     | "isAuthenticated"
     | "organizationId"
     | "setContainerId"
@@ -26,7 +25,6 @@ export function adoptSessionRootContainer(
   if (
     dependencies.getDomainScope() !== input.domainScope ||
     !session.isAuthenticated ||
-    session.defaultOrganizationId !== input.organizationId ||
     session.organizationId !== input.organizationId ||
     session.userId !== input.userId
   ) {
