@@ -66,6 +66,25 @@ test("report includes every section a support ticket needs", () => {
   );
 });
 
+test("copied telemetry logs retain subsecond precision", () => {
+  const timestamp = new Date(2026, 0, 2, 3, 4, 5, 6).getTime();
+  const report = formatSystemMonitorReport({
+    capturedAt: CAPTURED_AT,
+    environment: [],
+    logEntries: [
+      createLogEntry(1, {
+        message: "interest baseline containers=2",
+        timestamp,
+      }),
+    ],
+    status: createStatus(),
+  });
+
+  expect(report).toMatch(
+    /\[\d{2}:\d{2}:\d{2}\.006\] interest baseline containers=2/u,
+  );
+});
+
 test("report omits the feature flags section outside developer mode", () => {
   const base = {
     capturedAt: CAPTURED_AT,
