@@ -42,18 +42,15 @@ function createFixture() {
   const adoptions: ContainerContentsRootAdoptionInput[] = [];
   const persistedContainerIds = new Set<string>();
   let adoptionResult = true;
-  let loadContainersEffect: () => void = () => undefined;
+  let containerExistsEffect: () => void = () => undefined;
   const state = {
     containersById: new Map<string, ContainerState>([
       ["remote-root", remoteRoot({ id: "remote-root" })],
     ]),
     persistence: {
-      loadContainers: async () => {
-        loadContainersEffect();
-        return Array.from(persistedContainerIds, (id) => ({
-          container: remoteRoot({ id }).container,
-          record: null,
-        }));
+      containerExists: async (_execSql: ExecSql, containerId: string) => {
+        containerExistsEffect();
+        return persistedContainerIds.has(containerId);
       },
       reassignContainerDocuments: async (
         _execSql: ExecSql,
@@ -63,7 +60,7 @@ function createFixture() {
       },
     } as Pick<
       ContainerContentsPersistence,
-      "loadContainers" | "reassignContainerDocuments"
+      "containerExists" | "reassignContainerDocuments"
     >,
     runtime: {
       adoptRootContainer: (input: ContainerContentsRootAdoptionInput) => {
@@ -87,8 +84,8 @@ function createFixture() {
     setAdoptionResult(value: boolean) {
       adoptionResult = value;
     },
-    setLoadContainersEffect(effect: () => void) {
-      loadContainersEffect = effect;
+    setContainerExistsEffect(effect: () => void) {
+      containerExistsEffect = effect;
     },
     state,
   };
@@ -165,7 +162,7 @@ test("stale root recovery ignores a durable root missing from a partial topology
 
 test("stale root recovery stops when runtime context changes during lookup", async () => {
   const fixture = createFixture();
-  fixture.setLoadContainersEffect(() => {
+  fixture.setContainerExistsEffect(() => {
     fixture.state.runtime.state.domainScope = createDomainScope();
   });
 

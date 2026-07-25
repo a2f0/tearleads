@@ -359,7 +359,7 @@ async function runContainerContentsStoreSyncIteration(input: {
   // Root adoption notifies session consumers synchronously. Let container
   // metadata converge first so a recovered system container is never exposed
   // under its placeholder name when the active root changes.
-  if (!(await recoverStoreStaleRoot(state))) {
+  if ((await recoverStoreStaleRoot(state)) === "context-changed") {
     return;
   }
 

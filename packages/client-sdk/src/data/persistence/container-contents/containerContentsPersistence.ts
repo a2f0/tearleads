@@ -111,6 +111,7 @@ export interface StoredContainerState {
 }
 
 export interface ContainerContentsPersistence {
+  containerExists: (execSql: ExecSql, containerId: string) => Promise<boolean>;
   deleteContainer: (
     execSql: ExecSql,
     containerId: string,
@@ -835,6 +836,15 @@ async function deleteLocalContainerRows(input: {
 }
 
 export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
+  async containerExists(execSql, containerId) {
+    const { db } = getClientSQLitePersistenceRuntime(execSql);
+    const rows = await db
+      .select({ id: containers.id })
+      .from(containers)
+      .where(eq(containers.id, containerId))
+      .limit(1);
+    return rows.length > 0;
+  },
   async deleteContainer(execSql, containerId, options) {
     await sqlContainerContentsPersistence.deleteContainers(
       execSql,

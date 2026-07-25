@@ -12,6 +12,7 @@ import {
   type ContainerContentsWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
 } from "../../workflows/container-contents/runtime";
+import type { StaleRootRecoveryStatus } from "../../workflows/container-contents/staleRootRecovery";
 import { recoverStaleSessionRoot } from "../../workflows/container-contents/staleRootRecovery";
 import { openDocumentStore } from "../documents";
 
@@ -87,7 +88,7 @@ export async function primeStoreDocuments(
 
 export async function recoverStoreStaleRoot(
   state: DocumentRecoveryStoreState,
-): Promise<boolean> {
+): Promise<StaleRootRecoveryStatus> {
   const result = await recoverStaleSessionRoot(state);
   if (result.status !== "not-needed") {
     state.runtime.util.log(
@@ -97,5 +98,5 @@ export async function recoverStoreStaleRoot(
   if (result.status === "reassigned") {
     state.documentStoresNeedPriming = true;
   }
-  return result.status !== "context-changed";
+  return result.status;
 }

@@ -50,6 +50,9 @@ export function createContainerContentsPersistence(input: {
   }>;
 }): ContainerContentsPersistence {
   return {
+    async containerExists() {
+      return false;
+    },
     async deleteContainer() {},
     async deleteContainers() {},
     async deletePendingUpdates() {},

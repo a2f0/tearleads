@@ -58,6 +58,9 @@ function createContainerContentsPersistence(input: {
   storedContainers: ReadonlyArray<StoredContainerState>;
 }): ContainerContentsPersistence {
   return {
+    async containerExists() {
+      return false;
+    },
     async deleteContainer() {},
     async deleteContainers() {},
     async deletePendingUpdates() {},

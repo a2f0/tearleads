@@ -22,6 +22,7 @@ import type { Database } from "./database";
 import type { Events } from "./events";
 import type { Identity } from "./identity";
 import type { Network } from "./network";
+import { adoptSessionRootContainer } from "./rootContainerAdoption";
 import type { Session } from "./sessionTypes";
 import type { SyncBillingGate } from "./syncBillingGate";
 
@@ -41,7 +42,7 @@ export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeInput {
 }
 
 export interface InternalRuntime {
-  adoptRootContainer?:
+  readonly adoptRootContainer?:
     | ((input: ContainerContentsRootAdoptionInput) => boolean)
     | undefined;
   readonly publicRuntime: Runtime;
@@ -106,21 +107,8 @@ export function createRuntime(
   );
 
   return {
-    adoptRootContainer(input) {
-      const session = dependencies.session;
-      if (
-        dependencies.getDomainScope() !== input.domainScope ||
-        !session.isAuthenticated ||
-        session.containerId !== input.expectedContainerId ||
-        session.organizationId !== input.organizationId ||
-        session.userId !== input.userId
-      ) {
-        return false;
-      }
-
-      session.setContainerId(input.nextContainerId);
-      return true;
-    },
+    adoptRootContainer: (input) =>
+      adoptSessionRootContainer(dependencies, input),
     async pinLocalUserIdentity(userId, candidate) {
       await trustedUserIdentityService.pinLocal(userId, candidate);
     },

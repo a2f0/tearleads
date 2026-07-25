@@ -5,7 +5,7 @@ import type {
   ContainerContentsWorkflowRuntime,
 } from "./runtime";
 
-type StaleRootRecoveryStatus =
+export type StaleRootRecoveryStatus =
   | "ambiguous"
   | "context-changed"
   | "not-needed"
@@ -21,7 +21,7 @@ interface StaleRootRecoveryState {
   readonly containersById: ReadonlyMap<string, ContainerState>;
   readonly persistence: Pick<
     ContainerContentsPersistence,
-    "loadContainers" | "reassignContainerDocuments"
+    "containerExists" | "reassignContainerDocuments"
   >;
   readonly runtime: {
     readonly adoptRootContainer?: ContainerContentsRootAdopter | undefined;
@@ -88,7 +88,9 @@ function listAuthoritativeRootCandidates(
  * beneath that deleted id, so startup priming detects their writes but cannot
  * route them. Recovery is intentionally narrow: the stale id must be absent
  * from both the loaded topology and durable storage, and the active
- * organization must have exactly one remote-backed top-level root.
+ * organization must have exactly one remote-backed top-level root. This
+ * compatibility path only repairs document references; structural container
+ * descendants remain owned by normal root reconciliation.
  */
 export async function recoverStaleSessionRoot(
   state: StaleRootRecoveryState,
@@ -107,12 +109,11 @@ export async function recoverStaleSessionRoot(
     return { candidateCount: 0, status: "not-needed" };
   }
 
-  const storedContainers = await state.persistence.loadContainers(
+  const storedContainerExists = await state.persistence.containerExists(
     state.runtime.infra.execSql,
+    staleContainerId,
   );
-  if (
-    storedContainers.some(({ container }) => container.id === staleContainerId)
-  ) {
+  if (storedContainerExists) {
     return { candidateCount: 0, status: "not-needed" };
   }
   if (
@@ -130,16 +131,12 @@ export async function recoverStaleSessionRoot(
   }
 
   const candidates = listAuthoritativeRootCandidates(state, organizationId);
-  if (candidates.length !== 1) {
+  const [remoteRootState] = candidates;
+  if (!remoteRootState || candidates.length > 1) {
     return { candidateCount: candidates.length, status: "ambiguous" };
   }
   if (!state.runtime.adoptRootContainer) {
     return { candidateCount: 1, status: "unsupported" };
-  }
-
-  const [remoteRootState] = candidates;
-  if (!remoteRootState) {
-    return { candidateCount: 0, status: "ambiguous" };
   }
 
   await state.persistence.reassignContainerDocuments(
