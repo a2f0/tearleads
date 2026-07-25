@@ -132,8 +132,8 @@ function RoutedPaneTaskBar({
         <TearleadsLogo className="routed-pane-taskbar-menu-logo" />
       </button>
       <div className="routed-pane-taskbar-end">
-        <SyncStatusIndicator />
         <NavigationModeSwitch mode="routed" />
+        <SyncStatusIndicator />
       </div>
     </footer>
   );
