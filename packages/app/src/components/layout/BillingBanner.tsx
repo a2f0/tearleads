@@ -4,6 +4,8 @@ import {
   useActiveMiniAppRoute,
   useMiniAppLauncher,
 } from "../../mini-apps/miniAppLauncher";
+import { useRoutedLayoutActive } from "../../navigation/useRoutedLayoutActive";
+import { useRoutedLayoutTier } from "../../navigation/useRoutedLayoutTier";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import {
   BILLING_LABELS,
@@ -37,10 +39,12 @@ export function BillingBannerView({
   view,
   onEnroll,
   isBillingScreen = false,
+  compactMobile = false,
 }: {
   view: OrganizationBillingView | null;
   onEnroll: () => void;
   isBillingScreen?: boolean | undefined;
+  compactMobile?: boolean | undefined;
 }) {
   if (!view || isBillingScreen) {
     return null;
@@ -56,11 +60,18 @@ export function BillingBannerView({
     );
   }
   if (view.isTrialing && view.trialDaysRemaining !== null) {
+    const trialLabel = getBillingTrialBannerLabel(view.trialDaysRemaining);
     return (
       <div className="billing-banner billing-banner--info" role="status">
-        {getBillingTrialBannerLabel(view.trialDaysRemaining)}{" "}
+        <span className="billing-banner-trial-copy" title={trialLabel}>
+          {trialLabel}
+        </span>
         <button
-          className="billing-banner-enroll"
+          className={
+            compactMobile
+              ? "tearleads-action-button billing-banner-enroll-button"
+              : "billing-banner-enroll-link"
+          }
           onClick={onEnroll}
           type="button"
         >
@@ -82,8 +93,10 @@ const BILLING_ROUTE = {
  * enrollment action through the shell launcher bridge.
  */
 export function ActiveRouteBillingBanner({
+  compactMobile = false,
   view,
 }: {
+  compactMobile?: boolean | undefined;
   view: OrganizationBillingView | null;
 }) {
   const launch = useMiniAppLauncher();
@@ -97,6 +110,7 @@ export function ActiveRouteBillingBanner({
   }, [launch]);
   return (
     <BillingBannerView
+      compactMobile={compactMobile}
       isBillingScreen={isBillingScreen}
       onEnroll={openBilling}
       view={view}
@@ -106,5 +120,12 @@ export function ActiveRouteBillingBanner({
 
 export function BillingBanner() {
   const { view } = useOrganizationBilling();
-  return <ActiveRouteBillingBanner view={view} />;
+  const routedLayoutActive = useRoutedLayoutActive();
+  const routedLayoutTier = useRoutedLayoutTier();
+  return (
+    <ActiveRouteBillingBanner
+      compactMobile={routedLayoutActive && routedLayoutTier === "mobile"}
+      view={view}
+    />
+  );
 }

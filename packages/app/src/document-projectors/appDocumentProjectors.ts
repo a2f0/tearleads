@@ -1,3 +1,4 @@
+import type { DocumentProjectorDefinition } from "@tearleads/client-sdk";
 import { audioDocumentProjectorDefinition } from "../document-types/audio/audioDocumentDefinition";
 import { bloodPressureDocumentProjectorDefinition } from "../document-types/blood-pressure/bloodPressureDocumentDefinition";
 import { contactDocumentProjectorDefinition } from "../document-types/contact/contactDocumentDefinition";
@@ -16,9 +17,11 @@ import { weightDocumentProjectorDefinition } from "../document-types/weight/weig
 import { contactClientProjection } from "./contactClientProjection";
 import { creditCardClientProjection } from "./creditCardClientProjection";
 import { driverLicenseClientProjection } from "./driverLicenseClientProjection";
+import { organizationProfileDocumentProjectorDefinition } from "./organizationProfileDocumentProjector";
 import { passportClientProjection } from "./passportClientProjection";
 
-export const APP_DOCUMENT_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentProjectorDefinition> =
+// Projectors whose kinds also have registered React document apps.
+export const APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentProjectorDefinition> =
   [
     noteDocumentProjectorDefinition,
     {
@@ -46,4 +49,11 @@ export const APP_DOCUMENT_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentProjec
     videoDocumentProjectorDefinition,
     pdfDocumentProjectorDefinition,
     genericFileDocumentProjectorDefinition,
+  ];
+
+// Every app-side projector, including system-only projection kinds.
+export const APP_DOCUMENT_PROJECTOR_DEFINITIONS: ReadonlyArray<DocumentProjectorDefinition> =
+  [
+    ...APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS,
+    organizationProfileDocumentProjectorDefinition,
   ];

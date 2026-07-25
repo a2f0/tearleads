@@ -76,9 +76,7 @@ test("shows the trial countdown while trialing", () => {
       })}
     />,
   );
-  expect(getByRole("status").textContent).toContain(
-    "Free trial ends in 3 days.",
-  );
+  expect(getByRole("status").textContent).toContain("3 days in free trial");
 });
 
 test("uses the singular day at one day left", () => {
@@ -94,9 +92,7 @@ test("uses the singular day at one day left", () => {
       })}
     />,
   );
-  expect(getByRole("status").textContent).toContain(
-    "Free trial ends in 1 day.",
-  );
+  expect(getByRole("status").textContent).toContain("1 day in free trial");
 });
 
 test("enroll button invokes onEnroll while trialing", () => {
@@ -113,8 +109,31 @@ test("enroll button invokes onEnroll while trialing", () => {
       })}
     />,
   );
-  fireEvent.click(getByRole("button", { name: "Enroll here" }));
+  fireEvent.click(getByRole("button", { name: "Enroll" }));
   expect(onEnroll).toHaveBeenCalledTimes(1);
+});
+
+test("uses the shared action button only in compact mobile mode", () => {
+  const trialView = view({
+    status: "trialing",
+    isLocal: false,
+    isTrialing: true,
+    canSync: true,
+    trialDaysRemaining: 3,
+  });
+  const rendered = render(
+    <BillingBannerView onEnroll={noop} view={trialView} />,
+  );
+  expect(rendered.getByRole("button").className).toBe(
+    "billing-banner-enroll-link",
+  );
+
+  rendered.rerender(
+    <BillingBannerView compactMobile onEnroll={noop} view={trialView} />,
+  );
+  expect(rendered.getByRole("button").className).toContain(
+    "tearleads-action-button",
+  );
 });
 
 test("renders nothing on the enrollment screen", () => {
@@ -166,7 +185,9 @@ test("hides the active-route banner only on org manager billing", () => {
       />
     </MiniAppLauncherProvider>,
   );
-  expect(rendered.getByRole("status").textContent).toContain("Free trial ends");
+  expect(rendered.getByRole("status").textContent).toContain(
+    "3 days in free trial",
+  );
 });
 
 test("warns when sync is disabled", () => {

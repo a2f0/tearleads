@@ -15,7 +15,18 @@
   color: var(--color-danger);
 }
 
-.billing-banner-enroll {
+.billing-banner--info {
+  white-space: nowrap;
+}
+
+.billing-banner-trial-copy {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.billing-banner-enroll-link {
+  flex: 0 0 auto;
   padding: 0;
   border: none;
   background: none;
@@ -23,4 +34,9 @@
   color: var(--tearleads-accent);
   text-decoration: underline;
   cursor: pointer;
+}
+
+.billing-banner-enroll-button {
+  flex: 0 0 auto;
+  font: inherit;
 }

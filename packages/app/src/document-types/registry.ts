@@ -26,6 +26,7 @@ import { PDF_DOCUMENT_KIND } from "./pdf/pdfDocumentDefinition";
 import {
   APP_DEFAULT_DOCUMENT_KIND,
   APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+  APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS,
 } from "./projectors";
 import type { DocumentTypeAppProps } from "./types";
 import { VideoDocumentApp } from "./video/VideoDocumentApp";
@@ -60,7 +61,7 @@ const documentTypeAppsByKind = new Map<
 ]);
 
 export const DOCUMENT_TYPE_DEFINITIONS: ReadonlyArray<DocumentTypeDefinition> =
-  APP_DOCUMENT_PROJECTOR_DEFINITIONS.map((definition) => {
+  APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS.map((definition) => {
     const App = documentTypeAppsByKind.get(definition.kind);
     if (App === undefined) {
       throw new Error(
