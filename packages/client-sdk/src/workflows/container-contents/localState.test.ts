@@ -88,6 +88,7 @@ function createContainerContentsPersistence(input: {
     },
     async recordCreateIntentError() {},
     async recordMoveIntentError() {},
+    async reassignContainerDocuments() {},
     async reconcileLocalRootContainer() {},
     async reconcileLocalSystemContainer() {},
     async loadContainers() {

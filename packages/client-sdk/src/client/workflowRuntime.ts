@@ -8,6 +8,7 @@ import {
   type LocalUserIdentityCandidate,
   type TrustedUserIdentityResolver,
 } from "../data/trustedUserIdentity";
+import type { ContainerContentsRootAdoptionInput } from "../workflows/container-contents/runtime";
 import type {
   WorkflowRuntimeAuthInput,
   WorkflowRuntimeCryptoInput,
@@ -40,6 +41,9 @@ export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeInput {
 }
 
 export interface InternalRuntime {
+  adoptRootContainer?:
+    | ((input: ContainerContentsRootAdoptionInput) => boolean)
+    | undefined;
   readonly publicRuntime: Runtime;
   pinLocalUserIdentity(
     userId: string,
@@ -102,6 +106,21 @@ export function createRuntime(
   );
 
   return {
+    adoptRootContainer(input) {
+      const session = dependencies.session;
+      if (
+        dependencies.getDomainScope() !== input.domainScope ||
+        !session.isAuthenticated ||
+        session.containerId !== input.expectedContainerId ||
+        session.organizationId !== input.organizationId ||
+        session.userId !== input.userId
+      ) {
+        return false;
+      }
+
+      session.setContainerId(input.nextContainerId);
+      return true;
+    },
     async pinLocalUserIdentity(userId, candidate) {
       await trustedUserIdentityService.pinLocal(userId, candidate);
     },
