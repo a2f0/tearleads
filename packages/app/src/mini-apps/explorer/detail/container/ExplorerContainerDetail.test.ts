@@ -461,7 +461,7 @@ test("container item table labels only the current self contact as You", () => {
   expect(view.getByRole("button", { name: "owner-user-id" })).toBeTruthy();
 });
 
-test("container item table shows a contact avatar in place of the kind glyph", () => {
+test("container item table uses contact avatars and their shared placeholder", () => {
   const view = renderContainerItemTable({
     contactAvatarUrlByLocalId: {
       [namedCurrentSelfContactRow.localId]: "blob:avatar",
@@ -476,9 +476,12 @@ test("container item table shows a contact avatar in place of the kind glyph", (
     withAvatar.querySelector(".contact-avatar-image")?.getAttribute("src"),
   ).toBe("blob:avatar");
   expect(withAvatar.querySelector(".explorer-item-icon")).toBeNull();
-  // Contacts with no loaded avatar keep the document-kind glyph.
+  expect(withoutAvatar.querySelector(".contact-avatar")).not.toBeNull();
   expect(withoutAvatar.querySelector(".contact-avatar-image")).toBeNull();
-  expect(withoutAvatar.querySelector(".explorer-item-icon")).not.toBeNull();
+  expect(
+    withoutAvatar.querySelector(".contact-avatar-silhouette"),
+  ).not.toBeNull();
+  expect(withoutAvatar.querySelector(".explorer-item-icon")).toBeNull();
 });
 
 test("container item table renders configured container icons", () => {

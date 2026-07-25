@@ -1,19 +1,20 @@
 import type { StoredDocumentKind } from "@tearleads/client-sdk";
 import type { AvatarUrlByContactId } from "../../document-types/contact/useContactAvatarUrls";
 
-// Contact rows swap their document-kind glyph for the contact's avatar once one
-// is loaded, matching the Contacts mini-app's list rows. Returns undefined for
-// every other document kind, for contacts with no avatar, and for contacts
-// outside the Explorer's contacts container (whose avatars are never loaded) —
-// callers fall back to the glyph.
-export function getExplorerContactAvatarUrl(
+interface ExplorerContactAvatar {
+  imageUrl: string | undefined;
+}
+
+// Distinguishes an avatar-less contact from a non-contact document so every
+// Explorer view can render the shared ContactAvatar silhouette for the former.
+export function getExplorerContactAvatar(
   documentKind: StoredDocumentKind,
   localId: string,
   avatarUrlByLocalId: AvatarUrlByContactId,
-): string | undefined {
+): ExplorerContactAvatar | null {
   if (documentKind !== "contact") {
-    return undefined;
+    return null;
   }
 
-  return avatarUrlByLocalId[localId];
+  return { imageUrl: avatarUrlByLocalId[localId] };
 }
