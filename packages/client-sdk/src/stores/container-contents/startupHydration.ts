@@ -22,6 +22,7 @@ interface StartupHydrationState {
       };
     }
   >;
+  rootLaneHydrated: boolean;
   runtime: {
     auth: { isAuthenticated: boolean };
     infra: { execSql: StartupHydrationExecSql };
@@ -61,6 +62,10 @@ async function getStaleStartupRemoteHydrationParentIds(
     syncLanes,
   );
   const nowMs = Date.now();
+  const rootCheckRecord = checkRecords[0];
+  state.rootLaneHydrated = rootCheckRecord
+    ? isFreshStartupRemoteHydrationCheck(rootCheckRecord.checkedAt, nowMs)
+    : false;
   const hydrateUnmarkedRoot = shouldHydrateUnmarkedStartupRoot(state);
 
   return parentIds.filter((_, index) => {

@@ -171,6 +171,7 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
       remoteHydrationPromise: null,
       resolveProjectionUserKey:
         createExplorerProjectionUserKeyResolver(runtime),
+      rootLaneHydrated: false,
       runtime,
       snapshot: {
         ready: true,
@@ -306,6 +307,7 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
       remoteHydrationPromise: null,
       resolveProjectionUserKey:
         createExplorerProjectionUserKeyResolver(runtime),
+      rootLaneHydrated: false,
       runtime,
       snapshot: {
         ready: true,
@@ -469,6 +471,7 @@ test("explorer sync skips pending metadata updates for containers without docume
       remoteHydrationPromise: null,
       resolveProjectionUserKey:
         createExplorerProjectionUserKeyResolver(runtime),
+      rootLaneHydrated: false,
       runtime,
       snapshot: {
         ready: true,
