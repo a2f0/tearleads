@@ -150,3 +150,31 @@ test("uses an injected native keyboard signal when the WebView resizes", () => {
   view.unmount();
   expect(notify).toBeUndefined();
 });
+
+test("clears native keyboard visibility while mobile mode is disabled", () => {
+  let notify: ((visible: boolean) => void) | undefined;
+  const subscribe: SubscribeKeyboardVisibilityFn = (listener) => {
+    notify = listener;
+    return () => {
+      notify = undefined;
+    };
+  };
+  const view = render(
+    <KeyboardState subscribeKeyboardVisibility={subscribe} />,
+  );
+
+  act(() => notify?.(true));
+  expect(view.getByText("true")).toBeTruthy();
+
+  view.rerender(
+    <KeyboardState enabled={false} subscribeKeyboardVisibility={subscribe} />,
+  );
+  expect(view.getByText("false")).toBeTruthy();
+  expect(notify).toBeUndefined();
+
+  view.rerender(<KeyboardState subscribeKeyboardVisibility={subscribe} />);
+  expect(view.getByText("false")).toBeTruthy();
+  expect(notify).toBeDefined();
+
+  view.unmount();
+});

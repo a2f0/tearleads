@@ -42,6 +42,7 @@ export type CreateNetworkStatusFn = () => NetworkStatusSource;
  * WebSocket that reports `OPEN` after its underlying path has died.
  */
 export type SubscribeConnectionRefreshFn = (listener: () => void) => () => void;
+/** Supplies native keyboard state when WebView resizing hides viewport changes. */
 export type SubscribeKeyboardVisibilityFn = (
   listener: (visible: boolean) => void,
 ) => () => void;

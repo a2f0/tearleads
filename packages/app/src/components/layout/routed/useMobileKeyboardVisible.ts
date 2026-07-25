@@ -50,6 +50,7 @@ export function useMobileKeyboardVisible(
 
   useEffect(() => {
     if (!enabled) {
+      setVisible(false);
       return;
     }
 
