@@ -20,11 +20,11 @@ import {
   markContainerSyncLaneChecked,
   saveContainerSyncWatermark,
 } from "../../workflows/container-contents/containerPersistence";
-import { createContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
 import {
   createContainerContentsStore,
   getOrCreateContainerContentsStore,
 } from "./containerContentsStore";
+import { createContainerContentsStoreTestRuntime } from "./runtime.testFixtures";
 
 interface Deferred<T> {
   promise: Promise<T>;
@@ -82,9 +82,9 @@ function createTestRuntime(input: {
     throw new Error("Unexpected SQL call in container contents store test.");
   };
 
-  return createContainerContentsWorkflowRuntime({
+  return createContainerContentsStoreTestRuntime({
     apiClient: {} as Parameters<
-      typeof createContainerContentsWorkflowRuntime
+      typeof createContainerContentsStoreTestRuntime
     >[0]["apiClient"],
     auth: {
       isAuthenticated: false,
@@ -120,7 +120,7 @@ function createSqlTestRuntime(input: {
   domainScope: DomainScope;
   execSql: ExecSql;
 }) {
-  return createContainerContentsWorkflowRuntime({
+  return createContainerContentsStoreTestRuntime({
     apiClient: input.apiClient,
     auth: {
       isAuthenticated: true,

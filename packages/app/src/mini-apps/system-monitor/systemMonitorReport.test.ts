@@ -182,22 +182,26 @@ test("report retains only anchored content-free telemetry", () => {
           "Container contents: stale root recovery status=reassigned candidates=1",
       }),
       createLogEntry(5, {
-        message: "Documents: remote revalidation scheduled reason=startup",
+        message:
+          "Container contents: stale root recovery status=already-adopted candidates=1",
       }),
       createLogEntry(6, {
+        message: "Documents: remote revalidation scheduled reason=startup",
+      }),
+      createLogEntry(7, {
         message:
           "Documents: remote revalidation result=applied incomingUpdates=2 attachmentSlots=1",
       }),
-      createLogEntry(7, {
+      createLogEntry(8, {
         message: "Documents: remote revalidation result=unavailable",
       }),
-      createLogEntry(8, {
+      createLogEntry(9, {
         message: "WebSocket: interest baseline containers=12",
       }),
-      createLogEntry(9, {
+      createLogEntry(10, {
         message: "WebSocket: interest declaration acknowledged",
       }),
-      createLogEntry(10, {
+      createLogEntry(11, {
         message:
           "Documents: remote revalidation scheduled reason=reconnect PRIVATE cardiology scan.pdf",
       }),
@@ -211,6 +215,9 @@ test("report retains only anchored content-free telemetry", () => {
   expect(report).not.toContain("PRIVATE");
   expect(report).toContain(
     "stale root recovery status=reassigned candidates=1",
+  );
+  expect(report).toContain(
+    "stale root recovery status=already-adopted candidates=1",
   );
   expect(report).toContain("remote revalidation scheduled reason=startup");
   expect(report).toContain(

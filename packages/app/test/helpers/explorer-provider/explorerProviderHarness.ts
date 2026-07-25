@@ -458,6 +458,7 @@ export async function createSqlRuntime(): Promise<TestRuntime> {
 
   return {
     ...runtime,
+    adoptRootContainer: () => false,
     close: runtimeBase.close,
   };
 }

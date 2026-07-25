@@ -19,7 +19,7 @@ import {
   type RemoteContainerHydrationHost,
 } from "../../workflows/container-contents/remoteHydration";
 import {
-  type ContainerContentsWorkflowRuntime,
+  type ContainerContentsStoreWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
 } from "../../workflows/container-contents/runtime";
 import {
@@ -52,7 +52,8 @@ import {
 
 export type { ContainerState };
 
-export type ContainerContentsStoreRuntime = ContainerContentsWorkflowRuntime;
+export type ContainerContentsStoreRuntime =
+  ContainerContentsStoreWorkflowRuntime;
 
 export interface ContainerContentsStoreSyncState {
   containersById: Map<string, ContainerState>;

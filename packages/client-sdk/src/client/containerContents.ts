@@ -43,6 +43,7 @@ import {
 } from "../workflows/container-contents/documentStructure";
 import { createContainerContentsDocumentProjectionUserKeyResolver } from "../workflows/container-contents/projectionKeys";
 import {
+  type ContainerContentsStoreWorkflowRuntime,
   type ContainerContentsWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
   createContainerContentsStoreWorkflowRuntime,
@@ -438,7 +439,7 @@ class ContainerContentsService implements ContainerContents {
     });
   }
 
-  workflowRuntime(): ContainerContentsWorkflowRuntime {
+  workflowRuntime(): ContainerContentsStoreWorkflowRuntime {
     return createContainerContentsStoreWorkflowRuntime(
       this.runtimeService.workflowInput(),
       this.runtimeService.adoptRootContainer,

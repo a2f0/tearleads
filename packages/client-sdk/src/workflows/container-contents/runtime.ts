@@ -51,7 +51,9 @@ export interface ContainerContentsWorkflowRuntimeState
   extends WorkflowRuntimeStateInput {}
 
 export interface ContainerContentsWorkflowRuntimeUtil
-  extends ContainerContentsWorkflowRuntimeUtilInput {}
+  extends ContainerContentsWorkflowRuntimeUtilInput {
+  readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
+}
 
 export interface ContainerContentsRootAdoptionInput {
   readonly domainScope: ContainerContentsWorkflowRuntimeState["domainScope"];
@@ -92,6 +94,11 @@ export interface ContainerContentsWorkflowRuntime
     Pick<ContainerContentsWorkflowRuntimeInput, "apiClient"> {
   readonly adoptRootContainer?: ContainerContentsRootAdopter | undefined;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+}
+
+export interface ContainerContentsStoreWorkflowRuntime
+  extends ContainerContentsWorkflowRuntime {
+  readonly adoptRootContainer: ContainerContentsRootAdopter;
 }
 
 export interface ContainerContentsWorkflowSqlRuntime {
@@ -160,9 +167,12 @@ export function createContainerContentsWorkflowRuntime(
 export function createContainerContentsStoreWorkflowRuntime(
   input: ContainerContentsWorkflowRuntimeInput,
   adoptRootContainer: ContainerContentsRootAdopter,
-): ContainerContentsWorkflowRuntime {
-  return createContainerContentsWorkflowRuntimeWithRootAdopter(
-    input,
+): ContainerContentsStoreWorkflowRuntime {
+  return {
+    ...createContainerContentsWorkflowRuntimeWithRootAdopter(
+      input,
+      adoptRootContainer,
+    ),
     adoptRootContainer,
-  );
+  };
 }

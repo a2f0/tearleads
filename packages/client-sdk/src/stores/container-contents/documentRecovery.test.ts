@@ -7,8 +7,25 @@ import {
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
-import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
+import type { ContainerContentsStoreWorkflowRuntime } from "../../workflows/container-contents/runtime";
 import { primeStoreDocuments, recoverStoreStaleRoot } from "./documentRecovery";
+
+function remoteRoot(id: string): ContainerState {
+  return {
+    container: {
+      effectiveAccessLevel: "admin",
+      id,
+      metadataDocumentId: `${id}-metadata`,
+      organizationId: "organization-1",
+      parentId: null,
+      systemSlot: null,
+    },
+    record: {
+      accessStateHash: `${id}-access-state`,
+      documentId: `${id}-metadata`,
+    },
+  } as unknown as ContainerState;
+}
 
 test("a priming signal raised mid-pass survives for the next pass", async () => {
   const { close, execSql: baseExecSql } = await createTestExecSql(
@@ -44,10 +61,11 @@ test("a priming signal raised mid-pass survives for the next pass", async () => 
       persistence:
         defaultContainerContentsPersistence as ContainerContentsPersistence,
       runtime: {
+        adoptRootContainer: () => false,
         infra: { execSql },
         state: { domainScope: {} },
         util: { log: () => {} },
-      } as unknown as ContainerContentsWorkflowRuntime,
+      } as unknown as ContainerContentsStoreWorkflowRuntime,
     };
 
     const firstPass = primeStoreDocuments(state);
@@ -79,23 +97,7 @@ test("stale root recovery logs the result and re-arms document priming", async (
   let reassignmentCount = 0;
   const state = {
     containersById: new Map<string, ContainerState>([
-      [
-        "remote-root",
-        {
-          container: {
-            effectiveAccessLevel: "admin",
-            id: "remote-root",
-            metadataDocumentId: "remote-root-metadata",
-            organizationId: "organization-1",
-            parentId: null,
-            systemSlot: null,
-          },
-          record: {
-            accessStateHash: "remote-root-access-state",
-            documentId: "remote-root-metadata",
-          },
-        } as unknown as ContainerState,
-      ],
+      ["remote-root", remoteRoot("remote-root")],
     ]),
     documentStoresNeedPriming: false,
     persistence: {
@@ -122,7 +124,7 @@ test("stale root recovery logs the result and re-arms document priming", async (
         domainScope: createDomainScope(),
       },
       util: { log: (message: string) => logs.push(message) },
-    } as unknown as ContainerContentsWorkflowRuntime,
+    } as unknown as ContainerContentsStoreWorkflowRuntime,
   };
 
   await expect(recoverStoreStaleRoot(state)).resolves.toBe("reassigned");
@@ -141,10 +143,13 @@ test("stale root recovery logs the result and re-arms document priming", async (
   ]);
 });
 
-test("stale root recovery logs a persistent status only once", async () => {
+test("stale root recovery logs status or candidate-count changes", async () => {
   const logs: string[] = [];
   const state = {
-    containersById: new Map<string, ContainerState>(),
+    containersById: new Map<string, ContainerState>([
+      ["remote-root-1", remoteRoot("remote-root-1")],
+      ["remote-root-2", remoteRoot("remote-root-2")],
+    ]),
     documentStoresNeedPriming: false,
     persistence: {
       ...defaultContainerContentsPersistence,
@@ -164,13 +169,57 @@ test("stale root recovery logs a persistent status only once", async () => {
         domainScope: createDomainScope(),
       },
       util: { log: (message: string) => logs.push(message) },
-    } as unknown as ContainerContentsWorkflowRuntime,
+    } as unknown as ContainerContentsStoreWorkflowRuntime,
   };
 
+  await expect(recoverStoreStaleRoot(state)).resolves.toBe("ambiguous");
+  state.containersById.set("remote-root-3", remoteRoot("remote-root-3"));
   await expect(recoverStoreStaleRoot(state)).resolves.toBe("ambiguous");
   await expect(recoverStoreStaleRoot(state)).resolves.toBe("ambiguous");
 
   expect(logs).toEqual([
-    "Container contents: stale root recovery status=ambiguous candidates=0",
+    "Container contents: stale root recovery status=ambiguous candidates=2",
+    "Container contents: stale root recovery status=ambiguous candidates=3",
+  ]);
+});
+
+test("stale root recovery contains transient persistence failures", async () => {
+  const error = new Error("temporary SQLite failure");
+  const loggedErrors: Array<{ cause: unknown; message: string | Error }> = [];
+  const state = {
+    containersById: new Map<string, ContainerState>(),
+    documentStoresNeedPriming: false,
+    persistence: {
+      ...defaultContainerContentsPersistence,
+      containerExists: async () => Promise.reject(error),
+    },
+    runtime: {
+      adoptRootContainer: () => true,
+      auth: {
+        defaultOrganizationId: "organization-1",
+        isAuthenticated: true,
+        organizationId: "organization-1",
+        userId: "user-1",
+      },
+      infra: { execSql: (() => Promise.resolve([])) as ExecSql },
+      state: {
+        containerId: "stale-root",
+        domainScope: createDomainScope(),
+      },
+      util: {
+        log: () => {},
+        logError: (message: string | Error, cause?: unknown) =>
+          loggedErrors.push({ cause, message }),
+      },
+    } as unknown as ContainerContentsStoreWorkflowRuntime,
+  };
+
+  await expect(recoverStoreStaleRoot(state)).resolves.toBe("not-needed");
+  expect(state.documentStoresNeedPriming).toBe(false);
+  expect(loggedErrors).toEqual([
+    {
+      cause: error,
+      message: "Container contents: stale root recovery failed",
+    },
   ]);
 });

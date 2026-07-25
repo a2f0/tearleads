@@ -10,8 +10,8 @@ import { defaultDocumentProjectorRegistry } from "../../data/documents/documentK
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
-import { createContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
 import { createContainerContentsStore } from "./containerContentsStore";
+import { createContainerContentsStoreTestRuntime } from "./runtime.testFixtures";
 
 function emptyListContainersResponse(): ListContainersResponse {
   return {
@@ -174,7 +174,7 @@ function createSqlTestRuntime(input: {
   execSql: ExecSql;
   rootContainerId: string;
 }) {
-  return createContainerContentsWorkflowRuntime({
+  return createContainerContentsStoreTestRuntime({
     apiClient: input.apiClient,
     auth: {
       isAuthenticated: true,

@@ -9,7 +9,7 @@ import type {
 } from "../../workflows/container-contents/documentQueries/types";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import {
-  type ContainerContentsWorkflowRuntime,
+  type ContainerContentsStoreWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
 } from "../../workflows/container-contents/runtime";
 import type { StaleRootRecoveryStatus } from "../../workflows/container-contents/staleRootRecovery";
@@ -25,12 +25,12 @@ interface DocumentRecoveryStoreState {
   documentStoresNeedPriming: boolean;
   readonly logLabel?: string | undefined;
   readonly persistence: ContainerContentsPersistence;
-  readonly runtime: ContainerContentsWorkflowRuntime;
+  readonly runtime: ContainerContentsStoreWorkflowRuntime;
 }
 
-const lastStaleRootRecoveryStatus = new WeakMap<
+const lastStaleRootRecoveryMessage = new WeakMap<
   DocumentRecoveryStoreState,
-  StaleRootRecoveryStatus
+  string
 >();
 
 function createPrimeHost(
@@ -94,14 +94,24 @@ export async function primeStoreDocuments(
 export async function recoverStoreStaleRoot(
   state: DocumentRecoveryStoreState,
 ): Promise<StaleRootRecoveryStatus> {
-  const result = await recoverStaleSessionRoot(state);
-  const previousStatus = lastStaleRootRecoveryStatus.get(state);
-  if (result.status !== "not-needed" && result.status !== previousStatus) {
-    state.runtime.util.log(
-      `${logLabel(state)}: stale root recovery status=${result.status} candidates=${result.candidateCount}`,
-    );
+  let result: Awaited<ReturnType<typeof recoverStaleSessionRoot>>;
+  try {
+    result = await recoverStaleSessionRoot(state);
+  } catch (error) {
+    const message = `${logLabel(state)}: stale root recovery failed`;
+    if (state.runtime.util.logError) {
+      state.runtime.util.logError(message, error);
+    } else {
+      state.runtime.util.log(message);
+    }
+    return "not-needed";
   }
-  lastStaleRootRecoveryStatus.set(state, result.status);
+  const message = `${logLabel(state)}: stale root recovery status=${result.status} candidates=${result.candidateCount}`;
+  const previousMessage = lastStaleRootRecoveryMessage.get(state);
+  if (result.status !== "not-needed" && message !== previousMessage) {
+    state.runtime.util.log(message);
+  }
+  lastStaleRootRecoveryMessage.set(state, message);
   if (result.status === "reassigned") {
     state.documentStoresNeedPriming = true;
   }

@@ -5,8 +5,8 @@ import { defaultDocumentProjectorRegistry } from "../../data/documents/documentK
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
-import { createContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
 import { createContainerContentsStore } from "./containerContentsStore";
+import { createContainerContentsStoreTestRuntime } from "./runtime.testFixtures";
 
 async function waitForCondition(
   predicate: () => boolean | Promise<boolean>,
@@ -30,7 +30,7 @@ function createRuntime(input: {
   organizationId: string | null;
   rootContainerId: string;
 }) {
-  return createContainerContentsWorkflowRuntime({
+  return createContainerContentsStoreTestRuntime({
     apiClient: createMockApiClient(),
     auth: {
       isAuthenticated: true,

@@ -6,10 +6,8 @@ import { createDomainScope, type DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { requireTrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
-import {
-  type ContainerContentsWorkflowRuntime,
-  createContainerContentsWorkflowRuntime,
-} from "../../workflows/container-contents/runtime";
+import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
+import { createContainerContentsStoreTestRuntime } from "./runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsStoreRuntime,
@@ -20,10 +18,10 @@ function createRuntime(input: {
   domainScope: DomainScope;
   online: boolean;
   resolveTrustedUserIdentity: ContainerContentsWorkflowRuntime["resolveTrustedUserIdentity"];
-}): ContainerContentsWorkflowRuntime {
-  return createContainerContentsWorkflowRuntime({
+}): ReturnType<typeof createContainerContentsStoreTestRuntime> {
+  return createContainerContentsStoreTestRuntime({
     apiClient: {} as Parameters<
-      typeof createContainerContentsWorkflowRuntime
+      typeof createContainerContentsStoreTestRuntime
     >[0]["apiClient"],
     auth: {
       isAuthenticated: true,

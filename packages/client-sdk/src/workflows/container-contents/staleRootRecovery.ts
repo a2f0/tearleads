@@ -84,7 +84,11 @@ function listAuthoritativeRootCandidates(
  * organization must have exactly one owner-administered, non-system,
  * remote-backed top-level root. This compatibility path only repairs document
  * references; structural container descendants remain owned by normal root
- * reconciliation.
+ * reconciliation. Durable reassignment deliberately precedes live session
+ * adoption so consumers never observe the new root before its documents move.
+ * If the live-session guard rejects that adoption, the idempotent reassignment
+ * remains applied and the sync lane is re-armed to retry under the next runtime
+ * snapshot.
  */
 export async function recoverStaleSessionRoot(
   state: StaleRootRecoveryState,

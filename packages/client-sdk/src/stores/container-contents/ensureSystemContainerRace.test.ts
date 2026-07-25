@@ -9,8 +9,8 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import { reconcileLocalOnlySystemContainers } from "../../workflows/container-contents/remoteHydration/reconciliation";
-import { createContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
 import { ensureSystemContainer } from "./operations";
+import { createContainerContentsStoreTestRuntime } from "./runtime.testFixtures";
 import {
   createContainerContentsStoreState,
   updateContainerContentsSnapshot,
@@ -119,7 +119,7 @@ test("a late local system create collapses into a remotely hydrated slot", async
       return container;
     },
   } as unknown as ContainerContentsPersistence;
-  const runtime = createContainerContentsWorkflowRuntime({
+  const runtime = createContainerContentsStoreTestRuntime({
     apiClient: createMockApiClient(),
     auth: {
       isAuthenticated: true,
@@ -246,7 +246,7 @@ test("a root-first late create rebases before its remote system slot arrives", a
         return container;
       },
     } as unknown as ContainerContentsPersistence;
-    const runtime = createContainerContentsWorkflowRuntime({
+    const runtime = createContainerContentsStoreTestRuntime({
       apiClient: createMockApiClient(),
       auth: {
         isAuthenticated: true,

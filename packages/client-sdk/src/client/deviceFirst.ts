@@ -28,7 +28,7 @@ import {
 import { createReconciledDocumentContentPuller } from "../sync/reconciliation/documentContentPull";
 import { loadLocalContainerProjectionDocumentsFromRuntime } from "../workflows/container-contents/projectionView";
 import {
-  type ContainerContentsWorkflowRuntime,
+  type ContainerContentsStoreWorkflowRuntime,
   createContainerContentsStoreWorkflowRuntime,
 } from "../workflows/container-contents/runtime";
 import type { ContainerContents } from "./containerContents";
@@ -107,7 +107,7 @@ class DeviceFirstService implements DeviceFirst {
     this.entriesByScope.clear();
   }
 
-  private workflowRuntime(): ContainerContentsWorkflowRuntime {
+  private workflowRuntime(): ContainerContentsStoreWorkflowRuntime {
     return createDeviceFirstWorkflowRuntime(this.runtimeService);
   }
 
@@ -257,7 +257,7 @@ class DeviceFirstService implements DeviceFirst {
 
 export function createDeviceFirstWorkflowRuntime(
   runtimeService: InternalRuntime,
-): ContainerContentsWorkflowRuntime {
+): ContainerContentsStoreWorkflowRuntime {
   return createContainerContentsStoreWorkflowRuntime(
     runtimeService.workflowInput(),
     runtimeService.adoptRootContainer,
