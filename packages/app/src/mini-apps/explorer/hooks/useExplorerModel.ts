@@ -144,8 +144,8 @@ export function useExplorerModel(
   const contactsSnapshot = useTearleadsExternalStoreSnapshot(contactsStore);
   // Contact rows across the Explorer show the contact's avatar in place of the
   // document-kind glyph, the same swap the Contacts mini-app's rows make. Only
-  // this container's contacts are loaded, so contact documents living elsewhere
-  // keep the glyph.
+  // this container's avatar images are loaded; contacts living elsewhere use
+  // the shared no-avatar silhouette.
   const contactAvatarUrlByLocalId = useContactAvatarUrls(
     contactsSnapshot.entries,
     appData.infra.blobStore,

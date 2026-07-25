@@ -142,6 +142,11 @@ test("sidebar link refresh keeps stale rows visible until the reload lands", asy
 
   await waitFor(() => {
     expect(calls.length).toBe(2);
+    expect(
+      view.result.current.documentWindowsByContainerId.get(
+        CONTACTS_CONTAINER_ID,
+      )?.isLoading,
+    ).toBe(true);
   });
   expect(calls[1]).toEqual({
     containerId: CONTACTS_CONTAINER_ID,
