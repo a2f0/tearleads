@@ -31,6 +31,7 @@ function installTestVisualViewport(): {
   const original = window.visualViewport;
   const viewport = new EventTarget() as VisualViewport;
   Reflect.set(viewport, "height", window.innerHeight);
+  Reflect.set(viewport, "scale", 1);
   Reflect.set(window, "visualViewport", viewport);
 
   return {
@@ -228,6 +229,7 @@ test("mobile routed shell hides the taskbar while a text input is focused", () =
 
 test("tablet routed shell keeps the taskbar while a text input is focused", () => {
   const restoreMatchMedia = forceTabletRoutedTier();
+  const viewport = installTestVisualViewport();
   let view: ReturnType<typeof renderRoutedPane> | undefined;
 
   try {
@@ -235,7 +237,8 @@ test("tablet routed shell keeps the taskbar while a text input is focused", () =
     const input = document.createElement("input");
     getRoutedMain(view.container).append(input);
 
-    fireEvent.focusIn(input);
+    act(() => input.focus());
+    viewport.setKeyboardVisible(true);
     expect(
       view.container
         .querySelector(".routed-pane-taskbar")
@@ -243,6 +246,7 @@ test("tablet routed shell keeps the taskbar while a text input is focused", () =
     ).toBe(false);
   } finally {
     view?.unmount();
+    viewport.restore();
     restoreMatchMedia();
   }
 });

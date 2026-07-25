@@ -18,6 +18,7 @@ import {
   useRoutedLayoutTier,
 } from "../../../navigation/useRoutedLayoutTier";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
+import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
 import { useRegisterUserId } from "../../pane/dual-pane";
@@ -215,10 +216,14 @@ function RoutedPaneSurface({
   const logoutDialog = useConfirmedLogoutDialog();
   const { destroyKey } = useIdentity();
   const { isDeveloperMode } = useSystemMonitor();
+  const { subscribeKeyboardVisibility } = useAppHostConfig();
   const destroyKeyPackageDialog = useDestroyKeyPackageConfirmation(destroyKey);
   const hasSidebar =
     sidebar !== null && sidebar !== undefined && sidebar !== false;
-  const mobileKeyboardVisible = useMobileKeyboardVisible(tier === "mobile");
+  const mobileKeyboardVisible = useMobileKeyboardVisible(
+    tier === "mobile",
+    subscribeKeyboardVisibility,
+  );
 
   const fileMenuItems = useWindowFileMenuItems();
   const viewMenuItems = useWindowViewMenuItems();

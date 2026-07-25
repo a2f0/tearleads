@@ -215,7 +215,7 @@
 }
 
 .routed-pane--mobile[data-keyboard="open"] .routed-pane-main {
-  padding-block-end: var(--safe-area-bottom);
+  padding-block-end: max(var(--space-xs), var(--safe-area-bottom));
 }
 
 /* Same tier scoping as the app bar: only mobile's taskbar reaches the

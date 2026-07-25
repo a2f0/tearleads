@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { SubscribeKeyboardVisibilityFn } from "../../../host/AppHostConfig";
 
 const MIN_KEYBOARD_INSET_PX = 100;
 const NON_TEXT_INPUT_TYPES = new Set([
@@ -15,20 +16,15 @@ const NON_TEXT_INPUT_TYPES = new Set([
 ]);
 
 function isTextInputElement(target: EventTarget | null): boolean {
-  if (typeof Element === "undefined" || !(target instanceof Element)) {
-    return false;
-  }
-
-  const input = target.closest("input, textarea");
-  if (input instanceof HTMLInputElement) {
+  if (target instanceof HTMLInputElement) {
     return (
-      !input.disabled &&
-      !input.readOnly &&
-      !NON_TEXT_INPUT_TYPES.has(input.type)
+      !target.disabled &&
+      !target.readOnly &&
+      !NON_TEXT_INPUT_TYPES.has(target.type)
     );
   }
-  if (input instanceof HTMLTextAreaElement) {
-    return !input.disabled && !input.readOnly;
+  if (target instanceof HTMLTextAreaElement) {
+    return !target.disabled && !target.readOnly;
   }
 
   return target instanceof HTMLElement && target.isContentEditable;
@@ -40,17 +36,25 @@ function isSoftwareKeyboardVisible(target: EventTarget | null): boolean {
     isTextInputElement(target) &&
     viewport !== undefined &&
     viewport !== null &&
+    viewport.scale <= 1 &&
     window.innerHeight - viewport.height >= MIN_KEYBOARD_INSET_PX
   );
 }
 
 /** Tracks a software keyboard covering the bottom of the mobile viewport. */
-export function useMobileKeyboardVisible(enabled: boolean): boolean {
+export function useMobileKeyboardVisible(
+  enabled: boolean,
+  subscribeKeyboardVisibility?: SubscribeKeyboardVisibilityFn | undefined,
+): boolean {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     if (!enabled) {
       return;
+    }
+
+    if (subscribeKeyboardVisibility) {
+      return subscribeKeyboardVisibility(setVisible);
     }
 
     let subscribed = true;
@@ -62,8 +66,12 @@ export function useMobileKeyboardVisible(enabled: boolean): boolean {
     const updateFromFocus = (event: FocusEvent) => {
       setVisible(isSoftwareKeyboardVisible(event.target));
     };
-    const updateAfterBlur = () => {
-      queueMicrotask(updateFromActiveElement);
+    const updateAfterBlur = (event: FocusEvent) => {
+      if (event.relatedTarget !== null) {
+        setVisible(isSoftwareKeyboardVisible(event.relatedTarget));
+      } else {
+        queueMicrotask(updateFromActiveElement);
+      }
     };
     const viewport = window.visualViewport;
 
@@ -79,7 +87,7 @@ export function useMobileKeyboardVisible(enabled: boolean): boolean {
       window.removeEventListener("resize", updateFromActiveElement);
       viewport?.removeEventListener("resize", updateFromActiveElement);
     };
-  }, [enabled]);
+  }, [enabled, subscribeKeyboardVisibility]);
 
   return enabled && visible;
 }

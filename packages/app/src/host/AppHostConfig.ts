@@ -42,6 +42,9 @@ export type CreateNetworkStatusFn = () => NetworkStatusSource;
  * WebSocket that reports `OPEN` after its underlying path has died.
  */
 export type SubscribeConnectionRefreshFn = (listener: () => void) => () => void;
+export type SubscribeKeyboardVisibilityFn = (
+  listener: (visible: boolean) => void,
+) => () => void;
 
 /**
  * Builds the platform's direct card-checkout capability (issue #1654). Only
@@ -228,6 +231,9 @@ export interface AppHostConfigOptions {
   readonly subscribeConnectionRefresh?:
     | SubscribeConnectionRefreshFn
     | undefined;
+  readonly subscribeKeyboardVisibility?:
+    | SubscribeKeyboardVisibilityFn
+    | undefined;
   readonly createSQLiteRuntime?: CreateSQLiteRuntimeFn | undefined;
   readonly disableLocalIdentityPersistence?: boolean | undefined;
   readonly localIdentityNamespace?: string | undefined;
@@ -338,6 +344,10 @@ export class AppHostConfig {
     readonly subscribeConnectionRefresh?:
       | SubscribeConnectionRefreshFn
       | undefined,
+    /** Native software-keyboard visibility for WebViews resized by the OS. */
+    readonly subscribeKeyboardVisibility?:
+      | SubscribeKeyboardVisibilityFn
+      | undefined,
   ) {}
 
   /**
@@ -367,6 +377,7 @@ export class AppHostConfig {
       reuseDatabaseWorker: this.reuseDatabaseWorker,
       localKeyringKeyMaterialStorage: this.localKeyringKeyMaterialStorage,
       subscribeConnectionRefresh: this.subscribeConnectionRefresh,
+      subscribeKeyboardVisibility: this.subscribeKeyboardVisibility,
       ...overrides,
     });
   }
@@ -395,6 +406,7 @@ export function createAppHostConfig(
     options.reuseDatabaseWorker,
     options.localKeyringKeyMaterialStorage,
     options.subscribeConnectionRefresh,
+    options.subscribeKeyboardVisibility,
   );
 }
 
