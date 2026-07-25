@@ -129,7 +129,7 @@ function ExplorerContainerInfoLocalDetails(params: {
   const { containerId, containerInfo } = params;
 
   return (
-    <MiniAppInfoTable>
+    <MiniAppInfoTable className="mini-app-info-table--borderless">
       <tbody>
         <tr>
           <th>{EXPLORER_LABELS.containerInfoIdRow}</th>

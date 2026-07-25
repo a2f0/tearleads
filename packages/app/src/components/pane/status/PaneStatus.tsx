@@ -21,7 +21,9 @@ export function PaneStatus({ pinned = false }: { pinned?: boolean } = {}) {
     >
       <MiniAppInfoTable
         className={
-          pinned ? "mini-app-info-table--pinned" : "system-monitor-status-table"
+          pinned
+            ? "mini-app-info-table--borderless mini-app-info-table--pinned"
+            : "mini-app-info-table--borderless system-monitor-status-table"
         }
       >
         <tbody>
