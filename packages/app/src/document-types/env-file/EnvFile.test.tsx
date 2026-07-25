@@ -113,6 +113,7 @@ test("variable count follows the rows", () => {
   const view = renderEnvFileFields({ isEditing: false });
   const rows = view.container.querySelectorAll(".env-file-variable-read-row");
   const footer = view.container.querySelector(".env-file-variable-list-footer");
+  expect(footer).not.toBeNull();
   const position =
     rows[rows.length - 1]?.compareDocumentPosition(footer as Node) ?? 0;
 

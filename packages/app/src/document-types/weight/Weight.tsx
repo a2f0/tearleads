@@ -66,14 +66,14 @@ function WeightReadFields(params: {
       <section className="weight-entry-list">
         <div className="weight-entry-list-header">
           <strong>Entries</strong>
-          {onEnterEdit ? (
-            <WeightQuickAdd
-              controlsDisabled={controlsDisabled}
-              onAddEntry={onAddEntry}
-              unit={unit}
-            />
-          ) : null}
         </div>
+        {onEnterEdit ? (
+          <WeightQuickAdd
+            controlsDisabled={controlsDisabled}
+            onAddEntry={onAddEntry}
+            unit={unit}
+          />
+        ) : null}
         {entries.length === 0 ? (
           <div className="weight-empty-state">No entries</div>
         ) : (
@@ -168,7 +168,7 @@ function WeightEditFields(params: {
             className="weight-add-button"
             withIcon
             disabled={controlsDisabled}
-            onClick={onAddEntry}
+            onClick={() => onAddEntry()}
           >
             <PlusIcon aria-hidden size={14} />
             Add Entry

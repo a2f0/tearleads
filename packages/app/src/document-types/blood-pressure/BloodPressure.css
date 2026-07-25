@@ -25,9 +25,6 @@
 .blood-pressure-reading-list-footer {
   font-size: var(--font-size-sm);
   opacity: var(--opacity-muted);
-}
-
-.blood-pressure-reading-list-footer {
   text-align: end;
 }
 

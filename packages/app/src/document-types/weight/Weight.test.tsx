@@ -306,10 +306,34 @@ test("quick add saves a populated entry without entering edit mode", () => {
   expect(view.queryByLabelText("Weight tracker name")).toBeNull();
 });
 
+test("quick add rejects invalid weights and cancel clears the draft", () => {
+  const view = renderWeightFields({
+    isEditing: false,
+    onEnterEdit: () => undefined,
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Add Entry" }));
+  const input = view.getByLabelText("Quick add weight");
+  fireEvent.change(input, { target: { value: "0" } });
+
+  expect(input.getAttribute("aria-invalid")).toBe("true");
+  expect(
+    (view.getByRole("button", { name: "Save Entry" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+
+  fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(view.getByRole("button", { name: "Add Entry" }));
+  expect(
+    (view.getByLabelText("Quick add weight") as HTMLInputElement).value,
+  ).toBe("");
+});
+
 test("entry count follows the rows", () => {
   const view = renderWeightFields({ isEditing: false });
   const rows = view.container.querySelectorAll(".weight-entry-read-row");
   const footer = view.container.querySelector(".weight-entry-list-footer");
+  expect(footer).not.toBeNull();
   const position =
     rows[rows.length - 1]?.compareDocumentPosition(footer as Node) ?? 0;
 

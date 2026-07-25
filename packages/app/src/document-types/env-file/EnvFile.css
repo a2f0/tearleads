@@ -25,9 +25,6 @@
 .env-file-variable-list-footer {
   font-size: var(--font-size-sm);
   opacity: var(--opacity-muted);
-}
-
-.env-file-variable-list-footer {
   text-align: end;
 }
 

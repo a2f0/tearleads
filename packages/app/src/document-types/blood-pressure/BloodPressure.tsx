@@ -61,13 +61,13 @@ function BloodPressureReadFields(params: {
       <section className="blood-pressure-reading-list">
         <div className="blood-pressure-reading-list-header">
           <strong>Readings</strong>
-          {onEnterEdit ? (
-            <BloodPressureQuickAdd
-              controlsDisabled={controlsDisabled}
-              onAddReading={onAddReading}
-            />
-          ) : null}
         </div>
+        {onEnterEdit ? (
+          <BloodPressureQuickAdd
+            controlsDisabled={controlsDisabled}
+            onAddReading={onAddReading}
+          />
+        ) : null}
         {readings.length === 0 ? (
           <div className="blood-pressure-empty-state">No readings</div>
         ) : (
@@ -140,7 +140,7 @@ function BloodPressureEditFields(params: {
             className="blood-pressure-add-button"
             withIcon
             disabled={controlsDisabled}
-            onClick={onAddReading}
+            onClick={() => onAddReading()}
           >
             <PlusIcon aria-hidden size={14} />
             Add Reading

@@ -385,6 +385,32 @@ test("quick add saves a populated reading without entering edit mode", () => {
   expect(view.queryByLabelText("Blood pressure tracker name")).toBeNull();
 });
 
+test("quick add rejects invalid readings and cancel clears the draft", () => {
+  const view = renderBloodPressureFields({
+    isEditing: false,
+    onEnterEdit: () => undefined,
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Add Reading" }));
+  const systolic = view.getByLabelText("Quick add systolic");
+  fireEvent.change(systolic, { target: { value: "900" } });
+  fireEvent.change(view.getByLabelText("Quick add diastolic"), {
+    target: { value: "80" },
+  });
+
+  expect(systolic.getAttribute("aria-invalid")).toBe("true");
+  expect(
+    (view.getByRole("button", { name: "Save Reading" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+
+  fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(view.getByRole("button", { name: "Add Reading" }));
+  expect(
+    (view.getByLabelText("Quick add systolic") as HTMLInputElement).value,
+  ).toBe("");
+});
+
 test("reading count follows the rows", () => {
   const view = renderBloodPressureFields({ isEditing: false });
   const rows = view.container.querySelectorAll(
@@ -393,6 +419,7 @@ test("reading count follows the rows", () => {
   const footer = view.container.querySelector(
     ".blood-pressure-reading-list-footer",
   );
+  expect(footer).not.toBeNull();
   const position =
     rows[rows.length - 1]?.compareDocumentPosition(footer as Node) ?? 0;
 

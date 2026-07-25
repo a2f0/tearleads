@@ -23,25 +23,26 @@ const EMPTY_READING: BloodPressureQuickReading = {
 
 function MeasurementInput(params: {
   controlsDisabled: boolean;
+  field: "diastolic" | "pulse" | "systolic";
   label: string;
   onChange: (value: string) => void;
   placeholder: string;
   value: string;
 }) {
-  const { controlsDisabled, label, onChange, placeholder, value } = params;
+  const { controlsDisabled, field, label, onChange, placeholder, value } =
+    params;
   const valid = value.length === 0 || isValidBloodPressureMeasurement(value);
   return (
     <label
-      className={`blood-pressure-reading-field blood-pressure-reading-field-${label.toLowerCase()}`}
+      className={`blood-pressure-reading-field blood-pressure-reading-field-${field}`}
     >
       {label}
       <input
         aria-invalid={!valid ? "true" : undefined}
-        aria-label={`Quick add ${label.toLowerCase()}`}
+        aria-label={`Quick add ${field}`}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         inputMode="numeric"
-        pattern="\d*"
         placeholder={placeholder}
         disabled={controlsDisabled}
         autoComplete="off"
@@ -60,6 +61,7 @@ function QuickReadingFields(params: {
     <>
       <MeasurementInput
         controlsDisabled={controlsDisabled}
+        field="systolic"
         label="Systolic"
         onChange={(value) => onChange("systolic", value)}
         placeholder="120"
@@ -67,6 +69,7 @@ function QuickReadingFields(params: {
       />
       <MeasurementInput
         controlsDisabled={controlsDisabled}
+        field="diastolic"
         label="Diastolic"
         onChange={(value) => onChange("diastolic", value)}
         placeholder="80"
@@ -74,6 +77,7 @@ function QuickReadingFields(params: {
       />
       <MeasurementInput
         controlsDisabled={controlsDisabled}
+        field="pulse"
         label="Pulse"
         onChange={(value) => onChange("pulse", value)}
         placeholder="72"

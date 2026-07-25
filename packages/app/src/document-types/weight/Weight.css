@@ -25,9 +25,6 @@
 .weight-entry-list-footer {
   font-size: var(--font-size-sm);
   opacity: var(--opacity-muted);
-}
-
-.weight-entry-list-footer {
   text-align: end;
 }
 

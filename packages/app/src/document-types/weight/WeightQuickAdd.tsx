@@ -74,7 +74,6 @@ export function WeightQuickAdd(params: {
             }))
           }
           inputMode="decimal"
-          pattern="\d*(\.\d{1,2})?"
           placeholder={unit === "kg" ? "82.5" : "180.5"}
           disabled={controlsDisabled}
           autoComplete="off"
