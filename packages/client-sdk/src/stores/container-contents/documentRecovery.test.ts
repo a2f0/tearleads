@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createDomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type ContainerContentsPersistence,
@@ -7,7 +8,7 @@ import {
 } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
-import { primeStoreDocuments } from "./documentRecovery";
+import { primeStoreDocuments, recoverStoreStaleRoot } from "./documentRecovery";
 
 test("a priming signal raised mid-pass survives for the next pass", async () => {
   const { close, execSql: baseExecSql } = await createTestExecSql(
@@ -70,4 +71,57 @@ test("a priming signal raised mid-pass survives for the next pass", async () => 
   } finally {
     close();
   }
+});
+
+test("stale root recovery logs the result and re-arms document priming", async () => {
+  const logs: string[] = [];
+  let reassignmentCount = 0;
+  const state = {
+    containersById: new Map<string, ContainerState>([
+      [
+        "remote-root",
+        {
+          container: {
+            id: "remote-root",
+            metadataDocumentId: "remote-root-metadata",
+            organizationId: "organization-1",
+            parentId: null,
+          },
+          record: {
+            accessStateHash: "remote-root-access-state",
+            documentId: "remote-root-metadata",
+          },
+        } as unknown as ContainerState,
+      ],
+    ]),
+    documentStoresNeedPriming: false,
+    persistence: {
+      ...defaultContainerContentsPersistence,
+      containerExists: async () => false,
+      reassignContainerDocuments: async () => {
+        reassignmentCount += 1;
+      },
+    },
+    runtime: {
+      adoptRootContainer: () => true,
+      auth: {
+        isAuthenticated: true,
+        organizationId: "organization-1",
+        userId: "user-1",
+      },
+      infra: { execSql: (() => Promise.resolve([])) as ExecSql },
+      state: {
+        containerId: "stale-root",
+        domainScope: createDomainScope(),
+      },
+      util: { log: (message: string) => logs.push(message) },
+    } as unknown as ContainerContentsWorkflowRuntime,
+  };
+
+  await expect(recoverStoreStaleRoot(state)).resolves.toBe("reassigned");
+  expect(reassignmentCount).toBe(1);
+  expect(state.documentStoresNeedPriming).toBe(true);
+  expect(logs).toEqual([
+    "Container contents: stale root recovery status=reassigned candidates=1",
+  ]);
 });

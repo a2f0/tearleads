@@ -75,6 +75,7 @@ function createRuntime(
     },
   } satisfies InternalWorkflowRuntimeInput;
   const runtime = {
+    adoptRootContainer: () => false,
     pinLocalUserIdentity: async () => {},
     publicRuntime: {
       version: 0,

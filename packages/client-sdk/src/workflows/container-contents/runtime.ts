@@ -124,11 +124,9 @@ export function createContainerContentsDocumentsRuntime(
   );
 }
 
-export function createContainerContentsWorkflowRuntime(
+function createContainerContentsWorkflowRuntimeWithRootAdopter(
   input: ContainerContentsWorkflowRuntimeInput,
-  options: {
-    readonly adoptRootContainer?: ContainerContentsRootAdopter | undefined;
-  } = {},
+  adoptRootContainer?: ContainerContentsRootAdopter | undefined,
 ): ContainerContentsWorkflowRuntime {
   const documentProjectors = resolveDocumentProjectorRegistry(
     input.infra.documentProjectors,
@@ -139,9 +137,7 @@ export function createContainerContentsWorkflowRuntime(
   };
 
   return {
-    ...(options.adoptRootContainer
-      ? { adoptRootContainer: options.adoptRootContainer }
-      : {}),
+    ...(adoptRootContainer ? { adoptRootContainer } : {}),
     apiClient: input.apiClient,
     auth: input.auth,
     crypto: input.crypto,
@@ -152,4 +148,21 @@ export function createContainerContentsWorkflowRuntime(
     state: input.state,
     util: input.util,
   };
+}
+
+export function createContainerContentsWorkflowRuntime(
+  input: ContainerContentsWorkflowRuntimeInput,
+): ContainerContentsWorkflowRuntime {
+  return createContainerContentsWorkflowRuntimeWithRootAdopter(input);
+}
+
+/** Internal store runtime with the session-root adoption capability wired. */
+export function createContainerContentsStoreWorkflowRuntime(
+  input: ContainerContentsWorkflowRuntimeInput,
+  adoptRootContainer: ContainerContentsRootAdopter,
+): ContainerContentsWorkflowRuntime {
+  return createContainerContentsWorkflowRuntimeWithRootAdopter(
+    input,
+    adoptRootContainer,
+  );
 }

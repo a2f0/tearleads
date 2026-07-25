@@ -45,6 +45,7 @@ import { createContainerContentsDocumentProjectionUserKeyResolver } from "../wor
 import {
   type ContainerContentsWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
+  createContainerContentsStoreWorkflowRuntime,
   createContainerContentsWorkflowRuntime,
 } from "../workflows/container-contents/runtime";
 import { createContainerDocumentObjectSyncState } from "../workflows/container-contents/syncState";
@@ -438,9 +439,9 @@ class ContainerContentsService implements ContainerContents {
   }
 
   workflowRuntime(): ContainerContentsWorkflowRuntime {
-    return createContainerContentsWorkflowRuntime(
+    return createContainerContentsStoreWorkflowRuntime(
       this.runtimeService.workflowInput(),
-      { adoptRootContainer: this.runtimeService.adoptRootContainer },
+      this.runtimeService.adoptRootContainer,
     );
   }
 }

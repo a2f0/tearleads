@@ -33,6 +33,7 @@ import {
   primeStoreDocuments,
   recoverStoreStaleRoot,
 } from "./documentRecovery";
+import { runContainerDocumentWork } from "./documentWork";
 import { refreshLocalContainerStates } from "./localRefresh";
 import {
   bumpMetadataSyncSeq,
@@ -359,26 +360,27 @@ async function runContainerContentsStoreSyncIteration(input: {
   // Root adoption notifies session consumers synchronously. Let container
   // metadata converge first so a recovered system container is never exposed
   // under its placeholder name when the active root changes.
-  if ((await recoverStoreStaleRoot(state)) === "context-changed") {
-    return;
-  }
-
-  // Document move intents live in the structural phase because they may target
-  // containers created locally in the same session, such as Trash. Root
-  // recovery also rewrites stale endpoints and returns their intents to pending,
-  // so replay must follow recovery to consume that work in this same pass.
-  const movedDocumentCount = await syncPendingDocumentMoveIntents({
-    host: createContainerContentsStoreDocumentMoveHost(state),
-    isRemoteSyncBlocked: isOrganizationBlocked,
-    state,
+  const documentWorkResult = await runContainerDocumentWork({
+    onDocumentsMoved: () => {
+      requestDomainDocumentSync(state.runtime.state.domainScope);
+      requestContainerContentsStoreSync(state);
+    },
+    primeDocuments: () => primeStoreDocuments(state),
+    recoverStaleRoot: () => recoverStoreStaleRoot(state),
+    shouldPrimeDocuments: () => state.documentStoresNeedPriming,
+    // Document move intents live in the structural phase because they may
+    // target containers created locally in the same session, such as Trash.
+    // Root recovery rewrites stale endpoints and returns their intents to
+    // pending, so replay follows recovery in this same pass.
+    syncPendingDocumentMoves: () =>
+      syncPendingDocumentMoveIntents({
+        host: createContainerContentsStoreDocumentMoveHost(state),
+        isRemoteSyncBlocked: isOrganizationBlocked,
+        state,
+      }),
   });
-  if (movedDocumentCount > 0) {
-    requestDomainDocumentSync(state.runtime.state.domainScope);
-    requestContainerContentsStoreSync(state);
-  }
-
-  if (state.documentStoresNeedPriming) {
-    await primeStoreDocuments(state);
+  if (documentWorkResult === "context-changed") {
+    return;
   }
 }
 

@@ -29,7 +29,7 @@ import { createReconciledDocumentContentPuller } from "../sync/reconciliation/do
 import { loadLocalContainerProjectionDocumentsFromRuntime } from "../workflows/container-contents/projectionView";
 import {
   type ContainerContentsWorkflowRuntime,
-  createContainerContentsWorkflowRuntime,
+  createContainerContentsStoreWorkflowRuntime,
 } from "../workflows/container-contents/runtime";
 import type { ContainerContents } from "./containerContents";
 import type { InternalRuntime } from "./workflowRuntime";
@@ -108,9 +108,7 @@ class DeviceFirstService implements DeviceFirst {
   }
 
   private workflowRuntime(): ContainerContentsWorkflowRuntime {
-    return createContainerContentsWorkflowRuntime(
-      this.runtimeService.workflowInput(),
-    );
+    return createDeviceFirstWorkflowRuntime(this.runtimeService);
   }
 
   private getOrCreateEntry(
@@ -255,4 +253,13 @@ class DeviceFirstService implements DeviceFirst {
       isIgnorableError: isDatabaseUnavailableError,
     };
   }
+}
+
+export function createDeviceFirstWorkflowRuntime(
+  runtimeService: InternalRuntime,
+): ContainerContentsWorkflowRuntime {
+  return createContainerContentsStoreWorkflowRuntime(
+    runtimeService.workflowInput(),
+    runtimeService.adoptRootContainer,
+  );
 }

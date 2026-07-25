@@ -598,6 +598,7 @@ describe("Tearleads", () => {
     expect(unsubscribeDocuments).toBeFunction();
     unsubscribeDocuments();
     expect(containerContents.auth.userId).toBe("user-1");
+    expect(containerContents.adoptRootContainer).toBeFunction();
     const documentLinks = sdk.containerContents.documentLinks();
     expect(documentLinks.documentRuntime("container-2").state.containerId).toBe(
       "container-2",

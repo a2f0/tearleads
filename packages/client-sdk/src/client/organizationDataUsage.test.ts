@@ -61,6 +61,7 @@ function createDataUsageTestRuntime(input: {
     util: { log: () => {}, logError: () => {} },
   });
   const runtime: InternalRuntime = {
+    adoptRootContainer: () => false,
     pinLocalUserIdentity: async () => {},
     publicRuntime: {
       version: 0,

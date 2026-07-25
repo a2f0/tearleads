@@ -101,6 +101,7 @@ test("concurrent read-model reconciliation is single-flight", async () => {
     },
   };
   const runtime = {
+    adoptRootContainer: () => false,
     pinLocalUserIdentity: async () => {},
     publicRuntime: {
       version: 0,
@@ -226,6 +227,7 @@ test("post-mutation reconciliation waits for an older request and coalesces one 
   let currentOrganizationId: string | null =
     organizationReadModelOrganizationId;
   const runtime = {
+    adoptRootContainer: () => false,
     pinLocalUserIdentity: async () => {},
     publicRuntime: {
       version: 0,
@@ -386,6 +388,7 @@ test("policy history cold misses single-flight through verified persistence", as
     },
   } satisfies InternalWorkflowRuntimeInput;
   const runtime = {
+    adoptRootContainer: () => false,
     pinLocalUserIdentity: async () => {},
     publicRuntime: {
       version: 0,

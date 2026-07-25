@@ -42,9 +42,9 @@ export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeInput {
 }
 
 export interface InternalRuntime {
-  readonly adoptRootContainer?:
-    | ((input: ContainerContentsRootAdoptionInput) => boolean)
-    | undefined;
+  readonly adoptRootContainer: (
+    input: ContainerContentsRootAdoptionInput,
+  ) => boolean;
   readonly publicRuntime: Runtime;
   pinLocalUserIdentity(
     userId: string,

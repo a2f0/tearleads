@@ -10,7 +10,10 @@ import {
 import { primeDocumentsForLoadedRoots } from "./documentPriming";
 import { saveTestDocument } from "./documentQueries.testFixtures";
 import type { ContainerState } from "./remoteHydration";
-import type { ContainerContentsRootAdoptionInput } from "./runtime";
+import type {
+  ContainerContentsRootAdopter,
+  ContainerContentsRootAdoptionInput,
+} from "./runtime";
 import { recoverStaleSessionRoot } from "./staleRootRecovery";
 
 const ORGANIZATION_ID = "organization-1";
@@ -42,6 +45,10 @@ function createFixture() {
   const adoptions: ContainerContentsRootAdoptionInput[] = [];
   const persistedContainerIds = new Set<string>();
   let adoptionResult = true;
+  const adoptRootContainer: ContainerContentsRootAdopter = (input) => {
+    adoptions.push(input);
+    return adoptionResult;
+  };
   let containerExistsEffect: () => void = () => undefined;
   const state = {
     containersById: new Map<string, ContainerState>([
@@ -63,10 +70,7 @@ function createFixture() {
       "containerExists" | "reassignContainerDocuments"
     >,
     runtime: {
-      adoptRootContainer: (input: ContainerContentsRootAdoptionInput) => {
-        adoptions.push(input);
-        return adoptionResult;
-      },
+      adoptRootContainer,
       auth: {
         isAuthenticated: true,
         organizationId: ORGANIZATION_ID,
@@ -81,6 +85,9 @@ function createFixture() {
     adoptions,
     persistedContainerIds,
     reassignments,
+    disableAdoption() {
+      Reflect.set(state.runtime, "adoptRootContainer", undefined);
+    },
     setAdoptionResult(value: boolean) {
       adoptionResult = value;
     },
@@ -129,6 +136,30 @@ test("stale root recovery refuses ambiguous or foreign roots", async () => {
   await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
     candidateCount: 2,
     status: "ambiguous",
+  });
+  expect(fixture.reassignments).toEqual([]);
+  expect(fixture.adoptions).toEqual([]);
+});
+
+test("stale root recovery reports when no authoritative root is loaded", async () => {
+  const fixture = createFixture();
+  fixture.state.containersById.clear();
+
+  await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
+    candidateCount: 0,
+    status: "ambiguous",
+  });
+  expect(fixture.reassignments).toEqual([]);
+  expect(fixture.adoptions).toEqual([]);
+});
+
+test("stale root recovery reports a missing adoption capability", async () => {
+  const fixture = createFixture();
+  fixture.disableAdoption();
+
+  await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
+    candidateCount: 1,
+    status: "unsupported",
   });
   expect(fixture.reassignments).toEqual([]);
   expect(fixture.adoptions).toEqual([]);
