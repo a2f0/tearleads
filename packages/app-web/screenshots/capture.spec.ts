@@ -92,13 +92,13 @@ const ROUTED_SCREENS: readonly RoutedScreen[] = [
 interface WindowedApp {
   /** Output file stem (`<name>.png`). */
   name: string;
-  /** Footer-launcher menu label; see MINI_APP_MENU_ITEMS in registry.ts. */
+  /** Start-menu label; see MINI_APP_MENU_ITEMS in registry.ts. */
   menuLabel: string;
 }
 
-// Windowed apps opened from the footer "Menu" launcher. System Monitor is
-// launched from the footer tray instead (see registry.ts) and is handled
-// separately below.
+// Most windowed apps are opened from the footer Start menu. System Monitor is
+// also available there, but its capture uses the persistent tray shortcut below
+// so the screenshot suite covers both launcher surfaces.
 const WINDOWED_MENU_APPS: readonly WindowedApp[] = [
   { name: "explorer", menuLabel: "Explorer" },
   { name: "contacts", menuLabel: "Contacts" },
@@ -236,7 +236,8 @@ async function captureWindowed(page: Page, outputDir: string): Promise<void> {
     );
   }
 
-  // System Monitor lives in the footer tray, not the launcher menu.
+  // Exercise the persistent System Monitor tray shortcut; the Start-menu entry
+  // uses the same unpin-then-open behavior.
   await visiblePane(page)
     .getByRole("button", { name: "System Monitor" })
     .click();

@@ -293,10 +293,21 @@ test(
     });
 
     fireEvent.click(view.getByRole("button", { name: "Menu" }));
+    const paneMenu = view.baseElement.querySelector<HTMLElement>(".menu");
+    if (!(paneMenu instanceof HTMLElement)) {
+      throw new Error("Expected pane menu.");
+    }
     expect(view.queryByRole("button", { name: "Logout" })).toBeNull();
     expect(view.queryByRole("button", { name: "Destroy Key Pair" })).toBeNull();
-    expect(view.getByRole("button", { name: "Explorer" })).toBeTruthy();
-    expect(view.getByRole("button", { name: "Notes" })).toBeTruthy();
+    expect(
+      within(paneMenu).getByRole("button", { name: "Explorer" }),
+    ).toBeTruthy();
+    expect(
+      within(paneMenu).getByRole("button", { name: "Notes" }),
+    ).toBeTruthy();
+    expect(
+      within(paneMenu).getByRole("button", { name: "System Monitor" }),
+    ).toBeTruthy();
 
     const identityManagerWindow = await openIdentityManagerFromPane(view);
     const identitySection = within(identityManagerWindow)

@@ -86,16 +86,16 @@ function PaneInner({
             </>
           }
         />
+        {contextMenu && (
+          <PaneContextMenu
+            hasSigningKeyPair={hasSigningKeyPair}
+            paneLocked={paneLocked}
+            position={contextMenu}
+            onClose={closeContextMenu}
+            onGenerateKeyPair={generateKeyPair}
+          />
+        )}
       </SystemMonitorProvider>
-      {contextMenu && (
-        <PaneContextMenu
-          hasSigningKeyPair={hasSigningKeyPair}
-          paneLocked={paneLocked}
-          position={contextMenu}
-          onClose={closeContextMenu}
-          onGenerateKeyPair={generateKeyPair}
-        />
-      )}
     </section>
   );
 }
