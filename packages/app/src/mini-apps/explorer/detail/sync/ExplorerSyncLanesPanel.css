@@ -128,7 +128,7 @@
 }
 
 /*
- * The lane detail presents its sections as tabs (reusing .explorer-info-tabs /
+ * The lane detail presents its sections as tabs (the shared MiniAppTabs, plus
  * .explorer-info-tab-panel from Explorer.css). The tab panel is a single
  * column, so the key row and any long cell values wrap within the panel width
  * instead of forcing a horizontal scroll.

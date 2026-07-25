@@ -138,7 +138,7 @@ test("copy button is in the toolbar and reachable from every tab", async () => {
     name: "Copy report for support",
   });
   expect(copyButton.closest(".window-toolbar")).not.toBeNull();
-  expect(copyButton.closest(".system-monitor-tab-bar")).toBeNull();
+  expect(copyButton.closest(".mini-app-tabs")).toBeNull();
 
   view.unmount();
 });

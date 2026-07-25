@@ -6,9 +6,11 @@ import type {
 } from "@tearleads/client-sdk";
 import { useEffect, useId, useState } from "react";
 import {
-  MiniAppButton,
   MiniAppFormPanel,
   MiniAppStatus,
+  type MiniAppTabDescriptor,
+  MiniAppTabList,
+  MiniAppTabPanel,
 } from "../../../../components/mini-app/MiniAppLayout";
 import { EXPLORER_LABELS } from "../../labels";
 import type { MiniAppWindowPosition } from "../../types";
@@ -66,10 +68,9 @@ interface Props {
 
 type ContainerInfoTabId = "general" | "sharing" | "security" | "sync";
 
-const CONTAINER_INFO_TABS: ReadonlyArray<{
-  id: ContainerInfoTabId;
-  label: string;
-}> = [
+const CONTAINER_INFO_TABS: ReadonlyArray<
+  MiniAppTabDescriptor<ContainerInfoTabId>
+> = [
   { id: "general", label: EXPLORER_LABELS.containerInfoGeneralTab },
   { id: "sharing", label: EXPLORER_LABELS.containerInfoSharingTab },
   { id: "security", label: EXPLORER_LABELS.containerInfoSecurityTab },
@@ -130,28 +131,13 @@ function ExplorerContainerInfoTabs(params: {
   setActiveTab: (tab: ContainerInfoTabId) => void;
 }) {
   return (
-    <div
-      aria-label={EXPLORER_LABELS.containerInfoTabsLabel}
-      className="explorer-info-tabs"
-      role="tablist"
-    >
-      {CONTAINER_INFO_TABS.map((tab) => (
-        <MiniAppButton
-          aria-controls={`${params.idPrefix}-${tab.id}-panel`}
-          aria-selected={params.activeTab === tab.id}
-          className="explorer-info-tab"
-          id={`${params.idPrefix}-${tab.id}-tab`}
-          key={tab.id}
-          role="tab"
-          variant="ghost"
-          onClick={() => {
-            params.setActiveTab(tab.id);
-          }}
-        >
-          {tab.label}
-        </MiniAppButton>
-      ))}
-    </div>
+    <MiniAppTabList
+      activeTab={params.activeTab}
+      idPrefix={params.idPrefix}
+      label={EXPLORER_LABELS.containerInfoTabsLabel}
+      onSelect={params.setActiveTab}
+      tabs={CONTAINER_INFO_TABS}
+    />
   );
 }
 
@@ -266,11 +252,10 @@ function ExplorerContainerInfoTabPanel(params: {
   const remoteInfo = params.containerInfo?.remoteInfo ?? null;
 
   return (
-    <div
-      aria-labelledby={`${params.idPrefix}-${params.activeTab}-tab`}
+    <MiniAppTabPanel
+      activeTab={params.activeTab}
       className="explorer-info-tab-panel"
-      id={`${params.idPrefix}-${params.activeTab}-panel`}
-      role="tabpanel"
+      idPrefix={params.idPrefix}
     >
       {params.activeTab === "general" ? (
         <ExplorerContainerInfoLocalSection
@@ -314,7 +299,7 @@ function ExplorerContainerInfoTabPanel(params: {
       {params.activeTab === "sync" && remoteInfo ? (
         <ExplorerContainerInfoSyncCursorsSection remoteInfo={remoteInfo} />
       ) : null}
-    </div>
+    </MiniAppTabPanel>
   );
 }
 

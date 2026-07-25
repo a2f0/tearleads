@@ -1,42 +1,8 @@
-/* The bar owns the baseline rather than the tablist, so the rule runs the full
-   width instead of stopping at the last tab. Tabs still overlap it via their
-   negative margin-bottom. */
-.system-monitor-tab-bar {
-  display: flex;
-  align-items: flex-end;
-  /* Match the selected tab's edge (--border-strong-color), like the Explorer
-     info tabs, so the baseline stays a soft graphite hairline in dark. */
-  border-bottom: var(--border-strong);
-}
-
-/* Tab styling mirrors the Explorer info panels (.explorer-info-*) so the
-   System Monitor matches the established mini-app tab look. */
-.system-monitor-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  min-width: 0;
-}
-
-.system-monitor-tab {
-  min-width: 5rem;
-  border: var(--border-width) solid transparent;
-  border-bottom-color: transparent;
-  margin-bottom: calc(-1 * var(--border-width));
-}
-
-.system-monitor-tab[aria-selected="true"] {
-  border-color: var(--border-strong-color);
-  border-bottom-color: var(--color-light);
-  background: var(--color-light);
-}
-
+/* Tab chrome is shared — see components/mini-app/layout/MiniAppTabs.css. Only
+   the monitor's own panel sizing lives here. */
 .system-monitor-tab-panel {
-  display: flex;
   flex: 1;
-  flex-direction: column;
   min-height: 0;
-  min-width: 0;
   overflow: auto;
   scrollbar-gutter: var(--scrollbar-gutter);
 }
@@ -118,15 +84,10 @@
 }
 
 /*
- * Touch sizing (routed layout). Tabs and the feature-flag switch are not
- * inside virtualized rows, so they can grow freely. The launcher and tabs are
- * already sized off `--control-height` (44px on touch); here we widen the tab
- * spacing and enlarge the toggle within its 44px-tall flag row.
+ * Touch sizing (routed layout). The feature-flag switch is not inside a
+ * virtualized row, so it can grow freely within its 44px-tall flag row. (Tab
+ * touch sizing is handled by the shared MiniAppTabs.css.)
  */
-:root[data-navigation-mode="routed"] .system-monitor-tabs {
-  gap: var(--space-sm);
-}
-
 :root[data-navigation-mode="routed"] .system-monitor-feature-flag-switch {
   width: 1.5rem;
   height: 1.5rem;

@@ -22,41 +22,8 @@
   min-height: 0;
 }
 
-/*
- * Tab styling mirrors the shared mini-app tabs (System Monitor / Explorer info
- * panels) so Backup/Restore matches the established look: a hairline baseline
- * with the active tab lifted onto it.
- */
-.backup-restore-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  border-bottom: var(--border-strong);
-}
-
-.backup-restore-tab {
-  min-width: 5rem;
-  border: var(--border-width) solid transparent;
-  border-bottom-color: transparent;
-  margin-bottom: calc(-1 * var(--border-width));
-}
-
-.backup-restore-tab[aria-selected="true"] {
-  border-color: var(--border-strong-color);
-  border-bottom-color: var(--color-light);
-  background: var(--color-light);
-}
-
-.backup-restore-tab-panel {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-/* Widen the tab spacing on the touch (routed) shell, matching System Monitor. */
-:root[data-navigation-mode="routed"] .backup-restore-tabs {
-  gap: var(--space-sm);
-}
+/* Tabs render through the shared MiniAppTabs (see
+   components/mini-app/layout/MiniAppTabs.css); this surface adds nothing. */
 
 .backup-restore-panel {
   display: grid;
