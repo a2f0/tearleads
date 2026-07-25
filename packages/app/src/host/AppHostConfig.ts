@@ -356,7 +356,11 @@ export class AppHostConfig {
     readonly createScanner?: CreateScannerFn | undefined,
   ) {}
 
-  /** Returns a copy with overrides, including explicit `undefined` values. */
+  /**
+   * Returns a copy with key-presence semantics: spread copies explicit
+   * `undefined`, letting callers reset fields like `localIdentityNamespace`
+   * without repeating positional reconstruction at clone sites.
+   */
   withOverrides(overrides: Partial<AppHostConfigOptions>): AppHostConfig {
     return createAppHostConfig({
       apiBaseUrl: this.apiBaseUrl,

@@ -53,8 +53,6 @@ mock.module("@capacitor/core", () => ({
     isNativePlatform: () => fixture.platform !== "web",
     isPluginAvailable: () => fixture.platform !== "web",
   },
-  registerPlugin: () => ({}),
-  WebPlugin: class {},
 }));
 
 mock.module("@revenuecat/purchases-capacitor", () => ({

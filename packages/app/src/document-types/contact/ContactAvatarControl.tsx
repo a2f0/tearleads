@@ -69,7 +69,8 @@ export function ContactAvatarControl({
       if (photo) {
         setPendingSource(photo);
       }
-    } catch {
+    } catch (error) {
+      console.error("Failed to capture a contact avatar photo:", error);
       setCaptureError(true);
     } finally {
       setCapturing(false);
@@ -109,7 +110,7 @@ export function ContactAvatarControl({
       ) : null}
       <input
         accept="image/*"
-        aria-label={editorTitle}
+        aria-label={scanner ? CONTACT_AVATAR_LABELS.choosePhoto : editorTitle}
         className="contact-avatar-control-file-input"
         onChange={handleInputChange}
         ref={inputRef}

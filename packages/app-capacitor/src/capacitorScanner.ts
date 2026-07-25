@@ -1,9 +1,7 @@
-import { Camera, EncodingType } from "@capacitor/camera";
-import { Filesystem } from "@capacitor/filesystem";
-import { base64ToBytes } from "@tearleads/encoding";
+import { Camera, CameraErrorCode, EncodingType } from "@capacitor/camera";
 import type { Scanner } from "app/host/AppHostConfig";
 
-const CAMERA_CANCELLED_CODE = "OS-PLUG-CAMR-0006";
+const CAPTURE_TARGET_SIZE = 2048;
 
 interface CameraBackend {
   takePhoto(
@@ -11,18 +9,14 @@ interface CameraBackend {
   ): ReturnType<typeof Camera.takePhoto>;
 }
 
-interface FilesystemBackend {
-  readFile(
-    options: Parameters<typeof Filesystem.readFile>[0],
-  ): ReturnType<typeof Filesystem.readFile>;
-}
+type FetchPhoto = (input: string) => Promise<Response>;
 
 function isCameraCancellation(error: unknown): boolean {
   return (
     typeof error === "object" &&
     error !== null &&
     "code" in error &&
-    error.code === CAMERA_CANCELLED_CODE
+    error.code === CameraErrorCode.TakePhotoCancelled
   );
 }
 
@@ -30,11 +24,11 @@ function isCameraCancellation(error: unknown): boolean {
 export function createCapacitorScanner(
   dependencies: {
     camera?: CameraBackend | undefined;
-    filesystem?: FilesystemBackend | undefined;
+    fetchPhoto?: FetchPhoto | undefined;
   } = {},
 ): Scanner {
   const camera = dependencies.camera ?? Camera;
-  const filesystem = dependencies.filesystem ?? Filesystem;
+  const fetchPhoto = dependencies.fetchPhoto ?? fetch;
 
   return {
     async capturePhoto(): Promise<Blob | null> {
@@ -44,18 +38,22 @@ export function createCapacitorScanner(
           encodingType: EncodingType.JPEG,
           quality: 90,
           saveToGallery: false,
+          targetHeight: CAPTURE_TARGET_SIZE,
+          targetWidth: CAPTURE_TARGET_SIZE,
         });
-        if (!result.uri) {
-          throw new Error("The camera did not return a photo URI.");
+        if (!result.webPath) {
+          throw new Error(
+            "The camera did not return a web-accessible photo path.",
+          );
         }
 
-        const { data } = await filesystem.readFile({ path: result.uri });
-        if (data instanceof Blob) {
-          return data.type ? data : new Blob([data], { type: "image/jpeg" });
+        const response = await fetchPhoto(result.webPath);
+        if (!response.ok) {
+          throw new Error(
+            `Could not read the captured photo (${response.status}).`,
+          );
         }
-        return new Blob([new Uint8Array(base64ToBytes(data))], {
-          type: "image/jpeg",
-        });
+        return response.blob();
       } catch (error) {
         if (isCameraCancellation(error)) {
           return null;

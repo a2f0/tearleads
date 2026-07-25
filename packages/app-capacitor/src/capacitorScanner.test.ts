@@ -1,14 +1,28 @@
-import { expect, test } from "bun:test";
-import { EncodingType, type MediaResult } from "@capacitor/camera";
-import { createCapacitorScanner } from "./capacitorScanner";
+import { expect, mock, test } from "bun:test";
+import type { MediaResult } from "@capacitor/camera";
 
-function cameraResult(uri = "file:///camera/photo.jpg"): MediaResult {
-  return { saved: false, type: 0, uri };
+const EncodingType = { JPEG: 0, PNG: 1 } as const;
+const CameraErrorCode = {
+  TakePhotoCancelled: "OS-PLUG-CAMR-0006",
+} as const;
+
+mock.module("@capacitor/camera", () => ({
+  Camera: {},
+  CameraErrorCode,
+  EncodingType,
+}));
+
+const { createCapacitorScanner } = await import("./capacitorScanner");
+
+function cameraResult(
+  webPath = "capacitor://localhost/_capacitor_file_/photo.jpg",
+): MediaResult {
+  return { saved: false, type: 0, webPath };
 }
 
-test("captures a JPEG and reads its native temporary URI", async () => {
+test("captures a bounded JPEG from its web-accessible path", async () => {
   const cameraOptions: unknown[] = [];
-  const readPaths: string[] = [];
+  const fetchedPaths: string[] = [];
   const scanner = createCapacitorScanner({
     camera: {
       takePhoto: async (options) => {
@@ -16,11 +30,11 @@ test("captures a JPEG and reads its native temporary URI", async () => {
         return cameraResult();
       },
     },
-    filesystem: {
-      readFile: async ({ path }) => {
-        readPaths.push(path);
-        return { data: "AQID" };
-      },
+    fetchPhoto: async (input) => {
+      fetchedPaths.push(String(input));
+      return new Response(new Uint8Array([1, 2, 3]), {
+        headers: { "content-type": "image/jpeg" },
+      });
     },
   });
 
@@ -32,9 +46,13 @@ test("captures a JPEG and reads its native temporary URI", async () => {
       encodingType: EncodingType.JPEG,
       quality: 90,
       saveToGallery: false,
+      targetHeight: 2048,
+      targetWidth: 2048,
     },
   ]);
-  expect(readPaths).toEqual(["file:///camera/photo.jpg"]);
+  expect(fetchedPaths).toEqual([
+    "capacitor://localhost/_capacitor_file_/photo.jpg",
+  ]);
   if (!photo) {
     throw new Error("Expected the camera photo.");
   }
@@ -42,12 +60,22 @@ test("captures a JPEG and reads its native temporary URI", async () => {
   expect([...new Uint8Array(await photo.arrayBuffer())]).toEqual([1, 2, 3]);
 });
 
+test("rejects a capture without a web-accessible path", async () => {
+  const scanner = createCapacitorScanner({
+    camera: { takePhoto: async () => ({ saved: false, type: 0 }) },
+  });
+
+  await expect(scanner.capturePhoto()).rejects.toThrow(
+    "The camera did not return a web-accessible photo path.",
+  );
+});
+
 test("returns null when the native camera is dismissed", async () => {
   const scanner = createCapacitorScanner({
     camera: {
       takePhoto: async () =>
         Promise.reject({
-          code: "OS-PLUG-CAMR-0006",
+          code: CameraErrorCode.TakePhotoCancelled,
           message: "The camera was canceled.",
         }),
     },
