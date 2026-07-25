@@ -7,6 +7,8 @@ import {
   WindowMenuProvider,
 } from "../../../components/window/WindowMenuContext";
 import type { ContactEntry } from "../../../document-types/contact/contactDocumentModel";
+import { createAppHostConfig } from "../../../host/AppHostConfig";
+import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
 import { CONTACTS_LABELS } from "../labels";
 import type { ContactsRoute } from "../routes";
 import type { ContactEntryPatch } from "../types";
@@ -24,6 +26,11 @@ const emptyBlobStore: BlobStore = {
   writeByteSource: async () => undefined,
   writeBytes: async () => undefined,
 };
+
+const hostConfig = createAppHostConfig({
+  apiBaseUrl: "http://api.example.test",
+  wsUrl: "ws://api.example.test/events",
+});
 
 afterEach(() => {
   cleanup();
@@ -83,10 +90,12 @@ function renderContactsDetailPanel(
   } = {},
 ) {
   return render(
-    <WindowMenuProvider>
-      <RoutedChromeProbe />
-      <ContactsDetailPanel {...createContactsDetailPanelProps(props)} />
-    </WindowMenuProvider>,
+    <AppHostConfigProvider value={hostConfig}>
+      <WindowMenuProvider>
+        <RoutedChromeProbe />
+        <ContactsDetailPanel {...createContactsDetailPanelProps(props)} />
+      </WindowMenuProvider>
+    </AppHostConfigProvider>,
   );
 }
 
@@ -171,15 +180,17 @@ test("contacts selected detail fields update when contact entries change", () =>
   );
 
   view.rerender(
-    <WindowMenuProvider>
-      <RoutedChromeProbe />
-      <ContactsDetailPanel
-        {...createContactsDetailPanelProps({
-          entries: [{ ...contactEntry, nickname: "Ada" }],
-          selectedContactId: contactEntry.id,
-        })}
-      />
-    </WindowMenuProvider>,
+    <AppHostConfigProvider value={hostConfig}>
+      <WindowMenuProvider>
+        <RoutedChromeProbe />
+        <ContactsDetailPanel
+          {...createContactsDetailPanelProps({
+            entries: [{ ...contactEntry, nickname: "Ada" }],
+            selectedContactId: contactEntry.id,
+          })}
+        />
+      </WindowMenuProvider>
+    </AppHostConfigProvider>,
   );
 
   expect((view.getByLabelText("Nickname") as HTMLInputElement).value).toBe(

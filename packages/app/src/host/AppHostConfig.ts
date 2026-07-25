@@ -12,6 +12,9 @@ import type {
   StoragePersistencePolicy,
 } from "@tearleads/client-sdk/sqlite";
 import type { AppNavigationMode } from "../navigation/AppNavigationMode";
+import type { CreateScannerFn } from "./Scanner";
+
+export type { Scanner } from "./Scanner";
 
 export type CreateSQLiteRuntimeFn = () => SQLiteRuntime;
 /** @public */
@@ -229,6 +232,7 @@ export interface AppHostConfigOptions {
   readonly createDirectCheckout?: CreateDirectCheckoutFn | undefined;
   readonly createFileSaver?: CreateFileSaverFn | undefined;
   readonly createNetworkStatus?: CreateNetworkStatusFn | undefined;
+  readonly createScanner?: CreateScannerFn | undefined;
   readonly subscribeConnectionRefresh?:
     | SubscribeConnectionRefreshFn
     | undefined;
@@ -349,13 +353,13 @@ export class AppHostConfig {
     readonly subscribeKeyboardVisibility?:
       | SubscribeKeyboardVisibilityFn
       | undefined,
+    readonly createScanner?: CreateScannerFn | undefined,
   ) {}
 
   /**
-   * Returns a copy with the given fields patched. Uses key-presence semantics
-   * (the spread copies an explicit `undefined`, clearing the field) so a caller
-   * can reset e.g. `localIdentityNamespace` to undefined. Replaces the ad-hoc
-   * positional re-construction that clone sites would otherwise repeat.
+   * Returns a copy with key-presence semantics: spread copies explicit
+   * `undefined`, letting callers reset fields like `localIdentityNamespace`
+   * without repeating positional reconstruction at clone sites.
    */
   withOverrides(overrides: Partial<AppHostConfigOptions>): AppHostConfig {
     return createAppHostConfig({
@@ -379,6 +383,7 @@ export class AppHostConfig {
       localKeyringKeyMaterialStorage: this.localKeyringKeyMaterialStorage,
       subscribeConnectionRefresh: this.subscribeConnectionRefresh,
       subscribeKeyboardVisibility: this.subscribeKeyboardVisibility,
+      createScanner: this.createScanner,
       ...overrides,
     });
   }
@@ -408,6 +413,7 @@ export function createAppHostConfig(
     options.localKeyringKeyMaterialStorage,
     options.subscribeConnectionRefresh,
     options.subscribeKeyboardVisibility,
+    options.createScanner,
   );
 }
 

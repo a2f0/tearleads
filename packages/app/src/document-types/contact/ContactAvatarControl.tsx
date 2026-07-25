@@ -1,5 +1,7 @@
 import type { DocumentAttachmentUpload } from "@tearleads/client-sdk";
-import { type ChangeEvent, useRef, useState } from "react";
+import { type ChangeEvent, useMemo, useRef, useState } from "react";
+import { MiniAppStatus } from "../../components/mini-app/MiniAppLayout";
+import { useAppHostConfig } from "../../providers/host/AppHostConfigProvider";
 import { AttachmentActionButton } from "../shared/AttachmentActionButton";
 import { ContactAvatar } from "./ContactAvatar";
 import { ContactAvatarEditorDialog } from "./ContactAvatarEditorDialog";
@@ -10,9 +12,12 @@ import {
 
 const CONTACT_AVATAR_LABELS = {
   altPrefix: "Avatar for",
+  cameraError: "Could not capture a photo. Check camera access and try again.",
+  choosePhoto: "Choose Photo",
   remove: "Remove Avatar",
   replace: "Replace Avatar",
   set: "Set Avatar",
+  takePhoto: "Take Photo",
 } as const;
 
 // The full avatar affordance for one contact: the circle (silhouette when
@@ -34,7 +39,11 @@ export function ContactAvatarControl({
   onApplyAvatar: (upload: DocumentAttachmentUpload) => void;
   onRemoveAvatar: () => void;
 }) {
-  const [pendingSource, setPendingSource] = useState<File | null>(null);
+  const { createScanner } = useAppHostConfig();
+  const scanner = useMemo(() => createScanner?.(), [createScanner]);
+  const [captureError, setCaptureError] = useState(false);
+  const [capturing, setCapturing] = useState(false);
+  const [pendingSource, setPendingSource] = useState<Blob | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const editorTitle = hasAvatar
     ? CONTACT_AVATAR_LABELS.replace
@@ -44,7 +53,27 @@ export function ContactAvatarControl({
     const [file] = Array.from(event.currentTarget.files ?? []);
     event.currentTarget.value = "";
     if (file) {
+      setCaptureError(false);
       setPendingSource(file);
+    }
+  }
+
+  async function handleCapturePhoto() {
+    if (!scanner || capturing) {
+      return;
+    }
+    setCaptureError(false);
+    setCapturing(true);
+    try {
+      const photo = await scanner.capturePhoto();
+      if (photo) {
+        setPendingSource(photo);
+      }
+    } catch (error) {
+      console.error("Failed to capture a contact avatar photo:", error);
+      setCaptureError(true);
+    } finally {
+      setCapturing(false);
     }
   }
 
@@ -57,8 +86,18 @@ export function ContactAvatarControl({
       />
       {canEdit ? (
         <div className="contact-avatar-control-actions">
+          {scanner ? (
+            <AttachmentActionButton
+              disabled={capturing}
+              label={CONTACT_AVATAR_LABELS.takePhoto}
+              onClick={() => {
+                void handleCapturePhoto();
+              }}
+            />
+          ) : null}
           <AttachmentActionButton
-            label={editorTitle}
+            disabled={capturing}
+            label={scanner ? CONTACT_AVATAR_LABELS.choosePhoto : editorTitle}
             onClick={() => inputRef.current?.click()}
           />
           {hasAvatar ? (
@@ -71,12 +110,17 @@ export function ContactAvatarControl({
       ) : null}
       <input
         accept="image/*"
-        aria-label={editorTitle}
+        aria-label={scanner ? CONTACT_AVATAR_LABELS.choosePhoto : editorTitle}
         className="contact-avatar-control-file-input"
         onChange={handleInputChange}
         ref={inputRef}
         type="file"
       />
+      {captureError ? (
+        <MiniAppStatus role="alert" tone="error">
+          {CONTACT_AVATAR_LABELS.cameraError}
+        </MiniAppStatus>
+      ) : null}
       {pendingSource ? (
         <ContactAvatarEditorDialog
           onCancel={() => setPendingSource(null)}
