@@ -198,6 +198,42 @@ test("mobile sidebar covers Explorer row actions", async ({ page }) => {
   expect(sidebarCoversAction).toBe(true);
 });
 
+// Regression coverage for the mobile Get Info back loop: Explorer used to
+// register a "Back to Document" action on the routed app bar, which PUSHED the
+// document route instead of popping the info route. The document route
+// registers no override, so its Back popped straight back into Get Info and the
+// two alternated forever — the Explorer list was unreachable.
+test("mobile Back unwinds out of a document's Get Info", async ({ page }) => {
+  await page.setViewportSize({ width: 599, height: 800 });
+  await page.goto("/app/explorer");
+
+  await expect(
+    page.getByRole("button", { name: "Actions for Contacts" }),
+  ).toBeVisible({ timeout: 30_000 });
+
+  await page.getByRole("button", { name: "New Document" }).click();
+  await page
+    .getByRole("button", { name: /Blood Pressure/ })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/app\/explorer\/items\/[0-9a-f-]+$/u);
+  const documentUrl = page.url();
+
+  await page.getByRole("button", { name: "Get Info" }).click();
+  await expect(page).toHaveURL(/\/documents\/[0-9a-f-]+\/info$/u);
+
+  const back = page
+    .locator(".routed-pane-history-controls")
+    .getByRole("button", { name: "Back" });
+
+  // Each press must unwind one entry: info -> document -> the Explorer list.
+  await back.click();
+  await expect(page).toHaveURL(documentUrl);
+  await back.click();
+  await expect(page).toHaveURL(/\/app\/explorer$/u);
+  await expect(back).toBeDisabled();
+});
+
 test("SQLite tables survive a hard reload", async ({ page }) => {
   // Regression coverage for persistent OPFS-SAHPool reloads: the restored
   // identity must reopen its existing SQLite tables, not race a hidden pane or
