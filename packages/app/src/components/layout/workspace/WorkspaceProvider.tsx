@@ -2,6 +2,7 @@ import {
   createContext,
   type PropsWithChildren,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -41,6 +42,12 @@ export function WorkspaceProvider({
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceId>(
     workspaceIds[0] ?? WORKSPACE_IDS[0],
   );
+
+  useEffect(() => {
+    if (!workspaceIds.includes(activeWorkspace)) {
+      setActiveWorkspace(workspaceIds[0] ?? WORKSPACE_IDS[0]);
+    }
+  }, [activeWorkspace, workspaceIds]);
 
   const value = useMemo(
     () => ({ activeWorkspace, setActiveWorkspace, workspaceIds }),

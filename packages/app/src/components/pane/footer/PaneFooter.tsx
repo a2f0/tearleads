@@ -2,7 +2,6 @@ import { TearleadsLogo } from "@tearleads/ui";
 import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
 import { MINI_APP_ICONS } from "../../../mini-apps/registry";
-import { useAppFeatureFlags } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
 import { WorkspaceSwitcher } from "../../layout/workspace/WorkspaceSwitcher";
 import type { MenuPosition } from "../../shared/Menu";
 import { PaneMenu } from "../../shared/PaneMenu";
@@ -17,7 +16,6 @@ import "./PaneFooter.css";
 // affordances will dock here over time). It sits in the right-aligned cluster
 // alongside the workspace switcher.
 export function PaneFooter({ tray }: { tray?: ReactNode }) {
-  const { workspaceSwitcherVisible } = useAppFeatureFlags();
   const [menu, setMenu] = useState<MenuPosition | null>(null);
   const { windows } = useWindowStateData();
   const { restore } = useWindowActions();
@@ -69,9 +67,7 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
           );
         })}
         <div className="pane-footer-end">
-          {/* This flag controls the switcher affordance only. Workspace views
-              stay mounted so re-enabling it does not reboot their shared runtime. */}
-          {workspaceSwitcherVisible && <WorkspaceSwitcher />}
+          <WorkspaceSwitcher />
           {tray && <div className="pane-footer-tray">{tray}</div>}
         </div>
       </div>
