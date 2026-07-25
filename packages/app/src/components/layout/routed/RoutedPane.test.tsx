@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { fireEvent } from "@testing-library/react";
+import { act, fireEvent } from "@testing-library/react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { renderRoutedPane } from "../../../../test/helpers/routedPaneTestUtils";
 import { ROUTED_MINI_APP_NAV_ITEMS } from "../../../mini-apps/registry";
@@ -14,6 +14,37 @@ function fakeButton(rect: { left: number; bottom: number }): HTMLElement {
   return {
     getBoundingClientRect: () => rect as DOMRect,
   } as HTMLElement;
+}
+
+function getRoutedMain(container: HTMLElement): HTMLElement {
+  const main = container.querySelector(".routed-pane-main");
+  if (!(main instanceof HTMLElement)) {
+    throw new Error("Expected routed pane main content.");
+  }
+  return main;
+}
+
+function installTestVisualViewport(): {
+  setKeyboardVisible: (visible: boolean) => void;
+  restore: () => void;
+} {
+  const original = window.visualViewport;
+  const viewport = new EventTarget() as VisualViewport;
+  Reflect.set(viewport, "height", window.innerHeight);
+  Reflect.set(viewport, "scale", 1);
+  Reflect.set(window, "visualViewport", viewport);
+
+  return {
+    setKeyboardVisible: (visible) => {
+      Reflect.set(
+        viewport,
+        "height",
+        visible ? window.innerHeight - 200 : window.innerHeight,
+      );
+      act(() => viewport.dispatchEvent(new Event("resize")));
+    },
+    restore: () => Reflect.set(window, "visualViewport", original),
+  };
 }
 
 function forceMobileRoutedTier(): () => void {
@@ -144,6 +175,78 @@ test("mobile routed shell opens the nav sheet from the bottom menu bar", () => {
     expect(view.getByRole("link", { name: "Contacts" })).toBeTruthy();
   } finally {
     view?.unmount();
+    restoreMatchMedia();
+  }
+});
+
+test("mobile routed shell hides the taskbar while a text input is focused", () => {
+  const restoreMatchMedia = forceMobileRoutedTier();
+  const viewport = installTestVisualViewport();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
+
+  try {
+    view = renderRoutedPane();
+    const input = document.createElement("input");
+    getRoutedMain(view.container).append(input);
+
+    act(() => input.focus());
+    expect(
+      view.container
+        .querySelector(".routed-pane-taskbar")
+        ?.hasAttribute("hidden"),
+    ).toBe(false);
+
+    viewport.setKeyboardVisible(true);
+    expect(
+      view.container
+        .querySelector(".routed-pane-taskbar")
+        ?.hasAttribute("hidden"),
+    ).toBe(true);
+
+    viewport.setKeyboardVisible(false);
+    expect(
+      view.container
+        .querySelector(".routed-pane-taskbar")
+        ?.hasAttribute("hidden"),
+    ).toBe(false);
+
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    getRoutedMain(view.container).append(fileInput);
+    act(() => fileInput.focus());
+    viewport.setKeyboardVisible(true);
+    expect(
+      view.container
+        .querySelector(".routed-pane-taskbar")
+        ?.hasAttribute("hidden"),
+    ).toBe(false);
+  } finally {
+    view?.unmount();
+    viewport.restore();
+    restoreMatchMedia();
+  }
+});
+
+test("tablet routed shell keeps the taskbar while a text input is focused", () => {
+  const restoreMatchMedia = forceTabletRoutedTier();
+  const viewport = installTestVisualViewport();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
+
+  try {
+    view = renderRoutedPane();
+    const input = document.createElement("input");
+    getRoutedMain(view.container).append(input);
+
+    act(() => input.focus());
+    viewport.setKeyboardVisible(true);
+    expect(
+      view.container
+        .querySelector(".routed-pane-taskbar")
+        ?.hasAttribute("hidden"),
+    ).toBe(false);
+  } finally {
+    view?.unmount();
+    viewport.restore();
     restoreMatchMedia();
   }
 });

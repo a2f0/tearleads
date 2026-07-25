@@ -9,7 +9,9 @@
  * - tablet: persistent left rail beside the main content (the iPad layout).
  *
  * Both tiers carry the bottom taskbar (centered logo + the windowed/routed mode
- * switch); tablet keeps its rail in addition.
+ * switch); tablet keeps its rail in addition. Mobile temporarily hides the bar
+ * while a text-editing control has focus and the software keyboard occupies the
+ * bottom of the viewport.
  *
  * The navigation surfaces (nav panel, tablet rail, bottom sheet + scrim) are
  * styled in RoutedPaneNav.css; this file owns the shell grid, app bar, main,
@@ -206,6 +208,14 @@
     max(var(--space-xs), var(--safe-area-bottom)) var(--space-sm);
   border-top: var(--border-strong);
   background: var(--color-muted);
+}
+
+.routed-pane-taskbar[hidden] {
+  display: none;
+}
+
+.routed-pane--mobile[data-keyboard="open"] .routed-pane-main {
+  padding-block-end: max(var(--space-xs), var(--safe-area-bottom));
 }
 
 /* Same tier scoping as the app bar: only mobile's taskbar reaches the

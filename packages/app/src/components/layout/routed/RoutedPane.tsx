@@ -18,6 +18,7 @@ import {
   useRoutedLayoutTier,
 } from "../../../navigation/useRoutedLayoutTier";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
+import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
 import { useRegisterUserId } from "../../pane/dual-pane";
@@ -41,6 +42,7 @@ import { usePublishMobileAppTitle } from "../MobileAppTitleContext";
 import { RoutedPaneAppBar } from "./RoutedPaneAppBar";
 import { ROUTED_PANE_NAV_PANEL_ID, RoutedPaneNav } from "./RoutedPaneNav";
 import { RoutedPaneSidebar } from "./RoutedPaneSidebar";
+import { useMobileKeyboardVisible } from "./useMobileKeyboardVisible";
 
 const ROUTED_ROOT_MINI_APP_ID: MiniAppId = "explorer";
 
@@ -87,16 +89,20 @@ export function menuPositionBelow(anchor: HTMLElement): MenuPosition {
  * pane footer. Present in both tiers: the centered Tearleads logo is the menu
  * affordance (opening the launcher sheet on mobile, revealing the rail on
  * tablet) and the corner hosts the windowed/routed switch so the layout can be
- * flipped back to windows from inside the routed shell.
+ * flipped back to windows from inside the routed shell. On mobile it is hidden
+ * while a text-editing control has focus to leave room for the software
+ * keyboard.
  */
 function RoutedPaneTaskBar({
   tier,
+  hidden,
   drawerOpen,
   onToggleDrawer,
   railExpanded,
   onToggleRail,
 }: {
   tier: RoutedLayoutTier;
+  hidden: boolean;
   drawerOpen: boolean;
   onToggleDrawer: () => void;
   railExpanded: boolean;
@@ -115,7 +121,7 @@ function RoutedPaneTaskBar({
       : undefined;
 
   return (
-    <footer className="routed-pane-taskbar">
+    <footer className="routed-pane-taskbar" hidden={hidden}>
       <button
         aria-controls={controls}
         aria-expanded={expanded}
@@ -211,9 +217,14 @@ function RoutedPaneSurface({
   const logoutDialog = useConfirmedLogoutDialog();
   const { destroyKey } = useIdentity();
   const { isDeveloperMode } = useSystemMonitor();
+  const { subscribeKeyboardVisibility } = useAppHostConfig();
   const destroyKeyPackageDialog = useDestroyKeyPackageConfirmation(destroyKey);
   const hasSidebar =
     sidebar !== null && sidebar !== undefined && sidebar !== false;
+  const mobileKeyboardVisible = useMobileKeyboardVisible(
+    tier === "mobile",
+    subscribeKeyboardVisibility,
+  );
 
   const fileMenuItems = useWindowFileMenuItems();
   const viewMenuItems = useWindowViewMenuItems();
@@ -242,6 +253,7 @@ function RoutedPaneSurface({
   return (
     <section
       className={`routed-pane routed-pane--${tier}`}
+      data-keyboard={mobileKeyboardVisible ? "open" : "closed"}
       data-sidebar={sidebarVisible ? "open" : "closed"}
       role="application"
     >
@@ -281,6 +293,7 @@ function RoutedPaneSurface({
       </main>
       <RoutedPaneTaskBar
         drawerOpen={drawerOpen}
+        hidden={mobileKeyboardVisible}
         onToggleDrawer={toggleDrawer}
         onToggleRail={onToggleNavigationRail}
         railExpanded={navigationRailExpanded}

@@ -13,6 +13,7 @@ import {
 import { createRoot } from "react-dom/client";
 import { subscribeCapacitorConnectionRefresh } from "./capacitorConnectionRefresh";
 import { createCapacitorFileSaver } from "./capacitorFileSaver";
+import { subscribeCapacitorKeyboardVisibility } from "./capacitorKeyboardVisibility";
 import { createCapacitorNetworkStatus } from "./capacitorNetworkStatus";
 import { createCapacitorPurchases } from "./capacitorPurchases";
 import { syncStatusBarWithTheme } from "./statusBar";
@@ -104,6 +105,9 @@ const hostConfig = createAppHostConfig({
   storagePersistence: PERSISTENT_STORAGE_POLICY,
   subscribeConnectionRefresh: Capacitor.isNativePlatform()
     ? subscribeCapacitorConnectionRefresh
+    : undefined,
+  subscribeKeyboardVisibility: Capacitor.isNativePlatform()
+    ? subscribeCapacitorKeyboardVisibility
     : undefined,
   wsUrl,
 });
