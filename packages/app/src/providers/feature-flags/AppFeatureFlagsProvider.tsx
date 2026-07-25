@@ -17,19 +17,19 @@ import {
 interface AppFeatureFlagsValue {
   builtInSystemContainersVisible: boolean;
   linkedDocumentActivationControlsEnabled: boolean;
+  workspaceSwitcherVisible: boolean;
   setBuiltInSystemContainersVisible: (enabled: boolean) => void;
   setLinkedDocumentActivationControlsEnabled: (enabled: boolean) => void;
-  toggleBuiltInSystemContainers: () => void;
-  toggleLinkedDocumentActivationControls: () => void;
+  setWorkspaceSwitcherVisible: (enabled: boolean) => void;
 }
 
 const DEFAULT_APP_FEATURE_FLAGS: AppFeatureFlagsValue = {
   builtInSystemContainersVisible: false,
   linkedDocumentActivationControlsEnabled: false,
+  workspaceSwitcherVisible: false,
   setBuiltInSystemContainersVisible: () => {},
   setLinkedDocumentActivationControlsEnabled: () => {},
-  toggleBuiltInSystemContainers: () => {},
-  toggleLinkedDocumentActivationControls: () => {},
+  setWorkspaceSwitcherVisible: () => {},
 };
 
 const AppFeatureFlagsContext = createContext<AppFeatureFlagsValue | null>(null);
@@ -49,16 +49,10 @@ function usePersistentAppFeatureFlag(flag: AppFeatureFlagId) {
     },
     [storageKey],
   );
-  const toggle = useCallback(() => {
-    const nextMode = mode === "enabled" ? "disabled" : "enabled";
-    setMode(nextMode);
-    saveAppFeatureFlag(storageKey, nextMode);
-  }, [mode, storageKey]);
 
   return {
     enabled: mode === "enabled",
     setEnabled,
-    toggle,
   };
 }
 
@@ -69,26 +63,26 @@ function usePersistentAppFeatureFlags(): AppFeatureFlagsValue {
   const linkedDocumentActivationControls = usePersistentAppFeatureFlag(
     "linked-document-activation-controls",
   );
+  const workspaceSwitcher = usePersistentAppFeatureFlag("workspace-switcher");
 
   return useMemo(
     () => ({
       builtInSystemContainersVisible: builtInSystemContainers.enabled,
       linkedDocumentActivationControlsEnabled:
         linkedDocumentActivationControls.enabled,
+      workspaceSwitcherVisible: workspaceSwitcher.enabled,
       setBuiltInSystemContainersVisible: builtInSystemContainers.setEnabled,
       setLinkedDocumentActivationControlsEnabled:
         linkedDocumentActivationControls.setEnabled,
-      toggleBuiltInSystemContainers: builtInSystemContainers.toggle,
-      toggleLinkedDocumentActivationControls:
-        linkedDocumentActivationControls.toggle,
+      setWorkspaceSwitcherVisible: workspaceSwitcher.setEnabled,
     }),
     [
       builtInSystemContainers.enabled,
       builtInSystemContainers.setEnabled,
-      builtInSystemContainers.toggle,
       linkedDocumentActivationControls.enabled,
       linkedDocumentActivationControls.setEnabled,
-      linkedDocumentActivationControls.toggle,
+      workspaceSwitcher.enabled,
+      workspaceSwitcher.setEnabled,
     ],
   );
 }

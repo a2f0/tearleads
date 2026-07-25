@@ -1,6 +1,7 @@
 export type AppFeatureFlagId =
   | "built-in-system-containers"
-  | "linked-document-activation-controls";
+  | "linked-document-activation-controls"
+  | "workspace-switcher";
 export type AppFeatureFlagMode = "disabled" | "enabled";
 
 export const DEFAULT_APP_FEATURE_FLAG_MODE: AppFeatureFlagMode = "disabled";

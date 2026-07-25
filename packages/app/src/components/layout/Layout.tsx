@@ -14,7 +14,10 @@ import { NavigationModeToggle } from "../../navigation/NavigationModeToggle";
 import { useAppNavigationMode } from "../../navigation/useAppNavigationMode";
 import { useNavigationModeDocumentAttribute } from "../../navigation/useNavigationModeDocumentAttribute";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
-import { AppFeatureFlagsProvider } from "../../providers/feature-flags/AppFeatureFlagsProvider";
+import {
+  AppFeatureFlagsProvider,
+  useAppFeatureFlags,
+} from "../../providers/feature-flags/AppFeatureFlagsProvider";
 import { ThemeProvider } from "../../theme/ThemeProvider";
 import { BillingBanner } from "./BillingBanner";
 import "./Layout.css";
@@ -168,19 +171,27 @@ function LayoutInner({ hostConfig }: LayoutProps) {
   );
 }
 
-export function Layout({ hostConfig }: LayoutProps) {
-  const workspaceIds = hostConfig.profile.features.panePeerUserIds
-    ? SINGLE_WORKSPACE_IDS
-    : WORKSPACE_IDS;
+function FeatureFlaggedWorkspaceLayout({ hostConfig }: LayoutProps) {
+  const { workspaceSwitcherVisible } = useAppFeatureFlags();
+  const workspaceIds =
+    hostConfig.profile.features.panePeerUserIds || !workspaceSwitcherVisible
+      ? SINGLE_WORKSPACE_IDS
+      : WORKSPACE_IDS;
 
+  return (
+    <WorkspaceProvider workspaceIds={workspaceIds}>
+      <LayoutInner hostConfig={hostConfig} />
+    </WorkspaceProvider>
+  );
+}
+
+export function Layout({ hostConfig }: LayoutProps) {
   return (
     <ThemeProvider>
       <NavigationModeOverrideProvider>
         <SystemMonitorDeveloperModeProvider>
           <AppFeatureFlagsProvider>
-            <WorkspaceProvider workspaceIds={workspaceIds}>
-              <LayoutInner hostConfig={hostConfig} />
-            </WorkspaceProvider>
+            <FeatureFlaggedWorkspaceLayout hostConfig={hostConfig} />
           </AppFeatureFlagsProvider>
         </SystemMonitorDeveloperModeProvider>
       </NavigationModeOverrideProvider>
