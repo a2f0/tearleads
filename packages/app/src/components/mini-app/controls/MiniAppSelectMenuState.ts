@@ -14,6 +14,10 @@ export interface MiniAppSelectMenuOption {
   icon?: ReactNode;
   id: string;
   label: string;
+  /** Extra option-only copy; omitted from the closed trigger. */
+  secondaryLabel?: string | undefined;
+  /** Visible trigger copy when it should differ from the option label. */
+  triggerLabel?: string | undefined;
 }
 
 interface MiniAppSelectMenuControllerParams {
@@ -25,6 +29,7 @@ interface MiniAppSelectMenuControllerParams {
   hasFooter: boolean;
   onChange: (value: string) => void;
   options: ReadonlyArray<MiniAppSelectMenuOption>;
+  portalRef: RefObject<HTMLDivElement | null>;
   selectRef: RefObject<HTMLButtonElement | null>;
   value: string;
 }
@@ -137,9 +142,10 @@ function handleSelectMenuKeyDown(
 function useCloseOnOutsideMouseDown(params: {
   close: () => void;
   open: boolean;
+  portalRef: RefObject<HTMLDivElement | null>;
   rootRef: RefObject<HTMLDivElement | null>;
 }) {
-  const { close, open, rootRef } = params;
+  const { close, open, portalRef, rootRef } = params;
   useEffect(() => {
     if (!open) {
       return;
@@ -147,22 +153,27 @@ function useCloseOnOutsideMouseDown(params: {
 
     function handleMouseDown(event: MouseEvent) {
       const target = event.target;
-      if (!(target instanceof Node) || !rootRef.current?.contains(target)) {
+      if (
+        !(target instanceof Node) ||
+        (!rootRef.current?.contains(target) &&
+          !portalRef.current?.contains(target))
+      ) {
         close();
       }
     }
 
     document.addEventListener("mousedown", handleMouseDown);
     return () => document.removeEventListener("mousedown", handleMouseDown);
-  }, [close, open, rootRef]);
+  }, [close, open, portalRef, rootRef]);
 }
 
 function useCloseOnFocusOut(params: {
   close: () => void;
   open: boolean;
+  portalRef: RefObject<HTMLDivElement | null>;
   rootRef: RefObject<HTMLDivElement | null>;
 }) {
-  const { close, open, rootRef } = params;
+  const { close, open, portalRef, rootRef } = params;
   useEffect(() => {
     const root = rootRef.current;
     if (!open || !root) {
@@ -171,14 +182,17 @@ function useCloseOnFocusOut(params: {
 
     function handleFocusOut(event: FocusEvent) {
       const next = event.relatedTarget;
-      if (!(next instanceof Node) || !root?.contains(next)) {
+      if (
+        !(next instanceof Node) ||
+        (!root?.contains(next) && !portalRef.current?.contains(next))
+      ) {
         close();
       }
     }
 
     root.addEventListener("focusout", handleFocusOut);
     return () => root.removeEventListener("focusout", handleFocusOut);
-  }, [close, open, rootRef]);
+  }, [close, open, portalRef, rootRef]);
 }
 
 function useSelectMenuKeyboard(controls: MiniAppSelectMenuKeyControls) {
@@ -228,10 +242,21 @@ function useSyncSelectMenuHighlight(params: {
   }, [open, setHighlightedId, value]);
 }
 
+function useSelectMenuDismissal(params: {
+  close: () => void;
+  open: boolean;
+  portalRef: RefObject<HTMLDivElement | null>;
+  rootRef: RefObject<HTMLDivElement | null>;
+}) {
+  useCloseOnOutsideMouseDown(params);
+  useCloseOnFocusOut(params);
+}
+
 export function useMiniAppSelectMenuController(
   params: MiniAppSelectMenuControllerParams,
 ): MiniAppSelectMenuController {
   const { disabled, hasFooter, onChange, options, selectRef, value } = params;
+  const portalRef = params.portalRef;
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -309,8 +334,7 @@ export function useMiniAppSelectMenuController(
     options,
   });
 
-  useCloseOnOutsideMouseDown({ close, open, rootRef });
-  useCloseOnFocusOut({ close, open, rootRef });
+  useSelectMenuDismissal({ close, open, portalRef, rootRef });
   useSyncSelectMenuHighlight({ open, setHighlightedId, value });
 
   return {

@@ -20,16 +20,12 @@ const WIDE_COLUMN_ORDER: ReadonlyArray<ExplorerItemColumnId> = [
 
 // A folded list — a phone, or any pane too narrow for the columns — puts the
 // data columns into a single two-line summary column so the name gets the full
-// width instead of competing with a date: line one is the name (with its
-// leading glyph and row button), line two is the muted Type + Modified pair.
+// width instead of competing with a date: line one is the name and line two is
+// the muted type. A larger leading glyph spans both lines.
 // Column-visibility preferences do not apply: the columns menu is off while
-// folded, so a wide-layout choice to hide Type or Modified would leave a blank
-// second line with no way to bring it back.
+// folded, so a wide-layout choice to hide Type would leave a blank second line
+// with no way to bring it back.
 const COMPACT_COLUMN_ORDER: ReadonlyArray<ExplorerItemColumnId> = ["summary"];
-
-// The data columns folded into the compact summary's second line, in order.
-export const COMPACT_SUMMARY_SECONDARY_COLUMN_IDS: ReadonlyArray<ExplorerItemColumnId> =
-  ["type", "modified"];
 
 // Columns the user can show/hide. Name is structural and always visible.
 export const TOGGLEABLE_COLUMN_IDS: ReadonlyArray<ExplorerItemColumnId> = [

@@ -318,7 +318,7 @@ test("a narrow item list frame folds the rows onto two lines", async () => {
     "56px",
   );
   expect(
-    view.container.querySelector("tbody .mini-app-compact-table-lines"),
+    view.container.querySelector("tbody .explorer-item-summary"),
   ).not.toBeNull();
   // The name button — the selector the screenshot and dual-pane suites rely on
   // — survives the fold.
@@ -356,7 +356,7 @@ test("a wide item list frame keeps the single-line columns", async () => {
     "36px",
   );
   expect(
-    view.container.querySelector("tbody .mini-app-compact-table-lines"),
+    view.container.querySelector("tbody .explorer-item-summary"),
   ).toBeNull();
 });
 

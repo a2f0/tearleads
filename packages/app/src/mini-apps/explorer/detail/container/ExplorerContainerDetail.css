@@ -3,3 +3,58 @@
   align-items: center;
   gap: var(--space-sm);
 }
+
+.explorer-item-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.explorer-item-summary-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
+.explorer-item-summary-copy {
+  display: grid;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.explorer-item-summary-type {
+  min-width: 0;
+  overflow: hidden;
+  opacity: var(--opacity-muted);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-item-summary-field-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.explorer-compact-sort-menu {
+  width: min(12rem, 100%);
+}
+
+.explorer-compact-sort-menu .mini-app-button.mini-app-select-menu-trigger {
+  align-items: center;
+  min-height: var(--control-height);
+  padding: 0;
+  border: 0;
+  font-weight: inherit;
+}
