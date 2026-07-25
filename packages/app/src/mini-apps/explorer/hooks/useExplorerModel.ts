@@ -22,6 +22,7 @@ import {
   canUploadToContainerByRules,
   canWriteContainerNode,
   createExplorerContainerRulesContext,
+  hasContainerRules,
 } from "../containerRules";
 import { buildExplorerTree } from "../explorerTreeModel";
 import type {
@@ -39,6 +40,7 @@ import { useExplorerPrimarySystemContainers } from "./useExplorerPrimarySystemCo
 import type { ExplorerSelectionState } from "./useExplorerSelection";
 
 interface ExplorerModel {
+  activeContainerHasRules: boolean;
   activateLinkedContainer: ExplorerPanelState["activateLinkedContainer"];
   canCreateChildInActiveContainer: boolean;
   canCreateContactInActiveContainer: boolean;
@@ -305,6 +307,10 @@ export function useExplorerModel(
   const canUploadToActiveContainer =
     selection.activeContainerId !== null &&
     canUploadToContainerByRules(rulesContext, activeContainerNode);
+  const activeContainerHasRules = hasContainerRules(
+    rulesContext,
+    activeContainerNode,
+  );
   // Detect the active Contacts folder by its system slot, not by the
   // primary-org-resolved contactsContainerId: that id is null until an
   // organization id is assigned, so an account created offline and not yet
@@ -322,6 +328,7 @@ export function useExplorerModel(
 
   return {
     ...selectedDocumentMutationState,
+    activeContainerHasRules,
     activateLinkedContainer,
     canCreateChildInActiveContainer,
     canCreateContactInActiveContainer,
