@@ -6,21 +6,19 @@ interface ServerEventsConnectionLoopInput {
   readonly wsUrl: string;
 }
 
+type TimerHandle = number | ReturnType<typeof setTimeout>;
+
 interface ServerEventsConnectionLoopDeps {
-  readonly clearTimer?:
-    | ((timer: ReturnType<typeof setTimeout>) => void)
-    | undefined;
+  readonly clearTimer?: ((timer: TimerHandle) => void) | undefined;
   readonly createSocket?: ((url: string) => WebSocket) | undefined;
   readonly random?: (() => number) | undefined;
   readonly now?: (() => number) | undefined;
   readonly scheduleTimer?:
-    | ((callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>)
+    | ((callback: () => void, delayMs: number) => TimerHandle)
     | undefined;
-  readonly clearWatchdog?:
-    | ((timer: ReturnType<typeof setTimeout>) => void)
-    | undefined;
+  readonly clearWatchdog?: ((timer: TimerHandle) => void) | undefined;
   readonly scheduleWatchdog?:
-    | ((callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>)
+    | ((callback: () => void, delayMs: number) => TimerHandle)
     | undefined;
 }
 
@@ -39,29 +37,27 @@ class ServerEventsConnectionLoop {
   private cancelled = false;
   private connecting = false;
   private reconnectAttempt = 0;
-  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private socketWatchdog: ReturnType<typeof setTimeout> | null = null;
+  private reconnectTimer: TimerHandle | null = null;
+  private socketWatchdog: TimerHandle | null = null;
   private settleTicketRequest: (() => void) | null = null;
   private settleSocket: (() => void) | null = null;
   private socket: WebSocket | null = null;
 
   constructor(
     private readonly input: ServerEventsConnectionLoopInput,
-    private readonly clearTimer: (timer: ReturnType<typeof setTimeout>) => void,
-    private readonly clearWatchdog: (
-      timer: ReturnType<typeof setTimeout>,
-    ) => void,
+    private readonly clearTimer: (timer: TimerHandle) => void,
+    private readonly clearWatchdog: (timer: TimerHandle) => void,
     private readonly createSocket: (url: string) => WebSocket,
     private readonly now: () => number,
     private readonly random: () => number,
     private readonly scheduleTimer: (
       callback: () => void,
       delayMs: number,
-    ) => ReturnType<typeof setTimeout>,
+    ) => TimerHandle,
     private readonly scheduleWatchdog: (
       callback: () => void,
       delayMs: number,
-    ) => ReturnType<typeof setTimeout>,
+    ) => TimerHandle,
   ) {}
 
   start(): void {
@@ -115,7 +111,7 @@ class ServerEventsConnectionLoop {
   private async requestTicket(): Promise<string | null> {
     return new Promise((resolve) => {
       let settled = false;
-      let watchdog: ReturnType<typeof setTimeout> | null = null;
+      let watchdog: TimerHandle | null = null;
       const finish = (ticket: string | null): void => {
         if (settled) {
           return;
@@ -230,15 +226,30 @@ export function startServerEventsConnectionLoop(
   input: ServerEventsConnectionLoopInput,
   deps: ServerEventsConnectionLoopDeps = {},
 ): () => void {
+  const {
+    clearTimer,
+    clearWatchdog,
+    createSocket,
+    now,
+    random,
+    scheduleTimer,
+    scheduleWatchdog,
+  } = deps;
   const loop = new ServerEventsConnectionLoop(
     input,
-    deps.clearTimer ?? clearTimeout,
-    deps.clearWatchdog ?? clearTimeout,
-    deps.createSocket ?? ((url) => new WebSocket(url)),
-    deps.now ?? Date.now,
-    deps.random ?? Math.random,
-    deps.scheduleTimer ?? setTimeout,
-    deps.scheduleWatchdog ?? setTimeout,
+    (timer) => (clearTimer ? clearTimer(timer) : clearTimeout(timer)),
+    (timer) => (clearWatchdog ? clearWatchdog(timer) : clearTimeout(timer)),
+    (url) => (createSocket ? createSocket(url) : new WebSocket(url)),
+    () => (now ? now() : Date.now()),
+    () => (random ? random() : Math.random()),
+    (callback, delayMs) =>
+      scheduleTimer
+        ? scheduleTimer(callback, delayMs)
+        : setTimeout(callback, delayMs),
+    (callback, delayMs) =>
+      scheduleWatchdog
+        ? scheduleWatchdog(callback, delayMs)
+        : setTimeout(callback, delayMs),
   );
   loop.start();
   return () => loop.stop();

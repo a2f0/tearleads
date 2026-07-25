@@ -23,6 +23,37 @@ async function flushAsyncWork(): Promise<void> {
   await Promise.resolve();
 }
 
+test("does not rebind timer dependency receivers", async () => {
+  let watchdogCallback: (() => void) | null = null;
+  let clearedWatchdog: unknown;
+  const stop = startServerEventsConnectionLoop(
+    {
+      onDisconnect: () => undefined,
+      onMessage: () => undefined,
+      onOpen: () => undefined,
+      requestTicket: async () => null,
+      wsUrl: "ws://events.example.test/events",
+    },
+    {
+      clearWatchdog: function (this: unknown, timer) {
+        expect(this).toBeUndefined();
+        clearedWatchdog = timer;
+      },
+      scheduleTimer: () => 2,
+      scheduleWatchdog: function (this: unknown, callback) {
+        expect(this).toBeUndefined();
+        watchdogCallback = callback;
+        return 1;
+      },
+    },
+  );
+
+  await flushAsyncWork();
+  expect(clearedWatchdog).toBe(1);
+  expect(watchdogCallback).not.toBeNull();
+  stop();
+});
+
 test("reconnects with a fresh ticket and coalesces error plus close", async () => {
   const sockets: FakeSocket[] = [];
   const timers: Array<{ callback: () => void; delayMs: number }> = [];
