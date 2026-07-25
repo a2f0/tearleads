@@ -5,8 +5,10 @@ import type {
   PurgeOptions,
   ReconciliationService,
 } from "@tearleads/client-sdk";
+import type { BuiltInSystemContainer } from "../../../stores/systemContainers";
 
 export interface ExplorerModelExplorer {
+  builtInSystemContainers: ReadonlyArray<BuiltInSystemContainer>;
   canResolveTrashContainer: boolean;
   contactsSystemSlot: NonNullable<ContainerNode["systemSlot"]> | null;
   createChild: (

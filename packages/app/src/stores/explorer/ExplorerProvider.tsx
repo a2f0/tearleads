@@ -18,6 +18,7 @@ import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import { useDeviceFirstContainerContents } from "../device-first/DeviceFirstProvider";
 import {
+  type BuiltInSystemContainer,
   EXPLORER_TRASH_CONTAINER_ICON,
   EXPLORER_TRASH_CONTAINER_NAME,
 } from "../systemContainers";
@@ -37,6 +38,7 @@ export {
 } from "./ExplorerSystemContainers";
 
 interface ExplorerContextModel {
+  builtInSystemContainers: ReadonlyArray<BuiltInSystemContainer>;
   contactsSystemSlot: ContainerSystemSlot | null;
   currentOrganizationId: string | null;
   currentRootContainerId: string | null;
@@ -49,6 +51,7 @@ interface ExplorerContextModel {
 }
 
 interface ExplorerContextValue extends ContainerContentsContextValue {
+  builtInSystemContainers: ReadonlyArray<BuiltInSystemContainer>;
   canResolveTrashContainer: boolean;
   contactsSystemSlot: ContainerSystemSlot | null;
   ensureTrashContainer: () => Promise<ContainerNode | null>;
@@ -132,16 +135,20 @@ export function ExplorerProvider({
     () => tearleads.containerContents.openTree({ logLabel: "Explorer" }),
     [runtime.state.domainScope, tearleads],
   );
-  const { contactsSystemSlot, trashSystemSlot, visibleSystemSlots } =
-    useExplorerSystemProvisioning({
-      organizationId: runtime.auth.organizationId,
-      signingPrivateKey:
-        runtime.crypto.signingKeyPair?.signingPrivateKey ?? null,
-      showBuiltInSystemContainers,
-      logError: tearleads.logError,
-    });
+  const {
+    builtInSystemContainers,
+    contactsSystemSlot,
+    trashSystemSlot,
+    visibleSystemSlots,
+  } = useExplorerSystemProvisioning({
+    organizationId: runtime.auth.organizationId,
+    signingPrivateKey: runtime.crypto.signingKeyPair?.signingPrivateKey ?? null,
+    showBuiltInSystemContainers,
+    logError: tearleads.logError,
+  });
   const contextValue = useMemo(
     () => ({
+      builtInSystemContainers,
       contactsSystemSlot,
       currentOrganizationId: runtime.auth.organizationId,
       currentRootContainerId: runtime.state.containerId,
@@ -153,6 +160,7 @@ export function ExplorerProvider({
       visibleSystemSlots,
     }),
     [
+      builtInSystemContainers,
       contactsSystemSlot,
       reconciler,
       runtime.auth.organizationId,
@@ -187,6 +195,7 @@ export function useExplorer(): ExplorerContextValue {
   }
 
   const {
+    builtInSystemContainers,
     contactsSystemSlot,
     currentOrganizationId,
     currentRootContainerId,
@@ -201,6 +210,7 @@ export function useExplorer(): ExplorerContextValue {
 
   return useMemo(
     () => ({
+      builtInSystemContainers,
       canResolveTrashContainer:
         snapshot.ready && canResolveExplorerTrashContainer(trashSystemSlot),
       contactsSystemSlot,
@@ -241,6 +251,7 @@ export function useExplorer(): ExplorerContextValue {
       visibleSystemSlots,
     }),
     [
+      builtInSystemContainers,
       ensureTrashContainer,
       reconciler,
       snapshot,

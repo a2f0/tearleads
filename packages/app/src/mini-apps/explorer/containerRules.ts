@@ -6,6 +6,7 @@ import {
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { isCurrentSelfContactLocalId } from "../../stores/contacts/selfContact";
 import {
+  type BuiltInSystemContainer,
   getSharedSystemContainerRulesByName,
   getUserSystemContainerRulesByKind,
   isUnderForeignSharedRoot,
@@ -28,6 +29,11 @@ export interface ExplorerContainerRulesContext {
 }
 
 interface ExplorerContainerRulesInput {
+  // The org-scoped system containers the feature flag can reveal (Roster
+  // Profiles, Organization Metadata). Empty while they stay hidden, in which
+  // case their slots carry no rules — nothing can reach a container the tree
+  // does not show.
+  builtInSystemContainers?: ReadonlyArray<BuiltInSystemContainer> | undefined;
   contactsContainerId: string | null;
   contactsSystemSlot: ContainerSystemSlot | null;
   currentOrganizationId: string | null;
@@ -53,6 +59,14 @@ export function createExplorerContainerRulesContext(
   const trashRules = getUserSystemContainerRulesByKind("trash");
   if (input.trashSystemSlot && trashRules) {
     rulesBySystemSlot.set(input.trashSystemSlot, trashRules);
+  }
+  // Built-in containers carry their own rules rather than a kind-keyed lookup,
+  // because their slots are derived per organization instead of per user.
+  for (const builtInSystemContainer of input.builtInSystemContainers ?? []) {
+    rulesBySystemSlot.set(
+      builtInSystemContainer.systemSlot,
+      builtInSystemContainer.rules,
+    );
   }
 
   return {

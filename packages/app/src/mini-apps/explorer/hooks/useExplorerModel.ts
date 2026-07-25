@@ -161,6 +161,7 @@ export function useExplorerModel(
   const rulesContext = useMemo(
     () =>
       createExplorerContainerRulesContext({
+        builtInSystemContainers: explorer.builtInSystemContainers,
         contactsContainerId,
         contactsSystemSlot: explorer.contactsSystemSlot,
         currentOrganizationId: appData.auth.organizationId ?? null,
@@ -173,6 +174,7 @@ export function useExplorerModel(
       appData.crypto.signingFingerprint,
       contactsContainerId,
       currentSelfContactLocalId,
+      explorer.builtInSystemContainers,
       explorer.contactsSystemSlot,
       explorer.trashSystemSlot,
     ],

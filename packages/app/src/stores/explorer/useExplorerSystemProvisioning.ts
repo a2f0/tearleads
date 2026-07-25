@@ -1,9 +1,9 @@
-import {
-  deriveOrganizationMetadataContainerSystemSlot,
-  deriveOrganizationRosterProfileContainerSystemSlot,
-} from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { useEffect, useMemo, useState } from "react";
+import {
+  type BuiltInSystemContainer,
+  deriveBuiltInSystemContainers,
+} from "../systemContainers";
 import {
   findContactsSystemContainerSlot,
   findTrashSystemContainerSlot,
@@ -12,41 +12,41 @@ import {
 } from "./ExplorerSystemContainers";
 
 interface ExplorerSystemProvisioning {
+  builtInSystemContainers: ReadonlyArray<BuiltInSystemContainer>;
   contactsSystemSlot: ContainerSystemSlot | null;
   trashSystemSlot: ContainerSystemSlot | null;
   visibleSystemSlots: ReadonlySet<ContainerSystemSlot>;
 }
 
-const EMPTY_SYSTEM_SLOTS: ReadonlyArray<ContainerSystemSlot> = [];
+const EMPTY_BUILT_IN_SYSTEM_CONTAINERS: ReadonlyArray<BuiltInSystemContainer> =
+  [];
 
-function useBuiltInSystemContainerSlots(input: {
+function useBuiltInSystemContainers(input: {
   enabled: boolean;
   logError: (message: string | Error, cause?: unknown) => void;
   organizationId: string | null;
-}): ReadonlyArray<ContainerSystemSlot> {
-  const [systemSlots, setSystemSlots] =
-    useState<ReadonlyArray<ContainerSystemSlot>>(EMPTY_SYSTEM_SLOTS);
+}): ReadonlyArray<BuiltInSystemContainer> {
+  const [builtInSystemContainers, setBuiltInSystemContainers] = useState<
+    ReadonlyArray<BuiltInSystemContainer>
+  >(EMPTY_BUILT_IN_SYSTEM_CONTAINERS);
 
   useEffect(() => {
     if (!input.enabled || !input.organizationId) {
-      setSystemSlots(EMPTY_SYSTEM_SLOTS);
+      setBuiltInSystemContainers(EMPTY_BUILT_IN_SYSTEM_CONTAINERS);
       return;
     }
 
     let cancelled = false;
     const organizationId = input.organizationId;
-    void Promise.all([
-      deriveOrganizationRosterProfileContainerSystemSlot({ organizationId }),
-      deriveOrganizationMetadataContainerSystemSlot({ organizationId }),
-    ])
-      .then((nextSystemSlots) => {
+    void deriveBuiltInSystemContainers({ organizationId })
+      .then((nextBuiltInSystemContainers) => {
         if (!cancelled) {
-          setSystemSlots(nextSystemSlots);
+          setBuiltInSystemContainers(nextBuiltInSystemContainers);
         }
       })
       .catch((error) => {
         if (!cancelled) {
-          setSystemSlots(EMPTY_SYSTEM_SLOTS);
+          setBuiltInSystemContainers(EMPTY_BUILT_IN_SYSTEM_CONTAINERS);
           input.logError(
             "Failed to derive built-in explorer system slots",
             error,
@@ -59,7 +59,7 @@ function useBuiltInSystemContainerSlots(input: {
     };
   }, [input.enabled, input.logError, input.organizationId]);
 
-  return systemSlots;
+  return builtInSystemContainers;
 }
 
 /**
@@ -77,7 +77,7 @@ export function useExplorerSystemProvisioning(input: {
     logError: input.logError,
     signingPrivateKey: input.signingPrivateKey,
   });
-  const builtInSystemContainerSlots = useBuiltInSystemContainerSlots({
+  const builtInSystemContainers = useBuiltInSystemContainers({
     enabled: input.showBuiltInSystemContainers,
     logError: input.logError,
     organizationId: input.organizationId,
@@ -88,12 +88,15 @@ export function useExplorerSystemProvisioning(input: {
     () =>
       getExplorerVisibleSystemSlots(
         systemContainers,
-        builtInSystemContainerSlots,
+        builtInSystemContainers.map(
+          (builtInSystemContainer) => builtInSystemContainer.systemSlot,
+        ),
       ),
-    [builtInSystemContainerSlots, systemContainers],
+    [builtInSystemContainers, systemContainers],
   );
 
   return {
+    builtInSystemContainers,
     contactsSystemSlot,
     trashSystemSlot,
     visibleSystemSlots,
