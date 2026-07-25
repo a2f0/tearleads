@@ -11,6 +11,7 @@ import {
   WindowMenuProvider,
 } from "../../components/window/WindowMenuContext";
 import { BloodPressureFields } from "./BloodPressure";
+import type { BloodPressureQuickReading } from "./BloodPressureQuickAdd";
 import type { BloodPressureReadingRow } from "./bloodPressureReadings";
 
 afterEach(cleanup);
@@ -112,7 +113,7 @@ const attributedResolver = (peer: string | null): string | null => {
 function renderBloodPressureFields(params?: {
   currentAuthorId?: string | null;
   isEditing?: boolean | undefined;
-  onAddReading?: () => void;
+  onAddReading?: (reading?: BloodPressureQuickReading) => void;
   onEnterEdit?: (() => void) | undefined;
   onRemoveReading?: (id: string) => void;
   onRenameTracker?: (value: string) => void;
@@ -215,7 +216,7 @@ test("read mode renders formatted measurements and attribution", () => {
     isEditing: false,
   });
 
-  expect(view.getByText("Home log")).toBeTruthy();
+  expect(view.queryByText("Home log")).toBeNull();
   expect(view.getByText("120/80 mmHg")).toBeTruthy();
   expect(view.getByText("72 bpm")).toBeTruthy();
   expect(view.getByText("2026-07-16 08:30")).toBeTruthy();
@@ -280,6 +281,7 @@ test("read-only viewer opens attribution directly, without showing values", () =
 
   expect(view.queryByRole("dialog")).toBeNull();
   const kebab = view.getByRole("button", { name: "Reading 1 attribution" });
+  expect(view.queryByRole("button", { name: "Add Reading" })).toBeNull();
   kebab.focus();
   fireEvent.click(kebab);
 
@@ -329,15 +331,100 @@ test("writer's kebab menu offers Edit and Attribution", () => {
   expect(editCalls).toBe(1);
 });
 
-test("read mode shows the default tracker name when unnamed", () => {
+test("read mode leaves the tracker name to the document title bar", () => {
   const view = renderBloodPressureFields({
     isEditing: false,
     readings: [],
     trackerName: "",
   });
 
-  expect(view.getByText("Blood Pressure Tracker")).toBeTruthy();
-  expect(view.queryByText("None")).toBeNull();
+  expect(view.queryByText("Blood Pressure Tracker")).toBeNull();
+  expect(view.getByText("0 entries")).toBeTruthy();
+});
+
+test("quick add saves a populated reading without entering edit mode", () => {
+  const added: BloodPressureQuickReading[] = [];
+  const view = renderBloodPressureFields({
+    isEditing: false,
+    onEnterEdit: () => undefined,
+    onAddReading: (reading) => {
+      if (reading) {
+        added.push(reading);
+      }
+    },
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Add Reading" }));
+  fireEvent.change(view.getByLabelText("Quick add systolic"), {
+    target: { value: "119" },
+  });
+  fireEvent.change(view.getByLabelText("Quick add diastolic"), {
+    target: { value: "78" },
+  });
+  fireEvent.change(view.getByLabelText("Quick add pulse"), {
+    target: { value: "68" },
+  });
+  fireEvent.change(view.getByLabelText("Quick add measured at"), {
+    target: { value: "2026-07-25T08:30" },
+  });
+  fireEvent.change(view.getByLabelText("Quick add notes"), {
+    target: { value: "After waking" },
+  });
+  fireEvent.click(view.getByRole("button", { name: "Save Reading" }));
+
+  expect(added).toEqual([
+    {
+      diastolic: "78",
+      measuredAt: "2026-07-25T08:30",
+      notes: "After waking",
+      pulse: "68",
+      systolic: "119",
+    },
+  ]);
+  expect(view.getByRole("button", { name: "Toolbar Edit" })).toBeTruthy();
+  expect(view.queryByLabelText("Blood pressure tracker name")).toBeNull();
+});
+
+test("quick add rejects invalid readings and cancel clears the draft", () => {
+  const view = renderBloodPressureFields({
+    isEditing: false,
+    onEnterEdit: () => undefined,
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Add Reading" }));
+  const systolic = view.getByLabelText("Quick add systolic");
+  fireEvent.change(systolic, { target: { value: "900" } });
+  fireEvent.change(view.getByLabelText("Quick add diastolic"), {
+    target: { value: "80" },
+  });
+
+  expect(systolic.getAttribute("aria-invalid")).toBe("true");
+  expect(
+    (view.getByRole("button", { name: "Save Reading" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+
+  fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(view.getByRole("button", { name: "Add Reading" }));
+  expect(
+    (view.getByLabelText("Quick add systolic") as HTMLInputElement).value,
+  ).toBe("");
+});
+
+test("reading count follows the rows", () => {
+  const view = renderBloodPressureFields({ isEditing: false });
+  const rows = view.container.querySelectorAll(
+    ".blood-pressure-reading-read-row",
+  );
+  const footer = view.container.querySelector(
+    ".blood-pressure-reading-list-footer",
+  );
+  expect(footer).not.toBeNull();
+  const position =
+    rows[rows.length - 1]?.compareDocumentPosition(footer as Node) ?? 0;
+
+  expect(footer?.textContent).toBe("2 entries");
+  expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
 test("edits tracker name and reading cells through callbacks", () => {

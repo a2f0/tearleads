@@ -22,9 +22,10 @@
   gap: var(--space-xs);
 }
 
-.blood-pressure-reading-list-title span {
+.blood-pressure-reading-list-footer {
   font-size: var(--font-size-sm);
   opacity: var(--opacity-muted);
+  text-align: end;
 }
 
 /* Two lines in the windowed view: the three measurements share the top line,
@@ -63,6 +64,17 @@
 
 .blood-pressure-remove-button {
   grid-area: remove;
+}
+
+.blood-pressure-quick-add-actions {
+  display: grid;
+  grid-area: remove;
+  gap: var(--space-xs);
+}
+
+.blood-pressure-quick-add-row {
+  padding: var(--space-sm);
+  border: var(--border);
 }
 
 .blood-pressure-reading-read-row {
@@ -191,5 +203,10 @@
   .blood-pressure-remove-button {
     width: 100%;
     justify-self: stretch;
+  }
+
+  .blood-pressure-quick-add-actions {
+    grid-area: remove;
+    grid-template-columns: 1fr 1fr;
   }
 }

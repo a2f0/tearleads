@@ -1,4 +1,4 @@
-import { ScalesIcon } from "@phosphor-icons/react/dist/csr/Scales";
+import { CarrotIcon } from "@phosphor-icons/react/dist/csr/Carrot";
 import {
   type DocumentFieldValidationIssue,
   type DocumentRowSummary,
@@ -124,7 +124,7 @@ function validateWeightRows(
 
 export const weightDocumentProjectorDefinition: AppDocumentProjectorDefinition =
   {
-    createIcon: ScalesIcon,
+    createIcon: CarrotIcon,
     createLabel: "Weight",
     kind: WEIGHT_DOCUMENT_KIND,
     label: "weight tracker",

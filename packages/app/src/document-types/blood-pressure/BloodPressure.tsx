@@ -10,7 +10,6 @@ import {
   StructuredDocument,
   StructuredDocumentField,
   StructuredDocumentFields,
-  StructuredDocumentReadFields,
   useStructuredDocumentEditAction,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
@@ -20,6 +19,10 @@ import {
   BloodPressureReadingEditRow,
   type UpdateReading,
 } from "./BloodPressureEditRow";
+import {
+  BloodPressureQuickAdd,
+  type BloodPressureQuickReading,
+} from "./BloodPressureQuickAdd";
 import { BloodPressureReadingReadRow } from "./BloodPressureReadRow";
 import {
   BLOOD_PRESSURE_DIASTOLIC_FIELD,
@@ -38,44 +41,33 @@ import "./BloodPressure.css";
 
 function BloodPressureReadFields(params: {
   currentAuthorId: string | null;
+  controlsDisabled: boolean;
+  onAddReading: (reading?: BloodPressureQuickReading) => void;
   onEnterEdit?: (() => void) | undefined;
   readings: ReadonlyArray<BloodPressureReadingRow>;
   resolveRowWriter?: RowWriterResolver | undefined;
-  trackerName: string;
 }) {
   const {
     currentAuthorId,
+    controlsDisabled,
+    onAddReading,
     onEnterEdit,
     readings,
     resolveRowWriter,
-    trackerName,
   } = params;
 
   return (
     <div className="blood-pressure-document-fields">
-      <StructuredDocumentReadFields
-        fields={[
-          {
-            label: "Tracker Name",
-            value: trackerName,
-            // Fall back to the document type's name rather than the generic
-            // "None" placeholder when the tracker was never named. Only override
-            // the empty case — leaving displayValue undefined for a real name
-            // keeps its hover-title tooltip when the name is truncated.
-            displayValue:
-              trackerName.trim().length > 0
-                ? undefined
-                : "Blood Pressure Tracker",
-          },
-        ]}
-      />
       <section className="blood-pressure-reading-list">
         <div className="blood-pressure-reading-list-header">
-          <div className="blood-pressure-reading-list-title">
-            <strong>Readings</strong>
-            <span>{readings.length} entries</span>
-          </div>
+          <strong>Readings</strong>
         </div>
+        {onEnterEdit ? (
+          <BloodPressureQuickAdd
+            controlsDisabled={controlsDisabled}
+            onAddReading={onAddReading}
+          />
+        ) : null}
         {readings.length === 0 ? (
           <div className="blood-pressure-empty-state">No readings</div>
         ) : (
@@ -90,6 +82,9 @@ function BloodPressureReadFields(params: {
             />
           ))
         )}
+        <div className="blood-pressure-reading-list-footer">
+          {readings.length} entries
+        </div>
       </section>
     </div>
   );
@@ -140,13 +135,12 @@ function BloodPressureEditFields(params: {
         <div className="blood-pressure-reading-list-header">
           <div className="blood-pressure-reading-list-title">
             <strong>Readings</strong>
-            <span>{readings.length} entries</span>
           </div>
           <MiniAppButton
             className="blood-pressure-add-button"
             withIcon
             disabled={controlsDisabled}
-            onClick={onAddReading}
+            onClick={() => onAddReading()}
           >
             <PlusIcon aria-hidden size={14} />
             Add Reading
@@ -166,6 +160,9 @@ function BloodPressureEditFields(params: {
             />
           ))
         )}
+        <div className="blood-pressure-reading-list-footer">
+          {readings.length} entries
+        </div>
       </section>
     </div>
   );
@@ -175,7 +172,7 @@ export function BloodPressureFields(params: {
   currentAuthorId?: string | null;
   disabled?: boolean | undefined;
   isEditing?: boolean | undefined;
-  onAddReading: () => void;
+  onAddReading: (reading?: BloodPressureQuickReading) => void;
   onEnterEdit?: (() => void) | undefined;
   onRemoveReading: (id: string) => void;
   onRenameTracker: (value: string) => void;
@@ -215,10 +212,11 @@ export function BloodPressureFields(params: {
     return (
       <BloodPressureReadFields
         currentAuthorId={currentAuthorId}
+        controlsDisabled={controlsDisabled}
+        onAddReading={onAddReading}
         onEnterEdit={onEnterEdit}
         readings={readings}
         resolveRowWriter={resolveRowWriter}
-        trackerName={trackerName}
       />
     );
   }
@@ -295,14 +293,14 @@ export function BloodPressure(params: {
           // The read-row "Edit" action switches the whole tracker into edit
           // mode; only offer it when the viewer can actually write.
           onEnterEdit={canWrite ? () => setIsEditing(true) : undefined}
-          onAddReading={() => {
+          onAddReading={(reading) => {
             if (canWrite) {
               void addRow({
-                [BLOOD_PRESSURE_SYSTOLIC_FIELD]: "",
-                [BLOOD_PRESSURE_DIASTOLIC_FIELD]: "",
-                [BLOOD_PRESSURE_PULSE_FIELD]: "",
-                [BLOOD_PRESSURE_MEASURED_AT_FIELD]: "",
-                [BLOOD_PRESSURE_NOTES_FIELD]: "",
+                [BLOOD_PRESSURE_SYSTOLIC_FIELD]: reading?.systolic ?? "",
+                [BLOOD_PRESSURE_DIASTOLIC_FIELD]: reading?.diastolic ?? "",
+                [BLOOD_PRESSURE_PULSE_FIELD]: reading?.pulse ?? "",
+                [BLOOD_PRESSURE_MEASURED_AT_FIELD]: reading?.measuredAt ?? "",
+                [BLOOD_PRESSURE_NOTES_FIELD]: reading?.notes ?? "",
               });
             }
           }}

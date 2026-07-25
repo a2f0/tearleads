@@ -11,6 +11,7 @@ import {
   WindowMenuProvider,
 } from "../../components/window/WindowMenuContext";
 import { WeightFields } from "./Weight";
+import type { WeightQuickEntry } from "./WeightQuickAdd";
 import type { WeightUnit } from "./weightDocumentDefinition";
 import type { WeightEntryRow } from "./weightEntries";
 
@@ -106,7 +107,7 @@ function renderWeightFields(params?: {
   currentAuthorId?: string | null;
   entries?: WeightEntryRow[];
   isEditing?: boolean | undefined;
-  onAddEntry?: () => void;
+  onAddEntry?: (entry?: WeightQuickEntry) => void;
   onChangeUnit?: (unit: WeightUnit) => void;
   onEnterEdit?: (() => void) | undefined;
   onRemoveEntry?: (id: string) => void;
@@ -221,7 +222,8 @@ test("read mode renders formatted weights, change, and attribution", () => {
     isEditing: false,
   });
 
-  expect(view.getByText("Morning weigh-ins")).toBeTruthy();
+  expect(view.queryByText("Morning weigh-ins")).toBeNull();
+  expect(view.queryByText("New Entry Unit")).toBeNull();
   expect(view.getByText("180.5 lb")).toBeTruthy();
   expect(view.getByText("179 lb")).toBeTruthy();
   // The first entry has nothing to compare against; the second dropped 1.5 lb.
@@ -258,15 +260,85 @@ test("read mode tolerates missing entry values", () => {
   expect(view.getByText("—")).toBeTruthy();
 });
 
-test("read mode shows the default tracker name when unnamed", () => {
+test("read mode leaves the tracker name to the document title bar", () => {
   const view = renderWeightFields({
     entries: [],
     isEditing: false,
     trackerName: "",
   });
 
-  expect(view.getByText("Weight Tracker")).toBeTruthy();
-  expect(view.queryByText("None")).toBeNull();
+  expect(view.queryByText("Weight Tracker")).toBeNull();
+  expect(view.getByText("0 entries")).toBeTruthy();
+});
+
+test("quick add saves a populated entry without entering edit mode", () => {
+  const added: WeightQuickEntry[] = [];
+  const view = renderWeightFields({
+    isEditing: false,
+    onEnterEdit: () => undefined,
+    onAddEntry: (entry) => {
+      if (entry) {
+        added.push(entry);
+      }
+    },
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Add Entry" }));
+  fireEvent.change(view.getByLabelText("Quick add weight"), {
+    target: { value: "178.5" },
+  });
+  fireEvent.change(view.getByLabelText("Quick add measured at"), {
+    target: { value: "2026-07-25T08:30" },
+  });
+  fireEvent.change(view.getByLabelText("Quick add notes"), {
+    target: { value: "Before breakfast" },
+  });
+  fireEvent.click(view.getByRole("button", { name: "Save Entry" }));
+
+  expect(added).toEqual([
+    {
+      measuredAt: "2026-07-25T08:30",
+      notes: "Before breakfast",
+      weight: "178.5",
+    },
+  ]);
+  expect(view.getByRole("button", { name: "Toolbar Edit" })).toBeTruthy();
+  expect(view.queryByLabelText("Weight tracker name")).toBeNull();
+});
+
+test("quick add rejects invalid weights and cancel clears the draft", () => {
+  const view = renderWeightFields({
+    isEditing: false,
+    onEnterEdit: () => undefined,
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Add Entry" }));
+  const input = view.getByLabelText("Quick add weight");
+  fireEvent.change(input, { target: { value: "0" } });
+
+  expect(input.getAttribute("aria-invalid")).toBe("true");
+  expect(
+    (view.getByRole("button", { name: "Save Entry" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+
+  fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+  fireEvent.click(view.getByRole("button", { name: "Add Entry" }));
+  expect(
+    (view.getByLabelText("Quick add weight") as HTMLInputElement).value,
+  ).toBe("");
+});
+
+test("entry count follows the rows", () => {
+  const view = renderWeightFields({ isEditing: false });
+  const rows = view.container.querySelectorAll(".weight-entry-read-row");
+  const footer = view.container.querySelector(".weight-entry-list-footer");
+  expect(footer).not.toBeNull();
+  const position =
+    rows[rows.length - 1]?.compareDocumentPosition(footer as Node) ?? 0;
+
+  expect(footer?.textContent).toBe("2 entries");
+  expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
 test("read-only viewer opens attribution directly, without showing values", () => {
@@ -281,6 +353,7 @@ test("read-only viewer opens attribution directly, without showing values", () =
 
   expect(view.queryByRole("dialog")).toBeNull();
   const kebab = view.getByRole("button", { name: "Entry 1 attribution" });
+  expect(view.queryByRole("button", { name: "Add Entry" })).toBeNull();
   kebab.focus();
   fireEvent.click(kebab);
 

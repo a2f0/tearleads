@@ -22,9 +22,10 @@
   gap: var(--space-xs);
 }
 
-.env-file-variable-list-title span {
+.env-file-variable-list-footer {
   font-size: var(--font-size-sm);
   opacity: var(--opacity-muted);
+  text-align: end;
 }
 
 .env-file-variable-row {

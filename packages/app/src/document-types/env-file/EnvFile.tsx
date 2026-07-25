@@ -11,7 +11,6 @@ import {
   StructuredDocument,
   StructuredDocumentField,
   StructuredDocumentFields,
-  StructuredDocumentReadFields,
   useStructuredDocumentEditAction,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
@@ -41,23 +40,16 @@ function readFileNameField(
 
 function EnvFileReadFields(params: {
   currentAuthorId: string | null;
-  fileName: string;
   resolveRowWriter?: RowWriterResolver | undefined;
   variables: ReadonlyArray<EnvVariableRow>;
 }) {
-  const { currentAuthorId, fileName, resolveRowWriter, variables } = params;
+  const { currentAuthorId, resolveRowWriter, variables } = params;
 
   return (
     <div className="env-file-document-fields">
-      <StructuredDocumentReadFields
-        fields={[{ label: "File Name", value: fileName }]}
-      />
       <section className="env-file-variable-list">
         <div className="env-file-variable-list-header">
-          <div className="env-file-variable-list-title">
-            <strong>Variables</strong>
-            <span>{variables.length} entries</span>
-          </div>
+          <strong>Variables</strong>
         </div>
         {variables.length === 0 ? (
           <div className="env-file-empty-state">No variables</div>
@@ -72,6 +64,9 @@ function EnvFileReadFields(params: {
             />
           ))
         )}
+        <div className="env-file-variable-list-footer">
+          {variables.length} entries
+        </div>
       </section>
     </div>
   );
@@ -202,7 +197,6 @@ function EnvFileEditFields(params: {
         <div className="env-file-variable-list-header">
           <div className="env-file-variable-list-title">
             <strong>Variables</strong>
-            <span>{variables.length} entries</span>
           </div>
           <MiniAppButton
             className="env-file-add-button"
@@ -228,6 +222,9 @@ function EnvFileEditFields(params: {
             />
           ))
         )}
+        <div className="env-file-variable-list-footer">
+          {variables.length} entries
+        </div>
       </section>
     </div>
   );
@@ -279,7 +276,6 @@ export function EnvFileFields(params: {
     return (
       <EnvFileReadFields
         currentAuthorId={currentAuthorId}
-        fileName={fileName}
         resolveRowWriter={resolveRowWriter}
         variables={variables}
       />
@@ -348,41 +344,39 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
   return (
     <StructuredDocument
       fields={
-        <>
-          <EnvFileFields
-            currentAuthorId={currentAuthorId}
-            disabled={!ready || !canWrite}
-            fileName={fileName}
-            fileNameInputId={fileNameInputId}
-            isEditing={isEditing && canWrite}
-            resolveRowWriter={resolveRowWriter}
-            onAddVariable={() => {
-              if (canWrite) {
-                void addRow({
-                  [ENV_FILE_VARIABLE_KEY_FIELD]: "",
-                  [ENV_FILE_VARIABLE_VALUE_FIELD]: "",
-                });
-              }
-            }}
-            onRemoveVariable={(id) => {
-              if (canWrite) {
-                void removeRow(id);
-              }
-              clearRow(id);
-            }}
-            onToggleEditing={toggleEditing}
-            onRenameFile={(value) => {
-              if (canWrite) {
-                void setStructuredFields(ENV_FILE_DOCUMENT_KIND, {
-                  fileName: value,
-                });
-              }
-            }}
-            onUpdateVariable={handleUpdateVariable}
-            ready={ready}
-            variables={variables}
-          />
-        </>
+        <EnvFileFields
+          currentAuthorId={currentAuthorId}
+          disabled={!ready || !canWrite}
+          fileName={fileName}
+          fileNameInputId={fileNameInputId}
+          isEditing={isEditing && canWrite}
+          resolveRowWriter={resolveRowWriter}
+          onAddVariable={() => {
+            if (canWrite) {
+              void addRow({
+                [ENV_FILE_VARIABLE_KEY_FIELD]: "",
+                [ENV_FILE_VARIABLE_VALUE_FIELD]: "",
+              });
+            }
+          }}
+          onRemoveVariable={(id) => {
+            if (canWrite) {
+              void removeRow(id);
+            }
+            clearRow(id);
+          }}
+          onToggleEditing={toggleEditing}
+          onRenameFile={(value) => {
+            if (canWrite) {
+              void setStructuredFields(ENV_FILE_DOCUMENT_KIND, {
+                fileName: value,
+              });
+            }
+          }}
+          onUpdateVariable={handleUpdateVariable}
+          ready={ready}
+          variables={variables}
+        />
       }
     />
   );
