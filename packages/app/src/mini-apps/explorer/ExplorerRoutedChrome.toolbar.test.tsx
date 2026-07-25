@@ -20,7 +20,7 @@ function DocumentTypeToolbarActionProbe() {
       id: "document-type-edit",
       label: "Edit",
       onClick: () => undefined,
-      priority: 150,
+      priority: 100,
     }),
     [],
   );
@@ -106,8 +106,8 @@ test("document Get Info stays second from the right beside type actions", async 
       .map((button) => button.getAttribute("aria-label")),
   ).toEqual([
     EXPLORER_LABELS.documentLinkAction,
-    "Edit",
     EXPLORER_LABELS.documentMoveAction,
+    "Edit",
     EXPLORER_LABELS.documentInfoGetInfoAction,
     EXPLORER_LABELS.syncSectionsAction,
   ]);

@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import type { ReactNode } from "react";
 import {
   createTitleBarActions,
   type RegisteredWindowTitleBarAction,
@@ -12,7 +11,7 @@ function action(
 ): RegisteredWindowTitleBarAction {
   return {
     disabled: false,
-    icon: id as ReactNode,
+    icon: id,
     id,
     label: id,
     onClick: () => undefined,

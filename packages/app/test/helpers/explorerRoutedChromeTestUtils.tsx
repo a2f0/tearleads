@@ -29,6 +29,7 @@ export function createExplorerModel(
     openInlineDocument: () => undefined,
     routeState: {
       navigateBackFromBlobBrowser: () => undefined,
+      openBlobBrowserRoute: () => undefined,
       openContainerInfoRoute: () => undefined,
       openDocumentInfoRoute: () => undefined,
       openSyncLanesRoute: () => undefined,

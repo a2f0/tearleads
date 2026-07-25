@@ -27,7 +27,7 @@ test("system containers omit forbidden standard actions", () => {
   });
 });
 
-test("system contact containers show only allowed contact creation", () => {
+test("system contact containers hide contact creation when not allowed", () => {
   expect(
     getExplorerContainerToolbarVisibility({
       ...allowedActions,

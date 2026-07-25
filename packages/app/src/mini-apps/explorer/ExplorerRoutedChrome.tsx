@@ -474,7 +474,7 @@ function useExplorerMoveDocumentToolbarAction({
       onClick: () => {
         model.modalState.openMoveDocumentModal(documentId);
       },
-      priority: 100,
+      priority: 110,
     };
   }, [
     documentId,
