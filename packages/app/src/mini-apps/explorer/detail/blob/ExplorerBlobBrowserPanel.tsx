@@ -37,13 +37,7 @@ function renderExplorerSyncCell(
   syncState: ContainerDocumentObjectSyncState,
   isOnline: boolean,
 ) {
-  return (
-    <ExplorerSyncStateBadge
-      online={isOnline}
-      showSynced
-      syncState={syncState}
-    />
-  );
+  return <ExplorerSyncStateBadge online={isOnline} syncState={syncState} />;
 }
 
 interface ExplorerBlobBrowserPanelProps {

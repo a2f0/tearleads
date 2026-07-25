@@ -25,12 +25,19 @@
 .explorer-detail-title-row {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: var(--space-sm);
+  /* A grid item defaults to min-width:auto, which would floor the row at the
+     title's full width and push the header wider than its panel. */
+  min-width: 0;
 }
 
+/* The title keeps to one line and ellipsizes: a long name gives up its tail
+   rather than reflowing the header (and its sync glyph) onto a second line. */
 .explorer-detail-title-row > strong {
-  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .explorer-item-table-wrap {
@@ -189,47 +196,13 @@
   text-transform: uppercase;
 }
 
+/* Just a hit/tooltip target around the shared glyph, which carries the hue and
+   the shape (see SyncGlyph.css). */
 .explorer-sync-badge {
   display: inline-flex;
   align-items: center;
-  flex: 0 0 auto;
-  max-width: 8rem;
-  min-height: 1.2rem;
-  padding: 0 var(--info-table-cell-padding);
-  border: var(--border);
-  box-sizing: border-box;
-  font-size: var(--font-size-2xs);
-  line-height: 1;
-  opacity: var(--opacity-subtle);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.explorer-sync-badge::before {
-  content: attr(data-label);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.explorer-sync-badge--error {
-  opacity: 1;
-}
-
-.explorer-sync-badge--synced {
-  opacity: var(--opacity-faint);
-}
-
-.explorer-sync-badge--reserved {
-  flex: 0 1 4rem;
   justify-content: center;
-  width: 4rem;
-  min-width: 2.75rem;
-  max-width: none;
-}
-
-.explorer-sync-badge--placeholder {
-  visibility: hidden;
+  flex: 0 0 auto;
 }
 
 .explorer-node-toggle,
@@ -419,10 +392,6 @@
   overflow: auto;
   scrollbar-gutter: var(--scrollbar-gutter);
   gap: var(--space-md);
-}
-
-.explorer-blob-browser-sync-cell .explorer-sync-badge {
-  max-width: 100%;
 }
 
 .explorer-blob-preview-frame {

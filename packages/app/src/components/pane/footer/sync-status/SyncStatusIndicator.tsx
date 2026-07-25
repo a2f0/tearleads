@@ -1,7 +1,7 @@
-import { WarningIcon } from "@phosphor-icons/react/dist/csr/Warning";
 import { type MouseEvent, useCallback, useState } from "react";
 import { useMiniAppBusActions } from "../../../../mini-apps/bus";
 import { Menu, type MenuPosition } from "../../../shared/Menu";
+import { SyncGlyph } from "../../../shared/SyncGlyph";
 import type { SyncStatus } from "./syncStatusModel";
 import { useSyncStatus } from "./useSyncStatus";
 import "./SyncStatusIndicator.css";
@@ -44,17 +44,13 @@ export function SyncStatusIndicatorView({
       aria-expanded={expanded}
       aria-haspopup="menu"
       aria-label={title}
-      className={`sync-status-indicator sync-status-indicator--${status}`}
+      className="sync-status-indicator"
       onClick={onToggle}
       onMouseDown={expanded ? stopTriggerMouseDown : undefined}
       title={title}
       type="button"
     >
-      {status === "billing" || status === "error" ? (
-        <WarningIcon aria-hidden focusable={false} size={18} weight="fill" />
-      ) : (
-        <span aria-hidden className="sync-status-indicator-dot" />
-      )}
+      <SyncGlyph tone={status} />
     </button>
   );
 }

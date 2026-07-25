@@ -121,7 +121,8 @@ function buildExplorerItemColumn(
       return {
         id,
         header: EXPLORER_LABELS.itemSyncColumn,
-        width: "7rem",
+        // Wide enough for the header word; the cell below it is a single glyph.
+        width: "4.5rem",
       };
     case "summary":
       return {
@@ -376,7 +377,6 @@ export function renderExplorerItemCell(
         <MiniAppTableCell key="sync">
           <ExplorerSyncStateBadge
             online={ctx.online}
-            showSynced
             syncState={row.syncState}
           />
         </MiniAppTableCell>

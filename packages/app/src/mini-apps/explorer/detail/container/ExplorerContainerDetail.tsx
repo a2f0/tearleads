@@ -44,7 +44,6 @@ function ExplorerContainerDetailHeader(params: {
           <strong>{selectedNode.name}</strong>
           <ExplorerSyncStateBadge
             online={online}
-            showSynced
             syncState={selectedNode.syncState}
           />
         </div>
