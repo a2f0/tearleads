@@ -9,10 +9,13 @@ import {
   defaultContainerContentsPersistence,
   markContainerSyncLaneChecked,
 } from "../workflows/container-contents/containerPersistence";
-import { createContainerContentsWorkflowRuntime } from "../workflows/container-contents/runtime";
+import { createContainerContentsStoreWorkflowRuntime } from "../workflows/container-contents/runtime";
 import { defaultDocumentsPersistence } from "../workflows/documents";
 import type { ContainerContents } from "./containerContents";
-import { createDeviceFirst } from "./deviceFirst";
+import {
+  createDeviceFirst,
+  createDeviceFirstWorkflowRuntime,
+} from "./deviceFirst";
 import { createDocuments } from "./documents";
 import type {
   InternalRuntime,
@@ -114,8 +117,13 @@ test("local deletion evicts a cached device-first summary until disposal", async
       logError: () => {},
     },
   } satisfies InternalWorkflowRuntimeInput;
-  const runtime = createContainerContentsWorkflowRuntime(workflowInput);
+  const adoptRootContainer = () => false;
+  const runtime = createContainerContentsStoreWorkflowRuntime(
+    workflowInput,
+    adoptRootContainer,
+  );
   const runtimeService = {
+    adoptRootContainer,
     pinLocalUserIdentity: async () => {},
     publicRuntime: {
       version: 0,
@@ -124,6 +132,9 @@ test("local deletion evicts a cached device-first summary until disposal", async
     },
     workflowInput: () => workflowInput,
   } satisfies InternalRuntime;
+  expect(
+    createDeviceFirstWorkflowRuntime(runtimeService).adoptRootContainer,
+  ).toBe(adoptRootContainer);
   const deviceFirst = createDeviceFirst(
     runtimeService,
     {} as ContainerContents,

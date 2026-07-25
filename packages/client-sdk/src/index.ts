@@ -306,6 +306,9 @@ export {
   wrapEncryptedBlobStore,
 } from "./workflows/blobs";
 export type {
+  ContainerContentsRootAdopter,
+  ContainerContentsRootAdoptionInput,
+  ContainerContentsStoreWorkflowRuntime,
   ContainerContentsWorkflowRuntime,
   // Distinct from the canonical `ContainerDocumentLinkInput` (./client); the
   // documentQueries variant has a different shape, so it keeps a disambiguating
@@ -316,6 +319,7 @@ export type {
 export {
   createContainerContentsDocumentsRuntime,
   createContainerContentsProjectionUserKeyResolver,
+  createContainerContentsStoreWorkflowRuntime,
   createContainerContentsSyncLane,
   createContainerContentsWorkflowRuntime,
   createContainerParentSyncLane,

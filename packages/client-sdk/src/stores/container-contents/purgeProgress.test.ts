@@ -7,8 +7,8 @@ import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { PurgeProgress } from "../../workflows/container-contents/container-state/purgeProgress";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
-import { createContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
 import { createContainerContentsStore } from "./containerContentsStore";
+import { createContainerContentsStoreTestRuntime } from "./runtime.testFixtures";
 
 // These tests drive the real recursive purge engine through the store over an
 // in-memory SQLite, but keep every container LOCAL-ONLY (created offline, so
@@ -45,7 +45,7 @@ async function withOfflineStore(
   const { close, execSql } = await createTestExecSql("purge-progress-test");
   try {
     await seedLocalRootContainer(execSql);
-    const runtime = createContainerContentsWorkflowRuntime({
+    const runtime = createContainerContentsStoreTestRuntime({
       apiClient: createMockApiClient({
         listContainerParentLanes: async () => null,
       }),

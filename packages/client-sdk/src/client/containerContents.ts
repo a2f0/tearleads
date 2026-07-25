@@ -43,8 +43,10 @@ import {
 } from "../workflows/container-contents/documentStructure";
 import { createContainerContentsDocumentProjectionUserKeyResolver } from "../workflows/container-contents/projectionKeys";
 import {
+  type ContainerContentsStoreWorkflowRuntime,
   type ContainerContentsWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
+  createContainerContentsStoreWorkflowRuntime,
   createContainerContentsWorkflowRuntime,
 } from "../workflows/container-contents/runtime";
 import { createContainerDocumentObjectSyncState } from "../workflows/container-contents/syncState";
@@ -437,9 +439,10 @@ class ContainerContentsService implements ContainerContents {
     });
   }
 
-  workflowRuntime(): ContainerContentsWorkflowRuntime {
-    return createContainerContentsWorkflowRuntime(
+  workflowRuntime(): ContainerContentsStoreWorkflowRuntime {
+    return createContainerContentsStoreWorkflowRuntime(
       this.runtimeService.workflowInput(),
+      this.runtimeService.adoptRootContainer,
     );
   }
 }

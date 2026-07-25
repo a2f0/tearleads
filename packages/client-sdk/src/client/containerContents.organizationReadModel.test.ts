@@ -80,6 +80,7 @@ test("container info reads groups strictly from the durable local projection", a
     },
   } satisfies InternalWorkflowRuntimeInput;
   const runtime = {
+    adoptRootContainer: () => false,
     pinLocalUserIdentity: async () => {},
     publicRuntime: {
       version: 0,
@@ -195,6 +196,7 @@ test("container info does not reconcile or cross an identity scope change", asyn
     },
   };
   const runtime = {
+    adoptRootContainer: () => false,
     pinLocalUserIdentity: async () => {},
     publicRuntime: {
       version: 0,

@@ -11,11 +11,8 @@ import {
   defaultContainerContentsPersistence,
   markContainerSyncLaneChecked,
 } from "../../workflows/container-contents/containerPersistence";
-import {
-  type ContainerContentsWorkflowRuntime,
-  createContainerContentsWorkflowRuntime,
-} from "../../workflows/container-contents/runtime";
 import { createContainerContentsStore } from "../container-contents/containerContentsStore";
+import { createContainerContentsStoreTestRuntime } from "../container-contents/runtime.testFixtures";
 import type {
   ContainerContentsStore,
   ContainerNode,
@@ -41,8 +38,8 @@ function createRuntime(input: {
   isAuthenticated: boolean;
   online: boolean;
   dbStatus?: string;
-}): ContainerContentsWorkflowRuntime {
-  return createContainerContentsWorkflowRuntime({
+}): ReturnType<typeof createContainerContentsStoreTestRuntime> {
+  return createContainerContentsStoreTestRuntime({
     apiClient: input.apiClient,
     auth: {
       isAuthenticated: input.isAuthenticated,

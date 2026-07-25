@@ -8,9 +8,16 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
-import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
+import {
+  createContainerParentSyncLane,
+  defaultContainerContentsPersistence,
+  markContainerSyncLaneChecked,
+} from "../../workflows/container-contents/containerPersistence";
 import { saveTestDocument } from "../../workflows/container-contents/documentQueries.testFixtures";
-import { hasStartupContainerSyncWork } from "./startupHydration";
+import {
+  hasStartupContainerSyncWork,
+  scheduleStaleStartupRemoteHydration,
+} from "./startupHydration";
 
 async function createStartupWorkFixture(testDbName: string) {
   const { close, execSql } = await createTestExecSql(testDbName);
@@ -57,6 +64,100 @@ test("hasStartupContainerSyncWork is false when every document is settled", asyn
   try {
     await saveSettledTestDocument({ execSql, id: "settled-doc", seed: "s1" });
     await expect(hasStartupContainerSyncWork(state)).resolves.toBe(false);
+  } finally {
+    close();
+  }
+});
+
+test("startup restores a fresh durable root-lane hydration marker", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "startup-restores-root-lane-hydration",
+  );
+  try {
+    await markContainerSyncLaneChecked(
+      execSql,
+      createContainerParentSyncLane(null),
+    );
+    let hydrationRequestCount = 0;
+    const state = {
+      containerParentIdsNeedingHydration: new Set<string | null>(),
+      containersById: new Map([
+        [
+          "remote-root",
+          {
+            container: {
+              metadataDocumentId: "remote-root-metadata",
+              parentId: null,
+            },
+          },
+        ],
+      ]),
+      rootLaneHydrated: false,
+      runtime: {
+        auth: { isAuthenticated: true },
+        infra: { execSql },
+        state: { containerId: "remote-root", online: true },
+      },
+    };
+
+    const shouldScheduleStaleRootRecovery =
+      await scheduleStaleStartupRemoteHydration({
+        requestHydration: async () => {
+          hydrationRequestCount += 1;
+        },
+        state,
+      });
+
+    expect(state.rootLaneHydrated).toBe(true);
+    expect(hydrationRequestCount).toBe(0);
+    expect(shouldScheduleStaleRootRecovery).toBe(false);
+  } finally {
+    close();
+  }
+});
+
+test("startup schedules stale-root recovery with no durable sync work", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "startup-schedules-stale-root-recovery",
+  );
+  try {
+    await markContainerSyncLaneChecked(
+      execSql,
+      createContainerParentSyncLane(null),
+    );
+    let hydrationRequestCount = 0;
+    const state = {
+      containerParentIdsNeedingHydration: new Set<string | null>(),
+      containersById: new Map([
+        [
+          "remote-root",
+          {
+            container: {
+              metadataDocumentId: "remote-root-metadata",
+              parentId: null,
+            },
+          },
+        ],
+      ]),
+      rootLaneHydrated: false,
+      runtime: {
+        auth: { isAuthenticated: true },
+        infra: { execSql },
+        state: { containerId: "deleted-local-root", online: true },
+      },
+    };
+
+    const shouldScheduleStaleRootRecovery =
+      await scheduleStaleStartupRemoteHydration({
+        requestHydration: async () => {
+          hydrationRequestCount += 1;
+        },
+        state,
+      });
+
+    expect(state.rootLaneHydrated).toBe(true);
+    expect(hydrationRequestCount).toBe(0);
+    expect(shouldScheduleStaleRootRecovery).toBe(true);
   } finally {
     close();
   }

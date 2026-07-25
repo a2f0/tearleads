@@ -4,6 +4,7 @@ import type { StoredDocumentKind } from "../data/documents/documentKinds";
 import type {
   ContainerContentsStore,
   ContainerContentsStoreOptions,
+  ContainerContentsStoreRuntime,
 } from "../stores/container-contents";
 import type { DocumentStore } from "../stores/documents";
 import type {
@@ -271,5 +272,5 @@ export interface ContainerContents {
    * Use this when constructing lower-level stores or custom workflows that need
    * access to the current runtime snapshot.
    */
-  workflowRuntime(): ContainerContentsWorkflowRuntime;
+  workflowRuntime(): ContainerContentsStoreRuntime;
 }

@@ -50,6 +50,9 @@ export function createContainerContentsPersistence(input: {
   }>;
 }): ContainerContentsPersistence {
   return {
+    async containerExists() {
+      return false;
+    },
     async deleteContainer() {},
     async deleteContainers() {},
     async deletePendingUpdates() {},
@@ -85,6 +88,7 @@ export function createContainerContentsPersistence(input: {
     async markMoveIntentSynced() {},
     async recordCreateIntentError() {},
     async recordMoveIntentError() {},
+    async reassignContainerDocuments() {},
     async reconcileLocalRootContainer() {},
     async reconcileLocalSystemContainer() {},
     async saveContainer(receivedExecSql, container, record) {

@@ -1,5 +1,5 @@
 import type {
-  ContainerContentsWorkflowRuntime,
+  ContainerContentsStoreRuntime,
   LocalProjectionView,
   ReconciliationService,
 } from "@tearleads/client-sdk";
@@ -17,7 +17,7 @@ import { useContainerContentsDeviceFirst } from "./useContainerContentsDeviceFir
 
 interface DeviceFirstContextValue {
   reconciler: ReconciliationService;
-  runtime: ContainerContentsWorkflowRuntime;
+  runtime: ContainerContentsStoreRuntime;
   view: LocalProjectionView;
 }
 

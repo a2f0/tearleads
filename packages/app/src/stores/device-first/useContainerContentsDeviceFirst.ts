@@ -1,5 +1,5 @@
 import type {
-  ContainerContentsWorkflowRuntime,
+  ContainerContentsStoreRuntime,
   ContainerNode,
   DocumentSummary,
   LocalProjectionView,
@@ -327,7 +327,7 @@ export function takePendingReconciliationEvents(input: {
  * in the same scope shares one read view and one reconciler.
  */
 export function useContainerContentsDeviceFirst(input: {
-  runtime: ContainerContentsWorkflowRuntime;
+  runtime: ContainerContentsStoreRuntime;
   events: ReadonlyArray<unknown>;
   logLabel: string;
 }): { reconciler: ReconciliationService; view: LocalProjectionView } {

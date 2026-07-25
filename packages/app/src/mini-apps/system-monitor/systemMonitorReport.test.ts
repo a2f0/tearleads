@@ -178,22 +178,42 @@ test("report retains only anchored content-free telemetry", () => {
           "Container contents: document priming candidates=4 roots=1 primed=3 unroutable=1 title=PRIVATE cardiology scan.pdf",
       }),
       createLogEntry(4, {
-        message: "Documents: remote revalidation scheduled reason=startup",
+        message:
+          "Container contents: stale root recovery status=reassigned candidates=1",
       }),
       createLogEntry(5, {
         message:
-          "Documents: remote revalidation result=applied incomingUpdates=2 attachmentSlots=1",
+          "Container contents: stale root recovery status=already-adopted candidates=1",
       }),
       createLogEntry(6, {
-        message: "Documents: remote revalidation result=unavailable",
+        message:
+          "Container contents: stale root recovery status=ambiguous candidates=2",
       }),
       createLogEntry(7, {
-        message: "WebSocket: interest baseline containers=12",
+        message:
+          "Container contents: stale root recovery status=context-changed candidates=1 occurrences=2",
       }),
       createLogEntry(8, {
-        message: "WebSocket: interest declaration acknowledged",
+        message:
+          "Container contents: stale root recovery status=unsupported candidates=1",
       }),
       createLogEntry(9, {
+        message: "Documents: remote revalidation scheduled reason=startup",
+      }),
+      createLogEntry(10, {
+        message:
+          "Documents: remote revalidation result=applied incomingUpdates=2 attachmentSlots=1",
+      }),
+      createLogEntry(11, {
+        message: "Documents: remote revalidation result=unavailable",
+      }),
+      createLogEntry(12, {
+        message: "WebSocket: interest baseline containers=12",
+      }),
+      createLogEntry(13, {
+        message: "WebSocket: interest declaration acknowledged",
+      }),
+      createLogEntry(14, {
         message:
           "Documents: remote revalidation scheduled reason=reconnect PRIVATE cardiology scan.pdf",
       }),
@@ -205,6 +225,19 @@ test("report retains only anchored content-free telemetry", () => {
     "ERROR: document priming candidates=4 roots=1 primed=3 unroutable=1",
   );
   expect(report).not.toContain("PRIVATE");
+  expect(report).toContain(
+    "stale root recovery status=reassigned candidates=1",
+  );
+  expect(report).toContain(
+    "stale root recovery status=already-adopted candidates=1",
+  );
+  expect(report).toContain("stale root recovery status=ambiguous candidates=2");
+  expect(report).toContain(
+    "stale root recovery status=context-changed candidates=1 occurrences=2",
+  );
+  expect(report).toContain(
+    "stale root recovery status=unsupported candidates=1",
+  );
   expect(report).toContain("remote revalidation scheduled reason=startup");
   expect(report).toContain(
     "remote revalidation result=applied incomingUpdates=2 attachmentSlots=1",

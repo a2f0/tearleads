@@ -111,6 +111,7 @@ export interface StoredContainerState {
 }
 
 export interface ContainerContentsPersistence {
+  containerExists: (execSql: ExecSql, containerId: string) => Promise<boolean>;
   deleteContainer: (
     execSql: ExecSql,
     containerId: string,
@@ -164,6 +165,14 @@ export interface ContainerContentsPersistence {
       blocked?: boolean | undefined;
       containerId: string;
       message: string;
+    },
+  ) => Promise<void>;
+  reassignContainerDocuments: (
+    execSql: ExecSql,
+    input: {
+      fromContainerId: string;
+      toContainerId: string;
+      updatedAt?: string | undefined;
     },
   ) => Promise<void>;
   reconcileLocalRootContainer: (
@@ -827,6 +836,16 @@ async function deleteLocalContainerRows(input: {
 }
 
 export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
+  async containerExists(execSql, containerId) {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    const { db } = getClientSQLitePersistenceRuntime(execSql);
+    const rows = await db
+      .select({ id: containers.id })
+      .from(containers)
+      .where(eq(containers.id, containerId))
+      .limit(1);
+    return rows.length > 0;
+  },
   async deleteContainer(execSql, containerId, options) {
     await sqlContainerContentsPersistence.deleteContainers(
       execSql,
@@ -1068,6 +1087,30 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
           ),
         )
         .run();
+    });
+  },
+  async reassignContainerDocuments(execSql, input) {
+    if (input.fromContainerId === input.toContainerId) {
+      return;
+    }
+
+    await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      const updatedAt = input.updatedAt ?? new Date().toISOString();
+      await ensureSqlTables(lockedExecSql, [
+        ...documentContainerProjectionTables,
+        ...documentMoveIntentTables,
+        ...documentProjectionTables,
+      ]);
+      await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+        async (tx) => {
+          await reassignContainerDocumentsInTransaction({
+            fromContainerId: input.fromContainerId,
+            toContainerId: input.toContainerId,
+            tx,
+            updatedAt,
+          });
+        },
+      );
     });
   },
   async reconcileLocalRootContainer(execSql, input) {

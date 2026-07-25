@@ -19,7 +19,7 @@ import {
   type RemoteContainerHydrationHost,
 } from "../../workflows/container-contents/remoteHydration";
 import {
-  type ContainerContentsWorkflowRuntime,
+  type ContainerContentsStoreWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
 } from "../../workflows/container-contents/runtime";
 import {
@@ -31,7 +31,9 @@ import { openDocumentStore, requestDomainDocumentSync } from "../documents";
 import {
   primeStoreDocumentSubtree,
   primeStoreDocuments,
+  recoverStoreStaleRoot,
 } from "./documentRecovery";
+import { runContainerDocumentWork } from "./documentWork";
 import { refreshLocalContainerStates } from "./localRefresh";
 import {
   bumpMetadataSyncSeq,
@@ -50,7 +52,8 @@ import {
 
 export type { ContainerState };
 
-export type ContainerContentsStoreRuntime = ContainerContentsWorkflowRuntime;
+export type ContainerContentsStoreRuntime =
+  ContainerContentsStoreWorkflowRuntime;
 
 export interface ContainerContentsStoreSyncState {
   containersById: Map<string, ContainerState>;
@@ -85,6 +88,8 @@ export interface ContainerContentsStoreSyncState {
   persistence: ContainerContentsPersistence;
   remoteHydrationPromise: Promise<void> | null;
   resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
+  /** True after this store has fully applied an authoritative root lane. */
+  rootLaneHydrated: boolean;
   runtime: ContainerContentsStoreRuntime;
   snapshot: {
     ready: boolean;
@@ -194,15 +199,16 @@ async function initializeContainerContentsStore(input: {
   state.initialized = true;
   state.initializePromise = null;
 
-  await scheduleStaleStartupRemoteHydration({
-    requestHydration: () =>
-      requestContainerContentsRemoteHydration({
-        host,
-        scheduleSync,
-        state,
-      }),
-    state,
-  });
+  const shouldScheduleStaleRootRecovery =
+    await scheduleStaleStartupRemoteHydration({
+      requestHydration: () =>
+        requestContainerContentsRemoteHydration({
+          host,
+          scheduleSync,
+          state,
+        }),
+      state,
+    });
 
   host.updateSnapshot();
 
@@ -213,10 +219,13 @@ async function initializeContainerContentsStore(input: {
   if (
     state.runtime.auth.isAuthenticated &&
     state.runtime.state.online &&
-    (await hasStartupContainerSyncWork(state))
+    (shouldScheduleStaleRootRecovery ||
+      (await hasStartupContainerSyncWork(state)))
   ) {
     state.runtime.util.log(
-      `${getContainerContentsStoreLogLabel(state)}: startup detected durable sync work; scheduling lane pass`,
+      shouldScheduleStaleRootRecovery
+        ? `${getContainerContentsStoreLogLabel(state)}: startup detected stale root recovery; scheduling lane pass`
+        : `${getContainerContentsStoreLogLabel(state)}: startup detected durable sync work; scheduling lane pass`,
     );
     scheduleSync();
   }
@@ -355,21 +364,29 @@ async function runContainerContentsStoreSyncIteration(input: {
     });
   }
 
-  // Document move intents live in the structural phase because they may target
-  // containers created locally in the same session, such as Trash.
-  const movedDocumentCount = await syncPendingDocumentMoveIntents({
-    host: createContainerContentsStoreDocumentMoveHost(state),
-    isRemoteSyncBlocked: isOrganizationBlocked,
-    state,
+  // Root adoption notifies session consumers synchronously. Let container
+  // metadata converge first so a recovered system container is never exposed
+  // under its placeholder name when the active root changes.
+  await runContainerDocumentWork({
+    onContextChanged: () => requestContainerContentsStoreSync(state),
+    onDocumentsMoved: () => {
+      requestDomainDocumentSync(state.runtime.state.domainScope);
+      requestContainerContentsStoreSync(state);
+    },
+    primeDocuments: () => primeStoreDocuments(state),
+    recoverStaleRoot: () => recoverStoreStaleRoot(state),
+    shouldPrimeDocuments: () => state.documentStoresNeedPriming,
+    // Document move intents live in the structural phase because they may
+    // target containers created locally in the same session, such as Trash.
+    // Root recovery rewrites stale endpoints and returns their intents to
+    // pending, so replay follows recovery in this same pass.
+    syncPendingDocumentMoves: () =>
+      syncPendingDocumentMoveIntents({
+        host: createContainerContentsStoreDocumentMoveHost(state),
+        isRemoteSyncBlocked: isOrganizationBlocked,
+        state,
+      }),
   });
-  if (movedDocumentCount > 0) {
-    requestDomainDocumentSync(state.runtime.state.domainScope);
-    requestContainerContentsStoreSync(state);
-  }
-
-  if (state.documentStoresNeedPriming) {
-    await primeStoreDocuments(state);
-  }
 }
 
 export function createContainerContentsStoreSyncAgent(input: {

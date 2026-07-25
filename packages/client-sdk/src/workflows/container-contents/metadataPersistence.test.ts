@@ -52,6 +52,9 @@ function createMetadataWriterProjection(
 
 function createPersistence(): ContainerContentsPersistence {
   return {
+    async containerExists() {
+      return false;
+    },
     async deleteContainer() {},
     async deleteContainers() {},
     async deletePendingUpdates() {},
@@ -80,6 +83,7 @@ function createPersistence(): ContainerContentsPersistence {
     },
     async markCreateIntentSynced() {},
     async markMoveIntentSynced() {},
+    async reassignContainerDocuments() {},
     async reconcileLocalRootContainer() {},
     async reconcileLocalSystemContainer() {},
     async recordCreateIntentError() {},

@@ -24,6 +24,9 @@ export async function markContainerParentLaneFetched(input: {
   // server confirms this parent lane is fully drained.
   if (!response.hasMore) {
     await markContainerSyncLaneChecked(execSql, syncLane);
+    if (syncLane.kind === "container_parent" && syncLane.parentId === null) {
+      state.rootLaneHydrated = true;
+    }
   }
 
   return true;

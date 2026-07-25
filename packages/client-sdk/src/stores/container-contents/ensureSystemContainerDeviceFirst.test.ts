@@ -7,8 +7,8 @@ import { defaultDocumentProjectorRegistry } from "../../data/documents/documentK
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
-import { createContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
 import { createContainerContentsStore } from "./containerContentsStore";
+import { createContainerContentsStoreTestRuntime } from "./runtime.testFixtures";
 
 // A non-built-in system slot is enough to exercise the device-first create path;
 // the slot string only needs to be stable for `findSystemContainerState`.
@@ -42,7 +42,7 @@ function createAuthenticatedRuntime(input: {
   writerReady?: boolean | undefined;
 }) {
   const rootContainerId = input.rootContainerId ?? ROOT_CONTAINER_ID;
-  return createContainerContentsWorkflowRuntime({
+  return createContainerContentsStoreTestRuntime({
     apiClient: input.apiClient,
     auth: {
       isAuthenticated: true,

@@ -58,6 +58,9 @@ function createContainerContentsPersistence(input: {
   storedContainers: ReadonlyArray<StoredContainerState>;
 }): ContainerContentsPersistence {
   return {
+    async containerExists() {
+      return false;
+    },
     async deleteContainer() {},
     async deleteContainers() {},
     async deletePendingUpdates() {},
@@ -88,6 +91,7 @@ function createContainerContentsPersistence(input: {
     },
     async recordCreateIntentError() {},
     async recordMoveIntentError() {},
+    async reassignContainerDocuments() {},
     async reconcileLocalRootContainer() {},
     async reconcileLocalSystemContainer() {},
     async loadContainers() {

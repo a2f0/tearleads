@@ -51,7 +51,23 @@ export interface ContainerContentsWorkflowRuntimeState
   extends WorkflowRuntimeStateInput {}
 
 export interface ContainerContentsWorkflowRuntimeUtil
-  extends ContainerContentsWorkflowRuntimeUtilInput {}
+  extends ContainerContentsWorkflowRuntimeUtilInput {
+  // Store recovery is best-effort, so hosts may retain the causal error without
+  // making structured error logging mandatory for general workflow runtimes.
+  readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
+}
+
+export interface ContainerContentsRootAdoptionInput {
+  readonly domainScope: ContainerContentsWorkflowRuntimeState["domainScope"];
+  readonly expectedContainerId: string;
+  readonly nextContainerId: string;
+  readonly organizationId: string;
+  readonly userId: string;
+}
+
+export type ContainerContentsRootAdopter = (
+  input: ContainerContentsRootAdoptionInput,
+) => boolean | "already-adopted";
 
 export interface ContainerContentsWorkflowRuntimeGroups {
   readonly auth: ContainerContentsWorkflowRuntimeAuth;
@@ -78,7 +94,13 @@ export interface ContainerContentsWorkflowRuntimeInput
 export interface ContainerContentsWorkflowRuntime
   extends ContainerContentsWorkflowRuntimeGroups,
     Pick<ContainerContentsWorkflowRuntimeInput, "apiClient"> {
+  readonly adoptRootContainer?: ContainerContentsRootAdopter | undefined;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+}
+
+export interface ContainerContentsStoreWorkflowRuntime
+  extends ContainerContentsWorkflowRuntime {
+  readonly adoptRootContainer: ContainerContentsRootAdopter;
 }
 
 export interface ContainerContentsWorkflowSqlRuntime {
@@ -111,8 +133,9 @@ export function createContainerContentsDocumentsRuntime(
   );
 }
 
-export function createContainerContentsWorkflowRuntime(
+function createContainerContentsWorkflowRuntimeWithRootAdopter(
   input: ContainerContentsWorkflowRuntimeInput,
+  adoptRootContainer?: ContainerContentsRootAdopter | undefined,
 ): ContainerContentsWorkflowRuntime {
   const documentProjectors = resolveDocumentProjectorRegistry(
     input.infra.documentProjectors,
@@ -123,6 +146,7 @@ export function createContainerContentsWorkflowRuntime(
   };
 
   return {
+    ...(adoptRootContainer ? { adoptRootContainer } : {}),
     apiClient: input.apiClient,
     auth: input.auth,
     crypto: input.crypto,
@@ -132,5 +156,25 @@ export function createContainerContentsWorkflowRuntime(
     ),
     state: input.state,
     util: input.util,
+  };
+}
+
+export function createContainerContentsWorkflowRuntime(
+  input: ContainerContentsWorkflowRuntimeInput,
+): ContainerContentsWorkflowRuntime {
+  return createContainerContentsWorkflowRuntimeWithRootAdopter(input);
+}
+
+/** Internal store runtime with the session-root adoption capability wired. */
+export function createContainerContentsStoreWorkflowRuntime(
+  input: ContainerContentsWorkflowRuntimeInput,
+  adoptRootContainer: ContainerContentsRootAdopter,
+): ContainerContentsStoreWorkflowRuntime {
+  return {
+    ...createContainerContentsWorkflowRuntimeWithRootAdopter(
+      input,
+      adoptRootContainer,
+    ),
+    adoptRootContainer,
   };
 }
