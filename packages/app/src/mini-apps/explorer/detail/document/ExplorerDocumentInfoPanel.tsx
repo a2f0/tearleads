@@ -5,11 +5,13 @@ import type {
 } from "@tearleads/client-sdk";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
-  MiniAppButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
   MiniAppPanel,
   MiniAppStatus,
+  type MiniAppTabDescriptor,
+  MiniAppTabList,
+  MiniAppTabPanel,
 } from "../../../../components/mini-app/MiniAppLayout";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../../stores/explorer/documentInfo";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
@@ -40,10 +42,9 @@ import { useExplorerDocumentInfo } from "./useExplorerDocumentInfo";
 
 type DocumentInfoTabId = "general" | "links" | "blobs" | "security";
 
-const DOCUMENT_INFO_TABS: ReadonlyArray<{
-  id: DocumentInfoTabId;
-  label: string;
-}> = [
+const DOCUMENT_INFO_TABS: ReadonlyArray<
+  MiniAppTabDescriptor<DocumentInfoTabId>
+> = [
   { id: "general", label: EXPLORER_LABELS.documentInfoGeneralTab },
   { id: "links", label: EXPLORER_LABELS.documentInfoLinksTab },
   { id: "blobs", label: EXPLORER_LABELS.documentInfoBlobsTab },
@@ -169,28 +170,13 @@ function ExplorerDocumentInfoTabs(params: {
   setActiveTab: (tab: DocumentInfoTabId) => void;
 }) {
   return (
-    <div
-      aria-label={EXPLORER_LABELS.documentInfoTabsLabel}
-      className="explorer-info-tabs"
-      role="tablist"
-    >
-      {DOCUMENT_INFO_TABS.map((tab) => (
-        <MiniAppButton
-          aria-controls={`${params.idPrefix}-${tab.id}-panel`}
-          aria-selected={params.activeTab === tab.id}
-          className="explorer-info-tab"
-          id={`${params.idPrefix}-${tab.id}-tab`}
-          key={tab.id}
-          role="tab"
-          variant="ghost"
-          onClick={() => {
-            params.setActiveTab(tab.id);
-          }}
-        >
-          {tab.label}
-        </MiniAppButton>
-      ))}
-    </div>
+    <MiniAppTabList
+      activeTab={params.activeTab}
+      idPrefix={params.idPrefix}
+      label={EXPLORER_LABELS.documentInfoTabsLabel}
+      onSelect={params.setActiveTab}
+      tabs={DOCUMENT_INFO_TABS}
+    />
   );
 }
 
@@ -225,11 +211,10 @@ function ExplorerDocumentInfoTabPanel(params: {
   ) => Promise<DocumentSummary | null>;
 }) {
   return (
-    <div
-      aria-labelledby={`${params.idPrefix}-${params.activeTab}-tab`}
+    <MiniAppTabPanel
+      activeTab={params.activeTab}
       className="explorer-info-tab-panel"
-      id={`${params.idPrefix}-${params.activeTab}-panel`}
-      role="tabpanel"
+      idPrefix={params.idPrefix}
     >
       {params.activeTab === "general" ? (
         <>
@@ -309,7 +294,7 @@ function ExplorerDocumentInfoTabPanel(params: {
           ) : null}
         </>
       ) : null}
-    </div>
+    </MiniAppTabPanel>
   );
 }
 

@@ -1,12 +1,7 @@
 import { ArrowsClockwiseIcon } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
 import { UploadSimpleIcon } from "@phosphor-icons/react/dist/csr/UploadSimple";
-import {
-  type KeyboardEvent as ReactKeyboardEvent,
-  useCallback,
-  useId,
-  useState,
-} from "react";
+import { useId, useState } from "react";
 import {
   MiniAppButton,
   MiniAppField,
@@ -16,6 +11,9 @@ import {
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
+  type MiniAppTabDescriptor,
+  MiniAppTabList,
+  MiniAppTabPanel,
 } from "../../components/mini-app/MiniAppLayout";
 import type { BackupProgress } from "../../providers/db/useLocalBackupOperations";
 import { formatByteSize } from "../../utils/formatByteSize";
@@ -26,13 +24,14 @@ type BackupRestoreModel = ReturnType<typeof useBackupRestore>;
 
 type BackupRestoreTabId = "backup" | "restore";
 
-const BACKUP_RESTORE_TABS: ReadonlyArray<{
-  id: BackupRestoreTabId;
-  label: string;
-}> = [
+const BACKUP_RESTORE_TABS: ReadonlyArray<
+  MiniAppTabDescriptor<BackupRestoreTabId>
+> = [
   { id: "backup", label: "Backup" },
   { id: "restore", label: "Restore" },
 ];
+
+const BACKUP_RESTORE_TABS_LABEL = "Backup and restore sections";
 
 function formatProgress(progress: BackupProgress): string {
   const labels: Record<BackupProgress["phase"], string> = {
@@ -107,79 +106,6 @@ function BackupRestoreStatus({ model }: { model: BackupRestoreModel }) {
 
 // Roving tabindex per the WAI-ARIA tab pattern (mirrors SystemMonitorTabs): only
 // the active tab is in the tab order; arrow/Home/End move focus and selection.
-function BackupRestoreTabBar({
-  activeTab,
-  idPrefix,
-  onSelect,
-}: {
-  activeTab: BackupRestoreTabId;
-  idPrefix: string;
-  onSelect: (tab: BackupRestoreTabId) => void;
-}) {
-  const handleTabKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-      const lastIndex = BACKUP_RESTORE_TABS.length - 1;
-      const currentIndex = BACKUP_RESTORE_TABS.findIndex(
-        (tab) => tab.id === activeTab,
-      );
-      let nextIndex: number;
-      switch (event.key) {
-        case "ArrowRight":
-        case "ArrowDown":
-          nextIndex = currentIndex >= lastIndex ? 0 : currentIndex + 1;
-          break;
-        case "ArrowLeft":
-        case "ArrowUp":
-          nextIndex = currentIndex <= 0 ? lastIndex : currentIndex - 1;
-          break;
-        case "Home":
-          nextIndex = 0;
-          break;
-        case "End":
-          nextIndex = lastIndex;
-          break;
-        default:
-          return;
-      }
-      const nextTab = BACKUP_RESTORE_TABS[nextIndex];
-      if (!nextTab) {
-        return;
-      }
-      event.preventDefault();
-      onSelect(nextTab.id);
-      document.getElementById(`${idPrefix}-${nextTab.id}-tab`)?.focus();
-    },
-    [activeTab, idPrefix, onSelect],
-  );
-
-  return (
-    <div
-      aria-label="Backup and restore sections"
-      className="backup-restore-tabs"
-      role="tablist"
-    >
-      {BACKUP_RESTORE_TABS.map((tab) => (
-        <MiniAppButton
-          aria-controls={`${idPrefix}-${tab.id}-panel`}
-          aria-selected={activeTab === tab.id}
-          className="backup-restore-tab"
-          id={`${idPrefix}-${tab.id}-tab`}
-          key={tab.id}
-          role="tab"
-          tabIndex={activeTab === tab.id ? 0 : -1}
-          variant="ghost"
-          onClick={() => {
-            onSelect(tab.id);
-          }}
-          onKeyDown={handleTabKeyDown}
-        >
-          {tab.label}
-        </MiniAppButton>
-      ))}
-    </div>
-  );
-}
-
 function BackupExportPanel({
   busy,
   model,
@@ -306,23 +232,20 @@ export function BackupRestore() {
       />
       <main className="backup-restore-main">
         <BackupRestoreStatus model={model} />
-        <BackupRestoreTabBar
+        <MiniAppTabList
           activeTab={activeTab}
           idPrefix={idPrefix}
+          label={BACKUP_RESTORE_TABS_LABEL}
           onSelect={setActiveTab}
+          tabs={BACKUP_RESTORE_TABS}
         />
-        <div
-          aria-labelledby={`${idPrefix}-${activeTab}-tab`}
-          className="backup-restore-tab-panel"
-          id={`${idPrefix}-${activeTab}-panel`}
-          role="tabpanel"
-        >
+        <MiniAppTabPanel activeTab={activeTab} idPrefix={idPrefix}>
           {activeTab === "backup" ? (
             <BackupExportPanel busy={busy} model={model} />
           ) : (
             <BackupRestorePanel busy={busy} model={model} />
           )}
-        </div>
+        </MiniAppTabPanel>
       </main>
     </MiniAppRoot>
   );

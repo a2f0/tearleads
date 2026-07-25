@@ -1,14 +1,10 @@
 import { PushPinIcon } from "@phosphor-icons/react/dist/csr/PushPin";
+import { useCallback, useId, useMemo, useState } from "react";
 import {
-  type KeyboardEvent as ReactKeyboardEvent,
-  useCallback,
-  useId,
-  useMemo,
-  useState,
-} from "react";
-import {
-  MiniAppButton,
   MiniAppRoot,
+  type MiniAppTabDescriptor,
+  MiniAppTabList,
+  MiniAppTabPanel,
 } from "../../components/mini-app/MiniAppLayout";
 import { PaneStatus } from "../../components/pane/status/PaneStatus";
 import { useNetworkModeContextMenu } from "../../components/shared/NetworkModeContextMenu";
@@ -37,10 +33,7 @@ import { useSystemMonitor } from "./SystemMonitorProvider";
 import { useSystemMonitorCopyReportAction } from "./useSystemMonitorCopyReportAction";
 import { useSystemMonitorReport } from "./useSystemMonitorReport";
 
-interface SystemMonitorTab {
-  id: SystemMonitorTabId;
-  label: string;
-}
+type SystemMonitorTab = MiniAppTabDescriptor<SystemMonitorTabId>;
 
 const BASE_SYSTEM_MONITOR_TABS: ReadonlyArray<SystemMonitorTab> = [
   { id: "logs", label: "Logs" },
@@ -86,80 +79,7 @@ const PIN_TO_HOME_SCREEN_LABEL = "Pin to Home Screen";
 const ENABLE_DEVELOPER_MODE_LABEL = "Enable Developer Mode";
 const DISABLE_DEVELOPER_MODE_LABEL = "Disable Developer Mode";
 
-// Roving tabindex per the WAI-ARIA tab pattern: only the active tab is in the
-// tab order; arrow/Home/End keys move focus (and selection) between tabs.
-function SystemMonitorTabs({
-  activeTab,
-  idPrefix,
-  onSelect,
-  tabs,
-}: {
-  activeTab: SystemMonitorTabId;
-  idPrefix: string;
-  onSelect: (tab: SystemMonitorTabId) => void;
-  tabs: ReadonlyArray<SystemMonitorTab>;
-}) {
-  const handleTabKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-      const lastIndex = tabs.length - 1;
-      const currentIndex = tabs.findIndex((tab) => tab.id === activeTab);
-      let nextIndex: number;
-      switch (event.key) {
-        case "ArrowRight":
-        case "ArrowDown":
-          nextIndex = currentIndex >= lastIndex ? 0 : currentIndex + 1;
-          break;
-        case "ArrowLeft":
-        case "ArrowUp":
-          nextIndex = currentIndex <= 0 ? lastIndex : currentIndex - 1;
-          break;
-        case "Home":
-          nextIndex = 0;
-          break;
-        case "End":
-          nextIndex = lastIndex;
-          break;
-        default:
-          return;
-      }
-      const nextTab = tabs[nextIndex];
-      if (!nextTab) {
-        return;
-      }
-      event.preventDefault();
-      onSelect(nextTab.id);
-      document.getElementById(`${idPrefix}-${nextTab.id}-tab`)?.focus();
-    },
-    [activeTab, idPrefix, onSelect, tabs],
-  );
-
-  return (
-    <div
-      aria-label="System Monitor sections"
-      className="system-monitor-tabs"
-      role="tablist"
-    >
-      {tabs.map((tab) => (
-        <MiniAppButton
-          aria-controls={`${idPrefix}-${tab.id}-panel`}
-          aria-selected={activeTab === tab.id}
-          className="system-monitor-tab"
-          id={`${idPrefix}-${tab.id}-tab`}
-          key={tab.id}
-          role="tab"
-          tabIndex={activeTab === tab.id ? 0 : -1}
-          variant="ghost"
-          onClick={() => {
-            onSelect(tab.id);
-          }}
-          onKeyDown={handleTabKeyDown}
-        >
-          {tab.label}
-        </MiniAppButton>
-      ))}
-    </div>
-  );
-}
+const SYSTEM_MONITOR_TABS_LABEL = "System Monitor sections";
 
 function useSystemMonitorChromeActions() {
   const { canPin, isDeveloperMode, pinToDesktop, toggleDeveloperMode } =
@@ -279,22 +199,20 @@ export function SystemMonitorApp() {
       className="system-monitor"
       onContextMenu={networkContextMenu.handleContextMenu}
     >
-      <div className="system-monitor-tab-bar">
-        <SystemMonitorTabs
-          activeTab={activeTab}
-          idPrefix={idPrefix}
-          onSelect={setActiveTab}
-          tabs={visibleTabs}
-        />
-      </div>
-      <div
-        aria-labelledby={`${idPrefix}-${activeTab}-tab`}
+      <MiniAppTabList
+        activeTab={activeTab}
+        idPrefix={idPrefix}
+        label={SYSTEM_MONITOR_TABS_LABEL}
+        onSelect={setActiveTab}
+        tabs={visibleTabs}
+      />
+      <MiniAppTabPanel
+        activeTab={activeTab}
         className="system-monitor-tab-panel"
-        id={`${idPrefix}-${activeTab}-panel`}
-        role="tabpanel"
+        idPrefix={idPrefix}
       >
         {renderSystemMonitorTabPanel(activeTab)}
-      </div>
+      </MiniAppTabPanel>
       {networkContextMenu.contextMenu}
     </MiniAppRoot>
   );

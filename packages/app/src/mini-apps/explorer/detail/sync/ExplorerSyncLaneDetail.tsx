@@ -8,6 +8,9 @@ import {
   MiniAppButton,
   MiniAppInfoSection,
   MiniAppStatus,
+  type MiniAppTabDescriptor,
+  MiniAppTabList,
+  MiniAppTabPanel,
 } from "../../../../components/mini-app/MiniAppLayout";
 import { MiniAppInfoTable } from "../../../../components/mini-app/MiniAppTable";
 import { formatByteLength } from "../../../../utils/formatByteLength";
@@ -254,7 +257,7 @@ type SyncLaneDetailTabId = "general" | "timing" | "progress" | "coordinator";
 
 function getSyncLaneDetailTabs(
   lane: SyncLaneSnapshot,
-): ReadonlyArray<{ id: SyncLaneDetailTabId; label: string }> {
+): ReadonlyArray<MiniAppTabDescriptor<SyncLaneDetailTabId>> {
   return [
     { id: "general", label: EXPLORER_LABELS.syncLanesGeneralHeading },
     { id: "timing", label: EXPLORER_LABELS.syncLanesTimingHeading },
@@ -276,38 +279,16 @@ function ExplorerSyncLaneDetailTabs(params: {
   activeTab: SyncLaneDetailTabId;
   idPrefix: string;
   onSelect: (tab: SyncLaneDetailTabId) => void;
-  tabs: ReadonlyArray<{ id: SyncLaneDetailTabId; label: string }>;
+  tabs: ReadonlyArray<MiniAppTabDescriptor<SyncLaneDetailTabId>>;
 }) {
   return (
-    <div
-      aria-label={EXPLORER_LABELS.syncLanesDetailTabsLabel}
-      className="explorer-info-tabs"
-      role="tablist"
-    >
-      {params.tabs.map((tab) => (
-        <MiniAppButton
-          // Only the active tab's panel is rendered, so only the active tab may
-          // point at it — an inactive `aria-controls` would reference a missing
-          // element id.
-          aria-controls={
-            params.activeTab === tab.id
-              ? `${params.idPrefix}-${tab.id}-panel`
-              : undefined
-          }
-          aria-selected={params.activeTab === tab.id}
-          className="explorer-info-tab"
-          id={`${params.idPrefix}-${tab.id}-tab`}
-          key={tab.id}
-          role="tab"
-          variant="ghost"
-          onClick={() => {
-            params.onSelect(tab.id);
-          }}
-        >
-          {tab.label}
-        </MiniAppButton>
-      ))}
-    </div>
+    <MiniAppTabList
+      activeTab={params.activeTab}
+      idPrefix={params.idPrefix}
+      label={EXPLORER_LABELS.syncLanesDetailTabsLabel}
+      onSelect={params.onSelect}
+      tabs={params.tabs}
+    />
   );
 }
 
@@ -321,11 +302,10 @@ function ExplorerSyncLaneDetailTabPanel(params: {
   const { activeTab, lane, snapshot } = params;
 
   return (
-    <div
-      aria-labelledby={`${params.idPrefix}-${activeTab}-tab`}
+    <MiniAppTabPanel
+      activeTab={activeTab}
       className="explorer-info-tab-panel"
-      id={`${params.idPrefix}-${activeTab}-panel`}
-      role="tabpanel"
+      idPrefix={params.idPrefix}
     >
       {activeTab === "general" ? (
         <ExplorerSyncLaneGeneralSection
@@ -342,7 +322,7 @@ function ExplorerSyncLaneDetailTabPanel(params: {
       {activeTab === "coordinator" ? (
         <ExplorerSyncLaneCoordinatorSection snapshot={snapshot} />
       ) : null}
-    </div>
+    </MiniAppTabPanel>
   );
 }
 

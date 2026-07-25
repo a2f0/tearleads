@@ -1,15 +1,12 @@
 import type { OrganizationBillingHistoryEntry } from "@tearleads/client-sdk";
+import { useId, useState } from "react";
 import {
-  type KeyboardEvent as ReactKeyboardEvent,
-  useCallback,
-  useId,
-  useState,
-} from "react";
-import {
-  MiniAppButton,
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
+  type MiniAppTabDescriptor,
+  MiniAppTabList,
+  MiniAppTabPanel,
 } from "../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppRow,
@@ -19,14 +16,12 @@ import {
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import { getOrgManagerBillingEventLabel, ORG_MANAGER_LABELS } from "../labels";
 import { BillingHistoryEntryDetails } from "./BillingHistoryEntryDetails";
-import "./BillingHistory.css";
 
 type BillingHistoryTabId = "activity" | "events";
 
-const BILLING_HISTORY_TABS: ReadonlyArray<{
-  id: BillingHistoryTabId;
-  label: string;
-}> = [
+const BILLING_HISTORY_TABS: ReadonlyArray<
+  MiniAppTabDescriptor<BillingHistoryTabId>
+> = [
   { id: "activity", label: ORG_MANAGER_LABELS.billingHistoryActivityTab },
   { id: "events", label: ORG_MANAGER_LABELS.billingHistoryEventsTab },
 ];
@@ -35,82 +30,6 @@ interface BillingHistoryProps {
   readonly entries: ReadonlyArray<OrganizationBillingHistoryEntry> | null;
   readonly loading: boolean;
   readonly error: string | null;
-}
-
-// Roving tabindex per the WAI-ARIA tab pattern (mirrors BackupRestoreTabBar):
-// only the active tab is in the tab order; arrow/Home/End move focus and
-// selection.
-function BillingHistoryTabBar({
-  activeTab,
-  idPrefix,
-  onSelect,
-}: {
-  activeTab: BillingHistoryTabId;
-  idPrefix: string;
-  onSelect: (tab: BillingHistoryTabId) => void;
-}) {
-  const handleTabKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-      const lastIndex = BILLING_HISTORY_TABS.length - 1;
-      const currentIndex = BILLING_HISTORY_TABS.findIndex(
-        (tab) => tab.id === activeTab,
-      );
-      let nextIndex: number;
-      switch (event.key) {
-        case "ArrowRight":
-        case "ArrowDown":
-          nextIndex = currentIndex >= lastIndex ? 0 : currentIndex + 1;
-          break;
-        case "ArrowLeft":
-        case "ArrowUp":
-          nextIndex = currentIndex <= 0 ? lastIndex : currentIndex - 1;
-          break;
-        case "Home":
-          nextIndex = 0;
-          break;
-        case "End":
-          nextIndex = lastIndex;
-          break;
-        default:
-          return;
-      }
-      const nextTab = BILLING_HISTORY_TABS[nextIndex];
-      if (!nextTab) {
-        return;
-      }
-      event.preventDefault();
-      onSelect(nextTab.id);
-      document.getElementById(`${idPrefix}-${nextTab.id}-tab`)?.focus();
-    },
-    [activeTab, idPrefix, onSelect],
-  );
-
-  return (
-    <div
-      aria-label={ORG_MANAGER_LABELS.billingHistoryTabsLabel}
-      className="billing-history-tabs"
-      role="tablist"
-    >
-      {BILLING_HISTORY_TABS.map((tab) => (
-        <MiniAppButton
-          aria-controls={`${idPrefix}-${tab.id}-panel`}
-          aria-selected={activeTab === tab.id}
-          className="billing-history-tab"
-          id={`${idPrefix}-${tab.id}-tab`}
-          key={tab.id}
-          role="tab"
-          tabIndex={activeTab === tab.id ? 0 : -1}
-          variant="ghost"
-          onClick={() => {
-            onSelect(tab.id);
-          }}
-          onKeyDown={handleTabKeyDown}
-        >
-          {tab.label}
-        </MiniAppButton>
-      ))}
-    </div>
-  );
 }
 
 // Activity: only events that changed billing, phrased as friendly labels.
@@ -194,17 +113,14 @@ export function BillingHistory({
       <MiniAppSectionHeading>
         {ORG_MANAGER_LABELS.billingHistoryTitle}
       </MiniAppSectionHeading>
-      <BillingHistoryTabBar
+      <MiniAppTabList
         activeTab={activeTab}
         idPrefix={idPrefix}
+        label={ORG_MANAGER_LABELS.billingHistoryTabsLabel}
         onSelect={setActiveTab}
+        tabs={BILLING_HISTORY_TABS}
       />
-      <div
-        aria-labelledby={`${idPrefix}-${activeTab}-tab`}
-        className="billing-history-tab-panel"
-        id={`${idPrefix}-${activeTab}-panel`}
-        role="tabpanel"
-      >
+      <MiniAppTabPanel activeTab={activeTab} idPrefix={idPrefix}>
         {error ? <MiniAppStatus tone="error">{error}</MiniAppStatus> : null}
         {!error && loading ? (
           <MiniAppStatus className="org-manager-hint">
@@ -218,7 +134,7 @@ export function BillingHistory({
             <BillingEventList entries={entries ?? []} />
           )
         ) : null}
-      </div>
+      </MiniAppTabPanel>
     </MiniAppSection>
   );
 }

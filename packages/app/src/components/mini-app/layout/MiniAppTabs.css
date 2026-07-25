@@ -1,0 +1,106 @@
+/*
+ * Shared mini-app tab chrome. Every tabbed surface (System Monitor,
+ * Backup/Restore, Billing History, and the Explorer info/sections/sync-lane
+ * panels) renders through MiniAppTabs, so this file is the single place the tab
+ * look is defined — previously each of those surfaces carried its own copy of
+ * the same declarations.
+ *
+ * The strip is chrome; the panel is content. `--color-muted` is this app's
+ * established chrome-bar surface (window menu/tool/status bars, pane footer)
+ * and `--color-light` its content surface (window body, routed pane, rows,
+ * modals). Painting the strip muted and the selected tab `--color-light` makes
+ * the active tab read as a folder tab lifted out of the strip and merged into
+ * the panel below — the strip's baseline is notched out under exactly that one
+ * tab. Before, the strip and the tabs both sat on the content surface, so the
+ * only thing marking a tab as a tab was a hairline outline.
+ */
+.mini-app-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2xs);
+  min-width: 0;
+  /* No bottom padding: tabs sit directly on the baseline so the selected one
+     can overlap it (see the negative margin below). */
+  padding: var(--space-2xs) var(--space-2xs) 0;
+  border-bottom: var(--border-strong);
+  background: var(--color-muted);
+}
+
+.mini-app-tab {
+  min-width: 5rem;
+  padding-inline: var(--space-sm);
+  /* Transparent (not absent) so an inactive tab reserves the selected tab's
+     border box and selecting one never shifts the strip's layout. */
+  border: var(--border-width) solid transparent;
+  /* Pull the bottom edge onto the strip's baseline, so a selected tab can
+     repaint that 1px in the panel color and merge with the panel. */
+  margin-bottom: calc(-1 * var(--border-width));
+  background: transparent;
+  color: inherit;
+  /* Recede against the active tab; hover/selection restore full contrast. */
+  opacity: var(--opacity-muted);
+}
+
+/*
+ * Hovering an inactive tab previews the lift — it takes the panel surface the
+ * selected tab already has. Deliberately NOT the emphasis chip the base button
+ * uses: a dark hover chip beside a light active tab reads as *more* selected
+ * than the selection. Scoped under `.mini-app-tabs` (and excluding the active
+ * tab) so it outranks `.mini-app-button:hover` regardless of import order.
+ */
+.mini-app-tabs .mini-app-tab:not([aria-selected="true"]):hover:not(:disabled),
+.mini-app-tabs
+  .mini-app-tab:not([aria-selected="true"]):focus-visible:not(:disabled) {
+  border-color: var(--border-color);
+  border-bottom-color: transparent;
+  background: var(--color-light);
+  color: inherit;
+  opacity: 1;
+}
+
+/* The active tab keeps its treatment while hovered/focused — it is already the
+   front tab, so there is no stronger state to move to. Both selectors outrank
+   the base button's hover/focus fill. */
+.mini-app-tabs .mini-app-tab[aria-selected="true"],
+.mini-app-tabs .mini-app-tab[aria-selected="true"]:hover:not(:disabled),
+.mini-app-tabs
+  .mini-app-tab[aria-selected="true"]:focus-visible:not(:disabled) {
+  border-color: var(--border-strong-color);
+  /* Notches the strip's baseline out under this tab only. */
+  border-bottom-color: var(--color-light);
+  background: var(--color-light);
+  /* Accent cap: the single strongest "you are here" cue, and the one that
+     survives at a glance on a phone. */
+  box-shadow: inset 0 2px 0 0 var(--color-dark);
+  color: inherit;
+  opacity: 1;
+}
+
+/* Roving tabindex parks focus on the active tab, which already carries the
+   selected fill — so focus needs its own mark. A dotted inset ring matches the
+   app's square, classic-desktop chrome. */
+.mini-app-tabs .mini-app-tab:focus-visible {
+  outline: var(--border-width) dotted var(--color-dark);
+  outline-offset: calc(-1 * var(--space-2xs));
+}
+
+/* Layout common to every tab panel; per-surface sizing (flex/scroll/gap) stays
+   with the surface. */
+.mini-app-tab-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/*
+ * Touch (routed shell). Tabs already reach the 44px hit target through
+ * `--control-height`; this only opens up the strip so the taller tabs are not
+ * crowded against its edges. The gap stays tight on purpose — tabs now carry
+ * their own fill and border, so they read as separate without extra space, and
+ * tighter packing keeps a row of tabs from wrapping on a narrow phone.
+ */
+:root[data-navigation-mode="routed"] .mini-app-tabs {
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-xs) 0;
+}
