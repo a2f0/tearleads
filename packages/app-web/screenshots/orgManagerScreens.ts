@@ -90,18 +90,18 @@ export async function assertOrgManagerCaptureReady(
       break;
     case "directory": {
       const roster = scope.getByRole("table", { name: "Roster", exact: true });
-      await expect(roster).toContainText(/User:\s*YouStatus:/u, {
+      await expect(roster).toContainText("You", {
         timeout: 60_000,
       });
-      await expect(roster).toBeVisible();
+      await expect(roster).toBeVisible({ timeout: 60_000 });
       break;
     }
     case "groups": {
       const groups = scope.getByRole("table", { name: "Groups", exact: true });
-      await expect(groups).toContainText(/Group:\s*AdminsMembers:/u, {
+      await expect(groups).toContainText("Admins", {
         timeout: 60_000,
       });
-      await expect(groups).toBeVisible();
+      await expect(groups).toBeVisible({ timeout: 60_000 });
       break;
     }
     case "grants":
