@@ -6,6 +6,7 @@ import { adoptSessionRootContainer } from "./rootContainerAdoption";
 interface FixtureOptions {
   readonly actualDomainScope?: DomainScope | undefined;
   readonly containerId?: string | undefined;
+  readonly defaultOrganizationId?: string | undefined;
   readonly isAuthenticated?: boolean | undefined;
   readonly organizationId?: string | undefined;
   readonly userId?: string | undefined;
@@ -16,6 +17,7 @@ function createFixture(options: FixtureOptions = {}) {
   const setContainerIds: Array<string | null> = [];
   const session = {
     containerId: options.containerId ?? "stale-root",
+    defaultOrganizationId: options.defaultOrganizationId ?? "organization-1",
     isAuthenticated: options.isAuthenticated ?? true,
     organizationId: options.organizationId ?? "organization-1",
     setContainerId(containerId: string | null) {
@@ -55,7 +57,7 @@ test("root adoption accepts an already-adopted session without notifying again",
   const fixture = createFixture({ containerId: "remote-root" });
 
   expect(adoptSessionRootContainer(fixture.dependencies, fixture.input)).toBe(
-    true,
+    "already-adopted",
   );
   expect(fixture.setContainerIds).toEqual([]);
 });
@@ -66,6 +68,7 @@ const rejectedContexts: ReadonlyArray<
   ["domain scope", { actualDomainScope: createDomainScope() }],
   ["authentication", { isAuthenticated: false }],
   ["current root", { containerId: "other-root" }],
+  ["default organization", { defaultOrganizationId: "organization-2" }],
   ["organization", { organizationId: "organization-2" }],
   ["user", { userId: "user-2" }],
 ];

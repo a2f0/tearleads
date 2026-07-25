@@ -63,7 +63,7 @@ export interface ContainerContentsRootAdoptionInput {
 
 export type ContainerContentsRootAdopter = (
   input: ContainerContentsRootAdoptionInput,
-) => boolean;
+) => boolean | "already-adopted";
 
 export interface ContainerContentsWorkflowRuntimeGroups {
   readonly auth: ContainerContentsWorkflowRuntimeAuth;

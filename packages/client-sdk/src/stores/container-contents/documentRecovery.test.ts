@@ -75,6 +75,7 @@ test("a priming signal raised mid-pass survives for the next pass", async () => 
 
 test("stale root recovery logs the result and re-arms document priming", async () => {
   const logs: string[] = [];
+  let adoptionCount = 0;
   let reassignmentCount = 0;
   const state = {
     containersById: new Map<string, ContainerState>([
@@ -105,8 +106,12 @@ test("stale root recovery logs the result and re-arms document priming", async (
       },
     },
     runtime: {
-      adoptRootContainer: () => true,
+      adoptRootContainer: () => {
+        adoptionCount += 1;
+        return adoptionCount === 1 ? true : "already-adopted";
+      },
       auth: {
+        defaultOrganizationId: "organization-1",
         isAuthenticated: true,
         organizationId: "organization-1",
         userId: "user-1",
@@ -126,6 +131,14 @@ test("stale root recovery logs the result and re-arms document priming", async (
   expect(logs).toEqual([
     "Container contents: stale root recovery status=reassigned candidates=1",
   ]);
+
+  state.documentStoresNeedPriming = false;
+  await expect(recoverStoreStaleRoot(state)).resolves.toBe("already-adopted");
+  expect(state.documentStoresNeedPriming).toBe(false);
+  expect(logs).toEqual([
+    "Container contents: stale root recovery status=reassigned candidates=1",
+    "Container contents: stale root recovery status=already-adopted candidates=1",
+  ]);
 });
 
 test("stale root recovery logs a persistent status only once", async () => {
@@ -140,6 +153,7 @@ test("stale root recovery logs a persistent status only once", async () => {
     runtime: {
       adoptRootContainer: () => true,
       auth: {
+        defaultOrganizationId: "organization-1",
         isAuthenticated: true,
         organizationId: "organization-1",
         userId: "user-1",

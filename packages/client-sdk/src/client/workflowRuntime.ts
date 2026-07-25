@@ -8,7 +8,7 @@ import {
   type LocalUserIdentityCandidate,
   type TrustedUserIdentityResolver,
 } from "../data/trustedUserIdentity";
-import type { ContainerContentsRootAdoptionInput } from "../workflows/container-contents/runtime";
+import type { ContainerContentsRootAdopter } from "../workflows/container-contents/runtime";
 import type {
   WorkflowRuntimeAuthInput,
   WorkflowRuntimeCryptoInput,
@@ -42,9 +42,7 @@ export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeInput {
 }
 
 export interface InternalRuntime {
-  readonly adoptRootContainer: (
-    input: ContainerContentsRootAdoptionInput,
-  ) => boolean;
+  readonly adoptRootContainer: ContainerContentsRootAdopter;
   readonly publicRuntime: Runtime;
   pinLocalUserIdentity(
     userId: string,

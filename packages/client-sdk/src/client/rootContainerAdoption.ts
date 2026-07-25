@@ -1,5 +1,8 @@
 import type { DomainScope } from "../data/domainScope";
-import type { ContainerContentsRootAdoptionInput } from "../workflows/container-contents/runtime";
+import type {
+  ContainerContentsRootAdopter,
+  ContainerContentsRootAdoptionInput,
+} from "../workflows/container-contents/runtime";
 import type { Session } from "./sessionTypes";
 
 interface RootContainerAdoptionDependencies {
@@ -7,6 +10,7 @@ interface RootContainerAdoptionDependencies {
   readonly session: Pick<
     Session,
     | "containerId"
+    | "defaultOrganizationId"
     | "isAuthenticated"
     | "organizationId"
     | "setContainerId"
@@ -17,18 +21,19 @@ interface RootContainerAdoptionDependencies {
 export function adoptSessionRootContainer(
   dependencies: RootContainerAdoptionDependencies,
   input: ContainerContentsRootAdoptionInput,
-): boolean {
+): ReturnType<ContainerContentsRootAdopter> {
   const session = dependencies.session;
   if (
     dependencies.getDomainScope() !== input.domainScope ||
     !session.isAuthenticated ||
+    session.defaultOrganizationId !== input.organizationId ||
     session.organizationId !== input.organizationId ||
     session.userId !== input.userId
   ) {
     return false;
   }
   if (session.containerId === input.nextContainerId) {
-    return true;
+    return "already-adopted";
   }
   if (session.containerId !== input.expectedContainerId) {
     return false;

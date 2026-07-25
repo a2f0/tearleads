@@ -361,6 +361,7 @@ async function runContainerContentsStoreSyncIteration(input: {
   // metadata converge first so a recovered system container is never exposed
   // under its placeholder name when the active root changes.
   await runContainerDocumentWork({
+    onContextChanged: () => requestContainerContentsStoreSync(state),
     onDocumentsMoved: () => {
       requestDomainDocumentSync(state.runtime.state.domainScope);
       requestContainerContentsStoreSync(state);

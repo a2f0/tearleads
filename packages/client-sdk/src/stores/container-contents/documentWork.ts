@@ -1,6 +1,7 @@
 import type { StaleRootRecoveryStatus } from "../../workflows/container-contents/staleRootRecovery";
 
 interface ContainerDocumentWorkInput {
+  readonly onContextChanged: () => void;
   readonly onDocumentsMoved: () => void;
   readonly primeDocuments: () => Promise<void>;
   readonly recoverStaleRoot: () => Promise<StaleRootRecoveryStatus>;
@@ -13,6 +14,7 @@ export async function runContainerDocumentWork(
   input: ContainerDocumentWorkInput,
 ): Promise<"completed" | "context-changed"> {
   if ((await input.recoverStaleRoot()) === "context-changed") {
+    input.onContextChanged();
     return "context-changed";
   }
 

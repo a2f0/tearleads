@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createDomainScope } from "../../data/domainScope";
+import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -50,7 +51,7 @@ function createFixture() {
   }> = [];
   const adoptions: ContainerContentsRootAdoptionInput[] = [];
   const persistedContainerIds = new Set<string>();
-  let adoptionResult = true;
+  let adoptionResult: ReturnType<ContainerContentsRootAdopter> = true;
   const adoptRootContainer: ContainerContentsRootAdopter = (input) => {
     adoptions.push(input);
     return adoptionResult;
@@ -78,6 +79,7 @@ function createFixture() {
     runtime: {
       adoptRootContainer,
       auth: {
+        defaultOrganizationId: ORGANIZATION_ID,
         isAuthenticated: true,
         organizationId: ORGANIZATION_ID,
         userId: "user-1",
@@ -94,7 +96,7 @@ function createFixture() {
     disableAdoption() {
       Reflect.set(state.runtime, "adoptRootContainer", undefined);
     },
-    setAdoptionResult(value: boolean) {
+    setAdoptionResult(value: ReturnType<ContainerContentsRootAdopter>) {
       adoptionResult = value;
     },
     setContainerExistsEffect(effect: () => void) {
@@ -167,6 +169,18 @@ test("stale root recovery refuses granted and system roots", async () => {
   expect(fixture.adoptions).toEqual([]);
 });
 
+test("stale root recovery only runs in the personal organization", async () => {
+  const fixture = createFixture();
+  fixture.state.runtime.auth.defaultOrganizationId = "personal-organization";
+
+  await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
+    candidateCount: 0,
+    status: "not-needed",
+  });
+  expect(fixture.reassignments).toEqual([]);
+  expect(fixture.adoptions).toEqual([]);
+});
+
 test("stale root recovery reports when no authoritative root is loaded", async () => {
   const fixture = createFixture();
   fixture.state.containersById.clear();
@@ -217,19 +231,43 @@ test("stale root recovery ignores a durable root missing from a partial topology
   expect(fixture.adoptions).toEqual([]);
 });
 
-test("stale root recovery stops when runtime context changes during lookup", async () => {
-  const fixture = createFixture();
-  fixture.setContainerExistsEffect(() => {
-    fixture.state.runtime.state.domainScope = createDomainScope();
-  });
+const changedRecoveryContexts: ReadonlyArray<
+  readonly [
+    name: string,
+    mutate: (state: ReturnType<typeof createFixture>["state"]) => void,
+  ]
+> = [
+  ["authentication", (state) => (state.runtime.auth.isAuthenticated = false)],
+  ["container", (state) => (state.runtime.state.containerId = "another-root")],
+  [
+    "default organization",
+    (state) =>
+      (state.runtime.auth.defaultOrganizationId = "another-organization"),
+  ],
+  [
+    "domain scope",
+    (state) => (state.runtime.state.domainScope = createDomainScope()),
+  ],
+  [
+    "organization",
+    (state) => (state.runtime.auth.organizationId = "another-organization"),
+  ],
+  ["user", (state) => (state.runtime.auth.userId = "another-user")],
+];
 
-  await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
-    candidateCount: 0,
-    status: "context-changed",
+for (const [name, mutate] of changedRecoveryContexts) {
+  test(`stale root recovery stops when ${name} changes during lookup`, async () => {
+    const fixture = createFixture();
+    fixture.setContainerExistsEffect(() => mutate(fixture.state));
+
+    await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
+      candidateCount: 0,
+      status: "context-changed",
+    });
+    expect(fixture.reassignments).toEqual([]);
+    expect(fixture.adoptions).toEqual([]);
   });
-  expect(fixture.reassignments).toEqual([]);
-  expect(fixture.adoptions).toEqual([]);
-});
+}
 
 test("stale root recovery reports a context change after reassignment", async () => {
   const fixture = createFixture();
@@ -238,6 +276,17 @@ test("stale root recovery reports a context change after reassignment", async ()
   await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
     candidateCount: 1,
     status: "context-changed",
+  });
+  expect(fixture.reassignments).toHaveLength(1);
+});
+
+test("stale root recovery distinguishes an already-adopted session", async () => {
+  const fixture = createFixture();
+  fixture.setAdoptionResult("already-adopted");
+
+  await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
+    candidateCount: 1,
+    status: "already-adopted",
   });
   expect(fixture.reassignments).toHaveLength(1);
 });
@@ -257,6 +306,20 @@ test("durable orphan recovery makes the document primeable on relaunch", async (
       title: "Decrypted title excluded from telemetry",
       updatedAt: "2026-07-23T14:19:12.658Z",
     });
+    await sqlDocumentMoveIntentPersistence.enqueueMoveIntent(execSql, {
+      documentId: "pending-document-remote",
+      localId: "pending-document",
+      sourceContainerId: "deleted-local-root",
+      targetContainerId: "destination-root",
+    });
+    await sqlDocumentMoveIntentPersistence.recordMoveIntentError(execSql, {
+      blocked: true,
+      documentId: "pending-document-remote",
+      message: "stale source",
+    });
+    expect(
+      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql),
+    ).toEqual([]);
     const containersById = new Map<string, ContainerState>([
       ["remote-root", remoteRoot({ id: "remote-root" })],
     ]);
@@ -266,6 +329,7 @@ test("durable orphan recovery makes the document primeable on relaunch", async (
       runtime: {
         adoptRootContainer: () => true,
         auth: {
+          defaultOrganizationId: ORGANIZATION_ID,
           isAuthenticated: true,
           organizationId: ORGANIZATION_ID,
           userId: "user-1",
@@ -309,6 +373,18 @@ test("durable orphan recovery makes the document primeable on relaunch", async (
         ["pending-document"],
       ),
     ).toEqual([{ container_id: "remote-root" }]);
+    expect(
+      await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql),
+    ).toEqual([
+      expect.objectContaining({
+        documentId: "pending-document-remote",
+        lastAttemptedAt: null,
+        lastError: null,
+        sourceContainerId: "remote-root",
+        syncStatus: "pending",
+        targetContainerId: "destination-root",
+      }),
+    ]);
   } finally {
     close();
   }

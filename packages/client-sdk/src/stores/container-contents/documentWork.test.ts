@@ -6,6 +6,7 @@ test("document work recovers the root before moves and priming", async () => {
 
   await expect(
     runContainerDocumentWork({
+      onContextChanged: () => order.push("context-change"),
       onDocumentsMoved: () => order.push("move-effects"),
       primeDocuments: async () => {
         order.push("prime");
@@ -29,6 +30,7 @@ test("a changed recovery context stops later document work", async () => {
 
   await expect(
     runContainerDocumentWork({
+      onContextChanged: () => order.push("context-change"),
       onDocumentsMoved: () => order.push("move-effects"),
       primeDocuments: async () => {
         order.push("prime");
@@ -44,5 +46,5 @@ test("a changed recovery context stops later document work", async () => {
       },
     }),
   ).resolves.toBe("context-changed");
-  expect(order).toEqual(["recover"]);
+  expect(order).toEqual(["recover", "context-change"]);
 });

@@ -7,6 +7,7 @@ import type {
 } from "./runtime";
 
 export type StaleRootRecoveryStatus =
+  | "already-adopted"
   | "ambiguous"
   | "context-changed"
   | "not-needed"
@@ -28,7 +29,7 @@ interface StaleRootRecoveryState {
     readonly adoptRootContainer?: ContainerContentsRootAdopter | undefined;
     readonly auth: Pick<
       ContainerContentsWorkflowRuntime["auth"],
-      "isAuthenticated" | "organizationId" | "userId"
+      "defaultOrganizationId" | "isAuthenticated" | "organizationId" | "userId"
     >;
     readonly infra: Pick<ContainerContentsWorkflowRuntime["infra"], "execSql">;
     readonly state: Pick<
@@ -42,6 +43,7 @@ function hasSameRecoveryContext(
   state: StaleRootRecoveryState,
   input: {
     domainScope: ContainerContentsWorkflowRuntime["state"]["domainScope"];
+    defaultOrganizationId: string;
     organizationId: string;
     staleContainerId: string;
     userId: string;
@@ -49,6 +51,7 @@ function hasSameRecoveryContext(
 ): boolean {
   return (
     state.runtime.auth.isAuthenticated &&
+    state.runtime.auth.defaultOrganizationId === input.defaultOrganizationId &&
     state.runtime.auth.organizationId === input.organizationId &&
     state.runtime.auth.userId === input.userId &&
     state.runtime.state.containerId === input.staleContainerId &&
@@ -88,13 +91,16 @@ export async function recoverStaleSessionRoot(
 ): Promise<StaleRootRecoveryResult> {
   const staleContainerId = state.runtime.state.containerId;
   const domainScope = state.runtime.state.domainScope;
+  const defaultOrganizationId = state.runtime.auth.defaultOrganizationId;
   const organizationId = state.runtime.auth.organizationId;
   const userId = state.runtime.auth.userId;
   if (
     !state.runtime.auth.isAuthenticated ||
     !staleContainerId ||
+    !defaultOrganizationId ||
     !organizationId ||
     !userId ||
+    organizationId !== defaultOrganizationId ||
     state.containersById.has(staleContainerId)
   ) {
     return { candidateCount: 0, status: "not-needed" };
@@ -110,6 +116,7 @@ export async function recoverStaleSessionRoot(
   if (
     !hasSameRecoveryContext(state, {
       domainScope,
+      defaultOrganizationId,
       organizationId,
       staleContainerId,
       userId,
@@ -121,7 +128,10 @@ export async function recoverStaleSessionRoot(
     return { candidateCount: 0, status: "not-needed" };
   }
 
-  const candidates = listAuthoritativeRootCandidates(state, organizationId);
+  const candidates = listAuthoritativeRootCandidates(
+    state,
+    defaultOrganizationId,
+  );
   const [remoteRootState] = candidates;
   if (!remoteRootState || candidates.length > 1) {
     return { candidateCount: candidates.length, status: "ambiguous" };
@@ -137,7 +147,7 @@ export async function recoverStaleSessionRoot(
       toContainerId: remoteRootState.container.id,
     },
   );
-  const adopted = state.runtime.adoptRootContainer({
+  const adoptionResult = state.runtime.adoptRootContainer({
     domainScope,
     expectedContainerId: staleContainerId,
     nextContainerId: remoteRootState.container.id,
@@ -147,6 +157,11 @@ export async function recoverStaleSessionRoot(
 
   return {
     candidateCount: 1,
-    status: adopted ? "reassigned" : "context-changed",
+    status:
+      adoptionResult === "already-adopted"
+        ? "already-adopted"
+        : adoptionResult
+          ? "reassigned"
+          : "context-changed",
   };
 }
