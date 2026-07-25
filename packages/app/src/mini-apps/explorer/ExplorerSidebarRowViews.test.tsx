@@ -124,14 +124,18 @@ function renderSidebarContact(avatarUrlByLocalId: Record<string, string>) {
   );
 }
 
-test("explorer sidebar contact row falls back to the document glyph without an avatar", async () => {
+test("explorer sidebar contact row uses the shared avatar placeholder", async () => {
   const view = render(renderSidebarContact({}));
   const contactButton = await view.findByRole("button", {
     name: "Ada Lovelace",
   });
 
-  expect(contactButton.querySelector(".explorer-document-icon")).not.toBeNull();
+  expect(contactButton.querySelector(".explorer-document-icon")).toBeNull();
+  expect(contactButton.querySelector(".contact-avatar")).not.toBeNull();
   expect(contactButton.querySelector(".contact-avatar-image")).toBeNull();
+  expect(
+    contactButton.querySelector(".contact-avatar-silhouette"),
+  ).not.toBeNull();
 });
 
 test("explorer sidebar contact row shows the avatar in place of the glyph", async () => {
