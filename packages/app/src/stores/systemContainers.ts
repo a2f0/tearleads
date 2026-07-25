@@ -4,7 +4,13 @@ import type {
   ProvisionedSystemContainerSpec,
   StoredDocumentKind,
 } from "@tearleads/client-sdk";
-import { deriveContainerSystemSlot } from "@tearleads/client-sdk";
+import {
+  deriveContainerSystemSlot,
+  deriveOrganizationMetadataContainerSystemSlot,
+  deriveOrganizationRosterProfileContainerSystemSlot,
+  ORGANIZATION_METADATA_CONTAINER_NAME,
+  ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+} from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 
 export const CONTACTS_CONTAINER_NAME = "Contacts";
@@ -183,6 +189,86 @@ export const PROVISIONED_SYSTEM_CONTAINER_SPECS: ReadonlyArray<ProvisionedSystem
     name: definition.name,
     slotDefinition: definition.slotDefinition,
   }));
+
+// The org-scoped system containers the SDK provisions and owns: the roster
+// profile folder and the organization metadata folder. Unlike the user system
+// containers above, these are hidden from the Explorer unless the "Built-in
+// system containers" feature flag reveals them, and their slots are derived
+// from the organization id rather than a per-user key — so every member of the
+// organization derives the same slot and can key rules off it.
+export type BuiltInSystemContainerKind =
+  | "organizationMetadata"
+  | "organizationRosterProfiles";
+
+// Built-in containers are app-owned endpoints: the org workflows write roster
+// profiles and organization metadata into them, and nothing else belongs there.
+// Blocking inbound links is the only rule they carry — revealing them with the
+// feature flag must not turn them into "Link Document" destinations, while
+// everything else about them stays inspectable, which is the point of the flag.
+const BUILT_IN_SYSTEM_CONTAINER_RULES: UserSystemContainerRules = {
+  protectFromMove: false,
+  protectFromDelete: false,
+  protectFromRename: false,
+  protectContentsFromLeaving: false,
+  protectContentsFromLinking: false,
+  protectSelfDocumentFromDelete: false,
+  protectFromUpload: false,
+  protectFromChildContainerCreation: false,
+  protectFromStructuredDocumentCreation: false,
+  acceptedDocumentKinds: null,
+  protectFromInboundLinks: true,
+};
+
+interface BuiltInSystemContainerDefinition {
+  readonly deriveSystemSlot: (input: {
+    readonly organizationId: string;
+  }) => Promise<ContainerSystemSlot>;
+  readonly kind: BuiltInSystemContainerKind;
+  readonly name: string;
+  readonly rules: UserSystemContainerRules;
+}
+
+const BUILT_IN_SYSTEM_CONTAINER_DEFINITIONS: readonly BuiltInSystemContainerDefinition[] =
+  [
+    {
+      deriveSystemSlot: deriveOrganizationRosterProfileContainerSystemSlot,
+      kind: "organizationRosterProfiles",
+      name: ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+      rules: BUILT_IN_SYSTEM_CONTAINER_RULES,
+    },
+    {
+      deriveSystemSlot: deriveOrganizationMetadataContainerSystemSlot,
+      kind: "organizationMetadata",
+      name: ORGANIZATION_METADATA_CONTAINER_NAME,
+      rules: BUILT_IN_SYSTEM_CONTAINER_RULES,
+    },
+  ];
+
+// A built-in system container resolved for one organization. Mirrors
+// UserSystemContainer, plus the rules themselves: a built-in container has no
+// per-user slot to look its rules up by kind with, so the resolved slot carries
+// them (see createExplorerContainerRulesContext).
+export interface BuiltInSystemContainer {
+  readonly kind: BuiltInSystemContainerKind;
+  readonly name: string;
+  readonly rules: UserSystemContainerRules;
+  readonly systemSlot: ContainerSystemSlot;
+}
+
+export function deriveBuiltInSystemContainers(input: {
+  organizationId: string;
+}): Promise<ReadonlyArray<BuiltInSystemContainer>> {
+  return Promise.all(
+    BUILT_IN_SYSTEM_CONTAINER_DEFINITIONS.map(async (definition) => ({
+      kind: definition.kind,
+      name: definition.name,
+      rules: definition.rules,
+      systemSlot: await definition.deriveSystemSlot({
+        organizationId: input.organizationId,
+      }),
+    })),
+  );
+}
 
 // Names of system folders that remain visible when viewed under another user's
 // shared root. Used as the cross-user classifier since system slots are opaque

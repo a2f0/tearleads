@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import { deriveBuiltInSystemContainers } from "../../stores/systemContainers";
 import { createExplorerContainerRulesContext } from "./containerRules";
 import {
   getDocumentLinkTargetOptions,
@@ -250,6 +251,96 @@ test("the self contact cannot be moved out of a linked user container", () => {
   );
 
   expect(options).toEqual([]);
+});
+
+const ROSTER_PROFILES_CONTAINER_ID = "roster-profiles-container";
+const ORGANIZATION_METADATA_CONTAINER_ID = "organization-metadata-container";
+
+async function createBuiltInSystemContainerFixture(): Promise<{
+  builtInNodes: ReadonlyArray<ContainerNode>;
+  builtInRulesContext: ReturnType<typeof createExplorerContainerRulesContext>;
+}> {
+  const builtInSystemContainers = await deriveBuiltInSystemContainers({
+    organizationId: "org-1",
+  });
+  const containerIdsByKind = {
+    organizationMetadata: ORGANIZATION_METADATA_CONTAINER_ID,
+    organizationRosterProfiles: ROSTER_PROFILES_CONTAINER_ID,
+  } as const;
+
+  return {
+    builtInNodes: [
+      ...nodes,
+      ...builtInSystemContainers.map((builtInSystemContainer) =>
+        containerNode({
+          id: containerIdsByKind[builtInSystemContainer.kind],
+          name: builtInSystemContainer.name,
+          systemSlot: builtInSystemContainer.systemSlot,
+        }),
+      ),
+    ],
+    builtInRulesContext: createExplorerContainerRulesContext({
+      builtInSystemContainers,
+      contactsContainerId: CONTACTS_CONTAINER_ID,
+      contactsSystemSlot: CONTACTS_SLOT,
+      currentOrganizationId: null,
+      currentSigningFingerprint: null,
+      trashSystemSlot: TRASH_SLOT,
+    }),
+  };
+}
+
+test("built-in organization system containers are not offered as link targets", async () => {
+  // The built-in system containers feature flag reveals Roster Profiles and
+  // Organization Metadata in the tree. They are app-owned endpoints written by
+  // the org workflows, so making them visible must not make them "Link
+  // Document" destinations.
+  const { builtInNodes, builtInRulesContext } =
+    await createBuiltInSystemContainerFixture();
+  const userDocument = documentSummary({
+    id: "user-doc",
+    containerId: "user-container",
+    documentKind: "note",
+  });
+
+  const optionIds = getDocumentLinkTargetOptions(
+    builtInNodes,
+    [userDocument],
+    userDocument.id,
+    ["user-container"],
+    undefined,
+    builtInRulesContext,
+  ).map((option) => option.id);
+
+  expect(optionIds).not.toContain(ROSTER_PROFILES_CONTAINER_ID);
+  expect(optionIds).not.toContain(ORGANIZATION_METADATA_CONTAINER_ID);
+  // A plain sibling container is still a valid link target.
+  expect(optionIds).toContain("root-container");
+});
+
+test("built-in organization system containers remain move targets", async () => {
+  // Only inbound links are blocked: the built-in containers carry no other
+  // rules, so a revealed container still behaves like an ordinary folder for
+  // moves. This is the deliberate scope of their rules — anything stricter
+  // would fight the debugging the feature flag exists for.
+  const { builtInNodes, builtInRulesContext } =
+    await createBuiltInSystemContainerFixture();
+  const userDocument = documentSummary({
+    id: "user-doc",
+    containerId: "user-container",
+    documentKind: "note",
+  });
+
+  const optionIds = getDocumentMoveTargetOptions(
+    builtInNodes,
+    [userDocument],
+    userDocument.id,
+    undefined,
+    builtInRulesContext,
+  ).map((option) => option.id);
+
+  expect(optionIds).toContain(ROSTER_PROFILES_CONTAINER_ID);
+  expect(optionIds).toContain(ORGANIZATION_METADATA_CONTAINER_ID);
 });
 
 test("a document in a plain container can be moved out", () => {
