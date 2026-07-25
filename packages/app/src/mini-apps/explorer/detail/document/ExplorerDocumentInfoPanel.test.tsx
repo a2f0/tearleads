@@ -187,6 +187,28 @@ test("document info hides edit ranges until the feature flag is enabled", async 
   expect(view.queryByRole("button", { name: "Show edit ranges" })).toBeNull();
 });
 
+// Edit Ranges is flag-gated, so the truncated-attribution copy must not send
+// viewers to a section most of them cannot see.
+test("truncated attribution never points at the gated edit ranges", async () => {
+  const view = renderDocumentInfoPanel({
+    fallbackDocumentSummary: documentSummary,
+    loadDocumentInfo: async () => ({
+      ...documentInfo,
+      remoteInfo: {
+        ...documentInfo.remoteInfo,
+        attributionStatus: "truncated",
+      },
+    }),
+  });
+
+  expect(
+    await view.findByText(
+      "Edit attribution is too large for a complete summary.",
+    ),
+  ).toBeTruthy();
+  expect(view.queryByText(/Edit Ranges/)).toBeNull();
+});
+
 test("document info does not load detailed edit ranges until requested", async () => {
   let rangeRequestCount = 0;
   const view = renderDocumentInfoPanel({
