@@ -36,6 +36,7 @@ function createExplorerModel(
   overrides: Partial<ExplorerModel> = {},
 ): ExplorerModel {
   return {
+    activeContainerHasRules: false,
     canCreateChildInActiveContainer: true,
     canCreateContactInActiveContainer: true,
     canCreateStructuredDocumentInActiveContainer: true,

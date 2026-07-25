@@ -13,6 +13,7 @@ export interface WindowTitleBarActionInput {
   id: string;
   label: string;
   onClick: () => unknown;
+  placement?: "penultimate";
   priority?: number;
 }
 
@@ -29,6 +30,7 @@ export interface RegisteredWindowTitleBarAction {
   id: string;
   label: string;
   onClick: () => unknown;
+  placement: "penultimate" | null;
   priority: number;
 }
 
@@ -56,6 +58,7 @@ export function sameTitleBarAction(
     left.id === right.id &&
     left.label === right.label &&
     left.onClick === right.onClick &&
+    left.placement === right.placement &&
     left.priority === right.priority
   );
 }
@@ -90,17 +93,28 @@ export function selectBackAction(
 export function createTitleBarActions(
   items: ReadonlyMap<object, RegisteredWindowTitleBarAction>,
 ): WindowTitleBarAction[] {
-  return Array.from(items.values())
-    .sort((left, right) => right.priority - left.priority)
-    .map((item) => ({
-      disabled: item.disabled,
-      icon: item.icon,
-      id: item.id,
-      label: item.label,
-      onClick: () => {
-        void item.onClick();
-      },
-    }));
+  const ordered = Array.from(items.values()).sort(
+    (left, right) => right.priority - left.priority,
+  );
+  const penultimateIndex = ordered.findIndex(
+    (item) => item.placement === "penultimate",
+  );
+  if (penultimateIndex >= 0 && ordered.length > 1) {
+    const [penultimate] = ordered.splice(penultimateIndex, 1);
+    if (penultimate) {
+      ordered.splice(ordered.length - 1, 0, penultimate);
+    }
+  }
+
+  return ordered.map((item) => ({
+    disabled: item.disabled,
+    icon: item.icon,
+    id: item.id,
+    label: item.label,
+    onClick: () => {
+      void item.onClick();
+    },
+  }));
 }
 
 export function createBackAction(
@@ -135,6 +149,7 @@ export function useRegisteredWindowTitleBarAction(
   const itemId = item?.id ?? "";
   const label = item?.label ?? "";
   const onClick = item?.onClick ?? null;
+  const placement = item?.placement ?? null;
   const priority = item?.priority ?? 0;
 
   useLayoutEffect(() => {
@@ -158,6 +173,7 @@ export function useRegisteredWindowTitleBarAction(
       id: itemId,
       label,
       onClick: handleClick,
+      placement,
       priority,
     });
 
@@ -169,6 +185,7 @@ export function useRegisteredWindowTitleBarAction(
     icon,
     itemId,
     label,
+    placement,
     priority,
     registerTitleBarAction,
     unregisterTitleBarAction,

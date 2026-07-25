@@ -10,6 +10,7 @@ import { useMiniAppDetailBackAction } from "../../components/window/useMiniAppDe
 import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
 import type { AppNavigationMode } from "../../navigation/AppNavigationMode";
 import { useExplorerHubToolbarActions } from "./ExplorerHubToolbarActions";
+import { getExplorerContainerToolbarVisibility } from "./explorerContainerToolbarVisibility";
 import type { useExplorerModel } from "./hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "./labels";
 
@@ -50,6 +51,11 @@ export function useExplorerRoutedChromeActions({
     showContainerToolbar && model.isActiveContactsContainer;
   const showStandardContainerToolbar =
     showContainerToolbar && !model.isActiveContactsContainer;
+  const containerToolbarVisibility = getExplorerContainerToolbarVisibility(
+    model,
+    showContactsContainerToolbar,
+    showStandardContainerToolbar,
+  );
   // A selected document shows its toolbar (Get Info, plus link/move once their
   // targets load) — including the pending window before its summary loads, so the
   // bar never empties between a container selection and the document resolving.
@@ -67,23 +73,23 @@ export function useExplorerRoutedChromeActions({
   useExplorerCreateFolderToolbarAction({
     activeContainerId,
     model,
-    show: showStandardContainerToolbar,
+    show: containerToolbarVisibility.createChild,
   });
   useExplorerUploadToolbarAction({
     activeContainerId,
     model,
-    show: showStandardContainerToolbar,
+    show: containerToolbarVisibility.upload,
     triggerUpload,
   });
   useExplorerNewDocumentToolbarAction({
     model,
     openStructuredDocumentGrid,
-    show: showStandardContainerToolbar,
+    show: containerToolbarVisibility.createDocument,
   });
   useExplorerNewContactToolbarAction({
     activeContainerId,
     model,
-    show: showContactsContainerToolbar,
+    show: containerToolbarVisibility.createContact,
   });
   useExplorerContainerInfoToolbarAction({
     activeContainerId,
@@ -392,6 +398,7 @@ function useExplorerDocumentInfoToolbarAction({
                 model.routeState.openDocumentInfoRoute(documentId, containerId);
               }
             },
+            placement: "penultimate" as const,
             priority: 300,
           }
         : null,
