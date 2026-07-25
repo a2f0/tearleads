@@ -2,7 +2,7 @@
   min-height: 0;
   overflow: auto;
   scrollbar-gutter: var(--scrollbar-gutter);
-  border: var(--border);
+  border-block: var(--border);
   color: var(--color-dark);
   --mini-app-list-frame-background: color-mix(
     in srgb,
@@ -207,10 +207,10 @@
  * Mobile full-bleed (shared list-table modifier): bleed a list table to the
  * screen edges to reclaim the scarce horizontal room. The frame breaks out of
  * the mini-app root's `--space-md` inline padding (hence the matching negative
- * margin) and drops its side borders, so the row backgrounds and separators
- * span the full width. Cells keep their inline padding, so the leading text
- * stays clear of the edge. Opt in with `mini-app-table-frame--bleed` (explorer
- * item list, identity-manager sessions, …).
+ * margin), so the row backgrounds and separators span the full width. Cells
+ * keep their inline padding, so the leading text stays clear of the edge. Opt
+ * in with `mini-app-table-frame--bleed` (explorer item list, identity-manager
+ * sessions, …).
  *
  * The frame gets a subtly shaded surface while the table itself remains light:
  * once the last tile has rendered, the remaining scrollable area reads as
@@ -227,7 +227,6 @@
  */
 .routed-pane--mobile .mini-app-table-frame--bleed {
   margin-inline: calc(-1 * var(--space-md));
-  border-inline: 0;
   border-block-end: 0;
   background: var(--mini-app-list-frame-background);
   --mini-app-row-actions-column-width: calc(
