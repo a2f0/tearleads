@@ -154,19 +154,20 @@
 }
 
 /*
- * Pinned System Monitor status table: it rides directly on the pane surface
- * (no surrounding tab frame), so it drops the per-cell borders. Letting the
- * value column absorb all the slack collapses the label column to its content
- * width, so each key sits right beside its value instead of being spread across
- * the full pane width. The tabbed (unpinned) Status view keeps the bordered,
- * evenly split grid.
+ * Read-only key/value details can sit directly on their surrounding surface
+ * without boxing every cell. Keep the bordered default for denser or
+ * interactive info tables where the grid still helps distinguish records.
  */
-.mini-app-info-table--pinned th,
-.mini-app-info-table--pinned td {
+.mini-app-info-table--borderless th,
+.mini-app-info-table--borderless td {
   border: 0;
 }
 
 /*
+ * Pinned System Monitor status table: letting the value column absorb all the
+ * slack collapses the label column to its content width, so each key sits right
+ * beside its value instead of being spread across the full pane width.
+ *
  * The value column absorbs all the slack (width: 100%), so the label column
  * shrinks to its content. Keep multi-word labels ("SQLite Worker", "Web Socket")
  * on one line — the shared cell rule allows word breaks, which would otherwise

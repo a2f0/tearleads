@@ -168,6 +168,13 @@ test("container info tabs split general, sharing, security, and sync details", a
   await waitFor(() => {
     expect(view.getByText("Local Details")).toBeTruthy();
   });
+  expect(
+    view
+      .getByRole("heading", { name: "Local Details" })
+      .closest("section")
+      ?.querySelector("table")
+      ?.classList.contains("mini-app-info-table--borderless"),
+  ).toBe(true);
   expect(view.queryByText("Principal Grants")).toBeNull();
 
   fireEvent.click(view.getByRole("tab", { name: "Sharing" }));
