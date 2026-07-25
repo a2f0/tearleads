@@ -12,6 +12,9 @@ const BUILT_IN_SYSTEM_CONTAINERS_KEY = appFeatureFlagStorageKey(
 const DOCUMENT_EDIT_RANGES_KEY = appFeatureFlagStorageKey(
   "document-edit-ranges",
 );
+const EXPLORER_HEADER_SYNC_INDICATOR_KEY = appFeatureFlagStorageKey(
+  "explorer-header-sync-indicator",
+);
 const LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY = appFeatureFlagStorageKey(
   "linked-document-activation-controls",
 );
@@ -25,6 +28,9 @@ test("feature flags default to disabled when nothing is stored", () => {
   expect(DEFAULT_APP_FEATURE_FLAG_MODE).toBe("disabled");
   expect(loadAppFeatureFlag(BUILT_IN_SYSTEM_CONTAINERS_KEY)).toBe("disabled");
   expect(loadAppFeatureFlag(DOCUMENT_EDIT_RANGES_KEY)).toBe("disabled");
+  expect(loadAppFeatureFlag(EXPLORER_HEADER_SYNC_INDICATOR_KEY)).toBe(
+    "disabled",
+  );
   expect(loadAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY)).toBe(
     "disabled",
   );
@@ -36,6 +42,10 @@ test("round-trips a saved feature flag", () => {
   expect(loadAppFeatureFlag(BUILT_IN_SYSTEM_CONTAINERS_KEY)).toBe("enabled");
   saveAppFeatureFlag(DOCUMENT_EDIT_RANGES_KEY, "enabled");
   expect(loadAppFeatureFlag(DOCUMENT_EDIT_RANGES_KEY)).toBe("enabled");
+  saveAppFeatureFlag(EXPLORER_HEADER_SYNC_INDICATOR_KEY, "enabled");
+  expect(loadAppFeatureFlag(EXPLORER_HEADER_SYNC_INDICATOR_KEY)).toBe(
+    "enabled",
+  );
   saveAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY, "enabled");
   expect(loadAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY)).toBe(
     "enabled",
@@ -47,6 +57,10 @@ test("round-trips a saved feature flag", () => {
   expect(loadAppFeatureFlag(BUILT_IN_SYSTEM_CONTAINERS_KEY)).toBe("disabled");
   saveAppFeatureFlag(DOCUMENT_EDIT_RANGES_KEY, "disabled");
   expect(loadAppFeatureFlag(DOCUMENT_EDIT_RANGES_KEY)).toBe("disabled");
+  saveAppFeatureFlag(EXPLORER_HEADER_SYNC_INDICATOR_KEY, "disabled");
+  expect(loadAppFeatureFlag(EXPLORER_HEADER_SYNC_INDICATOR_KEY)).toBe(
+    "disabled",
+  );
   saveAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY, "disabled");
   expect(loadAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY)).toBe(
     "disabled",

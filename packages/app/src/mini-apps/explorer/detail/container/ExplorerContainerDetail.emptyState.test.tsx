@@ -146,6 +146,7 @@ function containerDetailElement(props: {
       selectDocumentProjection={() => undefined}
       selectedNode={props.selectedNode}
       setSelectedId={() => undefined}
+      showHeaderSyncIndicator={false}
       visibleSystemSlots={new Set()}
     />
   );

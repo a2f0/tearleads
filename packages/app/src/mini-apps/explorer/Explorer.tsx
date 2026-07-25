@@ -100,10 +100,18 @@ interface BlobPickPanelProps {
   onRetryDatabase: () => void;
 }
 
+// The detail panel's flag-gated surfaces, grouped so the render below forwards
+// them as one spread rather than a growing column of parallel booleans. The
+// panel's own props stay flat — this shape exists only for the hand-off.
+interface ExplorerDetailPanelFeatureFlags {
+  showDocumentEditRanges: boolean;
+  showHeaderSyncIndicator: boolean;
+  showLinkedDocumentActivationControls: boolean;
+}
+
 interface BlobPickPanelRenderParams extends BlobPickPanelProps {
   blobPick: ExplorerBlobPickState;
-  showDocumentEditRanges: boolean;
-  showLinkedDocumentActivationControls: boolean;
+  featureFlags: ExplorerDetailPanelFeatureFlags;
 }
 
 function renderExplorerDetailPanelWithBlobPick(
@@ -177,10 +185,7 @@ function renderExplorerDetailPanelWithBlobPick(
       setContainerIcon={model.explorer.setContainerIcon}
       trashSystemSlot={model.explorer.trashSystemSlot}
       setSelectedId={routeState.selectExplorerItem}
-      showDocumentEditRanges={params.showDocumentEditRanges}
-      showLinkedDocumentActivationControls={
-        params.showLinkedDocumentActivationControls
-      }
+      {...params.featureFlags}
       shareWithGroup={model.explorer.shareWithGroup}
       shareWithUser={model.explorer.shareWithUser}
       unlinkDocument={model.unlinkDocument}
@@ -194,15 +199,21 @@ function renderExplorerDetailPanelWithBlobPick(
 // rendered inside the panel reads the same context to request a pick.
 function ExplorerDetailPanelWithBlobPick(params: BlobPickPanelProps) {
   const blobPick = useBlobPick();
-  const { documentEditRangesVisible, linkedDocumentActivationControlsEnabled } =
-    useAppFeatureFlags();
+  const {
+    documentEditRangesVisible,
+    explorerHeaderSyncIndicatorVisible,
+    linkedDocumentActivationControlsEnabled,
+  } = useAppFeatureFlags();
 
   return renderExplorerDetailPanelWithBlobPick({
     ...params,
     blobPick,
-    showDocumentEditRanges: documentEditRangesVisible,
-    showLinkedDocumentActivationControls:
-      linkedDocumentActivationControlsEnabled,
+    featureFlags: {
+      showDocumentEditRanges: documentEditRangesVisible,
+      showHeaderSyncIndicator: explorerHeaderSyncIndicatorVisible,
+      showLinkedDocumentActivationControls:
+        linkedDocumentActivationControlsEnabled,
+    },
   });
 }
 

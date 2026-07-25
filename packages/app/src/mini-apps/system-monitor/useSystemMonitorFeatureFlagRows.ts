@@ -7,6 +7,7 @@ import type { SystemMonitorReportFlag } from "./systemMonitorReport";
 export const FEATURE_FLAG_LABELS = {
   builtInSystemContainers: "Built-in system containers",
   documentEditRanges: "Document edit ranges",
+  explorerHeaderSyncIndicator: "Explorer header sync indicator",
   linkedDocumentActivationControls: "Linked document activation controls",
   workspaceSwitcher: "Workspace switcher",
 } as const;
@@ -23,6 +24,7 @@ export function useSystemMonitorFeatureFlagRows(): ReadonlyArray<SystemMonitorRe
   const {
     builtInSystemContainersVisible,
     documentEditRangesVisible,
+    explorerHeaderSyncIndicatorVisible,
     linkedDocumentActivationControlsEnabled,
     workspaceSwitcherVisible,
   } = useAppFeatureFlags();
@@ -38,6 +40,10 @@ export function useSystemMonitorFeatureFlagRows(): ReadonlyArray<SystemMonitorRe
         value: formatFeatureFlagState(documentEditRangesVisible),
       },
       {
+        label: FEATURE_FLAG_LABELS.explorerHeaderSyncIndicator,
+        value: formatFeatureFlagState(explorerHeaderSyncIndicatorVisible),
+      },
+      {
         label: FEATURE_FLAG_LABELS.linkedDocumentActivationControls,
         value: formatFeatureFlagState(linkedDocumentActivationControlsEnabled),
       },
@@ -49,6 +55,7 @@ export function useSystemMonitorFeatureFlagRows(): ReadonlyArray<SystemMonitorRe
     [
       builtInSystemContainersVisible,
       documentEditRangesVisible,
+      explorerHeaderSyncIndicatorVisible,
       linkedDocumentActivationControlsEnabled,
       workspaceSwitcherVisible,
     ],

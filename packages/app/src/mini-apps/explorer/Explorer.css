@@ -22,24 +22,6 @@
   scrollbar-gutter: var(--scrollbar-gutter);
 }
 
-.explorer-detail-title-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  /* A grid item defaults to min-width:auto, which would floor the row at the
-     title's full width and push the header wider than its panel. */
-  min-width: 0;
-}
-
-/* The title keeps to one line and ellipsizes: a long name gives up its tail
-   rather than reflowing the header (and its sync glyph) onto a second line. */
-.explorer-detail-title-row > strong {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .explorer-item-table-wrap {
   flex: 1;
 }
@@ -203,6 +185,14 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
+}
+
+/* In a detail header the badge is the header's right-hand child, so the title
+   beside it truncates and the glyph pins to the panel's right edge. Matching
+   the title's line box centres the dot on the first line rather than on the
+   header block, whose second line is the subtitle. */
+.mini-app-header > .explorer-sync-badge {
+  min-height: 1lh;
 }
 
 .explorer-node-toggle,

@@ -342,7 +342,7 @@ export function getSelectedExplorerContainerSyncLabel(
   explorerWindow: HTMLElement,
 ): string | null {
   const badge = explorerWindow.querySelector<HTMLElement>(
-    ".explorer-detail-title-row .explorer-sync-badge",
+    ".explorer-detail .mini-app-header > .explorer-sync-badge",
   );
   return badge?.getAttribute("aria-label") ?? null;
 }

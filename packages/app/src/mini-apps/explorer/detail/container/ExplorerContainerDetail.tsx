@@ -34,21 +34,22 @@ export { getNextExplorerItemSort } from "./explorerContainerItemWindow";
 function ExplorerContainerDetailHeader(params: {
   online: boolean;
   selectedNode: ContainerNode;
+  showHeaderSyncIndicator: boolean;
 }) {
-  const { online, selectedNode } = params;
+  const { online, selectedNode, showHeaderSyncIndicator } = params;
 
   return (
     <MiniAppHeader>
       <MiniAppHeaderCopy>
-        <div className="explorer-detail-title-row">
-          <strong>{selectedNode.name}</strong>
-          <ExplorerSyncStateBadge
-            online={online}
-            syncState={selectedNode.syncState}
-          />
-        </div>
+        <strong>{selectedNode.name}</strong>
         <span>{EXPLORER_LABELS.folderType}</span>
       </MiniAppHeaderCopy>
+      {showHeaderSyncIndicator ? (
+        <ExplorerSyncStateBadge
+          online={online}
+          syncState={selectedNode.syncState}
+        />
+      ) : null}
     </MiniAppHeader>
   );
 }
@@ -77,6 +78,7 @@ interface ExplorerContainerDetailProps {
   selectDocumentProjection: (documentId: string, containerId: string) => void;
   selectedNode: ContainerNode;
   setSelectedId: (id: string | null) => void;
+  showHeaderSyncIndicator: boolean;
   visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;
 }
 
@@ -203,6 +205,7 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
       <ExplorerContainerDetailHeader
         online={online}
         selectedNode={selectedNode}
+        showHeaderSyncIndicator={params.showHeaderSyncIndicator}
       />
       {refreshError ? (
         <MiniAppStatus as="span" tone="error">

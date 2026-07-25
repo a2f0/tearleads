@@ -100,6 +100,7 @@ export function ExplorerDocumentDetail(params: {
   readOnly: boolean;
   refreshError: string | null;
   selectedDocument: DocumentSummary;
+  showHeaderSyncIndicator: boolean;
 }) {
   const selectedDocumentKind = getDocumentSummaryKind(params.selectedDocument);
   // Resolve the unnamed self-contact to "You", matching the sidebar and the
@@ -141,13 +142,7 @@ export function ExplorerDocumentDetail(params: {
     >
       <MiniAppHeader>
         <MiniAppHeaderCopy>
-          <div className="explorer-detail-title-row">
-            <strong>{selectedDocumentTitle}</strong>
-            <ExplorerSyncStateBadge
-              online={params.online}
-              syncState={selectedDocumentSyncState}
-            />
-          </div>
+          <strong>{selectedDocumentTitle}</strong>
           <span>
             {getExplorerDocumentSubtitle({
               containerName: selectedDocumentContainer?.name ?? null,
@@ -158,6 +153,12 @@ export function ExplorerDocumentDetail(params: {
             })}
           </span>
         </MiniAppHeaderCopy>
+        {params.showHeaderSyncIndicator ? (
+          <ExplorerSyncStateBadge
+            online={params.online}
+            syncState={selectedDocumentSyncState}
+          />
+        ) : null}
       </MiniAppHeader>
       {params.refreshError ? (
         <MiniAppStatus as="span" tone="error">
