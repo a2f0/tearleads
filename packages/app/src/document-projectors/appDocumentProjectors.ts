@@ -16,9 +16,10 @@ import { weightDocumentProjectorDefinition } from "../document-types/weight/weig
 import { contactClientProjection } from "./contactClientProjection";
 import { creditCardClientProjection } from "./creditCardClientProjection";
 import { driverLicenseClientProjection } from "./driverLicenseClientProjection";
+import { organizationProfileDocumentProjectorDefinition } from "./organizationProfileDocumentProjector";
 import { passportClientProjection } from "./passportClientProjection";
 
-export const APP_DOCUMENT_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentProjectorDefinition> =
+export const APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentProjectorDefinition> =
   [
     noteDocumentProjectorDefinition,
     {
@@ -47,3 +48,8 @@ export const APP_DOCUMENT_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentProjec
     pdfDocumentProjectorDefinition,
     genericFileDocumentProjectorDefinition,
   ];
+
+export const APP_DOCUMENT_PROJECTOR_DEFINITIONS = [
+  ...APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS,
+  organizationProfileDocumentProjectorDefinition,
+] as const;

@@ -58,7 +58,9 @@ export function BillingBannerView({
   if (view.isTrialing && view.trialDaysRemaining !== null) {
     return (
       <div className="billing-banner billing-banner--info" role="status">
-        {getBillingTrialBannerLabel(view.trialDaysRemaining)}{" "}
+        <span className="billing-banner-trial-copy">
+          {getBillingTrialBannerLabel(view.trialDaysRemaining)}
+        </span>
         <button
           className="billing-banner-enroll"
           onClick={onEnroll}
