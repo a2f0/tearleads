@@ -15,10 +15,9 @@
 .contact-avatar-editor-viewport {
   position: relative;
   align-self: center;
-  width: min(100%, 260px);
+  width: min(100%, var(--contact-avatar-editor-size));
   aspect-ratio: 1;
-  flex: 0 1 auto;
-  max-width: 100%;
+  flex-shrink: 0;
   overflow: hidden;
   border: var(--border);
   background: var(--color-dark);

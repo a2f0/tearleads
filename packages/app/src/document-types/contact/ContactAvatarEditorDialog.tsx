@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { type CSSProperties, useId } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -33,11 +33,7 @@ function AvatarCropViewport({
   hintId: string;
 }) {
   const layout = editor.imageSize
-    ? getAvatarImageLayout(
-        editor.imageSize,
-        editor.view,
-        AVATAR_EDITOR_VIEWPORT_SIZE,
-      )
+    ? getAvatarImageLayout(editor.imageSize, editor.view, editor.viewportSize)
     : null;
 
   return (
@@ -45,6 +41,11 @@ function AvatarCropViewport({
       aria-describedby={hintId}
       className="contact-avatar-editor-viewport"
       ref={editor.viewportRef}
+      style={
+        {
+          "--contact-avatar-editor-size": `${AVATAR_EDITOR_VIEWPORT_SIZE}px`,
+        } as CSSProperties
+      }
       {...editor.pointerHandlers}
     >
       <img
