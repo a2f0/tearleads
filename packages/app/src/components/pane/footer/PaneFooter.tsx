@@ -69,6 +69,8 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
           );
         })}
         <div className="pane-footer-end">
+          {/* This flag controls the switcher affordance only. Workspace views
+              stay mounted so re-enabling it does not reboot their shared runtime. */}
           {workspaceSwitcherVisible && <WorkspaceSwitcher />}
           {tray && <div className="pane-footer-tray">{tray}</div>}
         </div>

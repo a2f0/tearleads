@@ -21,8 +21,6 @@ interface AppFeatureFlagsValue {
   setBuiltInSystemContainersVisible: (enabled: boolean) => void;
   setLinkedDocumentActivationControlsEnabled: (enabled: boolean) => void;
   setWorkspaceSwitcherVisible: (enabled: boolean) => void;
-  toggleBuiltInSystemContainers: () => void;
-  toggleLinkedDocumentActivationControls: () => void;
 }
 
 const DEFAULT_APP_FEATURE_FLAGS: AppFeatureFlagsValue = {
@@ -32,8 +30,6 @@ const DEFAULT_APP_FEATURE_FLAGS: AppFeatureFlagsValue = {
   setBuiltInSystemContainersVisible: () => {},
   setLinkedDocumentActivationControlsEnabled: () => {},
   setWorkspaceSwitcherVisible: () => {},
-  toggleBuiltInSystemContainers: () => {},
-  toggleLinkedDocumentActivationControls: () => {},
 };
 
 const AppFeatureFlagsContext = createContext<AppFeatureFlagsValue | null>(null);
@@ -53,16 +49,10 @@ function usePersistentAppFeatureFlag(flag: AppFeatureFlagId) {
     },
     [storageKey],
   );
-  const toggle = useCallback(() => {
-    const nextMode = mode === "enabled" ? "disabled" : "enabled";
-    setMode(nextMode);
-    saveAppFeatureFlag(storageKey, nextMode);
-  }, [mode, storageKey]);
 
   return {
     enabled: mode === "enabled",
     setEnabled,
-    toggle,
   };
 }
 
@@ -85,17 +75,12 @@ function usePersistentAppFeatureFlags(): AppFeatureFlagsValue {
       setLinkedDocumentActivationControlsEnabled:
         linkedDocumentActivationControls.setEnabled,
       setWorkspaceSwitcherVisible: workspaceSwitcher.setEnabled,
-      toggleBuiltInSystemContainers: builtInSystemContainers.toggle,
-      toggleLinkedDocumentActivationControls:
-        linkedDocumentActivationControls.toggle,
     }),
     [
       builtInSystemContainers.enabled,
       builtInSystemContainers.setEnabled,
-      builtInSystemContainers.toggle,
       linkedDocumentActivationControls.enabled,
       linkedDocumentActivationControls.setEnabled,
-      linkedDocumentActivationControls.toggle,
       workspaceSwitcher.enabled,
       workspaceSwitcher.setEnabled,
     ],

@@ -395,6 +395,7 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
       LINKED_DOCUMENT_ACTIVATION_CONTROLS_FEATURE_FLAG_KEY,
     ),
   ).toBeNull();
+
   await clickWindowViewMenuItem(view, "Enable Developer Mode");
 
   const featureFlagsTab = await view.findByRole("tab", {
