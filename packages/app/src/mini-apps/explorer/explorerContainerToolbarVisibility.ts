@@ -36,8 +36,8 @@ export function getExplorerContainerToolbarVisibility(
     showStandardToolbar,
   } = input;
 
-  // System rules permanently forbid actions, so omit them. Ordinary containers
-  // retain disabled actions while permissions load to avoid toolbar pop-in.
+  // System containers omit unavailable actions. Ordinary containers retain
+  // disabled actions while permissions load to avoid toolbar pop-in.
   return {
     createChild: shouldShowContainerAction(
       showStandardToolbar,

@@ -44,6 +44,22 @@ test("system contact containers show only allowed contact creation", () => {
   });
 });
 
+test("system contact containers show allowed contact creation", () => {
+  expect(
+    getExplorerContainerToolbarVisibility({
+      ...allowedActions,
+      activeContainerHasRules: true,
+      showContactsToolbar: true,
+      showStandardToolbar: false,
+    }),
+  ).toEqual({
+    createChild: false,
+    createContact: true,
+    createDocument: false,
+    upload: false,
+  });
+});
+
 test("ordinary containers retain unavailable actions for disabled rendering", () => {
   expect(
     getExplorerContainerToolbarVisibility({

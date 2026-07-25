@@ -1,10 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { WindowMenuProvider } from "../../components/window/WindowMenuContext";
 import {
   createExplorerModel,
   ExplorerRoutedChromeHarness,
-} from "./ExplorerRoutedChrome.testUtils.test";
+} from "../../../test/helpers/explorerRoutedChromeTestUtils";
+import { WindowMenuProvider } from "../../components/window/WindowMenuContext";
 import { EXPLORER_LABELS } from "./labels";
 
 afterEach(() => cleanup());
@@ -57,6 +57,7 @@ test("contacts container toolbar offers get info and new contact", async () => {
     <WindowMenuProvider>
       <ExplorerRoutedChromeHarness
         model={createExplorerModel({
+          activeContainerHasRules: true,
           openInlineDocument: (containerId, documentKind) => {
             createdContacts.push([containerId, documentKind]);
           },

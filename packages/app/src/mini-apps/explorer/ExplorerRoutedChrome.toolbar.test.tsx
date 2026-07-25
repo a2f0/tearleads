@@ -2,13 +2,13 @@ import { afterEach, expect, test } from "bun:test";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { useMemo } from "react";
 import {
+  createExplorerModel,
+  ExplorerRoutedChromeHarness,
+} from "../../../test/helpers/explorerRoutedChromeTestUtils";
+import {
   useWindowTitleBarAction,
   WindowMenuProvider,
 } from "../../components/window/WindowMenuContext";
-import {
-  createExplorerModel,
-  ExplorerRoutedChromeHarness,
-} from "./ExplorerRoutedChrome.testUtils.test";
 import { EXPLORER_LABELS } from "./labels";
 
 afterEach(() => cleanup());
@@ -20,7 +20,7 @@ function DocumentTypeToolbarActionProbe() {
       id: "document-type-edit",
       label: "Edit",
       onClick: () => undefined,
-      priority: 100,
+      priority: 150,
     }),
     [],
   );

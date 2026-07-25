@@ -14,7 +14,7 @@ export interface WindowTitleBarActionInput {
   label: string;
   onClick: () => unknown;
   /**
-   * Reserves the single second-from-right toolbar slot after priority sorting.
+   * Reserves the slot immediately left of the lowest-priority toolbar action.
    * If multiple actions request it, the highest-priority action wins, with the
    * action id providing a deterministic tie-break. A sole action stays sole.
    */
@@ -100,7 +100,8 @@ export function createTitleBarActions(
 ): WindowTitleBarAction[] {
   const ordered = Array.from(items.values()).sort(
     (left, right) =>
-      right.priority - left.priority || left.id.localeCompare(right.id),
+      right.priority - left.priority ||
+      (left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
   );
   const penultimateIndex = ordered.findIndex(
     (item) => item.placement === "penultimate",

@@ -1,12 +1,12 @@
 import {
   useWindowBackActionValue,
   useWindowTitleBarActions,
-} from "../../components/window/WindowMenuContext";
-import type { AppNavigationMode } from "../../navigation/AppNavigationMode";
-import { useExplorerRoutedChromeActions } from "./ExplorerRoutedChrome";
-import type { useExplorerModel } from "./hooks/useExplorerModel";
+} from "../../src/components/window/WindowMenuContext";
+import { useExplorerRoutedChromeActions } from "../../src/mini-apps/explorer/ExplorerRoutedChrome";
+import type { useExplorerModel } from "../../src/mini-apps/explorer/hooks/useExplorerModel";
+import type { AppNavigationMode } from "../../src/navigation/AppNavigationMode";
 
-export type ExplorerModel = ReturnType<typeof useExplorerModel>;
+type ExplorerModel = ReturnType<typeof useExplorerModel>;
 
 export function createExplorerModel(
   overrides: Partial<ExplorerModel> = {},
