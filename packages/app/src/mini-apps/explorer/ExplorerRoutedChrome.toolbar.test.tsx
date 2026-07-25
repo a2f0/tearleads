@@ -3,81 +3,15 @@ import { cleanup, render, waitFor } from "@testing-library/react";
 import { useMemo } from "react";
 import {
   useWindowTitleBarAction,
-  useWindowTitleBarActions,
   WindowMenuProvider,
 } from "../../components/window/WindowMenuContext";
-import { useExplorerRoutedChromeActions } from "./ExplorerRoutedChrome";
-import type { useExplorerModel } from "./hooks/useExplorerModel";
+import {
+  createExplorerModel,
+  ExplorerRoutedChromeHarness,
+} from "./ExplorerRoutedChrome.testUtils.test";
 import { EXPLORER_LABELS } from "./labels";
 
 afterEach(() => cleanup());
-
-type ExplorerModel = ReturnType<typeof useExplorerModel>;
-
-function createExplorerModel(
-  overrides: Partial<ExplorerModel> = {},
-): ExplorerModel {
-  return {
-    activeContainerHasRules: false,
-    canCreateChildInActiveContainer: true,
-    canCreateContactInActiveContainer: true,
-    canCreateStructuredDocumentInActiveContainer: true,
-    canLinkSelectedDocument: true,
-    canMoveSelectedDocument: true,
-    canUploadToActiveContainer: true,
-    explorer: { ready: true },
-    isActiveContactsContainer: false,
-    modalState: {
-      openCreateChildModal: () => undefined,
-      openLinkDocumentModal: () => undefined,
-      openMoveDocumentModal: () => undefined,
-    },
-    openInlineDocument: () => undefined,
-    routeState: {
-      navigateBackFromBlobBrowser: () => undefined,
-      openContainerInfoRoute: () => undefined,
-      openDocumentInfoRoute: () => undefined,
-      openSyncLanesRoute: () => undefined,
-      openWriteQueueRoute: () => undefined,
-      route: { view: "selection" },
-      selectExplorerItem: () => undefined,
-      showSelectionRoute: () => undefined,
-    },
-    selectDocumentProjection: () => undefined,
-    selection: {
-      activeContainerId: "folder-1",
-      selectedDocument: undefined,
-    },
-    ...overrides,
-  } as unknown as ExplorerModel;
-}
-
-function ToolbarProbe() {
-  const actions = useWindowTitleBarActions();
-  return (
-    <div aria-label="Toolbar" role="toolbar">
-      {actions.map((action) => (
-        <button
-          aria-label={action.label}
-          disabled={action.disabled}
-          key={action.id}
-          type="button"
-        />
-      ))}
-    </div>
-  );
-}
-
-function ExplorerToolbarHarness({ model }: { model: ExplorerModel }) {
-  useExplorerRoutedChromeActions({
-    historyCanGoBack: false,
-    model,
-    navigationMode: "windowed",
-    openStructuredDocumentGrid: () => undefined,
-    triggerUpload: () => undefined,
-  });
-  return <ToolbarProbe />;
-}
 
 function DocumentTypeToolbarActionProbe() {
   const action = useMemo(
@@ -98,12 +32,13 @@ test("system container toolbar hides forbidden actions instead of disabling them
   const baseModel = createExplorerModel();
   const view = render(
     <WindowMenuProvider>
-      <ExplorerToolbarHarness
+      <ExplorerRoutedChromeHarness
         model={createExplorerModel({
           activeContainerHasRules: true,
           canCreateChildInActiveContainer: false,
           canCreateStructuredDocumentInActiveContainer: false,
           canUploadToActiveContainer: false,
+          isActiveContactsContainer: false,
           selection: {
             ...baseModel.selection,
             activeContainerId: "trash-container",
@@ -141,8 +76,9 @@ test("document Get Info stays second from the right beside type actions", async 
   const baseModel = createExplorerModel();
   const view = render(
     <WindowMenuProvider>
-      <ExplorerToolbarHarness
+      <ExplorerRoutedChromeHarness
         model={createExplorerModel({
+          isActiveContactsContainer: false,
           selection: {
             ...baseModel.selection,
             activeContainerId: "folder-1",
@@ -170,8 +106,8 @@ test("document Get Info stays second from the right beside type actions", async 
       .map((button) => button.getAttribute("aria-label")),
   ).toEqual([
     EXPLORER_LABELS.documentLinkAction,
-    EXPLORER_LABELS.documentMoveAction,
     "Edit",
+    EXPLORER_LABELS.documentMoveAction,
     EXPLORER_LABELS.documentInfoGetInfoAction,
     EXPLORER_LABELS.syncSectionsAction,
   ]);

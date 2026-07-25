@@ -1,6 +1,19 @@
-import type { useExplorerModel } from "./hooks/useExplorerModel";
+interface ExplorerContainerToolbarVisibilityInput {
+  activeContainerHasRules: boolean;
+  canCreateChild: boolean;
+  canCreateContact: boolean;
+  canCreateDocument: boolean;
+  canUpload: boolean;
+  showContactsToolbar: boolean;
+  showStandardToolbar: boolean;
+}
 
-type ExplorerModel = ReturnType<typeof useExplorerModel>;
+interface ExplorerContainerToolbarVisibility {
+  createChild: boolean;
+  createContact: boolean;
+  createDocument: boolean;
+  upload: boolean;
+}
 
 function shouldShowContainerAction(
   showToolbar: boolean,
@@ -11,30 +24,40 @@ function shouldShowContainerAction(
 }
 
 export function getExplorerContainerToolbarVisibility(
-  model: ExplorerModel,
-  showContactsToolbar: boolean,
-  showStandardToolbar: boolean,
-) {
+  input: ExplorerContainerToolbarVisibilityInput,
+): ExplorerContainerToolbarVisibility {
+  const {
+    activeContainerHasRules,
+    canCreateChild,
+    canCreateContact,
+    canCreateDocument,
+    canUpload,
+    showContactsToolbar,
+    showStandardToolbar,
+  } = input;
+
+  // System rules permanently forbid actions, so omit them. Ordinary containers
+  // retain disabled actions while permissions load to avoid toolbar pop-in.
   return {
     createChild: shouldShowContainerAction(
       showStandardToolbar,
-      model.activeContainerHasRules,
-      model.canCreateChildInActiveContainer,
+      activeContainerHasRules,
+      canCreateChild,
     ),
     createContact: shouldShowContainerAction(
       showContactsToolbar,
-      model.activeContainerHasRules,
-      model.canCreateContactInActiveContainer,
+      activeContainerHasRules,
+      canCreateContact,
     ),
     createDocument: shouldShowContainerAction(
       showStandardToolbar,
-      model.activeContainerHasRules,
-      model.canCreateStructuredDocumentInActiveContainer,
+      activeContainerHasRules,
+      canCreateDocument,
     ),
     upload: shouldShowContainerAction(
       showStandardToolbar,
-      model.activeContainerHasRules,
-      model.canUploadToActiveContainer,
+      activeContainerHasRules,
+      canUpload,
     ),
   };
 }

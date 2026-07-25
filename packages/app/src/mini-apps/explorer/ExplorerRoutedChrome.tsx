@@ -51,11 +51,15 @@ export function useExplorerRoutedChromeActions({
     showContainerToolbar && model.isActiveContactsContainer;
   const showStandardContainerToolbar =
     showContainerToolbar && !model.isActiveContactsContainer;
-  const containerToolbarVisibility = getExplorerContainerToolbarVisibility(
-    model,
-    showContactsContainerToolbar,
-    showStandardContainerToolbar,
-  );
+  const containerToolbarVisibility = getExplorerContainerToolbarVisibility({
+    activeContainerHasRules: model.activeContainerHasRules,
+    canCreateChild: model.canCreateChildInActiveContainer,
+    canCreateContact: model.canCreateContactInActiveContainer,
+    canCreateDocument: model.canCreateStructuredDocumentInActiveContainer,
+    canUpload: model.canUploadToActiveContainer,
+    showContactsToolbar: showContactsContainerToolbar,
+    showStandardToolbar: showStandardContainerToolbar,
+  });
   // A selected document shows its toolbar (Get Info, plus link/move once their
   // targets load) — including the pending window before its summary loads, so the
   // bar never empties between a container selection and the document resolving.
