@@ -228,8 +228,13 @@ interface BuiltInSystemContainerDefinition {
   readonly rules: UserSystemContainerRules;
 }
 
-const BUILT_IN_SYSTEM_CONTAINER_DEFINITIONS: readonly BuiltInSystemContainerDefinition[] =
-  [
+// Built as a function, not a module-level constant: these are the only client
+// SDK values this module reads, and in the bundled app the SDK barrel is still
+// uninitialized when this module evaluates (its exports read back as null), so
+// reading them at module scope crashes the app on load. Every other client-sdk
+// reference here is likewise reached from inside a function body.
+function getBuiltInSystemContainerDefinitions(): readonly BuiltInSystemContainerDefinition[] {
+  return [
     {
       deriveSystemSlot: deriveOrganizationRosterProfileContainerSystemSlot,
       kind: "organizationRosterProfiles",
@@ -243,6 +248,7 @@ const BUILT_IN_SYSTEM_CONTAINER_DEFINITIONS: readonly BuiltInSystemContainerDefi
       rules: BUILT_IN_SYSTEM_CONTAINER_RULES,
     },
   ];
+}
 
 // A built-in system container resolved for one organization. Mirrors
 // UserSystemContainer, plus the rules themselves: a built-in container has no
@@ -259,7 +265,7 @@ export function deriveBuiltInSystemContainers(input: {
   organizationId: string;
 }): Promise<ReadonlyArray<BuiltInSystemContainer>> {
   return Promise.all(
-    BUILT_IN_SYSTEM_CONTAINER_DEFINITIONS.map(async (definition) => ({
+    getBuiltInSystemContainerDefinitions().map(async (definition) => ({
       kind: definition.kind,
       name: definition.name,
       rules: definition.rules,
