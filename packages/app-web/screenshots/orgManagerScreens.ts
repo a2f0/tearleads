@@ -88,22 +88,22 @@ export async function assertOrgManagerCaptureReady(
         scope.getByRole("navigation", { name: "Org Manager sections" }),
       ).toBeVisible({ timeout: 30_000 });
       break;
-    case "directory":
-      await expect(
-        scope.getByRole("table", { name: "Roster", exact: true }),
-      ).toBeVisible({ timeout: 60_000 });
-      await expect(scope.getByText("You", { exact: true }).first()).toBeVisible(
-        { timeout: 60_000 },
-      );
+    case "directory": {
+      const roster = scope.getByRole("table", { name: "Roster", exact: true });
+      await expect(roster).toContainText("You", {
+        timeout: 60_000,
+      });
+      await expect(roster).toBeVisible({ timeout: 60_000 });
       break;
-    case "groups":
-      await expect(
-        scope.getByRole("table", { name: "Groups", exact: true }),
-      ).toBeVisible({ timeout: 60_000 });
-      await expect(
-        scope.getByText("Admins", { exact: true }).first(),
-      ).toBeVisible({ timeout: 60_000 });
+    }
+    case "groups": {
+      const groups = scope.getByRole("table", { name: "Groups", exact: true });
+      await expect(groups).toContainText("Admins", {
+        timeout: 60_000,
+      });
+      await expect(groups).toBeVisible({ timeout: 60_000 });
       break;
+    }
     case "grants":
       await expect(
         scope.getByRole("table", {
