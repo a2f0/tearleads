@@ -16,6 +16,7 @@ import { sqlContainerContentsPersistence } from "../../data/persistence/containe
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
+import { listPendingWrites } from "../container-contents/pendingWrites";
 import { deriveContainerSystemSlot } from "../container-contents/systemSlot";
 import { createOrganization } from "./createOrganization";
 import {
@@ -205,6 +206,7 @@ test("createOrganization provisions a new org for the existing user and persists
         ),
       ).toHaveLength(0);
     }
+    expect(await listPendingWrites(execSql)).toEqual([]);
 
     // Organization profile document persisted under the org-scoped local id.
     const organizationProfileDocument =
@@ -336,6 +338,7 @@ test("createOrganization provisions configured system containers (Trash) atomica
         ),
       ).toHaveLength(0);
     }
+    expect(await listPendingWrites(execSql)).toEqual([]);
   } finally {
     close();
   }

@@ -232,6 +232,12 @@ export async function persistOrganizationProvisioningState(
       initialMemberGroupPolicy: artifacts.initialMemberGroupPolicy,
       initialOrganizationPolicy: artifacts.initialOrganizationPolicy,
       organizationId: input.response.organizationId,
+      // The provisioning response does not expose the root container's own
+      // timestamps. Its metadata document is created in the same transaction,
+      // so its server timestamp is the acknowledged remote anchor for the
+      // locally persisted root row.
+      rootContainerServerTimestamp:
+        input.response.rootMetadataDocument.createdAt,
       rootMetadataAccessEpoch: input.response.rootMetadataAccessEpoch,
       rootMetadataAccessStateHash: input.response.rootMetadataAccessStateHash,
       rootMetadataDocumentId: input.response.rootMetadataDocumentId,
