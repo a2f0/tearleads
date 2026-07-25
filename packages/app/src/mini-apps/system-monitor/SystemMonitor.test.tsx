@@ -32,6 +32,8 @@ const BUILT_IN_SYSTEM_CONTAINERS_FEATURE_FLAG_KEY = appFeatureFlagStorageKey(
 );
 const LINKED_DOCUMENT_ACTIVATION_CONTROLS_FEATURE_FLAG_KEY =
   appFeatureFlagStorageKey("linked-document-activation-controls");
+const WORKSPACE_SWITCHER_FEATURE_FLAG_KEY =
+  appFeatureFlagStorageKey("workspace-switcher");
 const ROUTED_DEVELOPER_MENU_ITEM_LABELS = [
   "Force Online",
   "Force Offline",
@@ -393,7 +395,6 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
       LINKED_DOCUMENT_ACTIVATION_CONTROLS_FEATURE_FLAG_KEY,
     ),
   ).toBeNull();
-
   await clickWindowViewMenuItem(view, "Enable Developer Mode");
 
   const featureFlagsTab = await view.findByRole("tab", {
@@ -407,9 +408,13 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
   const linkedDocumentActivationControlsToggle = view.getByRole("switch", {
     name: "Enable linked document activation controls",
   }) as HTMLInputElement;
+  const workspaceSwitcherToggle = view.getByRole("switch", {
+    name: "Show workspace switcher",
+  }) as HTMLInputElement;
   expect(builtInSystemContainersToggle.checked).toBe(false);
   expect(linkedDocumentActivationControlsToggle.checked).toBe(false);
-  expect(view.getAllByText("Disabled")).toHaveLength(2);
+  expect(workspaceSwitcherToggle.checked).toBe(false);
+  expect(view.getAllByText("Disabled")).toHaveLength(3);
 
   fireEvent.click(builtInSystemContainersToggle);
 
@@ -433,6 +438,16 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
       ),
     ).toBe("enabled");
     expect(view.getAllByText("Enabled")).toHaveLength(2);
+  });
+
+  fireEvent.click(workspaceSwitcherToggle);
+
+  await waitFor(() => {
+    expect(workspaceSwitcherToggle.checked).toBe(true);
+    expect(
+      globalThis.localStorage.getItem(WORKSPACE_SWITCHER_FEATURE_FLAG_KEY),
+    ).toBe("enabled");
+    expect(view.getAllByText("Enabled")).toHaveLength(3);
   });
 
   await clickWindowViewMenuItem(view, "Disable Developer Mode");

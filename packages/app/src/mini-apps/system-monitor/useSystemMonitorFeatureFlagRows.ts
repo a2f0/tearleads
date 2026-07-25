@@ -7,6 +7,7 @@ import type { SystemMonitorReportFlag } from "./systemMonitorReport";
 export const FEATURE_FLAG_LABELS = {
   builtInSystemContainers: "Built-in system containers",
   linkedDocumentActivationControls: "Linked document activation controls",
+  workspaceSwitcher: "Workspace switcher",
 } as const;
 
 const FEATURE_FLAG_ENABLED = "Enabled";
@@ -21,6 +22,7 @@ export function useSystemMonitorFeatureFlagRows(): ReadonlyArray<SystemMonitorRe
   const {
     builtInSystemContainersVisible,
     linkedDocumentActivationControlsEnabled,
+    workspaceSwitcherVisible,
   } = useAppFeatureFlags();
 
   return useMemo(
@@ -33,7 +35,15 @@ export function useSystemMonitorFeatureFlagRows(): ReadonlyArray<SystemMonitorRe
         label: FEATURE_FLAG_LABELS.linkedDocumentActivationControls,
         value: formatFeatureFlagState(linkedDocumentActivationControlsEnabled),
       },
+      {
+        label: FEATURE_FLAG_LABELS.workspaceSwitcher,
+        value: formatFeatureFlagState(workspaceSwitcherVisible),
+      },
     ],
-    [builtInSystemContainersVisible, linkedDocumentActivationControlsEnabled],
+    [
+      builtInSystemContainersVisible,
+      linkedDocumentActivationControlsEnabled,
+      workspaceSwitcherVisible,
+    ],
   );
 }

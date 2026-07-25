@@ -12,6 +12,7 @@ const BUILT_IN_SYSTEM_CONTAINERS_KEY = appFeatureFlagStorageKey(
 const LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY = appFeatureFlagStorageKey(
   "linked-document-activation-controls",
 );
+const WORKSPACE_SWITCHER_KEY = appFeatureFlagStorageKey("workspace-switcher");
 
 afterEach(() => {
   globalThis.localStorage.clear();
@@ -23,6 +24,7 @@ test("feature flags default to disabled when nothing is stored", () => {
   expect(loadAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY)).toBe(
     "disabled",
   );
+  expect(loadAppFeatureFlag(WORKSPACE_SWITCHER_KEY)).toBe("disabled");
 });
 
 test("round-trips a saved feature flag", () => {
@@ -32,6 +34,8 @@ test("round-trips a saved feature flag", () => {
   expect(loadAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY)).toBe(
     "enabled",
   );
+  saveAppFeatureFlag(WORKSPACE_SWITCHER_KEY, "enabled");
+  expect(loadAppFeatureFlag(WORKSPACE_SWITCHER_KEY)).toBe("enabled");
 
   saveAppFeatureFlag(BUILT_IN_SYSTEM_CONTAINERS_KEY, "disabled");
   expect(loadAppFeatureFlag(BUILT_IN_SYSTEM_CONTAINERS_KEY)).toBe("disabled");
@@ -39,6 +43,8 @@ test("round-trips a saved feature flag", () => {
   expect(loadAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY)).toBe(
     "disabled",
   );
+  saveAppFeatureFlag(WORKSPACE_SWITCHER_KEY, "disabled");
+  expect(loadAppFeatureFlag(WORKSPACE_SWITCHER_KEY)).toBe("disabled");
 });
 
 test("feature flags fall back to disabled for an unrecognized stored value", () => {

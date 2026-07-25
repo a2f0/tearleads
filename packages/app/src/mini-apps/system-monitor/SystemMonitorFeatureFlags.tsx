@@ -15,9 +15,12 @@ export function SystemMonitorFeatureFlags() {
     linkedDocumentActivationControlsEnabled,
     setBuiltInSystemContainersVisible,
     setLinkedDocumentActivationControlsEnabled,
+    setWorkspaceSwitcherVisible,
+    workspaceSwitcherVisible,
   } = useAppFeatureFlags();
   const builtInSystemContainersToggleId = useId();
   const linkedDocumentActivationControlsToggleId = useId();
+  const workspaceSwitcherToggleId = useId();
 
   return (
     <MiniAppSection className="system-monitor-feature-flags">
@@ -72,6 +75,31 @@ export function SystemMonitorFeatureFlags() {
               setLinkedDocumentActivationControlsEnabled(
                 event.currentTarget.checked,
               );
+            }}
+          />
+        </span>
+      </label>
+      <label
+        className="system-monitor-feature-flag"
+        htmlFor={workspaceSwitcherToggleId}
+      >
+        <span className="system-monitor-feature-flag-name">
+          {FEATURE_FLAG_LABELS.workspaceSwitcher}
+        </span>
+        <span className="system-monitor-feature-flag-control">
+          <span className="system-monitor-feature-flag-state">
+            {formatFeatureFlagState(workspaceSwitcherVisible)}
+          </span>
+          <input
+            aria-checked={workspaceSwitcherVisible}
+            aria-label="Show workspace switcher"
+            checked={workspaceSwitcherVisible}
+            className="system-monitor-feature-flag-switch"
+            id={workspaceSwitcherToggleId}
+            role="switch"
+            type="checkbox"
+            onChange={(event) => {
+              setWorkspaceSwitcherVisible(event.currentTarget.checked);
             }}
           />
         </span>

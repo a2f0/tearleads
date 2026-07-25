@@ -8,6 +8,10 @@ import {
 import { MockWorker } from "../test/helpers/mockWorker";
 import { App } from "./App";
 import { APP_HOST_PROFILES } from "./host/AppHostConfig";
+import {
+  appFeatureFlagStorageKey,
+  saveAppFeatureFlag,
+} from "./providers/feature-flags/appFeatureFlags";
 
 afterEach(() => {
   cleanup();
@@ -35,6 +39,8 @@ test("normal App is single-pane with no split toggle", () => {
   expect(view.queryByRole("button", { name: /Navigation mode/i })).toBeNull();
   expect(view.queryByText("Peer 1")).toBeNull();
   expect(view.queryByText("Peer 2")).toBeNull();
+  expect(view.queryByRole("button", { name: "1" })).toBeNull();
+  expect(view.queryByRole("button", { name: "2" })).toBeNull();
   view.unmount();
 });
 
@@ -107,6 +113,10 @@ test("switching workspaces shares one identity database instead of booting a sec
     Reflect.set(globalThis, "WebSocket", SilentWebSocket);
 
     pinWindowedSystemMonitors();
+    saveAppFeatureFlag(
+      appFeatureFlagStorageKey("workspace-switcher"),
+      "enabled",
+    );
     const view = render(
       <App
         hostConfig={createTestAppHostConfig({
