@@ -66,6 +66,7 @@ export interface TearleadsFrameProps extends PropsWithChildren {
   readonly footerEnd?: ReactNode;
   readonly footerStart?: ReactNode;
   readonly headerActions?: ReactNode;
+  readonly showHeader?: boolean | undefined;
 }
 
 export function TearleadsFrame({
@@ -77,15 +78,18 @@ export function TearleadsFrame({
   footerEnd,
   footerStart,
   headerActions,
+  showHeader = true,
 }: TearleadsFrameProps) {
   return (
     <div className={classNames("tearleads-frame", className)}>
-      <TearleadsHeader
-        actions={headerActions}
-        brandHref={brandHref}
-        brandLabel={brandLabel}
-        brandLogo={brandLogo}
-      />
+      {showHeader && (
+        <TearleadsHeader
+          actions={headerActions}
+          brandHref={brandHref}
+          brandLabel={brandLabel}
+          brandLogo={brandLogo}
+        />
+      )}
       {children}
       <TearleadsFooter end={footerEnd} start={footerStart} />
     </div>

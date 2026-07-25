@@ -1,7 +1,6 @@
 .tearleads-frame.layout {
   display: grid;
   grid-template:
-    "header header" auto
     "banner banner" auto
     "left   left" 1fr
     / 1fr 1fr;
@@ -19,7 +18,6 @@
 
 .tearleads-frame.layout--split {
   grid-template:
-    "header header" auto
     "banner banner" auto
     "left   right" 1fr
     / 1fr 1fr;
@@ -27,7 +25,6 @@
 
 .tearleads-frame.layout--routed {
   grid-template:
-    "header" auto
     "banner" auto
     "left" 1fr
     / minmax(0, 1fr);
@@ -35,10 +32,4 @@
 
 .tearleads-frame.layout--demo-peer-split .pane-right {
   border-left: var(--border-width) solid var(--color-hairline);
-}
-
-.nav-mode-toggle {
-  padding: 0 var(--space-sm);
-  border-style: dashed;
-  white-space: nowrap;
 }

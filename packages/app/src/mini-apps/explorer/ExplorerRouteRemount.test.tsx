@@ -13,7 +13,6 @@ import {
   createTestHostConfig,
   flattenPaneStatusText,
 } from "../../../test/helpers/paneTestUtils";
-import { enableSystemMonitorDeveloperMode } from "../../../test/helpers/systemMonitorTestPreferences";
 import { App } from "../../App";
 import {
   saveSystemMonitorMode,
@@ -43,10 +42,11 @@ function visiblePane(view: ReturnType<typeof render>): HTMLElement {
 }
 
 function navModeButton(view: ReturnType<typeof render>): HTMLButtonElement {
-  const button = view.container.querySelector<HTMLButtonElement>(
-    "button.nav-mode-toggle",
-  );
+  const button = view.queryByRole("button", {
+    name: /Switch to (?:iPad \/ mobile|windowed) layout/,
+  });
   invariant(button, "Expected the navigation-mode toggle.");
+  invariant(button instanceof HTMLButtonElement, "Expected a button.");
   return button;
 }
 
@@ -79,7 +79,6 @@ async function openExplorerInPane(
 test(
   "explorer keeps the selected document across a layout remount",
   async () => {
-    enableSystemMonitorDeveloperMode();
     pinSystemMonitors();
     const view = render(
       <App
@@ -137,14 +136,12 @@ test(
     });
 
     // Cross into routed layout (unmounts the windowed pane surface), then back
-    // into windowed layout (remounts it). The override cycle is
-    // auto -> windowed -> routed -> auto.
-    fireEvent.click(navModeButton(view)); // auto -> windowed
-    fireEvent.click(navModeButton(view)); // windowed -> routed
+    // into windowed layout (remounts it) through the lower-right switches.
+    fireEvent.click(navModeButton(view));
     await waitFor(() => {
       expect(view.container.querySelector("div.window")).toBeNull();
     });
-    fireEvent.click(navModeButton(view)); // routed -> auto (windowed)
+    fireEvent.click(navModeButton(view));
 
     // Back in windowed layout the Explorer window remounts; the selected
     // document must be restored, not "Select a container."

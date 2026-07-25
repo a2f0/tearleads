@@ -5,7 +5,9 @@ import {
   useMemo,
   useState,
 } from "react";
-import type { NavigationModeOverride } from "./NavigationModeToggle";
+import type { AppNavigationMode } from "./AppNavigationMode";
+
+type NavigationModeOverride = AppNavigationMode | null;
 
 interface NavigationModeOverrideContextValue {
   // The manual windowed/routed choice, or `null` to defer to automatic
@@ -19,16 +21,12 @@ const NavigationModeOverrideContext =
 
 /**
  * Owns the shared windowed/routed override. A single instance mounts above the
- * whole app (in Layout) so the footer mode switch, the routed taskbar switch,
- * and the developer-mode header toggle all drive the one choice — and so the
- * layout that reads it renders from the same source.
+ * whole app (in Layout) so the windowed footer switch and routed taskbar switch
+ * drive the one choice — and so the layout reads from the same source.
  *
  * The override is intentionally in-memory only: it resets to `null` (auto) on a
  * full reload, so viewport/pointer detection resumes and a mode forced for a
- * quick preview never sticks silently. Persisting it here would also make the
- * developer toggle's cycling survive reloads, which the kill-worker E2E flow
- * (it cycles to routed, then hard-reloads expecting the windowed pane) relies
- * on not happening.
+ * quick preview never sticks silently.
  */
 export function NavigationModeOverrideProvider({
   children,

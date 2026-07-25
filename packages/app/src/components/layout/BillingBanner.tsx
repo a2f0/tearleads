@@ -1,17 +1,7 @@
 import type { OrganizationBillingView } from "@tearleads/client-sdk";
-import { useCallback } from "react";
-import {
-  useActiveMiniAppRoute,
-  useMiniAppLauncher,
-} from "../../mini-apps/miniAppLauncher";
-import { useRoutedLayoutActive } from "../../navigation/useRoutedLayoutActive";
-import { useRoutedLayoutTier } from "../../navigation/useRoutedLayoutTier";
+import { useActiveMiniAppRoute } from "../../mini-apps/miniAppLauncher";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
-import {
-  BILLING_LABELS,
-  BILLING_TRIAL_ENROLL_LABEL,
-  getBillingTrialBannerLabel,
-} from "../../providers/billing/billingLabels";
+import { BILLING_LABELS } from "../../providers/billing/billingLabels";
 import "./BillingBanner.css";
 
 function needsAttentionMessage(
@@ -30,57 +20,25 @@ function needsAttentionMessage(
 }
 
 /**
- * Presentational billing banner: a trial countdown with an enrollment link while
- * trialing, a warning while sync needs attention (lapsed/disabled/past due), and
- * nothing when the org is active or free/local. Prop-driven so it is
- * unit-testable without the navigation stack.
+ * Presentational billing warning shown only while sync needs attention
+ * (lapsed/disabled/past due). Trial promotion no longer occupies app chrome.
  */
 export function BillingBannerView({
   view,
-  onEnroll,
   isBillingScreen = false,
-  compactMobile = false,
 }: {
   view: OrganizationBillingView | null;
-  onEnroll: () => void;
   isBillingScreen?: boolean | undefined;
-  compactMobile?: boolean | undefined;
 }) {
-  if (!view || isBillingScreen) {
+  if (!view || isBillingScreen || !view.needsAttention) {
     return null;
   }
-  // A warning takes precedence over the trial countdown. These are mutually
-  // exclusive today (isTrialing implies canSync implies !needsAttention), but
-  // checking needsAttention first keeps the urgent state winning regardless.
-  if (view.needsAttention) {
-    return (
-      <div className="billing-banner billing-banner--warning" role="alert">
-        {needsAttentionMessage(view.status)}
-      </div>
-    );
-  }
-  if (view.isTrialing && view.trialDaysRemaining !== null) {
-    const trialLabel = getBillingTrialBannerLabel(view.trialDaysRemaining);
-    return (
-      <div className="billing-banner billing-banner--info" role="status">
-        <span className="billing-banner-trial-copy" title={trialLabel}>
-          {trialLabel}
-        </span>
-        <button
-          className={
-            compactMobile
-              ? "tearleads-action-button billing-banner-enroll-button"
-              : "billing-banner-enroll-link"
-          }
-          onClick={onEnroll}
-          type="button"
-        >
-          {BILLING_TRIAL_ENROLL_LABEL}
-        </button>
-      </div>
-    );
-  }
-  return null;
+
+  return (
+    <div className="billing-banner billing-banner--warning" role="alert">
+      {needsAttentionMessage(view.status)}
+    </div>
+  );
 }
 
 const BILLING_ROUTE = {
@@ -89,43 +47,23 @@ const BILLING_ROUTE = {
 } as const;
 
 /**
- * Connects {@link BillingBannerView} to the active pane route and sends its
- * enrollment action through the shell launcher bridge.
+ * Connects {@link BillingBannerView} to the active pane route so the warning is
+ * not duplicated inside Organization Billing.
  */
 export function ActiveRouteBillingBanner({
-  compactMobile = false,
   view,
 }: {
-  compactMobile?: boolean | undefined;
   view: OrganizationBillingView | null;
 }) {
-  const launch = useMiniAppLauncher();
   const activeRoute = useActiveMiniAppRoute();
   // Billing sub-routes retain the same leading segment and hide the banner too.
   const isBillingScreen =
     activeRoute?.appId === BILLING_ROUTE.appId &&
     activeRoute.pathSegments[0] === BILLING_ROUTE.pathSegments[0];
-  const openBilling = useCallback(() => {
-    launch(BILLING_ROUTE);
-  }, [launch]);
-  return (
-    <BillingBannerView
-      compactMobile={compactMobile}
-      isBillingScreen={isBillingScreen}
-      onEnroll={openBilling}
-      view={view}
-    />
-  );
+  return <BillingBannerView isBillingScreen={isBillingScreen} view={view} />;
 }
 
 export function BillingBanner() {
   const { view } = useOrganizationBilling();
-  const routedLayoutActive = useRoutedLayoutActive();
-  const routedLayoutTier = useRoutedLayoutTier();
-  return (
-    <ActiveRouteBillingBanner
-      compactMobile={routedLayoutActive && routedLayoutTier === "mobile"}
-      view={view}
-    />
-  );
+  return <ActiveRouteBillingBanner view={view} />;
 }

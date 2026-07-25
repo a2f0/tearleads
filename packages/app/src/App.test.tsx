@@ -14,7 +14,6 @@ import {
 } from "../test/helpers/appTestHostConfig";
 import { MockWorker } from "../test/helpers/mockWorker";
 import { getAllPaneStatusTexts } from "../test/helpers/paneTestUtils";
-import { enableSystemMonitorDeveloperMode } from "../test/helpers/systemMonitorTestPreferences";
 import { App } from "./App";
 import {
   DualPaneProvider,
@@ -259,7 +258,6 @@ test("switching navigation mode reuses the booted pane database instead of reboo
   try {
     Reflect.set(globalThis, "WebSocket", SilentWebSocket);
 
-    enableSystemMonitorDeveloperMode();
     pinWindowedSystemMonitors();
     const view = render(
       <App
@@ -272,13 +270,11 @@ test("switching navigation mode reuses the booted pane database instead of reboo
       />,
     );
 
-    const toggleNavigationMode = () =>
-      fireEvent.click(view.getByRole("button", { name: /Navigation mode/i }));
-
-    // Drive into routed mode (override cycle: auto -> windowed -> routed) and
+    // Drive into routed mode from the preserved lower-right footer switch and
     // boot the single visible pane's database from the routed rail.
-    toggleNavigationMode();
-    toggleNavigationMode();
+    fireEvent.click(
+      view.getByRole("button", { name: "Switch to iPad / mobile layout" }),
+    );
     // In routed mode the generate action lives in Explorer's home gate, which
     // only offers it once the persisted-identity restore settles.
     await waitFor(() => {
@@ -304,10 +300,11 @@ test("switching navigation mode reuses the booted pane database instead of reboo
     });
     expect(runtimeCreations).toBe(1);
 
-    // Cross back to a windowed layout (override cycle: routed -> auto ->
-    // windowed). The active pane's worker must be the same one, not a reboot.
-    toggleNavigationMode();
-    toggleNavigationMode();
+    // Cross back through the lower-right taskbar switch. The active pane's
+    // worker must be the same one, not a reboot.
+    fireEvent.click(
+      view.getByRole("button", { name: "Switch to windowed layout" }),
+    );
 
     await waitFor(() => {
       expect(

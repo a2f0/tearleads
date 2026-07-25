@@ -74,10 +74,10 @@
   align-items: center;
   gap: var(--space-sm);
   min-width: 0;
-  padding: var(--space-xs) var(--space-sm);
-  /* The app bar's trailing edge meets the screen edge in both tiers; keep the
-     toolbar clear of a landscape cutout. (The frame header above the shell
-     absorbs the top inset.) */
+  padding: calc(var(--space-xs) + var(--safe-area-top)) var(--space-sm)
+    var(--space-xs);
+  /* This is now the topmost chrome, so absorb the top cutout while keeping the
+     trailing controls clear of a landscape cutout. */
   padding-inline-end: calc(var(--space-sm) + var(--safe-area-right));
   border-bottom: var(--border-strong);
   background: var(--color-muted);

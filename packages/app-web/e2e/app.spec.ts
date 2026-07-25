@@ -74,11 +74,10 @@ async function enableDeveloperMode(page: Page, pane: Locator): Promise<void> {
 
 async function killWorker(page: Page, pane: Locator): Promise<void> {
   await enableDeveloperMode(page, pane);
-  const navigationModeToggle = page.getByRole("button", {
-    name: /Navigation mode:/u,
+  const navigationModeSwitch = page.getByRole("button", {
+    name: "Switch to iPad / mobile layout",
   });
-  await navigationModeToggle.click();
-  await navigationModeToggle.click();
+  await navigationModeSwitch.click();
   await expect(page.locator(".routed-pane")).toBeVisible();
   // The routed nav rail defaults to collapsed; open it to reach the developer
   // "Kill Worker" action that lives in its system menu.
