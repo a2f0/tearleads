@@ -145,7 +145,6 @@ export function ExplorerDocumentDetail(params: {
             <strong>{selectedDocumentTitle}</strong>
             <ExplorerSyncStateBadge
               online={params.online}
-              showSynced
               syncState={selectedDocumentSyncState}
             />
           </div>

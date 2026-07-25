@@ -1,0 +1,48 @@
+/* The one visual vocabulary for sync state. The design system is deliberately
+   monochrome save for the one chromatic --color-danger token, so the "synced"
+   green and the "billing" amber are scoped here rather than promoted to global
+   tokens. Red reuses --color-danger (already theme-aware); the two added hues
+   carry a Light default and a Dark override, matching that token's shape. */
+.sync-glyph {
+  --sync-glyph-synced-color: #1a7f37;
+  --sync-glyph-warning-color: #9a6700;
+
+  flex: 0 0 auto;
+}
+
+:root[data-theme="dark"] .sync-glyph {
+  --sync-glyph-synced-color: #6fbf87;
+  --sync-glyph-warning-color: #e3b341;
+}
+
+.sync-glyph--dot {
+  display: inline-block;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.sync-glyph--synced {
+  color: var(--sync-glyph-synced-color);
+}
+
+.sync-glyph--pending {
+  color: var(--color-danger);
+}
+
+/* Terminal write failures (e.g. write access denied): the warning glyph in the
+   danger hue — stuck, not merely waiting. */
+.sync-glyph--error {
+  color: var(--color-danger);
+}
+
+.sync-glyph--billing {
+  color: var(--sync-glyph-warning-color);
+}
+
+/* Before the first read resolves: a muted neutral dot rather than a premature
+   green, so a fresh mount does not flash "synced". */
+.sync-glyph--loading {
+  color: color-mix(in srgb, var(--color-dark) 35%, transparent);
+}

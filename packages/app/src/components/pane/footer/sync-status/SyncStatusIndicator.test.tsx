@@ -22,13 +22,14 @@ test("renders a green synced dot with the status as the button label", () => {
   const button = getByRole("button");
   expect(button.getAttribute("aria-label")).toBe("All changes synced");
   expect(button.getAttribute("aria-expanded")).toBe("false");
-  expect(button.className).toContain("sync-status-indicator--synced");
-  expect(container.querySelector(".sync-status-indicator-dot")).not.toBeNull();
+  expect(
+    container.querySelector(".sync-glyph--dot.sync-glyph--synced"),
+  ).not.toBeNull();
   expect(container.querySelector("svg")).toBeNull();
 });
 
 test("renders a red dot for unflushed data", () => {
-  const { getByRole, container } = render(
+  const { container } = render(
     <SyncStatusIndicatorView
       expanded={false}
       onToggle={noop}
@@ -37,10 +38,9 @@ test("renders a red dot for unflushed data", () => {
     />,
   );
 
-  expect(getByRole("button").className).toContain(
-    "sync-status-indicator--pending",
-  );
-  expect(container.querySelector(".sync-status-indicator-dot")).not.toBeNull();
+  expect(
+    container.querySelector(".sync-glyph--dot.sync-glyph--pending"),
+  ).not.toBeNull();
   expect(container.querySelector("svg")).toBeNull();
 });
 
@@ -55,10 +55,9 @@ test("renders a warning glyph (not a dot) when billing blocks sync", () => {
   );
 
   const button = getByRole("button");
-  expect(button.className).toContain("sync-status-indicator--billing");
   expect(button.getAttribute("aria-label")).toContain("Free trial ended");
-  expect(container.querySelector("svg")).not.toBeNull();
-  expect(container.querySelector(".sync-status-indicator-dot")).toBeNull();
+  expect(container.querySelector("svg.sync-glyph--billing")).not.toBeNull();
+  expect(container.querySelector(".sync-glyph--dot")).toBeNull();
 });
 
 test("renders a danger warning glyph for terminal write failures", () => {
@@ -72,10 +71,9 @@ test("renders a danger warning glyph for terminal write failures", () => {
   );
 
   const button = getByRole("button");
-  expect(button.className).toContain("sync-status-indicator--error");
   expect(button.getAttribute("aria-label")).toContain("failed to sync");
-  expect(container.querySelector("svg")).not.toBeNull();
-  expect(container.querySelector(".sync-status-indicator-dot")).toBeNull();
+  expect(container.querySelector("svg.sync-glyph--error")).not.toBeNull();
+  expect(container.querySelector(".sync-glyph--dot")).toBeNull();
 });
 
 test("reflects the expanded state and calls onToggle when clicked", () => {

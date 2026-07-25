@@ -56,10 +56,6 @@
   opacity: var(--opacity-icon);
 }
 
-.explorer-blob-browser-sync-cell .explorer-sync-badge {
-  max-width: 100%;
-}
-
 .explorer-table-sort-button {
   display: inline-flex;
   align-items: center;
