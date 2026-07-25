@@ -94,9 +94,13 @@
 }
 
 .mini-app-virtual-list-row--actions > .mini-app-row--button {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   width: auto;
+}
+
+.mini-app-virtual-list-row--actions > .mini-app-row-actions-button {
+  flex: 0 0 auto;
 }
 
 .mini-app-virtual-block-spacer {
