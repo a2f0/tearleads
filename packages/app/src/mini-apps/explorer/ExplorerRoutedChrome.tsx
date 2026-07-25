@@ -9,6 +9,7 @@ import { useMemo } from "react";
 import { useMiniAppDetailBackAction } from "../../components/window/useMiniAppDetailBackAction";
 import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
 import type { AppNavigationMode } from "../../navigation/AppNavigationMode";
+import { explorerChromeOwnsDetailBack } from "./detailBackActions";
 import { useExplorerHubToolbarActions } from "./ExplorerHubToolbarActions";
 import { getExplorerContainerToolbarVisibility } from "./explorerContainerToolbarVisibility";
 import type { useExplorerModel } from "./hooks/useExplorerModel";
@@ -167,7 +168,19 @@ function useExplorerRoutedBackAction({
   navigationMode: AppNavigationMode;
   route: ExplorerModel["routeState"]["route"];
 }) {
+  const ownsDetailBack = explorerChromeOwnsDetailBack({
+    historyCanGoBack,
+    navigationMode,
+  });
   const backAction = useMemo(() => {
+    // Every branch below is route-backed, so in a routed tier the app bar's
+    // history caret already walks out of it — and overriding that pop with a
+    // route push strands Back between two entries. See
+    // {@link explorerChromeOwnsDetailBack}.
+    if (!ownsDetailBack) {
+      return null;
+    }
+
     if (route.view === "document-info") {
       return {
         label: EXPLORER_LABELS.documentInfoBackAction,
@@ -202,15 +215,10 @@ function useExplorerRoutedBackAction({
       };
     }
 
-    // Routed mobile/tablet chrome owns a real app-history Back action whenever
-    // an origin exists; leaving that unoverridden returns an attachment-opened
-    // blob to its source document and keeps Forward intact. Windowed routes and
-    // initial routed deep links have no history entry, so use the origin/fallback
-    // navigation maintained by useExplorerRoute instead.
-    if (
-      route.view === "blob-browser" &&
-      (navigationMode === "windowed" || !historyCanGoBack)
-    ) {
+    // Windowed chrome and routed deep links fall back to the origin navigation
+    // maintained by useExplorerRoute, which returns an attachment-opened blob to
+    // its source document.
+    if (route.view === "blob-browser") {
       return {
         label: EXPLORER_LABELS.blobBrowserBackAction,
         onBack: model.routeState.navigateBackFromBlobBrowser,
@@ -222,13 +230,12 @@ function useExplorerRoutedBackAction({
     // sidebar returns to it.
     return null;
   }, [
-    historyCanGoBack,
     model.routeState.navigateBackFromBlobBrowser,
     model.routeState.openSyncLanesRoute,
     model.routeState.openWriteQueueRoute,
     model.routeState.showSelectionRoute,
     model.selectDocumentProjection,
-    navigationMode,
+    ownsDetailBack,
     route,
   ]);
 
