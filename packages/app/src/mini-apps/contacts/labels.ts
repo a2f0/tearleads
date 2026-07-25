@@ -7,7 +7,6 @@ export const CONTACTS_LABELS = {
   editAction: "Edit",
   emptyState: "No contacts imported yet.",
   firstNameField: "First name",
-  metadataImportedKey: "Imported key",
   metadataLocalContact: "Local contact",
   importContactAction: "Import Contact",
   importContactSubmitAction: "Import",

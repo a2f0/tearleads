@@ -57,7 +57,7 @@ function normalizeContactNamePart(value: string | null | undefined): string {
   return value?.trim() ?? "";
 }
 
-function getContactMetadataLabel(entry: ContactEntries[number]): string {
+function getContactMetadataLabel(entry: ContactEntries[number]): string | null {
   const displayName = getContactDisplayName(entry);
   const firstName = normalizeContactNamePart(entry.firstName);
   const lastName = normalizeContactNamePart(entry.lastName);
@@ -67,10 +67,17 @@ function getContactMetadataLabel(entry: ContactEntries[number]): string {
   }
 
   if (entry.encapsulationPublicKey) {
-    return CONTACTS_LABELS.metadataImportedKey;
+    return null;
   }
 
   return CONTACTS_LABELS.metadataLocalContact;
+}
+
+function renderContactMetadata(entry: ContactEntries[number]): ReactNode {
+  const metadataLabel = getContactMetadataLabel(entry);
+  return metadataLabel ? (
+    <MiniAppRowText muted>{metadataLabel}</MiniAppRowText>
+  ) : null;
 }
 
 function ContactsList({
@@ -166,9 +173,7 @@ function ContactsList({
                 {showMetadata ? (
                   <MiniAppRowStack>
                     <MiniAppRowText>{name}</MiniAppRowText>
-                    <MiniAppRowText muted>
-                      {getContactMetadataLabel(entry)}
-                    </MiniAppRowText>
+                    {renderContactMetadata(entry)}
                   </MiniAppRowStack>
                 ) : (
                   <MiniAppRowText>{name}</MiniAppRowText>

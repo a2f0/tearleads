@@ -232,6 +232,8 @@ test("contacts list home shows contact metadata and drills into contacts", async
   );
 
   expect(await view.findByText("Ada Lovelace")).toBeTruthy();
+  expect(view.queryByText("Imported key")).toBeNull();
+  expect(view.getByText("Local contact")).toBeTruthy();
 
   const contactRowButton = view
     .getAllByRole("button", { name: /Countess/ })
