@@ -1,7 +1,6 @@
 .tearleads-frame.layout {
   display: grid;
   grid-template:
-    "header header" auto
     "banner banner" auto
     "left   left" 1fr
     / 1fr 1fr;
@@ -19,7 +18,6 @@
 
 .tearleads-frame.layout--split {
   grid-template:
-    "header header" auto
     "banner banner" auto
     "left   right" 1fr
     / 1fr 1fr;
@@ -27,7 +25,6 @@
 
 .tearleads-frame.layout--routed {
   grid-template:
-    "header" auto
     "banner" auto
     "left" 1fr
     / minmax(0, 1fr);
@@ -37,8 +34,12 @@
   border-left: var(--border-width) solid var(--color-hairline);
 }
 
-.nav-mode-toggle {
-  padding: 0 var(--space-sm);
-  border-style: dashed;
-  white-space: nowrap;
+/* A billing warning is the topmost row and owns the top safe-area inset. Avoid
+   applying the same inset again to the routed chrome directly below it. */
+.tearleads-frame.layout:has(> .billing-banner) .routed-pane-appbar {
+  padding-top: var(--space-xs);
+}
+
+.tearleads-frame.layout:has(> .billing-banner) .routed-pane-rail {
+  padding-top: 0;
 }

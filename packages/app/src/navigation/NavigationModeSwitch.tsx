@@ -5,11 +5,10 @@ import { isCapacitor } from "../host/isCapacitor";
 import type { AppNavigationMode } from "./AppNavigationMode";
 import { useOptionalNavigationModeOverride } from "./NavigationModeOverrideProvider";
 
-// A two-state (no "auto") sibling of the developer-mode NavigationModeToggle,
-// styled like the theme toggle so it docks in the same tray. Unlike that
-// cycling control it forces one of the two concrete layouts and always writes
-// an explicit override — the manual choice the user reaches for to preview the
-// iPad/mobile shell on a desktop (or drop back to windows).
+// A two-state (no "auto") layout control styled like the theme toggle so it
+// docks in the lower-right tray. It forces one of the two concrete layouts and
+// always writes an explicit override — the manual choice the user reaches for
+// to preview the iPad/mobile shell on a desktop (or drop back to windows).
 //
 // Which is why it hides itself in the native Capacitor app: previewing the
 // phone/tablet shell is a desktop-browser affordance, and the windowed layout it

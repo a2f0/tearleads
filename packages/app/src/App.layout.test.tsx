@@ -6,6 +6,7 @@ import {
   pinWindowedSystemMonitors,
 } from "../test/helpers/appTestHostConfig";
 import { MockWorker } from "../test/helpers/mockWorker";
+import { enableSystemMonitorDeveloperMode } from "../test/helpers/systemMonitorTestPreferences";
 import { App } from "./App";
 import { APP_HOST_PROFILES } from "./host/AppHostConfig";
 import {
@@ -28,7 +29,8 @@ class SilentWebSocket extends EventTarget {
   close() {}
 }
 
-test("normal App is single-pane with no split toggle", () => {
+test("normal App omits global chrome and keeps the lower layout switch", () => {
+  enableSystemMonitorDeveloperMode();
   const view = render(<App hostConfig={createTestAppHostConfig()} />);
 
   const frame = view.container.querySelector(".tearleads-frame.layout");
@@ -37,6 +39,10 @@ test("normal App is single-pane with no split toggle", () => {
   expect(view.queryByRole("button", { name: "Split" })).toBeNull();
   expect(view.queryByRole("button", { name: "Show Peer" })).toBeNull();
   expect(view.queryByRole("button", { name: /Navigation mode/i })).toBeNull();
+  expect(view.container.querySelector(".tearleads-header")).toBeNull();
+  expect(
+    view.getByRole("button", { name: "Switch to iPad / mobile layout" }),
+  ).toBeTruthy();
   expect(view.queryByText("Peer 1")).toBeNull();
   expect(view.queryByText("Peer 2")).toBeNull();
   expect(view.queryByRole("button", { name: "1" })).toBeNull();
@@ -44,7 +50,7 @@ test("normal App is single-pane with no split toggle", () => {
   view.unmount();
 });
 
-test("mobile routed App moves the active app name into the frame header", () => {
+test("mobile routed App omits the global frame header", () => {
   const originalMatchMedia = window.matchMedia;
 
   try {
@@ -65,9 +71,7 @@ test("mobile routed App moves the active app name into the frame header", () => 
       />,
     );
 
-    expect(
-      view.container.querySelector(".tearleads-brand-mark")?.textContent,
-    ).toBe("Tearleads - Explorer");
+    expect(view.container.querySelector(".tearleads-header")).toBeNull();
     expect(view.container.querySelector(".routed-pane-title")).toBeNull();
     view.unmount();
   } finally {
@@ -75,7 +79,7 @@ test("mobile routed App moves the active app name into the frame header", () => 
   }
 });
 
-test("demo App starts split", () => {
+test("demo App starts split without global header controls", () => {
   const view = render(
     <App
       hostConfig={createTestAppHostConfig({
@@ -89,14 +93,9 @@ test("demo App starts split", () => {
   expect(frame?.classList.contains("layout--demo-peer-split")).toBe(true);
   expect(view.getByText("Peer 1")).toBeTruthy();
   expect(view.getByText("Peer 2")).toBeTruthy();
-  // The demo's panes are peers, so the split toggle reads as hiding/showing the
-  // peer rather than a generic split/unsplit.
-  const toggle = view.getByRole("button", { name: "Hide Peer" });
-  fireEvent.click(toggle);
-  expect(frame?.classList.contains("layout--demo-peer-split")).toBe(false);
-  expect(view.queryByText("Peer 1")).toBeNull();
-  expect(view.queryByText("Peer 2")).toBeNull();
-  expect(view.getByRole("button", { name: "Show Peer" })).toBeTruthy();
+  expect(view.container.querySelector(".tearleads-header")).toBeNull();
+  expect(view.queryByRole("button", { name: "Hide Peer" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Show Peer" })).toBeNull();
   view.unmount();
 });
 

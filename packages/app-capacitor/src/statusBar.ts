@@ -1,18 +1,23 @@
 import { Capacitor } from "@capacitor/core";
 import { StatusBar, Style } from "@capacitor/status-bar";
 
+type ThemeId = "light" | "dark";
+
 /**
- * The frame header band is dark in BOTH themes (see --tearleads-header-background
- * in @tearleads/ui styles.css: #333 in Light, #161616 in Dark), so without this
- * sync the OS picks status-bar icon color from the SYSTEM appearance — dark
- * icons over the dark header whenever the device is in light mode.
- *
- * These literals mirror the styles.css tokens; keep them in sync if the header
- * band ever changes color.
+ * The routed app bar is the native shell's top chrome. These literals mirror
+ * the --color-muted token in @tearleads/ui styles.css; keep them in sync if
+ * that surface changes color.
  */
-const HEADER_BACKGROUND_BY_THEME: Record<"light" | "dark", string> = {
-  light: "#333333",
-  dark: "#161616",
+const TOP_CHROME_BACKGROUND_BY_THEME: Record<ThemeId, string> = {
+  light: "#eeeeee",
+  dark: "#2e2e2e",
+};
+
+const TOP_CHROME_STYLE_BY_THEME: Record<ThemeId, Style> = {
+  // Capacitor's names describe the background: Light supplies dark icons and
+  // Dark supplies light icons.
+  light: Style.Light,
+  dark: Style.Dark,
 };
 
 function applyStatusBarTheme(): void {
@@ -24,16 +29,16 @@ function applyStatusBarTheme(): void {
       ? "dark"
       : "light";
 
-  // Style.Dark = light icons for a dark background — correct for both themes
-  // because the header band underneath the status bar is always dark.
-  void StatusBar.setStyle({ style: Style.Dark }).catch(() => undefined);
+  void StatusBar.setStyle({
+    style: TOP_CHROME_STYLE_BY_THEME[theme],
+  }).catch(() => undefined);
 
   if (Capacitor.getPlatform() === "android") {
-    // iOS draws the webview under a transparent status bar (the header's
-    // safe-area-top padding shows through); Android paints an opaque bar, so
-    // match it to the header band for a seamless top edge.
+    // iOS draws the webview under a transparent status bar (the app bar or
+    // billing warning's safe-area-top padding shows through); Android paints
+    // an opaque bar, so match it to the top chrome for a seamless edge.
     void StatusBar.setBackgroundColor({
-      color: HEADER_BACKGROUND_BY_THEME[theme],
+      color: TOP_CHROME_BACKGROUND_BY_THEME[theme],
     }).catch(() => undefined);
   }
 }

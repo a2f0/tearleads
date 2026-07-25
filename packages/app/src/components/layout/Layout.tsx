@@ -1,16 +1,12 @@
 import { TearleadsFrame } from "@tearleads/ui";
-import { type PropsWithChildren, useCallback, useMemo, useState } from "react";
+import { type PropsWithChildren, useMemo } from "react";
 import type { AppHostConfig } from "../../host/AppHostConfig";
 import { MiniAppLauncherProvider } from "../../mini-apps/miniAppLauncher";
-import {
-  SystemMonitorDeveloperModeProvider,
-  useSystemMonitorDeveloperMode,
-} from "../../mini-apps/system-monitor/systemMonitorDeveloperMode";
+import { SystemMonitorDeveloperModeProvider } from "../../mini-apps/system-monitor/systemMonitorDeveloperMode";
 import {
   NavigationModeOverrideProvider,
   useNavigationModeOverride,
 } from "../../navigation/NavigationModeOverrideProvider";
-import { NavigationModeToggle } from "../../navigation/NavigationModeToggle";
 import { useAppNavigationMode } from "../../navigation/useAppNavigationMode";
 import { useNavigationModeDocumentAttribute } from "../../navigation/useNavigationModeDocumentAttribute";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
@@ -21,10 +17,6 @@ import {
 import { ThemeProvider } from "../../theme/ThemeProvider";
 import { BillingBanner } from "./BillingBanner";
 import "./Layout.css";
-import {
-  formatMobileBrandLabel,
-  MobileAppTitleProvider,
-} from "./MobileAppTitleContext";
 import { Workspace } from "./workspace/Workspace";
 import {
   SINGLE_WORKSPACE_IDS,
@@ -87,24 +79,18 @@ function WorkspaceRuntimeHost({
 }
 
 function LayoutInner({ hostConfig }: LayoutProps) {
-  // The override is a real user setting now (driven by the always-available
-  // footer/taskbar mode switch), so it applies regardless of developer mode.
-  // It defaults to null (auto) until the user flips a switch, so untouched
-  // behavior is unchanged. The developer-mode header toggle shares this same
-  // state and can additionally select "auto".
-  const { override, setOverride } = useNavigationModeOverride();
-  const { isDeveloperMode } = useSystemMonitorDeveloperMode();
+  // The override is driven by the footer/taskbar mode switch. It defaults to
+  // null (auto) until the user flips that lower-right control.
+  const { override } = useNavigationModeOverride();
   const navigationMode = useAppNavigationMode(
     hostConfig.navigationMode,
     override,
   );
-  const [split, setSplit] = useState(hostConfig.profile.defaultSplit);
-  const [mobileAppTitle, setMobileAppTitle] = useState<string | null>(null);
+  const split = hostConfig.profile.defaultSplit;
   const { activeWorkspace, workspaceIds } = useWorkspace();
-  const toggleSplit = useCallback(() => setSplit((s) => !s), []);
 
-  // Only peer profiles (the demo) split: the second pane is the peer, so the
-  // toggle shows/hides it. The regular app is single-pane and has no toggle.
+  // Only peer profiles (the demo) use their configured split: the second pane
+  // is the peer. The regular app is single-pane.
   const peerPanes = hostConfig.profile.features.panePeerUserIds;
   const routed = navigationMode === "routed";
   const demoPeerSplit = peerPanes && split && !routed;
@@ -112,27 +98,6 @@ function LayoutInner({ hostConfig }: LayoutProps) {
   // Expose the active layout on <html> so CSS can size interactive controls for
   // touch whenever the routed (mobile/tablet/iPad) shell is active.
   useNavigationModeDocumentAttribute(navigationMode);
-
-  const headerActions = (
-    <>
-      {peerPanes && !routed && (
-        <button
-          className="tearleads-action-button"
-          type="button"
-          onClick={toggleSplit}
-        >
-          {split ? "Hide Peer" : "Show Peer"}
-        </button>
-      )}
-      {isDeveloperMode && (
-        <NavigationModeToggle
-          override={override}
-          resolvedMode={navigationMode}
-          onChange={setOverride}
-        />
-      )}
-    </>
-  );
 
   // One tree for both modes. The windowed↔routed switch (driven by viewport
   // resize across the breakpoint) only changes the frame chrome and each pane's
@@ -150,23 +115,20 @@ function LayoutInner({ hostConfig }: LayoutProps) {
               ? "layout layout--split"
               : "layout"
       }
-      brandLabel={formatMobileBrandLabel(mobileAppTitle)}
-      headerActions={headerActions}
+      showHeader={false}
     >
-      <MobileAppTitleProvider setTitle={setMobileAppTitle}>
-        <WorkspaceRuntimeHost hostConfig={hostConfig}>
-          {workspaceIds.map((id) => (
-            <Workspace
-              key={id}
-              hostConfig={hostConfig}
-              active={activeWorkspace === id}
-              navigationMode={navigationMode}
-              split={split}
-              workspaceId={id}
-            />
-          ))}
-        </WorkspaceRuntimeHost>
-      </MobileAppTitleProvider>
+      <WorkspaceRuntimeHost hostConfig={hostConfig}>
+        {workspaceIds.map((id) => (
+          <Workspace
+            key={id}
+            hostConfig={hostConfig}
+            active={activeWorkspace === id}
+            navigationMode={navigationMode}
+            split={split}
+            workspaceId={id}
+          />
+        ))}
+      </WorkspaceRuntimeHost>
     </TearleadsFrame>
   );
 }
