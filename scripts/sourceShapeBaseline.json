@@ -233,10 +233,6 @@
       "lines": 508,
       "bytes": 16510
     },
-    "packages/app/src/mini-apps/system-monitor/SystemMonitor.test.tsx": {
-      "lines": 519,
-      "bytes": 17457
-    },
     "packages/app/test/helpers/mswServer.ts": {
       "lines": 1023,
       "bytes": 30269

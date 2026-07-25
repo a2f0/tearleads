@@ -176,7 +176,7 @@ export const EXPLORER_LABELS = {
   documentInfoAttributionUnavailable:
     "Edit attribution could not be loaded. Try again after the next refresh.",
   documentInfoAttributionTruncated:
-    "Edit attribution is too large for a complete summary. Load Edit Ranges in pages below.",
+    "Edit attribution is too large for a complete summary.",
   documentInfoEditRangesHeading: "Edit Ranges",
   documentInfoEditRangesDocumentChanged:
     "The edit-range response belonged to a different document. Try again.",

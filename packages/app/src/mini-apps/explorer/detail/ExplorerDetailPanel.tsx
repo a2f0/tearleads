@@ -183,6 +183,9 @@ interface ExplorerDetailPanelProps {
     icon: string | null,
   ) => Promise<ContainerNode | null>;
   setSelectedId: (id: string | null) => void;
+  // Edit ranges are raw attribution trace data, so the Get Info section stays
+  // behind the developer feature flag rather than shipping to every viewer.
+  showDocumentEditRanges: boolean;
   showLinkedDocumentActivationControls: boolean;
   // The viewer's derived Trash system slot, used with currentOrganizationId to
   // detect whether the selected object is trashed and should render read-only (no
@@ -348,6 +351,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         nodes={params.nodes}
         openBlobBrowserRoute={params.openBlobBrowserRoute}
         setSelectedId={params.setSelectedId}
+        showDocumentEditRanges={params.showDocumentEditRanges}
         showLinkedDocumentActivationControls={
           params.showLinkedDocumentActivationControls
         }

@@ -6,6 +6,7 @@ import type { SystemMonitorReportFlag } from "./systemMonitorReport";
 // exactly as its toggle does.
 export const FEATURE_FLAG_LABELS = {
   builtInSystemContainers: "Built-in system containers",
+  documentEditRanges: "Document edit ranges",
   linkedDocumentActivationControls: "Linked document activation controls",
   workspaceSwitcher: "Workspace switcher",
 } as const;
@@ -21,6 +22,7 @@ export function formatFeatureFlagState(enabled: boolean): string {
 export function useSystemMonitorFeatureFlagRows(): ReadonlyArray<SystemMonitorReportFlag> {
   const {
     builtInSystemContainersVisible,
+    documentEditRangesVisible,
     linkedDocumentActivationControlsEnabled,
     workspaceSwitcherVisible,
   } = useAppFeatureFlags();
@@ -30,6 +32,10 @@ export function useSystemMonitorFeatureFlagRows(): ReadonlyArray<SystemMonitorRe
       {
         label: FEATURE_FLAG_LABELS.builtInSystemContainers,
         value: formatFeatureFlagState(builtInSystemContainersVisible),
+      },
+      {
+        label: FEATURE_FLAG_LABELS.documentEditRanges,
+        value: formatFeatureFlagState(documentEditRangesVisible),
       },
       {
         label: FEATURE_FLAG_LABELS.linkedDocumentActivationControls,
@@ -42,6 +48,7 @@ export function useSystemMonitorFeatureFlagRows(): ReadonlyArray<SystemMonitorRe
     ],
     [
       builtInSystemContainersVisible,
+      documentEditRangesVisible,
       linkedDocumentActivationControlsEnabled,
       workspaceSwitcherVisible,
     ],

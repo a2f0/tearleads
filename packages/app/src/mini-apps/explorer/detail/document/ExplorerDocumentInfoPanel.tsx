@@ -71,6 +71,7 @@ interface Props {
   nodes: ReadonlyArray<ContainerNode>;
   openBlobBrowserRoute: OpenBlobBrowserRoute;
   setSelectedId: (id: string | null) => void;
+  showDocumentEditRanges: boolean;
   showLinkedDocumentActivationControls: boolean;
   unlinkDocument: (
     documentId: string,
@@ -218,6 +219,7 @@ function ExplorerDocumentInfoTabPanel(params: {
   nodes: ReadonlyArray<ContainerNode>;
   openBlobBrowserRoute: OpenBlobBrowserRoute;
   setSelectedId: (id: string | null) => void;
+  showDocumentEditRanges: boolean;
   showLinkedDocumentActivationControls: boolean;
   unlinkDocument: (
     documentId: string,
@@ -242,11 +244,15 @@ function ExplorerDocumentInfoTabPanel(params: {
             attributionUserLabelResolver={params.attributionUserLabelResolver}
             documentInfo={params.documentInfo}
           />
-          <ExplorerDocumentInfoEditRangesSection
-            attributionUserLabelResolver={params.attributionUserLabelResolver}
-            documentInfo={params.documentInfo}
-            loadDocumentAttributionRanges={params.loadDocumentAttributionRanges}
-          />
+          {params.showDocumentEditRanges ? (
+            <ExplorerDocumentInfoEditRangesSection
+              attributionUserLabelResolver={params.attributionUserLabelResolver}
+              documentInfo={params.documentInfo}
+              loadDocumentAttributionRanges={
+                params.loadDocumentAttributionRanges
+              }
+            />
+          ) : null}
           <ExplorerDocumentInfoCharacterBlameSection
             attributionUserLabelResolver={params.attributionUserLabelResolver}
             documentInfo={params.documentInfo}
@@ -430,6 +436,7 @@ export function ExplorerDocumentInfoPanel(params: Props) {
           nodes={params.nodes}
           openBlobBrowserRoute={params.openBlobBrowserRoute}
           setSelectedId={params.setSelectedId}
+          showDocumentEditRanges={params.showDocumentEditRanges}
           showLinkedDocumentActivationControls={
             params.showLinkedDocumentActivationControls
           }

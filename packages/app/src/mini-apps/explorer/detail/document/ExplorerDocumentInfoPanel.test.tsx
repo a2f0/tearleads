@@ -127,6 +127,7 @@ function renderDocumentInfoPanel(input: {
   loadDocumentInfo?: (localId: string) => Promise<DocumentInfo>;
   loadDocumentSummary?: (localId: string) => Promise<DocumentSummary | null>;
   localId?: string | undefined;
+  showDocumentEditRanges?: boolean | undefined;
   showLinkedDocumentActivationControls?: boolean | undefined;
 }) {
   return render(createElement(ExplorerDocumentInfoPanel, panelProps(input)));
@@ -143,6 +144,7 @@ function panelProps(input: {
   loadDocumentInfo?: (localId: string) => Promise<DocumentInfo>;
   loadDocumentSummary?: (localId: string) => Promise<DocumentSummary | null>;
   localId?: string | undefined;
+  showDocumentEditRanges?: boolean | undefined;
   showLinkedDocumentActivationControls?: boolean | undefined;
 }) {
   return {
@@ -168,16 +170,50 @@ function panelProps(input: {
     nodes,
     openBlobBrowserRoute: () => undefined,
     setSelectedId: () => undefined,
+    showDocumentEditRanges: input.showDocumentEditRanges ?? false,
     showLinkedDocumentActivationControls:
       input.showLinkedDocumentActivationControls ?? false,
     unlinkDocument: async () => null,
   };
 }
 
+test("document info hides edit ranges until the feature flag is enabled", async () => {
+  const view = renderDocumentInfoPanel({
+    fallbackDocumentSummary: documentSummary,
+  });
+
+  await view.findByText("Contributors");
+  expect(view.queryByText("Edit Ranges")).toBeNull();
+  expect(view.queryByRole("button", { name: "Show edit ranges" })).toBeNull();
+});
+
+// Edit Ranges is flag-gated, so the truncated-attribution copy must not send
+// viewers to a section most of them cannot see.
+test("truncated attribution never points at the gated edit ranges", async () => {
+  const view = renderDocumentInfoPanel({
+    fallbackDocumentSummary: documentSummary,
+    loadDocumentInfo: async () => ({
+      ...documentInfo,
+      remoteInfo: {
+        ...documentInfo.remoteInfo,
+        attributionStatus: "truncated",
+      },
+    }),
+  });
+
+  expect(
+    await view.findByText(
+      "Edit attribution is too large for a complete summary.",
+    ),
+  ).toBeTruthy();
+  expect(view.queryByText(/Edit Ranges/)).toBeNull();
+});
+
 test("document info does not load detailed edit ranges until requested", async () => {
   let rangeRequestCount = 0;
   const view = renderDocumentInfoPanel({
     fallbackDocumentSummary: documentSummary,
+    showDocumentEditRanges: true,
     loadDocumentAttributionRanges: async () => {
       rangeRequestCount += 1;
       return {
