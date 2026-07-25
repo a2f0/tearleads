@@ -53,6 +53,10 @@
 	<string>Unlock your database with Face ID or Touch ID</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Capture photos for contact avatars</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Save photos captured for contact avatars to your photo library</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Select photos from your photo library to use as contact avatars</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
