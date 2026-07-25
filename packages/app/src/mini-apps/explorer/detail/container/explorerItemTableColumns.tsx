@@ -21,7 +21,7 @@ import { getDocumentTypeIcon } from "../../../../document-types/registry";
 import { getViewerRelativeContactDocumentLabel } from "../../../../stores/contacts/contactLabels";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
-import { getExplorerContactAvatarUrl } from "../../explorerContactAvatar";
+import { getExplorerContactAvatar } from "../../explorerContactAvatar";
 import { getExplorerContainerIcon } from "../../explorerContainerIcons";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerCompactSortHeader } from "../ExplorerCompactSortHeader";
@@ -160,8 +160,8 @@ function getExplorerContainerItemTypeLabel(row: ContainerItemRow): string {
 
 export interface ExplorerItemCellContext {
   // Object URLs for contact avatars, keyed by the contact document's local id.
-  // Covers only contacts in the Explorer's contacts container; rows without an
-  // entry keep the document-kind glyph.
+  // Covers only contacts in the Explorer's contacts container; ContactAvatar
+  // supplies the shared silhouette when a row has no entry.
   contactAvatarUrlByLocalId: AvatarUrlByContactId;
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
@@ -243,20 +243,20 @@ function getExplorerItemVisual(
   const { row } = ctx;
   const itemIcon = getExplorerItemIcon(row);
   const ItemIcon = itemIcon.Icon;
-  const avatarUrl =
+  const contactAvatar =
     row.itemKind === "document"
-      ? getExplorerContactAvatarUrl(
+      ? getExplorerContactAvatar(
           row.documentKind,
           row.localId,
           ctx.contactAvatarUrlByLocalId,
         )
-      : undefined;
+      : null;
 
-  return avatarUrl ? (
-    // ContactAvatar sizes and shrink-proofs itself without the glyph opacity:
-    // dimming a photograph reads as disabled rather than as a leading visual.
+  return contactAvatar ? (
+    // ContactAvatar owns both the image and the shared no-avatar silhouette.
+    // It also shrink-proofs itself without the generic glyph opacity.
     <ContactAvatar
-      imageUrl={avatarUrl}
+      imageUrl={contactAvatar.imageUrl}
       size={options.compact ? "medium" : "small"}
     />
   ) : (

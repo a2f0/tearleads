@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useNetworkModeContextMenu } from "../../components/shared/NetworkModeContextMenu";
 import { useMiniAppBusActions } from "../bus";
 import { SystemMonitorIcon } from "./icon";
+import { launchSystemMonitorWindow } from "./launchSystemMonitorWindow";
 import { useSystemMonitor } from "./SystemMonitorProvider";
 
 const SYSTEM_MONITOR_LABEL = "System Monitor";
@@ -15,10 +16,11 @@ export function SystemMonitorLauncherButton() {
   const networkContextMenu = useNetworkModeContextMenu();
 
   const handleClick = useCallback(() => {
-    if (isPinned) {
-      unpinToWindow();
-    }
-    openMiniApp({ appId: "system-monitor" });
+    launchSystemMonitorWindow({
+      isPinned,
+      openWindow: () => openMiniApp({ appId: "system-monitor" }),
+      unpinToWindow,
+    });
   }, [isPinned, openMiniApp, unpinToWindow]);
 
   return (

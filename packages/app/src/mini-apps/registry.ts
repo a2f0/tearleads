@@ -49,9 +49,6 @@ export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
   },
 };
 
-// "system-monitor" is intentionally omitted from the windowed pane menu: there
-// it is launched from the footer's system tray (SystemMonitorLauncherButton),
-// which also handles unpinning, rather than from the generic pane/app menu.
 export const MINI_APP_MENU_ITEMS = [
   { appId: "explorer", icon: FolderIcon, label: "Explorer" },
   { appId: "contacts", icon: AddressBookIcon, label: "Contacts" },
@@ -67,19 +64,18 @@ export const MINI_APP_MENU_ITEMS = [
     icon: ArchiveIcon,
     label: "Backup / Restore",
   },
+  { appId: "system-monitor", icon: SystemMonitorIcon, label: "System Monitor" },
 ] satisfies ReadonlyArray<{
   appId: MiniAppId;
   icon: Icon;
   label: string;
 }>;
 
-// The routed (mobile/tablet) layout has no footer tray, so it surfaces the
-// System Monitor alongside the other apps in its nav and home launcher. Its
-// pin action persists the same pane-level mode and renders the monitor on the
-// routed home screen only after the user requests it.
+// Keep a named routed-navigation seam even though it currently shares the Start
+// menu's app ordering. System Monitor remains directly reachable from the
+// windowed footer tray too.
 export const ROUTED_MINI_APP_NAV_ITEMS = [
   ...MINI_APP_MENU_ITEMS,
-  { appId: "system-monitor", icon: SystemMonitorIcon, label: "System Monitor" },
 ] satisfies ReadonlyArray<{
   appId: MiniAppId;
   icon: Icon;

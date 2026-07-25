@@ -16,7 +16,7 @@ import {
   type ExplorerSidebarVirtualRow,
   getLoadedExplorerSidebarDocumentRow,
 } from "./ExplorerSidebarRows";
-import { getExplorerContactAvatarUrl } from "./explorerContactAvatar";
+import { getExplorerContactAvatar } from "./explorerContactAvatar";
 import { getExplorerContainerIcon } from "./explorerContainerIcons";
 import {
   EXPLORER_SIDEBAR_ROW_HEIGHT,
@@ -26,8 +26,8 @@ import {
 export interface ExplorerSidebarRowProps {
   activeContainerId: string | null;
   // Object URLs for contact avatars, keyed by the contact document's local id.
-  // Covers only contacts in the Explorer's contacts container; rows without an
-  // entry keep the document-kind glyph.
+  // Covers only contacts in the Explorer's contacts container; ContactAvatar
+  // supplies the shared silhouette when a row has no entry.
   contactAvatarUrlByLocalId: AvatarUrlByContactId;
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
@@ -76,7 +76,7 @@ function ExplorerTreeDocumentRow(
     localId: row.localId,
   });
   const DocumentGlyph = getDocumentTypeIcon(row.documentKind);
-  const avatarUrl = getExplorerContactAvatarUrl(
+  const contactAvatar = getExplorerContactAvatar(
     row.documentKind,
     row.localId,
     props.contactAvatarUrlByLocalId,
@@ -100,11 +100,10 @@ function ExplorerTreeDocumentRow(
           props.activeContainerId === row.containerId
         }
       >
-        {avatarUrl ? (
-          // ContactAvatar already sizes and shrink-proofs itself, and it
-          // deliberately skips the glyph classes' icon opacity — a dimmed
-          // photograph reads as disabled rather than as a leading glyph.
-          <ContactAvatar imageUrl={avatarUrl} size="small" />
+        {contactAvatar ? (
+          // ContactAvatar owns both the image and the shared no-avatar
+          // silhouette, while also shrink-proofing itself.
+          <ContactAvatar imageUrl={contactAvatar.imageUrl} size="small" />
         ) : (
           <DocumentGlyph
             aria-hidden="true"
