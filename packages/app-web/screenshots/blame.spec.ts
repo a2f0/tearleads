@@ -311,6 +311,12 @@ async function waitForBlame(scope: ScreenshotScope): Promise<Locator> {
   await expect
     .poll(() => attributedRuns.count(), { timeout: 60_000 })
     .toBeGreaterThanOrEqual(2);
+  await expect(
+    scope.locator('.explorer-blame-run[title*="Peer 1"]'),
+  ).not.toHaveCount(0, { timeout: 60_000 });
+  await expect(
+    scope.locator('.explorer-blame-run[title*="Peer 2"]'),
+  ).not.toHaveCount(0, { timeout: 60_000 });
   await expect(scope.locator(".explorer-blame-run--unattributed")).toHaveCount(
     0,
   );
