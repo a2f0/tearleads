@@ -1,6 +1,7 @@
 export type AppFeatureFlagId =
   | "built-in-system-containers"
   | "document-edit-ranges"
+  | "explorer-header-sync-indicator"
   | "linked-document-activation-controls"
   | "workspace-switcher";
 export type AppFeatureFlagMode = "disabled" | "enabled";

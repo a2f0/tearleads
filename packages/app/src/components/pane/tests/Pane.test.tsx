@@ -9,7 +9,6 @@ import {
   generateIdentityAndWaitForDb,
   getExplorerContainerItem,
   getPaneStatusText,
-  getSelectedExplorerContainerSyncLabel,
   moveExplorerContainer,
   openContacts,
   openExplorer,
@@ -17,7 +16,6 @@ import {
   PANE_ASYNC_TEST_TIMEOUT_MS,
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
   renderPane,
-  summarizeProxiedApiRequests,
   waitForPaneRuntimeToSettle,
 } from "../../../../test/helpers/paneTestUtils";
 import { renderRoutedPane } from "../../../../test/helpers/routedPaneTestUtils";
@@ -470,31 +468,3 @@ test(
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 );
-
-test("registered explorer child folders settle to synced in the pane UI", async () => {
-  useTestApiAppHandlers();
-  const view = renderPane();
-
-  await generateIdentityAndWaitForDb(view);
-  await registerAndWaitForUserId(view);
-  const explorer = await openExplorer(view);
-
-  await waitFor(() => {
-    expect(getExplorerContainerItem(explorer, "/")).toBeTruthy();
-  });
-
-  await createExplorerChildContainer(view, explorer, "Docs");
-  await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
-
-  await waitFor(
-    () => {
-      expect(
-        getSelectedExplorerContainerSyncLabel(explorer),
-        `Child folder did not sync.\nrequests=\n${summarizeProxiedApiRequests()}`,
-      ).toBe("Synced");
-    },
-    { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
-  );
-
-  view.unmount();
-}, 30_000);

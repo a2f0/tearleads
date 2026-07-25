@@ -186,6 +186,11 @@ interface ExplorerDetailPanelProps {
   // Edit ranges are raw attribution trace data, so the Get Info section stays
   // behind the developer feature flag rather than shipping to every viewer.
   showDocumentEditRanges: boolean;
+  // The per-object sync dot beside the detail header's title. The footer tray
+  // already reports sync for the whole write queue, so this one — which speaks
+  // only for the selected object — stays behind a flag rather than sitting in
+  // every viewer's header.
+  showHeaderSyncIndicator: boolean;
   showLinkedDocumentActivationControls: boolean;
   // The viewer's derived Trash system slot, used with currentOrganizationId to
   // detect whether the selected object is trashed and should render read-only (no
@@ -391,6 +396,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         readOnly={selectedDocumentReadOnly}
         refreshError={params.refreshError}
         selectedDocument={selectedDocument}
+        showHeaderSyncIndicator={params.showHeaderSyncIndicator}
       />
     );
   }
@@ -415,6 +421,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         selectedNode={selectedNode}
         selectDocumentProjection={params.selectDocumentProjection}
         setSelectedId={params.setSelectedId}
+        showHeaderSyncIndicator={params.showHeaderSyncIndicator}
         visibleSystemSlots={params.visibleSystemSlots}
       />
     );
