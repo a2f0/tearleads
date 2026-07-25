@@ -2,13 +2,11 @@ import {
   type DocumentFieldValidationIssue,
   type DocumentProjectorDefinition,
   readStringDocumentField,
-  type StoredDocumentKind,
 } from "@tearleads/client-sdk";
 
 // Keep this stable wire value local: importing the organization workflow export
 // through the SDK barrel creates a browser module-initialization cycle here.
-const ORGANIZATION_PROFILE_DOCUMENT_KIND =
-  "organization_profile" satisfies StoredDocumentKind;
+const ORGANIZATION_PROFILE_DOCUMENT_KIND = "organization_profile";
 const ORGANIZATION_PROFILE_FALLBACK_TITLE = "Organization Profile";
 
 export const organizationProfileDocumentProjectorDefinition: DocumentProjectorDefinition =

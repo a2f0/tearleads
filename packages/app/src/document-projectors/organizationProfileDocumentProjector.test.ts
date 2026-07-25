@@ -37,6 +37,20 @@ test("organization profile title falls back when its name is unavailable", () =>
         value: 42,
       },
     ],
+    structuredFields: { name: "" },
+    title: "Organization Profile",
+  });
+});
+
+test("organization profile title falls back for absent or blank names", () => {
+  expect(projectOrganizationProfile({})).toMatchObject({
+    fieldValidationIssues: [],
+    structuredFields: {},
+    title: "Organization Profile",
+  });
+  expect(projectOrganizationProfile({ name: "   " })).toMatchObject({
+    fieldValidationIssues: [],
+    structuredFields: { name: "   " },
     title: "Organization Profile",
   });
 });

@@ -113,6 +113,29 @@ test("enroll button invokes onEnroll while trialing", () => {
   expect(onEnroll).toHaveBeenCalledTimes(1);
 });
 
+test("uses the shared action button only in compact mobile mode", () => {
+  const trialView = view({
+    status: "trialing",
+    isLocal: false,
+    isTrialing: true,
+    canSync: true,
+    trialDaysRemaining: 3,
+  });
+  const rendered = render(
+    <BillingBannerView onEnroll={noop} view={trialView} />,
+  );
+  expect(rendered.getByRole("button").className).toBe(
+    "billing-banner-enroll-link",
+  );
+
+  rendered.rerender(
+    <BillingBannerView compactMobile onEnroll={noop} view={trialView} />,
+  );
+  expect(rendered.getByRole("button").className).toContain(
+    "tearleads-action-button",
+  );
+});
+
 test("renders nothing on the enrollment screen", () => {
   const { container } = render(
     <BillingBannerView

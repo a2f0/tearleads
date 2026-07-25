@@ -25,6 +25,7 @@ import { PdfDocumentApp } from "./pdf/PdfDocumentApp";
 import { PDF_DOCUMENT_KIND } from "./pdf/pdfDocumentDefinition";
 import {
   APP_DEFAULT_DOCUMENT_KIND,
+  APP_DOCUMENT_PROJECTOR_DEFINITIONS,
   APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS,
 } from "./projectors";
 import type { DocumentTypeAppProps } from "./types";
@@ -115,7 +116,7 @@ const documentTypeDefinitionByKind = new Map(
 
 function formatFallbackCreateLabel(kind: StoredDocumentKind): string {
   const label =
-    getStoredDocumentTypeLabel(kind, APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS) ||
+    getStoredDocumentTypeLabel(kind, APP_DOCUMENT_PROJECTOR_DEFINITIONS) ||
     kind;
   return label ? `${label.slice(0, 1).toUpperCase()}${label.slice(1)}` : "";
 }

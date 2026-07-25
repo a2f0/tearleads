@@ -25,7 +25,7 @@
   text-overflow: ellipsis;
 }
 
-.billing-banner-enroll {
+.billing-banner-enroll-link {
   flex: 0 0 auto;
   padding: 0;
   border: none;
@@ -36,18 +36,7 @@
   cursor: pointer;
 }
 
-@media (max-width: 759px) {
-  :root[data-navigation-mode="routed"] .billing-banner-enroll {
-    padding: var(--space-2xs) var(--space-sm);
-    border: var(--border);
-    background: transparent;
-    color: inherit;
-    text-decoration: none;
-  }
-
-  :root[data-navigation-mode="routed"] .billing-banner-enroll:hover,
-  :root[data-navigation-mode="routed"] .billing-banner-enroll:focus-visible {
-    background: var(--emphasis-surface);
-    color: var(--emphasis-text);
-  }
+.billing-banner-enroll-button {
+  flex: 0 0 auto;
+  font: inherit;
 }
