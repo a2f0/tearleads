@@ -45,10 +45,6 @@ function AvatarCropViewport({
       aria-describedby={hintId}
       className="contact-avatar-editor-viewport"
       ref={editor.viewportRef}
-      style={{
-        height: AVATAR_EDITOR_VIEWPORT_SIZE,
-        width: AVATAR_EDITOR_VIEWPORT_SIZE,
-      }}
       {...editor.pointerHandlers}
     >
       <img
