@@ -9,7 +9,7 @@ export function SystemMonitorEnvironment() {
 
   return (
     <section aria-label="System environment" className="pane-content">
-      <MiniAppInfoTable className="system-monitor-environment-table">
+      <MiniAppInfoTable className="mini-app-info-table--borderless system-monitor-environment-table">
         <tbody>
           {rows.map((row) => (
             <MiniAppInfoRow key={row.label} label={row.label}>

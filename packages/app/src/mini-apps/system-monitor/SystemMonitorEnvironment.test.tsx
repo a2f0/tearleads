@@ -55,6 +55,11 @@ test("environment tab joins the tab list without displacing the existing tabs", 
 
   fireEvent.click(environmentTab);
   expect(environmentTab.getAttribute("aria-selected")).toBe("true");
+  expect(
+    view.container
+      .querySelector(".system-monitor-environment-table")
+      ?.classList.contains("mini-app-info-table--borderless"),
+  ).toBe(true);
 
   view.unmount();
 });
