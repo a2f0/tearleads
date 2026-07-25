@@ -16,18 +16,22 @@ import {
 
 interface AppFeatureFlagsValue {
   builtInSystemContainersVisible: boolean;
+  documentEditRangesVisible: boolean;
   linkedDocumentActivationControlsEnabled: boolean;
   workspaceSwitcherVisible: boolean;
   setBuiltInSystemContainersVisible: (enabled: boolean) => void;
+  setDocumentEditRangesVisible: (enabled: boolean) => void;
   setLinkedDocumentActivationControlsEnabled: (enabled: boolean) => void;
   setWorkspaceSwitcherVisible: (enabled: boolean) => void;
 }
 
 const DEFAULT_APP_FEATURE_FLAGS: AppFeatureFlagsValue = {
   builtInSystemContainersVisible: false,
+  documentEditRangesVisible: false,
   linkedDocumentActivationControlsEnabled: false,
   workspaceSwitcherVisible: false,
   setBuiltInSystemContainersVisible: () => {},
+  setDocumentEditRangesVisible: () => {},
   setLinkedDocumentActivationControlsEnabled: () => {},
   setWorkspaceSwitcherVisible: () => {},
 };
@@ -60,6 +64,9 @@ function usePersistentAppFeatureFlags(): AppFeatureFlagsValue {
   const builtInSystemContainers = usePersistentAppFeatureFlag(
     "built-in-system-containers",
   );
+  const documentEditRanges = usePersistentAppFeatureFlag(
+    "document-edit-ranges",
+  );
   const linkedDocumentActivationControls = usePersistentAppFeatureFlag(
     "linked-document-activation-controls",
   );
@@ -68,10 +75,12 @@ function usePersistentAppFeatureFlags(): AppFeatureFlagsValue {
   return useMemo(
     () => ({
       builtInSystemContainersVisible: builtInSystemContainers.enabled,
+      documentEditRangesVisible: documentEditRanges.enabled,
       linkedDocumentActivationControlsEnabled:
         linkedDocumentActivationControls.enabled,
       workspaceSwitcherVisible: workspaceSwitcher.enabled,
       setBuiltInSystemContainersVisible: builtInSystemContainers.setEnabled,
+      setDocumentEditRangesVisible: documentEditRanges.setEnabled,
       setLinkedDocumentActivationControlsEnabled:
         linkedDocumentActivationControls.setEnabled,
       setWorkspaceSwitcherVisible: workspaceSwitcher.setEnabled,
@@ -79,6 +88,8 @@ function usePersistentAppFeatureFlags(): AppFeatureFlagsValue {
     [
       builtInSystemContainers.enabled,
       builtInSystemContainers.setEnabled,
+      documentEditRanges.enabled,
+      documentEditRanges.setEnabled,
       linkedDocumentActivationControls.enabled,
       linkedDocumentActivationControls.setEnabled,
       workspaceSwitcher.enabled,

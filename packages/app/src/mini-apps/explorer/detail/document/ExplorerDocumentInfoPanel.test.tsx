@@ -127,6 +127,7 @@ function renderDocumentInfoPanel(input: {
   loadDocumentInfo?: (localId: string) => Promise<DocumentInfo>;
   loadDocumentSummary?: (localId: string) => Promise<DocumentSummary | null>;
   localId?: string | undefined;
+  showDocumentEditRanges?: boolean | undefined;
   showLinkedDocumentActivationControls?: boolean | undefined;
 }) {
   return render(createElement(ExplorerDocumentInfoPanel, panelProps(input)));
@@ -143,6 +144,7 @@ function panelProps(input: {
   loadDocumentInfo?: (localId: string) => Promise<DocumentInfo>;
   loadDocumentSummary?: (localId: string) => Promise<DocumentSummary | null>;
   localId?: string | undefined;
+  showDocumentEditRanges?: boolean | undefined;
   showLinkedDocumentActivationControls?: boolean | undefined;
 }) {
   return {
@@ -168,16 +170,28 @@ function panelProps(input: {
     nodes,
     openBlobBrowserRoute: () => undefined,
     setSelectedId: () => undefined,
+    showDocumentEditRanges: input.showDocumentEditRanges ?? false,
     showLinkedDocumentActivationControls:
       input.showLinkedDocumentActivationControls ?? false,
     unlinkDocument: async () => null,
   };
 }
 
+test("document info hides edit ranges until the feature flag is enabled", async () => {
+  const view = renderDocumentInfoPanel({
+    fallbackDocumentSummary: documentSummary,
+  });
+
+  await view.findByText("Contributors");
+  expect(view.queryByText("Edit Ranges")).toBeNull();
+  expect(view.queryByRole("button", { name: "Show edit ranges" })).toBeNull();
+});
+
 test("document info does not load detailed edit ranges until requested", async () => {
   let rangeRequestCount = 0;
   const view = renderDocumentInfoPanel({
     fallbackDocumentSummary: documentSummary,
+    showDocumentEditRanges: true,
     loadDocumentAttributionRanges: async () => {
       rangeRequestCount += 1;
       return {

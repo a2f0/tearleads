@@ -102,6 +102,7 @@ interface BlobPickPanelProps {
 
 interface BlobPickPanelRenderParams extends BlobPickPanelProps {
   blobPick: ExplorerBlobPickState;
+  showDocumentEditRanges: boolean;
   showLinkedDocumentActivationControls: boolean;
 }
 
@@ -176,6 +177,7 @@ function renderExplorerDetailPanelWithBlobPick(
       setContainerIcon={model.explorer.setContainerIcon}
       trashSystemSlot={model.explorer.trashSystemSlot}
       setSelectedId={routeState.selectExplorerItem}
+      showDocumentEditRanges={params.showDocumentEditRanges}
       showLinkedDocumentActivationControls={
         params.showLinkedDocumentActivationControls
       }
@@ -192,11 +194,13 @@ function renderExplorerDetailPanelWithBlobPick(
 // rendered inside the panel reads the same context to request a pick.
 function ExplorerDetailPanelWithBlobPick(params: BlobPickPanelProps) {
   const blobPick = useBlobPick();
-  const { linkedDocumentActivationControlsEnabled } = useAppFeatureFlags();
+  const { documentEditRangesVisible, linkedDocumentActivationControlsEnabled } =
+    useAppFeatureFlags();
 
   return renderExplorerDetailPanelWithBlobPick({
     ...params,
     blobPick,
+    showDocumentEditRanges: documentEditRangesVisible,
     showLinkedDocumentActivationControls:
       linkedDocumentActivationControlsEnabled,
   });

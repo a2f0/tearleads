@@ -9,6 +9,9 @@ import {
 const BUILT_IN_SYSTEM_CONTAINERS_KEY = appFeatureFlagStorageKey(
   "built-in-system-containers",
 );
+const DOCUMENT_EDIT_RANGES_KEY = appFeatureFlagStorageKey(
+  "document-edit-ranges",
+);
 const LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY = appFeatureFlagStorageKey(
   "linked-document-activation-controls",
 );
@@ -21,6 +24,7 @@ afterEach(() => {
 test("feature flags default to disabled when nothing is stored", () => {
   expect(DEFAULT_APP_FEATURE_FLAG_MODE).toBe("disabled");
   expect(loadAppFeatureFlag(BUILT_IN_SYSTEM_CONTAINERS_KEY)).toBe("disabled");
+  expect(loadAppFeatureFlag(DOCUMENT_EDIT_RANGES_KEY)).toBe("disabled");
   expect(loadAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY)).toBe(
     "disabled",
   );
@@ -30,6 +34,8 @@ test("feature flags default to disabled when nothing is stored", () => {
 test("round-trips a saved feature flag", () => {
   saveAppFeatureFlag(BUILT_IN_SYSTEM_CONTAINERS_KEY, "enabled");
   expect(loadAppFeatureFlag(BUILT_IN_SYSTEM_CONTAINERS_KEY)).toBe("enabled");
+  saveAppFeatureFlag(DOCUMENT_EDIT_RANGES_KEY, "enabled");
+  expect(loadAppFeatureFlag(DOCUMENT_EDIT_RANGES_KEY)).toBe("enabled");
   saveAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY, "enabled");
   expect(loadAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY)).toBe(
     "enabled",
@@ -39,6 +45,8 @@ test("round-trips a saved feature flag", () => {
 
   saveAppFeatureFlag(BUILT_IN_SYSTEM_CONTAINERS_KEY, "disabled");
   expect(loadAppFeatureFlag(BUILT_IN_SYSTEM_CONTAINERS_KEY)).toBe("disabled");
+  saveAppFeatureFlag(DOCUMENT_EDIT_RANGES_KEY, "disabled");
+  expect(loadAppFeatureFlag(DOCUMENT_EDIT_RANGES_KEY)).toBe("disabled");
   saveAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY, "disabled");
   expect(loadAppFeatureFlag(LINKED_DOCUMENT_ACTIVATION_CONTROLS_KEY)).toBe(
     "disabled",

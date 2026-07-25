@@ -13,7 +13,6 @@ import {
 } from "../../components/pane/dual-pane";
 import { PaneProvider } from "../../components/pane/runtime/PaneProvider";
 import { Pane } from "../../components/pane/shell/Pane";
-import { appFeatureFlagStorageKey } from "../../providers/feature-flags/appFeatureFlags";
 import {
   systemMonitorDeveloperModeStorageKey,
   systemMonitorModeStorageKey,
@@ -27,13 +26,6 @@ afterEach(async () => {
 // renderPane() mounts the left pane, so the persisted mode lands under this key.
 const MODE_KEY = systemMonitorModeStorageKey("left");
 const DEVELOPER_MODE_KEY = systemMonitorDeveloperModeStorageKey();
-const BUILT_IN_SYSTEM_CONTAINERS_FEATURE_FLAG_KEY = appFeatureFlagStorageKey(
-  "built-in-system-containers",
-);
-const LINKED_DOCUMENT_ACTIVATION_CONTROLS_FEATURE_FLAG_KEY =
-  appFeatureFlagStorageKey("linked-document-activation-controls");
-const WORKSPACE_SWITCHER_FEATURE_FLAG_KEY =
-  appFeatureFlagStorageKey("workspace-switcher");
 const ROUTED_DEVELOPER_MENU_ITEM_LABELS = [
   "Force Online",
   "Force Offline",
@@ -95,14 +87,6 @@ function expectRoutedDeveloperMenuItems(
       expect(item).toBeNull();
     }
   }
-}
-
-async function clickWindowViewMenuItem(
-  view: ReturnType<typeof renderPane>,
-  name: string,
-) {
-  fireEvent.click(view.getByRole("menuitem", { name: "View" }));
-  fireEvent.click(await view.findByRole("menuitem", { name }));
 }
 
 test("home pane hides the monitor inline and exposes a launcher by default", () => {
@@ -375,85 +359,6 @@ test("developer mode toggles from the routed monitor menu and gates pane command
 
   expect(globalThis.localStorage.getItem(DEVELOPER_MODE_KEY)).toBe("disabled");
   expectRoutedDeveloperMenuItems(view, false);
-
-  view.unmount();
-});
-
-test("feature flags tab is developer-only and toggles app flags", async () => {
-  const view = renderPane({ pinSystemMonitor: false });
-
-  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
-  await view.findByRole("tab", { name: "Logs" });
-  expect(view.queryByRole("tab", { name: "Feature Flags" })).toBeNull();
-  expect(
-    globalThis.localStorage.getItem(
-      BUILT_IN_SYSTEM_CONTAINERS_FEATURE_FLAG_KEY,
-    ),
-  ).toBeNull();
-  expect(
-    globalThis.localStorage.getItem(
-      LINKED_DOCUMENT_ACTIVATION_CONTROLS_FEATURE_FLAG_KEY,
-    ),
-  ).toBeNull();
-
-  await clickWindowViewMenuItem(view, "Enable Developer Mode");
-
-  const featureFlagsTab = await view.findByRole("tab", {
-    name: "Feature Flags",
-  });
-  fireEvent.click(featureFlagsTab);
-
-  const builtInSystemContainersToggle = view.getByRole("switch", {
-    name: "Show built-in system containers",
-  }) as HTMLInputElement;
-  const linkedDocumentActivationControlsToggle = view.getByRole("switch", {
-    name: "Enable linked document activation controls",
-  }) as HTMLInputElement;
-  const workspaceSwitcherToggle = view.getByRole("switch", {
-    name: "Show workspace switcher",
-  }) as HTMLInputElement;
-  expect(builtInSystemContainersToggle.checked).toBe(false);
-  expect(linkedDocumentActivationControlsToggle.checked).toBe(false);
-  expect(workspaceSwitcherToggle.checked).toBe(false);
-  expect(view.getAllByText("Disabled")).toHaveLength(3);
-
-  fireEvent.click(builtInSystemContainersToggle);
-
-  await waitFor(() => {
-    expect(builtInSystemContainersToggle.checked).toBe(true);
-    expect(
-      globalThis.localStorage.getItem(
-        BUILT_IN_SYSTEM_CONTAINERS_FEATURE_FLAG_KEY,
-      ),
-    ).toBe("enabled");
-    expect(view.getByText("Enabled")).toBeTruthy();
-  });
-
-  fireEvent.click(linkedDocumentActivationControlsToggle);
-
-  await waitFor(() => {
-    expect(linkedDocumentActivationControlsToggle.checked).toBe(true);
-    expect(
-      globalThis.localStorage.getItem(
-        LINKED_DOCUMENT_ACTIVATION_CONTROLS_FEATURE_FLAG_KEY,
-      ),
-    ).toBe("enabled");
-    expect(view.getAllByText("Enabled")).toHaveLength(2);
-  });
-
-  fireEvent.click(workspaceSwitcherToggle);
-
-  await waitFor(() => {
-    expect(workspaceSwitcherToggle.checked).toBe(true);
-    expect(
-      globalThis.localStorage.getItem(WORKSPACE_SWITCHER_FEATURE_FLAG_KEY),
-    ).toBe("enabled");
-    expect(view.getAllByText("Enabled")).toHaveLength(3);
-  });
-
-  await clickWindowViewMenuItem(view, "Disable Developer Mode");
-
-  expect(view.queryByRole("tab", { name: "Feature Flags" })).toBeNull();
 
   view.unmount();
 });

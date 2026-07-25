@@ -12,13 +12,16 @@ import {
 export function SystemMonitorFeatureFlags() {
   const {
     builtInSystemContainersVisible,
+    documentEditRangesVisible,
     linkedDocumentActivationControlsEnabled,
     setBuiltInSystemContainersVisible,
+    setDocumentEditRangesVisible,
     setLinkedDocumentActivationControlsEnabled,
     setWorkspaceSwitcherVisible,
     workspaceSwitcherVisible,
   } = useAppFeatureFlags();
   const builtInSystemContainersToggleId = useId();
+  const documentEditRangesToggleId = useId();
   const linkedDocumentActivationControlsToggleId = useId();
   const workspaceSwitcherToggleId = useId();
 
@@ -48,6 +51,31 @@ export function SystemMonitorFeatureFlags() {
             type="checkbox"
             onChange={(event) => {
               setBuiltInSystemContainersVisible(event.currentTarget.checked);
+            }}
+          />
+        </span>
+      </label>
+      <label
+        className="system-monitor-feature-flag"
+        htmlFor={documentEditRangesToggleId}
+      >
+        <span className="system-monitor-feature-flag-name">
+          {FEATURE_FLAG_LABELS.documentEditRanges}
+        </span>
+        <span className="system-monitor-feature-flag-control">
+          <span className="system-monitor-feature-flag-state">
+            {formatFeatureFlagState(documentEditRangesVisible)}
+          </span>
+          <input
+            aria-checked={documentEditRangesVisible}
+            aria-label="Show document edit ranges"
+            checked={documentEditRangesVisible}
+            className="system-monitor-feature-flag-switch"
+            id={documentEditRangesToggleId}
+            role="switch"
+            type="checkbox"
+            onChange={(event) => {
+              setDocumentEditRangesVisible(event.currentTarget.checked);
             }}
           />
         </span>
