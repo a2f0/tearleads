@@ -15,15 +15,11 @@ export function AppHostConfigProvider({
 }
 
 export function useAppHostConfig() {
-  const context = useOptionalAppHostConfig();
+  const context = useContext(AppHostConfigContext);
   if (!context) {
     throw new Error(
       "useAppHostConfig must be used within an AppHostConfigProvider.",
     );
   }
   return context;
-}
-
-export function useOptionalAppHostConfig() {
-  return useContext(AppHostConfigContext);
 }

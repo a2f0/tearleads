@@ -43,7 +43,7 @@ test("captures a bounded JPEG from its web-accessible path", async () => {
   expect(cameraOptions).toEqual([
     {
       correctOrientation: true,
-      encodingType: EncodingType.JPEG,
+      encodingType: 0,
       quality: 90,
       saveToGallery: false,
       targetHeight: 2048,
@@ -67,6 +67,17 @@ test("rejects a capture without a web-accessible path", async () => {
 
   await expect(scanner.capturePhoto()).rejects.toThrow(
     "The camera did not return a web-accessible photo path.",
+  );
+});
+
+test("rejects a captured photo that cannot be read", async () => {
+  const scanner = createCapacitorScanner({
+    camera: { takePhoto: async () => cameraResult() },
+    fetchPhoto: async () => new Response(null, { status: 404 }),
+  });
+
+  await expect(scanner.capturePhoto()).rejects.toThrow(
+    "Could not read the captured photo (404).",
   );
 });
 

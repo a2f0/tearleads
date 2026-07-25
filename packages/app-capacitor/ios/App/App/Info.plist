@@ -52,7 +52,7 @@
 	<key>NSFaceIDUsageDescription</key>
 	<string>Unlock your database with Face ID or Touch ID</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Capture photos for contact avatars and scanned documents</string>
+	<string>Capture photos for contact avatars</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>

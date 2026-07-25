@@ -1,7 +1,7 @@
 import type { DocumentAttachmentUpload } from "@tearleads/client-sdk";
 import { type ChangeEvent, useMemo, useRef, useState } from "react";
 import { MiniAppStatus } from "../../components/mini-app/MiniAppLayout";
-import { useOptionalAppHostConfig } from "../../providers/host/AppHostConfigProvider";
+import { useAppHostConfig } from "../../providers/host/AppHostConfigProvider";
 import { AttachmentActionButton } from "../shared/AttachmentActionButton";
 import { ContactAvatar } from "./ContactAvatar";
 import { ContactAvatarEditorDialog } from "./ContactAvatarEditorDialog";
@@ -39,7 +39,7 @@ export function ContactAvatarControl({
   onApplyAvatar: (upload: DocumentAttachmentUpload) => void;
   onRemoveAvatar: () => void;
 }) {
-  const createScanner = useOptionalAppHostConfig()?.createScanner;
+  const { createScanner } = useAppHostConfig();
   const scanner = useMemo(() => createScanner?.(), [createScanner]);
   const [captureError, setCaptureError] = useState(false);
   const [capturing, setCapturing] = useState(false);
