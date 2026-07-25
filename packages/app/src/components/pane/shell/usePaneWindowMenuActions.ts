@@ -1,6 +1,8 @@
 import { useCallback } from "react";
 
 import { LocalKeyringUnlockWindow } from "../../../mini-apps/LocalKeyringUnlockGate";
+import { launchSystemMonitorWindow } from "../../../mini-apps/system-monitor/launchSystemMonitorWindow";
+import { useSystemMonitor } from "../../../mini-apps/system-monitor/SystemMonitorProvider";
 import type { MiniAppId } from "../../../mini-apps/types";
 import { useAppNavigationActions } from "../../../navigation/AppNavigationProvider";
 import type { MenuPosition } from "../../shared/Menu";
@@ -17,6 +19,7 @@ export function usePaneWindowMenuActions({
 }: PaneWindowMenuActionOptions) {
   const { create } = useWindowActions();
   const { openMiniApp: openMiniAppRoute } = useAppNavigationActions();
+  const { isPinned, unpinToWindow } = useSystemMonitor();
 
   const openUnlockWindow = useCallback(() => {
     create(
@@ -31,10 +34,20 @@ export function usePaneWindowMenuActions({
 
   const openMiniApp = useCallback(
     (appId: MiniAppId) => {
-      openMiniAppRoute({ appId, position, reuseExisting: false });
+      const openWindow = () =>
+        openMiniAppRoute({ appId, position, reuseExisting: false });
+      if (appId === "system-monitor") {
+        launchSystemMonitorWindow({
+          isPinned,
+          openWindow,
+          unpinToWindow,
+        });
+      } else {
+        openWindow();
+      }
       onClose();
     },
-    [onClose, openMiniAppRoute, position],
+    [isPinned, onClose, openMiniAppRoute, position, unpinToWindow],
   );
 
   return { openMiniApp, openUnlockWindow };

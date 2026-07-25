@@ -71,8 +71,8 @@ export const MINI_APP_MENU_ITEMS = [
   label: string;
 }>;
 
-// The routed (mobile/tablet) layout shares the Start menu's app ordering in its
-// nav and home launcher. System Monitor remains directly reachable from the
+// Keep a named routed-navigation seam even though it currently shares the Start
+// menu's app ordering. System Monitor remains directly reachable from the
 // windowed footer tray too.
 export const ROUTED_MINI_APP_NAV_ITEMS = [
   ...MINI_APP_MENU_ITEMS,
