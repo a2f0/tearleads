@@ -25,6 +25,8 @@ mock.module("@capacitor/core", () => ({
     isPluginAvailable: () => fixture.pluginAvailable,
     getPlatform: () => "android",
   },
+  registerPlugin: () => ({}),
+  WebPlugin: class {},
 }));
 
 mock.module("@capacitor/network", () => ({

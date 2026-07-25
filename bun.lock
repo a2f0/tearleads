@@ -118,6 +118,7 @@
       "dependencies": {
         "@capacitor-community/sqlite": "8.1.0",
         "@capacitor/app": "8.1.0",
+        "@capacitor/camera": "8.2.1",
         "@capacitor/core": "8.4.0",
         "@capacitor/filesystem": "8.1.2",
         "@capacitor/keyboard": "8.0.3",
@@ -486,6 +487,8 @@
     "@capacitor/android": ["@capacitor/android@8.4.0", "", { "peerDependencies": { "@capacitor/core": "^8.4.0" } }, "sha512-K1ZPkQzvRzPEALz9nBdLx5p5nAPzp5fsTYWk7LRiKZeH/NXqjDvqfTv7lrLgrziQNoDeaL6ijg64oBREzXiV+g=="],
 
     "@capacitor/app": ["@capacitor/app@8.1.0", "", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-MlmttTOWHDedr/G4SrhNRxsXMqY+R75S4MM4eIgzsgCzOYhb/MpCkA5Q3nuOCfL1oHm26xjUzqZ5aupbOwdfYg=="],
+
+    "@capacitor/camera": ["@capacitor/camera@8.2.1", "", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-yq4TbVcv9Z91JLr7C5407s3rrXr/Dmk+Pr9FAVRn65s3Jg4iYabjwG4fVKUYlQL5TiUdBbZA3LiNAbUxJNcUkw=="],
 
     "@capacitor/cli": ["@capacitor/cli@8.4.0", "", { "dependencies": { "@ionic/cli-framework-output": "^2.2.8", "@ionic/utils-subprocess": "^3.0.1", "@ionic/utils-terminal": "^2.3.5", "commander": "^12.1.0", "debug": "^4.4.0", "env-paths": "^2.2.0", "fs-extra": "^11.2.0", "kleur": "^4.1.5", "native-run": "^2.0.3", "open": "^8.4.0", "plist": "^3.1.0", "prompts": "^2.4.2", "rimraf": "^6.0.1", "semver": "^7.6.3", "tar": "^7.5.3", "tslib": "^2.8.1", "xml2js": "^0.6.2" }, "bin": { "cap": "bin/capacitor", "capacitor": "bin/capacitor" } }, "sha512-5Z9RKHxiqJYRTLrfMeZmzR4qrlg5B85MxsWZ5goyXsLkO3bgpW9a1qV/6fR1SX9s5gwLza5y7PZVwITl/hDJ7g=="],
 

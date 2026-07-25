@@ -16,6 +16,7 @@ import { createCapacitorFileSaver } from "./capacitorFileSaver";
 import { subscribeCapacitorKeyboardVisibility } from "./capacitorKeyboardVisibility";
 import { createCapacitorNetworkStatus } from "./capacitorNetworkStatus";
 import { createCapacitorPurchases } from "./capacitorPurchases";
+import { createCapacitorScanner } from "./capacitorScanner";
 import { syncStatusBarWithTheme } from "./statusBar";
 
 function createCapacitorSQLiteRuntime() {
@@ -89,6 +90,9 @@ const hostConfig = createAppHostConfig({
   // navigator.onLine reports offline while genuinely connected.
   createNetworkStatus: createCapacitorNetworkStatus,
   createPurchases: createCapacitorPurchases,
+  createScanner: Capacitor.isNativePlatform()
+    ? createCapacitorScanner
+    : undefined,
   createSQLiteRuntime: createCapacitorSQLiteRuntime,
   navigationMode: Capacitor.isNativePlatform() ? "routed" : undefined,
   readNativeBuildNumber: Capacitor.isNativePlatform()
