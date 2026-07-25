@@ -48,3 +48,27 @@ test("a changed recovery context stops later document work", async () => {
   ).resolves.toBe("context-changed");
   expect(order).toEqual(["recover", "context-change"]);
 });
+
+test("document work skips empty move effects and disabled priming", async () => {
+  const order: string[] = [];
+
+  await expect(
+    runContainerDocumentWork({
+      onContextChanged: () => order.push("context-change"),
+      onDocumentsMoved: () => order.push("move-effects"),
+      primeDocuments: async () => {
+        order.push("prime");
+      },
+      recoverStaleRoot: async () => {
+        order.push("recover");
+        return "not-needed";
+      },
+      shouldPrimeDocuments: () => false,
+      syncPendingDocumentMoves: async () => {
+        order.push("moves");
+        return 0;
+      },
+    }),
+  ).resolves.toBe("completed");
+  expect(order).toEqual(["recover", "moves"]);
+});

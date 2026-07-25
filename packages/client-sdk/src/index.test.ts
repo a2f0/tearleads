@@ -126,6 +126,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "createContainerContentsStore",
   "createContainerContentsStoreState",
   "createContainerContentsStoreSyncAgent",
+  "createContainerContentsStoreWorkflowRuntime",
   "createContainerContentsSyncLane",
   "createContainerContentsWorkflowRuntime",
   "createContainerDocumentObjectSyncState",

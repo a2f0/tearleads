@@ -144,10 +144,11 @@ Host and workflow integration code should use these grouped fields so a
 consumer's dependency boundary is visible. Runtime snapshots expose grouped
 capabilities only.
 
-`tearleads.containerContents.workflowRuntime()` remains available for advanced
-host stores that need the lower-level container contents runtime. Most product
-code should use `openTree()`, `documentQueries()`, `documentLinks()`, discovery,
-refresh helpers, and diagnostic loaders.
+`tearleads.containerContents.workflowRuntime()` remains available to advanced
+host stores and includes root adoption. Custom hosts assembling a store directly
+must use `createContainerContentsStoreWorkflowRuntime(input, adopter)`; the
+adopter atomically validates and updates the session root. The general workflow
+factory is query-only. Most product code should use the higher-level helpers.
 
 `tearleads.containerContents.documentQueries().listPendingWrites()` returns an
 identity-wide, locally derived view of durable writes that have not converged.

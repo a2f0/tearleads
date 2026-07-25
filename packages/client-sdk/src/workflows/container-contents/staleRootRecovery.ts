@@ -143,6 +143,17 @@ export async function recoverStaleSessionRoot(
   if (!state.runtime.adoptRootContainer) {
     return { candidateCount: 1, status: "unsupported" };
   }
+  if (
+    !hasSameRecoveryContext(state, {
+      domainScope,
+      defaultOrganizationId,
+      organizationId,
+      staleContainerId,
+      userId,
+    })
+  ) {
+    return { candidateCount: 0, status: "context-changed" };
+  }
 
   await state.persistence.reassignContainerDocuments(
     state.runtime.infra.execSql,

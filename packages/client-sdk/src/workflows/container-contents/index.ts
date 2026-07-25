@@ -110,6 +110,9 @@ export {
   didContainerContentsProjectionKeyRuntimeChange,
 } from "./projectionKeys";
 export {
+  type ContainerContentsRootAdopter,
+  type ContainerContentsRootAdoptionInput,
+  type ContainerContentsStoreWorkflowRuntime,
   type ContainerContentsWorkflowRuntime,
   type ContainerContentsWorkflowRuntimeAuth,
   type ContainerContentsWorkflowRuntimeCrypto,
@@ -120,6 +123,7 @@ export {
   type ContainerContentsWorkflowRuntimeState,
   type ContainerContentsWorkflowRuntimeUtil,
   createContainerContentsDocumentsRuntime,
+  createContainerContentsStoreWorkflowRuntime,
   createContainerContentsWorkflowRuntime,
 } from "./runtime";
 export type {

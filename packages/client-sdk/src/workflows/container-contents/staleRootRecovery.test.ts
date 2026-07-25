@@ -269,6 +269,24 @@ for (const [name, mutate] of changedRecoveryContexts) {
   });
 }
 
+test("stale root recovery rechecks context after candidate selection", async () => {
+  const fixture = createFixture();
+  const values = fixture.state.containersById.values.bind(
+    fixture.state.containersById,
+  );
+  fixture.state.containersById.values = () => {
+    fixture.state.runtime.auth.userId = "another-user";
+    return values();
+  };
+
+  await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
+    candidateCount: 0,
+    status: "context-changed",
+  });
+  expect(fixture.reassignments).toEqual([]);
+  expect(fixture.adoptions).toEqual([]);
+});
+
 test("stale root recovery reports a context change after reassignment", async () => {
   const fixture = createFixture();
   fixture.setAdoptionResult(false);
