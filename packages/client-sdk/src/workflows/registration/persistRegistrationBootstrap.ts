@@ -39,6 +39,7 @@ export interface RegistrationBootstrapInput {
   initialOrganizationPolicy: PrincipalPolicyBundleResponse;
   rootMetadataAccessEpoch: number;
   rootMetadataAccessStateHash: string;
+  rootContainerServerTimestamp: string;
   rootMetadataDocumentId: string;
   rootMetadataInitialUpdate: Uint8Array;
   rootMetadataInitialUpdateCommitted?: boolean | undefined;
@@ -176,6 +177,13 @@ async function persistRootContainerBootstrap(
       icon: null,
     },
     rootRecord,
+    {
+      localUpdatedAt: input.rootContainerServerTimestamp,
+      serverTimestamps: {
+        createdAt: input.rootContainerServerTimestamp,
+        updatedAt: input.rootContainerServerTimestamp,
+      },
+    },
   );
   await enqueueInitialContainerMetadataUpdate(
     execSql,
@@ -220,6 +228,7 @@ async function persistRosterProfileContainerBootstrap(
     },
     rosterProfileRecord,
     {
+      localUpdatedAt: rosterProfileContainer.updatedAt,
       serverTimestamps: {
         createdAt: rosterProfileContainer.createdAt,
         updatedAt: rosterProfileContainer.updatedAt,
@@ -272,6 +281,7 @@ async function persistOrganizationMetadataContainerBootstrap(
     },
     metadataRecord,
     {
+      localUpdatedAt: organizationMetadataContainer.updatedAt,
       serverTimestamps: {
         createdAt: organizationMetadataContainer.createdAt,
         updatedAt: organizationMetadataContainer.updatedAt,
@@ -322,6 +332,7 @@ async function persistSystemContainersBootstrap(
       },
       record,
       {
+        localUpdatedAt: systemContainer.updatedAt,
         serverTimestamps: {
           createdAt: systemContainer.createdAt,
           updatedAt: systemContainer.updatedAt,
