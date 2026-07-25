@@ -26,7 +26,7 @@ interface StartupHydrationState {
   runtime: {
     auth: { isAuthenticated: boolean };
     infra: { execSql: StartupHydrationExecSql };
-    state: { online: boolean };
+    state: { containerId: string | null; online: boolean };
   };
 }
 
@@ -89,10 +89,10 @@ function reportStartupHydrationError(message: string, error: unknown) {
 export async function scheduleStaleStartupRemoteHydration(input: {
   requestHydration: () => Promise<void>;
   state: StartupHydrationState;
-}): Promise<void> {
+}): Promise<boolean> {
   const { requestHydration, state } = input;
   if (!state.runtime.auth.isAuthenticated || !state.runtime.state.online) {
-    return;
+    return false;
   }
 
   let parentIds: Array<string | null>;
@@ -103,10 +103,15 @@ export async function scheduleStaleStartupRemoteHydration(input: {
       "Failed to inspect startup container contents hydration:",
       error,
     );
-    return;
+    return false;
   }
+  const activeContainerId = state.runtime.state.containerId;
+  const shouldScheduleStaleRootRecovery =
+    state.rootLaneHydrated &&
+    activeContainerId !== null &&
+    !state.containersById.has(activeContainerId);
   if (parentIds.length === 0) {
-    return;
+    return shouldScheduleStaleRootRecovery;
   }
 
   for (const parentId of parentIds) {
@@ -122,6 +127,7 @@ export async function scheduleStaleStartupRemoteHydration(input: {
       error,
     );
   });
+  return shouldScheduleStaleRootRecovery;
 }
 
 export async function hasStartupContainerSyncWork(state: {

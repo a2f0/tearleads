@@ -96,19 +96,68 @@ test("startup restores a fresh durable root-lane hydration marker", async () => 
       runtime: {
         auth: { isAuthenticated: true },
         infra: { execSql },
-        state: { online: true },
+        state: { containerId: "remote-root", online: true },
       },
     };
 
-    await scheduleStaleStartupRemoteHydration({
-      requestHydration: async () => {
-        hydrationRequestCount += 1;
-      },
-      state,
-    });
+    const shouldScheduleStaleRootRecovery =
+      await scheduleStaleStartupRemoteHydration({
+        requestHydration: async () => {
+          hydrationRequestCount += 1;
+        },
+        state,
+      });
 
     expect(state.rootLaneHydrated).toBe(true);
     expect(hydrationRequestCount).toBe(0);
+    expect(shouldScheduleStaleRootRecovery).toBe(false);
+  } finally {
+    close();
+  }
+});
+
+test("startup schedules stale-root recovery with no durable sync work", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "startup-schedules-stale-root-recovery",
+  );
+  try {
+    await markContainerSyncLaneChecked(
+      execSql,
+      createContainerParentSyncLane(null),
+    );
+    let hydrationRequestCount = 0;
+    const state = {
+      containerParentIdsNeedingHydration: new Set<string | null>(),
+      containersById: new Map([
+        [
+          "remote-root",
+          {
+            container: {
+              metadataDocumentId: "remote-root-metadata",
+              parentId: null,
+            },
+          },
+        ],
+      ]),
+      rootLaneHydrated: false,
+      runtime: {
+        auth: { isAuthenticated: true },
+        infra: { execSql },
+        state: { containerId: "deleted-local-root", online: true },
+      },
+    };
+
+    const shouldScheduleStaleRootRecovery =
+      await scheduleStaleStartupRemoteHydration({
+        requestHydration: async () => {
+          hydrationRequestCount += 1;
+        },
+        state,
+      });
+
+    expect(state.rootLaneHydrated).toBe(true);
+    expect(hydrationRequestCount).toBe(0);
+    expect(shouldScheduleStaleRootRecovery).toBe(true);
   } finally {
     close();
   }

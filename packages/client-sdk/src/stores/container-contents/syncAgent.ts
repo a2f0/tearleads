@@ -199,15 +199,16 @@ async function initializeContainerContentsStore(input: {
   state.initialized = true;
   state.initializePromise = null;
 
-  await scheduleStaleStartupRemoteHydration({
-    requestHydration: () =>
-      requestContainerContentsRemoteHydration({
-        host,
-        scheduleSync,
-        state,
-      }),
-    state,
-  });
+  const shouldScheduleStaleRootRecovery =
+    await scheduleStaleStartupRemoteHydration({
+      requestHydration: () =>
+        requestContainerContentsRemoteHydration({
+          host,
+          scheduleSync,
+          state,
+        }),
+      state,
+    });
 
   host.updateSnapshot();
 
@@ -218,10 +219,13 @@ async function initializeContainerContentsStore(input: {
   if (
     state.runtime.auth.isAuthenticated &&
     state.runtime.state.online &&
-    (await hasStartupContainerSyncWork(state))
+    (shouldScheduleStaleRootRecovery ||
+      (await hasStartupContainerSyncWork(state)))
   ) {
     state.runtime.util.log(
-      `${getContainerContentsStoreLogLabel(state)}: startup detected durable sync work; scheduling lane pass`,
+      shouldScheduleStaleRootRecovery
+        ? `${getContainerContentsStoreLogLabel(state)}: startup detected stale root recovery; scheduling lane pass`
+        : `${getContainerContentsStoreLogLabel(state)}: startup detected durable sync work; scheduling lane pass`,
     );
     scheduleSync();
   }
