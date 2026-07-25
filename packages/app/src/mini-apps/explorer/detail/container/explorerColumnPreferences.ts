@@ -11,10 +11,11 @@ import {
 // container or per identity) — mirrors the system-monitor mode persistence.
 export const EXPLORER_COLUMN_STORAGE_KEY = "tearleads.explorer:hidden-columns";
 
-// Date Created is hidden until the user opts in. A written value (including an
-// empty list) always wins, so an explicit "show everything" choice survives.
+// Date Created and Sync are hidden until the user opts in. A written value
+// (including an empty list) always wins, so an explicit "show everything"
+// choice survives.
 export const DEFAULT_HIDDEN_EXPLORER_COLUMNS: ReadonlyArray<ExplorerItemColumnId> =
-  ["created"];
+  ["created", "sync"];
 
 export function loadHiddenExplorerColumns(): ReadonlySet<ExplorerItemColumnId> {
   return loadMiniAppHiddenColumns({

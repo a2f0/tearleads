@@ -11,9 +11,9 @@ afterEach(() => {
   globalThis.localStorage.clear();
 });
 
-test("hides Date Created by default when nothing is stored", () => {
-  expect([...DEFAULT_HIDDEN_EXPLORER_COLUMNS]).toEqual(["created"]);
-  expect([...loadHiddenExplorerColumns()]).toEqual(["created"]);
+test("hides Date Created and Sync by default when nothing is stored", () => {
+  expect([...DEFAULT_HIDDEN_EXPLORER_COLUMNS]).toEqual(["created", "sync"]);
+  expect([...loadHiddenExplorerColumns()]).toEqual(["created", "sync"]);
 });
 
 test("round-trips a saved hidden-column set (load reads what save wrote)", () => {
@@ -38,7 +38,7 @@ test("drops unknown / non-toggleable column ids when loading", () => {
 
 test("falls back to the default for malformed stored JSON", () => {
   globalThis.localStorage.setItem(STORAGE_KEY, "not json");
-  expect([...loadHiddenExplorerColumns()]).toEqual(["created"]);
+  expect([...loadHiddenExplorerColumns()]).toEqual(["created", "sync"]);
 });
 
 test("falls back to the default for a non-array stored value", () => {
@@ -46,5 +46,5 @@ test("falls back to the default for a non-array stored value", () => {
     STORAGE_KEY,
     JSON.stringify({ created: true }),
   );
-  expect([...loadHiddenExplorerColumns()]).toEqual(["created"]);
+  expect([...loadHiddenExplorerColumns()]).toEqual(["created", "sync"]);
 });
