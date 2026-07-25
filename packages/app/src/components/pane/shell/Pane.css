@@ -22,6 +22,10 @@
   overflow: hidden;
 }
 
+.pane-log-timestamp {
+  opacity: var(--opacity-muted);
+}
+
 .pane-desktop-label {
   position: absolute;
   inset: 0;

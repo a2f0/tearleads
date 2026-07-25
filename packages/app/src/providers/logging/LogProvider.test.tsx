@@ -94,6 +94,33 @@ test("renders pane log timestamps with locale-independent milliseconds", () => {
   view.unmount();
 });
 
+test("can hide displayed subsecond precision without changing the log value", () => {
+  const timestamp = new Date(2026, 0, 2, 3, 4, 5, 6).getTime();
+  const view = render(
+    <LogProvider>
+      <PaneLog
+        hideSubsecondPrecision
+        trailingEntries={[
+          {
+            id: "hidden-subseconds",
+            level: "error",
+            timestamp,
+            message: "Displayed without milliseconds",
+          },
+        ]}
+      />
+    </LogProvider>,
+  );
+
+  expect(view.getByText("03:04:05")).toBeTruthy();
+  expect(view.queryByText(/03:04:05\.006/)).toBeNull();
+  expect(view.container.querySelector(".pane-log")?.textContent).toBe(
+    "[03:04:05] ERROR: Displayed without milliseconds",
+  );
+
+  view.unmount();
+});
+
 test("retains only the most recent 1000 log entries", () => {
   const view = render(
     <LogProvider>
