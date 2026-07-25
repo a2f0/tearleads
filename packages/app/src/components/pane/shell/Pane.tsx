@@ -79,10 +79,10 @@ function PaneInner({
         <PaneFooter
           tray={
             <>
-              <SyncStatusIndicator />
               <ThemeToggleButton />
               <NavigationModeSwitch mode="windowed" />
               <SystemMonitorLauncherButton />
+              <SyncStatusIndicator />
             </>
           }
         />
