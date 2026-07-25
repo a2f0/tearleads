@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { type CSSProperties, useId } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -15,6 +15,14 @@ import "./ContactAvatarEditorDialog.css";
 import { useAvatarCropEditorState } from "./useAvatarCropEditorState";
 
 const AVATAR_EDITOR_VIEWPORT_SIZE = 260;
+
+interface ContactAvatarEditorViewportStyle extends CSSProperties {
+  "--contact-avatar-editor-size": string;
+}
+
+const CONTACT_AVATAR_EDITOR_VIEWPORT_STYLE: ContactAvatarEditorViewportStyle = {
+  "--contact-avatar-editor-size": `${AVATAR_EDITOR_VIEWPORT_SIZE}px`,
+};
 
 const AVATAR_EDITOR_LABELS = {
   apply: "Apply",
@@ -33,11 +41,7 @@ function AvatarCropViewport({
   hintId: string;
 }) {
   const layout = editor.imageSize
-    ? getAvatarImageLayout(
-        editor.imageSize,
-        editor.view,
-        AVATAR_EDITOR_VIEWPORT_SIZE,
-      )
+    ? getAvatarImageLayout(editor.imageSize, editor.view, editor.viewportSize)
     : null;
 
   return (
@@ -45,10 +49,7 @@ function AvatarCropViewport({
       aria-describedby={hintId}
       className="contact-avatar-editor-viewport"
       ref={editor.viewportRef}
-      style={{
-        height: AVATAR_EDITOR_VIEWPORT_SIZE,
-        width: AVATAR_EDITOR_VIEWPORT_SIZE,
-      }}
+      style={CONTACT_AVATAR_EDITOR_VIEWPORT_STYLE}
       {...editor.pointerHandlers}
     >
       <img

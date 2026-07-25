@@ -12,6 +12,7 @@ import {
   type AvatarCropView,
   INITIAL_AVATAR_CROP_VIEW,
   panAvatarCropView,
+  rescaleAvatarCropView,
   zoomAvatarCropView,
 } from "./avatarCropGeometry";
 import { renderAvatarCropToBlob } from "./avatarCropRender";
@@ -156,17 +157,75 @@ function useAvatarCropWheelZoom(params: {
   }, [imageSize, setView, viewportRef, viewportSize]);
 }
 
-export function useAvatarCropEditorState(source: Blob, viewportSize: number) {
+function useMeasuredViewportSize(
+  viewportRef: RefObject<HTMLDivElement | null>,
+  initialSize: number,
+): number {
+  const [size, setSize] = useState(initialSize);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) {
+      return;
+    }
+
+    const updateSize = (nextSize: number) => {
+      if (nextSize > 0) {
+        setSize((current) => (current === nextSize ? current : nextSize));
+      }
+    };
+    updateSize(viewport.clientWidth);
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const observer = new ResizeObserver(([entry]) => {
+      updateSize(entry ? viewport.clientWidth : 0);
+    });
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [viewportRef]);
+
+  return size;
+}
+
+export function useAvatarCropEditorState(
+  source: Blob,
+  initialViewportSize: number,
+) {
   const [imageSize, setImageSize] = useState<AvatarCropImageSize | null>(null);
   const [view, setView] = useState<AvatarCropView>(INITIAL_AVATAR_CROP_VIEW);
   const [errorKind, setErrorKind] = useState<AvatarCropErrorKind>(null);
   const [saving, setSaving] = useState(false);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const activeViewportSize = useMeasuredViewportSize(
+    viewportRef,
+    initialViewportSize,
+  );
+  const previousViewportSizeRef = useRef(activeViewportSize);
 
   const sourceUrl = useMemo(() => URL.createObjectURL(source), [source]);
   useEffect(() => () => URL.revokeObjectURL(sourceUrl), [sourceUrl]);
-  useAvatarCropWheelZoom({ imageSize, setView, viewportRef, viewportSize });
+  useEffect(() => {
+    const previousViewportSize = previousViewportSizeRef.current;
+    if (imageSize && previousViewportSize !== activeViewportSize) {
+      setView((current) =>
+        rescaleAvatarCropView(
+          imageSize,
+          current,
+          previousViewportSize,
+          activeViewportSize,
+        ),
+      );
+    }
+    previousViewportSizeRef.current = activeViewportSize;
+  }, [activeViewportSize, imageSize]);
+  useAvatarCropWheelZoom({
+    imageSize,
+    setView,
+    viewportRef,
+    viewportSize: activeViewportSize,
+  });
 
   function handleImageLoad(event: SyntheticEvent<HTMLImageElement>) {
     const { naturalHeight, naturalWidth } = event.currentTarget;
@@ -190,7 +249,7 @@ export function useAvatarCropEditorState(source: Blob, viewportSize: number) {
         image,
         imageSize,
         view,
-        viewportSize,
+        viewportSize: activeViewportSize,
       });
     } catch {
       setErrorKind("encode");
@@ -208,7 +267,7 @@ export function useAvatarCropEditorState(source: Blob, viewportSize: number) {
     handleZoomChange: (nextZoom: number) => {
       if (imageSize && !Number.isNaN(nextZoom)) {
         setView((current) =>
-          zoomAvatarCropView(imageSize, current, nextZoom, viewportSize),
+          zoomAvatarCropView(imageSize, current, nextZoom, activeViewportSize),
         );
       }
     },
@@ -217,10 +276,11 @@ export function useAvatarCropEditorState(source: Blob, viewportSize: number) {
     pointerHandlers: useAvatarCropPointerHandlers({
       imageSize,
       setView,
-      viewportSize,
+      viewportSize: activeViewportSize,
     }),
     saving,
     sourceUrl,
+    viewportSize: activeViewportSize,
     view,
     viewportRef,
   };
