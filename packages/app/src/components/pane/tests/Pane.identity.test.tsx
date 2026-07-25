@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { act, fireEvent, waitFor, within } from "@testing-library/react";
+import invariant from "invariant";
 import {
   openIdentityManagerFromPane,
   registerAndWaitForUserId,
@@ -293,10 +294,15 @@ test(
     });
 
     fireEvent.click(view.getByRole("button", { name: "Menu" }));
+    const paneMenu = view.baseElement.querySelector<HTMLElement>(".menu");
+    invariant(paneMenu, "Expected pane menu.");
     expect(view.queryByRole("button", { name: "Logout" })).toBeNull();
     expect(view.queryByRole("button", { name: "Destroy Key Pair" })).toBeNull();
     expect(view.getByRole("button", { name: "Explorer" })).toBeTruthy();
     expect(view.getByRole("button", { name: "Notes" })).toBeTruthy();
+    expect(
+      within(paneMenu).getByRole("button", { name: "System Monitor" }),
+    ).toBeTruthy();
 
     const identityManagerWindow = await openIdentityManagerFromPane(view);
     const identitySection = within(identityManagerWindow)
