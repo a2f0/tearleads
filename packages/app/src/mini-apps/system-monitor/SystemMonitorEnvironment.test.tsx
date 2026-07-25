@@ -129,14 +129,16 @@ test("environment tab always reports the raw user agent", async () => {
   view.unmount();
 });
 
-test("copy button is reachable from every tab, not just the environment tab", async () => {
+test("copy button is in the toolbar and reachable from every tab", async () => {
   const view = openMonitor();
 
   // Still on the default Logs tab.
   await view.findByRole("tab", { name: "Logs" });
-  expect(
-    view.getByRole("button", { name: "Copy report for support" }),
-  ).toBeTruthy();
+  const copyButton = view.getByRole("button", {
+    name: "Copy report for support",
+  });
+  expect(copyButton.closest(".window-toolbar")).not.toBeNull();
+  expect(copyButton.closest(".system-monitor-tab-bar")).toBeNull();
 
   view.unmount();
 });
