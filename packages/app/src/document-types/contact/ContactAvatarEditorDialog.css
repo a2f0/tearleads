@@ -15,6 +15,7 @@
 .contact-avatar-editor-viewport {
   position: relative;
   align-self: center;
+  box-sizing: border-box;
   width: min(100%, var(--contact-avatar-editor-size));
   aspect-ratio: 1;
   flex-shrink: 0;

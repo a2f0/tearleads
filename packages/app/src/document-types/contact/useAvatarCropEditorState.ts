@@ -12,6 +12,7 @@ import {
   type AvatarCropView,
   INITIAL_AVATAR_CROP_VIEW,
   panAvatarCropView,
+  rescaleAvatarCropView,
   zoomAvatarCropView,
 } from "./avatarCropGeometry";
 import { renderAvatarCropToBlob } from "./avatarCropRender";
@@ -164,7 +165,7 @@ function useMeasuredViewportSize(
 
   useEffect(() => {
     const viewport = viewportRef.current;
-    if (!viewport || typeof ResizeObserver === "undefined") {
+    if (!viewport) {
       return;
     }
 
@@ -173,9 +174,12 @@ function useMeasuredViewportSize(
         setSize((current) => (current === nextSize ? current : nextSize));
       }
     };
-    updateSize(viewport.getBoundingClientRect().width);
+    updateSize(viewport.clientWidth);
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
     const observer = new ResizeObserver(([entry]) => {
-      updateSize(entry?.contentRect.width ?? 0);
+      updateSize(entry ? viewport.clientWidth : 0);
     });
     observer.observe(viewport);
     return () => observer.disconnect();
@@ -184,17 +188,38 @@ function useMeasuredViewportSize(
   return size;
 }
 
-export function useAvatarCropEditorState(source: Blob, viewportSize: number) {
+export function useAvatarCropEditorState(
+  source: Blob,
+  initialViewportSize: number,
+) {
   const [imageSize, setImageSize] = useState<AvatarCropImageSize | null>(null);
   const [view, setView] = useState<AvatarCropView>(INITIAL_AVATAR_CROP_VIEW);
   const [errorKind, setErrorKind] = useState<AvatarCropErrorKind>(null);
   const [saving, setSaving] = useState(false);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const activeViewportSize = useMeasuredViewportSize(viewportRef, viewportSize);
+  const activeViewportSize = useMeasuredViewportSize(
+    viewportRef,
+    initialViewportSize,
+  );
+  const previousViewportSizeRef = useRef(activeViewportSize);
 
   const sourceUrl = useMemo(() => URL.createObjectURL(source), [source]);
   useEffect(() => () => URL.revokeObjectURL(sourceUrl), [sourceUrl]);
+  useEffect(() => {
+    const previousViewportSize = previousViewportSizeRef.current;
+    if (imageSize && previousViewportSize !== activeViewportSize) {
+      setView((current) =>
+        rescaleAvatarCropView(
+          imageSize,
+          current,
+          previousViewportSize,
+          activeViewportSize,
+        ),
+      );
+    }
+    previousViewportSizeRef.current = activeViewportSize;
+  }, [activeViewportSize, imageSize]);
   useAvatarCropWheelZoom({
     imageSize,
     setView,

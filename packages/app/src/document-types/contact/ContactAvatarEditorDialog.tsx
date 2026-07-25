@@ -16,6 +16,14 @@ import { useAvatarCropEditorState } from "./useAvatarCropEditorState";
 
 const AVATAR_EDITOR_VIEWPORT_SIZE = 260;
 
+interface ContactAvatarEditorViewportStyle extends CSSProperties {
+  "--contact-avatar-editor-size": string;
+}
+
+const CONTACT_AVATAR_EDITOR_VIEWPORT_STYLE: ContactAvatarEditorViewportStyle = {
+  "--contact-avatar-editor-size": `${AVATAR_EDITOR_VIEWPORT_SIZE}px`,
+};
+
 const AVATAR_EDITOR_LABELS = {
   apply: "Apply",
   cancel: "Cancel",
@@ -41,11 +49,7 @@ function AvatarCropViewport({
       aria-describedby={hintId}
       className="contact-avatar-editor-viewport"
       ref={editor.viewportRef}
-      style={
-        {
-          "--contact-avatar-editor-size": `${AVATAR_EDITOR_VIEWPORT_SIZE}px`,
-        } as CSSProperties
-      }
+      style={CONTACT_AVATAR_EDITOR_VIEWPORT_STYLE}
       {...editor.pointerHandlers}
     >
       <img
