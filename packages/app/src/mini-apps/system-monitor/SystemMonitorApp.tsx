@@ -8,7 +8,6 @@ import {
 } from "react";
 import {
   MiniAppButton,
-  MiniAppClipboardButton,
   MiniAppRoot,
 } from "../../components/mini-app/MiniAppLayout";
 import { PaneStatus } from "../../components/pane/status/PaneStatus";
@@ -35,6 +34,7 @@ import { SystemMonitorEnvironment } from "./SystemMonitorEnvironment";
 import { SystemMonitorFeatureFlags } from "./SystemMonitorFeatureFlags";
 import { SystemMonitorLog } from "./SystemMonitorLog";
 import { useSystemMonitor } from "./SystemMonitorProvider";
+import { useSystemMonitorCopyReportAction } from "./useSystemMonitorCopyReportAction";
 import { useSystemMonitorReport } from "./useSystemMonitorReport";
 
 interface SystemMonitorTab {
@@ -80,8 +80,6 @@ function renderSystemMonitorTabPanel(activeTab: SystemMonitorTabId) {
       return <SystemMonitorLog />;
   }
 }
-
-const COPY_REPORT_LABEL = "Copy report for support";
 
 const PIN_TO_DESKTOP_LABEL = "Pin to Desktop";
 const PIN_TO_HOME_SCREEN_LABEL = "Pin to Home Screen";
@@ -273,6 +271,7 @@ export function SystemMonitorApp() {
   const buildReport = useSystemMonitorReport({
     includeFeatureFlags: isDeveloperMode,
   });
+  useSystemMonitorCopyReportAction(buildReport);
   useSystemMonitorChromeActions();
 
   return (
@@ -280,20 +279,12 @@ export function SystemMonitorApp() {
       className="system-monitor"
       onContextMenu={networkContextMenu.handleContextMenu}
     >
-      {/* The copy button is a sibling of the tablist, not a child: a tablist's
-          children must all be tabs, and it copies every tab rather than the
-          selected one. */}
       <div className="system-monitor-tab-bar">
         <SystemMonitorTabs
           activeTab={activeTab}
           idPrefix={idPrefix}
           onSelect={setActiveTab}
           tabs={visibleTabs}
-        />
-        <MiniAppClipboardButton
-          className="system-monitor-copy-button"
-          label={COPY_REPORT_LABEL}
-          value={buildReport}
         />
       </div>
       <div

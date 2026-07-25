@@ -90,6 +90,27 @@ export function panAvatarCropView(
   );
 }
 
+export function rescaleAvatarCropView(
+  image: AvatarCropImageSize,
+  view: AvatarCropView,
+  previousViewportSize: number,
+  nextViewportSize: number,
+): AvatarCropView {
+  if (previousViewportSize <= 0 || nextViewportSize <= 0) {
+    return clampAvatarCropView(image, view, nextViewportSize);
+  }
+  const ratio = nextViewportSize / previousViewportSize;
+  return clampAvatarCropView(
+    image,
+    {
+      offsetX: view.offsetX * ratio,
+      offsetY: view.offsetY * ratio,
+      zoom: view.zoom,
+    },
+    nextViewportSize,
+  );
+}
+
 // Change zoom while keeping the image point at the viewport center fixed:
 // offsets are translations of the image center, so they scale with zoom.
 export function zoomAvatarCropView(

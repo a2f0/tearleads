@@ -7,6 +7,7 @@ import {
   getAvatarImageLayout,
   INITIAL_AVATAR_CROP_VIEW,
   panAvatarCropView,
+  rescaleAvatarCropView,
   zoomAvatarCropView,
 } from "./avatarCropGeometry";
 
@@ -66,6 +67,20 @@ test("zoom scales the current offsets to keep the center point fixed", () => {
   expect(zoomed.zoom).toBe(4);
   expect(zoomed.offsetX).toBeCloseTo(panned.offsetX * 2, 6);
   expect(zoomed.offsetY).toBeCloseTo(panned.offsetY * 2, 6);
+});
+
+test("rescaling keeps a valid crop inside a smaller viewport", () => {
+  const image = { height: 1000, width: 1000 };
+  const view = rescaleAvatarCropView(
+    image,
+    { offsetX: 390, offsetY: -390, zoom: 4 },
+    VIEWPORT,
+    160,
+  );
+
+  expect(view.offsetX).toBe(240);
+  expect(view.offsetY).toBe(-240);
+  expect(view.zoom).toBe(4);
 });
 
 test("crop source rect starts as the centered cover square", () => {
