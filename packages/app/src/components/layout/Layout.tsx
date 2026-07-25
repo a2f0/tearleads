@@ -18,6 +18,10 @@ import { AppFeatureFlagsProvider } from "../../providers/feature-flags/AppFeatur
 import { ThemeProvider } from "../../theme/ThemeProvider";
 import { BillingBanner } from "./BillingBanner";
 import "./Layout.css";
+import {
+  formatMobileBrandLabel,
+  MobileAppTitleProvider,
+} from "./MobileAppTitleContext";
 import { Workspace } from "./workspace/Workspace";
 import {
   SINGLE_WORKSPACE_IDS,
@@ -92,6 +96,7 @@ function LayoutInner({ hostConfig }: LayoutProps) {
     override,
   );
   const [split, setSplit] = useState(hostConfig.profile.defaultSplit);
+  const [mobileAppTitle, setMobileAppTitle] = useState<string | null>(null);
   const { activeWorkspace, workspaceIds } = useWorkspace();
   const toggleSplit = useCallback(() => setSplit((s) => !s), []);
 
@@ -142,20 +147,23 @@ function LayoutInner({ hostConfig }: LayoutProps) {
               ? "layout layout--split"
               : "layout"
       }
+      brandLabel={formatMobileBrandLabel(mobileAppTitle)}
       headerActions={headerActions}
     >
-      <WorkspaceRuntimeHost hostConfig={hostConfig}>
-        {workspaceIds.map((id) => (
-          <Workspace
-            key={id}
-            hostConfig={hostConfig}
-            active={activeWorkspace === id}
-            navigationMode={navigationMode}
-            split={split}
-            workspaceId={id}
-          />
-        ))}
-      </WorkspaceRuntimeHost>
+      <MobileAppTitleProvider setTitle={setMobileAppTitle}>
+        <WorkspaceRuntimeHost hostConfig={hostConfig}>
+          {workspaceIds.map((id) => (
+            <Workspace
+              key={id}
+              hostConfig={hostConfig}
+              active={activeWorkspace === id}
+              navigationMode={navigationMode}
+              split={split}
+              workspaceId={id}
+            />
+          ))}
+        </WorkspaceRuntimeHost>
+      </MobileAppTitleProvider>
     </TearleadsFrame>
   );
 }
