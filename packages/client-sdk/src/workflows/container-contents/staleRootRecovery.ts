@@ -1,5 +1,6 @@
 import type { ContainerContentsPersistence } from "./containerPersistence";
 import type { ContainerState } from "./remoteHydration";
+import { hasRemoteContainerMetadataState } from "./remoteHydration/reconciliation";
 import type {
   ContainerContentsRootAdopter,
   ContainerContentsWorkflowRuntime,
@@ -55,19 +56,6 @@ function hasSameRecoveryContext(
   );
 }
 
-function hasRemoteContainerMetadataState(
-  containerState: ContainerState,
-): boolean {
-  return (
-    typeof containerState.record.documentId === "string" &&
-    containerState.record.documentId.length > 0 &&
-    typeof containerState.record.accessStateHash === "string" &&
-    containerState.record.accessStateHash.length > 0 &&
-    typeof containerState.container.metadataDocumentId === "string" &&
-    containerState.container.metadataDocumentId.length > 0
-  );
-}
-
 function listAuthoritativeRootCandidates(
   state: StaleRootRecoveryState,
   organizationId: string,
@@ -76,6 +64,8 @@ function listAuthoritativeRootCandidates(
     (containerState) =>
       containerState.container.parentId === null &&
       containerState.container.organizationId === organizationId &&
+      (containerState.container.systemSlot ?? null) === null &&
+      containerState.container.effectiveAccessLevel === "admin" &&
       hasRemoteContainerMetadataState(containerState),
   );
 }
@@ -88,9 +78,10 @@ function listAuthoritativeRootCandidates(
  * beneath that deleted id, so startup priming detects their writes but cannot
  * route them. Recovery is intentionally narrow: the stale id must be absent
  * from both the loaded topology and durable storage, and the active
- * organization must have exactly one remote-backed top-level root. This
- * compatibility path only repairs document references; structural container
- * descendants remain owned by normal root reconciliation.
+ * organization must have exactly one owner-administered, non-system,
+ * remote-backed top-level root. This compatibility path only repairs document
+ * references; structural container descendants remain owned by normal root
+ * reconciliation.
  */
 export async function recoverStaleSessionRoot(
   state: StaleRootRecoveryState,

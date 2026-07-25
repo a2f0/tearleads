@@ -28,6 +28,11 @@ interface DocumentRecoveryStoreState {
   readonly runtime: ContainerContentsWorkflowRuntime;
 }
 
+const lastStaleRootRecoveryStatus = new WeakMap<
+  DocumentRecoveryStoreState,
+  StaleRootRecoveryStatus
+>();
+
 function createPrimeHost(
   state: DocumentRecoveryStoreState,
 ): ContainerDocumentPrimeHost<PrimeDocumentRuntime> {
@@ -90,11 +95,13 @@ export async function recoverStoreStaleRoot(
   state: DocumentRecoveryStoreState,
 ): Promise<StaleRootRecoveryStatus> {
   const result = await recoverStaleSessionRoot(state);
-  if (result.status !== "not-needed") {
+  const previousStatus = lastStaleRootRecoveryStatus.get(state);
+  if (result.status !== "not-needed" && result.status !== previousStatus) {
     state.runtime.util.log(
       `${logLabel(state)}: stale root recovery status=${result.status} candidates=${result.candidateCount}`,
     );
   }
+  lastStaleRootRecoveryStatus.set(state, result.status);
   if (result.status === "reassigned") {
     state.documentStoresNeedPriming = true;
   }

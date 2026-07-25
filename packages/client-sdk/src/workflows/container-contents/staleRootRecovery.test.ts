@@ -19,15 +19,21 @@ import { recoverStaleSessionRoot } from "./staleRootRecovery";
 const ORGANIZATION_ID = "organization-1";
 
 function remoteRoot(input: {
+  effectiveAccessLevel?:
+    | ContainerState["container"]["effectiveAccessLevel"]
+    | undefined;
   id: string;
   organizationId?: string | undefined;
+  systemSlot?: ContainerState["container"]["systemSlot"] | undefined;
 }): ContainerState {
   return {
     container: {
+      effectiveAccessLevel: input.effectiveAccessLevel ?? "admin",
       id: input.id,
       metadataDocumentId: `${input.id}-metadata`,
       organizationId: input.organizationId ?? ORGANIZATION_ID,
       parentId: null,
+      systemSlot: input.systemSlot ?? null,
     },
     record: {
       accessStateHash: `${input.id}-access-state`,
@@ -135,6 +141,26 @@ test("stale root recovery refuses ambiguous or foreign roots", async () => {
 
   await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
     candidateCount: 2,
+    status: "ambiguous",
+  });
+  expect(fixture.reassignments).toEqual([]);
+  expect(fixture.adoptions).toEqual([]);
+});
+
+test("stale root recovery refuses granted and system roots", async () => {
+  const fixture = createFixture();
+  fixture.state.containersById.clear();
+  fixture.state.containersById.set(
+    "granted-root",
+    remoteRoot({ effectiveAccessLevel: "read", id: "granted-root" }),
+  );
+  fixture.state.containersById.set(
+    "system-root",
+    remoteRoot({ id: "system-root", systemSlot: "sys_v1_recovered_root" }),
+  );
+
+  await expect(recoverStaleSessionRoot(fixture.state)).resolves.toEqual({
+    candidateCount: 0,
     status: "ambiguous",
   });
   expect(fixture.reassignments).toEqual([]);

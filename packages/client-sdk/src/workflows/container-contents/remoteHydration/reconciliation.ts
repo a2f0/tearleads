@@ -10,7 +10,7 @@ import type {
   RemoteContainerHydrationState,
 } from "./types";
 
-function hasRemoteContainerMetadataState(
+export function hasRemoteContainerMetadataState(
   containerState: ContainerState,
 ): boolean {
   return (

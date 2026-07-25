@@ -360,7 +360,7 @@ async function runContainerContentsStoreSyncIteration(input: {
   // Root adoption notifies session consumers synchronously. Let container
   // metadata converge first so a recovered system container is never exposed
   // under its placeholder name when the active root changes.
-  const documentWorkResult = await runContainerDocumentWork({
+  await runContainerDocumentWork({
     onDocumentsMoved: () => {
       requestDomainDocumentSync(state.runtime.state.domainScope);
       requestContainerContentsStoreSync(state);
@@ -379,9 +379,6 @@ async function runContainerContentsStoreSyncIteration(input: {
         state,
       }),
   });
-  if (documentWorkResult === "context-changed") {
-    return;
-  }
 }
 
 export function createContainerContentsStoreSyncAgent(input: {

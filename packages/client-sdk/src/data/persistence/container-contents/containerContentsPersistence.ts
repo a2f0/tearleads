@@ -837,6 +837,7 @@ async function deleteLocalContainerRows(input: {
 
 export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
   async containerExists(execSql, containerId) {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
     const { db } = getClientSQLitePersistenceRuntime(execSql);
     const rows = await db
       .select({ id: containers.id })

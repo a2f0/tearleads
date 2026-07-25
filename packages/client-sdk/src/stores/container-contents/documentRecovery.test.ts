@@ -82,10 +82,12 @@ test("stale root recovery logs the result and re-arms document priming", async (
         "remote-root",
         {
           container: {
+            effectiveAccessLevel: "admin",
             id: "remote-root",
             metadataDocumentId: "remote-root-metadata",
             organizationId: "organization-1",
             parentId: null,
+            systemSlot: null,
           },
           record: {
             accessStateHash: "remote-root-access-state",
@@ -123,5 +125,38 @@ test("stale root recovery logs the result and re-arms document priming", async (
   expect(state.documentStoresNeedPriming).toBe(true);
   expect(logs).toEqual([
     "Container contents: stale root recovery status=reassigned candidates=1",
+  ]);
+});
+
+test("stale root recovery logs a persistent status only once", async () => {
+  const logs: string[] = [];
+  const state = {
+    containersById: new Map<string, ContainerState>(),
+    documentStoresNeedPriming: false,
+    persistence: {
+      ...defaultContainerContentsPersistence,
+      containerExists: async () => false,
+    },
+    runtime: {
+      adoptRootContainer: () => true,
+      auth: {
+        isAuthenticated: true,
+        organizationId: "organization-1",
+        userId: "user-1",
+      },
+      infra: { execSql: (() => Promise.resolve([])) as ExecSql },
+      state: {
+        containerId: "stale-root",
+        domainScope: createDomainScope(),
+      },
+      util: { log: (message: string) => logs.push(message) },
+    } as unknown as ContainerContentsWorkflowRuntime,
+  };
+
+  await expect(recoverStoreStaleRoot(state)).resolves.toBe("ambiguous");
+  await expect(recoverStoreStaleRoot(state)).resolves.toBe("ambiguous");
+
+  expect(logs).toEqual([
+    "Container contents: stale root recovery status=ambiguous candidates=0",
   ]);
 });
