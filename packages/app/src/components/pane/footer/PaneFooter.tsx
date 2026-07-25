@@ -1,6 +1,6 @@
 import { TearleadsLogo } from "@tearleads/ui";
 import type { ReactNode } from "react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { MINI_APP_ICONS } from "../../../mini-apps/registry";
 import { WorkspaceSwitcher } from "../../layout/workspace/WorkspaceSwitcher";
 import type { MenuPosition } from "../../shared/Menu";
@@ -19,10 +19,6 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
   const [menu, setMenu] = useState<MenuPosition | null>(null);
   const { windows } = useWindowStateData();
   const { restore } = useWindowActions();
-  const minimizedWindows = useMemo(
-    () => windows.filter((w) => w.minimized),
-    [windows],
-  );
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     setMenu({ x: e.clientX, y: e.clientY });
@@ -43,13 +39,14 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
         >
           <TearleadsLogo className="pane-footer-menu-logo" />
         </button>
-        {minimizedWindows.map((w) => {
+        {windows.map((w) => {
           const AppIcon = w.appId ? MINI_APP_ICONS[w.appId] : undefined;
           return (
             <button
               key={w.id}
               type="button"
               className="tearleads-action-button pane-footer-window"
+              aria-label={`Activate ${w.title} window`}
               title={w.title}
               onClick={() => restore(w.id)}
             >
@@ -62,7 +59,9 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
                   weight="regular"
                 />
               )}
-              <span className="pane-footer-window-label">{w.title}</span>
+              {(w.minimized || !AppIcon) && (
+                <span className="pane-footer-window-label">{w.title}</span>
+              )}
             </button>
           );
         })}
