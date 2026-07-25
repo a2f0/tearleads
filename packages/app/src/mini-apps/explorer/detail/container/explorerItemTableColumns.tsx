@@ -6,14 +6,7 @@ import type {
   ContainerItemSortKey,
 } from "@tearleads/client-sdk";
 import { getStoredDocumentTypeLabel } from "@tearleads/client-sdk";
-import {
-  type MouseEvent,
-  type ReactNode,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import { MiniAppButton } from "../../../../components/mini-app/MiniAppLayout";
+import type { MouseEvent, ReactNode } from "react";
 import {
   MiniAppRowActionsButton,
   MiniAppTableCell,
@@ -21,7 +14,6 @@ import {
   MiniAppTableText,
   miniAppRowActionsColumn,
 } from "../../../../components/mini-app/MiniAppTable";
-import { Menu, type MenuPosition } from "../../../../components/shared/Menu";
 import { ContactAvatar } from "../../../../document-types/contact/ContactAvatar";
 import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/projectors";
@@ -32,7 +24,9 @@ import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
 import { getExplorerContactAvatarUrl } from "../../explorerContactAvatar";
 import { getExplorerContainerIcon } from "../../explorerContainerIcons";
 import { EXPLORER_LABELS } from "../../labels";
+import { ExplorerCompactSortHeader } from "../ExplorerCompactSortHeader";
 import type { ExplorerItemColumnId } from "./explorerItemColumnIds";
+import "./ExplorerContainerDetail.css";
 
 function getSortAria(
   sort: ContainerItemSort,
@@ -67,112 +61,6 @@ function ExplorerSortableTableHeader(params: {
             : ""}
       </span>
     </button>
-  );
-}
-
-const COMPACT_SORT_LABELS: Readonly<Record<ContainerItemSortKey, string>> = {
-  created: EXPLORER_LABELS.dateCreatedColumn,
-  modified: EXPLORER_LABELS.dateModifiedColumnCompact,
-  name: EXPLORER_LABELS.itemNameColumn,
-  type: EXPLORER_LABELS.itemTypeColumn,
-};
-
-function defineAllSortKeys<const Keys extends readonly ContainerItemSortKey[]>(
-  ...keys: Keys &
-    ([ContainerItemSortKey] extends [Keys[number]] ? unknown : never)
-): Keys {
-  return keys;
-}
-
-const COMPACT_SORT_KEYS = defineAllSortKeys(
-  "created",
-  "modified",
-  "name",
-  "type",
-);
-
-function ExplorerCompactSortHeader(params: {
-  onSort: (key: ContainerItemSortKey) => void;
-  sort: ContainerItemSort;
-}) {
-  const { onSort, sort } = params;
-  const stateLabel =
-    sort.direction === "asc"
-      ? EXPLORER_LABELS.columnSortedAscending
-      : EXPLORER_LABELS.columnSortedDescending;
-  const activeOptionRef = useRef<HTMLButtonElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
-  const triggerLabel = COMPACT_SORT_LABELS[sort.key];
-
-  useEffect(() => {
-    if (menuPosition) {
-      activeOptionRef.current?.focus();
-    }
-  }, [menuPosition]);
-
-  return (
-    <>
-      <MiniAppButton
-        aria-expanded={menuPosition !== null}
-        aria-haspopup="menu"
-        aria-label={`${EXPLORER_LABELS.itemSortMenuLabel}: ${triggerLabel}, ${stateLabel}`}
-        className="explorer-compact-sort-trigger"
-        onClick={(event) => {
-          if (menuPosition) {
-            setMenuPosition(null);
-            return;
-          }
-
-          const rect = event.currentTarget.getBoundingClientRect();
-          setMenuPosition({ x: rect.left, y: rect.bottom });
-        }}
-        ref={triggerRef}
-        type="button"
-      >
-        <span>{triggerLabel}</span>
-        <span aria-hidden="true">{sort.direction === "asc" ? "↑" : "↓"}</span>
-      </MiniAppButton>
-      {menuPosition ? (
-        <Menu
-          direction="down"
-          onClose={() => setMenuPosition(null)}
-          position={menuPosition}
-        >
-          <div aria-label={EXPLORER_LABELS.itemSortMenuLabel} role="menu">
-            {COMPACT_SORT_KEYS.map((key) => {
-              const active = key === sort.key;
-              const optionLabel = active
-                ? `${COMPACT_SORT_LABELS[key]}, ${stateLabel}, ${EXPLORER_LABELS.itemSortReverseAction}`
-                : COMPACT_SORT_LABELS[key];
-
-              return (
-                <button
-                  aria-checked={active}
-                  key={key}
-                  onClick={() => {
-                    onSort(key);
-                    setMenuPosition(null);
-                    triggerRef.current?.focus();
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                      setMenuPosition(null);
-                      triggerRef.current?.focus();
-                    }
-                  }}
-                  ref={active ? activeOptionRef : undefined}
-                  role="menuitemradio"
-                  type="button"
-                >
-                  <span className="menu-item-label">{optionLabel}</span>
-                </button>
-              );
-            })}
-          </div>
-        </Menu>
-      ) : null}
-    </>
   );
 }
 
@@ -271,6 +159,9 @@ function getExplorerContainerItemTypeLabel(row: ContainerItemRow): string {
 }
 
 export interface ExplorerItemCellContext {
+  // Object URLs for contact avatars, keyed by the contact document's local id.
+  // Covers only contacts in the Explorer's contacts container; rows without an
+  // entry keep the document-kind glyph.
   contactAvatarUrlByLocalId: AvatarUrlByContactId;
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
@@ -301,6 +192,8 @@ function getExplorerContainerItemName(ctx: ExplorerItemCellContext): string {
   });
 }
 
+// A configured glyph for containers, otherwise the document kind's shared icon
+// (the same mapping the "New Document" picker uses).
 function getExplorerItemIcon(row: ContainerItemRow): {
   containerIcon: string | null;
   Icon: Icon;
@@ -325,6 +218,9 @@ function getExplorerItemIcon(row: ContainerItemRow): {
   };
 }
 
+// Opening an item: containers become the pane's selection, documents route to
+// their projection. Shared by the name cell's button and the row-wide click
+// target (see `onActivate` on MiniAppTableRow) so both do exactly the same thing.
 export function openExplorerItem(
   ctx: Pick<
     ExplorerItemCellContext,
@@ -357,6 +253,8 @@ function getExplorerItemVisual(
       : undefined;
 
   return avatarUrl ? (
+    // ContactAvatar sizes and shrink-proofs itself without the glyph opacity:
+    // dimming a photograph reads as disabled rather than as a leading visual.
     <ContactAvatar
       imageUrl={avatarUrl}
       size={options.compact ? "medium" : "small"}
@@ -374,6 +272,9 @@ function getExplorerItemVisual(
   );
 }
 
+// Keep standard table-row semantics: a native button owns click and keyboard
+// behavior, while the row handles clicks elsewhere. The compact summary lets
+// its spanning visual sit outside this otherwise-identical name control.
 function ExplorerItemNameButton(
   ctx: ExplorerItemCellContext,
   options: { showVisual: boolean } = { showVisual: true },
@@ -420,7 +321,7 @@ function ExplorerItemSummaryCell(ctx: ExplorerItemCellContext): ReactNode {
         <span className="explorer-item-summary-copy">
           {ExplorerItemNameButton(ctx, { showVisual: false })}
           <span className="explorer-item-summary-type" title={type}>
-            <span className="mini-app-compact-table-field-label">
+            <span className="explorer-item-summary-field-label">
               {EXPLORER_LABELS.itemTypeColumn}:{" "}
             </span>
             {type}

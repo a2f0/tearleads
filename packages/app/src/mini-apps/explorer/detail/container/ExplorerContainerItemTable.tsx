@@ -35,7 +35,6 @@ import {
   openExplorerItem,
   renderExplorerItemCell,
 } from "./explorerItemTableColumns";
-import "./ExplorerContainerDetail.css";
 
 function getExplorerContainerItemRowKey(row: ContainerItemRow): string {
   return row.itemKind === "container"

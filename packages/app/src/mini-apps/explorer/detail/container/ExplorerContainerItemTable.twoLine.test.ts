@@ -183,6 +183,11 @@ test("phone container item table folds the row into a summary and a kebab", () =
 
   expect(view.container.querySelectorAll("thead th")).toHaveLength(2);
   expect(
+    view.getByRole("columnheader", {
+      name: `${EXPLORER_LABELS.itemNameColumn}:`,
+    }),
+  ).toBeTruthy();
+  expect(
     view.container.querySelectorAll(
       ".explorer-item-table-row .mini-app-table-cell",
     ),
@@ -317,20 +322,18 @@ test("phone container item table sorts from the summary header", () => {
   });
 
   const triggerName = `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.itemNameColumn}, ${EXPLORER_LABELS.columnSortedAscending}`;
-  fireEvent.click(view.getByRole("button", { name: triggerName }));
-  const menu = view.getByRole("menu", {
-    name: EXPLORER_LABELS.itemSortMenuLabel,
-  });
-  expect(getItemTableFrame(view).contains(menu)).toBe(false);
-  expect(document.body.contains(menu)).toBe(true);
+  fireEvent.click(view.getByRole("combobox", { name: triggerName }));
+  const listbox = view.getByRole("listbox");
+  expect(getItemTableFrame(view).contains(listbox)).toBe(false);
+  expect(document.body.contains(listbox.closest(".menu"))).toBe(true);
   fireEvent.click(
-    view.getByRole("menuitemradio", {
+    view.getByRole("option", {
       name: EXPLORER_LABELS.dateModifiedColumnCompact,
     }),
   );
-  fireEvent.click(view.getByRole("button", { name: triggerName }));
+  fireEvent.click(view.getByRole("combobox", { name: triggerName }));
   fireEvent.click(
-    view.getByRole("menuitemradio", {
+    view.getByRole("option", {
       name: EXPLORER_LABELS.itemTypeColumn,
     }),
   );
@@ -346,17 +349,57 @@ test("phone sort menu announces and repeats the active key to reverse it", () =>
     totalCount: 1,
   });
   const triggerName = `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.itemNameColumn}, ${EXPLORER_LABELS.columnSortedAscending}`;
+  const trigger = view.getByRole("combobox", { name: triggerName });
+  trigger.focus();
 
   for (let index = 0; index < 2; index += 1) {
-    fireEvent.click(view.getByRole("button", { name: triggerName }));
-    fireEvent.click(
-      view.getByRole("menuitemradio", {
-        name: `${EXPLORER_LABELS.itemNameColumn}, ${EXPLORER_LABELS.columnSortedAscending}, ${EXPLORER_LABELS.itemSortReverseAction}`,
+    fireEvent.keyDown(trigger, { key: "Enter" });
+    expect(
+      view.getByRole("option", {
+        name: `${EXPLORER_LABELS.itemNameColumn} ${EXPLORER_LABELS.columnSortedAscending}. ${EXPLORER_LABELS.itemSortReverseAction}`,
       }),
-    );
+    ).toBeTruthy();
+    fireEvent.keyDown(trigger, { key: "Enter" });
+    expect(view.queryByRole("listbox")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   }
 
   expect(sortKeys).toEqual(["name", "name"]);
+});
+
+test("phone sort menu dismisses on outside and trigger mouse downs", () => {
+  const view = renderFoldedItemTable({
+    rows: [archiveRow],
+    totalCount: 1,
+  });
+  const trigger = view.getByRole("combobox", {
+    name: `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.itemNameColumn}, ${EXPLORER_LABELS.columnSortedAscending}`,
+  });
+  trigger.focus();
+
+  fireEvent.click(trigger);
+  const activeOption = view.getByRole("option", {
+    name: `${EXPLORER_LABELS.itemNameColumn} ${EXPLORER_LABELS.columnSortedAscending}. ${EXPLORER_LABELS.itemSortReverseAction}`,
+  });
+  expect(trigger.getAttribute("aria-activedescendant")).toBe(activeOption.id);
+  expect(document.activeElement).toBe(trigger);
+  fireEvent.keyDown(trigger, { key: "ArrowDown" });
+  expect(trigger.getAttribute("aria-activedescendant")).toBe(
+    view.getByRole("option", { name: EXPLORER_LABELS.itemTypeColumn }).id,
+  );
+
+  fireEvent.mouseDown(document.body);
+  expect(view.queryByRole("listbox")).toBeNull();
+
+  fireEvent.click(trigger);
+  fireEvent.mouseDown(trigger);
+  fireEvent.click(trigger);
+  expect(view.queryByRole("listbox")).toBeNull();
+
+  fireEvent.keyDown(trigger, { key: "Enter" });
+  fireEvent.keyDown(trigger, { key: "Escape" });
+  expect(view.queryByRole("listbox")).toBeNull();
+  expect(document.activeElement).toBe(trigger);
 });
 
 test("phone container item table displays only the active sort field", () => {
@@ -369,23 +412,17 @@ test("phone container item table displays only the active sort field", () => {
   expect(
     view.container.querySelector("thead th")?.getAttribute("aria-sort"),
   ).toBe("none");
-  expect(
-    view.getByRole("button", {
-      name: `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.dateModifiedColumnCompact}, ${EXPLORER_LABELS.columnSortedDescending}`,
-    }),
-  ).toBeTruthy();
-  expect(
-    view.getByText(EXPLORER_LABELS.dateModifiedColumnCompact),
-  ).toBeTruthy();
+  const trigger = view.getByRole("combobox", {
+    name: `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.dateModifiedColumnCompact}, ${EXPLORER_LABELS.columnSortedDescending}`,
+  });
+  expect(trigger.textContent).toContain(
+    EXPLORER_LABELS.dateModifiedColumnCompact,
+  );
   expect(view.queryByText(EXPLORER_LABELS.itemTypeColumn)).toBeNull();
   expect(view.queryByText(EXPLORER_LABELS.itemNameColumn)).toBeNull();
 
-  fireEvent.click(
-    view.getByRole("button", {
-      name: `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.dateModifiedColumnCompact}, ${EXPLORER_LABELS.columnSortedDescending}`,
-    }),
-  );
-  expect(view.getAllByRole("menuitemradio")).toHaveLength(4);
+  fireEvent.click(trigger);
+  expect(view.getAllByRole("option")).toHaveLength(4);
 
   cleanup();
   const createdSortView = renderFoldedItemTable({
@@ -395,13 +432,10 @@ test("phone container item table displays only the active sort field", () => {
   });
 
   expect(
-    createdSortView.getByRole("button", {
+    createdSortView.getByRole("combobox", {
       name: `${EXPLORER_LABELS.itemSortMenuLabel}: ${EXPLORER_LABELS.dateCreatedColumn}, ${EXPLORER_LABELS.columnSortedAscending}`,
-    }),
-  ).toBeTruthy();
-  expect(
-    createdSortView.getByText(EXPLORER_LABELS.dateCreatedColumn),
-  ).toBeTruthy();
+    }).textContent,
+  ).toContain(EXPLORER_LABELS.dateCreatedColumn);
 });
 
 test("phone container item table opens the per-item menu from the actions kebab", () => {

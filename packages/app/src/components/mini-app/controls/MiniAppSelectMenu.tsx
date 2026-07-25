@@ -1,6 +1,7 @@
 import { CaretDownIcon } from "@phosphor-icons/react/dist/csr/CaretDown";
 import { type ReactNode, type RefObject, useEffect, useRef } from "react";
 import { classNames } from "../../shared/classNames";
+import { Menu, type MenuPosition } from "../../shared/Menu";
 import { MiniAppButton } from "./MiniAppButton";
 import {
   getOptionElementId,
@@ -22,6 +23,7 @@ interface MiniAppSelectMenuProps {
   onChange: (value: string) => void;
   options: ReadonlyArray<MiniAppSelectMenuOption>;
   placeholder?: string;
+  portaled?: boolean;
   selectRef?: RefObject<HTMLButtonElement | null>;
   value: string;
 }
@@ -34,6 +36,7 @@ function MiniAppSelectMenuTrigger(props: {
   optionCount: number;
   placeholder: string | undefined;
   selectRef: RefObject<HTMLButtonElement | null>;
+  stopMouseDownPropagation: boolean;
 }) {
   const { controller } = props;
 
@@ -55,13 +58,20 @@ function MiniAppSelectMenuTrigger(props: {
         controller.openList();
       }}
       onKeyDown={controller.onKeyDown}
+      onMouseDown={(event) => {
+        if (props.stopMouseDownPropagation) {
+          event.stopPropagation();
+        }
+      }}
       ref={props.selectRef}
       role="combobox"
     >
       <span className="mini-app-select-menu-value">
         {controller.selectedOption?.icon}
         <span className="mini-app-select-menu-label">
-          {controller.selectedOption?.label ?? props.placeholder}
+          {controller.selectedOption?.triggerLabel ??
+            controller.selectedOption?.label ??
+            props.placeholder}
         </span>
       </span>
       <CaretDownIcon
@@ -110,6 +120,11 @@ function MiniAppSelectMenuOptionButton(params: {
     >
       {params.option.icon}
       <span className="mini-app-select-menu-label">{params.option.label}</span>
+      {params.option.secondaryLabel ? (
+        <span className="mini-app-select-menu-option-secondary">
+          {params.option.secondaryLabel}
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -118,12 +133,20 @@ function MiniAppSelectMenuPopover(props: {
   controller: MiniAppSelectMenuController;
   footer: MiniAppSelectMenuProps["footer"];
   options: ReadonlyArray<MiniAppSelectMenuOption>;
+  portaled: boolean;
+  popoverRef: RefObject<HTMLDivElement | null>;
   value: string;
 }) {
   const { controller } = props;
 
   return (
-    <div className="mini-app-select-menu-popover">
+    <div
+      ref={props.popoverRef}
+      className={classNames(
+        "mini-app-select-menu-popover",
+        props.portaled && "mini-app-select-menu-popover--portal",
+      )}
+    >
       <div
         className="mini-app-select-menu-list"
         id={controller.listboxId}
@@ -158,17 +181,38 @@ function MiniAppSelectMenuPopover(props: {
  */
 export function MiniAppSelectMenu(props: MiniAppSelectMenuProps) {
   const internalRef = useRef<HTMLButtonElement>(null);
+  const portalRef = useRef<HTMLDivElement>(null);
   const selectRef = props.selectRef ?? internalRef;
   const disabled = props.disabled ?? false;
   const hasFooter = Boolean(props.footer);
+  const portaled = props.portaled ?? false;
   const controller = useMiniAppSelectMenuController({
     disabled,
     hasFooter,
     onChange: props.onChange,
     options: props.options,
+    portalRef,
     selectRef,
     value: props.value,
   });
+  const portalPosition: MenuPosition | null = (() => {
+    if (!controller.open || !portaled || !selectRef.current) {
+      return null;
+    }
+
+    const rect = selectRef.current.getBoundingClientRect();
+    return { x: rect.left, y: rect.bottom };
+  })();
+  const popover = controller.open ? (
+    <MiniAppSelectMenuPopover
+      controller={controller}
+      footer={props.footer}
+      options={props.options}
+      portaled={portaled}
+      popoverRef={portalRef}
+      value={props.value}
+    />
+  ) : null;
 
   return (
     <div
@@ -183,15 +227,19 @@ export function MiniAppSelectMenu(props: MiniAppSelectMenuProps) {
         optionCount={props.options.length}
         placeholder={props.placeholder}
         selectRef={selectRef}
+        stopMouseDownPropagation={portaled}
       />
-      {controller.open ? (
-        <MiniAppSelectMenuPopover
-          controller={controller}
-          footer={props.footer}
-          options={props.options}
-          value={props.value}
-        />
-      ) : null}
+      {portalPosition ? (
+        <Menu
+          direction="down"
+          onClose={controller.close}
+          position={portalPosition}
+        >
+          {popover}
+        </Menu>
+      ) : (
+        popover
+      )}
     </div>
   );
 }
