@@ -1,6 +1,6 @@
-import { afterEach, expect, mock, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import type { OrganizationBillingView } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, render } from "@testing-library/react";
 import {
   MiniAppLauncherProvider,
   useRegisterMiniAppLauncher,
@@ -32,18 +32,13 @@ function view(
 }
 
 test("renders nothing without a view", () => {
-  const { container } = render(
-    <BillingBannerView onEnroll={noop} view={null} />,
-  );
+  const { container } = render(<BillingBannerView view={null} />);
   expect(container.firstChild).toBe(null);
 });
 
 test("renders nothing for a free/local org", () => {
   const { container } = render(
-    <BillingBannerView
-      onEnroll={noop}
-      view={view({ status: "local", isLocal: true })}
-    />,
+    <BillingBannerView view={view({ status: "local", isLocal: true })} />,
   );
   expect(container.firstChild).toBe(null);
 });
@@ -51,7 +46,6 @@ test("renders nothing for a free/local org", () => {
 test("renders nothing for an active subscription", () => {
   const { container } = render(
     <BillingBannerView
-      onEnroll={noop}
       view={view({
         status: "active",
         isLocal: false,
@@ -63,84 +57,9 @@ test("renders nothing for an active subscription", () => {
   expect(container.firstChild).toBe(null);
 });
 
-test("shows the trial countdown while trialing", () => {
-  const { getByRole } = render(
-    <BillingBannerView
-      onEnroll={noop}
-      view={view({
-        status: "trialing",
-        isLocal: false,
-        isTrialing: true,
-        canSync: true,
-        trialDaysRemaining: 3,
-      })}
-    />,
-  );
-  expect(getByRole("status").textContent).toContain("3 days in free trial");
-});
-
-test("uses the singular day at one day left", () => {
-  const { getByRole } = render(
-    <BillingBannerView
-      onEnroll={noop}
-      view={view({
-        status: "trialing",
-        isLocal: false,
-        isTrialing: true,
-        canSync: true,
-        trialDaysRemaining: 1,
-      })}
-    />,
-  );
-  expect(getByRole("status").textContent).toContain("1 day in free trial");
-});
-
-test("enroll button invokes onEnroll while trialing", () => {
-  const onEnroll = mock(() => {});
-  const { getByRole } = render(
-    <BillingBannerView
-      onEnroll={onEnroll}
-      view={view({
-        status: "trialing",
-        isLocal: false,
-        isTrialing: true,
-        canSync: true,
-        trialDaysRemaining: 3,
-      })}
-    />,
-  );
-  fireEvent.click(getByRole("button", { name: "Enroll" }));
-  expect(onEnroll).toHaveBeenCalledTimes(1);
-});
-
-test("uses the shared action button only in compact mobile mode", () => {
-  const trialView = view({
-    status: "trialing",
-    isLocal: false,
-    isTrialing: true,
-    canSync: true,
-    trialDaysRemaining: 3,
-  });
-  const rendered = render(
-    <BillingBannerView onEnroll={noop} view={trialView} />,
-  );
-  expect(rendered.getByRole("button").className).toBe(
-    "billing-banner-enroll-link",
-  );
-
-  rendered.rerender(
-    <BillingBannerView compactMobile onEnroll={noop} view={trialView} />,
-  );
-  expect(rendered.getByRole("button").className).toContain(
-    "tearleads-action-button",
-  );
-});
-
-test("renders nothing on the enrollment screen", () => {
+test("renders no promotional chrome while trialing", () => {
   const { container } = render(
     <BillingBannerView
-      isBillingScreen={true}
-      onEnroll={noop}
       view={view({
         status: "trialing",
         isLocal: false,
@@ -153,16 +72,28 @@ test("renders nothing on the enrollment screen", () => {
   expect(container.firstChild).toBe(null);
 });
 
+test("renders no warning on the billing screen", () => {
+  const { container } = render(
+    <BillingBannerView
+      isBillingScreen={true}
+      view={view({
+        status: "disabled",
+        isLocal: false,
+        needsAttention: true,
+      })}
+    />,
+  );
+  expect(container.firstChild).toBe(null);
+});
+
 function BannerAtRoute({ route }: { route: AppRouteState }) {
   useRegisterMiniAppLauncher(noop, true, route);
   return (
     <ActiveRouteBillingBanner
       view={view({
-        status: "trialing",
+        status: "disabled",
         isLocal: false,
-        isTrialing: true,
-        canSync: true,
-        trialDaysRemaining: 3,
+        needsAttention: true,
       })}
     />
   );
@@ -185,15 +116,12 @@ test("hides the active-route banner only on org manager billing", () => {
       />
     </MiniAppLauncherProvider>,
   );
-  expect(rendered.getByRole("status").textContent).toContain(
-    "3 days in free trial",
-  );
+  expect(rendered.getByRole("alert").textContent).toContain("Sync is paused");
 });
 
 test("warns when sync is disabled", () => {
   const { getByRole } = render(
     <BillingBannerView
-      onEnroll={noop}
       view={view({ status: "disabled", isLocal: false, needsAttention: true })}
     />,
   );
@@ -203,7 +131,6 @@ test("warns when sync is disabled", () => {
 test("warns with the past-due message", () => {
   const { getByRole } = render(
     <BillingBannerView
-      onEnroll={noop}
       view={view({ status: "past_due", isLocal: false, needsAttention: true })}
     />,
   );

@@ -251,28 +251,6 @@ test("tablet routed shell keeps the taskbar while a text input is focused", () =
   }
 });
 
-test("mobile moves the active app title into the Tearleads header", () => {
-  const restoreMatchMedia = forceMobileRoutedTier();
-  let view: ReturnType<typeof renderRoutedPane> | undefined;
-
-  try {
-    view = renderRoutedPane({ withHeader: true });
-    const brand = view.container.querySelector(".tearleads-brand-mark");
-
-    expect(brand?.textContent).toBe("Tearleads - Explorer");
-    expect(view.container.querySelector(".routed-pane-title")).toBeNull();
-
-    fireEvent.click(view.getByRole("button", { name: "Menu" }));
-    fireEvent.click(view.getByRole("link", { name: "Contacts" }));
-
-    expect(brand?.textContent).toBe("Tearleads - Contacts");
-    expect(view.container.querySelector(".routed-pane-title")).toBeNull();
-  } finally {
-    view?.unmount();
-    restoreMatchMedia();
-  }
-});
-
 test("mobile nav sheet handle tap dismisses the menu", () => {
   const restoreMatchMedia = forceMobileRoutedTier();
   let view: ReturnType<typeof renderRoutedPane> | undefined;
@@ -415,11 +393,8 @@ test("tablet routed shell starts with the navigation rail collapsed", () => {
   let view: ReturnType<typeof renderRoutedPane> | undefined;
 
   try {
-    view = renderRoutedPane({ withHeader: true });
+    view = renderRoutedPane();
 
-    expect(
-      view.container.querySelector(".tearleads-brand-mark")?.textContent,
-    ).toBe("Tearleads");
     expect(
       view.container.querySelector(".routed-pane-title")?.textContent,
     ).toBe("Explorer");

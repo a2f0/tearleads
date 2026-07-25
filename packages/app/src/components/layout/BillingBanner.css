@@ -3,9 +3,13 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
+  padding-block: calc(var(--space-sm) + var(--safe-area-top)) var(--space-sm);
+  padding-inline: calc(var(--space-md) + var(--safe-area-left))
+    calc(var(--space-md) + var(--safe-area-right));
   font-size: var(--font-size-sm);
-  background: var(--tearleads-background);
+  /* A warning is the screen's topmost chrome, so share the routed app bar's
+     surface and native status-bar color. */
+  background: var(--color-muted);
   border-bottom: var(--border-width) solid var(--tearleads-border);
   border-left: var(--space-2xs) solid var(--tearleads-accent);
 }
@@ -13,30 +17,4 @@
 .billing-banner--warning {
   border-left-color: var(--color-danger);
   color: var(--color-danger);
-}
-
-.billing-banner--info {
-  white-space: nowrap;
-}
-
-.billing-banner-trial-copy {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.billing-banner-enroll-link {
-  flex: 0 0 auto;
-  padding: 0;
-  border: none;
-  background: none;
-  font: inherit;
-  color: var(--tearleads-accent);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.billing-banner-enroll-button {
-  flex: 0 0 auto;
-  font: inherit;
 }

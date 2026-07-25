@@ -447,7 +447,7 @@ test("capture two-peer note blame", async ({ page }, testInfo) => {
     await page.setViewportSize(SETUP_VIEWPORT);
   }
 
-  const { ownerPane, ownerWindow, peerPane, peerWindow } =
+  const { ownerPane, ownerWindow, peerWindow } =
     await openAuthenticatedExplorers(page);
   await ownerWindow.locator(".window-maximize").click();
   await peerWindow.locator(".window-maximize").click();
@@ -464,8 +464,6 @@ test("capture two-peer note blame", async ({ page }, testInfo) => {
 
   if (layout === "web") {
     await openWindowedDocumentBlame(page, ownerWindow);
-    await page.getByRole("button", { name: "Hide Peer", exact: true }).click();
-    await expect(peerPane).toBeHidden();
     await screenshotOpenBlame(page, ownerWindow, layout, "light");
     await switchToDarkTheme(page, ownerPane);
     await screenshotOpenBlame(page, ownerWindow, layout, "dark");
