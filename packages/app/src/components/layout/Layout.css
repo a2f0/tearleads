@@ -33,3 +33,13 @@
 .tearleads-frame.layout--demo-peer-split .pane-right {
   border-left: var(--border-width) solid var(--color-hairline);
 }
+
+/* A billing warning is the topmost row and owns the top safe-area inset. Avoid
+   applying the same inset again to the routed chrome directly below it. */
+.tearleads-frame.layout:has(> .billing-banner) .routed-pane-appbar {
+  padding-top: var(--space-xs);
+}
+
+.tearleads-frame.layout:has(> .billing-banner) .routed-pane-rail {
+  padding-top: 0;
+}
