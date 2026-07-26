@@ -248,6 +248,7 @@ async function persistSettledAttachment(
   await saveLocalAttachmentRecord(state, {
     blobId,
     byteLength: pendingAttachment.byteLength,
+    detachedAt: null,
     localId: state.localId,
     mimeType: pendingAttachment.mimeType,
     slotId: pendingAttachment.slotId,

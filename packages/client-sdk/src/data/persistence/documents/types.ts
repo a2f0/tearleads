@@ -53,6 +53,11 @@ export interface PendingAttachmentRecord {
 export interface LocalAttachmentRecord {
   blobId: string | null;
   byteLength: number;
+  // Set once the slot is unlinked from a synced document and cleared when the
+  // slot is written again. The record survives the unlink so the next sync can
+  // still detach the remote binding; `detachedAt` is what keeps the local read
+  // models from reporting the slot as a live blob reference in the meantime.
+  detachedAt: string | null;
   localId: string;
   mimeType: string | null;
   slotId: string;
@@ -172,6 +177,12 @@ export interface DocumentsPersistence {
     attachment: LocalAttachmentRecord,
   ) => Promise<void>;
   deleteLocalAttachment: (
+    execSql: ExecSql,
+    localId: string,
+    slotId: string,
+    storageKey: string,
+  ) => Promise<void>;
+  markLocalAttachmentDetached: (
     execSql: ExecSql,
     localId: string,
     slotId: string,

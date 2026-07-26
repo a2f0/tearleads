@@ -421,6 +421,7 @@ export async function hydrateAttachmentBlobs(
     localAttachmentRecords.push({
       blobId: hydratedBlob.binding.blobId,
       byteLength: hydratedBlob.attachment.byteLength,
+      detachedAt: null,
       localId: state.localId,
       mimeType: hydratedBlob.attachment.mimeType,
       slotId: hydratedBlob.attachment.slotId,

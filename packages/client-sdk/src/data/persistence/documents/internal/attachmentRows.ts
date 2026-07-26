@@ -27,6 +27,7 @@ interface SelectedLocalAttachment {
   storageKey: string;
   mimeType: string | null;
   byteLength: number;
+  detachedAt: string | null;
 }
 
 export function buildPendingAttachmentRow(
@@ -108,6 +109,7 @@ export function mapLocalAttachmentRecord(
   return {
     blobId: row.blobId,
     byteLength: row.byteLength,
+    detachedAt: row.detachedAt,
     localId: row.localId,
     mimeType: row.mimeType,
     slotId: row.slotId,

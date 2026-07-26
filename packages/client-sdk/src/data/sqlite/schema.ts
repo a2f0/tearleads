@@ -543,6 +543,11 @@ export const documentPendingAttachments = sqliteTable(
  * - `mimeType`: Optional MIME type associated with the blob.
  * - `byteLength`: Blob size in bytes.
  * - `updatedAt`: Local timestamp for the attachment projection update.
+ * - `detachedAt`: Local timestamp set when the slot is unlinked from a synced
+ *   document. The row outlives the unlink because it is also the durable
+ *   "still needs a remote detach" marker (see `syncDetachedAttachments`), so
+ *   read models that answer "what references this blob" must skip detached
+ *   rows instead of waiting for the detach to flush.
  *
  * Indexes:
  * - `(localId, slotId)` is the primary key and keeps one projected blob per
@@ -559,6 +564,7 @@ export const documentAttachmentBlobProjection = sqliteTable(
     mimeType: text("mime_type"),
     byteLength: integer("byte_length").notNull(),
     updatedAt: text("updated_at").notNull(),
+    detachedAt: text("detached_at"),
   },
   (table) => [
     primaryKey({ columns: [table.localId, table.slotId] }),

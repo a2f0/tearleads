@@ -261,6 +261,7 @@ function createAttachmentPersistence(
   | "listLocalAttachments"
   | "saveLocalAttachment"
   | "deleteLocalAttachment"
+  | "markLocalAttachmentDetached"
   | "savePendingAttachment"
   | "deletePendingAttachment"
   | "deletePendingAttachments"
@@ -296,6 +297,16 @@ function createAttachmentPersistence(
             attachment.slotId === slotId &&
             attachment.storageKey === storageKey
           ),
+      );
+    },
+    async markLocalAttachmentDetached(_execSql, localId, slotId, storageKey) {
+      state.localAttachments = state.localAttachments.map((attachment) =>
+        attachment.localId === localId &&
+        attachment.slotId === slotId &&
+        attachment.storageKey === storageKey &&
+        attachment.detachedAt === null
+          ? { ...attachment, detachedAt: "2026-04-06T00:00:00.000Z" }
+          : attachment,
       );
     },
     async savePendingAttachment(_execSql, attachment) {

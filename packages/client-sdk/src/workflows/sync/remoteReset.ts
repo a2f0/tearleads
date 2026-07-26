@@ -4,6 +4,7 @@ import {
   exportAllUpdates,
   importSnapshot,
 } from "@tearleads/loro";
+import { isNull } from "drizzle-orm";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import { getDocumentAttachments } from "../../data/documents/documentContent";
 import {
@@ -158,7 +159,12 @@ async function buildResetPlans(execSql: ExecSql): Promise<{
       slotId: documentAttachmentBlobProjection.slotId,
       storageKey: documentAttachmentBlobProjection.storageKey,
     })
-    .from(documentAttachmentBlobProjection);
+    .from(documentAttachmentBlobProjection)
+    // A reset re-uploads the local attachments as pending work. Slots unlinked
+    // before the reset keep their row only as a pending-detach marker, and the
+    // reset drops the whole projection anyway, so re-queueing them would
+    // resurrect attachments the document no longer has.
+    .where(isNull(documentAttachmentBlobProjection.detachedAt));
   const documentByLocalId = new Map(
     documentRows.map((row) => [row.localId, row]),
   );

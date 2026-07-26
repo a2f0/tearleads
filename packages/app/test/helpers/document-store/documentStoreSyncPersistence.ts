@@ -285,6 +285,16 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
           ),
       );
     },
+    async markLocalAttachmentDetached(_execSql, localId, slotId, storageKey) {
+      localAttachments = localAttachments.map((attachment) =>
+        attachment.localId === localId &&
+        attachment.slotId === slotId &&
+        attachment.storageKey === storageKey &&
+        attachment.detachedAt === null
+          ? { ...attachment, detachedAt: "2026-04-06T00:00:00.000Z" }
+          : attachment,
+      );
+    },
     async savePendingAttachment(_execSql, attachment) {
       pendingAttachments = [
         ...pendingAttachments.filter(
