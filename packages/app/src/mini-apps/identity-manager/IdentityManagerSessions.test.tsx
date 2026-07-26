@@ -66,7 +66,6 @@ function mockLayout(mode: "routed" | "windowed", width: number) {
 function renderSessions() {
   return render(
     <SessionsSection
-      canManageSessions
       handleEndSession={async () => undefined}
       loadingSessions={false}
       mutatingSessionId={null}

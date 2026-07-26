@@ -54,3 +54,43 @@ test("local-only identity can log in without a persisted user id", async () => {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }
 });
+
+test("logged-out identity hides the active sessions section", async () => {
+  const originalWebSocket = globalThis.WebSocket;
+  const tearleadsRef: { current: Tearleads | null } = { current: null };
+
+  try {
+    Reflect.set(globalThis, "WebSocket", TestWebSocket);
+    const view = render(
+      <IdentityManagerTestRuntime
+        hostConfig={TEST_HOST_CONFIG}
+        onTearleadsReady={(sdk) => {
+          tearleadsRef.current = sdk;
+        }}
+      >
+        <IdentityManager />
+      </IdentityManagerTestRuntime>,
+    );
+
+    await waitFor(() => {
+      expect(tearleadsRef.current).toBeTruthy();
+    });
+    const tearleads = tearleadsRef.current;
+    if (!tearleads) {
+      throw new Error("Expected Tearleads SDK to be available after render.");
+    }
+
+    await act(async () => {
+      await tearleads.identity.setKeyPairs({
+        encapsulationKeyPair: null,
+        signingKeyPair: generateSigningSeedAndKeyPair(),
+      });
+    });
+
+    expect(tearleads.session.isAuthenticated).toBe(false);
+    expect(view.queryByText("Active Sessions")).toBeNull();
+    expect(view.queryByRole("table")).toBeNull();
+  } finally {
+    Reflect.set(globalThis, "WebSocket", originalWebSocket);
+  }
+});
