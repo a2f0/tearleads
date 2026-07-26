@@ -292,7 +292,9 @@ async function resolveSyncPlanContentMaterial(
   contentKeyBundle: DocumentCreateResponse["contentKeyBundle"];
   documentKekTargets: DocumentSyncResponse["documentKekTargets"];
   healedStaleContentKeyBundle: boolean;
+  heldBackPendingUpdateIds: readonly string[];
   pendingUpdates: readonly PendingUpdateRecord[];
+  staleRecoveryBaselineUpdateId?: string;
 }> {
   const pendingUpdates = input.pendingUpdates ?? [];
   const staleContentKeyBundle =
@@ -304,8 +306,9 @@ async function resolveSyncPlanContentMaterial(
     // recovery is superseded by the fresh covering baseline built below, and
     // submitting it alongside would trip the server's covering-baseline gate
     // (every baseline in an epoch-advancing sync must dominate the committed
-    // frontier). Hold it back: it stays queued and unacked, and post-heal
-    // passes submit it as an ordinary, non-advancing checkpoint.
+    // frontier). Hold it back: it stays queued and unacked, and the reported
+    // held-back ids make the lane schedule a post-heal pass that submits it
+    // as an ordinary, non-advancing checkpoint.
     //
     // A heal whose OWN baseline does not cover the committed frontier is
     // rejected by that same gate and surfaces as a terminal queue failure.
@@ -318,6 +321,9 @@ async function resolveSyncPlanContentMaterial(
     const ordinaryPendingUpdates = pendingUpdates.filter(
       (update) => update.sourceVersionVector == null,
     );
+    const recoveryBaseline = await buildStaleRecoveryBaselinePendingUpdate(
+      input.buildRotationSnapshot,
+    );
     return {
       contentKey,
       contentKeyBundle: await buildRotatedDocumentContentKeyBundle({
@@ -327,12 +333,11 @@ async function resolveSyncPlanContentMaterial(
       }),
       documentKekTargets: input.writerProjection.documentKekTargets,
       healedStaleContentKeyBundle: true,
-      pendingUpdates: [
-        await buildStaleRecoveryBaselinePendingUpdate(
-          input.buildRotationSnapshot,
-        ),
-        ...ordinaryPendingUpdates,
-      ],
+      heldBackPendingUpdateIds: pendingUpdates
+        .filter((update) => update.sourceVersionVector != null)
+        .map((update) => update.id),
+      pendingUpdates: [recoveryBaseline, ...ordinaryPendingUpdates],
+      staleRecoveryBaselineUpdateId: recoveryBaseline.id,
     };
   }
 
@@ -344,6 +349,7 @@ async function resolveSyncPlanContentMaterial(
         input.writerProjection.contentKeyBundle,
       ),
       healedStaleContentKeyBundle: false,
+      heldBackPendingUpdateIds: [],
       pendingUpdates,
     };
   }
@@ -356,6 +362,7 @@ async function resolveSyncPlanContentMaterial(
     contentKeyBundle: input.writerProjection.contentKeyBundle,
     documentKekTargets: input.writerProjection.documentKekTargets,
     healedStaleContentKeyBundle: false,
+    heldBackPendingUpdateIds: [],
     pendingUpdates,
   };
 }
@@ -408,7 +415,9 @@ export async function buildMaterializedDocumentSyncPlan(
     contentKeyBundle,
     documentKekTargets,
     healedStaleContentKeyBundle,
+    heldBackPendingUpdateIds,
     pendingUpdates,
+    staleRecoveryBaselineUpdateId,
   } = await resolveSyncPlanContentMaterial(input, containerKeksByEpochId);
   const outgoingUpdates = await prepareDocumentOutgoingUpdates({
     contentKey,
@@ -438,7 +447,11 @@ export async function buildMaterializedDocumentSyncPlan(
   return {
     contentKey,
     healedStaleContentKeyBundle,
+    heldBackPendingUpdateIds,
     plan,
+    ...(staleRecoveryBaselineUpdateId === undefined
+      ? {}
+      : { staleRecoveryBaselineUpdateId }),
   };
 }
 
@@ -487,11 +500,17 @@ async function syncRemoteDocumentResultFromResponse(input: {
     organizationId: plan.organizationId,
     updates: input.response.updates,
   });
+  // The synthetic heal baseline matches no pending-queue row; counting its
+  // ack as settled would make a held-back checkpoint pass look fully settled
+  // and suppress the follow-up re-arm.
   const settledPendingUpdateIds = settledPendingUpdateIdsFromSync({
     decryptedUpdates,
     recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
     response: input.response,
-  });
+  }).filter(
+    (updateId) =>
+      updateId !== input.materializedPlan.staleRecoveryBaselineUpdateId,
+  );
   const { exhaustedPendingUpdateCount, rekeyedPendingUpdateIds } =
     await rekeyAndReportUnsettledRecoveryPendingUpdates({
       execSql: input.execSql,
@@ -505,6 +524,8 @@ async function syncRemoteDocumentResultFromResponse(input: {
     exhaustedPendingUpdateCount,
     contentKey: input.materializedPlan.contentKey,
     decryptedUpdates,
+    heldBackPendingUpdateIds:
+      input.materializedPlan.heldBackPendingUpdateIds ?? [],
     persistedState,
     plan,
     rekeyedPendingUpdateIds,
@@ -812,6 +833,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
         contentKey: new Uint8Array(),
         decryptedUpdates: [],
         exhaustedPendingUpdateCount: 0,
+        heldBackPendingUpdateIds: [],
         persistedState,
         plan,
         rekeyedPendingUpdateIds: [],

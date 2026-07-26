@@ -337,6 +337,21 @@ function resolveSyncedContainerMetadataWriterProjection(
 }
 
 /**
+ * Ids deliberately left pending by this pass — re-keyed conflict recoveries
+ * and heal-held rotation checkpoints alike — that need a scheduled follow-up
+ * pass to submit.
+ */
+function followupPendingUpdateCount(synced: {
+  heldBackPendingUpdateIds: readonly string[];
+  rekeyedPendingUpdateIds: readonly string[];
+}): number {
+  return (
+    synced.rekeyedPendingUpdateIds.length +
+    synced.heldBackPendingUpdateIds.length
+  );
+}
+
+/**
  * Heals a stale metadata content-key bundle by rotating to a fresh content
  * key anchored by this full-history snapshot; null when the local doc cannot
  * produce one (e.g. shallow history), which defers the sync with a log line.
@@ -467,7 +482,7 @@ export async function syncContainerMetadataState(input: {
     ...persisted,
     shouldRequestFollowupSync: settleOutgoingPassAndDecideReArm(metadataState, {
       outgoingUpdateCount,
-      rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
+      rekeyedUpdateCount: followupPendingUpdateCount(synced),
       settledUpdateCount: synced.settledPendingUpdateIds.length,
     }),
   };

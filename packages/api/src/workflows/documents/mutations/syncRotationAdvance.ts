@@ -2,9 +2,10 @@ import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { documentUpdates } from "@tearleads/api-shared/schema";
 import { mergeVersionVectors, satisfiesVersionVector } from "@tearleads/loro";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { getLatestDocumentContentKeyEpoch } from "../../../access/read/documentContentKeyStore";
 import { DocumentMutationError } from "./errors";
+import { readWriteHeader } from "./shared/records";
 
 /**
  * A sync request that ADVANCES the content-key epoch is a rotation (e.g. the
@@ -59,10 +60,40 @@ export async function assertEpochAdvanceAnchoredByCoveringBaseline(input: {
       409,
     );
   }
+  // A replayed, already-committed baseline id would sail through the append
+  // path's idempotent-retry equality check with its ORIGINAL (old-epoch)
+  // write header, advancing the epoch without storing a baseline readable
+  // under the new key. The anchoring baseline must be newly written by this
+  // request and authenticated under the advancing epoch.
+  const committedBaselineRows = await input.executor
+    .select({ id: documentUpdates.id })
+    .from(documentUpdates)
+    .where(
+      inArray(
+        documentUpdates.id,
+        baselines.map((baseline) => baseline.id),
+      ),
+    );
+  if (committedBaselineRows.length > 0) {
+    throw new DocumentMutationError(
+      "Document content-key rotation baseline must be newly written",
+      409,
+    );
+  }
   const committedFrontier = mergeVersionVectors(
     committedUpdates.map((update) => update.partialEndVersionVector),
   );
   for (const baseline of baselines) {
+    const header = readWriteHeader(
+      baseline.writeHeader,
+      "Document rotation baseline write header",
+    );
+    if (header.contentKeyEpoch !== bundle.contentKeyEpoch) {
+      throw new DocumentMutationError(
+        "Document content-key rotation baseline must use the advancing content-key epoch",
+        409,
+      );
+    }
     if (
       !baseline.sourceVersionVector ||
       !satisfiesVersionVector(baseline.sourceVersionVector, committedFrontier)

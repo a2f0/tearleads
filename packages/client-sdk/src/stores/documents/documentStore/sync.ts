@@ -274,7 +274,11 @@ async function finalizeDocumentSync(
   if (
     settleOutgoingPassAndDecideReArm(state, {
       outgoingUpdateCount: syncAttempt.outgoingUpdateCount,
-      rekeyedUpdateCount: synced.rekeyedPendingUpdateIds.length,
+      // Held-back heal checkpoints behave like re-keyed ids: they stayed
+      // queued on purpose and need a scheduled follow-up pass to submit.
+      rekeyedUpdateCount:
+        synced.rekeyedPendingUpdateIds.length +
+        synced.heldBackPendingUpdateIds.length,
       settledUpdateCount: synced.settledPendingUpdateIds.length,
     })
   ) {

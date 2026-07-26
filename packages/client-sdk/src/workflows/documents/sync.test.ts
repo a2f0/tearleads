@@ -1492,4 +1492,13 @@ test("a heal holds back superseded pending rotation checkpoints", async () => {
     supersededCheckpoint.id,
   );
   expect(request.outgoingUpdates[1]?.id).toBe(pendingEdit.id);
+  // The plan reports what it withheld and which ack is synthetic, so
+  // settlement accounting schedules the post-heal pass instead of counting
+  // the pass as fully settled and going idle.
+  expect(materialized.heldBackPendingUpdateIds).toEqual([
+    supersededCheckpoint.id,
+  ]);
+  expect(materialized.staleRecoveryBaselineUpdateId).toBe(
+    request.outgoingUpdates[0]?.id ?? "",
+  );
 });

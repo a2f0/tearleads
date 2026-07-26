@@ -14,7 +14,7 @@ import {
 } from "../../../access/write/documentContentKeyStore";
 import { toStoredContentKeyBundleInput } from "./shared/records";
 
-export interface ResolvedSyncContentKeyBundle {
+interface ResolvedSyncContentKeyBundle {
   readonly contentKeyBundle: StoredDocumentContentKeyBundle;
   /**
    * True when a read-only pull was served against the stored bundle even
