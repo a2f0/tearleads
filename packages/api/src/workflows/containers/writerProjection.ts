@@ -16,6 +16,7 @@ import {
   resolveSingleContainerAccessProjection,
 } from "./writerProjection/accessPaths";
 import { createContainerWriterProjectionContext } from "./writerProjection/context";
+import { loadHistoricalContainerKeks } from "./writerProjection/historicalKeks";
 import { loadContainerKekState } from "./writerProjection/kek";
 import {
   loadPrincipalPoliciesForAccessPaths,
@@ -45,6 +46,14 @@ async function resolveContainerProjectionWithAccess(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerId: string;
   readonly executor: DatabaseSession;
+  /**
+   * Whether to load and serve superseded key epochs. Access-only callers
+   * (e.g. the per-sync authorization check, which discards the response)
+   * pass false so routine syncs never pay the manifest-lineage walk and
+   * historical policy loading that only clients healing rotated content
+   * need.
+   */
+  readonly includeHistoricalKeks?: boolean;
   readonly minimumAccessLevel: ContainerAccessLevel;
   readonly userId: string;
 }): Promise<ContainerWriterProjectionResponse> {
@@ -69,11 +78,41 @@ async function resolveContainerProjectionWithAccess(input: {
     throw new ContainerWriterProjectionError("Container not found", 404);
   }
 
+  // Superseded key epochs travel with each path container so a member who
+  // spans a KEK rotation can still unwrap pre-rotation content (e.g. stale
+  // document content-key bundles after a revoke). Filtered per requester —
+  // see loadHistoricalContainerKeks. Parents are processed first, so the
+  // epochs admitted for each container gate the container wraps of every
+  // descendant on the path.
+  const admittedHistoricalEpochIds = new Map<string, ReadonlySet<string>>();
+  const containerKeks: ContainerWriterProjectionResponse["containerKeks"] = [];
+  for (const [index, manifest] of access.verifiedPath.entries()) {
+    const kekState = containerKekStates[index];
+    if (!kekState) {
+      throw new ContainerWriterProjectionError("Container KEK missing", 409);
+    }
+    const historicalKeks =
+      input.includeHistoricalKeks === false
+        ? []
+        : await loadHistoricalContainerKeks({
+            admittedHistoricalEpochIds,
+            context,
+            manifest,
+            principalPolicies: access.principalPolicies,
+            userId: input.userId,
+          });
+    admittedHistoricalEpochIds.set(
+      manifest.state.containerId,
+      new Set(historicalKeks.map((kek) => kek.containerKeyEpochId)),
+    );
+    containerKeks.push(containerKekResponse(kekState, historicalKeks));
+  }
+
   return {
     containerId: input.containerId,
     organizationId: targetManifest.state.organizationId,
     path: access.path,
-    containerKeks: containerKekStates.map(containerKekResponse),
+    containerKeks,
   };
 }
 
@@ -81,6 +120,7 @@ export async function resolveContainerReaderProjection(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerId: string;
   readonly executor: DatabaseSession;
+  readonly includeHistoricalKeks?: boolean;
   readonly userId: string;
 }): Promise<ContainerWriterProjectionResponse> {
   return resolveContainerProjectionWithAccess({
@@ -93,6 +133,7 @@ export async function resolveContainerWriterProjection(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerId: string;
   readonly executor: DatabaseSession;
+  readonly includeHistoricalKeks?: boolean;
   readonly userId: string;
 }): Promise<ContainerWriterProjectionResponse> {
   return resolveContainerProjectionWithAccess({

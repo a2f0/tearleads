@@ -327,6 +327,19 @@ export async function getContainerKeyEpochsById(
   return new Map(rows.map((row) => [row.id, toStoredContainerKeyEpoch(row)]));
 }
 
+export async function listContainerKeyEpochs(
+  containerId: string,
+  executor: DatabaseSession,
+): Promise<StoredContainerKeyEpoch[]> {
+  const rows = await executor
+    .select()
+    .from(containerKeyEpochs)
+    .where(eq(containerKeyEpochs.containerId, containerId))
+    .orderBy(asc(containerKeyEpochs.keyEpoch));
+
+  return rows.map(toStoredContainerKeyEpoch);
+}
+
 export async function getCurrentContainerKeyEpoch(
   containerId: string,
   executor: DatabaseSession,

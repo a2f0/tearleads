@@ -1,4 +1,3 @@
-import { base64ToBytes } from "@tearleads/encoding";
 import {
   encodeVersionVector,
   exportFullHistorySnapshot,
@@ -13,41 +12,16 @@ import {
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { requestDocumentStoreSync } from "../registry";
+import { importPendingUpdates, installRebuiltDocument } from "./historyRebuild";
 import { createStoredDocument } from "./initialization";
 import {
-  advancePendingBaseVersion,
   enqueuePendingUpdate,
   listPendingUpdates,
   pendingDeltaSinceBase,
-  persistDocument,
 } from "./persistence";
-import type { DocumentState, DocumentStoreState } from "./state";
+import type { DocumentStoreState } from "./state";
 import { documentTerminalSubmitFailureHandler } from "./syncShared";
 import { importSyncedDocumentUpdates } from "./syncUpdateImport";
-
-function importPendingUpdates(
-  document: DocumentState,
-  pendingUpdates: Awaited<ReturnType<typeof listPendingUpdates>>,
-): void {
-  for (const pendingUpdate of pendingUpdates) {
-    if (
-      pendingUpdate.sourceVersionVector !== null &&
-      pendingUpdate.sourceVersionVector !== undefined
-    ) {
-      importSnapshot(document, base64ToBytes(pendingUpdate.updateData));
-    }
-  }
-  const ordinaryUpdates = pendingUpdates
-    .filter(
-      (pendingUpdate) =>
-        pendingUpdate.sourceVersionVector === null ||
-        pendingUpdate.sourceVersionVector === undefined,
-    )
-    .map((pendingUpdate) => base64ToBytes(pendingUpdate.updateData));
-  if (ordinaryUpdates.length > 0) {
-    importUpdates(document, ordinaryUpdates);
-  }
-}
 
 function assertRotationRecoveryPrerequisites(state: DocumentStoreState) {
   const author = resolveDocumentCreateAuthor(state.runtime);
@@ -158,42 +132,6 @@ async function pullVerifiedHistoryForRotation(input: {
     new Set(synced.response.acceptedOutgoingUpdateIds),
   );
   return synced;
-}
-
-async function installRebuiltDocument(input: {
-  currentRecord: NonNullable<DocumentStoreState["record"]>;
-  rebuiltDoc: DocumentState;
-  state: DocumentStoreState;
-  synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>;
-}): Promise<Uint8Array> {
-  exportFullHistorySnapshot(input.rebuiltDoc);
-  const previousPendingBaseVersion = input.state.pendingBaseVersion;
-  advancePendingBaseVersion(input.state, input.rebuiltDoc);
-  try {
-    await persistDocument(
-      input.state,
-      input.rebuiltDoc,
-      {
-        ...input.synced.persistedState,
-        lastCommitLsn:
-          input.synced.response.commitLsn ??
-          input.currentRecord.lastCommitLsn ??
-          null,
-      },
-      {
-        acceptedPendingUpdateIds: input.synced.settledPendingUpdateIds,
-        preserveSnapshotStructuredFields: input.state.pendingLocalWrites > 0,
-        preserveSnapshotText: input.state.pendingLocalWrites > 0,
-      },
-    );
-  } catch (error) {
-    input.state.pendingBaseVersion = previousPendingBaseVersion;
-    throw error;
-  }
-  input.state.doc = input.rebuiltDoc;
-  input.state.writerProjection =
-    input.synced.writerProjection ?? input.state.writerProjection;
-  return exportFullHistorySnapshot(input.state.doc);
 }
 
 async function recoverFullHistoryForRotation(

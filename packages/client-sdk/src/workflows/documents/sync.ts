@@ -480,8 +480,22 @@ async function resolveSyncPlanContentMaterial(
       documentId: input.writerProjection.documentId,
       epoch: input.writerProjection.contentKeyBundle.contentKeyEpoch,
     });
+    // A member who spans the rotation can unwrap the stale bundle through the
+    // projection's historical KEK epochs, making pre-rotation updates
+    // readable again. Members who do not span it fall back to the empty
+    // placeholder: served updates at unreachable epochs then fail decryption
+    // with an honest error instead of garbage.
+    let staleContentKey: Uint8Array = new Uint8Array();
+    try {
+      staleContentKey = await unwrapDocumentContentKeyFromBundle(
+        input.writerProjection.contentKeyBundle,
+        containerKeksByEpochId,
+      );
+    } catch {
+      staleContentKey = new Uint8Array();
+    }
     return {
-      contentKey: new Uint8Array(),
+      contentKey: staleContentKey,
       contentKeyBundle: input.writerProjection.contentKeyBundle,
       documentKekTargets: documentKekTargetsFromContentKeyBundle(
         input.writerProjection.contentKeyBundle,
