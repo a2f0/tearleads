@@ -47,6 +47,9 @@ export const EXPLORER_LABELS = {
   columnsMenuStateOff: "Off",
   columnsMenuStateOn: "On",
   compactSectionsTabsLabel: "Explorer sections",
+  // Not the rows' "Actions for" prefix: a screen reader has to tell the header's
+  // trigger apart from a same-named child row's.
+  containerHeaderActionsLabel: "Folder actions",
   containerIconAlbumOption: "Photo Album",
   containerIconField: "Folder icon",
   containerIconFolderOption: "Folder",

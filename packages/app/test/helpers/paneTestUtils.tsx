@@ -341,8 +341,11 @@ export async function moveExplorerContainer(
 export function getSelectedExplorerContainerSyncLabel(
   explorerWindow: HTMLElement,
 ): string | null {
+  // Descendant, not direct child: the badge shares the header's trailing
+  // controls group with the folder's kebab. Nothing else inside a detail
+  // header carries this class, so the reach stays unambiguous.
   const badge = explorerWindow.querySelector<HTMLElement>(
-    ".explorer-detail .mini-app-header > .explorer-sync-badge",
+    ".explorer-detail .mini-app-header .explorer-sync-badge",
   );
   return badge?.getAttribute("aria-label") ?? null;
 }
