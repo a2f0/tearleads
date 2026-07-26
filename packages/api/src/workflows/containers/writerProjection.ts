@@ -16,10 +16,8 @@ import {
   resolveSingleContainerAccessProjection,
 } from "./writerProjection/accessPaths";
 import { createContainerWriterProjectionContext } from "./writerProjection/context";
-import {
-  loadContainerKekState,
-  loadHistoricalContainerKeks,
-} from "./writerProjection/kek";
+import { loadHistoricalContainerKeks } from "./writerProjection/historicalKeks";
+import { loadContainerKekState } from "./writerProjection/kek";
 import {
   loadPrincipalPoliciesForAccessPaths,
   verifiedPrincipalPolicyReferenceCacheKeys,

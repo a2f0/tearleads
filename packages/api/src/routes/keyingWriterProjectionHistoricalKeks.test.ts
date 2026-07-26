@@ -138,7 +138,7 @@ test("a member granted access after the rotation receives no historical epochs",
   ]);
 }, 15_000);
 
-test("container wraps are served only when they target a superseded parent epoch", async () => {
+test("container wraps are gated on superseded targets and epochs on lineage", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -148,29 +148,16 @@ test("container wraps are served only when they target a superseded parent epoch
   const supersededEpochId = root.kekState.containerKeyEpochId;
   const currentEpochId = revokedKek.containerKeyEpochId;
 
-  // Plant a superseded epoch carrying only container wraps. In production
-  // this is a rotated child epoch wrapped to a parent epoch; here the wraps
-  // reference the root itself so no nested fixture is needed — the filter
-  // reads only (recipientKind, recipientId, recipientKeyEpochId).
-  const planted = await createTestContainerKekMaterial({
-    containerId: root.kekState.containerId,
-    keyEpoch: 3,
-  });
-  await db.insert(containerKeyEpochs).values({
-    id: planted.containerKeyEpochId,
-    containerId: root.kekState.containerId,
-    keyEpoch: 3,
-    accessManifestHash: root.bundle.manifestHash,
-    parentContainerKeyEpochId: null,
-    createdByEventHash: root.bundle.manifestHash,
-    createdByManifestHash: root.bundle.manifestHash,
-  });
+  // Plant container wraps on the legitimate superseded epoch. In production
+  // these belong to a rotated child epoch wrapped to a parent epoch; here
+  // they reference the root itself so no nested fixture is needed — the
+  // filter reads only (recipientKind, recipientId, recipientKeyEpochId).
   await db.insert(containerKeyWraps).values([
     {
       // Targets the path container's CURRENT epoch: every current member
       // (including one granted access after the rotation) holds it, so
       // serving this wrap would disclose pre-grant key material.
-      containerKeyEpochId: planted.containerKeyEpochId,
+      containerKeyEpochId: supersededEpochId,
       recipientKind: "container",
       recipientId: root.kekState.containerId,
       recipientKeyEpochId: currentEpochId,
@@ -182,7 +169,7 @@ test("container wraps are served only when they target a superseded parent epoch
     {
       // Targets a SUPERSEDED epoch: only reachable through the requester's
       // own filtered historical wraps, so it may be served.
-      containerKeyEpochId: planted.containerKeyEpochId,
+      containerKeyEpochId: supersededEpochId,
       recipientKind: "container",
       recipientId: root.kekState.containerId,
       recipientKeyEpochId: supersededEpochId,
@@ -193,16 +180,96 @@ test("container wraps are served only when they target a superseded parent epoch
     },
   ]);
 
+  // Plant an epoch row the verified manifest lineage never referenced, with
+  // a user wrap that would otherwise pass the wrap filter: the lineage gate
+  // must exclude the whole epoch.
+  const forked = await createTestContainerKekMaterial({
+    containerId: root.kekState.containerId,
+    keyEpoch: 3,
+  });
+  await db.insert(containerKeyEpochs).values({
+    id: forked.containerKeyEpochId,
+    containerId: root.kekState.containerId,
+    keyEpoch: 3,
+    accessManifestHash: root.bundle.manifestHash,
+    parentContainerKeyEpochId: null,
+    createdByEventHash: root.bundle.manifestHash,
+    createdByManifestHash: root.bundle.manifestHash,
+  });
+  await db.insert(containerKeyWraps).values([
+    {
+      containerKeyEpochId: forked.containerKeyEpochId,
+      recipientKind: "user",
+      recipientId: owner.userId,
+      recipientKeyEpochId: `user:${owner.userId}:epoch-1`,
+      recipientKeyFingerprint: "fingerprint-forked",
+      kemCipherText: "kem:forked",
+      wrappedKey: "wrapped:forked",
+      wrapManifestHash: root.bundle.manifestHash,
+    },
+  ]);
+
   const { response, projection } = await getWriterProjection(owner, created.id);
   expect(response.status).toBe(200);
   const historicalKeks = rootContainerKeks(projection).historicalKeks ?? [];
-  const plantedEpoch = historicalKeks.find(
-    (epoch) => epoch.containerKeyEpochId === planted.containerKeyEpochId,
+  expect(
+    historicalKeks.map((epoch) => epoch.containerKeyEpochId),
+  ).not.toContain(forked.containerKeyEpochId);
+  const supersededEpoch = historicalKeks.find(
+    (epoch) => epoch.containerKeyEpochId === supersededEpochId,
   );
-  expect(plantedEpoch).toBeDefined();
-  const plantedWraps = (plantedEpoch?.wraps ??
-    []) as unknown as readonly ContainerKeyWrap[];
-  expect(plantedWraps.map((wrap) => wrap.recipientKeyEpochId)).toEqual([
+  expect(supersededEpoch).toBeDefined();
+  const containerWraps = (
+    (supersededEpoch?.wraps ?? []) as unknown as readonly ContainerKeyWrap[]
+  ).filter((wrap) => wrap.recipientKind === "container");
+  expect(containerWraps.map((wrap) => wrap.recipientKeyEpochId)).toEqual([
     supersededEpochId,
   ]);
+}, 15_000);
+
+test("a user added to a referenced group after the rotation gets no historical epochs", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const { revokedKek, revokedManifest } = await shareAndRevokeRoot({
+    owner,
+    root,
+  });
+
+  // Grant a newcomer direct access, then also make them look like a current
+  // admins member would: their historical claim must rest on the policy
+  // state the superseded epoch's manifests pinned, where they do not appear.
+  const newcomer = createTestUser();
+  await registerUser(newcomer);
+  await authenticate(newcomer);
+  const grantRequest = await buildRootGrantRequest({
+    previous: revokedManifest,
+    previousKekState: revokedKek,
+    recipient: newcomer,
+    signer: owner,
+  });
+  const grantResponse = await routeApp.request(
+    `/containers/${root.kekState.containerId}/share`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(grantRequest),
+    },
+  );
+  expect(grantResponse.status).toBe(200);
+
+  // The pre-revoke epoch's only usable recipients are the owner's user wrap
+  // and the admins principal pinned at bootstrap. The newcomer matches
+  // neither pinned state, so nothing historical is served to them even
+  // though they now hold current access.
+  const newcomerView = await getWriterProjection(newcomer, created.id);
+  expect(newcomerView.response.status).toBe(200);
+  expect(
+    rootContainerKeks(newcomerView.projection).historicalKeks,
+  ).toBeUndefined();
 }, 15_000);

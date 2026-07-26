@@ -7,22 +7,16 @@ import type {
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import {
-  computeContainerKeyEpochHash,
-  verifyContainerKekState,
-} from "@tearleads/crypto";
-import type { HistoricalContainerKekResponse } from "@tearleads/validators/response";
+import { verifyContainerKekState } from "@tearleads/crypto";
 import { inArray } from "drizzle-orm";
 import {
   getContainerKeyEpochById,
-  listContainerKeyEpochs,
   listContainerKeyWraps,
 } from "../../../access/read/containerKekStore";
 import { loadContainerManifestBundleByHash } from "./accessPaths";
 import { cachedProjectionValue } from "./context";
 import { principalPolicyCacheKey } from "./principalPolicies";
 import {
-  containerKeyWrapRecord,
   stripContainerKeyEpoch,
   stripContainerKeyWrap,
   toVerifiedContainerManifest,
@@ -205,103 +199,6 @@ async function loadUserRecipientKeysForContainerKek(input: {
   }
 
   return userRecipientKeys;
-}
-
-/**
- * The principals through which the requesting user can currently unwrap keys:
- * every verified referenced policy whose membership projection includes them.
- */
-function requesterPrincipalIds(
-  userId: string,
-  principalPolicies: readonly VerifiedPrincipalPolicy[],
-): ReadonlySet<string> {
-  return new Set(
-    principalPolicies
-      .filter((policy) =>
-        policy.projection.some(
-          (member) =>
-            member.memberPrincipalType === "user" &&
-            member.memberPrincipalId === userId,
-        ),
-      )
-      .map((policy) => policy.principalId),
-  );
-}
-
-/**
- * Superseded key epochs for one container, with wraps filtered to recipients
- * whose key material proves the REQUESTER was in the epoch's audience: the
- * user directly, principals they currently derive access through, or path
- * containers — but only at a SUPERSEDED parent epoch. A wrap to a parent's
- * CURRENT epoch is never served: every current member (including one granted
- * access after the child's rotation) holds that epoch, so serving it would
- * disclose pre-grant child key material. A superseded parent epoch is only
- * reachable through the requester's own filtered historical wraps, which is
- * the audience proof this filter requires. Epochs whose filtered wrap set is
- * empty are omitted — a member added after a rotation simply receives
- * nothing from before their time. Clients re-verify every unwrap against the
- * epoch id's key-material commitment.
- */
-export async function loadHistoricalContainerKeks(input: {
-  readonly context: ContainerWriterProjectionContext;
-  readonly manifest: VerifiedContainerAccessManifest;
-  /** Current key-epoch id of every container on the requested path. */
-  readonly pathContainerKeyEpochIds: ReadonlyMap<string, string>;
-  readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
-  readonly userId: string;
-}): Promise<HistoricalContainerKekResponse[]> {
-  const containerId = input.manifest.state.containerId;
-  const currentEpochId = input.manifest.state.containerKeyEpochId;
-  const epochs = await listContainerKeyEpochs(
-    containerId,
-    input.context.executor,
-  );
-  const principalIds = requesterPrincipalIds(
-    input.userId,
-    input.principalPolicies,
-  );
-  const historicalKeks: HistoricalContainerKekResponse[] = [];
-
-  for (const epoch of epochs) {
-    if (epoch.id === currentEpochId) {
-      continue;
-    }
-    const wraps = (
-      await listContainerKeyWraps(epoch.id, input.context.executor)
-    ).filter((wrap) => {
-      if (wrap.recipientKind === "user") {
-        return wrap.recipientId === input.userId;
-      }
-      if (wrap.recipientKind === "container") {
-        const recipientCurrentEpochId = input.pathContainerKeyEpochIds.get(
-          wrap.recipientId,
-        );
-        return (
-          recipientCurrentEpochId !== undefined &&
-          recipientCurrentEpochId !== wrap.recipientKeyEpochId
-        );
-      }
-      return principalIds.has(wrap.recipientId);
-    });
-    if (wraps.length === 0) {
-      continue;
-    }
-
-    const keyEpoch = stripContainerKeyEpoch(epoch);
-    historicalKeks.push({
-      accessManifestHash: epoch.accessManifestHash,
-      containerId,
-      containerKeyEpoch: epoch.keyEpoch,
-      containerKeyEpochId: epoch.id,
-      keyEpochHash: await computeContainerKeyEpochHash(keyEpoch),
-      parentContainerKeyEpochId: epoch.parentContainerKeyEpochId,
-      wraps: wraps
-        .map(stripContainerKeyWrap)
-        .map((wrap) => containerKeyWrapRecord(wrap)),
-    });
-  }
-
-  return historicalKeks;
 }
 
 export async function loadContainerKekState(
