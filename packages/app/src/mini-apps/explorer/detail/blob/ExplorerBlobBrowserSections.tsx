@@ -39,7 +39,7 @@ function BlobMetadataSection(params: {
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.blobBrowserMetadataHeading}>
-      <MiniAppInfoTable>
+      <MiniAppInfoTable className="mini-app-info-table--borderless">
         <tbody>
           <tr>
             <th>{EXPLORER_LABELS.blobBrowserIdRow}</th>
