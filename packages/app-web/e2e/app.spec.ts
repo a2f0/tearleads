@@ -207,6 +207,32 @@ test("mobile sidebar covers Explorer rows", async ({ page }) => {
   expect(coverage).toEqual(["drawer", "scrim"]);
 });
 
+// Growing the hit target is only half of the HIG rule, and it is the half that
+// measures clean while still looking wrong: a 44px button around an 18px glyph
+// reads as a tiny mark on a phone. The icons carry `size={18}` as an attribute
+// and the routed tier re-sizes them in CSS, which is exactly the kind of
+// override a refactor drops silently — so assert the drawn box, not the prop.
+test("mobile app bar draws its icons at the touch glyph size", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 599, height: 800 });
+  await page.goto("/app/explorer");
+
+  const sidebarToggle = page.getByRole("button", { name: "Show Sidebar" });
+  await expect(sidebarToggle).toBeVisible({ timeout: 30_000 });
+
+  const buttonBox = await sidebarToggle.boundingBox();
+  const glyphBox = await sidebarToggle.locator("svg").boundingBox();
+  if (!buttonBox || !glyphBox) {
+    throw new Error("Expected a visible app bar button and its icon.");
+  }
+
+  expect(buttonBox.height).toBeGreaterThanOrEqual(44);
+  expect(buttonBox.width).toBeGreaterThanOrEqual(44);
+  expect(glyphBox.width).toBeGreaterThanOrEqual(24);
+  expect(glyphBox.height).toBeGreaterThanOrEqual(24);
+});
+
 // Regression coverage for the mobile Get Info back loop: Explorer used to
 // register a "Back to Document" action on the routed app bar, which PUSHED the
 // document route instead of popping the info route. The document route
