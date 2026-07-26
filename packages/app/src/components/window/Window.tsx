@@ -50,13 +50,20 @@ interface WindowInnerProps {
   minimize: (id: string) => void;
   moveBackward: (id: string) => void;
   moveForward: (id: string) => void;
+  toggleMaximize: (id: string) => void;
 }
 
 const WINDOW_STATUS_MESSAGE_DURATION_MS = 2500;
 
 export function Window({ windowId }: WindowProps) {
-  const { close, minimize, moveForward, moveBackward, bringToFront } =
-    useWindowStateActions();
+  const {
+    close,
+    minimize,
+    moveForward,
+    moveBackward,
+    bringToFront,
+    toggleMaximize,
+  } = useWindowStateActions();
   const { windowMap } = useWindowStateData();
   const entry = windowMap.get(windowId);
 
@@ -70,22 +77,22 @@ export function Window({ windowId }: WindowProps) {
       moveForward={moveForward}
       moveBackward={moveBackward}
       bringToFront={bringToFront}
+      toggleMaximize={toggleMaximize}
     />
   );
 }
 
 function useWindowActions(
   entry: WindowEntry,
-  bringToFront: (id: string) => void,
   close: (id: string) => void,
   minimize: (id: string) => void,
   moveBackward: (id: string) => void,
   moveForward: (id: string) => void,
+  toggleMaximize: (id: string) => void,
   fileMenuItems: WindowMenuItem[],
   viewMenuItems: WindowMenuItem[],
   hasSidebar: boolean,
 ) {
-  const [maximized, setMaximized] = useState(false);
   const [showStatusBar, setShowStatusBar] = useState(true);
   const [showSidebar, setShowSidebar] = useState(
     entry.initialShowSidebar ?? true,
@@ -103,12 +110,10 @@ function useWindowActions(
     () => moveBackward(entry.id),
     [entry.id, moveBackward],
   );
-  const handleMaximize = useCallback(() => {
-    if (!maximized) {
-      bringToFront(entry.id);
-    }
-    setMaximized((previous) => !previous);
-  }, [bringToFront, entry.id, maximized]);
+  const handleMaximize = useCallback(
+    () => toggleMaximize(entry.id),
+    [entry.id, toggleMaximize],
+  );
   const toggleStatusBar = useCallback(
     () => setShowStatusBar((previous) => !previous),
     [],
@@ -165,7 +170,6 @@ function useWindowActions(
     handleMinimize,
     handleMoveBackward,
     handleMoveForward,
-    maximized,
     menus,
     showSidebar,
     showStatusBar,
@@ -240,6 +244,7 @@ function WindowInner({
   moveForward,
   moveBackward,
   bringToFront,
+  toggleMaximize,
 }: WindowInnerProps) {
   return (
     <WindowMenuProvider>
@@ -251,6 +256,7 @@ function WindowInner({
           moveForward={moveForward}
           moveBackward={moveBackward}
           bringToFront={bringToFront}
+          toggleMaximize={toggleMaximize}
         />
       </WindowSidebarProvider>
     </WindowMenuProvider>
@@ -264,8 +270,9 @@ function WindowInnerContent({
   moveForward,
   moveBackward,
   bringToFront,
+  toggleMaximize,
 }: WindowInnerProps) {
-  const { title, minimized, zIndex, component: Component } = entry;
+  const { title, maximized, minimized, zIndex, component: Component } = entry;
   const windowRef = useRef<HTMLDivElement>(null);
   const fileMenuItems = useWindowFileMenuItems();
   const viewMenuItems = useWindowViewMenuItems();
@@ -278,17 +285,16 @@ function WindowInnerContent({
     handleMinimize,
     handleMoveBackward,
     handleMoveForward,
-    maximized,
     menus,
     showSidebar,
     showStatusBar,
   } = useWindowActions(
     entry,
-    bringToFront,
     close,
     minimize,
     moveBackward,
     moveForward,
+    toggleMaximize,
     fileMenuItems,
     viewMenuItems,
     hasSidebar,

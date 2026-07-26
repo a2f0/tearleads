@@ -16,6 +16,9 @@ export interface WindowEntry {
   title: string;
   initialX: number;
   initialY: number;
+  // maximized and minimized live here rather than inside Window so the taskbar
+  // can drive both without reaching into a window's local state.
+  maximized: boolean;
   minimized: boolean;
   zIndex: number;
   component?: ComponentType;
@@ -44,8 +47,10 @@ export interface WindowStateActions {
     options?: WindowCreateOptions,
   ) => string;
   close: (id: string) => void;
+  maximize: (id: string) => void;
   minimize: (id: string) => void;
   restore: (id: string) => void;
+  toggleMaximize: (id: string) => void;
   updateMiniAppRoute: (
     id: string,
     pathSegments: ReadonlyArray<string>,

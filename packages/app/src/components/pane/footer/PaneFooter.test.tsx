@@ -26,7 +26,13 @@ function WindowControls() {
         Minimize Notes
       </button>
       <output data-testid="notes-state">
-        {notes?.minimized ? "minimized" : "visible"}
+        {notes === undefined
+          ? "closed"
+          : notes.minimized
+            ? "minimized"
+            : notes.maximized
+              ? "maximized"
+              : "visible"}
       </output>
     </>
   );
@@ -41,24 +47,83 @@ function renderFooter() {
   );
 }
 
+function openNotes(view: ReturnType<typeof renderFooter>) {
+  fireEvent.click(view.getByRole("button", { name: "Open Notes" }));
+  return view.getByRole("button", { name: "Activate Notes window" });
+}
+
 test("shows visible open mini-apps in the taskbar", () => {
   const view = renderFooter();
 
-  fireEvent.click(view.getByRole("button", { name: "Open Notes" }));
-
-  expect(
-    view.getByRole("button", { name: "Activate Notes window" }),
-  ).toBeTruthy();
+  expect(openNotes(view)).toBeTruthy();
   expect(view.getByTestId("notes-state").textContent).toBe("visible");
+});
+
+test("labels taskbar entries whether or not they are minimized", () => {
+  const view = renderFooter();
+  const taskbarButton = openNotes(view);
+
+  expect(taskbarButton.textContent).toBe("Notes");
+
+  fireEvent.click(view.getByRole("button", { name: "Minimize Notes" }));
+
+  expect(taskbarButton.textContent).toBe("Notes");
 });
 
 test("keeps minimized mini-apps in the taskbar and restores them", () => {
   const view = renderFooter();
+  const taskbarButton = openNotes(view);
 
-  fireEvent.click(view.getByRole("button", { name: "Open Notes" }));
   fireEvent.click(view.getByRole("button", { name: "Minimize Notes" }));
 
   expect(view.getByTestId("notes-state").textContent).toBe("minimized");
-  fireEvent.click(view.getByRole("button", { name: "Activate Notes window" }));
+  fireEvent.click(taskbarButton);
   expect(view.getByTestId("notes-state").textContent).toBe("visible");
+});
+
+test("taskbar context menu minimizes a visible window", () => {
+  const view = renderFooter();
+  const taskbarButton = openNotes(view);
+
+  fireEvent.contextMenu(taskbarButton);
+  expect(view.queryByRole("button", { name: "Restore" })).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Minimize" }));
+
+  expect(view.getByTestId("notes-state").textContent).toBe("minimized");
+  expect(view.queryByRole("button", { name: "Minimize" })).toBeNull();
+});
+
+test("taskbar context menu restores a minimized window", () => {
+  const view = renderFooter();
+  const taskbarButton = openNotes(view);
+
+  fireEvent.click(view.getByRole("button", { name: "Minimize Notes" }));
+  fireEvent.contextMenu(taskbarButton);
+  fireEvent.click(view.getByRole("button", { name: "Restore" }));
+
+  expect(view.getByTestId("notes-state").textContent).toBe("visible");
+});
+
+test("taskbar context menu maximizes a minimized window", () => {
+  const view = renderFooter();
+  const taskbarButton = openNotes(view);
+
+  fireEvent.click(view.getByRole("button", { name: "Minimize Notes" }));
+  fireEvent.contextMenu(taskbarButton);
+  fireEvent.click(view.getByRole("button", { name: "Maximize" }));
+
+  expect(view.getByTestId("notes-state").textContent).toBe("maximized");
+});
+
+test("taskbar context menu closes a window", () => {
+  const view = renderFooter();
+  const taskbarButton = openNotes(view);
+
+  fireEvent.contextMenu(taskbarButton);
+  fireEvent.click(view.getByRole("button", { name: "Close" }));
+
+  expect(view.getByTestId("notes-state").textContent).toBe("closed");
+  expect(
+    view.queryByRole("button", { name: "Activate Notes window" }),
+  ).toBeNull();
 });
