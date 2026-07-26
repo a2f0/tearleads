@@ -102,6 +102,7 @@ import {
   traceHealPlanned,
   traceStaleBundle,
   traceStaleRead,
+  traceSubmitFailed,
 } from "./syncTrace";
 
 export function hasDocumentUpdateEvent(
@@ -576,11 +577,19 @@ export async function buildMaterializedDocumentSyncPlan(
       containerKeksByEpochId,
     );
   } catch (error) {
+    // Only a stale-bundle heal or a checkpoint regeneration counts as a
+    // blocked recovery; an ordinary pass failing here (e.g. a healthy bundle
+    // that cannot be unwrapped) must not read as one in a support report.
     // Enumerated reason only; unknown errors emit nothing (fail closed).
-    traceHealBlocked(input.onSyncTrace, {
-      documentId: input.writerProjection.documentId,
-      error,
-    });
+    if (
+      input.writerProjection.contentKeyBundleStale === true ||
+      input.regenerateQueuedCheckpoints === true
+    ) {
+      traceHealBlocked(input.onSyncTrace, {
+        documentId: input.writerProjection.documentId,
+        error,
+      });
+    }
     throw error;
   }
   const {
@@ -947,6 +956,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
   localVersionVector: string | null;
   minLsn?: string | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
+  onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
@@ -985,9 +995,21 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
     }
 
     if (isRetryableDocumentSyncConflict(submitted)) {
+      traceSubmitFailed(input.onSyncTrace, {
+        action: "retry",
+        code: submitted.code,
+        documentId: input.documentId,
+        status: submitted.status,
+      });
       return { kind: "retry_with_projection" };
     }
 
+    traceSubmitFailed(input.onSyncTrace, {
+      action: "stop",
+      code: submitted.code,
+      documentId: input.documentId,
+      status: submitted.status,
+    });
     submitted.report();
     return { kind: "completed", result: null };
   }
@@ -1233,6 +1255,7 @@ async function tryPersistedReadOnlyDocumentSync(
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
     onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
+    onSyncTrace: input.onSyncTrace,
     persistedState: input.persistedState,
     resolveProjectionUserKey,
     resolveWriterPublicKey: input.resolveWriterPublicKey,

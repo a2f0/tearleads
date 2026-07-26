@@ -108,7 +108,7 @@ test("classifier maps every fixed heal failure to an enumerated reason", () => {
   }
 });
 
-test("a hostile failure code is sanitized to none", () => {
+test("only allowlisted protocol codes are copied; everything else collapses", () => {
   const lines = collect((emit) => {
     traceSubmitFailed(emit, {
       action: "stop",
@@ -116,9 +116,27 @@ test("a hostile failure code is sanitized to none", () => {
       documentId: DOCUMENT_ID,
       status: 409,
     });
+    // Even a code that LOOKS like a protocol token must not pass unless it is
+    // one of ours — a server-controlled string never reaches the clipboard.
+    traceSubmitFailed(emit, {
+      action: "stop",
+      code: "server_invented_token",
+      documentId: DOCUMENT_ID,
+      status: 409,
+    });
+    traceSubmitFailed(emit, {
+      action: "retry",
+      code: "document_sync_state_stale",
+      documentId: DOCUMENT_ID,
+      status: 409,
+    });
   });
   expect(lines).toEqual([
-    `document sync submit failed document=${DOCUMENT_ID} status=409 code=none action=stop`,
+    `document sync submit failed document=${DOCUMENT_ID} status=409 code=other action=stop`,
+    `document sync submit failed document=${DOCUMENT_ID} status=409 code=other action=stop`,
+    `document sync submit failed document=${DOCUMENT_ID} status=409 code=document_sync_state_stale action=retry`,
   ]);
-  expect(lines[0]).toMatch(DOCUMENT_SYNC_TRACE_PATTERN);
+  for (const line of lines) {
+    expect(line).toMatch(DOCUMENT_SYNC_TRACE_PATTERN);
+  }
 });

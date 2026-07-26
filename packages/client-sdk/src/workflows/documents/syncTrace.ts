@@ -10,6 +10,11 @@
  * output matches it, keeping the two in lockstep.
  */
 
+import {
+  DOCUMENT_NOT_FOUND_ERROR_CODE,
+  DOCUMENT_SYNC_ERROR_CODES,
+} from "@tearleads/validators/response";
+
 export type DocumentSyncTraceEmitter = (line: string) => void;
 
 const UUID_FRAGMENT = "[0-9a-fA-F-]{1,64}";
@@ -74,8 +79,21 @@ export function classifyHealBlockedReason(error: unknown): string | null {
   return null;
 }
 
+/**
+ * Only the protocol's own coded values are copied; any other server-provided
+ * string — even one that happens to look like a code — is collapsed to
+ * "other" so a hostile or buggy server can never smuggle text into a report.
+ */
+const SAFE_FAILURE_CODES: ReadonlySet<string> = new Set([
+  ...Object.values(DOCUMENT_SYNC_ERROR_CODES),
+  DOCUMENT_NOT_FOUND_ERROR_CODE,
+]);
+
 function safeCode(code: string | undefined): string {
-  return code !== undefined && /^[a-z0-9_]{1,64}$/u.test(code) ? code : "none";
+  if (code === undefined) {
+    return "none";
+  }
+  return SAFE_FAILURE_CODES.has(code) ? code : "other";
 }
 
 function safeStatus(status: number | null): string {
