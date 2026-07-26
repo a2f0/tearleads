@@ -206,6 +206,13 @@ export async function unwrapDocumentContentKeyFromWriterProjection(
  * epoch that projections no longer serve wraps for, so the old content key
  * is unrecoverable by design — recovery re-encrypts the local document under
  * the fresh key via a rotation-baseline snapshot instead.
+ *
+ * Like every content-key rotation (unlink included), this requires the KEK
+ * of EVERY linked-container target: all envelopes in a bundle must wrap the
+ * same key, so an inaccessible target's envelope can neither be carried
+ * forward (it wraps the old key) nor fabricated. A writer authorized through
+ * only a subset of a multi-container link set fails here with a named target
+ * and leaves the heal to a member who spans all of them.
  */
 export async function buildRotatedDocumentContentKeyBundle(input: {
   containerKeksByEpochId: ReadonlyMap<string, Uint8Array>;

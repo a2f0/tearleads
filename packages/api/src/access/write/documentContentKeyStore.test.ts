@@ -362,9 +362,13 @@ test("storeDocumentContentKeyBundle stores one canonical bundle for current targ
       db,
     ),
   ).rejects.toMatchObject(
+    // Coded stateStale so a losing concurrent writer (e.g. a racing
+    // stale-bundle heal) refetches the winner's state and retries instead of
+    // treating the conflict as terminal.
     new DocumentContentKeyBundleError(
       "Document content-key bundle conflict",
       409,
+      DOCUMENT_SYNC_ERROR_CODES.stateStale,
     ),
   );
 });

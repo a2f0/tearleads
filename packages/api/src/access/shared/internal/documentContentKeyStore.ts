@@ -707,10 +707,12 @@ async function addDocumentContentKeyTargetsToExistingBundle(input: {
       (targetKeyMaterialEqual(target, nextTarget) &&
         !targetEnvelopeMaterialEqual(target, nextTarget))
     ) {
-      throw new DocumentContentKeyBundleError(
-        "Document content-key bundle conflict",
-        409,
-      );
+      // Coded stateStale: a concurrent writer's bundle already occupies this
+      // epoch with different envelopes (e.g. two devices racing to heal a
+      // stale bundle each submit their own fresh key). The loser refetches
+      // the projection, sees the winner's committed state, and resubmits
+      // against it — the client's stateStale retry path.
+      throw staleBundle("Document content-key bundle conflict");
     }
   }
 

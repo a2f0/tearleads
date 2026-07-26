@@ -180,6 +180,7 @@ function isStaleContainerMetadataSecurityStateError(error: unknown): boolean {
     ) ||
     message.startsWith("Document content key could not be unwrapped") ||
     message.startsWith("Document content-key bundle is stale") ||
+    message.startsWith("Document content-key re-wrap KEK is unavailable") ||
     message.startsWith("Document stale-bundle recovery") ||
     message === "Document sync target hash mismatch" ||
     message === "Document sync content-key targets mismatch"

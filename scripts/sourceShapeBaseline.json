@@ -94,8 +94,8 @@
       "bytes": 19027
     },
     "packages/api/src/access/shared/internal/documentContentKeyStore.ts": {
-      "lines": 1107,
-      "bytes": 32991
+      "lines": 1109,
+      "bytes": 33302
     },
     "packages/api/src/access/shared/internal/principalStateStore.ts": {
       "lines": 914,
@@ -110,8 +110,8 @@
       "bytes": 18310
     },
     "packages/api/src/access/write/documentContentKeyStore.test.ts": {
-      "lines": 1053,
-      "bytes": 32467
+      "lines": 1057,
+      "bytes": 32700
     },
     "packages/api/src/access/write/principalStateStore.test.ts": {
       "lines": 974,

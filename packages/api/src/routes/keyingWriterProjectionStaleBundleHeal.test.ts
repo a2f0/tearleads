@@ -203,4 +203,33 @@ test("a heal that advances the content-key epoch must carry a newly written base
   expect((await supersededReadOnlyResponse.json()).code).toBe(
     "document_sync_state_stale",
   );
+
+  // A concurrent healer that lost the race submits its OWN fresh key at the
+  // now-occupied epoch. That conflict must be coded stale — the client's
+  // retry path refetches the healed projection and resubmits against it —
+  // never an uncoded terminal 409 that strands the loser's queued writes.
+  const losingBaseline = await createSignedAtomicRotationBaseline({
+    accessManifestHash: created.contentKeyBundle.linkSetManifestHash,
+    contentKeyEpoch: healedBundle.contentKeyEpoch,
+    documentId: created.id,
+    organizationId,
+    owner,
+    targetHash: healedBundle.targetHash,
+  });
+  const losingHealResponse = await postDocumentSync(owner, created.id, {
+    ...healedRequestEnvelope,
+    contentKeyBundle: {
+      ...healedRequestEnvelope.contentKeyBundle,
+      targets: healedBundle.targets.map((target) => ({
+        ...target,
+        wrappedKey: `document-key:${created.id}:losing-healer`,
+      })),
+    },
+    outgoingUpdates: [losingBaseline],
+  });
+  expect(losingHealResponse.status).toBe(409);
+  expect(await losingHealResponse.json()).toEqual({
+    code: "document_sync_state_stale",
+    error: "Document content-key bundle conflict",
+  });
 }, 20_000);
