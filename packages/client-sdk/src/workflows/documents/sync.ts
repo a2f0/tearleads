@@ -300,6 +300,24 @@ async function resolveSyncPlanContentMaterial(
 
   if (staleContentKeyBundle && pendingUpdates.length > 0) {
     const contentKey = crypto.getRandomValues(new Uint8Array(32));
+    // A rotation checkpoint left in the queue by an interrupted earlier
+    // recovery is superseded by the fresh covering baseline built below, and
+    // submitting it alongside would trip the server's covering-baseline gate
+    // (every baseline in an epoch-advancing sync must dominate the committed
+    // frontier). Hold it back: it stays queued and unacked, and post-heal
+    // passes submit it as an ordinary, non-advancing checkpoint.
+    //
+    // A heal whose OWN baseline does not cover the committed frontier is
+    // rejected by that same gate and surfaces as a terminal queue failure.
+    // There is deliberately no pull-first fallback: the uncovered updates are
+    // encrypted under content keys wrapped to the rotated-away container KEK
+    // epoch, which no post-rotation projection can unwrap, so pulling cannot
+    // extend this device's history. Only a device already holding the full
+    // history (typically the author of the uncovered updates) can heal
+    // without orphaning them.
+    const ordinaryPendingUpdates = pendingUpdates.filter(
+      (update) => update.sourceVersionVector == null,
+    );
     return {
       contentKey,
       contentKeyBundle: await buildRotatedDocumentContentKeyBundle({
@@ -313,7 +331,7 @@ async function resolveSyncPlanContentMaterial(
         await buildStaleRecoveryBaselinePendingUpdate(
           input.buildRotationSnapshot,
         ),
-        ...pendingUpdates,
+        ...ordinaryPendingUpdates,
       ],
     };
   }

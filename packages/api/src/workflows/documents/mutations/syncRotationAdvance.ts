@@ -14,8 +14,14 @@ import { DocumentMutationError } from "./errors";
  * uncovered old-epoch updates are served forever, poison every reader's
  * all-or-nothing decrypt, and the document never converges (mirrors the
  * atomic unlink's assertAtomicRotationBaselineCoversCommittedFrontier).
- * A device that is behind must not heal; the device holding the full history
- * (typically the author of the uncovered updates) is the one that can.
+ *
+ * A device that is behind must not heal, and cannot make itself eligible by
+ * pulling first: the uncovered updates are encrypted under keys wrapped to
+ * the rotated-away container KEK epoch, which no post-rotation projection
+ * serves wraps for, so they are undecryptable to every puller. The device
+ * holding the full history (typically the author of the uncovered updates)
+ * is the one that can heal; rejecting the rest preserves that data instead
+ * of silently orphaning it under a non-covering baseline.
  */
 export async function assertEpochAdvanceAnchoredByCoveringBaseline(input: {
   readonly documentId: string;

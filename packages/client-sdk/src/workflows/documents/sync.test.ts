@@ -1458,3 +1458,38 @@ test("consumers that cannot heal reject a stale content-key bundle outright", as
     }),
   ).rejects.toThrow("Document writer projection content-key bundle is stale");
 });
+
+test("a heal holds back superseded pending rotation checkpoints", async () => {
+  const fixture = await createStaleBundleSyncFixture();
+  const pendingEdit = await createLoroPendingUpdate("post-checkpoint edit");
+  const supersededCheckpoint = createPendingUpdateRecord({
+    id: "550e8400-e29b-41d4-a716-446655440777",
+    sourceVersionVector: pendingEdit.partialEndVersionVector,
+    updateData: pendingEdit.updateData,
+    partialStartVersionVector: "{}",
+    partialEndVersionVector: pendingEdit.partialEndVersionVector,
+  });
+
+  const materialized = await buildMaterializedDocumentSyncPlan({
+    author: fixture.author,
+    buildRotationSnapshot: createFullHistoryRotationSnapshot,
+    localVersionVector: null,
+    pendingUpdates: [supersededCheckpoint, pendingEdit],
+    signedAt: "2026-07-26T00:00:00.000Z",
+    targetSecretKey: fixture.secretKey,
+    trustedLocalProjection: true,
+    writerProjection: fixture.staleWriterProjection,
+  });
+
+  expect(materialized.healedStaleContentKeyBundle).toBe(true);
+  const { request } = materialized.plan;
+  // Fresh covering baseline + the ordinary edit; the old checkpoint stays
+  // queued for a post-heal pass instead of tripping the server's
+  // covering-baseline gate.
+  expect(request.outgoingUpdates).toHaveLength(2);
+  expect(request.outgoingUpdates[0]?.checkpointKind).toBe("rotate_baseline");
+  expect(request.outgoingUpdates.map((update) => update.id)).not.toContain(
+    supersededCheckpoint.id,
+  );
+  expect(request.outgoingUpdates[1]?.id).toBe(pendingEdit.id);
+});
