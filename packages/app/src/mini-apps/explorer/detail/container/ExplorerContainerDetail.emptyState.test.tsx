@@ -6,6 +6,7 @@ import {
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import type { MouseEvent } from "react";
 import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerContainerDetail } from "./ExplorerContainerDetail";
@@ -124,7 +125,11 @@ function renderContainerDetail(params: {
 function containerDetailElement(props: {
   documentQueries: ContainerDocumentQueries;
   documentListRevision: number;
+  onContainerContextMenu?:
+    | ((event: MouseEvent<HTMLElement>, containerId: string) => void)
+    | undefined;
   selectedNode: ContainerNode;
+  showHeaderSyncIndicator?: boolean | undefined;
   uploadManager?: ExplorerUploadManager;
 }) {
   return (
@@ -140,16 +145,20 @@ function containerDetailElement(props: {
       documentQueries={props.documentQueries}
       uploadManager={props.uploadManager ?? idleUploadManager}
       online
-      onContainerContextMenu={() => undefined}
+      onContainerContextMenu={props.onContainerContextMenu ?? (() => undefined)}
       onItemContextMenu={() => undefined}
       refreshError={null}
       selectDocumentProjection={() => undefined}
       selectedNode={props.selectedNode}
       setSelectedId={() => undefined}
-      showHeaderSyncIndicator={false}
+      showHeaderSyncIndicator={props.showHeaderSyncIndicator ?? false}
       visibleSystemSlots={new Set()}
     />
   );
+}
+
+function headerActionsLabel(node: ContainerNode): string {
+  return `${EXPLORER_LABELS.containerHeaderActionsLabel}: ${node.name}`;
 }
 
 async function settlePendingItemWindow(
@@ -381,4 +390,66 @@ test("an unmeasured frame leaves the pitch alone, so the window query runs once"
   expect(frame.classList.contains("mini-app-table-frame--two-line")).toBe(
     false,
   );
+});
+
+// The folder you are inside has no row of its own in the list it renders, so the
+// header's kebab is the only handle on its own actions — and on a root folder,
+// the only one anywhere: a root has no parent listing to open it from.
+test("the header kebab opens the actions menu for the folder you are inside", () => {
+  const { documentQueries } = createDeferredDocumentQueries();
+  const opened: string[] = [];
+  const onContainerContextMenu = (_event: unknown, containerId: string) => {
+    opened.push(containerId);
+  };
+  const props = renderContainerDetail({ documentQueries });
+  const view = render(
+    containerDetailElement({ ...props, onContainerContextMenu }),
+  );
+
+  fireEvent.click(
+    view.getByRole("button", { name: headerActionsLabel(containerA) }),
+  );
+  expect(opened).toEqual([containerA.id]);
+
+  // Navigating into another folder retargets the same trigger, so the menu can
+  // never act on the folder you just left.
+  view.rerender(
+    containerDetailElement({
+      ...props,
+      onContainerContextMenu,
+      selectedNode: containerB,
+    }),
+  );
+  fireEvent.click(
+    view.getByRole("button", { name: headerActionsLabel(containerB) }),
+  );
+  expect(opened).toEqual([containerA.id, containerB.id]);
+  expect(
+    view.queryByRole("button", { name: headerActionsLabel(containerA) }),
+  ).toBeNull();
+});
+
+// The header spreads its children apart, so the kebab shares a trailing group
+// with the sync badge rather than being a third child — otherwise the badge
+// strands in the middle of the header instead of sitting beside the kebab.
+test("the header kebab is the trailing control, after the sync indicator", () => {
+  const { documentQueries } = createDeferredDocumentQueries();
+  const props = renderContainerDetail({ documentQueries });
+  const view = render(
+    containerDetailElement({ ...props, showHeaderSyncIndicator: true }),
+  );
+
+  const header = view.container.querySelector(".mini-app-header");
+  const actions = header?.querySelector(".mini-app-actions");
+  if (!header || !actions) {
+    throw new Error("Expected the container header and its actions group.");
+  }
+
+  expect(actions.lastElementChild).toBe(
+    view.getByRole("button", { name: headerActionsLabel(containerA) }),
+  );
+  expect(actions.children).toHaveLength(2);
+  // The identity block and that group are the header's only children, so
+  // space-between still pins the folder name left and the controls right.
+  expect(header.children).toHaveLength(2);
 });
