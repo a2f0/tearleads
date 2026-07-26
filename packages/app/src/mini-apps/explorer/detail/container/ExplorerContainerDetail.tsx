@@ -16,6 +16,7 @@ import { shouldFoldCompactRows } from "../../../../components/mini-app/MiniAppTa
 import { useMiniAppVirtualWindow } from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
+import { ExplorerContainerIcon } from "../../ExplorerContainerIcon";
 import { ExplorerSyncStateBadge } from "../../ExplorerSyncStateBadge";
 import { useExplorerContainerFileDropTarget } from "../../hooks/useExplorerContainerFileDropTarget";
 import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager";
@@ -40,10 +41,19 @@ function ExplorerContainerDetailHeader(params: {
 
   return (
     <MiniAppHeader>
-      <MiniAppHeaderCopy>
-        <strong>{selectedNode.name}</strong>
-        <span>{EXPLORER_LABELS.folderType}</span>
-      </MiniAppHeaderCopy>
+      <div className="explorer-detail-header-identity">
+        {/* The same glyph the sidebar row and item table already show for this
+            container, so the header names where you are the way the tree did. */}
+        <ExplorerContainerIcon
+          className="explorer-detail-header-icon"
+          icon={selectedNode.icon}
+          isOpen
+        />
+        <MiniAppHeaderCopy>
+          <strong>{selectedNode.name}</strong>
+          <span>{EXPLORER_LABELS.folderType}</span>
+        </MiniAppHeaderCopy>
+      </div>
       {showHeaderSyncIndicator ? (
         <ExplorerSyncStateBadge
           online={online}
