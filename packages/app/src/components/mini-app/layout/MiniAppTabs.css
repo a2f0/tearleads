@@ -132,3 +132,28 @@
 .routed-pane--mobile .mini-app-tabs {
   margin-inline: calc(-1 * var(--space-md));
 }
+
+/*
+ * …but a negative margin only escapes padding, not a scrollport. Where the strip
+ * sits inside a scrolling panel (the Explorer info panels are `MiniAppPanel
+ * scroll`), that panel is itself inset by the root's padding, so bleeding the
+ * strip pushed it out of its scroll container: the leading edge was clipped
+ * (overflow that precedes the scroll origin is unreachable) and the trailing edge
+ * became local horizontal scroll. The strip's *layout* box still measured flush
+ * to the viewport, which is why only painting — `elementsFromPoint` at x=1 — and
+ * the panel's own `scrollWidth > clientWidth` catch it.
+ *
+ * So hand the inset to the scrollport instead of fighting it: bleed the panel to
+ * the screen and re-apply the same `--space-md` as padding *inside* it. Its
+ * content lands exactly where it did before, but the strip's bleed now cancels
+ * padding on the panel it lives in, so the strip fills the panel's padding box
+ * edge to edge — clipping nothing and adding no scrollable overflow.
+ *
+ * Scoped with `:has()` so only tabbed panels move; a framed panel is excluded
+ * because its own `--panel-padding` would make `--space-md` the wrong distance.
+ */
+.routed-pane--mobile
+.mini-app-panel--scroll:not(.mini-app-panel--framed):has(.mini-app-tabs) {
+  margin-inline: calc(-1 * var(--space-md));
+  padding-inline: var(--space-md);
+}

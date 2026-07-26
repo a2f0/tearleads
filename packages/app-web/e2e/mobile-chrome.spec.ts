@@ -79,37 +79,91 @@ test("mobile app bar draws its icons at the touch glyph size", async ({
 
 // A tab strip is chrome, so on a phone it spans the screen rather than sitting
 // inset like content — otherwise its baseline (which reads as the panel's top
-// edge) stops short of both sides and the strip floats as a card. The bleed in
-// MiniAppTabs.css cancels exactly the `--space-md` that `.mini-app-root` applies,
-// which only holds while every tabbed surface sits directly in that root. Assert
-// the drawn box on two surfaces that reach the strip by different routes — a
-// future strip nested inside extra inline padding would overshoot instead, so
-// also assert the page did not gain horizontal overflow.
-for (const surface of [
-  { path: "/app/system-monitor", tab: "Logs" },
-  { path: "/app/explorer/blobs", tab: "Blob Browser" },
-]) {
-  test(`mobile tab strip bleeds to both screen edges (${surface.path})`, async ({
+// edge) stops short of both sides and the strip floats as a card.
+//
+// Measuring the bounding box alone is not enough, and that is the whole reason
+// this test looks the way it does. The bleed is a negative margin, which escapes
+// padding but not a scrollport: where a strip sits inside a scrolling panel, an
+// unhandled bleed still *measures* flush to the viewport while being clipped at
+// the leading edge and pushed into local horizontal scroll at the trailing one.
+// So assert what is painted (`elementsFromPoint` at each edge) and that no
+// ancestor scroll container gained horizontal overflow. Cover a strip reached
+// through a scrollport (container Get Info) alongside the plain top-level ones.
+const TAB_STRIP_SURFACES = [
+  { name: "system monitor", path: "/app/system-monitor", tab: "Logs" },
+  { name: "blob browser", path: "/app/explorer/blobs", tab: "Blob Browser" },
+  { name: "sync lanes", path: "/app/explorer/sync", tab: "Sync Lanes" },
+  { name: "backup restore", path: "/app/backup-restore", tab: null },
+  // Reached by drilling in rather than by URL, and the one that scrolls inside
+  // its own panel — the case a bounding-box-only assertion missed.
+  { name: "container info", path: "/app/explorer", tab: "General" },
+] as const;
+
+for (const surface of TAB_STRIP_SURFACES) {
+  test(`mobile tab strip bleeds to both screen edges (${surface.name})`, async ({
     page,
   }) => {
     const viewportWidth = 599;
     await page.setViewportSize({ width: viewportWidth, height: 800 });
     await page.goto(surface.path);
 
-    await expect(page.getByRole("tab", { name: surface.tab })).toBeVisible({
-      timeout: 30_000,
-    });
-
-    const stripBox = await page.locator(".mini-app-tabs").first().boundingBox();
-    if (!stripBox) {
-      throw new Error(`Expected a visible tab strip on ${surface.path}.`);
+    if (surface.name === "container info") {
+      const rowAction = page.getByRole("button", {
+        name: "Actions for Contacts",
+      });
+      await expect(rowAction).toBeVisible({ timeout: 30_000 });
+      await rowAction.click();
+      await page.getByText("Get Info", { exact: true }).first().click();
     }
 
-    expect(stripBox.x).toBe(0);
-    expect(stripBox.width).toBe(viewportWidth);
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth),
-    ).toBe(viewportWidth);
+    const strip = page.locator(".mini-app-tabs").first();
+    await expect(strip).toBeVisible({ timeout: 30_000 });
+    if (surface.tab) {
+      await expect(page.getByRole("tab", { name: surface.tab })).toBeVisible();
+    }
+
+    const drawn = await strip.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      const midY = Math.round(box.top + box.height / 2);
+      const paintsAt = (x: number) =>
+        document
+          .elementsFromPoint(x, midY)
+          .some((hit) => hit.closest(".mini-app-tabs") !== null);
+      // The strip must fit inside every scroll container between it and the
+      // viewport. Deliberately not a scrollWidth check on those ancestors: long
+      // unbreakable content (a hash in the System Monitor log) overflows them for
+      // reasons that have nothing to do with the strip. Comparing the boxes asks
+      // the precise question — did the bleed escape its scrollport?
+      const escaped: string[] = [];
+      let node: Element | null = element.parentElement;
+      while (node) {
+        const style = getComputedStyle(node);
+        if (style.overflowX !== "visible") {
+          const nodeBox = node.getBoundingClientRect();
+          const padLeft =
+            nodeBox.left + (Number.parseFloat(style.borderLeftWidth) || 0);
+          const padRight =
+            nodeBox.right - (Number.parseFloat(style.borderRightWidth) || 0);
+          if (box.left < padLeft || box.right > padRight) {
+            escaped.push(node.className);
+          }
+        }
+        node = node.parentElement;
+      }
+      return {
+        left: box.x,
+        width: box.width,
+        paintsAtLeftEdge: paintsAt(1),
+        paintsAtRightEdge: paintsAt(window.innerWidth - 2),
+        escaped,
+      };
+    });
+
+    expect(drawn.left).toBe(0);
+    expect(drawn.width).toBe(viewportWidth);
+    expect(drawn.paintsAtLeftEdge).toBe(true);
+    expect(drawn.paintsAtRightEdge).toBe(true);
+    expect(drawn.escaped).toEqual([]);
   });
 }
 
