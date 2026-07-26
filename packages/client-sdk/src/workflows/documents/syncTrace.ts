@@ -13,6 +13,7 @@
 
 import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
+  DOCUMENT_PROJECTION_ERROR_CODES,
   DOCUMENT_SYNC_ERROR_CODES,
 } from "@tearleads/validators/response";
 
@@ -48,6 +49,7 @@ const HEAL_BLOCKED_REASONS: ReadonlyArray<readonly [string, string]> = [
  */
 const SAFE_FAILURE_CODES: ReadonlySet<string> = new Set([
   ...Object.values(DOCUMENT_SYNC_ERROR_CODES),
+  ...Object.values(DOCUMENT_PROJECTION_ERROR_CODES),
   DOCUMENT_NOT_FOUND_ERROR_CODE,
 ]);
 
@@ -97,7 +99,7 @@ export const DOCUMENT_SYNC_TRACE_FRAGMENT = [
   `document sync checkpoint regeneration document=${UUID_FRAGMENT} checkpoints=\\d+ updates=\\d+`,
   `document sync heal blocked document=${UUID_FRAGMENT} reason=(?:${REASON_FRAGMENT})`,
   `document sync submit failed document=${UUID_FRAGMENT} status=(?:\\d+|none) code=(?:${CODE_FRAGMENT}) action=(?:${ACTION_FRAGMENT})`,
-  `document sync projection failed document=${UUID_FRAGMENT} status=(?:\\d+|none)`,
+  `document sync projection failed document=${UUID_FRAGMENT} status=(?:\\d+|none) code=(?:${CODE_FRAGMENT})`,
   `document sync healed document=${UUID_FRAGMENT} epoch=\\d+ accepted=\\d+`,
   `document sync history recovery start document=${UUID_FRAGMENT} attempt=\\d+`,
   `document sync history recovered document=${UUID_FRAGMENT} updates=\\d+`,
@@ -210,10 +212,14 @@ export function traceSubmitFailed(
 
 export function traceProjectionFailed(
   emit: DocumentSyncTraceEmitter | undefined,
-  input: { documentId: string; status: number | null },
+  input: {
+    code?: string | undefined;
+    documentId: string;
+    status: number | null;
+  },
 ): void {
   emit?.(
-    `document sync projection failed document=${input.documentId} status=${safeStatus(input.status)}`,
+    `document sync projection failed document=${input.documentId} status=${safeStatus(input.status)} code=${safeCode(input.code)}`,
   );
 }
 

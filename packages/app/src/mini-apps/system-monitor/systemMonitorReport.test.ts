@@ -269,7 +269,7 @@ test("report retains document sync trace lines and drops decorated ones", () => 
         message: `Documents: document sync submit failed document=${documentId} status=409 code=document_sync_state_stale action=retry`,
       }),
       createLogEntry(5, {
-        message: `Documents: document sync projection failed document=${documentId} status=none`,
+        message: `Documents: document sync projection failed document=${documentId} status=none code=document_projection_container_conflict`,
       }),
       createLogEntry(6, {
         message: `Documents: document sync healed document=${documentId} epoch=2 accepted=4`,
@@ -307,7 +307,7 @@ test("report retains document sync trace lines and drops decorated ones", () => 
     `document sync submit failed document=${documentId} status=409 code=document_sync_state_stale action=retry`,
   );
   expect(report).toContain(
-    `document sync projection failed document=${documentId} status=none`,
+    `document sync projection failed document=${documentId} status=none code=document_projection_container_conflict`,
   );
   expect(report).toContain(
     `document sync healed document=${documentId} epoch=2 accepted=4`,

@@ -142,8 +142,8 @@
       "bytes": 43277
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2240,
-      "bytes": 72694
+      "lines": 2241,
+      "bytes": 72751
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 1169,
@@ -170,8 +170,8 @@
       "bytes": 18997
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
-      "lines": 721,
-      "bytes": 21637
+      "lines": 725,
+      "bytes": 22229
     },
     "packages/api/src/workflows/organizations/provisionOrganization.ts": {
       "lines": 1415,

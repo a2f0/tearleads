@@ -376,6 +376,7 @@ async function resolveDocumentSyncWriterProjection(input: {
     }
 
     traceProjectionFailed(input.onSyncTrace, {
+      code: result.code,
       documentId: input.documentId,
       status: result.status,
     });

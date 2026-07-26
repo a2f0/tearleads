@@ -13,10 +13,14 @@ import type {
   AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
   DocumentNotFoundErrorCode,
+  DocumentProjectionErrorCode,
   DocumentSyncErrorCode,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
+import {
+  DOCUMENT_NOT_FOUND_ERROR_CODE,
+  DOCUMENT_PROJECTION_ERROR_CODES,
+} from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {
   getAccessManifestBundle,
@@ -57,16 +61,31 @@ import {
 type DocumentWriterProjectionStatus = 403 | 404 | 409;
 
 export class DocumentWriterProjectionError extends Error {
+  readonly code?:
+    | DocumentNotFoundErrorCode
+    | DocumentProjectionErrorCode
+    | DocumentSyncErrorCode
+    | undefined;
+
   constructor(
     message: string,
     readonly status: DocumentWriterProjectionStatus,
-    readonly code?:
+    code?:
       | DocumentNotFoundErrorCode
+      | DocumentProjectionErrorCode
       | DocumentSyncErrorCode
       | undefined,
   ) {
     super(message);
     this.name = "DocumentWriterProjectionError";
+    // Every 409 must carry a stable code — an uncoded conflict is
+    // undiagnosable from a System Monitor report. Malformed stored state is
+    // the fail-safe class for paths that do not name a more specific one.
+    this.code =
+      code ??
+      (status === 409
+        ? DOCUMENT_PROJECTION_ERROR_CODES.stateInvalid
+        : undefined);
   }
 }
 
@@ -187,6 +206,7 @@ async function loadCurrentDocumentManifestBundle(
     throw new DocumentWriterProjectionError(
       "Document manifest head missing",
       409,
+      DOCUMENT_PROJECTION_ERROR_CODES.headMissing,
     );
   }
 
@@ -635,6 +655,7 @@ async function resolveDocumentWriterProjection(input: {
       throw new DocumentWriterProjectionError(
         error.message,
         error.status === 404 ? 409 : error.status,
+        DOCUMENT_PROJECTION_ERROR_CODES.kekTargetsUnavailable,
       );
     }
     throw error;
@@ -661,6 +682,7 @@ async function resolveDocumentWriterProjection(input: {
     throw new DocumentWriterProjectionError(
       "Document content-key bundle missing",
       409,
+      DOCUMENT_PROJECTION_ERROR_CODES.contentKeyBundleMissing,
     );
   }
   const verificationMaterial =
