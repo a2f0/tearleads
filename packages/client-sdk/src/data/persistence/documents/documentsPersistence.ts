@@ -762,6 +762,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       {
         coveredTailIds: input.coveredTailIds,
         endVersionVector: input.endVersionVector,
+        ...(input.force === undefined ? {} : { force: input.force }),
         snapshot: input.snapshot,
       },
     );

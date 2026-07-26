@@ -420,6 +420,7 @@ async function persistInitialDocumentBootstrap(
   await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(execSql, {
     coveredTailIds: [],
     endVersionVector: encodeVersionVector(doc),
+    force: true,
     localId: input.localId,
     snapshot: bytesToBase64(exportFullHistorySnapshot(doc)),
   });

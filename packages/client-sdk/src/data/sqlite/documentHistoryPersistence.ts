@@ -189,6 +189,13 @@ export async function replaceDocumentHistoryCheckpoint(
   input: {
     coveredTailIds: readonly string[];
     endVersionVector: string;
+    /**
+     * Skip the monotonic version gate. Only for document CREATION, where any
+     * existing checkpoint under this localId is the orphan of a failed prior
+     * attempt (checkpoint written, record row never committed) — a retry's
+     * fresh document need not dominate that orphan to replace it.
+     */
+    force?: boolean;
     snapshot: string;
   },
 ): Promise<void> {
@@ -217,6 +224,7 @@ export async function replaceDocumentHistoryCheckpoint(
       .limit(1);
     if (
       stored &&
+      input.force !== true &&
       !satisfiesVersionVector(input.endVersionVector, stored.endVersionVector)
     ) {
       return;

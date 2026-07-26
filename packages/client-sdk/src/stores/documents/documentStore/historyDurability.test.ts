@@ -310,6 +310,24 @@ test("a stale compactor cannot regress a newer checkpoint", async () => {
       "contested-doc",
     );
     expect(restored?.snapshot).toBe("advanced-checkpoint");
+
+    // A creation retry force-replaces the orphan of a failed prior attempt,
+    // even though its fresh document does not dominate it.
+    await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(execSql, {
+      coveredTailIds: [],
+      endVersionVector: encodeVersionVector(stale),
+      force: true,
+      localId: "contested-doc",
+      snapshot: "creation-retry-checkpoint",
+    });
+    expect(
+      (
+        await sqlDocumentsPersistence.loadHistoryRestoreState?.(
+          execSql,
+          "contested-doc",
+        )
+      )?.snapshot,
+    ).toBe("creation-retry-checkpoint");
   } finally {
     close();
   }

@@ -285,6 +285,7 @@ async function createInitialDocumentRecord(
     {
       coveredTailIds: [],
       endVersionVector: encodeVersionVector(nextDoc),
+      force: true,
       localId: state.localId,
       snapshot: bytesToBase64(exportFullHistorySnapshot(nextDoc)),
     },

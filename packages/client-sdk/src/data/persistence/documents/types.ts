@@ -171,6 +171,7 @@ export interface DocumentsPersistence {
     input: {
       coveredTailIds: readonly string[];
       endVersionVector: string;
+      force?: boolean;
       localId: string;
       snapshot: string;
     },
