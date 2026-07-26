@@ -361,6 +361,10 @@
       "lines": 992,
       "bytes": 32402
     },
+    "packages/client-sdk/src/workflows/registration/persistRegistrationBootstrap.ts": {
+      "lines": 513,
+      "bytes": 18143
+    },
     "packages/client-sdk/src/workflows/registration/registerIdentity.ts": {
       "lines": 1105,
       "bytes": 40297

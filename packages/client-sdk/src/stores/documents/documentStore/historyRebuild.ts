@@ -50,7 +50,25 @@ export async function installRebuiltDocument(input: {
   state: DocumentStoreState;
   synced: NonNullable<Awaited<ReturnType<typeof syncRemoteDocument>>>;
 }): Promise<Uint8Array> {
-  exportFullHistorySnapshot(input.rebuiltDoc);
+  // Make the recovered history durable BEFORE publishing the newer shallow
+  // record: a crash between the two would otherwise leave the record's
+  // snapshot ahead of the checkpoint, and the next restore's lag fallback
+  // would undo the whole recovery. Checkpoint-ahead is the safe direction —
+  // the restore prefers it and the record catches up on the next persist.
+  const fullHistorySnapshot = exportFullHistorySnapshot(input.rebuiltDoc);
+  const coveredTailIds =
+    (await input.state.persistence.listHistoryTailIds?.(
+      input.state.runtime.infra.execSql,
+      input.state.localId,
+    )) ?? [];
+  await input.state.persistence.replaceHistoryCheckpoint?.(
+    input.state.runtime.infra.execSql,
+    {
+      coveredTailIds,
+      localId: input.state.localId,
+      snapshot: bytesToBase64(fullHistorySnapshot),
+    },
+  );
   const previousPendingBaseVersion = input.state.pendingBaseVersion;
   advancePendingBaseVersion(input.state, input.rebuiltDoc);
   try {
@@ -77,23 +95,5 @@ export async function installRebuiltDocument(input: {
   input.state.doc = input.rebuiltDoc;
   input.state.writerProjection =
     input.synced.writerProjection ?? input.state.writerProjection;
-  // The rebuild pulled its updates outside the durable-history tail, so the
-  // stored checkpoint may lag the rebuilt document. Replace it (with the
-  // covered tail captured before the export) so a restart keeps the
-  // recovered history instead of restoring the pre-rebuild state.
-  const coveredTailIds =
-    (await input.state.persistence.listHistoryTailIds?.(
-      input.state.runtime.infra.execSql,
-      input.state.localId,
-    )) ?? [];
-  const fullHistorySnapshot = exportFullHistorySnapshot(input.state.doc);
-  await input.state.persistence.replaceHistoryCheckpoint?.(
-    input.state.runtime.infra.execSql,
-    {
-      coveredTailIds,
-      localId: input.state.localId,
-      snapshot: bytesToBase64(fullHistorySnapshot),
-    },
-  );
   return fullHistorySnapshot;
 }
