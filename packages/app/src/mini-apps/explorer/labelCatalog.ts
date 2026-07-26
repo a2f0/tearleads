@@ -340,6 +340,7 @@ export const EXPLORER_LABELS = {
   syncLanesLastRequestedRow: "Last Requested",
   syncLanesLastStartedRow: "Last Started",
   syncLanesNoError: "No error",
+  syncLanesNoFilteredLanes: "No lanes match this filter.",
   syncLanesNoLanes: "No sync lanes.",
   syncLanesOpenBlobAction: "View in Blob Browser",
   syncLanesOpenLaneAction: "Open lane detail",

@@ -4,7 +4,7 @@ import {
   type DomainSyncSnapshot,
   requestAllDomainSyncLanes,
 } from "@tearleads/client-sdk";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -18,6 +18,7 @@ import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerSyncLaneDetail } from "./ExplorerSyncLaneDetail";
 import { ExplorerSyncLaneList } from "./ExplorerSyncLaneList";
 import { ExplorerSyncLaneOverview } from "./ExplorerSyncLaneShared";
+import { filterSyncLanes, type SyncLaneFilter } from "./ExplorerSyncLaneUtils";
 import { useDomainSyncSnapshot } from "./useDomainSyncSnapshot";
 import "./ExplorerSyncLanesPanel.css";
 
@@ -54,6 +55,13 @@ export function ExplorerSyncLanesPanelView(params: {
     snapshot,
   } = params;
   const showingLaneDetail = selectedLaneKey !== null;
+  // Held above the list/detail branch so a filter survives a round trip into a
+  // lane detail and back.
+  const [laneFilter, setLaneFilter] = useState<SyncLaneFilter>(null);
+  const visibleLanes = useMemo(
+    () => filterSyncLanes(snapshot.lanes, laneFilter),
+    [laneFilter, snapshot.lanes],
+  );
 
   return (
     <MiniAppPanel
@@ -91,9 +99,18 @@ export function ExplorerSyncLanesPanelView(params: {
         />
       ) : (
         <>
-          <ExplorerSyncLaneOverview snapshot={snapshot} />
+          <ExplorerSyncLaneOverview
+            activeFilter={laneFilter}
+            onSelectFilter={setLaneFilter}
+            snapshot={snapshot}
+          />
           <ExplorerSyncLaneList
-            lanes={snapshot.lanes}
+            emptyMessage={
+              laneFilter === null
+                ? EXPLORER_LABELS.syncLanesNoLanes
+                : EXPLORER_LABELS.syncLanesNoFilteredLanes
+            }
+            lanes={visibleLanes}
             onOpenLaneDetail={onOpenLaneDetail}
           />
         </>

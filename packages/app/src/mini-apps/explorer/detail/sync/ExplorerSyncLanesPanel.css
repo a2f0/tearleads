@@ -4,13 +4,33 @@
   gap: var(--space-sm);
 }
 
+/*
+ * Each metric is the filter for the lanes it counts, so it is a toggle button
+ * rather than a static tile. Styled here instead of reusing MiniAppButton
+ * because the tile keeps its own stacked, left-aligned value/label layout and
+ * its tighter padding; only the emphasis treatment is borrowed, so a pressed
+ * (active) filter reads the same as any other selected control.
+ */
 .explorer-sync-lane-metric {
   display: flex;
   flex-direction: column;
   gap: var(--space-2xs);
   min-width: 0;
+  min-height: var(--control-height);
   padding: var(--space-sm);
   border: var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.explorer-sync-lane-metric:hover,
+.explorer-sync-lane-metric:focus-visible,
+.explorer-sync-lane-metric[aria-pressed="true"] {
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }
 
 .explorer-sync-lane-metric strong {
@@ -22,6 +42,37 @@
 .explorer-sync-lane-muted {
   font-size: var(--font-size-sm);
   opacity: var(--opacity-subtle);
+}
+
+/*
+ * Phone tier: pin the six metrics to a 2x3 grid. Keep this in lockstep with the
+ * JS tier at the 760px line (ROUTED_TABLET_BREAKPOINT_PX, mirrored in
+ * RoutedPane.css). `auto-fit` needs ~352px of pane to seat three 7rem tracks,
+ * so a phone drops to two — and a wasted third row — as soon as anything (a
+ * safe-area inset, a scrollbar gutter, pane padding) eats into a 375px iPhone
+ * SE viewport. `minmax(0, 1fr)` pins three regardless, and lets a track shrink
+ * below its content rather than overflow the panel.
+ */
+@media (max-width: 759px) {
+  .explorer-sync-lane-overview {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /*
+   * Buy the third track room for its widest label ("Registered"). At the routed
+   * type ramp's 16px body step it measures ~96px in the monospace body font,
+   * which is within a few pixels of what a third of an SE viewport leaves once
+   * the tile's own side padding is out — so it wraps on any pane narrower than
+   * full bleed. Trimming that padding and dropping the label one ramp step
+   * leaves ~28px of slack at 375px and holds one line down to ~320px.
+   */
+  .explorer-sync-lane-metric {
+    padding-inline: var(--space-xs);
+  }
+
+  .explorer-sync-lane-metric span {
+    font-size: var(--font-size-xs);
+  }
 }
 
 .explorer-sync-lane-table-wrap {
