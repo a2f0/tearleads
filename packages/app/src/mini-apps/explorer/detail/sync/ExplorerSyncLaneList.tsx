@@ -206,6 +206,10 @@ function renderSyncLaneCell(params: {
 }
 
 export function ExplorerSyncLaneList(params: {
+  // Reads differently for "there are no lanes at all" and "the active overview
+  // filter hides every lane", so the caller — which owns the filter — supplies
+  // it rather than the list guessing.
+  emptyMessage: string;
   lanes: ReadonlyArray<SyncLaneSnapshot>;
   onOpenLaneDetail: (laneKey: string) => void;
 }) {
@@ -275,7 +279,7 @@ export function ExplorerSyncLaneList(params: {
       >
         {params.lanes.length === 0 ? (
           <MiniAppTableEmptyRow colSpan={visibleColumnIds.length}>
-            {EXPLORER_LABELS.syncLanesNoLanes}
+            {params.emptyMessage}
           </MiniAppTableEmptyRow>
         ) : (
           params.lanes.map((lane) => (

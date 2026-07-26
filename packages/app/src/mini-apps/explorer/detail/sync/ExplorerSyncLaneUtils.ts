@@ -16,6 +16,13 @@ interface SyncLaneSummary {
   running: number;
 }
 
+/**
+ * Which lanes the Sync Lanes list shows, driven by the overview metrics above
+ * it. `null` is the "Registered" tile: its count is every registered lane, so
+ * selecting it is the natural "show everything" reset.
+ */
+export type SyncLaneFilter = SyncLaneStatus | null;
+
 const SYNC_LANE_PROGRESS_BY_STATUS: Record<SyncLaneStatus, number> = {
   complete: 100,
   error: 100,
@@ -107,6 +114,35 @@ export function summarizeSyncLanes(
   }
 
   return summary;
+}
+
+export function getSyncLaneSummaryCount(
+  summary: SyncLaneSummary,
+  filter: SyncLaneFilter,
+): number {
+  switch (filter) {
+    case null:
+      return summary.registered;
+    case "complete":
+      return summary.complete;
+    case "error":
+      return summary.errors;
+    case "idle":
+      return summary.idle;
+    case "queued":
+      return summary.queued;
+    case "running":
+      return summary.running;
+  }
+}
+
+export function filterSyncLanes(
+  lanes: ReadonlyArray<SyncLaneSnapshot>,
+  filter: SyncLaneFilter,
+): ReadonlyArray<SyncLaneSnapshot> {
+  return filter === null
+    ? lanes
+    : lanes.filter((lane) => lane.status === filter);
 }
 
 export function formatExplorerSyncLaneBoolean(value: boolean): string {
