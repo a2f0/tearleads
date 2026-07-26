@@ -165,16 +165,19 @@ function IdentityManagerPrimaryScreen({
       />
       <IdentityManagerRecoveryKeySection />
       <IdentityManagerPinCodeSection />
-      <SessionsSection
-        canManageSessions={canManageSessions}
-        handleEndSession={sessionMutations.endSession}
-        loadingSessions={sessionList.loadingSessions}
-        mutatingSessionId={sessionMutations.mutatingSessionId}
-        onOpenSessionDetail={onOpenSessionDetail}
-        refreshSessions={sessionList.refreshSessions}
-        sessionError={sessionList.sessionError}
-        sessions={sessionList.sessions}
-      />
+      {/* Sessions are a server-side concept, so a logged-out identity has no
+          section to show — omit it rather than render an empty one. */}
+      {canManageSessions ? (
+        <SessionsSection
+          handleEndSession={sessionMutations.endSession}
+          loadingSessions={sessionList.loadingSessions}
+          mutatingSessionId={sessionMutations.mutatingSessionId}
+          onOpenSessionDetail={onOpenSessionDetail}
+          refreshSessions={sessionList.refreshSessions}
+          sessionError={sessionList.sessionError}
+          sessions={sessionList.sessions}
+        />
+      ) : null}
     </>
   );
 }
