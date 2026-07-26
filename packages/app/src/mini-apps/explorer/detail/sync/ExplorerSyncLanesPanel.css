@@ -142,6 +142,21 @@
   overflow-wrap: anywhere;
 }
 
+/*
+ * Keep the label column legible once the value column claims the slack. The
+ * shared info-table cell rule breaks inside words, so both columns have a
+ * one-character min-content and a phone-width auto layout hands the width to
+ * whichever column wants more of it — on the timing tab that is the value
+ * column (timestamps at the touch type ramp, and a lane error string is longer
+ * still), which crushed the labels down to a letter per line ("Requ / este /
+ * d"). Pinning labels to a single line raises that column's min-content to its
+ * widest label; the values still wrap anywhere (rule above), so the table keeps
+ * fitting the viewport instead of scrolling sideways.
+ */
+.explorer-sync-lane-detail th {
+  white-space: nowrap;
+}
+
 .explorer-sync-lane-detail .mini-app-info-section {
   min-width: 0;
 }

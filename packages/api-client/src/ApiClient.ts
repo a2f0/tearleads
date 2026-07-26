@@ -1249,6 +1249,22 @@ export class ApiClient {
     });
   }
 
+  linkDocumentResult(
+    documentId: string,
+    input: DocumentLinkSetMutationRequest,
+  ) {
+    this.invalidateDocumentAttribution(documentId);
+    return this.makeRequestResult(
+      `/documents/${pathSegment(documentId)}/link`,
+      isDocumentLinkSetMutationResponse,
+      "POST",
+      JSON.stringify(input),
+    ).finally(() => {
+      this.invalidateDocumentAttribution(documentId);
+      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+    });
+  }
+
   listContainerParentLanes(input: ListContainerParentLanesRequest) {
     return dedupedRequest(
       this.containerParentLaneRequestsByKey,
@@ -1297,6 +1313,22 @@ export class ApiClient {
   unlinkDocument(documentId: string, input: DocumentLinkSetMutationRequest) {
     this.invalidateDocumentAttribution(documentId);
     return this.request(
+      `/documents/${pathSegment(documentId)}/unlink`,
+      isDocumentLinkSetMutationResponse,
+      "POST",
+      JSON.stringify(input),
+    ).finally(() => {
+      this.invalidateDocumentAttribution(documentId);
+      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+    });
+  }
+
+  unlinkDocumentResult(
+    documentId: string,
+    input: DocumentLinkSetMutationRequest,
+  ) {
+    this.invalidateDocumentAttribution(documentId);
+    return this.makeRequestResult(
       `/documents/${pathSegment(documentId)}/unlink`,
       isDocumentLinkSetMutationResponse,
       "POST",

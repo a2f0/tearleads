@@ -1,3 +1,4 @@
+import { ArrowsClockwiseIcon } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
 import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
 import type {
   ContainerNode,
@@ -203,6 +204,7 @@ function WriteQueueObjectCell(params: {
 function WriteQueueRowActionsCell(params: {
   entryName: string;
   onOpenEntryInfo: () => void;
+  onRetry: () => void;
 }) {
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
   const closeMenu = useCallback(() => setMenuPosition(null), []);
@@ -241,6 +243,14 @@ function WriteQueueRowActionsCell(params: {
             onClick={() => {
               closeMenu();
               params.onOpenEntryInfo();
+            }}
+          />
+          <MenuItem
+            icon={ArrowsClockwiseIcon}
+            label={EXPLORER_LABELS.writeQueueRetryAction}
+            onClick={() => {
+              closeMenu();
+              params.onRetry();
             }}
           />
         </Menu>
@@ -286,6 +296,7 @@ interface WriteQueueTableProps {
   openDocument: (localId: string, containerId: string) => void;
   openWriteQueueEntryRoute: (entryKey: string) => void;
   organizationNamesById: ReadonlyMap<string, string>;
+  retryPendingWrites: () => void;
 }
 
 function WriteQueueRow(
@@ -353,6 +364,7 @@ function WriteQueueRow(
         onOpenEntryInfo={() =>
           params.openWriteQueueEntryRoute(getWriteQueueItemKey(item))
         }
+        onRetry={params.retryPendingWrites}
       />
     </MiniAppTableRow>
   );
@@ -390,6 +402,7 @@ export function ExplorerWriteQueueTable(params: WriteQueueTableProps) {
               openDocument={params.openDocument}
               openWriteQueueEntryRoute={params.openWriteQueueEntryRoute}
               organizationNamesById={params.organizationNamesById}
+              retryPendingWrites={params.retryPendingWrites}
             />
           ))}
         </MiniAppTable>

@@ -402,6 +402,7 @@ export const EXPLORER_LABELS = {
   writeQueueEntryDetailTitle: "Write Queue Entry",
   writeQueueEntryGeneralHeading: "Entry Details",
   writeQueueEntryInfoAction: "Entry info",
+  writeQueueRetryAction: "Retry sync",
   writeQueueEntryLastAttemptRow: "Last Attempt",
   writeQueueEntryLastErrorRow: "Last Error",
   writeQueueEntryLocalIdRow: "Local ID",

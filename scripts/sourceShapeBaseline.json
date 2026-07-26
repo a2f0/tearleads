@@ -75,7 +75,7 @@
     },
     "packages/api-client/src/ApiClient.ts": {
       "lines": 1598,
-      "bytes": 47373
+      "bytes": 48025
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 567,
@@ -210,12 +210,12 @@
       "bytes": 17034
     },
     "packages/app/src/mini-apps/explorer/detail/sync/ExplorerWriteQueuePanel.test.tsx": {
-      "lines": 534,
-      "bytes": 15024
+      "lines": 535,
+      "bytes": 15065
     },
     "packages/app/src/mini-apps/explorer/labelCatalog.ts": {
-      "lines": 452,
-      "bytes": 20265
+      "lines": 453,
+      "bytes": 20304
     },
     "packages/app/src/mini-apps/identity-manager/IdentityManager.test.tsx": {
       "lines": 565,
@@ -261,6 +261,10 @@
       "lines": 580,
       "bytes": 14747
     },
+    "packages/client-sdk/src/data/documents/shared/types.ts": {
+      "lines": 508,
+      "bytes": 16082
+    },
     "packages/client-sdk/src/data/keyingProjectionVerification.ts": {
       "lines": 1166,
       "bytes": 39373
@@ -270,8 +274,8 @@
       "bytes": 43292
     },
     "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
-      "lines": 856,
-      "bytes": 27795
+      "lines": 871,
+      "bytes": 28483
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 829,
@@ -291,7 +295,7 @@
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
       "lines": 562,
-      "bytes": 17417
+      "bytes": 17444
     },
     "packages/client-sdk/src/stores/documents/documentStore/syncAttachments.ts": {
       "lines": 511,
@@ -308,6 +312,10 @@
     "packages/client-sdk/src/workflows/container-contents/documentInfo.test.ts": {
       "lines": 599,
       "bytes": 18343
+    },
+    "packages/client-sdk/src/workflows/container-contents/documentMoveIntentSync.test.ts": {
+      "lines": 574,
+      "bytes": 20411
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueries.test.ts": {
       "lines": 590,
@@ -332,6 +340,10 @@
     "packages/client-sdk/src/workflows/containers/child/share.ts": {
       "lines": 766,
       "bytes": 24145
+    },
+    "packages/client-sdk/src/workflows/documents/linkSet.ts": {
+      "lines": 527,
+      "bytes": 17677
     },
     "packages/client-sdk/src/workflows/documents/sync.test.ts": {
       "lines": 1691,

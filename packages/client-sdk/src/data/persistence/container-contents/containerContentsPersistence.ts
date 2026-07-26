@@ -995,9 +995,12 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
         updatedAt: containerMoveIntents.updatedAt,
       })
       .from(containerMoveIntents)
+      // Blocked intents replay too: "blocked" names the reason the last
+      // attempt could not proceed, not a terminal verdict — the missing
+      // container can appear via hydration, after which the move completes.
       .where(
         and(
-          eq(containerMoveIntents.syncStatus, "pending"),
+          inArray(containerMoveIntents.syncStatus, ["pending", "blocked"]),
           eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
         ),
       )
@@ -1082,7 +1085,9 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
         .where(
           and(
             eq(containerMoveIntents.containerId, input.containerId),
-            eq(containerMoveIntents.syncStatus, "pending"),
+            // Blocked rows stay updatable so a retried intent records its
+            // fresh outcome and a transient failure unblocks it.
+            inArray(containerMoveIntents.syncStatus, ["pending", "blocked"]),
             eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
           ),
         )
