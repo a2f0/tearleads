@@ -63,6 +63,7 @@ export const DOCUMENT_PROJECTION_ERROR_CODES = {
   contentKeyBundleMissing: "document_projection_content_key_bundle_missing",
   headMissing: "document_projection_head_missing",
   kekTargetsUnavailable: "document_projection_kek_targets_unavailable",
+  stateInvalid: "document_projection_state_invalid",
 } as const;
 
 export type DocumentProjectionErrorCode =

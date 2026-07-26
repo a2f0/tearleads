@@ -170,8 +170,8 @@
       "bytes": 18997
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
-      "lines": 721,
-      "bytes": 21758
+      "lines": 725,
+      "bytes": 22229
     },
     "packages/api/src/workflows/organizations/provisionOrganization.ts": {
       "lines": 1415,
