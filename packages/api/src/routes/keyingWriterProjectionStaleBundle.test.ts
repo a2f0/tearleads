@@ -436,4 +436,19 @@ test("a heal that advances the content-key epoch must carry a baseline covering 
   expect(healedProjection.contentKeyBundle.contentKeyEpoch).toBe(
     healedBundle.contentKeyEpoch,
   );
+
+  // Once healed, the stale read tolerance must not pin pre-heal readers to
+  // the superseded bundle: they get the coded stale 409, which routes them to
+  // the healed projection.
+  const supersededReadOnlyResponse = await postDocumentSync(owner, created.id, {
+    contentKeyEpoch: created.contentKeyBundle.contentKeyEpoch,
+    expectedLinkSetManifestHash: created.contentKeyBundle.linkSetManifestHash,
+    expectedTargetHash: created.contentKeyBundle.targetHash,
+    localVersionVector: null,
+    outgoingUpdates: [],
+  });
+  expect(supersededReadOnlyResponse.status).toBe(409);
+  expect((await supersededReadOnlyResponse.json()).code).toBe(
+    "document_sync_state_stale",
+  );
 }, 15_000);

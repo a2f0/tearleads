@@ -5,7 +5,6 @@ import type {
 } from "@tearleads/api-shared/postgres";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import {
-  DOCUMENT_SYNC_ERROR_CODES,
   type DocumentSyncResponse,
   documentKekTargetsFromContentKeyBundle,
 } from "@tearleads/validators/response";
@@ -13,15 +12,7 @@ import {
   getDocumentContentKeyBundle,
   type StoredDocumentContentKeyBundle,
 } from "../../../access/read/documentContentKeyStore";
-import {
-  DocumentKekTargetError,
-  resolveCurrentDocumentKekTargets,
-} from "../../../access/read/documentKekTargets";
-import {
-  DocumentContentKeyBundleError,
-  requireAndRefreshCurrentDocumentContentKeyBundle,
-  storeDocumentContentKeyBundleInTransaction,
-} from "../../../access/write/documentContentKeyStore";
+import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import { readCurrentCommitLsn } from "../../../documents/commitLsn";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
 import { selectServedSyncUpdateEntries } from "../../../documents/documentSyncBaselineRedirect";
@@ -39,13 +30,13 @@ import {
   assertSyncContentKeyBundleMatchesRequest,
   toContentKeyBundleResponse,
   toDocumentKekTargetsResponse,
-  toStoredContentKeyBundleInput,
 } from "./shared/records";
 import {
   loadSignerPublicKey,
   verifySyncWriteAuthorizationProof,
 } from "./shared/verification";
 import { ensureSyncDocumentAccess } from "./syncAccess";
+import { resolveSyncContentKeyBundle } from "./syncContentKeyBundle";
 import { listMissingSyncUpdateEntries } from "./syncResponseUpdates";
 import { assertEpochAdvanceAnchoredByCoveringBaseline } from "./syncRotationAdvance";
 import { lockSyncDocumentWriteFrontier } from "./syncWriteFrontier";
@@ -92,85 +83,6 @@ async function listContentKeyBundlesForSyncResponse(input: {
   return [...bundleByEpoch.values()].sort(
     (left, right) => left.contentKeyEpoch - right.contentKeyEpoch,
   );
-}
-
-interface ResolvedSyncContentKeyBundle {
-  readonly contentKeyBundle: StoredDocumentContentKeyBundle;
-  /**
-   * True when a read-only pull was served against the stored bundle even
-   * though it no longer matches the current KEK targets. The response must
-   * then describe the bundle's own (stale) targets, not the current ones, so
-   * the pair stays self-consistent for the client's plan/response checks.
-   */
-  readonly servedStaleBundle: boolean;
-}
-
-function isStaleSyncStateError(error: unknown): boolean {
-  return (
-    (error instanceof DocumentContentKeyBundleError ||
-      error instanceof DocumentKekTargetError) &&
-    error.code === DOCUMENT_SYNC_ERROR_CODES.stateStale
-  );
-}
-
-async function resolveSyncContentKeyBundle(input: {
-  readonly documentId: string;
-  readonly executor: DatabaseTransaction;
-  readonly request: DocumentSyncRequest;
-}): Promise<ResolvedSyncContentKeyBundle> {
-  if (input.request.contentKeyBundle) {
-    return {
-      contentKeyBundle: await storeDocumentContentKeyBundleInTransaction(
-        toStoredContentKeyBundleInput(
-          input.documentId,
-          input.request.contentKeyBundle,
-        ),
-        input.executor,
-      ),
-      servedStaleBundle: false,
-    };
-  }
-
-  try {
-    return {
-      contentKeyBundle: await requireAndRefreshCurrentDocumentContentKeyBundle({
-        documentId: input.documentId,
-        contentKeyEpoch: input.request.contentKeyEpoch,
-        expectedLinkSetManifestHash: input.request.expectedLinkSetManifestHash,
-        expectedTargetHash: input.request.expectedTargetHash,
-        executor: input.executor,
-      }),
-      servedStaleBundle: false,
-    };
-  } catch (error) {
-    // Reads must never be bricked by key-wrapping staleness: after a revoke
-    // rotates a linked container's KEK, the stored bundle cannot be carried
-    // forward server-side, but a reader synced to that exact bundle can still
-    // pull with it. Staleness only gates writes (which heal the bundle by
-    // carrying a re-wrapped one at the next content-key epoch).
-    if (
-      input.request.outgoingUpdates.length > 0 ||
-      !isStaleSyncStateError(error)
-    ) {
-      throw error;
-    }
-
-    const storedBundle = await getDocumentContentKeyBundle(
-      input.documentId,
-      input.request.contentKeyEpoch,
-      input.executor,
-    );
-    if (
-      !storedBundle ||
-      storedBundle.linkSetManifestHash !==
-        input.request.expectedLinkSetManifestHash ||
-      storedBundle.targetHash !== input.request.expectedTargetHash
-    ) {
-      throw error;
-    }
-
-    return { contentKeyBundle: storedBundle, servedStaleBundle: true };
-  }
 }
 
 async function resolveSyncAuditAccess(input: {
