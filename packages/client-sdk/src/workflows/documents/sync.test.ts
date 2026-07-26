@@ -1543,3 +1543,140 @@ test("a heal refuses to settle a checkpoint its snapshot does not cover", async 
     "Document stale-bundle recovery snapshot does not cover a queued rotation checkpoint",
   );
 });
+
+test("regeneration replaces queued checkpoints with a fresh covering baseline", async () => {
+  const { author, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const doc = await createDocument("leftover-checkpoint-regenerate");
+  doc.getText("text").update("history behind the checkpoint");
+  doc.commit();
+  const editUpdate = exportAllUpdates(doc);
+  const editVectors = getUpdateVersionVectors(editUpdate);
+  const pendingEdit = createPendingUpdateRecord({
+    updateData: bytesToBase64(editUpdate),
+    ...editVectors,
+  });
+  const leftoverCheckpoint = createPendingUpdateRecord({
+    id: "550e8400-e29b-41d4-a716-446655440aaa",
+    sourceVersionVector: editVectors.partialEndVersionVector,
+    updateData: bytesToBase64(exportFullHistorySnapshot(doc)),
+    partialStartVersionVector: "{}",
+    partialEndVersionVector: editVectors.partialEndVersionVector,
+  });
+
+  const materialized = await buildMaterializedDocumentSyncPlan({
+    author,
+    buildRotationSnapshot: async () => exportFullHistorySnapshot(doc),
+    localVersionVector: null,
+    pendingUpdates: [leftoverCheckpoint, pendingEdit],
+    regenerateQueuedCheckpoints: true,
+    signedAt: "2026-07-26T00:00:00.000Z",
+    targetSecretKey: secretKey,
+    trustedLocalProjection: true,
+    writerProjection,
+  });
+
+  // The stale leftover is replaced by one fresh full-history baseline (which
+  // provably covers it) and settled on success — resubmitting the old
+  // payload could shrink the redirect's baseline coverage. The request stays
+  // non-advancing: it carries the CURRENT bundle at the current epoch, and
+  // the ordinary edit rides along.
+  expect(materialized.healedStaleContentKeyBundle).toBe(false);
+  const { request } = materialized.plan;
+  expect(request.contentKeyBundle?.contentKeyEpoch).toBe(
+    writerProjection.contentKeyBundle.contentKeyEpoch,
+  );
+  expect(request.outgoingUpdates).toHaveLength(2);
+  expect(request.outgoingUpdates[0]?.checkpointKind).toBe("rotate_baseline");
+  expect(request.outgoingUpdates[0]?.id).not.toBe(leftoverCheckpoint.id);
+  expect(request.outgoingUpdates[1]?.id).toBe(pendingEdit.id);
+  expect(materialized.heldBackPendingUpdateIds).toEqual([
+    leftoverCheckpoint.id,
+  ]);
+  expect(materialized.staleRecoveryBaselineUpdateId).toBe(
+    request.outgoingUpdates[0]?.id ?? "",
+  );
+});
+
+test("syncRemoteDocument regenerates a rejected queued checkpoint and resubmits", async () => {
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  const doc = await createDocument("coverage-rejected-checkpoint");
+  doc.getText("text").update("interrupted recovery history");
+  doc.commit();
+  const vectors = getUpdateVersionVectors(exportAllUpdates(doc));
+  const leftoverCheckpoint = createPendingUpdateRecord({
+    id: "550e8400-e29b-41d4-a716-446655440bbb",
+    sourceVersionVector: vectors.partialEndVersionVector,
+    updateData: bytesToBase64(exportFullHistorySnapshot(doc)),
+    partialStartVersionVector: "{}",
+    partialEndVersionVector: vectors.partialEndVersionVector,
+  });
+  const submittedRequests: DocumentSyncRequest[] = [];
+
+  const synced = await syncRemoteDocument({
+    apiClient: {
+      getDocumentWriterProjection: async () => writerProjection,
+      syncDocument: async () => {
+        throw new Error("Expected syncDocumentResult to handle sync retries");
+      },
+      syncDocumentResult: async (documentId, request) => {
+        submittedRequests.push(request);
+
+        if (submittedRequests.length === 1) {
+          const message = `POST /documents/${documentId}/sync: 409 : Document content-key rotation baseline does not cover the committed frontier`;
+          return {
+            code: undefined,
+            message,
+            ok: false,
+            report: () => {},
+            status: 409,
+          };
+        }
+
+        const plan = await buildDocumentSyncPlan({
+          author,
+          contentKeyBundle: writerProjection.contentKeyBundle,
+          documentId,
+          documentKekTargets: writerProjection.documentKekTargets,
+          documentManifest: writerProjection.documentManifest,
+          localVersionVector: null,
+        });
+        return {
+          data: await createSyncResponse({ ...plan, documentId, request }),
+          ok: true,
+        };
+      },
+    },
+    author,
+    buildRotationSnapshot: async () => exportFullHistorySnapshot(doc),
+    documentId: writerProjection.documentId,
+    execSql,
+    localVersionVector: null,
+    pendingUpdates: [leftoverCheckpoint],
+    resolveProjectionUserKey,
+    targetSecretKey: secretKey,
+    writerProjection,
+    writerPublicKeysByFingerprint: new Map([
+      [author.signerKeyFingerprint, signingPublicKey],
+    ]),
+  });
+
+  // First attempt passes the stale leftover through; the server's coverage
+  // gate rejects it; the retry regenerates a fresh covering baseline under a
+  // new id and succeeds, settling the leftover row it subsumes.
+  expect(submittedRequests).toHaveLength(2);
+  expect(submittedRequests[0]?.outgoingUpdates[0]?.id).toBe(
+    leftoverCheckpoint.id,
+  );
+  const regenerated = submittedRequests[1]?.outgoingUpdates[0];
+  expect(regenerated?.checkpointKind).toBe("rotate_baseline");
+  expect(regenerated?.id).not.toBe(leftoverCheckpoint.id);
+  expect(synced?.settledPendingUpdateIds).toContain(leftoverCheckpoint.id);
+  expect(synced?.settledPendingUpdateIds).not.toContain(regenerated?.id ?? "");
+});
