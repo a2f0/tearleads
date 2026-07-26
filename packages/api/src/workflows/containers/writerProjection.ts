@@ -46,6 +46,14 @@ async function resolveContainerProjectionWithAccess(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerId: string;
   readonly executor: DatabaseSession;
+  /**
+   * Whether to load and serve superseded key epochs. Access-only callers
+   * (e.g. the per-sync authorization check, which discards the response)
+   * pass false so routine syncs never pay the manifest-lineage walk and
+   * historical policy loading that only clients healing rotated content
+   * need.
+   */
+  readonly includeHistoricalKeks?: boolean;
   readonly minimumAccessLevel: ContainerAccessLevel;
   readonly userId: string;
 }): Promise<ContainerWriterProjectionResponse> {
@@ -83,13 +91,16 @@ async function resolveContainerProjectionWithAccess(input: {
     if (!kekState) {
       throw new ContainerWriterProjectionError("Container KEK missing", 409);
     }
-    const historicalKeks = await loadHistoricalContainerKeks({
-      admittedHistoricalEpochIds,
-      context,
-      manifest,
-      principalPolicies: access.principalPolicies,
-      userId: input.userId,
-    });
+    const historicalKeks =
+      input.includeHistoricalKeks === false
+        ? []
+        : await loadHistoricalContainerKeks({
+            admittedHistoricalEpochIds,
+            context,
+            manifest,
+            principalPolicies: access.principalPolicies,
+            userId: input.userId,
+          });
     admittedHistoricalEpochIds.set(
       manifest.state.containerId,
       new Set(historicalKeks.map((kek) => kek.containerKeyEpochId)),
@@ -109,6 +120,7 @@ export async function resolveContainerReaderProjection(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerId: string;
   readonly executor: DatabaseSession;
+  readonly includeHistoricalKeks?: boolean;
   readonly userId: string;
 }): Promise<ContainerWriterProjectionResponse> {
   return resolveContainerProjectionWithAccess({
@@ -121,6 +133,7 @@ export async function resolveContainerWriterProjection(input: {
   readonly context?: ContainerWriterProjectionContext;
   readonly containerId: string;
   readonly executor: DatabaseSession;
+  readonly includeHistoricalKeks?: boolean;
   readonly userId: string;
 }): Promise<ContainerWriterProjectionResponse> {
   return resolveContainerProjectionWithAccess({

@@ -317,6 +317,17 @@ export async function unwrapContainerKekPath(
  * current epoch, because a descendant not yet rekeyed after an ancestor
  * rotation wraps its CURRENT epoch to the ancestor's superseded epoch — the
  * material must be in the map before the descendant is attempted.
+ *
+ * WHO may receive a historical wrap is deliberately not re-verified here:
+ * the server never holds KEK material, so any wrap passing the commitment
+ * check was created by a legitimate epoch-key holder and decrypts only with
+ * a recipient key this client already possesses — a client-side audience
+ * check could refuse to use a capability the client holds, but cannot
+ * create a cryptographic boundary. Audience enforcement therefore lives in
+ * the server's era-pinned filter (see the API's loadHistoricalContainerKeks),
+ * and these keys are only ever used to DECRYPT pre-rotation artifacts whose
+ * authenticity rests on signed write headers; heals always wrap fresh keys
+ * to the verified current targets.
  */
 function historicalContainerKekWraps(
   historical: HistoricalContainerKekResponse,
