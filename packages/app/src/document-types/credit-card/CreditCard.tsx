@@ -1,7 +1,10 @@
 import { EyeIcon } from "@phosphor-icons/react/dist/csr/Eye";
 import { EyeSlashIcon } from "@phosphor-icons/react/dist/csr/EyeSlash";
 import { useCallback, useId, useMemo, useState } from "react";
-import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
+import {
+  MiniAppButton,
+  MiniAppClipboardButton,
+} from "../../components/mini-app/MiniAppLayout";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
@@ -82,6 +85,45 @@ function CreditCardRevealButton(params: {
   );
 }
 
+/**
+ * The trailing controls for a masked field: reveal it, or copy it.
+ *
+ * Copy is the more useful of the two while the value is masked — the input is a
+ * password field, so selecting the text by hand means revealing it first, in
+ * front of whoever is looking at the screen. It therefore copies the stored
+ * value rather than the mask, and stays available whether or not the field is
+ * revealed. The clipboard sits after the eye, at the row's trailing edge, where
+ * every other surface in the app puts a copy button.
+ */
+function CreditCardSecretActions(params: {
+  disabled?: boolean | undefined;
+  isRevealed: boolean;
+  label: string;
+  onToggle: () => void;
+  value: string | null | undefined;
+}) {
+  return (
+    <>
+      <CreditCardRevealButton
+        disabled={params.disabled ?? false}
+        isRevealed={params.isRevealed}
+        label={params.label}
+        onToggle={params.onToggle}
+      />
+      {/* Empty stays disabled rather than hidden: the button reserves its slot
+          so the eye does not shift sideways as a value is typed in. Ghost, so
+          the pair reads as two glyphs on one row rather than a bare eye beside a
+          framed button. */}
+      <MiniAppClipboardButton
+        disabled={params.disabled ?? false}
+        label={`Copy ${params.label}`}
+        value={params.value}
+        variant="ghost"
+      />
+    </>
+  );
+}
+
 // Each mode owns its own reveal state, so leaving edit mode re-masks the
 // values rather than carrying a reveal across the switch.
 function useCreditCardReveal() {
@@ -109,13 +151,14 @@ function CreditCardReadFields(params: { fields: CreditCardDocumentFields }) {
     <StructuredDocumentReadFields
       fields={[
         {
-          // Nothing to unmask when the field is empty, so the toggle is
-          // dropped rather than shown as a control that does nothing.
+          // Nothing to unmask or copy when the field is empty, so the controls
+          // are dropped rather than shown as buttons that do nothing.
           action: hasCreditCardValue(fields.cardNumber) ? (
-            <CreditCardRevealButton
+            <CreditCardSecretActions
               isRevealed={isCardNumberRevealed}
               label={CREDIT_CARD_NUMBER_REVEAL_LABEL}
               onToggle={toggleCardNumber}
+              value={fields.cardNumber}
             />
           ) : undefined,
           displayValue: isCardNumberRevealed
@@ -128,10 +171,11 @@ function CreditCardReadFields(params: { fields: CreditCardDocumentFields }) {
         { label: "Expiration Date", value: fields.expirationDate },
         {
           action: hasCreditCardValue(fields.cvvCode) ? (
-            <CreditCardRevealButton
+            <CreditCardSecretActions
               isRevealed={isCvvCodeRevealed}
               label={CREDIT_CARD_CVV_REVEAL_LABEL}
               onToggle={toggleCvvCode}
+              value={fields.cvvCode}
             />
           ) : undefined,
           displayValue: isCvvCodeRevealed
@@ -164,11 +208,12 @@ function CreditCardEditFields(params: {
     <StructuredDocumentFields>
       <StructuredDocumentField
         action={
-          <CreditCardRevealButton
+          <CreditCardSecretActions
             disabled={disabled}
             isRevealed={isCardNumberRevealed}
             label={CREDIT_CARD_NUMBER_REVEAL_LABEL}
             onToggle={toggleCardNumber}
+            value={fields.cardNumber}
           />
         }
         inputId={inputIds.cardNumber}
@@ -216,11 +261,12 @@ function CreditCardEditFields(params: {
       </StructuredDocumentField>
       <StructuredDocumentField
         action={
-          <CreditCardRevealButton
+          <CreditCardSecretActions
             disabled={disabled}
             isRevealed={isCvvCodeRevealed}
             label={CREDIT_CARD_CVV_REVEAL_LABEL}
             onToggle={toggleCvvCode}
+            value={fields.cvvCode}
           />
         }
         inputId={inputIds.cvvCode}

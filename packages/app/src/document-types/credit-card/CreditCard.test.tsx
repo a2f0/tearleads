@@ -1,10 +1,40 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { WithWindowToolbar } from "../../../test/helpers/windowToolbarProbe";
 import { CreditCardDocumentFieldsPane, CreditCardFields } from "./CreditCard";
 import type { CreditCardDocumentFields } from "./creditCardDocument";
 
-afterEach(cleanup);
+const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
+  Navigator.prototype,
+  "clipboard",
+);
+
+afterEach(() => {
+  cleanup();
+  if (originalClipboardDescriptor) {
+    Object.defineProperty(
+      Navigator.prototype,
+      "clipboard",
+      originalClipboardDescriptor,
+    );
+  } else {
+    delete (Navigator.prototype as { clipboard?: Clipboard }).clipboard;
+  }
+});
+
+// Collects what the copy buttons write, so a test can assert the stored value
+// reached the clipboard rather than the mask shown in its place.
+function installClipboard(copied: string[]): void {
+  Object.defineProperty(Navigator.prototype, "clipboard", {
+    configurable: true,
+    get: () => ({
+      writeText: (value: string) => {
+        copied.push(value);
+        return Promise.resolve();
+      },
+    }),
+  });
+}
 
 const fields: CreditCardDocumentFields = {
   cardNumber: "4111 1111 1111 1111",
@@ -107,6 +137,79 @@ test("read mode omits reveal toggles for missing card details", () => {
 
   expect(view.queryByLabelText("Show credit card number")).toBeNull();
   expect(view.queryByLabelText("Show credit card CVV code")).toBeNull();
+  expect(view.queryByLabelText("Copy credit card number")).toBeNull();
+  expect(view.queryByLabelText("Copy credit card CVV code")).toBeNull();
+});
+
+// The copied acknowledgement lands a microtask after the click, so awaiting it
+// both asserts the feedback and settles the state update inside `act`.
+async function clickCopy(
+  view: ReturnType<typeof render>,
+  label: string,
+): Promise<void> {
+  const button = view.getByLabelText(label);
+  fireEvent.click(button);
+  await waitFor(() => {
+    expect(button.getAttribute("title")).toBe("Copied to clipboard");
+  });
+}
+
+test("read mode copies the stored value while it stays masked", async () => {
+  const copied: string[] = [];
+  installClipboard(copied);
+  const view = renderCreditCardFields();
+
+  await clickCopy(view, "Copy credit card number");
+  await clickCopy(view, "Copy credit card CVV code");
+
+  // The mask is what the row shows; the clipboard gets the real value, and the
+  // copy does not reveal the field on its way out.
+  expect(copied).toEqual(["4111 1111 1111 1111", "123"]);
+  expect(view.getByText("**** **** **** 1111")).toBeTruthy();
+  expect(view.getByLabelText("Show credit card number")).toBeTruthy();
+});
+
+test("edit mode copies the value beside each reveal toggle", async () => {
+  const copied: string[] = [];
+  installClipboard(copied);
+  const view = renderCreditCardFields({ isEditing: true });
+
+  await clickCopy(view, "Copy credit card number");
+  await clickCopy(view, "Copy credit card CVV code");
+
+  expect(copied).toEqual(["4111 1111 1111 1111", "123"]);
+  expect(
+    (view.getByLabelText("Credit card number") as HTMLInputElement).type,
+  ).toBe("password");
+});
+
+test("edit mode disables copy for an empty field and while not writable", () => {
+  const emptyView = renderCreditCardFields({
+    fields: { ...fields, cvvCode: "" },
+    isEditing: true,
+  });
+
+  expect(
+    (emptyView.getByLabelText("Copy credit card CVV code") as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+  // The slot is held rather than dropped, so the eye does not shift sideways as
+  // a value is typed in.
+  expect(emptyView.getByLabelText("Show credit card CVV code")).toBeTruthy();
+
+  cleanup();
+  const disabledView = renderCreditCardFields({
+    disabled: true,
+    isEditing: true,
+  });
+
+  expect(
+    (
+      disabledView.getByLabelText(
+        "Copy credit card number",
+      ) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
 });
 
 test("edit mode toggles the sensitive inputs between password and text", () => {
