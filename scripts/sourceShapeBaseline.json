@@ -94,8 +94,8 @@
       "bytes": 19027
     },
     "packages/api/src/access/shared/internal/documentContentKeyStore.ts": {
-      "lines": 1074,
-      "bytes": 31365
+      "lines": 1099,
+      "bytes": 32734
     },
     "packages/api/src/access/shared/internal/principalStateStore.ts": {
       "lines": 914,
@@ -334,12 +334,12 @@
       "bytes": 24145
     },
     "packages/client-sdk/src/workflows/documents/sync.test.ts": {
-      "lines": 1297,
-      "bytes": 44380
+      "lines": 1460,
+      "bytes": 50369
     },
     "packages/client-sdk/src/workflows/documents/sync.ts": {
-      "lines": 1072,
-      "bytes": 36021
+      "lines": 1245,
+      "bytes": 42015
     },
     "packages/client-sdk/src/workflows/organizations/principalPolicy.ts": {
       "lines": 992,

@@ -7,6 +7,11 @@ import {
   type VerifiedContainerAccessManifest,
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
+import {
+  emptyVersionVector,
+  getImportBlobMetadata,
+  versionVectorsEqual,
+} from "@tearleads/loro";
 import type {
   ContainerManifestRef,
   DocumentOutgoingUpdate,
@@ -18,11 +23,15 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
+  documentKekTargetsFromContentKeyBundle,
   isAccessManifestBundleWireResponse,
   isDocumentContentKeyBundleResponse,
   isDocumentKekTargetsResponse,
 } from "@tearleads/validators/response";
-import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
+import {
+  createPendingUpdateFields,
+  isDocumentUpdateCreatedEvent,
+} from "../../data/documentSync";
 import {
   decryptDocumentSyncUpdatesByEpoch,
   encryptDocumentPendingUpdate,
@@ -31,9 +40,9 @@ import {
 import {
   assertDocumentWriterProjectionConsistent,
   authorizingContainerPathRefs,
+  buildRotatedDocumentContentKeyBundle,
   collectContainerKeksForDocumentSync,
   unwrapDocumentContentKeyFromBundle,
-  unwrapDocumentContentKeyFromWriterProjection,
 } from "../../data/documents/shared/projection";
 import {
   assertDocumentManifestBundleConsistent,
@@ -101,10 +110,10 @@ export function hasDocumentUpdateEvent(
 
 async function prepareDocumentOutgoingUpdates(input: {
   contentKey: Uint8Array;
+  contentKeyEpoch: number;
   documentId: string;
   organizationId: string;
   pendingUpdates: readonly PendingUpdateRecord[];
-  writerProjection: DocumentWriterProjectionResponse;
 }): Promise<DocumentSyncPreparedUpdate[]> {
   if (input.pendingUpdates.length === 0) {
     return [];
@@ -117,8 +126,7 @@ async function prepareDocumentOutgoingUpdates(input: {
     input.pendingUpdates.map(async (update) => {
       const encrypted = await encryptDocumentPendingUpdate({
         contentKeyMaterial,
-        contentKeyEpoch:
-          input.writerProjection.contentKeyBundle.contentKeyEpoch,
+        contentKeyEpoch: input.contentKeyEpoch,
         documentId: input.documentId,
         organizationId: input.organizationId,
         update,
@@ -219,9 +227,124 @@ async function unwrapDocumentSyncResponseContentKeys(
   return contentKeysByEpoch;
 }
 
+/**
+ * Builds the rotation baseline that anchors a stale-bundle heal: a full
+ * history snapshot of the local document, re-encrypted under the fresh
+ * content key so every current member (including post-rotation newcomers)
+ * can read the document without the rotated-away container KEK epochs.
+ */
+async function buildStaleRecoveryBaselinePendingUpdate(
+  buildRotationSnapshot: (() => Promise<Uint8Array | null>) | undefined,
+): Promise<PendingUpdateRecord> {
+  const snapshot = buildRotationSnapshot ? await buildRotationSnapshot() : null;
+  if (!snapshot) {
+    throw new Error(
+      "Document content-key bundle is stale and no rotation snapshot is available to heal it",
+    );
+  }
+  const metadata = getImportBlobMetadata(snapshot);
+  if (
+    metadata.mode !== "snapshot" ||
+    !versionVectorsEqual(
+      metadata.partialStartVersionVector,
+      emptyVersionVector(),
+    )
+  ) {
+    throw new Error(
+      "Document stale-bundle recovery requires a full-history rotation snapshot",
+    );
+  }
+  const pendingFields = createPendingUpdateFields(
+    snapshot,
+    metadata.partialEndVersionVector,
+  );
+  if (!pendingFields) {
+    throw new Error("Document stale-bundle recovery snapshot is empty");
+  }
+
+  return {
+    id: crypto.randomUUID(),
+    ...pendingFields,
+  };
+}
+
+/**
+ * Resolves the content material a sync plan encrypts and carries. A stale
+ * bundle wraps to a rotated-away container KEK epoch that no projection can
+ * unwrap anymore, so it splits by intent: a write-bearing pass heals the
+ * document by rotating to a FRESH content key at the next epoch (wrapped to
+ * the current targets) anchored by a rotation-baseline snapshot, while a
+ * read-only pass keeps the stale bundle/targets pair — without unwrapping —
+ * so the server can settle the pull against the stored state it actually has.
+ */
+async function resolveSyncPlanContentMaterial(
+  input: Parameters<typeof buildMaterializedDocumentSyncPlan>[0],
+  containerKeksByEpochId: ReadonlyMap<string, Uint8Array>,
+): Promise<{
+  contentKey: Uint8Array;
+  contentKeyBundle: DocumentCreateResponse["contentKeyBundle"];
+  documentKekTargets: DocumentSyncResponse["documentKekTargets"];
+  healedStaleContentKeyBundle: boolean;
+  pendingUpdates: readonly PendingUpdateRecord[];
+}> {
+  const pendingUpdates = input.pendingUpdates ?? [];
+  const staleContentKeyBundle =
+    input.writerProjection.contentKeyBundleStale === true;
+
+  if (staleContentKeyBundle && pendingUpdates.length > 0) {
+    const contentKey = crypto.getRandomValues(new Uint8Array(32));
+    return {
+      contentKey,
+      contentKeyBundle: await buildRotatedDocumentContentKeyBundle({
+        containerKeksByEpochId,
+        contentKey,
+        writerProjection: input.writerProjection,
+      }),
+      documentKekTargets: input.writerProjection.documentKekTargets,
+      healedStaleContentKeyBundle: true,
+      pendingUpdates: [
+        await buildStaleRecoveryBaselinePendingUpdate(
+          input.buildRotationSnapshot,
+        ),
+        ...pendingUpdates,
+      ],
+    };
+  }
+
+  if (staleContentKeyBundle) {
+    return {
+      contentKey: new Uint8Array(),
+      contentKeyBundle: input.writerProjection.contentKeyBundle,
+      documentKekTargets: documentKekTargetsFromContentKeyBundle(
+        input.writerProjection.contentKeyBundle,
+      ),
+      healedStaleContentKeyBundle: false,
+      pendingUpdates,
+    };
+  }
+
+  return {
+    contentKey: await unwrapDocumentContentKeyFromBundle(
+      input.writerProjection.contentKeyBundle,
+      containerKeksByEpochId,
+    ),
+    contentKeyBundle: input.writerProjection.contentKeyBundle,
+    documentKekTargets: input.writerProjection.documentKekTargets,
+    healedStaleContentKeyBundle: false,
+    pendingUpdates,
+  };
+}
+
 export async function buildMaterializedDocumentSyncPlan(
   input: {
     author: DocumentCreateAuthor;
+    /**
+     * Supplies a full-history Loro snapshot of the local document when a
+     * stale content-key bundle must be healed. Without it, write-bearing
+     * passes against a stale bundle fail with a descriptive error instead of
+     * healing.
+     */
+    buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
     execSql?: ExecSql | undefined;
     localVersionVector: string | null;
     minLsn?: string | undefined;
@@ -236,12 +359,13 @@ export async function buildMaterializedDocumentSyncPlan(
   const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
   const principalPolicyCache = new Map<string, VerifiedPrincipalPolicy>();
   await assertDocumentWriterProjectionConsistent(input.writerProjection, {
+    allowStaleContentKeyBundle: true,
     execSql: input.execSql,
     principalPolicyCache,
     verifiedByHash,
     ...projectionVerificationOptions(input),
   });
-  const contentKey = await unwrapDocumentContentKeyFromWriterProjection({
+  const containerKeksByEpochId = await collectContainerKeksForDocumentSync({
     execSql: input.execSql,
     principalPolicyCache,
     secretKey: input.targetSecretKey,
@@ -254,12 +378,19 @@ export async function buildMaterializedDocumentSyncPlan(
     bundle: input.writerProjection.documentManifest,
     label: "Document sync manifest",
   });
+  const {
+    contentKey,
+    contentKeyBundle,
+    documentKekTargets,
+    healedStaleContentKeyBundle,
+    pendingUpdates,
+  } = await resolveSyncPlanContentMaterial(input, containerKeksByEpochId);
   const outgoingUpdates = await prepareDocumentOutgoingUpdates({
     contentKey,
+    contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
     documentId,
     organizationId: manifestIdentity.organizationId,
-    pendingUpdates: input.pendingUpdates ?? [],
-    writerProjection: input.writerProjection,
+    pendingUpdates,
   });
   const plan = await buildDocumentSyncPlan({
     author: {
@@ -269,9 +400,9 @@ export async function buildMaterializedDocumentSyncPlan(
     authorizingContainerPathRefs: authorizingContainerPathRefs(
       input.writerProjection,
     ),
-    contentKeyBundle: input.writerProjection.contentKeyBundle,
+    contentKeyBundle,
     documentId,
-    documentKekTargets: input.writerProjection.documentKekTargets,
+    documentKekTargets,
     documentManifest: input.writerProjection.documentManifest,
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
@@ -281,6 +412,7 @@ export async function buildMaterializedDocumentSyncPlan(
 
   return {
     contentKey,
+    healedStaleContentKeyBundle,
     plan,
   };
 }
@@ -831,6 +963,12 @@ function assertUniqueDocumentOutgoingUpdates(
 interface SyncRemoteDocumentInput {
   apiClient: DocumentSyncApi;
   author: DocumentCreateAuthor;
+  /**
+   * Supplies a full-history Loro snapshot of the local document so a
+   * write-bearing pass can heal a stale content-key bundle by rotating to a
+   * fresh content key anchored by a rotation baseline.
+   */
+  buildRotationSnapshot?: (() => Promise<Uint8Array | null>) | undefined;
   documentId: string;
   execSql: ExecSql;
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
@@ -948,6 +1086,46 @@ export async function buildDocumentSyncPlan(
   };
 }
 
+/**
+ * After a sync submit that healed a stale content-key bundle, the cached
+ * projection still carries the bundle that was just superseded; drop it so
+ * later passes fetch the healed state instead of pushing another (redundant)
+ * epoch bump.
+ */
+function evictHealedWriterProjection(
+  input: SyncRemoteDocumentInput,
+  materializedPlan: MaterializedDocumentSyncPlan,
+): void {
+  if (materializedPlan.healedStaleContentKeyBundle) {
+    input.apiClient.evictDocumentWriterProjection?.(input.documentId);
+  }
+}
+
+function submittedDocumentSyncResult(input: {
+  materializedPlan: MaterializedDocumentSyncPlan;
+  recoveryPendingUpdatesById: ReadonlyMap<string, PendingUpdateRecord>;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  response: DocumentSyncResponse;
+  sync: SyncRemoteDocumentInput;
+  writerProjection: DocumentWriterProjectionResponse;
+}): Promise<SyncRemoteDocumentResult> {
+  evictHealedWriterProjection(input.sync, input.materializedPlan);
+  return syncRemoteDocumentResultFromResponse({
+    ...projectionVerificationOptions(input.sync),
+    execSql: input.sync.execSql,
+    materializedPlan: input.materializedPlan,
+    onTerminalSubmitFailure: input.sync.onTerminalSubmitFailure,
+    recoveryPendingUpdatesById: input.recoveryPendingUpdatesById,
+    rekeyPendingUpdate: input.sync.rekeyPendingUpdate,
+    resolveWriterPublicKey: input.sync.resolveWriterPublicKey,
+    response: input.response,
+    targetSecretKey: input.sync.targetSecretKey,
+    writerProjection: input.writerProjection,
+    writerPublicKeysByFingerprint: input.sync.writerPublicKeysByFingerprint,
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+  });
+}
+
 function buildRemoteDocumentSyncPlan(input: {
   pendingUpdates: readonly PendingUpdateRecord[];
   projection: DocumentWriterProjectionResponse;
@@ -955,6 +1133,7 @@ function buildRemoteDocumentSyncPlan(input: {
 }) {
   return buildMaterializedDocumentSyncPlan({
     author: input.sync.author,
+    buildRotationSnapshot: input.sync.buildRotationSnapshot,
     execSql: input.sync.execSql,
     localVersionVector: input.sync.localVersionVector,
     minLsn: input.sync.minLsn,
@@ -1051,19 +1230,13 @@ export async function syncRemoteDocument(
       return null;
     }
 
-    return syncRemoteDocumentResultFromResponse({
-      ...projectionVerificationOptions(input),
-      execSql: input.execSql,
+    return submittedDocumentSyncResult({
       materializedPlan,
-      onTerminalSubmitFailure: input.onTerminalSubmitFailure,
       recoveryPendingUpdatesById,
-      rekeyPendingUpdate: input.rekeyPendingUpdate,
-      resolveWriterPublicKey: input.resolveWriterPublicKey,
-      response: submitted.response,
-      targetSecretKey: input.targetSecretKey,
-      writerProjection: plannedWriterProjection,
-      writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
       resolveProjectionUserKey,
+      response: submitted.response,
+      sync: input,
+      writerProjection: plannedWriterProjection,
     });
   }
 

@@ -25,7 +25,7 @@ import {
 } from "../../access/read/accessManifestStore";
 import {
   DocumentContentKeyBundleError,
-  getLatestCurrentDocumentContentKeyBundle,
+  getLatestDocumentContentKeyBundleProjection,
 } from "../../access/read/documentContentKeyStore";
 import {
   DocumentKekTargetError,
@@ -640,10 +640,10 @@ async function resolveDocumentWriterProjection(input: {
     throw error;
   }
   let contentKeyBundle: Awaited<
-    ReturnType<typeof getLatestCurrentDocumentContentKeyBundle>
+    ReturnType<typeof getLatestDocumentContentKeyBundleProjection>
   >;
   try {
-    contentKeyBundle = await getLatestCurrentDocumentContentKeyBundle(
+    contentKeyBundle = await getLatestDocumentContentKeyBundleProjection(
       {
         currentTargets: documentKekTargets,
         documentId: input.documentId,
@@ -675,9 +675,13 @@ async function resolveDocumentWriterProjection(input: {
     ...verificationMaterial,
     documentKekTargets: toDocumentKekTargetsResponse(documentKekTargets),
     contentKeyBundle: toContentKeyBundleResponse(
-      contentKeyBundle,
+      contentKeyBundle.bundle,
       projectionError,
     ),
+    // A bundle wrapped to superseded KEK targets is served, not suppressed:
+    // clients that span the rotation heal it by re-wrapping the content key
+    // (a 409 here would deny them the current targets they need to do so).
+    ...(contentKeyBundle.stale ? { contentKeyBundleStale: true as const } : {}),
     authorizingContainerPaths,
   };
 }

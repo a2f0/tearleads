@@ -92,6 +92,7 @@ export {
   type DocumentSyncUpdateResponse,
   DocumentSyncUpdateResponseSchema,
   type DocumentWriterProjectionResponse,
+  documentKekTargetsFromContentKeyBundle,
   isDocumentContentKeyBundleResponse,
   isDocumentCreateResponse,
   isDocumentKekTargetsResponse,

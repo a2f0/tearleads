@@ -6,5 +6,6 @@ export {
   DocumentContentKeyBundleError,
   getDocumentContentKeyBundle,
   getLatestCurrentDocumentContentKeyBundle,
+  getLatestDocumentContentKeyBundleProjection,
   listDocumentContentWriteHeaders,
 } from "../shared/internal/documentContentKeyStore";

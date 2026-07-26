@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import {
   type AccessEvent,
   CONTENT_RECORD_ENCRYPTION_SUITE,
+  computeDocumentContentKeyTargetHash,
   generateKemSeedAndKeyPair,
   verifyWriteHeader,
   type WriteHeader,
@@ -10,6 +11,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
   exportAllUpdates,
+  exportFullHistorySnapshot,
   getTextValue,
   getUpdateVersionVectors,
   importUpdates,
@@ -41,10 +43,12 @@ import {
   createResponse,
   createSyncFixture,
   createSyncResponse,
+  getOnlyTarget,
   projectionPathRefs,
   writerProjectionEvidence,
 } from "../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
+import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
 import { ensureDocumentTables } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -1294,4 +1298,163 @@ test("syncRemoteDocument replans once after a stale document sync conflict", asy
   expect(
     submittedRequests[1]?.authorizingContainerPathRefs?.[0]?.[0]?.manifestHash,
   ).toBe(projection.path[0]?.manifestHash);
+});
+
+/**
+ * Simulates the state after a linked container's KEK rotated under a stored
+ * content-key bundle (e.g. a revoke on the container): the projection carries
+ * the old bundle marked stale plus CURRENT KEK targets that point at a fresh
+ * container key epoch the bundle does not reference.
+ */
+async function createStaleBundleSyncFixture() {
+  const fixture = await createMaterializedSyncFixture();
+  const staleBundle = fixture.writerProjection.contentKeyBundle;
+  const containerId = staleBundle.targets[0]?.containerId;
+  if (!containerId) {
+    throw new Error("Expected the fixture bundle to carry a container target");
+  }
+  const rotatedProjection = await createContainerWriterProjectionFixture({
+    containerId,
+    encapsulationPublicKey: fixture.publicKey,
+    organizationId: fixture.author.organizationId,
+    signerKeyFingerprint: fixture.author.signerKeyFingerprint,
+    signerPrivateKey: fixture.author.signerPrivateKey,
+    userId: fixture.author.signerUserId,
+  });
+  const derivedTarget = getOnlyTarget(rotatedProjection);
+  const rotatedTarget = {
+    containerId: derivedTarget.containerId,
+    containerManifestHash: derivedTarget.containerManifestHash,
+    containerKeyEpochId: derivedTarget.containerKeyEpochId,
+    containerKeyEpoch: derivedTarget.containerKeyEpoch,
+  };
+  const staleWriterProjection: DocumentWriterProjectionResponse = {
+    ...fixture.writerProjection,
+    contentKeyBundleStale: true,
+    documentKekTargets: {
+      documentId: fixture.writerProjection.documentId,
+      documentKeyTargetHash: await computeDocumentContentKeyTargetHash([
+        rotatedTarget,
+      ]),
+      linkSetManifestHash:
+        fixture.writerProjection.documentManifest.manifestHash,
+      linkedContainerKeyEpochIds: [rotatedTarget.containerKeyEpochId],
+      linkedContainerManifestHashes: [rotatedTarget.containerManifestHash],
+      targets: [rotatedTarget],
+    },
+    authorizingContainerPaths: [rotatedProjection],
+  };
+
+  return { ...fixture, rotatedTarget, staleBundle, staleWriterProjection };
+}
+
+async function createFullHistoryRotationSnapshot(): Promise<Uint8Array> {
+  const doc = await createDocument("stale-heal-source");
+  doc.getText("text").update("healed content");
+  doc.commit();
+  return exportFullHistorySnapshot(doc);
+}
+
+function writeHeaderEpoch(update: { writeHeader: Record<string, unknown> }) {
+  return Reflect.get(update.writeHeader, "contentKeyEpoch");
+}
+
+test("buildMaterializedDocumentSyncPlan heals a stale bundle with a fresh key and rotation baseline", async () => {
+  const fixture = await createStaleBundleSyncFixture();
+  const pendingUpdate = await createLoroPendingUpdate("stale heal edit");
+
+  const materialized = await buildMaterializedDocumentSyncPlan({
+    author: fixture.author,
+    buildRotationSnapshot: createFullHistoryRotationSnapshot,
+    localVersionVector: null,
+    pendingUpdates: [pendingUpdate],
+    signedAt: "2026-07-26T00:00:00.000Z",
+    targetSecretKey: fixture.secretKey,
+    trustedLocalProjection: true,
+    writerProjection: fixture.staleWriterProjection,
+  });
+
+  expect(materialized.healedStaleContentKeyBundle).toBe(true);
+  expect(materialized.contentKey).toHaveLength(32);
+  expect(materialized.contentKey).not.toEqual(fixture.contentKey);
+
+  const { request } = materialized.plan;
+  expect(request.contentKeyEpoch).toBe(fixture.staleBundle.contentKeyEpoch + 1);
+  expect(request.contentKeyBundle?.contentKeyEpoch).toBe(
+    fixture.staleBundle.contentKeyEpoch + 1,
+  );
+  expect(request.expectedTargetHash).toBe(
+    fixture.staleWriterProjection.documentKekTargets.documentKeyTargetHash,
+  );
+  expect(request.contentKeyBundle?.targets[0]?.containerKeyEpochId).toBe(
+    fixture.rotatedTarget.containerKeyEpochId,
+  );
+  expect(request.contentKeyBundle?.targets[0]?.wrappedKey).not.toBe(
+    fixture.staleBundle.targets[0]?.wrappedKey,
+  );
+  // The heal is anchored by a rotation baseline so post-rotation readers can
+  // reconstruct the document without the rotated-away KEK epochs; the queued
+  // update rides along under the fresh key.
+  expect(request.outgoingUpdates).toHaveLength(2);
+  expect(request.outgoingUpdates[0]?.checkpointKind).toBe("rotate_baseline");
+  expect(request.outgoingUpdates[1]?.id).toBe(pendingUpdate.id);
+  for (const update of request.outgoingUpdates) {
+    expect(writeHeaderEpoch(update)).toBe(
+      fixture.staleBundle.contentKeyEpoch + 1,
+    );
+  }
+});
+
+test("buildMaterializedDocumentSyncPlan keeps the stale pair for read-only passes without unwrapping", async () => {
+  const fixture = await createStaleBundleSyncFixture();
+
+  const materialized = await buildMaterializedDocumentSyncPlan({
+    author: fixture.author,
+    localVersionVector: null,
+    pendingUpdates: [],
+    signedAt: "2026-07-26T00:00:00.000Z",
+    targetSecretKey: fixture.secretKey,
+    trustedLocalProjection: true,
+    writerProjection: fixture.staleWriterProjection,
+  });
+
+  expect(materialized.healedStaleContentKeyBundle).toBe(false);
+  expect(materialized.contentKey).toHaveLength(0);
+  const { plan } = materialized;
+  expect(plan.request.contentKeyBundle).toBeUndefined();
+  expect(plan.request.contentKeyEpoch).toBe(
+    fixture.staleBundle.contentKeyEpoch,
+  );
+  expect(plan.request.expectedTargetHash).toBe(fixture.staleBundle.targetHash);
+  expect(plan.documentKekTargets.documentKeyTargetHash).toBe(
+    fixture.staleBundle.targetHash,
+  );
+});
+
+test("buildMaterializedDocumentSyncPlan refuses to heal without a rotation snapshot", async () => {
+  const fixture = await createStaleBundleSyncFixture();
+
+  await expect(
+    buildMaterializedDocumentSyncPlan({
+      author: fixture.author,
+      localVersionVector: null,
+      pendingUpdates: [await createLoroPendingUpdate("stuck edit")],
+      signedAt: "2026-07-26T00:00:00.000Z",
+      targetSecretKey: fixture.secretKey,
+      trustedLocalProjection: true,
+      writerProjection: fixture.staleWriterProjection,
+    }),
+  ).rejects.toThrow(
+    "Document content-key bundle is stale and no rotation snapshot is available to heal it",
+  );
+});
+
+test("consumers that cannot heal reject a stale content-key bundle outright", async () => {
+  const fixture = await createStaleBundleSyncFixture();
+
+  await expect(
+    assertDocumentWriterProjectionConsistent(fixture.staleWriterProjection, {
+      trustedLocalProjection: true,
+    }),
+  ).rejects.toThrow("Document writer projection content-key bundle is stale");
 });

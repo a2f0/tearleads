@@ -33,9 +33,12 @@ import type { StoredRootFixture } from "./keyingWriterProjectionKit";
 
 async function createSignedOrdinaryUpdate(input: {
   readonly checkpoint: boolean;
+  readonly contentKeyBundle?: DocumentCreateResponse["contentKeyBundle"];
   readonly created: DocumentCreateResponse;
   readonly owner: TestUser;
 }) {
+  const contentKeyBundle =
+    input.contentKeyBundle ?? input.created.contentKeyBundle;
   const id = crypto.randomUUID();
   const document = await createDocument(`sync-audit-${id}`);
   const partialStartVersionVector = encodeVersionVector(document);
@@ -59,9 +62,9 @@ async function createSignedOrdinaryUpdate(input: {
       organizationId,
       objectKind: "document",
       objectId: input.created.id,
-      accessManifestHash: input.created.contentKeyBundle.linkSetManifestHash,
-      contentKeyEpoch: input.created.contentKeyBundle.contentKeyEpoch,
-      targetHash: input.created.contentKeyBundle.targetHash,
+      accessManifestHash: contentKeyBundle.linkSetManifestHash,
+      contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
+      targetHash: contentKeyBundle.targetHash,
       encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
       contentRecordId: id,
       nonceDomainHash: await computeContentRecordNonceDomainHash({
@@ -69,7 +72,7 @@ async function createSignedOrdinaryUpdate(input: {
         organizationId,
         objectKind: "document",
         objectId: input.created.id,
-        contentKeyEpoch: input.created.contentKeyBundle.contentKeyEpoch,
+        contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
         encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
         contentRecordId: id,
       }),
@@ -105,13 +108,23 @@ async function createSignedOrdinaryUpdate(input: {
 
 export async function createSignedDocumentSyncRequest(input: {
   readonly checkpoint?: boolean;
+  /**
+   * Signs the update (and the request expectations) against this bundle
+   * instead of the create-time one — e.g. a healed epoch+1 bundle re-wrapped
+   * to post-revoke targets. Pair with includeContentKeyBundle to carry the
+   * bundle in the request so the server stores it.
+   */
+  readonly contentKeyBundle?: DocumentCreateResponse["contentKeyBundle"];
   readonly created: DocumentCreateResponse;
+  readonly includeContentKeyBundle?: boolean;
   readonly owner: TestUser;
-  readonly root: StoredRootFixture;
+  readonly root: Pick<StoredRootFixture, "bundle" | "kekState">;
 }): Promise<{
   readonly request: DocumentSyncRequest;
   readonly updateId: string;
 }> {
+  const contentKeyBundle =
+    input.contentKeyBundle ?? input.created.contentKeyBundle;
   const update = await createSignedOrdinaryUpdate({
     ...input,
     checkpoint: input.checkpoint ?? false,
@@ -119,10 +132,19 @@ export async function createSignedDocumentSyncRequest(input: {
   return {
     updateId: update.id,
     request: {
-      contentKeyEpoch: input.created.contentKeyBundle.contentKeyEpoch,
-      expectedLinkSetManifestHash:
-        input.created.contentKeyBundle.linkSetManifestHash,
-      expectedTargetHash: input.created.contentKeyBundle.targetHash,
+      contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
+      expectedLinkSetManifestHash: contentKeyBundle.linkSetManifestHash,
+      expectedTargetHash: contentKeyBundle.targetHash,
+      ...(input.includeContentKeyBundle
+        ? {
+            contentKeyBundle: {
+              contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
+              linkSetManifestHash: contentKeyBundle.linkSetManifestHash,
+              targetHash: contentKeyBundle.targetHash,
+              targets: contentKeyBundle.targets,
+            },
+          }
+        : {}),
       authorizingContainerPathRefs: [
         [
           {

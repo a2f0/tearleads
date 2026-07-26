@@ -369,6 +369,13 @@ export interface DocumentSyncPlan {
 
 export interface MaterializedDocumentSyncPlan {
   contentKey: Uint8Array;
+  /**
+   * True when the plan carries a re-wrapped content-key bundle at the next
+   * epoch to heal a stale bundle (a linked container's KEK rotated under it).
+   * On submit success the caller must evict this document's cached writer
+   * projection so later passes see the healed state instead of re-healing.
+   */
+  healedStaleContentKeyBundle?: boolean;
   plan: DocumentSyncPlan;
 }
 

@@ -1,4 +1,7 @@
-import { encodeVersionVector } from "@tearleads/loro";
+import {
+  encodeVersionVector,
+  exportFullHistorySnapshot,
+} from "@tearleads/loro";
 import {
   clearDocumentSyncFailure,
   createDocumentWriterPublicKeyResolver,
@@ -92,6 +95,17 @@ export async function requestRemoteDocumentSync(input: {
   const synced = await syncRemoteDocument({
     apiClient: runtime.apiClient,
     author,
+    // Heals a stale content-key bundle (e.g. after a revoke rotated a linked
+    // container's KEK) by rotating to a fresh content key anchored by this
+    // full-history snapshot. Null when the local doc cannot produce one
+    // (e.g. shallow history), which surfaces as a descriptive sync failure.
+    buildRotationSnapshot: async () => {
+      try {
+        return exportFullHistorySnapshot(currentDoc);
+      } catch {
+        return null;
+      }
+    },
     documentId: currentRecord.documentId,
     execSql: runtime.infra.execSql,
     isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
