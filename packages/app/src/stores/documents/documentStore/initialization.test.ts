@@ -74,6 +74,7 @@ test("document store seeds initial structured document kind before first persist
       cardNumber: "",
       cvvCode: "",
       expirationDate: "",
+      issuer: "",
       nameOnCard: "",
     },
     text: "",

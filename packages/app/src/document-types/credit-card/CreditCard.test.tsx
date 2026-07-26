@@ -40,6 +40,7 @@ const fields: CreditCardDocumentFields = {
   cardNumber: "4111 1111 1111 1111",
   cvvCode: "123",
   expirationDate: "2028-04",
+  issuer: "Bank of Example",
   nameOnCard: "Ada Lovelace",
 };
 
@@ -47,6 +48,7 @@ const inputIds = {
   cardNumber: "card-number",
   cvvCode: "cvv-code",
   expirationDate: "expiration-date",
+  issuer: "issuer",
   nameOnCard: "name-on-card",
 };
 
@@ -68,6 +70,7 @@ function renderCreditCardFields(
 test("read mode renders masked card details without editable inputs", () => {
   const view = renderCreditCardFields();
 
+  expect(view.getByText("Bank of Example")).toBeTruthy();
   expect(view.getByText("**** **** **** 1111")).toBeTruthy();
   expect(view.getByText("Ada Lovelace")).toBeTruthy();
   expect(view.getByText("2028-04")).toBeTruthy();
@@ -82,12 +85,32 @@ test("read mode tolerates missing card details", () => {
       cardNumber: undefined as unknown as string,
       cvvCode: null as unknown as string,
       expirationDate: undefined as unknown as string,
+      issuer: null as unknown as string,
       nameOnCard: null as unknown as string,
     },
   });
 
-  expect(view.getAllByText("None")).toHaveLength(4);
+  expect(view.getAllByText("None")).toHaveLength(5);
   expect(view.queryByLabelText("Credit card number")).toBeNull();
+});
+
+test("edit mode edits the issuer as plain text", () => {
+  const patches: Array<Partial<CreditCardDocumentFields>> = [];
+  const view = renderCreditCardFields({
+    isEditing: true,
+    onChange: (patch) => patches.push(patch),
+  });
+  const issuer = view.getByLabelText("Credit card issuer") as HTMLInputElement;
+
+  // The issuer names the card in the Explorer, so unlike the number and CVV it
+  // is not masked and has no reveal toggle.
+  expect(issuer.value).toBe("Bank of Example");
+  expect(issuer.type).toBe("text");
+  expect(view.queryByLabelText("Show credit card issuer")).toBeNull();
+
+  fireEvent.change(issuer, { target: { value: "Second Bank" } });
+
+  expect(patches).toEqual([{ issuer: "Second Bank" }]);
 });
 
 test("edit mode exposes the existing credit card controls", () => {
@@ -131,6 +154,7 @@ test("read mode omits reveal toggles for missing card details", () => {
       cardNumber: undefined as unknown as string,
       cvvCode: null as unknown as string,
       expirationDate: undefined as unknown as string,
+      issuer: null as unknown as string,
       nameOnCard: null as unknown as string,
     },
   });

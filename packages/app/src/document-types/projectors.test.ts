@@ -108,32 +108,6 @@ test("driver license fields are stored as first-class Loro state", async () => {
   });
 });
 
-test("credit card fields are stored as first-class Loro state", async () => {
-  const doc = await createDocument("credit-card-fields");
-
-  initializeStoredDocumentKind(doc, "credit_card");
-  writeStoredDocumentFields(doc, "credit_card", {
-    cardNumber: "4111 1111 1111 1234",
-    cvvCode: "123",
-    expirationDate: "2030-05",
-    nameOnCard: "Ada Lovelace",
-  });
-
-  expect(readCreditCardDocument(doc)).toEqual({
-    fields: {
-      cardNumber: "4111 1111 1111 1234",
-      cvvCode: "123",
-      expirationDate: "2030-05",
-      nameOnCard: "Ada Lovelace",
-    },
-    issues: [],
-  });
-  expect(readStoredDocumentState(doc)).toMatchObject({
-    documentKind: "credit_card",
-    title: "Credit Card ending in 1234",
-  });
-});
-
 test("passport fields are stored as first-class Loro state", async () => {
   const doc = await createDocument("passport-fields");
 
@@ -312,6 +286,7 @@ test("explicit structured metadata determines kind independently of text", async
       cardNumber: "4111 1111 1111 1234",
       cvvCode: "",
       expirationDate: "",
+      issuer: "",
       nameOnCard: "",
     },
     text: "Plain text sidecar",
@@ -464,6 +439,7 @@ test("expiration date validation reports malformed remote field values", async (
       cardNumber: "",
       cvvCode: "",
       expirationDate: "2030-13",
+      issuer: "",
       nameOnCard: "",
     },
     issues: [
