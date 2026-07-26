@@ -1,13 +1,14 @@
 import { expect, test } from "@playwright/test";
 
 /*
- * Routed-shell chrome geometry on a phone. These assert what the browser
- * actually draws — box positions, widths, computed type size — because every
- * value here is set in CSS on top of a JSX attribute that looks right on its
- * own, so a dropped override reads as correct in the source and wrong on the
- * screen. Split out of app.spec.ts, which had grown past the repo's file-size
- * budget; that file keeps the boot, routing, and persistence coverage, and none
- * of these tests use its pane helpers.
+ * Routed-tier geometry — mostly the phone shell, plus the tablet/iPad tier where
+ * a case only appears there. These assert what the browser actually draws — box
+ * positions, widths, computed type size — because every value here is set in CSS
+ * on top of a JSX attribute that looks right on its own, so a dropped override
+ * reads as correct in the source and wrong on the screen. Split out of
+ * app.spec.ts, which had grown past the repo's file-size budget; that file keeps
+ * the boot, routing, and persistence coverage, and none of these tests use its
+ * pane helpers.
  */
 
 test("mobile sidebar covers Explorer rows", async ({ page }) => {
@@ -204,6 +205,62 @@ test("mobile context menu items meet the touch type and glyph size", async ({
   expect(fontSize).toBeGreaterThanOrEqual(16);
   expect(glyphBox.width).toBeGreaterThanOrEqual(24);
   expect(glyphBox.height).toBeGreaterThanOrEqual(24);
+});
+
+// Explorer's own rows, which is where the routed tier's enlarged row is most
+// visible: a 44px sidebar or list row leading with a 16px mark reads as a bullet
+// beside the label rather than as the row's subject. Same hazard as the two
+// tests above — the size lives in CSS over a `size={16}` attribute — so measure
+// the drawn box, and measure the glyph's centre too, since growing it is only
+// right if it stays on the label's centre line.
+//
+// Runs at the tablet/iPad tier rather than on a phone because that is where both
+// rows are on screen at once: below 760px the sidebar is a drawer, and the
+// narrow item list folds to its two-line summary, whose leading visual is a
+// deliberately larger 32px square that these thresholds would not describe.
+test("tablet Explorer rows draw centered touch-size glyphs", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 1000 });
+  await page.goto("/app/explorer");
+
+  const treeRow = page
+    .locator(".explorer-sidebar-row")
+    .filter({ has: page.locator(".explorer-folder-icon") })
+    .first();
+  const itemName = page
+    .locator(".explorer-item-name")
+    .filter({ has: page.locator(".explorer-item-icon") })
+    .first();
+  await expect(treeRow).toBeVisible({ timeout: 30_000 });
+  await expect(itemName).toBeVisible({ timeout: 30_000 });
+
+  const treeRowBox = await treeRow.boundingBox();
+  const treeGlyphBox = await treeRow
+    .locator(".explorer-folder-icon")
+    .first()
+    .boundingBox();
+  const itemNameBox = await itemName.boundingBox();
+  const itemGlyphBox = await itemName
+    .locator(".explorer-item-icon")
+    .first()
+    .boundingBox();
+  if (!treeRowBox || !treeGlyphBox || !itemNameBox || !itemGlyphBox) {
+    throw new Error("Expected visible Explorer rows and their icons.");
+  }
+
+  expect(treeRowBox.height).toBeGreaterThanOrEqual(44);
+  expect(treeGlyphBox.width).toBeGreaterThanOrEqual(24);
+  expect(treeGlyphBox.height).toBeGreaterThanOrEqual(24);
+  expect(itemGlyphBox.width).toBeGreaterThanOrEqual(24);
+  expect(itemGlyphBox.height).toBeGreaterThanOrEqual(24);
+
+  // The tree glyph centres on its whole row; the list glyph centres on the name
+  // control it leads, whose row can be taller when a neighbouring cell wraps.
+  const centerY = (box: { y: number; height: number }) =>
+    box.y + box.height / 2;
+  expect(centerY(treeGlyphBox)).toBeCloseTo(centerY(treeRowBox), 0);
+  expect(centerY(itemGlyphBox)).toBeCloseTo(centerY(itemNameBox), 0);
 });
 
 // A key/value info table gives both of its columns a one-character min-content
