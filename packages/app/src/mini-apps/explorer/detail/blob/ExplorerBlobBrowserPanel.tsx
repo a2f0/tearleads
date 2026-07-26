@@ -118,6 +118,7 @@ function BlobBrowserBrowseScreen(params: {
         <BlobListScreen
           blobInfo={data.blobInfo}
           blobStore={params.blobStore}
+          compact={data.compact}
           downloadMessage={downloadMessage}
           frameRef={data.frameRef}
           isWindowPending={data.isWindowPending}
@@ -129,6 +130,7 @@ function BlobBrowserBrowseScreen(params: {
           organizationNamesById={params.organizationNamesById}
           query={data.query}
           renderSyncCell={renderExplorerSyncCell}
+          rowHeight={data.rowHeight}
           rowOffset={data.rowOffset}
           rows={data.rows}
           sort={data.sort}

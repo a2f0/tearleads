@@ -33,6 +33,12 @@
   cursor: pointer;
 }
 
+/* A folded row promotes the identity button to the summary's leading visual,
+   where it is sized by its thumbnail rather than stretched across a column. */
+.explorer-blob-browser-row-button--compact {
+  width: auto;
+}
+
 /* Blob identity cell: a compact thumbnail (image blobs) or file-type icon
    (everything else) sized to sit within the fixed compact row height. */
 .explorer-blob-browser-thumb {
@@ -42,6 +48,13 @@
   width: 1.5rem;
   height: 1.5rem;
   flex: 0 0 auto;
+}
+
+/* The folded row has a 56px pitch to spend, so the thumbnail grows to the same
+   32px the Explorer's folded item glyph uses. */
+.explorer-blob-browser-thumb--compact {
+  width: 2rem;
+  height: 2rem;
 }
 
 .explorer-blob-browser-thumb-image {
@@ -92,4 +105,18 @@
    header, so it can grow to a 44px tap height. */
 :root[data-navigation-mode="routed"] .explorer-table-sort-button {
   min-height: var(--control-height);
+}
+
+/* Folded header: the per-column sort buttons collapse into one select menu,
+   styled as a header label rather than as a button. */
+.explorer-blob-browser-sort-menu {
+  width: min(12rem, 100%);
+}
+
+.explorer-blob-browser-sort-menu .mini-app-button.mini-app-select-menu-trigger {
+  align-items: center;
+  min-height: var(--control-height);
+  padding: 0;
+  border: 0;
+  font-weight: inherit;
 }

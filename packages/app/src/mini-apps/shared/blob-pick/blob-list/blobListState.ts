@@ -4,24 +4,17 @@ import type {
   BlobInfoList,
   BlobInfoSort,
   BlobInfoSortKey,
-  BlobStore,
   ContainerNode,
 } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useState } from "react";
 import {
-  getMiniAppVirtualWindowRange,
-  MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
-  useMiniAppVirtualWindow,
-} from "../../../../components/mini-app/virtual/MiniAppVirtual";
-import {
-  isAutomaticBlobPreviewAllowed,
-  isImageDocumentAttachmentBlob,
-} from "../../../../document-types/shared/documentAttachmentUtils";
+  getMiniAppCompactTableRowHeight,
+  shouldFoldCompactRows,
+  useMiniAppCompactTableLayout,
+} from "../../../../components/mini-app/MiniAppTable";
+import { useMiniAppVirtualWindow } from "../../../../components/mini-app/virtual/MiniAppVirtual";
+import { useTouchRowHeight } from "../../../../navigation/useTouchRowHeight";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
-
-export const BLOB_BROWSER_ROW_HEIGHT =
-  MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT;
-const BLOB_TEXT_PREVIEW_LIMIT = 64 * 1024;
 
 // The subset of a host route the blob list reads: the deep-link target (blob id
 // or storage key) that seeds the initial search/selection. Standalone so the
@@ -32,19 +25,6 @@ export interface BlobBrowserRoute {
   blobId: string | null;
   storageKey: string | null;
 }
-
-export type BlobPreviewState =
-  | { status: "idle"; text: null; truncated: false; url: null }
-  | { status: "loading"; text: null; truncated: false; url: null }
-  | { status: "missing"; text: null; truncated: false; url: null }
-  | { status: "error"; error: string; text: null; truncated: false; url: null }
-  | {
-      status: "ready";
-      byteLength: number;
-      text: string | null;
-      truncated: boolean;
-      url: string | null;
-    };
 
 export interface BlobInfoListState {
   error: string | null;
@@ -66,14 +46,30 @@ export function getBlobChangedAt(blob: BlobInfo): string | null {
   return blob.updatedAt ?? blob.createdAt;
 }
 
-export function getBlobInfoWindowRange(params: {
-  scrollTop: number;
-  viewportHeight: number;
-}): { limit: number; offset: number } {
-  return getMiniAppVirtualWindowRange({
-    ...params,
-    rowHeight: BLOB_BROWSER_ROW_HEIGHT,
-  });
+/**
+ * The one row pitch for the blob list, and whether the row folds into a
+ * two-line summary.
+ *
+ * Three places have to agree on the pitch — the virtual window math (which
+ * derives the fetched limit/offset), the spacer padding, and the frame's
+ * `--mini-app-virtual-row-height` — or the served rows land in a window the
+ * table is not showing. That is why this takes `narrowFrame` as an argument
+ * rather than measuring: this hook owns the scroll frame, so it measures once
+ * and hands the result to the table, which cannot derive a disagreeing answer.
+ *
+ * `useTouchRowHeight` mirrors the bump `useMiniAppVirtualWindow` already applies
+ * internally, so the rendered pitch and the window math also agree on routed
+ * tablets (44px), not just on phones (56px) and desktop (36px). It is
+ * `Math.max`-based, so it is a no-op at the two-line pitch.
+ */
+function useBlobListTableLayout(narrowFrame: boolean): {
+  compact: boolean;
+  rowHeight: number;
+} {
+  const { compact: tierCompact } = useMiniAppCompactTableLayout();
+  const compact = tierCompact || narrowFrame;
+  const rowHeight = useTouchRowHeight(getMiniAppCompactTableRowHeight(compact));
+  return { compact, rowHeight };
 }
 
 export function getNextBlobInfoSort(
@@ -156,208 +152,6 @@ function useBlobInfoList(params: {
   return state;
 }
 
-function isTextMimeType(mimeType: string | null): boolean {
-  return (
-    mimeType?.startsWith("text/") === true ||
-    mimeType === "application/json" ||
-    mimeType === "application/xml" ||
-    mimeType === "application/javascript" ||
-    mimeType === "image/svg+xml"
-  );
-}
-
-function canCreateObjectUrl(): boolean {
-  return typeof URL === "function" && typeof URL.createObjectURL === "function";
-}
-
-function decodePreviewText(bytes: Uint8Array<ArrayBuffer>): {
-  text: string;
-  truncated: boolean;
-} {
-  const truncated = bytes.byteLength > BLOB_TEXT_PREVIEW_LIMIT;
-  // subarray returns a view rather than copying; we only read it to decode.
-  const previewBytes = truncated
-    ? bytes.subarray(0, BLOB_TEXT_PREVIEW_LIMIT)
-    : bytes;
-
-  return {
-    text: new TextDecoder().decode(previewBytes),
-    truncated,
-  };
-}
-
-async function readBlobPreview(input: {
-  blob: BlobInfo;
-  blobStore: BlobStore;
-}): Promise<{ objectUrl: string | null; state: BlobPreviewState }> {
-  if (!isAutomaticBlobPreviewAllowed(input.blob)) {
-    return {
-      objectUrl: null,
-      state: {
-        byteLength: input.blob.byteLength,
-        status: "ready",
-        text: null,
-        truncated: false,
-        url: null,
-      },
-    };
-  }
-
-  const bytes = await input.blobStore.readBytes(input.blob.storageKey);
-  if (!bytes) {
-    return {
-      objectUrl: null,
-      state: {
-        status: "missing",
-        text: null,
-        truncated: false,
-        url: null,
-      },
-    };
-  }
-
-  const mimeType = input.blob.mimeType ?? "application/octet-stream";
-  const objectUrl = canCreateObjectUrl()
-    ? URL.createObjectURL(new Blob([bytes], { type: mimeType }))
-    : null;
-
-  try {
-    const textPreview = isTextMimeType(input.blob.mimeType)
-      ? decodePreviewText(bytes)
-      : null;
-
-    return {
-      objectUrl,
-      state: {
-        byteLength: bytes.byteLength,
-        status: "ready",
-        text: textPreview?.text ?? null,
-        truncated: textPreview?.truncated ?? false,
-        url: objectUrl,
-      },
-    };
-  } catch (error) {
-    if (objectUrl) {
-      URL.revokeObjectURL(objectUrl);
-    }
-    throw error;
-  }
-}
-
-export function useBlobPreview(params: {
-  blob: BlobInfo | null;
-  blobStore: BlobStore;
-}): BlobPreviewState {
-  const { blob, blobStore } = params;
-  const [state, setState] = useState<BlobPreviewState>({
-    status: "idle",
-    text: null,
-    truncated: false,
-    url: null,
-  });
-
-  useEffect(() => {
-    if (!blob) {
-      setState({
-        status: "idle",
-        text: null,
-        truncated: false,
-        url: null,
-      });
-      return;
-    }
-
-    let cancelled = false;
-    let objectUrl: string | null = null;
-    setState({
-      status: "loading",
-      text: null,
-      truncated: false,
-      url: null,
-    });
-
-    void readBlobPreview({ blob, blobStore })
-      .then((preview) => {
-        if (cancelled) {
-          if (preview.objectUrl) {
-            URL.revokeObjectURL(preview.objectUrl);
-          }
-          return;
-        }
-
-        objectUrl = preview.objectUrl;
-        setState(preview.state);
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          setState({
-            error: unknownErrorMessage(error),
-            status: "error",
-            text: null,
-            truncated: false,
-            url: null,
-          });
-        }
-      });
-
-    return () => {
-      cancelled = true;
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [blob, blobStore]);
-
-  return state;
-}
-
-// Read a small image blob into an object URL for a compact table thumbnail.
-// Large, non-image, and non-browser blobs use the file-type icon instead.
-export function useBlobThumbnailUrl(params: {
-  blob: BlobInfo;
-  blobStore: BlobStore;
-}): string | null {
-  const { blobStore } = params;
-  const isImage = isImageDocumentAttachmentBlob(params.blob);
-  const isPreviewAllowed = isAutomaticBlobPreviewAllowed(params.blob);
-  const { storageKey } = params.blob;
-  const mimeType = params.blob.mimeType ?? "application/octet-stream";
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!isImage || !isPreviewAllowed || !canCreateObjectUrl()) {
-      setUrl(null);
-      return;
-    }
-
-    let cancelled = false;
-    let objectUrl: string | null = null;
-
-    void (async () => {
-      try {
-        const bytes = await blobStore.readBytes(storageKey);
-        if (cancelled || !bytes) {
-          return;
-        }
-        objectUrl = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
-        setUrl(objectUrl);
-      } catch {
-        // A thumbnail is best-effort; a failed read just falls back to the icon.
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-      setUrl(null);
-    };
-  }, [blobStore, isImage, isPreviewAllowed, mimeType, storageKey]);
-
-  return url;
-}
-
 function matchesRouteTarget(blob: BlobInfo, route: BlobBrowserRoute): boolean {
   if (route.blobId && blob.blobId === route.blobId) {
     return true;
@@ -414,9 +208,15 @@ export function useBlobBrowserData(params: {
   const resetKey = [debouncedQuery, sort.key, sort.direction].join(
     BLOB_BROWSER_RESET_KEY_SEPARATOR,
   );
-  const { frameRef, limit, offset } = useMiniAppVirtualWindow({
+  // The frame width arrives a render late (it is measured after mount), so the
+  // first paint is single-line and the fold follows. That ordering is
+  // deliberate: the pitch feeds the window math, so guessing narrow before
+  // measuring would fetch against a pitch the DOM does not have.
+  const [narrowFrame, setNarrowFrame] = useState(false);
+  const { compact, rowHeight } = useBlobListTableLayout(narrowFrame);
+  const { frameRef, frameWidth, limit, offset } = useMiniAppVirtualWindow({
     resetKey,
-    rowHeight: BLOB_BROWSER_ROW_HEIGHT,
+    rowHeight,
   });
   const blobInfo = useBlobInfoList({
     limit,
@@ -452,6 +252,10 @@ export function useBlobBrowserData(params: {
   }, []);
 
   useEffect(() => {
+    setNarrowFrame((current) => shouldFoldCompactRows(frameWidth, current));
+  }, [frameWidth]);
+
+  useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedQuery(query);
     }, 200);
@@ -468,6 +272,7 @@ export function useBlobBrowserData(params: {
 
   return {
     blobInfo,
+    compact,
     frameRef,
     handleBackToList,
     handleQueryChange,
@@ -476,6 +281,7 @@ export function useBlobBrowserData(params: {
     isListDetail,
     isWindowPending,
     query,
+    rowHeight,
     rowOffset,
     rows,
     selectedBlob,

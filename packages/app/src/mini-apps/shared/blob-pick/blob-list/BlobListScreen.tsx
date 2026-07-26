@@ -17,7 +17,8 @@ import {
   MiniAppToolbar,
 } from "../../../../components/mini-app/MiniAppLayout";
 import { isImageDocumentAttachmentBlob } from "../../../../document-types/shared/documentAttachmentUtils";
-import { BlobInfoTable, type RenderBlobSyncCell } from "./BlobInfoTable";
+import { BlobInfoTable } from "./BlobInfoTable";
+import type { RenderBlobSyncCell } from "./blobInfoCells";
 import { BLOB_LIST_LABELS, getBlobListPickSubtitle } from "./blobListLabels";
 import {
   type BlobBrowserRoute,
@@ -34,6 +35,9 @@ const EMPTY_PICK_ROUTE: BlobBrowserRoute = { blobId: null, storageKey: null };
 export function BlobListScreen(params: {
   blobInfo: BlobInfoListState;
   blobStore: BlobStore;
+  // The fold decision and row pitch come from the list data hook, which owns the
+  // scroll frame and measures it once for both the window math and the table.
+  compact: boolean;
   downloadMessage?: string | null | undefined;
   frameRef: (frame: HTMLDivElement | null) => void;
   isRowSelectable?: ((blob: BlobInfo) => boolean) | undefined;
@@ -48,6 +52,7 @@ export function BlobListScreen(params: {
   organizationNamesById?: ReadonlyMap<string, string> | undefined;
   query: string;
   renderSyncCell?: RenderBlobSyncCell | undefined;
+  rowHeight: number;
   rowOffset: number;
   rows: ReadonlyArray<BlobInfo>;
   sort: BlobInfoSort;
@@ -69,6 +74,7 @@ export function BlobListScreen(params: {
         <BlobInfoTable
           activeBlob={null}
           blobStore={params.blobStore}
+          compact={params.compact}
           error={params.blobInfo.error}
           frameRef={params.frameRef}
           isLoading={params.blobInfo.isLoading || params.isWindowPending}
@@ -79,6 +85,7 @@ export function BlobListScreen(params: {
           onSort={params.onSort}
           organizationNamesById={params.organizationNamesById}
           renderSyncCell={params.renderSyncCell}
+          rowHeight={params.rowHeight}
           rowOffset={params.rowOffset}
           rows={params.rows}
           sort={params.sort}
@@ -132,6 +139,7 @@ export function BlobPickSurface(params: {
       <BlobListScreen
         blobInfo={data.blobInfo}
         blobStore={params.blobStore}
+        compact={data.compact}
         frameRef={data.frameRef}
         // Filtering non-image rows out of the windowed list would desync the
         // virtual-scroll padding from the total count, so disable instead.
@@ -144,6 +152,7 @@ export function BlobPickSurface(params: {
         organizationNamesById={params.organizationNamesById}
         query={data.query}
         renderSyncCell={params.renderSyncCell}
+        rowHeight={data.rowHeight}
         rowOffset={data.rowOffset}
         rows={data.rows}
         sort={data.sort}
