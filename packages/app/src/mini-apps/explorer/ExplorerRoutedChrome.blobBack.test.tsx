@@ -7,7 +7,6 @@ import {
   useWindowBackActionValue,
   WindowMenuProvider,
 } from "../../components/window/WindowMenuContext";
-import type { AppNavigationMode } from "../../navigation/AppNavigationMode";
 import { ExplorerBlobBrowserPanel } from "./detail/blob/ExplorerBlobBrowserPanel";
 import { useExplorerRoutedChromeActions } from "./ExplorerRoutedChrome";
 import type { useExplorerModel } from "./hooks/useExplorerModel";
@@ -90,18 +89,15 @@ function BackProbe() {
 function BlobBackHarness({
   children,
   historyCanGoBack = false,
-  mode,
   model,
 }: {
   children?: ReactNode;
   historyCanGoBack?: boolean;
-  mode: AppNavigationMode;
   model: ExplorerModel;
 }) {
   useExplorerRoutedChromeActions({
     historyCanGoBack,
     model,
-    navigationMode: mode,
     openStructuredDocumentGrid: () => undefined,
     triggerUpload: () => undefined,
   });
@@ -113,7 +109,7 @@ function BlobBackHarness({
   );
 }
 
-test("windowed blob browser Back returns to its navigation origin", async () => {
+test("blob browser Back returns to its navigation origin with no history", async () => {
   const navigatedBack: number[] = [];
   const model = createBlobRouteModel(
     {
@@ -125,7 +121,7 @@ test("windowed blob browser Back returns to its navigation origin", async () => 
   );
   const view = render(
     <WindowMenuProvider>
-      <BlobBackHarness mode="windowed" model={model} />
+      <BlobBackHarness model={model} />
     </WindowMenuProvider>,
   );
 
@@ -137,7 +133,7 @@ test("windowed blob browser Back returns to its navigation origin", async () => 
   expect(navigatedBack).toEqual([1]);
 });
 
-test("windowed list drill-in returns to the list before its navigation origin", async () => {
+test("list drill-in returns to the list before its navigation origin", async () => {
   const navigatedBack: number[] = [];
   const model = createBlobRouteModel(
     {
@@ -149,7 +145,7 @@ test("windowed list drill-in returns to the list before its navigation origin", 
   );
   const view = render(
     <WindowMenuProvider>
-      <BlobBackHarness mode="windowed" model={model}>
+      <BlobBackHarness model={model}>
         <ExplorerBlobBrowserPanel
           blobStore={createBlobStore()}
           domainScope={createDomainScope()}
@@ -192,7 +188,7 @@ test("windowed list drill-in returns to the list before its navigation origin", 
   expect(navigatedBack).toEqual([1]);
 });
 
-test("routed blob browser leaves Back to app history", async () => {
+test("blob browser leaves Back to host history when there is history", async () => {
   const model = createBlobRouteModel({
     blobId: "front-blob",
     storageKey: null,
@@ -200,7 +196,7 @@ test("routed blob browser leaves Back to app history", async () => {
   });
   const view = render(
     <WindowMenuProvider>
-      <BlobBackHarness historyCanGoBack mode="routed" model={model} />
+      <BlobBackHarness historyCanGoBack model={model} />
     </WindowMenuProvider>,
   );
 
@@ -213,7 +209,7 @@ test("routed blob browser leaves Back to app history", async () => {
   });
 });
 
-test("routed direct blob link gets a Back fallback", async () => {
+test("direct blob link with no history gets a Back fallback", async () => {
   const navigatedBack: number[] = [];
   const model = createBlobRouteModel(
     {
@@ -225,7 +221,7 @@ test("routed direct blob link gets a Back fallback", async () => {
   );
   const view = render(
     <WindowMenuProvider>
-      <BlobBackHarness mode="routed" model={model} />
+      <BlobBackHarness model={model} />
     </WindowMenuProvider>,
   );
 

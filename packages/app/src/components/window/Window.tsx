@@ -296,6 +296,12 @@ function WindowInnerContent({
   const { handleMouseDown, handleResizeMouseDown, position, size } =
     useWindowGeometry(entry, maximized, windowRef);
   const { showStatusMessage, statusText } = useWindowStatusMessage();
+  // The toolbar renders above the route boundary, so the window's own Back stack
+  // is threaded in from here rather than read from context.
+  const { goBackMiniAppRoute } = useWindowStateActions();
+  const handleGoBack = useCallback(() => {
+    goBackMiniAppRoute(entry.id);
+  }, [entry.id, goBackMiniAppRoute]);
   const handleWindowMouseDown = useCallback(() => {
     bringToFront(entry.id);
   }, [bringToFront, entry.id]);
@@ -333,7 +339,11 @@ function WindowInnerContent({
         onMoveBackward={handleMoveBackward}
       />
       <WindowMenuBar menus={menus} />
-      <WindowToolBar />
+      <WindowToolBar
+        canGoBack={(entry.miniAppRouteHistory?.length ?? 0) > 0}
+        showHistoryBack={entry.appId !== undefined}
+        onGoBack={handleGoBack}
+      />
       <CurrentWindowProvider
         close={handleClose}
         id={entry.id}

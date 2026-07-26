@@ -45,7 +45,11 @@ function useUpdateMiniAppRouteAction(
   setWindows: Dispatch<SetStateAction<WindowEntry[]>>,
 ) {
   return useCallback(
-    (id: string, pathSegments: ReadonlyArray<string>) => {
+    (
+      id: string,
+      pathSegments: ReadonlyArray<string>,
+      options: { replace?: boolean | undefined } = {},
+    ) => {
       setWindows((previousWindows) => {
         const targetWindow = previousWindows.find(
           (windowEntry) => windowEntry.id === id,
@@ -54,18 +58,55 @@ function useUpdateMiniAppRouteAction(
           return previousWindows;
         }
 
-        if (
-          arePathSegmentsEqual(
-            targetWindow.miniAppPathSegments ?? [],
-            pathSegments,
-          )
-        ) {
+        const currentPathSegments = targetWindow.miniAppPathSegments ?? [];
+        if (arePathSegmentsEqual(currentPathSegments, pathSegments)) {
+          return previousWindows;
+        }
+
+        // A replacing navigation swaps the current entry rather than stacking on
+        // it — the transient step it replaces (a type picker, an unavailable
+        // route corrected to the default) must not become a Back destination.
+        const nextHistory = options.replace
+          ? (targetWindow.miniAppRouteHistory ?? [])
+          : [...(targetWindow.miniAppRouteHistory ?? []), currentPathSegments];
+
+        return previousWindows.map((windowEntry) =>
+          windowEntry.id === id
+            ? {
+                ...windowEntry,
+                miniAppPathSegments: [...pathSegments],
+                miniAppRouteHistory: nextHistory,
+              }
+            : windowEntry,
+        );
+      });
+    },
+    [setWindows],
+  );
+}
+
+function useGoBackMiniAppRouteAction(
+  setWindows: Dispatch<SetStateAction<WindowEntry[]>>,
+) {
+  return useCallback(
+    (id: string) => {
+      setWindows((previousWindows) => {
+        const targetWindow = previousWindows.find(
+          (windowEntry) => windowEntry.id === id,
+        );
+        const history = targetWindow?.miniAppRouteHistory ?? [];
+        const previousPathSegments = history[history.length - 1];
+        if (!targetWindow || previousPathSegments === undefined) {
           return previousWindows;
         }
 
         return previousWindows.map((windowEntry) =>
           windowEntry.id === id
-            ? { ...windowEntry, miniAppPathSegments: [...pathSegments] }
+            ? {
+                ...windowEntry,
+                miniAppPathSegments: [...previousPathSegments],
+                miniAppRouteHistory: history.slice(0, -1),
+              }
             : windowEntry,
         );
       });
@@ -134,6 +175,7 @@ export function useWindowStateActions({
   );
 
   const updateMiniAppRoute = useUpdateMiniAppRouteAction(setWindows);
+  const goBackMiniAppRoute = useGoBackMiniAppRouteAction(setWindows);
 
   const updateTitle = useCallback(
     (id: string, title: string) => {
@@ -173,6 +215,7 @@ export function useWindowStateActions({
     bringToFront,
     close,
     create,
+    goBackMiniAppRoute,
     minimize,
     moveBackward,
     moveForward,
@@ -187,6 +230,7 @@ function useMemoizedWindowActions(actions: WindowStateActions) {
     bringToFront,
     close,
     create,
+    goBackMiniAppRoute,
     minimize,
     moveBackward,
     moveForward,
@@ -200,6 +244,7 @@ function useMemoizedWindowActions(actions: WindowStateActions) {
       bringToFront,
       close,
       create,
+      goBackMiniAppRoute,
       minimize,
       moveBackward,
       moveForward,
@@ -211,6 +256,7 @@ function useMemoizedWindowActions(actions: WindowStateActions) {
       bringToFront,
       close,
       create,
+      goBackMiniAppRoute,
       minimize,
       moveBackward,
       moveForward,

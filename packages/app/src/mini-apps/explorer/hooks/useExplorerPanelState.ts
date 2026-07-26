@@ -173,8 +173,12 @@ export function useExplorerPanelState(params: {
     selectedDocument: selection.selectedDocument,
   });
   const selectDocument = useCallback(
-    (documentId: string, containerId: string) => {
-      routeState.selectExplorerDocument(documentId, containerId);
+    (
+      documentId: string,
+      containerId: string,
+      options: { replace?: boolean | undefined } = {},
+    ) => {
+      routeState.selectExplorerDocument(documentId, containerId, options);
     },
     [routeState.selectExplorerDocument],
   );

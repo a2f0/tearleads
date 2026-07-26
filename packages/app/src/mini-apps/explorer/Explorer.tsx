@@ -13,7 +13,7 @@ import {
   useWindowRefreshMenuItem,
 } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
-import { useAppNavigationState } from "../../navigation/AppNavigationProvider";
+import { useMiniAppRouteSegments } from "../../navigation/AppNavigationProvider";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
 import { useAppFeatureFlags } from "../../providers/feature-flags/AppFeatureFlagsProvider";
@@ -229,7 +229,9 @@ export function Explorer() {
 function ExplorerContent() {
   const appData = useTearleadsRuntime();
   const billing = useOrganizationBilling();
-  const { history, mode: navigationMode } = useAppNavigationState();
+  // Ask the host shell, not the global router: in a window this is the window's
+  // own Back stack, in the routed shell it is browser history.
+  const { canGoBack: historyCanGoBack } = useMiniAppRouteSegments("explorer");
   const hostConfig = useAppHostConfig();
   const explorer = useExplorer();
   const { setSidebar } = useWindowSidebar();
@@ -324,9 +326,8 @@ function ExplorerContent() {
   );
   const toolbarUpload = useExplorerToolbarUpload(model.uploadManager);
   useExplorerRoutedChromeActions({
-    historyCanGoBack: history.canGoBack,
+    historyCanGoBack,
     model,
-    navigationMode,
     openStructuredDocumentGrid,
     triggerUpload: toolbarUpload.triggerUpload,
   });

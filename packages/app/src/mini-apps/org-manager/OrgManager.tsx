@@ -14,7 +14,7 @@ import {
   useWindowRefreshMenuItem,
 } from "../../components/window/WindowMenuContext";
 import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
-import { useAppNavigationState } from "../../navigation/AppNavigationProvider";
+import { useMiniAppRouteSegments } from "../../navigation/AppNavigationProvider";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
 import { BillingPanel } from "./billing/BillingPanel";
@@ -327,7 +327,7 @@ function useOrgManagerDetailBackActions(model: OrgManagerModel) {
     selectedUserId,
     view,
   } = model;
-  const { mode } = useAppNavigationState();
+  const { canGoBack } = useMiniAppRouteSegments("org-manager");
 
   const {
     showGrantDetailBackAction,
@@ -337,7 +337,7 @@ function useOrgManagerDetailBackActions(model: OrgManagerModel) {
     hasSelectedGrant: selectedGrantRef !== null,
     hasSelectedGroup: selectedGroup !== null,
     hasSelectedUser: selectedUserId !== null,
-    mode,
+    historyCanGoBack: canGoBack,
     view,
   });
 
@@ -345,10 +345,10 @@ function useOrgManagerDetailBackActions(model: OrgManagerModel) {
     selectUser(null);
   }, [selectUser]);
   const backFromGroupDetail = useCallback(() => {
-    selectGroup(null);
+    selectGroup(null, { replace: true });
   }, [selectGroup]);
   const backFromGrantDetail = useCallback(() => {
-    selectGrantRef(null);
+    selectGrantRef(null, { replace: true });
   }, [selectGrantRef]);
 
   return {

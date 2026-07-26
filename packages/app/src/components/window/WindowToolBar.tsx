@@ -15,6 +15,13 @@ import {
  * icon buttons on the right — so a mini-app hosted in a window gets the same
  * toolbar chrome it gets in the routed shell.
  *
+ * The left slot resolves exactly as `RoutedPaneAppBar` does: a registered back
+ * action wins, and otherwise the button steps back through the host's own
+ * history. `showHistoryBack` turns that fallback on for a window hosting a
+ * routed mini-app, whose history is the window's Back stack (windows are not
+ * backed by browser history); it stays visible-but-disabled at the first route
+ * rather than appearing and disappearing as the stack empties.
+ *
  * Both surfaces read one shared registry (WindowMenuContext), so a mini-app
  * registers its actions once and they appear wherever it is hosted.
  *
@@ -32,12 +39,21 @@ import {
  * still mounts a commit late, once that hook's effect registers, as all window
  * chrome does).
  */
-export function WindowToolBar() {
+export function WindowToolBar({
+  canGoBack = false,
+  onGoBack,
+  showHistoryBack = false,
+}: {
+  canGoBack?: boolean;
+  onGoBack?: (() => void) | undefined;
+  showHistoryBack?: boolean;
+} = {}) {
   const backAction = useWindowBackActionValue();
   const actions = useWindowTitleBarActions();
   const reserved = useWindowToolbarReserved();
   const reservationReleased = useWindowToolbarReservationReleased();
-  const hasChrome = backAction !== null || actions.length > 0;
+  const showBack = backAction !== null || showHistoryBack;
+  const hasChrome = showBack || actions.length > 0;
   // Latch: this window's app has shown toolbar chrome at least once, so keep the
   // row reserved from here on rather than collapsing it on a transient empty.
   // Seed from the mount-time value so a window that already has chrome does not
@@ -62,13 +78,14 @@ export function WindowToolBar() {
   return (
     <div aria-label="Toolbar" className="window-toolbar" role="toolbar">
       <div className="window-toolbar-primary">
-        {backAction && (
+        {showBack && (
           <button
+            aria-label={backLabel}
             className="window-toolbar-button"
-            disabled={backAction.disabled}
+            disabled={backAction ? backAction.disabled : !canGoBack}
             title={backLabel}
             type="button"
-            onClick={backAction.onClick}
+            onClick={backAction?.onClick ?? onGoBack}
           >
             <CaretLeftIcon aria-hidden size={18} />
             <span className="window-toolbar-back-label">{backLabel}</span>

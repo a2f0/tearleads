@@ -12,13 +12,22 @@ export function WindowMiniAppRouteBoundary({
   children,
   entry,
 }: WindowMiniAppRouteBoundaryProps) {
-  const { updateMiniAppRoute } = useWindowActions();
+  const { goBackMiniAppRoute, updateMiniAppRoute } = useWindowActions();
   const setPathSegments = useCallback(
-    (pathSegments: ReadonlyArray<string>) => {
-      updateMiniAppRoute(entry.id, pathSegments);
+    (
+      pathSegments: ReadonlyArray<string>,
+      options: { replace?: boolean | undefined } = {},
+    ) => {
+      // Forward `replace` rather than dropping it: it is what keeps a transient
+      // step (the new-document type picker, a corrected unavailable route) out
+      // of this window's Back stack.
+      updateMiniAppRoute(entry.id, pathSegments, options);
     },
     [entry.id, updateMiniAppRoute],
   );
+  const goBack = useCallback(() => {
+    goBackMiniAppRoute(entry.id);
+  }, [entry.id, goBackMiniAppRoute]);
 
   if (!entry.appId) {
     return children;
@@ -27,6 +36,8 @@ export function WindowMiniAppRouteBoundary({
   return (
     <MiniAppRouteSegmentsProvider
       appId={entry.appId}
+      canGoBack={(entry.miniAppRouteHistory?.length ?? 0) > 0}
+      goBack={goBack}
       pathSegments={entry.miniAppPathSegments ?? EMPTY_ROUTE_SEGMENTS}
       setPathSegments={setPathSegments}
     >

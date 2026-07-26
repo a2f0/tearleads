@@ -80,7 +80,11 @@ export interface ExplorerPanelState {
     currentContainerId: string,
   ) => Promise<unknown>;
   routeState: ExplorerRouteState;
-  selectDocumentProjection: (documentId: string, containerId: string) => void;
+  selectDocumentProjection: (
+    documentId: string,
+    containerId: string,
+    options?: { replace?: boolean | undefined },
+  ) => void;
   selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
   selectedDocumentStartsInEditMode: boolean;
   selectedDocumentLinkTargetOptions: ReadonlyArray<MoveTargetOption>;

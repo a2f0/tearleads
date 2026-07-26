@@ -54,7 +54,7 @@ interface ContactsModel {
   setDraftNickname: Dispatch<SetStateAction<string>>;
   setDraftUserId: Dispatch<SetStateAction<string>>;
   showCompactListHome: boolean;
-  showSelectionRoute: () => void;
+  showSelectionRoute: (options?: { replace?: boolean | undefined }) => void;
   updateContact: ReturnType<typeof useContacts>["updateContact"];
 }
 

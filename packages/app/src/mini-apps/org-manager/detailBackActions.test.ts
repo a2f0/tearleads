@@ -7,66 +7,66 @@ const NONE = {
   hasSelectedUser: false,
 } as const;
 
-test("roster detail back surfaces in every mode (roster selection is not routed)", () => {
-  const windowed = resolveOrgManagerDetailBackVisibility({
+test("roster detail back surfaces with or without history (roster selection is not routed)", () => {
+  const noHistory = resolveOrgManagerDetailBackVisibility({
     ...NONE,
     hasSelectedUser: true,
-    mode: "windowed",
+    historyCanGoBack: false,
     view: "directory",
   });
-  const routed = resolveOrgManagerDetailBackVisibility({
+  const withHistory = resolveOrgManagerDetailBackVisibility({
     ...NONE,
     hasSelectedUser: true,
-    mode: "routed",
+    historyCanGoBack: true,
     view: "directory",
   });
 
-  expect(windowed.showRosterDetailBackAction).toBe(true);
-  expect(routed.showRosterDetailBackAction).toBe(true);
+  expect(noHistory.showRosterDetailBackAction).toBe(true);
+  expect(withHistory.showRosterDetailBackAction).toBe(true);
 });
 
-test("group detail back surfaces only in windowed mode (routed keeps history caret)", () => {
-  const windowed = resolveOrgManagerDetailBackVisibility({
+test("group detail back surfaces only with no history to pop", () => {
+  const noHistory = resolveOrgManagerDetailBackVisibility({
     ...NONE,
     hasSelectedGroup: true,
-    mode: "windowed",
+    historyCanGoBack: false,
     view: "groups",
   });
-  const routed = resolveOrgManagerDetailBackVisibility({
+  const withHistory = resolveOrgManagerDetailBackVisibility({
     ...NONE,
     hasSelectedGroup: true,
-    mode: "routed",
+    historyCanGoBack: true,
     view: "groups",
   });
 
-  expect(windowed.showGroupDetailBackAction).toBe(true);
-  // Registering in a routed tier would turn the app bar's history pop into a
-  // route push and break mobile/tablet back/forward.
-  expect(routed.showGroupDetailBackAction).toBe(false);
+  expect(noHistory.showGroupDetailBackAction).toBe(true);
+  // Registering where the host can go back would turn its history pop into a
+  // route push, and Back would alternate between the group and its list.
+  expect(withHistory.showGroupDetailBackAction).toBe(false);
 });
 
-test("grant detail back surfaces only in windowed mode", () => {
-  const windowed = resolveOrgManagerDetailBackVisibility({
+test("grant detail back surfaces only with no history to pop", () => {
+  const noHistory = resolveOrgManagerDetailBackVisibility({
     ...NONE,
     hasSelectedGrant: true,
-    mode: "windowed",
+    historyCanGoBack: false,
     view: "grants",
   });
-  const routed = resolveOrgManagerDetailBackVisibility({
+  const withHistory = resolveOrgManagerDetailBackVisibility({
     ...NONE,
     hasSelectedGrant: true,
-    mode: "routed",
+    historyCanGoBack: true,
     view: "grants",
   });
 
-  expect(windowed.showGrantDetailBackAction).toBe(true);
-  expect(routed.showGrantDetailBackAction).toBe(false);
+  expect(noHistory.showGrantDetailBackAction).toBe(true);
+  expect(withHistory.showGrantDetailBackAction).toBe(false);
 });
 
 test("no back action without a selection", () => {
   const result = resolveOrgManagerDetailBackVisibility({
     ...NONE,
-    mode: "windowed",
+    historyCanGoBack: false,
     view: "groups",
   });
 
@@ -82,7 +82,7 @@ test("the three back actions are mutually exclusive per view", () => {
     hasSelectedGrant: true,
     hasSelectedGroup: true,
     hasSelectedUser: true,
-    mode: "windowed",
+    historyCanGoBack: false,
     view: "groups",
   });
 

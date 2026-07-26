@@ -31,12 +31,13 @@ export function useContactsRouteState(compactRoutedMode: boolean) {
     [isRouted, setPathSegments],
   );
   const showSelectionRoute = useCallback(
-    () =>
+    (options: { replace?: boolean | undefined } = {}) =>
       setRouteSnapshot(
         createContactsSelectionRouteSnapshot(
           compactRoutedMode,
           routeSnapshot.selectedContactId,
         ),
+        options,
       ),
     [compactRoutedMode, routeSnapshot.selectedContactId, setRouteSnapshot],
   );

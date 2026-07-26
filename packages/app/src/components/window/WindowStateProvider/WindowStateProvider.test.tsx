@@ -89,6 +89,120 @@ test("updateMiniAppRoute skips unchanged route metadata", () => {
   expect(result.current.windows).toBe(windowsBeforeUpdate);
 });
 
+// A window is not backed by browser history, so its Back caret walks this stack.
+test("updateMiniAppRoute stacks visited routes and goBackMiniAppRoute pops them", () => {
+  const { result } = renderHook(() => useWindowState(), { wrapper });
+
+  act(() =>
+    result.current.create("Explorer", 0, 0, undefined, {
+      appId: "explorer",
+      miniAppPathSegments: ["items", "container-1"],
+    }),
+  );
+  const id = at(result, 0).id;
+
+  act(() =>
+    result.current.updateMiniAppRoute(id, [
+      "containers",
+      "container-1",
+      "documents",
+      "doc-1",
+    ]),
+  );
+  act(() =>
+    result.current.updateMiniAppRoute(id, [
+      "containers",
+      "container-1",
+      "documents",
+      "doc-1",
+      "info",
+    ]),
+  );
+
+  expect(result.current.windowMap.get(id)?.miniAppRouteHistory).toEqual([
+    ["items", "container-1"],
+    ["containers", "container-1", "documents", "doc-1"],
+  ]);
+
+  // Each Back unwinds exactly one entry — it never pushes a parent route back on
+  // top, which is what made Back alternate between two panes forever.
+  act(() => result.current.goBackMiniAppRoute(id));
+
+  expect(result.current.windowMap.get(id)?.miniAppPathSegments).toEqual([
+    "containers",
+    "container-1",
+    "documents",
+    "doc-1",
+  ]);
+
+  act(() => result.current.goBackMiniAppRoute(id));
+
+  expect(result.current.windowMap.get(id)?.miniAppPathSegments).toEqual([
+    "items",
+    "container-1",
+  ]);
+  expect(result.current.windowMap.get(id)?.miniAppRouteHistory).toEqual([]);
+});
+
+test("goBackMiniAppRoute is inert with an empty history", () => {
+  const { result } = renderHook(() => useWindowState(), { wrapper });
+
+  act(() =>
+    result.current.create("Explorer", 0, 0, undefined, {
+      appId: "explorer",
+      miniAppPathSegments: ["items", "container-1"],
+    }),
+  );
+  const id = at(result, 0).id;
+  const windowsBeforeBack = result.current.windows;
+
+  act(() => result.current.goBackMiniAppRoute(id));
+
+  expect(result.current.windows).toBe(windowsBeforeBack);
+  expect(result.current.windowMap.get(id)?.miniAppPathSegments).toEqual([
+    "items",
+    "container-1",
+  ]);
+});
+
+// A replacing navigation swaps the current entry, so the transient step it
+// replaced (e.g. the new-document type picker) never becomes a Back destination.
+test("a replacing updateMiniAppRoute does not stack a history entry", () => {
+  const { result } = renderHook(() => useWindowState(), { wrapper });
+
+  act(() =>
+    result.current.create("Explorer", 0, 0, undefined, {
+      appId: "explorer",
+      miniAppPathSegments: ["items", "container-1"],
+    }),
+  );
+  const id = at(result, 0).id;
+
+  act(() =>
+    result.current.updateMiniAppRoute(id, ["containers", "container-1", "new"]),
+  );
+  act(() =>
+    result.current.updateMiniAppRoute(id, ["items", "doc-1"], {
+      replace: true,
+    }),
+  );
+
+  expect(result.current.windowMap.get(id)?.miniAppPathSegments).toEqual([
+    "items",
+    "doc-1",
+  ]);
+  expect(result.current.windowMap.get(id)?.miniAppRouteHistory).toEqual([
+    ["items", "container-1"],
+  ]);
+
+  act(() => result.current.goBackMiniAppRoute(id));
+
+  expect(result.current.windowMap.get(id)?.miniAppPathSegments).toEqual([
+    "items",
+    "container-1",
+  ]);
+});
+
 test("zIndex change triggers re-render in consuming component", () => {
   const zIndices: number[][] = [];
 
