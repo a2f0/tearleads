@@ -260,6 +260,70 @@ test("unwrapContainerKekPath unwraps served historical epochs and skips epochs o
   expect(unwrapped.has(foreign.historical.containerKeyEpochId)).toBe(false);
 });
 
+test("unwrapContainerKekPath resolves a descendant still wrapped to an ancestor's superseded epoch", async () => {
+  const { projection, publicKey, secretKey } = await createWrappedProjection();
+  const rootKek = projection.containerKeks[0];
+  const childKek = projection.containerKeks[1];
+  if (!rootKek || !childKek) {
+    throw new Error("Expected root and child container KEK fixtures");
+  }
+
+  // The root rotated to a fresh epoch, but the child has not been rekeyed:
+  // its CURRENT epoch still wraps to the root's superseded epoch, which now
+  // travels as a historical entry. The path walk must unwrap that historical
+  // epoch before attempting the child, or the child (the unwrap target)
+  // fails outright.
+  const rotatedRootKey = crypto.getRandomValues(new Uint8Array(32));
+  const rotatedRootEpochId = await computeContainerKekMaterialId({
+    containerId: rootKek.containerId,
+    keyEpoch: 2,
+    keyMaterial: rotatedRootKey,
+  });
+  const supersededRoot: HistoricalContainerKekResponse = {
+    accessManifestHash: rootKek.accessManifestHash,
+    containerId: rootKek.containerId,
+    containerKeyEpoch: rootKek.containerKeyEpoch,
+    containerKeyEpochId: rootKek.containerKeyEpochId,
+    keyEpochHash: rootKek.keyEpochHash,
+    parentContainerKeyEpochId: null,
+    wraps: rootKek.wraps,
+  };
+  const rotatedRootKek = {
+    ...rootKek,
+    containerKeyEpoch: 2,
+    containerKeyEpochId: rotatedRootEpochId,
+    historicalKeks: [supersededRoot],
+    keyEpoch: {
+      ...rootKek.keyEpoch,
+      id: rotatedRootEpochId,
+      keyEpoch: 2,
+    },
+    keyEpochHash: await fixtureHash("rotated-root-key-epoch"),
+    wraps: [
+      await createUserContainerWrap({
+        containerKeyEpochId: rotatedRootEpochId,
+        containerKek: rotatedRootKey,
+        publicKey,
+        userId: "user-1",
+        wrapManifestHash: rootKek.accessManifestHash,
+      }),
+    ],
+  };
+
+  const unwrapped = await unwrapContainerKekPath({
+    projection: {
+      ...projection,
+      containerKeks: [rotatedRootKek, childKek],
+    },
+    secretKey,
+    trustedLocalProjection: true,
+  });
+
+  expect(unwrapped.has(rotatedRootEpochId)).toBe(true);
+  expect(unwrapped.has(rootKek.containerKeyEpochId)).toBe(true);
+  expect(unwrapped.has(childKek.containerKeyEpochId)).toBe(true);
+});
+
 test("unwrapContainerKekPath rejects historical epochs whose material or wraps do not commit", async () => {
   const { projection, publicKey, secretKey } = await createWrappedProjection();
   const rootKek = projection.containerKeks[0];
