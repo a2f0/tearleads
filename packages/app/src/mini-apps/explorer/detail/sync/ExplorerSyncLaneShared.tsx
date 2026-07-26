@@ -14,52 +14,71 @@ import {
   getExplorerSyncLaneProgressPercent,
   getExplorerSyncLaneStatusLabel,
   getSyncLaneLastActionLabel,
+  getSyncLaneSummaryCount,
+  type SyncLaneFilter,
   summarizeSyncLanes,
 } from "./ExplorerSyncLaneUtils";
 
-function ExplorerSyncLaneMetric(params: { label: string; value: number }) {
+// Ordered along the lane lifecycle, with the unfiltered total leading. Each
+// tile doubles as the filter for the lanes it counts; the leading `null` tile
+// counts every registered lane, so it is also the "show all" reset.
+const SYNC_LANE_METRICS: ReadonlyArray<{
+  filter: SyncLaneFilter;
+  label: string;
+}> = [
+  { filter: null, label: EXPLORER_LABELS.syncLanesRegisteredMetric },
+  { filter: "running", label: EXPLORER_LABELS.syncLanesRunningMetric },
+  { filter: "queued", label: EXPLORER_LABELS.syncLanesQueuedMetric },
+  { filter: "complete", label: EXPLORER_LABELS.syncLanesCompleteMetric },
+  { filter: "error", label: EXPLORER_LABELS.syncLanesErrorMetric },
+  { filter: "idle", label: EXPLORER_LABELS.syncLanesIdleMetric },
+];
+
+function ExplorerSyncLaneMetric(params: {
+  active: boolean;
+  label: string;
+  onSelect: () => void;
+  value: number;
+}) {
   return (
-    <div className="explorer-sync-lane-metric">
+    <button
+      aria-pressed={params.active}
+      className="explorer-sync-lane-metric"
+      onClick={params.onSelect}
+      type="button"
+    >
       <strong>{params.value.toLocaleString()}</strong>
       <span>{params.label}</span>
-    </div>
+    </button>
   );
 }
 
 export function ExplorerSyncLaneOverview(params: {
+  activeFilter: SyncLaneFilter;
+  onSelectFilter: (filter: SyncLaneFilter) => void;
   snapshot: DomainSyncSnapshot;
 }) {
-  const summary = useMemo(
-    () => summarizeSyncLanes(params.snapshot),
-    [params.snapshot],
-  );
+  const { activeFilter, onSelectFilter, snapshot } = params;
+  const summary = useMemo(() => summarizeSyncLanes(snapshot), [snapshot]);
 
   return (
     <div className="explorer-sync-lane-overview">
-      <ExplorerSyncLaneMetric
-        label={EXPLORER_LABELS.syncLanesRegisteredMetric}
-        value={summary.registered}
-      />
-      <ExplorerSyncLaneMetric
-        label={EXPLORER_LABELS.syncLanesRunningMetric}
-        value={summary.running}
-      />
-      <ExplorerSyncLaneMetric
-        label={EXPLORER_LABELS.syncLanesQueuedMetric}
-        value={summary.queued}
-      />
-      <ExplorerSyncLaneMetric
-        label={EXPLORER_LABELS.syncLanesCompleteMetric}
-        value={summary.complete}
-      />
-      <ExplorerSyncLaneMetric
-        label={EXPLORER_LABELS.syncLanesErrorMetric}
-        value={summary.errors}
-      />
-      <ExplorerSyncLaneMetric
-        label={EXPLORER_LABELS.syncLanesIdleMetric}
-        value={summary.idle}
-      />
+      {SYNC_LANE_METRICS.map((metric) => (
+        <ExplorerSyncLaneMetric
+          active={activeFilter === metric.filter}
+          key={metric.label}
+          label={metric.label}
+          // Re-selecting the active tile clears the filter, so a status is
+          // never a one-way trip even when it counts zero lanes; the Registered
+          // tile resolves to "show all" either way.
+          onSelect={() =>
+            onSelectFilter(
+              activeFilter === metric.filter ? null : metric.filter,
+            )
+          }
+          value={getSyncLaneSummaryCount(summary, metric.filter)}
+        />
+      ))}
     </div>
   );
 }

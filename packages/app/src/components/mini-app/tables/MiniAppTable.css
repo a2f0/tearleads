@@ -195,6 +195,58 @@
 }
 
 /*
+ * Aligned key/value details: a fixed key column, so sibling tables stacked in
+ * one panel share a column geometry instead of each finding its own.
+ *
+ * Two info tables in the same panel (Document Info's General Details +
+ * Contributors, or its Local + Remote Security) are independent `<table>`
+ * elements, so the auto layout sizes each key column to *its own* longest key.
+ * A Contributors table keyed by a compacted fingerprint therefore indents its
+ * values far past the General Details table above it, and the pair reads as two
+ * unrelated blocks rather than one panel. CSS has no cross-table `max()`:
+ * sharing the geometry means fixing it, which is what `table-layout: fixed` plus
+ * one shared width buys.
+ *
+ * The key column also stops breaking mid-token. The shared cell rule allows a
+ * break anywhere (`word-break: break-word`), which splits a compacted id key
+ * into `1f8b3134-` / `e...6155a6` as soon as the column is tight. Keys wrap at
+ * spaces like ordinary prose instead, and the width holds a compacted id — the
+ * longest unbreakable key these tables carry — on one line, so the break has no
+ * chance to appear in the first place. See `--mini-app-info-label-width`.
+ *
+ * The width is a plain length, deliberately. A `min()` capping it at a share of
+ * the pane reads as the safer rule and is not: a percentage inside the width
+ * makes Chromium's fixed-layout algorithm treat the column as indefinite, and it
+ * silently falls back to splitting the table evenly — which on a phone is
+ * *narrower* than the key column asked for, restoring the very break this
+ * removes. Padding is added here rather than baked into the token so the token
+ * stays a legible character count against `box-sizing: border-box`.
+ *
+ * Two-column key/value tables only. A multi-column info table (the Authorizing
+ * Containers and Attachments lists) must keep the auto layout, which is why this
+ * is an opt-in modifier rather than a rule on the panel.
+ */
+.mini-app-info-table--aligned {
+  table-layout: fixed;
+}
+
+.mini-app-info-table--aligned th {
+  width: calc(
+    var(--mini-app-info-label-width) +
+    2 *
+    var(--info-table-cell-padding)
+  );
+  word-break: normal;
+  /* `break-word`, not `normal` or `anywhere`. A fixed column cannot grow, so a
+     key with no break opportunity at all (an env var's `DATABASE_URL_PRIMARY`,
+     say) would otherwise spill across the value beside it. This breaks such a
+     key only when it cannot fit on a line of its own — unlike `anywhere`, it
+     does not add a break opportunity a key that already fits would take, so the
+     compacted id above still renders whole. */
+  overflow-wrap: break-word;
+}
+
+/*
  * Touch (routed layout): open dense data rows to the 44px touch target. The
  * compact row height is bumped in lockstep with the virtualization pitch
  * (useTouchRowHeight in MiniAppVirtual), so virtual and non-virtual compact

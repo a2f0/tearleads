@@ -24,6 +24,7 @@ export {
   MiniAppInfoRow,
   MiniAppInfoTable,
   MiniAppInfoTableRow,
+  MiniAppKeyValueTable,
   MiniAppRowActionsCell,
   MiniAppTable,
   MiniAppTableActionButton,

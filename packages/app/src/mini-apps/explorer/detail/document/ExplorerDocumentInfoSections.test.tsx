@@ -7,7 +7,9 @@ import {
   ExplorerDocumentInfoBlameSection,
   ExplorerDocumentInfoCharacterBlameSection,
   ExplorerDocumentInfoFieldBlameSection,
+  ExplorerDocumentInfoGeneralSection,
 } from "./ExplorerDocumentInfoGeneralSections";
+import { ExplorerDocumentInfoLocalSecuritySection } from "./ExplorerDocumentInfoSecuritySections";
 
 type DocumentInfoAttributionSegment = NonNullable<
   DocumentInfo["remoteInfo"]
@@ -505,4 +507,71 @@ test("field blame section is hidden for a document with no fields", () => {
   );
 
   expect(view.container.querySelector("table")).toBeNull();
+});
+
+// The panel's key/value tables share one fixed key column so that two of them
+// stacked in a tab (General Details above Contributors, Local above Remote
+// Security) line their values up instead of each indenting to its own longest
+// key — see `--aligned` in MiniAppTable.css. It is an opt-in modifier precisely
+// because the multi-column tables in the same panel must keep the auto layout: a
+// two-column geometry would crush the Attachments list's four columns into two.
+// That boundary is the thing worth pinning, since applying the modifier panel-
+// wide is the obvious-looking simplification that silently breaks those lists.
+test("document info key/value tables share the aligned key column", () => {
+  const documentInfo = createDocumentInfo({
+    attachments: [],
+    remoteInfo: createRemoteInfo([]),
+  });
+
+  for (const section of [
+    ExplorerDocumentInfoGeneralSection,
+    ExplorerDocumentInfoLocalSecuritySection,
+  ]) {
+    const view = render(
+      createElement(section, {
+        containerName: "Container",
+        documentInfo,
+        localId: "local-document-1",
+      }),
+    );
+    const table = view.container.querySelector("table");
+    expect(table?.classList.contains("mini-app-info-table--aligned")).toBe(
+      true,
+    );
+    expect(table?.classList.contains("mini-app-info-table--borderless")).toBe(
+      true,
+    );
+    cleanup();
+  }
+});
+
+test("document info attachment list keeps its multi-column layout", () => {
+  const documentInfo = createDocumentInfo({
+    attachments: [
+      {
+        attachmentKind: "local",
+        blobId: "blob-1",
+        byteLength: 12,
+        createdAt: null,
+        localId: "local-document-1",
+        mimeType: "image/png",
+        name: null,
+        slotId: "slot-1",
+        storageKey: "storage-1",
+        updatedAt: "2026-06-20T10:00:00.000Z",
+      },
+    ],
+    remoteInfo: createRemoteInfo([]),
+  });
+
+  const view = render(
+    createElement(ExplorerDocumentInfoAttachmentsSection, {
+      documentInfo,
+      openBlobBrowserRoute: () => undefined,
+    }),
+  );
+
+  const table = view.container.querySelector("table");
+  expect(table?.classList.contains("mini-app-info-table--aligned")).toBe(false);
+  expect(table?.querySelectorAll("thead th").length).toBeGreaterThan(2);
 });

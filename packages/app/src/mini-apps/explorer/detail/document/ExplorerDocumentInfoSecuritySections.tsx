@@ -5,7 +5,7 @@ import {
 } from "../../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppInfoRow,
-  MiniAppInfoTable,
+  MiniAppKeyValueTable,
 } from "../../../../components/mini-app/MiniAppTable";
 import {
   EXPLORER_LABELS,
@@ -32,7 +32,7 @@ export function ExplorerDocumentInfoLocalSecuritySection(params: {
     <MiniAppInfoSection
       heading={EXPLORER_LABELS.documentInfoLocalSecurityHeading}
     >
-      <MiniAppInfoTable>
+      <MiniAppKeyValueTable>
         <tbody>
           <MiniAppInfoRow label={EXPLORER_LABELS.documentInfoAccessEpochRow}>
             {local?.accessEpoch != null ? String(local.accessEpoch) : "-"}
@@ -59,7 +59,7 @@ export function ExplorerDocumentInfoLocalSecuritySection(params: {
             {bundleState}
           </MiniAppInfoRow>
         </tbody>
-      </MiniAppInfoTable>
+      </MiniAppKeyValueTable>
     </MiniAppInfoSection>
   );
 }
@@ -84,7 +84,7 @@ export function ExplorerDocumentInfoRemoteSecuritySection(params: {
     <MiniAppInfoSection
       heading={EXPLORER_LABELS.documentInfoRemoteSecurityHeading}
     >
-      <MiniAppInfoTable>
+      <MiniAppKeyValueTable>
         <tbody>
           <MiniAppInfoRow
             label={EXPLORER_LABELS.documentInfoCurrentManifestHashRow}
@@ -147,7 +147,7 @@ export function ExplorerDocumentInfoRemoteSecuritySection(params: {
             })}
           </MiniAppInfoRow>
         </tbody>
-      </MiniAppInfoTable>
+      </MiniAppKeyValueTable>
     </MiniAppInfoSection>
   );
 }

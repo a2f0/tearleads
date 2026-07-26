@@ -8,7 +8,7 @@ import {
 } from "../../components/mini-app/MiniAppLayout";
 import {
   MiniAppInfoRow,
-  MiniAppInfoTable,
+  MiniAppKeyValueTable,
 } from "../../components/mini-app/MiniAppTable";
 import { formatRowByline, formatWriterLabel } from "./rowAttribution";
 import "./DocumentRowDetail.css";
@@ -111,7 +111,7 @@ export function DocumentRowDetailOverlay(params: {
           {title}
         </h2>
         <MiniAppInfoSection heading="Fields">
-          <MiniAppInfoTable>
+          <MiniAppKeyValueTable>
             <tbody>
               {fields.map((field) => {
                 const writer = formatWriterLabel(
@@ -143,11 +143,11 @@ export function DocumentRowDetailOverlay(params: {
                 );
               })}
             </tbody>
-          </MiniAppInfoTable>
+          </MiniAppKeyValueTable>
         </MiniAppInfoSection>
         {created || updated ? (
           <MiniAppInfoSection heading="History">
-            <MiniAppInfoTable>
+            <MiniAppKeyValueTable>
               <tbody>
                 {created ? (
                   <MiniAppInfoRow label="Created">{created}</MiniAppInfoRow>
@@ -156,7 +156,7 @@ export function DocumentRowDetailOverlay(params: {
                   <MiniAppInfoRow label="Updated">{updated}</MiniAppInfoRow>
                 ) : null}
               </tbody>
-            </MiniAppInfoTable>
+            </MiniAppKeyValueTable>
           </MiniAppInfoSection>
         ) : null}
         <MiniAppActions>

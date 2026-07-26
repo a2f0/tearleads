@@ -4,6 +4,21 @@
   max-height: 100%;
   overflow-y: auto;
   text-align: start;
+  /*
+   * Both key/value tables here (Fields, History) take the shared aligned key
+   * column, so their values line up rather than each indenting to its own
+   * longest key. The width is narrowed from the app default because this panel
+   * knows its own keys: they are a fixed, short set the document types pass in
+   * ("Measured at" is the longest across blood pressure, weight, and env file),
+   * never the compacted id the default reserves room for. At the modal's 22rem
+   * the default would spend more than half the width on a column that is mostly
+   * empty, and push every value into wrapping.
+   *
+   * Overriding the token rather than the rule is what keeps the alignment: both
+   * tables read the same value from this one declaration, so they cannot drift
+   * apart no matter what it is set to.
+   */
+  --mini-app-info-label-width: 12ch;
 }
 
 .document-row-detail-title {
