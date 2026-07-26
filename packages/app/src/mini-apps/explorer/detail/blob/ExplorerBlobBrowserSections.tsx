@@ -17,11 +17,11 @@ import {
 } from "../../../../document-types/shared/MediaPreview";
 import { formatByteLength } from "../../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
+import { getBlobChangedAt } from "../../../shared/blob-pick/blob-list/blobListState";
 import {
   type BlobPreviewState,
-  getBlobChangedAt,
   useBlobPreview,
-} from "../../../shared/blob-pick/blob-list/blobListState";
+} from "../../../shared/blob-pick/blob-list/blobPreview";
 import {
   EXPLORER_LABELS,
   getExplorerBlobBrowserDocumentCountLabel,
