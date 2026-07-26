@@ -104,3 +104,31 @@
   gap: var(--space-xs);
   padding: var(--space-xs) var(--space-xs) 0;
 }
+
+/*
+ * Mobile full-bleed (automatic, not opt-in): break the strip out of the mini-app
+ * root's `--space-md` inline padding so its muted fill and its baseline reach the
+ * screen edges. Inset, the strip read as a floating card — the baseline that is
+ * supposed to be the panel's top edge stopped short of both sides, and the pane
+ * background showed through beside a bar that is chrome, not content.
+ *
+ * Unlike the list-frame bleeds (`mini-app-table-frame--bleed`,
+ * `mini-app-virtual-list-frame--bleed`), this needs no opt-in modifier: a tab
+ * strip is always chrome spanning its surface, so every tabbed mini-app wants it.
+ * That makes the negative margin an assumption about the ancestor inset — it
+ * cancels exactly `--space-md`, the padding `.mini-app-root` applies. Every
+ * tabbed surface currently sits directly in that root (System Monitor,
+ * Backup/Restore, and the Explorer info/sections/sync-lane panels), so a single
+ * value is right for all of them; a future strip nested inside additional inline
+ * padding (a framed panel, say) would overshoot and need its own rule. The
+ * routed-shell e2e coverage asserts the strip reaches both edges.
+ *
+ * Horizontal only. The strip keeps its `--space-xs` inline padding, so the first
+ * tab lands 8px off the edge — the same inset the app bar's leading button above
+ * it uses, which lines the two up. The panel below deliberately does NOT bleed:
+ * it is content, and its text needs the root's inset to stay readable (lists
+ * inside it bleed on their own via the frame modifiers above).
+ */
+.routed-pane--mobile .mini-app-tabs {
+  margin-inline: calc(-1 * var(--space-md));
+}

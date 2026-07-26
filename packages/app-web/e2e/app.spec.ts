@@ -233,6 +233,42 @@ test("mobile app bar draws its icons at the touch glyph size", async ({
   expect(glyphBox.height).toBeGreaterThanOrEqual(24);
 });
 
+// A tab strip is chrome, so on a phone it spans the screen rather than sitting
+// inset like content — otherwise its baseline (which reads as the panel's top
+// edge) stops short of both sides and the strip floats as a card. The bleed in
+// MiniAppTabs.css cancels exactly the `--space-md` that `.mini-app-root` applies,
+// which only holds while every tabbed surface sits directly in that root. Assert
+// the drawn box on two surfaces that reach the strip by different routes — a
+// future strip nested inside extra inline padding would overshoot instead, so
+// also assert the page did not gain horizontal overflow.
+for (const surface of [
+  { path: "/app/system-monitor", tab: "Logs" },
+  { path: "/app/explorer/blobs", tab: "Blob Browser" },
+]) {
+  test(`mobile tab strip bleeds to both screen edges (${surface.path})`, async ({
+    page,
+  }) => {
+    const viewportWidth = 599;
+    await page.setViewportSize({ width: viewportWidth, height: 800 });
+    await page.goto(surface.path);
+
+    await expect(page.getByRole("tab", { name: surface.tab })).toBeVisible({
+      timeout: 30_000,
+    });
+
+    const stripBox = await page.locator(".mini-app-tabs").first().boundingBox();
+    if (!stripBox) {
+      throw new Error(`Expected a visible tab strip on ${surface.path}.`);
+    }
+
+    expect(stripBox.x).toBe(0);
+    expect(stripBox.width).toBe(viewportWidth);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBe(viewportWidth);
+  });
+}
+
 // Regression coverage for the mobile Get Info back loop: Explorer used to
 // register a "Back to Document" action on the routed app bar, which PUSHED the
 // document route instead of popping the info route. The document route
