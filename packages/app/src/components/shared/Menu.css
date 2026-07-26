@@ -46,8 +46,37 @@
   text-overflow: ellipsis;
 }
 
-/* Touch: this popover menu is portaled to <body>, but the routed hook lives on
-   <html>, so its items still resolve a 44px tap height in the routed layout. */
+/*
+ * Touch: this popover menu is portaled to <body>, but the routed hook lives on
+ * <html>, so its items still resolve a 44px tap height in the routed layout.
+ *
+ * The row height was the only thing this block used to set, which left a
+ * compliant-by-measure row holding a mark and a label that both read as too
+ * small on a phone:
+ *
+ *   - The LABEL never saw the routed type ramp at all. The global reset gives
+ *     buttons `font-family: inherit` but NOT `font-size`, and `.menu button`
+ *     sets no size of its own, so every menu item rendered at the UA button
+ *     default (~13.3px) no matter what `--font-size-sm` resolved to. Scoped to
+ *     the routed tier deliberately: the windowed root carries the monospace
+ *     font-size quirk (~13px), which makes `sm` ~11.7px there — SMALLER than the
+ *     UA default this replaces — so applying it in both layouts would shrink the
+ *     windowed menus rather than leave them alone.
+ *   - The ICON is drawn from `size={16}`, a width/height attribute that author
+ *     CSS outranks, so one rule re-sizes every menu icon — MenuItem's own and
+ *     any icon a select-menu option supplies — to the same touch glyph size the
+ *     toolbars use. The trigger's caret sits outside `.menu`, so it is untouched.
+ *
+ * One shared menu backs every context menu in the app (Explorer, Contacts,
+ * Notes, Org Manager, Identity Manager, the panes, tables, and the window title
+ * bar), so this block is the whole fix.
+ */
 :root[data-navigation-mode="routed"] .menu button {
   min-height: var(--control-height);
+  font-size: var(--font-size-sm);
+}
+
+:root[data-navigation-mode="routed"] .menu button svg {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
 }
