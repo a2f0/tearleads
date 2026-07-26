@@ -292,39 +292,9 @@ test("blob detail previews audio and video with shared playback controls", async
   expect(video.classList.contains("media-preview--video")).toBe(true);
 });
 
-test("blob detail toolbar download saves the blob's local bytes", async () => {
-  const bytes = new Uint8Array([1, 2, 3]) as BlobBytes;
-  const readKeys: string[] = [];
-  const blobStore = createBlobStore({
-    readBytes: async (storageKey) => {
-      readKeys.push(storageKey);
-      return bytes;
-    },
-  });
-
-  const downloads: string[] = [];
-  const originalClick = HTMLAnchorElement.prototype.click;
-  HTMLAnchorElement.prototype.click = function click(this: HTMLAnchorElement) {
-    downloads.push(this.download);
-  };
-
-  try {
-    const view = renderBlobBrowserPanel({
-      blobStore,
-      rows: createBlobRows(),
-      route: { blobId: "blob-1", storageKey: null, view: "blob-browser" },
-    });
-
-    // The preview also reads the bytes, so assert on the download the button
-    // triggers (a nameless blob falls back to its blob id) rather than the read.
-    fireEvent.click(await view.findByRole("button", { name: "Download" }));
-
-    await waitFor(() => expect(downloads).toEqual(["blob-1"]));
-    expect(readKeys).toContain("storage-1");
-  } finally {
-    HTMLAnchorElement.prototype.click = originalClick;
-  }
-});
+// The blob detail screen's own Open/Download actions now live on the window
+// toolbar; they are covered in ExplorerBlobBrowserToolbar.test.tsx, which mounts
+// the chrome that renders them.
 
 test("blob detail renders the preview above the metadata", async () => {
   const view = renderBlobBrowserPanel({

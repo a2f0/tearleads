@@ -1,13 +1,12 @@
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
 import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
 import {
-  MiniAppButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
+  MiniAppImageViewer,
   MiniAppInfoSection,
   MiniAppPanel,
   MiniAppStatus,
-  MiniAppToolbar,
 } from "../../../../components/mini-app/MiniAppLayout";
 import { MiniAppInfoTable } from "../../../../components/mini-app/MiniAppTable";
 import { Menu, type MenuPosition } from "../../../../components/shared/Menu";
@@ -30,6 +29,10 @@ import {
 } from "../../labels";
 import { compactId } from "../compactId";
 import { BlobReferencesSection } from "./ExplorerBlobReferencesSection";
+import {
+  getBlobDisplayName,
+  useBlobDetailToolbarActions,
+} from "./useBlobDetailToolbarActions";
 
 function BlobMetadataSection(params: {
   blob: BlobInfo;
@@ -167,6 +170,13 @@ export function BlobDetail(params: {
     blob: params.blob,
     blobStore: params.blobStore,
   });
+  // Open and Download live on the window toolbar / routed app bar rather than in
+  // a bar of their own inside the panel, so the detail screen is all content.
+  const toolbar = useBlobDetailToolbarActions({
+    blob: params.blob,
+    onDownload: params.onDownload,
+    preview,
+  });
 
   if (!params.blob) {
     return (
@@ -177,25 +187,9 @@ export function BlobDetail(params: {
   }
 
   const blob = params.blob;
-  const canOpen = preview.status === "ready" && Boolean(preview.url);
 
   return (
     <>
-      <MiniAppToolbar>
-        <MiniAppButton
-          disabled={!canOpen}
-          onClick={() => {
-            if (preview.status === "ready" && preview.url) {
-              window.open(preview.url, "_blank", "noopener,noreferrer");
-            }
-          }}
-        >
-          {EXPLORER_LABELS.blobBrowserOpenBlobAction}
-        </MiniAppButton>
-        <MiniAppButton onClick={() => params.onDownload(blob)}>
-          {EXPLORER_LABELS.blobBrowserDownloadAction}
-        </MiniAppButton>
-      </MiniAppToolbar>
       {params.downloadMessage ? (
         <MiniAppStatus tone="error">{params.downloadMessage}</MiniAppStatus>
       ) : null}
@@ -209,6 +203,14 @@ export function BlobDetail(params: {
           selectDocumentProjection={params.selectDocumentProjection}
         />
       </MiniAppPanel>
+      {toolbar.viewerUrl ? (
+        <MiniAppImageViewer
+          label={getBlobDisplayName(blob)}
+          onClose={toolbar.closeViewer}
+          onDownload={toolbar.handleDownload}
+          url={toolbar.viewerUrl}
+        />
+      ) : null}
     </>
   );
 }

@@ -25,6 +25,7 @@ export {
   MiniAppTabPanel,
 } from "./layout/MiniAppTabs";
 export { MiniAppActions, MiniAppToolbar } from "./layout/MiniAppToolbar";
+export { MiniAppImageViewer } from "./overlays/MiniAppImageViewer";
 export {
   MiniAppModalBackdrop,
   MiniAppModalForm,
