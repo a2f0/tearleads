@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { DocumentScope } from "./documentPersistenceTypes";
 import {
   documentHistoryCheckpoints,
@@ -129,21 +129,44 @@ export async function readDocumentHistoryTailSize(
   };
 }
 
+export async function listDocumentHistoryTailIds(
+  execSql: ExecSql,
+  scope: DocumentScope,
+): Promise<string[]> {
+  await ensureSqlTables(execSql, documentTables);
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const rows = await db
+    .select({ id: documentHistoryUpdates.id })
+    .from(documentHistoryUpdates)
+    .where(
+      and(
+        eq(documentHistoryUpdates.appKind, scope.appKind),
+        eq(documentHistoryUpdates.localId, scope.localId),
+      ),
+    );
+  return rows.flatMap((row) => (row.id === null ? [] : [row.id]));
+}
+
+const COVERED_TAIL_DELETE_CHUNK = 400;
+
 /**
- * Replace the scope's checkpoint with a fresh full-history snapshot and clear
- * the tail it subsumes. The snapshot comes from the LIVE document, which has
- * every tail update imported, so deleting the whole tail loses nothing.
+ * Replace the scope's checkpoint with a fresh full-history snapshot and
+ * delete ONLY the tail rows the caller captured before exporting it. Every
+ * append path writes its tail row after the ops are already in the live
+ * document, so any row captured before the export is provably covered by
+ * the snapshot — while a row appended concurrently (between export and this
+ * delete) survives for the next compaction instead of being lost.
  */
 export async function replaceDocumentHistoryCheckpoint(
   execSql: ExecSql,
   scope: DocumentScope,
-  snapshot: string,
+  input: { coveredTailIds: readonly string[]; snapshot: string },
 ): Promise<void> {
   await ensureSqlTables(execSql, documentTables);
   const updatedAt = new Date().toISOString();
   // Sequential (non-transactional) so callers already inside a transaction
-  // can nest this. Crash between the two statements leaves the new
-  // checkpoint plus a stale tail — a safe superset, since tail replay is
+  // can nest this. Crash between the statements leaves the new checkpoint
+  // plus covered tail rows — a safe superset, since tail replay is
   // idempotent by op identity.
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (tx) => {
     await tx
@@ -151,7 +174,7 @@ export async function replaceDocumentHistoryCheckpoint(
       .values({
         appKind: scope.appKind,
         localId: scope.localId,
-        snapshot,
+        snapshot: input.snapshot,
         updatedAt,
       })
       .onConflictDoUpdate({
@@ -159,16 +182,29 @@ export async function replaceDocumentHistoryCheckpoint(
           documentHistoryCheckpoints.appKind,
           documentHistoryCheckpoints.localId,
         ],
-        set: { snapshot, updatedAt },
+        set: { snapshot: input.snapshot, updatedAt },
       });
-    await tx
-      .delete(documentHistoryUpdates)
-      .where(
-        and(
-          eq(documentHistoryUpdates.appKind, scope.appKind),
-          eq(documentHistoryUpdates.localId, scope.localId),
-        ),
-      );
+    for (
+      let index = 0;
+      index < input.coveredTailIds.length;
+      index += COVERED_TAIL_DELETE_CHUNK
+    ) {
+      await tx
+        .delete(documentHistoryUpdates)
+        .where(
+          and(
+            eq(documentHistoryUpdates.appKind, scope.appKind),
+            eq(documentHistoryUpdates.localId, scope.localId),
+            inArray(
+              documentHistoryUpdates.id,
+              input.coveredTailIds.slice(
+                index,
+                index + COVERED_TAIL_DELETE_CHUNK,
+              ),
+            ),
+          ),
+        );
+    }
   });
 }
 

@@ -162,9 +162,14 @@ export interface DocumentsPersistence {
     hasCheckpoint: boolean;
     rowCount: number;
   }>;
+  listHistoryTailIds?: (execSql: ExecSql, localId: string) => Promise<string[]>;
   replaceHistoryCheckpoint?: (
     execSql: ExecSql,
-    input: { localId: string; snapshot: string },
+    input: {
+      coveredTailIds: readonly string[];
+      localId: string;
+      snapshot: string;
+    },
   ) => Promise<void>;
   saveDocumentAndDeletePendingUpdates: (
     execSql: ExecSql,

@@ -22,6 +22,7 @@ import {
 import {
   appendDocumentHistoryUpdates,
   deleteDocumentHistory,
+  listDocumentHistoryTailIds,
   loadDocumentHistoryRestoreState,
   readDocumentHistoryTailSize,
   replaceDocumentHistoryCheckpoint,
@@ -751,11 +752,14 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   async readHistoryTailSize(execSql, localId) {
     return readDocumentHistoryTailSize(execSql, getDocumentScope(localId));
   },
+  async listHistoryTailIds(execSql, localId) {
+    return listDocumentHistoryTailIds(execSql, getDocumentScope(localId));
+  },
   async replaceHistoryCheckpoint(execSql, input) {
     await replaceDocumentHistoryCheckpoint(
       execSql,
       getDocumentScope(input.localId),
-      input.snapshot,
+      { coveredTailIds: input.coveredTailIds, snapshot: input.snapshot },
     );
   },
   async enqueuePendingUpdate(execSql, pendingUpdate) {

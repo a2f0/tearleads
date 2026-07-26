@@ -239,6 +239,61 @@ async function restorePersistedDocumentContent(
   }
 }
 
+async function createInitialDocumentRecord(
+  state: DocumentStoreState,
+  nextDoc: DocumentState,
+): Promise<void> {
+  initializeStoredDocumentKind(
+    nextDoc,
+    state.initialDocumentKind,
+    state.runtime.infra.documentProjectors,
+  );
+  if (state.initialText.length > 0) {
+    nextDoc.getText("text").update(state.initialText);
+  }
+  const initialDocumentState = readStoredDocumentState(
+    nextDoc,
+    state.runtime.infra.documentProjectors,
+  );
+
+  const created: DocumentRecord = {
+    id: state.localId,
+    containerId: state.runtime.state.containerId ?? null,
+    documentId: state.initialDocumentId,
+    documentKind: initialDocumentState.documentKind,
+    text: initialDocumentState.text,
+    title: initialDocumentState.title,
+    loroSnapshot: bytesToBase64(exportShallowSnapshot(nextDoc)),
+    accessEpoch: DEFAULT_DOCUMENT_ACCESS_EPOCH,
+    accessStateHash: null,
+    effectiveAccessLevel: "admin",
+    lastCommitLsn: null,
+    contentKeyBundle: null,
+    documentKekTargets: null,
+    documentManifestBundle: null,
+  };
+  await saveDocumentRecord(state, nextDoc, created);
+  if (
+    state.initialText.length > 0 ||
+    state.initialDocumentKind !== DEFAULT_DOCUMENT_KIND
+  ) {
+    await enqueuePendingUpdate(state, exportAllUpdates(nextDoc));
+  }
+  // Seed the durable-history checkpoint at birth: creation may be the only
+  // persist this document sees before a restart (offline note, app closed
+  // pre-sync), and without a checkpoint the reopen falls back to the
+  // shallow snapshot and loses full-history exportability. A fresh document
+  // is tiny, so the export is cheap.
+  await state.persistence.replaceHistoryCheckpoint?.(
+    state.runtime.infra.execSql,
+    {
+      coveredTailIds: [],
+      localId: state.localId,
+      snapshot: bytesToBase64(exportFullHistorySnapshot(nextDoc)),
+    },
+  );
+}
+
 async function initializeDocumentStore(
   state: DocumentStoreState,
   scheduleSync: () => void,
@@ -272,42 +327,7 @@ async function initializeDocumentStore(
     await restorePersistedDocumentContent(state, nextDoc, existing);
     state.record = existing;
   } else {
-    initializeStoredDocumentKind(
-      nextDoc,
-      state.initialDocumentKind,
-      state.runtime.infra.documentProjectors,
-    );
-    if (state.initialText.length > 0) {
-      nextDoc.getText("text").update(state.initialText);
-    }
-    const initialDocumentState = readStoredDocumentState(
-      nextDoc,
-      state.runtime.infra.documentProjectors,
-    );
-
-    const created: DocumentRecord = {
-      id: state.localId,
-      containerId: state.runtime.state.containerId ?? null,
-      documentId: state.initialDocumentId,
-      documentKind: initialDocumentState.documentKind,
-      text: initialDocumentState.text,
-      title: initialDocumentState.title,
-      loroSnapshot: bytesToBase64(exportShallowSnapshot(nextDoc)),
-      accessEpoch: DEFAULT_DOCUMENT_ACCESS_EPOCH,
-      accessStateHash: null,
-      effectiveAccessLevel: "admin",
-      lastCommitLsn: null,
-      contentKeyBundle: null,
-      documentKekTargets: null,
-      documentManifestBundle: null,
-    };
-    await saveDocumentRecord(state, nextDoc, created);
-    if (
-      state.initialText.length > 0 ||
-      state.initialDocumentKind !== DEFAULT_DOCUMENT_KIND
-    ) {
-      await enqueuePendingUpdate(state, exportAllUpdates(nextDoc));
-    }
+    await createInitialDocumentRecord(state, nextDoc);
   }
 
   state.doc = nextDoc;

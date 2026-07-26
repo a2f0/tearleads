@@ -224,6 +224,7 @@ async function maybeCompactDocumentHistory(
 ): Promise<void> {
   const { persistence } = state;
   if (
+    !persistence.listHistoryTailIds ||
     !persistence.readHistoryTailSize ||
     !persistence.replaceHistoryCheckpoint
   ) {
@@ -239,6 +240,14 @@ async function maybeCompactDocumentHistory(
     return;
   }
 
+  // Capture the covered rows BEFORE exporting: every append path writes its
+  // tail row after the ops are already in the live document, so these rows
+  // are provably in the export, while a concurrent append lands after the
+  // capture and survives the delete for the next compaction.
+  const coveredTailIds = await persistence.listHistoryTailIds(
+    execSql,
+    state.localId,
+  );
   let snapshot: Uint8Array;
   try {
     snapshot = exportFullHistorySnapshot(currentDoc);
@@ -248,6 +257,7 @@ async function maybeCompactDocumentHistory(
     return;
   }
   await persistence.replaceHistoryCheckpoint(execSql, {
+    coveredTailIds,
     localId: state.localId,
     snapshot: bytesToBase64(snapshot),
   });

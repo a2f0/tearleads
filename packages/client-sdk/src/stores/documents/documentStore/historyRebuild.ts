@@ -77,14 +77,20 @@ export async function installRebuiltDocument(input: {
   input.state.doc = input.rebuiltDoc;
   input.state.writerProjection =
     input.synced.writerProjection ?? input.state.writerProjection;
-  const fullHistorySnapshot = exportFullHistorySnapshot(input.state.doc);
   // The rebuild pulled its updates outside the durable-history tail, so the
-  // stored checkpoint may lag the rebuilt document. Replace it with this
-  // export (clearing the tail it subsumes) so a restart keeps the recovered
-  // history instead of restoring the pre-rebuild state.
+  // stored checkpoint may lag the rebuilt document. Replace it (with the
+  // covered tail captured before the export) so a restart keeps the
+  // recovered history instead of restoring the pre-rebuild state.
+  const coveredTailIds =
+    (await input.state.persistence.listHistoryTailIds?.(
+      input.state.runtime.infra.execSql,
+      input.state.localId,
+    )) ?? [];
+  const fullHistorySnapshot = exportFullHistorySnapshot(input.state.doc);
   await input.state.persistence.replaceHistoryCheckpoint?.(
     input.state.runtime.infra.execSql,
     {
+      coveredTailIds,
       localId: input.state.localId,
       snapshot: bytesToBase64(fullHistorySnapshot),
     },

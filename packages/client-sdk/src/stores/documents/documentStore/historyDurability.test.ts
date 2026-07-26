@@ -48,6 +48,7 @@ function offlineRuntime(execSql: DocumentsRuntime["infra"]["execSql"]) {
 async function openStore(
   execSql: DocumentsRuntime["infra"]["execSql"],
   localId: string,
+  initialText = "",
 ): Promise<DocumentStoreState> {
   const state = createDocumentStoreState(
     localId,
@@ -55,10 +56,65 @@ async function openStore(
     sqlDocumentsPersistence,
     ignoredPersistenceEffects,
     null,
+    initialText,
   );
   expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
   return state;
 }
+
+test("a document created offline is fully durable from birth", async () => {
+  const { close, execSql } = await createTestExecSql("history-birth");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    // Creation is the ONLY persist this document sees before the "restart".
+    await openStore(execSql, "born-offline", "created and closed");
+
+    const reopened = await openStore(execSql, "born-offline");
+    if (!reopened.doc) throw new Error("expected restored doc");
+    expect(getTextValue(reopened.doc)).toBe("created and closed");
+    expect(() => {
+      if (!reopened.doc) throw new Error("expected restored doc");
+      exportFullHistorySnapshot(reopened.doc);
+    }).not.toThrow();
+  } finally {
+    close();
+  }
+});
+
+test("compaction deletes only the tail rows captured before its export", async () => {
+  const { close, execSql } = await createTestExecSql("history-covered-ids");
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
+      localId: "raced-doc",
+      updates: ["covered-row"],
+    });
+    const coveredTailIds =
+      (await sqlDocumentsPersistence.listHistoryTailIds?.(
+        execSql,
+        "raced-doc",
+      )) ?? [];
+    // A concurrent append lands after the capture (and after the export it
+    // models); the replacement must leave it for the next compaction.
+    await sqlDocumentsPersistence.appendHistoryUpdates?.(execSql, {
+      localId: "raced-doc",
+      updates: ["late-row"],
+    });
+    await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(execSql, {
+      coveredTailIds,
+      localId: "raced-doc",
+      snapshot: "checkpoint",
+    });
+
+    const tail = await sqlDocumentsPersistence.readHistoryTailSize?.(
+      execSql,
+      "raced-doc",
+    );
+    expect(tail).toMatchObject({ hasCheckpoint: true, rowCount: 1 });
+  } finally {
+    close();
+  }
+});
 
 test("full history survives a restart via the checkpoint and tail", async () => {
   const { close, execSql } = await createTestExecSql("history-durability");
