@@ -98,6 +98,11 @@ export function useBlobDetailToolbarActions(params: {
   return {
     closeViewer: useCallback(() => setOpenedUrl(null), []),
     handleDownload,
+    // The inline preview wires this to the picture itself, so tapping the image
+    // is a way into the viewer alongside the toolbar's expand control. Null for
+    // anything the viewer cannot show — audio and video own their own tap
+    // (play/pause, scrub), and a blob with no local bytes has nothing to open.
+    openImage: isImage && previewUrl !== null ? handleOpen : null,
     viewerUrl,
   };
 }

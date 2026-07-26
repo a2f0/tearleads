@@ -59,6 +59,23 @@ test("the viewer shows only the image and its toolbar", () => {
   ).toBe(true);
 });
 
+// The name is on its own line so the control row stays all controls: at touch
+// sizes five 44px targets plus an unnamed blob's id do not share a phone's width.
+test("the image's name sits under the control row rather than in it", () => {
+  const { view } = renderViewer();
+
+  const toolbar = view.getByRole("toolbar");
+  const title = view.getByText("photo.png");
+  expect(toolbar.contains(title)).toBe(false);
+  expect(
+    Array.from(toolbar.children).every((child) => child.tagName === "BUTTON"),
+  ).toBe(true);
+  // Off the row, but still what names the dialog.
+  expect(view.getByRole("dialog").getAttribute("aria-labelledby")).toBe(
+    title.id,
+  );
+});
+
 test("close is reachable from the toolbar and from Escape", () => {
   let closes = 0;
   const { view } = renderViewer({ onClose: () => (closes += 1) });
