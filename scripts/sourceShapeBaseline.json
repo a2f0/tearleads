@@ -338,8 +338,8 @@
       "bytes": 59993
     },
     "packages/client-sdk/src/workflows/documents/sync.ts": {
-      "lines": 1575,
-      "bytes": 54910
+      "lines": 1579,
+      "bytes": 55092
     },
     "packages/client-sdk/src/workflows/organizations/principalPolicy.ts": {
       "lines": 992,

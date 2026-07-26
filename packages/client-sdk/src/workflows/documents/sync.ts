@@ -728,6 +728,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(input: {
   execSql: ExecSql;
   localVersionVector: string | null;
   minLsn?: string | undefined;
+  onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
   response: DocumentSyncResponse;
@@ -742,6 +743,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(input: {
     execSql: input.execSql,
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
+    onSyncTrace: input.onSyncTrace,
     pendingUpdates: [],
     signedAt: input.signedAt,
     targetSecretKey: input.targetSecretKey,
@@ -867,6 +869,7 @@ interface ReadOnlyDocumentSyncCompletionInput {
   execSql: ExecSql;
   localVersionVector: string | null;
   minLsn?: string | undefined;
+  onSyncTrace?: DocumentSyncTraceEmitter | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
   response: DocumentSyncResponse;
@@ -1528,6 +1531,7 @@ export async function syncRemoteDocument(
       documentId: input.documentId,
       onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
       onSyncAbandoned: input.onSyncAbandoned,
+      onSyncTrace: input.onSyncTrace,
       writerProjection,
     });
     if (!planned) {
