@@ -112,6 +112,39 @@ test("the zoom controls track what the current view allows", () => {
   );
 });
 
+test("a pinch does not leave a tap behind for the next one to pair with", () => {
+  const { image, stage } = renderViewer();
+  const down = (pointerId: number, timeStamp: number) =>
+    fireEvent.pointerDown(stage, {
+      clientX: 10,
+      clientY: 10,
+      pointerId,
+      pointerType: "touch",
+      timeStamp,
+    });
+  const up = (pointerId: number, timeStamp: number) =>
+    fireEvent.pointerUp(stage, {
+      clientX: 10,
+      clientY: 10,
+      pointerId,
+      pointerType: "touch",
+      timeStamp,
+    });
+
+  // A two-finger pinch whose anchoring finger lifts within the tap slop of where
+  // it landed. Neither release is a tap, so the single tap right after it has no
+  // partner and must not toggle the zoom.
+  down(1, 0);
+  down(2, 10);
+  up(2, 40);
+  up(1, 50);
+  expect(image.style.transform).toBe("translate(0px, 0px) scale(1)");
+
+  down(3, 100);
+  up(3, 110);
+  expect(image.style.transform).toBe("translate(0px, 0px) scale(1)");
+});
+
 test("a double-tap zooms without waiting on a synthesized double-click", () => {
   const { image, stage } = renderViewer();
   const tap = (timeStamp: number) => {

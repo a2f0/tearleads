@@ -303,6 +303,11 @@ function useImageViewerZoomActions(params: {
   );
 
   return {
+    // A pinch must not leave a half-formed double-tap behind it (see
+    // `onPointerDown`), so the gesture layer can discard the pending tap.
+    clearTapTracking: useCallback(() => {
+      lastTapRef.current = null;
+    }, []),
     handleDoubleClick: useCallback(
       (event: ReactMouseEvent<HTMLDivElement>) => {
         toggleZoom(
@@ -331,19 +336,29 @@ function useImageViewerZoomActions(params: {
 }
 
 function useImageViewerPointerHandlers(params: {
+  clearTapTracking: () => void;
   fitted: ImageViewerSize;
   onTap: (event: ReactPointerEvent<HTMLDivElement>) => void;
   setView: SetView;
   stageRef: RefObject<HTMLDivElement | null>;
   viewport: ImageViewerSize;
 }) {
-  const { fitted, onTap, setView, stageRef, viewport } = params;
+  const { clearTapTracking, fitted, onTap, setView, stageRef, viewport } =
+    params;
   const pointersRef = useRef(new Map<number, TrackedPointer>());
+  // Set the moment a gesture holds two pointers, and cleared only once every
+  // pointer is up. A pinch is not a tap even though its anchoring finger can lift
+  // within the tap slop of where it landed — without this the anchor would be
+  // recorded as a tap and pair with the next one into a stray double-tap.
+  const isMultiPointerGestureRef = useRef(false);
 
   const releasePointer = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>): TrackedPointer | undefined => {
       const tracked = pointersRef.current.get(event.pointerId);
       pointersRef.current.delete(event.pointerId);
+      if (pointersRef.current.size === 0) {
+        isMultiPointerGestureRef.current = false;
+      }
       if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
@@ -359,13 +374,22 @@ function useImageViewerPointerHandlers(params: {
       },
       [releasePointer],
     ),
-    onPointerDown: useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-      // Capture keeps a drag alive when the pointer leaves the stage; guarded
-      // because non-browser DOM implementations do not all provide it.
-      event.currentTarget.setPointerCapture?.(event.pointerId);
-      const point = { x: event.clientX, y: event.clientY };
-      pointersRef.current.set(event.pointerId, { origin: point, point });
-    }, []),
+    onPointerDown: useCallback(
+      (event: ReactPointerEvent<HTMLDivElement>) => {
+        // Capture keeps a drag alive when the pointer leaves the stage; guarded
+        // because non-browser DOM implementations do not all provide it.
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        const point = { x: event.clientX, y: event.clientY };
+        pointersRef.current.set(event.pointerId, { origin: point, point });
+        if (pointersRef.current.size > 1) {
+          isMultiPointerGestureRef.current = true;
+          // A second finger also invalidates any tap already waiting for its
+          // partner, so a pinch can never complete an earlier half double-tap.
+          clearTapTracking();
+        }
+      },
+      [clearTapTracking],
+    ),
     onPointerMove: useCallback(
       (event: ReactPointerEvent<HTMLDivElement>) => {
         applyTrackedPointerMove({
@@ -383,10 +407,12 @@ function useImageViewerPointerHandlers(params: {
     ),
     onPointerUp: useCallback(
       (event: ReactPointerEvent<HTMLDivElement>) => {
+        const wasMultiPointerGesture = isMultiPointerGestureRef.current;
         const tracked = releasePointer(event);
-        // Only the last finger up, from a pointer that never travelled far
-        // enough to be a drag, counts toward the double-tap.
+        // Only the last finger up, from a single-pointer gesture whose pointer
+        // never travelled far enough to be a drag, counts toward the double-tap.
         if (
+          !wasMultiPointerGesture &&
           event.pointerType !== "mouse" &&
           tracked &&
           pointersRef.current.size === 0 &&
@@ -434,6 +460,7 @@ export function useImageViewerState() {
     zoom: view.zoom,
   });
   const pointerHandlers = useImageViewerPointerHandlers({
+    clearTapTracking: zoomActions.clearTapTracking,
     fitted,
     onTap: zoomActions.handleTap,
     setView,
