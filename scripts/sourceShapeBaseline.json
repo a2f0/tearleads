@@ -274,12 +274,12 @@
       "bytes": 43292
     },
     "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
-      "lines": 871,
-      "bytes": 28483
+      "lines": 911,
+      "bytes": 29902
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
-      "lines": 829,
-      "bytes": 32748
+      "lines": 876,
+      "bytes": 34522
     },
     "packages/client-sdk/src/data/sync/syncCoordinator.test.ts": {
       "lines": 579,
@@ -293,9 +293,17 @@
       "lines": 592,
       "bytes": 19608
     },
+    "packages/client-sdk/src/stores/documents/documentStore/initialization.ts": {
+      "lines": 516,
+      "bytes": 18342
+    },
+    "packages/client-sdk/src/stores/documents/documentStore/persistence.ts": {
+      "lines": 534,
+      "bytes": 17384
+    },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
-      "lines": 549,
-      "bytes": 17477
+      "lines": 572,
+      "bytes": 18250
     },
     "packages/client-sdk/src/stores/documents/documentStore/syncAttachments.ts": {
       "lines": 511,
@@ -356,6 +364,10 @@
     "packages/client-sdk/src/workflows/organizations/principalPolicy.ts": {
       "lines": 992,
       "bytes": 32402
+    },
+    "packages/client-sdk/src/workflows/registration/persistRegistrationBootstrap.ts": {
+      "lines": 516,
+      "bytes": 18231
     },
     "packages/client-sdk/src/workflows/registration/registerIdentity.ts": {
       "lines": 1105,

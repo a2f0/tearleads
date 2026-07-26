@@ -17,6 +17,7 @@ export {
   type ImportBlobMode,
   importSnapshot,
   importUpdates,
+  isShallowDocument,
   listSnapshotCharBlameSource,
   listSnapshotCharOpIds,
   listSnapshotFieldEditors,

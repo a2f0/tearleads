@@ -1,9 +1,14 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
+  encodeVersionVector,
   exportAllUpdates,
+  exportFullHistorySnapshot,
   exportShallowSnapshot,
+  getImportBlobMetadata,
   importSnapshot,
+  importUpdates,
+  satisfiesVersionVector,
 } from "@tearleads/loro";
 import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import { getScopedPeerSeed } from "../../../data/crdtPeerSeed";
@@ -158,6 +163,142 @@ async function healLocalAttachmentDetachState(
   }
 }
 
+function importHistoryTailUpdates(
+  doc: DocumentState,
+  tailUpdates: readonly string[],
+): void {
+  // Rotation baselines travel through the tail as snapshot-mode blobs, which
+  // importUpdates would silently ignore — import them individually.
+  const ordinaryUpdates: Uint8Array[] = [];
+  for (const encoded of tailUpdates) {
+    const bytes = base64ToBytes(encoded);
+    if (getImportBlobMetadata(bytes).mode === "snapshot") {
+      importSnapshot(doc, bytes);
+    } else {
+      ordinaryUpdates.push(bytes);
+    }
+  }
+  if (ordinaryUpdates.length > 0) {
+    importUpdates(doc, ordinaryUpdates);
+  }
+}
+
+/**
+ * Restore the persisted content into a fresh document, preferring the
+ * durable full-history state (checkpoint + tail) so a restarted device can
+ * still export the full-history baselines that heals, rotations, and
+ * unlinks require. The legacy shallow snapshot is never imported alongside
+ * it — that would poison the document with a shallow (gc) region — so the
+ * full restore is used only when it provably covers everything the shallow
+ * snapshot held. A deferred local edit persisted ahead of the durable queue
+ * exists ONLY in the shallow snapshot; losing it would drop user data, so
+ * that case falls back to the legacy shallow restore (history durability
+ * resumes at the next compaction once the deferral clears).
+ */
+async function restorePersistedDocumentContent(
+  state: DocumentStoreState,
+  nextDoc: DocumentState,
+  existing: DocumentRecord,
+): Promise<void> {
+  const history = await state.persistence.loadHistoryRestoreState?.(
+    state.runtime.infra.execSql,
+    state.localId,
+  );
+  const shallowSnapshot =
+    existing.loroSnapshot.length > 0
+      ? base64ToBytes(existing.loroSnapshot)
+      : null;
+
+  if (history) {
+    const restored = await createStoredDocument(state);
+    try {
+      importSnapshot(restored, base64ToBytes(history.snapshot));
+      importHistoryTailUpdates(restored, history.tailUpdates);
+      const coversShallow =
+        shallowSnapshot === null ||
+        satisfiesVersionVector(
+          encodeVersionVector(restored),
+          getImportBlobMetadata(shallowSnapshot).partialEndVersionVector,
+        );
+      if (coversShallow) {
+        importSnapshot(nextDoc, exportFullHistorySnapshot(restored));
+        return;
+      }
+      state.runtime.util.log(
+        "Documents: history restore lagged the persisted snapshot; using the shallow snapshot for this session.",
+      );
+    } catch {
+      state.runtime.util.log(
+        "Documents: history restore failed; using the shallow snapshot for this session.",
+      );
+    }
+  }
+
+  if (shallowSnapshot) {
+    importSnapshot(nextDoc, shallowSnapshot);
+  }
+}
+
+async function createInitialDocumentRecord(
+  state: DocumentStoreState,
+  nextDoc: DocumentState,
+): Promise<void> {
+  initializeStoredDocumentKind(
+    nextDoc,
+    state.initialDocumentKind,
+    state.runtime.infra.documentProjectors,
+  );
+  if (state.initialText.length > 0) {
+    nextDoc.getText("text").update(state.initialText);
+  }
+  const initialDocumentState = readStoredDocumentState(
+    nextDoc,
+    state.runtime.infra.documentProjectors,
+  );
+
+  const created: DocumentRecord = {
+    id: state.localId,
+    containerId: state.runtime.state.containerId ?? null,
+    documentId: state.initialDocumentId,
+    documentKind: initialDocumentState.documentKind,
+    text: initialDocumentState.text,
+    title: initialDocumentState.title,
+    loroSnapshot: bytesToBase64(exportShallowSnapshot(nextDoc)),
+    accessEpoch: DEFAULT_DOCUMENT_ACCESS_EPOCH,
+    accessStateHash: null,
+    effectiveAccessLevel: "admin",
+    lastCommitLsn: null,
+    contentKeyBundle: null,
+    documentKekTargets: null,
+    documentManifestBundle: null,
+  };
+  // Seed the durable-history checkpoint at birth, BEFORE the record row:
+  // creation may be the only persist this document sees before a restart
+  // (offline note, app closed pre-sync), and initialization only runs this
+  // branch for missing records — a crash after the record write but before
+  // a later checkpoint write would permanently disable durable history for
+  // this document. Written first, a crash instead leaves an orphan
+  // checkpoint that the re-run simply overwrites. A fresh document is tiny,
+  // so the export is cheap.
+  await state.persistence.replaceHistoryCheckpoint?.(
+    state.runtime.infra.execSql,
+    {
+      coveredTailIds: [],
+      endVersionVector: encodeVersionVector(nextDoc),
+      force: true,
+      localId: state.localId,
+      snapshot: bytesToBase64(exportFullHistorySnapshot(nextDoc)),
+    },
+  );
+  await saveDocumentRecord(state, nextDoc, created);
+  if (
+    state.initialText.length > 0 ||
+    state.initialDocumentKind !== DEFAULT_DOCUMENT_KIND
+  ) {
+    await enqueuePendingUpdate(state, exportAllUpdates(nextDoc));
+  }
+}
+
 async function initializeDocumentStore(
   state: DocumentStoreState,
   scheduleSync: () => void,
@@ -188,48 +329,10 @@ async function initializeDocumentStore(
 
   const existing = persistedState.document;
   if (existing) {
-    if (existing.loroSnapshot.length > 0) {
-      importSnapshot(nextDoc, base64ToBytes(existing.loroSnapshot));
-    }
-
+    await restorePersistedDocumentContent(state, nextDoc, existing);
     state.record = existing;
   } else {
-    initializeStoredDocumentKind(
-      nextDoc,
-      state.initialDocumentKind,
-      state.runtime.infra.documentProjectors,
-    );
-    if (state.initialText.length > 0) {
-      nextDoc.getText("text").update(state.initialText);
-    }
-    const initialDocumentState = readStoredDocumentState(
-      nextDoc,
-      state.runtime.infra.documentProjectors,
-    );
-
-    const created: DocumentRecord = {
-      id: state.localId,
-      containerId: state.runtime.state.containerId ?? null,
-      documentId: state.initialDocumentId,
-      documentKind: initialDocumentState.documentKind,
-      text: initialDocumentState.text,
-      title: initialDocumentState.title,
-      loroSnapshot: bytesToBase64(exportShallowSnapshot(nextDoc)),
-      accessEpoch: DEFAULT_DOCUMENT_ACCESS_EPOCH,
-      accessStateHash: null,
-      effectiveAccessLevel: "admin",
-      lastCommitLsn: null,
-      contentKeyBundle: null,
-      documentKekTargets: null,
-      documentManifestBundle: null,
-    };
-    await saveDocumentRecord(state, nextDoc, created);
-    if (
-      state.initialText.length > 0 ||
-      state.initialDocumentKind !== DEFAULT_DOCUMENT_KIND
-    ) {
-      await enqueuePendingUpdate(state, exportAllUpdates(nextDoc));
-    }
+    await createInitialDocumentRecord(state, nextDoc);
   }
 
   state.doc = nextDoc;
@@ -243,6 +346,17 @@ async function initializeDocumentStore(
   const persistedMarker = existing?.pendingBaseVersion ?? null;
   if (persistedMarker !== null) {
     state.pendingBaseVersion = persistedMarker;
+  } else if (existing && existing.loroSnapshot.length > 0) {
+    // No persisted marker, but the durable-history restore may have
+    // resurrected ops the outgoing queue never durably received (a crash
+    // between the tail append and the queue/marker writes). Seeding from the
+    // restored document would classify those ops as covered and orphan them
+    // from sync forever; seed from the SHALLOW snapshot's frontier instead —
+    // the state the record actually persisted — so anything beyond it is
+    // re-derived and enqueued by the next edit.
+    state.pendingBaseVersion = getImportBlobMetadata(
+      base64ToBytes(existing.loroSnapshot),
+    ).partialEndVersionVector;
   } else {
     advancePendingBaseVersion(state, nextDoc);
   }

@@ -79,3 +79,7 @@ without counting as lane progress, so it cannot hot-loop the pump.
   org-access-restored signal instead of retrying on every trigger.
 - Create intents (`container_create_intents`) have no `last_attempted_at`
   column, so a create stuck in error shows no attempt timestamp.
+- Latent race: a document store's in-flight persist can resurrect a document
+  that another subsystem deleted concurrently (observed with the contacts
+  duplicate-self cleanup racing a deferred write's persist). The persist path
+  should refuse to re-create a row it expected to update.

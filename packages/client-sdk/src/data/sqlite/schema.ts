@@ -179,6 +179,51 @@ export const documentSyncFailures = sqliteTable(
 );
 
 /**
+ * Full-history persistence for local documents (checkpoint + tail).
+ *
+ * `documents.loroSnapshot` is a SHALLOW snapshot — cheap to export per
+ * keystroke but it discards op history, so a restarted device could no longer
+ * produce the full-history baselines that content-key heals, rotations, and
+ * unlinks require. These two tables keep history durable without per-write
+ * full exports: the checkpoint holds a full-history snapshot refreshed only
+ * at compaction, and the tail appends every update (local deltas and
+ * decrypted remote updates) written since. Restore = import checkpoint +
+ * replay tail; compaction = export full history from the live doc, replace
+ * the checkpoint, clear the tail — all bounded and amortized.
+ */
+export const documentHistoryCheckpoints = sqliteTable(
+  "document_history_checkpoints",
+  {
+    appKind: text("app_kind").notNull(),
+    localId: text("local_id").notNull(),
+    snapshot: text("snapshot").notNull(),
+    endVersionVector: text("end_version_vector").notNull(),
+    revision: text("revision").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.appKind, table.localId] })],
+);
+
+export const documentHistoryUpdates = sqliteTable(
+  "document_history_updates",
+  {
+    id: text("id"),
+    appKind: text("app_kind").notNull(),
+    localId: text("local_id").notNull(),
+    updateData: text("update_data").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.id] }),
+    index("document_history_updates_scope_created_idx").on(
+      table.appKind,
+      table.localId,
+      table.createdAt,
+    ),
+  ],
+);
+
+/**
  * Anti-rollback pin for verified access manifests.
  *
  * Records the highest access-manifest epoch this client has verified for each
@@ -738,6 +783,8 @@ export const documentTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(documents),
   defineSqlTableSchema(documentPendingUpdates),
   defineSqlTableSchema(documentSyncFailures),
+  defineSqlTableSchema(documentHistoryCheckpoints),
+  defineSqlTableSchema(documentHistoryUpdates),
 ];
 
 export const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [

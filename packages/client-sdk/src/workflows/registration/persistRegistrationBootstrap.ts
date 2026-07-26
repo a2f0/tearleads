@@ -1,4 +1,10 @@
-import { createDocument, importUpdates } from "@tearleads/loro";
+import { bytesToBase64 } from "@tearleads/encoding";
+import {
+  createDocument,
+  encodeVersionVector,
+  exportFullHistorySnapshot,
+  importUpdates,
+} from "@tearleads/loro";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
@@ -406,6 +412,18 @@ async function persistInitialDocumentBootstrap(
   const doc = await createDocument(await getScopedPeerSeed(DOCUMENTS_APP_KIND));
   importUpdates(doc, [input.initialUpdate]);
 
+  // Seed the durable-history checkpoint BEFORE the record row (same crash
+  // ordering as store-level creation): bootstrap documents may never see
+  // another persist before a restart, and without a checkpoint the reopen
+  // falls back to the shallow snapshot and permanently loses full-history
+  // exportability.
+  await sqlDocumentsPersistence.replaceHistoryCheckpoint?.(execSql, {
+    coveredTailIds: [],
+    endVersionVector: encodeVersionVector(doc),
+    force: true,
+    localId: input.localId,
+    snapshot: bytesToBase64(exportFullHistorySnapshot(doc)),
+  });
   await persistDocumentState({
     currentDoc: doc,
     currentRecord: null,

@@ -277,6 +277,10 @@ async function clearRemoteDerivedRows(
   await tx.delete(containerSyncLaneChecks).run();
   await tx.delete(containerCreateIntents).run();
   await tx.delete(documentPendingUpdates).run();
+  // documentHistoryCheckpoints / documentHistoryUpdates are deliberately
+  // PRESERVED: they hold purely local Loro op history keyed by localId, which
+  // a remote reset does not invalidate — deleting them would strand every
+  // retained document on its shallow snapshot after the next restart.
   // Recorded terminal failures describe pre-reset attempts; the rebuilt queue
   // must not inherit them (nor keep the restore re-arm evidence gate armed).
   await tx.delete(documentSyncFailures).run();

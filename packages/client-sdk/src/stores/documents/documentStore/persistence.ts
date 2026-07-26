@@ -1,4 +1,12 @@
-import { encodeVersionVector, exportUpdatesSince } from "@tearleads/loro";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import {
+  encodeVersionVector,
+  exportFullHistorySnapshot,
+  exportUpdatesSince,
+  getImportBlobMetadata,
+  isShallowDocument,
+  satisfiesVersionVector,
+} from "@tearleads/loro";
 import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
@@ -7,7 +15,10 @@ import {
   type DocumentProjectorRegistry,
   projectStoredDocumentState,
 } from "../../../data/documents/documentKinds";
+
 import {
+  DOCUMENT_HISTORY_COMPACTION_MAX_BYTES,
+  DOCUMENT_HISTORY_COMPACTION_MAX_ROWS,
   type DocumentRecord,
   deleteLocalDocumentAttachment,
   deletePendingDocumentAttachment,
@@ -29,6 +40,7 @@ import {
   setReadySnapshot,
 } from "./state";
 import {
+  captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent as isSyncGenerationCurrent,
 } from "./syncGeneration";
@@ -189,7 +201,115 @@ export async function persistDocument(
       ? state.snapshot.structuredFields
       : undefined,
   );
+  // Compaction never fails the persist that triggered it: durable history is
+  // a resilience feature, and a failed export (e.g. a legacy shallow-restored
+  // document) simply keeps the tail growing until a rebuild re-enables it.
+  try {
+    await maybeCompactDocumentHistory(state, currentDoc);
+  } catch (error) {
+    state.runtime.util.log(
+      `Documents: history compaction skipped: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
   return persistedRecord;
+}
+
+/**
+ * Refresh the durable full-history checkpoint when the tail has grown past
+ * the compaction thresholds, or seed the first checkpoint as soon as the
+ * document can export full history (a freshly created or rebuilt document is
+ * cheap to export; waiting for the threshold would leave restarts without
+ * history until then). The snapshot comes from the LIVE document, which has
+ * every tail update imported, so clearing the tail loses nothing.
+ */
+async function maybeCompactDocumentHistory(
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+): Promise<void> {
+  const { persistence } = state;
+  if (
+    !persistence.listHistoryTailEntries ||
+    !persistence.readHistoryTailSize ||
+    !persistence.replaceHistoryCheckpoint
+  ) {
+    return;
+  }
+  // Legacy shallow-restored documents cannot export full history; bail
+  // before ANY tail reads so their ever-growing tail is never scanned per
+  // persist (a rebuild or recovery re-enables compaction by installing a
+  // full-history document).
+  if (isShallowDocument(currentDoc)) {
+    return;
+  }
+  // Bind this compaction to the store context it started under: a store
+  // reset or runtime swap mid-compaction must not let the OLD document's
+  // checkpoint overwrite the replacement generation's history (or land in a
+  // newly selected database).
+  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  if (!generation) {
+    return;
+  }
+  const execSql = state.runtime.infra.execSql;
+  const tail = await persistence.readHistoryTailSize(execSql, state.localId);
+  if (
+    tail.hasCheckpoint &&
+    tail.rowCount < DOCUMENT_HISTORY_COMPACTION_MAX_ROWS &&
+    tail.byteLength < DOCUMENT_HISTORY_COMPACTION_MAX_BYTES
+  ) {
+    return;
+  }
+
+  // Capture the tail BEFORE exporting, then prove coverage per row: another
+  // pane can append ops this pane's document has not merged, so blanket
+  // deletion would discard the only durable copy. Unproven rows survive for
+  // a later compaction by whichever pane holds their ops.
+  const tailEntries = await persistence.listHistoryTailEntries(
+    execSql,
+    state.localId,
+  );
+  let snapshot: Uint8Array;
+  try {
+    snapshot = exportFullHistorySnapshot(currentDoc);
+  } catch {
+    // Legacy shallow-restored document: full history is not exportable until
+    // a history recovery or rotation rebuild installs a full document.
+    return;
+  }
+  if (!isSyncGenerationCurrent(state, generation)) {
+    return;
+  }
+  const endVersionVector = encodeVersionVector(currentDoc);
+  await persistence.replaceHistoryCheckpoint(execSql, {
+    coveredTailIds: coveredHistoryTailIds(tailEntries, endVersionVector),
+    endVersionVector,
+    localId: state.localId,
+    snapshot: bytesToBase64(snapshot),
+    stillCurrent: () => isSyncGenerationCurrent(state, generation),
+  });
+}
+
+/**
+ * The tail rows provably covered by a document at `documentVersion`: rows
+ * whose update span the version satisfies, plus rows whose payload cannot be
+ * parsed at all (they could never replay and would only poison restores).
+ */
+export function coveredHistoryTailIds(
+  tailEntries: readonly { id: string; updateData: string }[],
+  documentVersion: string,
+): string[] {
+  return tailEntries.flatMap((entry) => {
+    try {
+      const metadata = getImportBlobMetadata(base64ToBytes(entry.updateData));
+      return satisfiesVersionVector(
+        documentVersion,
+        metadata.partialEndVersionVector,
+      )
+        ? [entry.id]
+        : [];
+    } catch {
+      return [entry.id];
+    }
+  });
 }
 
 export async function listPendingUpdates(

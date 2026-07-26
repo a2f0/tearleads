@@ -20,11 +20,19 @@ import {
   DEFAULT_DOCUMENT_KIND,
 } from "../../documents/documentConstants";
 import {
+  appendDocumentHistoryUpdates,
+  deleteDocumentHistory,
+  listDocumentHistoryTailEntries,
+  loadDocumentHistoryRestoreState,
+  readDocumentHistoryTailSize,
+  replaceDocumentHistoryCheckpoint,
+} from "../../sqlite/documentHistoryPersistence";
+import {
   clearDocumentSyncFailure,
   deleteDocumentPendingUpdate,
   deleteDocumentPendingUpdates,
   deleteDocumentRecord,
-  enqueueDocumentPendingUpdate,
+  enqueueDocumentPendingUpdateWithHistory,
   ensureDocumentProjectionTables,
   ensureDocumentTables,
   findLocalIdByDocumentId,
@@ -654,6 +662,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
             lockedExecSql,
             getDocumentScope(localId),
           );
+          await deleteDocumentHistory(lockedExecSql, getDocumentScope(localId));
           await clearDocumentSyncFailure(
             lockedExecSql,
             getDocumentScope(localId),
@@ -730,9 +739,40 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
 
     return rows.map(mapLocalAttachmentRecord);
   },
+  async appendHistoryUpdates(execSql, input) {
+    await appendDocumentHistoryUpdates(
+      execSql,
+      getDocumentScope(input.localId),
+      input.updates,
+    );
+  },
+  async loadHistoryRestoreState(execSql, localId) {
+    return loadDocumentHistoryRestoreState(execSql, getDocumentScope(localId));
+  },
+  async readHistoryTailSize(execSql, localId) {
+    return readDocumentHistoryTailSize(execSql, getDocumentScope(localId));
+  },
+  async listHistoryTailEntries(execSql, localId) {
+    return listDocumentHistoryTailEntries(execSql, getDocumentScope(localId));
+  },
+  async replaceHistoryCheckpoint(execSql, input) {
+    await replaceDocumentHistoryCheckpoint(
+      execSql,
+      getDocumentScope(input.localId),
+      {
+        coveredTailIds: input.coveredTailIds,
+        endVersionVector: input.endVersionVector,
+        ...(input.force === undefined ? {} : { force: input.force }),
+        snapshot: input.snapshot,
+        ...(input.stillCurrent === undefined
+          ? {}
+          : { stillCurrent: input.stillCurrent }),
+      },
+    );
+  },
   async enqueuePendingUpdate(execSql, pendingUpdate) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await enqueueDocumentPendingUpdate(
+      await enqueueDocumentPendingUpdateWithHistory(
         lockedExecSql,
         getDocumentScope(pendingUpdate.localId),
         pendingUpdate,
