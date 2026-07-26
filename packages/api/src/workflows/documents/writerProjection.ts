@@ -13,10 +13,14 @@ import type {
   AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
   DocumentNotFoundErrorCode,
+  DocumentProjectionErrorCode,
   DocumentSyncErrorCode,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { DOCUMENT_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
+import {
+  DOCUMENT_NOT_FOUND_ERROR_CODE,
+  DOCUMENT_PROJECTION_ERROR_CODES,
+} from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {
   getAccessManifestBundle,
@@ -62,6 +66,7 @@ export class DocumentWriterProjectionError extends Error {
     readonly status: DocumentWriterProjectionStatus,
     readonly code?:
       | DocumentNotFoundErrorCode
+      | DocumentProjectionErrorCode
       | DocumentSyncErrorCode
       | undefined,
   ) {
@@ -187,6 +192,7 @@ async function loadCurrentDocumentManifestBundle(
     throw new DocumentWriterProjectionError(
       "Document manifest head missing",
       409,
+      DOCUMENT_PROJECTION_ERROR_CODES.headMissing,
     );
   }
 
@@ -635,6 +641,7 @@ async function resolveDocumentWriterProjection(input: {
       throw new DocumentWriterProjectionError(
         error.message,
         error.status === 404 ? 409 : error.status,
+        DOCUMENT_PROJECTION_ERROR_CODES.kekTargetsUnavailable,
       );
     }
     throw error;
@@ -661,6 +668,7 @@ async function resolveDocumentWriterProjection(input: {
     throw new DocumentWriterProjectionError(
       "Document content-key bundle missing",
       409,
+      DOCUMENT_PROJECTION_ERROR_CODES.contentKeyBundleMissing,
     );
   }
   const verificationMaterial =

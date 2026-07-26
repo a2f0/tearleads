@@ -1,4 +1,5 @@
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import { DOCUMENT_PROJECTION_ERROR_CODES } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -12,6 +13,29 @@ import type { ApiServiceRuntime } from "../../services/runtime";
 interface DocumentWriterProjectionRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
   readonly runtime: ApiServiceRuntime;
+}
+
+/**
+ * A container-level 404 must not become this route's 404: clients treat a
+ * document-route 404 as upstream document deletion and answer with a
+ * destructive local wipe, so the caller remaps it to 409. The 409 classes
+ * carry a code distinguishing a vanished container from a keying conflict so
+ * support reports can tell which dependency refused; other statuses (e.g.
+ * 403) keep their plain shape.
+ */
+function containerProjectionErrorBody(error: ContainerWriterProjectionError): {
+  code?: string;
+  error: string;
+} {
+  const code =
+    error.status === 404
+      ? DOCUMENT_PROJECTION_ERROR_CODES.containerUnavailable
+      : error.status === 409
+        ? DOCUMENT_PROJECTION_ERROR_CODES.containerConflict
+        : undefined;
+  return code === undefined
+    ? { error: error.message }
+    : { code, error: error.message };
 }
 
 export function createDocumentWriterProjectionRoute({
@@ -43,12 +67,8 @@ export function createDocumentWriterProjectionRoute({
           );
         }
         if (error instanceof ContainerWriterProjectionError) {
-          // A container-level 404 must not become this route's 404: clients
-          // treat a document-route 404 as upstream document deletion and
-          // answer with a destructive local wipe. The coded document_not_found
-          // 404 above is the only deletion signal this route emits.
           return c.json(
-            { error: error.message },
+            containerProjectionErrorBody(error),
             error.status === 404 ? 409 : error.status,
           );
         }

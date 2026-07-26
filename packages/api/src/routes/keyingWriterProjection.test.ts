@@ -1710,6 +1710,7 @@ test("GET /documents/:documentId/writer-projection rejects stale document KEK ta
 
   expect(projectionResponse.status).toBe(409);
   expect(await projectionResponse.json()).toEqual({
+    code: "document_projection_kek_targets_unavailable",
     error: "Container manifest head missing",
   });
 });

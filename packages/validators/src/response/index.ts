@@ -104,10 +104,12 @@ export {
 } from "./documentMutation";
 export {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
+  DOCUMENT_PROJECTION_ERROR_CODES,
   DOCUMENT_SYNC_ERROR_CODES,
   type DocumentNotFoundErrorCode,
   type DocumentNotFoundErrorResponse,
   DocumentNotFoundErrorResponseSchema,
+  type DocumentProjectionErrorCode,
   type DocumentSyncErrorCode,
   DocumentSyncErrorCodeSchema,
   type DocumentSyncErrorResponse,

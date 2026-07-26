@@ -49,3 +49,21 @@ export const DocumentNotFoundErrorResponseSchema = z.looseObject({
 export type DocumentNotFoundErrorResponse = z.infer<
   typeof DocumentNotFoundErrorResponseSchema
 >;
+
+/**
+ * Stable codes for document writer-projection failures that surface as 409s.
+ * The route deliberately remaps container-level and dependency 404s to 409
+ * (a document-route 404 triggers a destructive client wipe), which used to
+ * collapse every origin into an uncoded conflict. These codes let a client
+ * report WHICH dependency refused without parsing message text.
+ */
+export const DOCUMENT_PROJECTION_ERROR_CODES = {
+  containerConflict: "document_projection_container_conflict",
+  containerUnavailable: "document_projection_container_unavailable",
+  contentKeyBundleMissing: "document_projection_content_key_bundle_missing",
+  headMissing: "document_projection_head_missing",
+  kekTargetsUnavailable: "document_projection_kek_targets_unavailable",
+} as const;
+
+export type DocumentProjectionErrorCode =
+  (typeof DOCUMENT_PROJECTION_ERROR_CODES)[keyof typeof DOCUMENT_PROJECTION_ERROR_CODES];
