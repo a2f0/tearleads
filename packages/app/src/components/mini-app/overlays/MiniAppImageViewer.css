@@ -1,0 +1,110 @@
+/* The viewer is fixed to the visual viewport rather than to any pane or window:
+   it is portalled into <body> and must cover the entire app, including the
+   routed shell's own app bar and nav. `dvh` tracks the mobile URL bar collapsing
+   and expanding, which `vh` does not. */
+.mini-app-image-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding: var(--safe-area-top) var(--safe-area-right) var(--safe-area-bottom)
+    var(--safe-area-left);
+  background: var(--color-light);
+  overscroll-behavior: contain;
+}
+
+.mini-app-image-viewer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-height: max(
+    var(--window-bar-height),
+    calc(18px + var(--window-bar-block-padding) * 2)
+  );
+  padding-inline: var(--space-sm);
+  background: var(--color-muted);
+  border-bottom: var(--border);
+  user-select: none;
+}
+
+.mini-app-image-viewer-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  opacity: var(--opacity-muted);
+}
+
+.mini-app-image-viewer-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.mini-app-image-viewer-button {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--window-bar-padding);
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: var(--window-bar-line-height);
+  cursor: pointer;
+}
+
+.mini-app-image-viewer-button:hover:not(:disabled),
+.mini-app-image-viewer-button:focus-visible:not(:disabled) {
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
+}
+
+.mini-app-image-viewer-button:disabled {
+  cursor: default;
+  opacity: var(--opacity-disabled);
+}
+
+/* `touch-action: none` hands every touch to the viewer's own pointer handlers.
+   Without it the browser claims the pinch for page zoom and the swipe for
+   scrolling, which is exactly what made the old inline preview unusable on a
+   phone. `overflow: hidden` keeps the transformed image from growing the layout
+   as it is zoomed — the pan offsets already bound it. */
+.mini-app-image-viewer-stage {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  touch-action: none;
+}
+
+/* The layout box is the contain-fit of the image; zoom and pan ride on top as a
+   transform, so nothing reflows mid-gesture. Keep these bounds in step with
+   getFittedImageSize(), which models the same box. */
+.mini-app-image-viewer-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transform-origin: center center;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  /* iOS pops its own "Save Image" callout on a long press, which lands in the
+     middle of a two-finger pinch and steals the gesture. The toolbar's Download
+     is the way out of here instead. */
+  -webkit-touch-callout: none;
+}
+
+.mini-app-image-viewer-error {
+  margin: 0;
+  padding: var(--space-md);
+  text-align: center;
+  opacity: var(--opacity-muted);
+}
