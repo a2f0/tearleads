@@ -10,9 +10,14 @@ import {
   listContainerKeyEpochs,
   listContainerKeyWraps,
 } from "../../../access/read/containerKekStore";
+import {
+  loadPrincipalPoliciesForContainerPaths,
+  PrincipalPolicyProjectionError,
+} from "../../principals/principalPolicyProjection";
 import { loadContainerManifestBundleByHash } from "./accessPaths";
 import {
   principalPolicyReferenceCacheKey,
+  verifiedPrincipalPolicyReferenceCacheKeys,
   verifiedPrincipalPolicyStateReferenceCacheKey,
 } from "./principalPolicies";
 import {
@@ -25,6 +30,14 @@ import {
   type ContainerWriterProjectionContext,
   ContainerWriterProjectionError,
 } from "./types";
+
+/**
+ * Historical epochs a requester was admitted to, per container, accumulated
+ * along the projection path (parents first). A child epoch's container wrap
+ * is only served when it targets one of these — an epoch this requester was
+ * already proven into — never merely a non-current parent epoch.
+ */
+type AdmittedHistoricalEpochIds = ReadonlyMap<string, ReadonlySet<string>>;
 
 /**
  * Reference keys of every verified principal policy state — current head or
@@ -63,6 +76,8 @@ function requesterMemberPolicyStateKeys(
 interface ContainerManifestLineage {
   /** Key-epoch ids referenced by the verified previous-manifest chain. */
   readonly epochIds: ReadonlySet<string>;
+  /** The verified lineage manifests, current first. */
+  readonly manifests: readonly VerifiedContainerAccessManifest[];
   /**
    * For each lineage epoch, the principal heads pinned by the manifests
    * under which that epoch was current — its principal audience proof.
@@ -85,10 +100,12 @@ async function loadContainerManifestLineage(
 ): Promise<ContainerManifestLineage> {
   const containerId = manifest.state.containerId;
   const epochIds = new Set<string>();
+  const manifests: VerifiedContainerAccessManifest[] = [];
   const principalHeadsByEpochId = new Map<string, ReferencedPrincipalHead[]>();
   const visitedHashes = new Set<string>();
 
   const record = (entry: VerifiedContainerAccessManifest): void => {
+    manifests.push(entry);
     const epochId = entry.state.containerKeyEpochId;
     if (!epochId) {
       return;
@@ -122,12 +139,60 @@ async function loadContainerManifestLineage(
     previousManifestHash = verified.manifest.previousManifestHash;
   }
 
-  return { epochIds, principalHeadsByEpochId };
+  return { epochIds, manifests, principalHeadsByEpochId };
+}
+
+/**
+ * Loads the verified policies for principal heads pinned by historical
+ * lineage manifests but absent from the current access projection — e.g. a
+ * group whose grant was removed by the rotation itself. Without these, a
+ * requester whose only pre-rotation access ran through that group could not
+ * prove historical membership. Fail-soft per manifest: a head that can no
+ * longer be verified (deleted principal, pruned history) simply contributes
+ * no proof.
+ */
+async function loadLineagePrincipalPolicies(
+  context: ContainerWriterProjectionContext,
+  lineage: ContainerManifestLineage,
+  knownPolicies: readonly VerifiedPrincipalPolicy[],
+): Promise<VerifiedPrincipalPolicy[]> {
+  const knownKeys = new Set(
+    knownPolicies.flatMap(verifiedPrincipalPolicyReferenceCacheKeys),
+  );
+  const loaded: VerifiedPrincipalPolicy[] = [];
+
+  for (const manifest of lineage.manifests) {
+    const uncovered = manifest.state.referencedPrincipalHeads.some(
+      (principalHead) =>
+        !knownKeys.has(principalPolicyReferenceCacheKey(principalHead)),
+    );
+    if (!uncovered) {
+      continue;
+    }
+    try {
+      const policies = await loadPrincipalPoliciesForContainerPaths(
+        context.executor,
+        [[manifest]],
+      );
+      for (const policy of policies) {
+        for (const key of verifiedPrincipalPolicyReferenceCacheKeys(policy)) {
+          knownKeys.add(key);
+        }
+        loaded.push(policy);
+      }
+    } catch (error) {
+      if (!(error instanceof PrincipalPolicyProjectionError)) {
+        throw error;
+      }
+    }
+  }
+
+  return loaded;
 }
 
 function historicalWrapAdmitted(input: {
+  readonly admittedHistoricalEpochIds: AdmittedHistoricalEpochIds;
   readonly epochPrincipalHeads: readonly ReferencedPrincipalHead[];
-  readonly pathContainerKeyEpochIds: ReadonlyMap<string, string>;
   readonly requesterPolicyStateKeys: ReadonlySet<string>;
   readonly userId: string;
   readonly wrap: ContainerKeyWrap;
@@ -137,17 +202,16 @@ function historicalWrapAdmitted(input: {
     return wrap.recipientId === input.userId;
   }
   if (wrap.recipientKind === "container") {
-    // Only a SUPERSEDED parent epoch may be targeted. Every current member
-    // (including one granted access after this epoch's rotation) holds the
-    // parent's current epoch, so serving a wrap to it would disclose
-    // pre-grant key material; a superseded parent epoch is only reachable
-    // through the requester's own filtered historical wraps.
-    const recipientCurrentEpochId = input.pathContainerKeyEpochIds.get(
-      wrap.recipientId,
-    );
+    // Only a parent epoch this requester was ALREADY admitted to (a
+    // superseded epoch served at an earlier path index) may be targeted.
+    // A parent's current epoch is held by every current member — including
+    // one granted access after this epoch's rotation — and a superseded
+    // parent epoch the requester was not admitted to must not leak this
+    // epoch's audience metadata either.
     return (
-      recipientCurrentEpochId !== undefined &&
-      recipientCurrentEpochId !== wrap.recipientKeyEpochId
+      input.admittedHistoricalEpochIds
+        .get(wrap.recipientId)
+        ?.has(wrap.recipientKeyEpochId) === true
     );
   }
   // Principal wraps require membership at a policy state the epoch's own
@@ -165,17 +229,21 @@ function historicalWrapAdmitted(input: {
  * Superseded key epochs for one container, limited to epochs the verified
  * manifest lineage references, with wraps filtered to recipients whose key
  * material proves the REQUESTER was in the epoch's audience: the user
- * directly, principals whose pinned historical policy state lists them, or
- * path containers at a superseded parent epoch. Epochs whose filtered wrap
- * set is empty are omitted — a member added after a rotation simply receives
- * nothing from before their time. Clients re-verify every unwrap against the
- * epoch id's key-material commitment.
+ * directly, principals whose pinned historical policy state lists them
+ * (including policies the rotation itself unreferenced), or path containers
+ * at a historical epoch the requester was already admitted to. Epochs whose
+ * filtered wrap set is empty are omitted — a member added after a rotation
+ * simply receives nothing from before their time. Clients re-verify every
+ * unwrap against the epoch id's key-material commitment.
  */
 export async function loadHistoricalContainerKeks(input: {
+  /**
+   * Historical epochs already served to this requester at earlier (parent)
+   * path indices; the only admissible targets for container wraps.
+   */
+  readonly admittedHistoricalEpochIds: AdmittedHistoricalEpochIds;
   readonly context: ContainerWriterProjectionContext;
   readonly manifest: VerifiedContainerAccessManifest;
-  /** Current key-epoch id of every container on the requested path. */
-  readonly pathContainerKeyEpochIds: ReadonlyMap<string, string>;
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
   readonly userId: string;
 }): Promise<HistoricalContainerKekResponse[]> {
@@ -189,9 +257,14 @@ export async function loadHistoricalContainerKeks(input: {
     input.context,
     input.manifest,
   );
+  const lineagePolicies = await loadLineagePrincipalPolicies(
+    input.context,
+    lineage,
+    input.principalPolicies,
+  );
   const requesterPolicyStateKeys = requesterMemberPolicyStateKeys(
     input.userId,
-    input.principalPolicies,
+    [...input.principalPolicies, ...lineagePolicies],
   );
   const historicalKeks: HistoricalContainerKekResponse[] = [];
 
@@ -205,8 +278,8 @@ export async function loadHistoricalContainerKeks(input: {
       await listContainerKeyWraps(epoch.id, input.context.executor)
     ).filter((wrap) =>
       historicalWrapAdmitted({
+        admittedHistoricalEpochIds: input.admittedHistoricalEpochIds,
         epochPrincipalHeads,
-        pathContainerKeyEpochIds: input.pathContainerKeyEpochIds,
         requesterPolicyStateKeys,
         userId: input.userId,
         wrap,

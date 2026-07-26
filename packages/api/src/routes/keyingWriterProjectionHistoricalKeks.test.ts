@@ -152,11 +152,14 @@ test("container wraps are gated on superseded targets and epochs on lineage", as
   // these belong to a rotated child epoch wrapped to a parent epoch; here
   // they reference the root itself so no nested fixture is needed — the
   // filter reads only (recipientKind, recipientId, recipientKeyEpochId).
+  // Container wraps are admissible only when they target a historical epoch
+  // already served at an EARLIER path index; the root has no earlier parent,
+  // so both planted wraps must be excluded — the current-epoch target
+  // because every current member holds it, the superseded self-target
+  // because it was not admitted through a parent. (The admissible chain is
+  // exercised client-side in the historical parent-chain unwrap test.)
   await db.insert(containerKeyWraps).values([
     {
-      // Targets the path container's CURRENT epoch: every current member
-      // (including one granted access after the rotation) holds it, so
-      // serving this wrap would disclose pre-grant key material.
       containerKeyEpochId: supersededEpochId,
       recipientKind: "container",
       recipientId: root.kekState.containerId,
@@ -167,8 +170,6 @@ test("container wraps are gated on superseded targets and epochs on lineage", as
       wrapManifestHash: root.bundle.manifestHash,
     },
     {
-      // Targets a SUPERSEDED epoch: only reachable through the requester's
-      // own filtered historical wraps, so it may be served.
       containerKeyEpochId: supersededEpochId,
       recipientKind: "container",
       recipientId: root.kekState.containerId,
@@ -222,9 +223,7 @@ test("container wraps are gated on superseded targets and epochs on lineage", as
   const containerWraps = (
     (supersededEpoch?.wraps ?? []) as unknown as readonly ContainerKeyWrap[]
   ).filter((wrap) => wrap.recipientKind === "container");
-  expect(containerWraps.map((wrap) => wrap.recipientKeyEpochId)).toEqual([
-    supersededEpochId,
-  ]);
+  expect(containerWraps).toEqual([]);
 }, 15_000);
 
 test("a user added to a referenced group after the rotation gets no historical epochs", async () => {

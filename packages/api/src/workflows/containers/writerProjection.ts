@@ -73,37 +73,28 @@ async function resolveContainerProjectionWithAccess(input: {
   // Superseded key epochs travel with each path container so a member who
   // spans a KEK rotation can still unwrap pre-rotation content (e.g. stale
   // document content-key bundles after a revoke). Filtered per requester —
-  // see loadHistoricalContainerKeks.
-  const pathContainerKeyEpochIds: ReadonlyMap<string, string> = new Map(
-    access.verifiedPath.flatMap((manifest) =>
-      manifest.state.containerKeyEpochId
-        ? [
-            [
-              manifest.state.containerId,
-              manifest.state.containerKeyEpochId,
-            ] as const,
-          ]
-        : [],
-    ),
-  );
+  // see loadHistoricalContainerKeks. Parents are processed first, so the
+  // epochs admitted for each container gate the container wraps of every
+  // descendant on the path.
+  const admittedHistoricalEpochIds = new Map<string, ReadonlySet<string>>();
   const containerKeks: ContainerWriterProjectionResponse["containerKeks"] = [];
   for (const [index, manifest] of access.verifiedPath.entries()) {
     const kekState = containerKekStates[index];
     if (!kekState) {
       throw new ContainerWriterProjectionError("Container KEK missing", 409);
     }
-    containerKeks.push(
-      containerKekResponse(
-        kekState,
-        await loadHistoricalContainerKeks({
-          context,
-          manifest,
-          pathContainerKeyEpochIds,
-          principalPolicies: access.principalPolicies,
-          userId: input.userId,
-        }),
-      ),
+    const historicalKeks = await loadHistoricalContainerKeks({
+      admittedHistoricalEpochIds,
+      context,
+      manifest,
+      principalPolicies: access.principalPolicies,
+      userId: input.userId,
+    });
+    admittedHistoricalEpochIds.set(
+      manifest.state.containerId,
+      new Set(historicalKeks.map((kek) => kek.containerKeyEpochId)),
     );
+    containerKeks.push(containerKekResponse(kekState, historicalKeks));
   }
 
   return {
