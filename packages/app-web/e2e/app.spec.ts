@@ -233,6 +233,45 @@ test("mobile app bar draws its icons at the touch glyph size", async ({
   expect(glyphBox.height).toBeGreaterThanOrEqual(24);
 });
 
+// One shared popover menu backs every context menu in the app, so this covers
+// Contacts, Notes, Org Manager and the rest as much as it covers Explorer. Its
+// routed block used to set only the 44px row height, which left the row
+// compliant by measure while both the label and the mark inside it read as too
+// small: the label never saw the routed type ramp (the global reset gives
+// buttons font-family but not font-size, so they sat at the UA default), and the
+// icon stayed at its size={16} attribute. Both are CSS overriding values that
+// look right in the JSX, so assert what is drawn rather than what is passed.
+test("mobile context menu items meet the touch type and glyph size", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 599, height: 800 });
+  await page.goto("/app/explorer");
+
+  const rowAction = page.getByRole("button", { name: "Actions for Contacts" });
+  await expect(rowAction).toBeVisible({ timeout: 30_000 });
+  await rowAction.click();
+
+  const item = page
+    .locator(".menu button")
+    .filter({ has: page.locator("svg") })
+    .first();
+  await expect(item).toBeVisible();
+
+  const itemBox = await item.boundingBox();
+  const glyphBox = await item.locator("svg").first().boundingBox();
+  if (!itemBox || !glyphBox) {
+    throw new Error("Expected a visible menu item and its icon.");
+  }
+  const fontSize = await item.evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).fontSize),
+  );
+
+  expect(itemBox.height).toBeGreaterThanOrEqual(44);
+  expect(fontSize).toBeGreaterThanOrEqual(16);
+  expect(glyphBox.width).toBeGreaterThanOrEqual(24);
+  expect(glyphBox.height).toBeGreaterThanOrEqual(24);
+});
+
 // Regression coverage for the mobile Get Info back loop: Explorer used to
 // register a "Back to Document" action on the routed app bar, which PUSHED the
 // document route instead of popping the info route. The document route
