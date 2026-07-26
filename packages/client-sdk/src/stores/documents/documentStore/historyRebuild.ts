@@ -55,12 +55,14 @@ export async function installRebuiltDocument(input: {
   // snapshot ahead of the checkpoint, and the next restore's lag fallback
   // would undo the whole recovery. Checkpoint-ahead is the safe direction —
   // the restore prefers it and the record catches up on the next persist.
-  const fullHistorySnapshot = exportFullHistorySnapshot(input.rebuiltDoc);
+  // The covered rows are captured BEFORE the export so an update appended
+  // concurrently (not in this snapshot) survives for the next compaction.
   const coveredTailIds =
     (await input.state.persistence.listHistoryTailIds?.(
       input.state.runtime.infra.execSql,
       input.state.localId,
     )) ?? [];
+  const fullHistorySnapshot = exportFullHistorySnapshot(input.rebuiltDoc);
   await input.state.persistence.replaceHistoryCheckpoint?.(
     input.state.runtime.infra.execSql,
     {

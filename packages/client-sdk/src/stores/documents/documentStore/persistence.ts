@@ -37,6 +37,7 @@ import {
   setReadySnapshot,
 } from "./state";
 import {
+  captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent as isSyncGenerationCurrent,
 } from "./syncGeneration";
@@ -230,6 +231,14 @@ async function maybeCompactDocumentHistory(
   ) {
     return;
   }
+  // Bind this compaction to the store context it started under: a store
+  // reset or runtime swap mid-compaction must not let the OLD document's
+  // checkpoint overwrite the replacement generation's history (or land in a
+  // newly selected database).
+  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  if (!generation) {
+    return;
+  }
   const execSql = state.runtime.infra.execSql;
   const tail = await persistence.readHistoryTailSize(execSql, state.localId);
   if (
@@ -254,6 +263,9 @@ async function maybeCompactDocumentHistory(
   } catch {
     // Legacy shallow-restored document: full history is not exportable until
     // a history recovery or rotation rebuild installs a full document.
+    return;
+  }
+  if (!isSyncGenerationCurrent(state, generation)) {
     return;
   }
   await persistence.replaceHistoryCheckpoint(execSql, {
