@@ -1,3 +1,24 @@
+.explorer-detail-header-identity {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+/* The glyph spans both header rows — the container name and its type — so it
+ * reads as the container's mark rather than a bullet on the title line. The
+ * stretched height overrides the size attribute the icon renders with; the
+ * min-height keeps it two rows tall if the percentage height cannot resolve. */
+.explorer-detail-header-icon {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: auto;
+  height: 100%;
+  min-height: 2.5rem;
+  aspect-ratio: 1 / 1;
+  opacity: var(--opacity-icon);
+}
+
 .explorer-detail-import-status {
   display: inline-flex;
   align-items: center;
