@@ -47,7 +47,18 @@ function ImageViewerButton(params: {
   );
 }
 
-function ImageViewerToolbar(params: {
+/**
+ * The viewer's header: one row of controls, with the image's name on a line of
+ * its own beneath it.
+ *
+ * The name used to share the control row, which worked only because the buttons
+ * were dense desktop targets. On touch each control is a 44px square (see the
+ * routed rules in the stylesheet), and five of them plus an unnamed blob's
+ * 36-character id do not fit a phone's width — the name would squeeze the
+ * controls back below the hit target it exists to protect. Giving it its own
+ * line keeps the row at full size in both layouts.
+ */
+function ImageViewerChrome(params: {
   canZoomIn: boolean;
   closeButtonRef: RefObject<HTMLButtonElement | null>;
   isZoomed: boolean;
@@ -62,19 +73,12 @@ function ImageViewerToolbar(params: {
   const { onDownload } = params;
 
   return (
-    <div
-      aria-label={IMAGE_VIEWER_LABELS.toolbar}
-      className="mini-app-image-viewer-toolbar"
-      role="toolbar"
-    >
-      <span
-        className="mini-app-image-viewer-title"
-        id={params.titleId}
-        title={params.label}
+    <div className="mini-app-image-viewer-chrome">
+      <div
+        aria-label={IMAGE_VIEWER_LABELS.toolbar}
+        className="mini-app-image-viewer-toolbar"
+        role="toolbar"
       >
-        {params.label}
-      </span>
-      <div className="mini-app-image-viewer-actions">
         <ImageViewerButton
           disabled={!params.isZoomed}
           label={IMAGE_VIEWER_LABELS.zoomOut}
@@ -112,6 +116,13 @@ function ImageViewerToolbar(params: {
           <XIcon aria-hidden size={18} />
         </ImageViewerButton>
       </div>
+      <span
+        className="mini-app-image-viewer-title"
+        id={params.titleId}
+        title={params.label}
+      >
+        {params.label}
+      </span>
     </div>
   );
 }
@@ -177,7 +188,7 @@ export function MiniAppImageViewer(params: {
       className="mini-app-image-viewer"
       role="dialog"
     >
-      <ImageViewerToolbar
+      <ImageViewerChrome
         canZoomIn={viewer.canZoomIn}
         closeButtonRef={closeButtonRef}
         isZoomed={viewer.isZoomed}

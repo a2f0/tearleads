@@ -20,6 +20,8 @@ export const EXPLORER_LABELS = {
   blobBrowserNoSelection: "Select a blob.",
   blobBrowserOpenBlobAction: "Open",
   blobBrowserOpenDocumentAction: "Open",
+  // Names the inline image preview, which is itself a way into the viewer.
+  blobBrowserOpenPreviewAction: "Open full screen",
   blobBrowserPreviewHeading: "Preview",
   blobBrowserReferenceColumn: "References",
   blobBrowserReferenceCountOne: "reference",

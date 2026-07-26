@@ -392,6 +392,21 @@
   border: var(--border);
 }
 
+/* The image preview is a button into the full-screen viewer, but it should read
+   as the picture and nothing else — no chrome of its own, and it shrink-wraps
+   the image so the hit area never runs past what you can see. The focus ring is
+   the browser's, so keyboard users still get a visible target. */
+.explorer-blob-preview-open {
+  display: flex;
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: zoom-in;
+}
+
 .explorer-blob-preview-media {
   max-width: 100%;
   max-height: 22rem;

@@ -12,7 +12,7 @@ import {
   useState,
 } from "react";
 import { classNames } from "../../components/shared/classNames";
-import { NoteAttachmentPreview } from "./NoteAttachmentPreview";
+import { NoteAttachmentOverlay } from "./NoteAttachmentOverlay";
 import {
   type NoteAttachmentImageUrlBySlotId,
   type NoteAttachmentStatusBySlotId,
@@ -475,7 +475,7 @@ export function NoteEditorFields({
         readOnly={readOnly}
       />
       {previewAttachment ? (
-        <NoteAttachmentPreview
+        <NoteAttachmentOverlay
           attachment={previewAttachment}
           canRemove={interactive}
           imageUrl={imageUrlBySlotId[previewAttachment.slotId]}
