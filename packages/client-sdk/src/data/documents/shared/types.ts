@@ -369,7 +369,27 @@ export interface DocumentSyncPlan {
 
 export interface MaterializedDocumentSyncPlan {
   contentKey: Uint8Array;
+  /**
+   * True when the plan carries a re-wrapped content-key bundle at the next
+   * epoch to heal a stale bundle (a linked container's KEK rotated under it).
+   * On submit success the caller must evict this document's cached writer
+   * projection so later passes see the healed state instead of re-healing.
+   */
+  healedStaleContentKeyBundle?: boolean;
+  /**
+   * Pending-queue ids a heal deliberately did NOT submit (superseded rotation
+   * checkpoints). On heal success they are reported as settled — the
+   * committed covering baseline subsumes their content, and resubmitting them
+   * post-heal could mask it as the latest baseline at the healed epoch.
+   */
+  heldBackPendingUpdateIds?: readonly string[];
   plan: DocumentSyncPlan;
+  /**
+   * Update id of the synthetic rotation baseline a heal generated. It matches
+   * no pending-queue row, so settlement accounting must not count its ack as
+   * a settled pending update.
+   */
+  staleRecoveryBaselineUpdateId?: string;
 }
 
 export interface SyncRemoteDocumentResult {

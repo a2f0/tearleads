@@ -20,7 +20,11 @@ import {
   deriveDocumentCreateTargets,
   describeProjectionTargetKek,
 } from "./projectionTargets";
-import { assertEqualBytes } from "./readers";
+import {
+  assertEqualBytes,
+  describeDocumentTargetKek,
+  normalizeDocumentKekTargetResponse,
+} from "./readers";
 import type { ProjectionVerificationOptions } from "./types";
 import { projectionVerificationOptions } from "./types";
 
@@ -193,4 +197,57 @@ export async function unwrapDocumentContentKeyFromWriterProjection(
     input.writerProjection.contentKeyBundle,
     keksByEpochId,
   );
+}
+
+/**
+ * Builds the healing bundle for a stale content-key bundle: wraps a FRESH
+ * content key to the projection's CURRENT KEK targets at the next
+ * content-key epoch. The stale bundle wraps to a rotated-away container KEK
+ * epoch that projections no longer serve wraps for, so the old content key
+ * is unrecoverable by design — recovery re-encrypts the local document under
+ * the fresh key via a rotation-baseline snapshot instead.
+ *
+ * Like every content-key rotation (unlink included), this requires the KEK
+ * of EVERY linked-container target: all envelopes in a bundle must wrap the
+ * same key, so an inaccessible target's envelope can neither be carried
+ * forward (it wraps the old key) nor fabricated. A writer authorized through
+ * only a subset of a multi-container link set fails here with a named target
+ * and leaves the heal to a member who spans all of them.
+ */
+export async function buildRotatedDocumentContentKeyBundle(input: {
+  containerKeksByEpochId: ReadonlyMap<string, Uint8Array>;
+  contentKey: Uint8Array;
+  writerProjection: DocumentWriterProjectionResponse;
+}): Promise<DocumentContentKeyBundleResponse> {
+  const { contentKeyBundle, documentKekTargets } = input.writerProjection;
+  const targets = normalizeDocumentKekTargetResponse(documentKekTargets);
+  const envelopes: DocumentContentKeyBundleResponse["targets"] = [];
+
+  for (const target of targets) {
+    const containerKek = input.containerKeksByEpochId.get(
+      target.containerKeyEpochId,
+    );
+    if (!containerKek) {
+      throw new Error(
+        `Document content-key re-wrap KEK is unavailable for ${describeDocumentTargetKek(target)}`,
+      );
+    }
+    const wrapped = await encryptWithDek(input.contentKey, containerKek);
+    envelopes.push({
+      ...target,
+      wrappedKey: bytesToBase64(wrapped.ciphertext),
+      wrappingMetadata: {
+        suite: DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+        iv: bytesToBase64(wrapped.iv),
+      },
+    });
+  }
+
+  return {
+    contentKeyEpoch: contentKeyBundle.contentKeyEpoch + 1,
+    documentId: contentKeyBundle.documentId,
+    linkSetManifestHash: documentKekTargets.linkSetManifestHash,
+    targetHash: documentKekTargets.documentKeyTargetHash,
+    targets: envelopes,
+  };
 }

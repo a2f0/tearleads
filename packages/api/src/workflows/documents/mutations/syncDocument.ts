@@ -4,16 +4,15 @@ import type {
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
-import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import {
+  type DocumentSyncResponse,
+  documentKekTargetsFromContentKeyBundle,
+} from "@tearleads/validators/response";
 import {
   getDocumentContentKeyBundle,
   type StoredDocumentContentKeyBundle,
 } from "../../../access/read/documentContentKeyStore";
 import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
-import {
-  requireAndRefreshCurrentDocumentContentKeyBundle,
-  storeDocumentContentKeyBundleInTransaction,
-} from "../../../access/write/documentContentKeyStore";
 import { readCurrentCommitLsn } from "../../../documents/commitLsn";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
 import { selectServedSyncUpdateEntries } from "../../../documents/documentSyncBaselineRedirect";
@@ -31,14 +30,15 @@ import {
   assertSyncContentKeyBundleMatchesRequest,
   toContentKeyBundleResponse,
   toDocumentKekTargetsResponse,
-  toStoredContentKeyBundleInput,
 } from "./shared/records";
 import {
   loadSignerPublicKey,
   verifySyncWriteAuthorizationProof,
 } from "./shared/verification";
 import { ensureSyncDocumentAccess } from "./syncAccess";
+import { resolveSyncContentKeyBundle } from "./syncContentKeyBundle";
 import { listMissingSyncUpdateEntries } from "./syncResponseUpdates";
+import { assertSyncRotationBaselinesSound } from "./syncRotationAdvance";
 import { lockSyncDocumentWriteFrontier } from "./syncWriteFrontier";
 import type {
   DocumentWriteAuthorizationProof,
@@ -83,28 +83,6 @@ async function listContentKeyBundlesForSyncResponse(input: {
   return [...bundleByEpoch.values()].sort(
     (left, right) => left.contentKeyEpoch - right.contentKeyEpoch,
   );
-}
-
-async function resolveSyncContentKeyBundle(input: {
-  readonly documentId: string;
-  readonly executor: DatabaseTransaction;
-  readonly request: DocumentSyncRequest;
-}) {
-  return input.request.contentKeyBundle
-    ? storeDocumentContentKeyBundleInTransaction(
-        toStoredContentKeyBundleInput(
-          input.documentId,
-          input.request.contentKeyBundle,
-        ),
-        input.executor,
-      )
-    : requireAndRefreshCurrentDocumentContentKeyBundle({
-        documentId: input.documentId,
-        contentKeyEpoch: input.request.contentKeyEpoch,
-        expectedLinkSetManifestHash: input.request.expectedLinkSetManifestHash,
-        expectedTargetHash: input.request.expectedTargetHash,
-        executor: input.executor,
-      });
 }
 
 async function resolveSyncAuditAccess(input: {
@@ -250,11 +228,19 @@ async function syncDocumentTransaction(input: {
     executor: input.tx,
     request: input.request,
   });
-  const contentKeyBundle = await resolveSyncContentKeyBundle({
+  // Must run before the bundle store below advances the latest epoch and
+  // before the append inserts any baseline row.
+  await assertSyncRotationBaselinesSound({
     documentId: input.documentId,
     executor: input.tx,
     request: input.request,
   });
+  const { contentKeyBundle, servedStaleBundle } =
+    await resolveSyncContentKeyBundle({
+      documentId: input.documentId,
+      executor: input.tx,
+      request: input.request,
+    });
   const auditAccess = await resolveSyncAuditAccess({
     currentTargets,
     writeAuthorization,
@@ -278,22 +264,46 @@ async function syncDocumentTransaction(input: {
     executor: input.tx,
     insertedUpdateIds: appendResult.insertedUpdateIds,
   });
+
+  return buildSyncDocumentTransactionResult({
+    appendResult,
+    contentKeyBundle,
+    currentTargets,
+    documentId: input.documentId,
+    executor: input.tx,
+    request: input.request,
+    servedStaleBundle,
+  });
+}
+
+async function buildSyncDocumentTransactionResult(input: {
+  readonly appendResult: Awaited<ReturnType<typeof appendDocumentUpdates>>;
+  readonly contentKeyBundle: StoredDocumentContentKeyBundle;
+  readonly currentTargets: Awaited<
+    ReturnType<typeof resolveCurrentDocumentKekTargets>
+  >;
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+  readonly request: DocumentSyncRequest;
+  readonly servedStaleBundle: boolean;
+}) {
   const { contentKeyBundles, missingUpdates } =
     await listMissingSyncUpdatesWithBundles({
-      contentKeyBundle,
+      contentKeyBundle: input.contentKeyBundle,
       documentId: input.documentId,
-      executor: input.tx,
+      executor: input.executor,
       request: input.request,
     });
 
   return {
-    accessEpoch: currentTargets.linkSetEpoch,
-    acceptedOutgoingUpdateIds: appendResult.acceptedOutgoingUpdateIds,
-    contentKeyBundle,
+    accessEpoch: input.currentTargets.linkSetEpoch,
+    acceptedOutgoingUpdateIds: input.appendResult.acceptedOutgoingUpdateIds,
+    contentKeyBundle: input.contentKeyBundle,
     contentKeyBundles,
-    currentTargets,
-    insertedUpdateIds: [...appendResult.insertedUpdateIds],
+    currentTargets: input.currentTargets,
+    insertedUpdateIds: [...input.appendResult.insertedUpdateIds],
     missingUpdates,
+    servedStaleBundle: input.servedStaleBundle,
   };
 }
 
@@ -364,21 +374,25 @@ export async function runDocumentSyncWorkflow(
         userId: input.userId,
       }),
     );
+    const contentKeyBundle = toContentKeyBundleResponse(
+      transactionResult.contentKeyBundle,
+    );
     return {
       insertedUpdateIds: transactionResult.insertedUpdateIds,
       response: {
         acceptedOutgoingUpdateIds: transactionResult.acceptedOutgoingUpdateIds,
         commitLsn: await readCurrentCommitLsn(db),
-        contentKeyBundle: toContentKeyBundleResponse(
-          transactionResult.contentKeyBundle,
-        ),
+        contentKeyBundle,
         contentKeyBundles: transactionResult.contentKeyBundles.map((bundle) =>
           toContentKeyBundleResponse(bundle),
         ),
         documentId: input.documentId,
-        documentKekTargets: toDocumentKekTargetsResponse(
-          transactionResult.currentTargets,
-        ),
+        // A stale-served read-only pull must echo the targets the bundle
+        // actually wraps to; mixing the stale bundle with current targets
+        // would fail the client's plan/response consistency checks.
+        documentKekTargets: transactionResult.servedStaleBundle
+          ? documentKekTargetsFromContentKeyBundle(contentKeyBundle)
+          : toDocumentKekTargetsResponse(transactionResult.currentTargets),
         updates: transactionResult.missingUpdates,
       },
     };

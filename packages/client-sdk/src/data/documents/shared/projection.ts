@@ -17,12 +17,16 @@ import {
 import {
   assertDocumentManifestBundleConsistent,
   errorMessage,
+  normalizeDocumentKekTargetResponse,
+  sortDocumentTargets,
+  targetEnvelopeReference,
   targetKey,
   uniqueSortedStrings,
 } from "./readers";
 
 export { unwrapContainerKekPath } from "./containerKekPath";
 export {
+  buildRotatedDocumentContentKeyBundle,
   collectContainerKeksForDocumentSync,
   unwrapDocumentContentKeyFromBundle,
   unwrapDocumentContentKeyFromWriterProjection,
@@ -90,9 +94,61 @@ function assertAuthorizingContainerPathsMatchDocumentTargets(input: {
   }
 }
 
+async function assertProjectionContentKeyBundleConsistent(
+  writerProjection: DocumentWriterProjectionResponse,
+  staleContentKeyBundle: boolean,
+): Promise<void> {
+  const { manifestHash } = writerProjection.documentManifest;
+  if (writerProjection.contentKeyBundle.linkSetManifestHash !== manifestHash) {
+    // A stale bundle may lag the link-set head, but it must still descend
+    // from this document's manifest chain.
+    if (
+      !staleContentKeyBundle ||
+      !writerProjection.documentManifestHistory.some(
+        (bundle) =>
+          bundle.manifestHash ===
+          writerProjection.contentKeyBundle.linkSetManifestHash,
+      )
+    ) {
+      throw new Error("Document writer projection link manifest mismatch");
+    }
+  }
+
+  if (!staleContentKeyBundle) {
+    if (
+      writerProjection.documentKekTargets.documentKeyTargetHash !==
+      writerProjection.contentKeyBundle.targetHash
+    ) {
+      throw new Error("Document writer projection target hash mismatch");
+    }
+    return;
+  }
+
+  // The stale bundle cannot match the current targets; pin it to its own
+  // canonical hash instead so a tampered envelope set still fails closed.
+  const staleBundleTargetHash = await computeDocumentContentKeyTargetHash(
+    sortDocumentTargets(
+      writerProjection.contentKeyBundle.targets.map(targetEnvelopeReference),
+    ),
+  );
+  if (staleBundleTargetHash !== writerProjection.contentKeyBundle.targetHash) {
+    throw new Error(
+      "Document writer projection stale bundle target hash is not canonical",
+    );
+  }
+}
+
 export async function assertDocumentWriterProjectionConsistent(
   writerProjection: DocumentWriterProjectionResponse,
   input: ProjectionVerificationOptions & {
+    /**
+     * Accept a projection whose content-key bundle is marked stale (wrapped
+     * to superseded KEK targets after e.g. a revoke rotation). Only the
+     * document sync path opts in — it can heal the bundle by re-wrapping the
+     * content key. Every other consumer fails fast, preserving the behavior
+     * of the former projection-level 409.
+     */
+    allowStaleContentKeyBundle?: boolean | undefined;
     execSql?: ExecSql | undefined;
     principalPolicyCache?: PrincipalPolicyCache | undefined;
     verifiedByHash?: Map<string, VerifiedContainerAccessManifest> | undefined;
@@ -116,6 +172,11 @@ export async function assertDocumentWriterProjectionConsistent(
     });
   }
 
+  const staleContentKeyBundle = writerProjection.contentKeyBundleStale === true;
+  if (staleContentKeyBundle && input.allowStaleContentKeyBundle !== true) {
+    throw new Error("Document writer projection content-key bundle is stale");
+  }
+
   const manifestIdentity = await assertDocumentManifestBundleConsistent({
     bundle: writerProjection.documentManifest,
     label: "Document writer projection manifest",
@@ -128,21 +189,20 @@ export async function assertDocumentWriterProjectionConsistent(
   ) {
     throw new Error("Document writer projection document id mismatch");
   }
-  const { manifestHash } = writerProjection.documentManifest;
   if (
-    writerProjection.documentKekTargets.linkSetManifestHash !== manifestHash ||
-    writerProjection.contentKeyBundle.linkSetManifestHash !== manifestHash
+    writerProjection.documentKekTargets.linkSetManifestHash !==
+    writerProjection.documentManifest.manifestHash
   ) {
     throw new Error("Document writer projection link manifest mismatch");
   }
-  if (
-    writerProjection.documentKekTargets.documentKeyTargetHash !==
-    writerProjection.contentKeyBundle.targetHash
-  ) {
-    throw new Error("Document writer projection target hash mismatch");
-  }
+  await assertProjectionContentKeyBundleConsistent(
+    writerProjection,
+    staleContentKeyBundle,
+  );
 
-  const targets = currentDocumentTargets(writerProjection);
+  const targets = staleContentKeyBundle
+    ? normalizeDocumentKekTargetResponse(writerProjection.documentKekTargets)
+    : currentDocumentTargets(writerProjection);
   const canonicalTargetHash =
     await computeDocumentContentKeyTargetHash(targets);
   if (
