@@ -258,17 +258,7 @@ function queueDocumentStructuredFieldWrite(
         return;
       }
 
-      if (options.deferRemoteSync) {
-        // A deferred write persists the snapshot AHEAD of the outgoing queue
-        // (the op is re-derived by the next edit). Keep the durable-history
-        // tail covering it anyway, or the next restart's full-history
-        // restore would lag the shallow snapshot and fall back — parking
-        // durability until an edit happens to re-derive the delta.
-        await state.persistence.appendHistoryUpdates?.(
-          state.runtime.infra.execSql,
-          { localId: state.localId, updates: [bytesToBase64(update)] },
-        );
-      } else {
+      if (!options.deferRemoteSync) {
         await enqueuePendingUpdate(state, update);
         if (!isDocumentLocalWriteCurrent(state, writeGeneration, writeDoc)) {
           return;
@@ -290,7 +280,19 @@ function queueDocumentStructuredFieldWrite(
       ) {
         return;
       }
-      if (!options.deferRemoteSync) {
+      if (options.deferRemoteSync) {
+        // A deferred write persists the snapshot AHEAD of the outgoing queue
+        // (the op is re-derived by the next edit). Keep the durable-history
+        // tail covering it too, or the next restart's full-history restore
+        // would lag the shallow snapshot and fall back. Appended AFTER the
+        // persist so this write adds no await before it (an extra pre-persist
+        // hop changes cross-store interleaving); a crash in between falls
+        // back to the shallow restore until the next edit re-derives it.
+        await state.persistence.appendHistoryUpdates?.(
+          state.runtime.infra.execSql,
+          { localId: state.localId, updates: [bytesToBase64(update)] },
+        );
+      } else {
         advancePendingBaseVersion(state, writeDoc);
         requestDocumentStoreSync(state);
       }
