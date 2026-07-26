@@ -63,16 +63,28 @@
    subject of the row rather than as a bullet beside line one: the square covers
    both summary lines, which measure 38px for the two 16px touch-tier lines.
 
-   This is the largest square the fixed pitch can seat. Against the routed 16px
-   rem, 2.75rem is 44px — also a full touch target for the identity button that
-   fills it — and 44px plus the cell's block padding and the row's shared bottom
-   border still clears the 56px pitch, so the thumbnail can never grow a row past
-   the height the virtualization math has budgeted for it. A narrow desktop
-   window folds too, and its denser rem scales the square with its shorter
-   lines. */
+   2.75rem is 44px against the routed 16px rem — also a full touch target for the
+   identity button that fills it. A narrow desktop window folds too, and its
+   denser rem scales the square with its shorter lines.
+
+   Capped at what the row has left to give, because the pitch is a fixed pixel
+   count while the square is not: the row is 44px of thumbnail plus the cell's
+   block padding and the shared bottom border, and a reader whose browser sets a
+   larger default fixed font enlarges the first two but not the 56px the
+   virtualization math has budgeted. Past that point rows would grow while the
+   scroll spacers stayed put — the drift the flex rule above exists to remove — so
+   the square gives up the pixels instead. `min()` keeps it square; capping width
+   and height separately would not. */
 .explorer-blob-browser-thumb--compact {
-  width: 2.75rem;
-  height: 2.75rem;
+  --explorer-blob-browser-thumb-budget: calc(
+    var(--mini-app-virtual-row-height, 56px) -
+    2 *
+    var(--info-table-cell-padding) -
+    1px
+  );
+
+  width: min(2.75rem, var(--explorer-blob-browser-thumb-budget));
+  height: min(2.75rem, var(--explorer-blob-browser-thumb-budget));
 }
 
 .explorer-blob-browser-thumb-image {
