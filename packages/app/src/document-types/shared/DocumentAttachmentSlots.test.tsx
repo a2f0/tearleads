@@ -12,12 +12,10 @@ afterEach(cleanup);
 
 const slots: ReadonlyArray<DocumentAttachmentSlot> = [
   {
-    description: "Front side",
     label: "Front Image",
     slotId: "front",
   },
   {
-    description: "Back side",
     label: "Back Image",
     slotId: "back",
   },

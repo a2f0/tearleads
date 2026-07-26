@@ -16,8 +16,10 @@ import { useSessionTableColumns } from "./IdentityManagerSessionColumns";
 import { SessionContextMenu } from "./IdentityManagerSessionContextMenu";
 import { SessionTableBody } from "./IdentityManagerSessionTable";
 
+// Only rendered for a session that can manage sessions — see
+// IdentityManagerPrimaryScreen, which omits the section entirely when the user
+// is not logged in rather than showing an empty shell inviting them to.
 export function SessionsSection({
-  canManageSessions,
   handleEndSession,
   loadingSessions,
   mutatingSessionId,
@@ -26,7 +28,6 @@ export function SessionsSection({
   sessionError,
   sessions,
 }: {
-  canManageSessions: boolean;
   handleEndSession: (session: UserSession) => Promise<void>;
   loadingSessions: boolean;
   mutatingSessionId: string | null;
@@ -49,46 +50,40 @@ export function SessionsSection({
       <MiniAppSection className="identity-manager-sessions">
         <MiniAppSectionHeading>
           <h2>Active Sessions</h2>
-          {canManageSessions && (
-            <MiniAppButton
-              disabled={loadingSessions || mutatingSessionId !== null}
-              variant="ghost"
-              onClick={() => void refreshSessions()}
-            >
-              Refresh
-            </MiniAppButton>
-          )}
+          <MiniAppButton
+            disabled={loadingSessions || mutatingSessionId !== null}
+            variant="ghost"
+            onClick={() => void refreshSessions()}
+          >
+            Refresh
+          </MiniAppButton>
         </MiniAppSectionHeading>
         {sessionError && (
           <MiniAppStatus tone="error">{sessionError}</MiniAppStatus>
         )}
-        {!canManageSessions ? (
-          <MiniAppStatus>Login to manage sessions.</MiniAppStatus>
-        ) : (
-          <MiniAppTableFrame
-            className={`identity-manager-session-table mini-app-table-frame--virtual mini-app-table-frame--compact mini-app-table-frame--bleed${
-              compact ? " mini-app-table-frame--two-line" : ""
-            }`}
-            ref={virtualSessions.frameRef}
-            style={getMiniAppVirtualFrameStyle(rowHeight)}
-          >
-            <MiniAppTable columns={columns}>
-              <SessionTableBody
-                bottomPadding={virtualSessions.bottomPadding}
-                compact={compact}
-                loadingSessions={loadingSessions}
-                mutatingSessionId={mutatingSessionId}
-                onOpenSessionDetail={onOpenSessionDetail}
-                openSessionContextMenu={contextMenuState.openContextMenu}
-                selectedSessionId={contextMenuState.contextMenu?.id ?? null}
-                sessionCount={sessions.length}
-                sessions={virtualSessions.rows}
-                topPadding={virtualSessions.topPadding}
-                visibleColumnIds={visibleColumnIds}
-              />
-            </MiniAppTable>
-          </MiniAppTableFrame>
-        )}
+        <MiniAppTableFrame
+          className={`identity-manager-session-table mini-app-table-frame--virtual mini-app-table-frame--compact mini-app-table-frame--bleed${
+            compact ? " mini-app-table-frame--two-line" : ""
+          }`}
+          ref={virtualSessions.frameRef}
+          style={getMiniAppVirtualFrameStyle(rowHeight)}
+        >
+          <MiniAppTable columns={columns}>
+            <SessionTableBody
+              bottomPadding={virtualSessions.bottomPadding}
+              compact={compact}
+              loadingSessions={loadingSessions}
+              mutatingSessionId={mutatingSessionId}
+              onOpenSessionDetail={onOpenSessionDetail}
+              openSessionContextMenu={contextMenuState.openContextMenu}
+              selectedSessionId={contextMenuState.contextMenu?.id ?? null}
+              sessionCount={sessions.length}
+              sessions={virtualSessions.rows}
+              topPadding={virtualSessions.topPadding}
+              visibleColumnIds={visibleColumnIds}
+            />
+          </MiniAppTable>
+        </MiniAppTableFrame>
       </MiniAppSection>
       <SessionContextMenu
         closeContextMenu={contextMenuState.closeContextMenu}

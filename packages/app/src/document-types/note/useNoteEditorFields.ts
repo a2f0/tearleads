@@ -41,7 +41,6 @@ type NoteDropzoneElement = HTMLFieldSetElement | HTMLLabelElement;
 // named slot. The slot is only a routing channel for the host's blob picker;
 // the appended attachment gets its own generated slot id.
 const NOTE_BLOB_PICK_SLOT: DocumentAttachmentSlot = {
-  description: "Routes a picked blob into the note as a new attachment.",
   label: "Attachment",
   slotId: "note-attachment-blob-pick",
 };

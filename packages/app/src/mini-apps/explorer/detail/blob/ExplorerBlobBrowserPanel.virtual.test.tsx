@@ -26,6 +26,9 @@ const originalResizeObserver = resizeObserverGlobal.ResizeObserver;
 afterEach(() => {
   cleanup();
   resizeObserverGlobal.ResizeObserver = originalResizeObserver;
+  // A test that enables a column writes the preference; leave the next one the
+  // defaults it expects.
+  globalThis.localStorage.clear();
 });
 
 function createBlobRows(count: number): BlobInfo[] {
@@ -441,7 +444,13 @@ test("blob browser renders row sync badges in the rightmost column", async () =>
     />,
   );
 
-  expect(await view.findByRole("img", { name: /1 blob/u })).toBeTruthy();
+  // Sync is hidden by default (a folded row spends the width on its two lines),
+  // so wait on the row itself and then enable the column.
+  expect(await view.findByRole("button", { name: "storage-1" })).toBeTruthy();
+  fireEvent.click(view.getByRole("button", { name: "Columns" }));
+  fireEvent.click(view.getByRole("checkbox", { name: "Sync Off" }));
+
+  expect(view.getByRole("img", { name: /1 blob/u })).toBeTruthy();
   expect(view.queryByText("Sync Status")).toBeNull();
   const headerCells = Array.from(view.container.querySelectorAll("thead th"));
   const lastHeader = headerCells.at(-1);

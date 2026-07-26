@@ -99,7 +99,6 @@ function SlotButton(params: {
       disabled={!blobPicker}
       onClick={() =>
         blobPicker?.onRequestBlobPick({
-          description: "front",
           label: "Front Image",
           slotId: "front-image",
         })
@@ -145,7 +144,6 @@ test("requests a pick with the slot and applies a returned blob to it", async ()
       containerId: "container-1",
       localId: "local-1",
       slot: {
-        description: "front",
         label: "Front Image",
         slotId: "front-image",
       },

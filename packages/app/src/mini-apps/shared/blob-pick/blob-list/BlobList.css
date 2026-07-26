@@ -33,6 +33,21 @@
   cursor: pointer;
 }
 
+/* A folded row promotes the identity button to the summary's leading visual,
+   where it is sized by its thumbnail rather than stretched across a column.
+
+   Flex, not the block above: a block button lays its inline-flex thumbnail on a
+   text baseline, and the strut's descent then hangs ~17px of empty line box under
+   the square. That padding is invisible, but it is real height — it pushed the
+   folded row past the fixed pitch the virtualization math budgets for it, which
+   shows up as rows drifting out of step with the scroll spacers rather than as a
+   visibly broken row. Flex has no line box, so the button is exactly its
+   thumbnail. */
+.explorer-blob-browser-row-button--compact {
+  display: flex;
+  width: auto;
+}
+
 /* Blob identity cell: a compact thumbnail (image blobs) or file-type icon
    (everything else) sized to sit within the fixed compact row height. */
 .explorer-blob-browser-thumb {
@@ -42,6 +57,34 @@
   width: 1.5rem;
   height: 1.5rem;
   flex: 0 0 auto;
+}
+
+/* A folded row spends its whole height on the thumbnail, so the blob reads as the
+   subject of the row rather than as a bullet beside line one: the square covers
+   both summary lines, which measure 38px for the two 16px touch-tier lines.
+
+   2.75rem is 44px against the routed 16px rem — also a full touch target for the
+   identity button that fills it. A narrow desktop window folds too, and its
+   denser rem scales the square with its shorter lines.
+
+   Capped at what the row has left to give, because the pitch is a fixed pixel
+   count while the square is not: the row is 44px of thumbnail plus the cell's
+   block padding and the shared bottom border, and a reader whose browser sets a
+   larger default fixed font enlarges the first two but not the 56px the
+   virtualization math has budgeted. Past that point rows would grow while the
+   scroll spacers stayed put — the drift the flex rule above exists to remove — so
+   the square gives up the pixels instead. `min()` keeps it square; capping width
+   and height separately would not. */
+.explorer-blob-browser-thumb--compact {
+  --explorer-blob-browser-thumb-budget: calc(
+    var(--mini-app-virtual-row-height, 56px) -
+    2 *
+    var(--info-table-cell-padding) -
+    1px
+  );
+
+  width: min(2.75rem, var(--explorer-blob-browser-thumb-budget));
+  height: min(2.75rem, var(--explorer-blob-browser-thumb-budget));
 }
 
 .explorer-blob-browser-thumb-image {
@@ -92,4 +135,18 @@
    header, so it can grow to a 44px tap height. */
 :root[data-navigation-mode="routed"] .explorer-table-sort-button {
   min-height: var(--control-height);
+}
+
+/* Folded header: the per-column sort buttons collapse into one select menu,
+   styled as a header label rather than as a button. */
+.explorer-blob-browser-sort-menu {
+  width: min(12rem, 100%);
+}
+
+.explorer-blob-browser-sort-menu .mini-app-button.mini-app-select-menu-trigger {
+  align-items: center;
+  min-height: var(--control-height);
+  padding: 0;
+  border: 0;
+  font-weight: inherit;
 }

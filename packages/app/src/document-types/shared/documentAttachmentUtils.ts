@@ -7,7 +7,6 @@ import type {
 } from "@tearleads/client-sdk";
 
 export interface DocumentAttachmentSlot {
-  description: string;
   label: string;
   slotId: string;
 }
@@ -38,12 +37,10 @@ export function createFrontAndBackImageSlots(params: {
 
   return [
     {
-      description: "Opaque slot binding for the front image.",
       label: "Front Image",
       slotId: frontSlotId,
     },
     {
-      description: "Opaque slot binding for the back image.",
       label: "Back Image",
       slotId: backSlotId,
     },

@@ -4,7 +4,7 @@ import type { BlobInfo } from "@tearleads/client-sdk";
 import { useCallback, useMemo, useState } from "react";
 import { useWindowTitleBarAction } from "../../../../components/window/WindowMenuContext";
 import { getMediaPreviewKind } from "../../../../document-types/shared/MediaPreview";
-import type { BlobPreviewState } from "../../../shared/blob-pick/blob-list/blobListState";
+import type { BlobPreviewState } from "../../../shared/blob-pick/blob-list/blobPreview";
 import { EXPLORER_LABELS } from "../../labels";
 
 // Open sits left of Download, and both sit left of the hub's persistent Sync

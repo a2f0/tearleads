@@ -1,261 +1,47 @@
-import {
-  type BlobInfo,
-  type BlobInfoSort,
-  type BlobInfoSortKey,
-  type BlobStore,
-  type ContainerDocumentObjectSyncState,
-  createContainerDocumentObjectSyncState,
+import type {
+  BlobInfo,
+  BlobInfoSort,
+  BlobInfoSortKey,
+  BlobStore,
 } from "@tearleads/client-sdk";
-import { type MouseEvent, type ReactNode, useMemo, useState } from "react";
+import { type MouseEvent, useMemo } from "react";
 import { MiniAppStatus } from "../../../../components/mini-app/MiniAppLayout";
 import {
   addMiniAppTableHeaderAction,
   MiniAppColumnMenuButton,
   MiniAppTable,
-  MiniAppTableActionButton,
-  MiniAppTableCell,
   MiniAppTableEmptyRow,
   MiniAppTableFrame,
   MiniAppTableRow,
-  useMiniAppColumnVisibility,
 } from "../../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
   MiniAppVirtualTableSpacerRow,
 } from "../../../../components/mini-app/virtual/MiniAppVirtual";
-import { getAttachmentFileType } from "../../../../document-types/shared/attachmentFileType";
-import { formatByteLength } from "../../../../utils/formatByteLength";
-import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
+import { classNames } from "../../../../components/shared/classNames";
 import {
-  BLOB_INFO_TOGGLEABLE_COLUMN_IDS,
+  BlobSummaryCell,
+  type RenderBlobSyncCell,
+  renderBlobInfoCell,
+} from "./blobInfoCells";
+import { useBlobInfoColumnVisibility } from "./blobListColumnPreferences";
+import {
   type BlobInfoColumnId,
   getBlobInfoColumnMenuOptions,
   getBlobInfoColumns,
+  getBlobInfoCompactFieldColumnIds,
   getVisibleBlobInfoColumnIds,
 } from "./blobListColumns";
-import {
-  BLOB_LIST_LABELS,
-  getBlobListReferenceCountLabel,
-} from "./blobListLabels";
-import {
-  BLOB_BROWSER_ROW_HEIGHT,
-  getBlobChangedAt,
-  useBlobThumbnailUrl,
-} from "./blobListState";
+import { BLOB_LIST_LABELS } from "./blobListLabels";
 import "./BlobList.css";
 
-// A host that shows the sync column supplies the cell: the shared table computes
-// the generic per-blob sync state and hands it back for host-specific rendering
-// (e.g. the Explorer's sync badge). Omitting it drops the sync column entirely.
-export type RenderBlobSyncCell = (
-  syncState: ContainerDocumentObjectSyncState,
-  online: boolean,
-) => ReactNode;
-
-const LEGACY_BLOB_INFO_COLUMN_STORAGE_KEY =
-  "tearleads.explorer.blob-browser:hidden-columns";
-const BLOB_INFO_COLUMN_STORAGE_KEY = "tearleads.blob-browser:hidden-columns:v2";
 const EMPTY_ORGANIZATION_NAMES = new Map<string, string>();
-
-function migrateBlobInfoColumnVisibility(): void {
-  try {
-    const storage = globalThis.localStorage;
-    if (storage.getItem(BLOB_INFO_COLUMN_STORAGE_KEY) !== null) {
-      return;
-    }
-    const legacyValue = storage.getItem(LEGACY_BLOB_INFO_COLUMN_STORAGE_KEY);
-    if (legacyValue === null) {
-      return;
-    }
-    const parsed: unknown = JSON.parse(legacyValue);
-    if (!Array.isArray(parsed)) {
-      return;
-    }
-    const hiddenColumns = new Set<BlobInfoColumnId>(
-      parsed.filter(
-        (value): value is BlobInfoColumnId =>
-          typeof value === "string" &&
-          BLOB_INFO_TOGGLEABLE_COLUMN_IDS.some((id) => id === value),
-      ),
-    );
-    // Organization did not exist when the legacy preference was saved, so keep
-    // the new dimension hidden until the user explicitly enables it.
-    hiddenColumns.add("organization");
-    storage.setItem(
-      BLOB_INFO_COLUMN_STORAGE_KEY,
-      JSON.stringify([...hiddenColumns]),
-    );
-  } catch {
-    // Column visibility is a display preference; disabled storage is harmless.
-  }
-}
-
-function useBlobInfoColumnVisibility() {
-  // The lazy initializer runs before the generic visibility hook reads the v2
-  // key. The migration is idempotent, including under React Strict Mode.
-  useState(() => migrateBlobInfoColumnVisibility());
-  return useMiniAppColumnVisibility<BlobInfoColumnId>({
-    defaultHiddenColumnIds: ["organization"],
-    storageKey: BLOB_INFO_COLUMN_STORAGE_KEY,
-    toggleableColumnIds: BLOB_INFO_TOGGLEABLE_COLUMN_IDS,
-  });
-}
-
-function getBlobInfoSyncState(
-  blob: BlobInfo,
-): ContainerDocumentObjectSyncState {
-  const pendingReferences = blob.references.filter(
-    (reference) => reference.attachmentKind === "pending",
-  );
-
-  return createContainerDocumentObjectSyncState({
-    localOnly: !blob.blobId && pendingReferences.length === 0,
-    pendingAttachmentBytes: pendingReferences.reduce(
-      (total, reference) => total + reference.byteLength,
-      0,
-    ),
-    pendingAttachmentCount: pendingReferences.length,
-  });
-}
-
-// The identity cell hides the blob id and shows a thumbnail instead: an image
-// blob renders its bytes inline, everything else falls back to a file-type icon.
-// The id stays reachable via the button's accessible name and the cell tooltip.
-function BlobIdentityCell(params: {
-  blob: BlobInfo;
-  blobStore: BlobStore;
-  onSelectBlob: (blob: BlobInfo) => void;
-  selectable: boolean;
-}) {
-  const { blob, blobStore, onSelectBlob, selectable } = params;
-  const thumbnailUrl = useBlobThumbnailUrl({ blob, blobStore });
-  const { Icon, isImage } = getAttachmentFileType({
-    mimeType: blob.mimeType,
-    name: blob.name,
-  });
-  const identity = blob.blobId ?? blob.storageKey;
-
-  return (
-    // Browsers don't reliably show a `title` on a disabled button, so the
-    // not-selectable hint lives on the (never-disabled) cell, which resolves the
-    // tooltip for the button it wraps.
-    <MiniAppTableCell
-      title={selectable ? identity : "Only image blobs can be attached."}
-    >
-      <MiniAppTableActionButton
-        aria-label={identity}
-        className="explorer-blob-browser-row-button"
-        disabled={!selectable}
-        onClick={() => onSelectBlob(blob)}
-      >
-        <span className="explorer-blob-browser-thumb">
-          {isImage && thumbnailUrl ? (
-            <img
-              alt=""
-              className="explorer-blob-browser-thumb-image"
-              src={thumbnailUrl}
-            />
-          ) : (
-            <Icon
-              aria-hidden
-              className="explorer-blob-browser-thumb-icon"
-              size={20}
-            />
-          )}
-        </span>
-      </MiniAppTableActionButton>
-    </MiniAppTableCell>
-  );
-}
-
-function renderBlobInfoCell(params: {
-  blob: BlobInfo;
-  blobStore: BlobStore;
-  columnId: BlobInfoColumnId;
-  online: boolean;
-  onSelectBlob: (blob: BlobInfo) => void;
-  organizationNamesById: ReadonlyMap<string, string>;
-  renderSyncCell: RenderBlobSyncCell | undefined;
-  selectable: boolean;
-}) {
-  const {
-    blob,
-    blobStore,
-    columnId,
-    online,
-    onSelectBlob,
-    organizationNamesById,
-    renderSyncCell,
-    selectable,
-  } = params;
-
-  switch (columnId) {
-    case "blob":
-      return (
-        <BlobIdentityCell
-          blob={blob}
-          blobStore={blobStore}
-          key="blob"
-          onSelectBlob={onSelectBlob}
-          selectable={selectable}
-        />
-      );
-    case "organization": {
-      const organizationId = blob.organizationId;
-      const label = organizationId
-        ? (organizationNamesById.get(organizationId) ?? organizationId)
-        : "-";
-      return (
-        <MiniAppTableCell
-          key="organization"
-          title={organizationId ?? undefined}
-        >
-          {label}
-        </MiniAppTableCell>
-      );
-    }
-    case "mime":
-      return (
-        <MiniAppTableCell key="mime">{blob.mimeType ?? "-"}</MiniAppTableCell>
-      );
-    case "size":
-      return (
-        <MiniAppTableCell key="size">
-          {formatByteLength(blob.byteLength)}
-        </MiniAppTableCell>
-      );
-    case "references":
-      return (
-        <MiniAppTableCell key="references">
-          {getBlobListReferenceCountLabel(blob.referenceCount)}
-        </MiniAppTableCell>
-      );
-    case "updated":
-      return (
-        <MiniAppTableCell
-          key="updated"
-          title={getBlobChangedAt(blob) ?? undefined}
-        >
-          {formatMiniAppDateTime(getBlobChangedAt(blob), {
-            emptyFallback: "-",
-          })}
-        </MiniAppTableCell>
-      );
-    case "sync":
-      return renderSyncCell ? (
-        <MiniAppTableCell
-          key="sync"
-          className="explorer-blob-browser-sync-cell"
-        >
-          {renderSyncCell(getBlobInfoSyncState(blob), online)}
-        </MiniAppTableCell>
-      ) : null;
-  }
-}
 
 function BlobInfoTableContent(params: {
   activeBlob: BlobInfo | null;
   blobStore: BlobStore;
+  columnCount: number;
+  compact: boolean;
   error: string | null;
   isRowSelectable?: ((blob: BlobInfo) => boolean) | undefined;
   isLoading: boolean;
@@ -266,21 +52,25 @@ function BlobInfoTableContent(params: {
   onSelectBlob: (blob: BlobInfo) => void;
   organizationNamesById: ReadonlyMap<string, string>;
   renderSyncCell: RenderBlobSyncCell | undefined;
+  rowHeight: number;
   rowOffset: number;
   rows: ReadonlyArray<BlobInfo>;
   totalCount: number;
   visibleColumnIds: ReadonlyArray<BlobInfoColumnId>;
 }) {
-  const topPadding = params.rowOffset * BLOB_BROWSER_ROW_HEIGHT;
+  const topPadding = params.rowOffset * params.rowHeight;
   const bottomPadding =
     Math.max(0, params.totalCount - params.rowOffset - params.rows.length) *
-    BLOB_BROWSER_ROW_HEIGHT;
+    params.rowHeight;
+  const compactFieldColumnIds = getBlobInfoCompactFieldColumnIds(
+    params.visibleColumnIds,
+  );
 
   return (
     <>
       {topPadding > 0 ? (
         <MiniAppVirtualTableSpacerRow
-          colSpan={params.visibleColumnIds.length}
+          colSpan={params.columnCount}
           height={topPadding}
         />
       ) : null}
@@ -304,37 +94,50 @@ function BlobInfoTableContent(params: {
               }
               selected={params.activeBlob?.key === blob.key}
             >
-              {params.visibleColumnIds.map((columnId) =>
-                renderBlobInfoCell({
-                  blob,
-                  blobStore: params.blobStore,
-                  columnId,
-                  online: params.online,
-                  onSelectBlob: params.onSelectBlob,
-                  organizationNamesById: params.organizationNamesById,
-                  renderSyncCell: params.renderSyncCell,
-                  selectable,
-                }),
+              {params.compact ? (
+                <BlobSummaryCell
+                  blob={blob}
+                  blobStore={params.blobStore}
+                  columnIds={compactFieldColumnIds}
+                  online={params.online}
+                  onSelectBlob={params.onSelectBlob}
+                  organizationNamesById={params.organizationNamesById}
+                  renderSyncCell={params.renderSyncCell}
+                  selectable={selectable}
+                />
+              ) : (
+                params.visibleColumnIds.map((columnId) =>
+                  renderBlobInfoCell({
+                    blob,
+                    blobStore: params.blobStore,
+                    columnId,
+                    online: params.online,
+                    onSelectBlob: params.onSelectBlob,
+                    organizationNamesById: params.organizationNamesById,
+                    renderSyncCell: params.renderSyncCell,
+                    selectable,
+                  }),
+                )
               )}
             </MiniAppTableRow>
           );
         })
       ) : params.isLoading ? (
-        <MiniAppTableEmptyRow colSpan={params.visibleColumnIds.length}>
+        <MiniAppTableEmptyRow colSpan={params.columnCount}>
           {BLOB_LIST_LABELS.loading}
         </MiniAppTableEmptyRow>
       ) : params.error ? (
-        <MiniAppTableEmptyRow colSpan={params.visibleColumnIds.length}>
+        <MiniAppTableEmptyRow colSpan={params.columnCount}>
           {params.error}
         </MiniAppTableEmptyRow>
       ) : (
-        <MiniAppTableEmptyRow colSpan={params.visibleColumnIds.length}>
+        <MiniAppTableEmptyRow colSpan={params.columnCount}>
           {BLOB_LIST_LABELS.empty}
         </MiniAppTableEmptyRow>
       )}
       {bottomPadding > 0 ? (
         <MiniAppVirtualTableSpacerRow
-          colSpan={params.visibleColumnIds.length}
+          colSpan={params.columnCount}
           height={bottomPadding}
         />
       ) : null}
@@ -345,6 +148,10 @@ function BlobInfoTableContent(params: {
 export function BlobInfoTable(params: {
   activeBlob: BlobInfo | null;
   blobStore: BlobStore;
+  // Both resolved by the caller, which owns the scroll frame and therefore the
+  // only measurement of it. Deriving either here would risk a second answer
+  // that disagrees with the one the window query already used.
+  compact: boolean;
   error: string | null;
   frameRef: (frame: HTMLDivElement | null) => void;
   // When provided, rows that fail the predicate are shown but not selectable
@@ -360,6 +167,7 @@ export function BlobInfoTable(params: {
   organizationNamesById?: ReadonlyMap<string, string> | undefined;
   // Omit to drop the sync column (e.g. the Notes pick surface).
   renderSyncCell?: RenderBlobSyncCell | undefined;
+  rowHeight: number;
   rowOffset: number;
   rows: ReadonlyArray<BlobInfo>;
   sort: BlobInfoSort;
@@ -378,6 +186,7 @@ export function BlobInfoTable(params: {
     () =>
       addMiniAppTableHeaderAction(
         getBlobInfoColumns({
+          compact: params.compact,
           hiddenColumns: columnVisibility.hiddenColumns,
           includeSync,
           onSort: params.onSort,
@@ -398,6 +207,7 @@ export function BlobInfoTable(params: {
       columnVisibility.hiddenColumns,
       columnVisibility.toggleColumn,
       includeSync,
+      params.compact,
       params.onSort,
       params.sort,
     ],
@@ -405,14 +215,23 @@ export function BlobInfoTable(params: {
 
   return (
     <MiniAppTableFrame
-      className="explorer-blob-browser-table-wrap mini-app-table-frame--virtual mini-app-table-frame--compact"
+      className={classNames(
+        "explorer-blob-browser-table-wrap",
+        "mini-app-table-frame--virtual",
+        "mini-app-table-frame--compact",
+        // Folded rows take the taller two-line pitch; the shared modifier
+        // restores it over the routed 44px floor.
+        params.compact && "mini-app-table-frame--two-line",
+      )}
       ref={params.frameRef}
-      style={getMiniAppVirtualFrameStyle(BLOB_BROWSER_ROW_HEIGHT)}
+      style={getMiniAppVirtualFrameStyle(params.rowHeight)}
     >
       <MiniAppTable aria-label={BLOB_LIST_LABELS.title} columns={columns}>
         <BlobInfoTableContent
           activeBlob={params.activeBlob}
           blobStore={params.blobStore}
+          columnCount={columns.length}
+          compact={params.compact}
           error={params.error}
           isLoading={params.isLoading}
           isRowSelectable={params.isRowSelectable}
@@ -421,6 +240,7 @@ export function BlobInfoTable(params: {
           onSelectBlob={params.onSelectBlob}
           organizationNamesById={organizationNamesById}
           renderSyncCell={params.renderSyncCell}
+          rowHeight={params.rowHeight}
           rowOffset={params.rowOffset}
           rows={params.rows}
           totalCount={params.totalCount}

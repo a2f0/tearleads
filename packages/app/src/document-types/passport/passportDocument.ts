@@ -9,7 +9,6 @@ const PASSPORT_IMAGE_SLOT_ID = "passport-image";
 export const PASSPORT_ATTACHMENT_SLOTS: ReadonlyArray<DocumentAttachmentSlot> =
   [
     {
-      description: "Opaque slot binding for the passport image.",
       label: "Passport Image",
       slotId: PASSPORT_IMAGE_SLOT_ID,
     },

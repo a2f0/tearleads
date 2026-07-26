@@ -78,4 +78,8 @@ export {
   registerDocumentSyncLane,
 } from "./syncLane";
 export type { RekeyPendingUpdate } from "./syncRecoveryRekey";
+export {
+  DOCUMENT_SYNC_TRACE_FRAGMENT,
+  DOCUMENT_SYNC_TRACE_PATTERN,
+} from "./syncTrace";
 export { createDocumentWriterPublicKeyResolver } from "./writerKeys";

@@ -174,9 +174,6 @@ function DocumentAttachmentSlotCard(params: {
     <section className="structured-document-slot">
       <div className="structured-document-slot-copy">
         <strong>{slot.label}</strong>
-        <span className="structured-document-slot-description">
-          {slot.description}
-        </span>
       </div>
       <DocumentAttachmentSlotPreview
         imageIsLoading={imageIsLoading}

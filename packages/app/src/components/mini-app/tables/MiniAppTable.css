@@ -1,4 +1,17 @@
 .mini-app-table-frame {
+  /*
+   * The frame is the only box that may scroll a too-wide table, so it must also
+   * be the containing block for the absolutely positioned boxes inside it — the
+   * sr-only column headings (`.mini-app-row-actions-heading`,
+   * `.mini-app-column-menu-legend`) among them. An absolutely positioned
+   * descendant whose containing block sits *outside* a scroll container escapes
+   * that container's clip: the row-actions heading, parked at the trailing edge
+   * of a table wider than its frame, then landed in the mini-app root's
+   * scrollable overflow and gave the window's own scroller a second, phantom
+   * horizontal scrollbar beside the frame's real one (Explorer's write queue in
+   * a window narrower than the table).
+   */
+  position: relative;
   min-height: 0;
   overflow: auto;
   scrollbar-gutter: var(--scrollbar-gutter);

@@ -13,7 +13,6 @@ import { BlobPickProvider, useBlobPick } from "./BlobPickProvider";
 afterEach(cleanup);
 
 const SLOT: DocumentAttachmentSlot = {
-  description: "Routes a picked blob into the note as a new attachment.",
   label: "Attachment",
   slotId: "note-attachment-blob-pick",
 };
