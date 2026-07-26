@@ -170,6 +170,34 @@ export const MiniAppInfoTable = forwardRef<
   );
 });
 
+/**
+ * A read-only key/value detail table: no cell grid, and a fixed key column so
+ * that two of these stacked in one panel line their values up instead of each
+ * indenting to its own longest key.
+ *
+ * Use it for a `<tbody>` of {@link MiniAppInfoRow}s and nothing else. The key
+ * column is a fixed width (see `--aligned` in MiniAppTable.css), so a
+ * multi-column info table — one with a `<thead>`, like the Authorizing
+ * Containers or Attachments lists — must stay on plain {@link MiniAppInfoTable}
+ * and keep the auto layout.
+ */
+export const MiniAppKeyValueTable = forwardRef<
+  HTMLTableElement,
+  TableHTMLAttributes<HTMLTableElement>
+>(function MiniAppKeyValueTable({ className, ...props }, ref) {
+  return (
+    <MiniAppInfoTable
+      {...props}
+      className={classNames(
+        "mini-app-info-table--borderless",
+        "mini-app-info-table--aligned",
+        className,
+      )}
+      ref={ref}
+    />
+  );
+});
+
 export const MiniAppInfoTableRow = forwardRef<
   HTMLTableRowElement,
   MiniAppInfoTableRowProps

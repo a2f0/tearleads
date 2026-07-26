@@ -10,7 +10,7 @@ import {
 } from "../../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppInfoRow,
-  MiniAppInfoTable,
+  MiniAppKeyValueTable,
 } from "../../../../components/mini-app/MiniAppTable";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/projectors";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
@@ -58,7 +58,7 @@ export function ExplorerDocumentInfoGeneralSection(params: {
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.documentInfoGeneralHeading}>
-      <MiniAppInfoTable>
+      <MiniAppKeyValueTable>
         <tbody>
           <MiniAppInfoRow
             label={EXPLORER_LABELS.documentInfoIdRow}
@@ -93,7 +93,7 @@ export function ExplorerDocumentInfoGeneralSection(params: {
             {pendingChanges}
           </MiniAppInfoRow>
         </tbody>
-      </MiniAppInfoTable>
+      </MiniAppKeyValueTable>
     </MiniAppInfoSection>
   );
 }
@@ -155,7 +155,7 @@ export function ExplorerDocumentInfoContributorsSection(
           {EXPLORER_LABELS.documentInfoNoContributors}
         </MiniAppStatus>
       ) : (
-        <MiniAppInfoTable>
+        <MiniAppKeyValueTable>
           <tbody>
             {contributors.map((contributor) => (
               <MiniAppInfoRow
@@ -173,7 +173,7 @@ export function ExplorerDocumentInfoContributorsSection(
               </MiniAppInfoRow>
             ))}
           </tbody>
-        </MiniAppInfoTable>
+        </MiniAppKeyValueTable>
       )}
     </MiniAppInfoSection>
   );
@@ -220,7 +220,7 @@ export function ExplorerDocumentInfoCharacterBlameSection(
     <MiniAppInfoSection
       heading={EXPLORER_LABELS.documentInfoCharacterBlameHeading}
     >
-      <MiniAppInfoTable>
+      <MiniAppKeyValueTable>
         <tbody>
           {blame.writers.map((writer) => (
             <MiniAppInfoRow
@@ -245,7 +245,7 @@ export function ExplorerDocumentInfoCharacterBlameSection(
             </MiniAppInfoRow>
           ) : null}
         </tbody>
-      </MiniAppInfoTable>
+      </MiniAppKeyValueTable>
     </MiniAppInfoSection>
   );
 }
@@ -428,7 +428,7 @@ export function ExplorerDocumentInfoFieldBlameSection(
   }
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.documentInfoFieldBlameHeading}>
-      <MiniAppInfoTable>
+      <MiniAppKeyValueTable>
         <tbody>
           {fieldBlame.map((field) => (
             <MiniAppInfoRow
@@ -448,7 +448,7 @@ export function ExplorerDocumentInfoFieldBlameSection(
             </MiniAppInfoRow>
           ))}
         </tbody>
-      </MiniAppInfoTable>
+      </MiniAppKeyValueTable>
     </MiniAppInfoSection>
   );
 }

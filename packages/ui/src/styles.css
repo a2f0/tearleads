@@ -123,6 +123,14 @@
   --explorer-sidebar-row-height: 1.75rem;
   --mini-app-virtual-max-height: min(28rem, 70vh);
   --mini-app-detail-label-width: 7rem;
+  /* Text width of the key column shared by the aligned key/value info tables
+     (see `--aligned` in MiniAppTable.css); that rule adds the cell padding. In
+     `ch` because the app's face is monospace, so this reads as "room for N
+     characters" — one more than a compacted id (`1f8b3134-e...6155a6`, 19),
+     the longest unbreakable key those tables carry, so it never lands a
+     hairsbreadth short of fitting. Keep it >= the longest
+     string `compactId` can return, or that key wraps at its hyphen again. */
+  --mini-app-info-label-width: 20ch;
 
   /* === Menus === */
   --menu-item-padding: var(--space-sm) var(--space-md);
